@@ -124,6 +124,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.all_weapon_names: list[str] = []
         self.all_affinities: list[str] = []
         self.stat_widgets: dict[str, QtWidgets.QSpinBox] = {}
+        self.best_row_cache: dict[tuple[Any, ...], dict[str, Any] | None] = {}
+        self.locked_ar_cache: dict[tuple[Any, ...], dict[int, float]] = {}
 
         self._build_ui()
         self._populate_static_lists()
@@ -674,6 +676,8 @@ class MainWindow(QtWidgets.QMainWindow):
         return kwargs
 
     def _refresh_estimate(self) -> None:
+        self.best_row_cache.clear()
+        self.locked_ar_cache.clear()
         self._sync_derived_level()
         try:
             kwargs = self._build_request_kwargs(include_progress=False)
@@ -936,15 +940,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.upgrade_table.setRowCount(len(rows_to_render))
         for row_idx, (label, row_data) in enumerate(rows_to_render):
             self.upgrade_table.setItem(row_idx, 0, QtWidgets.QTableWidgetItem(label))
+            ar_series = self._locked_ar_series_for_config(row_data, max_upgrade)
             for lv in range(0, max_upgrade + 1):
                 col = lv + 1
-                ar = self._compute_locked_ar_for_config(row_data, lv)
+                ar = ar_series.get(lv)
                 text = "-" if ar is None else f"{ar:.2f}"
                 self.upgrade_table.setItem(row_idx, col, QtWidgets.QTableWidgetItem(text))
 
-    def _compute_locked_ar_for_config(self, row_data: Any, level: int) -> float | None:
+    def _locked_ar_series_for_config(
+        self,
+        row_data: Any,
+        max_upgrade: int,
+    ) -> dict[int, float]:
         if row_data is None:
-            return None
+            return {}
 
         weapon_name = row_data["weapon_name"]
         affinity = row_data["affinity"]
@@ -955,6 +964,22 @@ class MainWindow(QtWidgets.QMainWindow):
         lock_fai = row_data["fai"]
         lock_arc = row_data["arc"]
 
+        cache_key = (
+            self._optimizer_context_key(),
+            weapon_name.casefold(),
+            affinity.casefold(),
+            (aow_name or "").casefold(),
+            int(lock_str),
+            int(lock_dex),
+            int(lock_int),
+            int(lock_fai),
+            int(lock_arc),
+            int(max_upgrade),
+        )
+        cached = self.locked_ar_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         kwargs = self._build_request_kwargs(include_progress=False)
         kwargs.update(
             {
@@ -962,9 +987,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 "affinity": affinity,
                 "aow_name": aow_name,
                 "objective": self.objective_combo.currentData(),
-                "top_k": 1,
-                "fixed_upgrade": level,
-                "max_upgrade": self.max_upgrade_spin.value(),
+                "top_k": max_upgrade + 1,
+                "fixed_upgrade": None,
+                "max_upgrade": max_upgrade,
                 "somber_filter": "all",
                 "weapon_type_key": None,
                 "min_str": 0,
@@ -982,10 +1007,13 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             rows = core.optimize_builds(data=self.data, **kwargs)
         except Exception:
-            return None
-        if not rows:
-            return None
-        return float(rows[0].ar_total)
+            return {}
+
+        series: dict[int, float] = {}
+        for row in rows:
+            series[int(row.upgrade)] = float(row.ar_total)
+        self.locked_ar_cache[cache_key] = series
+        return series
 
     def _best_row_config(
         self,
@@ -993,6 +1021,15 @@ class MainWindow(QtWidgets.QMainWindow):
         affinity: str,
         aow_name: Any,
     ) -> dict[str, Any] | None:
+        cache_key = (
+            self._optimizer_context_key(),
+            weapon_name.casefold(),
+            affinity.casefold(),
+            (aow_name or "").casefold(),
+        )
+        if cache_key in self.best_row_cache:
+            return self.best_row_cache[cache_key]
+
         kwargs = self._build_request_kwargs(include_progress=False)
         kwargs.update(
             {
@@ -1012,10 +1049,30 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             rows = core.optimize_builds(data=self.data, **kwargs)
         except Exception:
+            self.best_row_cache[cache_key] = None
             return None
         if not rows:
+            self.best_row_cache[cache_key] = None
             return None
-        return self._row_config_from_result(rows[0])
+        best = self._row_config_from_result(rows[0])
+        self.best_row_cache[cache_key] = best
+        return best
+
+    def _optimizer_context_key(self) -> tuple[Any, ...]:
+        return (
+            self._resolved_class_name(),
+            self._derived_level(),
+            self.vig_spin.value(),
+            self.mnd_spin.value(),
+            self.end_spin.value(),
+            self.two_handing_check.isChecked(),
+            self.objective_combo.currentData(),
+            self.min_str_spin.value(),
+            self.min_dex_spin.value(),
+            self.min_int_spin.value(),
+            self.min_fai_spin.value(),
+            self.min_arc_spin.value(),
+        )
 
     def _row_config_from_result(self, result: Any) -> dict[str, Any]:
         return {
