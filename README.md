@@ -103,7 +103,7 @@ Requirements:
 
 ```powershell
 python -m pip install --upgrade pip
-python -m pip install PyQt6 maturin
+python -m pip install -r requirements.txt
 python -m maturin build --manifest-path core/er_optimizer_core/Cargo.toml --features python
 python -m pip install --force-reinstall core/er_optimizer_core/target/wheels/er_optimizer_core-*.whl
 python ui/desktop/app.py
@@ -129,6 +129,8 @@ python tools/phase1/phase1_dump.py `
 ```
 
 `tools/phase1/README.md` explains why WitchyBND is not bundled in this repo.
+
+`data/phase1/*.csv` is already committed in this repository for normal runtime use.
 
 ## Scope
 
