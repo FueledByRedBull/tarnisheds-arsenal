@@ -1,0 +1,15 @@
+[package]
+name = "er_optimizer_core"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "er_optimizer_core"
+crate-type = ["rlib", "cdylib"]
+
+[features]
+default = []
+python = ["dep:pyo3"]
+
+[dependencies]
+pyo3 = { version = "0.22.6", features = ["abi3-py310", "extension-module"], optional = true }

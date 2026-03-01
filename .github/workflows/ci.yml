@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install maturin PyQt6
+
+      - name: Build and install Rust bindings
+        run: |
+          python -m maturin develop --manifest-path core/er_optimizer_core/Cargo.toml --features python
+
+      - name: Rust tests
+        run: |
+          cargo test --manifest-path core/er_optimizer_core/Cargo.toml
+
+      - name: Data/runtime validation
+        run: |
+          python tools/phase4/validate_phase4.py
+
+      - name: UI smoke test
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python tools/phase4/smoke_ui.py

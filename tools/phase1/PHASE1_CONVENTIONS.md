@@ -1,0 +1,21 @@
+# Phase 1 Data Conventions
+
+- `weapons.csv` scaling columns (`str_scaling`, `dex_scaling`, `int_scaling`, `fai_scaling`, `arc_scaling`) are normalized to `0.0..1.0` by dividing raw weapon param values by `100.0`.
+- `weapons.csv` includes AoW-filtering type fields:
+  - `weapon_type_id`: raw `wepType` numeric value from `EquipParamWeapon`.
+  - `weapon_type_name`: display name from Paramdex `WEP_TYPE` enum.
+  - `weapon_type_keys`: pipe-delimited keys that directly match `aow.csv.valid_weapon_types` tokens.
+- `calc_correct.csv` multipliers are normalized to `0.0..1.0` (`growth / 100.0`).
+- `reinforce.csv` damage/scaling multipliers are emitted as raw multipliers from `ReinforceParamWeapon` (for example `1.058`), with no additional normalization.
+- `calc_correct.csv` is pre-expanded to exactly 100 rows per curve:
+  - `stat_value=0` is always written as `multiplier=0.0` and is reserved.
+  - Runtime lookup convention is direct indexing: stat values `1..99` map to indices `1..99`.
+  - No `-1` offset is used for curve lookup.
+  - Expansion uses segmented exponent handling:
+    - if `adjPt > 0`: `ratio_curve = ratio ** adjPt`
+    - if `adjPt < 0`: `ratio_curve = 1 - (1 - ratio) ** (-adjPt)`
+    - if `adjPt == 0`: `ratio_curve = ratio`
+- `aow.csv` status extraction uses only passive effect fields (`spEffectId0`, `spEffectId1`).
+  - `spEffectId_forAtk*` fields are ignored (they are attack-hit effects for active skill execution).
+  - AoW duplicate rows are collapsed per `swordArtsParamId`, preferring non-placeholder rows (`sortId != 999999` / real icon).
+  - `valid_weapon_types` is pipe-delimited and intended to be matched against `weapon_type_keys`.

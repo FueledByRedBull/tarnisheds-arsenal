@@ -1,0 +1,35 @@
+name: Package Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install packaging deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install maturin PyQt6
+
+      - name: Build packaged release
+        run: |
+          python tools/phase4/package_release.py
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dist
+          path: dist/

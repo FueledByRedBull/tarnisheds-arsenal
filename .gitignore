@@ -1,0 +1,25 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Rust
+**/target/
+
+# Build/release output
+dist/
+*.whl
+
+# Local data workdirs
+data/_work_phase1/
+data/raw/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
