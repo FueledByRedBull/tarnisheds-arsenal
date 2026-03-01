@@ -1,119 +1,115 @@
 # Tarnished's Arsenal
 
-High-speed Elden Ring build optimizer for:
+[![CI](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/ci.yml/badge.svg)](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/ci.yml)
+[![Release Package](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/release-package.yml/badge.svg)](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/release-package.yml)
 
-`weapon x affinity x AoW x upgrade level x combat stat distribution`
+Stop hand-testing one build at a time.
 
-Given your class and level budget, it brute-forces the valid search space in Rust and returns the best builds for the selected objective.
+This app brute-forces:
 
-## What It Solves
+`weapon x affinity x AoW x upgrade x STR/DEX/INT/FAI/ARC distribution`
 
-Most calculators give one AR number for one manual setup.
+for your exact class + level budget, then ranks the best outcomes for your objective.
 
-This app searches the whole constraint space and answers:
+## Why It Feels Different
 
-- What is the best build for my current level?
-- Should I stay Blood or switch Occult?
-- How should I redistribute STR/DEX/INT/FAI/ARC for this weapon?
-- How does each option scale across upgrades (+0..+N)?
+Typical calculator flow:
 
-## Core Features
+- set stats
+- choose one weapon
+- read one number
+- repeat forever
 
-- Rust optimization core (fast exhaustive search)
-- Desktop UI (PyQt6) with searchable dropdowns
-- Class-aware stat floors and derived character level
-- Requirement highlighting (red when weapon requirements are unmet)
-- Objective modes:
+Tarnished's Arsenal flow:
+
+1. Set your class and current profile.
+2. Lock what you care about.
+3. Leave the rest open.
+4. Press `Search`.
+5. Get ranked best builds + upgrade comparison.
+
+## Lock/Open Search Model
+
+Every selector is either locked or open.
+
+| Input | Locked | Open |
+|---|---|---|
+| Weapon | Only that weapon is searched | All weapons are searched |
+| Affinity | Only that affinity | All valid affinities |
+| AoW | Only that AoW | All valid AoWs (passive effects) |
+| Upgrade | Exact level when `Lock Upgrade Exact` is checked | `+0..+N` |
+| Combat Stats | Exact if using `Use As Locks` + `Lock Stats Too (Exact)` | Optimized within level budget and floors |
+
+## Controls Cheat Sheet
+
+### Character panel
+
+- `Class`: sets hard minimum for every stat.
+- `Character Level (Derived)`: locked; computed from current 8 stats.
+- `Current` stats:
+  - `VIG/MND/END`: fixed
+  - `STR/DEX/INT/FAI/ARC`: used to derive level budget context
+- `Min Floor`:
+  - applies to `STR/DEX/INT/FAI/ARC`
+  - forces optimizer to keep those minimums
+
+### Options panel
+
+- `Upgrade`: max upgrade considered
+- `Top K`: number of top results returned
+- `Objective`:
   - `Max AR`
   - `Max AR + Bleed`
-- Somber filter:
+- `Somber Filter`:
   - `All`
   - `Standard Only`
   - `Somber Only`
-- Side-by-side upgrade comparison with independent best stat distribution per row
-- Async search progress (checked/total, eligible count, best score, elapsed time)
-
-## Lock/Open Model (How Search Works)
-
-Each selector can be either **locked** or **open**:
-
-- Locked weapon/affinity/AoW narrows search to that exact choice.
-- `<Open>` means the optimizer searches all valid options.
-- Upgrade can be:
-  - Range mode: `+0..+max_upgrade`
-  - Exact mode: `Lock Upgrade Exact` checked
-- Combat stats can be:
-  - Free to optimize (from class base + min floors + level budget)
-  - Exactly locked via `Use As Locks` + `Lock Stats Too (Exact)`
-
-The optimizer always respects:
-
-- Class minimum stats
-- Input min floors (`Min STR/DEX/INT/FAI/ARC`)
-- Weapon stat requirements
-- Level budget
-
-## UI Controls Reference
-
-### Character
-
-- `Class`: starting class baseline (sets minimum allowed stat values)
-- `Character Level (Derived)`: read-only; computed from your 8 current stats
-- `Current` stats:
-  - `VIG/MND/END` are fixed
-  - `STR/DEX/INT/FAI/ARC` are treated as current profile input for level budget
-- `Min Floor`:
-  - Applies only to `STR/DEX/INT/FAI/ARC`
-  - Forces optimizer to keep each combat stat at or above the floor
-
-### Weapon / Affinity
-
-- `Weapon Type`: optional filter
-- `Weapon`: lock or open
-- `Affinity`: lock or open
-- `AoW`: lock or open
-
-### Options
-
-- `Upgrade`: max upgrade considered
-- `Top K`: number of top results to keep
-- `Objective`: `Max AR` or `Max AR + Bleed`
-- `Somber Filter`: all/standard/somber
 - `Lock Upgrade Exact`: evaluate only exactly `+Upgrade`
-- `Two Handing`: applies 1.5x effective STR (capped at 99) for req + AR math
-- `Lock Stats Too (Exact)`: when using `Use As Locks`, lock STR/DEX/INT/FAI/ARC exactly
+- `Two Handing`: 1.5x effective STR (cap 99) for both requirements and AR math
+- `Lock Stats Too (Exact)`: only active when you apply `Use As Locks` from a result row
 
-### Results + Comparison
+### Comparison tab
 
-- Results table shows ranked builds and a `Use As Locks` button per row.
-- Upgrade Comparison tab compares:
-  - Selected result
-  - Explicit comparison weapon (type/weapon/affinity/AoW)
-- Comparison rows are optimized independently for the active objective at your level budget, then plotted across upgrades.
+You can compare a second weapon path live:
+
+- Compare Type
+- Compare Weapon
+- Compare Affinity
+- Compare AoW (`<Match Selected>` supported)
+
+Each row is optimized independently for the current objective at your level budget.
+
+## What Happens Under the Hood
+
+- Rust core does exhaustive constrained search.
+- Search space estimator reports combinations before run.
+- Async worker updates progress (`checked/total`, eligible count, best score, elapsed time).
+- Requirement failures are highlighted in red when selected weapon requirements are not met.
 
 ## Tech Stack
 
-- `core/er_optimizer_core`: Rust math + optimizer + PyO3 bindings
-- `ui/desktop/app.py`: PyQt6 desktop app
-- `data/phase1/*.csv`: pre-dumped game data snapshot
-- `tools/phase1/phase1_dump.py`: dump pipeline from `regulation.bin`
-- `tools/phase4/*`: validation, smoke tests, packaging helpers
+- `core/er_optimizer_core`: Rust optimizer + PyO3 API
+- `ui/desktop/app.py`: PyQt6 desktop UI
+- `data/phase1/*.csv`: runtime data snapshot
+- `tools/phase1/phase1_dump.py`: optional data re-dump pipeline
+- `tools/phase4/*`: validation, smoke tests, packaging
 
-## Quick Start (Windows PowerShell)
+## Local Setup (Windows)
 
 Requirements:
 
 - Python 3.10+
-- Rust toolchain (stable)
+- Rust stable
 
 ```powershell
 python -m pip install --upgrade pip
 python -m pip install PyQt6 maturin
-python -m maturin develop --manifest-path core/er_optimizer_core/Cargo.toml --features python
+python -m maturin build --manifest-path core/er_optimizer_core/Cargo.toml --features python
+python -m pip install --force-reinstall core/er_optimizer_core/target/wheels/er_optimizer_core-*.whl
 python ui/desktop/app.py
 ```
 
-## Validate Locally
+## Validation
 
 ```powershell
 cargo test --manifest-path core/er_optimizer_core/Cargo.toml
@@ -121,14 +117,9 @@ python tools/phase4/validate_phase4.py
 python tools/phase4/smoke_ui.py
 ```
 
-## Phase 1 Data Dump (Optional)
+## Optional: Refresh Data Snapshot
 
-`tools/phase1/phase1_dump.py` expects:
-
-- Elden Ring `regulation.bin`
-- A local WitchyBND install path passed via `--witchybnd`
-
-Example:
+You can regenerate `data/phase1` with your own `regulation.bin`:
 
 ```powershell
 python tools/phase1/phase1_dump.py `
@@ -137,8 +128,21 @@ python tools/phase1/phase1_dump.py `
   --output data/phase1
 ```
 
-## Notes
+`tools/phase1/README.md` explains why WitchyBND is not bundled in this repo.
 
-- This project focuses on AR/stat optimization, not active skill motion-value simulation.
-- AoW handling is passive-status focused for optimization scoring.
-- Elden Ring belongs to FromSoftware / Bandai Namco. This is a fan tooling project.
+## Scope
+
+Included:
+
+- AR-focused optimization
+- passive AoW status effects for objective scoring
+
+Out of scope:
+
+- active skill motion-value simulation
+- poise/stamina modeling
+- enemy resistances
+
+---
+
+Elden Ring IP belongs to FromSoftware / Bandai Namco. This is fan-made tooling.

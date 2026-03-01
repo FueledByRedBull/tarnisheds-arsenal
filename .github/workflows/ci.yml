@@ -29,7 +29,9 @@ jobs:
 
       - name: Build and install Rust bindings
         run: |
-          python -m maturin develop --manifest-path core/er_optimizer_core/Cargo.toml --features python
+          python -m maturin build --manifest-path core/er_optimizer_core/Cargo.toml --features python
+          $wheel = Get-ChildItem core/er_optimizer_core/target/wheels/er_optimizer_core-*.whl | Sort-Object LastWriteTime | Select-Object -Last 1
+          python -m pip install --force-reinstall $wheel.FullName
 
       - name: Rust tests
         run: |
