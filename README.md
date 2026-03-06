@@ -3,6 +3,8 @@
 [![CI](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/ci.yml/badge.svg)](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/ci.yml)
 [![Release Package](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/release-package.yml/badge.svg)](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/release-package.yml)
 
+![Tarnished's Arsenal overview](docs/images/war-room-overview.svg)
+
 Stop hand-testing one build at a time.
 
 This app brute-forces:
@@ -138,6 +140,8 @@ cargo test --manifest-path core/er_optimizer_core/Cargo.toml
 python tools/phase4/validate_phase4.py
 python tools/phase4/smoke_ui.py
 ```
+
+`tools/phase4/validate_phase4.py` covers data integrity, runtime binding sanity, and deterministic `Current + N` path-target checks.
 
 ## Optional: Refresh Data Snapshot
 

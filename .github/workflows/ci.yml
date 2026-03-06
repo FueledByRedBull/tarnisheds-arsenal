@@ -25,7 +25,7 @@ jobs:
       - name: Install Python deps
         run: |
           python -m pip install --upgrade pip
-          python -m pip install maturin PyQt6
+          python -m pip install -r requirements.txt
 
       - name: Build and install Rust bindings
         run: |
