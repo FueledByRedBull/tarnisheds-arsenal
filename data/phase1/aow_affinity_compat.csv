@@ -1,0 +1,505 @@
+aow_id,name,affinity,weapon_count,sample_weapon_names
+121,,Fire,219,Albinauric Shield|Antspur Rapier|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd
+407,,Fire,219,Albinauric Shield|Antspur Rapier|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd
+104,,Fire,26,Banished Knight's Fire Halberd|Bloodfiend's Fire Fork|Celebrant's Fire Rib-Rake|Clayman's Fire Harpoon|Cross-Naginata
+121,,Flame Art,220,Albinauric Shield|Antspur Rapier|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd
+407,,Flame Art,220,Albinauric Shield|Antspur Rapier|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd
+104,,Flame Art,26,Banished Knight's Flame Art Halberd|Bloodfiend's Flame Art Fork|Celebrant's Flame Art Rib-Rake|Clayman's Flame Art Harpoon|Cross-Naginata
+121,,Lightning,219,Albinauric Shield|Antspur Rapier|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+407,,Lightning,219,Albinauric Shield|Antspur Rapier|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+104,,Lightning,26,Banished Knight's Lightning Halberd|Bloodfiend's Lightning Fork|Celebrant's Lightning Rib-Rake|Clayman's Lightning Harpoon|Cross-Naginata
+121,,Magic,219,Albinauric Shield|Antspur Rapier|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd
+407,,Magic,219,Albinauric Shield|Antspur Rapier|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd
+104,,Magic,26,Banished Knight's Magic Halberd|Bloodfiend's Magic Fork|Celebrant's Magic Rib-Rake|Clayman's Magic Harpoon|Cross-Naginata
+121,,Poison,219,Albinauric Shield|Antspur Rapier|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd
+407,,Poison,219,Albinauric Shield|Antspur Rapier|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd
+104,,Poison,26,Banished Knight's Poison Halberd|Bloodfiend's Poison Fork|Celebrant's Poison Rib-Rake|Clayman's Poison Harpoon|Cross-Naginata
+2001,Aspects of the Crucible: Wings,Lightning,93,Antspur Rapier|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd|Bastard Sword
+602,Assassin's Gambit,Blood,33,Antspur Rapier|Black Steel Twinblade|Bloodstained Dagger|Bloody Longsword|Bloody Twinblade
+602,Assassin's Gambit,Occult,33,Antspur Rapier|Black Steel Twinblade|Bloodstained Dagger|Broadsword|Cane Sword
+602,Assassin's Gambit,Poison,33,Antspur Rapier|Black Steel Twinblade|Bloodstained Dagger|Broadsword|Cane Sword
+650,Barbaric Roar,Blood,138,Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd|Battle Axe|Battle Hammer
+650,Barbaric Roar,Fire,138,Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd|Bastard Sword|Battle Axe
+650,Barbaric Roar,Flame Art,139,Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd|Bastard Sword|Battle Axe
+650,Barbaric Roar,Lightning,138,Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd|Bastard Sword|Battle Axe
+650,Barbaric Roar,Magic,138,Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd|Bastard Sword|Battle Axe
+650,Barbaric Roar,Occult,138,Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd|Bastard Sword|Battle Axe
+650,Barbaric Roar,Poison,138,Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd|Bastard Sword|Battle Axe
+301,Barricade Shield,Blood,64,Albinauric Shield|Banished Knight's Blood Shield|Beast Crest Heater Shield|Beastman's Blood Jar-Shield|Black Leather Shield
+301,Barricade Shield,Fire,64,Albinauric Shield|Banished Knight's Fire Shield|Beast Crest Heater Shield|Beastman's Fire Jar-Shield|Black Leather Shield
+301,Barricade Shield,Flame Art,64,Albinauric Shield|Banished Knight's Flame Art Shield|Beast Crest Heater Shield|Beastman's Flame Art Jar-Shield|Black Leather Shield
+301,Barricade Shield,Lightning,64,Albinauric Shield|Banished Knight's Lightning Shield|Beast Crest Heater Shield|Beastman's Lightning Jar-Shield|Black Leather Shield
+301,Barricade Shield,Magic,64,Albinauric Shield|Banished Knight's Magic Shield|Beast Crest Heater Shield|Beastman's Magic Jar-Shield|Black Leather Shield
+301,Barricade Shield,Occult,64,Albinauric Shield|Banished Knight's Occult Shield|Beast Crest Heater Shield|Beastman's Occult Jar-Shield|Black Leather Shield
+301,Barricade Shield,Poison,64,Albinauric Shield|Banished Knight's Poison Shield|Beast Crest Heater Shield|Beastman's Poison Jar-Shield|Black Leather Shield
+652,Beast's Roar,Blood,167,Antspur Rapier|Backhand Blade|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd
+652,Beast's Roar,Fire,167,Antspur Rapier|Backhand Blade|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd
+652,Beast's Roar,Flame Art,168,Antspur Rapier|Backhand Blade|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd
+652,Beast's Roar,Lightning,167,Antspur Rapier|Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+652,Beast's Roar,Magic,167,Antspur Rapier|Backhand Blade|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd
+652,Beast's Roar,Occult,167,Antspur Rapier|Backhand Blade|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd
+652,Beast's Roar,Poison,167,Antspur Rapier|Backhand Blade|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd
+221,Black Flame Tornado,Fire,31,Banished Knight's Fire Halberd|Black Steel Twinblade|Bloodfiend's Fire Fork|Celebrant's Fire Rib-Rake|Clayman's Fire Harpoon
+221,Black Flame Tornado,Flame Art,31,Banished Knight's Flame Art Halberd|Black Steel Twinblade|Bloodfiend's Flame Art Fork|Celebrant's Flame Art Rib-Rake|Clayman's Flame Art Harpoon
+4090,Blind Spot,Blood,2,Backhand Blade|Smithscript Cirque
+4090,Blind Spot,Fire,2,Backhand Blade|Smithscript Cirque
+4090,Blind Spot,Flame Art,2,Backhand Blade|Smithscript Cirque
+4090,Blind Spot,Lightning,2,Backhand Blade|Smithscript Cirque
+4090,Blind Spot,Magic,2,Backhand Blade|Smithscript Cirque
+4090,Blind Spot,Occult,2,Backhand Blade|Smithscript Cirque
+4090,Blind Spot,Poison,2,Backhand Blade|Smithscript Cirque
+4130,Blinkbolt,Lightning,167,Antspur Rapier|Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+224,Blood Blade,Blood,46,Antspur Rapier|Backhand Blade|Bandit's Blood Curved Sword|Beastman's Blood Curved Sword|Black Steel Twinblade
+224,Blood Blade,Occult,46,Antspur Rapier|Backhand Blade|Bandit's Occult Curved Sword|Beastman's Occult Curved Sword|Black Steel Twinblade
+224,Blood Blade,Poison,46,Antspur Rapier|Backhand Blade|Bandit's Poison Curved Sword|Beastman's Poison Curved Sword|Black Steel Twinblade
+108,Blood Tax,Blood,74,Antspur Rapier|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd|Black Steel Twinblade|Bloodfiend's Blood Fork
+108,Blood Tax,Occult,74,Antspur Rapier|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd|Bastard Sword|Black Steel Twinblade
+108,Blood Tax,Poison,74,Antspur Rapier|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd|Bastard Sword|Black Steel Twinblade
+801,Bloodhound's Step,Blood,167,Antspur Rapier|Backhand Blade|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd
+801,Bloodhound's Step,Fire,167,Antspur Rapier|Backhand Blade|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd
+801,Bloodhound's Step,Flame Art,168,Antspur Rapier|Backhand Blade|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd
+801,Bloodhound's Step,Lightning,167,Antspur Rapier|Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+801,Bloodhound's Step,Magic,167,Antspur Rapier|Backhand Blade|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd
+801,Bloodhound's Step,Occult,167,Antspur Rapier|Backhand Blade|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd
+801,Bloodhound's Step,Poison,167,Antspur Rapier|Backhand Blade|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd
+204,Bloody Slash,Blood,64,Antspur Rapier|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Beastman's Blood Cleaver|Beastman's Blood Curved Sword
+204,Bloody Slash,Occult,64,Antspur Rapier|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Bastard Sword|Beastman's Occult Cleaver
+204,Bloody Slash,Poison,64,Antspur Rapier|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Bastard Sword|Beastman's Poison Cleaver
+654,Braggart's Roar,Blood,138,Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd|Battle Axe|Battle Hammer
+654,Braggart's Roar,Fire,138,Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd|Bastard Sword|Battle Axe
+654,Braggart's Roar,Flame Art,139,Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd|Bastard Sword|Battle Axe
+654,Braggart's Roar,Lightning,138,Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd|Bastard Sword|Battle Axe
+654,Braggart's Roar,Magic,138,Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd|Bastard Sword|Battle Axe
+654,Braggart's Roar,Occult,138,Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd|Bastard Sword|Battle Axe
+654,Braggart's Roar,Poison,138,Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd|Bastard Sword|Battle Axe
+303,Buckler Parry,Fire,219,Albinauric Shield|Antspur Rapier|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd
+303,Buckler Parry,Flame Art,220,Albinauric Shield|Antspur Rapier|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd
+303,Buckler Parry,Lightning,219,Albinauric Shield|Antspur Rapier|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+303,Buckler Parry,Magic,219,Albinauric Shield|Antspur Rapier|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd
+303,Buckler Parry,Poison,219,Albinauric Shield|Antspur Rapier|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd
+218,Carian Grandeur,Magic,64,Antspur Rapier|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Bastard Sword|Beastman's Magic Cleaver
+219,Carian Greatsword,Magic,64,Antspur Rapier|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Bastard Sword|Beastman's Magic Cleaver
+305,Carian Retaliation,Magic,44,Albinauric Shield|Banished Knight's Magic Shield|Beast Crest Heater Shield|Beastman's Magic Jar-Shield|Black Leather Shield
+4180,Carian Sovereignty,Magic,64,Antspur Rapier|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Bastard Sword|Beastman's Magic Cleaver
+105,Charge Forth,Blood,35,Banished Knight's Blood Halberd|Black Steel Twinblade|Bloodfiend's Blood Fork|Bloody Lance|Bloody Spear
+105,Charge Forth,Fire,35,Banished Knight's Fire Halberd|Black Steel Twinblade|Bloodfiend's Fire Fork|Carian Thrusting Shield|Celebrant's Fire Rib-Rake
+105,Charge Forth,Flame Art,35,Banished Knight's Flame Art Halberd|Black Steel Twinblade|Bloodfiend's Flame Art Fork|Carian Thrusting Shield|Celebrant's Flame Art Rib-Rake
+105,Charge Forth,Lightning,35,Banished Knight's Lightning Halberd|Black Steel Twinblade|Bloodfiend's Lightning Fork|Carian Thrusting Shield|Celebrant's Lightning Rib-Rake
+105,Charge Forth,Magic,35,Banished Knight's Magic Halberd|Black Steel Twinblade|Bloodfiend's Magic Fork|Carian Thrusting Shield|Celebrant's Magic Rib-Rake
+105,Charge Forth,Occult,35,Banished Knight's Occult Halberd|Black Steel Twinblade|Bloodfiend's Occult Fork|Carian Thrusting Shield|Celebrant's Occult Rib-Rake
+105,Charge Forth,Poison,35,Banished Knight's Poison Halberd|Black Steel Twinblade|Bloodfiend's Poison Fork|Carian Thrusting Shield|Celebrant's Poison Rib-Rake
+227,Chilling Mist,Magic,146,Antspur Rapier|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd|Bastard Sword
+607,Cragblade,Blood,160,Antspur Rapier|Backhand Blade|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd
+607,Cragblade,Fire,160,Antspur Rapier|Backhand Blade|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd
+607,Cragblade,Flame Art,161,Antspur Rapier|Backhand Blade|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd
+607,Cragblade,Lightning,160,Antspur Rapier|Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+607,Cragblade,Magic,160,Antspur Rapier|Backhand Blade|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd
+607,Cragblade,Occult,160,Antspur Rapier|Backhand Blade|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd
+607,Cragblade,Poison,160,Antspur Rapier|Backhand Blade|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd
+600,Determination,Blood,164,Antspur Rapier|Backhand Blade|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd
+600,Determination,Fire,164,Antspur Rapier|Backhand Blade|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd
+600,Determination,Flame Art,165,Antspur Rapier|Backhand Blade|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd
+600,Determination,Lightning,164,Antspur Rapier|Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+600,Determination,Magic,164,Antspur Rapier|Backhand Blade|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd
+600,Determination,Occult,164,Antspur Rapier|Backhand Blade|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd
+600,Determination,Poison,164,Antspur Rapier|Backhand Blade|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd
+4160,Divine Beast Frost Stomp,Magic,167,Antspur Rapier|Backhand Blade|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd
+112,Double Slash,Blood,66,Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd|Beastman's Blood Cleaver|Beastman's Blood Curved Sword
+112,Double Slash,Fire,66,Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd|Bastard Sword|Beastman's Fire Cleaver
+112,Double Slash,Flame Art,66,Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd|Bastard Sword|Beastman's Flame Art Cleaver
+112,Double Slash,Lightning,66,Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd|Bastard Sword|Beastman's Lightning Cleaver
+112,Double Slash,Magic,66,Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd|Bastard Sword|Beastman's Magic Cleaver
+112,Double Slash,Occult,66,Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd|Bastard Sword|Beastman's Occult Cleaver
+112,Double Slash,Poison,66,Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd|Bastard Sword|Beastman's Poison Cleaver
+2000,Dryleaf Whirlwind,Blood,2,Dane's Blood Footwork|Dryleaf Arts
+2000,Dryleaf Whirlwind,Fire,2,Dane's Fire Footwork|Dryleaf Arts
+2000,Dryleaf Whirlwind,Flame Art,2,Dane's Flame Art Footwork|Dryleaf Arts
+2000,Dryleaf Whirlwind,Lightning,2,Dane's Lightning Footwork|Dryleaf Arts
+2000,Dryleaf Whirlwind,Magic,2,Dane's Magic Footwork|Dryleaf Arts
+2000,Dryleaf Whirlwind,Occult,2,Dane's Occult Footwork|Dryleaf Arts
+2000,Dryleaf Whirlwind,Poison,2,Dane's Poison Footwork|Dryleaf Arts
+212,Earthshaker,Blood,34,Battle Hammer|Black Steel Greathammer|Bloodfiend's Blood Arm|Bloody Lance|Brick Hammer
+212,Earthshaker,Fire,35,Battle Hammer|Black Steel Greathammer|Bloodfiend's Fire Arm|Brick Hammer|Butchering Knife
+212,Earthshaker,Flame Art,35,Battle Hammer|Black Steel Greathammer|Bloodfiend's Flame Art Arm|Brick Hammer|Butchering Knife
+212,Earthshaker,Lightning,34,Battle Hammer|Black Steel Greathammer|Bloodfiend's Lightning Arm|Brick Hammer|Butchering Knife
+212,Earthshaker,Magic,34,Battle Hammer|Black Steel Greathammer|Bloodfiend's Magic Arm|Brick Hammer|Butchering Knife
+212,Earthshaker,Occult,34,Battle Hammer|Black Steel Greathammer|Bloodfiend's Occult Arm|Brick Hammer|Butchering Knife
+212,Earthshaker,Poison,34,Battle Hammer|Black Steel Greathammer|Bloodfiend's Poison Arm|Brick Hammer|Butchering Knife
+700,Endure,Blood,167,Antspur Rapier|Backhand Blade|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd
+700,Endure,Fire,167,Antspur Rapier|Backhand Blade|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd
+700,Endure,Flame Art,168,Antspur Rapier|Backhand Blade|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd
+700,Endure,Lightning,167,Antspur Rapier|Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+700,Endure,Magic,167,Antspur Rapier|Backhand Blade|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd
+700,Endure,Occult,167,Antspur Rapier|Backhand Blade|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd
+700,Endure,Poison,167,Antspur Rapier|Backhand Blade|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd
+207,Eruption,Fire,52,Banished Knight's Fire Greatsword|Bastard Sword|Battle Hammer|Beastman's Fire Cleaver|Black Steel Greathammer
+207,Eruption,Flame Art,53,Banished Knight's Flame Art Greatsword|Bastard Sword|Battle Hammer|Beastman's Flame Art Cleaver|Black Steel Greathammer
+223,Firebreather,Fire,219,Albinauric Shield|Antspur Rapier|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd
+223,Firebreather,Flame Art,220,Albinauric Shield|Antspur Rapier|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd
+223,Firebreather,Lightning,219,Albinauric Shield|Antspur Rapier|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+223,Firebreather,Magic,219,Albinauric Shield|Antspur Rapier|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd
+223,Firebreather,Poison,219,Albinauric Shield|Antspur Rapier|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd
+4140,Flame Skewer,Fire,67,Antspur Rapier|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd|Bastard Sword|Black Steel Twinblade
+4140,Flame Skewer,Flame Art,68,Antspur Rapier|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd|Bastard Sword|Black Steel Twinblade
+4170,Flame Spear,Fire,77,Antspur Rapier|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd|Bastard Sword|Black Steel Twinblade
+4170,Flame Spear,Flame Art,78,Antspur Rapier|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd|Bastard Sword|Black Steel Twinblade
+505,Flame of the Redmanes,Fire,167,Antspur Rapier|Backhand Blade|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd
+505,Flame of the Redmanes,Flame Art,168,Antspur Rapier|Backhand Blade|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd
+214,Flaming Strike,Fire,148,Antspur Rapier|Backhand Blade|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd
+214,Flaming Strike,Flame Art,148,Antspur Rapier|Backhand Blade|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd
+4220,Ghostflame Call,Magic,77,Antspur Rapier|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd|Bastard Sword
+116,Giant Hunt,Blood,51,Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd|Black Steel Twinblade|Bloodfiend's Blood Fork|Bloody Bastard Sword
+116,Giant Hunt,Fire,50,Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd|Bastard Sword|Black Steel Twinblade|Bloodfiend's Fire Fork
+116,Giant Hunt,Flame Art,51,Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd|Bastard Sword|Black Steel Twinblade|Bloodfiend's Flame Art Fork
+116,Giant Hunt,Lightning,51,Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd|Bastard Sword|Black Steel Twinblade|Bloodfiend's Lightning Fork
+116,Giant Hunt,Magic,51,Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd|Bastard Sword|Black Steel Twinblade|Bloodfiend's Magic Fork
+116,Giant Hunt,Occult,51,Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd|Bastard Sword|Black Steel Twinblade|Bloodfiend's Occult Fork
+116,Giant Hunt,Poison,51,Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd|Bastard Sword|Black Steel Twinblade|Bloodfiend's Poison Fork
+200,Glintblade Phalanx,Magic,90,Antspur Rapier|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd|Bastard Sword
+203,Glintstone Pebble,Magic,90,Antspur Rapier|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd|Bastard Sword
+213,Golden Land,Lightning,34,Battle Hammer|Black Steel Greathammer|Bloodfiend's Lightning Arm|Brick Hammer|Butchering Knife
+307,Golden Parry,Lightning,44,Albinauric Shield|Banished Knight's Lightning Shield|Beast Crest Heater Shield|Beastman's Lightning Jar-Shield|Black Leather Shield
+507,Golden Slam,Lightning,167,Antspur Rapier|Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+603,Golden Vow,Lightning,167,Antspur Rapier|Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+209,Gravitas,Magic,138,Antspur Rapier|Backhand Blade|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd
+506,Ground Slam,Blood,167,Antspur Rapier|Backhand Blade|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd
+506,Ground Slam,Fire,167,Antspur Rapier|Backhand Blade|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd
+506,Ground Slam,Flame Art,168,Antspur Rapier|Backhand Blade|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd
+506,Ground Slam,Lightning,167,Antspur Rapier|Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+506,Ground Slam,Magic,167,Antspur Rapier|Backhand Blade|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd
+506,Ground Slam,Occult,167,Antspur Rapier|Backhand Blade|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd
+506,Ground Slam,Poison,167,Antspur Rapier|Backhand Blade|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd
+509,Hoarah Loux's Earthshaker,Blood,167,Antspur Rapier|Backhand Blade|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd
+509,Hoarah Loux's Earthshaker,Fire,167,Antspur Rapier|Backhand Blade|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd
+509,Hoarah Loux's Earthshaker,Flame Art,168,Antspur Rapier|Backhand Blade|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd
+509,Hoarah Loux's Earthshaker,Lightning,167,Antspur Rapier|Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+509,Hoarah Loux's Earthshaker,Magic,167,Antspur Rapier|Backhand Blade|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd
+509,Hoarah Loux's Earthshaker,Occult,167,Antspur Rapier|Backhand Blade|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd
+509,Hoarah Loux's Earthshaker,Poison,167,Antspur Rapier|Backhand Blade|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd
+501,Hoarfrost Stomp,Magic,167,Antspur Rapier|Backhand Blade|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd
+702,Holy Ground,Lightning,64,Albinauric Shield|Banished Knight's Lightning Shield|Beast Crest Heater Shield|Beastman's Lightning Jar-Shield|Black Leather Shield
+202,Ice Spear,Magic,29,Banished Knight's Magic Halberd|Black Steel Twinblade|Bloodfiend's Magic Fork|Celebrant's Magic Rib-Rake|Clayman's Magic Harpoon
+101,Impaling Thrust,Blood,78,Antspur Rapier|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd|Black Steel Twinblade|Bloodfiend's Blood Fork
+101,Impaling Thrust,Fire,78,Antspur Rapier|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd|Bastard Sword|Black Steel Twinblade
+101,Impaling Thrust,Flame Art,78,Antspur Rapier|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd|Bastard Sword|Black Steel Twinblade
+101,Impaling Thrust,Lightning,78,Antspur Rapier|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd|Bastard Sword|Black Steel Twinblade
+101,Impaling Thrust,Magic,78,Antspur Rapier|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd|Bastard Sword|Black Steel Twinblade
+101,Impaling Thrust,Occult,78,Antspur Rapier|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd|Bastard Sword|Black Steel Twinblade
+101,Impaling Thrust,Poison,78,Antspur Rapier|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd|Bastard Sword|Black Steel Twinblade
+503,Kick,Blood,167,Antspur Rapier|Backhand Blade|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd
+503,Kick,Fire,167,Antspur Rapier|Backhand Blade|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd
+503,Kick,Flame Art,168,Antspur Rapier|Backhand Blade|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd
+503,Kick,Lightning,167,Antspur Rapier|Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+503,Kick,Magic,167,Antspur Rapier|Backhand Blade|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd
+503,Kick,Occult,167,Antspur Rapier|Backhand Blade|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd
+503,Kick,Poison,167,Antspur Rapier|Backhand Blade|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd
+205,Lifesteal Fist,Blood,14,Beast Claw|Bloodhound Claws|Caestus|Dane's Blood Footwork|Dryleaf Arts
+205,Lifesteal Fist,Occult,14,Beast Claw|Bloodhound Claws|Caestus|Dane's Occult Footwork|Dryleaf Arts
+205,Lifesteal Fist,Poison,14,Beast Claw|Bloodhound Claws|Caestus|Dane's Poison Footwork|Dryleaf Arts
+504,Lightning Ram,Lightning,167,Antspur Rapier|Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+217,Lightning Slash,Lightning,118,Antspur Rapier|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Bastard Sword|Battle Axe
+100,Lion's Claw,Blood,98,Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Battle Axe|Battle Hammer|Beastman's Blood Cleaver
+100,Lion's Claw,Fire,98,Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+100,Lion's Claw,Flame Art,99,Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+100,Lion's Claw,Lightning,98,Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+100,Lion's Claw,Magic,98,Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+100,Lion's Claw,Occult,98,Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+100,Lion's Claw,Poison,98,Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+118,Loretta's Slash,Magic,31,Banished Knight's Magic Halberd|Black Steel Twinblade|Bloodfiend's Magic Fork|Celebrant's Magic Rib-Rake|Clayman's Magic Harpoon
+10,No Skill,Blood,64,Albinauric Shield|Banished Knight's Blood Shield|Beast Crest Heater Shield|Beastman's Blood Jar-Shield|Black Leather Shield
+10,No Skill,Fire,64,Albinauric Shield|Banished Knight's Fire Shield|Beast Crest Heater Shield|Beastman's Fire Jar-Shield|Black Leather Shield
+10,No Skill,Flame Art,64,Albinauric Shield|Banished Knight's Flame Art Shield|Beast Crest Heater Shield|Beastman's Flame Art Jar-Shield|Black Leather Shield
+10,No Skill,Lightning,64,Albinauric Shield|Banished Knight's Lightning Shield|Beast Crest Heater Shield|Beastman's Lightning Jar-Shield|Black Leather Shield
+10,No Skill,Magic,64,Albinauric Shield|Banished Knight's Magic Shield|Beast Crest Heater Shield|Beastman's Magic Jar-Shield|Black Leather Shield
+10,No Skill,Occult,64,Albinauric Shield|Banished Knight's Occult Shield|Beast Crest Heater Shield|Beastman's Occult Jar-Shield|Black Leather Shield
+10,No Skill,Poison,64,Albinauric Shield|Banished Knight's Poison Shield|Beast Crest Heater Shield|Beastman's Poison Jar-Shield|Black Leather Shield
+4110,Overhead Stance,Blood,1,Great Katana
+4110,Overhead Stance,Fire,1,Great Katana
+4110,Overhead Stance,Flame Art,1,Great Katana
+4110,Overhead Stance,Lightning,1,Great Katana
+4110,Overhead Stance,Magic,1,Great Katana
+4110,Overhead Stance,Occult,1,Great Katana
+4110,Overhead Stance,Poison,1,Great Katana
+4010,Palm Blast,Blood,2,Dane's Blood Footwork|Dryleaf Arts
+4010,Palm Blast,Fire,2,Dane's Fire Footwork|Dryleaf Arts
+4010,Palm Blast,Flame Art,2,Dane's Flame Art Footwork|Dryleaf Arts
+4010,Palm Blast,Lightning,2,Dane's Lightning Footwork|Dryleaf Arts
+4010,Palm Blast,Magic,2,Dane's Magic Footwork|Dryleaf Arts
+4010,Palm Blast,Occult,2,Dane's Occult Footwork|Dryleaf Arts
+4010,Palm Blast,Poison,2,Dane's Poison Footwork|Dryleaf Arts
+302,Parry,Blood,83,Albinauric Shield|Antspur Rapier|Bandit's Blood Curved Sword|Banished Knight's Blood Shield|Beast Crest Heater Shield
+302,Parry,Fire,83,Albinauric Shield|Antspur Rapier|Bandit's Fire Curved Sword|Banished Knight's Fire Shield|Beast Crest Heater Shield
+302,Parry,Flame Art,83,Albinauric Shield|Antspur Rapier|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Shield|Beast Crest Heater Shield
+302,Parry,Lightning,83,Albinauric Shield|Antspur Rapier|Bandit's Lightning Curved Sword|Banished Knight's Lightning Shield|Beast Crest Heater Shield
+302,Parry,Magic,83,Albinauric Shield|Antspur Rapier|Bandit's Magic Curved Sword|Banished Knight's Magic Shield|Beast Crest Heater Shield
+302,Parry,Occult,83,Albinauric Shield|Antspur Rapier|Bandit's Occult Curved Sword|Banished Knight's Occult Shield|Beast Crest Heater Shield
+302,Parry,Poison,83,Albinauric Shield|Antspur Rapier|Bandit's Poison Curved Sword|Banished Knight's Poison Shield|Beast Crest Heater Shield
+225,Phantom Slash,Blood,29,Banished Knight's Blood Halberd|Black Steel Twinblade|Bloodfiend's Blood Fork|Bloody Spear|Bloody Twinblade
+225,Phantom Slash,Fire,29,Banished Knight's Fire Halberd|Black Steel Twinblade|Bloodfiend's Fire Fork|Celebrant's Fire Rib-Rake|Clayman's Fire Harpoon
+225,Phantom Slash,Flame Art,29,Banished Knight's Flame Art Halberd|Black Steel Twinblade|Bloodfiend's Flame Art Fork|Celebrant's Flame Art Rib-Rake|Clayman's Flame Art Harpoon
+225,Phantom Slash,Lightning,29,Banished Knight's Lightning Halberd|Black Steel Twinblade|Bloodfiend's Lightning Fork|Celebrant's Lightning Rib-Rake|Clayman's Lightning Harpoon
+225,Phantom Slash,Magic,29,Banished Knight's Magic Halberd|Black Steel Twinblade|Bloodfiend's Magic Fork|Celebrant's Magic Rib-Rake|Clayman's Magic Harpoon
+225,Phantom Slash,Occult,29,Banished Knight's Occult Halberd|Black Steel Twinblade|Bloodfiend's Occult Fork|Celebrant's Occult Rib-Rake|Clayman's Occult Harpoon
+225,Phantom Slash,Poison,29,Banished Knight's Poison Halberd|Black Steel Twinblade|Bloodfiend's Poison Fork|Celebrant's Poison Rib-Rake|Clayman's Poison Harpoon
+102,Piercing Fang,Blood,63,Antspur Rapier|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd|Black Steel Twinblade|Bloodfiend's Blood Fork
+102,Piercing Fang,Fire,63,Antspur Rapier|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd|Bastard Sword|Black Steel Twinblade
+102,Piercing Fang,Flame Art,63,Antspur Rapier|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd|Bastard Sword|Black Steel Twinblade
+102,Piercing Fang,Lightning,63,Antspur Rapier|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd|Bastard Sword|Black Steel Twinblade
+102,Piercing Fang,Magic,63,Antspur Rapier|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd|Bastard Sword|Black Steel Twinblade
+102,Piercing Fang,Occult,63,Antspur Rapier|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd|Bastard Sword|Black Steel Twinblade
+102,Piercing Fang,Poison,63,Antspur Rapier|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd|Bastard Sword|Black Steel Twinblade
+4020,Piercing Throw,Blood,1,Smithscript Dagger
+4020,Piercing Throw,Fire,1,Smithscript Dagger
+4020,Piercing Throw,Flame Art,1,Smithscript Dagger
+4020,Piercing Throw,Lightning,1,Smithscript Dagger
+4020,Piercing Throw,Magic,1,Smithscript Dagger
+4020,Piercing Throw,Occult,1,Smithscript Dagger
+4020,Piercing Throw,Poison,1,Smithscript Dagger
+119,Poison Moth Flight,Blood,41,Antspur Rapier|Backhand Blade|Bandit's Blood Curved Sword|Beastman's Blood Curved Sword|Bloodstained Dagger
+119,Poison Moth Flight,Occult,41,Antspur Rapier|Backhand Blade|Bandit's Occult Curved Sword|Beastman's Occult Curved Sword|Bloodstained Dagger
+119,Poison Moth Flight,Poison,41,Antspur Rapier|Backhand Blade|Bandit's Poison Curved Sword|Beastman's Poison Curved Sword|Bloodstained Dagger
+228,Poisonous Mist,Blood,146,Antspur Rapier|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd|Battle Axe
+228,Poisonous Mist,Occult,146,Antspur Rapier|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd|Bastard Sword
+228,Poisonous Mist,Poison,146,Antspur Rapier|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd|Bastard Sword
+208,Prayerful Strike,Lightning,50,Battle Axe|Battle Hammer|Black Steel Greathammer|Bloodfiend's Lightning Arm|Brick Hammer
+113,Prelate's Charge,Fire,28,Battle Hammer|Black Steel Greathammer|Bloodfiend's Fire Arm|Brick Hammer|Butchering Knife
+113,Prelate's Charge,Flame Art,28,Battle Hammer|Black Steel Greathammer|Bloodfiend's Flame Art Arm|Brick Hammer|Butchering Knife
+800,Quickstep,Blood,167,Antspur Rapier|Backhand Blade|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd
+800,Quickstep,Fire,167,Antspur Rapier|Backhand Blade|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd
+800,Quickstep,Flame Art,168,Antspur Rapier|Backhand Blade|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd
+800,Quickstep,Lightning,167,Antspur Rapier|Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+800,Quickstep,Magic,167,Antspur Rapier|Backhand Blade|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd
+800,Quickstep,Occult,167,Antspur Rapier|Backhand Blade|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd
+800,Quickstep,Poison,167,Antspur Rapier|Backhand Blade|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd
+4060,Raging Beast,Blood,1,Beast Claw
+4060,Raging Beast,Fire,1,Beast Claw
+4060,Raging Beast,Flame Art,1,Beast Claw
+4060,Raging Beast,Lightning,1,Beast Claw
+4060,Raging Beast,Magic,1,Beast Claw
+4060,Raging Beast,Occult,1,Beast Claw
+4060,Raging Beast,Poison,1,Beast Claw
+802,Raptor of the Mists,Blood,167,Antspur Rapier|Backhand Blade|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd
+802,Raptor of the Mists,Fire,167,Antspur Rapier|Backhand Blade|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd
+802,Raptor of the Mists,Flame Art,168,Antspur Rapier|Backhand Blade|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd
+802,Raptor of the Mists,Lightning,167,Antspur Rapier|Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+802,Raptor of the Mists,Magic,167,Antspur Rapier|Backhand Blade|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd
+802,Raptor of the Mists,Occult,167,Antspur Rapier|Backhand Blade|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd
+802,Raptor of the Mists,Poison,167,Antspur Rapier|Backhand Blade|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd
+109,Repeating Thrust,Blood,74,Antspur Rapier|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd|Black Steel Twinblade|Bloodfiend's Blood Fork
+109,Repeating Thrust,Fire,74,Antspur Rapier|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd|Bastard Sword|Black Steel Twinblade
+109,Repeating Thrust,Flame Art,74,Antspur Rapier|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd|Bastard Sword|Black Steel Twinblade
+109,Repeating Thrust,Lightning,74,Antspur Rapier|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd|Bastard Sword|Black Steel Twinblade
+109,Repeating Thrust,Magic,74,Antspur Rapier|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd|Bastard Sword|Black Steel Twinblade
+109,Repeating Thrust,Occult,74,Antspur Rapier|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd|Bastard Sword|Black Steel Twinblade
+109,Repeating Thrust,Poison,74,Antspur Rapier|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd|Bastard Sword|Black Steel Twinblade
+601,Royal Knight's Resolve,Blood,164,Antspur Rapier|Backhand Blade|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd
+601,Royal Knight's Resolve,Fire,164,Antspur Rapier|Backhand Blade|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd
+601,Royal Knight's Resolve,Flame Art,165,Antspur Rapier|Backhand Blade|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd
+601,Royal Knight's Resolve,Lightning,164,Antspur Rapier|Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+601,Royal Knight's Resolve,Magic,164,Antspur Rapier|Backhand Blade|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd
+601,Royal Knight's Resolve,Occult,164,Antspur Rapier|Backhand Blade|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd
+601,Royal Knight's Resolve,Poison,164,Antspur Rapier|Backhand Blade|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd
+201,Sacred Blade,Lightning,146,Antspur Rapier|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd|Bastard Sword
+604,Sacred Order,Lightning,164,Antspur Rapier|Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+222,Sacred Ring of Light,Lightning,24,Banished Knight's Lightning Halberd|Bloodfiend's Lightning Fork|Celebrant's Lightning Rib-Rake|Clayman's Lightning Harpoon|Cross-Naginata
+4070,Savage Claws,Blood,1,Beast Claw
+4070,Savage Claws,Fire,1,Beast Claw
+4070,Savage Claws,Flame Art,1,Beast Claw
+4070,Savage Claws,Lightning,1,Beast Claw
+4070,Savage Claws,Magic,1,Beast Claw
+4070,Savage Claws,Occult,1,Beast Claw
+4070,Savage Claws,Poison,1,Beast Claw
+4150,Savage Lion's Claw,Blood,98,Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Battle Axe|Battle Hammer|Beastman's Blood Cleaver
+4150,Savage Lion's Claw,Fire,98,Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+4150,Savage Lion's Claw,Flame Art,99,Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+4150,Savage Lion's Claw,Lightning,98,Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+4150,Savage Lion's Claw,Magic,98,Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+4150,Savage Lion's Claw,Occult,98,Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+4150,Savage Lion's Claw,Poison,98,Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+4030,Scattershot Throw,Blood,1,Smithscript Dagger
+4030,Scattershot Throw,Fire,1,Smithscript Dagger
+4030,Scattershot Throw,Flame Art,1,Smithscript Dagger
+4030,Scattershot Throw,Lightning,1,Smithscript Dagger
+4030,Scattershot Throw,Magic,1,Smithscript Dagger
+4030,Scattershot Throw,Occult,1,Smithscript Dagger
+4030,Scattershot Throw,Poison,1,Smithscript Dagger
+606,Seppuku,Blood,77,Antspur Rapier|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd|Beastman's Blood Cleaver
+606,Seppuku,Occult,77,Antspur Rapier|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd|Bastard Sword
+606,Seppuku,Poison,77,Antspur Rapier|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd|Bastard Sword
+605,Shared Order,Lightning,164,Antspur Rapier|Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+300,Shield Bash,Blood,64,Albinauric Shield|Banished Knight's Blood Shield|Beast Crest Heater Shield|Beastman's Blood Jar-Shield|Black Leather Shield
+300,Shield Bash,Fire,64,Albinauric Shield|Banished Knight's Fire Shield|Beast Crest Heater Shield|Beastman's Fire Jar-Shield|Black Leather Shield
+300,Shield Bash,Flame Art,64,Albinauric Shield|Banished Knight's Flame Art Shield|Beast Crest Heater Shield|Beastman's Flame Art Jar-Shield|Black Leather Shield
+300,Shield Bash,Lightning,64,Albinauric Shield|Banished Knight's Lightning Shield|Beast Crest Heater Shield|Beastman's Lightning Jar-Shield|Black Leather Shield
+300,Shield Bash,Magic,64,Albinauric Shield|Banished Knight's Magic Shield|Beast Crest Heater Shield|Beastman's Magic Jar-Shield|Black Leather Shield
+300,Shield Bash,Occult,64,Albinauric Shield|Banished Knight's Occult Shield|Beast Crest Heater Shield|Beastman's Occult Jar-Shield|Black Leather Shield
+300,Shield Bash,Poison,64,Albinauric Shield|Banished Knight's Poison Shield|Beast Crest Heater Shield|Beastman's Poison Jar-Shield|Black Leather Shield
+308,Shield Crash,Blood,64,Albinauric Shield|Banished Knight's Blood Shield|Beast Crest Heater Shield|Beastman's Blood Jar-Shield|Black Leather Shield
+308,Shield Crash,Fire,64,Albinauric Shield|Banished Knight's Fire Shield|Beast Crest Heater Shield|Beastman's Fire Jar-Shield|Black Leather Shield
+308,Shield Crash,Flame Art,64,Albinauric Shield|Banished Knight's Flame Art Shield|Beast Crest Heater Shield|Beastman's Flame Art Jar-Shield|Black Leather Shield
+308,Shield Crash,Lightning,64,Albinauric Shield|Banished Knight's Lightning Shield|Beast Crest Heater Shield|Beastman's Lightning Jar-Shield|Black Leather Shield
+308,Shield Crash,Magic,64,Albinauric Shield|Banished Knight's Magic Shield|Beast Crest Heater Shield|Beastman's Magic Jar-Shield|Black Leather Shield
+308,Shield Crash,Occult,64,Albinauric Shield|Banished Knight's Occult Shield|Beast Crest Heater Shield|Beastman's Occult Jar-Shield|Black Leather Shield
+308,Shield Crash,Poison,64,Albinauric Shield|Banished Knight's Poison Shield|Beast Crest Heater Shield|Beastman's Poison Jar-Shield|Black Leather Shield
+8000,Shield Strike,Blood,64,Albinauric Shield|Banished Knight's Blood Shield|Beast Crest Heater Shield|Beastman's Blood Jar-Shield|Black Leather Shield
+8000,Shield Strike,Fire,64,Albinauric Shield|Banished Knight's Fire Shield|Beast Crest Heater Shield|Beastman's Fire Jar-Shield|Black Leather Shield
+8000,Shield Strike,Flame Art,64,Albinauric Shield|Banished Knight's Flame Art Shield|Beast Crest Heater Shield|Beastman's Flame Art Jar-Shield|Black Leather Shield
+8000,Shield Strike,Lightning,64,Albinauric Shield|Banished Knight's Lightning Shield|Beast Crest Heater Shield|Beastman's Lightning Jar-Shield|Black Leather Shield
+8000,Shield Strike,Magic,64,Albinauric Shield|Banished Knight's Magic Shield|Beast Crest Heater Shield|Beastman's Magic Jar-Shield|Black Leather Shield
+8000,Shield Strike,Occult,64,Albinauric Shield|Banished Knight's Occult Shield|Beast Crest Heater Shield|Beastman's Occult Jar-Shield|Black Leather Shield
+8000,Shield Strike,Poison,64,Albinauric Shield|Banished Knight's Poison Shield|Beast Crest Heater Shield|Beastman's Poison Jar-Shield|Black Leather Shield
+4190,Shriek of Sorrow,Blood,167,Antspur Rapier|Backhand Blade|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd
+4190,Shriek of Sorrow,Occult,167,Antspur Rapier|Backhand Blade|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd
+4190,Shriek of Sorrow,Poison,167,Antspur Rapier|Backhand Blade|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd
+226,Spectral Lance,Blood,24,Banished Knight's Blood Halberd|Bloodfiend's Blood Fork|Bloody Lance|Bloody Spear|Celebrant's Blood Rib-Rake
+226,Spectral Lance,Occult,24,Banished Knight's Occult Halberd|Bloodfiend's Occult Fork|Celebrant's Occult Rib-Rake|Clayman's Occult Harpoon|Cross-Naginata
+226,Spectral Lance,Poison,24,Banished Knight's Poison Halberd|Bloodfiend's Poison Fork|Celebrant's Poison Rib-Rake|Clayman's Poison Harpoon|Cross-Naginata
+4000,Spinning Gravity Thrust,Blood,25,Banished Knight's Blood Greatsword|Beastman's Blood Cleaver|Bloody Bastard Sword|Claymore|Dismounter
+4000,Spinning Gravity Thrust,Fire,24,Banished Knight's Fire Greatsword|Bastard Sword|Beastman's Fire Cleaver|Claymore|Dismounter
+4000,Spinning Gravity Thrust,Flame Art,25,Banished Knight's Flame Art Greatsword|Bastard Sword|Beastman's Flame Art Cleaver|Claymore|Dismounter
+4000,Spinning Gravity Thrust,Lightning,25,Banished Knight's Lightning Greatsword|Bastard Sword|Beastman's Lightning Cleaver|Claymore|Dismounter
+4000,Spinning Gravity Thrust,Magic,25,Banished Knight's Magic Greatsword|Bastard Sword|Beastman's Magic Cleaver|Claymore|Dismounter
+4000,Spinning Gravity Thrust,Occult,25,Banished Knight's Occult Greatsword|Bastard Sword|Beastman's Occult Cleaver|Claymore|Dismounter
+4000,Spinning Gravity Thrust,Poison,25,Banished Knight's Poison Greatsword|Bastard Sword|Beastman's Poison Cleaver|Claymore|Dismounter
+103,Spinning Slash,Blood,101,Backhand Blade|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd|Battle Axe
+103,Spinning Slash,Fire,101,Backhand Blade|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd|Bastard Sword
+103,Spinning Slash,Flame Art,101,Backhand Blade|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd|Bastard Sword
+103,Spinning Slash,Lightning,101,Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd|Bastard Sword
+103,Spinning Slash,Magic,101,Backhand Blade|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd|Bastard Sword
+103,Spinning Slash,Occult,101,Backhand Blade|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd|Bastard Sword
+103,Spinning Slash,Poison,101,Backhand Blade|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd|Bastard Sword
+111,Spinning Strikes,Blood,24,Banished Knight's Blood Halberd|Bloodfiend's Blood Fork|Bloody Spear|Celebrant's Blood Rib-Rake|Clayman's Blood Harpoon
+111,Spinning Strikes,Fire,24,Banished Knight's Fire Halberd|Bloodfiend's Fire Fork|Celebrant's Fire Rib-Rake|Clayman's Fire Harpoon|Cross-Naginata
+111,Spinning Strikes,Flame Art,24,Banished Knight's Flame Art Halberd|Bloodfiend's Flame Art Fork|Celebrant's Flame Art Rib-Rake|Clayman's Flame Art Harpoon|Cross-Naginata
+111,Spinning Strikes,Lightning,24,Banished Knight's Lightning Halberd|Bloodfiend's Lightning Fork|Celebrant's Lightning Rib-Rake|Clayman's Lightning Harpoon|Cross-Naginata
+111,Spinning Strikes,Magic,24,Banished Knight's Magic Halberd|Bloodfiend's Magic Fork|Celebrant's Magic Rib-Rake|Clayman's Magic Harpoon|Cross-Naginata
+111,Spinning Strikes,Occult,24,Banished Knight's Occult Halberd|Bloodfiend's Occult Fork|Celebrant's Occult Rib-Rake|Clayman's Occult Harpoon|Cross-Naginata
+111,Spinning Strikes,Poison,24,Banished Knight's Poison Halberd|Bloodfiend's Poison Fork|Celebrant's Poison Rib-Rake|Clayman's Poison Harpoon|Cross-Naginata
+120,Spinning Weapon,Magic,96,Antspur Rapier|Backhand Blade|Bandit's Magic Curved Sword|Banished Knight's Magic Halberd|Battle Axe
+115,Square Off,Blood,8,Bloody Longsword|Broadsword|Cane Sword|Lordsworn's Blood Straight Sword|Noble's Blood Slender Sword
+115,Square Off,Fire,8,Broadsword|Cane Sword|Longsword|Lordsworn's Fire Straight Sword|Noble's Fire Slender Sword
+115,Square Off,Flame Art,8,Broadsword|Cane Sword|Longsword|Lordsworn's Flame Art Straight Sword|Noble's Flame Art Slender Sword
+115,Square Off,Lightning,8,Broadsword|Cane Sword|Longsword|Lordsworn's Lightning Straight Sword|Noble's Lightning Slender Sword
+115,Square Off,Magic,8,Broadsword|Cane Sword|Longsword|Lordsworn's Magic Straight Sword|Noble's Magic Slender Sword
+115,Square Off,Occult,8,Broadsword|Cane Sword|Longsword|Lordsworn's Occult Straight Sword|Noble's Occult Slender Sword
+115,Square Off,Poison,8,Broadsword|Cane Sword|Longsword|Lordsworn's Poison Straight Sword|Noble's Poison Slender Sword
+107,Stamp (Sweep),Blood,75,Banished Knight's Blood Greatsword|Battle Axe|Battle Hammer|Beastman's Blood Cleaver|Black Steel Greathammer
+107,Stamp (Sweep),Fire,75,Banished Knight's Fire Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Fire Cleaver
+107,Stamp (Sweep),Flame Art,76,Banished Knight's Flame Art Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Flame Art Cleaver
+107,Stamp (Sweep),Lightning,75,Banished Knight's Lightning Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Lightning Cleaver
+107,Stamp (Sweep),Magic,75,Banished Knight's Magic Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Magic Cleaver
+107,Stamp (Sweep),Occult,75,Banished Knight's Occult Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Occult Cleaver
+107,Stamp (Sweep),Poison,75,Banished Knight's Poison Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Poison Cleaver
+106,Stamp (Upward Cut),Blood,75,Banished Knight's Blood Greatsword|Battle Axe|Battle Hammer|Beastman's Blood Cleaver|Black Steel Greathammer
+106,Stamp (Upward Cut),Fire,75,Banished Knight's Fire Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Fire Cleaver
+106,Stamp (Upward Cut),Flame Art,76,Banished Knight's Flame Art Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Flame Art Cleaver
+106,Stamp (Upward Cut),Lightning,75,Banished Knight's Lightning Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Lightning Cleaver
+106,Stamp (Upward Cut),Magic,75,Banished Knight's Magic Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Magic Cleaver
+106,Stamp (Upward Cut),Occult,75,Banished Knight's Occult Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Occult Cleaver
+106,Stamp (Upward Cut),Poison,75,Banished Knight's Poison Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Poison Cleaver
+122,Storm Assault,Blood,35,Banished Knight's Blood Halberd|Black Steel Twinblade|Bloodfiend's Blood Fork|Bloody Lance|Bloody Spear
+122,Storm Assault,Fire,35,Banished Knight's Fire Halberd|Black Steel Twinblade|Bloodfiend's Fire Fork|Carian Thrusting Shield|Celebrant's Fire Rib-Rake
+122,Storm Assault,Flame Art,35,Banished Knight's Flame Art Halberd|Black Steel Twinblade|Bloodfiend's Flame Art Fork|Carian Thrusting Shield|Celebrant's Flame Art Rib-Rake
+122,Storm Assault,Lightning,35,Banished Knight's Lightning Halberd|Black Steel Twinblade|Bloodfiend's Lightning Fork|Carian Thrusting Shield|Celebrant's Lightning Rib-Rake
+122,Storm Assault,Magic,35,Banished Knight's Magic Halberd|Black Steel Twinblade|Bloodfiend's Magic Fork|Carian Thrusting Shield|Celebrant's Magic Rib-Rake
+122,Storm Assault,Occult,35,Banished Knight's Occult Halberd|Black Steel Twinblade|Bloodfiend's Occult Fork|Carian Thrusting Shield|Celebrant's Occult Rib-Rake
+122,Storm Assault,Poison,35,Banished Knight's Poison Halberd|Black Steel Twinblade|Bloodfiend's Poison Fork|Carian Thrusting Shield|Celebrant's Poison Rib-Rake
+210,Storm Blade,Blood,59,Antspur Rapier|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Beastman's Blood Cleaver|Beastman's Blood Curved Sword
+210,Storm Blade,Fire,59,Antspur Rapier|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Bastard Sword|Beastman's Fire Cleaver
+210,Storm Blade,Flame Art,59,Antspur Rapier|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Bastard Sword|Beastman's Flame Art Cleaver
+210,Storm Blade,Lightning,59,Antspur Rapier|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Bastard Sword|Beastman's Lightning Cleaver
+210,Storm Blade,Magic,59,Antspur Rapier|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Bastard Sword|Beastman's Magic Cleaver
+210,Storm Blade,Occult,59,Antspur Rapier|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Bastard Sword|Beastman's Occult Cleaver
+210,Storm Blade,Poison,59,Antspur Rapier|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Bastard Sword|Beastman's Poison Cleaver
+502,Storm Stomp,Blood,167,Antspur Rapier|Backhand Blade|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd
+502,Storm Stomp,Fire,167,Antspur Rapier|Backhand Blade|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd
+502,Storm Stomp,Flame Art,168,Antspur Rapier|Backhand Blade|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd
+502,Storm Stomp,Lightning,167,Antspur Rapier|Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+502,Storm Stomp,Magic,167,Antspur Rapier|Backhand Blade|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd
+502,Storm Stomp,Occult,167,Antspur Rapier|Backhand Blade|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd
+502,Storm Stomp,Poison,167,Antspur Rapier|Backhand Blade|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd
+306,Storm Wall,Blood,44,Albinauric Shield|Banished Knight's Blood Shield|Beast Crest Heater Shield|Beastman's Blood Jar-Shield|Black Leather Shield
+306,Storm Wall,Fire,44,Albinauric Shield|Banished Knight's Fire Shield|Beast Crest Heater Shield|Beastman's Fire Jar-Shield|Black Leather Shield
+306,Storm Wall,Flame Art,44,Albinauric Shield|Banished Knight's Flame Art Shield|Beast Crest Heater Shield|Beastman's Flame Art Jar-Shield|Black Leather Shield
+306,Storm Wall,Lightning,44,Albinauric Shield|Banished Knight's Lightning Shield|Beast Crest Heater Shield|Beastman's Lightning Jar-Shield|Black Leather Shield
+306,Storm Wall,Magic,44,Albinauric Shield|Banished Knight's Magic Shield|Beast Crest Heater Shield|Beastman's Magic Jar-Shield|Black Leather Shield
+306,Storm Wall,Occult,44,Albinauric Shield|Banished Knight's Occult Shield|Beast Crest Heater Shield|Beastman's Occult Jar-Shield|Black Leather Shield
+306,Storm Wall,Poison,44,Albinauric Shield|Banished Knight's Poison Shield|Beast Crest Heater Shield|Beastman's Poison Jar-Shield|Black Leather Shield
+123,Stormcaller,Blood,112,Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd|Battle Axe|Battle Hammer
+123,Stormcaller,Fire,112,Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd|Bastard Sword|Battle Axe
+123,Stormcaller,Flame Art,112,Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd|Bastard Sword|Battle Axe
+123,Stormcaller,Lightning,112,Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd|Bastard Sword|Battle Axe
+123,Stormcaller,Magic,112,Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd|Bastard Sword|Battle Axe
+123,Stormcaller,Occult,112,Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd|Bastard Sword|Battle Axe
+123,Stormcaller,Poison,112,Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd|Bastard Sword|Battle Axe
+4100,Swift Slash,Blood,2,Backhand Blade|Smithscript Cirque
+4100,Swift Slash,Fire,2,Backhand Blade|Smithscript Cirque
+4100,Swift Slash,Flame Art,2,Backhand Blade|Smithscript Cirque
+4100,Swift Slash,Lightning,2,Backhand Blade|Smithscript Cirque
+4100,Swift Slash,Magic,2,Backhand Blade|Smithscript Cirque
+4100,Swift Slash,Occult,2,Backhand Blade|Smithscript Cirque
+4100,Swift Slash,Poison,2,Backhand Blade|Smithscript Cirque
+124,Sword Dance,Blood,99,Backhand Blade|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd|Battle Axe
+124,Sword Dance,Fire,99,Backhand Blade|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd|Bastard Sword
+124,Sword Dance,Flame Art,99,Backhand Blade|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd|Bastard Sword
+124,Sword Dance,Lightning,99,Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd|Bastard Sword
+124,Sword Dance,Magic,99,Backhand Blade|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd|Bastard Sword
+124,Sword Dance,Occult,99,Backhand Blade|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd|Bastard Sword
+124,Sword Dance,Poison,99,Backhand Blade|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd|Bastard Sword
+5050,The Poison Flower Blooms Twice,Blood,167,Antspur Rapier|Backhand Blade|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd
+5050,The Poison Flower Blooms Twice,Occult,167,Antspur Rapier|Backhand Blade|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd
+5050,The Poison Flower Blooms Twice,Poison,167,Antspur Rapier|Backhand Blade|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd
+309,Thops's Barrier,Magic,44,Albinauric Shield|Banished Knight's Magic Shield|Beast Crest Heater Shield|Beastman's Magic Jar-Shield|Black Leather Shield
+216,Thunderbolt,Lightning,165,Antspur Rapier|Backhand Blade|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+117,Torch Attack,Fire,219,Albinauric Shield|Antspur Rapier|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd
+117,Torch Attack,Flame Art,220,Albinauric Shield|Antspur Rapier|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd
+117,Torch Attack,Lightning,219,Albinauric Shield|Antspur Rapier|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd
+117,Torch Attack,Magic,219,Albinauric Shield|Antspur Rapier|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd
+117,Torch Attack,Poison,219,Albinauric Shield|Antspur Rapier|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd
+653,Troll's Roar,Blood,52,Banished Knight's Blood Greatsword|Battle Hammer|Beastman's Blood Cleaver|Black Steel Greathammer|Bloodfiend's Blood Arm
+653,Troll's Roar,Fire,52,Banished Knight's Fire Greatsword|Bastard Sword|Battle Hammer|Beastman's Fire Cleaver|Black Steel Greathammer
+653,Troll's Roar,Flame Art,53,Banished Knight's Flame Art Greatsword|Bastard Sword|Battle Hammer|Beastman's Flame Art Cleaver|Black Steel Greathammer
+653,Troll's Roar,Lightning,52,Banished Knight's Lightning Greatsword|Bastard Sword|Battle Hammer|Beastman's Lightning Cleaver|Black Steel Greathammer
+653,Troll's Roar,Magic,52,Banished Knight's Magic Greatsword|Bastard Sword|Battle Hammer|Beastman's Magic Cleaver|Black Steel Greathammer
+653,Troll's Roar,Occult,52,Banished Knight's Occult Greatsword|Bastard Sword|Battle Hammer|Beastman's Occult Cleaver|Black Steel Greathammer
+653,Troll's Roar,Poison,52,Banished Knight's Poison Greatsword|Bastard Sword|Battle Hammer|Beastman's Poison Cleaver|Black Steel Greathammer
+114,Unsheathe,Blood,2,Nagakiba|Uchigatana
+114,Unsheathe,Fire,2,Nagakiba|Uchigatana
+114,Unsheathe,Flame Art,2,Nagakiba|Uchigatana
+114,Unsheathe,Lightning,2,Nagakiba|Uchigatana
+114,Unsheathe,Magic,2,Nagakiba|Uchigatana
+114,Unsheathe,Occult,2,Nagakiba|Uchigatana
+114,Unsheathe,Poison,2,Nagakiba|Uchigatana
+220,Vacuum Slice,Blood,88,Antspur Rapier|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Battle Axe|Beastman's Blood Cleaver
+220,Vacuum Slice,Fire,87,Antspur Rapier|Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Bastard Sword|Battle Axe
+220,Vacuum Slice,Flame Art,88,Antspur Rapier|Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Bastard Sword|Battle Axe
+220,Vacuum Slice,Lightning,88,Antspur Rapier|Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Bastard Sword|Battle Axe
+220,Vacuum Slice,Magic,88,Antspur Rapier|Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Bastard Sword|Battle Axe
+220,Vacuum Slice,Occult,88,Antspur Rapier|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Bastard Sword|Battle Axe
+220,Vacuum Slice,Poison,88,Antspur Rapier|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Bastard Sword|Battle Axe
+701,Vow of the Indomitable,Lightning,64,Albinauric Shield|Banished Knight's Lightning Shield|Beast Crest Heater Shield|Beastman's Lightning Jar-Shield|Black Leather Shield
+651,War Cry,Blood,138,Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd|Battle Axe|Battle Hammer
+651,War Cry,Fire,138,Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Banished Knight's Fire Halberd|Bastard Sword|Battle Axe
+651,War Cry,Flame Art,139,Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Banished Knight's Flame Art Halberd|Bastard Sword|Battle Axe
+651,War Cry,Lightning,138,Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Banished Knight's Lightning Halberd|Bastard Sword|Battle Axe
+651,War Cry,Magic,138,Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Banished Knight's Magic Halberd|Bastard Sword|Battle Axe
+651,War Cry,Occult,138,Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd|Bastard Sword|Battle Axe
+651,War Cry,Poison,138,Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd|Bastard Sword|Battle Axe
+508,Waves of Darkness,Magic,34,Battle Hammer|Black Steel Greathammer|Bloodfiend's Magic Arm|Brick Hammer|Butchering Knife
+850,White Shadow's Lure,Blood,167,Antspur Rapier|Backhand Blade|Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Banished Knight's Blood Halberd
+850,White Shadow's Lure,Occult,167,Antspur Rapier|Backhand Blade|Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Banished Knight's Occult Halberd
+850,White Shadow's Lure,Poison,167,Antspur Rapier|Backhand Blade|Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Banished Knight's Poison Halberd
+110,Wild Strikes,Blood,70,Bandit's Blood Curved Sword|Banished Knight's Blood Greatsword|Battle Axe|Battle Hammer|Beastman's Blood Cleaver
+110,Wild Strikes,Fire,70,Bandit's Fire Curved Sword|Banished Knight's Fire Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+110,Wild Strikes,Flame Art,70,Bandit's Flame Art Curved Sword|Banished Knight's Flame Art Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+110,Wild Strikes,Lightning,70,Bandit's Lightning Curved Sword|Banished Knight's Lightning Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+110,Wild Strikes,Magic,70,Bandit's Magic Curved Sword|Banished Knight's Magic Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+110,Wild Strikes,Occult,70,Bandit's Occult Curved Sword|Banished Knight's Occult Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+110,Wild Strikes,Poison,70,Bandit's Poison Curved Sword|Banished Knight's Poison Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+4120,Wing Stance,Blood,1,Milady
+4120,Wing Stance,Fire,1,Milady
+4120,Wing Stance,Flame Art,1,Milady
+4120,Wing Stance,Lightning,1,Milady
+4120,Wing Stance,Magic,1,Milady
+4120,Wing Stance,Occult,1,Milady
+4120,Wing Stance,Poison,1,Milady

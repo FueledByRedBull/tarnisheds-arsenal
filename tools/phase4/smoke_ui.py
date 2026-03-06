@@ -134,6 +134,23 @@ def main() -> int:
     QtWidgets.QApplication.processEvents()
     dialog.close()
 
+    # AoW damage objective smoke
+    window._set_combo_by_data(window.weapon_combo, "Sword Lance")
+    window._refresh_affinity_options()
+    window._set_combo_by_data(window.affinity_combo, "Magic")
+    window._set_combo_by_data(window.aow_combo, "Glintstone Pebble")
+    window.objective_combo.setCurrentIndex(window.objective_combo.findData("aow_first_hit"))
+    window.max_upgrade_spin.setValue(25)
+    window._start_search()
+    wait_until(lambda: window.active_run_id is None)
+    if not window.current_results:
+        raise AssertionError("expected AoW objective to return results")
+    lead = window.current_results[0]
+    if float(lead.aow_first_hit_damage) <= 0.0:
+        raise AssertionError("expected positive AoW first-hit damage")
+    if float(lead.aow_full_sequence_damage) < float(lead.aow_first_hit_damage):
+        raise AssertionError("expected AoW full-sequence damage to stay above first-hit damage")
+
     # One final event pump for queued signals
     QtCore.QTimer.singleShot(1, app.quit)
     app.exec()

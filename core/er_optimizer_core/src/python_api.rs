@@ -10,8 +10,8 @@ use pyo3::types::PyAny;
 use crate::data::load_game_data;
 use crate::model::Stats;
 use crate::optimizer::{
-    estimate_search_space, optimize, optimize_with_progress, OptimizeObjective, OptimizeRequest,
-    OptimizeResult, SearchEstimate, SomberFilter,
+    aow_compatible_with_weapon, estimate_search_space, optimize, optimize_with_progress,
+    OptimizeObjective, OptimizeRequest, OptimizeResult, SearchEstimate, SomberFilter,
 };
 
 #[pyclass(name = "GameData")]
@@ -55,6 +55,102 @@ impl PyGameData {
             set.insert(aow.name.clone());
         }
         set.into_iter().collect()
+    }
+
+    #[pyo3(signature = (weapon_name, affinity=None))]
+    fn compatible_aow_names(&self, weapon_name: &str, affinity: Option<&str>) -> Vec<String> {
+        let mut set = BTreeSet::new();
+        for weapon in &self.inner.weapons {
+            if !weapon.name.eq_ignore_ascii_case(weapon_name) {
+                continue;
+            }
+            if let Some(aff) = affinity {
+                if !weapon.affinity.eq_ignore_ascii_case(aff) {
+                    continue;
+                }
+            }
+            for aow in &self.inner.aows {
+                if aow_compatible_with_weapon(aow, weapon, &self.inner) {
+                    set.insert(aow.name.clone());
+                }
+            }
+        }
+        set.into_iter().collect()
+    }
+
+    #[pyo3(signature = (affinity=None))]
+    fn compatible_aow_names_for_affinity(&self, affinity: Option<&str>) -> Vec<String> {
+        let mut set = BTreeSet::new();
+        for weapon in &self.inner.weapons {
+            if let Some(aff) = affinity {
+                if !weapon.affinity.eq_ignore_ascii_case(aff) {
+                    continue;
+                }
+            }
+            for aow in &self.inner.aows {
+                if aow_compatible_with_weapon(aow, weapon, &self.inner) {
+                    set.insert(aow.name.clone());
+                }
+            }
+        }
+        set.into_iter().collect()
+    }
+
+    fn weapon_scaling(&self, weapon_name: &str, affinity: &str) -> PyResult<(f32, f32, f32, f32, f32)> {
+        let Some(weapon) = self
+            .inner
+            .weapons
+            .iter()
+            .find(|weapon| {
+                weapon.name.eq_ignore_ascii_case(weapon_name)
+                    && weapon.affinity.eq_ignore_ascii_case(affinity)
+            })
+        else {
+            return Err(PyValueError::new_err(format!(
+                "weapon not found for scaling lookup: {weapon_name} | {affinity}"
+            )));
+        };
+        Ok((
+            weapon.scaling[0],
+            weapon.scaling[1],
+            weapon.scaling[2],
+            weapon.scaling[3],
+            weapon.scaling[4],
+        ))
+    }
+
+    fn weapon_scaling_for_upgrade(
+        &self,
+        weapon_name: &str,
+        affinity: &str,
+        upgrade: u8,
+    ) -> PyResult<(f32, f32, f32, f32, f32)> {
+        let Some(weapon) = self
+            .inner
+            .weapons
+            .iter()
+            .find(|weapon| {
+                weapon.name.eq_ignore_ascii_case(weapon_name)
+                    && weapon.affinity.eq_ignore_ascii_case(affinity)
+            })
+        else {
+            return Err(PyValueError::new_err(format!(
+                "weapon not found for scaling lookup: {weapon_name} | {affinity}"
+            )));
+        };
+        let Some(reinforce) = self.inner.reinforce_level(weapon.reinforce_type, upgrade) else {
+            return Err(PyValueError::new_err(format!(
+                "missing reinforce level for scaling lookup: type={} level={upgrade}",
+                weapon.reinforce_type
+            )));
+        };
+        Ok((
+            weapon.scaling[0] * reinforce.scaling_mult[0],
+            weapon.scaling[1] * reinforce.scaling_mult[1],
+            weapon.scaling[2] * reinforce.scaling_mult[2],
+            weapon.scaling[3] * reinforce.scaling_mult[3],
+            weapon.scaling[4] * reinforce.scaling_mult[4],
+        ))
     }
 
     fn weapon_type_keys(&self) -> Vec<String> {
@@ -165,7 +261,12 @@ pub struct PyOptimizeResult {
     pub ar_holy: f32,
     pub aow_id: Option<u16>,
     pub aow_name: Option<String>,
+    pub bleed_buildup: f32,
     pub bleed_buildup_add: f32,
+    pub frost_buildup: f32,
+    pub poison_buildup: f32,
+    pub aow_first_hit_damage: f32,
+    pub aow_full_sequence_damage: f32,
     pub score: f32,
 }
 
@@ -193,7 +294,12 @@ impl From<OptimizeResult> for PyOptimizeResult {
             ar_holy: value.ar.holy,
             aow_id: value.aow_id,
             aow_name: value.aow_name,
+            bleed_buildup: value.bleed_buildup,
             bleed_buildup_add: value.bleed_buildup_add,
+            frost_buildup: value.frost_buildup,
+            poison_buildup: value.poison_buildup,
+            aow_first_hit_damage: value.aow_first_hit_damage,
+            aow_full_sequence_damage: value.aow_full_sequence_damage,
             score: value.score,
         }
     }
@@ -498,8 +604,12 @@ fn parse_objective(raw: &str) -> Result<OptimizeObjective, String> {
         "max_ar_plus_bleed" | "max_ar+bleed" | "max_ar_plus_bleed_buildup" => {
             Ok(OptimizeObjective::MaxArPlusBleed)
         }
+        "aow_first_hit" | "max_aow_first_hit" => Ok(OptimizeObjective::AowFirstHit),
+        "aow_full_sequence" | "max_aow_full_sequence" | "aow_full" => {
+            Ok(OptimizeObjective::AowFullSequence)
+        }
         _ => Err(format!(
-            "invalid objective '{raw}', expected 'max_ar' or 'max_ar_plus_bleed'"
+            "invalid objective '{raw}', expected 'max_ar', 'max_ar_plus_bleed', 'aow_first_hit', or 'aow_full_sequence'"
         )),
     }
 }

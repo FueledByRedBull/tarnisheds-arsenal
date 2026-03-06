@@ -19,6 +19,7 @@ except ImportError as exc:  # pragma: no cover
 OPEN_OPTION = "<Open>"
 ALL_OPTION = "<All>"
 COMPARE_AOW_MATCH_SELECTED = "<Match Selected>"
+QT_PROGRESS_MAX = 2_147_483_647
 
 STARTING_CLASSES = [
     "Vagabond",
@@ -131,6 +132,7 @@ class PathWeaponConfig:
     affinity: str
     aow_name: str | None
     upgrade: int
+    start_state: CombatState
 
 
 @dataclass(frozen=True)
@@ -178,7 +180,7 @@ class PathChartWidget(QtWidgets.QWidget):
             painter.drawText(
                 self.rect().adjusted(18, 18, -18, -18),
                 QtCore.Qt.AlignmentFlag.AlignCenter,
-                "No valid AR path yet for the selected comparison.",
+                "No valid metric path yet for the selected comparison.",
             )
             return
 
@@ -291,7 +293,7 @@ class LevelPathDialog(QtWidgets.QDialog):
         layout.addWidget(heading)
 
         subtitle = QtWidgets.QLabel(
-            "Each lane first solves the exact best end-state at Current + N with your current combat stats treated as floors, then orders the required points to reach that target cleanly."
+            "Each lane starts from the current best solved build at this level, then solves the exact best end-state at Current + N and orders the required points into that target."
         )
         subtitle.setProperty("role", "sectionHint")
         subtitle.setWordWrap(True)
@@ -319,7 +321,7 @@ class LevelPathDialog(QtWidgets.QDialog):
         layout.addWidget(summary)
 
         table = QtWidgets.QTableWidget(len(preview.steps), 5)
-        table.setHorizontalHeaderLabels(["Level", "AR", "Gain", "Added", "Stats"])
+        table.setHorizontalHeaderLabels(["Level", "Metric", "Gain", "Added", "Stats"])
         table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
         table.horizontalHeader().setStretchLastSection(True)
         table.verticalHeader().setVisible(False)
@@ -355,7 +357,7 @@ class LevelPathDialog(QtWidgets.QDialog):
 
 
 class OptimizeWorker(QtCore.QObject):
-    progress = QtCore.pyqtSignal(int, int, int, int, float, int)
+    progress = QtCore.pyqtSignal(int, object, object, object, float, object)
     finished = QtCore.pyqtSignal(int, object)
     failed = QtCore.pyqtSignal(int, str)
 
@@ -422,6 +424,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.locked_ar_cache: dict[tuple[Any, ...], dict[int, float]] = {}
         self.path_eval_cache: dict[tuple[Any, ...], PathStep] = {}
         self.path_target_cache: dict[tuple[Any, ...], dict[str, Any] | None] = {}
+        self.scaling_cache: dict[tuple[str, str], tuple[float, float, float, float, float]] = {}
         self.result_cards: list[dict[str, Any]] = []
         self.active_compare_selected: dict[str, Any] | None = None
         self.active_compare_target: dict[str, Any] | None = None
@@ -621,7 +624,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.objective_combo = QtWidgets.QComboBox()
         self.objective_combo.addItem("Max AR", "max_ar")
-        self.objective_combo.addItem("Max AR + AoW Bleed", "max_ar_plus_bleed")
+        self.objective_combo.addItem("Max AR + Bleed", "max_ar_plus_bleed")
+        self.objective_combo.addItem("AoW First Hit (PvE)", "aow_first_hit")
+        self.objective_combo.addItem("AoW Full Sequence (PvE)", "aow_full_sequence")
         layout.addWidget(self._field_stack("Objective", self.objective_combo))
 
         toggle_grid = QtWidgets.QGridLayout()
@@ -782,7 +787,7 @@ class MainWindow(QtWidgets.QMainWindow):
             cards_layout.addWidget(card["frame"], 1)
         layout.addWidget(self.result_cards_container)
 
-        self.results_table = QtWidgets.QTableWidget(0, 14)
+        self.results_table = QtWidgets.QTableWidget(0, 17)
         self.results_table.setHorizontalHeaderLabels(
             [
                 "#",
@@ -790,6 +795,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 "Affinity",
                 "AoW",
                 "Upgrade",
+                "Scaling",
                 "STR",
                 "DEX",
                 "INT",
@@ -797,6 +803,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 "ARC",
                 "AR",
                 "Bleed",
+                "AoW 1st",
+                "AoW Full",
                 "Score",
                 "Lock",
             ]
@@ -895,7 +903,7 @@ class MainWindow(QtWidgets.QMainWindow):
         detail.setWordWrap(True)
         stats = QtWidgets.QLabel("STR --  DEX --  INT --  FAI --  ARC --")
         stats.setProperty("role", "cardStats")
-        metrics = QtWidgets.QLabel("Upgrade --   AR --   Bleed --   Score --")
+        metrics = QtWidgets.QLabel("AR --   Bleed --   1st --   Full --   Score --")
         metrics.setProperty("role", "cardMetric")
 
         chip_row = QtWidgets.QHBoxLayout()
@@ -947,7 +955,7 @@ class MainWindow(QtWidgets.QMainWindow):
         body.setProperty("role", "summaryBody")
         stats = QtWidgets.QLabel("STR --  DEX --  INT --  FAI --  ARC --")
         stats.setProperty("role", "summaryStats")
-        metrics = QtWidgets.QLabel("Best +--   AR --")
+        metrics = QtWidgets.QLabel("Best +--   AR --   Bleed --   1st --   Full --")
         metrics.setProperty("role", "summaryMetric")
         layout.addWidget(heading_label)
         layout.addWidget(title)
@@ -967,8 +975,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.search_button.clicked.connect(self._start_search)
         self.class_combo.currentIndexChanged.connect(self._on_class_changed)
         self.weapon_combo.currentIndexChanged.connect(self._refresh_affinity_options)
+        self.affinity_combo.currentIndexChanged.connect(self._refresh_aow_options)
         self.compare_weapon_type_combo.currentIndexChanged.connect(self._refresh_compare_weapon_options)
         self.compare_weapon_combo.currentIndexChanged.connect(self._refresh_compare_affinity_options)
+        self.compare_affinity_combo.currentIndexChanged.connect(self._refresh_compare_aow_options)
         self.results_table.itemSelectionChanged.connect(self._rebuild_upgrade_table)
         self.results_table.itemSelectionChanged.connect(self._refresh_result_cards)
         self.level_path_button.clicked.connect(self._open_level_path_dialog)
@@ -1015,6 +1025,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._set_combo_by_data(self.class_combo, "Samurai")
 
         self.all_weapon_names = self.data.weapon_names()
+        self.all_aow_names = self.data.aow_names()
         affinity_set: set[str] = set()
         for weapon_name in self.all_weapon_names:
             for affinity in self.data.affinities_for_weapon(weapon_name):
@@ -1032,15 +1043,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.compare_weapon_type_combo.addItem(ALL_OPTION, None)
         for key in self.data.weapon_type_keys():
             self.compare_weapon_type_combo.addItem(key, key)
-
-        self.aow_combo.addItem(OPEN_OPTION, None)
-        for name in self.data.aow_names():
-            self.aow_combo.addItem(name, name)
-
-        self.compare_aow_combo.addItem(COMPARE_AOW_MATCH_SELECTED, "__match_selected__")
-        self.compare_aow_combo.addItem(OPEN_OPTION, None)
-        for name in self.data.aow_names():
-            self.compare_aow_combo.addItem(name, name)
 
         self._refresh_compare_weapon_options()
         self._enable_searchable_dropdowns()
@@ -1073,7 +1075,33 @@ class MainWindow(QtWidgets.QMainWindow):
             self.affinity_combo.setCurrentIndex(0)
 
         self.affinity_combo.blockSignals(False)
+        self._refresh_aow_options()
         self._refresh_estimate()
+
+    def _compatible_aow_names(self, weapon_name: str | None, affinity: str | None) -> list[str]:
+        if weapon_name is None:
+            if affinity is None:
+                return self.all_aow_names
+            return self.data.compatible_aow_names_for_affinity(affinity)
+        return self.data.compatible_aow_names(weapon_name, affinity)
+
+    def _refresh_aow_options(self) -> None:
+        selected_weapon = self._combo_value(self.weapon_combo)
+        selected_affinity = self._combo_value(self.affinity_combo)
+        previous = self._combo_value(self.aow_combo)
+
+        self.aow_combo.blockSignals(True)
+        self.aow_combo.clear()
+        self.aow_combo.addItem(OPEN_OPTION, None)
+        for name in self._compatible_aow_names(selected_weapon, selected_affinity):
+            self.aow_combo.addItem(name, name)
+
+        if previous is not None:
+            idx = self.aow_combo.findData(previous)
+            self.aow_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        else:
+            self.aow_combo.setCurrentIndex(0)
+        self.aow_combo.blockSignals(False)
 
     def _refresh_compare_weapon_options(self) -> None:
         selected_type = self._combo_value(self.compare_weapon_type_combo)
@@ -1129,7 +1157,29 @@ class MainWindow(QtWidgets.QMainWindow):
             self.compare_affinity_combo.setCurrentIndex(0)
 
         self.compare_affinity_combo.blockSignals(False)
+        self._refresh_compare_aow_options()
         self._rebuild_upgrade_table()
+
+    def _refresh_compare_aow_options(self) -> None:
+        selected_weapon = self._combo_value(self.compare_weapon_combo)
+        selected_affinity = self._combo_value(self.compare_affinity_combo)
+        previous = self._combo_value(self.compare_aow_combo)
+
+        self.compare_aow_combo.blockSignals(True)
+        self.compare_aow_combo.clear()
+        self.compare_aow_combo.addItem(COMPARE_AOW_MATCH_SELECTED, "__match_selected__")
+        self.compare_aow_combo.addItem(OPEN_OPTION, None)
+        for name in self._compatible_aow_names(selected_weapon, selected_affinity):
+            self.compare_aow_combo.addItem(name, name)
+
+        if previous == "__match_selected__":
+            self.compare_aow_combo.setCurrentIndex(0)
+        elif previous is not None:
+            idx = self.compare_aow_combo.findData(previous)
+            self.compare_aow_combo.setCurrentIndex(idx if idx >= 0 else 1)
+        else:
+            self.compare_aow_combo.setCurrentIndex(1)
+        self.compare_aow_combo.blockSignals(False)
 
     def _on_class_changed(self) -> None:
         self._apply_class_baselines()
@@ -1456,8 +1506,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._clear_results_state()
         self.search_button.setEnabled(False)
         self.search_button.setText("Searching...")
-        self.progress_bar.setRange(0, max(total, 1))
-        self.progress_bar.setValue(0)
+        self._set_search_progress_bar(0, total)
         self.progress_label.setText(f"Searching 0 / {total:,}...")
         self._refresh_hero_summary()
 
@@ -1472,21 +1521,24 @@ class MainWindow(QtWidgets.QMainWindow):
         self.worker.failed.connect(self._teardown_worker)
         self.worker_thread.start()
 
-    @QtCore.pyqtSlot(int, int, int, int, float, int)
+    @QtCore.pyqtSlot(int, object, object, object, float, object)
     def _on_progress(
         self,
         run_id: int,
-        checked: int,
-        total: int,
-        eligible: int,
+        checked: object,
+        total: object,
+        eligible: object,
         best_score: float,
-        elapsed_ms: int,
+        elapsed_ms: object,
     ) -> None:
         if run_id != self.active_run_id:
             return
+        checked = int(checked)
+        total = int(total)
+        eligible = int(eligible)
+        elapsed_ms = int(elapsed_ms)
         if total > 0:
-            self.progress_bar.setRange(0, total)
-            self.progress_bar.setValue(min(checked, total))
+            self._set_search_progress_bar(checked, total)
         else:
             self.progress_bar.setRange(0, 0)
         self.progress_label.setText(
@@ -1545,13 +1597,16 @@ class MainWindow(QtWidgets.QMainWindow):
                 result.affinity,
                 result.aow_name or "-",
                 f"+{result.upgrade}",
+                self._scaling_summary(result.weapon_name, result.affinity, int(result.upgrade)),
                 str(result.str_stat),
                 str(result.dex),
                 str(result.int_stat),
                 str(result.fai),
                 str(result.arc),
                 f"{result.ar_total:.2f}",
-                f"{result.bleed_buildup_add:.2f}",
+                f"{result.bleed_buildup:.2f}",
+                f"{result.aow_first_hit_damage:.2f}",
+                f"{result.aow_full_sequence_damage:.2f}",
                 f"{result.score:.2f}",
             ]
             for col_idx, value in enumerate(values):
@@ -1560,7 +1615,7 @@ class MainWindow(QtWidgets.QMainWindow):
             lock_button = QtWidgets.QPushButton("Use As Locks")
             lock_button.setProperty("role", "inlineButton")
             lock_button.clicked.connect(lambda _checked=False, idx=row_idx: self._lock_from_result(idx))
-            self.results_table.setCellWidget(row_idx, 13, lock_button)
+            self.results_table.setCellWidget(row_idx, 16, lock_button)
 
         if self.current_results:
             self.results_table.selectRow(0)
@@ -1587,14 +1642,14 @@ class MainWindow(QtWidgets.QMainWindow):
             if card_idx < len(self.current_results):
                 result = self.current_results[card_idx]
                 card["title"].setText(f"{result.weapon_name} | {result.affinity}")
-                card["detail"].setText(f"AoW {result.aow_name or '-'} | Upgrade +{result.upgrade}")
+                card["detail"].setText(
+                    f"AoW {result.aow_name or '-'} | Upgrade +{result.upgrade} | {self._scaling_summary(result.weapon_name, result.affinity, int(result.upgrade))}"
+                )
                 card["stats"].setText(
                     f"STR {result.str_stat}  DEX {result.dex}  INT {result.int_stat}  "
                     f"FAI {result.fai}  ARC {result.arc}"
                 )
-                card["metrics"].setText(
-                    f"AR {result.ar_total:.2f}   Bleed {result.bleed_buildup_add:.2f}   Score {result.score:.2f}"
-                )
+                card["metrics"].setText(self._result_metrics_text(result))
                 card["focus"].setEnabled(True)
                 card["lock"].setEnabled(True)
                 if selected_idx == card_idx:
@@ -1607,7 +1662,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 card["title"].setText("No result yet")
                 card["detail"].setText("Run a search to surface ranked weapon lines.")
                 card["stats"].setText("STR --  DEX --  INT --  FAI --  ARC --")
-                card["metrics"].setText("Upgrade --   AR --   Bleed --   Score --")
+                card["metrics"].setText("AR --   Bleed --   1st --   Full --   Score --")
                 card["focus"].setEnabled(False)
                 card["lock"].setEnabled(False)
                 state = "empty"
@@ -1734,7 +1789,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.upgrade_table.setRowCount(len(rows_to_render))
         for row_idx, (label, row_data) in enumerate(rows_to_render):
             self.upgrade_table.setItem(row_idx, 0, QtWidgets.QTableWidgetItem(label))
-            ar_series = self._locked_ar_series_for_config(row_data, max_upgrade)
+            ar_series = self._locked_metric_series_for_config(row_data, max_upgrade)
             for lv in range(0, max_upgrade + 1):
                 col = lv + 1
                 ar = ar_series.get(lv)
@@ -1745,7 +1800,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.level_path_button.setEnabled(selected_best is not None and compare_summary_row is not None)
         self._refresh_compare_summary(selected_best, compare_summary_row, compare_weapon)
 
-    def _locked_ar_series_for_config(
+    def _locked_metric_series_for_config(
         self,
         row_data: Any,
         max_upgrade: int,
@@ -1809,9 +1864,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
         series: dict[int, float] = {}
         for row in rows:
-            series[int(row.upgrade)] = float(row.ar_total)
+            series[int(row.upgrade)] = self._result_series_value(row)
         self.locked_ar_cache[cache_key] = series
         return series
+
+    def _result_series_value(self, row: Any) -> float:
+        objective = self.objective_combo.currentData()
+        if objective == "aow_first_hit":
+            return float(row.aow_first_hit_damage)
+        if objective == "aow_full_sequence":
+            return float(row.aow_full_sequence_damage)
+        return float(row.ar_total)
 
     def _best_row_config(
         self,
@@ -1885,7 +1948,12 @@ class MainWindow(QtWidgets.QMainWindow):
             "best_upgrade": int(result.upgrade),
             "best_ar_total": float(result.ar_total),
             "score": float(result.score),
+            "bleed_buildup": float(result.bleed_buildup),
             "bleed_buildup_add": float(result.bleed_buildup_add),
+            "frost_buildup": float(result.frost_buildup),
+            "poison_buildup": float(result.poison_buildup),
+            "aow_first_hit_damage": float(result.aow_first_hit_damage),
+            "aow_full_sequence_damage": float(result.aow_full_sequence_damage),
         }
 
     def _format_best_stats(self, row_data: dict[str, Any]) -> str:
@@ -1893,8 +1961,56 @@ class MainWindow(QtWidgets.QMainWindow):
             f"Best +{row_data['best_upgrade']} "
             f"STR {row_data['str_stat']} DEX {row_data['dex']} "
             f"INT {row_data['int_stat']} FAI {row_data['fai']} ARC {row_data['arc']} "
-            f"AR {row_data['best_ar_total']:.2f}"
+            f"AR {row_data['best_ar_total']:.2f} BLEED {row_data['bleed_buildup']:.2f} "
+            f"1ST {row_data['aow_first_hit_damage']:.2f} FULL {row_data['aow_full_sequence_damage']:.2f}"
         )
+
+    def _result_metrics_text(self, result: Any) -> str:
+        return (
+            f"AR {float(result.ar_total):.2f}   "
+            f"Bleed {float(result.bleed_buildup):.2f}   "
+            f"1st {float(result.aow_first_hit_damage):.2f}   "
+            f"Full {float(result.aow_full_sequence_damage):.2f}   "
+            f"Score {float(result.score):.2f}"
+        )
+
+    def _weapon_scaling_values(
+        self,
+        weapon_name: str,
+        affinity: str,
+        upgrade: int,
+    ) -> tuple[float, float, float, float, float]:
+        cache_key = (weapon_name.casefold(), affinity.casefold(), int(upgrade))
+        cached = self.scaling_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        values = tuple(self.data.weapon_scaling_for_upgrade(weapon_name, affinity, int(upgrade)))
+        self.scaling_cache[cache_key] = values
+        return values
+
+    @staticmethod
+    def _scaling_letter(value: float) -> str:
+        if value <= 0.0:
+            return "-"
+        if value >= 1.75:
+            return "S"
+        if value >= 1.4:
+            return "A"
+        if value >= 0.9:
+            return "B"
+        if value >= 0.6:
+            return "C"
+        if value >= 0.25:
+            return "D"
+        return "E"
+
+    def _scaling_summary(self, weapon_name: str, affinity: str, upgrade: int) -> str:
+        values = self._weapon_scaling_values(weapon_name, affinity, upgrade)
+        labels = ("STR", "DEX", "INT", "FAI", "ARC")
+        parts = []
+        for label, value in zip(labels, values):
+            parts.append(f"{label} {self._scaling_letter(value)} {value:.2f}")
+        return " | ".join(parts)
 
     def _current_combat_state(self) -> CombatState:
         return CombatState(
@@ -1931,6 +2047,7 @@ class MainWindow(QtWidgets.QMainWindow):
             affinity=str(row_data["affinity"]),
             aow_name=row_data["aow_name"],
             upgrade=int(row_data["best_upgrade"]),
+            start_state=MainWindow._combat_state_from_row(row_data),
         )
 
     def _open_level_path_dialog(self) -> None:
@@ -1998,7 +2115,7 @@ class MainWindow(QtWidgets.QMainWindow):
         progress_offset: int,
     ) -> tuple[PathPreview | None, int]:
         steps: list[PathStep] = []
-        current_state = self._current_combat_state()
+        current_state = config.start_state
         processed = 0
 
         start_step = self._evaluate_path_step(config, self._derived_level(), current_state, None)
@@ -2099,7 +2216,7 @@ class MainWindow(QtWidgets.QMainWindow):
         config: PathWeaponConfig,
         levels_ahead: int,
     ) -> dict[str, Any] | None:
-        current_state = self._current_combat_state()
+        current_state = config.start_state
         floor_mins = self._path_floor_mins(current_state)
         target_level = self._derived_level() + levels_ahead
         cache_key = (
@@ -2257,7 +2374,7 @@ class MainWindow(QtWidgets.QMainWindow):
         except Exception:
             rows = []
         if rows:
-            ar = float(rows[0].ar_total)
+            ar = self._result_series_value(rows[0])
             score = float(rows[0].score)
 
         step = PathStep(
@@ -2339,7 +2456,7 @@ class MainWindow(QtWidgets.QMainWindow):
             panel["title"].setText("Waiting on a valid line")
             panel["body"].setText(fallback)
             panel["stats"].setText("STR --  DEX --  INT --  FAI --  ARC --")
-            panel["metrics"].setText("Best +--   AR --")
+            panel["metrics"].setText("Best +--   AR --   Bleed --   1st --   Full --")
             return
         panel["title"].setText(f"{row_data['weapon_name']} | {row_data['affinity']}")
         panel["body"].setText(f"AoW {row_data['aow_name'] or '-'}")
@@ -2348,7 +2465,9 @@ class MainWindow(QtWidgets.QMainWindow):
             f"FAI {row_data['fai']}  ARC {row_data['arc']}"
         )
         panel["metrics"].setText(
-            f"Best +{row_data['best_upgrade']}   AR {row_data['best_ar_total']:.2f}"
+            f"Best +{row_data['best_upgrade']}   AR {row_data['best_ar_total']:.2f}   "
+            f"Bleed {row_data['bleed_buildup']:.2f}   "
+            f"1st {row_data['aow_first_hit_damage']:.2f}   Full {row_data['aow_full_sequence_damage']:.2f}"
         )
 
     def _update_requirement_highlights(self) -> None:
@@ -2411,6 +2530,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.progress_bar.setValue(0)
         self.search_button.setText("Search the Arsenal")
         self._refresh_hero_summary()
+
+    def _set_search_progress_bar(self, checked: int, total: int) -> None:
+        safe_total = max(total, 1)
+        if safe_total <= QT_PROGRESS_MAX:
+            self.progress_bar.setRange(0, safe_total)
+            self.progress_bar.setValue(min(max(checked, 0), safe_total))
+            return
+
+        scaled = int(min(max(checked, 0), safe_total) * QT_PROGRESS_MAX / safe_total)
+        self.progress_bar.setRange(0, QT_PROGRESS_MAX)
+        self.progress_bar.setValue(min(max(scaled, 0), QT_PROGRESS_MAX))
 
     def _enable_searchable_dropdowns(self) -> None:
         combos = [

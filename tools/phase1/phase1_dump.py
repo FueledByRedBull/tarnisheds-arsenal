@@ -373,34 +373,14 @@ def expand_calc_correct_curve(curve: dict[str, str]) -> list[float]:
     return multipliers
 
 
-def derive_stat_curve_ids(weapon: dict[str, str], aec: dict[str, str]) -> dict[str, int]:
-    damage_values: list[tuple[str, int, float, int]] = []
-    for idx, (damage_name, _, base_key, curve_key) in enumerate(DAMAGE_INFOS):
-        damage_values.append(
-            (damage_name, idx, to_float(weapon, base_key), to_int(weapon, curve_key))
-        )
-
-    stat_curves: dict[str, int] = {}
-    for stat_key, aec_prefix in STAT_AEC_PREFIX.items():
-        candidates: list[tuple[int, float, int, int, int]] = []
-        for damage_name, idx, base_damage, curve_id in damage_values:
-            damage_suffix = DAMAGE_INFOS[idx][1]
-            flag_key = f"is{aec_prefix}Correct_by{damage_suffix}"
-            if to_int(aec, flag_key, 0) == 0:
-                continue
-            if base_damage <= 0:
-                continue
-            non_physical = 1 if damage_name != "physical" else 0
-            has_curve = 1 if curve_id > 0 else 0
-            candidates.append((has_curve, base_damage, non_physical, -idx, curve_id))
-
-        if candidates:
-            candidates.sort(reverse=True)
-            stat_curves[stat_key] = candidates[0][4]
-        else:
-            stat_curves[stat_key] = 0
-
-    return stat_curves
+def derive_damage_curve_ids(weapon: dict[str, str]) -> dict[str, int]:
+    return {
+        "physical": to_int(weapon, "correctType_Physics"),
+        "magic": to_int(weapon, "correctType_Magic"),
+        "fire": to_int(weapon, "correctType_Fire"),
+        "lightning": to_int(weapon, "correctType_Thunder"),
+        "holy": to_int(weapon, "correctType_Dark"),
+    }
 
 
 def build_reinforce_rows(
@@ -487,7 +467,7 @@ def build_weapon_rows(
 
         attack_element_correct_id = to_int(row, "attackElementCorrectId")
         aec = attack_map.get(attack_element_correct_id, {})
-        curve_ids = derive_stat_curve_ids(row, aec)
+        damage_curve_ids = derive_damage_curve_ids(row)
         is_somber = 1 if max_level_by_type.get(reinforce_type, 25) <= 10 else 0
         weapon_type_id = to_int(row, "wepType", 0)
         weapon_type_name = wep_type_name_map.get(weapon_type_id, "Unknown")
@@ -526,11 +506,11 @@ def build_weapon_rows(
                 "req_arc": to_int(row, "properLuck", 0),
                 "reinforce_type": reinforce_type,
                 "attack_element_correct_id": attack_element_correct_id,
-                "curve_id_str": curve_ids["str"],
-                "curve_id_dex": curve_ids["dex"],
-                "curve_id_int": curve_ids["int"],
-                "curve_id_fai": curve_ids["fai"],
-                "curve_id_arc": curve_ids["arc"],
+                "curve_id_physical": damage_curve_ids["physical"],
+                "curve_id_magic": damage_curve_ids["magic"],
+                "curve_id_fire": damage_curve_ids["fire"],
+                "curve_id_lightning": damage_curve_ids["lightning"],
+                "curve_id_holy": damage_curve_ids["holy"],
                 "is_somber": is_somber,
             }
         )
@@ -614,10 +594,9 @@ def build_aow_rows(
             poison += effect_poison
 
         valid_weapon_types: set[str] = set()
-        for row in rows:
-            for key, value in row.items():
-                if key.startswith("canMountWep_") and to_int(row, key, 0) != 0:
-                    valid_weapon_types.add(key.replace("canMountWep_", ""))
+        for key, value in canonical.items():
+            if key.startswith("canMountWep_") and to_int(canonical, key, 0) != 0:
+                valid_weapon_types.add(key.replace("canMountWep_", ""))
 
         rows_out.append(
             {
@@ -708,11 +687,11 @@ def main() -> int:
             "req_arc",
             "reinforce_type",
             "attack_element_correct_id",
-            "curve_id_str",
-            "curve_id_dex",
-            "curve_id_int",
-            "curve_id_fai",
-            "curve_id_arc",
+            "curve_id_physical",
+            "curve_id_magic",
+            "curve_id_fire",
+            "curve_id_lightning",
+            "curve_id_holy",
             "is_somber",
         ],
         weapon_csv_rows,

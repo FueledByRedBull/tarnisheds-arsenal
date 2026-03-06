@@ -1,0 +1,3273 @@
+weapon_id,name,affinity,effect_ids,bleed,frost,poison,sleep,madness,death
+33200000,Academy Glintstone Staff,Standard,,0,0,0,0,0,0
+3070000,Alabaster Lord's Sword,Standard,,0,0,0,0,0,0
+41010000,Albinauric Bow,Standard,1940,0,0,0,0,0,0
+31041100,Albinauric Shield,Blood,105000,57,0,0,0,0,0
+31040900,Albinauric Shield,Cold,107500,0,66,0,0,0,0
+31040400,Albinauric Shield,Fire,,0,0,0,0,0,0
+31040500,Albinauric Shield,Flame Art,,0,0,0,0,0,0
+31040100,Albinauric Shield,Heavy,,0,0,0,0,0,0
+31040200,Albinauric Shield,Keen,,0,0,0,0,0,0
+31040600,Albinauric Shield,Lightning,,0,0,0,0,0,0
+31040800,Albinauric Shield,Magic,,0,0,0,0,0,0
+31041200,Albinauric Shield,Occult,,0,0,0,0,0,0
+31041000,Albinauric Shield,Poison,106000,0,0,66,0,0,0
+31040300,Albinauric Shield,Quality,,0,0,0,0,0,0
+31040700,Albinauric Shield,Sacred,,0,0,0,0,0,0
+31040000,Albinauric Shield,Standard,,0,0,0,0,0,0
+33190000,Albinauric Staff,Standard,,0,0,0,0,0,0
+4500000,Ancient Meteoric Ore Greatsword,Standard,,0,0,0,0,0,0
+41510000,Ansbach's Longbow,Standard,1940,0,0,0,0,0,0
+32220000,Ant's Skull Plate,Standard,6505|5322200,0,0,90,0,0,0
+5041100,Antspur Rapier,Blood,105000|6600,57,0,50,0,0,0
+5040900,Antspur Rapier,Cold,6600|107500,0,66,50,0,0,0
+5040400,Antspur Rapier,Fire,6601,0,0,55,0,0,0
+5040500,Antspur Rapier,Flame Art,6601,0,0,55,0,0,0
+5040100,Antspur Rapier,Heavy,6601,0,0,55,0,0,0
+5040200,Antspur Rapier,Keen,6601,0,0,55,0,0,0
+5040600,Antspur Rapier,Lightning,6601,0,0,55,0,0,0
+5040800,Antspur Rapier,Magic,6601,0,0,55,0,0,0
+5041200,Antspur Rapier,Occult,6600,0,0,50,0,0,0
+5041000,Antspur Rapier,Poison,6600|106000,0,0,116,0,0,0
+5040300,Antspur Rapier,Quality,6601,0,0,55,0,0,0
+5040700,Antspur Rapier,Sacred,6601,0,0,55,0,0,0
+5040000,Antspur Rapier,Standard,6601,0,0,55,0,0,0
+12510000,Anvil Hammer,Standard,,0,0,0,0,0,0
+43080000,Arbalest,Standard,,0,0,0,0,0,0
+33130000,Astrologer's Staff,Standard,,0,0,0,0,0,0
+23050000,Axe of Godfrey,Standard,,0,0,0,0,0,0
+15040000,Axe of Godrick,Standard,,0,0,0,0,0,0
+33230000,Azur's Glintstone Staff,Standard,1933,0,0,0,0,0,0
+64501100,Backhand Blade,Blood,105000,57,0,0,0,0,0
+64500900,Backhand Blade,Cold,107500,0,66,0,0,0,0
+64500400,Backhand Blade,Fire,,0,0,0,0,0,0
+64500500,Backhand Blade,Flame Art,,0,0,0,0,0,0
+64500100,Backhand Blade,Heavy,,0,0,0,0,0,0
+64500200,Backhand Blade,Keen,,0,0,0,0,0,0
+64500600,Backhand Blade,Lightning,,0,0,0,0,0,0
+64500800,Backhand Blade,Magic,,0,0,0,0,0,0
+64501200,Backhand Blade,Occult,,0,0,0,0,0,0
+64501000,Backhand Blade,Poison,106000,0,0,66,0,0,0
+64500300,Backhand Blade,Quality,,0,0,0,0,0,0
+64500700,Backhand Blade,Sacred,,0,0,0,0,0,0
+64500000,Backhand Blade,Standard,,0,0,0,0,0,0
+7041100,Bandit's Blood Curved Sword,Blood,105000,57,0,0,0,0,0
+7040900,Bandit's Cold Curved Sword,Cold,107500,0,66,0,0,0,0
+7040000,Bandit's Curved Sword,Standard,,0,0,0,0,0,0
+7040400,Bandit's Fire Curved Sword,Fire,,0,0,0,0,0,0
+7040500,Bandit's Flame Art Curved Sword,Flame Art,,0,0,0,0,0,0
+7040100,Bandit's Heavy Curved Sword,Heavy,,0,0,0,0,0,0
+7040200,Bandit's Keen Curved Sword,Keen,,0,0,0,0,0,0
+7040600,Bandit's Lightning Curved Sword,Lightning,,0,0,0,0,0,0
+7040800,Bandit's Magic Curved Sword,Magic,,0,0,0,0,0,0
+7041200,Bandit's Occult Curved Sword,Occult,,0,0,0,0,0,0
+7041000,Bandit's Poison Curved Sword,Poison,106000,0,0,66,0,0,0
+7040300,Bandit's Quality Curved Sword,Quality,,0,0,0,0,0,0
+7040700,Bandit's Sacred Curved Sword,Sacred,,0,0,0,0,0,0
+3081100,Banished Knight's Blood Greatsword,Blood,105100,69,0,0,0,0,0
+18031100,Banished Knight's Blood Halberd,Blood,105100,69,0,0,0,0,0
+31031100,Banished Knight's Blood Shield,Blood,105000,57,0,0,0,0,0
+3080900,Banished Knight's Cold Greatsword,Cold,107600,0,80,0,0,0,0
+18030900,Banished Knight's Cold Halberd,Cold,107600,0,80,0,0,0,0
+31030900,Banished Knight's Cold Shield,Cold,107500,0,66,0,0,0,0
+3080400,Banished Knight's Fire Greatsword,Fire,,0,0,0,0,0,0
+18030400,Banished Knight's Fire Halberd,Fire,,0,0,0,0,0,0
+31030400,Banished Knight's Fire Shield,Fire,,0,0,0,0,0,0
+3080500,Banished Knight's Flame Art Greatsword,Flame Art,,0,0,0,0,0,0
+18030500,Banished Knight's Flame Art Halberd,Flame Art,,0,0,0,0,0,0
+31030500,Banished Knight's Flame Art Shield,Flame Art,,0,0,0,0,0,0
+3080000,Banished Knight's Greatsword,Standard,,0,0,0,0,0,0
+18030000,Banished Knight's Halberd,Standard,,0,0,0,0,0,0
+3080100,Banished Knight's Heavy Greatsword,Heavy,,0,0,0,0,0,0
+18030100,Banished Knight's Heavy Halberd,Heavy,,0,0,0,0,0,0
+31030100,Banished Knight's Heavy Shield,Heavy,,0,0,0,0,0,0
+3080200,Banished Knight's Keen Greatsword,Keen,,0,0,0,0,0,0
+18030200,Banished Knight's Keen Halberd,Keen,,0,0,0,0,0,0
+31030200,Banished Knight's Keen Shield,Keen,,0,0,0,0,0,0
+3080600,Banished Knight's Lightning Greatsword,Lightning,,0,0,0,0,0,0
+18030600,Banished Knight's Lightning Halberd,Lightning,,0,0,0,0,0,0
+31030600,Banished Knight's Lightning Shield,Lightning,,0,0,0,0,0,0
+3080800,Banished Knight's Magic Greatsword,Magic,,0,0,0,0,0,0
+18030800,Banished Knight's Magic Halberd,Magic,,0,0,0,0,0,0
+31030800,Banished Knight's Magic Shield,Magic,,0,0,0,0,0,0
+3081200,Banished Knight's Occult Greatsword,Occult,,0,0,0,0,0,0
+18031200,Banished Knight's Occult Halberd,Occult,,0,0,0,0,0,0
+31031200,Banished Knight's Occult Shield,Occult,,0,0,0,0,0,0
+3081000,Banished Knight's Poison Greatsword,Poison,106100,0,0,80,0,0,0
+18031000,Banished Knight's Poison Halberd,Poison,106100,0,0,80,0,0,0
+31031000,Banished Knight's Poison Shield,Poison,106000,0,0,66,0,0,0
+3080300,Banished Knight's Quality Greatsword,Quality,,0,0,0,0,0,0
+18030300,Banished Knight's Quality Halberd,Quality,,0,0,0,0,0,0
+31030300,Banished Knight's Quality Shield,Quality,,0,0,0,0,0,0
+3080700,Banished Knight's Sacred Greatsword,Sacred,,0,0,0,0,0,0
+18030700,Banished Knight's Sacred Halberd,Sacred,,0,0,0,0,0,0
+31030700,Banished Knight's Sacred Shield,Sacred,,0,0,0,0,0,0
+31030000,Banished Knight's Shield,Standard,,0,0,0,0,0,0
+17520000,Barbed Staff-Spear,Standard,6402,55,0,0,0,0,0
+3000900,Bastard Sword,Cold,107600,0,80,0,0,0,0
+3000400,Bastard Sword,Fire,,0,0,0,0,0,0
+3000500,Bastard Sword,Flame Art,,0,0,0,0,0,0
+3000100,Bastard Sword,Heavy,,0,0,0,0,0,0
+3000200,Bastard Sword,Keen,,0,0,0,0,0,0
+3000600,Bastard Sword,Lightning,,0,0,0,0,0,0
+3000800,Bastard Sword,Magic,,0,0,0,0,0,0
+3001200,Bastard Sword,Occult,,0,0,0,0,0,0
+3001000,Bastard Sword,Poison,106100,0,0,80,0,0,0
+3000300,Bastard Sword,Quality,,0,0,0,0,0,0
+3000700,Bastard Sword,Sacred,,0,0,0,0,0,0
+3000000,Bastard Sword,Standard,,0,0,0,0,0,0
+13030000,Bastard's Stars,Standard,,0,0,0,0,0,0
+14001100,Battle Axe,Blood,105000,57,0,0,0,0,0
+14000900,Battle Axe,Cold,107500,0,66,0,0,0,0
+14000400,Battle Axe,Fire,,0,0,0,0,0,0
+14000500,Battle Axe,Flame Art,,0,0,0,0,0,0
+14000100,Battle Axe,Heavy,,0,0,0,0,0,0
+14000200,Battle Axe,Keen,,0,0,0,0,0,0
+14000600,Battle Axe,Lightning,,0,0,0,0,0,0
+14000800,Battle Axe,Magic,,0,0,0,0,0,0
+14001200,Battle Axe,Occult,,0,0,0,0,0,0
+14001000,Battle Axe,Poison,106000,0,0,66,0,0,0
+14000300,Battle Axe,Quality,,0,0,0,0,0,0
+14000700,Battle Axe,Sacred,,0,0,0,0,0,0
+14000000,Battle Axe,Standard,,0,0,0,0,0,0
+12021100,Battle Hammer,Blood,105100,69,0,0,0,0,0
+12020900,Battle Hammer,Cold,107600,0,80,0,0,0,0
+12020400,Battle Hammer,Fire,,0,0,0,0,0,0
+12020500,Battle Hammer,Flame Art,,0,0,0,0,0,0
+12020100,Battle Hammer,Heavy,,0,0,0,0,0,0
+12020200,Battle Hammer,Keen,,0,0,0,0,0,0
+12020600,Battle Hammer,Lightning,,0,0,0,0,0,0
+12020800,Battle Hammer,Magic,,0,0,0,0,0,0
+12021200,Battle Hammer,Occult,,0,0,0,0,0,0
+12021000,Battle Hammer,Poison,106100,0,0,80,0,0,0
+12020300,Battle Hammer,Quality,,0,0,0,0,0,0
+12020700,Battle Hammer,Sacred,,0,0,0,0,0,0
+12020000,Battle Hammer,Standard,,0,0,0,0,0,0
+68501100,Beast Claw,Blood,105050|20001900,57,0,0,0,0,0
+68500900,Beast Claw,Cold,6406|107500|20001900,38,66,0,0,0,0
+68500400,Beast Claw,Fire,6400|20001900,45,0,0,0,0,0
+68500500,Beast Claw,Flame Art,6400|20001900,45,0,0,0,0,0
+68500100,Beast Claw,Heavy,6400|20001900,45,0,0,0,0,0
+68500200,Beast Claw,Keen,6400|20001900,45,0,0,0,0,0
+68500600,Beast Claw,Lightning,6400|20001900,45,0,0,0,0,0
+68500800,Beast Claw,Magic,6400|20001900,45,0,0,0,0,0
+68501200,Beast Claw,Occult,6406|20001900,38,0,0,0,0,0
+68501000,Beast Claw,Poison,6406|106000|20001900,38,0,66,0,0,0
+68500300,Beast Claw,Quality,6400|20001900,45,0,0,0,0,0
+68500700,Beast Claw,Sacred,6400|20001900,45,0,0,0,0,0
+68500000,Beast Claw,Standard,6400|20001900,45,0,0,0,0,0
+31281100,Beast Crest Heater Shield,Blood,105000,57,0,0,0,0,0
+31280900,Beast Crest Heater Shield,Cold,107500,0,66,0,0,0,0
+31280400,Beast Crest Heater Shield,Fire,,0,0,0,0,0,0
+31280500,Beast Crest Heater Shield,Flame Art,,0,0,0,0,0,0
+31280100,Beast Crest Heater Shield,Heavy,,0,0,0,0,0,0
+31280200,Beast Crest Heater Shield,Keen,,0,0,0,0,0,0
+31280600,Beast Crest Heater Shield,Lightning,,0,0,0,0,0,0
+31280800,Beast Crest Heater Shield,Magic,,0,0,0,0,0,0
+31281200,Beast Crest Heater Shield,Occult,,0,0,0,0,0,0
+31281000,Beast Crest Heater Shield,Poison,106000,0,0,66,0,0,0
+31280300,Beast Crest Heater Shield,Quality,,0,0,0,0,0,0
+31280700,Beast Crest Heater Shield,Sacred,,0,0,0,0,0,0
+31280000,Beast Crest Heater Shield,Standard,,0,0,0,0,0,0
+24060000,Beast-Repellent Torch,Standard,415|460,0,0,0,0,0,0
+12150000,Beastclaw Greathammer,Standard,,0,0,0,0,0,0
+8081100,Beastman's Blood Cleaver,Blood,105100,69,0,0,0,0,0
+7011100,Beastman's Blood Curved Sword,Blood,105000,57,0,0,0,0,0
+30061100,Beastman's Blood Jar-Shield,Blood,105000,57,0,0,0,0,0
+8080000,Beastman's Cleaver,Standard,,0,0,0,0,0,0
+8080900,Beastman's Cold Cleaver,Cold,107600,0,80,0,0,0,0
+7010900,Beastman's Cold Curved Sword,Cold,107500,0,66,0,0,0,0
+30060900,Beastman's Cold Jar-Shield,Cold,107500,0,66,0,0,0,0
+7010000,Beastman's Curved Sword,Standard,,0,0,0,0,0,0
+8080400,Beastman's Fire Cleaver,Fire,,0,0,0,0,0,0
+7010400,Beastman's Fire Curved Sword,Fire,,0,0,0,0,0,0
+30060400,Beastman's Fire Jar-Shield,Fire,,0,0,0,0,0,0
+8080500,Beastman's Flame Art Cleaver,Flame Art,,0,0,0,0,0,0
+7010500,Beastman's Flame Art Curved Sword,Flame Art,,0,0,0,0,0,0
+30060500,Beastman's Flame Art Jar-Shield,Flame Art,,0,0,0,0,0,0
+8080100,Beastman's Heavy Cleaver,Heavy,,0,0,0,0,0,0
+7010100,Beastman's Heavy Curved Sword,Heavy,,0,0,0,0,0,0
+30060100,Beastman's Heavy Jar-Shield,Heavy,,0,0,0,0,0,0
+30060000,Beastman's Jar-Shield,Standard,,0,0,0,0,0,0
+8080200,Beastman's Keen Cleaver,Keen,,0,0,0,0,0,0
+7010200,Beastman's Keen Curved Sword,Keen,,0,0,0,0,0,0
+30060200,Beastman's Keen Jar-Shield,Keen,,0,0,0,0,0,0
+8080600,Beastman's Lightning Cleaver,Lightning,,0,0,0,0,0,0
+7010600,Beastman's Lightning Curved Sword,Lightning,,0,0,0,0,0,0
+30060600,Beastman's Lightning Jar-Shield,Lightning,,0,0,0,0,0,0
+8080800,Beastman's Magic Cleaver,Magic,,0,0,0,0,0,0
+7010800,Beastman's Magic Curved Sword,Magic,,0,0,0,0,0,0
+30060800,Beastman's Magic Jar-Shield,Magic,,0,0,0,0,0,0
+8081200,Beastman's Occult Cleaver,Occult,,0,0,0,0,0,0
+7011200,Beastman's Occult Curved Sword,Occult,,0,0,0,0,0,0
+30061200,Beastman's Occult Jar-Shield,Occult,,0,0,0,0,0,0
+8081000,Beastman's Poison Cleaver,Poison,106100,0,0,80,0,0,0
+7011000,Beastman's Poison Curved Sword,Poison,106000,0,0,66,0,0,0
+30061000,Beastman's Poison Jar-Shield,Poison,106000,0,0,66,0,0,0
+8080300,Beastman's Quality Cleaver,Quality,,0,0,0,0,0,0
+7010300,Beastman's Quality Curved Sword,Quality,,0,0,0,0,0,0
+30060300,Beastman's Quality Jar-Shield,Quality,,0,0,0,0,0,0
+8080700,Beastman's Sacred Cleaver,Sacred,,0,0,0,0,0,0
+7010700,Beastman's Sacred Curved Sword,Sacred,,0,0,0,0,0,0
+30060700,Beastman's Sacred Jar-Shield,Sacred,,0,0,0,0,0,0
+41070000,Black Bow,Standard,1940,0,0,0,0,0,0
+1010000,Black Knife,Standard,,0,0,0,0,0,0
+31341100,Black Leather Shield,Blood,105000,57,0,0,0,0,0
+31340900,Black Leather Shield,Cold,107500,0,66,0,0,0,0
+31340400,Black Leather Shield,Fire,,0,0,0,0,0,0
+31340500,Black Leather Shield,Flame Art,,0,0,0,0,0,0
+31340100,Black Leather Shield,Heavy,,0,0,0,0,0,0
+31340200,Black Leather Shield,Keen,,0,0,0,0,0,0
+31340600,Black Leather Shield,Lightning,,0,0,0,0,0,0
+31340800,Black Leather Shield,Magic,,0,0,0,0,0,0
+31341200,Black Leather Shield,Occult,,0,0,0,0,0,0
+31341000,Black Leather Shield,Poison,106000,0,0,66,0,0,0
+31340300,Black Leather Shield,Quality,,0,0,0,0,0,0
+31340700,Black Leather Shield,Sacred,,0,0,0,0,0,0
+31340000,Black Leather Shield,Standard,,0,0,0,0,0,0
+12521100,Black Steel Greathammer,Blood,105100,69,0,0,0,0,0
+12520900,Black Steel Greathammer,Cold,107600,0,80,0,0,0,0
+12520400,Black Steel Greathammer,Fire,,0,0,0,0,0,0
+12520500,Black Steel Greathammer,Flame Art,,0,0,0,0,0,0
+12520100,Black Steel Greathammer,Heavy,,0,0,0,0,0,0
+12520200,Black Steel Greathammer,Keen,,0,0,0,0,0,0
+12520600,Black Steel Greathammer,Lightning,,0,0,0,0,0,0
+12520800,Black Steel Greathammer,Magic,,0,0,0,0,0,0
+12521200,Black Steel Greathammer,Occult,,0,0,0,0,0,0
+12521000,Black Steel Greathammer,Poison,106100,0,0,80,0,0,0
+12520300,Black Steel Greathammer,Quality,,0,0,0,0,0,0
+12520700,Black Steel Greathammer,Sacred,,0,0,0,0,0,0
+12520000,Black Steel Greathammer,Standard,,0,0,0,0,0,0
+32501100,Black Steel Greatshield,Blood,105200,83,0,0,0,0,0
+32500900,Black Steel Greatshield,Cold,107700,0,96,0,0,0,0
+32500400,Black Steel Greatshield,Fire,,0,0,0,0,0,0
+32500500,Black Steel Greatshield,Flame Art,,0,0,0,0,0,0
+32500100,Black Steel Greatshield,Heavy,,0,0,0,0,0,0
+32500200,Black Steel Greatshield,Keen,,0,0,0,0,0,0
+32500600,Black Steel Greatshield,Lightning,,0,0,0,0,0,0
+32500800,Black Steel Greatshield,Magic,,0,0,0,0,0,0
+32501200,Black Steel Greatshield,Occult,,0,0,0,0,0,0
+32501000,Black Steel Greatshield,Poison,106200,0,0,96,0,0,0
+32500300,Black Steel Greatshield,Quality,,0,0,0,0,0,0
+32500700,Black Steel Greatshield,Sacred,,0,0,0,0,0,0
+32500000,Black Steel Greatshield,Standard,,0,0,0,0,0,0
+10511100,Black Steel Twinblade,Blood,105100,69,0,0,0,0,0
+10510900,Black Steel Twinblade,Cold,107600,0,80,0,0,0,0
+10510400,Black Steel Twinblade,Fire,,0,0,0,0,0,0
+10510500,Black Steel Twinblade,Flame Art,,0,0,0,0,0,0
+10510100,Black Steel Twinblade,Heavy,,0,0,0,0,0,0
+10510200,Black Steel Twinblade,Keen,,0,0,0,0,0,0
+10510600,Black Steel Twinblade,Lightning,,0,0,0,0,0,0
+10510800,Black Steel Twinblade,Magic,,0,0,0,0,0,0
+10511200,Black Steel Twinblade,Occult,,0,0,0,0,0,0
+10511000,Black Steel Twinblade,Poison,106100,0,0,80,0,0,0
+10510300,Black Steel Twinblade,Quality,,0,0,0,0,0,0
+10510700,Black Steel Twinblade,Sacred,,0,0,0,0,0,0
+10510000,Black Steel Twinblade,Standard,,0,0,0,0,0,0
+1160000,Blade of Calling,Standard,,0,0,0,0,0,0
+3140000,Blasphemous Blade,Standard,5031400,0,0,0,0,0,0
+12530000,Bloodfiend's Arm,Standard,,0,0,0,0,0,0
+12531100,Bloodfiend's Blood Arm,Blood,105200,83,0,0,0,0,0
+16541100,Bloodfiend's Blood Fork,Blood,105050,57,0,0,0,0,0
+12530900,Bloodfiend's Cold Arm,Cold,107700,0,96,0,0,0,0
+16540900,Bloodfiend's Cold Fork,Cold,6400|107500,45,66,0,0,0,0
+12530400,Bloodfiend's Fire Arm,Fire,,0,0,0,0,0,0
+16540400,Bloodfiend's Fire Fork,Fire,6401,50,0,0,0,0,0
+12530500,Bloodfiend's Flame Art Arm,Flame Art,,0,0,0,0,0,0
+16540500,Bloodfiend's Flame Art Fork,Flame Art,6401,50,0,0,0,0,0
+16540000,Bloodfiend's Fork,Standard,6401,50,0,0,0,0,0
+12530100,Bloodfiend's Heavy Arm,Heavy,,0,0,0,0,0,0
+16540100,Bloodfiend's Heavy Fork,Heavy,6401,50,0,0,0,0,0
+12530200,Bloodfiend's Keen Arm,Keen,,0,0,0,0,0,0
+16540200,Bloodfiend's Keen Fork,Keen,6401,50,0,0,0,0,0
+12530600,Bloodfiend's Lightning Arm,Lightning,,0,0,0,0,0,0
+16540600,Bloodfiend's Lightning Fork,Lightning,6401,50,0,0,0,0,0
+12530800,Bloodfiend's Magic Arm,Magic,,0,0,0,0,0,0
+16540800,Bloodfiend's Magic Fork,Magic,6401,50,0,0,0,0,0
+12531200,Bloodfiend's Occult Arm,Occult,,0,0,0,0,0,0
+16541200,Bloodfiend's Occult Fork,Occult,6400,45,0,0,0,0,0
+12531000,Bloodfiend's Poison Arm,Poison,106200,0,0,96,0,0,0
+16541000,Bloodfiend's Poison Fork,Poison,6400|106000,45,0,66,0,0,0
+12530300,Bloodfiend's Quality Arm,Quality,,0,0,0,0,0,0
+16540300,Bloodfiend's Quality Fork,Quality,6401,50,0,0,0,0,0
+12530700,Bloodfiend's Sacred Arm,Sacred,,0,0,0,0,0,0
+16540700,Bloodfiend's Sacred Fork,Sacred,6401,50,0,0,0,0,0
+16550000,Bloodfiend's Sacred Spear,Standard,6402,55,0,0,0,0,0
+22021100,Bloodhound Claws,Blood,105050,57,0,0,0,0,0
+22020900,Bloodhound Claws,Cold,6400|107500,45,66,0,0,0,0
+22020400,Bloodhound Claws,Fire,6403,60,0,0,0,0,0
+22020500,Bloodhound Claws,Flame Art,6403,60,0,0,0,0,0
+22020100,Bloodhound Claws,Heavy,6403,60,0,0,0,0,0
+22020200,Bloodhound Claws,Keen,6403,60,0,0,0,0,0
+22020600,Bloodhound Claws,Lightning,6403,60,0,0,0,0,0
+22020800,Bloodhound Claws,Magic,6403,60,0,0,0,0,0
+22021200,Bloodhound Claws,Occult,6400,45,0,0,0,0,0
+22021000,Bloodhound Claws,Poison,6400|106000,45,0,66,0,0,0
+22020300,Bloodhound Claws,Quality,6403,60,0,0,0,0,0
+22020700,Bloodhound Claws,Sacred,6403,60,0,0,0,0,0
+22020000,Bloodhound Claws,Standard,6403,60,0,0,0,0,0
+8030000,Bloodhound's Fang,Standard,6402,55,0,0,0,0,0
+1141100,Bloodstained Dagger,Blood,105050,57,0,0,0,0,0
+1140900,Bloodstained Dagger,Cold,6406|107500,38,66,0,0,0,0
+1140400,Bloodstained Dagger,Fire,6406,38,0,0,0,0,0
+1140500,Bloodstained Dagger,Flame Art,6406,38,0,0,0,0,0
+1140100,Bloodstained Dagger,Heavy,6406,38,0,0,0,0,0
+1140200,Bloodstained Dagger,Keen,6406,38,0,0,0,0,0
+1140600,Bloodstained Dagger,Lightning,6406,38,0,0,0,0,0
+1140800,Bloodstained Dagger,Magic,6406,38,0,0,0,0,0
+1141200,Bloodstained Dagger,Occult,6406,38,0,0,0,0,0
+1141000,Bloodstained Dagger,Poison,6406|106000,38,0,66,0,0,0
+1140300,Bloodstained Dagger,Quality,6406,38,0,0,0,0,0
+1140700,Bloodstained Dagger,Sacred,6406,38,0,0,0,0,0
+1140000,Bloodstained Dagger,Standard,6406,38,0,0,0,0,0
+3001100,Bloody Bastard Sword,Blood,105100,69,0,0,0,0,0
+30001100,Bloody Buckler,Blood,105000,57,0,0,0,0,0
+11011100,Bloody Club,Blood,105000,57,0,0,0,0,0
+6000000,Bloody Helice,Standard,6402,55,0,0,0,0,0
+14101100,Bloody Highland Axe,Blood,105000|5141000,57,0,0,0,0,0
+30121100,Bloody Iron Roundshield,Blood,105000,57,0,0,0,0,0
+17061100,Bloody Lance,Blood,105100,69,0,0,0,0,0
+31231100,Bloody Large Leather Shield,Blood,105000,57,0,0,0,0,0
+2001100,Bloody Longsword,Blood,105000,57,0,0,0,0,0
+30071100,Bloody Red Thorn Roundshield,Blood,105000,57,0,0,0,0,0
+30031100,Bloody Rickety Shield,Blood,105000,57,0,0,0,0,0
+7141100,Bloody Scimitar,Blood,105000,57,0,0,0,0,0
+16011100,Bloody Spear,Blood,105000,57,0,0,0,0,0
+10001100,Bloody Twinblade,Blood,105100,69,0,0,0,0,0
+31301100,Blue Crest Heater Shield,Blood,105000,57,0,0,0,0,0
+31300900,Blue Crest Heater Shield,Cold,107500,0,66,0,0,0,0
+31300400,Blue Crest Heater Shield,Fire,,0,0,0,0,0,0
+31300500,Blue Crest Heater Shield,Flame Art,,0,0,0,0,0,0
+31300100,Blue Crest Heater Shield,Heavy,,0,0,0,0,0,0
+31300200,Blue Crest Heater Shield,Keen,,0,0,0,0,0,0
+31300600,Blue Crest Heater Shield,Lightning,,0,0,0,0,0,0
+31300800,Blue Crest Heater Shield,Magic,,0,0,0,0,0,0
+31301200,Blue Crest Heater Shield,Occult,,0,0,0,0,0,0
+31301000,Blue Crest Heater Shield,Poison,106000,0,0,66,0,0,0
+31300300,Blue Crest Heater Shield,Quality,,0,0,0,0,0,0
+31300700,Blue Crest Heater Shield,Sacred,,0,0,0,0,0,0
+31300000,Blue Crest Heater Shield,Standard,,0,0,0,0,0,0
+31101100,Blue-Gold Kite Shield,Blood,105000,57,0,0,0,0,0
+31100900,Blue-Gold Kite Shield,Cold,107500,0,66,0,0,0,0
+31100400,Blue-Gold Kite Shield,Fire,,0,0,0,0,0,0
+31100500,Blue-Gold Kite Shield,Flame Art,,0,0,0,0,0,0
+31100100,Blue-Gold Kite Shield,Heavy,,0,0,0,0,0,0
+31100200,Blue-Gold Kite Shield,Keen,,0,0,0,0,0,0
+31100600,Blue-Gold Kite Shield,Lightning,,0,0,0,0,0,0
+31100800,Blue-Gold Kite Shield,Magic,,0,0,0,0,0,0
+31101200,Blue-Gold Kite Shield,Occult,,0,0,0,0,0,0
+31101000,Blue-Gold Kite Shield,Poison,106000,0,0,66,0,0,0
+31100300,Blue-Gold Kite Shield,Quality,,0,0,0,0,0,0
+31100700,Blue-Gold Kite Shield,Sacred,,0,0,0,0,0,0
+31100000,Blue-Gold Kite Shield,Standard,,0,0,0,0,0,0
+30101100,Blue-White Wooden Shield,Blood,105000,57,0,0,0,0,0
+30100900,Blue-White Wooden Shield,Cold,107500,0,66,0,0,0,0
+30100400,Blue-White Wooden Shield,Fire,,0,0,0,0,0,0
+30100500,Blue-White Wooden Shield,Flame Art,,0,0,0,0,0,0
+30100100,Blue-White Wooden Shield,Heavy,,0,0,0,0,0,0
+30100200,Blue-White Wooden Shield,Keen,,0,0,0,0,0,0
+30100600,Blue-White Wooden Shield,Lightning,,0,0,0,0,0,0
+30100800,Blue-White Wooden Shield,Magic,,0,0,0,0,0,0
+30101200,Blue-White Wooden Shield,Occult,,0,0,0,0,0,0
+30101000,Blue-White Wooden Shield,Poison,106000,0,0,66,0,0,0
+30100300,Blue-White Wooden Shield,Quality,,0,0,0,0,0,0
+30100700,Blue-White Wooden Shield,Sacred,,0,0,0,0,0,0
+30100000,Blue-White Wooden Shield,Standard,,0,0,0,0,0,0
+16090000,Bolt of Gransax,Standard,,0,0,0,0,0,0
+40500000,Bone Bow,Standard,1940,0,0,0,0,0,0
+15510000,Bonny Butchering Knife,Standard,5151200|5151201,0,0,0,0,0,0
+31131100,Brass Shield,Blood,105000,57,0,0,0,0,0
+31130900,Brass Shield,Cold,107500,0,66,0,0,0,0
+31130400,Brass Shield,Fire,,0,0,0,0,0,0
+31130500,Brass Shield,Flame Art,,0,0,0,0,0,0
+31130100,Brass Shield,Heavy,,0,0,0,0,0,0
+31130200,Brass Shield,Keen,,0,0,0,0,0,0
+31130600,Brass Shield,Lightning,,0,0,0,0,0,0
+31130800,Brass Shield,Magic,,0,0,0,0,0,0
+31131200,Brass Shield,Occult,,0,0,0,0,0,0
+31131000,Brass Shield,Poison,106000,0,0,66,0,0,0
+31130300,Brass Shield,Quality,,0,0,0,0,0,0
+31130700,Brass Shield,Sacred,,0,0,0,0,0,0
+31130000,Brass Shield,Standard,,0,0,0,0,0,0
+32051100,Briar Greatshield,Blood,105250,83,0,0,0,0,0
+32050900,Briar Greatshield,Cold,6404|107700,65,96,0,0,0,0
+32050400,Briar Greatshield,Fire,6405,70,0,0,0,0,0
+32050500,Briar Greatshield,Flame Art,6405,70,0,0,0,0,0
+32050100,Briar Greatshield,Heavy,6405,70,0,0,0,0,0
+32050200,Briar Greatshield,Keen,6405,70,0,0,0,0,0
+32050600,Briar Greatshield,Lightning,6405,70,0,0,0,0,0
+32050800,Briar Greatshield,Magic,6405,70,0,0,0,0,0
+32051200,Briar Greatshield,Occult,6404,65,0,0,0,0,0
+32051000,Briar Greatshield,Poison,6404|106200,65,0,96,0,0,0
+32050300,Briar Greatshield,Quality,6405,70,0,0,0,0,0
+32050700,Briar Greatshield,Sacred,6405,70,0,0,0,0,0
+32050000,Briar Greatshield,Standard,6405,70,0,0,0,0,0
+12191100,Brick Hammer,Blood,105100,69,0,0,0,0,0
+12190900,Brick Hammer,Cold,107600,0,80,0,0,0,0
+12190400,Brick Hammer,Fire,,0,0,0,0,0,0
+12190500,Brick Hammer,Flame Art,,0,0,0,0,0,0
+12190100,Brick Hammer,Heavy,,0,0,0,0,0,0
+12190200,Brick Hammer,Keen,,0,0,0,0,0,0
+12190600,Brick Hammer,Lightning,,0,0,0,0,0,0
+12190800,Brick Hammer,Magic,,0,0,0,0,0,0
+12191200,Brick Hammer,Occult,,0,0,0,0,0,0
+12191000,Brick Hammer,Poison,106100,0,0,80,0,0,0
+12190300,Brick Hammer,Quality,,0,0,0,0,0,0
+12190700,Brick Hammer,Sacred,,0,0,0,0,0,0
+12190000,Brick Hammer,Standard,,0,0,0,0,0,0
+2021100,Broadsword,Blood,105000,57,0,0,0,0,0
+2020900,Broadsword,Cold,107500,0,66,0,0,0,0
+2020400,Broadsword,Fire,,0,0,0,0,0,0
+2020500,Broadsword,Flame Art,,0,0,0,0,0,0
+2020100,Broadsword,Heavy,,0,0,0,0,0,0
+2020200,Broadsword,Keen,,0,0,0,0,0,0
+2020600,Broadsword,Lightning,,0,0,0,0,0,0
+2020800,Broadsword,Magic,,0,0,0,0,0,0
+2021200,Broadsword,Occult,,0,0,0,0,0,0
+2021000,Broadsword,Poison,106000,0,0,66,0,0,0
+2020300,Broadsword,Quality,,0,0,0,0,0,0
+2020700,Broadsword,Sacred,,0,0,0,0,0,0
+2020000,Broadsword,Standard,,0,0,0,0,0,0
+30000900,Buckler,Cold,107500,0,66,0,0,0,0
+30000400,Buckler,Fire,,0,0,0,0,0,0
+30000500,Buckler,Flame Art,,0,0,0,0,0,0
+30000100,Buckler,Heavy,,0,0,0,0,0,0
+30000200,Buckler,Keen,,0,0,0,0,0,0
+30000600,Buckler,Lightning,,0,0,0,0,0,0
+30000800,Buckler,Magic,,0,0,0,0,0,0
+30001200,Buckler,Occult,,0,0,0,0,0,0
+30001000,Buckler,Poison,106000,0,0,66,0,0,0
+30000300,Buckler,Quality,,0,0,0,0,0,0
+30000700,Buckler,Sacred,,0,0,0,0,0,0
+30000000,Buckler,Standard,,0,0,0,0,0,0
+15121100,Butchering Knife,Blood,105100|5151200|5151201,69,0,0,0,0,0
+15120900,Butchering Knife,Cold,107600|5151200|5151201,0,80,0,0,0,0
+15120400,Butchering Knife,Fire,5151200|5151201,0,0,0,0,0,0
+15120500,Butchering Knife,Flame Art,5151200|5151201,0,0,0,0,0,0
+15120100,Butchering Knife,Heavy,5151200|5151201,0,0,0,0,0,0
+15120200,Butchering Knife,Keen,5151200|5151201,0,0,0,0,0,0
+15120600,Butchering Knife,Lightning,5151200|5151201,0,0,0,0,0,0
+15120800,Butchering Knife,Magic,5151200|5151201,0,0,0,0,0,0
+15121200,Butchering Knife,Occult,5151200|5151201,0,0,0,0,0,0
+15121000,Butchering Knife,Poison,106100|5151200|5151201,0,0,80,0,0,0
+15120300,Butchering Knife,Quality,5151200|5151201,0,0,0,0,0,0
+15120700,Butchering Knife,Sacred,5151200|5151201,0,0,0,0,0,0
+15120000,Butchering Knife,Standard,5151200|5151201,0,0,0,0,0,0
+21001100,Caestus,Blood,105000,57,0,0,0,0,0
+21000900,Caestus,Cold,107500,0,66,0,0,0,0
+21000400,Caestus,Fire,,0,0,0,0,0,0
+21000500,Caestus,Flame Art,,0,0,0,0,0,0
+21000100,Caestus,Heavy,,0,0,0,0,0,0
+21000200,Caestus,Keen,,0,0,0,0,0,0
+21000600,Caestus,Lightning,,0,0,0,0,0,0
+21000800,Caestus,Magic,,0,0,0,0,0,0
+21001200,Caestus,Occult,,0,0,0,0,0,0
+21001000,Caestus,Poison,106000,0,0,66,0,0,0
+21000300,Caestus,Quality,,0,0,0,0,0,0
+21000700,Caestus,Sacred,,0,0,0,0,0,0
+21000000,Caestus,Standard,,0,0,0,0,0,0
+31251100,Candletree Wooden Shield,Blood,105000,57,0,0,0,0,0
+31250900,Candletree Wooden Shield,Cold,107500,0,66,0,0,0,0
+31250400,Candletree Wooden Shield,Fire,,0,0,0,0,0,0
+31250500,Candletree Wooden Shield,Flame Art,,0,0,0,0,0,0
+31250100,Candletree Wooden Shield,Heavy,,0,0,0,0,0,0
+31250200,Candletree Wooden Shield,Keen,,0,0,0,0,0,0
+31250600,Candletree Wooden Shield,Lightning,,0,0,0,0,0,0
+31250800,Candletree Wooden Shield,Magic,,0,0,0,0,0,0
+31251200,Candletree Wooden Shield,Occult,,0,0,0,0,0,0
+31251000,Candletree Wooden Shield,Poison,106000,0,0,66,0,0,0
+31250300,Candletree Wooden Shield,Quality,,0,0,0,0,0,0
+31250700,Candletree Wooden Shield,Sacred,,0,0,0,0,0,0
+31250000,Candletree Wooden Shield,Standard,,0,0,0,0,0,0
+2211100,Cane Sword,Blood,105000,57,0,0,0,0,0
+2210900,Cane Sword,Cold,107500,0,66,0,0,0,0
+2210400,Cane Sword,Fire,,0,0,0,0,0,0
+2210500,Cane Sword,Flame Art,,0,0,0,0,0,0
+2210100,Cane Sword,Heavy,,0,0,0,0,0,0
+2210200,Cane Sword,Keen,,0,0,0,0,0,0
+2210600,Cane Sword,Lightning,,0,0,0,0,0,0
+2210800,Cane Sword,Magic,,0,0,0,0,0,0
+2211200,Cane Sword,Occult,,0,0,0,0,0,0
+2211000,Cane Sword,Poison,106000,0,0,66,0,0,0
+2210300,Cane Sword,Quality,,0,0,0,0,0,0
+2210700,Cane Sword,Sacred,,0,0,0,0,0,0
+2210000,Cane Sword,Standard,,0,0,0,0,0,0
+33170000,Carian Glintblade Staff,Standard,1912,0,0,0,0,0,0
+33210000,Carian Glintstone Staff,Standard,1911,0,0,0,0,0,0
+31191100,Carian Knight's Bloody Shield,Blood,105000,57,0,0,0,0,0
+31190900,Carian Knight's Cold Shield,Cold,107500,0,66,0,0,0,0
+31190400,Carian Knight's Fire Shield,Fire,,0,0,0,0,0,0
+31190500,Carian Knight's Flame Art Shield,Flame Art,,0,0,0,0,0,0
+31190100,Carian Knight's Heavy Shield,Heavy,,0,0,0,0,0,0
+31190200,Carian Knight's Keen Shield,Keen,,0,0,0,0,0,0
+31190600,Carian Knight's Lightning Shield,Lightning,,0,0,0,0,0,0
+31190800,Carian Knight's Magic Shield,Magic,,0,0,0,0,0,0
+31191200,Carian Knight's Occult Shield,Occult,,0,0,0,0,0,0
+31191000,Carian Knight's Poison Shield,Poison,106000,0,0,66,0,0,0
+31190300,Carian Knight's Quality Shield,Quality,,0,0,0,0,0,0
+31190700,Carian Knight's Sacred Shield,Sacred,,0,0,0,0,0,0
+31190000,Carian Knight's Shield,Standard,,0,0,0,0,0,0
+2180000,Carian Knight's Sword,Standard,,0,0,0,0,0,0
+33090000,Carian Regal Scepter,Standard,1910,0,0,0,0,0,0
+2530000,Carian Sorcery Sword,Standard,5025300|20018694,0,0,0,0,0,0
+62511100,Carian Thrusting Shield,Blood,105000,57,0,0,0,0,0
+62510900,Carian Thrusting Shield,Cold,107500,0,66,0,0,0,0
+62510400,Carian Thrusting Shield,Fire,,0,0,0,0,0,0
+62510500,Carian Thrusting Shield,Flame Art,,0,0,0,0,0,0
+62510100,Carian Thrusting Shield,Heavy,,0,0,0,0,0,0
+62510200,Carian Thrusting Shield,Keen,,0,0,0,0,0,0
+62510600,Carian Thrusting Shield,Lightning,,0,0,0,0,0,0
+62510800,Carian Thrusting Shield,Magic,,0,0,0,0,0,0
+62511200,Carian Thrusting Shield,Occult,,0,0,0,0,0,0
+62511000,Carian Thrusting Shield,Poison,106000,0,0,66,0,0,0
+62510300,Carian Thrusting Shield,Quality,,0,0,0,0,0,0
+62510700,Carian Thrusting Shield,Sacred,,0,0,0,0,0,0
+62510000,Carian Thrusting Shield,Standard,,0,0,0,0,0,0
+14061100,Celebrant's Blood Cleaver,Blood,105000|5140600|5010601,57,0,0,0,0,0
+16061100,Celebrant's Blood Rib-Rake,Blood,105000|5160600|5010601,57,0,0,0,0,0
+1061100,Celebrant's Blood Sickle,Blood,105000|5010600|5010601,57,0,0,0,0,0
+12131100,Celebrant's Blood Skull,Blood,105100|5121300|5010601,69,0,0,0,0,0
+14060000,Celebrant's Cleaver,Standard,5140600|5010601,0,0,0,0,0,0
+14060900,Celebrant's Cold Cleaver,Cold,107500|5140600|5010601,0,66,0,0,0,0
+16060900,Celebrant's Cold Rib-Rake,Cold,107500|5160600|5010601,0,66,0,0,0,0
+1060900,Celebrant's Cold Sickle,Cold,107500|5010600|5010601,0,66,0,0,0,0
+12130900,Celebrant's Cold Skull,Cold,107600|5121300|5010601,0,80,0,0,0,0
+14060400,Celebrant's Fire Cleaver,Fire,5140600|5010601,0,0,0,0,0,0
+16060400,Celebrant's Fire Rib-Rake,Fire,5160600|5010601,0,0,0,0,0,0
+1060400,Celebrant's Fire Sickle,Fire,5010600|5010601,0,0,0,0,0,0
+12130400,Celebrant's Fire Skull,Fire,5121300|5010601,0,0,0,0,0,0
+14060500,Celebrant's Flame Art Cleaver Blades,Flame Art,5140600|5010601,0,0,0,0,0,0
+16060500,Celebrant's Flame Art Rib-Rake,Flame Art,5160600|5010601,0,0,0,0,0,0
+1060500,Celebrant's Flame Art Sickle,Flame Art,5010600|5010601,0,0,0,0,0,0
+12130500,Celebrant's Flame Art Skull,Flame Art,5121300|5010601,0,0,0,0,0,0
+14060100,Celebrant's Heavy Cleaver,Heavy,5140600|5010601,0,0,0,0,0,0
+16060100,Celebrant's Heavy Rib-Rake,Heavy,5160600|5010601,0,0,0,0,0,0
+1060100,Celebrant's Heavy Sickle,Heavy,5010600|5010601,0,0,0,0,0,0
+12130100,Celebrant's Heavy Skull,Heavy,5121300|5010601,0,0,0,0,0,0
+14060200,Celebrant's Keen Cleaver,Keen,5140600|5010601,0,0,0,0,0,0
+16060200,Celebrant's Keen Rib-Rake,Keen,5160600|5010601,0,0,0,0,0,0
+1060200,Celebrant's Keen Sickle,Keen,5010600|5010601,0,0,0,0,0,0
+12130200,Celebrant's Keen Skull,Keen,5121300|5010601,0,0,0,0,0,0
+14060600,Celebrant's Lightning Cleaver,Lightning,5140600|5010601,0,0,0,0,0,0
+16060600,Celebrant's Lightning Rib-Rake,Lightning,5160600|5010601,0,0,0,0,0,0
+1060600,Celebrant's Lightning Sickle,Lightning,5010600|5010601,0,0,0,0,0,0
+12130600,Celebrant's Lightning Skull,Lightning,5121300|5010601,0,0,0,0,0,0
+14060800,Celebrant's Magic Cleaver,Magic,5140600|5010601,0,0,0,0,0,0
+16060800,Celebrant's Magic Rib-Rake,Magic,5160600|5010601,0,0,0,0,0,0
+1060800,Celebrant's Magic Sickle,Magic,5010600|5010601,0,0,0,0,0,0
+12130800,Celebrant's Magic Skull,Magic,5121300|5010601,0,0,0,0,0,0
+14061200,Celebrant's Occult Cleaver,Occult,5140600|5010601,0,0,0,0,0,0
+16061200,Celebrant's Occult Rib-Rake,Occult,5160600|5010601,0,0,0,0,0,0
+1061200,Celebrant's Occult Sickle,Occult,5010600|5010601,0,0,0,0,0,0
+12131200,Celebrant's Occult Skull,Occult,5121300|5010601,0,0,0,0,0,0
+14061000,Celebrant's Poison Cleaver,Poison,106000|5140600|5010601,0,0,66,0,0,0
+16061000,Celebrant's Poison Rib-Rake,Poison,106000|5160600|5010601,0,0,66,0,0,0
+1061000,Celebrant's Poison Sickle,Poison,106000|5010600|5010601,0,0,66,0,0,0
+12131000,Celebrant's Poison Skull,Poison,106100|5121300|5010601,0,0,80,0,0,0
+14060300,Celebrant's Quality Cleaver,Quality,5140600|5010601,0,0,0,0,0,0
+16060300,Celebrant's Quality Rib-Rake,Quality,5160600|5010601,0,0,0,0,0,0
+1060300,Celebrant's Quality Sickle,Quality,5010600|5010601,0,0,0,0,0,0
+12130300,Celebrant's Quality Skull,Quality,5121300|5010601,0,0,0,0,0,0
+16060000,Celebrant's Rib-Rake,Standard,5160600|5010601,0,0,0,0,0,0
+14060700,Celebrant's Sacred Cleaver,Sacred,5140600|5010601,0,0,0,0,0,0
+16060700,Celebrant's Sacred Rib-Rake,Sacred,5160600|5010601,0,0,0,0,0,0
+1060700,Celebrant's Sacred Sickle,Sacred,5010600|5010601,0,0,0,0,0,0
+12130700,Celebrant's Sacred Skull,Sacred,5121300|5010601,0,0,0,0,0,0
+1060000,Celebrant's Sickle,Standard,5010600|5010601,0,0,0,0,0,0
+12130000,Celebrant's Skull,Standard,5121300|5010601,0,0,0,0,0,0
+13041100,Chainlink Flail,Blood,105050,57,0,0,0,0,0
+13040900,Chainlink Flail,Cold,6400|107500,45,66,0,0,0,0
+13040400,Chainlink Flail,Fire,6401,50,0,0,0,0,0
+13040500,Chainlink Flail,Flame Art,6401,50,0,0,0,0,0
+13040100,Chainlink Flail,Heavy,6401,50,0,0,0,0,0
+13040200,Chainlink Flail,Keen,6401,50,0,0,0,0,0
+13040600,Chainlink Flail,Lightning,6401,50,0,0,0,0,0
+13040800,Chainlink Flail,Magic,6401,50,0,0,0,0,0
+13041200,Chainlink Flail,Occult,6400,45,0,0,0,0,0
+13041000,Chainlink Flail,Poison,6400|106000,45,0,66,0,0,0
+13040300,Chainlink Flail,Quality,6401,50,0,0,0,0,0
+13040700,Chainlink Flail,Sacred,6401,50,0,0,0,0,0
+13040000,Chainlink Flail,Standard,6401,50,0,0,0,0,0
+61510000,Chilling Perfume Bottle,Standard,6701,0,60,0,0,0,0
+1110000,Cinquedea,Standard,5011000,0,0,0,0,0,0
+21130000,Cipher Pata,Standard,,0,0,0,0,0,0
+34040000,Clawmark Seal,Standard,1925,0,0,0,0,0,0
+22500000,Claws of Night,Standard,6400,45,0,0,0,0,0
+16031100,Clayman's Blood Harpoon,Blood,105000,57,0,0,0,0,0
+16030900,Clayman's Cold Harpoon,Cold,107500,0,66,0,0,0,0
+16030400,Clayman's Fire Harpoon,Fire,,0,0,0,0,0,0
+16030500,Clayman's Flame Art Harpoon,Flame Art,,0,0,0,0,0,0
+16030000,Clayman's Harpoon,Standard,,0,0,0,0,0,0
+16030100,Clayman's Heavy Harpoon,Heavy,,0,0,0,0,0,0
+16030200,Clayman's Keen Harpoon,Keen,,0,0,0,0,0,0
+16030600,Clayman's Lightning Harpoon,Lightning,,0,0,0,0,0,0
+16030800,Clayman's Magic Harpoon,Magic,,0,0,0,0,0,0
+16031200,Clayman's Occult Harpoon,Occult,,0,0,0,0,0,0
+16031000,Clayman's Poison Harpoon,Poison,106000,0,0,66,0,0,0
+16030300,Clayman's Quality Harpoon,Quality,,0,0,0,0,0,0
+16030700,Clayman's Sacred Harpoon,Sacred,,0,0,0,0,0,0
+3181100,Claymore,Blood,105100,69,0,0,0,0,0
+3180900,Claymore,Cold,107600,0,80,0,0,0,0
+3180400,Claymore,Fire,,0,0,0,0,0,0
+3180500,Claymore,Flame Art,,0,0,0,0,0,0
+3180100,Claymore,Heavy,,0,0,0,0,0,0
+3180200,Claymore,Keen,,0,0,0,0,0,0
+3180600,Claymore,Lightning,,0,0,0,0,0,0
+3180800,Claymore,Magic,,0,0,0,0,0,0
+3181200,Claymore,Occult,,0,0,0,0,0,0
+3181000,Claymore,Poison,106100,0,0,80,0,0,0
+3180300,Claymore,Quality,,0,0,0,0,0,0
+3180700,Claymore,Sacred,,0,0,0,0,0,0
+3180000,Claymore,Standard,,0,0,0,0,0,0
+5011100,Cleanrot Knight's Blood Sword,Blood,105000,57,0,0,0,0,0
+5010900,Cleanrot Knight's Cold Sword,Cold,107500,0,66,0,0,0,0
+5010400,Cleanrot Knight's Fire Sword,Fire,,0,0,0,0,0,0
+5010500,Cleanrot Knight's Flame Art Sword,Flame Art,,0,0,0,0,0,0
+5010100,Cleanrot Knight's Heavy Sword,Heavy,,0,0,0,0,0,0
+5010200,Cleanrot Knight's Keen Sword,Keen,,0,0,0,0,0,0
+5010600,Cleanrot Knight's Lightning Sword,Lightning,,0,0,0,0,0,0
+5010800,Cleanrot Knight's Magic Sword,Magic,,0,0,0,0,0,0
+5011200,Cleanrot Knight's Occult Sword,Occult,,0,0,0,0,0,0
+5011000,Cleanrot Knight's Poison Sword,Poison,106000,0,0,66,0,0,0
+5010300,Cleanrot Knight's Quality Sword,Quality,,0,0,0,0,0,0
+5010700,Cleanrot Knight's Sacred Sword,Sacred,,0,0,0,0,0,0
+5010000,Cleanrot Knight's Sword,Standard,,0,0,0,0,0,0
+16040000,Cleanrot Spear,Standard,5160400,0,0,0,0,0,0
+21110000,Clinging Bone,Standard,,0,0,0,0,0,0
+11010900,Club,Cold,107500,0,66,0,0,0,0
+11010400,Club,Fire,,0,0,0,0,0,0
+11010500,Club,Flame Art,,0,0,0,0,0,0
+11010100,Club,Heavy,,0,0,0,0,0,0
+11010200,Club,Keen,,0,0,0,0,0,0
+11010600,Club,Lightning,,0,0,0,0,0,0
+11010800,Club,Magic,,0,0,0,0,0,0
+11011200,Club,Occult,,0,0,0,0,0,0
+11011000,Club,Poison,106000,0,0,66,0,0,0
+11010300,Club,Quality,,0,0,0,0,0,0
+11010700,Club,Sacred,,0,0,0,0,0,0
+11010000,Club,Standard,,0,0,0,0,0,0
+2110000,Coded Sword,Standard,,0,0,0,0,0,0
+30200000,Coil Shield,Standard,6502|5302000,0,0,72,0,0,0
+18040000,Commander's Standard,Standard,,0,0,0,0,0,0
+40050000,Composite Bow,Standard,1940,0,0,0,0,0,0
+12170000,Cranial Vessel Candlestand,Standard,,0,0,0,0,0,0
+43110000,Crepus's Black-Key Crossbow,Standard,,0,0,0,0,0,0
+15031100,Crescent Moon Axe,Blood,105100,69,0,0,0,0,0
+15030900,Crescent Moon Axe,Cold,107600,0,80,0,0,0,0
+15030400,Crescent Moon Axe,Fire,,0,0,0,0,0,0
+15030500,Crescent Moon Axe,Flame Art,,0,0,0,0,0,0
+15030100,Crescent Moon Axe,Heavy,,0,0,0,0,0,0
+15030200,Crescent Moon Axe,Keen,,0,0,0,0,0,0
+15030600,Crescent Moon Axe,Lightning,,0,0,0,0,0,0
+15030800,Crescent Moon Axe,Magic,,0,0,0,0,0,0
+15031200,Crescent Moon Axe,Occult,,0,0,0,0,0,0
+15031000,Crescent Moon Axe,Poison,106100,0,0,80,0,0,0
+15030300,Crescent Moon Axe,Quality,,0,0,0,0,0,0
+15030700,Crescent Moon Axe,Sacred,,0,0,0,0,0,0
+15030000,Crescent Moon Axe,Standard,,0,0,0,0,0,0
+16111100,Cross-Naginata,Blood,105050,57,0,0,0,0,0
+16110900,Cross-Naginata,Cold,6400|107500,45,66,0,0,0,0
+16110400,Cross-Naginata,Fire,6401,50,0,0,0,0,0
+16110500,Cross-Naginata,Flame Art,6401,50,0,0,0,0,0
+16110100,Cross-Naginata,Heavy,6401,50,0,0,0,0,0
+16110200,Cross-Naginata,Keen,6401,50,0,0,0,0,0
+16110600,Cross-Naginata,Lightning,6401,50,0,0,0,0,0
+16110800,Cross-Naginata,Magic,6401,50,0,0,0,0,0
+16111200,Cross-Naginata,Occult,6400,45,0,0,0,0,0
+16111000,Cross-Naginata,Poison,6400|106000,45,0,66,0,0,0
+16110300,Cross-Naginata,Quality,6401,50,0,0,0,0,0
+16110700,Cross-Naginata,Sacred,6401,50,0,0,0,0,0
+16110000,Cross-Naginata,Standard,6401,50,0,0,0,0,0
+32201100,Crossed-Tree Towershield,Blood,105200,83,0,0,0,0,0
+32200900,Crossed-Tree Towershield,Cold,107700,0,96,0,0,0,0
+32200400,Crossed-Tree Towershield,Fire,,0,0,0,0,0,0
+32200500,Crossed-Tree Towershield,Flame Art,,0,0,0,0,0,0
+32200100,Crossed-Tree Towershield,Heavy,,0,0,0,0,0,0
+32200200,Crossed-Tree Towershield,Keen,,0,0,0,0,0,0
+32200600,Crossed-Tree Towershield,Lightning,,0,0,0,0,0,0
+32200800,Crossed-Tree Towershield,Magic,,0,0,0,0,0,0
+32201200,Crossed-Tree Towershield,Occult,,0,0,0,0,0,0
+32201000,Crossed-Tree Towershield,Poison,106200,0,0,96,0,0,0
+32200300,Crossed-Tree Towershield,Quality,,0,0,0,0,0,0
+32200700,Crossed-Tree Towershield,Sacred,,0,0,0,0,0,0
+32200000,Crossed-Tree Towershield,Standard,,0,0,0,0,0,0
+32030000,Crucible Hornshield,Standard,,0,0,0,0,0,0
+1050000,Crystal Knife,Standard,,0,0,0,0,0,0
+16020000,Crystal Spear,Standard,,0,0,0,0,0,0
+33040000,Crystal Staff,Standard,1914,0,0,0,0,0,0
+2150000,Crystal Sword,Standard,,0,0,0,0,0,0
+32251100,Cuckoo Greatshield,Blood,105200,83,0,0,0,0,0
+32250900,Cuckoo Greatshield,Cold,107700,0,96,0,0,0,0
+32250400,Cuckoo Greatshield,Fire,,0,0,0,0,0,0
+32250500,Cuckoo Greatshield,Flame Art,,0,0,0,0,0,0
+32250100,Cuckoo Greatshield,Heavy,,0,0,0,0,0,0
+32250200,Cuckoo Greatshield,Keen,,0,0,0,0,0,0
+32250600,Cuckoo Greatshield,Lightning,,0,0,0,0,0,0
+32250800,Cuckoo Greatshield,Magic,,0,0,0,0,0,0
+32251200,Cuckoo Greatshield,Occult,,0,0,0,0,0,0
+32251000,Cuckoo Greatshield,Poison,106200,0,0,96,0,0,0
+32250300,Cuckoo Greatshield,Quality,,0,0,0,0,0,0
+32250700,Cuckoo Greatshield,Sacred,,0,0,0,0,0,0
+32250000,Cuckoo Greatshield,Standard,,0,0,0,0,0,0
+64520000,Curseblade's Cirque,Standard,6400,45,0,0,0,0,0
+11031100,Curved Club,Blood,105000,57,0,0,0,0,0
+11030900,Curved Club,Cold,107500,0,66,0,0,0,0
+11030400,Curved Club,Fire,,0,0,0,0,0,0
+11030500,Curved Club,Flame Art,,0,0,0,0,0,0
+11030100,Curved Club,Heavy,,0,0,0,0,0,0
+11030200,Curved Club,Keen,,0,0,0,0,0,0
+11030600,Curved Club,Lightning,,0,0,0,0,0,0
+11030800,Curved Club,Magic,,0,0,0,0,0,0
+11031200,Curved Club,Occult,,0,0,0,0,0,0
+11031000,Curved Club,Poison,106000,0,0,66,0,0,0
+11030300,Curved Club,Quality,,0,0,0,0,0,0
+11030700,Curved Club,Sacred,,0,0,0,0,0,0
+11030000,Curved Club,Standard,,0,0,0,0,0,0
+12081100,Curved Great Club,Blood,105100,69,0,0,0,0,0
+12080900,Curved Great Club,Cold,107600,0,80,0,0,0,0
+12080400,Curved Great Club,Fire,,0,0,0,0,0,0
+12080500,Curved Great Club,Flame Art,,0,0,0,0,0,0
+12080100,Curved Great Club,Heavy,,0,0,0,0,0,0
+12080200,Curved Great Club,Keen,,0,0,0,0,0,0
+12080600,Curved Great Club,Lightning,,0,0,0,0,0,0
+12080800,Curved Great Club,Magic,,0,0,0,0,0,0
+12081200,Curved Great Club,Occult,,0,0,0,0,0,0
+12081000,Curved Great Club,Poison,106100,0,0,80,0,0,0
+12080300,Curved Great Club,Quality,,0,0,0,0,0,0
+12080700,Curved Great Club,Sacred,,0,0,0,0,0,0
+12080000,Curved Great Club,Standard,,0,0,0,0,0,0
+1001100,Dagger,Blood,105000,57,0,0,0,0,0
+1000900,Dagger,Cold,107500,0,66,0,0,0,0
+1000400,Dagger,Fire,,0,0,0,0,0,0
+1000500,Dagger,Flame Art,,0,0,0,0,0,0
+1000100,Dagger,Heavy,,0,0,0,0,0,0
+1000200,Dagger,Keen,,0,0,0,0,0,0
+1000600,Dagger,Lightning,,0,0,0,0,0,0
+1000800,Dagger,Magic,,0,0,0,0,0,0
+1001200,Dagger,Occult,,0,0,0,0,0,0
+1001000,Dagger,Poison,106000,0,0,66,0,0,0
+1000300,Dagger,Quality,,0,0,0,0,0,0
+1000700,Dagger,Sacred,,0,0,0,0,0,0
+1000000,Dagger,Standard,,0,0,0,0,0,0
+7520000,Dancing Blade of Ranah,Standard,,0,0,0,0,0,0
+60511100,Dane's Blood Footwork,Blood,105000,57,0,0,0,0,0
+60510900,Dane's Cold Footwork,Cold,107500,0,66,0,0,0,0
+60510400,Dane's Fire Footwork,Fire,,0,0,0,0,0,0
+60510500,Dane's Flame Art Footwork,Flame Art,,0,0,0,0,0,0
+60510000,Dane's Footwork,Standard,,0,0,0,0,0,0
+60510100,Dane's Heavy Footwork,Heavy,,0,0,0,0,0,0
+60510200,Dane's Keen Footwork,Keen,,0,0,0,0,0,0
+60510600,Dane's Lightning Footwork,Lightning,,0,0,0,0,0,0
+60510800,Dane's Magic Footwork,Magic,,0,0,0,0,0,0
+60511200,Dane's Occult Footwork,Occult,,0,0,0,0,0,0
+60511000,Dane's Poison Footwork,Poison,106000,0,0,66,0,0,0
+60510300,Dane's Quality Footwork,Quality,,0,0,0,0,0,0
+60510700,Dane's Sacred Footwork,Sacred,,0,0,0,0,0,0
+3090000,Dark Moon Greatsword,Standard,6700,0,55,0,0,0,0
+61540000,Deadly Poison Perfume Bottle,Standard,6511,0,0,66,0,0,0
+15500000,Death Knight's Longhaft Axe,Standard,,0,0,0,0,0,0
+14510000,Death Knight's Twin Axes,Standard,,0,0,0,0,0,0
+16120000,Death Ritual Spear,Standard,,0,0,0,0,0,0
+3200000,Death's Poker,Standard,6702,0,65,0,0,0,0
+33060000,Demi-Human Queen's Staff,Standard,,0,0,0,0,0,0
+23500000,Devonia's Hammer,Standard,,0,0,0,0,0,0
+12200000,Devourer's Scepter,Standard,,0,0,0,0,0,0
+33120000,Digger's Staff,Standard,1913,0,0,0,0,0,0
+8021100,Dismounter,Blood,105100,69,0,0,0,0,0
+8020900,Dismounter,Cold,107600,0,80,0,0,0,0
+8020400,Dismounter,Fire,,0,0,0,0,0,0
+8020500,Dismounter,Flame Art,,0,0,0,0,0,0
+8020100,Dismounter,Heavy,,0,0,0,0,0,0
+8020200,Dismounter,Keen,,0,0,0,0,0,0
+8020600,Dismounter,Lightning,,0,0,0,0,0,0
+8020800,Dismounter,Magic,,0,0,0,0,0,0
+8021200,Dismounter,Occult,,0,0,0,0,0,0
+8021000,Dismounter,Poison,106100,0,0,80,0,0,0
+8020300,Dismounter,Quality,,0,0,0,0,0,0
+8020700,Dismounter,Sacred,,0,0,0,0,0,0
+8020000,Dismounter,Standard,,0,0,0,0,0,0
+32021100,Distinguished Blood Greatshield,Blood,105200,83,0,0,0,0,0
+32020900,Distinguished Cold Greatshield,Cold,107700,0,96,0,0,0,0
+32020400,Distinguished Fire Greatshield,Fire,,0,0,0,0,0,0
+32020500,Distinguished Flame Art Greatshield,Flame Art,,0,0,0,0,0,0
+32020000,Distinguished Greatshield,Standard,,0,0,0,0,0,0
+32020100,Distinguished Heavy Greatshield,Heavy,,0,0,0,0,0,0
+32020200,Distinguished Keen Greatshield,Keen,,0,0,0,0,0,0
+32020600,Distinguished Lightning Greatshield,Lightning,,0,0,0,0,0,0
+32020800,Distinguished Magic Greatshield,Magic,,0,0,0,0,0,0
+32021200,Distinguished Occult Greatshield,Occult,,0,0,0,0,0,0
+32021000,Distinguished Poison Greatshield,Poison,106200,0,0,96,0,0,0
+32020300,Distinguished Quality Greatshield,Quality,,0,0,0,0,0,0
+32020700,Distinguished Sacred Greatshield,Sacred,,0,0,0,0,0,0
+34080000,Dragon Communion Seal,Standard,1927,0,0,0,0,0,0
+23060000,Dragon Greatclaw,Standard,,0,0,0,0,0,0
+18140000,Dragon Halberd,Standard,,0,0,0,0,0,0
+6040000,Dragon King's Cragblade,Standard,,0,0,0,0,0,0
+32001100,Dragon Towershield,Blood,105200,83,0,0,0,0,0
+32000900,Dragon Towershield,Cold,107700,0,96,0,0,0,0
+32000400,Dragon Towershield,Fire,,0,0,0,0,0,0
+32000500,Dragon Towershield,Flame Art,,0,0,0,0,0,0
+32000100,Dragon Towershield,Heavy,,0,0,0,0,0,0
+32000200,Dragon Towershield,Keen,,0,0,0,0,0,0
+32000600,Dragon Towershield,Lightning,,0,0,0,0,0,0
+32000800,Dragon Towershield,Magic,,0,0,0,0,0,0
+32001200,Dragon Towershield,Occult,,0,0,0,0,0,0
+32001000,Dragon Towershield,Poison,106200,0,0,96,0,0,0
+32000300,Dragon Towershield,Quality,,0,0,0,0,0,0
+32000700,Dragon Towershield,Sacred,,0,0,0,0,0,0
+32000000,Dragon Towershield,Standard,,0,0,0,0,0,0
+66510000,Dragon-Hunter's Great Katana,Standard,6402,55,0,0,0,0,0
+32040000,Dragonclaw Shield,Standard,,0,0,0,0,0,0
+9070000,Dragonscale Blade,Standard,,0,0,0,0,0,0
+60501100,Dryleaf Arts,Blood,105000,57,0,0,0,0,0
+60500900,Dryleaf Arts,Cold,107500,0,66,0,0,0,0
+60500400,Dryleaf Arts,Fire,,0,0,0,0,0,0
+60500500,Dryleaf Arts,Flame Art,,0,0,0,0,0,0
+60500100,Dryleaf Arts,Heavy,,0,0,0,0,0,0
+60500200,Dryleaf Arts,Keen,,0,0,0,0,0,0
+60500600,Dryleaf Arts,Lightning,,0,0,0,0,0,0
+60500800,Dryleaf Arts,Magic,,0,0,0,0,0,0
+60501200,Dryleaf Arts,Occult,,0,0,0,0,0,0
+60501000,Dryleaf Arts,Poison,106000,0,0,66,0,0,0
+60500300,Dryleaf Arts,Quality,,0,0,0,0,0,0
+60500700,Dryleaf Arts,Sacred,,0,0,0,0,0,0
+60500000,Dryleaf Arts,Standard,,0,0,0,0,0,0
+34500000,Dryleaf Seal,Standard,5345000,0,0,0,0,0,0
+62501100,Dueling Shield,Blood,105000,57,0,0,0,0,0
+62500900,Dueling Shield,Cold,107500,0,66,0,0,0,0
+62500400,Dueling Shield,Fire,,0,0,0,0,0,0
+62500500,Dueling Shield,Flame Art,,0,0,0,0,0,0
+62500100,Dueling Shield,Heavy,,0,0,0,0,0,0
+62500200,Dueling Shield,Keen,,0,0,0,0,0,0
+62500600,Dueling Shield,Lightning,,0,0,0,0,0,0
+62500800,Dueling Shield,Magic,,0,0,0,0,0,0
+62501200,Dueling Shield,Occult,,0,0,0,0,0,0
+62501000,Dueling Shield,Poison,106000,0,0,66,0,0,0
+62500300,Dueling Shield,Quality,,0,0,0,0,0,0
+62500700,Dueling Shield,Sacred,,0,0,0,0,0,0
+62500000,Dueling Shield,Standard,,0,0,0,0,0,0
+23041100,Duelist Greataxe,Blood,105200,83,0,0,0,0,0
+23040900,Duelist Greataxe,Cold,107700,0,96,0,0,0,0
+23040400,Duelist Greataxe,Fire,,0,0,0,0,0,0
+23040500,Duelist Greataxe,Flame Art,,0,0,0,0,0,0
+23040100,Duelist Greataxe,Heavy,,0,0,0,0,0,0
+23040200,Duelist Greataxe,Keen,,0,0,0,0,0,0
+23040600,Duelist Greataxe,Lightning,,0,0,0,0,0,0
+23040800,Duelist Greataxe,Magic,,0,0,0,0,0,0
+23041200,Duelist Greataxe,Occult,,0,0,0,0,0,0
+23041000,Duelist Greataxe,Poison,106200,0,0,96,0,0,0
+23040300,Duelist Greataxe,Quality,,0,0,0,0,0,0
+23040700,Duelist Greataxe,Sacred,,0,0,0,0,0,0
+23040000,Duelist Greataxe,Standard,,0,0,0,0,0,0
+32241100,Eclipse Crest Greatshield,Blood,105200|5322400,83,0,0,0,0,0
+32240900,Eclipse Crest Greatshield,Cold,107700|5322400,0,96,0,0,0,0
+32240400,Eclipse Crest Greatshield,Fire,5322400,0,0,0,0,0,0
+32240500,Eclipse Crest Greatshield,Flame Art,5322400,0,0,0,0,0,0
+32240100,Eclipse Crest Greatshield,Heavy,5322400,0,0,0,0,0,0
+32240200,Eclipse Crest Greatshield,Keen,5322400,0,0,0,0,0,0
+32240600,Eclipse Crest Greatshield,Lightning,5322400,0,0,0,0,0,0
+32240800,Eclipse Crest Greatshield,Magic,5322400,0,0,0,0,0,0
+32241200,Eclipse Crest Greatshield,Occult,5322400,0,0,0,0,0,0
+32241000,Eclipse Crest Greatshield,Poison,106200|5322400,0,0,96,0,0,0
+32240300,Eclipse Crest Greatshield,Quality,5322400,0,0,0,0,0,0
+32240700,Eclipse Crest Greatshield,Sacred,5322400,0,0,0,0,0,0
+32240000,Eclipse Crest Greatshield,Standard,5322400,0,0,0,0,0,0
+31311100,Eclipse Crest Heater Shield,Blood,105000,57,0,0,0,0,0
+31310900,Eclipse Crest Heater Shield,Cold,107500,0,66,0,0,0,0
+31310400,Eclipse Crest Heater Shield,Fire,,0,0,0,0,0,0
+31310500,Eclipse Crest Heater Shield,Flame Art,,0,0,0,0,0,0
+31310100,Eclipse Crest Heater Shield,Heavy,,0,0,0,0,0,0
+31310200,Eclipse Crest Heater Shield,Keen,,0,0,0,0,0,0
+31310600,Eclipse Crest Heater Shield,Lightning,,0,0,0,0,0,0
+31310800,Eclipse Crest Heater Shield,Magic,,0,0,0,0,0,0
+31311200,Eclipse Crest Heater Shield,Occult,,0,0,0,0,0,0
+31311000,Eclipse Crest Heater Shield,Poison,106000,0,0,66,0,0,0
+31310300,Eclipse Crest Heater Shield,Quality,,0,0,0,0,0,0
+31310700,Eclipse Crest Heater Shield,Sacred,,0,0,0,0,0,0
+31310000,Eclipse Crest Heater Shield,Standard,,0,0,0,0,0,0
+7100000,Eclipse Shotel,Standard,,0,0,0,0,0,0
+10050000,Eleonora's Poleblade,Standard,6402,55,0,0,0,0,0
+23030000,Envoy's Greathorn,Standard,,0,0,0,0,0,0
+11100000,Envoy's Horn,Standard,,0,0,0,0,0,0
+12160000,Envoy's Long Horn,Standard,,0,0,0,0,0,0
+1151100,Erdsteel Dagger,Blood,105000,57,0,0,0,0,0
+1150900,Erdsteel Dagger,Cold,107500,0,66,0,0,0,0
+1150400,Erdsteel Dagger,Fire,,0,0,0,0,0,0
+1150500,Erdsteel Dagger,Flame Art,,0,0,0,0,0,0
+1150100,Erdsteel Dagger,Heavy,,0,0,0,0,0,0
+1150200,Erdsteel Dagger,Keen,,0,0,0,0,0,0
+1150600,Erdsteel Dagger,Lightning,,0,0,0,0,0,0
+1150800,Erdsteel Dagger,Magic,,0,0,0,0,0,0
+1151200,Erdsteel Dagger,Occult,,0,0,0,0,0,0
+1151000,Erdsteel Dagger,Poison,106000,0,0,66,0,0,0
+1150300,Erdsteel Dagger,Quality,,0,0,0,0,0,0
+1150700,Erdsteel Dagger,Sacred,,0,0,0,0,0,0
+1150000,Erdsteel Dagger,Standard,,0,0,0,0,0,0
+41030000,Erdtree Bow,Standard,1940,0,0,0,0,0,0
+42030000,Erdtree Greatbow,Standard,,0,0,0,0,0,0
+32080000,Erdtree Greatshield,Standard,,0,0,0,0,0,0
+34070000,Erdtree Seal,Standard,,0,0,0,0,0,0
+5001100,Estoc,Blood,105000,57,0,0,0,0,0
+5000900,Estoc,Cold,107500,0,66,0,0,0,0
+5000400,Estoc,Fire,,0,0,0,0,0,0
+5000500,Estoc,Flame Art,,0,0,0,0,0,0
+5000100,Estoc,Heavy,,0,0,0,0,0,0
+5000200,Estoc,Keen,,0,0,0,0,0,0
+5000600,Estoc,Lightning,,0,0,0,0,0,0
+5000800,Estoc,Magic,,0,0,0,0,0,0
+5001200,Estoc,Occult,,0,0,0,0,0,0
+5001000,Estoc,Poison,106000,0,0,66,0,0,0
+5000300,Estoc,Quality,,0,0,0,0,0,0
+5000700,Estoc,Sacred,,0,0,0,0,0,0
+5000000,Estoc,Standard,,0,0,0,0,0,0
+10500000,Euporia,Standard,19870|19871,0,0,0,0,0,0
+15081100,Executioner's Blood Greataxe,Blood,105100,69,0,0,0,0,0
+15080900,Executioner's Cold Greataxe,Cold,107600,0,80,0,0,0,0
+15080400,Executioner's Fire Greataxe,Fire,,0,0,0,0,0,0
+15080500,Executioner's Flame Art Greataxe,Flame Art,,0,0,0,0,0,0
+15080000,Executioner's Greataxe,Standard,,0,0,0,0,0,0
+15080100,Executioner's Heavy Greataxe,Heavy,,0,0,0,0,0,0
+15080200,Executioner's Keen Greataxe,Keen,,0,0,0,0,0,0
+15080600,Executioner's Lightning Greataxe,Lightning,,0,0,0,0,0,0
+15080800,Executioner's Magic Greataxe,Magic,,0,0,0,0,0,0
+15081200,Executioner's Occult Greataxe,Occult,,0,0,0,0,0,0
+15081000,Executioner's Poison Greataxe,Poison,106100,0,0,80,0,0,0
+15080300,Executioner's Quality Greataxe,Quality,,0,0,0,0,0,0
+15080700,Executioner's Sacred Greataxe,Sacred,,0,0,0,0,0,0
+7001100,Falchion,Blood,105000,57,0,0,0,0,0
+7000900,Falchion,Cold,107500,0,66,0,0,0,0
+7000400,Falchion,Fire,,0,0,0,0,0,0
+7000500,Falchion,Flame Art,,0,0,0,0,0,0
+7000100,Falchion,Heavy,,0,0,0,0,0,0
+7000200,Falchion,Keen,,0,0,0,0,0,0
+7000600,Falchion,Lightning,,0,0,0,0,0,0
+7000800,Falchion,Magic,,0,0,0,0,0,0
+7001200,Falchion,Occult,,0,0,0,0,0,0
+7001000,Falchion,Poison,106000,0,0,66,0,0,0
+7000300,Falchion,Quality,,0,0,0,0,0,0
+7000700,Falchion,Sacred,,0,0,0,0,0,0
+7000000,Falchion,Standard,,0,0,0,0,0,0
+23080000,Fallingstar Beast Jaw,Standard,,0,0,0,0,0,0
+7510000,Falx,Standard,6402,55,0,0,0,0,0
+13020000,Family Heads,Standard,,0,0,0,0,0,0
+34000000,Finger Seal,Standard,,0,0,0,0,0,0
+32131100,Fingerprint Stone Shield,Blood,105200|6753,83,0,0,0,70,0
+32130900,Fingerprint Stone Shield,Cold,6753|107700,0,96,0,0,70,0
+32130400,Fingerprint Stone Shield,Fire,6753,0,0,0,0,70,0
+32130500,Fingerprint Stone Shield,Flame Art,6753,0,0,0,0,70,0
+32130100,Fingerprint Stone Shield,Heavy,6753,0,0,0,0,70,0
+32130200,Fingerprint Stone Shield,Keen,6753,0,0,0,0,70,0
+32130600,Fingerprint Stone Shield,Lightning,6753,0,0,0,0,70,0
+32130800,Fingerprint Stone Shield,Magic,6753,0,0,0,0,70,0
+32131200,Fingerprint Stone Shield,Occult,6753,0,0,0,0,70,0
+32131000,Fingerprint Stone Shield,Poison,6753|106200,0,0,96,0,70,0
+32130300,Fingerprint Stone Shield,Quality,6753,0,0,0,0,70,0
+32130700,Fingerprint Stone Shield,Sacred,6753,0,0,0,0,70,0
+32130000,Fingerprint Stone Shield,Standard,6753,0,0,0,0,70,0
+4521100,Fire Knight's Blood Greatsword,Blood,105200,83,0,0,0,0,0
+1511100,Fire Knight's Blood Shortsword,Blood,105000,57,0,0,0,0,0
+4520900,Fire Knight's Cold Greatsword,Cold,107700,0,96,0,0,0,0
+1510900,Fire Knight's Cold Shortsword,Cold,107500,0,66,0,0,0,0
+4520500,Fire Knight's Flame Art Greatsword,Flame Art,,0,0,0,0,0,0
+1510500,Fire Knight's Flame Art Shortsword,Flame Art,,0,0,0,0,0,0
+4520000,Fire Knight's Greatsword,Standard,,0,0,0,0,0,0
+4520100,Fire Knight's Heavy Greatsword,Heavy,,0,0,0,0,0,0
+1510100,Fire Knight's Heavy Shortsword,Heavy,,0,0,0,0,0,0
+4520200,Fire Knight's Keen Greatsword,Keen,,0,0,0,0,0,0
+1510200,Fire Knight's Keen Shortsword,Keen,,0,0,0,0,0,0
+4520600,Fire Knight's Lightning Greatsword,Lightning,,0,0,0,0,0,0
+1510600,Fire Knight's Lightning Shortsword,Lightning,,0,0,0,0,0,0
+4520800,Fire Knight's Magic Greatsword,Magic,,0,0,0,0,0,0
+1510800,Fire Knight's Magic Shortsword,Magic,,0,0,0,0,0,0
+4521200,Fire Knight's Occult Greatsword,Occult,,0,0,0,0,0,0
+1511200,Fire Knight's Occult Shortsword,Occult,,0,0,0,0,0,0
+4521000,Fire Knight's Poison Greatsword,Poison,106200,0,0,96,0,0,0
+1511000,Fire Knight's Poison Shortsword,Poison,106000,0,0,66,0,0,0
+4520300,Fire Knight's Quality Greatsword,Quality,,0,0,0,0,0,0
+1510300,Fire Knight's Quality Shortsword,Quality,,0,0,0,0,0,0
+4520700,Fire Knight's Sacred Greatsword,Sacred,,0,0,0,0,0,0
+1510700,Fire Knight's Sacred Shortsword,Sacred,,0,0,0,0,0,0
+34510000,Fire Knight's Seal,Standard,5345100,0,0,0,0,0,0
+1510000,Fire Knight's Shortsword,Standard,,0,0,0,0,0,0
+61500000,Firespark Perfume Bottle,Standard,,0,0,0,0,0,0
+13011100,Flail,Blood,105050,57,0,0,0,0,0
+13010900,Flail,Cold,6400|107500,45,66,0,0,0,0
+13010400,Flail,Fire,6401,50,0,0,0,0,0
+13010500,Flail,Flame Art,6401,50,0,0,0,0,0
+13010100,Flail,Heavy,6401,50,0,0,0,0,0
+13010200,Flail,Keen,6401,50,0,0,0,0,0
+13010600,Flail,Lightning,6401,50,0,0,0,0,0
+13010800,Flail,Magic,6401,50,0,0,0,0,0
+13011200,Flail,Occult,6400,45,0,0,0,0,0
+13011000,Flail,Poison,6400|106000,45,0,66,0,0,0
+13010300,Flail,Quality,6401,50,0,0,0,0,0
+13010700,Flail,Sacred,6401,50,0,0,0,0,0
+13010000,Flail,Standard,6401,50,0,0,0,0,0
+3051100,Flamberge,Blood,105150,69,0,0,0,0,0
+3050900,Flamberge,Cold,6401|107600,50,80,0,0,0,0
+3050400,Flamberge,Fire,6402,55,0,0,0,0,0
+3050500,Flamberge,Flame Art,6402,55,0,0,0,0,0
+3050100,Flamberge,Heavy,6402,55,0,0,0,0,0
+3050200,Flamberge,Keen,6402,55,0,0,0,0,0
+3050600,Flamberge,Lightning,6402,55,0,0,0,0,0
+3050800,Flamberge,Magic,6402,55,0,0,0,0,0
+3051200,Flamberge,Occult,6401,50,0,0,0,0,0
+3051000,Flamberge,Poison,6401|106100,50,0,80,0,0,0
+3050300,Flamberge,Quality,6402,55,0,0,0,0,0
+3050700,Flamberge,Sacred,6402,55,0,0,0,0,0
+3050000,Flamberge,Standard,6402,55,0,0,0,0,0
+31261100,Flame Crest Wooden Shield,Blood,105000,57,0,0,0,0,0
+31260900,Flame Crest Wooden Shield,Cold,107500,0,66,0,0,0,0
+31260400,Flame Crest Wooden Shield,Fire,,0,0,0,0,0,0
+31260500,Flame Crest Wooden Shield,Flame Art,,0,0,0,0,0,0
+31260100,Flame Crest Wooden Shield,Heavy,,0,0,0,0,0,0
+31260200,Flame Crest Wooden Shield,Keen,,0,0,0,0,0,0
+31260600,Flame Crest Wooden Shield,Lightning,,0,0,0,0,0,0
+31260800,Flame Crest Wooden Shield,Magic,,0,0,0,0,0,0
+31261200,Flame Crest Wooden Shield,Occult,,0,0,0,0,0,0
+31261000,Flame Crest Wooden Shield,Poison,106000,0,0,66,0,0,0
+31260300,Flame Crest Wooden Shield,Quality,,0,0,0,0,0,0
+31260700,Flame Crest Wooden Shield,Sacred,,0,0,0,0,0,0
+31260000,Flame Crest Wooden Shield,Standard,,0,0,0,0,0,0
+11500000,Flowerstone Gavel,Standard,,0,0,0,0,0,0
+7061100,Flowing Blood Curved Sword,Blood,105000,57,0,0,0,0,0
+7060900,Flowing Cold Curved Sword,Cold,107500,0,66,0,0,0,0
+7060000,Flowing Curved Sword,Standard,,0,0,0,0,0,0
+7060400,Flowing Fire Curved Sword,Fire,,0,0,0,0,0,0
+7060500,Flowing Flame Art Curved Sword,Flame Art,,0,0,0,0,0,0
+7060100,Flowing Heavy Curved Sword,Heavy,,0,0,0,0,0,0
+7060200,Flowing Keen Curved Sword,Keen,,0,0,0,0,0,0
+7060600,Flowing Lightning Curved Sword,Lightning,,0,0,0,0,0,0
+7060800,Flowing Magic Curved Sword,Magic,,0,0,0,0,0,0
+7061200,Flowing Occult Curved Sword,Occult,,0,0,0,0,0,0
+7061000,Flowing Poison Curved Sword,Poison,106000,0,0,66,0,0,0
+7060300,Flowing Quality Curved Sword,Quality,,0,0,0,0,0,0
+7060700,Flowing Sacred Curved Sword,Sacred,,0,0,0,0,0,0
+3011100,Forked Greatsword,Blood,105150,69,0,0,0,0,0
+3010900,Forked Greatsword,Cold,6401|107600,50,80,0,0,0,0
+3010400,Forked Greatsword,Fire,6402,55,0,0,0,0,0
+3010500,Forked Greatsword,Flame Art,6402,55,0,0,0,0,0
+3010100,Forked Greatsword,Heavy,6402,55,0,0,0,0,0
+3010200,Forked Greatsword,Keen,6402,55,0,0,0,0,0
+3010600,Forked Greatsword,Lightning,6402,55,0,0,0,0,0
+3010800,Forked Greatsword,Magic,6402,55,0,0,0,0,0
+3011200,Forked Greatsword,Occult,6401,50,0,0,0,0,0
+3011000,Forked Greatsword,Poison,6401|106100,50,0,80,0,0,0
+3010300,Forked Greatsword,Quality,6402,55,0,0,0,0,0
+3010700,Forked Greatsword,Sacred,6402,55,0,0,0,0,0
+3010000,Forked Greatsword,Standard,6402,55,0,0,0,0,0
+14011100,Forked Hatchet,Blood,105050,57,0,0,0,0,0
+14010900,Forked Hatchet,Cold,6400|107500,45,66,0,0,0,0
+14010400,Forked Hatchet,Fire,6401,50,0,0,0,0,0
+14010500,Forked Hatchet,Flame Art,6401,50,0,0,0,0,0
+14010100,Forked Hatchet,Heavy,6401,50,0,0,0,0,0
+14010200,Forked Hatchet,Keen,6401,50,0,0,0,0,0
+14010600,Forked Hatchet,Lightning,6401,50,0,0,0,0,0
+14010800,Forked Hatchet,Magic,6401,50,0,0,0,0,0
+14011200,Forked Hatchet,Occult,6400,45,0,0,0,0,0
+14011000,Forked Hatchet,Poison,6400|106000,45,0,66,0,0,0
+14010300,Forked Hatchet,Quality,6401,50,0,0,0,0,0
+14010700,Forked Hatchet,Sacred,6401,50,0,0,0,0,0
+14010000,Forked Hatchet,Standard,6401,50,0,0,0,0,0
+14540000,Forked-Tongue Hatchet,Standard,6401,50,0,0,0,0,0
+34090000,Frenzied Flame Seal,Standard,6750|1928,0,0,0,0,55,0
+61520000,Frenzyflame Perfume Bottle,Standard,6751,0,0,0,0,60,0
+8511100,Freyja's Blood Greatsword,Blood,105100|5085100,69,0,0,0,0,0
+8510900,Freyja's Cold Greatsword,Cold,107600|5085100,0,80,0,0,0,0
+8510400,Freyja's Fire Greatsword,Fire,5085100,0,0,0,0,0,0
+8510500,Freyja's Flame Art Greatsword,Flame Art,5085100,0,0,0,0,0,0
+8510000,Freyja's Greatsword,Standard,5085100,0,0,0,0,0,0
+8510100,Freyja's Heavy Greatsword,Heavy,5085100,0,0,0,0,0,0
+8510200,Freyja's Keen Greatsword,Keen,5085100,0,0,0,0,0,0
+8510600,Freyja's Lightning Greatsword,Lightning,5085100,0,0,0,0,0,0
+8510800,Freyja's Magic Greatsword,Magic,5085100,0,0,0,0,0,0
+8511200,Freyja's Occult Greatsword,Occult,5085100,0,0,0,0,0,0
+8511000,Freyja's Poison Greatsword,Poison,106100|5085100,0,0,80,0,0,0
+8510300,Freyja's Quality Greatsword,Quality,5085100,0,0,0,0,0,0
+8510700,Freyja's Sacred Greatsword,Sacred,5085100,0,0,0,0,0,0
+5050000,Frozen Needle,Standard,6701,0,60,0,0,0,0
+43060000,Full Moon Crossbow,Standard,,0,0,0,0,0,0
+15140000,Gargoyle's Black Axe,Standard,,0,0,0,0,0,0
+10090000,Gargoyle's Black Blades,Standard,,0,0,0,0,0,0
+18160000,Gargoyle's Black Halberd,Standard,,0,0,0,0,0,0
+3210000,Gargoyle's Blackblade,Standard,,0,0,0,0,0,0
+15131100,Gargoyle's Blood Great Axe,Blood,105100,69,0,0,0,0,0
+3191100,Gargoyle's Blood Greatsword,Blood,105100,69,0,0,0,0,0
+18151100,Gargoyle's Blood Halberd,Blood,105100,69,0,0,0,0,0
+10081100,Gargoyle's Blood Twinblade,Blood,105100,69,0,0,0,0,0
+15130900,Gargoyle's Cold Great Axe,Cold,107600,0,80,0,0,0,0
+3190900,Gargoyle's Cold Greatsword,Cold,107600,0,80,0,0,0,0
+18150900,Gargoyle's Cold Halberd,Cold,107600,0,80,0,0,0,0
+10080900,Gargoyle's Cold Twinblade,Cold,107600,0,80,0,0,0,0
+15130400,Gargoyle's Fire Great Axe,Fire,,0,0,0,0,0,0
+3190400,Gargoyle's Fire Greatsword,Fire,,0,0,0,0,0,0
+18150400,Gargoyle's Fire Halberd,Fire,,0,0,0,0,0,0
+10080400,Gargoyle's Fire Twinblade,Fire,,0,0,0,0,0,0
+15130500,Gargoyle's Flame Art Great Axe,Flame Art,,0,0,0,0,0,0
+3190500,Gargoyle's Flame Art Greatsword,Flame Art,,0,0,0,0,0,0
+18150500,Gargoyle's Flame Art Halberd,Flame Art,,0,0,0,0,0,0
+10080500,Gargoyle's Flame Art Twinblade,Flame Art,,0,0,0,0,0,0
+15130000,Gargoyle's Great Axe,Standard,,0,0,0,0,0,0
+3190000,Gargoyle's Greatsword,Standard,,0,0,0,0,0,0
+18150000,Gargoyle's Halberd,Standard,,0,0,0,0,0,0
+15130100,Gargoyle's Heavy Great Axe,Heavy,,0,0,0,0,0,0
+3190100,Gargoyle's Heavy Greatsword,Heavy,,0,0,0,0,0,0
+18150100,Gargoyle's Heavy Halberd,Heavy,,0,0,0,0,0,0
+10080100,Gargoyle's Heavy Twinblade,Heavy,,0,0,0,0,0,0
+15130200,Gargoyle's Keen Great Axe,Keen,,0,0,0,0,0,0
+3190200,Gargoyle's Keen Greatsword,Keen,,0,0,0,0,0,0
+18150200,Gargoyle's Keen Halberd,Keen,,0,0,0,0,0,0
+10080200,Gargoyle's Keen Twinblade,Keen,,0,0,0,0,0,0
+15130600,Gargoyle's Lightning Great Axe,Lightning,,0,0,0,0,0,0
+3190600,Gargoyle's Lightning Greatsword,Lightning,,0,0,0,0,0,0
+18150600,Gargoyle's Lightning Halberd,Lightning,,0,0,0,0,0,0
+10080600,Gargoyle's Lightning Twinblade,Lightning,,0,0,0,0,0,0
+15130800,Gargoyle's Magic Great Axe,Magic,,0,0,0,0,0,0
+3190800,Gargoyle's Magic Greatsword,Magic,,0,0,0,0,0,0
+18150800,Gargoyle's Magic Halberd,Magic,,0,0,0,0,0,0
+10080800,Gargoyle's Magic Twinblade,Magic,,0,0,0,0,0,0
+15131200,Gargoyle's Occult Great Axe,Occult,,0,0,0,0,0,0
+3191200,Gargoyle's Occult Greatsword,Occult,,0,0,0,0,0,0
+18151200,Gargoyle's Occult Halberd,Occult,,0,0,0,0,0,0
+10081200,Gargoyle's Occult Twinblade,Occult,,0,0,0,0,0,0
+15131000,Gargoyle's Poison Great Axe,Poison,106100,0,0,80,0,0,0
+3191000,Gargoyle's Poison Greatsword,Poison,106100,0,0,80,0,0,0
+18151000,Gargoyle's Poison Halberd,Poison,106100,0,0,80,0,0,0
+10081000,Gargoyle's Poison Twinblade,Poison,106100,0,0,80,0,0,0
+15130300,Gargoyle's Quality Great Axe,Quality,,0,0,0,0,0,0
+3190300,Gargoyle's Quality Greatsword,Quality,,0,0,0,0,0,0
+18150300,Gargoyle's Quality Halberd,Quality,,0,0,0,0,0,0
+10080300,Gargoyle's Quality Twinblade,Quality,,0,0,0,0,0,0
+15130700,Gargoyle's Sacred Great Axe,Sacred,,0,0,0,0,0,0
+3190700,Gargoyle's Sacred Greatsword,Sacred,,0,0,0,0,0,0
+18150700,Gargoyle's Sacred Halberd,Sacred,,0,0,0,0,0,0
+10080700,Gargoyle's Sacred Twinblade,Sacred,,0,0,0,0,0,0
+10080000,Gargoyle's Twinblade,Standard,,0,0,0,0,0,0
+23520000,Gazing Finger,Standard,,0,0,0,0,0,0
+33050000,Gelmir Glintstone Staff,Standard,1917,0,0,0,0,0,0
+23100000,Ghiza's Wheel,Standard,6405,70,0,0,0,0,0
+24050000,Ghostflame Torch,Standard,6702|415,0,65,0,0,0,0
+20060000,Giant's Red Braid,Standard,,0,0,0,0,0,0
+34020000,Giant's Seal,Standard,1923,0,0,0,0,0,0
+23111100,Giant-Crusher,Blood,105200,83,0,0,0,0,0
+23110900,Giant-Crusher,Cold,107700,0,96,0,0,0,0
+23110400,Giant-Crusher,Fire,,0,0,0,0,0,0
+23110500,Giant-Crusher,Flame Art,,0,0,0,0,0,0
+23110100,Giant-Crusher,Heavy,,0,0,0,0,0,0
+23110200,Giant-Crusher,Keen,,0,0,0,0,0,0
+23110600,Giant-Crusher,Lightning,,0,0,0,0,0,0
+23110800,Giant-Crusher,Magic,,0,0,0,0,0,0
+23111200,Giant-Crusher,Occult,,0,0,0,0,0,0
+23111000,Giant-Crusher,Poison,106200,0,0,96,0,0,0
+23110300,Giant-Crusher,Quality,,0,0,0,0,0,0
+23110700,Giant-Crusher,Sacred,,0,0,0,0,0,0
+23110000,Giant-Crusher,Standard,,0,0,0,0,0,0
+30131100,Gilded Blood Iron Shield,Blood,105000,57,0,0,0,0,0
+30130900,Gilded Cold Iron Shield,Cold,107500,0,66,0,0,0,0
+30130400,Gilded Fire Iron Shield,Fire,,0,0,0,0,0,0
+30130500,Gilded Flame Art Iron Shield,Flame Art,,0,0,0,0,0,0
+32271100,Gilded Greatshield,Blood,105200,83,0,0,0,0,0
+32270900,Gilded Greatshield,Cold,107700,0,96,0,0,0,0
+32270400,Gilded Greatshield,Fire,,0,0,0,0,0,0
+32270500,Gilded Greatshield,Flame Art,,0,0,0,0,0,0
+32270100,Gilded Greatshield,Heavy,,0,0,0,0,0,0
+32270200,Gilded Greatshield,Keen,,0,0,0,0,0,0
+32270600,Gilded Greatshield,Lightning,,0,0,0,0,0,0
+32270800,Gilded Greatshield,Magic,,0,0,0,0,0,0
+32271200,Gilded Greatshield,Occult,,0,0,0,0,0,0
+32271000,Gilded Greatshield,Poison,106200,0,0,96,0,0,0
+32270300,Gilded Greatshield,Quality,,0,0,0,0,0,0
+32270700,Gilded Greatshield,Sacred,,0,0,0,0,0,0
+32270000,Gilded Greatshield,Standard,,0,0,0,0,0,0
+30130100,Gilded Heavy Iron Shield,Heavy,,0,0,0,0,0,0
+30130000,Gilded Iron Shield,Standard,,0,0,0,0,0,0
+30130200,Gilded Keen Iron Shield,Keen,,0,0,0,0,0,0
+30130600,Gilded Lightning Iron Shield,Lightning,,0,0,0,0,0,0
+30130800,Gilded Magic Iron Shield,Magic,,0,0,0,0,0,0
+30131200,Gilded Occult Iron Shield,Occult,,0,0,0,0,0,0
+30131000,Gilded Poison Iron Shield,Poison,106000,0,0,66,0,0,0
+30130300,Gilded Quality Iron Shield,Quality,,0,0,0,0,0,0
+30130700,Gilded Sacred Iron Shield,Sacred,,0,0,0,0,0,0
+18091100,Glaive,Blood,105100,69,0,0,0,0,0
+18090900,Glaive,Cold,107600,0,80,0,0,0,0
+18090400,Glaive,Fire,,0,0,0,0,0,0
+18090500,Glaive,Flame Art,,0,0,0,0,0,0
+18090100,Glaive,Heavy,,0,0,0,0,0,0
+18090200,Glaive,Keen,,0,0,0,0,0,0
+18090600,Glaive,Lightning,,0,0,0,0,0,0
+18090800,Glaive,Magic,,0,0,0,0,0,0
+18091200,Glaive,Occult,,0,0,0,0,0,0
+18091000,Glaive,Poison,106100,0,0,80,0,0,0
+18090300,Glaive,Quality,,0,0,0,0,0,0
+18090700,Glaive,Sacred,,0,0,0,0,0,0
+18090000,Glaive,Standard,,0,0,0,0,0,0
+1070000,Glintstone Kris,Standard,,0,0,0,0,0,0
+33000000,Glintstone Staff,Standard,,0,0,0,0,0,0
+10011100,Godskin Peeler,Blood,105100,69,0,0,0,0,0
+10010900,Godskin Peeler,Cold,107600,0,80,0,0,0,0
+10010400,Godskin Peeler,Fire,,0,0,0,0,0,0
+10010500,Godskin Peeler,Flame Art,,0,0,0,0,0,0
+10010100,Godskin Peeler,Heavy,,0,0,0,0,0,0
+10010200,Godskin Peeler,Keen,,0,0,0,0,0,0
+10010600,Godskin Peeler,Lightning,,0,0,0,0,0,0
+10010800,Godskin Peeler,Magic,,0,0,0,0,0,0
+10011200,Godskin Peeler,Occult,,0,0,0,0,0,0
+10011000,Godskin Peeler,Poison,106100,0,0,80,0,0,0
+10010300,Godskin Peeler,Quality,,0,0,0,0,0,0
+10010700,Godskin Peeler,Sacred,,0,0,0,0,0,0
+10010000,Godskin Peeler,Standard,,0,0,0,0,0,0
+6011100,Godskin Stitcher,Blood,105100,69,0,0,0,0,0
+6010900,Godskin Stitcher,Cold,107600,0,80,0,0,0,0
+6010400,Godskin Stitcher,Fire,,0,0,0,0,0,0
+6010500,Godskin Stitcher,Flame Art,,0,0,0,0,0,0
+6010100,Godskin Stitcher,Heavy,,0,0,0,0,0,0
+6010200,Godskin Stitcher,Keen,,0,0,0,0,0,0
+6010600,Godskin Stitcher,Lightning,,0,0,0,0,0,0
+6010800,Godskin Stitcher,Magic,,0,0,0,0,0,0
+6011200,Godskin Stitcher,Occult,,0,0,0,0,0,0
+6011000,Godskin Stitcher,Poison,106100,0,0,80,0,0,0
+6010300,Godskin Stitcher,Quality,,0,0,0,0,0,0
+6010700,Godskin Stitcher,Sacred,,0,0,0,0,0,0
+6010000,Godskin Stitcher,Standard,,0,0,0,0,0,0
+4070000,Godslayer's Greatsword,Standard,,0,0,0,0,0,0
+34010000,Godslayer's Seal,Standard,1922,0,0,0,0,0,0
+32091100,Golden Beast Crest Shield,Blood,105200,83,0,0,0,0,0
+32090900,Golden Beast Crest Shield,Cold,107700,0,96,0,0,0,0
+32090400,Golden Beast Crest Shield,Fire,,0,0,0,0,0,0
+32090500,Golden Beast Crest Shield,Flame Art,,0,0,0,0,0,0
+32090100,Golden Beast Crest Shield,Heavy,,0,0,0,0,0,0
+32090200,Golden Beast Crest Shield,Keen,,0,0,0,0,0,0
+32090600,Golden Beast Crest Shield,Lightning,,0,0,0,0,0,0
+32090800,Golden Beast Crest Shield,Magic,,0,0,0,0,0,0
+32091200,Golden Beast Crest Shield,Occult,,0,0,0,0,0,0
+32091000,Golden Beast Crest Shield,Poison,106200,0,0,96,0,0,0
+32090300,Golden Beast Crest Shield,Quality,,0,0,0,0,0,0
+32090700,Golden Beast Crest Shield,Sacred,,0,0,0,0,0,0
+32090000,Golden Beast Crest Shield,Standard,,0,0,0,0,0,0
+2070000,Golden Epitaph,Standard,,0,0,0,0,0,0
+32261100,Golden Greatshield,Blood,105200,83,0,0,0,0,0
+32260900,Golden Greatshield,Cold,107700,0,96,0,0,0,0
+32260400,Golden Greatshield,Fire,,0,0,0,0,0,0
+32260500,Golden Greatshield,Flame Art,,0,0,0,0,0,0
+32260100,Golden Greatshield,Heavy,,0,0,0,0,0,0
+32260200,Golden Greatshield,Keen,,0,0,0,0,0,0
+32260600,Golden Greatshield,Lightning,,0,0,0,0,0,0
+32260800,Golden Greatshield,Magic,,0,0,0,0,0,0
+32261200,Golden Greatshield,Occult,,0,0,0,0,0,0
+32261000,Golden Greatshield,Poison,106200,0,0,96,0,0,0
+32260300,Golden Greatshield,Quality,,0,0,0,0,0,0
+32260700,Golden Greatshield,Sacred,,0,0,0,0,0,0
+32260000,Golden Greatshield,Standard,,0,0,0,0,0,0
+18080000,Golden Halberd,Standard,,0,0,0,0,0,0
+31530000,Golden Lion Shield,Standard,,0,0,0,0,0,0
+3170000,Golden Order Greatsword,Standard,,0,0,0,0,0,0
+34060000,Golden Order Seal,Standard,1926,0,0,0,0,0,0
+21541100,Golem Fist,Blood,105000,57,0,0,0,0,0
+21540900,Golem Fist,Cold,107500,0,66,0,0,0,0
+21540400,Golem Fist,Fire,,0,0,0,0,0,0
+21540500,Golem Fist,Flame Art,,0,0,0,0,0,0
+21540100,Golem Fist,Heavy,,0,0,0,0,0,0
+21540200,Golem Fist,Keen,,0,0,0,0,0,0
+21540600,Golem Fist,Lightning,,0,0,0,0,0,0
+21540800,Golem Fist,Magic,,0,0,0,0,0,0
+21541200,Golem Fist,Occult,,0,0,0,0,0,0
+21541000,Golem Fist,Poison,106000,0,0,66,0,0,0
+21540300,Golem Fist,Quality,,0,0,0,0,0,0
+21540700,Golem Fist,Sacred,,0,0,0,0,0,0
+21540000,Golem Fist,Standard,,0,0,0,0,0,0
+42010000,Golem Greatbow,Standard,,0,0,0,0,0,0
+23121100,Golem's Blood Halberd,Blood,105200,83,0,0,0,0,0
+23120900,Golem's Cold Halberd,Cold,107700,0,96,0,0,0,0
+23120400,Golem's Fire Halberd,Fire,,0,0,0,0,0,0
+23120500,Golem's Flame Art Halberd,Flame Art,,0,0,0,0,0,0
+23120000,Golem's Halberd,Standard,,0,0,0,0,0,0
+23120100,Golem's Heavy Halberd,Heavy,,0,0,0,0,0,0
+23120200,Golem's Keen Halberd,Keen,,0,0,0,0,0,0
+23120600,Golem's Lightning Halberd,Lightning,,0,0,0,0,0,0
+23120800,Golem's Magic Halberd,Magic,,0,0,0,0,0,0
+23121200,Golem's Occult Halberd,Occult,,0,0,0,0,0,0
+23121000,Golem's Poison Halberd,Poison,106200,0,0,96,0,0,0
+23120300,Golem's Quality Halberd,Quality,,0,0,0,0,0,0
+23120700,Golem's Sacred Halberd,Sacred,,0,0,0,0,0,0
+4100000,Grafted Blade Greatsword,Standard,,0,0,0,0,0,0
+21060000,Grafted Dragon,Standard,18671,0,0,0,0,0,0
+19011100,Grave Scythe,Blood,105150|5190100,69,0,0,0,0,0
+19010900,Grave Scythe,Cold,6401|107600|5190100,50,80,0,0,0,0
+19010400,Grave Scythe,Fire,6402|5190100,55,0,0,0,0,0
+19010500,Grave Scythe,Flame Art,6402|5190100,55,0,0,0,0,0
+19010100,Grave Scythe,Heavy,6402|5190100,55,0,0,0,0,0
+19010200,Grave Scythe,Keen,6402|5190100,55,0,0,0,0,0
+19010600,Grave Scythe,Lightning,6402|5190100,55,0,0,0,0,0
+19010800,Grave Scythe,Magic,6402|5190100,55,0,0,0,0,0
+19011200,Grave Scythe,Occult,6401|5190100,50,0,0,0,0,0
+19011000,Grave Scythe,Poison,6401|106100|5190100,50,0,80,0,0,0
+19010300,Grave Scythe,Quality,6402|5190100,55,0,0,0,0,0
+19010700,Grave Scythe,Sacred,6402|5190100,55,0,0,0,0,0
+19010000,Grave Scythe,Standard,6402|5190100,55,0,0,0,0,0
+34030000,Gravel Stone Seal,Standard,1924,0,0,0,0,0,0
+23021100,Great Club,Blood,105200,83,0,0,0,0,0
+23020900,Great Club,Cold,107700,0,96,0,0,0,0
+23020400,Great Club,Fire,,0,0,0,0,0,0
+23020500,Great Club,Flame Art,,0,0,0,0,0,0
+23020100,Great Club,Heavy,,0,0,0,0,0,0
+23020200,Great Club,Keen,,0,0,0,0,0,0
+23020600,Great Club,Lightning,,0,0,0,0,0,0
+23020800,Great Club,Magic,,0,0,0,0,0,0
+23021200,Great Club,Occult,,0,0,0,0,0,0
+23021000,Great Club,Poison,106200,0,0,96,0,0,0
+23020300,Great Club,Quality,,0,0,0,0,0,0
+23020700,Great Club,Sacred,,0,0,0,0,0,0
+23020000,Great Club,Standard,,0,0,0,0,0,0
+6021100,Great Epee,Blood,105100,69,0,0,0,0,0
+6020900,Great Epee,Cold,107600,0,80,0,0,0,0
+6020400,Great Epee,Fire,,0,0,0,0,0,0
+6020500,Great Epee,Flame Art,,0,0,0,0,0,0
+6020100,Great Epee,Heavy,,0,0,0,0,0,0
+6020200,Great Epee,Keen,,0,0,0,0,0,0
+6020600,Great Epee,Lightning,,0,0,0,0,0,0
+6020800,Great Epee,Magic,,0,0,0,0,0,0
+6021200,Great Epee,Occult,,0,0,0,0,0,0
+6021000,Great Epee,Poison,106100,0,0,80,0,0,0
+6020300,Great Epee,Quality,,0,0,0,0,0,0
+6020700,Great Epee,Sacred,,0,0,0,0,0,0
+6020000,Great Epee,Standard,,0,0,0,0,0,0
+66501100,Great Katana,Blood,105150,69,0,0,0,0,0
+66500900,Great Katana,Cold,6401|107600,50,80,0,0,0,0
+66500400,Great Katana,Fire,6402,55,0,0,0,0,0
+66500500,Great Katana,Flame Art,6402,55,0,0,0,0,0
+66500100,Great Katana,Heavy,6402,55,0,0,0,0,0
+66500200,Great Katana,Keen,6402,55,0,0,0,0,0
+66500600,Great Katana,Lightning,6402,55,0,0,0,0,0
+66500800,Great Katana,Magic,6402,55,0,0,0,0,0
+66501200,Great Katana,Occult,6401,50,0,0,0,0,0
+66501000,Great Katana,Poison,6401|106100,50,0,80,0,0,0
+66500300,Great Katana,Quality,6402,55,0,0,0,0,0
+66500700,Great Katana,Sacred,6402,55,0,0,0,0,0
+66500000,Great Katana,Standard,6402,55,0,0,0,0,0
+1091100,Great Knife,Blood,105050,57,0,0,0,0,0
+1090900,Great Knife,Cold,6406|107500,38,66,0,0,0,0
+1090400,Great Knife,Fire,6406,38,0,0,0,0,0
+1090500,Great Knife,Flame Art,6406,38,0,0,0,0,0
+1090100,Great Knife,Heavy,6406,38,0,0,0,0,0
+1090200,Great Knife,Keen,6406,38,0,0,0,0,0
+1090600,Great Knife,Lightning,6406,38,0,0,0,0,0
+1090800,Great Knife,Magic,6406,38,0,0,0,0,0
+1091200,Great Knife,Occult,6406,38,0,0,0,0,0
+1091000,Great Knife,Poison,6406|106000,38,0,66,0,0,0
+1090300,Great Knife,Quality,6406,38,0,0,0,0,0
+1090700,Great Knife,Sacred,6406,38,0,0,0,0,0
+1090000,Great Knife,Standard,6406,38,0,0,0,0,0
+12061100,Great Mace,Blood,105100,69,0,0,0,0,0
+12060900,Great Mace,Cold,107600,0,80,0,0,0,0
+12060400,Great Mace,Fire,,0,0,0,0,0,0
+12060500,Great Mace,Flame Art,,0,0,0,0,0,0
+12060100,Great Mace,Heavy,,0,0,0,0,0,0
+12060200,Great Mace,Keen,,0,0,0,0,0,0
+12060600,Great Mace,Lightning,,0,0,0,0,0,0
+12060800,Great Mace,Magic,,0,0,0,0,0,0
+12061200,Great Mace,Occult,,0,0,0,0,0,0
+12061000,Great Mace,Poison,106100,0,0,80,0,0,0
+12060300,Great Mace,Quality,,0,0,0,0,0,0
+12060700,Great Mace,Sacred,,0,0,0,0,0,0
+12060000,Great Mace,Standard,,0,0,0,0,0,0
+15021100,Great Omenkiller Cleaver,Blood,105150,69,0,0,0,0,0
+15020900,Great Omenkiller Cleaver,Cold,6401|107600,50,80,0,0,0,0
+15020400,Great Omenkiller Cleaver,Fire,6402,55,0,0,0,0,0
+15020500,Great Omenkiller Cleaver,Flame Art,6402,55,0,0,0,0,0
+15020100,Great Omenkiller Cleaver,Heavy,6402,55,0,0,0,0,0
+15020200,Great Omenkiller Cleaver,Keen,6402,55,0,0,0,0,0
+15020600,Great Omenkiller Cleaver,Lightning,6402,55,0,0,0,0,0
+15020800,Great Omenkiller Cleaver,Magic,6402,55,0,0,0,0,0
+15021200,Great Omenkiller Cleaver,Occult,6401,50,0,0,0,0,0
+15021000,Great Omenkiller Cleaver,Poison,6401|106100,50,0,80,0,0,0
+15020300,Great Omenkiller Cleaver,Quality,6402,55,0,0,0,0,0
+15020700,Great Omenkiller Cleaver,Sacred,6402,55,0,0,0,0,0
+15020000,Great Omenkiller Cleaver,Standard,6402,55,0,0,0,0,0
+12181100,Great Stars,Blood,105150|5121800|5121801,69,0,0,0,0,0
+12180900,Great Stars,Cold,6401|107600|5121800|5121801,50,80,0,0,0,0
+12180400,Great Stars,Fire,6402|5121800|5121801,55,0,0,0,0,0
+12180500,Great Stars,Flame Art,6402|5121800|5121801,55,0,0,0,0,0
+12180100,Great Stars,Heavy,6402|5121800|5121801,55,0,0,0,0,0
+12180200,Great Stars,Keen,6402|5121800|5121801,55,0,0,0,0,0
+12180600,Great Stars,Lightning,6402|5121800|5121801,55,0,0,0,0,0
+12180800,Great Stars,Magic,6402|5121800|5121801,55,0,0,0,0,0
+12181200,Great Stars,Occult,6401|5121800|5121801,50,0,0,0,0,0
+12181000,Great Stars,Poison,6401|106100|5121800|5121801,50,0,80,0,0,0
+12180300,Great Stars,Quality,6402|5121800|5121801,55,0,0,0,0,0
+12180700,Great Stars,Sacred,6402|5121800|5121801,55,0,0,0,0,0
+12180000,Great Stars,Standard,6402|5121800|5121801,55,0,0,0,0,0
+31141100,Great Turtle Shell,Blood,105000|5311400,57,0,0,0,0,0
+31140900,Great Turtle Shell,Cold,107500|5311400,0,66,0,0,0,0
+31140400,Great Turtle Shell,Fire,5311400,0,0,0,0,0,0
+31140500,Great Turtle Shell,Flame Art,5311400,0,0,0,0,0,0
+31140100,Great Turtle Shell,Heavy,5311400,0,0,0,0,0,0
+31140200,Great Turtle Shell,Keen,5311400,0,0,0,0,0,0
+31140600,Great Turtle Shell,Lightning,5311400,0,0,0,0,0,0
+31140800,Great Turtle Shell,Magic,5311400,0,0,0,0,0,0
+31141200,Great Turtle Shell,Occult,5311400,0,0,0,0,0,0
+31141000,Great Turtle Shell,Poison,106000|5311400,0,0,66,0,0,0
+31140300,Great Turtle Shell,Quality,5311400,0,0,0,0,0,0
+31140700,Great Turtle Shell,Sacred,5311400,0,0,0,0,0,0
+31140000,Great Turtle Shell,Standard,5311400,0,0,0,0,0,0
+15001100,Greataxe,Blood,105100,69,0,0,0,0,0
+15000900,Greataxe,Cold,107600,0,80,0,0,0,0
+15000400,Greataxe,Fire,,0,0,0,0,0,0
+15000500,Greataxe,Flame Art,,0,0,0,0,0,0
+15000100,Greataxe,Heavy,,0,0,0,0,0,0
+15000200,Greataxe,Keen,,0,0,0,0,0,0
+15000600,Greataxe,Lightning,,0,0,0,0,0,0
+15000800,Greataxe,Magic,,0,0,0,0,0,0
+15001200,Greataxe,Occult,,0,0,0,0,0,0
+15001000,Greataxe,Poison,106100,0,0,80,0,0,0
+15000300,Greataxe,Quality,,0,0,0,0,0,0
+15000700,Greataxe,Sacred,,0,0,0,0,0,0
+15000000,Greataxe,Standard,,0,0,0,0,0,0
+42040000,Greatbow,Standard,,0,0,0,0,0,0
+12011100,Greathorn Hammer,Blood,105100|5120100,69,0,0,0,0,0
+12010900,Greathorn Hammer,Cold,107600|5120100,0,80,0,0,0,0
+12010400,Greathorn Hammer,Fire,5120100,0,0,0,0,0,0
+12010500,Greathorn Hammer,Flame Art,5120100,0,0,0,0,0,0
+12010100,Greathorn Hammer,Heavy,5120100,0,0,0,0,0,0
+12010200,Greathorn Hammer,Keen,5120100,0,0,0,0,0,0
+12010600,Greathorn Hammer,Lightning,5120100,0,0,0,0,0,0
+12010800,Greathorn Hammer,Magic,5120100,0,0,0,0,0,0
+12011200,Greathorn Hammer,Occult,5120100,0,0,0,0,0,0
+12011000,Greathorn Hammer,Poison,106100|5120100,0,0,80,0,0,0
+12010300,Greathorn Hammer,Quality,5120100,0,0,0,0,0,0
+12010700,Greathorn Hammer,Sacred,5120100,0,0,0,0,0,0
+12010000,Greathorn Hammer,Standard,5120100,0,0,0,0,0,0
+4001100,Greatsword,Blood,105200,83,0,0,0,0,0
+4000900,Greatsword,Cold,107700,0,96,0,0,0,0
+4000400,Greatsword,Fire,,0,0,0,0,0,0
+4000500,Greatsword,Flame Art,,0,0,0,0,0,0
+4000100,Greatsword,Heavy,,0,0,0,0,0,0
+4000200,Greatsword,Keen,,0,0,0,0,0,0
+4000600,Greatsword,Lightning,,0,0,0,0,0,0
+4000800,Greatsword,Magic,,0,0,0,0,0,0
+4001200,Greatsword,Occult,,0,0,0,0,0,0
+4001000,Greatsword,Poison,106200,0,0,96,0,0,0
+4000300,Greatsword,Quality,,0,0,0,0,0,0
+4000700,Greatsword,Sacred,,0,0,0,0,0,0
+4000000,Greatsword,Standard,,0,0,0,0,0,0
+3510000,Greatsword of Damnation,Standard,,0,0,0,0,0,0
+4550000,Greatsword of Radahn (Light),Standard,,0,0,0,0,0,0
+4530000,Greatsword of Radahn (Lord),Standard,,0,0,0,0,0,0
+3550000,Greatsword of Solitude,Standard,,0,0,0,0,0,0
+7151100,Grossmesser,Blood,105000,57,0,0,0,0,0
+7150900,Grossmesser,Cold,107500,0,66,0,0,0,0
+7150400,Grossmesser,Fire,,0,0,0,0,0,0
+7150500,Grossmesser,Flame Art,,0,0,0,0,0,0
+7150100,Grossmesser,Heavy,,0,0,0,0,0,0
+7150200,Grossmesser,Keen,,0,0,0,0,0,0
+7150600,Grossmesser,Lightning,,0,0,0,0,0,0
+7150800,Grossmesser,Magic,,0,0,0,0,0,0
+7151200,Grossmesser,Occult,,0,0,0,0,0,0
+7151000,Grossmesser,Poison,106000,0,0,66,0,0,0
+7150300,Grossmesser,Quality,,0,0,0,0,0,0
+7150700,Grossmesser,Sacred,,0,0,0,0,0,0
+7150000,Grossmesser,Standard,,0,0,0,0,0,0
+18111100,Guardian's Blood Swordspear,Blood,105100,69,0,0,0,0,0
+18110900,Guardian's Cold Swordspear,Cold,107600,0,80,0,0,0,0
+18110400,Guardian's Fire Swordspear,Fire,,0,0,0,0,0,0
+18110500,Guardian's Flame Art Swordspear,Flame Art,,0,0,0,0,0,0
+18110100,Guardian's Heavy Swordspear,Heavy,,0,0,0,0,0,0
+18110200,Guardian's Keen Swordspear,Keen,,0,0,0,0,0,0
+18110600,Guardian's Lightning Swordspear,Lightning,,0,0,0,0,0,0
+18110800,Guardian's Magic Swordspear,Magic,,0,0,0,0,0,0
+18111200,Guardian's Occult Swordspear,Occult,,0,0,0,0,0,0
+18111000,Guardian's Poison Swordspear,Poison,106100,0,0,80,0,0,0
+18110300,Guardian's Quality Swordspear,Quality,,0,0,0,0,0,0
+18110700,Guardian's Sacred Swordspear,Sacred,,0,0,0,0,0,0
+18110000,Guardian's Swordspear,Standard,,0,0,0,0,0,0
+18001100,Halberd,Blood,105100,69,0,0,0,0,0
+18000900,Halberd,Cold,107600,0,80,0,0,0,0
+18000400,Halberd,Fire,,0,0,0,0,0,0
+18000500,Halberd,Flame Art,,0,0,0,0,0,0
+18000100,Halberd,Heavy,,0,0,0,0,0,0
+18000200,Halberd,Keen,,0,0,0,0,0,0
+18000600,Halberd,Lightning,,0,0,0,0,0,0
+18000800,Halberd,Magic,,0,0,0,0,0,0
+18001200,Halberd,Occult,,0,0,0,0,0,0
+18001000,Halberd,Poison,106100,0,0,80,0,0,0
+18000300,Halberd,Quality,,0,0,0,0,0,0
+18000700,Halberd,Sacred,,0,0,0,0,0,0
+18000000,Halberd,Standard,,0,0,0,0,0,0
+32281100,Haligtree Crest Greatshield,Blood,105200,83,0,0,0,0,0
+32280900,Haligtree Crest Greatshield,Cold,107700,0,96,0,0,0,0
+32280400,Haligtree Crest Greatshield,Fire,,0,0,0,0,0,0
+32280500,Haligtree Crest Greatshield,Flame Art,,0,0,0,0,0,0
+32280100,Haligtree Crest Greatshield,Heavy,,0,0,0,0,0,0
+32280200,Haligtree Crest Greatshield,Keen,,0,0,0,0,0,0
+32280600,Haligtree Crest Greatshield,Lightning,,0,0,0,0,0,0
+32280800,Haligtree Crest Greatshield,Magic,,0,0,0,0,0,0
+32281200,Haligtree Crest Greatshield,Occult,,0,0,0,0,0,0
+32281000,Haligtree Crest Greatshield,Poison,106200,0,0,96,0,0,0
+32280300,Haligtree Crest Greatshield,Quality,,0,0,0,0,0,0
+32280700,Haligtree Crest Greatshield,Sacred,,0,0,0,0,0,0
+32280000,Haligtree Crest Greatshield,Standard,,0,0,0,0,0,0
+19020000,Halo Scythe,Standard,6402,55,0,0,0,0,0
+11081100,Hammer,Blood,105000,57,0,0,0,0,0
+11080900,Hammer,Cold,107500,0,66,0,0,0,0
+11080400,Hammer,Fire,,0,0,0,0,0,0
+11080500,Hammer,Flame Art,,0,0,0,0,0,0
+11080100,Hammer,Heavy,,0,0,0,0,0,0
+11080200,Hammer,Keen,,0,0,0,0,0,0
+11080600,Hammer,Lightning,,0,0,0,0,0,0
+11080800,Hammer,Magic,,0,0,0,0,0,0
+11081200,Hammer,Occult,,0,0,0,0,0,0
+11081000,Hammer,Poison,106000,0,0,66,0,0,0
+11080300,Hammer,Quality,,0,0,0,0,0,0
+11080700,Hammer,Sacred,,0,0,0,0,0,0
+11080000,Hammer,Standard,,0,0,0,0,0,0
+14021100,Hand Axe,Blood,105000,57,0,0,0,0,0
+14020900,Hand Axe,Cold,107500,0,66,0,0,0,0
+14020400,Hand Axe,Fire,,0,0,0,0,0,0
+14020500,Hand Axe,Flame Art,,0,0,0,0,0,0
+14020100,Hand Axe,Heavy,,0,0,0,0,0,0
+14020200,Hand Axe,Keen,,0,0,0,0,0,0
+14020600,Hand Axe,Lightning,,0,0,0,0,0,0
+14020800,Hand Axe,Magic,,0,0,0,0,0,0
+14021200,Hand Axe,Occult,,0,0,0,0,0,0
+14021000,Hand Axe,Poison,106000,0,0,66,0,0,0
+14020300,Hand Axe,Quality,,0,0,0,0,0,0
+14020700,Hand Axe,Sacred,,0,0,0,0,0,0
+14020000,Hand Axe,Standard,,0,0,0,0,0,0
+44000000,Hand Ballista,Standard,,0,0,0,0,0,0
+9020000,Hand of Malenia,Standard,6401,50,0,0,0,0,0
+40030000,Harp Bow,Standard,1940,0,0,0,0,0,0
+31271100,Hawk Crest Wooden Shield,Blood,105000,57,0,0,0,0,0
+31270900,Hawk Crest Wooden Shield,Cold,107500,0,66,0,0,0,0
+31270400,Hawk Crest Wooden Shield,Fire,,0,0,0,0,0,0
+31270500,Hawk Crest Wooden Shield,Flame Art,,0,0,0,0,0,0
+31270100,Hawk Crest Wooden Shield,Heavy,,0,0,0,0,0,0
+31270200,Hawk Crest Wooden Shield,Keen,,0,0,0,0,0,0
+31270600,Hawk Crest Wooden Shield,Lightning,,0,0,0,0,0,0
+31270800,Hawk Crest Wooden Shield,Magic,,0,0,0,0,0,0
+31271200,Hawk Crest Wooden Shield,Occult,,0,0,0,0,0,0
+31271000,Hawk Crest Wooden Shield,Poison,106000,0,0,66,0,0,0
+31270300,Hawk Crest Wooden Shield,Quality,,0,0,0,0,0,0
+31270700,Hawk Crest Wooden Shield,Sacred,,0,0,0,0,0,0
+31270000,Hawk Crest Wooden Shield,Standard,,0,0,0,0,0,0
+31331100,Heater Shield,Blood,105000,57,0,0,0,0,0
+31330900,Heater Shield,Cold,107500,0,66,0,0,0,0
+31330400,Heater Shield,Fire,,0,0,0,0,0,0
+31330500,Heater Shield,Flame Art,,0,0,0,0,0,0
+31330100,Heater Shield,Heavy,,0,0,0,0,0,0
+31330200,Heater Shield,Keen,,0,0,0,0,0,0
+31330600,Heater Shield,Lightning,,0,0,0,0,0,0
+31330800,Heater Shield,Magic,,0,0,0,0,0,0
+31331200,Heater Shield,Occult,,0,0,0,0,0,0
+31331000,Heater Shield,Poison,106000,0,0,66,0,0,0
+31330300,Heater Shield,Quality,,0,0,0,0,0,0
+31330700,Heater Shield,Sacred,,0,0,0,0,0,0
+31330000,Heater Shield,Standard,,0,0,0,0,0,0
+43030000,Heavy Crossbow,Standard,,0,0,0,0,0,0
+3130000,Helphen's Steeple,Standard,,0,0,0,0,0,0
+14100900,Highland Axe,Cold,107500|5141000,0,66,0,0,0,0
+14100400,Highland Axe,Fire,5141000,0,0,0,0,0,0
+14100500,Highland Axe,Flame Art,5141000,0,0,0,0,0,0
+14100100,Highland Axe,Heavy,5141000,0,0,0,0,0,0
+14100200,Highland Axe,Keen,5141000,0,0,0,0,0,0
+14100600,Highland Axe,Lightning,5141000,0,0,0,0,0,0
+14100800,Highland Axe,Magic,5141000,0,0,0,0,0,0
+14101200,Highland Axe,Occult,5141000,0,0,0,0,0,0
+14101000,Highland Axe,Poison,106000|5141000,0,0,66,0,0,0
+14100300,Highland Axe,Quality,5141000,0,0,0,0,0,0
+14100700,Highland Axe,Sacred,5141000,0,0,0,0,0,0
+14100000,Highland Axe,Standard,5141000,0,0,0,0,0,0
+22001100,Hookclaws,Blood,105050,57,0,0,0,0,0
+22000900,Hookclaws,Cold,6400|107500,45,66,0,0,0,0
+22000400,Hookclaws,Fire,6403,60,0,0,0,0,0
+22000500,Hookclaws,Flame Art,6403,60,0,0,0,0,0
+22000100,Hookclaws,Heavy,6403,60,0,0,0,0,0
+22000200,Hookclaws,Keen,6403,60,0,0,0,0,0
+22000600,Hookclaws,Lightning,6403,60,0,0,0,0,0
+22000800,Hookclaws,Magic,6403,60,0,0,0,0,0
+22001200,Hookclaws,Occult,6400,45,0,0,0,0,0
+22001000,Hookclaws,Poison,6400|106000,45,0,66,0,0,0
+22000300,Hookclaws,Quality,6403,60,0,0,0,0,0
+22000700,Hookclaws,Sacred,6403,60,0,0,0,0,0
+22000000,Hookclaws,Standard,6403,60,0,0,0,0,0
+41020000,Horn Bow,Standard,1940,0,0,0,0,0,0
+8520000,Horned Warrior's Greatsword,Standard,,0,0,0,0,0,0
+7530000,Horned Warrior's Sword,Standard,,0,0,0,0,0,0
+31241100,Horse Crest Wooden Shield,Blood,105000,57,0,0,0,0,0
+31240900,Horse Crest Wooden Shield,Cold,107500,0,66,0,0,0,0
+31240400,Horse Crest Wooden Shield,Fire,,0,0,0,0,0,0
+31240500,Horse Crest Wooden Shield,Flame Art,,0,0,0,0,0,0
+31240100,Horse Crest Wooden Shield,Heavy,,0,0,0,0,0,0
+31240200,Horse Crest Wooden Shield,Keen,,0,0,0,0,0,0
+31240600,Horse Crest Wooden Shield,Lightning,,0,0,0,0,0,0
+31240800,Horse Crest Wooden Shield,Magic,,0,0,0,0,0,0
+31241200,Horse Crest Wooden Shield,Occult,,0,0,0,0,0,0
+31241000,Horse Crest Wooden Shield,Poison,106000,0,0,66,0,0,0
+31240300,Horse Crest Wooden Shield,Quality,,0,0,0,0,0,0
+31240700,Horse Crest Wooden Shield,Sacred,,0,0,0,0,0,0
+31240000,Horse Crest Wooden Shield,Standard,,0,0,0,0,0,0
+20051100,Hoslow's Blood Petal Whip,Blood,105050,57,0,0,0,0,0
+20050900,Hoslow's Cold Petal Whip,Cold,6410|107500,50,66,0,0,0,0
+20050400,Hoslow's Fire Petal Whip,Fire,6411,55,0,0,0,0,0
+20050500,Hoslow's Flame Art Petal Whip,Flame Art,6411,55,0,0,0,0,0
+20050100,Hoslow's Heavy Petal Whip,Heavy,6411,55,0,0,0,0,0
+20050200,Hoslow's Keen Petal Whip,Keen,6411,55,0,0,0,0,0
+20050600,Hoslow's Lightning Petal Whip,Lightning,6411,55,0,0,0,0,0
+20050800,Hoslow's Magic Petal Whip,Magic,6411,55,0,0,0,0,0
+20051200,Hoslow's Occult Petal Whip,Occult,6410,50,0,0,0,0,0
+20050000,Hoslow's Petal Whip,Standard,6411,55,0,0,0,0,0
+20051000,Hoslow's Poison Petal Whip,Poison,6410|106000,50,0,66,0,0,0
+20050300,Hoslow's Quality Petal Whip,Quality,6411,55,0,0,0,0,0
+20050700,Hoslow's Sacred Petal Whip,Sacred,6411,55,0,0,0,0,0
+30141100,Ice Crest Shield,Blood,105000|5301400,57,0,0,0,0,0
+30140900,Ice Crest Shield,Cold,107500|5301400,0,66,0,0,0,0
+30140400,Ice Crest Shield,Fire,5301400,0,0,0,0,0,0
+30140500,Ice Crest Shield,Flame Art,5301400,0,0,0,0,0,0
+30140100,Ice Crest Shield,Heavy,5301400,0,0,0,0,0,0
+30140200,Ice Crest Shield,Keen,5301400,0,0,0,0,0,0
+30140600,Ice Crest Shield,Lightning,5301400,0,0,0,0,0,0
+30140800,Ice Crest Shield,Magic,5301400,0,0,0,0,0,0
+30141200,Ice Crest Shield,Occult,5301400,0,0,0,0,0,0
+30141000,Ice Crest Shield,Poison,106000|5301400,0,0,66,0,0,0
+30140300,Ice Crest Shield,Quality,5301400,0,0,0,0,0,0
+30140700,Ice Crest Shield,Sacred,5301400,0,0,0,0,0,0
+30140000,Ice Crest Shield,Standard,5301400,0,0,0,0,0,0
+14080000,Icerind Hatchet,Standard,6702,0,65,0,0,0,0
+32140000,Icon Shield,Standard,5321400,0,0,0,0,0,0
+42500000,Igon's Greatbow,Standard,5425000,0,0,0,0,0,0
+16130000,Inquisitor's Girandole,Standard,6401,50,0,0,0,0,0
+2090000,Inseparable Sword,Standard,,0,0,0,0,0,0
+31321100,Inverted Hawk Heater Shield,Blood,105000,57,0,0,0,0,0
+31320900,Inverted Hawk Heater Shield,Cold,107500,0,66,0,0,0,0
+31320400,Inverted Hawk Heater Shield,Fire,,0,0,0,0,0,0
+31320500,Inverted Hawk Heater Shield,Flame Art,,0,0,0,0,0,0
+31320100,Inverted Hawk Heater Shield,Heavy,,0,0,0,0,0,0
+31320200,Inverted Hawk Heater Shield,Keen,,0,0,0,0,0,0
+31320600,Inverted Hawk Heater Shield,Lightning,,0,0,0,0,0,0
+31320800,Inverted Hawk Heater Shield,Magic,,0,0,0,0,0,0
+31321200,Inverted Hawk Heater Shield,Occult,,0,0,0,0,0,0
+31321000,Inverted Hawk Heater Shield,Poison,106000,0,0,66,0,0,0
+31320300,Inverted Hawk Heater Shield,Quality,,0,0,0,0,0,0
+31320700,Inverted Hawk Heater Shield,Sacred,,0,0,0,0,0,0
+31320000,Inverted Hawk Heater Shield,Standard,,0,0,0,0,0,0
+32211100,Inverted Hawk Towershield,Blood,105200,83,0,0,0,0,0
+32210900,Inverted Hawk Towershield,Cold,107700,0,96,0,0,0,0
+32210400,Inverted Hawk Towershield,Fire,,0,0,0,0,0,0
+32210500,Inverted Hawk Towershield,Flame Art,,0,0,0,0,0,0
+32210100,Inverted Hawk Towershield,Heavy,,0,0,0,0,0,0
+32210200,Inverted Hawk Towershield,Keen,,0,0,0,0,0,0
+32210600,Inverted Hawk Towershield,Lightning,,0,0,0,0,0,0
+32210800,Inverted Hawk Towershield,Magic,,0,0,0,0,0,0
+32211200,Inverted Hawk Towershield,Occult,,0,0,0,0,0,0
+32211000,Inverted Hawk Towershield,Poison,106200,0,0,96,0,0,0
+32210300,Inverted Hawk Towershield,Quality,,0,0,0,0,0,0
+32210700,Inverted Hawk Towershield,Sacred,,0,0,0,0,0,0
+32210000,Inverted Hawk Towershield,Standard,,0,0,0,0,0,0
+21071100,Iron Ball,Blood,105000,57,0,0,0,0,0
+21070900,Iron Ball,Cold,107500,0,66,0,0,0,0
+21070400,Iron Ball,Fire,,0,0,0,0,0,0
+21070500,Iron Ball,Flame Art,,0,0,0,0,0,0
+21070100,Iron Ball,Heavy,,0,0,0,0,0,0
+21070200,Iron Ball,Keen,,0,0,0,0,0,0
+21070600,Iron Ball,Lightning,,0,0,0,0,0,0
+21070800,Iron Ball,Magic,,0,0,0,0,0,0
+21071200,Iron Ball,Occult,,0,0,0,0,0,0
+21071000,Iron Ball,Poison,106000,0,0,66,0,0,0
+21070300,Iron Ball,Quality,,0,0,0,0,0,0
+21070700,Iron Ball,Sacred,,0,0,0,0,0,0
+21070000,Iron Ball,Standard,,0,0,0,0,0,0
+14041100,Iron Cleaver,Blood,105000,57,0,0,0,0,0
+14040900,Iron Cleaver,Cold,107500,0,66,0,0,0,0
+14040400,Iron Cleaver,Fire,,0,0,0,0,0,0
+14040500,Iron Cleaver,Flame Art,,0,0,0,0,0,0
+14040100,Iron Cleaver,Heavy,,0,0,0,0,0,0
+14040200,Iron Cleaver,Keen,,0,0,0,0,0,0
+14040600,Iron Cleaver,Lightning,,0,0,0,0,0,0
+14040800,Iron Cleaver,Magic,,0,0,0,0,0,0
+14041200,Iron Cleaver,Occult,,0,0,0,0,0,0
+14041000,Iron Cleaver,Poison,106000,0,0,66,0,0,0
+14040300,Iron Cleaver,Quality,,0,0,0,0,0,0
+14040700,Iron Cleaver,Sacred,,0,0,0,0,0,0
+14040000,Iron Cleaver,Standard,,0,0,0,0,0,0
+3021100,Iron Greatsword,Blood,105100,69,0,0,0,0,0
+3020900,Iron Greatsword,Cold,107600,0,80,0,0,0,0
+3020400,Iron Greatsword,Fire,,0,0,0,0,0,0
+3020500,Iron Greatsword,Flame Art,,0,0,0,0,0,0
+3020100,Iron Greatsword,Heavy,,0,0,0,0,0,0
+3020200,Iron Greatsword,Keen,,0,0,0,0,0,0
+3020600,Iron Greatsword,Lightning,,0,0,0,0,0,0
+3020800,Iron Greatsword,Magic,,0,0,0,0,0,0
+3021200,Iron Greatsword,Occult,,0,0,0,0,0,0
+3021000,Iron Greatsword,Poison,106100,0,0,80,0,0,0
+3020300,Iron Greatsword,Quality,,0,0,0,0,0,0
+3020700,Iron Greatsword,Sacred,,0,0,0,0,0,0
+3020000,Iron Greatsword,Standard,,0,0,0,0,0,0
+30120900,Iron Roundshield,Cold,107500,0,66,0,0,0,0
+30120400,Iron Roundshield,Fire,,0,0,0,0,0,0
+30120500,Iron Roundshield,Flame Art,,0,0,0,0,0,0
+30120100,Iron Roundshield,Heavy,,0,0,0,0,0,0
+30120200,Iron Roundshield,Keen,,0,0,0,0,0,0
+30120600,Iron Roundshield,Lightning,,0,0,0,0,0,0
+30120800,Iron Roundshield,Magic,,0,0,0,0,0,0
+30121200,Iron Roundshield,Occult,,0,0,0,0,0,0
+30121000,Iron Roundshield,Poison,106000,0,0,66,0,0,0
+30120300,Iron Roundshield,Quality,,0,0,0,0,0,0
+30120700,Iron Roundshield,Sacred,,0,0,0,0,0,0
+30120000,Iron Roundshield,Standard,,0,0,0,0,0,0
+16151100,Iron Spear,Blood,105000,57,0,0,0,0,0
+16150900,Iron Spear,Cold,107500,0,66,0,0,0,0
+16150400,Iron Spear,Fire,,0,0,0,0,0,0
+16150500,Iron Spear,Flame Art,,0,0,0,0,0,0
+16150100,Iron Spear,Heavy,,0,0,0,0,0,0
+16150200,Iron Spear,Keen,,0,0,0,0,0,0
+16150600,Iron Spear,Lightning,,0,0,0,0,0,0
+16150800,Iron Spear,Magic,,0,0,0,0,0,0
+16151200,Iron Spear,Occult,,0,0,0,0,0,0
+16151000,Iron Spear,Poison,106000,0,0,66,0,0,0
+16150300,Iron Spear,Quality,,0,0,0,0,0,0
+16150700,Iron Spear,Sacred,,0,0,0,0,0,0
+16150000,Iron Spear,Standard,,0,0,0,0,0,0
+1130000,Ivory Sickle,Standard,,0,0,0,0,0,0
+44010000,Jar Cannon,Standard,,0,0,0,0,0,0
+14031100,Jawbone Axe,Blood,105000,57,0,0,0,0,0
+14030900,Jawbone Axe,Cold,107500,0,66,0,0,0,0
+14030400,Jawbone Axe,Fire,,0,0,0,0,0,0
+14030500,Jawbone Axe,Flame Art,,0,0,0,0,0,0
+14030100,Jawbone Axe,Heavy,,0,0,0,0,0,0
+14030200,Jawbone Axe,Keen,,0,0,0,0,0,0
+14030600,Jawbone Axe,Lightning,,0,0,0,0,0,0
+14030800,Jawbone Axe,Magic,,0,0,0,0,0,0
+14031200,Jawbone Axe,Occult,,0,0,0,0,0,0
+14031000,Jawbone Axe,Poison,106000,0,0,66,0,0,0
+14030300,Jawbone Axe,Quality,,0,0,0,0,0,0
+14030700,Jawbone Axe,Sacred,,0,0,0,0,0,0
+14030000,Jawbone Axe,Standard,,0,0,0,0,0,0
+32120000,Jellyfish Shield,Standard,,0,0,0,0,0,0
+21101100,Katar,Blood,105000,57,0,0,0,0,0
+21100900,Katar,Cold,107500,0,66,0,0,0,0
+21100400,Katar,Fire,,0,0,0,0,0,0
+21100500,Katar,Flame Art,,0,0,0,0,0,0
+21100100,Katar,Heavy,,0,0,0,0,0,0
+21100200,Katar,Keen,,0,0,0,0,0,0
+21100600,Katar,Lightning,,0,0,0,0,0,0
+21100800,Katar,Magic,,0,0,0,0,0,0
+21101200,Katar,Occult,,0,0,0,0,0,0
+21101000,Katar,Poison,106000,0,0,66,0,0,0
+21100300,Katar,Quality,,0,0,0,0,0,0
+21100700,Katar,Sacred,,0,0,0,0,0,0
+21100000,Katar,Standard,,0,0,0,0,0,0
+31001100,Kite Shield,Blood,105000,57,0,0,0,0,0
+31000900,Kite Shield,Cold,107500,0,66,0,0,0,0
+31000400,Kite Shield,Fire,,0,0,0,0,0,0
+31000500,Kite Shield,Flame Art,,0,0,0,0,0,0
+31000100,Kite Shield,Heavy,,0,0,0,0,0,0
+31000200,Kite Shield,Keen,,0,0,0,0,0,0
+31000600,Kite Shield,Lightning,,0,0,0,0,0,0
+31000800,Kite Shield,Magic,,0,0,0,0,0,0
+31001200,Kite Shield,Occult,,0,0,0,0,0,0
+31001000,Kite Shield,Poison,106000,0,0,66,0,0,0
+31000300,Kite Shield,Quality,,0,0,0,0,0,0
+31000700,Kite Shield,Sacred,,0,0,0,0,0,0
+31000000,Kite Shield,Standard,,0,0,0,0,0,0
+3041100,Knight's Blood Greatsword,Blood,105100,69,0,0,0,0,0
+3040900,Knight's Cold Greatsword,Cold,107600,0,80,0,0,0,0
+3040400,Knight's Fire Greatsword,Fire,,0,0,0,0,0,0
+4520400,Knight's Fire Greatsword,Fire,,0,0,0,0,0,0
+1510400,Knight's Fire Shortsword,Fire,,0,0,0,0,0,0
+3040500,Knight's Flame Art Greatsword,Flame Art,,0,0,0,0,0,0
+3040000,Knight's Greatsword,Standard,,0,0,0,0,0,0
+3040100,Knight's Heavy Greatsword,Heavy,,0,0,0,0,0,0
+3040200,Knight's Keen Greatsword,Keen,,0,0,0,0,0,0
+3040600,Knight's Lightning Greatsword,Lightning,,0,0,0,0,0,0
+3040800,Knight's Magic Greatsword,Magic,,0,0,0,0,0,0
+3041200,Knight's Occult Greatsword,Occult,,0,0,0,0,0,0
+3041000,Knight's Poison Greatsword,Poison,106100,0,0,80,0,0,0
+3040300,Knight's Quality Greatsword,Quality,,0,0,0,0,0,0
+3040700,Knight's Sacred Greatsword,Sacred,,0,0,0,0,0,0
+24510000,Lamenting Visage,Standard,415|5245100,0,0,0,0,0,0
+17060900,Lance,Cold,107600,0,80,0,0,0,0
+17060400,Lance,Fire,,0,0,0,0,0,0
+17060500,Lance,Flame Art,,0,0,0,0,0,0
+17060100,Lance,Heavy,,0,0,0,0,0,0
+17060200,Lance,Keen,,0,0,0,0,0,0
+17060600,Lance,Lightning,,0,0,0,0,0,0
+17060800,Lance,Magic,,0,0,0,0,0,0
+17061200,Lance,Occult,,0,0,0,0,0,0
+17061000,Lance,Poison,106100,0,0,80,0,0,0
+17060300,Lance,Quality,,0,0,0,0,0,0
+17060700,Lance,Sacred,,0,0,0,0,0,0
+17060000,Lance,Standard,,0,0,0,0,0,0
+12001100,Large Club,Blood,105100,69,0,0,0,0,0
+12000900,Large Club,Cold,107600,0,80,0,0,0,0
+12000400,Large Club,Fire,,0,0,0,0,0,0
+12000500,Large Club,Flame Art,,0,0,0,0,0,0
+12000100,Large Club,Heavy,,0,0,0,0,0,0
+12000200,Large Club,Keen,,0,0,0,0,0,0
+12000600,Large Club,Lightning,,0,0,0,0,0,0
+12000800,Large Club,Magic,,0,0,0,0,0,0
+12001200,Large Club,Occult,,0,0,0,0,0,0
+12001000,Large Club,Poison,106100,0,0,80,0,0,0
+12000300,Large Club,Quality,,0,0,0,0,0,0
+12000700,Large Club,Sacred,,0,0,0,0,0,0
+12000000,Large Club,Standard,,0,0,0,0,0,0
+31230900,Large Leather Shield,Cold,107500,0,66,0,0,0,0
+31230400,Large Leather Shield,Fire,,0,0,0,0,0,0
+31230500,Large Leather Shield,Flame Art,,0,0,0,0,0,0
+31230100,Large Leather Shield,Heavy,,0,0,0,0,0,0
+31230200,Large Leather Shield,Keen,,0,0,0,0,0,0
+31230600,Large Leather Shield,Lightning,,0,0,0,0,0,0
+31230800,Large Leather Shield,Magic,,0,0,0,0,0,0
+31231200,Large Leather Shield,Occult,,0,0,0,0,0,0
+31231000,Large Leather Shield,Poison,106000,0,0,66,0,0,0
+31230300,Large Leather Shield,Quality,,0,0,0,0,0,0
+31230700,Large Leather Shield,Sacred,,0,0,0,0,0,0
+31230000,Large Leather Shield,Standard,,0,0,0,0,0,0
+2250000,Lazuli Glintstone Sword,Standard,,0,0,0,0,0,0
+67510000,Leda's Sword,Standard,,0,0,0,0,0,0
+43020000,Light Crossbow,Standard,,0,0,0,0,0,0
+61530000,Lightning Perfume Bottle,Standard,,0,0,0,0,0,0
+42000000,Lion Greatbow,Standard,1937,0,0,0,0,0,0
+3521100,Lizard Greatsword,Blood,105100,69,0,0,0,0,0
+3520900,Lizard Greatsword,Cold,107600,0,80,0,0,0,0
+3520400,Lizard Greatsword,Fire,,0,0,0,0,0,0
+3520500,Lizard Greatsword,Flame Art,,0,0,0,0,0,0
+3520100,Lizard Greatsword,Heavy,,0,0,0,0,0,0
+3520200,Lizard Greatsword,Keen,,0,0,0,0,0,0
+3520600,Lizard Greatsword,Lightning,,0,0,0,0,0,0
+3520800,Lizard Greatsword,Magic,,0,0,0,0,0,0
+3521200,Lizard Greatsword,Occult,,0,0,0,0,0,0
+3521000,Lizard Greatsword,Poison,106100,0,0,80,0,0,0
+3520300,Lizard Greatsword,Quality,,0,0,0,0,0,0
+3520700,Lizard Greatsword,Sacred,,0,0,0,0,0,0
+3520000,Lizard Greatsword,Standard,,0,0,0,0,0,0
+41000000,Longbow,Standard,1940,0,0,0,0,0,0
+15051100,Longhaft Axe,Blood,105100,69,0,0,0,0,0
+15050900,Longhaft Axe,Cold,107600,0,80,0,0,0,0
+15050400,Longhaft Axe,Fire,,0,0,0,0,0,0
+15050500,Longhaft Axe,Flame Art,,0,0,0,0,0,0
+15050100,Longhaft Axe,Heavy,,0,0,0,0,0,0
+15050200,Longhaft Axe,Keen,,0,0,0,0,0,0
+15050600,Longhaft Axe,Lightning,,0,0,0,0,0,0
+15050800,Longhaft Axe,Magic,,0,0,0,0,0,0
+15051200,Longhaft Axe,Occult,,0,0,0,0,0,0
+15051000,Longhaft Axe,Poison,106100,0,0,80,0,0,0
+15050300,Longhaft Axe,Quality,,0,0,0,0,0,0
+15050700,Longhaft Axe,Sacred,,0,0,0,0,0,0
+15050000,Longhaft Axe,Standard,,0,0,0,0,0,0
+2000900,Longsword,Cold,107500,0,66,0,0,0,0
+2000400,Longsword,Fire,,0,0,0,0,0,0
+2000500,Longsword,Flame Art,,0,0,0,0,0,0
+2000100,Longsword,Heavy,,0,0,0,0,0,0
+2000200,Longsword,Keen,,0,0,0,0,0,0
+2000600,Longsword,Lightning,,0,0,0,0,0,0
+2000800,Longsword,Magic,,0,0,0,0,0,0
+2001200,Longsword,Occult,,0,0,0,0,0,0
+2001000,Longsword,Poison,106000,0,0,66,0,0,0
+2000300,Longsword,Quality,,0,0,0,0,0,0
+2000700,Longsword,Sacred,,0,0,0,0,0,0
+2000000,Longsword,Standard,,0,0,0,0,0,0
+3031100,Lordsworn's Blood Greatsword,Blood,105100,69,0,0,0,0,0
+2041100,Lordsworn's Blood Straight Sword,Blood,105000,57,0,0,0,0,0
+3030900,Lordsworn's Cold Greatsword,Cold,107600,0,80,0,0,0,0
+2040900,Lordsworn's Cold Straight Sword,Cold,107500,0,66,0,0,0,0
+3030400,Lordsworn's Fire Greatsword,Fire,,0,0,0,0,0,0
+2040400,Lordsworn's Fire Straight Sword,Fire,,0,0,0,0,0,0
+3030500,Lordsworn's Flame Art Greatsword,Flame Art,,0,0,0,0,0,0
+2040500,Lordsworn's Flame Art Straight Sword,Flame Art,,0,0,0,0,0,0
+3030000,Lordsworn's Greatsword,Standard,,0,0,0,0,0,0
+3030100,Lordsworn's Heavy Greatsword,Heavy,,0,0,0,0,0,0
+2040100,Lordsworn's Heavy Straight Sword,Heavy,,0,0,0,0,0,0
+3030200,Lordsworn's Keen Greatsword,Keen,,0,0,0,0,0,0
+2040200,Lordsworn's Keen Straight Sword,Keen,,0,0,0,0,0,0
+3030600,Lordsworn's Lightning Greatsword,Lightning,,0,0,0,0,0,0
+2040600,Lordsworn's Lightning Straight Sword,Lightning,,0,0,0,0,0,0
+3030800,Lordsworn's Magic Greatsword,Magic,,0,0,0,0,0,0
+2040800,Lordsworn's Magic Straight Sword,Magic,,0,0,0,0,0,0
+3031200,Lordsworn's Occult Greatsword,Occult,,0,0,0,0,0,0
+2041200,Lordsworn's Occult Straight Sword,Occult,,0,0,0,0,0,0
+3031000,Lordsworn's Poison Greatsword,Poison,106100,0,0,80,0,0,0
+2041000,Lordsworn's Poison Straight Sword,Poison,106000,0,0,66,0,0,0
+3030300,Lordsworn's Quality Greatsword,Quality,,0,0,0,0,0,0
+2040300,Lordsworn's Quality Straight Sword,Quality,,0,0,0,0,0,0
+3030700,Lordsworn's Sacred Greatsword,Sacred,,0,0,0,0,0,0
+2040700,Lordsworn's Sacred Straight Sword,Sacred,,0,0,0,0,0,0
+32301100,Lordsworn's Shield,Blood,105200,83,0,0,0,0,0
+32300900,Lordsworn's Shield,Cold,107700,0,96,0,0,0,0
+32300400,Lordsworn's Shield,Fire,,0,0,0,0,0,0
+32300500,Lordsworn's Shield,Flame Art,,0,0,0,0,0,0
+32300100,Lordsworn's Shield,Heavy,,0,0,0,0,0,0
+32300200,Lordsworn's Shield,Keen,,0,0,0,0,0,0
+32300600,Lordsworn's Shield,Lightning,,0,0,0,0,0,0
+32300800,Lordsworn's Shield,Magic,,0,0,0,0,0,0
+32301200,Lordsworn's Shield,Occult,,0,0,0,0,0,0
+32301000,Lordsworn's Shield,Poison,106200,0,0,96,0,0,0
+32300300,Lordsworn's Shield,Quality,,0,0,0,0,0,0
+32300700,Lordsworn's Shield,Sacred,,0,0,0,0,0,0
+32300000,Lordsworn's Shield,Standard,,0,0,0,0,0,0
+2040000,Lordsworn's Straight Sword,Standard,,0,0,0,0,0,0
+18100000,Loretta's War Sickle,Standard,,0,0,0,0,0,0
+18021100,Lucerne,Blood,105100,69,0,0,0,0,0
+18020900,Lucerne,Cold,107600,0,80,0,0,0,0
+18020400,Lucerne,Fire,,0,0,0,0,0,0
+18020500,Lucerne,Flame Art,,0,0,0,0,0,0
+18020100,Lucerne,Heavy,,0,0,0,0,0,0
+18020200,Lucerne,Keen,,0,0,0,0,0,0
+18020600,Lucerne,Lightning,,0,0,0,0,0,0
+18020800,Lucerne,Magic,,0,0,0,0,0,0
+18021200,Lucerne,Occult,,0,0,0,0,0,0
+18021000,Lucerne,Poison,106100,0,0,80,0,0,0
+18020300,Lucerne,Quality,,0,0,0,0,0,0
+18020700,Lucerne,Sacred,,0,0,0,0,0,0
+18020000,Lucerne,Standard,,0,0,0,0,0,0
+33240000,Lusat's Glintstone Staff,Standard,1934,0,0,0,0,0,0
+11001100,Mace,Blood,105000,57,0,0,0,0,0
+11000900,Mace,Cold,107500,0,66,0,0,0,0
+11000400,Mace,Fire,,0,0,0,0,0,0
+11000500,Mace,Flame Art,,0,0,0,0,0,0
+11000100,Mace,Heavy,,0,0,0,0,0,0
+11000200,Mace,Keen,,0,0,0,0,0,0
+11000600,Mace,Lightning,,0,0,0,0,0,0
+11000800,Mace,Magic,,0,0,0,0,0,0
+11001200,Mace,Occult,,0,0,0,0,0,0
+11001000,Mace,Poison,106000,0,0,66,0,0,0
+11000300,Mace,Quality,,0,0,0,0,0,0
+11000700,Mace,Sacred,,0,0,0,0,0,0
+11000000,Mace,Standard,,0,0,0,0,0,0
+21530000,Madding Hand,Standard,6750|20001900|5215300,0,0,0,0,55,0
+7050000,Magma Blade,Standard,,0,0,0,0,0,0
+20030000,Magma Whip Candlestick,Standard,,0,0,0,0,0,0
+8040000,Magma Wyrm's Scalesword,Standard,,0,0,0,0,0,0
+1501100,Main-gauche,Blood,105000,57,0,0,0,0,0
+1500900,Main-gauche,Cold,107500,0,66,0,0,0,0
+1500400,Main-gauche,Fire,,0,0,0,0,0,0
+1500500,Main-gauche,Flame Art,,0,0,0,0,0,0
+1500100,Main-gauche,Heavy,,0,0,0,0,0,0
+1500200,Main-gauche,Keen,,0,0,0,0,0,0
+1500600,Main-gauche,Lightning,,0,0,0,0,0,0
+1500800,Main-gauche,Magic,,0,0,0,0,0,0
+1501200,Main-gauche,Occult,,0,0,0,0,0,0
+1501000,Main-gauche,Poison,106000,0,0,66,0,0,0
+1500300,Main-gauche,Quality,,0,0,0,0,0,0
+1500700,Main-gauche,Sacred,,0,0,0,0,0,0
+1500000,Main-gauche,Standard,,0,0,0,0,0,0
+4020000,Maliketh's Black Blade,Standard,,0,0,0,0,0,0
+30020000,Man-Serpent's Shield,Standard,,0,0,0,0,0,0
+30021100,Man-serpent's Blood Shield,Blood,105000,57,0,0,0,0,0
+30020900,Man-serpent's Cold Shield,Cold,107500,0,66,0,0,0,0
+30020400,Man-serpent's Fire Shield,Fire,,0,0,0,0,0,0
+30020500,Man-serpent's Flame Art Shield,Flame Art,,0,0,0,0,0,0
+30020100,Man-serpent's Heavy Shield,Heavy,,0,0,0,0,0,0
+30020200,Man-serpent's Keen Shield,Keen,,0,0,0,0,0,0
+30020600,Man-serpent's Lightning Shield,Lightning,,0,0,0,0,0,0
+30020800,Man-serpent's Magic Shield,Magic,,0,0,0,0,0,0
+30021200,Man-serpent's Occult Shield,Occult,,0,0,0,0,0,0
+30021000,Man-serpent's Poison Shield,Poison,106000,0,0,66,0,0,0
+30020300,Man-serpent's Quality Shield,Quality,,0,0,0,0,0,0
+30020700,Man-serpent's Sacred Shield,Sacred,,0,0,0,0,0,0
+32191100,Manor Towershield,Blood,105200,83,0,0,0,0,0
+32190900,Manor Towershield,Cold,107700,0,96,0,0,0,0
+32190400,Manor Towershield,Fire,,0,0,0,0,0,0
+32190500,Manor Towershield,Flame Art,,0,0,0,0,0,0
+32190100,Manor Towershield,Heavy,,0,0,0,0,0,0
+32190200,Manor Towershield,Keen,,0,0,0,0,0,0
+32190600,Manor Towershield,Lightning,,0,0,0,0,0,0
+32190800,Manor Towershield,Magic,,0,0,0,0,0,0
+32191200,Manor Towershield,Occult,,0,0,0,0,0,0
+32191000,Manor Towershield,Poison,106200,0,0,96,0,0,0
+32190300,Manor Towershield,Quality,,0,0,0,0,0,0
+32190700,Manor Towershield,Sacred,,0,0,0,0,0,0
+32190000,Manor Towershield,Standard,,0,0,0,0,0,0
+7121100,Mantis Blade,Blood,105000,57,0,0,0,0,0
+7120900,Mantis Blade,Cold,107500,0,66,0,0,0,0
+7120400,Mantis Blade,Fire,,0,0,0,0,0,0
+7120500,Mantis Blade,Flame Art,,0,0,0,0,0,0
+7120100,Mantis Blade,Heavy,,0,0,0,0,0,0
+7120200,Mantis Blade,Keen,,0,0,0,0,0,0
+7120600,Mantis Blade,Lightning,,0,0,0,0,0,0
+7120800,Mantis Blade,Magic,,0,0,0,0,0,0
+7121200,Mantis Blade,Occult,,0,0,0,0,0,0
+7121000,Mantis Blade,Poison,106000,0,0,66,0,0,0
+7120300,Mantis Blade,Quality,,0,0,0,0,0,0
+7120700,Mantis Blade,Sacred,,0,0,0,0,0,0
+7120000,Mantis Blade,Standard,,0,0,0,0,0,0
+3150000,Marais Executioner's Sword,Standard,,0,0,0,0,0,0
+11150000,Marika's Hammer,Standard,,0,0,0,0,0,0
+31011100,Marred Blood Leather Shield,Blood,105050,57,0,0,0,0,0
+31021100,Marred Blood Wooden Shield,Blood,105050,57,0,0,0,0,0
+31010900,Marred Cold Leather Shield,Cold,6400|107500,45,66,0,0,0,0
+31020900,Marred Cold Wooden Shield,Cold,6400|107500,45,66,0,0,0,0
+31010400,Marred Fire Leather Shield,Fire,6401,50,0,0,0,0,0
+31020400,Marred Fire Wooden Shield,Fire,6401,50,0,0,0,0,0
+31010500,Marred Flame Art Leather Shield,Flame Art,6401,50,0,0,0,0,0
+31020500,Marred Flame Art Wooden Shield,Flame Art,6401,50,0,0,0,0,0
+31010100,Marred Heavy Leather Shield,Heavy,6401,50,0,0,0,0,0
+31020100,Marred Heavy Wooden Shield,Heavy,6401,50,0,0,0,0,0
+31010200,Marred Keen Leather Shield,Keen,6401,50,0,0,0,0,0
+31020200,Marred Keen Wooden Shield,Keen,6401,50,0,0,0,0,0
+31010000,Marred Leather Shield,Standard,6401,50,0,0,0,0,0
+31010600,Marred Lightning Leather Shield,Lightning,6401,50,0,0,0,0,0
+31020600,Marred Lightning Wooden Shield,Lightning,6401,50,0,0,0,0,0
+31010800,Marred Magic Leather Shield,Magic,6401,50,0,0,0,0,0
+31020800,Marred Magic Wooden Shield,Magic,6401,50,0,0,0,0,0
+31011200,Marred Occult Leather Shield,Occult,6400,45,0,0,0,0,0
+31021200,Marred Occult Wooden Shield,Occult,6400,45,0,0,0,0,0
+31011000,Marred Poison Leather Shield,Poison,6400|106000,45,0,66,0,0,0
+31021000,Marred Poison Wooden Shield,Poison,6400|106000,45,0,66,0,0,0
+31010300,Marred Quality Leather Shield,Quality,6401,50,0,0,0,0,0
+31020300,Marred Quality Wooden Shield,Quality,6401,50,0,0,0,0,0
+31010700,Marred Sacred Leather Shield,Sacred,6401,50,0,0,0,0,0
+31020700,Marred Sacred Wooden Shield,Sacred,6401,50,0,0,0,0,0
+31020000,Marred Wooden Shield,Standard,6401,50,0,0,0,0,0
+33520000,Maternal Staff,Standard,5335200,0,0,0,0,0,0
+31501100,Messmer Soldier Shield,Blood,105000,57,0,0,0,0,0
+31500900,Messmer Soldier Shield,Cold,107500,0,66,0,0,0,0
+31500400,Messmer Soldier Shield,Fire,,0,0,0,0,0,0
+31500500,Messmer Soldier Shield,Flame Art,,0,0,0,0,0,0
+31500100,Messmer Soldier Shield,Heavy,,0,0,0,0,0,0
+31500200,Messmer Soldier Shield,Keen,,0,0,0,0,0,0
+31500600,Messmer Soldier Shield,Lightning,,0,0,0,0,0,0
+31500800,Messmer Soldier Shield,Magic,,0,0,0,0,0,0
+31501200,Messmer Soldier Shield,Occult,,0,0,0,0,0,0
+31501000,Messmer Soldier Shield,Poison,106000,0,0,66,0,0,0
+31500300,Messmer Soldier Shield,Quality,,0,0,0,0,0,0
+31500700,Messmer Soldier Shield,Sacred,,0,0,0,0,0,0
+31500000,Messmer Soldier Shield,Standard,,0,0,0,0,0,0
+14520000,Messmer Soldier's Axe,Standard,,0,0,0,0,0,0
+14521100,Messmer Soldier's Blood Axe,Blood,105000,57,0,0,0,0,0
+17511100,Messmer Soldier's Blood Spear,Blood,105100,69,0,0,0,0,0
+14520900,Messmer Soldier's Cold Axe,Cold,107500,0,66,0,0,0,0
+17510900,Messmer Soldier's Cold Spear,Cold,107600,0,80,0,0,0,0
+14520400,Messmer Soldier's Fire Axe,Fire,,0,0,0,0,0,0
+17510400,Messmer Soldier's Fire Spear,Fire,,0,0,0,0,0,0
+14520500,Messmer Soldier's Flame Art Axe,Flame Art,,0,0,0,0,0,0
+17510500,Messmer Soldier's Flame Art Spear,Flame Art,,0,0,0,0,0,0
+14520100,Messmer Soldier's Heavy Axe,Heavy,,0,0,0,0,0,0
+17510100,Messmer Soldier's Heavy Spear,Heavy,,0,0,0,0,0,0
+14520200,Messmer Soldier's Keen Axe,Keen,,0,0,0,0,0,0
+17510200,Messmer Soldier's Keen Spear,Keen,,0,0,0,0,0,0
+14520600,Messmer Soldier's Lightning Axe,Lightning,,0,0,0,0,0,0
+17510600,Messmer Soldier's Lightning Spear,Lightning,,0,0,0,0,0,0
+14520800,Messmer Soldier's Magic Axe,Magic,,0,0,0,0,0,0
+17510800,Messmer Soldier's Magic Spear,Magic,,0,0,0,0,0,0
+14521200,Messmer Soldier's Occult Axe,Occult,,0,0,0,0,0,0
+17511200,Messmer Soldier's Occult Spear,Occult,,0,0,0,0,0,0
+14521000,Messmer Soldier's Poison Axe,Poison,106000,0,0,66,0,0,0
+17511000,Messmer Soldier's Poison Spear,Poison,106100,0,0,80,0,0,0
+14520300,Messmer Soldier's Quality Axe,Quality,,0,0,0,0,0,0
+17510300,Messmer Soldier's Quality Spear,Quality,,0,0,0,0,0,0
+14520700,Messmer Soldier's Sacred Axe,Sacred,,0,0,0,0,0,0
+17510700,Messmer Soldier's Sacred Spear,Sacred,,0,0,0,0,0,0
+17510000,Messmer Soldier's Spear,Standard,,0,0,0,0,0,0
+9030000,Meteoric Ore Blade,Standard,6401,50,0,0,0,0,0
+33250000,Meteorite Staff,Standard,1920,0,0,0,0,0,0
+67501100,Milady,Blood,105000,57,0,0,0,0,0
+67500900,Milady,Cold,107500,0,66,0,0,0,0
+67500400,Milady,Fire,,0,0,0,0,0,0
+67500500,Milady,Flame Art,,0,0,0,0,0,0
+67500100,Milady,Heavy,,0,0,0,0,0,0
+67500200,Milady,Keen,,0,0,0,0,0,0
+67500600,Milady,Lightning,,0,0,0,0,0,0
+67500800,Milady,Magic,,0,0,0,0,0,0
+67501200,Milady,Occult,,0,0,0,0,0,0
+67501000,Milady,Poison,106000,0,0,66,0,0,0
+67500300,Milady,Quality,,0,0,0,0,0,0
+67500700,Milady,Sacred,,0,0,0,0,0,0
+67500000,Milady,Standard,,0,0,0,0,0,0
+2200000,Miquellan Knight's Sword,Standard,,0,0,0,0,0,0
+40010000,Misbegotten Shortbow,Standard,1940,0,0,0,0,0,0
+1031100,Misericorde,Blood,105000,57,0,0,0,0,0
+1030900,Misericorde,Cold,107500,0,66,0,0,0,0
+1030400,Misericorde,Fire,,0,0,0,0,0,0
+1030500,Misericorde,Flame Art,,0,0,0,0,0,0
+1030100,Misericorde,Heavy,,0,0,0,0,0,0
+1030200,Misericorde,Keen,,0,0,0,0,0,0
+1030600,Misericorde,Lightning,,0,0,0,0,0,0
+1030800,Misericorde,Magic,,0,0,0,0,0,0
+1031200,Misericorde,Occult,,0,0,0,0,0,0
+1031000,Misericorde,Poison,106000,0,0,66,0,0,0
+1030300,Misericorde,Quality,,0,0,0,0,0,0
+1030700,Misericorde,Sacred,,0,0,0,0,0,0
+1030000,Misericorde,Standard,,0,0,0,0,0,0
+17010000,Mohgwyn's Sacred Spear,Standard,6402,55,0,0,0,0,0
+8071100,Monk's Blood Flameblade,Blood,105100,69,0,0,0,0,0
+11091100,Monk's Blood Flamemace,Blood,105000,57,0,0,0,0,0
+8070900,Monk's Cold Flameblade,Cold,107600,0,80,0,0,0,0
+11090900,Monk's Cold Flamemace,Cold,107500,0,66,0,0,0,0
+8070400,Monk's Fire Flameblade,Fire,,0,0,0,0,0,0
+11090400,Monk's Fire Flamemace,Fire,,0,0,0,0,0,0
+8070500,Monk's Flame Art Flameblade,Flame Art,,0,0,0,0,0,0
+11090500,Monk's Flame Art Flamemace,Flame Art,,0,0,0,0,0,0
+8070000,Monk's Flameblade,Standard,,0,0,0,0,0,0
+11090000,Monk's Flamemace,Standard,,0,0,0,0,0,0
+8070100,Monk's Heavy Flameblade,Heavy,,0,0,0,0,0,0
+11090100,Monk's Heavy Flamemace,Heavy,,0,0,0,0,0,0
+8070200,Monk's Keen Flameblade,Keen,,0,0,0,0,0,0
+11090200,Monk's Keen Flamemace,Keen,,0,0,0,0,0,0
+8070600,Monk's Lightning Flameblade,Lightning,,0,0,0,0,0,0
+11090600,Monk's Lightning Flamemace,Lightning,,0,0,0,0,0,0
+8070800,Monk's Magic Flameblade,Magic,,0,0,0,0,0,0
+11090800,Monk's Magic Flamemace,Magic,,0,0,0,0,0,0
+8071200,Monk's Occult Flameblade,Occult,,0,0,0,0,0,0
+11091200,Monk's Occult Flamemace,Occult,,0,0,0,0,0,0
+8071000,Monk's Poison Flameblade,Poison,106100,0,0,80,0,0,0
+11091000,Monk's Poison Flamemace,Poison,106000,0,0,66,0,0,0
+8070300,Monk's Quality Flameblade,Quality,,0,0,0,0,0,0
+11090300,Monk's Quality Flamemace,Quality,,0,0,0,0,0,0
+8070700,Monk's Sacred Flameblade,Sacred,,0,0,0,0,0,0
+11090700,Monk's Sacred Flamemace,Sacred,,0,0,0,0,0,0
+4540000,Moonrithyll's Knight Sword,Standard,,0,0,0,0,0,0
+9060000,Moonveil,Standard,6401,50,0,0,0,0,0
+8100000,Morgott's Cursed Sword,Standard,6412,60,0,0,0,0,0
+11051100,Morning Star,Blood,105050,57,0,0,0,0,0
+11050900,Morning Star,Cold,6400|107500,45,66,0,0,0,0
+11050400,Morning Star,Fire,6401,50,0,0,0,0,0
+11050500,Morning Star,Flame Art,6401,50,0,0,0,0,0
+11050100,Morning Star,Heavy,6401,50,0,0,0,0,0
+11050200,Morning Star,Keen,6401,50,0,0,0,0,0
+11050600,Morning Star,Lightning,6401,50,0,0,0,0,0
+11050800,Morning Star,Magic,6401,50,0,0,0,0,0
+11051200,Morning Star,Occult,6400,45,0,0,0,0,0
+11051000,Morning Star,Poison,6400|106000,45,0,66,0,0,0
+11050300,Morning Star,Quality,6401,50,0,0,0,0,0
+11050700,Morning Star,Sacred,6401,50,0,0,0,0,0
+11050000,Morning Star,Standard,6401,50,0,0,0,0,0
+9011100,Nagakiba,Blood,105050,57,0,0,0,0,0
+9010900,Nagakiba,Cold,6406|107500,38,66,0,0,0,0
+9010400,Nagakiba,Fire,6400,45,0,0,0,0,0
+9010500,Nagakiba,Flame Art,6400,45,0,0,0,0,0
+9010100,Nagakiba,Heavy,6400,45,0,0,0,0,0
+9010200,Nagakiba,Keen,6400,45,0,0,0,0,0
+9010600,Nagakiba,Lightning,6400,45,0,0,0,0,0
+9010800,Nagakiba,Magic,6400,45,0,0,0,0,0
+9011200,Nagakiba,Occult,6406,38,0,0,0,0,0
+9011000,Nagakiba,Poison,6406|106000,38,0,66,0,0,0
+9010300,Nagakiba,Quality,6400,45,0,0,0,0,0
+9010700,Nagakiba,Sacred,6400,45,0,0,0,0,0
+9010000,Nagakiba,Standard,6400,45,0,0,0,0,0
+24500000,Nanaya's Torch,Standard,6752|415,0,0,0,0,65,0
+13001100,Nightrider Flail,Blood,105050,57,0,0,0,0,0
+13000900,Nightrider Flail,Cold,6400|107500,45,66,0,0,0,0
+13000400,Nightrider Flail,Fire,6401,50,0,0,0,0,0
+13000500,Nightrider Flail,Flame Art,6401,50,0,0,0,0,0
+13000100,Nightrider Flail,Heavy,6401,50,0,0,0,0,0
+13000200,Nightrider Flail,Keen,6401,50,0,0,0,0,0
+13000600,Nightrider Flail,Lightning,6401,50,0,0,0,0,0
+13000800,Nightrider Flail,Magic,6401,50,0,0,0,0,0
+13001200,Nightrider Flail,Occult,6400,45,0,0,0,0,0
+13001000,Nightrider Flail,Poison,6400|106000,45,0,66,0,0,0
+13000300,Nightrider Flail,Quality,6401,50,0,0,0,0,0
+13000700,Nightrider Flail,Sacred,6401,50,0,0,0,0,0
+13000000,Nightrider Flail,Standard,6401,50,0,0,0,0,0
+18051100,Nightrider Glaive,Blood,105100|5180500,69,0,0,0,0,0
+18050900,Nightrider Glaive,Cold,107600|5180500,0,80,0,0,0,0
+18050400,Nightrider Glaive,Fire,5180500,0,0,0,0,0,0
+18050500,Nightrider Glaive,Flame Art,5180500,0,0,0,0,0,0
+18050100,Nightrider Glaive,Heavy,5180500,0,0,0,0,0,0
+18050200,Nightrider Glaive,Keen,5180500,0,0,0,0,0,0
+18050600,Nightrider Glaive,Lightning,5180500,0,0,0,0,0,0
+18050800,Nightrider Glaive,Magic,5180500,0,0,0,0,0,0
+18051200,Nightrider Glaive,Occult,5180500,0,0,0,0,0,0
+18051000,Nightrider Glaive,Poison,106100|5180500,0,0,80,0,0,0
+18050300,Nightrider Glaive,Quality,5180500,0,0,0,0,0,0
+18050700,Nightrider Glaive,Sacred,5180500,0,0,0,0,0,0
+18050000,Nightrider Glaive,Standard,5180500,0,0,0,0,0,0
+5061100,Noble's Blood Estoc,Blood,105000,57,0,0,0,0,0
+2231100,Noble's Blood Slender Sword,Blood,105000,57,0,0,0,0,0
+5060900,Noble's Cold Estoc,Cold,107500,0,66,0,0,0,0
+2230900,Noble's Cold Slender Sword,Cold,107500,0,66,0,0,0,0
+5060000,Noble's Estoc,Standard,,0,0,0,0,0,0
+5060400,Noble's Fire Estoc,Fire,,0,0,0,0,0,0
+2230400,Noble's Fire Slender Sword,Fire,,0,0,0,0,0,0
+5060500,Noble's Flame Art Estoc,Flame Art,,0,0,0,0,0,0
+2230500,Noble's Flame Art Slender Sword,Flame Art,,0,0,0,0,0,0
+5060100,Noble's Heavy Estoc,Heavy,,0,0,0,0,0,0
+2230100,Noble's Heavy Slender Sword,Heavy,,0,0,0,0,0,0
+5060200,Noble's Keen Estoc,Keen,,0,0,0,0,0,0
+2230200,Noble's Keen Slender Sword,Keen,,0,0,0,0,0,0
+5060600,Noble's Lightning Estoc,Lightning,,0,0,0,0,0,0
+2230600,Noble's Lightning Slender Sword,Lightning,,0,0,0,0,0,0
+5060800,Noble's Magic Estoc,Magic,,0,0,0,0,0,0
+2230800,Noble's Magic Slender Sword,Magic,,0,0,0,0,0,0
+5061200,Noble's Occult Estoc,Occult,,0,0,0,0,0,0
+2231200,Noble's Occult Slender Sword,Occult,,0,0,0,0,0,0
+5061000,Noble's Poison Estoc,Poison,106000,0,0,66,0,0,0
+2231000,Noble's Poison Slender Sword,Poison,106000,0,0,66,0,0,0
+5060300,Noble's Quality Estoc,Quality,,0,0,0,0,0,0
+2230300,Noble's Quality Slender Sword,Quality,,0,0,0,0,0,0
+5060700,Noble's Sacred Estoc,Sacred,,0,0,0,0,0,0
+2230700,Noble's Sacred Slender Sword,Sacred,,0,0,0,0,0,0
+2230000,Noble's Slender Sword,Standard,,0,0,0,0,0,0
+11120000,Nox Flowing Hammer,Standard,,0,0,0,0,0,0
+2080000,Nox Flowing Sword,Standard,,0,0,0,0,0,0
+19500000,Obsidian Lamina,Standard,6402,55,0,0,0,0,0
+8061100,Omen Cleaver,Blood,105100,69,0,0,0,0,0
+8060900,Omen Cleaver,Cold,107600,0,80,0,0,0,0
+8060400,Omen Cleaver,Fire,,0,0,0,0,0,0
+8060500,Omen Cleaver,Flame Art,,0,0,0,0,0,0
+8060100,Omen Cleaver,Heavy,,0,0,0,0,0,0
+8060200,Omen Cleaver,Keen,,0,0,0,0,0,0
+8060600,Omen Cleaver,Lightning,,0,0,0,0,0,0
+8060800,Omen Cleaver,Magic,,0,0,0,0,0,0
+8061200,Omen Cleaver,Occult,,0,0,0,0,0,0
+8061000,Omen Cleaver,Poison,106100,0,0,80,0,0,0
+8060300,Omen Cleaver,Quality,,0,0,0,0,0,0
+8060700,Omen Cleaver,Sacred,,0,0,0,0,0,0
+8060000,Omen Cleaver,Standard,,0,0,0,0,0,0
+32150000,One-Eyed Shield,Standard,,0,0,0,0,0,0
+8010000,Onyx Lord's Greatsword,Standard,,0,0,0,0,0,0
+3060000,Ordovis's Greatsword,Standard,,0,0,0,0,0,0
+2060000,Ornamental Straight Sword,Standard,,0,0,0,0,0,0
+1021100,Parrying Dagger,Blood,105000,57,0,0,0,0,0
+1020900,Parrying Dagger,Cold,107500,0,66,0,0,0,0
+1020400,Parrying Dagger,Fire,,0,0,0,0,0,0
+1020500,Parrying Dagger,Flame Art,,0,0,0,0,0,0
+1020100,Parrying Dagger,Heavy,,0,0,0,0,0,0
+1020200,Parrying Dagger,Keen,,0,0,0,0,0,0
+1020600,Parrying Dagger,Lightning,,0,0,0,0,0,0
+1020800,Parrying Dagger,Magic,,0,0,0,0,0,0
+1021200,Parrying Dagger,Occult,,0,0,0,0,0,0
+1021000,Parrying Dagger,Poison,106000,0,0,66,0,0,0
+1020300,Parrying Dagger,Quality,,0,0,0,0,0,0
+1020700,Parrying Dagger,Sacred,,0,0,0,0,0,0
+1020000,Parrying Dagger,Standard,,0,0,0,0,0,0
+16051100,Partisan,Blood,105000,57,0,0,0,0,0
+16050900,Partisan,Cold,107500,0,66,0,0,0,0
+16050400,Partisan,Fire,,0,0,0,0,0,0
+16050500,Partisan,Flame Art,,0,0,0,0,0,0
+16050100,Partisan,Heavy,,0,0,0,0,0,0
+16050200,Partisan,Keen,,0,0,0,0,0,0
+16050600,Partisan,Lightning,,0,0,0,0,0,0
+16050800,Partisan,Magic,,0,0,0,0,0,0
+16051200,Partisan,Occult,,0,0,0,0,0,0
+16051000,Partisan,Poison,106000,0,0,66,0,0,0
+16050300,Partisan,Quality,,0,0,0,0,0,0
+16050700,Partisan,Sacred,,0,0,0,0,0,0
+16050000,Partisan,Standard,,0,0,0,0,0,0
+21511100,Pata,Blood,105000,57,0,0,0,0,0
+21510900,Pata,Cold,107500,0,66,0,0,0,0
+21510400,Pata,Fire,,0,0,0,0,0,0
+21510500,Pata,Flame Art,,0,0,0,0,0,0
+21510100,Pata,Heavy,,0,0,0,0,0,0
+21510200,Pata,Keen,,0,0,0,0,0,0
+21510600,Pata,Lightning,,0,0,0,0,0,0
+21510800,Pata,Magic,,0,0,0,0,0,0
+21511200,Pata,Occult,,0,0,0,0,0,0
+21511000,Pata,Poison,106000,0,0,66,0,0,0
+21510300,Pata,Quality,,0,0,0,0,0,0
+21510700,Pata,Sacred,,0,0,0,0,0,0
+21510000,Pata,Standard,,0,0,0,0,0,0
+30011100,Perfumer's Blood Shield,Blood,105000|5300100,57,0,0,0,0,0
+30010900,Perfumer's Cold Shield,Cold,107500|5300100,0,66,0,0,0,0
+30010400,Perfumer's Fire Shield,Fire,5300100,0,0,0,0,0,0
+30010500,Perfumer's Flame Art Shield,Flame Art,5300100,0,0,0,0,0,0
+30010100,Perfumer's Heavy Shield,Heavy,5300100,0,0,0,0,0,0
+30010200,Perfumer's Keen Shield,Keen,5300100,0,0,0,0,0,0
+30010600,Perfumer's Lightning Shield,Lightning,5300100,0,0,0,0,0,0
+30010800,Perfumer's Magic Shield,Magic,5300100,0,0,0,0,0,0
+30011200,Perfumer's Occult Shield,Occult,5300100,0,0,0,0,0,0
+30011000,Perfumer's Poison Shield,Poison,106000|5300100,0,0,66,0,0,0
+30010300,Perfumer's Quality Shield,Quality,5300100,0,0,0,0,0,0
+30010700,Perfumer's Sacred Shield,Sacred,5300100,0,0,0,0,0,0
+30010000,Perfumer's Shield,Standard,5300100,0,0,0,0,0,0
+18011100,Pest's Blood Glaive,Blood,105100|5180100,69,0,0,0,0,0
+18010900,Pest's Cold Glaive,Cold,107600|5180100,0,80,0,0,0,0
+18010400,Pest's Fire Glaive,Fire,5180100,0,0,0,0,0,0
+18010500,Pest's Flame Art Glaive,Flame Art,5180100,0,0,0,0,0,0
+18010000,Pest's Glaive,Standard,5180100,0,0,0,0,0,0
+18010100,Pest's Heavy Glaive,Heavy,5180100,0,0,0,0,0,0
+18010200,Pest's Keen Glaive,Keen,5180100,0,0,0,0,0,0
+18010600,Pest's Lightning Glaive,Lightning,5180100,0,0,0,0,0,0
+18010800,Pest's Magic Glaive,Magic,5180100,0,0,0,0,0,0
+18011200,Pest's Occult Glaive,Occult,5180100,0,0,0,0,0,0
+18011000,Pest's Poison Glaive,Poison,106100|5180100,0,0,80,0,0,0
+18010300,Pest's Quality Glaive,Quality,5180100,0,0,0,0,0,0
+18010700,Pest's Sacred Glaive,Sacred,5180100,0,0,0,0,0,0
+12141100,Pickaxe,Blood,105100,69,0,0,0,0,0
+12140900,Pickaxe,Cold,107600,0,80,0,0,0,0
+12140400,Pickaxe,Fire,,0,0,0,0,0,0
+12140500,Pickaxe,Flame Art,,0,0,0,0,0,0
+12140100,Pickaxe,Heavy,,0,0,0,0,0,0
+12140200,Pickaxe,Keen,,0,0,0,0,0,0
+12140600,Pickaxe,Lightning,,0,0,0,0,0,0
+12140800,Pickaxe,Magic,,0,0,0,0,0,0
+12141200,Pickaxe,Occult,,0,0,0,0,0,0
+12141000,Pickaxe,Poison,106100,0,0,80,0,0,0
+12140300,Pickaxe,Quality,,0,0,0,0,0,0
+12140700,Pickaxe,Sacred,,0,0,0,0,0,0
+12140000,Pickaxe,Standard,,0,0,0,0,0,0
+16071100,Pike,Blood,105000,57,0,0,0,0,0
+16070900,Pike,Cold,107500,0,66,0,0,0,0
+16070400,Pike,Fire,,0,0,0,0,0,0
+16070500,Pike,Flame Art,,0,0,0,0,0,0
+16070100,Pike,Heavy,,0,0,0,0,0,0
+16070200,Pike,Keen,,0,0,0,0,0,0
+16070600,Pike,Lightning,,0,0,0,0,0,0
+16070800,Pike,Magic,,0,0,0,0,0,0
+16071200,Pike,Occult,,0,0,0,0,0,0
+16071000,Pike,Poison,106000,0,0,66,0,0,0
+16070300,Pike,Quality,,0,0,0,0,0,0
+16070700,Pike,Sacred,,0,0,0,0,0,0
+16070000,Pike,Standard,,0,0,0,0,0,0
+30041100,Pillory Shield,Blood,105000|5300400,57,0,0,0,0,0
+30040900,Pillory Shield,Cold,107500|5300400,0,66,0,0,0,0
+30040400,Pillory Shield,Fire,5300400,0,0,0,0,0,0
+30040500,Pillory Shield,Flame Art,5300400,0,0,0,0,0,0
+30040100,Pillory Shield,Heavy,5300400,0,0,0,0,0,0
+30040200,Pillory Shield,Keen,5300400,0,0,0,0,0,0
+30040600,Pillory Shield,Lightning,5300400,0,0,0,0,0,0
+30040800,Pillory Shield,Magic,5300400,0,0,0,0,0,0
+30041200,Pillory Shield,Occult,5300400,0,0,0,0,0,0
+30041000,Pillory Shield,Poison,106000|5300400,0,0,66,0,0,0
+30040300,Pillory Shield,Quality,5300400,0,0,0,0,0,0
+30040700,Pillory Shield,Sacred,5300400,0,0,0,0,0,0
+30040000,Pillory Shield,Standard,5300400,0,0,0,0,0,0
+21520000,Poisoned Hand,Standard,6510|20001900|5215200,0,0,60,0,0,0
+18510000,Poleblade of the Bud,Standard,6601,0,0,55,0,0,0
+23001100,Prelate's Blood Inferno Crozier,Blood,105200,83,0,0,0,0,0
+23000900,Prelate's Cold Inferno Crozier,Cold,107700,0,96,0,0,0,0
+23000400,Prelate's Fire Inferno Crozier,Fire,,0,0,0,0,0,0
+23000500,Prelate's Flame Art Inferno Crozier,Flame Art,,0,0,0,0,0,0
+23000100,Prelate's Heavy Inferno Crozier,Heavy,,0,0,0,0,0,0
+23000000,Prelate's Inferno Crozier,Standard,,0,0,0,0,0,0
+23000200,Prelate's Keen Inferno Crozier,Keen,,0,0,0,0,0,0
+23000600,Prelate's Lightning Inferno Crozier,Lightning,,0,0,0,0,0,0
+23000800,Prelate's Magic Inferno Crozier,Magic,,0,0,0,0,0,0
+23001200,Prelate's Occult Inferno Crozier,Occult,,0,0,0,0,0,0
+23001000,Prelate's Poison Inferno Crozier,Poison,106200,0,0,96,0,0,0
+23000300,Prelate's Quality Inferno Crozier,Quality,,0,0,0,0,0,0
+23000700,Prelate's Sacred Inferno Crozier,Sacred,,0,0,0,0,0,0
+33180000,Prince of Death's Staff,Standard,1919,0,0,0,0,0,0
+41060000,Pulley Bow,Standard,1940,0,0,0,0,0,0
+43050000,Pulley Crossbow,Standard,,0,0,0,0,0,0
+8500000,Putrescence Cleaver,Standard,6700,0,55,0,0,0,0
+6501100,Queelign's Blood Greatsword,Blood,105100,69,0,0,0,0,0
+6500900,Queelign's Cold Greatsword,Cold,107600,0,80,0,0,0,0
+6500400,Queelign's Fire Greatsword,Fire,,0,0,0,0,0,0
+6500500,Queelign's Flame Art Greatsword,Flame Art,,0,0,0,0,0,0
+6500000,Queelign's Greatsword,Standard,,0,0,0,0,0,0
+6500100,Queelign's Heavy Greatsword,Heavy,,0,0,0,0,0,0
+6500200,Queelign's Keen Greatsword,Keen,,0,0,0,0,0,0
+6500600,Queelign's Lightning Greatsword,Lightning,,0,0,0,0,0,0
+6500800,Queelign's Magic Greatsword,Magic,,0,0,0,0,0,0
+6501200,Queelign's Occult Greatsword,Occult,,0,0,0,0,0,0
+6501000,Queelign's Poison Greatsword,Poison,106100,0,0,80,0,0,0
+6500300,Queelign's Quality Greatsword,Quality,,0,0,0,0,0,0
+6500700,Queelign's Sacred Greatsword,Sacred,,0,0,0,0,0,0
+44500000,Rabbath's Cannon,Standard,,0,0,0,0,0,0
+66520000,Rakshasa's Great Katana,Standard,6402|5665201,55,0,0,0,0,0
+5021100,Rapier,Blood,105000,57,0,0,0,0,0
+5020900,Rapier,Cold,107500,0,66,0,0,0,0
+5020400,Rapier,Fire,,0,0,0,0,0,0
+5020500,Rapier,Flame Art,,0,0,0,0,0,0
+5020100,Rapier,Heavy,,0,0,0,0,0,0
+5020200,Rapier,Keen,,0,0,0,0,0,0
+5020600,Rapier,Lightning,,0,0,0,0,0,0
+5020800,Rapier,Magic,,0,0,0,0,0,0
+5021200,Rapier,Occult,,0,0,0,0,0,0
+5021000,Rapier,Poison,106000,0,0,66,0,0,0
+5020300,Rapier,Quality,,0,0,0,0,0,0
+5020700,Rapier,Sacred,,0,0,0,0,0,0
+5020000,Rapier,Standard,,0,0,0,0,0,0
+22031100,Raptor Talons,Blood,105050|5220300,57,0,0,0,0,0
+22030900,Raptor Talons,Cold,6400|107500|5220300,45,66,0,0,0,0
+22030400,Raptor Talons,Fire,6403|5220300,60,0,0,0,0,0
+22030500,Raptor Talons,Flame Art,6403|5220300,60,0,0,0,0,0
+22030100,Raptor Talons,Heavy,6403|5220300,60,0,0,0,0,0
+22030200,Raptor Talons,Keen,6403|5220300,60,0,0,0,0,0
+22030600,Raptor Talons,Lightning,6403|5220300,60,0,0,0,0,0
+22030800,Raptor Talons,Magic,6403|5220300,60,0,0,0,0,0
+22031200,Raptor Talons,Occult,6400|5220300,45,0,0,0,0,0
+22031000,Raptor Talons,Poison,6400|106000|5220300,45,0,66,0,0,0
+22030300,Raptor Talons,Quality,6403|5220300,60,0,0,0,0,0
+22030700,Raptor Talons,Sacred,6403|5220300,60,0,0,0,0,0
+22030000,Raptor Talons,Standard,6403|5220300,60,0,0,0,0,0
+68510000,Red Bear's Claw,Standard,6400|20001900,45,0,0,0,0,0
+40020000,Red Branch Shortbow,Standard,1940,0,0,0,0,0,0
+31291100,Red Crest Heater Shield,Blood,105000,57,0,0,0,0,0
+31290900,Red Crest Heater Shield,Cold,107500,0,66,0,0,0,0
+31290400,Red Crest Heater Shield,Fire,,0,0,0,0,0,0
+31290500,Red Crest Heater Shield,Flame Art,,0,0,0,0,0,0
+31290100,Red Crest Heater Shield,Heavy,,0,0,0,0,0,0
+31290200,Red Crest Heater Shield,Keen,,0,0,0,0,0,0
+31290600,Red Crest Heater Shield,Lightning,,0,0,0,0,0,0
+31290800,Red Crest Heater Shield,Magic,,0,0,0,0,0,0
+31291200,Red Crest Heater Shield,Occult,,0,0,0,0,0,0
+31291000,Red Crest Heater Shield,Poison,106000,0,0,66,0,0,0
+31290300,Red Crest Heater Shield,Quality,,0,0,0,0,0,0
+31290700,Red Crest Heater Shield,Sacred,,0,0,0,0,0,0
+31290000,Red Crest Heater Shield,Standard,,0,0,0,0,0,0
+30070900,Red Thorn Roundshield,Cold,107500,0,66,0,0,0,0
+30070400,Red Thorn Roundshield,Fire,,0,0,0,0,0,0
+30070500,Red Thorn Roundshield,Flame Art,,0,0,0,0,0,0
+30070100,Red Thorn Roundshield,Heavy,,0,0,0,0,0,0
+30070200,Red Thorn Roundshield,Keen,,0,0,0,0,0,0
+30070600,Red Thorn Roundshield,Lightning,,0,0,0,0,0,0
+30070800,Red Thorn Roundshield,Magic,,0,0,0,0,0,0
+30071200,Red Thorn Roundshield,Occult,,0,0,0,0,0,0
+30071000,Red Thorn Roundshield,Poison,106000,0,0,66,0,0,0
+30070300,Red Thorn Roundshield,Quality,,0,0,0,0,0,0
+30070700,Red Thorn Roundshield,Sacred,,0,0,0,0,0,0
+30070000,Red Thorn Roundshield,Standard,,0,0,0,0,0,0
+32231100,Redmane Greatshield,Blood,105200,83,0,0,0,0,0
+32230900,Redmane Greatshield,Cold,107700,0,96,0,0,0,0
+32230400,Redmane Greatshield,Fire,,0,0,0,0,0,0
+32230500,Redmane Greatshield,Flame Art,,0,0,0,0,0,0
+32230100,Redmane Greatshield,Heavy,,0,0,0,0,0,0
+32230200,Redmane Greatshield,Keen,,0,0,0,0,0,0
+32230600,Redmane Greatshield,Lightning,,0,0,0,0,0,0
+32230800,Redmane Greatshield,Magic,,0,0,0,0,0,0
+32231200,Redmane Greatshield,Occult,,0,0,0,0,0,0
+32231000,Redmane Greatshield,Poison,106200,0,0,96,0,0,0
+32230300,Redmane Greatshield,Quality,,0,0,0,0,0,0
+32230700,Redmane Greatshield,Sacred,,0,0,0,0,0,0
+32230000,Redmane Greatshield,Standard,,0,0,0,0,0,0
+1040000,Reduvia,Standard,6410,50,0,0,0,0,0
+2220000,Regalia of Eochaid,Standard,,0,0,0,0,0,0
+67520000,Rellana's Twin Blades,Standard,,0,0,0,0,0,0
+43500000,Repeating Crossbow,Standard,,0,0,0,0,0,0
+30030900,Rickety Shield,Cold,107500,0,66,0,0,0,0
+30030400,Rickety Shield,Fire,,0,0,0,0,0,0
+30030500,Rickety Shield,Flame Art,,0,0,0,0,0,0
+30030100,Rickety Shield,Heavy,,0,0,0,0,0,0
+30030200,Rickety Shield,Keen,,0,0,0,0,0,0
+30030600,Rickety Shield,Lightning,,0,0,0,0,0,0
+30030800,Rickety Shield,Magic,,0,0,0,0,0,0
+30031200,Rickety Shield,Occult,,0,0,0,0,0,0
+30031000,Rickety Shield,Poison,106000,0,0,66,0,0,0
+30030300,Rickety Shield,Quality,,0,0,0,0,0,0
+30030700,Rickety Shield,Sacred,,0,0,0,0,0,0
+30030000,Rickety Shield,Standard,,0,0,0,0,0,0
+30111100,Rift Shield,Blood,105000|5301100,57,0,0,0,0,0
+30110900,Rift Shield,Cold,107500|5301100,0,66,0,0,0,0
+30110400,Rift Shield,Fire,5301100,0,0,0,0,0,0
+30110500,Rift Shield,Flame Art,5301100,0,0,0,0,0,0
+30110100,Rift Shield,Heavy,5301100,0,0,0,0,0,0
+30110200,Rift Shield,Keen,5301100,0,0,0,0,0,0
+30110600,Rift Shield,Lightning,5301100,0,0,0,0,0,0
+30110800,Rift Shield,Magic,5301100,0,0,0,0,0,0
+30111200,Rift Shield,Occult,5301100,0,0,0,0,0,0
+30111000,Rift Shield,Poison,106000|5301100,0,0,66,0,0,0
+30110300,Rift Shield,Quality,5301100,0,0,0,0,0,0
+30110700,Rift Shield,Sacred,5301100,0,0,0,0,0,0
+30110000,Rift Shield,Standard,5301100,0,0,0,0,0,0
+11130000,Ringed Finger,Standard,,0,0,0,0,0,0
+14050000,Ripple Blade,Standard,,0,0,0,0,0,0
+18060000,Ripple Crescent Halberd,Standard,,0,0,0,0,0,0
+9040000,Rivers of Blood,Standard,6401,50,0,0,0,0,0
+30091100,Riveted Wooden Shield,Blood,105000,57,0,0,0,0,0
+30090900,Riveted Wooden Shield,Cold,107500,0,66,0,0,0,0
+30090400,Riveted Wooden Shield,Fire,,0,0,0,0,0,0
+30090500,Riveted Wooden Shield,Flame Art,,0,0,0,0,0,0
+30090100,Riveted Wooden Shield,Heavy,,0,0,0,0,0,0
+30090200,Riveted Wooden Shield,Keen,,0,0,0,0,0,0
+30090600,Riveted Wooden Shield,Lightning,,0,0,0,0,0,0
+30090800,Riveted Wooden Shield,Magic,,0,0,0,0,0,0
+30091200,Riveted Wooden Shield,Occult,,0,0,0,0,0,0
+30091000,Riveted Wooden Shield,Poison,106000,0,0,66,0,0,0
+30090300,Riveted Wooden Shield,Quality,,0,0,0,0,0,0
+30090700,Riveted Wooden Shield,Sacred,,0,0,0,0,0,0
+30090000,Riveted Wooden Shield,Standard,,0,0,0,0,0,0
+5031100,Rogier's Blood Rapier,Blood,105000,57,0,0,0,0,0
+5030900,Rogier's Cold Rapier,Cold,107500,0,66,0,0,0,0
+5030400,Rogier's Fire Rapier,Fire,,0,0,0,0,0,0
+5030500,Rogier's Flame Art Rapier,Flame Art,,0,0,0,0,0,0
+5030100,Rogier's Heavy Rapier,Heavy,,0,0,0,0,0,0
+5030200,Rogier's Keen Rapier,Keen,,0,0,0,0,0,0
+5030600,Rogier's Lightning Rapier,Lightning,,0,0,0,0,0,0
+5030800,Rogier's Magic Rapier,Magic,,0,0,0,0,0,0
+5031200,Rogier's Occult Rapier,Occult,,0,0,0,0,0,0
+5031000,Rogier's Poison Rapier,Poison,106000,0,0,66,0,0,0
+5030300,Rogier's Quality Rapier,Quality,,0,0,0,0,0,0
+5030000,Rogier's Rapier,Standard,,0,0,0,0,0,0
+5030700,Rogier's Sacred Rapier,Sacred,,0,0,0,0,0,0
+14120000,Rosus' Axe,Standard,,0,0,0,0,0,0
+12211100,Rotten Battle Hammer,Blood,105100|6603,69,0,65,0,0,0
+12210900,Rotten Battle Hammer,Cold,6603|107600,0,80,65,0,0,0
+12210400,Rotten Battle Hammer,Fire,6603,0,0,65,0,0,0
+12210500,Rotten Battle Hammer,Flame Art,6603,0,0,65,0,0,0
+12210100,Rotten Battle Hammer,Heavy,6603,0,0,65,0,0,0
+12210200,Rotten Battle Hammer,Keen,6603,0,0,65,0,0,0
+12210600,Rotten Battle Hammer,Lightning,6603,0,0,65,0,0,0
+12210800,Rotten Battle Hammer,Magic,6603,0,0,65,0,0,0
+12211200,Rotten Battle Hammer,Occult,6603,0,0,65,0,0,0
+12211000,Rotten Battle Hammer,Poison,6603|106100,0,0,145,0,0,0
+12210300,Rotten Battle Hammer,Quality,6603,0,0,65,0,0,0
+12210700,Rotten Battle Hammer,Sacred,6603,0,0,65,0,0,0
+12210000,Rotten Battle Hammer,Standard,6603,0,0,65,0,0,0
+16160000,Rotten Crystal Spear,Standard,6601,0,0,55,0,0,0
+33270000,Rotten Crystal Staff,Standard,6600|1914,0,0,50,0,0,0
+2260000,Rotten Crystal Sword,Standard,6600,0,0,50,0,0,0
+23151100,Rotten Greataxe,Blood,105200|6603,83,0,65,0,0,0
+23150900,Rotten Greataxe,Cold,6603|107700,0,96,65,0,0,0
+23150400,Rotten Greataxe,Fire,6603,0,0,65,0,0,0
+23150500,Rotten Greataxe,Flame Art,6603,0,0,65,0,0,0
+23150100,Rotten Greataxe,Heavy,6603,0,0,65,0,0,0
+23150200,Rotten Greataxe,Keen,6603,0,0,65,0,0,0
+23150600,Rotten Greataxe,Lightning,6603,0,0,65,0,0,0
+23150800,Rotten Greataxe,Magic,6603,0,0,65,0,0,0
+23151200,Rotten Greataxe,Occult,6603,0,0,65,0,0,0
+23151000,Rotten Greataxe,Poison,6603|106200,0,0,161,0,0,0
+23150300,Rotten Greataxe,Quality,6603,0,0,65,0,0,0
+23150700,Rotten Greataxe,Sacred,6603,0,0,65,0,0,0
+23150000,Rotten Greataxe,Standard,6603,0,0,65,0,0,0
+23140000,Rotten Staff,Standard,6605,0,0,75,0,0,0
+31071100,Round Shield,Blood,105000,57,0,0,0,0,0
+31070900,Round Shield,Cold,107500,0,66,0,0,0,0
+31070400,Round Shield,Fire,,0,0,0,0,0,0
+31070500,Round Shield,Flame Art,,0,0,0,0,0,0
+31070100,Round Shield,Heavy,,0,0,0,0,0,0
+31070200,Round Shield,Keen,,0,0,0,0,0,0
+31070600,Round Shield,Lightning,,0,0,0,0,0,0
+31070800,Round Shield,Magic,,0,0,0,0,0,0
+31071200,Round Shield,Occult,,0,0,0,0,0,0
+31071000,Round Shield,Poison,106000,0,0,66,0,0,0
+31070300,Round Shield,Quality,,0,0,0,0,0,0
+31070700,Round Shield,Sacred,,0,0,0,0,0,0
+31070000,Round Shield,Standard,,0,0,0,0,0,0
+4060000,Royal Greatsword,Standard,,0,0,0,0,0,0
+4080000,Ruins Greatsword,Standard,,0,0,0,0,0,0
+15061100,Rusted Anchor,Blood,105100,69,0,0,0,0,0
+15060900,Rusted Anchor,Cold,107600,0,80,0,0,0,0
+15060400,Rusted Anchor,Fire,,0,0,0,0,0,0
+15060500,Rusted Anchor,Flame Art,,0,0,0,0,0,0
+15060100,Rusted Anchor,Heavy,,0,0,0,0,0,0
+15060200,Rusted Anchor,Keen,,0,0,0,0,0,0
+15060600,Rusted Anchor,Lightning,,0,0,0,0,0,0
+15060800,Rusted Anchor,Magic,,0,0,0,0,0,0
+15061200,Rusted Anchor,Occult,,0,0,0,0,0,0
+15061000,Rusted Anchor,Poison,106100,0,0,80,0,0,0
+15060300,Rusted Anchor,Quality,,0,0,0,0,0,0
+15060700,Rusted Anchor,Sacred,,0,0,0,0,0,0
+15060000,Rusted Anchor,Standard,,0,0,0,0,0,0
+3100000,Sacred Relic Sword,Standard,,0,0,0,0,0,0
+14111100,Sacrificial Axe,Blood,105000|5141100,57,0,0,0,0,0
+14110900,Sacrificial Axe,Cold,107500|5141100,0,66,0,0,0,0
+14110400,Sacrificial Axe,Fire,5141100,0,0,0,0,0,0
+14110500,Sacrificial Axe,Flame Art,5141100,0,0,0,0,0,0
+14110100,Sacrificial Axe,Heavy,5141100,0,0,0,0,0,0
+14110200,Sacrificial Axe,Keen,5141100,0,0,0,0,0,0
+14110600,Sacrificial Axe,Lightning,5141100,0,0,0,0,0,0
+14110800,Sacrificial Axe,Magic,5141100,0,0,0,0,0,0
+14111200,Sacrificial Axe,Occult,5141100,0,0,0,0,0,0
+14111000,Sacrificial Axe,Poison,106000|5141100,0,0,66,0,0,0
+14110300,Sacrificial Axe,Quality,5141100,0,0,0,0,0,0
+14110700,Sacrificial Axe,Sacred,5141100,0,0,0,0,0,0
+14110000,Sacrificial Axe,Standard,5141100,0,0,0,0,0,0
+7081100,Scavenger's Blood Curved Sword,Blood,105050,57,0,0,0,0,0
+7080900,Scavenger's Cold Curved Sword,Cold,6406|107500,38,66,0,0,0,0
+7080000,Scavenger's Curved Sword,Standard,6400,45,0,0,0,0,0
+7080400,Scavenger's Fire Curved Sword,Fire,6400,45,0,0,0,0,0
+7080500,Scavenger's Flame Art Curved Sword,Flame Art,6400,45,0,0,0,0,0
+7080100,Scavenger's Heavy Curved Sword,Heavy,6400,45,0,0,0,0,0
+7080200,Scavenger's Keen Curved Sword,Keen,6400,45,0,0,0,0,0
+7080600,Scavenger's Lightning Curved Sword,Lightning,6400,45,0,0,0,0,0
+7080800,Scavenger's Magic Curved Sword,Magic,6400,45,0,0,0,0,0
+7081200,Scavenger's Occult Curved Sword,Occult,6406,38,0,0,0,0,0
+7081000,Scavenger's Poison Curved Sword,Poison,6406|106000,38,0,66,0,0,0
+7080300,Scavenger's Quality Curved Sword,Quality,6400,45,0,0,0,0,0
+7080700,Scavenger's Sacred Curved Sword,Sacred,6400,45,0,0,0,0,0
+11110000,Scepter of the All-Knowing,Standard,,0,0,0,0,0,0
+7140900,Scimitar,Cold,107500,0,66,0,0,0,0
+7140400,Scimitar,Fire,,0,0,0,0,0,0
+7140500,Scimitar,Flame Art,,0,0,0,0,0,0
+7140100,Scimitar,Heavy,,0,0,0,0,0,0
+7140200,Scimitar,Keen,,0,0,0,0,0,0
+7140600,Scimitar,Lightning,,0,0,0,0,0,0
+7140800,Scimitar,Magic,,0,0,0,0,0,0
+7141200,Scimitar,Occult,,0,0,0,0,0,0
+7141000,Scimitar,Poison,106000,0,0,66,0,0,0
+7140300,Scimitar,Quality,,0,0,0,0,0,0
+7140700,Scimitar,Sacred,,0,0,0,0,0,0
+7140000,Scimitar,Standard,,0,0,0,0,0,0
+31081100,Scorpion Kite Shield,Blood,105000,57,0,0,0,0,0
+31080900,Scorpion Kite Shield,Cold,107500,0,66,0,0,0,0
+31080400,Scorpion Kite Shield,Fire,,0,0,0,0,0,0
+31080500,Scorpion Kite Shield,Flame Art,,0,0,0,0,0,0
+31080100,Scorpion Kite Shield,Heavy,,0,0,0,0,0,0
+31080200,Scorpion Kite Shield,Keen,,0,0,0,0,0,0
+31080600,Scorpion Kite Shield,Lightning,,0,0,0,0,0,0
+31080800,Scorpion Kite Shield,Magic,,0,0,0,0,0,0
+31081200,Scorpion Kite Shield,Occult,,0,0,0,0,0,0
+31081000,Scorpion Kite Shield,Poison,106000,0,0,66,0,0,0
+31080300,Scorpion Kite Shield,Quality,,0,0,0,0,0,0
+31080700,Scorpion Kite Shield,Sacred,,0,0,0,0,0,0
+31080000,Scorpion Kite Shield,Standard,,0,0,0,0,0,0
+1080000,Scorpion's Stinger,Standard,6600,0,0,50,0,0,0
+30081100,Scripture Wooden Shield,Blood,105000,57,0,0,0,0,0
+30080900,Scripture Wooden Shield,Cold,107500,0,66,0,0,0,0
+30080400,Scripture Wooden Shield,Fire,,0,0,0,0,0,0
+30080500,Scripture Wooden Shield,Flame Art,,0,0,0,0,0,0
+30080100,Scripture Wooden Shield,Heavy,,0,0,0,0,0,0
+30080200,Scripture Wooden Shield,Keen,,0,0,0,0,0,0
+30080600,Scripture Wooden Shield,Lightning,,0,0,0,0,0,0
+30080800,Scripture Wooden Shield,Magic,,0,0,0,0,0,0
+30081200,Scripture Wooden Shield,Occult,,0,0,0,0,0,0
+30081000,Scripture Wooden Shield,Poison,106000,0,0,66,0,0,0
+30080300,Scripture Wooden Shield,Quality,,0,0,0,0,0,0
+30080700,Scripture Wooden Shield,Sacred,,0,0,0,0,0,0
+30080000,Scripture Wooden Shield,Standard,,0,0,0,0,0,0
+19001100,Scythe,Blood,105150,69,0,0,0,0,0
+19000900,Scythe,Cold,6401|107600,50,80,0,0,0,0
+19000400,Scythe,Fire,6402,55,0,0,0,0,0
+19000500,Scythe,Flame Art,6402,55,0,0,0,0,0
+19000100,Scythe,Heavy,6402,55,0,0,0,0,0
+19000200,Scythe,Keen,6402,55,0,0,0,0,0
+19000600,Scythe,Lightning,6402,55,0,0,0,0,0
+19000800,Scythe,Magic,6402,55,0,0,0,0,0
+19001200,Scythe,Occult,6401,50,0,0,0,0,0
+19001000,Scythe,Poison,6401|106100,50,0,80,0,0,0
+19000300,Scythe,Quality,6402,55,0,0,0,0,0
+19000700,Scythe,Sacred,6402,55,0,0,0,0,0
+19000000,Scythe,Standard,6402,55,0,0,0,0,0
+24070000,Sentry's Torch,Standard,415|416,0,0,0,0,0,0
+41040000,Serpent Bow,Standard,1938|1940,0,0,0,0,0,0
+31521100,Serpent Crest Shield,Blood,105000,57,0,0,0,0,0
+31520900,Serpent Crest Shield,Cold,107500,0,66,0,0,0,0
+31520400,Serpent Crest Shield,Fire,,0,0,0,0,0,0
+31520500,Serpent Crest Shield,Flame Art,,0,0,0,0,0,0
+31520100,Serpent Crest Shield,Heavy,,0,0,0,0,0,0
+31520200,Serpent Crest Shield,Keen,,0,0,0,0,0,0
+31520600,Serpent Crest Shield,Lightning,,0,0,0,0,0,0
+31520800,Serpent Crest Shield,Magic,,0,0,0,0,0,0
+31521200,Serpent Crest Shield,Occult,,0,0,0,0,0,0
+31521000,Serpent Crest Shield,Poison,106000,0,0,66,0,0,0
+31520300,Serpent Crest Shield,Quality,,0,0,0,0,0,0
+31520700,Serpent Crest Shield,Sacred,,0,0,0,0,0,0
+31520000,Serpent Crest Shield,Standard,,0,0,0,0,0,0
+13500000,Serpent Flail,Standard,,0,0,0,0,0,0
+7111100,Serpent-God's Blood Curved Sword,Blood,105000|5071100,57,0,0,0,0,0
+7110900,Serpent-God's Cold Curved Sword,Cold,107500|5071100,0,66,0,0,0,0
+7110000,Serpent-God's Curved Sword,Standard,5071100,0,0,0,0,0,0
+7110400,Serpent-God's Fire Curved Sword,Fire,5071100,0,0,0,0,0,0
+7110500,Serpent-God's Flame Art Curved Sword,Flame Art,5071100,0,0,0,0,0,0
+7110100,Serpent-God's Heavy Curved Sword,Heavy,5071100,0,0,0,0,0,0
+7110200,Serpent-God's Keen Curved Sword,Keen,5071100,0,0,0,0,0,0
+7110600,Serpent-God's Lightning Curved Sword,Lightning,5071100,0,0,0,0,0,0
+7110800,Serpent-God's Magic Curved Sword,Magic,5071100,0,0,0,0,0,0
+7111200,Serpent-God's Occult Curved Sword,Occult,5071100,0,0,0,0,0,0
+7111000,Serpent-God's Poison Curved Sword,Poison,106000|5071100,0,0,66,0,0,0
+7110300,Serpent-God's Quality Curved Sword,Quality,5071100,0,0,0,0,0,0
+7110700,Serpent-God's Sacred Curved Sword,Sacred,5071100,0,0,0,0,0,0
+17030000,Serpent-Hunter,Standard,,0,0,0,0,0,0
+9080000,Serpentbone Blade,Standard,6511,0,0,66,0,0,0
+23510000,Shadow Sunflower Blossom,Standard,,0,0,0,0,0,0
+7031100,Shamshir,Blood,105000,57,0,0,0,0,0
+7030900,Shamshir,Cold,107500,0,66,0,0,0,0
+7030400,Shamshir,Fire,,0,0,0,0,0,0
+7030500,Shamshir,Flame Art,,0,0,0,0,0,0
+7030100,Shamshir,Heavy,,0,0,0,0,0,0
+7030200,Shamshir,Keen,,0,0,0,0,0,0
+7030600,Shamshir,Lightning,,0,0,0,0,0,0
+7030800,Shamshir,Magic,,0,0,0,0,0,0
+7031200,Shamshir,Occult,,0,0,0,0,0,0
+7031000,Shamshir,Poison,106000,0,0,66,0,0,0
+7030300,Shamshir,Quality,,0,0,0,0,0,0
+7030700,Shamshir,Sacred,,0,0,0,0,0,0
+7030000,Shamshir,Standard,,0,0,0,0,0,0
+21550000,Shield of Night,Standard,5215500,0,0,0,0,0,0
+31171100,Shield of the Guilty,Blood,105050|5311700,57,0,0,0,0,0
+31170900,Shield of the Guilty,Cold,6400|107500|5311700,45,66,0,0,0,0
+31170400,Shield of the Guilty,Fire,6401|5311700,50,0,0,0,0,0
+31170500,Shield of the Guilty,Flame Art,6401|5311700,50,0,0,0,0,0
+31170100,Shield of the Guilty,Heavy,6401|5311700,50,0,0,0,0,0
+31170200,Shield of the Guilty,Keen,6401|5311700,50,0,0,0,0,0
+31170600,Shield of the Guilty,Lightning,6401|5311700,50,0,0,0,0,0
+31170800,Shield of the Guilty,Magic,6401|5311700,50,0,0,0,0,0
+31171200,Shield of the Guilty,Occult,6400|5311700,45,0,0,0,0,0
+31171000,Shield of the Guilty,Poison,6400|106000|5311700,45,0,66,0,0,0
+31170300,Shield of the Guilty,Quality,6401|5311700,50,0,0,0,0,0
+31170700,Shield of the Guilty,Sacred,6401|5311700,50,0,0,0,0,0
+31170000,Shield of the Guilty,Standard,6401|5311700,50,0,0,0,0,0
+16001100,Short Spear,Blood,105000,57,0,0,0,0,0
+16000900,Short Spear,Cold,107500,0,66,0,0,0,0
+16000400,Short Spear,Fire,,0,0,0,0,0,0
+16000500,Short Spear,Flame Art,,0,0,0,0,0,0
+16000100,Short Spear,Heavy,,0,0,0,0,0,0
+16000200,Short Spear,Keen,,0,0,0,0,0,0
+16000600,Short Spear,Lightning,,0,0,0,0,0,0
+16000800,Short Spear,Magic,,0,0,0,0,0,0
+16001200,Short Spear,Occult,,0,0,0,0,0,0
+16001000,Short Spear,Poison,106000,0,0,66,0,0,0
+16000300,Short Spear,Quality,,0,0,0,0,0,0
+16000700,Short Spear,Sacred,,0,0,0,0,0,0
+16000000,Short Spear,Standard,,0,0,0,0,0,0
+2011100,Short Sword,Blood,105000,57,0,0,0,0,0
+2010900,Short Sword,Cold,107500,0,66,0,0,0,0
+2010400,Short Sword,Fire,,0,0,0,0,0,0
+2010500,Short Sword,Flame Art,,0,0,0,0,0,0
+2010100,Short Sword,Heavy,,0,0,0,0,0,0
+2010200,Short Sword,Keen,,0,0,0,0,0,0
+2010600,Short Sword,Lightning,,0,0,0,0,0,0
+2010800,Short Sword,Magic,,0,0,0,0,0,0
+2011200,Short Sword,Occult,,0,0,0,0,0,0
+2011000,Short Sword,Poison,106000,0,0,66,0,0,0
+2010300,Short Sword,Quality,,0,0,0,0,0,0
+2010700,Short Sword,Sacred,,0,0,0,0,0,0
+2010000,Short Sword,Standard,,0,0,0,0,0,0
+40000000,Shortbow,Standard,1940,0,0,0,0,0,0
+7021100,Shotel,Blood,105000,57,0,0,0,0,0
+7020900,Shotel,Cold,107500,0,66,0,0,0,0
+7020400,Shotel,Fire,,0,0,0,0,0,0
+7020500,Shotel,Flame Art,,0,0,0,0,0,0
+7020100,Shotel,Heavy,,0,0,0,0,0,0
+7020200,Shotel,Keen,,0,0,0,0,0,0
+7020600,Shotel,Lightning,,0,0,0,0,0,0
+7020800,Shotel,Magic,,0,0,0,0,0,0
+7021200,Shotel,Occult,,0,0,0,0,0,0
+7021000,Shotel,Poison,106000,0,0,66,0,0,0
+7020300,Shotel,Quality,,0,0,0,0,0,0
+7020700,Shotel,Sacred,,0,0,0,0,0,0
+7020000,Shotel,Standard,,0,0,0,0,0,0
+17020000,Siluria's Tree,Standard,,0,0,0,0,0,0
+31060000,Silver Mirrorshield,Standard,,0,0,0,0,0,0
+14501100,Smithscript Axe,Blood,105000,57,0,0,0,0,0
+14500900,Smithscript Axe,Cold,107500,0,66,0,0,0,0
+14500400,Smithscript Axe,Fire,,0,0,0,0,0,0
+14500500,Smithscript Axe,Flame Art,,0,0,0,0,0,0
+14500100,Smithscript Axe,Heavy,,0,0,0,0,0,0
+14500200,Smithscript Axe,Keen,,0,0,0,0,0,0
+14500600,Smithscript Axe,Lightning,,0,0,0,0,0,0
+14500800,Smithscript Axe,Magic,,0,0,0,0,0,0
+14501200,Smithscript Axe,Occult,,0,0,0,0,0,0
+14501000,Smithscript Axe,Poison,106000,0,0,66,0,0,0
+14500300,Smithscript Axe,Quality,,0,0,0,0,0,0
+14500700,Smithscript Axe,Sacred,,0,0,0,0,0,0
+14500000,Smithscript Axe,Standard,,0,0,0,0,0,0
+64511100,Smithscript Cirque,Blood,105000,57,0,0,0,0,0
+64510900,Smithscript Cirque,Cold,107500,0,66,0,0,0,0
+64510400,Smithscript Cirque,Fire,,0,0,0,0,0,0
+64510500,Smithscript Cirque,Flame Art,,0,0,0,0,0,0
+64510100,Smithscript Cirque,Heavy,,0,0,0,0,0,0
+64510200,Smithscript Cirque,Keen,,0,0,0,0,0,0
+64510600,Smithscript Cirque,Lightning,,0,0,0,0,0,0
+64510800,Smithscript Cirque,Magic,,0,0,0,0,0,0
+64511200,Smithscript Cirque,Occult,,0,0,0,0,0,0
+64511000,Smithscript Cirque,Poison,106000,0,0,66,0,0,0
+64510300,Smithscript Cirque,Quality,,0,0,0,0,0,0
+64510700,Smithscript Cirque,Sacred,,0,0,0,0,0,0
+64510000,Smithscript Cirque,Standard,,0,0,0,0,0,0
+63501100,Smithscript Dagger,Blood,105300,25,0,0,0,0,0
+63500900,Smithscript Dagger,Cold,107800,0,30,0,0,0,0
+63500400,Smithscript Dagger,Fire,,0,0,0,0,0,0
+63500500,Smithscript Dagger,Flame Art,,0,0,0,0,0,0
+63500100,Smithscript Dagger,Heavy,,0,0,0,0,0,0
+63500200,Smithscript Dagger,Keen,,0,0,0,0,0,0
+63500600,Smithscript Dagger,Lightning,,0,0,0,0,0,0
+63500800,Smithscript Dagger,Magic,,0,0,0,0,0,0
+63501200,Smithscript Dagger,Occult,,0,0,0,0,0,0
+63501000,Smithscript Dagger,Poison,106300,0,0,30,0,0,0
+63500300,Smithscript Dagger,Quality,,0,0,0,0,0,0
+63500700,Smithscript Dagger,Sacred,,0,0,0,0,0,0
+63500000,Smithscript Dagger,Standard,,0,0,0,0,0,0
+12501100,Smithscript Greathammer,Blood,105100,69,0,0,0,0,0
+12500900,Smithscript Greathammer,Cold,107600,0,80,0,0,0,0
+12500400,Smithscript Greathammer,Fire,,0,0,0,0,0,0
+12500500,Smithscript Greathammer,Flame Art,,0,0,0,0,0,0
+12500100,Smithscript Greathammer,Heavy,,0,0,0,0,0,0
+12500200,Smithscript Greathammer,Keen,,0,0,0,0,0,0
+12500600,Smithscript Greathammer,Lightning,,0,0,0,0,0,0
+12500800,Smithscript Greathammer,Magic,,0,0,0,0,0,0
+12501200,Smithscript Greathammer,Occult,,0,0,0,0,0,0
+12501000,Smithscript Greathammer,Poison,106100,0,0,80,0,0,0
+12500300,Smithscript Greathammer,Quality,,0,0,0,0,0,0
+12500700,Smithscript Greathammer,Sacred,,0,0,0,0,0,0
+12500000,Smithscript Greathammer,Standard,,0,0,0,0,0,0
+30510000,Smithscript Shield,Standard,,0,0,0,0,0,0
+16501100,Smithscript Spear,Blood,105000,57,0,0,0,0,0
+16500900,Smithscript Spear,Cold,107500,0,66,0,0,0,0
+16500400,Smithscript Spear,Fire,,0,0,0,0,0,0
+16500500,Smithscript Spear,Flame Art,,0,0,0,0,0,0
+16500100,Smithscript Spear,Heavy,,0,0,0,0,0,0
+16500200,Smithscript Spear,Keen,,0,0,0,0,0,0
+16500600,Smithscript Spear,Lightning,,0,0,0,0,0,0
+16500800,Smithscript Spear,Magic,,0,0,0,0,0,0
+16501200,Smithscript Spear,Occult,,0,0,0,0,0,0
+16501000,Smithscript Spear,Poison,106000,0,0,66,0,0,0
+16500300,Smithscript Spear,Quality,,0,0,0,0,0,0
+16500700,Smithscript Spear,Sacred,,0,0,0,0,0,0
+16500000,Smithscript Spear,Standard,,0,0,0,0,0,0
+30150000,Smoldering Shield,Standard,5301500,0,0,0,0,0,0
+43000000,Soldier's Crossbow,Standard,,0,0,0,0,0,0
+16010900,Spear,Cold,107500,0,66,0,0,0,0
+16010400,Spear,Fire,,0,0,0,0,0,0
+16010500,Spear,Flame Art,,0,0,0,0,0,0
+16010100,Spear,Heavy,,0,0,0,0,0,0
+16010200,Spear,Keen,,0,0,0,0,0,0
+16010600,Spear,Lightning,,0,0,0,0,0,0
+16010800,Spear,Magic,,0,0,0,0,0,0
+16011200,Spear,Occult,,0,0,0,0,0,0
+16011000,Spear,Poison,106000,0,0,66,0,0,0
+16010300,Spear,Quality,,0,0,0,0,0,0
+16010700,Spear,Sacred,,0,0,0,0,0,0
+16010000,Spear,Standard,,0,0,0,0,0,0
+17500000,Spear of the Impaler,Standard,,0,0,0,0,0,0
+21011100,Spiked Caestus,Blood,105050,57,0,0,0,0,0
+21010900,Spiked Caestus,Cold,6406|107500,38,66,0,0,0,0
+21010400,Spiked Caestus,Fire,6400,45,0,0,0,0,0
+21010500,Spiked Caestus,Flame Art,6400,45,0,0,0,0,0
+21010100,Spiked Caestus,Heavy,6400,45,0,0,0,0,0
+21010200,Spiked Caestus,Keen,6400,45,0,0,0,0,0
+21010600,Spiked Caestus,Lightning,6400,45,0,0,0,0,0
+21010800,Spiked Caestus,Magic,6400,45,0,0,0,0,0
+21011200,Spiked Caestus,Occult,6406,38,0,0,0,0,0
+21011000,Spiked Caestus,Poison,6406|106000,38,0,66,0,0,0
+21010300,Spiked Caestus,Quality,6400,45,0,0,0,0,0
+21010700,Spiked Caestus,Sacred,6400,45,0,0,0,0,0
+21010000,Spiked Caestus,Standard,6400,45,0,0,0,0,0
+11071100,Spiked Club,Blood,105050,57,0,0,0,0,0
+11070900,Spiked Club,Cold,6400|107500,45,66,0,0,0,0
+11070400,Spiked Club,Fire,6401,50,0,0,0,0,0
+11070500,Spiked Club,Flame Art,6401,50,0,0,0,0,0
+11070100,Spiked Club,Heavy,6401,50,0,0,0,0,0
+11070200,Spiked Club,Keen,6401,50,0,0,0,0,0
+11070600,Spiked Club,Lightning,6401,50,0,0,0,0,0
+11070800,Spiked Club,Magic,6401,50,0,0,0,0,0
+11071200,Spiked Club,Occult,6400,45,0,0,0,0,0
+11071000,Spiked Club,Poison,6400|106000,45,0,66,0,0,0
+11070300,Spiked Club,Quality,6401,50,0,0,0,0,0
+11070700,Spiked Club,Sacred,6401,50,0,0,0,0,0
+11070000,Spiked Club,Standard,6401,50,0,0,0,0,0
+32171100,Spiked Palisade Shield,Blood,105250,83,0,0,0,0,0
+32170900,Spiked Palisade Shield,Cold,6404|107700,65,96,0,0,0,0
+32170400,Spiked Palisade Shield,Fire,6405,70,0,0,0,0,0
+32170500,Spiked Palisade Shield,Flame Art,6405,70,0,0,0,0,0
+32170100,Spiked Palisade Shield,Heavy,6405,70,0,0,0,0,0
+32170200,Spiked Palisade Shield,Keen,6405,70,0,0,0,0,0
+32170600,Spiked Palisade Shield,Lightning,6405,70,0,0,0,0,0
+32170800,Spiked Palisade Shield,Magic,6405,70,0,0,0,0,0
+32171200,Spiked Palisade Shield,Occult,6404,65,0,0,0,0,0
+32171000,Spiked Palisade Shield,Poison,6404|106200,65,0,96,0,0,0
+32170300,Spiked Palisade Shield,Quality,6405,70,0,0,0,0,0
+32170700,Spiked Palisade Shield,Sacred,6405,70,0,0,0,0,0
+32170000,Spiked Palisade Shield,Standard,6405,70,0,0,0,0,0
+16141100,Spiked Spear,Blood,105050,57,0,0,0,0,0
+16140900,Spiked Spear,Cold,6400|107500,45,66,0,0,0,0
+16140400,Spiked Spear,Fire,6401,50,0,0,0,0,0
+16140500,Spiked Spear,Flame Art,6401,50,0,0,0,0,0
+16140100,Spiked Spear,Heavy,6401,50,0,0,0,0,0
+16140200,Spiked Spear,Keen,6401,50,0,0,0,0,0
+16140600,Spiked Spear,Lightning,6401,50,0,0,0,0,0
+16140800,Spiked Spear,Magic,6401,50,0,0,0,0,0
+16141200,Spiked Spear,Occult,6400,45,0,0,0,0,0
+16141000,Spiked Spear,Poison,6400|106000,45,0,66,0,0,0
+16140300,Spiked Spear,Quality,6401,50,0,0,0,0,0
+16140700,Spiked Spear,Sacred,6401,50,0,0,0,0,0
+16140000,Spiked Spear,Standard,6401,50,0,0,0,0,0
+30191100,Spiralhorn Shield,Blood,105050|5301900,57,0,0,0,0,0
+30190900,Spiralhorn Shield,Cold,6400|107500|5301900,45,66,0,0,0,0
+30190400,Spiralhorn Shield,Fire,6400|5301900,45,0,0,0,0,0
+30190500,Spiralhorn Shield,Flame Art,6400|5301900,45,0,0,0,0,0
+30190100,Spiralhorn Shield,Heavy,6400|5301900,45,0,0,0,0,0
+30190200,Spiralhorn Shield,Keen,6400|5301900,45,0,0,0,0,0
+30190600,Spiralhorn Shield,Lightning,6400|5301900,45,0,0,0,0,0
+30190800,Spiralhorn Shield,Magic,6400|5301900,45,0,0,0,0,0
+30191200,Spiralhorn Shield,Occult,6400|5301900,45,0,0,0,0,0
+30191000,Spiralhorn Shield,Poison,6400|106000|5301900,45,0,66,0,0,0
+30190300,Spiralhorn Shield,Quality,6400|5301900,45,0,0,0,0,0
+30190700,Spiralhorn Shield,Sacred,6400|5301900,45,0,0,0,0,0
+30190000,Spiralhorn Shield,Standard,6400|5301900,45,0,0,0,0,0
+34520000,Spiraltree Seal,Standard,5345200,0,0,0,0,0,0
+18500000,Spirit Glaive,Standard,,0,0,0,0,0,0
+7500000,Spirit Sword,Standard,,0,0,0,0,0,0
+43510000,Spread Crossbow,Standard,,0,0,0,0,0,0
+24040000,St. Trina's Torch,Standard,6452|415,0,0,0,72,0,0
+33280000,Staff of Loss,Standard,1921,0,0,0,0,0,0
+23070000,Staff of the Avatar,Standard,,0,0,0,0,0,0
+33510000,Staff of the Great Beyond,Standard,,0,0,0,0,0,0
+33260000,Staff of the Guilty,Standard,6400|1918,45,0,0,0,0,0
+21081100,Star Fist,Blood,105050,57,0,0,0,0,0
+21080900,Star Fist,Cold,6406|107500,38,66,0,0,0,0
+21080400,Star Fist,Fire,6400,45,0,0,0,0,0
+21080500,Star Fist,Flame Art,6400,45,0,0,0,0,0
+21080100,Star Fist,Heavy,6400,45,0,0,0,0,0
+21080200,Star Fist,Keen,6400,45,0,0,0,0,0
+21080600,Star Fist,Lightning,6400,45,0,0,0,0,0
+21080800,Star Fist,Magic,6400,45,0,0,0,0,0
+21081200,Star Fist,Occult,6406,38,0,0,0,0,0
+21081000,Star Fist,Poison,6406|106000,38,0,66,0,0,0
+21080300,Star Fist,Quality,6400,45,0,0,0,0,0
+21080700,Star Fist,Sacred,6400,45,0,0,0,0,0
+21080000,Star Fist,Standard,6400,45,0,0,0,0,0
+2520000,Star-Lined Sword,Standard,6400,45,0,0,0,0,0
+4050000,Starscourge Greatsword,Standard,,0,0,0,0,0,0
+24020000,Steel-Wire Torch,Standard,415,0,0,0,0,0,0
+11141100,Stone Club,Blood,105000,57,0,0,0,0,0
+11140900,Stone Club,Cold,107500,0,66,0,0,0,0
+11140400,Stone Club,Fire,,0,0,0,0,0,0
+11140500,Stone Club,Flame Art,,0,0,0,0,0,0
+11140100,Stone Club,Heavy,,0,0,0,0,0,0
+11140200,Stone Club,Keen,,0,0,0,0,0,0
+11140600,Stone Club,Lightning,,0,0,0,0,0,0
+11140800,Stone Club,Magic,,0,0,0,0,0,0
+11141200,Stone Club,Occult,,0,0,0,0,0,0
+11141000,Stone Club,Poison,106000,0,0,66,0,0,0
+11140300,Stone Club,Quality,,0,0,0,0,0,0
+11140700,Stone Club,Sacred,,0,0,0,0,0,0
+11140000,Stone Club,Standard,,0,0,0,0,0,0
+2540000,Stone-Sheathed Sword,Standard,,0,0,0,0,0,0
+14140000,Stormhawk Axe,Standard,,0,0,0,0,0,0
+31051100,Sun Realm Shield,Blood,105000,57,0,0,0,0,0
+31050900,Sun Realm Shield,Cold,107500,0,66,0,0,0,0
+31050400,Sun Realm Shield,Fire,,0,0,0,0,0,0
+31050500,Sun Realm Shield,Flame Art,,0,0,0,0,0,0
+31050100,Sun Realm Shield,Heavy,,0,0,0,0,0,0
+31050200,Sun Realm Shield,Keen,,0,0,0,0,0,0
+31050600,Sun Realm Shield,Lightning,,0,0,0,0,0,0
+31050800,Sun Realm Shield,Magic,,0,0,0,0,0,0
+31051200,Sun Realm Shield,Occult,,0,0,0,0,0,0
+31051000,Sun Realm Shield,Poison,106000,0,0,66,0,0,0
+31050300,Sun Realm Shield,Quality,,0,0,0,0,0,0
+31050700,Sun Realm Shield,Sacred,,0,0,0,0,0,0
+31050000,Sun Realm Shield,Standard,,0,0,0,0,0,0
+16521100,Swift Spear,Blood,105000,57,0,0,0,0,0
+16520900,Swift Spear,Cold,107500,0,66,0,0,0,0
+16520400,Swift Spear,Fire,,0,0,0,0,0,0
+16520500,Swift Spear,Flame Art,,0,0,0,0,0,0
+16520100,Swift Spear,Heavy,,0,0,0,0,0,0
+16520200,Swift Spear,Keen,,0,0,0,0,0,0
+16520600,Swift Spear,Lightning,,0,0,0,0,0,0
+16520800,Swift Spear,Magic,,0,0,0,0,0,0
+16521200,Swift Spear,Occult,,0,0,0,0,0,0
+16521000,Swift Spear,Poison,106000,0,0,66,0,0,0
+16520300,Swift Spear,Quality,,0,0,0,0,0,0
+16520700,Swift Spear,Sacred,,0,0,0,0,0,0
+16520000,Swift Spear,Standard,,0,0,0,0,0,0
+3501100,Sword Lance,Blood,105200,83,0,0,0,0,0
+3500900,Sword Lance,Cold,107700,0,96,0,0,0,0
+3500400,Sword Lance,Fire,,0,0,0,0,0,0
+3500500,Sword Lance,Flame Art,,0,0,0,0,0,0
+3500100,Sword Lance,Heavy,,0,0,0,0,0,0
+3500200,Sword Lance,Keen,,0,0,0,0,0,0
+3500600,Sword Lance,Lightning,,0,0,0,0,0,0
+3500800,Sword Lance,Magic,,0,0,0,0,0,0
+3501200,Sword Lance,Occult,,0,0,0,0,0,0
+3501000,Sword Lance,Poison,106200,0,0,96,0,0,0
+3500300,Sword Lance,Quality,,0,0,0,0,0,0
+3500700,Sword Lance,Sacred,,0,0,0,0,0,0
+3500000,Sword Lance,Standard,,0,0,0,0,0,0
+2560000,Sword of Darkness,Standard,,0,0,0,0,0,0
+2550000,Sword of Light,Standard,,0,0,0,0,0,0
+3160000,Sword of Milos,Standard,6402|5031600,55,0,0,0,0,0
+9500000,Sword of Night,Standard,6400,45,0,0,0,0,0
+2140000,Sword of Night and Flame,Standard,,0,0,0,0,0,0
+2190000,Sword of St. Trina,Standard,6451,0,0,0,66,0,0
+21500000,Thiollier's Hidden Needle,Standard,20001039,0,0,0,42,0,0
+20021100,Thorned Whip,Blood,105050,57,0,0,0,0,0
+20020900,Thorned Whip,Cold,6400|107500,45,66,0,0,0,0
+20020400,Thorned Whip,Fire,6401,50,0,0,0,0,0
+20020500,Thorned Whip,Flame Art,6401,50,0,0,0,0,0
+20020100,Thorned Whip,Heavy,6401,50,0,0,0,0,0
+20020200,Thorned Whip,Keen,6401,50,0,0,0,0,0
+20020600,Thorned Whip,Lightning,6401,50,0,0,0,0,0
+20020800,Thorned Whip,Magic,6401,50,0,0,0,0,0
+20021200,Thorned Whip,Occult,6400,45,0,0,0,0,0
+20021000,Thorned Whip,Poison,6400|106000,45,0,66,0,0,0
+20020300,Thorned Whip,Quality,6401,50,0,0,0,0,0
+20020700,Thorned Whip,Sacred,6401,50,0,0,0,0,0
+20020000,Thorned Whip,Standard,6401,50,0,0,0,0,0
+20500000,Tooth Whip,Standard,6511,0,0,66,0,0,0
+24000000,Torch,Standard,415,0,0,0,0,0,0
+16080000,Torchpole,Standard,,0,0,0,0,0,0
+17070700,Treespear,Sacred,,0,0,0,0,0,0
+17070000,Treespear,Standard,,0,0,0,0,0,0
+4110000,Troll Knight's Sword,Standard,,0,0,0,0,0,0
+23130400,Troll's Fire Hammer,Fire,,0,0,0,0,0,0
+23130500,Troll's Flame Art Hammer,Flame Art,,0,0,0,0,0,0
+4031100,Troll's Golden Blood Sword,Blood,105200,83,0,0,0,0,0
+4030900,Troll's Golden Cold Sword,Cold,107700,0,96,0,0,0,0
+4030400,Troll's Golden Fire Sword,Fire,,0,0,0,0,0,0
+4030500,Troll's Golden Flame Art Sword,Flame Art,,0,0,0,0,0,0
+4030100,Troll's Golden Heavy Sword,Heavy,,0,0,0,0,0,0
+4030200,Troll's Golden Keen Sword,Keen,,0,0,0,0,0,0
+4030600,Troll's Golden Lightning Sword,Lightning,,0,0,0,0,0,0
+4030800,Troll's Golden Magic Sword,Magic,,0,0,0,0,0,0
+4031200,Troll's Golden Occult Sword,Occult,,0,0,0,0,0,0
+4031000,Troll's Golden Poison Sword,Poison,106200,0,0,96,0,0,0
+4030300,Troll's Golden Quality Sword,Quality,,0,0,0,0,0,0
+4030700,Troll's Golden Sacred Sword,Sacred,,0,0,0,0,0,0
+4030000,Troll's Golden Sword,Standard,,0,0,0,0,0,0
+23130000,Troll's Hammer,Standard,,0,0,0,0,0,0
+31091100,Twinbird Kite Shield,Blood,105000|5310900,57,0,0,0,0,0
+31090900,Twinbird Kite Shield,Cold,107500|5310900,0,66,0,0,0,0
+31090400,Twinbird Kite Shield,Fire,5310900,0,0,0,0,0,0
+31090500,Twinbird Kite Shield,Flame Art,5310900,0,0,0,0,0,0
+31090100,Twinbird Kite Shield,Heavy,5310900,0,0,0,0,0,0
+31090200,Twinbird Kite Shield,Keen,5310900,0,0,0,0,0,0
+31090600,Twinbird Kite Shield,Lightning,5310900,0,0,0,0,0,0
+31090800,Twinbird Kite Shield,Magic,5310900,0,0,0,0,0,0
+31091200,Twinbird Kite Shield,Occult,5310900,0,0,0,0,0,0
+31091000,Twinbird Kite Shield,Poison,106000|5310900,0,0,66,0,0,0
+31090300,Twinbird Kite Shield,Quality,5310900,0,0,0,0,0,0
+31090700,Twinbird Kite Shield,Sacred,5310900,0,0,0,0,0,0
+31090000,Twinbird Kite Shield,Standard,5310900,0,0,0,0,0,0
+10000900,Twinblade,Cold,107600,0,80,0,0,0,0
+10000400,Twinblade,Fire,,0,0,0,0,0,0
+10000500,Twinblade,Flame Art,,0,0,0,0,0,0
+10000100,Twinblade,Heavy,,0,0,0,0,0,0
+10000200,Twinblade,Keen,,0,0,0,0,0,0
+10000600,Twinblade,Lightning,,0,0,0,0,0,0
+10000800,Twinblade,Magic,,0,0,0,0,0,0
+10001200,Twinblade,Occult,,0,0,0,0,0,0
+10001000,Twinblade,Poison,106100,0,0,80,0,0,0
+10000300,Twinblade,Quality,,0,0,0,0,0,0
+10000700,Twinblade,Sacred,,0,0,0,0,0,0
+10000000,Twinblade,Standard,,0,0,0,0,0,0
+10031100,Twinned Knight Swords,Blood,105100,69,0,0,0,0,0
+10030900,Twinned Knight Swords,Cold,107600,0,80,0,0,0,0
+10030400,Twinned Knight Swords,Fire,,0,0,0,0,0,0
+10030500,Twinned Knight Swords,Flame Art,,0,0,0,0,0,0
+10030100,Twinned Knight Swords,Heavy,,0,0,0,0,0,0
+10030200,Twinned Knight Swords,Keen,,0,0,0,0,0,0
+10030600,Twinned Knight Swords,Lightning,,0,0,0,0,0,0
+10030800,Twinned Knight Swords,Magic,,0,0,0,0,0,0
+10031200,Twinned Knight Swords,Occult,,0,0,0,0,0,0
+10031000,Twinned Knight Swords,Poison,106100,0,0,80,0,0,0
+10030300,Twinned Knight Swords,Quality,,0,0,0,0,0,0
+10030700,Twinned Knight Swords,Sacred,,0,0,0,0,0,0
+10030000,Twinned Knight Swords,Standard,,0,0,0,0,0,0
+9001100,Uchigatana,Blood,105050,57,0,0,0,0,0
+9000900,Uchigatana,Cold,6406|107500,38,66,0,0,0,0
+9000400,Uchigatana,Fire,6400,45,0,0,0,0,0
+9000500,Uchigatana,Flame Art,6400,45,0,0,0,0,0
+9000100,Uchigatana,Heavy,6400,45,0,0,0,0,0
+9000200,Uchigatana,Keen,6400,45,0,0,0,0,0
+9000600,Uchigatana,Lightning,6400,45,0,0,0,0,0
+9000800,Uchigatana,Magic,6400,45,0,0,0,0,0
+9001200,Uchigatana,Occult,6406,38,0,0,0,0,0
+9001000,Uchigatana,Poison,6406|106000,38,0,66,0,0,0
+9000300,Uchigatana,Quality,6400,45,0,0,0,0,0
+9000700,Uchigatana,Sacred,6400,45,0,0,0,0,0
+9000000,Uchigatana,Standard,6400,45,0,0,0,0,0
+20071100,Urumi,Blood,105000,57,0,0,0,0,0
+20070900,Urumi,Cold,107500,0,66,0,0,0,0
+20070400,Urumi,Fire,,0,0,0,0,0,0
+20070500,Urumi,Flame Art,,0,0,0,0,0,0
+20070100,Urumi,Heavy,,0,0,0,0,0,0
+20070200,Urumi,Keen,,0,0,0,0,0,0
+20070600,Urumi,Lightning,,0,0,0,0,0,0
+20070800,Urumi,Magic,,0,0,0,0,0,0
+20071200,Urumi,Occult,,0,0,0,0,0,0
+20071000,Urumi,Poison,106000,0,0,66,0,0,0
+20070300,Urumi,Quality,,0,0,0,0,0,0
+20070700,Urumi,Sacred,,0,0,0,0,0,0
+20070000,Urumi,Standard,,0,0,0,0,0,0
+11060000,Varre's Bouquet,Standard,6413,65,0,0,0,0,0
+2510000,Velvet Sword of St. Trina,Standard,20001029,0,0,0,42,0,0
+22011100,Venomous Fang,Blood,105000|6511,57,0,66,0,0,0
+22010900,Venomous Fang,Cold,6511|107500,0,66,66,0,0,0
+22010400,Venomous Fang,Fire,6512,0,0,72,0,0,0
+22010500,Venomous Fang,Flame Art,6512,0,0,72,0,0,0
+22010100,Venomous Fang,Heavy,6512,0,0,72,0,0,0
+22010200,Venomous Fang,Keen,6512,0,0,72,0,0,0
+22010600,Venomous Fang,Lightning,6512,0,0,72,0,0,0
+22010800,Venomous Fang,Magic,6512,0,0,72,0,0,0
+22011200,Venomous Fang,Occult,6511,0,0,66,0,0,0
+22011000,Venomous Fang,Poison,106050,0,0,66,0,0,0
+22010300,Venomous Fang,Quality,6512,0,0,72,0,0,0
+22010700,Venomous Fang,Sacred,6512,0,0,72,0,0,0
+22010000,Venomous Fang,Standard,6512,0,0,72,0,0,0
+32520000,Verdigris Greatshield,Standard,,0,0,0,0,0,0
+21120000,Veteran's Prosthesis,Standard,,0,0,0,0,0,0
+32160000,Visage Shield,Standard,,0,0,0,0,0,0
+18071100,Vulgar Militia Saw,Blood,105150,69,0,0,0,0,0
+18070900,Vulgar Militia Saw,Cold,6401|107600,50,80,0,0,0,0
+18070400,Vulgar Militia Saw,Fire,6402,55,0,0,0,0,0
+18070500,Vulgar Militia Saw,Flame Art,6402,55,0,0,0,0,0
+18070100,Vulgar Militia Saw,Heavy,6402,55,0,0,0,0,0
+18070200,Vulgar Militia Saw,Keen,6402,55,0,0,0,0,0
+18070600,Vulgar Militia Saw,Lightning,6402,55,0,0,0,0,0
+18070800,Vulgar Militia Saw,Magic,6402,55,0,0,0,0,0
+18071200,Vulgar Militia Saw,Occult,6401,50,0,0,0,0,0
+18071000,Vulgar Militia Saw,Poison,6401|106100,50,0,80,0,0,0
+18070300,Vulgar Militia Saw,Quality,6402,55,0,0,0,0,0
+18070700,Vulgar Militia Saw,Sacred,6402,55,0,0,0,0,0
+18070000,Vulgar Militia Saw,Standard,6402,55,0,0,0,0,0
+18131100,Vulgar Militia Shotel,Blood,105100,69,0,0,0,0,0
+18130900,Vulgar Militia Shotel,Cold,107600,0,80,0,0,0,0
+18130400,Vulgar Militia Shotel,Fire,,0,0,0,0,0,0
+18130500,Vulgar Militia Shotel,Flame Art,,0,0,0,0,0,0
+18130100,Vulgar Militia Shotel,Heavy,,0,0,0,0,0,0
+18130200,Vulgar Militia Shotel,Keen,,0,0,0,0,0,0
+18130600,Vulgar Militia Shotel,Lightning,,0,0,0,0,0,0
+18130800,Vulgar Militia Shotel,Magic,,0,0,0,0,0,0
+18131200,Vulgar Militia Shotel,Occult,,0,0,0,0,0,0
+18131000,Vulgar Militia Shotel,Poison,106100,0,0,80,0,0,0
+18130300,Vulgar Militia Shotel,Quality,,0,0,0,0,0,0
+18130700,Vulgar Militia Shotel,Sacred,,0,0,0,0,0,0
+18130000,Vulgar Militia Shotel,Standard,,0,0,0,0,0,0
+17050000,Vyke's War Spear,Standard,6752,0,0,0,0,65,0
+1101100,Wakizashi,Blood,105050,57,0,0,0,0,0
+1100900,Wakizashi,Cold,6406|107500,38,66,0,0,0,0
+1100400,Wakizashi,Fire,6406,38,0,0,0,0,0
+1100500,Wakizashi,Flame Art,6406,38,0,0,0,0,0
+1100100,Wakizashi,Heavy,6406,38,0,0,0,0,0
+1100200,Wakizashi,Keen,6406,38,0,0,0,0,0
+1100600,Wakizashi,Lightning,6406,38,0,0,0,0,0
+1100800,Wakizashi,Magic,6406,38,0,0,0,0,0
+1101200,Wakizashi,Occult,6406,38,0,0,0,0,0
+1101000,Wakizashi,Poison,6406|106000,38,0,66,0,0,0
+1100300,Wakizashi,Quality,6406,38,0,0,0,0,0
+1100700,Wakizashi,Sacred,6406,38,0,0,0,0,0
+1100000,Wakizashi,Standard,6406,38,0,0,0,0,0
+2241100,Warhawk's Blood Talon,Blood,105000,57,0,0,0,0,0
+2240900,Warhawk's Cold Talon,Cold,107500,0,66,0,0,0,0
+2240400,Warhawk's Fire Talon,Fire,,0,0,0,0,0,0
+2240500,Warhawk's Flame Art Talon,Flame Art,,0,0,0,0,0,0
+2240100,Warhawk's Heavy Talon,Heavy,,0,0,0,0,0,0
+2240200,Warhawk's Keen Talon,Keen,,0,0,0,0,0,0
+2240600,Warhawk's Lightning Talon,Lightning,,0,0,0,0,0,0
+2240800,Warhawk's Magic Talon,Magic,,0,0,0,0,0,0
+2241200,Warhawk's Occult Talon,Occult,,0,0,0,0,0,0
+2241000,Warhawk's Poison Talon,Poison,106000,0,0,66,0,0,0
+2240300,Warhawk's Quality Talon,Quality,,0,0,0,0,0,0
+2240700,Warhawk's Sacred Talon,Sacred,,0,0,0,0,0,0
+2240000,Warhawk's Talon,Standard,,0,0,0,0,0,0
+15011100,Warped Axe,Blood,105100,69,0,0,0,0,0
+15010900,Warped Axe,Cold,107600,0,80,0,0,0,0
+15010400,Warped Axe,Fire,,0,0,0,0,0,0
+15010500,Warped Axe,Flame Art,,0,0,0,0,0,0
+15010100,Warped Axe,Heavy,,0,0,0,0,0,0
+15010200,Warped Axe,Keen,,0,0,0,0,0,0
+15010600,Warped Axe,Lightning,,0,0,0,0,0,0
+15010800,Warped Axe,Magic,,0,0,0,0,0,0
+15011200,Warped Axe,Occult,,0,0,0,0,0,0
+15011000,Warped Axe,Poison,106100,0,0,80,0,0,0
+15010300,Warped Axe,Quality,,0,0,0,0,0,0
+15010700,Warped Axe,Sacred,,0,0,0,0,0,0
+15010000,Warped Axe,Standard,,0,0,0,0,0,0
+11041100,Warpick,Blood,105000,57,0,0,0,0,0
+11040900,Warpick,Cold,107500,0,66,0,0,0,0
+11040400,Warpick,Fire,,0,0,0,0,0,0
+11040500,Warpick,Flame Art,,0,0,0,0,0,0
+11040100,Warpick,Heavy,,0,0,0,0,0,0
+11040200,Warpick,Keen,,0,0,0,0,0,0
+11040600,Warpick,Lightning,,0,0,0,0,0,0
+11040800,Warpick,Magic,,0,0,0,0,0,0
+11041200,Warpick,Occult,,0,0,0,0,0,0
+11041000,Warpick,Poison,106000,0,0,66,0,0,0
+11040300,Warpick,Quality,,0,0,0,0,0,0
+11040700,Warpick,Sacred,,0,0,0,0,0,0
+11040000,Warpick,Standard,,0,0,0,0,0,0
+4011100,Watchdog's Blood Greatsword,Blood,105200,83,0,0,0,0,0
+4010900,Watchdog's Cold Greatsword,Cold,107700,0,96,0,0,0,0
+4010400,Watchdog's Fire Greatsword,Fire,,0,0,0,0,0,0
+4010500,Watchdog's Flame Art Greatsword,Flame Art,,0,0,0,0,0,0
+4010000,Watchdog's Greatsword,Standard,,0,0,0,0,0,0
+4010100,Watchdog's Heavy Greatsword,Heavy,,0,0,0,0,0,0
+4010200,Watchdog's Keen Greatsword,Keen,,0,0,0,0,0,0
+4010600,Watchdog's Lightning Greatsword,Lightning,,0,0,0,0,0,0
+4010800,Watchdog's Magic Greatsword,Magic,,0,0,0,0,0,0
+4011200,Watchdog's Occult Greatsword,Occult,,0,0,0,0,0,0
+4011000,Watchdog's Poison Greatsword,Poison,106200,0,0,96,0,0,0
+4010300,Watchdog's Quality Greatsword,Quality,,0,0,0,0,0,0
+4010700,Watchdog's Sacred Greatsword,Sacred,,0,0,0,0,0,0
+23010000,Watchdog's Staff,Standard,,0,0,0,0,0,0
+2051100,Weathered Blood Straight Sword,Blood,105000,57,0,0,0,0,0
+2050900,Weathered Cold Straight Sword,Cold,107500,0,66,0,0,0,0
+2050400,Weathered Fire Straight Sword,Fire,,0,0,0,0,0,0
+2050500,Weathered Flame Art Straight Sword,Flame Art,,0,0,0,0,0,0
+2050100,Weathered Heavy Straight Sword,Heavy,,0,0,0,0,0,0
+2050200,Weathered Keen Straight Sword,Keen,,0,0,0,0,0,0
+2050600,Weathered Lightning Straight Sword,Lightning,,0,0,0,0,0,0
+2050800,Weathered Magic Straight Sword,Magic,,0,0,0,0,0,0
+2051200,Weathered Occult Straight Sword,Occult,,0,0,0,0,0,0
+2051000,Weathered Poison Straight Sword,Poison,106000,0,0,66,0,0,0
+2050300,Weathered Quality Straight Sword,Quality,,0,0,0,0,0,0
+2050700,Weathered Sacred Straight Sword,Sacred,,0,0,0,0,0,0
+2050000,Weathered Straight Sword,Standard,,0,0,0,0,0,0
+20001100,Whip,Blood,105000,57,0,0,0,0,0
+20000900,Whip,Cold,107500,0,66,0,0,0,0
+20000400,Whip,Fire,,0,0,0,0,0,0
+20000500,Whip,Flame Art,,0,0,0,0,0,0
+20000100,Whip,Heavy,,0,0,0,0,0,0
+20000200,Whip,Keen,,0,0,0,0,0,0
+20000600,Whip,Lightning,,0,0,0,0,0,0
+20000800,Whip,Magic,,0,0,0,0,0,0
+20001200,Whip,Occult,,0,0,0,0,0,0
+20001000,Whip,Poison,106000,0,0,66,0,0,0
+20000300,Whip,Quality,,0,0,0,0,0,0
+20000700,Whip,Sacred,,0,0,0,0,0,0
+20000000,Whip,Standard,,0,0,0,0,0,0
+7070000,Wing of Astel,Standard,,0,0,0,0,0,0
+15110000,Winged Greathorn,Standard,,0,0,0,0,0,0
+19060000,Winged Scythe,Standard,6402,55,0,0,0,0,0
+31511100,Wolf Crest Shield,Blood,105000,57,0,0,0,0,0
+31510900,Wolf Crest Shield,Cold,107500,0,66,0,0,0,0
+31510400,Wolf Crest Shield,Fire,,0,0,0,0,0,0
+31510500,Wolf Crest Shield,Flame Art,,0,0,0,0,0,0
+31510100,Wolf Crest Shield,Heavy,,0,0,0,0,0,0
+31510200,Wolf Crest Shield,Keen,,0,0,0,0,0,0
+31510600,Wolf Crest Shield,Lightning,,0,0,0,0,0,0
+31510800,Wolf Crest Shield,Magic,,0,0,0,0,0,0
+31511200,Wolf Crest Shield,Occult,,0,0,0,0,0,0
+31511000,Wolf Crest Shield,Poison,106000,0,0,66,0,0,0
+31510300,Wolf Crest Shield,Quality,,0,0,0,0,0,0
+31510700,Wolf Crest Shield,Sacred,,0,0,0,0,0,0
+31510000,Wolf Crest Shield,Standard,,0,0,0,0,0,0
+32291100,Wooden Greatshield,Blood,105200,83,0,0,0,0,0
+32290900,Wooden Greatshield,Cold,107700,0,96,0,0,0,0
+32290400,Wooden Greatshield,Fire,,0,0,0,0,0,0
+32290500,Wooden Greatshield,Flame Art,,0,0,0,0,0,0
+32290100,Wooden Greatshield,Heavy,,0,0,0,0,0,0
+32290200,Wooden Greatshield,Keen,,0,0,0,0,0,0
+32290600,Wooden Greatshield,Lightning,,0,0,0,0,0,0
+32290800,Wooden Greatshield,Magic,,0,0,0,0,0,0
+32291200,Wooden Greatshield,Occult,,0,0,0,0,0,0
+32291000,Wooden Greatshield,Poison,106200,0,0,96,0,0,0
+32290300,Wooden Greatshield,Quality,,0,0,0,0,0,0
+32290700,Wooden Greatshield,Sacred,,0,0,0,0,0,0
+32290000,Wooden Greatshield,Standard,,0,0,0,0,0,0
+8050000,Zamor Curved Sword,Standard,6702,0,65,0,0,0,0
+4041100,Zweihander,Blood,105200,83,0,0,0,0,0
+4040900,Zweihander,Cold,107700,0,96,0,0,0,0
+4040400,Zweihander,Fire,,0,0,0,0,0,0
+4040500,Zweihander,Flame Art,,0,0,0,0,0,0
+4040100,Zweihander,Heavy,,0,0,0,0,0,0
+4040200,Zweihander,Keen,,0,0,0,0,0,0
+4040600,Zweihander,Lightning,,0,0,0,0,0,0
+4040800,Zweihander,Magic,,0,0,0,0,0,0
+4041200,Zweihander,Occult,,0,0,0,0,0,0
+4041000,Zweihander,Poison,106200,0,0,96,0,0,0
+4040300,Zweihander,Quality,,0,0,0,0,0,0
+4040700,Zweihander,Sacred,,0,0,0,0,0,0
+4040000,Zweihander,Standard,,0,0,0,0,0,0
+41690000,[NPC] Ansbach's Longbow,Standard,1940,0,0,0,0,0,0
+68680000,[NPC] Beast Claw,Standard,6400|20001900,45,0,0,0,0,0
+15690000,[NPC] Bonny Butchering Knife,Standard,5151200|5151201,0,0,0,0,0,0
+34630000,[NPC] Clawmark Seal,Standard,1925,0,0,0,0,0,0
+22690000,[NPC] Claws of Night,Standard,6400,45,0,0,0,0,0
+7680000,[NPC] Dancing Blade of Ranah,Standard,,0,0,0,0,0,0
+60680000,[NPC] Dane's Footwork,Standard,,0,0,0,0,0,0
+61690000,[NPC] Deadly Poison Perfume Bottle,Standard,6511,0,0,66,0,0,0
+34670000,[NPC] Dragon Communion Seal,Standard,1927,0,0,0,0,0,0
+34690000,[NPC] Dragon Communion Seal,Standard,1927,0,0,0,0,0,0
+66690000,[NPC] Dragon-Hunter's Great Katana,Standard,6402,55,0,0,0,0,0
+60690000,[NPC] Dryleaf Arts,Standard,,0,0,0,0,0,0
+34620000,[NPC] Dryleaf Seal,Standard,5345000,0,0,0,0,0,0
+34640000,[NPC] Dryleaf Seal,Standard,5345000,0,0,0,0,0,0
+34650000,[NPC] Erdtree Seal,Standard,,0,0,0,0,0,0
+7670000,[NPC] Falx,Standard,6400,45,0,0,0,0,0
+7690000,[NPC] Falx,Standard,6402,55,0,0,0,0,0
+34660000,[NPC] Fire Knight's Seal,Standard,5345100,0,0,0,0,0,0
+11690000,[NPC] Flowerstone Gavel,Standard,,0,0,0,0,0,0
+34610000,[NPC] Frenzied Flame Seal,Standard,6750|1928,0,0,0,0,55,0
+8690000,[NPC] Freyja's Greatsword,Standard,5085100,0,0,0,0,0,0
+31690000,[NPC] Golden Lion Shield,Standard,,0,0,0,0,0,0
+34680000,[NPC] Gravel Stone Seal,Standard,1924,0,0,0,0,0,0
+3690000,[NPC] Greatsword of Solitude,Standard,,0,0,0,0,0,0
+42690000,[NPC] Igon's Greatbow,Standard,5425000,0,0,0,0,0,0
+2092000,[NPC] Inseparable Sword,Standard,,0,0,0,0,0,0
+67690000,[NPC] Leda's Sword,Standard,,0,0,0,0,0,0
+21670000,[NPC] Madding Hand,Standard,6750|20001900|5215300,0,0,0,0,55,0
+33690000,[NPC] Maternal Staff,Standard,5335200,0,0,0,0,0,0
+4690000,[NPC] Moonrithyll's Knight Sword,Standard,,0,0,0,0,0,0
+19690000,[NPC] Obsidian Lamina,Standard,6402,55,0,0,0,0,0
+6690000,[NPC] Queelign's Greatsword,Standard,,0,0,0,0,0,0
+66680000,[NPC] Rakshasa's Great Katana,Standard,6402,55,0,0,0,0,0
+5690000,[NPC] Rapier,Standard,,0,0,0,0,0,0
+68690000,[NPC] Red Bear's Claw,Standard,6400|20001900,45,0,0,0,0,0
+1690000,[NPC] Reduvia,Standard,6410,50,0,0,0,0,0
+43690000,[NPC] Repeating Crossbow,Standard,,0,0,0,0,0,0
+21690000,[NPC] Shield of Night,Standard,5215500,0,0,0,0,0,0
+9680000,[NPC] Sword of Night,Standard,6406,38,0,0,0,0,0
+9690000,[NPC] Sword of Night,Standard,6400,45,0,0,0,0,0
+21680000,[NPC] Thiollier's Hidden Neddle,Standard,20001039,0,0,0,42,0,0
+32690000,[NPC] Verdigris Greatshield,Standard,,0,0,0,0,0,0

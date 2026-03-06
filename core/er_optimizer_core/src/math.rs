@@ -1,6 +1,6 @@
 use crate::model::{
-    DamageBreakdown, DamageType, GameData, Stats, Weapon, COMBAT_STAT_COUNT, STAT_ARC, STAT_DEX, STAT_FAI,
-    STAT_INT, STAT_STR,
+    AttackElementCorrectExt, AowAttackRow, DamageBreakdown, DamageType, GameData, Stats, Weapon,
+    COMBAT_STAT_COUNT, STAT_ARC, STAT_DEX, STAT_FAI, STAT_INT, STAT_STR,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -79,6 +79,20 @@ pub fn calculate_ar_for_type(actual_base: f32, contributions: &[ScalingContribut
     actual_base * (1.0 + bonus)
 }
 
+fn stat_values_for_scaling(stats: &Stats, effective_str_value: u8, two_hand_disabled: bool) -> [u8; COMBAT_STAT_COUNT] {
+    [
+        if two_hand_disabled {
+            stats.str
+        } else {
+            effective_str_value
+        },
+        stats.dex,
+        stats.int,
+        stats.fai,
+        stats.arc,
+    ]
+}
+
 pub fn calculate_ar(
     weapon: &Weapon,
     upgrade: u8,
@@ -98,21 +112,21 @@ pub fn calculate_ar(
         .attack_element(weapon.attack_element_correct_id)
         .ok_or_else(|| format!("missing attack_element_correct_id={}", weapon.attack_element_correct_id))?;
 
-    let curve_mults = [
-        data.calc_curve_value(weapon.curve_ids[STAT_STR], effective_str_value)
-            .ok_or_else(|| format!("missing str curve_id={}", weapon.curve_ids[STAT_STR]))?,
-        data.calc_curve_value(weapon.curve_ids[STAT_DEX], stats.dex)
-            .ok_or_else(|| format!("missing dex curve_id={}", weapon.curve_ids[STAT_DEX]))?,
-        data.calc_curve_value(weapon.curve_ids[STAT_INT], stats.int)
-            .ok_or_else(|| format!("missing int curve_id={}", weapon.curve_ids[STAT_INT]))?,
-        data.calc_curve_value(weapon.curve_ids[STAT_FAI], stats.fai)
-            .ok_or_else(|| format!("missing fai curve_id={}", weapon.curve_ids[STAT_FAI]))?,
-        data.calc_curve_value(weapon.curve_ids[STAT_ARC], stats.arc)
-            .ok_or_else(|| format!("missing arc curve_id={}", weapon.curve_ids[STAT_ARC]))?,
-    ];
-
     let mut breakdown = DamageBreakdown::default();
     for damage_type in DamageType::ALL {
+        let curve_id = weapon.damage_curve_ids[damage_type.as_index()];
+        let curve_mults = [
+            data.calc_curve_value(curve_id, effective_str_value)
+                .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
+            data.calc_curve_value(curve_id, stats.dex)
+                .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
+            data.calc_curve_value(curve_id, stats.int)
+                .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
+            data.calc_curve_value(curve_id, stats.fai)
+                .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
+            data.calc_curve_value(curve_id, stats.arc)
+                .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
+        ];
         let actual_base =
             weapon.base[damage_type.as_index()] * reinforce.damage_mult[damage_type.as_index()];
         if actual_base <= 0.0 {
@@ -129,6 +143,112 @@ pub fn calculate_ar(
         }
     }
     Ok(breakdown)
+}
+
+fn calculate_skill_damage_for_type(
+    weapon: &Weapon,
+    attack_row: &AowAttackRow,
+    upgrade: u8,
+    stats: &Stats,
+    effective_str_value: u8,
+    damage_type: DamageType,
+    data: &GameData,
+) -> Result<f32, String> {
+    let damage_idx = damage_type.as_index();
+    let reinforce = data
+        .reinforce_level(weapon.reinforce_type, upgrade)
+        .ok_or_else(|| {
+            format!(
+                "missing reinforce level: type={} level={upgrade}",
+                weapon.reinforce_type
+            )
+        })?;
+    let actual_base = weapon.base[damage_idx] * reinforce.damage_mult[damage_idx]
+        * (attack_row.motion_values[damage_idx] / 100.0)
+        + attack_row.attack_base[damage_idx];
+    if actual_base <= 0.0 {
+        return Ok(0.0);
+    }
+
+    let stat_values = stat_values_for_scaling(
+        stats,
+        effective_str_value,
+        attack_row.is_disable_both_hands_bonus,
+    );
+    let curve_id = weapon.damage_curve_ids[damage_idx];
+    let curve_mults = [
+        data.calc_curve_value(curve_id, stat_values[STAT_STR])
+            .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
+        data.calc_curve_value(curve_id, stat_values[STAT_DEX])
+            .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
+        data.calc_curve_value(curve_id, stat_values[STAT_INT])
+            .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
+        data.calc_curve_value(curve_id, stat_values[STAT_FAI])
+            .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
+        data.calc_curve_value(curve_id, stat_values[STAT_ARC])
+            .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
+    ];
+
+    if let Some(override_id) = attack_row.overwrite_attack_element_correct_id {
+        if let Some(aec_ext) = data.attack_element_ext(override_id) {
+            let contributions = build_override_contributions(weapon, reinforce, aec_ext, &curve_mults, damage_idx);
+            return Ok(calculate_ar_for_type(actual_base, &contributions));
+        }
+    }
+
+    let aec = data
+        .attack_element(weapon.attack_element_correct_id)
+        .ok_or_else(|| format!("missing attack_element_correct_id={}", weapon.attack_element_correct_id))?;
+    let contributions = build_contributions(weapon, reinforce, aec, &curve_mults, damage_type);
+    Ok(calculate_ar_for_type(actual_base, &contributions))
+}
+
+fn build_override_contributions(
+    weapon: &Weapon,
+    reinforce: &crate::model::ReinforceLevel,
+    aec_ext: &AttackElementCorrectExt,
+    curve_mults: &[f32; COMBAT_STAT_COUNT],
+    damage_idx: usize,
+) -> [ScalingContribution; COMBAT_STAT_COUNT] {
+    std::array::from_fn(|stat_idx| ScalingContribution {
+        scaling: aec_ext
+            .overwrite_rate(stat_idx, damage_idx)
+            .unwrap_or(weapon.scaling[stat_idx] * aec_ext.influence_rate(stat_idx, damage_idx)),
+        scaling_mult: reinforce.scaling_mult[stat_idx],
+        curve_mult: curve_mults[stat_idx],
+        contributes: aec_ext.stat_scales(stat_idx, damage_idx),
+    })
+}
+
+pub fn calculate_aow_damage(
+    weapon: &Weapon,
+    attack_rows: &[&AowAttackRow],
+    upgrade: u8,
+    stats: &Stats,
+    effective_str_value: u8,
+    data: &GameData,
+) -> Result<(f32, f32), String> {
+    let mut first_hit = None;
+    let mut full_sequence = 0.0_f32;
+    for row in attack_rows.iter().filter(|row| !row.is_lacking_fp && row.is_damaging()) {
+        let mut row_total = 0.0_f32;
+        for damage_type in DamageType::ALL {
+            row_total += calculate_skill_damage_for_type(
+                weapon,
+                row,
+                upgrade,
+                stats,
+                effective_str_value,
+                damage_type,
+                data,
+            )?;
+        }
+        if first_hit.is_none() {
+            first_hit = Some(row_total);
+        }
+        full_sequence += row_total;
+    }
+    Ok((first_hit.unwrap_or(0.0), full_sequence))
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -507,5 +627,26 @@ mod tests {
         )
         .unwrap();
         assert!((reduvia_breakdown.total() - 343.6182).abs() < 0.01);
+
+        let fire_uchi = find_weapon(&game_data, "Uchigatana", "Fire");
+        let fire_uchi_stats = Stats {
+            vig: 12,
+            mnd: 11,
+            end: 13,
+            str: 48,
+            dex: 15,
+            int: 9,
+            fai: 8,
+            arc: 8,
+        };
+        let fire_uchi_breakdown = calculate_ar(
+            fire_uchi,
+            25,
+            &fire_uchi_stats,
+            effective_str(fire_uchi_stats.str, true),
+            &game_data,
+        )
+        .unwrap();
+        assert!((fire_uchi_breakdown.total() - 652.8947).abs() < 0.02);
     }
 }

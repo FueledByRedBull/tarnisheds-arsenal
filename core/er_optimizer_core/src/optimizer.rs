@@ -3,17 +3,20 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::math::{
-    calculate_ar, class_by_name, compute_free_points, effective_str, meets_requirements,
+    calculate_aow_damage, calculate_ar, class_by_name, compute_free_points, effective_str,
+    meets_requirements,
 };
 use crate::model::{
-    Aow, DamageBreakdown, GameData, Stats, Weapon, COMBAT_STAT_COUNT, STAT_ARC, STAT_DEX,
-    STAT_FAI, STAT_INT, STAT_STR,
+    Aow, AowAttackRow, DamageBreakdown, DamageType, GameData, Stats, StatusBuildup, Weapon,
+    COMBAT_STAT_COUNT, STAT_ARC, STAT_DEX, STAT_FAI, STAT_INT, STAT_STR,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OptimizeObjective {
     MaxAr,
     MaxArPlusBleed,
+    AowFirstHit,
+    AowFullSequence,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -53,7 +56,12 @@ pub struct OptimizeResult {
     pub ar: DamageBreakdown,
     pub aow_id: Option<u16>,
     pub aow_name: Option<String>,
+    pub bleed_buildup: f32,
     pub bleed_buildup_add: f32,
+    pub frost_buildup: f32,
+    pub poison_buildup: f32,
+    pub aow_first_hit_damage: f32,
+    pub aow_full_sequence_damage: f32,
     pub score: f32,
 }
 
@@ -73,10 +81,10 @@ pub struct ProgressSnapshot {
     pub elapsed_ms: u64,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 struct AowChoice<'a> {
     aow: Option<&'a Aow>,
-    bleed_buildup_add: f32,
+    attack_rows: Vec<&'a AowAttackRow>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -86,10 +94,10 @@ struct CombatConstraints {
     remaining_free: u16,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 struct PreparedWeapon<'a> {
     weapon: &'a Weapon,
-    aow_choice: AowChoice<'a>,
+    aow_choices: Vec<AowChoice<'a>>,
     upgrades_len: usize,
     upgrades: [u8; 26],
 }
@@ -109,7 +117,7 @@ pub fn estimate_search_space(
     let weapons = prepare_weapons(request, data)?;
     let upgrade_slots: u64 = weapons
         .iter()
-        .map(|entry| entry.upgrades_len as u64)
+        .map(|entry| (entry.upgrades_len * entry.aow_choices.len()) as u64)
         .sum();
     Ok(SearchEstimate {
         weapon_candidates: weapons.len(),
@@ -149,7 +157,7 @@ where
     let stat_count = stat_candidates.len() as u64;
     let upgrade_slots: u64 = weapons
         .iter()
-        .map(|entry| entry.upgrades_len as u64)
+        .map(|entry| (entry.upgrades_len * entry.aow_choices.len()) as u64)
         .sum();
     let total = stat_count.saturating_mul(upgrade_slots);
     let emit_every = if progress_every == 0 { 0 } else { progress_every };
@@ -170,20 +178,20 @@ where
     });
 
     for prepared in &weapons {
-        for combat in &stat_candidates {
-            let mut stats = request.current_stats;
-            stats.str = combat[STAT_STR];
-            stats.dex = combat[STAT_DEX];
-            stats.int = combat[STAT_INT];
-            stats.fai = combat[STAT_FAI];
-            stats.arc = combat[STAT_ARC];
+        for aow_choice in &prepared.aow_choices {
+            for combat in &stat_candidates {
+                let mut stats = request.current_stats;
+                stats.str = combat[STAT_STR];
+                stats.dex = combat[STAT_DEX];
+                stats.int = combat[STAT_INT];
+                stats.fai = combat[STAT_FAI];
+                stats.arc = combat[STAT_ARC];
 
-            let effective_str_value = effective_str(stats.str, request.two_handing);
-
-            for upgrade in prepared.upgrades() {
-                checked += 1;
-                if !meets_requirements(prepared.weapon, effective_str_value, &stats) {
-                    if emit_every > 0 && checked % emit_every == 0 {
+                let effective_str_value = effective_str(stats.str, request.two_handing);
+                if combat_has_wasted_points(request, prepared.weapon, data, combat) {
+                    let previous_checked = checked;
+                    checked = checked.saturating_add(prepared.upgrades_len as u64);
+                    if emit_every > 0 && checked / emit_every != previous_checked / emit_every {
                         progress_cb(ProgressSnapshot {
                             checked,
                             total,
@@ -195,39 +203,86 @@ where
                     continue;
                 }
 
-                eligible += 1;
-                let ar = calculate_ar(prepared.weapon, *upgrade, &stats, effective_str_value, data)?;
-                let score = score_for(request.objective, ar.total(), prepared.aow_choice.bleed_buildup_add);
-                if !has_best || score > best_score {
-                    best_score = score;
-                    has_best = true;
-                }
-                push_top_k(
-                    &mut results,
-                    OptimizeResult {
-                        weapon_id: prepared.weapon.weapon_id,
-                        weapon_name: prepared.weapon.name.clone(),
-                        affinity: prepared.weapon.affinity.clone(),
-                        is_somber: prepared.weapon.is_somber,
-                        upgrade: *upgrade,
-                        stats,
-                        ar,
-                        aow_id: prepared.aow_choice.aow.map(|aow| aow.aow_id),
-                        aow_name: prepared.aow_choice.aow.map(|aow| aow.name.clone()),
-                        bleed_buildup_add: prepared.aow_choice.bleed_buildup_add,
-                        score,
-                    },
-                    request.top_k,
-                );
+                for upgrade in prepared.upgrades() {
+                    checked += 1;
+                    if !meets_requirements(prepared.weapon, effective_str_value, &stats) {
+                        if emit_every > 0 && checked % emit_every == 0 {
+                            progress_cb(ProgressSnapshot {
+                                checked,
+                                total,
+                                eligible,
+                                best_score,
+                                elapsed_ms: started.elapsed().as_millis() as u64,
+                            });
+                        }
+                        continue;
+                    }
 
-                if emit_every > 0 && checked % emit_every == 0 {
-                    progress_cb(ProgressSnapshot {
-                        checked,
-                        total,
-                        eligible,
-                        best_score,
-                        elapsed_ms: started.elapsed().as_millis() as u64,
-                    });
+                    eligible += 1;
+                    let ar =
+                        calculate_ar(prepared.weapon, *upgrade, &stats, effective_str_value, data)?;
+                    let status_buildup = data
+                        .weapon_passive(prepared.weapon.weapon_id)
+                        .with_aow_additions(aow_choice.aow);
+                    let (aow_first_hit_damage, aow_full_sequence_damage) = if aow_choice.attack_rows.is_empty()
+                    {
+                        (0.0, 0.0)
+                    } else {
+                        calculate_aow_damage(
+                            prepared.weapon,
+                            &aow_choice.attack_rows,
+                            *upgrade,
+                            &stats,
+                            effective_str_value,
+                            data,
+                        )?
+                    };
+                    let score = score_for(
+                        request.objective,
+                        ar.total(),
+                        status_buildup,
+                        aow_first_hit_damage,
+                        aow_full_sequence_damage,
+                    );
+                    if !has_best || score > best_score {
+                        best_score = score;
+                        has_best = true;
+                    }
+                    push_top_k(
+                        &mut results,
+                        OptimizeResult {
+                            weapon_id: prepared.weapon.weapon_id,
+                            weapon_name: prepared.weapon.name.clone(),
+                            affinity: prepared.weapon.affinity.clone(),
+                            is_somber: prepared.weapon.is_somber,
+                            upgrade: *upgrade,
+                            stats,
+                            ar,
+                            aow_id: aow_choice.aow.map(|aow| aow.aow_id),
+                            aow_name: aow_choice.aow.map(|aow| aow.name.clone()),
+                            bleed_buildup: status_buildup.bleed,
+                            bleed_buildup_add: aow_choice
+                                .aow
+                                .map(|aow| aow.bleed_buildup_add)
+                                .unwrap_or(0.0),
+                            frost_buildup: status_buildup.frost,
+                            poison_buildup: status_buildup.poison,
+                            aow_first_hit_damage,
+                            aow_full_sequence_damage,
+                            score,
+                        },
+                        request.top_k,
+                    );
+
+                    if emit_every > 0 && checked % emit_every == 0 {
+                        progress_cb(ProgressSnapshot {
+                            checked,
+                            total,
+                            eligible,
+                            best_score,
+                            elapsed_ms: started.elapsed().as_millis() as u64,
+                        });
+                    }
                 }
             }
         }
@@ -299,12 +354,12 @@ fn prepare_weapons<'a>(
         let Some((upgrades, upgrades_len)) = available_upgrades(weapon, request, data) else {
             continue;
         };
-        let Some(aow_choice) = resolve_aow_choice(weapon, request, data)? else {
+        let Some(aow_choices) = resolve_aow_choices(weapon, request, data)? else {
             continue;
         };
         out.push(PreparedWeapon {
             weapon,
-            aow_choice,
+            aow_choices,
             upgrades_len,
             upgrades,
         });
@@ -312,10 +367,18 @@ fn prepare_weapons<'a>(
     Ok(out)
 }
 
-fn score_for(objective: OptimizeObjective, total_ar: f32, bleed_buildup_add: f32) -> f32 {
+fn score_for(
+    objective: OptimizeObjective,
+    total_ar: f32,
+    status_buildup: StatusBuildup,
+    aow_first_hit_damage: f32,
+    aow_full_sequence_damage: f32,
+) -> f32 {
     match objective {
         OptimizeObjective::MaxAr => total_ar,
-        OptimizeObjective::MaxArPlusBleed => total_ar + bleed_buildup_add,
+        OptimizeObjective::MaxArPlusBleed => total_ar + status_buildup.bleed,
+        OptimizeObjective::AowFirstHit => aow_first_hit_damage,
+        OptimizeObjective::AowFullSequence => aow_full_sequence_damage,
     }
 }
 
@@ -379,60 +442,147 @@ fn available_upgrades(
     Some((out, len))
 }
 
-fn resolve_aow_choice<'a>(
+fn resolve_aow_choices<'a>(
     weapon: &Weapon,
     request: &OptimizeRequest,
     data: &'a GameData,
-) -> Result<Option<AowChoice<'a>>, String> {
+) -> Result<Option<Vec<AowChoice<'a>>>, String> {
     let no_aow = AowChoice {
         aow: None,
-        bleed_buildup_add: 0.0,
+        attack_rows: Vec::new(),
     };
 
     if let Some(lock_aow_name) = request.aow_name.as_deref() {
-        let Some(aow) = data
+        let compatible_matches: Vec<&Aow> = data
             .aows
             .iter()
-            .find(|value| value.name.eq_ignore_ascii_case(lock_aow_name))
-        else {
-            return Err(format!("unknown AoW: {lock_aow_name}"));
-        };
-        if !aow_compatible_with_weapon(aow, weapon) {
+            .filter(|value| value.name.eq_ignore_ascii_case(lock_aow_name))
+            .filter(|aow| aow_compatible_with_weapon(aow, weapon, data))
+            .collect();
+        if compatible_matches.is_empty() {
+            let known = data
+                .aows
+                .iter()
+                .any(|value| value.name.eq_ignore_ascii_case(lock_aow_name));
+            if !known {
+                return Err(format!("unknown AoW: {lock_aow_name}"));
+            }
             return Ok(None);
         }
-        return Ok(Some(AowChoice {
-            aow: Some(aow),
-            bleed_buildup_add: aow.bleed_buildup_add,
-        }));
+        let Some(aow) = compatible_matches.into_iter().next() else {
+            return Err(format!("unknown AoW: {lock_aow_name}"));
+        };
+        let choice = build_aow_choice(aow, weapon, data);
+        if matches!(
+            request.objective,
+            OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
+        ) && choice.attack_rows.is_empty()
+        {
+            return Ok(None);
+        }
+        return Ok(Some(vec![choice]));
     }
 
     if request.objective == OptimizeObjective::MaxAr {
-        return Ok(Some(no_aow));
+        return Ok(Some(vec![no_aow]));
     }
 
-    let best = data
+    if request.objective == OptimizeObjective::MaxArPlusBleed {
+        let best = data
+            .aows
+            .iter()
+            .filter(|aow| aow_compatible_with_weapon(aow, weapon, data))
+            .max_by(|left, right| {
+                left.bleed_buildup_add
+                    .partial_cmp(&right.bleed_buildup_add)
+                    .unwrap_or(Ordering::Equal)
+            });
+        if let Some(aow) = best {
+            if aow.bleed_buildup_add > 0.0 {
+                return Ok(Some(vec![build_aow_choice(aow, weapon, data)]));
+            }
+        }
+        return Ok(Some(vec![no_aow]));
+    }
+
+    let choices: Vec<AowChoice<'a>> = data
         .aows
         .iter()
-        .filter(|aow| aow_compatible_with_weapon(aow, weapon))
-        .max_by(|left, right| {
-            left.bleed_buildup_add
-                .partial_cmp(&right.bleed_buildup_add)
-                .unwrap_or(Ordering::Equal)
-        });
-
-    if let Some(aow) = best {
-        if aow.bleed_buildup_add > 0.0 {
-            return Ok(Some(AowChoice {
-                aow: Some(aow),
-                bleed_buildup_add: aow.bleed_buildup_add,
-            }));
-        }
+        .filter(|aow| !aow.name.eq_ignore_ascii_case("No Skill"))
+        .filter(|aow| aow_compatible_with_weapon(aow, weapon, data))
+        .map(|aow| build_aow_choice(aow, weapon, data))
+        .filter(|choice| !choice.attack_rows.is_empty())
+        .collect();
+    if choices.is_empty() {
+        return Ok(None);
     }
-
-    Ok(Some(no_aow))
+    Ok(Some(choices))
 }
 
-fn aow_compatible_with_weapon(aow: &Aow, weapon: &Weapon) -> bool {
+fn build_aow_choice<'a>(aow: &'a Aow, weapon: &Weapon, data: &'a GameData) -> AowChoice<'a> {
+    AowChoice {
+        aow: Some(aow),
+        attack_rows: select_aow_attack_rows(aow.aow_id, weapon, data),
+    }
+}
+
+fn select_aow_attack_rows<'a>(
+    aow_id: u16,
+    weapon: &Weapon,
+    data: &'a GameData,
+) -> Vec<&'a AowAttackRow> {
+    let rows = data.aow_attack_rows(aow_id);
+    if rows.is_empty() {
+        return Vec::new();
+    }
+
+    let has_variant_match = rows.iter().any(|row| {
+        !row.variant_weapon_type.is_empty()
+            && variant_weapon_type_matches(&row.variant_weapon_type, &weapon.weapon_type_name)
+    });
+    rows.iter()
+        .filter(|row| {
+            if has_variant_match {
+                variant_weapon_type_matches(&row.variant_weapon_type, &weapon.weapon_type_name)
+            } else {
+                row.variant_weapon_type.is_empty()
+            }
+        })
+        .collect()
+}
+
+fn variant_weapon_type_matches(variant: &str, weapon_type_name: &str) -> bool {
+    if variant.is_empty() {
+        return false;
+    }
+    normalize_type_token(variant) == normalize_type_token(weapon_type_name)
+}
+
+fn normalize_type_token(value: &str) -> String {
+    let mut normalized = value
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric())
+        .collect::<String>()
+        .to_ascii_lowercase();
+    normalized = match normalized.as_str() {
+        "backhandblade" => "reversehandblade".to_string(),
+        "greatspear" => "heavyspear".to_string(),
+        "reaper" => "scythe".to_string(),
+        _ => normalized,
+    };
+    normalized
+}
+
+pub(crate) fn aow_compatible_with_weapon(aow: &Aow, weapon: &Weapon, data: &GameData) -> bool {
+    if let Some(exact_match) = data.exact_aow_compatibility(aow.aow_id, weapon.weapon_id) {
+        return exact_match;
+    }
+    if aow.name.eq_ignore_ascii_case("Seppuku")
+        && (weapon.affinity.eq_ignore_ascii_case("Magic")
+            || weapon.affinity.eq_ignore_ascii_case("Cold"))
+    {
+        return false;
+    }
     if aow.valid_weapon_types.is_empty() {
         return true;
     }
@@ -451,6 +601,75 @@ fn aow_compatible_with_weapon(aow: &Aow, weapon: &Weapon) -> bool {
         }
     }
     false
+}
+
+fn combat_has_wasted_points(
+    request: &OptimizeRequest,
+    weapon: &Weapon,
+    data: &GameData,
+    combat: &[u8; COMBAT_STAT_COUNT],
+) -> bool {
+    let contributing_stats: [bool; COMBAT_STAT_COUNT] = std::array::from_fn(|idx| {
+        weapon_stat_can_increase_ar(weapon, data, idx)
+    });
+    if !contributing_stats
+        .iter()
+        .enumerate()
+        .any(|(idx, contributes)| *contributes && combat[idx] < 99)
+    {
+        return false;
+    }
+
+    for idx in 0..COMBAT_STAT_COUNT {
+        if contributing_stats[idx] {
+            continue;
+        }
+        if combat[idx] > minimum_useful_stat(request, weapon, idx) {
+            return true;
+        }
+    }
+    false
+}
+
+fn minimum_useful_stat(request: &OptimizeRequest, weapon: &Weapon, stat_idx: usize) -> u8 {
+    let current = request.current_stats.combat_array()[stat_idx];
+    let floor = current.max(request.min_combat_stats[stat_idx]);
+    let locked = request.locked_combat_stats[stat_idx].unwrap_or(0);
+    let required = if stat_idx == STAT_STR {
+        minimum_str_for_requirement(weapon.requirements[STAT_STR], request.two_handing)
+    } else {
+        weapon.requirements[stat_idx]
+    };
+    floor.max(locked).max(required)
+}
+
+fn minimum_str_for_requirement(requirement: u8, two_handing: bool) -> u8 {
+    if !two_handing {
+        return requirement;
+    }
+    for candidate in 0..=requirement {
+        if effective_str(candidate, true) >= requirement {
+            return candidate;
+        }
+    }
+    requirement
+}
+
+fn weapon_stat_can_increase_ar(weapon: &Weapon, data: &GameData, stat_idx: usize) -> bool {
+    if weapon.scaling[stat_idx] <= 0.0 {
+        return false;
+    }
+    let Some(aec) = data
+        .attack_element_correct
+        .get(weapon.attack_element_correct_id)
+        .and_then(|entry| *entry)
+    else {
+        return true;
+    };
+
+    DamageType::ALL.iter().any(|damage_type| {
+        weapon.base[damage_type.as_index()] > 0.0 && aec.stat_scales(stat_idx, *damage_type)
+    })
 }
 
 fn count_stat_candidates(constraints: CombatConstraints) -> u64 {
@@ -559,10 +778,24 @@ fn better_result(left: &OptimizeResult, right: &OptimizeResult) -> bool {
         return false;
     }
 
-    if left.bleed_buildup_add > right.bleed_buildup_add {
+    if left.aow_full_sequence_damage > right.aow_full_sequence_damage {
         return true;
     }
-    if left.bleed_buildup_add < right.bleed_buildup_add {
+    if left.aow_full_sequence_damage < right.aow_full_sequence_damage {
+        return false;
+    }
+
+    if left.aow_first_hit_damage > right.aow_first_hit_damage {
+        return true;
+    }
+    if left.aow_first_hit_damage < right.aow_first_hit_damage {
+        return false;
+    }
+
+    if left.bleed_buildup > right.bleed_buildup {
+        return true;
+    }
+    if left.bleed_buildup < right.bleed_buildup {
         return false;
     }
 
@@ -684,5 +917,191 @@ mod tests {
             assert_eq!(row.stats.dex, 15);
             assert_eq!(row.stats.arc, 8);
         }
+    }
+
+    #[test]
+    fn optimize_rejects_seppuku_on_cold_affinity() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.affinity = Some("Cold".to_string());
+        request.aow_name = Some("Seppuku".to_string());
+        request.objective = OptimizeObjective::MaxArPlusBleed;
+
+        let results = optimize(&request, &game_data).expect("optimizer failed");
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn wasted_points_on_zero_scaling_stats_are_filtered() {
+        let game_data = load_data();
+        let weapon = game_data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.name == "Sword Lance" && weapon.affinity == "Magic")
+            .expect("missing weapon");
+        let mut request = base_request();
+        request.weapon_name = Some("Sword Lance".to_string());
+        request.affinity = Some("Magic".to_string());
+        request.aow_name = Some("Glintstone Pebble".to_string());
+        request.current_stats = Stats {
+            vig: 40,
+            mnd: 11,
+            end: 20,
+            str: 21,
+            dex: 15,
+            int: 40,
+            fai: 8,
+            arc: 8,
+        };
+        request.character_level = 84;
+        request.fixed_upgrade = Some(25);
+        request.max_upgrade = 25;
+        request.top_k = 10;
+
+        assert!(combat_has_wasted_points(
+            &request,
+            weapon,
+            &game_data,
+            &[21, 15, 40, 9, 8],
+        ));
+        assert!(!combat_has_wasted_points(
+            &request,
+            weapon,
+            &game_data,
+            &[21, 15, 41, 8, 8],
+        ));
+
+        let results = optimize(&request, &game_data).expect("optimizer failed");
+        assert!(!results.is_empty());
+        assert!(results
+            .iter()
+            .all(|row| row.stats.fai == 8 && row.stats.arc == 8));
+    }
+
+    #[test]
+    fn exact_aow_compatibility_is_loaded_from_csv() {
+        let game_data = load_data();
+        let cold_uchi = game_data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.name == "Uchigatana" && weapon.affinity == "Cold")
+            .expect("missing cold uchigatana");
+        let fire_uchi = game_data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.name == "Uchigatana" && weapon.affinity == "Fire")
+            .expect("missing fire uchigatana");
+        let blood_uchi = game_data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.name == "Uchigatana" && weapon.affinity == "Blood")
+            .expect("missing blood uchigatana");
+        let seppuku = game_data
+            .aows
+            .iter()
+            .find(|aow| aow.name == "Seppuku")
+            .expect("missing seppuku");
+
+        assert!(!aow_compatible_with_weapon(seppuku, cold_uchi, &game_data));
+        assert!(!aow_compatible_with_weapon(seppuku, fire_uchi, &game_data));
+        assert!(aow_compatible_with_weapon(seppuku, blood_uchi, &game_data));
+    }
+
+    #[test]
+    fn max_ar_plus_bleed_uses_innate_weapon_buildup() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.weapon_name = Some("Rivers of Blood".to_string());
+        request.affinity = Some("Standard".to_string());
+        request.aow_name = None;
+        request.objective = OptimizeObjective::MaxArPlusBleed;
+        request.max_upgrade = 10;
+        request.fixed_upgrade = Some(10);
+        request.current_stats = Stats {
+            vig: 40,
+            mnd: 11,
+            end: 20,
+            str: 12,
+            dex: 20,
+            int: 9,
+            fai: 8,
+            arc: 20,
+        };
+        request.character_level = 61;
+
+        let results = optimize(&request, &game_data).expect("optimizer failed");
+        assert!(!results.is_empty());
+        assert!(results[0].bleed_buildup >= 50.0);
+        assert_eq!(
+            results[0].score,
+            results[0].ar.total() + results[0].bleed_buildup
+        );
+    }
+
+    #[test]
+    fn aow_first_hit_damage_is_loaded_and_scored() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.weapon_name = Some("Sword Lance".to_string());
+        request.affinity = Some("Magic".to_string());
+        request.aow_name = Some("Glintstone Pebble".to_string());
+        request.objective = OptimizeObjective::AowFirstHit;
+        request.current_stats = Stats {
+            vig: 40,
+            mnd: 11,
+            end: 20,
+            str: 21,
+            dex: 15,
+            int: 40,
+            fai: 8,
+            arc: 8,
+        };
+        request.character_level = 84;
+        request.fixed_upgrade = Some(25);
+        request.max_upgrade = 25;
+
+        let results = optimize(&request, &game_data).expect("optimizer failed");
+        assert!(!results.is_empty());
+        assert!(results[0].aow_first_hit_damage > 0.0);
+        assert!(results[0].aow_full_sequence_damage >= results[0].aow_first_hit_damage);
+        assert_eq!(results[0].score, results[0].aow_first_hit_damage);
+    }
+
+    #[test]
+    fn aow_variant_rows_match_weapon_type() {
+        let game_data = load_data();
+        let weapon = game_data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.name == "Uchigatana" && weapon.affinity == "Keen")
+            .expect("missing keen uchigatana");
+        let sword_dance = game_data
+            .aows
+            .iter()
+            .find(|aow| aow.name == "Sword Dance")
+            .expect("missing sword dance");
+        let rows = select_aow_attack_rows(sword_dance.aow_id, weapon, &game_data);
+        assert!(!rows.is_empty());
+        assert!(rows
+            .iter()
+            .all(|row| row.variant_weapon_type.is_empty() || row.variant_weapon_type == "Katana"));
+        assert!(rows
+            .iter()
+            .any(|row| row.raw_name.starts_with("[Katana] Sword Dance")));
+    }
+
+    #[test]
+    fn utility_aow_has_no_results_for_aow_damage_objective() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.weapon_name = Some("Buckler".to_string());
+        request.affinity = Some("Standard".to_string());
+        request.aow_name = Some("Parry".to_string());
+        request.objective = OptimizeObjective::AowFirstHit;
+        request.max_upgrade = 0;
+        request.fixed_upgrade = Some(0);
+
+        let results = optimize(&request, &game_data).expect("optimizer failed");
+        assert!(results.is_empty());
     }
 }
