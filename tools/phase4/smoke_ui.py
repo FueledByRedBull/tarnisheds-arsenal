@@ -95,11 +95,11 @@ def main() -> int:
         raise AssertionError("expected results after lock rerun")
 
     # Explicit side-by-side compare row
-    window._set_combo_by_data(window.compare_weapon_combo, "Nagakiba")
+    window._set_combo_by_data(window.compare_weapon_combo, "Uchigatana")
     window._refresh_compare_affinity_options()
     if window.compare_affinity_combo.count() <= 1:
         raise AssertionError("compare affinity options were not populated")
-    window.compare_affinity_combo.setCurrentIndex(1)
+    window._set_combo_by_data(window.compare_affinity_combo, "Occult")
     window._rebuild_upgrade_table()
     if window.upgrade_table.rowCount() < 2:
         raise AssertionError("expected selected + compare rows in upgrade table")
@@ -116,6 +116,19 @@ def main() -> int:
         raise AssertionError("expected each level-path preview to include forward steps")
     if any(preview.steps[1].added_stat is None for preview in previews):
         raise AssertionError("expected path preview to record the first added stat")
+    for preview in previews:
+        target_row = window._level_path_target_row(preview.config, 3)
+        if target_row is None:
+            raise AssertionError("expected a target row for the path preview")
+        final_state = preview.steps[-1].stats
+        if (
+            final_state.str_stat != int(target_row["str_stat"])
+            or final_state.dex != int(target_row["dex"])
+            or final_state.int_stat != int(target_row["int_stat"])
+            or final_state.fai != int(target_row["fai"])
+            or final_state.arc != int(target_row["arc"])
+        ):
+            raise AssertionError("expected path preview to land on the exact Current+N target state")
     dialog = app_module.LevelPathDialog(window, previews, window._derived_level(), 3)
     dialog.show()
     QtWidgets.QApplication.processEvents()

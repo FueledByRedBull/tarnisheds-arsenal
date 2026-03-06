@@ -284,12 +284,14 @@ class LevelPathDialog(QtWidgets.QDialog):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
-        heading = QtWidgets.QLabel(f"Current +{levels_ahead} greedy combat-stat path from level {start_level}")
+        heading = QtWidgets.QLabel(
+            f"Current +{levels_ahead} horizon-target combat path from level {start_level}"
+        )
         heading.setProperty("role", "cardTitle")
         layout.addWidget(heading)
 
         subtitle = QtWidgets.QLabel(
-            "Each step adds one combat stat point to maximize the active objective for the locked compare setup."
+            "Each lane first solves the exact best end-state at Current + N with your current combat stats treated as floors, then orders the required points to reach that target cleanly."
         )
         subtitle.setProperty("role", "sectionHint")
         subtitle.setWordWrap(True)
@@ -419,6 +421,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.best_row_cache: dict[tuple[Any, ...], dict[str, Any] | None] = {}
         self.locked_ar_cache: dict[tuple[Any, ...], dict[int, float]] = {}
         self.path_eval_cache: dict[tuple[Any, ...], PathStep] = {}
+        self.path_target_cache: dict[tuple[Any, ...], dict[str, Any] | None] = {}
         self.result_cards: list[dict[str, Any]] = []
         self.active_compare_selected: dict[str, Any] | None = None
         self.active_compare_target: dict[str, Any] | None = None
@@ -618,7 +621,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.objective_combo = QtWidgets.QComboBox()
         self.objective_combo.addItem("Max AR", "max_ar")
-        self.objective_combo.addItem("Max AR + Bleed", "max_ar_plus_bleed")
+        self.objective_combo.addItem("Max AR + AoW Bleed", "max_ar_plus_bleed")
         layout.addWidget(self._field_stack("Objective", self.objective_combo))
 
         toggle_grid = QtWidgets.QGridLayout()
@@ -1242,6 +1245,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.best_row_cache.clear()
         self.locked_ar_cache.clear()
         self.path_eval_cache.clear()
+        self.path_target_cache.clear()
         self._sync_derived_level()
         request_signature = self._search_request_signature()
         if self.results_signature is not None and request_signature != self.results_signature:
@@ -2002,6 +2006,11 @@ class MainWindow(QtWidgets.QMainWindow):
         processed += 1
         self._update_path_progress(progress, progress_offset + processed, config.title, start_step.level)
 
+        target_row = self._level_path_target_row(config, levels_ahead)
+        if target_row is None:
+            return PathPreview(config=config, steps=tuple(steps)), processed
+        target_state = self._combat_state_from_row(target_row)
+
         for delta in range(1, levels_ahead + 1):
             if progress is not None and progress.wasCanceled():
                 return None, processed
@@ -2009,6 +2018,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 config,
                 self._derived_level() + delta,
                 current_state,
+                target_state,
             )
             if next_step is None:
                 break
@@ -2037,9 +2047,14 @@ class MainWindow(QtWidgets.QMainWindow):
         config: PathWeaponConfig,
         target_level: int,
         current_state: CombatState,
+        target_state: CombatState,
     ) -> PathStep | None:
         candidates: list[PathStep] = []
         for stat_key in ("str", "dex", "int", "fai", "arc"):
+            if getattr(current_state, self._combat_state_attr(stat_key)) >= getattr(
+                target_state, self._combat_state_attr(stat_key)
+            ):
+                continue
             next_state = current_state.add_point(stat_key)
             if next_state is None:
                 continue
@@ -2050,25 +2065,120 @@ class MainWindow(QtWidgets.QMainWindow):
         if not candidates:
             return None
 
-        valid = [step for step in candidates if step.ar is not None and step.score is not None]
-        if valid:
-            return max(
-                valid,
-                key=lambda step: (
-                    float(step.score or 0.0),
-                    float(step.ar or 0.0),
-                    -self._stat_priority(step.added_stat),
-                ),
-            )
-        return min(
+        return max(
             candidates,
-            key=lambda step: (step.requirement_gap, self._stat_priority(step.added_stat)),
+            key=lambda step: self._path_step_sort_key(step),
         )
 
     @staticmethod
     def _stat_priority(stat_key: str | None) -> int:
         order = ("str", "dex", "int", "fai", "arc", None)
         return order.index(stat_key)
+
+    @staticmethod
+    def _combat_state_attr(stat_key: str) -> str:
+        return {
+            "str": "str_stat",
+            "dex": "dex",
+            "int": "int_stat",
+            "fai": "fai",
+            "arc": "arc",
+        }[stat_key]
+
+    def _path_step_sort_key(self, step: PathStep) -> tuple[int, float, float, int, int]:
+        return (
+            1 if step.ar is not None and step.score is not None else 0,
+            float(step.score or 0.0),
+            float(step.ar or 0.0),
+            -int(step.requirement_gap),
+            -self._stat_priority(step.added_stat),
+        )
+
+    def _level_path_target_row(
+        self,
+        config: PathWeaponConfig,
+        levels_ahead: int,
+    ) -> dict[str, Any] | None:
+        current_state = self._current_combat_state()
+        floor_mins = self._path_floor_mins(current_state)
+        target_level = self._derived_level() + levels_ahead
+        cache_key = (
+            self._resolved_class_name(),
+            target_level,
+            self.vig_spin.value(),
+            self.mnd_spin.value(),
+            self.end_spin.value(),
+            self.two_handing_check.isChecked(),
+            self.objective_combo.currentData(),
+            config.weapon_name.casefold(),
+            config.affinity.casefold(),
+            (config.aow_name or "").casefold(),
+            config.upgrade,
+            floor_mins,
+        )
+        if cache_key in self.path_target_cache:
+            return self.path_target_cache[cache_key]
+
+        class_base = CLASS_BASE_STATS[self._resolved_class_name()]
+        kwargs = {
+            "class_name": self._resolved_class_name(),
+            "character_level": target_level,
+            "vig": self.vig_spin.value(),
+            "mnd": self.mnd_spin.value(),
+            "end": self.end_spin.value(),
+            "str_stat": int(class_base["str"]),
+            "dex": int(class_base["dex"]),
+            "int_stat": int(class_base["int"]),
+            "fai": int(class_base["fai"]),
+            "arc": int(class_base["arc"]),
+            "max_upgrade": config.upgrade,
+            "fixed_upgrade": config.upgrade,
+            "two_handing": self.two_handing_check.isChecked(),
+            "weapon_name": config.weapon_name,
+            "affinity": config.affinity,
+            "aow_name": config.aow_name,
+            "objective": self.objective_combo.currentData(),
+            "top_k": 1,
+            "weapon_type_key": None,
+            "somber_filter": "all",
+            "min_str": floor_mins[0],
+            "min_dex": floor_mins[1],
+            "min_int": floor_mins[2],
+            "min_fai": floor_mins[3],
+            "min_arc": floor_mins[4],
+            "lock_str": None,
+            "lock_dex": None,
+            "lock_int": None,
+            "lock_fai": None,
+            "lock_arc": None,
+        }
+        try:
+            rows = core.optimize_builds(data=self.data, **kwargs)
+        except Exception:
+            rows = []
+
+        target_row = self._row_config_from_result(rows[0]) if rows else None
+        self.path_target_cache[cache_key] = target_row
+        return target_row
+
+    def _path_floor_mins(self, current_state: CombatState) -> tuple[int, int, int, int, int]:
+        return (
+            max(current_state.str_stat, self.min_str_spin.value()),
+            max(current_state.dex, self.min_dex_spin.value()),
+            max(current_state.int_stat, self.min_int_spin.value()),
+            max(current_state.fai, self.min_fai_spin.value()),
+            max(current_state.arc, self.min_arc_spin.value()),
+        )
+
+    @staticmethod
+    def _combat_state_from_row(row_data: dict[str, Any]) -> CombatState:
+        return CombatState(
+            str_stat=int(row_data["str_stat"]),
+            dex=int(row_data["dex"]),
+            int_stat=int(row_data["int_stat"]),
+            fai=int(row_data["fai"]),
+            arc=int(row_data["arc"]),
+        )
 
     def _evaluate_path_step(
         self,
