@@ -26,7 +26,7 @@ Tarnished's Arsenal flow:
 2. Lock what you care about.
 3. Leave the rest open.
 4. Press `Search`.
-5. Get ranked best builds + upgrade comparison.
+5. Get ranked best builds, upgrade comparison, and level-path previews.
 
 ## Lock/Open Search Model
 
@@ -38,14 +38,14 @@ Every selector is either locked or open.
 | Affinity | Only that affinity | All valid affinities |
 | AoW | Only that AoW | All valid AoWs (passive effects) |
 | Upgrade | Exact level when `Lock Upgrade Exact` is checked | `+0..+N` |
-| Combat Stats | Exact if using `Use As Locks` + `Lock Stats Too (Exact)` | Optimized within level budget and floors |
+| Combat Stats | Exact if using `Use As Locks` + `Use Locked Result Stats` | Optimized within level budget and floors |
 
 ## Controls Cheat Sheet
 
-### Character panel
+### Build panel
 
 - `Class`: sets hard minimum for every stat.
-- `Character Level (Derived)`: locked; computed from current 8 stats.
+- `Derived Level`: locked; computed from current 8 stats.
 - `Current` stats:
   - `VIG/MND/END`: fixed
   - `STR/DEX/INT/FAI/ARC`: used to derive level budget context
@@ -53,31 +53,49 @@ Every selector is either locked or open.
   - applies to `STR/DEX/INT/FAI/ARC`
   - forces optimizer to keep those minimums
 
-### Options panel
+### Constraints panel
 
 - `Upgrade`: max upgrade considered
 - `Top K`: number of top results returned
-- `Objective`:
-  - `Max AR`
-  - `Max AR + Bleed`
+- `Weapon Type`, `Weapon`, `Affinity`, `AoW`: lock those lanes or leave them open
 - `Somber Filter`:
   - `All`
   - `Standard Only`
   - `Somber Only`
+
+### Search panel
+
+- `Objective`:
+  - `Max AR`
+  - `Max AR + Bleed`
 - `Lock Upgrade Exact`: evaluate only exactly `+Upgrade`
 - `Two Handing`: 1.5x effective STR (cap 99) for both requirements and AR math
-- `Lock Stats Too (Exact)`: only active when you apply `Use As Locks` from a result row
+- `Use Locked Result Stats`: only active after applying `Use As Locks` from a result row
+- Requirement badge:
+  - `Requirements Clear`: current stats meet the selected weapon
+  - `Requirements Unmet`: one or more required stats are short
 
 ### Comparison tab
 
-You can compare a second weapon path live:
+You can compare a second weapon live:
 
 - Compare Type
 - Compare Weapon
 - Compare Affinity
 - Compare AoW (`<Match Selected>` supported)
+- `Current + N`
+- `Path Graphs`
 
-Each row is optimized independently for the current objective at your level budget.
+How it works:
+
+- The selected build and the rival build are each optimized independently for the current objective at your current level budget.
+- The upgrade table then locks each row's best combat stats and shows AR at every upgrade level.
+- `Path Graphs` opens a `Current + N` level-path preview for both compared weapons.
+- That path is a greedy next-point path:
+  - start from your current combat stats
+  - add exactly 1 combat stat point per level
+  - at each step, pick the next point that gives the best immediate score for the active objective
+- This is not a full-horizon dynamic-programming solve. It is a practical “best next level” preview.
 
 ## What Happens Under the Hood
 
@@ -85,6 +103,8 @@ Each row is optimized independently for the current objective at your level budg
 - Search space estimator reports combinations before run.
 - Async worker updates progress (`checked/total`, eligible count, best score, elapsed time).
 - Requirement failures are highlighted in red when selected weapon requirements are not met.
+- Comparison rows are re-optimized under the same class, level, floors, and objective before being rendered side by side.
+- Path graphs reuse the same compare setup and trace a greedy per-level combat-stat allocation path forward.
 
 ## Tech Stack
 
@@ -105,7 +125,8 @@ Requirements:
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 python -m maturin build --manifest-path core/er_optimizer_core/Cargo.toml --features python
-python -m pip install --force-reinstall core/er_optimizer_core/target/wheels/er_optimizer_core-*.whl
+$wheel = Get-ChildItem core/er_optimizer_core/target/wheels/er_optimizer_core-*.whl | Select-Object -Last 1
+python -m pip install --force-reinstall $wheel.FullName
 python ui/desktop/app.py
 ```
 
