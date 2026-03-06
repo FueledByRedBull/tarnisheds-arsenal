@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import csv
+import importlib.util
 import math
+import os
+import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,6 +20,17 @@ class ValidationIssue:
 def read_csv(path: Path) -> list[dict[str, str]]:
     with path.open("r", encoding="utf-8", newline="") as handle:
         return list(csv.DictReader(handle))
+
+
+def load_app_module(project_root: Path):
+    module_path = project_root / "ui" / "desktop" / "app.py"
+    spec = importlib.util.spec_from_file_location("er_optimizer_ui", module_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"failed to load app module spec from {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def max_reinforce_levels(rows: Iterable[dict[str, str]]) -> dict[int, int]:
@@ -266,6 +280,164 @@ def validate_runtime_ar(data_dir: Path) -> list[ValidationIssue]:
     return issues
 
 
+def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    try:
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6 import QtWidgets
+    except Exception as exc:
+        issues.append(ValidationIssue("warning", f"level path checks skipped: {exc}"))
+        return issues
+
+    try:
+        app_module = load_app_module(project_root)
+    except Exception as exc:
+        issues.append(ValidationIssue("warning", f"level path checks skipped: {exc}"))
+        return issues
+
+    app = QtWidgets.QApplication.instance()
+    created_app = app is None
+    if app is None:
+        app = QtWidgets.QApplication([])
+
+    window = app_module.MainWindow()
+    try:
+        app_module.apply_dark_theme(app)
+        window._set_combo_by_data(window.class_combo, "Samurai")
+        window._on_class_changed()
+        window.vig_spin.setValue(40)
+        window.mnd_spin.setValue(11)
+        window.end_spin.setValue(20)
+        window.str_spin.setValue(12)
+        window.dex_spin.setValue(15)
+        window.int_spin.setValue(9)
+        window.fai_spin.setValue(8)
+        window.arc_spin.setValue(20)
+        window.max_upgrade_spin.setValue(16)
+        window.lock_upgrade_exact.setChecked(True)
+        window._set_combo_by_data(window.objective_combo, "max_ar_plus_bleed")
+        window._refresh_estimate()
+
+        selected = window._best_row_config("Uchigatana", "Blood", "Seppuku")
+        compare = window._best_row_config("Uchigatana", "Occult", "Seppuku")
+        if selected is None or compare is None:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "failed to build deterministic level-path comparison fixtures",
+                )
+            )
+            return issues
+
+        window.active_compare_selected = selected
+        window.active_compare_target = compare
+        levels_ahead = 5
+        previews_first = window._build_level_path_previews(levels_ahead)
+        previews_second = window._build_level_path_previews(levels_ahead)
+        if previews_first is None or previews_second is None or len(previews_first) != 2:
+            issues.append(ValidationIssue("error", "level path preview generation failed"))
+            return issues
+
+        first_signature = _path_signature(previews_first)
+        second_signature = _path_signature(previews_second)
+        if first_signature != second_signature:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "level path preview is not stable across repeated runs",
+                )
+            )
+
+        for preview in previews_first:
+            target_row = window._level_path_target_row(preview.config, levels_ahead)
+            if target_row is None:
+                issues.append(
+                    ValidationIssue(
+                        "error",
+                        f"missing path target row for {preview.config.title}",
+                    )
+                )
+                continue
+
+            target_state = window._combat_state_from_row(target_row)
+            final_state = preview.steps[-1].stats
+            if final_state != target_state:
+                issues.append(
+                    ValidationIssue(
+                        "error",
+                        f"path preview for {preview.config.title} does not reach its exact target state",
+                    )
+                )
+
+            for previous, current in zip(preview.steps, preview.steps[1:]):
+                deltas = {
+                    "str": current.stats.str_stat - previous.stats.str_stat,
+                    "dex": current.stats.dex - previous.stats.dex,
+                    "int": current.stats.int_stat - previous.stats.int_stat,
+                    "fai": current.stats.fai - previous.stats.fai,
+                    "arc": current.stats.arc - previous.stats.arc,
+                }
+                positive = [stat_key for stat_key, delta in deltas.items() if delta == 1]
+                if len(positive) != 1 or any(delta not in (0, 1) for delta in deltas.values()):
+                    issues.append(
+                        ValidationIssue(
+                            "error",
+                            f"path preview for {preview.config.title} does not add exactly one combat stat per level",
+                        )
+                    )
+                    break
+                if current.added_stat != positive[0]:
+                    issues.append(
+                        ValidationIssue(
+                            "error",
+                            f"path preview for {preview.config.title} recorded the wrong added stat",
+                        )
+                    )
+                    break
+                if (
+                    current.stats.str_stat > target_state.str_stat
+                    or current.stats.dex > target_state.dex
+                    or current.stats.int_stat > target_state.int_stat
+                    or current.stats.fai > target_state.fai
+                    or current.stats.arc > target_state.arc
+                ):
+                    issues.append(
+                        ValidationIssue(
+                            "error",
+                            f"path preview for {preview.config.title} overshoots the solved target state",
+                        )
+                    )
+                    break
+    finally:
+        window.close()
+        if created_app:
+            app.quit()
+
+    return issues
+
+
+def _path_signature(previews: list[object]) -> list[tuple[str, tuple[tuple[object, int, int, int, int, int], ...]]]:
+    signatures: list[tuple[str, tuple[tuple[object, int, int, int, int, int], ...]]] = []
+    for preview in previews:
+        signatures.append(
+            (
+                preview.config.title,
+                tuple(
+                    (
+                        step.added_stat,
+                        step.stats.str_stat,
+                        step.stats.dex,
+                        step.stats.int_stat,
+                        step.stats.fai,
+                        step.stats.arc,
+                    )
+                    for step in preview.steps
+                ),
+            )
+        )
+    return signatures
+
+
 def main() -> int:
     project_root = Path(__file__).resolve().parents[2]
     data_dir = project_root / "data" / "phase1"
@@ -276,6 +448,7 @@ def main() -> int:
     issues = []
     issues.extend(validate_data_snapshot(data_dir))
     issues.extend(validate_runtime_ar(data_dir))
+    issues.extend(validate_level_paths(project_root))
 
     errors = [issue for issue in issues if issue.level == "error"]
     warnings = [issue for issue in issues if issue.level == "warning"]
