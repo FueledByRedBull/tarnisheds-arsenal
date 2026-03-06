@@ -67,7 +67,7 @@ Every selector is either locked or open.
 
 - `Objective`:
   - `Max AR`
-  - `Max AR + Bleed`
+  - `Max AR + AoW Bleed`
 - `Lock Upgrade Exact`: evaluate only exactly `+Upgrade`
 - `Two Handing`: 1.5x effective STR (cap 99) for both requirements and AR math
 - `Use Locked Result Stats`: only active after applying `Use As Locks` from a result row
@@ -91,11 +91,12 @@ How it works:
 - The selected build and the rival build are each optimized independently for the current objective at your current level budget.
 - The upgrade table then locks each row's best combat stats and shows AR at every upgrade level.
 - `Path Graphs` opens a `Current + N` level-path preview for both compared weapons.
-- That path is a greedy next-point path:
+- That path is horizon-targeted:
   - start from your current combat stats
-  - add exactly 1 combat stat point per level
-  - at each step, pick the next point that gives the best immediate score for the active objective
-- This is not a full-horizon dynamic-programming solve. It is a practical “best next level” preview.
+  - treat those current combat stats as hard floors for the preview
+  - solve the exact best end-state at `Current + N`
+  - order the required points so the route into that target stays strong level by level
+- In other words: the end-state is exact for the chosen horizon, and the displayed route is the natural path into that solved end-state.
 
 ## What Happens Under the Hood
 
@@ -104,7 +105,7 @@ How it works:
 - Async worker updates progress (`checked/total`, eligible count, best score, elapsed time).
 - Requirement failures are highlighted in red when selected weapon requirements are not met.
 - Comparison rows are re-optimized under the same class, level, floors, and objective before being rendered side by side.
-- Path graphs reuse the same compare setup and trace a greedy per-level combat-stat allocation path forward.
+- Path graphs reuse the same compare setup, solve the exact `Current + N` target build, then trace the route into that target from your current combat stats.
 
 ## Tech Stack
 
