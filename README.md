@@ -38,7 +38,7 @@ Every selector is either locked or open.
 |---|---|---|
 | Weapon | Only that weapon is searched | All weapons are searched |
 | Affinity | Only that affinity | All valid affinities |
-| AoW | Only that AoW | All valid AoWs (passive effects) |
+| AoW | Only that AoW | All valid compatible AoWs |
 | Upgrade | Exact level when `Lock Upgrade Exact` is checked | `+0..+N` |
 | Combat Stats | Exact if using `Use As Locks` + `Use Locked Result Stats` | Optimized within level budget and floors |
 
@@ -69,7 +69,9 @@ Every selector is either locked or open.
 
 - `Objective`:
   - `Max AR`
-  - `Max AR + AoW Bleed`
+  - `Max AR + Bleed`
+  - `AoW First Hit (PvE)`
+  - `AoW Full Sequence (PvE)`
 - `Lock Upgrade Exact`: evaluate only exactly `+Upgrade`
 - `Two Handing`: 1.5x effective STR (cap 99) for both requirements and AR math
 - `Use Locked Result Stats`: only active after applying `Use As Locks` from a result row
@@ -91,14 +93,25 @@ You can compare a second weapon live:
 How it works:
 
 - The selected build and the rival build are each optimized independently for the current objective at your current level budget.
-- The upgrade table then locks each row's best combat stats and shows AR at every upgrade level.
+- The upgrade table then locks each row's best combat stats and shows the active objective metric at every upgrade level.
 - `Path Graphs` opens a `Current + N` level-path preview for both compared weapons.
 - That path is horizon-targeted:
-  - start from your current combat stats
-  - treat those current combat stats as hard floors for the preview
+  - start from that weapon's current best solved stat line
   - solve the exact best end-state at `Current + N`
   - order the required points so the route into that target stays strong level by level
 - In other words: the end-state is exact for the chosen horizon, and the displayed route is the natural path into that solved end-state.
+
+AoW damage objectives:
+
+- `AoW First Hit (PvE)` ranks by the first damaging full-FP hit row for the selected skill.
+- `AoW Full Sequence (PvE)` sums all damaging full-FP hit rows for the selected skill sequence.
+- These values are build-specific:
+  - weapon
+  - affinity
+  - upgrade
+  - stats
+  - AoW
+- Utility-only skills with no damaging hit rows are intentionally excluded from AoW-damage objectives.
 
 ## What Happens Under the Hood
 
@@ -107,7 +120,8 @@ How it works:
 - Async worker updates progress (`checked/total`, eligible count, best score, elapsed time).
 - Requirement failures are highlighted in red when selected weapon requirements are not met.
 - Comparison rows are re-optimized under the same class, level, floors, and objective before being rendered side by side.
-- Path graphs reuse the same compare setup, solve the exact `Current + N` target build, then trace the route into that target from your current combat stats.
+- Path graphs reuse the same compare setup, start from each weapon's current solved build, solve the exact `Current + N` target build, then trace the route into that target.
+- AoW PvE damage uses workbook-derived hit rows plus active scaling overrides from `AttackElementCorrectParam`.
 
 ## Tech Stack
 
@@ -115,6 +129,7 @@ How it works:
 - `ui/desktop/app.py`: PyQt6 desktop UI
 - `data/phase1/*.csv`: runtime data snapshot
 - `tools/phase1/phase1_dump.py`: optional data re-dump pipeline
+- `tools/phase1/extract_motion_workbook.py`: workbook extractor for AoW hit data and active scaling overrides
 - `tools/phase4/*`: validation, smoke tests, packaging
 
 ## Local Setup (Windows)
@@ -158,18 +173,31 @@ python tools/phase1/phase1_dump.py `
 
 `data/phase1/*.csv` is already committed in this repository for normal runtime use.
 
+If you also want workbook-derived AoW damage data refreshed, place:
+
+- `data/phase1/ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx`
+
+then run:
+
+```powershell
+python tools/phase1/extract_motion_workbook.py
+```
+
 ## Scope
 
 Included:
 
 - AR-focused optimization
 - passive AoW status effects for objective scoring
+- active AoW PvE first-hit and full-sequence damage ranking
+- exact AoW compatibility filtering from extracted data
 
 Out of scope:
 
-- active skill motion-value simulation
 - poise/stamina modeling
 - enemy resistances
+- proc explosion damage modeling
+- unique weapon-skill damage for somber weapons that are not part of the generic AoW pool
 
 ---
 

@@ -49,6 +49,11 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
     reinforce = read_csv(data_dir / "reinforce.csv")
     calc_correct = read_csv(data_dir / "calc_correct.csv")
     aows = read_csv(data_dir / "aow.csv")
+    aow_attack_data = read_csv(data_dir / "aow_attack_data.csv")
+    aow_damage_coverage = read_csv(data_dir / "aow_damage_coverage.csv")
+    attack_element_correct_ext = read_csv(data_dir / "attack_element_correct_ext.csv")
+    weapon_passives = read_csv(data_dir / "weapon_passives.csv")
+    aow_weapon_compat = read_csv(data_dir / "aow_weapon_compat.csv")
 
     if len(weapons) < 3000:
         issues.append(ValidationIssue("error", f"weapons.csv row count too low: {len(weapons)}"))
@@ -60,6 +65,44 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
         )
     if len(aows) < 100:
         issues.append(ValidationIssue("error", f"aow.csv row count too low: {len(aows)}"))
+    if len(aow_attack_data) < 1000:
+        issues.append(
+            ValidationIssue("error", f"aow_attack_data.csv row count too low: {len(aow_attack_data)}")
+        )
+    if len(aow_damage_coverage) != len(aows):
+        issues.append(
+            ValidationIssue(
+                "error",
+                (
+                    "aow_damage_coverage.csv should align 1:1 with aow.csv "
+                    f"({len(aow_damage_coverage)} vs {len(aows)})"
+                ),
+            )
+        )
+    if len(attack_element_correct_ext) < 150:
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"attack_element_correct_ext.csv row count too low: {len(attack_element_correct_ext)}",
+            )
+        )
+    if len(weapon_passives) != len(weapons):
+        issues.append(
+            ValidationIssue(
+                "error",
+                (
+                    "weapon_passives.csv should align 1:1 with weapons.csv "
+                    f"({len(weapon_passives)} vs {len(weapons)})"
+                ),
+            )
+        )
+    if len(aow_weapon_compat) < 40000:
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"aow_weapon_compat.csv row count too low: {len(aow_weapon_compat)}",
+            )
+        )
 
     reinforce_max = max_reinforce_levels(reinforce)
     used_types: dict[int, list[int]] = defaultdict(list)
@@ -82,11 +125,11 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
             zero_base_count += 1
         used_curve_ids.update(
             {
-                int(row["curve_id_str"]),
-                int(row["curve_id_dex"]),
-                int(row["curve_id_int"]),
-                int(row["curve_id_fai"]),
-                int(row["curve_id_arc"]),
+                int(row["curve_id_physical"]),
+                int(row["curve_id_magic"]),
+                int(row["curve_id_fire"]),
+                int(row["curve_id_lightning"]),
+                int(row["curve_id_holy"]),
             }
         )
 
@@ -151,6 +194,41 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
                     f"Lion's Claw bleed_buildup_add is {bleed}, expected 0",
                 )
             )
+
+    coverage_by_name = {row["aow_name"]: row for row in aow_damage_coverage}
+    for name, expected_status in (
+        ("Glintstone Pebble", "direct_damage"),
+        ("Carian Retaliation", "direct_damage"),
+        ("Parry", "missing"),
+        ("Bloodhound's Step", "missing"),
+    ):
+        row = coverage_by_name.get(name)
+        if row is None:
+            issues.append(ValidationIssue("error", f"{name} missing from aow_damage_coverage.csv"))
+            continue
+        if row["status"] != expected_status:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    f"{name} coverage status is {row['status']}, expected {expected_status}",
+                )
+            )
+    impaling = coverage_by_name.get("Impaling Thrust")
+    if impaling is None or int(impaling["unique_collision_rows"]) == 0:
+        issues.append(
+            ValidationIssue(
+                "error",
+                "Impaling Thrust should report unique_skill_collision_rows > 0",
+            )
+        )
+    retaliation = coverage_by_name.get("Carian Retaliation")
+    if retaliation is None or int(retaliation["parry_rows"]) == 0 or int(retaliation["bullet_rows"]) == 0:
+        issues.append(
+            ValidationIssue(
+                "error",
+                "Carian Retaliation should expose both parry and bullet rows in coverage",
+            )
+        )
 
     return issues
 
@@ -277,6 +355,95 @@ def validate_runtime_ar(data_dir: Path) -> list[ValidationIssue]:
                 )
             )
 
+    bleed_rows = core.optimize_builds(
+        data=data,
+        class_name="Samurai",
+        character_level=61,
+        vig=40,
+        mnd=11,
+        end=20,
+        str_stat=12,
+        dex=20,
+        int_stat=9,
+        fai=8,
+        arc=20,
+        max_upgrade=10,
+        fixed_upgrade=10,
+        weapon_name="Rivers of Blood",
+        affinity="Standard",
+        aow_name=None,
+        objective="max_ar_plus_bleed",
+        top_k=1,
+        somber_filter="all",
+        weapon_type_key=None,
+        min_str=0,
+        min_dex=0,
+        min_int=0,
+        min_fai=0,
+        min_arc=0,
+        lock_str=None,
+        lock_dex=None,
+        lock_int=None,
+        lock_fai=None,
+        lock_arc=None,
+    )
+    if not bleed_rows:
+        issues.append(ValidationIssue("error", "runtime bleed case returned no rows"))
+    else:
+        bleed_value = float(bleed_rows[0].bleed_buildup)
+        if bleed_value < 50.0:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    f"runtime bleed case ignored innate weapon bleed: {bleed_value}",
+                )
+        )
+
+    aow_rows = core.optimize_builds(
+        data=data,
+        class_name="Samurai",
+        character_level=84,
+        vig=40,
+        mnd=11,
+        end=20,
+        str_stat=21,
+        dex=15,
+        int_stat=40,
+        fai=8,
+        arc=8,
+        max_upgrade=25,
+        fixed_upgrade=25,
+        weapon_name="Sword Lance",
+        affinity="Magic",
+        aow_name="Glintstone Pebble",
+        objective="aow_first_hit",
+        top_k=1,
+        somber_filter="all",
+        weapon_type_key=None,
+        min_str=0,
+        min_dex=0,
+        min_int=0,
+        min_fai=0,
+        min_arc=0,
+    )
+    if not aow_rows:
+        issues.append(ValidationIssue("error", "runtime AoW first-hit objective returned no rows"))
+    else:
+        if float(aow_rows[0].aow_first_hit_damage) <= 0.0:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    f"runtime AoW first-hit damage is non-positive: {aow_rows[0].aow_first_hit_damage}",
+                )
+            )
+        if float(aow_rows[0].aow_full_sequence_damage) < float(aow_rows[0].aow_first_hit_damage):
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "runtime AoW full-sequence damage is below first-hit damage",
+                )
+            )
+
     return issues
 
 
@@ -316,6 +483,78 @@ def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
         window.max_upgrade_spin.setValue(16)
         window.lock_upgrade_exact.setChecked(True)
         window._set_combo_by_data(window.objective_combo, "max_ar_plus_bleed")
+        if "Seppuku" in window.data.compatible_aow_names_for_affinity("Cold"):
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "global affinity AoW filtering still allows Seppuku for Cold",
+                )
+            )
+        if "Seppuku" in window.data.compatible_aow_names_for_affinity("Fire"):
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "global affinity AoW filtering still allows Seppuku for Fire",
+                )
+            )
+        window._set_combo_by_data(window.weapon_combo, "Uchigatana")
+        window._refresh_affinity_options()
+        window._set_combo_by_data(window.affinity_combo, "Cold")
+        window._refresh_aow_options()
+        if window.aow_combo.findData("Seppuku") >= 0:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "main AoW selector still offers Seppuku for Cold Uchigatana",
+                )
+            )
+        window._set_combo_by_data(window.affinity_combo, "Fire")
+        window._refresh_aow_options()
+        if window.aow_combo.findData("Seppuku") >= 0:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "main AoW selector still offers Seppuku for Fire Uchigatana",
+                )
+            )
+        window._set_combo_by_data(window.compare_weapon_combo, "Uchigatana")
+        window._refresh_compare_affinity_options()
+        window._set_combo_by_data(window.compare_affinity_combo, "Cold")
+        window._refresh_compare_aow_options()
+        if window.compare_aow_combo.findData("Seppuku") >= 0:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "compare AoW selector still offers Seppuku for Cold Uchigatana",
+                )
+            )
+        window._set_combo_by_data(window.compare_affinity_combo, "Fire")
+        window._refresh_compare_aow_options()
+        if window.compare_aow_combo.findData("Seppuku") >= 0:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "compare AoW selector still offers Seppuku for Fire Uchigatana",
+                )
+            )
+        if "Seppuku" in window.data.compatible_aow_names("Uchigatana", "Cold"):
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "runtime AoW compatibility still allows Seppuku for Cold Uchigatana",
+                )
+            )
+        if "Seppuku" in window.data.compatible_aow_names("Uchigatana", "Fire"):
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "runtime AoW compatibility still allows Seppuku for Fire Uchigatana",
+                )
+            )
+        window._set_combo_by_data(window.affinity_combo, "Blood")
+        window._refresh_aow_options()
+        window._set_combo_by_data(window.compare_affinity_combo, "Occult")
+        window._refresh_compare_aow_options()
         window._refresh_estimate()
 
         selected = window._best_row_config("Uchigatana", "Blood", "Seppuku")
@@ -361,6 +600,13 @@ def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
 
             target_state = window._combat_state_from_row(target_row)
             final_state = preview.steps[-1].stats
+            if preview.steps[0].stats != preview.config.start_state:
+                issues.append(
+                    ValidationIssue(
+                        "error",
+                        f"path preview for {preview.config.title} does not start from its solved current-level build",
+                    )
+                )
             if final_state != target_state:
                 issues.append(
                     ValidationIssue(
@@ -408,6 +654,47 @@ def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
                         )
                     )
                     break
+
+        sword_rows = app_module.core.optimize_builds(
+            data=window.data,
+            class_name="Samurai",
+            character_level=84,
+            vig=40,
+            mnd=11,
+            end=20,
+            str_stat=21,
+            dex=15,
+            int_stat=40,
+            fai=8,
+            arc=8,
+            max_upgrade=25,
+            fixed_upgrade=25,
+            two_handing=False,
+            weapon_name="Sword Lance",
+            affinity="Magic",
+            aow_name="Glintstone Pebble",
+            objective="max_ar",
+            top_k=10,
+            weapon_type_key=None,
+            somber_filter="all",
+            min_str=0,
+            min_dex=0,
+            min_int=0,
+            min_fai=0,
+            min_arc=0,
+            lock_str=None,
+            lock_dex=None,
+            lock_int=None,
+            lock_fai=None,
+            lock_arc=None,
+        )
+        if any(row.fai > 8 or row.arc > 8 for row in sword_rows):
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "Sword Lance Magic still wastes points in zero-scaling FAI/ARC",
+                )
+            )
     finally:
         window.close()
         if created_app:
