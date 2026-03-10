@@ -93,8 +93,26 @@ THEME = {
 }
 
 
-def repo_root() -> Path:
+def app_root() -> Path:
+    if getattr(sys, "frozen", False):
+        if meipass := getattr(sys, "_MEIPASS", None):
+            return Path(meipass)
+        return Path(sys.executable).resolve().parent
+    sibling_data = THIS_DIR / "data" / "phase1"
+    if sibling_data.exists():
+        return THIS_DIR
     return Path(__file__).resolve().parents[2]
+
+
+def data_snapshot_dir() -> Path:
+    root = app_root()
+    bundled = root / "data" / "phase1"
+    if bundled.exists():
+        return bundled
+    local = Path(sys.executable).resolve().parent / "data" / "phase1"
+    if local.exists():
+        return local
+    return bundled
 
 
 @dataclass(frozen=True)
@@ -862,6 +880,44 @@ class AffinityWatchWorker(QtCore.QObject):
         self.progress.emit(processed, total, affinity, level)
 
 
+class PathPreviewWorker(QtCore.QObject):
+    progress = QtCore.pyqtSignal(object, object, object, object)
+    finished = QtCore.pyqtSignal(object, object)
+    failed = QtCore.pyqtSignal(str)
+
+    def __init__(
+        self,
+        service: desktop_services.DesktopOptimizerService,
+        session: desktop_models.GlobalSession,
+        configs: list[desktop_models.PathWeaponConfig],
+        levels_ahead: int,
+    ) -> None:
+        super().__init__()
+        self.service = service
+        self.session = session
+        self.configs = configs
+        self.levels_ahead = levels_ahead
+
+    @QtCore.pyqtSlot()
+    def run(self) -> None:
+        try:
+            previews: list[desktop_models.PathPreview] = []
+            total = max(len(self.configs), 1)
+            for index, config in enumerate(self.configs, start=1):
+                preview = self.service.build_path_preview(
+                    self.session,
+                    config.solved,
+                    self.levels_ahead,
+                    config.title,
+                )
+                previews.append(preview)
+                final_level = self.session.build.derived_level + self.levels_ahead
+                self.progress.emit(index, total, config.title, final_level)
+            self.finished.emit(previews, self.levels_ahead)
+        except Exception as exc:
+            self.failed.emit(str(exc))
+
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -871,16 +927,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setMinimumSize(1200, 720)
         self.resize(1600, 980)
 
-        data_path = repo_root() / "data" / "phase1"
+        data_path = data_snapshot_dir()
         self.data = core.load_game_data(str(data_path))
         self.desktop_service = desktop_services.DesktopOptimizerService(self.data)
         self.run_id = 0
         self.active_run_id: int | None = None
         self.worker_thread: QtCore.QThread | None = None
         self.worker: OptimizeWorker | None = None
+        self.path_thread: QtCore.QThread | None = None
+        self.path_worker: PathPreviewWorker | None = None
         self.affinity_watch_thread: QtCore.QThread | None = None
         self.affinity_watch_worker: AffinityWatchWorker | None = None
-        self.affinity_watch_progress: QtWidgets.QProgressDialog | None = None
         self.affinity_watch_context: dict[str, Any] | None = None
         self.current_results: list[Any] = []
         self.results_signature: tuple[Any, ...] | None = None
@@ -1389,10 +1446,27 @@ class MainWindow(QtWidgets.QMainWindow):
         self.path_workspace_detail.setWordWrap(True)
         layout.addWidget(self.path_workspace_detail)
 
-        self.path_tab_open_button = QtWidgets.QPushButton("Open Path Graphs")
+        self.path_tab_open_button = QtWidgets.QPushButton("Refresh Paths")
         self.path_tab_open_button.setProperty("role", "inlineButton")
         self.path_tab_open_button.setEnabled(False)
         layout.addWidget(self.path_tab_open_button, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
+
+        self.path_progress_label = QtWidgets.QLabel("Idle")
+        self.path_progress_label.setProperty("role", "progressLabel")
+        self.path_progress_bar = QtWidgets.QProgressBar()
+        self.path_progress_bar.setTextVisible(True)
+        self.path_progress_bar.setRange(0, 1)
+        self.path_progress_bar.setValue(0)
+        layout.addWidget(self.path_progress_label)
+        layout.addWidget(self.path_progress_bar)
+
+        self.path_chart_widget = PathChartWidget()
+        layout.addWidget(self.path_chart_widget)
+
+        self.path_tables_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
+        self.path_tables_splitter.setChildrenCollapsible(False)
+        layout.addWidget(self.path_tables_splitter, 1)
+        self._populate_path_panels([])
         layout.addStretch(1)
         return group
 
@@ -1419,10 +1493,44 @@ class MainWindow(QtWidgets.QMainWindow):
         self.affinity_workspace_detail.setWordWrap(True)
         layout.addWidget(self.affinity_workspace_detail)
 
-        self.affinity_tab_open_button = QtWidgets.QPushButton("Open Affinity Watcher")
+        self.affinity_tab_open_button = QtWidgets.QPushButton("Refresh Affinity Watch")
         self.affinity_tab_open_button.setProperty("role", "inlineButton")
         self.affinity_tab_open_button.setEnabled(False)
         layout.addWidget(self.affinity_tab_open_button, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
+
+        self.affinity_progress_label = QtWidgets.QLabel("Idle")
+        self.affinity_progress_label.setProperty("role", "progressLabel")
+        self.affinity_progress_bar = QtWidgets.QProgressBar()
+        self.affinity_progress_bar.setTextVisible(True)
+        self.affinity_progress_bar.setRange(0, 1)
+        self.affinity_progress_bar.setValue(0)
+        layout.addWidget(self.affinity_progress_label)
+        layout.addWidget(self.affinity_progress_bar)
+
+        self.affinity_chart_widget = AffinityWatchChartWidget()
+        layout.addWidget(self.affinity_chart_widget)
+
+        self.affinity_summary_table = QtWidgets.QTableWidget(0, 4)
+        self.affinity_summary_table.setHorizontalHeaderLabels(["Affinity", "Start", "End", "Final Stats"])
+        self.affinity_summary_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        self.affinity_summary_table.horizontalHeader().setStretchLastSection(True)
+        self.affinity_summary_table.verticalHeader().setVisible(False)
+        self.affinity_summary_table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.affinity_summary_table.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
+        self.affinity_summary_table.setAlternatingRowColors(True)
+        self.affinity_summary_table.setShowGrid(False)
+        layout.addWidget(self.affinity_summary_table, 1)
+
+        self.affinity_breakpoint_table = QtWidgets.QTableWidget(0, 5)
+        self.affinity_breakpoint_table.setHorizontalHeaderLabels(["Level", "From", "To", "Old Metric", "New Metric"])
+        self.affinity_breakpoint_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        self.affinity_breakpoint_table.horizontalHeader().setStretchLastSection(True)
+        self.affinity_breakpoint_table.verticalHeader().setVisible(False)
+        self.affinity_breakpoint_table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.affinity_breakpoint_table.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
+        self.affinity_breakpoint_table.setAlternatingRowColors(True)
+        self.affinity_breakpoint_table.setShowGrid(False)
+        layout.addWidget(self.affinity_breakpoint_table, 1)
         layout.addStretch(1)
         return group
 
@@ -2046,20 +2154,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.progress_label.setText(f"Searching 0 / {total:,}...")
         self._refresh_hero_summary()
 
-        self.worker_thread = QtCore.QThread(self)
-        self.worker = OptimizeWorker(
+        worker = OptimizeWorker(
             run_id=run_id,
             service=self.desktop_service,
             session=self.session,
         )
-        self.worker.moveToThread(self.worker_thread)
-        self.worker_thread.started.connect(self.worker.run)
-        self.worker.progress.connect(self._on_progress)
-        self.worker.finished.connect(self._on_finished)
-        self.worker.failed.connect(self._on_failed)
-        self.worker.finished.connect(self._teardown_worker)
-        self.worker.failed.connect(self._teardown_worker)
-        self.worker_thread.start()
+        worker.progress.connect(self._on_progress)
+        worker.finished.connect(self._on_finished)
+        worker.failed.connect(self._on_failed)
+        worker.finished.connect(self._teardown_worker)
+        worker.failed.connect(self._teardown_worker)
+        self._launch_worker_thread("worker_thread", "worker", worker)
 
     @QtCore.pyqtSlot(int, object, object, object, float, object)
     def _on_progress(
@@ -2120,13 +2225,30 @@ class MainWindow(QtWidgets.QMainWindow):
         self.discard_active_results = False
         self._set_idle_progress(f"Failed: {message}")
 
+    def _launch_worker_thread(
+        self,
+        thread_attr: str,
+        worker_attr: str,
+        worker: QtCore.QObject,
+    ) -> None:
+        thread = QtCore.QThread(self)
+        setattr(self, thread_attr, thread)
+        setattr(self, worker_attr, worker)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        thread.start()
+
+    def _teardown_named_worker(self, thread_attr: str, worker_attr: str) -> None:
+        thread = getattr(self, thread_attr)
+        if thread is not None:
+            thread.quit()
+            thread.wait(1000)
+        setattr(self, worker_attr, None)
+        setattr(self, thread_attr, None)
+
     @QtCore.pyqtSlot()
     def _teardown_worker(self) -> None:
-        if self.worker_thread is not None:
-            self.worker_thread.quit()
-            self.worker_thread.wait(1000)
-        self.worker = None
-        self.worker_thread = None
+        self._teardown_named_worker("worker_thread", "worker")
 
     def _populate_results_table(self) -> None:
         self.results_table.setRowCount(len(self.current_results))
@@ -2575,7 +2697,7 @@ class MainWindow(QtWidgets.QMainWindow):
             )
             return
 
-        levels = [self._derived_level() + offset for offset in range(0, levels_ahead + 1)]
+        self.main_tabs.setCurrentIndex(3)
         self._sync_session_state()
         self.affinity_watch_context = {
             "weapon_name": weapon_name,
@@ -2586,36 +2708,23 @@ class MainWindow(QtWidgets.QMainWindow):
             "metric_label": self._objective_metric_label(),
             "selected_affinity": row_data.affinity,
         }
+        total = max(len(affinities) * (levels_ahead + 1), 1)
+        self.affinity_progress_bar.setRange(0, total)
+        self.affinity_progress_bar.setValue(0)
+        self.affinity_progress_label.setText("Tracing affinity crossover lines...")
 
-        self.affinity_watch_progress = QtWidgets.QProgressDialog(
-            "Tracing affinity crossover lines...",
-            "",
-            0,
-            len(affinities) * len(levels),
-            self,
-        )
-        self.affinity_watch_progress.setWindowTitle("Affinity Watcher")
-        self.affinity_watch_progress.setCancelButton(None)
-        self.affinity_watch_progress.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
-        self.affinity_watch_progress.setMinimumDuration(0)
-        self.affinity_watch_progress.setValue(0)
-        self.affinity_watch_progress.show()
-
-        self.affinity_watch_thread = QtCore.QThread(self)
-        self.affinity_watch_worker = AffinityWatchWorker(
+        worker = AffinityWatchWorker(
             service=self.desktop_service,
-            session=self._current_session(),
+            session=self.session,
             solved=row_data,
             levels_ahead=levels_ahead,
         )
-        self.affinity_watch_worker.moveToThread(self.affinity_watch_thread)
-        self.affinity_watch_thread.started.connect(self.affinity_watch_worker.run)
-        self.affinity_watch_worker.progress.connect(self._on_affinity_watch_progress)
-        self.affinity_watch_worker.finished.connect(self._on_affinity_watch_finished)
-        self.affinity_watch_worker.failed.connect(self._on_affinity_watch_failed)
-        self.affinity_watch_worker.finished.connect(self._teardown_affinity_watch_worker)
-        self.affinity_watch_worker.failed.connect(self._teardown_affinity_watch_worker)
-        self.affinity_watch_thread.start()
+        worker.progress.connect(self._on_affinity_watch_progress)
+        worker.finished.connect(self._on_affinity_watch_finished)
+        worker.failed.connect(self._on_affinity_watch_failed)
+        worker.finished.connect(self._teardown_affinity_watch_worker)
+        worker.failed.connect(self._teardown_affinity_watch_worker)
+        self._launch_worker_thread("affinity_watch_thread", "affinity_watch_worker", worker)
 
     @QtCore.pyqtSlot(object, object, object, object)
     def _on_affinity_watch_progress(
@@ -2625,54 +2734,40 @@ class MainWindow(QtWidgets.QMainWindow):
         affinity: object,
         level: object,
     ) -> None:
-        if self.affinity_watch_progress is None:
-            return
         current = int(processed)
         maximum = int(total)
-        self.affinity_watch_progress.setMaximum(max(maximum, 1))
-        self.affinity_watch_progress.setValue(min(current, max(maximum, 1)))
-        self.affinity_watch_progress.setLabelText(
+        self.affinity_progress_bar.setMaximum(max(maximum, 1))
+        self.affinity_progress_bar.setValue(min(current, max(maximum, 1)))
+        self.affinity_progress_label.setText(
             f"Tracing {affinity} at level {int(level)} ({current:,}/{maximum:,})..."
         )
-        QtWidgets.QApplication.processEvents()
 
     @QtCore.pyqtSlot(object, object)
     def _on_affinity_watch_finished(self, lines: object, breakpoints: object) -> None:
         context = self.affinity_watch_context
-        if self.affinity_watch_progress is not None:
-            self.affinity_watch_progress.close()
-            self.affinity_watch_progress = None
         if context is None:
             return
         typed_lines = list(lines)
         typed_breakpoints = list(breakpoints)
-        dialog = AffinityWatchDialog(
-            self,
-            context["weapon_name"],
-            context["aow_name"],
-            int(context["upgrade"]),
-            int(context["start_level"]),
-            int(context["levels_ahead"]),
-            str(context["metric_label"]),
+        self.affinity_chart_widget.set_payload(typed_lines, str(context["metric_label"]))
+        self._populate_affinity_tables(
             typed_lines,
             typed_breakpoints,
+            int(context["start_level"]),
+            int(context["levels_ahead"]),
         )
-        dialog.exec()
+        self._set_affinity_progress_idle(
+            f"Ready: {len(typed_lines)} affinity lines across +{int(context['levels_ahead'])}."
+        )
 
     @QtCore.pyqtSlot(str)
     def _on_affinity_watch_failed(self, message: str) -> None:
-        if self.affinity_watch_progress is not None:
-            self.affinity_watch_progress.close()
-            self.affinity_watch_progress = None
+        self._set_affinity_progress_idle(f"Failed: {message}")
         QtWidgets.QMessageBox.warning(self, "Affinity Watcher", f"Failed to build watcher: {message}")
 
     @QtCore.pyqtSlot()
     def _teardown_affinity_watch_worker(self) -> None:
-        if self.affinity_watch_thread is not None:
-            self.affinity_watch_thread.quit()
-            self.affinity_watch_thread.wait(1000)
-        self.affinity_watch_worker = None
-        self.affinity_watch_thread = None
+        self._teardown_named_worker("affinity_watch_thread", "affinity_watch_worker")
         self.affinity_watch_context = None
 
     @staticmethod
@@ -2703,20 +2798,59 @@ class MainWindow(QtWidgets.QMainWindow):
             )
             return
 
-        total_steps = len(configs) * (levels_ahead + 1)
-        progress = QtWidgets.QProgressDialog("Tracing level path...", "Cancel", 0, total_steps, self)
-        progress.setWindowTitle("Path Graphs")
-        progress.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
-        progress.setMinimumDuration(0)
-        progress.setValue(0)
-
-        previews = self._build_level_path_previews(levels_ahead, progress)
-        progress.close()
-        if previews is None or not previews:
+        if self.path_thread is not None:
             return
 
-        dialog = LevelPathDialog(self, previews, self._derived_level(), levels_ahead)
-        dialog.exec()
+        self.main_tabs.setCurrentIndex(2)
+        self.path_progress_bar.setRange(0, max(len(configs), 1))
+        self.path_progress_bar.setValue(0)
+        self.path_progress_label.setText("Tracing level paths...")
+        worker = PathPreviewWorker(
+            service=self.desktop_service,
+            session=self._current_session(),
+            configs=configs,
+            levels_ahead=levels_ahead,
+        )
+        worker.progress.connect(self._on_path_progress)
+        worker.finished.connect(self._on_path_finished)
+        worker.failed.connect(self._on_path_failed)
+        worker.finished.connect(self._teardown_path_worker)
+        worker.failed.connect(self._teardown_path_worker)
+        self._launch_worker_thread("path_thread", "path_worker", worker)
+
+    @QtCore.pyqtSlot(object, object, object, object)
+    def _on_path_progress(
+        self,
+        processed: object,
+        total: object,
+        title: object,
+        level: object,
+    ) -> None:
+        current = int(processed)
+        maximum = int(total)
+        self.path_progress_bar.setMaximum(max(maximum, 1))
+        self.path_progress_bar.setValue(min(current, max(maximum, 1)))
+        self.path_progress_label.setText(
+            f"Tracing {str(title).lower()} path through level {int(level)} ({current}/{maximum})..."
+        )
+
+    @QtCore.pyqtSlot(object, object)
+    def _on_path_finished(self, previews: object, levels_ahead: object) -> None:
+        typed_previews = list(previews)
+        self.path_chart_widget.set_previews(typed_previews)
+        self._populate_path_panels(typed_previews)
+        self._set_path_progress_idle(
+            f"Ready: {len(typed_previews)} path lanes across +{int(levels_ahead)}."
+        )
+
+    @QtCore.pyqtSlot(str)
+    def _on_path_failed(self, message: str) -> None:
+        self._set_path_progress_idle(f"Failed: {message}")
+        QtWidgets.QMessageBox.warning(self, "Path Graphs", f"Failed to build paths: {message}")
+
+    @QtCore.pyqtSlot()
+    def _teardown_path_worker(self) -> None:
+        self._teardown_named_worker("path_thread", "path_worker")
 
     def _build_level_path_previews(
         self,
@@ -2947,6 +3081,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 "Run a search and pick a selected result before opening path analysis."
             )
             self.path_tab_open_button.setEnabled(False)
+            self.path_chart_widget.set_previews([])
+            self._populate_path_panels([])
+            self._set_path_progress_idle("Idle")
             return
         self.path_workspace_summary.setText(
             f"Selected: {selected_best.weapon_name} | {selected_best.affinity} | "
@@ -2957,6 +3094,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 "Pick a comparison target to trace both optimized Current + N routes."
             )
             self.path_tab_open_button.setEnabled(False)
+            self.path_chart_widget.set_previews([])
+            self._populate_path_panels([])
+            self._set_path_progress_idle("Idle")
             return
         self.path_workspace_detail.setText(
             f"Compare: {compare_best.weapon_name} | {compare_best.affinity} | "
@@ -2974,6 +3114,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 "Run a search and pick a selected result row to analyze legal affinity crossovers."
             )
             self.affinity_tab_open_button.setEnabled(False)
+            self.affinity_chart_widget.set_payload([], self._objective_metric_label())
+            self._populate_affinity_tables([], [], self._derived_level(), self.level_path_horizon_spin.value())
+            self._set_affinity_progress_idle("Idle")
             return
         legal_affinities = self.desktop_service.affinity_watch_affinities(selected_best)
         self.affinity_workspace_summary.setText(
@@ -2987,6 +3130,104 @@ class MainWindow(QtWidgets.QMainWindow):
     def _refresh_analysis_workspace_labels(self) -> None:
         self._refresh_path_workspace(self.active_compare_selected, self.active_compare_target)
         self._refresh_affinity_workspace(self.active_compare_selected)
+
+    def _set_path_progress_idle(self, text: str) -> None:
+        self.path_progress_label.setText(text)
+        self.path_progress_bar.setRange(0, 1)
+        self.path_progress_bar.setValue(0)
+
+    def _set_affinity_progress_idle(self, text: str) -> None:
+        self.affinity_progress_label.setText(text)
+        self.affinity_progress_bar.setRange(0, 1)
+        self.affinity_progress_bar.setValue(0)
+
+    def _clear_splitter(self, splitter: QtWidgets.QSplitter) -> None:
+        while splitter.count():
+            widget = splitter.widget(0)
+            splitter.widget(0).setParent(None)
+            if widget is not None:
+                widget.deleteLater()
+
+    def _build_path_table_panel(self, preview: PathPreview) -> QtWidgets.QWidget:
+        shell = QtWidgets.QGroupBox(preview.config.title.upper())
+        layout = QtWidgets.QVBoxLayout(shell)
+        layout.setSpacing(8)
+        summary = QtWidgets.QLabel(
+            f"{preview.config.weapon_name} | {preview.config.affinity} | AoW {preview.config.aow_name or '-'} | +{preview.config.upgrade}"
+        )
+        summary.setProperty("role", "summaryBody")
+        layout.addWidget(summary)
+        table = QtWidgets.QTableWidget(len(preview.steps), 5)
+        table.setHorizontalHeaderLabels(["Level", "Metric", "Gain", "Added", "Stats"])
+        table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        table.horizontalHeader().setStretchLastSection(True)
+        table.verticalHeader().setVisible(False)
+        table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        table.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
+        table.setAlternatingRowColors(True)
+        table.setShowGrid(False)
+        last_metric: float | None = None
+        for row_idx, step in enumerate(preview.steps):
+            gain_text = "--"
+            if step.ar is not None and last_metric is not None:
+                gain_text = f"{step.ar - last_metric:+.2f}"
+            metric_text = "-" if step.ar is None else f"{step.ar:.2f}"
+            added_text = step.added_stat.upper() if step.added_stat is not None else "START"
+            if step.ar is None and step.requirement_gap > 0:
+                added_text = f"{added_text} (gap {step.requirement_gap})"
+            values = [str(step.level), metric_text, gain_text, added_text, step.stats.summary()]
+            for col_idx, value in enumerate(values):
+                table.setItem(row_idx, col_idx, QtWidgets.QTableWidgetItem(value))
+            if step.ar is not None:
+                last_metric = step.ar
+        layout.addWidget(table, 1)
+        return shell
+
+    def _populate_path_panels(self, previews: list[PathPreview]) -> None:
+        self._clear_splitter(self.path_tables_splitter)
+        if not previews:
+            placeholder = QtWidgets.QLabel("No path previews loaded.")
+            placeholder.setProperty("role", "summaryBody")
+            placeholder.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+            self.path_tables_splitter.addWidget(placeholder)
+            return
+        for preview in previews:
+            self.path_tables_splitter.addWidget(self._build_path_table_panel(preview))
+
+    def _populate_affinity_tables(
+        self,
+        lines: list[AffinityWatchLine],
+        breakpoints: list[AffinityBreakpoint],
+        start_level: int,
+        levels_ahead: int,
+    ) -> None:
+        self.affinity_summary_table.setRowCount(len(lines))
+        self.affinity_summary_table.setHorizontalHeaderLabels(
+            ["Affinity", f"Lv {start_level}", f"Lv {start_level + levels_ahead}", "Final Stats"]
+        )
+        for row_idx, line in enumerate(lines):
+            final_stats = "--"
+            if getattr(line, "final_build", None) is not None:
+                final_stats = line.final_build.combat_state.summary()
+            values = [
+                line.affinity,
+                "--" if line.start_metric is None else f"{line.start_metric:.2f}",
+                "--" if line.end_metric is None else f"{line.end_metric:.2f}",
+                final_stats,
+            ]
+            for col_idx, value in enumerate(values):
+                self.affinity_summary_table.setItem(row_idx, col_idx, QtWidgets.QTableWidgetItem(value))
+        self.affinity_breakpoint_table.setRowCount(len(breakpoints))
+        for row_idx, breakpoint in enumerate(breakpoints):
+            values = [
+                str(breakpoint.level),
+                breakpoint.outgoing_affinity,
+                breakpoint.incoming_affinity,
+                "--" if breakpoint.outgoing_metric is None else f"{breakpoint.outgoing_metric:.2f}",
+                "--" if breakpoint.incoming_metric is None else f"{breakpoint.incoming_metric:.2f}",
+            ]
+            for col_idx, value in enumerate(values):
+                self.affinity_breakpoint_table.setItem(row_idx, col_idx, QtWidgets.QTableWidgetItem(value))
 
     def _set_compare_panel(
         self,

@@ -1,138 +1,184 @@
-# Tarnished's Arsenal
+﻿# Tarnished's Arsenal
 
 [![CI](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/ci.yml/badge.svg)](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/ci.yml)
 [![Release Package](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/release-package.yml/badge.svg)](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/release-package.yml)
 
 ![Tarnished's Arsenal overview](docs/images/war-room-overview.svg)
 
-Stop hand-testing one build at a time.
+Stop checking one weapon at a time.
 
-This app brute-forces:
+`Tarnished's Arsenal` is a session-driven Elden Ring desktop optimizer. You give it a real class, real stat budget, real floors, real weapon constraints, and it brute-forces the search space across:
 
-`weapon x affinity x AoW x upgrade x STR/DEX/INT/FAI/ARC distribution`
+`weapon x affinity x AoW x upgrade x stat distribution`
 
-for your exact class + level budget, then ranks the best outcomes for your objective.
+Then it keeps going. Rankings feed Compare. Compare feeds Paths. Paths and Affinity Watch stay tied to the same active build session instead of behaving like separate mini-tools.
 
-## Why It Feels Different
+## Why This Exists
 
-Typical calculator flow:
+Most calculators are good at answering:
 
-- set stats
-- choose one weapon
-- read one number
-- repeat forever
+- `What does this one weapon do with these exact stats?`
 
-Tarnished's Arsenal flow:
+This app is built to answer:
 
-1. Set your class and current profile.
-2. Lock what you care about.
-3. Leave the rest open.
-4. Press `Search`.
-5. Get ranked best builds, upgrade comparison, and level-path previews.
+- `What is actually best if I keep ARC above 40?`
+- `When does Occult overtake Blood?`
+- `What does my upgrade spread look like if I lock this build?`
+- `What is the best Current + N stat route into the target build?`
+- `Which affinity leads if I keep the weapon and AoW fixed?`
 
-## Lock/Open Search Model
+## The Model
 
-Every selector is either locked or open.
+The app runs around one canonical session:
 
-| Input | Locked | Open |
-|---|---|---|
-| Weapon | Only that weapon is searched | All weapons are searched |
-| Affinity | Only that affinity | All valid affinities |
-| AoW | Only that AoW | All valid compatible AoWs |
-| Upgrade | Exact level when `Lock Upgrade Exact` is checked | `+0..+N` |
-| Combat Stats | Exact if using `Use As Locks` + `Use Locked Result Stats` | Optimized within level budget and floors |
-
-## Controls Cheat Sheet
-
-### Build panel
-
-- `Class`: sets hard minimum for every stat.
-- `Derived Level`: locked; computed from current 8 stats.
-- `Current` stats:
-  - `VIG/MND/END`: fixed
-  - `STR/DEX/INT/FAI/ARC`: used to derive level budget context
-- `Min Floor`:
-  - applies to `STR/DEX/INT/FAI/ARC`
-  - forces optimizer to keep those minimums
-
-### Constraints panel
-
-- `Upgrade`: max upgrade considered
-- `Top K`: number of top results returned
-- `Weapon Type`, `Weapon`, `Affinity`, `AoW`: lock those lanes or leave them open
-- `Somber Filter`:
-  - `All`
-  - `Standard Only`
-  - `Somber Only`
-
-### Search panel
-
-- `Objective`:
+- `Build Session`
+  - class
+  - current 8 stats
+  - derived level
+  - min floors
+  - two-handing
+- `Search Scope`
+  - weapon type
+  - weapon
+  - affinity
+  - AoW
+  - somber filter
+  - upgrade policy
+  - top-k
+- `Objective`
   - `Max AR`
   - `Max AR + Bleed`
   - `AoW First Hit (PvE)`
   - `AoW Full Sequence (PvE)`
-- `Lock Upgrade Exact`: evaluate only exactly `+Upgrade`
-- `Two Handing`: 1.5x effective STR (cap 99) for both requirements and AR math
-- `Use Locked Result Stats`: only active after applying `Use As Locks` from a result row
-- Requirement badge:
-  - `Requirements Clear`: current stats meet the selected weapon
-  - `Requirements Unmet`: one or more required stats are short
+- `Locked Combat Stats`
+  - optional exact `STR/DEX/INT/FAI/ARC` lock taken from a solved result
+- `Analysis State`
+  - selected result
+  - compare target
+  - horizon
+  - active workspace
 
-### Comparison tab
+That matters because every workspace is looking at the same truth.
 
-You can compare a second weapon live:
+## Workspaces
 
-- Compare Type
-- Compare Weapon
-- Compare Affinity
-- Compare AoW (`<Match Selected>` supported)
-- `Current + N`
-- `Path Graphs`
+### `RANKINGS`
 
-How it works:
+- brute-force ranked search results
+- scaling shown per result at the actual upgrade level
+- `Use As Locks` promotes the selected result into exact combat-stat locks
+- result cards are summaries of the current ranking state, not a separate logic path
 
-- The selected build and the rival build are each optimized independently for the current objective at your current level budget.
-- The upgrade table then locks each row's best combat stats and shows the active objective metric at every upgrade level.
-- `Path Graphs` opens a `Current + N` level-path preview for both compared weapons.
-- That path is horizon-targeted:
-  - start from that weapon's current best solved stat line
-  - solve the exact best end-state at `Current + N`
-  - order the required points so the route into that target stays strong level by level
-- In other words: the end-state is exact for the chosen horizon, and the displayed route is the natural path into that solved end-state.
+### `COMPARE`
 
-AoW damage objectives:
+- selected build vs explicit rival or derived rival lines
+- each row is re-optimized under the same class, budget, floors, objective, and handing mode
+- upgrade spread locks that row's solved combat stats and evaluates the chosen metric across upgrade levels
 
-- `AoW First Hit (PvE)` ranks by the first damaging full-FP hit row for the selected skill.
-- `AoW Full Sequence (PvE)` sums all damaging full-FP hit rows for the selected skill sequence.
-- These values are build-specific:
-  - weapon
-  - affinity
-  - upgrade
-  - stats
-  - AoW
-- Utility-only skills with no damaging hit rows are intentionally excluded from AoW-damage objectives.
+### `PATHS`
 
-## What Happens Under the Hood
+- embedded workspace, not just a pop-up
+- uses the selected build and compare target from the current session
+- solves the exact `Current + N` target state for each lane
+- then routes the stat points into that target level by level
+- shows chart + per-lane step tables
 
-- Rust core does exhaustive constrained search.
-- Search space estimator reports combinations before run.
-- Async worker updates progress (`checked/total`, eligible count, best score, elapsed time).
-- Requirement failures are highlighted in red when selected weapon requirements are not met.
-- Comparison rows are re-optimized under the same class, level, floors, and objective before being rendered side by side.
-- Path graphs reuse the same compare setup, start from each weapon's current solved build, solve the exact `Current + N` target build, then trace the route into that target.
-- AoW PvE damage uses workbook-derived hit rows plus active scaling overrides from `AttackElementCorrectParam`.
+### `AFFINITY WATCH`
 
-## Tech Stack
+- embedded workspace, not just a pop-up
+- keeps weapon, AoW, upgrade, class, budget, and objective fixed
+- varies affinity only
+- shows which legal affinity leads from `Current` to `Current + N`
+- includes crossover breakpoints and final stat states
 
-- `core/er_optimizer_core`: Rust optimizer + PyO3 API
-- `ui/desktop/app.py`: PyQt6 desktop UI
-- `data/phase1/*.csv`: runtime data snapshot
-- `tools/phase1/phase1_dump.py`: optional data re-dump pipeline
-- `tools/phase1/extract_motion_workbook.py`: workbook extractor for AoW hit data and active scaling overrides
-- `tools/phase4/*`: validation, smoke tests, packaging
+## Lock / Open Search Rules
 
-## Local Setup (Windows)
+Every constraint can be treated as either locked or open.
+
+| Input | Locked | Open |
+|---|---|---|
+| Weapon Type | Search only that weapon family | Search all weapon families |
+| Weapon | Search only that weapon | Search all weapons |
+| Affinity | Search only that affinity | Search all legal affinities |
+| AoW | Search only that AoW | Search all legal AoWs |
+| Upgrade | Exact level with `Lock Upgrade Exact` | Full `+0..+N` range |
+| Combat Stats | Exact with `Use As Locks` + `Use Locked Result Stats` | Optimized inside the session budget |
+
+## Controls That Matter
+
+### `Build`
+
+- `Starting Class`
+  - sets hard minimums
+- `Derived Level`
+  - computed from the visible 8 stats
+- `VIG / MND / END`
+  - fixed inputs
+- `STR / DEX / INT / FAI / ARC`
+  - establish your current budget context
+- `Min Floor`
+  - lower bound for optimizer-controlled combat stats
+
+### `Constraints`
+
+- `Weapon Type`, `Weapon`, `Affinity`, `AoW`
+  - lock a lane or leave it open
+- `Somber Filter`
+  - `All`, `Standard Only`, `Somber Only`
+- `Max Upgrade`
+  - max evaluated upgrade
+- `Top Results`
+  - number of returned top rows
+
+### `Search`
+
+- `Objective`
+  - ranking metric for search and downstream analysis
+- `Lock Upgrade Exact`
+  - force exactly `+N`
+- `Two Handing`
+  - 1.5x effective STR, capped at 99, for requirements and scaling behavior where applicable
+- `Use Locked Result Stats`
+  - reuses the exact combat stats captured via `Use As Locks`
+
+## Objectives
+
+### `Max AR`
+
+Ranks by total AR.
+
+### `Max AR + Bleed`
+
+Ranks by AR plus bleed contribution currently modeled by the snapshot.
+
+### `AoW First Hit (PvE)`
+
+Ranks by the first damaging full-FP hit row for the selected AoW.
+
+### `AoW Full Sequence (PvE)`
+
+Ranks by the total damaging full-FP sequence for the selected AoW.
+
+## Data and Accuracy Notes
+
+This project is not using wiki guesses. The runtime snapshot is derived from local game data and workbook extraction.
+
+Current runtime data includes:
+
+- weapon rows by affinity
+- reinforce data
+- expanded calc-correct graphs
+- exact AoW compatibility rows
+- innate weapon passives
+- AoW attack-data extraction for PvE damage objectives
+
+Important boundaries:
+
+- this is still an optimizer, not a full enemy simulator
+- enemy negations, proc explosion damage, poise, and stamina are not part of the current scoring model
+- unique somber weapon-skill damage is not yet treated as a complete separate universal layer outside the generic AoW pipeline
+
+## Local Setup
 
 Requirements:
 
@@ -143,7 +189,7 @@ Requirements:
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 python -m maturin build --manifest-path core/er_optimizer_core/Cargo.toml --features python
-$wheel = Get-ChildItem core/er_optimizer_core/target/wheels/er_optimizer_core-*.whl | Select-Object -Last 1
+$wheel = Get-ChildItem core/er_optimizer_core/target/wheels/er_optimizer_core-*.whl | Sort-Object LastWriteTime | Select-Object -Last 1
 python -m pip install --force-reinstall $wheel.FullName
 python ui/desktop/app.py
 ```
@@ -156,11 +202,32 @@ python tools/phase4/validate_phase4.py
 python tools/phase4/smoke_ui.py
 ```
 
-`tools/phase4/validate_phase4.py` covers data integrity, runtime binding sanity, and deterministic `Current + N` path-target checks.
+Those checks cover:
 
-## Optional: Refresh Data Snapshot
+- optimizer behavior
+- data integrity
+- session-driven UI flow
+- selection preservation
+- path and affinity-watch stability
 
-You can regenerate `data/phase1` with your own `regulation.bin`:
+## Build A Windows Release
+
+For a distributable bundle:
+
+```powershell
+python tools/phase4/package_release.py
+```
+
+For a standalone Windows app folder with an `.exe`:
+
+```powershell
+python -m pip install pyinstaller
+python -m PyInstaller --noconfirm --clean --windowed --name "TarnishedsArsenal" --collect-all er_optimizer_core --add-data "data\phase1;data\phase1" ui\desktop\app.py
+```
+
+## Refresh The Data Snapshot
+
+If you want to regenerate the base runtime CSVs from your own `regulation.bin`:
 
 ```powershell
 python tools/phase1/phase1_dump.py `
@@ -169,11 +236,7 @@ python tools/phase1/phase1_dump.py `
   --output data/phase1
 ```
 
-`tools/phase1/README.md` explains why WitchyBND is not bundled in this repo.
-
-`data/phase1/*.csv` is already committed in this repository for normal runtime use.
-
-If you also want workbook-derived AoW damage data refreshed, place:
+If you also want workbook-derived AoW attack data refreshed, place:
 
 - `data/phase1/ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx`
 
@@ -183,22 +246,21 @@ then run:
 python tools/phase1/extract_motion_workbook.py
 ```
 
-## Scope
+## Repo Layout
 
-Included:
+- `core/er_optimizer_core`
+  - Rust optimizer and PyO3 bridge
+- `ui/desktop`
+  - PyQt6 desktop app, canonical session models, desktop services
+- `data/phase1`
+  - committed runtime snapshot used by the app
+- `tools/phase1`
+  - dump and extraction scripts
+- `tools/phase4`
+  - validation, smoke tests, release packaging
 
-- AR-focused optimization
-- passive AoW status effects for objective scoring
-- active AoW PvE first-hit and full-sequence damage ranking
-- exact AoW compatibility filtering from extracted data
+## License / IP
 
-Out of scope:
+Code is MIT-licensed in `LICENSE`.
 
-- poise/stamina modeling
-- enemy resistances
-- proc explosion damage modeling
-- unique weapon-skill damage for somber weapons that are not part of the generic AoW pool
-
----
-
-Elden Ring IP belongs to FromSoftware / Bandai Namco. This is fan-made tooling.
+Elden Ring IP belongs to FromSoftware / Bandai Namco. This repo is fan-made tooling and does not ship the game itself.

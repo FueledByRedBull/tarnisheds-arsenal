@@ -49,7 +49,8 @@ def main() -> int:
     release_dir.mkdir(parents=True, exist_ok=True)
 
     shutil.copy2(wheel, release_dir / wheel.name)
-    shutil.copy2(root / "ui" / "desktop" / "app.py", release_dir / "app.py")
+    for desktop_file in ("app.py", "models.py", "services.py"):
+        shutil.copy2(root / "ui" / "desktop" / desktop_file, release_dir / desktop_file)
 
     data_out = release_dir / "data" / "phase1"
     data_out.mkdir(parents=True, exist_ok=True)
@@ -88,28 +89,37 @@ python .\\app.py
         release_dir / "README.md",
         "\n".join(
             [
-                "# ER Build Optimizer",
+                "# Tarnished's Arsenal",
                 "",
-                "## Contents",
-                "- `app.py`",
-                "- `data/phase1/*.csv` snapshot",
+                "Portable Windows bundle for the session-driven Elden Ring optimizer UI.",
+                "",
+                "## Included",
+                "- `app.py`, `models.py`, `services.py`",
+                "- `data/phase1/*.csv` runtime snapshot",
                 "- `er_optimizer_core` wheel",
                 "- `install.ps1`",
                 "- `run.ps1`",
                 "",
-                "## Setup (Windows PowerShell)",
+                "## Install",
                 "```powershell",
                 ".\\install.ps1",
                 "```",
                 "",
-                "## Run",
+                "## Launch",
                 "```powershell",
                 ".\\run.ps1",
                 "```",
                 "",
+                "## What You Get",
+                "- Ranked build search",
+                "- Compare workspace",
+                "- Embedded Paths workspace",
+                "- Embedded Affinity Watch workspace",
+                "- AoW first-hit and full-sequence PvE objectives",
+                "",
                 "## Notes",
-                "- Keep `data/phase1` next to `app.py` exactly as shipped.",
-                "- Use Python 3.10+.",
+                "- Keep the folder layout exactly as shipped.",
+                "- Requires Python 3.10+ on the target machine.",
             ]
         )
         + "\n",

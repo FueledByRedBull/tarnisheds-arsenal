@@ -117,6 +117,7 @@ def main() -> int:
         raise AssertionError("expected path graph button to enable for a valid comparison")
     if not window.affinity_watch_button.isEnabled():
         raise AssertionError("expected affinity watcher button to enable for a selected result")
+    window.level_path_horizon_spin.setValue(3)
     if not window.path_tab_open_button.isEnabled():
         raise AssertionError("expected paths tab action to enable for a valid comparison")
     if not window.affinity_tab_open_button.isEnabled():
@@ -149,6 +150,18 @@ def main() -> int:
     dialog.show()
     QtWidgets.QApplication.processEvents()
     dialog.close()
+    window.path_tab_open_button.click()
+    wait_until(lambda: window.path_thread is None)
+    if window.path_progress_label.text().startswith("Failed"):
+        raise AssertionError("expected embedded paths analysis to succeed")
+    if window.path_tables_splitter.count() < 2:
+        raise AssertionError("expected embedded paths tab to populate lane panels")
+    window.affinity_tab_open_button.click()
+    wait_until(lambda: window.affinity_watch_thread is None)
+    if window.affinity_progress_label.text().startswith("Failed"):
+        raise AssertionError("expected embedded affinity analysis to succeed")
+    if window.affinity_summary_table.rowCount() < 2:
+        raise AssertionError("expected embedded affinity watch table to populate")
 
     watcher_row = {
         "weapon_name": "Claymore",
