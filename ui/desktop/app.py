@@ -8,6 +8,13 @@ from typing import Any
 from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
 
+THIS_DIR = Path(__file__).resolve().parent
+if str(THIS_DIR) not in sys.path:
+    sys.path.insert(0, str(THIS_DIR))
+
+import models as desktop_models
+import services as desktop_services
+
 try:
     import er_optimizer_core as core
 except ImportError as exc:  # pragma: no cover
@@ -149,6 +156,202 @@ class PathStep:
 class PathPreview:
     config: PathWeaponConfig
     steps: tuple[PathStep, ...]
+
+
+@dataclass(frozen=True)
+class AffinityWatchPoint:
+    level: int
+    metric: float | None
+    row_data: dict[str, Any] | None
+
+
+@dataclass(frozen=True)
+class AffinityWatchLine:
+    affinity: str
+    points: tuple[AffinityWatchPoint, ...]
+    start_metric: float | None
+    end_metric: float | None
+    final_row: dict[str, Any] | None
+
+
+@dataclass(frozen=True)
+class AffinityBreakpoint:
+    level: int
+    outgoing_affinity: str
+    incoming_affinity: str
+    outgoing_metric: float | None
+    incoming_metric: float | None
+
+
+def serialize_optimize_result(result: Any) -> dict[str, Any]:
+    return {
+        "weapon_id": int(result.weapon_id),
+        "weapon_name": result.weapon_name,
+        "affinity": result.affinity,
+        "aow_name": result.aow_name,
+        "str_stat": int(result.str_stat),
+        "dex": int(result.dex),
+        "int_stat": int(result.int_stat),
+        "fai": int(result.fai),
+        "arc": int(result.arc),
+        "best_upgrade": int(result.upgrade),
+        "best_ar_total": float(result.ar_total),
+        "score": float(result.score),
+        "bleed_buildup": float(result.bleed_buildup),
+        "bleed_buildup_add": float(result.bleed_buildup_add),
+        "frost_buildup": float(result.frost_buildup),
+        "poison_buildup": float(result.poison_buildup),
+        "aow_first_hit_damage": float(result.aow_first_hit_damage),
+        "aow_full_sequence_damage": float(result.aow_full_sequence_damage),
+    }
+
+
+def objective_metric_value(objective: str, row_data: dict[str, Any]) -> float:
+    if objective == "aow_first_hit":
+        return float(row_data["aow_first_hit_damage"])
+    if objective == "aow_full_sequence":
+        return float(row_data["aow_full_sequence_damage"])
+    return float(row_data["best_ar_total"])
+
+
+def result_rank_key(row_data: dict[str, Any]) -> tuple[float, float, float, float, float, int, int]:
+    return (
+        float(row_data["score"]),
+        float(row_data["best_ar_total"]),
+        float(row_data["aow_full_sequence_damage"]),
+        float(row_data["aow_first_hit_damage"]),
+        float(row_data["bleed_buildup"]),
+        -int(row_data["weapon_id"]),
+        int(row_data["best_upgrade"]),
+    )
+
+
+def compute_affinity_watch_payload(
+    data: Any,
+    base_kwargs: dict[str, Any],
+    weapon_name: str,
+    aow_name: str | None,
+    upgrade: int,
+    affinities: list[str],
+    levels: list[int],
+    objective: str,
+    cache: dict[tuple[Any, ...], dict[str, Any] | None],
+    progress_cb: Any | None = None,
+) -> tuple[list[AffinityWatchLine], list[AffinityBreakpoint]]:
+    lines: list[AffinityWatchLine] = []
+    total = len(affinities) * len(levels)
+    processed = 0
+
+    for affinity in affinities:
+        points: list[AffinityWatchPoint] = []
+        for level in levels:
+            cache_key = (
+                base_kwargs["class_name"],
+                int(level),
+                int(base_kwargs["vig"]),
+                int(base_kwargs["mnd"]),
+                int(base_kwargs["end"]),
+                bool(base_kwargs["two_handing"]),
+                str(objective),
+                weapon_name.casefold(),
+                affinity.casefold(),
+                (aow_name or "").casefold(),
+                int(upgrade),
+                int(base_kwargs["min_str"]),
+                int(base_kwargs["min_dex"]),
+                int(base_kwargs["min_int"]),
+                int(base_kwargs["min_fai"]),
+                int(base_kwargs["min_arc"]),
+                base_kwargs.get("lock_str"),
+                base_kwargs.get("lock_dex"),
+                base_kwargs.get("lock_int"),
+                base_kwargs.get("lock_fai"),
+                base_kwargs.get("lock_arc"),
+            )
+            row_data = cache.get(cache_key)
+            if cache_key not in cache:
+                kwargs = dict(base_kwargs)
+                kwargs.update(
+                    {
+                        "character_level": int(level),
+                        "weapon_name": weapon_name,
+                        "affinity": affinity,
+                        "aow_name": aow_name,
+                        "max_upgrade": int(upgrade),
+                        "fixed_upgrade": int(upgrade),
+                        "top_k": 1,
+                        "weapon_type_key": None,
+                        "somber_filter": "all",
+                    }
+                )
+                try:
+                    rows = core.optimize_builds(data=data, **kwargs)
+                except Exception:
+                    rows = []
+                row_data = serialize_optimize_result(rows[0]) if rows else None
+                cache[cache_key] = row_data
+
+            metric = objective_metric_value(objective, row_data) if row_data is not None else None
+            points.append(AffinityWatchPoint(level=int(level), metric=metric, row_data=row_data))
+            processed += 1
+            if progress_cb is not None:
+                progress_cb(processed, total, affinity, int(level))
+
+        valid_points = [point for point in points if point.metric is not None and point.row_data is not None]
+        if not valid_points:
+            continue
+        lines.append(
+            AffinityWatchLine(
+                affinity=affinity,
+                points=tuple(points),
+                start_metric=valid_points[0].metric,
+                end_metric=valid_points[-1].metric,
+                final_row=valid_points[-1].row_data,
+            )
+        )
+
+    lines.sort(
+        key=lambda line: (
+            float(line.end_metric if line.end_metric is not None else float("-inf")),
+            result_rank_key(line.final_row) if line.final_row is not None else tuple(),
+        ),
+        reverse=True,
+    )
+
+    return lines, detect_affinity_breakpoints(lines, levels)
+
+
+def detect_affinity_breakpoints(
+    lines: list[AffinityWatchLine],
+    levels: list[int],
+) -> list[AffinityBreakpoint]:
+    line_maps = {line.affinity: {point.level: point for point in line.points} for line in lines}
+    breakpoints: list[AffinityBreakpoint] = []
+    leader_affinity: str | None = None
+    for level in levels:
+        leaders = [
+            point.row_data
+            for line in lines
+            if (point := line_maps[line.affinity].get(level)) is not None and point.row_data is not None
+        ]
+        if not leaders:
+            continue
+        leader_row = max(leaders, key=result_rank_key)
+        current_affinity = str(leader_row["affinity"])
+        if leader_affinity is not None and current_affinity != leader_affinity:
+            outgoing_point = line_maps.get(leader_affinity, {}).get(level)
+            incoming_point = line_maps.get(current_affinity, {}).get(level)
+            breakpoints.append(
+                AffinityBreakpoint(
+                    level=int(level),
+                    outgoing_affinity=leader_affinity,
+                    incoming_affinity=current_affinity,
+                    outgoing_metric=outgoing_point.metric if outgoing_point is not None else None,
+                    incoming_metric=incoming_point.metric if incoming_point is not None else None,
+                )
+            )
+        leader_affinity = current_affinity
+    return breakpoints
 
 
 class PathChartWidget(QtWidgets.QWidget):
@@ -356,25 +559,252 @@ class LevelPathDialog(QtWidgets.QDialog):
         return shell
 
 
+class AffinityWatchChartWidget(QtWidgets.QWidget):
+    def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.lines: list[AffinityWatchLine] = []
+        self.metric_label = "Metric"
+        self.series_colors = [
+            QColor("#c9a44c"),
+            QColor("#b8643c"),
+            QColor("#6f96d8"),
+            QColor("#7abf8f"),
+            QColor("#d87aa0"),
+            QColor("#d0c36a"),
+        ]
+        self.setMinimumHeight(300)
+
+    def set_payload(self, lines: list[AffinityWatchLine], metric_label: str) -> None:
+        self.lines = lines
+        self.metric_label = metric_label
+        self.update()
+
+    def paintEvent(self, _event: Any) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.fillRect(self.rect(), QColor(THEME["panel_alt"]))
+        painter.setPen(QPen(QColor(THEME["border"]), 1))
+        painter.drawRoundedRect(self.rect().adjusted(0, 0, -1, -1), 8, 8)
+
+        valid_points = [
+            (point.level, point.metric)
+            for line in self.lines
+            for point in line.points
+            if point.metric is not None
+        ]
+        if not valid_points:
+            painter.setPen(QColor(THEME["text_soft"]))
+            painter.drawText(
+                self.rect().adjusted(18, 18, -18, -18),
+                QtCore.Qt.AlignmentFlag.AlignCenter,
+                "No valid affinity data for the selected setup.",
+            )
+            return
+
+        levels = [level for level, _ in valid_points]
+        metrics = [float(metric) for _, metric in valid_points if metric is not None]
+        level_min = min(levels)
+        level_max = max(levels)
+        metric_min = min(metrics)
+        metric_max = max(metrics)
+        if level_min == level_max:
+            level_max += 1
+        if abs(metric_max - metric_min) < 0.01:
+            metric_max += 1.0
+
+        chart_rect = self.rect().adjusted(54, 34, -22, -44)
+        painter.setPen(QPen(QColor(THEME["border"]), 1))
+        for idx in range(5):
+            ratio = idx / 4
+            y = chart_rect.bottom() - ratio * chart_rect.height()
+            painter.drawLine(int(chart_rect.left()), int(y), int(chart_rect.right()), int(y))
+
+        painter.setPen(QColor(THEME["text_soft"]))
+        painter.drawText(QtCore.QRectF(chart_rect.left(), chart_rect.bottom() + 8, 80, 20), f"Lv {level_min}")
+        painter.drawText(
+            QtCore.QRectF(chart_rect.right() - 80, chart_rect.bottom() + 8, 80, 20),
+            QtCore.Qt.AlignmentFlag.AlignRight,
+            f"Lv {level_max}",
+        )
+        painter.drawText(
+            QtCore.QRectF(8, chart_rect.top() - 6, 42, 20),
+            QtCore.Qt.AlignmentFlag.AlignLeft,
+            f"{metric_max:.0f}",
+        )
+        painter.drawText(
+            QtCore.QRectF(8, chart_rect.bottom() - 10, 42, 20),
+            QtCore.Qt.AlignmentFlag.AlignLeft,
+            f"{metric_min:.0f}",
+        )
+        painter.drawText(
+            QtCore.QRectF(chart_rect.left(), 8, chart_rect.width(), 18),
+            QtCore.Qt.AlignmentFlag.AlignCenter,
+            self.metric_label,
+        )
+
+        legend_x = chart_rect.left()
+        legend_y = 12
+        for idx, line in enumerate(self.lines):
+            color = self.series_colors[idx % len(self.series_colors)]
+            painter.setPen(QPen(color, 2))
+            painter.drawLine(legend_x, legend_y, legend_x + 18, legend_y)
+            painter.setPen(QColor(THEME["text"]))
+            final_metric = "--" if line.end_metric is None else f"{line.end_metric:.2f}"
+            painter.drawText(
+                QtCore.QRectF(legend_x + 24, legend_y - 8, 220, 18),
+                f"{line.affinity} ({final_metric})",
+            )
+            legend_x += 232
+            if legend_x + 220 > chart_rect.right():
+                legend_x = chart_rect.left()
+                legend_y += 18
+
+        for idx, line in enumerate(self.lines):
+            color = self.series_colors[idx % len(self.series_colors)]
+            painter.setPen(QPen(color, 2.5))
+            path = QPainterPath()
+            started = False
+            plotted: list[QtCore.QPointF] = []
+            for point in line.points:
+                if point.metric is None:
+                    started = False
+                    continue
+                x_ratio = (point.level - level_min) / (level_max - level_min)
+                y_ratio = (point.metric - metric_min) / (metric_max - metric_min)
+                chart_point = QtCore.QPointF(
+                    chart_rect.left() + x_ratio * chart_rect.width(),
+                    chart_rect.bottom() - y_ratio * chart_rect.height(),
+                )
+                plotted.append(chart_point)
+                if not started:
+                    path.moveTo(chart_point)
+                    started = True
+                else:
+                    path.lineTo(chart_point)
+            painter.drawPath(path)
+            painter.setBrush(color)
+            for chart_point in plotted if len(plotted) <= 80 else plotted[:: max(1, len(plotted) // 28)]:
+                painter.drawEllipse(chart_point, 3.0, 3.0)
+
+
+class AffinityWatchDialog(QtWidgets.QDialog):
+    def __init__(
+        self,
+        parent: QtWidgets.QWidget,
+        weapon_name: str,
+        aow_name: str | None,
+        upgrade: int,
+        start_level: int,
+        levels_ahead: int,
+        metric_label: str,
+        lines: list[AffinityWatchLine],
+        breakpoints: list[AffinityBreakpoint],
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Affinity Watcher")
+        self.resize(1240, 820)
+
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        heading = QtWidgets.QLabel(
+            f"{weapon_name} | AoW {aow_name or '-'} | +{upgrade} | Current +{levels_ahead}"
+        )
+        heading.setProperty("role", "cardTitle")
+        layout.addWidget(heading)
+
+        subtitle = QtWidgets.QLabel(
+            "Each line keeps one affinity locked across the whole horizon while combat stats are re-optimized at every level."
+        )
+        subtitle.setProperty("role", "sectionHint")
+        subtitle.setWordWrap(True)
+        layout.addWidget(subtitle)
+        if len(lines) == 1:
+            single_line = QtWidgets.QLabel(
+                f"Only one legal affinity is available for this setup: {lines[0].affinity}."
+            )
+            single_line.setProperty("role", "summaryBody")
+            layout.addWidget(single_line)
+
+        chart = AffinityWatchChartWidget()
+        chart.set_payload(lines, metric_label)
+        layout.addWidget(chart)
+
+        summary_table = QtWidgets.QTableWidget(len(lines), 4)
+        summary_table.setHorizontalHeaderLabels(["Affinity", f"Lv {start_level}", f"Lv {start_level + levels_ahead}", "Final Stats"])
+        summary_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        summary_table.horizontalHeader().setStretchLastSection(True)
+        summary_table.verticalHeader().setVisible(False)
+        summary_table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        summary_table.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
+        summary_table.setAlternatingRowColors(True)
+        summary_table.setShowGrid(False)
+        for row_idx, line in enumerate(lines):
+            final_stats = "--"
+            if getattr(line, "final_build", None) is not None:
+                final_state = MainWindow._combat_state_from_row(line.final_build)
+                final_stats = final_state.summary()
+            values = [
+                line.affinity,
+                "--" if line.start_metric is None else f"{line.start_metric:.2f}",
+                "--" if line.end_metric is None else f"{line.end_metric:.2f}",
+                final_stats,
+            ]
+            for col_idx, value in enumerate(values):
+                summary_table.setItem(row_idx, col_idx, QtWidgets.QTableWidgetItem(value))
+        layout.addWidget(summary_table, 1)
+
+        breakpoint_box = QtWidgets.QGroupBox("CROSSOVERS")
+        breakpoint_layout = QtWidgets.QVBoxLayout(breakpoint_box)
+        if breakpoints:
+            breakpoint_table = QtWidgets.QTableWidget(len(breakpoints), 5)
+            breakpoint_table.setHorizontalHeaderLabels(["Level", "From", "To", "Old Metric", "New Metric"])
+            breakpoint_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+            breakpoint_table.horizontalHeader().setStretchLastSection(True)
+            breakpoint_table.verticalHeader().setVisible(False)
+            breakpoint_table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+            breakpoint_table.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
+            breakpoint_table.setAlternatingRowColors(True)
+            breakpoint_table.setShowGrid(False)
+            for row_idx, breakpoint in enumerate(breakpoints):
+                values = [
+                    str(breakpoint.level),
+                    breakpoint.outgoing_affinity,
+                    breakpoint.incoming_affinity,
+                    "--" if breakpoint.outgoing_metric is None else f"{breakpoint.outgoing_metric:.2f}",
+                    "--" if breakpoint.incoming_metric is None else f"{breakpoint.incoming_metric:.2f}",
+                ]
+                for col_idx, value in enumerate(values):
+                    breakpoint_table.setItem(row_idx, col_idx, QtWidgets.QTableWidgetItem(value))
+            breakpoint_layout.addWidget(breakpoint_table)
+        else:
+            label = QtWidgets.QLabel("No leadership changes within the selected horizon.")
+            label.setProperty("role", "summaryBody")
+            breakpoint_layout.addWidget(label)
+        layout.addWidget(breakpoint_box, 1)
+
+
 class OptimizeWorker(QtCore.QObject):
     progress = QtCore.pyqtSignal(int, object, object, object, float, object)
     finished = QtCore.pyqtSignal(int, object)
     failed = QtCore.pyqtSignal(int, str)
 
-    def __init__(self, run_id: int, data: Any, kwargs: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        run_id: int,
+        service: desktop_services.DesktopOptimizerService,
+        session: desktop_models.GlobalSession,
+    ) -> None:
         super().__init__()
         self.run_id = run_id
-        self.data = data
-        self.kwargs = kwargs
+        self.service = service
+        self.session = session
 
     @QtCore.pyqtSlot()
     def run(self) -> None:
         try:
-            results = core.optimize_builds(
-                data=self.data,
-                progress_cb=self._progress_cb,
-                **self.kwargs,
-            )
+            results = self.service.run_search(self.session, progress_cb=self._progress_cb)
             self.finished.emit(self.run_id, results)
         except Exception as exc:
             self.failed.emit(self.run_id, str(exc))
@@ -397,6 +827,41 @@ class OptimizeWorker(QtCore.QObject):
         )
 
 
+class AffinityWatchWorker(QtCore.QObject):
+    progress = QtCore.pyqtSignal(object, object, object, object)
+    finished = QtCore.pyqtSignal(object, object)
+    failed = QtCore.pyqtSignal(str)
+
+    def __init__(
+        self,
+        service: desktop_services.DesktopOptimizerService,
+        session: desktop_models.GlobalSession,
+        solved: desktop_models.SolvedBuild,
+        levels_ahead: int,
+    ) -> None:
+        super().__init__()
+        self.service = service
+        self.session = session
+        self.solved = solved
+        self.levels_ahead = levels_ahead
+
+    @QtCore.pyqtSlot()
+    def run(self) -> None:
+        try:
+            payload = self.service.build_affinity_watch(
+                self.session,
+                self.solved,
+                self.levels_ahead,
+                progress_cb=self._progress_cb,
+            )
+            self.finished.emit(list(payload.lines), list(payload.breakpoints))
+        except Exception as exc:
+            self.failed.emit(str(exc))
+
+    def _progress_cb(self, processed: int, total: int, affinity: str, level: int) -> None:
+        self.progress.emit(processed, total, affinity, level)
+
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -408,15 +873,20 @@ class MainWindow(QtWidgets.QMainWindow):
 
         data_path = repo_root() / "data" / "phase1"
         self.data = core.load_game_data(str(data_path))
+        self.desktop_service = desktop_services.DesktopOptimizerService(self.data)
         self.run_id = 0
         self.active_run_id: int | None = None
         self.worker_thread: QtCore.QThread | None = None
         self.worker: OptimizeWorker | None = None
+        self.affinity_watch_thread: QtCore.QThread | None = None
+        self.affinity_watch_worker: AffinityWatchWorker | None = None
+        self.affinity_watch_progress: QtWidgets.QProgressDialog | None = None
+        self.affinity_watch_context: dict[str, Any] | None = None
         self.current_results: list[Any] = []
         self.results_signature: tuple[Any, ...] | None = None
         self.active_request_signature: tuple[Any, ...] | None = None
         self.discard_active_results = False
-        self.locked_result_stats: dict[str, int] | None = None
+        self.locked_result_stats: desktop_models.LockedCombatStats | None = None
         self.all_weapon_names: list[str] = []
         self.all_affinities: list[str] = []
         self.stat_widgets: dict[str, QtWidgets.QSpinBox] = {}
@@ -424,16 +894,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.locked_ar_cache: dict[tuple[Any, ...], dict[int, float]] = {}
         self.path_eval_cache: dict[tuple[Any, ...], PathStep] = {}
         self.path_target_cache: dict[tuple[Any, ...], dict[str, Any] | None] = {}
+        self.affinity_watch_cache: dict[tuple[Any, ...], dict[str, Any] | None] = {}
         self.scaling_cache: dict[tuple[str, str], tuple[float, float, float, float, float]] = {}
         self.result_cards: list[dict[str, Any]] = []
-        self.active_compare_selected: dict[str, Any] | None = None
-        self.active_compare_target: dict[str, Any] | None = None
+        self.active_compare_selected: desktop_models.SolvedBuild | None = None
+        self.active_compare_target: desktop_models.SolvedBuild | None = None
+        self.selected_result_fingerprint: tuple[Any, ...] | None = None
+        self.session: desktop_models.GlobalSession | None = None
 
         self._build_ui()
         self._populate_static_lists()
         self._wire_events()
         self._refresh_affinity_options()
         self._refresh_compare_weapon_options()
+        self._sync_session_state()
         self._set_idle_progress()
 
     def _build_ui(self) -> None:
@@ -479,8 +953,10 @@ class MainWindow(QtWidgets.QMainWindow):
         right_layout.addWidget(self._build_hero_header(), 0)
         self.main_tabs = QtWidgets.QTabWidget()
         self.main_tabs.setDocumentMode(True)
-        self.main_tabs.addTab(self._build_results_group(), "RESULTS")
-        self.main_tabs.addTab(self._build_upgrade_group(), "UPGRADE COMPARISON")
+        self.main_tabs.addTab(self._build_results_group(), "RANKINGS")
+        self.main_tabs.addTab(self._build_upgrade_group(), "COMPARE")
+        self.main_tabs.addTab(self._build_paths_group(), "PATHS")
+        self.main_tabs.addTab(self._build_affinity_watch_group(), "AFFINITY WATCH")
         right_layout.addWidget(self.main_tabs, 1)
 
         splitter = QtWidgets.QSplitter()
@@ -829,7 +1305,7 @@ class MainWindow(QtWidgets.QMainWindow):
         return group
 
     def _build_upgrade_group(self) -> QtWidgets.QGroupBox:
-        group = QtWidgets.QGroupBox("UPGRADE COMPARISON")
+        group = QtWidgets.QGroupBox("COMPARE")
         group.setObjectName("UpgradeGroup")
         layout = QtWidgets.QVBoxLayout(group)
         layout.setSpacing(10)
@@ -867,8 +1343,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.level_path_button = QtWidgets.QPushButton("Path Graphs")
         self.level_path_button.setProperty("role", "inlineButton")
         self.level_path_button.setEnabled(False)
+        self.affinity_watch_button = QtWidgets.QPushButton("Affinity Watcher")
+        self.affinity_watch_button.setProperty("role", "inlineButton")
+        self.affinity_watch_button.setEnabled(False)
         path_toolbar.addWidget(self._field_stack("Current + N", self.level_path_horizon_spin), 0)
         path_toolbar.addWidget(self.level_path_button, 0)
+        path_toolbar.addWidget(self.affinity_watch_button, 0)
         path_toolbar.addStretch(1)
         layout.addLayout(path_toolbar)
 
@@ -884,6 +1364,66 @@ class MainWindow(QtWidgets.QMainWindow):
         self.upgrade_table.setAlternatingRowColors(True)
         self.upgrade_table.setShowGrid(False)
         layout.addWidget(self.upgrade_table)
+        return group
+
+    def _build_paths_group(self) -> QtWidgets.QGroupBox:
+        group = QtWidgets.QGroupBox("PATHS")
+        group.setObjectName("PathsGroup")
+        layout = QtWidgets.QVBoxLayout(group)
+        layout.setSpacing(10)
+        layout.addWidget(
+            self._helper_label(
+                "The path lane derives from the active selected build and compare target using the shared session horizon."
+            )
+        )
+
+        self.path_workspace_summary = QtWidgets.QLabel("No selected path lane yet.")
+        self.path_workspace_summary.setProperty("role", "summaryBody")
+        self.path_workspace_summary.setWordWrap(True)
+        layout.addWidget(self.path_workspace_summary)
+
+        self.path_workspace_detail = QtWidgets.QLabel(
+            "Pick a selected result and a comparison target to trace the exact Current + N stat route."
+        )
+        self.path_workspace_detail.setProperty("role", "statusLine")
+        self.path_workspace_detail.setWordWrap(True)
+        layout.addWidget(self.path_workspace_detail)
+
+        self.path_tab_open_button = QtWidgets.QPushButton("Open Path Graphs")
+        self.path_tab_open_button.setProperty("role", "inlineButton")
+        self.path_tab_open_button.setEnabled(False)
+        layout.addWidget(self.path_tab_open_button, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
+        layout.addStretch(1)
+        return group
+
+    def _build_affinity_watch_group(self) -> QtWidgets.QGroupBox:
+        group = QtWidgets.QGroupBox("AFFINITY WATCH")
+        group.setObjectName("AffinityWatchGroup")
+        layout = QtWidgets.QVBoxLayout(group)
+        layout.setSpacing(10)
+        layout.addWidget(
+            self._helper_label(
+                "Affinity Watch keeps the selected weapon lane fixed and shows which legal affinity leads across the shared horizon."
+            )
+        )
+
+        self.affinity_workspace_summary = QtWidgets.QLabel("No selected affinity lane yet.")
+        self.affinity_workspace_summary.setProperty("role", "summaryBody")
+        self.affinity_workspace_summary.setWordWrap(True)
+        layout.addWidget(self.affinity_workspace_summary)
+
+        self.affinity_workspace_detail = QtWidgets.QLabel(
+            "Pick a selected result row to compare legal affinities from Current to Current + N."
+        )
+        self.affinity_workspace_detail.setProperty("role", "statusLine")
+        self.affinity_workspace_detail.setWordWrap(True)
+        layout.addWidget(self.affinity_workspace_detail)
+
+        self.affinity_tab_open_button = QtWidgets.QPushButton("Open Affinity Watcher")
+        self.affinity_tab_open_button.setProperty("role", "inlineButton")
+        self.affinity_tab_open_button.setEnabled(False)
+        layout.addWidget(self.affinity_tab_open_button, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
+        layout.addStretch(1)
         return group
 
     def _build_result_card(self, card_idx: int) -> dict[str, Any]:
@@ -982,6 +1522,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.results_table.itemSelectionChanged.connect(self._rebuild_upgrade_table)
         self.results_table.itemSelectionChanged.connect(self._refresh_result_cards)
         self.level_path_button.clicked.connect(self._open_level_path_dialog)
+        self.affinity_watch_button.clicked.connect(self._open_affinity_watch_dialog)
+        self.path_tab_open_button.clicked.connect(self._open_level_path_dialog)
+        self.affinity_tab_open_button.clicked.connect(self._open_affinity_watch_dialog)
+        self.level_path_horizon_spin.valueChanged.connect(self._refresh_analysis_workspace_labels)
+        self.main_tabs.currentChanged.connect(lambda _index: self._sync_session_state())
         self.lock_stats_checkbox.stateChanged.connect(self._refresh_estimate)
         self.two_handing_check.stateChanged.connect(self._refresh_estimate)
         self.lock_upgrade_exact.stateChanged.connect(self._refresh_estimate)
@@ -1241,72 +1786,104 @@ class MainWindow(QtWidgets.QMainWindow):
         self.level_spin.setValue(level)
         self.level_spin.blockSignals(False)
 
-    def _build_request_kwargs(self, include_progress: bool) -> dict[str, Any]:
-        lock_stats = self.lock_stats_checkbox.isChecked() and self.locked_result_stats is not None
-        lock_values = (
-            self.locked_result_stats
-            if lock_stats and self.locked_result_stats is not None
-            else {}
-        )
+    def _active_workspace(self) -> desktop_models.WorkspaceTab:
+        match self.main_tabs.currentIndex():
+            case 1:
+                return "compare"
+            case 2:
+                return "paths"
+            case 3:
+                return "affinity_watch"
+            case _:
+                return "rankings"
+
+    def _resolved_compare_aow_state(self) -> tuple[str | None, bool]:
+        compare_aow_value = self._combo_value(self.compare_aow_combo)
+        if compare_aow_value == "__match_selected__":
+            return None, True
+        return compare_aow_value, False
+
+    def _current_build_session(self) -> desktop_models.BuildSession:
         self._sync_derived_level()
-        class_name = self._resolved_class_name()
-        class_base = CLASS_BASE_STATS[class_name]
+        return desktop_models.BuildSession(
+            class_name=self._resolved_class_name(),
+            vig=self.vig_spin.value(),
+            mnd=self.mnd_spin.value(),
+            end=self.end_spin.value(),
+            str_stat=self.str_spin.value(),
+            dex=self.dex_spin.value(),
+            int_stat=self.int_spin.value(),
+            fai=self.fai_spin.value(),
+            arc=self.arc_spin.value(),
+            min_str=self.min_str_spin.value(),
+            min_dex=self.min_dex_spin.value(),
+            min_int=self.min_int_spin.value(),
+            min_fai=self.min_fai_spin.value(),
+            min_arc=self.min_arc_spin.value(),
+            two_handing=self.two_handing_check.isChecked(),
+        )
 
-        fixed_upgrade = self.max_upgrade_spin.value() if self.lock_upgrade_exact.isChecked() else None
+    def _current_search_scope(self) -> desktop_models.SearchScope:
+        return desktop_models.SearchScope(
+            weapon_type_key=self._combo_value(self.weapon_type_combo),
+            weapon_name=self._combo_value(self.weapon_combo),
+            affinity=self._combo_value(self.affinity_combo),
+            aow_name=self._combo_value(self.aow_combo),
+            somber_filter=self.somber_combo.currentData(),
+            max_upgrade=self.max_upgrade_spin.value(),
+            exact_upgrade=self.lock_upgrade_exact.isChecked(),
+            top_k=self.top_k_spin.value(),
+        )
 
-        kwargs = {
-            "class_name": class_name,
-            "character_level": self._derived_level(),
-            "vig": self.vig_spin.value(),
-            "mnd": self.mnd_spin.value(),
-            "end": self.end_spin.value(),
-            # Combat stats are redistributed from class/min floors at this level budget.
-            "str_stat": int(class_base["str"]),
-            "dex": int(class_base["dex"]),
-            "int_stat": int(class_base["int"]),
-            "fai": int(class_base["fai"]),
-            "arc": int(class_base["arc"]),
-            "max_upgrade": self.max_upgrade_spin.value(),
-            "fixed_upgrade": fixed_upgrade,
-            "two_handing": self.two_handing_check.isChecked(),
-            "weapon_name": self._combo_value(self.weapon_combo),
-            "affinity": self._combo_value(self.affinity_combo),
-            "aow_name": self._combo_value(self.aow_combo),
-            "objective": self.objective_combo.currentData(),
-            "top_k": self.top_k_spin.value(),
-            "weapon_type_key": self._combo_value(self.weapon_type_combo),
-            "somber_filter": self.somber_combo.currentData(),
-            "min_str": self.min_str_spin.value(),
-            "min_dex": self.min_dex_spin.value(),
-            "min_int": self.min_int_spin.value(),
-            "min_fai": self.min_fai_spin.value(),
-            "min_arc": self.min_arc_spin.value(),
-            "lock_str": lock_values.get("str"),
-            "lock_dex": lock_values.get("dex"),
-            "lock_int": lock_values.get("int"),
-            "lock_fai": lock_values.get("fai"),
-            "lock_arc": lock_values.get("arc"),
-        }
-        if include_progress:
-            kwargs["progress_every"] = 5000
-        return kwargs
+    def _current_analysis_state(self) -> desktop_models.AnalysisState:
+        compare_aow_name, compare_match_selected_aow = self._resolved_compare_aow_state()
+        return desktop_models.AnalysisState(
+            selected_fingerprint=self.selected_result_fingerprint,
+            compare_weapon_type_key=self._combo_value(self.compare_weapon_type_combo),
+            compare_weapon_name=self._combo_value(self.compare_weapon_combo),
+            compare_affinity=self._combo_value(self.compare_affinity_combo),
+            compare_aow_name=compare_aow_name,
+            compare_match_selected_aow=compare_match_selected_aow,
+            levels_ahead=self.level_path_horizon_spin.value(),
+            active_workspace=self._active_workspace(),
+        )
+
+    def _current_session(self) -> desktop_models.GlobalSession:
+        return desktop_models.GlobalSession(
+            build=self._current_build_session(),
+            scope=self._current_search_scope(),
+            objective_id=self.objective_combo.currentData(),
+            locked_combat_stats=self.locked_result_stats,
+            use_locked_stats=self.lock_stats_checkbox.isChecked(),
+            analysis=self._current_analysis_state(),
+        )
+
+    def _sync_session_state(self) -> None:
+        self.session = self._current_session()
+
+    def _build_request_kwargs(self, include_progress: bool) -> dict[str, Any]:
+        self._sync_session_state()
+        return self.desktop_service.build_optimize_request(
+            self.session,
+            include_progress=include_progress,
+        )
 
     def _refresh_estimate(self) -> None:
+        self._sync_derived_level()
+        self._sync_session_state()
         self.best_row_cache.clear()
         self.locked_ar_cache.clear()
         self.path_eval_cache.clear()
         self.path_target_cache.clear()
-        self._sync_derived_level()
+        self.affinity_watch_cache.clear()
+        self.desktop_service.clear_caches()
         request_signature = self._search_request_signature()
         if self.results_signature is not None and request_signature != self.results_signature:
             self._clear_results_state()
         if self.active_run_id is not None:
             self.discard_active_results = request_signature != self.active_request_signature
         try:
-            kwargs = self._build_request_kwargs(include_progress=False)
-            estimate = core.estimate_search_space(
-                data=self.data, **self._estimate_kwargs(kwargs)
-            )
+            estimate = self.desktop_service.estimate_search_space(self.session)
             self.estimate_label.setText(
                 f"Search Space: {estimate.combinations:,} "
                 f"({estimate.weapon_candidates} weapons x {estimate.stat_candidates:,} stat states)"
@@ -1314,11 +1891,13 @@ class MainWindow(QtWidgets.QMainWindow):
             self.free_points_label.setText(self._compute_free_points_text())
             self._update_requirement_highlights()
             self._refresh_hero_summary()
+            self._refresh_analysis_workspace_labels()
         except Exception as exc:
             self.estimate_label.setText(f"Search Space: invalid ({exc})")
             self.free_points_label.setText("Redistributable Combat Points: invalid")
             self._update_requirement_highlights()
             self._refresh_hero_summary()
+            self._refresh_analysis_workspace_labels()
 
     def _compute_free_points_text(self) -> str:
         snapshot = self._budget_snapshot()
@@ -1328,26 +1907,8 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
     def _budget_snapshot(self) -> dict[str, int]:
-        class_name = self._resolved_class_name()
-        base_level, base_total = CLASS_BASE_LEVEL_TOTAL[class_name]
-        base_stats = CLASS_BASE_STATS[class_name]
-        level = self._derived_level()
-        total = base_total + (level - base_level)
-        floor_sum = (
-            self.vig_spin.value()
-            + self.mnd_spin.value()
-            + self.end_spin.value()
-            + max(int(base_stats["str"]), self.min_str_spin.value())
-            + max(int(base_stats["dex"]), self.min_dex_spin.value())
-            + max(int(base_stats["int"]), self.min_int_spin.value())
-            + max(int(base_stats["fai"]), self.min_fai_spin.value())
-            + max(int(base_stats["arc"]), self.min_arc_spin.value())
-        )
-        return {
-            "level": level,
-            "total": total,
-            "redistributable": total - floor_sum,
-        }
+        self._sync_session_state()
+        return self.session.build.budget_snapshot()
 
     def _refresh_hero_summary(self) -> None:
         snapshot = self._budget_snapshot()
@@ -1432,47 +1993,24 @@ class MainWindow(QtWidgets.QMainWindow):
         self._restyle_widget(label)
 
     def _search_request_signature(self) -> tuple[Any, ...]:
-        lock_stats = self.lock_stats_checkbox.isChecked() and self.locked_result_stats is not None
-        lock_values = self.locked_result_stats if lock_stats and self.locked_result_stats is not None else {}
-        return (
-            self._resolved_class_name(),
-            self._derived_level(),
-            self.vig_spin.value(),
-            self.mnd_spin.value(),
-            self.end_spin.value(),
-            self.max_upgrade_spin.value(),
-            self.lock_upgrade_exact.isChecked(),
-            self.two_handing_check.isChecked(),
-            self._combo_value(self.weapon_combo),
-            self._combo_value(self.affinity_combo),
-            self._combo_value(self.aow_combo),
-            self.objective_combo.currentData(),
-            self.top_k_spin.value(),
-            self._combo_value(self.weapon_type_combo),
-            self.somber_combo.currentData(),
-            self.min_str_spin.value(),
-            self.min_dex_spin.value(),
-            self.min_int_spin.value(),
-            self.min_fai_spin.value(),
-            self.min_arc_spin.value(),
-            lock_values.get("str"),
-            lock_values.get("dex"),
-            lock_values.get("int"),
-            lock_values.get("fai"),
-            lock_values.get("arc"),
-        )
+        self._sync_session_state()
+        return self.desktop_service.search_request_signature(self.session)
 
     def _clear_results_state(self) -> None:
         self.current_results = []
         self.results_signature = None
         self.active_compare_selected = None
         self.active_compare_target = None
+        self.selected_result_fingerprint = None
         self.results_table.clearContents()
         self.results_table.setRowCount(0)
         self.upgrade_table.clearContents()
         self.upgrade_table.setRowCount(0)
         self.upgrade_table.setColumnCount(0)
         self.level_path_button.setEnabled(False)
+        self.affinity_watch_button.setEnabled(False)
+        self.path_tab_open_button.setEnabled(False)
+        self.affinity_tab_open_button.setEnabled(False)
         self._refresh_result_cards()
         self._refresh_compare_summary(None, None, None)
 
@@ -1486,10 +2024,8 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         try:
-            kwargs = self._build_request_kwargs(include_progress=True)
-            estimate = core.estimate_search_space(
-                data=self.data, **self._estimate_kwargs(kwargs)
-            )
+            self._sync_session_state()
+            estimate = self.desktop_service.estimate_search_space(self.session)
             total = int(estimate.combinations)
             if total <= 0:
                 self._set_idle_progress("No valid search space for current constraints.")
@@ -1511,7 +2047,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self._refresh_hero_summary()
 
         self.worker_thread = QtCore.QThread(self)
-        self.worker = OptimizeWorker(run_id=run_id, data=self.data, kwargs=kwargs)
+        self.worker = OptimizeWorker(
+            run_id=run_id,
+            service=self.desktop_service,
+            session=self.session,
+        )
         self.worker.moveToThread(self.worker_thread)
         self.worker_thread.started.connect(self.worker.run)
         self.worker.progress.connect(self._on_progress)
@@ -1561,7 +2101,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._set_idle_progress("Inputs changed during search. Rerun search.")
             return
         self.active_run_id = None
-        self.current_results = list(results)
+        self.current_results = [self.desktop_service.normalize_result(result) for result in results]
         self.results_signature = self.active_request_signature
         self.active_request_signature = None
         self.discard_active_results = False
@@ -1618,7 +2158,14 @@ class MainWindow(QtWidgets.QMainWindow):
             self.results_table.setCellWidget(row_idx, 16, lock_button)
 
         if self.current_results:
-            self.results_table.selectRow(0)
+            selected_idx = 0
+            if self.selected_result_fingerprint is not None:
+                for idx, result in enumerate(self.current_results):
+                    if result.fingerprint == self.selected_result_fingerprint:
+                        selected_idx = idx
+                        break
+            self.results_table.selectRow(selected_idx)
+            self.selected_result_fingerprint = self.current_results[selected_idx].fingerprint
         self._refresh_result_cards()
         self._refresh_hero_summary()
 
@@ -1634,6 +2181,8 @@ class MainWindow(QtWidgets.QMainWindow):
         idx = selected[0].row()
         if idx >= len(self.current_results):
             return None
+        self.selected_result_fingerprint = self.current_results[idx].fingerprint
+        self._sync_session_state()
         return idx
 
     def _refresh_result_cards(self) -> None:
@@ -1681,13 +2230,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.max_upgrade_spin.setValue(result.upgrade)
         self.lock_upgrade_exact.setChecked(True)
-        self.locked_result_stats = {
-            "str": int(result.str_stat),
-            "dex": int(result.dex),
-            "int": int(result.int_stat),
-            "fai": int(result.fai),
-            "arc": int(result.arc),
-        }
+        self.locked_result_stats = desktop_models.LockedCombatStats(
+            str_stat=int(result.str_stat),
+            dex=int(result.dex),
+            int_stat=int(result.int_stat),
+            fai=int(result.fai),
+            arc=int(result.arc),
+        )
         self._refresh_estimate()
         self._start_search()
 
@@ -1698,6 +2247,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.active_compare_selected = None
             self.active_compare_target = None
             self.level_path_button.setEnabled(False)
+            self.affinity_watch_button.setEnabled(False)
             self._refresh_compare_summary(None, None, None)
             return
 
@@ -1724,12 +2274,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         rows_to_render: list[tuple[str, Any]] = [
             (
-                f"Selected: {selected_best['weapon_name']} | {selected_best['affinity']} | "
-                f"AoW {selected_best['aow_name'] or '-'} | {self._format_best_stats(selected_best)}",
+                f"Selected: {selected_best.weapon_name} | {selected_best.affinity} | "
+                f"AoW {selected_best.aow_name or '-'} | {self._format_best_stats(selected_best)}",
                 selected_best,
             )
         ]
-        compare_summary_row: dict[str, Any] | None = None
+        compare_summary_row: desktop_models.SolvedBuild | None = None
 
         if compare_weapon is None:
             for row_idx in range(0, min(4, len(self.current_results))):
@@ -1743,8 +2293,8 @@ class MainWindow(QtWidgets.QMainWindow):
                     compare_summary_row = row_best
                 rows_to_render.append(
                     (
-                        f"Top #{row_idx + 1}: {row_best['weapon_name']} | {row_best['affinity']} | "
-                        f"AoW {row_best['aow_name'] or '-'} | {self._format_best_stats(row_best)}",
+                        f"Top #{row_idx + 1}: {row_best.weapon_name} | {row_best.affinity} | "
+                        f"AoW {row_best.aow_name or '-'} | {self._format_best_stats(row_best)}",
                         row_best,
                     )
                 )
@@ -1757,7 +2307,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     self._set_combo_by_data(self.compare_affinity_combo, compare_affinity)
             compare_aow_value = self._combo_value(self.compare_aow_combo)
             if compare_aow_value == "__match_selected__":
-                compare_aow = selected_best["aow_name"]
+                compare_aow = selected_best.aow_name
             else:
                 compare_aow = compare_aow_value
             if compare_affinity is not None:
@@ -1768,8 +2318,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 )
                 if compare_best is not None:
                     compare_label = (
-                        f"Compare: {compare_best['weapon_name']} | {compare_best['affinity']} | "
-                        f"AoW {compare_best['aow_name'] or '-'} | {self._format_best_stats(compare_best)}"
+                        f"Compare: {compare_best.weapon_name} | {compare_best.affinity} | "
+                        f"AoW {compare_best.aow_name or '-'} | {self._format_best_stats(compare_best)}"
                     )
                 else:
                     compare_label = (
@@ -1798,75 +2348,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.active_compare_selected = selected_best
         self.active_compare_target = compare_summary_row
         self.level_path_button.setEnabled(selected_best is not None and compare_summary_row is not None)
+        self.affinity_watch_button.setEnabled(selected_best is not None)
         self._refresh_compare_summary(selected_best, compare_summary_row, compare_weapon)
 
     def _locked_metric_series_for_config(
         self,
-        row_data: Any,
+        row_data: desktop_models.SolvedBuild | None,
         max_upgrade: int,
     ) -> dict[int, float]:
         if row_data is None:
             return {}
-
-        weapon_name = row_data["weapon_name"]
-        affinity = row_data["affinity"]
-        aow_name = row_data["aow_name"]
-        lock_str = row_data["str_stat"]
-        lock_dex = row_data["dex"]
-        lock_int = row_data["int_stat"]
-        lock_fai = row_data["fai"]
-        lock_arc = row_data["arc"]
-
-        cache_key = (
-            self._optimizer_context_key(),
-            weapon_name.casefold(),
-            affinity.casefold(),
-            (aow_name or "").casefold(),
-            int(lock_str),
-            int(lock_dex),
-            int(lock_int),
-            int(lock_fai),
-            int(lock_arc),
-            int(max_upgrade),
-        )
-        cached = self.locked_ar_cache.get(cache_key)
-        if cached is not None:
-            return cached
-
-        kwargs = self._build_request_kwargs(include_progress=False)
-        kwargs.update(
-            {
-                "weapon_name": weapon_name,
-                "affinity": affinity,
-                "aow_name": aow_name,
-                "objective": self.objective_combo.currentData(),
-                "top_k": max_upgrade + 1,
-                "fixed_upgrade": None,
-                "max_upgrade": max_upgrade,
-                "somber_filter": "all",
-                "weapon_type_key": None,
-                "min_str": 0,
-                "min_dex": 0,
-                "min_int": 0,
-                "min_fai": 0,
-                "min_arc": 0,
-                "lock_str": lock_str,
-                "lock_dex": lock_dex,
-                "lock_int": lock_int,
-                "lock_fai": lock_fai,
-                "lock_arc": lock_arc,
-            }
-        )
-        try:
-            rows = core.optimize_builds(data=self.data, **kwargs)
-        except Exception:
-            return {}
-
-        series: dict[int, float] = {}
-        for row in rows:
-            series[int(row.upgrade)] = self._result_series_value(row)
-        self.locked_ar_cache[cache_key] = series
-        return series
+        self._sync_session_state()
+        return self.desktop_service.build_upgrade_series(self.session, row_data, max_upgrade)
 
     def _result_series_value(self, row: Any) -> float:
         objective = self.objective_combo.currentData()
@@ -1881,88 +2374,47 @@ class MainWindow(QtWidgets.QMainWindow):
         weapon_name: str,
         affinity: str,
         aow_name: Any,
-    ) -> dict[str, Any] | None:
-        cache_key = (
-            self._optimizer_context_key(),
-            weapon_name.casefold(),
-            affinity.casefold(),
-            (aow_name or "").casefold(),
-        )
-        if cache_key in self.best_row_cache:
-            return self.best_row_cache[cache_key]
-
-        kwargs = self._build_request_kwargs(include_progress=False)
-        kwargs.update(
-            {
-                "weapon_name": weapon_name,
-                "affinity": affinity,
-                "aow_name": aow_name,
-                "top_k": 1,
-                "weapon_type_key": None,
-                "somber_filter": "all",
-                "lock_str": None,
-                "lock_dex": None,
-                "lock_int": None,
-                "lock_fai": None,
-                "lock_arc": None,
-            }
-        )
-        try:
-            rows = core.optimize_builds(data=self.data, **kwargs)
-        except Exception:
-            self.best_row_cache[cache_key] = None
-            return None
-        if not rows:
-            self.best_row_cache[cache_key] = None
-            return None
-        best = self._row_config_from_result(rows[0])
-        self.best_row_cache[cache_key] = best
-        return best
+    ) -> desktop_models.SolvedBuild | None:
+        self._sync_session_state()
+        return self.desktop_service.solve_build(self.session, weapon_name, affinity, aow_name)
 
     def _optimizer_context_key(self) -> tuple[Any, ...]:
-        return (
-            self._resolved_class_name(),
-            self._derived_level(),
-            self.vig_spin.value(),
-            self.mnd_spin.value(),
-            self.end_spin.value(),
-            self.two_handing_check.isChecked(),
-            self.objective_combo.currentData(),
-            self.min_str_spin.value(),
-            self.min_dex_spin.value(),
-            self.min_int_spin.value(),
-            self.min_fai_spin.value(),
-            self.min_arc_spin.value(),
-        )
+        self._sync_session_state()
+        return self.desktop_service.optimizer_context_key(self.session)
 
-    def _row_config_from_result(self, result: Any) -> dict[str, Any]:
-        return {
-            "weapon_name": result.weapon_name,
-            "affinity": result.affinity,
-            "aow_name": result.aow_name,
-            "str_stat": int(result.str_stat),
-            "dex": int(result.dex),
-            "int_stat": int(result.int_stat),
-            "fai": int(result.fai),
-            "arc": int(result.arc),
-            "best_upgrade": int(result.upgrade),
-            "best_ar_total": float(result.ar_total),
-            "score": float(result.score),
-            "bleed_buildup": float(result.bleed_buildup),
-            "bleed_buildup_add": float(result.bleed_buildup_add),
-            "frost_buildup": float(result.frost_buildup),
-            "poison_buildup": float(result.poison_buildup),
-            "aow_first_hit_damage": float(result.aow_first_hit_damage),
-            "aow_full_sequence_damage": float(result.aow_full_sequence_damage),
-        }
+    def _row_config_from_result(self, result: Any) -> desktop_models.SolvedBuild:
+        if isinstance(result, desktop_models.SolvedBuild):
+            return result
+        if isinstance(result, dict):
+            return desktop_models.SolvedBuild(
+                weapon_id=int(result.get("weapon_id", 0)),
+                weapon_name=str(result["weapon_name"]),
+                affinity=str(result["affinity"]),
+                aow_name=result.get("aow_name"),
+                upgrade=int(result.get("best_upgrade", result.get("upgrade", 0))),
+                str_stat=int(result["str_stat"]),
+                dex=int(result["dex"]),
+                int_stat=int(result["int_stat"]),
+                fai=int(result["fai"]),
+                arc=int(result["arc"]),
+                ar_total=float(result.get("best_ar_total", result.get("ar_total", 0.0))),
+                score=float(result.get("score", 0.0)),
+                bleed_buildup=float(result.get("bleed_buildup", 0.0)),
+                bleed_buildup_add=float(result.get("bleed_buildup_add", 0.0)),
+                frost_buildup=float(result.get("frost_buildup", 0.0)),
+                poison_buildup=float(result.get("poison_buildup", 0.0)),
+                aow_first_hit_damage=float(result.get("aow_first_hit_damage", 0.0)),
+                aow_full_sequence_damage=float(result.get("aow_full_sequence_damage", 0.0)),
+            )
+        return self.desktop_service.normalize_result(result)
 
-    def _format_best_stats(self, row_data: dict[str, Any]) -> str:
+    def _format_best_stats(self, row_data: desktop_models.SolvedBuild) -> str:
         return (
-            f"Best +{row_data['best_upgrade']} "
-            f"STR {row_data['str_stat']} DEX {row_data['dex']} "
-            f"INT {row_data['int_stat']} FAI {row_data['fai']} ARC {row_data['arc']} "
-            f"AR {row_data['best_ar_total']:.2f} BLEED {row_data['bleed_buildup']:.2f} "
-            f"1ST {row_data['aow_first_hit_damage']:.2f} FULL {row_data['aow_full_sequence_damage']:.2f}"
+            f"Best +{row_data.upgrade} "
+            f"STR {row_data.str_stat} DEX {row_data.dex} "
+            f"INT {row_data.int_stat} FAI {row_data.fai} ARC {row_data.arc} "
+            f"AR {row_data.ar_total:.2f} BLEED {row_data.bleed_buildup:.2f} "
+            f"1ST {row_data.aow_first_hit_damage:.2f} FULL {row_data.aow_full_sequence_damage:.2f}"
         )
 
     def _result_metrics_text(self, result: Any) -> str:
@@ -2039,15 +2491,196 @@ class MainWindow(QtWidgets.QMainWindow):
             configs.append(self._path_config_from_row("Compare", self.active_compare_target))
         return configs
 
+    def _objective_metric_label(self) -> str:
+        objective = self.objective_combo.currentData()
+        if objective == "aow_first_hit":
+            return "AoW First Hit (PvE)"
+        if objective == "aow_full_sequence":
+            return "AoW Full Sequence (PvE)"
+        if objective == "max_ar_plus_bleed":
+            return "AR + Bleed"
+        return "AR"
+
+    def _affinity_watch_affinities(
+        self,
+        weapon_name: str,
+        aow_name: str | None,
+        preferred_affinity: str | None,
+    ) -> list[str]:
+        solved = desktop_models.SolvedBuild(
+            weapon_id=0,
+            weapon_name=weapon_name,
+            affinity=preferred_affinity or "Standard",
+            aow_name=aow_name,
+            upgrade=self.max_upgrade_spin.value(),
+            str_stat=0,
+            dex=0,
+            int_stat=0,
+            fai=0,
+            arc=0,
+            ar_total=0.0,
+            score=0.0,
+            bleed_buildup=0.0,
+            bleed_buildup_add=0.0,
+            frost_buildup=0.0,
+            poison_buildup=0.0,
+            aow_first_hit_damage=0.0,
+            aow_full_sequence_damage=0.0,
+        )
+        return self.desktop_service.affinity_watch_affinities(solved)
+
+    def _build_affinity_watch_data(
+        self,
+        row_data: desktop_models.SolvedBuild | dict[str, Any],
+        levels_ahead: int,
+    ) -> tuple[list[AffinityWatchLine], list[AffinityBreakpoint]]:
+        row = self._row_config_from_result(row_data)
+        self._sync_session_state()
+        payload = self.desktop_service.build_affinity_watch(self.session, row, levels_ahead)
+        return list(payload.lines), list(payload.breakpoints)
+
+    def _open_affinity_watch_dialog(self) -> None:
+        if self.active_compare_selected is None:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Affinity Watcher",
+                "Pick a result row first.",
+            )
+            return
+        if self.affinity_watch_thread is not None:
+            return
+
+        requested_horizon = self.level_path_horizon_spin.value()
+        levels_ahead = min(requested_horizon, self._remaining_path_levels())
+        if levels_ahead <= 0:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Affinity Watcher",
+                "Combat stats are already capped. There is no forward horizon to inspect.",
+            )
+            return
+
+        row_data = self.active_compare_selected
+        weapon_name = row_data.weapon_name
+        affinities = self._affinity_watch_affinities(
+            weapon_name,
+            row_data.aow_name,
+            row_data.affinity,
+        )
+        if not affinities:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Affinity Watcher",
+                "No legal affinities are available for the selected weapon setup.",
+            )
+            return
+
+        levels = [self._derived_level() + offset for offset in range(0, levels_ahead + 1)]
+        self._sync_session_state()
+        self.affinity_watch_context = {
+            "weapon_name": weapon_name,
+            "aow_name": row_data.aow_name,
+            "upgrade": int(row_data.upgrade),
+            "start_level": self._derived_level(),
+            "levels_ahead": levels_ahead,
+            "metric_label": self._objective_metric_label(),
+            "selected_affinity": row_data.affinity,
+        }
+
+        self.affinity_watch_progress = QtWidgets.QProgressDialog(
+            "Tracing affinity crossover lines...",
+            "",
+            0,
+            len(affinities) * len(levels),
+            self,
+        )
+        self.affinity_watch_progress.setWindowTitle("Affinity Watcher")
+        self.affinity_watch_progress.setCancelButton(None)
+        self.affinity_watch_progress.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
+        self.affinity_watch_progress.setMinimumDuration(0)
+        self.affinity_watch_progress.setValue(0)
+        self.affinity_watch_progress.show()
+
+        self.affinity_watch_thread = QtCore.QThread(self)
+        self.affinity_watch_worker = AffinityWatchWorker(
+            service=self.desktop_service,
+            session=self._current_session(),
+            solved=row_data,
+            levels_ahead=levels_ahead,
+        )
+        self.affinity_watch_worker.moveToThread(self.affinity_watch_thread)
+        self.affinity_watch_thread.started.connect(self.affinity_watch_worker.run)
+        self.affinity_watch_worker.progress.connect(self._on_affinity_watch_progress)
+        self.affinity_watch_worker.finished.connect(self._on_affinity_watch_finished)
+        self.affinity_watch_worker.failed.connect(self._on_affinity_watch_failed)
+        self.affinity_watch_worker.finished.connect(self._teardown_affinity_watch_worker)
+        self.affinity_watch_worker.failed.connect(self._teardown_affinity_watch_worker)
+        self.affinity_watch_thread.start()
+
+    @QtCore.pyqtSlot(object, object, object, object)
+    def _on_affinity_watch_progress(
+        self,
+        processed: object,
+        total: object,
+        affinity: object,
+        level: object,
+    ) -> None:
+        if self.affinity_watch_progress is None:
+            return
+        current = int(processed)
+        maximum = int(total)
+        self.affinity_watch_progress.setMaximum(max(maximum, 1))
+        self.affinity_watch_progress.setValue(min(current, max(maximum, 1)))
+        self.affinity_watch_progress.setLabelText(
+            f"Tracing {affinity} at level {int(level)} ({current:,}/{maximum:,})..."
+        )
+        QtWidgets.QApplication.processEvents()
+
+    @QtCore.pyqtSlot(object, object)
+    def _on_affinity_watch_finished(self, lines: object, breakpoints: object) -> None:
+        context = self.affinity_watch_context
+        if self.affinity_watch_progress is not None:
+            self.affinity_watch_progress.close()
+            self.affinity_watch_progress = None
+        if context is None:
+            return
+        typed_lines = list(lines)
+        typed_breakpoints = list(breakpoints)
+        dialog = AffinityWatchDialog(
+            self,
+            context["weapon_name"],
+            context["aow_name"],
+            int(context["upgrade"]),
+            int(context["start_level"]),
+            int(context["levels_ahead"]),
+            str(context["metric_label"]),
+            typed_lines,
+            typed_breakpoints,
+        )
+        dialog.exec()
+
+    @QtCore.pyqtSlot(str)
+    def _on_affinity_watch_failed(self, message: str) -> None:
+        if self.affinity_watch_progress is not None:
+            self.affinity_watch_progress.close()
+            self.affinity_watch_progress = None
+        QtWidgets.QMessageBox.warning(self, "Affinity Watcher", f"Failed to build watcher: {message}")
+
+    @QtCore.pyqtSlot()
+    def _teardown_affinity_watch_worker(self) -> None:
+        if self.affinity_watch_thread is not None:
+            self.affinity_watch_thread.quit()
+            self.affinity_watch_thread.wait(1000)
+        self.affinity_watch_worker = None
+        self.affinity_watch_thread = None
+        self.affinity_watch_context = None
+
     @staticmethod
-    def _path_config_from_row(title: str, row_data: dict[str, Any]) -> PathWeaponConfig:
-        return PathWeaponConfig(
+    def _path_config_from_row(title: str, row_data: desktop_models.SolvedBuild) -> PathWeaponConfig:
+        return desktop_models.PathWeaponConfig(
             title=title,
-            weapon_name=str(row_data["weapon_name"]),
-            affinity=str(row_data["affinity"]),
-            aow_name=row_data["aow_name"],
-            upgrade=int(row_data["best_upgrade"]),
-            start_state=MainWindow._combat_state_from_row(row_data),
+            solved=row_data,
+            start_state=row_data.combat_state,
         )
 
     def _open_level_path_dialog(self) -> None:
@@ -2098,11 +2731,17 @@ class MainWindow(QtWidgets.QMainWindow):
             progress.setMaximum(total_steps)
 
         for config in configs:
-            preview, processed = self._build_level_path_for_config(config, levels_ahead, progress, progress_value)
-            if preview is None:
+            if progress is not None and progress.wasCanceled():
                 return None
+            preview = self.desktop_service.build_path_preview(
+                self._current_session(),
+                config.solved,
+                levels_ahead,
+                config.title,
+            )
             previews.append(preview)
-            progress_value += processed
+            progress_value += levels_ahead + 1
+            self._update_path_progress(progress, progress_value, config.title, self._derived_level() + levels_ahead)
         if progress is not None:
             progress.setValue(total_steps)
         return previews
@@ -2215,68 +2854,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self,
         config: PathWeaponConfig,
         levels_ahead: int,
-    ) -> dict[str, Any] | None:
-        current_state = config.start_state
-        floor_mins = self._path_floor_mins(current_state)
-        target_level = self._derived_level() + levels_ahead
-        cache_key = (
-            self._resolved_class_name(),
-            target_level,
-            self.vig_spin.value(),
-            self.mnd_spin.value(),
-            self.end_spin.value(),
-            self.two_handing_check.isChecked(),
-            self.objective_combo.currentData(),
-            config.weapon_name.casefold(),
-            config.affinity.casefold(),
-            (config.aow_name or "").casefold(),
-            config.upgrade,
-            floor_mins,
-        )
-        if cache_key in self.path_target_cache:
-            return self.path_target_cache[cache_key]
-
-        class_base = CLASS_BASE_STATS[self._resolved_class_name()]
-        kwargs = {
-            "class_name": self._resolved_class_name(),
-            "character_level": target_level,
-            "vig": self.vig_spin.value(),
-            "mnd": self.mnd_spin.value(),
-            "end": self.end_spin.value(),
-            "str_stat": int(class_base["str"]),
-            "dex": int(class_base["dex"]),
-            "int_stat": int(class_base["int"]),
-            "fai": int(class_base["fai"]),
-            "arc": int(class_base["arc"]),
-            "max_upgrade": config.upgrade,
-            "fixed_upgrade": config.upgrade,
-            "two_handing": self.two_handing_check.isChecked(),
-            "weapon_name": config.weapon_name,
-            "affinity": config.affinity,
-            "aow_name": config.aow_name,
-            "objective": self.objective_combo.currentData(),
-            "top_k": 1,
-            "weapon_type_key": None,
-            "somber_filter": "all",
-            "min_str": floor_mins[0],
-            "min_dex": floor_mins[1],
-            "min_int": floor_mins[2],
-            "min_fai": floor_mins[3],
-            "min_arc": floor_mins[4],
-            "lock_str": None,
-            "lock_dex": None,
-            "lock_int": None,
-            "lock_fai": None,
-            "lock_arc": None,
-        }
-        try:
-            rows = core.optimize_builds(data=self.data, **kwargs)
-        except Exception:
-            rows = []
-
-        target_row = self._row_config_from_result(rows[0]) if rows else None
-        self.path_target_cache[cache_key] = target_row
-        return target_row
+    ) -> desktop_models.SolvedBuild | None:
+        return self.desktop_service._path_target_build(self._current_session(), config, levels_ahead)
 
     def _path_floor_mins(self, current_state: CombatState) -> tuple[int, int, int, int, int]:
         return (
@@ -2288,14 +2867,8 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
     @staticmethod
-    def _combat_state_from_row(row_data: dict[str, Any]) -> CombatState:
-        return CombatState(
-            str_stat=int(row_data["str_stat"]),
-            dex=int(row_data["dex"]),
-            int_stat=int(row_data["int_stat"]),
-            fai=int(row_data["fai"]),
-            arc=int(row_data["arc"]),
-        )
+    def _combat_state_from_row(row_data: desktop_models.SolvedBuild) -> CombatState:
+        return row_data.combat_state
 
     def _evaluate_path_step(
         self,
@@ -2304,95 +2877,12 @@ class MainWindow(QtWidgets.QMainWindow):
         state: CombatState,
         added_stat: str | None,
     ) -> PathStep:
-        cache_key = (
-            self._resolved_class_name(),
+        return self.desktop_service._evaluate_path_step(
+            self._current_session(),
+            config,
             level,
-            self.vig_spin.value(),
-            self.mnd_spin.value(),
-            self.end_spin.value(),
-            self.two_handing_check.isChecked(),
-            self.objective_combo.currentData(),
-            config.weapon_name.casefold(),
-            config.affinity.casefold(),
-            (config.aow_name or "").casefold(),
-            config.upgrade,
-            state.str_stat,
-            state.dex,
-            state.int_stat,
-            state.fai,
-            state.arc,
-        )
-        cached = self.path_eval_cache.get(cache_key)
-        if cached is not None:
-            return PathStep(
-                level=cached.level,
-                stats=cached.stats,
-                ar=cached.ar,
-                score=cached.score,
-                added_stat=added_stat,
-                requirement_gap=cached.requirement_gap,
-            )
-
-        class_base = CLASS_BASE_STATS[self._resolved_class_name()]
-        kwargs = {
-            "class_name": self._resolved_class_name(),
-            "character_level": level,
-            "vig": self.vig_spin.value(),
-            "mnd": self.mnd_spin.value(),
-            "end": self.end_spin.value(),
-            "str_stat": int(class_base["str"]),
-            "dex": int(class_base["dex"]),
-            "int_stat": int(class_base["int"]),
-            "fai": int(class_base["fai"]),
-            "arc": int(class_base["arc"]),
-            "max_upgrade": config.upgrade,
-            "fixed_upgrade": config.upgrade,
-            "two_handing": self.two_handing_check.isChecked(),
-            "weapon_name": config.weapon_name,
-            "affinity": config.affinity,
-            "aow_name": config.aow_name,
-            "objective": self.objective_combo.currentData(),
-            "top_k": 1,
-            "weapon_type_key": None,
-            "somber_filter": "all",
-            "min_str": 0,
-            "min_dex": 0,
-            "min_int": 0,
-            "min_fai": 0,
-            "min_arc": 0,
-            "lock_str": state.str_stat,
-            "lock_dex": state.dex,
-            "lock_int": state.int_stat,
-            "lock_fai": state.fai,
-            "lock_arc": state.arc,
-        }
-
-        ar: float | None = None
-        score: float | None = None
-        try:
-            rows = core.optimize_builds(data=self.data, **kwargs)
-        except Exception:
-            rows = []
-        if rows:
-            ar = self._result_series_value(rows[0])
-            score = float(rows[0].score)
-
-        step = PathStep(
-            level=level,
-            stats=state,
-            ar=ar,
-            score=score,
-            added_stat=None,
-            requirement_gap=self._requirement_gap_for_state(config, state) if ar is None else 0,
-        )
-        self.path_eval_cache[cache_key] = step
-        return PathStep(
-            level=step.level,
-            stats=step.stats,
-            ar=step.ar,
-            score=step.score,
-            added_stat=added_stat,
-            requirement_gap=step.requirement_gap,
+            state,
+            added_stat,
         )
 
     def _requirement_gap_for_state(
@@ -2421,8 +2911,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _refresh_compare_summary(
         self,
-        selected_best: dict[str, Any] | None,
-        compare_best: dict[str, Any] | None,
+        selected_best: desktop_models.SolvedBuild | None,
+        compare_best: desktop_models.SolvedBuild | None,
         compare_weapon: str | None,
     ) -> None:
         self._set_compare_panel(
@@ -2443,12 +2933,66 @@ class MainWindow(QtWidgets.QMainWindow):
             compare_best,
             fallback,
         )
+        self._refresh_path_workspace(selected_best, compare_best)
+        self._refresh_affinity_workspace(selected_best)
+
+    def _refresh_path_workspace(
+        self,
+        selected_best: desktop_models.SolvedBuild | None,
+        compare_best: desktop_models.SolvedBuild | None,
+    ) -> None:
+        if selected_best is None:
+            self.path_workspace_summary.setText("No selected path lane yet.")
+            self.path_workspace_detail.setText(
+                "Run a search and pick a selected result before opening path analysis."
+            )
+            self.path_tab_open_button.setEnabled(False)
+            return
+        self.path_workspace_summary.setText(
+            f"Selected: {selected_best.weapon_name} | {selected_best.affinity} | "
+            f"AoW {selected_best.aow_name or '-'} | +{selected_best.upgrade}"
+        )
+        if compare_best is None:
+            self.path_workspace_detail.setText(
+                "Pick a comparison target to trace both optimized Current + N routes."
+            )
+            self.path_tab_open_button.setEnabled(False)
+            return
+        self.path_workspace_detail.setText(
+            f"Compare: {compare_best.weapon_name} | {compare_best.affinity} | "
+            f"AoW {compare_best.aow_name or '-'} | Horizon +{self.level_path_horizon_spin.value()}"
+        )
+        self.path_tab_open_button.setEnabled(True)
+
+    def _refresh_affinity_workspace(
+        self,
+        selected_best: desktop_models.SolvedBuild | None,
+    ) -> None:
+        if selected_best is None:
+            self.affinity_workspace_summary.setText("No selected affinity lane yet.")
+            self.affinity_workspace_detail.setText(
+                "Run a search and pick a selected result row to analyze legal affinity crossovers."
+            )
+            self.affinity_tab_open_button.setEnabled(False)
+            return
+        legal_affinities = self.desktop_service.affinity_watch_affinities(selected_best)
+        self.affinity_workspace_summary.setText(
+            f"{selected_best.weapon_name} | AoW {selected_best.aow_name or '-'} | +{selected_best.upgrade}"
+        )
+        self.affinity_workspace_detail.setText(
+            f"{len(legal_affinities)} legal affinities across Current +{self.level_path_horizon_spin.value()}."
+        )
+        self.affinity_tab_open_button.setEnabled(True)
+
+    def _refresh_analysis_workspace_labels(self) -> None:
+        self._refresh_path_workspace(self.active_compare_selected, self.active_compare_target)
+        self._refresh_affinity_workspace(self.active_compare_selected)
 
     def _set_compare_panel(
         self,
         panel: dict[str, Any],
         heading: str,
-        row_data: dict[str, Any] | None,
+        row_data: desktop_models.SolvedBuild | None,
         fallback: str,
     ) -> None:
         panel["heading"].setText(heading.upper())
@@ -2458,16 +3002,16 @@ class MainWindow(QtWidgets.QMainWindow):
             panel["stats"].setText("STR --  DEX --  INT --  FAI --  ARC --")
             panel["metrics"].setText("Best +--   AR --   Bleed --   1st --   Full --")
             return
-        panel["title"].setText(f"{row_data['weapon_name']} | {row_data['affinity']}")
-        panel["body"].setText(f"AoW {row_data['aow_name'] or '-'}")
+        panel["title"].setText(f"{row_data.weapon_name} | {row_data.affinity}")
+        panel["body"].setText(f"AoW {row_data.aow_name or '-'}")
         panel["stats"].setText(
-            f"STR {row_data['str_stat']}  DEX {row_data['dex']}  INT {row_data['int_stat']}  "
-            f"FAI {row_data['fai']}  ARC {row_data['arc']}"
+            f"STR {row_data.str_stat}  DEX {row_data.dex}  INT {row_data.int_stat}  "
+            f"FAI {row_data.fai}  ARC {row_data.arc}"
         )
         panel["metrics"].setText(
-            f"Best +{row_data['best_upgrade']}   AR {row_data['best_ar_total']:.2f}   "
-            f"Bleed {row_data['bleed_buildup']:.2f}   "
-            f"1st {row_data['aow_first_hit_damage']:.2f}   Full {row_data['aow_full_sequence_damage']:.2f}"
+            f"Best +{row_data.upgrade}   AR {row_data.ar_total:.2f}   "
+            f"Bleed {row_data.bleed_buildup:.2f}   "
+            f"1st {row_data.aow_first_hit_damage:.2f}   Full {row_data.aow_full_sequence_damage:.2f}"
         )
 
     def _update_requirement_highlights(self) -> None:

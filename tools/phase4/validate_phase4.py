@@ -470,6 +470,13 @@ def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
     window = app_module.MainWindow()
     try:
         app_module.apply_dark_theme(app)
+        if window.main_tabs.count() != 4:
+            issues.append(ValidationIssue("error", "main workspace should expose 4 tabs"))
+        else:
+            if window.main_tabs.tabText(2) != "PATHS":
+                issues.append(ValidationIssue("error", "third main tab should be PATHS"))
+            if window.main_tabs.tabText(3) != "AFFINITY WATCH":
+                issues.append(ValidationIssue("error", "fourth main tab should be AFFINITY WATCH"))
         window._set_combo_by_data(window.class_combo, "Samurai")
         window._on_class_changed()
         window.vig_spin.setValue(40)
@@ -556,6 +563,15 @@ def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
         window._set_combo_by_data(window.compare_affinity_combo, "Occult")
         window._refresh_compare_aow_options()
         window._refresh_estimate()
+        session = window._current_session()
+        request = window.desktop_service.build_optimize_request(session)
+        if request != window._build_request_kwargs(include_progress=False):
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "service build_optimize_request no longer matches the app request builder",
+                )
+            )
 
         selected = window._best_row_config("Uchigatana", "Blood", "Seppuku")
         compare = window._best_row_config("Uchigatana", "Occult", "Seppuku")
@@ -695,6 +711,163 @@ def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
                     "Sword Lance Magic still wastes points in zero-scaling FAI/ARC",
                 )
             )
+
+        watcher_row = {
+            "weapon_name": "Claymore",
+            "affinity": "Fire",
+            "aow_name": "Lion's Claw",
+            "best_upgrade": 25,
+            "str_stat": 20,
+            "dex": 20,
+            "int_stat": 9,
+            "fai": 8,
+            "arc": 8,
+            "best_ar_total": 0.0,
+            "score": 0.0,
+            "bleed_buildup": 0.0,
+            "bleed_buildup_add": 0.0,
+            "frost_buildup": 0.0,
+            "poison_buildup": 0.0,
+            "aow_first_hit_damage": 0.0,
+            "aow_full_sequence_damage": 0.0,
+        }
+        window.str_spin.setValue(20)
+        window.dex_spin.setValue(20)
+        window.int_spin.setValue(9)
+        window.fai_spin.setValue(8)
+        window.arc_spin.setValue(8)
+        window._set_combo_by_data(window.objective_combo, "max_ar")
+        window._refresh_estimate()
+        affinity_lines_first, affinity_breaks_first = window._build_affinity_watch_data(watcher_row, 4)
+        affinity_lines_second, affinity_breaks_second = window._build_affinity_watch_data(watcher_row, 4)
+        if len(affinity_lines_first) < 2:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "affinity watcher did not produce multiple legal affinity lines",
+                )
+            )
+        if _affinity_watch_signature(affinity_lines_first) != _affinity_watch_signature(affinity_lines_second):
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "affinity watcher lines are not stable across repeated runs",
+                )
+            )
+        if _breakpoint_signature(affinity_breaks_first) != _breakpoint_signature(affinity_breaks_second):
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "affinity watcher breakpoints are not stable across repeated runs",
+                )
+            )
+
+        invalid_row = dict(watcher_row)
+        invalid_row["affinity"] = "Invalid Affinity"
+        invalid_lines, _ = window._build_affinity_watch_data(invalid_row, 2)
+        if not invalid_lines:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "affinity watcher failed to skip an invalid preferred affinity cleanly",
+                )
+            )
+
+        window._set_combo_by_data(window.objective_combo, "aow_full_sequence")
+        window._refresh_estimate()
+        affinity_lines_aow, _ = window._build_affinity_watch_data(watcher_row, 4)
+        if len(affinity_lines_aow) < 2:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "affinity watcher AoW objective did not produce multiple legal affinity lines",
+                )
+            )
+        max_ar_end = {
+            line.affinity: line.end_metric
+            for line in affinity_lines_first
+        }
+        aow_end = {
+            line.affinity: line.end_metric
+            for line in affinity_lines_aow
+        }
+        shared_affinities = sorted(set(max_ar_end).intersection(aow_end))
+        if not shared_affinities:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "affinity watcher objective comparison had no shared affinities",
+                )
+            )
+        elif all(
+            math.isclose(float(max_ar_end[affinity] or 0.0), float(aow_end[affinity] or 0.0), rel_tol=1e-9, abs_tol=1e-9)
+            for affinity in shared_affinities
+        ):
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "affinity watcher objective change did not affect any affinity metric",
+                )
+            )
+
+        synthetic_lines = [
+            app_module.desktop_models.AffinityWatchLine(
+                affinity="Keen",
+                points=(
+                    app_module.desktop_models.AffinityWatchPoint(10, 100.0, _synthetic_build(app_module, "Keen", 100.0, 10)),
+                    app_module.desktop_models.AffinityWatchPoint(11, 100.0, _synthetic_build(app_module, "Keen", 100.0, 11)),
+                    app_module.desktop_models.AffinityWatchPoint(12, 101.0, _synthetic_build(app_module, "Keen", 101.0, 12)),
+                ),
+                start_metric=100.0,
+                end_metric=101.0,
+                final_build=_synthetic_build(app_module, "Keen", 101.0, 12),
+            ),
+            app_module.desktop_models.AffinityWatchLine(
+                affinity="Heavy",
+                points=(
+                    app_module.desktop_models.AffinityWatchPoint(10, 99.0, _synthetic_build(app_module, "Heavy", 99.0, 10)),
+                    app_module.desktop_models.AffinityWatchPoint(11, 103.0, _synthetic_build(app_module, "Heavy", 103.0, 11)),
+                    app_module.desktop_models.AffinityWatchPoint(12, 104.0, _synthetic_build(app_module, "Heavy", 104.0, 12)),
+                ),
+                start_metric=99.0,
+                end_metric=104.0,
+                final_build=_synthetic_build(app_module, "Heavy", 104.0, 12),
+            ),
+            app_module.desktop_models.AffinityWatchLine(
+                affinity="Magic",
+                points=(
+                    app_module.desktop_models.AffinityWatchPoint(10, None, None),
+                    app_module.desktop_models.AffinityWatchPoint(11, 103.0, _synthetic_build(app_module, "Magic", 103.0, 11, weapon_id=999)),
+                    app_module.desktop_models.AffinityWatchPoint(12, None, None),
+                ),
+                start_metric=None,
+                end_metric=103.0,
+                final_build=_synthetic_build(app_module, "Magic", 103.0, 11, weapon_id=999),
+            ),
+        ]
+        synthetic_breaks = window.desktop_service.detect_affinity_breakpoints(synthetic_lines, [10, 11, 12])
+        if _breakpoint_signature(synthetic_breaks) != [(11, "Keen", "Heavy")]:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "affinity watcher breakpoint detection regressed for leader changes, ties, or missing rows",
+                )
+            )
+        if len(window.current_results) >= 2:
+            target_fingerprint = window.current_results[1].fingerprint
+            window.results_table.selectRow(1)
+            window._selected_result_index()
+            window._start_search()
+            while window.active_run_id is not None:
+                QtWidgets.QApplication.processEvents()
+            selected_idx = window._selected_result_index()
+            if selected_idx is None or window.current_results[selected_idx].fingerprint != target_fingerprint:
+                issues.append(
+                    ValidationIssue(
+                        "error",
+                        "selected solved build was not preserved across a compatible rerun",
+                    )
+                )
     finally:
         window.close()
         if created_app:
@@ -723,6 +896,55 @@ def _path_signature(previews: list[object]) -> list[tuple[str, tuple[tuple[objec
             )
         )
     return signatures
+
+
+def _affinity_watch_signature(
+    lines: list[object],
+) -> list[tuple[str, tuple[tuple[int, float | None, str | None], ...]]]:
+    return [
+        (
+            line.affinity,
+            tuple(
+                (
+                    point.level,
+                    None if point.metric is None else round(float(point.metric), 6),
+                    None if point.solved is None else point.solved.affinity,
+                )
+                for point in line.points
+            ),
+        )
+        for line in lines
+    ]
+
+
+def _breakpoint_signature(breakpoints: list[object]) -> list[tuple[int, str, str]]:
+    return [
+        (int(breakpoint.level), str(breakpoint.outgoing_affinity), str(breakpoint.incoming_affinity))
+        for breakpoint in breakpoints
+    ]
+
+
+def _synthetic_build(app_module, affinity: str, score: float, upgrade: int, weapon_id: int = 1):
+    return app_module.desktop_models.SolvedBuild(
+        weapon_id=weapon_id,
+        weapon_name="Synthetic",
+        affinity=affinity,
+        aow_name=None,
+        upgrade=upgrade,
+        str_stat=10,
+        dex=10,
+        int_stat=10,
+        fai=10,
+        arc=10,
+        ar_total=score,
+        score=score,
+        bleed_buildup=0.0,
+        bleed_buildup_add=0.0,
+        frost_buildup=0.0,
+        poison_buildup=0.0,
+        aow_first_hit_damage=score,
+        aow_full_sequence_damage=score,
+    )
 
 
 def main() -> int:

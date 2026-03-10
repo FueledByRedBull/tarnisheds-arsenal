@@ -45,6 +45,12 @@ def main() -> int:
         raise AssertionError("expected three result cards")
     if window.compare_summary_container is None:
         raise AssertionError("expected comparison summary container")
+    if window.main_tabs.count() != 4:
+        raise AssertionError("expected rankings, compare, paths, and affinity watch tabs")
+    if window.main_tabs.tabText(2) != "PATHS":
+        raise AssertionError("expected dedicated paths tab")
+    if window.main_tabs.tabText(3) != "AFFINITY WATCH":
+        raise AssertionError("expected dedicated affinity watch tab")
 
     # Requirement highlighting check
     window._set_combo_by_data(window.class_combo, "Wretch")
@@ -109,6 +115,16 @@ def main() -> int:
         raise AssertionError("expected comparison target summary to populate")
     if not window.level_path_button.isEnabled():
         raise AssertionError("expected path graph button to enable for a valid comparison")
+    if not window.affinity_watch_button.isEnabled():
+        raise AssertionError("expected affinity watcher button to enable for a selected result")
+    if not window.path_tab_open_button.isEnabled():
+        raise AssertionError("expected paths tab action to enable for a valid comparison")
+    if not window.affinity_tab_open_button.isEnabled():
+        raise AssertionError("expected affinity watch tab action to enable for a selected result")
+    if "Selected:" not in window.path_workspace_summary.text():
+        raise AssertionError("expected paths tab summary to reflect the selected lane")
+    if "legal affinities" not in window.affinity_workspace_detail.text():
+        raise AssertionError("expected affinity watch tab detail to reflect derived affinity state")
     previews = window._build_level_path_previews(3)
     if previews is None or len(previews) != 2:
         raise AssertionError("expected two level-path previews")
@@ -133,6 +149,68 @@ def main() -> int:
     dialog.show()
     QtWidgets.QApplication.processEvents()
     dialog.close()
+
+    watcher_row = {
+        "weapon_name": "Claymore",
+        "affinity": "Fire",
+        "aow_name": "Lion's Claw",
+        "best_upgrade": 25,
+        "str_stat": 20,
+        "dex": 20,
+        "int_stat": 9,
+        "fai": 8,
+        "arc": 8,
+        "best_ar_total": 0.0,
+        "score": 0.0,
+        "bleed_buildup": 0.0,
+        "bleed_buildup_add": 0.0,
+        "frost_buildup": 0.0,
+        "poison_buildup": 0.0,
+        "aow_first_hit_damage": 0.0,
+        "aow_full_sequence_damage": 0.0,
+    }
+    window.str_spin.setValue(20)
+    window.dex_spin.setValue(20)
+    window.int_spin.setValue(9)
+    window.fai_spin.setValue(8)
+    window.arc_spin.setValue(8)
+    window.objective_combo.setCurrentIndex(window.objective_combo.findData("max_ar"))
+    window._refresh_estimate()
+    watcher_lines, watcher_breaks = window._build_affinity_watch_data(watcher_row, 3)
+    if len(watcher_lines) < 2:
+        raise AssertionError("expected multiple affinity watcher lines")
+    if not any(point.metric is not None for line in watcher_lines for point in line.points):
+        raise AssertionError("expected populated affinity watcher metrics")
+    watcher_dialog = app_module.AffinityWatchDialog(
+        window,
+        watcher_row["weapon_name"],
+        watcher_row["aow_name"],
+        watcher_row["best_upgrade"],
+        window._derived_level(),
+        3,
+        window._objective_metric_label(),
+        watcher_lines,
+        watcher_breaks,
+    )
+    watcher_dialog.show()
+    QtWidgets.QApplication.processEvents()
+    watcher_dialog.close()
+    window.objective_combo.setCurrentIndex(window.objective_combo.findData("aow_full_sequence"))
+    window._refresh_estimate()
+    watcher_lines_aow, _ = window._build_affinity_watch_data(watcher_row, 3)
+    if len(watcher_lines_aow) < 2:
+        raise AssertionError("expected affinity watcher AoW lines")
+    shared_affinities = sorted({line.affinity for line in watcher_lines}.intersection(line.affinity for line in watcher_lines_aow))
+    if not shared_affinities:
+        raise AssertionError("expected shared affinities across watcher objectives")
+    if all(
+        abs(
+            next(line.end_metric for line in watcher_lines if line.affinity == affinity)
+            - next(line.end_metric for line in watcher_lines_aow if line.affinity == affinity)
+        ) < 1e-9
+        for affinity in shared_affinities
+    ):
+        raise AssertionError("expected objective change to alter affinity watcher metrics")
 
     # AoW damage objective smoke
     window._set_combo_by_data(window.weapon_combo, "Sword Lance")
