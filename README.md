@@ -3,8 +3,6 @@
 [![CI](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/ci.yml/badge.svg)](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/ci.yml)
 [![Release Package](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/release-package.yml/badge.svg)](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/release-package.yml)
 
-![Tarnished's Arsenal overview](docs/images/war-room-overview.svg)
-
 Stop checking one weapon at a time.
 
 `Tarnished's Arsenal` is a session-driven Elden Ring desktop optimizer. You give it a real class, real stat budget, real floors, real weapon constraints, and it brute-forces the search space across:
