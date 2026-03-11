@@ -89,6 +89,7 @@ pub struct Weapon {
     pub attack_element_correct_id: usize,
     pub damage_curve_ids: [usize; DAMAGE_TYPE_COUNT],
     pub is_somber: bool,
+    pub disable_two_hand_bonus: bool,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -115,6 +116,7 @@ pub struct Aow {
     pub bleed_buildup_add: f32,
     pub frost_buildup_add: f32,
     pub poison_buildup_add: f32,
+    pub scarlet_rot_buildup_add: f32,
     pub valid_weapon_types: String,
 }
 
@@ -171,6 +173,7 @@ pub struct StatusBuildup {
     pub bleed: f32,
     pub frost: f32,
     pub poison: f32,
+    pub scarlet_rot: f32,
     pub sleep: f32,
     pub madness: f32,
     pub death: f32,
@@ -185,6 +188,7 @@ impl StatusBuildup {
             bleed: self.bleed + aow.bleed_buildup_add,
             frost: self.frost + aow.frost_buildup_add,
             poison: self.poison + aow.poison_buildup_add,
+            scarlet_rot: self.scarlet_rot + aow.scarlet_rot_buildup_add,
             sleep: self.sleep,
             madness: self.madness,
             death: self.death,

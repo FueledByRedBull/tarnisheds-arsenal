@@ -268,6 +268,7 @@ class SolvedBuild:
     bleed_buildup_add: float
     frost_buildup: float
     poison_buildup: float
+    scarlet_rot_buildup: float
     aow_first_hit_damage: float
     aow_full_sequence_damage: float
 
@@ -339,6 +340,7 @@ class SolvedBuild:
             "bleed_buildup_add": self.bleed_buildup_add,
             "frost_buildup": self.frost_buildup,
             "poison_buildup": self.poison_buildup,
+            "scarlet_rot_buildup": self.scarlet_rot_buildup,
             "aow_first_hit_damage": self.aow_first_hit_damage,
             "aow_full_sequence_damage": self.aow_full_sequence_damage,
         }

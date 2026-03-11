@@ -426,6 +426,9 @@ def main() -> None:
     project_root = Path(__file__).resolve().parents[2]
     build_aow_attack_data(project_root)
     build_attack_element_correct_ext(project_root)
+    from derive_weapon_rules import build_weapon_rules
+
+    build_weapon_rules(project_root)
 
 
 if __name__ == '__main__':

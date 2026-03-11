@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::math::{
-    calculate_aow_damage, calculate_ar, class_by_name, compute_free_points, effective_str,
+    calculate_aow_damage, calculate_ar, calculate_status_buildup, class_by_name, compute_free_points, effective_str,
     meets_requirements,
 };
 use crate::model::{
@@ -60,6 +60,7 @@ pub struct OptimizeResult {
     pub bleed_buildup_add: f32,
     pub frost_buildup: f32,
     pub poison_buildup: f32,
+    pub scarlet_rot_buildup: f32,
     pub aow_first_hit_damage: f32,
     pub aow_full_sequence_damage: f32,
     pub score: f32,
@@ -187,7 +188,11 @@ where
                 stats.fai = combat[STAT_FAI];
                 stats.arc = combat[STAT_ARC];
 
-                let effective_str_value = effective_str(stats.str, request.two_handing);
+                let effective_str_value = effective_str(
+                    stats.str,
+                    request.two_handing,
+                    prepared.weapon.disable_two_hand_bonus,
+                );
                 if combat_has_wasted_points(request, prepared.weapon, data, combat) {
                     let previous_checked = checked;
                     checked = checked.saturating_add(prepared.upgrades_len as u64);
@@ -221,9 +226,13 @@ where
                     eligible += 1;
                     let ar =
                         calculate_ar(prepared.weapon, *upgrade, &stats, effective_str_value, data)?;
-                    let status_buildup = data
-                        .weapon_passive(prepared.weapon.weapon_id)
-                        .with_aow_additions(aow_choice.aow);
+                    let status_buildup = calculate_status_buildup(
+                        prepared.weapon,
+                        *upgrade,
+                        &stats,
+                        data,
+                    )?
+                    .with_aow_additions(aow_choice.aow);
                     let (aow_first_hit_damage, aow_full_sequence_damage) = if aow_choice.attack_rows.is_empty()
                     {
                         (0.0, 0.0)
@@ -267,6 +276,7 @@ where
                                 .unwrap_or(0.0),
                             frost_buildup: status_buildup.frost,
                             poison_buildup: status_buildup.poison,
+                            scarlet_rot_buildup: status_buildup.scarlet_rot,
                             aow_first_hit_damage,
                             aow_full_sequence_damage,
                             score,
@@ -636,19 +646,23 @@ fn minimum_useful_stat(request: &OptimizeRequest, weapon: &Weapon, stat_idx: usi
     let floor = current.max(request.min_combat_stats[stat_idx]);
     let locked = request.locked_combat_stats[stat_idx].unwrap_or(0);
     let required = if stat_idx == STAT_STR {
-        minimum_str_for_requirement(weapon.requirements[STAT_STR], request.two_handing)
+        minimum_str_for_requirement(
+            weapon.requirements[STAT_STR],
+            request.two_handing,
+            weapon.disable_two_hand_bonus,
+        )
     } else {
         weapon.requirements[stat_idx]
     };
     floor.max(locked).max(required)
 }
 
-fn minimum_str_for_requirement(requirement: u8, two_handing: bool) -> u8 {
-    if !two_handing {
+fn minimum_str_for_requirement(requirement: u8, two_handing: bool, disable_two_hand_bonus: bool) -> u8 {
+    if !two_handing || disable_two_hand_bonus {
         return requirement;
     }
     for candidate in 0..=requirement {
-        if effective_str(candidate, true) >= requirement {
+        if effective_str(candidate, true, false) >= requirement {
             return candidate;
         }
     }
@@ -926,6 +940,68 @@ mod tests {
         request.affinity = Some("Cold".to_string());
         request.aow_name = Some("Seppuku".to_string());
         request.objective = OptimizeObjective::MaxArPlusBleed;
+
+        let results = optimize(&request, &game_data).expect("optimizer failed");
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn paired_weapon_two_handing_does_not_inflate_ar() {
+        let game_data = load_data();
+        let mut one_hand = base_request();
+        one_hand.class_name = "Wretch".to_string();
+        one_hand.character_level = 64;
+        one_hand.current_stats = Stats {
+            vig: 10,
+            mnd: 10,
+            end: 10,
+            str: 68,
+            dex: 15,
+            int: 10,
+            fai: 10,
+            arc: 10,
+        };
+        one_hand.weapon_name = Some("Iron Ball".to_string());
+        one_hand.affinity = Some("Heavy".to_string());
+        one_hand.aow_name = None;
+        one_hand.max_upgrade = 25;
+        one_hand.fixed_upgrade = Some(25);
+        one_hand.locked_combat_stats = [Some(68), Some(15), Some(10), Some(10), Some(10)];
+        one_hand.two_handing = false;
+
+        let mut two_hand = one_hand.clone();
+        two_hand.two_handing = true;
+
+        let one_hand_results = optimize(&one_hand, &game_data).expect("optimizer failed");
+        let two_hand_results = optimize(&two_hand, &game_data).expect("optimizer failed");
+        assert!(!one_hand_results.is_empty());
+        assert!(!two_hand_results.is_empty());
+        assert!((one_hand_results[0].ar.total() - two_hand_results[0].ar.total()).abs() < 0.001);
+    }
+
+    #[test]
+    fn paired_weapon_two_handing_does_not_reduce_requirements() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.class_name = "Wretch".to_string();
+        request.weapon_name = Some("Starscourge Greatsword".to_string());
+        request.affinity = Some("Standard".to_string());
+        request.aow_name = None;
+        request.character_level = 24;
+        request.current_stats = Stats {
+            vig: 10,
+            mnd: 10,
+            end: 10,
+            str: 26,
+            dex: 12,
+            int: 15,
+            fai: 10,
+            arc: 10,
+        };
+        request.max_upgrade = 10;
+        request.fixed_upgrade = Some(10);
+        request.locked_combat_stats = [Some(26), Some(12), Some(15), Some(10), Some(10)];
+        request.two_handing = true;
 
         let results = optimize(&request, &game_data).expect("optimizer failed");
         assert!(results.is_empty());

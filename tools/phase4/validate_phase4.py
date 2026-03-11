@@ -54,6 +54,7 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
     attack_element_correct_ext = read_csv(data_dir / "attack_element_correct_ext.csv")
     weapon_passives = read_csv(data_dir / "weapon_passives.csv")
     aow_weapon_compat = read_csv(data_dir / "aow_weapon_compat.csv")
+    weapon_rules = read_csv(data_dir / "weapon_rules.csv")
 
     if len(weapons) < 3000:
         issues.append(ValidationIssue("error", f"weapons.csv row count too low: {len(weapons)}"))
@@ -96,11 +97,40 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
                 ),
             )
         )
+    required_passive_columns = {
+        "weapon_id",
+        "name",
+        "affinity",
+        "effect_ids",
+        "bleed",
+        "frost",
+        "poison",
+        "scarlet_rot",
+        "sleep",
+        "madness",
+        "death",
+    }
+    if weapon_passives:
+        missing_columns = sorted(required_passive_columns.difference(weapon_passives[0].keys()))
+        if missing_columns:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    f"weapon_passives.csv is missing columns: {', '.join(missing_columns)}",
+                )
+            )
     if len(aow_weapon_compat) < 40000:
         issues.append(
             ValidationIssue(
                 "error",
                 f"aow_weapon_compat.csv row count too low: {len(aow_weapon_compat)}",
+            )
+        )
+    if len(weapon_rules) < 30:
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"weapon_rules.csv row count too low: {len(weapon_rules)}",
             )
         )
 
@@ -135,6 +165,26 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
 
     if zero_base_count != 0:
         issues.append(ValidationIssue("error", f"weapons with zero base damage: {zero_base_count}"))
+
+    antspur_standard = next(
+        (row for row in weapon_passives if row["name"] == "Antspur Rapier" and row["affinity"] == "Standard"),
+        None,
+    )
+    if antspur_standard is None:
+        issues.append(ValidationIssue("error", "Antspur Rapier Standard missing from weapon_passives.csv"))
+    else:
+        poison = float(antspur_standard["poison"])
+        scarlet_rot = float(antspur_standard.get("scarlet_rot", "0") or 0.0)
+        if poison != 0.0 or scarlet_rot <= 0.0:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    (
+                        "Antspur Rapier Standard passive split is wrong: "
+                        f"poison={poison} scarlet_rot={scarlet_rot}"
+                    ),
+                )
+            )
 
     special_non_upgrade_types = {3000}
     for reinforce_type, weapon_ids in sorted(used_types.items()):
@@ -229,6 +279,17 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
                 "Carian Retaliation should expose both parry and bullet rows in coverage",
             )
         )
+
+    weapon_rule_by_name = {row["weapon_name"]: row for row in weapon_rules}
+    for weapon_name in ("Iron Ball", "Starscourge Greatsword", "Rellana's Twin Blades"):
+        row = weapon_rule_by_name.get(weapon_name)
+        if row is None or row["disable_two_hand_bonus"] != "1":
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    f"{weapon_name} should disable the two-hand strength bonus",
+                )
+            )
 
     return issues
 
@@ -441,6 +502,179 @@ def validate_runtime_ar(data_dir: Path) -> list[ValidationIssue]:
                 ValidationIssue(
                     "error",
                     "runtime AoW full-sequence damage is below first-hit damage",
+                )
+            )
+
+    iron_ball_one_hand = core.optimize_builds(
+        data=data,
+        class_name="Wretch",
+        character_level=64,
+        vig=10,
+        mnd=10,
+        end=10,
+        str_stat=68,
+        dex=15,
+        int_stat=10,
+        fai=10,
+        arc=10,
+        max_upgrade=25,
+        fixed_upgrade=25,
+        weapon_name="Iron Ball",
+        affinity="Heavy",
+        objective="max_ar",
+        top_k=1,
+        lock_str=68,
+        lock_dex=15,
+        lock_int=10,
+        lock_fai=10,
+        lock_arc=10,
+        min_str=0,
+        min_dex=0,
+        min_int=0,
+        min_fai=0,
+        min_arc=0,
+        two_handing=False,
+        somber_filter="all",
+        weapon_type_key=None,
+    )
+    iron_ball_two_hand = core.optimize_builds(
+        data=data,
+        class_name="Wretch",
+        character_level=64,
+        vig=10,
+        mnd=10,
+        end=10,
+        str_stat=68,
+        dex=15,
+        int_stat=10,
+        fai=10,
+        arc=10,
+        max_upgrade=25,
+        fixed_upgrade=25,
+        weapon_name="Iron Ball",
+        affinity="Heavy",
+        objective="max_ar",
+        top_k=1,
+        lock_str=68,
+        lock_dex=15,
+        lock_int=10,
+        lock_fai=10,
+        lock_arc=10,
+        min_str=0,
+        min_dex=0,
+        min_int=0,
+        min_fai=0,
+        min_arc=0,
+        two_handing=True,
+        somber_filter="all",
+        weapon_type_key=None,
+    )
+    if not iron_ball_one_hand or not iron_ball_two_hand:
+        issues.append(ValidationIssue("error", "runtime Iron Ball case returned no rows"))
+    else:
+        one_hand = float(iron_ball_one_hand[0].ar_total)
+        two_hand = float(iron_ball_two_hand[0].ar_total)
+        if abs(one_hand - 469.17657) > 0.05:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    f"Iron Ball 1H AR drifted: {one_hand}",
+                )
+            )
+        if abs(two_hand - one_hand) > 0.01:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    f"Iron Ball incorrectly gains two-hand AR: 1H={one_hand} 2H={two_hand}",
+                )
+            )
+
+    star_fist_blood = core.optimize_builds(
+        data=data,
+        class_name="Wretch",
+        character_level=61,
+        vig=10,
+        mnd=10,
+        end=10,
+        str_stat=12,
+        dex=10,
+        int_stat=10,
+        fai=10,
+        arc=68,
+        max_upgrade=25,
+        fixed_upgrade=25,
+        weapon_name="Star Fist",
+        affinity="Blood",
+        objective="max_ar_plus_bleed",
+        top_k=1,
+        lock_str=12,
+        lock_dex=10,
+        lock_int=10,
+        lock_fai=10,
+        lock_arc=68,
+        min_str=0,
+        min_dex=0,
+        min_int=0,
+        min_fai=0,
+        min_arc=0,
+        two_handing=False,
+        somber_filter="all",
+        weapon_type_key=None,
+    )
+    if not star_fist_blood:
+        issues.append(ValidationIssue("error", "runtime Star Fist blood case returned no rows"))
+    else:
+        bleed = float(star_fist_blood[0].bleed_buildup)
+        if bleed <= 75.0:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    f"Star Fist blood buildup did not scale at +25 ARC 68: {bleed}",
+                )
+            )
+
+    antspur_occult = core.optimize_builds(
+        data=data,
+        class_name="Wretch",
+        character_level=69,
+        vig=10,
+        mnd=10,
+        end=10,
+        str_stat=10,
+        dex=20,
+        int_stat=10,
+        fai=10,
+        arc=68,
+        max_upgrade=25,
+        fixed_upgrade=25,
+        weapon_name="Antspur Rapier",
+        affinity="Occult",
+        objective="max_ar_plus_bleed",
+        top_k=1,
+        lock_str=10,
+        lock_dex=20,
+        lock_int=10,
+        lock_fai=10,
+        lock_arc=68,
+        min_str=0,
+        min_dex=0,
+        min_int=0,
+        min_fai=0,
+        min_arc=0,
+        two_handing=False,
+        somber_filter="all",
+        weapon_type_key=None,
+    )
+    if not antspur_occult:
+        issues.append(ValidationIssue("error", "runtime Antspur occult case returned no rows"))
+    else:
+        poison = float(getattr(antspur_occult[0], "poison_buildup", 0.0))
+        scarlet_rot = float(getattr(antspur_occult[0], "scarlet_rot_buildup", 0.0))
+        if poison > 0.0 or scarlet_rot <= 60.0:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    f"Antspur occult scarlet rot scaling is wrong: poison={poison} scarlet_rot={scarlet_rot}",
                 )
             )
 
@@ -728,6 +962,7 @@ def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
             "bleed_buildup_add": 0.0,
             "frost_buildup": 0.0,
             "poison_buildup": 0.0,
+            "scarlet_rot_buildup": 0.0,
             "aow_first_hit_damage": 0.0,
             "aow_full_sequence_damage": 0.0,
         }
@@ -942,6 +1177,7 @@ def _synthetic_build(app_module, affinity: str, score: float, upgrade: int, weap
         bleed_buildup_add=0.0,
         frost_buildup=0.0,
         poison_buildup=0.0,
+        scarlet_rot_buildup=0.0,
         aow_first_hit_damage=score,
         aow_full_sequence_damage=score,
     )

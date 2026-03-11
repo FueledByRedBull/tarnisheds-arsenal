@@ -129,6 +129,7 @@ class DesktopOptimizerService:
             bleed_buildup_add=float(result.bleed_buildup_add),
             frost_buildup=float(result.frost_buildup),
             poison_buildup=float(result.poison_buildup),
+            scarlet_rot_buildup=float(getattr(result, "scarlet_rot_buildup", 0.0)),
             aow_first_hit_damage=float(result.aow_first_hit_damage),
             aow_full_sequence_damage=float(result.aow_full_sequence_damage),
         )
@@ -159,13 +160,13 @@ class DesktopOptimizerService:
         self,
         session: GlobalSession,
         weapon_name: str,
-        affinity: str,
+        affinity: str | None,
         aow_name: str | None,
     ) -> SolvedBuild | None:
         cache_key = (
             self.optimizer_context_key(session),
             weapon_name.casefold(),
-            affinity.casefold(),
+            (affinity or "").casefold(),
             (aow_name or "").casefold(),
         )
         if cache_key in self.best_build_cache:
@@ -562,7 +563,14 @@ class DesktopOptimizerService:
         except Exception:
             return 999
         effective_str = state.str_stat
-        if build.two_handing:
+        disable_bonus = False
+        try:
+            disable_bonus = bool(
+                self.data.weapon_disables_two_hand_bonus(config.weapon_name, config.affinity)
+            )
+        except Exception:
+            disable_bonus = False
+        if build.two_handing and not disable_bonus:
             effective_str = min(99, int(state.str_stat * 1.5))
         return (
             max(req_str - effective_str, 0)

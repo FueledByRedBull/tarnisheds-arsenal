@@ -136,6 +136,7 @@ Every constraint can be treated as either locked or open.
   - force exactly `+N`
 - `Two Handing`
   - 1.5x effective STR, capped at 99, for requirements and scaling behavior where applicable
+  - paired weapons and paired uniques that do not receive the generic two-hand STR bonus are excluded from that boost
 - `Use Locked Result Stats`
   - reuses the exact combat stats captured via `Use As Locks`
 
@@ -147,7 +148,12 @@ Ranks by total AR.
 
 ### `Max AR + Bleed`
 
-Ranks by AR plus bleed contribution currently modeled by the snapshot.
+Ranks by:
+
+- total AR
+- plus total bleed buildup after upgrade and stat scaling
+
+The app also computes frost, poison, and scarlet rot buildup, but this objective still ranks specifically on AR plus bleed.
 
 ### `AoW First Hit (PvE)`
 
@@ -168,13 +174,15 @@ Current runtime data includes:
 - expanded calc-correct graphs
 - exact AoW compatibility rows
 - innate weapon passives
+- weapon rules for paired / no-two-hand-bonus behavior
 - AoW attack-data extraction for PvE damage objectives
 
 Important boundaries:
 
 - this is still an optimizer, not a full enemy simulator
-- enemy negations, proc explosion damage, poise, and stamina are not part of the current scoring model
+- enemy defense, negation, resistance growth, proc explosion damage, poise, and stamina are not part of the current scoring model
 - unique somber weapon-skill damage is not yet treated as a complete separate universal layer outside the generic AoW pipeline
+- status buildup is split and surfaced for bleed, frost, poison, and scarlet rot, but the per-effect `isUseStatusAilmentAtkPowerCorrect` flag is not yet modeled as a separate runtime gate
 
 ## Local Setup
 
@@ -242,6 +250,8 @@ then run:
 
 ```powershell
 python tools/phase1/extract_motion_workbook.py
+python tools/phase1/derive_phase1_raw_extras.py
+python tools/phase1/derive_weapon_rules.py
 ```
 
 ## Repo Layout

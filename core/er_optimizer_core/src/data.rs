@@ -102,7 +102,8 @@ fn parse_bool_u8(value: &str, field: &str) -> Result<bool, String> {
 
 pub fn load_game_data(data_dir: impl AsRef<Path>) -> Result<GameData, String> {
     let data_dir = data_dir.as_ref();
-    let weapons = load_weapons(data_dir.join("weapons.csv"))?;
+    let weapon_rules = load_weapon_rules_optional(data_dir.join("weapon_rules.csv"))?;
+    let weapons = load_weapons(data_dir.join("weapons.csv"), &weapon_rules)?;
     let reinforce = load_reinforce(data_dir.join("reinforce.csv"))?;
     let calc_correct = load_calc_correct(data_dir.join("calc_correct.csv"))?;
     let attack_element_correct =
@@ -127,7 +128,10 @@ pub fn load_game_data(data_dir: impl AsRef<Path>) -> Result<GameData, String> {
     })
 }
 
-fn load_weapons(path: PathBuf) -> Result<Vec<Weapon>, String> {
+fn load_weapons(
+    path: PathBuf,
+    weapon_rules: &HashMap<String, bool>,
+) -> Result<Vec<Weapon>, String> {
     let table = CsvTable::from_path(&path)?;
     let mut out = Vec::with_capacity(table.rows.len());
 
@@ -177,7 +181,31 @@ fn load_weapons(path: PathBuf) -> Result<Vec<Weapon>, String> {
             )?,
             damage_curve_ids,
             is_somber: parse_bool_u8(table.get(row, "is_somber")?, "is_somber")?,
+            disable_two_hand_bonus: weapon_rules
+                .get(&table.get(row, "name")?.to_ascii_lowercase())
+                .copied()
+                .unwrap_or(false),
         });
+    }
+    Ok(out)
+}
+
+fn load_weapon_rules_optional(path: PathBuf) -> Result<HashMap<String, bool>, String> {
+    if !path.exists() {
+        return Ok(HashMap::new());
+    }
+    let table = CsvTable::from_path(&path)?;
+    let mut out = HashMap::with_capacity(table.rows.len());
+    for row in &table.rows {
+        let weapon_name = table.get(row, "weapon_name")?.trim();
+        if weapon_name.is_empty() {
+            continue;
+        }
+        let disable = parse_bool_u8(
+            table.get(row, "disable_two_hand_bonus")?,
+            "disable_two_hand_bonus",
+        )?;
+        out.insert(weapon_name.to_ascii_lowercase(), disable);
     }
     Ok(out)
 }
@@ -335,6 +363,13 @@ fn load_aows(path: PathBuf) -> Result<Vec<Aow>, String> {
                 table.get(row, "poison_buildup_add")?,
                 "poison_buildup_add",
             )?,
+            scarlet_rot_buildup_add: match table.idx("scarlet_rot_buildup_add") {
+                Ok(_) => parse_f32(
+                    table.get(row, "scarlet_rot_buildup_add")?,
+                    "scarlet_rot_buildup_add",
+                )?,
+                Err(_) => 0.0,
+            },
             valid_weapon_types: table.get(row, "valid_weapon_types")?.to_string(),
         });
     }
@@ -460,6 +495,10 @@ fn load_weapon_passives_optional(path: PathBuf) -> Result<HashMap<u32, StatusBui
                 bleed: parse_f32(table.get(row, "bleed")?, "bleed")?,
                 frost: parse_f32(table.get(row, "frost")?, "frost")?,
                 poison: parse_f32(table.get(row, "poison")?, "poison")?,
+                scarlet_rot: match table.idx("scarlet_rot") {
+                    Ok(_) => parse_f32(table.get(row, "scarlet_rot")?, "scarlet_rot")?,
+                    Err(_) => 0.0,
+                },
                 sleep: parse_f32(table.get(row, "sleep")?, "sleep")?,
                 madness: parse_f32(table.get(row, "madness")?, "madness")?,
                 death: parse_f32(table.get(row, "death")?, "death")?,

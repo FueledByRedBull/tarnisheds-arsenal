@@ -219,6 +219,7 @@ def serialize_optimize_result(result: Any) -> dict[str, Any]:
         "bleed_buildup_add": float(result.bleed_buildup_add),
         "frost_buildup": float(result.frost_buildup),
         "poison_buildup": float(result.poison_buildup),
+        "scarlet_rot_buildup": float(getattr(result, "scarlet_rot_buildup", 0.0)),
         "aow_first_hit_damage": float(result.aow_first_hit_damage),
         "aow_full_sequence_damage": float(result.aow_full_sequence_damage),
     }
@@ -2422,41 +2423,34 @@ class MainWindow(QtWidgets.QMainWindow):
                 )
         else:
             compare_affinity = self._combo_value(self.compare_affinity_combo)
-            if compare_affinity is None:
-                options = self.data.affinities_for_weapon(compare_weapon)
-                if options:
-                    compare_affinity = options[0]
-                    self._set_combo_by_data(self.compare_affinity_combo, compare_affinity)
             compare_aow_value = self._combo_value(self.compare_aow_combo)
             if compare_aow_value == "__match_selected__":
                 compare_aow = selected_best.aow_name
             else:
                 compare_aow = compare_aow_value
-            if compare_affinity is not None:
-                compare_best = self._best_row_config(
-                    compare_weapon,
-                    compare_affinity,
-                    compare_aow,
+            compare_best = self._best_row_config(
+                compare_weapon,
+                compare_affinity,
+                compare_aow,
+            )
+            requested_affinity = compare_affinity or OPEN_OPTION
+            if compare_best is not None:
+                compare_label = (
+                    f"Compare: {compare_best.weapon_name} | {compare_best.affinity} | "
+                    f"AoW {compare_best.aow_name or '-'} | {self._format_best_stats(compare_best)}"
                 )
-                if compare_best is not None:
-                    compare_label = (
-                        f"Compare: {compare_best.weapon_name} | {compare_best.affinity} | "
-                        f"AoW {compare_best.aow_name or '-'} | {self._format_best_stats(compare_best)}"
-                    )
-                else:
-                    compare_label = (
-                        f"Compare: {compare_weapon} | {compare_affinity} | AoW {compare_aow or '-'} | "
-                        "No valid build"
-                    )
-                rows_to_render.append(
-                    (
-                        compare_label,
-                        compare_best,
-                    )
-                )
-                compare_summary_row = compare_best
             else:
-                compare_best = None
+                compare_label = (
+                    f"Compare: {compare_weapon} | {requested_affinity} | AoW {compare_aow or '-'} | "
+                    "No valid build"
+                )
+            rows_to_render.append(
+                (
+                    compare_label,
+                    compare_best,
+                )
+            )
+            compare_summary_row = compare_best
 
         self.upgrade_table.setRowCount(len(rows_to_render))
         for row_idx, (label, row_data) in enumerate(rows_to_render):
@@ -2494,7 +2488,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def _best_row_config(
         self,
         weapon_name: str,
-        affinity: str,
+        affinity: str | None,
         aow_name: Any,
     ) -> desktop_models.SolvedBuild | None:
         self._sync_session_state()
@@ -2525,6 +2519,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 bleed_buildup_add=float(result.get("bleed_buildup_add", 0.0)),
                 frost_buildup=float(result.get("frost_buildup", 0.0)),
                 poison_buildup=float(result.get("poison_buildup", 0.0)),
+                scarlet_rot_buildup=float(result.get("scarlet_rot_buildup", 0.0)),
                 aow_first_hit_damage=float(result.get("aow_first_hit_damage", 0.0)),
                 aow_full_sequence_damage=float(result.get("aow_full_sequence_damage", 0.0)),
             )
@@ -2646,6 +2641,7 @@ class MainWindow(QtWidgets.QMainWindow):
             bleed_buildup_add=0.0,
             frost_buildup=0.0,
             poison_buildup=0.0,
+            scarlet_rot_buildup=0.0,
             aow_first_hit_damage=0.0,
             aow_full_sequence_damage=0.0,
         )
@@ -3032,9 +3028,11 @@ class MainWindow(QtWidgets.QMainWindow):
         except Exception:
             return 999
 
-        effective_str = state.str_stat
-        if self.two_handing_check.isChecked():
-            effective_str = min(99, int(state.str_stat * 1.5))
+        effective_str = self._effective_str_for_weapon(
+            config.weapon_name,
+            config.affinity,
+            state.str_stat,
+        )
         return (
             max(req_str - effective_str, 0)
             + max(req_dex - state.dex, 0)
@@ -3042,6 +3040,22 @@ class MainWindow(QtWidgets.QMainWindow):
             + max(req_fai - state.fai, 0)
             + max(req_arc - state.arc, 0)
         )
+
+    def _effective_str_for_weapon(
+        self,
+        weapon_name: str | None,
+        affinity: str | None,
+        str_stat: int,
+    ) -> int:
+        if not self.two_handing_check.isChecked() or weapon_name is None:
+            return str_stat
+        try:
+            disable_bonus = self.data.weapon_disables_two_hand_bonus(weapon_name, affinity)
+        except Exception:
+            disable_bonus = False
+        if disable_bonus:
+            return str_stat
+        return min(99, int(str_stat * 1.5))
 
     def _refresh_compare_summary(
         self,
@@ -3277,9 +3291,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._set_req_fail(widget, False)
             return
 
-        effective_str = self.str_spin.value()
-        if self.two_handing_check.isChecked():
-            effective_str = min(99, int(self.str_spin.value() * 1.5))
+        effective_str = self._effective_str_for_weapon(
+            selected_weapon,
+            selected_affinity,
+            self.str_spin.value(),
+        )
 
         self.requirement_label.setText(
             "Requirements: "

@@ -536,13 +536,14 @@ def build_calc_correct_rows(curve_rows: list[dict[str, str]]) -> list[dict[str, 
     return rows_out
 
 
-def build_speffect_map(sp_rows: list[dict[str, str]]) -> dict[int, tuple[float, float, float]]:
-    effect_map: dict[int, tuple[float, float, float]] = {}
+def build_speffect_map(sp_rows: list[dict[str, str]]) -> dict[int, tuple[float, float, float, float]]:
+    effect_map: dict[int, tuple[float, float, float, float]] = {}
     for row in sp_rows:
         effect_id = to_int(row, "id")
         effect_map[effect_id] = (
             to_float(row, "bloodAttackPower", 0.0),
             to_float(row, "freezeAttackPower", 0.0),
+            to_float(row, "poizonAttackPower", 0.0),
             to_float(row, "diseaseAttackPower", 0.0),
         )
     return effect_map
@@ -550,7 +551,7 @@ def build_speffect_map(sp_rows: list[dict[str, str]]) -> dict[int, tuple[float, 
 
 def build_aow_rows(
     aow_rows: list[dict[str, str]],
-    effect_map: dict[int, tuple[float, float, float]],
+    effect_map: dict[int, tuple[float, float, float, float]],
 ) -> list[dict[str, object]]:
     grouped_rows: dict[int, list[dict[str, str]]] = defaultdict(list)
 
@@ -587,11 +588,16 @@ def build_aow_rows(
         bleed = 0.0
         frost = 0.0
         poison = 0.0
+        scarlet_rot = 0.0
         for effect_id in effect_ids:
-            effect_bleed, effect_frost, effect_poison = effect_map.get(effect_id, (0.0, 0.0, 0.0))
+            effect_bleed, effect_frost, effect_poison, effect_scarlet_rot = effect_map.get(
+                effect_id,
+                (0.0, 0.0, 0.0, 0.0),
+            )
             bleed += effect_bleed
             frost += effect_frost
             poison += effect_poison
+            scarlet_rot += effect_scarlet_rot
 
         valid_weapon_types: set[str] = set()
         for key, value in canonical.items():
@@ -605,6 +611,7 @@ def build_aow_rows(
                 "bleed_buildup_add": bleed,
                 "frost_buildup_add": frost,
                 "poison_buildup_add": poison,
+                "scarlet_rot_buildup_add": scarlet_rot,
                 "valid_weapon_types": "|".join(sorted(valid_weapon_types)),
             }
         )
@@ -759,6 +766,7 @@ def main() -> int:
             "bleed_buildup_add",
             "frost_buildup_add",
             "poison_buildup_add",
+            "scarlet_rot_buildup_add",
             "valid_weapon_types",
         ],
         aow_csv_rows,

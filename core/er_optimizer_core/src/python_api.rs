@@ -218,6 +218,35 @@ impl PyGameData {
         };
         Ok((reqs[0], reqs[1], reqs[2], reqs[3], reqs[4]))
     }
+
+    #[pyo3(signature = (weapon_name, affinity=None))]
+    fn weapon_disables_two_hand_bonus(
+        &self,
+        weapon_name: &str,
+        affinity: Option<&str>,
+    ) -> PyResult<bool> {
+        let mut found = false;
+        for weapon in &self.inner.weapons {
+            if !weapon.name.eq_ignore_ascii_case(weapon_name) {
+                continue;
+            }
+            if let Some(aff) = affinity {
+                if !weapon.affinity.eq_ignore_ascii_case(aff) {
+                    continue;
+                }
+            }
+            found = true;
+            if weapon.disable_two_hand_bonus {
+                return Ok(true);
+            }
+        }
+        if !found {
+            return Err(PyValueError::new_err(format!(
+                "weapon not found for two-hand rule lookup: {weapon_name}"
+            )));
+        }
+        Ok(false)
+    }
 }
 
 #[pyclass(name = "SearchEstimate", get_all)]
@@ -265,6 +294,7 @@ pub struct PyOptimizeResult {
     pub bleed_buildup_add: f32,
     pub frost_buildup: f32,
     pub poison_buildup: f32,
+    pub scarlet_rot_buildup: f32,
     pub aow_first_hit_damage: f32,
     pub aow_full_sequence_damage: f32,
     pub score: f32,
@@ -298,6 +328,7 @@ impl From<OptimizeResult> for PyOptimizeResult {
             bleed_buildup_add: value.bleed_buildup_add,
             frost_buildup: value.frost_buildup,
             poison_buildup: value.poison_buildup,
+            scarlet_rot_buildup: value.scarlet_rot_buildup,
             aow_first_hit_damage: value.aow_first_hit_damage,
             aow_full_sequence_damage: value.aow_full_sequence_damage,
             score: value.score,

@@ -1,5 +1,5 @@
 use crate::model::{
-    AttackElementCorrectExt, AowAttackRow, DamageBreakdown, DamageType, GameData, Stats, Weapon,
+    AttackElementCorrectExt, AowAttackRow, DamageBreakdown, DamageType, GameData, Stats, StatusBuildup, Weapon,
     COMBAT_STAT_COUNT, STAT_ARC, STAT_DEX, STAT_FAI, STAT_INT, STAT_STR,
 };
 
@@ -11,8 +11,8 @@ pub struct ScalingContribution {
     pub contributes: bool,
 }
 
-pub fn effective_str(str_stat: u8, two_handing: bool) -> u8 {
-    if two_handing {
+pub fn effective_str(str_stat: u8, two_handing: bool, disable_two_hand_bonus: bool) -> u8 {
+    if two_handing && !disable_two_hand_bonus {
         ((f32::from(str_stat) * 1.5) as u8).min(99)
     } else {
         str_stat
@@ -112,19 +112,20 @@ pub fn calculate_ar(
         .attack_element(weapon.attack_element_correct_id)
         .ok_or_else(|| format!("missing attack_element_correct_id={}", weapon.attack_element_correct_id))?;
 
+    let stat_values = stat_values_for_scaling(stats, effective_str_value, weapon.disable_two_hand_bonus);
     let mut breakdown = DamageBreakdown::default();
     for damage_type in DamageType::ALL {
         let curve_id = weapon.damage_curve_ids[damage_type.as_index()];
         let curve_mults = [
-            data.calc_curve_value(curve_id, effective_str_value)
+            data.calc_curve_value(curve_id, stat_values[STAT_STR])
                 .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
-            data.calc_curve_value(curve_id, stats.dex)
+            data.calc_curve_value(curve_id, stat_values[STAT_DEX])
                 .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
-            data.calc_curve_value(curve_id, stats.int)
+            data.calc_curve_value(curve_id, stat_values[STAT_INT])
                 .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
-            data.calc_curve_value(curve_id, stats.fai)
+            data.calc_curve_value(curve_id, stat_values[STAT_FAI])
                 .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
-            data.calc_curve_value(curve_id, stats.arc)
+            data.calc_curve_value(curve_id, stat_values[STAT_ARC])
                 .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
         ];
         let actual_base =
@@ -249,6 +250,55 @@ pub fn calculate_aow_damage(
         full_sequence += row_total;
     }
     Ok((first_hit.unwrap_or(0.0), full_sequence))
+}
+
+pub fn calculate_status_buildup(
+    weapon: &Weapon,
+    upgrade: u8,
+    stats: &Stats,
+    data: &GameData,
+) -> Result<StatusBuildup, String> {
+    let base = data.weapon_passive(weapon.weapon_id);
+    if base.bleed <= 0.0
+        && base.frost <= 0.0
+        && base.poison <= 0.0
+        && base.scarlet_rot <= 0.0
+        && base.sleep <= 0.0
+        && base.madness <= 0.0
+        && base.death <= 0.0
+    {
+        return Ok(base);
+    }
+
+    let reinforce = data
+        .reinforce_level(weapon.reinforce_type, upgrade)
+        .ok_or_else(|| {
+            format!(
+                "missing reinforce level: type={} level={upgrade}",
+                weapon.reinforce_type
+            )
+        })?;
+    let curve_id = weapon.damage_curve_ids[DamageType::Physical.as_index()];
+
+    let scale_status = |value: f32, stat_idx: usize, stat_value: u8| -> Result<f32, String> {
+        if value <= 0.0 || weapon.scaling[stat_idx] <= 0.0 {
+            return Ok(value);
+        }
+        let curve_mult = data
+            .calc_curve_value(curve_id, stat_value)
+            .ok_or_else(|| format!("missing curve_id={curve_id} for status scaling"))?;
+        Ok(value * (1.0 + weapon.scaling[stat_idx] * reinforce.scaling_mult[stat_idx] * curve_mult))
+    };
+
+    Ok(StatusBuildup {
+        bleed: scale_status(base.bleed, STAT_ARC, stats.arc)?,
+        frost: scale_status(base.frost, STAT_INT, stats.int)?,
+        poison: scale_status(base.poison, STAT_ARC, stats.arc)?,
+        scarlet_rot: scale_status(base.scarlet_rot, STAT_ARC, stats.arc)?,
+        sleep: scale_status(base.sleep, STAT_ARC, stats.arc)?,
+        madness: scale_status(base.madness, STAT_ARC, stats.arc)?,
+        death: scale_status(base.death, STAT_ARC, stats.arc)?,
+    })
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -583,7 +633,14 @@ mod tests {
             arc: 8,
         };
         let uchi_breakdown =
-            calculate_ar(uchi, 25, &uchi_stats, effective_str(uchi_stats.str, false), &game_data).unwrap();
+            calculate_ar(
+                uchi,
+                25,
+                &uchi_stats,
+                effective_str(uchi_stats.str, false, uchi.disable_two_hand_bonus),
+                &game_data,
+            )
+            .unwrap();
         assert!((uchi_breakdown.total() - 475.983).abs() < 0.01);
 
         let lordsworn = find_weapon(&game_data, "Lordsworn's Quality Greatsword", "Quality");
@@ -601,7 +658,11 @@ mod tests {
             lordsworn,
             25,
             &lordsworn_stats,
-            effective_str(lordsworn_stats.str, false),
+            effective_str(
+                lordsworn_stats.str,
+                false,
+                lordsworn.disable_two_hand_bonus,
+            ),
             &game_data,
         )
         .unwrap();
@@ -622,7 +683,7 @@ mod tests {
             reduvia,
             10,
             &reduvia_stats,
-            effective_str(reduvia_stats.str, false),
+            effective_str(reduvia_stats.str, false, reduvia.disable_two_hand_bonus),
             &game_data,
         )
         .unwrap();
@@ -643,10 +704,98 @@ mod tests {
             fire_uchi,
             25,
             &fire_uchi_stats,
-            effective_str(fire_uchi_stats.str, true),
+            effective_str(
+                fire_uchi_stats.str,
+                true,
+                fire_uchi.disable_two_hand_bonus,
+            ),
             &game_data,
         )
         .unwrap();
         assert!((fire_uchi_breakdown.total() - 652.8947).abs() < 0.02);
+    }
+
+    #[test]
+    fn paired_weapons_do_not_gain_two_hand_bonus() {
+        let data_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("data")
+            .join("phase1");
+        let game_data = load_game_data(data_path).unwrap();
+
+        let iron_ball = find_weapon(&game_data, "Iron Ball", "Heavy");
+        let stats = Stats {
+            vig: 10,
+            mnd: 10,
+            end: 10,
+            str: 68,
+            dex: 15,
+            int: 10,
+            fai: 10,
+            arc: 10,
+        };
+        let one_handed = calculate_ar(
+            iron_ball,
+            25,
+            &stats,
+            effective_str(stats.str, false, iron_ball.disable_two_hand_bonus),
+            &game_data,
+        )
+        .unwrap();
+        let two_handed = calculate_ar(
+            iron_ball,
+            25,
+            &stats,
+            effective_str(stats.str, true, iron_ball.disable_two_hand_bonus),
+            &game_data,
+        )
+        .unwrap();
+        assert!((one_handed.total() - 469.17657).abs() < 0.02);
+        assert!((two_handed.total() - one_handed.total()).abs() < 0.001);
+    }
+
+    #[test]
+    fn passive_status_buildup_scales_with_relevant_stat() {
+        let data_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("data")
+            .join("phase1");
+        let game_data = load_game_data(data_path).unwrap();
+
+        let star_fist_blood = find_weapon(&game_data, "Star Fist", "Blood");
+        let blood_stats = Stats {
+            vig: 10,
+            mnd: 10,
+            end: 10,
+            str: 12,
+            dex: 10,
+            int: 10,
+            fai: 10,
+            arc: 68,
+        };
+        let blood_status =
+            calculate_status_buildup(star_fist_blood, 25, &blood_stats, &game_data).unwrap();
+        assert!(blood_status.bleed > 75.0);
+
+        let star_fist_occult = find_weapon(&game_data, "Star Fist", "Occult");
+        let occult_status =
+            calculate_status_buildup(star_fist_occult, 25, &blood_stats, &game_data).unwrap();
+        assert!(occult_status.bleed > 70.0);
+
+        let star_fist_cold = find_weapon(&game_data, "Star Fist", "Cold");
+        let cold_stats = Stats {
+            int: 68,
+            ..blood_stats
+        };
+        let cold_status = calculate_status_buildup(star_fist_cold, 25, &cold_stats, &game_data).unwrap();
+        assert!(cold_status.frost > 95.0);
+
+        let antspur_occult = find_weapon(&game_data, "Antspur Rapier", "Occult");
+        let antspur_status =
+            calculate_status_buildup(antspur_occult, 25, &blood_stats, &game_data).unwrap();
+        assert!(antspur_status.scarlet_rot > 60.0);
+        assert!(antspur_status.poison <= 0.0);
     }
 }

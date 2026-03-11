@@ -105,6 +105,12 @@ def main() -> int:
     window._refresh_compare_affinity_options()
     if window.compare_affinity_combo.count() <= 1:
         raise AssertionError("compare affinity options were not populated")
+    window.compare_affinity_combo.setCurrentIndex(0)
+    window._rebuild_upgrade_table()
+    if window._combo_value(window.compare_affinity_combo) is not None:
+        raise AssertionError("compare affinity should stay open when <Open> is selected")
+    if window.upgrade_table.rowCount() < 2:
+        raise AssertionError("expected compare row with open affinity")
     window._set_combo_by_data(window.compare_affinity_combo, "Occult")
     window._rebuild_upgrade_table()
     if window.upgrade_table.rowCount() < 2:
@@ -241,6 +247,38 @@ def main() -> int:
         raise AssertionError("expected positive AoW first-hit damage")
     if float(lead.aow_full_sequence_damage) < float(lead.aow_first_hit_damage):
         raise AssertionError("expected AoW full-sequence damage to stay above first-hit damage")
+
+    window._set_combo_by_data(window.class_combo, "Wretch")
+    window._on_class_changed()
+    window.vig_spin.setValue(10)
+    window.mnd_spin.setValue(10)
+    window.end_spin.setValue(10)
+    window.str_spin.setValue(68)
+    window.dex_spin.setValue(15)
+    window.int_spin.setValue(10)
+    window.fai_spin.setValue(10)
+    window.arc_spin.setValue(10)
+    window._set_combo_by_data(window.weapon_combo, "Iron Ball")
+    window._refresh_affinity_options()
+    window._set_combo_by_data(window.affinity_combo, "Heavy")
+    window.aow_combo.setCurrentIndex(window.aow_combo.findData(None))
+    window.objective_combo.setCurrentIndex(window.objective_combo.findData("max_ar"))
+    window.max_upgrade_spin.setValue(25)
+    window.lock_upgrade_exact.setChecked(True)
+    window.two_handing_check.setChecked(False)
+    window._start_search()
+    wait_until(lambda: window.active_run_id is None)
+    if not window.current_results:
+        raise AssertionError("expected Iron Ball one-hand result")
+    one_hand_ar = float(window.current_results[0].ar_total)
+    window.two_handing_check.setChecked(True)
+    window._start_search()
+    wait_until(lambda: window.active_run_id is None)
+    if not window.current_results:
+        raise AssertionError("expected Iron Ball two-hand result")
+    two_hand_ar = float(window.current_results[0].ar_total)
+    if abs(one_hand_ar - two_hand_ar) > 0.01:
+        raise AssertionError("paired weapon incorrectly gained two-hand AR")
 
     # One final event pump for queued signals
     QtCore.QTimer.singleShot(1, app.quit)
