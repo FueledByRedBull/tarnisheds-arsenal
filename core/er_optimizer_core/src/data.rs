@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use crate::model::{
     AttackElementCorrect, AttackElementCorrectExt, Aow, AowAttackRow, GameData, ReinforceLevel,
-    StatusBuildup, Weapon,
+    StatusBuildup, StatusCorrectionFlags, StatusEffectSource, Weapon,
     COMBAT_STAT_COUNT, DAMAGE_TYPE_COUNT,
 };
 
@@ -12,6 +12,7 @@ use crate::model::{
 struct AowBuffRow {
     buff_attack_power: [f32; DAMAGE_TYPE_COUNT],
     scaling_status_add: StatusBuildup,
+    scaling_status_flags: StatusCorrectionFlags,
 }
 
 struct CsvTable {
@@ -104,6 +105,17 @@ fn parse_f32(value: &str, field: &str) -> Result<f32, String> {
 
 fn parse_bool_u8(value: &str, field: &str) -> Result<bool, String> {
     Ok(parse_u8(value, field)? != 0)
+}
+
+fn parse_optional_bool_u8(table: &CsvTable, row: &[String], field: &str) -> Result<Option<bool>, String> {
+    let Ok(idx) = table.idx(field) else {
+        return Ok(None);
+    };
+    let value = row[idx].trim();
+    if value.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(parse_u8(value, field)? != 0))
 }
 
 pub fn load_game_data(data_dir: impl AsRef<Path>) -> Result<GameData, String> {
@@ -382,6 +394,7 @@ fn load_aows(path: PathBuf, buff_rows: &HashMap<u16, AowBuffRow>) -> Result<Vec<
             valid_weapon_types: table.get(row, "valid_weapon_types")?.to_string(),
             buff_attack_power: buff_row.buff_attack_power,
             scaling_status_add: buff_row.scaling_status_add,
+            scaling_status_flags: buff_row.scaling_status_flags,
         });
     }
     Ok(out)
@@ -450,6 +463,19 @@ fn load_aow_buffs_optional(path: PathBuf) -> Result<HashMap<u16, AowBuffRow>, St
                         table.get(row, "scaling_death_buildup_add")?,
                         "scaling_death_buildup_add",
                     )?,
+                },
+                scaling_status_flags: StatusCorrectionFlags {
+                    bleed: parse_optional_bool_u8(&table, row, "bleed_uses_status_correction")?,
+                    frost: parse_optional_bool_u8(&table, row, "frost_uses_status_correction")?,
+                    poison: parse_optional_bool_u8(&table, row, "poison_uses_status_correction")?,
+                    scarlet_rot: parse_optional_bool_u8(
+                        &table,
+                        row,
+                        "scarlet_rot_uses_status_correction",
+                    )?,
+                    sleep: parse_optional_bool_u8(&table, row, "sleep_uses_status_correction")?,
+                    madness: parse_optional_bool_u8(&table, row, "madness_uses_status_correction")?,
+                    death: parse_optional_bool_u8(&table, row, "death_uses_status_correction")?,
                 },
             },
         );
@@ -561,7 +587,7 @@ fn load_aow_attack_rows_optional(path: PathBuf) -> Result<HashMap<u16, Vec<AowAt
     Ok(out)
 }
 
-fn load_weapon_passives_optional(path: PathBuf) -> Result<HashMap<u32, StatusBuildup>, String> {
+fn load_weapon_passives_optional(path: PathBuf) -> Result<HashMap<u32, StatusEffectSource>, String> {
     if !path.exists() {
         return Ok(HashMap::new());
     }
@@ -572,17 +598,32 @@ fn load_weapon_passives_optional(path: PathBuf) -> Result<HashMap<u32, StatusBui
         let weapon_id = parse_u32(table.get(row, "weapon_id")?, "weapon_id")?;
         out.insert(
             weapon_id,
-            StatusBuildup {
-                bleed: parse_f32(table.get(row, "bleed")?, "bleed")?,
-                frost: parse_f32(table.get(row, "frost")?, "frost")?,
-                poison: parse_f32(table.get(row, "poison")?, "poison")?,
-                scarlet_rot: match table.idx("scarlet_rot") {
-                    Ok(_) => parse_f32(table.get(row, "scarlet_rot")?, "scarlet_rot")?,
-                    Err(_) => 0.0,
+            StatusEffectSource {
+                buildup: StatusBuildup {
+                    bleed: parse_f32(table.get(row, "bleed")?, "bleed")?,
+                    frost: parse_f32(table.get(row, "frost")?, "frost")?,
+                    poison: parse_f32(table.get(row, "poison")?, "poison")?,
+                    scarlet_rot: match table.idx("scarlet_rot") {
+                        Ok(_) => parse_f32(table.get(row, "scarlet_rot")?, "scarlet_rot")?,
+                        Err(_) => 0.0,
+                    },
+                    sleep: parse_f32(table.get(row, "sleep")?, "sleep")?,
+                    madness: parse_f32(table.get(row, "madness")?, "madness")?,
+                    death: parse_f32(table.get(row, "death")?, "death")?,
                 },
-                sleep: parse_f32(table.get(row, "sleep")?, "sleep")?,
-                madness: parse_f32(table.get(row, "madness")?, "madness")?,
-                death: parse_f32(table.get(row, "death")?, "death")?,
+                correction_flags: StatusCorrectionFlags {
+                    bleed: parse_optional_bool_u8(&table, row, "bleed_uses_status_correction")?,
+                    frost: parse_optional_bool_u8(&table, row, "frost_uses_status_correction")?,
+                    poison: parse_optional_bool_u8(&table, row, "poison_uses_status_correction")?,
+                    scarlet_rot: parse_optional_bool_u8(
+                        &table,
+                        row,
+                        "scarlet_rot_uses_status_correction",
+                    )?,
+                    sleep: parse_optional_bool_u8(&table, row, "sleep_uses_status_correction")?,
+                    madness: parse_optional_bool_u8(&table, row, "madness_uses_status_correction")?,
+                    death: parse_optional_bool_u8(&table, row, "death_uses_status_correction")?,
+                },
             },
         );
     }

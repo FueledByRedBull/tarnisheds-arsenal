@@ -49,6 +49,10 @@ BUFF_STATUS_FIELDS = (
     ('scaling_madness_buildup_add', 'madnessAttackPower'),
     ('scaling_death_buildup_add', 'curseAttackPower'),
 )
+BUFF_STATUS_FLAG_FIELDS = {
+    field: field.replace('scaling_', '').replace('_buildup_add', '_uses_status_correction')
+    for field, _ in BUFF_STATUS_FIELDS
+}
 
 
 @dataclass(frozen=True)
@@ -151,6 +155,21 @@ def safe_parse_float(value: str) -> float:
     if not value or value in {'-', 'invalid'}:
         return 0.0
     return float(value)
+
+
+def _safe_optional_bool(value: str) -> bool | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    if not stripped:
+        return None
+    return stripped not in {'0', '0.0'}
+
+
+def _fmt_optional_bool(value: bool | None) -> str:
+    if value is None:
+        return ''
+    return '1' if value else '0'
 
 
 def find_matching_aow(raw_name: str, aow_names: list[str]) -> str | None:
@@ -297,6 +316,9 @@ def build_aow_buff_data(project_root: Path) -> None:
         seen: set[tuple[str, tuple[float, ...], tuple[float, ...]]] = set()
         damage_totals = {field: 0.0 for field, _ in BUFF_DAMAGE_FIELDS}
         status_totals = {field: 0.0 for field, _ in BUFF_STATUS_FIELDS}
+        status_flags: dict[str, bool | None] = {
+            field: None for field, _ in BUFF_STATUS_FIELDS
+        }
         for row in sp_effect_rows:
             raw_name = row.get('Name', '')
             if not raw_name.startswith('[AoW] '):
@@ -316,10 +338,13 @@ def build_aow_buff_data(project_root: Path) -> None:
             if signature in seen:
                 continue
             seen.add(signature)
+            correction_flag = _safe_optional_bool(row.get('isUseStatusAilmentAtkPowerCorrect', ''))
             for (field, _), value in zip(BUFF_DAMAGE_FIELDS, damage_values):
                 damage_totals[field] += value
             for (field, _), value in zip(BUFF_STATUS_FIELDS, status_values):
                 status_totals[field] += value
+                if value > 0.0 and correction_flag is not None:
+                    status_flags[field] = correction_flag
         if not seen:
             continue
         row_out = {
@@ -328,10 +353,21 @@ def build_aow_buff_data(project_root: Path) -> None:
         }
         row_out.update({field: str(value) for field, value in damage_totals.items()})
         row_out.update({field: str(value) for field, value in status_totals.items()})
+        row_out.update(
+            {
+                BUFF_STATUS_FLAG_FIELDS[field]: _fmt_optional_bool(status_flags[field])
+                for field, _ in BUFF_STATUS_FIELDS
+            }
+        )
         rows_out.append(row_out)
 
     rows_out.sort(key=lambda row: int(row['aow_id']))
-    fieldnames = ['aow_id', 'name'] + [field for field, _ in BUFF_DAMAGE_FIELDS] + [field for field, _ in BUFF_STATUS_FIELDS]
+    fieldnames = (
+        ['aow_id', 'name']
+        + [field for field, _ in BUFF_DAMAGE_FIELDS]
+        + [field for field, _ in BUFF_STATUS_FIELDS]
+        + [BUFF_STATUS_FLAG_FIELDS[field] for field, _ in BUFF_STATUS_FIELDS]
+    )
     with out_path.open('w', encoding='utf-8', newline='') as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()

@@ -48,6 +48,9 @@ STATUS_FIELDS = {
     "madness": ("madnessAttackPower",),
     "death": ("curseAttackPower",),
 }
+STATUS_CORRECTION_COLUMNS = {
+    status_key: f"{status_key}_uses_status_correction" for status_key in STATUS_FIELDS
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -265,11 +268,25 @@ def build_weapon_passives(
             "madness": to_float(existing, "madness", 0.0),
             "death": to_float(existing, "death", 0.0),
         }
+        correction_flags: dict[str, bool | None] = {
+            status_key: _existing_optional_bool(existing, STATUS_CORRECTION_COLUMNS[status_key])
+            for status_key in STATUS_FIELDS
+        }
         for effect_id in effect_ids:
             effect = sp_effect_rows.get(effect_id)
             if effect is None:
                 continue
-            totals["scarlet_rot"] += _safe_to_float(effect, "diseaseAttackPower", 0.0)
+            correction_value = _safe_optional_bool(effect, "isUseStatusAilmentAtkPowerCorrect")
+            for status_key, source_fields in STATUS_FIELDS.items():
+                amount = sum(_safe_to_float(effect, field_name, 0.0) for field_name in source_fields)
+                if amount <= 0.0:
+                    continue
+                if status_key == "scarlet_rot":
+                    totals[status_key] += amount
+                elif totals[status_key] <= 0.0:
+                    totals[status_key] = amount
+                if correction_value is not None:
+                    correction_flags[status_key] = correction_value
         if totals["scarlet_rot"] > 0.0 and totals["poison"] > 0.0:
             totals["poison"] = max(0.0, totals["poison"] - totals["scarlet_rot"])
 
@@ -286,6 +303,10 @@ def build_weapon_passives(
                 "sleep": _fmt(totals["sleep"]),
                 "madness": _fmt(totals["madness"]),
                 "death": _fmt(totals["death"]),
+                **{
+                    STATUS_CORRECTION_COLUMNS[status_key]: _fmt_optional_bool(correction_flags[status_key])
+                    for status_key in STATUS_FIELDS
+                },
             }
         )
     rows_out.sort(key=lambda row: (row["name"], row["affinity"], int(row["weapon_id"])))
@@ -330,6 +351,32 @@ def _safe_to_float(row: dict[str, str], key: str, default: float = 0.0) -> float
         return float(raw)
     except ValueError:
         return default
+
+
+def _safe_optional_bool(row: dict[str, str], key: str) -> bool | None:
+    raw = row.get(key)
+    if raw is None:
+        return None
+    value = raw.strip()
+    if not value:
+        return None
+    return value not in {"0", "0.0"}
+
+
+def _existing_optional_bool(row: dict[str, str], key: str) -> bool | None:
+    raw = row.get(key)
+    if raw is None:
+        return None
+    value = raw.strip()
+    if not value:
+        return None
+    return value not in {"0", "0.0"}
+
+
+def _fmt_optional_bool(value: bool | None) -> str:
+    if value is None:
+        return ""
+    return "1" if value else "0"
 
 
 def main() -> int:
@@ -384,6 +431,7 @@ def main() -> int:
             "sleep",
             "madness",
             "death",
+            *STATUS_CORRECTION_COLUMNS.values(),
         ],
         weapon_passives,
     )

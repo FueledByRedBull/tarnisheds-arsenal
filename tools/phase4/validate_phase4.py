@@ -75,6 +75,24 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
         issues.append(
             ValidationIssue("error", f"aow_buffs.csv row count too low: {len(aow_buffs)}")
         )
+    if aow_buffs:
+        required_aow_buff_columns = {
+            "bleed_uses_status_correction",
+            "frost_uses_status_correction",
+            "poison_uses_status_correction",
+            "scarlet_rot_uses_status_correction",
+            "sleep_uses_status_correction",
+            "madness_uses_status_correction",
+            "death_uses_status_correction",
+        }
+        missing_aow_buff_columns = sorted(required_aow_buff_columns.difference(aow_buffs[0].keys()))
+        if missing_aow_buff_columns:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    f"aow_buffs.csv is missing columns: {', '.join(missing_aow_buff_columns)}",
+                )
+            )
     if len(aow_damage_coverage) != len(aows):
         issues.append(
             ValidationIssue(
@@ -114,6 +132,13 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
         "sleep",
         "madness",
         "death",
+        "bleed_uses_status_correction",
+        "frost_uses_status_correction",
+        "poison_uses_status_correction",
+        "scarlet_rot_uses_status_correction",
+        "sleep_uses_status_correction",
+        "madness_uses_status_correction",
+        "death_uses_status_correction",
     }
     if weapon_passives:
         missing_columns = sorted(required_passive_columns.difference(weapon_passives[0].keys()))
@@ -268,6 +293,27 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
                     f"Seppuku bleed buff is wrong: {seppuku_buff['scaling_bleed_buildup_add']}",
                 )
             )
+        if seppuku_buff.get("bleed_uses_status_correction") != "1":
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "Seppuku should mark bleed_uses_status_correction=1",
+                )
+            )
+
+    star_fist_occult = next(
+        (row for row in weapon_passives if row["name"] == "Star Fist" and row["affinity"] == "Occult"),
+        None,
+    )
+    if star_fist_occult is None:
+        issues.append(ValidationIssue("error", "Star Fist Occult missing from weapon_passives.csv"))
+    elif star_fist_occult.get("bleed_uses_status_correction") not in {"", "1"}:
+        issues.append(
+            ValidationIssue(
+                "error",
+                "Star Fist Occult bleed_uses_status_correction should be blank or 1",
+            )
+        )
 
     coverage_by_name = {row["aow_name"]: row for row in aow_damage_coverage}
     for name, expected_status in (

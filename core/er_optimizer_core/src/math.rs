@@ -271,15 +271,15 @@ pub fn calculate_status_buildup(
     data: &GameData,
 ) -> Result<StatusBuildup, String> {
     let base = data.weapon_passive(weapon.weapon_id);
-    if base.bleed <= 0.0
-        && base.frost <= 0.0
-        && base.poison <= 0.0
-        && base.scarlet_rot <= 0.0
-        && base.sleep <= 0.0
-        && base.madness <= 0.0
-        && base.death <= 0.0
+    if base.buildup.bleed <= 0.0
+        && base.buildup.frost <= 0.0
+        && base.buildup.poison <= 0.0
+        && base.buildup.scarlet_rot <= 0.0
+        && base.buildup.sleep <= 0.0
+        && base.buildup.madness <= 0.0
+        && base.buildup.death <= 0.0
     {
-        return Ok(base);
+        return Ok(base.buildup);
     }
 
     let reinforce = data
@@ -292,8 +292,8 @@ pub fn calculate_status_buildup(
         })?;
     let curve_id = weapon.damage_curve_ids[DamageType::Physical.as_index()];
 
-    let scale_status = |value: f32, stat_idx: usize, stat_value: u8| -> Result<f32, String> {
-        if value <= 0.0 || weapon.scaling[stat_idx] <= 0.0 {
+    let scale_status = |value: f32, stat_idx: usize, stat_value: u8, should_scale: bool| -> Result<f32, String> {
+        if value <= 0.0 || !should_scale || weapon.scaling[stat_idx] <= 0.0 {
             return Ok(value);
         }
         let curve_mult = data
@@ -303,13 +303,48 @@ pub fn calculate_status_buildup(
     };
 
     Ok(StatusBuildup {
-        bleed: scale_status(base.bleed, STAT_ARC, stats.arc)?,
-        frost: scale_status(base.frost, STAT_INT, stats.int)?,
-        poison: scale_status(base.poison, STAT_ARC, stats.arc)?,
-        scarlet_rot: scale_status(base.scarlet_rot, STAT_ARC, stats.arc)?,
-        sleep: scale_status(base.sleep, STAT_ARC, stats.arc)?,
-        madness: scale_status(base.madness, STAT_ARC, stats.arc)?,
-        death: scale_status(base.death, STAT_ARC, stats.arc)?,
+        bleed: scale_status(
+            base.buildup.bleed,
+            STAT_ARC,
+            stats.arc,
+            uses_status_correction(base.correction_flags.bleed, weapon.scaling[STAT_ARC] > 0.0),
+        )?,
+        frost: scale_status(
+            base.buildup.frost,
+            STAT_INT,
+            stats.int,
+            uses_status_correction(base.correction_flags.frost, weapon.scaling[STAT_INT] > 0.0),
+        )?,
+        poison: scale_status(
+            base.buildup.poison,
+            STAT_ARC,
+            stats.arc,
+            uses_status_correction(base.correction_flags.poison, weapon.scaling[STAT_ARC] > 0.0),
+        )?,
+        scarlet_rot: scale_status(
+            base.buildup.scarlet_rot,
+            STAT_ARC,
+            stats.arc,
+            uses_status_correction(base.correction_flags.scarlet_rot, weapon.scaling[STAT_ARC] > 0.0),
+        )?,
+        sleep: scale_status(
+            base.buildup.sleep,
+            STAT_ARC,
+            stats.arc,
+            uses_status_correction(base.correction_flags.sleep, weapon.scaling[STAT_ARC] > 0.0),
+        )?,
+        madness: scale_status(
+            base.buildup.madness,
+            STAT_ARC,
+            stats.arc,
+            uses_status_correction(base.correction_flags.madness, weapon.scaling[STAT_ARC] > 0.0),
+        )?,
+        death: scale_status(
+            base.buildup.death,
+            STAT_ARC,
+            stats.arc,
+            uses_status_correction(base.correction_flags.death, weapon.scaling[STAT_ARC] > 0.0),
+        )?,
     })
 }
 
@@ -347,8 +382,8 @@ pub fn apply_aow_status_buffs(
             )
         })?;
     let curve_id = weapon.damage_curve_ids[DamageType::Physical.as_index()];
-    let scale_status = |value: f32, stat_idx: usize, stat_value: u8| -> Result<f32, String> {
-        if value <= 0.0 || weapon.scaling[stat_idx] <= 0.0 {
+    let scale_status = |value: f32, stat_idx: usize, stat_value: u8, should_scale: bool| -> Result<f32, String> {
+        if value <= 0.0 || !should_scale || weapon.scaling[stat_idx] <= 0.0 {
             return Ok(value);
         }
         let curve_mult = data
@@ -357,14 +392,53 @@ pub fn apply_aow_status_buffs(
         Ok(value * (1.0 + weapon.scaling[stat_idx] * reinforce.scaling_mult[stat_idx] * curve_mult))
     };
 
-    buildup.bleed += scale_status(scaling.bleed, STAT_ARC, stats.arc)?;
-    buildup.frost += scale_status(scaling.frost, STAT_INT, stats.int)?;
-    buildup.poison += scale_status(scaling.poison, STAT_ARC, stats.arc)?;
-    buildup.scarlet_rot += scale_status(scaling.scarlet_rot, STAT_ARC, stats.arc)?;
-    buildup.sleep += scale_status(scaling.sleep, STAT_ARC, stats.arc)?;
-    buildup.madness += scale_status(scaling.madness, STAT_ARC, stats.arc)?;
-    buildup.death += scale_status(scaling.death, STAT_ARC, stats.arc)?;
+    buildup.bleed += scale_status(
+        scaling.bleed,
+        STAT_ARC,
+        stats.arc,
+        uses_status_correction(aow.scaling_status_flags.bleed, weapon.scaling[STAT_ARC] > 0.0),
+    )?;
+    buildup.frost += scale_status(
+        scaling.frost,
+        STAT_INT,
+        stats.int,
+        uses_status_correction(aow.scaling_status_flags.frost, weapon.scaling[STAT_INT] > 0.0),
+    )?;
+    buildup.poison += scale_status(
+        scaling.poison,
+        STAT_ARC,
+        stats.arc,
+        uses_status_correction(aow.scaling_status_flags.poison, weapon.scaling[STAT_ARC] > 0.0),
+    )?;
+    buildup.scarlet_rot += scale_status(
+        scaling.scarlet_rot,
+        STAT_ARC,
+        stats.arc,
+        uses_status_correction(aow.scaling_status_flags.scarlet_rot, weapon.scaling[STAT_ARC] > 0.0),
+    )?;
+    buildup.sleep += scale_status(
+        scaling.sleep,
+        STAT_ARC,
+        stats.arc,
+        uses_status_correction(aow.scaling_status_flags.sleep, weapon.scaling[STAT_ARC] > 0.0),
+    )?;
+    buildup.madness += scale_status(
+        scaling.madness,
+        STAT_ARC,
+        stats.arc,
+        uses_status_correction(aow.scaling_status_flags.madness, weapon.scaling[STAT_ARC] > 0.0),
+    )?;
+    buildup.death += scale_status(
+        scaling.death,
+        STAT_ARC,
+        stats.arc,
+        uses_status_correction(aow.scaling_status_flags.death, weapon.scaling[STAT_ARC] > 0.0),
+    )?;
     Ok(buildup)
+}
+
+fn uses_status_correction(flag: Option<bool>, fallback: bool) -> bool {
+    flag.unwrap_or(fallback)
 }
 
 #[derive(Clone, Copy, Debug)]

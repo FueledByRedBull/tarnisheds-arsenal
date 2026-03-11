@@ -168,6 +168,23 @@ pub struct StatusBuildup {
     pub death: f32,
 }
 
+#[derive(Clone, Copy, Debug, Default)]
+pub struct StatusCorrectionFlags {
+    pub bleed: Option<bool>,
+    pub frost: Option<bool>,
+    pub poison: Option<bool>,
+    pub scarlet_rot: Option<bool>,
+    pub sleep: Option<bool>,
+    pub madness: Option<bool>,
+    pub death: Option<bool>,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct StatusEffectSource {
+    pub buildup: StatusBuildup,
+    pub correction_flags: StatusCorrectionFlags,
+}
+
 impl StatusBuildup {
     pub fn with_aow_additions(self, aow: Option<&Aow>) -> Self {
         let Some(aow) = aow else {
@@ -196,6 +213,7 @@ pub struct Aow {
     pub valid_weapon_types: String,
     pub buff_attack_power: [f32; DAMAGE_TYPE_COUNT],
     pub scaling_status_add: StatusBuildup,
+    pub scaling_status_flags: StatusCorrectionFlags,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -232,7 +250,7 @@ pub struct GameData {
     pub attack_element_correct_ext: HashMap<usize, AttackElementCorrectExt>,
     pub aows: Vec<Aow>,
     pub aow_attack_rows: HashMap<u16, Vec<AowAttackRow>>,
-    pub weapon_passives: HashMap<u32, StatusBuildup>,
+    pub weapon_passives: HashMap<u32, StatusEffectSource>,
     pub exact_aow_compat: HashSet<(u16, u32)>,
 }
 
@@ -271,7 +289,7 @@ impl GameData {
             .unwrap_or(&[])
     }
 
-    pub fn weapon_passive(&self, weapon_id: u32) -> StatusBuildup {
+    pub fn weapon_passive(&self, weapon_id: u32) -> StatusEffectSource {
         self.weapon_passives
             .get(&weapon_id)
             .copied()

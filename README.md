@@ -183,7 +183,7 @@ Important boundaries:
 - this is still an optimizer, not a full enemy simulator
 - enemy defense, negation, resistance growth, proc explosion damage, poise, and stamina are not part of the current scoring model
 - unique somber weapon-skill damage is not yet treated as a complete separate universal layer outside the generic AoW pipeline
-- status buildup is split and surfaced for bleed, frost, poison, and scarlet rot, but the per-effect `isUseStatusAilmentAtkPowerCorrect` flag is not yet modeled as a separate runtime gate
+- status buildup is split and surfaced for bleed, frost, poison, and scarlet rot, and workbook-derived `isUseStatusAilmentAtkPowerCorrect` flags are now used as explicit runtime gates when the source data exposes them
 - self-buff weapon enchant spells and every temporary buff stack are not yet modeled as a universal layer; the current buff pass covers workbook-backed buff-type AoWs such as `Seppuku`, `Sacred Blade`, `Flaming Strike`, `Lightning Slash`, `Chilling Mist`, and `Poisonous Mist`
 
 ## Local Setup
