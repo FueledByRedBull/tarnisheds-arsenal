@@ -146,6 +146,18 @@ pub fn calculate_ar(
     Ok(breakdown)
 }
 
+pub fn apply_aow_attack_buffs(mut breakdown: DamageBreakdown, aow: Option<&crate::model::Aow>) -> DamageBreakdown {
+    let Some(aow) = aow else {
+        return breakdown;
+    };
+    breakdown.physical += aow.buff_attack_power[DamageType::Physical.as_index()];
+    breakdown.magic += aow.buff_attack_power[DamageType::Magic.as_index()];
+    breakdown.fire += aow.buff_attack_power[DamageType::Fire.as_index()];
+    breakdown.lightning += aow.buff_attack_power[DamageType::Lightning.as_index()];
+    breakdown.holy += aow.buff_attack_power[DamageType::Holy.as_index()];
+    breakdown
+}
+
 fn calculate_skill_damage_for_type(
     weapon: &Weapon,
     attack_row: &AowAttackRow,
@@ -299,6 +311,60 @@ pub fn calculate_status_buildup(
         madness: scale_status(base.madness, STAT_ARC, stats.arc)?,
         death: scale_status(base.death, STAT_ARC, stats.arc)?,
     })
+}
+
+pub fn apply_aow_status_buffs(
+    mut buildup: StatusBuildup,
+    weapon: &Weapon,
+    upgrade: u8,
+    stats: &Stats,
+    data: &GameData,
+    aow: Option<&crate::model::Aow>,
+) -> Result<StatusBuildup, String> {
+    let Some(aow) = aow else {
+        return Ok(buildup);
+    };
+    buildup = buildup.with_aow_additions(Some(aow));
+
+    let scaling = aow.scaling_status_add;
+    if scaling.bleed <= 0.0
+        && scaling.frost <= 0.0
+        && scaling.poison <= 0.0
+        && scaling.scarlet_rot <= 0.0
+        && scaling.sleep <= 0.0
+        && scaling.madness <= 0.0
+        && scaling.death <= 0.0
+    {
+        return Ok(buildup);
+    }
+
+    let reinforce = data
+        .reinforce_level(weapon.reinforce_type, upgrade)
+        .ok_or_else(|| {
+            format!(
+                "missing reinforce level: type={} level={upgrade}",
+                weapon.reinforce_type
+            )
+        })?;
+    let curve_id = weapon.damage_curve_ids[DamageType::Physical.as_index()];
+    let scale_status = |value: f32, stat_idx: usize, stat_value: u8| -> Result<f32, String> {
+        if value <= 0.0 || weapon.scaling[stat_idx] <= 0.0 {
+            return Ok(value);
+        }
+        let curve_mult = data
+            .calc_curve_value(curve_id, stat_value)
+            .ok_or_else(|| format!("missing curve_id={curve_id} for status scaling"))?;
+        Ok(value * (1.0 + weapon.scaling[stat_idx] * reinforce.scaling_mult[stat_idx] * curve_mult))
+    };
+
+    buildup.bleed += scale_status(scaling.bleed, STAT_ARC, stats.arc)?;
+    buildup.frost += scale_status(scaling.frost, STAT_INT, stats.int)?;
+    buildup.poison += scale_status(scaling.poison, STAT_ARC, stats.arc)?;
+    buildup.scarlet_rot += scale_status(scaling.scarlet_rot, STAT_ARC, stats.arc)?;
+    buildup.sleep += scale_status(scaling.sleep, STAT_ARC, stats.arc)?;
+    buildup.madness += scale_status(scaling.madness, STAT_ARC, stats.arc)?;
+    buildup.death += scale_status(scaling.death, STAT_ARC, stats.arc)?;
+    Ok(buildup)
 }
 
 #[derive(Clone, Copy, Debug)]

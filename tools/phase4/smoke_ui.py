@@ -248,6 +248,39 @@ def main() -> int:
     if float(lead.aow_full_sequence_damage) < float(lead.aow_first_hit_damage):
         raise AssertionError("expected AoW full-sequence damage to stay above first-hit damage")
 
+    window._set_combo_by_data(window.class_combo, "Samurai")
+    window._on_class_changed()
+    window.vig_spin.setValue(12)
+    window.mnd_spin.setValue(11)
+    window.end_spin.setValue(13)
+    window.str_spin.setValue(12)
+    window.dex_spin.setValue(15)
+    window.int_spin.setValue(9)
+    window.fai_spin.setValue(8)
+    window.arc_spin.setValue(45)
+    window._set_combo_by_data(window.weapon_combo, "Uchigatana")
+    window._refresh_affinity_options()
+    window._set_combo_by_data(window.affinity_combo, "Blood")
+    window.max_upgrade_spin.setValue(25)
+    window.lock_upgrade_exact.setChecked(True)
+    window.objective_combo.setCurrentIndex(window.objective_combo.findData("max_ar"))
+    window.aow_combo.setCurrentIndex(window.aow_combo.findData(None))
+    window._start_search()
+    wait_until(lambda: window.active_run_id is None)
+    if not window.current_results:
+        raise AssertionError("expected base blood uchigatana result")
+    base_ar = float(window.current_results[0].ar_total)
+    base_bleed = float(window.current_results[0].bleed_buildup)
+    window._set_combo_by_data(window.aow_combo, "Seppuku")
+    window._start_search()
+    wait_until(lambda: window.active_run_id is None)
+    if not window.current_results:
+        raise AssertionError("expected Seppuku blood uchigatana result")
+    if float(window.current_results[0].ar_total) < base_ar + 29.9:
+        raise AssertionError("expected Seppuku to add flat AR to the buffed weapon row")
+    if float(window.current_results[0].bleed_buildup) <= base_bleed + 30.0:
+        raise AssertionError("expected Seppuku to add scaling bleed buildup")
+
     window._set_combo_by_data(window.class_combo, "Wretch")
     window._on_class_changed()
     window.vig_spin.setValue(10)

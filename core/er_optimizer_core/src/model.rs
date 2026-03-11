@@ -110,17 +110,6 @@ impl AttackElementCorrect {
 }
 
 #[derive(Clone, Debug)]
-pub struct Aow {
-    pub aow_id: u16,
-    pub name: String,
-    pub bleed_buildup_add: f32,
-    pub frost_buildup_add: f32,
-    pub poison_buildup_add: f32,
-    pub scarlet_rot_buildup_add: f32,
-    pub valid_weapon_types: String,
-}
-
-#[derive(Clone, Copy, Debug, Default)]
 pub struct AttackElementCorrectExt {
     pub scales: [[bool; DAMAGE_TYPE_COUNT]; COMBAT_STAT_COUNT],
     pub overwrite: [[Option<f32>; DAMAGE_TYPE_COUNT]; COMBAT_STAT_COUNT],
@@ -128,15 +117,15 @@ pub struct AttackElementCorrectExt {
 }
 
 impl AttackElementCorrectExt {
-    pub fn stat_scales(self, stat_idx: usize, damage_idx: usize) -> bool {
+    pub fn stat_scales(&self, stat_idx: usize, damage_idx: usize) -> bool {
         self.scales[stat_idx][damage_idx]
     }
 
-    pub fn overwrite_rate(self, stat_idx: usize, damage_idx: usize) -> Option<f32> {
+    pub fn overwrite_rate(&self, stat_idx: usize, damage_idx: usize) -> Option<f32> {
         self.overwrite[stat_idx][damage_idx]
     }
 
-    pub fn influence_rate(self, stat_idx: usize, damage_idx: usize) -> f32 {
+    pub fn influence_rate(&self, stat_idx: usize, damage_idx: usize) -> f32 {
         self.influence[stat_idx][damage_idx]
     }
 }
@@ -194,6 +183,19 @@ impl StatusBuildup {
             death: self.death,
         }
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct Aow {
+    pub aow_id: u16,
+    pub name: String,
+    pub bleed_buildup_add: f32,
+    pub frost_buildup_add: f32,
+    pub poison_buildup_add: f32,
+    pub scarlet_rot_buildup_add: f32,
+    pub valid_weapon_types: String,
+    pub buff_attack_power: [f32; DAMAGE_TYPE_COUNT],
+    pub scaling_status_add: StatusBuildup,
 }
 
 #[derive(Clone, Copy, Debug, Default)]

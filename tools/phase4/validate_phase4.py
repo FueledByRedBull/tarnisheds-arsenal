@@ -50,6 +50,7 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
     calc_correct = read_csv(data_dir / "calc_correct.csv")
     aows = read_csv(data_dir / "aow.csv")
     aow_attack_data = read_csv(data_dir / "aow_attack_data.csv")
+    aow_buffs = read_csv(data_dir / "aow_buffs.csv")
     aow_damage_coverage = read_csv(data_dir / "aow_damage_coverage.csv")
     attack_element_correct_ext = read_csv(data_dir / "attack_element_correct_ext.csv")
     weapon_passives = read_csv(data_dir / "weapon_passives.csv")
@@ -69,6 +70,10 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
     if len(aow_attack_data) < 1000:
         issues.append(
             ValidationIssue("error", f"aow_attack_data.csv row count too low: {len(aow_attack_data)}")
+        )
+    if len(aow_buffs) < 8:
+        issues.append(
+            ValidationIssue("error", f"aow_buffs.csv row count too low: {len(aow_buffs)}")
         )
     if len(aow_damage_coverage) != len(aows):
         issues.append(
@@ -242,6 +247,25 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
                 ValidationIssue(
                     "error",
                     f"Lion's Claw bleed_buildup_add is {bleed}, expected 0",
+                )
+            )
+
+    seppuku_buff = next((row for row in aow_buffs if row["name"] == "Seppuku"), None)
+    if seppuku_buff is None:
+        issues.append(ValidationIssue("error", "Seppuku missing from aow_buffs.csv"))
+    else:
+        if float(seppuku_buff["physical_attack_power_add"]) < 30.0:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    f"Seppuku physical attack buff is wrong: {seppuku_buff['physical_attack_power_add']}",
+                )
+            )
+        if float(seppuku_buff["scaling_bleed_buildup_add"]) < 30.0:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    f"Seppuku bleed buff is wrong: {seppuku_buff['scaling_bleed_buildup_add']}",
                 )
             )
 
@@ -433,7 +457,7 @@ def validate_runtime_ar(data_dir: Path) -> list[ValidationIssue]:
         weapon_name="Rivers of Blood",
         affinity="Standard",
         aow_name=None,
-        objective="max_ar_plus_bleed",
+        objective="max_ar",
         top_k=1,
         somber_filter="all",
         weapon_type_key=None,
@@ -605,7 +629,7 @@ def validate_runtime_ar(data_dir: Path) -> list[ValidationIssue]:
         fixed_upgrade=25,
         weapon_name="Star Fist",
         affinity="Blood",
-        objective="max_ar_plus_bleed",
+        objective="max_ar",
         top_k=1,
         lock_str=12,
         lock_dex=10,
@@ -649,7 +673,7 @@ def validate_runtime_ar(data_dir: Path) -> list[ValidationIssue]:
         fixed_upgrade=25,
         weapon_name="Antspur Rapier",
         affinity="Occult",
-        objective="max_ar_plus_bleed",
+        objective="max_ar",
         top_k=1,
         lock_str=10,
         lock_dex=20,
@@ -675,6 +699,96 @@ def validate_runtime_ar(data_dir: Path) -> list[ValidationIssue]:
                 ValidationIssue(
                     "error",
                     f"Antspur occult scarlet rot scaling is wrong: poison={poison} scarlet_rot={scarlet_rot}",
+                )
+            )
+
+    uchi_base = core.optimize_builds(
+        data=data,
+        class_name="Samurai",
+        character_level=46,
+        vig=12,
+        mnd=11,
+        end=13,
+        str_stat=12,
+        dex=15,
+        int_stat=9,
+        fai=8,
+        arc=45,
+        max_upgrade=25,
+        fixed_upgrade=25,
+        weapon_name="Uchigatana",
+        affinity="Blood",
+        aow_name=None,
+        objective="max_ar",
+        top_k=1,
+        lock_str=12,
+        lock_dex=15,
+        lock_int=9,
+        lock_fai=8,
+        lock_arc=45,
+        min_str=0,
+        min_dex=0,
+        min_int=0,
+        min_fai=0,
+        min_arc=0,
+        two_handing=False,
+        somber_filter="all",
+        weapon_type_key=None,
+    )
+    uchi_seppuku = core.optimize_builds(
+        data=data,
+        class_name="Samurai",
+        character_level=46,
+        vig=12,
+        mnd=11,
+        end=13,
+        str_stat=12,
+        dex=15,
+        int_stat=9,
+        fai=8,
+        arc=45,
+        max_upgrade=25,
+        fixed_upgrade=25,
+        weapon_name="Uchigatana",
+        affinity="Blood",
+        aow_name="Seppuku",
+        objective="max_ar_plus_bleed",
+        top_k=1,
+        lock_str=12,
+        lock_dex=15,
+        lock_int=9,
+        lock_fai=8,
+        lock_arc=45,
+        min_str=0,
+        min_dex=0,
+        min_int=0,
+        min_fai=0,
+        min_arc=0,
+        two_handing=False,
+        somber_filter="all",
+        weapon_type_key=None,
+    )
+    if not uchi_base or not uchi_seppuku:
+        issues.append(ValidationIssue("error", "runtime Seppuku case returned no rows"))
+    else:
+        if float(uchi_seppuku[0].ar_total) < float(uchi_base[0].ar_total) + 29.9:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    (
+                        "Seppuku AR buff was not applied: "
+                        f"base={uchi_base[0].ar_total} buffed={uchi_seppuku[0].ar_total}"
+                    ),
+                )
+            )
+        if float(uchi_seppuku[0].bleed_buildup) <= float(uchi_base[0].bleed_buildup) + 30.0:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    (
+                        "Seppuku bleed buff was not applied: "
+                        f"base={uchi_base[0].bleed_buildup} buffed={uchi_seppuku[0].bleed_buildup}"
+                    ),
                 )
             )
 

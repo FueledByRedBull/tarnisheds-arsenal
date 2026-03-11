@@ -13,8 +13,11 @@ venv/
 
 # Build/release output
 dist/
+build/
+*.spec
 *.whl
 tmp_*.png
+release-notes-*.md
 
 # Local data workdirs
 data/_work_phase1/
@@ -24,3 +27,4 @@ data/raw/
 .DS_Store
 Thumbs.db
 .vscode/
+docs/images/*.png

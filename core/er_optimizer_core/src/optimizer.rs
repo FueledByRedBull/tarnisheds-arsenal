@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::math::{
-    calculate_aow_damage, calculate_ar, calculate_status_buildup, class_by_name, compute_free_points, effective_str,
-    meets_requirements,
+    apply_aow_attack_buffs, apply_aow_status_buffs, calculate_aow_damage, calculate_ar,
+    calculate_status_buildup, class_by_name, compute_free_points, effective_str, meets_requirements,
 };
 use crate::model::{
     Aow, AowAttackRow, DamageBreakdown, DamageType, GameData, Stats, StatusBuildup, Weapon,
@@ -224,15 +224,18 @@ where
                     }
 
                     eligible += 1;
-                    let ar =
-                        calculate_ar(prepared.weapon, *upgrade, &stats, effective_str_value, data)?;
-                    let status_buildup = calculate_status_buildup(
+                    let ar = apply_aow_attack_buffs(
+                        calculate_ar(prepared.weapon, *upgrade, &stats, effective_str_value, data)?,
+                        aow_choice.aow,
+                    );
+                    let status_buildup = apply_aow_status_buffs(
+                        calculate_status_buildup(prepared.weapon, *upgrade, &stats, data)?,
                         prepared.weapon,
                         *upgrade,
                         &stats,
                         data,
-                    )?
-                    .with_aow_additions(aow_choice.aow);
+                        aow_choice.aow,
+                    )?;
                     let (aow_first_hit_damage, aow_full_sequence_damage) = if aow_choice.attack_rows.is_empty()
                     {
                         (0.0, 0.0)
@@ -503,12 +506,14 @@ fn resolve_aow_choices<'a>(
             .iter()
             .filter(|aow| aow_compatible_with_weapon(aow, weapon, data))
             .max_by(|left, right| {
-                left.bleed_buildup_add
-                    .partial_cmp(&right.bleed_buildup_add)
+                let left_bleed = left.bleed_buildup_add + left.scaling_status_add.bleed;
+                let right_bleed = right.bleed_buildup_add + right.scaling_status_add.bleed;
+                left_bleed
+                    .partial_cmp(&right_bleed)
                     .unwrap_or(Ordering::Equal)
             });
         if let Some(aow) = best {
-            if aow.bleed_buildup_add > 0.0 {
+            if aow.bleed_buildup_add > 0.0 || aow.scaling_status_add.bleed > 0.0 {
                 return Ok(Some(vec![build_aow_choice(aow, weapon, data)]));
             }
         }
@@ -1141,6 +1146,41 @@ mod tests {
         assert!(results[0].aow_first_hit_damage > 0.0);
         assert!(results[0].aow_full_sequence_damage >= results[0].aow_first_hit_damage);
         assert_eq!(results[0].score, results[0].aow_first_hit_damage);
+    }
+
+    #[test]
+    fn seppuku_weapon_buff_affects_ar_and_bleed() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.weapon_name = Some("Uchigatana".to_string());
+        request.affinity = Some("Blood".to_string());
+        request.current_stats = Stats {
+            vig: 12,
+            mnd: 11,
+            end: 13,
+            str: 12,
+            dex: 15,
+            int: 9,
+            fai: 8,
+            arc: 45,
+        };
+        request.character_level = 46;
+        request.max_upgrade = 25;
+        request.fixed_upgrade = Some(25);
+        request.locked_combat_stats = [Some(12), Some(15), Some(9), Some(8), Some(45)];
+        request.objective = OptimizeObjective::MaxAr;
+
+        let base_results = optimize(&request, &game_data).expect("optimizer failed");
+        assert!(!base_results.is_empty());
+
+        request.aow_name = Some("Seppuku".to_string());
+        let seppuku_results = optimize(&request, &game_data).expect("optimizer failed");
+        assert!(!seppuku_results.is_empty());
+
+        let base = &base_results[0];
+        let buffed = &seppuku_results[0];
+        assert!(buffed.ar.total() >= base.ar.total() + 29.9);
+        assert!(buffed.bleed_buildup > base.bleed_buildup + 30.0);
     }
 
     #[test]

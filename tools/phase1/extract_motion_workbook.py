@@ -33,6 +33,22 @@ VARIANT_ALIASES = {
     'greatspear': 'Heavy Spear',
     'reaper': 'Scythe',
 }
+BUFF_DAMAGE_FIELDS = (
+    ('physical_attack_power_add', 'physicsAttackPower'),
+    ('magic_attack_power_add', 'magicAttackPower'),
+    ('fire_attack_power_add', 'fireAttackPower'),
+    ('lightning_attack_power_add', 'thunderAttackPower'),
+    ('holy_attack_power_add', 'darkAttackPower'),
+)
+BUFF_STATUS_FIELDS = (
+    ('scaling_bleed_buildup_add', 'bloodAttackPower'),
+    ('scaling_frost_buildup_add', 'freezeAttackPower'),
+    ('scaling_poison_buildup_add', 'poizonAttackPower'),
+    ('scaling_scarlet_rot_buildup_add', 'diseaseAttackPower'),
+    ('scaling_sleep_buildup_add', 'sleepAttackPower'),
+    ('scaling_madness_buildup_add', 'madnessAttackPower'),
+    ('scaling_death_buildup_add', 'curseAttackPower'),
+)
 
 
 @dataclass(frozen=True)
@@ -131,6 +147,12 @@ def parse_int(value: str) -> int:
     return int(float(value))
 
 
+def safe_parse_float(value: str) -> float:
+    if not value or value in {'-', 'invalid'}:
+        return 0.0
+    return float(value)
+
+
 def find_matching_aow(raw_name: str, aow_names: list[str]) -> str | None:
     simplified = re.sub(r'^\[[^\]]+\]\s*', '', raw_name).strip()
     simplified = re.sub(r'\s*\(Lacking FP\)$', '', simplified).strip()
@@ -193,6 +215,128 @@ def parse_hit_order(raw_name: str, sequence_variant: str) -> int:
     if match:
         return int(match.group(1))
     return 1
+
+
+def read_sp_effect_sheet(workbook_path: Path) -> list[dict[str, str]]:
+    rel_ns = '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}'
+    workbook_ns = {
+        'x': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
+        'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+    }
+
+    def column_index(cell_ref: str) -> int:
+        letters = ''.join(ch for ch in cell_ref if ch.isalpha())
+        value = 0
+        for ch in letters:
+            value = value * 26 + (ord(ch.upper()) - 64)
+        return value - 1
+
+    with zipfile.ZipFile(workbook_path) as archive:
+        shared_strings: list[str] = []
+        if 'xl/sharedStrings.xml' in archive.namelist():
+            sst = ET.fromstring(archive.read('xl/sharedStrings.xml'))
+            for item in sst:
+                shared_strings.append(''.join(node.text or '' for node in item.iter(f'{MAIN_NS}t')))
+
+        workbook = ET.fromstring(archive.read('xl/workbook.xml'))
+        workbook_rels = ET.fromstring(archive.read('xl/_rels/workbook.xml.rels'))
+        rel_map = {rel.attrib['Id']: rel.attrib['Target'] for rel in workbook_rels}
+
+        target: str | None = None
+        sheets = workbook.find('x:sheets', WORKBOOK_NS)
+        for sheet in ([] if sheets is None else sheets):
+            if sheet.attrib['name'] == 'SpEffectParam':
+                target = rel_map[sheet.attrib[f'{rel_ns}id']]
+                break
+        if target is None:
+            raise ValueError('missing sheet: SpEffectParam')
+
+        sheet_xml = ET.fromstring(archive.read(f'xl/{target}'))
+        sheet_data = sheet_xml.find(f'{MAIN_NS}sheetData')
+        if sheet_data is None:
+            raise ValueError('missing sheetData for SpEffectParam')
+
+        parsed_rows: list[list[str]] = []
+        width = 0
+        for row in sheet_data:
+            parsed: dict[int, str] = {}
+            for cell in row:
+                idx = column_index(cell.attrib['r'])
+                cell_type = cell.attrib.get('t')
+                value = cell.find(f'{MAIN_NS}v')
+                if cell_type == 's':
+                    text = '' if value is None else shared_strings[int(value.text or '0')]
+                else:
+                    text = value.text if value is not None and value.text is not None else ''
+                parsed[idx] = text
+                width = max(width, idx + 1)
+            parsed_rows.append([parsed.get(idx, '') for idx in range(width)])
+
+    if len(parsed_rows) < 3:
+        return []
+    headers = parsed_rows[1]
+    return [
+        {headers[idx]: values[idx] if idx < len(values) else '' for idx in range(len(headers)) if headers[idx]}
+        for values in parsed_rows[2:]
+        if values and any(value for value in values)
+    ]
+
+
+def build_aow_buff_data(project_root: Path) -> None:
+    workbook_path = project_root / 'data' / 'phase1' / 'ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx'
+    aow_csv = project_root / 'data' / 'phase1' / 'aow.csv'
+    out_path = project_root / 'data' / 'phase1' / 'aow_buffs.csv'
+
+    aow_rows = list(csv.DictReader(aow_csv.open('r', encoding='utf-8', newline='')))
+    aow_id_by_name = {row['name']: int(row['aow_id']) for row in aow_rows}
+    ordered_names = sorted(aow_id_by_name, key=len, reverse=True)
+    sp_effect_rows = read_sp_effect_sheet(workbook_path)
+
+    rows_out: list[dict[str, str]] = []
+    for aow_name in ordered_names:
+        seen: set[tuple[str, tuple[float, ...], tuple[float, ...]]] = set()
+        damage_totals = {field: 0.0 for field, _ in BUFF_DAMAGE_FIELDS}
+        status_totals = {field: 0.0 for field, _ in BUFF_STATUS_FIELDS}
+        for row in sp_effect_rows:
+            raw_name = row.get('Name', '')
+            if not raw_name.startswith('[AoW] '):
+                continue
+            tail = raw_name[len('[AoW] '):]
+            matched = find_matching_aow(tail, [aow_name])
+            if matched is None:
+                continue
+            lower_tail = tail.lower()
+            if any(token in lower_tail for token in ('bullet', 'self', 'vfx', 'parry')):
+                continue
+            damage_values = tuple(safe_parse_float(row.get(source, '0')) for _, source in BUFF_DAMAGE_FIELDS)
+            status_values = tuple(safe_parse_float(row.get(source, '0')) for _, source in BUFF_STATUS_FIELDS)
+            if not any(value > 0.0 for value in damage_values + status_values):
+                continue
+            signature = (tail, damage_values, status_values)
+            if signature in seen:
+                continue
+            seen.add(signature)
+            for (field, _), value in zip(BUFF_DAMAGE_FIELDS, damage_values):
+                damage_totals[field] += value
+            for (field, _), value in zip(BUFF_STATUS_FIELDS, status_values):
+                status_totals[field] += value
+        if not seen:
+            continue
+        row_out = {
+            'aow_id': str(aow_id_by_name[aow_name]),
+            'name': aow_name,
+        }
+        row_out.update({field: str(value) for field, value in damage_totals.items()})
+        row_out.update({field: str(value) for field, value in status_totals.items()})
+        rows_out.append(row_out)
+
+    rows_out.sort(key=lambda row: int(row['aow_id']))
+    fieldnames = ['aow_id', 'name'] + [field for field, _ in BUFF_DAMAGE_FIELDS] + [field for field, _ in BUFF_STATUS_FIELDS]
+    with out_path.open('w', encoding='utf-8', newline='') as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows_out)
+    print(f'Wrote {len(rows_out)} AoW buff rows to {out_path}')
 
 
 def is_damaging_row(
@@ -425,6 +569,7 @@ def build_attack_element_correct_ext(project_root: Path) -> None:
 def main() -> None:
     project_root = Path(__file__).resolve().parents[2]
     build_aow_attack_data(project_root)
+    build_aow_buff_data(project_root)
     build_attack_element_correct_ext(project_root)
     from derive_weapon_rules import build_weapon_rules
 

@@ -8,6 +8,12 @@ use crate::model::{
     COMBAT_STAT_COUNT, DAMAGE_TYPE_COUNT,
 };
 
+#[derive(Clone, Copy, Debug, Default)]
+struct AowBuffRow {
+    buff_attack_power: [f32; DAMAGE_TYPE_COUNT],
+    scaling_status_add: StatusBuildup,
+}
+
 struct CsvTable {
     headers: Vec<String>,
     rows: Vec<Vec<String>>,
@@ -110,7 +116,8 @@ pub fn load_game_data(data_dir: impl AsRef<Path>) -> Result<GameData, String> {
         load_attack_element_correct(data_dir.join("attack_element_correct.csv"))?;
     let attack_element_correct_ext =
         load_attack_element_correct_ext_optional(data_dir.join("attack_element_correct_ext.csv"))?;
-    let aows = load_aows(data_dir.join("aow.csv"))?;
+    let aow_buffs = load_aow_buffs_optional(data_dir.join("aow_buffs.csv"))?;
+    let aows = load_aows(data_dir.join("aow.csv"), &aow_buffs)?;
     let aow_attack_rows = load_aow_attack_rows_optional(data_dir.join("aow_attack_data.csv"))?;
     let weapon_passives = load_weapon_passives_optional(data_dir.join("weapon_passives.csv"))?;
     let exact_aow_compat = load_exact_aow_compat_optional(data_dir.join("aow_weapon_compat.csv"))?;
@@ -349,13 +356,15 @@ fn load_attack_element_correct(path: PathBuf) -> Result<Vec<Option<AttackElement
     Ok(out)
 }
 
-fn load_aows(path: PathBuf) -> Result<Vec<Aow>, String> {
+fn load_aows(path: PathBuf, buff_rows: &HashMap<u16, AowBuffRow>) -> Result<Vec<Aow>, String> {
     let table = CsvTable::from_path(&path)?;
     let mut out = Vec::with_capacity(table.rows.len());
 
     for row in &table.rows {
+        let aow_id = parse_u16(table.get(row, "aow_id")?, "aow_id")?;
+        let buff_row = buff_rows.get(&aow_id).copied().unwrap_or_default();
         out.push(Aow {
-            aow_id: parse_u16(table.get(row, "aow_id")?, "aow_id")?,
+            aow_id,
             name: table.get(row, "name")?.to_string(),
             bleed_buildup_add: parse_f32(table.get(row, "bleed_buildup_add")?, "bleed_buildup_add")?,
             frost_buildup_add: parse_f32(table.get(row, "frost_buildup_add")?, "frost_buildup_add")?,
@@ -371,7 +380,79 @@ fn load_aows(path: PathBuf) -> Result<Vec<Aow>, String> {
                 Err(_) => 0.0,
             },
             valid_weapon_types: table.get(row, "valid_weapon_types")?.to_string(),
+            buff_attack_power: buff_row.buff_attack_power,
+            scaling_status_add: buff_row.scaling_status_add,
         });
+    }
+    Ok(out)
+}
+
+fn load_aow_buffs_optional(path: PathBuf) -> Result<HashMap<u16, AowBuffRow>, String> {
+    if !path.exists() {
+        return Ok(HashMap::new());
+    }
+
+    let table = CsvTable::from_path(&path)?;
+    let mut out = HashMap::with_capacity(table.rows.len());
+    for row in &table.rows {
+        let aow_id = parse_u16(table.get(row, "aow_id")?, "aow_id")?;
+        out.insert(
+            aow_id,
+            AowBuffRow {
+                buff_attack_power: [
+                    parse_f32(
+                        table.get(row, "physical_attack_power_add")?,
+                        "physical_attack_power_add",
+                    )?,
+                    parse_f32(
+                        table.get(row, "magic_attack_power_add")?,
+                        "magic_attack_power_add",
+                    )?,
+                    parse_f32(
+                        table.get(row, "fire_attack_power_add")?,
+                        "fire_attack_power_add",
+                    )?,
+                    parse_f32(
+                        table.get(row, "lightning_attack_power_add")?,
+                        "lightning_attack_power_add",
+                    )?,
+                    parse_f32(
+                        table.get(row, "holy_attack_power_add")?,
+                        "holy_attack_power_add",
+                    )?,
+                ],
+                scaling_status_add: StatusBuildup {
+                    bleed: parse_f32(
+                        table.get(row, "scaling_bleed_buildup_add")?,
+                        "scaling_bleed_buildup_add",
+                    )?,
+                    frost: parse_f32(
+                        table.get(row, "scaling_frost_buildup_add")?,
+                        "scaling_frost_buildup_add",
+                    )?,
+                    poison: parse_f32(
+                        table.get(row, "scaling_poison_buildup_add")?,
+                        "scaling_poison_buildup_add",
+                    )?,
+                    scarlet_rot: parse_f32(
+                        table.get(row, "scaling_scarlet_rot_buildup_add")?,
+                        "scaling_scarlet_rot_buildup_add",
+                    )?,
+                    sleep: parse_f32(
+                        table.get(row, "scaling_sleep_buildup_add")?,
+                        "scaling_sleep_buildup_add",
+                    )?,
+                    madness: parse_f32(
+                        table.get(row, "scaling_madness_buildup_add")?,
+                        "scaling_madness_buildup_add",
+                    )?,
+                    death: parse_f32(
+                        table.get(row, "scaling_death_buildup_add")?,
+                        "scaling_death_buildup_add",
+                    )?,
+                },
+            },
+        );
     }
     Ok(out)
 }
