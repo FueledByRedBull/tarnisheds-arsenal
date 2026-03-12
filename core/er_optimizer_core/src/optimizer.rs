@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
 use crate::math::{
@@ -262,6 +262,16 @@ where
                                 data,
                             )?
                         };
+                    if matches!(request.objective, OptimizeObjective::AowFirstHit)
+                        && aow_first_hit_damage <= 0.0
+                    {
+                        continue;
+                    }
+                    if matches!(request.objective, OptimizeObjective::AowFullSequence)
+                        && aow_full_sequence_damage <= 0.0
+                    {
+                        continue;
+                    }
                     let score = score_for(
                         request.objective,
                         ar.total(),
@@ -612,6 +622,9 @@ fn native_skill_choice_for_weapon<'a>(
     weapon: &'a Weapon,
     data: &'a GameData,
 ) -> Option<AowChoice<'a>> {
+    if !weapon.disable_gem_attr {
+        return None;
+    }
     let attack_rows = select_attack_rows(data.native_skill_attack_rows(weapon.weapon_id), weapon);
     let skill_name = weapon
         .native_skill_name
@@ -640,19 +653,42 @@ fn select_attack_rows<'a>(rows: &'a [AowAttackRow], weapon: &Weapon) -> Vec<&'a 
         return Vec::new();
     }
 
-    let has_variant_match = rows.iter().any(|row| {
-        !row.variant_weapon_type.is_empty()
-            && variant_weapon_type_matches(&row.variant_weapon_type, &weapon.weapon_type_name)
-    });
-    rows.iter()
+    let matched_rows: Vec<&AowAttackRow> = rows
+        .iter()
         .filter(|row| {
-            if has_variant_match {
-                variant_weapon_type_matches(&row.variant_weapon_type, &weapon.weapon_type_name)
-            } else {
-                row.variant_weapon_type.is_empty()
-            }
+            !row.variant_weapon_type.is_empty()
+                && variant_weapon_type_matches(&row.variant_weapon_type, &weapon.weapon_type_name)
         })
-        .collect()
+        .collect();
+    if !matched_rows.is_empty() {
+        return matched_rows;
+    }
+
+    let generic_rows: Vec<&AowAttackRow> = rows
+        .iter()
+        .filter(|row| row.variant_weapon_type.is_empty())
+        .collect();
+    if !generic_rows.is_empty() {
+        return generic_rows;
+    }
+
+    let placeholder_rows: Vec<&AowAttackRow> = rows
+        .iter()
+        .filter(|row| is_placeholder_variant(&row.variant_weapon_type))
+        .collect();
+    if placeholder_rows.is_empty() {
+        return Vec::new();
+    }
+
+    let mut seen = HashSet::new();
+    let mut deduped = Vec::new();
+    for row in placeholder_rows {
+        let key = raw_name_without_variant_prefix(&row.raw_name).to_ascii_lowercase();
+        if seen.insert(key) {
+            deduped.push(row);
+        }
+    }
+    deduped
 }
 
 fn variant_weapon_type_matches(variant: &str, weapon_type_name: &str) -> bool {
@@ -675,6 +711,24 @@ fn normalize_type_token(value: &str) -> String {
         _ => normalized,
     };
     normalized
+}
+
+fn is_placeholder_variant(variant: &str) -> bool {
+    let normalized = normalize_type_token(variant);
+    normalized.starts_with("var")
+        && normalized
+            .get(3..)
+            .is_some_and(|suffix| !suffix.is_empty() && suffix.chars().all(|ch| ch.is_ascii_digit()))
+}
+
+fn raw_name_without_variant_prefix(raw_name: &str) -> &str {
+    if let Some(remainder) = raw_name
+        .strip_prefix('[')
+        .and_then(|tail| tail.split_once(']').map(|(_, remainder)| remainder.trim()))
+    {
+        return remainder;
+    }
+    raw_name
 }
 
 pub(crate) fn aow_compatible_with_weapon(aow: &Aow, weapon: &Weapon, data: &GameData) -> bool {
@@ -1334,6 +1388,125 @@ mod tests {
             rows.iter()
                 .any(|row| row.raw_name.starts_with("[Katana] Sword Dance"))
         );
+    }
+
+    #[test]
+    fn lion_claw_resolves_aow_choice_for_claymore() {
+        let game_data = load_data();
+        let weapon = game_data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.name == "Claymore" && weapon.affinity == "Standard")
+            .expect("missing claymore");
+        let mut request = base_request();
+        request.weapon_name = Some("Claymore".to_string());
+        request.affinity = Some("Standard".to_string());
+        request.aow_name = Some("Lion's Claw".to_string());
+        request.objective = OptimizeObjective::AowFirstHit;
+        request.current_stats = Stats {
+            vig: 20,
+            mnd: 15,
+            end: 20,
+            str: 40,
+            dex: 30,
+            int: 10,
+            fai: 10,
+            arc: 10,
+        };
+        request.character_level = 76;
+        request.fixed_upgrade = Some(25);
+        request.max_upgrade = 25;
+        request.locked_combat_stats = [Some(40), Some(30), Some(10), Some(10), Some(10)];
+
+        let choices = resolve_aow_choices(weapon, &request, &game_data).expect("resolve failed");
+        let choices = choices.expect("expected choices");
+        assert_eq!(choices.len(), 1);
+        assert_eq!(choices[0].skill_name, Some("Lion's Claw"));
+        assert!(
+            !choices[0].attack_rows.is_empty(),
+            "expected Lion's Claw attack rows for Claymore"
+        );
+    }
+
+    #[test]
+    fn beasts_roar_first_hit_uses_first_positive_damage_row() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.weapon_name = Some("Antspur Rapier".to_string());
+        request.affinity = Some("Blood".to_string());
+        request.aow_name = Some("Beast's Roar".to_string());
+        request.objective = OptimizeObjective::AowFirstHit;
+        request.current_stats = Stats {
+            vig: 20,
+            mnd: 20,
+            end: 20,
+            str: 60,
+            dex: 60,
+            int: 60,
+            fai: 60,
+            arc: 60,
+        };
+        request.character_level = 331;
+        request.fixed_upgrade = Some(25);
+        request.max_upgrade = 25;
+
+        let results = optimize(&request, &game_data).expect("optimizer failed");
+        assert!(!results.is_empty());
+        assert!(results[0].aow_first_hit_damage > 0.0);
+        assert!(results[0].aow_full_sequence_damage >= results[0].aow_first_hit_damage);
+    }
+
+    #[test]
+    fn zero_damage_roar_has_no_results_for_damage_objective() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.weapon_name = Some("Bandit's Curved Sword".to_string());
+        request.affinity = Some("Blood".to_string());
+        request.aow_name = Some("Braggart's Roar".to_string());
+        request.objective = OptimizeObjective::AowFirstHit;
+        request.current_stats = Stats {
+            vig: 20,
+            mnd: 20,
+            end: 20,
+            str: 60,
+            dex: 60,
+            int: 60,
+            fai: 60,
+            arc: 60,
+        };
+        request.character_level = 331;
+        request.fixed_upgrade = Some(25);
+        request.max_upgrade = 25;
+
+        let results = optimize(&request, &game_data).expect("optimizer failed");
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn spinning_slash_placeholder_variants_match_greatsword() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.weapon_name = Some("Bastard Sword".to_string());
+        request.affinity = Some("Standard".to_string());
+        request.aow_name = Some("Spinning Slash".to_string());
+        request.objective = OptimizeObjective::AowFirstHit;
+        request.current_stats = Stats {
+            vig: 20,
+            mnd: 20,
+            end: 20,
+            str: 60,
+            dex: 60,
+            int: 60,
+            fai: 60,
+            arc: 60,
+        };
+        request.character_level = 331;
+        request.fixed_upgrade = Some(25);
+        request.max_upgrade = 25;
+
+        let results = optimize(&request, &game_data).expect("optimizer failed");
+        assert!(!results.is_empty());
+        assert!(results[0].aow_first_hit_damage > 0.0);
     }
 
     #[test]

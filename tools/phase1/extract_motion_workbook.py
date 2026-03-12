@@ -273,6 +273,8 @@ def load_standard_native_skill_weapons(
             native_skill_id = row.get('native_skill_id', '').strip()
             weapon_name = row.get('name', '').strip()
             native_skill_name = row.get('native_skill_name', '').strip()
+            if row.get('disable_gem_attr', '1').strip() == '0':
+                continue
             if not native_skill_id or not weapon_name or not native_skill_name:
                 continue
             by_name.setdefault(weapon_name, []).append(row)

@@ -100,6 +100,23 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
                 ),
             )
         )
+    ashable_rows_with_native_skill = [
+        row
+        for row in weapons
+        if row.get("disable_gem_attr", "1") == "0"
+        and (row.get("native_skill_id", "").strip() or row.get("native_skill_name", "").strip())
+    ]
+    if ashable_rows_with_native_skill:
+        sample = ashable_rows_with_native_skill[0]
+        issues.append(
+            ValidationIssue(
+                "error",
+                (
+                    "ashable weapons must not carry native_skill metadata; "
+                    f"found {sample.get('name', '<unknown>')} | {sample.get('affinity', '<unknown>')}"
+                ),
+            )
+        )
     if len(aow_buffs) < 8:
         issues.append(
             ValidationIssue("error", f"aow_buffs.csv row count too low: {len(aow_buffs)}")

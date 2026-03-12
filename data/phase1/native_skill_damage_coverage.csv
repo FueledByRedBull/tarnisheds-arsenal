@@ -1,46 +1,46 @@
 sheet_row,unique_skill_weapon,raw_name,inferred_skill_name,status,match_source,matched_skill_ids,matched_weapon_ids,matched_weapon_names
-1100,Great Katana,Overhead Stance R1,Overhead Stance,matched,skill_id+weapon,4110,66500000,Great Katana
-1101,Great Katana,Overhead Stance R2 [1],Overhead Stance,matched,skill_id+weapon,4110,66500000,Great Katana
-1102,Great Katana,Overhead Stance R2 [2],Overhead Stance,matched,skill_id+weapon,4110,66500000,Great Katana
-1103,Great Katana,Overhead Stance R2 [3],Overhead Stance,matched,skill_id+weapon,4110,66500000,Great Katana
-1104,Great Katana,Overhead Stance R1 (Lacking FP),Overhead Stance,matched,skill_id+weapon,4110,66500000,Great Katana
-1105,Great Katana,Overhead Stance R2 [1] (Lacking FP),Overhead Stance,matched,skill_id+weapon,4110,66500000,Great Katana
-1106,Great Katana,Overhead Stance R2 [2] (Lacking FP),Overhead Stance,matched,skill_id+weapon,4110,66500000,Great Katana
-1107,Great Katana,Overhead Stance R2 [3] (Lacking FP),Overhead Stance,matched,skill_id+weapon,4110,66500000,Great Katana
-1112,Beast Claw,Savage Claws [1],Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
-1113,Beast Claw,Savage Claws [2],Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
-1114,Beast Claw,Savage Claws [3],Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
-1115,Beast Claw,Savage Claws [4],Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
-1116,Beast Claw,Savage Claws [5],Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
-1117,Beast Claw,Savage Claws [6],Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
-1118,Beast Claw,Savage Claws [1] (Lacking FP),Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
-1119,Beast Claw,Savage Claws [2] (Lacking FP),Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
-1120,Beast Claw,Savage Claws [3] (Lacking FP),Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
-1121,Beast Claw,Savage Claws [4] (Lacking FP),Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
-1122,Beast Claw,Savage Claws [5] (Lacking FP),Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
-1123,Beast Claw,Savage Claws [6] (Lacking FP),Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
-1124,Beast Claw,Raging Beast,Raging Beast,matched,weapon_name_fallback,4070,68500000,Beast Claw
-1125,Beast Claw,Raging Beast R2 [1],Raging Beast,matched,weapon_name_fallback,4070,68500000,Beast Claw
-1126,Beast Claw,Raging Beast R2 [2],Raging Beast,matched,weapon_name_fallback,4070,68500000,Beast Claw
-1127,Beast Claw,Raging Beast (Lacking FP),Raging Beast,matched,weapon_name_fallback,4070,68500000,Beast Claw
-1128,Beast Claw,Raging Beast R2 [1] (Lacking FP),Raging Beast,matched,weapon_name_fallback,4070,68500000,Beast Claw
-1129,Beast Claw,Raging Beast R2 [2] (Lacking FP),Raging Beast,matched,weapon_name_fallback,4070,68500000,Beast Claw
-1130,Smithscript Dagger,Piercing Throw,Piercing Throw,matched,skill_id+weapon,4020,63500000,Smithscript Dagger
-1131,Smithscript Dagger,Piercing Throw (Lacking FP),Piercing Throw,matched,skill_id+weapon,4020,63500000,Smithscript Dagger
-1132,Smithscript Dagger,Scattershot Throw #1 [1],Scattershot Throw,matched,weapon_name_fallback,4020,63500000,Smithscript Dagger
-1133,Smithscript Dagger,Scattershot Throw #1 [2],Scattershot Throw,matched,weapon_name_fallback,4020,63500000,Smithscript Dagger
-1134,Smithscript Dagger,Scattershot Throw #2 [1],Scattershot Throw,matched,weapon_name_fallback,4020,63500000,Smithscript Dagger
-1135,Smithscript Dagger,Scattershot Throw #2 [2],Scattershot Throw,matched,weapon_name_fallback,4020,63500000,Smithscript Dagger
-1136,Smithscript Dagger,Scattershot Throw (Far),Scattershot Throw (Far),matched,weapon_name_fallback,4020,63500000,Smithscript Dagger
-1137,Smithscript Dagger,Scattershot Throw (Lacking FP),Scattershot Throw,matched,weapon_name_fallback,4020,63500000,Smithscript Dagger
-1142,Milady,Wing Stance R1 [1],Wing Stance,matched,weapon_name_fallback,101,67500000,Milady
-1143,Milady,Wing Stance R1 [2],Wing Stance,matched,weapon_name_fallback,101,67500000,Milady
-1144,Milady,Wing Stance R1 [3],Wing Stance,matched,weapon_name_fallback,101,67500000,Milady
-1145,Milady,Wing Stance R2,Wing Stance,matched,weapon_name_fallback,101,67500000,Milady
-1146,Milady,Wing Stance R1 [1] (Lacking FP),Wing Stance,matched,weapon_name_fallback,101,67500000,Milady
-1147,Milady,Wing Stance R1 [2] (Lacking FP),Wing Stance,matched,weapon_name_fallback,101,67500000,Milady
-1148,Milady,Wing Stance R1 [3] (Lacking FP),Wing Stance,matched,weapon_name_fallback,101,67500000,Milady
-1149,Milady,Wing Stance R2 (Lacking FP),Wing Stance,matched,weapon_name_fallback,101,67500000,Milady
+1100,Great Katana,Overhead Stance R1,Overhead Stance,unmatched_weapon,none,,,
+1101,Great Katana,Overhead Stance R2 [1],Overhead Stance,unmatched_weapon,none,,,
+1102,Great Katana,Overhead Stance R2 [2],Overhead Stance,unmatched_weapon,none,,,
+1103,Great Katana,Overhead Stance R2 [3],Overhead Stance,unmatched_weapon,none,,,
+1104,Great Katana,Overhead Stance R1 (Lacking FP),Overhead Stance,unmatched_weapon,none,,,
+1105,Great Katana,Overhead Stance R2 [1] (Lacking FP),Overhead Stance,unmatched_weapon,none,,,
+1106,Great Katana,Overhead Stance R2 [2] (Lacking FP),Overhead Stance,unmatched_weapon,none,,,
+1107,Great Katana,Overhead Stance R2 [3] (Lacking FP),Overhead Stance,unmatched_weapon,none,,,
+1112,Beast Claw,Savage Claws [1],Savage Claws,unmatched_weapon,none,,,
+1113,Beast Claw,Savage Claws [2],Savage Claws,unmatched_weapon,none,,,
+1114,Beast Claw,Savage Claws [3],Savage Claws,unmatched_weapon,none,,,
+1115,Beast Claw,Savage Claws [4],Savage Claws,unmatched_weapon,none,,,
+1116,Beast Claw,Savage Claws [5],Savage Claws,unmatched_weapon,none,,,
+1117,Beast Claw,Savage Claws [6],Savage Claws,unmatched_weapon,none,,,
+1118,Beast Claw,Savage Claws [1] (Lacking FP),Savage Claws,unmatched_weapon,none,,,
+1119,Beast Claw,Savage Claws [2] (Lacking FP),Savage Claws,unmatched_weapon,none,,,
+1120,Beast Claw,Savage Claws [3] (Lacking FP),Savage Claws,unmatched_weapon,none,,,
+1121,Beast Claw,Savage Claws [4] (Lacking FP),Savage Claws,unmatched_weapon,none,,,
+1122,Beast Claw,Savage Claws [5] (Lacking FP),Savage Claws,unmatched_weapon,none,,,
+1123,Beast Claw,Savage Claws [6] (Lacking FP),Savage Claws,unmatched_weapon,none,,,
+1124,Beast Claw,Raging Beast,Raging Beast,unmatched_weapon,none,,,
+1125,Beast Claw,Raging Beast R2 [1],Raging Beast,unmatched_weapon,none,,,
+1126,Beast Claw,Raging Beast R2 [2],Raging Beast,unmatched_weapon,none,,,
+1127,Beast Claw,Raging Beast (Lacking FP),Raging Beast,unmatched_weapon,none,,,
+1128,Beast Claw,Raging Beast R2 [1] (Lacking FP),Raging Beast,unmatched_weapon,none,,,
+1129,Beast Claw,Raging Beast R2 [2] (Lacking FP),Raging Beast,unmatched_weapon,none,,,
+1130,Smithscript Dagger,Piercing Throw,Piercing Throw,unmatched_weapon,none,,,
+1131,Smithscript Dagger,Piercing Throw (Lacking FP),Piercing Throw,unmatched_weapon,none,,,
+1132,Smithscript Dagger,Scattershot Throw #1 [1],Scattershot Throw,unmatched_weapon,none,,,
+1133,Smithscript Dagger,Scattershot Throw #1 [2],Scattershot Throw,unmatched_weapon,none,,,
+1134,Smithscript Dagger,Scattershot Throw #2 [1],Scattershot Throw,unmatched_weapon,none,,,
+1135,Smithscript Dagger,Scattershot Throw #2 [2],Scattershot Throw,unmatched_weapon,none,,,
+1136,Smithscript Dagger,Scattershot Throw (Far),Scattershot Throw (Far),unmatched_weapon,none,,,
+1137,Smithscript Dagger,Scattershot Throw (Lacking FP),Scattershot Throw,unmatched_weapon,none,,,
+1142,Milady,Wing Stance R1 [1],Wing Stance,unmatched_weapon,none,,,
+1143,Milady,Wing Stance R1 [2],Wing Stance,unmatched_weapon,none,,,
+1144,Milady,Wing Stance R1 [3],Wing Stance,unmatched_weapon,none,,,
+1145,Milady,Wing Stance R2,Wing Stance,unmatched_weapon,none,,,
+1146,Milady,Wing Stance R1 [1] (Lacking FP),Wing Stance,unmatched_weapon,none,,,
+1147,Milady,Wing Stance R1 [2] (Lacking FP),Wing Stance,unmatched_weapon,none,,,
+1148,Milady,Wing Stance R1 [3] (Lacking FP),Wing Stance,unmatched_weapon,none,,,
+1149,Milady,Wing Stance R2 (Lacking FP),Wing Stance,unmatched_weapon,none,,,
 1571,Glintstone Kris,Glintstone Dart - Bullet,Glintstone Dart - Bullet,matched,weapon_name_fallback,1017,1070000,Glintstone Kris
 1572,Glintstone Kris,Glintstone Dart Charged - Bullet,Glintstone Dart Charged - Bullet,matched,weapon_name_fallback,1017,1070000,Glintstone Kris
 1573,Glintstone Kris,Glintstone Dart R2,Glintstone Dart,matched,skill_id+weapon,1017,1070000,Glintstone Kris
@@ -635,10 +635,10 @@ sheet_row,unique_skill_weapon,raw_name,inferred_skill_name,status,match_source,m
 2162,Euporia,Euporia Vortex [3] (Lacking FP),Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
 2163,Euporia,Euporia Vortex [4] (Lacking FP),Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
 2164,Euporia,Euporia Vortex [5] (Lacking FP),Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
-2165,Forked-Tongue Hatchet,Dragonform Flame,Dragonform Flame,matched,skill_id+weapon,5570,14540000,Forked-Tongue Hatchet
-2166,Forked-Tongue Hatchet,Dragonform Flame - Bullet,Dragonform Flame - Bullet,matched,weapon_name_fallback,5570,14540000,Forked-Tongue Hatchet
-2167,Forked-Tongue Hatchet,Dragonform Flame - Bullet (Ground Fire),Dragonform Flame - Bullet (Ground Fire),matched,weapon_name_fallback,5570,14540000,Forked-Tongue Hatchet
-2168,Forked-Tongue Hatchet,Dragonform Flame (Lacking FP),Dragonform Flame,matched,skill_id+weapon,5570,14540000,Forked-Tongue Hatchet
+2165,Forked-Tongue Hatchet,Dragonform Flame,Dragonform Flame,unmatched_weapon,none,,,
+2166,Forked-Tongue Hatchet,Dragonform Flame - Bullet,Dragonform Flame - Bullet,unmatched_weapon,none,,,
+2167,Forked-Tongue Hatchet,Dragonform Flame - Bullet (Ground Fire),Dragonform Flame - Bullet (Ground Fire),unmatched_weapon,none,,,
+2168,Forked-Tongue Hatchet,Dragonform Flame (Lacking FP),Dragonform Flame,unmatched_weapon,none,,,
 2169,Stormhawk Axe,Thunderstorm #1 [1],Thunderstorm,matched,skill_id+weapon,1186,14140000,Stormhawk Axe
 2170,Stormhawk Axe,Thunderstorm #1 [2],Thunderstorm,matched,skill_id+weapon,1186,14140000,Stormhawk Axe
 2171,Stormhawk Axe,Thunderstorm #1 [3],Thunderstorm,matched,skill_id+weapon,1186,14140000,Stormhawk Axe
@@ -736,16 +736,16 @@ sheet_row,unique_skill_weapon,raw_name,inferred_skill_name,status,match_source,m
 2263,Marika's Hammer,Gold Breaker - Bullet,Gold Breaker - Bullet,matched,weapon_name_fallback,1029,11150000,Marika's Hammer
 2264,Marika's Hammer,Gold Breaker - Bullet,Gold Breaker - Bullet,matched,weapon_name_fallback,1029,11150000,Marika's Hammer
 2265,Marika's Hammer,Gold Breaker (Lacking FP),Gold Breaker,matched,skill_id+weapon,1029,11150000,Marika's Hammer
-2266,(Nightrider / Chainlink) Flail,Spinning Chain - Loop,Spinning Chain - Loop,matched,weapon_name_fallback,125,13000000|13040000,Chainlink Flail|Nightrider Flail
-2267,(Nightrider / Chainlink) Flail,Spinning Chain - R1 [1],Spinning Chain -,matched,skill_id+weapon,125,13000000|13040000,Chainlink Flail|Nightrider Flail
-2268,(Nightrider / Chainlink) Flail,Spinning Chain - R1 [2],Spinning Chain -,matched,skill_id+weapon,125,13000000|13040000,Chainlink Flail|Nightrider Flail
-2269,(Nightrider / Chainlink) Flail,Spinning Chain - R2 [1],Spinning Chain -,matched,skill_id+weapon,125,13000000|13040000,Chainlink Flail|Nightrider Flail
-2270,(Nightrider / Chainlink) Flail,Spinning Chain - R2 [2],Spinning Chain -,matched,skill_id+weapon,125,13000000|13040000,Chainlink Flail|Nightrider Flail
-2271,(Nightrider / Chainlink) Flail,Spinning Chain - Loop (Lacking FP),Spinning Chain - Loop,matched,weapon_name_fallback,125,13000000|13040000,Chainlink Flail|Nightrider Flail
-2272,(Nightrider / Chainlink) Flail,Spinning Chain - R1 [1] (Lacking FP),Spinning Chain -,matched,skill_id+weapon,125,13000000|13040000,Chainlink Flail|Nightrider Flail
-2273,(Nightrider / Chainlink) Flail,Spinning Chain - R1 [2] (Lacking FP),Spinning Chain -,matched,skill_id+weapon,125,13000000|13040000,Chainlink Flail|Nightrider Flail
-2274,(Nightrider / Chainlink) Flail,Spinning Chain - R2 [1] (Lacking FP),Spinning Chain -,matched,skill_id+weapon,125,13000000|13040000,Chainlink Flail|Nightrider Flail
-2275,(Nightrider / Chainlink) Flail,Spinning Chain - R2 [2] (Lacking FP),Spinning Chain -,matched,skill_id+weapon,125,13000000|13040000,Chainlink Flail|Nightrider Flail
+2266,(Nightrider / Chainlink) Flail,Spinning Chain - Loop,Spinning Chain - Loop,unmatched_weapon,none,,,
+2267,(Nightrider / Chainlink) Flail,Spinning Chain - R1 [1],Spinning Chain -,unmatched_weapon,none,,,
+2268,(Nightrider / Chainlink) Flail,Spinning Chain - R1 [2],Spinning Chain -,unmatched_weapon,none,,,
+2269,(Nightrider / Chainlink) Flail,Spinning Chain - R2 [1],Spinning Chain -,unmatched_weapon,none,,,
+2270,(Nightrider / Chainlink) Flail,Spinning Chain - R2 [2],Spinning Chain -,unmatched_weapon,none,,,
+2271,(Nightrider / Chainlink) Flail,Spinning Chain - Loop (Lacking FP),Spinning Chain - Loop,unmatched_weapon,none,,,
+2272,(Nightrider / Chainlink) Flail,Spinning Chain - R1 [1] (Lacking FP),Spinning Chain -,unmatched_weapon,none,,,
+2273,(Nightrider / Chainlink) Flail,Spinning Chain - R1 [2] (Lacking FP),Spinning Chain -,unmatched_weapon,none,,,
+2274,(Nightrider / Chainlink) Flail,Spinning Chain - R2 [1] (Lacking FP),Spinning Chain -,unmatched_weapon,none,,,
+2275,(Nightrider / Chainlink) Flail,Spinning Chain - R2 [2] (Lacking FP),Spinning Chain -,unmatched_weapon,none,,,
 2276,Family Heads,Familial Rancor - Bullet,Familial Rancor - Bullet,matched,weapon_name_fallback,1184,13020000,Family Heads
 2277,Family Heads,Familial Rancor - Bullet,Familial Rancor - Bullet,matched,weapon_name_fallback,1184,13020000,Family Heads
 2278,Family Heads,Familial Rancor - Bullet,Familial Rancor - Bullet,matched,weapon_name_fallback,1184,13020000,Family Heads

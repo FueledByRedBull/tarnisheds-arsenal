@@ -282,7 +282,7 @@ pub fn calculate_aow_damage(
                 data,
             )?;
         }
-        if first_hit.is_none() {
+        if first_hit.is_none() && row_total > 0.0 {
             first_hit = Some(row_total);
         }
         full_sequence += row_total;

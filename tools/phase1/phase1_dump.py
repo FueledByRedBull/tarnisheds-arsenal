@@ -569,8 +569,11 @@ def build_weapon_rows(
         weapon_type_id = to_int(row, "wepType", 0)
         weapon_type_name = wep_type_name_map.get(weapon_type_id, "Unknown")
         weapon_type_keys = weapon_type_keys_by_id.get(weapon_type_id, ())
-        native_skill_id = to_int(row, "swordArtsParamId", -1)
-        native_skill_name = sword_art_name_map.get(native_skill_id, "").strip() if native_skill_id > 0 else ""
+        disable_gem_attr = to_int(row, "disableGemAttr", 0)
+        native_skill_id = to_int(row, "swordArtsParamId", -1) if disable_gem_attr != 0 else -1
+        native_skill_name = (
+            sword_art_name_map.get(native_skill_id, "").strip() if native_skill_id > 0 else ""
+        )
 
         base_physical = to_int(row, "attackBasePhysics", 0)
         base_magic = to_int(row, "attackBaseMagic", 0)
@@ -616,7 +619,7 @@ def build_weapon_rows(
                 "curve_id_madness": damage_curve_ids["madness"],
                 "native_skill_id": native_skill_id if native_skill_id > 0 else "",
                 "native_skill_name": native_skill_name,
-                "disable_gem_attr": to_int(row, "disableGemAttr", 0),
+                "disable_gem_attr": disable_gem_attr,
                 "disable_two_hand_bonus": to_int(row, "isDualBlade", 0),
                 "is_somber": is_somber,
             }
