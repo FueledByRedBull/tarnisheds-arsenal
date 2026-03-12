@@ -615,6 +615,16 @@ class LevelPathDialog(QtWidgets.QDialog):
         layout.addWidget(table, 1)
         return shell
 
+    def _centered_table_item(self, value: str) -> QtWidgets.QTableWidgetItem:
+        item = QtWidgets.QTableWidgetItem(str(value))
+        item.setTextAlignment(
+            int(
+                QtCore.Qt.AlignmentFlag.AlignCenter
+                | QtCore.Qt.AlignmentFlag.AlignVCenter
+            )
+        )
+        return item
+
 
 class AffinityWatchChartWidget(QtWidgets.QWidget):
     def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:

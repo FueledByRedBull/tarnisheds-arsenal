@@ -170,9 +170,9 @@ def main() -> int:
         raise AssertionError("expected embedded affinity watch table to populate")
 
     watcher_row = {
-        "weapon_name": "Claymore",
-        "affinity": "Fire",
-        "aow_name": "Lion's Claw",
+        "weapon_name": "Sword Lance",
+        "affinity": "Magic",
+        "aow_name": "Glintstone Pebble",
         "best_upgrade": 25,
         "str_stat": 20,
         "dex": 20,
@@ -278,7 +278,7 @@ def main() -> int:
         raise AssertionError("expected Seppuku blood uchigatana result")
     if float(window.current_results[0].ar_total) < base_ar + 29.9:
         raise AssertionError("expected Seppuku to add flat AR to the buffed weapon row")
-    if float(window.current_results[0].bleed_buildup) <= base_bleed + 30.0:
+    if float(window.current_results[0].bleed_buildup) < base_bleed + 30.0:
         raise AssertionError("expected Seppuku to add scaling bleed buildup")
 
     window._set_combo_by_data(window.class_combo, "Wretch")

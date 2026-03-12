@@ -90,6 +90,16 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
                 ),
             )
         )
+    if len(weapon_passive_overlays) < 1000:
+        issues.append(
+            ValidationIssue(
+                "error",
+                (
+                    "weapon_passive_overlays.csv row count too low: "
+                    f"{len(weapon_passive_overlays)}"
+                ),
+            )
+        )
     if len(aow_buffs) < 8:
         issues.append(
             ValidationIssue("error", f"aow_buffs.csv row count too low: {len(aow_buffs)}")

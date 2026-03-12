@@ -26,7 +26,6 @@ release-notes-*.md
 data/_work_phase1/
 data/_work_phase1_reparse*/
 data/raw/
-data/phase1/weapon_passive_overlays.csv
 
 # OS/editor
 .DS_Store
