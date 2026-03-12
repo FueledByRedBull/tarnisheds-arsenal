@@ -3,9 +3,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::model::{
-    AttackElementCorrect, AttackElementCorrectExt, Aow, AowAttackRow, GameData, ReinforceLevel,
-    StatusBuildup, StatusCorrectionFlags, StatusEffectSource, Weapon,
-    COMBAT_STAT_COUNT, DAMAGE_TYPE_COUNT,
+    Aow, AowAttackRow, AttackElementCorrect, AttackElementCorrectExt, COMBAT_STAT_COUNT,
+    DAMAGE_TYPE_COUNT, GameData, ReinforceLevel, StatusBuildup, StatusCorrectionFlags,
+    StatusEffectSource, Weapon,
 };
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -70,7 +70,31 @@ impl CsvTable {
 }
 
 fn split_csv_line(line: &str) -> Vec<String> {
-    line.split(',').map(|part| part.trim().to_string()).collect()
+    let mut out = Vec::new();
+    let mut current = String::new();
+    let mut chars = line.chars().peekable();
+    let mut in_quotes = false;
+
+    while let Some(ch) = chars.next() {
+        match ch {
+            '"' => {
+                if in_quotes && chars.peek() == Some(&'"') {
+                    current.push('"');
+                    chars.next();
+                } else {
+                    in_quotes = !in_quotes;
+                }
+            }
+            ',' if !in_quotes => {
+                out.push(current.trim().to_string());
+                current.clear();
+            }
+            _ => current.push(ch),
+        }
+    }
+
+    out.push(current.trim().to_string());
+    out
 }
 
 fn parse_u8(value: &str, field: &str) -> Result<u8, String> {
@@ -107,7 +131,11 @@ fn parse_bool_u8(value: &str, field: &str) -> Result<bool, String> {
     Ok(parse_u8(value, field)? != 0)
 }
 
-fn parse_optional_bool_u8(table: &CsvTable, row: &[String], field: &str) -> Result<Option<bool>, String> {
+fn parse_optional_bool_u8(
+    table: &CsvTable,
+    row: &[String],
+    field: &str,
+) -> Result<Option<bool>, String> {
     let Ok(idx) = table.idx(field) else {
         return Ok(None);
     };
@@ -120,8 +148,7 @@ fn parse_optional_bool_u8(table: &CsvTable, row: &[String], field: &str) -> Resu
 
 pub fn load_game_data(data_dir: impl AsRef<Path>) -> Result<GameData, String> {
     let data_dir = data_dir.as_ref();
-    let weapon_rules = load_weapon_rules_optional(data_dir.join("weapon_rules.csv"))?;
-    let weapons = load_weapons(data_dir.join("weapons.csv"), &weapon_rules)?;
+    let weapons = load_weapons(data_dir.join("weapons.csv"))?;
     let reinforce = load_reinforce(data_dir.join("reinforce.csv"))?;
     let calc_correct = load_calc_correct(data_dir.join("calc_correct.csv"))?;
     let attack_element_correct =
@@ -131,7 +158,11 @@ pub fn load_game_data(data_dir: impl AsRef<Path>) -> Result<GameData, String> {
     let aow_buffs = load_aow_buffs_optional(data_dir.join("aow_buffs.csv"))?;
     let aows = load_aows(data_dir.join("aow.csv"), &aow_buffs)?;
     let aow_attack_rows = load_aow_attack_rows_optional(data_dir.join("aow_attack_data.csv"))?;
+    let native_skill_attack_rows =
+        load_native_skill_attack_rows_optional(data_dir.join("native_skill_attack_data.csv"))?;
     let weapon_passives = load_weapon_passives_optional(data_dir.join("weapon_passives.csv"))?;
+    let weapon_passive_overlays =
+        load_weapon_passive_overlays_optional(data_dir.join("weapon_passive_overlays.csv"))?;
     let exact_aow_compat = load_exact_aow_compat_optional(data_dir.join("aow_weapon_compat.csv"))?;
 
     Ok(GameData {
@@ -142,15 +173,14 @@ pub fn load_game_data(data_dir: impl AsRef<Path>) -> Result<GameData, String> {
         attack_element_correct_ext,
         aows,
         aow_attack_rows,
+        native_skill_attack_rows,
         weapon_passives,
+        weapon_passive_overlays,
         exact_aow_compat,
     })
 }
 
-fn load_weapons(
-    path: PathBuf,
-    weapon_rules: &HashMap<String, bool>,
-) -> Result<Vec<Weapon>, String> {
+fn load_weapons(path: PathBuf) -> Result<Vec<Weapon>, String> {
     let table = CsvTable::from_path(&path)?;
     let mut out = Vec::with_capacity(table.rows.len());
 
@@ -187,6 +217,28 @@ fn load_weapons(
             weapon_id: parse_u32(table.get(row, "weapon_id")?, "weapon_id")?,
             name: table.get(row, "name")?.to_string(),
             affinity: table.get(row, "affinity")?.to_string(),
+            native_skill_id: match table.idx("native_skill_id") {
+                Ok(_) => {
+                    let value = table.get(row, "native_skill_id")?.trim();
+                    if value.is_empty() {
+                        None
+                    } else {
+                        Some(parse_u16(value, "native_skill_id")?)
+                    }
+                }
+                Err(_) => None,
+            },
+            native_skill_name: match table.idx("native_skill_name") {
+                Ok(_) => {
+                    let value = table.get(row, "native_skill_name")?.trim();
+                    if value.is_empty() {
+                        None
+                    } else {
+                        Some(value.to_string())
+                    }
+                }
+                Err(_) => None,
+            },
             weapon_type_id: parse_u16(table.get(row, "weapon_type_id")?, "weapon_type_id")?,
             weapon_type_name: table.get(row, "weapon_type_name")?.to_string(),
             weapon_type_keys: table.get(row, "weapon_type_keys")?.to_string(),
@@ -199,32 +251,23 @@ fn load_weapons(
                 "attack_element_correct_id",
             )?,
             damage_curve_ids,
+            bleed_curve_id: match table.idx("curve_id_blood") {
+                Ok(_) => parse_usize(table.get(row, "curve_id_blood")?, "curve_id_blood")?,
+                Err(_) => 6,
+            },
+            disable_gem_attr: match table.idx("disable_gem_attr") {
+                Ok(_) => parse_bool_u8(table.get(row, "disable_gem_attr")?, "disable_gem_attr")?,
+                Err(_) => false,
+            },
             is_somber: parse_bool_u8(table.get(row, "is_somber")?, "is_somber")?,
-            disable_two_hand_bonus: weapon_rules
-                .get(&table.get(row, "name")?.to_ascii_lowercase())
-                .copied()
-                .unwrap_or(false),
+            disable_two_hand_bonus: match table.idx("disable_two_hand_bonus") {
+                Ok(_) => parse_bool_u8(
+                    table.get(row, "disable_two_hand_bonus")?,
+                    "disable_two_hand_bonus",
+                )?,
+                Err(_) => false,
+            },
         });
-    }
-    Ok(out)
-}
-
-fn load_weapon_rules_optional(path: PathBuf) -> Result<HashMap<String, bool>, String> {
-    if !path.exists() {
-        return Ok(HashMap::new());
-    }
-    let table = CsvTable::from_path(&path)?;
-    let mut out = HashMap::with_capacity(table.rows.len());
-    for row in &table.rows {
-        let weapon_name = table.get(row, "weapon_name")?.trim();
-        if weapon_name.is_empty() {
-            continue;
-        }
-        let disable = parse_bool_u8(
-            table.get(row, "disable_two_hand_bonus")?,
-            "disable_two_hand_bonus",
-        )?;
-        out.insert(weapon_name.to_ascii_lowercase(), disable);
     }
     Ok(out)
 }
@@ -239,10 +282,16 @@ fn load_reinforce(path: PathBuf) -> Result<Vec<Vec<Option<ReinforceLevel>>>, Str
         let reinforce_type = parse_usize(table.get(row, "reinforce_type")?, "reinforce_type")?;
         let level = parse_usize(table.get(row, "level")?, "level")?;
         let damage_mult = [
-            parse_f32(table.get(row, "physical_damage_mult")?, "physical_damage_mult")?,
+            parse_f32(
+                table.get(row, "physical_damage_mult")?,
+                "physical_damage_mult",
+            )?,
             parse_f32(table.get(row, "magic_damage_mult")?, "magic_damage_mult")?,
             parse_f32(table.get(row, "fire_damage_mult")?, "fire_damage_mult")?,
-            parse_f32(table.get(row, "lightning_damage_mult")?, "lightning_damage_mult")?,
+            parse_f32(
+                table.get(row, "lightning_damage_mult")?,
+                "lightning_damage_mult",
+            )?,
             parse_f32(table.get(row, "holy_damage_mult")?, "holy_damage_mult")?,
         ];
         let scaling_mult = [
@@ -290,7 +339,9 @@ fn load_calc_correct(path: PathBuf) -> Result<Vec<Vec<f32>>, String> {
         let curve_id = parse_usize(table.get(row, "curve_id")?, "curve_id")?;
         let stat_value = parse_usize(table.get(row, "stat_value")?, "stat_value")?;
         if stat_value > 99 {
-            return Err(format!("calc_correct stat_value out of range: {stat_value}"));
+            return Err(format!(
+                "calc_correct stat_value out of range: {stat_value}"
+            ));
         }
         let multiplier = parse_f32(table.get(row, "multiplier")?, "multiplier")?;
         max_curve_id = max_curve_id.max(curve_id);
@@ -348,8 +399,10 @@ fn load_attack_element_correct(path: PathBuf) -> Result<Vec<Option<AttackElement
     ];
 
     for row in &table.rows {
-        let row_id =
-            parse_usize(table.get(row, "attack_element_correct_id")?, "attack_element_correct_id")?;
+        let row_id = parse_usize(
+            table.get(row, "attack_element_correct_id")?,
+            "attack_element_correct_id",
+        )?;
         let mut scales = [[false; DAMAGE_TYPE_COUNT]; COMBAT_STAT_COUNT];
         for stat_idx in 0..COMBAT_STAT_COUNT {
             for damage_idx in 0..DAMAGE_TYPE_COUNT {
@@ -378,8 +431,14 @@ fn load_aows(path: PathBuf, buff_rows: &HashMap<u16, AowBuffRow>) -> Result<Vec<
         out.push(Aow {
             aow_id,
             name: table.get(row, "name")?.to_string(),
-            bleed_buildup_add: parse_f32(table.get(row, "bleed_buildup_add")?, "bleed_buildup_add")?,
-            frost_buildup_add: parse_f32(table.get(row, "frost_buildup_add")?, "frost_buildup_add")?,
+            bleed_buildup_add: parse_f32(
+                table.get(row, "bleed_buildup_add")?,
+                "bleed_buildup_add",
+            )?,
+            frost_buildup_add: parse_f32(
+                table.get(row, "frost_buildup_add")?,
+                "frost_buildup_add",
+            )?,
             poison_buildup_add: parse_f32(
                 table.get(row, "poison_buildup_add")?,
                 "poison_buildup_add",
@@ -493,21 +552,25 @@ fn load_attack_element_correct_ext_optional(
     let table = CsvTable::from_path(&path)?;
     let mut out = HashMap::with_capacity(table.rows.len());
     for row in &table.rows {
-        let row_id =
-            parse_usize(table.get(row, "attack_element_correct_id")?, "attack_element_correct_id")?;
+        let row_id = parse_usize(
+            table.get(row, "attack_element_correct_id")?,
+            "attack_element_correct_id",
+        )?;
         let mut scales = [[false; DAMAGE_TYPE_COUNT]; COMBAT_STAT_COUNT];
         let mut overwrite = [[None; DAMAGE_TYPE_COUNT]; COMBAT_STAT_COUNT];
         let mut influence = [[100.0_f32; DAMAGE_TYPE_COUNT]; COMBAT_STAT_COUNT];
         for (stat_idx, stat_key) in ["str", "dex", "int", "fai", "arc"].iter().enumerate() {
-            for (damage_idx, damage_key) in
-                ["physical", "magic", "fire", "lightning", "holy"].iter().enumerate()
+            for (damage_idx, damage_key) in ["physical", "magic", "fire", "lightning", "holy"]
+                .iter()
+                .enumerate()
             {
                 let scale_field = format!("{stat_key}_scales_{damage_key}");
                 let overwrite_field = format!("{stat_key}_overwrite_{damage_key}");
                 let influence_field = format!("{stat_key}_influence_{damage_key}");
                 scales[stat_idx][damage_idx] =
                     parse_bool_u8(table.get(row, &scale_field)?, &scale_field)?;
-                let overwrite_value = parse_f32(table.get(row, &overwrite_field)?, &overwrite_field)?;
+                let overwrite_value =
+                    parse_f32(table.get(row, &overwrite_field)?, &overwrite_field)?;
                 if overwrite_value >= 0.0 {
                     overwrite[stat_idx][damage_idx] = Some(overwrite_value / 100.0);
                 }
@@ -536,49 +599,9 @@ fn load_aow_attack_rows_optional(path: PathBuf) -> Result<HashMap<u16, Vec<AowAt
     let mut out: HashMap<u16, Vec<AowAttackRow>> = HashMap::new();
     for row in &table.rows {
         let aow_id = parse_u16(table.get(row, "aow_id")?, "aow_id")?;
-        let overwrite_raw = table
-            .get(row, "overwrite_attack_element_correct_id")?
-            .parse::<i32>()
-            .map_err(|err| {
-                format!(
-                    "invalid i32 for overwrite_attack_element_correct_id: {} ({err})",
-                    table
-                        .get(row, "overwrite_attack_element_correct_id")
-                        .unwrap_or_default()
-                )
-            })?;
-        out.entry(aow_id).or_default().push(AowAttackRow {
-            sheet_row: parse_u16(table.get(row, "sheet_row")?, "sheet_row")?,
-            aow_id,
-            aow_name: table.get(row, "aow_name")?.to_string(),
-            raw_name: table.get(row, "raw_name")?.to_string(),
-            variant_weapon_type: table.get(row, "variant_weapon_type")?.to_string(),
-            is_lacking_fp: parse_bool_u8(table.get(row, "is_lacking_fp")?, "is_lacking_fp")?,
-            atk_id: parse_u32(table.get(row, "atk_id")?, "atk_id")?,
-            overwrite_attack_element_correct_id: (overwrite_raw > 0).then_some(overwrite_raw as usize),
-            is_disable_both_hands_bonus: parse_bool_u8(
-                table.get(row, "is_disable_both_hands_bonus")?,
-                "is_disable_both_hands_bonus",
-            )?,
-            is_add_base_atk: parse_bool_u8(table.get(row, "is_add_base_atk")?, "is_add_base_atk")?,
-            motion_values: [
-                parse_f32(table.get(row, "physical_mv")?, "physical_mv")?,
-                parse_f32(table.get(row, "magic_mv")?, "magic_mv")?,
-                parse_f32(table.get(row, "fire_mv")?, "fire_mv")?,
-                parse_f32(table.get(row, "lightning_mv")?, "lightning_mv")?,
-                parse_f32(table.get(row, "holy_mv")?, "holy_mv")?,
-            ],
-            attack_base: [
-                parse_f32(table.get(row, "attack_base_physical")?, "attack_base_physical")?,
-                parse_f32(table.get(row, "attack_base_magic")?, "attack_base_magic")?,
-                parse_f32(table.get(row, "attack_base_fire")?, "attack_base_fire")?,
-                parse_f32(table.get(row, "attack_base_lightning")?, "attack_base_lightning")?,
-                parse_f32(table.get(row, "attack_base_holy")?, "attack_base_holy")?,
-            ],
-            status_mv: parse_f32(table.get(row, "status_mv")?, "status_mv")?,
-            weapon_buff_mv: parse_f32(table.get(row, "weapon_buff_mv")?, "weapon_buff_mv")?,
-            stamina_cost: parse_f32(table.get(row, "stamina_cost")?, "stamina_cost")?,
-        });
+        out.entry(aow_id)
+            .or_default()
+            .push(parse_aow_attack_row(&table, row, aow_id)?);
     }
 
     for rows in out.values_mut() {
@@ -587,7 +610,88 @@ fn load_aow_attack_rows_optional(path: PathBuf) -> Result<HashMap<u16, Vec<AowAt
     Ok(out)
 }
 
-fn load_weapon_passives_optional(path: PathBuf) -> Result<HashMap<u32, StatusEffectSource>, String> {
+fn load_native_skill_attack_rows_optional(
+    path: PathBuf,
+) -> Result<HashMap<u32, Vec<AowAttackRow>>, String> {
+    if !path.exists() {
+        return Ok(HashMap::new());
+    }
+
+    let table = CsvTable::from_path(&path)?;
+    let mut out: HashMap<u32, Vec<AowAttackRow>> = HashMap::new();
+    for row in &table.rows {
+        let weapon_id = parse_u32(table.get(row, "weapon_id")?, "weapon_id")?;
+        let aow_id = parse_u16(table.get(row, "aow_id")?, "aow_id")?;
+        out.entry(weapon_id)
+            .or_default()
+            .push(parse_aow_attack_row(&table, row, aow_id)?);
+    }
+
+    for rows in out.values_mut() {
+        rows.sort_by_key(|row| row.sheet_row);
+    }
+    Ok(out)
+}
+
+fn parse_aow_attack_row(
+    table: &CsvTable,
+    row: &[String],
+    aow_id: u16,
+) -> Result<AowAttackRow, String> {
+    let overwrite_raw = table
+        .get(row, "overwrite_attack_element_correct_id")?
+        .parse::<i32>()
+        .map_err(|err| {
+            format!(
+                "invalid i32 for overwrite_attack_element_correct_id: {} ({err})",
+                table
+                    .get(row, "overwrite_attack_element_correct_id")
+                    .unwrap_or_default()
+            )
+        })?;
+    Ok(AowAttackRow {
+        sheet_row: parse_u16(table.get(row, "sheet_row")?, "sheet_row")?,
+        aow_id,
+        aow_name: table.get(row, "aow_name")?.to_string(),
+        raw_name: table.get(row, "raw_name")?.to_string(),
+        variant_weapon_type: table.get(row, "variant_weapon_type")?.to_string(),
+        is_lacking_fp: parse_bool_u8(table.get(row, "is_lacking_fp")?, "is_lacking_fp")?,
+        atk_id: parse_u32(table.get(row, "atk_id")?, "atk_id")?,
+        overwrite_attack_element_correct_id: (overwrite_raw > 0).then_some(overwrite_raw as usize),
+        is_disable_both_hands_bonus: parse_bool_u8(
+            table.get(row, "is_disable_both_hands_bonus")?,
+            "is_disable_both_hands_bonus",
+        )?,
+        is_add_base_atk: parse_bool_u8(table.get(row, "is_add_base_atk")?, "is_add_base_atk")?,
+        motion_values: [
+            parse_f32(table.get(row, "physical_mv")?, "physical_mv")?,
+            parse_f32(table.get(row, "magic_mv")?, "magic_mv")?,
+            parse_f32(table.get(row, "fire_mv")?, "fire_mv")?,
+            parse_f32(table.get(row, "lightning_mv")?, "lightning_mv")?,
+            parse_f32(table.get(row, "holy_mv")?, "holy_mv")?,
+        ],
+        attack_base: [
+            parse_f32(
+                table.get(row, "attack_base_physical")?,
+                "attack_base_physical",
+            )?,
+            parse_f32(table.get(row, "attack_base_magic")?, "attack_base_magic")?,
+            parse_f32(table.get(row, "attack_base_fire")?, "attack_base_fire")?,
+            parse_f32(
+                table.get(row, "attack_base_lightning")?,
+                "attack_base_lightning",
+            )?,
+            parse_f32(table.get(row, "attack_base_holy")?, "attack_base_holy")?,
+        ],
+        status_mv: parse_f32(table.get(row, "status_mv")?, "status_mv")?,
+        weapon_buff_mv: parse_f32(table.get(row, "weapon_buff_mv")?, "weapon_buff_mv")?,
+        stamina_cost: parse_f32(table.get(row, "stamina_cost")?, "stamina_cost")?,
+    })
+}
+
+fn load_weapon_passives_optional(
+    path: PathBuf,
+) -> Result<HashMap<u32, StatusEffectSource>, String> {
     if !path.exists() {
         return Ok(HashMap::new());
     }
@@ -596,36 +700,70 @@ fn load_weapon_passives_optional(path: PathBuf) -> Result<HashMap<u32, StatusEff
     let mut out = HashMap::with_capacity(table.rows.len());
     for row in &table.rows {
         let weapon_id = parse_u32(table.get(row, "weapon_id")?, "weapon_id")?;
-        out.insert(
-            weapon_id,
-            StatusEffectSource {
-                buildup: StatusBuildup {
-                    bleed: parse_f32(table.get(row, "bleed")?, "bleed")?,
-                    frost: parse_f32(table.get(row, "frost")?, "frost")?,
-                    poison: parse_f32(table.get(row, "poison")?, "poison")?,
-                    scarlet_rot: match table.idx("scarlet_rot") {
-                        Ok(_) => parse_f32(table.get(row, "scarlet_rot")?, "scarlet_rot")?,
-                        Err(_) => 0.0,
-                    },
-                    sleep: parse_f32(table.get(row, "sleep")?, "sleep")?,
-                    madness: parse_f32(table.get(row, "madness")?, "madness")?,
-                    death: parse_f32(table.get(row, "death")?, "death")?,
-                },
-                correction_flags: StatusCorrectionFlags {
-                    bleed: parse_optional_bool_u8(&table, row, "bleed_uses_status_correction")?,
-                    frost: parse_optional_bool_u8(&table, row, "frost_uses_status_correction")?,
-                    poison: parse_optional_bool_u8(&table, row, "poison_uses_status_correction")?,
-                    scarlet_rot: parse_optional_bool_u8(
-                        &table,
-                        row,
-                        "scarlet_rot_uses_status_correction",
-                    )?,
-                    sleep: parse_optional_bool_u8(&table, row, "sleep_uses_status_correction")?,
-                    madness: parse_optional_bool_u8(&table, row, "madness_uses_status_correction")?,
-                    death: parse_optional_bool_u8(&table, row, "death_uses_status_correction")?,
-                },
+        out.insert(weapon_id, parse_status_effect_source(&table, row)?);
+    }
+    Ok(out)
+}
+
+fn parse_status_effect_source(
+    table: &CsvTable,
+    row: &[String],
+) -> Result<StatusEffectSource, String> {
+    Ok(StatusEffectSource {
+        buildup: StatusBuildup {
+            bleed: parse_f32(table.get(row, "bleed")?, "bleed")?,
+            frost: parse_f32(table.get(row, "frost")?, "frost")?,
+            poison: parse_f32(table.get(row, "poison")?, "poison")?,
+            scarlet_rot: match table.idx("scarlet_rot") {
+                Ok(_) => parse_f32(table.get(row, "scarlet_rot")?, "scarlet_rot")?,
+                Err(_) => 0.0,
             },
-        );
+            sleep: parse_f32(table.get(row, "sleep")?, "sleep")?,
+            madness: parse_f32(table.get(row, "madness")?, "madness")?,
+            death: parse_f32(table.get(row, "death")?, "death")?,
+        },
+        correction_flags: StatusCorrectionFlags {
+            bleed: parse_optional_bool_u8(table, row, "bleed_uses_status_correction")?,
+            frost: parse_optional_bool_u8(table, row, "frost_uses_status_correction")?,
+            poison: parse_optional_bool_u8(table, row, "poison_uses_status_correction")?,
+            scarlet_rot: parse_optional_bool_u8(table, row, "scarlet_rot_uses_status_correction")?,
+            sleep: parse_optional_bool_u8(table, row, "sleep_uses_status_correction")?,
+            madness: parse_optional_bool_u8(table, row, "madness_uses_status_correction")?,
+            death: parse_optional_bool_u8(table, row, "death_uses_status_correction")?,
+        },
+    })
+}
+
+fn load_weapon_passive_overlays_optional(
+    path: PathBuf,
+) -> Result<HashMap<u32, Vec<Option<StatusEffectSource>>>, String> {
+    if !path.exists() {
+        return Ok(HashMap::new());
+    }
+
+    let table = CsvTable::from_path(&path)?;
+    let mut max_level_by_weapon = HashMap::<u32, usize>::new();
+    let mut entries = Vec::<(u32, usize, StatusEffectSource)>::with_capacity(table.rows.len());
+    for row in &table.rows {
+        let weapon_id = parse_u32(table.get(row, "weapon_id")?, "weapon_id")?;
+        let level = parse_usize(table.get(row, "level")?, "level")?;
+        let source = parse_status_effect_source(&table, row)?;
+        max_level_by_weapon
+            .entry(weapon_id)
+            .and_modify(|value| *value = (*value).max(level))
+            .or_insert(level);
+        entries.push((weapon_id, level, source));
+    }
+
+    let mut out =
+        HashMap::<u32, Vec<Option<StatusEffectSource>>>::with_capacity(max_level_by_weapon.len());
+    for (weapon_id, max_level) in max_level_by_weapon {
+        out.insert(weapon_id, vec![None; max_level + 1]);
+    }
+    for (weapon_id, level, source) in entries {
+        if let Some(levels) = out.get_mut(&weapon_id) {
+            levels[level] = Some(source);
+        }
     }
     Ok(out)
 }

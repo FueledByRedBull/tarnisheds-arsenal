@@ -103,6 +103,13 @@ class DesktopOptimizerService:
         progress_every = pick(overrides.progress_every, 5000 if include_progress else UNSET)
         if progress_every is not UNSET:
             request["progress_every"] = int(progress_every)
+        weapon_name = request.get("weapon_name")
+        if weapon_name is not None:
+            self._clamp_weapon_upgrade_request(
+                request,
+                str(weapon_name),
+                request.get("affinity"),
+            )
         return request
 
     def estimate_search_space(self, session: GlobalSession) -> Any:
@@ -124,6 +131,11 @@ class DesktopOptimizerService:
             fai=int(result.fai),
             arc=int(result.arc),
             ar_total=float(result.ar_total),
+            ar_physical=float(result.ar_physical),
+            ar_magic=float(result.ar_magic),
+            ar_fire=float(result.ar_fire),
+            ar_lightning=float(result.ar_lightning),
+            ar_holy=float(result.ar_holy),
             score=float(result.score),
             bleed_buildup=float(result.bleed_buildup),
             bleed_buildup_add=float(result.bleed_buildup_add),
@@ -190,6 +202,21 @@ class DesktopOptimizerService:
         solved = self.normalize_result(rows[0]) if rows else None
         self.best_build_cache[cache_key] = solved
         return solved
+
+    def _clamp_weapon_upgrade_request(
+        self,
+        request: dict[str, Any],
+        weapon_name: str,
+        affinity: str | None,
+    ) -> None:
+        try:
+            weapon_cap = int(self.data.weapon_upgrade_cap(weapon_name, affinity))
+        except Exception:
+            return
+        request["max_upgrade"] = min(int(request["max_upgrade"]), weapon_cap)
+        fixed_upgrade = request.get("fixed_upgrade")
+        if fixed_upgrade is not None:
+            request["fixed_upgrade"] = min(int(fixed_upgrade), weapon_cap)
 
     def build_upgrade_series(
         self,
@@ -274,7 +301,7 @@ class DesktopOptimizerService:
         session: GlobalSession,
         solved: SolvedBuild,
         levels_ahead: int,
-        progress_cb: Callable[[int, int, str, int], None] | None = None,
+        progress_cb: Callable[[int, int, str, int], bool] | None = None,
     ) -> AffinityWatchPayload:
         affinities = self.affinity_watch_affinities(solved)
         levels = [session.build.derived_level + offset for offset in range(0, levels_ahead + 1)]
@@ -319,7 +346,8 @@ class DesktopOptimizerService:
                 points.append(AffinityWatchPoint(level=int(level), metric=metric, solved=build))
                 processed += 1
                 if progress_cb is not None:
-                    progress_cb(processed, total, affinity, int(level))
+                    if not progress_cb(processed, total, affinity, int(level)):
+                        raise RuntimeError("cancelled")
             valid_points = [point for point in points if point.solved is not None and point.metric is not None]
             if not valid_points:
                 continue

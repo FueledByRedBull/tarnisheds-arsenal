@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -113,6 +114,43 @@ def data_snapshot_dir() -> Path:
     if local.exists():
         return local
     return bundled
+
+
+def load_weapon_type_options(snapshot_dir: Path) -> list[tuple[str, str]]:
+    weapons_csv = snapshot_dir / "weapons.csv"
+    if not weapons_csv.exists():
+        return []
+
+    display_to_key: dict[str, str] = {}
+    with weapons_csv.open("r", encoding="utf-8", newline="") as handle:
+        for row in csv.DictReader(handle):
+            display_name = normalize_weapon_type_display(
+                row.get("weapon_type_name", "").strip()
+            )
+            raw_keys = [key.strip() for key in row.get("weapon_type_keys", "").split("|") if key.strip()]
+            if not display_name or not raw_keys or display_name in display_to_key:
+                continue
+            preferred_key = next(
+                (key for key in raw_keys if key.casefold() == display_name.casefold()),
+                raw_keys[0],
+            )
+            display_to_key[display_name] = preferred_key
+    return sorted(display_to_key.items(), key=lambda item: item[0].casefold())
+
+
+def normalize_weapon_type_display(raw_name: str) -> str:
+    normalized = raw_name.strip()
+    if not normalized:
+        return ""
+    overrides = {
+        "Hand-to-Hand": "Hand-to-Hand Arts",
+        "Heavy Spear": "Great Spear",
+        "Reverse-hand Blade": "Backhand Blade",
+        "Scythe": "Reaper",
+        "Seal": "Sacred Seal",
+        "Staff": "Glintstone Staff",
+    }
+    return overrides.get(normalized, normalized)
 
 
 @dataclass(frozen=True)
@@ -570,7 +608,7 @@ class LevelPathDialog(QtWidgets.QDialog):
                 step.stats.summary(),
             ]
             for col_idx, value in enumerate(values):
-                table.setItem(row_idx, col_idx, QtWidgets.QTableWidgetItem(value))
+                table.setItem(row_idx, col_idx, self._centered_table_item(value))
             if step.ar is not None:
                 last_ar = step.ar
 
@@ -771,7 +809,7 @@ class AffinityWatchDialog(QtWidgets.QDialog):
                 final_stats,
             ]
             for col_idx, value in enumerate(values):
-                summary_table.setItem(row_idx, col_idx, QtWidgets.QTableWidgetItem(value))
+                summary_table.setItem(row_idx, col_idx, MainWindow._centered_table_item(self, value))
         layout.addWidget(summary_table, 1)
 
         breakpoint_box = QtWidgets.QGroupBox("CROSSOVERS")
@@ -795,7 +833,11 @@ class AffinityWatchDialog(QtWidgets.QDialog):
                     "--" if breakpoint.incoming_metric is None else f"{breakpoint.incoming_metric:.2f}",
                 ]
                 for col_idx, value in enumerate(values):
-                    breakpoint_table.setItem(row_idx, col_idx, QtWidgets.QTableWidgetItem(value))
+                    breakpoint_table.setItem(
+                        row_idx,
+                        col_idx,
+                        MainWindow._centered_table_item(self, value),
+                    )
             breakpoint_layout.addWidget(breakpoint_table)
         else:
             label = QtWidgets.QLabel("No leadership changes within the selected horizon.")
@@ -819,6 +861,7 @@ class OptimizeWorker(QtCore.QObject):
         self.run_id = run_id
         self.service = service
         self.session = session
+        self.cancel_requested = False
 
     @QtCore.pyqtSlot()
     def run(self) -> None:
@@ -827,6 +870,10 @@ class OptimizeWorker(QtCore.QObject):
             self.finished.emit(self.run_id, results)
         except Exception as exc:
             self.failed.emit(self.run_id, str(exc))
+
+    @QtCore.pyqtSlot()
+    def cancel(self) -> None:
+        self.cancel_requested = True
 
     def _progress_cb(
         self,
@@ -844,6 +891,7 @@ class OptimizeWorker(QtCore.QObject):
             best_score,
             elapsed_ms,
         )
+        return not self.cancel_requested
 
 
 class AffinityWatchWorker(QtCore.QObject):
@@ -863,6 +911,7 @@ class AffinityWatchWorker(QtCore.QObject):
         self.session = session
         self.solved = solved
         self.levels_ahead = levels_ahead
+        self.cancel_requested = False
 
     @QtCore.pyqtSlot()
     def run(self) -> None:
@@ -877,8 +926,13 @@ class AffinityWatchWorker(QtCore.QObject):
         except Exception as exc:
             self.failed.emit(str(exc))
 
-    def _progress_cb(self, processed: int, total: int, affinity: str, level: int) -> None:
+    @QtCore.pyqtSlot()
+    def cancel(self) -> None:
+        self.cancel_requested = True
+
+    def _progress_cb(self, processed: int, total: int, affinity: str, level: int) -> bool:
         self.progress.emit(processed, total, affinity, level)
+        return not self.cancel_requested
 
 
 class PathPreviewWorker(QtCore.QObject):
@@ -930,15 +984,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
         data_path = data_snapshot_dir()
         self.data = core.load_game_data(str(data_path))
+        self.weapon_type_options = load_weapon_type_options(data_path)
         self.desktop_service = desktop_services.DesktopOptimizerService(self.data)
         self.run_id = 0
         self.active_run_id: int | None = None
+        self.search_cancel_requested = False
         self.worker_thread: QtCore.QThread | None = None
         self.worker: OptimizeWorker | None = None
         self.path_thread: QtCore.QThread | None = None
         self.path_worker: PathPreviewWorker | None = None
         self.affinity_watch_thread: QtCore.QThread | None = None
         self.affinity_watch_worker: AffinityWatchWorker | None = None
+        self.affinity_watch_cancel_requested = False
         self.affinity_watch_context: dict[str, Any] | None = None
         self.current_results: list[Any] = []
         self.results_signature: tuple[Any, ...] | None = None
@@ -1272,6 +1329,16 @@ class MainWindow(QtWidgets.QMainWindow):
         label.setProperty("role", "sectionHint")
         return label
 
+    def _centered_table_item(self, value: str) -> QtWidgets.QTableWidgetItem:
+        item = QtWidgets.QTableWidgetItem(value)
+        item.setTextAlignment(
+            int(
+                QtCore.Qt.AlignmentFlag.AlignCenter
+                | QtCore.Qt.AlignmentFlag.AlignVCenter
+            )
+        )
+        return item
+
     def _chip_label(
         self,
         text: str,
@@ -1321,7 +1388,7 @@ class MainWindow(QtWidgets.QMainWindow):
             cards_layout.addWidget(card["frame"], 1)
         layout.addWidget(self.result_cards_container)
 
-        self.results_table = QtWidgets.QTableWidget(0, 17)
+        self.results_table = QtWidgets.QTableWidget(0, 18)
         self.results_table.setHorizontalHeaderLabels(
             [
                 "#",
@@ -1335,6 +1402,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 "INT",
                 "FAI",
                 "ARC",
+                "Split",
                 "AR",
                 "Bleed",
                 "AoW 1st",
@@ -1621,9 +1689,10 @@ class MainWindow(QtWidgets.QMainWindow):
         }
 
     def _wire_events(self) -> None:
-        self.search_button.clicked.connect(self._start_search)
+        self.search_button.clicked.connect(self._handle_search_button)
         self.class_combo.currentIndexChanged.connect(self._on_class_changed)
         self.weapon_combo.currentIndexChanged.connect(self._refresh_affinity_options)
+        self.weapon_type_combo.currentIndexChanged.connect(self._refresh_weapon_options)
         self.affinity_combo.currentIndexChanged.connect(self._refresh_aow_options)
         self.compare_weapon_type_combo.currentIndexChanged.connect(self._refresh_compare_weapon_options)
         self.compare_weapon_combo.currentIndexChanged.connect(self._refresh_compare_affinity_options)
@@ -1631,9 +1700,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.results_table.itemSelectionChanged.connect(self._rebuild_upgrade_table)
         self.results_table.itemSelectionChanged.connect(self._refresh_result_cards)
         self.level_path_button.clicked.connect(self._open_level_path_dialog)
-        self.affinity_watch_button.clicked.connect(self._open_affinity_watch_dialog)
+        self.affinity_watch_button.clicked.connect(self._handle_affinity_watch_button)
         self.path_tab_open_button.clicked.connect(self._open_level_path_dialog)
-        self.affinity_tab_open_button.clicked.connect(self._open_affinity_watch_dialog)
+        self.affinity_tab_open_button.clicked.connect(self._handle_affinity_watch_button)
         self.level_path_horizon_spin.valueChanged.connect(self._refresh_analysis_workspace_labels)
         self.main_tabs.currentChanged.connect(lambda _index: self._sync_session_state())
         self.lock_stats_checkbox.stateChanged.connect(self._refresh_estimate)
@@ -1687,21 +1756,47 @@ class MainWindow(QtWidgets.QMainWindow):
         self.all_affinities = sorted(affinity_set)
 
         self.weapon_type_combo.addItem(ALL_OPTION, None)
-        for key in self.data.weapon_type_keys():
-            self.weapon_type_combo.addItem(key, key)
-
-        self.weapon_combo.addItem(OPEN_OPTION, None)
-        for name in self.all_weapon_names:
-            self.weapon_combo.addItem(name, name)
+        type_options = self.weapon_type_options or [(key, key) for key in self.data.weapon_type_keys()]
+        for label, key in type_options:
+            self.weapon_type_combo.addItem(label, key)
 
         self.compare_weapon_type_combo.addItem(ALL_OPTION, None)
-        for key in self.data.weapon_type_keys():
-            self.compare_weapon_type_combo.addItem(key, key)
+        for label, key in type_options:
+            self.compare_weapon_type_combo.addItem(label, key)
 
+        self._refresh_weapon_options()
         self._refresh_compare_weapon_options()
         self._enable_searchable_dropdowns()
         self._apply_class_baselines()
         self._refresh_estimate()
+
+    def _refresh_weapon_options(self) -> None:
+        selected_type = self._combo_value(self.weapon_type_combo)
+        previous_weapon = self._combo_value(self.weapon_combo)
+
+        self.weapon_combo.blockSignals(True)
+        self.weapon_combo.clear()
+        self.weapon_combo.addItem(OPEN_OPTION, None)
+
+        if selected_type is None:
+            weapon_names = self.all_weapon_names
+        else:
+            weapon_names = self.data.weapon_names_for_type(selected_type)
+
+        for weapon_name in weapon_names:
+            self.weapon_combo.addItem(weapon_name, weapon_name)
+
+        if previous_weapon is not None:
+            idx = self.weapon_combo.findData(previous_weapon)
+            if idx >= 0:
+                self.weapon_combo.setCurrentIndex(idx)
+            else:
+                self.weapon_combo.setCurrentIndex(0)
+        else:
+            self.weapon_combo.setCurrentIndex(0)
+
+        self.weapon_combo.blockSignals(False)
+        self._refresh_affinity_options()
 
     def _refresh_affinity_options(self) -> None:
         selected_weapon = self._combo_value(self.weapon_combo)
@@ -1995,7 +2090,8 @@ class MainWindow(QtWidgets.QMainWindow):
             estimate = self.desktop_service.estimate_search_space(self.session)
             self.estimate_label.setText(
                 f"Search Space: {estimate.combinations:,} "
-                f"({estimate.weapon_candidates} weapons x {estimate.stat_candidates:,} stat states)"
+                f"({self._weapon_candidate_summary(estimate.weapon_candidates)} x "
+                f"{estimate.stat_candidates:,} stat states)"
             )
             self.free_points_label.setText(self._compute_free_points_text())
             self._update_requirement_highlights()
@@ -2014,6 +2110,15 @@ class MainWindow(QtWidgets.QMainWindow):
             f"Redistributable Combat Points: {snapshot['redistributable']} "
             f"(Level {snapshot['level']}, Budget {snapshot['total']})"
         )
+
+    def _weapon_candidate_summary(self, weapon_candidates: int) -> str:
+        selected_weapon = self._combo_value(self.weapon_combo)
+        if selected_weapon is not None:
+            return f"{weapon_candidates} weapon lines"
+        visible_weapon_names = max(0, self.weapon_combo.count() - 1)
+        if visible_weapon_names > 0 and visible_weapon_names != weapon_candidates:
+            return f"{weapon_candidates} weapon lines / {visible_weapon_names} weapons"
+        return f"{weapon_candidates} weapon lines"
 
     def _budget_snapshot(self) -> dict[str, int]:
         self._sync_session_state()
@@ -2117,9 +2222,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.upgrade_table.setRowCount(0)
         self.upgrade_table.setColumnCount(0)
         self.level_path_button.setEnabled(False)
-        self.affinity_watch_button.setEnabled(False)
         self.path_tab_open_button.setEnabled(False)
-        self.affinity_tab_open_button.setEnabled(False)
+        self._refresh_affinity_watch_button_state()
         self._refresh_result_cards()
         self._refresh_compare_summary(None, None, None)
 
@@ -2127,6 +2231,69 @@ class MainWindow(QtWidgets.QMainWindow):
     def _restyle_widget(widget: QtWidgets.QWidget) -> None:
         widget.style().unpolish(widget)
         widget.style().polish(widget)
+
+    def _refresh_search_button_state(self) -> None:
+        if self.active_run_id is None:
+            self.search_button.setEnabled(True)
+            self.search_button.setText("Search the Arsenal")
+            return
+        if self.search_cancel_requested:
+            self.search_button.setEnabled(False)
+            self.search_button.setText("Stopping...")
+            return
+        self.search_button.setEnabled(True)
+        self.search_button.setText("Stop Search")
+
+    def _refresh_affinity_watch_button_state(self) -> None:
+        if self.affinity_watch_thread is None:
+            enabled = self.active_compare_selected is not None
+            self.affinity_watch_button.setEnabled(enabled)
+            self.affinity_watch_button.setText("Affinity Watcher")
+            self.affinity_tab_open_button.setEnabled(enabled)
+            self.affinity_tab_open_button.setText("Refresh Affinity Watch")
+            return
+        if self.affinity_watch_cancel_requested:
+            self.affinity_watch_button.setEnabled(False)
+            self.affinity_watch_button.setText("Stopping...")
+            self.affinity_tab_open_button.setEnabled(False)
+            self.affinity_tab_open_button.setText("Stopping...")
+            return
+        self.affinity_watch_button.setEnabled(True)
+        self.affinity_watch_button.setText("Stop Affinity Watch")
+        self.affinity_tab_open_button.setEnabled(True)
+        self.affinity_tab_open_button.setText("Stop Affinity Watch")
+
+    def _handle_search_button(self) -> None:
+        if self.active_run_id is not None:
+            self._cancel_search()
+            return
+        self._start_search()
+
+    def _cancel_search(self) -> None:
+        if self.active_run_id is None or self.worker is None or self.search_cancel_requested:
+            return
+        self.search_cancel_requested = True
+        self.progress_label.setText("Stopping search...")
+        self.worker.cancel()
+        self._refresh_search_button_state()
+
+    def _handle_affinity_watch_button(self) -> None:
+        if self.affinity_watch_thread is not None:
+            self._cancel_affinity_watch()
+            return
+        self._open_affinity_watch_dialog()
+
+    def _cancel_affinity_watch(self) -> None:
+        if (
+            self.affinity_watch_thread is None
+            or self.affinity_watch_worker is None
+            or self.affinity_watch_cancel_requested
+        ):
+            return
+        self.affinity_watch_cancel_requested = True
+        self.affinity_progress_label.setText("Stopping affinity watch...")
+        self.affinity_watch_worker.cancel()
+        self._refresh_affinity_watch_button_state()
 
     def _start_search(self) -> None:
         if self.active_run_id is not None:
@@ -2146,13 +2313,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.run_id += 1
         run_id = self.run_id
         self.active_run_id = run_id
+        self.search_cancel_requested = False
         self.active_request_signature = self._search_request_signature()
         self.discard_active_results = False
         self._clear_results_state()
-        self.search_button.setEnabled(False)
-        self.search_button.setText("Searching...")
         self._set_search_progress_bar(0, total)
         self.progress_label.setText(f"Searching 0 / {total:,}...")
+        self._refresh_search_button_state()
         self._refresh_hero_summary()
 
         worker = OptimizeWorker(
@@ -2197,8 +2364,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_finished(self, run_id: int, results: object) -> None:
         if run_id != self.active_run_id:
             return
-        self.search_button.setEnabled(True)
-        self.search_button.setText("Search the Arsenal")
+        self.search_cancel_requested = False
+        self._refresh_search_button_state()
         if self.discard_active_results or self.active_request_signature != self._search_request_signature():
             self.active_run_id = None
             self.active_request_signature = None
@@ -2219,11 +2386,15 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_failed(self, run_id: int, message: str) -> None:
         if run_id != self.active_run_id:
             return
-        self.search_button.setEnabled(True)
-        self.search_button.setText("Search the Arsenal")
+        was_cancelled = message == "cancelled"
+        self.search_cancel_requested = False
         self.active_run_id = None
         self.active_request_signature = None
         self.discard_active_results = False
+        self._refresh_search_button_state()
+        if was_cancelled:
+            self._set_idle_progress("Search stopped.")
+            return
         self._set_idle_progress(f"Failed: {message}")
 
     def _launch_worker_thread(
@@ -2266,6 +2437,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 str(result.int_stat),
                 str(result.fai),
                 str(result.arc),
+                self._damage_split_text(result),
                 f"{result.ar_total:.2f}",
                 f"{result.bleed_buildup:.2f}",
                 f"{result.aow_first_hit_damage:.2f}",
@@ -2273,12 +2445,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 f"{result.score:.2f}",
             ]
             for col_idx, value in enumerate(values):
-                self.results_table.setItem(row_idx, col_idx, QtWidgets.QTableWidgetItem(value))
+                self.results_table.setItem(row_idx, col_idx, self._centered_table_item(value))
 
             lock_button = QtWidgets.QPushButton("Use As Locks")
             lock_button.setProperty("role", "inlineButton")
             lock_button.clicked.connect(lambda _checked=False, idx=row_idx: self._lock_from_result(idx))
-            self.results_table.setCellWidget(row_idx, 16, lock_button)
+            self.results_table.setCellWidget(row_idx, 17, lock_button)
 
         if self.current_results:
             selected_idx = 0
@@ -2370,7 +2542,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.active_compare_selected = None
             self.active_compare_target = None
             self.level_path_button.setEnabled(False)
-            self.affinity_watch_button.setEnabled(False)
+            self._refresh_affinity_watch_button_state()
             self._refresh_compare_summary(None, None, None)
             return
 
@@ -2454,17 +2626,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.upgrade_table.setRowCount(len(rows_to_render))
         for row_idx, (label, row_data) in enumerate(rows_to_render):
-            self.upgrade_table.setItem(row_idx, 0, QtWidgets.QTableWidgetItem(label))
+            self.upgrade_table.setItem(row_idx, 0, self._centered_table_item(label))
             ar_series = self._locked_metric_series_for_config(row_data, max_upgrade)
             for lv in range(0, max_upgrade + 1):
                 col = lv + 1
                 ar = ar_series.get(lv)
                 text = "-" if ar is None else f"{ar:.2f}"
-                self.upgrade_table.setItem(row_idx, col, QtWidgets.QTableWidgetItem(text))
+                self.upgrade_table.setItem(row_idx, col, self._centered_table_item(text))
         self.active_compare_selected = selected_best
         self.active_compare_target = compare_summary_row
         self.level_path_button.setEnabled(selected_best is not None and compare_summary_row is not None)
-        self.affinity_watch_button.setEnabled(selected_best is not None)
+        self._refresh_affinity_watch_button_state()
         self._refresh_compare_summary(selected_best, compare_summary_row, compare_weapon)
 
     def _locked_metric_series_for_config(
@@ -2514,6 +2686,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 fai=int(result["fai"]),
                 arc=int(result["arc"]),
                 ar_total=float(result.get("best_ar_total", result.get("ar_total", 0.0))),
+                ar_physical=float(result.get("ar_physical", 0.0)),
+                ar_magic=float(result.get("ar_magic", 0.0)),
+                ar_fire=float(result.get("ar_fire", 0.0)),
+                ar_lightning=float(result.get("ar_lightning", 0.0)),
+                ar_holy=float(result.get("ar_holy", 0.0)),
                 score=float(result.get("score", 0.0)),
                 bleed_buildup=float(result.get("bleed_buildup", 0.0)),
                 bleed_buildup_add=float(result.get("bleed_buildup_add", 0.0)),
@@ -2537,10 +2714,20 @@ class MainWindow(QtWidgets.QMainWindow):
     def _result_metrics_text(self, result: Any) -> str:
         return (
             f"AR {float(result.ar_total):.2f}   "
+            f"Split {self._damage_split_text(result)}   "
             f"Bleed {float(result.bleed_buildup):.2f}   "
             f"1st {float(result.aow_first_hit_damage):.2f}   "
             f"Full {float(result.aow_full_sequence_damage):.2f}   "
             f"Score {float(result.score):.2f}"
+        )
+
+    def _damage_split_text(self, result: Any) -> str:
+        return (
+            f"P {float(getattr(result, 'ar_physical', 0.0)):.2f} | "
+            f"M {float(getattr(result, 'ar_magic', 0.0)):.2f} | "
+            f"F {float(getattr(result, 'ar_fire', 0.0)):.2f} | "
+            f"L {float(getattr(result, 'ar_lightning', 0.0)):.2f} | "
+            f"H {float(getattr(result, 'ar_holy', 0.0)):.2f}"
         )
 
     def _weapon_scaling_values(
@@ -2636,6 +2823,11 @@ class MainWindow(QtWidgets.QMainWindow):
             fai=0,
             arc=0,
             ar_total=0.0,
+            ar_physical=0.0,
+            ar_magic=0.0,
+            ar_fire=0.0,
+            ar_lightning=0.0,
+            ar_holy=0.0,
             score=0.0,
             bleed_buildup=0.0,
             bleed_buildup_add=0.0,
@@ -2704,10 +2896,12 @@ class MainWindow(QtWidgets.QMainWindow):
             "metric_label": self._objective_metric_label(),
             "selected_affinity": row_data.affinity,
         }
+        self.affinity_watch_cancel_requested = False
         total = max(len(affinities) * (levels_ahead + 1), 1)
         self.affinity_progress_bar.setRange(0, total)
         self.affinity_progress_bar.setValue(0)
         self.affinity_progress_label.setText("Tracing affinity crossover lines...")
+        self._refresh_affinity_watch_button_state()
 
         worker = AffinityWatchWorker(
             service=self.desktop_service,
@@ -2743,6 +2937,7 @@ class MainWindow(QtWidgets.QMainWindow):
         context = self.affinity_watch_context
         if context is None:
             return
+        self.affinity_watch_cancel_requested = False
         typed_lines = list(lines)
         typed_breakpoints = list(breakpoints)
         self.affinity_chart_widget.set_payload(typed_lines, str(context["metric_label"]))
@@ -2758,6 +2953,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @QtCore.pyqtSlot(str)
     def _on_affinity_watch_failed(self, message: str) -> None:
+        was_cancelled = message == "cancelled"
+        self.affinity_watch_cancel_requested = False
+        if was_cancelled:
+            self._set_affinity_progress_idle("Affinity watch stopped.")
+            return
         self._set_affinity_progress_idle(f"Failed: {message}")
         QtWidgets.QMessageBox.warning(self, "Affinity Watcher", f"Failed to build watcher: {message}")
 
@@ -2765,6 +2965,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def _teardown_affinity_watch_worker(self) -> None:
         self._teardown_named_worker("affinity_watch_thread", "affinity_watch_worker")
         self.affinity_watch_context = None
+        self.affinity_watch_cancel_requested = False
+        self._refresh_affinity_watch_button_state()
 
     @staticmethod
     def _path_config_from_row(title: str, row_data: desktop_models.SolvedBuild) -> PathWeaponConfig:
@@ -3127,10 +3329,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self.affinity_workspace_detail.setText(
                 "Run a search and pick a selected result row to analyze legal affinity crossovers."
             )
-            self.affinity_tab_open_button.setEnabled(False)
             self.affinity_chart_widget.set_payload([], self._objective_metric_label())
             self._populate_affinity_tables([], [], self._derived_level(), self.level_path_horizon_spin.value())
             self._set_affinity_progress_idle("Idle")
+            self._refresh_affinity_watch_button_state()
             return
         legal_affinities = self.desktop_service.affinity_watch_affinities(selected_best)
         self.affinity_workspace_summary.setText(
@@ -3139,7 +3341,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.affinity_workspace_detail.setText(
             f"{len(legal_affinities)} legal affinities across Current +{self.level_path_horizon_spin.value()}."
         )
-        self.affinity_tab_open_button.setEnabled(True)
+        self._refresh_affinity_watch_button_state()
 
     def _refresh_analysis_workspace_labels(self) -> None:
         self._refresh_path_workspace(self.active_compare_selected, self.active_compare_target)
@@ -3154,6 +3356,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.affinity_progress_label.setText(text)
         self.affinity_progress_bar.setRange(0, 1)
         self.affinity_progress_bar.setValue(0)
+        self._refresh_affinity_watch_button_state()
 
     def _clear_splitter(self, splitter: QtWidgets.QSplitter) -> None:
         while splitter.count():
@@ -3191,7 +3394,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 added_text = f"{added_text} (gap {step.requirement_gap})"
             values = [str(step.level), metric_text, gain_text, added_text, step.stats.summary()]
             for col_idx, value in enumerate(values):
-                table.setItem(row_idx, col_idx, QtWidgets.QTableWidgetItem(value))
+                table.setItem(row_idx, col_idx, self._centered_table_item(value))
             if step.ar is not None:
                 last_metric = step.ar
         layout.addWidget(table, 1)
@@ -3230,7 +3433,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 final_stats,
             ]
             for col_idx, value in enumerate(values):
-                self.affinity_summary_table.setItem(row_idx, col_idx, QtWidgets.QTableWidgetItem(value))
+                self.affinity_summary_table.setItem(row_idx, col_idx, self._centered_table_item(value))
         self.affinity_breakpoint_table.setRowCount(len(breakpoints))
         for row_idx, breakpoint in enumerate(breakpoints):
             values = [
@@ -3241,7 +3444,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 "--" if breakpoint.incoming_metric is None else f"{breakpoint.incoming_metric:.2f}",
             ]
             for col_idx, value in enumerate(values):
-                self.affinity_breakpoint_table.setItem(row_idx, col_idx, QtWidgets.QTableWidgetItem(value))
+                self.affinity_breakpoint_table.setItem(
+                    row_idx,
+                    col_idx,
+                    self._centered_table_item(value),
+                )
 
     def _set_compare_panel(
         self,
@@ -3265,6 +3472,7 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         panel["metrics"].setText(
             f"Best +{row_data.upgrade}   AR {row_data.ar_total:.2f}   "
+            f"Split {self._damage_split_text(row_data)}   "
             f"Bleed {row_data.bleed_buildup:.2f}   "
             f"1st {row_data.aow_first_hit_damage:.2f}   Full {row_data.aow_full_sequence_damage:.2f}"
         )
@@ -3329,7 +3537,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.progress_label.setText(message)
         self.progress_bar.setRange(0, 1)
         self.progress_bar.setValue(0)
-        self.search_button.setText("Search the Arsenal")
+        self._refresh_search_button_state()
         self._refresh_hero_summary()
 
     def _set_search_progress_bar(self, checked: int, total: int) -> None:

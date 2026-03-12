@@ -61,6 +61,21 @@ class WorkbookSheet:
     rows: list[list[str]]
 
 
+@dataclass(frozen=True)
+class NativeSkillWeaponIndex:
+    by_name: dict[str, list[dict[str, str]]]
+    by_token: dict[str, list[dict[str, str]]]
+    by_skill_name_token: dict[str, list[dict[str, str]]]
+
+
+@dataclass(frozen=True)
+class NativeSkillMatch:
+    rows: list[dict[str, str]]
+    status: str
+    match_source: str
+    inferred_skill_name: str
+
+
 class WorkbookReader:
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -195,6 +210,15 @@ def base_name_without_variant(raw_name: str) -> str:
     return name
 
 
+def infer_skill_name_from_raw_name(raw_name: str) -> str:
+    name = base_name_without_variant(raw_name)
+    name = re.sub(r'\s*\[\d+\]$', '', name).strip()
+    name = re.sub(r'\s+#\d+(?=(?:\s+-|\s+\[|$))', '', name).strip()
+    name = re.sub(r'\s*[- ]R\d+$', '', name).strip()
+    name = re.sub(r'\s*\?$', '', name).strip()
+    return name
+
+
 def parse_sequence_variant(raw_name: str, aow_name: str) -> str:
     simple = base_name_without_variant(raw_name)
     remainder = simple
@@ -234,6 +258,180 @@ def parse_hit_order(raw_name: str, sequence_variant: str) -> int:
     if match:
         return int(match.group(1))
     return 1
+
+
+def load_standard_native_skill_weapons(
+    weapons_csv: Path,
+) -> NativeSkillWeaponIndex:
+    by_name: dict[str, list[dict[str, str]]] = {}
+    by_token: dict[str, list[dict[str, str]]] = {}
+    by_skill_name_token: dict[str, list[dict[str, str]]] = {}
+    with weapons_csv.open('r', encoding='utf-8', newline='') as handle:
+        for row in csv.DictReader(handle):
+            if row.get('affinity', '').strip() != 'Standard':
+                continue
+            native_skill_id = row.get('native_skill_id', '').strip()
+            weapon_name = row.get('name', '').strip()
+            native_skill_name = row.get('native_skill_name', '').strip()
+            if not native_skill_id or not weapon_name or not native_skill_name:
+                continue
+            by_name.setdefault(weapon_name, []).append(row)
+            by_token.setdefault(norm_token(weapon_name), []).append(row)
+            by_skill_name_token.setdefault(norm_token(native_skill_name), []).append(row)
+    return NativeSkillWeaponIndex(
+        by_name=by_name,
+        by_token=by_token,
+        by_skill_name_token=by_skill_name_token,
+    )
+
+
+def expand_unique_skill_weapon_variants(raw_name: str) -> list[str]:
+    raw_name = raw_name.strip()
+    if not raw_name:
+        return []
+    if raw_name.startswith('(') and ')' in raw_name:
+        close_idx = raw_name.find(')')
+        prefix_block = raw_name[1:close_idx]
+        suffix = raw_name[close_idx + 1 :].strip()
+        if ' / ' in prefix_block:
+            return [f'{part.strip()} {suffix}'.strip() for part in prefix_block.split('/') if part.strip()]
+    if ' / ' in raw_name:
+        return [part.strip() for part in raw_name.split('/') if part.strip()]
+    return [raw_name]
+
+
+def resolve_weapon_rows(
+    raw_name: str,
+    weapons_by_name: dict[str, list[dict[str, str]]],
+    weapons_by_token: dict[str, list[dict[str, str]]],
+) -> list[dict[str, str]]:
+    matches: list[dict[str, str]] = []
+    seen_weapon_ids: set[str] = set()
+
+    def add(rows: list[dict[str, str]] | None) -> None:
+        if not rows:
+            return
+        for row in rows:
+            weapon_id = row.get('weapon_id', '')
+            if weapon_id in seen_weapon_ids:
+                continue
+            seen_weapon_ids.add(weapon_id)
+            matches.append(row)
+
+    add(weapons_by_name.get(raw_name.strip()))
+    if matches:
+        return matches
+
+    for variant in expand_unique_skill_weapon_variants(raw_name):
+        add(weapons_by_name.get(variant))
+    if matches:
+        return matches
+
+    add(weapons_by_token.get(norm_token(raw_name)))
+    if matches:
+        return matches
+
+    for variant in expand_unique_skill_weapon_variants(raw_name):
+        add(weapons_by_token.get(norm_token(variant)))
+    return matches
+
+
+def group_rows_by_skill_id(rows: list[dict[str, str]]) -> dict[str, list[dict[str, str]]]:
+    grouped: dict[str, list[dict[str, str]]] = {}
+    for row in rows:
+        skill_id = row.get('native_skill_id', '').strip()
+        if not skill_id:
+            continue
+        grouped.setdefault(skill_id, []).append(row)
+    return grouped
+
+
+def resolve_unique_skill_weapons(
+    unique_skill_weapon: str,
+    raw_name: str,
+    index: NativeSkillWeaponIndex,
+) -> NativeSkillMatch:
+    inferred_skill_name = infer_skill_name_from_raw_name(raw_name).strip()
+    skill_rows = index.by_skill_name_token.get(norm_token(inferred_skill_name), [])
+    if skill_rows:
+        skill_groups = group_rows_by_skill_id(skill_rows)
+        matched_groups: list[list[dict[str, str]]] = []
+        for group_rows in skill_groups.values():
+            group_by_name: dict[str, list[dict[str, str]]] = {}
+            group_by_token: dict[str, list[dict[str, str]]] = {}
+            for row in group_rows:
+                weapon_name = row.get('name', '').strip()
+                if not weapon_name:
+                    continue
+                group_by_name.setdefault(weapon_name, []).append(row)
+                group_by_token.setdefault(norm_token(weapon_name), []).append(row)
+            matched_rows = resolve_weapon_rows(unique_skill_weapon, group_by_name, group_by_token)
+            if matched_rows:
+                matched_groups.append(matched_rows)
+        if len(matched_groups) == 1:
+            return NativeSkillMatch(matched_groups[0], 'matched', 'skill_id+weapon', inferred_skill_name)
+        if len(matched_groups) > 1:
+            return NativeSkillMatch([], 'ambiguous_skill_family', 'skill_id+weapon', inferred_skill_name)
+        if len(skill_groups) == 1:
+            return NativeSkillMatch([], 'unmatched_weapon_in_skill_family', 'skill_id', inferred_skill_name)
+        return NativeSkillMatch([], 'ambiguous_skill_name', 'skill_name', inferred_skill_name)
+
+    fallback_rows = resolve_weapon_rows(unique_skill_weapon, index.by_name, index.by_token)
+    if fallback_rows:
+        skill_ids = {row.get('native_skill_id', '').strip() for row in fallback_rows if row.get('native_skill_id', '').strip()}
+        if len(skill_ids) == 1:
+            return NativeSkillMatch(fallback_rows, 'matched', 'weapon_name_fallback', inferred_skill_name)
+        return NativeSkillMatch([], 'ambiguous_weapon_name_fallback', 'weapon_name_fallback', inferred_skill_name)
+    return NativeSkillMatch([], 'unmatched_weapon', 'none', inferred_skill_name)
+
+
+def build_attack_row(
+    header_idx: dict[str, int],
+    values: list[str],
+    row_idx: int,
+    skill_id: int,
+    skill_name: str,
+    raw_name: str,
+) -> tuple[dict[str, str], bool, str]:
+    variant_weapon_type = extract_variant(raw_name)
+    sequence_variant = parse_sequence_variant(raw_name, skill_name)
+    hit_kind = parse_hit_kind(raw_name, sequence_variant)
+    motion_values = {
+        damage_type: parse_float(values[header_idx[MV_COLUMNS[damage_type]]])
+        for damage_type in DAMAGE_TYPES
+    }
+    attack_bases = {
+        damage_type: parse_float(values[header_idx[ATTACK_TYPE_COLUMNS[damage_type]]])
+        for damage_type in DAMAGE_TYPES
+    }
+    is_add_base_atk = (values[header_idx['isAddBaseAtk']] or '0') != '0'
+    damaging = is_damaging_row(motion_values, attack_bases, is_add_base_atk)
+    row: dict[str, str] = {
+        'sheet_row': str(row_idx),
+        'aow_id': str(skill_id),
+        'aow_name': skill_name,
+        'raw_name': raw_name,
+        'variant_weapon_type': variant_weapon_type,
+        'skill_family': skill_name,
+        'sequence_variant': sequence_variant,
+        'hit_kind': hit_kind,
+        'hit_order': str(parse_hit_order(raw_name, sequence_variant)),
+        'is_lacking_fp': '1' if raw_name.endswith('(Lacking FP)') else '0',
+        'is_damaging': '1' if damaging else '0',
+        'atk_id': str(parse_int(values[header_idx['AtkId']])),
+        'overwrite_attack_element_correct_id': str(
+            parse_int(values[header_idx['overwriteAttackElementCorrectId']])
+        ),
+        'is_disable_both_hands_bonus': values[header_idx['isDisableBothHandsAtkBonus']] or '0',
+        'is_add_base_atk': '1' if is_add_base_atk else '0',
+        'status_mv': str(parse_float(values[header_idx['Status MV']])),
+        'weapon_buff_mv': str(parse_float(values[header_idx['Weapon Buff MV']])),
+        'stamina_cost': str(parse_float(values[header_idx['StaminaCost']])),
+    }
+    for damage_type in DAMAGE_TYPES:
+        row[f'{damage_type}_mv'] = str(motion_values[damage_type])
+        row[f'attack_base_{damage_type}'] = str(attack_bases[damage_type])
+    return row, damaging, hit_kind
 
 
 def read_sp_effect_sheet(workbook_path: Path) -> list[dict[str, str]]:
@@ -301,10 +499,13 @@ def read_sp_effect_sheet(workbook_path: Path) -> list[dict[str, str]]:
     ]
 
 
-def build_aow_buff_data(project_root: Path) -> None:
-    workbook_path = project_root / 'data' / 'phase1' / 'ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx'
-    aow_csv = project_root / 'data' / 'phase1' / 'aow.csv'
-    out_path = project_root / 'data' / 'phase1' / 'aow_buffs.csv'
+def build_aow_buff_data(project_root: Path, phase1_dir: Path | None = None) -> None:
+    phase1_dir = project_root / 'data' / 'phase1' if phase1_dir is None else phase1_dir
+    workbook_path = phase1_dir / 'ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx'
+    if not workbook_path.exists():
+        workbook_path = project_root / 'data' / 'phase1' / 'ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx'
+    aow_csv = phase1_dir / 'aow.csv'
+    out_path = phase1_dir / 'aow_buffs.csv'
 
     aow_rows = list(csv.DictReader(aow_csv.open('r', encoding='utf-8', newline='')))
     aow_id_by_name = {row['name']: int(row['aow_id']) for row in aow_rows}
@@ -387,11 +588,14 @@ def is_damaging_row(
     )
 
 
-def build_aow_attack_data(project_root: Path) -> None:
-    workbook_path = project_root / 'data' / 'phase1' / 'ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx'
-    aow_csv = project_root / 'data' / 'phase1' / 'aow.csv'
-    out_path = project_root / 'data' / 'phase1' / 'aow_attack_data.csv'
-    coverage_path = project_root / 'data' / 'phase1' / 'aow_damage_coverage.csv'
+def build_aow_attack_data(project_root: Path, phase1_dir: Path | None = None) -> None:
+    phase1_dir = project_root / 'data' / 'phase1' if phase1_dir is None else phase1_dir
+    workbook_path = phase1_dir / 'ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx'
+    if not workbook_path.exists():
+        workbook_path = project_root / 'data' / 'phase1' / 'ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx'
+    aow_csv = phase1_dir / 'aow.csv'
+    out_path = phase1_dir / 'aow_attack_data.csv'
+    coverage_path = phase1_dir / 'aow_damage_coverage.csv'
 
     aow_rows = list(csv.DictReader(aow_csv.open('r', encoding='utf-8', newline='')))
     aow_id_by_name = {row['name']: int(row['aow_id']) for row in aow_rows}
@@ -427,48 +631,20 @@ def build_aow_attack_data(project_root: Path) -> None:
             if unique_skill_weapon:
                 coverage[matched]['unique_collision_rows'] += 1
                 continue
-            variant_weapon_type = extract_variant(raw_name)
-            sequence_variant = parse_sequence_variant(raw_name, matched)
-            hit_kind = parse_hit_kind(raw_name, sequence_variant)
-            motion_values = {
-                damage_type: parse_float(values[header_idx[MV_COLUMNS[damage_type]]])
-                for damage_type in DAMAGE_TYPES
-            }
-            attack_bases = {
-                damage_type: parse_float(values[header_idx[ATTACK_TYPE_COLUMNS[damage_type]]])
-                for damage_type in DAMAGE_TYPES
-            }
-            is_add_base_atk = (values[header_idx['isAddBaseAtk']] or '0') != '0'
-            damaging = is_damaging_row(motion_values, attack_bases, is_add_base_atk)
+            row, damaging, hit_kind = build_attack_row(
+                header_idx,
+                values,
+                row_idx,
+                aow_id_by_name[matched],
+                matched,
+                raw_name,
+            )
             coverage[matched]['standard_rows'] += 1
             coverage[matched]['lacking_fp_rows'] += int(raw_name.endswith('(Lacking FP)'))
-            coverage[matched]['variant_rows'] += int(bool(variant_weapon_type))
+            coverage[matched]['variant_rows'] += int(bool(row['variant_weapon_type']))
             coverage[matched]['bullet_rows'] += int(hit_kind == 'bullet')
             coverage[matched]['parry_rows'] += int(hit_kind == 'parry')
             coverage[matched]['damaging_rows'] += int(damaging)
-            row: dict[str, str] = {
-                'sheet_row': str(row_idx),
-                'aow_id': str(aow_id_by_name[matched]),
-                'aow_name': matched,
-                'raw_name': raw_name,
-                'variant_weapon_type': variant_weapon_type,
-                'skill_family': matched,
-                'sequence_variant': sequence_variant,
-                'hit_kind': hit_kind,
-                'hit_order': str(parse_hit_order(raw_name, sequence_variant)),
-                'is_lacking_fp': '1' if raw_name.endswith('(Lacking FP)') else '0',
-                'is_damaging': '1' if damaging else '0',
-                'atk_id': str(parse_int(values[header_idx['AtkId']])),
-                'overwrite_attack_element_correct_id': str(parse_int(values[header_idx['overwriteAttackElementCorrectId']])),
-                'is_disable_both_hands_bonus': values[header_idx['isDisableBothHandsAtkBonus']] or '0',
-                'is_add_base_atk': '1' if is_add_base_atk else '0',
-                'status_mv': str(parse_float(values[header_idx['Status MV']])),
-                'weapon_buff_mv': str(parse_float(values[header_idx['Weapon Buff MV']])),
-                'stamina_cost': str(parse_float(values[header_idx['StaminaCost']])),
-            }
-            for damage_type in DAMAGE_TYPES:
-                row[f'{damage_type}_mv'] = str(motion_values[damage_type])
-                row[f'attack_base_{damage_type}'] = str(attack_bases[damage_type])
             rows_out.append(row)
     finally:
         reader.close()
@@ -557,9 +733,146 @@ def build_aow_attack_data(project_root: Path) -> None:
     print(f'Wrote {len(aow_rows)} AoW coverage rows to {coverage_path}')
 
 
-def build_attack_element_correct_ext(project_root: Path) -> None:
-    workbook_path = project_root / 'data' / 'phase1' / 'ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx'
-    out_path = project_root / 'data' / 'phase1' / 'attack_element_correct_ext.csv'
+def build_native_skill_attack_data(project_root: Path, phase1_dir: Path | None = None) -> None:
+    phase1_dir = project_root / 'data' / 'phase1' if phase1_dir is None else phase1_dir
+    workbook_path = phase1_dir / 'ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx'
+    if not workbook_path.exists():
+        workbook_path = project_root / 'data' / 'phase1' / 'ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx'
+    weapons_csv = phase1_dir / 'weapons.csv'
+    out_path = phase1_dir / 'native_skill_attack_data.csv'
+    coverage_path = phase1_dir / 'native_skill_damage_coverage.csv'
+    weapon_index = load_standard_native_skill_weapons(weapons_csv)
+
+    reader = WorkbookReader(workbook_path)
+    try:
+        sheet = reader.read_sheet('Ashes of War Attack Data')
+        header_idx = {header: idx for idx, header in enumerate(sheet.headers)}
+        rows_out: list[dict[str, str]] = []
+        coverage_rows: list[dict[str, str]] = []
+        for row_idx, values in enumerate(sheet.rows, start=2):
+            unique_skill_weapon = values[header_idx['Unique Skill Weapon']].strip()
+            raw_name = values[header_idx['Name']].strip()
+            if not unique_skill_weapon or not raw_name:
+                continue
+            match = resolve_unique_skill_weapons(
+                unique_skill_weapon,
+                raw_name,
+                weapon_index,
+            )
+            coverage_rows.append(
+                {
+                    'sheet_row': str(row_idx),
+                    'unique_skill_weapon': unique_skill_weapon,
+                    'raw_name': raw_name,
+                    'inferred_skill_name': match.inferred_skill_name,
+                    'status': match.status,
+                    'match_source': match.match_source,
+                    'matched_skill_ids': '|'.join(
+                        sorted(
+                            {
+                                row['native_skill_id']
+                                for row in match.rows
+                                if row.get('native_skill_id', '').strip()
+                            }
+                        )
+                    ),
+                    'matched_weapon_ids': '|'.join(
+                        sorted({row['weapon_id'] for row in match.rows if row.get('weapon_id', '').strip()})
+                    ),
+                    'matched_weapon_names': '|'.join(
+                        sorted({row['name'] for row in match.rows if row.get('name', '').strip()})
+                    ),
+                }
+            )
+            if not match.rows:
+                continue
+            for weapon in match.rows:
+                skill_id = int(weapon['native_skill_id'])
+                skill_name = weapon['native_skill_name'].strip() or infer_skill_name_from_raw_name(raw_name)
+                row, _damaging, _hit_kind = build_attack_row(
+                    header_idx,
+                    values,
+                    row_idx,
+                    skill_id,
+                    skill_name,
+                    raw_name,
+                )
+                row['weapon_id'] = weapon['weapon_id']
+                row['weapon_name'] = weapon['name']
+                row['unique_skill_weapon'] = unique_skill_weapon
+                rows_out.append(row)
+    finally:
+        reader.close()
+
+    rows_out.sort(key=lambda row: (int(row['weapon_id']), int(row['sheet_row'])))
+    fieldnames = [
+        'weapon_id',
+        'weapon_name',
+        'unique_skill_weapon',
+        'sheet_row',
+        'aow_id',
+        'aow_name',
+        'raw_name',
+        'variant_weapon_type',
+        'skill_family',
+        'sequence_variant',
+        'hit_kind',
+        'hit_order',
+        'is_lacking_fp',
+        'is_damaging',
+        'atk_id',
+        'overwrite_attack_element_correct_id',
+        'is_disable_both_hands_bonus',
+        'is_add_base_atk',
+        'physical_mv',
+        'magic_mv',
+        'fire_mv',
+        'lightning_mv',
+        'holy_mv',
+        'attack_base_physical',
+        'attack_base_magic',
+        'attack_base_fire',
+        'attack_base_lightning',
+        'attack_base_holy',
+        'status_mv',
+        'weapon_buff_mv',
+        'stamina_cost',
+    ]
+    with out_path.open('w', encoding='utf-8', newline='') as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows_out)
+
+    coverage_fields = [
+        'sheet_row',
+        'unique_skill_weapon',
+        'raw_name',
+        'inferred_skill_name',
+        'status',
+        'match_source',
+        'matched_skill_ids',
+        'matched_weapon_ids',
+        'matched_weapon_names',
+    ]
+    with coverage_path.open('w', encoding='utf-8', newline='') as handle:
+        writer = csv.DictWriter(handle, fieldnames=coverage_fields)
+        writer.writeheader()
+        writer.writerows(coverage_rows)
+
+    unresolved = [row for row in coverage_rows if row['status'] != 'matched']
+    if unresolved:
+        unresolved_list = ', '.join(sorted({row['unique_skill_weapon'] for row in unresolved}))
+        print(f'Warning: unresolved native skill workbook rows: {unresolved_list}')
+    print(f'Wrote {len(rows_out)} native skill attack rows to {out_path}')
+    print(f'Wrote {len(coverage_rows)} native skill coverage rows to {coverage_path}')
+
+
+def build_attack_element_correct_ext(project_root: Path, phase1_dir: Path | None = None) -> None:
+    phase1_dir = project_root / 'data' / 'phase1' if phase1_dir is None else phase1_dir
+    workbook_path = phase1_dir / 'ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx'
+    if not workbook_path.exists():
+        workbook_path = project_root / 'data' / 'phase1' / 'ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx'
+    out_path = phase1_dir / 'attack_element_correct_ext.csv'
     reader = WorkbookReader(workbook_path)
     try:
         sheet = reader.read_sheet('AttackElementCorrectParam')
@@ -602,14 +915,16 @@ def build_attack_element_correct_ext(project_root: Path) -> None:
     print(f'Wrote {len(rows_out)} AttackElementCorrect override rows to {out_path}')
 
 
+def run_workbook_exports(project_root: Path, phase1_dir: Path | None = None) -> None:
+    build_aow_attack_data(project_root, phase1_dir)
+    build_native_skill_attack_data(project_root, phase1_dir)
+    build_aow_buff_data(project_root, phase1_dir)
+    build_attack_element_correct_ext(project_root, phase1_dir)
+
+
 def main() -> None:
     project_root = Path(__file__).resolve().parents[2]
-    build_aow_attack_data(project_root)
-    build_aow_buff_data(project_root)
-    build_attack_element_correct_ext(project_root)
-    from derive_weapon_rules import build_weapon_rules
-
-    build_weapon_rules(project_root)
+    run_workbook_exports(project_root)
 
 
 if __name__ == '__main__':

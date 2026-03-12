@@ -13,7 +13,10 @@ venv/
 
 # Build/release output
 dist/
+dist_release/
 build/
+build_release/
+ui/desktop/er_optimizer_core/
 *.spec
 *.whl
 tmp_*.png
@@ -21,7 +24,9 @@ release-notes-*.md
 
 # Local data workdirs
 data/_work_phase1/
+data/_work_phase1_reparse*/
 data/raw/
+data/phase1/weapon_passive_overlays.csv
 
 # OS/editor
 .DS_Store

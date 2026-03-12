@@ -1,0 +1,1117 @@
+sheet_row,unique_skill_weapon,raw_name,inferred_skill_name,status,match_source,matched_skill_ids,matched_weapon_ids,matched_weapon_names
+1100,Great Katana,Overhead Stance R1,Overhead Stance,matched,skill_id+weapon,4110,66500000,Great Katana
+1101,Great Katana,Overhead Stance R2 [1],Overhead Stance,matched,skill_id+weapon,4110,66500000,Great Katana
+1102,Great Katana,Overhead Stance R2 [2],Overhead Stance,matched,skill_id+weapon,4110,66500000,Great Katana
+1103,Great Katana,Overhead Stance R2 [3],Overhead Stance,matched,skill_id+weapon,4110,66500000,Great Katana
+1104,Great Katana,Overhead Stance R1 (Lacking FP),Overhead Stance,matched,skill_id+weapon,4110,66500000,Great Katana
+1105,Great Katana,Overhead Stance R2 [1] (Lacking FP),Overhead Stance,matched,skill_id+weapon,4110,66500000,Great Katana
+1106,Great Katana,Overhead Stance R2 [2] (Lacking FP),Overhead Stance,matched,skill_id+weapon,4110,66500000,Great Katana
+1107,Great Katana,Overhead Stance R2 [3] (Lacking FP),Overhead Stance,matched,skill_id+weapon,4110,66500000,Great Katana
+1112,Beast Claw,Savage Claws [1],Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
+1113,Beast Claw,Savage Claws [2],Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
+1114,Beast Claw,Savage Claws [3],Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
+1115,Beast Claw,Savage Claws [4],Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
+1116,Beast Claw,Savage Claws [5],Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
+1117,Beast Claw,Savage Claws [6],Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
+1118,Beast Claw,Savage Claws [1] (Lacking FP),Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
+1119,Beast Claw,Savage Claws [2] (Lacking FP),Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
+1120,Beast Claw,Savage Claws [3] (Lacking FP),Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
+1121,Beast Claw,Savage Claws [4] (Lacking FP),Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
+1122,Beast Claw,Savage Claws [5] (Lacking FP),Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
+1123,Beast Claw,Savage Claws [6] (Lacking FP),Savage Claws,matched,skill_id+weapon,4070,68500000,Beast Claw
+1124,Beast Claw,Raging Beast,Raging Beast,matched,weapon_name_fallback,4070,68500000,Beast Claw
+1125,Beast Claw,Raging Beast R2 [1],Raging Beast,matched,weapon_name_fallback,4070,68500000,Beast Claw
+1126,Beast Claw,Raging Beast R2 [2],Raging Beast,matched,weapon_name_fallback,4070,68500000,Beast Claw
+1127,Beast Claw,Raging Beast (Lacking FP),Raging Beast,matched,weapon_name_fallback,4070,68500000,Beast Claw
+1128,Beast Claw,Raging Beast R2 [1] (Lacking FP),Raging Beast,matched,weapon_name_fallback,4070,68500000,Beast Claw
+1129,Beast Claw,Raging Beast R2 [2] (Lacking FP),Raging Beast,matched,weapon_name_fallback,4070,68500000,Beast Claw
+1130,Smithscript Dagger,Piercing Throw,Piercing Throw,matched,skill_id+weapon,4020,63500000,Smithscript Dagger
+1131,Smithscript Dagger,Piercing Throw (Lacking FP),Piercing Throw,matched,skill_id+weapon,4020,63500000,Smithscript Dagger
+1132,Smithscript Dagger,Scattershot Throw #1 [1],Scattershot Throw,matched,weapon_name_fallback,4020,63500000,Smithscript Dagger
+1133,Smithscript Dagger,Scattershot Throw #1 [2],Scattershot Throw,matched,weapon_name_fallback,4020,63500000,Smithscript Dagger
+1134,Smithscript Dagger,Scattershot Throw #2 [1],Scattershot Throw,matched,weapon_name_fallback,4020,63500000,Smithscript Dagger
+1135,Smithscript Dagger,Scattershot Throw #2 [2],Scattershot Throw,matched,weapon_name_fallback,4020,63500000,Smithscript Dagger
+1136,Smithscript Dagger,Scattershot Throw (Far),Scattershot Throw (Far),matched,weapon_name_fallback,4020,63500000,Smithscript Dagger
+1137,Smithscript Dagger,Scattershot Throw (Lacking FP),Scattershot Throw,matched,weapon_name_fallback,4020,63500000,Smithscript Dagger
+1142,Milady,Wing Stance R1 [1],Wing Stance,matched,weapon_name_fallback,101,67500000,Milady
+1143,Milady,Wing Stance R1 [2],Wing Stance,matched,weapon_name_fallback,101,67500000,Milady
+1144,Milady,Wing Stance R1 [3],Wing Stance,matched,weapon_name_fallback,101,67500000,Milady
+1145,Milady,Wing Stance R2,Wing Stance,matched,weapon_name_fallback,101,67500000,Milady
+1146,Milady,Wing Stance R1 [1] (Lacking FP),Wing Stance,matched,weapon_name_fallback,101,67500000,Milady
+1147,Milady,Wing Stance R1 [2] (Lacking FP),Wing Stance,matched,weapon_name_fallback,101,67500000,Milady
+1148,Milady,Wing Stance R1 [3] (Lacking FP),Wing Stance,matched,weapon_name_fallback,101,67500000,Milady
+1149,Milady,Wing Stance R2 (Lacking FP),Wing Stance,matched,weapon_name_fallback,101,67500000,Milady
+1571,Glintstone Kris,Glintstone Dart - Bullet,Glintstone Dart - Bullet,matched,weapon_name_fallback,1017,1070000,Glintstone Kris
+1572,Glintstone Kris,Glintstone Dart Charged - Bullet,Glintstone Dart Charged - Bullet,matched,weapon_name_fallback,1017,1070000,Glintstone Kris
+1573,Glintstone Kris,Glintstone Dart R2,Glintstone Dart,matched,skill_id+weapon,1017,1070000,Glintstone Kris
+1574,Glintstone Kris,Glintstone Dart (Lacking FP),Glintstone Dart,matched,skill_id+weapon,1017,1070000,Glintstone Kris
+1575,Glintstone Kris,Glintstone Dart Charged (Lacking FP),Glintstone Dart Charged,matched,weapon_name_fallback,1017,1070000,Glintstone Kris
+1576,Glintstone Kris,Glintstone Dart R2 (Lacking FP),Glintstone Dart,matched,skill_id+weapon,1017,1070000,Glintstone Kris
+1577,Reduvia,Reduvia Blood Blade #1,Reduvia Blood Blade,matched,skill_id+weapon,1016,1040000,Reduvia
+1578,Reduvia,Reduvia Blood Blade #1 - Bullet,Reduvia Blood Blade - Bullet,matched,weapon_name_fallback,1016,1040000,Reduvia
+1579,Reduvia,Reduvia Blood Blade #2,Reduvia Blood Blade,matched,skill_id+weapon,1016,1040000,Reduvia
+1580,Reduvia,Reduvia Blood Blade #2 - Bullet,Reduvia Blood Blade - Bullet,matched,weapon_name_fallback,1016,1040000,Reduvia
+1581,Reduvia,Reduvia Blood Blade #3,Reduvia Blood Blade,matched,skill_id+weapon,1016,1040000,Reduvia
+1582,Reduvia,Reduvia Blood Blade #3 - Bullet,Reduvia Blood Blade - Bullet,matched,weapon_name_fallback,1016,1040000,Reduvia
+1583,Reduvia,Reduvia Blood Blade #1 (Lacking FP),Reduvia Blood Blade,matched,skill_id+weapon,1016,1040000,Reduvia
+1584,Reduvia,Reduvia Blood Blade #2 (Lacking FP),Reduvia Blood Blade,matched,skill_id+weapon,1016,1040000,Reduvia
+1585,Reduvia,Reduvia Blood Blade #3 (Lacking FP),Reduvia Blood Blade,matched,skill_id+weapon,1016,1040000,Reduvia
+1586,Blade of Calling,Blade of Gold - Bullet,Blade of Gold - Bullet,matched,weapon_name_fallback,1037,1160000,Blade of Calling
+1587,Blade of Calling,Blade of Gold (Lacking FP),Blade of Gold,matched,skill_id+weapon,1037,1160000,Blade of Calling
+1588,Black Knife,Blade of Death - Bullet,Blade of Death - Bullet,matched,weapon_name_fallback,1036,1010000,Black Knife
+1589,Black Knife,Blade of Death (Lacking FP),Blade of Death,matched,skill_id+weapon,1036,1010000,Black Knife
+1590,Ornamental Straight Sword,Golden Tempering R2 (Right),Golden Tempering R2 (Right),matched,weapon_name_fallback,1052,2060000,Ornamental Straight Sword
+1591,Ornamental Straight Sword,Golden Tempering R2 (Left),Golden Tempering R2 (Left),matched,weapon_name_fallback,1052,2060000,Ornamental Straight Sword
+1592,Ornamental Straight Sword,Golden Tempering (Partial) Charged R2 - 2x (Right),Golden Tempering (Partial) Charged R2 - 2x (Right),matched,weapon_name_fallback,1052,2060000,Ornamental Straight Sword
+1593,Ornamental Straight Sword,Golden Tempering (Partial) Charged R2 - 1x (Left),Golden Tempering (Partial) Charged R2 - 1x (Left),matched,weapon_name_fallback,1052,2060000,Ornamental Straight Sword
+1594,Ornamental Straight Sword,Golden Tempering (Partial) Charged R2 (Right),Golden Tempering (Partial) Charged R2 (Right),matched,weapon_name_fallback,1052,2060000,Ornamental Straight Sword
+1595,Ornamental Straight Sword,Golden Tempering (Partial) Charged R2 (Left),Golden Tempering (Partial) Charged R2 (Left),matched,weapon_name_fallback,1052,2060000,Ornamental Straight Sword
+1596,Ornamental Straight Sword,Golden Tempering Charged R2 - 5x (Right),Golden Tempering Charged R2 - 5x (Right),matched,weapon_name_fallback,1052,2060000,Ornamental Straight Sword
+1597,Ornamental Straight Sword,Golden Tempering Charged R2 - 5x (Left),Golden Tempering Charged R2 - 5x (Left),matched,weapon_name_fallback,1052,2060000,Ornamental Straight Sword
+1598,Ornamental Straight Sword,Golden Tempering Charged R2 - Final (Right),Golden Tempering Charged R2 - Final (Right),matched,weapon_name_fallback,1052,2060000,Ornamental Straight Sword
+1599,Ornamental Straight Sword,Golden Tempering Charged R2 - Final (Left),Golden Tempering Charged R2 - Final (Left),matched,weapon_name_fallback,1052,2060000,Ornamental Straight Sword
+1600,Sword of St. Trina,Mists of Slumber,Mists of Slumber,matched,skill_id+weapon,1023,2190000,Sword of St. Trina
+1601,Sword of St. Trina,Mists of Slumber (Lacking FP),Mists of Slumber,matched,skill_id+weapon,1023,2190000,Sword of St. Trina
+1602,Velvet Sword of St. Trina,Mists of Eternal Sleep,Mists of Eternal Sleep,matched,skill_id+weapon,5110,2510000,Velvet Sword of St. Trina
+1603,Velvet Sword of St. Trina,Mists of Eternal Sleep (Lacking FP),Mists of Eternal Sleep,matched,skill_id+weapon,5110,2510000,Velvet Sword of St. Trina
+1604,Regalia of Eochaid,Eochaid's Dancing Blade [1],Eochaid's Dancing Blade,matched,skill_id+weapon,1055,2220000,Regalia of Eochaid
+1605,Regalia of Eochaid,Eochaid's Dancing Blade [2],Eochaid's Dancing Blade,matched,skill_id+weapon,1055,2220000,Regalia of Eochaid
+1606,Regalia of Eochaid,Eochaid's Dancing Blade [3],Eochaid's Dancing Blade,matched,skill_id+weapon,1055,2220000,Regalia of Eochaid
+1607,Regalia of Eochaid,Eochaid's Dancing Blade [4],Eochaid's Dancing Blade,matched,skill_id+weapon,1055,2220000,Regalia of Eochaid
+1608,Regalia of Eochaid,Eochaid's Dancing Blade [5],Eochaid's Dancing Blade,matched,skill_id+weapon,1055,2220000,Regalia of Eochaid
+1609,Regalia of Eochaid,Eochaid's Dancing Blade [6],Eochaid's Dancing Blade,matched,skill_id+weapon,1055,2220000,Regalia of Eochaid
+1610,Regalia of Eochaid,Eochaid's Dancing Blade [7],Eochaid's Dancing Blade,matched,skill_id+weapon,1055,2220000,Regalia of Eochaid
+1611,Regalia of Eochaid,Eochaid's Dancing Blade [8],Eochaid's Dancing Blade,matched,skill_id+weapon,1055,2220000,Regalia of Eochaid
+1612,Regalia of Eochaid,Eochaid's Dancing Blade [9],Eochaid's Dancing Blade,matched,skill_id+weapon,1055,2220000,Regalia of Eochaid
+1613,Regalia of Eochaid,Eochaid's Dancing Blade Charged [1],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1055,2220000,Regalia of Eochaid
+1614,Regalia of Eochaid,Eochaid's Dancing Blade Charged [2],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1055,2220000,Regalia of Eochaid
+1615,Regalia of Eochaid,Eochaid's Dancing Blade Charged [3],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1055,2220000,Regalia of Eochaid
+1616,Regalia of Eochaid,Eochaid's Dancing Blade Charged [4],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1055,2220000,Regalia of Eochaid
+1617,Regalia of Eochaid,Eochaid's Dancing Blade Charged [5],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1055,2220000,Regalia of Eochaid
+1618,Regalia of Eochaid,Eochaid's Dancing Blade Charged [6],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1055,2220000,Regalia of Eochaid
+1619,Regalia of Eochaid,Eochaid's Dancing Blade Charged [7],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1055,2220000,Regalia of Eochaid
+1620,Regalia of Eochaid,Eochaid's Dancing Blade Charged [8],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1055,2220000,Regalia of Eochaid
+1621,Regalia of Eochaid,Eochaid's Dancing Blade Charged [9],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1055,2220000,Regalia of Eochaid
+1622,Regalia of Eochaid,Eochaid's Dancing Blade Charged [10],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1055,2220000,Regalia of Eochaid
+1623,Regalia of Eochaid,Eochaid's Dancing Blade Charged [11],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1055,2220000,Regalia of Eochaid
+1624,Regalia of Eochaid,Eochaid's Dancing Blade Charged [12],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1055,2220000,Regalia of Eochaid
+1625,Coded Sword,Unblockable Blade,Unblockable Blade,matched,skill_id+weapon,1054,2110000,Coded Sword
+1626,Coded Sword,Unblockable Blade (Lacking FP),Unblockable Blade,matched,skill_id+weapon,1054,2110000,Coded Sword
+1627,Sword of Night and Flame,Night-and-Flame Stance R1,Night-and-Flame Stance,matched,skill_id+weapon,1019,2140000,Sword of Night and Flame
+1628,Sword of Night and Flame,Night-and-Flame Stance R1 [1] - Bullet (Beam - Point Blank),Night-and-Flame Stance R1 [1] - Bullet (Beam - Point Blank),matched,weapon_name_fallback,1019,2140000,Sword of Night and Flame
+1629,Sword of Night and Flame,Night-and-Flame Stance R1 [2] - Bullet (Beam Loop 5x),Night-and-Flame Stance R1 [2] - Bullet (Beam Loop 5x),matched,weapon_name_fallback,1019,2140000,Sword of Night and Flame
+1630,Sword of Night and Flame,Night-and-Flame Stance R1 [2] - Bullet (Beam Loop 2x),Night-and-Flame Stance R1 [2] - Bullet (Beam Loop 2x),matched,weapon_name_fallback,1019,2140000,Sword of Night and Flame
+1631,Sword of Night and Flame,Night-and-Flame Stance R1 [3] - Bullet (Beam Loop 4x),Night-and-Flame Stance R1 [3] - Bullet (Beam Loop 4x),matched,weapon_name_fallback,1019,2140000,Sword of Night and Flame
+1632,Sword of Night and Flame,Night-and-Flame Stance R1 [4] - Bullet (Beam Final Hit),Night-and-Flame Stance R1 [4] - Bullet (Beam Final Hit),matched,weapon_name_fallback,1019,2140000,Sword of Night and Flame
+1633,Sword of Night and Flame,Night-and-Flame Stance R1 (Lacking FP),Night-and-Flame Stance,matched,skill_id+weapon,1019,2140000,Sword of Night and Flame
+1634,Sword of Night and Flame,Night-and-Flame Stance R2,Night-and-Flame Stance,matched,skill_id+weapon,1019,2140000,Sword of Night and Flame
+1635,Sword of Night and Flame,Night-and-Flame Stance R2,Night-and-Flame Stance,matched,skill_id+weapon,1019,2140000,Sword of Night and Flame
+1636,Sword of Night and Flame,Night-and-Flame Stance R2 - Bullet (Fire),Night-and-Flame Stance R2 - Bullet (Fire),matched,weapon_name_fallback,1019,2140000,Sword of Night and Flame
+1637,Sword of Night and Flame,Night-and-Flame Stance R2 - Bullet (Fire),Night-and-Flame Stance R2 - Bullet (Fire),matched,weapon_name_fallback,1019,2140000,Sword of Night and Flame
+1638,Sword of Night and Flame,Night-and-Flame Stance R2 (Lacking FP),Night-and-Flame Stance,matched,skill_id+weapon,1019,2140000,Sword of Night and Flame
+1639,Sword of Light,Light - Bullet,Light - Bullet,matched,weapon_name_fallback,5020,2550000,Sword of Light
+1640,Sword of Darkness,Darkness - Bullet,Darkness - Bullet,matched,weapon_name_fallback,5030,2560000,Sword of Darkness
+1641,Leda's Sword,Needle Piercer,Needle Piercer,matched,skill_id+weapon,5010,67510000,Leda's Sword
+1642,Leda's Sword,Needle Piercer - Bullet (10x),Needle Piercer - Bullet (10x),matched,weapon_name_fallback,5010,67510000,Leda's Sword
+1643,Leda's Sword,Needle Piercer (Lacking FP),Needle Piercer,matched,skill_id+weapon,5010,67510000,Leda's Sword
+1644,Rellana's Twin Blades,Moon-and-Fire Stance R1 #1 [1],Moon-and-Fire Stance,matched,skill_id+weapon,5170,67520000,Rellana's Twin Blades
+1645,Rellana's Twin Blades,Moon-and-Fire Stance R1 #1 [2],Moon-and-Fire Stance,matched,skill_id+weapon,5170,67520000,Rellana's Twin Blades
+1646,Rellana's Twin Blades,Moon-and-Fire Stance R1 #2 [1],Moon-and-Fire Stance,matched,skill_id+weapon,5170,67520000,Rellana's Twin Blades
+1647,Rellana's Twin Blades,Moon-and-Fire Stance R1 #2 [2],Moon-and-Fire Stance,matched,skill_id+weapon,5170,67520000,Rellana's Twin Blades
+1648,Rellana's Twin Blades,Moon-and-Fire Stance R1 #3,Moon-and-Fire Stance,matched,skill_id+weapon,5170,67520000,Rellana's Twin Blades
+1649,Rellana's Twin Blades,Moon-and-Fire Stance R1 #1 [1] - Bullet,Moon-and-Fire Stance R1 [1] - Bullet,matched,weapon_name_fallback,5170,67520000,Rellana's Twin Blades
+1650,Rellana's Twin Blades,Moon-and-Fire Stance R1 #1 [2] - Bullet,Moon-and-Fire Stance R1 [2] - Bullet,matched,weapon_name_fallback,5170,67520000,Rellana's Twin Blades
+1651,Rellana's Twin Blades,Moon-and-Fire Stance R1 #2 [1] - Bullet,Moon-and-Fire Stance R1 [1] - Bullet,matched,weapon_name_fallback,5170,67520000,Rellana's Twin Blades
+1652,Rellana's Twin Blades,Moon-and-Fire Stance R1 #2 [2] - Bullet,Moon-and-Fire Stance R1 [2] - Bullet,matched,weapon_name_fallback,5170,67520000,Rellana's Twin Blades
+1653,Rellana's Twin Blades,Moon-and-Fire Stance R1 #3 - Bullet,Moon-and-Fire Stance R1 - Bullet,matched,weapon_name_fallback,5170,67520000,Rellana's Twin Blades
+1654,Rellana's Twin Blades,Moon-and-Fire Stance R2 [1],Moon-and-Fire Stance,matched,skill_id+weapon,5170,67520000,Rellana's Twin Blades
+1655,Rellana's Twin Blades,Moon-and-Fire Stance R2 [2],Moon-and-Fire Stance,matched,skill_id+weapon,5170,67520000,Rellana's Twin Blades
+1656,Rellana's Twin Blades,Moon-and-Fire Stance R2 [3],Moon-and-Fire Stance,matched,skill_id+weapon,5170,67520000,Rellana's Twin Blades
+1657,Rellana's Twin Blades,Moon-and-Fire Stance R2 [1] - Bullet,Moon-and-Fire Stance R2 [1] - Bullet,matched,weapon_name_fallback,5170,67520000,Rellana's Twin Blades
+1658,Rellana's Twin Blades,Moon-and-Fire Stance R2 [2] - Bullet,Moon-and-Fire Stance R2 [2] - Bullet,matched,weapon_name_fallback,5170,67520000,Rellana's Twin Blades
+1659,Rellana's Twin Blades,Moon-and-Fire Stance R2 [3] - Bullet,Moon-and-Fire Stance R2 [3] - Bullet,matched,weapon_name_fallback,5170,67520000,Rellana's Twin Blades
+1660,Rellana's Twin Blades,Moon-and-Fire Stance R2 - Bullet (Fire Pillars),Moon-and-Fire Stance R2 - Bullet (Fire Pillars),matched,weapon_name_fallback,5170,67520000,Rellana's Twin Blades
+1661,Rellana's Twin Blades,Moon-and-Fire Stance R1 #1 [1] (Lacking FP),Moon-and-Fire Stance,matched,skill_id+weapon,5170,67520000,Rellana's Twin Blades
+1662,Rellana's Twin Blades,Moon-and-Fire Stance R1 #1 [2] (Lacking FP),Moon-and-Fire Stance,matched,skill_id+weapon,5170,67520000,Rellana's Twin Blades
+1663,Rellana's Twin Blades,Moon-and-Fire Stance R1 #2 [1] (Lacking FP),Moon-and-Fire Stance,matched,skill_id+weapon,5170,67520000,Rellana's Twin Blades
+1664,Rellana's Twin Blades,Moon-and-Fire Stance R1 #2 [2] (Lacking FP),Moon-and-Fire Stance,matched,skill_id+weapon,5170,67520000,Rellana's Twin Blades
+1665,Rellana's Twin Blades,Moon-and-Fire Stance R1 #3 (Lacking FP),Moon-and-Fire Stance,matched,skill_id+weapon,5170,67520000,Rellana's Twin Blades
+1666,Rellana's Twin Blades,Moon-and-Fire Stance R2 [1] (Lacking FP),Moon-and-Fire Stance,matched,skill_id+weapon,5170,67520000,Rellana's Twin Blades
+1667,Rellana's Twin Blades,Moon-and-Fire Stance R2 [2] (Lacking FP),Moon-and-Fire Stance,matched,skill_id+weapon,5170,67520000,Rellana's Twin Blades
+1668,Rellana's Twin Blades,Moon-and-Fire Stance R2 [3] (Lacking FP),Moon-and-Fire Stance,matched,skill_id+weapon,5170,67520000,Rellana's Twin Blades
+1669,Gargoyle's Blackblade,Corpse Wax Cutter,Corpse Wax Cutter,matched,skill_id+weapon,1167,3210000,Gargoyle's Blackblade
+1670,Gargoyle's Blackblade,Corpse Wax Cutter - Bullet,Corpse Wax Cutter - Bullet,matched,weapon_name_fallback,1167,3210000,Gargoyle's Blackblade
+1671,Gargoyle's Blackblade,Corpse Wax Cutter (Lacking FP),Corpse Wax Cutter,matched,skill_id+weapon,1167,3210000,Gargoyle's Blackblade
+1672,Sword of Milos,Shriek of Milos - Bullet (Shriek),Shriek of Milos - Bullet (Shriek),matched,weapon_name_fallback,1015,3160000,Sword of Milos
+1673,Sword of Milos,Shriek of Milos,Shriek of Milos,matched,skill_id+weapon,1015,3160000,Sword of Milos
+1674,Sword of Milos,Shriek of Milos,Shriek of Milos,matched,skill_id+weapon,1015,3160000,Sword of Milos
+1675,Sword of Milos,Shriek of Milos 1h R2 #1 [1],Shriek of Milos 1h,matched,weapon_name_fallback,1015,3160000,Sword of Milos
+1676,Sword of Milos,Shriek of Milos 1h R2 #1 [2],Shriek of Milos 1h,matched,weapon_name_fallback,1015,3160000,Sword of Milos
+1677,Sword of Milos,Shriek of Milos 1h R2 #1 [3],Shriek of Milos 1h,matched,weapon_name_fallback,1015,3160000,Sword of Milos
+1678,Sword of Milos,Shriek of Milos Charged 1h R2 #1 [1],Shriek of Milos Charged 1h,matched,weapon_name_fallback,1015,3160000,Sword of Milos
+1679,Sword of Milos,Shriek of Milos Charged 1h R2 #1 [2],Shriek of Milos Charged 1h,matched,weapon_name_fallback,1015,3160000,Sword of Milos
+1680,Sword of Milos,Shriek of Milos Charged 1h R2 #1 [3],Shriek of Milos Charged 1h,matched,weapon_name_fallback,1015,3160000,Sword of Milos
+1681,Sword of Milos,Shriek of Milos 1h R2 #2,Shriek of Milos 1h,matched,weapon_name_fallback,1015,3160000,Sword of Milos
+1682,Sword of Milos,Shriek of Milos Charged 1h R2 #2,Shriek of Milos Charged 1h,matched,weapon_name_fallback,1015,3160000,Sword of Milos
+1683,Sword of Milos,Shriek of Milos 2h R2 #1 [1],Shriek of Milos 2h,matched,weapon_name_fallback,1015,3160000,Sword of Milos
+1684,Sword of Milos,Shriek of Milos 2h R2 #1 [2],Shriek of Milos 2h,matched,weapon_name_fallback,1015,3160000,Sword of Milos
+1685,Sword of Milos,Shriek of Milos 2h R2 #1 [3],Shriek of Milos 2h,matched,weapon_name_fallback,1015,3160000,Sword of Milos
+1686,Sword of Milos,Shriek of Milos Charged 2h R2 #1 [1],Shriek of Milos Charged 2h,matched,weapon_name_fallback,1015,3160000,Sword of Milos
+1687,Sword of Milos,Shriek of Milos Charged 2h R2 #1 [2],Shriek of Milos Charged 2h,matched,weapon_name_fallback,1015,3160000,Sword of Milos
+1688,Sword of Milos,Shriek of Milos Charged 2h R2 #1 [3],Shriek of Milos Charged 2h,matched,weapon_name_fallback,1015,3160000,Sword of Milos
+1689,Sword of Milos,Shriek of Milos 2h R2 #2,Shriek of Milos 2h,matched,weapon_name_fallback,1015,3160000,Sword of Milos
+1690,Sword of Milos,Shriek of Milos Charged 2h R2 #2,Shriek of Milos Charged 2h,matched,weapon_name_fallback,1015,3160000,Sword of Milos
+1691,Marais Executioner's Sword,Eochaid's Dancing Blade [1],Eochaid's Dancing Blade,matched,skill_id+weapon,1012,3150000,Marais Executioner's Sword
+1692,Marais Executioner's Sword,Eochaid's Dancing Blade [2],Eochaid's Dancing Blade,matched,skill_id+weapon,1012,3150000,Marais Executioner's Sword
+1693,Marais Executioner's Sword,Eochaid's Dancing Blade [3],Eochaid's Dancing Blade,matched,skill_id+weapon,1012,3150000,Marais Executioner's Sword
+1694,Marais Executioner's Sword,Eochaid's Dancing Blade [4],Eochaid's Dancing Blade,matched,skill_id+weapon,1012,3150000,Marais Executioner's Sword
+1695,Marais Executioner's Sword,Eochaid's Dancing Blade [5],Eochaid's Dancing Blade,matched,skill_id+weapon,1012,3150000,Marais Executioner's Sword
+1696,Marais Executioner's Sword,Eochaid's Dancing Blade [6],Eochaid's Dancing Blade,matched,skill_id+weapon,1012,3150000,Marais Executioner's Sword
+1697,Marais Executioner's Sword,Eochaid's Dancing Blade [7],Eochaid's Dancing Blade,matched,skill_id+weapon,1012,3150000,Marais Executioner's Sword
+1698,Marais Executioner's Sword,Eochaid's Dancing Blade [8],Eochaid's Dancing Blade,matched,skill_id+weapon,1012,3150000,Marais Executioner's Sword
+1699,Marais Executioner's Sword,Eochaid's Dancing Blade [9],Eochaid's Dancing Blade,matched,skill_id+weapon,1012,3150000,Marais Executioner's Sword
+1700,Marais Executioner's Sword,Eochaid's Dancing Blade Charged [1],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1012,3150000,Marais Executioner's Sword
+1701,Marais Executioner's Sword,Eochaid's Dancing Blade Charged [2],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1012,3150000,Marais Executioner's Sword
+1702,Marais Executioner's Sword,Eochaid's Dancing Blade Charged [3],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1012,3150000,Marais Executioner's Sword
+1703,Marais Executioner's Sword,Eochaid's Dancing Blade Charged [4],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1012,3150000,Marais Executioner's Sword
+1704,Marais Executioner's Sword,Eochaid's Dancing Blade Charged [5],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1012,3150000,Marais Executioner's Sword
+1705,Marais Executioner's Sword,Eochaid's Dancing Blade Charged [6],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1012,3150000,Marais Executioner's Sword
+1706,Marais Executioner's Sword,Eochaid's Dancing Blade Charged [7],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1012,3150000,Marais Executioner's Sword
+1707,Marais Executioner's Sword,Eochaid's Dancing Blade Charged [8],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1012,3150000,Marais Executioner's Sword
+1708,Marais Executioner's Sword,Eochaid's Dancing Blade Charged [9],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1012,3150000,Marais Executioner's Sword
+1709,Marais Executioner's Sword,Eochaid's Dancing Blade Charged [10],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1012,3150000,Marais Executioner's Sword
+1710,Marais Executioner's Sword,Eochaid's Dancing Blade Charged [11],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1012,3150000,Marais Executioner's Sword
+1711,Marais Executioner's Sword,Eochaid's Dancing Blade Charged [12],Eochaid's Dancing Blade Charged,matched,weapon_name_fallback,1012,3150000,Marais Executioner's Sword
+1712,Greatsword of Solitude,Solitary Moon Slash,Solitary Moon Slash,matched,skill_id+weapon,5430,3550000,Greatsword of Solitude
+1713,Greatsword of Solitude,Solitary Moon Slash - Bullet,Solitary Moon Slash - Bullet,matched,weapon_name_fallback,5430,3550000,Greatsword of Solitude
+1714,Greatsword of Solitude,Solitary Moon Slash R2 (Startup Stagger),Solitary Moon Slash R2 (Startup Stagger),matched,weapon_name_fallback,5430,3550000,Greatsword of Solitude
+1715,Greatsword of Solitude,Solitary Moon Slash R2,Solitary Moon Slash,matched,skill_id+weapon,5430,3550000,Greatsword of Solitude
+1716,Greatsword of Solitude,Solitary Moon Slash (Lacking FP),Solitary Moon Slash,matched,skill_id+weapon,5430,3550000,Greatsword of Solitude
+1717,Greatsword of Solitude,Solitary Moon Slash R2 (Startup Stagger) (Lacking FP),Solitary Moon Slash R2 (Startup Stagger),matched,weapon_name_fallback,5430,3550000,Greatsword of Solitude
+1718,Greatsword of Solitude,Solitary Moon Slash R2 (Lacking FP),Solitary Moon Slash,matched,skill_id+weapon,5430,3550000,Greatsword of Solitude
+1719,Ordovis's Greatsword,Ordovis's Vortex [1],Ordovis's Vortex,matched,skill_id+weapon,1198,3060000,Ordovis's Greatsword
+1720,Ordovis's Greatsword,Ordovis's Vortex [2] - Bullet,Ordovis's Vortex [2] - Bullet,matched,weapon_name_fallback,1198,3060000,Ordovis's Greatsword
+1721,Ordovis's Greatsword,Ordovis's Vortex Charged [1],Ordovis's Vortex Charged,matched,weapon_name_fallback,1198,3060000,Ordovis's Greatsword
+1722,Ordovis's Greatsword,Ordovis's Vortex Charged [2] - Bullet,Ordovis's Vortex Charged [2] - Bullet,matched,weapon_name_fallback,1198,3060000,Ordovis's Greatsword
+1723,Ordovis's Greatsword,Ordovis's Vortex Charged [3] - Bullet,Ordovis's Vortex Charged [3] - Bullet,matched,weapon_name_fallback,1198,3060000,Ordovis's Greatsword
+1724,Ordovis's Greatsword,Ordovis's Vortex Charged [4] - Bullet,Ordovis's Vortex Charged [4] - Bullet,matched,weapon_name_fallback,1198,3060000,Ordovis's Greatsword
+1725,Ordovis's Greatsword,Ordovis's Vortex (Lacking FP),Ordovis's Vortex,matched,skill_id+weapon,1198,3060000,Ordovis's Greatsword
+1726,Ordovis's Greatsword,Ordovis's Vortex Charged (Lacking FP),Ordovis's Vortex Charged,matched,weapon_name_fallback,1198,3060000,Ordovis's Greatsword
+1727,Alabaster Lord's Sword,Alabaster Lords' Pull,Alabaster Lords' Pull,matched,skill_id+weapon,1040,3070000,Alabaster Lord's Sword
+1728,Alabaster Lord's Sword,Alabaster Lords' Pull - Bullet (Stackable Inner),Alabaster Lords' Pull - Bullet (Stackable Inner),matched,weapon_name_fallback,1040,3070000,Alabaster Lord's Sword
+1729,Alabaster Lord's Sword,Alabaster Lords' Pull - Bullet (Stackable Middle),Alabaster Lords' Pull - Bullet (Stackable Middle),matched,weapon_name_fallback,1040,3070000,Alabaster Lord's Sword
+1730,Alabaster Lord's Sword,Alabaster Lords' Pull - Bullet (Stackable Outer),Alabaster Lords' Pull - Bullet (Stackable Outer),matched,weapon_name_fallback,1040,3070000,Alabaster Lord's Sword
+1731,Alabaster Lord's Sword,Alabaster Lords' Pull (Lacking FP),Alabaster Lords' Pull,matched,skill_id+weapon,1040,3070000,Alabaster Lord's Sword
+1732,Death's Poker,Ghostflame Ignition,Ghostflame Ignition,matched,skill_id+weapon,1048,3200000,Death's Poker
+1733,Death's Poker,Ghostflame Ignition - Bullet (Ticks),Ghostflame Ignition - Bullet (Ticks),matched,weapon_name_fallback,1048,3200000,Death's Poker
+1734,Death's Poker,Ghostflame Ignition - Bullet (Explosion),Ghostflame Ignition - Bullet (Explosion),matched,weapon_name_fallback,1048,3200000,Death's Poker
+1735,Death's Poker,Ghostflame Ignition R1,Ghostflame Ignition,matched,skill_id+weapon,1048,3200000,Death's Poker
+1736,Death's Poker,Ghostflame Ignition R1 - Bullet,Ghostflame Ignition R1 - Bullet,matched,weapon_name_fallback,1048,3200000,Death's Poker
+1737,Death's Poker,Ghostflame Ignition R1 - Bullet (Ground Flame),Ghostflame Ignition R1 - Bullet (Ground Flame),matched,weapon_name_fallback,1048,3200000,Death's Poker
+1738,Death's Poker,Ghostflame Ignition R2,Ghostflame Ignition,matched,skill_id+weapon,1048,3200000,Death's Poker
+1739,Death's Poker,Ghostflame Ignition R2 - Bullet,Ghostflame Ignition R2 - Bullet,matched,weapon_name_fallback,1048,3200000,Death's Poker
+1740,Death's Poker,Ghostflame Ignition (Lacking FP),Ghostflame Ignition,matched,skill_id+weapon,1048,3200000,Death's Poker
+1741,Death's Poker,Ghostflame Ignition R1 (Lacking FP),Ghostflame Ignition,matched,skill_id+weapon,1048,3200000,Death's Poker
+1742,Death's Poker,Ghostflame Ignition R2 (Lacking FP),Ghostflame Ignition,matched,skill_id+weapon,1048,3200000,Death's Poker
+1743,Helphen's Steeple,Ruinous Ghostflame,Ruinous Ghostflame,matched,skill_id+weapon,1021,3130000,Helphen's Steeple
+1744,Blasphemous Blade,Taker's Flames,Taker's Flames,matched,skill_id+weapon,1014,3140000,Blasphemous Blade
+1745,Blasphemous Blade,Taker's Flames - Bullet,Taker's Flames - Bullet,matched,weapon_name_fallback,1014,3140000,Blasphemous Blade
+1746,Blasphemous Blade,Taker's Flames (Lacking FP),Taker's Flames,matched,skill_id+weapon,1014,3140000,Blasphemous Blade
+1747,Golden Order Greatsword,Establish Order #1 - Bullet,Establish Order - Bullet,matched,weapon_name_fallback,1022,3170000,Golden Order Greatsword
+1748,Golden Order Greatsword,Establish Order #2 [1],Establish Order,matched,skill_id+weapon,1022,3170000,Golden Order Greatsword
+1749,Golden Order Greatsword,Establish Order #2 [2],Establish Order,matched,skill_id+weapon,1022,3170000,Golden Order Greatsword
+1750,Golden Order Greatsword,Establish Order #2 - Bullet,Establish Order - Bullet,matched,weapon_name_fallback,1022,3170000,Golden Order Greatsword
+1751,Golden Order Greatsword,Establish Order #2 - Bullet,Establish Order - Bullet,matched,weapon_name_fallback,1022,3170000,Golden Order Greatsword
+1752,Golden Order Greatsword,Establish Order ? - Bullet,Establish Order ? - Bullet,matched,weapon_name_fallback,1022,3170000,Golden Order Greatsword
+1753,Golden Order Greatsword,Establish Order #2 [1] (Lacking FP),Establish Order,matched,skill_id+weapon,1022,3170000,Golden Order Greatsword
+1754,Golden Order Greatsword,Establish Order #2 [2] (Lacking FP),Establish Order,matched,skill_id+weapon,1022,3170000,Golden Order Greatsword
+1755,Dark Moon Greatsword,Moonlight Greatsword R2 - Bullet,Moonlight Greatsword R2 - Bullet,matched,weapon_name_fallback,1008,3090000,Dark Moon Greatsword
+1756,Dark Moon Greatsword,Moonlight Greatsword Charged R2 - Bullet,Moonlight Greatsword Charged R2 - Bullet,matched,weapon_name_fallback,1008,3090000,Dark Moon Greatsword
+1757,Dark Moon Greatsword,Moonlight Greatsword 1h R2 #1,Moonlight Greatsword 1h,matched,weapon_name_fallback,1008,3090000,Dark Moon Greatsword
+1758,Dark Moon Greatsword,Moonlight Greatsword 1h Charged R2 #1,Moonlight Greatsword 1h Charged,matched,weapon_name_fallback,1008,3090000,Dark Moon Greatsword
+1759,Dark Moon Greatsword,Moonlight Greatsword 1h R2 #2,Moonlight Greatsword 1h,matched,weapon_name_fallback,1008,3090000,Dark Moon Greatsword
+1760,Dark Moon Greatsword,Moonlight Greatsword 1h Charged R2 #2,Moonlight Greatsword 1h Charged,matched,weapon_name_fallback,1008,3090000,Dark Moon Greatsword
+1761,Dark Moon Greatsword,Moonlight Greatsword 2h R2 #1,Moonlight Greatsword 2h,matched,weapon_name_fallback,1008,3090000,Dark Moon Greatsword
+1762,Dark Moon Greatsword,Moonlight Greatsword 2h Charged R2 #1,Moonlight Greatsword 2h Charged,matched,weapon_name_fallback,1008,3090000,Dark Moon Greatsword
+1763,Dark Moon Greatsword,Moonlight Greatsword 2h R2 #2,Moonlight Greatsword 2h,matched,weapon_name_fallback,1008,3090000,Dark Moon Greatsword
+1764,Dark Moon Greatsword,Moonlight Greatsword 2h Charged R2 #2,Moonlight Greatsword 2h Charged,matched,weapon_name_fallback,1008,3090000,Dark Moon Greatsword
+1765,Greatsword of Damnation,Golden Crux - Grab,Golden Crux - Grab,matched,weapon_name_fallback,5220,3510000,Greatsword of Damnation
+1766,Greatsword of Damnation,Golden Crux - Grab Confirm,Golden Crux - Grab Confirm,matched,weapon_name_fallback,5220,3510000,Greatsword of Damnation
+1767,Greatsword of Damnation,Golden Crux #1,Golden Crux,matched,skill_id+weapon,5220,3510000,Greatsword of Damnation
+1768,Greatsword of Damnation,Golden Crux #2 - Bullet,Golden Crux - Bullet,matched,weapon_name_fallback,5220,3510000,Greatsword of Damnation
+1769,Greatsword of Damnation,Golden Crux #1 (Lacking FP),Golden Crux,matched,skill_id+weapon,5220,3510000,Greatsword of Damnation
+1770,Greatsword of Damnation,Golden Crux #2 (Lacking FP),Golden Crux,matched,skill_id+weapon,5220,3510000,Greatsword of Damnation
+1771,Sacred Relic Sword,Wave of Gold,Wave of Gold,matched,skill_id+weapon,1020,3100000,Sacred Relic Sword
+1772,Sacred Relic Sword,Wave of Gold - Bullet,Wave of Gold - Bullet,matched,weapon_name_fallback,1020,3100000,Sacred Relic Sword
+1773,Sacred Relic Sword,Wave of Gold - Bullet,Wave of Gold - Bullet,matched,weapon_name_fallback,1020,3100000,Sacred Relic Sword
+1774,Sacred Relic Sword,Wave of Gold - Bullet,Wave of Gold - Bullet,matched,weapon_name_fallback,1020,3100000,Sacred Relic Sword
+1775,Sacred Relic Sword,Wave of Gold - Bullet,Wave of Gold - Bullet,matched,weapon_name_fallback,1020,3100000,Sacred Relic Sword
+1776,Sacred Relic Sword,Wave of Gold (Lacking FP),Wave of Gold,matched,skill_id+weapon,1020,3100000,Sacred Relic Sword
+1777,Moonrithyll's Knight Sword,Tremendous Phalanx - Bullet (Swords),Tremendous Phalanx - Bullet (Swords),matched,weapon_name_fallback,5550,4540000,Moonrithyll's Knight Sword
+1778,Moonrithyll's Knight Sword,Tremendous Phalanx R2,Tremendous Phalanx,matched,skill_id+weapon,5550,4540000,Moonrithyll's Knight Sword
+1779,Moonrithyll's Knight Sword,Tremendous Phalanx R2 (Lacking FP),Tremendous Phalanx,matched,skill_id+weapon,5550,4540000,Moonrithyll's Knight Sword
+1780,Royal Greatsword,Wolf's Assault,Wolf's Assault,matched,skill_id+weapon,1025,4060000,Royal Greatsword
+1781,Royal Greatsword,Wolf's Assault - Bullet,Wolf's Assault - Bullet,matched,weapon_name_fallback,1025,4060000,Royal Greatsword
+1782,Royal Greatsword,Wolf's Assault ?,Wolf's Assault,matched,skill_id+weapon,1025,4060000,Royal Greatsword
+1783,Royal Greatsword,Wolf's Assault (Lacking FP),Wolf's Assault,matched,skill_id+weapon,1025,4060000,Royal Greatsword
+1784,Ruins Greatsword,Wave of Destruction,Wave of Destruction,matched,skill_id+weapon,1033,4080000,Ruins Greatsword
+1785,Ruins Greatsword,Wave of Destruction - Bullet,Wave of Destruction - Bullet,matched,weapon_name_fallback,1033,4080000,Ruins Greatsword
+1786,Ruins Greatsword,Wave of Destruction (Lacking FP),Wave of Destruction,matched,skill_id+weapon,1033,4080000,Ruins Greatsword
+1787,Ancient Meteoric Ore Greatsword,White Light Charge #1,White Light Charge,matched,skill_id+weapon,5240,4500000,Ancient Meteoric Ore Greatsword
+1788,Ancient Meteoric Ore Greatsword,White Light Charge #2 - Bullet,White Light Charge - Bullet,matched,weapon_name_fallback,5240,4500000,Ancient Meteoric Ore Greatsword
+1789,Ancient Meteoric Ore Greatsword,White Light Charge #1 (Lacking FP),White Light Charge,matched,skill_id+weapon,5240,4500000,Ancient Meteoric Ore Greatsword
+1790,Ancient Meteoric Ore Greatsword,White Light Charge #2 (Lacking FP),White Light Charge,matched,skill_id+weapon,5240,4500000,Ancient Meteoric Ore Greatsword
+1791,Starscourge Greatsword,Starcaller Cry,Starcaller Cry,matched,skill_id+weapon,1032,4050000,Starscourge Greatsword
+1792,Starscourge Greatsword,Starcaller Cry,Starcaller Cry,matched,skill_id+weapon,1032,4050000,Starscourge Greatsword
+1793,Starscourge Greatsword,Starcaller Cry,Starcaller Cry,matched,skill_id+weapon,1032,4050000,Starscourge Greatsword
+1794,Starscourge Greatsword,Starcaller Cry,Starcaller Cry,matched,skill_id+weapon,1032,4050000,Starscourge Greatsword
+1795,Starscourge Greatsword,Starcaller Cry,Starcaller Cry,matched,skill_id+weapon,1032,4050000,Starscourge Greatsword
+1796,Starscourge Greatsword,Starcaller Cry,Starcaller Cry,matched,skill_id+weapon,1032,4050000,Starscourge Greatsword
+1797,Starscourge Greatsword,Starcaller Cry,Starcaller Cry,matched,skill_id+weapon,1032,4050000,Starscourge Greatsword
+1798,Starscourge Greatsword,Starcaller Cry - Bullet,Starcaller Cry - Bullet,matched,weapon_name_fallback,1032,4050000,Starscourge Greatsword
+1799,Starscourge Greatsword,Starcaller Cry,Starcaller Cry,matched,skill_id+weapon,1032,4050000,Starscourge Greatsword
+1800,Starscourge Greatsword,Starcaller Cry,Starcaller Cry,matched,skill_id+weapon,1032,4050000,Starscourge Greatsword
+1801,Starscourge Greatsword,Starcaller Cry,Starcaller Cry,matched,skill_id+weapon,1032,4050000,Starscourge Greatsword
+1802,Starscourge Greatsword,Starcaller Cry,Starcaller Cry,matched,skill_id+weapon,1032,4050000,Starscourge Greatsword
+1803,Starscourge Greatsword,Starcaller Cry,Starcaller Cry,matched,skill_id+weapon,1032,4050000,Starscourge Greatsword
+1804,Starscourge Greatsword,Starcaller Cry,Starcaller Cry,matched,skill_id+weapon,1032,4050000,Starscourge Greatsword
+1805,Greatsword of Radahn (Lord),Promised Consort #1 [1],Promised Consort,matched,skill_id+weapon,5150,4530000,Greatsword of Radahn (Lord)
+1806,Greatsword of Radahn (Lord),Promised Consort #1 - Bullet,Promised Consort - Bullet,matched,weapon_name_fallback,5150,4530000,Greatsword of Radahn (Lord)
+1807,Greatsword of Radahn (Lord),Promised Consort #1 [2],Promised Consort,matched,skill_id+weapon,5150,4530000,Greatsword of Radahn (Lord)
+1808,Greatsword of Radahn (Lord),Promised Consort #1 - Bullet,Promised Consort - Bullet,matched,weapon_name_fallback,5150,4530000,Greatsword of Radahn (Lord)
+1809,Greatsword of Radahn (Lord),Promised Consort #2 [1],Promised Consort,matched,skill_id+weapon,5150,4530000,Greatsword of Radahn (Lord)
+1810,Greatsword of Radahn (Lord),Promised Consort #2 - Bullet,Promised Consort - Bullet,matched,weapon_name_fallback,5150,4530000,Greatsword of Radahn (Lord)
+1811,Greatsword of Radahn (Lord),Promised Consort #2 [2],Promised Consort,matched,skill_id+weapon,5150,4530000,Greatsword of Radahn (Lord)
+1812,Greatsword of Radahn (Lord),Promised Consort #2 - Bullet,Promised Consort - Bullet,matched,weapon_name_fallback,5150,4530000,Greatsword of Radahn (Lord)
+1813,Greatsword of Radahn (Lord),Promised Consort #3 [1],Promised Consort,matched,skill_id+weapon,5150,4530000,Greatsword of Radahn (Lord)
+1814,Greatsword of Radahn (Lord),Promised Consort #3 - Bullet,Promised Consort - Bullet,matched,weapon_name_fallback,5150,4530000,Greatsword of Radahn (Lord)
+1815,Greatsword of Radahn (Lord),Promised Consort #3 [2],Promised Consort,matched,skill_id+weapon,5150,4530000,Greatsword of Radahn (Lord)
+1816,Greatsword of Radahn (Lord),Promised Consort #3 [3],Promised Consort,matched,skill_id+weapon,5150,4530000,Greatsword of Radahn (Lord)
+1817,Greatsword of Radahn (Lord),Promised Consort #3 - Bullet,Promised Consort - Bullet,matched,weapon_name_fallback,5150,4530000,Greatsword of Radahn (Lord)
+1818,Greatsword of Radahn (Lord),Promised Consort #1 [1] (Lacking FP),Promised Consort,matched,skill_id+weapon,5150,4530000,Greatsword of Radahn (Lord)
+1819,Greatsword of Radahn (Lord),Promised Consort #1 [2] (Lacking FP),Promised Consort,matched,skill_id+weapon,5150,4530000,Greatsword of Radahn (Lord)
+1820,Greatsword of Radahn (Lord),Promised Consort #2 [1] (Lacking FP),Promised Consort,matched,skill_id+weapon,5150,4530000,Greatsword of Radahn (Lord)
+1821,Greatsword of Radahn (Lord),Promised Consort #2 [2] (Lacking FP),Promised Consort,matched,skill_id+weapon,5150,4530000,Greatsword of Radahn (Lord)
+1822,Greatsword of Radahn (Lord),Promised Consort #3 [1] (Lacking FP),Promised Consort,matched,skill_id+weapon,5150,4530000,Greatsword of Radahn (Lord)
+1823,Greatsword of Radahn (Lord),Promised Consort #3 [2] (Lacking FP),Promised Consort,matched,skill_id+weapon,5150,4530000,Greatsword of Radahn (Lord)
+1824,Greatsword of Radahn (Lord),Promised Consort #3 [3] (Lacking FP),Promised Consort,matched,skill_id+weapon,5150,4530000,Greatsword of Radahn (Lord)
+1825,Greatsword of Radahn (Light),Lightspeed Slash,Lightspeed Slash,matched,skill_id+weapon,5580,4550000,Greatsword of Radahn (Light)
+1826,Greatsword of Radahn (Light),Lightspeed Slash - Bullet,Lightspeed Slash - Bullet,matched,weapon_name_fallback,5580,4550000,Greatsword of Radahn (Light)
+1827,Greatsword of Radahn (Light),Lightspeed Slash - Bullet,Lightspeed Slash - Bullet,matched,weapon_name_fallback,5580,4550000,Greatsword of Radahn (Light)
+1828,Greatsword of Radahn (Light),Lightspeed Slash Charged,Lightspeed Slash Charged,matched,weapon_name_fallback,5580,4550000,Greatsword of Radahn (Light)
+1829,Greatsword of Radahn (Light),Lightspeed Slash Charged - Bullet,Lightspeed Slash Charged - Bullet,matched,weapon_name_fallback,5580,4550000,Greatsword of Radahn (Light)
+1830,Greatsword of Radahn (Light),Lightspeed Slash Charged - Bullet,Lightspeed Slash Charged - Bullet,matched,weapon_name_fallback,5580,4550000,Greatsword of Radahn (Light)
+1831,Godslayer's Greatsword,The Queen's Black Flame #1 [1],The Queen's Black Flame,matched,skill_id+weapon,1170,4070000,Godslayer's Greatsword
+1832,Godslayer's Greatsword,The Queen's Black Flame #1 [2],The Queen's Black Flame,matched,skill_id+weapon,1170,4070000,Godslayer's Greatsword
+1833,Godslayer's Greatsword,The Queen's Black Flame #2,The Queen's Black Flame,matched,skill_id+weapon,1170,4070000,Godslayer's Greatsword
+1834,Godslayer's Greatsword,The Queen's Black Flame #1 [1] (Lacking FP),The Queen's Black Flame,matched,skill_id+weapon,1170,4070000,Godslayer's Greatsword
+1835,Godslayer's Greatsword,The Queen's Black Flame #1 [2] (Lacking FP),The Queen's Black Flame,matched,skill_id+weapon,1170,4070000,Godslayer's Greatsword
+1836,Godslayer's Greatsword,The Queen's Black Flame #2 (Lacking FP),The Queen's Black Flame,matched,skill_id+weapon,1170,4070000,Godslayer's Greatsword
+1837,Maliketh's Black Blade,Destined Death [1],Destined Death,matched,skill_id+weapon,1038,4020000,Maliketh's Black Blade
+1838,Maliketh's Black Blade,Destined Death [2],Destined Death,matched,skill_id+weapon,1038,4020000,Maliketh's Black Blade
+1839,Maliketh's Black Blade,Destined Death - Bullet,Destined Death - Bullet,matched,weapon_name_fallback,1038,4020000,Maliketh's Black Blade
+1840,Maliketh's Black Blade,Destined Death - Bullet,Destined Death - Bullet,matched,weapon_name_fallback,1038,4020000,Maliketh's Black Blade
+1841,Maliketh's Black Blade,Destined Death - Bullet,Destined Death - Bullet,matched,weapon_name_fallback,1038,4020000,Maliketh's Black Blade
+1842,Maliketh's Black Blade,Destined Death [1] (Lacking FP),Destined Death,matched,skill_id+weapon,1038,4020000,Maliketh's Black Blade
+1843,Maliketh's Black Blade,Destined Death [2] (Lacking FP),Destined Death,matched,skill_id+weapon,1038,4020000,Maliketh's Black Blade
+1844,Carian Sorcery Sword,Impaling Thrust,Impaling Thrust,unmatched_weapon_in_skill_family,skill_id,,,
+1845,Carian Sorcery Sword,Impaling Thrust (Lacking FP),Impaling Thrust,unmatched_weapon_in_skill_family,skill_id,,,
+1846,Bloody Helice,Dynast's Finesse - Backstep,Dynast's Finesse - Backstep,matched,weapon_name_fallback,1171,6000000,Bloody Helice
+1847,Bloody Helice,Dynast's Finesse R2 #1,Dynast's Finesse,matched,skill_id+weapon,1171,6000000,Bloody Helice
+1848,Bloody Helice,Dynast's Finesse R2 #2 [1],Dynast's Finesse,matched,skill_id+weapon,1171,6000000,Bloody Helice
+1849,Bloody Helice,Dynast's Finesse R2 #2 [2],Dynast's Finesse,matched,skill_id+weapon,1171,6000000,Bloody Helice
+1850,Bloody Helice,Dynast's Finesse - Backstep (Lacking FP),Dynast's Finesse - Backstep,matched,weapon_name_fallback,1171,6000000,Bloody Helice
+1851,Bloody Helice,Dynast's Finesse R2 #1 (Lacking FP),Dynast's Finesse,matched,skill_id+weapon,1171,6000000,Bloody Helice
+1852,Bloody Helice,Dynast's Finesse R2 #2 [1] (Lacking FP),Dynast's Finesse,matched,skill_id+weapon,1171,6000000,Bloody Helice
+1853,Bloody Helice,Dynast's Finesse R2 #2 [2] (Lacking FP),Dynast's Finesse,matched,skill_id+weapon,1171,6000000,Bloody Helice
+1854,Dragon King's Cragblade,Thundercloud Form [1] - Uncharged/Partial Loop 1-3x,Thundercloud Form [1] - Uncharged/Partial Loop 1-3x,matched,weapon_name_fallback,1026,6040000,Dragon King's Cragblade
+1855,Dragon King's Cragblade,Thundercloud Form [2],Thundercloud Form,matched,skill_id+weapon,1026,6040000,Dragon King's Cragblade
+1856,Dragon King's Cragblade,Thundercloud Form Charged [1] - Loop 6x,Thundercloud Form Charged [1] - Loop 6x,matched,weapon_name_fallback,1026,6040000,Dragon King's Cragblade
+1857,Dragon King's Cragblade,Thundercloud Form Charged [2],Thundercloud Form Charged,matched,weapon_name_fallback,1026,6040000,Dragon King's Cragblade
+1858,Magma Blade,Magma Shower #1,Magma Shower,matched,skill_id+weapon,1172,7050000,Magma Blade
+1859,Magma Blade,Magma Shower #2 [1],Magma Shower,matched,skill_id+weapon,1172,7050000,Magma Blade
+1860,Magma Blade,Magma Shower #2 [2],Magma Shower,matched,skill_id+weapon,1172,7050000,Magma Blade
+1861,Magma Blade,Magma Shower - Bullet,Magma Shower - Bullet,matched,weapon_name_fallback,1172,7050000,Magma Blade
+1862,Magma Blade,Magma Shower - Bullet,Magma Shower - Bullet,matched,weapon_name_fallback,1172,7050000,Magma Blade
+1863,Magma Blade,Magma Shower #1 (Lacking FP),Magma Shower,matched,skill_id+weapon,1172,7050000,Magma Blade
+1864,Magma Blade,Magma Shower #2 [1] (Lacking FP),Magma Shower,matched,skill_id+weapon,1172,7050000,Magma Blade
+1865,Magma Blade,Magma Shower #2 [2] (Lacking FP),Magma Shower,matched,skill_id+weapon,1172,7050000,Magma Blade
+1866,Spirit Sword,Rancor Slash #1 [1],Rancor Slash,matched,skill_id+weapon,5250,7500000,Spirit Sword
+1867,Spirit Sword,Rancor Slash #1 [2],Rancor Slash,matched,skill_id+weapon,5250,7500000,Spirit Sword
+1868,Spirit Sword,Rancor Slash #2,Rancor Slash,matched,skill_id+weapon,5250,7500000,Spirit Sword
+1869,Spirit Sword,Rancor Slash - Bullet,Rancor Slash - Bullet,matched,weapon_name_fallback,5250,7500000,Spirit Sword
+1870,Spirit Sword,Rancor Slash #1 [1] (Lacking FP),Rancor Slash,matched,skill_id+weapon,5250,7500000,Spirit Sword
+1871,Spirit Sword,Rancor Slash #1 [2] (Lacking FP),Rancor Slash,matched,skill_id+weapon,5250,7500000,Spirit Sword
+1872,Spirit Sword,Rancor Slash #2 (Lacking FP),Rancor Slash,matched,skill_id+weapon,5250,7500000,Spirit Sword
+1873,Nox Flowing Sword,Flowing Form,Flowing Form,matched,skill_id+weapon,1018,2080000,Nox Flowing Sword
+1874,Nox Flowing Sword,Flowing Form (Lacking FP),Flowing Form,matched,skill_id+weapon,1018,2080000,Nox Flowing Sword
+1875,Wing of Astel,Nebula - Bullet,Nebula - Bullet,matched,weapon_name_fallback,1173,7070000,Wing of Astel
+1876,Wing of Astel,Nebula - Bullet,Nebula - Bullet,matched,weapon_name_fallback,1173,7070000,Wing of Astel
+1877,Wing of Astel,Nebula - Bullet,Nebula - Bullet,matched,weapon_name_fallback,1173,7070000,Wing of Astel
+1878,Wing of Astel,Nebula (Lacking FP),Nebula,matched,skill_id+weapon,1173,7070000,Wing of Astel
+1879,Falx,Revenger's Blade [1],Revenger's Blade,matched,skill_id+weapon,5100,7510000,Falx
+1880,Falx,Revenger's Blade [2],Revenger's Blade,matched,skill_id+weapon,5100,7510000,Falx
+1881,Falx,Revenger's Blade Charged [1],Revenger's Blade Charged,matched,weapon_name_fallback,5100,7510000,Falx
+1882,Falx,Revenger's Blade Charged [2],Revenger's Blade Charged,matched,weapon_name_fallback,5100,7510000,Falx
+1883,Falx,Revenger's Blade R1 [1],Revenger's Blade,matched,skill_id+weapon,5100,7510000,Falx
+1884,Falx,Revenger's Blade R1 [2],Revenger's Blade,matched,skill_id+weapon,5100,7510000,Falx
+1885,Falx,Revenger's Blade R1 [3],Revenger's Blade,matched,skill_id+weapon,5100,7510000,Falx
+1886,Falx,Revenger's Blade R1 [4],Revenger's Blade,matched,skill_id+weapon,5100,7510000,Falx
+1887,Falx,Revenger's Blade R1 [5],Revenger's Blade,matched,skill_id+weapon,5100,7510000,Falx
+1888,Falx,Revenger's Blade R1 [6],Revenger's Blade,matched,skill_id+weapon,5100,7510000,Falx
+1889,Falx,Revenger's Blade R1 [7],Revenger's Blade,matched,skill_id+weapon,5100,7510000,Falx
+1890,Falx,Revenger's Blade [1] (Lacking FP),Revenger's Blade,matched,skill_id+weapon,5100,7510000,Falx
+1891,Falx,Revenger's Blade [2] (Lacking FP),Revenger's Blade,matched,skill_id+weapon,5100,7510000,Falx
+1892,Falx,Revenger's Blade Charged [1] (Lacking FP),Revenger's Blade Charged,matched,weapon_name_fallback,5100,7510000,Falx
+1893,Falx,Revenger's Blade Charged [2] (Lacking FP),Revenger's Blade Charged,matched,weapon_name_fallback,5100,7510000,Falx
+1894,Falx,Revenger's Blade R1 [1] (Lacking FP),Revenger's Blade,matched,skill_id+weapon,5100,7510000,Falx
+1895,Falx,Revenger's Blade R1 [2] (Lacking FP),Revenger's Blade,matched,skill_id+weapon,5100,7510000,Falx
+1896,Falx,Revenger's Blade R1 [3] (Lacking FP),Revenger's Blade,matched,skill_id+weapon,5100,7510000,Falx
+1897,Falx,Revenger's Blade R1 [4] (Lacking FP),Revenger's Blade,matched,skill_id+weapon,5100,7510000,Falx
+1898,Falx,Revenger's Blade R1 [5] (Lacking FP),Revenger's Blade,matched,skill_id+weapon,5100,7510000,Falx
+1899,Falx,Revenger's Blade R1 [6] (Lacking FP),Revenger's Blade,matched,skill_id+weapon,5100,7510000,Falx
+1900,Falx,Revenger's Blade R1 [7] (Lacking FP),Revenger's Blade,matched,skill_id+weapon,5100,7510000,Falx
+1901,Dancing Blade of Ranah,Unending Dance,Unending Dance,matched,skill_id+weapon,5090,7520000,Dancing Blade of Ranah
+1902,Dancing Blade of Ranah,Unending Dance - Loop [1],Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1903,Dancing Blade of Ranah,Unending Dance - Loop [2],Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1904,Dancing Blade of Ranah,Unending Dance - Loop [3],Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1905,Dancing Blade of Ranah,Unending Dance - Loop [4],Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1906,Dancing Blade of Ranah,Unending Dance - Loop [5],Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1907,Dancing Blade of Ranah,Unending Dance - Loop [6],Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1908,Dancing Blade of Ranah,Unending Dance - Loop [7],Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1909,Dancing Blade of Ranah,Unending Dance - Loop [8],Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1910,Dancing Blade of Ranah,Unending Dance - Loop [9],Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1911,Dancing Blade of Ranah,Unending Dance - Loop [10],Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1912,Dancing Blade of Ranah,Unending Dance - Loop [11],Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1913,Dancing Blade of Ranah,Unending Dance - Loop [12],Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1914,Dancing Blade of Ranah,Unending Dance (Lacking FP),Unending Dance,matched,skill_id+weapon,5090,7520000,Dancing Blade of Ranah
+1915,Dancing Blade of Ranah,Unending Dance - Loop [1] (Lacking FP),Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1916,Dancing Blade of Ranah,Unending Dance - Loop [2] (Lacking FP),Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1917,Dancing Blade of Ranah,Unending Dance - Loop [3] (Lacking FP),Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1918,Dancing Blade of Ranah,Unending Dance - Loop [4] (Lacking FP),Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1919,Dancing Blade of Ranah,Unending Dance - Loop [5] (Lacking FP),Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1920,Dancing Blade of Ranah,Unending Dance - Loop [6] (Lacking FP),Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1921,Dancing Blade of Ranah,Unending Dance - Loop [7] (Lacking FP),Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1922,Dancing Blade of Ranah,Unending Dance - Loop [8] (Lacking FP),Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1923,Dancing Blade of Ranah,Unending Dance - Loop [9] (Lacking FP),Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1924,Dancing Blade of Ranah,Unending Dance - Loop [10] (Lacking FP),Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1925,Dancing Blade of Ranah,Unending Dance - Loop [11] (Lacking FP),Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1926,Dancing Blade of Ranah,Unending Dance - Loop [12] (Lacking FP),Unending Dance - Loop,matched,weapon_name_fallback,5090,7520000,Dancing Blade of Ranah
+1927,Horned Warrior's Sword,Horn Calling,Horn Calling,matched,skill_id+weapon,5530,7530000,Horned Warrior's Sword
+1928,Horned Warrior's Sword,Horn Calling - Bullet,Horn Calling - Bullet,matched,weapon_name_fallback,5530,7530000,Horned Warrior's Sword
+1929,Horned Warrior's Sword,Horn Calling - Bullet,Horn Calling - Bullet,matched,weapon_name_fallback,5530,7530000,Horned Warrior's Sword
+1930,Horned Warrior's Sword,Horn Calling (Lacking FP),Horn Calling,matched,skill_id+weapon,5530,7530000,Horned Warrior's Sword
+1931,Eclipse Shotel,Death Flare - Bullet,Death Flare - Bullet,matched,weapon_name_fallback,1174,7100000,Eclipse Shotel
+1932,Eclipse Shotel,Death Flare - Bullet,Death Flare - Bullet,matched,weapon_name_fallback,1174,7100000,Eclipse Shotel
+1933,Eclipse Shotel,Death Flare (Lacking FP),Death Flare,matched,skill_id+weapon,1174,7100000,Eclipse Shotel
+1934,Bloodhound's Fang,Bloodhound's Finesse,Bloodhound's Finesse,matched,skill_id+weapon,1175,8030000,Bloodhound's Fang
+1935,Bloodhound's Fang,Bloodhound's Finesse R2,Bloodhound's Finesse,matched,skill_id+weapon,1175,8030000,Bloodhound's Fang
+1936,Bloodhound's Fang,Bloodhound's Finesse (Lacking FP),Bloodhound's Finesse,matched,skill_id+weapon,1175,8030000,Bloodhound's Fang
+1937,Bloodhound's Fang,Bloodhound's Finesse R2 (Lacking FP),Bloodhound's Finesse,matched,skill_id+weapon,1175,8030000,Bloodhound's Fang
+1938,Onyx Lord's Greatsword,Onyx Lord's Repulsion,Onyx Lord's Repulsion,matched,skill_id+weapon,1041,8010000,Onyx Lord's Greatsword
+1939,Onyx Lord's Greatsword,Onyx Lord's Repulsion - Bullet (Stackable Inner),Onyx Lord's Repulsion - Bullet (Stackable Inner),matched,weapon_name_fallback,1041,8010000,Onyx Lord's Greatsword
+1940,Onyx Lord's Greatsword,Onyx Lord's Repulsion - Bullet (Stackable Middle),Onyx Lord's Repulsion - Bullet (Stackable Middle),matched,weapon_name_fallback,1041,8010000,Onyx Lord's Greatsword
+1941,Onyx Lord's Greatsword,Onyx Lord's Repulsion - Bullet (Stackable Outer),Onyx Lord's Repulsion - Bullet (Stackable Outer),matched,weapon_name_fallback,1041,8010000,Onyx Lord's Greatsword
+1942,Onyx Lord's Greatsword,Onyx Lord's Repulsion (Lacking FP),Onyx Lord's Repulsion,matched,skill_id+weapon,1041,8010000,Onyx Lord's Greatsword
+1943,Zamor Curved Sword,Zamor Ice Storm,Zamor Ice Storm,matched,skill_id+weapon,1168,8050000,Zamor Curved Sword
+1944,Zamor Curved Sword,Zamor Ice Storm - Bullet,Zamor Ice Storm - Bullet,matched,weapon_name_fallback,1168,8050000,Zamor Curved Sword
+1945,Zamor Curved Sword,Zamor Ice Storm - Bullet (4x),Zamor Ice Storm - Bullet (4x),matched,weapon_name_fallback,1168,8050000,Zamor Curved Sword
+1946,Zamor Curved Sword,Zamor Ice Storm (Lacking FP),Zamor Ice Storm,matched,skill_id+weapon,1168,8050000,Zamor Curved Sword
+1947,Magma Wyrm's Scalesword,Magma Guillotine #1,Magma Guillotine,matched,skill_id+weapon,1176,8040000,Magma Wyrm's Scalesword
+1948,Magma Wyrm's Scalesword,Magma Guillotine - Bullet (Explosion),Magma Guillotine - Bullet (Explosion),matched,weapon_name_fallback,1176,8040000,Magma Wyrm's Scalesword
+1949,Magma Wyrm's Scalesword,Magma Guillotine - Bullet (Lava),Magma Guillotine - Bullet (Lava),matched,weapon_name_fallback,1176,8040000,Magma Wyrm's Scalesword
+1950,Magma Wyrm's Scalesword,Magma Guillotine #2 [1],Magma Guillotine,matched,skill_id+weapon,1176,8040000,Magma Wyrm's Scalesword
+1951,Magma Wyrm's Scalesword,Magma Guillotine #2 [2],Magma Guillotine,matched,skill_id+weapon,1176,8040000,Magma Wyrm's Scalesword
+1952,Magma Wyrm's Scalesword,Magma Guillotine #1 (Lacking FP),Magma Guillotine,matched,skill_id+weapon,1176,8040000,Magma Wyrm's Scalesword
+1953,Magma Wyrm's Scalesword,Magma Guillotine #2 [1] (Lacking FP),Magma Guillotine,matched,skill_id+weapon,1176,8040000,Magma Wyrm's Scalesword
+1954,Magma Wyrm's Scalesword,Magma Guillotine #2 [2] (Lacking FP),Magma Guillotine,matched,skill_id+weapon,1176,8040000,Magma Wyrm's Scalesword
+1955,Horned Warrior's Greatsword,Horn Calling: Storm #1 [1],Horn Calling: Storm,matched,skill_id+weapon,5540,8520000,Horned Warrior's Greatsword
+1956,Horned Warrior's Greatsword,Horn Calling: Storm #1 [1] - Bullet,Horn Calling: Storm [1] - Bullet,matched,weapon_name_fallback,5540,8520000,Horned Warrior's Greatsword
+1957,Horned Warrior's Greatsword,Horn Calling: Storm #1 [2],Horn Calling: Storm,matched,skill_id+weapon,5540,8520000,Horned Warrior's Greatsword
+1958,Horned Warrior's Greatsword,Horn Calling: Storm #1 [2] - Bullet,Horn Calling: Storm [2] - Bullet,matched,weapon_name_fallback,5540,8520000,Horned Warrior's Greatsword
+1959,Horned Warrior's Greatsword,Horn Calling: Storm #2 [1],Horn Calling: Storm,matched,skill_id+weapon,5540,8520000,Horned Warrior's Greatsword
+1960,Horned Warrior's Greatsword,Horn Calling: Storm #2 [1] - Bullet,Horn Calling: Storm [1] - Bullet,matched,weapon_name_fallback,5540,8520000,Horned Warrior's Greatsword
+1961,Horned Warrior's Greatsword,Horn Calling: Storm #2 [2],Horn Calling: Storm,matched,skill_id+weapon,5540,8520000,Horned Warrior's Greatsword
+1962,Horned Warrior's Greatsword,Horn Calling: Storm #2 [2] - Bullet,Horn Calling: Storm [2] - Bullet,matched,weapon_name_fallback,5540,8520000,Horned Warrior's Greatsword
+1963,Horned Warrior's Greatsword,Horn Calling: Storm #3 [1],Horn Calling: Storm,matched,skill_id+weapon,5540,8520000,Horned Warrior's Greatsword
+1964,Horned Warrior's Greatsword,Horn Calling: Storm #3 [1] - Bullet,Horn Calling: Storm [1] - Bullet,matched,weapon_name_fallback,5540,8520000,Horned Warrior's Greatsword
+1965,Horned Warrior's Greatsword,Horn Calling: Storm #3 [2],Horn Calling: Storm,matched,skill_id+weapon,5540,8520000,Horned Warrior's Greatsword
+1966,Horned Warrior's Greatsword,Horn Calling: Storm #3 [2] - Bullet,Horn Calling: Storm [2] - Bullet,matched,weapon_name_fallback,5540,8520000,Horned Warrior's Greatsword
+1967,Horned Warrior's Greatsword,Horn Calling: Storm #1 [1] (Lacking FP),Horn Calling: Storm,matched,skill_id+weapon,5540,8520000,Horned Warrior's Greatsword
+1968,Horned Warrior's Greatsword,Horn Calling: Storm #1 [2] (Lacking FP),Horn Calling: Storm,matched,skill_id+weapon,5540,8520000,Horned Warrior's Greatsword
+1969,Horned Warrior's Greatsword,Horn Calling: Storm #2 [1] (Lacking FP),Horn Calling: Storm,matched,skill_id+weapon,5540,8520000,Horned Warrior's Greatsword
+1970,Horned Warrior's Greatsword,Horn Calling: Storm #2 [2] (Lacking FP),Horn Calling: Storm,matched,skill_id+weapon,5540,8520000,Horned Warrior's Greatsword
+1971,Horned Warrior's Greatsword,Horn Calling: Storm #3 [1] (Lacking FP),Horn Calling: Storm,matched,skill_id+weapon,5540,8520000,Horned Warrior's Greatsword
+1972,Horned Warrior's Greatsword,Horn Calling: Storm #3 [2] (Lacking FP),Horn Calling: Storm,matched,skill_id+weapon,5540,8520000,Horned Warrior's Greatsword
+1973,Morgott's Cursed Sword,Cursed-Blood Slice #1,Cursed-Blood Slice,matched,skill_id+weapon,1027,8100000,Morgott's Cursed Sword
+1974,Morgott's Cursed Sword,Cursed-Blood Slice #2,Cursed-Blood Slice,matched,skill_id+weapon,1027,8100000,Morgott's Cursed Sword
+1975,Morgott's Cursed Sword,Cursed-Blood Slice - Bullet,Cursed-Blood Slice - Bullet,matched,weapon_name_fallback,1027,8100000,Morgott's Cursed Sword
+1976,Morgott's Cursed Sword,Cursed-Blood Slice ?,Cursed-Blood Slice,matched,skill_id+weapon,1027,8100000,Morgott's Cursed Sword
+1977,Morgott's Cursed Sword,Cursed-Blood Slice - Bullet ?,Cursed-Blood Slice - Bullet,matched,weapon_name_fallback,1027,8100000,Morgott's Cursed Sword
+1978,Morgott's Cursed Sword,Cursed-Blood Slice #1 (Lacking FP),Cursed-Blood Slice,matched,skill_id+weapon,1027,8100000,Morgott's Cursed Sword
+1979,Morgott's Cursed Sword,Cursed-Blood Slice #2 (Lacking FP),Cursed-Blood Slice,matched,skill_id+weapon,1027,8100000,Morgott's Cursed Sword
+1980,Curseblade's Cirque,Deadly Dance #1 [1],Deadly Dance,matched,skill_id+weapon,5350,64520000,Curseblade's Cirque
+1981,Curseblade's Cirque,Deadly Dance #1 [2],Deadly Dance,matched,skill_id+weapon,5350,64520000,Curseblade's Cirque
+1982,Curseblade's Cirque,Deadly Dance #1 [3],Deadly Dance,matched,skill_id+weapon,5350,64520000,Curseblade's Cirque
+1983,Curseblade's Cirque,Deadly Dance #1 [4],Deadly Dance,matched,skill_id+weapon,5350,64520000,Curseblade's Cirque
+1984,Curseblade's Cirque,Deadly Dance #2,Deadly Dance,matched,skill_id+weapon,5350,64520000,Curseblade's Cirque
+1985,Curseblade's Cirque,Deadly Dance #1 [1] (Lacking FP),Deadly Dance,matched,skill_id+weapon,5350,64520000,Curseblade's Cirque
+1986,Curseblade's Cirque,Deadly Dance #1 [2] (Lacking FP),Deadly Dance,matched,skill_id+weapon,5350,64520000,Curseblade's Cirque
+1987,Curseblade's Cirque,Deadly Dance #1 [3] (Lacking FP),Deadly Dance,matched,skill_id+weapon,5350,64520000,Curseblade's Cirque
+1988,Curseblade's Cirque,Deadly Dance #1 [4] (Lacking FP),Deadly Dance,matched,skill_id+weapon,5350,64520000,Curseblade's Cirque
+1989,Curseblade's Cirque,Deadly Dance #2 (Lacking FP),Deadly Dance,matched,skill_id+weapon,5350,64520000,Curseblade's Cirque
+1990,Moonveil,Transient Moonlight R1,Transient Moonlight,matched,skill_id+weapon,1178,9060000,Moonveil
+1991,Moonveil,Transient Moonlight R1 - Bullet,Transient Moonlight R1 - Bullet,matched,weapon_name_fallback,1178,9060000,Moonveil
+1992,Moonveil,Transient Moonlight R2,Transient Moonlight,matched,skill_id+weapon,1178,9060000,Moonveil
+1993,Moonveil,Transient Moonlight R2 - Bullet,Transient Moonlight R2 - Bullet,matched,weapon_name_fallback,1178,9060000,Moonveil
+1994,Moonveil,Transient Moonlight R1 (Lacking FP),Transient Moonlight,matched,skill_id+weapon,1178,9060000,Moonveil
+1995,Moonveil,Transient Moonlight R2 (Lacking FP),Transient Moonlight,matched,skill_id+weapon,1178,9060000,Moonveil
+1996,Sword of Night,Witching Hour Slash [1],Witching Hour Slash,matched,skill_id+weapon,5260,9500000,Sword of Night
+1997,Sword of Night,Witching Hour Slash [2],Witching Hour Slash,matched,skill_id+weapon,5260,9500000,Sword of Night
+1998,Sword of Night,Witching Hour Slash [3],Witching Hour Slash,matched,skill_id+weapon,5260,9500000,Sword of Night
+1999,Sword of Night,Witching Hour Slash Charged [1],Witching Hour Slash Charged,matched,weapon_name_fallback,5260,9500000,Sword of Night
+2000,Sword of Night,Witching Hour Slash Charged [2],Witching Hour Slash Charged,matched,weapon_name_fallback,5260,9500000,Sword of Night
+2001,Sword of Night,Witching Hour Slash Charged [3],Witching Hour Slash Charged,matched,weapon_name_fallback,5260,9500000,Sword of Night
+2002,Sword of Night,Witching Hour Slash [1] (Lacking FP),Witching Hour Slash,matched,skill_id+weapon,5260,9500000,Sword of Night
+2003,Sword of Night,Witching Hour Slash [2] (Lacking FP),Witching Hour Slash,matched,skill_id+weapon,5260,9500000,Sword of Night
+2004,Sword of Night,Witching Hour Slash [3] (Lacking FP),Witching Hour Slash,matched,skill_id+weapon,5260,9500000,Sword of Night
+2005,Sword of Night,Witching Hour Slash Charged [1] (Lacking FP),Witching Hour Slash Charged,matched,weapon_name_fallback,5260,9500000,Sword of Night
+2006,Sword of Night,Witching Hour Slash Charged [2] (Lacking FP),Witching Hour Slash Charged,matched,weapon_name_fallback,5260,9500000,Sword of Night
+2007,Sword of Night,Witching Hour Slash Charged [3] (Lacking FP),Witching Hour Slash Charged,matched,weapon_name_fallback,5260,9500000,Sword of Night
+2008,Rivers of Blood,Corpse Piler #1 [1],Corpse Piler,matched,skill_id+weapon,1177,9040000,Rivers of Blood
+2009,Rivers of Blood,Corpse Piler #1 [1] - Blood Extension,Corpse Piler [1] - Blood Extension,matched,weapon_name_fallback,1177,9040000,Rivers of Blood
+2010,Rivers of Blood,Corpse Piler #1 [2],Corpse Piler,matched,skill_id+weapon,1177,9040000,Rivers of Blood
+2011,Rivers of Blood,Corpse Piler #1 [2] - Blood Extension,Corpse Piler [2] - Blood Extension,matched,weapon_name_fallback,1177,9040000,Rivers of Blood
+2012,Rivers of Blood,Corpse Piler #2 [1],Corpse Piler,matched,skill_id+weapon,1177,9040000,Rivers of Blood
+2013,Rivers of Blood,Corpse Piler #2 [1] - Blood Extension,Corpse Piler [1] - Blood Extension,matched,weapon_name_fallback,1177,9040000,Rivers of Blood
+2014,Rivers of Blood,Corpse Piler #2 [2],Corpse Piler,matched,skill_id+weapon,1177,9040000,Rivers of Blood
+2015,Rivers of Blood,Corpse Piler #2 [2] - Blood Extension,Corpse Piler [2] - Blood Extension,matched,weapon_name_fallback,1177,9040000,Rivers of Blood
+2016,Rivers of Blood,Corpse Piler #2 [3],Corpse Piler,matched,skill_id+weapon,1177,9040000,Rivers of Blood
+2017,Rivers of Blood,Corpse Piler #2 [3] - Blood Extension,Corpse Piler [3] - Blood Extension,matched,weapon_name_fallback,1177,9040000,Rivers of Blood
+2018,Rivers of Blood,Corpse Piler #3,Corpse Piler,matched,skill_id+weapon,1177,9040000,Rivers of Blood
+2019,Rivers of Blood,Corpse Piler #3 - Blood Extension,Corpse Piler - Blood Extension,matched,weapon_name_fallback,1177,9040000,Rivers of Blood
+2020,Rivers of Blood,Corpse Piler #1 [1] (Lacking FP),Corpse Piler,matched,skill_id+weapon,1177,9040000,Rivers of Blood
+2021,Rivers of Blood,Corpse Piler #1 [2] (Lacking FP),Corpse Piler,matched,skill_id+weapon,1177,9040000,Rivers of Blood
+2022,Rivers of Blood,Corpse Piler #2 [1] (Lacking FP),Corpse Piler,matched,skill_id+weapon,1177,9040000,Rivers of Blood
+2023,Rivers of Blood,Corpse Piler #2 [2] (Lacking FP),Corpse Piler,matched,skill_id+weapon,1177,9040000,Rivers of Blood
+2024,Rivers of Blood,Corpse Piler #2 [3] (Lacking FP),Corpse Piler,matched,skill_id+weapon,1177,9040000,Rivers of Blood
+2025,Rivers of Blood,Corpse Piler #3 (Lacking FP),Corpse Piler,matched,skill_id+weapon,1177,9040000,Rivers of Blood
+2026,Dragonscale Blade,Ice Lightning Sword - Stomp Lightning,Ice Lightning Sword - Stomp Lightning,matched,weapon_name_fallback,1043,9070000,Dragonscale Blade
+2027,Dragonscale Blade,Ice Lightning Sword,Ice Lightning Sword,matched,skill_id+weapon,1043,9070000,Dragonscale Blade
+2028,Dragonscale Blade,Ice Lightning Sword - Bullet,Ice Lightning Sword - Bullet,matched,weapon_name_fallback,1043,9070000,Dragonscale Blade
+2029,Dragonscale Blade,Ice Lightning Sword - Bullet (Water AoE),Ice Lightning Sword - Bullet (Water AoE),matched,weapon_name_fallback,1043,9070000,Dragonscale Blade
+2030,Dragonscale Blade,Ice Lightning Sword (Lacking FP),Ice Lightning Sword,matched,skill_id+weapon,1043,9070000,Dragonscale Blade
+2031,Star-Lined Sword,Onze's Line of Stars #1 [1],Onze's Line of Stars,matched,skill_id+weapon,5040,2520000,Star-Lined Sword
+2032,Star-Lined Sword,Onze's Line of Stars #1 [2],Onze's Line of Stars,matched,skill_id+weapon,5040,2520000,Star-Lined Sword
+2033,Star-Lined Sword,Onze's Line of Stars #2 [1],Onze's Line of Stars,matched,skill_id+weapon,5040,2520000,Star-Lined Sword
+2034,Star-Lined Sword,Onze's Line of Stars #2 [2],Onze's Line of Stars,matched,skill_id+weapon,5040,2520000,Star-Lined Sword
+2035,Star-Lined Sword,Onze's Line of Stars #3 [1],Onze's Line of Stars,matched,skill_id+weapon,5040,2520000,Star-Lined Sword
+2036,Star-Lined Sword,Onze's Line of Stars #3 [2],Onze's Line of Stars,matched,skill_id+weapon,5040,2520000,Star-Lined Sword
+2037,Star-Lined Sword,Onze's Line of Stars #1 [1] (Lacking FP),Onze's Line of Stars,matched,skill_id+weapon,5040,2520000,Star-Lined Sword
+2038,Star-Lined Sword,Onze's Line of Stars #1 [2] (Lacking FP),Onze's Line of Stars,matched,skill_id+weapon,5040,2520000,Star-Lined Sword
+2039,Star-Lined Sword,Onze's Line of Stars #2 [1] (Lacking FP),Onze's Line of Stars,matched,skill_id+weapon,5040,2520000,Star-Lined Sword
+2040,Star-Lined Sword,Onze's Line of Stars #2 [2] (Lacking FP),Onze's Line of Stars,matched,skill_id+weapon,5040,2520000,Star-Lined Sword
+2041,Star-Lined Sword,Onze's Line of Stars #3 [1] (Lacking FP),Onze's Line of Stars,matched,skill_id+weapon,5040,2520000,Star-Lined Sword
+2042,Star-Lined Sword,Onze's Line of Stars #3 [2] (Lacking FP),Onze's Line of Stars,matched,skill_id+weapon,5040,2520000,Star-Lined Sword
+2043,Hand of Malenia,Waterfowl Dance #1 [1],Waterfowl Dance,matched,skill_id+weapon,1028,9020000,Hand of Malenia
+2044,Hand of Malenia,Waterfowl Dance #1 [2],Waterfowl Dance,matched,skill_id+weapon,1028,9020000,Hand of Malenia
+2045,Hand of Malenia,Waterfowl Dance #1 [3],Waterfowl Dance,matched,skill_id+weapon,1028,9020000,Hand of Malenia
+2046,Hand of Malenia,Waterfowl Dance #1 [4],Waterfowl Dance,matched,skill_id+weapon,1028,9020000,Hand of Malenia
+2047,Hand of Malenia,Waterfowl Dance #2 [1],Waterfowl Dance,matched,skill_id+weapon,1028,9020000,Hand of Malenia
+2048,Hand of Malenia,Waterfowl Dance #2 [2],Waterfowl Dance,matched,skill_id+weapon,1028,9020000,Hand of Malenia
+2049,Hand of Malenia,Waterfowl Dance #3 [1],Waterfowl Dance,matched,skill_id+weapon,1028,9020000,Hand of Malenia
+2050,Hand of Malenia,Waterfowl Dance #3 [2],Waterfowl Dance,matched,skill_id+weapon,1028,9020000,Hand of Malenia
+2051,Hand of Malenia,Waterfowl Dance #3 [3],Waterfowl Dance,matched,skill_id+weapon,1028,9020000,Hand of Malenia
+2052,Hand of Malenia,Waterfowl Dance #3 [4],Waterfowl Dance,matched,skill_id+weapon,1028,9020000,Hand of Malenia
+2053,Hand of Malenia,Waterfowl Dance #1 [1] (Lacking FP),Waterfowl Dance,matched,skill_id+weapon,1028,9020000,Hand of Malenia
+2054,Hand of Malenia,Waterfowl Dance #1 [2] (Lacking FP),Waterfowl Dance,matched,skill_id+weapon,1028,9020000,Hand of Malenia
+2055,Hand of Malenia,Waterfowl Dance #1 [3] (Lacking FP),Waterfowl Dance,matched,skill_id+weapon,1028,9020000,Hand of Malenia
+2056,Hand of Malenia,Waterfowl Dance #1 [4] (Lacking FP),Waterfowl Dance,matched,skill_id+weapon,1028,9020000,Hand of Malenia
+2057,Hand of Malenia,Waterfowl Dance #2 [1] (Lacking FP),Waterfowl Dance,matched,skill_id+weapon,1028,9020000,Hand of Malenia
+2058,Hand of Malenia,Waterfowl Dance #2 [2] (Lacking FP),Waterfowl Dance,matched,skill_id+weapon,1028,9020000,Hand of Malenia
+2059,Hand of Malenia,Waterfowl Dance #3 [1] (Lacking FP),Waterfowl Dance,matched,skill_id+weapon,1028,9020000,Hand of Malenia
+2060,Hand of Malenia,Waterfowl Dance #3 [2] (Lacking FP),Waterfowl Dance,matched,skill_id+weapon,1028,9020000,Hand of Malenia
+2061,Hand of Malenia,Waterfowl Dance #3 [3] (Lacking FP),Waterfowl Dance,matched,skill_id+weapon,1028,9020000,Hand of Malenia
+2062,Dragon-Hunter's Great Katana,Dragonwound Slash,Dragonwound Slash,matched,skill_id+weapon,5000,66510000,Dragon-Hunter's Great Katana
+2063,Dragon-Hunter's Great Katana,Dragonwound Slash Charged,Dragonwound Slash Charged,matched,weapon_name_fallback,5000,66510000,Dragon-Hunter's Great Katana
+2064,Dragon-Hunter's Great Katana,Dragonwound Slash Charged - Bullet,Dragonwound Slash Charged - Bullet,matched,weapon_name_fallback,5000,66510000,Dragon-Hunter's Great Katana
+2065,Dragon-Hunter's Great Katana,Dragonwound Slash (Lacking FP),Dragonwound Slash,matched,skill_id+weapon,5000,66510000,Dragon-Hunter's Great Katana
+2066,Dragon-Hunter's Great Katana,Dragonwound Slash Charged (Lacking FP),Dragonwound Slash Charged,matched,weapon_name_fallback,5000,66510000,Dragon-Hunter's Great Katana
+2067,Rakshasa's Great Katana,Weed Cutter #1 [1],Weed Cutter,matched,skill_id+weapon,5450,66520000,Rakshasa's Great Katana
+2068,Rakshasa's Great Katana,Weed Cutter #1 [2],Weed Cutter,matched,skill_id+weapon,5450,66520000,Rakshasa's Great Katana
+2069,Rakshasa's Great Katana,Weed Cutter #2 [1],Weed Cutter,matched,skill_id+weapon,5450,66520000,Rakshasa's Great Katana
+2070,Rakshasa's Great Katana,Weed Cutter #2 [2],Weed Cutter,matched,skill_id+weapon,5450,66520000,Rakshasa's Great Katana
+2071,Rakshasa's Great Katana,Weed Cutter #3 [1],Weed Cutter,matched,skill_id+weapon,5450,66520000,Rakshasa's Great Katana
+2072,Rakshasa's Great Katana,Weed Cutter #3 [2],Weed Cutter,matched,skill_id+weapon,5450,66520000,Rakshasa's Great Katana
+2073,Rakshasa's Great Katana,Weed Cutter #1 [1] (Lacking FP),Weed Cutter,matched,skill_id+weapon,5450,66520000,Rakshasa's Great Katana
+2074,Rakshasa's Great Katana,Weed Cutter #1 [2] (Lacking FP),Weed Cutter,matched,skill_id+weapon,5450,66520000,Rakshasa's Great Katana
+2075,Rakshasa's Great Katana,Weed Cutter #2 [1] (Lacking FP),Weed Cutter,matched,skill_id+weapon,5450,66520000,Rakshasa's Great Katana
+2076,Rakshasa's Great Katana,Weed Cutter #2 [2] (Lacking FP),Weed Cutter,matched,skill_id+weapon,5450,66520000,Rakshasa's Great Katana
+2077,Rakshasa's Great Katana,Weed Cutter #3 [1] (Lacking FP),Weed Cutter,matched,skill_id+weapon,5450,66520000,Rakshasa's Great Katana
+2078,Rakshasa's Great Katana,Weed Cutter #3 [2] (Lacking FP),Weed Cutter,matched,skill_id+weapon,5450,66520000,Rakshasa's Great Katana
+2079,Eleonora's Poleblade,Bloodblade Dance #1 [1],Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2080,Eleonora's Poleblade,Bloodblade Dance #1 [2],Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2081,Eleonora's Poleblade,Bloodblade Dance #1 [3],Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2082,Eleonora's Poleblade,Bloodblade Dance #1 [4],Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2083,Eleonora's Poleblade,Bloodblade Dance #1 [5],Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2084,Eleonora's Poleblade,Bloodblade Dance #1 [6],Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2085,Eleonora's Poleblade,Bloodblade Dance #1 [7],Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2086,Eleonora's Poleblade,Bloodblade Dance #1 [8],Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2087,Eleonora's Poleblade,Bloodblade Dance #1 [9],Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2088,Eleonora's Poleblade,Bloodblade Dance #2 [1],Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2089,Eleonora's Poleblade,Bloodblade Dance #2 [2],Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2090,Eleonora's Poleblade,Bloodblade Dance #2 [3],Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2091,Eleonora's Poleblade,Bloodblade Dance #1 [1] (Lacking FP),Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2092,Eleonora's Poleblade,Bloodblade Dance #1 [2] (Lacking FP),Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2093,Eleonora's Poleblade,Bloodblade Dance #1 [3] (Lacking FP),Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2094,Eleonora's Poleblade,Bloodblade Dance #1 [4] (Lacking FP),Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2095,Eleonora's Poleblade,Bloodblade Dance #1 [5] (Lacking FP),Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2096,Eleonora's Poleblade,Bloodblade Dance #1 [6] (Lacking FP),Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2097,Eleonora's Poleblade,Bloodblade Dance #1 [7] (Lacking FP),Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2098,Eleonora's Poleblade,Bloodblade Dance #1 [8] (Lacking FP),Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2099,Eleonora's Poleblade,Bloodblade Dance #1 [9] (Lacking FP),Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2100,Eleonora's Poleblade,Bloodblade Dance #2 [1] (Lacking FP),Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2101,Eleonora's Poleblade,Bloodblade Dance #2 [2] (Lacking FP),Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2102,Eleonora's Poleblade,Bloodblade Dance #2 [3] (Lacking FP),Bloodblade Dance,matched,skill_id+weapon,1179,10050000,Eleonora's Poleblade
+2103,Euporia,Euporia Vortex [1],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2104,Euporia,Euporia Vortex [2],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2105,Euporia,Euporia Vortex [3],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2106,Euporia,Euporia Vortex [4],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2107,Euporia,Euporia Vortex [5],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2108,Euporia,[Luster Tier 1] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2109,Euporia,[Luster Tier 1] Euporia Vortex [1],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2110,Euporia,[Luster Tier 1] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2111,Euporia,[Luster Tier 1] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2112,Euporia,[Luster Tier 1] Euporia Vortex [2],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2113,Euporia,[Luster Tier 1] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2114,Euporia,[Luster Tier 1] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2115,Euporia,[Luster Tier 1] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2116,Euporia,[Luster Tier 1] Euporia Vortex [3],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2117,Euporia,[Luster Tier 1] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2118,Euporia,[Luster Tier 1] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2119,Euporia,[Luster Tier 1] Euporia Vortex [4],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2120,Euporia,[Luster Tier 1] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2121,Euporia,[Luster Tier 1] Euporia Vortex [5],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2122,Euporia,[Luster Tier 2] Euporia Vortex [1],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2123,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2124,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2125,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2126,Euporia,[Luster Tier 2] Euporia Vortex [2],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2127,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2128,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2129,Euporia,[Luster Tier 2] Euporia Vortex [3],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2130,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2131,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2132,Euporia,[Luster Tier 2] Euporia Vortex [4],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2133,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2134,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2135,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2136,Euporia,[Luster Tier 2] Euporia Vortex [5],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2137,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2138,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2139,Euporia,[Luster Tier 2] Euporia Vortex [6],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2140,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2141,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2142,Euporia,[Luster Tier 2] Euporia Vortex [7],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2143,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2144,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2145,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2146,Euporia,[Luster Tier 2] Euporia Vortex [8],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2147,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2148,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2149,Euporia,[Luster Tier 2] Euporia Vortex [9],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2150,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2151,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2152,Euporia,[Luster Tier 2] Euporia Vortex [10],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2153,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2154,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2155,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2156,Euporia,[Luster Tier 2] Euporia Vortex [11],Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2157,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2158,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2159,Euporia,[Luster Tier 2] Euporia Vortex - Bullet,Euporia Vortex - Bullet,matched,weapon_name_fallback,5270,10500000,Euporia
+2160,Euporia,Euporia Vortex [1] (Lacking FP),Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2161,Euporia,Euporia Vortex [2] (Lacking FP),Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2162,Euporia,Euporia Vortex [3] (Lacking FP),Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2163,Euporia,Euporia Vortex [4] (Lacking FP),Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2164,Euporia,Euporia Vortex [5] (Lacking FP),Euporia Vortex,matched,skill_id+weapon,5270,10500000,Euporia
+2165,Forked-Tongue Hatchet,Dragonform Flame,Dragonform Flame,matched,skill_id+weapon,5570,14540000,Forked-Tongue Hatchet
+2166,Forked-Tongue Hatchet,Dragonform Flame - Bullet,Dragonform Flame - Bullet,matched,weapon_name_fallback,5570,14540000,Forked-Tongue Hatchet
+2167,Forked-Tongue Hatchet,Dragonform Flame - Bullet (Ground Fire),Dragonform Flame - Bullet (Ground Fire),matched,weapon_name_fallback,5570,14540000,Forked-Tongue Hatchet
+2168,Forked-Tongue Hatchet,Dragonform Flame (Lacking FP),Dragonform Flame,matched,skill_id+weapon,5570,14540000,Forked-Tongue Hatchet
+2169,Stormhawk Axe,Thunderstorm #1 [1],Thunderstorm,matched,skill_id+weapon,1186,14140000,Stormhawk Axe
+2170,Stormhawk Axe,Thunderstorm #1 [2],Thunderstorm,matched,skill_id+weapon,1186,14140000,Stormhawk Axe
+2171,Stormhawk Axe,Thunderstorm #1 [3],Thunderstorm,matched,skill_id+weapon,1186,14140000,Stormhawk Axe
+2172,Stormhawk Axe,Thunderstorm #1 [1] - Bullet,Thunderstorm [1] - Bullet,matched,weapon_name_fallback,1186,14140000,Stormhawk Axe
+2173,Stormhawk Axe,Thunderstorm #1 [2] - Bullet,Thunderstorm [2] - Bullet,matched,weapon_name_fallback,1186,14140000,Stormhawk Axe
+2174,Stormhawk Axe,Thunderstorm #1 [3] - Bullet,Thunderstorm [3] - Bullet,matched,weapon_name_fallback,1186,14140000,Stormhawk Axe
+2175,Stormhawk Axe,Thunderstorm #2 [1],Thunderstorm,matched,skill_id+weapon,1186,14140000,Stormhawk Axe
+2176,Stormhawk Axe,Thunderstorm #2 [2],Thunderstorm,matched,skill_id+weapon,1186,14140000,Stormhawk Axe
+2177,Stormhawk Axe,Thunderstorm #2 [1] - Bullet,Thunderstorm [1] - Bullet,matched,weapon_name_fallback,1186,14140000,Stormhawk Axe
+2178,Stormhawk Axe,Thunderstorm #2 [2] - Bullet,Thunderstorm [2] - Bullet,matched,weapon_name_fallback,1186,14140000,Stormhawk Axe
+2179,Stormhawk Axe,Thunderstorm #3 [1],Thunderstorm,matched,skill_id+weapon,1186,14140000,Stormhawk Axe
+2180,Stormhawk Axe,Thunderstorm #3 [2],Thunderstorm,matched,skill_id+weapon,1186,14140000,Stormhawk Axe
+2181,Stormhawk Axe,Thunderstorm #3 [1] - Bullet,Thunderstorm [1] - Bullet,matched,weapon_name_fallback,1186,14140000,Stormhawk Axe
+2182,Stormhawk Axe,Thunderstorm #3 [2] - Bullet,Thunderstorm [2] - Bullet,matched,weapon_name_fallback,1186,14140000,Stormhawk Axe
+2183,Stormhawk Axe,Thunderstorm #1 [1] (Lacking FP),Thunderstorm,matched,skill_id+weapon,1186,14140000,Stormhawk Axe
+2184,Stormhawk Axe,Thunderstorm #1 [2] (Lacking FP),Thunderstorm,matched,skill_id+weapon,1186,14140000,Stormhawk Axe
+2185,Stormhawk Axe,Thunderstorm #1 [3] (Lacking FP),Thunderstorm,matched,skill_id+weapon,1186,14140000,Stormhawk Axe
+2186,Stormhawk Axe,Thunderstorm #2 [1] (Lacking FP),Thunderstorm,matched,skill_id+weapon,1186,14140000,Stormhawk Axe
+2187,Stormhawk Axe,Thunderstorm #2 [2] (Lacking FP),Thunderstorm,matched,skill_id+weapon,1186,14140000,Stormhawk Axe
+2188,Stormhawk Axe,Thunderstorm #3 [1] (Lacking FP),Thunderstorm,matched,skill_id+weapon,1186,14140000,Stormhawk Axe
+2189,Stormhawk Axe,Thunderstorm #3 [2] (Lacking FP),Thunderstorm,matched,skill_id+weapon,1186,14140000,Stormhawk Axe
+2190,Rosus' Axe,Rosus's Summons - Bullet (Skeleton - Front),Rosus's Summons - Bullet (Skeleton - Front),matched,weapon_name_fallback,1185,14120000,Rosus' Axe
+2191,Rosus' Axe,Rosus's Summons - Bullet (Skeleton - Right),Rosus's Summons - Bullet (Skeleton - Right),matched,weapon_name_fallback,1185,14120000,Rosus' Axe
+2192,Rosus' Axe,Rosus's Summons - Bullet (Skeleton - Left),Rosus's Summons - Bullet (Skeleton - Left),matched,weapon_name_fallback,1185,14120000,Rosus' Axe
+2193,Rosus' Axe,Rosus's Summons,Rosus's Summons,matched,skill_id+weapon,1185,14120000,Rosus' Axe
+2194,Rosus' Axe,Rosus's Summons (Lacking FP),Rosus's Summons,matched,skill_id+weapon,1185,14120000,Rosus' Axe
+2195,Death Knight's Twin Axes,Blinkbolt: Twinaxe,Blinkbolt: Twinaxe,matched,skill_id+weapon,5130,14510000,Death Knight's Twin Axes
+2196,Death Knight's Twin Axes,Blinkbolt: Twinaxe R2 [1],Blinkbolt: Twinaxe,matched,skill_id+weapon,5130,14510000,Death Knight's Twin Axes
+2197,Death Knight's Twin Axes,Blinkbolt: Twinaxe R2 [2],Blinkbolt: Twinaxe,matched,skill_id+weapon,5130,14510000,Death Knight's Twin Axes
+2198,Death Knight's Twin Axes,Blinkbolt: Twinaxe R2 [3],Blinkbolt: Twinaxe,matched,skill_id+weapon,5130,14510000,Death Knight's Twin Axes
+2199,Death Knight's Twin Axes,Blinkbolt: Twinaxe R2 [4],Blinkbolt: Twinaxe,matched,skill_id+weapon,5130,14510000,Death Knight's Twin Axes
+2200,Death Knight's Twin Axes,Blinkbolt: Twinaxe R2 [5],Blinkbolt: Twinaxe,matched,skill_id+weapon,5130,14510000,Death Knight's Twin Axes
+2201,Death Knight's Twin Axes,Blinkbolt: Twinaxe R2 [6],Blinkbolt: Twinaxe,matched,skill_id+weapon,5130,14510000,Death Knight's Twin Axes
+2202,Death Knight's Twin Axes,Blinkbolt: Twinaxe (Lacking FP),Blinkbolt: Twinaxe,matched,skill_id+weapon,5130,14510000,Death Knight's Twin Axes
+2203,Death Knight's Twin Axes,Blinkbolt: Twinaxe R2 [1] (Lacking FP),Blinkbolt: Twinaxe,matched,skill_id+weapon,5130,14510000,Death Knight's Twin Axes
+2204,Death Knight's Twin Axes,Blinkbolt: Twinaxe R2 [2] (Lacking FP),Blinkbolt: Twinaxe,matched,skill_id+weapon,5130,14510000,Death Knight's Twin Axes
+2205,Death Knight's Twin Axes,Blinkbolt: Twinaxe R2 [3] (Lacking FP),Blinkbolt: Twinaxe,matched,skill_id+weapon,5130,14510000,Death Knight's Twin Axes
+2206,Death Knight's Twin Axes,Blinkbolt: Twinaxe R2 [4] (Lacking FP),Blinkbolt: Twinaxe,matched,skill_id+weapon,5130,14510000,Death Knight's Twin Axes
+2207,Death Knight's Twin Axes,Blinkbolt: Twinaxe R2 [5] (Lacking FP),Blinkbolt: Twinaxe,matched,skill_id+weapon,5130,14510000,Death Knight's Twin Axes
+2208,Death Knight's Twin Axes,Blinkbolt: Twinaxe R2 [6] (Lacking FP),Blinkbolt: Twinaxe,matched,skill_id+weapon,5130,14510000,Death Knight's Twin Axes
+2209,Death Knight's Longhaft Axe,Blinkbolt: Long-hafted Axe,Blinkbolt: Long-hafted Axe,matched,skill_id+weapon,5140,15500000,Death Knight's Longhaft Axe
+2210,Death Knight's Longhaft Axe,Blinkbolt: Long-hafted Axe R2,Blinkbolt: Long-hafted Axe,matched,skill_id+weapon,5140,15500000,Death Knight's Longhaft Axe
+2211,Death Knight's Longhaft Axe,Blinkbolt: Long-hafted Axe R2 - Bullet,Blinkbolt: Long-hafted Axe R2 - Bullet,matched,weapon_name_fallback,5140,15500000,Death Knight's Longhaft Axe
+2212,Death Knight's Longhaft Axe,Blinkbolt: Long-hafted Axe (Lacking FP),Blinkbolt: Long-hafted Axe,matched,skill_id+weapon,5140,15500000,Death Knight's Longhaft Axe
+2213,Death Knight's Longhaft Axe,Blinkbolt: Long-hafted Axe R2 (Lacking FP),Blinkbolt: Long-hafted Axe,matched,skill_id+weapon,5140,15500000,Death Knight's Longhaft Axe
+2214,Axe of Godrick,"I Command Thee, Kneel #1 [1]","I Command Thee, Kneel",matched,skill_id+weapon,1030,15040000,Axe of Godrick
+2215,Axe of Godrick,"I Command Thee, Kneel #1 [1] - Bullet","I Command Thee, Kneel [1] - Bullet",matched,weapon_name_fallback,1030,15040000,Axe of Godrick
+2216,Axe of Godrick,"I Command Thee, Kneel #1 [1] - Bullet","I Command Thee, Kneel [1] - Bullet",matched,weapon_name_fallback,1030,15040000,Axe of Godrick
+2217,Axe of Godrick,"I Command Thee, Kneel #1 [1] - Bullet","I Command Thee, Kneel [1] - Bullet",matched,weapon_name_fallback,1030,15040000,Axe of Godrick
+2218,Axe of Godrick,"I Command Thee, Kneel #1 [1] - Bullet","I Command Thee, Kneel [1] - Bullet",matched,weapon_name_fallback,1030,15040000,Axe of Godrick
+2219,Axe of Godrick,"I Command Thee, Kneel #1 [2]","I Command Thee, Kneel",matched,skill_id+weapon,1030,15040000,Axe of Godrick
+2220,Axe of Godrick,"I Command Thee, Kneel #1 [2] - Bullet","I Command Thee, Kneel [2] - Bullet",matched,weapon_name_fallback,1030,15040000,Axe of Godrick
+2221,Axe of Godrick,"I Command Thee, Kneel #1 [2] - Bullet","I Command Thee, Kneel [2] - Bullet",matched,weapon_name_fallback,1030,15040000,Axe of Godrick
+2222,Axe of Godrick,"I Command Thee, Kneel #1 [2] - Bullet","I Command Thee, Kneel [2] - Bullet",matched,weapon_name_fallback,1030,15040000,Axe of Godrick
+2223,Axe of Godrick,"I Command Thee, Kneel #1 [2] - Bullet","I Command Thee, Kneel [2] - Bullet",matched,weapon_name_fallback,1030,15040000,Axe of Godrick
+2224,Axe of Godrick,"I Command Thee, Kneel #2","I Command Thee, Kneel",matched,skill_id+weapon,1030,15040000,Axe of Godrick
+2225,Axe of Godrick,"I Command Thee, Kneel #2 - Bullet","I Command Thee, Kneel - Bullet",matched,weapon_name_fallback,1030,15040000,Axe of Godrick
+2226,Axe of Godrick,"I Command Thee, Kneel #2 - Bullet","I Command Thee, Kneel - Bullet",matched,weapon_name_fallback,1030,15040000,Axe of Godrick
+2227,Axe of Godrick,"I Command Thee, Kneel #2 - Bullet","I Command Thee, Kneel - Bullet",matched,weapon_name_fallback,1030,15040000,Axe of Godrick
+2228,Axe of Godrick,"I Command Thee, Kneel #2 - Bullet","I Command Thee, Kneel - Bullet",matched,weapon_name_fallback,1030,15040000,Axe of Godrick
+2229,Axe of Godrick,"I Command Thee, Kneel #1 [1] (Lacking FP)","I Command Thee, Kneel",matched,skill_id+weapon,1030,15040000,Axe of Godrick
+2230,Axe of Godrick,"I Command Thee, Kneel #1 [2] (Lacking FP)","I Command Thee, Kneel",matched,skill_id+weapon,1030,15040000,Axe of Godrick
+2231,Axe of Godrick,"I Command Thee, Kneel #2 (Lacking FP)","I Command Thee, Kneel",matched,skill_id+weapon,1030,15040000,Axe of Godrick
+2232,Putrescence Cleaver,Spinning Guillotine #1,Spinning Guillotine,matched,skill_id+weapon,5080,8500000,Putrescence Cleaver
+2233,Putrescence Cleaver,Spinning Guillotine #2 [1],Spinning Guillotine,matched,skill_id+weapon,5080,8500000,Putrescence Cleaver
+2234,Putrescence Cleaver,Spinning Guillotine #2 [2],Spinning Guillotine,matched,skill_id+weapon,5080,8500000,Putrescence Cleaver
+2235,Putrescence Cleaver,Spinning Guillotine #2 [3],Spinning Guillotine,matched,skill_id+weapon,5080,8500000,Putrescence Cleaver
+2236,Putrescence Cleaver,Spinning Guillotine R2 [1],Spinning Guillotine,matched,skill_id+weapon,5080,8500000,Putrescence Cleaver
+2237,Putrescence Cleaver,Spinning Guillotine R2 [2],Spinning Guillotine,matched,skill_id+weapon,5080,8500000,Putrescence Cleaver
+2238,Putrescence Cleaver,Spinning Guillotine R2 [3],Spinning Guillotine,matched,skill_id+weapon,5080,8500000,Putrescence Cleaver
+2239,Putrescence Cleaver,Spinning Guillotine #1 (Lacking FP),Spinning Guillotine,matched,skill_id+weapon,5080,8500000,Putrescence Cleaver
+2240,Putrescence Cleaver,Spinning Guillotine #2 [1] (Lacking FP),Spinning Guillotine,matched,skill_id+weapon,5080,8500000,Putrescence Cleaver
+2241,Putrescence Cleaver,Spinning Guillotine #2 [2] (Lacking FP),Spinning Guillotine,matched,skill_id+weapon,5080,8500000,Putrescence Cleaver
+2242,Putrescence Cleaver,Spinning Guillotine #2 [3] (Lacking FP),Spinning Guillotine,matched,skill_id+weapon,5080,8500000,Putrescence Cleaver
+2243,Putrescence Cleaver,Spinning Guillotine R2 [1] (Lacking FP),Spinning Guillotine,matched,skill_id+weapon,5080,8500000,Putrescence Cleaver
+2244,Putrescence Cleaver,Spinning Guillotine R2 [2] (Lacking FP),Spinning Guillotine,matched,skill_id+weapon,5080,8500000,Putrescence Cleaver
+2245,Putrescence Cleaver,Spinning Guillotine R2 [3] (Lacking FP),Spinning Guillotine,matched,skill_id+weapon,5080,8500000,Putrescence Cleaver
+2246,Envoy's Horn,Oracular Bubble - Bullet,Oracular Bubble - Bullet,matched,weapon_name_fallback,1003,11100000,Envoy's Horn
+2247,Envoy's Horn,Oracular Bubble - Bullet AoE,Oracular Bubble - Bullet AoE,matched,weapon_name_fallback,1003,11100000,Envoy's Horn
+2248,Nox Flowing Hammer,Flowing Form [1],Flowing Form,matched,skill_id+weapon,1035,11120000,Nox Flowing Hammer
+2249,Nox Flowing Hammer,Flowing Form [2],Flowing Form,matched,skill_id+weapon,1035,11120000,Nox Flowing Hammer
+2250,Nox Flowing Hammer,Flowing Form [1] (Lacking FP),Flowing Form,matched,skill_id+weapon,1035,11120000,Nox Flowing Hammer
+2251,Nox Flowing Hammer,Flowing Form [2] (Lacking FP),Flowing Form,matched,skill_id+weapon,1035,11120000,Nox Flowing Hammer
+2252,Ringed Finger,Claw Flick [1],Claw Flick,matched,skill_id+weapon,1046,11130000,Ringed Finger
+2253,Ringed Finger,Claw Flick [2],Claw Flick,matched,skill_id+weapon,1046,11130000,Ringed Finger
+2254,Scepter of the All-Knowing,Knowledge Above All,Knowledge Above All,matched,skill_id+weapon,1182,11110000,Scepter of the All-Knowing
+2255,Flowerstone Gavel,Flower Dragonbolt - Bullet,Flower Dragonbolt - Bullet,matched,weapon_name_fallback,5380,11500000,Flowerstone Gavel
+2256,Flowerstone Gavel,Flower Dragonbolt Charged - Bullet,Flower Dragonbolt Charged - Bullet,matched,weapon_name_fallback,5380,11500000,Flowerstone Gavel
+2257,Flowerstone Gavel,Flower Dragonbolt - Bullet (Water AoE),Flower Dragonbolt - Bullet (Water AoE),matched,weapon_name_fallback,5380,11500000,Flowerstone Gavel
+2258,Flowerstone Gavel,Flower Dragonbolt (Lacking FP),Flower Dragonbolt,matched,skill_id+weapon,5380,11500000,Flowerstone Gavel
+2259,Flowerstone Gavel,Flower Dragonbolt Charged (Lacking FP),Flower Dragonbolt Charged,matched,weapon_name_fallback,5380,11500000,Flowerstone Gavel
+2260,Marika's Hammer,Gold Breaker,Gold Breaker,matched,skill_id+weapon,1029,11150000,Marika's Hammer
+2261,Marika's Hammer,Gold Breaker - Bullet,Gold Breaker - Bullet,matched,weapon_name_fallback,1029,11150000,Marika's Hammer
+2262,Marika's Hammer,Gold Breaker - Bullet,Gold Breaker - Bullet,matched,weapon_name_fallback,1029,11150000,Marika's Hammer
+2263,Marika's Hammer,Gold Breaker - Bullet,Gold Breaker - Bullet,matched,weapon_name_fallback,1029,11150000,Marika's Hammer
+2264,Marika's Hammer,Gold Breaker - Bullet,Gold Breaker - Bullet,matched,weapon_name_fallback,1029,11150000,Marika's Hammer
+2265,Marika's Hammer,Gold Breaker (Lacking FP),Gold Breaker,matched,skill_id+weapon,1029,11150000,Marika's Hammer
+2266,(Nightrider / Chainlink) Flail,Spinning Chain - Loop,Spinning Chain - Loop,matched,weapon_name_fallback,125,13000000|13040000,Chainlink Flail|Nightrider Flail
+2267,(Nightrider / Chainlink) Flail,Spinning Chain - R1 [1],Spinning Chain -,matched,skill_id+weapon,125,13000000|13040000,Chainlink Flail|Nightrider Flail
+2268,(Nightrider / Chainlink) Flail,Spinning Chain - R1 [2],Spinning Chain -,matched,skill_id+weapon,125,13000000|13040000,Chainlink Flail|Nightrider Flail
+2269,(Nightrider / Chainlink) Flail,Spinning Chain - R2 [1],Spinning Chain -,matched,skill_id+weapon,125,13000000|13040000,Chainlink Flail|Nightrider Flail
+2270,(Nightrider / Chainlink) Flail,Spinning Chain - R2 [2],Spinning Chain -,matched,skill_id+weapon,125,13000000|13040000,Chainlink Flail|Nightrider Flail
+2271,(Nightrider / Chainlink) Flail,Spinning Chain - Loop (Lacking FP),Spinning Chain - Loop,matched,weapon_name_fallback,125,13000000|13040000,Chainlink Flail|Nightrider Flail
+2272,(Nightrider / Chainlink) Flail,Spinning Chain - R1 [1] (Lacking FP),Spinning Chain -,matched,skill_id+weapon,125,13000000|13040000,Chainlink Flail|Nightrider Flail
+2273,(Nightrider / Chainlink) Flail,Spinning Chain - R1 [2] (Lacking FP),Spinning Chain -,matched,skill_id+weapon,125,13000000|13040000,Chainlink Flail|Nightrider Flail
+2274,(Nightrider / Chainlink) Flail,Spinning Chain - R2 [1] (Lacking FP),Spinning Chain -,matched,skill_id+weapon,125,13000000|13040000,Chainlink Flail|Nightrider Flail
+2275,(Nightrider / Chainlink) Flail,Spinning Chain - R2 [2] (Lacking FP),Spinning Chain -,matched,skill_id+weapon,125,13000000|13040000,Chainlink Flail|Nightrider Flail
+2276,Family Heads,Familial Rancor - Bullet,Familial Rancor - Bullet,matched,weapon_name_fallback,1184,13020000,Family Heads
+2277,Family Heads,Familial Rancor - Bullet,Familial Rancor - Bullet,matched,weapon_name_fallback,1184,13020000,Family Heads
+2278,Family Heads,Familial Rancor - Bullet,Familial Rancor - Bullet,matched,weapon_name_fallback,1184,13020000,Family Heads
+2279,Family Heads,Familial Rancor - Bullet,Familial Rancor - Bullet,matched,weapon_name_fallback,1184,13020000,Family Heads
+2280,Family Heads,Familial Rancor - Bullet,Familial Rancor - Bullet,matched,weapon_name_fallback,1184,13020000,Family Heads
+2281,Family Heads,Familial Rancor - Bullet,Familial Rancor - Bullet,matched,weapon_name_fallback,1184,13020000,Family Heads
+2282,Serpent Flail,"Flare, O Serpent R2 - Bullet","Flare, O Serpent R2 - Bullet",matched,weapon_name_fallback,5500,13500000,Serpent Flail
+2283,Serpent Flail,"Flare, O Serpent Charged R2 - Bullet","Flare, O Serpent Charged R2 - Bullet",matched,weapon_name_fallback,5500,13500000,Serpent Flail
+2284,Serpent Flail,"Flare, O Serpent Running R2 - Bullet","Flare, O Serpent Running R2 - Bullet",matched,weapon_name_fallback,5500,13500000,Serpent Flail
+2285,Serpent Flail,"Flare, O Serpent Jumping R2 - Bullet","Flare, O Serpent Jumping R2 - Bullet",matched,weapon_name_fallback,5500,13500000,Serpent Flail
+2286,Bastard's Stars,Nebula,Nebula,matched,skill_id+weapon,1047,13030000,Bastard's Stars
+2287,Bastard's Stars,Nebula - Bullet,Nebula - Bullet,matched,weapon_name_fallback,1047,13030000,Bastard's Stars
+2288,Bastard's Stars,Nebula (Lacking FP),Nebula,matched,skill_id+weapon,1047,13030000,Bastard's Stars
+2289,Envoy's Long Horn,Bubble Shower - Bullet,Bubble Shower - Bullet,matched,weapon_name_fallback,1004,12160000,Envoy's Long Horn
+2290,Envoy's Long Horn,Bubble Shower - Bullet,Bubble Shower - Bullet,matched,weapon_name_fallback,1004,12160000,Envoy's Long Horn
+2291,Envoy's Long Horn,Bubble Shower - Bullet,Bubble Shower - Bullet,matched,weapon_name_fallback,1004,12160000,Envoy's Long Horn
+2292,Cranial Vessel Candlestand,Surge of Faith,Surge of Faith,matched,skill_id+weapon,1000,12170000,Cranial Vessel Candlestand
+2293,Cranial Vessel Candlestand,Surge of Faith,Surge of Faith,matched,skill_id+weapon,1000,12170000,Cranial Vessel Candlestand
+2294,Cranial Vessel Candlestand,Surge of Faith,Surge of Faith,matched,skill_id+weapon,1000,12170000,Cranial Vessel Candlestand
+2295,Cranial Vessel Candlestand,Surge of Faith - Bullet,Surge of Faith - Bullet,matched,weapon_name_fallback,1000,12170000,Cranial Vessel Candlestand
+2296,Cranial Vessel Candlestand,Surge of Faith - Bullet,Surge of Faith - Bullet,matched,weapon_name_fallback,1000,12170000,Cranial Vessel Candlestand
+2297,Cranial Vessel Candlestand,Surge of Faith - Bullet,Surge of Faith - Bullet,matched,weapon_name_fallback,1000,12170000,Cranial Vessel Candlestand
+2298,Cranial Vessel Candlestand,Surge of Faith - Bullet,Surge of Faith - Bullet,matched,weapon_name_fallback,1000,12170000,Cranial Vessel Candlestand
+2299,Cranial Vessel Candlestand,Surge of Faith - Bullet,Surge of Faith - Bullet,matched,weapon_name_fallback,1000,12170000,Cranial Vessel Candlestand
+2300,Cranial Vessel Candlestand,Surge of Faith - Bullet,Surge of Faith - Bullet,matched,weapon_name_fallback,1000,12170000,Cranial Vessel Candlestand
+2301,Cranial Vessel Candlestand,Surge of Faith,Surge of Faith,matched,skill_id+weapon,1000,12170000,Cranial Vessel Candlestand
+2302,Cranial Vessel Candlestand,Surge of Faith,Surge of Faith,matched,skill_id+weapon,1000,12170000,Cranial Vessel Candlestand
+2303,Cranial Vessel Candlestand,Surge of Faith,Surge of Faith,matched,skill_id+weapon,1000,12170000,Cranial Vessel Candlestand
+2304,Cranial Vessel Candlestand,Surge of Faith,Surge of Faith,matched,skill_id+weapon,1000,12170000,Cranial Vessel Candlestand
+2305,Cranial Vessel Candlestand,Surge of Faith,Surge of Faith,matched,skill_id+weapon,1000,12170000,Cranial Vessel Candlestand
+2306,Beastclaw Greathammer,Regal Beastclaw,Regal Beastclaw,matched,skill_id+weapon,1044,12150000,Beastclaw Greathammer
+2307,Beastclaw Greathammer,Regal Beastclaw - Bullet,Regal Beastclaw - Bullet,matched,weapon_name_fallback,1044,12150000,Beastclaw Greathammer
+2308,Beastclaw Greathammer,Regal Beastclaw (Lacking FP),Regal Beastclaw,matched,skill_id+weapon,1044,12150000,Beastclaw Greathammer
+2309,Devourer's Scepter,Devourer of Worlds - Bullet,Devourer of Worlds - Bullet,matched,weapon_name_fallback,1183,12200000,Devourer's Scepter
+2310,Devourer's Scepter,Devourer of Worlds (Lacking FP),Devourer of Worlds,matched,skill_id+weapon,1183,12200000,Devourer's Scepter
+2311,Watchdog's Staff,Sorcery of the Crozier - Bullet,Sorcery of the Crozier - Bullet,matched,weapon_name_fallback,1192,23010000,Watchdog's Staff
+2312,Watchdog's Staff,Sorcery of the Crozier - Bullet,Sorcery of the Crozier - Bullet,matched,weapon_name_fallback,1192,23010000,Watchdog's Staff
+2313,Watchdog's Staff,Sorcery of the Crozier (Lacking FP),Sorcery of the Crozier,matched,skill_id+weapon,1192,23010000,Watchdog's Staff
+2314,Staff of the Avatar / Rotten Staff,Erdtree Slam - Tush,Erdtree Slam - Tush,matched,weapon_name_fallback,1193,23070000|23140000,Rotten Staff|Staff of the Avatar
+2315,Staff of the Avatar / Rotten Staff,Erdtree Slam - ?,Erdtree Slam -,matched,skill_id+weapon,1193,23070000|23140000,Rotten Staff|Staff of the Avatar
+2316,Staff of the Avatar / Rotten Staff,Erdtree Slam - Shockwave,Erdtree Slam - Shockwave,matched,weapon_name_fallback,1193,23070000|23140000,Rotten Staff|Staff of the Avatar
+2317,Staff of the Avatar / Rotten Staff,Erdtree Slam - Tush (Lacking FP),Erdtree Slam - Tush,matched,weapon_name_fallback,1193,23070000|23140000,Rotten Staff|Staff of the Avatar
+2318,Staff of the Avatar / Rotten Staff,Erdtree Slam - Shockwave (Lacking FP),Erdtree Slam - Shockwave,matched,weapon_name_fallback,1193,23070000|23140000,Rotten Staff|Staff of the Avatar
+2319,Envoy's Greathorn,Great Oracular Bubble - Bullet,Great Oracular Bubble - Bullet,matched,weapon_name_fallback,1005,23030000,Envoy's Greathorn
+2320,Envoy's Greathorn,Great Oracular Bubble - Bullet AoE,Great Oracular Bubble - Bullet AoE,matched,weapon_name_fallback,1005,23030000,Envoy's Greathorn
+2321,Ghiza's Wheel,Spinning Wheel,Spinning Wheel,matched,skill_id+weapon,1039,23100000,Ghiza's Wheel
+2322,Ghiza's Wheel,Spinning Wheel,Spinning Wheel,matched,skill_id+weapon,1039,23100000,Ghiza's Wheel
+2323,Ghiza's Wheel,Spinning Wheel,Spinning Wheel,matched,skill_id+weapon,1039,23100000,Ghiza's Wheel
+2324,Ghiza's Wheel,Spinning Wheel,Spinning Wheel,matched,skill_id+weapon,1039,23100000,Ghiza's Wheel
+2325,Ghiza's Wheel,Spinning Wheel (Lacking FP),Spinning Wheel,matched,skill_id+weapon,1039,23100000,Ghiza's Wheel
+2326,Ghiza's Wheel,Spinning Wheel (Lacking FP),Spinning Wheel,matched,skill_id+weapon,1039,23100000,Ghiza's Wheel
+2327,Ghiza's Wheel,Spinning Wheel (Lacking FP),Spinning Wheel,matched,skill_id+weapon,1039,23100000,Ghiza's Wheel
+2328,Ghiza's Wheel,Spinning Wheel (Lacking FP),Spinning Wheel,matched,skill_id+weapon,1039,23100000,Ghiza's Wheel
+2329,Fallingstar Beast Jaw,Gravity Bolt,Gravity Bolt,matched,skill_id+weapon,1194,23080000,Fallingstar Beast Jaw
+2330,Fallingstar Beast Jaw,Gravity Bolt - Bullet,Gravity Bolt - Bullet,matched,weapon_name_fallback,1194,23080000,Fallingstar Beast Jaw
+2331,Fallingstar Beast Jaw,Gravity Bolt - Bullet,Gravity Bolt - Bullet,matched,weapon_name_fallback,1194,23080000,Fallingstar Beast Jaw
+2332,Fallingstar Beast Jaw,Gravity Bolt - Bullet,Gravity Bolt - Bullet,matched,weapon_name_fallback,1194,23080000,Fallingstar Beast Jaw
+2333,Fallingstar Beast Jaw,Gravity Bolt - Bullet,Gravity Bolt - Bullet,matched,weapon_name_fallback,1194,23080000,Fallingstar Beast Jaw
+2334,Fallingstar Beast Jaw,Gravity Bolt - Bullet,Gravity Bolt - Bullet,matched,weapon_name_fallback,1194,23080000,Fallingstar Beast Jaw
+2335,Fallingstar Beast Jaw,Gravity Bolt (Lacking FP),Gravity Bolt,matched,skill_id+weapon,1194,23080000,Fallingstar Beast Jaw
+2336,Fallingstar Beast Jaw,Gravity Bolt (Lacking FP),Gravity Bolt,matched,skill_id+weapon,1194,23080000,Fallingstar Beast Jaw
+2337,Fallingstar Beast Jaw,Gravity Bolt (Lacking FP),Gravity Bolt,matched,skill_id+weapon,1194,23080000,Fallingstar Beast Jaw
+2338,Anvil Hammer,Smithing Art Spears,Smithing Art Spears,matched,skill_id+weapon,5280,12510000,Anvil Hammer
+2339,Anvil Hammer,Smithing Art Spears - Bullet [1],Smithing Art Spears - Bullet,matched,weapon_name_fallback,5280,12510000,Anvil Hammer
+2340,Anvil Hammer,Smithing Art Spears - Bullet [2],Smithing Art Spears - Bullet,matched,weapon_name_fallback,5280,12510000,Anvil Hammer
+2341,Anvil Hammer,Smithing Art Spears (Lacking FP),Smithing Art Spears,matched,skill_id+weapon,5280,12510000,Anvil Hammer
+2342,Devonia's Hammer,Devonia's Vortex,Devonia's Vortex,matched,skill_id+weapon,5180,23500000,Devonia's Hammer
+2343,Devonia's Hammer,Devonia's Vortex - Bullet,Devonia's Vortex - Bullet,matched,weapon_name_fallback,5180,23500000,Devonia's Hammer
+2344,Devonia's Hammer,Devonia's Vortex - Bullet (2x),Devonia's Vortex - Bullet (2x),matched,weapon_name_fallback,5180,23500000,Devonia's Hammer
+2345,Devonia's Hammer,Devonia's Vortex Charged,Devonia's Vortex Charged,matched,weapon_name_fallback,5180,23500000,Devonia's Hammer
+2346,Devonia's Hammer,Devonia's Vortex Charged - Bullet (2x),Devonia's Vortex Charged - Bullet (2x),matched,weapon_name_fallback,5180,23500000,Devonia's Hammer
+2347,Devonia's Hammer,Devonia's Vortex Charged - Bullet (2x),Devonia's Vortex Charged - Bullet (2x),matched,weapon_name_fallback,5180,23500000,Devonia's Hammer
+2348,Devonia's Hammer,Devonia's Vortex (Lacking FP),Devonia's Vortex,matched,skill_id+weapon,5180,23500000,Devonia's Hammer
+2349,Devonia's Hammer,Devonia's Vortex Charged  (Lacking FP),Devonia's Vortex Charged,matched,weapon_name_fallback,5180,23500000,Devonia's Hammer
+2350,Axe of Godfrey,Regal Roar [1] - Bullet (Roar AoE),Regal Roar [1] - Bullet (Roar AoE),matched,weapon_name_fallback,1031,23050000,Axe of Godfrey
+2351,Axe of Godfrey,Regal Roar [2] - Bullet (Slam AoE),Regal Roar [2] - Bullet (Slam AoE),matched,weapon_name_fallback,1031,23050000,Axe of Godfrey
+2352,Axe of Godfrey,Regal Roar [2] - Bullet [Hit] (Slam AoE),Regal Roar [2] - Bullet [Hit] (Slam AoE),matched,weapon_name_fallback,1031,23050000,Axe of Godfrey
+2353,Axe of Godfrey,Regal Roar [2] - Bullet [Hit] (Slam AoE),Regal Roar [2] - Bullet [Hit] (Slam AoE),matched,weapon_name_fallback,1031,23050000,Axe of Godfrey
+2354,Axe of Godfrey,Regal Roar [2] - Bullet (Slam AoE),Regal Roar [2] - Bullet (Slam AoE),matched,weapon_name_fallback,1031,23050000,Axe of Godfrey
+2355,Axe of Godfrey,Regal Roar R2 #1 - Bullet (Stomp AoE),Regal Roar R2 - Bullet (Stomp AoE),matched,weapon_name_fallback,1031,23050000,Axe of Godfrey
+2356,Axe of Godfrey,Regal Roar R2 #1 - Bullet [Hit] (Stomp AoE),Regal Roar R2 - Bullet [Hit] (Stomp AoE),matched,weapon_name_fallback,1031,23050000,Axe of Godfrey
+2357,Axe of Godfrey,Regal Roar R2 #1 - Bullet [Hit] (Stomp AoE),Regal Roar R2 - Bullet [Hit] (Stomp AoE),matched,weapon_name_fallback,1031,23050000,Axe of Godfrey
+2358,Axe of Godfrey,Regal Roar R2 #1 - Bullet (Stomp AoE),Regal Roar R2 - Bullet (Stomp AoE),matched,weapon_name_fallback,1031,23050000,Axe of Godfrey
+2359,Axe of Godfrey,Regal Roar R2 #1,Regal Roar,matched,skill_id+weapon,1031,23050000,Axe of Godfrey
+2360,Axe of Godfrey,Regal Roar Charged R2 #1 - Bullet (Stomp AoE),Regal Roar Charged R2 - Bullet (Stomp AoE),matched,weapon_name_fallback,1031,23050000,Axe of Godfrey
+2361,Axe of Godfrey,Regal Roar Charged R2 #1 - Bullet [Hit] (Stomp AoE),Regal Roar Charged R2 - Bullet [Hit] (Stomp AoE),matched,weapon_name_fallback,1031,23050000,Axe of Godfrey
+2362,Axe of Godfrey,Regal Roar Charged R2 #1 - Bullet [Hit] (Stomp AoE),Regal Roar Charged R2 - Bullet [Hit] (Stomp AoE),matched,weapon_name_fallback,1031,23050000,Axe of Godfrey
+2363,Axe of Godfrey,Regal Roar Charged R2 #1 - Bullet (Stomp AoE),Regal Roar Charged R2 - Bullet (Stomp AoE),matched,weapon_name_fallback,1031,23050000,Axe of Godfrey
+2364,Axe of Godfrey,Regal Roar Charged R2 #1,Regal Roar Charged,matched,weapon_name_fallback,1031,23050000,Axe of Godfrey
+2365,Axe of Godfrey,Regal Roar R2 #2,Regal Roar,matched,skill_id+weapon,1031,23050000,Axe of Godfrey
+2366,Axe of Godfrey,Regal Roar Charged R2 #2 - Scraping,Regal Roar Charged R2 - Scraping,matched,weapon_name_fallback,1031,23050000,Axe of Godfrey
+2367,Axe of Godfrey,Regal Roar Charged R2 #2 - Scraping (Tick 4x),Regal Roar Charged R2 - Scraping (Tick 4x),matched,weapon_name_fallback,1031,23050000,Axe of Godfrey
+2368,Axe of Godfrey,Regal Roar Charged R2 #2 - Scraping (Final Tick),Regal Roar Charged R2 - Scraping (Final Tick),matched,weapon_name_fallback,1031,23050000,Axe of Godfrey
+2369,Axe of Godfrey,Regal Roar Charged R2 #2,Regal Roar Charged,matched,weapon_name_fallback,1031,23050000,Axe of Godfrey
+2370,Axe of Godfrey,Regal Roar ?,Regal Roar,matched,skill_id+weapon,1031,23050000,Axe of Godfrey
+2371,Axe of Godfrey,Regal Roar (Lacking FP),Regal Roar,matched,skill_id+weapon,1031,23050000,Axe of Godfrey
+2372,Shadow Sunflower Blossom,Shadow Sunflower Headbutt #1,Shadow Sunflower Headbutt,matched,weapon_name_fallback,5160,23510000,Shadow Sunflower Blossom
+2373,Shadow Sunflower Blossom,Shadow Sunflower Headbutt #1 (AoE),Shadow Sunflower Headbutt #1 (AoE),matched,weapon_name_fallback,5160,23510000,Shadow Sunflower Blossom
+2374,Shadow Sunflower Blossom,Shadow Sunflower Headbutt #2 [1],Shadow Sunflower Headbutt,matched,weapon_name_fallback,5160,23510000,Shadow Sunflower Blossom
+2375,Shadow Sunflower Blossom,Shadow Sunflower Headbutt #2 [1] (AoE),Shadow Sunflower Headbutt [1] (AoE),matched,weapon_name_fallback,5160,23510000,Shadow Sunflower Blossom
+2376,Shadow Sunflower Blossom,Shadow Sunflower Headbutt #2 [2],Shadow Sunflower Headbutt,matched,weapon_name_fallback,5160,23510000,Shadow Sunflower Blossom
+2377,Shadow Sunflower Blossom,Shadow Sunflower Headbutt #2 [2] (AoE),Shadow Sunflower Headbutt [2] (AoE),matched,weapon_name_fallback,5160,23510000,Shadow Sunflower Blossom
+2378,Shadow Sunflower Blossom,Shadow Sunflower Headbutt #3,Shadow Sunflower Headbutt,matched,weapon_name_fallback,5160,23510000,Shadow Sunflower Blossom
+2379,Shadow Sunflower Blossom,Shadow Sunflower Headbutt #3 (AoE),Shadow Sunflower Headbutt #3 (AoE),matched,weapon_name_fallback,5160,23510000,Shadow Sunflower Blossom
+2380,Shadow Sunflower Blossom,Shadow Sunflower Headbutt #1 (Lacking FP),Shadow Sunflower Headbutt,matched,weapon_name_fallback,5160,23510000,Shadow Sunflower Blossom
+2381,Shadow Sunflower Blossom,Shadow Sunflower Headbutt #2 [1] (Lacking FP),Shadow Sunflower Headbutt,matched,weapon_name_fallback,5160,23510000,Shadow Sunflower Blossom
+2382,Shadow Sunflower Blossom,Shadow Sunflower Headbutt #2 [2] (Lacking FP),Shadow Sunflower Headbutt,matched,weapon_name_fallback,5160,23510000,Shadow Sunflower Blossom
+2383,Shadow Sunflower Blossom,Shadow Sunflower Headbutt #3 (Lacking FP),Shadow Sunflower Headbutt,matched,weapon_name_fallback,5160,23510000,Shadow Sunflower Blossom
+2384,Gazing Finger,Kowtower's Resentment [1],Kowtower's Resentment,matched,skill_id+weapon,5390,23520000,Gazing Finger
+2385,Gazing Finger,Kowtower's Resentment [2],Kowtower's Resentment,matched,skill_id+weapon,5390,23520000,Gazing Finger
+2386,Gazing Finger,Kowtower's Resentment - Bullet,Kowtower's Resentment - Bullet,matched,weapon_name_fallback,5390,23520000,Gazing Finger
+2387,Gazing Finger,Kowtower's Resentment Early Release,Kowtower's Resentment Early Release,matched,weapon_name_fallback,5390,23520000,Gazing Finger
+2388,Gazing Finger,Kowtower's Resentment Early Release - Bullet,Kowtower's Resentment Early Release - Bullet,matched,weapon_name_fallback,5390,23520000,Gazing Finger
+2389,Gazing Finger,Kowtower's Resentment [1] (Lacking FP),Kowtower's Resentment,matched,skill_id+weapon,5390,23520000,Gazing Finger
+2390,Gazing Finger,Kowtower's Resentment [2] (Lacking FP),Kowtower's Resentment,matched,skill_id+weapon,5390,23520000,Gazing Finger
+2391,Gazing Finger,Kowtower's Resentment Early Release (Lacking FP),Kowtower's Resentment Early Release,matched,weapon_name_fallback,5390,23520000,Gazing Finger
+2392,Cleanrot Spear,Sacred Phalanx,Sacred Phalanx,matched,skill_id+weapon,1187,16040000,Cleanrot Spear
+2393,Cleanrot Spear,Sacred Phalanx - Bullet,Sacred Phalanx - Bullet,matched,weapon_name_fallback,1187,16040000,Cleanrot Spear
+2394,Cleanrot Spear,Sacred Phalanx (Lacking FP),Sacred Phalanx,matched,skill_id+weapon,1187,16040000,Cleanrot Spear
+2395,Death Ritual Spear,Spearcall Ritual,Spearcall Ritual,matched,skill_id+weapon,1024,16120000,Death Ritual Spear
+2396,Death Ritual Spear,Spearcall Ritual - Bullet,Spearcall Ritual - Bullet,matched,weapon_name_fallback,1024,16120000,Death Ritual Spear
+2397,Death Ritual Spear,Spearcall Ritual - Bullet,Spearcall Ritual - Bullet,matched,weapon_name_fallback,1024,16120000,Death Ritual Spear
+2398,Death Ritual Spear,Spearcall Ritual - Bullet,Spearcall Ritual - Bullet,matched,weapon_name_fallback,1024,16120000,Death Ritual Spear
+2399,Death Ritual Spear,Spearcall Ritual,Spearcall Ritual,matched,skill_id+weapon,1024,16120000,Death Ritual Spear
+2400,Bolt of Gransax,Ancient Lightning Spear - Bullet,Ancient Lightning Spear - Bullet,matched,weapon_name_fallback,1049,16090000,Bolt of Gransax
+2401,Bolt of Gransax,Ancient Lightning Spear Charged - Bullet,Ancient Lightning Spear Charged - Bullet,matched,weapon_name_fallback,1049,16090000,Bolt of Gransax
+2402,Bolt of Gransax,Ancient Lightning Spear - Bullet (Water AoE),Ancient Lightning Spear - Bullet (Water AoE),matched,weapon_name_fallback,1049,16090000,Bolt of Gransax
+2403,Serpent-Hunter,Great-Serpent Hunt #1,Great-Serpent Hunt,matched,skill_id+weapon,1188,17030000,Serpent-Hunter
+2404,Serpent-Hunter,Great-Serpent Hunt #2,Great-Serpent Hunt,matched,skill_id+weapon,1188,17030000,Serpent-Hunter
+2405,Serpent-Hunter,Great-Serpent Hunt #1 (Lacking FP),Great-Serpent Hunt,matched,skill_id+weapon,1188,17030000,Serpent-Hunter
+2406,Serpent-Hunter,Great-Serpent Hunt #2 (Lacking FP),Great-Serpent Hunt,matched,skill_id+weapon,1188,17030000,Serpent-Hunter
+2407,Serpent-Hunter,Great-Serpent Hunt ?,Great-Serpent Hunt,matched,skill_id+weapon,1188,17030000,Serpent-Hunter
+2408,Serpent-Hunter,Great-Serpent Hunt ?,Great-Serpent Hunt,matched,skill_id+weapon,1188,17030000,Serpent-Hunter
+2409,Serpent-Hunter,Great-Serpent Hunt ?,Great-Serpent Hunt,matched,skill_id+weapon,1188,17030000,Serpent-Hunter
+2410,Serpent-Hunter,Great-Serpent Hunt ?,Great-Serpent Hunt,matched,skill_id+weapon,1188,17030000,Serpent-Hunter
+2411,Serpent-Hunter,Great-Serpent Hunt ?,Great-Serpent Hunt,matched,skill_id+weapon,1188,17030000,Serpent-Hunter
+2412,Siluria's Tree,Siluria's Woe,Siluria's Woe,matched,skill_id+weapon,1009,17020000,Siluria's Tree
+2413,Siluria's Tree,Siluria's Woe - Bullet,Siluria's Woe - Bullet,matched,weapon_name_fallback,1009,17020000,Siluria's Tree
+2414,Siluria's Tree,Siluria's Woe Charged,Siluria's Woe Charged,matched,weapon_name_fallback,1009,17020000,Siluria's Tree
+2415,Siluria's Tree,Siluria's Woe Charged - Bullet,Siluria's Woe Charged - Bullet,matched,weapon_name_fallback,1009,17020000,Siluria's Tree
+2416,Siluria's Tree,Siluria's Woe Charged - Bullet (Ranged),Siluria's Woe Charged - Bullet (Ranged),matched,weapon_name_fallback,1009,17020000,Siluria's Tree
+2417,Siluria's Tree,Siluria's Woe Charged (Lacking FP),Siluria's Woe Charged,matched,weapon_name_fallback,1009,17020000,Siluria's Tree
+2418,Siluria's Tree,Siluria's Woe (Lacking FP),Siluria's Woe,matched,skill_id+weapon,1009,17020000,Siluria's Tree
+2419,Vyke's War Spear,Frenzyflame Thrust - Leap Stagger,Frenzyflame Thrust - Leap Stagger,matched,weapon_name_fallback,1050,17050000,Vyke's War Spear
+2420,Vyke's War Spear,Frenzyflame Thrust,Frenzyflame Thrust,matched,skill_id+weapon,1050,17050000,Vyke's War Spear
+2421,Vyke's War Spear,Frenzyflame Thrust - Bullet (Explosion),Frenzyflame Thrust - Bullet (Explosion),matched,weapon_name_fallback,1050,17050000,Vyke's War Spear
+2422,Vyke's War Spear,Frenzyflame Thrust - Bullet (Ticks),Frenzyflame Thrust - Bullet (Ticks),matched,weapon_name_fallback,1050,17050000,Vyke's War Spear
+2423,Vyke's War Spear,Frenzyflame Thrust (Lacking FP),Frenzyflame Thrust,matched,skill_id+weapon,1050,17050000,Vyke's War Spear
+2424,Barbed Staff-Spear,Jori's Inquisition - Bullet,Jori's Inquisition - Bullet,matched,weapon_name_fallback,5470,17520000,Barbed Staff-Spear
+2425,Barbed Staff-Spear,Jori's Inquisition,Jori's Inquisition,matched,skill_id+weapon,5470,17520000,Barbed Staff-Spear
+2426,Bloodfiend's Sacred Spear,Bloodfiends' Bloodboon #1 - Bullet,Bloodfiends' Bloodboon - Bullet,matched,weapon_name_fallback,5560,16550000,Bloodfiend's Sacred Spear
+2427,Bloodfiend's Sacred Spear,Bloodfiends' Bloodboon #2 - Bullet,Bloodfiends' Bloodboon - Bullet,matched,weapon_name_fallback,5560,16550000,Bloodfiend's Sacred Spear
+2428,Bloodfiend's Sacred Spear,Bloodfiends' Bloodboon #3 - Bullet,Bloodfiends' Bloodboon - Bullet,matched,weapon_name_fallback,5560,16550000,Bloodfiend's Sacred Spear
+2429,Bloodfiend's Sacred Spear,Bloodfiends' Bloodboon #1 (Lacking FP),Bloodfiends' Bloodboon,matched,skill_id+weapon,5560,16550000,Bloodfiend's Sacred Spear
+2430,Bloodfiend's Sacred Spear,Bloodfiends' Bloodboon #2 (Lacking FP),Bloodfiends' Bloodboon,matched,skill_id+weapon,5560,16550000,Bloodfiend's Sacred Spear
+2431,Bloodfiend's Sacred Spear,Bloodfiends' Bloodboon #3 (Lacking FP),Bloodfiends' Bloodboon,matched,skill_id+weapon,5560,16550000,Bloodfiend's Sacred Spear
+2432,Mohgwyn's Sacred Spear,Bloodboon Ritual #1,Bloodboon Ritual,matched,skill_id+weapon,1034,17010000,Mohgwyn's Sacred Spear
+2433,Mohgwyn's Sacred Spear,Bloodboon Ritual #1 - Bullet 1,Bloodboon Ritual - Bullet 1,matched,weapon_name_fallback,1034,17010000,Mohgwyn's Sacred Spear
+2434,Mohgwyn's Sacred Spear,Bloodboon Ritual #1 - Bullet 2,Bloodboon Ritual - Bullet 2,matched,weapon_name_fallback,1034,17010000,Mohgwyn's Sacred Spear
+2435,Mohgwyn's Sacred Spear,Bloodboon Ritual #1 - Bullet 1&2 [Hit],Bloodboon Ritual - Bullet 1&2 [Hit],matched,weapon_name_fallback,1034,17010000,Mohgwyn's Sacred Spear
+2436,Mohgwyn's Sacred Spear,Bloodboon Ritual #2,Bloodboon Ritual,matched,skill_id+weapon,1034,17010000,Mohgwyn's Sacred Spear
+2437,Mohgwyn's Sacred Spear,Bloodboon Ritual #2 - Bullet 1,Bloodboon Ritual - Bullet 1,matched,weapon_name_fallback,1034,17010000,Mohgwyn's Sacred Spear
+2438,Mohgwyn's Sacred Spear,Bloodboon Ritual #2 - Bullet 2,Bloodboon Ritual - Bullet 2,matched,weapon_name_fallback,1034,17010000,Mohgwyn's Sacred Spear
+2439,Mohgwyn's Sacred Spear,Bloodboon Ritual #2 - Bullet 1&2 [Hit],Bloodboon Ritual - Bullet 1&2 [Hit],matched,weapon_name_fallback,1034,17010000,Mohgwyn's Sacred Spear
+2440,Mohgwyn's Sacred Spear,Bloodboon Ritual #3,Bloodboon Ritual,matched,skill_id+weapon,1034,17010000,Mohgwyn's Sacred Spear
+2441,Mohgwyn's Sacred Spear,Bloodboon Ritual #3 - Bullet 1,Bloodboon Ritual - Bullet 1,matched,weapon_name_fallback,1034,17010000,Mohgwyn's Sacred Spear
+2442,Mohgwyn's Sacred Spear,Bloodboon Ritual #3 - Bullet 2,Bloodboon Ritual - Bullet 2,matched,weapon_name_fallback,1034,17010000,Mohgwyn's Sacred Spear
+2443,Mohgwyn's Sacred Spear,Bloodboon Ritual #3 - Bullet 1&2 [Hit],Bloodboon Ritual - Bullet 1&2 [Hit],matched,weapon_name_fallback,1034,17010000,Mohgwyn's Sacred Spear
+2444,Mohgwyn's Sacred Spear,Bloodboon Ritual #1 (Lacking FP),Bloodboon Ritual,matched,skill_id+weapon,1034,17010000,Mohgwyn's Sacred Spear
+2445,Mohgwyn's Sacred Spear,Bloodboon Ritual #2 (Lacking FP),Bloodboon Ritual,matched,skill_id+weapon,1034,17010000,Mohgwyn's Sacred Spear
+2446,Mohgwyn's Sacred Spear,Bloodboon Ritual #3 (Lacking FP),Bloodboon Ritual,matched,skill_id+weapon,1034,17010000,Mohgwyn's Sacred Spear
+2447,Spear of the Impaler,Messmer's Assault #1 [1],Messmer's Assault,matched,skill_id+weapon,5190,17500000,Spear of the Impaler
+2448,Spear of the Impaler,Messmer's Assault #1 [2],Messmer's Assault,matched,skill_id+weapon,5190,17500000,Spear of the Impaler
+2449,Spear of the Impaler,Messmer's Assault #1 - Bullet,Messmer's Assault - Bullet,matched,weapon_name_fallback,5190,17500000,Spear of the Impaler
+2450,Spear of the Impaler,Messmer's Assault #2 [1],Messmer's Assault,matched,skill_id+weapon,5190,17500000,Spear of the Impaler
+2451,Spear of the Impaler,Messmer's Assault #2 [2],Messmer's Assault,matched,skill_id+weapon,5190,17500000,Spear of the Impaler
+2452,Spear of the Impaler,Messmer's Assault #2 [3],Messmer's Assault,matched,skill_id+weapon,5190,17500000,Spear of the Impaler
+2453,Spear of the Impaler,Messmer's Assault #3,Messmer's Assault,matched,skill_id+weapon,5190,17500000,Spear of the Impaler
+2454,Spear of the Impaler,Messmer's Assault #3 - Bullet,Messmer's Assault - Bullet,matched,weapon_name_fallback,5190,17500000,Spear of the Impaler
+2455,Spear of the Impaler,Messmer's Assault #3 - Bullet,Messmer's Assault - Bullet,matched,weapon_name_fallback,5190,17500000,Spear of the Impaler
+2456,Spear of the Impaler,Messmer's Assault #1 [1] (Lacking FP),Messmer's Assault,matched,skill_id+weapon,5190,17500000,Spear of the Impaler
+2457,Spear of the Impaler,Messmer's Assault #1 [2] (Lacking FP),Messmer's Assault,matched,skill_id+weapon,5190,17500000,Spear of the Impaler
+2458,Spear of the Impaler,Messmer's Assault #2 [1] (Lacking FP),Messmer's Assault,matched,skill_id+weapon,5190,17500000,Spear of the Impaler
+2459,Spear of the Impaler,Messmer's Assault #2 [2] (Lacking FP),Messmer's Assault,matched,skill_id+weapon,5190,17500000,Spear of the Impaler
+2460,Spear of the Impaler,Messmer's Assault #2 [3] (Lacking FP),Messmer's Assault,matched,skill_id+weapon,5190,17500000,Spear of the Impaler
+2461,Spear of the Impaler,Messmer's Assault #3 (Lacking FP),Messmer's Assault,matched,skill_id+weapon,5190,17500000,Spear of the Impaler
+2462,Dragon Halberd,Spinning Slash #1,Spinning Slash,unmatched_weapon_in_skill_family,skill_id,,,
+2463,Dragon Halberd,Spinning Slash #2 [1],Spinning Slash,unmatched_weapon_in_skill_family,skill_id,,,
+2464,Dragon Halberd,Spinning Slash #2 [2],Spinning Slash,unmatched_weapon_in_skill_family,skill_id,,,
+2465,Dragon Halberd,Spinning Slash #2 - Bullet,Spinning Slash - Bullet,unmatched_weapon,none,,,
+2466,Dragon Halberd,Spinning Slash #2 - Bullet (Water AoE),Spinning Slash - Bullet (Water AoE),unmatched_weapon,none,,,
+2467,Dragon Halberd,Spinning Slash #1 (Lacking FP),Spinning Slash,unmatched_weapon_in_skill_family,skill_id,,,
+2468,Dragon Halberd,Spinning Slash #2 [1] (Lacking FP),Spinning Slash,unmatched_weapon_in_skill_family,skill_id,,,
+2469,Dragon Halberd,Spinning Slash #2 [2] (Lacking FP),Spinning Slash,unmatched_weapon_in_skill_family,skill_id,,,
+2470,Loretta's War Sickle,Loretta's Slash ?,Loretta's Slash,unmatched_weapon,none,,,
+2471,Loretta's War Sickle,Loretta's Slash [1],Loretta's Slash,unmatched_weapon,none,,,
+2472,Loretta's War Sickle,Loretta's Slash [2],Loretta's Slash,unmatched_weapon,none,,,
+2473,Loretta's War Sickle,Loretta's Slash [1] (Lacking FP),Loretta's Slash,unmatched_weapon,none,,,
+2474,Loretta's War Sickle,Loretta's Slash [2] (Lacking FP),Loretta's Slash,unmatched_weapon,none,,,
+2475,Commander's Standard,Rallying Standard - Bullet,Rallying Standard - Bullet,matched,weapon_name_fallback,1010,18040000,Commander's Standard
+2476,Spirit Glaive,Rancor Slash #1 [1],Rancor Slash,matched,skill_id+weapon,5290,18500000,Spirit Glaive
+2477,Spirit Glaive,Rancor Slash #1 [2],Rancor Slash,matched,skill_id+weapon,5290,18500000,Spirit Glaive
+2478,Spirit Glaive,Rancor Slash #2,Rancor Slash,matched,skill_id+weapon,5290,18500000,Spirit Glaive
+2479,Spirit Glaive,Rancor Slash - Bullet,Rancor Slash - Bullet,matched,weapon_name_fallback,5290,18500000,Spirit Glaive
+2480,Spirit Glaive,Rancor Slash #1 [1] (Lacking FP),Rancor Slash,matched,skill_id+weapon,5290,18500000,Spirit Glaive
+2481,Spirit Glaive,Rancor Slash #1 [2] (Lacking FP),Rancor Slash,matched,skill_id+weapon,5290,18500000,Spirit Glaive
+2482,Spirit Glaive,Rancor Slash #2 (Lacking FP),Rancor Slash,matched,skill_id+weapon,5290,18500000,Spirit Glaive
+2483,Poleblade of the Bud,Romina's Purification [1],Romina's Purification,matched,skill_id+weapon,5300,18510000,Poleblade of the Bud
+2484,Poleblade of the Bud,Romina's Purification [2],Romina's Purification,matched,skill_id+weapon,5300,18510000,Poleblade of the Bud
+2485,Poleblade of the Bud,Romina's Purification - Bullet,Romina's Purification - Bullet,matched,weapon_name_fallback,5300,18510000,Poleblade of the Bud
+2486,Poleblade of the Bud,Romina's Purification [1] (Lacking FP),Romina's Purification,matched,skill_id+weapon,5300,18510000,Poleblade of the Bud
+2487,Poleblade of the Bud,Romina's Purification [2] (Lacking FP),Romina's Purification,matched,skill_id+weapon,5300,18510000,Poleblade of the Bud
+2488,Halo Scythe,Miquella's Ring of Light #1,Miquella's Ring of Light,matched,skill_id+weapon,1051,19020000,Halo Scythe
+2489,Halo Scythe,Miquella's Ring of Light #1 - Bullet,Miquella's Ring of Light - Bullet,matched,weapon_name_fallback,1051,19020000,Halo Scythe
+2490,Halo Scythe,Miquella's Ring of Light #1 - Bullet (Far),Miquella's Ring of Light - Bullet (Far),matched,weapon_name_fallback,1051,19020000,Halo Scythe
+2491,Halo Scythe,Miquella's Ring of Light #2,Miquella's Ring of Light,matched,skill_id+weapon,1051,19020000,Halo Scythe
+2492,Halo Scythe,Miquella's Ring of Light #2 - Bullet,Miquella's Ring of Light - Bullet,matched,weapon_name_fallback,1051,19020000,Halo Scythe
+2493,Halo Scythe,Miquella's Ring of Light #2 - Bullet (Far),Miquella's Ring of Light - Bullet (Far),matched,weapon_name_fallback,1051,19020000,Halo Scythe
+2494,Halo Scythe,Miquella's Ring of Light #3,Miquella's Ring of Light,matched,skill_id+weapon,1051,19020000,Halo Scythe
+2495,Halo Scythe,Miquella's Ring of Light #3 - Bullet,Miquella's Ring of Light - Bullet,matched,weapon_name_fallback,1051,19020000,Halo Scythe
+2496,Halo Scythe,Miquella's Ring of Light #3 - Bullet (Far),Miquella's Ring of Light - Bullet (Far),matched,weapon_name_fallback,1051,19020000,Halo Scythe
+2497,Halo Scythe,Miquella's Ring of Light #1 (Lacking FP),Miquella's Ring of Light,matched,skill_id+weapon,1051,19020000,Halo Scythe
+2498,Halo Scythe,Miquella's Ring of Light #2 (Lacking FP),Miquella's Ring of Light,matched,skill_id+weapon,1051,19020000,Halo Scythe
+2499,Halo Scythe,Miquella's Ring of Light #3 (Lacking FP),Miquella's Ring of Light,matched,skill_id+weapon,1051,19020000,Halo Scythe
+2500,Winged Scythe,Angel's Wings [1],Angel's Wings,matched,skill_id+weapon,1189,19060000,Winged Scythe
+2501,Winged Scythe,Angel's Wings [2],Angel's Wings,matched,skill_id+weapon,1189,19060000,Winged Scythe
+2502,Winged Scythe,Angel's Wings ?,Angel's Wings,matched,skill_id+weapon,1189,19060000,Winged Scythe
+2503,Winged Scythe,Angel's Wings [1] (Lacking FP),Angel's Wings,matched,skill_id+weapon,1189,19060000,Winged Scythe
+2504,Winged Scythe,Angel's Wings [2] (Lacking FP),Angel's Wings,matched,skill_id+weapon,1189,19060000,Winged Scythe
+2505,Obsidian Lamina,Dynastic Sickleplay R2 #1,Dynastic Sickleplay,matched,skill_id+weapon,5120,19500000,Obsidian Lamina
+2506,Obsidian Lamina,Dynastic Sickleplay R2 #2 [1],Dynastic Sickleplay,matched,skill_id+weapon,5120,19500000,Obsidian Lamina
+2507,Obsidian Lamina,Dynastic Sickleplay R2 #2 [2],Dynastic Sickleplay,matched,skill_id+weapon,5120,19500000,Obsidian Lamina
+2508,Obsidian Lamina,Dynastic Sickleplay R2 #2 [3],Dynastic Sickleplay,matched,skill_id+weapon,5120,19500000,Obsidian Lamina
+2509,Obsidian Lamina,Dynastic Sickleplay R2 #1 (Lacking FP),Dynastic Sickleplay,matched,skill_id+weapon,5120,19500000,Obsidian Lamina
+2510,Obsidian Lamina,Dynastic Sickleplay R2 #2 [1] (Lacking FP),Dynastic Sickleplay,matched,skill_id+weapon,5120,19500000,Obsidian Lamina
+2511,Obsidian Lamina,Dynastic Sickleplay R2 #2 [2] (Lacking FP),Dynastic Sickleplay,matched,skill_id+weapon,5120,19500000,Obsidian Lamina
+2512,Obsidian Lamina,Dynastic Sickleplay R2 #2 [3] (Lacking FP),Dynastic Sickleplay,matched,skill_id+weapon,5120,19500000,Obsidian Lamina
+2513,Tooth Whip,Painful Strike [1],Painful Strike,matched,skill_id+weapon,5420,20500000,Tooth Whip
+2514,Tooth Whip,Painful Strike [2],Painful Strike,matched,skill_id+weapon,5420,20500000,Tooth Whip
+2515,Tooth Whip,Painful Strike [3],Painful Strike,matched,skill_id+weapon,5420,20500000,Tooth Whip
+2516,Tooth Whip,Painful Strike [1] (Lacking FP),Painful Strike,matched,skill_id+weapon,5420,20500000,Tooth Whip
+2517,Tooth Whip,Painful Strike [2] (Lacking FP),Painful Strike,matched,skill_id+weapon,5420,20500000,Tooth Whip
+2518,Tooth Whip,Painful Strike [3] (Lacking FP),Painful Strike,matched,skill_id+weapon,5420,20500000,Tooth Whip
+2519,Magma Whip Candlestick,Sea of Magma [1],Sea of Magma,matched,skill_id+weapon,1006,20030000,Magma Whip Candlestick
+2520,Magma Whip Candlestick,Sea of Magma [2],Sea of Magma,matched,skill_id+weapon,1006,20030000,Magma Whip Candlestick
+2521,Magma Whip Candlestick,Sea of Magma - Loop [1],Sea of Magma - Loop,matched,weapon_name_fallback,1006,20030000,Magma Whip Candlestick
+2522,Magma Whip Candlestick,Sea of Magma - Loop [2],Sea of Magma - Loop,matched,weapon_name_fallback,1006,20030000,Magma Whip Candlestick
+2523,Magma Whip Candlestick,Sea of Magma - Final,Sea of Magma - Final,matched,weapon_name_fallback,1006,20030000,Magma Whip Candlestick
+2524,Magma Whip Candlestick,Sea of Magma - Bullet,Sea of Magma - Bullet,matched,weapon_name_fallback,1006,20030000,Magma Whip Candlestick
+2525,Magma Whip Candlestick,Sea of Magma - Bullet,Sea of Magma - Bullet,matched,weapon_name_fallback,1006,20030000,Magma Whip Candlestick
+2526,Magma Whip Candlestick,Sea of Magma [1] (Lacking FP),Sea of Magma,matched,skill_id+weapon,1006,20030000,Magma Whip Candlestick
+2527,Magma Whip Candlestick,Sea of Magma [2] (Lacking FP),Sea of Magma,matched,skill_id+weapon,1006,20030000,Magma Whip Candlestick
+2528,Magma Whip Candlestick,Sea of Magma - Loop [1] (Lacking FP),Sea of Magma - Loop,matched,weapon_name_fallback,1006,20030000,Magma Whip Candlestick
+2529,Magma Whip Candlestick,Sea of Magma - Loop [2] (Lacking FP),Sea of Magma - Loop,matched,weapon_name_fallback,1006,20030000,Magma Whip Candlestick
+2530,Magma Whip Candlestick,Sea of Magma - Final (Lacking FP),Sea of Magma - Final,matched,weapon_name_fallback,1006,20030000,Magma Whip Candlestick
+2531,Giant's Red Braid,Flame Dance [1],Flame Dance,matched,skill_id+weapon,1045,20060000,Giant's Red Braid
+2532,Giant's Red Braid,Flame Dance [2],Flame Dance,matched,skill_id+weapon,1045,20060000,Giant's Red Braid
+2533,Giant's Red Braid,Flame Dance [3],Flame Dance,matched,skill_id+weapon,1045,20060000,Giant's Red Braid
+2534,Giant's Red Braid,Flame Dance [4],Flame Dance,matched,skill_id+weapon,1045,20060000,Giant's Red Braid
+2535,Giant's Red Braid,Flame Dance [5],Flame Dance,matched,skill_id+weapon,1045,20060000,Giant's Red Braid
+2536,Giant's Red Braid,Flame Dance [1] (Lacking FP),Flame Dance,matched,skill_id+weapon,1045,20060000,Giant's Red Braid
+2537,Giant's Red Braid,Flame Dance [2] (Lacking FP),Flame Dance,matched,skill_id+weapon,1045,20060000,Giant's Red Braid
+2538,Giant's Red Braid,Flame Dance [3] (Lacking FP),Flame Dance,matched,skill_id+weapon,1045,20060000,Giant's Red Braid
+2539,Giant's Red Braid,Flame Dance [4] (Lacking FP),Flame Dance,matched,skill_id+weapon,1045,20060000,Giant's Red Braid
+2540,Giant's Red Braid,Flame Dance [5] (Lacking FP),Flame Dance,matched,skill_id+weapon,1045,20060000,Giant's Red Braid
+2541,Veteran's Prosthesis,Storm Kick [1],Storm Kick,matched,skill_id+weapon,1190,21120000,Veteran's Prosthesis
+2542,Veteran's Prosthesis,Storm Kick [2],Storm Kick,matched,skill_id+weapon,1190,21120000,Veteran's Prosthesis
+2543,Veteran's Prosthesis,Storm Kick R2 [1],Storm Kick,matched,skill_id+weapon,1190,21120000,Veteran's Prosthesis
+2544,Veteran's Prosthesis,Storm Kick R2 [2],Storm Kick,matched,skill_id+weapon,1190,21120000,Veteran's Prosthesis
+2545,Veteran's Prosthesis,Storm Kick R2 [3],Storm Kick,matched,skill_id+weapon,1190,21120000,Veteran's Prosthesis
+2546,Veteran's Prosthesis,Storm Kick [1] (Lacking FP),Storm Kick,matched,skill_id+weapon,1190,21120000,Veteran's Prosthesis
+2547,Veteran's Prosthesis,Storm Kick [2] (Lacking FP),Storm Kick,matched,skill_id+weapon,1190,21120000,Veteran's Prosthesis
+2548,Veteran's Prosthesis,Storm Kick R2 [1] (Lacking FP),Storm Kick,matched,skill_id+weapon,1190,21120000,Veteran's Prosthesis
+2549,Veteran's Prosthesis,Storm Kick R2 [2] (Lacking FP),Storm Kick,matched,skill_id+weapon,1190,21120000,Veteran's Prosthesis
+2550,Veteran's Prosthesis,Storm Kick R2 [3] (Lacking FP),Storm Kick,matched,skill_id+weapon,1190,21120000,Veteran's Prosthesis
+2551,Veteran's Prosthesis,Storm Kick (Left) [1],Storm Kick (Left),matched,weapon_name_fallback,1190,21120000,Veteran's Prosthesis
+2552,Veteran's Prosthesis,Storm Kick (Left) [2],Storm Kick (Left),matched,weapon_name_fallback,1190,21120000,Veteran's Prosthesis
+2553,Veteran's Prosthesis,Storm Kick R2 (Left) [1],Storm Kick R2 (Left),matched,weapon_name_fallback,1190,21120000,Veteran's Prosthesis
+2554,Veteran's Prosthesis,Storm Kick R2 (Left) [2],Storm Kick R2 (Left),matched,weapon_name_fallback,1190,21120000,Veteran's Prosthesis
+2555,Veteran's Prosthesis,Storm Kick R2 (Left) [3],Storm Kick R2 (Left),matched,weapon_name_fallback,1190,21120000,Veteran's Prosthesis
+2556,Veteran's Prosthesis,Storm Kick (Left) [1] (Lacking FP),Storm Kick (Left),matched,weapon_name_fallback,1190,21120000,Veteran's Prosthesis
+2557,Veteran's Prosthesis,Storm Kick (Left) [2] (Lacking FP),Storm Kick (Left),matched,weapon_name_fallback,1190,21120000,Veteran's Prosthesis
+2558,Veteran's Prosthesis,Storm Kick R2 (Left) [1]  (Lacking FP),Storm Kick R2 (Left),matched,weapon_name_fallback,1190,21120000,Veteran's Prosthesis
+2559,Veteran's Prosthesis,Storm Kick R2 (Left) [2] (Lacking FP),Storm Kick R2 (Left),matched,weapon_name_fallback,1190,21120000,Veteran's Prosthesis
+2560,Veteran's Prosthesis,Storm Kick R2 (Left) [3] (Lacking FP),Storm Kick R2 (Left),matched,weapon_name_fallback,1190,21120000,Veteran's Prosthesis
+2561,Cipher Pata,Unblockable Blade,Unblockable Blade,matched,skill_id+weapon,1191,21130000,Cipher Pata
+2562,Cipher Pata,Unblockable Blade (Lacking FP),Unblockable Blade,matched,skill_id+weapon,1191,21130000,Cipher Pata
+2563,Poisoned Hand,Poison Spear-Hand Strike,Poison Spear-Hand Strike,matched,skill_id+weapon,5310,21520000,Poisoned Hand
+2564,Poisoned Hand,Poison Spear-Hand Strike (Lacking FP),Poison Spear-Hand Strike,matched,skill_id+weapon,5310,21520000,Poisoned Hand
+2565,Madding Hand,Madding Spear-Hand Strike,Madding Spear-Hand Strike,matched,skill_id+weapon,5320,21530000,Madding Hand
+2566,Madding Hand,Madding Spear-Hand Strike (Lacking FP),Madding Spear-Hand Strike,matched,skill_id+weapon,5320,21530000,Madding Hand
+2567,Thiollier's Hidden Needle,Sleep Evermore,Sleep Evermore,matched,skill_id+weapon,5210,21500000,Thiollier's Hidden Needle
+2568,Thiollier's Hidden Needle,Sleep Evermore (Lacking FP),Sleep Evermore,matched,skill_id+weapon,5210,21500000,Thiollier's Hidden Needle
+2569,Grafted Dragon,Bear Witness! [1] - Bullet,Bear Witness! [1] - Bullet,matched,weapon_name_fallback,1011,21060000,Grafted Dragon
+2570,Grafted Dragon,Bear Witness! [2] - Bullet,Bear Witness! [2] - Bullet,matched,weapon_name_fallback,1011,21060000,Grafted Dragon
+2571,Grafted Dragon,Bear Witness! [3] - Bullet (Explosion),Bear Witness! [3] - Bullet (Explosion),matched,weapon_name_fallback,1011,21060000,Grafted Dragon
+2572,Grafted Dragon,Bear Witness! [4] - Bullet (Projectile),Bear Witness! [4] - Bullet (Projectile),matched,weapon_name_fallback,1011,21060000,Grafted Dragon
+2573,Grafted Dragon,Bear Witness! [4] - Bullet (Projectile),Bear Witness! [4] - Bullet (Projectile),matched,weapon_name_fallback,1011,21060000,Grafted Dragon
+2574,Grafted Dragon,Bear Witness! [4] - Bullet (Projectile),Bear Witness! [4] - Bullet (Projectile),matched,weapon_name_fallback,1011,21060000,Grafted Dragon
+2575,Grafted Dragon,Bear Witness! [4] - Bullet (Lingering Fire),Bear Witness! [4] - Bullet (Lingering Fire),matched,weapon_name_fallback,1011,21060000,Grafted Dragon
+2576,Grafted Dragon,Bear Witness! (Lacking FP),Bear Witness!,matched,skill_id+weapon,1011,21060000,Grafted Dragon
+2577,Claws of Night,Scattershot Throw #1 [1],Scattershot Throw,matched,weapon_name_fallback,5510,22500000,Claws of Night
+2578,Claws of Night,Scattershot Throw #1 [2],Scattershot Throw,matched,weapon_name_fallback,5510,22500000,Claws of Night
+2579,Claws of Night,Scattershot Throw #2 [1],Scattershot Throw,matched,weapon_name_fallback,5510,22500000,Claws of Night
+2580,Claws of Night,Scattershot Throw #2 [2],Scattershot Throw,matched,weapon_name_fallback,5510,22500000,Claws of Night
+2581,Claws of Night,Scattershot Throw (Far),Scattershot Throw (Far),matched,weapon_name_fallback,5510,22500000,Claws of Night
+2582,Claws of Night,Scattershot Throw (Lacking FP),Scattershot Throw,matched,weapon_name_fallback,5510,22500000,Claws of Night
+2583,Red Bear's Claw,Red Bear Hunt #1,Red Bear Hunt,matched,skill_id+weapon,4080,68510000,Red Bear's Claw
+2584,Red Bear's Claw,Red Bear Hunt #1 - Bullet,Red Bear Hunt - Bullet,matched,weapon_name_fallback,4080,68510000,Red Bear's Claw
+2585,Red Bear's Claw,Red Bear Hunt #2,Red Bear Hunt,matched,skill_id+weapon,4080,68510000,Red Bear's Claw
+2586,Red Bear's Claw,Red Bear Hunt #2 - Bullet,Red Bear Hunt - Bullet,matched,weapon_name_fallback,4080,68510000,Red Bear's Claw
+2587,Red Bear's Claw,Red Bear Hunt #3 [1],Red Bear Hunt,matched,skill_id+weapon,4080,68510000,Red Bear's Claw
+2588,Red Bear's Claw,Red Bear Hunt #3 [2],Red Bear Hunt,matched,skill_id+weapon,4080,68510000,Red Bear's Claw
+2589,Red Bear's Claw,Red Bear Hunt #3 - Bullet,Red Bear Hunt - Bullet,matched,weapon_name_fallback,4080,68510000,Red Bear's Claw
+2590,Red Bear's Claw,Red Bear Hunt #1 (Lacking FP),Red Bear Hunt,matched,skill_id+weapon,4080,68510000,Red Bear's Claw
+2591,Red Bear's Claw,Red Bear Hunt #2 (Lacking FP),Red Bear Hunt,matched,skill_id+weapon,4080,68510000,Red Bear's Claw
+2592,Red Bear's Claw,Red Bear Hunt #3 [1] (Lacking FP),Red Bear Hunt,matched,skill_id+weapon,4080,68510000,Red Bear's Claw
+2593,Red Bear's Claw,Red Bear Hunt #3 [2] (Lacking FP),Red Bear Hunt,matched,skill_id+weapon,4080,68510000,Red Bear's Claw
+2594,Carian Regal Scepter,Spinning Weapon [1],Spinning Weapon,matched,skill_id+weapon,1199,33090000,Carian Regal Scepter
+2595,Carian Regal Scepter,Spinning Weapon [2],Spinning Weapon,matched,skill_id+weapon,1199,33090000,Carian Regal Scepter
+2596,Carian Regal Scepter,Spinning Weapon [3],Spinning Weapon,matched,skill_id+weapon,1199,33090000,Carian Regal Scepter
+2597,Carian Regal Scepter,Spinning Weapon [4],Spinning Weapon,matched,skill_id+weapon,1199,33090000,Carian Regal Scepter
+2598,Carian Regal Scepter,Spinning Weapon [1] (Lacking FP),Spinning Weapon,matched,skill_id+weapon,1199,33090000,Carian Regal Scepter
+2599,Carian Regal Scepter,Spinning Weapon [2] (Lacking FP),Spinning Weapon,matched,skill_id+weapon,1199,33090000,Carian Regal Scepter
+2600,Carian Regal Scepter,Spinning Weapon [3] (Lacking FP),Spinning Weapon,matched,skill_id+weapon,1199,33090000,Carian Regal Scepter
+2601,Carian Regal Scepter,Spinning Weapon [4] (Lacking FP),Spinning Weapon,matched,skill_id+weapon,1199,33090000,Carian Regal Scepter
+2602,Steel-Wire Torch,Firebreather,Firebreather,matched,skill_id+weapon,223,24020000,Steel-Wire Torch
+2603,Steel-Wire Torch,Firebreather - Bullet,Firebreather - Bullet,matched,weapon_name_fallback,223,24020000,Steel-Wire Torch
+2604,Steel-Wire Torch,Firebreather - Bullet,Firebreather - Bullet,matched,weapon_name_fallback,223,24020000,Steel-Wire Torch
+2605,St. Trina's Torch,Fires of Slumber - Bullet,Fires of Slumber - Bullet,matched,weapon_name_fallback,1195,24040000,St. Trina's Torch
+2606,St. Trina's Torch,Fires of Slumber - Bullet,Fires of Slumber - Bullet,matched,weapon_name_fallback,1195,24040000,St. Trina's Torch
+2607,Nanaya's Torch,Feeble Lord's Frenzied Flame,Feeble Lord's Frenzied Flame,matched,skill_id+weapon,5330,24500000,Nanaya's Torch
+2608,Nanaya's Torch,Feeble Lord's Frenzied Flame - Self-Madness,Feeble Lord's Frenzied Flame - Self-Madness,matched,weapon_name_fallback,5330,24500000,Nanaya's Torch
+2609,Coil Shield,Viper Bite,Viper Bite,matched,skill_id+weapon,1007,30200000,Coil Shield
+2610,Coil Shield,Viper Bite (Lacking FP),Viper Bite,matched,skill_id+weapon,1007,30200000,Coil Shield
+2611,Smithscript Shield,Discus Hurl [1] - Bullet,Discus Hurl [1] - Bullet,matched,weapon_name_fallback,5370,30510000,Smithscript Shield
+2612,Smithscript Shield,Discus Hurl [2] - Bullet,Discus Hurl [2] - Bullet,matched,weapon_name_fallback,5370,30510000,Smithscript Shield
+2613,Smithscript Shield,Discus Hurl - Bullet (Lacking FP),Discus Hurl - Bullet,matched,weapon_name_fallback,5370,30510000,Smithscript Shield
+2614,Shield of Night,Revenge of the Night - Bullet,Revenge of the Night - Bullet,matched,weapon_name_fallback,5440,21550000,Shield of Night
+2615,Shield of Night,Revenge of the Night Guard Counter - Bullet,Revenge of the Night Guard Counter - Bullet,matched,weapon_name_fallback,5440,21550000,Shield of Night
+2616,Shield of Night,Revenge of the Night (Lacking FP),Revenge of the Night,matched,skill_id+weapon,5440,21550000,Shield of Night
+2617,Shield of Night,Revenge of the Night Guard Counter (Lacking FP),Revenge of the Night Guard Counter,matched,weapon_name_fallback,5440,21550000,Shield of Night
+2618,Golden Lion Shield,Roaring Bash [1],Roaring Bash,matched,skill_id+weapon,5480,31530000,Golden Lion Shield
+2619,Golden Lion Shield,Roaring Bash [2],Roaring Bash,matched,skill_id+weapon,5480,31530000,Golden Lion Shield
+2620,Golden Lion Shield,Roaring Bash (Lacking FP),Roaring Bash,matched,skill_id+weapon,5480,31530000,Golden Lion Shield
+2621,Golden Lion Shield,Roaring Bash (Left) [1],Roaring Bash (Left),matched,weapon_name_fallback,5480,31530000,Golden Lion Shield
+2622,Golden Lion Shield,Roaring Bash (Left) [2],Roaring Bash (Left),matched,weapon_name_fallback,5480,31530000,Golden Lion Shield
+2623,Golden Lion Shield,Roaring Bash (Left) (Lacking FP),Roaring Bash (Left),matched,weapon_name_fallback,5480,31530000,Golden Lion Shield
+2624,Erdtree Greatshield,"Golden Retaliation - Bullet (""Parry"" ?)","Golden Retaliation - Bullet (""Parry"" ?)",matched,weapon_name_fallback,1196,32080000,Erdtree Greatshield
+2625,Erdtree Greatshield,"Golden Retaliation - Bullet (""Parry"" ?)","Golden Retaliation - Bullet (""Parry"" ?)",matched,weapon_name_fallback,1196,32080000,Erdtree Greatshield
+2626,Erdtree Greatshield,Golden Retaliation - Bullet,Golden Retaliation - Bullet,matched,weapon_name_fallback,1196,32080000,Erdtree Greatshield
+2627,Erdtree Greatshield,Golden Retaliation - Bullet,Golden Retaliation - Bullet,matched,weapon_name_fallback,1196,32080000,Erdtree Greatshield
+2628,Visage Shield,Tongues of Fire - Bullet,Tongues of Fire - Bullet,matched,weapon_name_fallback,1002,32160000,Visage Shield
+2629,One-Eyed Shield,Flame Spit - Bullet,Flame Spit - Bullet,matched,weapon_name_fallback,1001,32150000,One-Eyed Shield
+2630,One-Eyed Shield,Flame Spit - Bullet AoE,Flame Spit - Bullet AoE,matched,weapon_name_fallback,1001,32150000,One-Eyed Shield
+2631,Verdigris Greatshield,Moore's Charge [1],Moore's Charge,matched,skill_id+weapon,5230,32520000,Verdigris Greatshield
+2632,Verdigris Greatshield,Moore's Charge [2],Moore's Charge,matched,skill_id+weapon,5230,32520000,Verdigris Greatshield
+2633,Verdigris Greatshield,Moore's Charge [3],Moore's Charge,matched,skill_id+weapon,5230,32520000,Verdigris Greatshield
+2634,Verdigris Greatshield,Moore's Charge [4],Moore's Charge,matched,skill_id+weapon,5230,32520000,Verdigris Greatshield
+2635,Verdigris Greatshield,Moore's Charge [5],Moore's Charge,matched,skill_id+weapon,5230,32520000,Verdigris Greatshield
+2636,Verdigris Greatshield,Moore's Charge [5] - Bullet,Moore's Charge [5] - Bullet,matched,weapon_name_fallback,5230,32520000,Verdigris Greatshield
+2637,Verdigris Greatshield,Moore's Charge Early Release,Moore's Charge Early Release,matched,weapon_name_fallback,5230,32520000,Verdigris Greatshield
+2638,Verdigris Greatshield,Moore's Charge Early Release - Bullet,Moore's Charge Early Release - Bullet,matched,weapon_name_fallback,5230,32520000,Verdigris Greatshield
+2639,Verdigris Greatshield,Moore's Charge [1] (Lacking FP),Moore's Charge,matched,skill_id+weapon,5230,32520000,Verdigris Greatshield
+2640,Verdigris Greatshield,Moore's Charge [2] (Lacking FP),Moore's Charge,matched,skill_id+weapon,5230,32520000,Verdigris Greatshield
+2641,Verdigris Greatshield,Moore's Charge [3] (Lacking FP),Moore's Charge,matched,skill_id+weapon,5230,32520000,Verdigris Greatshield
+2642,Verdigris Greatshield,Moore's Charge [4] (Lacking FP),Moore's Charge,matched,skill_id+weapon,5230,32520000,Verdigris Greatshield
+2643,Verdigris Greatshield,Moore's Charge [5] (Lacking FP),Moore's Charge,matched,skill_id+weapon,5230,32520000,Verdigris Greatshield
+2644,Verdigris Greatshield,Moore's Charge Early Release (Lacking FP),Moore's Charge Early Release,matched,weapon_name_fallback,5230,32520000,Verdigris Greatshield

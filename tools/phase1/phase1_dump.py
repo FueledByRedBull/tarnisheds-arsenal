@@ -9,9 +9,14 @@ import re
 import shutil
 import subprocess
 import sys
-from collections import Counter, defaultdict
+from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Iterator
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 ROW_MARKER = '<row id="'
 ATTR_RE = re.compile(r'(\w+)="([^"]*)"')
@@ -39,65 +44,82 @@ STAT_AEC_PREFIX = {
     "arc": "Luck",
 }
 
-AFFINITY_PREFIXES = (
-    "Flame Art",
-    "Lightning",
-    "Quality",
-    "Occult",
-    "Sacred",
-    "Poison",
-    "Heavy",
-    "Magic",
-    "Blood",
-    "Keen",
-    "Cold",
-    "Fire",
-)
-
-WEP_TYPE_TO_AOW_KEYS: dict[int, tuple[str, ...]] = {
-    1: ("Dagger",),
-    3: ("SwordNormal",),
-    5: ("SwordLarge",),
-    7: ("SwordGigantic",),
-    9: ("SaberNormal",),
-    11: ("SaberLarge",),
-    13: ("katana",),
-    14: ("SwordDoubleEdge",),
-    15: ("SwordPierce",),
-    16: ("RapierHeavy",),
-    17: ("AxeNormal",),
-    19: ("AxeLarge",),
-    21: ("HammerNormal",),
-    23: ("HammerLarge",),
-    24: ("Flail",),
-    25: ("SpearNormal",),
-    28: ("SpearHeavy",),
-    29: ("SpearAxe",),
-    31: ("Sickle",),
-    35: ("Knuckle",),
-    37: ("Claw",),
-    39: ("Whip",),
-    41: ("AxhammerLarge",),
-    50: ("BowSmall",),
-    51: ("BowNormal",),
-    53: ("BowLarge",),
-    55: ("ClossBow",),
-    56: ("Ballista",),
-    57: ("Staff", "Sorcery"),
-    61: ("Talisman",),
-    65: ("ShieldSmall",),
-    67: ("ShieldNormal",),
-    69: ("ShieldLarge",),
-    87: ("Torch",),
-    88: ("HandToHand",),
-    89: ("PerfumeBottle",),
-    90: ("ThrustingShield",),
-    91: ("ThrowingWeapon",),
-    92: ("ReverseHandSword",),
-    93: ("LightGreatsword",),
-    94: ("GreatKatana",),
-    95: ("BeastClaw",),
+AFFINITY_BY_SLOT = {
+    0: "Standard",
+    1: "Heavy",
+    2: "Keen",
+    3: "Quality",
+    4: "Fire",
+    5: "Flame Art",
+    6: "Lightning",
+    7: "Sacred",
+    8: "Magic",
+    9: "Cold",
+    10: "Poison",
+    11: "Blood",
+    12: "Occult",
 }
+
+WEP_TYPE_KEY_ALIASES = {
+    "straightsword": ("SwordNormal",),
+    "greatsword": ("SwordLarge",),
+    "colossalsword": ("SwordGigantic",),
+    "curvedsword": ("SaberNormal",),
+    "curvedgreatsword": ("SaberLarge",),
+    "katana": ("katana",),
+    "twinblade": ("SwordDoubleEdge",),
+    "thrustingsword": ("SwordPierce",),
+    "heavythrustingsword": ("RapierHeavy",),
+    "axe": ("AxeNormal",),
+    "greataxe": ("AxeLarge",),
+    "hammer": ("HammerNormal",),
+    "greathammer": ("HammerLarge",),
+    "flail": ("Flail",),
+    "spear": ("SpearNormal",),
+    "heavyspear": ("SpearHeavy",),
+    "halberd": ("SpearAxe",),
+    "scythe": ("Sickle",),
+    "fist": ("Knuckle",),
+    "claw": ("Claw",),
+    "whip": ("Whip",),
+    "colossalweapon": ("AxhammerLarge",),
+    "lightbow": ("BowSmall",),
+    "bow": ("BowNormal",),
+    "greatbow": ("BowLarge",),
+    "crossbow": ("ClossBow",),
+    "ballista": ("Ballista",),
+    "staff": ("Staff", "Sorcery"),
+    "seal": ("Talisman",),
+    "smallshield": ("ShieldSmall",),
+    "mediumshield": ("ShieldNormal",),
+    "greatshield": ("ShieldLarge",),
+    "torch": ("Torch",),
+    "handtohand": ("HandToHand",),
+    "perfumebottle": ("PerfumeBottle",),
+    "thrustingshield": ("ThrustingShield",),
+    "throwingblade": ("ThrowingWeapon",),
+    "reversehandblade": ("ReverseHandSword",),
+    "lightgreatsword": ("LightGreatsword",),
+    "greatkatana": ("GreatKatana",),
+    "beastclaw": ("BeastClaw",),
+}
+
+
+@dataclass(frozen=True)
+class RegulationContext:
+    workdir: Path
+    xml_paths: dict[str, Path]
+    weapon_rows: list[dict[str, str]]
+    reinforce_rows: list[dict[str, str]]
+    curve_rows: list[dict[str, str]]
+    attack_rows: list[dict[str, str]]
+    aow_rows: list[dict[str, str]]
+    sp_rows: list[dict[str, str]]
+    weapon_name_map: dict[int, str]
+    sword_art_name_map: dict[int, str]
+    wep_type_name_map: dict[int, str]
+    gem_mount_fields: tuple[str, ...]
+    weapon_type_keys_by_id: dict[int, tuple[str, ...]]
 
 
 def parse_args() -> argparse.Namespace:
@@ -172,6 +194,22 @@ def unpack_regulation(regulation_path: Path, witchybnd_path: Path, workdir: Path
     if unpacked is None:
         raise RuntimeError("Could not find unpacked regulation folder.")
     return unpacked
+
+
+def serialized_xml_paths_from_workdir(workdir: Path) -> dict[str, Path] | None:
+    unpacked_dir = workdir / "regulation-bin"
+    required = (
+        WEAPON_PARAM,
+        REINFORCE_PARAM,
+        CALC_CORRECT_PARAM,
+        ATTACK_ELEMENT_PARAM,
+        AOW_PARAM,
+        SPEFFECT_PARAM,
+    )
+    xml_paths = {param_name: unpacked_dir / f"{param_name}.xml" for param_name in required}
+    if all(path.exists() for path in xml_paths.values()):
+        return xml_paths
+    return None
 
 
 def serialize_param(unpacked_dir: Path, witchybnd_path: Path, param_name: str) -> Path:
@@ -252,8 +290,8 @@ def write_csv(path: Path, fieldnames: list[str], rows: Iterable[dict[str, object
             writer.writerow(out)
 
 
-def load_weapon_name_map(witchybnd_path: Path) -> dict[int, str]:
-    names_path = witchybnd_path.parent / "Assets" / "Paramdex" / "ER" / "Names" / "EquipParamWeapon.txt"
+def load_param_name_map(witchybnd_path: Path, param_name: str) -> dict[int, str]:
+    names_path = witchybnd_path.parent / "Assets" / "Paramdex" / "ER" / "Names" / f"{param_name}.txt"
     if not names_path.exists():
         return {}
 
@@ -274,6 +312,10 @@ def load_weapon_name_map(witchybnd_path: Path) -> dict[int, str]:
     return mapping
 
 
+def load_weapon_name_map(witchybnd_path: Path) -> dict[int, str]:
+    return load_param_name_map(witchybnd_path, "EquipParamWeapon")
+
+
 def load_wep_type_name_map(witchybnd_path: Path) -> dict[int, str]:
     meta_path = witchybnd_path.parent / "Assets" / "Paramdex" / "ER" / "Meta" / "EquipParamWeapon.xml"
     if not meta_path.exists():
@@ -290,40 +332,90 @@ def load_wep_type_name_map(witchybnd_path: Path) -> dict[int, str]:
     return mapping
 
 
-def detect_affinity_prefix(name: str) -> str | None:
-    for prefix in AFFINITY_PREFIXES:
-        if name.startswith(f"{prefix} "):
-            return prefix
-    return None
+def normalize_lookup_token(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", value.lower())
+
+
+def discover_gem_mount_fields(xml_path: Path) -> tuple[str, ...]:
+    text = xml_path.read_text(encoding="utf-8")
+    fields = list(dict.fromkeys(re.findall(r'<field name="canMountWep_([^"]+)"', text)))
+    return tuple(fields)
+
+
+def build_weapon_type_key_map(
+    wep_type_name_map: dict[int, str],
+    gem_mount_fields: tuple[str, ...],
+) -> dict[int, tuple[str, ...]]:
+    mount_field_set = set(gem_mount_fields)
+    direct_by_norm: dict[str, list[str]] = defaultdict(list)
+    for field_name in gem_mount_fields:
+        direct_by_norm[normalize_lookup_token(field_name)].append(field_name)
+
+    out: dict[int, tuple[str, ...]] = {}
+    for weapon_type_id, weapon_type_name in wep_type_name_map.items():
+        normalized_name = normalize_lookup_token(weapon_type_name)
+        candidates = direct_by_norm.get(normalized_name, [])
+        if not candidates:
+            candidates = [
+                field_name
+                for field_name in WEP_TYPE_KEY_ALIASES.get(normalized_name, ())
+                if field_name in mount_field_set
+            ]
+        out[weapon_type_id] = tuple(dict.fromkeys(candidates))
+    return out
+
+
+def weapon_series_id(weapon_id: int) -> int:
+    return weapon_id - (weapon_id % 10000)
+
+
+def weapon_affinity_slot(weapon_id: int) -> int:
+    return (weapon_id % 10000) // 100
+
+
+def build_standard_name_map(
+    weapon_rows: list[dict[str, str]],
+    name_map: dict[int, str],
+) -> dict[int, str]:
+    out: dict[int, str] = {}
+    for row in weapon_rows:
+        weapon_id = to_int(row, "id")
+        if weapon_id % 10000 != 0:
+            continue
+        raw_name = row.get("paramdexName", "").strip()
+        if not raw_name:
+            raw_name = name_map.get(weapon_id, "").strip()
+        if raw_name:
+            out[weapon_series_id(weapon_id)] = raw_name
+    return out
 
 
 def build_reinforce_affinity_map(weapon_rows: list[dict[str, str]]) -> dict[int, str]:
-    total_by_type: Counter[int] = Counter()
-    prefix_counts: dict[int, Counter[str]] = defaultdict(Counter)
-
+    affinity_by_type: dict[int, str] = {}
     for row in weapon_rows:
         weapon_id = to_int(row, "id")
         if weapon_id % 100 != 0:
             continue
-        name = row.get("paramdexName", "").strip()
-        if not name:
+        if weapon_id < 1_000_000:
+            continue
+        if to_int(row, "originEquipWep", -1) < 0:
             continue
         reinforce_type = to_int(row, "reinforceTypeId")
-        total_by_type[reinforce_type] += 1
-        prefix = detect_affinity_prefix(name)
-        if prefix is not None:
-            prefix_counts[reinforce_type][prefix] += 1
-
-    affinity_by_type: dict[int, str] = {}
-    for reinforce_type, total in total_by_type.items():
-        if total < 5 or reinforce_type not in prefix_counts:
-            affinity_by_type[reinforce_type] = "Standard"
+        if to_int(row, "disableGemAttr", 0) != 0:
+            affinity_by_type.setdefault(reinforce_type, "Standard")
             continue
-        prefix, count = prefix_counts[reinforce_type].most_common(1)[0]
-        if count / total >= 0.60:
-            affinity_by_type[reinforce_type] = prefix
-        else:
-            affinity_by_type[reinforce_type] = "Standard"
+        slot = weapon_affinity_slot(weapon_id)
+        affinity = AFFINITY_BY_SLOT.get(slot)
+        if affinity is None:
+            raise ValueError(
+                f"unsupported ashable affinity slot {slot} for weapon_id={weapon_id}"
+            )
+        existing = affinity_by_type.get(reinforce_type)
+        if existing is not None and existing != affinity:
+            raise ValueError(
+                f"conflicting affinity mapping for reinforce_type={reinforce_type}: {existing} vs {affinity}"
+            )
+        affinity_by_type[reinforce_type] = affinity
     return affinity_by_type
 
 
@@ -380,6 +472,10 @@ def derive_damage_curve_ids(weapon: dict[str, str]) -> dict[str, int]:
         "fire": to_int(weapon, "correctType_Fire"),
         "lightning": to_int(weapon, "correctType_Thunder"),
         "holy": to_int(weapon, "correctType_Dark"),
+        "poison": to_int(weapon, "correctType_Poison", 6),
+        "blood": to_int(weapon, "correctType_Blood", 6),
+        "sleep": to_int(weapon, "correctType_Sleep", 6),
+        "madness": to_int(weapon, "correctType_Madness", 6),
     }
 
 
@@ -439,12 +535,14 @@ def build_attack_element_rows(
 def build_weapon_rows(
     weapon_rows: list[dict[str, str]],
     name_map: dict[int, str],
+    sword_art_name_map: dict[int, str],
     wep_type_name_map: dict[int, str],
+    weapon_type_keys_by_id: dict[int, tuple[str, ...]],
     affinity_by_type: dict[int, str],
-    attack_map: dict[int, dict[str, str]],
     max_level_by_type: dict[int, int],
 ) -> list[dict[str, object]]:
     rows_out: list[dict[str, object]] = []
+    standard_name_by_series = build_standard_name_map(weapon_rows, name_map)
 
     for row in weapon_rows:
         weapon_id = to_int(row, "id")
@@ -462,16 +560,17 @@ def build_weapon_rows(
         reinforce_type = to_int(row, "reinforceTypeId")
         affinity = affinity_by_type.get(reinforce_type, "Standard")
         name = raw_name
-        if affinity != "Standard" and raw_name.startswith(f"{affinity} "):
-            name = raw_name[len(affinity) + 1 :]
+        if affinity != "Standard":
+            name = standard_name_by_series.get(weapon_series_id(weapon_id), raw_name)
 
         attack_element_correct_id = to_int(row, "attackElementCorrectId")
-        aec = attack_map.get(attack_element_correct_id, {})
         damage_curve_ids = derive_damage_curve_ids(row)
         is_somber = 1 if max_level_by_type.get(reinforce_type, 25) <= 10 else 0
         weapon_type_id = to_int(row, "wepType", 0)
         weapon_type_name = wep_type_name_map.get(weapon_type_id, "Unknown")
-        weapon_type_keys = WEP_TYPE_TO_AOW_KEYS.get(weapon_type_id, ())
+        weapon_type_keys = weapon_type_keys_by_id.get(weapon_type_id, ())
+        native_skill_id = to_int(row, "swordArtsParamId", -1)
+        native_skill_name = sword_art_name_map.get(native_skill_id, "").strip() if native_skill_id > 0 else ""
 
         base_physical = to_int(row, "attackBasePhysics", 0)
         base_magic = to_int(row, "attackBaseMagic", 0)
@@ -511,6 +610,14 @@ def build_weapon_rows(
                 "curve_id_fire": damage_curve_ids["fire"],
                 "curve_id_lightning": damage_curve_ids["lightning"],
                 "curve_id_holy": damage_curve_ids["holy"],
+                "curve_id_poison": damage_curve_ids["poison"],
+                "curve_id_blood": damage_curve_ids["blood"],
+                "curve_id_sleep": damage_curve_ids["sleep"],
+                "curve_id_madness": damage_curve_ids["madness"],
+                "native_skill_id": native_skill_id if native_skill_id > 0 else "",
+                "native_skill_name": native_skill_name,
+                "disable_gem_attr": to_int(row, "disableGemAttr", 0),
+                "disable_two_hand_bonus": to_int(row, "isDualBlade", 0),
                 "is_somber": is_somber,
             }
         )
@@ -620,6 +727,50 @@ def build_aow_rows(
     return rows_out
 
 
+def load_regulation_context(
+    regulation_path: Path,
+    witchybnd_path: Path,
+    workdir: Path,
+) -> RegulationContext:
+    xml_paths = serialized_xml_paths_from_workdir(workdir)
+    if xml_paths is None:
+        unpacked_dir = unpack_regulation(regulation_path, witchybnd_path, workdir)
+        xml_paths = {
+            WEAPON_PARAM: serialize_param(unpacked_dir, witchybnd_path, WEAPON_PARAM),
+            REINFORCE_PARAM: serialize_param(unpacked_dir, witchybnd_path, REINFORCE_PARAM),
+            CALC_CORRECT_PARAM: serialize_param(unpacked_dir, witchybnd_path, CALC_CORRECT_PARAM),
+            ATTACK_ELEMENT_PARAM: serialize_param(unpacked_dir, witchybnd_path, ATTACK_ELEMENT_PARAM),
+            AOW_PARAM: serialize_param(unpacked_dir, witchybnd_path, AOW_PARAM),
+            SPEFFECT_PARAM: serialize_param(unpacked_dir, witchybnd_path, SPEFFECT_PARAM),
+        }
+    weapon_rows = list(iter_param_rows(xml_paths[WEAPON_PARAM]))
+    reinforce_rows = list(iter_param_rows(xml_paths[REINFORCE_PARAM]))
+    curve_rows = list(iter_param_rows(xml_paths[CALC_CORRECT_PARAM]))
+    attack_rows = list(iter_param_rows(xml_paths[ATTACK_ELEMENT_PARAM]))
+    aow_rows = list(iter_param_rows(xml_paths[AOW_PARAM]))
+    sp_rows = list(iter_param_rows(xml_paths[SPEFFECT_PARAM]))
+    weapon_name_map = load_weapon_name_map(witchybnd_path)
+    sword_art_name_map = load_param_name_map(witchybnd_path, "SwordArtsParam")
+    wep_type_name_map = load_wep_type_name_map(witchybnd_path)
+    gem_mount_fields = discover_gem_mount_fields(xml_paths[AOW_PARAM])
+    weapon_type_keys_by_id = build_weapon_type_key_map(wep_type_name_map, gem_mount_fields)
+    return RegulationContext(
+        workdir=workdir,
+        xml_paths=xml_paths,
+        weapon_rows=weapon_rows,
+        reinforce_rows=reinforce_rows,
+        curve_rows=curve_rows,
+        attack_rows=attack_rows,
+        aow_rows=aow_rows,
+        sp_rows=sp_rows,
+        weapon_name_map=weapon_name_map,
+        sword_art_name_map=sword_art_name_map,
+        wep_type_name_map=wep_type_name_map,
+        gem_mount_fields=gem_mount_fields,
+        weapon_type_keys_by_id=weapon_type_keys_by_id,
+    )
+
+
 def main() -> int:
     args = parse_args()
     regulation_path: Path = args.regulation.resolve()
@@ -634,39 +785,22 @@ def main() -> int:
             f"WitchyBND.exe not found: {witchybnd_path} (pass --witchybnd <path>)"
         )
 
-    unpacked_dir = unpack_regulation(regulation_path, witchybnd_path, workdir)
-    xml_paths = {
-        WEAPON_PARAM: serialize_param(unpacked_dir, witchybnd_path, WEAPON_PARAM),
-        REINFORCE_PARAM: serialize_param(unpacked_dir, witchybnd_path, REINFORCE_PARAM),
-        CALC_CORRECT_PARAM: serialize_param(unpacked_dir, witchybnd_path, CALC_CORRECT_PARAM),
-        ATTACK_ELEMENT_PARAM: serialize_param(unpacked_dir, witchybnd_path, ATTACK_ELEMENT_PARAM),
-        AOW_PARAM: serialize_param(unpacked_dir, witchybnd_path, AOW_PARAM),
-        SPEFFECT_PARAM: serialize_param(unpacked_dir, witchybnd_path, SPEFFECT_PARAM),
-    }
-
-    weapon_rows = list(iter_param_rows(xml_paths[WEAPON_PARAM]))
-    reinforce_rows = list(iter_param_rows(xml_paths[REINFORCE_PARAM]))
-    curve_rows = list(iter_param_rows(xml_paths[CALC_CORRECT_PARAM]))
-    attack_rows = list(iter_param_rows(xml_paths[ATTACK_ELEMENT_PARAM]))
-    aow_rows = list(iter_param_rows(xml_paths[AOW_PARAM]))
-    sp_rows = list(iter_param_rows(xml_paths[SPEFFECT_PARAM]))
-
-    weapon_name_map = load_weapon_name_map(witchybnd_path)
-    wep_type_name_map = load_wep_type_name_map(witchybnd_path)
-    affinity_by_type = build_reinforce_affinity_map(weapon_rows)
-    reinforce_csv_rows, max_level_by_type = build_reinforce_rows(reinforce_rows)
-    attack_csv_rows, attack_map = build_attack_element_rows(attack_rows)
+    context = load_regulation_context(regulation_path, witchybnd_path, workdir)
+    affinity_by_type = build_reinforce_affinity_map(context.weapon_rows)
+    reinforce_csv_rows, max_level_by_type = build_reinforce_rows(context.reinforce_rows)
+    attack_csv_rows, _attack_map = build_attack_element_rows(context.attack_rows)
     weapon_csv_rows = build_weapon_rows(
-        weapon_rows,
-        weapon_name_map,
-        wep_type_name_map,
+        context.weapon_rows,
+        context.weapon_name_map,
+        context.sword_art_name_map,
+        context.wep_type_name_map,
+        context.weapon_type_keys_by_id,
         affinity_by_type,
-        attack_map,
         max_level_by_type,
     )
-    calc_correct_csv_rows = build_calc_correct_rows(curve_rows)
-    sp_effect_map = build_speffect_map(sp_rows)
-    aow_csv_rows = build_aow_rows(aow_rows, sp_effect_map)
+    calc_correct_csv_rows = build_calc_correct_rows(context.curve_rows)
+    sp_effect_map = build_speffect_map(context.sp_rows)
+    aow_csv_rows = build_aow_rows(context.aow_rows, sp_effect_map)
 
     write_csv(
         output_dir / "weapons.csv",
@@ -699,6 +833,14 @@ def main() -> int:
             "curve_id_fire",
             "curve_id_lightning",
             "curve_id_holy",
+            "curve_id_poison",
+            "curve_id_blood",
+            "curve_id_sleep",
+            "curve_id_madness",
+            "native_skill_id",
+            "native_skill_name",
+            "disable_gem_attr",
+            "disable_two_hand_bonus",
             "is_somber",
         ],
         weapon_csv_rows,
@@ -771,6 +913,20 @@ def main() -> int:
         ],
         aow_csv_rows,
     )
+
+    from tools.phase1.derive_phase1_raw_extras import export_regulation_extras
+    from tools.phase1.extract_motion_workbook import run_workbook_exports
+
+    export_regulation_extras(
+        weapon_csv_rows=weapon_csv_rows,
+        reinforce_csv_rows=reinforce_csv_rows,
+        weapon_param_rows={to_int(row, "id"): row for row in context.weapon_rows},
+        reinforce_param_rows={to_int(row, "id"): row for row in context.reinforce_rows},
+        gem_rows=context.aow_rows,
+        sp_effect_rows={to_int(row, "id"): row for row in context.sp_rows},
+        output_dir=output_dir,
+    )
+    run_workbook_exports(Path(__file__).resolve().parents[2], output_dir)
 
     if not args.keep_workdir:
         shutil.rmtree(workdir, ignore_errors=True)

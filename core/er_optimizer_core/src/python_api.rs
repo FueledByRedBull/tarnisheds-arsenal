@@ -10,9 +10,21 @@ use pyo3::types::PyAny;
 use crate::data::load_game_data;
 use crate::model::Stats;
 use crate::optimizer::{
-    aow_compatible_with_weapon, estimate_search_space, optimize, optimize_with_progress,
     OptimizeObjective, OptimizeRequest, OptimizeResult, SearchEstimate, SomberFilter,
+    aow_compatible_with_weapon, estimate_search_space, optimize, optimize_with_progress,
 };
+
+fn normalize_weapon_type_display(raw: &str) -> &str {
+    match raw.trim() {
+        "Hand-to-Hand" => "Hand-to-Hand Arts",
+        "Heavy Spear" => "Great Spear",
+        "Reverse-hand Blade" => "Backhand Blade",
+        "Scythe" => "Reaper",
+        "Seal" => "Sacred Seal",
+        "Staff" => "Glintstone Staff",
+        other => other,
+    }
+}
 
 #[pyclass(name = "GameData")]
 pub struct PyGameData {
@@ -69,6 +81,16 @@ impl PyGameData {
                     continue;
                 }
             }
+            let native_rows = self.inner.native_skill_attack_rows(weapon.weapon_id);
+            if !native_rows.is_empty() {
+                if let Some(skill_name) = weapon
+                    .native_skill_name
+                    .as_deref()
+                    .or_else(|| native_rows.first().map(|row| row.aow_name.as_str()))
+                {
+                    set.insert(skill_name.to_string());
+                }
+            }
             for aow in &self.inner.aows {
                 if aow_compatible_with_weapon(aow, weapon, &self.inner) {
                     set.insert(aow.name.clone());
@@ -96,16 +118,15 @@ impl PyGameData {
         set.into_iter().collect()
     }
 
-    fn weapon_scaling(&self, weapon_name: &str, affinity: &str) -> PyResult<(f32, f32, f32, f32, f32)> {
-        let Some(weapon) = self
-            .inner
-            .weapons
-            .iter()
-            .find(|weapon| {
-                weapon.name.eq_ignore_ascii_case(weapon_name)
-                    && weapon.affinity.eq_ignore_ascii_case(affinity)
-            })
-        else {
+    fn weapon_scaling(
+        &self,
+        weapon_name: &str,
+        affinity: &str,
+    ) -> PyResult<(f32, f32, f32, f32, f32)> {
+        let Some(weapon) = self.inner.weapons.iter().find(|weapon| {
+            weapon.name.eq_ignore_ascii_case(weapon_name)
+                && weapon.affinity.eq_ignore_ascii_case(affinity)
+        }) else {
             return Err(PyValueError::new_err(format!(
                 "weapon not found for scaling lookup: {weapon_name} | {affinity}"
             )));
@@ -125,15 +146,10 @@ impl PyGameData {
         affinity: &str,
         upgrade: u8,
     ) -> PyResult<(f32, f32, f32, f32, f32)> {
-        let Some(weapon) = self
-            .inner
-            .weapons
-            .iter()
-            .find(|weapon| {
-                weapon.name.eq_ignore_ascii_case(weapon_name)
-                    && weapon.affinity.eq_ignore_ascii_case(affinity)
-            })
-        else {
+        let Some(weapon) = self.inner.weapons.iter().find(|weapon| {
+            weapon.name.eq_ignore_ascii_case(weapon_name)
+                && weapon.affinity.eq_ignore_ascii_case(affinity)
+        }) else {
             return Err(PyValueError::new_err(format!(
                 "weapon not found for scaling lookup: {weapon_name} | {affinity}"
             )));
@@ -156,10 +172,9 @@ impl PyGameData {
     fn weapon_type_keys(&self) -> Vec<String> {
         let mut set = BTreeSet::new();
         for weapon in &self.inner.weapons {
-            for key in weapon.weapon_type_keys.split('|') {
-                if !key.is_empty() {
-                    set.insert(key.to_string());
-                }
+            let name = normalize_weapon_type_display(&weapon.weapon_type_name).trim();
+            if !name.is_empty() {
+                set.insert(name.to_string());
             }
         }
         set.into_iter().collect()
@@ -170,10 +185,13 @@ impl PyGameData {
         let mut set = BTreeSet::new();
         for weapon in &self.inner.weapons {
             if let Some(key) = weapon_type_key {
-                let matches = weapon
-                    .weapon_type_keys
-                    .split('|')
-                    .any(|value| value.eq_ignore_ascii_case(key));
+                let matches = normalize_weapon_type_display(&weapon.weapon_type_name)
+                    .eq_ignore_ascii_case(key)
+                    || weapon.weapon_type_name.eq_ignore_ascii_case(key)
+                    || weapon
+                        .weapon_type_keys
+                        .split('|')
+                        .any(|value| value.eq_ignore_ascii_case(key));
                 if !matches {
                     continue;
                 }
@@ -246,6 +264,31 @@ impl PyGameData {
             )));
         }
         Ok(false)
+    }
+
+    #[pyo3(signature = (weapon_name, affinity=None))]
+    fn weapon_upgrade_cap(&self, weapon_name: &str, affinity: Option<&str>) -> PyResult<u8> {
+        let mut best: Option<u8> = None;
+        for weapon in &self.inner.weapons {
+            if !weapon.name.eq_ignore_ascii_case(weapon_name) {
+                continue;
+            }
+            if let Some(aff) = affinity {
+                if !weapon.affinity.eq_ignore_ascii_case(aff) {
+                    continue;
+                }
+            }
+            let cap = if weapon.is_somber { 10 } else { 25 };
+            best = Some(match best {
+                Some(current) => current.max(cap),
+                None => cap,
+            });
+        }
+        best.ok_or_else(|| {
+            PyValueError::new_err(format!(
+                "weapon not found for upgrade-cap lookup: {weapon_name}"
+            ))
+        })
     }
 }
 
@@ -554,11 +597,16 @@ pub fn py_optimize_builds(
     let raw_result = py.allow_threads(|| {
         if let Some(callback) = progress_cb {
             optimize_with_progress(&request, data_ref, progress_every, |snapshot| {
-                if callback_error_ref.lock().ok().and_then(|v| v.clone()).is_some() {
-                    return;
+                if callback_error_ref
+                    .lock()
+                    .ok()
+                    .and_then(|v| v.clone())
+                    .is_some()
+                {
+                    return false;
                 }
                 Python::with_gil(|gil| {
-                    if let Err(err) = callback.call1(
+                    match callback.call1(
                         gil,
                         (
                             snapshot.checked,
@@ -568,11 +616,29 @@ pub fn py_optimize_builds(
                             snapshot.elapsed_ms,
                         ),
                     ) {
-                        if let Ok(mut guard) = callback_error_ref.lock() {
-                            *guard = Some(err.to_string());
+                        Ok(value) => {
+                            let should_continue = match value.is_none(gil) {
+                                true => true,
+                                false => value.is_truthy(gil).unwrap_or(true),
+                            };
+                            if !should_continue {
+                                if let Ok(mut guard) = callback_error_ref.lock() {
+                                    *guard = Some("cancelled".to_string());
+                                }
+                            }
+                        }
+                        Err(err) => {
+                            if let Ok(mut guard) = callback_error_ref.lock() {
+                                *guard = Some(err.to_string());
+                            }
                         }
                     }
                 });
+                callback_error_ref
+                    .lock()
+                    .ok()
+                    .and_then(|v| v.clone())
+                    .is_none()
             })
         } else {
             optimize(&request, data_ref)

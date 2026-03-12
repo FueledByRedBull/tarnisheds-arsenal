@@ -4,11 +4,12 @@ use std::time::Instant;
 
 use crate::math::{
     apply_aow_attack_buffs, apply_aow_status_buffs, calculate_aow_damage, calculate_ar,
-    calculate_status_buildup, class_by_name, compute_free_points, effective_str, meets_requirements,
+    calculate_status_buildup, class_by_name, compute_free_points, effective_str,
+    meets_requirements,
 };
 use crate::model::{
-    Aow, AowAttackRow, DamageBreakdown, DamageType, GameData, Stats, StatusBuildup, Weapon,
-    COMBAT_STAT_COUNT, STAT_ARC, STAT_DEX, STAT_FAI, STAT_INT, STAT_STR,
+    Aow, AowAttackRow, COMBAT_STAT_COUNT, DamageBreakdown, DamageType, GameData, STAT_ARC,
+    STAT_DEX, STAT_FAI, STAT_INT, STAT_STR, Stats, StatusBuildup, Weapon,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -85,6 +86,8 @@ pub struct ProgressSnapshot {
 #[derive(Clone, Debug)]
 struct AowChoice<'a> {
     aow: Option<&'a Aow>,
+    skill_id: Option<u16>,
+    skill_name: Option<&'a str>,
     attack_rows: Vec<&'a AowAttackRow>,
 }
 
@@ -128,7 +131,7 @@ pub fn estimate_search_space(
 }
 
 pub fn optimize(request: &OptimizeRequest, data: &GameData) -> Result<Vec<OptimizeResult>, String> {
-    optimize_with_progress(request, data, 0, |_snapshot| {})
+    optimize_with_progress(request, data, 0, |_snapshot| true)
 }
 
 pub fn optimize_with_progress<F>(
@@ -138,7 +141,7 @@ pub fn optimize_with_progress<F>(
     mut progress_cb: F,
 ) -> Result<Vec<OptimizeResult>, String>
 where
-    F: FnMut(ProgressSnapshot),
+    F: FnMut(ProgressSnapshot) -> bool,
 {
     if request.top_k == 0 {
         return Ok(Vec::new());
@@ -161,7 +164,11 @@ where
         .map(|entry| (entry.upgrades_len * entry.aow_choices.len()) as u64)
         .sum();
     let total = stat_count.saturating_mul(upgrade_slots);
-    let emit_every = if progress_every == 0 { 0 } else { progress_every };
+    let emit_every = if progress_every == 0 {
+        0
+    } else {
+        progress_every
+    };
 
     let started = Instant::now();
     let mut checked: u64 = 0;
@@ -170,13 +177,15 @@ where
     let mut has_best = false;
     let mut results: Vec<OptimizeResult> = Vec::with_capacity(request.top_k);
 
-    progress_cb(ProgressSnapshot {
+    if !progress_cb(ProgressSnapshot {
         checked,
         total,
         eligible,
         best_score,
         elapsed_ms: 0,
-    });
+    }) {
+        return Err("cancelled".to_string());
+    }
 
     for prepared in &weapons {
         for aow_choice in &prepared.aow_choices {
@@ -197,13 +206,15 @@ where
                     let previous_checked = checked;
                     checked = checked.saturating_add(prepared.upgrades_len as u64);
                     if emit_every > 0 && checked / emit_every != previous_checked / emit_every {
-                        progress_cb(ProgressSnapshot {
+                        if !progress_cb(ProgressSnapshot {
                             checked,
                             total,
                             eligible,
                             best_score,
                             elapsed_ms: started.elapsed().as_millis() as u64,
-                        });
+                        }) {
+                            return Err("cancelled".to_string());
+                        }
                     }
                     continue;
                 }
@@ -212,13 +223,15 @@ where
                     checked += 1;
                     if !meets_requirements(prepared.weapon, effective_str_value, &stats) {
                         if emit_every > 0 && checked % emit_every == 0 {
-                            progress_cb(ProgressSnapshot {
+                            if !progress_cb(ProgressSnapshot {
                                 checked,
                                 total,
                                 eligible,
                                 best_score,
                                 elapsed_ms: started.elapsed().as_millis() as u64,
-                            });
+                            }) {
+                                return Err("cancelled".to_string());
+                            }
                         }
                         continue;
                     }
@@ -236,19 +249,19 @@ where
                         data,
                         aow_choice.aow,
                     )?;
-                    let (aow_first_hit_damage, aow_full_sequence_damage) = if aow_choice.attack_rows.is_empty()
-                    {
-                        (0.0, 0.0)
-                    } else {
-                        calculate_aow_damage(
-                            prepared.weapon,
-                            &aow_choice.attack_rows,
-                            *upgrade,
-                            &stats,
-                            effective_str_value,
-                            data,
-                        )?
-                    };
+                    let (aow_first_hit_damage, aow_full_sequence_damage) =
+                        if aow_choice.attack_rows.is_empty() {
+                            (0.0, 0.0)
+                        } else {
+                            calculate_aow_damage(
+                                prepared.weapon,
+                                &aow_choice.attack_rows,
+                                *upgrade,
+                                &stats,
+                                effective_str_value,
+                                data,
+                            )?
+                        };
                     let score = score_for(
                         request.objective,
                         ar.total(),
@@ -270,8 +283,8 @@ where
                             upgrade: *upgrade,
                             stats,
                             ar,
-                            aow_id: aow_choice.aow.map(|aow| aow.aow_id),
-                            aow_name: aow_choice.aow.map(|aow| aow.name.clone()),
+                            aow_id: aow_choice.skill_id,
+                            aow_name: aow_choice.skill_name.map(str::to_string),
                             bleed_buildup: status_buildup.bleed,
                             bleed_buildup_add: aow_choice
                                 .aow
@@ -288,26 +301,30 @@ where
                     );
 
                     if emit_every > 0 && checked % emit_every == 0 {
-                        progress_cb(ProgressSnapshot {
+                        if !progress_cb(ProgressSnapshot {
                             checked,
                             total,
                             eligible,
                             best_score,
                             elapsed_ms: started.elapsed().as_millis() as u64,
-                        });
+                        }) {
+                            return Err("cancelled".to_string());
+                        }
                     }
                 }
             }
         }
     }
 
-    progress_cb(ProgressSnapshot {
+    if !progress_cb(ProgressSnapshot {
         checked,
         total,
         eligible,
         best_score,
         elapsed_ms: started.elapsed().as_millis() as u64,
-    });
+    }) {
+        return Err("cancelled".to_string());
+    }
 
     Ok(results)
 }
@@ -315,7 +332,8 @@ where
 fn build_combat_constraints(request: &OptimizeRequest) -> Result<CombatConstraints, String> {
     let class_info = class_by_name(&request.class_name)
         .ok_or_else(|| format!("unknown starting class: {}", request.class_name))?;
-    let free_points = compute_free_points(class_info, request.character_level, &request.current_stats)?;
+    let free_points =
+        compute_free_points(class_info, request.character_level, &request.current_stats)?;
     let current = request.current_stats.combat_array();
 
     let mut mins = [0_u8; COMBAT_STAT_COUNT];
@@ -363,7 +381,11 @@ fn prepare_weapons<'a>(
     data: &'a GameData,
 ) -> Result<Vec<PreparedWeapon<'a>>, String> {
     let mut out = Vec::new();
-    for weapon in data.weapons.iter().filter(|entry| weapon_matches_request(entry, request)) {
+    for weapon in data
+        .weapons
+        .iter()
+        .filter(|entry| weapon_matches_request(entry, request))
+    {
         let Some((upgrades, upgrades_len)) = available_upgrades(weapon, request, data) else {
             continue;
         };
@@ -419,10 +441,24 @@ fn weapon_matches_request(weapon: &Weapon, request: &OptimizeRequest) -> bool {
 }
 
 fn weapon_type_matches(weapon: &Weapon, type_key: &str) -> bool {
-    weapon
-        .weapon_type_keys
-        .split('|')
-        .any(|key| key.eq_ignore_ascii_case(type_key))
+    normalize_weapon_type_display(&weapon.weapon_type_name).eq_ignore_ascii_case(type_key)
+        || weapon.weapon_type_name.eq_ignore_ascii_case(type_key)
+        || weapon
+            .weapon_type_keys
+            .split('|')
+            .any(|key| key.eq_ignore_ascii_case(type_key))
+}
+
+fn normalize_weapon_type_display(raw: &str) -> &str {
+    match raw.trim() {
+        "Hand-to-Hand" => "Hand-to-Hand Arts",
+        "Heavy Spear" => "Great Spear",
+        "Reverse-hand Blade" => "Backhand Blade",
+        "Scythe" => "Reaper",
+        "Seal" => "Sacred Seal",
+        "Staff" => "Glintstone Staff",
+        other => other,
+    }
 }
 
 fn available_upgrades(
@@ -456,16 +492,34 @@ fn available_upgrades(
 }
 
 fn resolve_aow_choices<'a>(
-    weapon: &Weapon,
+    weapon: &'a Weapon,
     request: &OptimizeRequest,
     data: &'a GameData,
 ) -> Result<Option<Vec<AowChoice<'a>>>, String> {
     let no_aow = AowChoice {
         aow: None,
+        skill_id: None,
+        skill_name: None,
         attack_rows: Vec::new(),
     };
+    let native_skill_choice = native_skill_choice_for_weapon(weapon, data);
 
     if let Some(lock_aow_name) = request.aow_name.as_deref() {
+        if let Some(choice) = native_skill_choice.as_ref() {
+            if choice
+                .skill_name
+                .is_some_and(|skill_name| skill_name.eq_ignore_ascii_case(lock_aow_name))
+            {
+                if matches!(
+                    request.objective,
+                    OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
+                ) && choice.attack_rows.is_empty()
+                {
+                    return Ok(None);
+                }
+                return Ok(Some(vec![choice.clone()]));
+            }
+        }
         let compatible_matches: Vec<&Aow> = data
             .aows
             .iter()
@@ -497,6 +551,11 @@ fn resolve_aow_choices<'a>(
     }
 
     if request.objective == OptimizeObjective::MaxAr {
+        if let Some(choice) = native_skill_choice {
+            if !choice.attack_rows.is_empty() {
+                return Ok(Some(vec![choice]));
+            }
+        }
         return Ok(Some(vec![no_aow]));
     }
 
@@ -520,6 +579,12 @@ fn resolve_aow_choices<'a>(
         return Ok(Some(vec![no_aow]));
     }
 
+    if let Some(choice) = native_skill_choice {
+        if !choice.attack_rows.is_empty() {
+            return Ok(Some(vec![choice]));
+        }
+    }
+
     let choices: Vec<AowChoice<'a>> = data
         .aows
         .iter()
@@ -537,8 +602,29 @@ fn resolve_aow_choices<'a>(
 fn build_aow_choice<'a>(aow: &'a Aow, weapon: &Weapon, data: &'a GameData) -> AowChoice<'a> {
     AowChoice {
         aow: Some(aow),
+        skill_id: Some(aow.aow_id),
+        skill_name: Some(aow.name.as_str()),
         attack_rows: select_aow_attack_rows(aow.aow_id, weapon, data),
     }
+}
+
+fn native_skill_choice_for_weapon<'a>(
+    weapon: &'a Weapon,
+    data: &'a GameData,
+) -> Option<AowChoice<'a>> {
+    let attack_rows = select_attack_rows(data.native_skill_attack_rows(weapon.weapon_id), weapon);
+    let skill_name = weapon
+        .native_skill_name
+        .as_deref()
+        .or_else(|| attack_rows.first().map(|row| row.aow_name.as_str()))?;
+    Some(AowChoice {
+        aow: None,
+        skill_id: weapon
+            .native_skill_id
+            .or_else(|| attack_rows.first().map(|row| row.aow_id)),
+        skill_name: Some(skill_name),
+        attack_rows,
+    })
 }
 
 fn select_aow_attack_rows<'a>(
@@ -546,7 +632,10 @@ fn select_aow_attack_rows<'a>(
     weapon: &Weapon,
     data: &'a GameData,
 ) -> Vec<&'a AowAttackRow> {
-    let rows = data.aow_attack_rows(aow_id);
+    select_attack_rows(data.aow_attack_rows(aow_id), weapon)
+}
+
+fn select_attack_rows<'a>(rows: &'a [AowAttackRow], weapon: &Weapon) -> Vec<&'a AowAttackRow> {
     if rows.is_empty() {
         return Vec::new();
     }
@@ -589,6 +678,9 @@ fn normalize_type_token(value: &str) -> String {
 }
 
 pub(crate) fn aow_compatible_with_weapon(aow: &Aow, weapon: &Weapon, data: &GameData) -> bool {
+    if weapon.disable_gem_attr {
+        return false;
+    }
     if let Some(exact_match) = data.exact_aow_compatibility(aow.aow_id, weapon.weapon_id) {
         return exact_match;
     }
@@ -624,9 +716,8 @@ fn combat_has_wasted_points(
     data: &GameData,
     combat: &[u8; COMBAT_STAT_COUNT],
 ) -> bool {
-    let contributing_stats: [bool; COMBAT_STAT_COUNT] = std::array::from_fn(|idx| {
-        weapon_stat_can_increase_ar(weapon, data, idx)
-    });
+    let contributing_stats: [bool; COMBAT_STAT_COUNT] =
+        std::array::from_fn(|idx| weapon_stat_can_increase_ar(weapon, data, idx));
     if !contributing_stats
         .iter()
         .enumerate()
@@ -662,7 +753,11 @@ fn minimum_useful_stat(request: &OptimizeRequest, weapon: &Weapon, stat_idx: usi
     floor.max(locked).max(required)
 }
 
-fn minimum_str_for_requirement(requirement: u8, two_handing: bool, disable_two_hand_bonus: bool) -> u8 {
+fn minimum_str_for_requirement(
+    requirement: u8,
+    two_handing: bool,
+    disable_two_hand_bonus: bool,
+) -> u8 {
     if !two_handing || disable_two_hand_bonus {
         return requirement;
     }
@@ -880,8 +975,16 @@ mod tests {
         let results = optimize(&request, &game_data).expect("optimizer failed");
 
         assert!(!results.is_empty());
-        assert!(results.windows(2).all(|pair| pair[0].score >= pair[1].score));
-        assert!(results.iter().all(|result| result.weapon_name == "Uchigatana"));
+        assert!(
+            results
+                .windows(2)
+                .all(|pair| pair[0].score >= pair[1].score)
+        );
+        assert!(
+            results
+                .iter()
+                .all(|result| result.weapon_name == "Uchigatana")
+        );
         assert!(results.iter().all(|result| result.affinity == "Keen"));
         assert!(results.iter().all(|result| result.upgrade <= 25));
     }
@@ -903,7 +1006,7 @@ mod tests {
         let mut request = base_request();
         request.weapon_name = None;
         request.affinity = None;
-        request.weapon_type_key = Some("katana".to_string());
+        request.weapon_type_key = Some("Katana".to_string());
         request.top_k = 10;
 
         let results = optimize(&request, &game_data).expect("optimizer failed");
@@ -912,12 +1015,34 @@ mod tests {
             let weapon = game_data
                 .weapons
                 .iter()
-                .find(|weapon| weapon.weapon_id == result.weapon_id && weapon.affinity == result.affinity)
+                .find(|weapon| {
+                    weapon.weapon_id == result.weapon_id && weapon.affinity == result.affinity
+                })
                 .expect("missing weapon");
-            assert!(weapon
-                .weapon_type_keys
-                .split('|')
-                .any(|key| key.eq_ignore_ascii_case("katana")));
+            assert!(weapon.weapon_type_name.eq_ignore_ascii_case("Katana"));
+        }
+    }
+
+    #[test]
+    fn optimize_accepts_normalized_weapon_type_filter_names() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.weapon_name = None;
+        request.affinity = None;
+        request.weapon_type_key = Some("Hand-to-Hand Arts".to_string());
+        request.top_k = 10;
+
+        let results = optimize(&request, &game_data).expect("optimizer failed");
+        assert!(!results.is_empty());
+        for result in &results {
+            let weapon = game_data
+                .weapons
+                .iter()
+                .find(|weapon| {
+                    weapon.weapon_id == result.weapon_id && weapon.affinity == result.affinity
+                })
+                .expect("missing weapon");
+            assert!(weapon.weapon_type_name.eq_ignore_ascii_case("Hand-to-Hand"));
         }
     }
 
@@ -1054,9 +1179,11 @@ mod tests {
 
         let results = optimize(&request, &game_data).expect("optimizer failed");
         assert!(!results.is_empty());
-        assert!(results
-            .iter()
-            .all(|row| row.stats.fai == 8 && row.stats.arc == 8));
+        assert!(
+            results
+                .iter()
+                .all(|row| row.stats.fai == 8 && row.stats.arc == 8)
+        );
     }
 
     #[test]
@@ -1198,12 +1325,102 @@ mod tests {
             .expect("missing sword dance");
         let rows = select_aow_attack_rows(sword_dance.aow_id, weapon, &game_data);
         assert!(!rows.is_empty());
-        assert!(rows
+        assert!(
+            rows.iter().all(
+                |row| row.variant_weapon_type.is_empty() || row.variant_weapon_type == "Katana"
+            )
+        );
+        assert!(
+            rows.iter()
+                .any(|row| row.raw_name.starts_with("[Katana] Sword Dance"))
+        );
+    }
+
+    #[test]
+    fn somber_weapons_do_not_accept_generic_ashes_of_war() {
+        let game_data = load_data();
+        let halo_scythe = game_data
+            .weapons
             .iter()
-            .all(|row| row.variant_weapon_type.is_empty() || row.variant_weapon_type == "Katana"));
-        assert!(rows
+            .find(|weapon| weapon.name == "Halo Scythe" && weapon.affinity == "Standard")
+            .expect("missing halo scythe");
+        let sword_dance = game_data
+            .aows
             .iter()
-            .any(|row| row.raw_name.starts_with("[Katana] Sword Dance")));
+            .find(|aow| aow.name == "Sword Dance")
+            .expect("missing sword dance");
+
+        assert!(halo_scythe.disable_gem_attr);
+        assert!(!aow_compatible_with_weapon(
+            sword_dance,
+            halo_scythe,
+            &game_data
+        ));
+    }
+
+    #[test]
+    fn somber_weapon_native_skill_damage_is_loaded_and_scored() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.weapon_name = Some("Halo Scythe".to_string());
+        request.affinity = Some("Standard".to_string());
+        request.aow_name = None;
+        request.objective = OptimizeObjective::AowFirstHit;
+        request.current_stats = Stats {
+            vig: 40,
+            mnd: 11,
+            end: 20,
+            str: 16,
+            dex: 16,
+            int: 9,
+            fai: 45,
+            arc: 8,
+        };
+        request.character_level = 88;
+        request.fixed_upgrade = Some(10);
+        request.max_upgrade = 10;
+
+        let results = optimize(&request, &game_data).expect("optimizer failed");
+        assert!(!results.is_empty());
+        assert_eq!(
+            results[0].aow_name.as_deref(),
+            Some("Miquella's Ring of Light")
+        );
+        assert!(results[0].aow_first_hit_damage > 0.0);
+        assert!(results[0].aow_full_sequence_damage >= results[0].aow_first_hit_damage);
+        assert_eq!(results[0].score, results[0].aow_first_hit_damage);
+    }
+
+    #[test]
+    fn somber_weapon_max_ar_keeps_native_skill_metrics() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.weapon_name = Some("Halo Scythe".to_string());
+        request.affinity = Some("Standard".to_string());
+        request.aow_name = None;
+        request.objective = OptimizeObjective::MaxAr;
+        request.current_stats = Stats {
+            vig: 40,
+            mnd: 11,
+            end: 20,
+            str: 18,
+            dex: 40,
+            int: 9,
+            fai: 26,
+            arc: 45,
+        };
+        request.character_level = 150;
+        request.fixed_upgrade = Some(10);
+        request.max_upgrade = 10;
+
+        let results = optimize(&request, &game_data).expect("optimizer failed");
+        assert!(!results.is_empty());
+        assert_eq!(
+            results[0].aow_name.as_deref(),
+            Some("Miquella's Ring of Light")
+        );
+        assert!(results[0].aow_first_hit_damage > 0.0);
+        assert!(results[0].aow_full_sequence_damage > 0.0);
     }
 
     #[test]

@@ -79,6 +79,8 @@ pub struct Weapon {
     pub weapon_id: u32,
     pub name: String,
     pub affinity: String,
+    pub native_skill_id: Option<u16>,
+    pub native_skill_name: Option<String>,
     pub weapon_type_id: u16,
     pub weapon_type_name: String,
     pub weapon_type_keys: String,
@@ -88,6 +90,8 @@ pub struct Weapon {
     pub reinforce_type: u16,
     pub attack_element_correct_id: usize,
     pub damage_curve_ids: [usize; DAMAGE_TYPE_COUNT],
+    pub bleed_curve_id: usize,
+    pub disable_gem_attr: bool,
     pub is_somber: bool,
     pub disable_two_hand_bonus: bool,
 }
@@ -250,7 +254,9 @@ pub struct GameData {
     pub attack_element_correct_ext: HashMap<usize, AttackElementCorrectExt>,
     pub aows: Vec<Aow>,
     pub aow_attack_rows: HashMap<u16, Vec<AowAttackRow>>,
+    pub native_skill_attack_rows: HashMap<u32, Vec<AowAttackRow>>,
     pub weapon_passives: HashMap<u32, StatusEffectSource>,
+    pub weapon_passive_overlays: HashMap<u32, Vec<Option<StatusEffectSource>>>,
     pub exact_aow_compat: HashSet<(u16, u32)>,
 }
 
@@ -269,7 +275,10 @@ impl GameData {
             .copied()
     }
 
-    pub fn attack_element(&self, attack_element_correct_id: usize) -> Option<&AttackElementCorrect> {
+    pub fn attack_element(
+        &self,
+        attack_element_correct_id: usize,
+    ) -> Option<&AttackElementCorrect> {
         self.attack_element_correct
             .get(attack_element_correct_id)
             .and_then(Option::as_ref)
@@ -279,7 +288,8 @@ impl GameData {
         &self,
         attack_element_correct_id: usize,
     ) -> Option<&AttackElementCorrectExt> {
-        self.attack_element_correct_ext.get(&attack_element_correct_id)
+        self.attack_element_correct_ext
+            .get(&attack_element_correct_id)
     }
 
     pub fn aow_attack_rows(&self, aow_id: u16) -> &[AowAttackRow] {
@@ -289,11 +299,25 @@ impl GameData {
             .unwrap_or(&[])
     }
 
+    pub fn native_skill_attack_rows(&self, weapon_id: u32) -> &[AowAttackRow] {
+        self.native_skill_attack_rows
+            .get(&weapon_id)
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
+    }
+
     pub fn weapon_passive(&self, weapon_id: u32) -> StatusEffectSource {
         self.weapon_passives
             .get(&weapon_id)
             .copied()
             .unwrap_or_default()
+    }
+
+    pub fn weapon_passive_overlay(&self, weapon_id: u32, level: u8) -> Option<StatusEffectSource> {
+        self.weapon_passive_overlays
+            .get(&weapon_id)
+            .and_then(|levels| levels.get(usize::from(level)))
+            .and_then(|entry| *entry)
     }
 
     pub fn exact_aow_compatibility(&self, aow_id: u16, weapon_id: u32) -> Option<bool> {

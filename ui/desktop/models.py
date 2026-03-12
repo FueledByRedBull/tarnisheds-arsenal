@@ -263,6 +263,11 @@ class SolvedBuild:
     fai: int
     arc: int
     ar_total: float
+    ar_physical: float
+    ar_magic: float
+    ar_fire: float
+    ar_lightning: float
+    ar_holy: float
     score: float
     bleed_buildup: float
     bleed_buildup_add: float
@@ -335,6 +340,11 @@ class SolvedBuild:
             "arc": self.arc,
             "best_upgrade": self.upgrade,
             "best_ar_total": self.ar_total,
+            "ar_physical": self.ar_physical,
+            "ar_magic": self.ar_magic,
+            "ar_fire": self.ar_fire,
+            "ar_lightning": self.ar_lightning,
+            "ar_holy": self.ar_holy,
             "score": self.score,
             "bleed_buildup": self.bleed_buildup,
             "bleed_buildup_add": self.bleed_buildup_add,

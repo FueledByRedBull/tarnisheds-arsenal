@@ -1,6 +1,6 @@
 use crate::model::{
-    AttackElementCorrectExt, AowAttackRow, DamageBreakdown, DamageType, GameData, Stats, StatusBuildup, Weapon,
-    COMBAT_STAT_COUNT, STAT_ARC, STAT_DEX, STAT_FAI, STAT_INT, STAT_STR,
+    AowAttackRow, AttackElementCorrectExt, COMBAT_STAT_COUNT, DamageBreakdown, DamageType,
+    GameData, STAT_ARC, STAT_DEX, STAT_FAI, STAT_INT, STAT_STR, Stats, StatusBuildup, Weapon,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -68,7 +68,10 @@ pub fn build_contributions(
     ]
 }
 
-pub fn calculate_ar_for_type(actual_base: f32, contributions: &[ScalingContribution; COMBAT_STAT_COUNT]) -> f32 {
+pub fn calculate_ar_for_type(
+    actual_base: f32,
+    contributions: &[ScalingContribution; COMBAT_STAT_COUNT],
+) -> f32 {
     let bonus: f32 = contributions
         .iter()
         .filter(|contribution| contribution.contributes)
@@ -79,7 +82,11 @@ pub fn calculate_ar_for_type(actual_base: f32, contributions: &[ScalingContribut
     actual_base * (1.0 + bonus)
 }
 
-fn stat_values_for_scaling(stats: &Stats, effective_str_value: u8, two_hand_disabled: bool) -> [u8; COMBAT_STAT_COUNT] {
+fn stat_values_for_scaling(
+    stats: &Stats,
+    effective_str_value: u8,
+    two_hand_disabled: bool,
+) -> [u8; COMBAT_STAT_COUNT] {
     [
         if two_hand_disabled {
             stats.str
@@ -110,9 +117,15 @@ pub fn calculate_ar(
         })?;
     let aec = data
         .attack_element(weapon.attack_element_correct_id)
-        .ok_or_else(|| format!("missing attack_element_correct_id={}", weapon.attack_element_correct_id))?;
+        .ok_or_else(|| {
+            format!(
+                "missing attack_element_correct_id={}",
+                weapon.attack_element_correct_id
+            )
+        })?;
 
-    let stat_values = stat_values_for_scaling(stats, effective_str_value, weapon.disable_two_hand_bonus);
+    let stat_values =
+        stat_values_for_scaling(stats, effective_str_value, weapon.disable_two_hand_bonus);
     let mut breakdown = DamageBreakdown::default();
     for damage_type in DamageType::ALL {
         let curve_id = weapon.damage_curve_ids[damage_type.as_index()];
@@ -146,7 +159,10 @@ pub fn calculate_ar(
     Ok(breakdown)
 }
 
-pub fn apply_aow_attack_buffs(mut breakdown: DamageBreakdown, aow: Option<&crate::model::Aow>) -> DamageBreakdown {
+pub fn apply_aow_attack_buffs(
+    mut breakdown: DamageBreakdown,
+    aow: Option<&crate::model::Aow>,
+) -> DamageBreakdown {
     let Some(aow) = aow else {
         return breakdown;
     };
@@ -176,7 +192,8 @@ fn calculate_skill_damage_for_type(
                 weapon.reinforce_type
             )
         })?;
-    let actual_base = weapon.base[damage_idx] * reinforce.damage_mult[damage_idx]
+    let actual_base = weapon.base[damage_idx]
+        * reinforce.damage_mult[damage_idx]
         * (attack_row.motion_values[damage_idx] / 100.0)
         + attack_row.attack_base[damage_idx];
     if actual_base <= 0.0 {
@@ -204,14 +221,20 @@ fn calculate_skill_damage_for_type(
 
     if let Some(override_id) = attack_row.overwrite_attack_element_correct_id {
         if let Some(aec_ext) = data.attack_element_ext(override_id) {
-            let contributions = build_override_contributions(weapon, reinforce, aec_ext, &curve_mults, damage_idx);
+            let contributions =
+                build_override_contributions(weapon, reinforce, aec_ext, &curve_mults, damage_idx);
             return Ok(calculate_ar_for_type(actual_base, &contributions));
         }
     }
 
     let aec = data
         .attack_element(weapon.attack_element_correct_id)
-        .ok_or_else(|| format!("missing attack_element_correct_id={}", weapon.attack_element_correct_id))?;
+        .ok_or_else(|| {
+            format!(
+                "missing attack_element_correct_id={}",
+                weapon.attack_element_correct_id
+            )
+        })?;
     let contributions = build_contributions(weapon, reinforce, aec, &curve_mults, damage_type);
     Ok(calculate_ar_for_type(actual_base, &contributions))
 }
@@ -243,7 +266,10 @@ pub fn calculate_aow_damage(
 ) -> Result<(f32, f32), String> {
     let mut first_hit = None;
     let mut full_sequence = 0.0_f32;
-    for row in attack_rows.iter().filter(|row| !row.is_lacking_fp && row.is_damaging()) {
+    for row in attack_rows
+        .iter()
+        .filter(|row| !row.is_lacking_fp && row.is_damaging())
+    {
         let mut row_total = 0.0_f32;
         for damage_type in DamageType::ALL {
             row_total += calculate_skill_damage_for_type(
@@ -270,7 +296,10 @@ pub fn calculate_status_buildup(
     stats: &Stats,
     data: &GameData,
 ) -> Result<StatusBuildup, String> {
-    let base = data.weapon_passive(weapon.weapon_id);
+    let mut base = data.weapon_passive(weapon.weapon_id);
+    if let Some(overlay) = data.weapon_passive_overlay(weapon.weapon_id, upgrade) {
+        base = merge_status_effect_source(base, overlay);
+    }
     if base.buildup.bleed <= 0.0
         && base.buildup.frost <= 0.0
         && base.buildup.poison <= 0.0
@@ -290,62 +319,80 @@ pub fn calculate_status_buildup(
                 weapon.reinforce_type
             )
         })?;
-    let curve_id = weapon.damage_curve_ids[DamageType::Physical.as_index()];
+    let scale_status =
+        |value: f32,
+         stat_idx: usize,
+         stat_value: u8,
+         curve_id: usize,
+         should_scale: bool|
+         -> Result<f32, String> {
+            if value <= 0.0 || !should_scale || weapon.scaling[stat_idx] <= 0.0 {
+                return Ok(value);
+            }
+            let curve_mult = data
+                .calc_curve_value(curve_id, stat_value)
+                .ok_or_else(|| format!("missing curve_id={curve_id} for status scaling"))?;
+            Ok(value
+                * (1.0 + weapon.scaling[stat_idx] * reinforce.scaling_mult[stat_idx] * curve_mult))
+        };
 
-    let scale_status = |value: f32, stat_idx: usize, stat_value: u8, should_scale: bool| -> Result<f32, String> {
-        if value <= 0.0 || !should_scale || weapon.scaling[stat_idx] <= 0.0 {
-            return Ok(value);
-        }
-        let curve_mult = data
-            .calc_curve_value(curve_id, stat_value)
-            .ok_or_else(|| format!("missing curve_id={curve_id} for status scaling"))?;
-        Ok(value * (1.0 + weapon.scaling[stat_idx] * reinforce.scaling_mult[stat_idx] * curve_mult))
-    };
-
-    Ok(StatusBuildup {
+    Ok(truncate_status_buildup(StatusBuildup {
         bleed: scale_status(
             base.buildup.bleed,
             STAT_ARC,
             stats.arc,
+            weapon.bleed_curve_id,
             uses_status_correction(base.correction_flags.bleed, weapon.scaling[STAT_ARC] > 0.0),
         )?,
         frost: scale_status(
             base.buildup.frost,
             STAT_INT,
             stats.int,
+            weapon.damage_curve_ids[DamageType::Magic.as_index()],
             uses_status_correction(base.correction_flags.frost, weapon.scaling[STAT_INT] > 0.0),
         )?,
         poison: scale_status(
             base.buildup.poison,
             STAT_ARC,
             stats.arc,
+            weapon.bleed_curve_id,
             uses_status_correction(base.correction_flags.poison, weapon.scaling[STAT_ARC] > 0.0),
         )?,
         scarlet_rot: scale_status(
             base.buildup.scarlet_rot,
             STAT_ARC,
             stats.arc,
-            uses_status_correction(base.correction_flags.scarlet_rot, weapon.scaling[STAT_ARC] > 0.0),
+            weapon.bleed_curve_id,
+            uses_status_correction(
+                base.correction_flags.scarlet_rot,
+                weapon.scaling[STAT_ARC] > 0.0,
+            ),
         )?,
         sleep: scale_status(
             base.buildup.sleep,
             STAT_ARC,
             stats.arc,
+            weapon.bleed_curve_id,
             uses_status_correction(base.correction_flags.sleep, weapon.scaling[STAT_ARC] > 0.0),
         )?,
         madness: scale_status(
             base.buildup.madness,
             STAT_ARC,
             stats.arc,
-            uses_status_correction(base.correction_flags.madness, weapon.scaling[STAT_ARC] > 0.0),
+            weapon.bleed_curve_id,
+            uses_status_correction(
+                base.correction_flags.madness,
+                weapon.scaling[STAT_ARC] > 0.0,
+            ),
         )?,
         death: scale_status(
             base.buildup.death,
             STAT_ARC,
             stats.arc,
+            weapon.bleed_curve_id,
             uses_status_correction(base.correction_flags.death, weapon.scaling[STAT_ARC] > 0.0),
         )?,
-    })
+    }))
 }
 
 pub fn apply_aow_status_buffs(
@@ -381,64 +428,173 @@ pub fn apply_aow_status_buffs(
                 weapon.reinforce_type
             )
         })?;
-    let curve_id = weapon.damage_curve_ids[DamageType::Physical.as_index()];
-    let scale_status = |value: f32, stat_idx: usize, stat_value: u8, should_scale: bool| -> Result<f32, String> {
-        if value <= 0.0 || !should_scale || weapon.scaling[stat_idx] <= 0.0 {
-            return Ok(value);
-        }
-        let curve_mult = data
-            .calc_curve_value(curve_id, stat_value)
-            .ok_or_else(|| format!("missing curve_id={curve_id} for status scaling"))?;
-        Ok(value * (1.0 + weapon.scaling[stat_idx] * reinforce.scaling_mult[stat_idx] * curve_mult))
-    };
+    let scale_status =
+        |value: f32,
+         stat_idx: usize,
+         stat_value: u8,
+         curve_id: usize,
+         should_scale: bool|
+         -> Result<f32, String> {
+            if value <= 0.0 || !should_scale || weapon.scaling[stat_idx] <= 0.0 {
+                return Ok(value);
+            }
+            let curve_mult = data
+                .calc_curve_value(curve_id, stat_value)
+                .ok_or_else(|| format!("missing curve_id={curve_id} for status scaling"))?;
+            Ok(value
+                * (1.0 + weapon.scaling[stat_idx] * reinforce.scaling_mult[stat_idx] * curve_mult))
+        };
 
     buildup.bleed += scale_status(
         scaling.bleed,
         STAT_ARC,
         stats.arc,
-        uses_status_correction(aow.scaling_status_flags.bleed, weapon.scaling[STAT_ARC] > 0.0),
+        weapon.bleed_curve_id,
+        uses_status_correction(
+            aow.scaling_status_flags.bleed,
+            weapon.scaling[STAT_ARC] > 0.0,
+        ),
     )?;
     buildup.frost += scale_status(
         scaling.frost,
         STAT_INT,
         stats.int,
-        uses_status_correction(aow.scaling_status_flags.frost, weapon.scaling[STAT_INT] > 0.0),
+        weapon.damage_curve_ids[DamageType::Magic.as_index()],
+        uses_status_correction(
+            aow.scaling_status_flags.frost,
+            weapon.scaling[STAT_INT] > 0.0,
+        ),
     )?;
     buildup.poison += scale_status(
         scaling.poison,
         STAT_ARC,
         stats.arc,
-        uses_status_correction(aow.scaling_status_flags.poison, weapon.scaling[STAT_ARC] > 0.0),
+        weapon.bleed_curve_id,
+        uses_status_correction(
+            aow.scaling_status_flags.poison,
+            weapon.scaling[STAT_ARC] > 0.0,
+        ),
     )?;
     buildup.scarlet_rot += scale_status(
         scaling.scarlet_rot,
         STAT_ARC,
         stats.arc,
-        uses_status_correction(aow.scaling_status_flags.scarlet_rot, weapon.scaling[STAT_ARC] > 0.0),
+        weapon.bleed_curve_id,
+        uses_status_correction(
+            aow.scaling_status_flags.scarlet_rot,
+            weapon.scaling[STAT_ARC] > 0.0,
+        ),
     )?;
     buildup.sleep += scale_status(
         scaling.sleep,
         STAT_ARC,
         stats.arc,
-        uses_status_correction(aow.scaling_status_flags.sleep, weapon.scaling[STAT_ARC] > 0.0),
+        weapon.bleed_curve_id,
+        uses_status_correction(
+            aow.scaling_status_flags.sleep,
+            weapon.scaling[STAT_ARC] > 0.0,
+        ),
     )?;
     buildup.madness += scale_status(
         scaling.madness,
         STAT_ARC,
         stats.arc,
-        uses_status_correction(aow.scaling_status_flags.madness, weapon.scaling[STAT_ARC] > 0.0),
+        weapon.bleed_curve_id,
+        uses_status_correction(
+            aow.scaling_status_flags.madness,
+            weapon.scaling[STAT_ARC] > 0.0,
+        ),
     )?;
     buildup.death += scale_status(
         scaling.death,
         STAT_ARC,
         stats.arc,
-        uses_status_correction(aow.scaling_status_flags.death, weapon.scaling[STAT_ARC] > 0.0),
+        weapon.bleed_curve_id,
+        uses_status_correction(
+            aow.scaling_status_flags.death,
+            weapon.scaling[STAT_ARC] > 0.0,
+        ),
     )?;
-    Ok(buildup)
+    Ok(truncate_status_buildup(buildup))
+}
+
+fn truncate_status_buildup(buildup: StatusBuildup) -> StatusBuildup {
+    StatusBuildup {
+        bleed: buildup.bleed.floor(),
+        frost: buildup.frost.floor(),
+        poison: buildup.poison.floor(),
+        scarlet_rot: buildup.scarlet_rot.floor(),
+        sleep: buildup.sleep.floor(),
+        madness: buildup.madness.floor(),
+        death: buildup.death.floor(),
+    }
 }
 
 fn uses_status_correction(flag: Option<bool>, fallback: bool) -> bool {
     flag.unwrap_or(fallback)
+}
+
+fn merge_status_effect_source(
+    mut base: crate::model::StatusEffectSource,
+    overlay: crate::model::StatusEffectSource,
+) -> crate::model::StatusEffectSource {
+    merge_status_value(
+        &mut base.buildup.bleed,
+        &mut base.correction_flags.bleed,
+        overlay.buildup.bleed,
+        overlay.correction_flags.bleed,
+    );
+    merge_status_value(
+        &mut base.buildup.frost,
+        &mut base.correction_flags.frost,
+        overlay.buildup.frost,
+        overlay.correction_flags.frost,
+    );
+    merge_status_value(
+        &mut base.buildup.poison,
+        &mut base.correction_flags.poison,
+        overlay.buildup.poison,
+        overlay.correction_flags.poison,
+    );
+    merge_status_value(
+        &mut base.buildup.scarlet_rot,
+        &mut base.correction_flags.scarlet_rot,
+        overlay.buildup.scarlet_rot,
+        overlay.correction_flags.scarlet_rot,
+    );
+    merge_status_value(
+        &mut base.buildup.sleep,
+        &mut base.correction_flags.sleep,
+        overlay.buildup.sleep,
+        overlay.correction_flags.sleep,
+    );
+    merge_status_value(
+        &mut base.buildup.madness,
+        &mut base.correction_flags.madness,
+        overlay.buildup.madness,
+        overlay.correction_flags.madness,
+    );
+    merge_status_value(
+        &mut base.buildup.death,
+        &mut base.correction_flags.death,
+        overlay.buildup.death,
+        overlay.correction_flags.death,
+    );
+    base
+}
+
+fn merge_status_value(
+    base_value: &mut f32,
+    base_flag: &mut Option<bool>,
+    overlay_value: f32,
+    overlay_flag: Option<bool>,
+) {
+    if overlay_value > 0.0 {
+        *base_value = overlay_value;
+        if overlay_flag.is_some() {
+            *base_flag = overlay_flag;
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -627,8 +783,8 @@ pub fn compute_free_points(
         return Err("current stats are below class minimums".to_string());
     }
 
-    let total_stat_points =
-        i32::from(class_info.base_total) + (i32::from(character_level) - i32::from(class_info.base_level));
+    let total_stat_points = i32::from(class_info.base_total)
+        + (i32::from(character_level) - i32::from(class_info.base_level));
     let current_sum = i32::from(current_stats.sum_all_8());
     let free = total_stat_points - current_sum;
 
@@ -772,18 +928,17 @@ mod tests {
             fai: 8,
             arc: 8,
         };
-        let uchi_breakdown =
-            calculate_ar(
-                uchi,
-                25,
-                &uchi_stats,
-                effective_str(uchi_stats.str, false, uchi.disable_two_hand_bonus),
-                &game_data,
-            )
-            .unwrap();
+        let uchi_breakdown = calculate_ar(
+            uchi,
+            25,
+            &uchi_stats,
+            effective_str(uchi_stats.str, false, uchi.disable_two_hand_bonus),
+            &game_data,
+        )
+        .unwrap();
         assert!((uchi_breakdown.total() - 475.983).abs() < 0.01);
 
-        let lordsworn = find_weapon(&game_data, "Lordsworn's Quality Greatsword", "Quality");
+        let lordsworn = find_weapon(&game_data, "Lordsworn's Greatsword", "Quality");
         let lordsworn_stats = Stats {
             vig: 10,
             mnd: 10,
@@ -798,11 +953,7 @@ mod tests {
             lordsworn,
             25,
             &lordsworn_stats,
-            effective_str(
-                lordsworn_stats.str,
-                false,
-                lordsworn.disable_two_hand_bonus,
-            ),
+            effective_str(lordsworn_stats.str, false, lordsworn.disable_two_hand_bonus),
             &game_data,
         )
         .unwrap();
@@ -844,11 +995,7 @@ mod tests {
             fire_uchi,
             25,
             &fire_uchi_stats,
-            effective_str(
-                fire_uchi_stats.str,
-                true,
-                fire_uchi.disable_two_hand_bonus,
-            ),
+            effective_str(fire_uchi_stats.str, true, fire_uchi.disable_two_hand_bonus),
             &game_data,
         )
         .unwrap();
@@ -929,7 +1076,8 @@ mod tests {
             int: 68,
             ..blood_stats
         };
-        let cold_status = calculate_status_buildup(star_fist_cold, 25, &cold_stats, &game_data).unwrap();
+        let cold_status =
+            calculate_status_buildup(star_fist_cold, 25, &cold_stats, &game_data).unwrap();
         assert!(cold_status.frost > 95.0);
 
         let antspur_occult = find_weapon(&game_data, "Antspur Rapier", "Occult");
@@ -937,5 +1085,34 @@ mod tests {
             calculate_status_buildup(antspur_occult, 25, &blood_stats, &game_data).unwrap();
         assert!(antspur_status.scarlet_rot > 60.0);
         assert!(antspur_status.poison <= 0.0);
+    }
+
+    #[test]
+    fn passive_status_overlays_apply_upgrade_growth() {
+        let data_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("data")
+            .join("phase1");
+        let game_data = load_game_data(data_path).unwrap();
+
+        let great_katana_blood = find_weapon(&game_data, "Great Katana", "Blood");
+        let stats = Stats {
+            vig: 10,
+            mnd: 10,
+            end: 10,
+            str: 30,
+            dex: 53,
+            int: 9,
+            fai: 8,
+            arc: 8,
+        };
+        let plus_zero =
+            calculate_status_buildup(great_katana_blood, 0, &stats, &game_data).unwrap();
+        let plus_twenty_five =
+            calculate_status_buildup(great_katana_blood, 25, &stats, &game_data).unwrap();
+        assert!(plus_zero.bleed >= 69.0);
+        assert_eq!(plus_twenty_five.bleed, 101.0);
+        assert!(plus_twenty_five.bleed > plus_zero.bleed + 25.0);
     }
 }

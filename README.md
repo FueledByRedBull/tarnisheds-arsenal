@@ -174,15 +174,16 @@ Current runtime data includes:
 - expanded calc-correct graphs
 - exact AoW compatibility rows
 - innate weapon passives
+- regulation-derived passive overlays by weapon, affinity, and upgrade
+- native somber weapon-skill attack data
 - buff-type AoW weapon buffs from workbook `SpEffectParam` extraction
-- weapon rules for paired / no-two-hand-bonus behavior
+- regulation-derived paired / no-two-hand-bonus behavior
 - AoW attack-data extraction for PvE damage objectives
 
 Important boundaries:
 
 - this is still an optimizer, not a full enemy simulator
 - enemy defense, negation, resistance growth, proc explosion damage, poise, and stamina are not part of the current scoring model
-- unique somber weapon-skill damage is not yet treated as a complete separate universal layer outside the generic AoW pipeline
 - status buildup is split and surfaced for bleed, frost, poison, and scarlet rot, and workbook-derived `isUseStatusAilmentAtkPowerCorrect` flags are now used as explicit runtime gates when the source data exposes them
 - self-buff weapon enchant spells and every temporary buff stack are not yet modeled as a universal layer; the current buff pass covers workbook-backed buff-type AoWs such as `Seppuku`, `Sacred Blade`, `Flaming Strike`, `Lightning Slash`, `Chilling Mist`, and `Poisonous Mist`
 
@@ -253,7 +254,6 @@ then run:
 ```powershell
 python tools/phase1/extract_motion_workbook.py
 python tools/phase1/derive_phase1_raw_extras.py
-python tools/phase1/derive_weapon_rules.py
 ```
 
 ## Repo Layout

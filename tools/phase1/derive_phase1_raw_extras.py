@@ -5,9 +5,7 @@ from __future__ import annotations
 import argparse
 import csv
 import sys
-import zipfile
 from pathlib import Path
-from xml.etree import ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -22,21 +20,26 @@ WEAPON_EFFECT_FIELDS = (
     "residentSpEffectId",
     "residentSpEffectId1",
 )
+REINFORCE_OVERLAY_FIELD_TO_WEAPON_FIELD = {
+    "spEffectId1": "spEffectBehaviorId0",
+    "spEffectId2": "spEffectBehaviorId1",
+    "spEffectId3": "spEffectBehaviorId2",
+}
 
 AFFINITY_ATTRS = {
-    "Standard": "configurableWepAttr00",
-    "Heavy": "configurableWepAttr01",
-    "Keen": "configurableWepAttr02",
-    "Quality": "configurableWepAttr03",
-    "Fire": "configurableWepAttr04",
-    "Flame Art": "configurableWepAttr05",
-    "Lightning": "configurableWepAttr06",
-    "Sacred": "configurableWepAttr07",
-    "Magic": "configurableWepAttr08",
-    "Cold": "configurableWepAttr09",
-    "Poison": "configurableWepAttr10",
-    "Blood": "configurableWepAttr11",
-    "Occult": "configurableWepAttr12",
+    "Standard": ("configurableWepAttr00", 1),
+    "Heavy": ("configurableWepAttr01", 1),
+    "Keen": ("configurableWepAttr02", 1),
+    "Quality": ("configurableWepAttr03", 1),
+    "Fire": ("configurableWepAttr04", 1),
+    "Flame Art": ("configurableWepAttr05", 1),
+    "Lightning": ("configurableWepAttr06", 1),
+    "Sacred": ("configurableWepAttr07", 1),
+    "Magic": ("configurableWepAttr08", 1),
+    "Cold": ("configurableWepAttr09", 1),
+    "Poison": ("configurableWepAttr10", 1),
+    "Blood": ("configurableWepAttr11", 0),
+    "Occult": ("configurableWepAttr12", 0),
 }
 
 STATUS_FIELDS = {
@@ -72,12 +75,6 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("data") / "phase1",
         help="Output directory for derived CSVs",
-    )
-    parser.add_argument(
-        "--workbook",
-        type=Path,
-        default=Path("data") / "phase1" / "ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx",
-        help="Workbook path used as a fallback source for SpEffectParam",
     )
     return parser.parse_args()
 
@@ -117,125 +114,37 @@ def canonical_gem_rows(gem_rows: list[dict[str, str]]) -> dict[int, dict[str, st
 
         out[sword_art_id] = max(rows, key=score)
     return out
-
-
-def workbook_sp_effect_rows(workbook_path: Path) -> dict[int, dict[str, str]]:
-    main_ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
-    workbook_ns = {
-        "x": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
-        "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
-    }
-    rel_ns = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
-
-    def column_index(cell_ref: str) -> int:
-        value = 0
-        for char in "".join(ch for ch in cell_ref if ch.isalpha()):
-            value = value * 26 + (ord(char.upper()) - 64)
-        return value - 1
-
-    with zipfile.ZipFile(workbook_path) as archive:
-        shared_strings: list[str] = []
-        if "xl/sharedStrings.xml" in archive.namelist():
-            sst = ET.fromstring(archive.read("xl/sharedStrings.xml"))
-            for item in sst:
-                shared_strings.append(
-                    "".join(node.text or "" for node in item.iter(f"{main_ns}t"))
-                )
-
-        workbook = ET.fromstring(archive.read("xl/workbook.xml"))
-        rels = ET.fromstring(archive.read("xl/_rels/workbook.xml.rels"))
-        rel_map = {rel.attrib["Id"]: rel.attrib["Target"] for rel in rels}
-
-        target = None
-        sheets = workbook.find("x:sheets", workbook_ns)
-        for sheet in [] if sheets is None else sheets:
-            if sheet.attrib["name"] == "SpEffectParam":
-                target = rel_map[sheet.attrib[f"{rel_ns}id"]]
-                break
-        if target is None:
-            raise ValueError("missing SpEffectParam sheet")
-
-        sheet_xml = ET.fromstring(archive.read(f"xl/{target}"))
-        sheet_data = sheet_xml.find(f"{main_ns}sheetData")
-        if sheet_data is None:
-            raise ValueError("missing sheetData for SpEffectParam")
-
-        parsed_rows: list[list[str]] = []
-        width = 0
-        for row in sheet_data:
-            parsed: dict[int, str] = {}
-            for cell in row:
-                idx = column_index(cell.attrib["r"])
-                value = cell.find(f"{main_ns}v")
-                if cell.attrib.get("t") == "s":
-                    text = "" if value is None else shared_strings[int(value.text or "0")]
-                else:
-                    text = value.text if value is not None and value.text is not None else ""
-                parsed[idx] = text
-                width = max(width, idx + 1)
-            parsed_rows.append([parsed.get(idx, "") for idx in range(width)])
-
-    if len(parsed_rows) < 3:
-        return {}
-    headers = parsed_rows[1]
-    header_idx = {header: idx for idx, header in enumerate(headers) if header}
-    rows_out: dict[int, dict[str, str]] = {}
-    for values in parsed_rows[2:]:
-        raw_id = values[header_idx.get("ID", 0)].strip()
-        if not raw_id:
-            continue
-        try:
-            effect_id = int(float(raw_id))
-        except ValueError:
-            continue
-        rows_out[effect_id] = {
-            header: values[idx] if idx < len(values) else ""
-            for header, idx in header_idx.items()
-        }
-    return rows_out
-
-
-def weapon_effect_ids_from_csv(weapon_passive_rows: list[dict[str, str]]) -> dict[int, list[int]]:
+def weapon_effect_ids_from_param_rows(
+    weapon_param_rows: dict[int, dict[str, str]],
+    weapon_csv_rows: list[dict[str, str]],
+) -> dict[int, list[int]]:
     out: dict[int, list[int]] = {}
-    for row in weapon_passive_rows:
-        try:
-            weapon_id = int(row["weapon_id"])
-        except (KeyError, ValueError):
+    for csv_row in weapon_csv_rows:
+        weapon_id = int(csv_row["weapon_id"])
+        weapon_row = weapon_param_rows.get(weapon_id)
+        if weapon_row is None:
             continue
         effect_ids: list[int] = []
-        for raw_effect_id in row.get("effect_ids", "").split("|"):
-            raw_effect_id = raw_effect_id.strip()
-            if not raw_effect_id:
-                continue
-            try:
-                effect_id = int(raw_effect_id)
-            except ValueError:
-                continue
-            if effect_id not in effect_ids:
+        for field_name in WEAPON_EFFECT_FIELDS:
+            effect_id = to_int(weapon_row, field_name, 0)
+            if effect_id > 0 and effect_id not in effect_ids:
                 effect_ids.append(effect_id)
         out[weapon_id] = effect_ids
     return out
 
 
-def ashable_weapon_names(weapon_csv_rows: list[dict[str, str]]) -> set[str]:
-    affinities_by_name: dict[str, set[str]] = {}
-    for row in weapon_csv_rows:
-        affinities_by_name.setdefault(row["name"], set()).add(row["affinity"])
-    return {
-        name for name, affinities in affinities_by_name.items() if len(affinities) > 1 or "Standard" not in affinities
-    }
-
-
 def aow_valid_for_weapon(
     gem_row: dict[str, str],
     weapon_row: dict[str, str],
-    ashable_names: set[str],
 ) -> bool:
-    if weapon_row["name"] not in ashable_names:
+    if to_int(weapon_row, "disable_gem_attr", 0) != 0:
         return False
 
     affinity_attr = AFFINITY_ATTRS.get(weapon_row["affinity"])
-    if affinity_attr is None or to_int(gem_row, affinity_attr, 0) == 0:
+    if affinity_attr is None:
+        return False
+    affinity_field, affinity_default = affinity_attr
+    if to_int(gem_row, affinity_field, affinity_default) == 0:
         return False
 
     weapon_types = [value for value in weapon_row["weapon_type_keys"].split("|") if value]
@@ -248,7 +157,6 @@ def build_weapon_passives(
     sp_effect_rows: dict[int, dict[str, str]],
     weapon_csv_rows: list[dict[str, str]],
     weapon_effect_ids: dict[int, list[int]],
-    existing_weapon_passives: dict[int, dict[str, str]],
 ) -> list[dict[str, object]]:
     by_id = {int(row["weapon_id"]): row for row in weapon_csv_rows}
     rows_out: list[dict[str, object]] = []
@@ -258,19 +166,17 @@ def build_weapon_passives(
             continue
 
         effect_ids = weapon_effect_ids.get(weapon_id, [])
-        existing = existing_weapon_passives.get(weapon_id, {})
         totals = {
-            "bleed": to_float(existing, "bleed", 0.0),
-            "frost": to_float(existing, "frost", 0.0),
-            "poison": to_float(existing, "poison", 0.0),
+            "bleed": 0.0,
+            "frost": 0.0,
+            "poison": 0.0,
             "scarlet_rot": 0.0,
-            "sleep": to_float(existing, "sleep", 0.0),
-            "madness": to_float(existing, "madness", 0.0),
-            "death": to_float(existing, "death", 0.0),
+            "sleep": 0.0,
+            "madness": 0.0,
+            "death": 0.0,
         }
         correction_flags: dict[str, bool | None] = {
-            status_key: _existing_optional_bool(existing, STATUS_CORRECTION_COLUMNS[status_key])
-            for status_key in STATUS_FIELDS
+            status_key: None for status_key in STATUS_FIELDS
         }
         for effect_id in effect_ids:
             effect = sp_effect_rows.get(effect_id)
@@ -283,8 +189,8 @@ def build_weapon_passives(
                     continue
                 if status_key == "scarlet_rot":
                     totals[status_key] += amount
-                elif totals[status_key] <= 0.0:
-                    totals[status_key] = amount
+                else:
+                    totals[status_key] = max(totals[status_key], amount)
                 if correction_value is not None:
                     correction_flags[status_key] = correction_value
         if totals["scarlet_rot"] > 0.0 and totals["poison"] > 0.0:
@@ -313,15 +219,85 @@ def build_weapon_passives(
     return rows_out
 
 
+def build_weapon_passive_overlays(
+    sp_effect_rows: dict[int, dict[str, str]],
+    weapon_csv_rows: list[dict[str, str]],
+    weapon_param_rows: dict[int, dict[str, str]],
+    reinforce_rows: dict[int, dict[str, str]],
+    max_level_by_type: dict[int, int],
+) -> list[dict[str, object]]:
+    rows_out: list[dict[str, object]] = []
+    for csv_row in weapon_csv_rows:
+        weapon_id = int(csv_row["weapon_id"])
+        weapon_row = weapon_param_rows.get(weapon_id)
+        if weapon_row is None:
+            continue
+        reinforce_type = int(csv_row["reinforce_type"])
+        max_level = max_level_by_type.get(reinforce_type, 0)
+        first_reinforce_row = reinforce_rows.get(reinforce_type + 1)
+        if first_reinforce_row is None:
+            continue
+
+        active_fields = [
+            (reinforce_field, weapon_field)
+            for reinforce_field, weapon_field in REINFORCE_OVERLAY_FIELD_TO_WEAPON_FIELD.items()
+            if to_int(first_reinforce_row, reinforce_field, 0) > 0 and to_int(weapon_row, weapon_field, 0) > 0
+        ]
+        if not active_fields:
+            continue
+
+        for level in range(max_level + 1):
+            totals = {status_key: 0.0 for status_key in STATUS_FIELDS}
+            correction_flags: dict[str, bool | None] = {status_key: None for status_key in STATUS_FIELDS}
+            effect_ids: list[int] = []
+
+            for _, weapon_field in active_fields:
+                base_effect_id = to_int(weapon_row, weapon_field, 0)
+                if base_effect_id <= 0:
+                    continue
+                effect_id = base_effect_id + level
+                effect = sp_effect_rows.get(effect_id)
+                if effect is None:
+                    continue
+                effect_ids.append(effect_id)
+                correction_value = _safe_optional_bool(effect, "isUseStatusAilmentAtkPowerCorrect")
+                for status_key, source_fields in STATUS_FIELDS.items():
+                    amount = sum(_safe_to_float(effect, field_name, 0.0) for field_name in source_fields)
+                    if amount <= 0.0:
+                        continue
+                    totals[status_key] += amount
+                    if correction_value is not None:
+                        correction_flags[status_key] = correction_value
+
+            if not effect_ids:
+                continue
+
+            rows_out.append(
+                {
+                    "weapon_id": csv_row["weapon_id"],
+                    "name": csv_row["name"],
+                    "affinity": csv_row["affinity"],
+                    "level": str(level),
+                    "effect_ids": "|".join(str(effect_id) for effect_id in effect_ids),
+                    **{status_key: _fmt(totals[status_key]) for status_key in STATUS_FIELDS},
+                    **{
+                        STATUS_CORRECTION_COLUMNS[status_key]: _fmt_optional_bool(correction_flags[status_key])
+                        for status_key in STATUS_FIELDS
+                    },
+                }
+            )
+    rows_out.sort(key=lambda row: (row["name"], row["affinity"], int(row["weapon_id"]), int(row["level"])))
+    return rows_out
+
+
 def build_exact_aow_compat(
     weapon_csv_rows: list[dict[str, str]],
     gem_rows_by_aow_id: dict[int, dict[str, str]],
 ) -> list[dict[str, object]]:
     rows_out: list[dict[str, object]] = []
-    ashable_names = ashable_weapon_names(weapon_csv_rows)
     for weapon in weapon_csv_rows:
         for aow_id, gem_row in gem_rows_by_aow_id.items():
-            if not aow_valid_for_weapon(gem_row, weapon, ashable_names):
+            if not aow_valid_for_weapon(gem_row, weapon):
                 continue
             rows_out.append(
                 {
@@ -362,59 +338,45 @@ def _safe_optional_bool(row: dict[str, str], key: str) -> bool | None:
         return None
     return value not in {"0", "0.0"}
 
-
-def _existing_optional_bool(row: dict[str, str], key: str) -> bool | None:
-    raw = row.get(key)
-    if raw is None:
-        return None
-    value = raw.strip()
-    if not value:
-        return None
-    return value not in {"0", "0.0"}
-
-
 def _fmt_optional_bool(value: bool | None) -> str:
     if value is None:
         return ""
     return "1" if value else "0"
 
 
-def main() -> int:
-    args = parse_args()
-    workdir = args.workdir
-    phase1_dir = args.phase1
-    output_dir = args.output
-    workbook_path = args.workbook
+def export_regulation_extras(
+    *,
+    weapon_csv_rows: list[dict[str, str]],
+    reinforce_csv_rows: list[dict[str, str]],
+    weapon_param_rows: dict[int, dict[str, str]],
+    reinforce_param_rows: dict[int, dict[str, str]],
+    gem_rows: list[dict[str, str]],
+    sp_effect_rows: dict[int, dict[str, str]],
+    output_dir: Path,
+) -> None:
+    max_level_by_type: dict[int, int] = {}
+    for row in reinforce_csv_rows:
+        reinforce_type = int(row["reinforce_type"])
+        level = int(row["level"])
+        max_level_by_type[reinforce_type] = max(max_level_by_type.get(reinforce_type, 0), level)
 
-    weapon_xml = workdir / "EquipParamWeapon.param.xml"
-    gem_xml = workdir / "EquipParamGem.param.xml"
-    sp_effect_xml = workdir / "SpEffectParam.param.xml"
-    weapon_csv_rows = read_csv(phase1_dir / "weapons.csv")
-    existing_weapon_passive_rows = read_csv(phase1_dir / "weapon_passives.csv")
-    existing_weapon_passives = {
-        int(row["weapon_id"]): row for row in existing_weapon_passive_rows
-    }
-    weapon_effect_ids = weapon_effect_ids_from_csv(existing_weapon_passive_rows)
-
-    if sp_effect_xml.exists():
-        sp_effect_rows = {to_int(row, "id"): row for row in iter_param_rows(sp_effect_xml)}
-    elif workbook_path.exists():
-        sp_effect_rows = workbook_sp_effect_rows(workbook_path)
-    else:
-        raise FileNotFoundError(
-            f"Neither {sp_effect_xml} nor workbook {workbook_path} is available for SpEffectParam data"
-        )
+    weapon_effect_ids = weapon_effect_ids_from_param_rows(weapon_param_rows, weapon_csv_rows)
 
     weapon_passives = build_weapon_passives(
         sp_effect_rows,
         weapon_csv_rows,
         weapon_effect_ids,
-        existing_weapon_passives,
+    )
+    weapon_passive_overlays = build_weapon_passive_overlays(
+        sp_effect_rows,
+        weapon_csv_rows,
+        weapon_param_rows,
+        reinforce_param_rows,
+        max_level_by_type,
     )
 
     exact_aow_compat: list[dict[str, object]] = []
-    if gem_xml.exists():
-        gem_rows = list(iter_param_rows(gem_xml))
+    if gem_rows:
         exact_aow_compat = build_exact_aow_compat(weapon_csv_rows, canonical_gem_rows(gem_rows))
 
     write_csv(
@@ -435,6 +397,25 @@ def main() -> int:
         ],
         weapon_passives,
     )
+    write_csv(
+        output_dir / "weapon_passive_overlays.csv",
+        [
+            "weapon_id",
+            "name",
+            "affinity",
+            "level",
+            "effect_ids",
+            "bleed",
+            "frost",
+            "poison",
+            "scarlet_rot",
+            "sleep",
+            "madness",
+            "death",
+            *STATUS_CORRECTION_COLUMNS.values(),
+        ],
+        weapon_passive_overlays,
+    )
     if exact_aow_compat:
         write_csv(
             output_dir / "aow_weapon_compat.csv",
@@ -442,8 +423,45 @@ def main() -> int:
             exact_aow_compat,
         )
     print(f"Wrote {len(weapon_passives)} weapon passive rows")
+    print(f"Wrote {len(weapon_passive_overlays)} weapon passive overlay rows")
     if exact_aow_compat:
         print(f"Wrote {len(exact_aow_compat)} exact AoW compatibility rows")
+
+
+def main() -> int:
+    args = parse_args()
+    workdir = args.workdir
+    phase1_dir = args.phase1
+    output_dir = args.output
+
+    weapon_xml = workdir / "EquipParamWeapon.param.xml"
+    gem_xml = workdir / "EquipParamGem.param.xml"
+    sp_effect_xml = workdir / "SpEffectParam.param.xml"
+    if not sp_effect_xml.exists():
+        raise FileNotFoundError(f"Missing required regulation export: {sp_effect_xml}")
+
+    weapon_csv_rows = read_csv(phase1_dir / "weapons.csv")
+    reinforce_csv_rows = read_csv(phase1_dir / "reinforce.csv")
+    weapon_param_rows = (
+        {to_int(row, "id"): row for row in iter_param_rows(weapon_xml)} if weapon_xml.exists() else {}
+    )
+    reinforce_param_rows = (
+        {to_int(row, "id"): row for row in iter_param_rows(workdir / "ReinforceParamWeapon.param.xml")}
+        if (workdir / "ReinforceParamWeapon.param.xml").exists()
+        else {}
+    )
+    gem_rows = list(iter_param_rows(gem_xml)) if gem_xml.exists() else []
+    sp_effect_rows = {to_int(row, "id"): row for row in iter_param_rows(sp_effect_xml)}
+
+    export_regulation_extras(
+        weapon_csv_rows=weapon_csv_rows,
+        reinforce_csv_rows=reinforce_csv_rows,
+        weapon_param_rows=weapon_param_rows,
+        reinforce_param_rows=reinforce_param_rows,
+        gem_rows=gem_rows,
+        sp_effect_rows=sp_effect_rows,
+        output_dir=output_dir,
+    )
     return 0
 
 

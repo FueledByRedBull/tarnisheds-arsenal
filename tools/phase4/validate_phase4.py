@@ -52,10 +52,12 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
     aow_attack_data = read_csv(data_dir / "aow_attack_data.csv")
     aow_buffs = read_csv(data_dir / "aow_buffs.csv")
     aow_damage_coverage = read_csv(data_dir / "aow_damage_coverage.csv")
+    native_skill_attack_data = read_csv(data_dir / "native_skill_attack_data.csv")
+    native_skill_damage_coverage = read_csv(data_dir / "native_skill_damage_coverage.csv")
     attack_element_correct_ext = read_csv(data_dir / "attack_element_correct_ext.csv")
     weapon_passives = read_csv(data_dir / "weapon_passives.csv")
+    weapon_passive_overlays = read_csv(data_dir / "weapon_passive_overlays.csv")
     aow_weapon_compat = read_csv(data_dir / "aow_weapon_compat.csv")
-    weapon_rules = read_csv(data_dir / "weapon_rules.csv")
 
     if len(weapons) < 3000:
         issues.append(ValidationIssue("error", f"weapons.csv row count too low: {len(weapons)}"))
@@ -70,6 +72,23 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
     if len(aow_attack_data) < 1000:
         issues.append(
             ValidationIssue("error", f"aow_attack_data.csv row count too low: {len(aow_attack_data)}")
+        )
+    if len(native_skill_attack_data) < 1000:
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"native_skill_attack_data.csv row count too low: {len(native_skill_attack_data)}",
+            )
+        )
+    if len(native_skill_damage_coverage) < 1000:
+        issues.append(
+            ValidationIssue(
+                "error",
+                (
+                    "native_skill_damage_coverage.csv row count too low: "
+                    f"{len(native_skill_damage_coverage)}"
+                ),
+            )
         )
     if len(aow_buffs) < 8:
         issues.append(
@@ -120,6 +139,23 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
                 ),
             )
         )
+    if len(weapon_passive_overlays) < 1000:
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"weapon_passive_overlays.csv row count too low: {len(weapon_passive_overlays)}",
+            )
+        )
+    if weapons:
+        required_weapon_columns = {"disable_two_hand_bonus", "weapon_type_keys"}
+        missing_weapon_columns = sorted(required_weapon_columns.difference(weapons[0].keys()))
+        if missing_weapon_columns:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    f"weapons.csv is missing columns: {', '.join(missing_weapon_columns)}",
+                )
+            )
     required_passive_columns = {
         "weapon_id",
         "name",
@@ -156,13 +192,6 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
                 f"aow_weapon_compat.csv row count too low: {len(aow_weapon_compat)}",
             )
         )
-    if len(weapon_rules) < 30:
-        issues.append(
-            ValidationIssue(
-                "error",
-                f"weapon_rules.csv row count too low: {len(weapon_rules)}",
-            )
-        )
 
     reinforce_max = max_reinforce_levels(reinforce)
     used_types: dict[int, list[int]] = defaultdict(list)
@@ -196,6 +225,19 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
     if zero_base_count != 0:
         issues.append(ValidationIssue("error", f"weapons with zero base damage: {zero_base_count}"))
 
+    missing_type_keys = [
+        row["weapon_id"]
+        for row in weapons
+        if row.get("disable_gem_attr", "1") == "0" and not row.get("weapon_type_keys", "").strip()
+    ]
+    if missing_type_keys:
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"ashable weapons missing weapon_type_keys: {missing_type_keys[:10]}",
+            )
+        )
+
     antspur_standard = next(
         (row for row in weapon_passives if row["name"] == "Antspur Rapier" and row["affinity"] == "Standard"),
         None,
@@ -215,6 +257,26 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
                     ),
                 )
             )
+
+    great_katana_blood_25 = next(
+        (
+            row
+            for row in weapon_passive_overlays
+            if row["name"] == "Great Katana" and row["affinity"] == "Blood" and row["level"] == "25"
+        ),
+        None,
+    )
+    if great_katana_blood_25 is None:
+        issues.append(
+            ValidationIssue("error", "Great Katana Blood +25 missing from weapon_passive_overlays.csv")
+        )
+    elif float(great_katana_blood_25["bleed"]) < 100.0:
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"Great Katana Blood +25 overlay bleed is too low: {great_katana_blood_25['bleed']}",
+            )
+        )
 
     special_non_upgrade_types = {3000}
     for reinforce_type, weapon_ids in sorted(used_types.items()):
@@ -350,16 +412,22 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
             )
         )
 
-    weapon_rule_by_name = {row["weapon_name"]: row for row in weapon_rules}
+    weapon_rows_by_name = defaultdict(list)
+    for row in weapons:
+        weapon_rows_by_name[row["name"]].append(row)
     for weapon_name in ("Iron Ball", "Starscourge Greatsword", "Rellana's Twin Blades"):
-        row = weapon_rule_by_name.get(weapon_name)
-        if row is None or row["disable_two_hand_bonus"] != "1":
+        rows = weapon_rows_by_name.get(weapon_name, [])
+        if not rows or not all(row.get("disable_two_hand_bonus") == "1" for row in rows):
             issues.append(
                 ValidationIssue(
                     "error",
                     f"{weapon_name} should disable the two-hand strength bonus",
                 )
             )
+
+    halo_rows = [row for row in native_skill_attack_data if row["weapon_name"] == "Halo Scythe"]
+    if not halo_rows:
+        issues.append(ValidationIssue("error", "Halo Scythe missing from native_skill_attack_data.csv"))
 
     return issues
 
@@ -403,7 +471,7 @@ def validate_runtime_ar(data_dir: Path) -> list[ValidationIssue]:
             "int_stat": 9,
             "fai": 9,
             "arc": 7,
-            "weapon_name": "Lordsworn's Quality Greatsword",
+            "weapon_name": "Lordsworn's Greatsword",
             "affinity": "Quality",
             "max_upgrade": 25,
         },
@@ -1109,7 +1177,7 @@ def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
         watcher_row = {
             "weapon_name": "Claymore",
             "affinity": "Fire",
-            "aow_name": "Lion's Claw",
+            "aow_name": "Double Slash",
             "best_upgrade": 25,
             "str_stat": 20,
             "dex": 20,
@@ -1332,6 +1400,11 @@ def _synthetic_build(app_module, affinity: str, score: float, upgrade: int, weap
         fai=10,
         arc=10,
         ar_total=score,
+        ar_physical=score,
+        ar_magic=0.0,
+        ar_fire=0.0,
+        ar_lightning=0.0,
+        ar_holy=0.0,
         score=score,
         bleed_buildup=0.0,
         bleed_buildup_add=0.0,
