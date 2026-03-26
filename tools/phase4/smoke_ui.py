@@ -264,7 +264,7 @@ def main() -> int:
     window.max_upgrade_spin.setValue(25)
     window.lock_upgrade_exact.setChecked(True)
     window.objective_combo.setCurrentIndex(window.objective_combo.findData("max_ar"))
-    window.aow_combo.setCurrentIndex(window.aow_combo.findData(None))
+    window._set_combo_by_data(window.aow_combo, "Double Slash")
     window._start_search()
     wait_until(lambda: window.active_run_id is None)
     if not window.current_results:
