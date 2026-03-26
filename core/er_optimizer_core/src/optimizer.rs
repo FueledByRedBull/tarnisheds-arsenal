@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
@@ -560,33 +559,16 @@ fn resolve_aow_choices<'a>(
         return Ok(Some(vec![choice]));
     }
 
-    if request.objective == OptimizeObjective::MaxAr {
-        if let Some(choice) = native_skill_choice {
-            if !choice.attack_rows.is_empty() {
-                return Ok(Some(vec![choice]));
-            }
-        }
-        return Ok(Some(vec![no_aow]));
-    }
-
-    if request.objective == OptimizeObjective::MaxArPlusBleed {
-        let best = data
-            .aows
-            .iter()
-            .filter(|aow| aow_compatible_with_weapon(aow, weapon, data))
-            .max_by(|left, right| {
-                let left_bleed = left.bleed_buildup_add + left.scaling_status_add.bleed;
-                let right_bleed = right.bleed_buildup_add + right.scaling_status_add.bleed;
-                left_bleed
-                    .partial_cmp(&right_bleed)
-                    .unwrap_or(Ordering::Equal)
-            });
-        if let Some(aow) = best {
-            if aow.bleed_buildup_add > 0.0 || aow.scaling_status_add.bleed > 0.0 {
-                return Ok(Some(vec![build_aow_choice(aow, weapon, data)]));
-            }
-        }
-        return Ok(Some(vec![no_aow]));
+    if matches!(
+        request.objective,
+        OptimizeObjective::MaxAr | OptimizeObjective::MaxArPlusBleed
+    ) {
+        return Ok(Some(open_aow_choices_for_objective(
+            weapon,
+            data,
+            no_aow,
+            native_skill_choice,
+        )));
     }
 
     if let Some(choice) = native_skill_choice {
@@ -616,6 +598,27 @@ fn build_aow_choice<'a>(aow: &'a Aow, weapon: &Weapon, data: &'a GameData) -> Ao
         skill_name: Some(aow.name.as_str()),
         attack_rows: select_aow_attack_rows(aow.aow_id, weapon, data),
     }
+}
+
+fn open_aow_choices_for_objective<'a>(
+    weapon: &'a Weapon,
+    data: &'a GameData,
+    no_aow: AowChoice<'a>,
+    native_skill_choice: Option<AowChoice<'a>>,
+) -> Vec<AowChoice<'a>> {
+    if weapon.disable_gem_attr {
+        return native_skill_choice.map_or_else(|| vec![no_aow], |choice| vec![choice]);
+    }
+
+    let mut choices = vec![no_aow];
+    choices.extend(
+        data.aows
+            .iter()
+            .filter(|aow| !aow.name.eq_ignore_ascii_case("No Skill"))
+            .filter(|aow| aow_compatible_with_weapon(aow, weapon, data))
+            .map(|aow| build_aow_choice(aow, weapon, data)),
+    );
+    choices
 }
 
 fn native_skill_choice_for_weapon<'a>(
@@ -716,9 +719,9 @@ fn normalize_type_token(value: &str) -> String {
 fn is_placeholder_variant(variant: &str) -> bool {
     let normalized = normalize_type_token(variant);
     normalized.starts_with("var")
-        && normalized
-            .get(3..)
-            .is_some_and(|suffix| !suffix.is_empty() && suffix.chars().all(|ch| ch.is_ascii_digit()))
+        && normalized.get(3..).is_some_and(|suffix| {
+            !suffix.is_empty() && suffix.chars().all(|ch| ch.is_ascii_digit())
+        })
 }
 
 fn raw_name_without_variant_prefix(raw_name: &str) -> &str {
@@ -1350,6 +1353,7 @@ mod tests {
         request.fixed_upgrade = Some(25);
         request.locked_combat_stats = [Some(12), Some(15), Some(9), Some(8), Some(45)];
         request.objective = OptimizeObjective::MaxAr;
+        request.aow_name = Some("Double Slash".to_string());
 
         let base_results = optimize(&request, &game_data).expect("optimizer failed");
         assert!(!base_results.is_empty());
@@ -1362,6 +1366,103 @@ mod tests {
         let buffed = &seppuku_results[0];
         assert!(buffed.ar.total() >= base.ar.total() + 29.9);
         assert!(buffed.bleed_buildup > base.bleed_buildup + 30.0);
+    }
+
+    #[test]
+    fn open_max_ar_search_considers_compatible_buff_aows() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.weapon_name = Some("Uchigatana".to_string());
+        request.affinity = Some("Blood".to_string());
+        request.current_stats = Stats {
+            vig: 12,
+            mnd: 11,
+            end: 13,
+            str: 12,
+            dex: 15,
+            int: 9,
+            fai: 8,
+            arc: 45,
+        };
+        request.character_level = 46;
+        request.max_upgrade = 25;
+        request.fixed_upgrade = Some(25);
+        request.locked_combat_stats = [Some(12), Some(15), Some(9), Some(8), Some(45)];
+        request.objective = OptimizeObjective::MaxAr;
+
+        let open_results = optimize(&request, &game_data).expect("open optimizer failed");
+        assert!(!open_results.is_empty());
+        assert_eq!(open_results[0].aow_name.as_deref(), Some("Seppuku"));
+
+        request.aow_name = Some("Seppuku".to_string());
+        let locked_results = optimize(&request, &game_data).expect("locked optimizer failed");
+        assert!(!locked_results.is_empty());
+        assert!(
+            (open_results[0].score - locked_results[0].score).abs() < 0.001,
+            "expected unlocked Max AR score {} to match Seppuku score {}",
+            open_results[0].score,
+            locked_results[0].score
+        );
+    }
+
+    #[test]
+    fn open_max_ar_plus_bleed_matches_best_explicit_aow() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.weapon_name = Some("Uchigatana".to_string());
+        request.affinity = Some("Keen".to_string());
+        request.current_stats = Stats {
+            vig: 40,
+            mnd: 11,
+            end: 20,
+            str: 12,
+            dex: 15,
+            int: 9,
+            fai: 8,
+            arc: 8,
+        };
+        request.character_level = 112;
+        request.max_upgrade = 25;
+        request.fixed_upgrade = Some(25);
+        request.locked_combat_stats = [Some(18), Some(40), Some(9), Some(8), Some(45)];
+        request.objective = OptimizeObjective::MaxArPlusBleed;
+
+        let open_results = optimize(&request, &game_data).expect("open optimizer failed");
+        assert!(!open_results.is_empty());
+
+        let weapon = game_data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.name == "Uchigatana" && weapon.affinity == "Keen")
+            .expect("missing keen uchigatana");
+        let mut expected_best = f32::NEG_INFINITY;
+
+        for aow in game_data
+            .aows
+            .iter()
+            .filter(|aow| aow_compatible_with_weapon(aow, weapon, &game_data))
+        {
+            request.aow_name = Some(aow.name.clone());
+            let locked_results = optimize(&request, &game_data)
+                .unwrap_or_else(|_| panic!("locked optimizer failed for {}", aow.name));
+            if let Some(best_row) = locked_results.first() {
+                if best_row.score > expected_best {
+                    expected_best = best_row.score;
+                }
+            }
+        }
+
+        assert!(
+            expected_best.is_finite(),
+            "expected at least one compatible AoW for Keen Uchigatana"
+        );
+        assert!(
+            (open_results[0].score - expected_best).abs() < 0.001,
+            "expected unlocked Max AR + Bleed score {} to match best explicit score {}",
+            open_results[0].score,
+            expected_best
+        );
+        assert!(open_results[0].aow_name.is_some());
     }
 
     #[test]

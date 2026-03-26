@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import csv
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -13,8 +12,8 @@ THIS_DIR = Path(__file__).resolve().parent
 if str(THIS_DIR) not in sys.path:
     sys.path.insert(0, str(THIS_DIR))
 
-import models as desktop_models
-import services as desktop_services
+import models as desktop_models  # noqa: E402
+import services as desktop_services  # noqa: E402
 
 try:
     import er_optimizer_core as core
@@ -153,262 +152,12 @@ def normalize_weapon_type_display(raw_name: str) -> str:
     return overrides.get(normalized, normalized)
 
 
-@dataclass(frozen=True)
-class CombatState:
-    str_stat: int
-    dex: int
-    int_stat: int
-    fai: int
-    arc: int
-
-    def add_point(self, stat_key: str) -> CombatState | None:
-        field_map = {
-            "str": "str_stat",
-            "dex": "dex",
-            "int": "int_stat",
-            "fai": "fai",
-            "arc": "arc",
-        }
-        field_name = field_map[stat_key]
-        current = getattr(self, field_name)
-        if current >= 99:
-            return None
-        return CombatState(
-            str_stat=self.str_stat + (1 if stat_key == "str" else 0),
-            dex=self.dex + (1 if stat_key == "dex" else 0),
-            int_stat=self.int_stat + (1 if stat_key == "int" else 0),
-            fai=self.fai + (1 if stat_key == "fai" else 0),
-            arc=self.arc + (1 if stat_key == "arc" else 0),
-        )
-
-    def summary(self) -> str:
-        return (
-            f"STR {self.str_stat}  DEX {self.dex}  INT {self.int_stat}  "
-            f"FAI {self.fai}  ARC {self.arc}"
-        )
-
-
-@dataclass(frozen=True)
-class PathWeaponConfig:
-    title: str
-    weapon_name: str
-    affinity: str
-    aow_name: str | None
-    upgrade: int
-    start_state: CombatState
-
-
-@dataclass(frozen=True)
-class PathStep:
-    level: int
-    stats: CombatState
-    ar: float | None
-    score: float | None
-    added_stat: str | None
-    requirement_gap: int
-
-
-@dataclass(frozen=True)
-class PathPreview:
-    config: PathWeaponConfig
-    steps: tuple[PathStep, ...]
-
-
-@dataclass(frozen=True)
-class AffinityWatchPoint:
-    level: int
-    metric: float | None
-    row_data: dict[str, Any] | None
-
-
-@dataclass(frozen=True)
-class AffinityWatchLine:
-    affinity: str
-    points: tuple[AffinityWatchPoint, ...]
-    start_metric: float | None
-    end_metric: float | None
-    final_row: dict[str, Any] | None
-
-
-@dataclass(frozen=True)
-class AffinityBreakpoint:
-    level: int
-    outgoing_affinity: str
-    incoming_affinity: str
-    outgoing_metric: float | None
-    incoming_metric: float | None
-
-
-def serialize_optimize_result(result: Any) -> dict[str, Any]:
-    return {
-        "weapon_id": int(result.weapon_id),
-        "weapon_name": result.weapon_name,
-        "affinity": result.affinity,
-        "aow_name": result.aow_name,
-        "str_stat": int(result.str_stat),
-        "dex": int(result.dex),
-        "int_stat": int(result.int_stat),
-        "fai": int(result.fai),
-        "arc": int(result.arc),
-        "best_upgrade": int(result.upgrade),
-        "best_ar_total": float(result.ar_total),
-        "score": float(result.score),
-        "bleed_buildup": float(result.bleed_buildup),
-        "bleed_buildup_add": float(result.bleed_buildup_add),
-        "frost_buildup": float(result.frost_buildup),
-        "poison_buildup": float(result.poison_buildup),
-        "scarlet_rot_buildup": float(getattr(result, "scarlet_rot_buildup", 0.0)),
-        "aow_first_hit_damage": float(result.aow_first_hit_damage),
-        "aow_full_sequence_damage": float(result.aow_full_sequence_damage),
-    }
-
-
-def objective_metric_value(objective: str, row_data: dict[str, Any]) -> float:
-    if objective == "aow_first_hit":
-        return float(row_data["aow_first_hit_damage"])
-    if objective == "aow_full_sequence":
-        return float(row_data["aow_full_sequence_damage"])
-    return float(row_data["best_ar_total"])
-
-
-def result_rank_key(row_data: dict[str, Any]) -> tuple[float, float, float, float, float, int, int]:
-    return (
-        float(row_data["score"]),
-        float(row_data["best_ar_total"]),
-        float(row_data["aow_full_sequence_damage"]),
-        float(row_data["aow_first_hit_damage"]),
-        float(row_data["bleed_buildup"]),
-        -int(row_data["weapon_id"]),
-        int(row_data["best_upgrade"]),
-    )
-
-
-def compute_affinity_watch_payload(
-    data: Any,
-    base_kwargs: dict[str, Any],
-    weapon_name: str,
-    aow_name: str | None,
-    upgrade: int,
-    affinities: list[str],
-    levels: list[int],
-    objective: str,
-    cache: dict[tuple[Any, ...], dict[str, Any] | None],
-    progress_cb: Any | None = None,
-) -> tuple[list[AffinityWatchLine], list[AffinityBreakpoint]]:
-    lines: list[AffinityWatchLine] = []
-    total = len(affinities) * len(levels)
-    processed = 0
-
-    for affinity in affinities:
-        points: list[AffinityWatchPoint] = []
-        for level in levels:
-            cache_key = (
-                base_kwargs["class_name"],
-                int(level),
-                int(base_kwargs["vig"]),
-                int(base_kwargs["mnd"]),
-                int(base_kwargs["end"]),
-                bool(base_kwargs["two_handing"]),
-                str(objective),
-                weapon_name.casefold(),
-                affinity.casefold(),
-                (aow_name or "").casefold(),
-                int(upgrade),
-                int(base_kwargs["min_str"]),
-                int(base_kwargs["min_dex"]),
-                int(base_kwargs["min_int"]),
-                int(base_kwargs["min_fai"]),
-                int(base_kwargs["min_arc"]),
-                base_kwargs.get("lock_str"),
-                base_kwargs.get("lock_dex"),
-                base_kwargs.get("lock_int"),
-                base_kwargs.get("lock_fai"),
-                base_kwargs.get("lock_arc"),
-            )
-            row_data = cache.get(cache_key)
-            if cache_key not in cache:
-                kwargs = dict(base_kwargs)
-                kwargs.update(
-                    {
-                        "character_level": int(level),
-                        "weapon_name": weapon_name,
-                        "affinity": affinity,
-                        "aow_name": aow_name,
-                        "max_upgrade": int(upgrade),
-                        "fixed_upgrade": int(upgrade),
-                        "top_k": 1,
-                        "weapon_type_key": None,
-                        "somber_filter": "all",
-                    }
-                )
-                try:
-                    rows = core.optimize_builds(data=data, **kwargs)
-                except Exception:
-                    rows = []
-                row_data = serialize_optimize_result(rows[0]) if rows else None
-                cache[cache_key] = row_data
-
-            metric = objective_metric_value(objective, row_data) if row_data is not None else None
-            points.append(AffinityWatchPoint(level=int(level), metric=metric, row_data=row_data))
-            processed += 1
-            if progress_cb is not None:
-                progress_cb(processed, total, affinity, int(level))
-
-        valid_points = [point for point in points if point.metric is not None and point.row_data is not None]
-        if not valid_points:
-            continue
-        lines.append(
-            AffinityWatchLine(
-                affinity=affinity,
-                points=tuple(points),
-                start_metric=valid_points[0].metric,
-                end_metric=valid_points[-1].metric,
-                final_row=valid_points[-1].row_data,
-            )
-        )
-
-    lines.sort(
-        key=lambda line: (
-            float(line.end_metric if line.end_metric is not None else float("-inf")),
-            result_rank_key(line.final_row) if line.final_row is not None else tuple(),
-        ),
-        reverse=True,
-    )
-
-    return lines, detect_affinity_breakpoints(lines, levels)
-
-
-def detect_affinity_breakpoints(
-    lines: list[AffinityWatchLine],
-    levels: list[int],
-) -> list[AffinityBreakpoint]:
-    line_maps = {line.affinity: {point.level: point for point in line.points} for line in lines}
-    breakpoints: list[AffinityBreakpoint] = []
-    leader_affinity: str | None = None
-    for level in levels:
-        leaders = [
-            point.row_data
-            for line in lines
-            if (point := line_maps[line.affinity].get(level)) is not None and point.row_data is not None
-        ]
-        if not leaders:
-            continue
-        leader_row = max(leaders, key=result_rank_key)
-        current_affinity = str(leader_row["affinity"])
-        if leader_affinity is not None and current_affinity != leader_affinity:
-            outgoing_point = line_maps.get(leader_affinity, {}).get(level)
-            incoming_point = line_maps.get(current_affinity, {}).get(level)
-            breakpoints.append(
-                AffinityBreakpoint(
-                    level=int(level),
-                    outgoing_affinity=leader_affinity,
-                    incoming_affinity=current_affinity,
-                    outgoing_metric=outgoing_point.metric if outgoing_point is not None else None,
-                    incoming_metric=incoming_point.metric if incoming_point is not None else None,
-                )
-            )
-        leader_affinity = current_affinity
-    return breakpoints
+CombatState = desktop_models.CombatState
+PathWeaponConfig = desktop_models.PathWeaponConfig
+PathStep = desktop_models.PathStep
+PathPreview = desktop_models.PathPreview
+AffinityWatchLine = desktop_models.AffinityWatchLine
+AffinityBreakpoint = desktop_models.AffinityBreakpoint
 
 
 class PathChartWidget(QtWidgets.QWidget):
@@ -1015,15 +764,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.all_weapon_names: list[str] = []
         self.all_affinities: list[str] = []
         self.stat_widgets: dict[str, QtWidgets.QSpinBox] = {}
-        self.best_row_cache: dict[tuple[Any, ...], dict[str, Any] | None] = {}
-        self.locked_ar_cache: dict[tuple[Any, ...], dict[int, float]] = {}
-        self.path_eval_cache: dict[tuple[Any, ...], PathStep] = {}
-        self.path_target_cache: dict[tuple[Any, ...], dict[str, Any] | None] = {}
-        self.affinity_watch_cache: dict[tuple[Any, ...], dict[str, Any] | None] = {}
         self.scaling_cache: dict[tuple[str, str], tuple[float, float, float, float, float]] = {}
         self.result_cards: list[dict[str, Any]] = []
         self.active_compare_selected: desktop_models.SolvedBuild | None = None
         self.active_compare_target: desktop_models.SolvedBuild | None = None
+        self.compare_resolution_error: str | None = None
         self.selected_result_fingerprint: tuple[Any, ...] | None = None
         self.session: desktop_models.GlobalSession | None = None
 
@@ -2085,11 +1830,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def _refresh_estimate(self) -> None:
         self._sync_derived_level()
         self._sync_session_state()
-        self.best_row_cache.clear()
-        self.locked_ar_cache.clear()
-        self.path_eval_cache.clear()
-        self.path_target_cache.clear()
-        self.affinity_watch_cache.clear()
         self.desktop_service.clear_caches()
         request_signature = self._search_request_signature()
         if self.results_signature is not None and request_signature != self.results_signature:
@@ -2551,6 +2291,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.upgrade_table.setColumnCount(0)
             self.active_compare_selected = None
             self.active_compare_target = None
+            self.compare_resolution_error = None
             self.level_path_button.setEnabled(False)
             self._refresh_affinity_watch_button_state()
             self._refresh_compare_summary(None, None, None)
@@ -2568,81 +2309,94 @@ class MainWindow(QtWidgets.QMainWindow):
         self.upgrade_table.setHorizontalHeaderLabels(headers)
         compare_weapon = self._combo_value(self.compare_weapon_combo)
         selected_result = self.current_results[selected_idx]
-
-        selected_best = self._best_row_config(
-            selected_result.weapon_name,
-            selected_result.affinity,
-            selected_result.aow_name,
-        )
-        if selected_best is None:
-            selected_best = self._row_config_from_result(selected_result)
-
-        rows_to_render: list[tuple[str, Any]] = [
-            (
-                f"Selected: {selected_best.weapon_name} | {selected_best.affinity} | "
-                f"AoW {selected_best.aow_name or '-'} | {self._format_best_stats(selected_best)}",
-                selected_best,
-            )
-        ]
+        selected_best = self._row_config_from_result(selected_result)
         compare_summary_row: desktop_models.SolvedBuild | None = None
 
-        if compare_weapon is None:
-            for row_idx in range(0, min(4, len(self.current_results))):
-                if row_idx == selected_idx:
-                    continue
-                row = self.current_results[row_idx]
-                row_best = self._best_row_config(row.weapon_name, row.affinity, row.aow_name)
-                if row_best is None:
-                    row_best = self._row_config_from_result(row)
-                if compare_summary_row is None:
-                    compare_summary_row = row_best
-                rows_to_render.append(
-                    (
-                        f"Top #{row_idx + 1}: {row_best.weapon_name} | {row_best.affinity} | "
-                        f"AoW {row_best.aow_name or '-'} | {self._format_best_stats(row_best)}",
-                        row_best,
-                    )
-                )
-        else:
-            compare_affinity = self._combo_value(self.compare_affinity_combo)
-            compare_aow_value = self._combo_value(self.compare_aow_combo)
-            if compare_aow_value == "__match_selected__":
-                compare_aow = selected_best.aow_name
-            else:
-                compare_aow = compare_aow_value
-            compare_best = self._best_row_config(
-                compare_weapon,
-                compare_affinity,
-                compare_aow,
+        try:
+            resolved_selected = self._best_row_config(
+                selected_result.weapon_name,
+                selected_result.affinity,
+                selected_result.aow_name,
             )
-            requested_affinity = compare_affinity or OPEN_OPTION
-            if compare_best is not None:
-                compare_label = (
-                    f"Compare: {compare_best.weapon_name} | {compare_best.affinity} | "
-                    f"AoW {compare_best.aow_name or '-'} | {self._format_best_stats(compare_best)}"
-                )
-            else:
-                compare_label = (
-                    f"Compare: {compare_weapon} | {requested_affinity} | AoW {compare_aow or '-'} | "
-                    "No valid build"
-                )
-            rows_to_render.append(
-                (
-                    compare_label,
-                    compare_best,
-                )
-            )
-            compare_summary_row = compare_best
+            if resolved_selected is not None:
+                selected_best = resolved_selected
 
-        self.upgrade_table.setRowCount(len(rows_to_render))
-        for row_idx, (label, row_data) in enumerate(rows_to_render):
-            self.upgrade_table.setItem(row_idx, 0, self._centered_table_item(label))
-            ar_series = self._locked_metric_series_for_config(row_data, max_upgrade)
+            rows_to_render: list[tuple[str, Any]] = [
+                (
+                    f"Selected: {selected_best.weapon_name} | {selected_best.affinity} | "
+                    f"AoW {selected_best.aow_name or '-'} | {self._format_best_stats(selected_best)}",
+                    selected_best,
+                )
+            ]
+
+            if compare_weapon is None:
+                for row_idx in range(0, min(4, len(self.current_results))):
+                    if row_idx == selected_idx:
+                        continue
+                    row = self.current_results[row_idx]
+                    row_best = self._best_row_config(row.weapon_name, row.affinity, row.aow_name)
+                    if row_best is None:
+                        row_best = self._row_config_from_result(row)
+                    if compare_summary_row is None:
+                        compare_summary_row = row_best
+                    rows_to_render.append(
+                        (
+                            f"Top #{row_idx + 1}: {row_best.weapon_name} | {row_best.affinity} | "
+                            f"AoW {row_best.aow_name or '-'} | {self._format_best_stats(row_best)}",
+                            row_best,
+                        )
+                    )
+            else:
+                compare_affinity = self._combo_value(self.compare_affinity_combo)
+                compare_aow_value = self._combo_value(self.compare_aow_combo)
+                if compare_aow_value == "__match_selected__":
+                    compare_aow = selected_best.aow_name
+                else:
+                    compare_aow = compare_aow_value
+                compare_best = self._best_row_config(
+                    compare_weapon,
+                    compare_affinity,
+                    compare_aow,
+                )
+                requested_affinity = compare_affinity or OPEN_OPTION
+                if compare_best is not None:
+                    compare_label = (
+                        f"Compare: {compare_best.weapon_name} | {compare_best.affinity} | "
+                        f"AoW {compare_best.aow_name or '-'} | {self._format_best_stats(compare_best)}"
+                    )
+                else:
+                    compare_label = (
+                        f"Compare: {compare_weapon} | {requested_affinity} | AoW {compare_aow or '-'} | "
+                        "No valid build"
+                    )
+                rows_to_render.append((compare_label, compare_best))
+                compare_summary_row = compare_best
+
+            self.upgrade_table.setRowCount(len(rows_to_render))
+            for row_idx, (label, row_data) in enumerate(rows_to_render):
+                self.upgrade_table.setItem(row_idx, 0, self._centered_table_item(label))
+                metric_series = self._locked_metric_series_for_config(row_data, max_upgrade)
+                for lv in range(0, max_upgrade + 1):
+                    col = lv + 1
+                    metric = metric_series.get(lv)
+                    text = "-" if metric is None else f"{metric:.2f}"
+                    self.upgrade_table.setItem(row_idx, col, self._centered_table_item(text))
+            self.compare_resolution_error = None
+        except Exception as exc:
+            self.compare_resolution_error = str(exc)
+            self.upgrade_table.setRowCount(1)
+            self.upgrade_table.setItem(
+                0,
+                0,
+                self._centered_table_item(
+                    f"Selected: {selected_best.weapon_name} | {selected_best.affinity} | "
+                    f"AoW {selected_best.aow_name or '-'} | Comparison failed"
+                ),
+            )
             for lv in range(0, max_upgrade + 1):
-                col = lv + 1
-                ar = ar_series.get(lv)
-                text = "-" if ar is None else f"{ar:.2f}"
-                self.upgrade_table.setItem(row_idx, col, self._centered_table_item(text))
+                self.upgrade_table.setItem(0, lv + 1, self._centered_table_item("-"))
+            self._set_idle_progress(f"Compare failed: {exc}")
+
         self.active_compare_selected = selected_best
         self.active_compare_target = compare_summary_row
         self.level_path_button.setEnabled(selected_best is not None and compare_summary_row is not None)
@@ -2660,12 +2414,9 @@ class MainWindow(QtWidgets.QMainWindow):
         return self.desktop_service.build_upgrade_series(self.session, row_data, max_upgrade)
 
     def _result_series_value(self, row: Any) -> float:
-        objective = self.objective_combo.currentData()
-        if objective == "aow_first_hit":
-            return float(row.aow_first_hit_damage)
-        if objective == "aow_full_sequence":
-            return float(row.aow_full_sequence_damage)
-        return float(row.ar_total)
+        return self._row_config_from_result(row).metric_for_objective(
+            self.objective_combo.currentData()
+        )
 
     def _best_row_config(
         self,
@@ -3275,13 +3026,18 @@ class MainWindow(QtWidgets.QMainWindow):
         compare_best: desktop_models.SolvedBuild | None,
         compare_weapon: str | None,
     ) -> None:
+        selected_fallback = "Pick a result row to inspect its optimized line."
+        if self.compare_resolution_error is not None and selected_best is None:
+            selected_fallback = f"Failed to resolve selected line: {self.compare_resolution_error}"
         self._set_compare_panel(
             self.selected_compare_panel,
             "Selected Build",
             selected_best,
-            "Pick a result row to inspect its optimized line.",
+            selected_fallback,
         )
-        if compare_best is not None:
+        if self.compare_resolution_error is not None:
+            fallback = f"Comparison failed: {self.compare_resolution_error}"
+        elif compare_best is not None:
             fallback = "Comparison lane ready."
         elif compare_weapon is not None:
             fallback = "No valid build found for the requested comparison."

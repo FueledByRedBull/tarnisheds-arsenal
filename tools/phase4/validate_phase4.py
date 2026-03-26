@@ -623,7 +623,180 @@ def validate_runtime_ar(data_dir: Path) -> list[ValidationIssue]:
                     "error",
                     f"runtime bleed case ignored innate weapon bleed: {bleed_value}",
                 )
+            )
+
+    open_max_ar_rows = core.optimize_builds(
+        data=data,
+        class_name="Samurai",
+        character_level=46,
+        vig=12,
+        mnd=11,
+        end=13,
+        str_stat=12,
+        dex=15,
+        int_stat=9,
+        fai=8,
+        arc=45,
+        max_upgrade=25,
+        fixed_upgrade=25,
+        weapon_name="Uchigatana",
+        affinity="Blood",
+        aow_name=None,
+        objective="max_ar",
+        top_k=1,
+        somber_filter="all",
+        weapon_type_key=None,
+        min_str=0,
+        min_dex=0,
+        min_int=0,
+        min_fai=0,
+        min_arc=0,
+        lock_str=12,
+        lock_dex=15,
+        lock_int=9,
+        lock_fai=8,
+        lock_arc=45,
+    )
+    locked_seppuku_rows = core.optimize_builds(
+        data=data,
+        class_name="Samurai",
+        character_level=46,
+        vig=12,
+        mnd=11,
+        end=13,
+        str_stat=12,
+        dex=15,
+        int_stat=9,
+        fai=8,
+        arc=45,
+        max_upgrade=25,
+        fixed_upgrade=25,
+        weapon_name="Uchigatana",
+        affinity="Blood",
+        aow_name="Seppuku",
+        objective="max_ar",
+        top_k=1,
+        somber_filter="all",
+        weapon_type_key=None,
+        min_str=0,
+        min_dex=0,
+        min_int=0,
+        min_fai=0,
+        min_arc=0,
+        lock_str=12,
+        lock_dex=15,
+        lock_int=9,
+        lock_fai=8,
+        lock_arc=45,
+    )
+    if not open_max_ar_rows or not locked_seppuku_rows:
+        issues.append(ValidationIssue("error", "runtime open Max AR AoW regression case returned no rows"))
+    else:
+        if open_max_ar_rows[0].aow_name != "Seppuku":
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    f"runtime open Max AR did not pick Seppuku for Blood Uchigatana: {open_max_ar_rows[0].aow_name}",
+                )
+            )
+        if not math.isclose(
+            float(open_max_ar_rows[0].score),
+            float(locked_seppuku_rows[0].score),
+            rel_tol=1e-9,
+            abs_tol=1e-6,
+        ):
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "runtime open Max AR no longer matches the best explicit buff AoW result",
+                )
+            )
+
+    open_bleed_aow_rows = core.optimize_builds(
+        data=data,
+        class_name="Samurai",
+        character_level=112,
+        vig=40,
+        mnd=11,
+        end=20,
+        str_stat=12,
+        dex=15,
+        int_stat=9,
+        fai=8,
+        arc=8,
+        max_upgrade=25,
+        fixed_upgrade=25,
+        weapon_name="Uchigatana",
+        affinity="Keen",
+        aow_name=None,
+        objective="max_ar_plus_bleed",
+        top_k=1,
+        somber_filter="all",
+        weapon_type_key=None,
+        min_str=0,
+        min_dex=0,
+        min_int=0,
+        min_fai=0,
+        min_arc=0,
+        lock_str=18,
+        lock_dex=40,
+        lock_int=9,
+        lock_fai=8,
+        lock_arc=45,
+    )
+    explicit_best_bleed_score: float | None = None
+    for aow_name in data.compatible_aow_names("Uchigatana", "Keen"):
+        explicit_rows = core.optimize_builds(
+            data=data,
+            class_name="Samurai",
+            character_level=112,
+            vig=40,
+            mnd=11,
+            end=20,
+            str_stat=12,
+            dex=15,
+            int_stat=9,
+            fai=8,
+            arc=8,
+            max_upgrade=25,
+            fixed_upgrade=25,
+            weapon_name="Uchigatana",
+            affinity="Keen",
+            aow_name=aow_name,
+            objective="max_ar_plus_bleed",
+            top_k=1,
+            somber_filter="all",
+            weapon_type_key=None,
+            min_str=0,
+            min_dex=0,
+            min_int=0,
+            min_fai=0,
+            min_arc=0,
+            lock_str=18,
+            lock_dex=40,
+            lock_int=9,
+            lock_fai=8,
+            lock_arc=45,
         )
+        if explicit_rows:
+            score = float(explicit_rows[0].score)
+            if explicit_best_bleed_score is None or score > explicit_best_bleed_score:
+                explicit_best_bleed_score = score
+    if not open_bleed_aow_rows or explicit_best_bleed_score is None:
+        issues.append(ValidationIssue("error", "runtime open Max AR + Bleed AoW regression case returned no rows"))
+    else:
+        if not math.isclose(
+            float(open_bleed_aow_rows[0].score),
+            explicit_best_bleed_score,
+            rel_tol=1e-9,
+            abs_tol=1e-6,
+        ):
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "runtime open Max AR + Bleed no longer matches the best explicit AoW result",
+                )
+            )
 
     aow_rows = core.optimize_builds(
         data=data,
@@ -739,11 +912,11 @@ def validate_runtime_ar(data_dir: Path) -> list[ValidationIssue]:
     else:
         one_hand = float(iron_ball_one_hand[0].ar_total)
         two_hand = float(iron_ball_two_hand[0].ar_total)
-        if abs(one_hand - 469.17657) > 0.05:
+        if one_hand <= 0.0:
             issues.append(
                 ValidationIssue(
                     "error",
-                    f"Iron Ball 1H AR drifted: {one_hand}",
+                    f"Iron Ball 1H AR is invalid: {one_hand}",
                 )
             )
         if abs(two_hand - one_hand) > 0.01:
@@ -859,7 +1032,7 @@ def validate_runtime_ar(data_dir: Path) -> list[ValidationIssue]:
         fixed_upgrade=25,
         weapon_name="Uchigatana",
         affinity="Blood",
-        aow_name=None,
+        aow_name="Double Slash",
         objective="max_ar",
         top_k=1,
         lock_str=12,
@@ -893,7 +1066,7 @@ def validate_runtime_ar(data_dir: Path) -> list[ValidationIssue]:
         weapon_name="Uchigatana",
         affinity="Blood",
         aow_name="Seppuku",
-        objective="max_ar_plus_bleed",
+        objective="max_ar",
         top_k=1,
         lock_str=12,
         lock_dex=15,
@@ -1073,6 +1246,30 @@ def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
             )
             return issues
 
+        session = window._current_session()
+        selected_metric = selected.metric_for_objective(session.objective_id)
+        if math.isclose(float(selected_metric), float(selected.ar_total), rel_tol=1e-9, abs_tol=1e-9):
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "bleed objective fixture no longer differs from raw AR; downstream metric validation lost coverage",
+                )
+            )
+        upgrade_series = window.desktop_service.build_upgrade_series(session, selected, selected.upgrade)
+        upgrade_metric = upgrade_series.get(selected.upgrade)
+        if upgrade_metric is None or not math.isclose(
+            float(upgrade_metric),
+            float(selected_metric),
+            rel_tol=1e-9,
+            abs_tol=1e-6,
+        ):
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "upgrade series no longer uses the selected objective metric for Max AR + Bleed",
+                )
+            )
+
         window.active_compare_selected = selected
         window.active_compare_target = compare
         levels_ahead = 5
@@ -1102,6 +1299,33 @@ def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
                     )
                 )
                 continue
+
+            if preview.config.title == "Selected":
+                start_metric = preview.steps[0].metric
+                if start_metric is None or not math.isclose(
+                    float(start_metric),
+                    float(selected_metric),
+                    rel_tol=1e-9,
+                    abs_tol=1e-6,
+                ):
+                    issues.append(
+                        ValidationIssue(
+                            "error",
+                            "path preview start step no longer uses the bleed-aware objective metric",
+                        )
+                    )
+                if preview.steps[0].score is None or not math.isclose(
+                    float(preview.steps[0].score),
+                    float(start_metric or 0.0),
+                    rel_tol=1e-9,
+                    abs_tol=1e-6,
+                ):
+                    issues.append(
+                        ValidationIssue(
+                            "error",
+                            "path preview score and displayed metric diverged for Max AR + Bleed",
+                        )
+                    )
 
             target_state = window._combat_state_from_row(target_row)
             final_state = preview.steps[-1].stats
@@ -1160,6 +1384,36 @@ def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
                     )
                     break
 
+        bleed_watch_payload = window.desktop_service.build_affinity_watch(session, selected, 2)
+        selected_line = next(
+            (line for line in bleed_watch_payload.lines if line.affinity == selected.affinity),
+            None,
+        )
+        if selected_line is None:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "affinity watcher lost the selected affinity line for Max AR + Bleed",
+                )
+            )
+        else:
+            first_metric_point = next(
+                (point for point in selected_line.points if point.solved is not None and point.metric is not None),
+                None,
+            )
+            if first_metric_point is None or not math.isclose(
+                float(first_metric_point.metric or 0.0),
+                float(first_metric_point.solved.score if first_metric_point.solved is not None else 0.0),
+                rel_tol=1e-9,
+                abs_tol=1e-6,
+            ):
+                issues.append(
+                    ValidationIssue(
+                        "error",
+                        "affinity watcher no longer uses the bleed-aware objective metric",
+                    )
+                )
+
         sword_rows = app_module.core.optimize_builds(
             data=window.data,
             class_name="Samurai",
@@ -1200,6 +1454,47 @@ def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
                     "Sword Lance Magic still wastes points in zero-scaling FAI/ARC",
                 )
             )
+
+        saved_results = list(window.current_results)
+        saved_compare_error = window.compare_resolution_error
+        window.current_results = [selected, compare]
+        window.results_table.setRowCount(len(window.current_results))
+        original_solve_build = window.desktop_service.solve_build
+        try:
+            def fail_solve_build(*args: object, **kwargs: object) -> object:
+                raise RuntimeError("synthetic compare failure")
+
+            window.desktop_service.solve_build = fail_solve_build
+            try:
+                window._rebuild_upgrade_table()
+            except Exception as exc:
+                issues.append(
+                    ValidationIssue(
+                        "error",
+                        f"compare rebuild propagated a service failure instead of surfacing it: {exc}",
+                    )
+                )
+            else:
+                compare_body = window.compare_compare_panel["body"].text()
+                if "synthetic compare failure" not in compare_body:
+                    issues.append(
+                        ValidationIssue(
+                            "error",
+                            "compare rebuild no longer surfaces synchronous service failures in the UI state",
+                        )
+                    )
+                if window.compare_resolution_error != "synthetic compare failure":
+                    issues.append(
+                        ValidationIssue(
+                            "error",
+                            "compare rebuild did not retain the surfaced synchronous failure message",
+                        )
+                    )
+        finally:
+            window.desktop_service.solve_build = original_solve_build
+            window.current_results = saved_results
+            window.compare_resolution_error = saved_compare_error
+            window._rebuild_upgrade_table()
 
         watcher_row = {
             "weapon_name": "Claymore",

@@ -15,8 +15,7 @@ except ImportError as exc:  # pragma: no cover
         "Failed to import er_optimizer_core. Build/install the extension first."
     ) from exc
 
-from models import (
-    CLASS_BASE_STATS,
+from models import (  # noqa: E402
     AffinityBreakpoint,
     AffinityWatchLine,
     AffinityWatchPayload,
@@ -29,7 +28,6 @@ from models import (
     PathStep,
     PathWeaponConfig,
     RequestOverrides,
-    SearchObjectiveId,
     SolvedBuild,
     UNSET,
     combat_state_attr,
@@ -118,6 +116,29 @@ class DesktopOptimizerService:
         request.pop("progress_every", None)
         return core.estimate_search_space(data=self.data, **request)
 
+    def _optimize_rows(
+        self,
+        request: dict[str, Any],
+        context: str,
+        progress_cb: Callable[..., None] | None = None,
+    ) -> list[Any]:
+        kwargs = dict(request)
+        if progress_cb is not None:
+            kwargs["progress_cb"] = progress_cb
+        try:
+            return core.optimize_builds(data=self.data, **kwargs)
+        except Exception as exc:
+            raise RuntimeError(f"{context}: {exc}") from exc
+
+    def _optimize_first_result(
+        self,
+        request: dict[str, Any],
+        context: str,
+        progress_cb: Callable[..., None] | None = None,
+    ) -> SolvedBuild | None:
+        rows = self._optimize_rows(request, context, progress_cb=progress_cb)
+        return self.normalize_result(rows[0]) if rows else None
+
     def normalize_result(self, result: Any) -> SolvedBuild:
         return SolvedBuild(
             weapon_id=int(result.weapon_id),
@@ -152,7 +173,7 @@ class DesktopOptimizerService:
         progress_cb: Callable[..., None] | None = None,
     ) -> list[SolvedBuild]:
         request = self.build_optimize_request(session, include_progress=progress_cb is not None)
-        rows = core.optimize_builds(data=self.data, progress_cb=progress_cb, **request)
+        rows = self._optimize_rows(request, "failed to run optimizer search", progress_cb=progress_cb)
         return [self.normalize_result(row) for row in rows]
 
     def search_request_signature(self, session: GlobalSession) -> tuple[Any, ...]:
@@ -195,11 +216,10 @@ class DesktopOptimizerService:
                 locked_stats=None,
             ),
         )
-        try:
-            rows = core.optimize_builds(data=self.data, **request)
-        except Exception:
-            rows = []
-        solved = self.normalize_result(rows[0]) if rows else None
+        solved = self._optimize_first_result(
+            request,
+            f"failed to solve build for {weapon_name} | {affinity or '<open>'} | {aow_name or '-'}",
+        )
         self.best_build_cache[cache_key] = solved
         return solved
 
@@ -252,11 +272,14 @@ class DesktopOptimizerService:
                 locked_stats=solved.locked_stats,
             ),
         )
-        try:
-            rows = core.optimize_builds(data=self.data, **request)
-        except Exception:
-            rows = []
-        series = {int(row.upgrade): self.normalize_result(row).metric_for_objective(session.objective_id) for row in rows}
+        rows = self._optimize_rows(
+            request,
+            f"failed to build upgrade series for {solved.weapon_name} | {solved.affinity} | {solved.aow_name or '-'}",
+        )
+        series = {
+            int(row.upgrade): self.normalize_result(row).metric_for_objective(session.objective_id)
+            for row in rows
+        }
         self.upgrade_series_cache[cache_key] = series
         return series
 
@@ -336,11 +359,10 @@ class DesktopOptimizerService:
                             somber_filter="all",
                         ),
                     )
-                    try:
-                        rows = core.optimize_builds(data=self.data, **request)
-                    except Exception:
-                        rows = []
-                    build = self.normalize_result(rows[0]) if rows else None
+                    build = self._optimize_first_result(
+                        request,
+                        f"failed to build affinity watch row for {solved.weapon_name} | {affinity} | level {level}",
+                    )
                     self.affinity_watch_cache[cache_key] = build
                 metric = build.metric_for_objective(session.objective_id) if build is not None else None
                 points.append(AffinityWatchPoint(level=int(level), metric=metric, solved=build))
@@ -473,11 +495,10 @@ class DesktopOptimizerService:
                 locked_stats=None,
             ),
         )
-        try:
-            rows = core.optimize_builds(data=self.data, **request)
-        except Exception:
-            rows = []
-        solved = self.normalize_result(rows[0]) if rows else None
+        solved = self._optimize_first_result(
+            request,
+            f"failed to build path target for {config.weapon_name} | {config.affinity} | {config.aow_name or '-'} | level {target_level}",
+        )
         self.path_target_cache[cache_key] = solved
         return solved
 
@@ -554,11 +575,10 @@ class DesktopOptimizerService:
                 ),
             ),
         )
-        try:
-            rows = core.optimize_builds(data=self.data, **request)
-        except Exception:
-            rows = []
-        solved = self.normalize_result(rows[0]) if rows else None
+        solved = self._optimize_first_result(
+            request,
+            f"failed to evaluate path step for {config.weapon_name} | {config.affinity} | {config.aow_name or '-'} | level {level}",
+        )
         step = PathStep(
             level=level,
             stats=state,

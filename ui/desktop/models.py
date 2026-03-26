@@ -325,6 +325,8 @@ class SolvedBuild:
             return self.aow_first_hit_damage
         if objective_id == "aow_full_sequence":
             return self.aow_full_sequence_damage
+        if objective_id == "max_ar_plus_bleed":
+            return self.score
         return self.ar_total
 
     def to_mapping(self) -> dict[str, Any]:
