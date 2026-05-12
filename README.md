@@ -1,198 +1,102 @@
-﻿# Tarnished's Arsenal
+<p align="center">
+  <img src="docs/images/tarnisheds-arsenal-banner.svg" alt="Tarnished's Arsenal" width="100%">
+</p>
+
+# Tarnished's Arsenal
 
 [![CI](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/ci.yml/badge.svg)](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/ci.yml)
 [![Release Package](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/release-package.yml/badge.svg)](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/release-package.yml)
+[![Latest Release](https://img.shields.io/github/v/release/FueledByRedBull/tarnisheds-arsenal?label=release)](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest)
 
-Stop checking one weapon at a time.
+**Tarnished's Arsenal** is a Windows desktop optimizer for Elden Ring builds.
 
-`Tarnished's Arsenal` is a session-driven Elden Ring desktop optimizer. You give it a real class, real stat budget, real floors, real weapon constraints, and it brute-forces the search space across:
+It searches across weapons, affinities, Ashes of War, upgrade levels, and stat distributions from one canonical build session, then carries that same session through rankings, comparisons, stat paths, and affinity breakpoints.
 
-`weapon x affinity x AoW x upgrade x stat distribution`
+```text
+weapon x affinity x AoW x upgrade x stat distribution
+```
 
-Then it keeps going. Rankings feed Compare. Compare feeds Paths. Paths and Affinity Watch stay tied to the same active build session instead of behaving like separate mini-tools.
+## Download
 
-## Why This Exists
+Get the latest Windows build from [Releases](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
 
-Most calculators are good at answering:
+- `TarnishedsArsenal_<version>_x64_en-US.msi` is the normal installer.
+- `tarnisheds-arsenal-desktop.exe` is the portable executable.
+- `TarnishedsArsenal_<version>.zip` bundles both binaries with the README and license.
 
-- `What does this one weapon do with these exact stats?`
+## What It Answers
 
-This app is built to answer:
+Most calculators are built around one exact weapon line. This app is built for open-ended questions:
 
-- `What is actually best if I keep ARC above 40?`
-- `When does Occult overtake Blood?`
-- `What does my upgrade spread look like if I lock this build?`
-- `What is the best Current + N stat route into the target build?`
-- `Which affinity leads if I keep the weapon and AoW fixed?`
-
-## The Model
-
-The app runs around one canonical session:
-
-- `Build Session`
-  - class
-  - current 8 stats
-  - derived level
-  - min floors
-  - two-handing
-- `Search Scope`
-  - weapon type
-  - weapon
-  - affinity
-  - AoW
-  - somber filter
-  - upgrade policy
-  - top-k
-- `Objective`
-  - `Max AR`
-  - `Max AR + Bleed`
-  - `AoW First Hit (PvE)`
-  - `AoW Full Sequence (PvE)`
-- `Locked Combat Stats`
-  - optional exact `STR/DEX/INT/FAI/ARC` lock taken from a solved result
-- `Analysis State`
-  - selected result
-  - compare target
-  - horizon
-  - active workspace
-
-That matters because every workspace is looking at the same truth.
+- What is best if `ARC` must stay above 40?
+- When does `Occult` overtake `Blood`?
+- Which stat path reaches the selected target most efficiently?
+- Which affinity wins if weapon, AoW, class, and level budget stay fixed?
+- What happens when the same build is evaluated at every upgrade level?
 
 ## Workspaces
 
-### `RANKINGS`
+| Workspace | Purpose |
+|---|---|
+| `Rankings` | Brute-force ranked build search with lockable result stats. |
+| `Compare` | Selected build vs rival lines under the same budget and objective. |
+| `Paths` | Current + N routing into solved target builds, level by level. |
+| `Affinity Watch` | Affinity leader tracking and crossover breakpoints for a fixed setup. |
 
-- brute-force ranked search results
-- scaling shown per result at the actual upgrade level
-- `Use As Locks` promotes the selected result into exact combat-stat locks
-- result cards are summaries of the current ranking state, not a separate logic path
+Every workspace reads from the same active session, so the app does not drift into separate mini-tools with separate assumptions.
 
-### `COMPARE`
+## Search Model
 
-- selected build vs explicit rival or derived rival lines
-- each row is re-optimized under the same class, budget, floors, objective, and handing mode
-- upgrade spread locks that row's solved combat stats and evaluates the chosen metric across upgrade levels
-
-### `PATHS`
-
-- embedded workspace, not just a pop-up
-- uses the selected build and compare target from the current session
-- solves the exact `Current + N` target state for each lane
-- then routes the stat points into that target level by level
-- shows chart + per-lane step tables
-
-### `AFFINITY WATCH`
-
-- embedded workspace, not just a pop-up
-- keeps weapon, AoW, upgrade, class, budget, and objective fixed
-- varies affinity only
-- shows which legal affinity leads from `Current` to `Current + N`
-- includes crossover breakpoints and final stat states
-
-## Lock / Open Search Rules
-
-Every constraint can be treated as either locked or open.
+The optimizer can lock or open each major constraint:
 
 | Input | Locked | Open |
 |---|---|---|
-| Weapon Type | Search only that weapon family | Search all weapon families |
-| Weapon | Search only that weapon | Search all weapons |
-| Affinity | Search only that affinity | Search all legal affinities |
-| AoW | Search only that AoW | Search all legal AoWs |
-| Upgrade | Exact level with `Lock Upgrade Exact` | Full `+0..+N` range |
-| Combat Stats | Exact with `Use As Locks` + `Use Locked Result Stats` | Optimized inside the session budget |
+| Weapon Type | Search one weapon family | Search all weapon families |
+| Weapon | Search one weapon | Search all weapons |
+| Affinity | Search one affinity | Search all legal affinities |
+| AoW | Search one Ash of War | Search all legal Ashes of War |
+| Upgrade | Evaluate exact `+N` | Evaluate the full `+0..+N` range |
+| Combat Stats | Reuse exact locked result stats | Optimize within the session budget |
 
-## Controls That Matter
+Supported objectives:
 
-### `Build`
+- `Max AR`
+- `Max AR + Bleed`
+- `AoW First Hit (PvE)`
+- `AoW Full Sequence (PvE)`
 
-- `Starting Class`
-  - sets hard minimums
-- `Derived Level`
-  - computed from the visible 8 stats
-- `VIG / MND / END`
-  - fixed inputs
-- `STR / DEX / INT / FAI / ARC`
-  - establish your current budget context
-- `Min Floor`
-  - lower bound for optimizer-controlled combat stats
+## Data
 
-### `Constraints`
+The runtime snapshot is generated from local game data and workbook extraction, not wiki estimates.
 
-- `Weapon Type`, `Weapon`, `Affinity`, `AoW`
-  - lock a lane or leave it open
-- `Somber Filter`
-  - `All`, `Standard Only`, `Somber Only`
-- `Max Upgrade`
-  - max evaluated upgrade
-- `Top Results`
-  - number of returned top rows
-
-### `Search`
-
-- `Objective`
-  - ranking metric for search and downstream analysis
-- `Lock Upgrade Exact`
-  - force exactly `+N`
-- `Two Handing`
-  - 1.5x effective STR, capped at 99, for requirements and scaling behavior where applicable
-  - paired weapons and paired uniques that do not receive the generic two-hand STR bonus are excluded from that boost
-- `Use Locked Result Stats`
-  - reuses the exact combat stats captured via `Use As Locks`
-
-## Objectives
-
-### `Max AR`
-
-Ranks by total AR.
-
-### `Max AR + Bleed`
-
-Ranks by:
-
-- total AR
-- plus total bleed buildup after upgrade and stat scaling
-
-The app also computes frost, poison, and scarlet rot buildup, but this objective still ranks specifically on AR plus bleed.
-
-### `AoW First Hit (PvE)`
-
-Ranks by the first damaging full-FP hit row for the selected AoW.
-
-### `AoW Full Sequence (PvE)`
-
-Ranks by the total damaging full-FP sequence for the selected AoW.
-
-## Data and Accuracy Notes
-
-This project is not using wiki guesses. The runtime snapshot is derived from local game data and workbook extraction.
-
-Current runtime data includes:
+Included data covers:
 
 - weapon rows by affinity
 - reinforce data
 - expanded calc-correct graphs
 - exact AoW compatibility rows
 - innate weapon passives
-- regulation-derived passive overlays by weapon, affinity, and upgrade
-- native somber weapon-skill attack data
-- buff-type AoW weapon buffs from workbook `SpEffectParam` extraction
-- regulation-derived paired / no-two-hand-bonus behavior
-- AoW attack-data extraction for PvE damage objectives
+- passive overlays by weapon, affinity, and upgrade
+- native somber weapon skill attack data
+- workbook-backed AoW buff data
+- paired and no-two-hand-bonus behavior
+- AoW attack rows for PvE damage objectives
 
-Important boundaries:
+Current boundaries:
 
-- this is still an optimizer, not a full enemy simulator
-- enemy defense, negation, resistance growth, proc explosion damage, poise, and stamina are not part of the current scoring model
-- status buildup is split and surfaced for bleed, frost, poison, and scarlet rot, and workbook-derived `isUseStatusAilmentAtkPowerCorrect` flags are now used as explicit runtime gates when the source data exposes them
-- self-buff weapon enchant spells and every temporary buff stack are not yet modeled as a universal layer; the current buff pass covers workbook-backed buff-type AoWs such as `Seppuku`, `Sacred Blade`, `Flaming Strike`, `Lightning Slash`, `Chilling Mist`, and `Poisonous Mist`
+- enemy defense, negation, resistance growth, stamina, poise, and proc explosion damage are not modeled
+- status buildup is surfaced for bleed, frost, poison, and scarlet rot
+- temporary buff stacking is not yet modeled as a universal layer
 
-## Local Setup
+## Development
 
 Requirements:
 
 - Rust stable
 - Node.js / npm
+- Python 3.12 for validation and data tooling
+
+Run the desktop app:
 
 ```powershell
 cd apps/desktop
@@ -201,9 +105,7 @@ npm run dev
 npm run tauri dev
 ```
 
-The Tauri desktop app is the primary UI and release target. The retired PyQt UI is archived under `archive/python-desktop` for behavior comparisons only.
-
-## Validation
+Validate the main paths:
 
 ```powershell
 cargo test --manifest-path core/er_optimizer_core/Cargo.toml
@@ -213,30 +115,17 @@ cd apps/desktop
 npm run build
 ```
 
-Those checks cover:
-
-- optimizer behavior
-- data integrity
-- Tauri command and frontend type/build integrity
-- session-driven UI flow
-- selection preservation
-- path and affinity-watch stability
-
-## Build A Windows Release
-
-For a distributable bundle:
-
-Use the release package helper from the repo root. It runs Rust tests, builds the validation binding, runs data validation, runs Tauri tests, runs `npm ci`, and performs the Tauri production build, then copies the MSI and executable into `dist/TarnishedsArsenal_<version>`.
+Build a Windows release package:
 
 ```powershell
 python tools/phase4/package_release.py
 ```
 
-The Tauri bundle loads the local `data/phase1` resource in production. Browser-only mock data is limited to the explicit Vite dev preview.
+The release helper runs core and Tauri tests, builds and installs the local validation binding, runs data validation, installs frontend dependencies, builds the Tauri app, and writes `dist/TarnishedsArsenal_<version>`.
 
-## Refresh The Data Snapshot
+## Refresh Data
 
-If you want to regenerate the base runtime CSVs from your own `regulation.bin`:
+Regenerate the base runtime CSVs from a local `regulation.bin`:
 
 ```powershell
 python tools/phase1/phase1_dump.py `
@@ -245,11 +134,13 @@ python tools/phase1/phase1_dump.py `
   --output data/phase1
 ```
 
-If you also want workbook-derived AoW attack data refreshed, place:
+Refresh workbook-derived AoW attack data by placing this workbook in `data/phase1`:
 
-- `data/phase1/ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx`
+```text
+ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx
+```
 
-then run:
+Then run:
 
 ```powershell
 python tools/phase1/extract_motion_workbook.py
@@ -257,23 +148,19 @@ python tools/phase1/derive_phase1_raw_extras.py --workdir data/_work_phase1_repa
 python tools/phase1/derive_phase1_extras.py --input data/phase1 --output data/phase1
 ```
 
-## Repo Layout
+## Repository Layout
 
-- `core/er_optimizer_core`
-  - Rust optimizer and optional PyO3 bridge used by data/validation tooling
-- `apps/desktop`
-  - Tauri desktop app, canonical session UI, workspace orchestration, and Rust command bridge
-- `archive/python-desktop`
-  - retired PyQt6 reference app and old Python release helpers
-- `data/phase1`
-  - committed runtime snapshot used by the app
-- `tools/phase1`
-  - dump and extraction scripts
-- `tools/phase4`
-  - validation, benchmarks, and Tauri release packaging
+| Path | Role |
+|---|---|
+| `apps/desktop` | Tauri, React, and TypeScript desktop app. |
+| `core/er_optimizer_core` | Rust optimizer and optional PyO3 validation binding. |
+| `data/phase1` | Committed runtime data snapshot. |
+| `tools/phase1` | Extraction and data refresh tooling. |
+| `tools/phase4` | Validation, benchmarking, and release packaging. |
+| `archive/python-desktop` | Retired PyQt reference app kept for behavior comparisons. |
 
-## License / IP
+## License
 
 Code is MIT-licensed in `LICENSE`.
 
-Elden Ring IP belongs to FromSoftware / Bandai Namco. This repo is fan-made tooling and does not ship the game itself.
+Elden Ring IP belongs to FromSoftware / Bandai Namco. This is fan-made tooling and does not ship the game itself.

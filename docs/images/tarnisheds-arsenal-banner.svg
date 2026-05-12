@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-labelledby="title desc">
+  <title id="title">Tarnished's Arsenal</title>
+  <desc id="desc">A non-screenshot repository banner for a Rust and Tauri Elden Ring build optimizer.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111827"/>
+      <stop offset="0.52" stop-color="#151515"/>
+      <stop offset="1" stop-color="#2a2418"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f7d37b"/>
+      <stop offset="0.48" stop-color="#d6a84d"/>
+      <stop offset="1" stop-color="#8f6a2b"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#000000" flood-opacity="0.34"/>
+    </filter>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 0H0V48" fill="none" stroke="#ffffff" stroke-opacity="0.045" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1280" height="420" rx="32" fill="url(#bg)"/>
+  <rect width="1280" height="420" rx="32" fill="url(#grid)"/>
+  <path d="M64 332C205 236 323 208 461 248C579 282 671 337 804 298C927 262 1038 157 1216 151" fill="none" stroke="#f7d37b" stroke-opacity="0.24" stroke-width="2"/>
+  <path d="M64 354C216 276 325 263 448 292C579 323 681 364 814 330C939 298 1035 218 1216 211" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="2"/>
+  <g filter="url(#softShadow)">
+    <rect x="78" y="70" width="1124" height="280" rx="24" fill="#0b0f17" fill-opacity="0.72" stroke="#f7d37b" stroke-opacity="0.18"/>
+    <g transform="translate(116 116)">
+      <rect x="0" y="0" width="86" height="86" rx="18" fill="#161b24" stroke="#f7d37b" stroke-opacity="0.28"/>
+      <path d="M43 16L52 37L75 42L56 56L59 79L43 66L27 79L30 56L11 42L34 37L43 16Z" fill="url(#gold)"/>
+      <path d="M43 29L48 40L60 43L50 51L52 63L43 56L34 63L36 51L26 43L38 40L43 29Z" fill="#111827"/>
+    </g>
+    <text x="234" y="155" fill="#f8fafc" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="58" font-weight="800" letter-spacing="0">Tarnished's Arsenal</text>
+    <text x="236" y="203" fill="#d7c49a" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="22" font-weight="600" letter-spacing="0.8">ELDEN RING BUILD OPTIMIZER</text>
+    <text x="236" y="252" fill="#cbd5e1" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="25" letter-spacing="0">Search weapons, affinities, AoWs, upgrades, and stats from one canonical session.</text>
+    <g transform="translate(236 292)" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="700">
+      <rect x="0" y="0" width="108" height="38" rx="10" fill="#1f2937" stroke="#ffffff" stroke-opacity="0.08"/>
+      <text x="20" y="25" fill="#e5e7eb">Rust</text>
+      <rect x="126" y="0" width="112" height="38" rx="10" fill="#1f2937" stroke="#ffffff" stroke-opacity="0.08"/>
+      <text x="146" y="25" fill="#e5e7eb">Tauri</text>
+      <rect x="256" y="0" width="132" height="38" rx="10" fill="#1f2937" stroke="#ffffff" stroke-opacity="0.08"/>
+      <text x="276" y="25" fill="#e5e7eb">React</text>
+      <rect x="406" y="0" width="150" height="38" rx="10" fill="#1f2937" stroke="#ffffff" stroke-opacity="0.08"/>
+      <text x="426" y="25" fill="#e5e7eb">TypeScript</text>
+    </g>
+  </g>
+</svg>
