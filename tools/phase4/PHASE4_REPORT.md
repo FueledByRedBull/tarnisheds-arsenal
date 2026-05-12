@@ -2,17 +2,19 @@
 
 ## Scope Completed
 - Data/math regression validation
-- UI smoke/e2e validation
-- Runtime binding validation
-- Release packaging with frozen data snapshot
-- Install/run instructions in release bundle
+- TypeScript/Tauri build validation
+- Runtime command validation
+- Tauri release packaging with frozen data snapshot
+- Installer/portable executable instructions in release bundle
 
 ## Validation Commands
 
 ```powershell
 cargo test --manifest-path core/er_optimizer_core/Cargo.toml
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 python tools/phase4/validate_phase4.py
-python tools/phase4/smoke_ui.py
+cd apps/desktop
+npm run build
 ```
 
 All passed on this workspace.
@@ -23,28 +25,26 @@ All passed on this workspace.
 python tools/phase4/package_release.py
 ```
 
+This is now a gated release command: it runs core and Tauri `cargo test`, runs `validate_phase4.py`, installs frontend dependencies with `npm ci`, runs the Tauri production build, and only then writes `dist/`.
+
 Generated:
 
-`dist/ERBuildOptimizer_0.1.0`
+`dist/TarnishedsArsenal_<version>`
 
 Contents:
-- `app.py`
-- `data/phase1/*.csv`
-- `er_optimizer_core-0.1.0-cp310-abi3-win_amd64.whl`
-- `requirements.txt`
-- `install.ps1`
-- `run.ps1`
+- Windows MSI installer
+- Portable executable
+- `LICENSE`
 - `README.md`
 
 ## Clean Install/Run Check
 
 ```powershell
-python -m pip install -r dist/ERBuildOptimizer_0.1.0/requirements.txt
-python -m pip install --force-reinstall dist/ERBuildOptimizer_0.1.0/er_optimizer_core-0.1.0-cp310-abi3-win_amd64.whl
-python dist/ERBuildOptimizer_0.1.0/app.py
+python tools/phase4/package_release.py
+Start-Process dist/TarnishedsArsenal_<version>/tarnisheds-arsenal-desktop.exe
 ```
 
-Verified app startup and data load.
+The Tauri bundle loads the committed `data/phase1` snapshot as an app resource.
 
 ## Note
-- Qt emitted a font directory warning in offscreen smoke runs. Functional behavior is unaffected.
+- `validate_phase4.py` reports a warning that PyQt level-path checks are skipped because the retired UI is archived under `archive/python-desktop`.

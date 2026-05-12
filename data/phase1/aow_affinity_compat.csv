@@ -1,37 +1,4 @@
 aow_id,name,affinity,weapon_count,sample_weapon_names
-121,,Cold,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-407,,Cold,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-104,,Cold,26,Banished Knight's Halberd|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon|Cross-Naginata
-121,,Fire,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-407,,Fire,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-104,,Fire,26,Banished Knight's Halberd|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon|Cross-Naginata
-121,,Flame Art,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-407,,Flame Art,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-104,,Flame Art,26,Banished Knight's Halberd|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon|Cross-Naginata
-121,,Heavy,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-407,,Heavy,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-104,,Heavy,26,Banished Knight's Halberd|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon|Cross-Naginata
-121,,Keen,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-407,,Keen,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-104,,Keen,26,Banished Knight's Halberd|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon|Cross-Naginata
-121,,Lightning,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-407,,Lightning,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-104,,Lightning,26,Banished Knight's Halberd|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon|Cross-Naginata
-121,,Magic,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-407,,Magic,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-104,,Magic,26,Banished Knight's Halberd|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon|Cross-Naginata
-121,,Poison,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-407,,Poison,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-104,,Poison,26,Banished Knight's Halberd|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon|Cross-Naginata
-121,,Quality,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-407,,Quality,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-104,,Quality,26,Banished Knight's Halberd|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon|Cross-Naginata
-121,,Sacred,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-407,,Sacred,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-104,,Sacred,26,Banished Knight's Halberd|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon|Cross-Naginata
-121,,Standard,230,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-407,,Standard,230,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-104,,Standard,27,Banished Knight's Halberd|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon|Cross-Naginata
 2001,Aspects of the Crucible: Wings,Heavy,93,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 2001,Aspects of the Crucible: Wings,Keen,93,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 2001,Aspects of the Crucible: Wings,Lightning,93,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword

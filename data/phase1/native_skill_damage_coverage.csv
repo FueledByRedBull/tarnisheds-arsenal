@@ -1,46 +1,46 @@
 sheet_row,unique_skill_weapon,raw_name,inferred_skill_name,status,match_source,matched_skill_ids,matched_weapon_ids,matched_weapon_names
-1100,Great Katana,Overhead Stance R1,Overhead Stance,unmatched_weapon,none,,,
-1101,Great Katana,Overhead Stance R2 [1],Overhead Stance,unmatched_weapon,none,,,
-1102,Great Katana,Overhead Stance R2 [2],Overhead Stance,unmatched_weapon,none,,,
-1103,Great Katana,Overhead Stance R2 [3],Overhead Stance,unmatched_weapon,none,,,
-1104,Great Katana,Overhead Stance R1 (Lacking FP),Overhead Stance,unmatched_weapon,none,,,
-1105,Great Katana,Overhead Stance R2 [1] (Lacking FP),Overhead Stance,unmatched_weapon,none,,,
-1106,Great Katana,Overhead Stance R2 [2] (Lacking FP),Overhead Stance,unmatched_weapon,none,,,
-1107,Great Katana,Overhead Stance R2 [3] (Lacking FP),Overhead Stance,unmatched_weapon,none,,,
-1112,Beast Claw,Savage Claws [1],Savage Claws,unmatched_weapon,none,,,
-1113,Beast Claw,Savage Claws [2],Savage Claws,unmatched_weapon,none,,,
-1114,Beast Claw,Savage Claws [3],Savage Claws,unmatched_weapon,none,,,
-1115,Beast Claw,Savage Claws [4],Savage Claws,unmatched_weapon,none,,,
-1116,Beast Claw,Savage Claws [5],Savage Claws,unmatched_weapon,none,,,
-1117,Beast Claw,Savage Claws [6],Savage Claws,unmatched_weapon,none,,,
-1118,Beast Claw,Savage Claws [1] (Lacking FP),Savage Claws,unmatched_weapon,none,,,
-1119,Beast Claw,Savage Claws [2] (Lacking FP),Savage Claws,unmatched_weapon,none,,,
-1120,Beast Claw,Savage Claws [3] (Lacking FP),Savage Claws,unmatched_weapon,none,,,
-1121,Beast Claw,Savage Claws [4] (Lacking FP),Savage Claws,unmatched_weapon,none,,,
-1122,Beast Claw,Savage Claws [5] (Lacking FP),Savage Claws,unmatched_weapon,none,,,
-1123,Beast Claw,Savage Claws [6] (Lacking FP),Savage Claws,unmatched_weapon,none,,,
-1124,Beast Claw,Raging Beast,Raging Beast,unmatched_weapon,none,,,
-1125,Beast Claw,Raging Beast R2 [1],Raging Beast,unmatched_weapon,none,,,
-1126,Beast Claw,Raging Beast R2 [2],Raging Beast,unmatched_weapon,none,,,
-1127,Beast Claw,Raging Beast (Lacking FP),Raging Beast,unmatched_weapon,none,,,
-1128,Beast Claw,Raging Beast R2 [1] (Lacking FP),Raging Beast,unmatched_weapon,none,,,
-1129,Beast Claw,Raging Beast R2 [2] (Lacking FP),Raging Beast,unmatched_weapon,none,,,
-1130,Smithscript Dagger,Piercing Throw,Piercing Throw,unmatched_weapon,none,,,
-1131,Smithscript Dagger,Piercing Throw (Lacking FP),Piercing Throw,unmatched_weapon,none,,,
-1132,Smithscript Dagger,Scattershot Throw #1 [1],Scattershot Throw,unmatched_weapon,none,,,
-1133,Smithscript Dagger,Scattershot Throw #1 [2],Scattershot Throw,unmatched_weapon,none,,,
-1134,Smithscript Dagger,Scattershot Throw #2 [1],Scattershot Throw,unmatched_weapon,none,,,
-1135,Smithscript Dagger,Scattershot Throw #2 [2],Scattershot Throw,unmatched_weapon,none,,,
+1100,Great Katana,Overhead Stance R1,Overhead Stance,generic_aow,aow_name,,,
+1101,Great Katana,Overhead Stance R2 [1],Overhead Stance,generic_aow,aow_name,,,
+1102,Great Katana,Overhead Stance R2 [2],Overhead Stance,generic_aow,aow_name,,,
+1103,Great Katana,Overhead Stance R2 [3],Overhead Stance,generic_aow,aow_name,,,
+1104,Great Katana,Overhead Stance R1 (Lacking FP),Overhead Stance,generic_aow,aow_name,,,
+1105,Great Katana,Overhead Stance R2 [1] (Lacking FP),Overhead Stance,generic_aow,aow_name,,,
+1106,Great Katana,Overhead Stance R2 [2] (Lacking FP),Overhead Stance,generic_aow,aow_name,,,
+1107,Great Katana,Overhead Stance R2 [3] (Lacking FP),Overhead Stance,generic_aow,aow_name,,,
+1112,Beast Claw,Savage Claws [1],Savage Claws,generic_aow,aow_name,,,
+1113,Beast Claw,Savage Claws [2],Savage Claws,generic_aow,aow_name,,,
+1114,Beast Claw,Savage Claws [3],Savage Claws,generic_aow,aow_name,,,
+1115,Beast Claw,Savage Claws [4],Savage Claws,generic_aow,aow_name,,,
+1116,Beast Claw,Savage Claws [5],Savage Claws,generic_aow,aow_name,,,
+1117,Beast Claw,Savage Claws [6],Savage Claws,generic_aow,aow_name,,,
+1118,Beast Claw,Savage Claws [1] (Lacking FP),Savage Claws,generic_aow,aow_name,,,
+1119,Beast Claw,Savage Claws [2] (Lacking FP),Savage Claws,generic_aow,aow_name,,,
+1120,Beast Claw,Savage Claws [3] (Lacking FP),Savage Claws,generic_aow,aow_name,,,
+1121,Beast Claw,Savage Claws [4] (Lacking FP),Savage Claws,generic_aow,aow_name,,,
+1122,Beast Claw,Savage Claws [5] (Lacking FP),Savage Claws,generic_aow,aow_name,,,
+1123,Beast Claw,Savage Claws [6] (Lacking FP),Savage Claws,generic_aow,aow_name,,,
+1124,Beast Claw,Raging Beast,Raging Beast,generic_aow,aow_name,,,
+1125,Beast Claw,Raging Beast R2 [1],Raging Beast,generic_aow,aow_name,,,
+1126,Beast Claw,Raging Beast R2 [2],Raging Beast,generic_aow,aow_name,,,
+1127,Beast Claw,Raging Beast (Lacking FP),Raging Beast,generic_aow,aow_name,,,
+1128,Beast Claw,Raging Beast R2 [1] (Lacking FP),Raging Beast,generic_aow,aow_name,,,
+1129,Beast Claw,Raging Beast R2 [2] (Lacking FP),Raging Beast,generic_aow,aow_name,,,
+1130,Smithscript Dagger,Piercing Throw,Piercing Throw,generic_aow,aow_name,,,
+1131,Smithscript Dagger,Piercing Throw (Lacking FP),Piercing Throw,generic_aow,aow_name,,,
+1132,Smithscript Dagger,Scattershot Throw #1 [1],Scattershot Throw,generic_aow,aow_name,,,
+1133,Smithscript Dagger,Scattershot Throw #1 [2],Scattershot Throw,generic_aow,aow_name,,,
+1134,Smithscript Dagger,Scattershot Throw #2 [1],Scattershot Throw,generic_aow,aow_name,,,
+1135,Smithscript Dagger,Scattershot Throw #2 [2],Scattershot Throw,generic_aow,aow_name,,,
 1136,Smithscript Dagger,Scattershot Throw (Far),Scattershot Throw (Far),unmatched_weapon,none,,,
-1137,Smithscript Dagger,Scattershot Throw (Lacking FP),Scattershot Throw,unmatched_weapon,none,,,
-1142,Milady,Wing Stance R1 [1],Wing Stance,unmatched_weapon,none,,,
-1143,Milady,Wing Stance R1 [2],Wing Stance,unmatched_weapon,none,,,
-1144,Milady,Wing Stance R1 [3],Wing Stance,unmatched_weapon,none,,,
-1145,Milady,Wing Stance R2,Wing Stance,unmatched_weapon,none,,,
-1146,Milady,Wing Stance R1 [1] (Lacking FP),Wing Stance,unmatched_weapon,none,,,
-1147,Milady,Wing Stance R1 [2] (Lacking FP),Wing Stance,unmatched_weapon,none,,,
-1148,Milady,Wing Stance R1 [3] (Lacking FP),Wing Stance,unmatched_weapon,none,,,
-1149,Milady,Wing Stance R2 (Lacking FP),Wing Stance,unmatched_weapon,none,,,
+1137,Smithscript Dagger,Scattershot Throw (Lacking FP),Scattershot Throw,generic_aow,aow_name,,,
+1142,Milady,Wing Stance R1 [1],Wing Stance,generic_aow,aow_name,,,
+1143,Milady,Wing Stance R1 [2],Wing Stance,generic_aow,aow_name,,,
+1144,Milady,Wing Stance R1 [3],Wing Stance,generic_aow,aow_name,,,
+1145,Milady,Wing Stance R2,Wing Stance,generic_aow,aow_name,,,
+1146,Milady,Wing Stance R1 [1] (Lacking FP),Wing Stance,generic_aow,aow_name,,,
+1147,Milady,Wing Stance R1 [2] (Lacking FP),Wing Stance,generic_aow,aow_name,,,
+1148,Milady,Wing Stance R1 [3] (Lacking FP),Wing Stance,generic_aow,aow_name,,,
+1149,Milady,Wing Stance R2 (Lacking FP),Wing Stance,generic_aow,aow_name,,,
 1571,Glintstone Kris,Glintstone Dart - Bullet,Glintstone Dart - Bullet,matched,weapon_name_fallback,1017,1070000,Glintstone Kris
 1572,Glintstone Kris,Glintstone Dart Charged - Bullet,Glintstone Dart Charged - Bullet,matched,weapon_name_fallback,1017,1070000,Glintstone Kris
 1573,Glintstone Kris,Glintstone Dart R2,Glintstone Dart,matched,skill_id+weapon,1017,1070000,Glintstone Kris
@@ -314,8 +314,8 @@ sheet_row,unique_skill_weapon,raw_name,inferred_skill_name,status,match_source,m
 1841,Maliketh's Black Blade,Destined Death - Bullet,Destined Death - Bullet,matched,weapon_name_fallback,1038,4020000,Maliketh's Black Blade
 1842,Maliketh's Black Blade,Destined Death [1] (Lacking FP),Destined Death,matched,skill_id+weapon,1038,4020000,Maliketh's Black Blade
 1843,Maliketh's Black Blade,Destined Death [2] (Lacking FP),Destined Death,matched,skill_id+weapon,1038,4020000,Maliketh's Black Blade
-1844,Carian Sorcery Sword,Impaling Thrust,Impaling Thrust,unmatched_weapon_in_skill_family,skill_id,,,
-1845,Carian Sorcery Sword,Impaling Thrust (Lacking FP),Impaling Thrust,unmatched_weapon_in_skill_family,skill_id,,,
+1844,Carian Sorcery Sword,Impaling Thrust,Impaling Thrust,matched,weapon_name_fallback,5590,2530000,Carian Sorcery Sword
+1845,Carian Sorcery Sword,Impaling Thrust (Lacking FP),Impaling Thrust,matched,weapon_name_fallback,5590,2530000,Carian Sorcery Sword
 1846,Bloody Helice,Dynast's Finesse - Backstep,Dynast's Finesse - Backstep,matched,weapon_name_fallback,1171,6000000,Bloody Helice
 1847,Bloody Helice,Dynast's Finesse R2 #1,Dynast's Finesse,matched,skill_id+weapon,1171,6000000,Bloody Helice
 1848,Bloody Helice,Dynast's Finesse R2 #2 [1],Dynast's Finesse,matched,skill_id+weapon,1171,6000000,Bloody Helice
@@ -932,19 +932,19 @@ sheet_row,unique_skill_weapon,raw_name,inferred_skill_name,status,match_source,m
 2459,Spear of the Impaler,Messmer's Assault #2 [2] (Lacking FP),Messmer's Assault,matched,skill_id+weapon,5190,17500000,Spear of the Impaler
 2460,Spear of the Impaler,Messmer's Assault #2 [3] (Lacking FP),Messmer's Assault,matched,skill_id+weapon,5190,17500000,Spear of the Impaler
 2461,Spear of the Impaler,Messmer's Assault #3 (Lacking FP),Messmer's Assault,matched,skill_id+weapon,5190,17500000,Spear of the Impaler
-2462,Dragon Halberd,Spinning Slash #1,Spinning Slash,unmatched_weapon_in_skill_family,skill_id,,,
-2463,Dragon Halberd,Spinning Slash #2 [1],Spinning Slash,unmatched_weapon_in_skill_family,skill_id,,,
-2464,Dragon Halberd,Spinning Slash #2 [2],Spinning Slash,unmatched_weapon_in_skill_family,skill_id,,,
-2465,Dragon Halberd,Spinning Slash #2 - Bullet,Spinning Slash - Bullet,unmatched_weapon,none,,,
-2466,Dragon Halberd,Spinning Slash #2 - Bullet (Water AoE),Spinning Slash - Bullet (Water AoE),unmatched_weapon,none,,,
-2467,Dragon Halberd,Spinning Slash #1 (Lacking FP),Spinning Slash,unmatched_weapon_in_skill_family,skill_id,,,
-2468,Dragon Halberd,Spinning Slash #2 [1] (Lacking FP),Spinning Slash,unmatched_weapon_in_skill_family,skill_id,,,
-2469,Dragon Halberd,Spinning Slash #2 [2] (Lacking FP),Spinning Slash,unmatched_weapon_in_skill_family,skill_id,,,
-2470,Loretta's War Sickle,Loretta's Slash ?,Loretta's Slash,unmatched_weapon,none,,,
-2471,Loretta's War Sickle,Loretta's Slash [1],Loretta's Slash,unmatched_weapon,none,,,
-2472,Loretta's War Sickle,Loretta's Slash [2],Loretta's Slash,unmatched_weapon,none,,,
-2473,Loretta's War Sickle,Loretta's Slash [1] (Lacking FP),Loretta's Slash,unmatched_weapon,none,,,
-2474,Loretta's War Sickle,Loretta's Slash [2] (Lacking FP),Loretta's Slash,unmatched_weapon,none,,,
+2462,Dragon Halberd,Spinning Slash #1,Spinning Slash,matched,weapon_name_fallback,1166,18140000,Dragon Halberd
+2463,Dragon Halberd,Spinning Slash #2 [1],Spinning Slash,matched,weapon_name_fallback,1166,18140000,Dragon Halberd
+2464,Dragon Halberd,Spinning Slash #2 [2],Spinning Slash,matched,weapon_name_fallback,1166,18140000,Dragon Halberd
+2465,Dragon Halberd,Spinning Slash #2 - Bullet,Spinning Slash - Bullet,matched,weapon_name_fallback,1166,18140000,Dragon Halberd
+2466,Dragon Halberd,Spinning Slash #2 - Bullet (Water AoE),Spinning Slash - Bullet (Water AoE),matched,weapon_name_fallback,1166,18140000,Dragon Halberd
+2467,Dragon Halberd,Spinning Slash #1 (Lacking FP),Spinning Slash,matched,weapon_name_fallback,1166,18140000,Dragon Halberd
+2468,Dragon Halberd,Spinning Slash #2 [1] (Lacking FP),Spinning Slash,matched,weapon_name_fallback,1166,18140000,Dragon Halberd
+2469,Dragon Halberd,Spinning Slash #2 [2] (Lacking FP),Spinning Slash,matched,weapon_name_fallback,1166,18140000,Dragon Halberd
+2470,Loretta's War Sickle,Loretta's Slash ?,Loretta's Slash,matched,weapon_name_fallback,1165,18100000,Loretta's War Sickle
+2471,Loretta's War Sickle,Loretta's Slash [1],Loretta's Slash,matched,weapon_name_fallback,1165,18100000,Loretta's War Sickle
+2472,Loretta's War Sickle,Loretta's Slash [2],Loretta's Slash,matched,weapon_name_fallback,1165,18100000,Loretta's War Sickle
+2473,Loretta's War Sickle,Loretta's Slash [1] (Lacking FP),Loretta's Slash,matched,weapon_name_fallback,1165,18100000,Loretta's War Sickle
+2474,Loretta's War Sickle,Loretta's Slash [2] (Lacking FP),Loretta's Slash,matched,weapon_name_fallback,1165,18100000,Loretta's War Sickle
 2475,Commander's Standard,Rallying Standard - Bullet,Rallying Standard - Bullet,matched,weapon_name_fallback,1010,18040000,Commander's Standard
 2476,Spirit Glaive,Rancor Slash #1 [1],Rancor Slash,matched,skill_id+weapon,5290,18500000,Spirit Glaive
 2477,Spirit Glaive,Rancor Slash #1 [2],Rancor Slash,matched,skill_id+weapon,5290,18500000,Spirit Glaive

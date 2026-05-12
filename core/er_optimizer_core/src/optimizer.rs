@@ -101,14 +101,18 @@ struct CombatConstraints {
 struct PreparedWeapon<'a> {
     weapon: &'a Weapon,
     aow_choices: Vec<AowChoice<'a>>,
-    upgrades_len: usize,
-    upgrades: [u8; 26],
+    upgrades: Vec<u8>,
+    useful_stats: [bool; COMBAT_STAT_COUNT],
+    minimum_useful_stats: [u8; COMBAT_STAT_COUNT],
 }
 
-impl<'a> PreparedWeapon<'a> {
-    fn upgrades(&self) -> &[u8] {
-        &self.upgrades[..self.upgrades_len]
-    }
+#[derive(Clone, Copy, Debug)]
+struct CandidateMetric {
+    score: f32,
+    ar: Option<DamageBreakdown>,
+    status_buildup: Option<StatusBuildup>,
+    aow_first_hit_damage: Option<f32>,
+    aow_full_sequence_damage: Option<f32>,
 }
 
 pub fn estimate_search_space(
@@ -120,7 +124,7 @@ pub fn estimate_search_space(
     let weapons = prepare_weapons(request, data)?;
     let upgrade_slots: u64 = weapons
         .iter()
-        .map(|entry| (entry.upgrades_len * entry.aow_choices.len()) as u64)
+        .map(|entry| (entry.upgrades.len() * entry.aow_choices.len()) as u64)
         .sum();
     Ok(SearchEstimate {
         weapon_candidates: weapons.len(),
@@ -147,8 +151,8 @@ where
     }
 
     let constraints = build_combat_constraints(request)?;
-    let stat_candidates = generate_stat_candidates(constraints);
-    if stat_candidates.is_empty() {
+    let stat_count = count_stat_candidates(constraints);
+    if stat_count == 0 {
         return Ok(Vec::new());
     }
 
@@ -157,10 +161,9 @@ where
         return Ok(Vec::new());
     }
 
-    let stat_count = stat_candidates.len() as u64;
     let upgrade_slots: u64 = weapons
         .iter()
-        .map(|entry| (entry.upgrades_len * entry.aow_choices.len()) as u64)
+        .map(|entry| (entry.upgrades.len() * entry.aow_choices.len()) as u64)
         .sum();
     let total = stat_count.saturating_mul(upgrade_slots);
     let emit_every = if progress_every == 0 {
@@ -186,9 +189,11 @@ where
         return Err("cancelled".to_string());
     }
 
-    for prepared in &weapons {
-        for aow_choice in &prepared.aow_choices {
-            for combat in &stat_candidates {
+    let mut current_combat = constraints.mins;
+    let mut visit_result: Result<(), String> = Ok(());
+    visit_stat_candidates(constraints, &mut current_combat, |combat| {
+        for prepared in &weapons {
+            for aow_choice in &prepared.aow_choices {
                 let mut stats = request.current_stats;
                 stats.str = combat[STAT_STR];
                 stats.dex = combat[STAT_DEX];
@@ -201,9 +206,9 @@ where
                     request.two_handing,
                     prepared.weapon.disable_two_hand_bonus,
                 );
-                if combat_has_wasted_points(request, prepared.weapon, data, combat) {
+                if combat_has_wasted_points(request, prepared, combat) {
                     let previous_checked = checked;
-                    checked = checked.saturating_add(prepared.upgrades_len as u64);
+                    checked = checked.saturating_add(prepared.upgrades.len() as u64);
                     if emit_every > 0 && checked / emit_every != previous_checked / emit_every {
                         if !progress_cb(ProgressSnapshot {
                             checked,
@@ -212,13 +217,14 @@ where
                             best_score,
                             elapsed_ms: started.elapsed().as_millis() as u64,
                         }) {
-                            return Err("cancelled".to_string());
+                            visit_result = Err("cancelled".to_string());
+                            return false;
                         }
                     }
                     continue;
                 }
 
-                for upgrade in prepared.upgrades() {
+                for upgrade in &prepared.upgrades {
                     checked += 1;
                     if !meets_requirements(prepared.weapon, effective_str_value, &stats) {
                         if emit_every > 0 && checked % emit_every == 0 {
@@ -229,59 +235,97 @@ where
                                 best_score,
                                 elapsed_ms: started.elapsed().as_millis() as u64,
                             }) {
-                                return Err("cancelled".to_string());
+                                visit_result = Err("cancelled".to_string());
+                                return false;
                             }
                         }
                         continue;
                     }
 
                     eligible += 1;
-                    let ar = apply_aow_attack_buffs(
-                        calculate_ar(prepared.weapon, *upgrade, &stats, effective_str_value, data)?,
-                        aow_choice.aow,
-                    );
-                    let status_buildup = apply_aow_status_buffs(
-                        calculate_status_buildup(prepared.weapon, *upgrade, &stats, data)?,
-                        prepared.weapon,
+                    let metric = score_candidate(
+                        request.objective,
+                        prepared,
+                        aow_choice,
                         *upgrade,
                         &stats,
+                        effective_str_value,
                         data,
-                        aow_choice.aow,
-                    )?;
-                    let (aow_first_hit_damage, aow_full_sequence_damage) =
-                        if aow_choice.attack_rows.is_empty() {
-                            (0.0, 0.0)
-                        } else {
-                            calculate_aow_damage(
-                                prepared.weapon,
-                                &aow_choice.attack_rows,
-                                *upgrade,
-                                &stats,
-                                effective_str_value,
-                                data,
-                            )?
-                        };
+                    );
+                    let CandidateMetric {
+                        score,
+                        ar,
+                        status_buildup,
+                        aow_first_hit_damage,
+                        aow_full_sequence_damage,
+                    } = match metric {
+                        Ok(metric) => metric,
+                        Err(err) => {
+                            visit_result = Err(err);
+                            return false;
+                        }
+                    };
                     if matches!(request.objective, OptimizeObjective::AowFirstHit)
-                        && aow_first_hit_damage <= 0.0
+                        && aow_first_hit_damage.unwrap_or(0.0) <= 0.0
                     {
                         continue;
                     }
                     if matches!(request.objective, OptimizeObjective::AowFullSequence)
-                        && aow_full_sequence_damage <= 0.0
+                        && aow_full_sequence_damage.unwrap_or(0.0) <= 0.0
                     {
                         continue;
                     }
-                    let score = score_for(
-                        request.objective,
-                        ar.total(),
-                        status_buildup,
-                        aow_first_hit_damage,
-                        aow_full_sequence_damage,
-                    );
                     if !has_best || score > best_score {
                         best_score = score;
                         has_best = true;
                     }
+                    if !could_enter_top_k(&results, score, request.top_k) {
+                        if emit_every > 0 && checked % emit_every == 0 {
+                            if !progress_cb(ProgressSnapshot {
+                                checked,
+                                total,
+                                eligible,
+                                best_score,
+                                elapsed_ms: started.elapsed().as_millis() as u64,
+                            }) {
+                                visit_result = Err("cancelled".to_string());
+                                return false;
+                            }
+                        }
+                        continue;
+                    }
+                    let full = complete_candidate_metric(
+                        ar,
+                        status_buildup,
+                        aow_first_hit_damage,
+                        aow_full_sequence_damage,
+                        prepared,
+                        aow_choice,
+                        *upgrade,
+                        &stats,
+                        effective_str_value,
+                        data,
+                    );
+                    let CandidateMetric {
+                        score: _,
+                        ar,
+                        status_buildup,
+                        aow_first_hit_damage,
+                        aow_full_sequence_damage,
+                    } = match full {
+                        Ok(metric) => metric,
+                        Err(err) => {
+                            visit_result = Err(err);
+                            return false;
+                        }
+                    };
+                    let ar = ar.expect("complete candidate metric must include AR");
+                    let status_buildup =
+                        status_buildup.expect("complete candidate metric must include status");
+                    let aow_first_hit_damage = aow_first_hit_damage
+                        .expect("complete candidate metric must include first-hit damage");
+                    let aow_full_sequence_damage = aow_full_sequence_damage
+                        .expect("complete candidate metric must include full-sequence damage");
                     push_top_k(
                         &mut results,
                         OptimizeResult {
@@ -317,13 +361,16 @@ where
                             best_score,
                             elapsed_ms: started.elapsed().as_millis() as u64,
                         }) {
-                            return Err("cancelled".to_string());
+                            visit_result = Err("cancelled".to_string());
+                            return false;
                         }
                     }
                 }
             }
         }
-    }
+        true
+    });
+    visit_result?;
 
     if !progress_cb(ProgressSnapshot {
         checked,
@@ -339,6 +386,7 @@ where
 }
 
 fn build_combat_constraints(request: &OptimizeRequest) -> Result<CombatConstraints, String> {
+    validate_stat_caps(request)?;
     let class_info = class_by_name(&request.class_name)
         .ok_or_else(|| format!("unknown starting class: {}", request.class_name))?;
     let free_points =
@@ -346,17 +394,10 @@ fn build_combat_constraints(request: &OptimizeRequest) -> Result<CombatConstrain
     let current = request.current_stats.combat_array();
 
     let mut mins = [0_u8; COMBAT_STAT_COUNT];
+    let mut maxs = [99_u8; COMBAT_STAT_COUNT];
     let mut mandatory_raise: u16 = 0;
     for idx in 0..COMBAT_STAT_COUNT {
         mins[idx] = current[idx].max(request.min_combat_stats[idx]);
-        mandatory_raise += u16::from(mins[idx] - current[idx]);
-    }
-    if mandatory_raise > free_points {
-        return Err("combat stat floors exceed free point budget".to_string());
-    }
-
-    let mut maxs = [99_u8; COMBAT_STAT_COUNT];
-    for idx in 0..COMBAT_STAT_COUNT {
         if let Some(locked) = request.locked_combat_stats[idx] {
             if locked < mins[idx] {
                 return Err(format!(
@@ -364,8 +405,13 @@ fn build_combat_constraints(request: &OptimizeRequest) -> Result<CombatConstrain
                     idx, mins[idx]
                 ));
             }
+            mins[idx] = locked;
             maxs[idx] = locked;
         }
+        mandatory_raise += u16::from(mins[idx].saturating_sub(current[idx]));
+    }
+    if mandatory_raise > free_points {
+        return Err("combat stat floors exceed free point budget".to_string());
     }
 
     let remaining_free = free_points - mandatory_raise;
@@ -385,6 +431,33 @@ fn build_combat_constraints(request: &OptimizeRequest) -> Result<CombatConstrain
     })
 }
 
+fn validate_stat_caps(request: &OptimizeRequest) -> Result<(), String> {
+    let stats = [
+        ("vig", request.current_stats.vig),
+        ("mnd", request.current_stats.mnd),
+        ("end", request.current_stats.end),
+        ("str", request.current_stats.str),
+        ("dex", request.current_stats.dex),
+        ("int", request.current_stats.int),
+        ("fai", request.current_stats.fai),
+        ("arc", request.current_stats.arc),
+    ];
+    for (name, value) in stats {
+        if value > 99 {
+            return Err(format!("{name} must be <= 99"));
+        }
+    }
+    for idx in 0..COMBAT_STAT_COUNT {
+        if request.min_combat_stats[idx] > 99 {
+            return Err(format!("minimum combat stat {idx} must be <= 99"));
+        }
+        if request.locked_combat_stats[idx].is_some_and(|value| value > 99) {
+            return Err(format!("locked combat stat {idx} must be <= 99"));
+        }
+    }
+    Ok(())
+}
+
 fn prepare_weapons<'a>(
     request: &OptimizeRequest,
     data: &'a GameData,
@@ -395,17 +468,22 @@ fn prepare_weapons<'a>(
         .iter()
         .filter(|entry| weapon_matches_request(entry, request))
     {
-        let Some((upgrades, upgrades_len)) = available_upgrades(weapon, request, data) else {
+        let Some(upgrades) = available_upgrades(weapon, request, data) else {
             continue;
         };
         let Some(aow_choices) = resolve_aow_choices(weapon, request, data)? else {
             continue;
         };
+        let useful_stats =
+            std::array::from_fn(|idx| weapon_stat_can_increase_ar(weapon, data, idx));
+        let minimum_useful_stats =
+            std::array::from_fn(|idx| minimum_useful_stat(request, weapon, idx));
         out.push(PreparedWeapon {
             weapon,
             aow_choices,
-            upgrades_len,
             upgrades,
+            useful_stats,
+            minimum_useful_stats,
         });
     }
     Ok(out)
@@ -424,6 +502,183 @@ fn score_for(
         OptimizeObjective::AowFirstHit => aow_first_hit_damage,
         OptimizeObjective::AowFullSequence => aow_full_sequence_damage,
     }
+}
+
+fn score_candidate(
+    objective: OptimizeObjective,
+    prepared: &PreparedWeapon<'_>,
+    aow_choice: &AowChoice<'_>,
+    upgrade: u8,
+    stats: &Stats,
+    effective_str_value: u8,
+    data: &GameData,
+) -> Result<CandidateMetric, String> {
+    match objective {
+        OptimizeObjective::MaxAr => {
+            let ar = calculate_ar_with_buffs(
+                prepared,
+                aow_choice,
+                upgrade,
+                stats,
+                effective_str_value,
+                data,
+            )?;
+            Ok(CandidateMetric {
+                score: ar.total(),
+                ar: Some(ar),
+                status_buildup: None,
+                aow_first_hit_damage: None,
+                aow_full_sequence_damage: None,
+            })
+        }
+        OptimizeObjective::MaxArPlusBleed => {
+            let ar = calculate_ar_with_buffs(
+                prepared,
+                aow_choice,
+                upgrade,
+                stats,
+                effective_str_value,
+                data,
+            )?;
+            let status_buildup =
+                calculate_status_with_buffs(prepared, aow_choice, upgrade, stats, data)?;
+            Ok(CandidateMetric {
+                score: score_for(objective, ar.total(), status_buildup, 0.0, 0.0),
+                ar: Some(ar),
+                status_buildup: Some(status_buildup),
+                aow_first_hit_damage: None,
+                aow_full_sequence_damage: None,
+            })
+        }
+        OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence => {
+            let (aow_first_hit_damage, aow_full_sequence_damage) = calculate_aow_metric(
+                prepared,
+                aow_choice,
+                upgrade,
+                stats,
+                effective_str_value,
+                data,
+            )?;
+            Ok(CandidateMetric {
+                score: score_for(
+                    objective,
+                    0.0,
+                    StatusBuildup::default(),
+                    aow_first_hit_damage,
+                    aow_full_sequence_damage,
+                ),
+                ar: None,
+                status_buildup: None,
+                aow_first_hit_damage: Some(aow_first_hit_damage),
+                aow_full_sequence_damage: Some(aow_full_sequence_damage),
+            })
+        }
+    }
+}
+
+fn complete_candidate_metric(
+    ar: Option<DamageBreakdown>,
+    status_buildup: Option<StatusBuildup>,
+    aow_first_hit_damage: Option<f32>,
+    aow_full_sequence_damage: Option<f32>,
+    prepared: &PreparedWeapon<'_>,
+    aow_choice: &AowChoice<'_>,
+    upgrade: u8,
+    stats: &Stats,
+    effective_str_value: u8,
+    data: &GameData,
+) -> Result<CandidateMetric, String> {
+    let ar = match ar {
+        Some(ar) => ar,
+        None => calculate_ar_with_buffs(
+            prepared,
+            aow_choice,
+            upgrade,
+            stats,
+            effective_str_value,
+            data,
+        )?,
+    };
+    let status_buildup = match status_buildup {
+        Some(status_buildup) => status_buildup,
+        None => calculate_status_with_buffs(prepared, aow_choice, upgrade, stats, data)?,
+    };
+    let (first, full) = match (aow_first_hit_damage, aow_full_sequence_damage) {
+        (Some(first), Some(full)) => (first, full),
+        _ => calculate_aow_metric(
+            prepared,
+            aow_choice,
+            upgrade,
+            stats,
+            effective_str_value,
+            data,
+        )?,
+    };
+    Ok(CandidateMetric {
+        score: score_for(
+            OptimizeObjective::MaxAr,
+            ar.total(),
+            status_buildup,
+            first,
+            full,
+        ),
+        ar: Some(ar),
+        status_buildup: Some(status_buildup),
+        aow_first_hit_damage: Some(first),
+        aow_full_sequence_damage: Some(full),
+    })
+}
+
+fn calculate_ar_with_buffs(
+    prepared: &PreparedWeapon<'_>,
+    aow_choice: &AowChoice<'_>,
+    upgrade: u8,
+    stats: &Stats,
+    effective_str_value: u8,
+    data: &GameData,
+) -> Result<DamageBreakdown, String> {
+    Ok(apply_aow_attack_buffs(
+        calculate_ar(prepared.weapon, upgrade, stats, effective_str_value, data)?,
+        aow_choice.aow,
+    ))
+}
+
+fn calculate_status_with_buffs(
+    prepared: &PreparedWeapon<'_>,
+    aow_choice: &AowChoice<'_>,
+    upgrade: u8,
+    stats: &Stats,
+    data: &GameData,
+) -> Result<StatusBuildup, String> {
+    apply_aow_status_buffs(
+        calculate_status_buildup(prepared.weapon, upgrade, stats, data)?,
+        prepared.weapon,
+        upgrade,
+        stats,
+        data,
+        aow_choice.aow,
+    )
+}
+
+fn calculate_aow_metric(
+    prepared: &PreparedWeapon<'_>,
+    aow_choice: &AowChoice<'_>,
+    upgrade: u8,
+    stats: &Stats,
+    effective_str_value: u8,
+    data: &GameData,
+) -> Result<(f32, f32), String> {
+    if aow_choice.attack_rows.is_empty() {
+        return Ok((0.0, 0.0));
+    }
+    calculate_aow_damage(
+        prepared.weapon,
+        &aow_choice.attack_rows,
+        upgrade,
+        stats,
+        effective_str_value,
+        data,
+    )
 }
 
 fn weapon_matches_request(weapon: &Weapon, request: &OptimizeRequest) -> bool {
@@ -474,30 +729,27 @@ fn available_upgrades(
     weapon: &Weapon,
     request: &OptimizeRequest,
     data: &GameData,
-) -> Option<([u8; 26], usize)> {
+) -> Option<Vec<u8>> {
     let levels = data.reinforce.get(usize::from(weapon.reinforce_type))?;
     if levels.is_empty() {
         return None;
     }
 
-    let available_max = (levels.len() - 1) as u8;
-    let upper = available_max.min(request.max_upgrade);
     if let Some(fixed) = request.fixed_upgrade {
-        if fixed > upper {
-            return None;
-        }
-        let mut out = [0_u8; 26];
-        out[0] = fixed;
-        return Some((out, 1));
+        return data
+            .reinforce_level(weapon.reinforce_type, fixed)
+            .is_some()
+            .then(|| vec![fixed]);
     }
 
-    let mut out = [0_u8; 26];
-    let mut len = 0usize;
-    for level in 0..=upper {
-        out[len] = level;
-        len += 1;
-    }
-    Some((out, len))
+    let out: Vec<u8> = levels
+        .iter()
+        .enumerate()
+        .filter_map(|(level, value)| {
+            (value.is_some() && level <= usize::from(request.max_upgrade)).then_some(level as u8)
+        })
+        .collect();
+    (!out.is_empty()).then_some(out)
 }
 
 fn resolve_aow_choices<'a>(
@@ -769,13 +1021,14 @@ pub(crate) fn aow_compatible_with_weapon(aow: &Aow, weapon: &Weapon, data: &Game
 
 fn combat_has_wasted_points(
     request: &OptimizeRequest,
-    weapon: &Weapon,
-    data: &GameData,
+    prepared: &PreparedWeapon<'_>,
     combat: &[u8; COMBAT_STAT_COUNT],
 ) -> bool {
-    let contributing_stats: [bool; COMBAT_STAT_COUNT] =
-        std::array::from_fn(|idx| weapon_stat_can_increase_ar(weapon, data, idx));
-    if !contributing_stats
+    if !matches!(request.objective, OptimizeObjective::MaxAr) {
+        return false;
+    }
+    if !prepared
+        .useful_stats
         .iter()
         .enumerate()
         .any(|(idx, contributes)| *contributes && combat[idx] < 99)
@@ -784,10 +1037,10 @@ fn combat_has_wasted_points(
     }
 
     for idx in 0..COMBAT_STAT_COUNT {
-        if contributing_stats[idx] {
+        if prepared.useful_stats[idx] {
             continue;
         }
-        if combat[idx] > minimum_useful_stat(request, weapon, idx) {
+        if combat[idx] > prepared.minimum_useful_stats[idx] {
             return true;
         }
     }
@@ -874,43 +1127,59 @@ fn count_distributions(
     total
 }
 
-fn generate_stat_candidates(constraints: CombatConstraints) -> Vec<[u8; COMBAT_STAT_COUNT]> {
-    let total = count_stat_candidates(constraints);
-    let mut out = Vec::with_capacity(total.min(usize::MAX as u64) as usize);
-    let mut current = constraints.mins;
-    expand_candidates(
+fn visit_stat_candidates<F>(
+    constraints: CombatConstraints,
+    current: &mut [u8; COMBAT_STAT_COUNT],
+    mut visitor: F,
+) where
+    F: FnMut(&[u8; COMBAT_STAT_COUNT]) -> bool,
+{
+    visit_stat_candidates_inner(
         0,
         constraints.remaining_free,
         &constraints.mins,
         &constraints.maxs,
-        &mut current,
-        &mut out,
+        current,
+        &mut visitor,
     );
-    out
 }
 
-fn expand_candidates(
+fn visit_stat_candidates_inner<F>(
     idx: usize,
     remaining: u16,
     mins: &[u8; COMBAT_STAT_COUNT],
     maxs: &[u8; COMBAT_STAT_COUNT],
     current: &mut [u8; COMBAT_STAT_COUNT],
-    out: &mut Vec<[u8; COMBAT_STAT_COUNT]>,
-) {
+    visitor: &mut F,
+) -> bool
+where
+    F: FnMut(&[u8; COMBAT_STAT_COUNT]) -> bool,
+{
     if idx == COMBAT_STAT_COUNT {
         if remaining == 0 {
-            out.push(*current);
+            return visitor(current);
         }
-        return;
+        return true;
     }
 
     let cap = u16::from(maxs[idx] - mins[idx]);
     let max_add = cap.min(remaining);
     for add in 0..=max_add {
         current[idx] = mins[idx] + (add as u8);
-        expand_candidates(idx + 1, remaining - add, mins, maxs, current, out);
+        if !visit_stat_candidates_inner(idx + 1, remaining - add, mins, maxs, current, visitor) {
+            current[idx] = mins[idx];
+            return false;
+        }
     }
     current[idx] = mins[idx];
+    true
+}
+
+fn could_enter_top_k(results: &[OptimizeResult], score: f32, top_k: usize) -> bool {
+    if results.len() < top_k {
+        return true;
+    }
+    results.last().is_none_or(|worst| score >= worst.score)
 }
 
 fn push_top_k(results: &mut Vec<OptimizeResult>, candidate: OptimizeResult, top_k: usize) {
@@ -1121,6 +1390,101 @@ mod tests {
     }
 
     #[test]
+    fn optimize_respects_all_exact_combat_stat_locks() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.max_upgrade = 0;
+        request.fixed_upgrade = Some(0);
+        request.locked_combat_stats = [Some(12), Some(15), Some(9), Some(8), Some(8)];
+
+        let constraints = build_combat_constraints(&request).expect("constraints failed");
+        assert_eq!(count_stat_candidates(constraints), 1);
+
+        let results = optimize(&request, &game_data).expect("optimizer failed");
+        assert!(!results.is_empty());
+        for row in &results {
+            assert_eq!(row.stats.str, 12);
+            assert_eq!(row.stats.dex, 15);
+            assert_eq!(row.stats.int, 9);
+            assert_eq!(row.stats.fai, 8);
+            assert_eq!(row.stats.arc, 8);
+        }
+    }
+
+    #[test]
+    fn exact_stat_locks_reject_unallocatable_remaining_points() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.character_level = 10;
+        request.locked_combat_stats = [Some(12), Some(15), Some(9), Some(8), Some(8)];
+
+        let err = optimize(&request, &game_data).expect_err("expected exact-lock budget error");
+        assert!(err.contains("locked combat stats cannot absorb remaining free points"));
+    }
+
+    #[test]
+    fn optimize_rejects_stat_caps_above_99() {
+        let game_data = load_data();
+
+        let mut current = base_request();
+        current.current_stats.str = 100;
+        let err = optimize(&current, &game_data).expect_err("expected current stat cap error");
+        assert!(err.contains("str must be <= 99"));
+
+        let mut minimum = base_request();
+        minimum.min_combat_stats[STAT_STR] = 100;
+        let err = optimize(&minimum, &game_data).expect_err("expected minimum stat cap error");
+        assert!(err.contains("minimum combat stat 0 must be <= 99"));
+
+        let mut locked = base_request();
+        locked.locked_combat_stats[STAT_STR] = Some(100);
+        let err = optimize(&locked, &game_data).expect_err("expected locked stat cap error");
+        assert!(err.contains("locked combat stat 0 must be <= 99"));
+    }
+
+    #[test]
+    fn available_upgrades_skips_sparse_reinforce_levels() {
+        let mut game_data = load_data();
+        let weapon = game_data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.name == "Uchigatana" && weapon.affinity == "Keen")
+            .expect("missing weapon")
+            .clone();
+        let levels = &mut game_data.reinforce[usize::from(weapon.reinforce_type)];
+        assert!(levels[5].take().is_some());
+
+        let mut request = base_request();
+        request.fixed_upgrade = None;
+        request.max_upgrade = 25;
+        let upgrades =
+            available_upgrades(&weapon, &request, &game_data).expect("expected upgrades");
+
+        assert!(upgrades.contains(&4));
+        assert!(!upgrades.contains(&5));
+        assert!(upgrades.contains(&6));
+    }
+
+    #[test]
+    fn fixed_upgrade_rejects_missing_sparse_reinforce_level() {
+        let mut game_data = load_data();
+        let weapon = game_data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.name == "Uchigatana" && weapon.affinity == "Keen")
+            .expect("missing weapon")
+            .clone();
+        let levels = &mut game_data.reinforce[usize::from(weapon.reinforce_type)];
+        assert!(levels[5].take().is_some());
+
+        let mut request = base_request();
+        request.fixed_upgrade = Some(5);
+        request.max_upgrade = 25;
+
+        assert!(available_upgrades(&weapon, &request, &game_data).is_none());
+    }
+
+    #[test]
     fn optimize_rejects_seppuku_on_cold_affinity() {
         let game_data = load_data();
         let mut request = base_request();
@@ -1220,17 +1584,20 @@ mod tests {
         request.fixed_upgrade = Some(25);
         request.max_upgrade = 25;
         request.top_k = 10;
+        let prepared_weapons = prepare_weapons(&request, &game_data).expect("prepare failed");
+        let prepared = prepared_weapons
+            .iter()
+            .find(|prepared| prepared.weapon.weapon_id == weapon.weapon_id)
+            .expect("missing prepared weapon");
 
         assert!(combat_has_wasted_points(
             &request,
-            weapon,
-            &game_data,
+            prepared,
             &[21, 15, 40, 9, 8],
         ));
         assert!(!combat_has_wasted_points(
             &request,
-            weapon,
-            &game_data,
+            prepared,
             &[21, 15, 41, 8, 8],
         ));
 

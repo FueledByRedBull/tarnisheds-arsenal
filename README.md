@@ -191,30 +191,33 @@ Important boundaries:
 
 Requirements:
 
-- Python 3.10+
 - Rust stable
+- Node.js / npm
 
 ```powershell
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-python -m maturin build --manifest-path core/er_optimizer_core/Cargo.toml --features python
-$wheel = Get-ChildItem core/er_optimizer_core/target/wheels/er_optimizer_core-*.whl | Sort-Object LastWriteTime | Select-Object -Last 1
-python -m pip install --force-reinstall $wheel.FullName
-python ui/desktop/app.py
+cd apps/desktop
+npm install
+npm run dev
+npm run tauri dev
 ```
+
+The Tauri desktop app is the primary UI and release target. The retired PyQt UI is archived under `archive/python-desktop` for behavior comparisons only.
 
 ## Validation
 
 ```powershell
 cargo test --manifest-path core/er_optimizer_core/Cargo.toml
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 python tools/phase4/validate_phase4.py
-python tools/phase4/smoke_ui.py
+cd apps/desktop
+npm run build
 ```
 
 Those checks cover:
 
 - optimizer behavior
 - data integrity
+- Tauri command and frontend type/build integrity
 - session-driven UI flow
 - selection preservation
 - path and affinity-watch stability
@@ -223,16 +226,13 @@ Those checks cover:
 
 For a distributable bundle:
 
+Use the release package helper from the repo root. It runs Rust tests, data validation, Tauri tests, `npm ci`, and the Tauri production build, then copies the MSI and executable into `dist/TarnishedsArsenal_<version>`.
+
 ```powershell
 python tools/phase4/package_release.py
 ```
 
-For a standalone Windows app folder with an `.exe`:
-
-```powershell
-python -m pip install pyinstaller
-python -m PyInstaller --noconfirm --clean --windowed --name "TarnishedsArsenal" --collect-all er_optimizer_core --add-data "data\phase1;data\phase1" ui\desktop\app.py
-```
+The Tauri bundle loads the local `data/phase1` resource in production. Browser-only mock data is limited to the explicit Vite dev preview.
 
 ## Refresh The Data Snapshot
 
@@ -253,21 +253,24 @@ then run:
 
 ```powershell
 python tools/phase1/extract_motion_workbook.py
-python tools/phase1/derive_phase1_raw_extras.py
+python tools/phase1/derive_phase1_raw_extras.py --workdir data/_work_phase1_reparse/regulation-bin --phase1 data/phase1 --output data/phase1
+python tools/phase1/derive_phase1_extras.py --input data/phase1 --output data/phase1
 ```
 
 ## Repo Layout
 
 - `core/er_optimizer_core`
-  - Rust optimizer and PyO3 bridge
-- `ui/desktop`
-  - PyQt6 desktop app, canonical session models, desktop services
+  - Rust optimizer and optional PyO3 bridge used by data/validation tooling
+- `apps/desktop`
+  - Tauri desktop app, canonical session UI, workspace orchestration, and Rust command bridge
+- `archive/python-desktop`
+  - retired PyQt6 reference app and old Python release helpers
 - `data/phase1`
   - committed runtime snapshot used by the app
 - `tools/phase1`
   - dump and extraction scripts
 - `tools/phase4`
-  - validation, smoke tests, release packaging
+  - validation, benchmarks, and Tauri release packaging
 
 ## License / IP
 

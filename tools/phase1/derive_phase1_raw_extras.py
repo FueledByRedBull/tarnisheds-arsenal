@@ -99,6 +99,9 @@ def canonical_gem_rows(gem_rows: list[dict[str, str]]) -> dict[int, dict[str, st
         raw_name = row.get("paramdexName", "").strip()
         if not raw_name.startswith("Ash of War:"):
             continue
+        canonical_name = raw_name.replace("Ash of War:", "", 1).strip()
+        if not canonical_name:
+            continue
         sword_art_id = to_int(row, "swordArtsParamId", -1)
         if sword_art_id < 0:
             continue

@@ -1,19 +1,18 @@
 from __future__ import annotations
 
+import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
 
 
+def npm_cmd() -> str:
+    return "npm.cmd" if os.name == "nt" else "npm"
+
+
 def run(cmd: list[str], cwd: Path) -> None:
     subprocess.run(cmd, cwd=cwd, check=True)
-
-
-def newest_wheel(wheel_dir: Path) -> Path:
-    wheels = sorted(wheel_dir.glob("er_optimizer_core-*.whl"), key=lambda p: p.stat().st_mtime)
-    if not wheels:
-        raise FileNotFoundError(f"no wheel found in {wheel_dir}")
-    return wheels[-1]
 
 
 def write_text(path: Path, text: str) -> None:
@@ -21,111 +20,65 @@ def write_text(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def newest(path_glob: str, root: Path) -> Path:
+    matches = sorted(root.glob(path_glob), key=lambda path: path.stat().st_mtime)
+    if not matches:
+        raise FileNotFoundError(f"no artifact matched {path_glob} under {root}")
+    return matches[-1]
+
+
 def main() -> int:
     root = Path(__file__).resolve().parents[2]
-    crate_dir = root / "core" / "er_optimizer_core"
-    wheel_dir = crate_dir / "target" / "wheels"
+    app_dir = root / "apps" / "desktop"
+    tauri_dir = app_dir / "src-tauri"
+    tauri_config = json.loads((tauri_dir / "tauri.conf.json").read_text(encoding="utf-8"))
+    product_name = tauri_config["productName"]
+    version = tauri_config["version"]
 
-    run(
-        [
-            "python",
-            "-m",
-            "maturin",
-            "build",
-            "--manifest-path",
-            str(crate_dir / "Cargo.toml"),
-            "--features",
-            "python",
-        ],
-        cwd=root,
-    )
+    run(["cargo", "test", "--manifest-path", str(root / "core/er_optimizer_core/Cargo.toml")], cwd=root)
+    run(["cargo", "test", "--manifest-path", str(tauri_dir / "Cargo.toml")], cwd=root)
+    run(["python", "tools/phase4/validate_phase4.py"], cwd=root)
+    run([npm_cmd(), "ci"], cwd=app_dir)
+    run([npm_cmd(), "run", "tauri", "--", "build"], cwd=app_dir)
 
-    wheel = newest_wheel(wheel_dir)
-    version = wheel.name.split("-")[1]
-
-    release_dir = root / "dist" / f"ERBuildOptimizer_{version}"
+    release_dir = root / "dist" / f"TarnishedsArsenal_{version}"
     if release_dir.exists():
         shutil.rmtree(release_dir)
     release_dir.mkdir(parents=True, exist_ok=True)
 
-    shutil.copy2(wheel, release_dir / wheel.name)
-    for desktop_file in ("app.py", "models.py", "services.py"):
-        shutil.copy2(root / "ui" / "desktop" / desktop_file, release_dir / desktop_file)
-
-    data_out = release_dir / "data" / "phase1"
-    data_out.mkdir(parents=True, exist_ok=True)
-    for csv_file in (root / "data" / "phase1").glob("*.csv"):
-        shutil.copy2(csv_file, data_out / csv_file.name)
-
-    write_text(
-        release_dir / "requirements.txt",
-        "\n".join(
-            [
-                "PyQt6>=6.10,<7",
-                "# install local wheel below after this requirements file",
-            ]
-        )
-        + "\n",
-    )
-
-    write_text(
-        release_dir / "install.ps1",
-        f"""$ErrorActionPreference = 'Stop'
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-python -m pip install --force-reinstall .\\{wheel.name}
-Write-Host 'Install complete.'
-""",
-    )
-
-    write_text(
-        release_dir / "run.ps1",
-        """$ErrorActionPreference = 'Stop'
-python .\\app.py
-""",
-    )
+    exe = newest("target/release/tarnisheds-arsenal-desktop.exe", tauri_dir)
+    msi = newest("target/release/bundle/msi/*.msi", tauri_dir)
+    shutil.copy2(exe, release_dir / exe.name)
+    shutil.copy2(msi, release_dir / msi.name)
+    if (root / "LICENSE").exists():
+        shutil.copy2(root / "LICENSE", release_dir / "LICENSE")
 
     write_text(
         release_dir / "README.md",
         "\n".join(
             [
-                "# Tarnished's Arsenal",
+                f"# {product_name} {version}",
                 "",
-                "Portable Windows bundle for the session-driven Elden Ring optimizer UI.",
+                "Windows desktop release built with Tauri.",
                 "",
                 "## Included",
-                "- `app.py`, `models.py`, `services.py`",
-                "- `data/phase1/*.csv` runtime snapshot",
-                "- `er_optimizer_core` wheel",
-                "- `install.ps1`",
-                "- `run.ps1`",
+                f"- `{msi.name}` installer",
+                f"- `{exe.name}` portable executable",
+                "- `LICENSE`",
                 "",
                 "## Install",
-                "```powershell",
-                ".\\install.ps1",
-                "```",
+                "Run the MSI installer, or launch the executable directly for a portable run.",
                 "",
-                "## Launch",
-                "```powershell",
-                ".\\run.ps1",
-                "```",
-                "",
-                "## What You Get",
-                "- Ranked build search",
-                "- Compare workspace",
-                "- Embedded Paths workspace",
-                "- Embedded Affinity Watch workspace",
-                "- AoW first-hit and full-sequence PvE objectives",
-                "",
-                "## Notes",
-                "- Keep the folder layout exactly as shipped.",
-                "- Requires Python 3.10+ on the target machine.",
+                "## Runtime Data",
+                "The installer bundles the committed `data/phase1` runtime snapshot as a Tauri resource.",
             ]
         )
         + "\n",
     )
 
     print(f"Release packaged: {release_dir}")
+    print(f"Installer: {release_dir / msi.name}")
+    print(f"Executable: {release_dir / exe.name}")
     return 0
 
 

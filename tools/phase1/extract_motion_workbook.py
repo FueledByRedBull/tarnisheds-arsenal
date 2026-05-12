@@ -275,11 +275,12 @@ def load_standard_native_skill_weapons(
             native_skill_name = row.get('native_skill_name', '').strip()
             if row.get('disable_gem_attr', '1').strip() == '0':
                 continue
-            if not native_skill_id or not weapon_name or not native_skill_name:
+            if not native_skill_id or not weapon_name:
                 continue
             by_name.setdefault(weapon_name, []).append(row)
             by_token.setdefault(norm_token(weapon_name), []).append(row)
-            by_skill_name_token.setdefault(norm_token(native_skill_name), []).append(row)
+            if native_skill_name:
+                by_skill_name_token.setdefault(norm_token(native_skill_name), []).append(row)
     return NativeSkillWeaponIndex(
         by_name=by_name,
         by_token=by_token,
@@ -374,6 +375,12 @@ def resolve_unique_skill_weapons(
             return NativeSkillMatch(matched_groups[0], 'matched', 'skill_id+weapon', inferred_skill_name)
         if len(matched_groups) > 1:
             return NativeSkillMatch([], 'ambiguous_skill_family', 'skill_id+weapon', inferred_skill_name)
+        fallback_rows = resolve_weapon_rows(unique_skill_weapon, index.by_name, index.by_token)
+        if fallback_rows:
+            skill_ids = {row.get('native_skill_id', '').strip() for row in fallback_rows if row.get('native_skill_id', '').strip()}
+            if len(skill_ids) == 1:
+                return NativeSkillMatch(fallback_rows, 'matched', 'weapon_name_fallback', inferred_skill_name)
+            return NativeSkillMatch([], 'ambiguous_weapon_name_fallback', 'weapon_name_fallback', inferred_skill_name)
         if len(skill_groups) == 1:
             return NativeSkillMatch([], 'unmatched_weapon_in_skill_family', 'skill_id', inferred_skill_name)
         return NativeSkillMatch([], 'ambiguous_skill_name', 'skill_name', inferred_skill_name)
@@ -394,6 +401,7 @@ def build_attack_row(
     skill_id: int,
     skill_name: str,
     raw_name: str,
+    known_attack_element_ext_ids: set[int] | None = None,
 ) -> tuple[dict[str, str], bool, str]:
     variant_weapon_type = extract_variant(raw_name)
     sequence_variant = parse_sequence_variant(raw_name, skill_name)
@@ -408,6 +416,9 @@ def build_attack_row(
     }
     is_add_base_atk = (values[header_idx['isAddBaseAtk']] or '0') != '0'
     damaging = is_damaging_row(motion_values, attack_bases, is_add_base_atk)
+    overwrite_id = parse_int(values[header_idx['overwriteAttackElementCorrectId']])
+    if known_attack_element_ext_ids is not None and overwrite_id > 0 and overwrite_id not in known_attack_element_ext_ids:
+        overwrite_id = 0
     row: dict[str, str] = {
         'sheet_row': str(row_idx),
         'aow_id': str(skill_id),
@@ -421,9 +432,7 @@ def build_attack_row(
         'is_lacking_fp': '1' if raw_name.endswith('(Lacking FP)') else '0',
         'is_damaging': '1' if damaging else '0',
         'atk_id': str(parse_int(values[header_idx['AtkId']])),
-        'overwrite_attack_element_correct_id': str(
-            parse_int(values[header_idx['overwriteAttackElementCorrectId']])
-        ),
+        'overwrite_attack_element_correct_id': str(overwrite_id),
         'is_disable_both_hands_bonus': values[header_idx['isDisableBothHandsAtkBonus']] or '0',
         'is_add_base_atk': '1' if is_add_base_atk else '0',
         'status_mv': str(parse_float(values[header_idx['Status MV']])),
@@ -512,6 +521,7 @@ def build_aow_buff_data(project_root: Path, phase1_dir: Path | None = None) -> N
     aow_rows = list(csv.DictReader(aow_csv.open('r', encoding='utf-8', newline='')))
     aow_id_by_name = {row['name']: int(row['aow_id']) for row in aow_rows}
     ordered_names = sorted(aow_id_by_name, key=len, reverse=True)
+    known_attack_element_ext_ids = load_attack_element_correct_ext_ids(workbook_path)
     sp_effect_rows = read_sp_effect_sheet(workbook_path)
 
     rows_out: list[dict[str, str]] = []
@@ -602,6 +612,7 @@ def build_aow_attack_data(project_root: Path, phase1_dir: Path | None = None) ->
     aow_rows = list(csv.DictReader(aow_csv.open('r', encoding='utf-8', newline='')))
     aow_id_by_name = {row['name']: int(row['aow_id']) for row in aow_rows}
     ordered_names = sorted(aow_id_by_name, key=len, reverse=True)
+    known_attack_element_ext_ids = load_attack_element_correct_ext_ids(workbook_path)
     coverage: dict[str, dict[str, int | str]] = {
         row['name']: {
             'aow_id': int(row['aow_id']),
@@ -632,7 +643,6 @@ def build_aow_attack_data(project_root: Path, phase1_dir: Path | None = None) ->
                 continue
             if unique_skill_weapon:
                 coverage[matched]['unique_collision_rows'] += 1
-                continue
             row, damaging, hit_kind = build_attack_row(
                 header_idx,
                 values,
@@ -640,6 +650,7 @@ def build_aow_attack_data(project_root: Path, phase1_dir: Path | None = None) ->
                 aow_id_by_name[matched],
                 matched,
                 raw_name,
+                known_attack_element_ext_ids,
             )
             coverage[matched]['standard_rows'] += 1
             coverage[matched]['lacking_fp_rows'] += int(raw_name.endswith('(Lacking FP)'))
@@ -741,9 +752,18 @@ def build_native_skill_attack_data(project_root: Path, phase1_dir: Path | None =
     if not workbook_path.exists():
         workbook_path = project_root / 'data' / 'phase1' / 'ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx'
     weapons_csv = phase1_dir / 'weapons.csv'
+    aow_csv = phase1_dir / 'aow.csv'
     out_path = phase1_dir / 'native_skill_attack_data.csv'
     coverage_path = phase1_dir / 'native_skill_damage_coverage.csv'
     weapon_index = load_standard_native_skill_weapons(weapons_csv)
+    generic_aow_names: set[str] = set()
+    if aow_csv.exists():
+        generic_aow_names = {
+            row['name'].strip()
+            for row in csv.DictReader(aow_csv.open('r', encoding='utf-8', newline=''))
+            if row.get('name', '').strip()
+        }
+    known_attack_element_ext_ids = load_attack_element_correct_ext_ids(workbook_path)
 
     reader = WorkbookReader(workbook_path)
     try:
@@ -761,14 +781,19 @@ def build_native_skill_attack_data(project_root: Path, phase1_dir: Path | None =
                 raw_name,
                 weapon_index,
             )
+            status = match.status
+            match_source = match.match_source
+            if not match.rows and match.inferred_skill_name in generic_aow_names:
+                status = 'generic_aow'
+                match_source = 'aow_name'
             coverage_rows.append(
                 {
                     'sheet_row': str(row_idx),
                     'unique_skill_weapon': unique_skill_weapon,
                     'raw_name': raw_name,
                     'inferred_skill_name': match.inferred_skill_name,
-                    'status': match.status,
-                    'match_source': match.match_source,
+                    'status': status,
+                    'match_source': match_source,
                     'matched_skill_ids': '|'.join(
                         sorted(
                             {
@@ -798,6 +823,7 @@ def build_native_skill_attack_data(project_root: Path, phase1_dir: Path | None =
                     skill_id,
                     skill_name,
                     raw_name,
+                    known_attack_element_ext_ids,
                 )
                 row['weapon_id'] = weapon['weapon_id']
                 row['weapon_name'] = weapon['name']
@@ -915,6 +941,20 @@ def build_attack_element_correct_ext(project_root: Path, phase1_dir: Path | None
         writer.writeheader()
         writer.writerows(rows_out)
     print(f'Wrote {len(rows_out)} AttackElementCorrect override rows to {out_path}')
+
+
+def load_attack_element_correct_ext_ids(workbook_path: Path) -> set[int]:
+    reader = WorkbookReader(workbook_path)
+    try:
+        sheet = reader.read_sheet('AttackElementCorrectParam')
+        header_idx = {header: idx for idx, header in enumerate(sheet.headers)}
+        return {
+            row_id
+            for values in sheet.rows
+            if (row_id := parse_int(values[header_idx['ID']])) > 0
+        }
+    finally:
+        reader.close()
 
 
 def run_workbook_exports(project_root: Path, phase1_dir: Path | None = None) -> None:

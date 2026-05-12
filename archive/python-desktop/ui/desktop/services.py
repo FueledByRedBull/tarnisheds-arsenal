@@ -357,6 +357,7 @@ class DesktopOptimizerService:
                             top_k=1,
                             weapon_type_key=None,
                             somber_filter="all",
+                            locked_stats=None,
                         ),
                     )
                     build = self._optimize_first_result(
@@ -391,7 +392,7 @@ class DesktopOptimizerService:
         )
         return AffinityWatchPayload(
             lines=tuple(lines),
-            breakpoints=tuple(self.detect_affinity_breakpoints(list(lines), levels)),
+            breakpoints=tuple(self.detect_affinity_breakpoints(list(lines), levels, session.objective_id)),
         )
 
     def affinity_watch_affinities(self, solved: SolvedBuild) -> list[str]:
@@ -418,6 +419,7 @@ class DesktopOptimizerService:
         self,
         lines: list[AffinityWatchLine],
         levels: list[int],
+        objective_id: str,
     ) -> list[AffinityBreakpoint]:
         line_maps = {line.affinity: {point.level: point for point in line.points} for line in lines}
         breakpoints: list[AffinityBreakpoint] = []
@@ -430,7 +432,13 @@ class DesktopOptimizerService:
             ]
             if not contenders:
                 continue
-            leader = max(contenders, key=result_rank_key)
+            leader = max(
+                contenders,
+                key=lambda solved: (
+                    solved.metric_for_objective(objective_id),
+                    result_rank_key(solved),
+                ),
+            )
             current_affinity = leader.affinity
             if leader_affinity is not None and current_affinity != leader_affinity:
                 outgoing = line_maps.get(leader_affinity, {}).get(level)

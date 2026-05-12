@@ -8,8 +8,19 @@ venv/
 .mypy_cache/
 .ruff_cache/
 
+# JavaScript / TypeScript
+node_modules/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+playwright-report/
+test-results/
+
 # Rust
 **/target/
+**/src-tauri/gen/
 
 # Build/release output
 dist/
@@ -21,6 +32,9 @@ ui/desktop/er_optimizer_core/
 *.whl
 tmp_*.png
 release-notes-*.md
+
+# Retired PyQt desktop workspace
+ui/desktop/
 
 # Local data workdirs
 data/_work_phase1/

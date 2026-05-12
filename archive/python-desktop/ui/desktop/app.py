@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from PyQt6 import QtCore, QtWidgets
-from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
+from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPen
 
 THIS_DIR = Path(__file__).resolve().parent
 if str(THIS_DIR) not in sys.path:
@@ -14,6 +14,8 @@ if str(THIS_DIR) not in sys.path:
 
 import models as desktop_models  # noqa: E402
 import services as desktop_services  # noqa: E402
+import theme as desktop_theme  # noqa: E402
+import widgets as desktop_widgets  # noqa: E402
 
 try:
     import er_optimizer_core as core
@@ -67,30 +69,7 @@ CLASS_BASE_STATS = {
     "Wretch": {"vig": 10, "mnd": 10, "end": 10, "str": 10, "dex": 10, "int": 10, "fai": 10, "arc": 10},
 }
 
-FONT_FAMILY = "Palatino Linotype"
-THEME = {
-    "bg": "#090a0c",
-    "panel": "#101216",
-    "panel_alt": "#15181d",
-    "panel_soft": "#1a1e24",
-    "hero": "#0e1116",
-    "input": "#12151a",
-    "border": "#2f3640",
-    "border_bright": "#c9a44c",
-    "text": "#d8cfbd",
-    "text_soft": "#978d7a",
-    "text_bright": "#f4e7c2",
-    "accent": "#c9a44c",
-    "accent_deep": "#896520",
-    "accent_dark": "#272114",
-    "success_bg": "#162016",
-    "success_border": "#7d9f47",
-    "danger_bg": "#251113",
-    "danger_border": "#d46872",
-    "info_bg": "#171a20",
-    "muted_bg": "#0f1114",
-    "row_alt": "#0f1217",
-}
+THEME = desktop_theme.THEME
 
 
 def app_root() -> Path:
@@ -154,7 +133,6 @@ def normalize_weapon_type_display(raw_name: str) -> str:
 
 CombatState = desktop_models.CombatState
 PathWeaponConfig = desktop_models.PathWeaponConfig
-PathStep = desktop_models.PathStep
 PathPreview = desktop_models.PathPreview
 AffinityWatchLine = desktop_models.AffinityWatchLine
 AffinityBreakpoint = desktop_models.AffinityBreakpoint
@@ -711,6 +689,7 @@ class PathPreviewWorker(QtCore.QObject):
         self.session = session
         self.configs = configs
         self.levels_ahead = levels_ahead
+        self.cancel_requested = False
 
     @QtCore.pyqtSlot()
     def run(self) -> None:
@@ -718,18 +697,26 @@ class PathPreviewWorker(QtCore.QObject):
             previews: list[desktop_models.PathPreview] = []
             total = max(len(self.configs), 1)
             for index, config in enumerate(self.configs, start=1):
+                if self.cancel_requested:
+                    raise RuntimeError("cancelled")
                 preview = self.service.build_path_preview(
                     self.session,
                     config.solved,
                     self.levels_ahead,
                     config.title,
                 )
+                if self.cancel_requested:
+                    raise RuntimeError("cancelled")
                 previews.append(preview)
                 final_level = self.session.build.derived_level + self.levels_ahead
                 self.progress.emit(index, total, config.title, final_level)
             self.finished.emit(previews, self.levels_ahead)
         except Exception as exc:
             self.failed.emit(str(exc))
+
+    @QtCore.pyqtSlot()
+    def cancel(self) -> None:
+        self.cancel_requested = True
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -752,10 +739,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.worker: OptimizeWorker | None = None
         self.path_thread: QtCore.QThread | None = None
         self.path_worker: PathPreviewWorker | None = None
+        self.path_cancel_requested = False
         self.affinity_watch_thread: QtCore.QThread | None = None
         self.affinity_watch_worker: AffinityWatchWorker | None = None
         self.affinity_watch_cancel_requested = False
         self.affinity_watch_context: dict[str, Any] | None = None
+        self.path_preview_signature: tuple[Any, ...] | None = None
+        self.affinity_watch_signature: tuple[Any, ...] | None = None
         self.current_results: list[Any] = []
         self.results_signature: tuple[Any, ...] | None = None
         self.active_request_signature: tuple[Any, ...] | None = None
@@ -771,6 +761,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.compare_resolution_error: str | None = None
         self.selected_result_fingerprint: tuple[Any, ...] | None = None
         self.session: desktop_models.GlobalSession | None = None
+        self.ui_state = desktop_widgets.UiState()
+        self.workflow_buttons: dict[str, QtWidgets.QPushButton] = {}
 
         self._build_ui()
         self._populate_static_lists()
@@ -790,65 +782,103 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(root)
         layout = QtWidgets.QHBoxLayout(root)
         layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(14)
+        layout.setSpacing(10)
 
         left_panel = QtWidgets.QWidget()
         left_panel.setObjectName("LeftRail")
-        left_panel.setMinimumWidth(360)
-        left_panel.setMaximumWidth(460)
+        left_panel.setMinimumWidth(280)
+        left_panel.setMaximumWidth(340)
         left_outer = QtWidgets.QVBoxLayout(left_panel)
         left_outer.setContentsMargins(0, 0, 0, 0)
-        left_outer.setSpacing(10)
+        left_outer.setSpacing(8)
 
         left_content = QtWidgets.QWidget()
+        left_content.setObjectName("CommandRail")
         left_content_layout = QtWidgets.QVBoxLayout(left_content)
-        left_content_layout.setContentsMargins(0, 0, 0, 0)
-        left_content_layout.setSpacing(10)
+        left_content_layout.setContentsMargins(10, 10, 10, 10)
+        left_content_layout.setSpacing(8)
+        left_content_layout.addWidget(self._build_brand_panel())
+        left_content_layout.addWidget(self._build_workflow_nav())
         left_content_layout.addWidget(self._build_character_group())
         left_content_layout.addWidget(self._build_weapon_group())
+        left_content_layout.addWidget(self._build_options_group())
+        left_content_layout.addWidget(self._build_advanced_drawer())
         left_content_layout.addStretch(1)
 
         left_scroll = QtWidgets.QScrollArea()
         left_scroll.setWidgetResizable(True)
         left_scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+        left_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         left_scroll.setWidget(left_content)
         left_outer.addWidget(left_scroll, 1)
-        left_outer.addWidget(self._build_options_group(), 0)
 
-        right_panel = QtWidgets.QWidget()
-        right_panel.setObjectName("RightStage")
-        right_layout = QtWidgets.QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(12)
-        right_layout.addWidget(self._build_hero_header(), 0)
+        workspace_panel = QtWidgets.QWidget()
+        workspace_panel.setObjectName("WorkspacePanel")
+        workspace_layout = QtWidgets.QVBoxLayout(workspace_panel)
+        workspace_layout.setContentsMargins(0, 0, 0, 0)
+        workspace_layout.setSpacing(10)
+        self._build_hero_header()
         self.main_tabs = QtWidgets.QTabWidget()
+        self.main_tabs.setObjectName("WorkspaceTabs")
         self.main_tabs.setDocumentMode(True)
         self.main_tabs.addTab(self._build_results_group(), "RANKINGS")
         self.main_tabs.addTab(self._build_upgrade_group(), "COMPARE")
         self.main_tabs.addTab(self._build_paths_group(), "PATHS")
         self.main_tabs.addTab(self._build_affinity_watch_group(), "AFFINITY WATCH")
-        right_layout.addWidget(self.main_tabs, 1)
+        self.main_tabs.tabBar().hide()
+        workspace_layout.addWidget(self.hero_panel, 0)
+        workspace_layout.addWidget(self.main_tabs, 1)
 
         splitter = QtWidgets.QSplitter()
         splitter.setOrientation(QtCore.Qt.Orientation.Horizontal)
         splitter.setChildrenCollapsible(False)
         splitter.addWidget(left_panel)
-        splitter.addWidget(right_panel)
+        splitter.addWidget(workspace_panel)
+        splitter.addWidget(self._build_inspector_panel())
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
-        splitter.setSizes([392, 1208])
+        splitter.setStretchFactor(2, 0)
+        splitter.setSizes([306, 934, 320])
         layout.addWidget(splitter)
 
+    def _build_brand_panel(self) -> QtWidgets.QWidget:
+        frame = desktop_widgets.band_frame("ArmoryBrand")
+        layout = QtWidgets.QVBoxLayout(frame)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(4)
+        title = QtWidgets.QLabel("Tarnished's Arsenal")
+        title.setProperty("role", "brandTitle")
+        sub = QtWidgets.QLabel("TACTICAL BUILD PLANNER")
+        sub.setProperty("role", "brandSub")
+        layout.addWidget(title)
+        layout.addWidget(sub)
+        return frame
+
+    def _build_workflow_nav(self) -> QtWidgets.QWidget:
+        frame = desktop_widgets.band_frame("WorkflowNav")
+        layout = QtWidgets.QVBoxLayout(frame)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(6)
+        entries = [
+            ("rankings", "Rankings", "rankings"),
+            ("compare", "Compare", "compare"),
+            ("paths", "Paths", "path"),
+            ("affinity_watch", "Affinity Watch", "affinity"),
+        ]
+        for workspace, text, icon_name in entries:
+            button = QtWidgets.QPushButton(text.upper())
+            button.setProperty("role", "navButton")
+            button.setProperty("active", workspace == "rankings")
+            button.setIcon(desktop_theme.icon(icon_name))
+            self.workflow_buttons[workspace] = button
+            layout.addWidget(button)
+        return frame
+
     def _build_character_group(self) -> QtWidgets.QGroupBox:
-        group = QtWidgets.QGroupBox("BUILD")
+        group = QtWidgets.QGroupBox("CHARACTER SETUP")
         group.setObjectName("BuildGroup")
         layout = QtWidgets.QVBoxLayout(group)
-        layout.setSpacing(10)
-        layout.addWidget(
-            self._helper_label(
-                "Set the class shell first. VIG, MND, and END stay fixed while combat stats can move inside floors."
-            )
-        )
+        layout.setSpacing(8)
 
         self.class_combo = QtWidgets.QComboBox()
         self.level_spin = self._u16_spin(1, 713, 150)
@@ -859,7 +889,7 @@ class MainWindow(QtWidgets.QMainWindow):
         top_row = QtWidgets.QGridLayout()
         top_row.setHorizontalSpacing(10)
         top_row.addWidget(self._field_stack("Starting Class", self.class_combo), 0, 0)
-        top_row.addWidget(self._field_stack("Derived Level", self.level_spin), 0, 1)
+        top_row.addWidget(self._field_stack("Derived Level", self.level_spin), 1, 0)
         layout.addLayout(top_row)
 
         self.vig_spin = self._u8_spin(1, 99, 40)
@@ -889,40 +919,30 @@ class MainWindow(QtWidgets.QMainWindow):
         grid.setVerticalSpacing(6)
         grid.setColumnStretch(0, 0)
         grid.setColumnStretch(1, 1)
-        grid.setColumnStretch(2, 1)
         stat_header = QtWidgets.QLabel("STAT")
         stat_header.setProperty("role", "gridHeader")
         current_label = QtWidgets.QLabel("CURRENT")
         current_label.setProperty("role", "gridHeader")
         current_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        min_label = QtWidgets.QLabel("MIN FLOOR")
-        min_label.setProperty("role", "gridHeader")
-        min_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         grid.addWidget(stat_header, 0, 0)
         grid.addWidget(current_label, 0, 1)
-        grid.addWidget(min_label, 0, 2)
 
-        self._add_stat_row(grid, 1, "VIG", self.vig_spin, None)
-        self._add_stat_row(grid, 2, "MND", self.mnd_spin, None)
-        self._add_stat_row(grid, 3, "END", self.end_spin, None)
-        self._add_stat_row(grid, 4, "STR", self.str_spin, self.min_str_spin)
-        self._add_stat_row(grid, 5, "DEX", self.dex_spin, self.min_dex_spin)
-        self._add_stat_row(grid, 6, "INT", self.int_spin, self.min_int_spin)
-        self._add_stat_row(grid, 7, "FAI", self.fai_spin, self.min_fai_spin)
-        self._add_stat_row(grid, 8, "ARC", self.arc_spin, self.min_arc_spin)
+        self._add_stat_row(grid, 1, "VIG", self.vig_spin, None, show_floor=False)
+        self._add_stat_row(grid, 2, "MND", self.mnd_spin, None, show_floor=False)
+        self._add_stat_row(grid, 3, "END", self.end_spin, None, show_floor=False)
+        self._add_stat_row(grid, 4, "STR", self.str_spin, None, show_floor=False)
+        self._add_stat_row(grid, 5, "DEX", self.dex_spin, None, show_floor=False)
+        self._add_stat_row(grid, 6, "INT", self.int_spin, None, show_floor=False)
+        self._add_stat_row(grid, 7, "FAI", self.fai_spin, None, show_floor=False)
+        self._add_stat_row(grid, 8, "ARC", self.arc_spin, None, show_floor=False)
         layout.addLayout(grid)
         return group
 
     def _build_weapon_group(self) -> QtWidgets.QGroupBox:
-        group = QtWidgets.QGroupBox("CONSTRAINTS")
+        group = QtWidgets.QGroupBox("SEARCH SCOPE")
         group.setObjectName("ConstraintsGroup")
         layout = QtWidgets.QVBoxLayout(group)
-        layout.setSpacing(10)
-        layout.addWidget(
-            self._helper_label(
-                "Lock a lane when you know it. Leave selectors open when you want the optimizer to roam."
-            )
-        )
+        layout.setSpacing(8)
 
         self.weapon_type_combo = QtWidgets.QComboBox()
         self.weapon_combo = QtWidgets.QComboBox()
@@ -935,34 +955,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.max_upgrade_spin = self._u8_spin(0, 25, 25)
         self.top_k_spin = self._u16_spin(1, 50, 10)
 
-        upper_grid = QtWidgets.QGridLayout()
-        upper_grid.setHorizontalSpacing(10)
-        upper_grid.setVerticalSpacing(8)
-        upper_grid.addWidget(self._field_stack("Weapon Type", self.weapon_type_combo), 0, 0)
-        upper_grid.addWidget(self._field_stack("Weapon", self.weapon_combo), 0, 1)
-        upper_grid.addWidget(self._field_stack("Affinity", self.affinity_combo), 1, 0)
-        upper_grid.addWidget(self._field_stack("AoW", self.aow_combo), 1, 1)
-        layout.addLayout(upper_grid)
-
-        lower_grid = QtWidgets.QGridLayout()
-        lower_grid.setHorizontalSpacing(10)
-        lower_grid.setVerticalSpacing(8)
-        lower_grid.addWidget(self._field_stack("Somber Filter", self.somber_combo), 0, 0)
-        lower_grid.addWidget(self._field_stack("Max Upgrade", self.max_upgrade_spin), 0, 1)
-        lower_grid.addWidget(self._field_stack("Top Results", self.top_k_spin), 1, 0)
-        layout.addLayout(lower_grid)
+        layout.addWidget(self._field_stack("Weapon", self.weapon_combo))
+        two_col = QtWidgets.QGridLayout()
+        two_col.setHorizontalSpacing(8)
+        two_col.setVerticalSpacing(8)
+        two_col.addWidget(self._field_stack("Affinity", self.affinity_combo), 0, 0)
+        two_col.addWidget(self._field_stack("AoW", self.aow_combo), 0, 1)
+        layout.addLayout(two_col)
         return group
 
     def _build_options_group(self) -> QtWidgets.QGroupBox:
-        group = QtWidgets.QGroupBox("SEARCH")
+        group = QtWidgets.QGroupBox("OBJECTIVE")
         group.setObjectName("SearchGroup")
         layout = QtWidgets.QVBoxLayout(group)
-        layout.setSpacing(10)
-        layout.addWidget(
-            self._helper_label(
-                "Choose the score rule, keep an eye on requirement health, then launch the run."
-            )
-        )
+        layout.setSpacing(8)
 
         self.lock_upgrade_exact = QtWidgets.QCheckBox("Lock Upgrade Exact")
         self.two_handing_check = QtWidgets.QCheckBox("Two Handing")
@@ -973,15 +979,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.objective_combo.addItem("Max AR + Bleed", "max_ar_plus_bleed")
         self.objective_combo.addItem("AoW First Hit (PvE)", "aow_first_hit")
         self.objective_combo.addItem("AoW Full Sequence (PvE)", "aow_full_sequence")
-        layout.addWidget(self._field_stack("Objective", self.objective_combo))
 
-        toggle_grid = QtWidgets.QGridLayout()
-        toggle_grid.setHorizontalSpacing(8)
-        toggle_grid.setVerticalSpacing(6)
-        toggle_grid.addWidget(self.lock_upgrade_exact, 0, 0)
-        toggle_grid.addWidget(self.two_handing_check, 0, 1)
-        toggle_grid.addWidget(self.lock_stats_checkbox, 1, 0, 1, 2)
-        layout.addLayout(toggle_grid)
+        objective_grid = QtWidgets.QGridLayout()
+        objective_grid.setHorizontalSpacing(8)
+        objective_grid.setVerticalSpacing(8)
+        objective_grid.addWidget(self._field_stack("Objective", self.objective_combo), 0, 0)
+        objective_grid.addWidget(self._field_stack("Max Upgrade", self.max_upgrade_spin), 0, 1)
+        layout.addLayout(objective_grid)
 
         self.requirement_badge = self._chip_label("No weapon selected", "muted", "requirementBadge")
         self.free_points_label = QtWidgets.QLabel("Redistributable Combat Points: -")
@@ -992,6 +996,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.search_button = QtWidgets.QPushButton("Search the Arsenal")
         self.search_button.setProperty("role", "ctaButton")
+        self.search_button.setIcon(desktop_theme.icon("search"))
         self.progress_label = QtWidgets.QLabel("Idle")
         self.progress_label.setProperty("role", "progressLabel")
         self.progress_bar = QtWidgets.QProgressBar()
@@ -1005,6 +1010,108 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addWidget(self.progress_label)
         layout.addWidget(self.progress_bar)
         return group
+
+    def _build_advanced_drawer(self) -> desktop_widgets.AdvancedDrawer:
+        self.advanced_drawer = desktop_widgets.AdvancedDrawer("Advanced")
+        layout = self.advanced_drawer.body_layout
+
+        layout.addWidget(self._field_stack("Weapon Type", self.weapon_type_combo))
+        grid = QtWidgets.QGridLayout()
+        grid.setHorizontalSpacing(8)
+        grid.setVerticalSpacing(8)
+        grid.addWidget(self._field_stack("Somber Filter", self.somber_combo), 0, 0)
+        grid.addWidget(self._field_stack("Top Results", self.top_k_spin), 0, 1)
+        layout.addLayout(grid)
+
+        floor_grid = QtWidgets.QGridLayout()
+        floor_grid.setHorizontalSpacing(8)
+        floor_grid.setVerticalSpacing(6)
+        floor_grid.addWidget(self._field_stack("Min STR", self.min_str_spin), 0, 0)
+        floor_grid.addWidget(self._field_stack("Min DEX", self.min_dex_spin), 0, 1)
+        floor_grid.addWidget(self._field_stack("Min INT", self.min_int_spin), 1, 0)
+        floor_grid.addWidget(self._field_stack("Min FAI", self.min_fai_spin), 1, 1)
+        floor_grid.addWidget(self._field_stack("Min ARC", self.min_arc_spin), 2, 0)
+        layout.addLayout(floor_grid)
+
+        self.lock_upgrade_exact.setToolTip("Require the optimizer to use the current max upgrade exactly.")
+        self.two_handing_check.setToolTip("Apply two-handing strength behavior when eligible.")
+        self.lock_stats_checkbox.setToolTip("Reuse the combat stats captured from Use As Locks.")
+        layout.addWidget(self.lock_upgrade_exact)
+        layout.addWidget(self.two_handing_check)
+        layout.addWidget(self.lock_stats_checkbox)
+        self.advanced_drawer.toggled.connect(self._on_advanced_drawer_toggled)
+        return self.advanced_drawer
+
+    def _build_inspector_panel(self) -> QtWidgets.QWidget:
+        panel = QtWidgets.QWidget()
+        panel.setObjectName("InspectorPanel")
+        panel.setMinimumWidth(260)
+        panel.setMaximumWidth(350)
+        outer = QtWidgets.QVBoxLayout(panel)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        content = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(content)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+
+        selected_block, selected_layout = desktop_widgets.inspector_block("Selected Result")
+        self.inspector_title = desktop_widgets.text_label("No result selected", "inspectorTitle", True)
+        self.inspector_detail = desktop_widgets.text_label("Run Rankings, then select a build row.", "summaryBody", True)
+        self.inspector_stats = desktop_widgets.text_label("STR --  DEX --  INT --  FAI --  ARC --", "inspectorMetric", True)
+        self.inspector_metrics = desktop_widgets.text_label("AR --   Bleed --   AoW --", "inspectorMetric", True)
+        selected_layout.addWidget(self.inspector_title)
+        selected_layout.addWidget(self.inspector_detail)
+        selected_layout.addWidget(self.inspector_stats)
+        selected_layout.addWidget(self.inspector_metrics)
+        layout.addWidget(selected_block)
+
+        budget_block, budget_layout = desktop_widgets.inspector_block("Stat Budget")
+        self.inspector_level_label = desktop_widgets.text_label("Level --", "statusLine")
+        self.inspector_budget_label = desktop_widgets.text_label("Budget --", "statusLine")
+        self.inspector_requirement_label = desktop_widgets.text_label("Requirements: -", "statusLine", True)
+        budget_layout.addWidget(self.inspector_level_label)
+        budget_layout.addWidget(self.inspector_budget_label)
+        budget_layout.addWidget(self.inspector_requirement_label)
+        layout.addWidget(budget_block)
+
+        locks_block, locks_layout = desktop_widgets.inspector_block("Locks")
+        self.inspector_lock_state = desktop_widgets.text_label("Open Search", "summaryBody", True)
+        self.inspector_lock_button = QtWidgets.QPushButton("Use As Locks")
+        self.inspector_lock_button.setProperty("role", "inlineButton")
+        self.inspector_lock_button.setIcon(desktop_theme.icon("lock"))
+        self.inspector_lock_button.setEnabled(False)
+        locks_layout.addWidget(self.inspector_lock_state)
+        locks_layout.addWidget(self.inspector_lock_button)
+        layout.addWidget(locks_block)
+
+        actions_block, actions_layout = desktop_widgets.inspector_block("Next Actions")
+        self.inspector_compare_button = QtWidgets.QPushButton("Open Compare")
+        self.inspector_compare_button.setProperty("role", "inlineButton")
+        self.inspector_compare_button.setIcon(desktop_theme.icon("compare"))
+        self.inspector_path_button = QtWidgets.QPushButton("Run Paths")
+        self.inspector_path_button.setProperty("role", "inlineButton")
+        self.inspector_path_button.setIcon(desktop_theme.icon("path"))
+        self.inspector_affinity_button = QtWidgets.QPushButton("Run Affinity Watch")
+        self.inspector_affinity_button.setProperty("role", "inlineButton")
+        self.inspector_affinity_button.setIcon(desktop_theme.icon("affinity"))
+        for button in (
+            self.inspector_compare_button,
+            self.inspector_path_button,
+            self.inspector_affinity_button,
+        ):
+            button.setEnabled(False)
+            actions_layout.addWidget(button)
+        layout.addWidget(actions_block)
+        layout.addStretch(1)
+
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+        scroll.setWidget(content)
+        outer.addWidget(scroll)
+        return panel
 
     def _build_hero_header(self) -> QtWidgets.QFrame:
         self.hero_panel = QtWidgets.QFrame()
@@ -1045,9 +1152,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         metrics = QtWidgets.QHBoxLayout()
         metrics.setSpacing(10)
-        level_card, self.hero_level_value = self._metric_card("Derived Level")
-        budget_card, self.hero_budget_value = self._metric_card("Stat Budget")
-        free_card, self.hero_free_value = self._metric_card("Redistributable")
+        level_card, self.hero_level_value = self._metric_card("Level")
+        budget_card, self.hero_budget_value = self._metric_card("Budget")
+        free_card, self.hero_free_value = self._metric_card("Free")
         for card in (level_card, budget_card, free_card):
             metrics.addWidget(card)
         layout.addLayout(metrics, 0)
@@ -1113,11 +1220,14 @@ class MainWindow(QtWidgets.QMainWindow):
         name: str,
         current_spin: QtWidgets.QSpinBox,
         min_spin: QtWidgets.QSpinBox | None,
+        show_floor: bool = True,
     ) -> None:
         name_label = QtWidgets.QLabel(name)
         name_label.setProperty("role", "statName")
         grid.addWidget(name_label, row, 0)
         grid.addWidget(current_spin, row, 1)
+        if not show_floor:
+            return
         if min_spin is None:
             dash = QtWidgets.QLabel("--")
             dash.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
@@ -1127,20 +1237,20 @@ class MainWindow(QtWidgets.QMainWindow):
             grid.addWidget(min_spin, row, 2)
 
     def _build_results_group(self) -> QtWidgets.QGroupBox:
-        group = QtWidgets.QGroupBox("RESULTS")
+        group = QtWidgets.QGroupBox("RANKED BUILD BOARD")
         group.setObjectName("ResultsGroup")
         layout = QtWidgets.QVBoxLayout(group)
         layout.setSpacing(10)
-        layout.addWidget(self._helper_label("The first three contenders surface as cards. The full ranking stays below for exact inspection."))
+        layout.addWidget(self._helper_label("Best lanes first. Precision table below."))
 
         self.result_cards_container = QtWidgets.QWidget()
-        cards_layout = QtWidgets.QHBoxLayout(self.result_cards_container)
+        cards_layout = QtWidgets.QVBoxLayout(self.result_cards_container)
         cards_layout.setContentsMargins(0, 0, 0, 0)
-        cards_layout.setSpacing(10)
+        cards_layout.setSpacing(8)
         for card_idx in range(3):
             card = self._build_result_card(card_idx)
             self.result_cards.append(card)
-            cards_layout.addWidget(card["frame"], 1)
+            cards_layout.addWidget(card["frame"], 0)
         layout.addWidget(self.result_cards_container)
 
         self.results_table = QtWidgets.QTableWidget(0, 18)
@@ -1186,11 +1296,11 @@ class MainWindow(QtWidgets.QMainWindow):
         return group
 
     def _build_upgrade_group(self) -> QtWidgets.QGroupBox:
-        group = QtWidgets.QGroupBox("COMPARE")
+        group = QtWidgets.QGroupBox("COMPARE LANES")
         group.setObjectName("UpgradeGroup")
         layout = QtWidgets.QVBoxLayout(group)
         layout.setSpacing(10)
-        layout.addWidget(self._helper_label("Selected build on one side, rival line on the other, upgrade spread underneath."))
+        layout.addWidget(self._helper_label("Selected lane versus target lane."))
 
         self.compare_summary_container = QtWidgets.QWidget()
         compare_summary_layout = QtWidgets.QHBoxLayout(self.compare_summary_container)
@@ -1248,15 +1358,11 @@ class MainWindow(QtWidgets.QMainWindow):
         return group
 
     def _build_paths_group(self) -> QtWidgets.QGroupBox:
-        group = QtWidgets.QGroupBox("PATHS")
+        group = QtWidgets.QGroupBox("PATH LANES")
         group.setObjectName("PathsGroup")
         layout = QtWidgets.QVBoxLayout(group)
         layout.setSpacing(10)
-        layout.addWidget(
-            self._helper_label(
-                "The path lane derives from the active selected build and compare target using the shared session horizon."
-            )
-        )
+        layout.addWidget(self._helper_label("Current + N stat route."))
 
         self.path_workspace_summary = QtWidgets.QLabel("No selected path lane yet.")
         self.path_workspace_summary.setProperty("role", "summaryBody")
@@ -1299,11 +1405,7 @@ class MainWindow(QtWidgets.QMainWindow):
         group.setObjectName("AffinityWatchGroup")
         layout = QtWidgets.QVBoxLayout(group)
         layout.setSpacing(10)
-        layout.addWidget(
-            self._helper_label(
-                "Affinity Watch keeps the selected weapon lane fixed and shows which legal affinity leads across the shared horizon."
-            )
-        )
+        layout.addWidget(self._helper_label("Final ranking, crossovers, and trace."))
 
         self.affinity_workspace_summary = QtWidgets.QLabel("No selected affinity lane yet.")
         self.affinity_workspace_summary.setProperty("role", "summaryBody")
@@ -1362,10 +1464,10 @@ class MainWindow(QtWidgets.QMainWindow):
         frame = QtWidgets.QFrame()
         frame.setProperty("role", "resultCard")
         frame.setProperty("cardState", "empty")
-        frame.setMinimumHeight(168)
+        frame.setMinimumHeight(116)
         layout = QtWidgets.QVBoxLayout(frame)
-        layout.setContentsMargins(14, 14, 14, 14)
-        layout.setSpacing(6)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(4)
 
         rank_chip = self._chip_label(f"#{card_idx + 1}", "muted")
         title = QtWidgets.QLabel("No result yet")
@@ -1375,8 +1477,10 @@ class MainWindow(QtWidgets.QMainWindow):
         detail.setWordWrap(True)
         stats = QtWidgets.QLabel("STR --  DEX --  INT --  FAI --  ARC --")
         stats.setProperty("role", "cardStats")
+        stats.setWordWrap(True)
         metrics = QtWidgets.QLabel("AR --   Bleed --   1st --   Full --   Score --")
         metrics.setProperty("role", "cardMetric")
+        metrics.setWordWrap(True)
 
         chip_row = QtWidgets.QHBoxLayout()
         chip_row.addWidget(rank_chip, 0)
@@ -1386,9 +1490,11 @@ class MainWindow(QtWidgets.QMainWindow):
         button_row.setSpacing(6)
         focus_button = QtWidgets.QPushButton("Focus")
         focus_button.setProperty("role", "inlineButton")
+        focus_button.setIcon(desktop_theme.icon("rankings"))
         focus_button.clicked.connect(lambda _checked=False, idx=card_idx: self._focus_result_row(idx))
         lock_button = QtWidgets.QPushButton("Lock")
         lock_button.setProperty("role", "inlineButton")
+        lock_button.setIcon(desktop_theme.icon("lock"))
         lock_button.clicked.connect(lambda _checked=False, idx=card_idx: self._lock_from_result(idx))
         button_row.addWidget(focus_button)
         button_row.addWidget(lock_button)
@@ -1445,6 +1551,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _wire_events(self) -> None:
         self.search_button.clicked.connect(self._handle_search_button)
+        self.inspector_lock_button.clicked.connect(self._lock_selected_result)
+        self.inspector_compare_button.clicked.connect(lambda: self.main_tabs.setCurrentIndex(1))
+        self.inspector_path_button.clicked.connect(self._handle_level_path_button)
+        self.inspector_affinity_button.clicked.connect(self._handle_affinity_watch_button)
+        for workspace, button in self.workflow_buttons.items():
+            button.clicked.connect(lambda _checked=False, name=workspace: self._activate_workspace(name))
         self.class_combo.currentIndexChanged.connect(self._on_class_changed)
         self.weapon_combo.currentIndexChanged.connect(self._refresh_affinity_options)
         self.weapon_type_combo.currentIndexChanged.connect(self._refresh_weapon_options)
@@ -1454,12 +1566,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.compare_affinity_combo.currentIndexChanged.connect(self._refresh_compare_aow_options)
         self.results_table.itemSelectionChanged.connect(self._rebuild_upgrade_table)
         self.results_table.itemSelectionChanged.connect(self._refresh_result_cards)
-        self.level_path_button.clicked.connect(self._open_level_path_dialog)
+        self.level_path_button.clicked.connect(self._handle_level_path_button)
         self.affinity_watch_button.clicked.connect(self._handle_affinity_watch_button)
-        self.path_tab_open_button.clicked.connect(self._open_level_path_dialog)
+        self.path_tab_open_button.clicked.connect(self._handle_level_path_button)
         self.affinity_tab_open_button.clicked.connect(self._handle_affinity_watch_button)
         self.level_path_horizon_spin.valueChanged.connect(self._refresh_analysis_workspace_labels)
-        self.main_tabs.currentChanged.connect(lambda _index: self._sync_session_state())
+        self.main_tabs.currentChanged.connect(self._on_workspace_changed)
         self.lock_stats_checkbox.stateChanged.connect(self._refresh_estimate)
         self.two_handing_check.stateChanged.connect(self._refresh_estimate)
         self.lock_upgrade_exact.stateChanged.connect(self._refresh_estimate)
@@ -1689,6 +1801,30 @@ class MainWindow(QtWidgets.QMainWindow):
         self._apply_class_baselines()
         self._refresh_estimate()
 
+    def _on_advanced_drawer_toggled(self, open_: bool) -> None:
+        self.ui_state.advanced_open = open_
+
+    def _activate_workspace(self, workspace: str) -> None:
+        index_by_workspace = {
+            "rankings": 0,
+            "compare": 1,
+            "paths": 2,
+            "affinity_watch": 3,
+        }
+        index = index_by_workspace.get(workspace, 0)
+        self.main_tabs.setCurrentIndex(index)
+
+    def _on_workspace_changed(self, _index: int) -> None:
+        self.ui_state.active_workspace = self._active_workspace()
+        self._refresh_workflow_nav()
+        self._sync_session_state()
+
+    def _refresh_workflow_nav(self) -> None:
+        active = self._active_workspace()
+        for workspace, button in self.workflow_buttons.items():
+            button.setProperty("active", workspace == active)
+            self._restyle_widget(button)
+
     def _resolved_class_name(self) -> str:
         typed = self.class_combo.currentText().strip()
         if typed in CLASS_BASE_LEVEL_TOTAL:
@@ -1847,12 +1983,14 @@ class MainWindow(QtWidgets.QMainWindow):
             self._update_requirement_highlights()
             self._refresh_hero_summary()
             self._refresh_analysis_workspace_labels()
+            self._refresh_inspector()
         except Exception as exc:
             self.estimate_label.setText(f"Search Space: invalid ({exc})")
             self.free_points_label.setText("Redistributable Combat Points: invalid")
             self._update_requirement_highlights()
             self._refresh_hero_summary()
             self._refresh_analysis_workspace_labels()
+            self._refresh_inspector()
 
     def _compute_free_points_text(self) -> str:
         snapshot = self._budget_snapshot()
@@ -1896,24 +2034,24 @@ class MainWindow(QtWidgets.QMainWindow):
         self._set_toned_label(self.hero_search_chip, search_text, search_tone)
         self._set_toned_label(
             self.hero_lock_chip,
-            "Locked Search" if self._has_locked_filters() else "Open Search",
+            "Locked" if self._has_locked_filters() else "Open",
             "info" if self._has_locked_filters() else "muted",
         )
         self._set_toned_label(self.hero_somber_chip, self._somber_chip_text(), "muted")
         self._set_toned_label(
             self.hero_handing_chip,
-            "Two Handing" if self.two_handing_check.isChecked() else "One Hand",
+            "2H" if self.two_handing_check.isChecked() else "1H",
             "accent" if self.two_handing_check.isChecked() else "muted",
         )
         self._set_toned_label(
             self.hero_upgrade_chip,
-            "Exact Upgrade" if self.lock_upgrade_exact.isChecked() else "Upgrade Range",
+            "Exact +" if self.lock_upgrade_exact.isChecked() else "+Range",
             "info" if self.lock_upgrade_exact.isChecked() else "muted",
         )
         exact_stats = self.lock_stats_checkbox.isChecked() and self.locked_result_stats is not None
         self._set_toned_label(
             self.hero_stats_chip,
-            "Exact Stats" if exact_stats else "Stats Open",
+            "Exact Stats" if exact_stats else "Stats",
             "info" if exact_stats else "muted",
         )
 
@@ -1935,10 +2073,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def _somber_chip_text(self) -> str:
         value = self.somber_combo.currentData()
         if value == "standard_only":
-            return "Standard Only"
+            return "Std"
         if value == "somber_only":
-            return "Somber Only"
-        return "All Paths"
+            return "Somber"
+        return "All"
 
     def _has_locked_filters(self) -> bool:
         return any(
@@ -1973,9 +2111,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.upgrade_table.setColumnCount(0)
         self.level_path_button.setEnabled(False)
         self.path_tab_open_button.setEnabled(False)
+        self.path_preview_signature = None
+        self.affinity_watch_signature = None
         self._refresh_affinity_watch_button_state()
+        self._refresh_path_button_state()
         self._refresh_result_cards()
         self._refresh_compare_summary(None, None, None)
+        self._refresh_inspector()
 
     @staticmethod
     def _restyle_widget(widget: QtWidgets.QWidget) -> None:
@@ -1986,13 +2128,19 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.active_run_id is None:
             self.search_button.setEnabled(True)
             self.search_button.setText("Search the Arsenal")
+            self.search_button.setIcon(desktop_theme.icon("search"))
+            self.ui_state.busy_search = False
             return
         if self.search_cancel_requested:
             self.search_button.setEnabled(False)
             self.search_button.setText("Stopping...")
+            self.search_button.setIcon(desktop_theme.icon("stop"))
+            self.ui_state.busy_search = True
             return
         self.search_button.setEnabled(True)
         self.search_button.setText("Stop Search")
+        self.search_button.setIcon(desktop_theme.icon("stop"))
+        self.ui_state.busy_search = True
 
     def _refresh_affinity_watch_button_state(self) -> None:
         if self.affinity_watch_thread is None:
@@ -2001,17 +2149,48 @@ class MainWindow(QtWidgets.QMainWindow):
             self.affinity_watch_button.setText("Affinity Watcher")
             self.affinity_tab_open_button.setEnabled(enabled)
             self.affinity_tab_open_button.setText("Refresh Affinity Watch")
+            self.ui_state.busy_affinity = False
+            self._refresh_inspector()
             return
         if self.affinity_watch_cancel_requested:
             self.affinity_watch_button.setEnabled(False)
             self.affinity_watch_button.setText("Stopping...")
             self.affinity_tab_open_button.setEnabled(False)
             self.affinity_tab_open_button.setText("Stopping...")
+            self.ui_state.busy_affinity = True
+            self._refresh_inspector()
             return
         self.affinity_watch_button.setEnabled(True)
         self.affinity_watch_button.setText("Stop Affinity Watch")
         self.affinity_tab_open_button.setEnabled(True)
         self.affinity_tab_open_button.setText("Stop Affinity Watch")
+        self.ui_state.busy_affinity = True
+        self._refresh_inspector()
+
+    def _refresh_path_button_state(self) -> None:
+        if self.path_thread is None:
+            enabled = self.active_compare_selected is not None and self.active_compare_target is not None
+            self.level_path_button.setEnabled(enabled)
+            self.level_path_button.setText("Path Graphs")
+            self.path_tab_open_button.setEnabled(enabled)
+            self.path_tab_open_button.setText("Refresh Paths")
+            self.ui_state.busy_paths = False
+            self._refresh_inspector()
+            return
+        if self.path_cancel_requested:
+            self.level_path_button.setEnabled(False)
+            self.level_path_button.setText("Stopping...")
+            self.path_tab_open_button.setEnabled(False)
+            self.path_tab_open_button.setText("Stopping...")
+            self.ui_state.busy_paths = True
+            self._refresh_inspector()
+            return
+        self.level_path_button.setEnabled(True)
+        self.level_path_button.setText("Stop Paths")
+        self.path_tab_open_button.setEnabled(True)
+        self.path_tab_open_button.setText("Stop Paths")
+        self.ui_state.busy_paths = True
+        self._refresh_inspector()
 
     def _handle_search_button(self) -> None:
         if self.active_run_id is not None:
@@ -2033,6 +2212,12 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self._open_affinity_watch_dialog()
 
+    def _handle_level_path_button(self) -> None:
+        if self.path_thread is not None:
+            self._cancel_level_path()
+            return
+        self._open_level_path_dialog()
+
     def _cancel_affinity_watch(self) -> None:
         if (
             self.affinity_watch_thread is None
@@ -2044,6 +2229,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.affinity_progress_label.setText("Stopping affinity watch...")
         self.affinity_watch_worker.cancel()
         self._refresh_affinity_watch_button_state()
+
+    def _cancel_level_path(self) -> None:
+        if self.path_thread is None or self.path_worker is None or self.path_cancel_requested:
+            return
+        self.path_cancel_requested = True
+        self.path_progress_label.setText("Stopping path preview...")
+        self.path_worker.cancel()
+        self._refresh_path_button_state()
 
     def _start_search(self) -> None:
         if self.active_run_id is not None:
@@ -2219,6 +2412,12 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self.results_table.selectRow(row_idx)
 
+    def _lock_selected_result(self) -> None:
+        selected_idx = self._selected_result_index()
+        if selected_idx is None:
+            return
+        self._lock_from_result(selected_idx)
+
     def _selected_result_index(self) -> int | None:
         selected = self.results_table.selectionModel().selectedRows()
         if not selected:
@@ -2229,6 +2428,52 @@ class MainWindow(QtWidgets.QMainWindow):
         self.selected_result_fingerprint = self.current_results[idx].fingerprint
         self._sync_session_state()
         return idx
+
+    def _refresh_inspector(self) -> None:
+        snapshot = self._budget_snapshot()
+        self.inspector_level_label.setText(f"Level {snapshot['level']}")
+        self.inspector_budget_label.setText(
+            f"Budget {snapshot['total']} | Redistributable {snapshot['redistributable']}"
+        )
+        self.inspector_requirement_label.setText(self.requirement_label.text())
+        self.inspector_lock_state.setText(
+            "Exact upgrade and stat locks active"
+            if self.lock_upgrade_exact.isChecked()
+            and self.lock_stats_checkbox.isChecked()
+            and self.locked_result_stats is not None
+            else "Open or partial locks"
+        )
+
+        selected_idx = self._selected_result_index()
+        selected_result = self.current_results[selected_idx] if selected_idx is not None else None
+        has_result = selected_result is not None
+        if selected_result is None:
+            self.ui_state.inspector_mode = "empty"
+            self.inspector_title.setText("No result selected")
+            self.inspector_detail.setText("Run Rankings, then select a build row.")
+            self.inspector_stats.setText("STR --  DEX --  INT --  FAI --  ARC --")
+            self.inspector_metrics.setText("AR --   Bleed --   AoW --")
+        else:
+            self.ui_state.inspector_mode = "result"
+            self.inspector_title.setText(
+                f"#{selected_idx + 1} {selected_result.weapon_name} | {selected_result.affinity}"
+            )
+            self.inspector_detail.setText(
+                f"AoW {selected_result.aow_name or '-'} | +{selected_result.upgrade} | "
+                f"{self._scaling_summary(selected_result.weapon_name, selected_result.affinity, int(selected_result.upgrade))}"
+            )
+            self.inspector_stats.setText(
+                f"STR {selected_result.str_stat}  DEX {selected_result.dex}  "
+                f"INT {selected_result.int_stat}  FAI {selected_result.fai}  ARC {selected_result.arc}"
+            )
+            self.inspector_metrics.setText(self._result_metrics_text(selected_result))
+
+        self.inspector_lock_button.setEnabled(has_result)
+        self.inspector_compare_button.setEnabled(has_result)
+        self.inspector_path_button.setEnabled(
+            self.active_compare_selected is not None and self.active_compare_target is not None
+        )
+        self.inspector_affinity_button.setEnabled(self.active_compare_selected is not None)
 
     def _refresh_result_cards(self) -> None:
         selected_idx = self._selected_result_index()
@@ -2262,6 +2507,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 state = "empty"
             card["frame"].setProperty("cardState", state)
             self._restyle_widget(card["frame"])
+        self._refresh_inspector()
 
     def _lock_from_result(self, row_idx: int) -> None:
         if row_idx >= len(self.current_results):
@@ -2282,6 +2528,7 @@ class MainWindow(QtWidgets.QMainWindow):
             fai=int(result.fai),
             arc=int(result.arc),
         )
+        self.lock_stats_checkbox.setChecked(True)
         self._refresh_estimate()
         self._start_search()
 
@@ -2292,7 +2539,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.active_compare_selected = None
             self.active_compare_target = None
             self.compare_resolution_error = None
-            self.level_path_button.setEnabled(False)
+            self._refresh_path_button_state()
             self._refresh_affinity_watch_button_state()
             self._refresh_compare_summary(None, None, None)
             return
@@ -2399,7 +2646,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.active_compare_selected = selected_best
         self.active_compare_target = compare_summary_row
-        self.level_path_button.setEnabled(selected_best is not None and compare_summary_row is not None)
+        self._refresh_path_button_state()
         self._refresh_affinity_watch_button_state()
         self._refresh_compare_summary(selected_best, compare_summary_row, compare_weapon)
 
@@ -2676,6 +2923,7 @@ class MainWindow(QtWidgets.QMainWindow):
         worker.finished.connect(self._teardown_affinity_watch_worker)
         worker.failed.connect(self._teardown_affinity_watch_worker)
         self._launch_worker_thread("affinity_watch_thread", "affinity_watch_worker", worker)
+        self._refresh_affinity_watch_button_state()
 
     @QtCore.pyqtSlot(object, object, object, object)
     def _on_affinity_watch_progress(
@@ -2711,6 +2959,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._set_affinity_progress_idle(
             f"Ready: {len(typed_lines)} affinity lines across +{int(context['levels_ahead'])}."
         )
+        self.affinity_watch_signature = self._affinity_workspace_signature(self.active_compare_selected)
 
     @QtCore.pyqtSlot(str)
     def _on_affinity_watch_failed(self, message: str) -> None:
@@ -2761,6 +3010,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         self.main_tabs.setCurrentIndex(2)
+        self.path_cancel_requested = False
         self.path_progress_bar.setRange(0, max(len(configs), 1))
         self.path_progress_bar.setValue(0)
         self.path_progress_label.setText("Tracing level paths...")
@@ -2776,6 +3026,7 @@ class MainWindow(QtWidgets.QMainWindow):
         worker.finished.connect(self._teardown_path_worker)
         worker.failed.connect(self._teardown_path_worker)
         self._launch_worker_thread("path_thread", "path_worker", worker)
+        self._refresh_path_button_state()
 
     @QtCore.pyqtSlot(object, object, object, object)
     def _on_path_progress(
@@ -2801,182 +3052,30 @@ class MainWindow(QtWidgets.QMainWindow):
         self._set_path_progress_idle(
             f"Ready: {len(typed_previews)} path lanes across +{int(levels_ahead)}."
         )
+        self.path_preview_signature = self._path_workspace_signature(
+            self.active_compare_selected,
+            self.active_compare_target,
+        )
 
     @QtCore.pyqtSlot(str)
     def _on_path_failed(self, message: str) -> None:
+        was_cancelled = message == "cancelled"
+        self.path_cancel_requested = False
+        if was_cancelled:
+            self._set_path_progress_idle("Path preview stopped.")
+            return
         self._set_path_progress_idle(f"Failed: {message}")
         QtWidgets.QMessageBox.warning(self, "Path Graphs", f"Failed to build paths: {message}")
 
     @QtCore.pyqtSlot()
     def _teardown_path_worker(self) -> None:
         self._teardown_named_worker("path_thread", "path_worker")
-
-    def _build_level_path_previews(
-        self,
-        levels_ahead: int,
-        progress: QtWidgets.QProgressDialog | None = None,
-    ) -> list[PathPreview] | None:
-        configs = self._path_preview_configs()
-        previews: list[PathPreview] = []
-        progress_value = 0
-        total_steps = len(configs) * (levels_ahead + 1)
-        if progress is not None:
-            progress.setMaximum(total_steps)
-
-        for config in configs:
-            if progress is not None and progress.wasCanceled():
-                return None
-            preview = self.desktop_service.build_path_preview(
-                self._current_session(),
-                config.solved,
-                levels_ahead,
-                config.title,
-            )
-            previews.append(preview)
-            progress_value += levels_ahead + 1
-            self._update_path_progress(progress, progress_value, config.title, self._derived_level() + levels_ahead)
-        if progress is not None:
-            progress.setValue(total_steps)
-        return previews
-
-    def _build_level_path_for_config(
-        self,
-        config: PathWeaponConfig,
-        levels_ahead: int,
-        progress: QtWidgets.QProgressDialog | None,
-        progress_offset: int,
-    ) -> tuple[PathPreview | None, int]:
-        steps: list[PathStep] = []
-        current_state = config.start_state
-        processed = 0
-
-        start_step = self._evaluate_path_step(config, self._derived_level(), current_state, None)
-        steps.append(start_step)
-        processed += 1
-        self._update_path_progress(progress, progress_offset + processed, config.title, start_step.level)
-
-        target_row = self._level_path_target_row(config, levels_ahead)
-        if target_row is None:
-            return PathPreview(config=config, steps=tuple(steps)), processed
-        target_state = self._combat_state_from_row(target_row)
-
-        for delta in range(1, levels_ahead + 1):
-            if progress is not None and progress.wasCanceled():
-                return None, processed
-            next_step = self._choose_next_path_step(
-                config,
-                self._derived_level() + delta,
-                current_state,
-                target_state,
-            )
-            if next_step is None:
-                break
-            steps.append(next_step)
-            current_state = next_step.stats
-            processed += 1
-            self._update_path_progress(progress, progress_offset + processed, config.title, next_step.level)
-
-        return PathPreview(config=config, steps=tuple(steps)), processed
-
-    def _update_path_progress(
-        self,
-        progress: QtWidgets.QProgressDialog | None,
-        value: int,
-        title: str,
-        level: int,
-    ) -> None:
-        if progress is None:
-            return
-        progress.setValue(value)
-        progress.setLabelText(f"Tracing {title.lower()} path at level {level}...")
-        QtWidgets.QApplication.processEvents()
-
-    def _choose_next_path_step(
-        self,
-        config: PathWeaponConfig,
-        target_level: int,
-        current_state: CombatState,
-        target_state: CombatState,
-    ) -> PathStep | None:
-        candidates: list[PathStep] = []
-        for stat_key in ("str", "dex", "int", "fai", "arc"):
-            if getattr(current_state, self._combat_state_attr(stat_key)) >= getattr(
-                target_state, self._combat_state_attr(stat_key)
-            ):
-                continue
-            next_state = current_state.add_point(stat_key)
-            if next_state is None:
-                continue
-            candidates.append(
-                self._evaluate_path_step(config, target_level, next_state, stat_key)
-            )
-
-        if not candidates:
-            return None
-
-        return max(
-            candidates,
-            key=lambda step: self._path_step_sort_key(step),
-        )
-
-    @staticmethod
-    def _stat_priority(stat_key: str | None) -> int:
-        order = ("str", "dex", "int", "fai", "arc", None)
-        return order.index(stat_key)
-
-    @staticmethod
-    def _combat_state_attr(stat_key: str) -> str:
-        return {
-            "str": "str_stat",
-            "dex": "dex",
-            "int": "int_stat",
-            "fai": "fai",
-            "arc": "arc",
-        }[stat_key]
-
-    def _path_step_sort_key(self, step: PathStep) -> tuple[int, float, float, int, int]:
-        return (
-            1 if step.ar is not None and step.score is not None else 0,
-            float(step.score or 0.0),
-            float(step.ar or 0.0),
-            -int(step.requirement_gap),
-            -self._stat_priority(step.added_stat),
-        )
-
-    def _level_path_target_row(
-        self,
-        config: PathWeaponConfig,
-        levels_ahead: int,
-    ) -> desktop_models.SolvedBuild | None:
-        return self.desktop_service._path_target_build(self._current_session(), config, levels_ahead)
-
-    def _path_floor_mins(self, current_state: CombatState) -> tuple[int, int, int, int, int]:
-        return (
-            max(current_state.str_stat, self.min_str_spin.value()),
-            max(current_state.dex, self.min_dex_spin.value()),
-            max(current_state.int_stat, self.min_int_spin.value()),
-            max(current_state.fai, self.min_fai_spin.value()),
-            max(current_state.arc, self.min_arc_spin.value()),
-        )
+        self.path_cancel_requested = False
+        self._refresh_path_button_state()
 
     @staticmethod
     def _combat_state_from_row(row_data: desktop_models.SolvedBuild) -> CombatState:
         return row_data.combat_state
-
-    def _evaluate_path_step(
-        self,
-        config: PathWeaponConfig,
-        level: int,
-        state: CombatState,
-        added_stat: str | None,
-    ) -> PathStep:
-        return self.desktop_service._evaluate_path_step(
-            self._current_session(),
-            config,
-            level,
-            state,
-            added_stat,
-        )
 
     def _requirement_gap_for_state(
         self,
@@ -3062,11 +3161,18 @@ class MainWindow(QtWidgets.QMainWindow):
             self.path_workspace_detail.setText(
                 "Run a search and pick a selected result before opening path analysis."
             )
-            self.path_tab_open_button.setEnabled(False)
+            self.path_preview_signature = None
             self.path_chart_widget.set_previews([])
             self._populate_path_panels([])
             self._set_path_progress_idle("Idle")
+            self._refresh_path_button_state()
             return
+        signature = self._path_workspace_signature(selected_best, compare_best)
+        if self.path_thread is None and signature != self.path_preview_signature:
+            self.path_preview_signature = None
+            self.path_chart_widget.set_previews([])
+            self._populate_path_panels([])
+            self._set_path_progress_idle("Idle")
         self.path_workspace_summary.setText(
             f"Selected: {selected_best.weapon_name} | {selected_best.affinity} | "
             f"AoW {selected_best.aow_name or '-'} | +{selected_best.upgrade}"
@@ -3075,16 +3181,17 @@ class MainWindow(QtWidgets.QMainWindow):
             self.path_workspace_detail.setText(
                 "Pick a comparison target to trace both optimized Current + N routes."
             )
-            self.path_tab_open_button.setEnabled(False)
+            self.path_preview_signature = None
             self.path_chart_widget.set_previews([])
             self._populate_path_panels([])
             self._set_path_progress_idle("Idle")
+            self._refresh_path_button_state()
             return
         self.path_workspace_detail.setText(
             f"Compare: {compare_best.weapon_name} | {compare_best.affinity} | "
             f"AoW {compare_best.aow_name or '-'} | Horizon +{self.level_path_horizon_spin.value()}"
         )
-        self.path_tab_open_button.setEnabled(True)
+        self._refresh_path_button_state()
 
     def _refresh_affinity_workspace(
         self,
@@ -3095,11 +3202,18 @@ class MainWindow(QtWidgets.QMainWindow):
             self.affinity_workspace_detail.setText(
                 "Run a search and pick a selected result row to analyze legal affinity crossovers."
             )
+            self.affinity_watch_signature = None
             self.affinity_chart_widget.set_payload([], self._objective_metric_label())
             self._populate_affinity_tables([], [], self._derived_level(), self.level_path_horizon_spin.value())
             self._set_affinity_progress_idle("Idle")
             self._refresh_affinity_watch_button_state()
             return
+        signature = self._affinity_workspace_signature(selected_best)
+        if self.affinity_watch_thread is None and signature != self.affinity_watch_signature:
+            self.affinity_watch_signature = None
+            self.affinity_chart_widget.set_payload([], self._objective_metric_label())
+            self._populate_affinity_tables([], [], self._derived_level(), self.level_path_horizon_spin.value())
+            self._set_affinity_progress_idle("Idle")
         legal_affinities = self.desktop_service.affinity_watch_affinities(selected_best)
         self.affinity_workspace_summary.setText(
             f"{selected_best.weapon_name} | AoW {selected_best.aow_name or '-'} | +{selected_best.upgrade}"
@@ -3112,6 +3226,34 @@ class MainWindow(QtWidgets.QMainWindow):
     def _refresh_analysis_workspace_labels(self) -> None:
         self._refresh_path_workspace(self.active_compare_selected, self.active_compare_target)
         self._refresh_affinity_workspace(self.active_compare_selected)
+
+    def _path_workspace_signature(
+        self,
+        selected_best: desktop_models.SolvedBuild | None,
+        compare_best: desktop_models.SolvedBuild | None,
+    ) -> tuple[Any, ...] | None:
+        if selected_best is None or compare_best is None:
+            return None
+        return (
+            selected_best.fingerprint,
+            compare_best.fingerprint,
+            self.objective_combo.currentData(),
+            self._derived_level(),
+            self.level_path_horizon_spin.value(),
+        )
+
+    def _affinity_workspace_signature(
+        self,
+        selected_best: desktop_models.SolvedBuild | None,
+    ) -> tuple[Any, ...] | None:
+        if selected_best is None:
+            return None
+        return (
+            selected_best.fingerprint,
+            self.objective_combo.currentData(),
+            self._derived_level(),
+            self.level_path_horizon_spin.value(),
+        )
 
     def _set_path_progress_idle(self, text: str) -> None:
         self.path_progress_label.setText(text)
@@ -3356,6 +3498,12 @@ class MainWindow(QtWidgets.QMainWindow):
     def _sync_combo_index_from_text(self, combo: QtWidgets.QComboBox) -> None:
         text = combo.currentText().strip()
         if not text:
+            if self._combo_has_open_option(combo):
+                combo.setCurrentIndex(0)
+                return
+            current_idx = combo.currentIndex()
+            if current_idx >= 0:
+                combo.setEditText(combo.itemText(current_idx))
             return
         idx = self._find_index_by_text(combo, text)
         if idx >= 0:
@@ -3392,12 +3540,27 @@ class MainWindow(QtWidgets.QMainWindow):
         if combo.isEditable():
             text = combo.currentText().strip()
             if not text:
+                if MainWindow._combo_has_open_option(combo):
+                    combo.setCurrentIndex(0)
+                    return combo.itemData(0)
                 return combo.currentData()
             idx = MainWindow._find_index_by_text(combo, text)
             if idx >= 0:
+                if idx != combo.currentIndex():
+                    combo.setCurrentIndex(idx)
                 return combo.itemData(idx)
+            if MainWindow._combo_has_open_option(combo):
+                combo.setCurrentIndex(0)
+                return combo.itemData(0)
+            current_idx = combo.currentIndex()
+            if current_idx >= 0:
+                combo.setEditText(combo.itemText(current_idx))
             return combo.currentData()
         return combo.currentData()
+
+    @staticmethod
+    def _combo_has_open_option(combo: QtWidgets.QComboBox) -> bool:
+        return combo.count() > 0 and combo.itemData(0) is None
 
     @staticmethod
     def _find_index_by_text(combo: QtWidgets.QComboBox, text: str) -> int:
@@ -3419,317 +3582,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 def apply_dark_theme(app: QtWidgets.QApplication) -> None:
-    c = THEME
-    app.setStyle("Fusion")
-    app.setFont(QFont(FONT_FAMILY, 9))
-    app.setStyleSheet(
-        f"""
-        QWidget {{
-            background: {c["bg"]};
-            color: {c["text"]};
-        }}
-        QWidget#RootShell, QWidget#RightStage, QWidget#LeftRail {{
-            background: {c["bg"]};
-        }}
-        QScrollArea {{
-            background: transparent;
-            border: none;
-        }}
-        QGroupBox {{
-            border: 1px solid {c["border"]};
-            border-radius: 10px;
-            margin-top: 12px;
-            padding-top: 12px;
-            background: {c["panel"]};
-        }}
-        QGroupBox#BuildGroup, QGroupBox#ConstraintsGroup {{
-            background: {c["panel_alt"]};
-        }}
-        QGroupBox#SearchGroup {{
-            background: {c["panel_soft"]};
-            border: 1px solid {c["border_bright"]};
-        }}
-        QGroupBox#ResultsGroup, QGroupBox#UpgradeGroup {{
-            background: {c["panel"]};
-        }}
-        QGroupBox::title {{
-            subcontrol-origin: margin;
-            left: 12px;
-            padding: 0 8px;
-            color: {c["accent"]};
-            font-weight: 700;
-            letter-spacing: 2px;
-        }}
-        QGroupBox#SearchGroup::title {{
-            color: {c["text_bright"]};
-        }}
-        QFrame#HeroPanel {{
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                stop:0 {c["hero"]}, stop:1 {c["panel_soft"]});
-            border: 1px solid {c["border_bright"]};
-            border-radius: 10px;
-        }}
-        QFrame[role="metricCard"] {{
-            background: {c["panel_soft"]};
-            border: 1px solid {c["border"]};
-            border-radius: 8px;
-        }}
-        QFrame[role="summaryPanel"], QFrame[role="resultCard"] {{
-            background: {c["panel_alt"]};
-            border: 1px solid {c["border"]};
-            border-radius: 8px;
-        }}
-        QFrame[role="resultCard"][cardState="best"] {{
-            border: 1px solid {c["border_bright"]};
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                stop:0 {c["panel_alt"]}, stop:1 {c["accent_dark"]});
-        }}
-        QFrame[role="resultCard"][cardState="selected"] {{
-            border: 1px solid {c["text_bright"]};
-            background: {c["panel_soft"]};
-        }}
-        QFrame[role="resultCard"][cardState="empty"] {{
-            background: {c["muted_bg"]};
-        }}
-        QLabel[role="heroTitle"] {{
-            color: {c["text_bright"]};
-            font-size: 24px;
-            font-weight: 700;
-            letter-spacing: 2px;
-        }}
-        QLabel[role="heroSubtitle"] {{
-            color: {c["text"]};
-            font-size: 13px;
-        }}
-        QLabel[role="metricTitle"], QLabel[role="fieldLabel"], QLabel[role="gridHeader"], QLabel[role="summaryHeading"] {{
-            color: {c["text_soft"]};
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 1px;
-        }}
-        QLabel[role="metricValue"] {{
-            color: {c["text_bright"]};
-            font-size: 22px;
-            font-weight: 700;
-        }}
-        QLabel[role="sectionHint"], QLabel[role="cardDetail"], QLabel[role="summaryBody"], QLabel[role="statusLine"] {{
-            color: {c["text_soft"]};
-        }}
-        QLabel[role="cardTitle"], QLabel[role="summaryTitle"] {{
-            color: {c["text_bright"]};
-            font-size: 15px;
-            font-weight: 700;
-        }}
-        QLabel[role="cardStats"], QLabel[role="summaryStats"], QLabel[role="cardMetric"], QLabel[role="summaryMetric"] {{
-            color: {c["text"]};
-        }}
-        QLabel[role="statName"] {{
-            color: {c["text_bright"]};
-            font-weight: 700;
-        }}
-        QLabel[role="statDash"] {{
-            color: {c["text_soft"]};
-        }}
-        QLabel[role="chip"], QLabel[role="requirementBadge"] {{
-            border: 1px solid {c["border"]};
-            border-radius: 10px;
-            padding: 4px 9px;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 1px;
-            background: {c["muted_bg"]};
-            color: {c["text"]};
-        }}
-        QLabel[tone="accent"] {{
-            background: {c["panel_alt"]};
-            border-color: {c["border_bright"]};
-            color: {c["text_bright"]};
-        }}
-        QLabel[tone="success"] {{
-            background: {c["success_bg"]};
-            border-color: {c["success_border"]};
-            color: {c["text_bright"]};
-        }}
-        QLabel[tone="danger"] {{
-            background: {c["danger_bg"]};
-            border-color: {c["danger_border"]};
-            color: #ffd5d9;
-        }}
-        QLabel[tone="info"] {{
-            background: {c["info_bg"]};
-            border-color: {c["accent"]};
-            color: {c["text_bright"]};
-        }}
-        QLineEdit, QSpinBox, QComboBox, QTableWidget {{
-            background: {c["input"]};
-            border: 1px solid {c["border"]};
-            border-radius: 6px;
-            padding: 5px 7px;
-            color: {c["text"]};
-            alternate-background-color: {c["row_alt"]};
-        }}
-        QLineEdit:focus, QSpinBox:focus, QComboBox:focus {{
-            border: 1px solid {c["border_bright"]};
-            background: {c["panel_soft"]};
-            color: {c["text_bright"]};
-        }}
-        QComboBox::drop-down {{
-            border: none;
-            width: 22px;
-        }}
-        QComboBox::down-arrow {{
-            width: 10px;
-            height: 10px;
-        }}
-        QComboBox QAbstractItemView, QTableWidget {{
-            background: {c["input"]};
-            color: {c["text"]};
-            selection-background-color: {c["panel_soft"]};
-            selection-color: {c["text_bright"]};
-        }}
-        QHeaderView::section, QTableCornerButton::section {{
-            background: {c["panel_soft"]};
-            color: {c["accent"]};
-            border: 1px solid {c["border"]};
-            padding: 6px 8px;
-            font-weight: 700;
-            letter-spacing: 1px;
-        }}
-        QTabWidget::pane {{
-            border: 1px solid {c["border"]};
-            border-radius: 8px;
-            background: {c["panel"]};
-            top: -1px;
-        }}
-        QTabBar::tab {{
-            background: {c["panel_alt"]};
-            color: {c["text_soft"]};
-            border: 1px solid {c["border"]};
-            border-bottom: none;
-            padding: 8px 14px;
-            min-width: 150px;
-            font-weight: 700;
-            letter-spacing: 1px;
-        }}
-        QTabBar::tab:selected {{
-            background: {c["panel_soft"]};
-            color: {c["text_bright"]};
-            border-color: {c["border_bright"]};
-        }}
-        QTabBar::tab:hover:!selected {{
-            color: {c["text"]};
-            border-color: {c["accent_deep"]};
-        }}
-        QProgressBar {{
-            background: {c["input"]};
-            border: 1px solid {c["border"]};
-            border-radius: 4px;
-            text-align: center;
-            color: {c["accent"]};
-            min-height: 18px;
-        }}
-        QProgressBar::chunk {{
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                stop:0 {c["accent_deep"]}, stop:0.5 {c["accent"]}, stop:1 {c["accent_deep"]});
-            border-radius: 4px;
-        }}
-        QSpinBox[reqFail="true"] {{
-            background: {c["danger_bg"]};
-            border: 1px solid {c["danger_border"]};
-            color: #ffd5d9;
-        }}
-        QPushButton {{
-            background: {c["panel_alt"]};
-            border: 1px solid {c["accent"]};
-            border-bottom: 2px solid {c["accent_deep"]};
-            border-radius: 3px;
-            padding: 8px 14px;
-            color: {c["text_bright"]};
-            letter-spacing: 1px;
-            font-weight: 700;
-        }}
-        QPushButton:hover {{
-            background: {c["panel_soft"]};
-            border-color: {c["text_bright"]};
-        }}
-        QPushButton[role="ctaButton"] {{
-            padding: 10px 16px;
-            font-size: 13px;
-            background: {c["accent_dark"]};
-        }}
-        QPushButton[role="inlineButton"] {{
-            padding: 5px 9px;
-            font-size: 10px;
-        }}
-        QPushButton:disabled {{
-            background: {c["panel_alt"]};
-            color: {c["text_soft"]};
-            border-color: {c["border"]};
-        }}
-        QCheckBox {{
-            spacing: 7px;
-            color: {c["text"]};
-        }}
-        QCheckBox::indicator {{
-            width: 14px;
-            height: 14px;
-            border-radius: 3px;
-            border: 1px solid {c["border"]};
-            background: {c["input"]};
-        }}
-        QCheckBox::indicator:checked {{
-            border-color: {c["border_bright"]};
-            background: {c["accent_dark"]};
-        }}
-        QLabel[role="progressLabel"] {{
-            color: {c["text_bright"]};
-            font-weight: 700;
-        }}
-        QTableWidget {{
-            gridline-color: {c["border"]};
-        }}
-        QTableWidget::item:selected {{
-            background: {c["panel_soft"]};
-            color: {c["text_bright"]};
-        }}
-        QSplitter::handle {{
-            background: {c["panel_alt"]};
-            width: 4px;
-            height: 4px;
-            margin: 10px 0;
-        }}
-        QScrollBar:vertical {{
-            background: {c["input"]};
-            width: 10px;
-            border: 1px solid {c["border"]};
-            margin: 0;
-        }}
-        QScrollBar::handle:vertical {{
-            background: {c["accent_deep"]};
-            min-height: 22px;
-            border: 1px solid {c["border_bright"]};
-            border-radius: 2px;
-        }}
-        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
-            height: 0;
-        }}
-        QScrollBar:horizontal {{
-            background: {c["input"]};
-            height: 10px;
-            border: 1px solid {c["border"]};
-            margin: 0;
-        }}
-        QScrollBar::handle:horizontal {{
-            background: {c["accent_deep"]};
-            min-width: 22px;
-            border: 1px solid {c["border_bright"]};
-            border-radius: 2px;
-        }}
-        QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
-            width: 0;
-        }}
-        """
-    )
+    desktop_theme.apply_dark_theme(app)
 
 
 def main() -> int:

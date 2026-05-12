@@ -220,11 +220,15 @@ fn calculate_skill_damage_for_type(
     ];
 
     if let Some(override_id) = attack_row.overwrite_attack_element_correct_id {
-        if let Some(aec_ext) = data.attack_element_ext(override_id) {
-            let contributions =
-                build_override_contributions(weapon, reinforce, aec_ext, &curve_mults, damage_idx);
-            return Ok(calculate_ar_for_type(actual_base, &contributions));
-        }
+        let aec_ext = data.attack_element_ext(override_id).ok_or_else(|| {
+            format!(
+                "missing attack_element_correct_ext_id={} for AoW row {} ({})",
+                override_id, attack_row.sheet_row, attack_row.raw_name
+            )
+        })?;
+        let contributions =
+            build_override_contributions(weapon, reinforce, aec_ext, &curve_mults, damage_idx);
+        return Ok(calculate_ar_for_type(actual_base, &contributions));
     }
 
     let aec = data
@@ -1040,6 +1044,65 @@ mod tests {
         .unwrap();
         assert!((one_handed.total() - 469.17657).abs() < 0.02);
         assert!((two_handed.total() - one_handed.total()).abs() < 0.001);
+    }
+
+    #[test]
+    fn aow_damage_errors_when_override_attack_element_is_missing() {
+        let data_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("data")
+            .join("phase1");
+        let mut game_data = load_game_data(data_path).unwrap();
+        let (weapon, attack_row, damage_type) = game_data
+            .aow_attack_rows
+            .values()
+            .flat_map(|rows| rows.iter())
+            .filter(|row| row.overwrite_attack_element_correct_id.is_some() && row.is_damaging())
+            .find_map(|row| {
+                game_data.weapons.iter().find_map(|weapon| {
+                    let reinforce = game_data.reinforce_level(weapon.reinforce_type, 25)?;
+                    DamageType::ALL.iter().copied().find_map(|damage_type| {
+                        let idx = damage_type.as_index();
+                        let actual_base = weapon.base[idx]
+                            * reinforce.damage_mult[idx]
+                            * (row.motion_values[idx] / 100.0)
+                            + row.attack_base[idx];
+                        (actual_base > 0.0).then(|| (weapon.clone(), row.clone(), damage_type))
+                    })
+                })
+            })
+            .expect("missing override attack row with positive damage");
+        let override_id = attack_row
+            .overwrite_attack_element_correct_id
+            .expect("missing override id");
+        assert!(
+            game_data
+                .attack_element_correct_ext
+                .remove(&override_id)
+                .is_some()
+        );
+        let stats = Stats {
+            vig: 10,
+            mnd: 10,
+            end: 10,
+            str: 11,
+            dex: 40,
+            int: 9,
+            fai: 8,
+            arc: 8,
+        };
+        let err = calculate_skill_damage_for_type(
+            &weapon,
+            &attack_row,
+            25,
+            &stats,
+            effective_str(stats.str, false, weapon.disable_two_hand_bonus),
+            damage_type,
+            &game_data,
+        )
+        .expect_err("expected missing override error");
+        assert!(err.contains("missing attack_element_correct_ext_id"));
     }
 
     #[test]

@@ -39,6 +39,16 @@ def main() -> int:
     app_module.apply_dark_theme(app)
     window = app_module.MainWindow()
 
+    if window.findChild(QtWidgets.QWidget, "CommandRail") is None:
+        raise AssertionError("expected workflow command rail")
+    if window.findChild(QtWidgets.QWidget, "WorkspacePanel") is None:
+        raise AssertionError("expected center workspace panel")
+    if window.findChild(QtWidgets.QWidget, "InspectorPanel") is None:
+        raise AssertionError("expected right inspector panel")
+    if window.findChild(QtWidgets.QWidget, "AdvancedDrawer") is None:
+        raise AssertionError("expected advanced drawer")
+    if window.main_tabs.tabBar().isVisible():
+        raise AssertionError("expected workspace tabs to be driven by workflow navigation")
     if window.hero_panel is None:
         raise AssertionError("expected hero panel")
     if window.result_cards_container is None or len(window.result_cards) != 3:
@@ -93,12 +103,60 @@ def main() -> int:
     wait_until(lambda: window.active_run_id is None)
     if window.results_table.rowCount() == 0 or window.results_table.rowCount() == original_row_count == 0:
         raise AssertionError("expected results to repopulate after rerun")
+    if window.inspector_title.text() == "No result selected":
+        raise AssertionError("expected selected result inspector to update after rankings populate")
+    if not window.inspector_lock_button.isEnabled():
+        raise AssertionError("expected inspector lock action to enable for selected result")
+
+    advanced_before = (
+        window.weapon_combo.currentText(),
+        window.affinity_combo.currentText(),
+        window.aow_combo.currentText(),
+        window.objective_combo.currentData(),
+        window.max_upgrade_spin.value(),
+        window.top_k_spin.value(),
+    )
+    window.advanced_drawer.set_open(True)
+    QtWidgets.QApplication.processEvents()
+    if not window.advanced_drawer.is_open():
+        raise AssertionError("expected advanced drawer to open")
+    window.advanced_drawer.set_open(False)
+    QtWidgets.QApplication.processEvents()
+    advanced_after = (
+        window.weapon_combo.currentText(),
+        window.affinity_combo.currentText(),
+        window.aow_combo.currentText(),
+        window.objective_combo.currentData(),
+        window.max_upgrade_spin.value(),
+        window.top_k_spin.value(),
+    )
+    if advanced_before != advanced_after:
+        raise AssertionError("advanced drawer toggled changed session controls")
 
     # Lock from first row (triggers rerun)
     window._lock_from_result(0)
     wait_until(lambda: window.active_run_id is None)
     if len(window.current_results) == 0:
         raise AssertionError("expected results after lock rerun")
+    if not window.lock_upgrade_exact.isChecked():
+        raise AssertionError("expected Use As Locks to enable exact upgrade locking")
+    if not window.lock_stats_checkbox.isChecked():
+        raise AssertionError("expected Use As Locks to enable combat stat locking")
+    if window.locked_result_stats is None:
+        raise AssertionError("expected Use As Locks to store combat stats")
+    locked_stats = window.locked_result_stats
+    locked_upgrade = window.max_upgrade_spin.value()
+    for row in window.current_results:
+        if int(row.upgrade) != locked_upgrade:
+            raise AssertionError("expected lock rerun to preserve exact upgrade")
+        if (
+            int(row.str_stat) != locked_stats.str_stat
+            or int(row.dex) != locked_stats.dex
+            or int(row.int_stat) != locked_stats.int_stat
+            or int(row.fai) != locked_stats.fai
+            or int(row.arc) != locked_stats.arc
+        ):
+            raise AssertionError("expected lock rerun to preserve exact combat stats")
 
     # Explicit side-by-side compare row
     window._set_combo_by_data(window.compare_weapon_combo, "Uchigatana")
@@ -123,6 +181,10 @@ def main() -> int:
         raise AssertionError("expected path graph button to enable for a valid comparison")
     if not window.affinity_watch_button.isEnabled():
         raise AssertionError("expected affinity watcher button to enable for a selected result")
+    if not window.inspector_path_button.isEnabled():
+        raise AssertionError("expected inspector path action to enable for a valid comparison")
+    if not window.inspector_affinity_button.isEnabled():
+        raise AssertionError("expected inspector affinity action to enable for a selected result")
     window.level_path_horizon_spin.setValue(3)
     if not window.path_tab_open_button.isEnabled():
         raise AssertionError("expected paths tab action to enable for a valid comparison")
@@ -132,24 +194,28 @@ def main() -> int:
         raise AssertionError("expected paths tab summary to reflect the selected lane")
     if "legal affinities" not in window.affinity_workspace_detail.text():
         raise AssertionError("expected affinity watch tab detail to reflect derived affinity state")
-    previews = window._build_level_path_previews(3)
-    if previews is None or len(previews) != 2:
+    session = window._current_session()
+    previews = [
+        window.desktop_service.build_path_preview(session, config.solved, 3, config.title)
+        for config in window._path_preview_configs()
+    ]
+    if len(previews) != 2:
         raise AssertionError("expected two level-path previews")
     if any(len(preview.steps) < 2 for preview in previews):
         raise AssertionError("expected each level-path preview to include forward steps")
     if any(preview.steps[1].added_stat is None for preview in previews):
         raise AssertionError("expected path preview to record the first added stat")
     for preview in previews:
-        target_row = window._level_path_target_row(preview.config, 3)
+        target_row = window.desktop_service._path_target_build(session, preview.config, 3)
         if target_row is None:
             raise AssertionError("expected a target row for the path preview")
         final_state = preview.steps[-1].stats
         if (
-            final_state.str_stat != int(target_row["str_stat"])
-            or final_state.dex != int(target_row["dex"])
-            or final_state.int_stat != int(target_row["int_stat"])
-            or final_state.fai != int(target_row["fai"])
-            or final_state.arc != int(target_row["arc"])
+            final_state.str_stat != int(target_row.str_stat)
+            or final_state.dex != int(target_row.dex)
+            or final_state.int_stat != int(target_row.int_stat)
+            or final_state.fai != int(target_row.fai)
+            or final_state.arc != int(target_row.arc)
         ):
             raise AssertionError("expected path preview to land on the exact Current+N target state")
     dialog = app_module.LevelPathDialog(window, previews, window._derived_level(), 3)
@@ -232,6 +298,8 @@ def main() -> int:
         raise AssertionError("expected objective change to alter affinity watcher metrics")
 
     # AoW damage objective smoke
+    window.lock_stats_checkbox.setChecked(False)
+    window.locked_result_stats = None
     window._set_combo_by_data(window.weapon_combo, "Sword Lance")
     window._refresh_affinity_options()
     window._set_combo_by_data(window.affinity_combo, "Magic")

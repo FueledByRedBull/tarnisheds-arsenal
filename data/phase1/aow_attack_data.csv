@@ -3,6 +3,8 @@ sheet_row,aow_id,aow_name,raw_name,variant_weapon_type,skill_family,sequence_var
 64,100,Lion's Claw,Lion's Claw (Lacking FP),,Lion's Claw,base,direct,1,1,1,300300821,-1,1,0,138.0,138.0,138.0,138.0,138.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,45.0
 946,101,Impaling Thrust,Impaling Thrust,,Impaling Thrust,base,direct,1,0,1,300000010,-1,1,0,187.0,187.0,187.0,187.0,187.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,40.0
 947,101,Impaling Thrust,Impaling Thrust (Lacking FP),,Impaling Thrust,base,direct,1,1,1,300000011,-1,1,0,90.0,90.0,90.0,90.0,90.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,40.0
+1844,101,Impaling Thrust,Impaling Thrust,,Impaling Thrust,base,direct,1,0,1,300000010,-1,1,0,187.0,187.0,187.0,187.0,187.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,39.0
+1845,101,Impaling Thrust,Impaling Thrust (Lacking FP),,Impaling Thrust,base,direct,1,1,1,300000011,-1,1,0,90.0,90.0,90.0,90.0,90.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,39.0
 958,102,Piercing Fang,Piercing Fang,,Piercing Fang,base,direct,1,0,1,300000050,-1,1,0,212.0,212.0,212.0,212.0,212.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,30.0
 959,102,Piercing Fang,Piercing Fang (Lacking FP),,Piercing Fang,base,direct,1,1,1,300000051,-1,1,0,110.0,110.0,110.0,110.0,110.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,30.0
 880,103,Spinning Slash,[Dagger] Spinning Slash #1,Dagger,Spinning Slash,#1,direct,1,0,1,300000220,-1,1,0,110.0,110.0,110.0,110.0,110.0,0.0,0.0,0.0,0.0,0.0,65.0,100.0,15.0
@@ -71,6 +73,14 @@ sheet_row,aow_id,aow_name,raw_name,variant_weapon_type,skill_family,sequence_var
 943,103,Spinning Slash,[Twinblade] Spinning Slash #1 (Lacking FP),Twinblade,Spinning Slash,#1,direct,1,1,1,300000255,-1,1,0,70.0,70.0,70.0,70.0,70.0,0.0,0.0,0.0,0.0,0.0,65.0,100.0,20.0
 944,103,Spinning Slash,[Twinblade] Spinning Slash #2 [1] (Lacking FP),Twinblade,Spinning Slash,#2 [1],direct,1,1,1,300000256,-1,1,0,40.0,40.0,40.0,40.0,40.0,0.0,0.0,0.0,0.0,0.0,50.0,100.0,10.0
 945,103,Spinning Slash,[Twinblade] Spinning Slash #2 [2] (Lacking FP),Twinblade,Spinning Slash,#2 [2],direct,2,1,1,300000257,-1,1,0,85.0,85.0,85.0,85.0,85.0,0.0,0.0,0.0,0.0,0.0,70.0,100.0,20.0
+2462,103,Spinning Slash,Spinning Slash #1,,Spinning Slash,#1,direct,1,0,1,300000230,-1,1,0,105.0,105.0,105.0,105.0,105.0,0.0,0.0,0.0,0.0,0.0,65.0,100.0,21.0
+2463,103,Spinning Slash,Spinning Slash #2 [1],,Spinning Slash,#2 [1],direct,1,0,1,300000231,-1,1,0,60.0,60.0,60.0,60.0,60.0,0.0,0.0,0.0,0.0,0.0,50.0,100.0,10.0
+2464,103,Spinning Slash,Spinning Slash #2 [2],,Spinning Slash,#2 [2],direct,2,0,1,300000232,-1,1,0,110.0,110.0,110.0,110.0,110.0,0.0,0.0,0.0,0.0,0.0,70.0,100.0,26.0
+2465,103,Spinning Slash,Spinning Slash #2 - Bullet,,Spinning Slash,#2 - Bullet,bullet,2,0,1,30090011,1001,0,0,100.0,100.0,100.0,166.0,100.0,0.0,0.0,0.0,149.0,0.0,0.0,100.0,0.0
+2466,103,Spinning Slash,Spinning Slash #2 - Bullet (Water AoE),,Spinning Slash,#2 - Bullet (Water AoE),bullet,2,0,1,30090012,1001,0,0,50.0,50.0,50.0,109.0,50.0,0.0,0.0,0.0,69.0,0.0,0.0,100.0,0.0
+2467,103,Spinning Slash,Spinning Slash #1 (Lacking FP),,Spinning Slash,#1,direct,1,1,1,300000235,-1,1,0,70.0,70.0,70.0,70.0,70.0,0.0,0.0,0.0,0.0,0.0,65.0,100.0,21.0
+2468,103,Spinning Slash,Spinning Slash #2 [1] (Lacking FP),,Spinning Slash,#2 [1],direct,1,1,1,300000236,-1,1,0,40.0,40.0,40.0,40.0,40.0,0.0,0.0,0.0,0.0,0.0,50.0,100.0,10.0
+2469,103,Spinning Slash,Spinning Slash #2 [2] (Lacking FP),,Spinning Slash,#2 [2],direct,2,1,1,300000237,-1,1,0,85.0,85.0,85.0,85.0,85.0,0.0,0.0,0.0,0.0,0.0,70.0,100.0,26.0
 1150,105,Charge Forth,Charge Forth [1],,Charge Forth,[1],charged,1,0,1,301701900,-1,1,0,35.0,35.0,35.0,35.0,35.0,0.0,0.0,0.0,0.0,0.0,25.0,25.0,8.0
 1151,105,Charge Forth,Charge Forth [2],,Charge Forth,[2],charged,2,0,1,301701901,-1,1,0,35.0,35.0,35.0,35.0,35.0,0.0,0.0,0.0,0.0,0.0,25.0,25.0,8.0
 1152,105,Charge Forth,Charge Forth [3],,Charge Forth,[3],charged,3,0,1,301701902,-1,1,0,35.0,35.0,35.0,35.0,35.0,0.0,0.0,0.0,0.0,0.0,25.0,25.0,8.0
@@ -253,6 +263,11 @@ sheet_row,aow_id,aow_name,raw_name,variant_weapon_type,skill_family,sequence_var
 1290,118,Loretta's Slash,[Reaper] Loretta's Slash [2],Reaper,Loretta's Slash,[2],direct,2,0,1,301900442,-1,1,1,100.0,100.0,100.0,100.0,100.0,0.0,60.0,0.0,0.0,0.0,100.0,100.0,20.0
 1291,118,Loretta's Slash,[Reaper] Loretta's Slash [1] (Lacking FP),Reaper,Loretta's Slash,[1],direct,1,1,1,301900443,-1,1,0,40.0,40.0,40.0,40.0,40.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,15.0
 1292,118,Loretta's Slash,[Reaper] Loretta's Slash [2] (Lacking FP),Reaper,Loretta's Slash,[2],direct,2,1,1,301900444,-1,1,0,100.0,100.0,100.0,100.0,100.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,20.0
+2470,118,Loretta's Slash,Loretta's Slash ?,,Loretta's Slash,?,direct,1,0,0,301810900,-1,0,0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+2471,118,Loretta's Slash,Loretta's Slash [1],,Loretta's Slash,[1],direct,1,0,1,301810905,-1,1,0,80.0,80.0,0.0,0.0,0.0,0.0,34.0,0.0,0.0,0.0,100.0,100.0,16.0
+2472,118,Loretta's Slash,Loretta's Slash [2],,Loretta's Slash,[2],direct,2,0,1,301810906,-1,1,0,172.0,172.0,0.0,0.0,0.0,0.0,68.0,0.0,0.0,0.0,100.0,100.0,22.0
+2473,118,Loretta's Slash,Loretta's Slash [1] (Lacking FP),,Loretta's Slash,[1],direct,1,1,1,301810910,-1,1,0,50.0,50.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,16.0
+2474,118,Loretta's Slash,Loretta's Slash [2] (Lacking FP),,Loretta's Slash,[2],direct,2,1,1,301810911,-1,1,0,120.0,120.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,22.0
 1442,119,Poison Moth Flight,Poison Moth Flight,,Poison Moth Flight,base,direct,1,0,1,300000450,-1,1,0,125.0,125.0,125.0,125.0,125.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,25.0
 1443,119,Poison Moth Flight,Poison Moth Flight (Lacking FP),,Poison Moth Flight,base,direct,1,1,1,300000455,-1,1,0,100.0,100.0,100.0,100.0,100.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,25.0
 1245,120,Spinning Weapon,Spinning Weapon [1],,Spinning Weapon,[1],direct,1,0,1,300000540,-1,1,0,70.0,70.0,70.0,70.0,70.0,0.0,0.0,0.0,0.0,0.0,50.0,50.0,35.0
@@ -283,6 +298,14 @@ sheet_row,aow_id,aow_name,raw_name,variant_weapon_type,skill_family,sequence_var
 1270,120,Spinning Weapon,[Dagger] Spinning Weapon [5] (Lacking FP),Dagger,Spinning Weapon,[5],direct,5,1,1,300100546,-1,1,0,40.0,40.0,40.0,40.0,50.0,0.0,0.0,0.0,0.0,0.0,50.0,50.0,0.0
 1271,120,Spinning Weapon,[Dagger] Spinning Weapon [6] (Lacking FP),Dagger,Spinning Weapon,[6],direct,6,1,1,300100546,-1,1,0,40.0,40.0,40.0,40.0,50.0,0.0,0.0,0.0,0.0,0.0,50.0,50.0,0.0
 1272,120,Spinning Weapon,[Dagger] Spinning Weapon [7] (Lacking FP),Dagger,Spinning Weapon,[7],direct,7,1,1,300100547,-1,1,0,40.0,40.0,40.0,40.0,50.0,0.0,0.0,0.0,0.0,0.0,50.0,50.0,0.0
+2594,120,Spinning Weapon,Spinning Weapon [1],,Spinning Weapon,[1],direct,1,0,1,303309900,-1,1,1,85.0,85.0,85.0,85.0,85.0,0.0,30.0,0.0,0.0,0.0,100.0,100.0,6.0
+2595,120,Spinning Weapon,Spinning Weapon [2],,Spinning Weapon,[2],direct,2,0,1,303309900,-1,1,1,85.0,85.0,85.0,85.0,85.0,0.0,30.0,0.0,0.0,0.0,100.0,100.0,6.0
+2596,120,Spinning Weapon,Spinning Weapon [3],,Spinning Weapon,[3],direct,3,0,1,303309900,-1,1,1,85.0,85.0,85.0,85.0,85.0,0.0,30.0,0.0,0.0,0.0,100.0,100.0,6.0
+2597,120,Spinning Weapon,Spinning Weapon [4],,Spinning Weapon,[4],direct,4,0,1,303309902,-1,1,1,90.0,90.0,90.0,90.0,90.0,0.0,35.0,0.0,0.0,0.0,100.0,100.0,8.0
+2598,120,Spinning Weapon,Spinning Weapon [1] (Lacking FP),,Spinning Weapon,[1],direct,1,1,1,303309905,-1,1,1,55.0,55.0,55.0,55.0,55.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,6.0
+2599,120,Spinning Weapon,Spinning Weapon [2] (Lacking FP),,Spinning Weapon,[2],direct,2,1,1,303309905,-1,1,1,55.0,55.0,55.0,55.0,55.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,6.0
+2600,120,Spinning Weapon,Spinning Weapon [3] (Lacking FP),,Spinning Weapon,[3],direct,3,1,1,303309905,-1,1,1,55.0,55.0,55.0,55.0,55.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,6.0
+2601,120,Spinning Weapon,Spinning Weapon [4] (Lacking FP),,Spinning Weapon,[4],direct,4,1,1,303309907,-1,1,1,55.0,55.0,55.0,55.0,55.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,8.0
 1184,122,Storm Assault,Storm Assault - Bullet (Jump),,Storm Assault,Bullet (Jump),bullet,1,0,1,300000461,51030,0,1,90.0,90.0,90.0,90.0,90.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,10.0
 1185,122,Storm Assault,Storm Assault - Bullet (Land),,Storm Assault,Bullet (Land),bullet,1,0,1,300000462,51030,0,1,90.0,90.0,90.0,90.0,90.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
 1186,122,Storm Assault,Storm Assault,,Storm Assault,base,direct,1,0,1,300000460,-1,1,0,200.0,200.0,200.0,200.0,200.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,20.0
@@ -510,6 +533,9 @@ sheet_row,aow_id,aow_name,raw_name,variant_weapon_type,skill_family,sequence_var
 1400,222,Sacred Ring of Light,Sacred Ring of Light #1 (Lacking FP),,Sacred Ring of Light,#1,direct,1,1,1,300000573,-1,1,0,80.0,80.0,80.0,80.0,80.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,10.0
 1401,222,Sacred Ring of Light,Sacred Ring of Light #2 (Lacking FP),,Sacred Ring of Light,#2,direct,2,1,1,300000578,-1,1,0,80.0,80.0,80.0,80.0,80.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,10.0
 1402,222,Sacred Ring of Light,Sacred Ring of Light #3 (Lacking FP),,Sacred Ring of Light,#3,direct,3,1,1,300000583,-1,1,0,80.0,80.0,80.0,80.0,80.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,10.0
+2602,223,Firebreather,Firebreather,,Firebreather,base,direct,1,0,0,300000595,-1,1,0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,9.0
+2603,223,Firebreather,Firebreather - Bullet,,Firebreather,Bullet,bullet,1,0,1,300000590,-1,1,0,120.0,120.0,120.0,120.0,120.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,0.0
+2604,223,Firebreather,Firebreather - Bullet,,Firebreather,Bullet,bullet,1,0,1,300000591,-1,1,0,75.0,75.0,75.0,75.0,75.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,0.0
 1447,224,Blood Blade,Blood Blade #1,,Blood Blade,#1,direct,1,0,1,300000630,-1,1,0,55.0,55.0,55.0,55.0,55.0,0.0,0.0,0.0,0.0,0.0,100.0,0.0,0.0
 1448,224,Blood Blade,Blood Blade #1 - Bullet,,Blood Blade,#1 - Bullet,bullet,1,0,1,300000631,51120,1,1,0.0,0.0,0.0,0.0,0.0,115.0,0.0,0.0,0.0,0.0,0.0,0.0,10.0
 1449,224,Blood Blade,Blood Blade #2,,Blood Blade,#2,direct,2,0,1,300000633,-1,1,0,55.0,55.0,55.0,55.0,55.0,0.0,0.0,0.0,0.0,0.0,100.0,0.0,0.0
@@ -1414,6 +1440,20 @@ sheet_row,aow_id,aow_name,raw_name,variant_weapon_type,skill_family,sequence_var
 1518,4010,Palm Blast,Palm Blast Charged,,Palm Blast,Charged,charged,1,0,1,600000006,-1,1,0,460.0,460.0,460.0,460.0,460.0,0.0,0.0,0.0,0.0,0.0,65.0,90.0,55.0
 1519,4010,Palm Blast,Palm Blast (Lacking FP),,Palm Blast,base,direct,1,1,1,600000002,-1,1,0,120.0,120.0,120.0,120.0,120.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,45.0
 1520,4010,Palm Blast,Palm Blast Charged (Lacking FP),,Palm Blast,Charged,charged,1,1,1,600000007,-1,1,0,180.0,180.0,180.0,180.0,180.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,55.0
+1130,4020,Piercing Throw,Piercing Throw,,Piercing Throw,base,direct,1,0,1,600000050,-1,1,0,175.0,175.0,175.0,175.0,175.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,20.0
+1131,4020,Piercing Throw,Piercing Throw (Lacking FP),,Piercing Throw,base,direct,1,1,1,600000052,-1,1,0,50.0,50.0,50.0,50.0,50.0,0.0,0.0,0.0,0.0,0.0,50.0,100.0,20.0
+1132,4030,Scattershot Throw,Scattershot Throw #1 [1],,Scattershot Throw,#1 [1],direct,1,0,1,600000120,-1,1,0,88.0,88.0,88.0,88.0,88.0,0.0,0.0,0.0,0.0,0.0,70.0,100.0,8.0
+1133,4030,Scattershot Throw,Scattershot Throw #1 [2],,Scattershot Throw,#1 [2],direct,2,0,1,600000121,-1,1,0,88.0,88.0,88.0,88.0,88.0,0.0,0.0,0.0,0.0,0.0,70.0,100.0,8.0
+1134,4030,Scattershot Throw,Scattershot Throw #2 [1],,Scattershot Throw,#2 [1],direct,1,0,1,600000122,-1,1,0,88.0,88.0,88.0,88.0,88.0,0.0,0.0,0.0,0.0,0.0,70.0,100.0,8.0
+1135,4030,Scattershot Throw,Scattershot Throw #2 [2],,Scattershot Throw,#2 [2],direct,2,0,1,600000123,-1,1,0,88.0,88.0,88.0,88.0,88.0,0.0,0.0,0.0,0.0,0.0,70.0,100.0,8.0
+1136,4030,Scattershot Throw,Scattershot Throw (Far),,Scattershot Throw,(Far),direct,1,0,1,600000128,-1,1,0,53.0,53.0,53.0,53.0,53.0,0.0,0.0,0.0,0.0,0.0,70.0,100.0,0.0
+1137,4030,Scattershot Throw,Scattershot Throw (Lacking FP),,Scattershot Throw,base,direct,1,1,1,600000129,-1,1,0,70.0,70.0,70.0,70.0,70.0,0.0,0.0,0.0,0.0,0.0,70.0,100.0,16.0
+2577,4030,Scattershot Throw,Scattershot Throw #1 [1],,Scattershot Throw,#1 [1],direct,1,0,1,600001000,-1,1,0,70.0,70.0,70.0,70.0,70.0,0.0,0.0,0.0,0.0,0.0,70.0,100.0,8.0
+2578,4030,Scattershot Throw,Scattershot Throw #1 [2],,Scattershot Throw,#1 [2],direct,2,0,1,600001001,-1,1,0,70.0,70.0,70.0,70.0,70.0,0.0,0.0,0.0,0.0,0.0,70.0,100.0,8.0
+2579,4030,Scattershot Throw,Scattershot Throw #2 [1],,Scattershot Throw,#2 [1],direct,1,0,1,600001002,-1,1,0,70.0,70.0,70.0,70.0,70.0,0.0,0.0,0.0,0.0,0.0,70.0,100.0,8.0
+2580,4030,Scattershot Throw,Scattershot Throw #2 [2],,Scattershot Throw,#2 [2],direct,2,0,1,600001003,-1,1,0,70.0,70.0,70.0,70.0,70.0,0.0,0.0,0.0,0.0,0.0,70.0,100.0,8.0
+2581,4030,Scattershot Throw,Scattershot Throw (Far),,Scattershot Throw,(Far),direct,1,0,1,600001008,-1,1,0,39.0,39.0,39.0,39.0,39.0,0.0,0.0,0.0,0.0,0.0,70.0,100.0,0.0
+2582,4030,Scattershot Throw,Scattershot Throw (Lacking FP),,Scattershot Throw,base,direct,1,1,1,600001009,-1,1,0,70.0,70.0,70.0,70.0,70.0,0.0,0.0,0.0,0.0,0.0,70.0,100.0,17.0
 1529,4040,Wall of Sparks,Wall of Sparks - Bullet,,Wall of Sparks,Bullet,bullet,1,0,1,600000022,-1,1,0,10.0,10.0,10.0,10.0,10.0,0.0,0.0,0.0,0.0,0.0,20.0,0.0,10.0
 1530,4040,Wall of Sparks,Wall of Sparks - Bullet,,Wall of Sparks,Bullet,bullet,1,0,0,600000023,-1,0,0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,10.0
 1531,4040,Wall of Sparks,Wall of Sparks - Bullet,,Wall of Sparks,Bullet,bullet,1,0,1,600000020,-1,1,0,55.0,55.0,55.0,55.0,55.0,0.0,0.0,0.0,0.0,0.0,50.0,0.0,0.0
@@ -1421,6 +1461,24 @@ sheet_row,aow_id,aow_name,raw_name,variant_weapon_type,skill_family,sequence_var
 1533,4050,Rolling Sparks,Rolling Sparks - Bullet,,Rolling Sparks,Bullet,bullet,1,0,1,600000031,-1,1,0,10.0,10.0,10.0,10.0,10.0,0.0,0.0,0.0,0.0,0.0,10.0,0.0,10.0
 1534,4050,Rolling Sparks,Rolling Sparks - Bullet,,Rolling Sparks,Bullet,bullet,1,0,0,600000023,-1,0,0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,10.0
 1535,4050,Rolling Sparks,Rolling Sparks - Bullet,,Rolling Sparks,Bullet,bullet,1,0,1,600000030,-1,1,0,82.0,82.0,82.0,82.0,82.0,0.0,0.0,0.0,0.0,0.0,90.0,0.0,0.0
+1124,4060,Raging Beast,Raging Beast,,Raging Beast,base,direct,1,0,1,600000080,-1,1,0,145.0,145.0,145.0,145.0,145.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,15.0
+1125,4060,Raging Beast,Raging Beast R2 [1],,Raging Beast,R2 [1],direct,1,0,1,600000082,-1,1,0,75.0,75.0,75.0,75.0,75.0,0.0,0.0,0.0,0.0,0.0,50.0,100.0,10.0
+1126,4060,Raging Beast,Raging Beast R2 [2],,Raging Beast,R2 [2],direct,2,0,1,600000083,-1,1,0,160.0,160.0,160.0,160.0,160.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,20.0
+1127,4060,Raging Beast,Raging Beast (Lacking FP),,Raging Beast,base,direct,1,1,1,600000090,-1,1,0,85.0,85.0,85.0,85.0,85.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,15.0
+1128,4060,Raging Beast,Raging Beast R2 [1] (Lacking FP),,Raging Beast,R2 [1],direct,1,1,1,600000092,-1,1,0,60.0,60.0,60.0,60.0,60.0,0.0,0.0,0.0,0.0,0.0,50.0,100.0,10.0
+1129,4060,Raging Beast,Raging Beast R2 [2] (Lacking FP),,Raging Beast,R2 [2],direct,2,1,1,600000093,-1,1,0,90.0,90.0,90.0,90.0,90.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,20.0
+1112,4070,Savage Claws,Savage Claws [1],,Savage Claws,[1],direct,1,0,1,700000290,-1,1,0,80.0,80.0,80.0,80.0,80.0,0.0,0.0,0.0,0.0,0.0,60.0,60.0,10.0
+1113,4070,Savage Claws,Savage Claws [2],,Savage Claws,[2],direct,2,0,1,700000291,-1,1,0,81.0,81.0,81.0,81.0,81.0,0.0,0.0,0.0,0.0,0.0,60.0,60.0,10.0
+1114,4070,Savage Claws,Savage Claws [3],,Savage Claws,[3],direct,3,0,1,700000292,-1,1,0,73.0,73.0,73.0,73.0,73.0,0.0,0.0,0.0,0.0,0.0,60.0,60.0,10.0
+1115,4070,Savage Claws,Savage Claws [4],,Savage Claws,[4],direct,4,0,1,700000293,-1,1,0,74.0,74.0,74.0,74.0,74.0,0.0,0.0,0.0,0.0,0.0,60.0,60.0,10.0
+1116,4070,Savage Claws,Savage Claws [5],,Savage Claws,[5],direct,5,0,1,700000294,-1,1,0,75.0,75.0,75.0,75.0,75.0,0.0,0.0,0.0,0.0,0.0,60.0,60.0,10.0
+1117,4070,Savage Claws,Savage Claws [6],,Savage Claws,[6],direct,6,0,1,700000295,-1,1,0,102.0,102.0,102.0,102.0,102.0,0.0,0.0,0.0,0.0,0.0,60.0,60.0,10.0
+1118,4070,Savage Claws,Savage Claws [1] (Lacking FP),,Savage Claws,[1],direct,1,1,1,700000296,-1,1,0,50.0,50.0,50.0,50.0,50.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,10.0
+1119,4070,Savage Claws,Savage Claws [2] (Lacking FP),,Savage Claws,[2],direct,2,1,1,700000297,-1,1,0,50.0,50.0,50.0,50.0,50.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,10.0
+1120,4070,Savage Claws,Savage Claws [3] (Lacking FP),,Savage Claws,[3],direct,3,1,1,700000298,-1,1,0,50.0,50.0,50.0,50.0,50.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,10.0
+1121,4070,Savage Claws,Savage Claws [4] (Lacking FP),,Savage Claws,[4],direct,4,1,1,700000299,-1,1,0,50.0,50.0,50.0,50.0,50.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,10.0
+1122,4070,Savage Claws,Savage Claws [5] (Lacking FP),,Savage Claws,[5],direct,5,1,1,700000300,-1,1,0,50.0,50.0,50.0,50.0,50.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,10.0
+1123,4070,Savage Claws,Savage Claws [6] (Lacking FP),,Savage Claws,[6],direct,6,1,1,700000301,-1,1,0,50.0,50.0,50.0,50.0,50.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,10.0
 948,4090,Blind Spot,Blind Spot,,Blind Spot,base,direct,1,0,1,600000180,-1,1,0,145.0,145.0,145.0,145.0,145.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,30.0
 949,4090,Blind Spot,Blind Spot,,Blind Spot,base,direct,1,0,1,600000181,-1,1,0,145.0,145.0,145.0,145.0,145.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,30.0
 950,4090,Blind Spot,Blind Spot (Lacking FP),,Blind Spot,base,direct,1,1,1,600000182,-1,1,0,70.0,70.0,70.0,70.0,70.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,30.0
@@ -1431,6 +1489,22 @@ sheet_row,aow_id,aow_name,raw_name,variant_weapon_type,skill_family,sequence_var
 955,4100,Swift Slash,Swift Slash Charged - Bullet,,Swift Slash,Charged - Bullet,bullet,1,0,1,600000074,-1,1,0,160.0,160.0,160.0,160.0,160.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,0.0
 956,4100,Swift Slash,Swift Slash (Lacking FP),,Swift Slash,base,direct,1,1,1,600000077,-1,1,0,70.0,70.0,70.0,70.0,70.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,30.0
 957,4100,Swift Slash,Swift Slash Charged (lacking FP),,Swift Slash,Charged (lacking FP),charged,1,0,1,600000072,-1,1,0,80.0,80.0,80.0,80.0,80.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,50.0
+1100,4110,Overhead Stance,Overhead Stance R1,,Overhead Stance,R1,direct,1,0,1,600000060,-1,1,0,147.0,155.0,155.0,155.0,155.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,20.0
+1101,4110,Overhead Stance,Overhead Stance R2 [1],,Overhead Stance,R2 [1],direct,1,0,1,600000061,-1,1,0,87.0,90.0,90.0,90.0,90.0,0.0,0.0,0.0,0.0,0.0,70.0,100.0,20.0
+1102,4110,Overhead Stance,Overhead Stance R2 [2],,Overhead Stance,R2 [2],direct,2,0,1,600000062,-1,1,0,97.0,95.0,95.0,95.0,95.0,0.0,0.0,0.0,0.0,0.0,75.0,100.0,20.0
+1103,4110,Overhead Stance,Overhead Stance R2 [3],,Overhead Stance,R2 [3],direct,3,0,1,600000063,-1,1,0,103.0,110.0,110.0,110.0,110.0,0.0,0.0,0.0,0.0,0.0,85.0,100.0,20.0
+1104,4110,Overhead Stance,Overhead Stance R1 (Lacking FP),,Overhead Stance,R1,direct,1,1,1,600000064,-1,1,0,50.0,50.0,50.0,50.0,50.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,20.0
+1105,4110,Overhead Stance,Overhead Stance R2 [1] (Lacking FP),,Overhead Stance,R2 [1],direct,1,1,1,600000065,-1,1,0,50.0,50.0,50.0,50.0,50.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,20.0
+1106,4110,Overhead Stance,Overhead Stance R2 [2] (Lacking FP),,Overhead Stance,R2 [2],direct,2,1,1,600000066,-1,1,0,50.0,50.0,50.0,50.0,50.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,20.0
+1107,4110,Overhead Stance,Overhead Stance R2 [3] (Lacking FP),,Overhead Stance,R2 [3],direct,3,1,1,600000067,-1,1,0,50.0,50.0,50.0,50.0,50.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,20.0
+1142,4120,Wing Stance,Wing Stance R1 [1],,Wing Stance,R1 [1],direct,1,0,1,600000830,-1,1,0,83.0,83.0,83.0,83.0,83.0,0.0,0.0,0.0,0.0,0.0,80.0,100.0,6.0
+1143,4120,Wing Stance,Wing Stance R1 [2],,Wing Stance,R1 [2],direct,2,0,1,600000831,-1,1,0,84.0,84.0,84.0,84.0,84.0,0.0,0.0,0.0,0.0,0.0,80.0,100.0,6.0
+1144,4120,Wing Stance,Wing Stance R1 [3],,Wing Stance,R1 [3],direct,3,0,1,600000832,-1,1,0,87.0,87.0,87.0,87.0,87.0,0.0,0.0,0.0,0.0,0.0,80.0,100.0,6.0
+1145,4120,Wing Stance,Wing Stance R2,,Wing Stance,R2,direct,2,0,1,600000836,-1,1,0,251.0,251.0,251.0,251.0,251.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,29.0
+1146,4120,Wing Stance,Wing Stance R1 [1] (Lacking FP),,Wing Stance,R1 [1],direct,1,1,1,600000833,-1,1,0,50.0,50.0,50.0,50.0,50.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,6.0
+1147,4120,Wing Stance,Wing Stance R1 [2] (Lacking FP),,Wing Stance,R1 [2],direct,2,1,1,600000834,-1,1,0,50.0,50.0,50.0,50.0,50.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,6.0
+1148,4120,Wing Stance,Wing Stance R1 [3] (Lacking FP),,Wing Stance,R1 [3],direct,3,1,1,600000835,-1,1,0,50.0,50.0,50.0,50.0,50.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,6.0
+1149,4120,Wing Stance,Wing Stance R2 (Lacking FP),,Wing Stance,R2,direct,2,1,1,600000837,-1,1,0,100.0,100.0,100.0,100.0,100.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,29.0
 1380,4130,Blinkbolt,Blinkbolt,,Blinkbolt,base,direct,1,0,1,600000210,51060,1,1,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,50.0,0.0,0.0,0.0,26.0
 1381,4130,Blinkbolt,Blinkbolt (Lacking FP),,Blinkbolt,base,direct,1,1,1,600000211,51060,1,1,0.0,0.0,0.0,0.0,0.0,40.0,0.0,0.0,0.0,0.0,0.0,0.0,26.0
 1330,4140,Flame Skewer,Flame Skewer,,Flame Skewer,base,direct,1,0,1,600000100,-1,1,0,138.0,138.0,138.0,138.0,138.0,0.0,0.0,0.0,0.0,0.0,100.0,100.0,40.0

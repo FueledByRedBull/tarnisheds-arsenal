@@ -19,6 +19,13 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: apps/desktop/package-lock.json
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -36,13 +43,14 @@ jobs:
       - name: Rust tests
         run: |
           cargo test --manifest-path core/er_optimizer_core/Cargo.toml
+          cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 
       - name: Data/runtime validation
         run: |
           python tools/phase4/validate_phase4.py
 
-      - name: UI smoke test
-        env:
-          QT_QPA_PLATFORM: offscreen
+      - name: Desktop TypeScript build
+        working-directory: apps/desktop
         run: |
-          python tools/phase4/smoke_ui.py
+          npm ci
+          npm run build

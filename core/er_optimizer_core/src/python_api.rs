@@ -619,11 +619,21 @@ pub fn py_optimize_builds(
                         Ok(value) => {
                             let should_continue = match value.is_none(gil) {
                                 true => true,
-                                false => value.is_truthy(gil).unwrap_or(true),
+                                false => match value.is_truthy(gil) {
+                                    Ok(value) => value,
+                                    Err(err) => {
+                                        if let Ok(mut guard) = callback_error_ref.lock() {
+                                            *guard = Some(err.to_string());
+                                        }
+                                        false
+                                    }
+                                },
                             };
                             if !should_continue {
                                 if let Ok(mut guard) = callback_error_ref.lock() {
-                                    *guard = Some("cancelled".to_string());
+                                    if guard.is_none() {
+                                        *guard = Some("cancelled".to_string());
+                                    }
                                 }
                             }
                         }

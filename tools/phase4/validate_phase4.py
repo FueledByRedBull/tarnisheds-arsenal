@@ -58,6 +58,7 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
     weapon_passives = read_csv(data_dir / "weapon_passives.csv")
     weapon_passive_overlays = read_csv(data_dir / "weapon_passive_overlays.csv")
     aow_weapon_compat = read_csv(data_dir / "aow_weapon_compat.csv")
+    aow_affinity_compat = read_csv(data_dir / "aow_affinity_compat.csv")
 
     if len(weapons) < 3000:
         issues.append(ValidationIssue("error", f"weapons.csv row count too low: {len(weapons)}"))
@@ -217,6 +218,78 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
             ValidationIssue(
                 "error",
                 f"aow_weapon_compat.csv row count too low: {len(aow_weapon_compat)}",
+            )
+        )
+
+    aow_by_id = {int(row["aow_id"]): row for row in aows}
+    weapon_by_id = {int(row["weapon_id"]): row for row in weapons}
+    attack_element_ext_ids = {
+        int(row["attack_element_correct_id"])
+        for row in attack_element_correct_ext
+    }
+    for file_name, rows in (
+        ("aow_attack_data.csv", aow_attack_data),
+        ("native_skill_attack_data.csv", native_skill_attack_data),
+    ):
+        for row in rows:
+            override_id = int(row.get("overwrite_attack_element_correct_id") or 0)
+            if override_id > 0 and override_id not in attack_element_ext_ids:
+                issues.append(
+                    ValidationIssue(
+                        "error",
+                        (
+                            f"{file_name} row {row.get('sheet_row')} references missing "
+                            f"attack_element_correct_ext id {override_id}"
+                        ),
+                    )
+                )
+                break
+
+    for row in aow_weapon_compat:
+        aow_id = int(row["aow_id"])
+        weapon_id = int(row["weapon_id"])
+        canonical = aow_by_id.get(aow_id)
+        if canonical is None:
+            issues.append(ValidationIssue("error", f"aow_weapon_compat.csv references missing aow_id={aow_id}"))
+            break
+        if not row["aow_name"].strip() or row["aow_name"] != canonical["name"]:
+            issues.append(ValidationIssue("error", f"aow_weapon_compat.csv has stale/placeholder name for aow_id={aow_id}"))
+            break
+        if weapon_id not in weapon_by_id:
+            issues.append(ValidationIssue("error", f"aow_weapon_compat.csv references missing weapon_id={weapon_id}"))
+            break
+
+    for row in aow_affinity_compat:
+        aow_id = int(row["aow_id"])
+        canonical = aow_by_id.get(aow_id)
+        if canonical is None:
+            issues.append(ValidationIssue("error", f"aow_affinity_compat.csv references missing aow_id={aow_id}"))
+            break
+        if not row["name"].strip() or row["name"] != canonical["name"]:
+            issues.append(ValidationIssue("error", f"aow_affinity_compat.csv has stale/placeholder name for aow_id={aow_id}"))
+            break
+
+    native_statuses = {row["status"] for row in native_skill_damage_coverage}
+    unexpected_native_statuses = sorted(native_statuses.difference({"matched", "generic_aow", "unmatched_weapon"}))
+    if unexpected_native_statuses:
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"native_skill_damage_coverage.csv has unexpected statuses: {', '.join(unexpected_native_statuses)}",
+            )
+        )
+    if not any(row["match_source"] == "weapon_name_fallback" for row in native_skill_damage_coverage):
+        issues.append(
+            ValidationIssue(
+                "error",
+                "native_skill_damage_coverage.csv did not exercise weapon_name_fallback extraction",
+            )
+        )
+    if any(row["status"] == "ambiguous_weapon_name_fallback" for row in native_skill_damage_coverage):
+        issues.append(
+            ValidationIssue(
+                "error",
+                "native_skill_damage_coverage.csv has ambiguous weapon-name fallback rows",
             )
         )
 
@@ -464,7 +537,7 @@ def validate_runtime_ar(data_dir: Path) -> list[ValidationIssue]:
     try:
         import er_optimizer_core as core
     except Exception as exc:
-        issues.append(ValidationIssue("warning", f"runtime AR checks skipped: {exc}"))
+        issues.append(ValidationIssue("error", f"runtime AR checks skipped: {exc}"))
         return issues
 
     data = core.load_game_data(str(data_dir))
@@ -1016,6 +1089,59 @@ def validate_runtime_ar(data_dir: Path) -> list[ValidationIssue]:
                 )
             )
 
+    base_cap_request = {
+        "data": data,
+        "class_name": "Samurai",
+        "character_level": 9,
+        "vig": 12,
+        "mnd": 11,
+        "end": 13,
+        "str_stat": 12,
+        "dex": 15,
+        "int_stat": 9,
+        "fai": 8,
+        "arc": 8,
+        "max_upgrade": 0,
+        "fixed_upgrade": 0,
+        "weapon_name": "Uchigatana",
+        "affinity": "Keen",
+        "aow_name": None,
+        "objective": "max_ar",
+        "top_k": 1,
+        "somber_filter": "all",
+        "weapon_type_key": None,
+        "min_str": 0,
+        "min_dex": 0,
+        "min_int": 0,
+        "min_fai": 0,
+        "min_arc": 0,
+        "lock_str": None,
+        "lock_dex": None,
+        "lock_int": None,
+        "lock_fai": None,
+        "lock_arc": None,
+        "two_handing": False,
+    }
+    for label, expected, overrides in (
+        ("current stat cap", "str must be <= 99", {"str_stat": 100}),
+        ("minimum stat cap", "minimum combat stat 0 must be <= 99", {"min_str": 100}),
+        ("locked stat cap", "locked combat stat 0 must be <= 99", {"lock_str": 100}),
+    ):
+        request = dict(base_cap_request)
+        request.update(overrides)
+        try:
+            core.optimize_builds(**request)
+        except Exception as exc:
+            if expected not in str(exc):
+                issues.append(
+                    ValidationIssue(
+                        "error",
+                        f"runtime {label} surfaced wrong error: {exc}",
+                    )
+                )
+        else:
+            issues.append(ValidationIssue("error", f"runtime {label} did not reject invalid input"))
+
     uchi_base = core.optimize_builds(
         data=data,
         class_name="Samurai",
@@ -1111,17 +1237,25 @@ def validate_runtime_ar(data_dir: Path) -> list[ValidationIssue]:
 
 def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
+    if not (project_root / "ui" / "desktop" / "app.py").exists():
+        issues.append(
+            ValidationIssue(
+                "warning",
+                "PyQt level path checks skipped: retired desktop UI is archived under archive/python-desktop",
+            )
+        )
+        return issues
     try:
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
         from PyQt6 import QtWidgets
     except Exception as exc:
-        issues.append(ValidationIssue("warning", f"level path checks skipped: {exc}"))
+        issues.append(ValidationIssue("warning", f"PyQt level path checks skipped: {exc}"))
         return issues
 
     try:
         app_module = load_app_module(project_root)
     except Exception as exc:
-        issues.append(ValidationIssue("warning", f"level path checks skipped: {exc}"))
+        issues.append(ValidationIssue("warning", f"PyQt level path checks skipped: {exc}"))
         return issues
 
     app = QtWidgets.QApplication.instance()
@@ -1273,9 +1407,16 @@ def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
         window.active_compare_selected = selected
         window.active_compare_target = compare
         levels_ahead = 5
-        previews_first = window._build_level_path_previews(levels_ahead)
-        previews_second = window._build_level_path_previews(levels_ahead)
-        if previews_first is None or previews_second is None or len(previews_first) != 2:
+        preview_configs = window._path_preview_configs()
+        previews_first = [
+            window.desktop_service.build_path_preview(session, config.solved, levels_ahead, config.title)
+            for config in preview_configs
+        ]
+        previews_second = [
+            window.desktop_service.build_path_preview(session, config.solved, levels_ahead, config.title)
+            for config in preview_configs
+        ]
+        if len(previews_first) != 2 or len(previews_second) != 2:
             issues.append(ValidationIssue("error", "level path preview generation failed"))
             return issues
 
@@ -1290,7 +1431,7 @@ def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
             )
 
         for preview in previews_first:
-            target_row = window._level_path_target_row(preview.config, levels_ahead)
+            target_row = window.desktop_service._path_target_build(session, preview.config, levels_ahead)
             if target_row is None:
                 issues.append(
                     ValidationIssue(
@@ -1385,6 +1526,25 @@ def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
                     break
 
         bleed_watch_payload = window.desktop_service.build_affinity_watch(session, selected, 2)
+        expected_line_order = [
+            line.affinity
+            for line in sorted(
+                bleed_watch_payload.lines,
+                key=lambda line: (
+                    float(line.end_metric if line.end_metric is not None else float("-inf")),
+                    app_module.desktop_models.result_rank_key(line.final_build) if line.final_build is not None else tuple(),
+                ),
+                reverse=True,
+            )
+        ]
+        actual_line_order = [line.affinity for line in bleed_watch_payload.lines]
+        if actual_line_order != expected_line_order:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "affinity watcher lines are not sorted by objective metric and deterministic rank",
+                )
+            )
         selected_line = next(
             (line for line in bleed_watch_payload.lines if line.affinity == selected.affinity),
             None,
@@ -1630,7 +1790,7 @@ def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
                 final_build=_synthetic_build(app_module, "Magic", 103.0, 11, weapon_id=999),
             ),
         ]
-        synthetic_breaks = window.desktop_service.detect_affinity_breakpoints(synthetic_lines, [10, 11, 12])
+        synthetic_breaks = window.desktop_service.detect_affinity_breakpoints(synthetic_lines, [10, 11, 12], "max_ar")
         if _breakpoint_signature(synthetic_breaks) != [(11, "Keen", "Heavy")]:
             issues.append(
                 ValidationIssue(
