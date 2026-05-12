@@ -11,6 +11,10 @@ def npm_cmd() -> str:
     return "npm.cmd" if os.name == "nt" else "npm"
 
 
+def python_cmd() -> str:
+    return "python"
+
+
 def run(cmd: list[str], cwd: Path) -> None:
     subprocess.run(cmd, cwd=cwd, check=True)
 
@@ -37,7 +41,22 @@ def main() -> int:
 
     run(["cargo", "test", "--manifest-path", str(root / "core/er_optimizer_core/Cargo.toml")], cwd=root)
     run(["cargo", "test", "--manifest-path", str(tauri_dir / "Cargo.toml")], cwd=root)
-    run(["python", "tools/phase4/validate_phase4.py"], cwd=root)
+    run(
+        [
+            python_cmd(),
+            "-m",
+            "maturin",
+            "build",
+            "--manifest-path",
+            str(root / "core/er_optimizer_core/Cargo.toml"),
+            "--features",
+            "python",
+        ],
+        cwd=root,
+    )
+    wheel = newest("target/wheels/er_optimizer_core-*.whl", root / "core" / "er_optimizer_core")
+    run([python_cmd(), "-m", "pip", "install", "--force-reinstall", str(wheel)], cwd=root)
+    run([python_cmd(), "tools/phase4/validate_phase4.py"], cwd=root)
     run([npm_cmd(), "ci"], cwd=app_dir)
     run([npm_cmd(), "run", "tauri", "--", "build"], cwd=app_dir)
 

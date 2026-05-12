@@ -25,7 +25,7 @@ All passed on this workspace.
 python tools/phase4/package_release.py
 ```
 
-This is now a gated release command: it runs core and Tauri `cargo test`, runs `validate_phase4.py`, installs frontend dependencies with `npm ci`, runs the Tauri production build, and only then writes `dist/`.
+This is now a gated release command: it runs core and Tauri `cargo test`, builds and installs the local validation binding, runs `validate_phase4.py`, installs frontend dependencies with `npm ci`, runs the Tauri production build, and only then writes `dist/`.
 
 Generated:
 

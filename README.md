@@ -226,7 +226,7 @@ Those checks cover:
 
 For a distributable bundle:
 
-Use the release package helper from the repo root. It runs Rust tests, data validation, Tauri tests, `npm ci`, and the Tauri production build, then copies the MSI and executable into `dist/TarnishedsArsenal_<version>`.
+Use the release package helper from the repo root. It runs Rust tests, builds the validation binding, runs data validation, runs Tauri tests, runs `npm ci`, and performs the Tauri production build, then copies the MSI and executable into `dist/TarnishedsArsenal_<version>`.
 
 ```powershell
 python tools/phase4/package_release.py
