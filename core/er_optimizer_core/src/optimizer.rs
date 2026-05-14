@@ -819,7 +819,9 @@ fn resolve_aow_choices<'a>(
 
     if matches!(
         request.objective,
-        OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr | OptimizeObjective::MaxArPlusBleed
+        OptimizeObjective::MaxAr
+            | OptimizeObjective::MaxPhysicalAr
+            | OptimizeObjective::MaxArPlusBleed
     ) {
         return Ok(Some(open_aow_choices_for_objective(
             weapon,
@@ -1192,6 +1194,16 @@ fn could_enter_top_k(results: &[OptimizeResult], score: f32, top_k: usize) -> bo
 }
 
 fn push_top_k(results: &mut Vec<OptimizeResult>, candidate: OptimizeResult, top_k: usize) {
+    if let Some(existing_idx) = results
+        .iter()
+        .position(|existing| same_result_loadout(&candidate, existing))
+    {
+        if !better_result(&candidate, &results[existing_idx]) {
+            return;
+        }
+        results.remove(existing_idx);
+    }
+
     let insert_at = results
         .iter()
         .position(|existing| better_result(&candidate, existing))
@@ -1208,6 +1220,12 @@ fn push_top_k(results: &mut Vec<OptimizeResult>, candidate: OptimizeResult, top_
     if results.len() > top_k {
         results.pop();
     }
+}
+
+fn same_result_loadout(left: &OptimizeResult, right: &OptimizeResult) -> bool {
+    left.weapon_id == right.weapon_id
+        && left.upgrade == right.upgrade
+        && left.aow_id == right.aow_id
 }
 
 fn better_result(left: &OptimizeResult, right: &OptimizeResult) -> bool {
@@ -1433,6 +1451,28 @@ mod tests {
             assert_eq!(row.stats.fai, 8);
             assert_eq!(row.stats.arc, 8);
         }
+    }
+
+    #[test]
+    fn optimize_keeps_one_result_per_weapon_setup() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.character_level = 148;
+        request.weapon_name = Some("Lizard Greatsword".to_string());
+        request.affinity = Some("Keen".to_string());
+        request.aow_name = Some("Seppuku".to_string());
+        request.fixed_upgrade = Some(25);
+        request.max_upgrade = 25;
+        request.two_handing = true;
+        request.top_k = 50;
+
+        let results = optimize(&request, &game_data).expect("optimizer failed");
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].weapon_name, "Lizard Greatsword");
+        assert_eq!(results[0].affinity, "Keen");
+        assert_eq!(results[0].aow_name.as_deref(), Some("Seppuku"));
+        assert_eq!(results[0].upgrade, 25);
     }
 
     #[test]
