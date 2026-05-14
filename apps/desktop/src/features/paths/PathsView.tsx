@@ -4,7 +4,7 @@ import { api, hasTauriRuntime } from "../../lib/api";
 import { fixed1 } from "../../lib/format";
 import { buildOptimizeRequest, clampHorizon, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
-import { PathPreviewDto } from "../../lib/types";
+import { PathFinishedDto, PathPreviewDto, SolvedBuildDto } from "../../lib/types";
 
 export function PathsView() {
   const catalog = useDesktopStore((state) => state.catalog);
@@ -38,33 +38,49 @@ export function PathsView() {
   });
 
   useEffect(() => {
-    let unlistenProgress: (() => void) | undefined;
-    let unlistenFinished: (() => void) | undefined;
-    api.onPathProgress((payload) => {
-      if (!activePathJobId || payload.jobId === activePathJobId) setPathProgress(payload);
-    }).then((unlisten) => {
-      unlistenProgress = unlisten;
-    });
-    api.onPathFinished((payload) => {
-      if (activePathJobId && payload.jobId !== activePathJobId) return;
-      if (payload.error) setError(payload.error);
-      if (!payload.cancelled) setPaths(payload.paths, signature);
-      else pushNotice({ scope: "paths", tone: "warning", message: "Path preview stopped." });
-      setPathBusy(false);
-      setActivePathJobId(null);
-      setPathProgress(null);
-    }).then((unlisten) => {
-      unlistenFinished = unlisten;
-    });
+    if (!activePathJobId || !isPathBusy) return undefined;
+    let disposed = false;
+
+    async function pollPathStatus() {
+      try {
+        const currentJobId = useDesktopStore.getState().activePathJobId;
+        if (!currentJobId) return;
+        const status = await api.pathPreviewStatus(currentJobId);
+        if (disposed) return;
+        if (!status) {
+          finishPathPreview({
+            jobId: currentJobId,
+            cancelled: true,
+            paths: [],
+            error: "Path job disappeared before returning a result.",
+          });
+          return;
+        }
+        if (status.progress) setPathProgress(status.progress);
+        if (status.finished) finishPathPreview(status.finished);
+      } catch (error) {
+        if (!disposed) {
+          finishPathPreview({
+            jobId: useDesktopStore.getState().activePathJobId ?? "path",
+            cancelled: false,
+            paths: [],
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    }
+
+    void pollPathStatus();
+    const interval = window.setInterval(pollPathStatus, 200);
     return () => {
-      unlistenProgress?.();
-      unlistenFinished?.();
+      disposed = true;
+      window.clearInterval(interval);
     };
-  }, [activePathJobId, pushNotice, setActivePathJobId, setError, setPathBusy, setPathProgress, setPaths, signature]);
+  }, [activePathJobId, isPathBusy, setPathProgress]);
 
   async function refresh() {
-    if (!selected || !target) {
-      pushNotice({ scope: "paths", tone: "warning", message: "Pick a selected result and comparison target first." });
+    if (!selected) {
+      pushNotice({ scope: "paths", tone: "warning", message: "Pick a selected result first." });
       return;
     }
     if (effectiveHorizon <= 0) {
@@ -79,7 +95,7 @@ export function PathsView() {
     try {
       const requests = [
         { base, solved: selected, levelsAhead: effectiveHorizon, title: "Selected" },
-        { base, solved: target, levelsAhead: effectiveHorizon, title: "Compare" },
+        ...(target ? [{ base, solved: target, levelsAhead: effectiveHorizon, title: "Compare" }] : []),
       ];
       if (hasTauriRuntime()) {
         const { jobId } = await api.startPathPreview(requests);
@@ -99,12 +115,23 @@ export function PathsView() {
     if (activePathJobId) await api.cancelPathPreview(activePathJobId);
   }
 
+  function finishPathPreview(payload: PathFinishedDto) {
+    const current = useDesktopStore.getState();
+    if (current.activePathJobId && payload.jobId !== current.activePathJobId) return;
+    if (payload.error) current.setError(payload.error);
+    if (!payload.cancelled) current.setPaths(payload.paths, signature);
+    else current.pushNotice({ scope: "paths", tone: "warning", message: "Path preview stopped." });
+    current.setPathBusy(false);
+    current.setActivePathJobId(null);
+    current.setPathProgress(null);
+  }
+
   return (
     <section className="workspace-panel paths-panel">
       <div className="workspace-header">
         <div>
           <h1>Paths</h1>
-          <span>{selected && target ? `Current +${effectiveHorizon} selected and compare lanes` : "Requires selected and compare target"}</span>
+          <span>{selected ? `Current +${effectiveHorizon} ${target ? "selected and compare lanes" : "selected lane"}` : "Requires selected result"}</span>
         </div>
         <div className="header-controls">
           <label>
@@ -119,14 +146,14 @@ export function PathsView() {
           </label>
           <button type="button" onClick={isPathBusy ? stop : refresh}>
             {isPathBusy ? <Pause size={15} /> : <Play size={15} />}
-            {isPathBusy ? "Stop" : "Refresh"}
+            {isPathBusy ? "Stop" : "Start"}
           </button>
         </div>
       </div>
       <Progress checked={pathProgress?.checked ?? 0} total={pathProgress?.total ?? (paths.length || 1)} busy={isPathBusy} />
       <div className="path-lanes">
-        <LaneSummary title="Selected" path={paths.find((path) => path.title === "Selected")} />
-        <LaneSummary title="Compare" path={paths.find((path) => path.title === "Compare")} />
+        <LaneSummary title="Selected" path={paths.find((path) => path.title === "Selected")} row={selected} />
+        <LaneSummary title="Compare" path={paths.find((path) => path.title === "Compare")} row={target} />
       </div>
       <PathChart paths={paths} />
       <div className="step-table path-step-table">
@@ -152,17 +179,18 @@ export function PathsView() {
   );
 }
 
-function LaneSummary({ title, path }: { title: string; path: PathPreviewDto | undefined }) {
+function LaneSummary({ title, path, row }: { title: string; path: PathPreviewDto | undefined; row: SolvedBuildDto | null }) {
+  const solved = path?.solved ?? row;
   return (
     <div className="path-lane">
       <strong>{title}</strong>
-      {path ? (
+      {solved ? (
         <>
-          <span>{path.solved.weaponName} / {path.solved.affinity} / {path.solved.aowName ?? "Native"} / +{path.solved.upgrade}</span>
-          <small>{path.steps.length} steps, final {fixed1(path.steps.at(-1)?.metric)}</small>
+          <span>{solved.weaponName} / {solved.affinity} / {solved.aowName ?? "Native"} / +{solved.upgrade}</span>
+          <small>{path ? `${path.steps.length} steps, final ${fixed1(path.steps.at(-1)?.metric)}` : "Ready to trace"}</small>
         </>
       ) : (
-        <span>No lane loaded.</span>
+        <span>No compare lane selected.</span>
       )}
     </div>
   );

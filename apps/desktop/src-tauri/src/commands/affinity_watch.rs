@@ -7,12 +7,12 @@ use tauri::{AppHandle, Emitter, State};
 use crate::commands::data::{affinities_for_weapon_inner, compatible_aow_names_inner};
 use crate::commands::optimize::run_search_inner;
 use crate::dto::{
-    AffinityBreakpointDto, AffinityWatchFinishedDto, AffinityWatchLineDto, AffinityWatchPayloadDto,
-    AffinityWatchPointDto, AffinityWatchProgressDto, AffinityWatchRequestDto, SolvedBuildDto,
-    StartSearchResponseDto, metric_for_objective,
+    AffinityBreakpointDto, AffinityWatchFinishedDto, AffinityWatchJobStatusDto,
+    AffinityWatchLineDto, AffinityWatchPayloadDto, AffinityWatchPointDto, AffinityWatchProgressDto,
+    AffinityWatchRequestDto, SolvedBuildDto, StartSearchResponseDto, metric_for_objective,
 };
 use crate::errors::AppError;
-use crate::{AppState, CancelFlag};
+use crate::{AppState, AsyncJobHandle, CancelFlag};
 
 #[tauri::command]
 pub fn build_affinity_watch(
@@ -82,56 +82,79 @@ pub fn start_affinity_watch(
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
     let data = Arc::clone(&state.data);
-    let jobs = Arc::clone(&state.jobs);
     let job_number = state.next_job.fetch_add(1, AtomicOrdering::Relaxed);
     let job_id = format!("affinity-{job_number}");
     let cancel_flag: CancelFlag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let status = Arc::new(std::sync::Mutex::new(AffinityWatchJobStatusDto {
+        progress: None,
+        finished: None,
+    }));
     state
-        .jobs
+        .affinity_jobs
         .lock()
         .map_err(|_| AppError::new("failed to lock job registry"))?
-        .insert(job_id.clone(), Arc::clone(&cancel_flag));
+        .insert(
+            job_id.clone(),
+            AsyncJobHandle {
+                cancel: Arc::clone(&cancel_flag),
+                status: Arc::clone(&status),
+            },
+        );
 
     let job_id_for_task = job_id.clone();
     let app_for_task = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let task_state = AppState {
             data,
-            jobs: Arc::clone(&jobs),
+            jobs: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
+            search_jobs: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
+            path_jobs: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
+            affinity_jobs: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
             next_job: Default::default(),
         };
         let affinities = affinity_watch_affinities(&request.solved, &task_state);
         let total = (affinities.len() as u64).saturating_mul(u64::from(request.levels_ahead) + 1);
-        let _ = app_for_task.emit(
-            "affinity_watch_progress",
-            AffinityWatchProgressDto {
-                job_id: job_id_for_task.clone(),
-                checked: 0,
-                total: total.max(1),
-                affinity: request.solved.affinity.clone(),
-                level: request.base.character_level,
-            },
-        );
+        let progress = AffinityWatchProgressDto {
+            job_id: job_id_for_task.clone(),
+            checked: 0,
+            total: total.max(1),
+            affinity: request.solved.affinity.clone(),
+            level: request.base.character_level,
+        };
+        if let Ok(mut guard) = status.lock() {
+            guard.progress = Some(progress.clone());
+        }
+        let _ = app_for_task.emit("affinity_watch_progress", progress);
         let (payload, error, cancelled) = if cancel_flag.load(AtomicOrdering::Relaxed) {
             (None, None, true)
         } else {
-            match build_affinity_watch_inner(request, &task_state) {
+            match build_affinity_watch_inner(request, &task_state, |progress| {
+                if cancel_flag.load(AtomicOrdering::Relaxed) {
+                    return false;
+                }
+                let mut payload = progress;
+                payload.job_id = job_id_for_task.clone();
+                if let Ok(mut guard) = status.lock() {
+                    guard.progress = Some(payload.clone());
+                }
+                let _ = app_for_task.emit("affinity_watch_progress", payload);
+                true
+            }) {
                 Ok(payload) => (Some(payload), None, false),
+                Err(err) if err.message == "cancelled" => (None, None, true),
                 Err(err) => (None, Some(err.message), false),
             }
         };
-        let _ = app_for_task.emit(
-            "affinity_watch_finished",
-            AffinityWatchFinishedDto {
-                job_id: job_id_for_task.clone(),
-                cancelled,
-                payload,
-                error,
-            },
-        );
-        if let Ok(mut guard) = jobs.lock() {
-            guard.remove(&job_id_for_task);
+        let finished = AffinityWatchFinishedDto {
+            job_id: job_id_for_task.clone(),
+            cancelled,
+            payload,
+            error,
+        };
+        if let Ok(mut guard) = status.lock() {
+            guard.finished = Some(finished.clone());
         }
+        let _ = app_for_task.emit("affinity_watch_finished", finished);
     });
 
     Ok(StartSearchResponseDto { job_id })
@@ -140,29 +163,66 @@ pub fn start_affinity_watch(
 #[tauri::command]
 pub fn cancel_affinity_watch(job_id: String, state: State<'_, AppState>) -> Result<bool, AppError> {
     let guard = state
-        .jobs
+        .affinity_jobs
         .lock()
         .map_err(|_| AppError::new("failed to lock job registry"))?;
-    if let Some(flag) = guard.get(&job_id) {
-        flag.store(true, AtomicOrdering::Relaxed);
+    if let Some(handle) = guard.get(&job_id) {
+        handle.cancel.store(true, AtomicOrdering::Relaxed);
         return Ok(true);
     }
     Ok(false)
 }
 
+#[tauri::command]
+pub fn get_affinity_watch_status(
+    job_id: String,
+    state: State<'_, AppState>,
+) -> Result<Option<AffinityWatchJobStatusDto>, AppError> {
+    let mut jobs = state
+        .affinity_jobs
+        .lock()
+        .map_err(|_| AppError::new("failed to lock job registry"))?;
+    let Some(handle) = jobs.get(&job_id) else {
+        return Ok(None);
+    };
+    let status = handle
+        .status
+        .lock()
+        .map_err(|_| AppError::new("failed to lock affinity watch status"))?
+        .clone();
+    if status.finished.is_some() {
+        jobs.remove(&job_id);
+    }
+    Ok(Some(status))
+}
+
 fn build_affinity_watch_inner(
     request: AffinityWatchRequestDto,
     state: &AppState,
+    mut progress_cb: impl FnMut(AffinityWatchProgressDto) -> bool,
 ) -> Result<AffinityWatchPayloadDto, AppError> {
     let affinities = affinity_watch_affinities(&request.solved, state);
     let levels: Vec<u16> = (0..=request.levels_ahead)
         .map(|offset| request.base.character_level.saturating_add(offset))
         .collect();
+    let total = (affinities.len() as u64)
+        .saturating_mul(levels.len() as u64)
+        .max(1);
+    let mut checked = 0_u64;
 
     let mut lines = Vec::new();
     for affinity in affinities {
         let mut points = Vec::new();
         for level in &levels {
+            if !progress_cb(AffinityWatchProgressDto {
+                job_id: String::new(),
+                checked,
+                total,
+                affinity: affinity.clone(),
+                level: *level,
+            }) {
+                return Err(AppError::new("cancelled"));
+            }
             let mut row_request = request.base.clone();
             row_request.character_level = *level;
             row_request.weapon_name = Some(request.solved.weapon_name.clone());
@@ -188,6 +248,7 @@ fn build_affinity_watch_inner(
                 metric,
                 solved,
             });
+            checked = checked.saturating_add(1);
         }
         let valid: Vec<&AffinityWatchPointDto> = points
             .iter()

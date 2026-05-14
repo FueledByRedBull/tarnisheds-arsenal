@@ -1,11 +1,11 @@
 import { Crosshair, Filter, Play, RotateCcw, SlidersHorizontal, Swords } from "lucide-react";
-import { KeyboardEvent, useEffect, useMemo, useState } from "react";
+import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { api, hasTauriRuntime } from "../../lib/api";
 import { fixed1, objectiveLabel } from "../../lib/format";
 import { SearchableSelect, openOption } from "../../lib/SearchableSelect";
 import { buildOptimizeRequest, budgetSnapshot, classMeta, classOptions, derivedLevel } from "../../lib/session";
 import { objectiveOptions, useDesktopStore } from "../../lib/state";
-import { OptimizeRequestDto, SearchProgressDto, WeaponProfileDto } from "../../lib/types";
+import { OptimizeRequestDto, SearchFinishedDto, SearchProgressDto, WeaponProfileDto } from "../../lib/types";
 
 const AFFINITY_OPTIONS = [
   "Standard",
@@ -49,6 +49,7 @@ export function CommandRail() {
   const [searchStartedAt, setSearchStartedAt] = useState<number | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [searchCancellationRequested, setSearchCancellationRequested] = useState(false);
+  const searchCancellationRequestedRef = useRef(false);
   const meta = classMeta(catalog, request.className);
   const budget = budgetSnapshot(catalog, request);
   const apiRequest = useMemo(
@@ -145,31 +146,45 @@ export function CommandRail() {
   }, [patchRequest, request.affinity, request.aowName, request.fixedUpgrade, request.maxUpgrade, request.weaponName, setError]);
 
   useEffect(() => {
-    let unlistenProgress: (() => void) | undefined;
-    let unlistenFinished: (() => void) | undefined;
-    api.onSearchProgress((payload) => {
-      if (!activeJobId || payload.jobId === activeJobId) setProgress(payload);
-    }).then((unlisten) => {
-      unlistenProgress = unlisten;
-    });
-    api.onSearchFinished((payload) => {
-      if (activeJobId && payload.jobId !== activeJobId) return;
-      if (payload.error) setError(payload.error);
-      if (payload.cancelled) clearResults("Search stopped.");
-      else setRows(payload.rows);
-      setSearching(false);
-      setActiveJobId(null);
-      setProgress(null);
-      setSearchStartedAt(null);
-      setSearchCancellationRequested(false);
-    }).then((unlisten) => {
-      unlistenFinished = unlisten;
-    });
+    if (!activeJobId || !isSearching) return undefined;
+    let disposed = false;
+
+    async function pollSearchStatus() {
+      try {
+        const currentJobId = useDesktopStore.getState().activeJobId;
+        if (!currentJobId) return;
+        const status = await api.searchStatus(currentJobId);
+        if (disposed) return;
+        if (!status) {
+          finishSearch({
+            jobId: currentJobId,
+            cancelled: true,
+            rows: [],
+            error: "Search job disappeared before returning a result.",
+          });
+          return;
+        }
+        if (status.progress) setProgress(status.progress);
+        if (status.finished) finishSearch(status.finished);
+      } catch (error) {
+        if (!disposed) {
+          finishSearch({
+            jobId: useDesktopStore.getState().activeJobId ?? "search",
+            cancelled: false,
+            rows: [],
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    }
+
+    void pollSearchStatus();
+    const interval = window.setInterval(pollSearchStatus, 200);
     return () => {
-      unlistenProgress?.();
-      unlistenFinished?.();
+      disposed = true;
+      window.clearInterval(interval);
     };
-  }, [activeJobId, clearResults, setActiveJobId, setError, setProgress, setRows, setSearching]);
+  }, [activeJobId, isSearching, setProgress]);
 
   useEffect(() => {
     if (!searchStartedAt || !isSearching) {
@@ -183,6 +198,7 @@ export function CommandRail() {
   }, [isSearching, searchStartedAt]);
 
   async function runSearch() {
+    searchCancellationRequestedRef.current = false;
     setSearching(true);
     setSearchCancellationRequested(false);
     setSearchStartedAt(Date.now());
@@ -190,6 +206,14 @@ export function CommandRail() {
     setProgress(null);
     try {
       const nextEstimate = await api.estimateSearchSpace(apiRequest);
+      if (searchCancellationRequestedRef.current) {
+        clearResults("Search stopped.");
+        setSearching(false);
+        setSearchStartedAt(null);
+        setSearchCancellationRequested(false);
+        searchCancellationRequestedRef.current = false;
+        return;
+      }
       setEstimate(nextEstimate);
       if (nextEstimate.combinations <= 0) {
         clearResults("No valid search space for current constraints.");
@@ -201,6 +225,10 @@ export function CommandRail() {
       if (hasTauriRuntime()) {
         const { jobId } = await api.startSearch(apiRequest);
         setActiveJobId(jobId);
+        if (searchCancellationRequestedRef.current) {
+          await api.cancelSearch(jobId);
+          return;
+        }
       } else {
         const rows = await api.runSearch(apiRequest);
         setRows(rows);
@@ -216,16 +244,39 @@ export function CommandRail() {
     }
   }
 
+  function finishSearch(payload: SearchFinishedDto) {
+    const current = useDesktopStore.getState();
+    if (current.activeJobId && payload.jobId !== current.activeJobId) return;
+    if (payload.error) current.setError(payload.error);
+    if (payload.cancelled) current.clearResults("Search stopped.");
+    else current.setRows(payload.rows);
+    current.setSearching(false);
+    current.setActiveJobId(null);
+    current.setProgress(null);
+    setSearchStartedAt(null);
+    setSearchCancellationRequested(false);
+    searchCancellationRequestedRef.current = false;
+  }
+
   async function cancelSearch() {
-    if (!activeJobId || searchCancellationRequested) return;
+    if (searchCancellationRequested) return;
+    searchCancellationRequestedRef.current = true;
     setSearchCancellationRequested(true);
+    const currentJobId = useDesktopStore.getState().activeJobId;
+    if (!currentJobId) return;
     try {
-      const cancelled = await api.cancelSearch(activeJobId);
+      const cancelled = await api.cancelSearch(currentJobId);
       if (!cancelled) {
+        setSearching(false);
+        setActiveJobId(null);
+        setProgress(null);
+        setSearchStartedAt(null);
         setSearchCancellationRequested(false);
+        searchCancellationRequestedRef.current = false;
       }
     } catch (error) {
       setSearchCancellationRequested(false);
+      searchCancellationRequestedRef.current = false;
       setError(error instanceof Error ? error.message : String(error));
     }
   }

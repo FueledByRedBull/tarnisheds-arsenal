@@ -8,12 +8,12 @@ use tauri::{AppHandle, Emitter, State};
 use crate::commands::data::{weapon_disables_two_hand_bonus, weapon_requirements};
 use crate::commands::optimize::run_search_inner;
 use crate::dto::{
-    CombatStateDto, PathFinishedDto, PathPreviewDto, PathPreviewRequestDto, PathProgressDto,
-    PathStepDto, StartPathPreviewRequestDto, StartSearchResponseDto, lock_request_to_stats,
-    metric_for_objective, set_min_combat_stats,
+    CombatStateDto, PathFinishedDto, PathJobStatusDto, PathPreviewDto, PathPreviewRequestDto,
+    PathProgressDto, PathStepDto, StartPathPreviewRequestDto, StartSearchResponseDto,
+    lock_request_to_stats, metric_for_objective, set_min_combat_stats,
 };
 use crate::errors::AppError;
-use crate::{AppState, CancelFlag};
+use crate::{AppState, AsyncJobHandle, CancelFlag};
 
 #[tauri::command]
 pub fn build_path_preview(
@@ -71,22 +71,34 @@ pub fn start_path_preview(
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
     let data = Arc::clone(&state.data);
-    let jobs = Arc::clone(&state.jobs);
     let job_number = state.next_job.fetch_add(1, Ordering::Relaxed);
     let job_id = format!("path-{job_number}");
     let cancel_flag: CancelFlag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let status = Arc::new(std::sync::Mutex::new(PathJobStatusDto {
+        progress: None,
+        finished: None,
+    }));
     state
-        .jobs
+        .path_jobs
         .lock()
         .map_err(|_| AppError::new("failed to lock job registry"))?
-        .insert(job_id.clone(), Arc::clone(&cancel_flag));
+        .insert(
+            job_id.clone(),
+            AsyncJobHandle {
+                cancel: Arc::clone(&cancel_flag),
+                status: Arc::clone(&status),
+            },
+        );
 
     let job_id_for_task = job_id.clone();
     let app_for_task = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let task_state = AppState {
             data,
-            jobs: Arc::clone(&jobs),
+            jobs: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
+            search_jobs: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
+            path_jobs: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
+            affinity_jobs: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
             next_job: Default::default(),
         };
         let total = request.requests.len().max(1) as u64;
@@ -98,16 +110,17 @@ pub fn start_path_preview(
                 cancelled = true;
                 break;
             }
-            let _ = app_for_task.emit(
-                "path_progress",
-                PathProgressDto {
-                    job_id: job_id_for_task.clone(),
-                    checked: idx as u64,
-                    total,
-                    title: lane.title.clone(),
-                    level: lane.base.character_level,
-                },
-            );
+            let progress = PathProgressDto {
+                job_id: job_id_for_task.clone(),
+                checked: idx as u64,
+                total,
+                title: lane.title.clone(),
+                level: lane.base.character_level,
+            };
+            if let Ok(mut guard) = status.lock() {
+                guard.progress = Some(progress.clone());
+            }
+            let _ = app_for_task.emit("path_progress", progress);
             match build_path_preview_inner(lane, &task_state) {
                 Ok(path) => paths.push(path),
                 Err(err) => {
@@ -116,18 +129,16 @@ pub fn start_path_preview(
                 }
             }
         }
-        let _ = app_for_task.emit(
-            "path_finished",
-            PathFinishedDto {
-                job_id: job_id_for_task.clone(),
-                cancelled,
-                paths,
-                error,
-            },
-        );
-        if let Ok(mut guard) = jobs.lock() {
-            guard.remove(&job_id_for_task);
+        let finished = PathFinishedDto {
+            job_id: job_id_for_task.clone(),
+            cancelled,
+            paths,
+            error,
+        };
+        if let Ok(mut guard) = status.lock() {
+            guard.finished = Some(finished.clone());
         }
+        let _ = app_for_task.emit("path_finished", finished);
     });
 
     Ok(StartSearchResponseDto { job_id })
@@ -136,14 +147,37 @@ pub fn start_path_preview(
 #[tauri::command]
 pub fn cancel_path_preview(job_id: String, state: State<'_, AppState>) -> Result<bool, AppError> {
     let guard = state
-        .jobs
+        .path_jobs
         .lock()
         .map_err(|_| AppError::new("failed to lock job registry"))?;
-    if let Some(flag) = guard.get(&job_id) {
-        flag.store(true, Ordering::Relaxed);
+    if let Some(handle) = guard.get(&job_id) {
+        handle.cancel.store(true, Ordering::Relaxed);
         return Ok(true);
     }
     Ok(false)
+}
+
+#[tauri::command]
+pub fn get_path_preview_status(
+    job_id: String,
+    state: State<'_, AppState>,
+) -> Result<Option<PathJobStatusDto>, AppError> {
+    let mut jobs = state
+        .path_jobs
+        .lock()
+        .map_err(|_| AppError::new("failed to lock job registry"))?;
+    let Some(handle) = jobs.get(&job_id) else {
+        return Ok(None);
+    };
+    let status = handle
+        .status
+        .lock()
+        .map_err(|_| AppError::new("failed to lock path status"))?
+        .clone();
+    if status.finished.is_some() {
+        jobs.remove(&job_id);
+    }
+    Ok(Some(status))
 }
 
 fn build_path_preview_inner(

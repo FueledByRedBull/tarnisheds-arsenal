@@ -12,9 +12,17 @@ mod errors;
 
 pub type CancelFlag = Arc<AtomicBool>;
 
+pub struct AsyncJobHandle<T> {
+    pub cancel: CancelFlag,
+    pub status: Arc<Mutex<T>>,
+}
+
 pub struct AppState {
     pub data: Arc<GameData>,
     pub jobs: Arc<Mutex<HashMap<String, CancelFlag>>>,
+    pub search_jobs: Arc<Mutex<HashMap<String, AsyncJobHandle<dto::SearchJobStatusDto>>>>,
+    pub path_jobs: Arc<Mutex<HashMap<String, AsyncJobHandle<dto::PathJobStatusDto>>>>,
+    pub affinity_jobs: Arc<Mutex<HashMap<String, AsyncJobHandle<dto::AffinityWatchJobStatusDto>>>>,
     pub next_job: AtomicU64,
 }
 
@@ -26,6 +34,9 @@ pub fn run() {
             app.manage(AppState {
                 data: Arc::new(data),
                 jobs: Arc::new(Mutex::new(HashMap::new())),
+                search_jobs: Arc::new(Mutex::new(HashMap::new())),
+                path_jobs: Arc::new(Mutex::new(HashMap::new())),
+                affinity_jobs: Arc::new(Mutex::new(HashMap::new())),
                 next_job: AtomicU64::new(1),
             });
             Ok(())
@@ -44,18 +55,30 @@ pub fn run() {
             commands::optimize::build_upgrade_series,
             commands::optimize::start_search,
             commands::optimize::cancel_search,
+            commands::optimize::get_search_status,
             commands::paths::build_path_preview,
             commands::paths::start_path_preview,
             commands::paths::cancel_path_preview,
+            commands::paths::get_path_preview_status,
             commands::affinity_watch::build_affinity_watch,
             commands::affinity_watch::start_affinity_watch,
             commands::affinity_watch::cancel_affinity_watch,
+            commands::affinity_watch::get_affinity_watch_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri app");
 }
 
 fn resolve_data_dir(app: &tauri::App) -> Result<PathBuf, errors::AppError> {
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            let portable_data_dir = exe_dir.join("data").join("phase1");
+            if portable_data_dir.exists() {
+                return Ok(portable_data_dir);
+            }
+        }
+    }
+
     let dev_data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../../data/phase1")
         .canonicalize()

@@ -3,13 +3,16 @@ import { listen } from "@tauri-apps/api/event";
 import {
   AffinityWatchPayloadDto,
   AffinityWatchFinishedDto,
+  AffinityWatchJobStatusDto,
   AffinityWatchProgressDto,
   CatalogDto,
   OptimizeRequestDto,
   PathFinishedDto,
+  PathJobStatusDto,
   PathPreviewDto,
   PathProgressDto,
   SearchFinishedDto,
+  SearchJobStatusDto,
   SearchEstimateDto,
   SearchProgressDto,
   ScalingDto,
@@ -56,6 +59,8 @@ export const api = {
     call<{ jobId: string }>("start_search", { request }),
   cancelSearch: (jobId: string) =>
     call<boolean>("cancel_search", { jobId }),
+  searchStatus: (jobId: string) =>
+    call<SearchJobStatusDto | null>("get_search_status", { jobId }),
   onSearchProgress: (handler: (payload: SearchProgressDto) => void) =>
     hasTauriRuntime()
       ? listen<SearchProgressDto>("search_progress", (event) => handler(event.payload))
@@ -124,6 +129,8 @@ export const api = {
   }>) => call<{ jobId: string }>("start_path_preview", { request: { requests } }),
   cancelPathPreview: (jobId: string) =>
     call<boolean>("cancel_path_preview", { jobId }),
+  pathPreviewStatus: (jobId: string) =>
+    call<PathJobStatusDto | null>("get_path_preview_status", { jobId }),
   onPathProgress: (handler: (payload: PathProgressDto) => void) =>
     hasTauriRuntime()
       ? listen<PathProgressDto>("path_progress", (event) => handler(event.payload))
@@ -142,6 +149,8 @@ export const api = {
     }),
   cancelAffinityWatch: (jobId: string) =>
     call<boolean>("cancel_affinity_watch", { jobId }),
+  affinityWatchStatus: (jobId: string) =>
+    call<AffinityWatchJobStatusDto | null>("get_affinity_watch_status", { jobId }),
   onAffinityWatchProgress: (handler: (payload: AffinityWatchProgressDto) => void) =>
     hasTauriRuntime()
       ? listen<AffinityWatchProgressDto>("affinity_watch_progress", (event) => handler(event.payload))
@@ -166,6 +175,8 @@ async function mockInvoke<T>(command: string, args?: Record<string, unknown>): P
       return { jobId: "browser-preview" } as T;
     case "cancel_search":
       return true as T;
+    case "get_search_status":
+      return null as T;
     case "solve_build":
       return await mockSolveBuild(args) as T;
     case "build_upgrade_series":
@@ -191,10 +202,14 @@ async function mockInvoke<T>(command: string, args?: Record<string, unknown>): P
       return { jobId: "browser-path-preview" } as T;
     case "cancel_path_preview":
       return true as T;
+    case "get_path_preview_status":
+      return null as T;
     case "start_affinity_watch":
       return { jobId: "browser-affinity-watch" } as T;
     case "cancel_affinity_watch":
       return true as T;
+    case "get_affinity_watch_status":
+      return null as T;
     default:
       return null as T;
   }
@@ -212,7 +227,7 @@ async function mockCatalog(): Promise<CatalogDto> {
     classes: STARTING_CLASS_METADATA,
     weaponTypeOptions,
     aowNames: uniqueSorted(aows.map((row) => row.name).filter(Boolean)),
-    objectiveIds: ["max_ar", "max_ar_plus_bleed", "aow_first_hit", "aow_full_sequence"],
+    objectiveIds: ["max_ar", "max_physical_ar", "max_ar_plus_bleed", "aow_first_hit", "aow_full_sequence"],
     somberFilters: ["all", "standard_only", "somber_only"],
   };
 }
@@ -384,6 +399,7 @@ function buildMockRow(
   const score = scorePreview(
     request?.objective ?? "max_ar",
     ar.total,
+    ar.physical,
     bleedBuildup,
     aowFirstHitDamage,
     aowFullSequenceDamage,
@@ -586,11 +602,14 @@ function meetsPreviewRequirements(weapon: CsvRow, request: OptimizeRequestDto | 
 function scorePreview(
   objective: OptimizeRequestDto["objective"],
   totalAr: number,
+  physicalAr: number,
   bleed: number,
   aowFirstHitDamage: number,
   aowFullSequenceDamage: number,
 ): number {
   switch (objective) {
+    case "max_physical_ar":
+      return physicalAr;
     case "aow_first_hit":
       return aowFirstHitDamage;
     case "aow_full_sequence":
@@ -647,6 +666,8 @@ async function mockUpgradeSeries(args: Record<string, unknown> | undefined): Pro
 
 function metricPreview(row: SolvedBuildDto, objective: OptimizeRequestDto["objective"]): number {
   switch (objective) {
+    case "max_physical_ar":
+      return row.ar.physical;
     case "aow_first_hit":
       return row.aowFirstHitDamage;
     case "aow_full_sequence":

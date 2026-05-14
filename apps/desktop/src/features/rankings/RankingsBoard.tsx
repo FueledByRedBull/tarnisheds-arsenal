@@ -1,4 +1,5 @@
-import { ArrowDownUp, Crosshair, LockKeyhole } from "lucide-react";
+import { ArrowLeft, ArrowRight, Crosshair, LockKeyhole } from "lucide-react";
+import { WheelEvent, useRef } from "react";
 import { compactNumber, fixed1, metricForObjective, statLine } from "../../lib/format";
 import { rowFingerprint } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
@@ -11,6 +12,7 @@ export function RankingsBoard() {
   const selectRow = useDesktopStore((state) => state.selectRow);
   const useRowAsLocks = useDesktopStore((state) => state.useRowAsLocks);
   const objective = useDesktopStore((state) => state.request.objective);
+  const boardRef = useRef<HTMLDivElement | null>(null);
 
   async function lockAndRerun(row: SolvedBuildDto) {
     useRowAsLocks(row);
@@ -24,9 +26,14 @@ export function RankingsBoard() {
           <h1>Build Board</h1>
           <span>{rows.length} ranked rows</span>
         </div>
-        <button className="icon-button" type="button" title="Sort controls">
-          <ArrowDownUp size={17} />
-        </button>
+        <div className="result-scroll-actions">
+          <button type="button" title="Scroll table left" onClick={() => scrollResultBoard(boardRef.current, -1)}>
+            <ArrowLeft size={16} />
+          </button>
+          <button type="button" title="Scroll table right" onClick={() => scrollResultBoard(boardRef.current, 1)}>
+            <ArrowRight size={16} />
+          </button>
+        </div>
       </div>
       <div className="top-cards">
         {[0, 1, 2].map((idx) => (
@@ -41,7 +48,7 @@ export function RankingsBoard() {
           />
         ))}
       </div>
-      <div className="result-board full-grid">
+      <div className="result-board full-grid" ref={boardRef} onWheel={scrollResultBoardWithWheel}>
         <div className="result-head result-head-full">
           <span>#</span>
           <span>Weapon</span>
@@ -77,6 +84,23 @@ export function RankingsBoard() {
       </div>
     </section>
   );
+}
+
+function scrollResultBoard(element: HTMLDivElement | null, direction: -1 | 1) {
+  if (!element) {
+    return;
+  }
+  element.scrollBy({
+    left: direction * Math.max(320, element.clientWidth * 0.8),
+    behavior: "smooth",
+  });
+}
+
+function scrollResultBoardWithWheel(event: WheelEvent<HTMLDivElement>) {
+  if (!event.shiftKey && Math.abs(event.deltaX) <= Math.abs(event.deltaY)) {
+    return;
+  }
+  event.currentTarget.scrollLeft += event.deltaX || event.deltaY;
 }
 
 function TopCard({

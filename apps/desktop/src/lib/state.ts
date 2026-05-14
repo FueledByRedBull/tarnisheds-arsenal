@@ -107,6 +107,7 @@ export const defaultRequest: OptimizeRequestDto = {
 
 export const objectiveOptions: ObjectiveId[] = [
   "max_ar",
+  "max_physical_ar",
   "max_ar_plus_bleed",
   "aow_first_hit",
   "aow_full_sequence",

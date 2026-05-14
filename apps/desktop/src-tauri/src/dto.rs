@@ -182,6 +182,13 @@ pub struct PathFinishedDto {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct PathJobStatusDto {
+    pub progress: Option<PathProgressDto>,
+    pub finished: Option<PathFinishedDto>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AffinityWatchRequestDto {
     pub base: OptimizeRequestDto,
     pub solved: SolvedBuildDto,
@@ -244,6 +251,13 @@ pub struct AffinityWatchFinishedDto {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct AffinityWatchJobStatusDto {
+    pub progress: Option<AffinityWatchProgressDto>,
+    pub finished: Option<AffinityWatchFinishedDto>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StartSearchResponseDto {
     pub job_id: String,
 }
@@ -266,6 +280,13 @@ pub struct SearchFinishedDto {
     pub cancelled: bool,
     pub rows: Vec<SolvedBuildDto>,
     pub error: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchJobStatusDto {
+    pub progress: Option<SearchProgressDto>,
+    pub finished: Option<SearchFinishedDto>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -470,6 +491,7 @@ impl From<ProgressSnapshot> for SearchProgressDto {
 pub fn parse_objective(raw: &str) -> Result<OptimizeObjective, AppError> {
     match raw.trim().to_ascii_lowercase().as_str() {
         "max_ar" => Ok(OptimizeObjective::MaxAr),
+        "max_physical_ar" | "max_phys_ar" | "max_phy_ar" => Ok(OptimizeObjective::MaxPhysicalAr),
         "max_ar_plus_bleed" | "max_ar+bleed" | "max_ar_plus_bleed_buildup" => {
             Ok(OptimizeObjective::MaxArPlusBleed)
         }
@@ -478,7 +500,7 @@ pub fn parse_objective(raw: &str) -> Result<OptimizeObjective, AppError> {
             Ok(OptimizeObjective::AowFullSequence)
         }
         _ => Err(AppError::new(format!(
-            "invalid objective '{raw}', expected max_ar, max_ar_plus_bleed, aow_first_hit, or aow_full_sequence"
+            "invalid objective '{raw}', expected max_ar, max_physical_ar, max_ar_plus_bleed, aow_first_hit, or aow_full_sequence"
         ))),
     }
 }
@@ -496,6 +518,7 @@ pub fn parse_somber_filter(raw: &str) -> Result<SomberFilter, AppError> {
 
 pub fn metric_for_objective(solved: &SolvedBuildDto, objective: &str) -> f32 {
     match objective {
+        "max_physical_ar" => solved.ar.physical,
         "aow_first_hit" => solved.aow_first_hit_damage,
         "aow_full_sequence" => solved.aow_full_sequence_damage,
         "max_ar_plus_bleed" => solved.score,

@@ -16,6 +16,8 @@ export function fixed1(value: number | null | undefined): string {
 
 export function objectiveLabel(objective: ObjectiveId): string {
   switch (objective) {
+    case "max_physical_ar":
+      return "Max Phys. AR";
     case "max_ar_plus_bleed":
       return "AR + Bleed";
     case "aow_first_hit":
@@ -29,6 +31,8 @@ export function objectiveLabel(objective: ObjectiveId): string {
 
 export function metricForObjective(row: SolvedBuildDto, objective: ObjectiveId): number {
   switch (objective) {
+    case "max_physical_ar":
+      return row.ar.physical;
     case "aow_first_hit":
       return row.aowFirstHitDamage;
     case "aow_full_sequence":

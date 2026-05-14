@@ -1,5 +1,6 @@
 export type ObjectiveId =
   | "max_ar"
+  | "max_physical_ar"
   | "max_ar_plus_bleed"
   | "aow_first_hit"
   | "aow_full_sequence";
@@ -198,6 +199,11 @@ export interface SearchFinishedDto {
   error: string | null;
 }
 
+export interface SearchJobStatusDto {
+  progress: SearchProgressDto | null;
+  finished: SearchFinishedDto | null;
+}
+
 export interface PathProgressDto {
   jobId: string;
   checked: number;
@@ -213,6 +219,11 @@ export interface PathFinishedDto {
   error: string | null;
 }
 
+export interface PathJobStatusDto {
+  progress: PathProgressDto | null;
+  finished: PathFinishedDto | null;
+}
+
 export interface AffinityWatchProgressDto {
   jobId: string;
   checked: number;
@@ -226,6 +237,11 @@ export interface AffinityWatchFinishedDto {
   cancelled: boolean;
   payload: AffinityWatchPayloadDto | null;
   error: string | null;
+}
+
+export interface AffinityWatchJobStatusDto {
+  progress: AffinityWatchProgressDto | null;
+  finished: AffinityWatchFinishedDto | null;
 }
 
 export interface Notice {

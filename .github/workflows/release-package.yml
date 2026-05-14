@@ -47,7 +47,13 @@ jobs:
           $zipPath = Join-Path "dist" "$($releaseDir.Name).zip"
           if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
           Compress-Archive -Path "$($releaseDir.FullName)\*" -DestinationPath $zipPath
+          $exePath = Get-ChildItem $releaseDir.FullName -Filter "*.exe" | Sort-Object LastWriteTime | Select-Object -Last 1
+          $msiPath = Get-ChildItem $releaseDir.FullName -Filter "*.msi" | Sort-Object LastWriteTime | Select-Object -Last 1
+          if (-not $exePath) { throw "No portable executable found in $($releaseDir.FullName)" }
+          if (-not $msiPath) { throw "No MSI found in $($releaseDir.FullName)" }
           "RELEASE_ZIP=$zipPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "RELEASE_EXE=$($exePath.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "RELEASE_MSI=$($msiPath.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Upload dist artifact
         uses: actions/upload-artifact@v4
@@ -62,4 +68,7 @@ jobs:
         with:
           name: Tarnished's Arsenal ${{ github.ref_name }}
           generate_release_notes: true
-          files: ${{ env.RELEASE_ZIP }}
+          files: |
+            ${{ env.RELEASE_ZIP }}
+            ${{ env.RELEASE_EXE }}
+            ${{ env.RELEASE_MSI }}

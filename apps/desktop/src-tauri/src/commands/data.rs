@@ -25,6 +25,7 @@ pub fn get_catalog(state: State<'_, AppState>) -> Result<CatalogDto, AppError> {
         aow_names: aow_names(data),
         objective_ids: vec![
             "max_ar".to_string(),
+            "max_physical_ar".to_string(),
             "max_ar_plus_bleed".to_string(),
             "aow_first_hit".to_string(),
             "aow_full_sequence".to_string(),

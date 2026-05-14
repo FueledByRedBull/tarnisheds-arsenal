@@ -7,7 +7,6 @@ import { runSearchFromStore } from "../../lib/workflows";
 export function Inspector() {
   const catalog = useDesktopStore((state) => state.catalog);
   const selected = useDesktopStore((state) => state.selected);
-  const compareTarget = useDesktopStore((state) => state.compareTarget);
   const request = useDesktopStore((state) => state.request);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
   const setWorkspace = useDesktopStore((state) => state.setWorkspace);
@@ -67,7 +66,7 @@ export function Inspector() {
           <div className="inspector-actions stacked">
             <button type="button" onClick={lockSelected}><LockKeyhole size={15} />Use As Locks</button>
             <button type="button" onClick={() => setWorkspace("compare")}><GitCompareArrows size={15} />Open Compare</button>
-            <button type="button" disabled={!compareTarget} onClick={() => setWorkspace("paths")}><Route size={15} />Run Paths</button>
+            <button type="button" onClick={() => setWorkspace("paths")}><Route size={15} />Run Paths</button>
             <button type="button" onClick={() => setWorkspace("affinity_watch")}><Radar size={15} />Run Affinity Watch</button>
           </div>
         </>

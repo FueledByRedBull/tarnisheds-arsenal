@@ -4,7 +4,7 @@ import { api, hasTauriRuntime } from "../../lib/api";
 import { fixed1, statLine } from "../../lib/format";
 import { buildOptimizeRequest, clampHorizon, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
-import { AffinityWatchPayloadDto } from "../../lib/types";
+import { AffinityWatchFinishedDto, AffinityWatchPayloadDto } from "../../lib/types";
 
 export function AffinityWatchView() {
   const catalog = useDesktopStore((state) => state.catalog);
@@ -31,29 +31,45 @@ export function AffinityWatchView() {
   const signature = stableSignature({ selected, objective: request.objective, level: base.characterLevel, horizon: effectiveHorizon });
 
   useEffect(() => {
-    let unlistenProgress: (() => void) | undefined;
-    let unlistenFinished: (() => void) | undefined;
-    api.onAffinityWatchProgress((event) => {
-      if (!activeAffinityJobId || event.jobId === activeAffinityJobId) setAffinityProgress(event);
-    }).then((unlisten) => {
-      unlistenProgress = unlisten;
-    });
-    api.onAffinityWatchFinished((event) => {
-      if (activeAffinityJobId && event.jobId !== activeAffinityJobId) return;
-      if (event.error) setError(event.error);
-      if (event.cancelled) pushNotice({ scope: "affinity_watch", tone: "warning", message: "Affinity watch stopped." });
-      else setAffinityPayload(event.payload, signature);
-      setAffinityBusy(false);
-      setActiveAffinityJobId(null);
-      setAffinityProgress(null);
-    }).then((unlisten) => {
-      unlistenFinished = unlisten;
-    });
+    if (!activeAffinityJobId || !isAffinityBusy) return undefined;
+    let disposed = false;
+
+    async function pollAffinityStatus() {
+      try {
+        const currentJobId = useDesktopStore.getState().activeAffinityJobId;
+        if (!currentJobId) return;
+        const status = await api.affinityWatchStatus(currentJobId);
+        if (disposed) return;
+        if (!status) {
+          finishAffinityWatch({
+            jobId: currentJobId,
+            cancelled: true,
+            payload: null,
+            error: "Affinity watch job disappeared before returning a result.",
+          });
+          return;
+        }
+        if (status.progress) setAffinityProgress(status.progress);
+        if (status.finished) finishAffinityWatch(status.finished);
+      } catch (error) {
+        if (!disposed) {
+          finishAffinityWatch({
+            jobId: useDesktopStore.getState().activeAffinityJobId ?? "affinity",
+            cancelled: false,
+            payload: null,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    }
+
+    void pollAffinityStatus();
+    const interval = window.setInterval(pollAffinityStatus, 200);
     return () => {
-      unlistenProgress?.();
-      unlistenFinished?.();
+      disposed = true;
+      window.clearInterval(interval);
     };
-  }, [activeAffinityJobId, pushNotice, setActiveAffinityJobId, setAffinityBusy, setAffinityPayload, setAffinityProgress, setError, signature]);
+  }, [activeAffinityJobId, isAffinityBusy, setAffinityProgress]);
 
   async function refresh() {
     if (!selected) {
@@ -91,6 +107,17 @@ export function AffinityWatchView() {
     if (activeAffinityJobId) await api.cancelAffinityWatch(activeAffinityJobId);
   }
 
+  function finishAffinityWatch(event: AffinityWatchFinishedDto) {
+    const current = useDesktopStore.getState();
+    if (current.activeAffinityJobId && event.jobId !== current.activeAffinityJobId) return;
+    if (event.error) current.setError(event.error);
+    if (event.cancelled) current.pushNotice({ scope: "affinity_watch", tone: "warning", message: "Affinity watch stopped." });
+    else current.setAffinityPayload(event.payload, signature);
+    current.setAffinityBusy(false);
+    current.setActiveAffinityJobId(null);
+    current.setAffinityProgress(null);
+  }
+
   return (
     <section className="workspace-panel affinity-panel">
       <div className="workspace-header">
@@ -105,7 +132,7 @@ export function AffinityWatchView() {
           </label>
           <button type="button" onClick={isAffinityBusy ? stop : refresh}>
             {isAffinityBusy ? <Pause size={15} /> : <Play size={15} />}
-            {isAffinityBusy ? "Stop" : "Refresh"}
+            {isAffinityBusy ? "Stop" : "Start"}
           </button>
         </div>
       </div>

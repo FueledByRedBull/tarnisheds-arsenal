@@ -588,10 +588,28 @@ select:focus {
 .result-board {
   height: calc(100% - 64px);
   overflow: auto;
+  scrollbar-color: var(--gold-quiet) var(--iron-900);
+  scrollbar-width: thin;
 }
 
 .rankings-panel .result-board {
   height: calc(100% - 214px);
+  overflow: scroll;
+  overscroll-behavior: contain;
+  padding-bottom: 4px;
+}
+
+.result-scroll-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.result-scroll-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
 }
 
 .top-cards {
@@ -633,6 +651,7 @@ select:focus {
 
 .card-actions button,
 .header-controls button,
+.result-scroll-actions button,
 .inline-lock {
   display: inline-flex;
   align-items: center;
@@ -648,6 +667,7 @@ select:focus {
 
 .card-actions button:hover,
 .header-controls button:hover,
+.result-scroll-actions button:hover,
 .inline-lock:hover {
   color: var(--parchment);
   border-color: var(--gold-quiet);

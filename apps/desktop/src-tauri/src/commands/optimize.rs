@@ -9,12 +9,12 @@ use tauri::{AppHandle, Emitter, State};
 
 use crate::commands::data::weapon_upgrade_cap;
 use crate::dto::{
-    SearchEstimateDto, SearchFinishedDto, SearchProgressDto, SolveBuildRequestDto, SolvedBuildDto,
-    StartSearchResponseDto, UpgradePointDto, UpgradeSeriesRequestDto, lock_request_to_stats,
-    metric_for_objective,
+    SearchEstimateDto, SearchFinishedDto, SearchJobStatusDto, SearchProgressDto,
+    SolveBuildRequestDto, SolvedBuildDto, StartSearchResponseDto, UpgradePointDto,
+    UpgradeSeriesRequestDto, lock_request_to_stats, metric_for_objective,
 };
 use crate::errors::AppError;
-use crate::{AppState, CancelFlag};
+use crate::{AppState, AsyncJobHandle, CancelFlag};
 
 #[tauri::command]
 pub fn estimate_search_space(
@@ -108,15 +108,24 @@ pub fn start_search(
     clamp_weapon_upgrade_request(&mut request, &state)?;
     let core_request = OptimizeRequest::try_from(&request)?;
     let data = Arc::clone(&state.data);
-    let jobs = Arc::clone(&state.jobs);
     let job_number = state.next_job.fetch_add(1, Ordering::Relaxed);
     let job_id = format!("search-{job_number}");
     let cancel_flag: CancelFlag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let status = Arc::new(std::sync::Mutex::new(SearchJobStatusDto {
+        progress: None,
+        finished: None,
+    }));
     state
-        .jobs
+        .search_jobs
         .lock()
         .map_err(|_| AppError::new("failed to lock job registry"))?
-        .insert(job_id.clone(), Arc::clone(&cancel_flag));
+        .insert(
+            job_id.clone(),
+            AsyncJobHandle {
+                cancel: Arc::clone(&cancel_flag),
+                status: Arc::clone(&status),
+            },
+        );
 
     let job_id_for_task = job_id.clone();
     let app_for_task = app.clone();
@@ -128,6 +137,9 @@ pub fn start_search(
             }
             let mut payload = SearchProgressDto::from(snapshot);
             payload.job_id = progress_job_id.clone();
+            if let Ok(mut guard) = status.lock() {
+                guard.progress = Some(payload.clone());
+            }
             let _ = app_for_task.emit("search_progress", payload);
             true
         });
@@ -141,18 +153,16 @@ pub fn start_search(
             Err(message) if message == "cancelled" => (Vec::new(), None, true),
             Err(message) => (Vec::new(), Some(message), false),
         };
-        let _ = app_for_task.emit(
-            "search_finished",
-            SearchFinishedDto {
-                job_id: job_id_for_task.clone(),
-                cancelled,
-                rows,
-                error,
-            },
-        );
-        if let Ok(mut guard) = jobs.lock() {
-            guard.remove(&job_id_for_task);
+        let finished = SearchFinishedDto {
+            job_id: job_id_for_task.clone(),
+            cancelled,
+            rows,
+            error,
+        };
+        if let Ok(mut guard) = status.lock() {
+            guard.finished = Some(finished.clone());
         }
+        let _ = app_for_task.emit("search_finished", finished);
     });
 
     Ok(StartSearchResponseDto { job_id })
@@ -161,14 +171,37 @@ pub fn start_search(
 #[tauri::command]
 pub fn cancel_search(job_id: String, state: State<'_, AppState>) -> Result<bool, AppError> {
     let guard = state
-        .jobs
+        .search_jobs
         .lock()
         .map_err(|_| AppError::new("failed to lock job registry"))?;
-    if let Some(flag) = guard.get(&job_id) {
-        flag.store(true, Ordering::Relaxed);
+    if let Some(handle) = guard.get(&job_id) {
+        handle.cancel.store(true, Ordering::Relaxed);
         return Ok(true);
     }
     Ok(false)
+}
+
+#[tauri::command]
+pub fn get_search_status(
+    job_id: String,
+    state: State<'_, AppState>,
+) -> Result<Option<SearchJobStatusDto>, AppError> {
+    let mut jobs = state
+        .search_jobs
+        .lock()
+        .map_err(|_| AppError::new("failed to lock job registry"))?;
+    let Some(handle) = jobs.get(&job_id) else {
+        return Ok(None);
+    };
+    let status = handle
+        .status
+        .lock()
+        .map_err(|_| AppError::new("failed to lock search status"))?
+        .clone();
+    if status.finished.is_some() {
+        jobs.remove(&job_id);
+    }
+    Ok(Some(status))
 }
 
 pub fn clamp_weapon_upgrade_request(

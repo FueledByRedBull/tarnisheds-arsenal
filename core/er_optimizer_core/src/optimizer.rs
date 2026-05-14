@@ -14,6 +14,7 @@ use crate::model::{
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OptimizeObjective {
     MaxAr,
+    MaxPhysicalAr,
     MaxArPlusBleed,
     AowFirstHit,
     AowFullSequence,
@@ -498,6 +499,7 @@ fn score_for(
 ) -> f32 {
     match objective {
         OptimizeObjective::MaxAr => total_ar,
+        OptimizeObjective::MaxPhysicalAr => total_ar,
         OptimizeObjective::MaxArPlusBleed => total_ar + status_buildup.bleed,
         OptimizeObjective::AowFirstHit => aow_first_hit_damage,
         OptimizeObjective::AowFullSequence => aow_full_sequence_damage,
@@ -514,7 +516,7 @@ fn score_candidate(
     data: &GameData,
 ) -> Result<CandidateMetric, String> {
     match objective {
-        OptimizeObjective::MaxAr => {
+        OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr => {
             let ar = calculate_ar_with_buffs(
                 prepared,
                 aow_choice,
@@ -523,8 +525,12 @@ fn score_candidate(
                 effective_str_value,
                 data,
             )?;
+            let score = match objective {
+                OptimizeObjective::MaxPhysicalAr => ar.physical,
+                _ => ar.total(),
+            };
             Ok(CandidateMetric {
-                score: ar.total(),
+                score,
                 ar: Some(ar),
                 status_buildup: None,
                 aow_first_hit_damage: None,
@@ -813,7 +819,7 @@ fn resolve_aow_choices<'a>(
 
     if matches!(
         request.objective,
-        OptimizeObjective::MaxAr | OptimizeObjective::MaxArPlusBleed
+        OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr | OptimizeObjective::MaxArPlusBleed
     ) {
         return Ok(Some(open_aow_choices_for_objective(
             weapon,
@@ -1024,7 +1030,10 @@ fn combat_has_wasted_points(
     prepared: &PreparedWeapon<'_>,
     combat: &[u8; COMBAT_STAT_COUNT],
 ) -> bool {
-    if !matches!(request.objective, OptimizeObjective::MaxAr) {
+    if !matches!(
+        request.objective,
+        OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr
+    ) {
         return false;
     }
     if !prepared
@@ -1313,6 +1322,21 @@ mod tests {
         );
         assert!(results.iter().all(|result| result.affinity == "Keen"));
         assert!(results.iter().all(|result| result.upgrade <= 25));
+    }
+
+    #[test]
+    fn max_physical_ar_scores_the_physical_ar_component() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.objective = OptimizeObjective::MaxPhysicalAr;
+        request.affinity = Some("Heavy".to_string());
+        request.aow_name = Some("Seppuku".to_string());
+        request.max_upgrade = 25;
+        request.fixed_upgrade = Some(25);
+
+        let results = optimize(&request, &game_data).expect("optimizer failed");
+        assert!(!results.is_empty());
+        assert!((results[0].score - results[0].ar.physical).abs() < 0.001);
     }
 
     #[test]

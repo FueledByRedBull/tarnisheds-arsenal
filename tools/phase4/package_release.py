@@ -69,6 +69,7 @@ def main() -> int:
     msi = newest("target/release/bundle/msi/*.msi", tauri_dir)
     shutil.copy2(exe, release_dir / exe.name)
     shutil.copy2(msi, release_dir / msi.name)
+    shutil.copytree(root / "data" / "phase1", release_dir / "data" / "phase1")
     if (root / "LICENSE").exists():
         shutil.copy2(root / "LICENSE", release_dir / "LICENSE")
 
@@ -83,13 +84,15 @@ def main() -> int:
                 "## Included",
                 f"- `{msi.name}` installer",
                 f"- `{exe.name}` portable executable",
+                "- `data/phase1/` portable runtime data",
                 "- `LICENSE`",
                 "",
                 "## Install",
-                "Run the MSI installer, or launch the executable directly for a portable run.",
+                "Run the MSI installer, or launch the executable directly from this folder for a portable run.",
                 "",
                 "## Runtime Data",
                 "The installer bundles the committed `data/phase1` runtime snapshot as a Tauri resource.",
+                "The portable executable loads the adjacent `data/phase1` folder in this release directory.",
             ]
         )
         + "\n",
