@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
-use er_optimizer_core::{Aow, GameData, Weapon};
 use er_optimizer_core::math::STARTING_CLASSES;
+use er_optimizer_core::{Aow, GameData, Weapon};
 use tauri::State;
 
 use crate::AppState;
@@ -172,7 +172,12 @@ pub fn weapon_type_options(data: &GameData) -> Vec<WeaponTypeOptionDto> {
             .weapon_type_keys
             .split('|')
             .find(|raw| !raw.trim().is_empty() && raw.trim().eq_ignore_ascii_case(&label))
-            .or_else(|| weapon.weapon_type_keys.split('|').find(|raw| !raw.trim().is_empty()))
+            .or_else(|| {
+                weapon
+                    .weapon_type_keys
+                    .split('|')
+                    .find(|raw| !raw.trim().is_empty())
+            })
             .map(str::trim)
             .unwrap_or(label.as_str())
             .to_string();
@@ -213,7 +218,8 @@ pub fn weapon_names_for_type_inner(data: &GameData, weapon_type_key: Option<&str
                     .weapon_type_keys
                     .split('|')
                     .any(|candidate| candidate.eq_ignore_ascii_case(key))
-                    || normalize_weapon_type_display(&weapon.weapon_type_name).eq_ignore_ascii_case(key)
+                    || normalize_weapon_type_display(&weapon.weapon_type_name)
+                        .eq_ignore_ascii_case(key)
             })
             .unwrap_or(true);
         if matches_type {

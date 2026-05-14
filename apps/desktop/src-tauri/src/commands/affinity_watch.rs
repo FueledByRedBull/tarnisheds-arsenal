@@ -4,15 +4,15 @@ use std::sync::atomic::Ordering as AtomicOrdering;
 
 use tauri::{AppHandle, Emitter, State};
 
-use crate::{AppState, CancelFlag};
 use crate::commands::data::{affinities_for_weapon_inner, compatible_aow_names_inner};
 use crate::commands::optimize::run_search_inner;
 use crate::dto::{
-    AffinityBreakpointDto, AffinityWatchFinishedDto, AffinityWatchLineDto,
-    AffinityWatchPayloadDto, AffinityWatchPointDto, AffinityWatchProgressDto,
-    AffinityWatchRequestDto, SolvedBuildDto, StartSearchResponseDto, metric_for_objective,
+    AffinityBreakpointDto, AffinityWatchFinishedDto, AffinityWatchLineDto, AffinityWatchPayloadDto,
+    AffinityWatchPointDto, AffinityWatchProgressDto, AffinityWatchRequestDto, SolvedBuildDto,
+    StartSearchResponseDto, metric_for_objective,
 };
 use crate::errors::AppError;
+use crate::{AppState, CancelFlag};
 
 #[tauri::command]
 pub fn build_affinity_watch(

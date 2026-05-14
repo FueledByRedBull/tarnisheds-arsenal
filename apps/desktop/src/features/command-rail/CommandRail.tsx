@@ -48,6 +48,7 @@ export function CommandRail() {
   const [aowNames, setAowNames] = useState<string[]>([]);
   const [searchStartedAt, setSearchStartedAt] = useState<number | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
+  const [searchCancellationRequested, setSearchCancellationRequested] = useState(false);
   const meta = classMeta(catalog, request.className);
   const budget = budgetSnapshot(catalog, request);
   const apiRequest = useMemo(
@@ -160,6 +161,7 @@ export function CommandRail() {
       setActiveJobId(null);
       setProgress(null);
       setSearchStartedAt(null);
+      setSearchCancellationRequested(false);
     }).then((unlisten) => {
       unlistenFinished = unlisten;
     });
@@ -182,6 +184,7 @@ export function CommandRail() {
 
   async function runSearch() {
     setSearching(true);
+    setSearchCancellationRequested(false);
     setSearchStartedAt(Date.now());
     setError(null);
     setProgress(null);
@@ -192,6 +195,7 @@ export function CommandRail() {
         clearResults("No valid search space for current constraints.");
         setSearching(false);
         setSearchStartedAt(null);
+        setSearchCancellationRequested(false);
         return;
       }
       if (hasTauriRuntime()) {
@@ -202,16 +206,28 @@ export function CommandRail() {
         setRows(rows);
         setSearching(false);
         setSearchStartedAt(null);
+        setSearchCancellationRequested(false);
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : String(error));
       setSearching(false);
       setSearchStartedAt(null);
+      setSearchCancellationRequested(false);
     }
   }
 
   async function cancelSearch() {
-    if (activeJobId) await api.cancelSearch(activeJobId);
+    if (!activeJobId || searchCancellationRequested) return;
+    setSearchCancellationRequested(true);
+    try {
+      const cancelled = await api.cancelSearch(activeJobId);
+      if (!cancelled) {
+        setSearchCancellationRequested(false);
+      }
+    } catch (error) {
+      setSearchCancellationRequested(false);
+      setError(error instanceof Error ? error.message : String(error));
+    }
   }
 
   return (
@@ -459,9 +475,14 @@ export function CommandRail() {
       </div>
 
       <div className="rail-actions">
-        <button className={`search-button ${isSearching ? "busy" : ""}`} type="button" onClick={isSearching ? cancelSearch : runSearch}>
+        <button
+          className={`search-button ${isSearching ? "busy" : ""}`}
+          type="button"
+          onClick={isSearching ? cancelSearch : runSearch}
+          disabled={searchCancellationRequested}
+        >
           {isSearching ? <RotateCcw size={17} /> : <Play size={17} />}
-          {isSearching ? "Cancel Search" : "Search"}
+          {isSearching ? (searchCancellationRequested ? "Cancelling..." : "Cancel Search") : "Search"}
         </button>
 
         {isSearching ? (

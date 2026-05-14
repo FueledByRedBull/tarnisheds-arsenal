@@ -5,7 +5,6 @@ use er_optimizer_core::effective_str;
 use er_optimizer_core::model::COMBAT_STAT_COUNT;
 use tauri::{AppHandle, Emitter, State};
 
-use crate::{AppState, CancelFlag};
 use crate::commands::data::{weapon_disables_two_hand_bonus, weapon_requirements};
 use crate::commands::optimize::run_search_inner;
 use crate::dto::{
@@ -14,6 +13,7 @@ use crate::dto::{
     metric_for_objective, set_min_combat_stats,
 };
 use crate::errors::AppError;
+use crate::{AppState, CancelFlag};
 
 #[tauri::command]
 pub fn build_path_preview(

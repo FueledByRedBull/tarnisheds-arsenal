@@ -32,6 +32,7 @@ ui/desktop/er_optimizer_core/
 *.whl
 tmp_*.png
 release-notes-*.md
+/tarnisheds-arsenal-desktop.exe
 
 # Retired PyQt desktop workspace
 ui/desktop/

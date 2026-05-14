@@ -122,7 +122,7 @@ pub fn start_search(
     let app_for_task = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let progress_job_id = job_id_for_task.clone();
-        let result = optimize_with_progress(&core_request, &data, 5000, |snapshot| {
+        let result = optimize_with_progress(&core_request, &data, 250, |snapshot| {
             if cancel_flag.load(Ordering::Relaxed) {
                 return false;
             }

@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 use crate::model::{
@@ -22,15 +23,37 @@ struct CsvTable {
 
 impl CsvTable {
     fn from_path(path: &Path) -> Result<Self, String> {
-        let content = fs::read_to_string(path)
-            .map_err(|err| format!("failed reading {}: {err}", path.display()))?;
+        let content = match fs::read_to_string(path) {
+            Ok(content) => content,
+            Err(err) if err.kind() == ErrorKind::NotFound => {
+                if let Some(content) = embedded_csv_for_path(path) {
+                    return Self::from_content(
+                        format!("embedded:{}", csv_file_name(path)),
+                        content,
+                    );
+                }
+                return Err(format!("failed reading {}: {err}", path.display()));
+            }
+            Err(err) => return Err(format!("failed reading {}: {err}", path.display())),
+        };
+        Self::from_content(path.display().to_string(), &content)
+    }
+
+    fn from_optional_path(path: &Path) -> Result<Option<Self>, String> {
+        if path.exists() {
+            return Self::from_path(path).map(Some);
+        }
+        embedded_csv_for_path(path)
+            .map(|content| Self::from_content(format!("embedded:{}", csv_file_name(path)), content))
+            .transpose()
+    }
+
+    fn from_content(source: String, content: &str) -> Result<Self, String> {
         let mut lines = content.lines();
-        let header_line = lines
-            .next()
-            .ok_or_else(|| format!("{} is empty", path.display()))?;
+        let header_line = lines.next().ok_or_else(|| format!("{source} is empty"))?;
         let headers = split_csv_line(header_line);
         if headers.is_empty() {
-            return Err(format!("{} has no headers", path.display()));
+            return Err(format!("{source} has no headers"));
         }
 
         let mut rows = Vec::new();
@@ -44,8 +67,7 @@ impl CsvTable {
             }
             if row.len() != headers.len() {
                 return Err(format!(
-                    "{} line {} has {} columns, expected {}",
-                    path.display(),
+                    "{source} line {} has {} columns, expected {}",
                     line_idx + 2,
                     row.len(),
                     headers.len()
@@ -66,6 +88,39 @@ impl CsvTable {
     fn get<'a>(&self, row: &'a [String], field: &str) -> Result<&'a str, String> {
         let idx = self.idx(field)?;
         Ok(row[idx].as_str())
+    }
+}
+
+fn csv_file_name(path: &Path) -> String {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("<unknown>")
+        .to_string()
+}
+
+fn embedded_csv_for_path(path: &Path) -> Option<&'static str> {
+    match path.file_name().and_then(|name| name.to_str())? {
+        "aow.csv" => Some(include_str!("../../../data/phase1/aow.csv")),
+        "aow_attack_data.csv" => Some(include_str!("../../../data/phase1/aow_attack_data.csv")),
+        "aow_buffs.csv" => Some(include_str!("../../../data/phase1/aow_buffs.csv")),
+        "aow_weapon_compat.csv" => Some(include_str!("../../../data/phase1/aow_weapon_compat.csv")),
+        "attack_element_correct.csv" => Some(include_str!(
+            "../../../data/phase1/attack_element_correct.csv"
+        )),
+        "attack_element_correct_ext.csv" => Some(include_str!(
+            "../../../data/phase1/attack_element_correct_ext.csv"
+        )),
+        "calc_correct.csv" => Some(include_str!("../../../data/phase1/calc_correct.csv")),
+        "native_skill_attack_data.csv" => Some(include_str!(
+            "../../../data/phase1/native_skill_attack_data.csv"
+        )),
+        "reinforce.csv" => Some(include_str!("../../../data/phase1/reinforce.csv")),
+        "weapon_passive_overlays.csv" => Some(include_str!(
+            "../../../data/phase1/weapon_passive_overlays.csv"
+        )),
+        "weapon_passives.csv" => Some(include_str!("../../../data/phase1/weapon_passives.csv")),
+        "weapons.csv" => Some(include_str!("../../../data/phase1/weapons.csv")),
+        _ => None,
     }
 }
 
@@ -460,11 +515,9 @@ fn load_aows(path: PathBuf, buff_rows: &HashMap<u16, AowBuffRow>) -> Result<Vec<
 }
 
 fn load_aow_buffs_optional(path: PathBuf) -> Result<HashMap<u16, AowBuffRow>, String> {
-    if !path.exists() {
+    let Some(table) = CsvTable::from_optional_path(&path)? else {
         return Ok(HashMap::new());
-    }
-
-    let table = CsvTable::from_path(&path)?;
+    };
     let mut out = HashMap::with_capacity(table.rows.len());
     for row in &table.rows {
         let aow_id = parse_u16(table.get(row, "aow_id")?, "aow_id")?;
@@ -545,11 +598,9 @@ fn load_aow_buffs_optional(path: PathBuf) -> Result<HashMap<u16, AowBuffRow>, St
 fn load_attack_element_correct_ext_optional(
     path: PathBuf,
 ) -> Result<HashMap<usize, AttackElementCorrectExt>, String> {
-    if !path.exists() {
+    let Some(table) = CsvTable::from_optional_path(&path)? else {
         return Ok(HashMap::new());
-    }
-
-    let table = CsvTable::from_path(&path)?;
+    };
     let mut out = HashMap::with_capacity(table.rows.len());
     for row in &table.rows {
         let row_id = parse_usize(
@@ -591,11 +642,9 @@ fn load_attack_element_correct_ext_optional(
 }
 
 fn load_aow_attack_rows_optional(path: PathBuf) -> Result<HashMap<u16, Vec<AowAttackRow>>, String> {
-    if !path.exists() {
+    let Some(table) = CsvTable::from_optional_path(&path)? else {
         return Ok(HashMap::new());
-    }
-
-    let table = CsvTable::from_path(&path)?;
+    };
     let mut out: HashMap<u16, Vec<AowAttackRow>> = HashMap::new();
     for row in &table.rows {
         let aow_id = parse_u16(table.get(row, "aow_id")?, "aow_id")?;
@@ -613,11 +662,9 @@ fn load_aow_attack_rows_optional(path: PathBuf) -> Result<HashMap<u16, Vec<AowAt
 fn load_native_skill_attack_rows_optional(
     path: PathBuf,
 ) -> Result<HashMap<u32, Vec<AowAttackRow>>, String> {
-    if !path.exists() {
+    let Some(table) = CsvTable::from_optional_path(&path)? else {
         return Ok(HashMap::new());
-    }
-
-    let table = CsvTable::from_path(&path)?;
+    };
     let mut out: HashMap<u32, Vec<AowAttackRow>> = HashMap::new();
     for row in &table.rows {
         let weapon_id = parse_u32(table.get(row, "weapon_id")?, "weapon_id")?;
@@ -692,11 +739,9 @@ fn parse_aow_attack_row(
 fn load_weapon_passives_optional(
     path: PathBuf,
 ) -> Result<HashMap<u32, StatusEffectSource>, String> {
-    if !path.exists() {
+    let Some(table) = CsvTable::from_optional_path(&path)? else {
         return Ok(HashMap::new());
-    }
-
-    let table = CsvTable::from_path(&path)?;
+    };
     let mut out = HashMap::with_capacity(table.rows.len());
     for row in &table.rows {
         let weapon_id = parse_u32(table.get(row, "weapon_id")?, "weapon_id")?;
@@ -737,11 +782,9 @@ fn parse_status_effect_source(
 fn load_weapon_passive_overlays_optional(
     path: PathBuf,
 ) -> Result<HashMap<u32, Vec<Option<StatusEffectSource>>>, String> {
-    if !path.exists() {
+    let Some(table) = CsvTable::from_optional_path(&path)? else {
         return Ok(HashMap::new());
-    }
-
-    let table = CsvTable::from_path(&path)?;
+    };
     let mut max_level_by_weapon = HashMap::<u32, usize>::new();
     let mut entries = Vec::<(u32, usize, StatusEffectSource)>::with_capacity(table.rows.len());
     for row in &table.rows {
@@ -769,11 +812,9 @@ fn load_weapon_passive_overlays_optional(
 }
 
 fn load_exact_aow_compat_optional(path: PathBuf) -> Result<HashSet<(u16, u32)>, String> {
-    if !path.exists() {
+    let Some(table) = CsvTable::from_optional_path(&path)? else {
         return Ok(HashSet::new());
-    }
-
-    let table = CsvTable::from_path(&path)?;
+    };
     let mut out = HashSet::with_capacity(table.rows.len());
     for row in &table.rows {
         let aow_id = parse_u16(table.get(row, "aow_id")?, "aow_id")?;
@@ -781,4 +822,17 @@ fn load_exact_aow_compat_optional(path: PathBuf) -> Result<HashSet<(u16, u32)>, 
         out.insert((aow_id, weapon_id));
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::load_game_data;
+
+    #[test]
+    fn load_game_data_falls_back_to_embedded_csvs() {
+        let data = load_game_data("__missing_phase1_data_dir__").expect("embedded data loads");
+        assert!(data.weapons.len() > 3000);
+        assert!(data.aows.len() > 100);
+        assert!(!data.exact_aow_compat.is_empty());
+    }
 }

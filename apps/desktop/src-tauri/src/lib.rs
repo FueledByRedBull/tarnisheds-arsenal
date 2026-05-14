@@ -69,11 +69,5 @@ fn resolve_data_dir(app: &tauri::App) -> Result<PathBuf, errors::AppError> {
         .resource_dir()
         .map_err(|err| errors::AppError::new(format!("failed to resolve resource dir: {err}")))?;
     let bundled = resource_dir.join("data").join("phase1");
-    if bundled.exists() {
-        return Ok(bundled);
-    }
-    Err(errors::AppError::new(format!(
-        "data/phase1 resource not found; checked {}",
-        bundled.display()
-    )))
+    Ok(bundled)
 }
