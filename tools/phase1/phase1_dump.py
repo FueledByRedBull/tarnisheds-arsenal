@@ -424,8 +424,9 @@ def expand_calc_correct_curve(curve: dict[str, str]) -> list[float]:
     stage_grow_vals = [to_float(curve, f"stageMaxGrowVal{i}") for i in range(5)]
     exponents = [to_float(curve, f"adjPt_maxGrowVal{i}") for i in range(5)]
 
-    multipliers = [0.0] * 100
-    for x in range(1, 100):
+    max_stat_value = max(99, math.ceil(max(stage_vals)))
+    multipliers = [0.0] * (max_stat_value + 1)
+    for x in range(1, max_stat_value + 1):
         segment = None
         for idx in range(4):
             if stage_vals[idx] <= x <= stage_vals[idx + 1]:

@@ -512,7 +512,7 @@ fn score_candidate(
     aow_choice: &AowChoice<'_>,
     upgrade: u8,
     stats: &Stats,
-    effective_str_value: u8,
+    effective_str_value: u16,
     data: &GameData,
 ) -> Result<CandidateMetric, String> {
     match objective {
@@ -591,7 +591,7 @@ fn complete_candidate_metric(
     aow_choice: &AowChoice<'_>,
     upgrade: u8,
     stats: &Stats,
-    effective_str_value: u8,
+    effective_str_value: u16,
     data: &GameData,
 ) -> Result<CandidateMetric, String> {
     let ar = match ar {
@@ -640,7 +640,7 @@ fn calculate_ar_with_buffs(
     aow_choice: &AowChoice<'_>,
     upgrade: u8,
     stats: &Stats,
-    effective_str_value: u8,
+    effective_str_value: u16,
     data: &GameData,
 ) -> Result<DamageBreakdown, String> {
     Ok(apply_aow_attack_buffs(
@@ -671,7 +671,7 @@ fn calculate_aow_metric(
     aow_choice: &AowChoice<'_>,
     upgrade: u8,
     stats: &Stats,
-    effective_str_value: u8,
+    effective_str_value: u16,
     data: &GameData,
 ) -> Result<(f32, f32), String> {
     if aow_choice.attack_rows.is_empty() {
@@ -1083,7 +1083,7 @@ fn minimum_str_for_requirement(
         return requirement;
     }
     for candidate in 0..=requirement {
-        if effective_str(candidate, true, false) >= requirement {
+        if effective_str(candidate, true, false) >= u16::from(requirement) {
             return candidate;
         }
     }

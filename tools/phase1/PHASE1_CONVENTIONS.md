@@ -7,10 +7,11 @@
   - `weapon_type_keys`: pipe-delimited keys that directly match `aow.csv.valid_weapon_types` tokens.
 - `calc_correct.csv` multipliers are normalized to `0.0..1.0` (`growth / 100.0`).
 - `reinforce.csv` damage/scaling multipliers are emitted as raw multipliers from `ReinforceParamWeapon` (for example `1.058`), with no additional normalization.
-- `calc_correct.csv` is pre-expanded to exactly 100 rows per curve:
+- `calc_correct.csv` is pre-expanded through each curve's final stage point, with at least 100 rows per curve:
   - `stat_value=0` is always written as `multiplier=0.0` and is reserved.
-  - Runtime lookup convention is direct indexing: stat values `1..99` map to indices `1..99`.
+  - Runtime lookup convention is direct indexing: stat values map to matching indices.
   - No `-1` offset is used for curve lookup.
+  - Some weapon scaling curves extend to `150`; this is required for two-handing effective STR above the normal `99` stat cap.
   - Expansion uses segmented exponent handling:
     - if `adjPt > 0`: `ratio_curve = ratio ** adjPt`
     - if `adjPt < 0`: `ratio_curve = 1 - (1 - ratio) ** (-adjPt)`

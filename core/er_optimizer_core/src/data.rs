@@ -393,17 +393,17 @@ fn load_calc_correct(path: PathBuf) -> Result<Vec<Vec<f32>>, String> {
     for row in &table.rows {
         let curve_id = parse_usize(table.get(row, "curve_id")?, "curve_id")?;
         let stat_value = parse_usize(table.get(row, "stat_value")?, "stat_value")?;
-        if stat_value > 99 {
-            return Err(format!(
-                "calc_correct stat_value out of range: {stat_value}"
-            ));
-        }
         let multiplier = parse_f32(table.get(row, "multiplier")?, "multiplier")?;
         max_curve_id = max_curve_id.max(curve_id);
         entries.push((curve_id, stat_value, multiplier));
     }
 
-    let mut out = vec![vec![0.0_f32; 100]; max_curve_id + 1];
+    let max_stat_value = entries
+        .iter()
+        .map(|(_, stat_value, _)| *stat_value)
+        .max()
+        .unwrap_or(0);
+    let mut out = vec![vec![0.0_f32; max_stat_value + 1]; max_curve_id + 1];
     for (curve_id, stat_value, multiplier) in entries {
         out[curve_id][stat_value] = multiplier;
     }

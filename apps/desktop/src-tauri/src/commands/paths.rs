@@ -344,7 +344,7 @@ fn requirement_gap(
     };
     let disables_bonus = weapon_disables_two_hand_bonus(&state.data, weapon_name, affinity);
     let effective_str = effective_str(stats.str_stat, base.two_handing, disables_bonus);
-    u16::from(reqs[0].saturating_sub(effective_str))
+    u16::from(reqs[0]).saturating_sub(effective_str)
         + u16::from(reqs[1].saturating_sub(stats.dex))
         + u16::from(reqs[2].saturating_sub(stats.int_stat))
         + u16::from(reqs[3].saturating_sub(stats.fai))

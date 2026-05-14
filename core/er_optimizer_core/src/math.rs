@@ -11,16 +11,16 @@ pub struct ScalingContribution {
     pub contributes: bool,
 }
 
-pub fn effective_str(str_stat: u8, two_handing: bool, disable_two_hand_bonus: bool) -> u8 {
+pub fn effective_str(str_stat: u8, two_handing: bool, disable_two_hand_bonus: bool) -> u16 {
     if two_handing && !disable_two_hand_bonus {
-        ((f32::from(str_stat) * 1.5) as u8).min(99)
+        (u16::from(str_stat) * 3) / 2
     } else {
-        str_stat
+        u16::from(str_stat)
     }
 }
 
-pub fn meets_requirements(weapon: &Weapon, effective_str: u8, stats: &Stats) -> bool {
-    effective_str >= weapon.requirements[STAT_STR]
+pub fn meets_requirements(weapon: &Weapon, effective_str: u16, stats: &Stats) -> bool {
+    effective_str >= u16::from(weapon.requirements[STAT_STR])
         && stats.dex >= weapon.requirements[STAT_DEX]
         && stats.int >= weapon.requirements[STAT_INT]
         && stats.fai >= weapon.requirements[STAT_FAI]
@@ -84,19 +84,19 @@ pub fn calculate_ar_for_type(
 
 fn stat_values_for_scaling(
     stats: &Stats,
-    effective_str_value: u8,
+    effective_str_value: u16,
     two_hand_disabled: bool,
-) -> [u8; COMBAT_STAT_COUNT] {
+) -> [u16; COMBAT_STAT_COUNT] {
     [
         if two_hand_disabled {
-            stats.str
+            u16::from(stats.str)
         } else {
             effective_str_value
         },
-        stats.dex,
-        stats.int,
-        stats.fai,
-        stats.arc,
+        u16::from(stats.dex),
+        u16::from(stats.int),
+        u16::from(stats.fai),
+        u16::from(stats.arc),
     ]
 }
 
@@ -104,7 +104,7 @@ pub fn calculate_ar(
     weapon: &Weapon,
     upgrade: u8,
     stats: &Stats,
-    effective_str_value: u8,
+    effective_str_value: u16,
     data: &GameData,
 ) -> Result<DamageBreakdown, String> {
     let reinforce = data
@@ -179,7 +179,7 @@ fn calculate_skill_damage_for_type(
     attack_row: &AowAttackRow,
     upgrade: u8,
     stats: &Stats,
-    effective_str_value: u8,
+    effective_str_value: u16,
     damage_type: DamageType,
     data: &GameData,
 ) -> Result<f32, String> {
@@ -265,7 +265,7 @@ pub fn calculate_aow_damage(
     attack_rows: &[&AowAttackRow],
     upgrade: u8,
     stats: &Stats,
-    effective_str_value: u8,
+    effective_str_value: u16,
     data: &GameData,
 ) -> Result<(f32, f32), String> {
     let mut first_hit = None;
@@ -334,7 +334,7 @@ pub fn calculate_status_buildup(
                 return Ok(value);
             }
             let curve_mult = data
-                .calc_curve_value(curve_id, stat_value)
+                .calc_curve_value(curve_id, u16::from(stat_value))
                 .ok_or_else(|| format!("missing curve_id={curve_id} for status scaling"))?;
             Ok(value
                 * (1.0 + weapon.scaling[stat_idx] * reinforce.scaling_mult[stat_idx] * curve_mult))
@@ -443,7 +443,7 @@ pub fn apply_aow_status_buffs(
                 return Ok(value);
             }
             let curve_mult = data
-                .calc_curve_value(curve_id, stat_value)
+                .calc_curve_value(curve_id, u16::from(stat_value))
                 .ok_or_else(|| format!("missing curve_id={curve_id} for status scaling"))?;
             Ok(value
                 * (1.0 + weapon.scaling[stat_idx] * reinforce.scaling_mult[stat_idx] * curve_mult))
@@ -1004,6 +1004,53 @@ mod tests {
         )
         .unwrap();
         assert!((fire_uchi_breakdown.total() - 652.8947).abs() < 0.02);
+    }
+
+    #[test]
+    fn two_handed_strength_scales_beyond_stat_cap() {
+        let data_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("data")
+            .join("phase1");
+        let game_data = load_game_data(data_path).unwrap();
+
+        let giant_crusher = find_weapon(&game_data, "Giant-Crusher", "Heavy");
+        let stats = Stats {
+            vig: 60,
+            mnd: 11,
+            end: 20,
+            str: 84,
+            dex: 15,
+            int: 9,
+            fai: 8,
+            arc: 8,
+        };
+        assert_eq!(
+            effective_str(stats.str, true, giant_crusher.disable_two_hand_bonus),
+            126
+        );
+
+        let breakdown = calculate_ar(
+            giant_crusher,
+            25,
+            &stats,
+            effective_str(stats.str, true, giant_crusher.disable_two_hand_bonus),
+            &game_data,
+        )
+        .unwrap();
+        assert!((breakdown.physical - 976.025).abs() < 0.02);
+
+        let capped_stats = Stats { str: 99, ..stats };
+        let capped_breakdown = calculate_ar(
+            giant_crusher,
+            25,
+            &capped_stats,
+            effective_str(capped_stats.str, true, giant_crusher.disable_two_hand_bonus),
+            &game_data,
+        )
+        .unwrap();
+        assert!(capped_breakdown.physical > breakdown.physical);
     }
 
     #[test]

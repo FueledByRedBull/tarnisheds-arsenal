@@ -708,9 +708,7 @@ fn build_request(
 fn parse_objective(raw: &str) -> Result<OptimizeObjective, String> {
     match raw.trim().to_ascii_lowercase().as_str() {
         "max_ar" => Ok(OptimizeObjective::MaxAr),
-        "max_physical_ar" | "max_phys_ar" | "max_phy_ar" => {
-            Ok(OptimizeObjective::MaxPhysicalAr)
-        }
+        "max_physical_ar" | "max_phys_ar" | "max_phy_ar" => Ok(OptimizeObjective::MaxPhysicalAr),
         "max_ar_plus_bleed" | "max_ar+bleed" | "max_ar_plus_bleed_buildup" => {
             Ok(OptimizeObjective::MaxArPlusBleed)
         }

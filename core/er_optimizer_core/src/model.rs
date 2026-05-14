@@ -268,7 +268,7 @@ impl GameData {
             .and_then(Option::as_ref)
     }
 
-    pub fn calc_curve_value(&self, curve_id: usize, stat_value: u8) -> Option<f32> {
+    pub fn calc_curve_value(&self, curve_id: usize, stat_value: u16) -> Option<f32> {
         self.calc_correct
             .get(curve_id)
             .and_then(|curve| curve.get(usize::from(stat_value)))

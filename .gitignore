@@ -21,9 +21,13 @@ test-results/
 # Rust
 **/target/
 **/src-tauri/gen/
+/core/er_optimizer_core/target/
+/apps/desktop/src-tauri/target/
+/apps/desktop/src-tauri/gen/
 
 # Build/release output
-dist/
+/dist/
+/apps/desktop/dist/
 dist_release/
 build/
 build_release/
