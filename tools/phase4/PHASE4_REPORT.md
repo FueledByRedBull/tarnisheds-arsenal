@@ -25,7 +25,7 @@ All passed on this workspace.
 python tools/phase4/package_release.py
 ```
 
-This is now a gated release command: it runs core and Tauri `cargo test`, builds and installs the local validation binding, runs `validate_phase4.py`, installs frontend dependencies with `npm ci`, runs the Tauri production build, and only then writes `dist/`.
+This is now a gated release command: it runs core and Tauri `cargo test`, builds and installs the release-profile local validation binding, runs `validate_phase4.py`, installs frontend dependencies with `npm ci`, runs the Tauri production build, and only then writes `dist/`.
 
 Generated:
 
@@ -34,6 +34,7 @@ Generated:
 Contents:
 - Windows MSI installer
 - Portable executable
+- `data/phase1` portable runtime data
 - `LICENSE`
 - `README.md`
 
@@ -45,6 +46,3 @@ Start-Process dist/TarnishedsArsenal_<version>/tarnisheds-arsenal-desktop.exe
 ```
 
 The Tauri bundle loads the committed `data/phase1` snapshot as an app resource.
-
-## Note
-- `validate_phase4.py` reports a warning that PyQt level-path checks are skipped because the retired UI is archived under `archive/python-desktop`.

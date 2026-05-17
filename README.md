@@ -20,9 +20,9 @@ weapon x affinity x AoW x upgrade x stat distribution
 
 Get the latest Windows build from [Releases](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
 
-- `TarnishedsArsenal_<version>_x64_en-US.msi` is the normal installer.
+- `Tarnished's Arsenal_<version>_x64_en-US.msi` is the normal installer.
 - `tarnisheds-arsenal-desktop.exe` is the portable executable.
-- `TarnishedsArsenal_<version>.zip` bundles both binaries with the README and license.
+- `TarnishedsArsenal_<version>.zip` bundles both binaries, runtime data, the README, and the license.
 
 ## What It Answers
 
@@ -33,6 +33,7 @@ Most calculators are built around one exact weapon line. This app is built for o
 - Which stat path reaches the selected target most efficiently?
 - Which affinity wins if weapon, AoW, class, and level budget stay fixed?
 - What happens when the same build is evaluated at every upgrade level?
+- How does Shadow Realm Scadutree scaling change outgoing damage?
 
 ## Workspaces
 
@@ -81,6 +82,7 @@ Included data covers:
 - workbook-backed AoW buff data
 - paired and no-two-hand-bonus behavior
 - AoW attack rows for PvE damage objectives
+- Shadow of the Erdtree Scadutree blessing attack scaling
 
 Current boundaries:
 
@@ -121,7 +123,7 @@ Build a Windows release package:
 python tools/phase4/package_release.py
 ```
 
-The release helper runs core and Tauri tests, builds and installs the local validation binding, runs data validation, installs frontend dependencies, builds the Tauri app, and writes `dist/TarnishedsArsenal_<version>`.
+The release helper runs core and Tauri tests, builds and installs the release-profile local validation binding, runs data validation, installs frontend dependencies, builds the Tauri app, and writes `dist/TarnishedsArsenal_<version>`.
 
 ## Refresh Data
 
@@ -157,7 +159,6 @@ python tools/phase1/derive_phase1_extras.py --input data/phase1 --output data/ph
 | `data/phase1` | Committed runtime data snapshot. |
 | `tools/phase1` | Extraction and data refresh tooling. |
 | `tools/phase4` | Validation, benchmarking, and release packaging. |
-| `archive/python-desktop` | Retired PyQt reference app kept for behavior comparisons. |
 
 ## License
 
