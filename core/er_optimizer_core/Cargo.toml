@@ -1,6 +1,6 @@
 [package]
 name = "er_optimizer_core"
-version = "0.4.6"
+version = "0.4.7"
 edition = "2024"
 
 [lib]
@@ -13,3 +13,4 @@ python = ["dep:pyo3"]
 
 [dependencies]
 pyo3 = { version = "0.22.6", features = ["abi3-py310", "extension-module"], optional = true }
+rayon = "1"

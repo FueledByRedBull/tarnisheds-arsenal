@@ -40,6 +40,8 @@ export interface OptimizeRequestDto {
   maxUpgrade: number;
   fixedUpgrade: number | null;
   twoHanding: boolean;
+  dlcScaling: boolean;
+  scadutreeLevel: number;
   weaponName: string | null;
   affinity: string | null;
   aowName: string | null;

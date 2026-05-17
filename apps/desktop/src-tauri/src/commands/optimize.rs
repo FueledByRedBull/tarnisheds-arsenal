@@ -5,7 +5,7 @@ use er_optimizer_core::{
     OptimizeRequest, estimate_search_space as core_estimate_search_space, optimize,
     optimize_with_progress,
 };
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, State};
 
 use crate::commands::data::weapon_upgrade_cap;
 use crate::dto::{
@@ -102,7 +102,7 @@ pub fn build_upgrade_series(
 #[tauri::command]
 pub fn start_search(
     mut request: crate::dto::OptimizeRequestDto,
-    app: AppHandle,
+    _app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
     clamp_weapon_upgrade_request(&mut request, &state)?;
@@ -128,10 +128,9 @@ pub fn start_search(
         );
 
     let job_id_for_task = job_id.clone();
-    let app_for_task = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let progress_job_id = job_id_for_task.clone();
-        let result = optimize_with_progress(&core_request, &data, 250, |snapshot| {
+        let result = optimize_with_progress(&core_request, &data, 10_000, |snapshot| {
             if cancel_flag.load(Ordering::Relaxed) {
                 return false;
             }
@@ -140,7 +139,6 @@ pub fn start_search(
             if let Ok(mut guard) = status.lock() {
                 guard.progress = Some(payload.clone());
             }
-            let _ = app_for_task.emit("search_progress", payload);
             true
         });
 
@@ -162,7 +160,6 @@ pub fn start_search(
         if let Ok(mut guard) = status.lock() {
             guard.finished = Some(finished.clone());
         }
-        let _ = app_for_task.emit("search_finished", finished);
     });
 
     Ok(StartSearchResponseDto { job_id })
@@ -211,7 +208,11 @@ pub fn clamp_weapon_upgrade_request(
     let Some(weapon_name) = request.weapon_name.as_deref() else {
         return Ok(());
     };
-    let cap = weapon_upgrade_cap(&state.data, weapon_name, request.affinity.as_deref())?;
+    let cap = weapon_upgrade_cap(
+        &state.catalog_index,
+        weapon_name,
+        request.affinity.as_deref(),
+    )?;
     request.max_upgrade = request.max_upgrade.min(cap);
     if let Some(fixed_upgrade) = request.fixed_upgrade {
         request.fixed_upgrade = Some(fixed_upgrade.min(cap));

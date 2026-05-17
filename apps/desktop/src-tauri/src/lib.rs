@@ -19,6 +19,7 @@ pub struct AsyncJobHandle<T> {
 
 pub struct AppState {
     pub data: Arc<GameData>,
+    pub catalog_index: Arc<commands::data::CatalogIndex>,
     pub jobs: Arc<Mutex<HashMap<String, CancelFlag>>>,
     pub search_jobs: Arc<Mutex<HashMap<String, AsyncJobHandle<dto::SearchJobStatusDto>>>>,
     pub path_jobs: Arc<Mutex<HashMap<String, AsyncJobHandle<dto::PathJobStatusDto>>>>,
@@ -31,8 +32,10 @@ pub fn run() {
         .setup(|app| {
             let data_dir = resolve_data_dir(app)?;
             let data = load_game_data(&data_dir).map_err(errors::AppError::from)?;
+            let catalog_index = commands::data::CatalogIndex::build(&data);
             app.manage(AppState {
                 data: Arc::new(data),
+                catalog_index: Arc::new(catalog_index),
                 jobs: Arc::new(Mutex::new(HashMap::new())),
                 search_jobs: Arc::new(Mutex::new(HashMap::new())),
                 path_jobs: Arc::new(Mutex::new(HashMap::new())),

@@ -1,10 +1,14 @@
 use std::collections::{HashMap, HashSet};
-use std::time::Instant;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
+use rayon::prelude::*;
 
 use crate::math::{
     apply_aow_attack_buffs, apply_aow_status_buffs, calculate_aow_damage, calculate_ar,
     calculate_status_buildup, class_by_name, compute_free_points, effective_str,
-    meets_requirements,
+    meets_requirements, scadutree_attack_multiplier,
 };
 use crate::model::{
     Aow, AowAttackRow, COMBAT_STAT_COUNT, DamageBreakdown, DamageType, GameData, STAT_ARC,
@@ -37,6 +41,8 @@ pub struct OptimizeRequest {
     pub max_upgrade: u8,
     pub fixed_upgrade: Option<u8>,
     pub two_handing: bool,
+    pub dlc_scaling: bool,
+    pub scadutree_level: u8,
     pub weapon_name: Option<String>,
     pub affinity: Option<String>,
     pub aow_name: Option<String>,
@@ -44,6 +50,12 @@ pub struct OptimizeRequest {
     pub somber_filter: SomberFilter,
     pub objective: OptimizeObjective,
     pub top_k: usize,
+}
+
+impl OptimizeRequest {
+    pub fn damage_multiplier(&self) -> f32 {
+        scadutree_attack_multiplier(self.dlc_scaling, self.scadutree_level)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -116,6 +128,37 @@ struct CandidateMetric {
     aow_full_sequence_damage: Option<f32>,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct SearchWorkUnit {
+    prepared_idx: usize,
+    aow_start: usize,
+    aow_end: usize,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ProgressEmitState {
+    last_checked: u64,
+    last_at: Instant,
+}
+
+trait SearchProgress {
+    fn advance(
+        &mut self,
+        checked_delta: u64,
+        eligible_delta: u64,
+        best_score: Option<f32>,
+    ) -> Result<(), String>;
+    fn is_cancelled(&self) -> bool;
+    fn finish(&mut self) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+const PARALLEL_SEARCH_MIN_COMBINATIONS: u64 = 50_000_000;
+const PARALLEL_AOW_CHUNK_SIZE: usize = 8;
+const PARALLEL_PROGRESS_BATCH: u64 = 8_192;
+const PROGRESS_MIN_INTERVAL: Duration = Duration::from_millis(100);
+
 pub fn estimate_search_space(
     request: &OptimizeRequest,
     data: &GameData,
@@ -142,10 +185,10 @@ pub fn optimize_with_progress<F>(
     request: &OptimizeRequest,
     data: &GameData,
     progress_every: u64,
-    mut progress_cb: F,
+    progress_cb: F,
 ) -> Result<Vec<OptimizeResult>, String>
 where
-    F: FnMut(ProgressSnapshot) -> bool,
+    F: FnMut(ProgressSnapshot) -> bool + Send,
 {
     if request.top_k == 0 {
         return Ok(Vec::new());
@@ -167,223 +210,616 @@ where
         .map(|entry| (entry.upgrades.len() * entry.aow_choices.len()) as u64)
         .sum();
     let total = stat_count.saturating_mul(upgrade_slots);
-    let emit_every = if progress_every == 0 {
-        0
+    let work_units = build_search_work_units(&weapons);
+
+    if should_use_parallel_search(total, work_units.len()) {
+        optimize_parallel(
+            request,
+            data,
+            constraints,
+            &weapons,
+            &work_units,
+            total,
+            progress_every,
+            progress_cb,
+        )
     } else {
-        progress_every
-    };
+        let mut progress = SerialSearchProgress::new(total, progress_every, progress_cb);
+        optimize_serial(
+            request,
+            data,
+            constraints,
+            &weapons,
+            &work_units,
+            &mut progress,
+        )
+    }
+}
 
-    let started = Instant::now();
-    let mut checked: u64 = 0;
-    let mut eligible: u64 = 0;
-    let mut best_score = 0.0_f32;
-    let mut has_best = false;
-    let mut results: Vec<OptimizeResult> = Vec::with_capacity(request.top_k);
+fn should_use_parallel_search(total: u64, work_unit_count: usize) -> bool {
+    work_unit_count >= 2
+        && total >= PARALLEL_SEARCH_MIN_COMBINATIONS
+        && rayon::current_num_threads() > 1
+}
 
-    if !progress_cb(ProgressSnapshot {
-        checked,
+fn build_search_work_units(weapons: &[PreparedWeapon<'_>]) -> Vec<SearchWorkUnit> {
+    let mut units = Vec::new();
+    for (prepared_idx, prepared) in weapons.iter().enumerate() {
+        if prepared.aow_choices.len() <= PARALLEL_AOW_CHUNK_SIZE {
+            units.push(SearchWorkUnit {
+                prepared_idx,
+                aow_start: 0,
+                aow_end: prepared.aow_choices.len(),
+            });
+            continue;
+        }
+        for aow_start in (0..prepared.aow_choices.len()).step_by(PARALLEL_AOW_CHUNK_SIZE) {
+            units.push(SearchWorkUnit {
+                prepared_idx,
+                aow_start,
+                aow_end: (aow_start + PARALLEL_AOW_CHUNK_SIZE).min(prepared.aow_choices.len()),
+            });
+        }
+    }
+    units
+}
+
+fn optimize_serial<F>(
+    request: &OptimizeRequest,
+    data: &GameData,
+    constraints: CombatConstraints,
+    weapons: &[PreparedWeapon<'_>],
+    work_units: &[SearchWorkUnit],
+    progress: &mut SerialSearchProgress<F>,
+) -> Result<Vec<OptimizeResult>, String>
+where
+    F: FnMut(ProgressSnapshot) -> bool,
+{
+    progress.emit_initial()?;
+    let mut results = Vec::with_capacity(request.top_k);
+    for unit in work_units {
+        let mut unit_results =
+            search_work_unit(request, data, constraints, weapons, *unit, progress)?;
+        merge_top_k(&mut results, unit_results.drain(..), request.top_k);
+    }
+    progress.emit_final()?;
+    Ok(results)
+}
+
+fn optimize_parallel<F>(
+    request: &OptimizeRequest,
+    data: &GameData,
+    constraints: CombatConstraints,
+    weapons: &[PreparedWeapon<'_>],
+    work_units: &[SearchWorkUnit],
+    total: u64,
+    progress_every: u64,
+    progress_cb: F,
+) -> Result<Vec<OptimizeResult>, String>
+where
+    F: FnMut(ProgressSnapshot) -> bool + Send,
+{
+    let progress = Arc::new(ParallelSearchProgress::new(
         total,
-        eligible,
-        best_score,
-        elapsed_ms: 0,
-    }) {
+        progress_every,
+        progress_cb,
+    ));
+    progress.emit_initial()?;
+    let partial_results = work_units
+        .par_iter()
+        .map(|unit| {
+            let mut local_progress = ParallelLocalProgress::new(Arc::clone(&progress));
+            let result = search_work_unit(
+                request,
+                data,
+                constraints,
+                weapons,
+                *unit,
+                &mut local_progress,
+            );
+            let finish_result = local_progress.finish();
+            match (result, finish_result) {
+                (Ok(results), Ok(())) => Ok(results),
+                (Err(err), _) | (_, Err(err)) => Err(err),
+            }
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+
+    let mut results = Vec::with_capacity(request.top_k);
+    for unit_results in partial_results {
+        merge_top_k(&mut results, unit_results.into_iter(), request.top_k);
+    }
+    progress.emit_final()?;
+    if progress.is_cancelled() {
         return Err("cancelled".to_string());
     }
+    Ok(results)
+}
 
+fn search_work_unit<P>(
+    request: &OptimizeRequest,
+    data: &GameData,
+    constraints: CombatConstraints,
+    weapons: &[PreparedWeapon<'_>],
+    unit: SearchWorkUnit,
+    progress: &mut P,
+) -> Result<Vec<OptimizeResult>, String>
+where
+    P: SearchProgress,
+{
+    let prepared = &weapons[unit.prepared_idx];
+    let mut results = Vec::with_capacity(request.top_k);
+    let damage_multiplier = request.damage_multiplier();
     let mut current_combat = constraints.mins;
     let mut visit_result: Result<(), String> = Ok(());
-    visit_stat_candidates(constraints, &mut current_combat, |combat| {
-        for prepared in &weapons {
-            for aow_choice in &prepared.aow_choices {
-                let mut stats = request.current_stats;
-                stats.str = combat[STAT_STR];
-                stats.dex = combat[STAT_DEX];
-                stats.int = combat[STAT_INT];
-                stats.fai = combat[STAT_FAI];
-                stats.arc = combat[STAT_ARC];
 
-                let effective_str_value = effective_str(
-                    stats.str,
-                    request.two_handing,
-                    prepared.weapon.disable_two_hand_bonus,
-                );
-                if combat_has_wasted_points(request, prepared, combat) {
-                    let previous_checked = checked;
-                    checked = checked.saturating_add(prepared.upgrades.len() as u64);
-                    if emit_every > 0 && checked / emit_every != previous_checked / emit_every {
-                        if !progress_cb(ProgressSnapshot {
-                            checked,
-                            total,
-                            eligible,
-                            best_score,
-                            elapsed_ms: started.elapsed().as_millis() as u64,
-                        }) {
-                            visit_result = Err("cancelled".to_string());
-                            return false;
-                        }
+    visit_stat_candidates(constraints, &mut current_combat, |combat| {
+        if progress.is_cancelled() {
+            visit_result = Err("cancelled".to_string());
+            return false;
+        }
+        for aow_choice in &prepared.aow_choices[unit.aow_start..unit.aow_end] {
+            let mut stats = request.current_stats;
+            stats.str = combat[STAT_STR];
+            stats.dex = combat[STAT_DEX];
+            stats.int = combat[STAT_INT];
+            stats.fai = combat[STAT_FAI];
+            stats.arc = combat[STAT_ARC];
+
+            let effective_str_value = effective_str(
+                stats.str,
+                request.two_handing,
+                prepared.weapon.disable_two_hand_bonus,
+            );
+            if combat_has_wasted_points(request, prepared, combat) {
+                if let Err(err) = progress.advance(prepared.upgrades.len() as u64, 0, None) {
+                    visit_result = Err(err);
+                    return false;
+                }
+                continue;
+            }
+
+            for upgrade in &prepared.upgrades {
+                if !meets_requirements(prepared.weapon, effective_str_value, &stats) {
+                    if let Err(err) = progress.advance(1, 0, None) {
+                        visit_result = Err(err);
+                        return false;
                     }
                     continue;
                 }
 
-                for upgrade in &prepared.upgrades {
-                    checked += 1;
-                    if !meets_requirements(prepared.weapon, effective_str_value, &stats) {
-                        if emit_every > 0 && checked % emit_every == 0 {
-                            if !progress_cb(ProgressSnapshot {
-                                checked,
-                                total,
-                                eligible,
-                                best_score,
-                                elapsed_ms: started.elapsed().as_millis() as u64,
-                            }) {
-                                visit_result = Err("cancelled".to_string());
-                                return false;
-                            }
-                        }
-                        continue;
+                let metric = score_candidate(
+                    request.objective,
+                    prepared,
+                    aow_choice,
+                    *upgrade,
+                    &stats,
+                    effective_str_value,
+                    damage_multiplier,
+                    data,
+                );
+                let CandidateMetric {
+                    score,
+                    ar,
+                    status_buildup,
+                    aow_first_hit_damage,
+                    aow_full_sequence_damage,
+                } = match metric {
+                    Ok(metric) => metric,
+                    Err(err) => {
+                        visit_result = Err(err);
+                        return false;
                     }
-
-                    eligible += 1;
-                    let metric = score_candidate(
-                        request.objective,
-                        prepared,
-                        aow_choice,
-                        *upgrade,
-                        &stats,
-                        effective_str_value,
-                        data,
-                    );
-                    let CandidateMetric {
-                        score,
-                        ar,
-                        status_buildup,
-                        aow_first_hit_damage,
-                        aow_full_sequence_damage,
-                    } = match metric {
-                        Ok(metric) => metric,
-                        Err(err) => {
-                            visit_result = Err(err);
-                            return false;
-                        }
-                    };
-                    if matches!(request.objective, OptimizeObjective::AowFirstHit)
-                        && aow_first_hit_damage.unwrap_or(0.0) <= 0.0
-                    {
-                        continue;
+                };
+                if matches!(request.objective, OptimizeObjective::AowFirstHit)
+                    && aow_first_hit_damage.unwrap_or(0.0) <= 0.0
+                {
+                    if let Err(err) = progress.advance(1, 1, None) {
+                        visit_result = Err(err);
+                        return false;
                     }
-                    if matches!(request.objective, OptimizeObjective::AowFullSequence)
-                        && aow_full_sequence_damage.unwrap_or(0.0) <= 0.0
-                    {
-                        continue;
-                    }
-                    if !has_best || score > best_score {
-                        best_score = score;
-                        has_best = true;
-                    }
-                    if !could_enter_top_k(&results, score, request.top_k) {
-                        if emit_every > 0 && checked % emit_every == 0 {
-                            if !progress_cb(ProgressSnapshot {
-                                checked,
-                                total,
-                                eligible,
-                                best_score,
-                                elapsed_ms: started.elapsed().as_millis() as u64,
-                            }) {
-                                visit_result = Err("cancelled".to_string());
-                                return false;
-                            }
-                        }
-                        continue;
-                    }
-                    let full = complete_candidate_metric(
-                        ar,
-                        status_buildup,
-                        aow_first_hit_damage,
-                        aow_full_sequence_damage,
-                        prepared,
-                        aow_choice,
-                        *upgrade,
-                        &stats,
-                        effective_str_value,
-                        data,
-                    );
-                    let CandidateMetric {
-                        score: _,
-                        ar,
-                        status_buildup,
-                        aow_first_hit_damage,
-                        aow_full_sequence_damage,
-                    } = match full {
-                        Ok(metric) => metric,
-                        Err(err) => {
-                            visit_result = Err(err);
-                            return false;
-                        }
-                    };
-                    let ar = ar.expect("complete candidate metric must include AR");
-                    let status_buildup =
-                        status_buildup.expect("complete candidate metric must include status");
-                    let aow_first_hit_damage = aow_first_hit_damage
-                        .expect("complete candidate metric must include first-hit damage");
-                    let aow_full_sequence_damage = aow_full_sequence_damage
-                        .expect("complete candidate metric must include full-sequence damage");
-                    push_top_k(
-                        &mut results,
-                        OptimizeResult {
-                            weapon_id: prepared.weapon.weapon_id,
-                            weapon_name: prepared.weapon.name.clone(),
-                            affinity: prepared.weapon.affinity.clone(),
-                            is_somber: prepared.weapon.is_somber,
-                            upgrade: *upgrade,
-                            stats,
-                            ar,
-                            aow_id: aow_choice.skill_id,
-                            aow_name: aow_choice.skill_name.map(str::to_string),
-                            bleed_buildup: status_buildup.bleed,
-                            bleed_buildup_add: aow_choice
-                                .aow
-                                .map(|aow| aow.bleed_buildup_add)
-                                .unwrap_or(0.0),
-                            frost_buildup: status_buildup.frost,
-                            poison_buildup: status_buildup.poison,
-                            scarlet_rot_buildup: status_buildup.scarlet_rot,
-                            aow_first_hit_damage,
-                            aow_full_sequence_damage,
-                            score,
-                        },
-                        request.top_k,
-                    );
-
-                    if emit_every > 0 && checked % emit_every == 0 {
-                        if !progress_cb(ProgressSnapshot {
-                            checked,
-                            total,
-                            eligible,
-                            best_score,
-                            elapsed_ms: started.elapsed().as_millis() as u64,
-                        }) {
-                            visit_result = Err("cancelled".to_string());
-                            return false;
-                        }
-                    }
+                    continue;
                 }
+                if matches!(request.objective, OptimizeObjective::AowFullSequence)
+                    && aow_full_sequence_damage.unwrap_or(0.0) <= 0.0
+                {
+                    if let Err(err) = progress.advance(1, 1, None) {
+                        visit_result = Err(err);
+                        return false;
+                    }
+                    continue;
+                }
+                if let Err(err) = progress.advance(1, 1, Some(score)) {
+                    visit_result = Err(err);
+                    return false;
+                }
+                if !could_enter_top_k(&results, score, request.top_k) {
+                    continue;
+                }
+                let full = complete_candidate_metric(
+                    ar,
+                    status_buildup,
+                    aow_first_hit_damage,
+                    aow_full_sequence_damage,
+                    prepared,
+                    aow_choice,
+                    *upgrade,
+                    &stats,
+                    effective_str_value,
+                    damage_multiplier,
+                    data,
+                );
+                let CandidateMetric {
+                    score: _,
+                    ar,
+                    status_buildup,
+                    aow_first_hit_damage,
+                    aow_full_sequence_damage,
+                } = match full {
+                    Ok(metric) => metric,
+                    Err(err) => {
+                        visit_result = Err(err);
+                        return false;
+                    }
+                };
+                push_top_k(
+                    &mut results,
+                    OptimizeResult {
+                        weapon_id: prepared.weapon.weapon_id,
+                        weapon_name: prepared.weapon.name.clone(),
+                        affinity: prepared.weapon.affinity.clone(),
+                        is_somber: prepared.weapon.is_somber,
+                        upgrade: *upgrade,
+                        stats,
+                        ar: ar.expect("complete candidate metric must include AR"),
+                        aow_id: aow_choice.skill_id,
+                        aow_name: aow_choice.skill_name.map(str::to_string),
+                        bleed_buildup: status_buildup
+                            .expect("complete candidate metric must include status")
+                            .bleed,
+                        bleed_buildup_add: aow_choice
+                            .aow
+                            .map(|aow| aow.bleed_buildup_add)
+                            .unwrap_or(0.0),
+                        frost_buildup: status_buildup
+                            .expect("complete candidate metric must include status")
+                            .frost,
+                        poison_buildup: status_buildup
+                            .expect("complete candidate metric must include status")
+                            .poison,
+                        scarlet_rot_buildup: status_buildup
+                            .expect("complete candidate metric must include status")
+                            .scarlet_rot,
+                        aow_first_hit_damage: aow_first_hit_damage
+                            .expect("complete candidate metric must include first-hit damage"),
+                        aow_full_sequence_damage: aow_full_sequence_damage
+                            .expect("complete candidate metric must include full-sequence damage"),
+                        score,
+                    },
+                    request.top_k,
+                );
             }
         }
         true
     });
     visit_result?;
+    progress.finish()?;
+    Ok(results)
+}
 
-    if !progress_cb(ProgressSnapshot {
-        checked,
-        total,
-        eligible,
-        best_score,
-        elapsed_ms: started.elapsed().as_millis() as u64,
-    }) {
-        return Err("cancelled".to_string());
+fn merge_top_k(
+    results: &mut Vec<OptimizeResult>,
+    candidates: impl IntoIterator<Item = OptimizeResult>,
+    top_k: usize,
+) {
+    for candidate in candidates {
+        push_top_k(results, candidate, top_k);
+    }
+}
+
+struct SerialSearchProgress<F>
+where
+    F: FnMut(ProgressSnapshot) -> bool,
+{
+    total: u64,
+    checked: u64,
+    eligible: u64,
+    best_score: Option<f32>,
+    started: Instant,
+    progress_every: u64,
+    last_emit: ProgressEmitState,
+    callback: F,
+    cancelled: bool,
+}
+
+impl<F> SerialSearchProgress<F>
+where
+    F: FnMut(ProgressSnapshot) -> bool,
+{
+    fn new(total: u64, progress_every: u64, callback: F) -> Self {
+        let started = Instant::now();
+        Self {
+            total,
+            checked: 0,
+            eligible: 0,
+            best_score: None,
+            started,
+            progress_every,
+            last_emit: ProgressEmitState {
+                last_checked: 0,
+                last_at: started,
+            },
+            callback,
+            cancelled: false,
+        }
     }
 
-    Ok(results)
+    fn emit_initial(&mut self) -> Result<(), String> {
+        self.emit(true)
+    }
+
+    fn emit_final(&mut self) -> Result<(), String> {
+        self.emit(true)
+    }
+
+    fn emit_if_due(&mut self) -> Result<(), String> {
+        if self.progress_every == 0 {
+            return Ok(());
+        }
+        if self.checked.saturating_sub(self.last_emit.last_checked) < self.progress_every {
+            return Ok(());
+        }
+        if self.last_emit.last_at.elapsed() < PROGRESS_MIN_INTERVAL {
+            return Ok(());
+        }
+        self.emit(false)
+    }
+
+    fn emit(&mut self, force: bool) -> Result<(), String> {
+        if self.cancelled && !force {
+            return Err("cancelled".to_string());
+        }
+        let snapshot = ProgressSnapshot {
+            checked: self.checked,
+            total: self.total,
+            eligible: self.eligible,
+            best_score: self.best_score.unwrap_or(0.0),
+            elapsed_ms: self.started.elapsed().as_millis() as u64,
+        };
+        if !(self.callback)(snapshot) {
+            self.cancelled = true;
+            return Err("cancelled".to_string());
+        }
+        self.last_emit = ProgressEmitState {
+            last_checked: self.checked,
+            last_at: Instant::now(),
+        };
+        Ok(())
+    }
+}
+
+impl<F> SearchProgress for SerialSearchProgress<F>
+where
+    F: FnMut(ProgressSnapshot) -> bool,
+{
+    fn advance(
+        &mut self,
+        checked_delta: u64,
+        eligible_delta: u64,
+        best_score: Option<f32>,
+    ) -> Result<(), String> {
+        self.checked = self.checked.saturating_add(checked_delta);
+        self.eligible = self.eligible.saturating_add(eligible_delta);
+        if let Some(score) = best_score {
+            if self.best_score.is_none_or(|current| score > current) {
+                self.best_score = Some(score);
+            }
+        }
+        self.emit_if_due()
+    }
+
+    fn is_cancelled(&self) -> bool {
+        self.cancelled
+    }
+}
+
+struct ParallelSearchProgress<F>
+where
+    F: FnMut(ProgressSnapshot) -> bool + Send,
+{
+    total: u64,
+    checked: AtomicU64,
+    eligible: AtomicU64,
+    cancelled: AtomicBool,
+    best_score: Mutex<Option<f32>>,
+    started: Instant,
+    progress_every: u64,
+    last_emit: Mutex<ProgressEmitState>,
+    callback: Mutex<F>,
+}
+
+impl<F> ParallelSearchProgress<F>
+where
+    F: FnMut(ProgressSnapshot) -> bool + Send,
+{
+    fn new(total: u64, progress_every: u64, callback: F) -> Self {
+        let started = Instant::now();
+        Self {
+            total,
+            checked: AtomicU64::new(0),
+            eligible: AtomicU64::new(0),
+            cancelled: AtomicBool::new(false),
+            best_score: Mutex::new(None),
+            started,
+            progress_every,
+            last_emit: Mutex::new(ProgressEmitState {
+                last_checked: 0,
+                last_at: started,
+            }),
+            callback: Mutex::new(callback),
+        }
+    }
+
+    fn record(
+        &self,
+        checked_delta: u64,
+        eligible_delta: u64,
+        best_score: Option<f32>,
+        force: bool,
+    ) -> Result<(), String> {
+        if checked_delta > 0 {
+            self.checked.fetch_add(checked_delta, Ordering::Relaxed);
+        }
+        if eligible_delta > 0 {
+            self.eligible.fetch_add(eligible_delta, Ordering::Relaxed);
+        }
+        if let Some(score) = best_score {
+            let mut guard = self
+                .best_score
+                .lock()
+                .map_err(|_| "failed to lock progress best score".to_string())?;
+            if guard.is_none_or(|current| score > current) {
+                *guard = Some(score);
+            }
+        }
+        self.emit_if_due(force)
+    }
+
+    fn emit_initial(&self) -> Result<(), String> {
+        self.emit_if_due(true)
+    }
+
+    fn emit_final(&self) -> Result<(), String> {
+        self.emit_if_due(true)
+    }
+
+    fn emit_if_due(&self, force: bool) -> Result<(), String> {
+        if self.cancelled.load(Ordering::Relaxed) && !force {
+            return Err("cancelled".to_string());
+        }
+        let checked = self.checked.load(Ordering::Relaxed);
+        if !force {
+            if self.progress_every == 0 {
+                return Ok(());
+            }
+            let mut emit_guard = self
+                .last_emit
+                .lock()
+                .map_err(|_| "failed to lock progress emit state".to_string())?;
+            if checked.saturating_sub(emit_guard.last_checked) < self.progress_every
+                || emit_guard.last_at.elapsed() < PROGRESS_MIN_INTERVAL
+            {
+                return Ok(());
+            }
+            *emit_guard = ProgressEmitState {
+                last_checked: checked,
+                last_at: Instant::now(),
+            };
+        } else if let Ok(mut emit_guard) = self.last_emit.lock() {
+            *emit_guard = ProgressEmitState {
+                last_checked: checked,
+                last_at: Instant::now(),
+            };
+        }
+
+        let best_score = self
+            .best_score
+            .lock()
+            .map_err(|_| "failed to lock progress best score".to_string())?
+            .unwrap_or(0.0);
+        let snapshot = ProgressSnapshot {
+            checked,
+            total: self.total,
+            eligible: self.eligible.load(Ordering::Relaxed),
+            best_score,
+            elapsed_ms: self.started.elapsed().as_millis() as u64,
+        };
+        let should_continue = {
+            let mut callback = self
+                .callback
+                .lock()
+                .map_err(|_| "failed to lock progress callback".to_string())?;
+            (callback)(snapshot)
+        };
+        if !should_continue {
+            self.cancelled.store(true, Ordering::Relaxed);
+            return Err("cancelled".to_string());
+        }
+        Ok(())
+    }
+
+    fn is_cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::Relaxed)
+    }
+}
+
+struct ParallelLocalProgress<F>
+where
+    F: FnMut(ProgressSnapshot) -> bool + Send,
+{
+    shared: Arc<ParallelSearchProgress<F>>,
+    checked: u64,
+    eligible: u64,
+    best_score: Option<f32>,
+}
+
+impl<F> ParallelLocalProgress<F>
+where
+    F: FnMut(ProgressSnapshot) -> bool + Send,
+{
+    fn new(shared: Arc<ParallelSearchProgress<F>>) -> Self {
+        Self {
+            shared,
+            checked: 0,
+            eligible: 0,
+            best_score: None,
+        }
+    }
+
+    fn flush(&mut self, force: bool) -> Result<(), String> {
+        if self.checked == 0 && self.eligible == 0 && self.best_score.is_none() && !force {
+            return Ok(());
+        }
+        let checked = self.checked;
+        let eligible = self.eligible;
+        let best_score = self.best_score;
+        self.checked = 0;
+        self.eligible = 0;
+        self.best_score = None;
+        self.shared.record(checked, eligible, best_score, force)
+    }
+}
+
+impl<F> SearchProgress for ParallelLocalProgress<F>
+where
+    F: FnMut(ProgressSnapshot) -> bool + Send,
+{
+    fn advance(
+        &mut self,
+        checked_delta: u64,
+        eligible_delta: u64,
+        best_score: Option<f32>,
+    ) -> Result<(), String> {
+        self.checked = self.checked.saturating_add(checked_delta);
+        self.eligible = self.eligible.saturating_add(eligible_delta);
+        if let Some(score) = best_score {
+            if self.best_score.is_none_or(|current| score > current) {
+                self.best_score = Some(score);
+            }
+        }
+        if self.checked >= PARALLEL_PROGRESS_BATCH {
+            self.flush(false)?;
+        }
+        Ok(())
+    }
+
+    fn is_cancelled(&self) -> bool {
+        self.shared.is_cancelled()
+    }
+
+    fn finish(&mut self) -> Result<(), String> {
+        self.flush(false)
+    }
 }
 
 fn build_combat_constraints(request: &OptimizeRequest) -> Result<CombatConstraints, String> {
@@ -513,6 +949,7 @@ fn score_candidate(
     upgrade: u8,
     stats: &Stats,
     effective_str_value: u16,
+    damage_multiplier: f32,
     data: &GameData,
 ) -> Result<CandidateMetric, String> {
     match objective {
@@ -523,6 +960,7 @@ fn score_candidate(
                 upgrade,
                 stats,
                 effective_str_value,
+                damage_multiplier,
                 data,
             )?;
             let score = match objective {
@@ -544,6 +982,7 @@ fn score_candidate(
                 upgrade,
                 stats,
                 effective_str_value,
+                damage_multiplier,
                 data,
             )?;
             let status_buildup =
@@ -563,6 +1002,7 @@ fn score_candidate(
                 upgrade,
                 stats,
                 effective_str_value,
+                damage_multiplier,
                 data,
             )?;
             Ok(CandidateMetric {
@@ -592,6 +1032,7 @@ fn complete_candidate_metric(
     upgrade: u8,
     stats: &Stats,
     effective_str_value: u16,
+    damage_multiplier: f32,
     data: &GameData,
 ) -> Result<CandidateMetric, String> {
     let ar = match ar {
@@ -602,6 +1043,7 @@ fn complete_candidate_metric(
             upgrade,
             stats,
             effective_str_value,
+            damage_multiplier,
             data,
         )?,
     };
@@ -617,6 +1059,7 @@ fn complete_candidate_metric(
             upgrade,
             stats,
             effective_str_value,
+            damage_multiplier,
             data,
         )?,
     };
@@ -641,12 +1084,14 @@ fn calculate_ar_with_buffs(
     upgrade: u8,
     stats: &Stats,
     effective_str_value: u16,
+    damage_multiplier: f32,
     data: &GameData,
 ) -> Result<DamageBreakdown, String> {
     Ok(apply_aow_attack_buffs(
         calculate_ar(prepared.weapon, upgrade, stats, effective_str_value, data)?,
         aow_choice.aow,
-    ))
+    )
+    .scale(damage_multiplier))
 }
 
 fn calculate_status_with_buffs(
@@ -672,19 +1117,21 @@ fn calculate_aow_metric(
     upgrade: u8,
     stats: &Stats,
     effective_str_value: u16,
+    damage_multiplier: f32,
     data: &GameData,
 ) -> Result<(f32, f32), String> {
     if aow_choice.attack_rows.is_empty() {
         return Ok((0.0, 0.0));
     }
-    calculate_aow_damage(
+    let (first, full) = calculate_aow_damage(
         prepared.weapon,
         &aow_choice.attack_rows,
         upgrade,
         stats,
         effective_str_value,
         data,
-    )
+    )?;
+    Ok((first * damage_multiplier, full * damage_multiplier))
 }
 
 fn weapon_matches_request(weapon: &Weapon, request: &OptimizeRequest) -> bool {
@@ -1311,6 +1758,8 @@ mod tests {
             max_upgrade: 25,
             fixed_upgrade: None,
             two_handing: false,
+            dlc_scaling: false,
+            scadutree_level: 0,
             weapon_name: Some("Uchigatana".to_string()),
             affinity: Some("Keen".to_string()),
             aow_name: None,
@@ -1355,6 +1804,48 @@ mod tests {
         let results = optimize(&request, &game_data).expect("optimizer failed");
         assert!(!results.is_empty());
         assert!((results[0].score - results[0].ar.physical).abs() < 0.001);
+    }
+
+    #[test]
+    fn scadutree_scaling_multiplies_outgoing_damage_only() {
+        let game_data = load_data();
+        let mut base = base_request();
+        base.affinity = Some("Blood".to_string());
+        base.aow_name = Some("Seppuku".to_string());
+        base.max_upgrade = 25;
+        base.fixed_upgrade = Some(25);
+        base.top_k = 1;
+
+        let mut scaled = base.clone();
+        scaled.dlc_scaling = true;
+        scaled.scadutree_level = 20;
+
+        let base_result = optimize(&base, &game_data)
+            .expect("base optimizer failed")
+            .pop()
+            .expect("expected base result");
+        let scaled_result = optimize(&scaled, &game_data)
+            .expect("scaled optimizer failed")
+            .pop()
+            .expect("expected scaled result");
+
+        assert!((scaled_result.ar.total() - base_result.ar.total() * 2.05).abs() < 0.1);
+        assert!(
+            (scaled_result.aow_first_hit_damage - base_result.aow_first_hit_damage * 2.05).abs()
+                < 0.1
+        );
+        assert!((scaled_result.bleed_buildup - base_result.bleed_buildup).abs() < 0.001);
+    }
+
+    #[test]
+    fn scadutree_curve_uses_patch_1122_values() {
+        assert!((crate::math::scadutree_attack_multiplier(true, 1) - 1.10).abs() < f32::EPSILON);
+        assert!((crate::math::scadutree_attack_multiplier(true, 12) - 1.85).abs() < f32::EPSILON);
+        assert!((crate::math::scadutree_attack_multiplier(true, 20) - 2.05).abs() < f32::EPSILON);
+        assert!((crate::math::scadutree_attack_multiplier(false, 20) - 1.0).abs() < f32::EPSILON);
+        assert!(
+            (crate::math::scadutree_damage_negation(true, 20) - (1.0 - 1.0 / 2.05)).abs() < 0.0001
+        );
     }
 
     #[test]
@@ -1411,6 +1902,69 @@ mod tests {
                 })
                 .expect("missing weapon");
             assert!(weapon.weapon_type_name.eq_ignore_ascii_case("Hand-to-Hand"));
+        }
+    }
+
+    #[test]
+    fn parallel_search_matches_serial_results() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.character_level = 46;
+        request.current_stats = Stats {
+            vig: 12,
+            mnd: 11,
+            end: 13,
+            str: 12,
+            dex: 15,
+            int: 9,
+            fai: 8,
+            arc: 45,
+        };
+        request.weapon_name = None;
+        request.affinity = None;
+        request.weapon_type_key = Some("Katana".to_string());
+        request.fixed_upgrade = Some(25);
+        request.top_k = 5;
+
+        let constraints = build_combat_constraints(&request).expect("constraints failed");
+        let stat_count = count_stat_candidates(constraints);
+        let weapons = prepare_weapons(&request, &game_data).expect("prepare failed");
+        let work_units = build_search_work_units(&weapons);
+        let upgrade_slots: u64 = weapons
+            .iter()
+            .map(|entry| (entry.upgrades.len() * entry.aow_choices.len()) as u64)
+            .sum();
+        let total = stat_count.saturating_mul(upgrade_slots);
+
+        let mut serial_progress = SerialSearchProgress::new(total, 0, |_snapshot| true);
+        let serial = optimize_serial(
+            &request,
+            &game_data,
+            constraints,
+            &weapons,
+            &work_units,
+            &mut serial_progress,
+        )
+        .expect("serial search failed");
+        let parallel = optimize_parallel(
+            &request,
+            &game_data,
+            constraints,
+            &weapons,
+            &work_units,
+            total,
+            0,
+            |_snapshot| true,
+        )
+        .expect("parallel search failed");
+
+        assert_eq!(serial.len(), parallel.len());
+        for (left, right) in serial.iter().zip(parallel.iter()) {
+            assert_eq!(left.weapon_id, right.weapon_id);
+            assert_eq!(left.aow_id, right.aow_id);
+            assert_eq!(left.upgrade, right.upgrade);
+            assert_eq!(left.stats, right.stats);
+            assert!((left.score - right.score).abs() < 0.001);
         }
     }
 

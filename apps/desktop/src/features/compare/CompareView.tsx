@@ -89,26 +89,33 @@ export function CompareView() {
         lanes.push({ label: "Compare", row: compareRow });
         summaryTarget = compareRow;
       } else {
-        for (const [index, row] of rows.slice(0, 5).entries()) {
-          if (row === selected) continue;
-          const rival = await api.solveBuild(baseRequest, row.weaponName, row.affinity, row.aowName);
-          const finalRow = rival ?? row;
-          if (!summaryTarget) summaryTarget = finalRow;
-          lanes.push({ label: `Top #${index + 1}`, row: finalRow });
-          if (lanes.length >= 4) break;
-        }
+        const rivalInputs = rows
+          .slice(0, 5)
+          .map((row, index) => ({ row, index }))
+          .filter(({ row }) => row !== selected)
+          .slice(0, 3);
+        const rivals = await Promise.all(
+          rivalInputs.map(async ({ row, index }) => ({
+            label: `Top #${index + 1}`,
+            row: await api.solveBuild(baseRequest, row.weaponName, row.affinity, row.aowName) ?? row,
+          })),
+        );
+        lanes.push(...rivals);
+        summaryTarget = rivals[0]?.row ?? null;
       }
 
-      const nextSeries = [];
-      for (const lane of lanes) {
-        const points = lane.row
-          ? await api.buildUpgradeSeries(baseRequest, lane.row, request.maxUpgrade)
-          : [];
-        const scaling = lane.row
-          ? await api.weaponScalingForUpgrade(lane.row.weaponName, lane.row.affinity, lane.row.upgrade)
-          : null;
-        nextSeries.push({ ...lane, points, scaling });
-      }
+      const nextSeries = await Promise.all(
+        lanes.map(async (lane) => {
+          if (!lane.row) {
+            return { ...lane, points: [], scaling: null };
+          }
+          const [points, scaling] = await Promise.all([
+            api.buildUpgradeSeries(baseRequest, lane.row, request.maxUpgrade),
+            api.weaponScalingForUpgrade(lane.row.weaponName, lane.row.affinity, lane.row.upgrade),
+          ]);
+          return { ...lane, points, scaling };
+        }),
+      );
       if (!cancelled) {
         setCompareTarget(summaryTarget);
         setSeries(nextSeries);

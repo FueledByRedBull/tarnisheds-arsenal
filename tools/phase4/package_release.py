@@ -47,6 +47,7 @@ def main() -> int:
             "-m",
             "maturin",
             "build",
+            "--release",
             "--manifest-path",
             str(root / "core/er_optimizer_core/Cargo.toml"),
             "--features",

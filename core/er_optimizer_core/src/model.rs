@@ -234,6 +234,16 @@ impl DamageBreakdown {
         self.physical + self.magic + self.fire + self.lightning + self.holy
     }
 
+    pub fn scale(self, multiplier: f32) -> Self {
+        Self {
+            physical: self.physical * multiplier,
+            magic: self.magic * multiplier,
+            fire: self.fire * multiplier,
+            lightning: self.lightning * multiplier,
+            holy: self.holy * multiplier,
+        }
+    }
+
     pub fn by_type(self, damage_type: DamageType) -> f32 {
         match damage_type {
             DamageType::Physical => self.physical,

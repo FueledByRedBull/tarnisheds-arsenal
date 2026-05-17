@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use er_optimizer_core::math::STARTING_CLASSES;
 use er_optimizer_core::{Aow, GameData, Weapon};
@@ -12,17 +12,193 @@ use crate::dto::{
 };
 use crate::errors::AppError;
 
+#[derive(Clone, Debug)]
+pub struct CatalogIndex {
+    weapon_names: Vec<String>,
+    aow_names: Vec<String>,
+    weapon_type_keys: Vec<String>,
+    weapon_type_options: Vec<WeaponTypeOptionDto>,
+    weapon_names_by_type: HashMap<String, Vec<String>>,
+    affinities_by_weapon: HashMap<String, Vec<String>>,
+    compatible_aows_by_weapon: HashMap<String, Vec<String>>,
+    compatible_aows_by_affinity: HashMap<String, Vec<String>>,
+    compatible_aows_by_weapon_affinity: HashMap<(String, String), Vec<String>>,
+    compatible_aows_all: Vec<String>,
+    upgrade_cap_by_weapon: HashMap<String, u8>,
+    upgrade_cap_by_weapon_affinity: HashMap<(String, String), u8>,
+    requirements_by_weapon: HashMap<String, [u8; 5]>,
+    requirements_by_weapon_affinity: HashMap<(String, String), [u8; 5]>,
+    disables_two_hand_bonus_by_weapon: HashMap<String, bool>,
+    disables_two_hand_bonus_by_weapon_affinity: HashMap<(String, String), bool>,
+}
+
+impl CatalogIndex {
+    pub fn build(data: &GameData) -> Self {
+        let mut weapon_names = BTreeSet::new();
+        let mut aow_names = BTreeSet::new();
+        let mut weapon_type_keys = BTreeSet::new();
+        let mut weapon_type_options = BTreeSet::<(String, String)>::new();
+        let mut weapon_names_by_type = HashMap::<String, BTreeSet<String>>::new();
+        let mut affinities_by_weapon = HashMap::<String, BTreeSet<String>>::new();
+        let mut compatible_aows_by_weapon = HashMap::<String, BTreeSet<String>>::new();
+        let mut compatible_aows_by_affinity = HashMap::<String, BTreeSet<String>>::new();
+        let mut compatible_aows_by_weapon_affinity =
+            HashMap::<(String, String), BTreeSet<String>>::new();
+        let mut compatible_aows_all = BTreeSet::new();
+        let mut upgrade_cap_by_weapon = HashMap::<String, u8>::new();
+        let mut upgrade_cap_by_weapon_affinity = HashMap::<(String, String), u8>::new();
+        let mut requirements_by_weapon = HashMap::<String, [u8; 5]>::new();
+        let mut requirements_by_weapon_affinity = HashMap::<(String, String), [u8; 5]>::new();
+        let mut disables_two_hand_bonus_by_weapon = HashMap::<String, bool>::new();
+        let mut disables_two_hand_bonus_by_weapon_affinity =
+            HashMap::<(String, String), bool>::new();
+
+        for aow in &data.aows {
+            aow_names.insert(aow.name.clone());
+        }
+
+        for weapon in &data.weapons {
+            let weapon_key = index_key(&weapon.name);
+            let affinity_key = index_key(&weapon.affinity);
+            let weapon_affinity_key = (weapon_key.clone(), affinity_key.clone());
+            weapon_names.insert(weapon.name.clone());
+            affinities_by_weapon
+                .entry(weapon_key.clone())
+                .or_default()
+                .insert(weapon.affinity.clone());
+
+            let label = normalize_weapon_type_display(&weapon.weapon_type_name)
+                .trim()
+                .to_string();
+            if !label.is_empty() {
+                weapon_type_keys.insert(label.clone());
+                let key = weapon
+                    .weapon_type_keys
+                    .split('|')
+                    .find(|raw| !raw.trim().is_empty() && raw.trim().eq_ignore_ascii_case(&label))
+                    .or_else(|| {
+                        weapon
+                            .weapon_type_keys
+                            .split('|')
+                            .find(|raw| !raw.trim().is_empty())
+                    })
+                    .map(str::trim)
+                    .unwrap_or(label.as_str())
+                    .to_string();
+                weapon_type_options.insert((label.clone(), key.clone()));
+                weapon_names_by_type
+                    .entry(index_key(&label))
+                    .or_default()
+                    .insert(weapon.name.clone());
+                weapon_names_by_type
+                    .entry(index_key(&key))
+                    .or_default()
+                    .insert(weapon.name.clone());
+            }
+            for key in weapon
+                .weapon_type_keys
+                .split('|')
+                .map(str::trim)
+                .filter(|key| !key.is_empty())
+            {
+                weapon_names_by_type
+                    .entry(index_key(key))
+                    .or_default()
+                    .insert(weapon.name.clone());
+            }
+
+            let cap = if weapon.is_somber { 10 } else { 25 };
+            upgrade_cap_by_weapon
+                .entry(weapon_key.clone())
+                .and_modify(|current| *current = (*current).max(cap))
+                .or_insert(cap);
+            upgrade_cap_by_weapon_affinity
+                .entry(weapon_affinity_key.clone())
+                .and_modify(|current| *current = (*current).max(cap))
+                .or_insert(cap);
+
+            requirements_by_weapon
+                .entry(weapon_key.clone())
+                .and_modify(|current| merge_requirements(current, weapon.requirements))
+                .or_insert(weapon.requirements);
+            requirements_by_weapon_affinity
+                .entry(weapon_affinity_key.clone())
+                .and_modify(|current| merge_requirements(current, weapon.requirements))
+                .or_insert(weapon.requirements);
+
+            disables_two_hand_bonus_by_weapon
+                .entry(weapon_key.clone())
+                .and_modify(|current| *current |= weapon.disable_two_hand_bonus)
+                .or_insert(weapon.disable_two_hand_bonus);
+            disables_two_hand_bonus_by_weapon_affinity
+                .entry(weapon_affinity_key.clone())
+                .and_modify(|current| *current |= weapon.disable_two_hand_bonus)
+                .or_insert(weapon.disable_two_hand_bonus);
+
+            if let Some(skill_name) = native_skill_name_for_weapon(data, weapon) {
+                insert_compatible_name(
+                    &mut compatible_aows_by_weapon,
+                    &mut compatible_aows_by_affinity,
+                    &mut compatible_aows_by_weapon_affinity,
+                    &mut compatible_aows_all,
+                    &weapon_key,
+                    &affinity_key,
+                    skill_name,
+                );
+            }
+            for aow in &data.aows {
+                if aow_compatible_with_weapon(aow, weapon, data) {
+                    insert_compatible_name(
+                        &mut compatible_aows_by_weapon,
+                        &mut compatible_aows_by_affinity,
+                        &mut compatible_aows_by_weapon_affinity,
+                        &mut compatible_aows_all,
+                        &weapon_key,
+                        &affinity_key,
+                        &aow.name,
+                    );
+                }
+            }
+        }
+
+        Self {
+            weapon_names: weapon_names.into_iter().collect(),
+            aow_names: aow_names.into_iter().collect(),
+            weapon_type_keys: weapon_type_keys.into_iter().collect(),
+            weapon_type_options: weapon_type_options
+                .into_iter()
+                .map(|(label, key)| WeaponTypeOptionDto { key, label })
+                .collect(),
+            weapon_names_by_type: finalize_set_map(weapon_names_by_type),
+            affinities_by_weapon: finalize_set_map(affinities_by_weapon),
+            compatible_aows_by_weapon: finalize_set_map(compatible_aows_by_weapon),
+            compatible_aows_by_affinity: finalize_set_map(compatible_aows_by_affinity),
+            compatible_aows_by_weapon_affinity: finalize_pair_set_map(
+                compatible_aows_by_weapon_affinity,
+            ),
+            compatible_aows_all: compatible_aows_all.into_iter().collect(),
+            upgrade_cap_by_weapon,
+            upgrade_cap_by_weapon_affinity,
+            requirements_by_weapon,
+            requirements_by_weapon_affinity,
+            disables_two_hand_bonus_by_weapon,
+            disables_two_hand_bonus_by_weapon_affinity,
+        }
+    }
+}
+
 #[tauri::command]
 pub fn get_catalog(state: State<'_, AppState>) -> Result<CatalogDto, AppError> {
     let data = &state.data;
+    let index = &state.catalog_index;
     Ok(CatalogDto {
         weapon_count: data.weapons.len(),
         aow_count: data.aows.len(),
-        weapon_names: weapon_names(data),
-        weapon_type_keys: weapon_type_keys(data),
+        weapon_names: index.weapon_names.clone(),
+        weapon_type_keys: index.weapon_type_keys.clone(),
         classes: class_metadata(),
-        weapon_type_options: weapon_type_options(data),
-        aow_names: aow_names(data),
+        weapon_type_options: index.weapon_type_options.clone(),
+        aow_names: index.aow_names.clone(),
         objective_ids: vec![
             "max_ar".to_string(),
             "max_physical_ar".to_string(),
@@ -44,7 +220,7 @@ pub fn weapon_names_for_type(
     state: State<'_, AppState>,
 ) -> Result<Vec<String>, AppError> {
     Ok(weapon_names_for_type_inner(
-        &state.data,
+        &state.catalog_index,
         request.weapon_type_key.as_deref(),
     ))
 }
@@ -55,7 +231,7 @@ pub fn compatible_aow_names_for_affinity(
     state: State<'_, AppState>,
 ) -> Result<Vec<String>, AppError> {
     Ok(compatible_aow_names_inner(
-        &state.data,
+        &state.catalog_index,
         None,
         request.affinity.as_deref(),
     ))
@@ -79,7 +255,10 @@ pub fn affinities_for_weapon(
     weapon_name: String,
     state: State<'_, AppState>,
 ) -> Result<Vec<String>, AppError> {
-    Ok(affinities_for_weapon_inner(&state.data, &weapon_name))
+    Ok(affinities_for_weapon_inner(
+        &state.catalog_index,
+        &weapon_name,
+    ))
 }
 
 #[tauri::command]
@@ -88,7 +267,7 @@ pub fn compatible_aow_names(
     state: State<'_, AppState>,
 ) -> Result<Vec<String>, AppError> {
     Ok(compatible_aow_names_inner(
-        &state.data,
+        &state.catalog_index,
         request.weapon_name.as_deref(),
         request.affinity.as_deref(),
     ))
@@ -100,12 +279,12 @@ pub fn get_weapon_profile(
     state: State<'_, AppState>,
 ) -> Result<WeaponProfileDto, AppError> {
     let requirements = weapon_requirements(
-        &state.data,
+        &state.catalog_index,
         &request.weapon_name,
         request.affinity.as_deref(),
     )?;
     let max_upgrade = weapon_upgrade_cap(
-        &state.data,
+        &state.catalog_index,
         &request.weapon_name,
         request.affinity.as_deref(),
     )?;
@@ -120,73 +299,17 @@ pub fn get_weapon_profile(
         max_upgrade,
         is_somber: max_upgrade <= 10,
         disables_two_hand_bonus: weapon_disables_two_hand_bonus(
-            &state.data,
+            &state.catalog_index,
             &request.weapon_name,
             request.affinity.as_deref(),
         ),
-        affinities: affinities_for_weapon_inner(&state.data, &request.weapon_name),
+        affinities: affinities_for_weapon_inner(&state.catalog_index, &request.weapon_name),
         compatible_aows: compatible_aow_names_inner(
-            &state.data,
+            &state.catalog_index,
             Some(&request.weapon_name),
             request.affinity.as_deref(),
         ),
     })
-}
-
-pub fn weapon_names(data: &GameData) -> Vec<String> {
-    let mut set = BTreeSet::new();
-    for weapon in &data.weapons {
-        set.insert(weapon.name.clone());
-    }
-    set.into_iter().collect()
-}
-
-pub fn aow_names(data: &GameData) -> Vec<String> {
-    let mut set = BTreeSet::new();
-    for aow in &data.aows {
-        set.insert(aow.name.clone());
-    }
-    set.into_iter().collect()
-}
-
-pub fn weapon_type_keys(data: &GameData) -> Vec<String> {
-    let mut set = BTreeSet::new();
-    for weapon in &data.weapons {
-        let name = normalize_weapon_type_display(&weapon.weapon_type_name).trim();
-        if !name.is_empty() {
-            set.insert(name.to_string());
-        }
-    }
-    set.into_iter().collect()
-}
-
-pub fn weapon_type_options(data: &GameData) -> Vec<WeaponTypeOptionDto> {
-    let mut set = BTreeSet::<(String, String)>::new();
-    for weapon in &data.weapons {
-        let label = normalize_weapon_type_display(&weapon.weapon_type_name)
-            .trim()
-            .to_string();
-        if label.is_empty() {
-            continue;
-        }
-        let key = weapon
-            .weapon_type_keys
-            .split('|')
-            .find(|raw| !raw.trim().is_empty() && raw.trim().eq_ignore_ascii_case(&label))
-            .or_else(|| {
-                weapon
-                    .weapon_type_keys
-                    .split('|')
-                    .find(|raw| !raw.trim().is_empty())
-            })
-            .map(str::trim)
-            .unwrap_or(label.as_str())
-            .to_string();
-        set.insert((label, key));
-    }
-    set.into_iter()
-        .map(|(label, key)| WeaponTypeOptionDto { key, label })
-        .collect()
 }
 
 pub fn class_metadata() -> Vec<ClassMetadataDto> {
@@ -210,134 +333,107 @@ pub fn class_metadata() -> Vec<ClassMetadataDto> {
         .collect()
 }
 
-pub fn weapon_names_for_type_inner(data: &GameData, weapon_type_key: Option<&str>) -> Vec<String> {
-    let mut set = BTreeSet::new();
-    for weapon in &data.weapons {
-        let matches_type = weapon_type_key
-            .map(|key| {
-                weapon
-                    .weapon_type_keys
-                    .split('|')
-                    .any(|candidate| candidate.eq_ignore_ascii_case(key))
-                    || normalize_weapon_type_display(&weapon.weapon_type_name)
-                        .eq_ignore_ascii_case(key)
-            })
-            .unwrap_or(true);
-        if matches_type {
-            set.insert(weapon.name.clone());
-        }
-    }
-    set.into_iter().collect()
+pub fn weapon_names_for_type_inner(
+    index: &CatalogIndex,
+    weapon_type_key: Option<&str>,
+) -> Vec<String> {
+    let Some(type_key) = weapon_type_key else {
+        return index.weapon_names.clone();
+    };
+    index
+        .weapon_names_by_type
+        .get(&index_key(type_key))
+        .cloned()
+        .unwrap_or_default()
 }
 
-pub fn affinities_for_weapon_inner(data: &GameData, weapon_name: &str) -> Vec<String> {
-    let mut set = BTreeSet::new();
-    for weapon in &data.weapons {
-        if weapon.name.eq_ignore_ascii_case(weapon_name) {
-            set.insert(weapon.affinity.clone());
-        }
-    }
-    set.into_iter().collect()
+pub fn affinities_for_weapon_inner(index: &CatalogIndex, weapon_name: &str) -> Vec<String> {
+    index
+        .affinities_by_weapon
+        .get(&index_key(weapon_name))
+        .cloned()
+        .unwrap_or_default()
 }
 
 pub fn compatible_aow_names_inner(
-    data: &GameData,
+    index: &CatalogIndex,
     weapon_name: Option<&str>,
     affinity: Option<&str>,
 ) -> Vec<String> {
-    let mut set = BTreeSet::new();
-    for weapon in &data.weapons {
-        if let Some(name) = weapon_name {
-            if !weapon.name.eq_ignore_ascii_case(name) {
-                continue;
-            }
-        }
-        if let Some(affinity) = affinity {
-            if !weapon.affinity.eq_ignore_ascii_case(affinity) {
-                continue;
-            }
-        }
-        let native_rows = data.native_skill_attack_rows(weapon.weapon_id);
-        if !native_rows.is_empty() {
-            if let Some(skill_name) = weapon
-                .native_skill_name
-                .as_deref()
-                .or_else(|| native_rows.first().map(|row| row.aow_name.as_str()))
-            {
-                set.insert(skill_name.to_string());
-            }
-        }
-        for aow in &data.aows {
-            if aow_compatible_with_weapon(aow, weapon, data) {
-                set.insert(aow.name.clone());
-            }
-        }
+    match (weapon_name, affinity) {
+        (Some(weapon_name), Some(affinity)) => index
+            .compatible_aows_by_weapon_affinity
+            .get(&(index_key(weapon_name), index_key(affinity)))
+            .cloned()
+            .unwrap_or_default(),
+        (Some(weapon_name), None) => index
+            .compatible_aows_by_weapon
+            .get(&index_key(weapon_name))
+            .cloned()
+            .unwrap_or_default(),
+        (None, Some(affinity)) => index
+            .compatible_aows_by_affinity
+            .get(&index_key(affinity))
+            .cloned()
+            .unwrap_or_default(),
+        (None, None) => index.compatible_aows_all.clone(),
     }
-    set.into_iter().collect()
 }
 
 pub fn weapon_upgrade_cap(
-    data: &GameData,
+    index: &CatalogIndex,
     weapon_name: &str,
     affinity: Option<&str>,
 ) -> Result<u8, AppError> {
-    let mut best = None;
-    for weapon in &data.weapons {
-        if !weapon.name.eq_ignore_ascii_case(weapon_name) {
-            continue;
-        }
-        if let Some(affinity) = affinity {
-            if !weapon.affinity.eq_ignore_ascii_case(affinity) {
-                continue;
-            }
-        }
-        let cap = if weapon.is_somber { 10 } else { 25 };
-        best = Some(best.map_or(cap, |current: u8| current.max(cap)));
-    }
-    best.ok_or_else(|| AppError::new(format!("weapon not found for upgrade cap: {weapon_name}")))
+    let cap = match affinity {
+        Some(affinity) => index
+            .upgrade_cap_by_weapon_affinity
+            .get(&(index_key(weapon_name), index_key(affinity)))
+            .copied(),
+        None => index
+            .upgrade_cap_by_weapon
+            .get(&index_key(weapon_name))
+            .copied(),
+    };
+    cap.ok_or_else(|| AppError::new(format!("weapon not found for upgrade cap: {weapon_name}")))
 }
 
 pub fn weapon_requirements(
-    data: &GameData,
+    index: &CatalogIndex,
     weapon_name: &str,
     affinity: Option<&str>,
 ) -> Result<[u8; 5], AppError> {
-    let mut best: Option<[u8; 5]> = None;
-    for weapon in &data.weapons {
-        if !weapon.name.eq_ignore_ascii_case(weapon_name) {
-            continue;
-        }
-        if let Some(affinity) = affinity {
-            if !weapon.affinity.eq_ignore_ascii_case(affinity) {
-                continue;
-            }
-        }
-        best = Some(match best {
-            Some(current) => [
-                current[0].max(weapon.requirements[0]),
-                current[1].max(weapon.requirements[1]),
-                current[2].max(weapon.requirements[2]),
-                current[3].max(weapon.requirements[3]),
-                current[4].max(weapon.requirements[4]),
-            ],
-            None => weapon.requirements,
-        });
-    }
-    best.ok_or_else(|| AppError::new(format!("weapon not found for requirements: {weapon_name}")))
+    let requirements = match affinity {
+        Some(affinity) => index
+            .requirements_by_weapon_affinity
+            .get(&(index_key(weapon_name), index_key(affinity)))
+            .copied(),
+        None => index
+            .requirements_by_weapon
+            .get(&index_key(weapon_name))
+            .copied(),
+    };
+    requirements
+        .ok_or_else(|| AppError::new(format!("weapon not found for requirements: {weapon_name}")))
 }
 
 pub fn weapon_disables_two_hand_bonus(
-    data: &GameData,
+    index: &CatalogIndex,
     weapon_name: &str,
     affinity: Option<&str>,
 ) -> bool {
-    data.weapons.iter().any(|weapon| {
-        weapon.name.eq_ignore_ascii_case(weapon_name)
-            && affinity
-                .map(|affinity| weapon.affinity.eq_ignore_ascii_case(affinity))
-                .unwrap_or(true)
-            && weapon.disable_two_hand_bonus
-    })
+    match affinity {
+        Some(affinity) => index
+            .disables_two_hand_bonus_by_weapon_affinity
+            .get(&(index_key(weapon_name), index_key(affinity)))
+            .copied()
+            .unwrap_or(false),
+        None => index
+            .disables_two_hand_bonus_by_weapon
+            .get(&index_key(weapon_name))
+            .copied()
+            .unwrap_or(false),
+    }
 }
 
 pub fn weapon_scaling_for_upgrade_inner(
@@ -404,4 +500,63 @@ pub fn normalize_weapon_type_display(raw: &str) -> &str {
         "Staff" => "Glintstone Staff",
         other => other,
     }
+}
+
+fn index_key(value: &str) -> String {
+    value.trim().to_ascii_lowercase()
+}
+
+fn merge_requirements(current: &mut [u8; 5], next: [u8; 5]) {
+    for idx in 0..current.len() {
+        current[idx] = current[idx].max(next[idx]);
+    }
+}
+
+fn native_skill_name_for_weapon<'a>(data: &'a GameData, weapon: &'a Weapon) -> Option<&'a str> {
+    let native_rows = data.native_skill_attack_rows(weapon.weapon_id);
+    if native_rows.is_empty() {
+        return None;
+    }
+    weapon
+        .native_skill_name
+        .as_deref()
+        .or_else(|| native_rows.first().map(|row| row.aow_name.as_str()))
+}
+
+fn insert_compatible_name(
+    by_weapon: &mut HashMap<String, BTreeSet<String>>,
+    by_affinity: &mut HashMap<String, BTreeSet<String>>,
+    by_weapon_affinity: &mut HashMap<(String, String), BTreeSet<String>>,
+    all: &mut BTreeSet<String>,
+    weapon_key: &str,
+    affinity_key: &str,
+    name: &str,
+) {
+    by_weapon
+        .entry(weapon_key.to_string())
+        .or_default()
+        .insert(name.to_string());
+    by_affinity
+        .entry(affinity_key.to_string())
+        .or_default()
+        .insert(name.to_string());
+    by_weapon_affinity
+        .entry((weapon_key.to_string(), affinity_key.to_string()))
+        .or_default()
+        .insert(name.to_string());
+    all.insert(name.to_string());
+}
+
+fn finalize_set_map(map: HashMap<String, BTreeSet<String>>) -> HashMap<String, Vec<String>> {
+    map.into_iter()
+        .map(|(key, values)| (key, values.into_iter().collect()))
+        .collect()
+}
+
+fn finalize_pair_set_map(
+    map: HashMap<(String, String), BTreeSet<String>>,
+) -> HashMap<(String, String), Vec<String>> {
+    map.into_iter()
+        .map(|(key, values)| (key, values.into_iter().collect()))
+        .collect()
 }

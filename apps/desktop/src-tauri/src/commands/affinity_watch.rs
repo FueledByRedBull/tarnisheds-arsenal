@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::sync::Arc;
 use std::sync::atomic::Ordering as AtomicOrdering;
 
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, State};
 
 use crate::commands::data::{affinities_for_weapon_inner, compatible_aow_names_inner};
 use crate::commands::optimize::run_search_inner;
@@ -78,10 +78,11 @@ pub fn build_affinity_watch(
 #[tauri::command]
 pub fn start_affinity_watch(
     request: AffinityWatchRequestDto,
-    app: AppHandle,
+    _app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
     let data = Arc::clone(&state.data);
+    let catalog_index = Arc::clone(&state.catalog_index);
     let job_number = state.next_job.fetch_add(1, AtomicOrdering::Relaxed);
     let job_id = format!("affinity-{job_number}");
     let cancel_flag: CancelFlag = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -102,10 +103,10 @@ pub fn start_affinity_watch(
         );
 
     let job_id_for_task = job_id.clone();
-    let app_for_task = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let task_state = AppState {
             data,
+            catalog_index,
             jobs: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
             search_jobs: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
             path_jobs: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
@@ -124,7 +125,6 @@ pub fn start_affinity_watch(
         if let Ok(mut guard) = status.lock() {
             guard.progress = Some(progress.clone());
         }
-        let _ = app_for_task.emit("affinity_watch_progress", progress);
         let (payload, error, cancelled) = if cancel_flag.load(AtomicOrdering::Relaxed) {
             (None, None, true)
         } else {
@@ -137,7 +137,6 @@ pub fn start_affinity_watch(
                 if let Ok(mut guard) = status.lock() {
                     guard.progress = Some(payload.clone());
                 }
-                let _ = app_for_task.emit("affinity_watch_progress", payload);
                 true
             }) {
                 Ok(payload) => (Some(payload), None, false),
@@ -154,7 +153,6 @@ pub fn start_affinity_watch(
         if let Ok(mut guard) = status.lock() {
             guard.finished = Some(finished.clone());
         }
-        let _ = app_for_task.emit("affinity_watch_finished", finished);
     });
 
     Ok(StartSearchResponseDto { job_id })
@@ -272,12 +270,16 @@ fn build_affinity_watch_inner(
 }
 
 fn affinity_watch_affinities(solved: &SolvedBuildDto, state: &AppState) -> Vec<String> {
-    let mut affinities = affinities_for_weapon_inner(&state.data, &solved.weapon_name);
+    let mut affinities = affinities_for_weapon_inner(&state.catalog_index, &solved.weapon_name);
     if let Some(aow_name) = solved.aow_name.as_deref() {
         affinities.retain(|affinity| {
-            compatible_aow_names_inner(&state.data, Some(&solved.weapon_name), Some(affinity))
-                .iter()
-                .any(|candidate| candidate == aow_name)
+            compatible_aow_names_inner(
+                &state.catalog_index,
+                Some(&solved.weapon_name),
+                Some(affinity),
+            )
+            .iter()
+            .any(|candidate| candidate == aow_name)
         });
     }
     if !affinities

@@ -3,6 +3,12 @@ import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { api, hasTauriRuntime } from "../../lib/api";
 import { fixed1, objectiveLabel } from "../../lib/format";
 import { SearchableSelect, openOption } from "../../lib/SearchableSelect";
+import {
+  SCADUTREE_MAX_LEVEL,
+  scadutreeAttackMultiplier,
+  scadutreeDamageNegation,
+  scadutreeReceivedDamageMultiplier,
+} from "../../lib/scadutree";
 import { buildOptimizeRequest, budgetSnapshot, classMeta, classOptions, derivedLevel } from "../../lib/session";
 import { objectiveOptions, useDesktopStore } from "../../lib/state";
 import { OptimizeRequestDto, SearchFinishedDto, SearchProgressDto, WeaponProfileDto } from "../../lib/types";
@@ -60,6 +66,9 @@ export function CommandRail() {
     request.twoHanding && !weaponProfile?.disablesTwoHandBonus
       ? Math.min(99, Math.floor(request.strStat * 1.5))
       : request.strStat;
+  const scadutreeDamageMultiplier = scadutreeAttackMultiplier(request.dlcScaling, request.scadutreeLevel);
+  const scadutreeTakenMultiplier = scadutreeReceivedDamageMultiplier(request.dlcScaling, request.scadutreeLevel);
+  const scadutreeNegation = scadutreeDamageNegation(request.dlcScaling, request.scadutreeLevel);
   const requirementGaps = useMemo(() => {
     const requirements = weaponProfile?.requirements;
     if (!requirements) {
@@ -344,6 +353,7 @@ export function CommandRail() {
             <span>{request.twoHanding ? "2H" : "1H"}</span>
             <span>{lockedStatMode ? "Exact Stats" : "Open Stats"}</span>
             <span>{request.fixedUpgrade !== null ? `Exact +${request.maxUpgrade}` : `+0..+${request.maxUpgrade}`}</span>
+            <span>{request.dlcScaling ? `DLC x${scadutreeDamageMultiplier.toFixed(2)}` : "Base Game"}</span>
           </div>
           {weaponProfile ? (
             <div className={`requirements-strip ${missingRequirements ? "missing" : ""}`}>
@@ -454,6 +464,31 @@ export function CommandRail() {
             />
             Two-handing
           </label>
+          <label className="toggle-line" title="Apply Shadow of the Erdtree Scadutree Blessing attack scaling">
+            <input
+              type="checkbox"
+              checked={request.dlcScaling}
+              onChange={(event) => patchRequest({ dlcScaling: event.target.checked })}
+            />
+            DLC Scaling
+          </label>
+          <label>
+            Scadutree Level
+            <DraftNumberInput
+              min={0}
+              max={SCADUTREE_MAX_LEVEL}
+              value={request.scadutreeLevel}
+              onDraftChange={clearResults}
+              onCommit={(scadutreeLevel) => patchRequest({ scadutreeLevel })}
+            />
+          </label>
+          <div className="cap-readout" title="Outgoing damage multiplier and equivalent incoming damage reduction from the selected blessing level">
+            <span>{request.dlcScaling ? "Shadow Realm" : "DLC off"}</span>
+            <strong>
+              x{scadutreeDamageMultiplier.toFixed(2)} dmg / x{scadutreeTakenMultiplier.toFixed(3)} taken
+            </strong>
+            <small>{(scadutreeNegation * 100).toFixed(1)}% negation</small>
+          </div>
         </section>
 
         <section className="rail-section advanced-section">

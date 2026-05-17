@@ -96,6 +96,8 @@ export const defaultRequest: OptimizeRequestDto = {
   maxUpgrade: 25,
   fixedUpgrade: null,
   twoHanding: false,
+  dlcScaling: false,
+  scadutreeLevel: 0,
   weaponName: null,
   affinity: null,
   aowName: null,

@@ -3,7 +3,7 @@ use std::sync::atomic::Ordering;
 
 use er_optimizer_core::effective_str;
 use er_optimizer_core::model::COMBAT_STAT_COUNT;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, State};
 
 use crate::commands::data::{weapon_disables_two_hand_bonus, weapon_requirements};
 use crate::commands::optimize::run_search_inner;
@@ -67,10 +67,11 @@ pub fn build_path_preview(
 #[tauri::command]
 pub fn start_path_preview(
     request: StartPathPreviewRequestDto,
-    app: AppHandle,
+    _app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
     let data = Arc::clone(&state.data);
+    let catalog_index = Arc::clone(&state.catalog_index);
     let job_number = state.next_job.fetch_add(1, Ordering::Relaxed);
     let job_id = format!("path-{job_number}");
     let cancel_flag: CancelFlag = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -91,10 +92,10 @@ pub fn start_path_preview(
         );
 
     let job_id_for_task = job_id.clone();
-    let app_for_task = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let task_state = AppState {
             data,
+            catalog_index,
             jobs: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
             search_jobs: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
             path_jobs: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
@@ -120,7 +121,6 @@ pub fn start_path_preview(
             if let Ok(mut guard) = status.lock() {
                 guard.progress = Some(progress.clone());
             }
-            let _ = app_for_task.emit("path_progress", progress);
             match build_path_preview_inner(lane, &task_state) {
                 Ok(path) => paths.push(path),
                 Err(err) => {
@@ -138,7 +138,6 @@ pub fn start_path_preview(
         if let Ok(mut guard) = status.lock() {
             guard.finished = Some(finished.clone());
         }
-        let _ = app_for_task.emit("path_finished", finished);
     });
 
     Ok(StartSearchResponseDto { job_id })
@@ -339,10 +338,11 @@ fn requirement_gap(
     stats: CombatStateDto,
     state: &AppState,
 ) -> u16 {
-    let Ok(reqs) = weapon_requirements(&state.data, weapon_name, affinity) else {
+    let Ok(reqs) = weapon_requirements(&state.catalog_index, weapon_name, affinity) else {
         return 999;
     };
-    let disables_bonus = weapon_disables_two_hand_bonus(&state.data, weapon_name, affinity);
+    let disables_bonus =
+        weapon_disables_two_hand_bonus(&state.catalog_index, weapon_name, affinity);
     let effective_str = effective_str(stats.str_stat, base.two_handing, disables_bonus);
     u16::from(reqs[0]).saturating_sub(effective_str)
         + u16::from(reqs[1].saturating_sub(stats.dex))

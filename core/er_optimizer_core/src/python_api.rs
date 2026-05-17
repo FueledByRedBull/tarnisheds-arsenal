@@ -478,6 +478,8 @@ pub fn py_estimate_search_space(
         somber_filter,
         [min_str, min_dex, min_int, min_fai, min_arc],
         [lock_str, lock_dex, lock_int, lock_fai, lock_arc],
+        false,
+        0,
         1,
     )
     .map_err(PyValueError::new_err)?;
@@ -586,6 +588,8 @@ pub fn py_optimize_builds(
         somber_filter,
         [min_str, min_dex, min_int, min_fai, min_arc],
         [lock_str, lock_dex, lock_int, lock_fai, lock_arc],
+        false,
+        0,
         top_k,
     )
     .map_err(PyValueError::new_err)?;
@@ -682,6 +686,8 @@ fn build_request(
     somber_filter: &str,
     min_combat_stats: [u8; 5],
     locked_combat_stats: [Option<u8>; 5],
+    dlc_scaling: bool,
+    scadutree_level: u8,
     top_k: usize,
 ) -> Result<OptimizeRequest, String> {
     let parsed_objective = parse_objective(objective)?;
@@ -695,6 +701,8 @@ fn build_request(
         max_upgrade,
         fixed_upgrade,
         two_handing,
+        dlc_scaling,
+        scadutree_level,
         weapon_name,
         affinity,
         aow_name,

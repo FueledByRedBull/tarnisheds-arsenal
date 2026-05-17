@@ -33,6 +33,10 @@ pub struct OptimizeRequestDto {
     pub max_upgrade: u8,
     pub fixed_upgrade: Option<u8>,
     pub two_handing: bool,
+    #[serde(default)]
+    pub dlc_scaling: bool,
+    #[serde(default)]
+    pub scadutree_level: u8,
     pub weapon_name: Option<String>,
     pub affinity: Option<String>,
     pub aow_name: Option<String>,
@@ -411,6 +415,8 @@ impl TryFrom<&OptimizeRequestDto> for OptimizeRequest {
             max_upgrade: value.max_upgrade,
             fixed_upgrade: value.fixed_upgrade,
             two_handing: value.two_handing,
+            dlc_scaling: value.dlc_scaling,
+            scadutree_level: value.scadutree_level,
             weapon_name: value.weapon_name.clone(),
             affinity: value.affinity.clone(),
             aow_name: value.aow_name.clone(),

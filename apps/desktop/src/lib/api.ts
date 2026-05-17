@@ -1,26 +1,20 @@
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import {
   AffinityWatchPayloadDto,
-  AffinityWatchFinishedDto,
   AffinityWatchJobStatusDto,
-  AffinityWatchProgressDto,
   CatalogDto,
   OptimizeRequestDto,
-  PathFinishedDto,
   PathJobStatusDto,
   PathPreviewDto,
-  PathProgressDto,
-  SearchFinishedDto,
   SearchJobStatusDto,
   SearchEstimateDto,
-  SearchProgressDto,
   ScalingDto,
   SolvedBuildDto,
   UpgradePointDto,
   WeaponProfileDto,
 } from "./types";
 import { STARTING_CLASS_METADATA } from "./session";
+import { scadutreeAttackMultiplier } from "./scadutree";
 
 type CsvRow = Record<string, string>;
 type CombatStatKey = keyof SolvedBuildDto["stats"];
@@ -61,14 +55,6 @@ export const api = {
     call<boolean>("cancel_search", { jobId }),
   searchStatus: (jobId: string) =>
     call<SearchJobStatusDto | null>("get_search_status", { jobId }),
-  onSearchProgress: (handler: (payload: SearchProgressDto) => void) =>
-    hasTauriRuntime()
-      ? listen<SearchProgressDto>("search_progress", (event) => handler(event.payload))
-      : Promise.resolve(() => undefined),
-  onSearchFinished: (handler: (payload: SearchFinishedDto) => void) =>
-    hasTauriRuntime()
-      ? listen<SearchFinishedDto>("search_finished", (event) => handler(event.payload))
-      : Promise.resolve(() => undefined),
   solveBuild: (
     base: OptimizeRequestDto,
     weaponName: string,
@@ -131,14 +117,6 @@ export const api = {
     call<boolean>("cancel_path_preview", { jobId }),
   pathPreviewStatus: (jobId: string) =>
     call<PathJobStatusDto | null>("get_path_preview_status", { jobId }),
-  onPathProgress: (handler: (payload: PathProgressDto) => void) =>
-    hasTauriRuntime()
-      ? listen<PathProgressDto>("path_progress", (event) => handler(event.payload))
-      : Promise.resolve(() => undefined),
-  onPathFinished: (handler: (payload: PathFinishedDto) => void) =>
-    hasTauriRuntime()
-      ? listen<PathFinishedDto>("path_finished", (event) => handler(event.payload))
-      : Promise.resolve(() => undefined),
   startAffinityWatch: (
     base: OptimizeRequestDto,
     solved: SolvedBuildDto,
@@ -151,14 +129,6 @@ export const api = {
     call<boolean>("cancel_affinity_watch", { jobId }),
   affinityWatchStatus: (jobId: string) =>
     call<AffinityWatchJobStatusDto | null>("get_affinity_watch_status", { jobId }),
-  onAffinityWatchProgress: (handler: (payload: AffinityWatchProgressDto) => void) =>
-    hasTauriRuntime()
-      ? listen<AffinityWatchProgressDto>("affinity_watch_progress", (event) => handler(event.payload))
-      : Promise.resolve(() => undefined),
-  onAffinityWatchFinished: (handler: (payload: AffinityWatchFinishedDto) => void) =>
-    hasTauriRuntime()
-      ? listen<AffinityWatchFinishedDto>("affinity_watch_finished", (event) => handler(event.payload))
-      : Promise.resolve(() => undefined),
 };
 
 async function mockInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
@@ -384,7 +354,10 @@ function buildMockRow(
   const reinforce = reinforceRows.find(
     (row) => row.reinforce_type === weapon.reinforce_type && Number(row.level) === upgrade,
   );
-  const ar = previewAr(weapon, reinforce, stats);
+  const ar = scaleDamageBreakdown(
+    previewAr(weapon, reinforce, stats),
+    scadutreeAttackMultiplier(Boolean(request?.dlcScaling), Number(request?.scadutreeLevel ?? 0)),
+  );
   const aow = choosePreviewAow(weapon, request?.aowName ?? null, compatRows);
   if (request?.aowName && !aow) {
     return null;
@@ -422,6 +395,22 @@ function buildMockRow(
     aowFirstHitDamage,
     aowFullSequenceDamage,
     score,
+  };
+}
+
+function scaleDamageBreakdown(ar: SolvedBuildDto["ar"], multiplier: number): SolvedBuildDto["ar"] {
+  const physical = ar.physical * multiplier;
+  const magic = ar.magic * multiplier;
+  const fire = ar.fire * multiplier;
+  const lightning = ar.lightning * multiplier;
+  const holy = ar.holy * multiplier;
+  return {
+    physical,
+    magic,
+    fire,
+    lightning,
+    holy,
+    total: physical + magic + fire + lightning + holy,
   };
 }
 

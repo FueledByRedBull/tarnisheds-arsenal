@@ -19,6 +19,27 @@ pub fn effective_str(str_stat: u8, two_handing: bool, disable_two_hand_bonus: bo
     }
 }
 
+pub const SCADUTREE_MAX_LEVEL: u8 = 20;
+pub const SCADUTREE_ATTACK_MULTIPLIERS: [f32; 21] = [
+    1.00, 1.10, 1.20, 1.25, 1.30, 1.35, 1.42, 1.50, 1.55, 1.60, 1.65, 1.75, 1.85, 1.87, 1.90, 1.92,
+    1.95, 1.97, 2.00, 2.02, 2.05,
+];
+
+pub fn scadutree_attack_multiplier(dlc_scaling: bool, scadutree_level: u8) -> f32 {
+    if !dlc_scaling {
+        return 1.0;
+    }
+    SCADUTREE_ATTACK_MULTIPLIERS[usize::from(scadutree_level.min(SCADUTREE_MAX_LEVEL))]
+}
+
+pub fn scadutree_received_damage_multiplier(dlc_scaling: bool, scadutree_level: u8) -> f32 {
+    1.0 / scadutree_attack_multiplier(dlc_scaling, scadutree_level)
+}
+
+pub fn scadutree_damage_negation(dlc_scaling: bool, scadutree_level: u8) -> f32 {
+    1.0 - scadutree_received_damage_multiplier(dlc_scaling, scadutree_level)
+}
+
 pub fn meets_requirements(weapon: &Weapon, effective_str: u16, stats: &Stats) -> bool {
     effective_str >= u16::from(weapon.requirements[STAT_STR])
         && stats.dex >= weapon.requirements[STAT_DEX]
@@ -128,7 +149,13 @@ pub fn calculate_ar(
         stat_values_for_scaling(stats, effective_str_value, weapon.disable_two_hand_bonus);
     let mut breakdown = DamageBreakdown::default();
     for damage_type in DamageType::ALL {
-        let curve_id = weapon.damage_curve_ids[damage_type.as_index()];
+        let damage_idx = damage_type.as_index();
+        let actual_base = weapon.base[damage_idx] * reinforce.damage_mult[damage_idx];
+        if actual_base <= 0.0 {
+            continue;
+        }
+
+        let curve_id = weapon.damage_curve_ids[damage_idx];
         let curve_mults = [
             data.calc_curve_value(curve_id, stat_values[STAT_STR])
                 .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
@@ -141,11 +168,6 @@ pub fn calculate_ar(
             data.calc_curve_value(curve_id, stat_values[STAT_ARC])
                 .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
         ];
-        let actual_base =
-            weapon.base[damage_type.as_index()] * reinforce.damage_mult[damage_type.as_index()];
-        if actual_base <= 0.0 {
-            continue;
-        }
         let contributions = build_contributions(weapon, reinforce, aec, &curve_mults, damage_type);
         let value = calculate_ar_for_type(actual_base, &contributions);
         match damage_type {

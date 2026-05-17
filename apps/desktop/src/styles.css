@@ -241,6 +241,11 @@ select:focus {
   font-size: 11px;
 }
 
+.cap-readout small {
+  font-size: 11px;
+  line-height: 1.1;
+}
+
 .budget-readout strong,
 .lock-readout strong,
 .cap-readout strong {
