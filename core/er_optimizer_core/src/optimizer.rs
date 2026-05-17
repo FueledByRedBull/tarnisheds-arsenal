@@ -12,7 +12,7 @@ use crate::math::{
 };
 use crate::model::{
     Aow, AowAttackRow, COMBAT_STAT_COUNT, DamageBreakdown, DamageType, GameData, STAT_ARC,
-    STAT_DEX, STAT_FAI, STAT_INT, STAT_STR, Stats, StatusBuildup, Weapon,
+    STAT_DEX, STAT_FAI, STAT_INT, STAT_STR, Stats, StatusBuildup, StatusEffectSource, Weapon,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -115,8 +115,6 @@ struct PreparedWeapon<'a> {
     weapon: &'a Weapon,
     aow_choices: Vec<AowChoice<'a>>,
     upgrades: Vec<u8>,
-    useful_stats: [bool; COMBAT_STAT_COUNT],
-    minimum_useful_stats: [u8; COMBAT_STAT_COUNT],
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -133,6 +131,7 @@ struct SearchWorkUnit {
     prepared_idx: usize,
     aow_start: usize,
     aow_end: usize,
+    candidate_count: u64,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -164,16 +163,13 @@ pub fn estimate_search_space(
     data: &GameData,
 ) -> Result<SearchEstimate, String> {
     let constraints = build_combat_constraints(request)?;
-    let stat_candidates = count_stat_candidates(constraints);
-    let weapons = prepare_weapons(request, data)?;
-    let upgrade_slots: u64 = weapons
-        .iter()
-        .map(|entry| (entry.upgrades.len() * entry.aow_choices.len()) as u64)
-        .sum();
+    let weapons = prepare_weapons(request, data, constraints)?;
+    let (stat_candidates, combinations) =
+        search_candidate_totals(request, data, constraints, &weapons);
     Ok(SearchEstimate {
         weapon_candidates: weapons.len(),
         stat_candidates,
-        combinations: stat_candidates.saturating_mul(upgrade_slots),
+        combinations,
     })
 }
 
@@ -195,22 +191,19 @@ where
     }
 
     let constraints = build_combat_constraints(request)?;
-    let stat_count = count_stat_candidates(constraints);
-    if stat_count == 0 {
-        return Ok(Vec::new());
-    }
-
-    let weapons = prepare_weapons(request, data)?;
+    let weapons = prepare_weapons(request, data, constraints)?;
     if weapons.is_empty() {
         return Ok(Vec::new());
     }
 
-    let upgrade_slots: u64 = weapons
+    let work_units = build_search_work_units(request, data, constraints, &weapons);
+    let total = work_units
         .iter()
-        .map(|entry| (entry.upgrades.len() * entry.aow_choices.len()) as u64)
-        .sum();
-    let total = stat_count.saturating_mul(upgrade_slots);
-    let work_units = build_search_work_units(&weapons);
+        .map(|unit| unit.candidate_count)
+        .sum::<u64>();
+    if total == 0 {
+        return Ok(Vec::new());
+    }
 
     if should_use_parallel_search(total, work_units.len()) {
         optimize_parallel(
@@ -242,26 +235,92 @@ fn should_use_parallel_search(total: u64, work_unit_count: usize) -> bool {
         && rayon::current_num_threads() > 1
 }
 
-fn build_search_work_units(weapons: &[PreparedWeapon<'_>]) -> Vec<SearchWorkUnit> {
+fn build_search_work_units(
+    request: &OptimizeRequest,
+    data: &GameData,
+    constraints: CombatConstraints,
+    weapons: &[PreparedWeapon<'_>],
+) -> Vec<SearchWorkUnit> {
     let mut units = Vec::new();
     for (prepared_idx, prepared) in weapons.iter().enumerate() {
         if prepared.aow_choices.len() <= PARALLEL_AOW_CHUNK_SIZE {
+            let candidate_count = search_work_count(
+                request,
+                data,
+                constraints,
+                prepared,
+                0,
+                prepared.aow_choices.len(),
+            );
             units.push(SearchWorkUnit {
                 prepared_idx,
                 aow_start: 0,
                 aow_end: prepared.aow_choices.len(),
+                candidate_count,
             });
             continue;
         }
         for aow_start in (0..prepared.aow_choices.len()).step_by(PARALLEL_AOW_CHUNK_SIZE) {
+            let aow_end = (aow_start + PARALLEL_AOW_CHUNK_SIZE).min(prepared.aow_choices.len());
+            let candidate_count =
+                search_work_count(request, data, constraints, prepared, aow_start, aow_end);
             units.push(SearchWorkUnit {
                 prepared_idx,
                 aow_start,
-                aow_end: (aow_start + PARALLEL_AOW_CHUNK_SIZE).min(prepared.aow_choices.len()),
+                aow_end,
+                candidate_count,
             });
         }
     }
     units
+}
+
+fn search_candidate_totals(
+    request: &OptimizeRequest,
+    data: &GameData,
+    constraints: CombatConstraints,
+    weapons: &[PreparedWeapon<'_>],
+) -> (u64, u64) {
+    let mut stat_candidates = 0_u64;
+    let mut combinations = 0_u64;
+    for prepared in weapons {
+        for aow_choice in &prepared.aow_choices {
+            let Some(search) =
+                relevant_stat_search(request, data, constraints, prepared, aow_choice)
+            else {
+                continue;
+            };
+            stat_candidates = stat_candidates.saturating_add(search.candidate_count);
+            combinations = combinations.saturating_add(
+                search
+                    .candidate_count
+                    .saturating_mul(prepared.upgrades.len() as u64),
+            );
+        }
+    }
+    (stat_candidates, combinations)
+}
+
+fn search_work_count(
+    request: &OptimizeRequest,
+    data: &GameData,
+    constraints: CombatConstraints,
+    prepared: &PreparedWeapon<'_>,
+    aow_start: usize,
+    aow_end: usize,
+) -> u64 {
+    prepared.aow_choices[aow_start..aow_end]
+        .iter()
+        .map(|aow_choice| {
+            relevant_stat_search(request, data, constraints, prepared, aow_choice)
+                .map(|search| {
+                    search
+                        .candidate_count
+                        .saturating_mul(prepared.upgrades.len() as u64)
+                })
+                .unwrap_or(0)
+        })
+        .sum()
 }
 
 fn optimize_serial<F>(
@@ -350,15 +409,19 @@ where
     let prepared = &weapons[unit.prepared_idx];
     let mut results = Vec::with_capacity(request.top_k);
     let damage_multiplier = request.damage_multiplier();
-    let mut current_combat = constraints.mins;
     let mut visit_result: Result<(), String> = Ok(());
 
-    visit_stat_candidates(constraints, &mut current_combat, |combat| {
-        if progress.is_cancelled() {
-            visit_result = Err("cancelled".to_string());
-            return false;
-        }
-        for aow_choice in &prepared.aow_choices[unit.aow_start..unit.aow_end] {
+    for aow_choice in &prepared.aow_choices[unit.aow_start..unit.aow_end] {
+        let Some(search) = relevant_stat_search(request, data, constraints, prepared, aow_choice)
+        else {
+            continue;
+        };
+        let mut current_combat = search.mins;
+        search.visit(&mut current_combat, |combat| {
+            if progress.is_cancelled() {
+                visit_result = Err("cancelled".to_string());
+                return false;
+            }
             let mut stats = request.current_stats;
             stats.str = combat[STAT_STR];
             stats.dex = combat[STAT_DEX];
@@ -371,13 +434,6 @@ where
                 request.two_handing,
                 prepared.weapon.disable_two_hand_bonus,
             );
-            if combat_has_wasted_points(request, prepared, combat) {
-                if let Err(err) = progress.advance(prepared.upgrades.len() as u64, 0, None) {
-                    visit_result = Err(err);
-                    return false;
-                }
-                continue;
-            }
 
             for upgrade in &prepared.upgrades {
                 if !meets_requirements(prepared.weapon, effective_str_value, &stats) {
@@ -499,10 +555,10 @@ where
                     request.top_k,
                 );
             }
-        }
-        true
-    });
-    visit_result?;
+            true
+        });
+        visit_result.as_ref().map_err(Clone::clone)?;
+    }
     progress.finish()?;
     Ok(results)
 }
@@ -898,6 +954,7 @@ fn validate_stat_caps(request: &OptimizeRequest) -> Result<(), String> {
 fn prepare_weapons<'a>(
     request: &OptimizeRequest,
     data: &'a GameData,
+    constraints: CombatConstraints,
 ) -> Result<Vec<PreparedWeapon<'a>>, String> {
     let mut out = Vec::new();
     for weapon in data
@@ -905,22 +962,19 @@ fn prepare_weapons<'a>(
         .iter()
         .filter(|entry| weapon_matches_request(entry, request))
     {
+        if !weapon_requirements_can_fit(request, constraints, weapon) {
+            continue;
+        }
         let Some(upgrades) = available_upgrades(weapon, request, data) else {
             continue;
         };
         let Some(aow_choices) = resolve_aow_choices(weapon, request, data)? else {
             continue;
         };
-        let useful_stats =
-            std::array::from_fn(|idx| weapon_stat_can_increase_ar(weapon, data, idx));
-        let minimum_useful_stats =
-            std::array::from_fn(|idx| minimum_useful_stat(request, weapon, idx));
         out.push(PreparedWeapon {
             weapon,
             aow_choices,
             upgrades,
-            useful_stats,
-            minimum_useful_stats,
         });
     }
     Ok(out)
@@ -1474,51 +1528,433 @@ pub(crate) fn aow_compatible_with_weapon(aow: &Aow, weapon: &Weapon, data: &Game
     false
 }
 
-fn combat_has_wasted_points(
-    request: &OptimizeRequest,
-    prepared: &PreparedWeapon<'_>,
-    combat: &[u8; COMBAT_STAT_COUNT],
-) -> bool {
-    if !matches!(
-        request.objective,
-        OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr
-    ) {
-        return false;
-    }
-    if !prepared
-        .useful_stats
-        .iter()
-        .enumerate()
-        .any(|(idx, contributes)| *contributes && combat[idx] < 99)
-    {
-        return false;
-    }
-
-    for idx in 0..COMBAT_STAT_COUNT {
-        if prepared.useful_stats[idx] {
-            continue;
-        }
-        if combat[idx] > prepared.minimum_useful_stats[idx] {
-            return true;
-        }
-    }
-    false
+#[derive(Clone, Copy, Debug)]
+struct RelevantStatSearch {
+    mins: [u8; COMBAT_STAT_COUNT],
+    maxs: [u8; COMBAT_STAT_COUNT],
+    active: [bool; COMBAT_STAT_COUNT],
+    remaining_free: u16,
+    candidate_count: u64,
 }
 
-fn minimum_useful_stat(request: &OptimizeRequest, weapon: &Weapon, stat_idx: usize) -> u8 {
-    let current = request.current_stats.combat_array()[stat_idx];
-    let floor = current.max(request.min_combat_stats[stat_idx]);
-    let locked = request.locked_combat_stats[stat_idx].unwrap_or(0);
-    let required = if stat_idx == STAT_STR {
-        minimum_str_for_requirement(
-            weapon.requirements[STAT_STR],
-            request.two_handing,
-            weapon.disable_two_hand_bonus,
-        )
+fn relevant_stat_search(
+    request: &OptimizeRequest,
+    data: &GameData,
+    constraints: CombatConstraints,
+    prepared: &PreparedWeapon<'_>,
+    aow_choice: &AowChoice<'_>,
+) -> Option<RelevantStatSearch> {
+    let active = active_stats_for_choice(request, prepared, aow_choice, data);
+    RelevantStatSearch::new(request, constraints, prepared.weapon, active)
+}
+
+impl RelevantStatSearch {
+    fn new(
+        request: &OptimizeRequest,
+        constraints: CombatConstraints,
+        weapon: &Weapon,
+        active: [bool; COMBAT_STAT_COUNT],
+    ) -> Option<Self> {
+        let mut mins = constraints.mins;
+        let maxs = constraints.maxs;
+        let mut remaining_free = constraints.remaining_free;
+        let requirement_mins = weapon_requirement_mins(request, weapon);
+        for idx in 0..COMBAT_STAT_COUNT {
+            if requirement_mins[idx] > maxs[idx] {
+                return None;
+            }
+            if requirement_mins[idx] > mins[idx] {
+                let raise = u16::from(requirement_mins[idx] - mins[idx]);
+                if raise > remaining_free {
+                    return None;
+                }
+                mins[idx] = requirement_mins[idx];
+                remaining_free -= raise;
+            }
+        }
+
+        let candidate_count = count_relevant_distributions(&mins, &maxs, &active, remaining_free);
+        (candidate_count > 0).then_some(Self {
+            mins,
+            maxs,
+            active,
+            remaining_free,
+            candidate_count,
+        })
+    }
+
+    fn visit<F>(&self, current: &mut [u8; COMBAT_STAT_COUNT], mut visitor: F)
+    where
+        F: FnMut(&[u8; COMBAT_STAT_COUNT]) -> bool,
+    {
+        visit_relevant_stat_candidates_inner(0, self.remaining_free, self, current, &mut visitor);
+    }
+
+    fn required_inactive_fill(&self) -> u16 {
+        let active_capacity: u16 = (0..COMBAT_STAT_COUNT)
+            .filter(|idx| self.active[*idx])
+            .map(|idx| u16::from(self.maxs[idx] - self.mins[idx]))
+            .sum();
+        self.remaining_free.saturating_sub(active_capacity)
+    }
+}
+
+fn count_relevant_distributions(
+    mins: &[u8; COMBAT_STAT_COUNT],
+    maxs: &[u8; COMBAT_STAT_COUNT],
+    active: &[bool; COMBAT_STAT_COUNT],
+    remaining_free: u16,
+) -> u64 {
+    let active_capacity: u16 = (0..COMBAT_STAT_COUNT)
+        .filter(|idx| active[*idx])
+        .map(|idx| u16::from(maxs[idx] - mins[idx]))
+        .sum();
+    let required_inactive_fill = remaining_free.saturating_sub(active_capacity);
+    let mut memo: HashMap<(usize, u16), u64> = HashMap::new();
+    count_active_distributions(
+        mins,
+        maxs,
+        active,
+        required_inactive_fill,
+        0,
+        remaining_free,
+        &mut memo,
+    )
+}
+
+fn count_active_distributions(
+    mins: &[u8; COMBAT_STAT_COUNT],
+    maxs: &[u8; COMBAT_STAT_COUNT],
+    active: &[bool; COMBAT_STAT_COUNT],
+    required_inactive_fill: u16,
+    idx: usize,
+    remaining_free: u16,
+    memo: &mut HashMap<(usize, u16), u64>,
+) -> u64 {
+    if idx == COMBAT_STAT_COUNT {
+        return if remaining_free == required_inactive_fill {
+            1
+        } else {
+            0
+        };
+    }
+    if let Some(value) = memo.get(&(idx, remaining_free)) {
+        return *value;
+    }
+    let total = if active[idx] {
+        let cap = u16::from(maxs[idx] - mins[idx]).min(remaining_free);
+        (0..=cap)
+            .map(|add| {
+                count_active_distributions(
+                    mins,
+                    maxs,
+                    active,
+                    required_inactive_fill,
+                    idx + 1,
+                    remaining_free - add,
+                    memo,
+                )
+            })
+            .fold(0_u64, u64::saturating_add)
     } else {
-        weapon.requirements[stat_idx]
+        count_active_distributions(
+            mins,
+            maxs,
+            active,
+            required_inactive_fill,
+            idx + 1,
+            remaining_free,
+            memo,
+        )
     };
-    floor.max(locked).max(required)
+    memo.insert((idx, remaining_free), total);
+    total
+}
+
+fn visit_relevant_stat_candidates_inner<F>(
+    idx: usize,
+    remaining_free: u16,
+    search: &RelevantStatSearch,
+    current: &mut [u8; COMBAT_STAT_COUNT],
+    visitor: &mut F,
+) -> bool
+where
+    F: FnMut(&[u8; COMBAT_STAT_COUNT]) -> bool,
+{
+    if idx == COMBAT_STAT_COUNT {
+        if remaining_free != search.required_inactive_fill() {
+            return true;
+        }
+        let mut filled = *current;
+        fill_inactive_stats(search, &mut filled, remaining_free);
+        return visitor(&filled);
+    }
+
+    if !search.active[idx] {
+        current[idx] = search.mins[idx];
+        return visit_relevant_stat_candidates_inner(
+            idx + 1,
+            remaining_free,
+            search,
+            current,
+            visitor,
+        );
+    }
+
+    let cap = u16::from(search.maxs[idx] - search.mins[idx]).min(remaining_free);
+    for add in 0..=cap {
+        current[idx] = search.mins[idx] + (add as u8);
+        if !visit_relevant_stat_candidates_inner(
+            idx + 1,
+            remaining_free - add,
+            search,
+            current,
+            visitor,
+        ) {
+            current[idx] = search.mins[idx];
+            return false;
+        }
+    }
+    current[idx] = search.mins[idx];
+    true
+}
+
+fn fill_inactive_stats(
+    search: &RelevantStatSearch,
+    current: &mut [u8; COMBAT_STAT_COUNT],
+    mut remaining_free: u16,
+) {
+    for idx in 0..COMBAT_STAT_COUNT {
+        if search.active[idx] {
+            continue;
+        }
+        let later_capacity: u16 = ((idx + 1)..COMBAT_STAT_COUNT)
+            .filter(|later| !search.active[*later])
+            .map(|later| u16::from(search.maxs[later] - search.mins[later]))
+            .sum();
+        let cap = u16::from(search.maxs[idx] - search.mins[idx]).min(remaining_free);
+        let add = remaining_free.saturating_sub(later_capacity).min(cap);
+        current[idx] = search.mins[idx] + (add as u8);
+        remaining_free -= add;
+    }
+}
+
+fn weapon_requirements_can_fit(
+    request: &OptimizeRequest,
+    constraints: CombatConstraints,
+    weapon: &Weapon,
+) -> bool {
+    RelevantStatSearch::new(request, constraints, weapon, [true; COMBAT_STAT_COUNT]).is_some()
+}
+
+fn weapon_requirement_mins(request: &OptimizeRequest, weapon: &Weapon) -> [u8; COMBAT_STAT_COUNT] {
+    std::array::from_fn(|idx| {
+        if idx == STAT_STR {
+            minimum_str_for_requirement(
+                weapon.requirements[STAT_STR],
+                request.two_handing,
+                weapon.disable_two_hand_bonus,
+            )
+        } else {
+            weapon.requirements[idx]
+        }
+    })
+}
+
+fn active_stats_for_choice(
+    request: &OptimizeRequest,
+    prepared: &PreparedWeapon<'_>,
+    aow_choice: &AowChoice<'_>,
+    data: &GameData,
+) -> [bool; COMBAT_STAT_COUNT] {
+    match request.objective {
+        OptimizeObjective::MaxAr => {
+            std::array::from_fn(|idx| weapon_stat_can_increase_ar(prepared.weapon, data, idx))
+        }
+        OptimizeObjective::MaxPhysicalAr => std::array::from_fn(|idx| {
+            weapon_stat_can_increase_damage_type(prepared.weapon, data, idx, DamageType::Physical)
+        }),
+        OptimizeObjective::MaxArPlusBleed => std::array::from_fn(|idx| {
+            weapon_stat_can_increase_ar(prepared.weapon, data, idx)
+                || stat_can_increase_status_for_choice(prepared, aow_choice, data, idx)
+        }),
+        OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence => {
+            std::array::from_fn(|idx| {
+                aow_choice
+                    .attack_rows
+                    .iter()
+                    .any(|row| attack_row_stat_can_increase_damage(prepared.weapon, row, data, idx))
+            })
+        }
+    }
+}
+
+fn weapon_stat_can_increase_damage_type(
+    weapon: &Weapon,
+    data: &GameData,
+    stat_idx: usize,
+    damage_type: DamageType,
+) -> bool {
+    if weapon.scaling[stat_idx] <= 0.0 || weapon.base[damage_type.as_index()] <= 0.0 {
+        return false;
+    }
+    let Some(aec) = data.attack_element(weapon.attack_element_correct_id) else {
+        return true;
+    };
+    aec.stat_scales(stat_idx, damage_type)
+}
+
+fn attack_row_stat_can_increase_damage(
+    weapon: &Weapon,
+    row: &AowAttackRow,
+    data: &GameData,
+    stat_idx: usize,
+) -> bool {
+    if row.is_lacking_fp || !row.is_damaging() {
+        return false;
+    }
+    DamageType::ALL.iter().any(|damage_type| {
+        let damage_idx = damage_type.as_index();
+        let has_damage_base = weapon.base[damage_idx] > 0.0 && row.motion_values[damage_idx] > 0.0
+            || row.attack_base[damage_idx] > 0.0;
+        if !has_damage_base {
+            return false;
+        }
+        if let Some(override_id) = row.overwrite_attack_element_correct_id {
+            let Some(aec_ext) = data.attack_element_ext(override_id) else {
+                return false;
+            };
+            if !aec_ext.stat_scales(stat_idx, damage_idx) {
+                return false;
+            }
+            return aec_ext
+                .overwrite_rate(stat_idx, damage_idx)
+                .is_some_and(|rate| rate > 0.0)
+                || weapon.scaling[stat_idx] * aec_ext.influence_rate(stat_idx, damage_idx) > 0.0;
+        }
+        weapon_stat_can_increase_damage_type(weapon, data, stat_idx, *damage_type)
+    })
+}
+
+fn stat_can_increase_status_for_choice(
+    prepared: &PreparedWeapon<'_>,
+    aow_choice: &AowChoice<'_>,
+    data: &GameData,
+    stat_idx: usize,
+) -> bool {
+    prepared.upgrades.iter().any(|upgrade| {
+        let mut source = data.weapon_passive(prepared.weapon.weapon_id);
+        if let Some(overlay) = data.weapon_passive_overlay(prepared.weapon.weapon_id, *upgrade) {
+            source = merge_status_source_for_relevance(source, overlay);
+        }
+        status_source_stat_can_scale(source, prepared.weapon, stat_idx)
+    }) || aow_choice.aow.is_some_and(|aow| {
+        status_source_stat_can_scale(aow_status_source(aow), prepared.weapon, stat_idx)
+    })
+}
+
+fn aow_status_source(aow: &Aow) -> StatusEffectSource {
+    StatusEffectSource {
+        buildup: aow.scaling_status_add,
+        correction_flags: aow.scaling_status_flags,
+    }
+}
+
+fn merge_status_source_for_relevance(
+    mut base: StatusEffectSource,
+    overlay: StatusEffectSource,
+) -> StatusEffectSource {
+    merge_status_relevance_value(
+        &mut base.buildup.bleed,
+        &mut base.correction_flags.bleed,
+        overlay.buildup.bleed,
+        overlay.correction_flags.bleed,
+    );
+    merge_status_relevance_value(
+        &mut base.buildup.frost,
+        &mut base.correction_flags.frost,
+        overlay.buildup.frost,
+        overlay.correction_flags.frost,
+    );
+    merge_status_relevance_value(
+        &mut base.buildup.poison,
+        &mut base.correction_flags.poison,
+        overlay.buildup.poison,
+        overlay.correction_flags.poison,
+    );
+    merge_status_relevance_value(
+        &mut base.buildup.scarlet_rot,
+        &mut base.correction_flags.scarlet_rot,
+        overlay.buildup.scarlet_rot,
+        overlay.correction_flags.scarlet_rot,
+    );
+    merge_status_relevance_value(
+        &mut base.buildup.sleep,
+        &mut base.correction_flags.sleep,
+        overlay.buildup.sleep,
+        overlay.correction_flags.sleep,
+    );
+    merge_status_relevance_value(
+        &mut base.buildup.madness,
+        &mut base.correction_flags.madness,
+        overlay.buildup.madness,
+        overlay.correction_flags.madness,
+    );
+    merge_status_relevance_value(
+        &mut base.buildup.death,
+        &mut base.correction_flags.death,
+        overlay.buildup.death,
+        overlay.correction_flags.death,
+    );
+    base
+}
+
+fn merge_status_relevance_value(
+    base_value: &mut f32,
+    base_flag: &mut Option<bool>,
+    overlay_value: f32,
+    overlay_flag: Option<bool>,
+) {
+    if overlay_value > 0.0 {
+        *base_value = overlay_value;
+        *base_flag = overlay_flag;
+    }
+}
+
+fn status_source_stat_can_scale(
+    source: StatusEffectSource,
+    weapon: &Weapon,
+    stat_idx: usize,
+) -> bool {
+    if weapon.scaling[stat_idx] <= 0.0 {
+        return false;
+    }
+    match stat_idx {
+        STAT_INT => {
+            source.buildup.frost > 0.0
+                && status_uses_correction(source.correction_flags.frost, true)
+        }
+        STAT_ARC => {
+            status_value_can_scale(source.buildup.bleed, source.correction_flags.bleed)
+                || status_value_can_scale(source.buildup.poison, source.correction_flags.poison)
+                || status_value_can_scale(
+                    source.buildup.scarlet_rot,
+                    source.correction_flags.scarlet_rot,
+                )
+                || status_value_can_scale(source.buildup.sleep, source.correction_flags.sleep)
+                || status_value_can_scale(source.buildup.madness, source.correction_flags.madness)
+                || status_value_can_scale(source.buildup.death, source.correction_flags.death)
+        }
+        _ => false,
+    }
+}
+
+fn status_value_can_scale(value: f32, flag: Option<bool>) -> bool {
+    value > 0.0 && status_uses_correction(flag, true)
+}
+
+fn status_uses_correction(flag: Option<bool>, fallback: bool) -> bool {
+    flag.unwrap_or(fallback)
 }
 
 fn minimum_str_for_requirement(
@@ -1554,6 +1990,7 @@ fn weapon_stat_can_increase_ar(weapon: &Weapon, data: &GameData, stat_idx: usize
     })
 }
 
+#[cfg(test)]
 fn count_stat_candidates(constraints: CombatConstraints) -> u64 {
     let mut caps = [0_u8; COMBAT_STAT_COUNT];
     for idx in 0..COMBAT_STAT_COUNT {
@@ -1563,6 +2000,7 @@ fn count_stat_candidates(constraints: CombatConstraints) -> u64 {
     count_distributions(&caps, 0, constraints.remaining_free, &mut memo)
 }
 
+#[cfg(test)]
 fn count_distributions(
     caps: &[u8; COMBAT_STAT_COUNT],
     idx: usize,
@@ -1583,54 +2021,6 @@ fn count_distributions(
     }
     memo.insert((idx, remaining), total);
     total
-}
-
-fn visit_stat_candidates<F>(
-    constraints: CombatConstraints,
-    current: &mut [u8; COMBAT_STAT_COUNT],
-    mut visitor: F,
-) where
-    F: FnMut(&[u8; COMBAT_STAT_COUNT]) -> bool,
-{
-    visit_stat_candidates_inner(
-        0,
-        constraints.remaining_free,
-        &constraints.mins,
-        &constraints.maxs,
-        current,
-        &mut visitor,
-    );
-}
-
-fn visit_stat_candidates_inner<F>(
-    idx: usize,
-    remaining: u16,
-    mins: &[u8; COMBAT_STAT_COUNT],
-    maxs: &[u8; COMBAT_STAT_COUNT],
-    current: &mut [u8; COMBAT_STAT_COUNT],
-    visitor: &mut F,
-) -> bool
-where
-    F: FnMut(&[u8; COMBAT_STAT_COUNT]) -> bool,
-{
-    if idx == COMBAT_STAT_COUNT {
-        if remaining == 0 {
-            return visitor(current);
-        }
-        return true;
-    }
-
-    let cap = u16::from(maxs[idx] - mins[idx]);
-    let max_add = cap.min(remaining);
-    for add in 0..=max_add {
-        current[idx] = mins[idx] + (add as u8);
-        if !visit_stat_candidates_inner(idx + 1, remaining - add, mins, maxs, current, visitor) {
-            current[idx] = mins[idx];
-            return false;
-        }
-    }
-    current[idx] = mins[idx];
-    true
 }
 
 fn could_enter_top_k(results: &[OptimizeResult], score: f32, top_k: usize) -> bool {
@@ -1768,6 +2158,61 @@ mod tests {
             objective: OptimizeObjective::MaxAr,
             top_k: 3,
         }
+    }
+
+    fn broad_request() -> OptimizeRequest {
+        OptimizeRequest {
+            class_name: "Samurai".to_string(),
+            character_level: 150,
+            current_stats: Stats {
+                vig: 40,
+                mnd: 20,
+                end: 20,
+                str: 20,
+                dex: 20,
+                int: 20,
+                fai: 20,
+                arc: 20,
+            },
+            min_combat_stats: [0, 0, 0, 0, 0],
+            locked_combat_stats: [None, None, None, None, None],
+            max_upgrade: 25,
+            fixed_upgrade: Some(25),
+            two_handing: false,
+            dlc_scaling: false,
+            scadutree_level: 0,
+            weapon_name: None,
+            affinity: None,
+            aow_name: None,
+            weapon_type_key: None,
+            somber_filter: SomberFilter::All,
+            objective: OptimizeObjective::MaxAr,
+            top_k: 3,
+        }
+    }
+
+    fn active_mask_for(
+        game_data: &GameData,
+        weapon_name: &str,
+        affinity: &str,
+        objective: OptimizeObjective,
+        aow_name: Option<&str>,
+    ) -> [bool; COMBAT_STAT_COUNT] {
+        let mut request = broad_request();
+        request.weapon_name = Some(weapon_name.to_string());
+        request.affinity = Some(affinity.to_string());
+        request.aow_name = aow_name.map(str::to_string);
+        request.objective = objective;
+        let constraints = build_combat_constraints(&request).expect("constraints failed");
+        let prepared_weapons =
+            prepare_weapons(&request, game_data, constraints).expect("prepare failed");
+        let prepared = prepared_weapons.first().expect("expected prepared weapon");
+        active_stats_for_choice(
+            &request,
+            prepared,
+            prepared.aow_choices.first().expect("expected AoW choice"),
+            game_data,
+        )
     }
 
     #[test]
@@ -1927,14 +2372,12 @@ mod tests {
         request.top_k = 5;
 
         let constraints = build_combat_constraints(&request).expect("constraints failed");
-        let stat_count = count_stat_candidates(constraints);
-        let weapons = prepare_weapons(&request, &game_data).expect("prepare failed");
-        let work_units = build_search_work_units(&weapons);
-        let upgrade_slots: u64 = weapons
+        let weapons = prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
+        let work_units = build_search_work_units(&request, &game_data, constraints, &weapons);
+        let total = work_units
             .iter()
-            .map(|entry| (entry.upgrades.len() * entry.aow_choices.len()) as u64)
-            .sum();
-        let total = stat_count.saturating_mul(upgrade_slots);
+            .map(|unit| unit.candidate_count)
+            .sum::<u64>();
 
         let mut serial_progress = SerialSearchProgress::new(total, 0, |_snapshot| true);
         let serial = optimize_serial(
@@ -2005,6 +2448,150 @@ mod tests {
             assert_eq!(row.stats.fai, 8);
             assert_eq!(row.stats.arc, 8);
         }
+    }
+
+    #[test]
+    fn relevant_stat_masks_track_scaling_sources() {
+        let game_data = load_data();
+
+        assert_eq!(
+            active_mask_for(
+                &game_data,
+                "Giant-Crusher",
+                "Heavy",
+                OptimizeObjective::MaxAr,
+                None
+            ),
+            [true, false, false, false, false]
+        );
+        assert_eq!(
+            active_mask_for(
+                &game_data,
+                "Swift Spear",
+                "Keen",
+                OptimizeObjective::MaxAr,
+                None
+            ),
+            [false, true, false, false, false]
+        );
+        assert_eq!(
+            active_mask_for(
+                &game_data,
+                "Claymore",
+                "Quality",
+                OptimizeObjective::MaxAr,
+                None
+            ),
+            [true, true, false, false, false]
+        );
+        assert_eq!(
+            active_mask_for(
+                &game_data,
+                "Sword Lance",
+                "Magic",
+                OptimizeObjective::MaxAr,
+                None
+            ),
+            [true, true, true, false, false]
+        );
+        assert!(
+            active_mask_for(
+                &game_data,
+                "Uchigatana",
+                "Blood",
+                OptimizeObjective::MaxArPlusBleed,
+                Some("Seppuku")
+            )[STAT_ARC]
+        );
+    }
+
+    #[test]
+    fn aow_override_rows_contribute_relevant_stats() {
+        let game_data = load_data();
+        let mask = active_mask_for(
+            &game_data,
+            "Giant-Crusher",
+            "Heavy",
+            OptimizeObjective::AowFirstHit,
+            Some("Prelate's Charge"),
+        );
+
+        assert!(
+            mask[STAT_FAI],
+            "expected fire override attack rows to activate FAI scaling"
+        );
+    }
+
+    #[test]
+    fn requirement_only_inactive_stats_are_preserved() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.class_name = "Wretch".to_string();
+        request.character_level = 20;
+        request.current_stats = Stats {
+            vig: 10,
+            mnd: 10,
+            end: 10,
+            str: 10,
+            dex: 10,
+            int: 10,
+            fai: 10,
+            arc: 10,
+        };
+        request.weapon_name = Some("Uchigatana".to_string());
+        request.affinity = Some("Heavy".to_string());
+        request.aow_name = Some("Unsheathe".to_string());
+        request.max_upgrade = 25;
+        request.fixed_upgrade = Some(25);
+        request.top_k = 1;
+
+        let results = optimize(&request, &game_data).expect("optimizer failed");
+        assert!(!results.is_empty());
+        assert!(results[0].stats.dex >= 15);
+    }
+
+    #[test]
+    fn exact_locks_override_relevant_stat_pruning() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.character_level = 31;
+        request.weapon_name = Some("Uchigatana".to_string());
+        request.affinity = Some("Heavy".to_string());
+        request.aow_name = Some("Unsheathe".to_string());
+        request.fixed_upgrade = Some(25);
+        request.locked_combat_stats[STAT_FAI] = Some(30);
+        request.top_k = 1;
+
+        let results = optimize(&request, &game_data).expect("optimizer failed");
+        assert!(!results.is_empty());
+        assert_eq!(results[0].stats.fai, 30);
+    }
+
+    #[test]
+    fn estimate_search_space_uses_relevant_stat_counts() {
+        let game_data = load_data();
+        let mut request = broad_request();
+        request.weapon_type_key = Some("Katana".to_string());
+        request.top_k = 5;
+
+        let constraints = build_combat_constraints(&request).expect("constraints failed");
+        let broad_stat_count = count_stat_candidates(constraints);
+        let prepared_weapons =
+            prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
+        let broad_slots: u64 = prepared_weapons
+            .iter()
+            .map(|prepared| (prepared.upgrades.len() * prepared.aow_choices.len()) as u64)
+            .sum();
+        let broad_combinations = broad_stat_count.saturating_mul(broad_slots);
+        let estimate = estimate_search_space(&request, &game_data).expect("estimate failed");
+
+        assert!(estimate.combinations < broad_combinations);
+        assert!(estimate.stat_candidates < broad_stat_count.saturating_mul(broad_slots));
+        assert!(
+            !optimize(&request, &game_data)
+                .expect("optimizer failed")
+                .is_empty()
+        );
     }
 
     #[test]
@@ -2198,26 +2785,28 @@ mod tests {
             fai: 8,
             arc: 8,
         };
-        request.character_level = 84;
+        request.character_level = 86;
         request.fixed_upgrade = Some(25);
         request.max_upgrade = 25;
         request.top_k = 10;
-        let prepared_weapons = prepare_weapons(&request, &game_data).expect("prepare failed");
+        let constraints = build_combat_constraints(&request).expect("constraints failed");
+        let prepared_weapons =
+            prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
         let prepared = prepared_weapons
             .iter()
             .find(|prepared| prepared.weapon.weapon_id == weapon.weapon_id)
             .expect("missing prepared weapon");
-
-        assert!(combat_has_wasted_points(
+        let search = relevant_stat_search(
             &request,
+            &game_data,
+            constraints,
             prepared,
-            &[21, 15, 40, 9, 8],
-        ));
-        assert!(!combat_has_wasted_points(
-            &request,
-            prepared,
-            &[21, 15, 41, 8, 8],
-        ));
+            &prepared.aow_choices[0],
+        )
+        .expect("expected relevant stat search");
+        assert!(!search.active[STAT_FAI]);
+        assert!(!search.active[STAT_ARC]);
+        assert!(search.candidate_count < count_stat_candidates(constraints));
 
         let results = optimize(&request, &game_data).expect("optimizer failed");
         assert!(!results.is_empty());

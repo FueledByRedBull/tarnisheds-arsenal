@@ -13,7 +13,7 @@
 It searches across weapons, affinities, Ashes of War, upgrade levels, and stat distributions from one canonical build session, then carries that same session through rankings, comparisons, stat paths, and affinity breakpoints.
 
 ```text
-weapon x affinity x AoW x upgrade x stat distribution
+weapon x affinity x AoW x upgrade x relevant stat distribution
 ```
 
 ## Download
@@ -65,6 +65,14 @@ Supported objectives:
 - `Max AR + Bleed`
 - `AoW First Hit (PvE)`
 - `AoW Full Sequence (PvE)`
+
+The Rust optimizer keeps the search exact, but it sizes and enumerates combat
+stat candidates per weapon, affinity, and Ash of War. For each loadout it only
+varies stats that can affect the selected objective, folds weapon requirements
+into the minimum stat floors first, and fills inactive stats only when the level
+budget cannot otherwise be consumed. This keeps rankings deterministic while
+making broad fixed-upgrade searches substantially smaller than a global
+five-stat grid.
 
 ## Data
 
