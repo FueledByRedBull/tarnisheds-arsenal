@@ -990,7 +990,7 @@ fn score_for(
     match objective {
         OptimizeObjective::MaxAr => total_ar,
         OptimizeObjective::MaxPhysicalAr => total_ar,
-        OptimizeObjective::MaxArPlusBleed => total_ar + status_buildup.bleed,
+        OptimizeObjective::MaxArPlusBleed => status_buildup.bleed,
         OptimizeObjective::AowFirstHit => aow_first_hit_damage,
         OptimizeObjective::AowFullSequence => aow_full_sequence_damage,
     }
@@ -2129,6 +2129,48 @@ mod tests {
         load_game_data(data_path).expect("failed to load phase1 data")
     }
 
+    fn test_result(
+        weapon_id: u32,
+        upgrade: u8,
+        physical_ar: f32,
+        bleed_buildup: f32,
+    ) -> OptimizeResult {
+        OptimizeResult {
+            weapon_id,
+            weapon_name: format!("Test Weapon {weapon_id}"),
+            affinity: "Standard".to_string(),
+            is_somber: false,
+            upgrade,
+            stats: Stats {
+                vig: 10,
+                mnd: 10,
+                end: 10,
+                str: 10,
+                dex: 10,
+                int: 10,
+                fai: 10,
+                arc: 10,
+            },
+            ar: DamageBreakdown {
+                physical: physical_ar,
+                magic: 0.0,
+                fire: 0.0,
+                lightning: 0.0,
+                holy: 0.0,
+            },
+            aow_id: None,
+            aow_name: None,
+            bleed_buildup,
+            bleed_buildup_add: 0.0,
+            frost_buildup: 0.0,
+            poison_buildup: 0.0,
+            scarlet_rot_buildup: 0.0,
+            aow_first_hit_damage: 0.0,
+            aow_full_sequence_damage: 0.0,
+            score: bleed_buildup,
+        }
+    }
+
     fn base_request() -> OptimizeRequest {
         OptimizeRequest {
             class_name: "Samurai".to_string(),
@@ -2871,10 +2913,46 @@ mod tests {
         let results = optimize(&request, &game_data).expect("optimizer failed");
         assert!(!results.is_empty());
         assert!(results[0].bleed_buildup >= 50.0);
-        assert_eq!(
-            results[0].score,
-            results[0].ar.total() + results[0].bleed_buildup
+        assert_eq!(results[0].score, results[0].bleed_buildup);
+    }
+
+    #[test]
+    fn max_ar_plus_bleed_score_is_bleed_buildup() {
+        let score = score_for(
+            OptimizeObjective::MaxArPlusBleed,
+            900.0,
+            StatusBuildup {
+                bleed: 78.0,
+                frost: 0.0,
+                poison: 0.0,
+                scarlet_rot: 0.0,
+                sleep: 0.0,
+                madness: 0.0,
+                death: 0.0,
+            },
+            0.0,
+            0.0,
         );
+
+        assert_eq!(score, 78.0);
+    }
+
+    #[test]
+    fn max_ar_plus_bleed_prefers_higher_bleed_over_higher_ar_plus_bleed() {
+        let high_ar = test_result(1, 25, 900.0, 40.0);
+        let high_bleed = test_result(2, 25, 500.0, 60.0);
+
+        assert!(better_result(&high_bleed, &high_ar));
+        assert!(!better_result(&high_ar, &high_bleed));
+    }
+
+    #[test]
+    fn max_ar_plus_bleed_equal_bleed_falls_through_to_higher_ar() {
+        let low_ar = test_result(1, 25, 500.0, 60.0);
+        let high_ar = test_result(2, 25, 900.0, 60.0);
+
+        assert!(better_result(&high_ar, &low_ar));
+        assert!(!better_result(&low_ar, &high_ar));
     }
 
     #[test]
@@ -3009,7 +3087,7 @@ mod tests {
             .iter()
             .find(|weapon| weapon.name == "Uchigatana" && weapon.affinity == "Keen")
             .expect("missing keen uchigatana");
-        let mut expected_best = f32::NEG_INFINITY;
+        let mut expected_best: Option<OptimizeResult> = None;
 
         for aow in game_data
             .aows
@@ -3020,21 +3098,29 @@ mod tests {
             let locked_results = optimize(&request, &game_data)
                 .unwrap_or_else(|_| panic!("locked optimizer failed for {}", aow.name));
             if let Some(best_row) = locked_results.first() {
-                if best_row.score > expected_best {
-                    expected_best = best_row.score;
+                if expected_best
+                    .as_ref()
+                    .map(|expected| better_result(best_row, expected))
+                    .unwrap_or(true)
+                {
+                    expected_best = Some(best_row.clone());
                 }
             }
         }
 
+        let expected_best =
+            expected_best.expect("expected at least one compatible AoW for Keen Uchigatana");
         assert!(
-            expected_best.is_finite(),
-            "expected at least one compatible AoW for Keen Uchigatana"
-        );
-        assert!(
-            (open_results[0].score - expected_best).abs() < 0.001,
+            (open_results[0].score - expected_best.score).abs() < 0.001,
             "expected unlocked Max AR + Bleed score {} to match best explicit score {}",
             open_results[0].score,
-            expected_best
+            expected_best.score
+        );
+        assert!(
+            (open_results[0].ar.total() - expected_best.ar.total()).abs() < 0.001,
+            "expected equal-bleed unlocked Max AR + Bleed AR {} to match best explicit AR {}",
+            open_results[0].ar.total(),
+            expected_best.ar.total()
         );
         assert!(open_results[0].aow_name.is_some());
     }

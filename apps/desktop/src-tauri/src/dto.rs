@@ -527,7 +527,7 @@ pub fn metric_for_objective(solved: &SolvedBuildDto, objective: &str) -> f32 {
         "max_physical_ar" => solved.ar.physical,
         "aow_first_hit" => solved.aow_first_hit_damage,
         "aow_full_sequence" => solved.aow_full_sequence_damage,
-        "max_ar_plus_bleed" => solved.score,
+        "max_ar_plus_bleed" => solved.bleed_buildup,
         _ => solved.ar.total,
     }
 }

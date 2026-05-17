@@ -295,11 +295,11 @@ async function mockRows(request: OptimizeRequestDto | null): Promise<SolvedBuild
     phaseWeaponPassiveRows(),
     phaseAowWeaponCompatRows(),
   ]);
-  const topK = Math.min(Math.max(Number(request?.topK ?? 25), 1), 50);
+  const topK = Math.min(Math.max(Number(request?.topK ?? 25), 1), 500);
   const rows = weapons
     .map((weapon) => buildMockRow(weapon, request, reinforceRows, passiveRows, compatRows))
     .filter((row): row is SolvedBuildDto => row !== null)
-    .sort((left, right) => metricPreview(right, request?.objective ?? "max_ar") - metricPreview(left, request?.objective ?? "max_ar"));
+    .sort((left, right) => resultRankValue(right, request?.objective ?? "max_ar") - resultRankValue(left, request?.objective ?? "max_ar"));
   return rows.slice(0, topK);
 }
 
@@ -604,7 +604,7 @@ function scorePreview(
     case "aow_full_sequence":
       return aowFullSequenceDamage;
     case "max_ar_plus_bleed":
-      return totalAr + bleed;
+      return bleed;
     default:
       return totalAr;
   }
@@ -662,7 +662,7 @@ function metricPreview(row: SolvedBuildDto, objective: OptimizeRequestDto["objec
     case "aow_full_sequence":
       return row.aowFullSequenceDamage;
     case "max_ar_plus_bleed":
-      return row.score;
+      return row.bleedBuildup;
     default:
       return row.ar.total;
   }

@@ -1,22 +1,52 @@
-import { ArrowLeft, ArrowRight, Crosshair, LockKeyhole } from "lucide-react";
-import { WheelEvent, useRef } from "react";
+import { ArrowLeft, ArrowRight, Crosshair, Download, LockKeyhole } from "lucide-react";
+import { WheelEvent, useRef, useState } from "react";
+import { downloadCsv, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
 import { compactNumber, fixed1, metricForObjective, statLine } from "../../lib/format";
-import { rowFingerprint } from "../../lib/session";
+import { buildOptimizeRequest, rowFingerprint } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { SolvedBuildDto } from "../../lib/types";
-import { runSearchFromStore } from "../../lib/workflows";
+import { runSearchFromStore, runSearchRequestForRows } from "../../lib/workflows";
 
 export function RankingsBoard() {
   const rows = useDesktopStore((state) => state.rows);
   const selected = useDesktopStore((state) => state.selected);
   const selectRow = useDesktopStore((state) => state.selectRow);
   const useRowAsLocks = useDesktopStore((state) => state.useRowAsLocks);
+  const catalog = useDesktopStore((state) => state.catalog);
+  const request = useDesktopStore((state) => state.request);
+  const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
+  const isSearching = useDesktopStore((state) => state.isSearching);
+  const pushNotice = useDesktopStore((state) => state.pushNotice);
+  const setError = useDesktopStore((state) => state.setError);
   const objective = useDesktopStore((state) => state.request.objective);
   const boardRef = useRef<HTMLDivElement | null>(null);
+  const [isExporting, setExporting] = useState(false);
 
   async function lockAndRerun(row: SolvedBuildDto) {
     useRowAsLocks(row);
     await runSearchFromStore();
+  }
+
+  async function exportCsv() {
+    setExporting(true);
+    setError(null);
+    try {
+      const exportRequest = {
+        ...buildOptimizeRequest(catalog, request, lockedStatMode),
+        topK: 500,
+      };
+      const exportRows = await runSearchRequestForRows(exportRequest);
+      downloadCsv(rankingsCsvFilename(), rankingsToCsv(exportRows));
+      pushNotice({
+        scope: "rankings",
+        tone: "success",
+        message: `Exported ${exportRows.length} ranked rows to CSV.`,
+      });
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
@@ -27,6 +57,16 @@ export function RankingsBoard() {
           <span>{rows.length} ranked rows</span>
         </div>
         <div className="result-scroll-actions">
+          <button
+            className="export-csv-button"
+            type="button"
+            title="Export top 500 rows to CSV"
+            onClick={exportCsv}
+            disabled={isSearching || isExporting}
+          >
+            <Download size={16} />
+            <span>{isExporting ? "Exporting..." : "Export CSV"}</span>
+          </button>
           <button type="button" title="Scroll table left" onClick={() => scrollResultBoard(boardRef.current, -1)}>
             <ArrowLeft size={16} />
           </button>

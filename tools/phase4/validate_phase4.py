@@ -818,6 +818,7 @@ def validate_runtime_ar(data_dir: Path) -> list[ValidationIssue]:
         lock_arc=45,
     )
     explicit_best_bleed_score: float | None = None
+    explicit_best_bleed_ar: float | None = None
     for aow_name in data.compatible_aow_names("Uchigatana", "Keen"):
         explicit_rows = core.optimize_builds(
             data=data,
@@ -853,10 +854,21 @@ def validate_runtime_ar(data_dir: Path) -> list[ValidationIssue]:
         )
         if explicit_rows:
             score = float(explicit_rows[0].score)
-            if explicit_best_bleed_score is None or score > explicit_best_bleed_score:
+            ar = float(explicit_rows[0].ar_total)
+            if (
+                explicit_best_bleed_score is None
+                or score > explicit_best_bleed_score
+                or (
+                    math.isclose(score, explicit_best_bleed_score, rel_tol=1e-9, abs_tol=1e-6)
+                    and ar > float(explicit_best_bleed_ar or 0.0)
+                )
+            ):
                 explicit_best_bleed_score = score
-    if not open_bleed_aow_rows or explicit_best_bleed_score is None:
-        issues.append(ValidationIssue("error", "runtime open Max AR + Bleed AoW regression case returned no rows"))
+                explicit_best_bleed_ar = ar
+    if not open_bleed_aow_rows or explicit_best_bleed_score is None or explicit_best_bleed_ar is None:
+        issues.append(
+            ValidationIssue("error", "runtime open Max AR + Bleed AoW regression case returned no rows")
+        )
     else:
         if not math.isclose(
             float(open_bleed_aow_rows[0].score),
@@ -868,6 +880,18 @@ def validate_runtime_ar(data_dir: Path) -> list[ValidationIssue]:
                 ValidationIssue(
                     "error",
                     "runtime open Max AR + Bleed no longer matches the best explicit AoW result",
+                )
+            )
+        if not math.isclose(
+            float(open_bleed_aow_rows[0].ar_total),
+            explicit_best_bleed_ar,
+            rel_tol=1e-9,
+            abs_tol=1e-6,
+        ):
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "runtime open Max AR + Bleed no longer uses AR as the equal-bleed AoW tie-breaker",
                 )
             )
 

@@ -62,7 +62,7 @@ The optimizer can lock or open each major constraint:
 Supported objectives:
 
 - `Max AR`
-- `Max AR + Bleed`
+- `Bleed, then AR`
 - `AoW First Hit (PvE)`
 - `AoW Full Sequence (PvE)`
 

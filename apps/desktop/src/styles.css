@@ -617,6 +617,17 @@ select:focus {
   height: 34px;
 }
 
+.result-scroll-actions .export-csv-button {
+  width: auto;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.result-scroll-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .top-cards {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -19,7 +19,7 @@ export function objectiveLabel(objective: ObjectiveId): string {
     case "max_physical_ar":
       return "Max Phys. AR";
     case "max_ar_plus_bleed":
-      return "AR + Bleed";
+      return "Bleed, then AR";
     case "aow_first_hit":
       return "AoW First Hit";
     case "aow_full_sequence":
@@ -38,7 +38,7 @@ export function metricForObjective(row: SolvedBuildDto, objective: ObjectiveId):
     case "aow_full_sequence":
       return row.aowFullSequenceDamage;
     case "max_ar_plus_bleed":
-      return row.score;
+      return row.bleedBuildup;
     default:
       return row.ar.total;
   }
