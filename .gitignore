@@ -40,6 +40,7 @@ release-notes-*.md
 
 # Retired PyQt desktop workspace
 ui/desktop/
+archive/python-desktop/
 
 # Local data workdirs
 data/_work_phase1/
