@@ -62,8 +62,11 @@ def main() -> int:
     run([npm_cmd(), "run", "tauri", "--", "build"], cwd=app_dir)
 
     release_dir = root / "dist" / f"TarnishedsArsenal_{version}"
+    zip_path = root / "dist" / f"TarnishedsArsenal_{version}.zip"
     if release_dir.exists():
         shutil.rmtree(release_dir)
+    if zip_path.exists():
+        zip_path.unlink()
     release_dir.mkdir(parents=True, exist_ok=True)
 
     exe = newest("target/release/tarnisheds-arsenal-desktop.exe", tauri_dir)
@@ -102,6 +105,8 @@ def main() -> int:
     print(f"Release packaged: {release_dir}")
     print(f"Installer: {release_dir / msi.name}")
     print(f"Executable: {release_dir / exe.name}")
+    shutil.make_archive(str(zip_path.with_suffix("")), "zip", root / "dist", release_dir.name)
+    print(f"Archive: {zip_path}")
     return 0
 
 

@@ -131,7 +131,7 @@ Build a Windows release package:
 python tools/phase4/package_release.py
 ```
 
-The release helper runs core and Tauri tests, builds and installs the release-profile local validation binding, runs data validation, installs frontend dependencies, builds the Tauri app, and writes `dist/TarnishedsArsenal_<version>`.
+The release helper runs core and Tauri tests, builds and installs the release-profile local validation binding, runs data validation, installs frontend dependencies, builds the Tauri app, and writes `dist/TarnishedsArsenal_<version>` plus `dist/TarnishedsArsenal_<version>.zip`.
 
 ## Refresh Data
 

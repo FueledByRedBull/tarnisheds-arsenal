@@ -30,7 +30,7 @@ test("app DTO samples use the camelCase backend contract", () => {
     dataManifest: {
       id: "phase1",
       label: "Phase 1",
-      appVersion: "0.4.8",
+      appVersion: "0.4.9",
       source: "test",
       generatedAt: "2026-06-10T00:00:00Z",
     },

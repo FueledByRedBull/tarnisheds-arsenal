@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight, Crosshair, Download, LockKeyhole } from "lucide-react";
-import { WheelEvent, useEffect, useRef, useState } from "react";
+import { MutableRefObject, PointerEvent, WheelEvent, useEffect, useRef, useState } from "react";
 import { downloadCsv, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
 import { cachedWeaponScalingForUpgrade } from "../../lib/analysis-cache";
 import { compactNumber, fixed1, metricForObjective, statLine } from "../../lib/format";
@@ -21,6 +21,13 @@ export function RankingsBoard() {
   const setError = useDesktopStore((state) => state.setError);
   const objective = useDesktopStore((state) => state.request.objective);
   const boardRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef({
+    active: false,
+    dragged: false,
+    pointerId: -1,
+    scrollLeft: 0,
+    startX: 0,
+  });
   const [isExporting, setExporting] = useState(false);
   const [scalingByRow, setScalingByRow] = useState<Record<string, ScalingDto>>({});
 
@@ -110,7 +117,25 @@ export function RankingsBoard() {
           />
         ))}
       </div>
-      <div className="result-board full-grid" ref={boardRef} onWheel={scrollResultBoardWithWheel} role="grid" aria-label="Ranked builds">
+      <div
+        className="result-board full-grid"
+        ref={boardRef}
+        onClickCapture={(event) => {
+          if (dragRef.current.dragged) {
+            event.preventDefault();
+            event.stopPropagation();
+            dragRef.current.dragged = false;
+          }
+        }}
+        onPointerDown={(event) => startResultBoardDrag(event, dragRef)}
+        onPointerCancel={(event) => stopResultBoardDrag(event, dragRef)}
+        onPointerLeave={(event) => stopResultBoardDrag(event, dragRef)}
+        onPointerMove={(event) => moveResultBoardDrag(event, dragRef)}
+        onPointerUp={(event) => stopResultBoardDrag(event, dragRef)}
+        onWheel={scrollResultBoardWithWheel}
+        role="grid"
+        aria-label="Ranked builds"
+      >
         <div className="result-head result-head-full" role="row">
           {["#", "Weapon", "Affinity", "AoW", "Upg", "Scaling", "STR", "DEX", "INT", "FAI", "ARC", "Split", "AR", "Bleed", "Frost", "AoW 1st", "AoW Full", "Score", "Lock"].map((header) => (
             <span role="columnheader" key={header}>{header}</span>
@@ -149,6 +174,76 @@ function scrollResultBoardWithWheel(event: WheelEvent<HTMLDivElement>) {
     return;
   }
   event.currentTarget.scrollLeft += event.deltaX || event.deltaY;
+}
+
+function startResultBoardDrag(
+  event: PointerEvent<HTMLDivElement>,
+  dragRef: MutableRefObject<{
+    active: boolean;
+    dragged: boolean;
+    pointerId: number;
+    scrollLeft: number;
+    startX: number;
+  }>,
+) {
+  if (event.button !== 0 || isInteractiveDragTarget(event.target)) {
+    return;
+  }
+  dragRef.current = {
+    active: true,
+    dragged: false,
+    pointerId: event.pointerId,
+    scrollLeft: event.currentTarget.scrollLeft,
+    startX: event.clientX,
+  };
+  event.currentTarget.setPointerCapture(event.pointerId);
+  event.currentTarget.classList.add("dragging");
+}
+
+function moveResultBoardDrag(
+  event: PointerEvent<HTMLDivElement>,
+  dragRef: MutableRefObject<{
+    active: boolean;
+    dragged: boolean;
+    pointerId: number;
+    scrollLeft: number;
+    startX: number;
+  }>,
+) {
+  const drag = dragRef.current;
+  if (!drag.active || drag.pointerId !== event.pointerId) {
+    return;
+  }
+  const deltaX = event.clientX - drag.startX;
+  if (Math.abs(deltaX) > 3) {
+    drag.dragged = true;
+  }
+  event.currentTarget.scrollLeft = drag.scrollLeft - deltaX;
+}
+
+function stopResultBoardDrag(
+  event: PointerEvent<HTMLDivElement>,
+  dragRef: MutableRefObject<{
+    active: boolean;
+    dragged: boolean;
+    pointerId: number;
+    scrollLeft: number;
+    startX: number;
+  }>,
+) {
+  const drag = dragRef.current;
+  if (!drag.active || drag.pointerId !== event.pointerId) {
+    return;
+  }
+  if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+  drag.active = false;
+  event.currentTarget.classList.remove("dragging");
+}
+
+function isInteractiveDragTarget(target: EventTarget): boolean {
+  return target instanceof Element && Boolean(target.closest("button, input, select, textarea, a"));
 }
 
 function TopCard({

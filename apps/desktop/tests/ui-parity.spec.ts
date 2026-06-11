@@ -31,6 +31,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await page.getByRole("button", { name: "Search" }).click();
   await expect(page.getByText("3 ranked rows")).toBeVisible();
   await expect(page.getByText("Uchigatana").first()).toBeVisible();
+  await expectRankingsBoardToDragScroll(page);
 
   await page.getByRole("spinbutton", { name: "STR" }).fill("13");
   await expect(page.getByText("0 ranked rows")).toBeVisible();
@@ -75,4 +76,31 @@ async function chooseSearchableOption(page: import("@playwright/test").Page, lab
   const field = page.getByRole("combobox", { name: label, exact: true });
   await field.fill(option);
   await page.keyboard.press("Enter");
+}
+
+async function expectRankingsBoardToDragScroll(page: import("@playwright/test").Page) {
+  const board = page.getByRole("grid", { name: "Ranked builds" });
+  await expect.poll(() => board.evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(true);
+
+  const box = await board.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) return;
+
+  const before = await board.evaluate((node) => node.scrollLeft);
+  await page.mouse.move(box.x + box.width - 120, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 80, box.y + box.height / 2, { steps: 8 });
+  await page.mouse.up();
+
+  await expect.poll(() => board.evaluate((node) => node.scrollLeft)).toBeGreaterThan(before + 100);
+
+  const rowBounds = await board.locator(".result-row-full").first().evaluate((row) => {
+    const rowRect = row.getBoundingClientRect();
+    const lastCellRect = row.lastElementChild?.getBoundingClientRect();
+    return {
+      lastCellRight: lastCellRect?.right ?? 0,
+      rowRight: rowRect.right,
+    };
+  });
+  expect(rowBounds.rowRight).toBeGreaterThanOrEqual(rowBounds.lastCellRight);
 }

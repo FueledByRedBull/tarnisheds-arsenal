@@ -627,6 +627,13 @@ textarea {
   overflow: scroll;
   overscroll-behavior: contain;
   padding-bottom: 4px;
+  cursor: grab;
+  user-select: auto;
+}
+
+.rankings-panel .result-board.dragging {
+  cursor: grabbing;
+  user-select: none;
 }
 
 .result-scroll-actions {
@@ -733,15 +740,41 @@ textarea {
   display: grid;
   grid-template-columns: 44px minmax(190px, 1.5fr) 92px 118px 112px 112px 82px minmax(180px, 1fr);
   gap: 10px;
-  width: 100%;
+  width: max-content;
   min-height: 46px;
   padding: 0 14px;
 }
 
 .result-head-full,
 .result-row-full {
-  grid-template-columns: 38px minmax(180px, 1.5fr) 88px minmax(120px, 1fr) 52px minmax(150px, 1.1fr) 44px 44px 44px 44px 44px minmax(170px, 1.3fr) 70px 62px 58px 76px 82px 78px 62px;
-  min-width: 1580px;
+  grid-template-columns: 38px 220px 88px 140px 52px 170px repeat(5, 42px) 160px 70px 62px 58px 76px 82px 78px 62px;
+  min-width: 1774px;
+  width: max-content;
+}
+
+.result-head-full > span:nth-child(n + 3),
+.result-row-full > span:nth-child(n + 3) {
+  text-align: center;
+}
+
+.result-head-full > span,
+.result-row-full > span {
+  min-width: 0;
+}
+
+.result-head-full > span:nth-child(2),
+.result-row-full > span:nth-child(2),
+.result-head-full > span:nth-child(4),
+.result-row-full > span:nth-child(4),
+.result-head-full > span:nth-child(6),
+.result-row-full > span:nth-child(6),
+.result-head-full > span:nth-child(12),
+.result-row-full > span:nth-child(12),
+.result-head-full > span:nth-child(13),
+.result-row-full > span:nth-child(13) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tiny-split {
