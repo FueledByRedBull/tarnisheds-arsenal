@@ -279,7 +279,11 @@ export function CommandRail() {
           <div className="hero-chip-row">
             <span>{request.twoHanding ? "2H" : "1H"}</span>
             <span>{lockedStatMode ? "Exact Stats" : "Open Stats"}</span>
-            <span>{request.fixedUpgrade !== null ? `Exact +${request.maxUpgrade}` : `+0..+${request.maxUpgrade}`}</span>
+            <span>
+              {request.exactUpgrade
+                ? `Std +${request.standardMaxUpgrade} / Somber +${request.somberMaxUpgrade}`
+                : `Std +0..+${request.standardMaxUpgrade} / Somber +0..+${request.somberMaxUpgrade}`}
+            </span>
             <span>{request.dlcScaling ? `DLC x${scadutreeDamageMultiplier.toFixed(2)}` : "Base Game"}</span>
           </div>
           {weaponProfile ? (
@@ -325,34 +329,39 @@ export function CommandRail() {
           />
           <div className="rail-pair">
             <label>
-              Max Upgrade
+              Standard Upgrade
               <DraftNumberInput
                 min={0}
-                max={weaponProfile?.maxUpgrade ?? 25}
-                value={request.maxUpgrade}
+                max={25}
+                value={request.standardMaxUpgrade}
                 onDraftChange={clearResults}
-                onCommit={(maxUpgrade) => {
-                  patchRequest({
-                    maxUpgrade,
-                    fixedUpgrade: request.fixedUpgrade === null ? null : maxUpgrade,
-                  });
-                }}
+                onCommit={(standardMaxUpgrade) => patchRequest({ standardMaxUpgrade })}
               />
             </label>
+            <label>
+              Somber Upgrade
+              <DraftNumberInput
+                min={0}
+                max={10}
+                value={request.somberMaxUpgrade}
+                onDraftChange={clearResults}
+                onCommit={(somberMaxUpgrade) => patchRequest({ somberMaxUpgrade })}
+              />
+            </label>
+          </div>
+          <div className="rail-pair">
             <label className="toggle-line" title="Force exactly the selected upgrade level">
               <input
                 type="checkbox"
-                checked={request.fixedUpgrade !== null}
-                onChange={(event) =>
-                  patchRequest({ fixedUpgrade: event.target.checked ? request.maxUpgrade : null })
-                }
+                checked={request.exactUpgrade}
+                onChange={(event) => patchRequest({ exactUpgrade: event.target.checked })}
               />
               Exact
             </label>
-          </div>
-          <div className="cap-readout">
-            <span>{weaponProfile?.isSomber ? "Somber" : "Standard"} cap</span>
-            <strong>+{weaponProfile?.maxUpgrade ?? 25}</strong>
+            <div className="cap-readout">
+              <span>{weaponProfile?.isSomber ? "Selected Somber cap" : "Selected Standard cap"}</span>
+              <strong>+{weaponProfile?.maxUpgrade ?? 25}</strong>
+            </div>
           </div>
           <label>
             Top Results

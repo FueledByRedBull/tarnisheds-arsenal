@@ -37,8 +37,9 @@ export interface OptimizeRequestDto {
   lockInt: number | null;
   lockFai: number | null;
   lockArc: number | null;
-  maxUpgrade: number;
-  fixedUpgrade: number | null;
+  standardMaxUpgrade: number;
+  somberMaxUpgrade: number;
+  exactUpgrade: boolean;
   twoHanding: boolean;
   dlcScaling: boolean;
   scadutreeLevel: number;

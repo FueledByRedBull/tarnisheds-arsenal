@@ -48,10 +48,6 @@ export function useWeaponProfile(
       setWeaponProfile(profile);
 
       const patch: Partial<OptimizeRequestDto> = {};
-      if (request.maxUpgrade > profile.maxUpgrade) patch.maxUpgrade = profile.maxUpgrade;
-      if (request.fixedUpgrade !== null && request.fixedUpgrade > profile.maxUpgrade) {
-        patch.fixedUpgrade = profile.maxUpgrade;
-      }
       if (request.affinity && !profile.affinities.includes(request.affinity)) {
         patch.affinity = profile.affinities[0] ?? null;
       }
@@ -71,7 +67,7 @@ export function useWeaponProfile(
     return () => {
       cancelled = true;
     };
-  }, [patchRequest, request.affinity, request.aowName, request.fixedUpgrade, request.maxUpgrade, request.weaponName, setError]);
+  }, [patchRequest, request.affinity, request.aowName, request.weaponName, setError]);
 
   return weaponProfile;
 }

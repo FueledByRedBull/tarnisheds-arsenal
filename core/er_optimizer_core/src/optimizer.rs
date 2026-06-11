@@ -69,8 +69,9 @@ pub struct OptimizeRequest {
     pub current_stats: Stats,
     pub min_combat_stats: [u8; COMBAT_STAT_COUNT],
     pub locked_combat_stats: [Option<u8>; COMBAT_STAT_COUNT],
-    pub max_upgrade: u8,
-    pub fixed_upgrade: Option<u8>,
+    pub standard_max_upgrade: u8,
+    pub somber_max_upgrade: u8,
+    pub exact_upgrade: bool,
     pub two_handing: bool,
     pub dlc_scaling: bool,
     pub scadutree_level: u8,
@@ -1273,7 +1274,10 @@ fn available_upgrades(
         return None;
     }
 
-    if let Some(fixed) = request.fixed_upgrade {
+    let cap = upgrade_cap_for_weapon(weapon, request);
+
+    if request.exact_upgrade {
+        let fixed = cap;
         return data
             .reinforce_level(weapon.reinforce_type, fixed)
             .is_some()
@@ -1284,10 +1288,18 @@ fn available_upgrades(
         .iter()
         .enumerate()
         .filter_map(|(level, value)| {
-            (value.is_some() && level <= usize::from(request.max_upgrade)).then_some(level as u8)
+            (value.is_some() && level <= usize::from(cap)).then_some(level as u8)
         })
         .collect();
     (!out.is_empty()).then_some(out)
+}
+
+fn upgrade_cap_for_weapon(weapon: &Weapon, request: &OptimizeRequest) -> u8 {
+    if weapon.is_somber {
+        request.somber_max_upgrade
+    } else {
+        request.standard_max_upgrade
+    }
 }
 
 fn resolve_aow_choices<'a>(
@@ -2202,8 +2214,9 @@ mod tests {
             },
             min_combat_stats: [0, 0, 0, 0, 0],
             locked_combat_stats: [None, None, None, None, None],
-            max_upgrade: 25,
-            fixed_upgrade: None,
+            standard_max_upgrade: 25,
+            somber_max_upgrade: 10,
+            exact_upgrade: false,
             two_handing: false,
             dlc_scaling: false,
             scadutree_level: 0,
@@ -2233,8 +2246,9 @@ mod tests {
             },
             min_combat_stats: [0, 0, 0, 0, 0],
             locked_combat_stats: [None, None, None, None, None],
-            max_upgrade: 25,
-            fixed_upgrade: Some(25),
+            standard_max_upgrade: 25,
+            somber_max_upgrade: 10,
+            exact_upgrade: true,
             two_handing: false,
             dlc_scaling: false,
             scadutree_level: 0,
@@ -2300,8 +2314,9 @@ mod tests {
         request.objective = OptimizeObjective::MaxPhysicalAr;
         request.affinity = Some("Heavy".to_string());
         request.aow_name = Some("Seppuku".to_string());
-        request.max_upgrade = 25;
-        request.fixed_upgrade = Some(25);
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
+        request.exact_upgrade = true;
 
         let results = optimize(&request, &game_data).expect("optimizer failed");
         assert!(!results.is_empty());
@@ -2314,8 +2329,9 @@ mod tests {
         let mut base = base_request();
         base.affinity = Some("Blood".to_string());
         base.aow_name = Some("Seppuku".to_string());
-        base.max_upgrade = 25;
-        base.fixed_upgrade = Some(25);
+        base.standard_max_upgrade = 25;
+        base.somber_max_upgrade = 10;
+        base.exact_upgrade = true;
         base.top_k = 1;
 
         let mut scaled = base.clone();
@@ -2425,7 +2441,9 @@ mod tests {
         request.weapon_name = None;
         request.affinity = None;
         request.weapon_type_key = Some("Katana".to_string());
-        request.fixed_upgrade = Some(25);
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
+        request.exact_upgrade = true;
         request.top_k = 5;
 
         let constraints = build_combat_constraints(&request).expect("constraints failed");
@@ -2472,8 +2490,9 @@ mod tests {
     fn optimize_respects_exact_stat_lock() {
         let game_data = load_data();
         let mut request = base_request();
-        request.max_upgrade = 0;
-        request.fixed_upgrade = Some(0);
+        request.standard_max_upgrade = 0;
+        request.somber_max_upgrade = 0;
+        request.exact_upgrade = true;
         request.locked_combat_stats[STAT_ARC] = Some(8);
         request.locked_combat_stats[STAT_DEX] = Some(15);
 
@@ -2489,8 +2508,9 @@ mod tests {
     fn optimize_respects_all_exact_combat_stat_locks() {
         let game_data = load_data();
         let mut request = base_request();
-        request.max_upgrade = 0;
-        request.fixed_upgrade = Some(0);
+        request.standard_max_upgrade = 0;
+        request.somber_max_upgrade = 0;
+        request.exact_upgrade = true;
         request.locked_combat_stats = [Some(12), Some(15), Some(9), Some(8), Some(8)];
 
         let constraints = build_combat_constraints(&request).expect("constraints failed");
@@ -2598,8 +2618,9 @@ mod tests {
         request.weapon_name = Some("Uchigatana".to_string());
         request.affinity = Some("Heavy".to_string());
         request.aow_name = Some("Unsheathe".to_string());
-        request.max_upgrade = 25;
-        request.fixed_upgrade = Some(25);
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
+        request.exact_upgrade = true;
         request.top_k = 1;
 
         let results = optimize(&request, &game_data).expect("optimizer failed");
@@ -2615,7 +2636,9 @@ mod tests {
         request.weapon_name = Some("Uchigatana".to_string());
         request.affinity = Some("Heavy".to_string());
         request.aow_name = Some("Unsheathe".to_string());
-        request.fixed_upgrade = Some(25);
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
+        request.exact_upgrade = true;
         request.locked_combat_stats[STAT_FAI] = Some(30);
         request.top_k = 1;
 
@@ -2659,8 +2682,11 @@ mod tests {
         request.weapon_name = Some("Lizard Greatsword".to_string());
         request.affinity = Some("Keen".to_string());
         request.aow_name = Some("Seppuku".to_string());
-        request.fixed_upgrade = Some(25);
-        request.max_upgrade = 25;
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
+        request.exact_upgrade = true;
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
         request.two_handing = true;
         request.top_k = 50;
 
@@ -2717,8 +2743,9 @@ mod tests {
         assert!(levels[5].take().is_some());
 
         let mut request = base_request();
-        request.fixed_upgrade = None;
-        request.max_upgrade = 25;
+        request.exact_upgrade = false;
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
         let upgrades =
             available_upgrades(&weapon, &request, &game_data).expect("expected upgrades");
 
@@ -2740,10 +2767,57 @@ mod tests {
         assert!(levels[5].take().is_some());
 
         let mut request = base_request();
-        request.fixed_upgrade = Some(5);
-        request.max_upgrade = 25;
+        request.standard_max_upgrade = 5;
+        request.somber_max_upgrade = 5;
+        request.exact_upgrade = true;
 
         assert!(available_upgrades(&weapon, &request, &game_data).is_none());
+    }
+
+    #[test]
+    fn exact_upgrade_uses_weapon_class_caps() {
+        let game_data = load_data();
+        let standard_weapon = game_data
+            .weapons
+            .iter()
+            .find(|weapon| {
+                !weapon.is_somber && weapon.name == "Uchigatana" && weapon.affinity == "Keen"
+            })
+            .expect("missing standard weapon");
+        let somber_weapon = game_data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.is_somber)
+            .expect("missing somber weapon");
+        let mut request = broad_request();
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
+        request.exact_upgrade = true;
+
+        assert_eq!(
+            available_upgrades(standard_weapon, &request, &game_data).expect("standard upgrades"),
+            vec![25],
+        );
+        assert_eq!(
+            available_upgrades(somber_weapon, &request, &game_data).expect("somber upgrades"),
+            vec![10],
+        );
+    }
+
+    #[test]
+    fn somber_only_exact_uses_somber_cap_not_standard_cap() {
+        let game_data = load_data();
+        let mut request = broad_request();
+        request.somber_filter = SomberFilter::SomberOnly;
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
+        request.exact_upgrade = true;
+        request.top_k = 25;
+
+        let results = optimize(&request, &game_data).expect("optimizer failed");
+        assert!(!results.is_empty());
+        assert!(results.iter().all(|result| result.is_somber));
+        assert!(results.iter().all(|result| result.upgrade == 10));
     }
 
     #[test]
@@ -2777,8 +2851,9 @@ mod tests {
         one_hand.weapon_name = Some("Iron Ball".to_string());
         one_hand.affinity = Some("Heavy".to_string());
         one_hand.aow_name = None;
-        one_hand.max_upgrade = 25;
-        one_hand.fixed_upgrade = Some(25);
+        one_hand.standard_max_upgrade = 25;
+        one_hand.somber_max_upgrade = 10;
+        one_hand.exact_upgrade = true;
         one_hand.locked_combat_stats = [Some(68), Some(15), Some(10), Some(10), Some(10)];
         one_hand.two_handing = false;
 
@@ -2811,8 +2886,9 @@ mod tests {
             fai: 10,
             arc: 10,
         };
-        request.max_upgrade = 10;
-        request.fixed_upgrade = Some(10);
+        request.standard_max_upgrade = 10;
+        request.somber_max_upgrade = 10;
+        request.exact_upgrade = true;
         request.locked_combat_stats = [Some(26), Some(12), Some(15), Some(10), Some(10)];
         request.two_handing = true;
 
@@ -2843,8 +2919,11 @@ mod tests {
             arc: 8,
         };
         request.character_level = 86;
-        request.fixed_upgrade = Some(25);
-        request.max_upgrade = 25;
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
+        request.exact_upgrade = true;
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
         request.top_k = 10;
         let constraints = build_combat_constraints(&request).expect("constraints failed");
         let prepared_weapons =
@@ -2911,8 +2990,9 @@ mod tests {
         request.affinity = Some("Standard".to_string());
         request.aow_name = None;
         request.objective = OptimizeObjective::MaxArPlusBleed;
-        request.max_upgrade = 10;
-        request.fixed_upgrade = Some(10);
+        request.standard_max_upgrade = 10;
+        request.somber_max_upgrade = 10;
+        request.exact_upgrade = true;
         request.current_stats = Stats {
             vig: 40,
             mnd: 11,
@@ -2989,8 +3069,11 @@ mod tests {
             arc: 8,
         };
         request.character_level = 84;
-        request.fixed_upgrade = Some(25);
-        request.max_upgrade = 25;
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
+        request.exact_upgrade = true;
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
 
         let results = optimize(&request, &game_data).expect("optimizer failed");
         assert!(!results.is_empty());
@@ -3016,8 +3099,9 @@ mod tests {
             arc: 45,
         };
         request.character_level = 46;
-        request.max_upgrade = 25;
-        request.fixed_upgrade = Some(25);
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
+        request.exact_upgrade = true;
         request.locked_combat_stats = [Some(12), Some(15), Some(9), Some(8), Some(45)];
         request.objective = OptimizeObjective::MaxAr;
         request.aow_name = Some("Double Slash".to_string());
@@ -3052,8 +3136,9 @@ mod tests {
             arc: 45,
         };
         request.character_level = 46;
-        request.max_upgrade = 25;
-        request.fixed_upgrade = Some(25);
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
+        request.exact_upgrade = true;
         request.locked_combat_stats = [Some(12), Some(15), Some(9), Some(8), Some(45)];
         request.objective = OptimizeObjective::MaxAr;
 
@@ -3089,8 +3174,9 @@ mod tests {
             arc: 8,
         };
         request.character_level = 112;
-        request.max_upgrade = 25;
-        request.fixed_upgrade = Some(25);
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
+        request.exact_upgrade = true;
         request.locked_combat_stats = [Some(18), Some(40), Some(9), Some(8), Some(45)];
         request.objective = OptimizeObjective::MaxArPlusBleed;
 
@@ -3190,8 +3276,11 @@ mod tests {
             arc: 10,
         };
         request.character_level = 76;
-        request.fixed_upgrade = Some(25);
-        request.max_upgrade = 25;
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
+        request.exact_upgrade = true;
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
         request.locked_combat_stats = [Some(40), Some(30), Some(10), Some(10), Some(10)];
 
         let choices = resolve_aow_choices(weapon, &request, &game_data).expect("resolve failed");
@@ -3223,8 +3312,11 @@ mod tests {
             arc: 60,
         };
         request.character_level = 331;
-        request.fixed_upgrade = Some(25);
-        request.max_upgrade = 25;
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
+        request.exact_upgrade = true;
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
 
         let results = optimize(&request, &game_data).expect("optimizer failed");
         assert!(!results.is_empty());
@@ -3251,8 +3343,11 @@ mod tests {
             arc: 60,
         };
         request.character_level = 331;
-        request.fixed_upgrade = Some(25);
-        request.max_upgrade = 25;
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
+        request.exact_upgrade = true;
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
 
         let results = optimize(&request, &game_data).expect("optimizer failed");
         assert!(results.is_empty());
@@ -3277,8 +3372,11 @@ mod tests {
             arc: 60,
         };
         request.character_level = 331;
-        request.fixed_upgrade = Some(25);
-        request.max_upgrade = 25;
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
+        request.exact_upgrade = true;
+        request.standard_max_upgrade = 25;
+        request.somber_max_upgrade = 10;
 
         let results = optimize(&request, &game_data).expect("optimizer failed");
         assert!(!results.is_empty());
@@ -3322,8 +3420,11 @@ mod tests {
             arc: 8,
         };
         request.character_level = 88;
-        request.fixed_upgrade = Some(10);
-        request.max_upgrade = 10;
+        request.standard_max_upgrade = 10;
+        request.somber_max_upgrade = 10;
+        request.exact_upgrade = true;
+        request.standard_max_upgrade = 10;
+        request.somber_max_upgrade = 10;
 
         let results = optimize(&request, &game_data).expect("optimizer failed");
         assert!(!results.is_empty());
@@ -3355,8 +3456,11 @@ mod tests {
             arc: 45,
         };
         request.character_level = 150;
-        request.fixed_upgrade = Some(10);
-        request.max_upgrade = 10;
+        request.standard_max_upgrade = 10;
+        request.somber_max_upgrade = 10;
+        request.exact_upgrade = true;
+        request.standard_max_upgrade = 10;
+        request.somber_max_upgrade = 10;
 
         let results = optimize(&request, &game_data).expect("optimizer failed");
         assert!(!results.is_empty());
@@ -3376,8 +3480,9 @@ mod tests {
         request.affinity = Some("Standard".to_string());
         request.aow_name = Some("Parry".to_string());
         request.objective = OptimizeObjective::AowFirstHit;
-        request.max_upgrade = 0;
-        request.fixed_upgrade = Some(0);
+        request.standard_max_upgrade = 0;
+        request.somber_max_upgrade = 0;
+        request.exact_upgrade = true;
 
         let results = optimize(&request, &game_data).expect("optimizer failed");
         assert!(results.is_empty());

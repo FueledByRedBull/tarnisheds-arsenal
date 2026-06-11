@@ -11,6 +11,11 @@ export const EIGHT_STAT_KEYS = ["vig", "mnd", "end", ...STAT_KEYS] as const;
 export type CombatStatKey = (typeof STAT_KEYS)[number];
 export type EightStatKey = (typeof EIGHT_STAT_KEYS)[number];
 
+type LegacyUpgradeRequest = Partial<OptimizeRequestDto> & {
+  fixedUpgrade?: number | null;
+  maxUpgrade?: number | null;
+};
+
 export const STARTING_CLASS_METADATA: ClassMetadataDto[] = [
   {
     name: "Vagabond",
@@ -136,13 +141,56 @@ export function buildOptimizeRequest(
     intStat: meta.baseStats.intStat,
     fai: meta.baseStats.fai,
     arc: meta.baseStats.arc,
-    fixedUpgrade: uiRequest.fixedUpgrade,
     lockStr: useLockedStats ? uiRequest.lockStr : null,
     lockDex: useLockedStats ? uiRequest.lockDex : null,
     lockInt: useLockedStats ? uiRequest.lockInt : null,
     lockFai: useLockedStats ? uiRequest.lockFai : null,
     lockArc: useLockedStats ? uiRequest.lockArc : null,
   };
+}
+
+export function normalizeOptimizeRequest(
+  raw: LegacyUpgradeRequest,
+  fallback: OptimizeRequestDto,
+): OptimizeRequestDto {
+  const legacyMaxUpgrade = numberOrNull(raw.maxUpgrade);
+  const {
+    fixedUpgrade: _fixedUpgrade,
+    maxUpgrade: _maxUpgrade,
+    ...next
+  } = raw;
+
+  return {
+    ...fallback,
+    ...next,
+    standardMaxUpgrade: clampUpgrade(
+      numberOrNull(raw.standardMaxUpgrade) ?? legacyMaxUpgrade ?? fallback.standardMaxUpgrade,
+      25,
+    ),
+    somberMaxUpgrade: clampUpgrade(
+      numberOrNull(raw.somberMaxUpgrade) ?? (
+        legacyMaxUpgrade === null ? fallback.somberMaxUpgrade : Math.min(legacyMaxUpgrade, 10)
+      ),
+      10,
+    ),
+    exactUpgrade: Boolean(raw.exactUpgrade ?? (raw.fixedUpgrade !== undefined && raw.fixedUpgrade !== null)),
+  };
+}
+
+export function upgradeCapForRow(row: Pick<SolvedBuildDto, "isSomber">, request: OptimizeRequestDto): number {
+  return row.isSomber ? request.somberMaxUpgrade : request.standardMaxUpgrade;
+}
+
+export function compareUpgradeHorizon(request: OptimizeRequestDto): number {
+  return Math.max(request.standardMaxUpgrade, request.somberMaxUpgrade);
+}
+
+function numberOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function clampUpgrade(value: number, max: number): number {
+  return Math.min(Math.max(Math.trunc(value), 0), max);
 }
 
 export function clearLocks(request: OptimizeRequestDto): Partial<OptimizeRequestDto> {

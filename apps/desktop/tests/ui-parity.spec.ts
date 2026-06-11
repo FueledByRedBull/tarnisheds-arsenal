@@ -29,14 +29,14 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await chooseSearchableOption(page, "AoW", "Open");
 
   await page.getByRole("button", { name: "Search" }).click();
-  await expect(page.getByText("3 ranked rows")).toBeVisible();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
   await expect(page.getByText("Uchigatana").first()).toBeVisible();
   await expectRankingsBoardToDragScroll(page);
 
   await page.getByRole("spinbutton", { name: "STR" }).fill("13");
   await expect(page.getByText("0 ranked rows")).toBeVisible();
   await page.getByRole("button", { name: "Search" }).click();
-  await expect(page.getByText("3 ranked rows")).toBeVisible();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
 
   await page.locator(".top-card").first().getByRole("button", { name: "Lock" }).click();
   await expect(page.getByText("Exact upgrade and stat locks active")).toBeVisible();
@@ -70,6 +70,25 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await page.getByRole("button", { name: "Start" }).click();
   await expect(page.getByText("Keen").first()).toBeVisible();
   await expect(page.getByRole("grid", { name: "Affinity watch rankings" })).toContainText("Occult");
+});
+
+test("somber-only exact search uses the somber upgrade cap", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("spinbutton", { name: "STR" }).fill("60");
+  await page.getByRole("spinbutton", { name: "STR" }).press("Enter");
+  await expect(page.getByRole("textbox", { name: "Level" })).toHaveValue("57");
+  await expect(page.getByRole("spinbutton", { name: "Standard Upgrade" })).toHaveValue("25");
+  await expect(page.getByRole("spinbutton", { name: "Somber Upgrade" })).toHaveValue("10");
+  await page.getByRole("checkbox", { name: "Exact" }).check();
+  await page.getByRole("button", { name: "Advanced Show" }).click();
+  await chooseSearchableOption(page, "Somber", "Somber Only");
+
+  await page.getByRole("button", { name: "Search" }).click();
+  await expect(page.getByText("1 ranked row")).toBeVisible();
+  await expect(page.getByRole("grid", { name: "Ranked builds" })).toContainText("Somber");
+  await expect(page.getByRole("grid", { name: "Ranked builds" })).toContainText("Ancient Meteoric Ore Greatsword");
+  await expect(page.getByRole("grid", { name: "Ranked builds" })).toContainText("+10");
 });
 
 async function chooseSearchableOption(page: import("@playwright/test").Page, label: string, option: string) {

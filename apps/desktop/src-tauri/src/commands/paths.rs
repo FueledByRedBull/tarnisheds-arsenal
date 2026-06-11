@@ -29,6 +29,7 @@ pub fn build_path_preview(
         &request.solved.affinity,
         request.solved.aow_name.as_deref(),
         request.solved.upgrade,
+        request.solved.is_somber,
         request.base.character_level,
         start_state,
         None,
@@ -174,6 +175,7 @@ fn build_path_preview_inner(
         &request.solved.affinity,
         request.solved.aow_name.as_deref(),
         request.solved.upgrade,
+        request.solved.is_somber,
         request.base.character_level,
         start_state,
         None,
@@ -221,8 +223,7 @@ fn path_target_build(
     target_request.weapon_name = Some(request.solved.weapon_name.clone());
     target_request.affinity = Some(request.solved.affinity.clone());
     target_request.aow_name = request.solved.aow_name.clone();
-    target_request.max_upgrade = request.solved.upgrade;
-    target_request.fixed_upgrade = Some(request.solved.upgrade);
+    target_request.set_exact_upgrade(request.solved.upgrade, request.solved.is_somber);
     target_request.top_k = 1;
     target_request.weapon_type_key = None;
     target_request.somber_filter = "all".to_string();
@@ -259,6 +260,7 @@ fn choose_next_step(
             &request.solved.affinity,
             request.solved.aow_name.as_deref(),
             request.solved.upgrade,
+            request.solved.is_somber,
             level,
             next_state,
             Some(stat.to_string()),
@@ -275,6 +277,7 @@ fn evaluate_step(
     affinity: &str,
     aow_name: Option<&str>,
     upgrade: u8,
+    is_somber: bool,
     level: u16,
     stats: CombatStateDto,
     added_stat: Option<String>,
@@ -285,8 +288,7 @@ fn evaluate_step(
     request.weapon_name = Some(weapon_name.to_string());
     request.affinity = Some(affinity.to_string());
     request.aow_name = aow_name.map(str::to_string);
-    request.max_upgrade = upgrade;
-    request.fixed_upgrade = Some(upgrade);
+    request.set_exact_upgrade(upgrade, is_somber);
     request.top_k = 1;
     request.weapon_type_key = None;
     request.somber_filter = "all".to_string();

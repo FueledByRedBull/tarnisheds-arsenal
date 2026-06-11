@@ -8,4 +8,5 @@
 - Add analysis caching, typed frontend job hooks, store slices, DTO contract checks, and Scadutree parity coverage.
 - Improve desktop accessibility and dense-data behavior with a combobox-backed selector, ARIA grid/table semantics, selected-build summaries, Rankings scaling, and compare option filtering.
 - Tighten the Rankings board column alignment so Affinity, AoW, upgrade, scaling, and stat columns stay centered and line up cleanly.
+- Replace the single upgrade cap with separate Standard and Somber upgrade caps plus one shared Exact toggle across Rankings, Compare, Paths, and Affinity Watch.
 - Refresh Windows e2e packaging so the release helper produces both `dist/TarnishedsArsenal_<version>` and `dist/TarnishedsArsenal_<version>.zip`.

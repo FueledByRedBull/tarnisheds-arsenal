@@ -14,6 +14,7 @@ import {
   UpgradePointDto,
   WeaponProfileDto,
 } from "./types";
+import { upgradeCapForRow } from "./session";
 import { STARTING_CLASS_METADATA } from "./session";
 
 type CsvRow = Record<string, string>;
@@ -52,6 +53,12 @@ const PREVIEW_SOLVED_BUILDS: SolvedBuildDto[] = [
   previewBuild(100, "Uchigatana", "Blood", 700, 84, 854, 2205, 700, { strStat: 13, dex: 22, intStat: 9, fai: 8, arc: 60 }),
   previewBuild(101, "Uchigatana", "Occult", 670, 72, 817, 2111, 670, { strStat: 13, dex: 22, intStat: 9, fai: 8, arc: 60 }),
   previewBuild(102, "Uchigatana", "Keen", 640, 45, 781, 2016, 640, { strStat: 13, dex: 60, intStat: 9, fai: 8, arc: 8 }),
+  previewBuild(300, "Ancient Meteoric Ore Greatsword", "Unique", 590, 0, 708, 1815, 590, { strStat: 35, dex: 10, intStat: 9, fai: 8, arc: 20 }, {
+    isSomber: true,
+    upgrade: 10,
+    aowId: null,
+    aowName: null,
+  }),
 ];
 
 function fixtureWeapon(
@@ -110,17 +117,18 @@ function previewBuild(
   aowFullSequenceDamage: number,
   score: number,
   stats: SolvedBuildDto["stats"],
+  options: Partial<Pick<SolvedBuildDto, "isSomber" | "upgrade" | "aowId" | "aowName">> = {},
 ): SolvedBuildDto {
   return {
     weaponId,
     weaponName,
     affinity,
-    isSomber: false,
-    upgrade: 25,
+    isSomber: options.isSomber ?? false,
+    upgrade: options.upgrade ?? 25,
     stats,
     ar: { physical: physicalAr, magic: 0, fire: 0, lightning: 0, holy: 0, total: physicalAr },
-    aowId: 1,
-    aowName: "Seppuku",
+    aowId: options.aowId ?? 1,
+    aowName: options.aowName === undefined ? "Seppuku" : options.aowName,
     bleedBuildup,
     bleedBuildupAdd: 0,
     frostBuildup: 0,
@@ -399,11 +407,16 @@ async function mockCompatibleAowNames(args: Record<string, unknown> | undefined)
 async function mockSearchEstimate(args: Record<string, unknown> | undefined): Promise<SearchEstimateDto> {
   const request = (args?.request as OptimizeRequestDto | undefined) ?? null;
   const weapons = await mockWeaponCandidates(request);
-  const upgradeCount = request?.fixedUpgrade === null ? Number(request?.maxUpgrade ?? 25) + 1 : 1;
+  const upgradeCount = weapons.reduce((total, weapon) => {
+    if (!request) return total + 26;
+    if (request.exactUpgrade) return total + 1;
+    const cap = weapon.is_somber === "1" ? request.somberMaxUpgrade : request.standardMaxUpgrade;
+    return total + Math.max(Number(cap) + 1, 1);
+  }, 0);
   return {
     weaponCandidates: weapons.length,
     statCandidates: 1,
-    combinations: weapons.length * Math.max(upgradeCount, 1),
+    combinations: Math.max(upgradeCount, 1),
   };
 }
 
@@ -461,6 +474,9 @@ function matchesPreviewRow(row: SolvedBuildDto, request: OptimizeRequestDto | nu
   }
   if (request.somberFilter === "somber_only" && !row.isSomber) return false;
   if (request.somberFilter === "standard_only" && row.isSomber) return false;
+  const cap = upgradeCapForRow(row, request);
+  if (request.exactUpgrade && row.upgrade !== cap) return false;
+  if (!request.exactUpgrade && row.upgrade > cap) return false;
   return true;
 }
 

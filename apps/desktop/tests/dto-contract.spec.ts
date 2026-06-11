@@ -104,8 +104,9 @@ test("job and saved-build DTO samples preserve app-facing field names", () => {
       lockInt: null,
       lockFai: null,
       lockArc: null,
-      maxUpgrade: 25,
-      fixedUpgrade: 25,
+      standardMaxUpgrade: 25,
+      somberMaxUpgrade: 10,
+      exactUpgrade: true,
       twoHanding: false,
       dlcScaling: true,
       scadutreeLevel: 20,
@@ -132,7 +133,9 @@ test("job and saved-build DTO samples preserve app-facing field names", () => {
   expect(status).toHaveProperty("progress.bestScore");
   expect(status.finished?.rows[0]).toHaveProperty("weaponName");
   expect(status.finished?.rows[0]).toHaveProperty("aowFirstHitDamage");
-  expect(preset).toHaveProperty("request.fixedUpgrade");
+  expect(preset).toHaveProperty("request.standardMaxUpgrade");
+  expect(preset).toHaveProperty("request.somberMaxUpgrade");
+  expect(preset).toHaveProperty("request.exactUpgrade");
   expect(preset).toHaveProperty("selectedBuild.weaponName");
   expect(index.builds[0]).toHaveProperty("dataVersion");
 });

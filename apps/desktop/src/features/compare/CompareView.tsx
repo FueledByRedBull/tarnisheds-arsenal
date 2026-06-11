@@ -3,7 +3,7 @@ import { api } from "../../lib/api";
 import { cachedSolveBuild, cachedUpgradeSeries, cachedWeaponScalingForUpgrade } from "../../lib/analysis-cache";
 import { compactNumber, fixed1, metricForObjective, statLine } from "../../lib/format";
 import { SearchableSelect, openOption } from "../../lib/SearchableSelect";
-import { scalingLetter } from "../../lib/session";
+import { compareUpgradeHorizon, scalingLetter, upgradeCapForRow } from "../../lib/session";
 import { useRequestBudget } from "../../lib/hooks";
 import { useDesktopStore } from "../../lib/state";
 import { ScalingDto, SolvedBuildDto, UpgradePointDto } from "../../lib/types";
@@ -119,7 +119,7 @@ export function CompareView() {
             return { ...lane, points: [], scaling: null };
           }
           const [points, scaling] = await Promise.all([
-            cachedUpgradeSeries(baseRequest, lane.row, request.maxUpgrade),
+            cachedUpgradeSeries(baseRequest, lane.row, upgradeCapForRow(lane.row, request)),
             cachedWeaponScalingForUpgrade(lane.row.weaponName, lane.row.affinity, lane.row.upgrade),
           ]);
           return { ...lane, points, scaling };
@@ -139,7 +139,9 @@ export function CompareView() {
     return () => {
       cancelled = true;
     };
-  }, [baseRequest, compareControls, request.maxUpgrade, rows, selected, setCompareTarget, setError]);
+  }, [baseRequest, compareControls, request, rows, selected, setCompareTarget, setError]);
+
+  const matrixHorizon = compareUpgradeHorizon(request);
 
   return (
     <section className="workspace-panel compare-panel">
@@ -193,15 +195,15 @@ export function CompareView() {
         <span>{compareControls.weaponName ? "Explicit target" : "Top ranked rivals"}</span>
         <div>
           <button type="button" onClick={() => scrollMatrix(matrixRef.current, -1)}>+0</button>
-          <button type="button" onClick={() => scrollMatrix(matrixRef.current, 1)}>+{request.maxUpgrade}</button>
+          <button type="button" onClick={() => scrollMatrix(matrixRef.current, 1)}>+{matrixHorizon}</button>
         </div>
       </div>
       <div className="matrix-wrap" ref={matrixRef} onWheel={scrollMatrixWithWheel}>
         <div className="metric-matrix" role="grid" aria-label="Compare upgrade metrics">
           <span>Line</span>
-          {Array.from({ length: request.maxUpgrade + 1 }, (_, upgrade) => <span key={upgrade}>+{upgrade}</span>)}
+          {Array.from({ length: matrixHorizon + 1 }, (_, upgrade) => <span key={upgrade}>+{upgrade}</span>)}
           {series.map((lane) => (
-            <MatrixRow key={lane.label} lane={lane} maxUpgrade={request.maxUpgrade} />
+            <MatrixRow key={lane.label} lane={lane} maxUpgrade={matrixHorizon} />
           ))}
         </div>
       </div>

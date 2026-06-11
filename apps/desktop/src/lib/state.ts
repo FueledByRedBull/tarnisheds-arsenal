@@ -15,7 +15,7 @@ import {
   SolvedBuildDto,
   WorkspaceTab,
 } from "./types";
-import { classMeta, rowFingerprint } from "./session";
+import { classMeta, normalizeOptimizeRequest, rowFingerprint } from "./session";
 
 export interface DesktopState {
   activeWorkspace: WorkspaceTab;
@@ -95,8 +95,9 @@ export const defaultRequest: OptimizeRequestDto = {
   lockInt: null,
   lockFai: null,
   lockArc: null,
-  maxUpgrade: 25,
-  fixedUpgrade: null,
+  standardMaxUpgrade: 25,
+  somberMaxUpgrade: 10,
+  exactUpgrade: false,
   twoHanding: false,
   dlcScaling: false,
   scadutreeLevel: 0,
@@ -270,8 +271,9 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
         aowName: row.aowName,
         weaponTypeKey: null,
         somberFilter: "all",
-        maxUpgrade: row.upgrade,
-        fixedUpgrade: row.upgrade,
+        standardMaxUpgrade: row.isSomber ? state.request.standardMaxUpgrade : row.upgrade,
+        somberMaxUpgrade: row.isSomber ? row.upgrade : state.request.somberMaxUpgrade,
+        exactUpgrade: true,
         lockStr: row.stats.strStat,
         lockDex: row.stats.dex,
         lockInt: row.stats.intStat,
@@ -293,8 +295,8 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
       ],
     })),
   loadBuildPreset: (preset) =>
-    set({
-      request: preset.request,
+    set((state) => ({
+      request: normalizeOptimizeRequest(preset.request, state.request),
       rows: preset.selectedBuild ? [preset.selectedBuild] : [],
       selected: preset.selectedBuild,
       compareTarget: preset.compareTarget,
@@ -304,7 +306,7 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
       affinityPayload: null,
       affinitySignature: null,
       notices: [{ scope: "global", tone: "success", message: `Loaded ${preset.name}.` }],
-    }),
+    })),
 });
 
 const createSearchSlice: DesktopSlice<SearchSlice> = (set) => ({

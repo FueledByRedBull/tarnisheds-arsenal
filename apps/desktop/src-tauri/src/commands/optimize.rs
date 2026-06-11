@@ -77,7 +77,13 @@ pub fn build_upgrade_series(
     base.aow_name = request.solved.aow_name.clone();
     base.weapon_type_key = None;
     base.somber_filter = "all".to_string();
-    base.max_upgrade = request.max_upgrade;
+    if request.solved.is_somber {
+        base.somber_max_upgrade = Some(request.max_upgrade.min(10));
+    } else {
+        base.standard_max_upgrade = Some(request.max_upgrade.min(25));
+    }
+    base.exact_upgrade = Some(false);
+    base.max_upgrade = None;
     base.fixed_upgrade = None;
     base.top_k = usize::from(request.max_upgrade) + 1;
     base.min_str = 0;
@@ -189,9 +195,12 @@ pub fn clamp_weapon_upgrade_request(
         weapon_name,
         request.affinity.as_deref(),
     )?;
-    request.max_upgrade = request.max_upgrade.min(cap);
-    if let Some(fixed_upgrade) = request.fixed_upgrade {
-        request.fixed_upgrade = Some(fixed_upgrade.min(cap));
+    if cap <= 10 {
+        request.somber_max_upgrade = Some(request.somber_upgrade_cap().min(cap));
+    } else {
+        request.standard_max_upgrade = Some(request.standard_upgrade_cap().min(cap));
     }
+    request.max_upgrade = None;
+    request.fixed_upgrade = None;
     Ok(())
 }

@@ -36,8 +36,7 @@ pub fn build_affinity_watch(
             row_request.weapon_name = Some(request.solved.weapon_name.clone());
             row_request.affinity = Some(affinity.clone());
             row_request.aow_name = request.solved.aow_name.clone();
-            row_request.max_upgrade = request.solved.upgrade;
-            row_request.fixed_upgrade = Some(request.solved.upgrade);
+            row_request.set_exact_upgrade(request.solved.upgrade, request.solved.is_somber);
             row_request.top_k = 1;
             row_request.weapon_type_key = None;
             row_request.somber_filter = "all".to_string();
@@ -209,8 +208,7 @@ fn build_affinity_watch_inner(
             row_request.weapon_name = Some(request.solved.weapon_name.clone());
             row_request.affinity = Some(affinity.clone());
             row_request.aow_name = request.solved.aow_name.clone();
-            row_request.max_upgrade = request.solved.upgrade;
-            row_request.fixed_upgrade = Some(request.solved.upgrade);
+            row_request.set_exact_upgrade(request.solved.upgrade, request.solved.is_somber);
             row_request.top_k = 1;
             row_request.weapon_type_key = None;
             row_request.somber_filter = "all".to_string();

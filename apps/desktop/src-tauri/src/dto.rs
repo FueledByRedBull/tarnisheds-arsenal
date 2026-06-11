@@ -34,7 +34,15 @@ pub struct OptimizeRequestDto {
     pub lock_int: Option<u8>,
     pub lock_fai: Option<u8>,
     pub lock_arc: Option<u8>,
-    pub max_upgrade: u8,
+    #[serde(default)]
+    pub standard_max_upgrade: Option<u8>,
+    #[serde(default)]
+    pub somber_max_upgrade: Option<u8>,
+    #[serde(default)]
+    pub exact_upgrade: Option<bool>,
+    #[serde(default)]
+    pub max_upgrade: Option<u8>,
+    #[serde(default)]
     pub fixed_upgrade: Option<u8>,
     pub two_handing: bool,
     #[serde(default)]
@@ -48,6 +56,37 @@ pub struct OptimizeRequestDto {
     pub somber_filter: String,
     pub objective: String,
     pub top_k: usize,
+}
+
+impl OptimizeRequestDto {
+    pub fn standard_upgrade_cap(&self) -> u8 {
+        self.standard_max_upgrade
+            .or(self.max_upgrade)
+            .unwrap_or(25)
+            .min(25)
+    }
+
+    pub fn somber_upgrade_cap(&self) -> u8 {
+        self.somber_max_upgrade
+            .or_else(|| self.max_upgrade.map(|value| value.min(10)))
+            .unwrap_or(10)
+            .min(10)
+    }
+
+    pub fn exact_upgrade_enabled(&self) -> bool {
+        self.exact_upgrade.unwrap_or(self.fixed_upgrade.is_some())
+    }
+
+    pub fn set_exact_upgrade(&mut self, upgrade: u8, is_somber: bool) {
+        if is_somber {
+            self.somber_max_upgrade = Some(upgrade.min(10));
+        } else {
+            self.standard_max_upgrade = Some(upgrade.min(25));
+        }
+        self.exact_upgrade = Some(true);
+        self.max_upgrade = None;
+        self.fixed_upgrade = None;
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
@@ -428,8 +467,9 @@ impl TryFrom<&OptimizeRequestDto> for OptimizeRequest {
                 value.lock_fai,
                 value.lock_arc,
             ],
-            max_upgrade: value.max_upgrade,
-            fixed_upgrade: value.fixed_upgrade,
+            standard_max_upgrade: value.standard_upgrade_cap(),
+            somber_max_upgrade: value.somber_upgrade_cap(),
+            exact_upgrade: value.exact_upgrade_enabled(),
             two_handing: value.two_handing,
             dlc_scaling: value.dlc_scaling,
             scadutree_level: value.scadutree_level,
@@ -784,8 +824,9 @@ mod tests {
             "lockInt": null,
             "lockFai": null,
             "lockArc": null,
-            "maxUpgrade": 25,
-            "fixedUpgrade": 25,
+            "standardMaxUpgrade": 25,
+            "somberMaxUpgrade": 10,
+            "exactUpgrade": true,
             "twoHanding": false,
             "dlcScaling": true,
             "scadutreeLevel": 20,
@@ -802,8 +843,53 @@ mod tests {
         assert_eq!(request.class_name, "Samurai");
         assert_eq!(request.str_stat, 12);
         assert_eq!(request.int_stat, 9);
-        assert_eq!(request.fixed_upgrade, Some(25));
+        assert_eq!(request.standard_upgrade_cap(), 25);
+        assert_eq!(request.somber_upgrade_cap(), 10);
+        assert!(request.exact_upgrade_enabled());
         assert_eq!(request.scadutree_level, 20);
+    }
+
+    #[test]
+    fn legacy_optimize_request_upgrade_keys_migrate() {
+        let request: OptimizeRequestDto = serde_json::from_value(json!({
+            "className": "Samurai",
+            "characterLevel": 150,
+            "vig": 50,
+            "mnd": 11,
+            "end": 30,
+            "strStat": 12,
+            "dex": 60,
+            "intStat": 9,
+            "fai": 8,
+            "arc": 45,
+            "minStr": 12,
+            "minDex": 15,
+            "minInt": 9,
+            "minFai": 8,
+            "minArc": 8,
+            "lockStr": null,
+            "lockDex": null,
+            "lockInt": null,
+            "lockFai": null,
+            "lockArc": null,
+            "maxUpgrade": 25,
+            "fixedUpgrade": 25,
+            "twoHanding": false,
+            "dlcScaling": true,
+            "scadutreeLevel": 20,
+            "weaponName": "Uchigatana",
+            "affinity": "Blood",
+            "aowName": "Seppuku",
+            "weaponTypeKey": "katana",
+            "somberFilter": "all",
+            "objective": "max_ar",
+            "topK": 10
+        }))
+        .expect("legacy request deserializes");
+
+        assert_eq!(request.standard_upgrade_cap(), 25);
+        assert_eq!(request.somber_upgrade_cap(), 10);
+        assert!(request.exact_upgrade_enabled());
     }
 
     fn solved_build() -> SolvedBuildDto {
