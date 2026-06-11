@@ -656,7 +656,7 @@ mod tests {
             data_manifest: DataManifestDto {
                 id: "phase1".to_string(),
                 label: "Phase 1".to_string(),
-                app_version: "0.4.9".to_string(),
+                app_version: "0.5.0".to_string(),
                 source: "test".to_string(),
                 generated_at: "2026-06-10T00:00:00Z".to_string(),
             },

@@ -159,11 +159,26 @@ struct CandidateMetric {
 }
 
 #[derive(Clone, Copy, Debug)]
+struct ScoredCandidate {
+    prepared_idx: usize,
+    aow_idx: usize,
+    upgrade: u8,
+    stats: Stats,
+    metric: CandidateMetric,
+}
+
+#[derive(Clone, Copy, Debug)]
 struct SearchWorkUnit {
     prepared_idx: usize,
     aow_start: usize,
     aow_end: usize,
     candidate_count: u64,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ResultGroupMode {
+    WeaponOnly,
+    Loadout,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -185,9 +200,10 @@ trait SearchProgress {
     }
 }
 
-const PARALLEL_SEARCH_MIN_COMBINATIONS: u64 = 50_000_000;
+const PARALLEL_SEARCH_MIN_COMBINATIONS: u64 = 1_000_000;
 const PARALLEL_AOW_CHUNK_SIZE: usize = 8;
 const PARALLEL_PROGRESS_BATCH: u64 = 8_192;
+const SCORED_TOP_K_LOADOUT_OVERSAMPLE: usize = 8;
 const PROGRESS_MIN_INTERVAL: Duration = Duration::from_millis(100);
 
 pub fn estimate_search_space(
@@ -228,8 +244,9 @@ where
         return Ok(Vec::new());
     }
 
-    let work_units = build_search_work_units(request, data, constraints, &weapons);
-    let total = work_units
+    let group_mode = result_group_mode(request);
+    let fine_work_units = build_search_work_units(request, data, constraints, &weapons, true);
+    let total = fine_work_units
         .iter()
         .map(|unit| unit.candidate_count)
         .sum::<u64>();
@@ -237,18 +254,20 @@ where
         return Ok(Vec::new());
     }
 
-    if should_use_parallel_search(total, work_units.len()) {
+    if should_use_parallel_search(total, fine_work_units.len()) {
         optimize_parallel(
             request,
             data,
             constraints,
             &weapons,
-            &work_units,
+            &fine_work_units,
+            group_mode,
             total,
             progress_every,
             progress_cb,
         )
     } else {
+        let work_units = build_search_work_units(request, data, constraints, &weapons, false);
         let mut progress = SerialSearchProgress::new(total, progress_every, progress_cb);
         optimize_serial(
             request,
@@ -256,15 +275,25 @@ where
             constraints,
             &weapons,
             &work_units,
+            group_mode,
             &mut progress,
         )
     }
 }
 
+fn result_group_mode(request: &OptimizeRequest) -> ResultGroupMode {
+    if request.weapon_name.is_none() {
+        ResultGroupMode::WeaponOnly
+    } else {
+        ResultGroupMode::Loadout
+    }
+}
+
 fn should_use_parallel_search(total: u64, work_unit_count: usize) -> bool {
-    work_unit_count >= 2
+    let thread_count = rayon::current_num_threads();
+    thread_count > 1
+        && work_unit_count >= thread_count.min(2)
         && total >= PARALLEL_SEARCH_MIN_COMBINATIONS
-        && rayon::current_num_threads() > 1
 }
 
 fn build_search_work_units(
@@ -272,28 +301,17 @@ fn build_search_work_units(
     data: &GameData,
     constraints: CombatConstraints,
     weapons: &[PreparedWeapon<'_>],
+    split_aows: bool,
 ) -> Vec<SearchWorkUnit> {
     let mut units = Vec::new();
     for (prepared_idx, prepared) in weapons.iter().enumerate() {
-        if prepared.aow_choices.len() <= PARALLEL_AOW_CHUNK_SIZE {
-            let candidate_count = search_work_count(
-                request,
-                data,
-                constraints,
-                prepared,
-                0,
-                prepared.aow_choices.len(),
-            );
-            units.push(SearchWorkUnit {
-                prepared_idx,
-                aow_start: 0,
-                aow_end: prepared.aow_choices.len(),
-                candidate_count,
-            });
-            continue;
-        }
-        for aow_start in (0..prepared.aow_choices.len()).step_by(PARALLEL_AOW_CHUNK_SIZE) {
-            let aow_end = (aow_start + PARALLEL_AOW_CHUNK_SIZE).min(prepared.aow_choices.len());
+        let chunk_size = if split_aows {
+            1
+        } else {
+            PARALLEL_AOW_CHUNK_SIZE
+        };
+        for aow_start in (0..prepared.aow_choices.len()).step_by(chunk_size) {
+            let aow_end = (aow_start + chunk_size).min(prepared.aow_choices.len());
             let candidate_count =
                 search_work_count(request, data, constraints, prepared, aow_start, aow_end);
             units.push(SearchWorkUnit {
@@ -361,20 +379,34 @@ fn optimize_serial<F>(
     constraints: CombatConstraints,
     weapons: &[PreparedWeapon<'_>],
     work_units: &[SearchWorkUnit],
+    group_mode: ResultGroupMode,
     progress: &mut SerialSearchProgress<F>,
 ) -> Result<Vec<OptimizeResult>, String>
 where
     F: FnMut(ProgressSnapshot) -> bool,
 {
     progress.emit_initial()?;
-    let mut results = Vec::with_capacity(request.top_k);
+    let mut candidates = Vec::with_capacity(request.top_k);
     for unit in work_units {
-        let mut unit_results =
-            search_work_unit(request, data, constraints, weapons, *unit, progress)?;
-        merge_top_k(&mut results, unit_results.drain(..), request.top_k);
+        let mut unit_results = search_work_unit(
+            request,
+            data,
+            constraints,
+            weapons,
+            *unit,
+            group_mode,
+            progress,
+        )?;
+        merge_scored_top_k(
+            &mut candidates,
+            unit_results.drain(..),
+            weapons,
+            group_mode,
+            request.top_k,
+        );
     }
     progress.emit_final()?;
-    Ok(results)
+    materialize_scored_candidates(request, data, weapons, candidates, group_mode)
 }
 
 fn optimize_parallel<F>(
@@ -383,6 +415,7 @@ fn optimize_parallel<F>(
     constraints: CombatConstraints,
     weapons: &[PreparedWeapon<'_>],
     work_units: &[SearchWorkUnit],
+    group_mode: ResultGroupMode,
     total: u64,
     progress_every: u64,
     progress_cb: F,
@@ -406,6 +439,7 @@ where
                 constraints,
                 weapons,
                 *unit,
+                group_mode,
                 &mut local_progress,
             );
             let finish_result = local_progress.finish();
@@ -416,15 +450,21 @@ where
         })
         .collect::<Result<Vec<_>, String>>()?;
 
-    let mut results = Vec::with_capacity(request.top_k);
+    let mut candidates = Vec::with_capacity(request.top_k);
     for unit_results in partial_results {
-        merge_top_k(&mut results, unit_results.into_iter(), request.top_k);
+        merge_scored_top_k(
+            &mut candidates,
+            unit_results.into_iter(),
+            weapons,
+            group_mode,
+            request.top_k,
+        );
     }
     progress.emit_final()?;
     if progress.is_cancelled() {
         return Err("cancelled".to_string());
     }
-    Ok(results)
+    materialize_scored_candidates(request, data, weapons, candidates, group_mode)
 }
 
 fn search_work_unit<P>(
@@ -433,17 +473,22 @@ fn search_work_unit<P>(
     constraints: CombatConstraints,
     weapons: &[PreparedWeapon<'_>],
     unit: SearchWorkUnit,
+    group_mode: ResultGroupMode,
     progress: &mut P,
-) -> Result<Vec<OptimizeResult>, String>
+) -> Result<Vec<ScoredCandidate>, String>
 where
     P: SearchProgress,
 {
     let prepared = &weapons[unit.prepared_idx];
-    let mut results = Vec::with_capacity(request.top_k);
+    let mut candidates = Vec::with_capacity(request.top_k);
     let damage_multiplier = request.damage_multiplier();
     let mut visit_result: Result<(), String> = Ok(());
 
-    for aow_choice in &prepared.aow_choices[unit.aow_start..unit.aow_end] {
+    for (aow_idx, aow_choice) in prepared.aow_choices[unit.aow_start..unit.aow_end]
+        .iter()
+        .enumerate()
+        .map(|(offset, choice)| (unit.aow_start + offset, choice))
+    {
         let Some(search) = relevant_stat_search(request, data, constraints, prepared, aow_choice)
         else {
             continue;
@@ -521,69 +566,26 @@ where
                     visit_result = Err(err);
                     return false;
                 }
-                if !could_enter_top_k(&results, score, request.top_k) {
+                if !could_enter_scored_top_k(&candidates, score, request.top_k, group_mode) {
                     continue;
                 }
-                let full = complete_candidate_metric(
-                    ar,
-                    status_buildup,
-                    aow_first_hit_damage,
-                    aow_full_sequence_damage,
-                    prepared,
-                    aow_choice,
-                    *upgrade,
-                    &stats,
-                    effective_str_value,
-                    damage_multiplier,
-                    data,
-                );
-                let CandidateMetric {
-                    score: _,
-                    ar,
-                    status_buildup,
-                    aow_first_hit_damage,
-                    aow_full_sequence_damage,
-                } = match full {
-                    Ok(metric) => metric,
-                    Err(err) => {
-                        visit_result = Err(err);
-                        return false;
-                    }
-                };
-                push_top_k(
-                    &mut results,
-                    OptimizeResult {
-                        weapon_id: prepared.weapon.weapon_id,
-                        weapon_name: prepared.weapon.name.clone(),
-                        affinity: prepared.weapon.affinity.clone(),
-                        is_somber: prepared.weapon.is_somber,
+                push_scored_top_k(
+                    &mut candidates,
+                    ScoredCandidate {
+                        prepared_idx: unit.prepared_idx,
+                        aow_idx,
                         upgrade: *upgrade,
                         stats,
-                        ar: ar.expect("complete candidate metric must include AR"),
-                        aow_id: aow_choice.skill_id,
-                        aow_name: aow_choice.skill_name.map(str::to_string),
-                        bleed_buildup: status_buildup
-                            .expect("complete candidate metric must include status")
-                            .bleed,
-                        bleed_buildup_add: aow_choice
-                            .aow
-                            .map(|aow| aow.bleed_buildup_add)
-                            .unwrap_or(0.0),
-                        frost_buildup: status_buildup
-                            .expect("complete candidate metric must include status")
-                            .frost,
-                        poison_buildup: status_buildup
-                            .expect("complete candidate metric must include status")
-                            .poison,
-                        scarlet_rot_buildup: status_buildup
-                            .expect("complete candidate metric must include status")
-                            .scarlet_rot,
-                        aow_first_hit_damage: aow_first_hit_damage
-                            .expect("complete candidate metric must include first-hit damage"),
-                        aow_full_sequence_damage: aow_full_sequence_damage
-                            .expect("complete candidate metric must include full-sequence damage"),
-                        score,
+                        metric: CandidateMetric {
+                            score,
+                            ar,
+                            status_buildup,
+                            aow_first_hit_damage,
+                            aow_full_sequence_damage,
+                        },
                     },
+                    weapons,
+                    group_mode,
                     request.top_k,
                 );
             }
@@ -592,16 +594,186 @@ where
         visit_result.as_ref().map_err(Clone::clone)?;
     }
     progress.finish()?;
+
+    Ok(candidates)
+}
+
+fn materialize_scored_candidates(
+    request: &OptimizeRequest,
+    data: &GameData,
+    weapons: &[PreparedWeapon<'_>],
+    candidates: Vec<ScoredCandidate>,
+    group_mode: ResultGroupMode,
+) -> Result<Vec<OptimizeResult>, String> {
+    let damage_multiplier = request.damage_multiplier();
+    let mut results = Vec::with_capacity(request.top_k);
+    for candidate in candidates {
+        let result =
+            materialize_scored_candidate(candidate, request, data, weapons, damage_multiplier)?;
+        push_top_k(&mut results, result, request.top_k, group_mode);
+    }
     Ok(results)
 }
 
-fn merge_top_k(
-    results: &mut Vec<OptimizeResult>,
-    candidates: impl IntoIterator<Item = OptimizeResult>,
+fn materialize_scored_candidate(
+    candidate: ScoredCandidate,
+    request: &OptimizeRequest,
+    data: &GameData,
+    weapons: &[PreparedWeapon<'_>],
+    damage_multiplier: f32,
+) -> Result<OptimizeResult, String> {
+    let prepared = &weapons[candidate.prepared_idx];
+    let aow_choice = &prepared.aow_choices[candidate.aow_idx];
+    let effective_str_value = effective_str(
+        candidate.stats.str,
+        request.two_handing,
+        prepared.weapon.disable_two_hand_bonus,
+    );
+    let full = complete_candidate_metric(
+        candidate.metric.ar,
+        candidate.metric.status_buildup,
+        candidate.metric.aow_first_hit_damage,
+        candidate.metric.aow_full_sequence_damage,
+        prepared,
+        aow_choice,
+        candidate.upgrade,
+        &candidate.stats,
+        effective_str_value,
+        damage_multiplier,
+        data,
+    )?;
+    let CandidateMetric {
+        score: _,
+        ar,
+        status_buildup,
+        aow_first_hit_damage,
+        aow_full_sequence_damage,
+    } = full;
+
+    Ok(OptimizeResult {
+        weapon_id: prepared.weapon.weapon_id,
+        weapon_name: prepared.weapon.name.clone(),
+        affinity: prepared.weapon.affinity.clone(),
+        is_somber: prepared.weapon.is_somber,
+        upgrade: candidate.upgrade,
+        stats: candidate.stats,
+        ar: ar.expect("complete candidate metric must include AR"),
+        aow_id: aow_choice.skill_id,
+        aow_name: aow_choice.skill_name.map(str::to_string),
+        bleed_buildup: status_buildup
+            .expect("complete candidate metric must include status")
+            .bleed,
+        bleed_buildup_add: aow_choice
+            .aow
+            .map(|aow| aow.bleed_buildup_add)
+            .unwrap_or(0.0),
+        frost_buildup: status_buildup
+            .expect("complete candidate metric must include status")
+            .frost,
+        poison_buildup: status_buildup
+            .expect("complete candidate metric must include status")
+            .poison,
+        scarlet_rot_buildup: status_buildup
+            .expect("complete candidate metric must include status")
+            .scarlet_rot,
+        aow_first_hit_damage: aow_first_hit_damage
+            .expect("complete candidate metric must include first-hit damage"),
+        aow_full_sequence_damage: aow_full_sequence_damage
+            .expect("complete candidate metric must include full-sequence damage"),
+        score: candidate.metric.score,
+    })
+}
+
+fn could_enter_scored_top_k(
+    results: &[ScoredCandidate],
+    score: f32,
+    top_k: usize,
+    group_mode: ResultGroupMode,
+) -> bool {
+    let limit = scored_candidate_limit(top_k, group_mode);
+    if results.len() < limit {
+        return true;
+    }
+    results
+        .last()
+        .is_none_or(|worst| score >= worst.metric.score)
+}
+
+fn merge_scored_top_k(
+    results: &mut Vec<ScoredCandidate>,
+    candidates: impl IntoIterator<Item = ScoredCandidate>,
+    weapons: &[PreparedWeapon<'_>],
+    group_mode: ResultGroupMode,
     top_k: usize,
 ) {
     for candidate in candidates {
-        push_top_k(results, candidate, top_k);
+        push_scored_top_k(results, candidate, weapons, group_mode, top_k);
+    }
+}
+
+fn push_scored_top_k(
+    results: &mut Vec<ScoredCandidate>,
+    candidate: ScoredCandidate,
+    weapons: &[PreparedWeapon<'_>],
+    group_mode: ResultGroupMode,
+    top_k: usize,
+) {
+    if top_k == 0 {
+        return;
+    }
+
+    results.retain(|existing| {
+        !same_scored_result_group(&candidate, existing, weapons, group_mode)
+            || existing.metric.score >= candidate.metric.score
+    });
+    if results.iter().any(|existing| {
+        same_scored_result_group(&candidate, existing, weapons, group_mode)
+            && existing.metric.score > candidate.metric.score
+    }) {
+        return;
+    }
+
+    let insert_at = results
+        .iter()
+        .position(|existing| candidate.metric.score > existing.metric.score)
+        .unwrap_or(results.len());
+    results.insert(insert_at, candidate);
+
+    let limit = scored_candidate_limit(top_k, group_mode);
+    if results.len() <= limit {
+        return;
+    }
+    let cutoff = results[limit - 1].metric.score;
+    results.retain(|candidate| candidate.metric.score >= cutoff);
+}
+
+fn scored_candidate_limit(top_k: usize, group_mode: ResultGroupMode) -> usize {
+    match group_mode {
+        ResultGroupMode::WeaponOnly => top_k,
+        ResultGroupMode::Loadout => top_k
+            .saturating_mul(SCORED_TOP_K_LOADOUT_OVERSAMPLE)
+            .max(top_k),
+    }
+}
+
+fn same_scored_result_group(
+    left: &ScoredCandidate,
+    right: &ScoredCandidate,
+    weapons: &[PreparedWeapon<'_>],
+    group_mode: ResultGroupMode,
+) -> bool {
+    let left_prepared = &weapons[left.prepared_idx];
+    let right_prepared = &weapons[right.prepared_idx];
+    if left_prepared.weapon.weapon_id != right_prepared.weapon.weapon_id {
+        return false;
+    }
+    match group_mode {
+        ResultGroupMode::WeaponOnly => true,
+        ResultGroupMode::Loadout => {
+            left.upgrade == right.upgrade
+                && left_prepared.aow_choices[left.aow_idx].skill_id
+                    == right_prepared.aow_choices[right.aow_idx].skill_id
+        }
     }
 }
 
@@ -2033,17 +2205,15 @@ fn count_distributions(
     total
 }
 
-fn could_enter_top_k(results: &[OptimizeResult], score: f32, top_k: usize) -> bool {
-    if results.len() < top_k {
-        return true;
-    }
-    results.last().is_none_or(|worst| score >= worst.score)
-}
-
-fn push_top_k(results: &mut Vec<OptimizeResult>, candidate: OptimizeResult, top_k: usize) {
+fn push_top_k(
+    results: &mut Vec<OptimizeResult>,
+    candidate: OptimizeResult,
+    top_k: usize,
+    group_mode: ResultGroupMode,
+) {
     if let Some(existing_idx) = results
         .iter()
-        .position(|existing| same_result_loadout(&candidate, existing))
+        .position(|existing| same_result_group(&candidate, existing, group_mode))
     {
         if !better_result(&candidate, &results[existing_idx]) {
             return;
@@ -2069,10 +2239,18 @@ fn push_top_k(results: &mut Vec<OptimizeResult>, candidate: OptimizeResult, top_
     }
 }
 
-fn same_result_loadout(left: &OptimizeResult, right: &OptimizeResult) -> bool {
-    left.weapon_id == right.weapon_id
-        && left.upgrade == right.upgrade
-        && left.aow_id == right.aow_id
+fn same_result_group(
+    left: &OptimizeResult,
+    right: &OptimizeResult,
+    group_mode: ResultGroupMode,
+) -> bool {
+    if left.weapon_id != right.weapon_id {
+        return false;
+    }
+    match group_mode {
+        ResultGroupMode::WeaponOnly => true,
+        ResultGroupMode::Loadout => left.upgrade == right.upgrade && left.aow_id == right.aow_id,
+    }
 }
 
 fn better_result(left: &OptimizeResult, right: &OptimizeResult) -> bool {
@@ -2195,6 +2373,28 @@ mod tests {
             aow_first_hit_damage: 0.0,
             aow_full_sequence_damage: 0.0,
             score: bleed_buildup,
+        }
+    }
+
+    fn scored_candidate(
+        prepared_idx: usize,
+        aow_idx: usize,
+        upgrade: u8,
+        stats: Stats,
+        score: f32,
+    ) -> ScoredCandidate {
+        ScoredCandidate {
+            prepared_idx,
+            aow_idx,
+            upgrade,
+            stats,
+            metric: CandidateMetric {
+                score,
+                ar: None,
+                status_buildup: None,
+                aow_first_hit_damage: None,
+                aow_full_sequence_damage: None,
+            },
         }
     }
 
@@ -2401,6 +2601,49 @@ mod tests {
     }
 
     #[test]
+    fn open_weapon_search_returns_one_result_per_weapon() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.weapon_name = None;
+        request.affinity = None;
+        request.aow_name = None;
+        request.weapon_type_key = Some("Katana".to_string());
+        request.top_k = 10;
+
+        let results = optimize(&request, &game_data).expect("optimizer failed");
+
+        assert!(results.len() > 1);
+        let unique_weapon_ids = results
+            .iter()
+            .map(|result| result.weapon_id)
+            .collect::<HashSet<_>>();
+        assert_eq!(unique_weapon_ids.len(), results.len());
+    }
+
+    #[test]
+    fn locked_weapon_search_keeps_multiple_loadouts_for_that_weapon() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.affinity = None;
+        request.aow_name = None;
+        request.top_k = 10;
+
+        let results = optimize(&request, &game_data).expect("optimizer failed");
+
+        assert!(results.len() > 1);
+        assert!(
+            results
+                .iter()
+                .all(|result| result.weapon_name == "Uchigatana")
+        );
+        let unique_loadouts = results
+            .iter()
+            .map(|result| (result.upgrade, result.aow_id))
+            .collect::<HashSet<_>>();
+        assert!(unique_loadouts.len() > 1);
+    }
+
+    #[test]
     fn optimize_accepts_normalized_weapon_type_filter_names() {
         let game_data = load_data();
         let mut request = base_request();
@@ -2448,7 +2691,7 @@ mod tests {
 
         let constraints = build_combat_constraints(&request).expect("constraints failed");
         let weapons = prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
-        let work_units = build_search_work_units(&request, &game_data, constraints, &weapons);
+        let work_units = build_search_work_units(&request, &game_data, constraints, &weapons, true);
         let total = work_units
             .iter()
             .map(|unit| unit.candidate_count)
@@ -2461,6 +2704,7 @@ mod tests {
             constraints,
             &weapons,
             &work_units,
+            result_group_mode(&request),
             &mut serial_progress,
         )
         .expect("serial search failed");
@@ -2470,6 +2714,7 @@ mod tests {
             constraints,
             &weapons,
             &work_units,
+            result_group_mode(&request),
             total,
             0,
             |_snapshot| true,
@@ -2484,6 +2729,163 @@ mod tests {
             assert_eq!(left.stats, right.stats);
             assert!((left.score - right.score).abs() < 0.001);
         }
+    }
+
+    #[test]
+    fn parallel_threshold_accepts_medium_searches_when_threads_are_available() {
+        let thread_count = rayon::current_num_threads();
+        assert!(!should_use_parallel_search(
+            PARALLEL_SEARCH_MIN_COMBINATIONS - 1,
+            usize::MAX
+        ));
+        assert!(!should_use_parallel_search(
+            PARALLEL_SEARCH_MIN_COMBINATIONS,
+            1
+        ));
+        if thread_count > 1 {
+            assert!(should_use_parallel_search(
+                PARALLEL_SEARCH_MIN_COMBINATIONS,
+                thread_count.min(2)
+            ));
+        }
+    }
+
+    #[test]
+    fn parallel_work_units_split_to_single_aow_choices() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.aow_name = None;
+        request.top_k = 5;
+
+        let constraints = build_combat_constraints(&request).expect("constraints failed");
+        let weapons = prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
+        let fine = build_search_work_units(&request, &game_data, constraints, &weapons, true);
+        let grouped = build_search_work_units(&request, &game_data, constraints, &weapons, false);
+
+        assert!(!fine.is_empty());
+        assert!(fine.iter().all(|unit| unit.aow_end - unit.aow_start == 1));
+        assert_eq!(
+            fine.iter().map(|unit| unit.candidate_count).sum::<u64>(),
+            grouped.iter().map(|unit| unit.candidate_count).sum::<u64>()
+        );
+    }
+
+    #[test]
+    fn scored_top_k_retains_cutoff_score_ties() {
+        let game_data = load_data();
+        let request = base_request();
+        let constraints = build_combat_constraints(&request).expect("constraints failed");
+        let weapons = prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
+        let stats = request.current_stats;
+        let mut candidates = Vec::new();
+
+        for (upgrade, score) in [
+            (0, 20.0),
+            (1, 19.0),
+            (2, 18.0),
+            (3, 17.0),
+            (4, 16.0),
+            (5, 15.0),
+            (6, 14.0),
+            (7, 13.0),
+            (8, 13.0),
+            (9, 12.0),
+        ] {
+            push_scored_top_k(
+                &mut candidates,
+                scored_candidate(0, 0, upgrade, stats, score),
+                &weapons,
+                ResultGroupMode::Loadout,
+                1,
+            );
+        }
+
+        assert_eq!(candidates.len(), 9);
+        assert_eq!(
+            candidates
+                .iter()
+                .map(|candidate| candidate.metric.score)
+                .collect::<Vec<_>>(),
+            vec![20.0, 19.0, 18.0, 17.0, 16.0, 15.0, 14.0, 13.0, 13.0]
+        );
+    }
+
+    #[test]
+    fn scored_top_k_replaces_lower_score_for_same_loadout() {
+        let game_data = load_data();
+        let request = base_request();
+        let constraints = build_combat_constraints(&request).expect("constraints failed");
+        let weapons = prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
+        let stats = request.current_stats;
+        let mut candidates = Vec::new();
+
+        push_scored_top_k(
+            &mut candidates,
+            scored_candidate(0, 0, 25, stats, 10.0),
+            &weapons,
+            ResultGroupMode::Loadout,
+            3,
+        );
+        push_scored_top_k(
+            &mut candidates,
+            scored_candidate(0, 0, 25, stats, 20.0),
+            &weapons,
+            ResultGroupMode::Loadout,
+            3,
+        );
+
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].metric.score, 20.0);
+    }
+
+    #[test]
+    fn top_k_zero_short_circuits_without_progress_callbacks() {
+        let game_data = load_data();
+        let mut request = base_request();
+        request.top_k = 0;
+        let mut callback_count = 0;
+
+        let results = optimize_with_progress(&request, &game_data, 1, |_snapshot| {
+            callback_count += 1;
+            true
+        })
+        .expect("optimizer failed");
+
+        assert!(results.is_empty());
+        assert_eq!(callback_count, 0);
+    }
+
+    #[test]
+    fn progress_emits_initial_and_final_snapshots() {
+        let game_data = load_data();
+        let request = base_request();
+        let mut snapshots = Vec::new();
+
+        optimize_with_progress(&request, &game_data, u64::MAX, |snapshot| {
+            snapshots.push(snapshot);
+            true
+        })
+        .expect("optimizer failed");
+
+        assert_eq!(snapshots.len(), 2);
+        assert_eq!(snapshots[0].checked, 0);
+        assert_eq!(snapshots[1].checked, snapshots[1].total);
+    }
+
+    #[test]
+    fn progress_callback_can_cancel_search() {
+        let game_data = load_data();
+        let request = base_request();
+        let mut callback_count = 0;
+
+        let err = optimize_with_progress(&request, &game_data, 1, |_snapshot| {
+            callback_count += 1;
+            false
+        })
+        .expect_err("expected cancellation");
+
+        assert_eq!(err, "cancelled");
+        assert_eq!(callback_count, 1);
     }
 
     #[test]
