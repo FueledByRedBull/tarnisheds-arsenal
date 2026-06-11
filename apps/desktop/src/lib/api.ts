@@ -3,6 +3,7 @@ import {
   AffinityWatchPayloadDto,
   AffinityWatchJobStatusDto,
   CatalogDto,
+  DataManifestDto,
   OptimizeRequestDto,
   PathJobStatusDto,
   PathPreviewDto,
@@ -14,17 +15,122 @@ import {
   WeaponProfileDto,
 } from "./types";
 import { STARTING_CLASS_METADATA } from "./session";
-import { scadutreeAttackMultiplier } from "./scadutree";
 
 type CsvRow = Record<string, string>;
-type CombatStatKey = keyof SolvedBuildDto["stats"];
-type PreviewEvaluation = {
-  row: SolvedBuildDto | null;
-  stats: SolvedBuildDto["stats"];
-  requirementGap: number;
-};
 
-const COMBAT_STAT_KEYS: CombatStatKey[] = ["strStat", "dex", "intStat", "fai", "arc"];
+const FIXTURE_WEAPONS: CsvRow[] = [
+  fixtureWeapon("100", "Uchigatana", "Blood", "Katana", "Katana", "11", "13", "0.61", "0.93", "0", "0", "0.44", "700"),
+  fixtureWeapon("101", "Uchigatana", "Occult", "Katana", "Katana", "11", "13", "0.21", "0.33", "0", "0", "1.39", "670"),
+  fixtureWeapon("102", "Uchigatana", "Keen", "Katana", "Katana", "11", "13", "0.25", "1.2", "0", "0", "0", "640"),
+  fixtureWeapon("200", "Zweihander", "Standard", "Colossal Sword", "Colossal Sword", "19", "11", "0.7", "0.35", "0", "0", "0", "610"),
+  fixtureWeapon("300", "Ancient Meteoric Ore Greatsword", "Unique", "Great Katana", "Great Katana", "35", "10", "1.0", "0.2", "0", "0", "0.6", "590", "1"),
+];
+
+const FIXTURE_AOWS: CsvRow[] = [
+  { aow_id: "1", name: "Seppuku" },
+  { aow_id: "2", name: "Bloodhound's Step" },
+];
+
+const FIXTURE_AOW_AFFINITIES: CsvRow[] = [
+  "Blood",
+  "Occult",
+  "Keen",
+  "Standard",
+].flatMap((affinity) => FIXTURE_AOWS.map((aow) => ({ affinity, name: aow.name, aow_id: aow.aow_id })));
+
+const FIXTURE_AOW_WEAPON_COMPAT: CsvRow[] = FIXTURE_WEAPONS
+  .filter((weapon) => weapon.name !== "Ancient Meteoric Ore Greatsword")
+  .flatMap((weapon) => FIXTURE_AOWS.map((aow) => ({
+    weapon_id: weapon.weapon_id,
+    weapon_name: weapon.name,
+    affinity: weapon.affinity,
+    aow_id: aow.aow_id,
+    aow_name: aow.name,
+  })));
+
+const PREVIEW_SOLVED_BUILDS: SolvedBuildDto[] = [
+  previewBuild(100, "Uchigatana", "Blood", 700, 84, 854, 2205, 700, { strStat: 13, dex: 22, intStat: 9, fai: 8, arc: 60 }),
+  previewBuild(101, "Uchigatana", "Occult", 670, 72, 817, 2111, 670, { strStat: 13, dex: 22, intStat: 9, fai: 8, arc: 60 }),
+  previewBuild(102, "Uchigatana", "Keen", 640, 45, 781, 2016, 640, { strStat: 13, dex: 60, intStat: 9, fai: 8, arc: 8 }),
+];
+
+function fixtureWeapon(
+  weaponId: string,
+  name: string,
+  affinity: string,
+  weaponTypeName: string,
+  weaponTypeKeys: string,
+  reqStr: string,
+  reqDex: string,
+  strScaling: string,
+  dexScaling: string,
+  intScaling: string,
+  faiScaling: string,
+  arcScaling: string,
+  previewTotalAr: string,
+  isSomber = "0",
+): CsvRow {
+  return {
+    weapon_id: weaponId,
+    name,
+    affinity,
+    weapon_type_name: weaponTypeName,
+    weapon_type_keys: weaponTypeKeys,
+    req_str: reqStr,
+    req_dex: reqDex,
+    req_int: "0",
+    req_fai: "0",
+    req_arc: "0",
+    disable_two_hand_bonus: "0",
+    is_somber: isSomber,
+    reinforce_type: "0",
+    native_skill_id: "",
+    native_skill_name: "",
+    str_scaling: strScaling,
+    dex_scaling: dexScaling,
+    int_scaling: intScaling,
+    fai_scaling: faiScaling,
+    arc_scaling: arcScaling,
+    base_physical: previewTotalAr,
+    base_magic: "0",
+    base_fire: "0",
+    base_lightning: "0",
+    base_holy: "0",
+    preview_total_ar: previewTotalAr,
+  };
+}
+
+function previewBuild(
+  weaponId: number,
+  weaponName: string,
+  affinity: string,
+  physicalAr: number,
+  bleedBuildup: number,
+  aowFirstHitDamage: number,
+  aowFullSequenceDamage: number,
+  score: number,
+  stats: SolvedBuildDto["stats"],
+): SolvedBuildDto {
+  return {
+    weaponId,
+    weaponName,
+    affinity,
+    isSomber: false,
+    upgrade: 25,
+    stats,
+    ar: { physical: physicalAr, magic: 0, fire: 0, lightning: 0, holy: 0, total: physicalAr },
+    aowId: 1,
+    aowName: "Seppuku",
+    bleedBuildup,
+    bleedBuildupAdd: 0,
+    frostBuildup: 0,
+    poisonBuildup: 0,
+    scarletRotBuildup: 0,
+    aowFirstHitDamage,
+    aowFullSequenceDamage,
+    score,
+  };
+}
 
 export const hasTauriRuntime = () => "__TAURI_INTERNALS__" in window;
 
@@ -41,6 +147,7 @@ async function call<T>(command: string, args?: Record<string, unknown>): Promise
 
 export const api = {
   catalog: () => call<CatalogDto>("get_catalog"),
+  dataManifest: () => call<DataManifestDto>("get_data_manifest"),
   weaponProfile: (weaponName: string, affinity: string | null) =>
     call<WeaponProfileDto>("get_weapon_profile", {
       request: { weaponName, affinity },
@@ -135,6 +242,8 @@ async function mockInvoke<T>(command: string, args?: Record<string, unknown>): P
   switch (command) {
     case "get_catalog":
       return await mockCatalog() as T;
+    case "get_data_manifest":
+      return mockDataManifest() as T;
     case "get_weapon_profile":
       return await mockWeaponProfile(args) as T;
     case "estimate_search_space":
@@ -199,6 +308,17 @@ async function mockCatalog(): Promise<CatalogDto> {
     aowNames: uniqueSorted(aows.map((row) => row.name).filter(Boolean)),
     objectiveIds: ["max_ar", "max_physical_ar", "max_ar_plus_bleed", "aow_first_hit", "aow_full_sequence"],
     somberFilters: ["all", "standard_only", "somber_only"],
+    dataManifest: mockDataManifest(),
+  };
+}
+
+function mockDataManifest(): DataManifestDto {
+  return {
+    id: "phase1-app-1.16.1",
+    label: "Phase 1 dataset - App Ver. 1.16.1",
+    appVersion: "1.16.1",
+    source: "ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx",
+    generatedAt: "2026-05-18",
   };
 }
 
@@ -280,27 +400,16 @@ async function mockSearchEstimate(args: Record<string, unknown> | undefined): Pr
   const request = (args?.request as OptimizeRequestDto | undefined) ?? null;
   const weapons = await mockWeaponCandidates(request);
   const upgradeCount = request?.fixedUpgrade === null ? Number(request?.maxUpgrade ?? 25) + 1 : 1;
-  const statCandidates = request ? Math.max(1, request.characterLevel - 1) * 32 : 18496;
   return {
     weaponCandidates: weapons.length,
-    statCandidates,
-    combinations: weapons.length * Math.max(upgradeCount, 1) * statCandidates,
+    statCandidates: 1,
+    combinations: weapons.length * Math.max(upgradeCount, 1),
   };
 }
 
 async function mockRows(request: OptimizeRequestDto | null): Promise<SolvedBuildDto[]> {
-  const [weapons, reinforceRows, passiveRows, compatRows] = await Promise.all([
-    mockWeaponCandidates(request),
-    phaseReinforceRows(),
-    phaseWeaponPassiveRows(),
-    phaseAowWeaponCompatRows(),
-  ]);
   const topK = Math.min(Math.max(Number(request?.topK ?? 25), 1), 500);
-  const rows = weapons
-    .map((weapon) => buildMockRow(weapon, request, reinforceRows, passiveRows, compatRows))
-    .filter((row): row is SolvedBuildDto => row !== null)
-    .sort((left, right) => resultRankValue(right, request?.objective ?? "max_ar") - resultRankValue(left, request?.objective ?? "max_ar"));
-  return rows.slice(0, topK);
+  return PREVIEW_SOLVED_BUILDS.filter((row) => matchesPreviewRow(row, request)).slice(0, topK);
 }
 
 async function mockWeaponCandidates(request: OptimizeRequestDto | null): Promise<CsvRow[]> {
@@ -311,7 +420,6 @@ async function mockWeaponCandidates(request: OptimizeRequestDto | null): Promise
     if (request?.weaponTypeKey && !weaponTypeMatches(weapon, request.weaponTypeKey)) return false;
     if (request?.somberFilter === "standard_only" && weapon.is_somber === "1") return false;
     if (request?.somberFilter === "somber_only" && weapon.is_somber !== "1") return false;
-    if (!meetsPreviewRequirements(weapon, request)) return false;
     if (request?.aowName && !mockAowCompatible(weapon, request.aowName, compatRows)) return false;
     return true;
   });
@@ -337,277 +445,23 @@ async function mockSolveBuild(args: Record<string, unknown> | undefined): Promis
   return rows[0] ?? null;
 }
 
-function buildMockRow(
-  weapon: CsvRow,
-  request: OptimizeRequestDto | null,
-  reinforceRows: CsvRow[],
-  passiveRows: CsvRow[],
-  compatRows: CsvRow[],
-): SolvedBuildDto | null {
-  const stats = previewStats(weapon, request);
-  if (requirementGapForStats(weapon, request, stats) > 0) {
-    return null;
-  }
-  const cap = weapon.is_somber === "1" ? 10 : 25;
-  const requestedUpgrade = request?.fixedUpgrade ?? request?.maxUpgrade ?? cap;
-  const upgrade = Math.max(0, Math.min(Number(requestedUpgrade), cap));
-  const reinforce = reinforceRows.find(
-    (row) => row.reinforce_type === weapon.reinforce_type && Number(row.level) === upgrade,
-  );
-  const ar = scaleDamageBreakdown(
-    previewAr(weapon, reinforce, stats),
-    scadutreeAttackMultiplier(Boolean(request?.dlcScaling), Number(request?.scadutreeLevel ?? 0)),
-  );
-  const aow = choosePreviewAow(weapon, request?.aowName ?? null, compatRows);
-  if (request?.aowName && !aow) {
-    return null;
-  }
-  const passive = passiveRows.find((row) => row.weapon_id === weapon.weapon_id);
-  const bleedBuildup = Number(passive?.bleed ?? 0);
-  const frostBuildup = Number(passive?.frost ?? 0);
-  const poisonBuildup = Number(passive?.poison ?? 0);
-  const scarletRotBuildup = Number(passive?.scarlet_rot ?? 0);
-  const aowFirstHitDamage = Math.round(ar.total * (aow ? 1.22 : 0));
-  const aowFullSequenceDamage = Math.round(ar.total * (aow ? 3.15 : 0));
-  const score = scorePreview(
-    request?.objective ?? "max_ar",
-    ar.total,
-    ar.physical,
-    bleedBuildup,
-    aowFirstHitDamage,
-    aowFullSequenceDamage,
-  );
-  return {
-    weaponId: Number(weapon.weapon_id),
-    weaponName: weapon.name,
-    affinity: weapon.affinity,
-    isSomber: weapon.is_somber === "1",
-    upgrade,
-    stats,
-    ar,
-    aowId: aow?.id ?? null,
-    aowName: aow?.name ?? null,
-    bleedBuildup,
-    bleedBuildupAdd: 0,
-    frostBuildup,
-    poisonBuildup,
-    scarletRotBuildup,
-    aowFirstHitDamage,
-    aowFullSequenceDamage,
-    score,
-  };
-}
-
-function scaleDamageBreakdown(ar: SolvedBuildDto["ar"], multiplier: number): SolvedBuildDto["ar"] {
-  const physical = ar.physical * multiplier;
-  const magic = ar.magic * multiplier;
-  const fire = ar.fire * multiplier;
-  const lightning = ar.lightning * multiplier;
-  const holy = ar.holy * multiplier;
-  return {
-    physical,
-    magic,
-    fire,
-    lightning,
-    holy,
-    total: physical + magic + fire + lightning + holy,
-  };
-}
-
-function previewStats(weapon: CsvRow, request: OptimizeRequestDto | null): SolvedBuildDto["stats"] {
-  const current = {
-    strStat: Number(request?.lockStr ?? request?.strStat ?? 0),
-    dex: Number(request?.lockDex ?? request?.dex ?? 0),
-    intStat: Number(request?.lockInt ?? request?.intStat ?? 0),
-    fai: Number(request?.lockFai ?? request?.fai ?? 0),
-    arc: Number(request?.lockArc ?? request?.arc ?? 0),
-  };
-  if (!request || hasLockedCombatStats(request)) {
-    return current;
-  }
-  const available = availableCombatPoints(request);
-  const stats = { ...current };
-  const floors = requirementAwareFloors(weapon, request, stats);
-  let spent = 0;
-  for (const key of COMBAT_STAT_KEYS) {
-    const raised = Math.max(stats[key], floors[key]);
-    spent += Math.max(0, raised - stats[key]);
-    stats[key] = Math.min(99, raised);
-  }
-  if (spent > available) {
-    return current;
-  }
-  let remaining = available - spent;
-  const weights = statWeights(weapon);
-  while (remaining > 0) {
-    const key = COMBAT_STAT_KEYS
-      .filter((candidate) => stats[candidate] < 99)
-      .sort((left, right) => weights[right] - weights[left])[0];
-    if (!key || weights[key] <= 0) {
-      break;
-    }
-    stats[key] += 1;
-    remaining -= 1;
-  }
-  return stats;
-}
-
-function previewAr(
-  weapon: CsvRow,
-  reinforce: CsvRow | undefined,
-  stats: SolvedBuildDto["stats"],
-): SolvedBuildDto["ar"] {
-  const physical = previewElementAr(weapon, reinforce, "physical", stats);
-  const magic = previewElementAr(weapon, reinforce, "magic", stats);
-  const fire = previewElementAr(weapon, reinforce, "fire", stats);
-  const lightning = previewElementAr(weapon, reinforce, "lightning", stats);
-  const holy = previewElementAr(weapon, reinforce, "holy", stats);
-  return {
-    physical,
-    magic,
-    fire,
-    lightning,
-    holy,
-    total: physical + magic + fire + lightning + holy,
-  };
-}
-
-function previewElementAr(
-  weapon: CsvRow,
-  reinforce: CsvRow | undefined,
-  element: "physical" | "magic" | "fire" | "lightning" | "holy",
-  stats: SolvedBuildDto["stats"],
-): number {
-  const base = Number(weapon[`base_${element}`] || 0);
-  if (base <= 0) {
-    return 0;
-  }
-  const damageMult = Number(reinforce?.[`${element}_damage_mult`] ?? 1);
-  const statBonus =
-    statContribution(stats.strStat, weapon.str_scaling, reinforce?.str_scaling_mult) +
-    statContribution(stats.dex, weapon.dex_scaling, reinforce?.dex_scaling_mult) +
-    statContribution(stats.intStat, weapon.int_scaling, reinforce?.int_scaling_mult) +
-    statContribution(stats.fai, weapon.fai_scaling, reinforce?.fai_scaling_mult) +
-    statContribution(stats.arc, weapon.arc_scaling, reinforce?.arc_scaling_mult);
-  return Math.round(base * damageMult * (1 + statBonus));
-}
-
-function statContribution(stat: number, scaling: string, multiplier = "1"): number {
-  const aboveBase = Math.max(0, Math.min(stat, 99) - 10);
-  return Number(scaling || 0) * Number(multiplier || 1) * aboveBase / 220;
-}
-
-function hasLockedCombatStats(request: OptimizeRequestDto): boolean {
-  return [request.lockStr, request.lockDex, request.lockInt, request.lockFai, request.lockArc]
-    .some((value) => value !== null);
-}
-
-function availableCombatPoints(request: OptimizeRequestDto): number {
-  const meta = STARTING_CLASS_METADATA.find((entry) => entry.name === request.className);
-  if (!meta) {
-    return 0;
-  }
-  const currentTotal =
-    request.vig + request.mnd + request.end +
-    request.strStat + request.dex + request.intStat + request.fai + request.arc;
-  const levelTotal = meta.baseTotal + (request.characterLevel - meta.baseLevel);
-  return Math.max(0, levelTotal - currentTotal);
-}
-
-function requirementAwareFloors(
-  weapon: CsvRow,
-  request: OptimizeRequestDto,
-  current: SolvedBuildDto["stats"],
-): SolvedBuildDto["stats"] {
-  const strRequirement = Number(weapon.req_str || 0);
-  const requiredStr = request.twoHanding && weapon.disable_two_hand_bonus !== "1"
-    ? Math.ceil(strRequirement / 1.5)
-    : strRequirement;
-  return {
-    strStat: Math.max(current.strStat, request.minStr, requiredStr),
-    dex: Math.max(current.dex, request.minDex, Number(weapon.req_dex || 0)),
-    intStat: Math.max(current.intStat, request.minInt, Number(weapon.req_int || 0)),
-    fai: Math.max(current.fai, request.minFai, Number(weapon.req_fai || 0)),
-    arc: Math.max(current.arc, request.minArc, Number(weapon.req_arc || 0)),
-  };
-}
-
-function statWeights(weapon: CsvRow): Record<CombatStatKey, number> {
-  return {
-    strStat: Number(weapon.str_scaling || 0),
-    dex: Number(weapon.dex_scaling || 0),
-    intStat: Number(weapon.int_scaling || 0),
-    fai: Number(weapon.fai_scaling || 0),
-    arc: Number(weapon.arc_scaling || 0),
-  };
-}
-
-function requirementGapForStats(
-  weapon: CsvRow,
-  request: OptimizeRequestDto | null,
-  stats: SolvedBuildDto["stats"],
-): number {
-  const effectiveStr = request?.twoHanding && weapon.disable_two_hand_bonus !== "1"
-    ? Math.min(99, Math.floor(stats.strStat * 1.5))
-    : stats.strStat;
-  return Math.max(Number(weapon.req_str || 0) - effectiveStr, 0)
-    + Math.max(Number(weapon.req_dex || 0) - stats.dex, 0)
-    + Math.max(Number(weapon.req_int || 0) - stats.intStat, 0)
-    + Math.max(Number(weapon.req_fai || 0) - stats.fai, 0)
-    + Math.max(Number(weapon.req_arc || 0) - stats.arc, 0);
-}
-
-function choosePreviewAow(
-  weapon: CsvRow,
-  requestedAow: string | null,
-  compatRows: CsvRow[],
-): { id: number | null; name: string } | null {
-  if (requestedAow) {
-    if (weapon.native_skill_name === requestedAow) {
-      return { id: Number(weapon.native_skill_id || 0) || null, name: requestedAow };
-    }
-    const compat = compatRows.find((row) => row.weapon_id === weapon.weapon_id && row.aow_name === requestedAow);
-    return compat ? { id: Number(compat.aow_id || 0) || null, name: requestedAow } : null;
-  }
-  if (weapon.native_skill_name) {
-    return { id: Number(weapon.native_skill_id || 0) || null, name: weapon.native_skill_name };
-  }
-  const compat = compatRows.find((row) => row.weapon_id === weapon.weapon_id);
-  return compat ? { id: Number(compat.aow_id || 0) || null, name: compat.aow_name } : null;
-}
-
 function mockAowCompatible(weapon: CsvRow, aowName: string, compatRows: CsvRow[]): boolean {
   return weapon.native_skill_name === aowName
     || compatRows.some((row) => row.weapon_id === weapon.weapon_id && row.aow_name === aowName);
 }
 
-function meetsPreviewRequirements(weapon: CsvRow, request: OptimizeRequestDto | null): boolean {
-  if (!request) {
-    return true;
+function matchesPreviewRow(row: SolvedBuildDto, request: OptimizeRequestDto | null): boolean {
+  if (!request) return true;
+  if (request.weaponName && row.weaponName !== request.weaponName) return false;
+  if (request.affinity && row.affinity !== request.affinity) return false;
+  if (request.aowName && row.aowName !== request.aowName) return false;
+  if (request.weaponTypeKey) {
+    const weapon = FIXTURE_WEAPONS.find((entry) => entry.name === row.weaponName && entry.affinity === row.affinity);
+    if (!weapon || !weaponTypeMatches(weapon, request.weaponTypeKey)) return false;
   }
-  return requirementGapForStats(weapon, request, previewStats(weapon, request)) === 0;
-}
-
-function scorePreview(
-  objective: OptimizeRequestDto["objective"],
-  totalAr: number,
-  physicalAr: number,
-  bleed: number,
-  aowFirstHitDamage: number,
-  aowFullSequenceDamage: number,
-): number {
-  switch (objective) {
-    case "max_physical_ar":
-      return physicalAr;
-    case "aow_first_hit":
-      return aowFirstHitDamage;
-    case "aow_full_sequence":
-      return aowFullSequenceDamage;
-    case "max_ar_plus_bleed":
-      return bleed;
-    default:
-      return totalAr;
-  }
+  if (request.somberFilter === "somber_only" && !row.isSomber) return false;
+  if (request.somberFilter === "standard_only" && row.isSomber) return false;
+  return true;
 }
 
 async function mockUpgradeSeries(args: Record<string, unknown> | undefined): Promise<UpgradePointDto[]> {
@@ -621,36 +475,11 @@ async function mockUpgradeSeries(args: Record<string, unknown> | undefined): Pro
   if (!row) {
     return [];
   }
-  const base = request?.base;
-  const points: UpgradePointDto[] = [];
-  for (let upgrade = 0; upgrade <= maxUpgrade; upgrade += 1) {
-    const rows = await mockRows({
-      ...base,
-      weaponName: row.weaponName,
-      affinity: row.affinity,
-      aowName: row.aowName,
-      weaponTypeKey: null,
-      somberFilter: "all",
-      minStr: 0,
-      minDex: 0,
-      minInt: 0,
-      minFai: 0,
-      minArc: 0,
-      maxUpgrade: upgrade,
-      fixedUpgrade: upgrade,
-      lockStr: row.stats.strStat,
-      lockDex: row.stats.dex,
-      lockInt: row.stats.intStat,
-      lockFai: row.stats.fai,
-      lockArc: row.stats.arc,
-      topK: 1,
-    } as OptimizeRequestDto);
-    const solved = rows[0];
-    if (solved) {
-      points.push({ upgrade, metric: metricPreview(solved, base?.objective ?? "max_ar") });
-    }
-  }
-  return points;
+  const objective = request?.base?.objective ?? "max_ar";
+  return Array.from({ length: maxUpgrade + 1 }, (_, upgrade) => ({
+    upgrade,
+    metric: fixed1(metricPreview(row, objective) * Math.max(0.35, upgrade / Math.max(maxUpgrade, 1))),
+  }));
 }
 
 function metricPreview(row: SolvedBuildDto, objective: OptimizeRequestDto["objective"]): number {
@@ -681,157 +510,41 @@ async function mockPathPreview(args: Record<string, unknown> | undefined): Promi
     return { title: request?.title ?? "Path", solved: emptySolvedBuild(), steps: [] };
   }
   const levelsAhead = Math.max(0, Math.trunc(Number(request?.levelsAhead ?? 0)));
-  const steps = [await evaluatePathStep(base, solved, base.characterLevel, solved.stats, null)];
-  const target = await pathTargetBuild(base, solved, levelsAhead);
-  if (!target) {
-    return { title: request?.title ?? "Path", solved, steps };
-  }
-  let current = solved.stats;
-  for (let delta = 1; delta <= levelsAhead; delta += 1) {
-    const level = base.characterLevel + delta;
-    const candidates = [];
-    for (const stat of COMBAT_STAT_KEYS) {
-      if (current[stat] >= target.stats[stat] || current[stat] >= 99) {
-        continue;
-      }
-      const nextStats = { ...current, [stat]: current[stat] + 1 };
-      candidates.push(await evaluatePathStep(base, solved, level, nextStats, statName(stat)));
-    }
-    candidates.sort(comparePathSteps);
-    const next = candidates.at(-1);
-    if (!next) {
-      break;
-    }
-    current = next.stats;
-    steps.push(next);
+  const steps = [
+    fixedPathStep(base.characterLevel, solved.stats, metricPreview(solved, base.objective), null),
+  ];
+  if (levelsAhead > 0) {
+    steps.push(fixedPathStep(
+      base.characterLevel + levelsAhead,
+      { ...solved.stats, dex: Math.min(99, solved.stats.dex + 1) },
+      metricPreview(solved, base.objective) + 10,
+      "dex",
+    ));
   }
   return { title: request?.title ?? "Path", solved, steps };
 }
 
-async function pathTargetBuild(
-  base: OptimizeRequestDto,
-  solved: SolvedBuildDto,
-  levelsAhead: number,
-): Promise<SolvedBuildDto | null> {
-  const targetLevel = base.characterLevel + levelsAhead;
-  const rows = await mockRows({
-    ...base,
-    characterLevel: targetLevel,
-    weaponName: solved.weaponName,
-    affinity: solved.affinity,
-    aowName: solved.aowName,
-    maxUpgrade: solved.upgrade,
-    fixedUpgrade: solved.upgrade,
-    weaponTypeKey: null,
-    somberFilter: "all",
-    minStr: Math.max(base.minStr, solved.stats.strStat),
-    minDex: Math.max(base.minDex, solved.stats.dex),
-    minInt: Math.max(base.minInt, solved.stats.intStat),
-    minFai: Math.max(base.minFai, solved.stats.fai),
-    minArc: Math.max(base.minArc, solved.stats.arc),
-    lockStr: null,
-    lockDex: null,
-    lockInt: null,
-    lockFai: null,
-    lockArc: null,
-    topK: 1,
-  });
-  return rows[0] ?? null;
-}
-
-async function evaluatePathStep(
-  base: OptimizeRequestDto,
-  solved: SolvedBuildDto,
+function fixedPathStep(
   level: number,
   stats: SolvedBuildDto["stats"],
+  metric: number,
   addedStat: string | null,
-): Promise<{
+): {
   level: number;
   stats: SolvedBuildDto["stats"];
   metric: number | null;
   score: number | null;
   addedStat: string | null;
   requirementGap: number;
-}> {
-  const request = {
-    ...base,
-    characterLevel: level,
-    weaponName: solved.weaponName,
-    affinity: solved.affinity,
-    aowName: solved.aowName,
-    maxUpgrade: solved.upgrade,
-    fixedUpgrade: solved.upgrade,
-    weaponTypeKey: null,
-    somberFilter: "all",
-    minStr: 0,
-    minDex: 0,
-    minInt: 0,
-    minFai: 0,
-    minArc: 0,
-    lockStr: stats.strStat,
-    lockDex: stats.dex,
-    lockInt: stats.intStat,
-    lockFai: stats.fai,
-    lockArc: stats.arc,
-    topK: 1,
-  } as OptimizeRequestDto;
-  const row = (await mockRows(request))[0] ?? null;
+} {
   return {
     level,
     stats,
-    metric: row ? metricPreview(row, base.objective) : null,
-    score: row?.score ?? null,
+    metric,
+    score: metric,
     addedStat,
-    requirementGap: row ? 0 : await requirementGapForSolved(base, solved, stats),
+    requirementGap: 0,
   };
-}
-
-async function requirementGapForSolved(
-  base: OptimizeRequestDto,
-  solved: SolvedBuildDto,
-  stats: SolvedBuildDto["stats"],
-): Promise<number> {
-  const weapons = await phaseWeaponRows();
-  const weapon = weapons.find((row) =>
-    row.name === solved.weaponName && row.affinity === solved.affinity,
-  );
-  return weapon ? requirementGapForStats(weapon, base, stats) : 999;
-}
-
-function comparePathSteps(
-  left: Awaited<ReturnType<typeof evaluatePathStep>>,
-  right: Awaited<ReturnType<typeof evaluatePathStep>>,
-): number {
-  return pathStepKey(left).localeCompare(pathStepKey(right));
-}
-
-function pathStepKey(step: Awaited<ReturnType<typeof evaluatePathStep>>): string {
-  return [
-    step.metric !== null && step.score !== null ? 1 : 0,
-    padScore(step.score ?? 0),
-    padScore(step.metric ?? 0),
-    padScore(-step.requirementGap),
-    padScore(-statPriority(step.addedStat)),
-  ].join("|");
-}
-
-function padScore(value: number): string {
-  return (value + 1000000).toFixed(4).padStart(16, "0");
-}
-
-function statPriority(stat: string | null): number {
-  return ["str", "dex", "int", "fai", "arc", null].indexOf(stat);
-}
-
-function statName(key: CombatStatKey): string {
-  switch (key) {
-    case "strStat":
-      return "str";
-    case "intStat":
-      return "int";
-    default:
-      return key;
-  }
 }
 
 async function mockAffinityWatch(args: Record<string, unknown> | undefined): Promise<AffinityWatchPayloadDto> {
@@ -845,136 +558,37 @@ async function mockAffinityWatch(args: Record<string, unknown> | undefined): Pro
   if (!base || !solved) {
     return { lines: [], breakpoints: [] };
   }
-  let affinities = await mockAffinitiesForWeapon({ weaponName: solved.weaponName });
-  if (solved.aowName) {
-    const pairs = await Promise.all(
-      affinities.map(async (affinity) => ({
-        affinity,
-        aows: await mockCompatibleAowNames({ request: { weaponName: solved.weaponName, affinity } }),
-      })),
-    );
-    affinities = pairs
-      .filter((entry) => entry.aows.includes(solved.aowName ?? ""))
-      .map((entry) => entry.affinity);
-  }
-  if (!affinities.includes(solved.affinity)) {
-    affinities.push(solved.affinity);
-  }
-  affinities.sort((left, right) =>
-    Number(left !== solved.affinity) - Number(right !== solved.affinity) || left.localeCompare(right),
-  );
   const levels = Array.from(
     { length: Math.max(0, Math.trunc(Number(request.levelsAhead ?? 0))) + 1 },
     (_, index) => base.characterLevel + index,
   );
-  const lines = [];
-  for (const affinity of affinities) {
-    const points = [];
-    for (const level of levels) {
-      const rows = await mockRows({
-        ...base,
-        characterLevel: level,
-        weaponName: solved.weaponName,
-        affinity,
-        aowName: solved.aowName,
-        maxUpgrade: solved.upgrade,
-        fixedUpgrade: solved.upgrade,
-        weaponTypeKey: null,
-        somberFilter: "all",
-        lockStr: null,
-        lockDex: null,
-        lockInt: null,
-        lockFai: null,
-        lockArc: null,
-        topK: 1,
-      });
-      const row = rows[0] ?? null;
-      points.push({
-        level,
-        metric: row ? metricPreview(row, base.objective) : null,
-        solved: row,
-      });
-    }
-    const valid = points.filter((point) => point.metric !== null && point.solved !== null);
-    if (valid.length === 0) {
-      continue;
-    }
-    lines.push({
-      affinity,
+  const lines = PREVIEW_SOLVED_BUILDS.filter((row) => row.weaponName === solved.weaponName).map((row) => {
+    const startMetric = metricPreview(row, base.objective);
+    const points = levels.map((level, index) => ({
+      level,
+      metric: fixed1(startMetric + index * (row.affinity === solved.affinity ? 8 : 6)),
+      solved: row,
+    }));
+    return {
+      affinity: row.affinity,
       points,
-      startMetric: valid[0]?.metric ?? null,
-      endMetric: valid.at(-1)?.metric ?? null,
-      finalBuild: valid.at(-1)?.solved ?? null,
-    });
-  }
-  lines.sort((left, right) => compareAffinityLines(right, left, base.objective));
+      startMetric: points[0]?.metric ?? null,
+      endMetric: points.at(-1)?.metric ?? null,
+      finalBuild: row,
+    };
+  });
   return {
     lines,
-    breakpoints: detectPreviewBreakpoints(lines, levels, base.objective),
+    breakpoints: lines.length > 1 && levels.length > 1
+      ? [{
+        level: levels.at(-1) ?? base.characterLevel,
+        outgoingAffinity: lines[0].affinity,
+        incomingAffinity: lines[1].affinity,
+        outgoingMetric: lines[0].endMetric,
+        incomingMetric: lines[1].endMetric,
+      }]
+      : [],
   };
-}
-
-function compareAffinityLines(
-  left: AffinityWatchPayloadDto["lines"][number],
-  right: AffinityWatchPayloadDto["lines"][number],
-  objective: OptimizeRequestDto["objective"],
-): number {
-  const leftMetric = left.endMetric ?? Number.NEGATIVE_INFINITY;
-  const rightMetric = right.endMetric ?? Number.NEGATIVE_INFINITY;
-  if (leftMetric !== rightMetric) {
-    return leftMetric - rightMetric;
-  }
-  if (left.finalBuild && right.finalBuild) {
-    return resultRankValue(left.finalBuild, objective) - resultRankValue(right.finalBuild, objective);
-  }
-  return Number(Boolean(left.finalBuild)) - Number(Boolean(right.finalBuild));
-}
-
-function detectPreviewBreakpoints(
-  lines: AffinityWatchPayloadDto["lines"],
-  levels: number[],
-  objective: OptimizeRequestDto["objective"],
-): AffinityWatchPayloadDto["breakpoints"] {
-  const breakpoints = [];
-  let leaderAffinity: string | null = null;
-  for (const level of levels) {
-    const contenders = lines
-      .map((line) => line.points.find((point) => point.level === level)?.solved ?? null)
-      .filter((row): row is SolvedBuildDto => row !== null);
-    contenders.sort((left, right) => resultRankValue(right, objective) - resultRankValue(left, objective));
-    const leader = contenders[0];
-    if (!leader) {
-      continue;
-    }
-    if (leaderAffinity && leaderAffinity !== leader.affinity) {
-      breakpoints.push({
-        level,
-        outgoingAffinity: leaderAffinity,
-        incomingAffinity: leader.affinity,
-        outgoingMetric: metricAt(lines, leaderAffinity, level),
-        incomingMetric: metricAt(lines, leader.affinity, level),
-      });
-    }
-    leaderAffinity = leader.affinity;
-  }
-  return breakpoints;
-}
-
-function metricAt(lines: AffinityWatchPayloadDto["lines"], affinity: string, level: number): number | null {
-  return lines
-    .find((line) => line.affinity === affinity)
-    ?.points.find((point) => point.level === level)
-    ?.metric ?? null;
-}
-
-function resultRankValue(row: SolvedBuildDto, objective: OptimizeRequestDto["objective"]): number {
-  return metricPreview(row, objective) * 1_000_000
-    + row.score * 1_000
-    + row.ar.total
-    + row.aowFullSequenceDamage / 1_000
-    + row.aowFirstHitDamage / 10_000
-    + row.bleedBuildup / 100_000
-    - row.weaponId / 1_000_000_000;
 }
 
 function emptySolvedBuild(): SolvedBuildDto {
@@ -1005,70 +619,40 @@ async function mockScalingForUpgrade(args: Record<string, unknown> | undefined):
     affinity?: string;
     upgrade?: number;
   } | undefined;
-  const [weapons, reinforceRows] = await Promise.all([phaseWeaponRows(), phaseReinforceRows()]);
+  const weapons = await phaseWeaponRows();
   const weapon = weapons.find(
     (row) => row.name === request?.weaponName && row.affinity === request?.affinity,
   );
   if (!weapon) {
     return { str: 0, dex: 0, int: 0, fai: 0, arc: 0 };
   }
-  const reinforce = reinforceRows.find(
-    (row) => row.reinforce_type === weapon.reinforce_type && Number(row.level) === Number(request?.upgrade ?? 0),
-  );
   return {
-    str: scaleValue(weapon.str_scaling, reinforce?.str_scaling_mult),
-    dex: scaleValue(weapon.dex_scaling, reinforce?.dex_scaling_mult),
-    int: scaleValue(weapon.int_scaling, reinforce?.int_scaling_mult),
-    fai: scaleValue(weapon.fai_scaling, reinforce?.fai_scaling_mult),
-    arc: scaleValue(weapon.arc_scaling, reinforce?.arc_scaling_mult),
+    str: Number(weapon.str_scaling),
+    dex: Number(weapon.dex_scaling),
+    int: Number(weapon.int_scaling),
+    fai: Number(weapon.fai_scaling),
+    arc: Number(weapon.arc_scaling),
   };
 }
 
-function scaleValue(base: string, multiplier = "1"): number {
-  return Number(base) * Number(multiplier);
+function fixed1(value: number): number {
+  return Number(value.toFixed(1));
 }
-
-let cachedWeaponRows: Promise<CsvRow[]> | null = null;
-let cachedReinforceRows: Promise<CsvRow[]> | null = null;
-let cachedAowRows: Promise<CsvRow[]> | null = null;
-let cachedAowAffinityRows: Promise<CsvRow[]> | null = null;
-let cachedAowWeaponCompatRows: Promise<CsvRow[]> | null = null;
-let cachedWeaponPassiveRows: Promise<CsvRow[]> | null = null;
 
 function phaseWeaponRows(): Promise<CsvRow[]> {
-  cachedWeaponRows ??= import("../../../../data/phase1/weapons.csv?raw")
-    .then((module) => parseCsv(module.default));
-  return cachedWeaponRows;
-}
-
-function phaseReinforceRows(): Promise<CsvRow[]> {
-  cachedReinforceRows ??= import("../../../../data/phase1/reinforce.csv?raw")
-    .then((module) => parseCsv(module.default));
-  return cachedReinforceRows;
+  return Promise.resolve(FIXTURE_WEAPONS);
 }
 
 function phaseAowRows(): Promise<CsvRow[]> {
-  cachedAowRows ??= import("../../../../data/phase1/aow.csv?raw")
-    .then((module) => parseCsv(module.default));
-  return cachedAowRows;
+  return Promise.resolve(FIXTURE_AOWS);
 }
 
 function phaseAowAffinityRows(): Promise<CsvRow[]> {
-  cachedAowAffinityRows ??= import("../../../../data/phase1/aow_affinity_compat.csv?raw")
-    .then((module) => parseCsv(module.default));
-  return cachedAowAffinityRows;
+  return Promise.resolve(FIXTURE_AOW_AFFINITIES);
 }
 
 function phaseAowWeaponCompatRows(): Promise<CsvRow[]> {
-  cachedAowWeaponCompatRows ??= import("../../../../data/phase1/aow_weapon_compat.csv?raw")
-    .then((module) => parseCsv(module.default));
-  return cachedAowWeaponCompatRows;
-}
-
-function phaseWeaponPassiveRows(): Promise<CsvRow[]> {
-  cachedWeaponPassiveRows ??= import("../../../../data/phase1/weapon_passives.csv?raw")
-    .then((module) => parseCsv(module.default));
-  return cachedWeaponPassiveRows;
+  return Promise.resolve(FIXTURE_AOW_WEAPON_COMPAT);
 }
 
 function weaponTypeOptionsFromRows(weapons: CsvRow[]): Array<{ key: string; label: string }> {
@@ -1114,36 +698,4 @@ function normalizeWeaponTypeDisplay(raw: string): string {
 
 function uniqueSorted(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean))).sort((left, right) => left.localeCompare(right));
-}
-
-function parseCsv(text: string): CsvRow[] {
-  const [headerLine, ...lines] = text.trim().split(/\r?\n/);
-  const headers = splitCsvLine(headerLine);
-  return lines.map((line) => Object.fromEntries(
-    splitCsvLine(line).map((value, index) => [headers[index], value]),
-  ));
-}
-
-function splitCsvLine(line: string): string[] {
-  const values: string[] = [];
-  let value = "";
-  let quoted = false;
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index];
-    if (char === '"') {
-      if (quoted && line[index + 1] === '"') {
-        value += '"';
-        index += 1;
-      } else {
-        quoted = !quoted;
-      }
-    } else if (char === "," && !quoted) {
-      values.push(value);
-      value = "";
-    } else {
-      value += char;
-    }
-  }
-  values.push(value);
-  return values;
 }

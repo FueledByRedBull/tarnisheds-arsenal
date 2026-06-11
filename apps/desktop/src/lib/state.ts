@@ -1,7 +1,8 @@
-import { create } from "zustand";
+import { create, type StateCreator } from "zustand";
 import {
   AffinityWatchPayloadDto,
   AffinityWatchProgressDto,
+  BuildPresetV1,
   CatalogDto,
   CompareControls,
   Notice,
@@ -70,6 +71,7 @@ export interface DesktopState {
   setActiveAffinityJobId: (activeAffinityJobId: string | null) => void;
   setAffinityProgress: (affinityProgress: AffinityWatchProgressDto | null) => void;
   setAffinityPayload: (affinityPayload: AffinityWatchPayloadDto | null, signature: string | null) => void;
+  loadBuildPreset: (preset: BuildPresetV1) => void;
 }
 
 export const defaultRequest: OptimizeRequestDto = {
@@ -115,41 +117,105 @@ export const objectiveOptions: ObjectiveId[] = [
   "aow_full_sequence",
 ];
 
-export const useDesktopStore = create<DesktopState>((set) => ({
+type DesktopSlice<T> = StateCreator<DesktopState, [], [], T>;
+
+type UiSlice = Pick<
+  DesktopState,
+  | "activeWorkspace"
+  | "catalog"
+  | "notices"
+  | "error"
+  | "setWorkspace"
+  | "setCatalog"
+  | "setNotices"
+  | "pushNotice"
+  | "setError"
+>;
+
+type RequestSlice = Pick<
+  DesktopState,
+  | "request"
+  | "lockedStatMode"
+  | "horizon"
+  | "patchRequest"
+  | "applyClass"
+  | "setHorizon"
+  | "setLockedStatMode"
+  | "useRowAsLocks"
+  | "loadBuildPreset"
+>;
+
+type SearchSlice = Pick<
+  DesktopState,
+  | "estimate"
+  | "rows"
+  | "selected"
+  | "selectedFingerprint"
+  | "isSearching"
+  | "activeJobId"
+  | "progress"
+  | "setEstimate"
+  | "setRows"
+  | "clearResults"
+  | "selectRow"
+  | "setSearching"
+  | "setActiveJobId"
+  | "setProgress"
+>;
+
+type CompareSlice = Pick<
+  DesktopState,
+  | "compareTarget"
+  | "compareControls"
+  | "setCompareTarget"
+  | "patchCompareControls"
+>;
+
+type PathSlice = Pick<
+  DesktopState,
+  | "isPathBusy"
+  | "activePathJobId"
+  | "pathProgress"
+  | "pathSignature"
+  | "paths"
+  | "setPathBusy"
+  | "setActivePathJobId"
+  | "setPathProgress"
+  | "setPaths"
+>;
+
+type AffinitySlice = Pick<
+  DesktopState,
+  | "isAffinityBusy"
+  | "activeAffinityJobId"
+  | "affinityProgress"
+  | "affinitySignature"
+  | "affinityPayload"
+  | "setAffinityBusy"
+  | "setActiveAffinityJobId"
+  | "setAffinityProgress"
+  | "setAffinityPayload"
+>;
+
+const createUiSlice: DesktopSlice<UiSlice> = (set) => ({
   activeWorkspace: "rankings",
   catalog: null,
-  request: defaultRequest,
-  estimate: null,
-  rows: [],
-  selected: null,
-  compareTarget: null,
-  selectedFingerprint: null,
-  lockedStatMode: false,
-  compareControls: {
-    weaponTypeKey: null,
-    weaponName: null,
-    affinity: null,
-    aowName: null,
-    matchSelectedAow: true,
-  },
-  horizon: 40,
   notices: [],
-  isPathBusy: false,
-  activePathJobId: null,
-  pathProgress: null,
-  pathSignature: null,
-  paths: [],
-  isAffinityBusy: false,
-  activeAffinityJobId: null,
-  affinityProgress: null,
-  affinitySignature: null,
-  affinityPayload: null,
   error: null,
-  isSearching: false,
-  activeJobId: null,
-  progress: null,
   setWorkspace: (activeWorkspace) => set({ activeWorkspace }),
   setCatalog: (catalog) => set({ catalog }),
+  setNotices: (notices) => set({ notices }),
+  pushNotice: (notice) =>
+    set((state) => ({
+      notices: [...state.notices.filter((entry) => entry.scope !== notice.scope), notice],
+    })),
+  setError: (error) => set({ error }),
+});
+
+const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
+  request: defaultRequest,
+  lockedStatMode: false,
+  horizon: 40,
   patchRequest: (patch) =>
     set((state) => ({
       request: { ...state.request, ...patch },
@@ -186,58 +252,6 @@ export const useDesktopStore = create<DesktopState>((set) => ({
         selectedFingerprint: null,
       };
     }),
-  setEstimate: (estimate) => set({ estimate }),
-  setRows: (rows) =>
-    set((state) => ({
-      rows,
-      selected:
-        rows.find((row) => rowFingerprint(row) === state.selectedFingerprint) ??
-        rows[0] ??
-        null,
-      selectedFingerprint:
-        rowFingerprint(
-          rows.find((row) => rowFingerprint(row) === state.selectedFingerprint) ??
-            rows[0] ??
-            null,
-        ),
-    })),
-  clearResults: (message) =>
-    set((state) => ({
-      rows: [],
-      selected: null,
-      compareTarget: null,
-      selectedFingerprint: null,
-      estimate: null,
-      paths: [],
-      pathSignature: null,
-      affinityPayload: null,
-      affinitySignature: null,
-      notices: message
-        ? [...state.notices, { scope: "rankings", tone: "warning", message }]
-        : state.notices,
-    })),
-  selectRow: (selected) =>
-    set({
-      selected,
-      selectedFingerprint: rowFingerprint(selected),
-      paths: [],
-      pathSignature: null,
-      affinityPayload: null,
-      affinitySignature: null,
-    }),
-  setCompareTarget: (compareTarget) =>
-    set({
-      compareTarget,
-      paths: [],
-      pathSignature: null,
-    }),
-  patchCompareControls: (patch) =>
-    set((state) => ({
-      compareControls: { ...state.compareControls, ...patch },
-      compareTarget: null,
-      paths: [],
-      pathSignature: null,
-    })),
   setHorizon: (horizon) =>
     set({
       horizon,
@@ -278,22 +292,125 @@ export const useDesktopStore = create<DesktopState>((set) => ({
         { scope: "rankings", tone: "info", message: "Locked selected result; rerun search for exact locked stats." },
       ],
     })),
-  setNotices: (notices) => set({ notices }),
-  pushNotice: (notice) =>
+  loadBuildPreset: (preset) =>
+    set({
+      request: preset.request,
+      rows: preset.selectedBuild ? [preset.selectedBuild] : [],
+      selected: preset.selectedBuild,
+      compareTarget: preset.compareTarget,
+      selectedFingerprint: rowFingerprint(preset.selectedBuild),
+      paths: [],
+      pathSignature: null,
+      affinityPayload: null,
+      affinitySignature: null,
+      notices: [{ scope: "global", tone: "success", message: `Loaded ${preset.name}.` }],
+    }),
+});
+
+const createSearchSlice: DesktopSlice<SearchSlice> = (set) => ({
+  estimate: null,
+  rows: [],
+  selected: null,
+  selectedFingerprint: null,
+  isSearching: false,
+  activeJobId: null,
+  progress: null,
+  setEstimate: (estimate) => set({ estimate }),
+  setRows: (rows) =>
+    set((state) => {
+      const selected =
+        rows.find((row) => rowFingerprint(row) === state.selectedFingerprint) ??
+        rows[0] ??
+        null;
+      return {
+        rows,
+        selected,
+        selectedFingerprint: rowFingerprint(selected),
+      };
+    }),
+  clearResults: (message) =>
     set((state) => ({
-      notices: [...state.notices.filter((entry) => entry.scope !== notice.scope), notice],
+      rows: [],
+      selected: null,
+      compareTarget: null,
+      selectedFingerprint: null,
+      estimate: null,
+      paths: [],
+      pathSignature: null,
+      affinityPayload: null,
+      affinitySignature: null,
+      notices: message
+        ? [...state.notices, { scope: "rankings", tone: "warning", message }]
+        : state.notices,
     })),
-  setError: (error) => set({ error }),
+  selectRow: (selected) =>
+    set({
+      selected,
+      selectedFingerprint: rowFingerprint(selected),
+      paths: [],
+      pathSignature: null,
+      affinityPayload: null,
+      affinitySignature: null,
+    }),
   setSearching: (isSearching) => set({ isSearching }),
   setActiveJobId: (activeJobId) => set({ activeJobId }),
   setProgress: (progress) => set({ progress }),
+});
+
+const createCompareSlice: DesktopSlice<CompareSlice> = (set) => ({
+  compareTarget: null,
+  compareControls: {
+    weaponTypeKey: null,
+    weaponName: null,
+    affinity: null,
+    aowName: null,
+    matchSelectedAow: true,
+  },
+  setCompareTarget: (compareTarget) =>
+    set({
+      compareTarget,
+      paths: [],
+      pathSignature: null,
+    }),
+  patchCompareControls: (patch) =>
+    set((state) => ({
+      compareControls: { ...state.compareControls, ...patch },
+      compareTarget: null,
+      paths: [],
+      pathSignature: null,
+    })),
+});
+
+const createPathSlice: DesktopSlice<PathSlice> = (set) => ({
+  isPathBusy: false,
+  activePathJobId: null,
+  pathProgress: null,
+  pathSignature: null,
+  paths: [],
   setPathBusy: (isPathBusy) => set({ isPathBusy }),
   setActivePathJobId: (activePathJobId) => set({ activePathJobId }),
   setPathProgress: (pathProgress) => set({ pathProgress }),
   setPaths: (paths, pathSignature) => set({ paths, pathSignature }),
+});
+
+const createAffinitySlice: DesktopSlice<AffinitySlice> = (set) => ({
+  isAffinityBusy: false,
+  activeAffinityJobId: null,
+  affinityProgress: null,
+  affinitySignature: null,
+  affinityPayload: null,
   setAffinityBusy: (isAffinityBusy) => set({ isAffinityBusy }),
   setActiveAffinityJobId: (activeAffinityJobId) => set({ activeAffinityJobId }),
   setAffinityProgress: (affinityProgress) => set({ affinityProgress }),
   setAffinityPayload: (affinityPayload, affinitySignature) =>
     set({ affinityPayload, affinitySignature }),
+});
+
+export const useDesktopStore = create<DesktopState>()((...args) => ({
+  ...createUiSlice(...args),
+  ...createRequestSlice(...args),
+  ...createSearchSlice(...args),
+  ...createCompareSlice(...args),
+  ...createPathSlice(...args),
+  ...createAffinitySlice(...args),
 }));

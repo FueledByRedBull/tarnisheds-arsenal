@@ -14,7 +14,7 @@ const tabs: Array<{ id: WorkspaceTab; label: string; icon: typeof Table2 }> = [
   { id: "rankings", label: "Rankings", icon: Table2 },
   { id: "compare", label: "Compare", icon: GitCompareArrows },
   { id: "paths", label: "Paths", icon: Route },
-  { id: "affinity_watch", label: "Affinity", icon: Radar },
+  { id: "affinity_watch", label: "Affinity Watch", icon: Radar },
 ];
 
 export function App() {

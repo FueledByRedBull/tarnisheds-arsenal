@@ -104,6 +104,15 @@ export interface CatalogDto {
   aowNames: string[];
   objectiveIds: ObjectiveId[];
   somberFilters: string[];
+  dataManifest: DataManifestDto;
+}
+
+export interface DataManifestDto {
+  id: string;
+  label: string;
+  appVersion: string;
+  source: string;
+  generatedAt: string;
 }
 
 export interface EightStatsDto {
@@ -250,6 +259,30 @@ export interface Notice {
   scope: WorkspaceTab | "global";
   tone: "info" | "warning" | "error" | "success";
   message: string;
+}
+
+export interface BuildPresetV1 {
+  version: 1;
+  id: string;
+  name: string;
+  request: OptimizeRequestDto;
+  selectedBuild: SolvedBuildDto | null;
+  compareTarget: SolvedBuildDto | null;
+  dataVersion: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SavedBuildIndexEntryV1 {
+  id: string;
+  name: string;
+  dataVersion: string;
+  updatedAt: string;
+}
+
+export interface SavedBuildIndexV1 {
+  version: 1;
+  builds: SavedBuildIndexEntryV1[];
 }
 
 export interface CompareControls {

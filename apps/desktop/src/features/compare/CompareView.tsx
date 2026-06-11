@@ -1,8 +1,10 @@
-import { WheelEvent, useEffect, useMemo, useRef, useState } from "react";
+import { WheelEvent, useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
+import { cachedSolveBuild, cachedUpgradeSeries, cachedWeaponScalingForUpgrade } from "../../lib/analysis-cache";
 import { compactNumber, fixed1, metricForObjective, statLine } from "../../lib/format";
 import { SearchableSelect, openOption } from "../../lib/SearchableSelect";
-import { buildOptimizeRequest, scalingLetter } from "../../lib/session";
+import { scalingLetter } from "../../lib/session";
+import { useRequestBudget } from "../../lib/hooks";
 import { useDesktopStore } from "../../lib/state";
 import { ScalingDto, SolvedBuildDto, UpgradePointDto } from "../../lib/types";
 
@@ -25,11 +27,9 @@ export function CompareView() {
   const patchCompareControls = useDesktopStore((state) => state.patchCompareControls);
   const setError = useDesktopStore((state) => state.setError);
   const matrixRef = useRef<HTMLDivElement | null>(null);
-  const baseRequest = useMemo(
-    () => buildOptimizeRequest(catalog, request, lockedStatMode),
-    [catalog, lockedStatMode, request],
-  );
+  const { base: baseRequest } = useRequestBudget(catalog, request, lockedStatMode);
   const [weaponNames, setWeaponNames] = useState<string[]>([]);
+  const [affinityNames, setAffinityNames] = useState<string[]>([]);
   const [aowNames, setAowNames] = useState<string[]>([]);
   const [series, setSeries] = useState<CompareLane[]>([]);
   const typeOptions = catalog?.weaponTypeOptions.length
@@ -45,6 +45,20 @@ export function CompareView() {
       cancelled = true;
     };
   }, [compareControls.weaponTypeKey, setError]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadAffinities() {
+      const names = compareControls.weaponName
+        ? await api.affinitiesForWeapon(compareControls.weaponName)
+        : [];
+      if (!cancelled) setAffinityNames(names);
+    }
+    loadAffinities().catch((error) => setError(error instanceof Error ? error.message : String(error)));
+    return () => {
+      cancelled = true;
+    };
+  }, [compareControls.weaponName, setError]);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,7 +86,7 @@ export function CompareView() {
         return;
       }
       const resolvedSelected =
-        await api.solveBuild(baseRequest, selected.weaponName, selected.affinity, selected.aowName) ?? selected;
+        await cachedSolveBuild(baseRequest, selected.weaponName, selected.affinity, selected.aowName) ?? selected;
       const lanes: Array<{ label: string; row: SolvedBuildDto | null }> = [
         { label: "Selected", row: resolvedSelected },
       ];
@@ -80,12 +94,7 @@ export function CompareView() {
 
       if (compareControls.weaponName) {
         const compareAow = compareControls.matchSelectedAow ? resolvedSelected.aowName : compareControls.aowName;
-        const compareRow = await api.solveBuild(
-          baseRequest,
-          compareControls.weaponName,
-          compareControls.affinity,
-          compareAow,
-        );
+        const compareRow = await cachedSolveBuild(baseRequest, compareControls.weaponName, compareControls.affinity, compareAow);
         lanes.push({ label: "Compare", row: compareRow });
         summaryTarget = compareRow;
       } else {
@@ -97,7 +106,7 @@ export function CompareView() {
         const rivals = await Promise.all(
           rivalInputs.map(async ({ row, index }) => ({
             label: `Top #${index + 1}`,
-            row: await api.solveBuild(baseRequest, row.weaponName, row.affinity, row.aowName) ?? row,
+            row: await cachedSolveBuild(baseRequest, row.weaponName, row.affinity, row.aowName) ?? row,
           })),
         );
         lanes.push(...rivals);
@@ -110,8 +119,8 @@ export function CompareView() {
             return { ...lane, points: [], scaling: null };
           }
           const [points, scaling] = await Promise.all([
-            api.buildUpgradeSeries(baseRequest, lane.row, request.maxUpgrade),
-            api.weaponScalingForUpgrade(lane.row.weaponName, lane.row.affinity, lane.row.upgrade),
+            cachedUpgradeSeries(baseRequest, lane.row, request.maxUpgrade),
+            cachedWeaponScalingForUpgrade(lane.row.weaponName, lane.row.affinity, lane.row.upgrade),
           ]);
           return { ...lane, points, scaling };
         }),
@@ -156,7 +165,7 @@ export function CompareView() {
         <SearchableSelect
           label="Compare Affinity"
           value={compareControls.affinity}
-          options={[openOption(), ...affinitiesForTarget(target, selected).map((name) => ({ value: name, label: name }))]}
+          options={[openOption(), ...affinitiesForTarget(affinityNames, target, selected).map((name) => ({ value: name, label: name }))]}
           onChange={(affinity) => patchCompareControls({ affinity, aowName: null })}
         />
         <SearchableSelect
@@ -188,7 +197,7 @@ export function CompareView() {
         </div>
       </div>
       <div className="matrix-wrap" ref={matrixRef} onWheel={scrollMatrixWithWheel}>
-        <div className="metric-matrix">
+        <div className="metric-matrix" role="grid" aria-label="Compare upgrade metrics">
           <span>Line</span>
           {Array.from({ length: request.maxUpgrade + 1 }, (_, upgrade) => <span key={upgrade}>+{upgrade}</span>)}
           {series.map((lane) => (
@@ -294,8 +303,8 @@ function scrollMatrixWithWheel(event: WheelEvent<HTMLDivElement>) {
   event.currentTarget.scrollLeft += event.deltaY;
 }
 
-function affinitiesForTarget(target: SolvedBuildDto | null, selected: SolvedBuildDto | null): string[] {
-  const values = new Set(["Standard", "Heavy", "Keen", "Quality", "Fire", "Flame Art", "Lightning", "Sacred", "Magic", "Cold", "Poison", "Blood", "Occult", "Unique"]);
+function affinitiesForTarget(backendAffinities: string[], target: SolvedBuildDto | null, selected: SolvedBuildDto | null): string[] {
+  const values = new Set(backendAffinities);
   if (target) values.add(target.affinity);
   if (selected) values.add(selected.affinity);
   return Array.from(values).sort((left, right) => left.localeCompare(right));

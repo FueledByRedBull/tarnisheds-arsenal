@@ -1,7 +1,7 @@
 use std::collections::{BTreeSet, HashMap};
 
 use er_optimizer_core::math::STARTING_CLASSES;
-use er_optimizer_core::{Aow, GameData, Weapon};
+use er_optimizer_core::{GameData, Weapon};
 use tauri::State;
 
 use crate::AppState;
@@ -147,7 +147,7 @@ impl CatalogIndex {
                 );
             }
             for aow in &data.aows {
-                if aow_compatible_with_weapon(aow, weapon, data) {
+                if data.aow_compatible_with_weapon(aow, weapon) {
                     insert_compatible_name(
                         &mut compatible_aows_by_weapon,
                         &mut compatible_aows_by_affinity,
@@ -211,7 +211,15 @@ pub fn get_catalog(state: State<'_, AppState>) -> Result<CatalogDto, AppError> {
             "standard_only".to_string(),
             "somber_only".to_string(),
         ],
+        data_manifest: state.data_manifest.clone(),
     })
+}
+
+#[tauri::command]
+pub fn get_data_manifest(
+    state: State<'_, AppState>,
+) -> Result<crate::dto::DataManifestDto, AppError> {
+    Ok(state.data_manifest.clone())
 }
 
 #[tauri::command]
@@ -469,25 +477,6 @@ pub fn weapon_scaling_for_upgrade_inner(
         fai: weapon.scaling[3] * reinforce.scaling_mult[3],
         arc: weapon.scaling[4] * reinforce.scaling_mult[4],
     })
-}
-
-fn aow_compatible_with_weapon(aow: &Aow, weapon: &Weapon, data: &GameData) -> bool {
-    if let Some(exact_match) = data.exact_aow_compatibility(aow.aow_id, weapon.weapon_id) {
-        return exact_match;
-    }
-    if aow.valid_weapon_types.is_empty() || weapon.weapon_type_keys.is_empty() {
-        return false;
-    }
-    weapon
-        .weapon_type_keys
-        .split('|')
-        .filter(|value| !value.is_empty())
-        .any(|weapon_key| {
-            aow.valid_weapon_types
-                .split('|')
-                .filter(|value| !value.is_empty())
-                .any(|valid_key| weapon_key == valid_key)
-        })
 }
 
 pub fn normalize_weapon_type_display(raw: &str) -> &str {

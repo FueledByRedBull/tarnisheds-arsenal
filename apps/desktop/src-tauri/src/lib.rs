@@ -1,6 +1,5 @@
-use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU64};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use er_optimizer_core::{GameData, load_game_data};
@@ -17,13 +16,92 @@ pub struct AsyncJobHandle<T> {
     pub status: Arc<Mutex<T>>,
 }
 
+pub struct JobRegistry<T> {
+    kind: &'static str,
+    handles: Mutex<std::collections::HashMap<String, AsyncJobHandle<T>>>,
+}
+
+impl<T: Clone> JobRegistry<T> {
+    pub fn new(kind: &'static str) -> Self {
+        Self {
+            kind,
+            handles: Mutex::new(std::collections::HashMap::new()),
+        }
+    }
+
+    pub fn insert_if_idle(
+        &self,
+        job_id: String,
+        handle: AsyncJobHandle<T>,
+        is_finished: impl Fn(&T) -> bool,
+    ) -> Result<(), errors::AppError> {
+        let mut guard = self.handles.lock().map_err(|_| self.lock_error())?;
+        guard.retain(|_, handle| {
+            handle
+                .status
+                .lock()
+                .map(|status| !is_finished(&status))
+                .unwrap_or(false)
+        });
+        if !guard.is_empty() {
+            return Err(errors::AppError::new(format!(
+                "{} job is already running. Stop or wait for it before starting another.",
+                self.kind
+            )));
+        }
+        guard.insert(job_id, handle);
+        Ok(())
+    }
+
+    pub fn cancel(&self, job_id: &str) -> Result<bool, errors::AppError> {
+        let guard = self.handles.lock().map_err(|_| self.lock_error())?;
+        let Some(handle) = guard.get(job_id) else {
+            return Ok(false);
+        };
+        handle.cancel.store(true, Ordering::Relaxed);
+        Ok(true)
+    }
+
+    pub fn status(
+        &self,
+        job_id: &str,
+        is_finished: impl Fn(&T) -> bool,
+    ) -> Result<Option<T>, errors::AppError> {
+        let mut guard = self.handles.lock().map_err(|_| self.lock_error())?;
+        let Some(handle) = guard.get(job_id) else {
+            return Ok(None);
+        };
+        let status = handle
+            .status
+            .lock()
+            .map_err(|_| {
+                errors::AppError::new(format!(
+                    "{} job status is unavailable. Retry once, then restart the app if it persists.",
+                    self.kind
+                ))
+            })?
+            .clone();
+        if is_finished(&status) {
+            guard.remove(job_id);
+        }
+        Ok(Some(status))
+    }
+
+    fn lock_error(&self) -> errors::AppError {
+        errors::AppError::new(format!(
+            "{} job registry is unavailable. Retry once, then restart the app if it persists.",
+            self.kind
+        ))
+    }
+}
+
 pub struct AppState {
     pub data: Arc<GameData>,
     pub catalog_index: Arc<commands::data::CatalogIndex>,
-    pub jobs: Arc<Mutex<HashMap<String, CancelFlag>>>,
-    pub search_jobs: Arc<Mutex<HashMap<String, AsyncJobHandle<dto::SearchJobStatusDto>>>>,
-    pub path_jobs: Arc<Mutex<HashMap<String, AsyncJobHandle<dto::PathJobStatusDto>>>>,
-    pub affinity_jobs: Arc<Mutex<HashMap<String, AsyncJobHandle<dto::AffinityWatchJobStatusDto>>>>,
+    pub data_manifest: dto::DataManifestDto,
+    pub search_jobs: Arc<JobRegistry<dto::SearchJobStatusDto>>,
+    pub path_jobs: Arc<JobRegistry<dto::PathJobStatusDto>>,
+    pub affinity_jobs: Arc<JobRegistry<dto::AffinityWatchJobStatusDto>>,
     pub next_job: AtomicU64,
 }
 
@@ -32,20 +110,22 @@ pub fn run() {
         .setup(|app| {
             let data_dir = resolve_data_dir(app)?;
             let data = load_game_data(&data_dir).map_err(errors::AppError::from)?;
+            let data_manifest = load_data_manifest(&data_dir)?;
             let catalog_index = commands::data::CatalogIndex::build(&data);
             app.manage(AppState {
                 data: Arc::new(data),
                 catalog_index: Arc::new(catalog_index),
-                jobs: Arc::new(Mutex::new(HashMap::new())),
-                search_jobs: Arc::new(Mutex::new(HashMap::new())),
-                path_jobs: Arc::new(Mutex::new(HashMap::new())),
-                affinity_jobs: Arc::new(Mutex::new(HashMap::new())),
+                data_manifest,
+                search_jobs: Arc::new(JobRegistry::new("search")),
+                path_jobs: Arc::new(JobRegistry::new("path")),
+                affinity_jobs: Arc::new(JobRegistry::new("affinity watch")),
                 next_job: AtomicU64::new(1),
             });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::data::get_catalog,
+            commands::data::get_data_manifest,
             commands::data::get_weapon_profile,
             commands::data::affinities_for_weapon,
             commands::data::compatible_aow_names,
@@ -70,6 +150,15 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri app");
+}
+
+fn load_data_manifest(
+    data_dir: &std::path::Path,
+) -> Result<dto::DataManifestDto, errors::AppError> {
+    let content = std::fs::read_to_string(data_dir.join("manifest.json"))
+        .unwrap_or_else(|_| include_str!("../../../../data/phase1/manifest.json").to_string());
+    serde_json::from_str(&content)
+        .map_err(|err| errors::AppError::new(format!("failed to load data manifest: {err}")))
 }
 
 fn resolve_data_dir(app: &tauri::App) -> Result<PathBuf, errors::AppError> {

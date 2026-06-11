@@ -24,6 +24,37 @@ pub enum OptimizeObjective {
     AowFullSequence,
 }
 
+impl OptimizeObjective {
+    pub fn parse(raw: &str) -> Result<Self, String> {
+        match raw.trim().to_ascii_lowercase().as_str() {
+            "max_ar" | "ar" | "total_ar" => Ok(Self::MaxAr),
+            "max_physical_ar" | "max_phys_ar" | "max_phy_ar" | "physical" => {
+                Ok(Self::MaxPhysicalAr)
+            }
+            "max_ar_plus_bleed" | "max_ar+bleed" | "max_ar_plus_bleed_buildup" | "bleed" => {
+                Ok(Self::MaxArPlusBleed)
+            }
+            "aow_first_hit" | "max_aow_first_hit" | "first_hit" => Ok(Self::AowFirstHit),
+            "aow_full_sequence" | "max_aow_full_sequence" | "aow_full" | "full_sequence" => {
+                Ok(Self::AowFullSequence)
+            }
+            _ => Err(format!(
+                "invalid objective '{raw}', expected max_ar, max_physical_ar, max_ar_plus_bleed, aow_first_hit, or aow_full_sequence"
+            )),
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::MaxAr => "max_ar",
+            Self::MaxPhysicalAr => "max_physical_ar",
+            Self::MaxArPlusBleed => "max_ar_plus_bleed",
+            Self::AowFirstHit => "aow_first_hit",
+            Self::AowFullSequence => "aow_full_sequence",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SomberFilter {
     All,
@@ -1292,7 +1323,7 @@ fn resolve_aow_choices<'a>(
             .aows
             .iter()
             .filter(|value| value.name.eq_ignore_ascii_case(lock_aow_name))
-            .filter(|aow| aow_compatible_with_weapon(aow, weapon, data))
+            .filter(|aow| data.aow_compatible_with_weapon(aow, weapon))
             .collect();
         if compatible_matches.is_empty() {
             let known = data
@@ -1342,7 +1373,7 @@ fn resolve_aow_choices<'a>(
         .aows
         .iter()
         .filter(|aow| !aow.name.eq_ignore_ascii_case("No Skill"))
-        .filter(|aow| aow_compatible_with_weapon(aow, weapon, data))
+        .filter(|aow| data.aow_compatible_with_weapon(aow, weapon))
         .map(|aow| build_aow_choice(aow, weapon, data))
         .filter(|choice| !choice.attack_rows.is_empty())
         .collect();
@@ -1376,7 +1407,7 @@ fn open_aow_choices_for_objective<'a>(
         data.aows
             .iter()
             .filter(|aow| !aow.name.eq_ignore_ascii_case("No Skill"))
-            .filter(|aow| aow_compatible_with_weapon(aow, weapon, data))
+            .filter(|aow| data.aow_compatible_with_weapon(aow, weapon))
             .map(|aow| build_aow_choice(aow, weapon, data)),
     );
     choices
@@ -1493,39 +1524,6 @@ fn raw_name_without_variant_prefix(raw_name: &str) -> &str {
         return remainder;
     }
     raw_name
-}
-
-pub(crate) fn aow_compatible_with_weapon(aow: &Aow, weapon: &Weapon, data: &GameData) -> bool {
-    if weapon.disable_gem_attr {
-        return false;
-    }
-    if let Some(exact_match) = data.exact_aow_compatibility(aow.aow_id, weapon.weapon_id) {
-        return exact_match;
-    }
-    if aow.name.eq_ignore_ascii_case("Seppuku")
-        && (weapon.affinity.eq_ignore_ascii_case("Magic")
-            || weapon.affinity.eq_ignore_ascii_case("Cold"))
-    {
-        return false;
-    }
-    if aow.valid_weapon_types.is_empty() {
-        return true;
-    }
-    if weapon.weapon_type_keys.is_empty() {
-        return false;
-    }
-
-    for weapon_key in weapon.weapon_type_keys.split('|') {
-        if weapon_key.is_empty() {
-            continue;
-        }
-        for valid_key in aow.valid_weapon_types.split('|') {
-            if weapon_key == valid_key {
-                return true;
-            }
-        }
-    }
-    false
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -2127,6 +2125,23 @@ mod tests {
             .join("data")
             .join("phase1");
         load_game_data(data_path).expect("failed to load phase1 data")
+    }
+
+    #[test]
+    fn objective_aliases_parse_to_canonical_variants() {
+        assert_eq!(
+            OptimizeObjective::parse("max_phys_ar").unwrap(),
+            OptimizeObjective::MaxPhysicalAr
+        );
+        assert_eq!(
+            OptimizeObjective::parse("max_ar+bleed").unwrap(),
+            OptimizeObjective::MaxArPlusBleed
+        );
+        assert_eq!(
+            OptimizeObjective::parse("aow_full").unwrap().as_str(),
+            "aow_full_sequence"
+        );
+        assert!(OptimizeObjective::parse("not_real").is_err());
     }
 
     fn test_result(
@@ -2883,9 +2898,9 @@ mod tests {
             .find(|aow| aow.name == "Seppuku")
             .expect("missing seppuku");
 
-        assert!(!aow_compatible_with_weapon(seppuku, cold_uchi, &game_data));
-        assert!(!aow_compatible_with_weapon(seppuku, fire_uchi, &game_data));
-        assert!(aow_compatible_with_weapon(seppuku, blood_uchi, &game_data));
+        assert!(!game_data.aow_compatible_with_weapon(seppuku, cold_uchi));
+        assert!(!game_data.aow_compatible_with_weapon(seppuku, fire_uchi));
+        assert!(game_data.aow_compatible_with_weapon(seppuku, blood_uchi));
     }
 
     #[test]
@@ -3092,7 +3107,7 @@ mod tests {
         for aow in game_data
             .aows
             .iter()
-            .filter(|aow| aow_compatible_with_weapon(aow, weapon, &game_data))
+            .filter(|aow| game_data.aow_compatible_with_weapon(aow, weapon))
         {
             request.aow_name = Some(aow.name.clone());
             let locked_results = optimize(&request, &game_data)
@@ -3285,11 +3300,7 @@ mod tests {
             .expect("missing sword dance");
 
         assert!(halo_scythe.disable_gem_attr);
-        assert!(!aow_compatible_with_weapon(
-            sword_dance,
-            halo_scythe,
-            &game_data
-        ));
+        assert!(!game_data.aow_compatible_with_weapon(sword_dance, halo_scythe));
     }
 
     #[test]

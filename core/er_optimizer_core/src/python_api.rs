@@ -11,7 +11,7 @@ use crate::data::load_game_data;
 use crate::model::Stats;
 use crate::optimizer::{
     OptimizeObjective, OptimizeRequest, OptimizeResult, SearchEstimate, SomberFilter,
-    aow_compatible_with_weapon, estimate_search_space, optimize, optimize_with_progress,
+    estimate_search_space, optimize, optimize_with_progress,
 };
 
 fn normalize_weapon_type_display(raw: &str) -> &str {
@@ -92,7 +92,7 @@ impl PyGameData {
                 }
             }
             for aow in &self.inner.aows {
-                if aow_compatible_with_weapon(aow, weapon, &self.inner) {
+                if self.inner.aow_compatible_with_weapon(aow, weapon) {
                     set.insert(aow.name.clone());
                 }
             }
@@ -110,7 +110,7 @@ impl PyGameData {
                 }
             }
             for aow in &self.inner.aows {
-                if aow_compatible_with_weapon(aow, weapon, &self.inner) {
+                if self.inner.aow_compatible_with_weapon(aow, weapon) {
                     set.insert(aow.name.clone());
                 }
             }
@@ -714,20 +714,7 @@ fn build_request(
 }
 
 fn parse_objective(raw: &str) -> Result<OptimizeObjective, String> {
-    match raw.trim().to_ascii_lowercase().as_str() {
-        "max_ar" => Ok(OptimizeObjective::MaxAr),
-        "max_physical_ar" | "max_phys_ar" | "max_phy_ar" => Ok(OptimizeObjective::MaxPhysicalAr),
-        "max_ar_plus_bleed" | "max_ar+bleed" | "max_ar_plus_bleed_buildup" => {
-            Ok(OptimizeObjective::MaxArPlusBleed)
-        }
-        "aow_first_hit" | "max_aow_first_hit" => Ok(OptimizeObjective::AowFirstHit),
-        "aow_full_sequence" | "max_aow_full_sequence" | "aow_full" => {
-            Ok(OptimizeObjective::AowFullSequence)
-        }
-        _ => Err(format!(
-            "invalid objective '{raw}', expected 'max_ar', 'max_physical_ar', 'max_ar_plus_bleed', 'aow_first_hit', or 'aow_full_sequence'"
-        )),
-    }
+    OptimizeObjective::parse(raw)
 }
 
 fn parse_somber_filter(raw: &str) -> Result<SomberFilter, String> {

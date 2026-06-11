@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::io::ErrorKind;
+use std::io::{Cursor, ErrorKind};
 use std::path::{Path, PathBuf};
 
 use crate::model::{
@@ -49,31 +49,24 @@ impl CsvTable {
     }
 
     fn from_content(source: String, content: &str) -> Result<Self, String> {
-        let mut lines = content.lines();
-        let header_line = lines.next().ok_or_else(|| format!("{source} is empty"))?;
-        let headers = split_csv_line(header_line);
+        let mut reader = csv::ReaderBuilder::new()
+            .trim(csv::Trim::All)
+            .flexible(false)
+            .from_reader(Cursor::new(content));
+        let headers = reader
+            .headers()
+            .map_err(|err| format!("{source} has invalid csv headers: {err}"))?
+            .iter()
+            .map(str::to_string)
+            .collect::<Vec<_>>();
         if headers.is_empty() {
             return Err(format!("{source} has no headers"));
         }
 
         let mut rows = Vec::new();
-        for (line_idx, line) in lines.enumerate() {
-            if line.trim().is_empty() {
-                continue;
-            }
-            let mut row = split_csv_line(line);
-            if row.len() < headers.len() {
-                row.resize(headers.len(), String::new());
-            }
-            if row.len() != headers.len() {
-                return Err(format!(
-                    "{source} line {} has {} columns, expected {}",
-                    line_idx + 2,
-                    row.len(),
-                    headers.len()
-                ));
-            }
-            rows.push(row);
+        for record in reader.records() {
+            let record = record.map_err(|err| format!("{source} has invalid csv row: {err}"))?;
+            rows.push(record.iter().map(str::to_string).collect());
         }
         Ok(Self { headers, rows })
     }
@@ -122,34 +115,6 @@ fn embedded_csv_for_path(path: &Path) -> Option<&'static str> {
         "weapons.csv" => Some(include_str!("../../../data/phase1/weapons.csv")),
         _ => None,
     }
-}
-
-fn split_csv_line(line: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut current = String::new();
-    let mut chars = line.chars().peekable();
-    let mut in_quotes = false;
-
-    while let Some(ch) = chars.next() {
-        match ch {
-            '"' => {
-                if in_quotes && chars.peek() == Some(&'"') {
-                    current.push('"');
-                    chars.next();
-                } else {
-                    in_quotes = !in_quotes;
-                }
-            }
-            ',' if !in_quotes => {
-                out.push(current.trim().to_string());
-                current.clear();
-            }
-            _ => current.push(ch),
-        }
-    }
-
-    out.push(current.trim().to_string());
-    out
 }
 
 fn parse_u8(value: &str, field: &str) -> Result<u8, String> {

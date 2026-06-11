@@ -11,7 +11,7 @@ use crate::commands::data::weapon_upgrade_cap;
 use crate::dto::{
     SearchEstimateDto, SearchFinishedDto, SearchJobStatusDto, SearchProgressDto,
     SolveBuildRequestDto, SolvedBuildDto, StartSearchResponseDto, UpgradePointDto,
-    UpgradeSeriesRequestDto, lock_request_to_stats, metric_for_objective,
+    UpgradeSeriesRequestDto, lock_request_to_stats, metric_for_objective, parse_objective,
 };
 use crate::errors::AppError;
 use crate::{AppState, AsyncJobHandle, CancelFlag};
@@ -87,12 +87,12 @@ pub fn build_upgrade_series(
     base.min_arc = 0;
     lock_request_to_stats(&mut base, request.solved.stats);
 
-    let objective = base.objective.clone();
+    let objective = parse_objective(&base.objective)?;
     let mut points: Vec<UpgradePointDto> = run_search_inner(base, &state)?
         .into_iter()
         .map(|row| UpgradePointDto {
             upgrade: row.upgrade,
-            metric: metric_for_objective(&row, &objective),
+            metric: metric_for_objective(&row, objective),
         })
         .collect();
     points.sort_by_key(|point| point.upgrade);
@@ -115,17 +115,14 @@ pub fn start_search(
         progress: None,
         finished: None,
     }));
-    state
-        .search_jobs
-        .lock()
-        .map_err(|_| AppError::new("failed to lock job registry"))?
-        .insert(
-            job_id.clone(),
-            AsyncJobHandle {
-                cancel: Arc::clone(&cancel_flag),
-                status: Arc::clone(&status),
-            },
-        );
+    state.search_jobs.insert_if_idle(
+        job_id.clone(),
+        AsyncJobHandle {
+            cancel: Arc::clone(&cancel_flag),
+            status: Arc::clone(&status),
+        },
+        |status| status.finished.is_some(),
+    )?;
 
     let job_id_for_task = job_id.clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -167,15 +164,7 @@ pub fn start_search(
 
 #[tauri::command]
 pub fn cancel_search(job_id: String, state: State<'_, AppState>) -> Result<bool, AppError> {
-    let guard = state
-        .search_jobs
-        .lock()
-        .map_err(|_| AppError::new("failed to lock job registry"))?;
-    if let Some(handle) = guard.get(&job_id) {
-        handle.cancel.store(true, Ordering::Relaxed);
-        return Ok(true);
-    }
-    Ok(false)
+    state.search_jobs.cancel(&job_id)
 }
 
 #[tauri::command]
@@ -183,22 +172,9 @@ pub fn get_search_status(
     job_id: String,
     state: State<'_, AppState>,
 ) -> Result<Option<SearchJobStatusDto>, AppError> {
-    let mut jobs = state
+    state
         .search_jobs
-        .lock()
-        .map_err(|_| AppError::new("failed to lock job registry"))?;
-    let Some(handle) = jobs.get(&job_id) else {
-        return Ok(None);
-    };
-    let status = handle
-        .status
-        .lock()
-        .map_err(|_| AppError::new("failed to lock search status"))?
-        .clone();
-    if status.finished.is_some() {
-        jobs.remove(&job_id);
-    }
-    Ok(Some(status))
+        .status(&job_id, |status| status.finished.is_some())
 }
 
 pub fn clamp_weapon_upgrade_request(

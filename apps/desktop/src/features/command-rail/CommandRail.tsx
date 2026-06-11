@@ -1,6 +1,7 @@
 import { Crosshair, Filter, Play, RotateCcw, SlidersHorizontal, Swords } from "lucide-react";
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { api, hasTauriRuntime } from "../../lib/api";
+import { useRequestBudget, useSearchJob, useWeaponProfile } from "../../lib/hooks";
 import { fixed1, objectiveLabel } from "../../lib/format";
 import { SearchableSelect, openOption } from "../../lib/SearchableSelect";
 import {
@@ -9,9 +10,9 @@ import {
   scadutreeDamageNegation,
   scadutreeReceivedDamageMultiplier,
 } from "../../lib/scadutree";
-import { buildOptimizeRequest, budgetSnapshot, classMeta, classOptions, derivedLevel } from "../../lib/session";
+import { classMeta, classOptions, derivedLevel } from "../../lib/session";
 import { objectiveOptions, useDesktopStore } from "../../lib/state";
-import { OptimizeRequestDto, SearchFinishedDto, SearchProgressDto, WeaponProfileDto } from "../../lib/types";
+import { OptimizeRequestDto, SearchFinishedDto, SearchProgressDto } from "../../lib/types";
 
 const AFFINITY_OPTIONS = [
   "Standard",
@@ -49,7 +50,6 @@ export function CommandRail() {
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
   const setLockedStatMode = useDesktopStore((state) => state.setLockedStatMode);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [weaponProfile, setWeaponProfile] = useState<WeaponProfileDto | null>(null);
   const [weaponNames, setWeaponNames] = useState<string[]>([]);
   const [aowNames, setAowNames] = useState<string[]>([]);
   const [searchStartedAt, setSearchStartedAt] = useState<number | null>(null);
@@ -57,11 +57,8 @@ export function CommandRail() {
   const [searchCancellationRequested, setSearchCancellationRequested] = useState(false);
   const searchCancellationRequestedRef = useRef(false);
   const meta = classMeta(catalog, request.className);
-  const budget = budgetSnapshot(catalog, request);
-  const apiRequest = useMemo(
-    () => buildOptimizeRequest(catalog, request, lockedStatMode),
-    [catalog, lockedStatMode, request],
-  );
+  const { base: apiRequest, budget } = useRequestBudget(catalog, request, lockedStatMode);
+  const weaponProfile = useWeaponProfile(request, patchRequest, setError);
   const effectiveStr =
     request.twoHanding && !weaponProfile?.disablesTwoHandBonus
       ? Math.min(99, Math.floor(request.strStat * 1.5))
@@ -117,83 +114,12 @@ export function CommandRail() {
     };
   }, [catalog?.aowNames, request.affinity, request.weaponName, setError]);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadWeaponProfile() {
-      if (!request.weaponName) {
-        setWeaponProfile(null);
-        return;
-      }
-      const profile = await api.weaponProfile(request.weaponName, request.affinity);
-      if (cancelled) return;
-      setWeaponProfile(profile);
-
-      const patch: Partial<OptimizeRequestDto> = {};
-      if (request.maxUpgrade > profile.maxUpgrade) patch.maxUpgrade = profile.maxUpgrade;
-      if (request.fixedUpgrade !== null && request.fixedUpgrade > profile.maxUpgrade) {
-        patch.fixedUpgrade = profile.maxUpgrade;
-      }
-      if (request.affinity && !profile.affinities.includes(request.affinity)) {
-        patch.affinity = profile.affinities[0] ?? null;
-      }
-      if (request.aowName && !profile.compatibleAows.includes(request.aowName)) {
-        patch.aowName = null;
-      }
-      if (Object.keys(patch).length > 0) patchRequest(patch);
-    }
-
-    loadWeaponProfile().catch((error) => {
-      if (!cancelled) {
-        setWeaponProfile(null);
-        setError(error instanceof Error ? error.message : String(error));
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [patchRequest, request.affinity, request.aowName, request.fixedUpgrade, request.maxUpgrade, request.weaponName, setError]);
-
-  useEffect(() => {
-    if (!activeJobId || !isSearching) return undefined;
-    let disposed = false;
-
-    async function pollSearchStatus() {
-      try {
-        const currentJobId = useDesktopStore.getState().activeJobId;
-        if (!currentJobId) return;
-        const status = await api.searchStatus(currentJobId);
-        if (disposed) return;
-        if (!status) {
-          finishSearch({
-            jobId: currentJobId,
-            cancelled: true,
-            rows: [],
-            error: "Search job disappeared before returning a result.",
-          });
-          return;
-        }
-        if (status.progress) setProgress(status.progress);
-        if (status.finished) finishSearch(status.finished);
-      } catch (error) {
-        if (!disposed) {
-          finishSearch({
-            jobId: useDesktopStore.getState().activeJobId ?? "search",
-            cancelled: false,
-            rows: [],
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
-    }
-
-    void pollSearchStatus();
-    const interval = window.setInterval(pollSearchStatus, 200);
-    return () => {
-      disposed = true;
-      window.clearInterval(interval);
-    };
-  }, [activeJobId, isSearching, setProgress]);
+  useSearchJob({
+    activeJobId,
+    isSearching,
+    setProgress,
+    finish: finishSearch,
+  });
 
   useEffect(() => {
     if (!searchStartedAt || !isSearching) {
@@ -295,6 +221,7 @@ export function CommandRail() {
       <div className="brand-block">
         <span className="brand-kicker">Tarnished's</span>
         <strong>Arsenal</strong>
+        <small className="data-version">{catalog?.dataManifest.label ?? "Loading data version"}</small>
       </div>
 
       <div className="rail-scroll">

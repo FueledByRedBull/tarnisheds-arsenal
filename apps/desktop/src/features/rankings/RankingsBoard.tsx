@@ -1,10 +1,11 @@
 import { ArrowLeft, ArrowRight, Crosshair, Download, LockKeyhole } from "lucide-react";
-import { WheelEvent, useRef, useState } from "react";
+import { WheelEvent, useEffect, useRef, useState } from "react";
 import { downloadCsv, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
+import { cachedWeaponScalingForUpgrade } from "../../lib/analysis-cache";
 import { compactNumber, fixed1, metricForObjective, statLine } from "../../lib/format";
-import { buildOptimizeRequest, rowFingerprint } from "../../lib/session";
+import { buildOptimizeRequest, rowFingerprint, scalingLetter } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
-import { SolvedBuildDto } from "../../lib/types";
+import { ScalingDto, SolvedBuildDto } from "../../lib/types";
 import { runSearchFromStore, runSearchRequestForRows } from "../../lib/workflows";
 
 export function RankingsBoard() {
@@ -21,6 +22,26 @@ export function RankingsBoard() {
   const objective = useDesktopStore((state) => state.request.objective);
   const boardRef = useRef<HTMLDivElement | null>(null);
   const [isExporting, setExporting] = useState(false);
+  const [scalingByRow, setScalingByRow] = useState<Record<string, ScalingDto>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadScaling() {
+      const pairs = await Promise.all(
+        rows.map(async (row) => [
+          rowFingerprint(row),
+          await cachedWeaponScalingForUpgrade(row.weaponName, row.affinity, row.upgrade),
+        ] as const),
+      );
+      if (!cancelled) {
+        setScalingByRow(Object.fromEntries(pairs));
+      }
+    }
+    loadScaling().catch((error) => setError(error instanceof Error ? error.message : String(error)));
+    return () => {
+      cancelled = true;
+    };
+  }, [rows, setError]);
 
   async function lockAndRerun(row: SolvedBuildDto) {
     useRowAsLocks(row);
@@ -83,31 +104,17 @@ export function RankingsBoard() {
             index={idx}
             active={rowFingerprint(rows[idx] ?? null) === rowFingerprint(selected)}
             objective={objective}
+            scaling={rows[idx] ? scalingByRow[rowKey(rows[idx])] ?? null : null}
             onFocus={() => rows[idx] && selectRow(rows[idx])}
             onLock={() => rows[idx] && lockAndRerun(rows[idx])}
           />
         ))}
       </div>
-      <div className="result-board full-grid" ref={boardRef} onWheel={scrollResultBoardWithWheel}>
-        <div className="result-head result-head-full">
-          <span>#</span>
-          <span>Weapon</span>
-          <span>Affinity</span>
-          <span>AoW</span>
-          <span>Upg</span>
-          <span>STR</span>
-          <span>DEX</span>
-          <span>INT</span>
-          <span>FAI</span>
-          <span>ARC</span>
-          <span>Split</span>
-          <span>AR</span>
-          <span>Bleed</span>
-          <span>Frost</span>
-          <span>AoW 1st</span>
-          <span>AoW Full</span>
-          <span>Score</span>
-          <span>Lock</span>
+      <div className="result-board full-grid" ref={boardRef} onWheel={scrollResultBoardWithWheel} role="grid" aria-label="Ranked builds">
+        <div className="result-head result-head-full" role="row">
+          {["#", "Weapon", "Affinity", "AoW", "Upg", "Scaling", "STR", "DEX", "INT", "FAI", "ARC", "Split", "AR", "Bleed", "Frost", "AoW 1st", "AoW Full", "Score", "Lock"].map((header) => (
+            <span role="columnheader" key={header}>{header}</span>
+          ))}
         </div>
         {rows.length === 0 ? <EmptyRows /> : null}
         {rows.map((row, index) => (
@@ -117,6 +124,7 @@ export function RankingsBoard() {
             row={row}
             active={rowFingerprint(selected) === rowFingerprint(row)}
             objective={objective}
+            scaling={scalingByRow[rowKey(row)] ?? null}
             onClick={() => selectRow(row)}
             onLock={() => lockAndRerun(row)}
           />
@@ -148,6 +156,7 @@ function TopCard({
   index,
   active,
   objective,
+  scaling,
   onFocus,
   onLock,
 }: {
@@ -155,6 +164,7 @@ function TopCard({
   index: number;
   active: boolean;
   objective: Parameters<typeof metricForObjective>[1];
+  scaling: ScalingDto | null;
   onFocus: () => void;
   onLock: () => void;
 }) {
@@ -165,6 +175,7 @@ function TopCard({
         <>
           <strong>{row.weaponName}</strong>
           <small>{row.affinity} / {row.aowName ?? "Native"} / +{row.upgrade}</small>
+          <small>{formatScaling(scaling)}</small>
           <b>{fixed1(metricForObjective(row, objective))}</b>
           <small>{statLine(row)}</small>
           <div className="card-actions">
@@ -187,6 +198,7 @@ function ResultRow({
   index,
   active,
   objective,
+  scaling,
   onClick,
   onLock,
 }: {
@@ -194,13 +206,15 @@ function ResultRow({
   index: number;
   active: boolean;
   objective: Parameters<typeof metricForObjective>[1];
+  scaling: ScalingDto | null;
   onClick: () => void;
   onLock: () => void;
 }) {
   return (
     <div
       className={`result-row result-row-full ${active ? "active" : ""}`}
-      role="button"
+      role="row"
+      aria-selected={active}
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(event) => {
@@ -212,6 +226,7 @@ function ResultRow({
       <span>{row.affinity}</span>
       <span>{row.aowName ?? "Native"}</span>
       <span>+{row.upgrade}</span>
+      <span>{formatScaling(scaling)}</span>
       <span>{row.stats.strStat}</span>
       <span>{row.stats.dex}</span>
       <span>{row.stats.intStat}</span>
@@ -247,4 +262,15 @@ function EmptyRows() {
       <span>Run a search to populate the board.</span>
     </div>
   );
+}
+
+function formatScaling(scaling: ScalingDto | null): string {
+  if (!scaling) {
+    return "-";
+  }
+  return `STR ${scalingLetter(scaling.str)} DEX ${scalingLetter(scaling.dex)} INT ${scalingLetter(scaling.int)} FAI ${scalingLetter(scaling.fai)} ARC ${scalingLetter(scaling.arc)}`;
+}
+
+function rowKey(row: SolvedBuildDto): string {
+  return rowFingerprint(row) ?? `${row.weaponId}-${row.weaponName}-${row.affinity}-${row.upgrade}`;
 }

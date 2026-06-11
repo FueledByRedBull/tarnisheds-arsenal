@@ -10,15 +10,18 @@ use crate::dto::{
     AffinityBreakpointDto, AffinityWatchFinishedDto, AffinityWatchJobStatusDto,
     AffinityWatchLineDto, AffinityWatchPayloadDto, AffinityWatchPointDto, AffinityWatchProgressDto,
     AffinityWatchRequestDto, SolvedBuildDto, StartSearchResponseDto, metric_for_objective,
+    parse_objective, validate_levels_ahead,
 };
 use crate::errors::AppError;
-use crate::{AppState, AsyncJobHandle, CancelFlag};
+use crate::{AppState, AsyncJobHandle, CancelFlag, JobRegistry};
 
 #[tauri::command]
 pub fn build_affinity_watch(
     request: AffinityWatchRequestDto,
     state: State<'_, AppState>,
 ) -> Result<AffinityWatchPayloadDto, AppError> {
+    validate_levels_ahead(request.levels_ahead)?;
+    let objective = parse_objective(&request.base.objective)?;
     let affinities = affinity_watch_affinities(&request.solved, &state);
     let levels: Vec<u16> = (0..=request.levels_ahead)
         .map(|offset| request.base.character_level.saturating_add(offset))
@@ -47,7 +50,7 @@ pub fn build_affinity_watch(
             let solved = run_search_inner(row_request, &state)?.pop();
             let metric = solved
                 .as_ref()
-                .map(|solved| metric_for_objective(solved, &request.base.objective));
+                .map(|solved| metric_for_objective(solved, objective));
             points.push(AffinityWatchPointDto {
                 level: *level,
                 metric,
@@ -71,7 +74,7 @@ pub fn build_affinity_watch(
     }
 
     lines.sort_by(|left, right| compare_lines(right, left));
-    let breakpoints = detect_breakpoints(&lines, &levels, &request.base.objective);
+    let breakpoints = detect_breakpoints(&lines, &levels, objective);
     Ok(AffinityWatchPayloadDto { lines, breakpoints })
 }
 
@@ -81,8 +84,10 @@ pub fn start_affinity_watch(
     _app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
+    validate_levels_ahead(request.levels_ahead)?;
     let data = Arc::clone(&state.data);
     let catalog_index = Arc::clone(&state.catalog_index);
+    let data_manifest = state.data_manifest.clone();
     let job_number = state.next_job.fetch_add(1, AtomicOrdering::Relaxed);
     let job_id = format!("affinity-{job_number}");
     let cancel_flag: CancelFlag = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -90,27 +95,24 @@ pub fn start_affinity_watch(
         progress: None,
         finished: None,
     }));
-    state
-        .affinity_jobs
-        .lock()
-        .map_err(|_| AppError::new("failed to lock job registry"))?
-        .insert(
-            job_id.clone(),
-            AsyncJobHandle {
-                cancel: Arc::clone(&cancel_flag),
-                status: Arc::clone(&status),
-            },
-        );
+    state.affinity_jobs.insert_if_idle(
+        job_id.clone(),
+        AsyncJobHandle {
+            cancel: Arc::clone(&cancel_flag),
+            status: Arc::clone(&status),
+        },
+        |status| status.finished.is_some(),
+    )?;
 
     let job_id_for_task = job_id.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let task_state = AppState {
             data,
             catalog_index,
-            jobs: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
-            search_jobs: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
-            path_jobs: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
-            affinity_jobs: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
+            data_manifest,
+            search_jobs: Arc::new(JobRegistry::new("search")),
+            path_jobs: Arc::new(JobRegistry::new("path")),
+            affinity_jobs: Arc::new(JobRegistry::new("affinity watch")),
             next_job: Default::default(),
         };
         let affinities = affinity_watch_affinities(&request.solved, &task_state);
@@ -160,15 +162,7 @@ pub fn start_affinity_watch(
 
 #[tauri::command]
 pub fn cancel_affinity_watch(job_id: String, state: State<'_, AppState>) -> Result<bool, AppError> {
-    let guard = state
-        .affinity_jobs
-        .lock()
-        .map_err(|_| AppError::new("failed to lock job registry"))?;
-    if let Some(handle) = guard.get(&job_id) {
-        handle.cancel.store(true, AtomicOrdering::Relaxed);
-        return Ok(true);
-    }
-    Ok(false)
+    state.affinity_jobs.cancel(&job_id)
 }
 
 #[tauri::command]
@@ -176,22 +170,9 @@ pub fn get_affinity_watch_status(
     job_id: String,
     state: State<'_, AppState>,
 ) -> Result<Option<AffinityWatchJobStatusDto>, AppError> {
-    let mut jobs = state
+    state
         .affinity_jobs
-        .lock()
-        .map_err(|_| AppError::new("failed to lock job registry"))?;
-    let Some(handle) = jobs.get(&job_id) else {
-        return Ok(None);
-    };
-    let status = handle
-        .status
-        .lock()
-        .map_err(|_| AppError::new("failed to lock affinity watch status"))?
-        .clone();
-    if status.finished.is_some() {
-        jobs.remove(&job_id);
-    }
-    Ok(Some(status))
+        .status(&job_id, |status| status.finished.is_some())
 }
 
 fn build_affinity_watch_inner(
@@ -199,6 +180,8 @@ fn build_affinity_watch_inner(
     state: &AppState,
     mut progress_cb: impl FnMut(AffinityWatchProgressDto) -> bool,
 ) -> Result<AffinityWatchPayloadDto, AppError> {
+    validate_levels_ahead(request.levels_ahead)?;
+    let objective = parse_objective(&request.base.objective)?;
     let affinities = affinity_watch_affinities(&request.solved, state);
     let levels: Vec<u16> = (0..=request.levels_ahead)
         .map(|offset| request.base.character_level.saturating_add(offset))
@@ -240,7 +223,7 @@ fn build_affinity_watch_inner(
             let solved = run_search_inner(row_request, state)?.pop();
             let metric = solved
                 .as_ref()
-                .map(|solved| metric_for_objective(solved, &request.base.objective));
+                .map(|solved| metric_for_objective(solved, objective));
             points.push(AffinityWatchPointDto {
                 level: *level,
                 metric,
@@ -265,7 +248,7 @@ fn build_affinity_watch_inner(
     }
 
     lines.sort_by(|left, right| compare_lines(right, left));
-    let breakpoints = detect_breakpoints(&lines, &levels, &request.base.objective);
+    let breakpoints = detect_breakpoints(&lines, &levels, objective);
     Ok(AffinityWatchPayloadDto { lines, breakpoints })
 }
 
@@ -296,7 +279,7 @@ fn affinity_watch_affinities(solved: &SolvedBuildDto, state: &AppState) -> Vec<S
 fn detect_breakpoints(
     lines: &[AffinityWatchLineDto],
     levels: &[u16],
-    objective: &str,
+    objective: er_optimizer_core::OptimizeObjective,
 ) -> Vec<AffinityBreakpointDto> {
     let mut breakpoints = Vec::new();
     let mut leader_affinity: Option<String> = None;
@@ -351,7 +334,9 @@ fn compare_lines(left: &AffinityWatchLineDto, right: &AffinityWatchLineDto) -> O
         .total_cmp(&right.end_metric.unwrap_or(f32::NEG_INFINITY))
         .then_with(
             || match (left.final_build.as_ref(), right.final_build.as_ref()) {
-                (Some(left), Some(right)) => compare_solved(left, right, "max_ar"),
+                (Some(left), Some(right)) => {
+                    compare_solved(left, right, er_optimizer_core::OptimizeObjective::MaxAr)
+                }
                 (Some(_), None) => Ordering::Greater,
                 (None, Some(_)) => Ordering::Less,
                 (None, None) => Ordering::Equal,
@@ -359,7 +344,11 @@ fn compare_lines(left: &AffinityWatchLineDto, right: &AffinityWatchLineDto) -> O
         )
 }
 
-fn compare_solved(left: &SolvedBuildDto, right: &SolvedBuildDto, objective: &str) -> Ordering {
+fn compare_solved(
+    left: &SolvedBuildDto,
+    right: &SolvedBuildDto,
+    objective: er_optimizer_core::OptimizeObjective,
+) -> Ordering {
     metric_for_objective(left, objective)
         .total_cmp(&metric_for_objective(right, objective))
         .then_with(|| left.score.total_cmp(&right.score))

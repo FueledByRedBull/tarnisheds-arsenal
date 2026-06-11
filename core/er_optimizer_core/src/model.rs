@@ -271,6 +271,37 @@ pub struct GameData {
 }
 
 impl GameData {
+    pub fn aow_compatible_with_weapon(&self, aow: &Aow, weapon: &Weapon) -> bool {
+        if weapon.disable_gem_attr {
+            return false;
+        }
+        if let Some(exact_match) = self.exact_aow_compatibility(aow.aow_id, weapon.weapon_id) {
+            return exact_match;
+        }
+        if aow.name.eq_ignore_ascii_case("Seppuku")
+            && (weapon.affinity.eq_ignore_ascii_case("Magic")
+                || weapon.affinity.eq_ignore_ascii_case("Cold"))
+        {
+            return false;
+        }
+        if aow.valid_weapon_types.is_empty() {
+            return true;
+        }
+        if weapon.weapon_type_keys.is_empty() {
+            return false;
+        }
+        weapon
+            .weapon_type_keys
+            .split('|')
+            .filter(|value| !value.is_empty())
+            .any(|weapon_key| {
+                aow.valid_weapon_types
+                    .split('|')
+                    .filter(|value| !value.is_empty())
+                    .any(|valid_key| weapon_key == valid_key)
+            })
+    }
+
     pub fn reinforce_level(&self, reinforce_type: u16, level: u8) -> Option<&ReinforceLevel> {
         self.reinforce
             .get(usize::from(reinforce_type))

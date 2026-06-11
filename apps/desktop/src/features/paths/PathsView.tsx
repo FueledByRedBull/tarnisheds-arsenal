@@ -1,8 +1,10 @@
 import { Pause, Play } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { api, hasTauriRuntime } from "../../lib/api";
+import { cachedPathPreview } from "../../lib/analysis-cache";
+import { usePathJob, useRequestBudget } from "../../lib/hooks";
 import { fixed1 } from "../../lib/format";
-import { buildOptimizeRequest, clampHorizon, stableSignature } from "../../lib/session";
+import { clampHorizon, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { PathFinishedDto, PathPreviewDto, SolvedBuildDto } from "../../lib/types";
 
@@ -24,10 +26,7 @@ export function PathsView() {
   const setPathProgress = useDesktopStore((state) => state.setPathProgress);
   const pushNotice = useDesktopStore((state) => state.pushNotice);
   const setError = useDesktopStore((state) => state.setError);
-  const base = useMemo(
-    () => buildOptimizeRequest(catalog, request, lockedStatMode),
-    [catalog, lockedStatMode, request],
-  );
+  const { base } = useRequestBudget(catalog, request, lockedStatMode);
   const effectiveHorizon = clampHorizon(request, horizon);
   const signature = stableSignature({
     selected,
@@ -37,46 +36,12 @@ export function PathsView() {
     horizon: effectiveHorizon,
   });
 
-  useEffect(() => {
-    if (!activePathJobId || !isPathBusy) return undefined;
-    let disposed = false;
-
-    async function pollPathStatus() {
-      try {
-        const currentJobId = useDesktopStore.getState().activePathJobId;
-        if (!currentJobId) return;
-        const status = await api.pathPreviewStatus(currentJobId);
-        if (disposed) return;
-        if (!status) {
-          finishPathPreview({
-            jobId: currentJobId,
-            cancelled: true,
-            paths: [],
-            error: "Path job disappeared before returning a result.",
-          });
-          return;
-        }
-        if (status.progress) setPathProgress(status.progress);
-        if (status.finished) finishPathPreview(status.finished);
-      } catch (error) {
-        if (!disposed) {
-          finishPathPreview({
-            jobId: useDesktopStore.getState().activePathJobId ?? "path",
-            cancelled: false,
-            paths: [],
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
-    }
-
-    void pollPathStatus();
-    const interval = window.setInterval(pollPathStatus, 200);
-    return () => {
-      disposed = true;
-      window.clearInterval(interval);
-    };
-  }, [activePathJobId, isPathBusy, setPathProgress]);
+  usePathJob({
+    activePathJobId,
+    isPathBusy,
+    setPathProgress,
+    finish: finishPathPreview,
+  });
 
   async function refresh() {
     if (!selected) {
@@ -101,7 +66,9 @@ export function PathsView() {
         const { jobId } = await api.startPathPreview(requests);
         setActivePathJobId(jobId);
       } else {
-        const next = await Promise.all(requests.map((entry) => api.buildPathPreview(entry.base, entry.solved, entry.levelsAhead, entry.title)));
+        const next = await Promise.all(
+          requests.map((entry) => cachedPathPreview(entry.base, entry.solved, entry.levelsAhead, entry.title)),
+        );
         setPaths(next, signature);
         setPathBusy(false);
       }
@@ -132,6 +99,7 @@ export function PathsView() {
         <div>
           <h1>Paths</h1>
           <span>{selected ? `Current +${effectiveHorizon} ${target ? "selected and compare lanes" : "selected lane"}` : "Requires selected result"}</span>
+          {selected ? <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade}</small> : null}
         </div>
         <div className="header-controls">
           <label>
@@ -144,7 +112,7 @@ export function PathsView() {
               onChange={(event) => setHorizon(clamp(Number(event.target.value), 1, 200))}
             />
           </label>
-          <button type="button" onClick={isPathBusy ? stop : refresh}>
+          <button type="button" onClick={isPathBusy ? stop : refresh} disabled={!selected && !isPathBusy}>
             {isPathBusy ? <Pause size={15} /> : <Play size={15} />}
             {isPathBusy ? "Stop" : "Start"}
           </button>
@@ -156,13 +124,13 @@ export function PathsView() {
         <LaneSummary title="Compare" path={paths.find((path) => path.title === "Compare")} row={target} />
       </div>
       <PathChart paths={paths} />
-      <div className="step-table path-step-table">
+      <div className="step-table path-step-table" role="grid" aria-label="Path steps">
         {paths.flatMap((path) =>
           path.steps.map((step, index) => {
             const previous = index > 0 ? path.steps[index - 1].metric : null;
             const gain = step.metric !== null && previous !== null ? step.metric - previous : null;
             return (
-              <div key={`${path.title}-${step.level}`} className="step-row path-step-row">
+              <div key={`${path.title}-${step.level}`} className="step-row path-step-row" role="row">
                 <span>{path.title}</span>
                 <b>{step.level}</b>
                 <strong>{fixed1(step.metric)}</strong>

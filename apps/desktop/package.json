@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview --host 127.0.0.1 --port 1420",
     "tauri": "tauri",
-    "test:e2e": "playwright test"
+    "test:e2e": "node ./scripts/run-e2e.mjs"
   },
   "dependencies": {
     "@tanstack/react-table": "^8.20.5",

@@ -1,8 +1,10 @@
 import { Pause, Play } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { api, hasTauriRuntime } from "../../lib/api";
+import { cachedAffinityWatch } from "../../lib/analysis-cache";
+import { useAffinityJob, useRequestBudget } from "../../lib/hooks";
 import { fixed1, statLine } from "../../lib/format";
-import { buildOptimizeRequest, clampHorizon, stableSignature } from "../../lib/session";
+import { clampHorizon, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { AffinityWatchFinishedDto, AffinityWatchPayloadDto } from "../../lib/types";
 
@@ -23,53 +25,16 @@ export function AffinityWatchView() {
   const setAffinityProgress = useDesktopStore((state) => state.setAffinityProgress);
   const pushNotice = useDesktopStore((state) => state.pushNotice);
   const setError = useDesktopStore((state) => state.setError);
-  const base = useMemo(
-    () => buildOptimizeRequest(catalog, request, lockedStatMode),
-    [catalog, lockedStatMode, request],
-  );
+  const { base } = useRequestBudget(catalog, request, lockedStatMode);
   const effectiveHorizon = clampHorizon(request, horizon);
   const signature = stableSignature({ selected, objective: request.objective, level: base.characterLevel, horizon: effectiveHorizon });
 
-  useEffect(() => {
-    if (!activeAffinityJobId || !isAffinityBusy) return undefined;
-    let disposed = false;
-
-    async function pollAffinityStatus() {
-      try {
-        const currentJobId = useDesktopStore.getState().activeAffinityJobId;
-        if (!currentJobId) return;
-        const status = await api.affinityWatchStatus(currentJobId);
-        if (disposed) return;
-        if (!status) {
-          finishAffinityWatch({
-            jobId: currentJobId,
-            cancelled: true,
-            payload: null,
-            error: "Affinity watch job disappeared before returning a result.",
-          });
-          return;
-        }
-        if (status.progress) setAffinityProgress(status.progress);
-        if (status.finished) finishAffinityWatch(status.finished);
-      } catch (error) {
-        if (!disposed) {
-          finishAffinityWatch({
-            jobId: useDesktopStore.getState().activeAffinityJobId ?? "affinity",
-            cancelled: false,
-            payload: null,
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
-    }
-
-    void pollAffinityStatus();
-    const interval = window.setInterval(pollAffinityStatus, 200);
-    return () => {
-      disposed = true;
-      window.clearInterval(interval);
-    };
-  }, [activeAffinityJobId, isAffinityBusy, setAffinityProgress]);
+  useAffinityJob({
+    activeAffinityJobId,
+    isAffinityBusy,
+    setAffinityProgress,
+    finish: finishAffinityWatch,
+  });
 
   async function refresh() {
     if (!selected) {
@@ -93,7 +58,7 @@ export function AffinityWatchView() {
         const { jobId } = await api.startAffinityWatch(base, selected, effectiveHorizon);
         setActiveAffinityJobId(jobId);
       } else {
-        const next = await api.buildAffinityWatch(base, selected, effectiveHorizon);
+        const next = await cachedAffinityWatch(base, selected, effectiveHorizon);
         setAffinityPayload(next, signature);
         setAffinityBusy(false);
       }
@@ -124,13 +89,14 @@ export function AffinityWatchView() {
         <div>
           <h1>Affinity Watch</h1>
           <span>{selected ? `${selected.weaponName} across Current +${effectiveHorizon}` : "Requires selected result"}</span>
+          {selected ? <small className="selected-summary">{selected.affinity} / {selected.aowName ?? "Native"} / +{selected.upgrade}</small> : null}
         </div>
         <div className="header-controls">
           <label>
             Current + N
             <input type="number" min={1} max={200} value={horizon} onChange={(event) => setHorizon(clamp(Number(event.target.value), 1, 200))} />
           </label>
-          <button type="button" onClick={isAffinityBusy ? stop : refresh}>
+          <button type="button" onClick={isAffinityBusy ? stop : refresh} disabled={!selected && !isAffinityBusy}>
             {isAffinityBusy ? <Pause size={15} /> : <Play size={15} />}
             {isAffinityBusy ? "Stop" : "Start"}
           </button>
@@ -143,9 +109,9 @@ export function AffinityWatchView() {
         label={affinityProgress ? `${affinityProgress.affinity} Lv ${affinityProgress.level}` : "Idle"}
       />
       <AffinityChart payload={payload} />
-      <div className="affinity-ranking">
+      <div className="affinity-ranking" role="grid" aria-label="Affinity watch rankings">
         {payload?.lines.map((line, index) => (
-          <div className="affinity-row" key={line.affinity}>
+          <div className="affinity-row" key={line.affinity} role="row">
             <b>{index + 1}</b>
             <strong>{line.affinity}</strong>
             <span>{fixed1(line.startMetric)}</span>
@@ -154,7 +120,7 @@ export function AffinityWatchView() {
           </div>
         ))}
       </div>
-      <div className="crossover-table">
+      <div className="crossover-table" role="table" aria-label="Affinity watch breakpoints">
         {payload?.breakpoints.map((point) => (
           <div key={`${point.level}-${point.incomingAffinity}`}>
             <span>Level {point.level}</span>

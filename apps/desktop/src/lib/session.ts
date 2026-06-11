@@ -136,7 +136,7 @@ export function buildOptimizeRequest(
     intStat: meta.baseStats.intStat,
     fai: meta.baseStats.fai,
     arc: meta.baseStats.arc,
-    fixedUpgrade: uiRequest.fixedUpgrade === null ? null : uiRequest.maxUpgrade,
+    fixedUpgrade: uiRequest.fixedUpgrade,
     lockStr: useLockedStats ? uiRequest.lockStr : null,
     lockDex: useLockedStats ? uiRequest.lockDex : null,
     lockInt: useLockedStats ? uiRequest.lockInt : null,

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 export interface SelectOption {
   value: string | null;
@@ -20,8 +20,10 @@ export function SearchableSelect({
   disabled?: boolean;
   placeholder?: string;
 }) {
+  const id = useId();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
   const selectedLabel =
     options.find((option) => option.value === value)?.label ?? (value ?? "");
   const shownValue = open ? query : selectedLabel;
@@ -35,63 +37,110 @@ export function SearchableSelect({
       .slice(0, 80);
   }, [options, query]);
 
+  const active = filtered[Math.min(activeIndex, Math.max(filtered.length - 1, 0))];
+
+  function choose(option: SelectOption | undefined) {
+    if (!option) {
+      return;
+    }
+    onChange(option.value);
+    setOpen(false);
+    setQuery("");
+    setActiveIndex(0);
+  }
+
+  function commitTypedValue() {
+    const typed = query.trim();
+    if (!typed) {
+      return;
+    }
+    const exact = options.find(
+      (option) => option.label.toLocaleLowerCase() === typed.toLocaleLowerCase(),
+    );
+    if (exact) {
+      choose(exact);
+    }
+  }
+
   return (
-    <label className="searchable-select">
+    <label className="searchable-select" htmlFor={`${id}-input`}>
       {label}
       <input
+        id={`${id}-input`}
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={open && !disabled}
+        aria-controls={`${id}-listbox`}
+        aria-activedescendant={open && active ? `${id}-option-${Math.min(activeIndex, filtered.length - 1)}` : undefined}
         disabled={disabled}
         value={shownValue}
         placeholder={placeholder}
         onBlur={() => {
           window.setTimeout(() => {
-            const typed = query.trim();
-            if (typed) {
-              const exact = options.find(
-                (option) => option.label.toLocaleLowerCase() === typed.toLocaleLowerCase(),
-              );
-              if (exact) {
-                onChange(exact.value);
-              }
-            }
+            commitTypedValue();
             setOpen(false);
             setQuery("");
+            setActiveIndex(0);
           }, 120);
         }}
         onChange={(event) => {
           setQuery(event.target.value);
           setOpen(true);
+          setActiveIndex(0);
         }}
         onFocus={() => {
           setOpen(true);
           setQuery("");
+          setActiveIndex(0);
         }}
         onKeyDown={(event) => {
-          if (event.key !== "Enter") {
-            return;
-          }
-          event.preventDefault();
-          const exact = filtered.find(
-            (option) => option.label.toLocaleLowerCase() === query.trim().toLocaleLowerCase(),
-          );
-          const chosen = exact ?? filtered.find((option) => option.value !== null) ?? filtered[0];
-          if (chosen) {
-            onChange(chosen.value);
+          if (event.key === "Escape") {
+            event.preventDefault();
             setOpen(false);
             setQuery("");
+            setActiveIndex(0);
+            return;
+          }
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            setOpen(true);
+            const direction = event.key === "ArrowDown" ? 1 : -1;
+            setActiveIndex((current) => {
+              const count = Math.max(filtered.length, 1);
+              return (current + direction + count) % count;
+            });
+            return;
+          }
+          if (event.key === "Enter") {
+            event.preventDefault();
+            const exact = filtered.find(
+              (option) => option.label.toLocaleLowerCase() === query.trim().toLocaleLowerCase(),
+            );
+            choose(exact ?? active ?? filtered.find((option) => option.value !== null) ?? filtered[0]);
+            return;
+          }
+          if (event.key === "Tab") {
+            commitTypedValue();
+            setOpen(false);
+            setQuery("");
+            setActiveIndex(0);
           }
         }}
       />
       {open && !disabled ? (
-        <div className="select-menu">
-          {filtered.map((option) => (
+        <div className="select-menu" id={`${id}-listbox`} role="listbox">
+          {filtered.map((option, index) => (
             <button
               key={`${option.value ?? "open"}-${option.label}`}
+              id={`${id}-option-${index}`}
+              role="option"
+              aria-selected={index === activeIndex}
+              className={index === activeIndex ? "active" : undefined}
               type="button"
               onMouseDown={(event) => event.preventDefault()}
+              onMouseEnter={() => setActiveIndex(index)}
               onClick={() => {
-                onChange(option.value);
-                setOpen(false);
-                setQuery("");
+                choose(option);
               }}
             >
               {option.label}

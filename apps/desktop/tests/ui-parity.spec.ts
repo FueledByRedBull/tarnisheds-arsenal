@@ -5,27 +5,27 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
 
   await expect(page.getByRole("textbox", { name: "Level" })).toHaveValue("9");
   await expect(page.getByText("Redistrib", { exact: true })).toBeVisible();
-  await page.getByRole("textbox", { name: "Class" }).click();
-  await expect(page.getByRole("button", { name: "Wretch" })).toBeVisible();
+  await page.getByRole("combobox", { name: "Class" }).click();
+  await expect(page.getByRole("option", { name: "Wretch" })).toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByRole("spinbutton", { name: "STR" }).fill("130");
   await expect(page.getByRole("spinbutton", { name: "STR" })).toHaveValue("130");
   await page.getByRole("spinbutton", { name: "STR" }).press("Enter");
   await expect(page.getByRole("spinbutton", { name: "STR" })).toHaveValue("99");
-  await page.getByRole("textbox", { name: "Class" }).click();
-  await page.getByRole("button", { name: "Vagabond" }).click();
+  await page.getByRole("combobox", { name: "Class" }).click();
+  await page.getByRole("option", { name: "Vagabond" }).click();
   await expect(page.getByRole("spinbutton", { name: "VIG" })).toHaveValue("15");
   await expect(page.getByRole("spinbutton", { name: "STR" })).toHaveValue("14");
   await expect(page.getByRole("spinbutton", { name: "DEX" })).toHaveValue("13");
   await expect(page.getByRole("textbox", { name: "Level" })).toHaveValue("9");
   await chooseSearchableOption(page, "Weapon Type", "Great Katana");
-  await expect(page.getByRole("textbox", { name: "Weapon Type" })).toHaveValue("Great Katana");
+  await expect(page.getByRole("combobox", { name: "Weapon Type" })).toHaveValue("Great Katana");
   await chooseSearchableOption(page, "Weapon Type", "Open");
   await chooseSearchableOption(page, "Weapon", "Zweihander");
-  await expect(page.getByRole("textbox", { name: "Weapon", exact: true })).toHaveValue("Zweihander");
+  await expect(page.getByRole("combobox", { name: "Weapon", exact: true })).toHaveValue("Zweihander");
   await chooseSearchableOption(page, "Weapon", "Open");
   await chooseSearchableOption(page, "AoW", "Bloodhound's Step");
-  await expect(page.getByRole("textbox", { name: "AoW" })).toHaveValue("Bloodhound's Step");
+  await expect(page.getByRole("combobox", { name: "AoW" })).toHaveValue("Bloodhound's Step");
   await chooseSearchableOption(page, "AoW", "Open");
 
   await page.getByRole("button", { name: "Search" }).click();
@@ -37,7 +37,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await page.getByRole("button", { name: "Search" }).click();
   await expect(page.getByText("3 ranked rows")).toBeVisible();
 
-  await page.locator(".top-card", { hasText: "Uchigatana" }).getByRole("button", { name: "Lock" }).click();
+  await page.locator(".top-card").first().getByRole("button", { name: "Lock" }).click();
   await expect(page.getByText("Exact upgrade and stat locks active")).toBeVisible();
   await expect(page.getByText("Blood / Seppuku / +25").first()).toBeVisible();
 
@@ -61,18 +61,18 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(page.getByText("+25").first()).toBeVisible();
 
   await page.getByRole("navigation").getByRole("button", { name: "Paths" }).click();
-  await page.getByRole("button", { name: "Refresh" }).click();
+  await page.getByRole("button", { name: "Start" }).click();
   await expect(page.getByText("Selected").first()).toBeVisible();
   await expect(page.getByText("Compare").first()).toBeVisible();
 
-  await page.getByRole("navigation").getByRole("button", { name: "Affinity" }).click();
-  await page.getByRole("button", { name: "Refresh" }).click();
+  await page.getByRole("navigation").getByRole("button", { name: "Affinity Watch" }).click();
+  await page.getByRole("button", { name: "Start" }).click();
   await expect(page.getByText("Keen").first()).toBeVisible();
-  await expect(page.getByText("Level 156")).toBeVisible();
+  await expect(page.getByRole("grid", { name: "Affinity watch rankings" })).toContainText("Occult");
 });
 
 async function chooseSearchableOption(page: import("@playwright/test").Page, label: string, option: string) {
-  const field = page.getByRole("textbox", { name: label, exact: true });
+  const field = page.getByRole("combobox", { name: label, exact: true });
   await field.fill(option);
   await page.keyboard.press("Enter");
 }
