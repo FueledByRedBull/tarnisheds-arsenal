@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -53,10 +55,13 @@ jobs:
         run: |
           python tools/phase4/package_release.py
 
-      - name: Archive release bundle
+      - name: Prepare release assets
         run: |
           $releaseDir = Get-Item "dist/TarnishedsArsenal_$env:RELEASE_VERSION"
           if (-not $releaseDir) { throw "No release directory found in dist" }
+          $assetDir = "dist/release-assets"
+          New-Item -ItemType Directory -Force $assetDir | Out-Null
+
           $zipPath = Join-Path "dist" "$($releaseDir.Name).zip"
           if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
           Compress-Archive -Path $releaseDir.FullName -DestinationPath $zipPath
@@ -64,9 +69,41 @@ jobs:
           $msiPath = Get-ChildItem $releaseDir.FullName -Filter "*.msi" | Sort-Object LastWriteTime | Select-Object -Last 1
           if (-not $exePath) { throw "No portable executable found in $($releaseDir.FullName)" }
           if (-not $msiPath) { throw "No MSI found in $($releaseDir.FullName)" }
-          "RELEASE_ZIP=$zipPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "RELEASE_EXE=$($exePath.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "RELEASE_MSI=$($msiPath.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          $zipUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION.zip"
+          $exeUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION`_portable.exe"
+          $msiUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION`_x64_en-US.msi"
+          Copy-Item -LiteralPath $zipPath -Destination $zipUpload -Force
+          Copy-Item -LiteralPath $exePath.FullName -Destination $exeUpload -Force
+          Copy-Item -LiteralPath $msiPath.FullName -Destination $msiUpload -Force
+
+          "RELEASE_ZIP=$zipUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "RELEASE_EXE=$exeUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "RELEASE_MSI=$msiUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Prepare release notes
+        run: |
+          $tag = if ($env:GITHUB_REF -like "refs/tags/*") { $env:GITHUB_REF_NAME } else { "v$env:RELEASE_VERSION" }
+          $assetDir = "dist/release-assets"
+          New-Item -ItemType Directory -Force $assetDir | Out-Null
+          $notesOut = Join-Path $assetDir "release-notes-$tag.md"
+          $notesSource = Join-Path "docs/release-notes" "$tag.md"
+          if (Test-Path $notesSource) {
+            Copy-Item -LiteralPath $notesSource -Destination $notesOut -Force
+          } else {
+            "# Release $tag`n" | Out-File -FilePath $notesOut -Encoding utf8
+          }
+
+          $notesText = Get-Content $notesOut -Raw
+          if ($env:GITHUB_REF -like "refs/tags/*" -and $notesText -notmatch "Full Changelog") {
+            $previousTag = git describe --tags --abbrev=0 "$tag^" 2>$null
+            if ($LASTEXITCODE -eq 0 -and $previousTag) {
+              "`nFull Changelog: https://github.com/$env:GITHUB_REPOSITORY/compare/$previousTag...$tag`n" |
+                Out-File -FilePath $notesOut -Encoding utf8 -Append
+            }
+          }
+
+          "RELEASE_NOTES=$notesOut" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Upload dist artifact
         uses: actions/upload-artifact@v4
@@ -81,7 +118,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: Tarnished's Arsenal ${{ github.ref_name }}
-          generate_release_notes: true
+          body_path: ${{ env.RELEASE_NOTES }}
+          generate_release_notes: false
+          overwrite_files: true
           files: |
             ${{ env.RELEASE_ZIP }}
             ${{ env.RELEASE_EXE }}
