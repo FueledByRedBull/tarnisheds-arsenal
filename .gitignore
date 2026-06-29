@@ -38,7 +38,7 @@ tmp_*.png
 release-notes-*.md
 /tarnisheds-arsenal-desktop.exe
 
-# Retired PyQt desktop workspace
+# Retired PyQt desktop workspace kept local-only for old parity checks.
 ui/desktop/
 archive/python-desktop/
 
@@ -51,4 +51,3 @@ data/raw/
 .DS_Store
 Thumbs.db
 .vscode/
-docs/images/*.png

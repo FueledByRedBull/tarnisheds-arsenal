@@ -6,6 +6,13 @@ on:
       - "v*"
   workflow_dispatch:
 
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   package:
     runs-on: windows-latest
@@ -22,6 +29,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: requirements-validation.txt
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -33,27 +42,37 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/git
+            ~/.cargo/registry
+            core/er_optimizer_core/target
+            apps/desktop/src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('core/er_optimizer_core/Cargo.lock', 'apps/desktop/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
       - name: Install Python packaging helpers
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
+          python -m pip install --disable-pip-version-check --upgrade pip
+          python -m pip install --disable-pip-version-check -r requirements-validation.txt
 
-      - name: Validate release version
+      - name: Validate release metadata
         run: |
           $config = Get-Content apps/desktop/src-tauri/tauri.conf.json | ConvertFrom-Json
           $version = $config.version
           "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $tag = "v$version"
           if ($env:GITHUB_REF -like "refs/tags/*") {
-            $expectedTag = "v$version"
-            $actualTag = $env:GITHUB_REF_NAME
-            if ($actualTag -ne $expectedTag) {
-              throw "Tag $actualTag does not match app version $version; expected $expectedTag"
-            }
+            $tag = $env:GITHUB_REF_NAME
           }
+          python tools/phase4/validate_release_metadata.py --tag $tag
 
       - name: Build Tauri release package
         run: |
-          python tools/phase4/package_release.py
+          python tools/phase4/package_release.py --skip-validation
 
       - name: Prepare release assets
         run: |
@@ -63,8 +82,7 @@ jobs:
           New-Item -ItemType Directory -Force $assetDir | Out-Null
 
           $zipPath = Join-Path "dist" "$($releaseDir.Name).zip"
-          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-          Compress-Archive -Path $releaseDir.FullName -DestinationPath $zipPath
+          if (-not (Test-Path $zipPath)) { throw "No release zip found at $zipPath" }
           $exePath = Get-ChildItem $releaseDir.FullName -Filter "*.exe" | Sort-Object LastWriteTime | Select-Object -Last 1
           $msiPath = Get-ChildItem $releaseDir.FullName -Filter "*.msi" | Sort-Object LastWriteTime | Select-Object -Last 1
           if (-not $exePath) { throw "No portable executable found in $($releaseDir.FullName)" }
@@ -91,7 +109,7 @@ jobs:
           if (Test-Path $notesSource) {
             Copy-Item -LiteralPath $notesSource -Destination $notesOut -Force
           } else {
-            "# Release $tag`n" | Out-File -FilePath $notesOut -Encoding utf8
+            throw "Missing release notes at $notesSource"
           }
 
           $notesText = Get-Content $notesOut -Raw

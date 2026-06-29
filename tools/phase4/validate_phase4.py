@@ -1265,7 +1265,7 @@ def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
         issues.append(
             ValidationIssue(
                 "warning",
-                "PyQt level path checks skipped: retired desktop UI is archived under archive/python-desktop",
+                "PyQt level path checks skipped: retired desktop UI is local-only and not tracked",
             )
         )
         return issues

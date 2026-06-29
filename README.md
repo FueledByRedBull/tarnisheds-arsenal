@@ -106,6 +106,13 @@ Requirements:
 - Node.js / npm
 - Python 3.12 for validation and data tooling
 
+Install Python validation helpers when working on data validation, benchmarks, or
+release packaging:
+
+```powershell
+python -m pip install -r requirements-validation.txt
+```
+
 Run the desktop app:
 
 ```powershell
@@ -131,7 +138,11 @@ Build a Windows release package:
 python tools/phase4/package_release.py
 ```
 
-The release helper runs core and Tauri tests, builds and installs the release-profile local validation binding, runs data validation, installs frontend dependencies, builds the Tauri app, and writes `dist/TarnishedsArsenal_<version>` plus `dist/TarnishedsArsenal_<version>.zip`.
+The release helper runs core and Tauri tests, builds and installs the
+release-profile local validation binding, runs data validation, installs
+frontend dependencies, builds the Tauri app, and writes
+`dist/TarnishedsArsenal_<version>` plus
+`dist/TarnishedsArsenal_<version>.zip`.
 
 ## Refresh Data
 
@@ -167,6 +178,13 @@ python tools/phase1/derive_phase1_extras.py --input data/phase1 --output data/ph
 | `data/phase1` | Committed runtime data snapshot. |
 | `tools/phase1` | Extraction and data refresh tooling. |
 | `tools/phase4` | Validation, benchmarking, and release packaging. |
+| `docs/design` | Current design references for optimizer and release behavior. |
+| `docs/release-notes` | Per-version release notes and GitHub release links. |
+
+See [`tools/README.md`](tools/README.md) for the phase-tooling directory split,
+[`docs/design/optimizer-overview.md`](docs/design/optimizer-overview.md) for the
+current optimizer design reference, and [`CHANGELOG.md`](CHANGELOG.md) for the
+release-notes index.
 
 ## License
 

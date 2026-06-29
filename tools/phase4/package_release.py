@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import shutil
@@ -32,6 +33,14 @@ def newest(path_glob: str, root: Path) -> Path:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Build the Windows release package.")
+    parser.add_argument(
+        "--skip-validation",
+        action="store_true",
+        help="Skip test/data validation when CI already validated this commit.",
+    )
+    args = parser.parse_args()
+
     root = Path(__file__).resolve().parents[2]
     app_dir = root / "apps" / "desktop"
     tauri_dir = app_dir / "src-tauri"
@@ -39,26 +48,40 @@ def main() -> int:
     product_name = tauri_config["productName"]
     version = tauri_config["version"]
 
-    run(["cargo", "test", "--manifest-path", str(root / "core/er_optimizer_core/Cargo.toml")], cwd=root)
-    run(["cargo", "test", "--manifest-path", str(tauri_dir / "Cargo.toml")], cwd=root)
-    run(
-        [
-            python_cmd(),
-            "-m",
-            "maturin",
-            "build",
-            "--release",
-            "--manifest-path",
-            str(root / "core/er_optimizer_core/Cargo.toml"),
-            "--features",
-            "python",
-        ],
-        cwd=root,
-    )
-    wheel = newest("target/wheels/er_optimizer_core-*.whl", root / "core" / "er_optimizer_core")
-    run([python_cmd(), "-m", "pip", "install", "--force-reinstall", str(wheel)], cwd=root)
-    run([python_cmd(), "tools/phase4/validate_phase4.py"], cwd=root)
-    run([npm_cmd(), "ci"], cwd=app_dir)
+    if not args.skip_validation:
+        run(
+            [
+                "cargo",
+                "test",
+                "--locked",
+                "--manifest-path",
+                str(root / "core/er_optimizer_core/Cargo.toml"),
+            ],
+            cwd=root,
+        )
+        run(
+            ["cargo", "test", "--locked", "--manifest-path", str(tauri_dir / "Cargo.toml")],
+            cwd=root,
+        )
+        run(
+            [
+                python_cmd(),
+                "-m",
+                "maturin",
+                "build",
+                "--release",
+                "--locked",
+                "--manifest-path",
+                str(root / "core/er_optimizer_core/Cargo.toml"),
+                "--features",
+                "python",
+            ],
+            cwd=root,
+        )
+        wheel = newest("target/wheels/er_optimizer_core-*.whl", root / "core" / "er_optimizer_core")
+        run([python_cmd(), "-m", "pip", "install", "--force-reinstall", str(wheel)], cwd=root)
+        run([python_cmd(), "tools/phase4/validate_phase4.py"], cwd=root)
+    run([npm_cmd(), "ci", "--prefer-offline", "--no-audit", "--fund=false"], cwd=app_dir)
     run([npm_cmd(), "run", "tauri", "--", "build"], cwd=app_dir)
 
     release_dir = root / "dist" / f"TarnishedsArsenal_{version}"
