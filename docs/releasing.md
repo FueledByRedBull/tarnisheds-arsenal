@@ -55,6 +55,10 @@ running, release packaging waits; failed, cancelled, missing, or timed-out CI bl
 publication. Rust, Python, Node, and validation-tool versions are pinned so local, CI,
 and release checks do not silently drift apart.
 
+Packaging refuses a dirty input tree and fails if the build changes tracked source.
+Before upload, the workflow independently checks the build commit, clean-source and
+validation flags, completed gates, artifact sizes, and EXE/MSI SHA-256 hashes.
+
 Both binaries contain the complete compile-time runtime snapshot. Neither needs
 an adjacent data directory or source workbook. The current Windows binaries are
 unsigned; code signing is the remaining step needed to reduce SmartScreen

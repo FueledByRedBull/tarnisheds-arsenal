@@ -60,6 +60,7 @@ def main() -> int:
     node_version = (root / ".node-version").read_text(encoding="utf-8").strip()
     ci_workflow = (root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     release_workflow = (root / ".github/workflows/release-package.yml").read_text(encoding="utf-8")
+    package_script = (root / "tools/phase4/package_release.py").read_text(encoding="utf-8")
 
     if args.tag:
         expect_equal("release tag", args.tag, expected_tag, errors)
@@ -111,6 +112,27 @@ def main() -> int:
     )
     if "--upgrade pip" in ci_workflow or "--upgrade pip" in release_workflow:
         errors.append("workflows must not install an unpinned latest pip")
+    expect_contains(
+        "release clean-source preflight", package_script, "require_clean_source(root)", errors
+    )
+    expect_contains(
+        "release tracked-source postflight",
+        package_script,
+        "require_unchanged_tracked_source(root, source_commit)",
+        errors,
+    )
+    expect_contains(
+        "release provenance verification",
+        release_workflow,
+        "Verify release provenance and checksums",
+        errors,
+    )
+    expect_contains(
+        "release clean-source verification",
+        release_workflow,
+        "if ($report.sourceDirty -ne $false)",
+        errors,
+    )
 
     validation_requirements = (root / "requirements-validation.txt").read_text(encoding="utf-8")
     for package in ("maturin", "pyright", "ruff"):

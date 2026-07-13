@@ -134,8 +134,12 @@ jobs:
           $assetDir = "dist/release-assets"
           New-Item -ItemType Directory -Force $assetDir | Out-Null
 
-          $exePath = Get-ChildItem $releaseDir.FullName -Filter "*.exe" | Sort-Object LastWriteTime | Select-Object -Last 1
-          $msiPath = Get-ChildItem $releaseDir.FullName -Filter "*.msi" | Sort-Object LastWriteTime | Select-Object -Last 1
+          $exeCandidates = @(Get-ChildItem $releaseDir.FullName -Filter "*.exe")
+          $msiCandidates = @(Get-ChildItem $releaseDir.FullName -Filter "*.msi")
+          if ($exeCandidates.Count -ne 1) { throw "Expected one portable executable; found $($exeCandidates.Count)" }
+          if ($msiCandidates.Count -ne 1) { throw "Expected one MSI; found $($msiCandidates.Count)" }
+          $exePath = $exeCandidates[0]
+          $msiPath = $msiCandidates[0]
           $checksumsPath = Join-Path $releaseDir.FullName "SHA256SUMS.txt"
           $reportPath = Join-Path $releaseDir.FullName "build-report.json"
           if (-not $exePath) { throw "No portable executable found in $($releaseDir.FullName)" }
@@ -160,6 +164,89 @@ jobs:
           "RELEASE_ZIP=$zipUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "RELEASE_CHECKSUMS=$checksumsUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "RELEASE_REPORT=$reportUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Verify release provenance and checksums
+        run: |
+          $report = Get-Content -LiteralPath $env:RELEASE_REPORT -Raw | ConvertFrom-Json
+          if ($report.commit -ne $env:GITHUB_SHA) {
+            throw "Build report commit mismatch: $($report.commit); expected $env:GITHUB_SHA"
+          }
+          if ($report.sourceDirty -ne $false) {
+            throw "Build report source is dirty"
+          }
+          if ($report.validationSkipped -ne $false) {
+            throw "Build report says validation was skipped"
+          }
+
+          $requiredGates = @(
+            "release-metadata",
+            "ruff",
+            "pyright",
+            "rustfmt",
+            "clippy",
+            "core-tests",
+            "tauri-tests",
+            "runtime-data-validation",
+            "frontend-build",
+            "tauri-release-build"
+          )
+          foreach ($gate in $requiredGates) {
+            if ($gate -notin $report.completedGates) {
+              throw "Build report is missing validation gate: $gate"
+            }
+          }
+
+          $checksumRows = @{}
+          foreach ($line in Get-Content -LiteralPath $env:RELEASE_CHECKSUMS) {
+            if ($line -notmatch '^([0-9a-f]{64})  (.+)$') {
+              throw "Invalid checksum row: $line"
+            }
+            $checksumRows[$Matches[2]] = $Matches[1]
+          }
+          if ($checksumRows.Count -ne 2 -or @($report.artifacts).Count -ne 2) {
+            throw "Expected exactly two binary checksum and provenance rows"
+          }
+
+          foreach ($path in @($env:RELEASE_EXE, $env:RELEASE_MSI)) {
+            $file = Get-Item -LiteralPath $path
+            if ($file.Length -le 0) { throw "Release asset is empty: $($file.Name)" }
+            $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName).Hash.ToLowerInvariant()
+            if ($checksumRows[$file.Name] -ne $actualHash) {
+              throw "Checksum mismatch for $($file.Name)"
+            }
+            $reported = @($report.artifacts | Where-Object { $_.name -eq $file.Name })
+            if ($reported.Count -ne 1) {
+              throw "Build report must contain exactly one row for $($file.Name)"
+            }
+            if ($reported[0].sha256 -ne $actualHash -or $reported[0].bytes -ne $file.Length) {
+              throw "Build report artifact mismatch for $($file.Name)"
+            }
+          }
+
+          foreach ($path in @($env:RELEASE_ZIP, $env:RELEASE_CHECKSUMS, $env:RELEASE_REPORT)) {
+            if ((Get-Item -LiteralPath $path).Length -le 0) {
+              throw "Release asset is empty: $path"
+            }
+          }
+
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archivePath = (Resolve-Path -LiteralPath $env:RELEASE_ZIP).Path
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($archivePath)
+          try {
+            $archiveNames = @($archive.Entries | ForEach-Object { $_.Name })
+            foreach ($name in @(
+              "TarnishedsArsenal_$env:RELEASE_VERSION`_portable.exe",
+              "TarnishedsArsenal_$env:RELEASE_VERSION`_x64_en-US.msi",
+              "SHA256SUMS.txt",
+              "build-report.json",
+              "README.md",
+              "LICENSE"
+            )) {
+              if ($name -notin $archiveNames) { throw "Release archive is missing $name" }
+            }
+          } finally {
+            $archive.Dispose()
+          }
 
       - name: Prepare release notes
         run: |

@@ -42,20 +42,41 @@ def sha256(path: Path) -> str:
 
 
 def git_commit(root: Path) -> str:
-    return subprocess.check_output(
-        ["git", "rev-parse", "HEAD"], cwd=root, text=True
-    ).strip()
+    return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
 
 
-def git_is_dirty(root: Path) -> bool:
+def git_status(root: Path, *, include_untracked: bool) -> list[str]:
     result = subprocess.run(
-        ["git", "status", "--porcelain"],
+        [
+            "git",
+            "status",
+            "--porcelain=v1",
+            f"--untracked-files={'all' if include_untracked else 'no'}",
+        ],
         cwd=root,
         check=True,
         capture_output=True,
         text=True,
     )
-    return bool(result.stdout.strip())
+    return [line for line in result.stdout.splitlines() if line]
+
+
+def require_clean_source(root: Path) -> str:
+    commit = git_commit(root)
+    changes = git_status(root, include_untracked=True)
+    if changes:
+        raise RuntimeError(
+            f"refusing to package a dirty source tree ({len(changes)} changed or untracked paths)"
+        )
+    return commit
+
+
+def require_unchanged_tracked_source(root: Path, expected_commit: str) -> None:
+    if git_commit(root) != expected_commit:
+        raise RuntimeError("source commit changed during release packaging")
+    changes = git_status(root, include_untracked=False)
+    if changes:
+        raise RuntimeError(f"release build modified tracked source ({len(changes)} changed paths)")
 
 
 def require_replaceable(path: Path) -> None:
@@ -93,6 +114,7 @@ def main() -> int:
     completed_gates: list[str] = []
     release_dir = root / "dist" / f"TarnishedsArsenal_{version}"
     zip_path = root / "dist" / f"TarnishedsArsenal_{version}.zip"
+    source_commit = require_clean_source(root)
 
     if release_dir.exists():
         if not args.replace_output:
@@ -121,8 +143,7 @@ def main() -> int:
     if zip_path.exists():
         if not args.replace_output:
             raise FileExistsError(
-                "release archive already exists; pass --replace-output to refresh it: "
-                f"{zip_path}"
+                f"release archive already exists; pass --replace-output to refresh it: {zip_path}"
             )
         require_replaceable(zip_path)
 
@@ -223,6 +244,7 @@ def main() -> int:
         )
     run([npm_cmd(), "ci", "--prefer-offline", "--no-audit", "--fund=false"], cwd=app_dir)
     run([npm_cmd(), "run", "tauri", "--", "build"], cwd=app_dir)
+    require_unchanged_tracked_source(root, source_commit)
     completed_gates.extend(["frontend-build", "tauri-release-build"])
 
     release_dir.mkdir(parents=True, exist_ok=args.replace_output)
@@ -281,8 +303,8 @@ def main() -> int:
         json.dumps(
             {
                 "version": version,
-                "commit": git_commit(root),
-                "sourceDirty": git_is_dirty(root),
+                "commit": source_commit,
+                "sourceDirty": False,
                 "dataManifestId": data_manifest["id"],
                 "artifacts": artifact_rows,
                 "validationSkipped": args.skip_validation,
