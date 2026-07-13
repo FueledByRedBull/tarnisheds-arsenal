@@ -103,8 +103,9 @@ jobs:
             ~/.cargo/registry
             core/er_optimizer_core/target
             apps/desktop/src-tauri/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('core/er_optimizer_core/Cargo.lock', 'apps/desktop/src-tauri/Cargo.lock') }}
+          key: ${{ runner.os }}-release-cargo-${{ hashFiles('core/er_optimizer_core/Cargo.lock', 'apps/desktop/src-tauri/Cargo.lock') }}
           restore-keys: |
+            ${{ runner.os }}-release-cargo-
             ${{ runner.os }}-cargo-
 
       - name: Install Python packaging helpers

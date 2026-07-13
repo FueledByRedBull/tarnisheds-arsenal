@@ -243,7 +243,7 @@ def main() -> int:
             ]
         )
     run([npm_cmd(), "ci", "--prefer-offline", "--no-audit", "--fund=false"], cwd=app_dir)
-    run([npm_cmd(), "run", "tauri", "--", "build"], cwd=app_dir)
+    run([npm_cmd(), "run", "tauri", "--", "build", "--", "--locked"], cwd=app_dir)
     require_unchanged_tracked_source(root, source_commit)
     completed_gates.extend(["frontend-build", "tauri-release-build"])
 

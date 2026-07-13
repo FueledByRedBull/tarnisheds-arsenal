@@ -122,6 +122,13 @@ def main() -> int:
         errors,
     )
     expect_contains(
+        "release locked Tauri build",
+        package_script,
+        '"tauri", "--", "build", "--", "--locked"',
+        errors,
+    )
+    expect_contains("release-specific Cargo cache", release_workflow, "-release-cargo-", errors)
+    expect_contains(
         "release provenance verification",
         release_workflow,
         "Verify release provenance and checksums",
