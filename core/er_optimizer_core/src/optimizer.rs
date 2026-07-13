@@ -470,7 +470,7 @@ where
     for unit_results in partial_results {
         merge_scored_top_k(
             &mut candidates,
-            unit_results.into_iter(),
+            unit_results,
             &plan.weapons,
             group_mode,
             request.top_k,
