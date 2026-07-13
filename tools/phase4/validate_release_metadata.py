@@ -122,6 +122,12 @@ def main() -> int:
         errors,
     )
     expect_contains(
+        "release CRLF-only normalization handling",
+        package_script,
+        '"--ignore-cr-at-eol"',
+        errors,
+    )
+    expect_contains(
         "release locked Tauri build",
         package_script,
         '"tauri", "--", "build", "--", "--locked"',

@@ -71,7 +71,18 @@ def require_clean_source(root: Path) -> str:
     return commit
 
 
-def safe_status_summary(changes: list[str]) -> str:
+def git_changed_paths(root: Path) -> list[str]:
+    result = subprocess.run(
+        ["git", "diff", "--name-only", "--ignore-cr-at-eol", "HEAD", "--"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return [line for line in result.stdout.splitlines() if line]
+
+
+def safe_path_summary(paths: list[str]) -> str:
     safe_entries: list[str] = []
     secret_markers = (
         ".env",
@@ -83,24 +94,48 @@ def safe_status_summary(changes: list[str]) -> str:
         ".pem",
         ".key",
     )
-    for change in changes[:5]:
-        status = change[:2]
-        path = change[3:].strip()
+    for path in paths[:5]:
         safe_path = (
             "<redacted>" if any(marker in path.lower() for marker in secret_markers) else path
         )
-        safe_entries.append(f"{status} {safe_path}")
-    if len(changes) > len(safe_entries):
-        safe_entries.append(f"... and {len(changes) - len(safe_entries)} more")
+        safe_entries.append(safe_path)
+    if len(paths) > len(safe_entries):
+        safe_entries.append(f"... and {len(paths) - len(safe_entries)} more")
     return ", ".join(safe_entries)
+
+
+def public_manifest_diff(root: Path, changed_paths: list[str]) -> str:
+    manifest = "apps/desktop/src-tauri/Cargo.toml"
+    if changed_paths != [manifest]:
+        return ""
+    result = subprocess.run(
+        [
+            "git",
+            "diff",
+            "--ignore-cr-at-eol",
+            "--unified=1",
+            "HEAD",
+            "--",
+            manifest,
+        ],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
 
 
 def require_unchanged_tracked_source(root: Path, expected_commit: str, *, stage: str) -> None:
     if git_commit(root) != expected_commit:
         raise RuntimeError(f"source commit changed during {stage}")
-    changes = git_status(root, include_untracked=False)
-    if changes:
-        raise RuntimeError(f"{stage} modified tracked source: {safe_status_summary(changes)}")
+    changed_paths = git_changed_paths(root)
+    if changed_paths:
+        message = f"{stage} modified tracked source: {safe_path_summary(changed_paths)}"
+        manifest_diff = public_manifest_diff(root, changed_paths)
+        if manifest_diff:
+            message += f"\n{manifest_diff}"
+        raise RuntimeError(message)
 
 
 def require_replaceable(path: Path) -> None:

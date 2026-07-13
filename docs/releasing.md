@@ -55,7 +55,8 @@ running, release packaging waits; failed, cancelled, missing, or timed-out CI bl
 publication. Rust, Python, Node, and validation-tool versions are pinned so local, CI,
 and release checks do not silently drift apart.
 
-Packaging refuses a dirty input tree and fails if the build changes tracked source.
+Packaging refuses a dirty input tree and fails if the build changes tracked source
+other than Windows-only CRLF normalization.
 Before upload, the workflow independently checks the build commit, clean-source and
 validation flags, completed gates, artifact sizes, and EXE/MSI SHA-256 hashes.
 The final Tauri bundle build also runs Cargo in locked mode.
