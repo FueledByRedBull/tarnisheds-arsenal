@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.phase1.phase1_dump import iter_param_rows, to_float, to_int
+from tools.phase1.phase1_dump import iter_param_rows, to_int  # noqa: E402
 
 WEAPON_EFFECT_FIELDS = (
     "spEffectBehaviorId0",
@@ -54,6 +54,12 @@ STATUS_FIELDS = {
 STATUS_CORRECTION_COLUMNS = {
     status_key: f"{status_key}_uses_status_correction" for status_key in STATUS_FIELDS
 }
+
+
+def _object_to_int(value: object) -> int:
+    if isinstance(value, (int, float, str)):
+        return int(value)
+    raise TypeError(f"expected an integer-compatible value, got {type(value).__name__}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -218,7 +224,9 @@ def build_weapon_passives(
                 },
             }
         )
-    rows_out.sort(key=lambda row: (row["name"], row["affinity"], int(row["weapon_id"])))
+    rows_out.sort(
+        key=lambda row: (str(row["name"]), str(row["affinity"]), _object_to_int(row["weapon_id"]))
+    )
     return rows_out
 
 
@@ -289,7 +297,14 @@ def build_weapon_passive_overlays(
                     },
                 }
             )
-    rows_out.sort(key=lambda row: (row["name"], row["affinity"], int(row["weapon_id"]), int(row["level"])))
+    rows_out.sort(
+        key=lambda row: (
+            str(row["name"]),
+            str(row["affinity"]),
+            _object_to_int(row["weapon_id"]),
+            _object_to_int(row["level"]),
+        )
+    )
     return rows_out
 
 
@@ -313,7 +328,14 @@ def build_exact_aow_compat(
                     "weapon_type_keys": weapon["weapon_type_keys"],
                 }
             )
-    rows_out.sort(key=lambda row: (row["aow_name"], row["weapon_name"], row["affinity"], int(row["weapon_id"])))
+    rows_out.sort(
+        key=lambda row: (
+            str(row["aow_name"]),
+            str(row["weapon_name"]),
+            str(row["affinity"]),
+            _object_to_int(row["weapon_id"]),
+        )
+    )
     return rows_out
 
 

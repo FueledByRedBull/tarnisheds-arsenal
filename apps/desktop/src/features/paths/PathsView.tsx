@@ -20,6 +20,8 @@ export function PathsView() {
   const setPaths = useDesktopStore((state) => state.setPaths);
   const isPathBusy = useDesktopStore((state) => state.isPathBusy);
   const setPathBusy = useDesktopStore((state) => state.setPathBusy);
+  const beginPath = useDesktopStore((state) => state.beginPath);
+  const pathGeneration = useDesktopStore((state) => state.pathGeneration);
   const activePathJobId = useDesktopStore((state) => state.activePathJobId);
   const setActivePathJobId = useDesktopStore((state) => state.setActivePathJobId);
   const pathProgress = useDesktopStore((state) => state.pathProgress);
@@ -39,6 +41,7 @@ export function PathsView() {
   usePathJob({
     activePathJobId,
     isPathBusy,
+    generation: pathGeneration,
     setPathProgress,
     finish: finishPathPreview,
   });
@@ -55,8 +58,7 @@ export function PathsView() {
     if (effectiveHorizon < horizon) {
       pushNotice({ scope: "paths", tone: "info", message: `Horizon capped at Current +${effectiveHorizon}.` });
     }
-    setPathBusy(true);
-    setPathProgress(null);
+    const generation = beginPath(signature);
     try {
       const requests = [
         { base, solved: selected, levelsAhead: effectiveHorizon, title: "Selected" },
@@ -64,17 +66,36 @@ export function PathsView() {
       ];
       if (hasTauriRuntime()) {
         const { jobId } = await api.startPathPreview(requests);
+        const current = useDesktopStore.getState();
+        if (
+          current.pathGeneration !== generation ||
+          current.activePathSignature !== signature
+        ) {
+          await api.cancelPathPreview(jobId);
+          return;
+        }
         setActivePathJobId(jobId);
       } else {
         const next = await Promise.all(
           requests.map((entry) => cachedPathPreview(entry.base, entry.solved, entry.levelsAhead, entry.title)),
         );
+        const current = useDesktopStore.getState();
+        if (
+          current.pathGeneration !== generation ||
+          current.activePathSignature !== signature
+        ) return;
         setPaths(next, signature);
         setPathBusy(false);
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
-      setPathBusy(false);
+      const current = useDesktopStore.getState();
+      if (
+        current.pathGeneration === generation &&
+        current.activePathSignature === signature
+      ) {
+        setError(error instanceof Error ? error.message : String(error));
+        setPathBusy(false);
+      }
     }
   }
 
@@ -82,9 +103,13 @@ export function PathsView() {
     if (activePathJobId) await api.cancelPathPreview(activePathJobId);
   }
 
-  function finishPathPreview(payload: PathFinishedDto) {
+  function finishPathPreview(payload: PathFinishedDto, generation: number) {
     const current = useDesktopStore.getState();
-    if (current.activePathJobId && payload.jobId !== current.activePathJobId) return;
+    if (
+      generation !== current.pathGeneration ||
+      current.activePathSignature !== signature ||
+      payload.jobId !== current.activePathJobId
+    ) return;
     if (payload.error) current.setError(payload.error);
     if (!payload.cancelled) current.setPaths(payload.paths, signature);
     else current.pushNotice({ scope: "paths", tone: "warning", message: "Path preview stopped." });

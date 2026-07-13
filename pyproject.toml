@@ -6,6 +6,8 @@ dependencies = []
 
 [tool.pyright]
 pythonVersion = "3.12"
+stubPath = "typings"
+include = ["tools"]
 
 [tool.ruff]
 target-version = "py312"

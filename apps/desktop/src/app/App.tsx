@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { CircleAlert, GitCompareArrows, Radar, Route, Table2 } from "lucide-react";
 import { api } from "../lib/api";
+import { setAnalysisCacheVersion } from "../lib/analysis-cache";
 import { useDesktopStore } from "../lib/state";
 import { WorkspaceTab } from "../lib/types";
 import { AffinityWatchView } from "../features/affinity-watch/AffinityWatchView";
@@ -28,7 +29,10 @@ export function App() {
   useEffect(() => {
     api
       .catalog()
-      .then(setCatalog)
+      .then((catalog) => {
+        setAnalysisCacheVersion(catalog.dataManifest.id);
+        setCatalog(catalog);
+      })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)));
   }, [setCatalog, setError]);
 

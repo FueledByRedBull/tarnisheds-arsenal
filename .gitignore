@@ -28,6 +28,7 @@ test-results/
 # Build/release output
 /dist/
 /apps/desktop/dist/
+/TODO.md
 dist_release/
 build/
 build_release/

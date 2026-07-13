@@ -20,9 +20,14 @@ weapon x affinity x AoW x upgrade x relevant stat distribution
 
 Get the latest Windows build from [Releases](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
 
-- `Tarnished's Arsenal_<version>_x64_en-US.msi` is the normal installer.
-- `tarnisheds-arsenal-desktop.exe` is the portable executable.
-- `TarnishedsArsenal_<version>.zip` bundles both binaries, runtime data, the README, and the license.
+- `TarnishedsArsenal_<version>_x64_en-US.msi` is the normal installer.
+- `TarnishedsArsenal_<version>_portable.exe` is the self-contained standalone app.
+- `TarnishedsArsenal_<version>.zip` bundles the complete release folder for archival
+  or offline transfer.
+
+Both artifacts contain the same compiled runtime snapshot. The standalone app
+does not need an adjacent data directory, workbook, or other support files.
+Each release also publishes SHA-256 checksums and a machine-readable build report.
 
 ## What It Answers
 
@@ -141,8 +146,9 @@ python tools/phase4/package_release.py
 The release helper runs core and Tauri tests, builds and installs the
 release-profile local validation binding, runs data validation, installs
 frontend dependencies, builds the Tauri app, and writes
-`dist/TarnishedsArsenal_<version>` plus
-`dist/TarnishedsArsenal_<version>.zip`.
+`dist/TarnishedsArsenal_<version>` with the MSI, standalone executable, checksums,
+and build report, plus `dist/TarnishedsArsenal_<version>.zip`. See
+[the release guide](docs/releasing.md) for the tag-driven release process.
 
 ## Refresh Data
 

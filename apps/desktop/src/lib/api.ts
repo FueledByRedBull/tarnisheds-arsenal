@@ -9,6 +9,7 @@ import {
   PathPreviewDto,
   SearchJobStatusDto,
   SearchEstimateDto,
+  StartSearchResponseDto,
   ScalingDto,
   SolvedBuildDto,
   UpgradePointDto,
@@ -165,7 +166,7 @@ export const api = {
   runSearch: (request: OptimizeRequestDto) =>
     call<SolvedBuildDto[]>("run_search", { request }),
   startSearch: (request: OptimizeRequestDto) =>
-    call<{ jobId: string }>("start_search", { request }),
+    call<StartSearchResponseDto>("start_search", { request }),
   cancelSearch: (jobId: string) =>
     call<boolean>("cancel_search", { jobId }),
   searchStatus: (jobId: string) =>
@@ -259,7 +260,10 @@ async function mockInvoke<T>(command: string, args?: Record<string, unknown>): P
     case "run_search":
       return await mockRows((args?.request as OptimizeRequestDto | undefined) ?? null) as T;
     case "start_search":
-      return { jobId: "browser-preview" } as T;
+      return {
+        jobId: "browser-preview",
+        estimate: await mockSearchEstimate(args),
+      } as T;
     case "cancel_search":
       return true as T;
     case "get_search_status":

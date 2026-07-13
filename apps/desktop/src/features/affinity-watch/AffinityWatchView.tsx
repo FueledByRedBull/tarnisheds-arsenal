@@ -19,6 +19,8 @@ export function AffinityWatchView() {
   const setAffinityPayload = useDesktopStore((state) => state.setAffinityPayload);
   const isAffinityBusy = useDesktopStore((state) => state.isAffinityBusy);
   const setAffinityBusy = useDesktopStore((state) => state.setAffinityBusy);
+  const beginAffinity = useDesktopStore((state) => state.beginAffinity);
+  const affinityGeneration = useDesktopStore((state) => state.affinityGeneration);
   const activeAffinityJobId = useDesktopStore((state) => state.activeAffinityJobId);
   const setActiveAffinityJobId = useDesktopStore((state) => state.setActiveAffinityJobId);
   const affinityProgress = useDesktopStore((state) => state.affinityProgress);
@@ -32,6 +34,7 @@ export function AffinityWatchView() {
   useAffinityJob({
     activeAffinityJobId,
     isAffinityBusy,
+    generation: affinityGeneration,
     setAffinityProgress,
     finish: finishAffinityWatch,
   });
@@ -45,10 +48,14 @@ export function AffinityWatchView() {
       pushNotice({ scope: "affinity_watch", tone: "warning", message: "Combat stats are already capped. There is no forward horizon to inspect." });
       return;
     }
-    setAffinityBusy(true);
-    setAffinityProgress(null);
+    const generation = beginAffinity(signature);
     try {
       const legal = await api.affinitiesForWeapon(selected.weaponName);
+      let current = useDesktopStore.getState();
+      if (
+        current.affinityGeneration !== generation ||
+        current.activeAffinitySignature !== signature
+      ) return;
       if (legal.length === 0) {
         pushNotice({ scope: "affinity_watch", tone: "warning", message: "No legal affinities are available for the selected weapon." });
         setAffinityBusy(false);
@@ -56,15 +63,34 @@ export function AffinityWatchView() {
       }
       if (hasTauriRuntime()) {
         const { jobId } = await api.startAffinityWatch(base, selected, effectiveHorizon);
+        current = useDesktopStore.getState();
+        if (
+          current.affinityGeneration !== generation ||
+          current.activeAffinitySignature !== signature
+        ) {
+          await api.cancelAffinityWatch(jobId);
+          return;
+        }
         setActiveAffinityJobId(jobId);
       } else {
         const next = await cachedAffinityWatch(base, selected, effectiveHorizon);
+        current = useDesktopStore.getState();
+        if (
+          current.affinityGeneration !== generation ||
+          current.activeAffinitySignature !== signature
+        ) return;
         setAffinityPayload(next, signature);
         setAffinityBusy(false);
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
-      setAffinityBusy(false);
+      const current = useDesktopStore.getState();
+      if (
+        current.affinityGeneration === generation &&
+        current.activeAffinitySignature === signature
+      ) {
+        setError(error instanceof Error ? error.message : String(error));
+        setAffinityBusy(false);
+      }
     }
   }
 
@@ -72,9 +98,13 @@ export function AffinityWatchView() {
     if (activeAffinityJobId) await api.cancelAffinityWatch(activeAffinityJobId);
   }
 
-  function finishAffinityWatch(event: AffinityWatchFinishedDto) {
+  function finishAffinityWatch(event: AffinityWatchFinishedDto, generation: number) {
     const current = useDesktopStore.getState();
-    if (current.activeAffinityJobId && event.jobId !== current.activeAffinityJobId) return;
+    if (
+      generation !== current.affinityGeneration ||
+      current.activeAffinitySignature !== signature ||
+      event.jobId !== current.activeAffinityJobId
+    ) return;
     if (event.error) current.setError(event.error);
     if (event.cancelled) current.pushNotice({ scope: "affinity_watch", tone: "warning", message: "Affinity watch stopped." });
     else current.setAffinityPayload(event.payload, signature);

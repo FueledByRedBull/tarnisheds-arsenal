@@ -799,11 +799,22 @@ textarea {
   border: 0;
   border-bottom: 1px solid rgba(232, 223, 201, 0.08);
   background: transparent;
+  cursor: pointer;
 }
 
 .result-row:hover,
 .result-row.active {
   background: rgba(123, 149, 166, 0.12);
+}
+
+.result-row:focus-visible {
+  outline: 1px solid var(--gold);
+  outline-offset: -2px;
+  background: rgba(123, 149, 166, 0.12);
+}
+
+.rankings-panel .result-board.dragging .result-row {
+  cursor: grabbing;
 }
 
 .result-row strong,

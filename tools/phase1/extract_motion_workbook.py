@@ -5,6 +5,7 @@ import re
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypedDict
 from xml.etree import ElementTree as ET
 
 MAIN_NS = '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
@@ -33,6 +34,18 @@ VARIANT_ALIASES = {
     'greatspear': 'Heavy Spear',
     'reaper': 'Scythe',
 }
+
+
+class AowCoverage(TypedDict):
+    aow_id: int
+    standard_rows: int
+    damaging_rows: int
+    lacking_fp_rows: int
+    variant_rows: int
+    bullet_rows: int
+    parry_rows: int
+    unique_collision_rows: int
+    status: str
 BUFF_DAMAGE_FIELDS = (
     ('physical_attack_power_add', 'physicsAttackPower'),
     ('magic_attack_power_add', 'magicAttackPower'),
@@ -447,10 +460,6 @@ def build_attack_row(
 
 def read_sp_effect_sheet(workbook_path: Path) -> list[dict[str, str]]:
     rel_ns = '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}'
-    workbook_ns = {
-        'x': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
-        'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-    }
 
     def column_index(cell_ref: str) -> int:
         letters = ''.join(ch for ch in cell_ref if ch.isalpha())
@@ -521,7 +530,6 @@ def build_aow_buff_data(project_root: Path, phase1_dir: Path | None = None) -> N
     aow_rows = list(csv.DictReader(aow_csv.open('r', encoding='utf-8', newline='')))
     aow_id_by_name = {row['name']: int(row['aow_id']) for row in aow_rows}
     ordered_names = sorted(aow_id_by_name, key=len, reverse=True)
-    known_attack_element_ext_ids = load_attack_element_correct_ext_ids(workbook_path)
     sp_effect_rows = read_sp_effect_sheet(workbook_path)
 
     rows_out: list[dict[str, str]] = []
@@ -613,7 +621,7 @@ def build_aow_attack_data(project_root: Path, phase1_dir: Path | None = None) ->
     aow_id_by_name = {row['name']: int(row['aow_id']) for row in aow_rows}
     ordered_names = sorted(aow_id_by_name, key=len, reverse=True)
     known_attack_element_ext_ids = load_attack_element_correct_ext_ids(workbook_path)
-    coverage: dict[str, dict[str, int | str]] = {
+    coverage: dict[str, AowCoverage] = {
         row['name']: {
             'aow_id': int(row['aow_id']),
             'standard_rows': 0,

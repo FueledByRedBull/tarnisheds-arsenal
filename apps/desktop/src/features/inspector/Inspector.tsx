@@ -115,6 +115,7 @@ function SavedBuildPanel() {
   const [selectedId, setSelectedId] = useState("");
   const [name, setName] = useState("Build Preset");
   const [importText, setImportText] = useState("");
+  const [deleteArmedId, setDeleteArmedId] = useState<string | null>(null);
   const dataVersion = catalog?.dataManifest.id ?? "unknown";
 
   function refresh() {
@@ -143,6 +144,15 @@ function SavedBuildPanel() {
   function loadCurrent() {
     const preset = currentPreset();
     if (!preset) return;
+    if (dataVersion !== "unknown" && preset.dataVersion !== dataVersion) {
+      hydrate({ ...preset, selectedBuild: null, compareTarget: null });
+      pushNotice({
+        scope: "global",
+        tone: "warning",
+        message: `Loaded ${preset.name} inputs only: saved data ${preset.dataVersion} differs from ${dataVersion}. Rerun the search.`,
+      });
+      return;
+    }
     hydrate(preset);
   }
 
@@ -159,9 +169,23 @@ function SavedBuildPanel() {
 
   function deleteCurrent() {
     if (!selectedId) return;
+    if (deleteArmedId !== selectedId) {
+      setDeleteArmedId(selectedId);
+      return;
+    }
+    const deletedName = currentPreset()?.name ?? "saved build";
     deleteBuildPreset(selectedId);
     setSelectedId("");
+    setDeleteArmedId(null);
     refresh();
+    pushNotice({ scope: "global", tone: "success", message: `Deleted ${deletedName}.` });
+  }
+
+  function selectPreset(id: string) {
+    setSelectedId(id);
+    setDeleteArmedId(null);
+    const preset = id ? loadBuildPreset(id) : null;
+    setName(preset?.name ?? "Build Preset");
   }
 
   async function copyCurrent() {
@@ -200,10 +224,12 @@ function SavedBuildPanel() {
       </label>
       <label>
         Saved
-        <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
+        <select value={selectedId} onChange={(event) => selectPreset(event.target.value)}>
           <option value="">None</option>
           {entries.map((entry) => (
-            <option key={entry.id} value={entry.id}>{entry.name}</option>
+            <option key={entry.id} value={entry.id}>
+              {entry.name}{entry.dataVersion === dataVersion ? "" : ` [data ${entry.dataVersion}]`}
+            </option>
           ))}
         </select>
       </label>
@@ -211,7 +237,9 @@ function SavedBuildPanel() {
         <button type="button" onClick={saveCurrent}><Save size={15} />Save</button>
         <button type="button" onClick={loadCurrent} disabled={!selectedId}><Upload size={15} />Load</button>
         <button type="button" onClick={renameCurrent} disabled={!selectedId}><Pencil size={15} />Rename</button>
-        <button type="button" onClick={deleteCurrent} disabled={!selectedId}><Trash2 size={15} />Delete</button>
+        <button type="button" onClick={deleteCurrent} disabled={!selectedId}>
+          <Trash2 size={15} />{deleteArmedId === selectedId ? "Confirm Delete" : "Delete"}
+        </button>
         <button type="button" onClick={exportCurrent} disabled={!selectedId}><Download size={15} />Export</button>
         <button type="button" onClick={copyCurrent} disabled={!selectedId}><Clipboard size={15} />Copy Share</button>
       </div>

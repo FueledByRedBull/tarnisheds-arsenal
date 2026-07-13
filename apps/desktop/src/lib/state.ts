@@ -31,17 +31,23 @@ export interface DesktopState {
   horizon: number;
   notices: Notice[];
   isPathBusy: boolean;
+  pathGeneration: number;
+  activePathSignature: string | null;
   activePathJobId: string | null;
   pathProgress: PathProgressDto | null;
   pathSignature: string | null;
   paths: PathPreviewDto[];
   isAffinityBusy: boolean;
+  affinityGeneration: number;
+  activeAffinitySignature: string | null;
   activeAffinityJobId: string | null;
   affinityProgress: AffinityWatchProgressDto | null;
   affinitySignature: string | null;
   affinityPayload: AffinityWatchPayloadDto | null;
   error: string | null;
   isSearching: boolean;
+  searchGeneration: number;
+  activeSearchSignature: string | null;
   activeJobId: string | null;
   progress: SearchProgressDto | null;
   setWorkspace: (workspace: WorkspaceTab) => void;
@@ -61,13 +67,16 @@ export interface DesktopState {
   pushNotice: (notice: Notice) => void;
   setError: (error: string | null) => void;
   setSearching: (isSearching: boolean) => void;
+  beginSearch: (signature: string) => number;
   setActiveJobId: (activeJobId: string | null) => void;
   setProgress: (progress: SearchProgressDto | null) => void;
   setPathBusy: (isPathBusy: boolean) => void;
+  beginPath: (signature: string) => number;
   setActivePathJobId: (activePathJobId: string | null) => void;
   setPathProgress: (pathProgress: PathProgressDto | null) => void;
   setPaths: (paths: PathPreviewDto[], signature: string | null) => void;
   setAffinityBusy: (isAffinityBusy: boolean) => void;
+  beginAffinity: (signature: string) => number;
   setActiveAffinityJobId: (activeAffinityJobId: string | null) => void;
   setAffinityProgress: (affinityProgress: AffinityWatchProgressDto | null) => void;
   setAffinityPayload: (affinityPayload: AffinityWatchPayloadDto | null, signature: string | null) => void;
@@ -153,6 +162,8 @@ type SearchSlice = Pick<
   | "selected"
   | "selectedFingerprint"
   | "isSearching"
+  | "searchGeneration"
+  | "activeSearchSignature"
   | "activeJobId"
   | "progress"
   | "setEstimate"
@@ -160,6 +171,7 @@ type SearchSlice = Pick<
   | "clearResults"
   | "selectRow"
   | "setSearching"
+  | "beginSearch"
   | "setActiveJobId"
   | "setProgress"
 >;
@@ -175,11 +187,14 @@ type CompareSlice = Pick<
 type PathSlice = Pick<
   DesktopState,
   | "isPathBusy"
+  | "pathGeneration"
+  | "activePathSignature"
   | "activePathJobId"
   | "pathProgress"
   | "pathSignature"
   | "paths"
   | "setPathBusy"
+  | "beginPath"
   | "setActivePathJobId"
   | "setPathProgress"
   | "setPaths"
@@ -188,15 +203,63 @@ type PathSlice = Pick<
 type AffinitySlice = Pick<
   DesktopState,
   | "isAffinityBusy"
+  | "affinityGeneration"
+  | "activeAffinitySignature"
   | "activeAffinityJobId"
   | "affinityProgress"
   | "affinitySignature"
   | "affinityPayload"
   | "setAffinityBusy"
+  | "beginAffinity"
   | "setActiveAffinityJobId"
   | "setAffinityProgress"
   | "setAffinityPayload"
 >;
+
+function invalidateAllJobs(state: DesktopState) {
+  return {
+    isSearching: false,
+    searchGeneration: state.searchGeneration + 1,
+    activeSearchSignature: null,
+    activeJobId: null,
+    progress: null,
+    isPathBusy: false,
+    pathGeneration: state.pathGeneration + 1,
+    activePathSignature: null,
+    activePathJobId: null,
+    pathProgress: null,
+    isAffinityBusy: false,
+    affinityGeneration: state.affinityGeneration + 1,
+    activeAffinitySignature: null,
+    activeAffinityJobId: null,
+    affinityProgress: null,
+  };
+}
+
+function invalidateAnalysisJobs(state: DesktopState) {
+  return {
+    isPathBusy: false,
+    pathGeneration: state.pathGeneration + 1,
+    activePathSignature: null,
+    activePathJobId: null,
+    pathProgress: null,
+    isAffinityBusy: false,
+    affinityGeneration: state.affinityGeneration + 1,
+    activeAffinitySignature: null,
+    activeAffinityJobId: null,
+    affinityProgress: null,
+  };
+}
+
+function invalidatePathJob(state: DesktopState) {
+  return {
+    isPathBusy: false,
+    pathGeneration: state.pathGeneration + 1,
+    activePathSignature: null,
+    activePathJobId: null,
+    pathProgress: null,
+  };
+}
 
 const createUiSlice: DesktopSlice<UiSlice> = (set) => ({
   activeWorkspace: "rankings",
@@ -219,6 +282,7 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
   horizon: 40,
   patchRequest: (patch) =>
     set((state) => ({
+      ...invalidateAllJobs(state),
       request: { ...state.request, ...patch },
       rows: [],
       selected: null,
@@ -234,6 +298,7 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
     set((state) => {
       const meta = classMeta(state.catalog, className);
       return {
+        ...invalidateAllJobs(state),
         request: {
           ...state.request,
           className,
@@ -254,16 +319,18 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
       };
     }),
   setHorizon: (horizon) =>
-    set({
+    set((state) => ({
+      ...invalidateAnalysisJobs(state),
       horizon,
       paths: [],
       pathSignature: null,
       affinityPayload: null,
       affinitySignature: null,
-    }),
+    })),
   setLockedStatMode: (lockedStatMode) => set({ lockedStatMode }),
   useRowAsLocks: (row) =>
     set((state) => ({
+      ...invalidateAllJobs(state),
       request: {
         ...state.request,
         weaponName: row.weaponName,
@@ -296,6 +363,7 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
     })),
   loadBuildPreset: (preset) =>
     set((state) => ({
+      ...invalidateAllJobs(state),
       request: normalizeOptimizeRequest(preset.request, state.request),
       rows: preset.selectedBuild ? [preset.selectedBuild] : [],
       selected: preset.selectedBuild,
@@ -315,6 +383,8 @@ const createSearchSlice: DesktopSlice<SearchSlice> = (set) => ({
   selected: null,
   selectedFingerprint: null,
   isSearching: false,
+  searchGeneration: 0,
+  activeSearchSignature: null,
   activeJobId: null,
   progress: null,
   setEstimate: (estimate) => set({ estimate }),
@@ -346,15 +416,30 @@ const createSearchSlice: DesktopSlice<SearchSlice> = (set) => ({
         : state.notices,
     })),
   selectRow: (selected) =>
-    set({
+    set((state) => ({
+      ...invalidateAnalysisJobs(state),
       selected,
       selectedFingerprint: rowFingerprint(selected),
       paths: [],
       pathSignature: null,
       affinityPayload: null,
       affinitySignature: null,
-    }),
+    })),
   setSearching: (isSearching) => set({ isSearching }),
+  beginSearch: (activeSearchSignature) => {
+    let generation = 0;
+    set((state) => {
+      generation = state.searchGeneration + 1;
+      return {
+        isSearching: true,
+        searchGeneration: generation,
+        activeSearchSignature,
+        activeJobId: null,
+        progress: null,
+      };
+    });
+    return generation;
+  },
   setActiveJobId: (activeJobId) => set({ activeJobId }),
   setProgress: (progress) => set({ progress }),
 });
@@ -369,13 +454,15 @@ const createCompareSlice: DesktopSlice<CompareSlice> = (set) => ({
     matchSelectedAow: true,
   },
   setCompareTarget: (compareTarget) =>
-    set({
+    set((state) => ({
+      ...invalidatePathJob(state),
       compareTarget,
       paths: [],
       pathSignature: null,
-    }),
+    })),
   patchCompareControls: (patch) =>
     set((state) => ({
+      ...invalidatePathJob(state),
       compareControls: { ...state.compareControls, ...patch },
       compareTarget: null,
       paths: [],
@@ -385,11 +472,27 @@ const createCompareSlice: DesktopSlice<CompareSlice> = (set) => ({
 
 const createPathSlice: DesktopSlice<PathSlice> = (set) => ({
   isPathBusy: false,
+  pathGeneration: 0,
+  activePathSignature: null,
   activePathJobId: null,
   pathProgress: null,
   pathSignature: null,
   paths: [],
   setPathBusy: (isPathBusy) => set({ isPathBusy }),
+  beginPath: (activePathSignature) => {
+    let generation = 0;
+    set((state) => {
+      generation = state.pathGeneration + 1;
+      return {
+        isPathBusy: true,
+        pathGeneration: generation,
+        activePathSignature,
+        activePathJobId: null,
+        pathProgress: null,
+      };
+    });
+    return generation;
+  },
   setActivePathJobId: (activePathJobId) => set({ activePathJobId }),
   setPathProgress: (pathProgress) => set({ pathProgress }),
   setPaths: (paths, pathSignature) => set({ paths, pathSignature }),
@@ -397,11 +500,27 @@ const createPathSlice: DesktopSlice<PathSlice> = (set) => ({
 
 const createAffinitySlice: DesktopSlice<AffinitySlice> = (set) => ({
   isAffinityBusy: false,
+  affinityGeneration: 0,
+  activeAffinitySignature: null,
   activeAffinityJobId: null,
   affinityProgress: null,
   affinitySignature: null,
   affinityPayload: null,
   setAffinityBusy: (isAffinityBusy) => set({ isAffinityBusy }),
+  beginAffinity: (activeAffinitySignature) => {
+    let generation = 0;
+    set((state) => {
+      generation = state.affinityGeneration + 1;
+      return {
+        isAffinityBusy: true,
+        affinityGeneration: generation,
+        activeAffinitySignature,
+        activeAffinityJobId: null,
+        affinityProgress: null,
+      };
+    });
+    return generation;
+  },
   setActiveAffinityJobId: (activeAffinityJobId) => set({ activeAffinityJobId }),
   setAffinityProgress: (affinityProgress) => set({ affinityProgress }),
   setAffinityPayload: (affinityPayload, affinitySignature) =>

@@ -196,8 +196,6 @@ function startResultBoardDrag(
     scrollLeft: event.currentTarget.scrollLeft,
     startX: event.clientX,
   };
-  event.currentTarget.setPointerCapture(event.pointerId);
-  event.currentTarget.classList.add("dragging");
 }
 
 function moveResultBoardDrag(
@@ -216,9 +214,14 @@ function moveResultBoardDrag(
   }
   const deltaX = event.clientX - drag.startX;
   if (Math.abs(deltaX) > 3) {
-    drag.dragged = true;
+    if (!drag.dragged) {
+      drag.dragged = true;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      event.currentTarget.classList.add("dragging");
+    }
+    event.preventDefault();
+    event.currentTarget.scrollLeft = drag.scrollLeft - deltaX;
   }
-  event.currentTarget.scrollLeft = drag.scrollLeft - deltaX;
 }
 
 function stopResultBoardDrag(
@@ -310,10 +313,18 @@ function ResultRow({
       className={`result-row result-row-full ${active ? "active" : ""}`}
       role="row"
       aria-selected={active}
+      aria-label={`Focus ${row.weaponName}, ${row.affinity}, rank ${index + 1}`}
+      title="Click to focus this result"
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") onClick();
+        if (event.target !== event.currentTarget) {
+          return;
+        }
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
       }}
     >
       <span className="rank-cell">{index + 1}</span>

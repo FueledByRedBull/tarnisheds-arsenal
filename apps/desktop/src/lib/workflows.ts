@@ -1,70 +1,103 @@
 import { api, hasTauriRuntime } from "./api";
-import { buildOptimizeRequest } from "./session";
+import { buildOptimizeRequest, stableSignature } from "./session";
 import { useDesktopStore } from "./state";
 import { OptimizeRequestDto, SolvedBuildDto } from "./types";
 
 export async function runSearchFromStore() {
   const state = useDesktopStore.getState();
   const request = buildOptimizeRequest(state.catalog, state.request, state.lockedStatMode);
-  state.setSearching(true);
+  const signature = stableSignature(request);
+  const generation = state.beginSearch(signature);
   state.setError(null);
-  state.setProgress(null);
   try {
-    const estimate = await api.estimateSearchSpace(request);
-    useDesktopStore.getState().setEstimate(estimate);
-    if (estimate.combinations <= 0) {
-      useDesktopStore.getState().clearResults("No valid search space for current constraints.");
-      useDesktopStore.getState().setSearching(false);
-      return;
-    }
     if (hasTauriRuntime()) {
-      const { jobId } = await api.startSearch(request);
-      useDesktopStore.getState().setActiveJobId(jobId);
+      const { jobId, estimate } = await api.startSearch(request);
+      const current = useDesktopStore.getState();
+      if (
+        current.searchGeneration !== generation ||
+        current.activeSearchSignature !== signature
+      ) {
+        await api.cancelSearch(jobId);
+        return;
+      }
+      current.setEstimate(estimate);
+      if (estimate.combinations <= 0) {
+        await api.cancelSearch(jobId);
+        current.clearResults("No valid search space for current constraints.");
+        current.setSearching(false);
+        return;
+      }
+      current.setActiveJobId(jobId);
     } else {
+      const estimate = await api.estimateSearchSpace(request);
+      let current = useDesktopStore.getState();
+      if (
+        current.searchGeneration !== generation ||
+        current.activeSearchSignature !== signature
+      ) return;
+      current.setEstimate(estimate);
+      if (estimate.combinations <= 0) {
+        current.clearResults("No valid search space for current constraints.");
+        current.setSearching(false);
+        return;
+      }
       const rows = await api.runSearch(request);
-      useDesktopStore.getState().setRows(rows);
-      useDesktopStore.getState().setSearching(false);
+      current = useDesktopStore.getState();
+      if (
+        current.searchGeneration !== generation ||
+        current.activeSearchSignature !== signature
+      ) return;
+      current.setRows(rows);
+      current.setSearching(false);
     }
   } catch (error) {
-    useDesktopStore.getState().setError(error instanceof Error ? error.message : String(error));
-    useDesktopStore.getState().setSearching(false);
+    const current = useDesktopStore.getState();
+    if (
+      current.searchGeneration === generation &&
+      current.activeSearchSignature === signature
+    ) {
+      current.setError(error instanceof Error ? error.message : String(error));
+      current.setSearching(false);
+    }
   }
 }
 
 export async function runSearchRequestForRows(request: OptimizeRequestDto): Promise<SolvedBuildDto[]> {
-  const estimate = await api.estimateSearchSpace(request);
-  if (estimate.combinations <= 0) {
-    throw new Error("No valid search space for current constraints.");
-  }
-
   if (!hasTauriRuntime()) {
+    const estimate = await api.estimateSearchSpace(request);
+    if (estimate.combinations <= 0) {
+      throw new Error("No valid search space for current constraints.");
+    }
     return await api.runSearch(request);
   }
 
-  const { jobId } = await api.startSearch(request);
+  const { jobId, estimate } = await api.startSearch(request);
+  if (estimate.combinations <= 0) {
+    await api.cancelSearch(jobId);
+    throw new Error("No valid search space for current constraints.");
+  }
   return await pollSearchRows(jobId);
 }
 
 async function pollSearchRows(jobId: string): Promise<SolvedBuildDto[]> {
   return await new Promise((resolve, reject) => {
-    let disposed = false;
-    const interval = window.setInterval(async () => {
-      if (disposed) {
-        return;
-      }
+    let finished = false;
+    let timer: number | undefined;
+
+    async function poll() {
+      if (finished) return;
       try {
         const status = await api.searchStatus(jobId);
         if (!status) {
-          disposed = true;
-          window.clearInterval(interval);
+          finished = true;
           reject(new Error("Search job disappeared before returning a result."));
           return;
         }
         if (!status.finished) {
+          timer = window.setTimeout(() => void poll(), 200);
           return;
         }
-        disposed = true;
-        window.clearInterval(interval);
+        finished = true;
         if (status.finished.error) {
           reject(new Error(status.finished.error));
           return;
@@ -75,10 +108,12 @@ async function pollSearchRows(jobId: string): Promise<SolvedBuildDto[]> {
         }
         resolve(status.finished.rows);
       } catch (error) {
-        disposed = true;
-        window.clearInterval(interval);
+        finished = true;
+        if (timer !== undefined) window.clearTimeout(timer);
         reject(error);
       }
-    }, 200);
+    }
+
+    void poll();
   });
 }

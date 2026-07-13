@@ -63,6 +63,18 @@ jobs:
           cargo test --locked --manifest-path core/er_optimizer_core/Cargo.toml
           cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
 
+      - name: Rust formatting and Clippy
+        run: |
+          cargo fmt --all --manifest-path core/er_optimizer_core/Cargo.toml -- --check
+          cargo fmt --all --manifest-path apps/desktop/src-tauri/Cargo.toml -- --check
+          cargo clippy --locked --manifest-path core/er_optimizer_core/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      - name: Python lint and type checking
+        run: |
+          python -m ruff check tools
+          python -m pyright tools
+
       - name: Data/runtime validation
         run: |
           python tools/phase4/validate_phase4.py

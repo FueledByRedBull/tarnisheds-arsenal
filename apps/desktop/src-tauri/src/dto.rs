@@ -311,6 +311,13 @@ pub struct StartSearchResponseDto {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct StartOptimizationResponseDto {
+    pub job_id: String,
+    pub estimate: SearchEstimateDto,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SearchProgressDto {
     pub job_id: String,
     pub checked: u64,
@@ -674,6 +681,19 @@ mod tests {
 
     #[test]
     fn representative_job_status_uses_app_contract_keys() {
+        let start_value = serde_json::to_value(StartOptimizationResponseDto {
+            job_id: "search-1".to_string(),
+            estimate: SearchEstimateDto {
+                weapon_candidates: 12,
+                stat_candidates: 34,
+                combinations: 56,
+            },
+        })
+        .expect("start response serializes");
+        assert_has_path(&start_value, &["jobId"]);
+        assert_has_path(&start_value, &["estimate", "weaponCandidates"]);
+        assert_has_path(&start_value, &["estimate", "combinations"]);
+
         let value = serde_json::to_value(SearchJobStatusDto {
             progress: Some(SearchProgressDto {
                 job_id: "search-1".to_string(),

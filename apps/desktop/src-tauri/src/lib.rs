@@ -1,8 +1,7 @@
-use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
-use er_optimizer_core::{GameData, load_game_data};
+use er_optimizer_core::GameData;
 use tauri::Manager;
 
 mod commands;
@@ -108,9 +107,7 @@ pub struct AppState {
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let data_dir = resolve_data_dir(app)?;
-            let data = load_game_data(&data_dir).map_err(errors::AppError::from)?;
-            let data_manifest = load_data_manifest(&data_dir)?;
+            let (data, data_manifest) = load_desktop_data(app)?;
             let catalog_index = commands::data::CatalogIndex::build(&data);
             app.manage(AppState {
                 data: Arc::new(data),
@@ -152,6 +149,33 @@ pub fn run() {
         .expect("error while running Tauri app");
 }
 
+fn load_desktop_data(
+    app: &tauri::App,
+) -> Result<(GameData, dto::DataManifestDto), errors::AppError> {
+    #[cfg(debug_assertions)]
+    {
+        let data_dir = resolve_data_dir(app)?;
+        let data = er_optimizer_core::load_game_data(&data_dir).map_err(errors::AppError::from)?;
+        let manifest = load_data_manifest(&data_dir)?;
+        Ok((data, manifest))
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        let _ = app;
+        let data = er_optimizer_core::load_embedded_game_data().map_err(errors::AppError::from)?;
+        let manifest = load_embedded_data_manifest()?;
+        Ok((data, manifest))
+    }
+}
+
+#[cfg(any(not(debug_assertions), test))]
+fn load_embedded_data_manifest() -> Result<dto::DataManifestDto, errors::AppError> {
+    serde_json::from_str(include_str!("../../../../data/phase1/manifest.json")).map_err(|err| {
+        errors::AppError::new(format!("failed to load embedded data manifest: {err}"))
+    })
+}
+
+#[cfg(debug_assertions)]
 fn load_data_manifest(
     data_dir: &std::path::Path,
 ) -> Result<dto::DataManifestDto, errors::AppError> {
@@ -161,17 +185,18 @@ fn load_data_manifest(
         .map_err(|err| errors::AppError::new(format!("failed to load data manifest: {err}")))
 }
 
-fn resolve_data_dir(app: &tauri::App) -> Result<PathBuf, errors::AppError> {
-    if let Ok(exe_path) = std::env::current_exe() {
-        if let Some(exe_dir) = exe_path.parent() {
-            let portable_data_dir = exe_dir.join("data").join("phase1");
-            if portable_data_dir.exists() {
-                return Ok(portable_data_dir);
-            }
+#[cfg(debug_assertions)]
+fn resolve_data_dir(app: &tauri::App) -> Result<std::path::PathBuf, errors::AppError> {
+    if let Ok(exe_path) = std::env::current_exe()
+        && let Some(exe_dir) = exe_path.parent()
+    {
+        let portable_data_dir = exe_dir.join("data").join("phase1");
+        if portable_data_dir.exists() {
+            return Ok(portable_data_dir);
         }
     }
 
-    let dev_data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let dev_data_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../../data/phase1")
         .canonicalize()
         .ok();
@@ -185,4 +210,19 @@ fn resolve_data_dir(app: &tauri::App) -> Result<PathBuf, errors::AppError> {
         .map_err(|err| errors::AppError::new(format!("failed to resolve resource dir: {err}")))?;
     let bundled = resource_dir.join("data").join("phase1");
     Ok(bundled)
+}
+
+#[cfg(test)]
+mod release_data_tests {
+    use super::load_embedded_data_manifest;
+
+    #[test]
+    fn standalone_release_snapshot_and_manifest_are_complete() {
+        let data = er_optimizer_core::load_embedded_game_data().expect("embedded data loads");
+        let manifest = load_embedded_data_manifest().expect("embedded manifest loads");
+        assert!(data.weapons.len() > 3000);
+        assert!(data.aows.len() > 100);
+        assert!(!manifest.id.is_empty());
+        assert!(!manifest.app_version.is_empty());
+    }
 }

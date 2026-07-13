@@ -10,7 +10,7 @@ import {
   scadutreeDamageNegation,
   scadutreeReceivedDamageMultiplier,
 } from "../../lib/scadutree";
-import { classMeta, classOptions, derivedLevel } from "../../lib/session";
+import { classMeta, classOptions, derivedLevel, stableSignature } from "../../lib/session";
 import { objectiveOptions, useDesktopStore } from "../../lib/state";
 import { OptimizeRequestDto, SearchFinishedDto, SearchProgressDto } from "../../lib/types";
 
@@ -41,7 +41,9 @@ export function CommandRail() {
   const clearResults = useDesktopStore((state) => state.clearResults);
   const setError = useDesktopStore((state) => state.setError);
   const setSearching = useDesktopStore((state) => state.setSearching);
+  const beginSearch = useDesktopStore((state) => state.beginSearch);
   const isSearching = useDesktopStore((state) => state.isSearching);
+  const searchGeneration = useDesktopStore((state) => state.searchGeneration);
   const activeJobId = useDesktopStore((state) => state.activeJobId);
   const progress = useDesktopStore((state) => state.progress);
   const setActiveJobId = useDesktopStore((state) => state.setActiveJobId);
@@ -117,6 +119,7 @@ export function CommandRail() {
   useSearchJob({
     activeJobId,
     isSearching,
+    generation: searchGeneration,
     setProgress,
     finish: finishSearch,
   });
@@ -133,55 +136,97 @@ export function CommandRail() {
   }, [isSearching, searchStartedAt]);
 
   async function runSearch() {
+    const signature = stableSignature(apiRequest);
+    const generation = beginSearch(signature);
     searchCancellationRequestedRef.current = false;
-    setSearching(true);
     setSearchCancellationRequested(false);
     setSearchStartedAt(Date.now());
     setError(null);
     setProgress(null);
     try {
-      const nextEstimate = await api.estimateSearchSpace(apiRequest);
-      if (searchCancellationRequestedRef.current) {
-        clearResults("Search stopped.");
-        setSearching(false);
-        setSearchStartedAt(null);
-        setSearchCancellationRequested(false);
-        searchCancellationRequestedRef.current = false;
-        return;
-      }
-      setEstimate(nextEstimate);
-      if (nextEstimate.combinations <= 0) {
-        clearResults("No valid search space for current constraints.");
-        setSearching(false);
-        setSearchStartedAt(null);
-        setSearchCancellationRequested(false);
-        return;
-      }
       if (hasTauriRuntime()) {
-        const { jobId } = await api.startSearch(apiRequest);
+        const { jobId, estimate: nextEstimate } = await api.startSearch(apiRequest);
+        const afterStart = useDesktopStore.getState();
+        if (
+          afterStart.searchGeneration !== generation ||
+          afterStart.activeSearchSignature !== signature
+        ) {
+          await api.cancelSearch(jobId);
+          return;
+        }
+        setEstimate(nextEstimate);
+        if (nextEstimate.combinations <= 0) {
+          await api.cancelSearch(jobId);
+          clearResults("No valid search space for current constraints.");
+          setSearching(false);
+          setSearchStartedAt(null);
+          setSearchCancellationRequested(false);
+          return;
+        }
         setActiveJobId(jobId);
         if (searchCancellationRequestedRef.current) {
           await api.cancelSearch(jobId);
           return;
         }
       } else {
+        const nextEstimate = await api.estimateSearchSpace(apiRequest);
+        const afterEstimate = useDesktopStore.getState();
+        if (
+          afterEstimate.searchGeneration !== generation ||
+          afterEstimate.activeSearchSignature !== signature
+        ) {
+          return;
+        }
+        if (searchCancellationRequestedRef.current) {
+          clearResults("Search stopped.");
+          setSearching(false);
+          setSearchStartedAt(null);
+          setSearchCancellationRequested(false);
+          searchCancellationRequestedRef.current = false;
+          return;
+        }
+        setEstimate(nextEstimate);
+        if (nextEstimate.combinations <= 0) {
+          clearResults("No valid search space for current constraints.");
+          setSearching(false);
+          setSearchStartedAt(null);
+          setSearchCancellationRequested(false);
+          return;
+        }
         const rows = await api.runSearch(apiRequest);
+        const afterSearch = useDesktopStore.getState();
+        if (
+          afterSearch.searchGeneration !== generation ||
+          afterSearch.activeSearchSignature !== signature
+        ) {
+          return;
+        }
         setRows(rows);
         setSearching(false);
         setSearchStartedAt(null);
         setSearchCancellationRequested(false);
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
-      setSearching(false);
-      setSearchStartedAt(null);
-      setSearchCancellationRequested(false);
+      const current = useDesktopStore.getState();
+      if (
+        current.searchGeneration === generation &&
+        current.activeSearchSignature === signature
+      ) {
+        setError(error instanceof Error ? error.message : String(error));
+        setSearching(false);
+        setSearchStartedAt(null);
+        setSearchCancellationRequested(false);
+      }
     }
   }
 
-  function finishSearch(payload: SearchFinishedDto) {
+  function finishSearch(payload: SearchFinishedDto, generation: number) {
     const current = useDesktopStore.getState();
-    if (current.activeJobId && payload.jobId !== current.activeJobId) return;
+    if (
+      generation !== current.searchGeneration ||
+      !current.activeSearchSignature ||
+      payload.jobId !== current.activeJobId
+    ) return;
     if (payload.error) current.setError(payload.error);
     if (payload.cancelled) current.clearResults("Search stopped.");
     else current.setRows(payload.rows);

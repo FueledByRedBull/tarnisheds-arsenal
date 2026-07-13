@@ -263,6 +263,12 @@ def to_float(attrs: dict[str, str], key: str, default: float = 0.0) -> float:
     return float(raw)
 
 
+def object_to_int(value: object) -> int:
+    if isinstance(value, (int, float, str)):
+        return int(value)
+    raise TypeError(f"expected an integer-compatible value, got {type(value).__name__}")
+
+
 def normalize_percent(value: float) -> float:
     return value / 100.0
 
@@ -509,7 +515,9 @@ def build_reinforce_rows(
             }
         )
 
-    rows_out.sort(key=lambda item: (int(item["reinforce_type"]), int(item["level"])))
+    rows_out.sort(
+        key=lambda item: (object_to_int(item["reinforce_type"]), object_to_int(item["level"]))
+    )
     return rows_out, max_level_by_type
 
 
@@ -529,7 +537,7 @@ def build_attack_element_rows(
                 out_row[f"{stat_key}_scales_{damage_name}"] = to_int(row, field, 0)
         rows_out.append(out_row)
 
-    rows_out.sort(key=lambda item: int(item["attack_element_correct_id"]))
+    rows_out.sort(key=lambda item: object_to_int(item["attack_element_correct_id"]))
     return rows_out, attack_map
 
 
@@ -626,7 +634,7 @@ def build_weapon_rows(
             }
         )
 
-    rows_out.sort(key=lambda item: int(item["weapon_id"]))
+    rows_out.sort(key=lambda item: object_to_int(item["weapon_id"]))
     return rows_out
 
 
@@ -643,7 +651,7 @@ def build_calc_correct_rows(curve_rows: list[dict[str, str]]) -> list[dict[str, 
                     "multiplier": multiplier,
                 }
             )
-    rows_out.sort(key=lambda item: (int(item["curve_id"]), int(item["stat_value"])))
+    rows_out.sort(key=lambda item: (object_to_int(item["curve_id"]), object_to_int(item["stat_value"])))
     return rows_out
 
 
@@ -727,7 +735,7 @@ def build_aow_rows(
             }
         )
 
-    rows_out.sort(key=lambda item: int(item["aow_id"]))
+    rows_out.sort(key=lambda item: object_to_int(item["aow_id"]))
     return rows_out
 
 
@@ -922,8 +930,8 @@ def main() -> int:
     from tools.phase1.extract_motion_workbook import run_workbook_exports
 
     export_regulation_extras(
-        weapon_csv_rows=weapon_csv_rows,
-        reinforce_csv_rows=reinforce_csv_rows,
+        weapon_csv_rows=[{key: str(value) for key, value in row.items()} for row in weapon_csv_rows],
+        reinforce_csv_rows=[{key: str(value) for key, value in row.items()} for row in reinforce_csv_rows],
         weapon_param_rows={to_int(row, "id"): row for row in context.weapon_rows},
         reinforce_param_rows={to_int(row, "id"): row for row in context.reinforce_rows},
         gem_rows=context.aow_rows,

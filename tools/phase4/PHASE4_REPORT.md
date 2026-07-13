@@ -31,23 +31,28 @@ This is now a gated release command: it runs core and Tauri `cargo test`, builds
 
 Generated:
 
-`dist/TarnishedsArsenal_<version>`
+- `dist/TarnishedsArsenal_<version>`
+- `dist/TarnishedsArsenal_<version>.zip`
 
-Contents:
+Release-directory contents:
 - Windows MSI installer
-- Portable executable
-- `data/phase1` portable runtime data
+- Self-contained standalone executable
+- SHA-256 checksums
+- Machine-readable build report with commit, data snapshot, artifact hashes, and gates
 - `LICENSE`
 - `README.md`
+
+The ZIP is a versioned archive of that complete release directory.
 
 ## Clean Install/Run Check
 
 ```powershell
 python tools/phase4/package_release.py
-Start-Process dist/TarnishedsArsenal_<version>/tarnisheds-arsenal-desktop.exe
+Start-Process dist/TarnishedsArsenal_<version>/TarnishedsArsenal_<version>_portable.exe
 ```
 
-The Tauri bundle loads the committed `data/phase1` snapshot as an app resource.
+Release builds load one complete compile-time snapshot. The MSI and standalone
+executable do not require external runtime data.
 
 ## Optimizer Search Model
 

@@ -72,32 +72,42 @@ jobs:
 
       - name: Build Tauri release package
         run: |
-          python tools/phase4/package_release.py --skip-validation
+          python tools/phase4/package_release.py
 
       - name: Prepare release assets
         run: |
           $releaseDir = Get-Item "dist/TarnishedsArsenal_$env:RELEASE_VERSION"
           if (-not $releaseDir) { throw "No release directory found in dist" }
+          $zipPath = Join-Path "dist" "TarnishedsArsenal_$env:RELEASE_VERSION.zip"
           $assetDir = "dist/release-assets"
           New-Item -ItemType Directory -Force $assetDir | Out-Null
 
-          $zipPath = Join-Path "dist" "$($releaseDir.Name).zip"
-          if (-not (Test-Path $zipPath)) { throw "No release zip found at $zipPath" }
           $exePath = Get-ChildItem $releaseDir.FullName -Filter "*.exe" | Sort-Object LastWriteTime | Select-Object -Last 1
           $msiPath = Get-ChildItem $releaseDir.FullName -Filter "*.msi" | Sort-Object LastWriteTime | Select-Object -Last 1
+          $checksumsPath = Join-Path $releaseDir.FullName "SHA256SUMS.txt"
+          $reportPath = Join-Path $releaseDir.FullName "build-report.json"
           if (-not $exePath) { throw "No portable executable found in $($releaseDir.FullName)" }
           if (-not $msiPath) { throw "No MSI found in $($releaseDir.FullName)" }
+          if (-not (Test-Path $zipPath)) { throw "No release archive found at $zipPath" }
+          if (-not (Test-Path $checksumsPath)) { throw "No checksum file found in $($releaseDir.FullName)" }
+          if (-not (Test-Path $reportPath)) { throw "No build report found in $($releaseDir.FullName)" }
 
-          $zipUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION.zip"
           $exeUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION`_portable.exe"
           $msiUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION`_x64_en-US.msi"
-          Copy-Item -LiteralPath $zipPath -Destination $zipUpload -Force
+          $zipUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION.zip"
+          $checksumsUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION`_SHA256SUMS.txt"
+          $reportUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION`_build-report.json"
           Copy-Item -LiteralPath $exePath.FullName -Destination $exeUpload -Force
           Copy-Item -LiteralPath $msiPath.FullName -Destination $msiUpload -Force
+          Copy-Item -LiteralPath $zipPath -Destination $zipUpload -Force
+          Copy-Item -LiteralPath $checksumsPath -Destination $checksumsUpload -Force
+          Copy-Item -LiteralPath $reportPath -Destination $reportUpload -Force
 
-          "RELEASE_ZIP=$zipUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "RELEASE_EXE=$exeUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "RELEASE_MSI=$msiUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "RELEASE_ZIP=$zipUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "RELEASE_CHECKSUMS=$checksumsUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "RELEASE_REPORT=$reportUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Prepare release notes
         run: |
@@ -138,8 +148,12 @@ jobs:
           name: Tarnished's Arsenal ${{ github.ref_name }}
           body_path: ${{ env.RELEASE_NOTES }}
           generate_release_notes: false
-          overwrite_files: true
+          overwrite_files: false
+          fail_on_unmatched_files: true
+          make_latest: true
           files: |
-            ${{ env.RELEASE_ZIP }}
             ${{ env.RELEASE_EXE }}
             ${{ env.RELEASE_MSI }}
+            ${{ env.RELEASE_ZIP }}
+            ${{ env.RELEASE_CHECKSUMS }}
+            ${{ env.RELEASE_REPORT }}

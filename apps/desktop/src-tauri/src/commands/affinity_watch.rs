@@ -228,6 +228,17 @@ fn build_affinity_watch_inner(
                 solved,
             });
             checked = checked.saturating_add(1);
+            if checked == total
+                && !progress_cb(AffinityWatchProgressDto {
+                    job_id: String::new(),
+                    checked,
+                    total,
+                    affinity: affinity.clone(),
+                    level: *level,
+                })
+            {
+                return Err(AppError::new("cancelled"));
+            }
         }
         let valid: Vec<&AffinityWatchPointDto> = points
             .iter()
@@ -284,10 +295,10 @@ fn detect_breakpoints(
     for level in levels {
         let mut contenders = Vec::new();
         for line in lines {
-            if let Some(point) = line.points.iter().find(|point| point.level == *level) {
-                if let Some(solved) = point.solved.as_ref() {
-                    contenders.push(solved);
-                }
+            if let Some(point) = line.points.iter().find(|point| point.level == *level)
+                && let Some(solved) = point.solved.as_ref()
+            {
+                contenders.push(solved);
             }
         }
         let Some(leader) = contenders
@@ -296,18 +307,18 @@ fn detect_breakpoints(
         else {
             continue;
         };
-        if let Some(previous) = leader_affinity.as_ref() {
-            if previous != &leader.affinity {
-                let outgoing = metric_at(lines, previous, *level);
-                let incoming = metric_at(lines, &leader.affinity, *level);
-                breakpoints.push(AffinityBreakpointDto {
-                    level: *level,
-                    outgoing_affinity: previous.clone(),
-                    incoming_affinity: leader.affinity.clone(),
-                    outgoing_metric: outgoing,
-                    incoming_metric: incoming,
-                });
-            }
+        if let Some(previous) = leader_affinity.as_ref()
+            && previous != &leader.affinity
+        {
+            let outgoing = metric_at(lines, previous, *level);
+            let incoming = metric_at(lines, &leader.affinity, *level);
+            breakpoints.push(AffinityBreakpointDto {
+                level: *level,
+                outgoing_affinity: previous.clone(),
+                incoming_affinity: leader.affinity.clone(),
+                outgoing_metric: outgoing,
+                incoming_metric: incoming,
+            });
         }
         leader_affinity = Some(leader.affinity.clone());
     }

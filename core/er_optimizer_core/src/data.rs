@@ -9,6 +9,8 @@ use crate::model::{
     StatusEffectSource, Weapon,
 };
 
+const EMBEDDED_DATA_ROOT: &str = "__er_optimizer_embedded_snapshot__";
+
 #[derive(Clone, Copy, Debug, Default)]
 struct AowBuffRow {
     buff_attack_power: [f32; DAMAGE_TYPE_COUNT],
@@ -23,6 +25,11 @@ struct CsvTable {
 
 impl CsvTable {
     fn from_path(path: &Path) -> Result<Self, String> {
+        if path.starts_with(EMBEDDED_DATA_ROOT) {
+            let content = embedded_csv_for_path(path)
+                .ok_or_else(|| format!("missing embedded CSV: {}", csv_file_name(path)))?;
+            return Self::from_content(format!("embedded:{}", csv_file_name(path)), content);
+        }
         let content = match fs::read_to_string(path) {
             Ok(content) => content,
             Err(err) if err.kind() == ErrorKind::NotFound => {
@@ -40,6 +47,13 @@ impl CsvTable {
     }
 
     fn from_optional_path(path: &Path) -> Result<Option<Self>, String> {
+        if path.starts_with(EMBEDDED_DATA_ROOT) {
+            return embedded_csv_for_path(path)
+                .map(|content| {
+                    Self::from_content(format!("embedded:{}", csv_file_name(path)), content)
+                })
+                .transpose();
+        }
         if path.exists() {
             return Self::from_path(path).map(Some);
         }
@@ -200,6 +214,10 @@ pub fn load_game_data(data_dir: impl AsRef<Path>) -> Result<GameData, String> {
     })
 }
 
+pub fn load_embedded_game_data() -> Result<GameData, String> {
+    load_game_data(EMBEDDED_DATA_ROOT)
+}
+
 fn load_weapons(path: PathBuf) -> Result<Vec<Weapon>, String> {
     let table = CsvTable::from_path(&path)?;
     let mut out = Vec::with_capacity(table.rows.len());
@@ -341,10 +359,10 @@ fn load_reinforce(path: PathBuf) -> Result<Vec<Vec<Option<ReinforceLevel>>>, Str
         reinforce[*reinforce_type] = vec![None; *max_level + 1];
     }
     for (reinforce_type, level, value) in entries {
-        if let Some(levels) = reinforce.get_mut(reinforce_type) {
-            if level < levels.len() {
-                levels[level] = Some(value);
-            }
+        if let Some(levels) = reinforce.get_mut(reinforce_type)
+            && level < levels.len()
+        {
+            levels[level] = Some(value);
         }
     }
     Ok(reinforce)
@@ -791,7 +809,15 @@ fn load_exact_aow_compat_optional(path: PathBuf) -> Result<HashSet<(u16, u32)>, 
 
 #[cfg(test)]
 mod tests {
-    use super::load_game_data;
+    use super::{load_embedded_game_data, load_game_data};
+
+    #[test]
+    fn explicit_embedded_snapshot_loads_all_runtime_tables() {
+        let data = load_embedded_game_data().expect("embedded snapshot loads");
+        assert!(data.weapons.len() > 3000);
+        assert!(data.aows.len() > 100);
+        assert!(!data.exact_aow_compat.is_empty());
+    }
 
     #[test]
     fn load_game_data_falls_back_to_embedded_csvs() {

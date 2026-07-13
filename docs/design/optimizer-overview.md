@@ -67,5 +67,7 @@ stay deterministic.
 
 CI validates Rust, DTO, data, Python binding, frontend build, and e2e contract
 coverage. Tag pushes matching `v<app version>` run the release workflow, which
-builds the Tauri package, prepares MSI/portable/zip assets, and publishes the
-GitHub release with notes from `docs/release-notes`.
+builds the Tauri package and publishes an MSI, self-contained standalone
+executable, convenience ZIP, SHA-256 checksums, and build provenance. Manual
+workflow runs build artifacts but never publish a GitHub release. Release notes
+come from `docs/release-notes`.

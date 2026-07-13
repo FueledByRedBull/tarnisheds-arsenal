@@ -21,50 +21,7 @@ pub fn build_path_preview(
     request: PathPreviewRequestDto,
     state: State<'_, AppState>,
 ) -> Result<PathPreviewDto, AppError> {
-    validate_levels_ahead(request.levels_ahead)?;
-    let start_state = request.solved.stats;
-    let mut steps = vec![evaluate_step(
-        &request.base,
-        &request.solved.weapon_name,
-        &request.solved.affinity,
-        request.solved.aow_name.as_deref(),
-        request.solved.upgrade,
-        request.solved.is_somber,
-        request.base.character_level,
-        start_state,
-        None,
-        &state,
-    )?];
-
-    let target_level = request
-        .base
-        .character_level
-        .saturating_add(request.levels_ahead);
-    let target = path_target_build(&request, target_level, &state)?;
-    let Some(target) = target else {
-        return Ok(PathPreviewDto {
-            title: request.title,
-            solved: request.solved,
-            steps,
-        });
-    };
-
-    let mut current_state = start_state;
-    for delta in 1..=request.levels_ahead {
-        let level = request.base.character_level.saturating_add(delta);
-        let Some(next) = choose_next_step(&request, level, current_state, target.stats, &state)?
-        else {
-            break;
-        };
-        current_state = next.stats;
-        steps.push(next);
-    }
-
-    Ok(PathPreviewDto {
-        title: request.title,
-        solved: request.solved,
-        steps,
-    })
+    build_path_preview_inner(request, &state, |_| true)
 }
 
 #[tauri::command]
@@ -107,27 +64,44 @@ pub fn start_path_preview(
             affinity_jobs: Arc::new(JobRegistry::new("affinity watch")),
             next_job: Default::default(),
         };
-        let total = request.requests.len().max(1) as u64;
+        let total = request
+            .requests
+            .iter()
+            .map(|lane| 3_u64.saturating_add(u64::from(lane.levels_ahead).saturating_mul(6)))
+            .sum::<u64>()
+            .max(1);
+        let mut checked = 0_u64;
         let mut paths = Vec::new();
         let mut error = None;
         let mut cancelled = false;
-        for (idx, lane) in request.requests.into_iter().enumerate() {
+        for lane in request.requests {
             if cancel_flag.load(Ordering::Relaxed) {
                 cancelled = true;
                 break;
             }
-            let progress = PathProgressDto {
-                job_id: job_id_for_task.clone(),
-                checked: idx as u64,
-                total,
-                title: lane.title.clone(),
-                level: lane.base.character_level,
-            };
-            if let Ok(mut guard) = status.lock() {
-                guard.progress = Some(progress.clone());
-            }
-            match build_path_preview_inner(lane, &task_state) {
+            let title = lane.title.clone();
+            match build_path_preview_inner(lane, &task_state, |level| {
+                if cancel_flag.load(Ordering::Relaxed) {
+                    return false;
+                }
+                let progress = PathProgressDto {
+                    job_id: job_id_for_task.clone(),
+                    checked,
+                    total,
+                    title: title.clone(),
+                    level,
+                };
+                checked = checked.saturating_add(1);
+                if let Ok(mut guard) = status.lock() {
+                    guard.progress = Some(progress);
+                }
+                true
+            }) {
                 Ok(path) => paths.push(path),
+                Err(err) if err.message == "cancelled" => {
+                    cancelled = true;
+                    break;
+                }
                 Err(err) => {
                     error = Some(err.message);
                     break;
@@ -166,9 +140,13 @@ pub fn get_path_preview_status(
 fn build_path_preview_inner(
     request: PathPreviewRequestDto,
     state: &AppState,
+    mut continue_cb: impl FnMut(u16) -> bool,
 ) -> Result<PathPreviewDto, AppError> {
     validate_levels_ahead(request.levels_ahead)?;
     let start_state = request.solved.stats;
+    if !continue_cb(request.base.character_level) {
+        return Err(AppError::new("cancelled"));
+    }
     let mut steps = vec![evaluate_step(
         &request.base,
         &request.solved.weapon_name,
@@ -186,7 +164,13 @@ fn build_path_preview_inner(
         .base
         .character_level
         .saturating_add(request.levels_ahead);
+    if !continue_cb(target_level) {
+        return Err(AppError::new("cancelled"));
+    }
     let target = path_target_build(&request, target_level, state)?;
+    if !continue_cb(target_level) {
+        return Err(AppError::new("cancelled"));
+    }
     let Some(target) = target else {
         return Ok(PathPreviewDto {
             title: request.title,
@@ -198,7 +182,14 @@ fn build_path_preview_inner(
     let mut current_state = start_state;
     for delta in 1..=request.levels_ahead {
         let level = request.base.character_level.saturating_add(delta);
-        let Some(next) = choose_next_step(&request, level, current_state, target.stats, state)?
+        let Some(next) = choose_next_step(
+            &request,
+            level,
+            current_state,
+            target.stats,
+            state,
+            &mut continue_cb,
+        )?
         else {
             break;
         };
@@ -245,6 +236,7 @@ fn choose_next_step(
     current_state: CombatStateDto,
     target_state: CombatStateDto,
     state: &AppState,
+    continue_cb: &mut impl FnMut(u16) -> bool,
 ) -> Result<Option<PathStepDto>, AppError> {
     let mut candidates = Vec::new();
     for stat in ["str", "dex", "int", "fai", "arc"] {
@@ -254,6 +246,9 @@ fn choose_next_step(
         let Some(next_state) = add_point(current_state, stat) else {
             continue;
         };
+        if !continue_cb(level) {
+            return Err(AppError::new("cancelled"));
+        }
         candidates.push(evaluate_step(
             &request.base,
             &request.solved.weapon_name,
@@ -267,10 +262,14 @@ fn choose_next_step(
             state,
         )?);
     }
+    if !continue_cb(level) {
+        return Err(AppError::new("cancelled"));
+    }
     candidates.sort_by(compare_steps);
     Ok(candidates.pop())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn evaluate_step(
     base: &crate::dto::OptimizeRequestDto,
     weapon_name: &str,

@@ -75,6 +75,11 @@ export interface SearchEstimateDto {
   combinations: number;
 }
 
+export interface StartSearchResponseDto {
+  jobId: string;
+  estimate: SearchEstimateDto;
+}
+
 export interface SolvedBuildDto {
   weaponId: number;
   weaponName: string;

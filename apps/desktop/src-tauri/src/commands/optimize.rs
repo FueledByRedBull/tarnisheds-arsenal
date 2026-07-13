@@ -3,14 +3,14 @@ use std::sync::atomic::Ordering;
 
 use er_optimizer_core::{
     OptimizeRequest, estimate_search_space as core_estimate_search_space, optimize,
-    optimize_with_progress,
+    optimize_prepared_with_progress, prepare_search,
 };
 use tauri::{AppHandle, State};
 
 use crate::commands::data::weapon_upgrade_cap;
 use crate::dto::{
     SearchEstimateDto, SearchFinishedDto, SearchJobStatusDto, SearchProgressDto,
-    SolveBuildRequestDto, SolvedBuildDto, StartSearchResponseDto, UpgradePointDto,
+    SolveBuildRequestDto, SolvedBuildDto, StartOptimizationResponseDto, UpgradePointDto,
     UpgradeSeriesRequestDto, lock_request_to_stats, metric_for_objective, parse_objective,
 };
 use crate::errors::AppError;
@@ -110,7 +110,7 @@ pub fn start_search(
     mut request: crate::dto::OptimizeRequestDto,
     _app: AppHandle,
     state: State<'_, AppState>,
-) -> Result<StartSearchResponseDto, AppError> {
+) -> Result<StartOptimizationResponseDto, AppError> {
     clamp_weapon_upgrade_request(&mut request, &state)?;
     let core_request = OptimizeRequest::try_from(&request)?;
     let data = Arc::clone(&state.data);
@@ -131,9 +131,37 @@ pub fn start_search(
     )?;
 
     let job_id_for_task = job_id.clone();
+    let (estimate_tx, estimate_rx) = std::sync::mpsc::sync_channel(1);
     tauri::async_runtime::spawn_blocking(move || {
         let progress_job_id = job_id_for_task.clone();
-        let result = optimize_with_progress(&core_request, &data, 10_000, |snapshot| {
+        let plan = match prepare_search(&core_request, &data) {
+            Ok(plan) => plan,
+            Err(message) => {
+                let _ = estimate_tx.send(Err(message.clone()));
+                if let Ok(mut guard) = status.lock() {
+                    guard.finished = Some(SearchFinishedDto {
+                        job_id: job_id_for_task,
+                        cancelled: false,
+                        rows: Vec::new(),
+                        error: Some(message),
+                    });
+                }
+                return;
+            }
+        };
+        let estimate = plan.estimate();
+        if estimate_tx.send(Ok(estimate)).is_err() {
+            if let Ok(mut guard) = status.lock() {
+                guard.finished = Some(SearchFinishedDto {
+                    job_id: job_id_for_task,
+                    cancelled: true,
+                    rows: Vec::new(),
+                    error: None,
+                });
+            }
+            return;
+        }
+        let result = optimize_prepared_with_progress(&plan, 10_000, |snapshot| {
             if cancel_flag.load(Ordering::Relaxed) {
                 return false;
             }
@@ -165,7 +193,14 @@ pub fn start_search(
         }
     });
 
-    Ok(StartSearchResponseDto { job_id })
+    let estimate = estimate_rx
+        .recv()
+        .map_err(|_| AppError::new("search preparation stopped before returning an estimate"))?
+        .map_err(AppError::from)?;
+    Ok(StartOptimizationResponseDto {
+        job_id,
+        estimate: SearchEstimateDto::from(estimate),
+    })
 }
 
 #[tauri::command]

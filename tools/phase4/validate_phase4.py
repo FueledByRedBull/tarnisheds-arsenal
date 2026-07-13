@@ -8,7 +8,7 @@ import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 
 @dataclass(frozen=True)
@@ -1262,12 +1262,6 @@ def validate_runtime_ar(data_dir: Path) -> list[ValidationIssue]:
 def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
     if not (project_root / "ui" / "desktop" / "app.py").exists():
-        issues.append(
-            ValidationIssue(
-                "warning",
-                "PyQt level path checks skipped: retired desktop UI is local-only and not tracked",
-            )
-        )
         return issues
     try:
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -1845,7 +1839,7 @@ def validate_level_paths(project_root: Path) -> list[ValidationIssue]:
     return issues
 
 
-def _path_signature(previews: list[object]) -> list[tuple[str, tuple[tuple[object, int, int, int, int, int], ...]]]:
+def _path_signature(previews: list[Any]) -> list[tuple[str, tuple[tuple[object, int, int, int, int, int], ...]]]:
     signatures: list[tuple[str, tuple[tuple[object, int, int, int, int, int], ...]]] = []
     for preview in previews:
         signatures.append(
@@ -1868,7 +1862,7 @@ def _path_signature(previews: list[object]) -> list[tuple[str, tuple[tuple[objec
 
 
 def _affinity_watch_signature(
-    lines: list[object],
+    lines: list[Any],
 ) -> list[tuple[str, tuple[tuple[int, float | None, str | None], ...]]]:
     return [
         (
@@ -1886,7 +1880,7 @@ def _affinity_watch_signature(
     ]
 
 
-def _breakpoint_signature(breakpoints: list[object]) -> list[tuple[int, str, str]]:
+def _breakpoint_signature(breakpoints: list[Any]) -> list[tuple[int, str, str]]:
     return [
         (int(breakpoint.level), str(breakpoint.outgoing_affinity), str(breakpoint.incoming_affinity))
         for breakpoint in breakpoints

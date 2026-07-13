@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, hasTauriRuntime } from "./api";
 import { cachedWeaponProfile } from "./analysis-cache";
 import { buildOptimizeRequest, budgetSnapshot } from "./session";
-import { useDesktopStore } from "./state";
 import {
   AffinityWatchFinishedDto,
   AffinityWatchProgressDto,
@@ -75,151 +74,214 @@ export function useWeaponProfile(
 export function useSearchJob(options: {
   activeJobId: string | null;
   isSearching: boolean;
+  generation: number;
   setProgress: (progress: SearchProgressDto | null) => void;
-  finish: (payload: SearchFinishedDto) => void;
+  finish: (payload: SearchFinishedDto, generation: number) => void;
 }) {
-  const { activeJobId, isSearching, setProgress, finish } = options;
+  const { activeJobId, isSearching, generation, setProgress, finish } = options;
+  const setProgressRef = useRef(setProgress);
+  const finishRef = useRef(finish);
+  setProgressRef.current = setProgress;
+  finishRef.current = finish;
 
   useEffect(() => {
     if (!activeJobId || !isSearching) return undefined;
+    const jobId = activeJobId;
     let disposed = false;
+    let finished = false;
+    let timer: number | undefined;
+
+    function schedule() {
+      if (!disposed && !finished) {
+        timer = window.setTimeout(() => void pollSearchStatus(), 200);
+      }
+    }
 
     async function pollSearchStatus() {
       try {
-        const currentJobId = useDesktopStore.getState().activeJobId;
-        if (!currentJobId) return;
-        const status = await api.searchStatus(currentJobId);
+        const status = await api.searchStatus(jobId);
         if (disposed) return;
         if (!status) {
-          finish({
-            jobId: currentJobId,
+          finished = true;
+          finishRef.current({
+            jobId,
             cancelled: true,
             rows: [],
             error: "Search job disappeared before returning a result.",
-          });
+          }, generation);
           return;
         }
-        if (status.progress) setProgress(status.progress);
-        if (status.finished) finish(status.finished);
+        if (status.progress?.jobId === jobId) setProgressRef.current(status.progress);
+        if (status.finished?.jobId === jobId) {
+          finished = true;
+          finishRef.current(status.finished, generation);
+          return;
+        }
+        schedule();
       } catch (error) {
         if (!disposed) {
-          finish({
-            jobId: useDesktopStore.getState().activeJobId ?? "search",
+          finished = true;
+          finishRef.current({
+            jobId,
             cancelled: false,
             rows: [],
             error: error instanceof Error ? error.message : String(error),
-          });
+          }, generation);
         }
       }
     }
 
     void pollSearchStatus();
-    const interval = window.setInterval(pollSearchStatus, 200);
     return () => {
       disposed = true;
-      window.clearInterval(interval);
+      if (timer !== undefined) window.clearTimeout(timer);
+      if (!finished && hasTauriRuntime()) void api.cancelSearch(jobId).catch(() => undefined);
     };
-  }, [activeJobId, finish, isSearching, setProgress]);
+  }, [activeJobId, generation, isSearching]);
 }
 
 export function usePathJob(options: {
   activePathJobId: string | null;
   isPathBusy: boolean;
+  generation: number;
   setPathProgress: (progress: PathProgressDto | null) => void;
-  finish: (payload: PathFinishedDto) => void;
+  finish: (payload: PathFinishedDto, generation: number) => void;
 }) {
-  const { activePathJobId, isPathBusy, setPathProgress, finish } = options;
+  const { activePathJobId, isPathBusy, generation, setPathProgress, finish } = options;
+  const setProgressRef = useRef(setPathProgress);
+  const finishRef = useRef(finish);
+  setProgressRef.current = setPathProgress;
+  finishRef.current = finish;
 
   useEffect(() => {
     if (!activePathJobId || !isPathBusy) return undefined;
+    const jobId = activePathJobId;
     let disposed = false;
+    let finished = false;
+    let timer: number | undefined;
+
+    function schedule() {
+      if (!disposed && !finished) {
+        timer = window.setTimeout(() => void pollPathStatus(), 200);
+      }
+    }
 
     async function pollPathStatus() {
       try {
-        const currentJobId = useDesktopStore.getState().activePathJobId;
-        if (!currentJobId) return;
-        const status = await api.pathPreviewStatus(currentJobId);
+        const status = await api.pathPreviewStatus(jobId);
         if (disposed) return;
         if (!status) {
-          finish({
-            jobId: currentJobId,
+          finished = true;
+          finishRef.current({
+            jobId,
             cancelled: true,
             paths: [],
             error: "Path job disappeared before returning a result.",
-          });
+          }, generation);
           return;
         }
-        if (status.progress) setPathProgress(status.progress);
-        if (status.finished) finish(status.finished);
+        if (status.progress?.jobId === jobId) setProgressRef.current(status.progress);
+        if (status.finished?.jobId === jobId) {
+          finished = true;
+          finishRef.current(status.finished, generation);
+          return;
+        }
+        schedule();
       } catch (error) {
         if (!disposed) {
-          finish({
-            jobId: useDesktopStore.getState().activePathJobId ?? "path",
+          finished = true;
+          finishRef.current({
+            jobId,
             cancelled: false,
             paths: [],
             error: error instanceof Error ? error.message : String(error),
-          });
+          }, generation);
         }
       }
     }
 
     void pollPathStatus();
-    const interval = window.setInterval(pollPathStatus, 200);
     return () => {
       disposed = true;
-      window.clearInterval(interval);
+      if (timer !== undefined) window.clearTimeout(timer);
+      if (!finished && hasTauriRuntime()) {
+        void api.cancelPathPreview(jobId).catch(() => undefined);
+      }
     };
-  }, [activePathJobId, finish, isPathBusy, setPathProgress]);
+  }, [activePathJobId, generation, isPathBusy]);
 }
 
 export function useAffinityJob(options: {
   activeAffinityJobId: string | null;
   isAffinityBusy: boolean;
+  generation: number;
   setAffinityProgress: (progress: AffinityWatchProgressDto | null) => void;
-  finish: (payload: AffinityWatchFinishedDto) => void;
+  finish: (payload: AffinityWatchFinishedDto, generation: number) => void;
 }) {
-  const { activeAffinityJobId, isAffinityBusy, setAffinityProgress, finish } = options;
+  const { activeAffinityJobId, isAffinityBusy, generation, setAffinityProgress, finish } = options;
+  const setProgressRef = useRef(setAffinityProgress);
+  const finishRef = useRef(finish);
+  setProgressRef.current = setAffinityProgress;
+  finishRef.current = finish;
 
   useEffect(() => {
     if (!activeAffinityJobId || !isAffinityBusy) return undefined;
+    const jobId = activeAffinityJobId;
     let disposed = false;
+    let finished = false;
+    let timer: number | undefined;
+
+    function schedule() {
+      if (!disposed && !finished) {
+        timer = window.setTimeout(() => void pollAffinityStatus(), 200);
+      }
+    }
 
     async function pollAffinityStatus() {
       try {
-        const currentJobId = useDesktopStore.getState().activeAffinityJobId;
-        if (!currentJobId) return;
-        const status = await api.affinityWatchStatus(currentJobId);
+        const status = await api.affinityWatchStatus(jobId);
         if (disposed) return;
         if (!status) {
-          finish({
-            jobId: currentJobId,
+          finished = true;
+          finishRef.current({
+            jobId,
             cancelled: true,
             payload: null,
             error: "Affinity watch job disappeared before returning a result.",
-          });
+          }, generation);
           return;
         }
-        if (status.progress) setAffinityProgress(status.progress);
-        if (status.finished) finish(status.finished);
+        if (status.progress?.jobId === jobId) {
+          setProgressRef.current(status.progress);
+        }
+        if (status.finished?.jobId === jobId) {
+          finished = true;
+          finishRef.current(status.finished, generation);
+          return;
+        }
+        schedule();
       } catch (error) {
         if (!disposed) {
-          finish({
-            jobId: useDesktopStore.getState().activeAffinityJobId ?? "affinity",
+          finished = true;
+          finishRef.current({
+            jobId,
             cancelled: false,
             payload: null,
             error: error instanceof Error ? error.message : String(error),
-          });
+          }, generation);
         }
       }
     }
 
     void pollAffinityStatus();
-    const interval = window.setInterval(pollAffinityStatus, 200);
     return () => {
       disposed = true;
-      window.clearInterval(interval);
+      if (timer !== undefined) window.clearTimeout(timer);
+      if (!finished && hasTauriRuntime()) {
+        void api.cancelAffinityWatch(jobId).catch(() => undefined);
+      }
     };
-  }, [activeAffinityJobId, finish, isAffinityBusy, setAffinityProgress]);
+  }, [activeAffinityJobId, generation, isAffinityBusy]);
 }
 
 export function hasRuntimeTauriJob() {
