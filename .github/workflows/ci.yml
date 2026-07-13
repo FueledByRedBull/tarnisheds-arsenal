@@ -16,6 +16,7 @@ env:
 jobs:
   rust-and-data:
     runs-on: windows-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -45,7 +46,6 @@ jobs:
 
       - name: Install Python deps
         run: |
-          python -m pip install --disable-pip-version-check --upgrade pip
           python -m pip install --disable-pip-version-check -r requirements-validation.txt
 
       - name: Validate release metadata
@@ -81,6 +81,7 @@ jobs:
 
   desktop-frontend:
     runs-on: windows-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -89,7 +90,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version-file: ".node-version"
           cache: "npm"
           cache-dependency-path: apps/desktop/package-lock.json
 

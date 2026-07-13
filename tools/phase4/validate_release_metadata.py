@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import tomllib
 from pathlib import Path
@@ -33,6 +34,13 @@ def expect_contains(label: str, text: str, expected: str, errors: list[str]) -> 
         errors.append(f"{label} does not contain {expected!r}")
 
 
+def expect_exact_version(label: str, version: object, errors: list[str]) -> bool:
+    if not isinstance(version, str) or re.fullmatch(r"\d+\.\d+\.\d+", version) is None:
+        errors.append(f"{label} is not an exact major.minor.patch version: {version!r}")
+        return False
+    return True
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate release version metadata.")
     parser.add_argument("--tag", help="Git tag to validate, for example v0.5.0")
@@ -48,18 +56,20 @@ def main() -> int:
     errors: list[str] = []
     toolchain = load_toml(root / "rust-toolchain.toml").get("toolchain", {})
     rust_version = toolchain.get("channel")
+    python_version = (root / ".python-version").read_text(encoding="utf-8").strip()
+    node_version = (root / ".node-version").read_text(encoding="utf-8").strip()
     ci_workflow = (root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     release_workflow = (root / ".github/workflows/release-package.yml").read_text(encoding="utf-8")
 
     if args.tag:
         expect_equal("release tag", args.tag, expected_tag, errors)
 
-    if not isinstance(rust_version, str) or not rust_version:
-        errors.append("rust-toolchain.toml is missing a pinned toolchain.channel")
-    else:
+    if expect_exact_version("Rust toolchain", rust_version, errors):
         expected_rust_action = f"dtolnay/rust-toolchain@{rust_version}"
         expect_contains("CI Rust setup", ci_workflow, expected_rust_action, errors)
         expect_contains("release Rust setup", release_workflow, expected_rust_action, errors)
+    expect_exact_version("Python toolchain", python_version, errors)
+    expect_exact_version("Node toolchain", node_version, errors)
 
     expect_contains(
         "CI Python setup", ci_workflow, 'python-version-file: ".python-version"', errors
@@ -74,6 +84,13 @@ def main() -> int:
         "release Python setup",
         release_workflow,
         'python-version-file: ".python-version"',
+        errors,
+    )
+    expect_contains("CI Node setup", ci_workflow, 'node-version-file: ".node-version"', errors)
+    expect_contains(
+        "release Node setup",
+        release_workflow,
+        'node-version-file: ".node-version"',
         errors,
     )
     expect_contains("release CI prerequisite", release_workflow, "needs: verify-ci", errors)
@@ -92,6 +109,8 @@ def main() -> int:
         "$PSNativeCommandUseErrorActionPreference = $true",
         errors,
     )
+    if "--upgrade pip" in ci_workflow or "--upgrade pip" in release_workflow:
+        errors.append("workflows must not install an unpinned latest pip")
 
     validation_requirements = (root / "requirements-validation.txt").read_text(encoding="utf-8")
     for package in ("maturin", "pyright", "ruff"):

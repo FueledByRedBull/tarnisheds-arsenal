@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 export interface SelectOption {
   value: string | null;
@@ -24,6 +24,7 @@ export function SearchableSelect({
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const blurTimeoutRef = useRef<number | null>(null);
   const selectedLabel =
     options.find((option) => option.value === value)?.label ?? (value ?? "");
   const shownValue = open ? query : selectedLabel;
@@ -39,10 +40,28 @@ export function SearchableSelect({
 
   const active = filtered[Math.min(activeIndex, Math.max(filtered.length - 1, 0))];
 
+  useEffect(
+    () => () => {
+      if (blurTimeoutRef.current !== null) {
+        window.clearTimeout(blurTimeoutRef.current);
+      }
+    },
+    [],
+  );
+
+  function cancelPendingBlur() {
+    if (blurTimeoutRef.current === null) {
+      return;
+    }
+    window.clearTimeout(blurTimeoutRef.current);
+    blurTimeoutRef.current = null;
+  }
+
   function choose(option: SelectOption | undefined) {
     if (!option) {
       return;
     }
+    cancelPendingBlur();
     onChange(option.value);
     setOpen(false);
     setQuery("");
@@ -76,7 +95,9 @@ export function SearchableSelect({
         value={shownValue}
         placeholder={placeholder}
         onBlur={() => {
-          window.setTimeout(() => {
+          cancelPendingBlur();
+          blurTimeoutRef.current = window.setTimeout(() => {
+            blurTimeoutRef.current = null;
             commitTypedValue();
             setOpen(false);
             setQuery("");
@@ -89,6 +110,7 @@ export function SearchableSelect({
           setActiveIndex(0);
         }}
         onFocus={() => {
+          cancelPendingBlur();
           setOpen(true);
           setQuery("");
           setActiveIndex(0);

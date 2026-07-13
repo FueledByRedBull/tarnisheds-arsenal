@@ -52,7 +52,7 @@ The tag-triggered workflow repeats all release gates and publishes:
 The release workflow independently verifies that the ordinary `CI` workflow has
 already succeeded for the exact tag commit. If a tag is pushed while CI is still
 running, release packaging waits; failed, cancelled, missing, or timed-out CI blocks
-publication. Rust, Python, and validation-tool versions are pinned so local, CI,
+publication. Rust, Python, Node, and validation-tool versions are pinned so local, CI,
 and release checks do not silently drift apart.
 
 Both binaries contain the complete compile-time runtime snapshot. Neither needs
