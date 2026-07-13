@@ -14,7 +14,59 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  verify-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
+
+    steps:
+      - name: Wait for successful CI on this commit
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $true
+          $deadline = [DateTime]::UtcNow.AddMinutes(40)
+          while ([DateTime]::UtcNow -lt $deadline) {
+            $runs = @(
+              gh run list `
+                --workflow ci.yml `
+                --commit $env:GITHUB_SHA `
+                --event push `
+                --limit 20 `
+                --json databaseId,status,conclusion,headBranch,headSha,url,createdAt |
+                ConvertFrom-Json
+            ) | Where-Object {
+              $_.headSha -eq $env:GITHUB_SHA -and
+              $_.headBranch -eq $env:RELEASE_BRANCH
+            } |
+              Sort-Object createdAt -Descending
+
+            $latest = $runs | Select-Object -First 1
+            if ($latest.status -eq "completed") {
+              if ($latest.conclusion -ne "success") {
+                throw "CI run $($latest.databaseId) concluded $($latest.conclusion): $($latest.url)"
+              }
+              Write-Output "CI run $($latest.databaseId) succeeded for $env:GITHUB_SHA"
+              exit 0
+            }
+
+            if ($latest) {
+              Write-Output "Waiting for CI run $($latest.databaseId): $($latest.status)"
+            } else {
+              Write-Output "Waiting for a $env:RELEASE_BRANCH CI run for $env:GITHUB_SHA"
+            }
+            Start-Sleep -Seconds 15
+          }
+          throw "Timed out waiting for successful CI on $env:GITHUB_SHA"
+
   package:
+    needs: verify-ci
     runs-on: windows-latest
     permissions:
       contents: write
@@ -28,7 +80,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version-file: ".python-version"
           cache: "pip"
           cache-dependency-path: requirements-validation.txt
 
@@ -40,7 +92,7 @@ jobs:
           cache-dependency-path: apps/desktop/package-lock.json
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.97.0
 
       - name: Cache Cargo
         uses: actions/cache@v4

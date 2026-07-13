@@ -29,7 +29,8 @@ release.
    `--replace-output` only when deliberately refreshing the known files for the same
    local pre-commit build; it refuses directories containing unexpected entries.
 
-5. Review the diff and generated checksums, then commit normally.
+5. Review the diff and generated checksums, then commit and push `main` normally.
+6. Wait for the ordinary `CI` workflow to succeed on that exact commit.
 
 ## Publish
 
@@ -47,6 +48,12 @@ The tag-triggered workflow repeats all release gates and publishes:
 - `TarnishedsArsenal_<version>.zip`
 - `TarnishedsArsenal_<version>_SHA256SUMS.txt`
 - `TarnishedsArsenal_<version>_build-report.json`
+
+The release workflow independently verifies that the ordinary `CI` workflow has
+already succeeded for the exact tag commit. If a tag is pushed while CI is still
+running, release packaging waits; failed, cancelled, missing, or timed-out CI blocks
+publication. Rust, Python, and validation-tool versions are pinned so local, CI,
+and release checks do not silently drift apart.
 
 Both binaries contain the complete compile-time runtime snapshot. Neither needs
 an adjacent data directory or source workbook. The current Windows binaries are

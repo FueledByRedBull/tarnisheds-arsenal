@@ -8,6 +8,7 @@ dependencies = []
 pythonVersion = "3.12"
 stubPath = "typings"
 include = ["tools"]
+reportMissingModuleSource = false
 
 [tool.ruff]
 target-version = "py312"

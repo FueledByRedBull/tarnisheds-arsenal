@@ -28,6 +28,11 @@ def expect_equal(label: str, actual: str | None, expected: str, errors: list[str
         errors.append(f"{label} is {actual!r}; expected {expected!r}")
 
 
+def expect_contains(label: str, text: str, expected: str, errors: list[str]) -> None:
+    if expected not in text:
+        errors.append(f"{label} does not contain {expected!r}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate release version metadata.")
     parser.add_argument("--tag", help="Git tag to validate, for example v0.5.0")
@@ -41,9 +46,59 @@ def main() -> int:
     version = tauri_config["version"]
     expected_tag = f"v{version}"
     errors: list[str] = []
+    toolchain = load_toml(root / "rust-toolchain.toml").get("toolchain", {})
+    rust_version = toolchain.get("channel")
+    ci_workflow = (root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    release_workflow = (root / ".github/workflows/release-package.yml").read_text(encoding="utf-8")
 
     if args.tag:
         expect_equal("release tag", args.tag, expected_tag, errors)
+
+    if not isinstance(rust_version, str) or not rust_version:
+        errors.append("rust-toolchain.toml is missing a pinned toolchain.channel")
+    else:
+        expected_rust_action = f"dtolnay/rust-toolchain@{rust_version}"
+        expect_contains("CI Rust setup", ci_workflow, expected_rust_action, errors)
+        expect_contains("release Rust setup", release_workflow, expected_rust_action, errors)
+
+    expect_contains(
+        "CI Python setup", ci_workflow, 'python-version-file: ".python-version"', errors
+    )
+    expect_contains(
+        "CI Playwright browser install",
+        ci_workflow,
+        "node ./node_modules/@playwright/test/cli.js install chromium",
+        errors,
+    )
+    expect_contains(
+        "release Python setup",
+        release_workflow,
+        'python-version-file: ".python-version"',
+        errors,
+    )
+    expect_contains("release CI prerequisite", release_workflow, "needs: verify-ci", errors)
+    expect_contains(
+        "release exact-SHA CI check", release_workflow, "--commit $env:GITHUB_SHA", errors
+    )
+    expect_contains(
+        "release default-branch CI check",
+        release_workflow,
+        "RELEASE_BRANCH: ${{ github.event.repository.default_branch }}",
+        errors,
+    )
+    expect_contains(
+        "release native-command failure handling",
+        release_workflow,
+        "$PSNativeCommandUseErrorActionPreference = $true",
+        errors,
+    )
+
+    validation_requirements = (root / "requirements-validation.txt").read_text(encoding="utf-8")
+    for package in ("maturin", "pyright", "ruff"):
+        if not any(
+            line.startswith(f"{package}==") for line in validation_requirements.splitlines()
+        ):
+            errors.append(f"requirements-validation.txt does not pin {package} exactly")
 
     expect_equal(
         "apps/desktop/package.json version",
@@ -82,7 +137,9 @@ def main() -> int:
     )
     expect_equal(
         "core/er_optimizer_core/Cargo.lock package version",
-        cargo_lock_package_version(root / "core" / "er_optimizer_core" / "Cargo.lock", "er_optimizer_core"),
+        cargo_lock_package_version(
+            root / "core" / "er_optimizer_core" / "Cargo.lock", "er_optimizer_core"
+        ),
         version,
         errors,
     )
