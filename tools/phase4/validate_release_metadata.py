@@ -118,7 +118,7 @@ def main() -> int:
     expect_contains(
         "release tracked-source postflight",
         package_script,
-        "require_unchanged_tracked_source(root, source_commit)",
+        "require_unchanged_tracked_source(root, source_commit",
         errors,
     )
     expect_contains(

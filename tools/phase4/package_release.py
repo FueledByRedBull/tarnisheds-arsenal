@@ -71,12 +71,36 @@ def require_clean_source(root: Path) -> str:
     return commit
 
 
-def require_unchanged_tracked_source(root: Path, expected_commit: str) -> None:
+def safe_status_summary(changes: list[str]) -> str:
+    safe_entries: list[str] = []
+    secret_markers = (
+        ".env",
+        "secret",
+        "token",
+        "credential",
+        "private",
+        "password",
+        ".pem",
+        ".key",
+    )
+    for change in changes[:5]:
+        status = change[:2]
+        path = change[3:].strip()
+        safe_path = (
+            "<redacted>" if any(marker in path.lower() for marker in secret_markers) else path
+        )
+        safe_entries.append(f"{status} {safe_path}")
+    if len(changes) > len(safe_entries):
+        safe_entries.append(f"... and {len(changes) - len(safe_entries)} more")
+    return ", ".join(safe_entries)
+
+
+def require_unchanged_tracked_source(root: Path, expected_commit: str, *, stage: str) -> None:
     if git_commit(root) != expected_commit:
-        raise RuntimeError("source commit changed during release packaging")
+        raise RuntimeError(f"source commit changed during {stage}")
     changes = git_status(root, include_untracked=False)
     if changes:
-        raise RuntimeError(f"release build modified tracked source ({len(changes)} changed paths)")
+        raise RuntimeError(f"{stage} modified tracked source: {safe_status_summary(changes)}")
 
 
 def require_replaceable(path: Path) -> None:
@@ -242,9 +266,11 @@ def main() -> int:
                 "runtime-data-validation",
             ]
         )
+    require_unchanged_tracked_source(root, source_commit, stage="release validation")
     run([npm_cmd(), "ci", "--prefer-offline", "--no-audit", "--fund=false"], cwd=app_dir)
+    require_unchanged_tracked_source(root, source_commit, stage="npm ci")
     run([npm_cmd(), "run", "tauri", "--", "build", "--", "--locked"], cwd=app_dir)
-    require_unchanged_tracked_source(root, source_commit)
+    require_unchanged_tracked_source(root, source_commit, stage="Tauri build")
     completed_gates.extend(["frontend-build", "tauri-release-build"])
 
     release_dir.mkdir(parents=True, exist_ok=args.replace_output)
