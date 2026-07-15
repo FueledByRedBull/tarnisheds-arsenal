@@ -20,6 +20,29 @@ The public request/response contracts live in the Tauri DTO layer and are shared
 with the frontend tests. The Python binding is an optional validation and
 benchmarking path for local tooling and CI.
 
+## Desktop Interface
+
+The desktop shell uses a three-region composition: continuously visible session
+controls, the active workspace, and an always-visible Build Detail panel. The
+Rankings workspace has one selection contract for podium cards, mouse-activated
+rows, and keyboard-activated rows. Selecting any rank updates Build Detail;
+locking is the only separate row action because it mutates search inputs and reruns
+the optimizer.
+
+The default ranking grid contains rank, weapon, affinity/Ash setup, upgrade,
+scaling, raw AR/status, raw skill damage, objective score, and Lock. Full combat
+stats, AR split, route actions/hits, status, stamina, buff timing, and warnings stay
+in Build Detail without a modal. A persistent active-query strip exposes the major
+assumptions before execution, including whether reinforcement levels are exact or
+searched from zero to the configured caps.
+
+The visual system is intentionally lightweight: CSS perspective, short
+state-driven transitions, and a 19 KB low-contrast WebP texture provide depth
+without WebGL or a runtime animation library. `prefers-reduced-motion` collapses
+decorative animation to effectively zero duration. Responsive states prioritize
+the table and remove the redundant podium at narrower supported window widths;
+the page itself does not scroll horizontally.
+
 ## Data Model
 
 Runtime data is committed under `data/phase1` as one manifest-bound snapshot

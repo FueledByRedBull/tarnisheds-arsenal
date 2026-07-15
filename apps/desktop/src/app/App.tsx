@@ -40,6 +40,11 @@ export function App() {
 
   return (
     <main className="desktop-shell">
+      <div className="ambient-field" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </div>
       <CommandRail />
       <section className="center-workspace">
         <nav className="workspace-tabs">
@@ -70,10 +75,12 @@ export function App() {
               <span>{notice.message}</span>
             </div>
           ))}
-        {activeWorkspace === "rankings" ? <RankingsBoard /> : null}
-        {activeWorkspace === "compare" ? <CompareView /> : null}
-        {activeWorkspace === "paths" ? <PathsView /> : null}
-        {activeWorkspace === "affinity_watch" ? <AffinityWatchView /> : null}
+        <div className="workspace-stage" key={activeWorkspace}>
+          {activeWorkspace === "rankings" ? <RankingsBoard /> : null}
+          {activeWorkspace === "compare" ? <CompareView /> : null}
+          {activeWorkspace === "paths" ? <PathsView /> : null}
+          {activeWorkspace === "affinity_watch" ? <AffinityWatchView /> : null}
+        </div>
       </section>
       <Inspector />
     </main>

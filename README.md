@@ -51,6 +51,25 @@ Most calculators are built around one exact weapon line. This app is built for o
 
 Every workspace reads from the same active session, so the app does not drift into separate mini-tools with separate assumptions.
 
+## Interface
+
+The v0.7.0 desktop interface uses one consistent selection model: click any
+podium card or ranking row to make it the active build, then use the always-visible
+Build Detail panel for full combat stats, AR split, route damage, status, stamina,
+warnings, and one-click Compare, Paths, and Affinity Watch actions. Lock remains a
+separate action because it changes the next search.
+
+Rankings default to a compact comparison table instead of exposing every modeled
+field as a column. The active-query strip keeps objective, character level,
+reinforcement policy, handedness, game scope, dataset, and active constraints
+visible before a search. At the app's narrower supported widths the decorative
+podium is removed and the ranked table receives the available space; no capability
+is moved into an extra menu.
+
+AR and skill values shown in Rankings and Build Detail are raw model outputs.
+Enemy defense and negation are not applied, and affected route details keep
+unsupported-effect warnings adjacent to the result.
+
 ## Search Model
 
 The optimizer can lock or open each major constraint:
@@ -150,6 +169,7 @@ python tools/phase4/validate_external_calculator.py  # optional network comparis
 cd apps/desktop
 npm test
 npm run build
+npm run test:e2e
 ```
 
 Build a Windows release package:

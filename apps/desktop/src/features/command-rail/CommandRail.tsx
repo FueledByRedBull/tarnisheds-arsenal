@@ -51,7 +51,6 @@ export function CommandRail() {
   const estimate = useDesktopStore((state) => state.estimate);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
   const setLockedStatMode = useDesktopStore((state) => state.setLockedStatMode);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [weaponNames, setWeaponNames] = useState<string[]>([]);
   const [aowNames, setAowNames] = useState<string[]>([]);
   const [searchStartedAt, setSearchStartedAt] = useState<number | null>(null);
@@ -313,14 +312,14 @@ export function CommandRail() {
             ))}
           </div>
           <div className="hero-chip-row">
-            <span>{request.twoHanding ? "2H" : "1H"}</span>
-            <span>{lockedStatMode ? "Exact Stats" : "Open Stats"}</span>
+            <span>{request.twoHanding ? "Two-handed strength" : "One-handed strength"}</span>
+            <span>{lockedStatMode ? "Exact combat stats" : "Stats optimized"}</span>
             <span>
               {request.exactUpgrade
-                ? `Std +${request.standardMaxUpgrade} / Somber +${request.somberMaxUpgrade}`
-                : `Std +0..+${request.standardMaxUpgrade} / Somber +0..+${request.somberMaxUpgrade}`}
+                ? `Exact upgrades +${request.standardMaxUpgrade} / +${request.somberMaxUpgrade}`
+                : `Any upgrade to +${request.standardMaxUpgrade} / +${request.somberMaxUpgrade}`}
             </span>
-            <span>{request.dlcScaling ? `DLC x${scadutreeDamageMultiplier.toFixed(2)}` : "Base Game"}</span>
+            <span>{request.dlcScaling ? `DLC blessing x${scadutreeDamageMultiplier.toFixed(2)}` : "Base-game scaling"}</span>
           </div>
           {weaponProfile ? (
             <div className={`requirements-strip ${missingRequirements ? "missing" : ""}`}>
@@ -337,7 +336,7 @@ export function CommandRail() {
         <section className="rail-section">
           <div className="section-title">
             <Filter size={15} />
-            <span>Scope</span>
+            <span>Loadout</span>
           </div>
           <SearchableSelect
             label="Weapon Type"
@@ -385,19 +384,34 @@ export function CommandRail() {
               />
             </label>
           </div>
-          <div className="rail-pair">
-            <label className="toggle-line" title="Force exactly the selected upgrade level">
-              <input
-                type="checkbox"
-                checked={request.exactUpgrade}
-                onChange={(event) => patchRequest({ exactUpgrade: event.target.checked })}
-              />
-              Exact
-            </label>
+          <div className="upgrade-mode-row" aria-label="Upgrade search policy">
+            <button
+              type="button"
+              className={request.exactUpgrade ? "active" : ""}
+              aria-pressed={request.exactUpgrade}
+              onClick={() => patchRequest({ exactUpgrade: true })}
+            >
+              Use exact levels
+            </button>
+            <button
+              type="button"
+              className={!request.exactUpgrade ? "active" : ""}
+              aria-pressed={!request.exactUpgrade}
+              onClick={() => patchRequest({ exactUpgrade: false })}
+            >
+              Explore up to caps
+            </button>
+          </div>
+          <div className="rail-pair upgrade-cap-row">
             <div className="cap-readout">
               <span>{weaponProfile?.isSomber ? "Selected Somber cap" : "Selected Standard cap"}</span>
               <strong>+{weaponProfile?.maxUpgrade ?? 25}</strong>
             </div>
+            <small className="rail-helper">
+              {request.exactUpgrade
+                ? "Only the entered reinforcement levels are ranked."
+                : "Every reinforcement level from zero to each cap is eligible."}
+            </small>
           </div>
           <label>
             Top Results
@@ -464,13 +478,12 @@ export function CommandRail() {
         </section>
 
         <section className="rail-section advanced-section">
-          <button className="advanced-toggle" type="button" onClick={() => setAdvancedOpen((value) => !value)}>
+          <div className="section-title">
             <SlidersHorizontal size={15} />
-            <span>Advanced</span>
-            <strong>{advancedOpen ? "Hide" : "Show"}</strong>
-          </button>
-          {advancedOpen ? (
-            <div className="advanced-body">
+            <span>Fine tuning</span>
+          </div>
+          <p className="section-intro">Optional minimums and exact result locks. Leave these open for automatic optimization.</p>
+          <div className="advanced-body">
               <SearchableSelect
                 label="Somber"
                 value={request.somberFilter}
@@ -527,8 +540,7 @@ export function CommandRail() {
               >
                 Clear Locks
               </button>
-            </div>
-          ) : null}
+          </div>
         </section>
       </div>
 

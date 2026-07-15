@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test("session-driven search, lock, compare, paths, and affinity watch", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
   await expect(page.getByRole("textbox", { name: "Level" })).toHaveValue("9");
@@ -8,15 +9,15 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await page.getByRole("combobox", { name: "Class" }).click();
   await expect(page.getByRole("option", { name: "Wretch" })).toBeVisible();
   await page.keyboard.press("Escape");
-  await page.getByRole("spinbutton", { name: "STR" }).fill("130");
-  await expect(page.getByRole("spinbutton", { name: "STR" })).toHaveValue("130");
-  await page.getByRole("spinbutton", { name: "STR" }).press("Enter");
-  await expect(page.getByRole("spinbutton", { name: "STR" })).toHaveValue("99");
+  await page.getByRole("spinbutton", { name: "STR", exact: true }).fill("130");
+  await expect(page.getByRole("spinbutton", { name: "STR", exact: true })).toHaveValue("130");
+  await page.getByRole("spinbutton", { name: "STR", exact: true }).press("Enter");
+  await expect(page.getByRole("spinbutton", { name: "STR", exact: true })).toHaveValue("99");
   await page.getByRole("combobox", { name: "Class" }).click();
   await page.getByRole("option", { name: "Vagabond" }).click();
   await expect(page.getByRole("spinbutton", { name: "VIG" })).toHaveValue("15");
-  await expect(page.getByRole("spinbutton", { name: "STR" })).toHaveValue("14");
-  await expect(page.getByRole("spinbutton", { name: "DEX" })).toHaveValue("13");
+  await expect(page.getByRole("spinbutton", { name: "STR", exact: true })).toHaveValue("14");
+  await expect(page.getByRole("spinbutton", { name: "DEX", exact: true })).toHaveValue("13");
   await expect(page.getByRole("textbox", { name: "Level" })).toHaveValue("9");
   await chooseSearchableOption(page, "Weapon Type", "Great Katana");
   await expect(page.getByRole("combobox", { name: "Weapon Type" })).toHaveValue("Great Katana");
@@ -31,9 +32,11 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await page.getByRole("button", { name: "Search" }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
   await expect(page.getByText("Uchigatana").first()).toBeVisible();
-  await expectRankingsBoardToDragScroll(page);
+  await expectRankingsBoardToFit(page);
+  await page.getByRole("button", { name: "Select Uchigatana, Occult, rank 2" }).click();
+  await expect(page.locator(".selected-build")).toContainText("Occult / Seppuku / +25");
 
-  await page.getByRole("spinbutton", { name: "STR" }).fill("13");
+  await page.getByRole("spinbutton", { name: "STR", exact: true }).fill("13");
   await expect(page.getByText("0 ranked rows")).toBeVisible();
   await page.getByRole("button", { name: "Search" }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
@@ -75,13 +78,12 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
 test("somber-only exact search uses the somber upgrade cap", async ({ page }) => {
   await page.goto("/");
 
-  await page.getByRole("spinbutton", { name: "STR" }).fill("60");
-  await page.getByRole("spinbutton", { name: "STR" }).press("Enter");
+  await page.getByRole("spinbutton", { name: "STR", exact: true }).fill("60");
+  await page.getByRole("spinbutton", { name: "STR", exact: true }).press("Enter");
   await expect(page.getByRole("textbox", { name: "Level" })).toHaveValue("57");
   await expect(page.getByRole("spinbutton", { name: "Standard Upgrade" })).toHaveValue("25");
   await expect(page.getByRole("spinbutton", { name: "Somber Upgrade" })).toHaveValue("10");
-  await page.getByRole("checkbox", { name: "Exact" }).check();
-  await page.getByRole("button", { name: "Advanced Show" }).click();
+  await page.getByRole("button", { name: "Use exact levels" }).click();
   await chooseSearchableOption(page, "Somber", "Somber Only");
 
   await page.getByRole("button", { name: "Search" }).click();
@@ -91,35 +93,46 @@ test("somber-only exact search uses the somber upgrade cap", async ({ page }) =>
   await expect(page.getByRole("grid", { name: "Ranked builds" })).toContainText("+10");
 });
 
+test("a ranked row below the podium selects that exact build", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search" }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+
+  const fourthRow = page.locator(".result-row-full").nth(3);
+  const weaponName = (await fourthRow.locator(".weapon-cell strong").textContent())?.trim();
+  expect(weaponName).toBeTruthy();
+
+  await fourthRow.click();
+  await expect(fourthRow).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(".selected-build strong")).toHaveText(weaponName ?? "");
+
+  const thirdRow = page.locator(".result-row-full").nth(2);
+  await thirdRow.focus();
+  await thirdRow.press("Enter");
+  await expect(thirdRow).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(".selected-build")).toContainText("Keen / Seppuku / +25");
+});
+
+test("reduced-motion preference disables decorative motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+
+  const animationDurationMs = await page.locator(".ambient-field i").first().evaluate(
+    (node) => {
+      const duration = getComputedStyle(node).animationDuration;
+      return Number.parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000);
+    },
+  );
+  expect(animationDurationMs).toBeLessThanOrEqual(0.01);
+});
+
 async function chooseSearchableOption(page: import("@playwright/test").Page, label: string, option: string) {
   const field = page.getByRole("combobox", { name: label, exact: true });
   await field.fill(option);
   await page.keyboard.press("Enter");
 }
 
-async function expectRankingsBoardToDragScroll(page: import("@playwright/test").Page) {
+async function expectRankingsBoardToFit(page: import("@playwright/test").Page) {
   const board = page.getByRole("grid", { name: "Ranked builds" });
-  await expect.poll(() => board.evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(true);
-
-  const box = await board.boundingBox();
-  expect(box).not.toBeNull();
-  if (!box) return;
-
-  const before = await board.evaluate((node) => node.scrollLeft);
-  await page.mouse.move(box.x + box.width - 120, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(box.x + 80, box.y + box.height / 2, { steps: 8 });
-  await page.mouse.up();
-
-  await expect.poll(() => board.evaluate((node) => node.scrollLeft)).toBeGreaterThan(before + 100);
-
-  const rowBounds = await board.locator(".result-row-full").first().evaluate((row) => {
-    const rowRect = row.getBoundingClientRect();
-    const lastCellRect = row.lastElementChild?.getBoundingClientRect();
-    return {
-      lastCellRight: lastCellRect?.right ?? 0,
-      rowRight: rowRect.right,
-    };
-  });
-  expect(rowBounds.rowRight).toBeGreaterThanOrEqual(rowBounds.lastCellRight);
+  await expect.poll(() => board.evaluate((node) => node.scrollWidth <= node.clientWidth + 2)).toBe(true);
 }

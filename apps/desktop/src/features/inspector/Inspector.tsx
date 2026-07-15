@@ -36,7 +36,7 @@ export function Inspector() {
     <aside className="inspector">
       <div className="inspector-title">
         <Target size={17} />
-        <span>Inspector</span>
+        <span>Build detail</span>
       </div>
       <div className="detail-block">
         <span>Stat Budget</span>
@@ -62,8 +62,9 @@ export function Inspector() {
             <Metric label="Score" value={fixed1(metricForObjective(selected, request.objective))} />
             <Metric label="AR" value={compactNumber(selected.ar.total)} />
             <Metric label="Bleed" value={compactNumber(selected.bleedBuildup)} />
-            <Metric label="AoW Seq" value={compactNumber(selected.aowFullSequenceDamage)} />
+            <Metric label="Raw AoW" value={compactNumber(selected.aowFullSequenceDamage)} />
           </div>
+          <small className="model-note">AR and skill values are raw model outputs; enemy defense and negation are not applied.</small>
           <div className="detail-block">
             <span>Combat Stats</span>
             <strong>{statLine(selected)}</strong>
@@ -78,10 +79,10 @@ export function Inspector() {
           </div>
           <AowRouteDetails route={selected.aowRoute} />
           <div className="inspector-actions stacked">
-            <button type="button" onClick={lockSelected}><LockKeyhole size={15} />Use As Locks</button>
-            <button type="button" onClick={() => setWorkspace("compare")}><GitCompareArrows size={15} />Open Compare</button>
-            <button type="button" onClick={() => setWorkspace("paths")}><Route size={15} />Run Paths</button>
-            <button type="button" onClick={() => setWorkspace("affinity_watch")}><Radar size={15} />Run Affinity Watch</button>
+            <button type="button" onClick={lockSelected}><LockKeyhole size={15} />Use as search locks</button>
+            <button type="button" onClick={() => setWorkspace("compare")}><GitCompareArrows size={15} />Compare</button>
+            <button type="button" onClick={() => setWorkspace("paths")}><Route size={15} />Paths</button>
+            <button type="button" onClick={() => setWorkspace("affinity_watch")}><Radar size={15} />Affinity Watch</button>
           </div>
         </>
       ) : (
