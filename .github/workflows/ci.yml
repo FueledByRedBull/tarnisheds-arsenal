@@ -77,7 +77,15 @@ jobs:
 
       - name: Data/runtime validation
         run: |
-          python tools/phase4/validate_phase4.py
+          python tools/phase4/validate_phase4.py --report dist/validation/data-validation.json
+
+      - name: Upload data validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-validation-report
+          if-no-files-found: error
+          path: dist/validation/data-validation.json
 
   desktop-frontend:
     runs-on: windows-latest

@@ -19,8 +19,12 @@ pub use model::{
     STAT_DEX, STAT_FAI, STAT_INT, STAT_STR, Stats, Weapon,
 };
 pub use optimizer::{
-    OptimizeObjective, OptimizeRequest, OptimizeResult, PreparedSearchPlan, ProgressSnapshot,
-    SearchEstimate, SomberFilter, estimate_search_space, optimize, optimize_prepared_with_progress,
-    optimize_with_cancel, optimize_with_progress, prepare_search, prepare_search_with_cancel,
+    CANCELLATION_LATENCY_TARGET_MS, LevelOptimizeResult, OptimizeObjective, OptimizePhaseTimings,
+    OptimizeRequest, OptimizeResult, PreparedLoadoutEvaluator, PreparedSearchPlan,
+    PreparedUpgradeSeriesEvaluator, ProfiledOptimizeResult, ProgressSnapshot, SearchEstimate,
+    SomberFilter, estimate_search_space, optimize, optimize_level_range_with_progress,
+    optimize_prepared_with_progress, optimize_profiled, optimize_with_cancel,
+    optimize_with_progress, prepare_loadout_evaluator_with_cancel, prepare_search,
+    prepare_search_with_cancel, prepare_upgrade_series_evaluator_with_cancel,
 };
 pub use snapshot::{SnapshotFile, SnapshotManifest, SnapshotSource};

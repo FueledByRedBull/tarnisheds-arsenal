@@ -1,12 +1,13 @@
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
-use er_optimizer_core::effective_str;
 use er_optimizer_core::model::COMBAT_STAT_COUNT;
+use er_optimizer_core::{
+    OptimizeRequest, PreparedLoadoutEvaluator, effective_str, prepare_loadout_evaluator_with_cancel,
+};
 use tauri::{AppHandle, State};
 
 use crate::commands::data::{weapon_disables_two_hand_bonus, weapon_requirements};
-use crate::commands::optimize::run_search_inner_with_cancel;
 use crate::dto::{
     CombatStateDto, PathFinishedDto, PathJobStatusDto, PathPreviewDto, PathPreviewRequestDto,
     PathProgressDto, PathStepDto, StartPathPreviewRequestDto, StartSearchResponseDto,
@@ -108,6 +109,9 @@ pub fn start_path_preview(
                 }
             }
         }
+        if cancelled {
+            paths.clear();
+        }
         let finished = PathFinishedDto {
             job_id: job_id_for_task.clone(),
             cancelled,
@@ -144,9 +148,14 @@ fn build_path_preview_inner(
 ) -> Result<PathPreviewDto, AppError> {
     validate_levels_ahead(request.levels_ahead)?;
     let start_state = request.solved.stats;
+    let target_level = request
+        .base
+        .character_level
+        .saturating_add(request.levels_ahead);
     if !continue_cb(request.base.character_level) {
         return Err(AppError::new("cancelled"));
     }
+    let evaluator = prepare_path_evaluator(&request, target_level, state, &mut continue_cb)?;
     let mut steps = vec![evaluate_step(
         &request.base,
         &request.solved.weapon_name,
@@ -158,17 +167,14 @@ fn build_path_preview_inner(
         start_state,
         None,
         state,
+        &evaluator,
         &mut continue_cb,
     )?];
 
-    let target_level = request
-        .base
-        .character_level
-        .saturating_add(request.levels_ahead);
     if !continue_cb(target_level) {
         return Err(AppError::new("cancelled"));
     }
-    let target = path_target_build(&request, target_level, state, &mut continue_cb)?;
+    let target = path_target_build(&request, target_level, &evaluator, &mut continue_cb)?;
     if !continue_cb(target_level) {
         return Err(AppError::new("cancelled"));
     }
@@ -189,6 +195,7 @@ fn build_path_preview_inner(
             current_state,
             target.stats,
             state,
+            &evaluator,
             &mut continue_cb,
         )?
         else {
@@ -205,10 +212,30 @@ fn build_path_preview_inner(
     })
 }
 
+fn prepare_path_evaluator<'a>(
+    request: &PathPreviewRequestDto,
+    target_level: u16,
+    state: &'a AppState,
+    continue_cb: &mut (impl FnMut(u16) -> bool + Send),
+) -> Result<PreparedLoadoutEvaluator<'a>, AppError> {
+    let mut template = request.base.clone();
+    template.character_level = target_level;
+    template.weapon_name = Some(request.solved.weapon_name.clone());
+    template.affinity = Some(request.solved.affinity.clone());
+    template.aow_name = request.solved.aow_name.clone();
+    template.weapon_type_key = None;
+    template.somber_filter = "all".to_string();
+    template.set_exact_upgrade(request.solved.upgrade, request.solved.is_somber);
+    template.top_k = 1;
+    let core_request = OptimizeRequest::try_from(&template)?;
+    prepare_loadout_evaluator_with_cancel(&core_request, &state.data, || continue_cb(target_level))
+        .map_err(AppError::from)
+}
+
 fn path_target_build(
     request: &PathPreviewRequestDto,
     target_level: u16,
-    state: &AppState,
+    evaluator: &PreparedLoadoutEvaluator<'_>,
     continue_cb: &mut (impl FnMut(u16) -> bool + Send),
 ) -> Result<Option<crate::dto::SolvedBuildDto>, AppError> {
     let mut target_request = request.base.clone();
@@ -229,8 +256,11 @@ fn path_target_build(
         &mut target_request,
         floor_mins(&request.base, request.solved.stats),
     );
-    run_search_inner_with_cancel(target_request, state, || continue_cb(target_level))
-        .map(|mut rows| rows.pop())
+    let core_request = OptimizeRequest::try_from(&target_request)?;
+    evaluator
+        .evaluate_with_cancel(&core_request, || continue_cb(target_level))
+        .map(|mut rows| rows.pop().map(crate::dto::SolvedBuildDto::from))
+        .map_err(AppError::from)
 }
 
 fn choose_next_step(
@@ -239,6 +269,7 @@ fn choose_next_step(
     current_state: CombatStateDto,
     target_state: CombatStateDto,
     state: &AppState,
+    evaluator: &PreparedLoadoutEvaluator<'_>,
     continue_cb: &mut (impl FnMut(u16) -> bool + Send),
 ) -> Result<Option<PathStepDto>, AppError> {
     let mut candidates = Vec::new();
@@ -263,6 +294,7 @@ fn choose_next_step(
             next_state,
             Some(stat.to_string()),
             state,
+            evaluator,
             continue_cb,
         )?);
     }
@@ -285,6 +317,7 @@ fn evaluate_step(
     stats: CombatStateDto,
     added_stat: Option<String>,
     state: &AppState,
+    evaluator: &PreparedLoadoutEvaluator<'_>,
     continue_cb: &mut (impl FnMut(u16) -> bool + Send),
 ) -> Result<PathStepDto, AppError> {
     let mut request = base.clone();
@@ -303,7 +336,12 @@ fn evaluate_step(
     request.min_arc = 0;
     lock_request_to_stats(&mut request, stats);
 
-    let solved = run_search_inner_with_cancel(request, state, || continue_cb(level))?.pop();
+    let core_request = OptimizeRequest::try_from(&request)?;
+    let solved = evaluator
+        .evaluate_with_cancel(&core_request, || continue_cb(level))
+        .map_err(AppError::from)?
+        .pop()
+        .map(crate::dto::SolvedBuildDto::from);
     let objective = parse_objective(&base.objective)?;
     let requirement_gap = if solved.is_some() {
         0
@@ -415,6 +453,7 @@ fn stat_priority(stat: Option<&str>) -> i16 {
 #[cfg(test)]
 mod integration_tests {
     use super::*;
+    use crate::commands::optimize::run_search_inner_with_cancel;
 
     fn request(state: &AppState) -> PathPreviewRequestDto {
         let base = crate::test_optimize_request();
@@ -445,5 +484,65 @@ mod integration_tests {
         let error = build_path_preview_inner(request(&state), &state, |_| false)
             .expect_err("cancelled path must fail closed");
         assert_eq!(error.message, "cancelled");
+    }
+
+    #[test]
+    fn real_path_command_propagates_nested_cancellation_without_partial_success() {
+        let state = crate::test_app_state();
+        let mut nested_request = request(&state);
+        nested_request.levels_ahead = 20;
+        let cancel_after = state.data.weapons.len() + 8;
+        let mut polls = 0_usize;
+        let error = build_path_preview_inner(nested_request, &state, |_| {
+            polls += 1;
+            polls < cancel_after
+        })
+        .expect_err("nested path cancellation must not return a partial path");
+        assert_eq!(error.message, "cancelled");
+        assert_eq!(polls, cancel_after);
+    }
+
+    #[test]
+    #[ignore = "release-mode workflow benchmark"]
+    fn workflow_benchmark_paths() {
+        let state = crate::test_app_state();
+        let repeats = std::env::var("ER_BENCH_REPEATS")
+            .ok()
+            .and_then(|value| value.parse::<usize>().ok())
+            .unwrap_or(3)
+            .max(1);
+        for horizon in [10_u16, 50, 200] {
+            for lanes in [1_usize, 2] {
+                let mut durations = Vec::with_capacity(repeats);
+                for sample in 0..=repeats {
+                    let started = std::time::Instant::now();
+                    for lane in 0..lanes {
+                        let mut lane_request = request(&state);
+                        lane_request.levels_ahead = horizon;
+                        lane_request.title = format!("Lane {}", lane + 1);
+                        let path = build_path_preview_inner(lane_request, &state, |_| true)
+                            .expect("benchmark path succeeds");
+                        assert!(!path.steps.is_empty());
+                    }
+                    if sample > 0 {
+                        durations.push(started.elapsed().as_secs_f64() * 1_000.0);
+                    }
+                }
+                durations.sort_by(f64::total_cmp);
+                println!(
+                    "WORKFLOW_BENCH {}",
+                    serde_json::json!({
+                        "workflow": "paths",
+                        "horizon": horizon,
+                        "lanes": lanes,
+                        "repeats": repeats,
+                        "median_ms": durations[durations.len() / 2],
+                        "best_ms": durations[0],
+                        "worst_ms": durations[durations.len() - 1],
+                        "samples_ms": durations,
+                    })
+                );
+            }
+        }
     }
 }

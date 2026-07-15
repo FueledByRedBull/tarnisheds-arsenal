@@ -32,17 +32,30 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await page.getByRole("button", { name: "Search" }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
   await expect(page.getByText("Uchigatana").first()).toBeVisible();
+  await page.getByText("Model coverage and assumptions").click();
+  await expect(page.getByText("Attack rating is calculated before enemy defense and negation.")).toBeVisible();
+  await expect(page.getByText(/Temporary buff stacking is not a universal layer/)).toBeVisible();
   await expectRankingsBoardToFit(page);
+  await expect(page.getByRole("button", { name: "Show lowest rank first" })).toBeVisible();
+  await page.getByRole("button", { name: "Show lowest rank first" }).click();
+  await expect(page.locator(".result-row-full").first().locator(".rank-cell")).toHaveText("4");
+  await page.getByRole("button", { name: "Show best rank first" }).click();
+  await expect(page.locator(".result-row-full").first().locator(".rank-cell")).toHaveText("1");
+  await expect.poll(() => page.locator(".result-row-full").first().locator("[role=gridcell]").nth(2).evaluate(
+    (node) => getComputedStyle(node).position,
+  )).toBe("sticky");
   await page.getByRole("button", { name: "Select Uchigatana, Occult, rank 2" }).click();
   await expect(page.locator(".selected-build")).toContainText("Occult / Seppuku / +25");
 
   await page.getByRole("spinbutton", { name: "STR", exact: true }).fill("13");
-  await expect(page.getByText("0 ranked rows")).toBeVisible();
-  await page.getByRole("button", { name: "Search" }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await expect(page.getByText("Inputs changed")).toBeVisible();
+  await page.getByRole("button", { name: "Update Results" }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
 
   await page.locator(".top-card").first().getByRole("button", { name: "Lock" }).click();
   await expect(page.getByText("Exact upgrade and stat locks active")).toBeVisible();
+  await expect(page.locator(".active-lock-warning")).toContainText("Changing class or loadout keeps these locks");
   await expect(page.getByText("Blood / Seppuku / +25").first()).toBeVisible();
 
   await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
@@ -68,10 +81,13 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await page.getByRole("button", { name: "Start" }).click();
   await expect(page.getByText("Selected").first()).toBeVisible();
   await expect(page.getByText("Compare").first()).toBeVisible();
+  await expect(page.locator(".path-chart")).toContainText("Stat breakpoint");
+  await expect.poll(() => page.locator(".paths-panel").evaluate((node) => getComputedStyle(node).overflowY)).toBe("auto");
 
   await page.getByRole("navigation").getByRole("button", { name: "Affinity Watch" }).click();
   await page.getByRole("button", { name: "Start" }).click();
   await expect(page.getByText("Keen").first()).toBeVisible();
+  await expect(page.locator(".affinity-chart")).toContainText("Best-affinity crossover");
   await expect(page.getByRole("grid", { name: "Affinity watch rankings" })).toContainText("Occult");
 });
 
@@ -113,6 +129,34 @@ test("a ranked row below the podium selects that exact build", async ({ page }) 
   await expect(page.locator(".selected-build")).toContainText("Keen / Seppuku / +25");
 });
 
+test("stale saved builds offer explicit input-only loading or recompute migration", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search" }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await page.getByRole("button", { name: "Save new" }).click();
+  await expect(page.getByText(/Saved Build Preset/)).toBeVisible();
+
+  await page.evaluate(() => {
+    const presetKey = Object.keys(localStorage).find((key) => key.startsWith("tarnisheds-arsenal.savedBuild.v1."));
+    if (!presetKey) throw new Error("saved preset was not created");
+    const preset = JSON.parse(localStorage.getItem(presetKey) ?? "null");
+    preset.dataVersion = "1:old-dataset:old-model";
+    localStorage.setItem(presetKey, JSON.stringify(preset));
+    const indexKey = "tarnisheds-arsenal.savedBuildIndex.v1";
+    const index = JSON.parse(localStorage.getItem(indexKey) ?? "null");
+    index.builds[0].dataVersion = preset.dataVersion;
+    localStorage.setItem(indexKey, JSON.stringify(index));
+  });
+  await page.reload();
+
+  await expect(page.getByText(/Stale.*solved rows are discarded/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Load inputs only" })).toBeVisible();
+  await page.getByRole("button", { name: "Migrate data" }).click();
+  await expect(page.getByText(/Migrated Build Preset/)).toBeVisible();
+  await expect(page.getByText(/Current.*dataset/)).toBeVisible();
+  await expect(page.locator(".selected-build")).toContainText("Uchigatana");
+});
+
 test("reduced-motion preference disables decorative motion", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
@@ -124,6 +168,45 @@ test("reduced-motion preference disables decorative motion", async ({ page }) =>
     },
   );
   expect(animationDurationMs).toBeLessThanOrEqual(0.01);
+});
+
+test("searchable selects expose keyboard and screen-reader state", async ({ page }) => {
+  await page.goto("/");
+  const classField = page.getByRole("combobox", { name: "Class" });
+
+  await classField.focus();
+  await classField.press("ArrowDown");
+  await expect(classField).toHaveAttribute("aria-expanded", "true");
+  await expect(classField).toHaveAttribute("aria-activedescendant", /option-/);
+  await expect(page.locator(".select-status").filter({ hasText: /matches/ }).first()).toBeVisible();
+  await classField.press("Escape");
+  await expect(classField).toHaveValue("Samurai");
+
+  await classField.fill("Wre");
+  await expect(page.locator(".select-status").filter({ hasText: "1 match" }).first()).toBeVisible();
+  await classField.press("Enter");
+  await expect(classField).toHaveValue("Wretch");
+
+  await classField.fill("not-a-class");
+  await expect(page.getByText("No matches").first()).toBeVisible();
+  await classField.press("Escape");
+  await expect(classField).toHaveValue("Wretch");
+
+  await classField.fill("Vagabond");
+  await classField.press("Tab");
+  await expect(classField).toHaveValue("Vagabond");
+});
+
+test("1366px layout survives 125 percent text scaling and long labels", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.goto("/");
+  await page.evaluate(() => { document.documentElement.style.fontSize = "17.5px"; });
+  await chooseSearchableOption(page, "Weapon", "Ancient Meteoric Ore Greatsword");
+
+  await expect(page.getByRole("button", { name: "Search", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.body.scrollWidth <= window.innerWidth + 2)).toBe(true);
+  await expect.poll(() => page.evaluate(() => document.body.scrollHeight <= window.innerHeight + 2)).toBe(true);
 });
 
 async function chooseSearchableOption(page: import("@playwright/test").Page, label: string, option: string) {

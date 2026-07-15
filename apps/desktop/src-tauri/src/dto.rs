@@ -412,6 +412,7 @@ pub struct CatalogDto {
     pub classes: Vec<ClassMetadataDto>,
     pub weapon_type_options: Vec<WeaponTypeOptionDto>,
     pub aow_names: Vec<String>,
+    pub affinity_names: Vec<String>,
     pub objective_ids: Vec<String>,
     pub somber_filters: Vec<String>,
     pub data_manifest: DataManifestDto,
@@ -819,6 +820,7 @@ mod tests {
                 label: "Katana".to_string(),
             }],
             aow_names: vec!["Seppuku".to_string()],
+            affinity_names: vec!["Keen".to_string()],
             objective_ids: vec!["max_ar".to_string()],
             somber_filters: vec!["all".to_string()],
             data_manifest: DataManifestDto {

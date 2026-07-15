@@ -91,6 +91,18 @@ def main() -> int:
         "package frontend E2E gate", package_script, '"test:e2e"', errors
     )
     expect_contains(
+        "package native packaged-app smoke gate",
+        package_script,
+        "smoke-packaged.mjs",
+        errors,
+    )
+    expect_contains(
+        "conditional Windows Authenticode signing",
+        package_script,
+        "WINDOWS_SIGNING_CERTIFICATE_BASE64",
+        errors,
+    )
+    expect_contains(
         "release Python setup",
         release_workflow,
         'python-version-file: ".python-version"',

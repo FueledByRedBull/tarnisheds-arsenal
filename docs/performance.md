@@ -1,0 +1,47 @@
+# Performance regression workflow
+
+Performance work is measured in release mode with one Rayon thread by default so algorithm changes are visible without scheduler noise.
+
+Broad Search, Paths, and Affinity Watch cancellation has a 250 ms latency target on the reference development machine. Core enumeration checks this with a synchronized broad-search regression test; workflow tests separately prove cancellation propagates through their nested evaluators and returns no successful partial payload.
+
+## Optimizer objectives
+
+Run:
+
+```powershell
+python tools/phase4/benchmark_optimizer.py --warmups 1 --repeats 5 --output dist/benchmarks/optimizer.json
+```
+
+The report covers broad/open searches, high-level and exact locks, all five objectives, open AoW selection, estimates, combination counts, data/model versions, build profile, CPU, thread count, and commit. Compare a reviewed baseline with:
+
+```powershell
+python tools/phase4/benchmark_optimizer.py --warmups 1 --repeats 5 --baseline baseline.json --max-regression-percent 20
+```
+
+## Analysis workflows
+
+Run:
+
+```powershell
+python tools/phase4/benchmark_workflows.py --repeats 5 --output dist/benchmarks/workflows.json
+```
+
+This exercises Paths at 10, 50, and 200 levels with one and two lanes, a 13-affinity Affinity Watch at the same horizons, and the direct standard upgrade-series evaluator. The Rust harness performs one warmup before measured samples. The runner records release profile, Rust/Python versions, CPU/platform, Rayon thread count, commit, data/model identity, and best/median/worst samples. It supports the same advisory baseline and percentage-regression options.
+
+## Optimizer phase attribution
+
+Run:
+
+```powershell
+python tools/phase4/benchmark_optimizer_phases.py --warmups 1 --repeats 5 --output dist/benchmarks/optimizer-phases.json
+```
+
+The release-mode harness measures cold request preparation, candidate scoring/top-k retention, and final result materialization independently for all five objectives. It records per-phase samples and medians, result counts, search-space size, build profile, Rayon thread count, dataset/model versions, commit, CPU, Rust version, and platform. Compare against a reviewed report with `--baseline`; comparisons report regressions but remain advisory unless a stable dedicated runner explicitly uses `--fail-on-regression`.
+
+## Review policy
+
+- Compare medians, never a single sample.
+- A greater-than-20% median change is the initial review threshold, not automatically a product failure. All benchmark runners are advisory by default; `--fail-on-regression` is an explicit dedicated-runner policy choice.
+- Refresh a baseline only after result-equivalence tests pass and the change is understood.
+- CI should enforce a timing budget only on a stable dedicated runner. Shared GitHub-hosted timing is advisory because machine variance can exceed the threshold.
+- Local diagnostics remain opt-in; the application emits no telemetry or default timing logs.

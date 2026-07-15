@@ -28,15 +28,20 @@ export function SearchableSelect({
   const selectedLabel =
     options.find((option) => option.value === value)?.label ?? (value ?? "");
   const shownValue = open ? query : selectedLabel;
-  const filtered = useMemo(() => {
+  const matching = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     if (!needle) {
-      return options.slice(0, 80);
+      return options;
     }
     return options
-      .filter((option) => option.label.toLocaleLowerCase().includes(needle))
-      .slice(0, 80);
+      .filter((option) => option.label.toLocaleLowerCase().includes(needle));
   }, [options, query]);
+  const filtered = matching.slice(0, 80);
+  const resultStatus = matching.length === 0
+    ? "No matches"
+    : matching.length > filtered.length
+      ? `Showing ${filtered.length} of ${matching.length} matches. Type to narrow the list.`
+      : `${matching.length} ${matching.length === 1 ? "match" : "matches"}`;
 
   const active = filtered[Math.min(activeIndex, Math.max(filtered.length - 1, 0))];
 
@@ -87,9 +92,11 @@ export function SearchableSelect({
       <input
         id={`${id}-input`}
         role="combobox"
+        aria-label={label}
         aria-autocomplete="list"
         aria-expanded={open && !disabled}
         aria-controls={`${id}-listbox`}
+        aria-describedby={`${id}-status`}
         aria-activedescendant={open && active ? `${id}-option-${Math.min(activeIndex, filtered.length - 1)}` : undefined}
         disabled={disabled}
         value={shownValue}
@@ -156,7 +163,7 @@ export function SearchableSelect({
               key={`${option.value ?? "open"}-${option.label}`}
               id={`${id}-option-${index}`}
               role="option"
-              aria-selected={index === activeIndex}
+              aria-selected={option.value === value}
               className={index === activeIndex ? "active" : undefined}
               type="button"
               onMouseDown={(event) => event.preventDefault()}
@@ -169,8 +176,11 @@ export function SearchableSelect({
             </button>
           ))}
           {filtered.length === 0 ? <span>No matches</span> : null}
+          <small id={`${id}-status`} className="select-status" role="status" aria-live="polite">
+            {resultStatus}
+          </small>
         </div>
-      ) : null}
+      ) : <span id={`${id}-status`} className="sr-only">{options.length} options</span>}
     </label>
   );
 }

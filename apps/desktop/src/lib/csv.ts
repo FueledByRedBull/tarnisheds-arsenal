@@ -1,5 +1,14 @@
 import { SolvedBuildDto } from "./types";
 
+export interface RankingsExportMetadata {
+  appVersion: string;
+  schemaVersion: string;
+  datasetVersion: string;
+  modelVersion: string;
+  objective: string;
+  assumptions: string;
+}
+
 type CsvColumn = {
   header: string;
   value: (row: SolvedBuildDto, index: number) => string | number | boolean | null;
@@ -49,11 +58,13 @@ const CSV_COLUMNS: CsvColumn[] = [
 
 export const csvHeaders = CSV_COLUMNS.map((column) => column.header);
 
-export function rankingsToCsv(rows: SolvedBuildDto[]): string {
+export function rankingsToCsv(rows: SolvedBuildDto[], metadata: RankingsExportMetadata): string {
+  const metadataHeaders = ["app_version", "schema_version", "dataset_version", "model_version", "objective", "assumptions"];
+  const metadataCells = [metadata.appVersion, metadata.schemaVersion, metadata.datasetVersion, metadata.modelVersion, metadata.objective, metadata.assumptions];
   const lines = [
-    csvHeaders.join(","),
+    [...metadataHeaders, ...csvHeaders].join(","),
     ...rows.map((row, index) =>
-      CSV_COLUMNS.map((column) => csvCell(column.value(row, index))).join(","),
+      [...metadataCells.map(csvCell), ...CSV_COLUMNS.map((column) => csvCell(column.value(row, index)))].join(","),
     ),
   ];
   return `${lines.join("\r\n")}\r\n`;

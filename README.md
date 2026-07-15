@@ -16,6 +16,28 @@ It searches across weapons, affinities, Ashes of War, upgrade levels, and stat d
 weapon x affinity x AoW x upgrade x relevant stat distribution
 ```
 
+<p align="center">
+  <strong>Exact search</strong> &nbsp;·&nbsp; <strong>One shared build session</strong>
+  &nbsp;·&nbsp; <strong>Versioned game data</strong> &nbsp;·&nbsp;
+  <strong>Reproducible Windows releases</strong>
+</p>
+
+## From Question to Answer
+
+```mermaid
+flowchart LR
+    Q["Choose class, level, objective<br/>and constraints"] --> S["Exact Rust search<br/>legal weapon loadouts"]
+    S --> R["Rankings<br/>select or lock a build"]
+    R --> C["Compare<br/>same budget, rival setup"]
+    R --> P["Paths<br/>best next stat by level"]
+    R --> A["Affinity Watch<br/>leaders and crossovers"]
+    D["Checksummed<br/>runtime snapshot"] --> S
+```
+
+The result is not a disconnected calculator output. Selecting a ranked build gives
+Compare, Paths, Affinity Watch, exports, and saved presets the same stats, objective,
+upgrade policy, assumptions, dataset version, and model version.
+
 ## Download
 
 Get the latest Windows build from [Releases](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
@@ -53,7 +75,7 @@ Every workspace reads from the same active session, so the app does not drift in
 
 ## Interface
 
-The v0.7.0 desktop interface uses one consistent selection model: click any
+The v0.8.0 desktop interface uses one consistent selection model: click any
 podium card or ranking row to make it the active build, then use the always-visible
 Build Detail panel for full combat stats, AR split, route damage, status, stamina,
 warnings, and one-click Compare, Paths, and Affinity Watch actions. Lock remains a
@@ -86,6 +108,7 @@ The optimizer can lock or open each major constraint:
 Supported objectives:
 
 - `Max AR`
+- `Max Physical AR`
 - `Bleed, then AR`
 - `AoW First Hit (PvE)`
 - `AoW Full Sequence (PvE)`
@@ -172,6 +195,19 @@ npm run build
 npm run test:e2e
 ```
 
+Measure release-mode optimizer phases without turning shared-runner noise into a
+release failure:
+
+```powershell
+python tools/phase4/benchmark_optimizer_phases.py `
+  --warmups 1 --repeats 5 `
+  --output dist/benchmarks/optimizer-phases.json
+```
+
+This reports preparation, scoring/top-k, and final materialization separately. See
+[the performance guide](docs/performance.md) for workflow benchmarks and advisory
+baseline comparison.
+
 Build a Windows release package:
 
 ```powershell
@@ -215,13 +251,17 @@ individually for a release snapshot.
 | `data/phase1` | Committed runtime data snapshot. |
 | `tools/phase1` | Extraction and data refresh tooling. |
 | `tools/phase4` | Validation, benchmarking, and release packaging. |
+| `docs/architecture` | Runtime identity, cache, job, and snapshot invariants. |
 | `docs/design` | Current design references for optimizer and release behavior. |
 | `docs/release-notes` | Per-version release notes and GitHub release links. |
+| `docs/validation` | Immutable, release-specific correction and verification evidence. |
 
 See [`tools/README.md`](tools/README.md) for the phase-tooling directory split,
 [`docs/design/optimizer-overview.md`](docs/design/optimizer-overview.md) for the
-current optimizer design reference, and [`CHANGELOG.md`](CHANGELOG.md) for the
-release-notes index.
+current optimizer design reference,
+[`docs/architecture/runtime-invariants.md`](docs/architecture/runtime-invariants.md)
+for cross-boundary contracts, and [`CHANGELOG.md`](CHANGELOG.md) for the release-notes
+index.
 
 ## License
 

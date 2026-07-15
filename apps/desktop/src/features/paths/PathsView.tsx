@@ -3,7 +3,7 @@ import { useMemo, useRef } from "react";
 import { api, hasTauriRuntime } from "../../lib/api";
 import { cachedPathPreview } from "../../lib/analysis-cache";
 import { usePathJob, useRequestBudget } from "../../lib/hooks";
-import { fixed1 } from "../../lib/format";
+import { fixed1, objectiveLabel } from "../../lib/format";
 import { clampHorizon, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { PathFinishedDto, PathPreviewDto, SolvedBuildDto } from "../../lib/types";
@@ -14,8 +14,8 @@ export function PathsView() {
   const target = useDesktopStore((state) => state.compareTarget);
   const request = useDesktopStore((state) => state.request);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
-  const horizon = useDesktopStore((state) => state.horizon);
-  const setHorizon = useDesktopStore((state) => state.setHorizon);
+  const horizon = useDesktopStore((state) => state.pathHorizon);
+  const setHorizon = useDesktopStore((state) => state.setPathHorizon);
   const paths = useDesktopStore((state) => state.paths);
   const setPaths = useDesktopStore((state) => state.setPaths);
   const isPathBusy = useDesktopStore((state) => state.isPathBusy);
@@ -147,7 +147,7 @@ export function PathsView() {
         <div>
           <h1>Paths</h1>
           <span>{selected ? `Current +${effectiveHorizon} ${target ? "selected and compare lanes" : "selected lane"}` : "Requires selected result"}</span>
-          {selected ? <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade}</small> : null}
+          {selected ? <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)} · data {catalog?.dataManifest.datasetVersion ?? "unknown"}{target ? ` · vs ${target.weaponName} / ${target.affinity} / +${target.upgrade}` : ""}</small> : null}
         </div>
         <div className="header-controls">
           <label>
@@ -171,21 +171,24 @@ export function PathsView() {
         <LaneSummary title="Selected" path={paths.find((path) => path.title === "Selected")} row={selected} />
         <LaneSummary title="Compare" path={paths.find((path) => path.title === "Compare")} row={target} />
       </div>
-      <PathChart paths={paths} />
+      <PathChart paths={paths} objective={objectiveLabel(request.objective)} />
       <div className="step-table path-step-table" role="grid" aria-label="Path steps">
+        <div className="step-row path-step-row table-header" role="row">
+          {["Lane", "Level", objectiveLabel(request.objective), "Gain", "Added", "Gap", "Stats"].map((label) => <span role="columnheader" key={label}>{label}</span>)}
+        </div>
         {paths.flatMap((path) =>
           path.steps.map((step, index) => {
             const previous = index > 0 ? path.steps[index - 1].metric : null;
             const gain = step.metric !== null && previous !== null ? step.metric - previous : null;
             return (
               <div key={`${path.title}-${step.level}`} className="step-row path-step-row" role="row">
-                <span>{path.title}</span>
-                <b>{step.level}</b>
-                <strong>{fixed1(step.metric)}</strong>
-                <span>{fixed1(gain)}</span>
-                <span>{step.addedStat ?? "start"}</span>
-                <span>{step.requirementGap}</span>
-                <span>STR {step.stats.strStat} DEX {step.stats.dex} INT {step.stats.intStat} FAI {step.stats.fai} ARC {step.stats.arc}</span>
+                <span role="gridcell">{path.title}</span>
+                <b role="gridcell">{step.level}</b>
+                <strong role="gridcell">{fixed1(step.metric)}</strong>
+                <span role="gridcell">{fixed1(gain)}</span>
+                <span role="gridcell">{step.addedStat ?? "start"}</span>
+                <span role="gridcell">{step.requirementGap}</span>
+                <span role="gridcell">STR {step.stats.strStat} DEX {step.stats.dex} INT {step.stats.intStat} FAI {step.stats.fai} ARC {step.stats.arc}</span>
               </div>
             );
           }),
@@ -222,16 +225,28 @@ function Progress({ checked, total, busy }: { checked: number; total: number; bu
   );
 }
 
-function PathChart({ paths }: { paths: PathPreviewDto[] }) {
+function PathChart({ paths, objective }: { paths: PathPreviewDto[]; objective: string }) {
   const values = paths.flatMap((path) => path.steps.map((step) => step.metric).filter((metric): metric is number => metric !== null));
   const min = Math.min(...values, 0);
   const max = Math.max(...values, 1);
+  const levels = paths.flatMap((path) => path.steps.map((step) => step.level));
+  const firstLevel = levels.length ? Math.min(...levels) : null;
+  const lastLevel = levels.length ? Math.max(...levels) : null;
   return (
-    <div className="path-chart">
-      {paths.map((path) => (
-        <div className="spark-line" key={path.title}>
+    <figure className="path-chart" aria-label={`${objective} by level for ${paths.length} path lanes`}>
+      <figcaption><strong>{objective}</strong><span>Level →</span></figcaption>
+      <div className="chart-axis" aria-hidden="true">
+        <span>{fixed1(max)}</span><span>{firstLevel === null ? "No levels" : `Level ${firstLevel} to ${lastLevel}`}</span><span>{fixed1(min)}</span>
+      </div>
+      <div className="chart-legend" aria-hidden="true">
+        {paths.map((path, index) => <span className={`series-${index % 3}`} key={path.title}>{path.title}</span>)}
+        <span className="breakpoint-key">◆ Stat breakpoint</span>
+      </div>
+      {paths.map((path, pathIndex) => (
+        <div className={`spark-line series-${pathIndex % 3}`} key={path.title} aria-hidden="true">
           {path.steps.map((step) => (
             <span
+              className={step.addedStat ? "breakpoint" : undefined}
               key={`${path.title}-${step.level}`}
               style={{ height: `${metricHeight(step.metric, min, max)}%` }}
               title={`${path.title} ${step.level}: ${fixed1(step.metric)}`}
@@ -239,7 +254,12 @@ function PathChart({ paths }: { paths: PathPreviewDto[] }) {
           ))}
         </div>
       ))}
-    </div>
+      <table className="sr-only">
+        <caption>{objective} path values by character level</caption>
+        <thead><tr><th>Lane</th><th>Level</th><th>{objective}</th></tr></thead>
+        <tbody>{paths.flatMap((path) => path.steps.map((step) => <tr key={`${path.title}-accessible-${step.level}`}><td>{path.title}</td><td>{step.level}</td><td>{fixed1(step.metric)}</td></tr>))}</tbody>
+      </table>
+    </figure>
   );
 }
 

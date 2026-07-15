@@ -1,7 +1,7 @@
 import { WheelEvent, useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { cachedSolveBuild, cachedUpgradeSeries, cachedWeaponScalingForUpgrade } from "../../lib/analysis-cache";
-import { compactNumber, fixed1, metricForObjective, statLine } from "../../lib/format";
+import { compactNumber, fixed1, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
 import { SearchableSelect, openOption } from "../../lib/SearchableSelect";
 import { compareUpgradeHorizon, scalingLetter, upgradeCapForRow } from "../../lib/session";
 import { stableSignature } from "../../lib/session";
@@ -28,6 +28,7 @@ export function CompareView() {
   const compareControls = useDesktopStore((state) => state.compareControls);
   const patchCompareControls = useDesktopStore((state) => state.patchCompareControls);
   const setError = useDesktopStore((state) => state.setError);
+  const setWorkspace = useDesktopStore((state) => state.setWorkspace);
   const matrixRef = useRef<HTMLDivElement | null>(null);
   const weaponNamesRequest = useRef(new LatestRequest());
   const affinitiesRequest = useRef(new LatestRequest());
@@ -38,6 +39,8 @@ export function CompareView() {
   const [affinityNames, setAffinityNames] = useState<string[]>([]);
   const [aowNames, setAowNames] = useState<string[]>([]);
   const [series, setSeries] = useState<CompareLane[]>([]);
+  const [seriesStatus, setSeriesStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [seriesError, setSeriesError] = useState<string | null>(null);
   const typeOptions = catalog?.weaponTypeOptions.length
     ? catalog.weaponTypeOptions
     : catalog?.weaponTypeKeys.map((key) => ({ key, label: key })) ?? [];
@@ -118,8 +121,11 @@ export function CompareView() {
       if (!selected) {
         setSeries([]);
         setCompareTarget(null);
+        setSeriesStatus("idle");
         return;
       }
+      setSeriesStatus("loading");
+      setSeriesError(null);
       const resolvedSelected =
         await cachedSolveBuild(
           baseRequest,
@@ -191,12 +197,16 @@ export function CompareView() {
       if (seriesRequest.current.isCurrent(token)) {
         setCompareTarget(summaryTarget);
         setSeries(nextSeries);
+        setSeriesStatus("ready");
       }
     }
     resolveRows().catch((error) => {
       if (seriesRequest.current.isCurrent(token)) {
         setSeries([]);
-        setError(error instanceof Error ? error.message : String(error));
+        const message = error instanceof Error ? error.message : String(error);
+        setSeriesError(message);
+        setSeriesStatus("error");
+        setError(message);
       }
     });
     return () => {
@@ -206,6 +216,22 @@ export function CompareView() {
   }, [baseRequest, compareControls, request, rows, selected, setCompareTarget, setError]);
 
   const matrixHorizon = compareUpgradeHorizon(request);
+  const dataVersion = catalog
+    ? `${catalog.dataManifest.datasetVersion} · model ${catalog.dataManifest.modelVersion}`
+    : "data unavailable";
+
+  if (!selected) {
+    return (
+      <section className="workspace-panel compare-panel">
+        <div className="workspace-header"><div><h1>Compare</h1><span>Requires a current ranked build</span></div></div>
+        <div className="empty-state workspace-prerequisite">
+          <strong>Select a ranking first</strong>
+          <span>Run or update Rankings, then select any row to use as the baseline.</span>
+          <button type="button" onClick={() => setWorkspace("rankings")}>Go to Rankings</button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="workspace-panel compare-panel">
@@ -213,7 +239,13 @@ export function CompareView() {
         <div>
           <h1>Compare</h1>
           <span>Selected line, explicit target, or top ranked rivals</span>
+          <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)} · {dataVersion}</small>
         </div>
+      </div>
+      <div className="analysis-state" role="status" aria-live="polite">
+        {seriesStatus === "loading" ? "Resolving builds, upgrade series, and scaling…" : null}
+        {seriesStatus === "error" ? `Compare failed: ${seriesError}` : null}
+        {seriesStatus === "ready" ? "Comparison current" : null}
       </div>
       <div className="compare-toolbar">
         <SearchableSelect
@@ -251,9 +283,15 @@ export function CompareView() {
           }
         />
       </div>
-      <div className="compare-lanes">
-        <Lane title="Selected" row={series[0]?.row ?? selected} objective={request.objective} scaling={series[0]?.scaling ?? null} />
-        <Lane title="Target" row={target} objective={request.objective} scaling={series[1]?.scaling ?? null} />
+      <div className="compare-lanes" aria-busy={seriesStatus === "loading"}>
+        <Lane title="Selected" row={series[0]?.row ?? selected} objective={request.objective} scaling={series[0]?.scaling ?? null} emptyLabel="Selected build unavailable" />
+        <Lane
+          title="Target"
+          row={target}
+          objective={request.objective}
+          scaling={series[1]?.scaling ?? null}
+          emptyLabel={seriesStatus === "loading" ? "Loading target…" : compareControls.weaponName ? "No compatible target" : "No ranked rival available"}
+        />
       </div>
       <div className="matrix-toolbar">
         <span>{compareControls.weaponName ? "Explicit target" : "Top ranked rivals"}</span>
@@ -262,10 +300,12 @@ export function CompareView() {
           <button type="button" onClick={() => scrollMatrix(matrixRef.current, 1)}>+{matrixHorizon}</button>
         </div>
       </div>
-      <div className="matrix-wrap" ref={matrixRef} onWheel={scrollMatrixWithWheel}>
+      <div className="matrix-wrap" ref={matrixRef} onWheel={scrollMatrixWithWheel} aria-busy={seriesStatus === "loading"}>
         <div className="metric-matrix" role="grid" aria-label="Compare upgrade metrics">
-          <span>Line</span>
-          {Array.from({ length: matrixHorizon + 1 }, (_, upgrade) => <span key={upgrade}>+{upgrade}</span>)}
+          <div className="matrix-row matrix-header" role="row">
+            <span role="columnheader">Line</span>
+            {Array.from({ length: matrixHorizon + 1 }, (_, upgrade) => <span role="columnheader" key={upgrade}>+{upgrade}</span>)}
+          </div>
           {series.map((lane) => (
             <MatrixRow key={lane.label} lane={lane} maxUpgrade={matrixHorizon} />
           ))}
@@ -284,12 +324,18 @@ function MatrixRow({
 }) {
   const byUpgrade = new Map(lane.points.map((point) => [point.upgrade, point.metric]));
   return (
-    <>
-      <strong>{lane.label}</strong>
+    <div className="matrix-row" role="row">
+      <strong role="rowheader">{lane.label}</strong>
       {Array.from({ length: maxUpgrade + 1 }, (_, upgrade) => (
-        <span key={`${lane.label}-${upgrade}`}>{fixed1(byUpgrade.get(upgrade))}</span>
+        <span
+          role="gridcell"
+          className={lane.row?.upgrade === upgrade ? "current-upgrade" : undefined}
+          key={`${lane.label}-${upgrade}`}
+        >
+          {fixed1(byUpgrade.get(upgrade))}
+        </span>
       ))}
-    </>
+    </div>
   );
 }
 
@@ -298,11 +344,13 @@ function Lane({
   row,
   objective,
   scaling,
+  emptyLabel,
 }: {
   title: string;
   row: SolvedBuildDto | null;
   objective: ReturnType<typeof useDesktopStore.getState>["request"]["objective"];
   scaling: ScalingDto | null;
+  emptyLabel: string;
 }) {
   return (
     <div className="compare-lane">
@@ -328,7 +376,7 @@ function Lane({
           <small>{statLine(row)}</small>
         </>
       ) : (
-        <em>Unset</em>
+        <em>{emptyLabel}</em>
       )}
     </div>
   );

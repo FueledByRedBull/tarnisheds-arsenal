@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -155,6 +156,86 @@ def require_replaceable(path: Path) -> None:
         ) from exc
 
 
+def find_signtool() -> Path:
+    direct = shutil.which("signtool")
+    if direct:
+        return Path(direct)
+    kits = Path(os.environ.get("ProgramFiles(x86)", "C:/Program Files (x86)")) / "Windows Kits/10/bin"
+    candidates = sorted(kits.glob("*/x64/signtool.exe"), reverse=True)
+    if not candidates:
+        raise FileNotFoundError("Windows signing credentials are configured but signtool.exe was not found")
+    return candidates[0]
+
+
+def sign_windows_binary(
+    signtool: Path,
+    certificate: Path,
+    password: str,
+    timestamp_url: str,
+    binary: Path,
+) -> None:
+    command = [
+        str(signtool),
+        "sign",
+        "/fd",
+        "SHA256",
+        "/td",
+        "SHA256",
+        "/tr",
+        timestamp_url,
+        "/f",
+        str(certificate),
+        "/p",
+        password,
+        str(binary),
+    ]
+    try:
+        subprocess.run(command, check=True, capture_output=True, text=True)
+        subprocess.run(
+            [str(signtool), "verify", "/pa", "/v", str(binary)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as error:
+        detail = (error.stderr or error.stdout or "signtool returned an error").strip()
+        raise RuntimeError(f"Authenticode signing failed for {binary.name}: {detail}") from None
+
+
+def sign_release_binaries_if_configured(
+    app_dir: Path,
+    tauri_dir: Path,
+) -> tuple[Path, Path, bool]:
+    exe = newest("target/release/tarnisheds-arsenal-desktop.exe", tauri_dir)
+    msi = newest("target/release/bundle/msi/*.msi", tauri_dir)
+    encoded_certificate = os.environ.get("WINDOWS_SIGNING_CERTIFICATE_BASE64", "").strip()
+    password = os.environ.get("WINDOWS_SIGNING_CERTIFICATE_PASSWORD", "")
+    if not encoded_certificate and not password:
+        return exe, msi, False
+    if not encoded_certificate or not password:
+        raise RuntimeError("Windows signing requires both certificate and password credentials")
+
+    signtool = find_signtool()
+    timestamp_url = (
+        os.environ.get("WINDOWS_SIGNING_TIMESTAMP_URL", "").strip()
+        or "http://timestamp.digicert.com"
+    )
+    with tempfile.TemporaryDirectory(prefix="tarnisheds-signing-") as directory:
+        certificate = Path(directory) / "certificate.pfx"
+        try:
+            certificate.write_bytes(base64.b64decode(encoded_certificate, validate=True))
+        except ValueError as error:
+            raise RuntimeError("Windows signing certificate is not valid base64") from error
+        sign_windows_binary(signtool, certificate, password, timestamp_url, exe)
+        run(
+            [npm_cmd(), "run", "tauri", "--", "bundle", "--bundles", "msi"],
+            cwd=app_dir,
+        )
+        msi = newest("target/release/bundle/msi/*.msi", tauri_dir)
+        sign_windows_binary(signtool, certificate, password, timestamp_url, msi)
+    return exe, msi, True
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build the Windows release package.")
     parser.add_argument(
@@ -176,6 +257,8 @@ def main() -> int:
     product_name = tauri_config["productName"]
     version = tauri_config["version"]
     completed_gates: list[str] = []
+    validation_report = root / "build_release" / "data-validation.json"
+    validation_completed = False
     release_dir = root / "dist" / f"TarnishedsArsenal_{version}"
     zip_path = root / "dist" / f"TarnishedsArsenal_{version}.zip"
     source_commit = require_clean_source(root)
@@ -193,6 +276,7 @@ def main() -> int:
             "README.md",
             "SHA256SUMS.txt",
             "build-report.json",
+            "data-validation.json",
             f"TarnishedsArsenal_{version}_portable.exe",
             f"TarnishedsArsenal_{version}_x64_en-US.msi",
         }
@@ -204,6 +288,11 @@ def main() -> int:
             )
         for name in expected_names:
             require_replaceable(release_dir / name)
+        if args.skip_validation and (release_dir / "data-validation.json").exists():
+            raise RuntimeError(
+                "refusing to retain a stale data-validation.json while validation is skipped; "
+                "run validation or use a fresh output directory"
+            )
     if zip_path.exists():
         if not args.replace_output:
             raise FileExistsError(
@@ -314,10 +403,16 @@ def main() -> int:
         if previous_pythonpath:
             validation_env["PYTHONPATH"] += os.pathsep + previous_pythonpath
         run(
-            [python_cmd(), "tools/phase4/validate_phase4.py"],
+            [
+                python_cmd(),
+                "tools/phase4/validate_phase4.py",
+                "--report",
+                str(validation_report),
+            ],
             cwd=root,
             env=validation_env,
         )
+        validation_completed = True
         completed_gates.extend(
             [
                 "release-metadata",
@@ -349,6 +444,17 @@ def main() -> int:
     require_unchanged_tracked_source(root, source_commit, stage="frontend E2E tests")
     run([npm_cmd(), "run", "tauri", "--", "build", "--", "--locked"], cwd=app_dir)
     require_unchanged_tracked_source(root, source_commit, stage="Tauri build")
+    packaged_exe, packaged_msi, code_signed = sign_release_binaries_if_configured(
+        app_dir,
+        tauri_dir,
+    )
+    if code_signed:
+        completed_gates.append("windows-code-signing")
+    run(
+        [node_cmd(), "./scripts/smoke-packaged.mjs", str(packaged_exe)],
+        cwd=app_dir,
+    )
+    require_unchanged_tracked_source(root, source_commit, stage="packaged app smoke")
     completed_gates.extend(
         [
             "playwright-browser",
@@ -356,13 +462,16 @@ def main() -> int:
             "frontend-e2e",
             "frontend-build",
             "tauri-release-build",
+            "packaged-app-smoke",
         ]
     )
 
     release_dir.mkdir(parents=True, exist_ok=args.replace_output)
+    if validation_completed:
+        shutil.copy2(validation_report, release_dir / "data-validation.json")
 
-    exe = newest("target/release/tarnisheds-arsenal-desktop.exe", tauri_dir)
-    msi = newest("target/release/bundle/msi/*.msi", tauri_dir)
+    exe = packaged_exe
+    msi = packaged_msi
     exe_out = release_dir / f"TarnishedsArsenal_{version}_portable.exe"
     msi_out = release_dir / f"TarnishedsArsenal_{version}_x64_en-US.msi"
     shutil.copy2(exe, exe_out)
@@ -383,6 +492,7 @@ def main() -> int:
                 f"- `{exe_out.name}` self-contained standalone executable",
                 "- `SHA256SUMS.txt` integrity hashes",
                 "- `build-report.json` build provenance",
+                *( ["- `data-validation.json` generated-data validation report"] if validation_completed else [] ),
                 "- `LICENSE`",
                 "",
                 "## Install",
@@ -418,8 +528,10 @@ def main() -> int:
                 "commit": source_commit,
                 "sourceDirty": False,
                 "dataManifestId": data_manifest["id"],
+                "dataValidationReport": "data-validation.json" if validation_completed else None,
                 "artifacts": artifact_rows,
                 "validationSkipped": args.skip_validation,
+                "codeSigned": code_signed,
                 "completedGates": completed_gates,
             },
             indent=2,

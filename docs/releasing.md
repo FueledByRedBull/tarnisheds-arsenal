@@ -50,6 +50,7 @@ The tag-triggered workflow repeats all release gates and publishes:
 - `TarnishedsArsenal_<version>.zip`
 - `TarnishedsArsenal_<version>_SHA256SUMS.txt`
 - `TarnishedsArsenal_<version>_build-report.json`
+- `TarnishedsArsenal_<version>_data-validation.json`
 
 The release workflow independently verifies that the ordinary `CI` workflow has
 already succeeded for the exact tag commit. If a tag is pushed while CI is still
@@ -64,10 +65,14 @@ validation flags, completed gates, artifact sizes, and EXE/MSI SHA-256 hashes.
 The final Tauri bundle build also runs Cargo in locked mode.
 
 Both binaries contain the complete compile-time runtime snapshot. Neither needs
-an adjacent data directory or source workbook. The current Windows binaries are
-unsigned; code signing is the remaining step needed to reduce SmartScreen
-friction and requires a signing certificate plus protected CI credentials.
+an adjacent data directory or source workbook. Authenticode signing is conditional:
+configure the protected `WINDOWS_SIGNING_CERTIFICATE_BASE64` and
+`WINDOWS_SIGNING_CERTIFICATE_PASSWORD` repository secrets, plus the optional
+`WINDOWS_SIGNING_TIMESTAMP_URL` variable. The package job signs the executable,
+rebuilds the MSI around it, signs the MSI, verifies both signatures, and records
+`codeSigned` and the `windows-code-signing` provenance gate. Without both secrets,
+the artifacts remain explicitly unsigned and do not claim that gate.
 
-The build report records the source commit and whether the worktree was dirty.
-Tag-triggered CI checkouts should always report `sourceDirty: false`; local
-pre-commit verification builds are expected to report `true`.
+The packager refuses a dirty worktree and records the exact source commit with
+`sourceDirty: false`. Run targeted pre-commit checks directly; create release
+artifacts only after the intended source is committed.

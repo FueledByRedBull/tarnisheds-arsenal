@@ -6,7 +6,6 @@ import {
   CatalogDto,
   CompareControls,
   Notice,
-  ObjectiveId,
   OptimizeRequestDto,
   PathPreviewDto,
   PathProgressDto,
@@ -20,15 +19,19 @@ import { classMeta, normalizeOptimizeRequest, rowFingerprint } from "./session";
 export interface DesktopState {
   activeWorkspace: WorkspaceTab;
   catalog: CatalogDto | null;
+  catalogStatus: "loading" | "ready" | "error";
+  catalogError: string | null;
   request: OptimizeRequestDto;
   estimate: SearchEstimateDto | null;
   rows: SolvedBuildDto[];
+  resultsStale: boolean;
   selected: SolvedBuildDto | null;
   compareTarget: SolvedBuildDto | null;
   selectedFingerprint: string | null;
   lockedStatMode: boolean;
   compareControls: CompareControls;
-  horizon: number;
+  pathHorizon: number;
+  affinityHorizon: number;
   notices: Notice[];
   isPathBusy: boolean;
   pathGeneration: number;
@@ -51,16 +54,20 @@ export interface DesktopState {
   activeJobId: string | null;
   progress: SearchProgressDto | null;
   setWorkspace: (workspace: WorkspaceTab) => void;
+  setCatalogLoading: () => void;
   setCatalog: (catalog: CatalogDto) => void;
+  setCatalogFailure: (message: string) => void;
   patchRequest: (patch: Partial<OptimizeRequestDto>) => void;
   applyClass: (className: string) => void;
   setEstimate: (estimate: SearchEstimateDto | null) => void;
   setRows: (rows: SolvedBuildDto[]) => void;
+  markResultsStale: () => void;
   clearResults: (message?: string) => void;
   selectRow: (row: SolvedBuildDto | null) => void;
   setCompareTarget: (row: SolvedBuildDto | null) => void;
   patchCompareControls: (patch: Partial<CompareControls>) => void;
-  setHorizon: (horizon: number) => void;
+  setPathHorizon: (horizon: number) => void;
+  setAffinityHorizon: (horizon: number) => void;
   setLockedStatMode: (lockedStatMode: boolean) => void;
   useRowAsLocks: (row: SolvedBuildDto) => void;
   setNotices: (notices: Notice[]) => void;
@@ -119,24 +126,20 @@ export const defaultRequest: OptimizeRequestDto = {
   topK: 25,
 };
 
-export const objectiveOptions: ObjectiveId[] = [
-  "max_ar",
-  "max_physical_ar",
-  "max_ar_plus_bleed",
-  "aow_first_hit",
-  "aow_full_sequence",
-];
-
 type DesktopSlice<T> = StateCreator<DesktopState, [], [], T>;
 
 type UiSlice = Pick<
   DesktopState,
   | "activeWorkspace"
   | "catalog"
+  | "catalogStatus"
+  | "catalogError"
   | "notices"
   | "error"
   | "setWorkspace"
+  | "setCatalogLoading"
   | "setCatalog"
+  | "setCatalogFailure"
   | "setNotices"
   | "pushNotice"
   | "setError"
@@ -146,10 +149,12 @@ type RequestSlice = Pick<
   DesktopState,
   | "request"
   | "lockedStatMode"
-  | "horizon"
+  | "pathHorizon"
+  | "affinityHorizon"
   | "patchRequest"
   | "applyClass"
-  | "setHorizon"
+  | "setPathHorizon"
+  | "setAffinityHorizon"
   | "setLockedStatMode"
   | "useRowAsLocks"
   | "loadBuildPreset"
@@ -159,6 +164,7 @@ type SearchSlice = Pick<
   DesktopState,
   | "estimate"
   | "rows"
+  | "resultsStale"
   | "selected"
   | "selectedFingerprint"
   | "isSearching"
@@ -168,6 +174,7 @@ type SearchSlice = Pick<
   | "progress"
   | "setEstimate"
   | "setRows"
+  | "markResultsStale"
   | "clearResults"
   | "selectRow"
   | "setSearching"
@@ -264,10 +271,14 @@ function invalidatePathJob(state: DesktopState) {
 const createUiSlice: DesktopSlice<UiSlice> = (set) => ({
   activeWorkspace: "rankings",
   catalog: null,
+  catalogStatus: "loading",
+  catalogError: null,
   notices: [],
   error: null,
   setWorkspace: (activeWorkspace) => set({ activeWorkspace }),
-  setCatalog: (catalog) => set({ catalog }),
+  setCatalogLoading: () => set({ catalogStatus: "loading", catalogError: null }),
+  setCatalog: (catalog) => set({ catalog, catalogStatus: "ready", catalogError: null }),
+  setCatalogFailure: (catalogError) => set({ catalogStatus: "error", catalogError }),
   setNotices: (notices) => set({ notices }),
   pushNotice: (notice) =>
     set((state) => ({
@@ -279,15 +290,15 @@ const createUiSlice: DesktopSlice<UiSlice> = (set) => ({
 const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
   request: defaultRequest,
   lockedStatMode: false,
-  horizon: 40,
+  pathHorizon: 40,
+  affinityHorizon: 40,
   patchRequest: (patch) =>
     set((state) => ({
       ...invalidateAllJobs(state),
       request: { ...state.request, ...patch },
-      rows: [],
-      selected: null,
+      estimate: null,
       compareTarget: null,
-      selectedFingerprint: null,
+      resultsStale: state.rows.length > 0,
       paths: [],
       pathSignature: null,
       affinityPayload: null,
@@ -312,22 +323,44 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
           fai: meta.baseStats.fai,
           arc: meta.baseStats.arc,
         },
-        rows: [],
-        selected: null,
+        estimate: null,
         compareTarget: null,
-        selectedFingerprint: null,
+        resultsStale: state.rows.length > 0,
+        paths: [],
+        pathSignature: null,
+        affinityPayload: null,
+        affinitySignature: null,
       };
     }),
-  setHorizon: (horizon) =>
+  setPathHorizon: (pathHorizon) =>
     set((state) => ({
-      ...invalidateAnalysisJobs(state),
-      horizon,
+      ...invalidatePathJob(state),
+      pathHorizon,
+      paths: [],
+      pathSignature: null,
+    })),
+  setAffinityHorizon: (affinityHorizon) =>
+    set((state) => ({
+      isAffinityBusy: false,
+      affinityGeneration: state.affinityGeneration + 1,
+      activeAffinitySignature: null,
+      activeAffinityJobId: null,
+      affinityProgress: null,
+      affinityHorizon,
+      affinityPayload: null,
+      affinitySignature: null,
+    })),
+  setLockedStatMode: (lockedStatMode) =>
+    set((state) => ({
+      ...invalidateAllJobs(state),
+      lockedStatMode,
+      resultsStale: state.rows.length > 0,
+      compareTarget: null,
       paths: [],
       pathSignature: null,
       affinityPayload: null,
       affinitySignature: null,
     })),
-  setLockedStatMode: (lockedStatMode) => set({ lockedStatMode }),
   useRowAsLocks: (row) =>
     set((state) => ({
       ...invalidateAllJobs(state),
@@ -347,11 +380,11 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
         lockFai: row.stats.fai,
         lockArc: row.stats.arc,
       },
+      estimate: null,
       lockedStatMode: true,
-      rows: [],
-      selected: null,
       compareTarget: null,
       selectedFingerprint: rowFingerprint(row),
+      resultsStale: state.rows.length > 0,
       paths: [],
       pathSignature: null,
       affinityPayload: null,
@@ -365,7 +398,9 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
     set((state) => ({
       ...invalidateAllJobs(state),
       request: normalizeOptimizeRequest(preset.request, state.request),
+      lockedStatMode: preset.request.lockStr !== null,
       rows: preset.selectedBuild ? [preset.selectedBuild] : [],
+      resultsStale: false,
       selected: preset.selectedBuild,
       compareTarget: preset.compareTarget,
       selectedFingerprint: rowFingerprint(preset.selectedBuild),
@@ -380,6 +415,7 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
 const createSearchSlice: DesktopSlice<SearchSlice> = (set) => ({
   estimate: null,
   rows: [],
+  resultsStale: false,
   selected: null,
   selectedFingerprint: null,
   isSearching: false,
@@ -396,13 +432,17 @@ const createSearchSlice: DesktopSlice<SearchSlice> = (set) => ({
         null;
       return {
         rows,
+        resultsStale: false,
         selected,
         selectedFingerprint: rowFingerprint(selected),
       };
     }),
+  markResultsStale: () =>
+    set((state) => ({ resultsStale: state.rows.length > 0 })),
   clearResults: (message) =>
     set((state) => ({
       rows: [],
+      resultsStale: false,
       selected: null,
       compareTarget: null,
       selectedFingerprint: null,
@@ -432,6 +472,7 @@ const createSearchSlice: DesktopSlice<SearchSlice> = (set) => ({
       generation = state.searchGeneration + 1;
       return {
         isSearching: true,
+        resultsStale: state.rows.length > 0,
         searchGeneration: generation,
         activeSearchSignature,
         activeJobId: null,

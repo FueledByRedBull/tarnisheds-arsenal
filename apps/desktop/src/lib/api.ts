@@ -319,6 +319,7 @@ async function mockCatalog(): Promise<CatalogDto> {
     classes: STARTING_CLASS_METADATA,
     weaponTypeOptions,
     aowNames: uniqueSorted(aows.map((row) => row.name).filter(Boolean)),
+    affinityNames: uniqueSorted(weapons.map((row) => row.affinity).filter(Boolean)),
     objectiveIds: ["max_ar", "max_physical_ar", "max_ar_plus_bleed", "aow_first_hit", "aow_full_sequence"],
     somberFilters: ["all", "standard_only", "somber_only"],
     dataManifest: mockDataManifest(),

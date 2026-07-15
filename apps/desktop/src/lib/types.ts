@@ -160,6 +160,7 @@ export interface CatalogDto {
   classes: ClassMetadataDto[];
   weaponTypeOptions: WeaponTypeOptionDto[];
   aowNames: string[];
+  affinityNames: string[];
   objectiveIds: ObjectiveId[];
   somberFilters: string[];
   dataManifest: DataManifestDto;

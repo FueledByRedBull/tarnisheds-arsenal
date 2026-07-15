@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { weaponProfile } = vi.hoisted(() => ({ weaponProfile: vi.fn() }));
 
@@ -6,7 +6,7 @@ vi.mock("./api", () => ({
   api: { weaponProfile },
 }));
 
-import { cachedWeaponProfile, clearAnalysisCaches } from "./analysis-cache";
+import { cachedWeaponProfile, clearAnalysisCaches, setAnalysisCacheVersion } from "./analysis-cache";
 import type { WeaponProfileDto } from "./types";
 
 const profile: WeaponProfileDto = {
@@ -30,8 +30,76 @@ function deferred<T>() {
 
 describe("analysis cache", () => {
   beforeEach(() => {
+    vi.useRealTimers();
     clearAnalysisCaches();
     weaponProfile.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("reuses a resolved cache hit without calling the loader again", async () => {
+    weaponProfile.mockResolvedValue(profile);
+
+    await expect(cachedWeaponProfile("Claymore", "Standard")).resolves.toEqual(profile);
+    await expect(cachedWeaponProfile("Claymore", "Standard")).resolves.toEqual(profile);
+
+    expect(weaponProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it("expires resolved entries after the TTL", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+    weaponProfile.mockResolvedValue(profile);
+
+    await cachedWeaponProfile("Claymore", "Standard");
+    vi.advanceTimersByTime(15 * 60 * 1000 - 1);
+    await cachedWeaponProfile("Claymore", "Standard");
+    expect(weaponProfile).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(2);
+    await cachedWeaponProfile("Claymore", "Standard");
+    expect(weaponProfile).toHaveBeenCalledTimes(2);
+  });
+
+  it("evicts the least-recently-used resolved entry at capacity", async () => {
+    weaponProfile.mockResolvedValue(profile);
+    for (let index = 0; index < 128; index += 1) {
+      await cachedWeaponProfile(`Weapon ${index}`, "Standard");
+    }
+    await cachedWeaponProfile("Weapon 0", "Standard");
+    await cachedWeaponProfile("Weapon 128", "Standard");
+    await cachedWeaponProfile("Weapon 0", "Standard");
+    await cachedWeaponProfile("Weapon 1", "Standard");
+
+    expect(weaponProfile).toHaveBeenCalledTimes(130);
+  });
+
+  it("invalidates every entry when the data version changes", async () => {
+    weaponProfile.mockResolvedValue(profile);
+    setAnalysisCacheVersion("cache-test-v1");
+    await cachedWeaponProfile("Claymore", "Standard");
+    setAnalysisCacheVersion("cache-test-v1");
+    await cachedWeaponProfile("Claymore", "Standard");
+    setAnalysisCacheVersion("cache-test-v2");
+    await cachedWeaponProfile("Claymore", "Standard");
+
+    expect(weaponProfile).toHaveBeenCalledTimes(2);
+  });
+
+  it("stays bounded across a long session while retaining the hottest entries", async () => {
+    weaponProfile.mockResolvedValue(profile);
+    for (let index = 0; index < 2_000; index += 1) {
+      await cachedWeaponProfile(`Session Weapon ${index}`, "Standard");
+    }
+    for (let index = 1_872; index < 2_000; index += 1) {
+      await cachedWeaponProfile(`Session Weapon ${index}`, "Standard");
+    }
+    expect(weaponProfile).toHaveBeenCalledTimes(2_000);
+
+    await cachedWeaponProfile("Session Weapon 0", "Standard");
+    expect(weaponProfile).toHaveBeenCalledTimes(2_001);
   });
 
   it("shares one in-flight request for duplicate subscribers", async () => {
@@ -110,5 +178,22 @@ describe("analysis cache", () => {
     await expect(cachedWeaponProfile("Claymore", "Standard")).resolves.toEqual(profile);
     expect(weaponProfile).toHaveBeenCalledTimes(2);
     abandoned.resolve(profile);
+  });
+
+  it("does not cache a late completion after every subscriber cancels", async () => {
+    const abandoned = deferred<WeaponProfileDto>();
+    const replacement = { ...profile, maxUpgrade: 10, isSomber: true };
+    weaponProfile.mockReturnValueOnce(abandoned.promise).mockResolvedValueOnce(replacement);
+    const controller = new AbortController();
+
+    const cancelled = cachedWeaponProfile("Claymore", "Standard", controller.signal);
+    controller.abort();
+    await expect(cancelled).rejects.toThrow("cancelled");
+    await expect(cachedWeaponProfile("Claymore", "Standard")).resolves.toEqual(replacement);
+    abandoned.resolve(profile);
+    await abandoned.promise;
+    await expect(cachedWeaponProfile("Claymore", "Standard")).resolves.toEqual(replacement);
+
+    expect(weaponProfile).toHaveBeenCalledTimes(2);
   });
 });

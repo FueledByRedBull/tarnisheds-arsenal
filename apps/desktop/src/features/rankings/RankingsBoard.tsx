@@ -1,5 +1,5 @@
-import { Download, LockKeyhole, Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowDownUp, ChevronLeft, ChevronRight, Download, LockKeyhole, RefreshCcw, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { downloadCsv, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
 import { cachedWeaponScalingForUpgrade } from "../../lib/analysis-cache";
 import { compactNumber, fixed1, metricForObjective, objectiveLabel } from "../../lib/format";
@@ -7,6 +7,7 @@ import { buildOptimizeRequest, derivedLevel, rowFingerprint, scalingLetter } fro
 import { useDesktopStore } from "../../lib/state";
 import { ScalingDto, SolvedBuildDto } from "../../lib/types";
 import { runSearchFromStore, runSearchRequestForRows } from "../../lib/workflows";
+import packageInfo from "../../../package.json";
 
 export function RankingsBoard() {
   const rows = useDesktopStore((state) => state.rows);
@@ -15,13 +16,21 @@ export function RankingsBoard() {
   const useRowAsLocks = useDesktopStore((state) => state.useRowAsLocks);
   const catalog = useDesktopStore((state) => state.catalog);
   const request = useDesktopStore((state) => state.request);
+  const patchRequest = useDesktopStore((state) => state.patchRequest);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
   const isSearching = useDesktopStore((state) => state.isSearching);
+  const resultsStale = useDesktopStore((state) => state.resultsStale);
   const pushNotice = useDesktopStore((state) => state.pushNotice);
   const setError = useDesktopStore((state) => state.setError);
   const objective = useDesktopStore((state) => state.request.objective);
   const [isExporting, setExporting] = useState(false);
   const [scalingByRow, setScalingByRow] = useState<Record<string, ScalingDto>>({});
+  const [reverseRank, setReverseRank] = useState(false);
+  const resultBoard = useRef<HTMLDivElement>(null);
+  const rankedRows = useMemo(() => {
+    const entries = rows.map((row, rank) => ({ row, rank }));
+    return reverseRank ? entries.reverse() : entries;
+  }, [reverseRank, rows]);
   const constraintCount = [
     request.weaponTypeKey,
     request.weaponName,
@@ -78,7 +87,26 @@ export function RankingsBoard() {
         topK: 500,
       };
       const exportRows = await runSearchRequestForRows(exportRequest);
-      downloadCsv(rankingsCsvFilename(), rankingsToCsv(exportRows));
+      if (!catalog) throw new Error("Catalog metadata is unavailable; the export was not created.");
+      downloadCsv(rankingsCsvFilename(), rankingsToCsv(exportRows, {
+        appVersion: packageInfo.version,
+        schemaVersion: String(catalog.dataManifest.schemaVersion),
+        datasetVersion: catalog.dataManifest.datasetVersion,
+        modelVersion: catalog.dataManifest.modelVersion,
+        objective: request.objective,
+        assumptions: [
+          request.twoHanding ? "two-handed" : "one-handed",
+          request.dlcScaling ? `Scadutree ${request.scadutreeLevel}` : "no DLC attack scaling",
+          "raw values; enemy defense and negation not applied",
+          ...(request.objective === "max_ar_plus_bleed"
+            ? ["status resistance growth and proc damage excluded"]
+            : []),
+          ...(request.objective === "aow_first_hit" || request.objective === "aow_full_sequence"
+            ? ["stamina is reported but not optimized; unsupported effects remain warnings"]
+            : []),
+          "temporary buff stacking not universal",
+        ].join("; "),
+      }));
       pushNotice({
         scope: "rankings",
         tone: "success",
@@ -91,6 +119,26 @@ export function RankingsBoard() {
     }
   }
 
+  async function runStarterExample() {
+    patchRequest({
+      weaponTypeKey: null,
+      weaponName: "Uchigatana",
+      affinity: "Standard",
+      aowName: null,
+      standardMaxUpgrade: 3,
+      exactUpgrade: true,
+      objective: "max_ar",
+    });
+    await runSearchFromStore();
+  }
+
+  function scrollResults(direction: -1 | 1) {
+    resultBoard.current?.scrollBy({
+      left: direction * 360,
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
+  }
+
   return (
     <section className="workspace-panel rankings-panel">
       <div className="workspace-header">
@@ -99,6 +147,21 @@ export function RankingsBoard() {
           <span>{rows.length} ranked rows</span>
         </div>
         <div className="result-scroll-actions">
+          <button
+            type="button"
+            title="Reverse rank display; click again to return to best first"
+            aria-pressed={reverseRank}
+            onClick={() => setReverseRank((value) => !value)}
+          >
+            <ArrowDownUp size={15} />
+            <span className="sr-only">{reverseRank ? "Show best rank first" : "Show lowest rank first"}</span>
+          </button>
+          <button type="button" title="Scroll result columns left" onClick={() => scrollResults(-1)}>
+            <ChevronLeft size={16} /><span className="sr-only">Scroll result columns left</span>
+          </button>
+          <button type="button" title="Scroll result columns right" onClick={() => scrollResults(1)}>
+            <ChevronRight size={16} /><span className="sr-only">Scroll result columns right</span>
+          </button>
           <button
             className="export-csv-button"
             type="button"
@@ -111,8 +174,19 @@ export function RankingsBoard() {
           </button>
         </div>
       </div>
+      {resultsStale && rows.length > 0 ? (
+        <div className="stale-results-banner" id="stale-results-message" role="status">
+          <div>
+            <strong>Inputs changed</strong>
+            <span>These rankings are retained from the previous query until the updated search finishes.</span>
+          </div>
+          <button type="button" onClick={() => void runSearchFromStore()} disabled={isSearching}>
+            <RefreshCcw size={14} />{isSearching ? "Updating..." : "Run updated search"}
+          </button>
+        </div>
+      ) : null}
       <div className="query-summary" aria-label="Active search summary">
-        <span className="query-summary-title"><Sparkles size={14} />Active query</span>
+        <span className="query-summary-title"><Sparkles size={14} />{resultsStale ? "Pending query" : "Active query"}</span>
         <span>{objectiveLabel(request.objective)}</span>
         <span>Level {derivedLevel(catalog, request)}</span>
         <span>
@@ -125,6 +199,17 @@ export function RankingsBoard() {
         <span>{constraintCount} active constraint{constraintCount === 1 ? "" : "s"}</span>
         <small>{catalog?.dataManifest.label ?? "Loading dataset"}</small>
       </div>
+      <details className="mechanics-glossary">
+        <summary>Metric glossary</summary>
+        <dl>
+          <div><dt>AR</dt><dd>Raw attack rating before enemy defense and negation.</dd></div>
+          <div><dt>Split</dt><dd>AR divided across physical, magic, fire, lightning, and holy damage.</dd></div>
+          <div><dt>AoW 1st / Full</dt><dd>First damaging hit or one complete legal Ash of War route.</dd></div>
+          <div><dt>Scaling</dt><dd>Attribute contribution grade at the shown reinforcement level.</dd></div>
+          <div><dt>Native</dt><dd>The weapon's fixed skill rather than an applied Ash of War.</dd></div>
+          <div><dt>Lock</dt><dd>Copies the result's loadout, upgrade, and combat stats into the next exact search.</dd></div>
+        </dl>
+      </details>
       <div className="top-cards">
         {[0, 1, 2].map((idx) => (
           <TopCard
@@ -139,9 +224,11 @@ export function RankingsBoard() {
         ))}
       </div>
       <div
+        ref={resultBoard}
         className="result-board full-grid"
         role="grid"
-        aria-label="Ranked builds"
+        aria-label={resultsStale ? "Ranked builds from the previous query" : "Ranked builds"}
+        aria-describedby={resultsStale ? "stale-results-message" : undefined}
       >
         <div className="result-head result-head-full" role="row">
           {[
@@ -152,17 +239,17 @@ export function RankingsBoard() {
             ["Scaling", "Attribute scaling at this reinforcement level"],
             ["AR / Status", "Raw attack rating and status buildup"],
             ["Raw skill", "Raw skill damage before enemy defense or negation"],
-            ["Score", "Value used by the active ranking objective"],
+            [`${objectiveLabel(objective)} score`, "Value used by the active ranking objective"],
             ["Lock", "Use this result as exact search locks"],
           ].map(([header, title]) => (
             <span role="columnheader" title={title} key={header}>{header}</span>
           ))}
         </div>
-        {rows.length === 0 ? <EmptyRows /> : null}
-        {rows.map((row, index) => (
+        {rows.length === 0 ? <EmptyRows onExample={runStarterExample} busy={isSearching} /> : null}
+        {rankedRows.map(({ row, rank }) => (
           <ResultRow
-            key={`${rowFingerprint(row)}-${index}`}
-            index={index}
+            key={`${rowFingerprint(row)}-${rank}`}
+            index={rank}
             row={row}
             active={rowFingerprint(selected) === rowFingerprint(row)}
             objective={objective}
@@ -262,15 +349,15 @@ function ResultRow({
         }
       }}
     >
-      <span className="rank-cell">{index + 1}</span>
-      <span className="weapon-cell"><strong>{row.weaponName}</strong><small>{row.isSomber ? "Somber" : "Standard"}</small></span>
-      <span className="setup-cell"><strong>{row.affinity}</strong><small>{row.aowName ?? "Native"}</small></span>
-      <span>+{row.upgrade}</span>
-      <span>{formatScaling(scaling)}</span>
-      <span className="result-metric-cell"><strong>AR {compactNumber(row.ar.total)}</strong><small>B {compactNumber(row.bleedBuildup)} · F {compactNumber(row.frostBuildup)}</small></span>
-      <span className="result-metric-cell"><strong>{compactNumber(row.aowFullSequenceDamage)}</strong><small>First {compactNumber(row.aowFirstHitDamage)}</small></span>
-      <span>{fixed1(metricForObjective(row, objective))}</span>
-      <span>
+      <span role="gridcell" className="rank-cell">{index + 1}</span>
+      <span role="gridcell" className="weapon-cell"><strong>{row.weaponName}</strong><small>{row.isSomber ? "Somber" : "Standard"}</small></span>
+      <span role="gridcell" className="setup-cell"><strong>{row.affinity}</strong><small>{row.aowName ?? "Native"}</small></span>
+      <span role="gridcell">+{row.upgrade}</span>
+      <span role="gridcell">{formatScaling(scaling)}</span>
+      <span role="gridcell" className="result-metric-cell"><strong>AR {compactNumber(row.ar.total)}</strong><small>B {compactNumber(row.bleedBuildup)} · F {compactNumber(row.frostBuildup)}</small></span>
+      <span role="gridcell" className="result-metric-cell"><strong>{compactNumber(row.aowFullSequenceDamage)}</strong><small>First {compactNumber(row.aowFirstHitDamage)}</small></span>
+      <span role="gridcell">{fixed1(metricForObjective(row, objective))}</span>
+      <span role="gridcell">
         <button
           className="inline-lock"
           type="button"
@@ -287,12 +374,13 @@ function ResultRow({
   );
 }
 
-function EmptyRows() {
+function EmptyRows({ onExample, busy }: { onExample: () => void; busy: boolean }) {
   return (
     <div className="empty-state">
       <strong>No rankings loaded</strong>
       <span>Press Search to rank every legal setup under the active query.</span>
       <small>Open loadout fields keep all compatible options eligible.</small>
+      <button type="button" onClick={onExample} disabled={busy}>{busy ? "Searching…" : "Try Samurai +3 example"}</button>
     </div>
   );
 }

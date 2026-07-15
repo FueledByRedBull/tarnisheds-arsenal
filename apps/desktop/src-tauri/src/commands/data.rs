@@ -1,7 +1,7 @@
 use std::collections::{BTreeSet, HashMap};
 
 use er_optimizer_core::math::STARTING_CLASSES;
-use er_optimizer_core::{GameData, Weapon};
+use er_optimizer_core::{GameData, OptimizeObjective, SomberFilter, Weapon};
 use tauri::State;
 
 use crate::AppState;
@@ -16,6 +16,7 @@ use crate::errors::AppError;
 pub struct CatalogIndex {
     weapon_names: Vec<String>,
     aow_names: Vec<String>,
+    affinity_names: Vec<String>,
     weapon_type_keys: Vec<String>,
     weapon_type_options: Vec<WeaponTypeOptionDto>,
     weapon_names_by_type: HashMap<String, Vec<String>>,
@@ -36,6 +37,7 @@ impl CatalogIndex {
     pub fn build(data: &GameData) -> Self {
         let mut weapon_names = BTreeSet::new();
         let mut aow_names = BTreeSet::new();
+        let mut affinity_names = BTreeSet::new();
         let mut weapon_type_keys = BTreeSet::new();
         let mut weapon_type_options = BTreeSet::<(String, String)>::new();
         let mut weapon_names_by_type = HashMap::<String, BTreeSet<String>>::new();
@@ -62,6 +64,7 @@ impl CatalogIndex {
             let affinity_key = index_key(&weapon.affinity);
             let weapon_affinity_key = (weapon_key.clone(), affinity_key.clone());
             weapon_names.insert(weapon.name.clone());
+            affinity_names.insert(weapon.affinity.clone());
             affinities_by_weapon
                 .entry(weapon_key.clone())
                 .or_default()
@@ -164,6 +167,7 @@ impl CatalogIndex {
         Self {
             weapon_names: weapon_names.into_iter().collect(),
             aow_names: aow_names.into_iter().collect(),
+            affinity_names: affinity_names.into_iter().collect(),
             weapon_type_keys: weapon_type_keys.into_iter().collect(),
             weapon_type_options: weapon_type_options
                 .into_iter()
@@ -199,18 +203,15 @@ pub fn get_catalog(state: State<'_, AppState>) -> Result<CatalogDto, AppError> {
         classes: class_metadata(),
         weapon_type_options: index.weapon_type_options.clone(),
         aow_names: index.aow_names.clone(),
-        objective_ids: vec![
-            "max_ar".to_string(),
-            "max_physical_ar".to_string(),
-            "max_ar_plus_bleed".to_string(),
-            "aow_first_hit".to_string(),
-            "aow_full_sequence".to_string(),
-        ],
-        somber_filters: vec![
-            "all".to_string(),
-            "standard_only".to_string(),
-            "somber_only".to_string(),
-        ],
+        affinity_names: index.affinity_names.clone(),
+        objective_ids: OptimizeObjective::ALL
+            .into_iter()
+            .map(|objective| objective.as_str().to_string())
+            .collect(),
+        somber_filters: SomberFilter::ALL
+            .into_iter()
+            .map(|filter| filter.as_str().to_string())
+            .collect(),
         data_manifest: state.data_manifest.clone(),
     })
 }

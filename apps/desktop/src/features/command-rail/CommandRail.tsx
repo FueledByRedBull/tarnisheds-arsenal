@@ -11,25 +11,11 @@ import {
   scadutreeReceivedDamageMultiplier,
 } from "../../lib/scadutree";
 import { classMeta, classOptions, derivedLevel, stableSignature } from "../../lib/session";
-import { objectiveOptions, useDesktopStore } from "../../lib/state";
+import { useDesktopStore } from "../../lib/state";
 import { OptimizeRequestDto, SearchFinishedDto, SearchProgressDto } from "../../lib/types";
+import { LatestRequest } from "../../lib/request-generation";
 
-const AFFINITY_OPTIONS = [
-  "Standard",
-  "Heavy",
-  "Keen",
-  "Quality",
-  "Fire",
-  "Flame Art",
-  "Lightning",
-  "Sacred",
-  "Magic",
-  "Cold",
-  "Poison",
-  "Blood",
-  "Occult",
-  "Unique",
-];
+const EXPENSIVE_SEARCH_COMBINATIONS = 1_000_000;
 
 export function CommandRail() {
   const catalog = useDesktopStore((state) => state.catalog);
@@ -39,6 +25,8 @@ export function CommandRail() {
   const setEstimate = useDesktopStore((state) => state.setEstimate);
   const setRows = useDesktopStore((state) => state.setRows);
   const clearResults = useDesktopStore((state) => state.clearResults);
+  const markResultsStale = useDesktopStore((state) => state.markResultsStale);
+  const resultsStale = useDesktopStore((state) => state.resultsStale);
   const setError = useDesktopStore((state) => state.setError);
   const setSearching = useDesktopStore((state) => state.setSearching);
   const beginSearch = useDesktopStore((state) => state.beginSearch);
@@ -57,6 +45,7 @@ export function CommandRail() {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [searchCancellationRequested, setSearchCancellationRequested] = useState(false);
   const searchCancellationRequestedRef = useRef(false);
+  const estimateRequest = useRef(new LatestRequest());
   const meta = classMeta(catalog, request.className);
   const { base: apiRequest, budget } = useRequestBudget(catalog, request, lockedStatMode);
   const weaponProfile = useWeaponProfile(request, patchRequest, setError);
@@ -83,11 +72,14 @@ export function CommandRail() {
   const missingRequirements = requirementGaps
     ? Object.values(requirementGaps).some((gap) => gap > 0)
     : false;
-  const affinityOptions = weaponProfile?.affinities.length ? weaponProfile.affinities : AFFINITY_OPTIONS;
+  const affinityOptions = weaponProfile?.affinities.length ? weaponProfile.affinities : catalog?.affinityNames ?? [];
   const typeOptions = catalog?.weaponTypeOptions.length
     ? catalog.weaponTypeOptions
     : catalog?.weaponTypeKeys.map((key) => ({ key, label: key })) ?? [];
   const startingClasses = classOptions(catalog);
+  const activeMinimums = [request.minStr, request.minDex, request.minInt, request.minFai, request.minArc]
+    .filter((value) => value > 0).length;
+  const exactLocksActive = lockedStatMode && request.lockStr !== null;
 
   useEffect(() => {
     let cancelled = false;
@@ -134,6 +126,23 @@ export function CommandRail() {
     return () => window.clearInterval(tick);
   }, [isSearching, searchStartedAt]);
 
+  useEffect(() => {
+    if (!catalog || isSearching) return undefined;
+    const signature = stableSignature(apiRequest);
+    const token = estimateRequest.current.begin(signature);
+    const timeout = window.setTimeout(() => {
+      api.estimateSearchSpace(apiRequest).then((nextEstimate) => {
+        if (estimateRequest.current.isCurrent(token)) setEstimate(nextEstimate);
+      }).catch(() => {
+        if (estimateRequest.current.isCurrent(token)) setEstimate(null);
+      });
+    }, 300);
+    return () => {
+      window.clearTimeout(timeout);
+      estimateRequest.current.invalidate(token);
+    };
+  }, [apiRequest, catalog, isSearching, setEstimate]);
+
   async function runSearch() {
     const signature = stableSignature(apiRequest);
     const generation = beginSearch(signature);
@@ -168,7 +177,11 @@ export function CommandRail() {
           return;
         }
         if (searchCancellationRequestedRef.current) {
-          clearResults("Search stopped.");
+          useDesktopStore.getState().pushNotice({
+            scope: "rankings",
+            tone: "warning",
+            message: "Search stopped. Previous results were retained.",
+          });
           setSearching(false);
           setSearchStartedAt(null);
           setSearchCancellationRequested(false);
@@ -218,7 +231,13 @@ export function CommandRail() {
       payload.jobId !== current.activeJobId
     ) return;
     if (payload.error) current.setError(payload.error);
-    if (payload.cancelled) current.clearResults("Search stopped.");
+    if (payload.cancelled) {
+      current.pushNotice({
+        scope: "rankings",
+        tone: "warning",
+        message: "Search stopped. Previous results were retained.",
+      });
+    }
     else current.setRows(payload.rows);
     current.setSearching(false);
     current.setActiveJobId(null);
@@ -259,7 +278,7 @@ export function CommandRail() {
         <small className="data-version">{catalog?.dataManifest.label ?? "Loading data version"}</small>
       </div>
 
-      <div className="rail-scroll">
+      <fieldset className="rail-scroll rail-fieldset" disabled={!catalog} aria-busy={!catalog}>
         <section className="rail-section">
           <div className="section-title">
             <Swords size={15} />
@@ -305,7 +324,7 @@ export function CommandRail() {
                   min={Number(min)}
                   max={99}
                   value={Number(request[key as keyof typeof request])}
-                  onDraftChange={clearResults}
+                  onDraftChange={markResultsStale}
                   onCommit={(value) => patchRequest({ [key]: value } as Partial<OptimizeRequestDto>)}
                 />
               </label>
@@ -320,7 +339,15 @@ export function CommandRail() {
                 : `Any upgrade to +${request.standardMaxUpgrade} / +${request.somberMaxUpgrade}`}
             </span>
             <span>{request.dlcScaling ? `DLC blessing x${scadutreeDamageMultiplier.toFixed(2)}` : "Base-game scaling"}</span>
+            {activeMinimums > 0 ? <span>{activeMinimums} minimum stat floor{activeMinimums === 1 ? "" : "s"}</span> : null}
           </div>
+          {exactLocksActive ? (
+            <div className="active-lock-warning" role="status">
+              <strong>Exact locks active:</strong>
+              <span>STR {request.lockStr} / DEX {request.lockDex} / INT {request.lockInt} / FAI {request.lockFai} / ARC {request.lockArc}</span>
+              <small>Changing class or loadout keeps these locks and may make the query incompatible. Clear locks in Fine tuning when you want automatic stats.</small>
+            </div>
+          ) : null}
           {weaponProfile ? (
             <div className={`requirements-strip ${missingRequirements ? "missing" : ""}`}>
               <span>{missingRequirements ? "Requirements unmet" : "Requirements clear"}</span>
@@ -369,7 +396,7 @@ export function CommandRail() {
                 min={0}
                 max={25}
                 value={request.standardMaxUpgrade}
-                onDraftChange={clearResults}
+                onDraftChange={markResultsStale}
                 onCommit={(standardMaxUpgrade) => patchRequest({ standardMaxUpgrade })}
               />
             </label>
@@ -379,7 +406,7 @@ export function CommandRail() {
                 min={0}
                 max={10}
                 value={request.somberMaxUpgrade}
-                onDraftChange={clearResults}
+                onDraftChange={markResultsStale}
                 onCommit={(somberMaxUpgrade) => patchRequest({ somberMaxUpgrade })}
               />
             </label>
@@ -419,7 +446,7 @@ export function CommandRail() {
               min={1}
               max={50}
               value={request.topK}
-              onDraftChange={clearResults}
+              onDraftChange={markResultsStale}
               onCommit={(topK) => patchRequest({ topK })}
             />
           </label>
@@ -431,7 +458,7 @@ export function CommandRail() {
             <span>Objective</span>
           </div>
           <div className="segmented">
-            {objectiveOptions.map((objective) => (
+            {(catalog?.objectiveIds ?? []).map((objective) => (
               <button
                 key={objective}
                 className={request.objective === objective ? "active" : ""}
@@ -464,7 +491,7 @@ export function CommandRail() {
               min={0}
               max={SCADUTREE_MAX_LEVEL}
               value={request.scadutreeLevel}
-              onDraftChange={clearResults}
+              onDraftChange={markResultsStale}
               onCommit={(scadutreeLevel) => patchRequest({ scadutreeLevel })}
             />
           </label>
@@ -487,11 +514,7 @@ export function CommandRail() {
               <SearchableSelect
                 label="Somber"
                 value={request.somberFilter}
-                options={[
-                  { value: "all", label: "All" },
-                  { value: "standard_only", label: "Standard Only" },
-                  { value: "somber_only", label: "Somber Only" },
-                ]}
+                options={(catalog?.somberFilters ?? []).map((value) => ({ value, label: somberFilterLabel(value) }))}
                 onChange={(somberFilter) => somberFilter && patchRequest({ somberFilter })}
               />
               <div className="stat-grid floors">
@@ -508,7 +531,7 @@ export function CommandRail() {
                       min={0}
                       max={99}
                       value={Number(request[key as keyof typeof request])}
-                      onDraftChange={clearResults}
+                      onDraftChange={markResultsStale}
                       onCommit={(value) => patchRequest({ [key]: value } as Partial<OptimizeRequestDto>)}
                     />
                   </label>
@@ -542,26 +565,37 @@ export function CommandRail() {
               </button>
           </div>
         </section>
-      </div>
+      </fieldset>
 
       <div className="rail-actions">
         <button
           className={`search-button ${isSearching ? "busy" : ""}`}
           type="button"
           onClick={isSearching ? cancelSearch : runSearch}
-          disabled={searchCancellationRequested}
+          disabled={searchCancellationRequested || (!isSearching && !catalog)}
         >
           {isSearching ? <RotateCcw size={17} /> : <Play size={17} />}
-          {isSearching ? (searchCancellationRequested ? "Cancelling..." : "Cancel Search") : "Search"}
+          {isSearching
+            ? (searchCancellationRequested ? "Cancelling..." : "Cancel Search")
+            : resultsStale
+              ? "Update Results"
+              : "Search"}
         </button>
 
         {isSearching ? (
-          <SearchProgressPanel progress={progress} elapsedMs={progress?.elapsedMs ?? elapsedMs} />
+          <SearchProgressPanel
+            progress={progress}
+            elapsedMs={progress?.elapsedMs ?? elapsedMs}
+            objective={objectiveLabel(request.objective)}
+          />
         ) : estimate ? (
-          <div className="estimate-strip">
-            <span>{estimate.weaponCandidates} weapons</span>
-            <strong>{fixed1(estimate.combinations / 1000)}k</strong>
-            <span>combos</span>
+          <div className={`estimate-strip ${estimate.combinations >= EXPENSIVE_SEARCH_COMBINATIONS ? "expensive" : ""}`}>
+            <span>Preflight: {estimate.weaponCandidates} weapons</span>
+            <strong>{formatCombinations(estimate.combinations)}</strong>
+            <span>combinations</span>
+            {estimate.combinations >= EXPENSIVE_SEARCH_COMBINATIONS ? (
+              <small>Broad search. Choose a weapon type, weapon, affinity, or tighter upgrade range for a faster result.</small>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -572,22 +606,26 @@ export function CommandRail() {
 function SearchProgressPanel({
   progress,
   elapsedMs,
+  objective,
 }: {
   progress: SearchProgressDto | null;
   elapsedMs: number;
+  objective: string;
 }) {
   const pct = progress ? Math.min(100, (progress.checked / Math.max(progress.total, 1)) * 100) : null;
   return (
     <div className="estimate-strip progress-strip">
       <div className="progress-meta">
         <span>{pct === null ? "Starting" : `${fixed1(pct)}%`}</span>
-        <strong>{progress ? fixed1(progress.bestScore) : formatDuration(elapsedMs)}</strong>
+        <strong aria-label={progress ? `${objective} best score` : "Elapsed time"}>
+          {progress ? fixed1(progress.bestScore) : formatDuration(elapsedMs)}
+        </strong>
         <span>{progress ? `${progress.eligible} eligible` : "checking"}</span>
       </div>
       <div className={`search-progress-bar ${pct === null ? "indeterminate" : ""}`}>
         <i style={pct === null ? undefined : { width: `${pct}%` }} />
       </div>
-      <small>{formatDuration(elapsedMs)}</small>
+      <small>{objective} · {formatDuration(elapsedMs)}</small>
     </div>
   );
 }
@@ -595,6 +633,19 @@ function SearchProgressPanel({
 function formatDuration(ms: number): string {
   const seconds = Math.max(0, ms / 1000);
   return `${seconds.toFixed(seconds < 10 ? 1 : 0)}s`;
+}
+
+function somberFilterLabel(value: string): string {
+  return value
+    .split("_")
+    .map((word) => `${word.slice(0, 1).toUpperCase()}${word.slice(1)}`)
+    .join(" ");
+}
+
+function formatCombinations(value: number): string {
+  if (value >= 1_000_000) return `${fixed1(value / 1_000_000)}m`;
+  if (value >= 1_000) return `${fixed1(value / 1_000)}k`;
+  return String(value);
 }
 
 function DraftNumberInput({

@@ -1,9 +1,12 @@
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
+#[cfg(test)]
+use er_optimizer_core::optimize_with_cancel;
 use er_optimizer_core::{
     OptimizeRequest, estimate_search_space as core_estimate_search_space, optimize,
-    optimize_prepared_with_progress, optimize_with_cancel, prepare_search_with_cancel,
+    optimize_level_range_with_progress, optimize_prepared_with_progress,
+    prepare_search_with_cancel, prepare_upgrade_series_evaluator_with_cancel,
 };
 use tauri::{AppHandle, State};
 
@@ -46,6 +49,7 @@ pub fn run_search_inner(
         .map_err(AppError::from)
 }
 
+#[cfg(test)]
 pub fn run_search_inner_with_cancel<F>(
     mut request: crate::dto::OptimizeRequestDto,
     state: &AppState,
@@ -59,6 +63,40 @@ where
     optimize_with_cancel(&request, &state.data, should_continue)
         .map(|rows| rows.into_iter().map(SolvedBuildDto::from).collect())
         .map_err(AppError::from)
+}
+
+pub fn run_level_range_inner_with_progress<F, C>(
+    mut request: crate::dto::OptimizeRequestDto,
+    levels: &[u16],
+    state: &AppState,
+    level_complete: F,
+    should_continue: C,
+) -> Result<Vec<(u16, Vec<SolvedBuildDto>)>, AppError>
+where
+    F: FnMut(u16) -> bool,
+    C: FnMut() -> bool + Send,
+{
+    clamp_weapon_upgrade_request(&mut request, state)?;
+    let request = OptimizeRequest::try_from(&request)?;
+    optimize_level_range_with_progress(
+        &request,
+        levels,
+        &state.data,
+        level_complete,
+        should_continue,
+    )
+    .map(|levels| {
+        levels
+            .into_iter()
+            .map(|entry| {
+                (
+                    entry.level,
+                    entry.rows.into_iter().map(SolvedBuildDto::from).collect(),
+                )
+            })
+            .collect()
+    })
+    .map_err(AppError::from)
 }
 
 #[tauri::command]
@@ -86,6 +124,24 @@ pub fn build_upgrade_series(
     request: UpgradeSeriesRequestDto,
     state: State<'_, AppState>,
 ) -> Result<Vec<UpgradePointDto>, AppError> {
+    build_upgrade_series_inner(request, &state)
+}
+
+pub fn build_upgrade_series_inner(
+    request: UpgradeSeriesRequestDto,
+    state: &AppState,
+) -> Result<Vec<UpgradePointDto>, AppError> {
+    build_upgrade_series_inner_with_cancel(request, state, || true)
+}
+
+pub fn build_upgrade_series_inner_with_cancel<F>(
+    request: UpgradeSeriesRequestDto,
+    state: &AppState,
+    mut should_continue: F,
+) -> Result<Vec<UpgradePointDto>, AppError>
+where
+    F: FnMut() -> bool + Send,
+{
     let mut base = request.base;
     base.weapon_name = Some(request.solved.weapon_name.clone());
     base.affinity = Some(request.solved.affinity.clone());
@@ -100,7 +156,7 @@ pub fn build_upgrade_series(
     base.exact_upgrade = Some(false);
     base.max_upgrade = None;
     base.fixed_upgrade = None;
-    base.top_k = usize::from(request.max_upgrade) + 1;
+    base.top_k = 1;
     base.min_str = 0;
     base.min_dex = 0;
     base.min_int = 0;
@@ -109,15 +165,23 @@ pub fn build_upgrade_series(
     lock_request_to_stats(&mut base, request.solved.stats);
 
     let objective = parse_objective(&base.objective)?;
-    let mut points: Vec<UpgradePointDto> = run_search_inner(base, &state)?
+    let core_request = OptimizeRequest::try_from(&base)?;
+    let evaluator = prepare_upgrade_series_evaluator_with_cancel(
+        &core_request,
+        &state.data,
+        &mut should_continue,
+    )
+    .map_err(AppError::from)?;
+    Ok(evaluator
+        .evaluate_with_cancel(&core_request, request.max_upgrade, &mut should_continue)
+        .map_err(AppError::from)?
         .into_iter()
-        .map(|row| UpgradePointDto {
-            upgrade: row.upgrade,
-            metric: metric_for_objective(&row, objective),
+        .map(SolvedBuildDto::from)
+        .map(|solved| UpgradePointDto {
+            upgrade: solved.upgrade,
+            metric: metric_for_objective(&solved, objective),
         })
-        .collect();
-    points.sort_by_key(|point| point.upgrade);
-    Ok(points)
+        .collect())
 }
 
 #[tauri::command]
@@ -240,6 +304,21 @@ pub fn clamp_weapon_upgrade_request(
 mod integration_tests {
     use super::*;
 
+    fn upgrade_series_request(state: &AppState) -> UpgradeSeriesRequestDto {
+        let mut base = crate::test_optimize_request();
+        base.standard_max_upgrade = Some(25);
+        base.exact_upgrade = Some(true);
+        let solved = run_search_inner(base.clone(), state)
+            .expect("seed search succeeds")
+            .pop()
+            .expect("seed build exists");
+        UpgradeSeriesRequestDto {
+            base,
+            solved,
+            max_upgrade: 25,
+        }
+    }
+
     #[test]
     fn packaged_snapshot_executes_a_real_tauri_search() {
         let state = crate::test_app_state();
@@ -269,5 +348,56 @@ mod integration_tests {
         let error = run_search_inner_with_cancel(crate::test_optimize_request(), &state, || false)
             .expect_err("cancelled command search must fail closed");
         assert_eq!(error.message, "cancelled");
+    }
+
+    #[test]
+    fn packaged_snapshot_executes_direct_upgrade_series_and_cancellation() {
+        let state = crate::test_app_state();
+        let request = upgrade_series_request(&state);
+        let points = build_upgrade_series_inner(request.clone(), &state)
+            .expect("direct upgrade series succeeds");
+        assert_eq!(
+            points.iter().map(|point| point.upgrade).collect::<Vec<_>>(),
+            (0_u8..=25).collect::<Vec<_>>()
+        );
+        let error = build_upgrade_series_inner_with_cancel(request, &state, || false)
+            .expect_err("cancelled upgrade series must fail closed");
+        assert_eq!(error.message, "cancelled");
+    }
+
+    #[test]
+    #[ignore = "release-mode workflow benchmark"]
+    fn workflow_benchmark_upgrade_series() {
+        let state = crate::test_app_state();
+        let request = upgrade_series_request(&state);
+        let repeats = std::env::var("ER_BENCH_REPEATS")
+            .ok()
+            .and_then(|value| value.parse::<usize>().ok())
+            .unwrap_or(25)
+            .max(1);
+        let mut durations = Vec::with_capacity(repeats);
+        for sample in 0..=repeats {
+            let started = std::time::Instant::now();
+            let points = build_upgrade_series_inner(request.clone(), &state)
+                .expect("benchmark upgrade series succeeds");
+            assert_eq!(points.len(), 26);
+            if sample > 0 {
+                durations.push(started.elapsed().as_secs_f64() * 1_000.0);
+            }
+        }
+        durations.sort_by(f64::total_cmp);
+        println!(
+            "WORKFLOW_BENCH {}",
+            serde_json::json!({
+                "workflow": "upgrade_series",
+                "reinforcement": "standard",
+                "points": 26,
+                "repeats": repeats,
+                "median_ms": durations[durations.len() / 2],
+                "best_ms": durations[0],
+                "worst_ms": durations[durations.len() - 1],
+                "samples_ms": durations,
+            })
+        );
     }
 }

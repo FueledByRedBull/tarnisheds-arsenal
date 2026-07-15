@@ -285,7 +285,7 @@ mod tests {
 
     use super::{
         RUNTIME_DATA_FILES, SNAPSHOT_SCHEMA_VERSION, SnapshotFile, SnapshotManifest,
-        SnapshotSource, validate_external_snapshot,
+        SnapshotSource, parse_and_validate_manifest, validate_external_snapshot,
     };
 
     struct TestSnapshot {
@@ -389,5 +389,53 @@ mod tests {
         let missing = validate_external_snapshot(&snapshot.path).unwrap_err();
         assert!(missing.contains("weapons.csv"));
         assert!(missing.contains("failed reading"));
+    }
+
+    #[test]
+    fn manifest_parser_rejects_structured_mutation_corpus_without_panicking() {
+        type ManifestMutation = (&'static str, Box<dyn Fn(&mut serde_json::Value)>);
+
+        let snapshot = TestSnapshot::create();
+        let valid = fs::read(snapshot.path.join("manifest.json")).expect("read manifest");
+        parse_and_validate_manifest(&valid).expect("seed manifest is valid");
+        let seed: serde_json::Value = serde_json::from_slice(&valid).expect("parse seed JSON");
+        let mutations: Vec<ManifestMutation> = vec![
+            (
+                "wrong schema",
+                Box::new(|value| value["schemaVersion"] = 999.into()),
+            ),
+            ("empty id", Box::new(|value| value["id"] = "".into())),
+            (
+                "path traversal",
+                Box::new(|value| value["runtimeFiles"][0]["path"] = "../escape.csv".into()),
+            ),
+            (
+                "bad hash",
+                Box::new(|value| value["runtimeFiles"][0]["sha256"] = "xyz".into()),
+            ),
+            (
+                "duplicate runtime",
+                Box::new(|value| {
+                    let duplicate = value["runtimeFiles"][0].clone();
+                    value["runtimeFiles"]
+                        .as_array_mut()
+                        .expect("runtime array")
+                        .push(duplicate);
+                }),
+            ),
+            (
+                "missing sources",
+                Box::new(|value| value["sources"] = serde_json::json!([])),
+            ),
+        ];
+        for (label, mutate) in mutations {
+            let mut candidate = seed.clone();
+            mutate(&mut candidate);
+            let bytes = serde_json::to_vec(&candidate).expect("serialize mutation");
+            assert!(parse_and_validate_manifest(&bytes).is_err(), "{label}");
+        }
+        for bytes in [b"".as_slice(), b"null", b"[]", b"{", b"\xff\x00\x01"] {
+            assert!(parse_and_validate_manifest(bytes).is_err());
+        }
     }
 }

@@ -124,6 +124,10 @@ jobs:
           python tools/phase4/validate_release_metadata.py --tag $tag
 
       - name: Build Tauri release package
+        env:
+          WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
+          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+          WINDOWS_SIGNING_TIMESTAMP_URL: ${{ vars.WINDOWS_SIGNING_TIMESTAMP_URL }}
         run: |
           python tools/phase4/package_release.py
 
@@ -143,28 +147,33 @@ jobs:
           $msiPath = $msiCandidates[0]
           $checksumsPath = Join-Path $releaseDir.FullName "SHA256SUMS.txt"
           $reportPath = Join-Path $releaseDir.FullName "build-report.json"
+          $validationPath = Join-Path $releaseDir.FullName "data-validation.json"
           if (-not $exePath) { throw "No portable executable found in $($releaseDir.FullName)" }
           if (-not $msiPath) { throw "No MSI found in $($releaseDir.FullName)" }
           if (-not (Test-Path $zipPath)) { throw "No release archive found at $zipPath" }
           if (-not (Test-Path $checksumsPath)) { throw "No checksum file found in $($releaseDir.FullName)" }
           if (-not (Test-Path $reportPath)) { throw "No build report found in $($releaseDir.FullName)" }
+          if (-not (Test-Path $validationPath)) { throw "No data validation report found in $($releaseDir.FullName)" }
 
           $exeUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION`_portable.exe"
           $msiUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION`_x64_en-US.msi"
           $zipUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION.zip"
           $checksumsUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION`_SHA256SUMS.txt"
           $reportUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION`_build-report.json"
+          $validationUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION`_data-validation.json"
           Copy-Item -LiteralPath $exePath.FullName -Destination $exeUpload -Force
           Copy-Item -LiteralPath $msiPath.FullName -Destination $msiUpload -Force
           Copy-Item -LiteralPath $zipPath -Destination $zipUpload -Force
           Copy-Item -LiteralPath $checksumsPath -Destination $checksumsUpload -Force
           Copy-Item -LiteralPath $reportPath -Destination $reportUpload -Force
+          Copy-Item -LiteralPath $validationPath -Destination $validationUpload -Force
 
           "RELEASE_EXE=$exeUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "RELEASE_MSI=$msiUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "RELEASE_ZIP=$zipUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "RELEASE_CHECKSUMS=$checksumsUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "RELEASE_REPORT=$reportUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "RELEASE_DATA_VALIDATION=$validationUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Verify release provenance and checksums
         run: |
@@ -177,6 +186,17 @@ jobs:
           }
           if ($report.validationSkipped -ne $false) {
             throw "Build report says validation was skipped"
+          }
+          if ($report.dataValidationReport -ne "data-validation.json") {
+            throw "Build report does not identify the packaged data validation report"
+          }
+          if ($report.codeSigned -eq $true) {
+            foreach ($path in @($env:RELEASE_EXE, $env:RELEASE_MSI)) {
+              $signature = Get-AuthenticodeSignature -LiteralPath $path
+              if ($signature.Status -ne "Valid") {
+                throw "Invalid Authenticode signature for $path`: $($signature.Status)"
+              }
+            }
           }
 
           $requiredGates = @(
@@ -193,6 +213,7 @@ jobs:
             "frontend-e2e",
             "frontend-build",
             "tauri-release-build"
+            "packaged-app-smoke"
           )
           foreach ($gate in $requiredGates) {
             if ($gate -notin $report.completedGates) {
@@ -227,7 +248,7 @@ jobs:
             }
           }
 
-          foreach ($path in @($env:RELEASE_ZIP, $env:RELEASE_CHECKSUMS, $env:RELEASE_REPORT)) {
+          foreach ($path in @($env:RELEASE_ZIP, $env:RELEASE_CHECKSUMS, $env:RELEASE_REPORT, $env:RELEASE_DATA_VALIDATION)) {
             if ((Get-Item -LiteralPath $path).Length -le 0) {
               throw "Release asset is empty: $path"
             }
@@ -243,6 +264,7 @@ jobs:
               "TarnishedsArsenal_$env:RELEASE_VERSION`_x64_en-US.msi",
               "SHA256SUMS.txt",
               "build-report.json",
+              "data-validation.json",
               "README.md",
               "LICENSE"
             )) {
@@ -300,3 +322,4 @@ jobs:
             ${{ env.RELEASE_ZIP }}
             ${{ env.RELEASE_CHECKSUMS }}
             ${{ env.RELEASE_REPORT }}
+            ${{ env.RELEASE_DATA_VALIDATION }}
