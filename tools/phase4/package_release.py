@@ -17,8 +17,8 @@ def python_cmd() -> str:
     return "python"
 
 
-def run(cmd: list[str], cwd: Path) -> None:
-    subprocess.run(cmd, cwd=cwd, check=True)
+def run(cmd: list[str], cwd: Path, *, env: dict[str, str] | None = None) -> None:
+    subprocess.run(cmd, cwd=cwd, check=True, env=env)
 
 
 def write_text(path: Path, text: str) -> None:
@@ -287,8 +287,31 @@ def main() -> int:
             cwd=root,
         )
         wheel = newest("target/wheels/er_optimizer_core-*.whl", root / "core" / "er_optimizer_core")
-        run([python_cmd(), "-m", "pip", "install", "--force-reinstall", str(wheel)], cwd=root)
-        run([python_cmd(), "tools/phase4/validate_phase4.py"], cwd=root)
+        binding_dir = root / "build_release" / "python-binding"
+        run(
+            [
+                python_cmd(),
+                "-m",
+                "pip",
+                "install",
+                "--target",
+                str(binding_dir),
+                "--upgrade",
+                "--no-deps",
+                str(wheel),
+            ],
+            cwd=root,
+        )
+        validation_env = os.environ.copy()
+        previous_pythonpath = validation_env.get("PYTHONPATH")
+        validation_env["PYTHONPATH"] = str(binding_dir)
+        if previous_pythonpath:
+            validation_env["PYTHONPATH"] += os.pathsep + previous_pythonpath
+        run(
+            [python_cmd(), "tools/phase4/validate_phase4.py"],
+            cwd=root,
+            env=validation_env,
+        )
         completed_gates.extend(
             [
                 "release-metadata",
