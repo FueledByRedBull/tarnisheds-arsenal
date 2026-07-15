@@ -1,31 +1,23 @@
 import { chromium } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { createServer } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const executable = process.argv[2];
 if (!executable || !existsSync(executable)) {
   throw new Error("Usage: node scripts/smoke-packaged.mjs <packaged-executable>");
 }
 
-const port = 9400 + Math.floor(Math.random() * 400);
-const endpoint = `http://127.0.0.1:${port}`;
-const child = spawn(executable, [], {
-  env: {
-    ...process.env,
-    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1`,
-  },
-  stdio: ["ignore", "pipe", "pipe"],
-  windowsHide: true,
-});
-let output = "";
-child.stdout.on("data", (chunk) => { output += chunk.toString(); });
-child.stderr.on("data", (chunk) => { output += chunk.toString(); });
+const startupAttempts = positiveIntegerFromEnv("PACKAGED_SMOKE_START_ATTEMPTS", 2);
+const startupTimeoutMs = positiveIntegerFromEnv("PACKAGED_SMOKE_STARTUP_TIMEOUT_MS", 60_000);
 
-let browser;
+let session;
 try {
-  await waitForEndpoint(`${endpoint}/json/version`, 60_000);
-  browser = await chromium.connectOverCDP(endpoint);
-  const page = await waitForAppPage(browser, 30_000);
+  session = await launchPackagedApp(executable, startupAttempts, startupTimeoutMs);
+  const { page } = session;
   page.setDefaultTimeout(30_000);
 
   await page.getByRole("button", { name: "Search", exact: true }).click();
@@ -61,35 +53,135 @@ try {
 
   process.stdout.write(`PACKAGED_SMOKE_PASSED ${JSON.stringify({ selectedWeapon, presetName })}\n`);
 } catch (error) {
-  const suffix = output.trim() ? `\nPackaged app output:\n${output.slice(-4000)}` : "";
+  const output = session?.output().trim();
+  const suffix = output ? `\nPackaged app output:\n${output.slice(-4000)}` : "";
   throw new Error(`${error instanceof Error ? error.message : String(error)}${suffix}`);
 } finally {
-  await browser?.close().catch(() => undefined);
-  if (!child.killed) child.kill();
-  await Promise.race([
-    new Promise((resolve) => child.once("exit", resolve)),
-    new Promise((resolve) => setTimeout(resolve, 5_000)),
-  ]);
-  if (!child.killed) child.kill("SIGKILL");
+  await stopSession(session);
 }
 
-async function waitForEndpoint(url, timeoutMs) {
+async function launchPackagedApp(executablePath, attempts, timeoutMs) {
+  const failures = [];
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const profileDirectory = await mkdtemp(join(tmpdir(), "tarnisheds-arsenal-smoke-"));
+    const port = await reserveLoopbackPort();
+    const endpoint = `http://127.0.0.1:${port}`;
+    let output = "";
+    let exit = null;
+    let browser;
+    const browserArguments = [
+      process.env.WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS,
+      `--remote-debugging-port=${port}`,
+      "--remote-debugging-address=127.0.0.1",
+      "--disable-gpu",
+      "--no-first-run",
+    ].filter(Boolean).join(" ");
+    const child = spawn(executablePath, [], {
+      env: {
+        ...process.env,
+        WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: browserArguments,
+        WEBVIEW2_USER_DATA_FOLDER: profileDirectory,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+    });
+    child.stdout.on("data", (chunk) => { output += chunk.toString(); });
+    child.stderr.on("data", (chunk) => { output += chunk.toString(); });
+    child.once("exit", (code, signal) => { exit = { code, signal }; });
+    const candidate = {
+      browser,
+      child,
+      exit: () => exit,
+      output: () => output,
+      page: undefined,
+      profileDirectory,
+    };
+
+    try {
+      await waitForEndpoint(`${endpoint}/json/version`, timeoutMs, () => exit);
+      browser = await chromium.connectOverCDP(endpoint);
+      candidate.browser = browser;
+      candidate.page = await waitForAppPage(browser, 30_000, () => exit);
+      return candidate;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      const childState = exit
+        ? `exited with code ${String(exit.code)} and signal ${String(exit.signal)}`
+        : `still running as PID ${child.pid ?? "unknown"}`;
+      const captured = output.trim();
+      failures.push(
+        `attempt ${attempt}/${attempts} on ${endpoint}: ${reason}; process ${childState}`
+        + (captured ? `\n${captured.slice(-2000)}` : ""),
+      );
+      await stopSession(candidate);
+    }
+  }
+  throw new Error(`packaged WebView2 startup failed after ${attempts} attempts:\n${failures.join("\n")}`);
+}
+
+async function stopSession(sessionToStop) {
+  if (!sessionToStop) return;
+  await sessionToStop.browser?.close().catch(() => undefined);
+  if (!sessionToStop.exit() && !sessionToStop.child.killed) sessionToStop.child.kill();
+  await Promise.race([
+    new Promise((resolve) => {
+      if (sessionToStop.exit()) resolve();
+      else sessionToStop.child.once("exit", resolve);
+    }),
+    new Promise((resolve) => setTimeout(resolve, 5_000)),
+  ]);
+  if (!sessionToStop.exit()) sessionToStop.child.kill("SIGKILL");
+  await rm(sessionToStop.profileDirectory, {
+    recursive: true,
+    force: true,
+    maxRetries: 3,
+    retryDelay: 250,
+  }).catch(() => undefined);
+}
+
+async function reserveLoopbackPort() {
+  const server = createServer();
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    server.close();
+    throw new Error("could not reserve a loopback port for packaged smoke testing");
+  }
+  await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  return address.port;
+}
+
+async function waitForEndpoint(url, timeoutMs, getExit) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
+    const exit = getExit();
+    if (exit) {
+      throw new Error(`packaged app exited before WebView2 was ready (code ${String(exit.code)}, signal ${String(exit.signal)})`);
+    }
     try {
-      const response = await fetch(url);
-      if (response.ok) return;
+      const response = await fetch(url, { signal: AbortSignal.timeout(2_000) });
+      if (response.ok) {
+        const metadata = await response.json();
+        if (typeof metadata.webSocketDebuggerUrl === "string") return;
+      }
     } catch {
       // WebView2 has not opened its local debugging endpoint yet.
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  throw new Error(`timed out waiting for packaged WebView2 endpoint ${url}`);
+  throw new Error(`timed out after ${timeoutMs} ms waiting for packaged WebView2 endpoint ${url}`);
 }
 
-async function waitForAppPage(connectedBrowser, timeoutMs) {
+async function waitForAppPage(connectedBrowser, timeoutMs, getExit) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
+    const exit = getExit();
+    if (exit) {
+      throw new Error(`packaged app exited before its page was ready (code ${String(exit.code)}, signal ${String(exit.signal)})`);
+    }
     for (const context of connectedBrowser.contexts()) {
       for (const page of context.pages()) {
         if (await page.locator(".desktop-shell").count()) return page;
@@ -98,4 +190,14 @@ async function waitForAppPage(connectedBrowser, timeoutMs) {
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   throw new Error("packaged WebView2 page did not expose the application shell");
+}
+
+function positiveIntegerFromEnv(name, fallback) {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a positive integer`);
+  }
+  return parsed;
 }
