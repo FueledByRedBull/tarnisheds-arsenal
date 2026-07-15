@@ -82,6 +82,15 @@ def main() -> int:
         errors,
     )
     expect_contains(
+        "package Playwright browser install",
+        package_script,
+        '"./node_modules/@playwright/test/cli.js"',
+        errors,
+    )
+    expect_contains(
+        "package frontend E2E gate", package_script, '"test:e2e"', errors
+    )
+    expect_contains(
         "release Python setup",
         release_workflow,
         'python-version-file: ".python-version"',
@@ -95,6 +104,12 @@ def main() -> int:
         errors,
     )
     expect_contains("release CI prerequisite", release_workflow, "needs: verify-ci", errors)
+    expect_contains(
+        "release frontend E2E provenance gate",
+        release_workflow,
+        '"frontend-e2e"',
+        errors,
+    )
     expect_contains(
         "release exact-SHA CI check", release_workflow, "--commit $env:GITHUB_SHA", errors
     )

@@ -14,6 +14,10 @@ def npm_cmd() -> str:
     return "npm.cmd" if os.name == "nt" else "npm"
 
 
+def node_cmd() -> str:
+    return "node.exe" if os.name == "nt" else "node"
+
+
 def python_cmd() -> str:
     return "python"
 
@@ -329,11 +333,31 @@ def main() -> int:
     require_unchanged_tracked_source(root, source_commit, stage="release validation")
     run([npm_cmd(), "ci", "--prefer-offline", "--no-audit", "--fund=false"], cwd=app_dir)
     require_unchanged_tracked_source(root, source_commit, stage="npm ci")
+    run(
+        [
+            node_cmd(),
+            "./node_modules/@playwright/test/cli.js",
+            "install",
+            "chromium",
+        ],
+        cwd=app_dir,
+    )
+    require_unchanged_tracked_source(root, source_commit, stage="Playwright browser install")
     run([npm_cmd(), "test"], cwd=app_dir)
     require_unchanged_tracked_source(root, source_commit, stage="frontend tests")
+    run([npm_cmd(), "run", "test:e2e"], cwd=app_dir)
+    require_unchanged_tracked_source(root, source_commit, stage="frontend E2E tests")
     run([npm_cmd(), "run", "tauri", "--", "build", "--", "--locked"], cwd=app_dir)
     require_unchanged_tracked_source(root, source_commit, stage="Tauri build")
-    completed_gates.extend(["frontend-tests", "frontend-build", "tauri-release-build"])
+    completed_gates.extend(
+        [
+            "playwright-browser",
+            "frontend-tests",
+            "frontend-e2e",
+            "frontend-build",
+            "tauri-release-build",
+        ]
+    )
 
     release_dir.mkdir(parents=True, exist_ok=args.replace_output)
 

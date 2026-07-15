@@ -188,6 +188,9 @@ jobs:
             "core-tests",
             "tauri-tests",
             "runtime-data-validation",
+            "playwright-browser",
+            "frontend-tests",
+            "frontend-e2e",
             "frontend-build",
             "tauri-release-build"
           )

@@ -10,9 +10,11 @@ I’ll use these defaults:
 All twelve implementation sections below are complete. The acceptance evidence is
 recorded in [`docs/validation/v0.7.0-correction-report.md`](docs/validation/v0.7.0-correction-report.md).
 The verified gates are 75 core tests, 13 real Tauri/backend tests, 13 frontend
-tests, strict Clippy, Rust formatting, Ruff, Pyright, TypeScript production build,
-zero-warning Phase 4 validation, exact snapshot validation, and independent
-non-browser calculator checks.
+unit/race tests, five Playwright frontend-contract tests, strict Clippy, Rust
+formatting, Ruff, Pyright, TypeScript production build, zero-warning Phase 4
+validation, exact snapshot validation, and independent non-browser calculator
+checks. The packaged v0.7.0 portable app also passed startup, real search, rank-7
+selection/Inspector focus, and clean-shutdown smoke checks.
 
 New findings resolved while implementing the plan:
 

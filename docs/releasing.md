@@ -19,7 +19,7 @@ release.
    python tools/phase4/validate_release_metadata.py --tag v<version>
    ```
 
-4. Run the complete non-browser release build:
+4. Run the complete release build:
 
    ```powershell
    python tools/phase4/package_release.py
@@ -28,6 +28,8 @@ release.
    The command refuses to overwrite an existing version directory by default. Use
    `--replace-output` only when deliberately refreshing the known files for the same
    local pre-commit build; it refuses directories containing unexpected entries.
+   Packaging installs the locked Chromium runtime when needed and runs the
+   Playwright frontend-contract suite before the Tauri production build.
 
 5. Review the diff and generated checksums, then commit and push `main` normally.
 6. Wait for the ordinary `CI` workflow to succeed on that exact commit.
