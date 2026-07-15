@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 
@@ -287,7 +288,9 @@ def main() -> int:
             cwd=root,
         )
         wheel = newest("target/wheels/er_optimizer_core-*.whl", root / "core" / "er_optimizer_core")
-        binding_dir = root / "build_release" / "python-binding"
+        binding_root = root / "build_release"
+        binding_root.mkdir(parents=True, exist_ok=True)
+        binding_dir = Path(tempfile.mkdtemp(prefix="python-binding-", dir=binding_root))
         run(
             [
                 python_cmd(),
@@ -296,7 +299,6 @@ def main() -> int:
                 "install",
                 "--target",
                 str(binding_dir),
-                "--upgrade",
                 "--no-deps",
                 str(wheel),
             ],
