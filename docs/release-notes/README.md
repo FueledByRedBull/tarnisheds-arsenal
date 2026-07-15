@@ -4,7 +4,7 @@ Release notes are grouped by GitHub release tag.
 
 | Version | Notes | GitHub Release |
 | --- | --- | --- |
-| v0.8.1 | [v0.8.1.md](v0.8.1.md) | Not published yet |
+| v0.8.1 | [v0.8.1.md](v0.8.1.md) | [Tarnished's Arsenal v0.8.1](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.8.1) |
 | v0.8.0 | [v0.8.0.md](v0.8.0.md) | Superseded before publication by v0.8.1 |
 | v0.7.0 | [v0.7.0.md](v0.7.0.md) | [Tarnished's Arsenal v0.7.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.7.0) |
 | v0.6.0 | [v0.6.0.md](v0.6.0.md) | [Tarnished's Arsenal v0.6.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.6.0) |
