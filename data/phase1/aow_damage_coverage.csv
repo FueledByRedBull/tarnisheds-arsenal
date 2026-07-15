@@ -47,8 +47,8 @@ aow_id,aow_name,status,standard_rows,damaging_rows,lacking_fp_rows,variant_rows,
 224,Blood Blade,direct_damage,9,9,3,0,3,0,0
 225,Phantom Slash,direct_damage,6,6,2,0,2,0,0
 226,Spectral Lance,direct_damage,1,1,0,0,1,0,0
-227,Chilling Mist,direct_damage,3,3,1,0,1,0,0
-228,Poisonous Mist,direct_damage,3,3,1,0,1,0,0
+227,Chilling Mist,direct_damage,3,2,1,0,1,0,0
+228,Poisonous Mist,direct_damage,3,2,1,0,1,0,0
 300,Shield Bash,direct_damage,4,4,2,2,0,0,0
 301,Barricade Shield,missing,0,0,0,0,0,0,0
 302,Parry,missing,0,0,0,0,0,0,0
@@ -69,10 +69,10 @@ aow_id,aow_name,status,standard_rows,damaging_rows,lacking_fp_rows,variant_rows,
 503,Kick,direct_damage,2,2,1,0,0,0,0
 504,Lightning Ram,direct_damage,4,4,2,0,0,0,0
 505,Flame of the Redmanes,direct_damage,1,1,0,0,1,0,0
-506,Ground Slam,direct_damage,4,4,2,0,0,0,0
-507,Golden Slam,direct_damage,5,5,2,0,0,0,0
+506,Ground Slam,direct_damage,4,3,2,0,0,0,0
+507,Golden Slam,direct_damage,5,4,2,0,0,0,0
 508,Waves of Darkness,direct_damage,7,7,3,0,1,0,0
-509,Hoarah Loux's Earthshaker,direct_damage,5,5,0,0,0,0,0
+509,Hoarah Loux's Earthshaker,direct_damage,5,2,0,0,0,0,0
 600,Determination,missing,0,0,0,0,0,0,0
 601,Royal Knight's Resolve,missing,0,0,0,0,0,0,0
 602,Assassin's Gambit,missing,0,0,0,0,0,0,0
@@ -81,11 +81,11 @@ aow_id,aow_name,status,standard_rows,damaging_rows,lacking_fp_rows,variant_rows,
 605,Shared Order,missing,0,0,0,0,0,0,0
 606,Seppuku,missing,0,0,0,0,0,0,0
 607,Cragblade,direct_damage,4,4,2,0,0,0,0
-650,Barbaric Roar,direct_damage,418,417,1,416,0,0,0
-651,War Cry,direct_damage,340,339,1,338,0,0,0
-652,Beast's Roar,direct_damage,4,4,1,0,2,0,0
+650,Barbaric Roar,direct_damage,418,416,1,416,0,0,0
+651,War Cry,direct_damage,340,200,1,338,0,0,0
+652,Beast's Roar,direct_damage,4,2,1,0,2,0,0
 653,Troll's Roar,direct_damage,8,8,3,0,0,0,0
-654,Braggart's Roar,direct_damage,2,1,1,0,0,0,0
+654,Braggart's Roar,utility_only,2,0,1,0,0,0,0
 700,Endure,missing,0,0,0,0,0,0,0
 701,Vow of the Indomitable,missing,0,0,0,0,0,0,0
 702,Holy Ground,missing,0,0,0,0,0,0,0
@@ -113,7 +113,7 @@ aow_id,aow_name,status,standard_rows,damaging_rows,lacking_fp_rows,variant_rows,
 4160,Divine Beast Frost Stomp,direct_damage,6,6,2,0,4,0,0
 4170,Flame Spear,direct_damage,6,6,2,0,2,0,0
 4180,Carian Sovereignty,direct_damage,8,8,3,0,1,0,0
-4190,Shriek of Sorrow,direct_damage,2,1,1,0,0,0,0
+4190,Shriek of Sorrow,utility_only,2,0,1,0,0,0,0
 4210,Igon's Drake Hunt,missing,0,0,0,0,0,0,0
 4220,Ghostflame Call,direct_damage,11,11,3,0,5,0,0
 5050,The Poison Flower Blooms Twice,direct_damage,3,3,1,0,1,0,0

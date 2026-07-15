@@ -30,7 +30,9 @@ export function App() {
     api
       .catalog()
       .then((catalog) => {
-        setAnalysisCacheVersion(catalog.dataManifest.id);
+        setAnalysisCacheVersion(
+          `${catalog.dataManifest.schemaVersion}:${catalog.dataManifest.datasetVersion}:${catalog.dataManifest.modelVersion}`,
+        );
         setCatalog(catalog);
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)));

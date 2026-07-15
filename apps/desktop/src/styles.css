@@ -914,6 +914,45 @@ textarea {
   color: var(--muted);
 }
 
+.aow-route-details {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.aow-route-details summary,
+.aow-action,
+.aow-hit {
+  display: grid;
+  gap: 4px;
+}
+
+.aow-route-details summary {
+  cursor: pointer;
+}
+
+.aow-route-details summary strong,
+.aow-route-details small,
+.aow-hit span {
+  font-size: 11px;
+}
+
+.aow-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.aow-action,
+.aow-hit {
+  border-left: 2px solid var(--line);
+  padding-left: 8px;
+}
+
+.warning-text {
+  color: var(--danger);
+}
+
 .inspector-actions {
   gap: 8px;
 }

@@ -61,6 +61,58 @@ export interface DamageBreakdownDto {
   total: number;
 }
 
+export interface StatusBuildupDto {
+  bleed: number;
+  frost: number;
+  poison: number;
+  scarletRot: number;
+  sleep: number;
+  madness: number;
+  death: number;
+}
+
+export interface AowEffectDto {
+  effectId: number;
+  effectName: string;
+  role: string;
+  activationTiming: string;
+  isSupported: boolean;
+  reason: string;
+  attackPower: DamageBreakdownDto;
+  statusBuildup: StatusBuildupDto;
+}
+
+export interface AowHitDto {
+  sheetRow: number;
+  hitOrder: number;
+  rawName: string;
+  damage: DamageBreakdownDto;
+  statusBuildup: StatusBuildupDto;
+  physicalAttackAttribute: string;
+  buffActive: boolean;
+  effects: AowEffectDto[];
+  warnings: string[];
+}
+
+export interface AowActionDto {
+  actionId: string;
+  actionOrder: number;
+  staminaCost: number;
+  hits: AowHitDto[];
+}
+
+export interface AowRouteDto {
+  routeId: string;
+  routeLabel: string;
+  routePriority: number;
+  buffActivationActionId: string | null;
+  actions: AowActionDto[];
+  firstHitDamage: number;
+  totalDamage: DamageBreakdownDto;
+  totalStatusBuildup: StatusBuildupDto;
+  totalStaminaCost: number;
+}
+
 export interface ScalingDto {
   str: number;
   dex: number;
@@ -77,7 +129,6 @@ export interface SearchEstimateDto {
 
 export interface StartSearchResponseDto {
   jobId: string;
-  estimate: SearchEstimateDto;
 }
 
 export interface SolvedBuildDto {
@@ -97,6 +148,7 @@ export interface SolvedBuildDto {
   scarletRotBuildup: number;
   aowFirstHitDamage: number;
   aowFullSequenceDamage: number;
+  aowRoute: AowRouteDto | null;
   score: number;
 }
 
@@ -114,11 +166,16 @@ export interface CatalogDto {
 }
 
 export interface DataManifestDto {
+  schemaVersion: number;
+  datasetVersion: string;
+  modelVersion: string;
   id: string;
   label: string;
   appVersion: string;
   source: string;
   generatedAt: string;
+  extractorVersion: string;
+  provenance: string;
 }
 
 export interface EightStatsDto {

@@ -1,7 +1,140 @@
 {
+  "schemaVersion": 1,
+  "datasetVersion": "phase1-app-1.16.1",
+  "modelVersion": "aow-routes-effects-v1",
   "id": "phase1-app-1.16.1",
   "label": "Phase 1 dataset - App Ver. 1.16.1",
   "appVersion": "1.16.1",
   "source": "ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx",
-  "generatedAt": "2026-05-18"
+  "generatedAt": "2026-05-18",
+  "extractorVersion": "phase1-python-v2",
+  "provenance": "regulation.bin + verified motion workbook + numeric PARAM effect graph",
+  "runtimeFiles": [
+    {
+      "path": "aow.csv",
+      "size": 21623,
+      "sha256": "baf47b096d872075f36672f06e3433195cb8dd6de1327fcb92cb44b82a40a727"
+    },
+    {
+      "path": "aow_attack_data.csv",
+      "size": 369243,
+      "sha256": "0ef25d78d8be6fcde373997687ee75752117451c866c8540095ccb2df06fbb7d"
+    },
+    {
+      "path": "aow_effect_data.csv",
+      "size": 674454,
+      "sha256": "9ecc223cd7c88920af8732b39a5b472112ef35c32bfa0d0d2efe00b108016c56"
+    },
+    {
+      "path": "aow_route_assignments.csv",
+      "size": 121660,
+      "sha256": "3f7b86f63a9a5f80e3e11d93698bab2604f3490e56d70113d0df451b18edd1a2"
+    },
+    {
+      "path": "aow_weapon_compat.csv",
+      "size": 6754765,
+      "sha256": "6c1acc28833c2f2bc147ad3b2155f194959a4b066f6d8cdf46f11f60cdb7ea31"
+    },
+    {
+      "path": "attack_element_correct.csv",
+      "size": 11164,
+      "sha256": "30518c152427c0771e55d00b725746a23d06ec2b0a0e27a03eb379a63fb004ee"
+    },
+    {
+      "path": "attack_element_correct_ext.csv",
+      "size": 62411,
+      "sha256": "0a3052fd44b9c3809a2fd98f3652d0201b823ad7d9a43468ff07f3e9c56690ce"
+    },
+    {
+      "path": "calc_correct.csv",
+      "size": 453031,
+      "sha256": "a2d2c000b36dd61e3039903fe688ce0dc14d8474aa09530fb85543e269fb5f84"
+    },
+    {
+      "path": "native_skill_attack_data.csv",
+      "size": 298744,
+      "sha256": "f7bee8ae2c44cae6e6c86f30443e6cd3cf824477939e5722d04dbee08ca9daef"
+    },
+    {
+      "path": "reinforce.csv",
+      "size": 54684,
+      "sha256": "55442a3b4015ad02fa31b7a0aa2c8424a0ba2fd3d2b3c26eacef515ca2b6d267"
+    },
+    {
+      "path": "weapon_passive_overlays.csv",
+      "size": 1158080,
+      "sha256": "8d99dd13fe2b08074d088990576c033709deae613de2c6a6bf46497ae443bbf0"
+    },
+    {
+      "path": "weapon_passives.csv",
+      "size": 191236,
+      "sha256": "ab40f18bbfaca3fb02261069868ae34b087bf102e86961341779ddbdcb788532"
+    },
+    {
+      "path": "weapons.csv",
+      "size": 541240,
+      "sha256": "8fd1e25596cf8d4643318a9395a0f12932d1dda5518e19446ca2142c2c7179d6"
+    }
+  ],
+  "diagnosticFiles": [
+    {
+      "path": "aow_affinity_compat.csv",
+      "size": 131324,
+      "sha256": "e033b4055828befb3e37e020e184b30cf23a6b25ed16286362a896034e826738"
+    },
+    {
+      "path": "aow_buffs.csv",
+      "size": 1472,
+      "sha256": "c1a3631da18ba0003a1b22c7e9128d89cdfe07a6ce3f0e544f375970a7ef1d59"
+    },
+    {
+      "path": "aow_damage_coverage.csv",
+      "size": 5718,
+      "sha256": "6d4cb149b75e600be442bba447b4ef57c8820d5d51c406f17c2de93ddff60e85"
+    },
+    {
+      "path": "aow_effect_coverage.csv",
+      "size": 227490,
+      "sha256": "0aa9412de8d64f25ea24c58d3b33e67868f148368333e022d78b2dbc6b590518"
+    },
+    {
+      "path": "aow_effect_exclusions.csv",
+      "size": 1734,
+      "sha256": "a5c90ab34829adb146edf5f165ec450849eaca2021695b736b0e7ba39d4e24a7"
+    },
+    {
+      "path": "aow_route_exclusions.csv",
+      "size": 44304,
+      "sha256": "047988fc1c8205d93a90f5f635ab1178a6b63975b6fe46fdc6c96cb9c4625879"
+    },
+    {
+      "path": "native_skill_damage_coverage.csv",
+      "size": 146281,
+      "sha256": "6940a3547bf9f3d2ff116a93fc91a83bdc2a70556a8c9f189ed4d23fbad58500"
+    },
+    {
+      "path": "passive_effect_coverage.csv",
+      "size": 33357,
+      "sha256": "11836b021e8cc7e468ba11b5e4df5336fe39df650d30a1c5f439b6107d007b0c"
+    },
+    {
+      "path": "weapon_scaling_summary.csv",
+      "size": 415825,
+      "sha256": "77ad48fe967d56b6925822a0f6e10766cfc4d0e84f2cb93a3a4d70f95761080e"
+    }
+  ],
+  "sources": [
+    {
+      "kind": "regulation",
+      "path": "regulation.bin",
+      "size": 2036272,
+      "sha256": "7b6d07c357b639c902d48403ffe3612db35e0cf8d6fcc82d3fb24ea6eb6cf30a"
+    },
+    {
+      "kind": "workbook",
+      "path": "ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx",
+      "size": 4194391,
+      "sha256": "a606ec0f349ee616d60e8c04df6491b5377eb288d1dde8335acdd0fd20b11235"
+    }
+  ]
 }

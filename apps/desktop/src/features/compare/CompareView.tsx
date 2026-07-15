@@ -4,6 +4,8 @@ import { cachedSolveBuild, cachedUpgradeSeries, cachedWeaponScalingForUpgrade } 
 import { compactNumber, fixed1, metricForObjective, statLine } from "../../lib/format";
 import { SearchableSelect, openOption } from "../../lib/SearchableSelect";
 import { compareUpgradeHorizon, scalingLetter, upgradeCapForRow } from "../../lib/session";
+import { stableSignature } from "../../lib/session";
+import { LatestRequest } from "../../lib/request-generation";
 import { useRequestBudget } from "../../lib/hooks";
 import { useDesktopStore } from "../../lib/state";
 import { ScalingDto, SolvedBuildDto, UpgradePointDto } from "../../lib/types";
@@ -27,6 +29,10 @@ export function CompareView() {
   const patchCompareControls = useDesktopStore((state) => state.patchCompareControls);
   const setError = useDesktopStore((state) => state.setError);
   const matrixRef = useRef<HTMLDivElement | null>(null);
+  const weaponNamesRequest = useRef(new LatestRequest());
+  const affinitiesRequest = useRef(new LatestRequest());
+  const aowsRequest = useRef(new LatestRequest());
+  const seriesRequest = useRef(new LatestRequest());
   const { base: baseRequest } = useRequestBudget(catalog, request, lockedStatMode);
   const [weaponNames, setWeaponNames] = useState<string[]>([]);
   const [affinityNames, setAffinityNames] = useState<string[]>([]);
@@ -37,48 +43,77 @@ export function CompareView() {
     : catalog?.weaponTypeKeys.map((key) => ({ key, label: key })) ?? [];
 
   useEffect(() => {
-    let cancelled = false;
+    const token = weaponNamesRequest.current.begin(stableSignature({
+      weaponTypeKey: compareControls.weaponTypeKey,
+    }));
     api.weaponNamesForType(compareControls.weaponTypeKey).then((names) => {
-      if (!cancelled) setWeaponNames(names);
-    }).catch((error) => setError(error instanceof Error ? error.message : String(error)));
+      if (weaponNamesRequest.current.isCurrent(token)) setWeaponNames(names);
+    }).catch((error) => {
+      if (weaponNamesRequest.current.isCurrent(token)) {
+        setError(error instanceof Error ? error.message : String(error));
+      }
+    });
     return () => {
-      cancelled = true;
+      weaponNamesRequest.current.invalidate(token);
     };
   }, [compareControls.weaponTypeKey, setError]);
 
   useEffect(() => {
-    let cancelled = false;
+    const token = affinitiesRequest.current.begin(stableSignature({
+      weaponName: compareControls.weaponName,
+    }));
     async function loadAffinities() {
       const names = compareControls.weaponName
         ? await api.affinitiesForWeapon(compareControls.weaponName)
         : [];
-      if (!cancelled) setAffinityNames(names);
+      if (affinitiesRequest.current.isCurrent(token)) setAffinityNames(names);
     }
-    loadAffinities().catch((error) => setError(error instanceof Error ? error.message : String(error)));
+    loadAffinities().catch((error) => {
+      if (affinitiesRequest.current.isCurrent(token)) {
+        setError(error instanceof Error ? error.message : String(error));
+      }
+    });
     return () => {
-      cancelled = true;
+      affinitiesRequest.current.invalidate(token);
     };
   }, [compareControls.weaponName, setError]);
 
   useEffect(() => {
-    let cancelled = false;
     const selectedAow = compareControls.matchSelectedAow ? selected?.aowName ?? null : compareControls.aowName;
+    const token = aowsRequest.current.begin(stableSignature({
+      weaponName: compareControls.weaponName,
+      affinity: compareControls.affinity,
+      selectedAow,
+    }));
     async function loadAows() {
       const names = compareControls.weaponName
         ? await api.compatibleAowNames(compareControls.weaponName, compareControls.affinity)
         : compareControls.affinity
           ? await api.compatibleAowNamesForAffinity(compareControls.affinity)
           : catalog?.aowNames ?? [];
-      if (!cancelled) setAowNames(selectedAow && !names.includes(selectedAow) ? [selectedAow, ...names] : names);
+      if (aowsRequest.current.isCurrent(token)) {
+        setAowNames(selectedAow && !names.includes(selectedAow) ? [selectedAow, ...names] : names);
+      }
     }
-    loadAows().catch((error) => setError(error instanceof Error ? error.message : String(error)));
+    loadAows().catch((error) => {
+      if (aowsRequest.current.isCurrent(token)) {
+        setError(error instanceof Error ? error.message : String(error));
+      }
+    });
     return () => {
-      cancelled = true;
+      aowsRequest.current.invalidate(token);
     };
   }, [catalog?.aowNames, compareControls.affinity, compareControls.matchSelectedAow, compareControls.aowName, compareControls.weaponName, selected?.aowName, setError]);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
+    const token = seriesRequest.current.begin(stableSignature({
+      baseRequest,
+      compareControls,
+      request,
+      rows,
+      selected,
+    }));
     async function resolveRows() {
       if (!selected) {
         setSeries([]);
@@ -86,7 +121,13 @@ export function CompareView() {
         return;
       }
       const resolvedSelected =
-        await cachedSolveBuild(baseRequest, selected.weaponName, selected.affinity, selected.aowName) ?? selected;
+        await cachedSolveBuild(
+          baseRequest,
+          selected.weaponName,
+          selected.affinity,
+          selected.aowName,
+          controller.signal,
+        ) ?? selected;
       const lanes: Array<{ label: string; row: SolvedBuildDto | null }> = [
         { label: "Selected", row: resolvedSelected },
       ];
@@ -94,7 +135,13 @@ export function CompareView() {
 
       if (compareControls.weaponName) {
         const compareAow = compareControls.matchSelectedAow ? resolvedSelected.aowName : compareControls.aowName;
-        const compareRow = await cachedSolveBuild(baseRequest, compareControls.weaponName, compareControls.affinity, compareAow);
+        const compareRow = await cachedSolveBuild(
+          baseRequest,
+          compareControls.weaponName,
+          compareControls.affinity,
+          compareAow,
+          controller.signal,
+        );
         lanes.push({ label: "Compare", row: compareRow });
         summaryTarget = compareRow;
       } else {
@@ -106,7 +153,13 @@ export function CompareView() {
         const rivals = await Promise.all(
           rivalInputs.map(async ({ row, index }) => ({
             label: `Top #${index + 1}`,
-            row: await cachedSolveBuild(baseRequest, row.weaponName, row.affinity, row.aowName) ?? row,
+            row: await cachedSolveBuild(
+              baseRequest,
+              row.weaponName,
+              row.affinity,
+              row.aowName,
+              controller.signal,
+            ) ?? row,
           })),
         );
         lanes.push(...rivals);
@@ -119,25 +172,36 @@ export function CompareView() {
             return { ...lane, points: [], scaling: null };
           }
           const [points, scaling] = await Promise.all([
-            cachedUpgradeSeries(baseRequest, lane.row, upgradeCapForRow(lane.row, request)),
-            cachedWeaponScalingForUpgrade(lane.row.weaponName, lane.row.affinity, lane.row.upgrade),
+            cachedUpgradeSeries(
+              baseRequest,
+              lane.row,
+              upgradeCapForRow(lane.row, request),
+              controller.signal,
+            ),
+            cachedWeaponScalingForUpgrade(
+              lane.row.weaponName,
+              lane.row.affinity,
+              lane.row.upgrade,
+              controller.signal,
+            ),
           ]);
           return { ...lane, points, scaling };
         }),
       );
-      if (!cancelled) {
+      if (seriesRequest.current.isCurrent(token)) {
         setCompareTarget(summaryTarget);
         setSeries(nextSeries);
       }
     }
     resolveRows().catch((error) => {
-      if (!cancelled) {
+      if (seriesRequest.current.isCurrent(token)) {
         setSeries([]);
         setError(error instanceof Error ? error.message : String(error));
       }
     });
     return () => {
-      cancelled = true;
+      controller.abort();
+      seriesRequest.current.invalidate(token);
     };
   }, [baseRequest, compareControls, request, rows, selected, setCompareTarget, setError]);
 
@@ -258,6 +322,9 @@ function Lane({
             <span>Bleed <b>{compactNumber(row.bleedBuildup)}</b></span>
             <span>AoW <b>{compactNumber(row.aowFullSequenceDamage)}</b></span>
           </div>
+          {row.aowRoute ? (
+            <small>{row.aowRoute.routeLabel} / {fixed1(row.aowRoute.totalStaminaCost)} stamina / {row.aowRoute.actions.length} actions</small>
+          ) : null}
           <small>{statLine(row)}</small>
         </>
       ) : (

@@ -1,5 +1,5 @@
 import { Pause, Play } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { api, hasTauriRuntime } from "../../lib/api";
 import { cachedAffinityWatch } from "../../lib/analysis-cache";
 import { useAffinityJob, useRequestBudget } from "../../lib/hooks";
@@ -27,6 +27,7 @@ export function AffinityWatchView() {
   const setAffinityProgress = useDesktopStore((state) => state.setAffinityProgress);
   const pushNotice = useDesktopStore((state) => state.pushNotice);
   const setError = useDesktopStore((state) => state.setError);
+  const fallbackRequest = useRef<AbortController | null>(null);
   const { base } = useRequestBudget(catalog, request, lockedStatMode);
   const effectiveHorizon = clampHorizon(request, horizon);
   const signature = stableSignature({ selected, objective: request.objective, level: base.characterLevel, horizon: effectiveHorizon });
@@ -40,6 +41,7 @@ export function AffinityWatchView() {
   });
 
   async function refresh() {
+    let fallbackController: AbortController | null = null;
     if (!selected) {
       pushNotice({ scope: "affinity_watch", tone: "warning", message: "Pick a selected result first." });
       return;
@@ -73,17 +75,32 @@ export function AffinityWatchView() {
         }
         setActiveAffinityJobId(jobId);
       } else {
-        const next = await cachedAffinityWatch(base, selected, effectiveHorizon);
+        fallbackRequest.current?.abort();
+        fallbackController = new AbortController();
+        fallbackRequest.current = fallbackController;
+        const next = await cachedAffinityWatch(
+          base,
+          selected,
+          effectiveHorizon,
+          fallbackController.signal,
+        );
         current = useDesktopStore.getState();
         if (
           current.affinityGeneration !== generation ||
           current.activeAffinitySignature !== signature
-        ) return;
+        ) {
+          fallbackController.abort();
+          return;
+        }
         setAffinityPayload(next, signature);
         setAffinityBusy(false);
       }
     } catch (error) {
       const current = useDesktopStore.getState();
+      if (fallbackController?.signal.aborted) {
+        if (current.affinityGeneration === generation) setAffinityBusy(false);
+        return;
+      }
       if (
         current.affinityGeneration === generation &&
         current.activeAffinitySignature === signature
@@ -91,10 +108,15 @@ export function AffinityWatchView() {
         setError(error instanceof Error ? error.message : String(error));
         setAffinityBusy(false);
       }
+    } finally {
+      if (fallbackRequest.current === fallbackController) fallbackRequest.current = null;
     }
   }
 
   async function stop() {
+    fallbackRequest.current?.abort();
+    fallbackRequest.current = null;
+    if (!activeAffinityJobId) setAffinityBusy(false);
     if (activeAffinityJobId) await api.cancelAffinityWatch(activeAffinityJobId);
   }
 

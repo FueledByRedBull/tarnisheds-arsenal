@@ -1,11 +1,20 @@
 from __future__ import annotations
 
 import csv
+import json
 import math
+import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from tools.phase1.extract_motion_workbook import load_weapon_workbook_data  # noqa: E402
+from tools.phase1.snapshot_manifest import validate_snapshot_manifest  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -28,21 +37,250 @@ def max_reinforce_levels(rows: Iterable[dict[str, str]]) -> dict[int, int]:
     return out
 
 
+def validate_aow_effect_graph(
+    aows: list[dict[str, str]],
+    attack_rows: list[dict[str, str]],
+    effects: list[dict[str, str]],
+    coverage: list[dict[str, str]],
+    exclusions: list[dict[str, str]],
+) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    required_effect_columns = {
+        "record_id",
+        "aow_id",
+        "sheet_row",
+        "source_kind",
+        "source_param_ids",
+        "effect_id",
+        "parent_effect_id",
+        "link_kind",
+        "role",
+        "activation_action_id",
+        "activation_timing",
+        "is_canonical",
+        "is_supported",
+        "reason",
+        "physical_attack_power",
+        "magic_attack_power",
+        "fire_attack_power",
+        "lightning_attack_power",
+        "holy_attack_power",
+        "bleed_buildup",
+        "frost_buildup",
+        "poison_buildup",
+        "scarlet_rot_buildup",
+        "sleep_buildup",
+        "madness_buildup",
+        "death_buildup",
+        "uses_status_correction",
+        "uses_attack_correction",
+    }
+    if not effects:
+        return [ValidationIssue("error", "aow_effect_data.csv is empty")]
+    missing_columns = sorted(required_effect_columns.difference(effects[0]))
+    if missing_columns:
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"aow_effect_data.csv is missing columns: {', '.join(missing_columns)}",
+            )
+        )
+        return issues
+
+    aow_ids = {int(row["aow_id"]) for row in aows}
+    attack_keys = {
+        (int(row["aow_id"]), int(row["sheet_row"])) for row in attack_rows
+    }
+    record_ids = [int(row["record_id"]) for row in effects]
+    if len(record_ids) != len(set(record_ids)):
+        issues.append(ValidationIssue("error", "aow_effect_data.csv has duplicate record IDs"))
+    invalid_references = [
+        row
+        for row in effects
+        if (
+            int(row["sheet_row"]) == 0
+            and int(row["aow_id"]) not in aow_ids
+        )
+        or (
+            int(row["sheet_row"]) != 0
+            and (int(row["aow_id"]), int(row["sheet_row"])) not in attack_keys
+        )
+    ]
+    if invalid_references:
+        row = invalid_references[0]
+        issues.append(
+            ValidationIssue(
+                "error",
+                "AoW effect references an unknown skill/hit: "
+                f"aow_id={row['aow_id']} sheet_row={row['sheet_row']}",
+            )
+        )
+
+    attack_coverage_keys = {
+        (int(row["aow_id"]), int(row["sheet_row"]), int(row["atk_id"]))
+        for row in attack_rows
+    }
+    coverage_keys = {
+        (int(row["aow_id"]), int(row["sheet_row"]), int(row["atk_id"]))
+        for row in coverage
+    }
+    if attack_coverage_keys != coverage_keys:
+        issues.append(
+            ValidationIssue(
+                "error",
+                "aow_effect_coverage.csv does not cover every unique attack row exactly",
+            )
+        )
+
+    unsupported_keys = {
+        (
+            int(row["aow_id"]),
+            int(row["sheet_row"]),
+            int(row["effect_id"]),
+            row["role"],
+            row["reason"],
+        )
+        for row in effects
+        if row["is_supported"] == "0"
+    }
+    exclusion_keys = {
+        (
+            int(row["aow_id"]),
+            int(row["sheet_row"]),
+            int(row["effect_id"]),
+            row["role"],
+            row["reason"],
+        )
+        for row in exclusions
+    }
+    if unsupported_keys != exclusion_keys:
+        issues.append(
+            ValidationIssue(
+                "error",
+                "aow_effect_exclusions.csv must exactly match unsupported effect records",
+            )
+        )
+
+    def find_effect(aow_id: int, sheet_row: int, effect_id: int) -> dict[str, str] | None:
+        return next(
+            (
+                row
+                for row in effects
+                if int(row["aow_id"]) == aow_id
+                and int(row["sheet_row"]) == sheet_row
+                and int(row["effect_id"]) == effect_id
+            ),
+            None,
+        )
+
+    known_effects = (
+        (227, 1485, 881, "frost_buildup", 60.0, "per_hit_status"),
+        (228, 1440, 883, "poison_buildup", 60.0, "per_hit_status"),
+        (501, 1498, 1800, "frost_buildup", 70.0, "per_hit_status"),
+        (501, 1499, 1801, "frost_buildup", 110.0, "per_hit_status"),
+        (4220, 1491, 20001091, "frost_buildup", 20.0, "per_hit_status"),
+        (4220, 1494, 20001092, "frost_buildup", 80.0, "per_hit_status"),
+    )
+    for aow_id, sheet_row, effect_id, field, expected, role in known_effects:
+        effect = find_effect(aow_id, sheet_row, effect_id)
+        if effect is None or effect["role"] != role or float(effect[field]) != expected:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "known AoW effect mapping is wrong: "
+                    f"aow_id={aow_id} sheet_row={sheet_row} effect_id={effect_id}",
+                )
+            )
+
+    poison_moth = find_effect(119, 1442, 1622)
+    if (
+        poison_moth is None
+        or poison_moth["role"] != "replacement_or_chained"
+        or poison_moth["is_supported"] != "0"
+        or float(poison_moth["poison_buildup"]) != 250.0
+    ):
+        issues.append(
+            ValidationIssue(
+                "error",
+                "Poison Moth Flight replacement effect must remain explicit and unsupported",
+            )
+        )
+
+    canonical = [
+        row
+        for row in effects
+        if row["sheet_row"] == "0" and row["is_canonical"] == "1"
+    ]
+    expected_persistent = {
+        (201, "persistent_weapon_buff"),
+        (214, "persistent_weapon_buff"),
+        (217, "persistent_weapon_buff"),
+        (227, "persistent_weapon_buff"),
+        (227, "persistent_on_hit"),
+        (228, "persistent_weapon_buff"),
+        (228, "persistent_on_hit"),
+        (606, "persistent_weapon_buff"),
+        (606, "persistent_on_hit"),
+        (4140, "persistent_weapon_buff"),
+        (4170, "persistent_weapon_buff"),
+    }
+    canonical_roles = {(int(row["aow_id"]), row["role"]) for row in canonical}
+    if not expected_persistent.issubset(canonical_roles):
+        issues.append(
+            ValidationIssue("error", "canonical persistent AoW effect mappings are incomplete")
+        )
+    seppuku_attack = next(
+        (
+            row
+            for row in canonical
+            if row["aow_id"] == "606" and row["role"] == "persistent_weapon_buff"
+        ),
+        None,
+    )
+    seppuku_bleed = next(
+        (
+            row
+            for row in canonical
+            if row["aow_id"] == "606" and row["role"] == "persistent_on_hit"
+        ),
+        None,
+    )
+    if (
+        seppuku_attack is None
+        or float(seppuku_attack["physical_attack_power"]) != 30.0
+        or seppuku_bleed is None
+        or float(seppuku_bleed["bleed_buildup"]) != 30.0
+        or seppuku_bleed["uses_status_correction"] != "1"
+    ):
+        issues.append(ValidationIssue("error", "Seppuku persistent effect mapping is wrong"))
+    return issues
+
+
 def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
+
+    try:
+        validate_snapshot_manifest(data_dir)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        issues.append(ValidationIssue("error", f"invalid atomic snapshot manifest: {error}"))
 
     weapons = read_csv(data_dir / "weapons.csv")
     reinforce = read_csv(data_dir / "reinforce.csv")
     calc_correct = read_csv(data_dir / "calc_correct.csv")
     aows = read_csv(data_dir / "aow.csv")
     aow_attack_data = read_csv(data_dir / "aow_attack_data.csv")
-    aow_buffs = read_csv(data_dir / "aow_buffs.csv")
+    aow_effect_data = read_csv(data_dir / "aow_effect_data.csv")
+    aow_effect_coverage = read_csv(data_dir / "aow_effect_coverage.csv")
+    aow_effect_exclusions = read_csv(data_dir / "aow_effect_exclusions.csv")
     aow_damage_coverage = read_csv(data_dir / "aow_damage_coverage.csv")
     native_skill_attack_data = read_csv(data_dir / "native_skill_attack_data.csv")
     native_skill_damage_coverage = read_csv(data_dir / "native_skill_damage_coverage.csv")
+    aow_route_assignments = read_csv(data_dir / "aow_route_assignments.csv")
+    aow_route_exclusions = read_csv(data_dir / "aow_route_exclusions.csv")
     attack_element_correct_ext = read_csv(data_dir / "attack_element_correct_ext.csv")
     weapon_passives = read_csv(data_dir / "weapon_passives.csv")
     weapon_passive_overlays = read_csv(data_dir / "weapon_passive_overlays.csv")
+    passive_effect_coverage = read_csv(data_dir / "passive_effect_coverage.csv")
     aow_weapon_compat = read_csv(data_dir / "aow_weapon_compat.csv")
     aow_affinity_compat = read_csv(data_dir / "aow_affinity_compat.csv")
 
@@ -87,45 +325,57 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
                 ),
             )
         )
-    ashable_rows_with_native_skill = [
+    npc_rows = [row for row in weapons if "[NPC]" in row.get("name", "")]
+    if npc_rows:
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"weapons.csv contains NPC-only rows: {npc_rows[0].get('name', '<unknown>')}",
+            )
+        )
+    disabled_nonstandard = [
         row
         for row in weapons
-        if row.get("disable_gem_attr", "1") == "0"
-        and (row.get("native_skill_id", "").strip() or row.get("native_skill_name", "").strip())
+        if row.get("affinity") != "Standard" and row.get("disable_gem_attr", "0") != "0"
     ]
-    if ashable_rows_with_native_skill:
-        sample = ashable_rows_with_native_skill[0]
+    if disabled_nonstandard:
+        sample = disabled_nonstandard[0]
         issues.append(
             ValidationIssue(
                 "error",
                 (
-                    "ashable weapons must not carry native_skill metadata; "
-                    f"found {sample.get('name', '<unknown>')} | {sample.get('affinity', '<unknown>')}"
+                    "nonstandard affinity rows must not disable gem attributes; "
+                    f"found {sample.get('name')} | {sample.get('affinity')}"
                 ),
             )
         )
-    if len(aow_buffs) < 8:
-        issues.append(
-            ValidationIssue("error", f"aow_buffs.csv row count too low: {len(aow_buffs)}")
-        )
-    if aow_buffs:
-        required_aow_buff_columns = {
-            "bleed_uses_status_correction",
-            "frost_uses_status_correction",
-            "poison_uses_status_correction",
-            "scarlet_rot_uses_status_correction",
-            "sleep_uses_status_correction",
-            "madness_uses_status_correction",
-            "death_uses_status_correction",
+
+    workbook_path = data_dir / "ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx"
+    if workbook_path.exists():
+        workbook_weapon_ids = set(load_weapon_workbook_data(workbook_path))
+        standard_weapon_ids = {
+            int(row["weapon_id"]) for row in weapons if row.get("affinity") == "Standard"
         }
-        missing_aow_buff_columns = sorted(required_aow_buff_columns.difference(aow_buffs[0].keys()))
-        if missing_aow_buff_columns:
+        if standard_weapon_ids != workbook_weapon_ids:
             issues.append(
                 ValidationIssue(
                     "error",
-                    f"aow_buffs.csv is missing columns: {', '.join(missing_aow_buff_columns)}",
+                    (
+                        "standard player weapon IDs do not match WeaponData: "
+                        f"missing={sorted(workbook_weapon_ids - standard_weapon_ids)[:10]} "
+                        f"extra={sorted(standard_weapon_ids - workbook_weapon_ids)[:10]}"
+                    ),
                 )
             )
+    issues.extend(
+        validate_aow_effect_graph(
+            aows,
+            aow_attack_data + native_skill_attack_data,
+            aow_effect_data,
+            aow_effect_coverage,
+            aow_effect_exclusions,
+        )
+    )
     if len(aow_damage_coverage) != len(aows):
         issues.append(
             ValidationIssue(
@@ -161,7 +411,13 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
             )
         )
     if weapons:
-        required_weapon_columns = {"disable_two_hand_bonus", "weapon_type_keys"}
+        required_weapon_columns = {
+            "disable_two_hand_bonus",
+            "weapon_type_keys",
+            "stamina_consumption_rate",
+            "physical_attribute_primary",
+            "physical_attribute_secondary",
+        }
         missing_weapon_columns = sorted(required_weapon_columns.difference(weapons[0].keys()))
         if missing_weapon_columns:
             issues.append(
@@ -231,6 +487,110 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
                 )
                 break
 
+    source_attack_rows = {
+        (int(row["aow_id"]), int(row["sheet_row"])): row
+        for row in [*aow_attack_data, *native_skill_attack_data]
+    }
+    assigned_attack_keys = {
+        (int(row["aow_id"]), int(row["sheet_row"])) for row in aow_route_assignments
+    }
+    excluded_attack_keys = {
+        (int(row["aow_id"]), int(row["sheet_row"])) for row in aow_route_exclusions
+    }
+    missing_route_assignments = sorted(
+        key
+        for key, row in source_attack_rows.items()
+        if row.get("is_lacking_fp") == "0"
+        and row.get("is_damaging") == "1"
+        and key not in assigned_attack_keys
+    )
+    if missing_route_assignments:
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"damaging full-FP attack rows lack route assignments: {missing_route_assignments[:10]}",
+            )
+        )
+    undocumented_lacking_fp = sorted(
+        key
+        for key, row in source_attack_rows.items()
+        if row.get("is_lacking_fp") == "1" and key not in excluded_attack_keys
+    )
+    if undocumented_lacking_fp:
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"lacking-FP attack rows lack documented exclusions: {undocumented_lacking_fp[:10]}",
+            )
+        )
+    stale_route_references = sorted(
+        key for key in assigned_attack_keys | excluded_attack_keys if key not in source_attack_rows
+    )
+    if stale_route_references:
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"route data references missing source rows: {stale_route_references[:10]}",
+            )
+        )
+
+    route_ids_by_skill: dict[str, set[str]] = defaultdict(set)
+    for row in aow_route_assignments:
+        route_ids_by_skill[row["aow_name"]].add(row["route_id"])
+    expected_route_ids = {
+        "Wild Strikes": {"r1", "r2"},
+        "Ghostflame Call": {"r1", "r2"},
+        "Barbaric Roar": {
+            "1h_uncharged",
+            "1h_charged",
+            "2h_uncharged",
+            "2h_charged",
+        },
+    }
+    for skill_name, expected in expected_route_ids.items():
+        if route_ids_by_skill.get(skill_name) != expected:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    (
+                        f"{skill_name} route IDs changed: "
+                        f"{sorted(route_ids_by_skill.get(skill_name, set()))}"
+                    ),
+                )
+            )
+
+    valid_physical_attributes = {
+        "standard",
+        "strike",
+        "slash",
+        "pierce",
+        "adaptive_primary",
+        "adaptive_secondary",
+    }
+    for file_name, rows in (
+        ("weapons.csv", weapons),
+        ("aow_attack_data.csv", aow_attack_data),
+        ("native_skill_attack_data.csv", native_skill_attack_data),
+    ):
+        fields = (
+            ("physical_attribute_primary", "physical_attribute_secondary")
+            if file_name == "weapons.csv"
+            else ("physical_attack_attribute",)
+        )
+        invalid = [
+            (row.get("weapon_id") or row.get("sheet_row"), field, row.get(field))
+            for row in rows
+            for field in fields
+            if row.get(field) not in valid_physical_attributes
+        ]
+        if invalid:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    f"{file_name} has invalid physical attack attributes: {invalid[:3]}",
+                )
+            )
+
     for row in aow_weapon_compat:
         aow_id = int(row["aow_id"])
         weapon_id = int(row["weapon_id"])
@@ -256,7 +616,7 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
             break
 
     native_statuses = {row["status"] for row in native_skill_damage_coverage}
-    unexpected_native_statuses = sorted(native_statuses.difference({"matched", "generic_aow", "unmatched_weapon"}))
+    unexpected_native_statuses = sorted(native_statuses.difference({"matched", "generic_aow"}))
     if unexpected_native_statuses:
         issues.append(
             ValidationIssue(
@@ -276,6 +636,35 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
             ValidationIssue(
                 "error",
                 "native_skill_damage_coverage.csv has ambiguous weapon-name fallback rows",
+            )
+        )
+
+    allowed_effect_coverage_statuses = {"resolved", "excluded_missing_source"}
+    unexpected_effect_statuses = sorted(
+        {
+            row.get("status", "")
+            for row in passive_effect_coverage
+            if row.get("status", "") not in allowed_effect_coverage_statuses
+        }
+    )
+    if unexpected_effect_statuses:
+        issues.append(
+            ValidationIssue(
+                "error",
+                "passive_effect_coverage.csv has unclassified statuses: "
+                + ", ".join(unexpected_effect_statuses),
+            )
+        )
+    undocumented_effect_exclusions = [
+        row
+        for row in passive_effect_coverage
+        if row.get("status") != "resolved" and not row.get("reason", "").strip()
+    ]
+    if undocumented_effect_exclusions:
+        issues.append(
+            ValidationIssue(
+                "error",
+                "passive_effect_coverage.csv contains an exclusion without a reason",
             )
         )
 
@@ -420,32 +809,6 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
                 ValidationIssue(
                     "error",
                     f"Lion's Claw bleed_buildup_add is {bleed}, expected 0",
-                )
-            )
-
-    seppuku_buff = next((row for row in aow_buffs if row["name"] == "Seppuku"), None)
-    if seppuku_buff is None:
-        issues.append(ValidationIssue("error", "Seppuku missing from aow_buffs.csv"))
-    else:
-        if float(seppuku_buff["physical_attack_power_add"]) < 30.0:
-            issues.append(
-                ValidationIssue(
-                    "error",
-                    f"Seppuku physical attack buff is wrong: {seppuku_buff['physical_attack_power_add']}",
-                )
-            )
-        if float(seppuku_buff["scaling_bleed_buildup_add"]) < 30.0:
-            issues.append(
-                ValidationIssue(
-                    "error",
-                    f"Seppuku bleed buff is wrong: {seppuku_buff['scaling_bleed_buildup_add']}",
-                )
-            )
-        if seppuku_buff.get("bleed_uses_status_correction") != "1":
-            issues.append(
-                ValidationIssue(
-                    "error",
-                    "Seppuku should mark bleed_uses_status_correction=1",
                 )
             )
 

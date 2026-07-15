@@ -22,10 +22,12 @@ benchmarking path for local tooling and CI.
 
 ## Data Model
 
-Runtime data is committed under `data/phase1` as CSV snapshots generated from
-local game data and workbook extraction. The shipped snapshot includes weapon
-rows, reinforce rows, calc-correct graphs, Ash of War compatibility, passive
-status data, native skill attack data, buff data, and Scadutree scaling inputs.
+Runtime data is committed under `data/phase1` as one manifest-bound snapshot
+generated from local game data and workbook extraction. The shipped snapshot
+includes player weapon rows, reinforce rows, calc-correct graphs, exact Ash of War
+compatibility, legal route assignments, numeric effect relationships, passive
+status data, native skill attack data, and Scadutree scaling inputs. Every runtime
+file is size/hash checked and loading is all-or-nothing.
 
 Data refresh tooling lives in `tools/phase1`. Validation, benchmarking, and
 release packaging helpers live in `tools/phase4`.
@@ -62,6 +64,17 @@ top-K pruning.
 Final ordering and de-duplication still use the full result comparison logic so
 tie handling, same-loadout replacement, cancellation, and progress reporting
 stay deterministic.
+
+AoW damage materialization evaluates ordered legal routes. Added base attack,
+fixed and motion components, status motion values, weapon-buff timing, action-level
+stamina, and adaptive Standard/Strike/Slash/Pierce attributes are resolved per hit.
+Conditional replacement effects remain explicit warnings rather than guessed
+damage/status.
+
+Desktop jobs use exact job IDs plus request generations/signatures. Polling is
+single-flight with adaptive 200-1000 ms delay, cancellation reaches search
+preparation/enumeration/nested analyses, and shared caches evict rejected or fully
+abandoned in-flight work.
 
 ## Release Flow
 

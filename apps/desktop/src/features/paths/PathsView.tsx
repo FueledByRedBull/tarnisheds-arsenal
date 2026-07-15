@@ -1,5 +1,5 @@
 import { Pause, Play } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { api, hasTauriRuntime } from "../../lib/api";
 import { cachedPathPreview } from "../../lib/analysis-cache";
 import { usePathJob, useRequestBudget } from "../../lib/hooks";
@@ -28,6 +28,7 @@ export function PathsView() {
   const setPathProgress = useDesktopStore((state) => state.setPathProgress);
   const pushNotice = useDesktopStore((state) => state.pushNotice);
   const setError = useDesktopStore((state) => state.setError);
+  const fallbackRequest = useRef<AbortController | null>(null);
   const { base } = useRequestBudget(catalog, request, lockedStatMode);
   const effectiveHorizon = clampHorizon(request, horizon);
   const signature = stableSignature({
@@ -47,6 +48,7 @@ export function PathsView() {
   });
 
   async function refresh() {
+    let fallbackController: AbortController | null = null;
     if (!selected) {
       pushNotice({ scope: "paths", tone: "warning", message: "Pick a selected result first." });
       return;
@@ -76,19 +78,35 @@ export function PathsView() {
         }
         setActivePathJobId(jobId);
       } else {
+        fallbackRequest.current?.abort();
+        fallbackController = new AbortController();
+        fallbackRequest.current = fallbackController;
         const next = await Promise.all(
-          requests.map((entry) => cachedPathPreview(entry.base, entry.solved, entry.levelsAhead, entry.title)),
+          requests.map((entry) => cachedPathPreview(
+            entry.base,
+            entry.solved,
+            entry.levelsAhead,
+            entry.title,
+            fallbackController?.signal,
+          )),
         );
         const current = useDesktopStore.getState();
         if (
           current.pathGeneration !== generation ||
           current.activePathSignature !== signature
-        ) return;
+        ) {
+          fallbackController.abort();
+          return;
+        }
         setPaths(next, signature);
         setPathBusy(false);
       }
     } catch (error) {
       const current = useDesktopStore.getState();
+      if (fallbackController?.signal.aborted) {
+        if (current.pathGeneration === generation) setPathBusy(false);
+        return;
+      }
       if (
         current.pathGeneration === generation &&
         current.activePathSignature === signature
@@ -96,10 +114,15 @@ export function PathsView() {
         setError(error instanceof Error ? error.message : String(error));
         setPathBusy(false);
       }
+    } finally {
+      if (fallbackRequest.current === fallbackController) fallbackRequest.current = null;
     }
   }
 
   async function stop() {
+    fallbackRequest.current?.abort();
+    fallbackRequest.current = null;
+    if (!activePathJobId) setPathBusy(false);
     if (activePathJobId) await api.cancelPathPreview(activePathJobId);
   }
 

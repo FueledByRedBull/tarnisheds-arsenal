@@ -74,6 +74,37 @@ impl fmt::Display for DamageType {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PhysicalAttackAttribute {
+    #[default]
+    Standard,
+    Strike,
+    Slash,
+    Pierce,
+    AdaptivePrimary,
+    AdaptiveSecondary,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StaminaCostMode {
+    WeaponScaled,
+    Precalculated,
+}
+
+impl fmt::Display for PhysicalAttackAttribute {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let value = match self {
+            Self::Standard => "standard",
+            Self::Strike => "strike",
+            Self::Slash => "slash",
+            Self::Pierce => "pierce",
+            Self::AdaptivePrimary => "adaptive_primary",
+            Self::AdaptiveSecondary => "adaptive_secondary",
+        };
+        write!(f, "{value}")
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Weapon {
     pub weapon_id: u32,
@@ -84,6 +115,8 @@ pub struct Weapon {
     pub weapon_type_id: u16,
     pub weapon_type_name: String,
     pub weapon_type_keys: String,
+    pub stamina_consumption_rate: f32,
+    pub physical_attributes: [PhysicalAttackAttribute; 2],
     pub base: [f32; DAMAGE_TYPE_COUNT],
     pub scaling: [f32; COMBAT_STAT_COUNT],
     pub requirements: [u8; COMBAT_STAT_COUNT],
@@ -100,6 +133,7 @@ pub struct Weapon {
 pub struct ReinforceLevel {
     pub damage_mult: [f32; DAMAGE_TYPE_COUNT],
     pub scaling_mult: [f32; COMBAT_STAT_COUNT],
+    pub base_attack_mult: f32,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -141,23 +175,37 @@ pub struct AowAttackRow {
     pub aow_name: String,
     pub raw_name: String,
     pub variant_weapon_type: String,
+    pub sequence_variant: String,
+    pub hit_kind: String,
+    pub hit_order: u16,
     pub is_lacking_fp: bool,
     pub atk_id: u32,
     pub overwrite_attack_element_correct_id: Option<usize>,
     pub is_disable_both_hands_bonus: bool,
     pub is_add_base_atk: bool,
+    pub is_arrow_attack: bool,
+    pub physical_attack_attribute: PhysicalAttackAttribute,
     pub motion_values: [f32; DAMAGE_TYPE_COUNT],
     pub attack_base: [f32; DAMAGE_TYPE_COUNT],
     pub status_mv: f32,
     pub weapon_buff_mv: f32,
     pub stamina_cost: f32,
+    pub stamina_cost_mode: StaminaCostMode,
 }
 
 impl AowAttackRow {
     pub fn is_damaging(&self) -> bool {
         self.motion_values.iter().any(|value| *value > 0.0)
-            || self.attack_base.iter().any(|value| *value > 0.0)
-            || self.is_add_base_atk
+            || ((self.is_add_base_atk || self.is_arrow_attack)
+                && self.attack_base.iter().any(|value| *value > 0.0))
+    }
+
+    pub fn resolved_physical_attribute(&self, weapon: &Weapon) -> PhysicalAttackAttribute {
+        match self.physical_attack_attribute {
+            PhysicalAttackAttribute::AdaptivePrimary => weapon.physical_attributes[0],
+            PhysicalAttackAttribute::AdaptiveSecondary => weapon.physical_attributes[1],
+            fixed => fixed,
+        }
     }
 }
 
@@ -170,6 +218,32 @@ pub struct StatusBuildup {
     pub sleep: f32,
     pub madness: f32,
     pub death: f32,
+}
+
+impl StatusBuildup {
+    pub fn scale(self, multiplier: f32) -> Self {
+        Self {
+            bleed: self.bleed * multiplier,
+            frost: self.frost * multiplier,
+            poison: self.poison * multiplier,
+            scarlet_rot: self.scarlet_rot * multiplier,
+            sleep: self.sleep * multiplier,
+            madness: self.madness * multiplier,
+            death: self.death * multiplier,
+        }
+    }
+
+    pub fn combined_with(self, other: Self) -> Self {
+        Self {
+            bleed: self.bleed + other.bleed,
+            frost: self.frost + other.frost,
+            poison: self.poison + other.poison,
+            scarlet_rot: self.scarlet_rot + other.scarlet_rot,
+            sleep: self.sleep + other.sleep,
+            madness: self.madness + other.madness,
+            death: self.death + other.death,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -218,6 +292,63 @@ pub struct Aow {
     pub buff_attack_power: [f32; DAMAGE_TYPE_COUNT],
     pub scaling_status_add: StatusBuildup,
     pub scaling_status_flags: StatusCorrectionFlags,
+    pub persistent_weapon_status_add: StatusBuildup,
+    pub persistent_on_hit_status_add: StatusBuildup,
+    pub buff_activation_action_id: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AowEffectRole {
+    PersistentSetup,
+    PersistentWeaponBuff,
+    PersistentOnHit,
+    PerHitStatus,
+    PerHitAttackPower,
+    SelfBuff,
+    SelfMechanic,
+    ReplacementOrChained,
+    VisualOrNonGameplay,
+}
+
+impl AowEffectRole {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::PersistentSetup => "persistent_setup",
+            Self::PersistentWeaponBuff => "persistent_weapon_buff",
+            Self::PersistentOnHit => "persistent_on_hit",
+            Self::PerHitStatus => "per_hit_status",
+            Self::PerHitAttackPower => "per_hit_attack_power",
+            Self::SelfBuff => "self_buff",
+            Self::SelfMechanic => "self_mechanic",
+            Self::ReplacementOrChained => "replacement_or_chained",
+            Self::VisualOrNonGameplay => "visual_or_non_gameplay",
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct AowEffect {
+    pub record_id: u32,
+    pub aow_id: u16,
+    pub sheet_row: u16,
+    pub source_kind: String,
+    pub source_param_ids: Vec<u32>,
+    pub effect_id: u32,
+    pub effect_name: String,
+    pub parent_effect_id: Option<u32>,
+    pub link_kind: String,
+    pub role: AowEffectRole,
+    pub activation_action_id: String,
+    pub activation_timing: String,
+    pub hand_variant: String,
+    pub is_canonical: Option<bool>,
+    pub is_supported: bool,
+    pub reason: String,
+    pub duration_seconds: f32,
+    pub attack_power: [f32; DAMAGE_TYPE_COUNT],
+    pub status_buildup: StatusBuildup,
+    pub uses_status_correction: bool,
+    pub uses_attack_correction: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -244,6 +375,16 @@ impl DamageBreakdown {
         }
     }
 
+    pub fn combined_with(self, other: Self) -> Self {
+        Self {
+            physical: self.physical + other.physical,
+            magic: self.magic + other.magic,
+            fire: self.fire + other.fire,
+            lightning: self.lightning + other.lightning,
+            holy: self.holy + other.holy,
+        }
+    }
+
     pub fn by_type(self, damage_type: DamageType) -> f32 {
         match damage_type {
             DamageType::Physical => self.physical,
@@ -255,8 +396,55 @@ impl DamageBreakdown {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct AowRouteAssignment {
+    pub route_id: String,
+    pub route_label: String,
+    pub route_priority: u16,
+    pub action_id: String,
+    pub action_order: u16,
+    pub hit_order: u16,
+}
+
+#[derive(Clone, Debug)]
+pub struct AowHitResult {
+    pub sheet_row: u16,
+    pub hit_order: u16,
+    pub raw_name: String,
+    pub damage: DamageBreakdown,
+    pub status_buildup: StatusBuildup,
+    pub physical_attack_attribute: PhysicalAttackAttribute,
+    pub buff_active: bool,
+    pub effects: Vec<AowEffect>,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct AowActionResult {
+    pub action_id: String,
+    pub action_order: u16,
+    pub stamina_cost: f32,
+    pub hits: Vec<AowHitResult>,
+}
+
+#[derive(Clone, Debug)]
+pub struct AowRouteResult {
+    pub route_id: String,
+    pub route_label: String,
+    pub route_priority: u16,
+    pub buff_activation_action_id: Option<String>,
+    pub actions: Vec<AowActionResult>,
+    pub first_hit_damage: f32,
+    pub total_damage: DamageBreakdown,
+    pub total_status_buildup: StatusBuildup,
+    pub total_stamina_cost: f32,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct GameData {
+    pub snapshot_schema_version: u32,
+    pub dataset_version: String,
+    pub model_version: String,
     pub weapons: Vec<Weapon>,
     pub reinforce: Vec<Vec<Option<ReinforceLevel>>>,
     pub calc_correct: Vec<Vec<f32>>,
@@ -265,12 +453,21 @@ pub struct GameData {
     pub aows: Vec<Aow>,
     pub aow_attack_rows: HashMap<u16, Vec<AowAttackRow>>,
     pub native_skill_attack_rows: HashMap<u32, Vec<AowAttackRow>>,
+    pub aow_route_assignments: HashMap<(u16, u16), Vec<AowRouteAssignment>>,
+    pub aow_effects: HashMap<(u16, u16), Vec<AowEffect>>,
     pub weapon_passives: HashMap<u32, StatusEffectSource>,
     pub weapon_passive_overlays: HashMap<u32, Vec<Option<StatusEffectSource>>>,
     pub exact_aow_compat: HashSet<(u16, u32)>,
 }
 
 impl GameData {
+    pub fn aow_effects(&self, aow_id: u16, sheet_row: u16) -> &[AowEffect] {
+        self.aow_effects
+            .get(&(aow_id, sheet_row))
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
+    }
+
     pub fn aow_compatible_with_weapon(&self, aow: &Aow, weapon: &Weapon) -> bool {
         if weapon.disable_gem_attr {
             return false;
@@ -300,6 +497,13 @@ impl GameData {
                     .filter(|value| !value.is_empty())
                     .any(|valid_key| weapon_key == valid_key)
             })
+    }
+
+    pub fn aow_route_assignments(&self, aow_id: u16, sheet_row: u16) -> &[AowRouteAssignment] {
+        self.aow_route_assignments
+            .get(&(aow_id, sheet_row))
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
     }
 
     pub fn reinforce_level(&self, reinforce_type: u16, level: u8) -> Option<&ReinforceLevel> {

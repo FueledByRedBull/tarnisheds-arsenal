@@ -9,10 +9,11 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Iterator
+from typing import Any, Iterable, Iterator, Mapping
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -512,6 +513,7 @@ def build_reinforce_rows(
                 "int_scaling_mult": to_float(row, "correctMagicRate", 1.0),
                 "fai_scaling_mult": to_float(row, "correctFaithRate", 1.0),
                 "arc_scaling_mult": to_float(row, "correctLuckRate", 1.0),
+                "base_attack_mult": to_float(row, "baseAtkRate", 1.0),
             }
         )
 
@@ -549,6 +551,7 @@ def build_weapon_rows(
     weapon_type_keys_by_id: dict[int, tuple[str, ...]],
     affinity_by_type: dict[int, str],
     max_level_by_type: dict[int, int],
+    player_weapon_data: Mapping[int, Any],
 ) -> list[dict[str, object]]:
     rows_out: list[dict[str, object]] = []
     standard_name_by_series = build_standard_name_map(weapon_rows, name_map)
@@ -558,6 +561,11 @@ def build_weapon_rows(
         if weapon_id % 100 != 0:
             continue
         if to_int(row, "originEquipWep", -1) < 0:
+            continue
+
+        standard_weapon_id = weapon_series_id(weapon_id)
+        workbook_weapon = player_weapon_data.get(standard_weapon_id)
+        if workbook_weapon is None:
             continue
 
         raw_name = row.get("paramdexName", "").strip()
@@ -579,7 +587,9 @@ def build_weapon_rows(
         weapon_type_name = wep_type_name_map.get(weapon_type_id, "Unknown")
         weapon_type_keys = weapon_type_keys_by_id.get(weapon_type_id, ())
         disable_gem_attr = to_int(row, "disableGemAttr", 0)
-        native_skill_id = to_int(row, "swordArtsParamId", -1) if disable_gem_attr != 0 else -1
+        if weapon_affinity_slot(weapon_id) != 0 and disable_gem_attr != 0:
+            continue
+        native_skill_id = to_int(row, "swordArtsParamId", -1)
         native_skill_name = (
             sword_art_name_map.get(native_skill_id, "").strip() if native_skill_id > 0 else ""
         )
@@ -600,6 +610,13 @@ def build_weapon_rows(
                 "weapon_type_id": weapon_type_id,
                 "weapon_type_name": weapon_type_name,
                 "weapon_type_keys": "|".join(weapon_type_keys),
+                "stamina_consumption_rate": getattr(workbook_weapon, "stamina_consumption_rate"),
+                "physical_attribute_primary": getattr(
+                    workbook_weapon, "physical_attribute_primary"
+                ),
+                "physical_attribute_secondary": getattr(
+                    workbook_weapon, "physical_attribute_secondary"
+                ),
                 "base_physical": base_physical,
                 "base_magic": base_magic,
                 "base_fire": base_fire,
@@ -787,7 +804,7 @@ def main() -> int:
     args = parse_args()
     regulation_path: Path = args.regulation.resolve()
     witchybnd_path: Path = args.witchybnd.resolve()
-    output_dir: Path = args.output.resolve()
+    destination_dir: Path = args.output.resolve()
     workdir: Path = args.workdir.resolve()
 
     if not regulation_path.exists():
@@ -796,6 +813,25 @@ def main() -> int:
         raise FileNotFoundError(
             f"WitchyBND.exe not found: {witchybnd_path} (pass --witchybnd <path>)"
         )
+
+    from tools.phase1.extract_motion_workbook import load_weapon_workbook_data
+
+    workbook_path = destination_dir / "ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx"
+    if not workbook_path.exists():
+        workbook_path = Path(__file__).resolve().parents[2] / "data" / "phase1" / workbook_path.name
+
+    destination_dir.parent.mkdir(parents=True, exist_ok=True)
+    staging_owner = tempfile.TemporaryDirectory(
+        prefix=f".{destination_dir.name}-snapshot-",
+        dir=destination_dir.parent,
+    )
+    output_dir = Path(staging_owner.name)
+    if destination_dir.is_dir():
+        for existing_csv in destination_dir.glob("*.csv"):
+            shutil.copy2(existing_csv, output_dir / existing_csv.name)
+    staged_workbook = output_dir / workbook_path.name
+    shutil.copy2(workbook_path, staged_workbook)
+    player_weapon_data = load_weapon_workbook_data(staged_workbook)
 
     context = load_regulation_context(regulation_path, witchybnd_path, workdir)
     affinity_by_type = build_reinforce_affinity_map(context.weapon_rows)
@@ -809,6 +845,7 @@ def main() -> int:
         context.weapon_type_keys_by_id,
         affinity_by_type,
         max_level_by_type,
+        player_weapon_data,
     )
     calc_correct_csv_rows = build_calc_correct_rows(context.curve_rows)
     sp_effect_map = build_speffect_map(context.sp_rows)
@@ -823,6 +860,9 @@ def main() -> int:
             "weapon_type_id",
             "weapon_type_name",
             "weapon_type_keys",
+            "stamina_consumption_rate",
+            "physical_attribute_primary",
+            "physical_attribute_secondary",
             "base_physical",
             "base_magic",
             "base_fire",
@@ -872,6 +912,7 @@ def main() -> int:
             "int_scaling_mult",
             "fai_scaling_mult",
             "arc_scaling_mult",
+            "base_attack_mult",
         ],
         reinforce_csv_rows,
     )
@@ -928,6 +969,11 @@ def main() -> int:
 
     from tools.phase1.derive_phase1_raw_extras import export_regulation_extras
     from tools.phase1.extract_motion_workbook import run_workbook_exports
+    from tools.phase1.snapshot_manifest import (
+        promote_snapshot,
+        validate_snapshot_manifest,
+        write_snapshot_manifest,
+    )
 
     export_regulation_extras(
         weapon_csv_rows=[{key: str(value) for key, value in row.items()} for row in weapon_csv_rows],
@@ -938,12 +984,21 @@ def main() -> int:
         sp_effect_rows={to_int(row, "id"): row for row in context.sp_rows},
         output_dir=output_dir,
     )
-    run_workbook_exports(Path(__file__).resolve().parents[2], output_dir)
+    run_workbook_exports(
+        Path(__file__).resolve().parents[2],
+        output_dir,
+        context.workdir / "regulation-bin",
+        witchybnd_path.parent / "Assets" / "Paramdex" / "ER" / "Defs",
+    )
+    write_snapshot_manifest(output_dir, regulation_path)
+    validate_snapshot_manifest(output_dir)
+    promote_snapshot(output_dir, destination_dir)
+    staging_owner.cleanup()
 
     if not args.keep_workdir:
         shutil.rmtree(workdir, ignore_errors=True)
 
-    print(f"Wrote CSVs to {output_dir}")
+    print(f"Wrote CSVs to {destination_dir}")
     print(f"  weapons.csv rows: {len(weapon_csv_rows)}")
     print(f"  reinforce.csv rows: {len(reinforce_csv_rows)}")
     print(f"  calc_correct.csv rows: {len(calc_correct_csv_rows)}")

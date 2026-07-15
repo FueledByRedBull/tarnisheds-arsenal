@@ -3,14 +3,14 @@ use std::sync::atomic::Ordering;
 
 use er_optimizer_core::{
     OptimizeRequest, estimate_search_space as core_estimate_search_space, optimize,
-    optimize_prepared_with_progress, prepare_search,
+    optimize_prepared_with_progress, optimize_with_cancel, prepare_search_with_cancel,
 };
 use tauri::{AppHandle, State};
 
 use crate::commands::data::weapon_upgrade_cap;
 use crate::dto::{
     SearchEstimateDto, SearchFinishedDto, SearchJobStatusDto, SearchProgressDto,
-    SolveBuildRequestDto, SolvedBuildDto, StartOptimizationResponseDto, UpgradePointDto,
+    SolveBuildRequestDto, SolvedBuildDto, StartSearchResponseDto, UpgradePointDto,
     UpgradeSeriesRequestDto, lock_request_to_stats, metric_for_objective, parse_objective,
 };
 use crate::errors::AppError;
@@ -42,6 +42,21 @@ pub fn run_search_inner(
     clamp_weapon_upgrade_request(&mut request, state)?;
     let request = OptimizeRequest::try_from(&request)?;
     optimize(&request, &state.data)
+        .map(|rows| rows.into_iter().map(SolvedBuildDto::from).collect())
+        .map_err(AppError::from)
+}
+
+pub fn run_search_inner_with_cancel<F>(
+    mut request: crate::dto::OptimizeRequestDto,
+    state: &AppState,
+    should_continue: F,
+) -> Result<Vec<SolvedBuildDto>, AppError>
+where
+    F: FnMut() -> bool + Send,
+{
+    clamp_weapon_upgrade_request(&mut request, state)?;
+    let request = OptimizeRequest::try_from(&request)?;
+    optimize_with_cancel(&request, &state.data, should_continue)
         .map(|rows| rows.into_iter().map(SolvedBuildDto::from).collect())
         .map_err(AppError::from)
 }
@@ -110,7 +125,7 @@ pub fn start_search(
     mut request: crate::dto::OptimizeRequestDto,
     _app: AppHandle,
     state: State<'_, AppState>,
-) -> Result<StartOptimizationResponseDto, AppError> {
+) -> Result<StartSearchResponseDto, AppError> {
     clamp_weapon_upgrade_request(&mut request, &state)?;
     let core_request = OptimizeRequest::try_from(&request)?;
     let data = Arc::clone(&state.data);
@@ -131,36 +146,24 @@ pub fn start_search(
     )?;
 
     let job_id_for_task = job_id.clone();
-    let (estimate_tx, estimate_rx) = std::sync::mpsc::sync_channel(1);
     tauri::async_runtime::spawn_blocking(move || {
         let progress_job_id = job_id_for_task.clone();
-        let plan = match prepare_search(&core_request, &data) {
+        let plan = match prepare_search_with_cancel(&core_request, &data, || {
+            !cancel_flag.load(Ordering::Relaxed)
+        }) {
             Ok(plan) => plan,
             Err(message) => {
-                let _ = estimate_tx.send(Err(message.clone()));
                 if let Ok(mut guard) = status.lock() {
                     guard.finished = Some(SearchFinishedDto {
                         job_id: job_id_for_task,
-                        cancelled: false,
+                        cancelled: message == "cancelled",
                         rows: Vec::new(),
-                        error: Some(message),
+                        error: (message != "cancelled").then_some(message),
                     });
                 }
                 return;
             }
         };
-        let estimate = plan.estimate();
-        if estimate_tx.send(Ok(estimate)).is_err() {
-            if let Ok(mut guard) = status.lock() {
-                guard.finished = Some(SearchFinishedDto {
-                    job_id: job_id_for_task,
-                    cancelled: true,
-                    rows: Vec::new(),
-                    error: None,
-                });
-            }
-            return;
-        }
         let result = optimize_prepared_with_progress(&plan, 10_000, |snapshot| {
             if cancel_flag.load(Ordering::Relaxed) {
                 return false;
@@ -193,14 +196,7 @@ pub fn start_search(
         }
     });
 
-    let estimate = estimate_rx
-        .recv()
-        .map_err(|_| AppError::new("search preparation stopped before returning an estimate"))?
-        .map_err(AppError::from)?;
-    Ok(StartOptimizationResponseDto {
-        job_id,
-        estimate: SearchEstimateDto::from(estimate),
-    })
+    Ok(StartSearchResponseDto { job_id })
 }
 
 #[tauri::command]
@@ -238,4 +234,40 @@ pub fn clamp_weapon_upgrade_request(
     request.max_upgrade = None;
     request.fixed_upgrade = None;
     Ok(())
+}
+
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+
+    #[test]
+    fn packaged_snapshot_executes_a_real_tauri_search() {
+        let state = crate::test_app_state();
+        let rows = run_search_inner(crate::test_optimize_request(), &state)
+            .expect("real command search succeeds");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].weapon_name, "Uchigatana");
+        assert_eq!(rows[0].affinity, "Keen");
+        assert_eq!(rows[0].upgrade, 0);
+    }
+
+    #[test]
+    fn packaged_snapshot_executes_a_real_search_estimate() {
+        let state = crate::test_app_state();
+        let mut request = crate::test_optimize_request();
+        clamp_weapon_upgrade_request(&mut request, &state).expect("upgrade cap resolves");
+        let request = OptimizeRequest::try_from(&request).expect("request converts");
+        let estimate = core_estimate_search_space(&request, &state.data)
+            .expect("real command estimate succeeds");
+        assert_eq!(estimate.weapon_candidates, 1);
+        assert!(estimate.combinations > 0);
+    }
+
+    #[test]
+    fn real_tauri_search_honors_cancellation() {
+        let state = crate::test_app_state();
+        let error = run_search_inner_with_cancel(crate::test_optimize_request(), &state, || false)
+            .expect_err("cancelled command search must fail closed");
+        assert_eq!(error.message, "cancelled");
+    }
 }

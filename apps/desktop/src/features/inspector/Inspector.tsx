@@ -14,7 +14,7 @@ import {
 } from "../../lib/presets";
 import { budgetSnapshot } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
-import { SavedBuildIndexEntryV1 } from "../../lib/types";
+import { AowRouteDto, SavedBuildIndexEntryV1, StatusBuildupDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
 
 export function Inspector() {
@@ -76,6 +76,7 @@ export function Inspector() {
               HOLY {compactNumber(selected.ar.holy)}
             </small>
           </div>
+          <AowRouteDetails route={selected.aowRoute} />
           <div className="inspector-actions stacked">
             <button type="button" onClick={lockSelected}><LockKeyhole size={15} />Use As Locks</button>
             <button type="button" onClick={() => setWorkspace("compare")}><GitCompareArrows size={15} />Open Compare</button>
@@ -92,6 +93,58 @@ export function Inspector() {
       <SavedBuildPanel />
     </aside>
   );
+}
+
+function AowRouteDetails({ route }: { route: AowRouteDto | null }) {
+  if (!route) return null;
+  return (
+    <details className="aow-route-details">
+      <summary>
+        <span>{route.routeLabel}</span>
+        <strong>{compactNumber(route.totalDamage.total)} dmg / {fixed1(route.totalStaminaCost)} stamina</strong>
+      </summary>
+      {route.buffActivationActionId ? (
+        <small>Weapon buff activates at: {route.buffActivationActionId}</small>
+      ) : null}
+      <small>Total status: {formatStatus(route.totalStatusBuildup)}</small>
+      <div className="aow-actions">
+        {route.actions.map((action) => (
+          <div className="aow-action" key={`${action.actionOrder}-${action.actionId}`}>
+            <b>{action.actionOrder}. {action.actionId}</b>
+            <small>{fixed1(action.staminaCost)} stamina</small>
+            {action.hits.map((hit) => (
+              <div className="aow-hit" key={`${hit.sheetRow}-${hit.hitOrder}`}>
+                <span>{hit.rawName}</span>
+                <strong>{compactNumber(hit.damage.total)} / {hit.physicalAttackAttribute.replaceAll("_", " ")}</strong>
+                <small>{formatStatus(hit.statusBuildup)}{hit.buffActive ? " / buff active" : ""}</small>
+                {hit.effects
+                  .filter((effect) => effect.role === "per_hit_status" || !effect.isSupported)
+                  .map((effect) => (
+                    <small key={`${hit.sheetRow}-${effect.effectId}`} className={effect.isSupported ? "" : "warning-text"}>
+                      {effect.effectName || `Effect ${effect.effectId}`}: {effect.reason}
+                    </small>
+                  ))}
+                {hit.warnings.map((warning) => <small className="warning-text" key={warning}>{warning}</small>)}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function formatStatus(status: StatusBuildupDto): string {
+  const values = [
+    ["bleed", status.bleed],
+    ["frost", status.frost],
+    ["poison", status.poison],
+    ["rot", status.scarletRot],
+    ["sleep", status.sleep],
+    ["madness", status.madness],
+    ["death", status.death],
+  ].filter((entry) => Number(entry[1]) > 0);
+  return values.length ? values.map(([label, value]) => `${label} ${compactNumber(Number(value))}`).join(" / ") : "none";
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
@@ -116,7 +169,9 @@ function SavedBuildPanel() {
   const [name, setName] = useState("Build Preset");
   const [importText, setImportText] = useState("");
   const [deleteArmedId, setDeleteArmedId] = useState<string | null>(null);
-  const dataVersion = catalog?.dataManifest.id ?? "unknown";
+  const dataVersion = catalog
+    ? `${catalog.dataManifest.schemaVersion}:${catalog.dataManifest.datasetVersion}:${catalog.dataManifest.modelVersion}`
+    : "unknown";
 
   function refresh() {
     const next = savedBuildIndex().builds;

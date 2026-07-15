@@ -1,4 +1,7 @@
 use er_optimizer_core::model::COMBAT_STAT_COUNT;
+use er_optimizer_core::model::{
+    AowActionResult, AowEffect, AowHitResult, AowRouteResult, StatusBuildup,
+};
 use er_optimizer_core::{
     DamageBreakdown, OptimizeObjective, OptimizeRequest, OptimizeResult, ProgressSnapshot,
     SearchEstimate, SomberFilter, Stats,
@@ -137,7 +140,70 @@ pub struct SolvedBuildDto {
     pub scarlet_rot_buildup: f32,
     pub aow_first_hit_damage: f32,
     pub aow_full_sequence_damage: f32,
+    pub aow_route: Option<AowRouteDto>,
     pub score: f32,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StatusBuildupDto {
+    pub bleed: f32,
+    pub frost: f32,
+    pub poison: f32,
+    pub scarlet_rot: f32,
+    pub sleep: f32,
+    pub madness: f32,
+    pub death: f32,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AowEffectDto {
+    pub effect_id: u32,
+    pub effect_name: String,
+    pub role: String,
+    pub activation_timing: String,
+    pub is_supported: bool,
+    pub reason: String,
+    pub attack_power: DamageBreakdownDto,
+    pub status_buildup: StatusBuildupDto,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AowHitDto {
+    pub sheet_row: u16,
+    pub hit_order: u16,
+    pub raw_name: String,
+    pub damage: DamageBreakdownDto,
+    pub status_buildup: StatusBuildupDto,
+    pub physical_attack_attribute: String,
+    pub buff_active: bool,
+    pub effects: Vec<AowEffectDto>,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AowActionDto {
+    pub action_id: String,
+    pub action_order: u16,
+    pub stamina_cost: f32,
+    pub hits: Vec<AowHitDto>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AowRouteDto {
+    pub route_id: String,
+    pub route_label: String,
+    pub route_priority: u16,
+    pub buff_activation_action_id: Option<String>,
+    pub actions: Vec<AowActionDto>,
+    pub first_hit_damage: f32,
+    pub total_damage: DamageBreakdownDto,
+    pub total_status_buildup: StatusBuildupDto,
+    pub total_stamina_cost: f32,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
@@ -311,13 +377,6 @@ pub struct StartSearchResponseDto {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StartOptimizationResponseDto {
-    pub job_id: String,
-    pub estimate: SearchEstimateDto,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct SearchProgressDto {
     pub job_id: String,
     pub checked: u64,
@@ -361,11 +420,33 @@ pub struct CatalogDto {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DataManifestDto {
+    pub schema_version: u32,
+    pub dataset_version: String,
+    pub model_version: String,
     pub id: String,
     pub label: String,
     pub app_version: String,
     pub source: String,
     pub generated_at: String,
+    pub extractor_version: String,
+    pub provenance: String,
+}
+
+impl From<er_optimizer_core::SnapshotManifest> for DataManifestDto {
+    fn from(value: er_optimizer_core::SnapshotManifest) -> Self {
+        Self {
+            schema_version: value.schema_version,
+            dataset_version: value.dataset_version,
+            model_version: value.model_version,
+            id: value.id,
+            label: value.label,
+            app_version: value.app_version,
+            source: value.source,
+            generated_at: value.generated_at,
+            extractor_version: value.extractor_version,
+            provenance: value.provenance,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -514,6 +595,85 @@ impl From<DamageBreakdown> for DamageBreakdownDto {
     }
 }
 
+impl From<StatusBuildup> for StatusBuildupDto {
+    fn from(value: StatusBuildup) -> Self {
+        Self {
+            bleed: value.bleed,
+            frost: value.frost,
+            poison: value.poison,
+            scarlet_rot: value.scarlet_rot,
+            sleep: value.sleep,
+            madness: value.madness,
+            death: value.death,
+        }
+    }
+}
+
+impl From<AowEffect> for AowEffectDto {
+    fn from(value: AowEffect) -> Self {
+        Self {
+            effect_id: value.effect_id,
+            effect_name: value.effect_name,
+            role: value.role.as_str().to_string(),
+            activation_timing: value.activation_timing,
+            is_supported: value.is_supported,
+            reason: value.reason,
+            attack_power: DamageBreakdown {
+                physical: value.attack_power[0],
+                magic: value.attack_power[1],
+                fire: value.attack_power[2],
+                lightning: value.attack_power[3],
+                holy: value.attack_power[4],
+            }
+            .into(),
+            status_buildup: value.status_buildup.into(),
+        }
+    }
+}
+
+impl From<AowHitResult> for AowHitDto {
+    fn from(value: AowHitResult) -> Self {
+        Self {
+            sheet_row: value.sheet_row,
+            hit_order: value.hit_order,
+            raw_name: value.raw_name,
+            damage: value.damage.into(),
+            status_buildup: value.status_buildup.into(),
+            physical_attack_attribute: value.physical_attack_attribute.to_string(),
+            buff_active: value.buff_active,
+            effects: value.effects.into_iter().map(AowEffectDto::from).collect(),
+            warnings: value.warnings,
+        }
+    }
+}
+
+impl From<AowActionResult> for AowActionDto {
+    fn from(value: AowActionResult) -> Self {
+        Self {
+            action_id: value.action_id,
+            action_order: value.action_order,
+            stamina_cost: value.stamina_cost,
+            hits: value.hits.into_iter().map(AowHitDto::from).collect(),
+        }
+    }
+}
+
+impl From<AowRouteResult> for AowRouteDto {
+    fn from(value: AowRouteResult) -> Self {
+        Self {
+            route_id: value.route_id,
+            route_label: value.route_label,
+            route_priority: value.route_priority,
+            buff_activation_action_id: value.buff_activation_action_id,
+            actions: value.actions.into_iter().map(AowActionDto::from).collect(),
+            first_hit_damage: value.first_hit_damage,
+            total_damage: value.total_damage.into(),
+            total_status_buildup: value.total_status_buildup.into(),
+            total_stamina_cost: value.total_stamina_cost,
+        }
+    }
+}
+
 impl From<OptimizeResult> for SolvedBuildDto {
     fn from(value: OptimizeResult) -> Self {
         Self {
@@ -539,6 +699,7 @@ impl From<OptimizeResult> for SolvedBuildDto {
             scarlet_rot_buildup: value.scarlet_rot_buildup,
             aow_first_hit_damage: value.aow_first_hit_damage,
             aow_full_sequence_damage: value.aow_full_sequence_damage,
+            aow_route: value.aow_route.map(AowRouteDto::from),
             score: value.score,
         }
     }
@@ -661,11 +822,16 @@ mod tests {
             objective_ids: vec!["max_ar".to_string()],
             somber_filters: vec!["all".to_string()],
             data_manifest: DataManifestDto {
+                schema_version: 1,
+                dataset_version: "phase1".to_string(),
+                model_version: "test-model".to_string(),
                 id: "phase1".to_string(),
                 label: "Phase 1".to_string(),
                 app_version: "0.5.0".to_string(),
                 source: "test".to_string(),
                 generated_at: "2026-06-10T00:00:00Z".to_string(),
+                extractor_version: "test-extractor".to_string(),
+                provenance: "test".to_string(),
             },
         })
         .expect("catalog serializes");
@@ -674,6 +840,7 @@ mod tests {
         assert_has_path(&value, &["weaponTypeOptions", "0", "key"]);
         assert_has_path(&value, &["classes", "0", "baseStats", "strStat"]);
         assert_has_path(&value, &["dataManifest", "appVersion"]);
+        assert_has_path(&value, &["dataManifest", "datasetVersion"]);
         assert_missing_path(&value, &["weapon_count"]);
         assert_missing_path(&value, &["classes", "0", "base_stats"]);
         assert_missing_path(&value, &["data_manifest"]);
@@ -681,18 +848,11 @@ mod tests {
 
     #[test]
     fn representative_job_status_uses_app_contract_keys() {
-        let start_value = serde_json::to_value(StartOptimizationResponseDto {
+        let start_value = serde_json::to_value(StartSearchResponseDto {
             job_id: "search-1".to_string(),
-            estimate: SearchEstimateDto {
-                weapon_candidates: 12,
-                stat_candidates: 34,
-                combinations: 56,
-            },
         })
         .expect("start response serializes");
         assert_has_path(&start_value, &["jobId"]);
-        assert_has_path(&start_value, &["estimate", "weaponCandidates"]);
-        assert_has_path(&start_value, &["estimate", "combinations"]);
 
         let value = serde_json::to_value(SearchJobStatusDto {
             progress: Some(SearchProgressDto {
@@ -937,6 +1097,7 @@ mod tests {
             scarlet_rot_buildup: 0.0,
             aow_first_hit_damage: 100.0,
             aow_full_sequence_damage: 250.0,
+            aow_route: None,
             score: 500.0,
         }
     }

@@ -5,7 +5,7 @@ use std::sync::atomic::Ordering as AtomicOrdering;
 use tauri::{AppHandle, State};
 
 use crate::commands::data::{affinities_for_weapon_inner, compatible_aow_names_inner};
-use crate::commands::optimize::run_search_inner;
+use crate::commands::optimize::{run_search_inner, run_search_inner_with_cancel};
 use crate::dto::{
     AffinityBreakpointDto, AffinityWatchFinishedDto, AffinityWatchJobStatusDto,
     AffinityWatchLineDto, AffinityWatchPayloadDto, AffinityWatchPointDto, AffinityWatchProgressDto,
@@ -129,17 +129,22 @@ pub fn start_affinity_watch(
         let (payload, error, cancelled) = if cancel_flag.load(AtomicOrdering::Relaxed) {
             (None, None, true)
         } else {
-            match build_affinity_watch_inner(request, &task_state, |progress| {
-                if cancel_flag.load(AtomicOrdering::Relaxed) {
-                    return false;
-                }
-                let mut payload = progress;
-                payload.job_id = job_id_for_task.clone();
-                if let Ok(mut guard) = status.lock() {
-                    guard.progress = Some(payload.clone());
-                }
-                true
-            }) {
+            match build_affinity_watch_inner(
+                request,
+                &task_state,
+                |progress| {
+                    if cancel_flag.load(AtomicOrdering::Relaxed) {
+                        return false;
+                    }
+                    let mut payload = progress;
+                    payload.job_id = job_id_for_task.clone();
+                    if let Ok(mut guard) = status.lock() {
+                        guard.progress = Some(payload.clone());
+                    }
+                    true
+                },
+                || !cancel_flag.load(AtomicOrdering::Relaxed),
+            ) {
                 Ok(payload) => (Some(payload), None, false),
                 Err(err) if err.message == "cancelled" => (None, None, true),
                 Err(err) => (None, Some(err.message), false),
@@ -178,6 +183,7 @@ fn build_affinity_watch_inner(
     request: AffinityWatchRequestDto,
     state: &AppState,
     mut progress_cb: impl FnMut(AffinityWatchProgressDto) -> bool,
+    mut should_continue: impl FnMut() -> bool + Send,
 ) -> Result<AffinityWatchPayloadDto, AppError> {
     validate_levels_ahead(request.levels_ahead)?;
     let objective = parse_objective(&request.base.objective)?;
@@ -218,7 +224,8 @@ fn build_affinity_watch_inner(
             row_request.lock_fai = None;
             row_request.lock_arc = None;
 
-            let solved = run_search_inner(row_request, state)?.pop();
+            let solved =
+                run_search_inner_with_cancel(row_request, state, &mut should_continue)?.pop();
             let metric = solved
                 .as_ref()
                 .map(|solved| metric_for_objective(solved, objective));
@@ -373,4 +380,38 @@ fn compare_solved(
         .then_with(|| left.bleed_buildup.total_cmp(&right.bleed_buildup))
         .then_with(|| right.weapon_id.cmp(&left.weapon_id))
         .then_with(|| left.upgrade.cmp(&right.upgrade))
+}
+
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+
+    fn request(state: &AppState) -> AffinityWatchRequestDto {
+        let base = crate::test_optimize_request();
+        let solved = run_search_inner(base.clone(), state)
+            .expect("seed search succeeds")
+            .pop()
+            .expect("seed build exists");
+        AffinityWatchRequestDto {
+            base,
+            solved,
+            levels_ahead: 0,
+        }
+    }
+
+    #[test]
+    fn packaged_snapshot_executes_real_affinity_command_logic() {
+        let state = crate::test_app_state();
+        let payload = build_affinity_watch_inner(request(&state), &state, |_| true, || true)
+            .expect("real affinity watch succeeds");
+        assert!(!payload.lines.is_empty());
+    }
+
+    #[test]
+    fn real_affinity_command_honors_cancellation() {
+        let state = crate::test_app_state();
+        let error = build_affinity_watch_inner(request(&state), &state, |_| false, || true)
+            .expect_err("cancelled affinity watch must fail closed");
+        assert_eq!(error.message, "cancelled");
+    }
 }

@@ -1,0 +1,17 @@
+aow_id,aow_name,effect_root_id,hand_variant,is_canonical,activation_action_id,provenance
+201,Sacred Blade,820,right,1,activation,Skill script applies right-hand SpEffect root; verified cycle edge in regulation
+201,Sacred Blade,822,left,0,activation,Skill script applies left-hand SpEffect root; verified cycle edge in regulation
+214,Flaming Strike,1775,right,1,r2,Follow-up script applies right-hand SpEffect root; verified cycle edge in regulation
+214,Flaming Strike,1777,left,0,r2,Follow-up script applies left-hand SpEffect root; verified cycle edge in regulation
+217,Lightning Slash,1675,right,1,activation,Skill script applies right-hand SpEffect root; verified cycle edge in regulation
+217,Lightning Slash,1677,left,0,activation,Skill script applies left-hand SpEffect root; verified cycle edge in regulation
+227,Chilling Mist,825,right,1,activation,Skill script applies right-hand SpEffect root; verified cycle and attack-occurrence edges in regulation
+227,Chilling Mist,827,left,0,activation,Skill script applies left-hand SpEffect root; verified cycle and attack-occurrence edges in regulation
+228,Poisonous Mist,830,right,1,activation,Skill script applies right-hand SpEffect root; verified cycle and attack-occurrence edges in regulation
+228,Poisonous Mist,832,left,0,activation,Skill script applies left-hand SpEffect root; verified cycle and attack-occurrence edges in regulation
+606,Seppuku,1754,right,1,activation,Skill script applies right-hand SpEffect root; verified cycle and attack-occurrence edges in regulation
+606,Seppuku,1757,left,0,activation,Skill script applies left-hand SpEffect root; verified cycle and attack-occurrence edges in regulation
+4140,Flame Skewer,20000890,right,1,activation,Skill script applies right-hand SpEffect root; verified cycle edge in regulation
+4140,Flame Skewer,20000895,left,0,activation,Skill script applies left-hand SpEffect root; verified cycle edge in regulation
+4170,Flame Spear,20000960,right,1,activation,Skill script applies right-hand SpEffect root; verified cycle edge in regulation
+4170,Flame Spear,20000965,left,0,activation,Skill script applies left-hand SpEffect root; verified cycle edge in regulation

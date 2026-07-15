@@ -71,6 +71,11 @@ Supported objectives:
 - `AoW First Hit (PvE)`
 - `AoW Full Sequence (PvE)`
 
+AoW objectives evaluate one legal route at a time. Inspector and Compare expose
+the selected route's ordered actions/hits, damage, status buildup, physical hit
+attribute, buff timing, stamina, and any explicit modeling warning. Mutually
+exclusive branches are never combined into an impossible total.
+
 The Rust optimizer keeps the search exact, but it sizes and enumerates combat
 stat candidates per weapon, affinity, and Ash of War. For each loadout it only
 varies stats that can affect the selected objective, folds weapon requirements
@@ -92,15 +97,23 @@ Included data covers:
 - innate weapon passives
 - passive overlays by weapon, affinity, and upgrade
 - native somber weapon skill attack data
-- workbook-backed AoW buff data
+- legal AoW route assignments and explicit exclusions
+- numeric PARAM effect-graph data for persistent and per-hit effects
 - paired and no-two-hand-bonus behavior
 - AoW attack rows for PvE damage objectives
 - Shadow of the Erdtree Scadutree blessing attack scaling
 
+The runtime files are one versioned, checksummed snapshot. External data loading is
+all-or-nothing; a missing, modified, mixed, or unlisted file fails closed rather
+than falling back to a different embedded file.
+
 Current boundaries:
 
-- enemy defense, negation, resistance growth, stamina, poise, and proc explosion damage are not modeled
-- status buildup is surfaced for bleed, frost, poison, and scarlet rot
+- enemy defense, negation, resistance growth, proc explosion damage, and
+  poise/stance damage are not modeled
+- route status details cover bleed, frost, poison, scarlet rot, sleep, madness, and
+  death buildup, separately from proc damage
+- route stamina is reported but is not an optimization objective
 - temporary buff stacking is not yet modeled as a universal layer
 
 ## Development
@@ -133,7 +146,9 @@ Validate the main paths:
 cargo test --manifest-path core/er_optimizer_core/Cargo.toml
 cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 python tools/phase4/validate_phase4.py
+python tools/phase4/validate_external_calculator.py  # optional network comparison
 cd apps/desktop
+npm test
 npm run build
 ```
 
@@ -152,7 +167,7 @@ and build report, plus `dist/TarnishedsArsenal_<version>.zip`. See
 
 ## Refresh Data
 
-Regenerate the base runtime CSVs from a local `regulation.bin`:
+Regenerate the complete runtime snapshot from a local `regulation.bin`:
 
 ```powershell
 python tools/phase1/phase1_dump.py `
@@ -161,19 +176,15 @@ python tools/phase1/phase1_dump.py `
   --output data/phase1
 ```
 
-Refresh workbook-derived AoW attack data by placing this workbook in `data/phase1`:
+The extractor also reads this workbook from `data/phase1`:
 
 ```text
 ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx
 ```
 
-Then run:
-
-```powershell
-python tools/phase1/extract_motion_workbook.py
-python tools/phase1/derive_phase1_raw_extras.py --workdir data/_work_phase1_reparse/regulation-bin --phase1 data/phase1 --output data/phase1
-python tools/phase1/derive_phase1_extras.py --input data/phase1 --output data/phase1
-```
+Extraction builds and validates a sibling staging snapshot, then promotes its data
+files and installs the manifest last. Do not run the lower-level derivation scripts
+individually for a release snapshot.
 
 ## Repository Layout
 

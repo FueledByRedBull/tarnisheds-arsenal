@@ -6,7 +6,7 @@ use er_optimizer_core::model::COMBAT_STAT_COUNT;
 use tauri::{AppHandle, State};
 
 use crate::commands::data::{weapon_disables_two_hand_bonus, weapon_requirements};
-use crate::commands::optimize::run_search_inner;
+use crate::commands::optimize::run_search_inner_with_cancel;
 use crate::dto::{
     CombatStateDto, PathFinishedDto, PathJobStatusDto, PathPreviewDto, PathPreviewRequestDto,
     PathProgressDto, PathStepDto, StartPathPreviewRequestDto, StartSearchResponseDto,
@@ -140,7 +140,7 @@ pub fn get_path_preview_status(
 fn build_path_preview_inner(
     request: PathPreviewRequestDto,
     state: &AppState,
-    mut continue_cb: impl FnMut(u16) -> bool,
+    mut continue_cb: impl FnMut(u16) -> bool + Send,
 ) -> Result<PathPreviewDto, AppError> {
     validate_levels_ahead(request.levels_ahead)?;
     let start_state = request.solved.stats;
@@ -158,6 +158,7 @@ fn build_path_preview_inner(
         start_state,
         None,
         state,
+        &mut continue_cb,
     )?];
 
     let target_level = request
@@ -167,7 +168,7 @@ fn build_path_preview_inner(
     if !continue_cb(target_level) {
         return Err(AppError::new("cancelled"));
     }
-    let target = path_target_build(&request, target_level, state)?;
+    let target = path_target_build(&request, target_level, state, &mut continue_cb)?;
     if !continue_cb(target_level) {
         return Err(AppError::new("cancelled"));
     }
@@ -208,6 +209,7 @@ fn path_target_build(
     request: &PathPreviewRequestDto,
     target_level: u16,
     state: &AppState,
+    continue_cb: &mut (impl FnMut(u16) -> bool + Send),
 ) -> Result<Option<crate::dto::SolvedBuildDto>, AppError> {
     let mut target_request = request.base.clone();
     target_request.character_level = target_level;
@@ -227,7 +229,8 @@ fn path_target_build(
         &mut target_request,
         floor_mins(&request.base, request.solved.stats),
     );
-    run_search_inner(target_request, state).map(|mut rows| rows.pop())
+    run_search_inner_with_cancel(target_request, state, || continue_cb(target_level))
+        .map(|mut rows| rows.pop())
 }
 
 fn choose_next_step(
@@ -236,7 +239,7 @@ fn choose_next_step(
     current_state: CombatStateDto,
     target_state: CombatStateDto,
     state: &AppState,
-    continue_cb: &mut impl FnMut(u16) -> bool,
+    continue_cb: &mut (impl FnMut(u16) -> bool + Send),
 ) -> Result<Option<PathStepDto>, AppError> {
     let mut candidates = Vec::new();
     for stat in ["str", "dex", "int", "fai", "arc"] {
@@ -260,6 +263,7 @@ fn choose_next_step(
             next_state,
             Some(stat.to_string()),
             state,
+            continue_cb,
         )?);
     }
     if !continue_cb(level) {
@@ -281,6 +285,7 @@ fn evaluate_step(
     stats: CombatStateDto,
     added_stat: Option<String>,
     state: &AppState,
+    continue_cb: &mut (impl FnMut(u16) -> bool + Send),
 ) -> Result<PathStepDto, AppError> {
     let mut request = base.clone();
     request.character_level = level;
@@ -298,7 +303,7 @@ fn evaluate_step(
     request.min_arc = 0;
     lock_request_to_stats(&mut request, stats);
 
-    let solved = run_search_inner(request, state)?.pop();
+    let solved = run_search_inner_with_cancel(request, state, || continue_cb(level))?.pop();
     let objective = parse_objective(&base.objective)?;
     let requirement_gap = if solved.is_some() {
         0
@@ -404,5 +409,41 @@ fn stat_priority(stat: Option<&str>) -> i16 {
         Some("fai") => 3,
         Some("arc") => 4,
         _ => 5,
+    }
+}
+
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+
+    fn request(state: &AppState) -> PathPreviewRequestDto {
+        let base = crate::test_optimize_request();
+        let solved = run_search_inner_with_cancel(base.clone(), state, || true)
+            .expect("seed search succeeds")
+            .pop()
+            .expect("seed build exists");
+        PathPreviewRequestDto {
+            base,
+            solved,
+            levels_ahead: 1,
+            title: "Selected".to_string(),
+        }
+    }
+
+    #[test]
+    fn packaged_snapshot_executes_real_path_command_logic() {
+        let state = crate::test_app_state();
+        let path = build_path_preview_inner(request(&state), &state, |_| true)
+            .expect("real path command succeeds");
+        assert_eq!(path.title, "Selected");
+        assert!(!path.steps.is_empty());
+    }
+
+    #[test]
+    fn real_path_command_honors_cancellation() {
+        let state = crate::test_app_state();
+        let error = build_path_preview_inner(request(&state), &state, |_| false)
+            .expect_err("cancelled path must fail closed");
+        assert_eq!(error.message, "cancelled");
     }
 }

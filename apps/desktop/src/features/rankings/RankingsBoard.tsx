@@ -32,21 +32,30 @@ export function RankingsBoard() {
   const [scalingByRow, setScalingByRow] = useState<Record<string, ScalingDto>>({});
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     async function loadScaling() {
       const pairs = await Promise.all(
         rows.map(async (row) => [
           rowFingerprint(row),
-          await cachedWeaponScalingForUpgrade(row.weaponName, row.affinity, row.upgrade),
+          await cachedWeaponScalingForUpgrade(
+            row.weaponName,
+            row.affinity,
+            row.upgrade,
+            controller.signal,
+          ),
         ] as const),
       );
-      if (!cancelled) {
+      if (!controller.signal.aborted) {
         setScalingByRow(Object.fromEntries(pairs));
       }
     }
-    loadScaling().catch((error) => setError(error instanceof Error ? error.message : String(error)));
+    loadScaling().catch((error) => {
+      if (!controller.signal.aborted) {
+        setError(error instanceof Error ? error.message : String(error));
+      }
+    });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [rows, setError]);
 

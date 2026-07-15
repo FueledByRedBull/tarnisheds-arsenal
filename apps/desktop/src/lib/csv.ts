@@ -30,6 +30,20 @@ const CSV_COLUMNS: CsvColumn[] = [
   { header: "scarlet_rot", value: (row) => row.scarletRotBuildup },
   { header: "aow_first_hit", value: (row) => row.aowFirstHitDamage },
   { header: "aow_full_sequence", value: (row) => row.aowFullSequenceDamage },
+  { header: "aow_route_id", value: (row) => row.aowRoute?.routeId ?? null },
+  { header: "aow_route", value: (row) => row.aowRoute?.routeLabel ?? null },
+  { header: "aow_stamina", value: (row) => row.aowRoute?.totalStaminaCost ?? null },
+  { header: "aow_route_bleed", value: (row) => row.aowRoute?.totalStatusBuildup.bleed ?? null },
+  { header: "aow_route_frost", value: (row) => row.aowRoute?.totalStatusBuildup.frost ?? null },
+  { header: "aow_route_poison", value: (row) => row.aowRoute?.totalStatusBuildup.poison ?? null },
+  {
+    header: "aow_physical_attributes",
+    value: (row) => row.aowRoute?.actions.flatMap((action) => action.hits.map((hit) => hit.physicalAttackAttribute)).join("|") ?? null,
+  },
+  {
+    header: "aow_warnings",
+    value: (row) => row.aowRoute?.actions.flatMap((action) => action.hits.flatMap((hit) => hit.warnings)).join(" | ") ?? null,
+  },
   { header: "score", value: (row) => row.score },
 ];
 

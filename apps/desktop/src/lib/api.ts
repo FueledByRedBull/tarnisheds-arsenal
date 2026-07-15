@@ -137,6 +137,7 @@ function previewBuild(
     scarletRotBuildup: 0,
     aowFirstHitDamage,
     aowFullSequenceDamage,
+    aowRoute: null,
     score,
   };
 }
@@ -326,11 +327,16 @@ async function mockCatalog(): Promise<CatalogDto> {
 
 function mockDataManifest(): DataManifestDto {
   return {
+    schemaVersion: 1,
+    datasetVersion: "phase1-app-1.16.1",
+    modelVersion: "aow-routes-effects-v1",
     id: "phase1-app-1.16.1",
     label: "Phase 1 dataset - App Ver. 1.16.1",
     appVersion: "1.16.1",
     source: "ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx",
     generatedAt: "2026-05-18",
+    extractorVersion: "phase1-python-v2",
+    provenance: "mock snapshot",
   };
 }
 
@@ -629,6 +635,7 @@ function emptySolvedBuild(): SolvedBuildDto {
     scarletRotBuildup: 0,
     aowFirstHitDamage: 0,
     aowFullSequenceDamage: 0,
+    aowRoute: null,
     score: 0,
   };
 }

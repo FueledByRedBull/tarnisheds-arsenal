@@ -46,6 +46,9 @@ archive/python-desktop/
 # Local data workdirs
 data/_work_phase1/
 data/_work_phase1_reparse*/
+data/_witchy_profile/
+data/.phase1-snapshot-*/
+data/phase1/*.tmp
 data/raw/
 
 # OS/editor

@@ -107,6 +107,7 @@ jobs:
       - name: Desktop TypeScript build
         working-directory: apps/desktop
         run: |
+          npm test
           npm run build
 
       - name: Desktop e2e contract tests

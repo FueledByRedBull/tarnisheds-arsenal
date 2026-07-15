@@ -6,6 +6,8 @@ type CacheKey = string;
 type CacheEntry<T> = {
   promise: Promise<T>;
   expiresAt: number;
+  pending: boolean;
+  subscribers: number;
 };
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
@@ -32,8 +34,8 @@ export function clearAnalysisCaches(): void {
   weaponScalingCache.clear();
 }
 
-export function cachedWeaponProfile(weaponName: string, affinity: string | null): Promise<WeaponProfileDto> {
-  return cached(weaponProfileCache, 128, { weaponName, affinity }, () => api.weaponProfile(weaponName, affinity));
+export function cachedWeaponProfile(weaponName: string, affinity: string | null, signal?: AbortSignal): Promise<WeaponProfileDto> {
+  return cached(weaponProfileCache, 128, { weaponName, affinity }, () => api.weaponProfile(weaponName, affinity), signal);
 }
 
 export function cachedSolveBuild(
@@ -41,18 +43,20 @@ export function cachedSolveBuild(
   weaponName: string,
   affinity: string | null,
   aowName: string | null,
+  signal?: AbortSignal,
 ): Promise<SolvedBuildDto | null> {
   return cached(solveBuildCache, 128, { base, weaponName, affinity, aowName }, () =>
-    api.solveBuild(base, weaponName, affinity, aowName));
+    api.solveBuild(base, weaponName, affinity, aowName), signal);
 }
 
 export function cachedUpgradeSeries(
   base: OptimizeRequestDto,
   solved: SolvedBuildDto,
   maxUpgrade: number,
+  signal?: AbortSignal,
 ): Promise<UpgradePointDto[]> {
   return cached(upgradeSeriesCache, 64, { base, solved: rowFingerprint(solved), maxUpgrade }, () =>
-    api.buildUpgradeSeries(base, solved, maxUpgrade));
+    api.buildUpgradeSeries(base, solved, maxUpgrade), signal);
 }
 
 export function cachedPathPreview(
@@ -60,27 +64,30 @@ export function cachedPathPreview(
   solved: SolvedBuildDto,
   levelsAhead: number,
   title: string,
+  signal?: AbortSignal,
 ): Promise<PathPreviewDto> {
   return cached(pathPreviewCache, 16, { base, solved: rowFingerprint(solved), levelsAhead, title }, () =>
-    api.buildPathPreview(base, solved, levelsAhead, title));
+    api.buildPathPreview(base, solved, levelsAhead, title), signal);
 }
 
 export function cachedAffinityWatch(
   base: OptimizeRequestDto,
   solved: SolvedBuildDto,
   levelsAhead: number,
+  signal?: AbortSignal,
 ): Promise<AffinityWatchPayloadDto> {
   return cached(affinityWatchCache, 12, { base, solved: rowFingerprint(solved), levelsAhead }, () =>
-    api.buildAffinityWatch(base, solved, levelsAhead));
+    api.buildAffinityWatch(base, solved, levelsAhead), signal);
 }
 
 export function cachedWeaponScalingForUpgrade(
   weaponName: string,
   affinity: string,
   upgrade: number,
+  signal?: AbortSignal,
 ): Promise<ScalingDto> {
   return cached(weaponScalingCache, 256, { weaponName, affinity, upgrade }, () =>
-    api.weaponScalingForUpgrade(weaponName, affinity, upgrade));
+    api.weaponScalingForUpgrade(weaponName, affinity, upgrade), signal);
 }
 
 function cached<T>(
@@ -88,25 +95,74 @@ function cached<T>(
   maxEntries: number,
   keyParts: unknown,
   loader: () => Promise<T>,
+  signal?: AbortSignal,
 ): Promise<T> {
+  if (signal?.aborted) return Promise.reject(new Error("cancelled"));
   const key = stableSignature({ dataVersion: cacheDataVersion, keyParts });
   const now = Date.now();
   const entry = cache.get(key);
   if (entry && entry.expiresAt > now) {
     cache.delete(key);
     cache.set(key, entry);
-    return entry.promise;
+    return subscribe(cache, key, entry, signal);
   }
   if (entry) cache.delete(key);
-  const promise = loader().catch((error) => {
-    cache.delete(key);
+  let nextEntry!: CacheEntry<T>;
+  const promise = loader().then((value) => {
+    nextEntry.pending = false;
+    return value;
+  }).catch((error) => {
+    nextEntry.pending = false;
+    if (cache.get(key) === nextEntry) cache.delete(key);
     throw error;
   });
-  cache.set(key, { promise, expiresAt: now + CACHE_TTL_MS });
+  nextEntry = { promise, expiresAt: now + CACHE_TTL_MS, pending: true, subscribers: 0 };
+  cache.set(key, nextEntry);
   while (cache.size > maxEntries) {
     const oldest = cache.keys().next().value as string | undefined;
     if (oldest === undefined) break;
     cache.delete(oldest);
   }
-  return promise;
+  return subscribe(cache, key, nextEntry, signal);
+}
+
+function subscribe<T>(
+  cache: Map<CacheKey, CacheEntry<T>>,
+  key: CacheKey,
+  entry: CacheEntry<T>,
+  signal?: AbortSignal,
+): Promise<T> {
+  if (!entry.pending) return entry.promise;
+  entry.subscribers += 1;
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    entry.subscribers -= 1;
+    if (entry.pending && entry.subscribers === 0 && cache.get(key) === entry) {
+      cache.delete(key);
+    }
+  };
+  if (!signal) return entry.promise.finally(release);
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => {
+      release();
+      reject(new Error("cancelled"));
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    entry.promise.then(
+      (value) => {
+        if (released) return;
+        signal.removeEventListener("abort", abort);
+        release();
+        resolve(value);
+      },
+      (error: unknown) => {
+        if (released) return;
+        signal.removeEventListener("abort", abort);
+        release();
+        reject(error);
+      },
+    );
+  });
 }

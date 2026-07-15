@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, hasTauriRuntime } from "./api";
 import { cachedWeaponProfile } from "./analysis-cache";
 import { buildOptimizeRequest, budgetSnapshot } from "./session";
+import { stableSignature } from "./session";
+import { progressSignature, startAdaptivePolling } from "./polling";
+import { LatestRequest } from "./request-generation";
 import {
   AffinityWatchFinishedDto,
   AffinityWatchProgressDto,
@@ -34,16 +37,26 @@ export function useWeaponProfile(
   setError: (message: string | null) => void,
 ) {
   const [weaponProfile, setWeaponProfile] = useState<WeaponProfileDto | null>(null);
+  const profileRequest = useRef(new LatestRequest());
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
+    const token = profileRequest.current.begin(stableSignature({
+      weaponName: request.weaponName,
+      affinity: request.affinity,
+      aowName: request.aowName,
+    }));
     async function loadWeaponProfile() {
       if (!request.weaponName) {
         setWeaponProfile(null);
         return;
       }
-      const profile = await cachedWeaponProfile(request.weaponName, request.affinity);
-      if (cancelled) return;
+      const profile = await cachedWeaponProfile(
+        request.weaponName,
+        request.affinity,
+        controller.signal,
+      );
+      if (!profileRequest.current.isCurrent(token)) return;
       setWeaponProfile(profile);
 
       const patch: Partial<OptimizeRequestDto> = {};
@@ -57,14 +70,15 @@ export function useWeaponProfile(
     }
 
     loadWeaponProfile().catch((error) => {
-      if (!cancelled) {
+      if (profileRequest.current.isCurrent(token)) {
         setWeaponProfile(null);
         setError(error instanceof Error ? error.message : String(error));
       }
     });
 
     return () => {
-      cancelled = true;
+      controller.abort();
+      profileRequest.current.invalidate(token);
     };
   }, [patchRequest, request.affinity, request.aowName, request.weaponName, setError]);
 
@@ -87,55 +101,38 @@ export function useSearchJob(options: {
   useEffect(() => {
     if (!activeJobId || !isSearching) return undefined;
     const jobId = activeJobId;
-    let disposed = false;
-    let finished = false;
-    let timer: number | undefined;
-
-    function schedule() {
-      if (!disposed && !finished) {
-        timer = window.setTimeout(() => void pollSearchStatus(), 200);
-      }
-    }
-
-    async function pollSearchStatus() {
-      try {
-        const status = await api.searchStatus(jobId);
-        if (disposed) return;
-        if (!status) {
-          finished = true;
-          finishRef.current({
+    const polling = startAdaptivePolling({
+      poll: () => api.searchStatus(jobId),
+      progressKey: (status) => progressSignature(status.progress),
+      onStatus: (status) => {
+        if (status.progress?.jobId === jobId) setProgressRef.current(status.progress);
+        if (status.finished?.jobId === jobId) {
+          finishRef.current(status.finished, generation);
+          return true;
+        }
+        return false;
+      },
+      onMissing: () => {
+        finishRef.current({
             jobId,
             cancelled: true,
             rows: [],
             error: "Search job disappeared before returning a result.",
-          }, generation);
-          return;
-        }
-        if (status.progress?.jobId === jobId) setProgressRef.current(status.progress);
-        if (status.finished?.jobId === jobId) {
-          finished = true;
-          finishRef.current(status.finished, generation);
-          return;
-        }
-        schedule();
-      } catch (error) {
-        if (!disposed) {
-          finished = true;
-          finishRef.current({
-            jobId,
-            cancelled: false,
-            rows: [],
-            error: error instanceof Error ? error.message : String(error),
-          }, generation);
-        }
-      }
-    }
-
-    void pollSearchStatus();
+        }, generation);
+      },
+      onError: (error) => {
+        finishRef.current({
+          jobId,
+          cancelled: false,
+          rows: [],
+          error: error instanceof Error ? error.message : String(error),
+        }, generation);
+      },
+    });
     return () => {
-      disposed = true;
-      if (timer !== undefined) window.clearTimeout(timer);
-      if (!finished && hasTauriRuntime()) void api.cancelSearch(jobId).catch(() => undefined);
+      const unfinished = !polling.isFinished();
+      polling.stop();
+      if (unfinished && hasTauriRuntime()) void api.cancelSearch(jobId).catch(() => undefined);
     };
   }, [activeJobId, generation, isSearching]);
 }
@@ -156,55 +153,38 @@ export function usePathJob(options: {
   useEffect(() => {
     if (!activePathJobId || !isPathBusy) return undefined;
     const jobId = activePathJobId;
-    let disposed = false;
-    let finished = false;
-    let timer: number | undefined;
-
-    function schedule() {
-      if (!disposed && !finished) {
-        timer = window.setTimeout(() => void pollPathStatus(), 200);
-      }
-    }
-
-    async function pollPathStatus() {
-      try {
-        const status = await api.pathPreviewStatus(jobId);
-        if (disposed) return;
-        if (!status) {
-          finished = true;
-          finishRef.current({
+    const polling = startAdaptivePolling({
+      poll: () => api.pathPreviewStatus(jobId),
+      progressKey: (status) => progressSignature(status.progress),
+      onStatus: (status) => {
+        if (status.progress?.jobId === jobId) setProgressRef.current(status.progress);
+        if (status.finished?.jobId === jobId) {
+          finishRef.current(status.finished, generation);
+          return true;
+        }
+        return false;
+      },
+      onMissing: () => {
+        finishRef.current({
             jobId,
             cancelled: true,
             paths: [],
             error: "Path job disappeared before returning a result.",
-          }, generation);
-          return;
-        }
-        if (status.progress?.jobId === jobId) setProgressRef.current(status.progress);
-        if (status.finished?.jobId === jobId) {
-          finished = true;
-          finishRef.current(status.finished, generation);
-          return;
-        }
-        schedule();
-      } catch (error) {
-        if (!disposed) {
-          finished = true;
-          finishRef.current({
-            jobId,
-            cancelled: false,
-            paths: [],
-            error: error instanceof Error ? error.message : String(error),
-          }, generation);
-        }
-      }
-    }
-
-    void pollPathStatus();
+        }, generation);
+      },
+      onError: (error) => {
+        finishRef.current({
+          jobId,
+          cancelled: false,
+          paths: [],
+          error: error instanceof Error ? error.message : String(error),
+        }, generation);
+      },
+    });
     return () => {
-      disposed = true;
-      if (timer !== undefined) window.clearTimeout(timer);
-      if (!finished && hasTauriRuntime()) {
+      const unfinished = !polling.isFinished();
+      polling.stop();
+      if (unfinished && hasTauriRuntime()) {
         void api.cancelPathPreview(jobId).catch(() => undefined);
       }
     };
@@ -227,57 +207,38 @@ export function useAffinityJob(options: {
   useEffect(() => {
     if (!activeAffinityJobId || !isAffinityBusy) return undefined;
     const jobId = activeAffinityJobId;
-    let disposed = false;
-    let finished = false;
-    let timer: number | undefined;
-
-    function schedule() {
-      if (!disposed && !finished) {
-        timer = window.setTimeout(() => void pollAffinityStatus(), 200);
-      }
-    }
-
-    async function pollAffinityStatus() {
-      try {
-        const status = await api.affinityWatchStatus(jobId);
-        if (disposed) return;
-        if (!status) {
-          finished = true;
-          finishRef.current({
+    const polling = startAdaptivePolling({
+      poll: () => api.affinityWatchStatus(jobId),
+      progressKey: (status) => progressSignature(status.progress),
+      onStatus: (status) => {
+        if (status.progress?.jobId === jobId) setProgressRef.current(status.progress);
+        if (status.finished?.jobId === jobId) {
+          finishRef.current(status.finished, generation);
+          return true;
+        }
+        return false;
+      },
+      onMissing: () => {
+        finishRef.current({
             jobId,
             cancelled: true,
             payload: null,
             error: "Affinity watch job disappeared before returning a result.",
-          }, generation);
-          return;
-        }
-        if (status.progress?.jobId === jobId) {
-          setProgressRef.current(status.progress);
-        }
-        if (status.finished?.jobId === jobId) {
-          finished = true;
-          finishRef.current(status.finished, generation);
-          return;
-        }
-        schedule();
-      } catch (error) {
-        if (!disposed) {
-          finished = true;
-          finishRef.current({
-            jobId,
-            cancelled: false,
-            payload: null,
-            error: error instanceof Error ? error.message : String(error),
-          }, generation);
-        }
-      }
-    }
-
-    void pollAffinityStatus();
+        }, generation);
+      },
+      onError: (error) => {
+        finishRef.current({
+          jobId,
+          cancelled: false,
+          payload: null,
+          error: error instanceof Error ? error.message : String(error),
+        }, generation);
+      },
+    });
     return () => {
-      disposed = true;
-      if (timer !== undefined) window.clearTimeout(timer);
-      if (!finished && hasTauriRuntime()) {
+      const unfinished = !polling.isFinished();
+      polling.stop();
+      if (unfinished && hasTauriRuntime()) {
         void api.cancelAffinityWatch(jobId).catch(() => undefined);
       }
     };

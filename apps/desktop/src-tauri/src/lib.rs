@@ -155,34 +155,17 @@ fn load_desktop_data(
     #[cfg(debug_assertions)]
     {
         let data_dir = resolve_data_dir(app)?;
-        let data = er_optimizer_core::load_game_data(&data_dir).map_err(errors::AppError::from)?;
-        let manifest = load_data_manifest(&data_dir)?;
-        Ok((data, manifest))
+        let (data, manifest) = er_optimizer_core::load_game_data_with_manifest(&data_dir)
+            .map_err(errors::AppError::from)?;
+        Ok((data, manifest.into()))
     }
     #[cfg(not(debug_assertions))]
     {
         let _ = app;
-        let data = er_optimizer_core::load_embedded_game_data().map_err(errors::AppError::from)?;
-        let manifest = load_embedded_data_manifest()?;
-        Ok((data, manifest))
+        let (data, manifest) = er_optimizer_core::load_embedded_game_data_with_manifest()
+            .map_err(errors::AppError::from)?;
+        Ok((data, manifest.into()))
     }
-}
-
-#[cfg(any(not(debug_assertions), test))]
-fn load_embedded_data_manifest() -> Result<dto::DataManifestDto, errors::AppError> {
-    serde_json::from_str(include_str!("../../../../data/phase1/manifest.json")).map_err(|err| {
-        errors::AppError::new(format!("failed to load embedded data manifest: {err}"))
-    })
-}
-
-#[cfg(debug_assertions)]
-fn load_data_manifest(
-    data_dir: &std::path::Path,
-) -> Result<dto::DataManifestDto, errors::AppError> {
-    let content = std::fs::read_to_string(data_dir.join("manifest.json"))
-        .unwrap_or_else(|_| include_str!("../../../../data/phase1/manifest.json").to_string());
-    serde_json::from_str(&content)
-        .map_err(|err| errors::AppError::new(format!("failed to load data manifest: {err}")))
 }
 
 #[cfg(debug_assertions)]
@@ -213,16 +196,72 @@ fn resolve_data_dir(app: &tauri::App) -> Result<std::path::PathBuf, errors::AppE
 }
 
 #[cfg(test)]
-mod release_data_tests {
-    use super::load_embedded_data_manifest;
+pub(crate) fn test_app_state() -> AppState {
+    let (data, manifest) = er_optimizer_core::load_embedded_game_data_with_manifest()
+        .expect("embedded test snapshot loads");
+    let catalog_index = commands::data::CatalogIndex::build(&data);
+    AppState {
+        data: Arc::new(data),
+        catalog_index: Arc::new(catalog_index),
+        data_manifest: manifest.into(),
+        search_jobs: Arc::new(JobRegistry::new("search")),
+        path_jobs: Arc::new(JobRegistry::new("path")),
+        affinity_jobs: Arc::new(JobRegistry::new("affinity watch")),
+        next_job: AtomicU64::new(1),
+    }
+}
 
+#[cfg(test)]
+pub(crate) fn test_optimize_request() -> dto::OptimizeRequestDto {
+    dto::OptimizeRequestDto {
+        class_name: "Samurai".to_string(),
+        character_level: 9,
+        vig: 12,
+        mnd: 11,
+        end: 13,
+        str_stat: 12,
+        dex: 15,
+        int_stat: 9,
+        fai: 8,
+        arc: 8,
+        min_str: 0,
+        min_dex: 0,
+        min_int: 0,
+        min_fai: 0,
+        min_arc: 0,
+        lock_str: None,
+        lock_dex: None,
+        lock_int: None,
+        lock_fai: None,
+        lock_arc: None,
+        standard_max_upgrade: Some(0),
+        somber_max_upgrade: Some(0),
+        exact_upgrade: Some(true),
+        max_upgrade: None,
+        fixed_upgrade: None,
+        two_handing: false,
+        dlc_scaling: false,
+        scadutree_level: 0,
+        weapon_name: Some("Uchigatana".to_string()),
+        affinity: Some("Keen".to_string()),
+        aow_name: None,
+        weapon_type_key: None,
+        somber_filter: "all".to_string(),
+        objective: "max_ar".to_string(),
+        top_k: 1,
+    }
+}
+
+#[cfg(test)]
+mod release_data_tests {
     #[test]
     fn standalone_release_snapshot_and_manifest_are_complete() {
-        let data = er_optimizer_core::load_embedded_game_data().expect("embedded data loads");
-        let manifest = load_embedded_data_manifest().expect("embedded manifest loads");
+        let (data, manifest) = er_optimizer_core::load_embedded_game_data_with_manifest()
+            .expect("embedded data and manifest load");
         assert!(data.weapons.len() > 3000);
         assert!(data.aows.len() > 100);
         assert!(!manifest.id.is_empty());
         assert!(!manifest.app_version.is_empty());
+        assert_eq!(data.dataset_version, manifest.dataset_version);
     }
 }

@@ -1,5 +1,6 @@
 import { api, hasTauriRuntime } from "./api";
 import { buildOptimizeRequest, stableSignature } from "./session";
+import { INITIAL_POLL_DELAY_MS, nextPollDelay, progressSignature } from "./polling";
 import { useDesktopStore } from "./state";
 import { OptimizeRequestDto, SolvedBuildDto } from "./types";
 
@@ -11,20 +12,13 @@ export async function runSearchFromStore() {
   state.setError(null);
   try {
     if (hasTauriRuntime()) {
-      const { jobId, estimate } = await api.startSearch(request);
+      const { jobId } = await api.startSearch(request);
       const current = useDesktopStore.getState();
       if (
         current.searchGeneration !== generation ||
         current.activeSearchSignature !== signature
       ) {
         await api.cancelSearch(jobId);
-        return;
-      }
-      current.setEstimate(estimate);
-      if (estimate.combinations <= 0) {
-        await api.cancelSearch(jobId);
-        current.clearResults("No valid search space for current constraints.");
-        current.setSearching(false);
         return;
       }
       current.setActiveJobId(jobId);
@@ -71,11 +65,7 @@ export async function runSearchRequestForRows(request: OptimizeRequestDto): Prom
     return await api.runSearch(request);
   }
 
-  const { jobId, estimate } = await api.startSearch(request);
-  if (estimate.combinations <= 0) {
-    await api.cancelSearch(jobId);
-    throw new Error("No valid search space for current constraints.");
-  }
+  const { jobId } = await api.startSearch(request);
   return await pollSearchRows(jobId);
 }
 
@@ -83,6 +73,8 @@ async function pollSearchRows(jobId: string): Promise<SolvedBuildDto[]> {
   return await new Promise((resolve, reject) => {
     let finished = false;
     let timer: number | undefined;
+    let delay = INITIAL_POLL_DELAY_MS;
+    let lastProgress = "";
 
     async function poll() {
       if (finished) return;
@@ -94,7 +86,10 @@ async function pollSearchRows(jobId: string): Promise<SolvedBuildDto[]> {
           return;
         }
         if (!status.finished) {
-          timer = window.setTimeout(() => void poll(), 200);
+          const nextProgress = progressSignature(status.progress);
+          delay = nextPollDelay(delay, nextProgress !== lastProgress);
+          lastProgress = nextProgress;
+          timer = window.setTimeout(() => void poll(), delay);
           return;
         }
         finished = true;

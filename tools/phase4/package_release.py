@@ -304,9 +304,11 @@ def main() -> int:
     require_unchanged_tracked_source(root, source_commit, stage="release validation")
     run([npm_cmd(), "ci", "--prefer-offline", "--no-audit", "--fund=false"], cwd=app_dir)
     require_unchanged_tracked_source(root, source_commit, stage="npm ci")
+    run([npm_cmd(), "test"], cwd=app_dir)
+    require_unchanged_tracked_source(root, source_commit, stage="frontend tests")
     run([npm_cmd(), "run", "tauri", "--", "build", "--", "--locked"], cwd=app_dir)
     require_unchanged_tracked_source(root, source_commit, stage="Tauri build")
-    completed_gates.extend(["frontend-build", "tauri-release-build"])
+    completed_gates.extend(["frontend-tests", "frontend-build", "tauri-release-build"])
 
     release_dir.mkdir(parents=True, exist_ok=args.replace_output)
 

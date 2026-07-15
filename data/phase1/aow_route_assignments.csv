@@ -1,0 +1,2038 @@
+aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_order,hit_order
+100,Lion's Claw,63,full,Full sequence,0,activation,1,1
+101,Impaling Thrust,946,r1,R1,0,activation,1,1
+101,Impaling Thrust,1844,r1,R1,0,activation,1,1
+101,Impaling Thrust,1142,r1,R1,0,r1,2,1
+101,Impaling Thrust,1143,r1,R1,0,r1,2,2
+101,Impaling Thrust,1144,r1,R1,0,r1,2,3
+101,Impaling Thrust,946,r2,R2,1,activation,1,1
+101,Impaling Thrust,1844,r2,R2,1,activation,1,1
+101,Impaling Thrust,1145,r2,R2,1,r2,2,2
+102,Piercing Fang,958,full,Full sequence,0,activation,1,1
+103,Spinning Slash,880,full,Full sequence,0,stage_1,1,1
+103,Spinning Slash,886,full,Full sequence,0,stage_1,1,1
+103,Spinning Slash,892,full,Full sequence,0,stage_1,1,1
+103,Spinning Slash,898,full,Full sequence,0,stage_1,1,1
+103,Spinning Slash,904,full,Full sequence,0,stage_1,1,1
+103,Spinning Slash,910,full,Full sequence,0,stage_1,1,1
+103,Spinning Slash,916,full,Full sequence,0,stage_1,1,1
+103,Spinning Slash,922,full,Full sequence,0,stage_1,1,1
+103,Spinning Slash,928,full,Full sequence,0,stage_1,1,1
+103,Spinning Slash,934,full,Full sequence,0,stage_1,1,1
+103,Spinning Slash,940,full,Full sequence,0,stage_1,1,1
+103,Spinning Slash,2462,full,Full sequence,0,stage_1,1,1
+103,Spinning Slash,881,full,Full sequence,0,stage_2,2,1
+103,Spinning Slash,887,full,Full sequence,0,stage_2,2,1
+103,Spinning Slash,893,full,Full sequence,0,stage_2,2,1
+103,Spinning Slash,899,full,Full sequence,0,stage_2,2,1
+103,Spinning Slash,905,full,Full sequence,0,stage_2,2,1
+103,Spinning Slash,911,full,Full sequence,0,stage_2,2,1
+103,Spinning Slash,917,full,Full sequence,0,stage_2,2,1
+103,Spinning Slash,923,full,Full sequence,0,stage_2,2,1
+103,Spinning Slash,929,full,Full sequence,0,stage_2,2,1
+103,Spinning Slash,935,full,Full sequence,0,stage_2,2,1
+103,Spinning Slash,941,full,Full sequence,0,stage_2,2,1
+103,Spinning Slash,2463,full,Full sequence,0,stage_2,2,1
+103,Spinning Slash,882,full,Full sequence,0,stage_2,2,2
+103,Spinning Slash,888,full,Full sequence,0,stage_2,2,2
+103,Spinning Slash,894,full,Full sequence,0,stage_2,2,2
+103,Spinning Slash,900,full,Full sequence,0,stage_2,2,2
+103,Spinning Slash,906,full,Full sequence,0,stage_2,2,2
+103,Spinning Slash,912,full,Full sequence,0,stage_2,2,2
+103,Spinning Slash,918,full,Full sequence,0,stage_2,2,2
+103,Spinning Slash,924,full,Full sequence,0,stage_2,2,2
+103,Spinning Slash,930,full,Full sequence,0,stage_2,2,2
+103,Spinning Slash,936,full,Full sequence,0,stage_2,2,2
+103,Spinning Slash,942,full,Full sequence,0,stage_2,2,2
+103,Spinning Slash,2464,full,Full sequence,0,stage_2,2,2
+103,Spinning Slash,2465,full,Full sequence,0,stage_2,2,2
+103,Spinning Slash,2466,full,Full sequence,0,stage_2,2,2
+105,Charge Forth,1150,full,Full,0,activation,1,1
+105,Charge Forth,1151,full,Full,0,activation,1,2
+105,Charge Forth,1152,full,Full,0,activation,1,3
+105,Charge Forth,1153,full,Full,0,activation,1,4
+105,Charge Forth,1154,full,Full,0,activation,1,5
+105,Charge Forth,1155,early_release,Early Release,1,early_release,1,1
+105,Charge Forth,1156,early_release,Early Release,1,early_release,1,2
+106,Stamp (Upward Cut),2,full,Full sequence,0,activation,1,1
+107,Stamp (Sweep),4,full,Full sequence,0,activation,1,1
+107,Stamp (Sweep),5,full,Full sequence,0,activation,1,2
+108,Blood Tax,1464,full,Full sequence,0,activation,1,1
+108,Blood Tax,1472,full,Full sequence,0,activation,1,1
+108,Blood Tax,1465,full,Full sequence,0,activation,1,2
+108,Blood Tax,1473,full,Full sequence,0,activation,1,2
+108,Blood Tax,1466,full,Full sequence,0,activation,1,3
+108,Blood Tax,1474,full,Full sequence,0,activation,1,3
+108,Blood Tax,1467,full,Full sequence,0,activation,1,4
+108,Blood Tax,1475,full,Full sequence,0,activation,1,4
+109,Repeating Thrust,960,full,Full sequence,0,activation,1,1
+109,Repeating Thrust,968,full,Full sequence,0,activation,1,1
+109,Repeating Thrust,961,full,Full sequence,0,activation,1,2
+109,Repeating Thrust,969,full,Full sequence,0,activation,1,2
+109,Repeating Thrust,962,full,Full sequence,0,activation,1,3
+109,Repeating Thrust,970,full,Full sequence,0,activation,1,3
+109,Repeating Thrust,963,full,Full sequence,0,activation,1,4
+109,Repeating Thrust,971,full,Full sequence,0,activation,1,4
+110,Wild Strikes,8,r1,R1,0,loop_1,1,1
+110,Wild Strikes,19,r1,R1,0,loop_1,1,1
+110,Wild Strikes,30,r1,R1,0,loop_1,1,1
+110,Wild Strikes,41,r1,R1,0,loop_1,1,1
+110,Wild Strikes,52,r1,R1,0,loop_1,1,1
+110,Wild Strikes,9,r1,R1,0,loop_2,2,2
+110,Wild Strikes,20,r1,R1,0,loop_2,2,2
+110,Wild Strikes,31,r1,R1,0,loop_2,2,2
+110,Wild Strikes,42,r1,R1,0,loop_2,2,2
+110,Wild Strikes,53,r1,R1,0,loop_2,2,2
+110,Wild Strikes,10,r1,R1,0,r1,3,1
+110,Wild Strikes,21,r1,R1,0,r1,3,1
+110,Wild Strikes,32,r1,R1,0,r1,3,1
+110,Wild Strikes,43,r1,R1,0,r1,3,1
+110,Wild Strikes,54,r1,R1,0,r1,3,1
+110,Wild Strikes,11,r1,R1,0,r1,3,2
+110,Wild Strikes,22,r1,R1,0,r1,3,2
+110,Wild Strikes,33,r1,R1,0,r1,3,2
+110,Wild Strikes,44,r1,R1,0,r1,3,2
+110,Wild Strikes,55,r1,R1,0,r1,3,2
+110,Wild Strikes,8,r2,R2,1,loop_1,1,1
+110,Wild Strikes,19,r2,R2,1,loop_1,1,1
+110,Wild Strikes,30,r2,R2,1,loop_1,1,1
+110,Wild Strikes,41,r2,R2,1,loop_1,1,1
+110,Wild Strikes,52,r2,R2,1,loop_1,1,1
+110,Wild Strikes,9,r2,R2,1,loop_2,2,2
+110,Wild Strikes,20,r2,R2,1,loop_2,2,2
+110,Wild Strikes,31,r2,R2,1,loop_2,2,2
+110,Wild Strikes,42,r2,R2,1,loop_2,2,2
+110,Wild Strikes,53,r2,R2,1,loop_2,2,2
+110,Wild Strikes,12,r2,R2,1,r2,3,1
+110,Wild Strikes,23,r2,R2,1,r2,3,1
+110,Wild Strikes,34,r2,R2,1,r2,3,1
+110,Wild Strikes,45,r2,R2,1,r2,3,1
+110,Wild Strikes,56,r2,R2,1,r2,3,1
+110,Wild Strikes,13,r2,R2,1,r2,3,2
+110,Wild Strikes,24,r2,R2,1,r2,3,2
+110,Wild Strikes,35,r2,R2,1,r2,3,2
+110,Wild Strikes,46,r2,R2,1,r2,3,2
+110,Wild Strikes,57,r2,R2,1,r2,3,2
+111,Spinning Strikes,1164,r1,R1,0,loop_1,1,1
+111,Spinning Strikes,1165,r1,R1,0,r1,2,1
+111,Spinning Strikes,1166,r1,R1,0,r1,2,2
+111,Spinning Strikes,1169,r1,R1,0,activation,3,1
+111,Spinning Strikes,1164,r2,R2,1,loop_1,1,1
+111,Spinning Strikes,1167,r2,R2,1,r2,2,1
+111,Spinning Strikes,1168,r2,R2,1,r2,2,2
+111,Spinning Strikes,1169,r2,R2,1,activation,3,1
+112,Double Slash,976,full,Full sequence,0,stage_1,1,1
+112,Double Slash,988,full,Full sequence,0,stage_1,1,1
+112,Double Slash,977,full,Full sequence,0,stage_1,1,2
+112,Double Slash,989,full,Full sequence,0,stage_1,1,2
+112,Double Slash,978,full,Full sequence,0,stage_2,2,1
+112,Double Slash,990,full,Full sequence,0,stage_2,2,1
+112,Double Slash,979,full,Full sequence,0,stage_2,2,2
+112,Double Slash,991,full,Full sequence,0,stage_2,2,2
+112,Double Slash,980,full,Full sequence,0,stage_2,2,3
+112,Double Slash,992,full,Full sequence,0,stage_2,2,3
+112,Double Slash,981,full,Full sequence,0,stage_3,3,3
+112,Double Slash,993,full,Full sequence,0,stage_3,3,3
+113,Prelate's Charge,1316,full,Full sequence,0,activation,1,1
+113,Prelate's Charge,1317,full,Full sequence,0,activation,1,1
+113,Prelate's Charge,1318,full,Full sequence,0,activation,1,1
+113,Prelate's Charge,1320,full,Full sequence,0,activation,1,1
+113,Prelate's Charge,1321,full,Full sequence,0,activation,1,1
+113,Prelate's Charge,1322,full,Full sequence,0,activation,1,1
+113,Prelate's Charge,1319,full,Full sequence,0,activation,1,2
+114,Unsheathe,1096,r1,R1,0,r1,1,1
+114,Unsheathe,1097,r2,R2,1,r2,1,2
+115,Square Off,1138,r1,R1,0,r1,1,1
+115,Square Off,1140,r2,R2,1,r2,1,2
+116,Giant Hunt,1175,full,Full sequence,0,activation,1,1
+118,Loretta's Slash,1273,full,Full sequence,0,activation,1,1
+118,Loretta's Slash,1277,full,Full sequence,0,activation,1,1
+118,Loretta's Slash,1281,full,Full sequence,0,activation,1,1
+118,Loretta's Slash,1285,full,Full sequence,0,activation,1,1
+118,Loretta's Slash,1289,full,Full sequence,0,activation,1,1
+118,Loretta's Slash,2470,full,Full sequence,0,activation,1,1
+118,Loretta's Slash,2471,full,Full sequence,0,activation,1,1
+118,Loretta's Slash,1274,full,Full sequence,0,activation,1,2
+118,Loretta's Slash,1278,full,Full sequence,0,activation,1,2
+118,Loretta's Slash,1282,full,Full sequence,0,activation,1,2
+118,Loretta's Slash,1286,full,Full sequence,0,activation,1,2
+118,Loretta's Slash,1290,full,Full sequence,0,activation,1,2
+118,Loretta's Slash,2472,full,Full sequence,0,activation,1,2
+119,Poison Moth Flight,1442,full,Full sequence,0,activation,1,1
+120,Spinning Weapon,1245,full,Full sequence,0,activation,1,1
+120,Spinning Weapon,1259,full,Full sequence,0,activation,1,1
+120,Spinning Weapon,2594,full,Full sequence,0,activation,1,1
+120,Spinning Weapon,1246,full,Full sequence,0,activation,1,2
+120,Spinning Weapon,1260,full,Full sequence,0,activation,1,2
+120,Spinning Weapon,2595,full,Full sequence,0,activation,1,2
+120,Spinning Weapon,1247,full,Full sequence,0,activation,1,3
+120,Spinning Weapon,1261,full,Full sequence,0,activation,1,3
+120,Spinning Weapon,2596,full,Full sequence,0,activation,1,3
+120,Spinning Weapon,1248,full,Full sequence,0,activation,1,4
+120,Spinning Weapon,1262,full,Full sequence,0,activation,1,4
+120,Spinning Weapon,2597,full,Full sequence,0,activation,1,4
+120,Spinning Weapon,1249,full,Full sequence,0,activation,1,5
+120,Spinning Weapon,1263,full,Full sequence,0,activation,1,5
+120,Spinning Weapon,1250,full,Full sequence,0,activation,1,6
+120,Spinning Weapon,1264,full,Full sequence,0,activation,1,6
+120,Spinning Weapon,1251,full,Full sequence,0,activation,1,7
+120,Spinning Weapon,1265,full,Full sequence,0,activation,1,7
+122,Storm Assault,1184,full,Full sequence,0,activation,1,1
+122,Storm Assault,1185,full,Full sequence,0,activation,1,1
+122,Storm Assault,1186,full,Full sequence,0,activation,1,1
+123,Stormcaller,1188,full,Full sequence,0,stage_1,1,1
+123,Stormcaller,1191,full,Full sequence,0,stage_1,1,1
+123,Stormcaller,1189,full,Full sequence,0,stage_1,1,2
+123,Stormcaller,1192,full,Full sequence,0,stage_1,1,2
+123,Stormcaller,1190,full,Full sequence,0,stage_1,1,3
+123,Stormcaller,1193,full,Full sequence,0,stage_1,1,3
+123,Stormcaller,1194,full,Full sequence,0,stage_2,2,1
+123,Stormcaller,1196,full,Full sequence,0,stage_2,2,1
+123,Stormcaller,1195,full,Full sequence,0,stage_2,2,2
+123,Stormcaller,1197,full,Full sequence,0,stage_2,2,2
+123,Stormcaller,1198,full,Full sequence,0,stage_3,3,1
+123,Stormcaller,1200,full,Full sequence,0,stage_3,3,1
+123,Stormcaller,1199,full,Full sequence,0,stage_3,3,2
+123,Stormcaller,1201,full,Full sequence,0,stage_3,3,2
+124,Sword Dance,1000,full,Full sequence,0,stage_1,1,1
+124,Sword Dance,1006,full,Full sequence,0,stage_1,1,1
+124,Sword Dance,1012,full,Full sequence,0,stage_1,1,1
+124,Sword Dance,1018,full,Full sequence,0,stage_1,1,1
+124,Sword Dance,1024,full,Full sequence,0,stage_1,1,1
+124,Sword Dance,1030,full,Full sequence,0,stage_1,1,1
+124,Sword Dance,1036,full,Full sequence,0,stage_1,1,1
+124,Sword Dance,1042,full,Full sequence,0,stage_1,1,1
+124,Sword Dance,1048,full,Full sequence,0,stage_1,1,1
+124,Sword Dance,1054,full,Full sequence,0,stage_1,1,1
+124,Sword Dance,1060,full,Full sequence,0,stage_1,1,1
+124,Sword Dance,1066,full,Full sequence,0,stage_1,1,1
+124,Sword Dance,1072,full,Full sequence,0,stage_1,1,1
+124,Sword Dance,1078,full,Full sequence,0,stage_1,1,1
+124,Sword Dance,1084,full,Full sequence,0,stage_1,1,1
+124,Sword Dance,1090,full,Full sequence,0,stage_1,1,1
+124,Sword Dance,1001,full,Full sequence,0,stage_1,1,2
+124,Sword Dance,1007,full,Full sequence,0,stage_1,1,2
+124,Sword Dance,1013,full,Full sequence,0,stage_1,1,2
+124,Sword Dance,1019,full,Full sequence,0,stage_1,1,2
+124,Sword Dance,1025,full,Full sequence,0,stage_1,1,2
+124,Sword Dance,1031,full,Full sequence,0,stage_1,1,2
+124,Sword Dance,1037,full,Full sequence,0,stage_1,1,2
+124,Sword Dance,1043,full,Full sequence,0,stage_1,1,2
+124,Sword Dance,1049,full,Full sequence,0,stage_1,1,2
+124,Sword Dance,1055,full,Full sequence,0,stage_1,1,2
+124,Sword Dance,1061,full,Full sequence,0,stage_1,1,2
+124,Sword Dance,1067,full,Full sequence,0,stage_1,1,2
+124,Sword Dance,1073,full,Full sequence,0,stage_1,1,2
+124,Sword Dance,1079,full,Full sequence,0,stage_1,1,2
+124,Sword Dance,1085,full,Full sequence,0,stage_1,1,2
+124,Sword Dance,1091,full,Full sequence,0,stage_1,1,2
+124,Sword Dance,1002,full,Full sequence,0,stage_2,2,2
+124,Sword Dance,1008,full,Full sequence,0,stage_2,2,2
+124,Sword Dance,1014,full,Full sequence,0,stage_2,2,2
+124,Sword Dance,1020,full,Full sequence,0,stage_2,2,2
+124,Sword Dance,1026,full,Full sequence,0,stage_2,2,2
+124,Sword Dance,1032,full,Full sequence,0,stage_2,2,2
+124,Sword Dance,1038,full,Full sequence,0,stage_2,2,2
+124,Sword Dance,1044,full,Full sequence,0,stage_2,2,2
+124,Sword Dance,1050,full,Full sequence,0,stage_2,2,2
+124,Sword Dance,1056,full,Full sequence,0,stage_2,2,2
+124,Sword Dance,1062,full,Full sequence,0,stage_2,2,2
+124,Sword Dance,1068,full,Full sequence,0,stage_2,2,2
+124,Sword Dance,1074,full,Full sequence,0,stage_2,2,2
+124,Sword Dance,1080,full,Full sequence,0,stage_2,2,2
+124,Sword Dance,1086,full,Full sequence,0,stage_2,2,2
+124,Sword Dance,1092,full,Full sequence,0,stage_2,2,2
+125,Spinning Chain,2266,r1,R1,0,loop_1,1,1
+125,Spinning Chain,2267,r1,R1,0,r1,2,1
+125,Spinning Chain,2268,r1,R1,0,r1,2,2
+125,Spinning Chain,2266,r2,R2,1,loop_1,1,1
+125,Spinning Chain,2269,r2,R2,1,r2,2,1
+125,Spinning Chain,2270,r2,R2,1,r2,2,2
+200,Glintblade Phalanx,1224,full,Full sequence,0,activation,1,1
+200,Glintblade Phalanx,1225,full,Full sequence,0,r2,2,2
+201,Sacred Blade,1386,full,Full sequence,0,activation,1,1
+201,Sacred Blade,1387,full,Full sequence,0,activation,1,1
+202,Ice Spear,1480,full,Full sequence,0,activation,1,1
+202,Ice Spear,1481,full,Full sequence,0,activation,1,1
+203,Glintstone Pebble,1220,full,Full sequence,0,activation,1,1
+203,Glintstone Pebble,1221,full,Full sequence,0,r2,2,2
+204,Bloody Slash,1456,full,Full sequence,0,activation,1,1
+204,Bloody Slash,1458,full,Full sequence,0,activation,1,1
+204,Bloody Slash,1460,full,Full sequence,0,activation,1,1
+204,Bloody Slash,1462,full,Full sequence,0,activation,1,1
+205,Lifesteal Fist,1508,full,Full sequence,0,activation,1,1
+205,Lifesteal Fist,1509,full,Full sequence,0,activation,1,1
+205,Lifesteal Fist,1510,full,Full sequence,0,activation,1,2
+205,Lifesteal Fist,1511,full,Full sequence,0,activation,1,3
+205,Lifesteal Fist,1512,full,Full sequence,0,activation,1,4
+205,Lifesteal Fist,1513,full,Full sequence,0,activation,1,5
+207,Eruption,1310,full,Full sequence,0,activation,1,1
+207,Eruption,1312,full,Full sequence,0,activation,1,1
+207,Eruption,1313,full,Full sequence,0,activation,1,1
+207,Eruption,1311,full,Full sequence,0,activation,1,2
+208,Prayerful Strike,1389,full,Full sequence,0,activation,1,1
+209,Gravitas,1293,full,Full sequence,0,activation,1,1
+209,Gravitas,1294,full,Full sequence,0,activation,1,1
+209,Gravitas,1295,full,Full sequence,0,activation,1,1
+209,Gravitas,1296,full,Full sequence,0,activation,1,1
+210,Storm Blade,1177,full,Full sequence,0,stage_1,1,1
+210,Storm Blade,1178,full,Full sequence,0,stage_2,2,2
+210,Storm Blade,1179,full,Full sequence,0,stage_3,3,3
+210,Storm Blade,1180,full,Full sequence,0,activation,4,1
+212,Earthshaker,99,full,Full sequence,0,activation,1,1
+212,Earthshaker,101,full,Full sequence,0,activation,1,1
+212,Earthshaker,100,full,Full sequence,0,activation,1,2
+212,Earthshaker,102,full,Full sequence,0,r2,2,2
+213,Golden Land,1403,full,Full sequence,0,activation,1,1
+213,Golden Land,1405,full,Full sequence,0,activation,1,1
+213,Golden Land,1406,full,Full sequence,0,activation,1,1
+213,Golden Land,1404,full,Full sequence,0,activation,1,2
+213,Golden Land,1407,full,Full sequence,0,r2,2,2
+214,Flaming Strike,1305,full,Full sequence,0,activation,1,1
+214,Flaming Strike,1306,full,Full sequence,0,r2,2,2
+216,Thunderbolt,1372,full,Full sequence,0,activation,1,1
+216,Thunderbolt,1373,full,Full sequence,0,activation,1,1
+217,Lightning Slash,1375,full,Full sequence,0,activation,1,1
+217,Lightning Slash,1376,full,Full sequence,0,activation,1,1
+217,Lightning Slash,1377,full,Full sequence,0,activation,1,1
+217,Lightning Slash,1378,full,Full sequence,0,activation,1,1
+218,Carian Grandeur,1231,uncharged,Uncharged,0,activation,1,1
+218,Carian Grandeur,1232,charged,Charged,1,activation,1,1
+218,Carian Grandeur,1233,charged,Charged,1,activation,1,1
+219,Carian Greatsword,1227,uncharged,Uncharged,0,activation,1,1
+219,Carian Greatsword,1228,charged,Charged,1,activation,1,1
+220,Vacuum Slice,1211,full,Full sequence,0,activation,1,1
+220,Vacuum Slice,1212,full,Full sequence,0,activation,1,1
+221,Black Flame Tornado,1326,full,Full sequence,0,loop_1,1,1
+221,Black Flame Tornado,1327,full,Full sequence,0,activation,2,1
+222,Sacred Ring of Light,1391,near,Near,0,stage_1,1,1
+222,Sacred Ring of Light,1392,near,Near,0,stage_1,1,1
+222,Sacred Ring of Light,1394,near,Near,0,stage_2,2,2
+222,Sacred Ring of Light,1395,near,Near,0,stage_2,2,2
+222,Sacred Ring of Light,1397,near,Near,0,stage_3,3,3
+222,Sacred Ring of Light,1398,near,Near,0,stage_3,3,3
+222,Sacred Ring of Light,1391,far,Far,1,stage_1,1,1
+222,Sacred Ring of Light,1393,far,Far,1,stage_1,1,1
+222,Sacred Ring of Light,1394,far,Far,1,stage_2,2,2
+222,Sacred Ring of Light,1396,far,Far,1,stage_2,2,2
+222,Sacred Ring of Light,1397,far,Far,1,stage_3,3,3
+222,Sacred Ring of Light,1399,far,Far,1,stage_3,3,3
+223,Firebreather,2602,full,Full sequence,0,activation,1,1
+223,Firebreather,2603,full,Full sequence,0,activation,1,1
+223,Firebreather,2604,full,Full sequence,0,activation,1,1
+224,Blood Blade,1447,full,Full sequence,0,stage_1,1,1
+224,Blood Blade,1448,full,Full sequence,0,stage_1,1,1
+224,Blood Blade,1449,full,Full sequence,0,stage_2,2,2
+224,Blood Blade,1450,full,Full sequence,0,stage_2,2,2
+224,Blood Blade,1451,full,Full sequence,0,stage_3,3,3
+224,Blood Blade,1452,full,Full sequence,0,stage_3,3,3
+225,Phantom Slash,1214,full,Full sequence,0,stage_1,1,1
+225,Phantom Slash,1215,full,Full sequence,0,stage_1,1,1
+225,Phantom Slash,1216,full,Full sequence,0,stage_2,2,2
+225,Phantom Slash,1217,full,Full sequence,0,stage_2,2,2
+226,Spectral Lance,1507,full,Full sequence,0,activation,1,1
+227,Chilling Mist,1484,full,Full sequence,0,activation,1,1
+227,Chilling Mist,1485,full,Full sequence,0,activation,1,1
+228,Poisonous Mist,1439,full,Full sequence,0,activation,1,1
+228,Poisonous Mist,1440,full,Full sequence,0,activation,1,1
+300,Shield Bash,1536,full,Full sequence,0,activation,1,1
+300,Shield Bash,1538,full,Full sequence,0,activation,1,1
+305,Carian Retaliation,1552,full,Full sequence,0,activation,1,1
+305,Carian Retaliation,1553,full,Full sequence,0,activation,1,1
+305,Carian Retaliation,1554,full,Full sequence,0,activation,1,1
+305,Carian Retaliation,1555,full,Full sequence,0,activation,1,1
+308,Shield Crash,1540,full,Full,0,activation,1,1
+308,Shield Crash,1541,full,Full,0,activation,1,2
+308,Shield Crash,1542,full,Full,0,activation,1,3
+308,Shield Crash,1543,full,Full,0,activation,1,4
+308,Shield Crash,1544,full,Full,0,activation,1,5
+308,Shield Crash,1545,early_release,Early Release,1,early_release,1,1
+501,Hoarfrost Stomp,1498,full,Full sequence,0,activation,1,1
+501,Hoarfrost Stomp,1499,full,Full sequence,0,activation,1,1
+502,Storm Stomp,1209,full,Full sequence,0,activation,1,1
+503,Kick,93,full,Full sequence,0,activation,1,1
+504,Lightning Ram,1382,full,Full sequence,0,activation,1,1
+504,Lightning Ram,1383,full,Full sequence,0,activation,1,2
+505,Flame of the Redmanes,1309,full,Full sequence,0,activation,1,1
+506,Ground Slam,95,full,Full sequence,0,activation,1,1
+506,Ground Slam,96,full,Full sequence,0,activation,1,1
+507,Golden Slam,1411,full,Full sequence,0,activation,1,1
+507,Golden Slam,1412,full,Full sequence,0,activation,1,1
+507,Golden Slam,1413,full,Full sequence,0,activation,1,1
+508,Waves of Darkness,1298,full,Full sequence,0,activation,1,1
+508,Waves of Darkness,1300,full,Full sequence,0,activation,1,1
+508,Waves of Darkness,1299,full,Full sequence,0,activation,1,2
+508,Waves of Darkness,1301,full,Full sequence,0,r2,2,2
+509,Hoarah Loux's Earthshaker,107,full,Full sequence,0,activation,1,1
+509,Hoarah Loux's Earthshaker,108,full,Full sequence,0,activation,1,1
+509,Hoarah Loux's Earthshaker,109,full,Full sequence,0,activation,1,1
+509,Hoarah Loux's Earthshaker,110,full,Full sequence,0,activation,1,1
+509,Hoarah Loux's Earthshaker,111,full,Full sequence,0,activation,1,1
+607,Cragblade,71,full,Full sequence,0,activation,1,1
+607,Cragblade,72,full,Full sequence,0,activation,1,2
+650,Barbaric Roar,452,1h_uncharged,1H / Uncharged,0,activation,1,1
+650,Barbaric Roar,454,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,474,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,494,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,510,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,526,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,546,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,562,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,582,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,602,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,618,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,638,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,654,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,674,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,694,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,710,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,726,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,742,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,758,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,774,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,790,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,810,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,830,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,850,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+650,Barbaric Roar,455,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,475,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,495,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,511,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,527,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,547,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,563,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,583,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,603,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,619,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,639,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,655,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,675,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,695,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,711,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,727,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,743,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,759,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,775,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,791,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,811,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,831,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,851,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+650,Barbaric Roar,456,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,476,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,496,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,512,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,528,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,548,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,564,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,584,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,604,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,620,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,640,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,656,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,676,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,696,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,712,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,728,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,744,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,760,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,776,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,792,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,812,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,832,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,852,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+650,Barbaric Roar,460,1h_uncharged,1H / Uncharged,0,stage_2,3,1
+650,Barbaric Roar,480,1h_uncharged,1H / Uncharged,0,stage_2,3,1
+650,Barbaric Roar,532,1h_uncharged,1H / Uncharged,0,stage_2,3,1
+650,Barbaric Roar,568,1h_uncharged,1H / Uncharged,0,stage_2,3,1
+650,Barbaric Roar,588,1h_uncharged,1H / Uncharged,0,stage_2,3,1
+650,Barbaric Roar,624,1h_uncharged,1H / Uncharged,0,stage_2,3,1
+650,Barbaric Roar,660,1h_uncharged,1H / Uncharged,0,stage_2,3,1
+650,Barbaric Roar,680,1h_uncharged,1H / Uncharged,0,stage_2,3,1
+650,Barbaric Roar,796,1h_uncharged,1H / Uncharged,0,stage_2,3,1
+650,Barbaric Roar,816,1h_uncharged,1H / Uncharged,0,stage_2,3,1
+650,Barbaric Roar,836,1h_uncharged,1H / Uncharged,0,stage_2,3,1
+650,Barbaric Roar,856,1h_uncharged,1H / Uncharged,0,stage_2,3,1
+650,Barbaric Roar,461,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,481,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,500,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,516,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,533,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,552,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,569,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,589,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,608,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,625,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,644,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,661,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,681,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,700,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,716,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,732,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,748,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,764,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,780,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,797,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,817,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,837,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,857,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+650,Barbaric Roar,457,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,477,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,497,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,513,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,529,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,549,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,565,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,585,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,605,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,621,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,641,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,657,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,677,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,697,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,713,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,729,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,745,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,761,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,777,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,793,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,813,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,833,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,853,1h_charged,1H / Charged,1,stage_1,1,1
+650,Barbaric Roar,458,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,478,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,498,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,514,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,530,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,550,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,566,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,586,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,606,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,622,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,642,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,658,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,678,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,698,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,714,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,730,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,746,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,762,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,778,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,794,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,814,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,834,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,854,1h_charged,1H / Charged,1,stage_1,1,2
+650,Barbaric Roar,459,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,479,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,499,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,515,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,531,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,551,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,567,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,587,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,607,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,623,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,643,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,659,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,679,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,699,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,715,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,731,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,747,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,763,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,779,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,795,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,815,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,835,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,855,1h_charged,1H / Charged,1,stage_1,1,3
+650,Barbaric Roar,462,1h_charged,1H / Charged,1,stage_2,2,1
+650,Barbaric Roar,482,1h_charged,1H / Charged,1,stage_2,2,1
+650,Barbaric Roar,534,1h_charged,1H / Charged,1,stage_2,2,1
+650,Barbaric Roar,570,1h_charged,1H / Charged,1,stage_2,2,1
+650,Barbaric Roar,590,1h_charged,1H / Charged,1,stage_2,2,1
+650,Barbaric Roar,626,1h_charged,1H / Charged,1,stage_2,2,1
+650,Barbaric Roar,662,1h_charged,1H / Charged,1,stage_2,2,1
+650,Barbaric Roar,682,1h_charged,1H / Charged,1,stage_2,2,1
+650,Barbaric Roar,798,1h_charged,1H / Charged,1,stage_2,2,1
+650,Barbaric Roar,818,1h_charged,1H / Charged,1,stage_2,2,1
+650,Barbaric Roar,838,1h_charged,1H / Charged,1,stage_2,2,1
+650,Barbaric Roar,858,1h_charged,1H / Charged,1,stage_2,2,1
+650,Barbaric Roar,463,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,483,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,501,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,517,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,535,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,553,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,571,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,591,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,609,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,627,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,645,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,663,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,683,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,701,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,717,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,733,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,749,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,765,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,781,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,799,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,819,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,839,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,859,1h_charged,1H / Charged,1,stage_2,2,2
+650,Barbaric Roar,452,2h_uncharged,2H / Uncharged,2,activation,1,1
+650,Barbaric Roar,464,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,484,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,502,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,518,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,536,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,554,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,572,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,592,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,610,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,628,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,646,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,664,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,684,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,702,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,718,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,734,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,750,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,766,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,782,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,800,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,820,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,840,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,860,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+650,Barbaric Roar,465,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,485,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,503,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,519,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,537,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,555,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,573,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,593,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,611,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,629,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,647,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,665,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,685,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,703,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,719,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,735,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,751,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,767,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,783,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,801,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,821,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,841,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,861,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+650,Barbaric Roar,466,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,486,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,504,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,520,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,538,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,556,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,574,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,594,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,612,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,630,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,648,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,666,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,686,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,704,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,720,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,736,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,752,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,768,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,784,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,802,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,822,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,842,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,862,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+650,Barbaric Roar,470,2h_uncharged,2H / Uncharged,2,stage_2,3,1
+650,Barbaric Roar,490,2h_uncharged,2H / Uncharged,2,stage_2,3,1
+650,Barbaric Roar,542,2h_uncharged,2H / Uncharged,2,stage_2,3,1
+650,Barbaric Roar,578,2h_uncharged,2H / Uncharged,2,stage_2,3,1
+650,Barbaric Roar,598,2h_uncharged,2H / Uncharged,2,stage_2,3,1
+650,Barbaric Roar,634,2h_uncharged,2H / Uncharged,2,stage_2,3,1
+650,Barbaric Roar,670,2h_uncharged,2H / Uncharged,2,stage_2,3,1
+650,Barbaric Roar,690,2h_uncharged,2H / Uncharged,2,stage_2,3,1
+650,Barbaric Roar,806,2h_uncharged,2H / Uncharged,2,stage_2,3,1
+650,Barbaric Roar,826,2h_uncharged,2H / Uncharged,2,stage_2,3,1
+650,Barbaric Roar,846,2h_uncharged,2H / Uncharged,2,stage_2,3,1
+650,Barbaric Roar,866,2h_uncharged,2H / Uncharged,2,stage_2,3,1
+650,Barbaric Roar,471,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,491,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,508,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,524,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,543,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,560,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,579,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,599,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,616,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,635,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,652,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,671,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,691,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,708,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,724,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,740,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,756,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,772,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,788,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,807,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,827,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,847,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,867,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+650,Barbaric Roar,467,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,487,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,505,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,521,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,539,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,557,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,575,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,595,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,613,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,631,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,649,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,667,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,687,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,705,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,721,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,737,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,753,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,769,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,785,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,803,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,823,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,843,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,863,2h_charged,2H / Charged,3,stage_1,1,1
+650,Barbaric Roar,468,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,488,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,506,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,522,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,540,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,558,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,576,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,596,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,614,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,632,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,650,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,668,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,688,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,706,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,722,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,738,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,754,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,770,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,786,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,804,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,824,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,844,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,864,2h_charged,2H / Charged,3,stage_1,1,2
+650,Barbaric Roar,469,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,489,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,507,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,523,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,541,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,559,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,577,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,597,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,615,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,633,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,651,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,669,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,689,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,707,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,723,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,739,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,755,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,771,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,787,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,805,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,825,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,845,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,865,2h_charged,2H / Charged,3,stage_1,1,3
+650,Barbaric Roar,472,2h_charged,2H / Charged,3,stage_2,2,1
+650,Barbaric Roar,492,2h_charged,2H / Charged,3,stage_2,2,1
+650,Barbaric Roar,544,2h_charged,2H / Charged,3,stage_2,2,1
+650,Barbaric Roar,580,2h_charged,2H / Charged,3,stage_2,2,1
+650,Barbaric Roar,600,2h_charged,2H / Charged,3,stage_2,2,1
+650,Barbaric Roar,636,2h_charged,2H / Charged,3,stage_2,2,1
+650,Barbaric Roar,672,2h_charged,2H / Charged,3,stage_2,2,1
+650,Barbaric Roar,692,2h_charged,2H / Charged,3,stage_2,2,1
+650,Barbaric Roar,808,2h_charged,2H / Charged,3,stage_2,2,1
+650,Barbaric Roar,828,2h_charged,2H / Charged,3,stage_2,2,1
+650,Barbaric Roar,848,2h_charged,2H / Charged,3,stage_2,2,1
+650,Barbaric Roar,868,2h_charged,2H / Charged,3,stage_2,2,1
+650,Barbaric Roar,473,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,493,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,509,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,525,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,545,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,561,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,581,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,601,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,617,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,637,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,653,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,673,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,693,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,709,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,725,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,741,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,757,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,773,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,789,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,809,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,829,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,849,2h_charged,2H / Charged,3,stage_2,2,2
+650,Barbaric Roar,869,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,112,1h_uncharged,1H / Uncharged,0,activation,1,1
+651,War Cry,114,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,128,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,142,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,156,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,170,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,184,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,198,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,212,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,226,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,240,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,254,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,268,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,282,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,296,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,310,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,324,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,338,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,352,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,366,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,380,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,398,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,416,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,434,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+651,War Cry,118,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,132,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,146,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,160,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,174,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,188,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,202,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,216,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,230,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,244,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,258,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,272,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,286,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,300,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,314,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,328,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,342,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,356,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,370,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,384,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,402,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,420,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,438,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+651,War Cry,115,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,116,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,117,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,129,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,130,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,131,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,143,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,144,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,145,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,157,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,158,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,159,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,171,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,172,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,173,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,185,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,186,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,187,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,199,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,200,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,201,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,213,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,214,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,215,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,227,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,228,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,229,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,241,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,242,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,243,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,255,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,256,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,257,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,269,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,270,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,271,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,283,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,284,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,285,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,297,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,298,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,299,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,311,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,312,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,313,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,325,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,326,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,327,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,339,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,340,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,341,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,353,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,354,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,355,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,367,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,368,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,369,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,381,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,382,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,383,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,399,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,400,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,401,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,417,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,418,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,419,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,435,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,436,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,437,1h_charged,1H / Charged,1,stage_1,1,1
+651,War Cry,119,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,120,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,133,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,134,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,147,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,148,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,161,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,162,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,175,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,176,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,189,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,190,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,203,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,204,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,217,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,218,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,231,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,232,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,245,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,246,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,259,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,260,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,273,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,274,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,287,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,288,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,301,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,302,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,315,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,316,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,329,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,330,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,343,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,344,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,357,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,358,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,371,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,372,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,385,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,386,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,403,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,404,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,421,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,422,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,439,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,440,1h_charged,1H / Charged,1,stage_2,2,2
+651,War Cry,112,2h_uncharged,2H / Uncharged,2,activation,1,1
+651,War Cry,121,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,135,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,149,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,163,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,177,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,191,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,205,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,219,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,233,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,247,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,261,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,275,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,289,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,303,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,317,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,331,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,345,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,359,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,373,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,387,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,388,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,405,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,406,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,423,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,424,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,441,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,442,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+651,War Cry,125,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,139,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,153,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,167,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,181,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,195,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,209,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,223,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,237,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,251,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,265,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,279,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,293,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,307,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,321,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,335,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,349,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,363,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,377,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,393,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,394,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,411,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,412,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,429,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,430,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,447,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,448,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+651,War Cry,122,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,123,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,124,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,136,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,137,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,138,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,150,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,151,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,152,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,164,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,165,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,166,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,178,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,179,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,180,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,192,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,193,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,194,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,206,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,207,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,208,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,220,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,221,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,222,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,234,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,235,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,236,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,248,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,249,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,250,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,262,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,263,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,264,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,276,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,277,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,278,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,290,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,291,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,292,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,304,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,305,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,306,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,318,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,319,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,320,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,332,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,333,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,334,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,346,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,347,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,348,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,360,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,361,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,362,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,374,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,375,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,376,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,389,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,390,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,391,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,392,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,407,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,408,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,409,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,410,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,425,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,426,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,427,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,428,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,443,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,444,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,445,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,446,2h_charged,2H / Charged,3,stage_1,1,1
+651,War Cry,126,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,127,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,140,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,141,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,154,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,155,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,168,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,169,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,182,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,183,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,196,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,197,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,210,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,211,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,224,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,225,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,238,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,239,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,252,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,253,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,266,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,267,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,280,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,281,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,294,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,295,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,308,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,309,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,322,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,323,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,336,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,337,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,350,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,351,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,364,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,365,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,378,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,379,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,395,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,396,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,397,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,413,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,414,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,415,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,431,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,432,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,433,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,449,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,450,2h_charged,2H / Charged,3,stage_2,2,2
+651,War Cry,451,2h_charged,2H / Charged,3,stage_2,2,2
+652,Beast's Roar,1108,full,Full sequence,0,activation,1,1
+652,Beast's Roar,1109,full,Full sequence,0,activation,1,1
+652,Beast's Roar,1110,full,Full sequence,0,activation,1,1
+653,Troll's Roar,872,full,Full sequence,0,activation,1,1
+653,Troll's Roar,873,full,Full sequence,0,activation,1,1
+653,Troll's Roar,874,full,Full sequence,0,r2,2,2
+653,Troll's Roar,875,full,Full sequence,0,r2,2,2
+653,Troll's Roar,876,full,Full sequence,0,r2,2,2
+1000,Surge of Faith,2292,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2293,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2294,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2295,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2296,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2297,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2298,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2299,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2300,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2301,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2302,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2303,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2304,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2305,full,Full sequence,0,activation,1,1
+1001,Flame Spit,2629,full,Full sequence,0,activation,1,1
+1001,Flame Spit,2630,full,Full sequence,0,activation,1,1
+1002,Tongues of Fire,2628,full,Full sequence,0,activation,1,1
+1003,Oracular Bubble,2246,full,Full sequence,0,activation,1,1
+1003,Oracular Bubble,2247,full,Full sequence,0,activation,1,1
+1004,Bubble Shower,2289,full,Full sequence,0,activation,1,1
+1004,Bubble Shower,2290,full,Full sequence,0,activation,1,1
+1004,Bubble Shower,2291,full,Full sequence,0,activation,1,1
+1005,Great Oracular Bubble,2319,full,Full sequence,0,activation,1,1
+1005,Great Oracular Bubble,2320,full,Full sequence,0,activation,1,1
+1006,Sea of Magma,2519,full,Full sequence,0,activation,1,1
+1006,Sea of Magma,2523,full,Full sequence,0,activation,1,1
+1006,Sea of Magma,2524,full,Full sequence,0,activation,1,1
+1006,Sea of Magma,2525,full,Full sequence,0,activation,1,1
+1006,Sea of Magma,2520,full,Full sequence,0,activation,1,2
+1006,Sea of Magma,2521,full,Full sequence,0,loop_1,2,1
+1006,Sea of Magma,2522,full,Full sequence,0,loop_2,3,2
+1007,Viper Bite,2609,full,Full sequence,0,activation,1,1
+1008,Moonlight Greatsword,1755,1h_uncharged,1H / Uncharged,0,r2,1,2
+1008,Moonlight Greatsword,1757,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+1008,Moonlight Greatsword,1759,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+1008,Moonlight Greatsword,1756,1h_charged,1H / Charged,1,r2,1,2
+1008,Moonlight Greatsword,1758,1h_charged,1H / Charged,1,stage_1,2,1
+1008,Moonlight Greatsword,1760,1h_charged,1H / Charged,1,stage_2,3,2
+1008,Moonlight Greatsword,1755,2h_uncharged,2H / Uncharged,2,r2,1,2
+1008,Moonlight Greatsword,1761,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+1008,Moonlight Greatsword,1763,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+1008,Moonlight Greatsword,1756,2h_charged,2H / Charged,3,r2,1,2
+1008,Moonlight Greatsword,1762,2h_charged,2H / Charged,3,stage_1,2,1
+1008,Moonlight Greatsword,1764,2h_charged,2H / Charged,3,stage_2,3,2
+1009,Siluria's Woe,2412,uncharged,Uncharged,0,activation,1,1
+1009,Siluria's Woe,2413,uncharged,Uncharged,0,activation,1,1
+1009,Siluria's Woe,2414,charged,Charged,1,activation,1,1
+1009,Siluria's Woe,2415,charged,Charged,1,activation,1,1
+1009,Siluria's Woe,2416,charged,Charged,1,activation,1,1
+1011,Bear Witness!,2569,full,Full sequence,0,activation,1,1
+1011,Bear Witness!,2570,full,Full sequence,0,activation,1,2
+1011,Bear Witness!,2571,full,Full sequence,0,activation,1,3
+1011,Bear Witness!,2572,full,Full sequence,0,activation,1,4
+1011,Bear Witness!,2573,full,Full sequence,0,activation,1,4
+1011,Bear Witness!,2574,full,Full sequence,0,activation,1,4
+1011,Bear Witness!,2575,full,Full sequence,0,activation,1,4
+1012,Eochaid's Dancing Blade,1691,uncharged,Uncharged,0,activation,1,1
+1012,Eochaid's Dancing Blade,1692,uncharged,Uncharged,0,activation,1,2
+1012,Eochaid's Dancing Blade,1693,uncharged,Uncharged,0,activation,1,3
+1012,Eochaid's Dancing Blade,1694,uncharged,Uncharged,0,activation,1,4
+1012,Eochaid's Dancing Blade,1695,uncharged,Uncharged,0,activation,1,5
+1012,Eochaid's Dancing Blade,1696,uncharged,Uncharged,0,activation,1,6
+1012,Eochaid's Dancing Blade,1697,uncharged,Uncharged,0,activation,1,7
+1012,Eochaid's Dancing Blade,1698,uncharged,Uncharged,0,activation,1,8
+1012,Eochaid's Dancing Blade,1699,uncharged,Uncharged,0,activation,1,9
+1012,Eochaid's Dancing Blade,1700,charged,Charged,1,activation,1,1
+1012,Eochaid's Dancing Blade,1701,charged,Charged,1,activation,1,2
+1012,Eochaid's Dancing Blade,1702,charged,Charged,1,activation,1,3
+1012,Eochaid's Dancing Blade,1703,charged,Charged,1,activation,1,4
+1012,Eochaid's Dancing Blade,1704,charged,Charged,1,activation,1,5
+1012,Eochaid's Dancing Blade,1705,charged,Charged,1,activation,1,6
+1012,Eochaid's Dancing Blade,1706,charged,Charged,1,activation,1,7
+1012,Eochaid's Dancing Blade,1707,charged,Charged,1,activation,1,8
+1012,Eochaid's Dancing Blade,1708,charged,Charged,1,activation,1,9
+1012,Eochaid's Dancing Blade,1709,charged,Charged,1,activation,1,10
+1012,Eochaid's Dancing Blade,1710,charged,Charged,1,activation,1,11
+1012,Eochaid's Dancing Blade,1711,charged,Charged,1,activation,1,12
+1014,Taker's Flames,1744,full,Full sequence,0,activation,1,1
+1014,Taker's Flames,1745,full,Full sequence,0,activation,1,1
+1015,Shriek of Milos,1672,1h_uncharged,1H / Uncharged,0,activation,1,1
+1015,Shriek of Milos,1673,1h_uncharged,1H / Uncharged,0,activation,1,1
+1015,Shriek of Milos,1674,1h_uncharged,1H / Uncharged,0,activation,1,1
+1015,Shriek of Milos,1675,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+1015,Shriek of Milos,1676,1h_uncharged,1H / Uncharged,0,stage_1,2,2
+1015,Shriek of Milos,1677,1h_uncharged,1H / Uncharged,0,stage_1,2,3
+1015,Shriek of Milos,1681,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+1015,Shriek of Milos,1678,1h_charged,1H / Charged,1,stage_1,1,1
+1015,Shriek of Milos,1679,1h_charged,1H / Charged,1,stage_1,1,2
+1015,Shriek of Milos,1680,1h_charged,1H / Charged,1,stage_1,1,3
+1015,Shriek of Milos,1682,1h_charged,1H / Charged,1,stage_2,2,2
+1015,Shriek of Milos,1672,2h_uncharged,2H / Uncharged,2,activation,1,1
+1015,Shriek of Milos,1673,2h_uncharged,2H / Uncharged,2,activation,1,1
+1015,Shriek of Milos,1674,2h_uncharged,2H / Uncharged,2,activation,1,1
+1015,Shriek of Milos,1683,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+1015,Shriek of Milos,1684,2h_uncharged,2H / Uncharged,2,stage_1,2,2
+1015,Shriek of Milos,1685,2h_uncharged,2H / Uncharged,2,stage_1,2,3
+1015,Shriek of Milos,1689,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+1015,Shriek of Milos,1686,2h_charged,2H / Charged,3,stage_1,1,1
+1015,Shriek of Milos,1687,2h_charged,2H / Charged,3,stage_1,1,2
+1015,Shriek of Milos,1688,2h_charged,2H / Charged,3,stage_1,1,3
+1015,Shriek of Milos,1690,2h_charged,2H / Charged,3,stage_2,2,2
+1016,Reduvia Blood Blade,1577,full,Full sequence,0,stage_1,1,1
+1016,Reduvia Blood Blade,1578,full,Full sequence,0,stage_1,1,1
+1016,Reduvia Blood Blade,1579,full,Full sequence,0,stage_2,2,2
+1016,Reduvia Blood Blade,1580,full,Full sequence,0,stage_2,2,2
+1016,Reduvia Blood Blade,1581,full,Full sequence,0,stage_3,3,3
+1016,Reduvia Blood Blade,1582,full,Full sequence,0,stage_3,3,3
+1017,Glintstone Dart,1571,uncharged,Uncharged,0,activation,1,1
+1017,Glintstone Dart,1573,uncharged,Uncharged,0,r2,2,2
+1017,Glintstone Dart,1572,charged,Charged,1,activation,1,1
+1018,Flowing Form,1873,full,Full sequence,0,activation,1,1
+1019,Night-and-Flame Stance,1627,r1,R1,0,r1,1,1
+1019,Night-and-Flame Stance,1628,r1,R1,0,r1,1,1
+1019,Night-and-Flame Stance,1632,r1,R1,0,r1,1,4
+1019,Night-and-Flame Stance,1629,r1,R1,0,loop_2,2,2
+1019,Night-and-Flame Stance,1630,r1,R1,0,loop_2,2,2
+1019,Night-and-Flame Stance,1631,r1,R1,0,loop_3,3,3
+1019,Night-and-Flame Stance,1634,r2,R2,1,r2,1,2
+1019,Night-and-Flame Stance,1635,r2,R2,1,r2,1,2
+1019,Night-and-Flame Stance,1636,r2,R2,1,r2,1,2
+1019,Night-and-Flame Stance,1637,r2,R2,1,r2,1,2
+1020,Wave of Gold,1771,full,Full sequence,0,activation,1,1
+1020,Wave of Gold,1772,full,Full sequence,0,activation,1,1
+1020,Wave of Gold,1773,full,Full sequence,0,activation,1,1
+1020,Wave of Gold,1774,full,Full sequence,0,activation,1,1
+1020,Wave of Gold,1775,full,Full sequence,0,activation,1,1
+1021,Ruinous Ghostflame,1743,full,Full sequence,0,activation,1,1
+1022,Establish Order,1747,full,Full sequence,0,stage_1,1,1
+1022,Establish Order,1748,full,Full sequence,0,stage_2,2,1
+1022,Establish Order,1749,full,Full sequence,0,stage_2,2,2
+1022,Establish Order,1750,full,Full sequence,0,stage_2,2,2
+1022,Establish Order,1751,full,Full sequence,0,stage_2,2,2
+1022,Establish Order,1752,full,Full sequence,0,activation,3,1
+1023,Mists of Slumber,1600,full,Full sequence,0,activation,1,1
+1024,Spearcall Ritual,2395,full,Full sequence,0,activation,1,1
+1024,Spearcall Ritual,2396,full,Full sequence,0,activation,1,1
+1024,Spearcall Ritual,2397,full,Full sequence,0,activation,1,1
+1024,Spearcall Ritual,2398,full,Full sequence,0,activation,1,1
+1024,Spearcall Ritual,2399,full,Full sequence,0,activation,1,1
+1025,Wolf's Assault,1780,full,Full sequence,0,activation,1,1
+1025,Wolf's Assault,1781,full,Full sequence,0,activation,1,1
+1025,Wolf's Assault,1782,full,Full sequence,0,activation,1,1
+1026,Thundercloud Form,1855,uncharged,Uncharged,0,activation,1,2
+1026,Thundercloud Form,1854,charged,Charged,1,loop_1,1,1
+1026,Thundercloud Form,1856,charged,Charged,1,loop_1,1,1
+1026,Thundercloud Form,1857,charged,Charged,1,activation,2,2
+1027,Cursed-Blood Slice,1973,full,Full sequence,0,stage_1,1,1
+1027,Cursed-Blood Slice,1974,full,Full sequence,0,stage_2,2,2
+1027,Cursed-Blood Slice,1975,full,Full sequence,0,activation,3,1
+1027,Cursed-Blood Slice,1976,full,Full sequence,0,activation,3,1
+1027,Cursed-Blood Slice,1977,full,Full sequence,0,activation,3,1
+1028,Waterfowl Dance,2043,full,Full sequence,0,stage_1,1,1
+1028,Waterfowl Dance,2044,full,Full sequence,0,stage_1,1,2
+1028,Waterfowl Dance,2045,full,Full sequence,0,stage_1,1,3
+1028,Waterfowl Dance,2046,full,Full sequence,0,stage_1,1,4
+1028,Waterfowl Dance,2047,full,Full sequence,0,stage_2,2,1
+1028,Waterfowl Dance,2048,full,Full sequence,0,stage_2,2,2
+1028,Waterfowl Dance,2049,full,Full sequence,0,stage_3,3,1
+1028,Waterfowl Dance,2050,full,Full sequence,0,stage_3,3,2
+1028,Waterfowl Dance,2051,full,Full sequence,0,stage_3,3,3
+1028,Waterfowl Dance,2052,full,Full sequence,0,stage_3,3,4
+1029,Gold Breaker,2260,full,Full sequence,0,activation,1,1
+1029,Gold Breaker,2261,full,Full sequence,0,activation,1,1
+1029,Gold Breaker,2262,full,Full sequence,0,activation,1,1
+1029,Gold Breaker,2263,full,Full sequence,0,activation,1,1
+1029,Gold Breaker,2264,full,Full sequence,0,activation,1,1
+1030,I Command Thee Kneel!,2214,full,Full sequence,0,stage_1,1,1
+1030,I Command Thee Kneel!,2215,full,Full sequence,0,stage_1,1,1
+1030,I Command Thee Kneel!,2216,full,Full sequence,0,stage_1,1,1
+1030,I Command Thee Kneel!,2217,full,Full sequence,0,stage_1,1,1
+1030,I Command Thee Kneel!,2218,full,Full sequence,0,stage_1,1,1
+1030,I Command Thee Kneel!,2219,full,Full sequence,0,stage_1,1,2
+1030,I Command Thee Kneel!,2220,full,Full sequence,0,stage_1,1,2
+1030,I Command Thee Kneel!,2221,full,Full sequence,0,stage_1,1,2
+1030,I Command Thee Kneel!,2222,full,Full sequence,0,stage_1,1,2
+1030,I Command Thee Kneel!,2223,full,Full sequence,0,stage_1,1,2
+1030,I Command Thee Kneel!,2224,full,Full sequence,0,stage_2,2,2
+1030,I Command Thee Kneel!,2225,full,Full sequence,0,stage_2,2,2
+1030,I Command Thee Kneel!,2226,full,Full sequence,0,stage_2,2,2
+1030,I Command Thee Kneel!,2227,full,Full sequence,0,stage_2,2,2
+1030,I Command Thee Kneel!,2228,full,Full sequence,0,stage_2,2,2
+1031,Regal Roar,2350,uncharged,Uncharged,0,activation,1,1
+1031,Regal Roar,2370,uncharged,Uncharged,0,activation,1,1
+1031,Regal Roar,2351,uncharged,Uncharged,0,activation,1,2
+1031,Regal Roar,2352,uncharged,Uncharged,0,activation,1,2
+1031,Regal Roar,2353,uncharged,Uncharged,0,activation,1,2
+1031,Regal Roar,2354,uncharged,Uncharged,0,activation,1,2
+1031,Regal Roar,2355,uncharged,Uncharged,0,stage_1,2,1
+1031,Regal Roar,2356,uncharged,Uncharged,0,stage_1,2,1
+1031,Regal Roar,2357,uncharged,Uncharged,0,stage_1,2,1
+1031,Regal Roar,2358,uncharged,Uncharged,0,stage_1,2,1
+1031,Regal Roar,2359,uncharged,Uncharged,0,stage_1,2,1
+1031,Regal Roar,2365,uncharged,Uncharged,0,stage_2,3,2
+1031,Regal Roar,2360,charged,Charged,1,stage_1,1,1
+1031,Regal Roar,2361,charged,Charged,1,stage_1,1,1
+1031,Regal Roar,2362,charged,Charged,1,stage_1,1,1
+1031,Regal Roar,2363,charged,Charged,1,stage_1,1,1
+1031,Regal Roar,2364,charged,Charged,1,stage_1,1,1
+1031,Regal Roar,2366,charged,Charged,1,stage_2,2,2
+1031,Regal Roar,2367,charged,Charged,1,stage_2,2,2
+1031,Regal Roar,2368,charged,Charged,1,stage_2,2,2
+1031,Regal Roar,2369,charged,Charged,1,stage_2,2,2
+1032,Starcaller Cry,1791,full,Full sequence,0,activation,1,1
+1032,Starcaller Cry,1792,full,Full sequence,0,activation,1,1
+1032,Starcaller Cry,1793,full,Full sequence,0,activation,1,1
+1032,Starcaller Cry,1794,full,Full sequence,0,activation,1,1
+1032,Starcaller Cry,1795,full,Full sequence,0,activation,1,1
+1032,Starcaller Cry,1796,full,Full sequence,0,activation,1,1
+1032,Starcaller Cry,1797,full,Full sequence,0,activation,1,1
+1032,Starcaller Cry,1798,full,Full sequence,0,activation,1,1
+1032,Starcaller Cry,1799,full,Full sequence,0,activation,1,1
+1032,Starcaller Cry,1800,full,Full sequence,0,activation,1,1
+1032,Starcaller Cry,1801,full,Full sequence,0,activation,1,1
+1032,Starcaller Cry,1802,full,Full sequence,0,activation,1,1
+1032,Starcaller Cry,1803,full,Full sequence,0,activation,1,1
+1032,Starcaller Cry,1804,full,Full sequence,0,activation,1,1
+1033,Wave of Destruction,1784,full,Full sequence,0,activation,1,1
+1033,Wave of Destruction,1785,full,Full sequence,0,activation,1,1
+1034,Bloodboon Ritual,2432,full,Full sequence,0,stage_1,1,1
+1034,Bloodboon Ritual,2433,full,Full sequence,0,stage_1,1,1
+1034,Bloodboon Ritual,2434,full,Full sequence,0,stage_1,1,1
+1034,Bloodboon Ritual,2435,full,Full sequence,0,stage_1,1,1
+1034,Bloodboon Ritual,2436,full,Full sequence,0,stage_2,2,2
+1034,Bloodboon Ritual,2437,full,Full sequence,0,stage_2,2,2
+1034,Bloodboon Ritual,2438,full,Full sequence,0,stage_2,2,2
+1034,Bloodboon Ritual,2439,full,Full sequence,0,stage_2,2,2
+1034,Bloodboon Ritual,2440,full,Full sequence,0,stage_3,3,3
+1034,Bloodboon Ritual,2441,full,Full sequence,0,stage_3,3,3
+1034,Bloodboon Ritual,2442,full,Full sequence,0,stage_3,3,3
+1034,Bloodboon Ritual,2443,full,Full sequence,0,stage_3,3,3
+1035,Flowing Form,2248,full,Full sequence,0,activation,1,1
+1035,Flowing Form,2249,full,Full sequence,0,activation,1,2
+1036,Blade of Death,1588,full,Full sequence,0,activation,1,1
+1037,Blade of Gold,1586,full,Full sequence,0,activation,1,1
+1038,Destined Death,1837,full,Full sequence,0,activation,1,1
+1038,Destined Death,1839,full,Full sequence,0,activation,1,1
+1038,Destined Death,1840,full,Full sequence,0,activation,1,1
+1038,Destined Death,1841,full,Full sequence,0,activation,1,1
+1038,Destined Death,1838,full,Full sequence,0,activation,1,2
+1039,Spinning Wheel,2321,full,Full sequence,0,activation,1,1
+1039,Spinning Wheel,2322,full,Full sequence,0,activation,1,1
+1039,Spinning Wheel,2323,full,Full sequence,0,activation,1,1
+1039,Spinning Wheel,2324,full,Full sequence,0,activation,1,1
+1040,Alabaster Lords' Pull,1727,full,Full sequence,0,activation,1,1
+1040,Alabaster Lords' Pull,1728,full,Full sequence,0,activation,1,1
+1040,Alabaster Lords' Pull,1729,full,Full sequence,0,activation,1,1
+1040,Alabaster Lords' Pull,1730,full,Full sequence,0,activation,1,1
+1041,Onyx Lords' Repulsion,1938,full,Full sequence,0,activation,1,1
+1041,Onyx Lords' Repulsion,1939,full,Full sequence,0,activation,1,1
+1041,Onyx Lords' Repulsion,1940,full,Full sequence,0,activation,1,1
+1041,Onyx Lords' Repulsion,1941,full,Full sequence,0,activation,1,1
+1043,Ice Lightning Sword,2026,full,Full sequence,0,activation,1,1
+1043,Ice Lightning Sword,2027,full,Full sequence,0,activation,1,1
+1043,Ice Lightning Sword,2028,full,Full sequence,0,activation,1,1
+1043,Ice Lightning Sword,2029,full,Full sequence,0,activation,1,1
+1044,Regal Beastclaw,2306,full,Full sequence,0,activation,1,1
+1044,Regal Beastclaw,2307,full,Full sequence,0,activation,1,1
+1045,Flame Dance,2531,full,Full sequence,0,activation,1,1
+1045,Flame Dance,2532,full,Full sequence,0,activation,1,2
+1045,Flame Dance,2533,full,Full sequence,0,activation,1,3
+1045,Flame Dance,2534,full,Full sequence,0,activation,1,4
+1045,Flame Dance,2535,full,Full sequence,0,activation,1,5
+1046,Claw Flick,2252,full,Full sequence,0,activation,1,1
+1046,Claw Flick,2253,full,Full sequence,0,activation,1,2
+1047,Nebula,2286,full,Full sequence,0,activation,1,1
+1047,Nebula,2287,full,Full sequence,0,activation,1,1
+1048,Ghostflame Ignition,1732,r1,R1,0,activation,1,1
+1048,Ghostflame Ignition,1733,r1,R1,0,activation,1,1
+1048,Ghostflame Ignition,1734,r1,R1,0,activation,1,1
+1048,Ghostflame Ignition,1735,r1,R1,0,r1,2,1
+1048,Ghostflame Ignition,1736,r1,R1,0,r1,2,1
+1048,Ghostflame Ignition,1737,r1,R1,0,r1,2,1
+1048,Ghostflame Ignition,1732,r2,R2,1,activation,1,1
+1048,Ghostflame Ignition,1733,r2,R2,1,activation,1,1
+1048,Ghostflame Ignition,1734,r2,R2,1,activation,1,1
+1048,Ghostflame Ignition,1738,r2,R2,1,r2,2,2
+1048,Ghostflame Ignition,1739,r2,R2,1,r2,2,2
+1049,Ancient Lightning Spear,2400,uncharged,Uncharged,0,activation,1,1
+1049,Ancient Lightning Spear,2402,uncharged,Uncharged,0,activation,1,1
+1049,Ancient Lightning Spear,2401,charged,Charged,1,activation,1,1
+1050,Frenzyflame Thrust,2419,full,Full sequence,0,activation,1,1
+1050,Frenzyflame Thrust,2420,full,Full sequence,0,activation,1,1
+1050,Frenzyflame Thrust,2421,full,Full sequence,0,activation,1,1
+1050,Frenzyflame Thrust,2422,full,Full sequence,0,activation,1,1
+1051,Miquella's Ring of Light,2488,near,Near,0,stage_1,1,1
+1051,Miquella's Ring of Light,2489,near,Near,0,stage_1,1,1
+1051,Miquella's Ring of Light,2491,near,Near,0,stage_2,2,2
+1051,Miquella's Ring of Light,2492,near,Near,0,stage_2,2,2
+1051,Miquella's Ring of Light,2494,near,Near,0,stage_3,3,3
+1051,Miquella's Ring of Light,2495,near,Near,0,stage_3,3,3
+1051,Miquella's Ring of Light,2488,far,Far,1,stage_1,1,1
+1051,Miquella's Ring of Light,2490,far,Far,1,stage_1,1,1
+1051,Miquella's Ring of Light,2491,far,Far,1,stage_2,2,2
+1051,Miquella's Ring of Light,2493,far,Far,1,stage_2,2,2
+1051,Miquella's Ring of Light,2494,far,Far,1,stage_3,3,3
+1051,Miquella's Ring of Light,2496,far,Far,1,stage_3,3,3
+1052,Golden Tempering,1590,uncharged,Uncharged,0,r2,1,2
+1052,Golden Tempering,1591,uncharged,Uncharged,0,r2,1,2
+1052,Golden Tempering,1592,charged,Charged,1,r2,1,2
+1052,Golden Tempering,1593,charged,Charged,1,r2,1,2
+1052,Golden Tempering,1594,charged,Charged,1,r2,1,2
+1052,Golden Tempering,1595,charged,Charged,1,r2,1,2
+1052,Golden Tempering,1596,charged,Charged,1,r2,1,2
+1052,Golden Tempering,1597,charged,Charged,1,r2,1,2
+1052,Golden Tempering,1598,charged,Charged,1,r2,1,2
+1052,Golden Tempering,1599,charged,Charged,1,r2,1,2
+1054,Unblockable Blade,1625,full,Full sequence,0,activation,1,1
+1055,Eochaid's Dancing Blade,1604,uncharged,Uncharged,0,activation,1,1
+1055,Eochaid's Dancing Blade,1605,uncharged,Uncharged,0,activation,1,2
+1055,Eochaid's Dancing Blade,1606,uncharged,Uncharged,0,activation,1,3
+1055,Eochaid's Dancing Blade,1607,uncharged,Uncharged,0,activation,1,4
+1055,Eochaid's Dancing Blade,1608,uncharged,Uncharged,0,activation,1,5
+1055,Eochaid's Dancing Blade,1609,uncharged,Uncharged,0,activation,1,6
+1055,Eochaid's Dancing Blade,1610,uncharged,Uncharged,0,activation,1,7
+1055,Eochaid's Dancing Blade,1611,uncharged,Uncharged,0,activation,1,8
+1055,Eochaid's Dancing Blade,1612,uncharged,Uncharged,0,activation,1,9
+1055,Eochaid's Dancing Blade,1613,charged,Charged,1,activation,1,1
+1055,Eochaid's Dancing Blade,1614,charged,Charged,1,activation,1,2
+1055,Eochaid's Dancing Blade,1615,charged,Charged,1,activation,1,3
+1055,Eochaid's Dancing Blade,1616,charged,Charged,1,activation,1,4
+1055,Eochaid's Dancing Blade,1617,charged,Charged,1,activation,1,5
+1055,Eochaid's Dancing Blade,1618,charged,Charged,1,activation,1,6
+1055,Eochaid's Dancing Blade,1619,charged,Charged,1,activation,1,7
+1055,Eochaid's Dancing Blade,1620,charged,Charged,1,activation,1,8
+1055,Eochaid's Dancing Blade,1621,charged,Charged,1,activation,1,9
+1055,Eochaid's Dancing Blade,1622,charged,Charged,1,activation,1,10
+1055,Eochaid's Dancing Blade,1623,charged,Charged,1,activation,1,11
+1055,Eochaid's Dancing Blade,1624,charged,Charged,1,activation,1,12
+1165,Loretta's Slash,2470,full,Full sequence,0,activation,1,1
+1165,Loretta's Slash,2471,full,Full sequence,0,activation,1,1
+1165,Loretta's Slash,2472,full,Full sequence,0,activation,1,2
+1166,Spinning Slash,2462,full,Full sequence,0,stage_1,1,1
+1166,Spinning Slash,2463,full,Full sequence,0,stage_2,2,1
+1166,Spinning Slash,2464,full,Full sequence,0,stage_2,2,2
+1166,Spinning Slash,2465,full,Full sequence,0,stage_2,2,2
+1166,Spinning Slash,2466,full,Full sequence,0,stage_2,2,2
+1167,Corpse Wax Cutter,1669,full,Full sequence,0,activation,1,1
+1167,Corpse Wax Cutter,1670,full,Full sequence,0,activation,1,1
+1168,Zamor Ice Storm,1943,full,Full sequence,0,activation,1,1
+1168,Zamor Ice Storm,1944,full,Full sequence,0,activation,1,1
+1168,Zamor Ice Storm,1945,full,Full sequence,0,activation,1,1
+1170,The Queen's Black Flame,1831,full,Full sequence,0,stage_1,1,1
+1170,The Queen's Black Flame,1832,full,Full sequence,0,stage_1,1,2
+1170,The Queen's Black Flame,1833,full,Full sequence,0,stage_2,2,2
+1171,Dynast's Finesse,1846,full,Full sequence,0,activation,1,1
+1171,Dynast's Finesse,1847,full,Full sequence,0,stage_1,2,1
+1171,Dynast's Finesse,1848,full,Full sequence,0,stage_2,3,1
+1171,Dynast's Finesse,1849,full,Full sequence,0,stage_2,3,2
+1172,Magma Shower,1858,full,Full sequence,0,stage_1,1,1
+1172,Magma Shower,1859,full,Full sequence,0,stage_2,2,1
+1172,Magma Shower,1860,full,Full sequence,0,stage_2,2,2
+1172,Magma Shower,1861,full,Full sequence,0,activation,3,1
+1172,Magma Shower,1862,full,Full sequence,0,activation,3,1
+1173,Nebula,1875,full,Full sequence,0,activation,1,1
+1173,Nebula,1876,full,Full sequence,0,activation,1,1
+1173,Nebula,1877,full,Full sequence,0,activation,1,1
+1174,Death Flare,1931,full,Full sequence,0,activation,1,1
+1174,Death Flare,1932,full,Full sequence,0,activation,1,1
+1175,Bloodhound's Finesse,1934,full,Full sequence,0,activation,1,1
+1175,Bloodhound's Finesse,1935,full,Full sequence,0,r2,2,2
+1176,Magma Guillotine,1947,full,Full sequence,0,stage_1,1,1
+1176,Magma Guillotine,1948,full,Full sequence,0,activation,2,1
+1176,Magma Guillotine,1949,full,Full sequence,0,activation,2,1
+1176,Magma Guillotine,1950,full,Full sequence,0,stage_2,3,1
+1176,Magma Guillotine,1951,full,Full sequence,0,stage_2,3,2
+1177,Corpse Piler,2008,full,Full sequence,0,stage_1,1,1
+1177,Corpse Piler,2009,full,Full sequence,0,stage_1,1,1
+1177,Corpse Piler,2010,full,Full sequence,0,stage_1,1,2
+1177,Corpse Piler,2011,full,Full sequence,0,stage_1,1,2
+1177,Corpse Piler,2012,full,Full sequence,0,stage_2,2,1
+1177,Corpse Piler,2013,full,Full sequence,0,stage_2,2,1
+1177,Corpse Piler,2014,full,Full sequence,0,stage_2,2,2
+1177,Corpse Piler,2015,full,Full sequence,0,stage_2,2,2
+1177,Corpse Piler,2016,full,Full sequence,0,stage_2,2,3
+1177,Corpse Piler,2017,full,Full sequence,0,stage_2,2,3
+1177,Corpse Piler,2018,full,Full sequence,0,stage_3,3,3
+1177,Corpse Piler,2019,full,Full sequence,0,stage_3,3,3
+1178,Transient Moonlight,1990,r1,R1,0,r1,1,1
+1178,Transient Moonlight,1991,r1,R1,0,r1,1,1
+1178,Transient Moonlight,1992,r2,R2,1,r2,1,2
+1178,Transient Moonlight,1993,r2,R2,1,r2,1,2
+1179,Bloodblade Dance,2079,full,Full sequence,0,stage_1,1,1
+1179,Bloodblade Dance,2080,full,Full sequence,0,stage_1,1,2
+1179,Bloodblade Dance,2081,full,Full sequence,0,stage_1,1,3
+1179,Bloodblade Dance,2082,full,Full sequence,0,stage_1,1,4
+1179,Bloodblade Dance,2083,full,Full sequence,0,stage_1,1,5
+1179,Bloodblade Dance,2084,full,Full sequence,0,stage_1,1,6
+1179,Bloodblade Dance,2085,full,Full sequence,0,stage_1,1,7
+1179,Bloodblade Dance,2086,full,Full sequence,0,stage_1,1,8
+1179,Bloodblade Dance,2087,full,Full sequence,0,stage_1,1,9
+1179,Bloodblade Dance,2088,full,Full sequence,0,stage_2,2,1
+1179,Bloodblade Dance,2089,full,Full sequence,0,stage_2,2,2
+1179,Bloodblade Dance,2090,full,Full sequence,0,stage_2,2,3
+1182,Knowledge Above All,2254,full,Full sequence,0,activation,1,1
+1183,Devourer of Worlds,2309,full,Full sequence,0,activation,1,1
+1184,Familal Rancor,2276,full,Full sequence,0,activation,1,1
+1184,Familal Rancor,2277,full,Full sequence,0,activation,1,1
+1184,Familal Rancor,2278,full,Full sequence,0,activation,1,1
+1184,Familal Rancor,2279,full,Full sequence,0,activation,1,1
+1184,Familal Rancor,2280,full,Full sequence,0,activation,1,1
+1184,Familal Rancor,2281,full,Full sequence,0,activation,1,1
+1185,Rosus's Summons,2190,full,Full sequence,0,activation,1,1
+1185,Rosus's Summons,2191,full,Full sequence,0,activation,1,1
+1185,Rosus's Summons,2192,full,Full sequence,0,activation,1,1
+1185,Rosus's Summons,2193,full,Full sequence,0,activation,1,1
+1186,Thunderstorm,2169,full,Full sequence,0,stage_1,1,1
+1186,Thunderstorm,2172,full,Full sequence,0,stage_1,1,1
+1186,Thunderstorm,2170,full,Full sequence,0,stage_1,1,2
+1186,Thunderstorm,2173,full,Full sequence,0,stage_1,1,2
+1186,Thunderstorm,2171,full,Full sequence,0,stage_1,1,3
+1186,Thunderstorm,2174,full,Full sequence,0,stage_1,1,3
+1186,Thunderstorm,2175,full,Full sequence,0,stage_2,2,1
+1186,Thunderstorm,2177,full,Full sequence,0,stage_2,2,1
+1186,Thunderstorm,2176,full,Full sequence,0,stage_2,2,2
+1186,Thunderstorm,2178,full,Full sequence,0,stage_2,2,2
+1186,Thunderstorm,2179,full,Full sequence,0,stage_3,3,1
+1186,Thunderstorm,2181,full,Full sequence,0,stage_3,3,1
+1186,Thunderstorm,2180,full,Full sequence,0,stage_3,3,2
+1186,Thunderstorm,2182,full,Full sequence,0,stage_3,3,2
+1187,Sacred Phalanx,2392,full,Full sequence,0,activation,1,1
+1187,Sacred Phalanx,2393,full,Full sequence,0,activation,1,1
+1188,Great-Serpent Hunt,2403,full,Full sequence,0,stage_1,1,1
+1188,Great-Serpent Hunt,2404,full,Full sequence,0,stage_2,2,2
+1188,Great-Serpent Hunt,2407,full,Full sequence,0,activation,3,1
+1188,Great-Serpent Hunt,2408,full,Full sequence,0,activation,3,1
+1188,Great-Serpent Hunt,2409,full,Full sequence,0,activation,3,1
+1188,Great-Serpent Hunt,2410,full,Full sequence,0,activation,3,1
+1188,Great-Serpent Hunt,2411,full,Full sequence,0,activation,3,1
+1189,Angel's Wings,2500,full,Full sequence,0,activation,1,1
+1189,Angel's Wings,2502,full,Full sequence,0,activation,1,1
+1189,Angel's Wings,2501,full,Full sequence,0,activation,1,2
+1190,Storm Kick,2541,full,Full sequence,0,activation,1,1
+1190,Storm Kick,2551,full,Full sequence,0,activation,1,1
+1190,Storm Kick,2542,full,Full sequence,0,activation,1,2
+1190,Storm Kick,2552,full,Full sequence,0,activation,1,2
+1190,Storm Kick,2543,full,Full sequence,0,r2,2,1
+1190,Storm Kick,2553,full,Full sequence,0,r2,2,1
+1190,Storm Kick,2544,full,Full sequence,0,r2,2,2
+1190,Storm Kick,2554,full,Full sequence,0,r2,2,2
+1190,Storm Kick,2545,full,Full sequence,0,r2,2,3
+1190,Storm Kick,2555,full,Full sequence,0,r2,2,3
+1191,Unblockable Blade,2561,full,Full sequence,0,activation,1,1
+1192,Sorcery of the Crozier,2311,full,Full sequence,0,activation,1,1
+1192,Sorcery of the Crozier,2312,full,Full sequence,0,activation,1,1
+1193,Erdtree Slam,2314,full,Full sequence,0,activation,1,1
+1193,Erdtree Slam,2315,full,Full sequence,0,activation,1,1
+1193,Erdtree Slam,2316,full,Full sequence,0,activation,1,1
+1194,Gravity Bolt,2329,full,Full sequence,0,activation,1,1
+1194,Gravity Bolt,2330,full,Full sequence,0,activation,1,1
+1194,Gravity Bolt,2331,full,Full sequence,0,activation,1,1
+1194,Gravity Bolt,2332,full,Full sequence,0,activation,1,1
+1194,Gravity Bolt,2333,full,Full sequence,0,activation,1,1
+1194,Gravity Bolt,2334,full,Full sequence,0,activation,1,1
+1196,Golden Retaliation,2624,full,Full sequence,0,activation,1,1
+1196,Golden Retaliation,2625,full,Full sequence,0,activation,1,1
+1196,Golden Retaliation,2626,full,Full sequence,0,activation,1,1
+1196,Golden Retaliation,2627,full,Full sequence,0,activation,1,1
+1198,Ordovis's Vortex,1719,uncharged,Uncharged,0,activation,1,1
+1198,Ordovis's Vortex,1720,uncharged,Uncharged,0,activation,1,2
+1198,Ordovis's Vortex,1721,charged,Charged,1,activation,1,1
+1198,Ordovis's Vortex,1722,charged,Charged,1,activation,1,2
+1198,Ordovis's Vortex,1723,charged,Charged,1,activation,1,3
+1198,Ordovis's Vortex,1724,charged,Charged,1,activation,1,4
+1199,Spinning Weapon,2594,full,Full sequence,0,activation,1,1
+1199,Spinning Weapon,2595,full,Full sequence,0,activation,1,2
+1199,Spinning Weapon,2596,full,Full sequence,0,activation,1,3
+1199,Spinning Weapon,2597,full,Full sequence,0,activation,1,4
+2000,Dryleaf Whirlwind,1521,full,Full sequence,0,activation,1,1
+2000,Dryleaf Whirlwind,1522,full,Full sequence,0,activation,1,2
+2000,Dryleaf Whirlwind,1523,full,Full sequence,0,activation,1,3
+2000,Dryleaf Whirlwind,1524,full,Full sequence,0,activation,1,4
+2001,Aspects of the Crucible: Wings,1416,full,Full sequence,0,activation,1,1
+2001,Aspects of the Crucible: Wings,1417,full,Full sequence,0,activation,1,1
+2001,Aspects of the Crucible: Wings,1418,full,Full sequence,0,activation,1,1
+2001,Aspects of the Crucible: Wings,1419,full,Full sequence,0,activation,1,1
+2001,Aspects of the Crucible: Wings,1420,full,Full sequence,0,activation,1,1
+2001,Aspects of the Crucible: Wings,1421,full,Full sequence,0,activation,1,1
+2001,Aspects of the Crucible: Wings,1422,full,Full sequence,0,activation,1,1
+2001,Aspects of the Crucible: Wings,1423,full,Full sequence,0,activation,1,1
+2001,Aspects of the Crucible: Wings,1424,full,Full sequence,0,activation,1,1
+2001,Aspects of the Crucible: Wings,1425,full,Full sequence,0,activation,1,1
+2001,Aspects of the Crucible: Wings,1426,full,Full sequence,0,activation,1,1
+2001,Aspects of the Crucible: Wings,1427,full,Full sequence,0,activation,1,1
+2001,Aspects of the Crucible: Wings,1428,full,Full sequence,0,activation,1,1
+2001,Aspects of the Crucible: Wings,1429,full,Full sequence,0,activation,1,1
+2001,Aspects of the Crucible: Wings,1430,full,Full sequence,0,activation,1,1
+2001,Aspects of the Crucible: Wings,1431,full,Full sequence,0,activation,1,1
+2001,Aspects of the Crucible: Wings,1432,full,Full sequence,0,activation,1,2
+2001,Aspects of the Crucible: Wings,1433,full,Full sequence,0,activation,1,3
+2001,Aspects of the Crucible: Wings,1434,full,Full sequence,0,activation,1,4
+2001,Aspects of the Crucible: Wings,1435,full,Full sequence,0,activation,1,5
+2001,Aspects of the Crucible: Wings,1436,full,Full sequence,0,activation,1,6
+2001,Aspects of the Crucible: Wings,1437,full,Full sequence,0,activation,1,7
+2001,Aspects of the Crucible: Wings,1438,full,Full sequence,0,activation,1,8
+4000,Spinning Gravity Thrust,75,full,Full sequence,0,stage_1,1,1
+4000,Spinning Gravity Thrust,76,full,Full sequence,0,stage_1,1,2
+4000,Spinning Gravity Thrust,77,full,Full sequence,0,stage_1,1,3
+4000,Spinning Gravity Thrust,78,full,Full sequence,0,stage_1,1,4
+4000,Spinning Gravity Thrust,79,full,Full sequence,0,stage_1,1,5
+4000,Spinning Gravity Thrust,80,full,Full sequence,0,stage_2,2,1
+4000,Spinning Gravity Thrust,81,full,Full sequence,0,stage_2,2,2
+4000,Spinning Gravity Thrust,82,full,Full sequence,0,stage_2,2,3
+4000,Spinning Gravity Thrust,83,full,Full sequence,0,stage_2,2,4
+4010,Palm Blast,1517,uncharged,Uncharged,0,activation,1,1
+4010,Palm Blast,1518,charged,Charged,1,activation,1,1
+4020,Piercing Throw,1130,full,Full sequence,0,activation,1,1
+4020,Piercing Throw,1136,full,Full sequence,0,activation,1,1
+4020,Piercing Throw,1132,full,Full sequence,0,stage_1,2,1
+4020,Piercing Throw,1133,full,Full sequence,0,stage_1,2,2
+4020,Piercing Throw,1134,full,Full sequence,0,stage_2,3,1
+4020,Piercing Throw,1135,full,Full sequence,0,stage_2,3,2
+4030,Scattershot Throw,1132,full,Full sequence,0,stage_1,1,1
+4030,Scattershot Throw,2577,full,Full sequence,0,stage_1,1,1
+4030,Scattershot Throw,1133,full,Full sequence,0,stage_1,1,2
+4030,Scattershot Throw,2578,full,Full sequence,0,stage_1,1,2
+4030,Scattershot Throw,1134,full,Full sequence,0,stage_2,2,1
+4030,Scattershot Throw,2579,full,Full sequence,0,stage_2,2,1
+4030,Scattershot Throw,1135,full,Full sequence,0,stage_2,2,2
+4030,Scattershot Throw,2580,full,Full sequence,0,stage_2,2,2
+4030,Scattershot Throw,1136,full,Full sequence,0,activation,3,1
+4030,Scattershot Throw,2581,full,Full sequence,0,activation,3,1
+4040,Wall of Sparks,1529,full,Full sequence,0,activation,1,1
+4040,Wall of Sparks,1530,full,Full sequence,0,activation,1,1
+4040,Wall of Sparks,1531,full,Full sequence,0,activation,1,1
+4040,Wall of Sparks,1532,full,Full sequence,0,activation,1,1
+4050,Rolling Sparks,1533,full,Full sequence,0,activation,1,1
+4050,Rolling Sparks,1534,full,Full sequence,0,activation,1,1
+4050,Rolling Sparks,1535,full,Full sequence,0,activation,1,1
+4060,Raging Beast,1124,full,Full sequence,0,activation,1,1
+4060,Raging Beast,1125,full,Full sequence,0,r2,2,1
+4060,Raging Beast,1126,full,Full sequence,0,r2,2,2
+4070,Savage Claws,1112,full,Full sequence,0,activation,1,1
+4070,Savage Claws,1124,full,Full sequence,0,activation,1,1
+4070,Savage Claws,1113,full,Full sequence,0,activation,1,2
+4070,Savage Claws,1114,full,Full sequence,0,activation,1,3
+4070,Savage Claws,1115,full,Full sequence,0,activation,1,4
+4070,Savage Claws,1116,full,Full sequence,0,activation,1,5
+4070,Savage Claws,1117,full,Full sequence,0,activation,1,6
+4070,Savage Claws,1125,full,Full sequence,0,r2,2,1
+4070,Savage Claws,1126,full,Full sequence,0,r2,2,2
+4080,Red Bear Hunt,2583,full,Full sequence,0,stage_1,1,1
+4080,Red Bear Hunt,2584,full,Full sequence,0,stage_1,1,1
+4080,Red Bear Hunt,2585,full,Full sequence,0,stage_2,2,2
+4080,Red Bear Hunt,2586,full,Full sequence,0,stage_2,2,2
+4080,Red Bear Hunt,2587,full,Full sequence,0,stage_3,3,1
+4080,Red Bear Hunt,2588,full,Full sequence,0,stage_3,3,2
+4080,Red Bear Hunt,2589,full,Full sequence,0,stage_3,3,3
+4090,Blind Spot,948,full,Full sequence,0,activation,1,1
+4090,Blind Spot,949,full,Full sequence,0,activation,1,1
+4100,Swift Slash,952,uncharged,Uncharged,0,activation,1,1
+4100,Swift Slash,953,uncharged,Uncharged,0,activation,1,1
+4100,Swift Slash,954,charged,Charged,1,activation,1,1
+4100,Swift Slash,955,charged,Charged,1,activation,1,1
+4100,Swift Slash,957,charged,Charged,1,activation,1,1
+4110,Overhead Stance,1100,r1,R1,0,r1,1,1
+4110,Overhead Stance,1101,r2,R2,1,r2,1,1
+4110,Overhead Stance,1102,r2,R2,1,r2,1,2
+4110,Overhead Stance,1103,r2,R2,1,r2,1,3
+4120,Wing Stance,1142,r1,R1,0,r1,1,1
+4120,Wing Stance,1143,r1,R1,0,r1,1,2
+4120,Wing Stance,1144,r1,R1,0,r1,1,3
+4120,Wing Stance,1145,r2,R2,1,r2,1,2
+4130,Blinkbolt,1380,full,Full sequence,0,activation,1,1
+4140,Flame Skewer,1330,full,Full sequence,0,activation,1,1
+4140,Flame Skewer,1334,full,Full sequence,0,activation,1,1
+4140,Flame Skewer,1338,full,Full sequence,0,activation,1,1
+4140,Flame Skewer,1342,full,Full sequence,0,activation,1,1
+4140,Flame Skewer,1346,full,Full sequence,0,activation,1,1
+4140,Flame Skewer,1350,full,Full sequence,0,activation,1,1
+4140,Flame Skewer,1354,full,Full sequence,0,activation,1,1
+4140,Flame Skewer,1358,full,Full sequence,0,activation,1,1
+4140,Flame Skewer,1362,full,Full sequence,0,activation,1,1
+4140,Flame Skewer,1331,full,Full sequence,0,r2,2,2
+4140,Flame Skewer,1335,full,Full sequence,0,r2,2,2
+4140,Flame Skewer,1339,full,Full sequence,0,r2,2,2
+4140,Flame Skewer,1343,full,Full sequence,0,r2,2,2
+4140,Flame Skewer,1347,full,Full sequence,0,r2,2,2
+4140,Flame Skewer,1351,full,Full sequence,0,r2,2,2
+4140,Flame Skewer,1355,full,Full sequence,0,r2,2,2
+4140,Flame Skewer,1359,full,Full sequence,0,r2,2,2
+4140,Flame Skewer,1363,full,Full sequence,0,r2,2,2
+4150,Savage Lion's Claw,65,full,Full sequence,0,stage_1,1,1
+4150,Savage Lion's Claw,66,full,Full sequence,0,stage_2,2,1
+4150,Savage Lion's Claw,67,full,Full sequence,0,stage_2,2,2
+4160,Divine Beast Frost Stomp,1501,uncharged,Uncharged,0,activation,1,1
+4160,Divine Beast Frost Stomp,1502,uncharged,Uncharged,0,activation,1,1
+4160,Divine Beast Frost Stomp,1503,charged,Charged,1,activation,1,1
+4160,Divine Beast Frost Stomp,1504,charged,Charged,1,activation,1,1
+4170,Flame Spear,1366,uncharged,Uncharged,0,activation,1,1
+4170,Flame Spear,1367,uncharged,Uncharged,0,activation,1,1
+4170,Flame Spear,1368,charged,Charged,1,activation,1,1
+4170,Flame Spear,1369,charged,Charged,1,activation,1,1
+4180,Carian Sovereignty,1237,uncharged,Uncharged,0,stage_1,1,1
+4180,Carian Sovereignty,1238,uncharged,Uncharged,0,stage_2,2,2
+4180,Carian Sovereignty,1239,charged,Charged,1,stage_1,1,1
+4180,Carian Sovereignty,1240,charged,Charged,1,stage_1,1,1
+4180,Carian Sovereignty,1241,charged,Charged,1,stage_2,2,2
+4220,Ghostflame Call,1487,r1,R1,0,activation,1,1
+4220,Ghostflame Call,1488,r1,R1,0,activation,1,1
+4220,Ghostflame Call,1489,r1,R1,0,activation,1,1
+4220,Ghostflame Call,1490,r1,R1,0,r1,2,1
+4220,Ghostflame Call,1491,r1,R1,0,r1,2,1
+4220,Ghostflame Call,1492,r1,R1,0,r1,2,1
+4220,Ghostflame Call,1487,r2,R2,1,activation,1,1
+4220,Ghostflame Call,1488,r2,R2,1,activation,1,1
+4220,Ghostflame Call,1489,r2,R2,1,activation,1,1
+4220,Ghostflame Call,1493,r2,R2,1,r2,2,2
+4220,Ghostflame Call,1494,r2,R2,1,r2,2,2
+5000,Dragonwound Slash,2062,uncharged,Uncharged,0,activation,1,1
+5000,Dragonwound Slash,2063,charged,Charged,1,activation,1,1
+5000,Dragonwound Slash,2064,charged,Charged,1,activation,1,1
+5010,Needle Piercer,1641,full,Full sequence,0,activation,1,1
+5010,Needle Piercer,1642,full,Full sequence,0,activation,1,1
+5020,Light,1639,full,Full sequence,0,activation,1,1
+5030,Darkness,1640,full,Full sequence,0,activation,1,1
+5040,Onze's Line of Stars,2031,full,Full sequence,0,stage_1,1,1
+5040,Onze's Line of Stars,2032,full,Full sequence,0,stage_1,1,2
+5040,Onze's Line of Stars,2033,full,Full sequence,0,stage_2,2,1
+5040,Onze's Line of Stars,2034,full,Full sequence,0,stage_2,2,2
+5040,Onze's Line of Stars,2035,full,Full sequence,0,stage_3,3,1
+5040,Onze's Line of Stars,2036,full,Full sequence,0,stage_3,3,2
+5050,The Poison Flower Blooms Twice,1444,full,Full sequence,0,activation,1,1
+5050,The Poison Flower Blooms Twice,1445,full,Full sequence,0,activation,1,1
+5080,Spinning Guillotine,2232,full,Full sequence,0,stage_1,1,1
+5080,Spinning Guillotine,2233,full,Full sequence,0,stage_2,2,1
+5080,Spinning Guillotine,2234,full,Full sequence,0,stage_2,2,2
+5080,Spinning Guillotine,2235,full,Full sequence,0,stage_2,2,3
+5080,Spinning Guillotine,2236,full,Full sequence,0,r2,3,1
+5080,Spinning Guillotine,2237,full,Full sequence,0,r2,3,2
+5080,Spinning Guillotine,2238,full,Full sequence,0,r2,3,3
+5090,Unending Dance,1901,full,Full sequence,0,activation,1,1
+5090,Unending Dance,1902,full,Full sequence,0,loop_1,2,1
+5090,Unending Dance,1903,full,Full sequence,0,loop_2,3,2
+5090,Unending Dance,1904,full,Full sequence,0,loop_3,4,3
+5090,Unending Dance,1905,full,Full sequence,0,loop_4,5,4
+5090,Unending Dance,1906,full,Full sequence,0,loop_5,6,5
+5090,Unending Dance,1907,full,Full sequence,0,loop_6,7,6
+5090,Unending Dance,1908,full,Full sequence,0,loop_7,8,7
+5090,Unending Dance,1909,full,Full sequence,0,loop_8,9,8
+5090,Unending Dance,1910,full,Full sequence,0,loop_9,10,9
+5090,Unending Dance,1911,full,Full sequence,0,loop_10,11,10
+5090,Unending Dance,1912,full,Full sequence,0,loop_11,12,11
+5090,Unending Dance,1913,full,Full sequence,0,loop_12,13,12
+5100,Revenger's Blade,1879,uncharged,Uncharged,0,activation,1,1
+5100,Revenger's Blade,1880,uncharged,Uncharged,0,activation,1,2
+5100,Revenger's Blade,1883,uncharged,Uncharged,0,r1,2,1
+5100,Revenger's Blade,1884,uncharged,Uncharged,0,r1,2,2
+5100,Revenger's Blade,1885,uncharged,Uncharged,0,r1,2,3
+5100,Revenger's Blade,1886,uncharged,Uncharged,0,r1,2,4
+5100,Revenger's Blade,1887,uncharged,Uncharged,0,r1,2,5
+5100,Revenger's Blade,1888,uncharged,Uncharged,0,r1,2,6
+5100,Revenger's Blade,1889,uncharged,Uncharged,0,r1,2,7
+5100,Revenger's Blade,1881,charged,Charged,1,activation,1,1
+5100,Revenger's Blade,1882,charged,Charged,1,activation,1,2
+5110,Mists of Eternal Sleep,1602,full,Full sequence,0,activation,1,1
+5120,Dynastic Sickleplay,2505,full,Full sequence,0,stage_1,1,1
+5120,Dynastic Sickleplay,2506,full,Full sequence,0,stage_2,2,1
+5120,Dynastic Sickleplay,2507,full,Full sequence,0,stage_2,2,2
+5120,Dynastic Sickleplay,2508,full,Full sequence,0,stage_2,2,3
+5130,Blinkbolt: Twinaxe,2195,full,Full sequence,0,activation,1,1
+5130,Blinkbolt: Twinaxe,2196,full,Full sequence,0,r2,2,1
+5130,Blinkbolt: Twinaxe,2197,full,Full sequence,0,r2,2,2
+5130,Blinkbolt: Twinaxe,2198,full,Full sequence,0,r2,2,3
+5130,Blinkbolt: Twinaxe,2199,full,Full sequence,0,r2,2,4
+5130,Blinkbolt: Twinaxe,2200,full,Full sequence,0,r2,2,5
+5130,Blinkbolt: Twinaxe,2201,full,Full sequence,0,r2,2,6
+5140,Blinkbolt: Long-hafted Axe,2209,full,Full sequence,0,activation,1,1
+5140,Blinkbolt: Long-hafted Axe,2210,full,Full sequence,0,r2,2,2
+5140,Blinkbolt: Long-hafted Axe,2211,full,Full sequence,0,r2,2,2
+5150,Promised Consort,1805,full,Full sequence,0,stage_1,1,1
+5150,Promised Consort,1806,full,Full sequence,0,stage_1,1,1
+5150,Promised Consort,1808,full,Full sequence,0,stage_1,1,1
+5150,Promised Consort,1807,full,Full sequence,0,stage_1,1,2
+5150,Promised Consort,1809,full,Full sequence,0,stage_2,2,1
+5150,Promised Consort,1810,full,Full sequence,0,stage_2,2,2
+5150,Promised Consort,1811,full,Full sequence,0,stage_2,2,2
+5150,Promised Consort,1812,full,Full sequence,0,stage_2,2,2
+5150,Promised Consort,1813,full,Full sequence,0,stage_3,3,1
+5150,Promised Consort,1815,full,Full sequence,0,stage_3,3,2
+5150,Promised Consort,1814,full,Full sequence,0,stage_3,3,3
+5150,Promised Consort,1816,full,Full sequence,0,stage_3,3,3
+5150,Promised Consort,1817,full,Full sequence,0,stage_3,3,3
+5160,Shadow Sunflower Headbutts,2372,full,Full sequence,0,stage_1,1,1
+5160,Shadow Sunflower Headbutts,2373,full,Full sequence,0,stage_1,1,1
+5160,Shadow Sunflower Headbutts,2374,full,Full sequence,0,stage_2,2,1
+5160,Shadow Sunflower Headbutts,2375,full,Full sequence,0,stage_2,2,1
+5160,Shadow Sunflower Headbutts,2376,full,Full sequence,0,stage_2,2,2
+5160,Shadow Sunflower Headbutts,2377,full,Full sequence,0,stage_2,2,2
+5160,Shadow Sunflower Headbutts,2378,full,Full sequence,0,stage_3,3,3
+5160,Shadow Sunflower Headbutts,2379,full,Full sequence,0,stage_3,3,3
+5170,Moon-and-Fire Stance,1644,r1,R1,0,stage_1,1,1
+5170,Moon-and-Fire Stance,1649,r1,R1,0,stage_1,1,1
+5170,Moon-and-Fire Stance,1645,r1,R1,0,stage_1,1,2
+5170,Moon-and-Fire Stance,1650,r1,R1,0,stage_1,1,2
+5170,Moon-and-Fire Stance,1646,r1,R1,0,stage_2,2,1
+5170,Moon-and-Fire Stance,1651,r1,R1,0,stage_2,2,1
+5170,Moon-and-Fire Stance,1647,r1,R1,0,stage_2,2,2
+5170,Moon-and-Fire Stance,1652,r1,R1,0,stage_2,2,2
+5170,Moon-and-Fire Stance,1648,r1,R1,0,stage_3,3,3
+5170,Moon-and-Fire Stance,1653,r1,R1,0,stage_3,3,3
+5170,Moon-and-Fire Stance,1654,r2,R2,1,r2,1,1
+5170,Moon-and-Fire Stance,1657,r2,R2,1,r2,1,1
+5170,Moon-and-Fire Stance,1655,r2,R2,1,r2,1,2
+5170,Moon-and-Fire Stance,1658,r2,R2,1,r2,1,2
+5170,Moon-and-Fire Stance,1660,r2,R2,1,r2,1,2
+5170,Moon-and-Fire Stance,1656,r2,R2,1,r2,1,3
+5170,Moon-and-Fire Stance,1659,r2,R2,1,r2,1,3
+5180,Devonia's Vortex,2342,uncharged,Uncharged,0,activation,1,1
+5180,Devonia's Vortex,2343,uncharged,Uncharged,0,activation,1,1
+5180,Devonia's Vortex,2344,uncharged,Uncharged,0,activation,1,1
+5180,Devonia's Vortex,2345,charged,Charged,1,activation,1,1
+5180,Devonia's Vortex,2346,charged,Charged,1,activation,1,1
+5180,Devonia's Vortex,2347,charged,Charged,1,activation,1,1
+5190,Messmer's Assault,2447,full,Full sequence,0,stage_1,1,1
+5190,Messmer's Assault,2449,full,Full sequence,0,stage_1,1,1
+5190,Messmer's Assault,2448,full,Full sequence,0,stage_1,1,2
+5190,Messmer's Assault,2450,full,Full sequence,0,stage_2,2,1
+5190,Messmer's Assault,2451,full,Full sequence,0,stage_2,2,2
+5190,Messmer's Assault,2452,full,Full sequence,0,stage_2,2,3
+5190,Messmer's Assault,2453,full,Full sequence,0,stage_3,3,3
+5190,Messmer's Assault,2454,full,Full sequence,0,stage_3,3,3
+5190,Messmer's Assault,2455,full,Full sequence,0,stage_3,3,3
+5210,Sleep Evermore,2567,full,Full sequence,0,activation,1,1
+5220,Golden Crux,1765,full,Full sequence,0,activation,1,1
+5220,Golden Crux,1766,full,Full sequence,0,activation,1,1
+5220,Golden Crux,1767,full,Full sequence,0,stage_1,2,1
+5220,Golden Crux,1768,full,Full sequence,0,stage_2,3,2
+5240,White Light Charge,1787,full,Full sequence,0,stage_1,1,1
+5240,White Light Charge,1788,full,Full sequence,0,stage_2,2,2
+5250,Rancor Slash,1866,full,Full sequence,0,stage_1,1,1
+5250,Rancor Slash,1867,full,Full sequence,0,stage_1,1,2
+5250,Rancor Slash,1868,full,Full sequence,0,stage_2,2,2
+5250,Rancor Slash,1869,full,Full sequence,0,activation,3,1
+5260,Witching Hour Slash,1996,uncharged,Uncharged,0,activation,1,1
+5260,Witching Hour Slash,1997,uncharged,Uncharged,0,activation,1,2
+5260,Witching Hour Slash,1998,uncharged,Uncharged,0,activation,1,3
+5260,Witching Hour Slash,1999,charged,Charged,1,activation,1,1
+5260,Witching Hour Slash,2000,charged,Charged,1,activation,1,2
+5260,Witching Hour Slash,2001,charged,Charged,1,activation,1,3
+5270,Euporia Vortex,2103,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2108,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2109,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2110,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2111,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2113,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2114,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2115,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2117,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2118,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2120,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2122,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2123,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2124,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2125,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2127,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2128,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2130,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2131,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2133,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2134,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2135,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2137,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2138,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2140,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2141,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2143,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2144,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2145,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2147,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2148,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2150,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2151,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2153,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2154,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2155,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2157,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2158,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2159,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2104,full,Full sequence,0,activation,1,2
+5270,Euporia Vortex,2112,full,Full sequence,0,activation,1,2
+5270,Euporia Vortex,2126,full,Full sequence,0,activation,1,2
+5270,Euporia Vortex,2105,full,Full sequence,0,activation,1,3
+5270,Euporia Vortex,2116,full,Full sequence,0,activation,1,3
+5270,Euporia Vortex,2129,full,Full sequence,0,activation,1,3
+5270,Euporia Vortex,2106,full,Full sequence,0,activation,1,4
+5270,Euporia Vortex,2119,full,Full sequence,0,activation,1,4
+5270,Euporia Vortex,2132,full,Full sequence,0,activation,1,4
+5270,Euporia Vortex,2107,full,Full sequence,0,activation,1,5
+5270,Euporia Vortex,2121,full,Full sequence,0,activation,1,5
+5270,Euporia Vortex,2136,full,Full sequence,0,activation,1,5
+5270,Euporia Vortex,2139,full,Full sequence,0,activation,1,6
+5270,Euporia Vortex,2142,full,Full sequence,0,activation,1,7
+5270,Euporia Vortex,2146,full,Full sequence,0,activation,1,8
+5270,Euporia Vortex,2149,full,Full sequence,0,activation,1,9
+5270,Euporia Vortex,2152,full,Full sequence,0,activation,1,10
+5270,Euporia Vortex,2156,full,Full sequence,0,activation,1,11
+5280,Smithing Art Spears,2338,full,Full sequence,0,activation,1,1
+5280,Smithing Art Spears,2339,full,Full sequence,0,activation,1,1
+5280,Smithing Art Spears,2340,full,Full sequence,0,activation,1,2
+5290,Rancor Slash,2476,full,Full sequence,0,stage_1,1,1
+5290,Rancor Slash,2477,full,Full sequence,0,stage_1,1,2
+5290,Rancor Slash,2478,full,Full sequence,0,stage_2,2,2
+5290,Rancor Slash,2479,full,Full sequence,0,activation,3,1
+5300,Romina's Purification,2483,full,Full sequence,0,activation,1,1
+5300,Romina's Purification,2485,full,Full sequence,0,activation,1,1
+5300,Romina's Purification,2484,full,Full sequence,0,activation,1,2
+5310,Poison Spear-Hand Strike,2563,full,Full sequence,0,activation,1,1
+5320,Madding Spear-Hand Strike,2565,full,Full sequence,0,activation,1,1
+5330,Feeble Lord's Frenzied Flame,2607,full,Full sequence,0,activation,1,1
+5330,Feeble Lord's Frenzied Flame,2608,full,Full sequence,0,activation,1,1
+5350,Deadly Dance,1980,full,Full sequence,0,stage_1,1,1
+5350,Deadly Dance,1981,full,Full sequence,0,stage_1,1,2
+5350,Deadly Dance,1982,full,Full sequence,0,stage_1,1,3
+5350,Deadly Dance,1983,full,Full sequence,0,stage_1,1,4
+5350,Deadly Dance,1984,full,Full sequence,0,stage_2,2,2
+5370,Discus Hurl,2611,full,Full sequence,0,activation,1,1
+5370,Discus Hurl,2612,full,Full sequence,0,activation,1,2
+5380,Flower Dragonbolt,2255,uncharged,Uncharged,0,activation,1,1
+5380,Flower Dragonbolt,2257,uncharged,Uncharged,0,activation,1,1
+5380,Flower Dragonbolt,2256,charged,Charged,1,activation,1,1
+5390,Kowtower's Resentment,2384,full,Full,0,activation,1,1
+5390,Kowtower's Resentment,2386,full,Full,0,activation,1,1
+5390,Kowtower's Resentment,2385,full,Full,0,activation,1,2
+5390,Kowtower's Resentment,2387,early_release,Early Release,1,early_release,1,1
+5390,Kowtower's Resentment,2388,early_release,Early Release,1,early_release,1,1
+5420,Painful Strike,2513,full,Full sequence,0,activation,1,1
+5420,Painful Strike,2514,full,Full sequence,0,activation,1,2
+5420,Painful Strike,2515,full,Full sequence,0,activation,1,3
+5430,Solitary Moon Slash,1712,full,Full sequence,0,activation,1,1
+5430,Solitary Moon Slash,1713,full,Full sequence,0,activation,1,1
+5430,Solitary Moon Slash,1714,full,Full sequence,0,r2,2,2
+5430,Solitary Moon Slash,1715,full,Full sequence,0,r2,2,2
+5440,Revenge of the Night,2614,full,Full sequence,0,activation,1,1
+5440,Revenge of the Night,2615,full,Full sequence,0,activation,1,1
+5450,Weed Cutter,2067,full,Full sequence,0,stage_1,1,1
+5450,Weed Cutter,2068,full,Full sequence,0,stage_1,1,2
+5450,Weed Cutter,2069,full,Full sequence,0,stage_2,2,1
+5450,Weed Cutter,2070,full,Full sequence,0,stage_2,2,2
+5450,Weed Cutter,2071,full,Full sequence,0,stage_3,3,1
+5450,Weed Cutter,2072,full,Full sequence,0,stage_3,3,2
+5470,Jori's Inquisition,2424,full,Full sequence,0,activation,1,1
+5470,Jori's Inquisition,2425,full,Full sequence,0,activation,1,1
+5480,Roaring Bash,2618,full,Full sequence,0,activation,1,1
+5480,Roaring Bash,2621,full,Full sequence,0,activation,1,1
+5480,Roaring Bash,2619,full,Full sequence,0,activation,1,2
+5480,Roaring Bash,2622,full,Full sequence,0,activation,1,2
+5500,Flare- O Serpent,2282,uncharged,Uncharged,0,r2,1,2
+5500,Flare- O Serpent,2284,uncharged,Uncharged,0,r2,1,2
+5500,Flare- O Serpent,2285,uncharged,Uncharged,0,r2,1,2
+5500,Flare- O Serpent,2283,charged,Charged,1,r2,1,2
+5510,Scattershot (Claws),2577,full,Full sequence,0,stage_1,1,1
+5510,Scattershot (Claws),2578,full,Full sequence,0,stage_1,1,2
+5510,Scattershot (Claws),2579,full,Full sequence,0,stage_2,2,1
+5510,Scattershot (Claws),2580,full,Full sequence,0,stage_2,2,2
+5510,Scattershot (Claws),2581,full,Full sequence,0,activation,3,1
+5530,Horn Calling,1927,full,Full sequence,0,activation,1,1
+5530,Horn Calling,1928,full,Full sequence,0,activation,1,1
+5530,Horn Calling,1929,full,Full sequence,0,activation,1,1
+5540,Horn Calling: Storm,1955,full,Full sequence,0,stage_1,1,1
+5540,Horn Calling: Storm,1956,full,Full sequence,0,stage_1,1,1
+5540,Horn Calling: Storm,1957,full,Full sequence,0,stage_1,1,2
+5540,Horn Calling: Storm,1958,full,Full sequence,0,stage_1,1,2
+5540,Horn Calling: Storm,1959,full,Full sequence,0,stage_2,2,1
+5540,Horn Calling: Storm,1960,full,Full sequence,0,stage_2,2,1
+5540,Horn Calling: Storm,1961,full,Full sequence,0,stage_2,2,2
+5540,Horn Calling: Storm,1962,full,Full sequence,0,stage_2,2,2
+5540,Horn Calling: Storm,1963,full,Full sequence,0,stage_3,3,1
+5540,Horn Calling: Storm,1964,full,Full sequence,0,stage_3,3,1
+5540,Horn Calling: Storm,1965,full,Full sequence,0,stage_3,3,2
+5540,Horn Calling: Storm,1966,full,Full sequence,0,stage_3,3,2
+5550,Tremendous Phalanx,1777,full,Full sequence,0,activation,1,1
+5550,Tremendous Phalanx,1778,full,Full sequence,0,r2,2,2
+5560,Bloodfiends' Bloodboon,2426,full,Full sequence,0,stage_1,1,1
+5560,Bloodfiends' Bloodboon,2427,full,Full sequence,0,stage_2,2,2
+5560,Bloodfiends' Bloodboon,2428,full,Full sequence,0,stage_3,3,3
+5570,Dragonform Flame,2165,full,Full sequence,0,activation,1,1
+5570,Dragonform Flame,2166,full,Full sequence,0,activation,1,1
+5570,Dragonform Flame,2167,full,Full sequence,0,activation,1,1
+5580,Lightspeed Slash,1825,uncharged,Uncharged,0,activation,1,1
+5580,Lightspeed Slash,1826,uncharged,Uncharged,0,activation,1,1
+5580,Lightspeed Slash,1827,uncharged,Uncharged,0,activation,1,1
+5580,Lightspeed Slash,1828,charged,Charged,1,activation,1,1
+5580,Lightspeed Slash,1829,charged,Charged,1,activation,1,1
+5580,Lightspeed Slash,1830,charged,Charged,1,activation,1,1
+5590,Impaling Thrust,1844,full,Full sequence,0,activation,1,1
+8000,Shield Strike,1556,full,Full sequence,0,stage_1,1,1
+8000,Shield Strike,1560,full,Full sequence,0,stage_1,1,1
+8000,Shield Strike,1564,full,Full sequence,0,stage_1,1,1
+8000,Shield Strike,1567,full,Full sequence,0,stage_1,1,1
+8000,Shield Strike,1557,full,Full sequence,0,stage_2,2,2
+8000,Shield Strike,1561,full,Full sequence,0,stage_2,2,2
+8000,Shield Strike,1565,full,Full sequence,0,stage_2,2,2
+8000,Shield Strike,1568,full,Full sequence,0,stage_2,2,2
+8000,Shield Strike,1558,full,Full sequence,0,stage_3,3,3
+8000,Shield Strike,1562,full,Full sequence,0,stage_3,3,3
+8000,Shield Strike,1566,full,Full sequence,0,stage_3,3,3
+8000,Shield Strike,1569,full,Full sequence,0,stage_3,3,3
+8000,Shield Strike,1559,full,Full sequence,0,stage_4,4,4
+8000,Shield Strike,1563,full,Full sequence,0,stage_4,4,4
+8000,Shield Strike,1570,full,Full sequence,0,stage_4,4,4

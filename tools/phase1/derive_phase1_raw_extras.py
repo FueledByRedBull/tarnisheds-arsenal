@@ -54,6 +54,20 @@ STATUS_FIELDS = {
 STATUS_CORRECTION_COLUMNS = {
     status_key: f"{status_key}_uses_status_correction" for status_key in STATUS_FIELDS
 }
+KNOWN_ABSENT_PASSIVE_EFFECTS = {
+    5_180_500: (
+        "Referenced by Nightrider Glaive, but absent from the source SpEffectParam; "
+        "there is no status payload to extract."
+    ),
+    5_220_300: (
+        "Referenced by Raptor Talons, but absent from the source SpEffectParam; "
+        "there is no status payload to extract."
+    ),
+    5_245_100: (
+        "Referenced by Lamenting Visage, but absent from the source SpEffectParam; "
+        "there is no status payload to extract."
+    ),
+}
 
 
 def _object_to_int(value: object) -> int:
@@ -140,6 +154,47 @@ def weapon_effect_ids_from_param_rows(
                 effect_ids.append(effect_id)
         out[weapon_id] = effect_ids
     return out
+
+
+def build_passive_effect_coverage(
+    sp_effect_rows: dict[int, dict[str, str]],
+    weapon_csv_rows: list[dict[str, str]],
+    weapon_effect_ids: dict[int, list[int]],
+) -> list[dict[str, object]]:
+    weapons_by_id = {int(row["weapon_id"]): row for row in weapon_csv_rows}
+    references: dict[int, list[dict[str, str]]] = {}
+    for weapon_id, effect_ids in weapon_effect_ids.items():
+        weapon = weapons_by_id.get(weapon_id)
+        if weapon is None:
+            continue
+        for effect_id in effect_ids:
+            references.setdefault(effect_id, []).append(weapon)
+
+    unexpected_missing = sorted(
+        effect_id
+        for effect_id in references
+        if effect_id not in sp_effect_rows and effect_id not in KNOWN_ABSENT_PASSIVE_EFFECTS
+    )
+    if unexpected_missing:
+        raise ValueError(
+            "weapon passives reference missing, unclassified SpEffect IDs: "
+            + ", ".join(str(effect_id) for effect_id in unexpected_missing)
+        )
+
+    rows_out: list[dict[str, object]] = []
+    for effect_id, weapons in sorted(references.items()):
+        present = effect_id in sp_effect_rows
+        rows_out.append(
+            {
+                "effect_id": effect_id,
+                "status": "resolved" if present else "excluded_missing_source",
+                "reason": "" if present else KNOWN_ABSENT_PASSIVE_EFFECTS[effect_id],
+                "reference_count": len(weapons),
+                "weapon_ids": "|".join(sorted({row["weapon_id"] for row in weapons})),
+                "weapon_names": "|".join(sorted({row["name"] for row in weapons})),
+            }
+        )
+    return rows_out
 
 
 def aow_valid_for_weapon(
@@ -386,6 +441,11 @@ def export_regulation_extras(
         max_level_by_type[reinforce_type] = max(max_level_by_type.get(reinforce_type, 0), level)
 
     weapon_effect_ids = weapon_effect_ids_from_param_rows(weapon_param_rows, weapon_csv_rows)
+    passive_effect_coverage = build_passive_effect_coverage(
+        sp_effect_rows,
+        weapon_csv_rows,
+        weapon_effect_ids,
+    )
 
     weapon_passives = build_weapon_passives(
         sp_effect_rows,
@@ -404,6 +464,18 @@ def export_regulation_extras(
     if gem_rows:
         exact_aow_compat = build_exact_aow_compat(weapon_csv_rows, canonical_gem_rows(gem_rows))
 
+    write_csv(
+        output_dir / "passive_effect_coverage.csv",
+        [
+            "effect_id",
+            "status",
+            "reason",
+            "reference_count",
+            "weapon_ids",
+            "weapon_names",
+        ],
+        passive_effect_coverage,
+    )
     write_csv(
         output_dir / "weapon_passives.csv",
         [

@@ -145,22 +145,13 @@ export function CommandRail() {
     setProgress(null);
     try {
       if (hasTauriRuntime()) {
-        const { jobId, estimate: nextEstimate } = await api.startSearch(apiRequest);
+        const { jobId } = await api.startSearch(apiRequest);
         const afterStart = useDesktopStore.getState();
         if (
           afterStart.searchGeneration !== generation ||
           afterStart.activeSearchSignature !== signature
         ) {
           await api.cancelSearch(jobId);
-          return;
-        }
-        setEstimate(nextEstimate);
-        if (nextEstimate.combinations <= 0) {
-          await api.cancelSearch(jobId);
-          clearResults("No valid search space for current constraints.");
-          setSearching(false);
-          setSearchStartedAt(null);
-          setSearchCancellationRequested(false);
           return;
         }
         setActiveJobId(jobId);

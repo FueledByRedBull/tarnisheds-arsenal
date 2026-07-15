@@ -1,11 +1,12 @@
 {
   "name": "tarnisheds-arsenal-desktop",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 1420",
     "build": "tsc && vite build",
+    "test": "vitest run",
     "preview": "vite preview --host 127.0.0.1 --port 1420",
     "tauri": "tauri",
     "test:e2e": "node ./scripts/run-e2e.mjs"
@@ -25,6 +26,7 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^6.0.1",
     "typescript": "^5.6.3",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "vitest": "^4.1.10"
   }
 }

@@ -7,13 +7,14 @@ use std::time::{Duration, Instant};
 use rayon::prelude::*;
 
 use crate::math::{
-    apply_aow_attack_buffs, apply_aow_status_buffs, calculate_aow_damage, calculate_ar,
-    calculate_status_buildup, class_by_name, compute_free_points, effective_str,
+    apply_aow_attack_buffs, apply_aow_status_buffs, calculate_aow_damage, calculate_aow_routes,
+    calculate_ar, calculate_status_buildup, class_by_name, compute_free_points, effective_str,
     meets_requirements, scadutree_attack_multiplier,
 };
 use crate::model::{
-    Aow, AowAttackRow, COMBAT_STAT_COUNT, DamageBreakdown, DamageType, GameData, STAT_ARC,
-    STAT_DEX, STAT_FAI, STAT_INT, STAT_STR, Stats, StatusBuildup, StatusEffectSource, Weapon,
+    Aow, AowAttackRow, AowRouteResult, COMBAT_STAT_COUNT, DamageBreakdown, DamageType, GameData,
+    STAT_ARC, STAT_DEX, STAT_FAI, STAT_INT, STAT_STR, Stats, StatusBuildup, StatusEffectSource,
+    Weapon,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -109,6 +110,7 @@ pub struct OptimizeResult {
     pub scarlet_rot_buildup: f32,
     pub aow_first_hit_damage: f32,
     pub aow_full_sequence_damage: f32,
+    pub aow_route: Option<AowRouteResult>,
     pub score: f32,
 }
 
@@ -248,14 +250,31 @@ pub fn prepare_search<'a>(
     request: &OptimizeRequest,
     data: &'a GameData,
 ) -> Result<PreparedSearchPlan<'a>, String> {
+    prepare_search_with_cancel(request, data, || true)
+}
+
+pub fn prepare_search_with_cancel<'a, F>(
+    request: &OptimizeRequest,
+    data: &'a GameData,
+    mut should_continue: F,
+) -> Result<PreparedSearchPlan<'a>, String>
+where
+    F: FnMut() -> bool,
+{
+    if !should_continue() {
+        return Err("cancelled".to_string());
+    }
     let constraints = build_combat_constraints(request)?;
-    let weapons = prepare_weapons(request, data, constraints)?;
+    let weapons = prepare_weapons_with_cancel(request, data, constraints, &mut should_continue)?;
     let mut groups: Vec<PreparedSearchGroup> = Vec::new();
     let mut stat_candidates = 0_u64;
     let mut combinations = 0_u64;
 
     for (prepared_idx, prepared) in weapons.iter().enumerate() {
         for (aow_idx, aow_choice) in prepared.aow_choices.iter().enumerate() {
+            if !should_continue() {
+                return Err("cancelled".to_string());
+            }
             let Some(search) =
                 relevant_stat_search(request, data, constraints, prepared, aow_choice)
             else {
@@ -323,6 +342,21 @@ where
     }
     let plan = prepare_search(request, data)?;
     optimize_prepared_with_progress(&plan, progress_every, progress_cb)
+}
+
+pub fn optimize_with_cancel<F>(
+    request: &OptimizeRequest,
+    data: &GameData,
+    mut should_continue: F,
+) -> Result<Vec<OptimizeResult>, String>
+where
+    F: FnMut() -> bool + Send,
+{
+    if request.top_k == 0 {
+        return Ok(Vec::new());
+    }
+    let plan = prepare_search_with_cancel(request, data, &mut should_continue)?;
+    optimize_prepared_with_progress(&plan, 1_024, move |_snapshot| should_continue())
 }
 
 pub fn optimize_prepared_with_progress<F>(
@@ -674,6 +708,16 @@ fn materialize_scored_candidate(
         aow_first_hit_damage,
         aow_full_sequence_damage,
     } = full;
+    let aow_route = materialize_aow_route(
+        request.objective,
+        prepared,
+        aow_choice,
+        candidate.upgrade,
+        &candidate.stats,
+        effective_str_value,
+        damage_multiplier,
+        data,
+    )?;
 
     Ok(OptimizeResult {
         weapon_id: prepared.weapon.weapon_id,
@@ -705,8 +749,57 @@ fn materialize_scored_candidate(
             .expect("complete candidate metric must include first-hit damage"),
         aow_full_sequence_damage: aow_full_sequence_damage
             .expect("complete candidate metric must include full-sequence damage"),
+        aow_route,
         score: candidate.metric.score,
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn materialize_aow_route(
+    objective: OptimizeObjective,
+    prepared: &PreparedWeapon<'_>,
+    aow_choice: &AowChoice<'_>,
+    upgrade: u8,
+    stats: &Stats,
+    effective_str_value: u16,
+    damage_multiplier: f32,
+    data: &GameData,
+) -> Result<Option<AowRouteResult>, String> {
+    if aow_choice.attack_rows.is_empty() {
+        return Ok(None);
+    }
+    let mut routes = calculate_aow_routes(
+        prepared.weapon,
+        &aow_choice.attack_rows,
+        upgrade,
+        stats,
+        effective_str_value,
+        data,
+    )?;
+    for route in &mut routes {
+        route.first_hit_damage *= damage_multiplier;
+        route.total_damage = route.total_damage.scale(damage_multiplier);
+        for action in &mut route.actions {
+            for hit in &mut action.hits {
+                hit.damage = hit.damage.scale(damage_multiplier);
+            }
+        }
+    }
+    Ok(routes.into_iter().reduce(|best, candidate| {
+        let best_metric = match objective {
+            OptimizeObjective::AowFirstHit => best.first_hit_damage,
+            _ => best.total_damage.total(),
+        };
+        let candidate_metric = match objective {
+            OptimizeObjective::AowFirstHit => candidate.first_hit_damage,
+            _ => candidate.total_damage.total(),
+        };
+        if candidate_metric > best_metric {
+            candidate
+        } else {
+            best
+        }
+    }))
 }
 
 fn could_enter_scored_top_k(
@@ -1230,17 +1323,29 @@ fn validate_stat_caps(request: &OptimizeRequest) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(test)]
 fn prepare_weapons<'a>(
     request: &OptimizeRequest,
     data: &'a GameData,
     constraints: CombatConstraints,
 ) -> Result<Vec<PreparedWeapon<'a>>, String> {
+    prepare_weapons_with_cancel(request, data, constraints, &mut || true)
+}
+
+fn prepare_weapons_with_cancel<'a>(
+    request: &OptimizeRequest,
+    data: &'a GameData,
+    constraints: CombatConstraints,
+    should_continue: &mut impl FnMut() -> bool,
+) -> Result<Vec<PreparedWeapon<'a>>, String> {
     let mut out = Vec::new();
-    for weapon in data
-        .weapons
-        .iter()
-        .filter(|entry| weapon_matches_request(entry, request))
-    {
+    for weapon in &data.weapons {
+        if !should_continue() {
+            return Err("cancelled".to_string());
+        }
+        if !weapon_matches_request(weapon, request) {
+            continue;
+        }
         if !weapon_requirements_can_fit(request, constraints, weapon) {
             continue;
         }
@@ -1685,20 +1790,22 @@ fn resolve_aow_choices<'a>(
         )));
     }
 
-    if let Some(choice) = native_skill_choice
-        && !choice.attack_rows.is_empty()
-    {
-        return Ok(Some(vec![choice]));
-    }
-
-    let choices: Vec<AowChoice<'a>> = data
-        .aows
-        .iter()
-        .filter(|aow| !aow.name.eq_ignore_ascii_case("No Skill"))
-        .filter(|aow| data.aow_compatible_with_weapon(aow, weapon))
-        .map(|aow| build_aow_choice(aow, weapon, data, request.objective))
+    let native_skill_id = native_skill_choice
+        .as_ref()
+        .and_then(|choice| choice.skill_id);
+    let mut choices: Vec<AowChoice<'a>> = native_skill_choice
+        .into_iter()
         .filter(|choice| !choice.attack_rows.is_empty())
         .collect();
+    choices.extend(
+        data.aows
+            .iter()
+            .filter(|aow| !aow.name.eq_ignore_ascii_case("No Skill"))
+            .filter(|aow| Some(aow.aow_id) != native_skill_id)
+            .filter(|aow| data.aow_compatible_with_weapon(aow, weapon))
+            .map(|aow| build_aow_choice(aow, weapon, data, request.objective))
+            .filter(|choice| !choice.attack_rows.is_empty()),
+    );
     if choices.is_empty() {
         return Ok(None);
     }
@@ -1772,10 +1879,13 @@ fn native_skill_choice_for_weapon<'a>(
     data: &'a GameData,
     objective: OptimizeObjective,
 ) -> Option<AowChoice<'a>> {
-    if !weapon.disable_gem_attr {
-        return None;
-    }
-    let source_rows = data.native_skill_attack_rows(weapon.weapon_id);
+    let native_skill_id = weapon.native_skill_id?;
+    let exact_rows = data.native_skill_attack_rows(weapon.weapon_id);
+    let source_rows = if exact_rows.is_empty() {
+        data.aow_attack_rows(native_skill_id)
+    } else {
+        exact_rows
+    };
     let attack_rows = if objective_uses_aow_damage(objective) {
         select_attack_rows(source_rows, weapon)
     } else {
@@ -1787,9 +1897,7 @@ fn native_skill_choice_for_weapon<'a>(
         .or_else(|| source_rows.first().map(|row| row.aow_name.as_str()))?;
     Some(AowChoice {
         aow: None,
-        skill_id: weapon
-            .native_skill_id
-            .or_else(|| source_rows.first().map(|row| row.aow_id)),
+        skill_id: Some(native_skill_id),
         skill_name: Some(skill_name),
         attack_rows,
     })
@@ -2518,6 +2626,28 @@ mod tests {
         assert!(OptimizeObjective::parse("not_real").is_err());
     }
 
+    #[test]
+    fn fixed_native_skill_falls_back_to_generic_rows_by_skill_id() {
+        let data = load_data();
+        let weapon = data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.name == "Carian Knight's Sword" && weapon.affinity == "Standard")
+            .expect("Carian Knight's Sword");
+        assert!(data.native_skill_attack_rows(weapon.weapon_id).is_empty());
+
+        let choice = native_skill_choice_for_weapon(weapon, &data, OptimizeObjective::AowFirstHit)
+            .expect("native skill choice");
+        assert_eq!(choice.skill_name, Some("Carian Grandeur"));
+        assert!(!choice.attack_rows.is_empty());
+        assert!(
+            choice
+                .attack_rows
+                .iter()
+                .all(|row| Some(row.aow_id) == weapon.native_skill_id)
+        );
+    }
+
     fn test_result(
         weapon_id: u32,
         upgrade: u8,
@@ -2556,6 +2686,7 @@ mod tests {
             scarlet_rot_buildup: 0.0,
             aow_first_hit_damage: 0.0,
             aow_full_sequence_damage: 0.0,
+            aow_route: None,
             score: bleed_buildup,
         }
     }
@@ -3156,6 +3287,22 @@ mod tests {
     }
 
     #[test]
+    fn preparation_callback_can_cancel_before_enumeration() {
+        let game_data = load_data();
+        let request = base_request();
+        let mut callback_count = 0;
+
+        let error = prepare_search_with_cancel(&request, &game_data, || {
+            callback_count += 1;
+            callback_count < 3
+        })
+        .expect_err("expected preparation cancellation");
+
+        assert_eq!(error, "cancelled");
+        assert_eq!(callback_count, 3);
+    }
+
+    #[test]
     fn optimize_respects_exact_stat_lock() {
         let game_data = load_data();
         let mut request = base_request();
@@ -3749,6 +3896,11 @@ mod tests {
         assert!(results[0].aow_first_hit_damage > 0.0);
         assert!(results[0].aow_full_sequence_damage >= results[0].aow_first_hit_damage);
         assert_eq!(results[0].score, results[0].aow_first_hit_damage);
+        let route = results[0].aow_route.as_ref().expect("selected AoW route");
+        assert!(!route.route_label.is_empty());
+        assert!(!route.actions.is_empty());
+        assert!(route.actions.iter().any(|action| !action.hits.is_empty()));
+        assert!(route.total_stamina_cost >= 0.0);
     }
 
     #[test]

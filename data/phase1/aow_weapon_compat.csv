@@ -559,9 +559,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 2001,Aspects of the Crucible: Wings,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 2001,Aspects of the Crucible: Wings,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 2001,Aspects of the Crucible: Wings,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-2001,Aspects of the Crucible: Wings,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-2001,Aspects of the Crucible: Wings,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-2001,Aspects of the Crucible: Wings,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 602,Assassin's Gambit,5041100,Antspur Rapier,Blood,Thrusting Sword,SwordPierce
 602,Assassin's Gambit,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 602,Assassin's Gambit,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
@@ -794,7 +791,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 602,Assassin's Gambit,2051000,Weathered Straight Sword,Poison,Straight Sword,SwordNormal
 602,Assassin's Gambit,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 602,Assassin's Gambit,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-602,Assassin's Gambit,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 650,Barbaric Roar,7041100,Bandit's Curved Sword,Blood,Curved Sword,SaberNormal
 650,Barbaric Roar,7040900,Bandit's Curved Sword,Cold,Curved Sword,SaberNormal
 650,Barbaric Roar,7040400,Bandit's Curved Sword,Fire,Curved Sword,SaberNormal
@@ -2582,11 +2578,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 650,Barbaric Roar,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 650,Barbaric Roar,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 650,Barbaric Roar,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-650,Barbaric Roar,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-650,Barbaric Roar,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-650,Barbaric Roar,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-650,Barbaric Roar,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-650,Barbaric Roar,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
 301,Barricade Shield,31041100,Albinauric Shield,Blood,Medium Shield,ShieldNormal
 301,Barricade Shield,31040900,Albinauric Shield,Cold,Medium Shield,ShieldNormal
 301,Barricade Shield,31040400,Albinauric Shield,Fire,Medium Shield,ShieldNormal
@@ -5585,13 +5576,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 652,Beast's Roar,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 652,Beast's Roar,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 652,Beast's Roar,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-652,Beast's Roar,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-652,Beast's Roar,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-652,Beast's Roar,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-652,Beast's Roar,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-652,Beast's Roar,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-652,Beast's Roar,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-652,Beast's Roar,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 221,Black Flame Tornado,18030400,Banished Knight's Halberd,Fire,Halberd,SpearAxe
 221,Black Flame Tornado,18030500,Banished Knight's Halberd,Flame Art,Halberd,SpearAxe
 221,Black Flame Tornado,18030100,Banished Knight's Halberd,Heavy,Halberd,SpearAxe
@@ -6808,13 +6792,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 4130,Blinkbolt,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 4130,Blinkbolt,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 4130,Blinkbolt,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-4130,Blinkbolt,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-4130,Blinkbolt,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-4130,Blinkbolt,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-4130,Blinkbolt,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-4130,Blinkbolt,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-4130,Blinkbolt,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-4130,Blinkbolt,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 224,Blood Blade,5041100,Antspur Rapier,Blood,Thrusting Sword,SwordPierce
 224,Blood Blade,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 224,Blood Blade,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
@@ -7138,7 +7115,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 224,Blood Blade,2051000,Weathered Straight Sword,Poison,Straight Sword,SwordNormal
 224,Blood Blade,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 224,Blood Blade,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-224,Blood Blade,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 108,Blood Tax,5041100,Antspur Rapier,Blood,Thrusting Sword,SwordPierce
 108,Blood Tax,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 108,Blood Tax,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
@@ -7659,8 +7635,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 108,Blood Tax,2051000,Weathered Straight Sword,Poison,Straight Sword,SwordNormal
 108,Blood Tax,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 108,Blood Tax,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-108,Blood Tax,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-108,Blood Tax,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 801,Bloodhound's Step,5041100,Antspur Rapier,Blood,Thrusting Sword,SwordPierce
 801,Bloodhound's Step,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 801,Bloodhound's Step,5040400,Antspur Rapier,Fire,Thrusting Sword,SwordPierce
@@ -9825,13 +9799,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 801,Bloodhound's Step,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 801,Bloodhound's Step,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 801,Bloodhound's Step,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-801,Bloodhound's Step,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-801,Bloodhound's Step,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-801,Bloodhound's Step,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-801,Bloodhound's Step,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-801,Bloodhound's Step,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-801,Bloodhound's Step,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-801,Bloodhound's Step,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 204,Bloody Slash,5041100,Antspur Rapier,Blood,Thrusting Sword,SwordPierce
 204,Bloody Slash,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 204,Bloody Slash,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
@@ -10281,9 +10248,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 204,Bloody Slash,2051000,Weathered Straight Sword,Poison,Straight Sword,SwordNormal
 204,Bloody Slash,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 204,Bloody Slash,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-204,Bloody Slash,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-204,Bloody Slash,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-204,Bloody Slash,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 654,Braggart's Roar,7041100,Bandit's Curved Sword,Blood,Curved Sword,SaberNormal
 654,Braggart's Roar,7040900,Bandit's Curved Sword,Cold,Curved Sword,SaberNormal
 654,Braggart's Roar,7040400,Bandit's Curved Sword,Fire,Curved Sword,SaberNormal
@@ -12071,11 +12035,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 654,Braggart's Roar,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 654,Braggart's Roar,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 654,Braggart's Roar,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-654,Braggart's Roar,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-654,Braggart's Roar,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-654,Braggart's Roar,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-654,Braggart's Roar,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-654,Braggart's Roar,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
 303,Buckler Parry,31040900,Albinauric Shield,Cold,Medium Shield,ShieldNormal
 303,Buckler Parry,31040400,Albinauric Shield,Fire,Medium Shield,ShieldNormal
 303,Buckler Parry,31040500,Albinauric Shield,Flame Art,Medium Shield,ShieldNormal
@@ -14482,10 +14441,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 303,Buckler Parry,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 303,Buckler Parry,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 303,Buckler Parry,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-303,Buckler Parry,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-303,Buckler Parry,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-303,Buckler Parry,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-303,Buckler Parry,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 218,Carian Grandeur,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 218,Carian Grandeur,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 218,Carian Grandeur,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
@@ -14871,9 +14826,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 218,Carian Grandeur,2050800,Weathered Straight Sword,Magic,Straight Sword,SwordNormal
 218,Carian Grandeur,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 218,Carian Grandeur,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-218,Carian Grandeur,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-218,Carian Grandeur,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-218,Carian Grandeur,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 219,Carian Greatsword,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 219,Carian Greatsword,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 219,Carian Greatsword,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
@@ -15259,9 +15211,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 219,Carian Greatsword,2050800,Weathered Straight Sword,Magic,Straight Sword,SwordNormal
 219,Carian Greatsword,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 219,Carian Greatsword,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-219,Carian Greatsword,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-219,Carian Greatsword,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-219,Carian Greatsword,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 305,Carian Retaliation,31040900,Albinauric Shield,Cold,Medium Shield,ShieldNormal
 305,Carian Retaliation,31040100,Albinauric Shield,Heavy,Medium Shield,ShieldNormal
 305,Carian Retaliation,31040200,Albinauric Shield,Keen,Medium Shield,ShieldNormal
@@ -15911,9 +15860,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 4180,Carian Sovereignty,2050800,Weathered Straight Sword,Magic,Straight Sword,SwordNormal
 4180,Carian Sovereignty,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 4180,Carian Sovereignty,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-4180,Carian Sovereignty,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-4180,Carian Sovereignty,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-4180,Carian Sovereignty,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 105,Charge Forth,18031100,Banished Knight's Halberd,Blood,Halberd,SpearAxe
 105,Charge Forth,18030900,Banished Knight's Halberd,Cold,Halberd,SpearAxe
 105,Charge Forth,18030400,Banished Knight's Halberd,Fire,Halberd,SpearAxe
@@ -16371,7 +16317,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 105,Charge Forth,18130300,Vulgar Militia Shotel,Quality,Halberd,SpearAxe
 105,Charge Forth,18130700,Vulgar Militia Shotel,Sacred,Halberd,SpearAxe
 105,Charge Forth,18130000,Vulgar Militia Shotel,Standard,Halberd,SpearAxe
-105,Charge Forth,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
 227,Chilling Mist,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 227,Chilling Mist,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 227,Chilling Mist,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
@@ -17248,10 +17193,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 227,Chilling Mist,4040800,Zweihander,Magic,Colossal Sword,SwordGigantic
 227,Chilling Mist,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 227,Chilling Mist,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-227,Chilling Mist,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-227,Chilling Mist,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-227,Chilling Mist,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-227,Chilling Mist,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 607,Cragblade,5041100,Antspur Rapier,Blood,Thrusting Sword,SwordPierce
 607,Cragblade,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 607,Cragblade,5040400,Antspur Rapier,Fire,Thrusting Sword,SwordPierce
@@ -19325,11 +19266,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 607,Cragblade,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 607,Cragblade,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 607,Cragblade,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-607,Cragblade,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-607,Cragblade,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-607,Cragblade,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-607,Cragblade,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-607,Cragblade,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 600,Determination,5041100,Antspur Rapier,Blood,Thrusting Sword,SwordPierce
 600,Determination,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 600,Determination,5040400,Antspur Rapier,Fire,Thrusting Sword,SwordPierce
@@ -21455,11 +21391,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 600,Determination,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 600,Determination,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 600,Determination,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-600,Determination,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-600,Determination,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-600,Determination,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-600,Determination,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-600,Determination,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 4160,Divine Beast Frost Stomp,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 4160,Divine Beast Frost Stomp,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 4160,Divine Beast Frost Stomp,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
@@ -22462,13 +22393,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 4160,Divine Beast Frost Stomp,4040800,Zweihander,Magic,Colossal Sword,SwordGigantic
 4160,Divine Beast Frost Stomp,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 4160,Divine Beast Frost Stomp,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-4160,Divine Beast Frost Stomp,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-4160,Divine Beast Frost Stomp,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-4160,Divine Beast Frost Stomp,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-4160,Divine Beast Frost Stomp,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-4160,Divine Beast Frost Stomp,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-4160,Divine Beast Frost Stomp,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-4160,Divine Beast Frost Stomp,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 112,Double Slash,7041100,Bandit's Curved Sword,Blood,Curved Sword,SaberNormal
 112,Double Slash,7040900,Bandit's Curved Sword,Cold,Curved Sword,SaberNormal
 112,Double Slash,7040400,Bandit's Curved Sword,Fire,Curved Sword,SaberNormal
@@ -23329,7 +23253,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 112,Double Slash,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 112,Double Slash,2050700,Weathered Straight Sword,Sacred,Straight Sword,SwordNormal
 112,Double Slash,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-112,Double Slash,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
 2000,Dryleaf Whirlwind,60511100,Dane's Footwork,Blood,Hand-to-Hand,HandToHand
 2000,Dryleaf Whirlwind,60510900,Dane's Footwork,Cold,Hand-to-Hand,HandToHand
 2000,Dryleaf Whirlwind,60510400,Dane's Footwork,Fire,Hand-to-Hand,HandToHand
@@ -23356,8 +23279,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 2000,Dryleaf Whirlwind,60500300,Dryleaf Arts,Quality,Hand-to-Hand,HandToHand
 2000,Dryleaf Whirlwind,60500700,Dryleaf Arts,Sacred,Hand-to-Hand,HandToHand
 2000,Dryleaf Whirlwind,60500000,Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-2000,Dryleaf Whirlwind,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-2000,Dryleaf Whirlwind,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
 212,Earthshaker,12021100,Battle Hammer,Blood,Great Hammer,HammerLarge
 212,Earthshaker,12020900,Battle Hammer,Cold,Great Hammer,HammerLarge
 212,Earthshaker,12020400,Battle Hammer,Fire,Great Hammer,HammerLarge
@@ -23789,7 +23710,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 212,Earthshaker,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 212,Earthshaker,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 212,Earthshaker,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-212,Earthshaker,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
 700,Endure,5041100,Antspur Rapier,Blood,Thrusting Sword,SwordPierce
 700,Endure,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 700,Endure,5040400,Antspur Rapier,Fire,Thrusting Sword,SwordPierce
@@ -25954,13 +25874,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 700,Endure,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 700,Endure,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 700,Endure,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-700,Endure,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-700,Endure,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-700,Endure,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-700,Endure,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-700,Endure,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-700,Endure,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-700,Endure,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 207,Eruption,3080400,Banished Knight's Greatsword,Fire,Greatsword,SwordLarge
 207,Eruption,3080500,Banished Knight's Greatsword,Flame Art,Greatsword,SwordLarge
 207,Eruption,3080100,Banished Knight's Greatsword,Heavy,Greatsword,SwordLarge
@@ -26269,9 +26182,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 207,Eruption,4040200,Zweihander,Keen,Colossal Sword,SwordGigantic
 207,Eruption,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 207,Eruption,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-207,Eruption,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-207,Eruption,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-207,Eruption,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
 223,Firebreather,31040900,Albinauric Shield,Cold,Medium Shield,ShieldNormal
 223,Firebreather,31040400,Albinauric Shield,Fire,Medium Shield,ShieldNormal
 223,Firebreather,31040500,Albinauric Shield,Flame Art,Medium Shield,ShieldNormal
@@ -28678,10 +28588,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 223,Firebreather,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 223,Firebreather,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 223,Firebreather,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-223,Firebreather,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-223,Firebreather,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-223,Firebreather,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-223,Firebreather,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 4140,Flame Skewer,5040400,Antspur Rapier,Fire,Thrusting Sword,SwordPierce
 4140,Flame Skewer,5040500,Antspur Rapier,Flame Art,Thrusting Sword,SwordPierce
 4140,Flame Skewer,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
@@ -29092,8 +28998,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 4140,Flame Skewer,4040200,Zweihander,Keen,Colossal Sword,SwordGigantic
 4140,Flame Skewer,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 4140,Flame Skewer,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-4140,Flame Skewer,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-4140,Flame Skewer,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 4170,Flame Spear,5040400,Antspur Rapier,Fire,Thrusting Sword,SwordPierce
 4170,Flame Spear,5040500,Antspur Rapier,Flame Art,Thrusting Sword,SwordPierce
 4170,Flame Spear,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
@@ -29564,8 +29468,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 4170,Flame Spear,4040200,Zweihander,Keen,Colossal Sword,SwordGigantic
 4170,Flame Spear,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 4170,Flame Spear,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-4170,Flame Spear,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-4170,Flame Spear,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 505,Flame of the Redmanes,5040400,Antspur Rapier,Fire,Thrusting Sword,SwordPierce
 505,Flame of the Redmanes,5040500,Antspur Rapier,Flame Art,Thrusting Sword,SwordPierce
 505,Flame of the Redmanes,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
@@ -30568,13 +30470,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 505,Flame of the Redmanes,4040200,Zweihander,Keen,Colossal Sword,SwordGigantic
 505,Flame of the Redmanes,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 505,Flame of the Redmanes,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-505,Flame of the Redmanes,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-505,Flame of the Redmanes,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-505,Flame of the Redmanes,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-505,Flame of the Redmanes,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-505,Flame of the Redmanes,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-505,Flame of the Redmanes,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-505,Flame of the Redmanes,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 214,Flaming Strike,5040400,Antspur Rapier,Fire,Thrusting Sword,SwordPierce
 214,Flaming Strike,5040500,Antspur Rapier,Flame Art,Thrusting Sword,SwordPierce
 214,Flaming Strike,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
@@ -31469,11 +31364,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 214,Flaming Strike,2050200,Weathered Straight Sword,Keen,Straight Sword,SwordNormal
 214,Flaming Strike,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 214,Flaming Strike,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-214,Flaming Strike,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-214,Flaming Strike,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-214,Flaming Strike,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-214,Flaming Strike,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-214,Flaming Strike,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 4220,Ghostflame Call,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 4220,Ghostflame Call,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 4220,Ghostflame Call,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
@@ -31937,9 +31827,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 4220,Ghostflame Call,4040800,Zweihander,Magic,Colossal Sword,SwordGigantic
 4220,Ghostflame Call,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 4220,Ghostflame Call,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-4220,Ghostflame Call,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-4220,Ghostflame Call,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-4220,Ghostflame Call,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 116,Giant Hunt,3081100,Banished Knight's Greatsword,Blood,Greatsword,SwordLarge
 116,Giant Hunt,3080900,Banished Knight's Greatsword,Cold,Greatsword,SwordLarge
 116,Giant Hunt,3080400,Banished Knight's Greatsword,Fire,Greatsword,SwordLarge
@@ -32605,7 +32492,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 116,Giant Hunt,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 116,Giant Hunt,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 116,Giant Hunt,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-116,Giant Hunt,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
 200,Glintblade Phalanx,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 200,Glintblade Phalanx,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 200,Glintblade Phalanx,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
@@ -33148,9 +33034,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 200,Glintblade Phalanx,2050800,Weathered Straight Sword,Magic,Straight Sword,SwordNormal
 200,Glintblade Phalanx,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 200,Glintblade Phalanx,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-200,Glintblade Phalanx,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-200,Glintblade Phalanx,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-200,Glintblade Phalanx,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 203,Glintstone Pebble,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 203,Glintstone Pebble,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 203,Glintstone Pebble,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
@@ -33693,9 +33576,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 203,Glintstone Pebble,2050800,Weathered Straight Sword,Magic,Straight Sword,SwordNormal
 203,Glintstone Pebble,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 203,Glintstone Pebble,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-203,Glintstone Pebble,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-203,Glintstone Pebble,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-203,Glintstone Pebble,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 213,Golden Land,12020100,Battle Hammer,Heavy,Great Hammer,HammerLarge
 213,Golden Land,12020200,Battle Hammer,Keen,Great Hammer,HammerLarge
 213,Golden Land,12020600,Battle Hammer,Lightning,Great Hammer,HammerLarge
@@ -33896,7 +33776,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 213,Golden Land,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 213,Golden Land,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 213,Golden Land,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-213,Golden Land,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
 307,Golden Parry,31040100,Albinauric Shield,Heavy,Medium Shield,ShieldNormal
 307,Golden Parry,31040200,Albinauric Shield,Keen,Medium Shield,ShieldNormal
 307,Golden Parry,31040600,Albinauric Shield,Lightning,Medium Shield,ShieldNormal
@@ -35163,13 +35042,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 507,Golden Slam,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 507,Golden Slam,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 507,Golden Slam,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-507,Golden Slam,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-507,Golden Slam,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-507,Golden Slam,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-507,Golden Slam,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-507,Golden Slam,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-507,Golden Slam,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-507,Golden Slam,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 603,Golden Vow,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 603,Golden Vow,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
 603,Golden Vow,5040600,Antspur Rapier,Lightning,Thrusting Sword,SwordPierce
@@ -36172,13 +36044,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 603,Golden Vow,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 603,Golden Vow,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 603,Golden Vow,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-603,Golden Vow,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-603,Golden Vow,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-603,Golden Vow,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-603,Golden Vow,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-603,Golden Vow,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-603,Golden Vow,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-603,Golden Vow,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 209,Gravitas,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 209,Gravitas,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 209,Gravitas,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
@@ -37007,10 +36872,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 209,Gravitas,4040800,Zweihander,Magic,Colossal Sword,SwordGigantic
 209,Gravitas,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 209,Gravitas,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-209,Gravitas,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-209,Gravitas,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-209,Gravitas,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-209,Gravitas,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 506,Ground Slam,5041100,Antspur Rapier,Blood,Thrusting Sword,SwordPierce
 506,Ground Slam,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 506,Ground Slam,5040400,Antspur Rapier,Fire,Thrusting Sword,SwordPierce
@@ -39175,13 +39036,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 506,Ground Slam,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 506,Ground Slam,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 506,Ground Slam,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-506,Ground Slam,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-506,Ground Slam,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-506,Ground Slam,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-506,Ground Slam,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-506,Ground Slam,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-506,Ground Slam,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-506,Ground Slam,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 509,Hoarah Loux's Earthshaker,5041100,Antspur Rapier,Blood,Thrusting Sword,SwordPierce
 509,Hoarah Loux's Earthshaker,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 509,Hoarah Loux's Earthshaker,5040400,Antspur Rapier,Fire,Thrusting Sword,SwordPierce
@@ -41346,13 +41200,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 509,Hoarah Loux's Earthshaker,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 509,Hoarah Loux's Earthshaker,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 509,Hoarah Loux's Earthshaker,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-509,Hoarah Loux's Earthshaker,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-509,Hoarah Loux's Earthshaker,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-509,Hoarah Loux's Earthshaker,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-509,Hoarah Loux's Earthshaker,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-509,Hoarah Loux's Earthshaker,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-509,Hoarah Loux's Earthshaker,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-509,Hoarah Loux's Earthshaker,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 501,Hoarfrost Stomp,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 501,Hoarfrost Stomp,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 501,Hoarfrost Stomp,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
@@ -42355,13 +42202,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 501,Hoarfrost Stomp,4040800,Zweihander,Magic,Colossal Sword,SwordGigantic
 501,Hoarfrost Stomp,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 501,Hoarfrost Stomp,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-501,Hoarfrost Stomp,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-501,Hoarfrost Stomp,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-501,Hoarfrost Stomp,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-501,Hoarfrost Stomp,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-501,Hoarfrost Stomp,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-501,Hoarfrost Stomp,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-501,Hoarfrost Stomp,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 702,Holy Ground,31040100,Albinauric Shield,Heavy,Medium Shield,ShieldNormal
 702,Holy Ground,31040200,Albinauric Shield,Keen,Medium Shield,ShieldNormal
 702,Holy Ground,31040600,Albinauric Shield,Lightning,Medium Shield,ShieldNormal
@@ -43940,8 +43780,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 101,Impaling Thrust,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 101,Impaling Thrust,2050700,Weathered Straight Sword,Sacred,Straight Sword,SwordNormal
 101,Impaling Thrust,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-101,Impaling Thrust,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-101,Impaling Thrust,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 503,Kick,5041100,Antspur Rapier,Blood,Thrusting Sword,SwordPierce
 503,Kick,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 503,Kick,5040400,Antspur Rapier,Fire,Thrusting Sword,SwordPierce
@@ -46106,13 +45944,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 503,Kick,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 503,Kick,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 503,Kick,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-503,Kick,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-503,Kick,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-503,Kick,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-503,Kick,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-503,Kick,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-503,Kick,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-503,Kick,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 205,Lifesteal Fist,68501100,Beast Claw,Blood,Beast Claw,BeastClaw
 205,Lifesteal Fist,68500100,Beast Claw,Heavy,Beast Claw,BeastClaw
 205,Lifesteal Fist,68500200,Beast Claw,Keen,Beast Claw,BeastClaw
@@ -46211,9 +46042,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 205,Lifesteal Fist,22011000,Venomous Fang,Poison,Claw,Claw
 205,Lifesteal Fist,22010300,Venomous Fang,Quality,Claw,Claw
 205,Lifesteal Fist,22010000,Venomous Fang,Standard,Claw,Claw
-205,Lifesteal Fist,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-205,Lifesteal Fist,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-205,Lifesteal Fist,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
 504,Lightning Ram,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 504,Lightning Ram,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
 504,Lightning Ram,5040600,Antspur Rapier,Lightning,Thrusting Sword,SwordPierce
@@ -47216,13 +47044,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 504,Lightning Ram,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 504,Lightning Ram,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 504,Lightning Ram,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-504,Lightning Ram,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-504,Lightning Ram,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-504,Lightning Ram,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-504,Lightning Ram,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-504,Lightning Ram,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-504,Lightning Ram,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-504,Lightning Ram,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 217,Lightning Slash,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 217,Lightning Slash,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
 217,Lightning Slash,5040600,Antspur Rapier,Lightning,Thrusting Sword,SwordPierce
@@ -47930,10 +47751,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 217,Lightning Slash,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 217,Lightning Slash,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 217,Lightning Slash,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-217,Lightning Slash,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-217,Lightning Slash,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-217,Lightning Slash,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-217,Lightning Slash,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 100,Lion's Claw,7041100,Bandit's Curved Sword,Blood,Curved Sword,SaberNormal
 100,Lion's Claw,7040900,Bandit's Curved Sword,Cold,Curved Sword,SaberNormal
 100,Lion's Claw,7040400,Bandit's Curved Sword,Fire,Curved Sword,SaberNormal
@@ -49200,8 +49017,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 100,Lion's Claw,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 100,Lion's Claw,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 100,Lion's Claw,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-100,Lion's Claw,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-100,Lion's Claw,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
 118,Loretta's Slash,18030900,Banished Knight's Halberd,Cold,Halberd,SpearAxe
 118,Loretta's Slash,18030100,Banished Knight's Halberd,Heavy,Halberd,SpearAxe
 118,Loretta's Slash,18030200,Banished Knight's Halberd,Keen,Halberd,SpearAxe
@@ -50263,8 +50078,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 4010,Palm Blast,60500300,Dryleaf Arts,Quality,Hand-to-Hand,HandToHand
 4010,Palm Blast,60500700,Dryleaf Arts,Sacred,Hand-to-Hand,HandToHand
 4010,Palm Blast,60500000,Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-4010,Palm Blast,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-4010,Palm Blast,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
 302,Parry,31041100,Albinauric Shield,Blood,Medium Shield,ShieldNormal
 302,Parry,31040900,Albinauric Shield,Cold,Medium Shield,ShieldNormal
 302,Parry,31040400,Albinauric Shield,Fire,Medium Shield,ShieldNormal
@@ -51344,7 +51157,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 302,Parry,31510300,Wolf Crest Shield,Quality,Medium Shield,ShieldNormal
 302,Parry,31510700,Wolf Crest Shield,Sacred,Medium Shield,ShieldNormal
 302,Parry,31510000,Wolf Crest Shield,Standard,Medium Shield,ShieldNormal
-302,Parry,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 225,Phantom Slash,18031100,Banished Knight's Halberd,Blood,Halberd,SpearAxe
 225,Phantom Slash,18030900,Banished Knight's Halberd,Cold,Halberd,SpearAxe
 225,Phantom Slash,18030400,Banished Knight's Halberd,Fire,Halberd,SpearAxe
@@ -52545,8 +52357,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 102,Piercing Fang,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 102,Piercing Fang,2050700,Weathered Straight Sword,Sacred,Straight Sword,SwordNormal
 102,Piercing Fang,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-102,Piercing Fang,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-102,Piercing Fang,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 4020,Piercing Throw,63501100,Smithscript Dagger,Blood,Throwing Blade,ThrowingWeapon
 4020,Piercing Throw,63500900,Smithscript Dagger,Cold,Throwing Blade,ThrowingWeapon
 4020,Piercing Throw,63500400,Smithscript Dagger,Fire,Throwing Blade,ThrowingWeapon
@@ -52847,7 +52657,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 119,Poison Moth Flight,2051000,Weathered Straight Sword,Poison,Straight Sword,SwordNormal
 119,Poison Moth Flight,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 119,Poison Moth Flight,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-119,Poison Moth Flight,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 228,Poisonous Mist,5041100,Antspur Rapier,Blood,Thrusting Sword,SwordPierce
 228,Poisonous Mist,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 228,Poisonous Mist,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
@@ -53869,10 +53678,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 228,Poisonous Mist,4041000,Zweihander,Poison,Colossal Sword,SwordGigantic
 228,Poisonous Mist,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 228,Poisonous Mist,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-228,Poisonous Mist,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-228,Poisonous Mist,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-228,Poisonous Mist,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-228,Poisonous Mist,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 208,Prayerful Strike,14000100,Battle Axe,Heavy,Axe,AxeNormal
 208,Prayerful Strike,14000200,Battle Axe,Keen,Axe,AxeNormal
 208,Prayerful Strike,14000600,Battle Axe,Lightning,Axe,AxeNormal
@@ -54171,7 +53976,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 208,Prayerful Strike,11040300,Warpick,Quality,Hammer,HammerNormal
 208,Prayerful Strike,11040700,Warpick,Sacred,Hammer,HammerNormal
 208,Prayerful Strike,11040000,Warpick,Standard,Hammer,HammerNormal
-208,Prayerful Strike,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
 113,Prelate's Charge,12020400,Battle Hammer,Fire,Great Hammer,HammerLarge
 113,Prelate's Charge,12020500,Battle Hammer,Flame Art,Great Hammer,HammerLarge
 113,Prelate's Charge,12020100,Battle Hammer,Heavy,Great Hammer,HammerLarge
@@ -54330,7 +54134,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 113,Prelate's Charge,12500200,Smithscript Greathammer,Keen,Great Hammer,HammerLarge
 113,Prelate's Charge,12500300,Smithscript Greathammer,Quality,Great Hammer,HammerLarge
 113,Prelate's Charge,12500000,Smithscript Greathammer,Standard,Great Hammer,HammerLarge
-113,Prelate's Charge,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
 800,Quickstep,5041100,Antspur Rapier,Blood,Thrusting Sword,SwordPierce
 800,Quickstep,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 800,Quickstep,5040400,Antspur Rapier,Fire,Thrusting Sword,SwordPierce
@@ -56495,13 +56298,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 800,Quickstep,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 800,Quickstep,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 800,Quickstep,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-800,Quickstep,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-800,Quickstep,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-800,Quickstep,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-800,Quickstep,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-800,Quickstep,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-800,Quickstep,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-800,Quickstep,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 4060,Raging Beast,68501100,Beast Claw,Blood,Beast Claw,BeastClaw
 4060,Raging Beast,68500900,Beast Claw,Cold,Beast Claw,BeastClaw
 4060,Raging Beast,68500400,Beast Claw,Fire,Beast Claw,BeastClaw
@@ -56515,7 +56311,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 4060,Raging Beast,68500300,Beast Claw,Quality,Beast Claw,BeastClaw
 4060,Raging Beast,68500700,Beast Claw,Sacred,Beast Claw,BeastClaw
 4060,Raging Beast,68500000,Beast Claw,Standard,Beast Claw,BeastClaw
-4060,Raging Beast,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
 802,Raptor of the Mists,5041100,Antspur Rapier,Blood,Thrusting Sword,SwordPierce
 802,Raptor of the Mists,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 802,Raptor of the Mists,5040400,Antspur Rapier,Fire,Thrusting Sword,SwordPierce
@@ -58680,13 +58475,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 802,Raptor of the Mists,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 802,Raptor of the Mists,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 802,Raptor of the Mists,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-802,Raptor of the Mists,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-802,Raptor of the Mists,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-802,Raptor of the Mists,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-802,Raptor of the Mists,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-802,Raptor of the Mists,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-802,Raptor of the Mists,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-802,Raptor of the Mists,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 109,Repeating Thrust,5041100,Antspur Rapier,Blood,Thrusting Sword,SwordPierce
 109,Repeating Thrust,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 109,Repeating Thrust,5040400,Antspur Rapier,Fire,Thrusting Sword,SwordPierce
@@ -59651,8 +59439,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 109,Repeating Thrust,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 109,Repeating Thrust,2050700,Weathered Straight Sword,Sacred,Straight Sword,SwordNormal
 109,Repeating Thrust,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-109,Repeating Thrust,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-109,Repeating Thrust,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 601,Royal Knight's Resolve,5041100,Antspur Rapier,Blood,Thrusting Sword,SwordPierce
 601,Royal Knight's Resolve,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 601,Royal Knight's Resolve,5040400,Antspur Rapier,Fire,Thrusting Sword,SwordPierce
@@ -61778,11 +61564,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 601,Royal Knight's Resolve,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 601,Royal Knight's Resolve,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 601,Royal Knight's Resolve,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-601,Royal Knight's Resolve,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-601,Royal Knight's Resolve,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-601,Royal Knight's Resolve,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-601,Royal Knight's Resolve,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-601,Royal Knight's Resolve,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 201,Sacred Blade,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 201,Sacred Blade,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
 201,Sacred Blade,5040600,Antspur Rapier,Lightning,Thrusting Sword,SwordPierce
@@ -62659,10 +62440,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 201,Sacred Blade,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 201,Sacred Blade,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 201,Sacred Blade,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-201,Sacred Blade,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-201,Sacred Blade,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-201,Sacred Blade,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-201,Sacred Blade,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 604,Sacred Order,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 604,Sacred Order,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
 604,Sacred Order,5040600,Antspur Rapier,Lightning,Thrusting Sword,SwordPierce
@@ -63647,11 +63424,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 604,Sacred Order,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 604,Sacred Order,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 604,Sacred Order,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-604,Sacred Order,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-604,Sacred Order,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-604,Sacred Order,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-604,Sacred Order,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-604,Sacred Order,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 222,Sacred Ring of Light,18030100,Banished Knight's Halberd,Heavy,Halberd,SpearAxe
 222,Sacred Ring of Light,18030200,Banished Knight's Halberd,Keen,Halberd,SpearAxe
 222,Sacred Ring of Light,18030600,Banished Knight's Halberd,Lightning,Halberd,SpearAxe
@@ -63810,7 +63582,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 4070,Savage Claws,68500300,Beast Claw,Quality,Beast Claw,BeastClaw
 4070,Savage Claws,68500700,Beast Claw,Sacred,Beast Claw,BeastClaw
 4070,Savage Claws,68500000,Beast Claw,Standard,Beast Claw,BeastClaw
-4070,Savage Claws,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
 4150,Savage Lion's Claw,7041100,Bandit's Curved Sword,Blood,Curved Sword,SaberNormal
 4150,Savage Lion's Claw,7040900,Bandit's Curved Sword,Cold,Curved Sword,SaberNormal
 4150,Savage Lion's Claw,7040400,Bandit's Curved Sword,Fire,Curved Sword,SaberNormal
@@ -65077,8 +64848,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 4150,Savage Lion's Claw,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 4150,Savage Lion's Claw,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 4150,Savage Lion's Claw,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-4150,Savage Lion's Claw,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-4150,Savage Lion's Claw,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
 4030,Scattershot Throw,63501100,Smithscript Dagger,Blood,Throwing Blade,ThrowingWeapon
 4030,Scattershot Throw,63500900,Smithscript Dagger,Cold,Throwing Blade,ThrowingWeapon
 4030,Scattershot Throw,63500400,Smithscript Dagger,Fire,Throwing Blade,ThrowingWeapon
@@ -65633,9 +65402,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 606,Seppuku,2051000,Weathered Straight Sword,Poison,Straight Sword,SwordNormal
 606,Seppuku,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 606,Seppuku,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-606,Seppuku,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-606,Seppuku,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-606,Seppuku,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 605,Shared Order,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 605,Shared Order,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
 605,Shared Order,5040600,Antspur Rapier,Lightning,Thrusting Sword,SwordPierce
@@ -66620,11 +66386,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 605,Shared Order,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 605,Shared Order,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 605,Shared Order,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-605,Shared Order,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-605,Shared Order,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-605,Shared Order,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-605,Shared Order,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-605,Shared Order,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 300,Shield Bash,31041100,Albinauric Shield,Blood,Medium Shield,ShieldNormal
 300,Shield Bash,31040900,Albinauric Shield,Cold,Medium Shield,ShieldNormal
 300,Shield Bash,31040400,Albinauric Shield,Fire,Medium Shield,ShieldNormal
@@ -70295,13 +70056,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 4190,Shriek of Sorrow,4041000,Zweihander,Poison,Colossal Sword,SwordGigantic
 4190,Shriek of Sorrow,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 4190,Shriek of Sorrow,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-4190,Shriek of Sorrow,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-4190,Shriek of Sorrow,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-4190,Shriek of Sorrow,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-4190,Shriek of Sorrow,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-4190,Shriek of Sorrow,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-4190,Shriek of Sorrow,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-4190,Shriek of Sorrow,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 226,Spectral Lance,18031100,Banished Knight's Halberd,Blood,Halberd,SpearAxe
 226,Spectral Lance,18030100,Banished Knight's Halberd,Heavy,Halberd,SpearAxe
 226,Spectral Lance,18030200,Banished Knight's Halberd,Keen,Halberd,SpearAxe
@@ -70796,8 +70550,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 4000,Spinning Gravity Thrust,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 4000,Spinning Gravity Thrust,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 4000,Spinning Gravity Thrust,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-4000,Spinning Gravity Thrust,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-4000,Spinning Gravity Thrust,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
 103,Spinning Slash,64501100,Backhand Blade,Blood,Reverse-hand Blade,ReverseHandSword
 103,Spinning Slash,64500900,Backhand Blade,Cold,Reverse-hand Blade,ReverseHandSword
 103,Spinning Slash,64500400,Backhand Blade,Fire,Reverse-hand Blade,ReverseHandSword
@@ -72117,8 +71869,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 103,Spinning Slash,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 103,Spinning Slash,2050700,Weathered Straight Sword,Sacred,Straight Sword,SwordNormal
 103,Spinning Slash,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-103,Spinning Slash,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-103,Spinning Slash,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
 111,Spinning Strikes,18031100,Banished Knight's Halberd,Blood,Halberd,SpearAxe
 111,Spinning Strikes,18030900,Banished Knight's Halberd,Cold,Halberd,SpearAxe
 111,Spinning Strikes,18030400,Banished Knight's Halberd,Fire,Halberd,SpearAxe
@@ -73012,7 +72762,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 120,Spinning Weapon,2050800,Weathered Straight Sword,Magic,Straight Sword,SwordNormal
 120,Spinning Weapon,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 120,Spinning Weapon,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-120,Spinning Weapon,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 115,Square Off,2021100,Broadsword,Blood,Straight Sword,SwordNormal
 115,Square Off,2020900,Broadsword,Cold,Straight Sword,SwordNormal
 115,Square Off,2020400,Broadsword,Fire,Straight Sword,SwordNormal
@@ -74083,9 +73832,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 107,Stamp (Sweep),4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 107,Stamp (Sweep),4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 107,Stamp (Sweep),4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-107,Stamp (Sweep),15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-107,Stamp (Sweep),8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-107,Stamp (Sweep),6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
 106,Stamp (Upward Cut),3081100,Banished Knight's Greatsword,Blood,Greatsword,SwordLarge
 106,Stamp (Upward Cut),3080900,Banished Knight's Greatsword,Cold,Greatsword,SwordLarge
 106,Stamp (Upward Cut),3080400,Banished Knight's Greatsword,Fire,Greatsword,SwordLarge
@@ -75052,9 +74798,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 106,Stamp (Upward Cut),4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 106,Stamp (Upward Cut),4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 106,Stamp (Upward Cut),4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-106,Stamp (Upward Cut),15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-106,Stamp (Upward Cut),8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-106,Stamp (Upward Cut),6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
 122,Storm Assault,18031100,Banished Knight's Halberd,Blood,Halberd,SpearAxe
 122,Storm Assault,18030900,Banished Knight's Halberd,Cold,Halberd,SpearAxe
 122,Storm Assault,18030400,Banished Knight's Halberd,Fire,Halberd,SpearAxe
@@ -75512,7 +75255,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 122,Storm Assault,18130300,Vulgar Militia Shotel,Quality,Halberd,SpearAxe
 122,Storm Assault,18130700,Vulgar Militia Shotel,Sacred,Halberd,SpearAxe
 122,Storm Assault,18130000,Vulgar Militia Shotel,Standard,Halberd,SpearAxe
-122,Storm Assault,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
 210,Storm Blade,5041100,Antspur Rapier,Blood,Thrusting Sword,SwordPierce
 210,Storm Blade,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 210,Storm Blade,5040400,Antspur Rapier,Fire,Thrusting Sword,SwordPierce
@@ -76280,9 +76022,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 210,Storm Blade,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 210,Storm Blade,2050700,Weathered Straight Sword,Sacred,Straight Sword,SwordNormal
 210,Storm Blade,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-210,Storm Blade,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-210,Storm Blade,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-210,Storm Blade,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 502,Storm Stomp,5041100,Antspur Rapier,Blood,Thrusting Sword,SwordPierce
 502,Storm Stomp,5040900,Antspur Rapier,Cold,Thrusting Sword,SwordPierce
 502,Storm Stomp,5040400,Antspur Rapier,Fire,Thrusting Sword,SwordPierce
@@ -78447,13 +78186,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 502,Storm Stomp,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 502,Storm Stomp,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 502,Storm Stomp,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-502,Storm Stomp,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-502,Storm Stomp,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-502,Storm Stomp,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-502,Storm Stomp,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-502,Storm Stomp,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-502,Storm Stomp,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-502,Storm Stomp,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 306,Storm Wall,31041100,Albinauric Shield,Blood,Medium Shield,ShieldNormal
 306,Storm Wall,31040900,Albinauric Shield,Cold,Medium Shield,ShieldNormal
 306,Storm Wall,31040400,Albinauric Shield,Fire,Medium Shield,ShieldNormal
@@ -80488,8 +80220,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 123,Stormcaller,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 123,Stormcaller,2050700,Weathered Straight Sword,Sacred,Straight Sword,SwordNormal
 123,Stormcaller,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-123,Stormcaller,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-123,Stormcaller,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
 4100,Swift Slash,64501100,Backhand Blade,Blood,Reverse-hand Blade,ReverseHandSword
 4100,Swift Slash,64500900,Backhand Blade,Cold,Reverse-hand Blade,ReverseHandSword
 4100,Swift Slash,64500400,Backhand Blade,Fire,Reverse-hand Blade,ReverseHandSword
@@ -81809,8 +81539,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 124,Sword Dance,2050300,Weathered Straight Sword,Quality,Straight Sword,SwordNormal
 124,Sword Dance,2050700,Weathered Straight Sword,Sacred,Straight Sword,SwordNormal
 124,Sword Dance,2050000,Weathered Straight Sword,Standard,Straight Sword,SwordNormal
-124,Sword Dance,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-124,Sword Dance,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
 5050,The Poison Flower Blooms Twice,5041100,Antspur Rapier,Blood,Thrusting Sword,SwordPierce
 5050,The Poison Flower Blooms Twice,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 5050,The Poison Flower Blooms Twice,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
@@ -82979,13 +82707,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 5050,The Poison Flower Blooms Twice,4041000,Zweihander,Poison,Colossal Sword,SwordGigantic
 5050,The Poison Flower Blooms Twice,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 5050,The Poison Flower Blooms Twice,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-5050,The Poison Flower Blooms Twice,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-5050,The Poison Flower Blooms Twice,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-5050,The Poison Flower Blooms Twice,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-5050,The Poison Flower Blooms Twice,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-5050,The Poison Flower Blooms Twice,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-5050,The Poison Flower Blooms Twice,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-5050,The Poison Flower Blooms Twice,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 309,Thops's Barrier,31040900,Albinauric Shield,Cold,Medium Shield,ShieldNormal
 309,Thops's Barrier,31040100,Albinauric Shield,Heavy,Medium Shield,ShieldNormal
 309,Thops's Barrier,31040200,Albinauric Shield,Keen,Medium Shield,ShieldNormal
@@ -84240,11 +83961,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 216,Thunderbolt,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 216,Thunderbolt,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 216,Thunderbolt,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-216,Thunderbolt,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-216,Thunderbolt,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-216,Thunderbolt,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-216,Thunderbolt,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-216,Thunderbolt,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 117,Torch Attack,31040900,Albinauric Shield,Cold,Medium Shield,ShieldNormal
 117,Torch Attack,31040400,Albinauric Shield,Fire,Medium Shield,ShieldNormal
 117,Torch Attack,31040500,Albinauric Shield,Flame Art,Medium Shield,ShieldNormal
@@ -86651,10 +86367,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 117,Torch Attack,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 117,Torch Attack,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 117,Torch Attack,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-117,Torch Attack,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-117,Torch Attack,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-117,Torch Attack,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-117,Torch Attack,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 653,Troll's Roar,3081100,Banished Knight's Greatsword,Blood,Greatsword,SwordLarge
 653,Troll's Roar,3080900,Banished Knight's Greatsword,Cold,Greatsword,SwordLarge
 653,Troll's Roar,3080400,Banished Knight's Greatsword,Fire,Greatsword,SwordLarge
@@ -87320,9 +87032,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 653,Troll's Roar,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 653,Troll's Roar,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 653,Troll's Roar,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-653,Troll's Roar,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-653,Troll's Roar,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-653,Troll's Roar,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
 114,Unsheathe,9011100,Nagakiba,Blood,Katana,katana
 114,Unsheathe,9010900,Nagakiba,Cold,Katana,katana
 114,Unsheathe,9010400,Nagakiba,Fire,Katana,katana
@@ -88498,10 +88207,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 220,Vacuum Slice,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 220,Vacuum Slice,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 220,Vacuum Slice,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-220,Vacuum Slice,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-220,Vacuum Slice,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-220,Vacuum Slice,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-220,Vacuum Slice,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 701,Vow of the Indomitable,31040100,Albinauric Shield,Heavy,Medium Shield,ShieldNormal
 701,Vow of the Indomitable,31040200,Albinauric Shield,Keen,Medium Shield,ShieldNormal
 701,Vow of the Indomitable,31040600,Albinauric Shield,Lightning,Medium Shield,ShieldNormal
@@ -90675,11 +90380,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 651,War Cry,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 651,War Cry,4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic
 651,War Cry,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-651,War Cry,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-651,War Cry,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-651,War Cry,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-651,War Cry,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-651,War Cry,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
 508,Waves of Darkness,12020900,Battle Hammer,Cold,Great Hammer,HammerLarge
 508,Waves of Darkness,12020100,Battle Hammer,Heavy,Great Hammer,HammerLarge
 508,Waves of Darkness,12020200,Battle Hammer,Keen,Great Hammer,HammerLarge
@@ -90880,7 +90580,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 508,Waves of Darkness,4040800,Zweihander,Magic,Colossal Sword,SwordGigantic
 508,Waves of Darkness,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 508,Waves of Darkness,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-508,Waves of Darkness,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
 850,White Shadow's Lure,5041100,Antspur Rapier,Blood,Thrusting Sword,SwordPierce
 850,White Shadow's Lure,5040100,Antspur Rapier,Heavy,Thrusting Sword,SwordPierce
 850,White Shadow's Lure,5040200,Antspur Rapier,Keen,Thrusting Sword,SwordPierce
@@ -92049,13 +91748,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 850,White Shadow's Lure,4041000,Zweihander,Poison,Colossal Sword,SwordGigantic
 850,White Shadow's Lure,4040300,Zweihander,Quality,Colossal Sword,SwordGigantic
 850,White Shadow's Lure,4040000,Zweihander,Standard,Colossal Sword,SwordGigantic
-850,White Shadow's Lure,68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw
-850,White Shadow's Lure,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-850,White Shadow's Lure,60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand
-850,White Shadow's Lure,60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand
-850,White Shadow's Lure,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
-850,White Shadow's Lure,6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy
-850,White Shadow's Lure,5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce
 110,Wild Strikes,7041100,Bandit's Curved Sword,Blood,Curved Sword,SaberNormal
 110,Wild Strikes,7040900,Bandit's Curved Sword,Cold,Curved Sword,SaberNormal
 110,Wild Strikes,7040400,Bandit's Curved Sword,Fire,Curved Sword,SaberNormal
@@ -92970,8 +92662,6 @@ aow_id,aow_name,weapon_id,weapon_name,affinity,weapon_type_name,weapon_type_keys
 110,Wild Strikes,11040300,Warpick,Quality,Hammer,HammerNormal
 110,Wild Strikes,11040700,Warpick,Sacred,Hammer,HammerNormal
 110,Wild Strikes,11040000,Warpick,Standard,Hammer,HammerNormal
-110,Wild Strikes,15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge
-110,Wild Strikes,8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge
 4120,Wing Stance,67501100,Milady,Blood,Light Greatsword,LightGreatsword
 4120,Wing Stance,67500900,Milady,Cold,Light Greatsword,LightGreatsword
 4120,Wing Stance,67500400,Milady,Fire,Light Greatsword,LightGreatsword
