@@ -12,11 +12,17 @@ if (!executable || !existsSync(executable)) {
 }
 
 const startupAttempts = positiveIntegerFromEnv("PACKAGED_SMOKE_START_ATTEMPTS", 2);
-const startupTimeoutMs = positiveIntegerFromEnv("PACKAGED_SMOKE_STARTUP_TIMEOUT_MS", 60_000);
+const startupTimeoutMs = positiveIntegerFromEnv("PACKAGED_SMOKE_STARTUP_TIMEOUT_MS", 120_000);
+const retryCooldownMs = positiveIntegerFromEnv("PACKAGED_SMOKE_RETRY_COOLDOWN_MS", 5_000);
 
 let session;
 try {
-  session = await launchPackagedApp(executable, startupAttempts, startupTimeoutMs);
+  session = await launchPackagedApp(
+    executable,
+    startupAttempts,
+    startupTimeoutMs,
+    retryCooldownMs,
+  );
   const { page } = session;
   page.setDefaultTimeout(30_000);
 
@@ -66,7 +72,7 @@ try {
   await stopSession(session);
 }
 
-async function launchPackagedApp(executablePath, attempts, timeoutMs) {
+async function launchPackagedApp(executablePath, attempts, timeoutMs, cooldownMs) {
   const failures = [];
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     const profileDirectory = await mkdtemp(join(tmpdir(), "tarnisheds-arsenal-smoke-"));
@@ -91,6 +97,9 @@ async function launchPackagedApp(executablePath, attempts, timeoutMs) {
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
     });
+    process.stdout.write(
+      `PACKAGED_SMOKE_START attempt=${attempt}/${attempts} pid=${child.pid ?? "unknown"} port=${port} timeoutMs=${timeoutMs}\n`,
+    );
     child.stdout.on("data", (chunk) => { output += chunk.toString(); });
     child.stderr.on("data", (chunk) => { output += chunk.toString(); });
     child.once("exit", (code, signal) => { exit = { code, signal }; });
@@ -120,6 +129,10 @@ async function launchPackagedApp(executablePath, attempts, timeoutMs) {
         + (captured ? `\n${captured.slice(-2000)}` : ""),
       );
       await stopSession(candidate);
+      if (attempt < attempts) {
+        process.stdout.write(`PACKAGED_SMOKE_RETRY cooldownMs=${cooldownMs}\n`);
+        await new Promise((resolve) => setTimeout(resolve, cooldownMs));
+      }
     }
   }
   throw new Error(`packaged WebView2 startup failed after ${attempts} attempts:\n${failures.join("\n")}`);
