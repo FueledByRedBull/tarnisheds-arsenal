@@ -43,15 +43,20 @@ upgrade policy, assumptions, dataset version, and model version.
 Get the latest Windows build from [Releases](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
 
 - `TarnishedsArsenal_<version>_x64_en-US.msi` is the normal installer.
-- `TarnishedsArsenal_<version>_portable.exe` is the self-contained standalone app.
+- `TarnishedsArsenal_<version>_portable.exe` is the standalone app and needs no
+  adjacent game-data files.
 - `TarnishedsArsenal_<version>.zip` bundles the complete release folder for archival
   or offline transfer.
 
-Both artifacts contain checksummed Vanilla 1.16.1 and The Convergence 3.0.0.1
-runtime profiles. Switch profiles from the always-visible control above the
-workspace; searches, caches, results, exports, and saved builds remain isolated by
-profile. The standalone app does not need an adjacent data directory,
-`regulation.bin`, workbook, FMG file, or other support files.
+The app uses Microsoft Edge WebView2. The MSI downloads its bootstrapper if the
+runtime is missing; the portable executable expects WebView2 to already be installed
+(as it normally is on current Windows 10 and Windows 11 systems).
+
+The installer and portable executable both contain checksummed Vanilla 1.16.1 and
+The Convergence 3.0.0.1 runtime profiles. Switch profiles from the always-visible
+control above the workspace; searches, caches, results, exports, and saved builds
+remain isolated by profile. The standalone app does not need an adjacent data
+directory, `regulation.bin`, workbook, FMG file, or other support files.
 Each release also publishes SHA-256 checksums and a machine-readable build report.
 
 Convergence weapon AR, status buildup, passives, affinities, and AoW compatibility
@@ -81,7 +86,7 @@ Most calculators are built around one exact weapon line. This app is built for o
 - Which stat path reaches the selected target most efficiently?
 - Which affinity wins if weapon, AoW, class, and level budget stay fixed?
 - What happens when the same build is evaluated at every upgrade level?
-- How does Shadow Realm Scadutree scaling change outgoing damage?
+- In Vanilla, how does Shadow Realm Scadutree scaling change outgoing damage?
 
 ## Workspaces
 
@@ -96,7 +101,7 @@ Every workspace reads from the same active session, so the app does not drift in
 
 ## Interface
 
-The v0.8.0 desktop interface uses one consistent selection model: click any
+The current desktop interface uses one consistent selection model: click any
 podium card or ranking row to make it the active build, then use the always-visible
 Build Detail panel for full combat stats, AR split, route damage, status, stamina,
 warnings, and one-click Compare, Paths, and Affinity Watch actions. Lock remains a
@@ -133,6 +138,10 @@ Supported objectives:
 - `Bleed, then AR`
 - `AoW First Hit (PvE)`
 - `AoW Full Sequence (PvE)`
+
+AoW damage objectives are enabled only when the active profile declares verified
+hit and route coverage. They are currently available for Vanilla and unavailable
+for the Convergence beta profile.
 
 AoW objectives evaluate one legal route at a time. Inspector and Compare expose
 the selected route's ordered actions/hits, damage, status buildup, physical hit
@@ -284,6 +293,6 @@ index.
 
 ## License
 
-Code is MIT-licensed in `LICENSE`.
+Code is available under the [MIT License](LICENSE).
 
 Elden Ring IP belongs to FromSoftware / Bandai Namco. This is fan-made tooling and does not ship the game itself.
