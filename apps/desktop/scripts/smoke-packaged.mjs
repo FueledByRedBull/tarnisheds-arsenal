@@ -12,7 +12,7 @@ if (!executable || !existsSync(executable)) {
 }
 
 const startupAttempts = positiveIntegerFromEnv("PACKAGED_SMOKE_START_ATTEMPTS", 2);
-const startupTimeoutMs = positiveIntegerFromEnv("PACKAGED_SMOKE_STARTUP_TIMEOUT_MS", 120_000);
+const startupTimeoutMs = positiveIntegerFromEnv("PACKAGED_SMOKE_STARTUP_TIMEOUT_MS", 90_000);
 const retryCooldownMs = positiveIntegerFromEnv("PACKAGED_SMOKE_RETRY_COOLDOWN_MS", 5_000);
 
 let session;
@@ -81,17 +81,9 @@ async function launchPackagedApp(executablePath, attempts, timeoutMs, cooldownMs
     let output = "";
     let exit = null;
     let browser;
-    const browserArguments = [
-      process.env.WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS,
-      `--remote-debugging-port=${port}`,
-      "--remote-debugging-address=127.0.0.1",
-      "--disable-gpu",
-      "--no-first-run",
-    ].filter(Boolean).join(" ");
-    const child = spawn(executablePath, [], {
+    const child = spawn(executablePath, [`--packaged-smoke-port=${port}`], {
       env: {
         ...process.env,
-        WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: browserArguments,
         WEBVIEW2_USER_DATA_FOLDER: profileDirectory,
       },
       stdio: ["ignore", "pipe", "pipe"],

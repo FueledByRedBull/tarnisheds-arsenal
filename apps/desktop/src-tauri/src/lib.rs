@@ -120,6 +120,17 @@ impl AppState {
 }
 
 pub fn run() {
+    let mut context = tauri::generate_context!();
+    #[cfg(target_os = "windows")]
+    if let Some(port) = packaged_smoke_port(std::env::args())
+        .unwrap_or_else(|message| panic!("invalid packaged smoke configuration: {message}"))
+    {
+        let browser_args = packaged_smoke_browser_args(port);
+        for window in &mut context.config_mut().app.windows {
+            window.additional_browser_args = Some(browser_args.clone());
+        }
+    }
+
     tauri::Builder::default()
         .setup(|app| {
             let profiles = load_desktop_profiles(app)?;
@@ -158,8 +169,38 @@ pub fn run() {
             commands::affinity_watch::cancel_affinity_watch,
             commands::affinity_watch::get_affinity_watch_status,
         ])
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("error while running Tauri app");
+}
+
+#[cfg(target_os = "windows")]
+fn packaged_smoke_port(args: impl IntoIterator<Item = String>) -> Result<Option<u16>, String> {
+    let mut port = None;
+    for argument in args {
+        let Some(raw_port) = argument.strip_prefix("--packaged-smoke-port=") else {
+            continue;
+        };
+        if port.is_some() {
+            return Err("--packaged-smoke-port may only be provided once".to_string());
+        }
+        let parsed = raw_port
+            .parse::<u16>()
+            .map_err(|_| "--packaged-smoke-port must be an integer from 1 to 65535".to_string())?;
+        if parsed == 0 {
+            return Err("--packaged-smoke-port must be an integer from 1 to 65535".to_string());
+        }
+        port = Some(parsed);
+    }
+    Ok(port)
+}
+
+#[cfg(target_os = "windows")]
+fn packaged_smoke_browser_args(port: u16) -> String {
+    format!(
+        "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection \
+         --remote-debugging-port={port} --remote-debugging-address=127.0.0.1 \
+         --disable-gpu --no-first-run"
+    )
 }
 
 fn load_desktop_profiles(
@@ -314,6 +355,47 @@ pub(crate) fn test_optimize_request() -> dto::OptimizeRequestDto {
 
 #[cfg(test)]
 mod release_data_tests {
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn packaged_smoke_port_is_explicit_and_validated() {
+        assert_eq!(
+            super::packaged_smoke_port(["app.exe".to_string()]).unwrap(),
+            None
+        );
+        assert_eq!(
+            super::packaged_smoke_port([
+                "app.exe".to_string(),
+                "--packaged-smoke-port=43117".to_string(),
+            ])
+            .unwrap(),
+            Some(43_117)
+        );
+        assert!(
+            super::packaged_smoke_port([
+                "app.exe".to_string(),
+                "--packaged-smoke-port=0".to_string(),
+            ])
+            .is_err()
+        );
+        assert!(
+            super::packaged_smoke_port([
+                "app.exe".to_string(),
+                "--packaged-smoke-port=43117".to_string(),
+                "--packaged-smoke-port=43118".to_string(),
+            ])
+            .is_err()
+        );
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn packaged_smoke_browser_args_preserve_runtime_defaults() {
+        let args = super::packaged_smoke_browser_args(43_117);
+        assert!(args.contains("--remote-debugging-port=43117"));
+        assert!(args.contains("--remote-debugging-address=127.0.0.1"));
+        assert!(args.contains("msSmartScreenProtection"));
+    }
+
     #[test]
     fn standalone_release_profiles_and_manifests_are_complete() {
         for profile_id in [
