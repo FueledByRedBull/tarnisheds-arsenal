@@ -45,12 +45,20 @@ the page itself does not scroll horizontally.
 
 ## Data Model
 
-Runtime data is committed under `data/phase1` as one manifest-bound snapshot
-generated from local game data and workbook extraction. The shipped snapshot
-includes player weapon rows, reinforce rows, calc-correct graphs, exact Ash of War
-compatibility, legal route assignments, numeric effect relationships, passive
-status data, native skill attack data, and Scadutree scaling inputs. Every runtime
-file is size/hash checked and loading is all-or-nothing.
+Runtime data is committed as separate manifest-bound Vanilla (`data/phase1`) and
+Convergence (`data/profiles/convergence`) snapshots generated from local game/mod
+data. Every runtime file is size/hash checked and each profile loads all-or-nothing.
+The manifest exposes profile-specific capabilities: Vanilla includes the full AoW
+attack/route model, while Convergence currently exposes weapon AR, affinities,
+compatibility, and passive status data but explicitly disables unsupported AoW hit
+and route damage. Profile rules also define reinforcement caps, whether Standard
+and Somber paths are separate, Scadutree availability, attack-element fallback
+semantics, status-scaling behavior, and extended scaling grades. Runtime commands,
+jobs, caches, presets, and exports carry an explicit profile identity and cannot
+mix snapshots. Convergence `levelSyncCorrectId` values are not applied as normal
+player-panel AR multipliers: the version-bound calculator model omits them, and the
+verified +13 Galvanic formula uses only reinforcement, weapon scaling, correction
+routing, and character stats.
 
 Data refresh tooling lives in `tools/phase1`. Validation, benchmarking, and
 release packaging helpers live in `tools/phase4`.
@@ -59,7 +67,7 @@ release packaging helpers live in `tools/phase4`.
 
 The optimizer accepts locked or open constraints for weapon type, weapon,
 affinity, Ash of War, upgrade caps, combat stat floors, exact combat stat locks,
-two-handing, Scadutree scaling, objective, and result count.
+two-handing, profile-supported world scaling, objective, and result count.
 
 Standard and Somber upgrade caps are tracked separately in the app-facing
 contract. Exact-upgrade searches use the cap that matches each weapon class, so

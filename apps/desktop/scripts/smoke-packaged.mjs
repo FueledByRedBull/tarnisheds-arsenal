@@ -20,6 +20,12 @@ try {
   const { page } = session;
   page.setDefaultTimeout(30_000);
 
+  const profileSwitch = page.getByRole("radiogroup", { name: "Game profile" });
+  await profileSwitch.getByRole("radio", { name: /Convergence/ }).click();
+  await page.getByText("Weapon model ready", { exact: true }).waitFor();
+  await profileSwitch.getByRole("radio", { name: /Vanilla/ }).click();
+  await page.getByText("Full model ready", { exact: true }).waitFor();
+
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await page.getByText(/\d+ ranked rows/).waitFor();
   const fourth = page.locator(".result-row-full").nth(3);
@@ -46,7 +52,7 @@ try {
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   await page.getByText(`Saved ${presetName}.`, { exact: true }).waitFor();
   await page.reload();
-  await page.getByRole("combobox", { name: "Saved", exact: true }).selectOption({ label: `${presetName} — current data` });
+  await page.getByRole("combobox", { name: "Saved", exact: true }).selectOption({ label: `${presetName} — vanilla · current data` });
   await page.getByRole("button", { name: "Load", exact: true }).click();
   await page.getByText(`Loaded ${presetName}.`, { exact: true }).waitFor();
   await page.locator(".selected-build strong").getByText(selectedWeapon, { exact: true }).waitFor();

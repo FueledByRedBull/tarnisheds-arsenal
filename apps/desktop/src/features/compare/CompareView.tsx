@@ -44,12 +44,13 @@ export function CompareView() {
   const typeOptions = catalog?.weaponTypeOptions.length
     ? catalog.weaponTypeOptions
     : catalog?.weaponTypeKeys.map((key) => ({ key, label: key })) ?? [];
+  const extendedScalingGrades = catalog?.dataManifest.rules.extendedScalingGrades ?? false;
 
   useEffect(() => {
     const token = weaponNamesRequest.current.begin(stableSignature({
       weaponTypeKey: compareControls.weaponTypeKey,
     }));
-    api.weaponNamesForType(compareControls.weaponTypeKey).then((names) => {
+    api.weaponNamesForType(request.profileId, compareControls.weaponTypeKey).then((names) => {
       if (weaponNamesRequest.current.isCurrent(token)) setWeaponNames(names);
     }).catch((error) => {
       if (weaponNamesRequest.current.isCurrent(token)) {
@@ -59,7 +60,7 @@ export function CompareView() {
     return () => {
       weaponNamesRequest.current.invalidate(token);
     };
-  }, [compareControls.weaponTypeKey, setError]);
+  }, [compareControls.weaponTypeKey, request.profileId, setError]);
 
   useEffect(() => {
     const token = affinitiesRequest.current.begin(stableSignature({
@@ -67,7 +68,7 @@ export function CompareView() {
     }));
     async function loadAffinities() {
       const names = compareControls.weaponName
-        ? await api.affinitiesForWeapon(compareControls.weaponName)
+        ? await api.affinitiesForWeapon(request.profileId, compareControls.weaponName)
         : [];
       if (affinitiesRequest.current.isCurrent(token)) setAffinityNames(names);
     }
@@ -79,7 +80,7 @@ export function CompareView() {
     return () => {
       affinitiesRequest.current.invalidate(token);
     };
-  }, [compareControls.weaponName, setError]);
+  }, [compareControls.weaponName, request.profileId, setError]);
 
   useEffect(() => {
     const selectedAow = compareControls.matchSelectedAow ? selected?.aowName ?? null : compareControls.aowName;
@@ -90,9 +91,9 @@ export function CompareView() {
     }));
     async function loadAows() {
       const names = compareControls.weaponName
-        ? await api.compatibleAowNames(compareControls.weaponName, compareControls.affinity)
+        ? await api.compatibleAowNames(request.profileId, compareControls.weaponName, compareControls.affinity)
         : compareControls.affinity
-          ? await api.compatibleAowNamesForAffinity(compareControls.affinity)
+          ? await api.compatibleAowNamesForAffinity(request.profileId, compareControls.affinity)
           : catalog?.aowNames ?? [];
       if (aowsRequest.current.isCurrent(token)) {
         setAowNames(selectedAow && !names.includes(selectedAow) ? [selectedAow, ...names] : names);
@@ -106,7 +107,7 @@ export function CompareView() {
     return () => {
       aowsRequest.current.invalidate(token);
     };
-  }, [catalog?.aowNames, compareControls.affinity, compareControls.matchSelectedAow, compareControls.aowName, compareControls.weaponName, selected?.aowName, setError]);
+  }, [catalog?.aowNames, compareControls.affinity, compareControls.matchSelectedAow, compareControls.aowName, compareControls.weaponName, request.profileId, selected?.aowName, setError]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -185,6 +186,7 @@ export function CompareView() {
               controller.signal,
             ),
             cachedWeaponScalingForUpgrade(
+              request.profileId,
               lane.row.weaponName,
               lane.row.affinity,
               lane.row.upgrade,
@@ -284,12 +286,13 @@ export function CompareView() {
         />
       </div>
       <div className="compare-lanes" aria-busy={seriesStatus === "loading"}>
-        <Lane title="Selected" row={series[0]?.row ?? selected} objective={request.objective} scaling={series[0]?.scaling ?? null} emptyLabel="Selected build unavailable" />
+        <Lane title="Selected" row={series[0]?.row ?? selected} objective={request.objective} scaling={series[0]?.scaling ?? null} extendedScalingGrades={extendedScalingGrades} emptyLabel="Selected build unavailable" />
         <Lane
           title="Target"
           row={target}
           objective={request.objective}
           scaling={series[1]?.scaling ?? null}
+          extendedScalingGrades={extendedScalingGrades}
           emptyLabel={seriesStatus === "loading" ? "Loading target…" : compareControls.weaponName ? "No compatible target" : "No ranked rival available"}
         />
       </div>
@@ -344,12 +347,14 @@ function Lane({
   row,
   objective,
   scaling,
+  extendedScalingGrades,
   emptyLabel,
 }: {
   title: string;
   row: SolvedBuildDto | null;
   objective: ReturnType<typeof useDesktopStore.getState>["request"]["objective"];
   scaling: ScalingDto | null;
+  extendedScalingGrades: boolean;
   emptyLabel: string;
 }) {
   return (
@@ -360,7 +365,7 @@ function Lane({
           <strong>{row.weaponName}</strong>
           <small>{row.affinity} / {row.aowName ?? "Native"} / +{row.upgrade}</small>
           <div className="scaling-strip">
-            {formatScaling(scaling).map(([label, value]) => (
+            {formatScaling(scaling, extendedScalingGrades).map(([label, value]) => (
               <span key={label}>{label} <b>{value}</b></span>
             ))}
           </div>
@@ -382,25 +387,25 @@ function Lane({
   );
 }
 
-function formatScaling(scaling: ScalingDto | null): Array<[string, string]> {
+function formatScaling(scaling: ScalingDto | null, extended: boolean): Array<[string, string]> {
   if (!scaling) {
     return [["STR", "-"], ["DEX", "-"], ["INT", "-"], ["FAI", "-"], ["ARC", "-"]];
   }
   return [
-    ["STR", formatScalingValue(scaling.str)],
-    ["DEX", formatScalingValue(scaling.dex)],
-    ["INT", formatScalingValue(scaling.int)],
-    ["FAI", formatScalingValue(scaling.fai)],
-    ["ARC", formatScalingValue(scaling.arc)],
+    ["STR", formatScalingValue(scaling.str, extended)],
+    ["DEX", formatScalingValue(scaling.dex, extended)],
+    ["INT", formatScalingValue(scaling.int, extended)],
+    ["FAI", formatScalingValue(scaling.fai, extended)],
+    ["ARC", formatScalingValue(scaling.arc, extended)],
   ];
 }
 
-function formatScalingValue(value: number): string {
+function formatScalingValue(value: number, extended: boolean): string {
   if (value <= 0) {
     return "-";
   }
   const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
-  return `${scalingLetter(rounded)} (${rounded.toFixed(2)})`;
+  return `${scalingLetter(rounded, extended)} (${rounded.toFixed(2)})`;
 }
 
 function scrollMatrix(element: HTMLDivElement | null, direction: -1 | 1) {

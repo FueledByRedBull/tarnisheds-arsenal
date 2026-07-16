@@ -42,9 +42,13 @@ def write_csv(path: Path, fieldnames: list[str], rows: list[dict[str, object]]) 
             writer.writerow({key: row.get(key, "") for key in fieldnames})
 
 
-def scale_letter(value: float) -> str:
+def scale_letter(value: float, extended: bool = False) -> str:
     if value <= 0.0:
         return "-"
+    if extended and value >= 2.25:
+        return "S++"
+    if extended and value >= 2.0:
+        return "S+"
     if value >= 1.75:
         return "S"
     if value >= 1.4:
@@ -88,6 +92,8 @@ def effective_stat_labels(
 def build_weapon_scaling_summary(
     weapons: list[dict[str, str]],
     aec_rows: list[dict[str, str]],
+    *,
+    extended_scaling_grades: bool = False,
 ) -> list[dict[str, object]]:
     aec_map = {row["attack_element_correct_id"]: row for row in aec_rows}
     rows: list[dict[str, object]] = []
@@ -107,7 +113,7 @@ def build_weapon_scaling_summary(
         for stat in STAT_KEYS:
             scaling = float(weapon[f"{stat}_scaling"])
             out[f"{stat}_scaling"] = f"{scaling:.2f}"
-            out[f"{stat}_grade"] = scale_letter(scaling)
+            out[f"{stat}_grade"] = scale_letter(scaling, extended_scaling_grades)
             out[f"{stat}_effective"] = "1" if stat.upper() in usable else "0"
         rows.append(out)
     return rows
@@ -136,16 +142,21 @@ def build_aow_affinity_compat(
     return rows
 
 
-def main() -> int:
-    args = parse_args()
-    input_dir = args.input
-    output_dir = args.output
-
+def derive_phase1_extras(
+    input_dir: Path,
+    output_dir: Path,
+    *,
+    extended_scaling_grades: bool = False,
+) -> tuple[int, int]:
     weapons = read_csv(input_dir / "weapons.csv")
     aec_rows = read_csv(input_dir / "attack_element_correct.csv")
     exact_compat_rows = read_csv(input_dir / "aow_weapon_compat.csv")
 
-    weapon_scaling_rows = build_weapon_scaling_summary(weapons, aec_rows)
+    weapon_scaling_rows = build_weapon_scaling_summary(
+        weapons,
+        aec_rows,
+        extended_scaling_grades=extended_scaling_grades,
+    )
     aow_affinity_rows = build_aow_affinity_compat(exact_compat_rows)
 
     write_csv(
@@ -184,6 +195,12 @@ def main() -> int:
     )
     print(f"Wrote {len(weapon_scaling_rows)} weapon scaling rows")
     print(f"Wrote {len(aow_affinity_rows)} AoW affinity rows")
+    return len(weapon_scaling_rows), len(aow_affinity_rows)
+
+
+def main() -> int:
+    args = parse_args()
+    derive_phase1_extras(args.input, args.output)
     return 0
 
 

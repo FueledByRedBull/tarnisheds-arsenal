@@ -17,6 +17,7 @@ export interface CombatStateDto {
 }
 
 export interface OptimizeRequestDto {
+  profileId: string;
   className: string;
   characterLevel: number;
   vig: number;
@@ -177,6 +178,35 @@ export interface DataManifestDto {
   generatedAt: string;
   extractorVersion: string;
   provenance: string;
+  profile: ProfileMetadataDto;
+  capabilities: ProfileCapabilitiesDto;
+  rules: ProfileRulesDto;
+}
+
+export interface ProfileMetadataDto {
+  id: string;
+  displayName: string;
+  gameVersion: string;
+  modVersion: string | null;
+}
+
+export interface ProfileCapabilitiesDto {
+  weaponAr: boolean;
+  statusBuildup: boolean;
+  weaponPassives: boolean;
+  aowCompatibility: boolean;
+  aowDamage: boolean;
+  aowRoutes: boolean;
+}
+
+export interface ProfileRulesDto {
+  standardMaxUpgrade: number;
+  somberMaxUpgrade: number;
+  separateUpgradeCaps: boolean;
+  scadutreeScaling: boolean;
+  zeroAttackElementUsesWeaponScaling: boolean;
+  extendedScalingGrades: boolean;
+  statusBuildupScales: boolean;
 }
 
 export interface EightStatsDto {
@@ -329,6 +359,7 @@ export interface BuildPresetV1 {
   version: 1;
   id: string;
   name: string;
+  profileId: string;
   request: OptimizeRequestDto;
   selectedBuild: SolvedBuildDto | null;
   compareTarget: SolvedBuildDto | null;
@@ -340,6 +371,7 @@ export interface BuildPresetV1 {
 export interface SavedBuildIndexEntryV1 {
   id: string;
   name: string;
+  profileId: string;
   dataVersion: string;
   updatedAt: string;
 }

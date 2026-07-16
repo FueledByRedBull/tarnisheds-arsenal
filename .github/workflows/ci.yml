@@ -75,7 +75,7 @@ jobs:
           python -m ruff check tools
           python -m pyright tools
 
-      - name: Data/runtime validation
+      - name: Dual-profile data/runtime validation
         run: |
           python tools/phase4/validate_phase4.py --report dist/validation/data-validation.json
 

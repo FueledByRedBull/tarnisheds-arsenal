@@ -24,8 +24,9 @@ pub fn estimate_search_space(
     request: crate::dto::OptimizeRequestDto,
     state: State<'_, AppState>,
 ) -> Result<SearchEstimateDto, AppError> {
+    let profile = state.profile(&request.profile_id)?;
     let request = OptimizeRequest::try_from(&request)?;
-    core_estimate_search_space(&request, &state.data)
+    core_estimate_search_space(&request, &profile.data)
         .map(SearchEstimateDto::from)
         .map_err(AppError::from)
 }
@@ -43,8 +44,9 @@ pub fn run_search_inner(
     state: &AppState,
 ) -> Result<Vec<SolvedBuildDto>, AppError> {
     clamp_weapon_upgrade_request(&mut request, state)?;
+    let profile = state.profile(&request.profile_id)?;
     let request = OptimizeRequest::try_from(&request)?;
-    optimize(&request, &state.data)
+    optimize(&request, &profile.data)
         .map(|rows| rows.into_iter().map(SolvedBuildDto::from).collect())
         .map_err(AppError::from)
 }
@@ -59,8 +61,9 @@ where
     F: FnMut() -> bool + Send,
 {
     clamp_weapon_upgrade_request(&mut request, state)?;
+    let profile = state.profile(&request.profile_id)?;
     let request = OptimizeRequest::try_from(&request)?;
-    optimize_with_cancel(&request, &state.data, should_continue)
+    optimize_with_cancel(&request, &profile.data, should_continue)
         .map(|rows| rows.into_iter().map(SolvedBuildDto::from).collect())
         .map_err(AppError::from)
 }
@@ -77,11 +80,12 @@ where
     C: FnMut() -> bool + Send,
 {
     clamp_weapon_upgrade_request(&mut request, state)?;
+    let profile = state.profile(&request.profile_id)?;
     let request = OptimizeRequest::try_from(&request)?;
     optimize_level_range_with_progress(
         &request,
         levels,
-        &state.data,
+        &profile.data,
         level_complete,
         should_continue,
     )
@@ -165,10 +169,11 @@ where
     lock_request_to_stats(&mut base, request.solved.stats);
 
     let objective = parse_objective(&base.objective)?;
+    let profile = state.profile(&base.profile_id)?;
     let core_request = OptimizeRequest::try_from(&base)?;
     let evaluator = prepare_upgrade_series_evaluator_with_cancel(
         &core_request,
-        &state.data,
+        &profile.data,
         &mut should_continue,
     )
     .map_err(AppError::from)?;
@@ -191,8 +196,9 @@ pub fn start_search(
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
     clamp_weapon_upgrade_request(&mut request, &state)?;
+    let profile = state.profile(&request.profile_id)?;
     let core_request = OptimizeRequest::try_from(&request)?;
-    let data = Arc::clone(&state.data);
+    let data = Arc::clone(&profile.data);
     let job_number = state.next_job.fetch_add(1, Ordering::Relaxed);
     let job_id = format!("search-{job_number}");
     let cancel_flag: CancelFlag = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -286,7 +292,7 @@ pub fn clamp_weapon_upgrade_request(
         return Ok(());
     };
     let cap = weapon_upgrade_cap(
-        &state.catalog_index,
+        &state.profile(&request.profile_id)?.catalog_index,
         weapon_name,
         request.affinity.as_deref(),
     )?;
@@ -336,7 +342,10 @@ mod integration_tests {
         let mut request = crate::test_optimize_request();
         clamp_weapon_upgrade_request(&mut request, &state).expect("upgrade cap resolves");
         let request = OptimizeRequest::try_from(&request).expect("request converts");
-        let estimate = core_estimate_search_space(&request, &state.data)
+        let profile = state
+            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+            .unwrap();
+        let estimate = core_estimate_search_space(&request, &profile.data)
             .expect("real command estimate succeeds");
         assert_eq!(estimate.weapon_candidates, 1);
         assert!(estimate.combinations > 0);

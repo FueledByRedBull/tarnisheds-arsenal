@@ -1,5 +1,21 @@
 import { expect, test } from "@playwright/test";
 
+test("profile switch isolates results and explains Convergence coverage", async ({ page }) => {
+  await page.goto("/");
+  const profiles = page.getByRole("radiogroup", { name: "Game profile" });
+  await expect(profiles.getByRole("radio", { name: /Vanilla/ })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+
+  await profiles.getByRole("radio", { name: /Convergence/ }).click();
+  await expect(profiles.getByRole("radio", { name: /Convergence/ })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByText("Weapon model ready", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Convergence AoW hit and route damage stays disabled/)).toBeVisible();
+  await expect(page.getByText("4 ranked rows")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "AoW First Hit" })).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("tarnisheds-arsenal.gameProfile.v1"))).toBe("convergence");
+});
+
 test("session-driven search, lock, compare, paths, and affinity watch", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");

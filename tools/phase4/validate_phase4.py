@@ -13,10 +13,12 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.phase1.extract_motion_workbook import load_weapon_workbook_data  # noqa: E402
+from tools.phase1.profiles import profile_definition  # noqa: E402
 from tools.phase1.snapshot_manifest import validate_snapshot_manifest  # noqa: E402
 from tools.phase4.validation.aow_effect_graph import validate_aow_effect_graph  # noqa: E402
 from tools.phase4.validation.models import ValidationIssue  # noqa: E402
 from tools.phase4.validation.runtime import validate_runtime_ar  # noqa: E402
+from tools.phase4.convergence_reference import validate_reference  # noqa: E402
 
 
 def read_csv(path: Path) -> list[dict[str, str]]:
@@ -31,6 +33,248 @@ def max_reinforce_levels(rows: Iterable[dict[str, str]]) -> dict[int, int]:
         level = int(row["level"])
         out[reinforce_type] = max(out.get(reinforce_type, -1), level)
     return out
+
+
+def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[ValidationIssue]:
+    """Validate contracts shared by every profile without assuming Vanilla mechanics."""
+    issues: list[ValidationIssue] = []
+    profile = profile_definition(profile_id)
+    try:
+        manifest = validate_snapshot_manifest(data_dir, profile)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return [ValidationIssue("error", f"invalid atomic snapshot manifest: {error}")]
+
+    weapons = read_csv(data_dir / "weapons.csv")
+    reinforce = read_csv(data_dir / "reinforce.csv")
+    calc_correct = read_csv(data_dir / "calc_correct.csv")
+    aows = read_csv(data_dir / "aow.csv")
+    aow_attack_data = read_csv(data_dir / "aow_attack_data.csv")
+    native_skill_attack_data = read_csv(data_dir / "native_skill_attack_data.csv")
+    aow_route_assignments = read_csv(data_dir / "aow_route_assignments.csv")
+    aow_weapon_compat = read_csv(data_dir / "aow_weapon_compat.csv")
+    attack_element_correct = read_csv(data_dir / "attack_element_correct.csv")
+    attack_element_correct_ext = read_csv(data_dir / "attack_element_correct_ext.csv")
+    weapon_passives = read_csv(data_dir / "weapon_passives.csv")
+    weapon_scaling_summary = read_csv(data_dir / "weapon_scaling_summary.csv")
+    aow_affinity_compat = read_csv(data_dir / "aow_affinity_compat.csv")
+
+    minimums = [
+        ("weapons.csv", len(weapons), 100),
+        ("reinforce.csv", len(reinforce), 100),
+        ("calc_correct.csv", len(calc_correct), 1_000),
+        ("aow.csv", len(aows), 50),
+        ("attack_element_correct_ext.csv", len(attack_element_correct_ext), 100),
+    ]
+    for label, actual, minimum in minimums:
+        if actual < minimum:
+            issues.append(ValidationIssue("error", f"{label} row count too low: {actual} < {minimum}"))
+
+    empty_names = [row for row in weapons if not row.get("name", "").strip()]
+    npc_rows = [
+        row
+        for row in weapons
+        if "[npc]" in row.get("name", "").casefold()
+        or "(npc)" in row.get("name", "").casefold()
+    ]
+    duplicate_ids = len({row.get("weapon_id") for row in weapons}) != len(weapons)
+    affinity_names = {row.get("affinity", "") for row in weapons}
+    expected_affinities = set(profile.affinity_by_slot.values())
+    if empty_names:
+        issues.append(ValidationIssue("error", "weapons.csv contains unnamed configurations"))
+    if npc_rows:
+        issues.append(ValidationIssue("error", "weapons.csv contains NPC-only configurations"))
+    if duplicate_ids:
+        issues.append(ValidationIssue("error", "weapons.csv contains duplicate weapon configuration IDs"))
+    if affinity_names != expected_affinities:
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"affinity set mismatch: missing={sorted(expected_affinities - affinity_names)}, extra={sorted(affinity_names - expected_affinities)}",
+            )
+        )
+    if manifest["capabilities"]["weaponPassives"] and len(weapon_passives) != len(weapons):
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"weapon_passives.csv must align 1:1 with weapons.csv ({len(weapon_passives)} vs {len(weapons)})",
+            )
+        )
+    if manifest["capabilities"]["aowCompatibility"] and not aow_weapon_compat:
+        issues.append(ValidationIssue("error", "AoW compatibility is declared but no compatibility rows exist"))
+    reinforce_caps = max_reinforce_levels(reinforce)
+    weapon_caps = {
+        reinforce_caps.get(int(row["reinforce_type"]), -1)
+        for row in weapons
+    }
+    allowed_caps = {
+        0,
+        int(manifest["rules"]["standardMaxUpgrade"]),
+        int(manifest["rules"]["somberMaxUpgrade"]),
+    }
+    if not weapon_caps.issubset(allowed_caps):
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"weapon reinforcement caps {sorted(weapon_caps)} exceed profile rules {sorted(allowed_caps)}",
+            )
+        )
+    upgradeable_weapon_caps = weapon_caps - {0}
+    if not manifest["rules"]["separateUpgradeCaps"] and len(upgradeable_weapon_caps) != 1:
+        issues.append(
+            ValidationIssue(
+                "error",
+                "single-path reinforcement profile contains multiple player-weapon caps",
+            )
+        )
+    if manifest["rules"]["zeroAttackElementUsesWeaponScaling"]:
+        zero_aec = next(
+            (row for row in attack_element_correct if row["attack_element_correct_id"] == "0"),
+            None,
+        )
+        if zero_aec is None or any(value != "1" for key, value in zero_aec.items() if key != "attack_element_correct_id"):
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "profile requires weapon-scaling fallback but attack-element row 0 is not fully enabled",
+                )
+            )
+    aow_names_by_id = {row["aow_id"]: row["name"] for row in aows}
+    weapons_by_id = {row["weapon_id"]: row for row in weapons}
+    invalid_compatibility = [
+        row
+        for row in aow_weapon_compat
+        if aow_names_by_id.get(row.get("aow_id", "")) != row.get("aow_name")
+        or weapons_by_id.get(row.get("weapon_id", ""), {}).get("name") != row.get("weapon_name")
+        or weapons_by_id.get(row.get("weapon_id", ""), {}).get("affinity") != row.get("affinity")
+    ]
+    if invalid_compatibility:
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"AoW compatibility contains stale profile names or IDs: {invalid_compatibility[0]}",
+            )
+        )
+    scaling_ids = {row.get("weapon_id", "") for row in weapon_scaling_summary}
+    if scaling_ids != set(weapons_by_id):
+        issues.append(
+            ValidationIssue(
+                "error",
+                "weapon_scaling_summary.csv is stale or does not cover every weapon configuration",
+            )
+        )
+    diagnostic_names = [
+        row.get("name", "") for row in weapon_scaling_summary
+    ] + [
+        name
+        for row in aow_affinity_compat
+        for name in row.get("sample_weapon_names", "").split("|")
+    ]
+    if any("[npc]" in name.casefold() or "(npc)" in name.casefold() for name in diagnostic_names):
+        issues.append(ValidationIssue("error", "derived diagnostics contain NPC-only weapon names"))
+    source_kinds = {source.get("kind") for source in manifest["sources"]}
+    if profile_id == "convergence":
+        reference_path = ROOT / "data" / "reference" / "convergence-3.0.0.1-weapons.json"
+        try:
+            validate_reference(data_dir, reference_path)
+        except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    f"Convergence external-reference differential failed: {error}",
+                )
+            )
+        if manifest["rules"]["statusBuildupScales"]:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "Convergence weapon status must remain fixed across stats and upgrades",
+                )
+            )
+        required_sources = {
+            "regulation",
+            "weaponNamesBase",
+            "weaponNamesDlc01",
+            "artsNamesBase",
+            "artsNamesDlc01",
+            "modVersion",
+            "weaponAvailability",
+        }
+        if not required_sources.issubset(source_kinds):
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "Convergence provenance is missing base/DLC name tables or regulation/version sources",
+                )
+            )
+        expected_variants = {
+            "10200000": "Galvanic Culling Blade [Twinblade]",
+        }
+        for weapon_id, expected_name in expected_variants.items():
+            if weapons_by_id.get(weapon_id, {}).get("name") != expected_name:
+                issues.append(
+                    ValidationIssue(
+                        "error",
+                        f"Convergence player variant {weapon_id} ({expected_name}) is missing",
+                    )
+                )
+        if "10205000" in weapons_by_id:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "internal Galvanic Culling Blade transformation form must not be searchable",
+                )
+            )
+        affinities_by_name: dict[str, set[str]] = defaultdict(set)
+        for weapon in weapons:
+            affinities_by_name[weapon["name"]].add(weapon["affinity"])
+        if affinities_by_name["Dueling Shield"] != expected_affinities:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "Dueling Shield must retain every legal Convergence infusion",
+                )
+            )
+        if affinities_by_name["Carian Thrusting Shield"] != {"Standard"}:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "Carian Thrusting Shield must remain a fixed Standard configuration",
+                )
+            )
+        galvanic_scaling = next(
+            (
+                row
+                for row in weapon_scaling_summary
+                if row["weapon_id"] == "10200000"
+            ),
+            None,
+        )
+        if galvanic_scaling is None or galvanic_scaling.get("usable_stats") != "STR|DEX|INT":
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "Galvanic Culling Blade must scale with STR, DEX, and INT",
+                )
+            )
+    if not manifest["capabilities"]["aowDamage"] and (aow_attack_data or native_skill_attack_data):
+        issues.append(
+            ValidationIssue(
+                "error",
+                "AoW damage is declared unsupported but damage rows are present and could be consumed silently",
+            )
+        )
+    if not manifest["capabilities"]["aowRoutes"] and aow_route_assignments:
+        issues.append(
+            ValidationIssue(
+                "error",
+                "AoW routes are declared unsupported but route rows are present and could be consumed silently",
+            )
+        )
+    return issues
+
+
+def scoped(profile_id: str, issues: Iterable[ValidationIssue]) -> list[ValidationIssue]:
+    return [ValidationIssue(issue.level, f"[{profile_id}] {issue.message}") for issue in issues]
 
 
 
@@ -667,15 +911,21 @@ def main() -> int:
     parser.add_argument("--report", type=Path, help="Write a machine-readable validation report.")
     args = parser.parse_args()
     project_root = Path(__file__).resolve().parents[2]
-    data_dir = project_root / "data" / "phase1"
-    if not data_dir.exists():
-        print(f"ERROR: missing data dir {data_dir}")
-        write_validation_report(args.report, "failed", [ValidationIssue("error", f"missing data dir {data_dir}")])
-        return 1
+    profile_dirs = {
+        "vanilla": project_root / "data" / "phase1",
+        "convergence": project_root / "data" / "profiles" / "convergence",
+    }
+    issues: list[ValidationIssue] = []
+    for profile_id, data_dir in profile_dirs.items():
+        if not data_dir.exists():
+            issues.append(ValidationIssue("error", f"[{profile_id}] missing data dir {data_dir}"))
+            continue
+        issues.extend(scoped(profile_id, validate_profile_snapshot(data_dir, profile_id)))
 
-    issues = []
-    issues.extend(validate_data_snapshot(data_dir))
-    issues.extend(validate_runtime_ar(data_dir))
+    vanilla_dir = profile_dirs["vanilla"]
+    if vanilla_dir.exists():
+        issues.extend(scoped("vanilla", validate_data_snapshot(vanilla_dir)))
+        issues.extend(scoped("vanilla", validate_runtime_ar(vanilla_dir)))
 
     errors = [issue for issue in issues if issue.level == "error"]
     warnings = [issue for issue in issues if issue.level == "warning"]
@@ -686,22 +936,28 @@ def main() -> int:
         print(f"ERROR: {issue.message}")
 
     if errors:
-        write_validation_report(args.report, "failed", issues)
+        write_validation_report(args.report, "failed", issues, list(profile_dirs))
         print(f"VALIDATION FAILED ({len(errors)} errors, {len(warnings)} warnings)")
         return 1
 
-    write_validation_report(args.report, "passed", issues)
+    write_validation_report(args.report, "passed", issues, list(profile_dirs))
     print(f"VALIDATION PASSED ({len(warnings)} warnings)")
     return 0
 
 
-def write_validation_report(path: Path | None, status: str, issues: list[ValidationIssue]) -> None:
+def write_validation_report(
+    path: Path | None,
+    status: str,
+    issues: list[ValidationIssue],
+    profiles: list[str] | None = None,
+) -> None:
     if path is None:
         return
     payload = {
         "status": status,
         "errors": sum(issue.level == "error" for issue in issues),
         "warnings": sum(issue.level == "warning" for issue in issues),
+        "profiles": profiles or [],
         "issues": [
             {"level": issue.level, "message": issue.message}
             for issue in issues

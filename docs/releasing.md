@@ -64,8 +64,10 @@ Before upload, the workflow independently checks the build commit, clean-source 
 validation flags, completed gates, artifact sizes, and EXE/MSI SHA-256 hashes.
 The final Tauri bundle build also runs Cargo in locked mode.
 
-Both binaries contain the complete compile-time runtime snapshot. Neither needs
-an adjacent data directory or source workbook. Authenticode signing is conditional:
+Both binaries contain the verified compile-time Vanilla and Convergence runtime
+snapshots. Neither needs an adjacent data directory, `regulation.bin`, FMG XML, or
+source workbook. The build report must identify both profile manifest IDs and the
+validation report covers both snapshots. Authenticode signing is conditional:
 configure the protected `WINDOWS_SIGNING_CERTIFICATE_BASE64` and
 `WINDOWS_SIGNING_CERTIFICATE_PASSWORD` repository secrets, plus the optional
 `WINDOWS_SIGNING_TIMESTAMP_URL` variable. The package job signs the executable,

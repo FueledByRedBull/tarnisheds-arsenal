@@ -6,7 +6,7 @@ vi.mock("./api", () => ({
   api: { weaponProfile },
 }));
 
-import { cachedWeaponProfile, clearAnalysisCaches, setAnalysisCacheVersion } from "./analysis-cache";
+import { cachedWeaponProfile as cachedProfileWeaponProfile, clearAnalysisCaches, setAnalysisCacheVersion } from "./analysis-cache";
 import type { WeaponProfileDto } from "./types";
 
 const profile: WeaponProfileDto = {
@@ -17,6 +17,12 @@ const profile: WeaponProfileDto = {
   affinities: ["Standard"],
   compatibleAows: ["Lion's Claw"],
 };
+
+const cachedWeaponProfile = (
+  weaponName: string,
+  affinity: string | null,
+  signal?: AbortSignal,
+) => cachedProfileWeaponProfile("vanilla", weaponName, affinity, signal);
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -46,6 +52,15 @@ describe("analysis cache", () => {
     await expect(cachedWeaponProfile("Claymore", "Standard")).resolves.toEqual(profile);
 
     expect(weaponProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps identical loadouts isolated across game profiles", async () => {
+    weaponProfile.mockResolvedValue(profile);
+
+    await cachedProfileWeaponProfile("vanilla", "Claymore", "Standard");
+    await cachedProfileWeaponProfile("convergence", "Claymore", "Standard");
+
+    expect(weaponProfile).toHaveBeenCalledTimes(2);
   });
 
   it("expires resolved entries after the TTL", async () => {

@@ -80,24 +80,32 @@ export function CommandRail() {
   const activeMinimums = [request.minStr, request.minDex, request.minInt, request.minFai, request.minArc]
     .filter((value) => value > 0).length;
   const exactLocksActive = lockedStatMode && request.lockStr !== null;
+  const profileRules = catalog?.dataManifest.rules;
+  const separateUpgradeCaps = profileRules?.separateUpgradeCaps ?? true;
+  const scadutreeAvailable = profileRules?.scadutreeScaling ?? true;
+  const standardUpgradeLimit = profileRules?.standardMaxUpgrade ?? 25;
+  const somberUpgradeLimit = profileRules?.somberMaxUpgrade ?? 10;
+  const upgradeSummary = separateUpgradeCaps
+    ? `${request.exactUpgrade ? "Exact" : "Up to"} +${request.standardMaxUpgrade} / +${request.somberMaxUpgrade}`
+    : `${request.exactUpgrade ? "Exact" : "Up to"} +${request.standardMaxUpgrade}`;
 
   useEffect(() => {
     let cancelled = false;
-    api.weaponNamesForType(request.weaponTypeKey).then((names) => {
+    api.weaponNamesForType(request.profileId, request.weaponTypeKey).then((names) => {
       if (!cancelled) setWeaponNames(names);
     }).catch((error) => setError(error instanceof Error ? error.message : String(error)));
     return () => {
       cancelled = true;
     };
-  }, [request.weaponTypeKey, setError]);
+  }, [request.profileId, request.weaponTypeKey, setError]);
 
   useEffect(() => {
     let cancelled = false;
     async function loadAows() {
       const names = request.weaponName
-        ? await api.compatibleAowNames(request.weaponName, request.affinity)
+        ? await api.compatibleAowNames(request.profileId, request.weaponName, request.affinity)
         : request.affinity
-          ? await api.compatibleAowNamesForAffinity(request.affinity)
+          ? await api.compatibleAowNamesForAffinity(request.profileId, request.affinity)
           : catalog?.aowNames ?? [];
       if (!cancelled) setAowNames(names);
     }
@@ -105,7 +113,7 @@ export function CommandRail() {
     return () => {
       cancelled = true;
     };
-  }, [catalog?.aowNames, request.affinity, request.weaponName, setError]);
+  }, [catalog?.aowNames, request.affinity, request.profileId, request.weaponName, setError]);
 
   useSearchJob({
     activeJobId,
@@ -333,12 +341,14 @@ export function CommandRail() {
           <div className="hero-chip-row">
             <span>{request.twoHanding ? "Two-handed strength" : "One-handed strength"}</span>
             <span>{lockedStatMode ? "Exact combat stats" : "Stats optimized"}</span>
+            <span>{upgradeSummary}</span>
             <span>
-              {request.exactUpgrade
-                ? `Exact upgrades +${request.standardMaxUpgrade} / +${request.somberMaxUpgrade}`
-                : `Any upgrade to +${request.standardMaxUpgrade} / +${request.somberMaxUpgrade}`}
+              {scadutreeAvailable
+                ? request.dlcScaling
+                  ? `DLC blessing x${scadutreeDamageMultiplier.toFixed(2)}`
+                  : "Base-game scaling"
+                : "No Scadutree scaling"}
             </span>
-            <span>{request.dlcScaling ? `DLC blessing x${scadutreeDamageMultiplier.toFixed(2)}` : "Base-game scaling"}</span>
             {activeMinimums > 0 ? <span>{activeMinimums} minimum stat floor{activeMinimums === 1 ? "" : "s"}</span> : null}
           </div>
           {exactLocksActive ? (
@@ -389,28 +399,45 @@ export function CommandRail() {
             options={[openOption(), ...(aowNames ?? []).map((name) => ({ value: name, label: name }))]}
             onChange={(aowName) => patchRequest({ aowName })}
           />
-          <div className="rail-pair">
-            <label>
-              Standard Upgrade
+          {separateUpgradeCaps ? (
+            <div className="rail-pair">
+              <label>
+                Standard Upgrade
+                <DraftNumberInput
+                  min={0}
+                  max={standardUpgradeLimit}
+                  value={request.standardMaxUpgrade}
+                  onDraftChange={markResultsStale}
+                  onCommit={(standardMaxUpgrade) => patchRequest({ standardMaxUpgrade })}
+                />
+              </label>
+              <label>
+                Somber Upgrade
+                <DraftNumberInput
+                  min={0}
+                  max={somberUpgradeLimit}
+                  value={request.somberMaxUpgrade}
+                  onDraftChange={markResultsStale}
+                  onCommit={(somberMaxUpgrade) => patchRequest({ somberMaxUpgrade })}
+                />
+              </label>
+            </div>
+          ) : (
+            <label className="profile-upgrade-input">
+              Weapon Upgrade
               <DraftNumberInput
                 min={0}
-                max={25}
+                max={standardUpgradeLimit}
                 value={request.standardMaxUpgrade}
                 onDraftChange={markResultsStale}
-                onCommit={(standardMaxUpgrade) => patchRequest({ standardMaxUpgrade })}
+                onCommit={(upgrade) => patchRequest({
+                  standardMaxUpgrade: upgrade,
+                  somberMaxUpgrade: upgrade,
+                })}
               />
+              <small>Convergence uses one +0–+15 reinforcement path for every weapon.</small>
             </label>
-            <label>
-              Somber Upgrade
-              <DraftNumberInput
-                min={0}
-                max={10}
-                value={request.somberMaxUpgrade}
-                onDraftChange={markResultsStale}
-                onCommit={(somberMaxUpgrade) => patchRequest({ somberMaxUpgrade })}
-              />
-            </label>
-          </div>
+          )}
           <div className="upgrade-mode-row" aria-label="Upgrade search policy">
             <button
               type="button"
@@ -431,8 +458,12 @@ export function CommandRail() {
           </div>
           <div className="rail-pair upgrade-cap-row">
             <div className="cap-readout">
-              <span>{weaponProfile?.isSomber ? "Selected Somber cap" : "Selected Standard cap"}</span>
-              <strong>+{weaponProfile?.maxUpgrade ?? 25}</strong>
+              <span>
+                {separateUpgradeCaps
+                  ? weaponProfile?.isSomber ? "Selected Somber cap" : "Selected Standard cap"
+                  : "Selected Convergence cap"}
+              </span>
+              <strong>+{weaponProfile?.maxUpgrade ?? standardUpgradeLimit}</strong>
             </div>
             <small className="rail-helper">
               {request.exactUpgrade
@@ -477,31 +508,41 @@ export function CommandRail() {
             />
             Two-handing
           </label>
-          <label className="toggle-line" title="Apply Shadow of the Erdtree Scadutree Blessing attack scaling">
-            <input
-              type="checkbox"
-              checked={request.dlcScaling}
-              onChange={(event) => patchRequest({ dlcScaling: event.target.checked })}
-            />
-            DLC Scaling
-          </label>
-          <label>
-            Scadutree Level
-            <DraftNumberInput
-              min={0}
-              max={SCADUTREE_MAX_LEVEL}
-              value={request.scadutreeLevel}
-              onDraftChange={markResultsStale}
-              onCommit={(scadutreeLevel) => patchRequest({ scadutreeLevel })}
-            />
-          </label>
-          <div className="cap-readout" title="Outgoing damage multiplier and equivalent incoming damage reduction from the selected blessing level">
-            <span>{request.dlcScaling ? "Shadow Realm" : "DLC off"}</span>
-            <strong>
-              x{scadutreeDamageMultiplier.toFixed(2)} dmg / x{scadutreeTakenMultiplier.toFixed(3)} taken
-            </strong>
-            <small>{(scadutreeNegation * 100).toFixed(1)}% negation</small>
-          </div>
+          {scadutreeAvailable ? (
+            <>
+              <label className="toggle-line" title="Apply Shadow of the Erdtree Scadutree Blessing attack scaling">
+                <input
+                  type="checkbox"
+                  checked={request.dlcScaling}
+                  onChange={(event) => patchRequest({ dlcScaling: event.target.checked })}
+                />
+                DLC Scaling
+              </label>
+              <label>
+                Scadutree Level
+                <DraftNumberInput
+                  min={0}
+                  max={SCADUTREE_MAX_LEVEL}
+                  value={request.scadutreeLevel}
+                  onDraftChange={markResultsStale}
+                  onCommit={(scadutreeLevel) => patchRequest({ scadutreeLevel })}
+                />
+              </label>
+              <div className="cap-readout" title="Outgoing damage multiplier and equivalent incoming damage reduction from the selected blessing level">
+                <span>{request.dlcScaling ? "Shadow Realm" : "DLC off"}</span>
+                <strong>
+                  x{scadutreeDamageMultiplier.toFixed(2)} dmg / x{scadutreeTakenMultiplier.toFixed(3)} taken
+                </strong>
+                <small>{(scadutreeNegation * 100).toFixed(1)}% negation</small>
+              </div>
+            </>
+          ) : (
+            <div className="profile-rule-note" role="note">
+              <span>Convergence rule</span>
+              <strong>Scadutree Blessing is removed</strong>
+              <small>Weapon AR is calculated without Shadow Realm blessing controls.</small>
+            </div>
+          )}
         </section>
 
         <section className="rail-section advanced-section">
@@ -511,12 +552,14 @@ export function CommandRail() {
           </div>
           <p className="section-intro">Optional minimums and exact result locks. Leave these open for automatic optimization.</p>
           <div className="advanced-body">
-              <SearchableSelect
-                label="Somber"
-                value={request.somberFilter}
-                options={(catalog?.somberFilters ?? []).map((value) => ({ value, label: somberFilterLabel(value) }))}
-                onChange={(somberFilter) => somberFilter && patchRequest({ somberFilter })}
-              />
+              {separateUpgradeCaps ? (
+                <SearchableSelect
+                  label="Somber"
+                  value={request.somberFilter}
+                  options={(catalog?.somberFilters ?? []).map((value) => ({ value, label: somberFilterLabel(value) }))}
+                  onChange={(somberFilter) => somberFilter && patchRequest({ somberFilter })}
+                />
+              ) : null}
               <div className="stat-grid floors">
                 {[
                   ["Min STR", "minStr"],

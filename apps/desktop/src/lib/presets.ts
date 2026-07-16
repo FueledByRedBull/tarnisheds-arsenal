@@ -22,6 +22,8 @@ export function savedBuildIndex(): SavedBuildIndexV1 {
     try {
       assertText(entry.id, "saved index id", 128);
       assertText(entry.name, "saved index name", 200);
+      if (typeof entry.profileId !== "string") entry.profileId = "vanilla";
+      assertProfileId(entry.profileId, "saved index profileId");
       assertDataVersion(entry.dataVersion);
       assertDate(entry.updatedAt, "saved index updatedAt");
       return true;
@@ -35,6 +37,7 @@ export function savedBuildIndex(): SavedBuildIndexV1 {
 export function loadBuildPreset(id: string): BuildPresetV1 | null {
   const preset = readJson<unknown>(`${PRESET_PREFIX}${id}`);
   try {
+    migratePresetProfile(preset);
     assertPreset(preset as BuildPresetV1);
     return preset as BuildPresetV1;
   } catch {
@@ -56,6 +59,7 @@ export function saveBuildPreset(input: {
     version: 1,
     id: input.id ?? crypto.randomUUID(),
     name: input.name.trim() || "Untitled Build",
+    profileId: input.request.profileId,
     request: input.request,
     selectedBuild: input.selectedBuild,
     compareTarget: input.compareTarget,
@@ -99,6 +103,7 @@ export function parsePresetText(raw: string): BuildPresetV1 {
     ? decodeURIComponent(text.slice(SHARE_PREFIX.length))
     : text;
   const parsed = JSON.parse(payload) as BuildPresetV1;
+  migratePresetProfile(parsed);
   assertPreset(parsed);
   return parsed;
 }
@@ -155,7 +160,7 @@ export function previewPresetImport(raw: string): PresetImportPreview {
 function upsertIndex(preset: BuildPresetV1) {
   const index = savedBuildIndex();
   const builds = [
-    { id: preset.id, name: preset.name, dataVersion: preset.dataVersion, updatedAt: preset.updatedAt },
+    { id: preset.id, name: preset.name, profileId: preset.profileId, dataVersion: preset.dataVersion, updatedAt: preset.updatedAt },
     ...index.builds.filter((entry) => entry.id !== preset.id),
   ];
   localStorage.setItem(INDEX_KEY, JSON.stringify({ version: 1, builds } satisfies SavedBuildIndexV1));
@@ -165,16 +170,21 @@ function assertPreset(value: BuildPresetV1) {
   if (!isRecord(value) || value.version !== 1) throw invalidPreset("schema version must be 1");
   assertText(value.id, "id", 128);
   assertText(value.name, "name", 200);
+  assertProfileId(value.profileId, "profileId");
   assertDataVersion(value.dataVersion);
   assertDate(value.createdAt, "createdAt");
   assertDate(value.updatedAt, "updatedAt");
   assertRequest(value.request);
+  if (value.profileId !== value.request.profileId) {
+    throw invalidPreset("profileId must match request.profileId");
+  }
   assertSolvedBuild(value.selectedBuild, "selectedBuild");
   assertSolvedBuild(value.compareTarget, "compareTarget");
 }
 
 function assertRequest(value: unknown): asserts value is OptimizeRequestDto {
   if (!isRecord(value)) throw invalidPreset("request must be an object");
+  assertProfileId(value.profileId, "request.profileId");
   assertText(value.className, "request.className", 80);
   assertInteger(value.characterLevel, "request.characterLevel", 1, 713);
   for (const key of ["vig", "mnd", "end", "strStat", "dex", "intStat", "fai", "arc"] as const) {
@@ -297,8 +307,25 @@ function assertStatus(value: unknown, label: string) {
 function assertDataVersion(value: unknown) {
   assertText(value, "dataVersion", 300);
   const parts = value.split(":");
-  if (parts.length !== 3 || parts.some((part) => !part.trim())) {
-    throw invalidPreset("dataVersion must contain schema, dataset, and model identifiers");
+  if (![3, 4].includes(parts.length) || parts.some((part) => !part.trim())) {
+    throw invalidPreset("dataVersion must contain profile (when available), schema, dataset, and model identifiers");
+  }
+}
+
+function assertProfileId(value: unknown, label: string): asserts value is string {
+  assertText(value, label, 80);
+  if (!/^[a-z0-9][a-z0-9_-]*$/.test(value)) throw invalidPreset(`${label} is invalid`);
+}
+
+function migratePresetProfile(value: unknown): void {
+  if (!isRecord(value) || value.version !== 1 || !isRecord(value.request)) return;
+  if (typeof value.profileId !== "string" && typeof value.request.profileId !== "string") {
+    value.profileId = "vanilla";
+    value.request.profileId = "vanilla";
+  } else if (typeof value.profileId !== "string") {
+    value.profileId = value.request.profileId;
+  } else if (typeof value.request.profileId !== "string") {
+    value.request.profileId = value.profileId;
   }
 }
 

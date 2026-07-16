@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -95,24 +96,35 @@ impl<T: Clone> JobRegistry<T> {
 }
 
 pub struct AppState {
-    pub data: Arc<GameData>,
-    pub catalog_index: Arc<commands::data::CatalogIndex>,
-    pub data_manifest: dto::DataManifestDto,
+    pub profiles: HashMap<String, Arc<ProfileData>>,
     pub search_jobs: Arc<JobRegistry<dto::SearchJobStatusDto>>,
     pub path_jobs: Arc<JobRegistry<dto::PathJobStatusDto>>,
     pub affinity_jobs: Arc<JobRegistry<dto::AffinityWatchJobStatusDto>>,
     pub next_job: AtomicU64,
 }
 
+pub struct ProfileData {
+    pub data: Arc<GameData>,
+    pub catalog_index: Arc<commands::data::CatalogIndex>,
+    pub data_manifest: dto::DataManifestDto,
+}
+
+impl AppState {
+    pub fn profile(&self, profile_id: &str) -> Result<&Arc<ProfileData>, errors::AppError> {
+        self.profiles.get(profile_id).ok_or_else(|| {
+            errors::AppError::new(format!(
+                "Unknown game profile {profile_id:?}. Reload the catalog and choose an available profile."
+            ))
+        })
+    }
+}
+
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let (data, data_manifest) = load_desktop_data(app)?;
-            let catalog_index = commands::data::CatalogIndex::build(&data);
+            let profiles = load_desktop_profiles(app)?;
             app.manage(AppState {
-                data: Arc::new(data),
-                catalog_index: Arc::new(catalog_index),
-                data_manifest,
+                profiles,
                 search_jobs: Arc::new(JobRegistry::new("search")),
                 path_jobs: Arc::new(JobRegistry::new("path")),
                 affinity_jobs: Arc::new(JobRegistry::new("affinity watch")),
@@ -122,6 +134,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::data::get_catalog,
+            commands::data::get_profiles,
             commands::data::get_data_manifest,
             commands::data::get_weapon_profile,
             commands::data::affinities_for_weapon,
@@ -149,12 +162,35 @@ pub fn run() {
         .expect("error while running Tauri app");
 }
 
-fn load_desktop_data(
+fn load_desktop_profiles(
     app: &tauri::App,
+) -> Result<HashMap<String, Arc<ProfileData>>, errors::AppError> {
+    let mut profiles = HashMap::new();
+    for profile_id in [
+        er_optimizer_core::VANILLA_PROFILE_ID,
+        er_optimizer_core::CONVERGENCE_PROFILE_ID,
+    ] {
+        let (data, manifest) = load_desktop_profile(app, profile_id)?;
+        let catalog_index = commands::data::CatalogIndex::build(&data);
+        profiles.insert(
+            profile_id.to_string(),
+            Arc::new(ProfileData {
+                data: Arc::new(data),
+                catalog_index: Arc::new(catalog_index),
+                data_manifest: manifest,
+            }),
+        );
+    }
+    Ok(profiles)
+}
+
+fn load_desktop_profile(
+    app: &tauri::App,
+    profile_id: &str,
 ) -> Result<(GameData, dto::DataManifestDto), errors::AppError> {
     #[cfg(debug_assertions)]
     {
-        let data_dir = resolve_data_dir(app)?;
+        let data_dir = resolve_data_dir(app, profile_id)?;
         let (data, manifest) = er_optimizer_core::load_game_data_with_manifest(&data_dir)
             .map_err(errors::AppError::from)?;
         Ok((data, manifest.into()))
@@ -162,25 +198,35 @@ fn load_desktop_data(
     #[cfg(not(debug_assertions))]
     {
         let _ = app;
-        let (data, manifest) = er_optimizer_core::load_embedded_game_data_with_manifest()
-            .map_err(errors::AppError::from)?;
+        let (data, manifest) =
+            er_optimizer_core::load_embedded_game_profile_with_manifest(profile_id)
+                .map_err(errors::AppError::from)?;
         Ok((data, manifest.into()))
     }
 }
 
 #[cfg(debug_assertions)]
-fn resolve_data_dir(app: &tauri::App) -> Result<std::path::PathBuf, errors::AppError> {
+fn resolve_data_dir(
+    app: &tauri::App,
+    profile_id: &str,
+) -> Result<std::path::PathBuf, errors::AppError> {
+    let relative = if profile_id == er_optimizer_core::VANILLA_PROFILE_ID {
+        std::path::PathBuf::from("phase1")
+    } else {
+        std::path::PathBuf::from("profiles").join(profile_id)
+    };
     if let Ok(exe_path) = std::env::current_exe()
         && let Some(exe_dir) = exe_path.parent()
     {
-        let portable_data_dir = exe_dir.join("data").join("phase1");
+        let portable_data_dir = exe_dir.join("data").join(&relative);
         if portable_data_dir.exists() {
             return Ok(portable_data_dir);
         }
     }
 
     let dev_data_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../data/phase1")
+        .join("../../../data")
+        .join(&relative)
         .canonicalize()
         .ok();
     if let Some(path) = dev_data_dir.filter(|path| path.exists()) {
@@ -191,19 +237,32 @@ fn resolve_data_dir(app: &tauri::App) -> Result<std::path::PathBuf, errors::AppE
         .path()
         .resource_dir()
         .map_err(|err| errors::AppError::new(format!("failed to resolve resource dir: {err}")))?;
-    let bundled = resource_dir.join("data").join("phase1");
+    let bundled = resource_dir.join("data").join(relative);
     Ok(bundled)
 }
 
 #[cfg(test)]
 pub(crate) fn test_app_state() -> AppState {
-    let (data, manifest) = er_optimizer_core::load_embedded_game_data_with_manifest()
-        .expect("embedded test snapshot loads");
-    let catalog_index = commands::data::CatalogIndex::build(&data);
+    let mut profiles = HashMap::new();
+    for profile_id in [
+        er_optimizer_core::VANILLA_PROFILE_ID,
+        er_optimizer_core::CONVERGENCE_PROFILE_ID,
+    ] {
+        let (data, manifest) =
+            er_optimizer_core::load_embedded_game_profile_with_manifest(profile_id)
+                .expect("embedded test snapshot loads");
+        let catalog_index = commands::data::CatalogIndex::build(&data);
+        profiles.insert(
+            profile_id.to_string(),
+            Arc::new(ProfileData {
+                data: Arc::new(data),
+                catalog_index: Arc::new(catalog_index),
+                data_manifest: manifest.into(),
+            }),
+        );
+    }
     AppState {
-        data: Arc::new(data),
-        catalog_index: Arc::new(catalog_index),
-        data_manifest: manifest.into(),
+        profiles,
         search_jobs: Arc::new(JobRegistry::new("search")),
         path_jobs: Arc::new(JobRegistry::new("path")),
         affinity_jobs: Arc::new(JobRegistry::new("affinity watch")),
@@ -214,6 +273,7 @@ pub(crate) fn test_app_state() -> AppState {
 #[cfg(test)]
 pub(crate) fn test_optimize_request() -> dto::OptimizeRequestDto {
     dto::OptimizeRequestDto {
+        profile_id: er_optimizer_core::VANILLA_PROFILE_ID.to_string(),
         class_name: "Samurai".to_string(),
         character_level: 9,
         vig: 12,
@@ -255,13 +315,20 @@ pub(crate) fn test_optimize_request() -> dto::OptimizeRequestDto {
 #[cfg(test)]
 mod release_data_tests {
     #[test]
-    fn standalone_release_snapshot_and_manifest_are_complete() {
-        let (data, manifest) = er_optimizer_core::load_embedded_game_data_with_manifest()
-            .expect("embedded data and manifest load");
-        assert!(data.weapons.len() > 3000);
-        assert!(data.aows.len() > 100);
-        assert!(!manifest.id.is_empty());
-        assert!(!manifest.app_version.is_empty());
-        assert_eq!(data.dataset_version, manifest.dataset_version);
+    fn standalone_release_profiles_and_manifests_are_complete() {
+        for profile_id in [
+            er_optimizer_core::VANILLA_PROFILE_ID,
+            er_optimizer_core::CONVERGENCE_PROFILE_ID,
+        ] {
+            let (data, manifest) =
+                er_optimizer_core::load_embedded_game_profile_with_manifest(profile_id)
+                    .expect("embedded profile data and manifest load");
+            assert!(data.weapons.len() > 3000);
+            assert!(data.aows.len() > 100);
+            assert_eq!(manifest.profile.id, profile_id);
+            assert!(!manifest.id.is_empty());
+            assert!(!manifest.app_version.is_empty());
+            assert_eq!(data.dataset_version, manifest.dataset_version);
+        }
     }
 }

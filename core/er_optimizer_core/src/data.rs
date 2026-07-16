@@ -5,13 +5,21 @@ use std::path::{Path, PathBuf};
 
 use crate::model::{
     Aow, AowAttackRow, AowEffect, AowEffectRole, AowRouteAssignment, AttackElementCorrect,
-    AttackElementCorrectExt, COMBAT_STAT_COUNT, DAMAGE_TYPE_COUNT, GameData,
-    PhysicalAttackAttribute, ReinforceLevel, StaminaCostMode, StatusBuildup, StatusCorrectionFlags,
-    StatusEffectSource, Weapon,
+    AttackElementCorrectExt, COMBAT_STAT_COUNT, DAMAGE_TYPE_COUNT, DataCapabilities, DataRules,
+    GameData, PhysicalAttackAttribute, ReinforceLevel, StaminaCostMode, StatusBuildup,
+    StatusCorrectionFlags, StatusEffectSource, Weapon,
 };
 use crate::snapshot::{SnapshotManifest, validate_embedded_snapshot, validate_external_snapshot};
 
 const EMBEDDED_DATA_ROOT: &str = "__er_optimizer_embedded_snapshot__";
+const EMBEDDED_VANILLA_ROOT: &str = "__er_optimizer_embedded_snapshot__/vanilla";
+const EMBEDDED_CONVERGENCE_ROOT: &str = "__er_optimizer_embedded_snapshot__/convergence";
+pub const VANILLA_PROFILE_ID: &str = "vanilla";
+pub const CONVERGENCE_PROFILE_ID: &str = "convergence";
+
+fn is_embedded_data_path(path: &Path) -> bool {
+    path.starts_with(EMBEDDED_DATA_ROOT)
+}
 
 #[derive(Clone, Debug, Default)]
 struct AowBuffRow {
@@ -30,7 +38,7 @@ struct CsvTable {
 
 impl CsvTable {
     fn from_path(path: &Path) -> Result<Self, String> {
-        if path.starts_with(EMBEDDED_DATA_ROOT) {
+        if is_embedded_data_path(path) {
             let content = embedded_csv_for_path(path)
                 .ok_or_else(|| format!("missing embedded CSV: {}", csv_file_name(path)))?;
             return Self::from_content(format!("embedded:{}", csv_file_name(path)), content);
@@ -41,7 +49,7 @@ impl CsvTable {
     }
 
     fn from_optional_path(path: &Path) -> Result<Option<Self>, String> {
-        if path.starts_with(EMBEDDED_DATA_ROOT) {
+        if is_embedded_data_path(path) {
             return embedded_csv_for_path(path)
                 .map(|content| {
                     Self::from_content(format!("embedded:{}", csv_file_name(path)), content)
@@ -98,7 +106,15 @@ fn csv_file_name(path: &Path) -> String {
 }
 
 fn embedded_csv_for_path(path: &Path) -> Option<&'static str> {
-    match path.file_name().and_then(|name| name.to_str())? {
+    let name = path.file_name().and_then(|name| name.to_str())?;
+    if path.starts_with(EMBEDDED_CONVERGENCE_ROOT) {
+        return embedded_convergence_csv(name);
+    }
+    embedded_vanilla_csv(name)
+}
+
+fn embedded_vanilla_csv(name: &str) -> Option<&'static str> {
+    match name {
         "aow.csv" => Some(include_str!("../../../data/phase1/aow.csv")),
         "aow_attack_data.csv" => Some(include_str!("../../../data/phase1/aow_attack_data.csv")),
         "aow_route_assignments.csv" => Some(include_str!(
@@ -122,6 +138,49 @@ fn embedded_csv_for_path(path: &Path) -> Option<&'static str> {
         )),
         "weapon_passives.csv" => Some(include_str!("../../../data/phase1/weapon_passives.csv")),
         "weapons.csv" => Some(include_str!("../../../data/phase1/weapons.csv")),
+        _ => None,
+    }
+}
+
+fn embedded_convergence_csv(name: &str) -> Option<&'static str> {
+    match name {
+        "aow.csv" => Some(include_str!("../../../data/profiles/convergence/aow.csv")),
+        "aow_attack_data.csv" => Some(include_str!(
+            "../../../data/profiles/convergence/aow_attack_data.csv"
+        )),
+        "aow_route_assignments.csv" => Some(include_str!(
+            "../../../data/profiles/convergence/aow_route_assignments.csv"
+        )),
+        "aow_effect_data.csv" => Some(include_str!(
+            "../../../data/profiles/convergence/aow_effect_data.csv"
+        )),
+        "aow_weapon_compat.csv" => Some(include_str!(
+            "../../../data/profiles/convergence/aow_weapon_compat.csv"
+        )),
+        "attack_element_correct.csv" => Some(include_str!(
+            "../../../data/profiles/convergence/attack_element_correct.csv"
+        )),
+        "attack_element_correct_ext.csv" => Some(include_str!(
+            "../../../data/profiles/convergence/attack_element_correct_ext.csv"
+        )),
+        "calc_correct.csv" => Some(include_str!(
+            "../../../data/profiles/convergence/calc_correct.csv"
+        )),
+        "native_skill_attack_data.csv" => Some(include_str!(
+            "../../../data/profiles/convergence/native_skill_attack_data.csv"
+        )),
+        "reinforce.csv" => Some(include_str!(
+            "../../../data/profiles/convergence/reinforce.csv"
+        )),
+        "weapon_passive_overlays.csv" => Some(include_str!(
+            "../../../data/profiles/convergence/weapon_passive_overlays.csv"
+        )),
+        "weapon_passives.csv" => Some(include_str!(
+            "../../../data/profiles/convergence/weapon_passives.csv"
+        )),
+        "weapons.csv" => Some(include_str!(
+            "../../../data/profiles/convergence/weapons.csv"
+        )),
         _ => None,
     }
 }
@@ -195,7 +254,7 @@ pub fn load_game_data_with_manifest(
     data_dir: impl AsRef<Path>,
 ) -> Result<(GameData, SnapshotManifest), String> {
     let data_dir = data_dir.as_ref();
-    if data_dir.starts_with(EMBEDDED_DATA_ROOT) {
+    if is_embedded_data_path(data_dir) {
         return Err("embedded snapshots must be loaded explicitly".to_string());
     }
     let manifest = validate_external_snapshot(data_dir)?;
@@ -230,6 +289,27 @@ fn load_validated_game_data(
         snapshot_schema_version: manifest.schema_version,
         dataset_version: manifest.dataset_version.clone(),
         model_version: manifest.model_version.clone(),
+        profile_id: manifest.profile.id.clone(),
+        profile_display_name: manifest.profile.display_name.clone(),
+        capabilities: DataCapabilities {
+            weapon_ar: manifest.capabilities.weapon_ar,
+            status_buildup: manifest.capabilities.status_buildup,
+            weapon_passives: manifest.capabilities.weapon_passives,
+            aow_compatibility: manifest.capabilities.aow_compatibility,
+            aow_damage: manifest.capabilities.aow_damage,
+            aow_routes: manifest.capabilities.aow_routes,
+        },
+        rules: DataRules {
+            standard_max_upgrade: manifest.rules.standard_max_upgrade,
+            somber_max_upgrade: manifest.rules.somber_max_upgrade,
+            separate_upgrade_caps: manifest.rules.separate_upgrade_caps,
+            scadutree_scaling: manifest.rules.scadutree_scaling,
+            zero_attack_element_uses_weapon_scaling: manifest
+                .rules
+                .zero_attack_element_uses_weapon_scaling,
+            extended_scaling_grades: manifest.rules.extended_scaling_grades,
+            status_buildup_scales: manifest.rules.status_buildup_scales,
+        },
         weapons,
         reinforce,
         calc_correct,
@@ -248,15 +328,42 @@ fn load_validated_game_data(
 }
 
 pub fn load_embedded_game_data() -> Result<GameData, String> {
-    load_embedded_game_data_with_manifest().map(|(data, _)| data)
+    load_embedded_game_profile(VANILLA_PROFILE_ID)
 }
 
 pub fn load_embedded_game_data_with_manifest() -> Result<(GameData, SnapshotManifest), String> {
-    let manifest = validate_embedded_snapshot(
-        include_bytes!("../../../data/phase1/manifest.json"),
-        |name| embedded_csv_for_path(Path::new(name)).map(str::as_bytes),
-    )?;
-    load_validated_game_data(Path::new(EMBEDDED_DATA_ROOT), manifest)
+    load_embedded_game_profile_with_manifest(VANILLA_PROFILE_ID)
+}
+
+pub fn load_embedded_game_profile(profile_id: &str) -> Result<GameData, String> {
+    load_embedded_game_profile_with_manifest(profile_id).map(|(data, _)| data)
+}
+
+pub fn load_embedded_game_profile_with_manifest(
+    profile_id: &str,
+) -> Result<(GameData, SnapshotManifest), String> {
+    let (root, manifest_bytes): (&str, &'static [u8]) = match profile_id {
+        VANILLA_PROFILE_ID => (
+            EMBEDDED_VANILLA_ROOT,
+            include_bytes!("../../../data/phase1/manifest.json"),
+        ),
+        CONVERGENCE_PROFILE_ID => (
+            EMBEDDED_CONVERGENCE_ROOT,
+            include_bytes!("../../../data/profiles/convergence/manifest.json"),
+        ),
+        other => return Err(format!("unknown embedded game profile: {other}")),
+    };
+    let root_path = Path::new(root);
+    let manifest = validate_embedded_snapshot(manifest_bytes, |name| {
+        embedded_csv_for_path(&root_path.join(name)).map(str::as_bytes)
+    })?;
+    if manifest.profile.id != profile_id {
+        return Err(format!(
+            "embedded profile id mismatch: requested {profile_id}, manifest contains {}",
+            manifest.profile.id
+        ));
+    }
+    load_validated_game_data(root_path, manifest)
 }
 
 fn load_weapons(path: PathBuf) -> Result<Vec<Weapon>, String> {
@@ -1002,7 +1109,9 @@ fn load_exact_aow_compat_optional(path: PathBuf) -> Result<HashSet<(u16, u32)>, 
 
 #[cfg(test)]
 mod tests {
-    use super::{load_embedded_game_data, load_game_data};
+    use super::{
+        CONVERGENCE_PROFILE_ID, load_embedded_game_data, load_embedded_game_profile, load_game_data,
+    };
     use crate::model::AowEffectRole;
 
     #[test]
@@ -1012,6 +1121,61 @@ mod tests {
         assert!(data.aows.len() > 100);
         assert!(!data.exact_aow_compat.is_empty());
         assert!(!data.aow_effects.is_empty());
+    }
+
+    #[test]
+    fn convergence_snapshot_is_isolated_and_declares_partial_aow_coverage() {
+        let data = load_embedded_game_profile(CONVERGENCE_PROFILE_ID)
+            .expect("Convergence embedded snapshot loads");
+        assert_eq!(data.profile_id, CONVERGENCE_PROFILE_ID);
+        assert_eq!(data.dataset_version, "convergence-3.0.0.1");
+        assert_eq!(data.rules.standard_max_upgrade, 15);
+        assert_eq!(data.rules.somber_max_upgrade, 15);
+        assert!(!data.rules.separate_upgrade_caps);
+        assert!(!data.rules.scadutree_scaling);
+        assert!(data.rules.zero_attack_element_uses_weapon_scaling);
+        assert!(data.rules.extended_scaling_grades);
+        assert!(!data.rules.status_buildup_scales);
+        assert_eq!(data.weapons.len(), 3189);
+        assert!(data.weapons.iter().any(|weapon| weapon.affinity == "Glint"));
+        assert!(data.weapons.iter().any(|weapon| {
+            weapon.weapon_id == 10_200_000 && weapon.name == "Galvanic Culling Blade [Twinblade]"
+        }));
+        let galvanic = data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.weapon_id == 10_200_000)
+            .expect("Galvanic twinblade");
+        let plus_thirteen = data
+            .reinforce_level(galvanic.reinforce_type, 13)
+            .expect("Galvanic +13 reinforcement");
+        assert!((galvanic.scaling[0] * plus_thirteen.scaling_mult[0] - 1.089).abs() < 0.001);
+        assert!((galvanic.scaling[1] * plus_thirteen.scaling_mult[1] - 1.386).abs() < 0.001);
+        assert!((galvanic.scaling[2] * plus_thirteen.scaling_mult[2] - 2.277).abs() < 0.001);
+        assert!(
+            !data
+                .weapons
+                .iter()
+                .any(|weapon| weapon.weapon_id == 10_205_000)
+        );
+        assert!(
+            data.aows
+                .iter()
+                .any(|aow| aow.aow_id == 105 && aow.name == "Ancient Thunderclap")
+        );
+        assert!(data.weapons.iter().any(|weapon| {
+            weapon.native_skill_id == Some(105)
+                && weapon.native_skill_name.as_deref() == Some("Ancient Thunderclap")
+        }));
+        assert!(!data.exact_aow_compat.is_empty());
+        assert!(!data.capabilities.aow_damage);
+        assert!(!data.capabilities.aow_routes);
+        let fallback = data
+            .attack_element(0)
+            .expect("Convergence correction fallback");
+        assert!(fallback.scales.iter().flatten().all(|enabled| *enabled));
+        assert!(data.aow_attack_rows.is_empty());
+        assert!(data.aow_route_assignments.is_empty());
     }
 
     #[test]

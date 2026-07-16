@@ -7,6 +7,12 @@ import sys
 import tomllib
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from tools.phase1.snapshot_manifest import SCHEMA_VERSION  # noqa: E402
+
 
 def load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -61,6 +67,34 @@ def main() -> int:
     ci_workflow = (root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     release_workflow = (root / ".github/workflows/release-package.yml").read_text(encoding="utf-8")
     package_script = (root / "tools/phase4/package_release.py").read_text(encoding="utf-8")
+
+    profile_manifests = {
+        "vanilla": root / "data/phase1/manifest.json",
+        "convergence": root / "data/profiles/convergence/manifest.json",
+    }
+    for profile_id, manifest_path in profile_manifests.items():
+        if not manifest_path.is_file():
+            errors.append(f"missing {profile_id} profile manifest: {manifest_path.relative_to(root)}")
+            continue
+        manifest = load_json(manifest_path)
+        expect_equal(
+            f"{profile_id} manifest profile id",
+            manifest.get("profile", {}).get("id"),
+            profile_id,
+            errors,
+        )
+        if manifest.get("schemaVersion") != SCHEMA_VERSION:
+            errors.append(
+                f"{profile_id} manifest schemaVersion must be {SCHEMA_VERSION}"
+            )
+        if not str(manifest.get("id", "")).startswith(f"{profile_id}-"):
+            errors.append(f"{profile_id} manifest id is not profile-bound")
+        regulation = next(
+            (source for source in manifest.get("sources", []) if source.get("kind") == "regulation"),
+            None,
+        )
+        if not regulation or regulation.get("bundled") is not False:
+            errors.append(f"{profile_id} regulation provenance must be recorded but not bundled")
 
     if args.tag:
         expect_equal("release tag", args.tag, expected_tag, errors)
@@ -171,6 +205,21 @@ def main() -> int:
         "release clean-source verification",
         release_workflow,
         "if ($report.sourceDirty -ne $false)",
+        errors,
+    )
+    expect_contains(
+        "package dual-profile provenance", package_script, '"dataManifestIds"', errors
+    )
+    expect_contains(
+        "release dual-profile provenance verification",
+        release_workflow,
+        "$report.dataManifestIds.convergence",
+        errors,
+    )
+    expect_contains(
+        "release dual-profile validation report verification",
+        release_workflow,
+        '"convergence" -notin $validatedProfiles',
         errors,
     )
 

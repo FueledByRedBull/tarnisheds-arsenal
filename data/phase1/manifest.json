@@ -1,14 +1,37 @@
 {
-  "schemaVersion": 1,
-  "datasetVersion": "phase1-app-1.16.1",
-  "modelVersion": "aow-routes-effects-v1",
-  "id": "phase1-app-1.16.1",
-  "label": "Phase 1 dataset - App Ver. 1.16.1",
+  "schemaVersion": 3,
+  "datasetVersion": "vanilla-1.16.1",
+  "modelVersion": "aow-routes-effects-v3-profile-semantics",
+  "id": "vanilla-1.16.1",
+  "label": "Vanilla dataset - 1.16.1",
   "appVersion": "1.16.1",
-  "source": "ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx",
-  "generatedAt": "2026-05-18",
-  "extractorVersion": "phase1-python-v2",
-  "provenance": "regulation.bin + verified motion workbook + numeric PARAM effect graph",
+  "source": "regulation.bin",
+  "profile": {
+    "id": "vanilla",
+    "displayName": "Vanilla",
+    "gameVersion": "1.16.1",
+    "modVersion": null
+  },
+  "capabilities": {
+    "weaponAr": true,
+    "statusBuildup": true,
+    "weaponPassives": true,
+    "aowCompatibility": true,
+    "aowDamage": true,
+    "aowRoutes": true
+  },
+  "rules": {
+    "standardMaxUpgrade": 25,
+    "somberMaxUpgrade": 10,
+    "separateUpgradeCaps": true,
+    "scadutreeScaling": true,
+    "zeroAttackElementUsesWeaponScaling": false,
+    "extendedScalingGrades": false,
+    "statusBuildupScales": true
+  },
+  "generatedAt": "2026-07-16",
+  "extractorVersion": "phase1-python-v6-profile-semantics",
+  "provenance": "profile-bound regulation, names, motion data, and numeric PARAM effect graph",
   "runtimeFiles": [
     {
       "path": "aow.csv",
@@ -79,8 +102,8 @@
   "diagnosticFiles": [
     {
       "path": "aow_affinity_compat.csv",
-      "size": 131324,
-      "sha256": "e033b4055828befb3e37e020e184b30cf23a6b25ed16286362a896034e826738"
+      "size": 131208,
+      "sha256": "8bf2af671c6b7482cd59fc3107ea6ccb0997ab91c5fc7083e7cb92619b5d9e6d"
     },
     {
       "path": "aow_buffs.csv",
@@ -119,19 +142,21 @@
     },
     {
       "path": "weapon_scaling_summary.csv",
-      "size": 415825,
-      "sha256": "77ad48fe967d56b6925822a0f6e10766cfc4d0e84f2cb93a3a4d70f95761080e"
+      "size": 408285,
+      "sha256": "c1572f60e930c25bf5c190b024ea99f9c77a4285cdc13f3e48425883b2ea8d93"
     }
   ],
   "sources": [
     {
       "kind": "regulation",
+      "bundled": false,
       "path": "regulation.bin",
       "size": 2036272,
       "sha256": "7b6d07c357b639c902d48403ffe3612db35e0cf8d6fcc82d3fb24ea6eb6cf30a"
     },
     {
       "kind": "workbook",
+      "bundled": true,
       "path": "ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx",
       "size": 4194391,
       "sha256": "a606ec0f349ee616d60e8c04df6491b5377eb288d1dde8335acdd0fd20b11235"

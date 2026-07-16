@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { defaultRequest, useDesktopStore } from "./state";
-import type { SolvedBuildDto } from "./types";
+import type { CatalogDto, SolvedBuildDto } from "./types";
 
 const row: SolvedBuildDto = {
   weaponId: 1,
@@ -94,4 +94,112 @@ describe("desktop result lifecycle", () => {
     useDesktopStore.getState().setPathHorizon(12);
     expect(useDesktopStore.getState().affinityHorizon).toBe(80);
   });
+
+  it("switches profiles as one fail-closed state transition", () => {
+    const state = useDesktopStore.getState();
+    state.setProfiles([catalog("vanilla").dataManifest, catalog("convergence").dataManifest]);
+    state.setRows([row]);
+    state.setCompareTarget(row);
+    state.setWorkspace("compare");
+    const before = useDesktopStore.getState();
+
+    before.beginProfileSwitch("convergence");
+    const switched = useDesktopStore.getState();
+
+    expect(switched.request.profileId).toBe("convergence");
+    expect(switched.request.standardMaxUpgrade).toBe(15);
+    expect(switched.request.somberMaxUpgrade).toBe(15);
+    expect(switched.request.dlcScaling).toBe(false);
+    expect(switched.request.scadutreeLevel).toBe(0);
+    expect(switched.activeWorkspace).toBe("rankings");
+    expect(switched.catalogStatus).toBe("loading");
+    expect(switched.rows).toEqual([]);
+    expect(switched.selected).toBeNull();
+    expect(switched.compareTarget).toBeNull();
+    expect(switched.searchGeneration).toBe(before.searchGeneration + 1);
+    expect(switched.pathGeneration).toBe(before.pathGeneration + 1);
+    expect(switched.affinityGeneration).toBe(before.affinityGeneration + 1);
+  });
+
+  it("normalizes unsupported objectives when a profile catalog arrives", () => {
+    useDesktopStore.setState({
+      request: { ...defaultRequest, profileId: "convergence", objective: "aow_full_sequence" },
+    });
+
+    useDesktopStore.getState().setCatalog(catalog("convergence"));
+
+    expect(useDesktopStore.getState().request).toMatchObject({
+      profileId: "convergence",
+      objective: "max_ar",
+    });
+  });
+
+  it("rejects unavailable Convergence controls in every request patch", () => {
+    useDesktopStore.getState().setCatalog(catalog("convergence"));
+    useDesktopStore.getState().patchRequest({
+      standardMaxUpgrade: 25,
+      somberMaxUpgrade: 25,
+      dlcScaling: true,
+      scadutreeLevel: 20,
+      somberFilter: "somber_only",
+    });
+
+    expect(useDesktopStore.getState().request).toMatchObject({
+      standardMaxUpgrade: 15,
+      somberMaxUpgrade: 15,
+      dlcScaling: false,
+      scadutreeLevel: 0,
+      somberFilter: "all",
+    });
+  });
 });
+
+function catalog(profileId: string): CatalogDto {
+  return {
+    weaponCount: 1,
+    aowCount: 1,
+    weaponNames: ["Uchigatana"],
+    weaponTypeKeys: ["katana"],
+    classes: [],
+    weaponTypeOptions: [{ key: "katana", label: "Katana" }],
+    aowNames: ["Unsheathe"],
+    affinityNames: ["Standard"],
+    objectiveIds: ["max_ar", "max_physical_ar", "max_ar_plus_bleed"],
+    somberFilters: ["all"],
+    dataManifest: {
+      schemaVersion: 3,
+      datasetVersion: `${profileId}-test`,
+      modelVersion: "test-model",
+      id: `${profileId}-test`,
+      label: profileId,
+      appVersion: "1.16.1",
+      source: "test",
+      generatedAt: "2026-07-16",
+      extractorVersion: "test",
+      provenance: "test",
+      profile: {
+        id: profileId,
+        displayName: profileId,
+        gameVersion: "1.16.1",
+        modVersion: profileId === "convergence" ? "test" : null,
+      },
+      capabilities: {
+        weaponAr: true,
+        statusBuildup: true,
+        weaponPassives: true,
+        aowCompatibility: true,
+        aowDamage: profileId === "vanilla",
+        aowRoutes: profileId === "vanilla",
+      },
+      rules: {
+        standardMaxUpgrade: profileId === "convergence" ? 15 : 25,
+        somberMaxUpgrade: profileId === "convergence" ? 15 : 10,
+        separateUpgradeCaps: profileId !== "convergence",
+        scadutreeScaling: profileId !== "convergence",
+        zeroAttackElementUsesWeaponScaling: profileId === "convergence",
+        extendedScalingGrades: profileId === "convergence",
+        statusBuildupScales: profileId !== "convergence",
+      },
+    },
+  };
+}

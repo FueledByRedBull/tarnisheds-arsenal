@@ -4,20 +4,24 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import math
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Iterator, Mapping
+from typing import Any, Iterable, Iterator, Mapping, Sequence
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+from tools.phase1.profiles import discover_witchybnd, profile_definition  # noqa: E402
 
 ROW_MARKER = '<row id="'
 ATTR_RE = re.compile(r'(\w+)="([^"]*)"')
@@ -43,22 +47,6 @@ STAT_AEC_PREFIX = {
     "int": "Magic",
     "fai": "Faith",
     "arc": "Luck",
-}
-
-AFFINITY_BY_SLOT = {
-    0: "Standard",
-    1: "Heavy",
-    2: "Keen",
-    3: "Quality",
-    4: "Fire",
-    5: "Flame Art",
-    6: "Lightning",
-    7: "Sacred",
-    8: "Magic",
-    9: "Cold",
-    10: "Poison",
-    11: "Blood",
-    12: "Occult",
 }
 
 WEP_TYPE_KEY_ALIASES = {
@@ -126,33 +114,58 @@ class RegulationContext:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Dump Phase 1 CSV data from regulation.bin.")
     parser.add_argument(
+        "--profile",
+        default="vanilla",
+        help="Game profile to extract (vanilla, convergence, or conv)",
+    )
+    parser.add_argument(
         "--regulation",
         type=Path,
-        default=Path("data") / "raw" / "regulation.bin",
-        help="Path to regulation.bin",
+        help="Path to regulation.bin (defaults to the selected profile source folder)",
     )
     parser.add_argument(
         "--witchybnd",
         type=Path,
-        default=Path("tools") / "phase1" / "_external" / "WitchyBND.exe",
-        help="Path to WitchyBND.exe (not bundled in this repo)",
+        help="Path to WitchyBND.exe (auto-discovered under data/raw when omitted)",
     )
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("data") / "phase1",
-        help="Output directory for CSV files",
+        help="Output directory for the selected profile snapshot",
     )
     parser.add_argument(
         "--workdir",
         type=Path,
-        default=Path("data") / "_work_phase1",
-        help="Temporary working directory",
+        help="Temporary working directory (profile-specific when omitted)",
+    )
+    parser.add_argument(
+        "--weapon-name-xml",
+        dest="weapon_name_xmls",
+        action="append",
+        type=Path,
+        help="Unpacked WeaponName FMG XML override; repeat for base/DLC tables",
+    )
+    parser.add_argument(
+        "--arts-name-xml",
+        dest="arts_name_xmls",
+        action="append",
+        type=Path,
+        help="Unpacked ArtsName FMG XML override; repeat for base/DLC tables",
+    )
+    parser.add_argument(
+        "--profile-version-file",
+        type=Path,
+        help="Optional profile version provenance file override",
     )
     parser.add_argument(
         "--keep-workdir",
         action="store_true",
         help="Keep working files after completion",
+    )
+    parser.add_argument(
+        "--allow-unverified-weapons",
+        action="store_true",
+        help="Bootstrap only: extract broad weapon candidates without the profile availability reference",
     )
     return parser.parse_args()
 
@@ -264,6 +277,10 @@ def to_float(attrs: dict[str, str], key: str, default: float = 0.0) -> float:
     return float(raw)
 
 
+def param_row_name(attrs: Mapping[str, str]) -> str:
+    return (attrs.get("paramdexName") or attrs.get("name") or "").strip()
+
+
 def object_to_int(value: object) -> int:
     if isinstance(value, (int, float, str)):
         return int(value)
@@ -315,12 +332,54 @@ def load_param_name_map(witchybnd_path: Path, param_name: str) -> dict[int, str]
                 key = int(parts[0])
             except ValueError:
                 continue
-            mapping[key] = parts[1].strip()
+            value = parts[1].strip()
+            if not value or value in {"%null%", "[ERROR]"}:
+                continue
+            mapping[key] = value
     return mapping
 
 
 def load_weapon_name_map(witchybnd_path: Path) -> dict[int, str]:
     return load_param_name_map(witchybnd_path, "EquipParamWeapon")
+
+
+def load_fmg_name_map(xml_path: Path) -> dict[int, str]:
+    if not xml_path.is_file():
+        raise FileNotFoundError(f"FMG name source not found: {xml_path}")
+    root = ET.parse(xml_path).getroot()
+    mapping: dict[int, str] = {}
+    for element in root.findall("./entries/text"):
+        raw_id = element.get("id")
+        value = (element.text or "").strip()
+        if raw_id is None or not value or value in {"%null%", "[ERROR]"}:
+            continue
+        try:
+            entry_id = int(raw_id)
+        except ValueError:
+            continue
+        mapping[entry_id] = value
+    if not mapping:
+        raise ValueError(f"FMG name source contains no usable entries: {xml_path}")
+    return mapping
+
+
+def load_merged_fmg_name_map(xml_paths: Sequence[Path], label: str) -> dict[int, str]:
+    mapping: dict[int, str] = {}
+    source_by_id: dict[int, Path] = {}
+    for xml_path in xml_paths:
+        for entry_id, value in load_fmg_name_map(xml_path).items():
+            previous = mapping.get(entry_id)
+            if previous is not None and previous != value:
+                raise ValueError(
+                    f"conflicting {label} FMG name for id={entry_id}: "
+                    f"{previous!r} from {source_by_id[entry_id].name}, "
+                    f"{value!r} from {xml_path.name}"
+                )
+            mapping[entry_id] = value
+            source_by_id[entry_id] = xml_path
+    if xml_paths and not mapping:
+        raise ValueError(f"merged {label} FMG sources contain no usable names")
+    return mapping
 
 
 def load_wep_type_name_map(witchybnd_path: Path) -> dict[int, str]:
@@ -380,50 +439,52 @@ def weapon_affinity_slot(weapon_id: int) -> int:
     return (weapon_id % 10000) // 100
 
 
+def player_weapon_param_name(row: dict[str, str]) -> str:
+    name = param_row_name(row).strip()
+    lowered = name.casefold()
+    if not name or to_int(row, "sortId", 9_999_999) == 9_999_999:
+        return ""
+    if any(marker in lowered for marker in ("[npc]", "(npc)", "dummy", "test weapon")):
+        return ""
+    return re.sub(r"^\[conv\]\s*", "", name, flags=re.IGNORECASE)
+
+
 def build_standard_name_map(
     weapon_rows: list[dict[str, str]],
     name_map: dict[int, str],
+    *,
+    allow_param_names: bool,
 ) -> dict[int, str]:
     out: dict[int, str] = {}
     for row in weapon_rows:
         weapon_id = to_int(row, "id")
         if weapon_id % 10000 != 0:
             continue
-        raw_name = row.get("paramdexName", "").strip()
-        if not raw_name:
-            raw_name = name_map.get(weapon_id, "").strip()
+        safe_param_name = player_weapon_param_name(row)
+        if not safe_param_name:
+            continue
+        raw_name = name_map.get(weapon_id, "").strip()
+        if not raw_name and allow_param_names:
+            raw_name = safe_param_name
         if raw_name:
             out[weapon_series_id(weapon_id)] = raw_name
     return out
 
 
-def build_reinforce_affinity_map(weapon_rows: list[dict[str, str]]) -> dict[int, str]:
-    affinity_by_type: dict[int, str] = {}
-    for row in weapon_rows:
-        weapon_id = to_int(row, "id")
-        if weapon_id % 100 != 0:
-            continue
-        if weapon_id < 1_000_000:
-            continue
-        if to_int(row, "originEquipWep", -1) < 0:
-            continue
-        reinforce_type = to_int(row, "reinforceTypeId")
-        if to_int(row, "disableGemAttr", 0) != 0:
-            affinity_by_type.setdefault(reinforce_type, "Standard")
-            continue
-        slot = weapon_affinity_slot(weapon_id)
-        affinity = AFFINITY_BY_SLOT.get(slot)
-        if affinity is None:
-            raise ValueError(
-                f"unsupported ashable affinity slot {slot} for weapon_id={weapon_id}"
-            )
-        existing = affinity_by_type.get(reinforce_type)
-        if existing is not None and existing != affinity:
-            raise ValueError(
-                f"conflicting affinity mapping for reinforce_type={reinforce_type}: {existing} vs {affinity}"
-            )
-        affinity_by_type[reinforce_type] = affinity
-    return affinity_by_type
+def physical_attack_attributes(row: dict[str, str]) -> tuple[str, str]:
+    attributes: list[str] = []
+    for field, label in (
+        ("isBlowAttackType", "strike"),
+        ("isSlashAttackType", "slash"),
+        ("isThrustAttackType", "pierce"),
+        ("isNormalAttackType", "standard"),
+    ):
+        if to_int(row, field, 0) != 0 and label not in attributes:
+            attributes.append(label)
+    if not attributes:
+        attributes.append("standard")
+    secondary = attributes[1] if len(attributes) > 1 else attributes[0]
+    return attributes[0], secondary
 
 
 def expand_calc_correct_curve(curve: dict[str, str]) -> list[float]:
@@ -543,39 +604,144 @@ def build_attack_element_rows(
     return rows_out, attack_map
 
 
+def apply_profile_attack_element_rules(
+    rows: list[dict[str, object]],
+    *,
+    zero_attack_element_uses_weapon_scaling: bool,
+) -> None:
+    if not zero_attack_element_uses_weapon_scaling:
+        return
+    zero_row = next(
+        (row for row in rows if object_to_int(row["attack_element_correct_id"]) == 0),
+        None,
+    )
+    if zero_row is None:
+        raise ValueError("profile requires attack-element fallback but row 0 is missing")
+    for stat_key in STAT_AEC_PREFIX:
+        for damage_name, _, _, _ in DAMAGE_INFOS:
+            zero_row[f"{stat_key}_scales_{damage_name}"] = 1
+
+
+def build_attack_element_correct_ext_rows(
+    attack_rows: list[dict[str, str]],
+) -> tuple[list[str], list[dict[str, object]]]:
+    fieldnames = ["attack_element_correct_id"]
+    for stat_key in ("str", "dex", "int", "fai", "arc"):
+        for damage_type, _, _, _ in DAMAGE_INFOS:
+            fieldnames.extend(
+                (
+                    f"{stat_key}_scales_{damage_type}",
+                    f"{stat_key}_overwrite_{damage_type}",
+                    f"{stat_key}_influence_{damage_type}",
+                )
+            )
+
+    rows_out: list[dict[str, object]] = []
+    for source in attack_rows:
+        row_id = to_int(source, "id")
+        if row_id <= 0:
+            continue
+        row: dict[str, object] = {"attack_element_correct_id": row_id}
+        for stat_key, raw_stat in STAT_AEC_PREFIX.items():
+            for damage_type, raw_damage, _, _ in DAMAGE_INFOS:
+                row[f"{stat_key}_scales_{damage_type}"] = to_int(
+                    source, f"is{raw_stat}Correct_by{raw_damage}", 0
+                )
+                row[f"{stat_key}_overwrite_{damage_type}"] = to_float(
+                    source, f"overwrite{raw_stat}CorrectRate_by{raw_damage}", -1.0
+                )
+                row[f"{stat_key}_influence_{damage_type}"] = to_float(
+                    source, f"Influence{raw_stat}CorrectRate_by{raw_damage}", 100.0
+                )
+        rows_out.append(row)
+    rows_out.sort(key=lambda item: object_to_int(item["attack_element_correct_id"]))
+    return fieldnames, rows_out
+
+
+def initialize_unsupported_aow_runtime_files(output_dir: Path, reference_dir: Path) -> None:
+    for file_name in (
+        "aow_attack_data.csv",
+        "aow_effect_data.csv",
+        "aow_route_assignments.csv",
+        "native_skill_attack_data.csv",
+    ):
+        reference_path = reference_dir / file_name
+        if not reference_path.is_file():
+            raise FileNotFoundError(f"runtime CSV schema reference not found: {reference_path}")
+        with reference_path.open("r", encoding="utf-8", newline="") as handle:
+            header = handle.readline()
+        if not header:
+            raise ValueError(f"runtime CSV schema reference has no header: {reference_path}")
+        (output_dir / file_name).write_text(header, encoding="utf-8", newline="")
+
+
 def build_weapon_rows(
     weapon_rows: list[dict[str, str]],
     name_map: dict[int, str],
     sword_art_name_map: dict[int, str],
     wep_type_name_map: dict[int, str],
     weapon_type_keys_by_id: dict[int, tuple[str, ...]],
-    affinity_by_type: dict[int, str],
+    affinity_by_slot: Mapping[int, str],
     max_level_by_type: dict[int, int],
     player_weapon_data: Mapping[int, Any],
+    *,
+    use_workbook_weapon_metadata: bool,
+    allow_param_weapon_names: bool,
+    weapon_affinity_by_id: Mapping[int, str] | None = None,
+    include_disabled_affinity_variants: bool = False,
 ) -> list[dict[str, object]]:
     rows_out: list[dict[str, object]] = []
-    standard_name_by_series = build_standard_name_map(weapon_rows, name_map)
+    standard_name_by_series = build_standard_name_map(
+        weapon_rows,
+        name_map,
+        allow_param_names=allow_param_weapon_names,
+    )
 
     for row in weapon_rows:
         weapon_id = to_int(row, "id")
         if weapon_id % 100 != 0:
             continue
+        if weapon_affinity_by_id is not None and weapon_id not in weapon_affinity_by_id:
+            continue
         if to_int(row, "originEquipWep", -1) < 0:
+            continue
+        safe_param_name = player_weapon_param_name(row)
+        if not safe_param_name:
             continue
 
         standard_weapon_id = weapon_series_id(weapon_id)
         workbook_weapon = player_weapon_data.get(standard_weapon_id)
-        if workbook_weapon is None:
-            continue
 
-        raw_name = row.get("paramdexName", "").strip()
-        if not raw_name:
-            raw_name = name_map.get(weapon_id, "").strip()
+        raw_name = name_map.get(weapon_id, "").strip()
+        if not raw_name and allow_param_weapon_names:
+            raw_name = safe_param_name
         if not raw_name:
             continue
 
         reinforce_type = to_int(row, "reinforceTypeId")
-        affinity = affinity_by_type.get(reinforce_type, "Standard")
+        affinity_slot = weapon_affinity_slot(weapon_id)
+        disable_gem_attr = to_int(row, "disableGemAttr", 0)
+        if weapon_affinity_by_id is not None:
+            affinity = weapon_affinity_by_id[weapon_id]
+            if affinity == "Standard" and disable_gem_attr != 0:
+                affinity = "Standard"
+                raw_name = safe_param_name
+        else:
+            affinity = affinity_by_slot.get(affinity_slot)
+            if affinity_slot in affinity_by_slot and affinity_slot != 0 and disable_gem_attr != 0:
+                if include_disabled_affinity_variants:
+                    affinity = "Standard"
+                    raw_name = safe_param_name
+                else:
+                    continue
+            if affinity is None:
+                if disable_gem_attr != 0:
+                    affinity = "Standard"
+                    raw_name = safe_param_name
+                else:
+                    raise ValueError(
+                        f"unsupported ashable affinity slot {affinity_slot} for weapon_id={weapon_id}"
+                    )
         name = raw_name
         if affinity != "Standard":
             name = standard_name_by_series.get(weapon_series_id(weapon_id), raw_name)
@@ -586,13 +752,23 @@ def build_weapon_rows(
         weapon_type_id = to_int(row, "wepType", 0)
         weapon_type_name = wep_type_name_map.get(weapon_type_id, "Unknown")
         weapon_type_keys = weapon_type_keys_by_id.get(weapon_type_id, ())
-        disable_gem_attr = to_int(row, "disableGemAttr", 0)
-        if weapon_affinity_slot(weapon_id) != 0 and disable_gem_attr != 0:
-            continue
         native_skill_id = to_int(row, "swordArtsParamId", -1)
         native_skill_name = (
             sword_art_name_map.get(native_skill_id, "").strip() if native_skill_id > 0 else ""
         )
+        param_primary, param_secondary = physical_attack_attributes(row)
+        if use_workbook_weapon_metadata and workbook_weapon is not None:
+            stamina_consumption_rate = getattr(workbook_weapon, "stamina_consumption_rate")
+            physical_attribute_primary = getattr(
+                workbook_weapon, "physical_attribute_primary"
+            )
+            physical_attribute_secondary = getattr(
+                workbook_weapon, "physical_attribute_secondary"
+            )
+        else:
+            stamina_consumption_rate = to_float(row, "staminaConsumptionRate", 1.0)
+            physical_attribute_primary = param_primary
+            physical_attribute_secondary = param_secondary
 
         base_physical = to_int(row, "attackBasePhysics", 0)
         base_magic = to_int(row, "attackBaseMagic", 0)
@@ -610,13 +786,9 @@ def build_weapon_rows(
                 "weapon_type_id": weapon_type_id,
                 "weapon_type_name": weapon_type_name,
                 "weapon_type_keys": "|".join(weapon_type_keys),
-                "stamina_consumption_rate": getattr(workbook_weapon, "stamina_consumption_rate"),
-                "physical_attribute_primary": getattr(
-                    workbook_weapon, "physical_attribute_primary"
-                ),
-                "physical_attribute_secondary": getattr(
-                    workbook_weapon, "physical_attribute_secondary"
-                ),
+                "stamina_consumption_rate": stamina_consumption_rate,
+                "physical_attribute_primary": physical_attribute_primary,
+                "physical_attribute_secondary": physical_attribute_secondary,
                 "base_physical": base_physical,
                 "base_magic": base_magic,
                 "base_fire": base_fire,
@@ -688,11 +860,12 @@ def build_speffect_map(sp_rows: list[dict[str, str]]) -> dict[int, tuple[float, 
 def build_aow_rows(
     aow_rows: list[dict[str, str]],
     effect_map: dict[int, tuple[float, float, float, float]],
+    sword_art_name_map: Mapping[int, str],
 ) -> list[dict[str, object]]:
     grouped_rows: dict[int, list[dict[str, str]]] = defaultdict(list)
 
     for row in aow_rows:
-        raw_name = row.get("paramdexName", "").strip()
+        raw_name = param_row_name(row)
         if not raw_name.startswith("Ash of War:"):
             continue
 
@@ -710,8 +883,10 @@ def build_aow_rows(
             return (sort_real, icon_real, special, to_int(item, "id", 0))
 
         canonical = max(rows, key=score)
-        aow_name = canonical.get("paramdexName", "").replace("Ash of War:", "", 1).strip()
+        aow_name = sword_art_name_map.get(sword_art_id, "").strip()
         if not aow_name:
+            aow_name = param_row_name(canonical).replace("Ash of War:", "", 1).strip()
+        if not aow_name or aow_name in {"%null%", "[ERROR]"}:
             continue
 
         # Ignore attack-hit effects; keep only passive AoW effects for build scoring.
@@ -760,6 +935,8 @@ def load_regulation_context(
     regulation_path: Path,
     witchybnd_path: Path,
     workdir: Path,
+    weapon_name_xmls: Sequence[Path] = (),
+    arts_name_xmls: Sequence[Path] = (),
 ) -> RegulationContext:
     xml_paths = serialized_xml_paths_from_workdir(workdir)
     if xml_paths is None:
@@ -778,8 +955,16 @@ def load_regulation_context(
     attack_rows = list(iter_param_rows(xml_paths[ATTACK_ELEMENT_PARAM]))
     aow_rows = list(iter_param_rows(xml_paths[AOW_PARAM]))
     sp_rows = list(iter_param_rows(xml_paths[SPEFFECT_PARAM]))
-    weapon_name_map = load_weapon_name_map(witchybnd_path)
-    sword_art_name_map = load_param_name_map(witchybnd_path, "SwordArtsParam")
+    weapon_name_map = (
+        load_merged_fmg_name_map(weapon_name_xmls, "weapon")
+        if weapon_name_xmls
+        else load_weapon_name_map(witchybnd_path)
+    )
+    sword_art_name_map = (
+        load_merged_fmg_name_map(arts_name_xmls, "skill")
+        if arts_name_xmls
+        else load_param_name_map(witchybnd_path, "SwordArtsParam")
+    )
     wep_type_name_map = load_wep_type_name_map(witchybnd_path)
     gem_mount_fields = discover_gem_mount_fields(xml_paths[AOW_PARAM])
     weapon_type_keys_by_id = build_weapon_type_key_map(wep_type_name_map, gem_mount_fields)
@@ -802,10 +987,32 @@ def load_regulation_context(
 
 def main() -> int:
     args = parse_args()
-    regulation_path: Path = args.regulation.resolve()
-    witchybnd_path: Path = args.witchybnd.resolve()
-    destination_dir: Path = args.output.resolve()
-    workdir: Path = args.workdir.resolve()
+    profile = profile_definition(args.profile)
+    regulation_path = (args.regulation or profile.regulation_path).resolve()
+    witchybnd_path = (args.witchybnd or discover_witchybnd(ROOT)).resolve()
+    destination_dir = (args.output or profile.output_dir).resolve()
+    workdir = (args.workdir or Path("data") / f"_work_phase1_{profile.id}").resolve()
+    configured_name_xmls = tuple(args.weapon_name_xmls or profile.weapon_name_xmls)
+    weapon_name_xmls = tuple(path.resolve() for path in configured_name_xmls)
+    configured_arts_xmls = tuple(args.arts_name_xmls or profile.arts_name_xmls)
+    arts_name_xmls = tuple(path.resolve() for path in configured_arts_xmls)
+    configured_version_file = args.profile_version_file or profile.version_file
+    version_file = configured_version_file.resolve() if configured_version_file is not None else None
+    weapon_affinity_by_id: dict[int, str] | None = None
+    if profile.weapon_reference_path is not None and not args.allow_unverified_weapons:
+        reference_path = profile.weapon_reference_path.resolve()
+        if not reference_path.is_file():
+            raise FileNotFoundError(
+                f"weapon availability reference not found: {reference_path}; "
+                "refresh it explicitly before extracting this profile"
+            )
+        reference = json.loads(reference_path.read_text(encoding="utf-8"))
+        if reference.get("profile") != profile.id or reference.get("version") != profile.mod_version:
+            raise ValueError(f"weapon availability reference does not match {profile.id} {profile.mod_version}")
+        weapon_affinity_by_id = {
+            int(entry["weaponId"]): str(entry["affinity"])
+            for entry in reference["weapons"]
+        }
 
     if not regulation_path.exists():
         raise FileNotFoundError(f"regulation.bin not found: {regulation_path}")
@@ -813,12 +1020,27 @@ def main() -> int:
         raise FileNotFoundError(
             f"WitchyBND.exe not found: {witchybnd_path} (pass --witchybnd <path>)"
         )
+    for weapon_name_xml in weapon_name_xmls:
+        if not weapon_name_xml.is_file():
+            raise FileNotFoundError(f"weapon name FMG XML not found: {weapon_name_xml}")
+    for arts_name_xml in arts_name_xmls:
+        if not arts_name_xml.is_file():
+            raise FileNotFoundError(f"skill name FMG XML not found: {arts_name_xml}")
+    if version_file is not None:
+        if not version_file.is_file():
+            raise FileNotFoundError(f"profile version file not found: {version_file}")
+        source_version = version_file.read_text(encoding="utf-8-sig").strip()
+        if source_version != profile.mod_version:
+            raise ValueError(
+                f"profile version file says {source_version!r}; expected {profile.mod_version!r}"
+            )
 
     from tools.phase1.extract_motion_workbook import load_weapon_workbook_data
 
-    workbook_path = destination_dir / "ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx"
+    workbook_name = "ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx"
+    workbook_path = destination_dir / workbook_name
     if not workbook_path.exists():
-        workbook_path = Path(__file__).resolve().parents[2] / "data" / "phase1" / workbook_path.name
+        workbook_path = Path(__file__).resolve().parents[2] / "data" / "phase1" / workbook_name
 
     destination_dir.parent.mkdir(parents=True, exist_ok=True)
     staging_owner = tempfile.TemporaryDirectory(
@@ -829,27 +1051,54 @@ def main() -> int:
     if destination_dir.is_dir():
         for existing_csv in destination_dir.glob("*.csv"):
             shutil.copy2(existing_csv, output_dir / existing_csv.name)
-    staged_workbook = output_dir / workbook_path.name
-    shutil.copy2(workbook_path, staged_workbook)
-    player_weapon_data = load_weapon_workbook_data(staged_workbook)
+    needs_workbook = (
+        profile.use_workbook_weapon_metadata
+        or profile.capabilities.aow_damage
+        or profile.capabilities.aow_routes
+    )
+    if needs_workbook:
+        staged_workbook = output_dir / workbook_path.name
+        shutil.copy2(workbook_path, staged_workbook)
+        player_weapon_data = load_weapon_workbook_data(staged_workbook)
+    else:
+        player_weapon_data = {}
 
-    context = load_regulation_context(regulation_path, witchybnd_path, workdir)
-    affinity_by_type = build_reinforce_affinity_map(context.weapon_rows)
+    context = load_regulation_context(
+        regulation_path,
+        witchybnd_path,
+        workdir,
+        weapon_name_xmls,
+        arts_name_xmls,
+    )
     reinforce_csv_rows, max_level_by_type = build_reinforce_rows(context.reinforce_rows)
     attack_csv_rows, _attack_map = build_attack_element_rows(context.attack_rows)
+    apply_profile_attack_element_rules(
+        attack_csv_rows,
+        zero_attack_element_uses_weapon_scaling=(
+            profile.rules.zero_attack_element_uses_weapon_scaling
+        ),
+    )
     weapon_csv_rows = build_weapon_rows(
         context.weapon_rows,
         context.weapon_name_map,
         context.sword_art_name_map,
         context.wep_type_name_map,
         context.weapon_type_keys_by_id,
-        affinity_by_type,
+        profile.affinity_by_slot,
         max_level_by_type,
         player_weapon_data,
+        use_workbook_weapon_metadata=profile.use_workbook_weapon_metadata,
+        allow_param_weapon_names=profile.allow_param_weapon_names,
+        weapon_affinity_by_id=weapon_affinity_by_id,
+        include_disabled_affinity_variants=args.allow_unverified_weapons,
     )
     calc_correct_csv_rows = build_calc_correct_rows(context.curve_rows)
     sp_effect_map = build_speffect_map(context.sp_rows)
-    aow_csv_rows = build_aow_rows(context.aow_rows, sp_effect_map)
+    aow_csv_rows = build_aow_rows(
+        context.aow_rows,
+        sp_effect_map,
+        context.sword_art_name_map,
+    )
 
     write_csv(
         output_dir / "weapons.csv",
@@ -953,6 +1202,14 @@ def main() -> int:
         ],
         attack_csv_rows,
     )
+    attack_ext_fields, attack_ext_rows = build_attack_element_correct_ext_rows(
+        context.attack_rows
+    )
+    write_csv(
+        output_dir / "attack_element_correct_ext.csv",
+        attack_ext_fields,
+        attack_ext_rows,
+    )
     write_csv(
         output_dir / "aow.csv",
         [
@@ -968,6 +1225,7 @@ def main() -> int:
     )
 
     from tools.phase1.derive_phase1_raw_extras import export_regulation_extras
+    from tools.phase1.derive_phase1_extras import derive_phase1_extras
     from tools.phase1.extract_motion_workbook import run_workbook_exports
     from tools.phase1.snapshot_manifest import (
         promote_snapshot,
@@ -983,15 +1241,48 @@ def main() -> int:
         gem_rows=context.aow_rows,
         sp_effect_rows={to_int(row, "id"): row for row in context.sp_rows},
         output_dir=output_dir,
+        aow_names_by_id={
+            object_to_int(row["aow_id"]): str(row["name"])
+            for row in aow_csv_rows
+        },
     )
-    run_workbook_exports(
-        Path(__file__).resolve().parents[2],
+    if profile.capabilities.aow_damage or profile.capabilities.aow_routes:
+        run_workbook_exports(
+            Path(__file__).resolve().parents[2],
+            output_dir,
+            context.workdir / "regulation-bin",
+            witchybnd_path.parent / "Assets" / "Paramdex" / "ER" / "Defs",
+        )
+    else:
+        initialize_unsupported_aow_runtime_files(
+            output_dir,
+            Path(__file__).resolve().parents[2] / "data" / "phase1",
+        )
+    derive_phase1_extras(
         output_dir,
-        context.workdir / "regulation-bin",
-        witchybnd_path.parent / "Assets" / "Paramdex" / "ER" / "Defs",
+        output_dir,
+        extended_scaling_grades=profile.rules.extended_scaling_grades,
     )
-    write_snapshot_manifest(output_dir, regulation_path)
-    validate_snapshot_manifest(output_dir)
+    source_paths: dict[str, Path] = {}
+    for prefix, paths in (("weaponNames", weapon_name_xmls), ("artsNames", arts_name_xmls)):
+        for path in paths:
+            lowered = path.name.casefold()
+            suffix = "Dlc01" if "_dlc01" in lowered else "Dlc02" if "_dlc02" in lowered else "Base"
+            kind = f"{prefix}{suffix}"
+            if kind in source_paths:
+                raise ValueError(f"duplicate {kind} FMG source: {path}")
+            source_paths[kind] = path
+    if version_file is not None:
+        source_paths["modVersion"] = version_file
+    if profile.weapon_reference_path is not None and not args.allow_unverified_weapons:
+        source_paths["weaponAvailability"] = profile.weapon_reference_path
+    write_snapshot_manifest(
+        output_dir,
+        regulation_path,
+        profile=profile,
+        source_paths=source_paths,
+    )
+    validate_snapshot_manifest(output_dir, profile)
     promote_snapshot(output_dir, destination_dir)
     staging_owner.cleanup()
 

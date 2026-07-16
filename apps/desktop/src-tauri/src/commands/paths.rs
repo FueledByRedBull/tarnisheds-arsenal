@@ -35,9 +35,21 @@ pub fn start_path_preview(
     for lane in &request.requests {
         validate_levels_ahead(lane.levels_ahead)?;
     }
-    let data = Arc::clone(&state.data);
-    let catalog_index = Arc::clone(&state.catalog_index);
-    let data_manifest = state.data_manifest.clone();
+    let Some(first_lane) = request.requests.first() else {
+        return Err(AppError::new("At least one path lane is required."));
+    };
+    let profile_id = first_lane.base.profile_id.clone();
+    if request
+        .requests
+        .iter()
+        .any(|lane| lane.base.profile_id != profile_id)
+    {
+        return Err(AppError::new(
+            "All path lanes must use the same game profile.",
+        ));
+    }
+    state.profile(&profile_id)?;
+    let profiles = state.profiles.clone();
     let job_number = state.next_job.fetch_add(1, Ordering::Relaxed);
     let job_id = format!("path-{job_number}");
     let cancel_flag: CancelFlag = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -57,9 +69,7 @@ pub fn start_path_preview(
     let job_id_for_task = job_id.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let task_state = AppState {
-            data,
-            catalog_index,
-            data_manifest,
+            profiles,
             search_jobs: Arc::new(JobRegistry::new("search")),
             path_jobs: Arc::new(JobRegistry::new("path")),
             affinity_jobs: Arc::new(JobRegistry::new("affinity watch")),
@@ -228,8 +238,11 @@ fn prepare_path_evaluator<'a>(
     template.set_exact_upgrade(request.solved.upgrade, request.solved.is_somber);
     template.top_k = 1;
     let core_request = OptimizeRequest::try_from(&template)?;
-    prepare_loadout_evaluator_with_cancel(&core_request, &state.data, || continue_cb(target_level))
-        .map_err(AppError::from)
+    let profile = state.profile(&request.base.profile_id)?;
+    prepare_loadout_evaluator_with_cancel(&core_request, &profile.data, || {
+        continue_cb(target_level)
+    })
+    .map_err(AppError::from)
 }
 
 fn path_target_build(
@@ -367,11 +380,14 @@ fn requirement_gap(
     stats: CombatStateDto,
     state: &AppState,
 ) -> u16 {
-    let Ok(reqs) = weapon_requirements(&state.catalog_index, weapon_name, affinity) else {
+    let Ok(profile) = state.profile(&base.profile_id) else {
+        return 999;
+    };
+    let Ok(reqs) = weapon_requirements(&profile.catalog_index, weapon_name, affinity) else {
         return 999;
     };
     let disables_bonus =
-        weapon_disables_two_hand_bonus(&state.catalog_index, weapon_name, affinity);
+        weapon_disables_two_hand_bonus(&profile.catalog_index, weapon_name, affinity);
     let effective_str = effective_str(stats.str_stat, base.two_handing, disables_bonus);
     u16::from(reqs[0]).saturating_sub(effective_str)
         + u16::from(reqs[1].saturating_sub(stats.dex))
@@ -491,7 +507,13 @@ mod integration_tests {
         let state = crate::test_app_state();
         let mut nested_request = request(&state);
         nested_request.levels_ahead = 20;
-        let cancel_after = state.data.weapons.len() + 8;
+        let cancel_after = state
+            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+            .expect("Vanilla profile exists")
+            .data
+            .weapons
+            .len()
+            + 8;
         let mut polls = 0_usize;
         let error = build_path_preview_inner(nested_request, &state, |_| {
             polls += 1;

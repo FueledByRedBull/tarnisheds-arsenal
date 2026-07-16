@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { CircleAlert, GitCompareArrows, LoaderCircle, Radar, RotateCcw, Route, Table2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, CircleAlert, GitCompareArrows, Layers3, LoaderCircle, Radar, RotateCcw, Route, Table2, X } from "lucide-react";
 import { api } from "../lib/api";
 import { setAnalysisCacheVersion } from "../lib/analysis-cache";
 import { useDesktopStore } from "../lib/state";
@@ -18,9 +18,15 @@ const tabs: Array<{ id: WorkspaceTab; label: string; icon: typeof Table2 }> = [
   { id: "affinity_watch", label: "Affinity Watch", icon: Radar },
 ];
 
+const PROFILE_STORAGE_KEY = "tarnisheds-arsenal.gameProfile.v1";
+
 export function App() {
   const activeWorkspace = useDesktopStore((state) => state.activeWorkspace);
   const setWorkspace = useDesktopStore((state) => state.setWorkspace);
+  const profiles = useDesktopStore((state) => state.profiles);
+  const setProfiles = useDesktopStore((state) => state.setProfiles);
+  const profileId = useDesktopStore((state) => state.request.profileId);
+  const beginProfileSwitch = useDesktopStore((state) => state.beginProfileSwitch);
   const setCatalog = useDesktopStore((state) => state.setCatalog);
   const catalogStatus = useDesktopStore((state) => state.catalogStatus);
   const catalogError = useDesktopStore((state) => state.catalogError);
@@ -31,27 +37,77 @@ export function App() {
   const setError = useDesktopStore((state) => state.setError);
   const notices = useDesktopStore((state) => state.notices);
   const [catalogAttempt, setCatalogAttempt] = useState(0);
+  const profileGeneration = useRef(0);
 
   useEffect(() => {
-    let active = true;
+    const generation = ++profileGeneration.current;
     setCatalogLoading();
-    api
-      .catalog()
-      .then((catalog) => {
-        if (!active) return;
-        setAnalysisCacheVersion(
-          `${catalog.dataManifest.schemaVersion}:${catalog.dataManifest.datasetVersion}:${catalog.dataManifest.modelVersion}`,
-        );
-        setCatalog(catalog);
-      })
-      .catch((err) => {
-        if (!active) return;
-        setCatalogFailure(err instanceof Error ? err.message : String(err));
-      });
+    api.profiles().then(async (availableProfiles) => {
+      if (generation !== profileGeneration.current) return;
+      if (availableProfiles.length === 0) throw new Error("No verified game profiles are available.");
+      const currentState = useDesktopStore.getState();
+      const retryProfile = currentState.profiles.length > 0
+        ? currentState.request.profileId
+        : null;
+      setProfiles(availableProfiles);
+      const stored = readStoredProfile();
+      const preferred = retryProfile ?? stored;
+      const initialProfile = preferred !== null && availableProfiles.some((entry) => entry.profile.id === preferred)
+        ? preferred
+        : availableProfiles.some((entry) => entry.profile.id === "vanilla")
+          ? "vanilla"
+          : availableProfiles[0].profile.id;
+      await loadProfile(initialProfile, generation);
+    }).catch((err) => {
+      if (generation !== profileGeneration.current) return;
+      setCatalogFailure(err instanceof Error ? err.message : String(err));
+    });
     return () => {
-      active = false;
+      if (profileGeneration.current === generation) profileGeneration.current += 1;
     };
-  }, [catalogAttempt, setCatalog, setCatalogFailure, setCatalogLoading]);
+  }, [catalogAttempt, setCatalogFailure, setCatalogLoading, setProfiles]);
+
+  async function loadProfile(nextProfileId: string, generation = ++profileGeneration.current) {
+    const before = useDesktopStore.getState();
+    const activeJobs = [
+      before.activeJobId ? api.cancelSearch(before.activeJobId) : null,
+      before.activePathJobId ? api.cancelPathPreview(before.activePathJobId) : null,
+      before.activeAffinityJobId ? api.cancelAffinityWatch(before.activeAffinityJobId) : null,
+    ].filter((job): job is Promise<boolean> => job !== null);
+    beginProfileSwitch(nextProfileId);
+    setAnalysisCacheVersion(`profile-switch:${nextProfileId}`);
+    void Promise.allSettled(activeJobs);
+    try {
+      const catalog = await api.catalog(nextProfileId);
+      if (
+        generation !== profileGeneration.current ||
+        useDesktopStore.getState().request.profileId !== nextProfileId
+      ) return;
+      setAnalysisCacheVersion(
+        `${catalog.dataManifest.profile.id}:${catalog.dataManifest.schemaVersion}:${catalog.dataManifest.datasetVersion}:${catalog.dataManifest.modelVersion}`,
+      );
+      setCatalog(catalog);
+      try {
+        localStorage.setItem(PROFILE_STORAGE_KEY, nextProfileId);
+      } catch {
+        // Profile persistence is optional; the selected verified profile remains active.
+      }
+    } catch (err) {
+      if (generation !== profileGeneration.current) return;
+      setCatalogFailure(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  function readStoredProfile(): string | null {
+    try {
+      return localStorage.getItem(PROFILE_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  const activeProfile = profiles.find((entry) => entry.profile.id === profileId) ?? null;
+  const limitedAowModel = activeProfile && (!activeProfile.capabilities.aowDamage || !activeProfile.capabilities.aowRoutes);
 
   return (
     <main className="desktop-shell" aria-busy={catalogStatus === "loading"}>
@@ -62,6 +118,48 @@ export function App() {
       </div>
       <CommandRail />
       <section className="center-workspace">
+        <header className="profile-bar">
+          <div className="profile-bar-title">
+            <Layers3 size={16} aria-hidden="true" />
+            <span>Game profile</span>
+          </div>
+          <div className="profile-switch" role="radiogroup" aria-label="Game profile">
+            {profiles.map((profile) => {
+              const active = profile.profile.id === profileId;
+              const version = profile.profile.modVersion ?? profile.profile.gameVersion;
+              return (
+                <button
+                  key={profile.profile.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  className={active ? "active" : ""}
+                  disabled={catalogStatus === "loading" && !active}
+                  onClick={() => {
+                    if (!active) void loadProfile(profile.profile.id);
+                  }}
+                >
+                  <span>
+                    {active ? <Check size={13} aria-hidden="true" /> : null}
+                    {profile.profile.displayName}
+                    {profile.profile.id === "convergence" ? (
+                      <sup className="profile-beta-mark" aria-label="Beta">BETA</sup>
+                    ) : null}
+                  </span>
+                  <small>{version}</small>
+                </button>
+              );
+            })}
+          </div>
+          <div className={`profile-coverage ${limitedAowModel ? "limited" : "complete"}`} role="status">
+            <strong>{limitedAowModel ? "Weapon model ready" : "Full model ready"}</strong>
+            <span>
+              {limitedAowModel
+                ? "AR, status, passives, and compatibility are verified. Convergence AoW hit and route damage stays disabled until its motion data is mapped."
+                : "Weapon and Ash of War calculations are verified for this snapshot."}
+            </span>
+          </div>
+        </header>
         <nav className="workspace-tabs">
           {tabs.map(({ id, label, icon: Icon }) => {
             const requiresSelection = id !== "rankings" && !selected;

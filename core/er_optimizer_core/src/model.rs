@@ -440,11 +440,63 @@ pub struct AowRouteResult {
     pub total_stamina_cost: f32,
 }
 
+#[derive(Clone, Debug)]
+pub struct DataCapabilities {
+    pub weapon_ar: bool,
+    pub status_buildup: bool,
+    pub weapon_passives: bool,
+    pub aow_compatibility: bool,
+    pub aow_damage: bool,
+    pub aow_routes: bool,
+}
+
+impl Default for DataCapabilities {
+    fn default() -> Self {
+        Self {
+            weapon_ar: true,
+            status_buildup: true,
+            weapon_passives: true,
+            aow_compatibility: true,
+            aow_damage: true,
+            aow_routes: true,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct DataRules {
+    pub standard_max_upgrade: u8,
+    pub somber_max_upgrade: u8,
+    pub separate_upgrade_caps: bool,
+    pub scadutree_scaling: bool,
+    pub zero_attack_element_uses_weapon_scaling: bool,
+    pub extended_scaling_grades: bool,
+    pub status_buildup_scales: bool,
+}
+
+impl Default for DataRules {
+    fn default() -> Self {
+        Self {
+            standard_max_upgrade: 25,
+            somber_max_upgrade: 10,
+            separate_upgrade_caps: true,
+            scadutree_scaling: true,
+            zero_attack_element_uses_weapon_scaling: false,
+            extended_scaling_grades: false,
+            status_buildup_scales: true,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct GameData {
     pub snapshot_schema_version: u32,
     pub dataset_version: String,
     pub model_version: String,
+    pub profile_id: String,
+    pub profile_display_name: String,
+    pub capabilities: DataCapabilities,
+    pub rules: DataRules,
     pub weapons: Vec<Weapon>,
     pub reinforce: Vec<Vec<Option<ReinforceLevel>>>,
     pub calc_correct: Vec<Vec<f32>>,

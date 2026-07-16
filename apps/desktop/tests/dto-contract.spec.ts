@@ -28,11 +28,33 @@ test("app DTO samples use the camelCase backend contract", () => {
     objectiveIds: ["max_ar"],
     somberFilters: ["all"],
     dataManifest: {
-      id: "phase1",
-      label: "Phase 1",
-      appVersion: "0.5.0",
+      schemaVersion: 3,
+      datasetVersion: "vanilla-1.16.1",
+      modelVersion: "aow-routes-effects-v2-profile-rules",
+      id: "vanilla-1.16.1",
+      label: "Vanilla 1.16.1",
+      appVersion: "1.16.1",
       source: "test",
       generatedAt: "2026-06-10T00:00:00Z",
+      extractorVersion: "phase1-python-v5-profile-rules",
+      provenance: "test",
+      profile: { id: "vanilla", displayName: "Vanilla", gameVersion: "1.16.1", modVersion: null },
+      capabilities: {
+        weaponAr: true,
+        statusBuildup: true,
+        weaponPassives: true,
+        aowCompatibility: true,
+        aowDamage: true,
+        aowRoutes: true,
+      },
+      rules: {
+        standardMaxUpgrade: 25,
+        somberMaxUpgrade: 10,
+        separateUpgradeCaps: true,
+        scadutreeScaling: true,
+        zeroAttackElementUsesWeaponScaling: false,
+        extendedScalingGrades: false,
+      },
     },
   } satisfies CatalogDto;
 
@@ -73,6 +95,7 @@ test("job and saved-build DTO samples preserve app-facing field names", () => {
         scarletRotBuildup: 0,
         aowFirstHitDamage: 100,
         aowFullSequenceDamage: 250,
+        aowRoute: null,
         score: 500,
       }],
       error: null,
@@ -83,7 +106,9 @@ test("job and saved-build DTO samples preserve app-facing field names", () => {
     version: 1,
     id: "preset-1",
     name: "Blood Uchi",
+    profileId: "vanilla",
     request: {
+      profileId: "vanilla",
       className: "Samurai",
       characterLevel: 150,
       vig: 50,
@@ -120,14 +145,14 @@ test("job and saved-build DTO samples preserve app-facing field names", () => {
     },
     selectedBuild: status.finished.rows[0],
     compareTarget: null,
-    dataVersion: "phase1",
+    dataVersion: "vanilla:3:vanilla-1.16.1:aow-routes-effects-v2-profile-rules",
     createdAt: "2026-06-10T00:00:00Z",
     updatedAt: "2026-06-10T00:00:00Z",
   } satisfies BuildPresetV1;
 
   const index = {
     version: 1,
-    builds: [{ id: preset.id, name: preset.name, dataVersion: preset.dataVersion, updatedAt: preset.updatedAt }],
+    builds: [{ id: preset.id, name: preset.name, profileId: preset.profileId, dataVersion: preset.dataVersion, updatedAt: preset.updatedAt }],
   } satisfies SavedBuildIndexV1;
 
   expect(status).toHaveProperty("progress.bestScore");
@@ -136,6 +161,7 @@ test("job and saved-build DTO samples preserve app-facing field names", () => {
   expect(preset).toHaveProperty("request.standardMaxUpgrade");
   expect(preset).toHaveProperty("request.somberMaxUpgrade");
   expect(preset).toHaveProperty("request.exactUpgrade");
+  expect(preset).toHaveProperty("profileId", "vanilla");
   expect(preset).toHaveProperty("selectedBuild.weaponName");
   expect(index.builds[0]).toHaveProperty("dataVersion");
 });

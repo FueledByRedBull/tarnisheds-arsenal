@@ -1297,18 +1297,6 @@ weapon_id,name,affinity,weapon_type_name,weapon_type_keys,attack_element_correct
 19010700,Grave Scythe,Sacred,Scythe,Sickle,10000,0.12,E,1,0.09,E,1,0.00,-,0,0.28,D,1,0.00,-,0,STR|DEX|FAI,INT|ARC
 19010000,Grave Scythe,Standard,Scythe,Sickle,10000,0.42,D,1,0.30,D,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
 34030000,Gravel Stone Seal,Standard,Seal,Talisman,30000,0.15,E,0,0.00,-,0,0.00,-,0,0.81,C,1,0.00,-,0,FAI,STR|DEX|INT|ARC
-23021100,Great Club,Blood,Colossal Weapon,AxhammerLarge,10013,0.70,C,1,0.00,-,0,0.00,-,0,0.00,-,0,0.30,D,1,STR|ARC,DEX|INT|FAI
-23020900,Great Club,Cold,Colossal Weapon,AxhammerLarge,10000,0.66,C,1,0.00,-,0,0.29,D,1,0.00,-,0,0.00,-,0,STR|INT,DEX|FAI|ARC
-23020400,Great Club,Fire,Colossal Weapon,AxhammerLarge,10005,0.37,D,1,0.14,E,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-23020500,Great Club,Flame Art,Colossal Weapon,AxhammerLarge,10000,0.29,D,1,0.00,-,0,0.00,-,0,0.30,D,1,0.00,-,0,STR|FAI,DEX|INT|ARC
-23020100,Great Club,Heavy,Colossal Weapon,AxhammerLarge,10000,0.63,C,1,0.00,-,0,0.00,-,0,0.00,-,0,0.00,-,0,STR,DEX|INT|FAI|ARC
-23020200,Great Club,Keen,Colossal Weapon,AxhammerLarge,10000,0.18,E,1,0.45,D,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-23020600,Great Club,Lightning,Colossal Weapon,AxhammerLarge,10000,0.14,E,1,0.37,D,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-23020800,Great Club,Magic,Colossal Weapon,AxhammerLarge,10000,0.29,D,1,0.00,-,0,0.33,D,1,0.00,-,0,0.00,-,0,STR|INT,DEX|FAI|ARC
-23021200,Great Club,Occult,Colossal Weapon,AxhammerLarge,10013,0.29,D,1,0.00,-,0,0.00,-,0,0.00,-,0,0.62,C,1,STR|ARC,DEX|INT|FAI
-23021000,Great Club,Poison,Colossal Weapon,AxhammerLarge,10013,0.70,C,1,0.00,-,0,0.00,-,0,0.00,-,0,0.30,D,1,STR|ARC,DEX|INT|FAI
-23020300,Great Club,Quality,Colossal Weapon,AxhammerLarge,10000,0.56,D,1,0.56,D,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-23020700,Great Club,Sacred,Colossal Weapon,AxhammerLarge,10000,0.29,D,1,0.00,-,0,0.00,-,0,0.30,D,1,0.00,-,0,STR|FAI,DEX|INT|ARC
 23020000,Great Club,Standard,Colossal Weapon,AxhammerLarge,10000,0.81,C,1,0.00,-,0,0.00,-,0,0.20,E,1,0.00,-,0,STR|FAI,DEX|INT|ARC
 6021100,Great Epee,Blood,Heavy Thrusting Sword,RapierHeavy,10013,0.34,D,1,0.43,D,1,0.00,-,0,0.00,-,0,0.30,D,1,STR|DEX|ARC,INT|FAI
 6020900,Great Epee,Cold,Heavy Thrusting Sword,RapierHeavy,10000,0.34,D,1,0.42,D,1,0.38,D,1,0.00,-,0,0.00,-,0,STR|DEX|INT,FAI|ARC
@@ -2965,7 +2953,6 @@ weapon_id,name,affinity,weapon_type_name,weapon_type_keys,attack_element_correct
 20500000,Tooth Whip,Standard,Whip,Whip,10000,0.15,E,1,0.58,D,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
 24000000,Torch,Standard,Torch,Torch,10000,0.50,D,1,0.35,D,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
 16080000,Torchpole,Standard,Spear,SpearNormal,10000,0.41,D,1,0.41,D,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-17070700,Treespear,Sacred,Heavy Spear,SpearHeavy,10000,0.00,-,0,0.00,-,0,0.00,-,0,0.00,-,0,0.00,-,0,,STR|DEX|INT|FAI|ARC
 17070000,Treespear,Standard,Heavy Spear,SpearHeavy,10000,0.25,D,1,0.44,D,1,0.00,-,0,0.30,D,1,0.00,-,0,STR|DEX|FAI,INT|ARC
 4110000,Troll Knight's Sword,Standard,Colossal Sword,SwordGigantic,10000,0.45,D,1,0.45,D,1,0.30,D,1,0.00,-,0,0.00,-,0,STR|DEX|INT,FAI|ARC
 4031100,Troll's Golden Sword,Blood,Colossal Sword,SwordGigantic,10013,0.50,D,1,0.28,D,1,0.00,-,0,0.00,-,0,0.30,D,1,STR|DEX|ARC,INT|FAI
@@ -2981,8 +2968,6 @@ weapon_id,name,affinity,weapon_type_name,weapon_type_keys,attack_element_correct
 4030300,Troll's Golden Sword,Quality,Colossal Sword,SwordGigantic,10000,0.55,D,1,0.55,D,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
 4030700,Troll's Golden Sword,Sacred,Colossal Sword,SwordGigantic,10000,0.15,E,1,0.09,E,1,0.00,-,0,0.33,D,1,0.00,-,0,STR|DEX|FAI,INT|ARC
 4030000,Troll's Golden Sword,Standard,Colossal Sword,SwordGigantic,10000,0.53,D,1,0.30,D,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-23130400,Troll's Hammer,Fire,Colossal Weapon,AxhammerLarge,10005,0.00,-,0,0.00,-,0,0.00,-,0,0.00,-,0,0.00,-,0,,STR|DEX|INT|FAI|ARC
-23130500,Troll's Hammer,Flame Art,Colossal Weapon,AxhammerLarge,10000,0.00,-,0,0.00,-,0,0.00,-,0,0.00,-,0,0.00,-,0,,STR|DEX|INT|FAI|ARC
 23130000,Troll's Hammer,Standard,Colossal Weapon,AxhammerLarge,10000,0.70,C,1,0.15,E,1,0.00,-,0,0.25,D,1,0.00,-,0,STR|DEX|FAI,INT|ARC
 31091100,Twinbird Kite Shield,Blood,Medium Shield,ShieldNormal,10013,0.38,D,1,0.00,-,0,0.00,-,0,0.00,-,0,0.30,D,1,STR|ARC,DEX|INT|FAI
 31090900,Twinbird Kite Shield,Cold,Medium Shield,ShieldNormal,10000,0.36,D,1,0.00,-,0,0.24,E,1,0.00,-,0,0.00,-,0,STR|INT,DEX|FAI|ARC
@@ -3229,45 +3214,3 @@ weapon_id,name,affinity,weapon_type_name,weapon_type_keys,attack_element_correct
 4040300,Zweihander,Quality,Colossal Sword,SwordGigantic,10000,0.60,C,1,0.60,C,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
 4040700,Zweihander,Sacred,Colossal Sword,SwordGigantic,10000,0.15,E,1,0.22,E,1,0.00,-,0,0.36,D,1,0.00,-,0,STR|DEX|FAI,INT|ARC
 4040000,Zweihander,Standard,Colossal Sword,SwordGigantic,10000,0.38,D,1,0.53,D,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-41690000,[NPC] Ansbach's Longbow,Standard,Bow,BowNormal,10000,0.20,E,1,0.25,D,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-68680000,[NPC] Beast Claw,Standard,Beast Claw,BeastClaw,10000,0.55,D,1,0.30,D,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-15690000,[NPC] Bonny Butchering Knife,Standard,Greataxe,AxeLarge,10000,0.60,C,1,0.30,D,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-34630000,[NPC] Clawmark Seal,Standard,Seal,Talisman,30020,0.40,D,1,0.00,-,0,0.00,-,0,0.40,D,1,0.00,-,0,STR|FAI,DEX|INT|ARC
-22690000,[NPC] Claws of Night,Standard,Claw,Claw,20010000,0.05,E,1,0.46,D,1,0.46,D,1,0.00,-,0,0.00,-,0,STR|DEX|INT,FAI|ARC
-7680000,[NPC] Dancing Blade of Ranah,Standard,Curved Sword,SaberNormal,10000,0.00,-,0,0.95,B,1,0.00,-,0,0.00,-,0,0.00,-,0,DEX,STR|INT|FAI|ARC
-60680000,[NPC] Dane's Footwork,Standard,Hand-to-Hand,HandToHand,10000,0.45,D,1,0.45,D,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-61690000,[NPC] Deadly Poison Perfume Bottle,Standard,Perfume Bottle,PerfumeBottle,20000000,0.00,-,0,0.40,D,1,0.00,-,0,0.00,-,0,0.40,D,1,DEX|ARC,STR|INT|FAI
-34670000,[NPC] Dragon Communion Seal,Standard,Seal,Talisman,30030,0.00,-,0,0.00,-,0,0.00,-,0,0.30,D,1,0.75,C,1,FAI|ARC,STR|DEX|INT
-34690000,[NPC] Dragon Communion Seal,Standard,Seal,Talisman,30030,0.00,-,0,0.00,-,0,0.00,-,0,0.30,D,1,0.75,C,1,FAI|ARC,STR|DEX|INT
-66690000,[NPC] Dragon-Hunter's Great Katana,Standard,Great Katana,GreatKatana,10000,0.37,D,1,0.37,D,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-60690000,[NPC] Dryleaf Arts,Standard,Hand-to-Hand,HandToHand,10000,0.45,D,1,0.45,D,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-34620000,[NPC] Dryleaf Seal,Standard,Seal,Talisman,30000,0.15,E,0,0.00,-,0,0.00,-,0,0.80,C,1,0.00,-,0,FAI,STR|DEX|INT|ARC
-34640000,[NPC] Dryleaf Seal,Standard,Seal,Talisman,30000,0.15,E,0,0.00,-,0,0.00,-,0,0.80,C,1,0.00,-,0,FAI,STR|DEX|INT|ARC
-34650000,[NPC] Erdtree Seal,Standard,Seal,Talisman,30000,0.00,-,0,0.00,-,0,0.00,-,0,0.89,C,1,0.00,-,0,FAI,STR|DEX|INT|ARC
-7670000,[NPC] Falx,Standard,Curved Sword,SaberNormal,10000,0.30,D,1,0.50,D,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-7690000,[NPC] Falx,Standard,Curved Sword,SaberNormal,10000,0.30,D,1,0.50,D,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-34660000,[NPC] Fire Knight's Seal,Standard,Seal,Talisman,30000,0.15,E,0,0.00,-,0,0.00,-,0,0.76,C,1,0.00,-,0,FAI,STR|DEX|INT|ARC
-11690000,[NPC] Flowerstone Gavel,Standard,Hammer,HammerNormal,15000,0.39,D,1,0.25,D,1,0.00,-,0,0.00,-,0,0.39,D,1,STR|DEX|ARC,INT|FAI
-34610000,[NPC] Frenzied Flame Seal,Standard,Seal,Talisman,30040,0.20,E,1,0.20,E,1,0.20,E,1,0.40,D,1,0.00,-,0,STR|DEX|INT|FAI,ARC
-8690000,[NPC] Freyja's Greatsword,Standard,Curved Greatsword,SaberLarge,10000,0.60,C,1,0.10,E,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-31690000,[NPC] Golden Lion Shield,Standard,Medium Shield,ShieldNormal,10000,0.60,C,1,0.00,-,0,0.00,-,0,0.00,-,0,0.00,-,0,STR,DEX|INT|FAI|ARC
-34680000,[NPC] Gravel Stone Seal,Standard,Seal,Talisman,30000,0.15,E,0,0.00,-,0,0.00,-,0,0.81,C,1,0.00,-,0,FAI,STR|DEX|INT|ARC
-3690000,[NPC] Greatsword of Solitude,Standard,Greatsword,SwordLarge,10000,0.95,B,1,0.15,E,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-42690000,[NPC] Igon's Greatbow,Standard,Greatbow,BowLarge,10000,0.48,D,1,0.07,E,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-2092000,[NPC] Inseparable Sword,Standard,Greatsword,SwordLarge,10000,0.27,D,1,0.27,D,1,0.00,-,0,0.60,C,1,0.00,-,0,STR|DEX|FAI,INT|ARC
-67690000,[NPC] Leda's Sword,Standard,Light Greatsword,LightGreatsword,10000,0.15,E,1,0.60,C,1,0.00,-,0,0.30,D,1,0.00,-,0,STR|DEX|FAI,INT|ARC
-21670000,[NPC] Madding Hand,Standard,Fist,Knuckle,20010400,0.33,D,1,0.17,E,1,0.17,E,1,0.17,E,1,0.00,-,0,STR|DEX|INT|FAI,ARC
-33690000,[NPC] Maternal Staff,Standard,Staff,Staff,20030,0.12,E,0,0.00,-,0,0.30,D,1,0.00,-,0,0.70,C,1,INT|ARC,STR|DEX|FAI
-4690000,[NPC] Moonrithyll's Knight Sword,Standard,Colossal Sword,SwordGigantic,10000,0.43,D,1,0.43,D,1,0.28,D,1,0.00,-,0,0.00,-,0,STR|DEX|INT,FAI|ARC
-19690000,[NPC] Obsidian Lamina,Standard,Scythe,Sickle,15000,0.10,E,1,0.60,C,1,0.00,-,0,0.00,-,0,0.25,D,1,STR|DEX|ARC,INT|FAI
-6690000,[NPC] Queelign's Greatsword,Standard,Heavy Thrusting Sword,RapierHeavy,10000,0.30,D,1,0.45,D,1,0.00,-,0,0.25,D,1,0.00,-,0,STR|DEX|FAI,INT|ARC
-66680000,[NPC] Rakshasa's Great Katana,Standard,Great Katana,GreatKatana,10000,0.15,E,1,0.61,C,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-5690000,[NPC] Rapier,Standard,Thrusting Sword,SwordPierce,10000,0.20,E,1,0.60,C,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-68690000,[NPC] Red Bear's Claw,Standard,Beast Claw,BeastClaw,10000,0.62,C,1,0.18,E,1,0.00,-,0,0.00,-,0,0.00,-,0,STR|DEX,INT|FAI|ARC
-1690000,[NPC] Reduvia,Standard,Dagger,Dagger,10013,0.10,E,1,0.40,D,1,0.00,-,0,0.00,-,0,0.55,D,1,STR|DEX|ARC,INT|FAI
-43690000,[NPC] Repeating Crossbow,Standard,Crossbow,ClossBow,10000,0.00,-,0,0.00,-,0,0.00,-,0,0.00,-,0,0.00,-,0,,STR|DEX|INT|FAI|ARC
-21690000,[NPC] Shield of Night,Standard,Small Shield,ShieldSmall,20010000,0.24,E,1,0.00,-,0,0.40,D,1,0.00,-,0,0.00,-,0,STR|INT,DEX|FAI|ARC
-9680000,[NPC] Sword of Night,Standard,Katana,katana,20010000,0.00,-,0,0.63,C,1,0.00,-,0,0.00,-,0,0.00,-,0,DEX,STR|INT|FAI|ARC
-9690000,[NPC] Sword of Night,Standard,Katana,katana,20010000,0.00,-,0,0.63,C,1,0.00,-,0,0.00,-,0,0.00,-,0,DEX,STR|INT|FAI|ARC
-21680000,[NPC] Thiollier's Hidden Neddle,Standard,Fist,Knuckle,10000,0.15,E,1,0.67,C,1,0.40,D,1,0.00,-,0,0.00,-,0,STR|DEX|INT,FAI|ARC
-32690000,[NPC] Verdigris Greatshield,Standard,Greatshield,ShieldLarge,10000,0.50,D,1,0.00,-,0,0.00,-,0,0.00,-,0,0.00,-,0,STR,DEX|INT|FAI|ARC

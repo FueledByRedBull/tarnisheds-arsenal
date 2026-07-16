@@ -27,6 +27,7 @@ function preset(id = "preset-one", name = "Dexterity route"): BuildPresetV1 {
     version: 1,
     id,
     name,
+    profileId: "vanilla",
     request: { ...defaultRequest },
     selectedBuild: null,
     compareTarget: null,
@@ -61,6 +62,30 @@ describe("saved build persistence", () => {
     expect(savedBuildIndex().builds).toHaveLength(2);
   });
 
+  it("stores profile identity in both the preset and index", () => {
+    const saved = saveBuildPreset({
+      ...preset(),
+      request: { ...defaultRequest, profileId: "convergence" },
+      dataVersion: "convergence:3:convergence-3.0.0.1:model",
+    });
+
+    expect(saved.profileId).toBe("convergence");
+    expect(saved.request.profileId).toBe("convergence");
+    expect(savedBuildIndex().builds[0].profileId).toBe("convergence");
+  });
+
+  it("migrates legacy profile-less presets to Vanilla explicitly", () => {
+    const legacy = preset();
+    const raw = JSON.parse(JSON.stringify(legacy));
+    delete raw.profileId;
+    delete raw.request.profileId;
+
+    const parsed = parsePresetText(JSON.stringify(raw));
+
+    expect(parsed.profileId).toBe("vanilla");
+    expect(parsed.request.profileId).toBe("vanilla");
+  });
+
   it("previews conflicts and rejects oversized input", () => {
     importBuildPreset(preset());
     const preview = previewPresetImport(JSON.stringify(preset()));
@@ -81,6 +106,7 @@ describe("saved build persistence", () => {
       JSON.stringify({ ...preset(), name: "" }),
       JSON.stringify({ ...preset(), dataVersion: 4 }),
       JSON.stringify({ ...preset(), dataVersion: "missing-parts" }),
+      JSON.stringify({ ...preset(), profileId: "convergence" }),
       JSON.stringify({ ...preset(), createdAt: "not-a-date" }),
       JSON.stringify({ ...preset(), request: { ...defaultRequest, objective: "damage_everything" } }),
       JSON.stringify({ ...preset(), request: { ...defaultRequest, topK: 0 } }),

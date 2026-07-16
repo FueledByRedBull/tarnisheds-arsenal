@@ -5,7 +5,7 @@ use std::path::{Component, Path};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-pub const SNAPSHOT_SCHEMA_VERSION: u32 = 1;
+pub const SNAPSHOT_SCHEMA_VERSION: u32 = 3;
 pub const RUNTIME_DATA_FILES: [&str; 13] = [
     "aow.csv",
     "aow_attack_data.csv",
@@ -34,9 +34,42 @@ pub struct SnapshotFile {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SnapshotSource {
     pub kind: String,
+    pub bundled: bool,
     pub path: String,
     pub size: u64,
     pub sha256: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SnapshotProfile {
+    pub id: String,
+    pub display_name: String,
+    pub game_version: String,
+    pub mod_version: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SnapshotCapabilities {
+    pub weapon_ar: bool,
+    pub status_buildup: bool,
+    pub weapon_passives: bool,
+    pub aow_compatibility: bool,
+    pub aow_damage: bool,
+    pub aow_routes: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SnapshotRules {
+    pub standard_max_upgrade: u8,
+    pub somber_max_upgrade: u8,
+    pub separate_upgrade_caps: bool,
+    pub scadutree_scaling: bool,
+    pub zero_attack_element_uses_weapon_scaling: bool,
+    pub extended_scaling_grades: bool,
+    pub status_buildup_scales: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -49,6 +82,9 @@ pub struct SnapshotManifest {
     pub label: String,
     pub app_version: String,
     pub source: String,
+    pub profile: SnapshotProfile,
+    pub capabilities: SnapshotCapabilities,
+    pub rules: SnapshotRules,
     pub generated_at: String,
     pub extractor_version: String,
     pub provenance: String,
@@ -106,12 +142,8 @@ pub(crate) fn validate_external_snapshot(data_dir: &Path) -> Result<SnapshotMani
         ));
     }
 
-    if let Some(workbook) = manifest
-        .sources
-        .iter()
-        .find(|source| source.kind == "workbook")
-    {
-        validate_external_source(data_dir, workbook)?;
+    for source in manifest.sources.iter().filter(|source| source.bundled) {
+        validate_external_source(data_dir, source)?;
     }
     Ok(manifest)
 }
@@ -142,11 +174,30 @@ fn parse_and_validate_manifest(content: &[u8]) -> Result<SnapshotManifest, Strin
             manifest.schema_version, SNAPSHOT_SCHEMA_VERSION
         ));
     }
+    if manifest.rules.standard_max_upgrade > 25 || manifest.rules.somber_max_upgrade > 25 {
+        return Err("invalid runtime data manifest: upgrade rules exceed +25".to_string());
+    }
+    if !manifest.rules.separate_upgrade_caps
+        && manifest.rules.standard_max_upgrade != manifest.rules.somber_max_upgrade
+    {
+        return Err(
+            "invalid runtime data manifest: single-path upgrade caps must match".to_string(),
+        );
+    }
     for (field, value) in [
         ("datasetVersion", manifest.dataset_version.as_str()),
         ("modelVersion", manifest.model_version.as_str()),
         ("id", manifest.id.as_str()),
         ("extractorVersion", manifest.extractor_version.as_str()),
+        ("profile.id", manifest.profile.id.as_str()),
+        (
+            "profile.displayName",
+            manifest.profile.display_name.as_str(),
+        ),
+        (
+            "profile.gameVersion",
+            manifest.profile.game_version.as_str(),
+        ),
     ] {
         if value.trim().is_empty() {
             return Err(format!("invalid runtime data manifest: {field} is empty"));
@@ -191,12 +242,16 @@ fn parse_and_validate_manifest(content: &[u8]) -> Result<SnapshotManifest, Strin
             ));
         }
     }
-    for required_kind in ["regulation", "workbook"] {
-        if !source_kinds.contains(required_kind) {
-            return Err(format!(
-                "invalid runtime data manifest: missing {required_kind} source hash"
-            ));
-        }
+    if !source_kinds.contains("regulation") {
+        return Err("invalid runtime data manifest: missing regulation source hash".to_string());
+    }
+    if (manifest.capabilities.aow_damage || manifest.capabilities.aow_routes)
+        && !source_kinds.contains("workbook")
+    {
+        return Err(
+            "invalid runtime data manifest: AoW-capable profile is missing workbook source hash"
+                .to_string(),
+        );
     }
     Ok(manifest)
 }
@@ -284,8 +339,9 @@ mod tests {
     use sha2::{Digest, Sha256};
 
     use super::{
-        RUNTIME_DATA_FILES, SNAPSHOT_SCHEMA_VERSION, SnapshotFile, SnapshotManifest,
-        SnapshotSource, parse_and_validate_manifest, validate_external_snapshot,
+        RUNTIME_DATA_FILES, SNAPSHOT_SCHEMA_VERSION, SnapshotCapabilities, SnapshotFile,
+        SnapshotManifest, SnapshotProfile, SnapshotRules, SnapshotSource,
+        parse_and_validate_manifest, validate_external_snapshot,
     };
 
     struct TestSnapshot {
@@ -318,6 +374,29 @@ mod tests {
                 label: "Test dataset".to_string(),
                 app_version: "test".to_string(),
                 source: workbook.path.clone(),
+                profile: SnapshotProfile {
+                    id: "test".to_string(),
+                    display_name: "Test".to_string(),
+                    game_version: "test".to_string(),
+                    mod_version: None,
+                },
+                capabilities: SnapshotCapabilities {
+                    weapon_ar: true,
+                    status_buildup: true,
+                    weapon_passives: true,
+                    aow_compatibility: true,
+                    aow_damage: true,
+                    aow_routes: true,
+                },
+                rules: SnapshotRules {
+                    standard_max_upgrade: 25,
+                    somber_max_upgrade: 10,
+                    separate_upgrade_caps: true,
+                    scadutree_scaling: true,
+                    zero_attack_element_uses_weapon_scaling: false,
+                    extended_scaling_grades: false,
+                    status_buildup_scales: true,
+                },
                 generated_at: "2026-07-15".to_string(),
                 extractor_version: "test-extractor".to_string(),
                 provenance: "unit test".to_string(),
@@ -326,12 +405,14 @@ mod tests {
                 sources: vec![
                     SnapshotSource {
                         kind: "regulation".to_string(),
+                        bundled: false,
                         path: "regulation.bin".to_string(),
                         size: 10,
                         sha256: sha256(b"regulation"),
                     },
                     SnapshotSource {
                         kind: "workbook".to_string(),
+                        bundled: true,
                         path: workbook.path,
                         size: workbook.size,
                         sha256: workbook.sha256,

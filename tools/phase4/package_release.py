@@ -499,8 +499,8 @@ def main() -> int:
                 "Run the MSI installer, or launch the standalone executable directly.",
                 "",
                 "## Runtime Data",
-                "Both artifacts contain the same compile-time runtime snapshot.",
-                "No adjacent data directory or source workbook is required.",
+                "Both artifacts contain the same compile-time Vanilla and Convergence runtime snapshots.",
+                "No adjacent data directory, regulation.bin, or source workbook is required.",
             ]
         )
         + "\n",
@@ -519,7 +519,18 @@ def main() -> int:
         release_dir / "SHA256SUMS.txt",
         "".join(f"{row['sha256']}  {row['name']}\n" for row in artifact_rows),
     )
-    data_manifest = json.loads((root / "data/phase1/manifest.json").read_text(encoding="utf-8"))
+    profile_manifest_paths = [
+        root / "data/phase1/manifest.json",
+        root / "data/profiles/convergence/manifest.json",
+    ]
+    data_manifests = [
+        json.loads(path.read_text(encoding="utf-8")) for path in profile_manifest_paths
+    ]
+    data_manifest_ids = {
+        manifest["profile"]["id"]: manifest["id"] for manifest in data_manifests
+    }
+    if set(data_manifest_ids) != {"vanilla", "convergence"}:
+        raise RuntimeError(f"release profile manifests are incomplete: {data_manifest_ids}")
     write_text(
         release_dir / "build-report.json",
         json.dumps(
@@ -527,7 +538,7 @@ def main() -> int:
                 "version": version,
                 "commit": source_commit,
                 "sourceDirty": False,
-                "dataManifestId": data_manifest["id"],
+                "dataManifestIds": data_manifest_ids,
                 "dataValidationReport": "data-validation.json" if validation_completed else None,
                 "artifacts": artifact_rows,
                 "validationSkipped": args.skip_validation,

@@ -30,9 +30,8 @@ pub fn start_affinity_watch(
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
     validate_levels_ahead(request.levels_ahead)?;
-    let data = Arc::clone(&state.data);
-    let catalog_index = Arc::clone(&state.catalog_index);
-    let data_manifest = state.data_manifest.clone();
+    state.profile(&request.base.profile_id)?;
+    let profiles = state.profiles.clone();
     let job_number = state.next_job.fetch_add(1, AtomicOrdering::Relaxed);
     let job_id = format!("affinity-{job_number}");
     let cancel_flag: CancelFlag = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -52,15 +51,17 @@ pub fn start_affinity_watch(
     let job_id_for_task = job_id.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let task_state = AppState {
-            data,
-            catalog_index,
-            data_manifest,
+            profiles,
             search_jobs: Arc::new(JobRegistry::new("search")),
             path_jobs: Arc::new(JobRegistry::new("path")),
             affinity_jobs: Arc::new(JobRegistry::new("affinity watch")),
             next_job: Default::default(),
         };
-        let affinities = affinity_watch_affinities(&request.solved, &task_state);
+        let affinities = affinity_watch_affinities_for_profile(
+            &request.solved,
+            &task_state,
+            &request.base.profile_id,
+        );
         let total = (affinities.len() as u64).saturating_mul(u64::from(request.levels_ahead) + 1);
         let progress = AffinityWatchProgressDto {
             job_id: job_id_for_task.clone(),
@@ -133,7 +134,8 @@ fn build_affinity_watch_inner(
 ) -> Result<AffinityWatchPayloadDto, AppError> {
     validate_levels_ahead(request.levels_ahead)?;
     let objective = parse_objective(&request.base.objective)?;
-    let affinities = affinity_watch_affinities(&request.solved, state);
+    let affinities =
+        affinity_watch_affinities_for_profile(&request.solved, state, &request.base.profile_id);
     let levels: Vec<u16> = (0..=request.levels_ahead)
         .map(|offset| request.base.character_level.saturating_add(offset))
         .collect();
@@ -219,12 +221,19 @@ fn build_affinity_watch_inner(
     Ok(AffinityWatchPayloadDto { lines, breakpoints })
 }
 
-fn affinity_watch_affinities(solved: &SolvedBuildDto, state: &AppState) -> Vec<String> {
-    let mut affinities = affinities_for_weapon_inner(&state.catalog_index, &solved.weapon_name);
+fn affinity_watch_affinities_for_profile(
+    solved: &SolvedBuildDto,
+    state: &AppState,
+    profile_id: &str,
+) -> Vec<String> {
+    let Ok(profile) = state.profile(profile_id) else {
+        return vec![solved.affinity.clone()];
+    };
+    let mut affinities = affinities_for_weapon_inner(&profile.catalog_index, &solved.weapon_name);
     if let Some(aow_name) = solved.aow_name.as_deref() {
         affinities.retain(|affinity| {
             compatible_aow_names_inner(
-                &state.catalog_index,
+                &profile.catalog_index,
                 Some(&solved.weapon_name),
                 Some(affinity),
             )
@@ -380,7 +389,13 @@ mod integration_tests {
         let state = crate::test_app_state();
         let mut nested_request = request(&state);
         nested_request.levels_ahead = 20;
-        let cancel_after = state.data.weapons.len() + 8;
+        let cancel_after = state
+            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+            .expect("Vanilla profile exists")
+            .data
+            .weapons
+            .len()
+            + 8;
         let mut polls = 0_usize;
         let error = build_affinity_watch_inner(
             nested_request,

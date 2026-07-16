@@ -1,6 +1,7 @@
 import { SolvedBuildDto } from "./types";
 
 export interface RankingsExportMetadata {
+  profileId: string;
   appVersion: string;
   schemaVersion: string;
   datasetVersion: string;
@@ -59,8 +60,8 @@ const CSV_COLUMNS: CsvColumn[] = [
 export const csvHeaders = CSV_COLUMNS.map((column) => column.header);
 
 export function rankingsToCsv(rows: SolvedBuildDto[], metadata: RankingsExportMetadata): string {
-  const metadataHeaders = ["app_version", "schema_version", "dataset_version", "model_version", "objective", "assumptions"];
-  const metadataCells = [metadata.appVersion, metadata.schemaVersion, metadata.datasetVersion, metadata.modelVersion, metadata.objective, metadata.assumptions];
+  const metadataHeaders = ["profile_id", "app_version", "schema_version", "dataset_version", "model_version", "objective", "assumptions"];
+  const metadataCells = [metadata.profileId, metadata.appVersion, metadata.schemaVersion, metadata.datasetVersion, metadata.modelVersion, metadata.objective, metadata.assumptions];
   const lines = [
     [...metadataHeaders, ...csvHeaders].join(","),
     ...rows.map((row, index) =>
@@ -70,7 +71,7 @@ export function rankingsToCsv(rows: SolvedBuildDto[], metadata: RankingsExportMe
   return `${lines.join("\r\n")}\r\n`;
 }
 
-export function rankingsCsvFilename(now = new Date()): string {
+export function rankingsCsvFilename(profileId: string, now = new Date()): string {
   const stamp = [
     now.getFullYear(),
     pad2(now.getMonth() + 1),
@@ -80,7 +81,7 @@ export function rankingsCsvFilename(now = new Date()): string {
     pad2(now.getMinutes()),
     pad2(now.getSeconds()),
   ].join("");
-  return `tarnisheds-arsenal-rankings-${stamp}.csv`;
+  return `tarnisheds-arsenal-${profileId}-rankings-${stamp}.csv`;
 }
 
 export function downloadCsv(filename: string, csv: string) {

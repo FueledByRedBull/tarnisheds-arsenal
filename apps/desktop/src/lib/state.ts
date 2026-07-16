@@ -4,6 +4,7 @@ import {
   AffinityWatchProgressDto,
   BuildPresetV1,
   CatalogDto,
+  DataManifestDto,
   CompareControls,
   Notice,
   OptimizeRequestDto,
@@ -14,10 +15,11 @@ import {
   SolvedBuildDto,
   WorkspaceTab,
 } from "./types";
-import { classMeta, normalizeOptimizeRequest, rowFingerprint } from "./session";
+import { applyProfileRules, classMeta, normalizeOptimizeRequest, rowFingerprint } from "./session";
 
 export interface DesktopState {
   activeWorkspace: WorkspaceTab;
+  profiles: DataManifestDto[];
   catalog: CatalogDto | null;
   catalogStatus: "loading" | "ready" | "error";
   catalogError: string | null;
@@ -54,6 +56,8 @@ export interface DesktopState {
   activeJobId: string | null;
   progress: SearchProgressDto | null;
   setWorkspace: (workspace: WorkspaceTab) => void;
+  setProfiles: (profiles: DataManifestDto[]) => void;
+  beginProfileSwitch: (profileId: string) => void;
   setCatalogLoading: () => void;
   setCatalog: (catalog: CatalogDto) => void;
   setCatalogFailure: (message: string) => void;
@@ -91,6 +95,7 @@ export interface DesktopState {
 }
 
 export const defaultRequest: OptimizeRequestDto = {
+  profileId: "vanilla",
   className: "Samurai",
   characterLevel: 9,
   vig: 12,
@@ -131,12 +136,15 @@ type DesktopSlice<T> = StateCreator<DesktopState, [], [], T>;
 type UiSlice = Pick<
   DesktopState,
   | "activeWorkspace"
+  | "profiles"
   | "catalog"
   | "catalogStatus"
   | "catalogError"
   | "notices"
   | "error"
   | "setWorkspace"
+  | "setProfiles"
+  | "beginProfileSwitch"
   | "setCatalogLoading"
   | "setCatalog"
   | "setCatalogFailure"
@@ -270,14 +278,66 @@ function invalidatePathJob(state: DesktopState) {
 
 const createUiSlice: DesktopSlice<UiSlice> = (set) => ({
   activeWorkspace: "rankings",
+  profiles: [],
   catalog: null,
   catalogStatus: "loading",
   catalogError: null,
   notices: [],
   error: null,
   setWorkspace: (activeWorkspace) => set({ activeWorkspace }),
+  setProfiles: (profiles) => set({ profiles }),
+  beginProfileSwitch: (profileId) =>
+    set((state) => {
+      const rules = state.profiles.find((entry) => entry.profile.id === profileId)?.rules;
+      return ({
+      ...invalidateAllJobs(state),
+      activeWorkspace: "rankings",
+      catalog: null,
+      catalogStatus: "loading",
+      catalogError: null,
+      request: applyProfileRules({
+        ...state.request,
+        profileId,
+        weaponName: null,
+        affinity: null,
+        aowName: null,
+        weaponTypeKey: null,
+        objective: "max_ar",
+      }, rules, true),
+      estimate: null,
+      rows: [],
+      resultsStale: false,
+      selected: null,
+      compareTarget: null,
+      selectedFingerprint: null,
+      compareControls: {
+        weaponTypeKey: null,
+        weaponName: null,
+        affinity: null,
+        aowName: null,
+        matchSelectedAow: true,
+      },
+      paths: [],
+      pathSignature: null,
+      affinityPayload: null,
+      affinitySignature: null,
+      notices: [],
+      error: null,
+      });
+    }),
   setCatalogLoading: () => set({ catalogStatus: "loading", catalogError: null }),
-  setCatalog: (catalog) => set({ catalog, catalogStatus: "ready", catalogError: null }),
+  setCatalog: (catalog) => set((state) => ({
+    catalog,
+    catalogStatus: "ready",
+    catalogError: null,
+    request: applyProfileRules({
+      ...state.request,
+      profileId: catalog.dataManifest.profile.id,
+      objective: catalog.objectiveIds.includes(state.request.objective)
+        ? state.request.objective
+        : catalog.objectiveIds[0] ?? "max_ar",
+    }, catalog.dataManifest.rules),
+  })),
   setCatalogFailure: (catalogError) => set({ catalogStatus: "error", catalogError }),
   setNotices: (notices) => set({ notices }),
   pushNotice: (notice) =>
@@ -295,7 +355,10 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
   patchRequest: (patch) =>
     set((state) => ({
       ...invalidateAllJobs(state),
-      request: { ...state.request, ...patch },
+      request: applyProfileRules(
+        { ...state.request, ...patch, profileId: state.request.profileId },
+        state.catalog?.dataManifest.rules,
+      ),
       estimate: null,
       compareTarget: null,
       resultsStale: state.rows.length > 0,
@@ -395,21 +458,35 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
       ],
     })),
   loadBuildPreset: (preset) =>
-    set((state) => ({
-      ...invalidateAllJobs(state),
-      request: normalizeOptimizeRequest(preset.request, state.request),
-      lockedStatMode: preset.request.lockStr !== null,
-      rows: preset.selectedBuild ? [preset.selectedBuild] : [],
-      resultsStale: false,
-      selected: preset.selectedBuild,
-      compareTarget: preset.compareTarget,
-      selectedFingerprint: rowFingerprint(preset.selectedBuild),
-      paths: [],
-      pathSignature: null,
-      affinityPayload: null,
-      affinitySignature: null,
-      notices: [{ scope: "global", tone: "success", message: `Loaded ${preset.name}.` }],
-    })),
+    set((state) => {
+      if (preset.profileId !== state.request.profileId) {
+        return {
+          notices: [{
+            scope: "global",
+            tone: "warning",
+            message: `${preset.name} belongs to ${preset.profileId}. Switch profiles before loading it.`,
+          }],
+        };
+      }
+      return {
+        ...invalidateAllJobs(state),
+        request: applyProfileRules(
+          normalizeOptimizeRequest(preset.request, state.request),
+          state.catalog?.dataManifest.rules,
+        ),
+        lockedStatMode: preset.request.lockStr !== null,
+        rows: preset.selectedBuild ? [preset.selectedBuild] : [],
+        resultsStale: false,
+        selected: preset.selectedBuild,
+        compareTarget: preset.compareTarget,
+        selectedFingerprint: rowFingerprint(preset.selectedBuild),
+        paths: [],
+        pathSignature: null,
+        affinityPayload: null,
+        affinitySignature: null,
+        notices: [{ scope: "global", tone: "success", message: `Loaded ${preset.name}.` }],
+      };
+    }),
 });
 
 const createSearchSlice: DesktopSlice<SearchSlice> = (set) => ({

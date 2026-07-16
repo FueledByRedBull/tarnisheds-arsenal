@@ -52,7 +52,7 @@ export function AffinityWatchView() {
     }
     const generation = beginAffinity(signature);
     try {
-      const legal = await api.affinitiesForWeapon(selected.weaponName);
+      const legal = await api.affinitiesForWeapon(request.profileId, selected.weaponName);
       let current = useDesktopStore.getState();
       if (
         current.affinityGeneration !== generation ||

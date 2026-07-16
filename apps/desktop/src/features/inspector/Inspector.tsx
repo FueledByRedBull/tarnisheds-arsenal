@@ -68,7 +68,12 @@ export function Inspector() {
             <Metric label={objectiveLabel(request.objective)} value={fixed1(metricForObjective(selected, request.objective))} />
             <Metric label="AR" value={compactNumber(selected.ar.total)} />
             <Metric label="Bleed" value={compactNumber(selected.bleedBuildup)} />
-            <Metric label="Raw AoW" value={compactNumber(selected.aowFullSequenceDamage)} />
+            <Metric
+              label={catalog?.dataManifest.capabilities.aowRoutes ? "Raw AoW" : "AoW model"}
+              value={catalog?.dataManifest.capabilities.aowRoutes
+                ? compactNumber(selected.aowFullSequenceDamage)
+                : "Not mapped"}
+            />
           </div>
           <ModelCoverage />
           <div className="detail-block">
@@ -106,20 +111,34 @@ export function Inspector() {
 function ModelCoverage() {
   const catalog = useDesktopStore((state) => state.catalog);
   const request = useDesktopStore((state) => state.request);
-  const objectiveWarning = request.objective === "max_ar_plus_bleed"
-    ? "Buildup is modeled, but enemy resistance growth and proc explosion damage are not."
-    : request.objective === "aow_first_hit" || request.objective === "aow_full_sequence"
-      ? "Legal route damage, status, buff timing, physical attribute, and stamina are reported. Stamina is not optimized and unsupported effects remain warnings."
-      : "Attack rating is calculated before enemy defense and negation.";
+  const aowModelUnavailable = catalog && (
+    !catalog.dataManifest.capabilities.aowDamage ||
+    !catalog.dataManifest.capabilities.aowRoutes
+  );
+  const profileRules = catalog?.dataManifest.rules;
+  const objectiveWarning = aowModelUnavailable
+    ? "Weapon AR, status, passives, affinities, and AoW compatibility are modeled. This profile's AoW hit and route damage is not mapped, so those objectives are unavailable."
+    : request.objective === "max_ar_plus_bleed"
+      ? "Buildup is modeled, but enemy resistance growth and proc explosion damage are not."
+      : request.objective === "aow_first_hit" || request.objective === "aow_full_sequence"
+        ? "Legal route damage, status, buff timing, physical attribute, and stamina are reported. Stamina is not optimized and unsupported effects remain warnings."
+        : "Attack rating is calculated before enemy defense and negation.";
   return (
     <details className="model-coverage">
       <summary>Model coverage and assumptions</summary>
       <p>{objectiveWarning}</p>
+      {profileRules?.zeroAttackElementUsesWeaponScaling ? (
+        <p>Convergence weapons with correction row 0 apply each declared nonzero attribute scaling to each nonzero damage component.</p>
+      ) : null}
       <p>Temporary buff stacking is not a universal layer. Values are raw model outputs, not expected damage against a specific enemy.</p>
       <small>
-        App {packageInfo.version} · dataset {catalog?.dataManifest.datasetVersion ?? "unknown"} · schema {catalog?.dataManifest.schemaVersion ?? "unknown"} · model {catalog?.dataManifest.modelVersion ?? "unknown"}
+        App {packageInfo.version} · {catalog?.dataManifest.profile.displayName ?? "unknown profile"} · dataset {catalog?.dataManifest.datasetVersion ?? "unknown"} · schema {catalog?.dataManifest.schemaVersion ?? "unknown"} · model {catalog?.dataManifest.modelVersion ?? "unknown"}
       </small>
-      <small>{request.twoHanding ? "Two-handed" : "One-handed"} · {request.dlcScaling ? `Scadutree ${request.scadutreeLevel}` : "DLC scaling off"} · upgrade {request.exactUpgrade ? "exact" : "open range"}</small>
+      <small>
+        {request.twoHanding ? "Two-handed" : "One-handed"} · {profileRules?.scadutreeScaling
+          ? request.dlcScaling ? `Scadutree ${request.scadutreeLevel}` : "DLC scaling off"
+          : "Scadutree unavailable"} · upgrade {request.exactUpgrade ? "exact" : "open range"}
+      </small>
     </details>
   );
 }
@@ -202,7 +221,7 @@ function SavedBuildPanel() {
   const [importDataMode, setImportDataMode] = useState<"stale" | "migrate">("stale");
   const [isMigrating, setMigrating] = useState(false);
   const dataVersion = catalog
-    ? `${catalog.dataManifest.schemaVersion}:${catalog.dataManifest.datasetVersion}:${catalog.dataManifest.modelVersion}`
+    ? `${catalog.dataManifest.profile.id}:${catalog.dataManifest.schemaVersion}:${catalog.dataManifest.datasetVersion}:${catalog.dataManifest.modelVersion}`
     : "unknown";
 
   function refresh() {
@@ -242,6 +261,14 @@ function SavedBuildPanel() {
   function loadCurrent() {
     const preset = currentPreset();
     if (!preset) return;
+    if (preset.profileId !== request.profileId) {
+      pushNotice({
+        scope: "global",
+        tone: "warning",
+        message: `${preset.name} belongs to ${preset.profileId}. Switch the game profile first; cross-profile builds are never loaded silently.`,
+      });
+      return;
+    }
     if (dataVersion !== "unknown" && preset.dataVersion !== dataVersion) {
       hydrate({ ...preset, selectedBuild: null, compareTarget: null });
       pushNotice({
@@ -257,6 +284,10 @@ function SavedBuildPanel() {
   async function migratePreset(preset: BuildPresetV1): Promise<BuildPresetV1 | null> {
     if (!catalog) {
       setError("Current catalog metadata is unavailable; retry after game data finishes loading.");
+      return null;
+    }
+    if (preset.profileId !== request.profileId) {
+      setError(`This preset belongs to ${preset.profileId}. Switch profiles before migrating it.`);
       return null;
     }
     setMigrating(true);
@@ -416,7 +447,7 @@ function SavedBuildPanel() {
           <option value="">None</option>
           {entries.map((entry) => (
             <option key={entry.id} value={entry.id}>
-              {entry.name} — {entry.dataVersion === dataVersion ? "current data" : "different data"}
+              {entry.name} — {entry.profileId} · {entry.dataVersion === dataVersion ? "current data" : "different data"}
             </option>
           ))}
         </select>

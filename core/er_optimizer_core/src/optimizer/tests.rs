@@ -13,6 +13,16 @@ fn load_data() -> GameData {
     load_game_data(data_path).expect("failed to load phase1 data")
 }
 
+fn load_convergence_data() -> GameData {
+    let data_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("..")
+        .join("data")
+        .join("profiles")
+        .join("convergence");
+    load_game_data(data_path).expect("failed to load Convergence data")
+}
+
 #[test]
 fn objective_aliases_parse_to_canonical_variants() {
     assert_eq!(
@@ -28,6 +38,59 @@ fn objective_aliases_parse_to_canonical_variants() {
         "aow_full_sequence"
     );
     assert!(OptimizeObjective::parse("not_real").is_err());
+}
+
+#[test]
+fn profile_capabilities_reject_unverified_aow_objectives() {
+    let data = load_convergence_data();
+    let mut request = base_request();
+    request.standard_max_upgrade = 15;
+    request.somber_max_upgrade = 15;
+    request.objective = OptimizeObjective::AowFirstHit;
+    let error = prepare_search(&request, &data).expect_err("AoW damage must be disabled");
+    assert!(error.contains("The Convergence"));
+    assert!(error.contains("verified Ash of War damage"));
+
+    request.objective = OptimizeObjective::AowFullSequence;
+    let error = prepare_search(&request, &data).expect_err("AoW routes must be disabled");
+    assert!(error.contains("verified Ash of War route"));
+}
+
+#[test]
+fn convergence_profile_rules_reject_vanilla_upgrade_and_scadutree_inputs() {
+    let data = load_convergence_data();
+    let mut request = base_request();
+    let error = prepare_search(&request, &data).expect_err("+25 must be rejected");
+    assert!(error.contains("only through +15"));
+
+    request.standard_max_upgrade = 15;
+    request.somber_max_upgrade = 15;
+    request.dlc_scaling = true;
+    request.scadutree_level = 20;
+    let error = prepare_search(&request, &data).expect_err("Scadutree must be rejected");
+    assert!(error.contains("does not use Scadutree"));
+}
+
+#[test]
+fn convergence_galvanic_optimizer_uses_str_dex_int_without_arcane_fill() {
+    let data = load_convergence_data();
+    let mut request = base_request();
+    request.character_level = 107;
+    request.weapon_name = Some("Galvanic Culling Blade [Twinblade]".to_string());
+    request.affinity = Some("Standard".to_string());
+    request.standard_max_upgrade = 13;
+    request.somber_max_upgrade = 13;
+    request.exact_upgrade = true;
+    request.top_k = 3;
+
+    let rows = optimize(&request, &data).expect("Convergence Galvanic search");
+    let best = rows.first().expect("Galvanic result");
+    assert_eq!(best.stats.arc, 8, "Arcane does not scale this weapon");
+    assert!(best.stats.str > 12 || best.stats.dex > 15 || best.stats.int > 35);
+    assert!(
+        best.ar.lightning > 280.0,
+        "attribute scaling must add lightning AR"
+    );
 }
 
 #[test]

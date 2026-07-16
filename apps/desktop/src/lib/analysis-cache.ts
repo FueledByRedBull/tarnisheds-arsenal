@@ -34,8 +34,8 @@ export function clearAnalysisCaches(): void {
   weaponScalingCache.clear();
 }
 
-export function cachedWeaponProfile(weaponName: string, affinity: string | null, signal?: AbortSignal): Promise<WeaponProfileDto> {
-  return cached(weaponProfileCache, 128, { weaponName, affinity }, () => api.weaponProfile(weaponName, affinity), signal);
+export function cachedWeaponProfile(profileId: string, weaponName: string, affinity: string | null, signal?: AbortSignal): Promise<WeaponProfileDto> {
+  return cached(weaponProfileCache, 128, { profileId, weaponName, affinity }, () => api.weaponProfile(profileId, weaponName, affinity), signal);
 }
 
 export function cachedSolveBuild(
@@ -81,13 +81,14 @@ export function cachedAffinityWatch(
 }
 
 export function cachedWeaponScalingForUpgrade(
+  profileId: string,
   weaponName: string,
   affinity: string,
   upgrade: number,
   signal?: AbortSignal,
 ): Promise<ScalingDto> {
-  return cached(weaponScalingCache, 256, { weaponName, affinity, upgrade }, () =>
-    api.weaponScalingForUpgrade(weaponName, affinity, upgrade), signal);
+  return cached(weaponScalingCache, 256, { profileId, weaponName, affinity, upgrade }, () =>
+    api.weaponScalingForUpgrade(profileId, weaponName, affinity, upgrade), signal);
 }
 
 function cached<T>(

@@ -50,6 +50,8 @@ data/_witchy_profile/
 data/.phase1-snapshot-*/
 data/phase1/*.tmp
 data/raw/
+data/_work_*/
+data/_audit_*/
 
 # OS/editor
 .DS_Store

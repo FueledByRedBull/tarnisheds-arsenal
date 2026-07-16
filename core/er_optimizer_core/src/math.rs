@@ -631,6 +631,9 @@ fn scale_status_additions(
     stats: &Stats,
     data: &GameData,
 ) -> Result<StatusBuildup, String> {
+    if !data.rules.status_buildup_scales {
+        return Ok(buildup);
+    }
     let reinforce = data
         .reinforce_level(weapon.reinforce_type, upgrade)
         .ok_or_else(|| {
@@ -1541,6 +1544,91 @@ mod tests {
             calculate_status_buildup(antspur_occult, 25, &blood_stats, &game_data).unwrap();
         assert!(antspur_status.scarlet_rot > 60.0);
         assert!(antspur_status.poison <= 0.0);
+    }
+
+    #[test]
+    fn convergence_weapon_status_is_fixed_across_stats_and_upgrades() {
+        let data_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("data")
+            .join("profiles")
+            .join("convergence");
+        let game_data = load_game_data(data_path).unwrap();
+        let low_stats = Stats {
+            vig: 10,
+            mnd: 10,
+            end: 10,
+            str: 15,
+            dex: 15,
+            int: 35,
+            fai: 8,
+            arc: 8,
+        };
+        let high_stats = Stats {
+            int: 99,
+            arc: 99,
+            ..low_stats
+        };
+
+        for (name, expected_bleed, expected_frost, expected_rot) in [
+            ("Galvanic Culling Blade [Twinblade]", 0.0, 86.0, 0.0),
+            ("Reduvia", 82.0, 0.0, 0.0),
+            ("Scorpion's Stinger", 0.0, 0.0, 68.0),
+        ] {
+            let weapon = find_weapon(&game_data, name, "Standard");
+            let at_zero = calculate_status_buildup(weapon, 0, &low_stats, &game_data).unwrap();
+            let at_fifteen = calculate_status_buildup(weapon, 15, &high_stats, &game_data).unwrap();
+            assert_eq!(at_zero.bleed, expected_bleed, "{name} bleed");
+            assert_eq!(at_zero.frost, expected_frost, "{name} frost");
+            assert_eq!(at_zero.scarlet_rot, expected_rot, "{name} rot");
+            assert_eq!(
+                [
+                    at_zero.bleed,
+                    at_zero.frost,
+                    at_zero.poison,
+                    at_zero.scarlet_rot,
+                    at_zero.sleep,
+                    at_zero.madness,
+                    at_zero.death,
+                ],
+                [
+                    at_fifteen.bleed,
+                    at_fifteen.frost,
+                    at_fifteen.poison,
+                    at_fifteen.scarlet_rot,
+                    at_fifteen.sleep,
+                    at_fifteen.madness,
+                    at_fifteen.death,
+                ],
+                "{name} must not scale status"
+            );
+        }
+    }
+
+    #[test]
+    fn convergence_galvanic_plus_thirteen_matches_reference_ar() {
+        let data_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("data")
+            .join("profiles")
+            .join("convergence");
+        let game_data = load_game_data(data_path).unwrap();
+        let weapon = find_weapon(&game_data, "Galvanic Culling Blade [Twinblade]", "Standard");
+        let stats = Stats {
+            vig: 10,
+            mnd: 10,
+            end: 10,
+            str: 15,
+            dex: 15,
+            int: 35,
+            fai: 8,
+            arc: 77,
+        };
+        let ar = calculate_ar(weapon, 13, &stats, u16::from(stats.str), &game_data).unwrap();
+        assert!((ar.lightning - 605.654).abs() < 0.01);
+        assert!((ar.total() - 605.654).abs() < 0.01);
     }
 
     #[test]

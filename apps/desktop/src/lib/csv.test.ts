@@ -27,6 +27,7 @@ const row: SolvedBuildDto = {
 describe("rankings CSV model provenance", () => {
   it("keeps model identity and unsupported-mechanic assumptions on every exported row", () => {
     const csv = rankingsToCsv([row], {
+      profileId: "convergence",
       appVersion: "0.8.0",
       schemaVersion: "7",
       datasetVersion: "2026.07",
@@ -36,8 +37,8 @@ describe("rankings CSV model provenance", () => {
     });
 
     const [headers, values] = csv.trim().split("\r\n");
-    expect(headers).toContain("app_version,schema_version,dataset_version,model_version,objective,assumptions");
-    expect(values).toContain("0.8.0,7,2026.07,aow-routes-v2,max_ar_plus_bleed");
+    expect(headers).toContain("profile_id,app_version,schema_version,dataset_version,model_version,objective,assumptions");
+    expect(values).toContain("convergence,0.8.0,7,2026.07,aow-routes-v2,max_ar_plus_bleed");
     expect(values).toContain("enemy defense and negation not applied");
     expect(values).toContain("resistance growth and proc damage excluded");
     expect(values).toContain("temporary buff stacking not universal");

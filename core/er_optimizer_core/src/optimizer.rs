@@ -234,12 +234,58 @@ where
     if !should_continue() {
         return Err("cancelled".to_string());
     }
+    validate_profile_capabilities(request, data)?;
     let constraints = build_combat_constraints(request)?;
     let weapons = Arc::from(
         prepare_weapons_with_cancel(request, data, constraints, &mut should_continue)?
             .into_boxed_slice(),
     );
     build_prepared_plan(request, data, constraints, weapons, &mut should_continue)
+}
+
+fn validate_profile_capabilities(request: &OptimizeRequest, data: &GameData) -> Result<(), String> {
+    let profile = if data.profile_display_name.trim().is_empty() {
+        "selected profile"
+    } else {
+        data.profile_display_name.as_str()
+    };
+    if request.standard_max_upgrade > data.rules.standard_max_upgrade {
+        return Err(format!(
+            "{profile} supports weapon upgrades only through +{}",
+            data.rules.standard_max_upgrade
+        ));
+    }
+    if request.somber_max_upgrade > data.rules.somber_max_upgrade {
+        return Err(format!(
+            "{profile} supports alternate weapon upgrades only through +{}",
+            data.rules.somber_max_upgrade
+        ));
+    }
+    if !data.rules.scadutree_scaling && (request.dlc_scaling || request.scadutree_level != 0) {
+        return Err(format!("{profile} does not use Scadutree Blessing scaling"));
+    }
+    if !data.capabilities.weapon_ar {
+        return Err(format!("{profile} does not provide weapon AR data"));
+    }
+    match request.objective {
+        OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr => Ok(()),
+        OptimizeObjective::MaxArPlusBleed if data.capabilities.status_buildup => Ok(()),
+        OptimizeObjective::MaxArPlusBleed => {
+            Err(format!("{profile} does not provide status-buildup data"))
+        }
+        OptimizeObjective::AowFirstHit if data.capabilities.aow_damage => Ok(()),
+        OptimizeObjective::AowFirstHit => Err(format!(
+            "{profile} does not provide verified Ash of War damage data"
+        )),
+        OptimizeObjective::AowFullSequence
+            if data.capabilities.aow_damage && data.capabilities.aow_routes =>
+        {
+            Ok(())
+        }
+        OptimizeObjective::AowFullSequence => Err(format!(
+            "{profile} does not provide verified Ash of War route data"
+        )),
+    }
 }
 
 pub fn prepare_loadout_evaluator_with_cancel<'a, F>(
@@ -250,6 +296,7 @@ pub fn prepare_loadout_evaluator_with_cancel<'a, F>(
 where
     F: FnMut() -> bool,
 {
+    validate_profile_capabilities(request, data)?;
     if request.weapon_name.is_none() || request.affinity.is_none() {
         return Err("reusable loadout evaluation requires a weapon and affinity".to_string());
     }
@@ -285,6 +332,7 @@ pub fn prepare_upgrade_series_evaluator_with_cancel<'a, F>(
 where
     F: FnMut() -> bool,
 {
+    validate_profile_capabilities(request, data)?;
     if request.weapon_name.is_none() || request.affinity.is_none() {
         return Err("upgrade series evaluation requires a weapon and affinity".to_string());
     }

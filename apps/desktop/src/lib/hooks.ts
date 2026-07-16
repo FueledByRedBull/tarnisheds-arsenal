@@ -42,6 +42,7 @@ export function useWeaponProfile(
   useEffect(() => {
     const controller = new AbortController();
     const token = profileRequest.current.begin(stableSignature({
+      profileId: request.profileId,
       weaponName: request.weaponName,
       affinity: request.affinity,
       aowName: request.aowName,
@@ -52,6 +53,7 @@ export function useWeaponProfile(
         return;
       }
       const profile = await cachedWeaponProfile(
+        request.profileId,
         request.weaponName,
         request.affinity,
         controller.signal,
@@ -80,7 +82,7 @@ export function useWeaponProfile(
       controller.abort();
       profileRequest.current.invalidate(token);
     };
-  }, [patchRequest, request.affinity, request.aowName, request.weaponName, setError]);
+  }, [patchRequest, request.affinity, request.aowName, request.profileId, request.weaponName, setError]);
 
   return weaponProfile;
 }

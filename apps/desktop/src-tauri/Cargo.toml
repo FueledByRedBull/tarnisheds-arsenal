@@ -1,6 +1,6 @@
 [package]
 name = "tarnisheds-arsenal-desktop"
-version = "0.8.1"
+version = "0.9.0"
 description = "Tarnished's Arsenal desktop app"
 authors = ["Tarnished's Arsenal contributors"]
 license = "MIT"

@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.phase1.phase1_dump import iter_param_rows, to_int  # noqa: E402
+from tools.phase1.phase1_dump import iter_param_rows, param_row_name, to_int  # noqa: E402
 
 WEAPON_EFFECT_FIELDS = (
     "spEffectBehaviorId0",
@@ -24,22 +24,6 @@ REINFORCE_OVERLAY_FIELD_TO_WEAPON_FIELD = {
     "spEffectId1": "spEffectBehaviorId0",
     "spEffectId2": "spEffectBehaviorId1",
     "spEffectId3": "spEffectBehaviorId2",
-}
-
-AFFINITY_ATTRS = {
-    "Standard": ("configurableWepAttr00", 1),
-    "Heavy": ("configurableWepAttr01", 1),
-    "Keen": ("configurableWepAttr02", 1),
-    "Quality": ("configurableWepAttr03", 1),
-    "Fire": ("configurableWepAttr04", 1),
-    "Flame Art": ("configurableWepAttr05", 1),
-    "Lightning": ("configurableWepAttr06", 1),
-    "Sacred": ("configurableWepAttr07", 1),
-    "Magic": ("configurableWepAttr08", 1),
-    "Cold": ("configurableWepAttr09", 1),
-    "Poison": ("configurableWepAttr10", 1),
-    "Blood": ("configurableWepAttr11", 0),
-    "Occult": ("configurableWepAttr12", 0),
 }
 
 STATUS_FIELDS = {
@@ -116,7 +100,7 @@ def write_csv(path: Path, fieldnames: list[str], rows: list[dict[str, object]]) 
 def canonical_gem_rows(gem_rows: list[dict[str, str]]) -> dict[int, dict[str, str]]:
     grouped_rows: dict[int, list[dict[str, str]]] = {}
     for row in gem_rows:
-        raw_name = row.get("paramdexName", "").strip()
+        raw_name = param_row_name(row)
         if not raw_name.startswith("Ash of War:"):
             continue
         canonical_name = raw_name.replace("Ash of War:", "", 1).strip()
@@ -204,10 +188,10 @@ def aow_valid_for_weapon(
     if to_int(weapon_row, "disable_gem_attr", 0) != 0:
         return False
 
-    affinity_attr = AFFINITY_ATTRS.get(weapon_row["affinity"])
-    if affinity_attr is None:
-        return False
-    affinity_field, affinity_default = affinity_attr
+    weapon_id = int(weapon_row["weapon_id"])
+    affinity_slot = (weapon_id % 10_000) // 100
+    affinity_field = f"configurableWepAttr{affinity_slot:02d}"
+    affinity_default = 1 if affinity_slot <= 10 else 0
     if to_int(gem_row, affinity_field, affinity_default) == 0:
         return False
 
@@ -366,16 +350,20 @@ def build_weapon_passive_overlays(
 def build_exact_aow_compat(
     weapon_csv_rows: list[dict[str, str]],
     gem_rows_by_aow_id: dict[int, dict[str, str]],
+    aow_names_by_id: dict[int, str],
 ) -> list[dict[str, object]]:
     rows_out: list[dict[str, object]] = []
     for weapon in weapon_csv_rows:
         for aow_id, gem_row in gem_rows_by_aow_id.items():
             if not aow_valid_for_weapon(gem_row, weapon):
                 continue
+            aow_name = aow_names_by_id.get(aow_id, "").strip()
+            if not aow_name:
+                raise ValueError(f"compatible AoW {aow_id} has no authoritative name")
             rows_out.append(
                 {
                     "aow_id": aow_id,
-                    "aow_name": gem_row["paramdexName"].replace("Ash of War:", "", 1).strip(),
+                    "aow_name": aow_name,
                     "weapon_id": weapon["weapon_id"],
                     "weapon_name": weapon["name"],
                     "affinity": weapon["affinity"],
@@ -433,6 +421,7 @@ def export_regulation_extras(
     gem_rows: list[dict[str, str]],
     sp_effect_rows: dict[int, dict[str, str]],
     output_dir: Path,
+    aow_names_by_id: dict[int, str],
 ) -> None:
     max_level_by_type: dict[int, int] = {}
     for row in reinforce_csv_rows:
@@ -462,7 +451,11 @@ def export_regulation_extras(
 
     exact_aow_compat: list[dict[str, object]] = []
     if gem_rows:
-        exact_aow_compat = build_exact_aow_compat(weapon_csv_rows, canonical_gem_rows(gem_rows))
+        exact_aow_compat = build_exact_aow_compat(
+            weapon_csv_rows,
+            canonical_gem_rows(gem_rows),
+            aow_names_by_id,
+        )
 
     write_csv(
         output_dir / "passive_effect_coverage.csv",
@@ -558,6 +551,10 @@ def main() -> int:
         gem_rows=gem_rows,
         sp_effect_rows=sp_effect_rows,
         output_dir=output_dir,
+        aow_names_by_id={
+            int(row["aow_id"]): row["name"]
+            for row in read_csv(phase1_dir / "aow.csv")
+        },
     )
     return 0
 

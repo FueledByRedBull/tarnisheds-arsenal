@@ -4,15 +4,21 @@ import argparse
 import hashlib
 import json
 import shutil
+import sys
 from datetime import date
 from pathlib import Path
 from typing import Mapping, TypedDict, cast
 
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-SCHEMA_VERSION = 1
-DATASET_VERSION = "phase1-app-1.16.1"
-MODEL_VERSION = "aow-routes-effects-v1"
-EXTRACTOR_VERSION = "phase1-python-v2"
+from tools.phase1.profiles import ProfileDefinition, profile_definition  # noqa: E402
+
+
+SCHEMA_VERSION = 3
+MODEL_VERSION = "aow-routes-effects-v3-profile-semantics"
+EXTRACTOR_VERSION = "phase1-python-v6-profile-semantics"
 RUNTIME_FILES = {
     "aow.csv",
     "aow_attack_data.csv",
@@ -38,9 +44,17 @@ class FileRecord(TypedDict):
 
 class SourceRecord(FileRecord):
     kind: str
+    bundled: bool
 
 
 class SnapshotManifest(TypedDict):
+    schemaVersion: int
+    datasetVersion: str
+    modelVersion: str
+    id: str
+    profile: dict[str, str | None]
+    capabilities: dict[str, bool]
+    rules: dict[str, bool | int]
     runtimeFiles: list[FileRecord]
     diagnosticFiles: list[FileRecord]
     sources: list[SourceRecord]
@@ -74,6 +88,8 @@ def write_snapshot_manifest(
     phase1_dir: Path,
     regulation_path: Path,
     *,
+    profile: ProfileDefinition,
+    source_paths: Mapping[str, Path] | None = None,
     generated_at: str | None = None,
 ) -> Path:
     phase1_dir = phase1_dir.resolve()
@@ -85,7 +101,7 @@ def write_snapshot_manifest(
             "cannot write snapshot manifest; missing runtime files: "
             + ", ".join(missing_runtime)
         )
-    if not workbook_path.is_file():
+    if (profile.capabilities.aow_damage or profile.capabilities.aow_routes) and not workbook_path.is_file():
         raise FileNotFoundError(f"workbook source not found: {workbook_path}")
     if not regulation_path.is_file():
         raise FileNotFoundError(f"regulation source not found: {regulation_path}")
@@ -96,23 +112,35 @@ def write_snapshot_manifest(
         for path in sorted(phase1_dir.glob("*.csv"), key=lambda item: item.name)
         if path.name not in RUNTIME_FILES
     ]
+    sources: list[SourceRecord] = [
+        {"kind": "regulation", "bundled": False, **_file_record(regulation_path)},
+    ]
+    if workbook_path.is_file():
+        sources.append({"kind": "workbook", "bundled": True, **_file_record(workbook_path)})
+    for kind, path in sorted((source_paths or {}).items()):
+        resolved = path.resolve()
+        if not resolved.is_file():
+            raise FileNotFoundError(f"{kind} source not found: {resolved}")
+        sources.append({"kind": kind, "bundled": False, **_file_record(resolved)})
+
+    version_label = profile.mod_version or profile.game_version
     manifest = {
         "schemaVersion": SCHEMA_VERSION,
-        "datasetVersion": DATASET_VERSION,
+        "datasetVersion": profile.dataset_version,
         "modelVersion": MODEL_VERSION,
-        "id": DATASET_VERSION,
-        "label": "Phase 1 dataset - App Ver. 1.16.1",
-        "appVersion": "1.16.1",
-        "source": workbook_path.name,
+        "id": profile.dataset_version,
+        "label": f"{profile.display_name} dataset - {version_label}",
+        "appVersion": profile.game_version,
+        "source": regulation_path.name,
+        "profile": profile.as_manifest_dict(),
+        "capabilities": profile.capabilities.as_manifest_dict(),
+        "rules": profile.rules.as_manifest_dict(),
         "generatedAt": generated_at or date.today().isoformat(),
         "extractorVersion": EXTRACTOR_VERSION,
-        "provenance": "regulation.bin + verified motion workbook + numeric PARAM effect graph",
+        "provenance": "profile-bound regulation, names, motion data, and numeric PARAM effect graph",
         "runtimeFiles": runtime_files,
         "diagnosticFiles": diagnostic_files,
-        "sources": [
-            {"kind": "regulation", **_file_record(regulation_path)},
-            {"kind": "workbook", **_file_record(workbook_path)},
-        ],
+        "sources": sources,
     }
     output_path = phase1_dir / "manifest.json"
     temporary_path = phase1_dir / "manifest.json.tmp"
@@ -124,7 +152,10 @@ def write_snapshot_manifest(
     return output_path
 
 
-def validate_snapshot_manifest(phase1_dir: Path) -> SnapshotManifest:
+def validate_snapshot_manifest(
+    phase1_dir: Path,
+    expected_profile: ProfileDefinition | None = None,
+) -> SnapshotManifest:
     phase1_dir = phase1_dir.resolve()
     manifest_path = phase1_dir / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -132,12 +163,60 @@ def validate_snapshot_manifest(phase1_dir: Path) -> SnapshotManifest:
         raise ValueError(
             f"snapshot schema is {manifest.get('schemaVersion')!r}; expected {SCHEMA_VERSION}"
         )
-    if manifest.get("datasetVersion") != DATASET_VERSION:
-        raise ValueError("snapshot datasetVersion does not match the extractor")
     if manifest.get("modelVersion") != MODEL_VERSION:
         raise ValueError("snapshot modelVersion does not match the extractor")
     if manifest.get("extractorVersion") != EXTRACTOR_VERSION:
         raise ValueError("snapshot extractorVersion does not match the extractor")
+    profile_record = manifest.get("profile")
+    capabilities = manifest.get("capabilities")
+    rules = manifest.get("rules")
+    if (
+        not isinstance(profile_record, dict)
+        or not isinstance(capabilities, dict)
+        or not isinstance(rules, dict)
+    ):
+        raise ValueError("snapshot profile, capabilities, or rules are malformed")
+    profile_id = profile_record.get("id")
+    if not isinstance(profile_id, str) or not profile_id.strip():
+        raise ValueError("snapshot profile id is missing")
+    if expected_profile is not None:
+        if profile_record != expected_profile.as_manifest_dict():
+            raise ValueError("snapshot profile metadata does not match the selected profile")
+        if capabilities != expected_profile.capabilities.as_manifest_dict():
+            raise ValueError("snapshot capabilities do not match the selected profile")
+        if rules != expected_profile.rules.as_manifest_dict():
+            raise ValueError("snapshot rules do not match the selected profile")
+        if manifest.get("datasetVersion") != expected_profile.dataset_version:
+            raise ValueError("snapshot datasetVersion does not match the selected profile")
+    expected_capability_keys = {
+        "weaponAr",
+        "statusBuildup",
+        "weaponPassives",
+        "aowCompatibility",
+        "aowDamage",
+        "aowRoutes",
+    }
+    if set(capabilities) != expected_capability_keys or not all(
+        isinstance(value, bool) for value in capabilities.values()
+    ):
+        raise ValueError("snapshot capability set is not exact")
+    expected_rule_keys = {
+        "standardMaxUpgrade",
+        "somberMaxUpgrade",
+        "separateUpgradeCaps",
+        "scadutreeScaling",
+        "zeroAttackElementUsesWeaponScaling",
+        "extendedScalingGrades",
+        "statusBuildupScales",
+    }
+    if set(rules) != expected_rule_keys:
+        raise ValueError("snapshot rule set is not exact")
+    for key in ("standardMaxUpgrade", "somberMaxUpgrade"):
+        if not isinstance(rules[key], int) or isinstance(rules[key], bool) or not 0 <= rules[key] <= 25:
+            raise ValueError(f"snapshot {key} rule is malformed")
+    for key in expected_rule_keys - {"standardMaxUpgrade", "somberMaxUpgrade"}:
+        if not isinstance(rules[key], bool):
+            raise ValueError(f"snapshot {key} rule is malformed")
 
     runtime_records = manifest.get("runtimeFiles")
     diagnostic_records = manifest.get("diagnosticFiles")
@@ -174,17 +253,13 @@ def validate_snapshot_manifest(phase1_dir: Path) -> SnapshotManifest:
     if not isinstance(sources, list):
         raise ValueError("snapshot source records are malformed")
     source_by_kind = {record.get("kind"): record for record in sources}
-    if set(source_by_kind) != {"regulation", "workbook"} or len(sources) != 2:
-        raise ValueError("snapshot must contain exactly regulation and workbook source hashes")
-    workbook = source_by_kind["workbook"]
-    workbook_path = phase1_dir / str(workbook.get("path", ""))
-    if (
-        not workbook_path.is_file()
-        or workbook.get("size") != workbook_path.stat().st_size
-        or workbook.get("sha256") != _sha256(workbook_path)
-    ):
-        raise ValueError("snapshot workbook source hash is invalid")
+    if len(source_by_kind) != len(sources) or "regulation" not in source_by_kind:
+        raise ValueError("snapshot source kinds must be unique and include regulation")
+    if (capabilities["aowDamage"] or capabilities["aowRoutes"]) and "workbook" not in source_by_kind:
+        raise ValueError("AoW-capable snapshots require a motion workbook source")
     for kind, record in source_by_kind.items():
+        if not isinstance(record.get("bundled"), bool):
+            raise ValueError(f"snapshot {kind} source bundled flag is malformed")
         sha256 = record.get("sha256")
         if (
             not isinstance(sha256, str)
@@ -192,6 +267,14 @@ def validate_snapshot_manifest(phase1_dir: Path) -> SnapshotManifest:
             or any(character not in "0123456789abcdef" for character in sha256.lower())
         ):
             raise ValueError(f"snapshot {kind} source SHA-256 is malformed")
+        if record["bundled"]:
+            source_path = phase1_dir / str(record.get("path", ""))
+            if (
+                not source_path.is_file()
+                or record.get("size") != source_path.stat().st_size
+                or record.get("sha256") != _sha256(source_path)
+            ):
+                raise ValueError(f"snapshot bundled {kind} source hash is invalid")
     return cast(SnapshotManifest, manifest)
 
 
@@ -209,10 +292,9 @@ def promote_snapshot(staging_dir: Path, destination_dir: Path) -> None:
 
     records = manifest["runtimeFiles"] + manifest["diagnosticFiles"]
     file_records = {str(record["path"]): record for record in records}
-    workbook_record = next(
-        record for record in manifest["sources"] if record["kind"] == "workbook"
-    )
-    file_records[str(workbook_record["path"])] = workbook_record
+    for record in manifest["sources"]:
+        if record["bundled"]:
+            file_records[str(record["path"])] = record
 
     for file_name, record in file_records.items():
         source = staging_dir / file_name
@@ -236,13 +318,16 @@ def promote_snapshot(staging_dir: Path, destination_dir: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Write the atomic Phase 1 snapshot manifest.")
-    parser.add_argument("--phase1", type=Path, default=Path("data/phase1"))
-    parser.add_argument("--regulation", type=Path, default=Path("data/raw/regulation.bin"))
+    parser.add_argument("--profile", default="vanilla")
+    parser.add_argument("--phase1", type=Path)
+    parser.add_argument("--regulation", type=Path)
     parser.add_argument("--generated-at")
     args = parser.parse_args()
+    profile = profile_definition(args.profile)
     output = write_snapshot_manifest(
-        args.phase1,
-        args.regulation,
+        args.phase1 or profile.output_dir,
+        args.regulation or profile.regulation_path,
+        profile=profile,
         generated_at=args.generated_at,
     )
     print(f"Wrote snapshot manifest to {output}")

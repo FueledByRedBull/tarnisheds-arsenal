@@ -44,6 +44,10 @@ export function RankingsBoard() {
     request.minFai > 0 ? "min-fai" : null,
     request.minArc > 0 ? "min-arc" : null,
   ].filter(Boolean).length;
+  const profileRules = catalog?.dataManifest.rules;
+  const separateUpgradeCaps = profileRules?.separateUpgradeCaps ?? true;
+  const scadutreeAvailable = profileRules?.scadutreeScaling ?? true;
+  const extendedScalingGrades = profileRules?.extendedScalingGrades ?? false;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -52,6 +56,7 @@ export function RankingsBoard() {
         rows.map(async (row) => [
           rowFingerprint(row),
           await cachedWeaponScalingForUpgrade(
+            request.profileId,
             row.weaponName,
             row.affinity,
             row.upgrade,
@@ -71,7 +76,7 @@ export function RankingsBoard() {
     return () => {
       controller.abort();
     };
-  }, [rows, setError]);
+  }, [request.profileId, rows, setError]);
 
   async function lockAndRerun(row: SolvedBuildDto) {
     useRowAsLocks(row);
@@ -88,7 +93,8 @@ export function RankingsBoard() {
       };
       const exportRows = await runSearchRequestForRows(exportRequest);
       if (!catalog) throw new Error("Catalog metadata is unavailable; the export was not created.");
-      downloadCsv(rankingsCsvFilename(), rankingsToCsv(exportRows, {
+      downloadCsv(rankingsCsvFilename(request.profileId), rankingsToCsv(exportRows, {
+        profileId: request.profileId,
         appVersion: packageInfo.version,
         schemaVersion: String(catalog.dataManifest.schemaVersion),
         datasetVersion: catalog.dataManifest.datasetVersion,
@@ -96,7 +102,9 @@ export function RankingsBoard() {
         objective: request.objective,
         assumptions: [
           request.twoHanding ? "two-handed" : "one-handed",
-          request.dlcScaling ? `Scadutree ${request.scadutreeLevel}` : "no DLC attack scaling",
+          scadutreeAvailable
+            ? request.dlcScaling ? `Scadutree ${request.scadutreeLevel}` : "no DLC attack scaling"
+            : "Scadutree scaling unavailable for this profile",
           "raw values; enemy defense and negation not applied",
           ...(request.objective === "max_ar_plus_bleed"
             ? ["status resistance growth and proc damage excluded"]
@@ -190,12 +198,15 @@ export function RankingsBoard() {
         <span>{objectiveLabel(request.objective)}</span>
         <span>Level {derivedLevel(catalog, request)}</span>
         <span>
-          {request.exactUpgrade
-            ? `Exact +${request.standardMaxUpgrade} / +${request.somberMaxUpgrade}`
-            : `Up to +${request.standardMaxUpgrade} / +${request.somberMaxUpgrade}`}
+          {request.exactUpgrade ? "Exact" : "Up to"} +{request.standardMaxUpgrade}
+          {separateUpgradeCaps ? ` / +${request.somberMaxUpgrade}` : ""}
         </span>
         <span>{request.twoHanding ? "Two-handed" : "One-handed"}</span>
-        <span>{request.dlcScaling ? `DLC blessing +${request.scadutreeLevel}` : "Base-game scaling"}</span>
+        <span>
+          {scadutreeAvailable
+            ? request.dlcScaling ? `DLC blessing +${request.scadutreeLevel}` : "Base-game scaling"
+            : "No Scadutree scaling"}
+        </span>
         <span>{constraintCount} active constraint{constraintCount === 1 ? "" : "s"}</span>
         <small>{catalog?.dataManifest.label ?? "Loading dataset"}</small>
       </div>
@@ -254,6 +265,7 @@ export function RankingsBoard() {
             active={rowFingerprint(selected) === rowFingerprint(row)}
             objective={objective}
             scaling={scalingByRow[rowKey(row)] ?? null}
+            extendedScalingGrades={extendedScalingGrades}
             onClick={() => selectRow(row)}
             onLock={() => lockAndRerun(row)}
           />
@@ -319,6 +331,7 @@ function ResultRow({
   active,
   objective,
   scaling,
+  extendedScalingGrades,
   onClick,
   onLock,
 }: {
@@ -327,6 +340,7 @@ function ResultRow({
   active: boolean;
   objective: Parameters<typeof metricForObjective>[1];
   scaling: ScalingDto | null;
+  extendedScalingGrades: boolean;
   onClick: () => void;
   onLock: () => void;
 }) {
@@ -353,7 +367,7 @@ function ResultRow({
       <span role="gridcell" className="weapon-cell"><strong>{row.weaponName}</strong><small>{row.isSomber ? "Somber" : "Standard"}</small></span>
       <span role="gridcell" className="setup-cell"><strong>{row.affinity}</strong><small>{row.aowName ?? "Native"}</small></span>
       <span role="gridcell">+{row.upgrade}</span>
-      <span role="gridcell">{formatScaling(scaling)}</span>
+      <span role="gridcell">{formatScaling(scaling, extendedScalingGrades)}</span>
       <span role="gridcell" className="result-metric-cell"><strong>AR {compactNumber(row.ar.total)}</strong><small>B {compactNumber(row.bleedBuildup)} · F {compactNumber(row.frostBuildup)}</small></span>
       <span role="gridcell" className="result-metric-cell"><strong>{compactNumber(row.aowFullSequenceDamage)}</strong><small>First {compactNumber(row.aowFirstHitDamage)}</small></span>
       <span role="gridcell">{fixed1(metricForObjective(row, objective))}</span>
@@ -385,11 +399,11 @@ function EmptyRows({ onExample, busy }: { onExample: () => void; busy: boolean }
   );
 }
 
-function formatScaling(scaling: ScalingDto | null): string {
+function formatScaling(scaling: ScalingDto | null, extended: boolean): string {
   if (!scaling) {
     return "-";
   }
-  return `STR ${scalingLetter(scaling.str)} DEX ${scalingLetter(scaling.dex)} INT ${scalingLetter(scaling.int)} FAI ${scalingLetter(scaling.fai)} ARC ${scalingLetter(scaling.arc)}`;
+  return `STR ${scalingLetter(scaling.str, extended)} DEX ${scalingLetter(scaling.dex, extended)} INT ${scalingLetter(scaling.int, extended)} FAI ${scalingLetter(scaling.fai, extended)} ARC ${scalingLetter(scaling.arc, extended)}`;
 }
 
 function rowKey(row: SolvedBuildDto): string {

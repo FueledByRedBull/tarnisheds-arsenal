@@ -156,11 +156,12 @@ async function call<T>(command: string, args?: Record<string, unknown>): Promise
 }
 
 export const api = {
-  catalog: () => call<CatalogDto>("get_catalog"),
-  dataManifest: () => call<DataManifestDto>("get_data_manifest"),
-  weaponProfile: (weaponName: string, affinity: string | null) =>
+  profiles: () => call<DataManifestDto[]>("get_profiles"),
+  catalog: (profileId: string) => call<CatalogDto>("get_catalog", { profileId }),
+  dataManifest: (profileId: string) => call<DataManifestDto>("get_data_manifest", { profileId }),
+  weaponProfile: (profileId: string, weaponName: string, affinity: string | null) =>
     call<WeaponProfileDto>("get_weapon_profile", {
-      request: { weaponName, affinity },
+      request: { profileId, weaponName, affinity },
     }),
   estimateSearchSpace: (request: OptimizeRequestDto) =>
     call<SearchEstimateDto>("estimate_search_space", { request }),
@@ -206,23 +207,23 @@ export const api = {
     call<AffinityWatchPayloadDto>("build_affinity_watch", {
       request: { base, solved, levelsAhead },
     }),
-  affinitiesForWeapon: (weaponName: string) =>
-    call<string[]>("affinities_for_weapon", { weaponName }),
-  compatibleAowNames: (weaponName: string | null, affinity: string | null) =>
+  affinitiesForWeapon: (profileId: string, weaponName: string) =>
+    call<string[]>("affinities_for_weapon", { profileId, weaponName }),
+  compatibleAowNames: (profileId: string, weaponName: string | null, affinity: string | null) =>
     call<string[]>("compatible_aow_names", {
-      request: { weaponName, affinity },
+      request: { profileId, weaponName, affinity },
     }),
-  compatibleAowNamesForAffinity: (affinity: string | null) =>
+  compatibleAowNamesForAffinity: (profileId: string, affinity: string | null) =>
     call<string[]>("compatible_aow_names_for_affinity", {
-      request: { affinity },
+      request: { profileId, affinity },
     }),
-  weaponNamesForType: (weaponTypeKey: string | null) =>
+  weaponNamesForType: (profileId: string, weaponTypeKey: string | null) =>
     call<string[]>("weapon_names_for_type", {
-      request: { weaponTypeKey },
+      request: { profileId, weaponTypeKey },
     }),
-  weaponScalingForUpgrade: (weaponName: string, affinity: string, upgrade: number) =>
+  weaponScalingForUpgrade: (profileId: string, weaponName: string, affinity: string, upgrade: number) =>
     call<ScalingDto>("weapon_scaling_for_upgrade", {
-      request: { weaponName, affinity, upgrade },
+      request: { profileId, weaponName, affinity, upgrade },
     }),
   startPathPreview: (requests: Array<{
     base: OptimizeRequestDto;
@@ -250,10 +251,12 @@ export const api = {
 
 async function mockInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   switch (command) {
+    case "get_profiles":
+      return [mockDataManifest("vanilla"), mockDataManifest("convergence")] as T;
     case "get_catalog":
-      return await mockCatalog() as T;
+      return await mockCatalog(String(args?.profileId ?? "vanilla")) as T;
     case "get_data_manifest":
-      return mockDataManifest() as T;
+      return mockDataManifest(String(args?.profileId ?? "vanilla")) as T;
     case "get_weapon_profile":
       return await mockWeaponProfile(args) as T;
     case "estimate_search_space":
@@ -307,7 +310,7 @@ async function mockInvoke<T>(command: string, args?: Record<string, unknown>): P
   }
 }
 
-async function mockCatalog(): Promise<CatalogDto> {
+async function mockCatalog(profileId = "vanilla"): Promise<CatalogDto> {
   const [weapons, aows] = await Promise.all([phaseWeaponRows(), phaseAowRows()]);
   const weaponNames = uniqueSorted(weapons.map((row) => row.name).filter(Boolean));
   const weaponTypeOptions = weaponTypeOptionsFromRows(weapons);
@@ -320,24 +323,50 @@ async function mockCatalog(): Promise<CatalogDto> {
     weaponTypeOptions,
     aowNames: uniqueSorted(aows.map((row) => row.name).filter(Boolean)),
     affinityNames: uniqueSorted(weapons.map((row) => row.affinity).filter(Boolean)),
-    objectiveIds: ["max_ar", "max_physical_ar", "max_ar_plus_bleed", "aow_first_hit", "aow_full_sequence"],
+    objectiveIds: profileId === "convergence"
+      ? ["max_ar", "max_physical_ar", "max_ar_plus_bleed"]
+      : ["max_ar", "max_physical_ar", "max_ar_plus_bleed", "aow_first_hit", "aow_full_sequence"],
     somberFilters: ["all", "standard_only", "somber_only"],
-    dataManifest: mockDataManifest(),
+    dataManifest: mockDataManifest(profileId),
   };
 }
 
-function mockDataManifest(): DataManifestDto {
+function mockDataManifest(profileId = "vanilla"): DataManifestDto {
+  const convergence = profileId === "convergence";
   return {
-    schemaVersion: 1,
-    datasetVersion: "phase1-app-1.16.1",
-    modelVersion: "aow-routes-effects-v1",
-    id: "phase1-app-1.16.1",
-    label: "Phase 1 dataset - App Ver. 1.16.1",
+    schemaVersion: 3,
+    datasetVersion: convergence ? "convergence-3.0.0.1" : "vanilla-1.16.1",
+    modelVersion: "aow-routes-effects-v2-profile-rules",
+    id: convergence ? "convergence-3.0.0.1" : "vanilla-1.16.1",
+    label: convergence ? "Convergence 3.0.0.1" : "Vanilla 1.16.1",
     appVersion: "1.16.1",
     source: "ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx",
     generatedAt: "2026-05-18",
-    extractorVersion: "phase1-python-v2",
+    extractorVersion: "phase1-python-v5-profile-rules",
     provenance: "mock snapshot",
+    profile: {
+      id: profileId,
+      displayName: convergence ? "Convergence" : "Vanilla",
+      gameVersion: "1.16.1",
+      modVersion: convergence ? "3.0.0.1" : null,
+    },
+    capabilities: {
+      weaponAr: true,
+      statusBuildup: true,
+      weaponPassives: true,
+      aowCompatibility: true,
+      aowDamage: !convergence,
+      aowRoutes: !convergence,
+    },
+    rules: {
+      standardMaxUpgrade: convergence ? 15 : 25,
+      somberMaxUpgrade: convergence ? 15 : 10,
+      separateUpgradeCaps: !convergence,
+      scadutreeScaling: !convergence,
+      zeroAttackElementUsesWeaponScaling: convergence,
+      extendedScalingGrades: convergence,
+      statusBuildupScales: !convergence,
+    },
   };
 }
 

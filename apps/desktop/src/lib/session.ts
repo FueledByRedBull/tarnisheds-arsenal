@@ -3,6 +3,7 @@ import {
   ClassMetadataDto,
   CombatStateDto,
   OptimizeRequestDto,
+  ProfileRulesDto,
   SolvedBuildDto,
 } from "./types";
 
@@ -177,6 +178,26 @@ export function normalizeOptimizeRequest(
   };
 }
 
+export function applyProfileRules(
+  request: OptimizeRequestDto,
+  rules: ProfileRulesDto | null | undefined,
+  resetUpgradeCaps = false,
+): OptimizeRequestDto {
+  if (!rules) return request;
+  return {
+    ...request,
+    standardMaxUpgrade: resetUpgradeCaps
+      ? rules.standardMaxUpgrade
+      : clampUpgrade(request.standardMaxUpgrade, rules.standardMaxUpgrade),
+    somberMaxUpgrade: resetUpgradeCaps
+      ? rules.somberMaxUpgrade
+      : clampUpgrade(request.somberMaxUpgrade, rules.somberMaxUpgrade),
+    somberFilter: rules.separateUpgradeCaps ? request.somberFilter : "all",
+    dlcScaling: rules.scadutreeScaling ? request.dlcScaling : false,
+    scadutreeLevel: rules.scadutreeScaling ? request.scadutreeLevel : 0,
+  };
+}
+
 export function upgradeCapForRow(row: Pick<SolvedBuildDto, "isSomber">, request: OptimizeRequestDto): number {
   return row.isSomber ? request.somberMaxUpgrade : request.standardMaxUpgrade;
 }
@@ -248,8 +269,10 @@ export function stableSignature(value: unknown): string {
   });
 }
 
-export function scalingLetter(value: number): string {
+export function scalingLetter(value: number, extended = false): string {
   if (value <= 0) return "-";
+  if (extended && value >= 2.25) return "S++";
+  if (extended && value >= 2.0) return "S+";
   if (value >= 1.75) return "S";
   if (value >= 1.4) return "A";
   if (value >= 0.9) return "B";

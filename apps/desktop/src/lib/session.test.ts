@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeOptimizeRequest } from "./session";
+import { normalizeOptimizeRequest, scalingLetter } from "./session";
 import { defaultRequest } from "./state";
 
 describe("request normalization properties", () => {
@@ -26,5 +26,14 @@ describe("request normalization properties", () => {
       const migrated = normalizeOptimizeRequest({ ...defaultRequest, maxUpgrade: value }, defaultRequest);
       expect(normalizeOptimizeRequest(migrated, defaultRequest)).toEqual(migrated);
     }
+  });
+
+  it("uses Convergence S+ and S++ grades without changing Vanilla grades", () => {
+    expect(scalingLetter(1.99, true)).toBe("S");
+    expect(scalingLetter(2.0, true)).toBe("S+");
+    expect(scalingLetter(2.249, true)).toBe("S+");
+    expect(scalingLetter(2.25, true)).toBe("S++");
+    expect(scalingLetter(2.277, true)).toBe("S++");
+    expect(scalingLetter(2.277)).toBe("S");
   });
 });

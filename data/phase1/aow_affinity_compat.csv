@@ -4,14 +4,14 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 2001,Aspects of the Crucible: Wings,Lightning,93,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 2001,Aspects of the Crucible: Wings,Quality,93,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 2001,Aspects of the Crucible: Wings,Sacred,93,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
-2001,Aspects of the Crucible: Wings,Standard,98,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
+2001,Aspects of the Crucible: Wings,Standard,95,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 602,Assassin's Gambit,Blood,33,Antspur Rapier|Black Steel Twinblade|Bloodstained Dagger|Broadsword|Cane Sword
 602,Assassin's Gambit,Heavy,33,Antspur Rapier|Black Steel Twinblade|Bloodstained Dagger|Broadsword|Cane Sword
 602,Assassin's Gambit,Keen,33,Antspur Rapier|Black Steel Twinblade|Bloodstained Dagger|Broadsword|Cane Sword
 602,Assassin's Gambit,Occult,33,Antspur Rapier|Black Steel Twinblade|Bloodstained Dagger|Broadsword|Cane Sword
 602,Assassin's Gambit,Poison,33,Antspur Rapier|Black Steel Twinblade|Bloodstained Dagger|Broadsword|Cane Sword
 602,Assassin's Gambit,Quality,33,Antspur Rapier|Black Steel Twinblade|Bloodstained Dagger|Broadsword|Cane Sword
-602,Assassin's Gambit,Standard,35,Antspur Rapier|Black Steel Twinblade|Bloodstained Dagger|Broadsword|Cane Sword
+602,Assassin's Gambit,Standard,34,Antspur Rapier|Black Steel Twinblade|Bloodstained Dagger|Broadsword|Cane Sword
 650,Barbaric Roar,Blood,137,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
 650,Barbaric Roar,Cold,137,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
 650,Barbaric Roar,Fire,137,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
@@ -24,7 +24,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 650,Barbaric Roar,Poison,137,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
 650,Barbaric Roar,Quality,137,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
 650,Barbaric Roar,Sacred,137,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
-650,Barbaric Roar,Standard,148,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
+650,Barbaric Roar,Standard,143,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
 301,Barricade Shield,Blood,64,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
 301,Barricade Shield,Cold,64,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
 301,Barricade Shield,Fire,64,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
@@ -50,7 +50,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 652,Beast's Roar,Poison,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 652,Beast's Roar,Quality,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 652,Beast's Roar,Sacred,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-652,Beast's Roar,Standard,179,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+652,Beast's Roar,Standard,172,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 221,Black Flame Tornado,Fire,31,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon
 221,Black Flame Tornado,Flame Art,31,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon
 221,Black Flame Tornado,Heavy,31,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon
@@ -75,21 +75,21 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 4130,Blinkbolt,Lightning,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 4130,Blinkbolt,Quality,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 4130,Blinkbolt,Sacred,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-4130,Blinkbolt,Standard,179,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+4130,Blinkbolt,Standard,172,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 224,Blood Blade,Blood,46,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Beastman's Curved Sword|Black Steel Twinblade
 224,Blood Blade,Heavy,46,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Beastman's Curved Sword|Black Steel Twinblade
 224,Blood Blade,Keen,46,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Beastman's Curved Sword|Black Steel Twinblade
 224,Blood Blade,Occult,46,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Beastman's Curved Sword|Black Steel Twinblade
 224,Blood Blade,Poison,46,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Beastman's Curved Sword|Black Steel Twinblade
 224,Blood Blade,Quality,46,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Beastman's Curved Sword|Black Steel Twinblade
-224,Blood Blade,Standard,48,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Beastman's Curved Sword|Black Steel Twinblade
+224,Blood Blade,Standard,47,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Beastman's Curved Sword|Black Steel Twinblade
 108,Blood Tax,Blood,74,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 108,Blood Tax,Heavy,74,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 108,Blood Tax,Keen,74,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 108,Blood Tax,Occult,74,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 108,Blood Tax,Poison,74,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 108,Blood Tax,Quality,74,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
-108,Blood Tax,Standard,78,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
+108,Blood Tax,Standard,76,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 801,Bloodhound's Step,Blood,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 801,Bloodhound's Step,Cold,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 801,Bloodhound's Step,Fire,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
@@ -102,14 +102,14 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 801,Bloodhound's Step,Poison,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 801,Bloodhound's Step,Quality,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 801,Bloodhound's Step,Sacred,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-801,Bloodhound's Step,Standard,179,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+801,Bloodhound's Step,Standard,172,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 204,Bloody Slash,Blood,64,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 204,Bloody Slash,Heavy,64,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 204,Bloody Slash,Keen,64,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 204,Bloody Slash,Occult,64,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 204,Bloody Slash,Poison,64,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 204,Bloody Slash,Quality,64,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
-204,Bloody Slash,Standard,68,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
+204,Bloody Slash,Standard,65,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 654,Braggart's Roar,Blood,137,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
 654,Braggart's Roar,Cold,137,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
 654,Braggart's Roar,Fire,137,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
@@ -122,7 +122,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 654,Braggart's Roar,Poison,137,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
 654,Braggart's Roar,Quality,137,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
 654,Braggart's Roar,Sacred,137,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
-654,Braggart's Roar,Standard,148,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
+654,Braggart's Roar,Standard,143,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
 303,Buckler Parry,Cold,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 303,Buckler Parry,Fire,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 303,Buckler Parry,Flame Art,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
@@ -133,19 +133,19 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 303,Buckler Parry,Poison,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 303,Buckler Parry,Quality,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 303,Buckler Parry,Sacred,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-303,Buckler Parry,Standard,230,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+303,Buckler Parry,Standard,226,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 218,Carian Grandeur,Cold,64,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 218,Carian Grandeur,Heavy,64,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 218,Carian Grandeur,Keen,64,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 218,Carian Grandeur,Magic,64,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 218,Carian Grandeur,Quality,64,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
-218,Carian Grandeur,Standard,68,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
+218,Carian Grandeur,Standard,65,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 219,Carian Greatsword,Cold,64,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 219,Carian Greatsword,Heavy,64,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 219,Carian Greatsword,Keen,64,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 219,Carian Greatsword,Magic,64,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 219,Carian Greatsword,Quality,64,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
-219,Carian Greatsword,Standard,68,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
+219,Carian Greatsword,Standard,65,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 305,Carian Retaliation,Cold,44,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
 305,Carian Retaliation,Heavy,44,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
 305,Carian Retaliation,Keen,44,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
@@ -157,7 +157,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 4180,Carian Sovereignty,Keen,64,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 4180,Carian Sovereignty,Magic,64,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 4180,Carian Sovereignty,Quality,64,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
-4180,Carian Sovereignty,Standard,68,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
+4180,Carian Sovereignty,Standard,65,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 105,Charge Forth,Blood,35,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Carian Thrusting Shield|Celebrant's Rib-Rake
 105,Charge Forth,Cold,35,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Carian Thrusting Shield|Celebrant's Rib-Rake
 105,Charge Forth,Fire,35,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Carian Thrusting Shield|Celebrant's Rib-Rake
@@ -170,13 +170,13 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 105,Charge Forth,Poison,35,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Carian Thrusting Shield|Celebrant's Rib-Rake
 105,Charge Forth,Quality,35,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Carian Thrusting Shield|Celebrant's Rib-Rake
 105,Charge Forth,Sacred,35,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Carian Thrusting Shield|Celebrant's Rib-Rake
-105,Charge Forth,Standard,38,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Carian Thrusting Shield|Celebrant's Rib-Rake
+105,Charge Forth,Standard,37,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Carian Thrusting Shield|Celebrant's Rib-Rake
 227,Chilling Mist,Cold,145,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 227,Chilling Mist,Heavy,145,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 227,Chilling Mist,Keen,145,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 227,Chilling Mist,Magic,145,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 227,Chilling Mist,Quality,145,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
-227,Chilling Mist,Standard,155,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
+227,Chilling Mist,Standard,151,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 607,Cragblade,Blood,159,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 607,Cragblade,Cold,159,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 607,Cragblade,Fire,159,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
@@ -189,7 +189,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 607,Cragblade,Poison,159,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 607,Cragblade,Quality,159,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 607,Cragblade,Sacred,159,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-607,Cragblade,Standard,170,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+607,Cragblade,Standard,165,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 600,Determination,Blood,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 600,Determination,Cold,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 600,Determination,Fire,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
@@ -202,13 +202,13 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 600,Determination,Poison,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 600,Determination,Quality,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 600,Determination,Sacred,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-600,Determination,Standard,174,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+600,Determination,Standard,169,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 4160,Divine Beast Frost Stomp,Cold,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 4160,Divine Beast Frost Stomp,Heavy,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 4160,Divine Beast Frost Stomp,Keen,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 4160,Divine Beast Frost Stomp,Magic,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 4160,Divine Beast Frost Stomp,Quality,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-4160,Divine Beast Frost Stomp,Standard,179,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+4160,Divine Beast Frost Stomp,Standard,172,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 112,Double Slash,Blood,66,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Beastman's Cleaver
 112,Double Slash,Cold,66,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Beastman's Cleaver
 112,Double Slash,Fire,66,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Beastman's Cleaver
@@ -221,7 +221,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 112,Double Slash,Poison,66,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Beastman's Cleaver
 112,Double Slash,Quality,66,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Beastman's Cleaver
 112,Double Slash,Sacred,66,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Beastman's Cleaver
-112,Double Slash,Standard,69,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Beastman's Cleaver
+112,Double Slash,Standard,68,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Beastman's Cleaver
 2000,Dryleaf Whirlwind,Blood,2,Dane's Footwork|Dryleaf Arts
 2000,Dryleaf Whirlwind,Cold,2,Dane's Footwork|Dryleaf Arts
 2000,Dryleaf Whirlwind,Fire,2,Dane's Footwork|Dryleaf Arts
@@ -234,7 +234,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 2000,Dryleaf Whirlwind,Poison,2,Dane's Footwork|Dryleaf Arts
 2000,Dryleaf Whirlwind,Quality,2,Dane's Footwork|Dryleaf Arts
 2000,Dryleaf Whirlwind,Sacred,2,Dane's Footwork|Dryleaf Arts
-2000,Dryleaf Whirlwind,Standard,4,Dane's Footwork|Dryleaf Arts|[NPC] Dane's Footwork|[NPC] Dryleaf Arts
+2000,Dryleaf Whirlwind,Standard,2,Dane's Footwork|Dryleaf Arts
 212,Earthshaker,Blood,33,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
 212,Earthshaker,Cold,33,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
 212,Earthshaker,Fire,33,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
@@ -247,7 +247,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 212,Earthshaker,Poison,33,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
 212,Earthshaker,Quality,33,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
 212,Earthshaker,Sacred,33,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
-212,Earthshaker,Standard,36,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Bonny Butchering Knife|Brick Hammer
+212,Earthshaker,Standard,35,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Bonny Butchering Knife|Brick Hammer
 700,Endure,Blood,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 700,Endure,Cold,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 700,Endure,Fire,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
@@ -260,13 +260,13 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 700,Endure,Poison,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 700,Endure,Quality,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 700,Endure,Sacred,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-700,Endure,Standard,179,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+700,Endure,Standard,172,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 207,Eruption,Fire,51,Banished Knight's Greatsword|Bastard Sword|Battle Hammer|Beastman's Cleaver|Black Steel Greathammer
 207,Eruption,Flame Art,51,Banished Knight's Greatsword|Bastard Sword|Battle Hammer|Beastman's Cleaver|Black Steel Greathammer
 207,Eruption,Heavy,51,Banished Knight's Greatsword|Bastard Sword|Battle Hammer|Beastman's Cleaver|Black Steel Greathammer
 207,Eruption,Keen,51,Banished Knight's Greatsword|Bastard Sword|Battle Hammer|Beastman's Cleaver|Black Steel Greathammer
 207,Eruption,Quality,51,Banished Knight's Greatsword|Bastard Sword|Battle Hammer|Beastman's Cleaver|Black Steel Greathammer
-207,Eruption,Standard,56,Banished Knight's Greatsword|Bastard Sword|Battle Hammer|Beastman's Cleaver|Black Steel Greathammer
+207,Eruption,Standard,53,Banished Knight's Greatsword|Bastard Sword|Battle Hammer|Beastman's Cleaver|Black Steel Greathammer
 223,Firebreather,Cold,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 223,Firebreather,Fire,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 223,Firebreather,Flame Art,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
@@ -277,37 +277,37 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 223,Firebreather,Poison,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 223,Firebreather,Quality,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 223,Firebreather,Sacred,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-223,Firebreather,Standard,230,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+223,Firebreather,Standard,226,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 4140,Flame Skewer,Fire,68,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 4140,Flame Skewer,Flame Art,68,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 4140,Flame Skewer,Heavy,68,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 4140,Flame Skewer,Keen,68,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 4140,Flame Skewer,Quality,68,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
-4140,Flame Skewer,Standard,72,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
+4140,Flame Skewer,Standard,70,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 4170,Flame Spear,Fire,78,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 4170,Flame Spear,Flame Art,78,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 4170,Flame Spear,Heavy,78,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 4170,Flame Spear,Keen,78,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 4170,Flame Spear,Quality,78,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
-4170,Flame Spear,Standard,82,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
+4170,Flame Spear,Standard,80,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 505,Flame of the Redmanes,Fire,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 505,Flame of the Redmanes,Flame Art,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 505,Flame of the Redmanes,Heavy,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 505,Flame of the Redmanes,Keen,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 505,Flame of the Redmanes,Quality,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-505,Flame of the Redmanes,Standard,179,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+505,Flame of the Redmanes,Standard,172,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 214,Flaming Strike,Fire,148,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 214,Flaming Strike,Flame Art,148,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 214,Flaming Strike,Heavy,148,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 214,Flaming Strike,Keen,148,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 214,Flaming Strike,Quality,148,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-214,Flaming Strike,Standard,159,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+214,Flaming Strike,Standard,154,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 4220,Ghostflame Call,Cold,77,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 4220,Ghostflame Call,Heavy,77,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 4220,Ghostflame Call,Keen,77,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 4220,Ghostflame Call,Magic,77,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 4220,Ghostflame Call,Quality,77,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
-4220,Ghostflame Call,Standard,81,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
+4220,Ghostflame Call,Standard,78,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 116,Giant Hunt,Blood,51,Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade|Bloodfiend's Fork
 116,Giant Hunt,Cold,51,Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade|Bloodfiend's Fork
 116,Giant Hunt,Fire,51,Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade|Bloodfiend's Fork
@@ -320,25 +320,25 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 116,Giant Hunt,Poison,51,Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade|Bloodfiend's Fork
 116,Giant Hunt,Quality,51,Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade|Bloodfiend's Fork
 116,Giant Hunt,Sacred,51,Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade|Bloodfiend's Fork
-116,Giant Hunt,Standard,54,Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade|Bloodfiend's Fork
+116,Giant Hunt,Standard,53,Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade|Bloodfiend's Fork
 200,Glintblade Phalanx,Cold,90,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 200,Glintblade Phalanx,Heavy,90,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 200,Glintblade Phalanx,Keen,90,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 200,Glintblade Phalanx,Magic,90,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 200,Glintblade Phalanx,Quality,90,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
-200,Glintblade Phalanx,Standard,95,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
+200,Glintblade Phalanx,Standard,92,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 203,Glintstone Pebble,Cold,90,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 203,Glintstone Pebble,Heavy,90,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 203,Glintstone Pebble,Keen,90,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 203,Glintstone Pebble,Magic,90,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 203,Glintstone Pebble,Quality,90,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
-203,Glintstone Pebble,Standard,95,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
+203,Glintstone Pebble,Standard,92,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 213,Golden Land,Heavy,33,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
 213,Golden Land,Keen,33,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
 213,Golden Land,Lightning,33,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
 213,Golden Land,Quality,33,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
 213,Golden Land,Sacred,33,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
-213,Golden Land,Standard,36,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Bonny Butchering Knife|Brick Hammer
+213,Golden Land,Standard,35,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Bonny Butchering Knife|Brick Hammer
 307,Golden Parry,Heavy,44,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
 307,Golden Parry,Keen,44,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
 307,Golden Parry,Lightning,44,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
@@ -350,19 +350,19 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 507,Golden Slam,Lightning,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 507,Golden Slam,Quality,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 507,Golden Slam,Sacred,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-507,Golden Slam,Standard,179,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+507,Golden Slam,Standard,172,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 603,Golden Vow,Heavy,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 603,Golden Vow,Keen,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 603,Golden Vow,Lightning,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 603,Golden Vow,Quality,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 603,Golden Vow,Sacred,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-603,Golden Vow,Standard,179,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+603,Golden Vow,Standard,172,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 209,Gravitas,Cold,137,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 209,Gravitas,Heavy,137,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 209,Gravitas,Keen,137,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 209,Gravitas,Magic,137,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 209,Gravitas,Quality,137,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-209,Gravitas,Standard,147,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+209,Gravitas,Standard,143,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 506,Ground Slam,Blood,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 506,Ground Slam,Cold,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 506,Ground Slam,Fire,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
@@ -375,7 +375,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 506,Ground Slam,Poison,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 506,Ground Slam,Quality,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 506,Ground Slam,Sacred,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-506,Ground Slam,Standard,179,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+506,Ground Slam,Standard,172,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 509,Hoarah Loux's Earthshaker,Blood,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 509,Hoarah Loux's Earthshaker,Cold,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 509,Hoarah Loux's Earthshaker,Fire,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
@@ -388,13 +388,13 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 509,Hoarah Loux's Earthshaker,Poison,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 509,Hoarah Loux's Earthshaker,Quality,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 509,Hoarah Loux's Earthshaker,Sacred,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-509,Hoarah Loux's Earthshaker,Standard,179,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+509,Hoarah Loux's Earthshaker,Standard,172,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 501,Hoarfrost Stomp,Cold,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 501,Hoarfrost Stomp,Heavy,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 501,Hoarfrost Stomp,Keen,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 501,Hoarfrost Stomp,Magic,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 501,Hoarfrost Stomp,Quality,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-501,Hoarfrost Stomp,Standard,179,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+501,Hoarfrost Stomp,Standard,172,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 702,Holy Ground,Heavy,64,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
 702,Holy Ground,Keen,64,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
 702,Holy Ground,Lightning,64,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
@@ -419,7 +419,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 101,Impaling Thrust,Poison,78,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 101,Impaling Thrust,Quality,78,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 101,Impaling Thrust,Sacred,78,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
-101,Impaling Thrust,Standard,82,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
+101,Impaling Thrust,Standard,80,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 503,Kick,Blood,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 503,Kick,Cold,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 503,Kick,Fire,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
@@ -432,26 +432,26 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 503,Kick,Poison,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 503,Kick,Quality,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 503,Kick,Sacred,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-503,Kick,Standard,179,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+503,Kick,Standard,172,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 205,Lifesteal Fist,Blood,14,Beast Claw|Bloodhound Claws|Caestus|Dane's Footwork|Dryleaf Arts
 205,Lifesteal Fist,Heavy,14,Beast Claw|Bloodhound Claws|Caestus|Dane's Footwork|Dryleaf Arts
 205,Lifesteal Fist,Keen,14,Beast Claw|Bloodhound Claws|Caestus|Dane's Footwork|Dryleaf Arts
 205,Lifesteal Fist,Occult,14,Beast Claw|Bloodhound Claws|Caestus|Dane's Footwork|Dryleaf Arts
 205,Lifesteal Fist,Poison,14,Beast Claw|Bloodhound Claws|Caestus|Dane's Footwork|Dryleaf Arts
 205,Lifesteal Fist,Quality,14,Beast Claw|Bloodhound Claws|Caestus|Dane's Footwork|Dryleaf Arts
-205,Lifesteal Fist,Standard,17,Beast Claw|Bloodhound Claws|Caestus|Dane's Footwork|Dryleaf Arts
+205,Lifesteal Fist,Standard,14,Beast Claw|Bloodhound Claws|Caestus|Dane's Footwork|Dryleaf Arts
 504,Lightning Ram,Heavy,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 504,Lightning Ram,Keen,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 504,Lightning Ram,Lightning,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 504,Lightning Ram,Quality,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 504,Lightning Ram,Sacred,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-504,Lightning Ram,Standard,179,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+504,Lightning Ram,Standard,172,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 217,Lightning Slash,Heavy,117,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe
 217,Lightning Slash,Keen,117,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe
 217,Lightning Slash,Lightning,117,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe
 217,Lightning Slash,Quality,117,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe
 217,Lightning Slash,Sacred,117,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe
-217,Lightning Slash,Standard,126,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe
+217,Lightning Slash,Standard,122,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe
 100,Lion's Claw,Blood,97,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
 100,Lion's Claw,Cold,97,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
 100,Lion's Claw,Fire,97,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
@@ -464,7 +464,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 100,Lion's Claw,Poison,97,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
 100,Lion's Claw,Quality,97,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
 100,Lion's Claw,Sacred,97,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
-100,Lion's Claw,Standard,104,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+100,Lion's Claw,Standard,102,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
 118,Loretta's Slash,Cold,31,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon
 118,Loretta's Slash,Heavy,31,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon
 118,Loretta's Slash,Keen,31,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon
@@ -509,7 +509,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 4010,Palm Blast,Poison,2,Dane's Footwork|Dryleaf Arts
 4010,Palm Blast,Quality,2,Dane's Footwork|Dryleaf Arts
 4010,Palm Blast,Sacred,2,Dane's Footwork|Dryleaf Arts
-4010,Palm Blast,Standard,4,Dane's Footwork|Dryleaf Arts|[NPC] Dane's Footwork|[NPC] Dryleaf Arts
+4010,Palm Blast,Standard,2,Dane's Footwork|Dryleaf Arts
 302,Parry,Blood,83,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Shield|Beast Crest Heater Shield
 302,Parry,Cold,83,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Shield|Beast Crest Heater Shield
 302,Parry,Fire,83,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Shield|Beast Crest Heater Shield
@@ -522,7 +522,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 302,Parry,Poison,83,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Shield|Beast Crest Heater Shield
 302,Parry,Quality,83,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Shield|Beast Crest Heater Shield
 302,Parry,Sacred,83,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Shield|Beast Crest Heater Shield
-302,Parry,Standard,84,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Shield|Beast Crest Heater Shield
+302,Parry,Standard,83,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Shield|Beast Crest Heater Shield
 225,Phantom Slash,Blood,29,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon
 225,Phantom Slash,Cold,29,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon
 225,Phantom Slash,Fire,29,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon
@@ -548,7 +548,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 102,Piercing Fang,Poison,63,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 102,Piercing Fang,Quality,63,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 102,Piercing Fang,Sacred,63,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
-102,Piercing Fang,Standard,67,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
+102,Piercing Fang,Standard,65,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 4020,Piercing Throw,Blood,1,Smithscript Dagger
 4020,Piercing Throw,Cold,1,Smithscript Dagger
 4020,Piercing Throw,Fire,1,Smithscript Dagger
@@ -568,26 +568,26 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 119,Poison Moth Flight,Occult,41,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Beastman's Curved Sword|Bloodstained Dagger
 119,Poison Moth Flight,Poison,41,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Beastman's Curved Sword|Bloodstained Dagger
 119,Poison Moth Flight,Quality,41,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Beastman's Curved Sword|Bloodstained Dagger
-119,Poison Moth Flight,Standard,42,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Beastman's Curved Sword|Bloodstained Dagger
+119,Poison Moth Flight,Standard,41,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Beastman's Curved Sword|Bloodstained Dagger
 228,Poisonous Mist,Blood,145,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 228,Poisonous Mist,Heavy,145,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 228,Poisonous Mist,Keen,145,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 228,Poisonous Mist,Occult,145,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 228,Poisonous Mist,Poison,145,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 228,Poisonous Mist,Quality,145,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
-228,Poisonous Mist,Standard,155,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
+228,Poisonous Mist,Standard,151,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 208,Prayerful Strike,Heavy,49,Battle Axe|Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer
 208,Prayerful Strike,Keen,49,Battle Axe|Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer
 208,Prayerful Strike,Lightning,49,Battle Axe|Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer
 208,Prayerful Strike,Quality,49,Battle Axe|Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer
 208,Prayerful Strike,Sacred,49,Battle Axe|Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer
-208,Prayerful Strike,Standard,54,Battle Axe|Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Bonny Butchering Knife
+208,Prayerful Strike,Standard,53,Battle Axe|Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Bonny Butchering Knife
 113,Prelate's Charge,Fire,26,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
 113,Prelate's Charge,Flame Art,26,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
 113,Prelate's Charge,Heavy,26,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
 113,Prelate's Charge,Keen,26,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
 113,Prelate's Charge,Quality,26,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
-113,Prelate's Charge,Standard,29,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Bonny Butchering Knife|Brick Hammer
+113,Prelate's Charge,Standard,28,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Bonny Butchering Knife|Brick Hammer
 800,Quickstep,Blood,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 800,Quickstep,Cold,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 800,Quickstep,Fire,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
@@ -600,7 +600,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 800,Quickstep,Poison,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 800,Quickstep,Quality,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 800,Quickstep,Sacred,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-800,Quickstep,Standard,179,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+800,Quickstep,Standard,172,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 4060,Raging Beast,Blood,1,Beast Claw
 4060,Raging Beast,Cold,1,Beast Claw
 4060,Raging Beast,Fire,1,Beast Claw
@@ -613,7 +613,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 4060,Raging Beast,Poison,1,Beast Claw
 4060,Raging Beast,Quality,1,Beast Claw
 4060,Raging Beast,Sacred,1,Beast Claw
-4060,Raging Beast,Standard,2,Beast Claw|[NPC] Beast Claw
+4060,Raging Beast,Standard,1,Beast Claw
 802,Raptor of the Mists,Blood,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 802,Raptor of the Mists,Cold,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 802,Raptor of the Mists,Fire,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
@@ -626,7 +626,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 802,Raptor of the Mists,Poison,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 802,Raptor of the Mists,Quality,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 802,Raptor of the Mists,Sacred,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-802,Raptor of the Mists,Standard,179,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+802,Raptor of the Mists,Standard,172,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 109,Repeating Thrust,Blood,74,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 109,Repeating Thrust,Cold,74,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 109,Repeating Thrust,Fire,74,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
@@ -639,7 +639,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 109,Repeating Thrust,Poison,74,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 109,Repeating Thrust,Quality,74,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 109,Repeating Thrust,Sacred,74,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
-109,Repeating Thrust,Standard,78,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
+109,Repeating Thrust,Standard,76,Antspur Rapier|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Black Steel Twinblade
 601,Royal Knight's Resolve,Blood,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 601,Royal Knight's Resolve,Cold,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 601,Royal Knight's Resolve,Fire,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
@@ -652,19 +652,19 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 601,Royal Knight's Resolve,Poison,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 601,Royal Knight's Resolve,Quality,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 601,Royal Knight's Resolve,Sacred,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-601,Royal Knight's Resolve,Standard,174,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+601,Royal Knight's Resolve,Standard,169,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 201,Sacred Blade,Heavy,145,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 201,Sacred Blade,Keen,145,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 201,Sacred Blade,Lightning,145,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 201,Sacred Blade,Quality,145,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 201,Sacred Blade,Sacred,145,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
-201,Sacred Blade,Standard,155,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
+201,Sacred Blade,Standard,151,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 604,Sacred Order,Heavy,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 604,Sacred Order,Keen,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 604,Sacred Order,Lightning,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 604,Sacred Order,Quality,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 604,Sacred Order,Sacred,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-604,Sacred Order,Standard,174,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+604,Sacred Order,Standard,169,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 222,Sacred Ring of Light,Heavy,24,Banished Knight's Halberd|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon|Cross-Naginata
 222,Sacred Ring of Light,Keen,24,Banished Knight's Halberd|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon|Cross-Naginata
 222,Sacred Ring of Light,Lightning,24,Banished Knight's Halberd|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon|Cross-Naginata
@@ -683,7 +683,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 4070,Savage Claws,Poison,1,Beast Claw
 4070,Savage Claws,Quality,1,Beast Claw
 4070,Savage Claws,Sacred,1,Beast Claw
-4070,Savage Claws,Standard,2,Beast Claw|[NPC] Beast Claw
+4070,Savage Claws,Standard,1,Beast Claw
 4150,Savage Lion's Claw,Blood,97,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
 4150,Savage Lion's Claw,Cold,97,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
 4150,Savage Lion's Claw,Fire,97,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
@@ -696,7 +696,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 4150,Savage Lion's Claw,Poison,97,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
 4150,Savage Lion's Claw,Quality,97,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
 4150,Savage Lion's Claw,Sacred,97,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
-4150,Savage Lion's Claw,Standard,104,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+4150,Savage Lion's Claw,Standard,102,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
 4030,Scattershot Throw,Blood,1,Smithscript Dagger
 4030,Scattershot Throw,Cold,1,Smithscript Dagger
 4030,Scattershot Throw,Fire,1,Smithscript Dagger
@@ -716,13 +716,13 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 606,Seppuku,Occult,77,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 606,Seppuku,Poison,77,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 606,Seppuku,Quality,77,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
-606,Seppuku,Standard,82,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
+606,Seppuku,Standard,79,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 605,Shared Order,Heavy,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 605,Shared Order,Keen,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 605,Shared Order,Lightning,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 605,Shared Order,Quality,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 605,Shared Order,Sacred,163,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-605,Shared Order,Standard,174,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+605,Shared Order,Standard,169,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 300,Shield Bash,Blood,64,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
 300,Shield Bash,Cold,64,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
 300,Shield Bash,Fire,64,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
@@ -768,7 +768,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 4190,Shriek of Sorrow,Occult,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 4190,Shriek of Sorrow,Poison,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 4190,Shriek of Sorrow,Quality,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-4190,Shriek of Sorrow,Standard,179,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+4190,Shriek of Sorrow,Standard,172,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 226,Spectral Lance,Blood,24,Banished Knight's Halberd|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon|Cross-Naginata
 226,Spectral Lance,Heavy,24,Banished Knight's Halberd|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon|Cross-Naginata
 226,Spectral Lance,Keen,24,Banished Knight's Halberd|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon|Cross-Naginata
@@ -788,7 +788,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 4000,Spinning Gravity Thrust,Poison,25,Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver|Claymore|Dismounter
 4000,Spinning Gravity Thrust,Quality,25,Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver|Claymore|Dismounter
 4000,Spinning Gravity Thrust,Sacred,25,Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver|Claymore|Dismounter
-4000,Spinning Gravity Thrust,Standard,27,Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver|Claymore|Dismounter
+4000,Spinning Gravity Thrust,Standard,25,Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver|Claymore|Dismounter
 103,Spinning Slash,Blood,101,Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 103,Spinning Slash,Cold,101,Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 103,Spinning Slash,Fire,101,Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
@@ -801,7 +801,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 103,Spinning Slash,Poison,101,Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 103,Spinning Slash,Quality,101,Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 103,Spinning Slash,Sacred,101,Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
-103,Spinning Slash,Standard,109,Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
+103,Spinning Slash,Standard,107,Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 111,Spinning Strikes,Blood,24,Banished Knight's Halberd|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon|Cross-Naginata
 111,Spinning Strikes,Cold,24,Banished Knight's Halberd|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon|Cross-Naginata
 111,Spinning Strikes,Fire,24,Banished Knight's Halberd|Bloodfiend's Fork|Celebrant's Rib-Rake|Clayman's Harpoon|Cross-Naginata
@@ -820,7 +820,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 120,Spinning Weapon,Keen,96,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Halberd|Battle Axe
 120,Spinning Weapon,Magic,96,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Halberd|Battle Axe
 120,Spinning Weapon,Quality,96,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Halberd|Battle Axe
-120,Spinning Weapon,Standard,101,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Halberd|Battle Axe
+120,Spinning Weapon,Standard,100,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Halberd|Battle Axe
 115,Square Off,Blood,8,Broadsword|Cane Sword|Longsword|Lordsworn's Straight Sword|Noble's Slender Sword
 115,Square Off,Cold,8,Broadsword|Cane Sword|Longsword|Lordsworn's Straight Sword|Noble's Slender Sword
 115,Square Off,Fire,8,Broadsword|Cane Sword|Longsword|Lordsworn's Straight Sword|Noble's Slender Sword
@@ -846,7 +846,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 107,Stamp (Sweep),Poison,74,Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Cleaver
 107,Stamp (Sweep),Quality,74,Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Cleaver
 107,Stamp (Sweep),Sacred,74,Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Cleaver
-107,Stamp (Sweep),Standard,81,Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Cleaver
+107,Stamp (Sweep),Standard,78,Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Cleaver
 106,Stamp (Upward Cut),Blood,74,Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Cleaver
 106,Stamp (Upward Cut),Cold,74,Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Cleaver
 106,Stamp (Upward Cut),Fire,74,Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Cleaver
@@ -859,7 +859,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 106,Stamp (Upward Cut),Poison,74,Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Cleaver
 106,Stamp (Upward Cut),Quality,74,Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Cleaver
 106,Stamp (Upward Cut),Sacred,74,Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Cleaver
-106,Stamp (Upward Cut),Standard,81,Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Cleaver
+106,Stamp (Upward Cut),Standard,78,Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer|Beastman's Cleaver
 122,Storm Assault,Blood,35,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Carian Thrusting Shield|Celebrant's Rib-Rake
 122,Storm Assault,Cold,35,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Carian Thrusting Shield|Celebrant's Rib-Rake
 122,Storm Assault,Fire,35,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Carian Thrusting Shield|Celebrant's Rib-Rake
@@ -872,7 +872,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 122,Storm Assault,Poison,35,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Carian Thrusting Shield|Celebrant's Rib-Rake
 122,Storm Assault,Quality,35,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Carian Thrusting Shield|Celebrant's Rib-Rake
 122,Storm Assault,Sacred,35,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Carian Thrusting Shield|Celebrant's Rib-Rake
-122,Storm Assault,Standard,38,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Carian Thrusting Shield|Celebrant's Rib-Rake
+122,Storm Assault,Standard,37,Banished Knight's Halberd|Black Steel Twinblade|Bloodfiend's Fork|Carian Thrusting Shield|Celebrant's Rib-Rake
 210,Storm Blade,Blood,59,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 210,Storm Blade,Cold,59,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 210,Storm Blade,Fire,59,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
@@ -885,7 +885,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 210,Storm Blade,Poison,59,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 210,Storm Blade,Quality,59,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 210,Storm Blade,Sacred,59,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
-210,Storm Blade,Standard,62,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
+210,Storm Blade,Standard,59,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Beastman's Cleaver
 502,Storm Stomp,Blood,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 502,Storm Stomp,Cold,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 502,Storm Stomp,Fire,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
@@ -898,7 +898,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 502,Storm Stomp,Poison,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 502,Storm Stomp,Quality,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 502,Storm Stomp,Sacred,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-502,Storm Stomp,Standard,179,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+502,Storm Stomp,Standard,172,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 306,Storm Wall,Blood,44,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
 306,Storm Wall,Cold,44,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
 306,Storm Wall,Fire,44,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
@@ -924,7 +924,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 123,Stormcaller,Poison,112,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
 123,Stormcaller,Quality,112,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
 123,Stormcaller,Sacred,112,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
-123,Stormcaller,Standard,120,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
+123,Stormcaller,Standard,118,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
 4100,Swift Slash,Blood,2,Backhand Blade|Smithscript Cirque
 4100,Swift Slash,Cold,2,Backhand Blade|Smithscript Cirque
 4100,Swift Slash,Fire,2,Backhand Blade|Smithscript Cirque
@@ -950,14 +950,14 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 124,Sword Dance,Poison,99,Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 124,Sword Dance,Quality,99,Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 124,Sword Dance,Sacred,99,Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
-124,Sword Dance,Standard,107,Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
+124,Sword Dance,Standard,105,Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword
 5050,The Poison Flower Blooms Twice,Blood,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 5050,The Poison Flower Blooms Twice,Heavy,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 5050,The Poison Flower Blooms Twice,Keen,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 5050,The Poison Flower Blooms Twice,Occult,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 5050,The Poison Flower Blooms Twice,Poison,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 5050,The Poison Flower Blooms Twice,Quality,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-5050,The Poison Flower Blooms Twice,Standard,179,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+5050,The Poison Flower Blooms Twice,Standard,172,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 309,Thops's Barrier,Cold,44,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
 309,Thops's Barrier,Heavy,44,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
 309,Thops's Barrier,Keen,44,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
@@ -969,7 +969,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 216,Thunderbolt,Lightning,164,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 216,Thunderbolt,Quality,164,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 216,Thunderbolt,Sacred,164,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-216,Thunderbolt,Standard,175,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+216,Thunderbolt,Standard,170,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 117,Torch Attack,Cold,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 117,Torch Attack,Fire,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 117,Torch Attack,Flame Art,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
@@ -980,7 +980,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 117,Torch Attack,Poison,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 117,Torch Attack,Quality,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 117,Torch Attack,Sacred,218,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-117,Torch Attack,Standard,230,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+117,Torch Attack,Standard,226,Albinauric Shield|Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 653,Troll's Roar,Blood,51,Banished Knight's Greatsword|Bastard Sword|Battle Hammer|Beastman's Cleaver|Black Steel Greathammer
 653,Troll's Roar,Cold,51,Banished Knight's Greatsword|Bastard Sword|Battle Hammer|Beastman's Cleaver|Black Steel Greathammer
 653,Troll's Roar,Fire,51,Banished Knight's Greatsword|Bastard Sword|Battle Hammer|Beastman's Cleaver|Black Steel Greathammer
@@ -993,7 +993,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 653,Troll's Roar,Poison,51,Banished Knight's Greatsword|Bastard Sword|Battle Hammer|Beastman's Cleaver|Black Steel Greathammer
 653,Troll's Roar,Quality,51,Banished Knight's Greatsword|Bastard Sword|Battle Hammer|Beastman's Cleaver|Black Steel Greathammer
 653,Troll's Roar,Sacred,51,Banished Knight's Greatsword|Bastard Sword|Battle Hammer|Beastman's Cleaver|Black Steel Greathammer
-653,Troll's Roar,Standard,56,Banished Knight's Greatsword|Bastard Sword|Battle Hammer|Beastman's Cleaver|Black Steel Greathammer
+653,Troll's Roar,Standard,53,Banished Knight's Greatsword|Bastard Sword|Battle Hammer|Beastman's Cleaver|Black Steel Greathammer
 114,Unsheathe,Blood,2,Nagakiba|Uchigatana
 114,Unsheathe,Cold,2,Nagakiba|Uchigatana
 114,Unsheathe,Fire,2,Nagakiba|Uchigatana
@@ -1019,7 +1019,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 220,Vacuum Slice,Poison,88,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe
 220,Vacuum Slice,Quality,88,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe
 220,Vacuum Slice,Sacred,88,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe
-220,Vacuum Slice,Standard,97,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe
+220,Vacuum Slice,Standard,93,Antspur Rapier|Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe
 701,Vow of the Indomitable,Heavy,64,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
 701,Vow of the Indomitable,Keen,64,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
 701,Vow of the Indomitable,Lightning,64,Albinauric Shield|Banished Knight's Shield|Beast Crest Heater Shield|Beastman's Jar-Shield|Black Leather Shield
@@ -1038,20 +1038,20 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 651,War Cry,Poison,137,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
 651,War Cry,Quality,137,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
 651,War Cry,Sacred,137,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
-651,War Cry,Standard,148,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
+651,War Cry,Standard,143,Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd|Bastard Sword|Battle Axe
 508,Waves of Darkness,Cold,33,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
 508,Waves of Darkness,Heavy,33,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
 508,Waves of Darkness,Keen,33,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
 508,Waves of Darkness,Magic,33,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
 508,Waves of Darkness,Quality,33,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Brick Hammer|Butchering Knife
-508,Waves of Darkness,Standard,36,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Bonny Butchering Knife|Brick Hammer
+508,Waves of Darkness,Standard,35,Battle Hammer|Black Steel Greathammer|Bloodfiend's Arm|Bonny Butchering Knife|Brick Hammer
 850,White Shadow's Lure,Blood,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 850,White Shadow's Lure,Heavy,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 850,White Shadow's Lure,Keen,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 850,White Shadow's Lure,Occult,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 850,White Shadow's Lure,Poison,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 850,White Shadow's Lure,Quality,166,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
-850,White Shadow's Lure,Standard,179,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
+850,White Shadow's Lure,Standard,172,Antspur Rapier|Backhand Blade|Bandit's Curved Sword|Banished Knight's Greatsword|Banished Knight's Halberd
 110,Wild Strikes,Blood,70,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
 110,Wild Strikes,Cold,70,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
 110,Wild Strikes,Fire,70,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
@@ -1064,7 +1064,7 @@ aow_id,name,affinity,weapon_count,sample_weapon_names
 110,Wild Strikes,Poison,70,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
 110,Wild Strikes,Quality,70,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
 110,Wild Strikes,Sacred,70,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
-110,Wild Strikes,Standard,76,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
+110,Wild Strikes,Standard,74,Bandit's Curved Sword|Banished Knight's Greatsword|Bastard Sword|Battle Axe|Battle Hammer
 4120,Wing Stance,Blood,1,Milady
 4120,Wing Stance,Cold,1,Milady
 4120,Wing Stance,Fire,1,Milady

@@ -190,6 +190,17 @@ jobs:
           if ($report.dataValidationReport -ne "data-validation.json") {
             throw "Build report does not identify the packaged data validation report"
           }
+          if ($report.dataManifestIds.vanilla -notmatch '^vanilla-' -or $report.dataManifestIds.convergence -notmatch '^convergence-') {
+            throw "Build report does not identify both Vanilla and Convergence snapshots"
+          }
+          $validation = Get-Content -LiteralPath $env:RELEASE_DATA_VALIDATION -Raw | ConvertFrom-Json
+          if ($validation.status -ne "passed" -or $validation.errors -ne 0) {
+            throw "Packaged data validation did not pass cleanly"
+          }
+          $validatedProfiles = @($validation.profiles)
+          if ($validatedProfiles.Count -ne 2 -or "vanilla" -notin $validatedProfiles -or "convergence" -notin $validatedProfiles) {
+            throw "Packaged data validation does not cover exactly Vanilla and Convergence"
+          }
           if ($report.codeSigned -eq $true) {
             foreach ($path in @($env:RELEASE_EXE, $env:RELEASE_MSI)) {
               $signature = Get-AuthenticodeSignature -LiteralPath $path
@@ -212,7 +223,7 @@ jobs:
             "frontend-tests",
             "frontend-e2e",
             "frontend-build",
-            "tauri-release-build"
+            "tauri-release-build",
             "packaged-app-smoke"
           )
           foreach ($gate in $requiredGates) {

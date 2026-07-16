@@ -192,9 +192,32 @@ impl CatalogIndex {
 }
 
 #[tauri::command]
-pub fn get_catalog(state: State<'_, AppState>) -> Result<CatalogDto, AppError> {
-    let data = &state.data;
-    let index = &state.catalog_index;
+pub fn get_profiles(
+    state: State<'_, AppState>,
+) -> Result<Vec<crate::dto::DataManifestDto>, AppError> {
+    let mut profiles = state
+        .profiles
+        .values()
+        .map(|profile| profile.data_manifest.clone())
+        .collect::<Vec<_>>();
+    profiles.sort_by(|left, right| {
+        (
+            left.profile.id != er_optimizer_core::VANILLA_PROFILE_ID,
+            &left.profile.id,
+        )
+            .cmp(&(
+                right.profile.id != er_optimizer_core::VANILLA_PROFILE_ID,
+                &right.profile.id,
+            ))
+    });
+    Ok(profiles)
+}
+
+#[tauri::command]
+pub fn get_catalog(profile_id: String, state: State<'_, AppState>) -> Result<CatalogDto, AppError> {
+    let profile = state.profile(&profile_id)?;
+    let data = &profile.data;
+    let index = &profile.catalog_index;
     Ok(CatalogDto {
         weapon_count: data.weapons.len(),
         aow_count: data.aows.len(),
@@ -206,21 +229,32 @@ pub fn get_catalog(state: State<'_, AppState>) -> Result<CatalogDto, AppError> {
         affinity_names: index.affinity_names.clone(),
         objective_ids: OptimizeObjective::ALL
             .into_iter()
+            .filter(|objective| match objective {
+                OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr => {
+                    data.capabilities.weapon_ar
+                }
+                OptimizeObjective::MaxArPlusBleed => data.capabilities.status_buildup,
+                OptimizeObjective::AowFirstHit => data.capabilities.aow_damage,
+                OptimizeObjective::AowFullSequence => {
+                    data.capabilities.aow_damage && data.capabilities.aow_routes
+                }
+            })
             .map(|objective| objective.as_str().to_string())
             .collect(),
         somber_filters: SomberFilter::ALL
             .into_iter()
             .map(|filter| filter.as_str().to_string())
             .collect(),
-        data_manifest: state.data_manifest.clone(),
+        data_manifest: profile.data_manifest.clone(),
     })
 }
 
 #[tauri::command]
 pub fn get_data_manifest(
+    profile_id: String,
     state: State<'_, AppState>,
 ) -> Result<crate::dto::DataManifestDto, AppError> {
-    Ok(state.data_manifest.clone())
+    Ok(state.profile(&profile_id)?.data_manifest.clone())
 }
 
 #[tauri::command]
@@ -228,8 +262,9 @@ pub fn weapon_names_for_type(
     request: WeaponNamesForTypeRequestDto,
     state: State<'_, AppState>,
 ) -> Result<Vec<String>, AppError> {
+    let profile = state.profile(&request.profile_id)?;
     Ok(weapon_names_for_type_inner(
-        &state.catalog_index,
+        &profile.catalog_index,
         request.weapon_type_key.as_deref(),
     ))
 }
@@ -239,8 +274,9 @@ pub fn compatible_aow_names_for_affinity(
     request: CompatibleAowsForAffinityRequestDto,
     state: State<'_, AppState>,
 ) -> Result<Vec<String>, AppError> {
+    let profile = state.profile(&request.profile_id)?;
     Ok(compatible_aow_names_inner(
-        &state.catalog_index,
+        &profile.catalog_index,
         None,
         request.affinity.as_deref(),
     ))
@@ -251,8 +287,9 @@ pub fn weapon_scaling_for_upgrade(
     request: WeaponScalingRequestDto,
     state: State<'_, AppState>,
 ) -> Result<ScalingDto, AppError> {
+    let profile = state.profile(&request.profile_id)?;
     weapon_scaling_for_upgrade_inner(
-        &state.data,
+        &profile.data,
         &request.weapon_name,
         &request.affinity,
         request.upgrade,
@@ -261,11 +298,13 @@ pub fn weapon_scaling_for_upgrade(
 
 #[tauri::command]
 pub fn affinities_for_weapon(
+    profile_id: String,
     weapon_name: String,
     state: State<'_, AppState>,
 ) -> Result<Vec<String>, AppError> {
+    let profile = state.profile(&profile_id)?;
     Ok(affinities_for_weapon_inner(
-        &state.catalog_index,
+        &profile.catalog_index,
         &weapon_name,
     ))
 }
@@ -275,8 +314,9 @@ pub fn compatible_aow_names(
     request: CompatibleAowsRequestDto,
     state: State<'_, AppState>,
 ) -> Result<Vec<String>, AppError> {
+    let profile = state.profile(&request.profile_id)?;
     Ok(compatible_aow_names_inner(
-        &state.catalog_index,
+        &profile.catalog_index,
         request.weapon_name.as_deref(),
         request.affinity.as_deref(),
     ))
@@ -287,16 +327,11 @@ pub fn get_weapon_profile(
     request: WeaponProfileRequestDto,
     state: State<'_, AppState>,
 ) -> Result<WeaponProfileDto, AppError> {
-    let requirements = weapon_requirements(
-        &state.catalog_index,
-        &request.weapon_name,
-        request.affinity.as_deref(),
-    )?;
-    let max_upgrade = weapon_upgrade_cap(
-        &state.catalog_index,
-        &request.weapon_name,
-        request.affinity.as_deref(),
-    )?;
+    let profile = state.profile(&request.profile_id)?;
+    let index = &profile.catalog_index;
+    let requirements =
+        weapon_requirements(index, &request.weapon_name, request.affinity.as_deref())?;
+    let max_upgrade = weapon_upgrade_cap(index, &request.weapon_name, request.affinity.as_deref())?;
     Ok(WeaponProfileDto {
         requirements: CombatStateDto {
             str_stat: requirements[0],
@@ -308,13 +343,13 @@ pub fn get_weapon_profile(
         max_upgrade,
         is_somber: max_upgrade <= 10,
         disables_two_hand_bonus: weapon_disables_two_hand_bonus(
-            &state.catalog_index,
+            index,
             &request.weapon_name,
             request.affinity.as_deref(),
         ),
-        affinities: affinities_for_weapon_inner(&state.catalog_index, &request.weapon_name),
+        affinities: affinities_for_weapon_inner(index, &request.weapon_name),
         compatible_aows: compatible_aow_names_inner(
-            &state.catalog_index,
+            index,
             Some(&request.weapon_name),
             request.affinity.as_deref(),
         ),

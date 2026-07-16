@@ -17,6 +17,7 @@ pub const MAX_PATH_BATCH: usize = 2;
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OptimizeRequestDto {
+    pub profile_id: String,
     pub class_name: String,
     pub character_level: u16,
     pub vig: u8,
@@ -431,6 +432,41 @@ pub struct DataManifestDto {
     pub generated_at: String,
     pub extractor_version: String,
     pub provenance: String,
+    pub profile: ProfileMetadataDto,
+    pub capabilities: ProfileCapabilitiesDto,
+    pub rules: ProfileRulesDto,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileMetadataDto {
+    pub id: String,
+    pub display_name: String,
+    pub game_version: String,
+    pub mod_version: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileCapabilitiesDto {
+    pub weapon_ar: bool,
+    pub status_buildup: bool,
+    pub weapon_passives: bool,
+    pub aow_compatibility: bool,
+    pub aow_damage: bool,
+    pub aow_routes: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileRulesDto {
+    pub standard_max_upgrade: u8,
+    pub somber_max_upgrade: u8,
+    pub separate_upgrade_caps: bool,
+    pub scadutree_scaling: bool,
+    pub zero_attack_element_uses_weapon_scaling: bool,
+    pub extended_scaling_grades: bool,
+    pub status_buildup_scales: bool,
 }
 
 impl From<er_optimizer_core::SnapshotManifest> for DataManifestDto {
@@ -446,6 +482,31 @@ impl From<er_optimizer_core::SnapshotManifest> for DataManifestDto {
             generated_at: value.generated_at,
             extractor_version: value.extractor_version,
             provenance: value.provenance,
+            profile: ProfileMetadataDto {
+                id: value.profile.id,
+                display_name: value.profile.display_name,
+                game_version: value.profile.game_version,
+                mod_version: value.profile.mod_version,
+            },
+            capabilities: ProfileCapabilitiesDto {
+                weapon_ar: value.capabilities.weapon_ar,
+                status_buildup: value.capabilities.status_buildup,
+                weapon_passives: value.capabilities.weapon_passives,
+                aow_compatibility: value.capabilities.aow_compatibility,
+                aow_damage: value.capabilities.aow_damage,
+                aow_routes: value.capabilities.aow_routes,
+            },
+            rules: ProfileRulesDto {
+                standard_max_upgrade: value.rules.standard_max_upgrade,
+                somber_max_upgrade: value.rules.somber_max_upgrade,
+                separate_upgrade_caps: value.rules.separate_upgrade_caps,
+                scadutree_scaling: value.rules.scadutree_scaling,
+                zero_attack_element_uses_weapon_scaling: value
+                    .rules
+                    .zero_attack_element_uses_weapon_scaling,
+                extended_scaling_grades: value.rules.extended_scaling_grades,
+                status_buildup_scales: value.rules.status_buildup_scales,
+            },
         }
     }
 }
@@ -482,6 +543,7 @@ pub struct WeaponTypeOptionDto {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompatibleAowsRequestDto {
+    pub profile_id: String,
     pub weapon_name: Option<String>,
     pub affinity: Option<String>,
 }
@@ -489,6 +551,7 @@ pub struct CompatibleAowsRequestDto {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WeaponProfileRequestDto {
+    pub profile_id: String,
     pub weapon_name: String,
     pub affinity: Option<String>,
 }
@@ -507,18 +570,21 @@ pub struct WeaponProfileDto {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WeaponNamesForTypeRequestDto {
+    pub profile_id: String,
     pub weapon_type_key: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompatibleAowsForAffinityRequestDto {
+    pub profile_id: String,
     pub affinity: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WeaponScalingRequestDto {
+    pub profile_id: String,
     pub weapon_name: String,
     pub affinity: String,
     pub upgrade: u8,
@@ -824,7 +890,7 @@ mod tests {
             objective_ids: vec!["max_ar".to_string()],
             somber_filters: vec!["all".to_string()],
             data_manifest: DataManifestDto {
-                schema_version: 1,
+                schema_version: 3,
                 dataset_version: "phase1".to_string(),
                 model_version: "test-model".to_string(),
                 id: "phase1".to_string(),
@@ -834,6 +900,29 @@ mod tests {
                 generated_at: "2026-06-10T00:00:00Z".to_string(),
                 extractor_version: "test-extractor".to_string(),
                 provenance: "test".to_string(),
+                profile: ProfileMetadataDto {
+                    id: "vanilla".to_string(),
+                    display_name: "Vanilla".to_string(),
+                    game_version: "1.16.1".to_string(),
+                    mod_version: None,
+                },
+                capabilities: ProfileCapabilitiesDto {
+                    weapon_ar: true,
+                    status_buildup: true,
+                    weapon_passives: true,
+                    aow_compatibility: true,
+                    aow_damage: true,
+                    aow_routes: true,
+                },
+                rules: ProfileRulesDto {
+                    standard_max_upgrade: 25,
+                    somber_max_upgrade: 10,
+                    separate_upgrade_caps: true,
+                    scadutree_scaling: true,
+                    zero_attack_element_uses_weapon_scaling: false,
+                    extended_scaling_grades: false,
+                    status_buildup_scales: true,
+                },
             },
         })
         .expect("catalog serializes");
@@ -843,6 +932,7 @@ mod tests {
         assert_has_path(&value, &["classes", "0", "baseStats", "strStat"]);
         assert_has_path(&value, &["dataManifest", "appVersion"]);
         assert_has_path(&value, &["dataManifest", "datasetVersion"]);
+        assert_has_path(&value, &["dataManifest", "rules", "standardMaxUpgrade"]);
         assert_missing_path(&value, &["weapon_count"]);
         assert_missing_path(&value, &["classes", "0", "base_stats"]);
         assert_missing_path(&value, &["data_manifest"]);
@@ -986,6 +1076,7 @@ mod tests {
     #[test]
     fn optimize_request_deserializes_app_contract_keys() {
         let request: OptimizeRequestDto = serde_json::from_value(json!({
+            "profileId": "vanilla",
             "className": "Samurai",
             "characterLevel": 150,
             "vig": 50,
@@ -1023,6 +1114,7 @@ mod tests {
         .expect("request deserializes");
 
         assert_eq!(request.class_name, "Samurai");
+        assert_eq!(request.profile_id, "vanilla");
         assert_eq!(request.str_stat, 12);
         assert_eq!(request.int_stat, 9);
         assert_eq!(request.standard_upgrade_cap(), 25);
@@ -1034,6 +1126,7 @@ mod tests {
     #[test]
     fn legacy_optimize_request_upgrade_keys_migrate() {
         let request: OptimizeRequestDto = serde_json::from_value(json!({
+            "profileId": "vanilla",
             "className": "Samurai",
             "characterLevel": 150,
             "vig": 50,

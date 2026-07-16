@@ -31,7 +31,7 @@ flowchart LR
     R --> C["Compare<br/>same budget, rival setup"]
     R --> P["Paths<br/>best next stat by level"]
     R --> A["Affinity Watch<br/>leaders and crossovers"]
-    D["Checksummed<br/>runtime snapshot"] --> S
+    D["Checksummed<br/>profile snapshots"] --> S
 ```
 
 The result is not a disconnected calculator output. Selecting a ranked build gives
@@ -47,9 +47,30 @@ Get the latest Windows build from [Releases](https://github.com/FueledByRedBull/
 - `TarnishedsArsenal_<version>.zip` bundles the complete release folder for archival
   or offline transfer.
 
-Both artifacts contain the same compiled runtime snapshot. The standalone app
-does not need an adjacent data directory, workbook, or other support files.
+Both artifacts contain checksummed Vanilla 1.16.1 and The Convergence 3.0.0.1
+runtime profiles. Switch profiles from the always-visible control above the
+workspace; searches, caches, results, exports, and saved builds remain isolated by
+profile. The standalone app does not need an adjacent data directory,
+`regulation.bin`, workbook, FMG file, or other support files.
 Each release also publishes SHA-256 checksums and a machine-readable build report.
+
+Convergence weapon AR, status buildup, passives, affinities, and AoW compatibility
+are supported. Convergence AoW hit/route damage is intentionally disabled and
+clearly labeled until mod-specific motion and sequence data is mapped; Vanilla AoW
+data is never substituted.
+
+> **Convergence profile: Beta.** The supported weapon model is extracted,
+> regression-tested, and differentially validated against the version-bound
+> Convergence 3.0.0.1 reference. It is not yet full mod parity: Ash of War hit and
+> route damage remain unavailable, and broader in-game verification is still in
+> progress. The application itself remains a normal stable `v0.9.0` release.
+
+Profile mechanics are enforced as data, not UI guesses. Convergence uses one
+weapon reinforcement path from +0 through +15, removes Scadutree Blessing scaling,
+keeps weapon status buildup fixed across stats/upgrades, and exposes its extended
+`S+`/`S++` attribute grades. Its row-0 attack-element
+weapons apply every declared nonzero attribute scaling to every nonzero damage
+component, matching the mod's in-game weapon panel rather than Vanilla routing.
 
 ## What It Answers
 
@@ -128,7 +149,8 @@ five-stat grid.
 
 ## Data
 
-The runtime snapshot is generated from local game data and workbook extraction, not wiki estimates.
+The runtime snapshots are generated from local game and mod data, FMG names, and
+workbook extraction—not wiki estimates.
 
 Included data covers:
 
@@ -145,9 +167,12 @@ Included data covers:
 - AoW attack rows for PvE damage objectives
 - Shadow of the Erdtree Scadutree blessing attack scaling
 
-The runtime files are one versioned, checksummed snapshot. External data loading is
-all-or-nothing; a missing, modified, mixed, or unlisted file fails closed rather
-than falling back to a different embedded file.
+Each game profile is an independent versioned, checksummed snapshot. External data
+loading is all-or-nothing; a missing, modified, mixed, or unlisted file fails closed
+rather than falling back to another profile or embedded file. Vanilla provides the
+full supported AoW model. Convergence currently provides verified weapon AR,
+affinities, passive status, and AoW compatibility while clearly disabling AoW hit
+and route damage until its motion data is mapped.
 
 Current boundaries:
 
@@ -223,24 +248,17 @@ and build report, plus `dist/TarnishedsArsenal_<version>.zip`. See
 
 ## Refresh Data
 
-Regenerate the complete runtime snapshot from a local `regulation.bin`:
+The profile-aware extractor generates Vanilla and Convergence as separate atomic
+snapshots from their local `regulation.bin` files. Convergence also requires its
+weapon/skill name FMGs, version file, and committed player-availability reference;
+the source game/mod files and WitchyBND stay ignored under `data/raw/`. The offline
+release validator compares every modeled Convergence weapon and status value to
+that version-bound reference.
 
-```powershell
-python tools/phase1/phase1_dump.py `
-  --regulation data/raw/regulation.bin `
-  --witchybnd C:\path\to\WitchyBND.exe `
-  --output data/phase1
-```
-
-The extractor also reads this workbook from `data/phase1`:
-
-```text
-ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx
-```
-
-Extraction builds and validates a sibling staging snapshot, then promotes its data
-files and installs the manifest last. Do not run the lower-level derivation scripts
-individually for a release snapshot.
+See [`tools/phase1/README.md`](tools/phase1/README.md) for the exact commands and
+required inputs for both profiles. Extraction validates a sibling staging snapshot,
+then promotes its data files and installs the manifest last. Do not run the
+lower-level derivation scripts individually for a release snapshot.
 
 ## Repository Layout
 
@@ -248,7 +266,8 @@ individually for a release snapshot.
 |---|---|
 | `apps/desktop` | Tauri, React, and TypeScript desktop app. |
 | `core/er_optimizer_core` | Rust optimizer and optional PyO3 validation binding. |
-| `data/phase1` | Committed runtime data snapshot. |
+| `data/phase1` | Committed Vanilla runtime snapshot. |
+| `data/profiles/convergence` | Committed Convergence runtime snapshot. |
 | `tools/phase1` | Extraction and data refresh tooling. |
 | `tools/phase4` | Validation, benchmarking, and release packaging. |
 | `docs/architecture` | Runtime identity, cache, job, and snapshot invariants. |
