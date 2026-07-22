@@ -116,8 +116,9 @@ reinforcement policy, handedness, game scope, dataset, and active constraints
 visible before a search. At the app's narrower supported widths the decorative
 podium is removed and the ranked table receives the available space; no capability
 is moved into an extra menu. Scaling is shown as five centered STR/DEX/INT/FAI/ARC
-grades, while the AR/status cell wraps all seven buildup families instead of
-silently reducing the comparison to bleed and frost.
+grades. The AR/Elements/Status cell keeps total AR visible, shows the complete
+Physical, Magic, Fire, Lightning, and Holy split, and wraps all seven buildup
+families instead of silently reducing the comparison to bleed and frost.
 
 Numeric character fields remain local while they are being edited and commit on
 blur, Enter, or after a short idle delay. Exact search-space preparation starts on
@@ -214,9 +215,9 @@ Current boundaries:
 
 Requirements:
 
-- Rust stable
-- Node.js / npm
-- Python 3.12 for validation and data tooling
+- Rust 1.97.0 with `clippy` and `rustfmt` (pinned by `rust-toolchain.toml`)
+- Node.js 22.23.1 with npm (pinned by `.node-version`)
+- Python 3.12.10 for validation and data tooling (pinned by `.python-version`)
 
 Install Python validation helpers when working on data validation, benchmarks, or
 release packaging:
