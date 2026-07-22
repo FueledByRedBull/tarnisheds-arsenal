@@ -53,7 +53,7 @@ try {
   await page.getByRole("button", { name: "Start", exact: true }).click();
   await page.getByRole("grid", { name: "Affinity watch rankings" }).locator('[role="row"]').nth(1).waitFor();
 
-  const presetName = `Packaged smoke ${Date.now()}`;
+  const presetName = `Release verification ${Date.now()}`;
   await page.getByRole("textbox", { name: "Name", exact: true }).fill(presetName);
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   await page.getByText(`Saved ${presetName}.`, { exact: true }).waitFor();
