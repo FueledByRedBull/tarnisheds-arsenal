@@ -50,6 +50,21 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await page.getByRole("button", { name: "Search" }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
   await expect(page.getByText("Uchigatana").first()).toBeVisible();
+  const firstRankedRow = page.locator(".result-row-full").first();
+  const damageSplit = firstRankedRow.getByRole("list", { name: "Attack rating split" });
+  for (const label of [
+    "Physical attack rating: 700",
+    "Magic attack rating: 0",
+    "Fire attack rating: 0",
+    "Lightning attack rating: 0",
+    "Holy attack rating: 0",
+  ]) {
+    await expect(damageSplit.getByRole("listitem", { name: label })).toBeVisible();
+  }
+  await expect.poll(() => page.getByRole("columnheader", { name: "Weapon" }).evaluate(
+    (node) => getComputedStyle(node).textAlign,
+  )).toBe("center");
+  await expect(page.getByRole("columnheader", { name: "AR / Elements / Status" })).toBeVisible();
   await page.getByText("Model coverage and assumptions").click();
   await expect(page.getByText("Attack rating is calculated before enemy defense and negation.")).toBeVisible();
   await expect(page.getByText(/Temporary buff stacking is not a universal layer/)).toBeVisible();

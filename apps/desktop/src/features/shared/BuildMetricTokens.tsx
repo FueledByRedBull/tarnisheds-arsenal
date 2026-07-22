@@ -20,6 +20,14 @@ const STATUS_STATS = [
   ["DTH", "Death Blight", "deathBuildup"],
 ] as const;
 
+const DAMAGE_TYPES = [
+  ["PHY", "Physical", "physical"],
+  ["MAG", "Magic", "magic"],
+  ["FIR", "Fire", "fire"],
+  ["LIT", "Lightning", "lightning"],
+  ["HOL", "Holy", "holy"],
+] as const;
+
 export function ScalingTokens({
   scaling,
   extended,
@@ -61,6 +69,25 @@ export function StatusTokens({ row }: { row: SolvedBuildDto }) {
         >
           <small aria-hidden="true">{short}</small>
           <b aria-hidden="true">{compactNumber(row[key])}</b>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+export function DamageTokens({ ar }: { ar: SolvedBuildDto["ar"] }) {
+  return (
+    <span className="metric-token-grid damage-token-grid" role="list" aria-label="Attack rating split">
+      {DAMAGE_TYPES.map(([short, full, key]) => (
+        <span
+          className={`metric-token ${ar[key] > 0 ? "active" : "zero"}`}
+          role="listitem"
+          aria-label={`${full} attack rating: ${compactNumber(ar[key])}`}
+          title={`${full} attack rating: ${compactNumber(ar[key])}`}
+          key={key}
+        >
+          <small aria-hidden="true">{short}</small>
+          <b aria-hidden="true">{compactNumber(ar[key])}</b>
         </span>
       ))}
     </span>

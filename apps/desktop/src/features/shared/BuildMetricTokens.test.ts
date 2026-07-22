@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import type { SolvedBuildDto } from "../../lib/types";
-import { ScalingTokens, StatusTokens } from "./BuildMetricTokens";
+import { DamageTokens, ScalingTokens, StatusTokens } from "./BuildMetricTokens";
 
 const row: SolvedBuildDto = {
   weaponId: 1,
@@ -13,7 +13,7 @@ const row: SolvedBuildDto = {
   upgrade: 25,
   stats: { strStat: 10, dex: 10, intStat: 10, fai: 10, arc: 10 },
   effectiveScaling: { str: 0.4, dex: 0.8, int: 1.2, fai: 1.6, arc: 2.0 },
-  ar: { physical: 100, magic: 0, fire: 0, lightning: 0, holy: 0, total: 100 },
+  ar: { physical: 100, magic: 20, fire: 30, lightning: 40, holy: 50, total: 240 },
   aowId: null,
   aowName: null,
   bleedBuildup: 11,
@@ -55,6 +55,20 @@ describe("build metric tokens", () => {
       "Sleep buildup: 55",
       "Madness buildup: 66",
       "Death Blight buildup: 77",
+    ]) {
+      expect(markup).toContain(label);
+    }
+  });
+
+  it("renders every attack-rating damage component", () => {
+    const markup = renderToStaticMarkup(createElement(DamageTokens, { ar: row.ar }));
+
+    for (const label of [
+      "Physical attack rating: 100",
+      "Magic attack rating: 20",
+      "Fire attack rating: 30",
+      "Lightning attack rating: 40",
+      "Holy attack rating: 50",
     ]) {
       expect(markup).toContain(label);
     }

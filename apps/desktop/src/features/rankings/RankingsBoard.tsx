@@ -6,7 +6,7 @@ import { buildOptimizeRequest, derivedLevel, rowFingerprint } from "../../lib/se
 import { useDesktopStore } from "../../lib/state";
 import { ScalingDto, SolvedBuildDto } from "../../lib/types";
 import { runSearchFromStore, runSearchRequestForRows } from "../../lib/workflows";
-import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
+import { DamageTokens, ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 import packageInfo from "../../../package.json";
 
 export function RankingsBoard() {
@@ -274,7 +274,7 @@ export function RankingsBoard() {
             ["Setup", "Affinity and Ash of War"],
             ["Upg", "Reinforcement level"],
             ["Scaling", "Attribute scaling at this reinforcement level"],
-            ["AR / Status", "Raw attack rating and status buildup"],
+            ["AR / Elements / Status", "Raw attack rating by damage type and status buildup"],
             ["Raw skill", "Raw skill damage before enemy defense or negation"],
             [`${objectiveLabel(objective)} score`, "Value used by the active ranking objective"],
             ["Lock", "Use this result as exact search locks"],
@@ -394,7 +394,7 @@ function ResultRow({
       <span role="gridcell" className="setup-cell"><strong>{row.affinity}</strong><small>{row.aowName ?? "Native"}</small></span>
       <span role="gridcell">+{row.upgrade}</span>
       <span role="gridcell" className="scaling-cell"><ScalingTokens scaling={scaling} extended={extendedScalingGrades} /></span>
-      <span role="gridcell" className="result-metric-cell ar-status-cell"><strong>AR {compactNumber(row.ar.total)}</strong><StatusTokens row={row} /></span>
+      <span role="gridcell" className="result-metric-cell ar-status-cell"><strong>AR {compactNumber(row.ar.total)}</strong><DamageTokens ar={row.ar} /><StatusTokens row={row} /></span>
       <span role="gridcell" className="result-metric-cell"><strong>{compactNumber(row.aowFullSequenceDamage)}</strong><small>First {compactNumber(row.aowFirstHitDamage)}</small></span>
       <span role="gridcell">{fixed1(metricForObjective(row, objective))}</span>
       <span role="gridcell">

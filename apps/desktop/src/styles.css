@@ -2175,6 +2175,15 @@ textarea:hover {
   white-space: nowrap;
 }
 
+.result-head-full > span:nth-child(n) {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  line-height: 1.15;
+  white-space: normal;
+  text-overflow: clip;
+}
+
 .result-row-full > .scaling-cell,
 .result-row-full > .ar-status-cell {
   overflow: visible;
@@ -2182,8 +2191,6 @@ textarea:hover {
   white-space: normal;
 }
 
-.result-head-full > span:nth-child(2),
-.result-head-full > span:nth-child(3),
 .result-row-full > span:nth-child(2),
 .result-row-full > span:nth-child(3) {
   text-align: left;
@@ -2283,6 +2290,10 @@ textarea:hover {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
+.damage-token-grid {
+  grid-template-columns: repeat(auto-fit, minmax(31px, 1fr));
+}
+
 .status-token-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -2307,9 +2318,12 @@ textarea:hover {
 }
 
 .metric-token b {
+  max-width: 100%;
   margin-top: 2px;
+  overflow: hidden;
   color: #ddd8ca;
   font-size: 10px;
+  text-overflow: ellipsis;
 }
 
 .metric-token.active {
