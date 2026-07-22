@@ -115,7 +115,14 @@ field as a column. The active-query strip keeps objective, character level,
 reinforcement policy, handedness, game scope, dataset, and active constraints
 visible before a search. At the app's narrower supported widths the decorative
 podium is removed and the ranked table receives the available space; no capability
-is moved into an extra menu.
+is moved into an extra menu. Scaling is shown as five centered STR/DEX/INT/FAI/ARC
+grades, while the AR/status cell wraps all seven buildup families instead of
+silently reducing the comparison to bleed and frost.
+
+Numeric character fields remain local while they are being edited and commit on
+blur, Enter, or after a short idle delay. Exact search-space preparation starts on
+Search rather than on every keystroke, so entering high-level stat spreads does not
+compete with the interface for CPU time.
 
 AR and skill values shown in Rankings and Build Detail are raw model outputs.
 Enemy defense and negation are not applied, and affected route details keep

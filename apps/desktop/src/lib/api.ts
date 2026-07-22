@@ -138,6 +138,9 @@ function previewBuild(
     frostBuildup: 0,
     poisonBuildup: 0,
     scarletRotBuildup: 0,
+    sleepBuildup: 0,
+    madnessBuildup: 0,
+    deathBuildup: 0,
     aowFirstHitDamage,
     aowFullSequenceDamage,
     aowRoute: null,
@@ -168,6 +171,7 @@ export const api = {
     }),
   estimateSearchSpace: (request: OptimizeRequestDto) =>
     call<SearchEstimateDto>("estimate_search_space", { request }),
+  cancelSearchEstimate: () => call<boolean>("cancel_search_estimate"),
   runSearch: (request: OptimizeRequestDto) =>
     call<SolvedBuildDto[]>("run_search", { request }),
   startSearch: (request: OptimizeRequestDto) =>
@@ -264,6 +268,8 @@ async function mockInvoke<T>(command: string, args?: Record<string, unknown>): P
       return await mockWeaponProfile(args) as T;
     case "estimate_search_space":
       return await mockSearchEstimate(args) as T;
+    case "cancel_search_estimate":
+      return true as T;
     case "run_search":
       return await mockRows((args?.request as OptimizeRequestDto | undefined) ?? null) as T;
     case "start_search":
@@ -666,6 +672,9 @@ function emptySolvedBuild(): SolvedBuildDto {
     frostBuildup: 0,
     poisonBuildup: 0,
     scarletRotBuildup: 0,
+    sleepBuildup: 0,
+    madnessBuildup: 0,
+    deathBuildup: 0,
     aowFirstHitDamage: 0,
     aowFullSequenceDamage: 0,
     aowRoute: null,

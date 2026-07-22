@@ -1,12 +1,12 @@
 import { ArrowDownUp, ChevronLeft, ChevronRight, Download, LockKeyhole, RefreshCcw, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { downloadCsv, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
-import { cachedWeaponScalingForUpgrade } from "../../lib/analysis-cache";
 import { compactNumber, fixed1, metricForObjective, objectiveLabel } from "../../lib/format";
-import { buildOptimizeRequest, derivedLevel, rowFingerprint, scalingLetter } from "../../lib/session";
+import { buildOptimizeRequest, derivedLevel, rowFingerprint } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { ScalingDto, SolvedBuildDto } from "../../lib/types";
 import { runSearchFromStore, runSearchRequestForRows } from "../../lib/workflows";
+import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 import packageInfo from "../../../package.json";
 
 export function RankingsBoard() {
@@ -26,7 +26,6 @@ export function RankingsBoard() {
   const [isExporting, setExporting] = useState(false);
   const [exportLimit, setExportLimit] = useState<25 | 100 | 500 | 2000>(25);
   const exportCache = useRef<{ signature: string; rows: SolvedBuildDto[] } | null>(null);
-  const [scalingByRow, setScalingByRow] = useState<Record<string, ScalingDto>>({});
   const [reverseRank, setReverseRank] = useState(false);
   const [horizontalScroll, setHorizontalScroll] = useState({ overflow: false, left: false, right: false });
   const resultBoard = useRef<HTMLDivElement>(null);
@@ -51,35 +50,6 @@ export function RankingsBoard() {
   const separateUpgradeCaps = profileRules?.separateUpgradeCaps ?? true;
   const scadutreeAvailable = profileRules?.scadutreeScaling ?? true;
   const extendedScalingGrades = profileRules?.extendedScalingGrades ?? false;
-
-  useEffect(() => {
-    const controller = new AbortController();
-    async function loadScaling() {
-      const pairs = await Promise.all(
-        rows.map(async (row) => [
-          rowFingerprint(row),
-          await cachedWeaponScalingForUpgrade(
-            request.profileId,
-            row.weaponName,
-            row.affinity,
-            row.upgrade,
-            controller.signal,
-          ),
-        ] as const),
-      );
-      if (!controller.signal.aborted) {
-        setScalingByRow(Object.fromEntries(pairs));
-      }
-    }
-    loadScaling().catch((error) => {
-      if (!controller.signal.aborted) {
-        setError(error instanceof Error ? error.message : String(error));
-      }
-    });
-    return () => {
-      controller.abort();
-    };
-  }, [request.profileId, rows, setError]);
 
   useEffect(() => {
     const board = resultBoard.current;
@@ -320,7 +290,7 @@ export function RankingsBoard() {
             row={row}
             active={rowFingerprint(selected) === rowFingerprint(row)}
             objective={objective}
-            scaling={scalingByRow[rowKey(row)] ?? null}
+            scaling={row.effectiveScaling ?? null}
             extendedScalingGrades={extendedScalingGrades}
             onClick={() => selectRow(row)}
             onLock={() => lockAndRerun(row)}
@@ -423,8 +393,8 @@ function ResultRow({
       <span role="gridcell" className="weapon-cell"><strong>{row.weaponName}</strong><small>{row.isSomber ? "Somber" : "Standard"}</small></span>
       <span role="gridcell" className="setup-cell"><strong>{row.affinity}</strong><small>{row.aowName ?? "Native"}</small></span>
       <span role="gridcell">+{row.upgrade}</span>
-      <span role="gridcell">{formatScaling(scaling, extendedScalingGrades)}</span>
-      <span role="gridcell" className="result-metric-cell"><strong>AR {compactNumber(row.ar.total)}</strong><small>B {compactNumber(row.bleedBuildup)} · F {compactNumber(row.frostBuildup)}</small></span>
+      <span role="gridcell" className="scaling-cell"><ScalingTokens scaling={scaling} extended={extendedScalingGrades} /></span>
+      <span role="gridcell" className="result-metric-cell ar-status-cell"><strong>AR {compactNumber(row.ar.total)}</strong><StatusTokens row={row} /></span>
       <span role="gridcell" className="result-metric-cell"><strong>{compactNumber(row.aowFullSequenceDamage)}</strong><small>First {compactNumber(row.aowFirstHitDamage)}</small></span>
       <span role="gridcell">{fixed1(metricForObjective(row, objective))}</span>
       <span role="gridcell">
@@ -453,15 +423,4 @@ function EmptyRows({ onExample, busy }: { onExample: () => void; busy: boolean }
       <button type="button" onClick={onExample} disabled={busy}>{busy ? "Searching…" : "Try Samurai +3 example"}</button>
     </div>
   );
-}
-
-function formatScaling(scaling: ScalingDto | null, extended: boolean): string {
-  if (!scaling) {
-    return "-";
-  }
-  return `STR ${scalingLetter(scaling.str, extended)} DEX ${scalingLetter(scaling.dex, extended)} INT ${scalingLetter(scaling.int, extended)} FAI ${scalingLetter(scaling.fai, extended)} ARC ${scalingLetter(scaling.arc, extended)}`;
-}
-
-function rowKey(row: SolvedBuildDto): string {
-  return rowFingerprint(row) ?? `${row.weaponId}-${row.weaponName}-${row.affinity}-${row.upgrade}`;
 }

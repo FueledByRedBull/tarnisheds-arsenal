@@ -45,7 +45,7 @@ export function savedBuildIndex(): SavedBuildIndexV1 {
 export function loadBuildPreset(id: string): BuildPresetV1 | null {
   const preset = readJson<unknown>(`${PRESET_PREFIX}${id}`);
   try {
-    migratePresetProfile(preset);
+    migratePreset(preset);
     assertPreset(preset as BuildPresetV1);
     return preset as BuildPresetV1;
   } catch {
@@ -111,7 +111,7 @@ export function parsePresetText(raw: string): BuildPresetV1 {
     ? decodeURIComponent(text.slice(SHARE_PREFIX.length))
     : text;
   const parsed = JSON.parse(payload) as BuildPresetV1;
-  migratePresetProfile(parsed);
+  migratePreset(parsed);
   assertPreset(parsed);
   return parsed;
 }
@@ -237,7 +237,8 @@ function assertSolvedBuild(value: unknown, label: string): asserts value is Solv
   assertNullableText(value.aowName, `${label}.aowName`, 200);
   for (const key of [
     "bleedBuildup", "bleedBuildupAdd", "frostBuildup", "poisonBuildup",
-    "scarletRotBuildup", "aowFirstHitDamage", "aowFullSequenceDamage", "score",
+    "scarletRotBuildup", "sleepBuildup", "madnessBuildup", "deathBuildup",
+    "aowFirstHitDamage", "aowFullSequenceDamage", "score",
   ] as const) assertFinite(value[key], `${label}.${key}`);
   assertAowRoute(value.aowRoute, `${label}.aowRoute`);
 }
@@ -325,7 +326,7 @@ function assertProfileId(value: unknown, label: string): asserts value is string
   if (!/^[a-z0-9][a-z0-9_-]*$/.test(value)) throw invalidPreset(`${label} is invalid`);
 }
 
-function migratePresetProfile(value: unknown): void {
+function migratePreset(value: unknown): void {
   if (!isRecord(value) || value.version !== 1 || !isRecord(value.request)) return;
   if (typeof value.profileId !== "string" && typeof value.request.profileId !== "string") {
     value.profileId = "vanilla";
@@ -334,6 +335,13 @@ function migratePresetProfile(value: unknown): void {
     value.profileId = value.request.profileId;
   } else if (typeof value.request.profileId !== "string") {
     value.request.profileId = value.profileId;
+  }
+  for (const buildKey of ["selectedBuild", "compareTarget"] as const) {
+    const build = value[buildKey];
+    if (!isRecord(build)) continue;
+    for (const statusKey of ["sleepBuildup", "madnessBuildup", "deathBuildup"] as const) {
+      if (build[statusKey] === undefined) build[statusKey] = 0;
+    }
   }
 }
 

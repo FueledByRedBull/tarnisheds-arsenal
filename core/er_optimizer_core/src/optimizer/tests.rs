@@ -123,6 +123,37 @@ fn convergence_galvanic_optimizer_uses_str_dex_int_without_arcane_fill() {
 }
 
 #[test]
+fn sleep_and_madness_survive_result_materialization() {
+    let data = load_data();
+    let cases = [("Sword of St. Trina", true), ("Vyke's War Spear", false)];
+
+    for (weapon_name, expects_sleep) in cases {
+        let mut request = base_request();
+        request.character_level = 150;
+        request.weapon_name = Some(weapon_name.to_string());
+        request.affinity = Some("Standard".to_string());
+        request.exact_upgrade = true;
+        request.top_k = 1;
+
+        let rows = optimize(&request, &data).expect("status weapon search");
+        let result = rows.first().expect("status weapon result");
+        if expects_sleep {
+            assert!(
+                result.sleep_buildup > 0.0,
+                "{weapon_name} sleep was discarded"
+            );
+            assert_eq!(result.madness_buildup, 0.0);
+        } else {
+            assert!(
+                result.madness_buildup > 0.0,
+                "{weapon_name} madness was discarded"
+            );
+            assert_eq!(result.sleep_buildup, 0.0);
+        }
+    }
+}
+
+#[test]
 fn fixed_native_skill_falls_back_to_generic_rows_by_skill_id() {
     let data = load_data();
     let weapon = data
@@ -183,6 +214,9 @@ fn test_result(
         frost_buildup: 0.0,
         poison_buildup: 0.0,
         scarlet_rot_buildup: 0.0,
+        sleep_buildup: 0.0,
+        madness_buildup: 0.0,
+        death_buildup: 0.0,
         aow_first_hit_damage: 0.0,
         aow_full_sequence_damage: 0.0,
         aow_route: None,
@@ -1454,7 +1488,16 @@ fn estimate_search_space_uses_relevant_stat_counts() {
         .sum();
     let broad_combinations = broad_stat_count.saturating_mul(broad_slots);
     let estimate = estimate_search_space(&request, &game_data).expect("estimate failed");
+    let prepared_estimate = prepare_search(&request, &game_data)
+        .expect("search preparation failed")
+        .estimate();
 
+    assert_eq!(
+        estimate.weapon_candidates,
+        prepared_estimate.weapon_candidates
+    );
+    assert_eq!(estimate.stat_candidates, prepared_estimate.stat_candidates);
+    assert_eq!(estimate.combinations, prepared_estimate.combinations);
     assert!(estimate.combinations < broad_combinations);
     assert!(estimate.stat_candidates < broad_stat_count.saturating_mul(broad_slots));
     assert!(
@@ -1462,6 +1505,39 @@ fn estimate_search_space_uses_relevant_stat_counts() {
             .expect("optimizer failed")
             .is_empty()
     );
+}
+
+#[test]
+fn estimate_search_space_stops_before_preparation_when_cancelled() {
+    let game_data = load_data();
+    let error = estimate_search_space_with_cancel(&broad_request(), &game_data, || false)
+        .expect_err("cancelled estimate must fail closed");
+    assert_eq!(error, "cancelled");
+}
+
+#[test]
+#[ignore = "release-mode estimate benchmark"]
+fn benchmark_search_estimate_for_stat_entry_levels() {
+    let game_data = load_data();
+    let mut request = base_request();
+    request.weapon_name = None;
+    request.affinity = None;
+    request.exact_upgrade = false;
+    for (label, level) in [
+        ("base", 9),
+        ("str-99", 96),
+        ("str-dex-99", 180),
+        ("all-99", 452),
+    ] {
+        request.character_level = level;
+        let started = std::time::Instant::now();
+        let estimate = estimate_search_space(&request, &game_data).expect("estimate failed");
+        println!(
+            "ESTIMATE_BENCH label={label} level={level} combinations={} elapsed_ms={:.3}",
+            estimate.combinations,
+            started.elapsed().as_secs_f64() * 1_000.0,
+        );
+    }
 }
 
 #[test]
@@ -1721,12 +1797,14 @@ fn wasted_points_on_zero_scaling_stats_are_filtered() {
         .iter()
         .find(|prepared| prepared.weapon.weapon_id == weapon.weapon_id)
         .expect("missing prepared weapon");
+    let mut distribution_counts = HashMap::new();
     let search = relevant_stat_search(
         &request,
         &game_data,
         constraints,
         prepared,
         &prepared.aow_choices[0],
+        &mut distribution_counts,
     )
     .expect("expected relevant stat search");
     assert!(!search.active[STAT_FAI]);

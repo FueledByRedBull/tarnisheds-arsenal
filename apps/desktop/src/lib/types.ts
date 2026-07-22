@@ -150,6 +150,9 @@ export interface SolvedBuildDto {
   frostBuildup: number;
   poisonBuildup: number;
   scarletRotBuildup: number;
+  sleepBuildup: number;
+  madnessBuildup: number;
+  deathBuildup: number;
   aowFirstHitDamage: number;
   aowFullSequenceDamage: number;
   aowRoute: AowRouteDto | null;

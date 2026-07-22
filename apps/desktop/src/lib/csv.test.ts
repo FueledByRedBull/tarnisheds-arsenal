@@ -21,6 +21,9 @@ const row: SolvedBuildDto = {
   frostBuildup: 0,
   poisonBuildup: 0,
   scarletRotBuildup: 0,
+  sleepBuildup: 0,
+  madnessBuildup: 0,
+  deathBuildup: 0,
   aowFirstHitDamage: 0,
   aowFullSequenceDamage: 0,
   aowRoute: null,
@@ -51,6 +54,7 @@ describe("rankings CSV model provenance", () => {
     expect(headers).toContain("weapon_id,weapon,weapon_type");
     expect(headers).toContain("upgrade_path,is_somber");
     expect(headers).toContain("grade_str,grade_dex,grade_int,grade_fai,grade_arc");
+    expect(headers).toContain("bleed,bleed_add,frost,poison,scarlet_rot,sleep,madness,death");
     expect(values).toContain("100,Uchigatana,Katana");
     expect(values).toContain("unified,,11,15,0,0,0");
     expect(values).toContain("D,S++,-,-,B");

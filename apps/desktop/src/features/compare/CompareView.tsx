@@ -1,14 +1,15 @@
 import { WheelEvent, useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
-import { cachedSolveBuild, cachedUpgradeSeries, cachedWeaponScalingForUpgrade } from "../../lib/analysis-cache";
+import { cachedSolveBuild, cachedUpgradeSeries } from "../../lib/analysis-cache";
 import { compactNumber, fixed1, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
 import { SearchableSelect, openOption } from "../../lib/SearchableSelect";
-import { compareUpgradeHorizon, scalingLetter, upgradeCapForRow } from "../../lib/session";
+import { compareUpgradeHorizon, upgradeCapForRow } from "../../lib/session";
 import { stableSignature } from "../../lib/session";
 import { LatestRequest } from "../../lib/request-generation";
 import { useRequestBudget } from "../../lib/hooks";
 import { useDesktopStore } from "../../lib/state";
 import { ScalingDto, SolvedBuildDto, UpgradePointDto } from "../../lib/types";
+import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 
 type CompareLane = {
   label: string;
@@ -178,22 +179,13 @@ export function CompareView() {
           if (!lane.row) {
             return { ...lane, points: [], scaling: null };
           }
-          const [points, scaling] = await Promise.all([
-            cachedUpgradeSeries(
-              baseRequest,
-              lane.row,
-              upgradeCapForRow(lane.row, request),
-              controller.signal,
-            ),
-            cachedWeaponScalingForUpgrade(
-              request.profileId,
-              lane.row.weaponName,
-              lane.row.affinity,
-              lane.row.upgrade,
-              controller.signal,
-            ),
-          ]);
-          return { ...lane, points, scaling };
+          const points = await cachedUpgradeSeries(
+            baseRequest,
+            lane.row,
+            upgradeCapForRow(lane.row, request),
+            controller.signal,
+          );
+          return { ...lane, points, scaling: lane.row.effectiveScaling ?? null };
         }),
       );
       if (seriesRequest.current.isCurrent(token)) {
@@ -364,17 +356,13 @@ function Lane({
         <>
           <strong>{row.weaponName}</strong>
           <small>{row.affinity} / {row.aowName ?? "Native"} / +{row.upgrade}</small>
-          <div className="scaling-strip">
-            {formatScaling(scaling, extendedScalingGrades).map(([label, value]) => (
-              <span key={label}>{label} <b>{value}</b></span>
-            ))}
-          </div>
+          <ScalingTokens scaling={scaling} extended={extendedScalingGrades} />
           <div className="lane-metrics">
             <span>Metric <b>{fixed1(metricForObjective(row, objective))}</b></span>
             <span>AR <b>{compactNumber(row.ar.total)}</b></span>
-            <span>Bleed <b>{compactNumber(row.bleedBuildup)}</b></span>
             <span>AoW <b>{compactNumber(row.aowFullSequenceDamage)}</b></span>
           </div>
+          <StatusTokens row={row} />
           {row.aowRoute ? (
             <small>{row.aowRoute.routeLabel} / {fixed1(row.aowRoute.totalStaminaCost)} stamina / {row.aowRoute.actions.length} actions</small>
           ) : null}
@@ -385,27 +373,6 @@ function Lane({
       )}
     </div>
   );
-}
-
-function formatScaling(scaling: ScalingDto | null, extended: boolean): Array<[string, string]> {
-  if (!scaling) {
-    return [["STR", "-"], ["DEX", "-"], ["INT", "-"], ["FAI", "-"], ["ARC", "-"]];
-  }
-  return [
-    ["STR", formatScalingValue(scaling.str, extended)],
-    ["DEX", formatScalingValue(scaling.dex, extended)],
-    ["INT", formatScalingValue(scaling.int, extended)],
-    ["FAI", formatScalingValue(scaling.fai, extended)],
-    ["ARC", formatScalingValue(scaling.arc, extended)],
-  ];
-}
-
-function formatScalingValue(value: number, extended: boolean): string {
-  if (value <= 0) {
-    return "-";
-  }
-  const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
-  return `${scalingLetter(rounded, extended)} (${rounded.toFixed(2)})`;
 }
 
 function scrollMatrix(element: HTMLDivElement | null, direction: -1 | 1) {

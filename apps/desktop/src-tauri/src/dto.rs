@@ -142,6 +142,9 @@ pub struct SolvedBuildDto {
     pub frost_buildup: f32,
     pub poison_buildup: f32,
     pub scarlet_rot_buildup: f32,
+    pub sleep_buildup: f32,
+    pub madness_buildup: f32,
+    pub death_buildup: f32,
     pub aow_first_hit_damage: f32,
     pub aow_full_sequence_damage: f32,
     pub aow_route: Option<AowRouteDto>,
@@ -782,6 +785,9 @@ impl From<OptimizeResult> for SolvedBuildDto {
             frost_buildup: value.frost_buildup,
             poison_buildup: value.poison_buildup,
             scarlet_rot_buildup: value.scarlet_rot_buildup,
+            sleep_buildup: value.sleep_buildup,
+            madness_buildup: value.madness_buildup,
+            death_buildup: value.death_buildup,
             aow_first_hit_damage: value.aow_first_hit_damage,
             aow_full_sequence_damage: value.aow_full_sequence_damage,
             aow_route: value.aow_route.map(AowRouteDto::from),
@@ -1003,6 +1009,9 @@ mod tests {
             &["finished", "rows", "0", "effectiveScaling", "arc"],
         );
         assert_has_path(&value, &["finished", "rows", "0", "aowFirstHitDamage"]);
+        assert_has_path(&value, &["finished", "rows", "0", "sleepBuildup"]);
+        assert_has_path(&value, &["finished", "rows", "0", "madnessBuildup"]);
+        assert_has_path(&value, &["finished", "rows", "0", "deathBuildup"]);
         assert_missing_path(&value, &["progress", "job_id"]);
         assert_missing_path(&value, &["finished", "rows", "0", "weapon_name"]);
     }
@@ -1238,6 +1247,9 @@ mod tests {
             frost_buildup: 0.0,
             poison_buildup: 0.0,
             scarlet_rot_buildup: 0.0,
+            sleep_buildup: 0.0,
+            madness_buildup: 0.0,
+            death_buildup: 0.0,
             aow_first_hit_damage: 100.0,
             aow_full_sequence_damage: 250.0,
             aow_route: None,

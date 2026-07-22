@@ -19,6 +19,7 @@ import { budgetSnapshot, buildOptimizeRequest } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { AowRouteDto, BuildPresetV1, CatalogDto, OptimizeRequestDto, SavedBuildIndexEntryV1, SolvedBuildDto, StatusBuildupDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
+import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 import packageInfo from "../../../package.json";
 
 export function Inspector() {
@@ -67,7 +68,6 @@ export function Inspector() {
           <div className="metric-grid">
             <Metric label={objectiveLabel(request.objective)} value={fixed1(metricForObjective(selected, request.objective))} />
             <Metric label="AR" value={compactNumber(selected.ar.total)} />
-            <Metric label="Bleed" value={compactNumber(selected.bleedBuildup)} />
             <Metric
               label={catalog?.dataManifest.capabilities.aowRoutes ? "Raw AoW" : "AoW model"}
               value={catalog?.dataManifest.capabilities.aowRoutes
@@ -79,6 +79,17 @@ export function Inspector() {
           <div className="detail-block">
             <span>Combat Stats</span>
             <strong>{statLine(selected)}</strong>
+          </div>
+          <div className="detail-block build-token-detail">
+            <span>Attribute Scaling</span>
+            <ScalingTokens
+              scaling={selected.effectiveScaling}
+              extended={catalog?.dataManifest.rules.extendedScalingGrades ?? false}
+            />
+          </div>
+          <div className="detail-block build-token-detail">
+            <span>Status Buildup</span>
+            <StatusTokens row={selected} />
           </div>
           <div className="detail-block split">
             <span>AR Split</span>

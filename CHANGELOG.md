@@ -4,6 +4,20 @@ Release notes are maintained in [`docs/release-notes/`](docs/release-notes/READM
 
 Use that index for per-version notes and GitHub release links.
 
+## v0.9.2 — 2026-07-23
+
+- Keep numeric stat editing responsive by committing local drafts after idle,
+  blur, or Enter and preparing the exact search only when Search is pressed.
+- Speed up exact search-space estimation by reusing equivalent distribution
+  counts, omitting scoring work allocation, and replacing full requirement-count
+  probes with arithmetic feasibility checks while preserving exact counts.
+- Show centered, non-truncated STR/DEX/INT/FAI/ARC scaling and all seven passive
+  status families across Rankings, Compare, and Build Detail.
+- Carry Sleep, Madness, and Death Blight through Rust, Python, desktop DTOs, saved
+  build migration, mock data, and CSV exports.
+- Reuse effective scaling already present on solved rows instead of issuing a
+  separate backend request for every ranking and comparison row.
+
 ## v0.9.1 — 2026-07-22
 
 - Fix Vanilla Rallying Standard/Commander's Standard searches and CSV exports that

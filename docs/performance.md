@@ -4,6 +4,25 @@ Performance work is measured in release mode with one Rayon thread by default so
 
 Broad Search, Paths, and Affinity Watch cancellation has a 250 ms latency target on the reference development machine. Core enumeration checks this with a synchronized broad-search regression test; workflow tests separately prove cancellation propagates through their nested evaluators and returns no successful partial payload.
 
+## Stat-entry and search-space estimation
+
+Editing a numeric character field is local UI draft state. A valid value commits on
+blur, Enter, or after 700 ms idle, but it does not run the exact search-space
+estimator. The command rail shows a constant-time scope summary; exact candidate
+preparation begins only when Search is pressed. This keeps rapid multi-field edits
+off the optimizer worker path and avoids stale CPU work.
+
+The exact estimator remains available to workflows and is cancellable. Its result
+must equal the full prepared plan's weapon, stat-distribution, and equivalent
+combination counts. Estimation omits scoring work-unit materialization, reuses
+distribution counts with identical stat bounds, and checks weapon requirements with
+an arithmetic feasibility test.
+
+On the July 2026 reference snapshot, a one-thread release benchmark retained the
+same exact counts while reducing representative estimates from 0.82-3.10 seconds to
+0.046-0.117 seconds (roughly 17-27x). These local timings are diagnostic, not a CI
+guarantee; correctness is enforced by result-equivalence tests.
+
 ## Optimizer objectives
 
 Run:

@@ -13,9 +13,6 @@ import {
 import { classMeta, classOptions, derivedLevel, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { OptimizeRequestDto, SearchFinishedDto, SearchProgressDto } from "../../lib/types";
-import { LatestRequest } from "../../lib/request-generation";
-
-const EXPENSIVE_SEARCH_COMBINATIONS = 1_000_000;
 
 export function CommandRail() {
   const catalog = useDesktopStore((state) => state.catalog);
@@ -36,7 +33,6 @@ export function CommandRail() {
   const progress = useDesktopStore((state) => state.progress);
   const setActiveJobId = useDesktopStore((state) => state.setActiveJobId);
   const setProgress = useDesktopStore((state) => state.setProgress);
-  const estimate = useDesktopStore((state) => state.estimate);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
   const setLockedStatMode = useDesktopStore((state) => state.setLockedStatMode);
   const [weaponNames, setWeaponNames] = useState<string[]>([]);
@@ -45,7 +41,6 @@ export function CommandRail() {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [searchCancellationRequested, setSearchCancellationRequested] = useState(false);
   const searchCancellationRequestedRef = useRef(false);
-  const estimateRequest = useRef(new LatestRequest());
   const meta = classMeta(catalog, request.className);
   const { base: apiRequest, budget } = useRequestBudget(catalog, request, lockedStatMode);
   const weaponProfile = useWeaponProfile(request, patchRequest, setError);
@@ -133,23 +128,6 @@ export function CommandRail() {
     }, 200);
     return () => window.clearInterval(tick);
   }, [isSearching, searchStartedAt]);
-
-  useEffect(() => {
-    if (!catalog || isSearching) return undefined;
-    const signature = stableSignature(apiRequest);
-    const token = estimateRequest.current.begin(signature);
-    const timeout = window.setTimeout(() => {
-      api.estimateSearchSpace(apiRequest).then((nextEstimate) => {
-        if (estimateRequest.current.isCurrent(token)) setEstimate(nextEstimate);
-      }).catch(() => {
-        if (estimateRequest.current.isCurrent(token)) setEstimate(null);
-      });
-    }, 300);
-    return () => {
-      window.clearTimeout(timeout);
-      estimateRequest.current.invalidate(token);
-    };
-  }, [apiRequest, catalog, isSearching, setEstimate]);
 
   async function runSearch() {
     const signature = stableSignature(apiRequest);
@@ -631,14 +609,14 @@ export function CommandRail() {
             elapsedMs={progress?.elapsedMs ?? elapsedMs}
             objective={objectiveLabel(request.objective)}
           />
-        ) : estimate ? (
-          <div className={`estimate-strip ${estimate.combinations >= EXPENSIVE_SEARCH_COMBINATIONS ? "expensive" : ""}`}>
-            <span>Preflight: {estimate.weaponCandidates} weapons</span>
-            <strong>{formatCombinations(estimate.combinations)}</strong>
-            <span>combinations</span>
-            {estimate.combinations >= EXPENSIVE_SEARCH_COMBINATIONS ? (
-              <small>Broad search. Choose a weapon type, weapon, affinity, or tighter upgrade range for a faster result.</small>
-            ) : null}
+        ) : catalog ? (
+          <div className="estimate-strip quick-estimate">
+            <span>Search scope</span>
+            <strong>{request.weaponName || (request.weaponTypeKey ? "Filtered" : "Open")}</strong>
+            <span>{budget.redistributable} free points</span>
+            <small>
+              Exact combinations are prepared only after Search, keeping stat editing responsive.
+            </small>
           </div>
         ) : null}
       </div>
@@ -685,12 +663,6 @@ function somberFilterLabel(value: string): string {
     .join(" ");
 }
 
-function formatCombinations(value: number): string {
-  if (value >= 1_000_000) return `${fixed1(value / 1_000_000)}m`;
-  if (value >= 1_000) return `${fixed1(value / 1_000)}k`;
-  return String(value);
-}
-
 function DraftNumberInput({
   value,
   min,
@@ -707,13 +679,30 @@ function DraftNumberInput({
   readOnly?: boolean;
 }) {
   const [draft, setDraft] = useState(String(value));
+  const idleCommit = useRef<number | null>(null);
+
+  function clearIdleCommit() {
+    if (idleCommit.current !== null) {
+      window.clearTimeout(idleCommit.current);
+      idleCommit.current = null;
+    }
+  }
 
   useEffect(() => {
+    clearIdleCommit();
     setDraft(String(value));
   }, [value]);
 
+  useEffect(() => () => clearIdleCommit(), []);
+
   function commit(raw: string) {
-    const next = clamp(parseInteger(raw), min, max);
+    clearIdleCommit();
+    const parsed = parseInteger(raw);
+    if (!Number.isInteger(parsed)) {
+      setDraft(String(value));
+      return;
+    }
+    const next = clamp(parsed, min, max);
     setDraft(String(next));
     if (next !== value) {
       onCommit(next);
@@ -737,13 +726,14 @@ function DraftNumberInput({
       onBlur={(event) => commit(event.target.value)}
       onChange={(event) => {
         const next = event.target.value;
+        clearIdleCommit();
         setDraft(next);
         if (next !== String(value)) {
           onDraftChange?.();
         }
         const parsed = parseInteger(next);
         if (Number.isInteger(parsed) && parsed >= min && parsed <= max && parsed !== value) {
-          onCommit(parsed);
+          idleCommit.current = window.setTimeout(() => commit(next), 700);
         }
       }}
       onKeyDown={handleKeyDown}

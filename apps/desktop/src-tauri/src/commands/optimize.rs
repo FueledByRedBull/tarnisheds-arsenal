@@ -1,12 +1,14 @@
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
-#[cfg(test)]
-use er_optimizer_core::optimize_with_cancel;
 use er_optimizer_core::{
-    OptimizeRequest, estimate_search_space as core_estimate_search_space, optimize,
+    OptimizeRequest, estimate_search_space_with_cancel, optimize,
     optimize_level_range_with_progress, optimize_prepared_with_progress,
     prepare_search_with_cancel, prepare_upgrade_series_evaluator_with_cancel,
+};
+#[cfg(test)]
+use er_optimizer_core::{
+    estimate_search_space as core_estimate_search_space, optimize_with_cancel,
 };
 use tauri::{AppHandle, State};
 
@@ -20,15 +22,29 @@ use crate::errors::AppError;
 use crate::{AppState, AsyncJobHandle, CancelFlag};
 
 #[tauri::command]
-pub fn estimate_search_space(
+pub async fn estimate_search_space(
     request: crate::dto::OptimizeRequestDto,
     state: State<'_, AppState>,
 ) -> Result<SearchEstimateDto, AppError> {
     let profile = state.profile(&request.profile_id)?;
     let request = OptimizeRequest::try_from(&request)?;
-    core_estimate_search_space(&request, &profile.data)
-        .map(SearchEstimateDto::from)
-        .map_err(AppError::from)
+    let data = Arc::clone(&profile.data);
+    let controller = Arc::clone(&state.estimate_cancel);
+    let cancel_flag = controller.begin()?;
+    let task_cancel = Arc::clone(&cancel_flag);
+    let joined = tauri::async_runtime::spawn_blocking(move || {
+        estimate_search_space_with_cancel(&request, &data, || !task_cancel.load(Ordering::Relaxed))
+    })
+    .await;
+    controller.finish(&cancel_flag)?;
+    let result =
+        joined.map_err(|error| AppError::new(format!("search estimate task failed: {error}")))?;
+    result.map(SearchEstimateDto::from).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn cancel_search_estimate(state: State<'_, AppState>) -> Result<bool, AppError> {
+    state.estimate_cancel.cancel()
 }
 
 #[tauri::command]

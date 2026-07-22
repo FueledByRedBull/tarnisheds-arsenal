@@ -17,6 +17,7 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - Cancellation is cooperative and fail-closed. A cancelled job cannot replace current rows or populate retained analysis caches.
 - Broad running work targets cancellation within 250 ms on the reference machine. Cancelled multi-lane jobs publish no partial success payload.
 - Polling has one in-flight request at a time and backs off while progress is unchanged.
+- Numeric input edits do not launch exact optimizer preparation. Exact search-space estimates are cancellable, and a replaced estimate cannot publish stale state.
 - A profile switch invalidates every job generation before changing inputs, requests cancellation for all active backend jobs, clears profile-bound results, and cannot accept a completion from the previous profile.
 
 ## Result identity

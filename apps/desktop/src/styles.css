@@ -2146,10 +2146,10 @@ textarea:hover {
 .result-row-full {
   grid-template-columns:
     34px 150px 130px 44px
-    minmax(108px, 0.9fr) 86px 82px 62px 46px;
+    minmax(180px, 1fr) minmax(190px, 1.1fr) 82px 68px 46px;
   gap: 8px;
   width: 100%;
-  min-width: 790px;
+  min-width: 1100px;
 }
 
 .result-head,
@@ -2173,6 +2173,13 @@ textarea:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.result-row-full > .scaling-cell,
+.result-row-full > .ar-status-cell {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .result-head-full > span:nth-child(2),
@@ -2216,6 +2223,8 @@ textarea:hover {
 
 .result-row {
   position: relative;
+  min-height: 66px;
+  padding-block: 6px;
   border-bottom-color: rgba(232, 229, 220, 0.055);
   background: rgba(255, 255, 255, 0.006);
   transition: background 130ms ease, box-shadow 130ms ease, transform 130ms ease;
@@ -2251,6 +2260,78 @@ textarea:hover {
 .result-metric-cell {
   display: grid;
   align-content: center;
+}
+
+.scaling-cell,
+.ar-status-cell {
+  text-align: center;
+}
+
+.ar-status-cell {
+  gap: 4px;
+}
+
+.metric-token-grid {
+  display: grid;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  gap: 3px;
+}
+
+.scaling-token-grid {
+  grid-template-columns: repeat(5, minmax(30px, 1fr));
+}
+
+.status-token-grid {
+  grid-template-columns: repeat(4, minmax(34px, 1fr));
+}
+
+.metric-token {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 3px 2px;
+  border: 1px solid rgba(232, 229, 220, 0.07);
+  border-radius: 4px;
+  background: rgba(5, 7, 8, 0.28);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.metric-token small {
+  color: #858880;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.metric-token b {
+  margin-top: 2px;
+  color: #ddd8ca;
+  font-size: 10px;
+}
+
+.metric-token.active {
+  border-color: rgba(224, 185, 103, 0.16);
+  background: rgba(224, 185, 103, 0.055);
+}
+
+.metric-token.active b {
+  color: #e6c981;
+}
+
+.metric-token.zero {
+  opacity: 0.58;
+}
+
+.compare-lane > .metric-token-grid,
+.build-token-detail > .metric-token-grid {
+  margin-top: 6px;
+}
+
+.build-token-detail {
+  gap: 3px;
 }
 
 .result-row strong {
@@ -2347,13 +2428,9 @@ textarea:hover {
   font-size: 12px;
 }
 
-.estimate-strip.expensive {
-  border-color: rgba(224, 185, 103, 0.42);
-}
-
-.estimate-strip.expensive small {
+.quick-estimate small {
   grid-column: 1 / -1;
-  color: #d9c28e;
+  color: var(--muted);
   line-height: 1.4;
 }
 
@@ -2634,14 +2711,9 @@ textarea:hover {
   .result-row-full {
     grid-template-columns:
       30px 120px 105px 40px
-      78px 74px 54px 42px;
+      minmax(160px, 1fr) minmax(175px, 1.1fr) 70px 60px 42px;
     gap: 7px;
-    min-width: 640px;
-  }
-
-  .result-head-full > span:nth-child(5),
-  .result-row-full > span:nth-child(5) {
-    display: none;
+    min-width: 920px;
   }
 
   .result-head-full > span:nth-child(2),

@@ -34,7 +34,10 @@ scaling, raw AR/status, raw skill damage, objective score, and Lock. Full combat
 stats, AR split, route actions/hits, status, stamina, buff timing, and warnings stay
 in Build Detail without a modal. A persistent active-query strip exposes the major
 assumptions before execution, including whether reinforcement levels are exact or
-searched from zero to the configured caps.
+searched from zero to the configured caps. Scaling uses a responsive five-token
+STR/DEX/INT/FAI/ARC grid. Status uses a wrapping seven-token grid for bleed, frost,
+poison, scarlet rot, sleep, madness, and death blight; zeroes remain visible so a
+missing buildup cannot be mistaken for omitted data.
 
 The visual system is intentionally lightweight: CSS perspective, short
 state-driven transitions, and a 19 KB low-contrast WebP texture provide depth

@@ -11,6 +11,59 @@ mod errors;
 
 pub type CancelFlag = Arc<AtomicBool>;
 
+pub struct LatestCancel {
+    current: Mutex<Option<CancelFlag>>,
+}
+
+impl Default for LatestCancel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl LatestCancel {
+    pub fn new() -> Self {
+        Self {
+            current: Mutex::new(None),
+        }
+    }
+
+    pub fn begin(&self) -> Result<CancelFlag, errors::AppError> {
+        let next = Arc::new(AtomicBool::new(false));
+        let mut current = self.current.lock().map_err(|_| self.lock_error())?;
+        if let Some(previous) = current.replace(Arc::clone(&next)) {
+            previous.store(true, Ordering::Relaxed);
+        }
+        Ok(next)
+    }
+
+    pub fn cancel(&self) -> Result<bool, errors::AppError> {
+        let current = self.current.lock().map_err(|_| self.lock_error())?;
+        let Some(flag) = current.as_ref() else {
+            return Ok(false);
+        };
+        flag.store(true, Ordering::Relaxed);
+        Ok(true)
+    }
+
+    pub fn finish(&self, completed: &CancelFlag) -> Result<(), errors::AppError> {
+        let mut current = self.current.lock().map_err(|_| self.lock_error())?;
+        if current
+            .as_ref()
+            .is_some_and(|active| Arc::ptr_eq(active, completed))
+        {
+            current.take();
+        }
+        Ok(())
+    }
+
+    fn lock_error(&self) -> errors::AppError {
+        errors::AppError::new(
+            "search estimate controller is unavailable. Retry once, then restart the app if it persists.",
+        )
+    }
+}
+
 pub struct AsyncJobHandle<T> {
     pub cancel: CancelFlag,
     pub status: Arc<Mutex<T>>,
@@ -97,6 +150,7 @@ impl<T: Clone> JobRegistry<T> {
 
 pub struct AppState {
     pub profiles: HashMap<String, Arc<ProfileData>>,
+    pub estimate_cancel: Arc<LatestCancel>,
     pub search_jobs: Arc<JobRegistry<dto::SearchJobStatusDto>>,
     pub path_jobs: Arc<JobRegistry<dto::PathJobStatusDto>>,
     pub affinity_jobs: Arc<JobRegistry<dto::AffinityWatchJobStatusDto>>,
@@ -137,6 +191,7 @@ pub fn run() {
             let profiles = load_desktop_profiles(app)?;
             app.manage(AppState {
                 profiles,
+                estimate_cancel: Arc::new(LatestCancel::new()),
                 search_jobs: Arc::new(JobRegistry::new("search")),
                 path_jobs: Arc::new(JobRegistry::new("path")),
                 affinity_jobs: Arc::new(JobRegistry::new("affinity watch")),
@@ -155,6 +210,7 @@ pub fn run() {
             commands::data::weapon_names_for_type,
             commands::data::weapon_scaling_for_upgrade,
             commands::optimize::estimate_search_space,
+            commands::optimize::cancel_search_estimate,
             commands::optimize::run_search,
             commands::optimize::solve_build,
             commands::optimize::build_upgrade_series,
@@ -340,6 +396,7 @@ pub(crate) fn test_app_state() -> AppState {
     }
     AppState {
         profiles,
+        estimate_cancel: Arc::new(LatestCancel::new()),
         search_jobs: Arc::new(JobRegistry::new("search")),
         path_jobs: Arc::new(JobRegistry::new("path")),
         affinity_jobs: Arc::new(JobRegistry::new("affinity watch")),
@@ -391,6 +448,25 @@ pub(crate) fn test_optimize_request() -> dto::OptimizeRequestDto {
 
 #[cfg(test)]
 mod release_data_tests {
+    #[test]
+    fn latest_estimate_cancellation_replaces_and_clears_only_matching_work() {
+        let controller = super::LatestCancel::new();
+        let first = controller.begin().expect("first estimate starts");
+        let second = controller.begin().expect("second estimate starts");
+        assert!(first.load(std::sync::atomic::Ordering::Relaxed));
+        assert!(!second.load(std::sync::atomic::Ordering::Relaxed));
+
+        controller
+            .finish(&first)
+            .expect("stale completion is harmless");
+        assert!(controller.cancel().expect("active estimate cancels"));
+        assert!(second.load(std::sync::atomic::Ordering::Relaxed));
+        controller
+            .finish(&second)
+            .expect("active completion clears");
+        assert!(!controller.cancel().expect("nothing remains to cancel"));
+    }
+
     #[cfg(target_os = "windows")]
     #[test]
     fn packaged_smoke_config_is_explicit_isolated_and_validated() {

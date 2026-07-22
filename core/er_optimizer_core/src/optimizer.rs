@@ -90,6 +90,7 @@ impl PreparedLoadoutEvaluator<'_> {
             constraints,
             Arc::clone(&self.weapons),
             &mut should_continue,
+            true,
         )?;
         optimize_prepared_with_progress(&plan, 1_024, |_snapshot| should_continue())
     }
@@ -213,7 +214,35 @@ pub fn estimate_search_space(
     request: &OptimizeRequest,
     data: &GameData,
 ) -> Result<SearchEstimate, String> {
-    prepare_search(request, data).map(|plan| plan.estimate())
+    estimate_search_space_with_cancel(request, data, || true)
+}
+
+pub fn estimate_search_space_with_cancel<F>(
+    request: &OptimizeRequest,
+    data: &GameData,
+    mut should_continue: F,
+) -> Result<SearchEstimate, String>
+where
+    F: FnMut() -> bool,
+{
+    if !should_continue() {
+        return Err("cancelled".to_string());
+    }
+    validate_profile_capabilities(request, data)?;
+    let constraints = build_combat_constraints(request)?;
+    let weapons = Arc::from(
+        prepare_weapons_with_cancel(request, data, constraints, &mut should_continue)?
+            .into_boxed_slice(),
+    );
+    build_prepared_plan(
+        request,
+        data,
+        constraints,
+        weapons,
+        &mut should_continue,
+        false,
+    )
+    .map(|plan| plan.estimate())
 }
 
 pub fn prepare_search<'a>(
@@ -240,7 +269,14 @@ where
         prepare_weapons_with_cancel(request, data, constraints, &mut should_continue)?
             .into_boxed_slice(),
     );
-    build_prepared_plan(request, data, constraints, weapons, &mut should_continue)
+    build_prepared_plan(
+        request,
+        data,
+        constraints,
+        weapons,
+        &mut should_continue,
+        true,
+    )
 }
 
 fn validate_profile_capabilities(request: &OptimizeRequest, data: &GameData) -> Result<(), String> {
@@ -393,10 +429,12 @@ fn build_prepared_plan<'a>(
     constraints: CombatConstraints,
     weapons: Arc<[PreparedWeapon<'a>]>,
     should_continue: &mut impl FnMut() -> bool,
+    build_work_units: bool,
 ) -> Result<PreparedSearchPlan<'a>, String> {
     let mut groups: Vec<PreparedSearchGroup> = Vec::new();
     let mut stat_candidates = 0_u64;
     let mut combinations = 0_u64;
+    let mut distribution_counts = HashMap::new();
 
     for (prepared_idx, prepared) in weapons.iter().enumerate() {
         let shared_ar_search = if matches!(
@@ -404,7 +442,14 @@ fn build_prepared_plan<'a>(
             OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr
         ) {
             prepared.aow_choices.first().and_then(|choice| {
-                relevant_stat_search(request, data, constraints, prepared, choice)
+                relevant_stat_search(
+                    request,
+                    data,
+                    constraints,
+                    prepared,
+                    choice,
+                    &mut distribution_counts,
+                )
             })
         } else {
             None
@@ -419,7 +464,14 @@ fn build_prepared_plan<'a>(
             ) {
                 shared_ar_search
             } else {
-                relevant_stat_search(request, data, constraints, prepared, aow_choice)
+                relevant_stat_search(
+                    request,
+                    data,
+                    constraints,
+                    prepared,
+                    aow_choice,
+                    &mut distribution_counts,
+                )
             };
             let Some(search) = search else {
                 continue;
@@ -459,8 +511,10 @@ fn build_prepared_plan<'a>(
         serial_work_units: Vec::new(),
         estimate,
     };
-    plan.fine_work_units = build_search_work_units(&plan, true);
-    plan.serial_work_units = build_search_work_units(&plan, false);
+    if build_work_units {
+        plan.fine_work_units = build_search_work_units(&plan, true);
+        plan.serial_work_units = build_search_work_units(&plan, false);
+    }
     Ok(plan)
 }
 
@@ -565,6 +619,7 @@ where
             constraints,
             Arc::clone(&shared_weapons),
             &mut should_continue,
+            true,
         )?;
         let rows = optimize_prepared_with_progress(&plan, 1_024, |_snapshot| should_continue())?;
         results.push(LevelOptimizeResult { level, rows });
@@ -1497,6 +1552,15 @@ fn materialize_scored_candidate(
         scarlet_rot_buildup: status_buildup
             .expect("complete candidate metric must include status")
             .scarlet_rot,
+        sleep_buildup: status_buildup
+            .expect("complete candidate metric must include status")
+            .sleep,
+        madness_buildup: status_buildup
+            .expect("complete candidate metric must include status")
+            .madness,
+        death_buildup: status_buildup
+            .expect("complete candidate metric must include status")
+            .death,
         aow_first_hit_damage: aow_first_hit_damage
             .expect("complete candidate metric must include first-hit damage"),
         aow_full_sequence_damage: aow_full_sequence_damage
@@ -2619,9 +2683,25 @@ fn relevant_stat_search(
     constraints: CombatConstraints,
     prepared: &PreparedWeapon<'_>,
     aow_choice: &AowChoice<'_>,
+    distribution_counts: &mut HashMap<DistributionCountKey, u64>,
 ) -> Option<RelevantStatSearch> {
     let active = active_stats_for_choice(request, prepared, aow_choice, data);
-    RelevantStatSearch::new(request, constraints, prepared.weapon, active)
+    RelevantStatSearch::new(
+        request,
+        constraints,
+        prepared.weapon,
+        active,
+        distribution_counts,
+    )
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+struct DistributionCountKey {
+    mins: [u8; COMBAT_STAT_COUNT],
+    maxs: [u8; COMBAT_STAT_COUNT],
+    active: [bool; COMBAT_STAT_COUNT],
+    remaining_free: u16,
+    required_inactive_fill: u16,
 }
 
 impl RelevantStatSearch {
@@ -2630,6 +2710,7 @@ impl RelevantStatSearch {
         constraints: CombatConstraints,
         weapon: &Weapon,
         active: [bool; COMBAT_STAT_COUNT],
+        distribution_counts: &mut HashMap<DistributionCountKey, u64>,
     ) -> Option<Self> {
         let mut mins = constraints.mins;
         let maxs = constraints.maxs;
@@ -2654,13 +2735,22 @@ impl RelevantStatSearch {
             .map(|idx| u16::from(maxs[idx] - mins[idx]))
             .sum();
         let required_inactive_fill = remaining_free.saturating_sub(active_capacity);
-        let candidate_count = count_relevant_distributions(
-            &mins,
-            &maxs,
-            &active,
+        let count_key = DistributionCountKey {
+            mins,
+            maxs,
+            active,
             remaining_free,
             required_inactive_fill,
-        );
+        };
+        let candidate_count = *distribution_counts.entry(count_key).or_insert_with(|| {
+            count_relevant_distributions(
+                &mins,
+                &maxs,
+                &active,
+                remaining_free,
+                required_inactive_fill,
+            )
+        });
         (candidate_count > 0).then_some(Self {
             mins,
             maxs,
@@ -2825,7 +2915,22 @@ fn weapon_requirements_can_fit(
     constraints: CombatConstraints,
     weapon: &Weapon,
 ) -> bool {
-    RelevantStatSearch::new(request, constraints, weapon, [true; COMBAT_STAT_COUNT]).is_some()
+    let requirement_mins = weapon_requirement_mins(request, weapon);
+    let mut remaining_free = constraints.remaining_free;
+    let mut capacity = 0_u16;
+    for (idx, &requirement_min) in requirement_mins.iter().enumerate() {
+        if requirement_min > constraints.maxs[idx] {
+            return false;
+        }
+        let minimum = constraints.mins[idx].max(requirement_min);
+        let raise = u16::from(minimum - constraints.mins[idx]);
+        if raise > remaining_free {
+            return false;
+        }
+        remaining_free -= raise;
+        capacity = capacity.saturating_add(u16::from(constraints.maxs[idx] - minimum));
+    }
+    remaining_free <= capacity
 }
 
 fn weapon_requirement_mins(request: &OptimizeRequest, weapon: &Weapon) -> [u8; COMBAT_STAT_COUNT] {

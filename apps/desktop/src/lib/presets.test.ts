@@ -10,7 +10,7 @@ import {
   saveBuildPreset,
   savedBuildIndex,
 } from "./presets";
-import type { BuildPresetV1 } from "./types";
+import type { BuildPresetV1, SolvedBuildDto } from "./types";
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();
@@ -34,6 +34,32 @@ function preset(id = "preset-one", name = "Dexterity route"): BuildPresetV1 {
     dataVersion: "1:dataset:model",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
+  };
+}
+
+function solvedBuild(): SolvedBuildDto {
+  return {
+    weaponId: 1,
+    weaponName: "Uchigatana",
+    affinity: "Keen",
+    isSomber: false,
+    upgrade: 25,
+    stats: { strStat: 18, dex: 40, intStat: 9, fai: 8, arc: 8 },
+    ar: { physical: 500, magic: 0, fire: 0, lightning: 0, holy: 0, total: 500 },
+    aowId: 100,
+    aowName: "Unsheathe",
+    bleedBuildup: 45,
+    bleedBuildupAdd: 0,
+    frostBuildup: 0,
+    poisonBuildup: 0,
+    scarletRotBuildup: 0,
+    sleepBuildup: 0,
+    madnessBuildup: 0,
+    deathBuildup: 0,
+    aowFirstHitDamage: 300,
+    aowFullSequenceDamage: 300,
+    aowRoute: null,
+    score: 500,
   };
 }
 
@@ -104,6 +130,32 @@ describe("saved build persistence", () => {
     expect(parsed.request.profileId).toBe("vanilla");
   });
 
+  it("migrates saved builds created before all status fields were exposed", () => {
+    const raw = JSON.parse(JSON.stringify({
+      ...preset(),
+      selectedBuild: solvedBuild(),
+      compareTarget: solvedBuild(),
+    }));
+    for (const key of ["selectedBuild", "compareTarget"] as const) {
+      delete raw[key].sleepBuildup;
+      delete raw[key].madnessBuildup;
+      delete raw[key].deathBuildup;
+    }
+
+    const parsed = parsePresetText(JSON.stringify(raw));
+
+    expect(parsed.selectedBuild).toMatchObject({
+      sleepBuildup: 0,
+      madnessBuildup: 0,
+      deathBuildup: 0,
+    });
+    expect(parsed.compareTarget).toMatchObject({
+      sleepBuildup: 0,
+      madnessBuildup: 0,
+      deathBuildup: 0,
+    });
+  });
+
   it("previews conflicts and rejects oversized input", () => {
     importBuildPreset(preset());
     const preview = previewPresetImport(JSON.stringify(preset()));
@@ -131,6 +183,7 @@ describe("saved build persistence", () => {
       JSON.stringify({ ...preset(), request: { ...defaultRequest, scadutreeLevel: 21 } }),
       JSON.stringify({ ...preset(), request: { ...defaultRequest, characterLevel: Number.NaN } }),
       JSON.stringify({ ...preset(), selectedBuild: { weaponId: 1 } }),
+      JSON.stringify({ ...preset(), selectedBuild: { ...solvedBuild(), sleepBuildup: "unknown" } }),
     ];
     for (const candidate of malformed) {
       expect(() => parsePresetText(candidate)).toThrow();
