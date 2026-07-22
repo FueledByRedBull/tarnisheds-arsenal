@@ -68,7 +68,7 @@ try {
   await page.reload();
   await page.getByText("Full model ready", { exact: true }).waitFor();
   const savedBuilds = page.getByRole("combobox", { name: "Saved", exact: true });
-  await savedBuilds.locator('option[value=""]').waitFor();
+  await savedBuilds.locator('option[value=""]').waitFor({ state: "attached" });
   if (await savedBuilds.inputValue() !== "") {
     throw new Error("packaged smoke preset remained selected after deletion and reload");
   }
