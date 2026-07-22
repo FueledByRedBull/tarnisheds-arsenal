@@ -2145,11 +2145,11 @@ textarea:hover {
 .result-head-full,
 .result-row-full {
   grid-template-columns:
-    34px 150px 130px 44px
-    minmax(180px, 1fr) minmax(190px, 1.1fr) 82px 68px 46px;
-  gap: 8px;
+    30px 120px 110px 38px
+    minmax(120px, 1fr) minmax(128px, 1.1fr) 66px 54px 40px;
+  gap: 7px;
   width: 100%;
-  min-width: 1100px;
+  min-width: 760px;
 }
 
 .result-head,
@@ -2208,12 +2208,12 @@ textarea:hover {
 
 .result-head-full > span:nth-child(2),
 .result-row-full > span:nth-child(2) {
-  left: 42px;
+  left: 37px;
 }
 
 .result-head-full > span:nth-child(3),
 .result-row-full > span:nth-child(3) {
-  left: 200px;
+  left: 164px;
   box-shadow: 8px 0 12px rgba(0, 0, 0, 0.22);
 }
 
@@ -2280,11 +2280,11 @@ textarea:hover {
 }
 
 .scaling-token-grid {
-  grid-template-columns: repeat(5, minmax(30px, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .status-token-grid {
-  grid-template-columns: repeat(4, minmax(34px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .metric-token {
@@ -2710,20 +2710,20 @@ textarea:hover {
   .result-head-full,
   .result-row-full {
     grid-template-columns:
-      30px 120px 105px 40px
-      minmax(160px, 1fr) minmax(175px, 1.1fr) 70px 60px 42px;
+      28px 95px 82px 32px
+      minmax(102px, 1fr) minmax(110px, 1.1fr) 54px 44px 34px;
     gap: 7px;
-    min-width: 920px;
+    min-width: 640px;
   }
 
   .result-head-full > span:nth-child(2),
   .result-row-full > span:nth-child(2) {
-    left: 37px;
+    left: 35px;
   }
 
   .result-head-full > span:nth-child(3),
   .result-row-full > span:nth-child(3) {
-    left: 164px;
+    left: 137px;
   }
 }
 
