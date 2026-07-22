@@ -66,8 +66,13 @@ try {
   await page.getByRole("button", { name: "Confirm Delete", exact: true }).click();
   await page.getByText(`Deleted ${presetName}.`, { exact: true }).waitFor();
   await page.reload();
-  await page.getByRole("combobox", { name: "Saved", exact: true }).selectOption("");
-  if (await page.getByRole("combobox", { name: "Saved", exact: true }).locator(`option:has-text("${presetName}")`).count()) {
+  await page.getByText("Full model ready", { exact: true }).waitFor();
+  const savedBuilds = page.getByRole("combobox", { name: "Saved", exact: true });
+  await savedBuilds.locator('option[value=""]').waitFor();
+  if (await savedBuilds.inputValue() !== "") {
+    throw new Error("packaged smoke preset remained selected after deletion and reload");
+  }
+  if (await savedBuilds.locator(`option:has-text("${presetName}")`).count()) {
     throw new Error("packaged smoke preset survived explicit cleanup");
   }
 
