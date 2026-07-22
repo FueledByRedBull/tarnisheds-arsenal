@@ -15,6 +15,7 @@ Use that index for per-version notes and GitHub release links.
   status families across Rankings, Compare, and Build Detail.
 - Show Physical, Magic, Fire, Lightning, and Holy AR components in ranking rows,
   and center/wrap every ranking header for clear alignment at narrow widths.
+- Retry native release bundling after transient packaging-tool download failures.
 - Carry Sleep, Madness, and Death Blight through Rust, Python, desktop DTOs, saved
   build migration, mock data, and CSV exports.
 - Reuse effective scaling already present on solved rows instead of issuing a

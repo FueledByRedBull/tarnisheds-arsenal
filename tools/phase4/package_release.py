@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 
@@ -25,6 +26,31 @@ def python_cmd() -> str:
 
 def run(cmd: list[str], cwd: Path, *, env: dict[str, str] | None = None) -> None:
     subprocess.run(cmd, cwd=cwd, check=True, env=env)
+
+
+def run_with_retries(
+    cmd: list[str],
+    cwd: Path,
+    *,
+    attempts: int,
+    delay_seconds: float,
+    env: dict[str, str] | None = None,
+) -> None:
+    if attempts < 1:
+        raise ValueError("attempts must be at least 1")
+    for attempt in range(1, attempts + 1):
+        try:
+            run(cmd, cwd=cwd, env=env)
+            return
+        except subprocess.CalledProcessError:
+            if attempt == attempts:
+                raise
+            delay = delay_seconds * attempt
+            print(
+                f"Command failed on attempt {attempt}/{attempts}; retrying in {delay:g}s",
+                flush=True,
+            )
+            time.sleep(delay)
 
 
 def write_text(path: Path, text: str) -> None:
@@ -442,7 +468,12 @@ def main() -> int:
     require_unchanged_tracked_source(root, source_commit, stage="frontend tests")
     run([npm_cmd(), "run", "test:e2e"], cwd=app_dir)
     require_unchanged_tracked_source(root, source_commit, stage="frontend E2E tests")
-    run([npm_cmd(), "run", "tauri", "--", "build", "--", "--locked"], cwd=app_dir)
+    run_with_retries(
+        [npm_cmd(), "run", "tauri", "--", "build", "--", "--locked"],
+        cwd=app_dir,
+        attempts=3,
+        delay_seconds=5,
+    )
     require_unchanged_tracked_source(root, source_commit, stage="Tauri build")
     packaged_exe, packaged_msi, code_signed = sign_release_binaries_if_configured(
         app_dir,
