@@ -10,7 +10,9 @@ test("profile switch isolates results and explains Convergence coverage", async 
   await profiles.getByRole("radio", { name: /Convergence/ }).click();
   await expect(profiles.getByRole("radio", { name: /Convergence/ })).toHaveAttribute("aria-checked", "true");
   await expect(page.getByText("Weapon model ready", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Convergence AoW hit and route damage stays disabled/)).toBeVisible();
+  await expect(
+    page.getByText(/Ammo weapons and AoW hit\/route damage stay disabled/),
+  ).toBeVisible();
   await expect(page.getByText("4 ranked rows")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "AoW First Hit" })).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => localStorage.getItem("tarnisheds-arsenal.gameProfile.v1"))).toBe("convergence");
