@@ -60,6 +60,9 @@ impl CatalogIndex {
         }
 
         for weapon in &data.weapons {
+            if !data.weapon_ar_supported(weapon) {
+                continue;
+            }
             let weapon_key = index_key(&weapon.name);
             let affinity_key = index_key(&weapon.affinity);
             let weapon_affinity_key = (weapon_key.clone(), affinity_key.clone());
@@ -219,7 +222,7 @@ pub fn get_catalog(profile_id: String, state: State<'_, AppState>) -> Result<Cat
     let data = &profile.data;
     let index = &profile.catalog_index;
     Ok(CatalogDto {
-        weapon_count: data.weapons.len(),
+        weapon_count: index.weapon_names.len(),
         aow_count: data.aows.len(),
         weapon_names: index.weapon_names.clone(),
         weapon_type_keys: index.weapon_type_keys.clone(),

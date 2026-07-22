@@ -363,12 +363,13 @@ pub fn calculate_aow_routes(
     for row in attack_rows.iter().filter(|row| !row.is_lacking_fp) {
         let effects = data.aow_effects(row.aow_id, row.sheet_row).to_vec();
         let has_route_effect = effects.iter().any(|effect| {
-            matches!(
-                effect.role,
-                AowEffectRole::PerHitStatus
-                    | AowEffectRole::PerHitAttackPower
-                    | AowEffectRole::ReplacementOrChained
-            )
+            effect.is_supported
+                && matches!(
+                    effect.role,
+                    AowEffectRole::PerHitStatus
+                        | AowEffectRole::PerHitAttackPower
+                        | AowEffectRole::ReplacementOrChained
+                )
         });
         let assignments = data.aow_route_assignments(row.aow_id, row.sheet_row);
         if assignments.is_empty() {
@@ -1450,6 +1451,43 @@ mod tests {
             row.resolved_physical_attribute(dagger),
             crate::model::PhysicalAttackAttribute::Pierce
         );
+    }
+
+    #[test]
+    fn unsupported_non_damaging_effect_does_not_require_a_route_assignment() {
+        let data_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("data")
+            .join("phase1");
+        let game_data = load_game_data(data_path).unwrap();
+        let weapon = find_weapon(&game_data, "Commander's Standard", "Standard");
+        let rows = game_data
+            .native_skill_attack_rows(weapon.weapon_id)
+            .iter()
+            .collect::<Vec<_>>();
+        let stats = Stats {
+            vig: 12,
+            mnd: 11,
+            end: 13,
+            str: 24,
+            dex: 14,
+            int: 9,
+            fai: 8,
+            arc: 8,
+        };
+
+        let routes = calculate_aow_routes(
+            weapon,
+            &rows,
+            10,
+            &stats,
+            effective_str(stats.str, true, weapon.disable_two_hand_bonus),
+            &game_data,
+        )
+        .unwrap();
+
+        assert!(routes.is_empty());
     }
 
     #[test]

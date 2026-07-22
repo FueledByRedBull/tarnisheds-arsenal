@@ -49,9 +49,9 @@ Runtime data is committed as separate manifest-bound Vanilla (`data/phase1`) and
 Convergence (`data/profiles/convergence`) snapshots generated from local game/mod
 data. Every runtime file is size/hash checked and each profile loads all-or-nothing.
 The manifest exposes profile-specific capabilities: Vanilla includes the full AoW
-attack/route model, while Convergence currently exposes weapon AR, affinities,
-compatibility, and passive status data but explicitly disables unsupported AoW hit
-and route damage. Profile rules also define reinforcement caps, whether Standard
+attack/route model, while Convergence currently exposes melee weapon AR, affinities,
+compatibility, and passive status data but explicitly excludes ammunition weapons
+and disables unsupported AoW hit/route damage. Profile rules also define reinforcement caps, whether Standard
 and Somber paths are separate, Scadutree availability, attack-element fallback
 semantics, status-scaling behavior, and extended scaling grades. Runtime commands,
 jobs, caches, presets, and exports carry an explicit profile identity and cannot
@@ -81,9 +81,11 @@ metric.
 
 ## Optimization Core
 
-The Rust core narrows stat enumeration per weapon, affinity, Ash of War, and
-objective. It only varies combat stats that can affect the selected metric,
-folds requirements into the minimum stat floors, and fills inactive stats only
+The Rust core narrows stat work per weapon, affinity, Ash of War, and objective.
+Max AR and Max Physical AR use an exact dynamic program over relevant stats, then
+evaluate constant AoW buffs once per solved weapon/upgrade allocation. Other
+objectives enumerate only combat stats that can affect their selected metric.
+Requirements are folded into minimum floors, and inactive stats are filled only
 when the session level budget cannot otherwise be consumed.
 
 Medium and broad searches use Rayon when the estimated combination count and

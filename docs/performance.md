@@ -38,6 +38,11 @@ python tools/phase4/benchmark_optimizer_phases.py --warmups 1 --repeats 5 --outp
 
 The release-mode harness measures cold request preparation, candidate scoring/top-k retention, and final result materialization independently for all five objectives. It records per-phase samples and medians, result counts, search-space size, build profile, Rayon thread count, dataset/model versions, commit, CPU, Rust version, and platform. Compare against a reviewed report with `--baseline`; comparisons report regressions but remain advisory unless a stable dedicated runner explicitly uses `--fail-on-regression`.
 
+The phase suite includes both low-level and high-level open Max AR searches. AR
+scoring uses an exact relevant-stat dynamic program and has a direct regression
+against exhaustive enumeration. Reports retain the equivalent exhaustive
+combination count so historical search-space comparisons remain meaningful.
+
 ## Review policy
 
 - Compare medians, never a single sample.

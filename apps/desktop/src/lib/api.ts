@@ -123,10 +123,13 @@ function previewBuild(
   return {
     weaponId,
     weaponName,
+    weaponTypeName: "Preview weapon",
     affinity,
     isSomber: options.isSomber ?? false,
     upgrade: options.upgrade ?? 25,
     stats,
+    requirements: { strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 },
+    effectiveScaling: { str: 0, dex: 0, int: 0, fai: 0, arc: 0 },
     ar: { physical: physicalAr, magic: 0, fire: 0, lightning: 0, holy: 0, total: physicalAr },
     aowId: options.aowId ?? 1,
     aowName: options.aowName === undefined ? "Seppuku" : options.aowName,

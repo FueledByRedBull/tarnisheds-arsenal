@@ -1,4 +1,5 @@
 import { SolvedBuildDto } from "./types";
+import { scalingLetter } from "./session";
 
 export interface RankingsExportMetadata {
   profileId: string;
@@ -8,20 +9,41 @@ export interface RankingsExportMetadata {
   modelVersion: string;
   objective: string;
   assumptions: string;
+  separateUpgradeCaps?: boolean;
+  aowModelSupported?: boolean;
+  extendedScalingGrades?: boolean;
 }
 
 type CsvColumn = {
   header: string;
-  value: (row: SolvedBuildDto, index: number) => string | number | boolean | null;
+  value: (row: SolvedBuildDto, index: number, metadata: RankingsExportMetadata) => string | number | boolean | null;
 };
 
 const CSV_COLUMNS: CsvColumn[] = [
   { header: "rank", value: (_row, index) => index + 1 },
+  { header: "weapon_id", value: (row) => row.weaponId },
   { header: "weapon", value: (row) => row.weaponName },
+  { header: "weapon_type", value: (row) => row.weaponTypeName ?? null },
   { header: "affinity", value: (row) => row.affinity },
   { header: "aow", value: (row) => row.aowName ?? "Native" },
   { header: "upgrade", value: (row) => row.upgrade },
-  { header: "is_somber", value: (row) => row.isSomber },
+  { header: "upgrade_path", value: (row, _index, metadata) => metadata.separateUpgradeCaps === false ? "unified" : row.isSomber ? "somber" : "standard" },
+  { header: "is_somber", value: (row, _index, metadata) => metadata.separateUpgradeCaps === false ? null : row.isSomber },
+  { header: "req_str", value: (row) => row.requirements?.strStat ?? null },
+  { header: "req_dex", value: (row) => row.requirements?.dex ?? null },
+  { header: "req_int", value: (row) => row.requirements?.intStat ?? null },
+  { header: "req_fai", value: (row) => row.requirements?.fai ?? null },
+  { header: "req_arc", value: (row) => row.requirements?.arc ?? null },
+  { header: "scaling_str", value: (row) => row.effectiveScaling?.str ?? null },
+  { header: "scaling_dex", value: (row) => row.effectiveScaling?.dex ?? null },
+  { header: "scaling_int", value: (row) => row.effectiveScaling?.int ?? null },
+  { header: "scaling_fai", value: (row) => row.effectiveScaling?.fai ?? null },
+  { header: "scaling_arc", value: (row) => row.effectiveScaling?.arc ?? null },
+  { header: "grade_str", value: (row, _index, metadata) => row.effectiveScaling ? scalingLetter(row.effectiveScaling.str, metadata.extendedScalingGrades) : null },
+  { header: "grade_dex", value: (row, _index, metadata) => row.effectiveScaling ? scalingLetter(row.effectiveScaling.dex, metadata.extendedScalingGrades) : null },
+  { header: "grade_int", value: (row, _index, metadata) => row.effectiveScaling ? scalingLetter(row.effectiveScaling.int, metadata.extendedScalingGrades) : null },
+  { header: "grade_fai", value: (row, _index, metadata) => row.effectiveScaling ? scalingLetter(row.effectiveScaling.fai, metadata.extendedScalingGrades) : null },
+  { header: "grade_arc", value: (row, _index, metadata) => row.effectiveScaling ? scalingLetter(row.effectiveScaling.arc, metadata.extendedScalingGrades) : null },
   { header: "str", value: (row) => row.stats.strStat },
   { header: "dex", value: (row) => row.stats.dex },
   { header: "int", value: (row) => row.stats.intStat },
@@ -38,8 +60,8 @@ const CSV_COLUMNS: CsvColumn[] = [
   { header: "frost", value: (row) => row.frostBuildup },
   { header: "poison", value: (row) => row.poisonBuildup },
   { header: "scarlet_rot", value: (row) => row.scarletRotBuildup },
-  { header: "aow_first_hit", value: (row) => row.aowFirstHitDamage },
-  { header: "aow_full_sequence", value: (row) => row.aowFullSequenceDamage },
+  { header: "aow_first_hit", value: (row, _index, metadata) => metadata.aowModelSupported === false ? null : row.aowFirstHitDamage },
+  { header: "aow_full_sequence", value: (row, _index, metadata) => metadata.aowModelSupported === false ? null : row.aowFullSequenceDamage },
   { header: "aow_route_id", value: (row) => row.aowRoute?.routeId ?? null },
   { header: "aow_route", value: (row) => row.aowRoute?.routeLabel ?? null },
   { header: "aow_stamina", value: (row) => row.aowRoute?.totalStaminaCost ?? null },
@@ -65,7 +87,7 @@ export function rankingsToCsv(rows: SolvedBuildDto[], metadata: RankingsExportMe
   const lines = [
     [...metadataHeaders, ...csvHeaders].join(","),
     ...rows.map((row, index) =>
-      [...metadataCells.map(csvCell), ...CSV_COLUMNS.map((column) => csvCell(column.value(row, index)))].join(","),
+      [...metadataCells.map(csvCell), ...CSV_COLUMNS.map((column) => csvCell(column.value(row, index, metadata)))].join(","),
     ),
   ];
   return `${lines.join("\r\n")}\r\n`;

@@ -399,13 +399,29 @@ fn build_prepared_plan<'a>(
     let mut combinations = 0_u64;
 
     for (prepared_idx, prepared) in weapons.iter().enumerate() {
+        let shared_ar_search = if matches!(
+            request.objective,
+            OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr
+        ) {
+            prepared.aow_choices.first().and_then(|choice| {
+                relevant_stat_search(request, data, constraints, prepared, choice)
+            })
+        } else {
+            None
+        };
         for (aow_idx, aow_choice) in prepared.aow_choices.iter().enumerate() {
             if !should_continue() {
                 return Err("cancelled".to_string());
             }
-            let Some(search) =
+            let search = if matches!(
+                request.objective,
+                OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr
+            ) {
+                shared_ar_search
+            } else {
                 relevant_stat_search(request, data, constraints, prepared, aow_choice)
-            else {
+            };
+            let Some(search) = search else {
                 continue;
             };
             stat_candidates = stat_candidates.saturating_add(search.candidate_count);
@@ -831,6 +847,24 @@ fn search_work_unit<P>(
 where
     P: SearchProgress,
 {
+    if matches!(
+        plan.request.objective,
+        OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr
+    ) {
+        return search_ar_work_unit(plan, unit, group_mode, progress);
+    }
+    search_work_unit_exhaustive(plan, unit, group_mode, progress)
+}
+
+fn search_work_unit_exhaustive<P>(
+    plan: &PreparedSearchPlan<'_>,
+    unit: SearchWorkUnit,
+    group_mode: ResultGroupMode,
+    progress: &mut P,
+) -> Result<Vec<ScoredCandidate>, String>
+where
+    P: SearchProgress,
+{
     let request = &plan.request;
     let group = &plan.groups[unit.group_idx];
     let prepared = &plan.weapons[group.prepared_idx];
@@ -972,6 +1006,215 @@ where
     progress.finish()?;
 
     Ok(candidates)
+}
+
+fn search_ar_work_unit<P>(
+    plan: &PreparedSearchPlan<'_>,
+    unit: SearchWorkUnit,
+    group_mode: ResultGroupMode,
+    progress: &mut P,
+) -> Result<Vec<ScoredCandidate>, String>
+where
+    P: SearchProgress,
+{
+    let request = &plan.request;
+    let group = &plan.groups[unit.group_idx];
+    let prepared = &plan.weapons[group.prepared_idx];
+    let aow_indices = &group.aow_indices[unit.aow_start..unit.aow_end];
+    let mut candidates = Vec::with_capacity(request.top_k.min(aow_indices.len()));
+    let damage_multiplier = request.damage_multiplier();
+
+    for upgrade in &prepared.upgrades {
+        if progress.is_cancelled() {
+            return Err("cancelled".to_string());
+        }
+        let combat = best_ar_combat_stats(
+            &group.search,
+            request,
+            prepared,
+            *upgrade,
+            plan.data,
+            progress,
+        )?;
+        let mut stats = request.current_stats;
+        stats.str = combat[STAT_STR];
+        stats.dex = combat[STAT_DEX];
+        stats.int = combat[STAT_INT];
+        stats.fai = combat[STAT_FAI];
+        stats.arc = combat[STAT_ARC];
+        let effective_str_value = effective_str(
+            stats.str,
+            request.two_handing,
+            prepared.weapon.disable_two_hand_bonus,
+        );
+        let base_metric = calculate_base_weapon_metric(
+            request.objective,
+            prepared,
+            *upgrade,
+            &stats,
+            effective_str_value,
+            plan.data,
+        )?;
+        for aow_idx in aow_indices {
+            let aow_choice = &prepared.aow_choices[*aow_idx];
+            let metric = score_candidate(
+                request.objective,
+                prepared,
+                aow_choice,
+                *upgrade,
+                &stats,
+                effective_str_value,
+                damage_multiplier,
+                base_metric,
+                plan.data,
+            )?;
+            progress.advance(
+                group.search.candidate_count,
+                group.search.candidate_count,
+                Some(metric.score),
+            )?;
+            let candidate = ScoredCandidate {
+                prepared_idx: group.prepared_idx,
+                aow_idx: *aow_idx,
+                upgrade: *upgrade,
+                stats,
+                metric,
+            };
+            if could_enter_scored_top_k(
+                &candidates,
+                &candidate,
+                &plan.weapons,
+                request.top_k,
+                group_mode,
+            ) {
+                push_scored_top_k(
+                    &mut candidates,
+                    candidate,
+                    request,
+                    plan.data,
+                    &plan.weapons,
+                    group_mode,
+                    request.top_k,
+                )?;
+            }
+        }
+    }
+    progress.finish()?;
+    Ok(candidates)
+}
+
+#[derive(Clone, Copy)]
+struct ArAllocation {
+    primary: f32,
+    total: f32,
+    combat: [u8; COMBAT_STAT_COUNT],
+}
+
+fn best_ar_combat_stats<P>(
+    search: &RelevantStatSearch,
+    request: &OptimizeRequest,
+    prepared: &PreparedWeapon<'_>,
+    upgrade: u8,
+    data: &GameData,
+    progress: &P,
+) -> Result<[u8; COMBAT_STAT_COUNT], String>
+where
+    P: SearchProgress,
+{
+    let mut base_combat = search.mins;
+    fill_inactive_stats(search, &mut base_combat, search.required_inactive_fill());
+    let base_ar = ar_for_combat(base_combat, request, prepared, upgrade, data)?;
+    let target_spend = search
+        .remaining_free
+        .saturating_sub(search.required_inactive_fill());
+    let mut allocations = vec![None; usize::from(target_spend) + 1];
+    allocations[0] = Some(ArAllocation {
+        primary: ar_primary(request.objective, base_ar),
+        total: base_ar.total(),
+        combat: base_combat,
+    });
+
+    for stat_idx in 0..COMBAT_STAT_COUNT {
+        if !search.active[stat_idx] {
+            continue;
+        }
+        if progress.is_cancelled() {
+            return Err("cancelled".to_string());
+        }
+        let cap = u16::from(search.maxs[stat_idx] - search.mins[stat_idx]).min(target_spend);
+        let mut stat_values = Vec::with_capacity(usize::from(cap) + 1);
+        for add in 0..=cap {
+            let mut combat = base_combat;
+            combat[stat_idx] = search.mins[stat_idx] + add as u8;
+            let ar = ar_for_combat(combat, request, prepared, upgrade, data)?;
+            stat_values.push((
+                ar_primary(request.objective, ar) - ar_primary(request.objective, base_ar),
+                ar.total() - base_ar.total(),
+            ));
+        }
+
+        let mut next = vec![None; allocations.len()];
+        for (spent, entry) in allocations.iter().enumerate() {
+            let Some(entry) = entry else { continue };
+            let remaining = usize::from(target_spend).saturating_sub(spent);
+            for add in 0..=usize::from(cap).min(remaining) {
+                let mut candidate = *entry;
+                candidate.primary = entry.primary + stat_values[add].0;
+                candidate.total = entry.total + stat_values[add].1;
+                candidate.combat[stat_idx] = search.mins[stat_idx] + add as u8;
+                let destination = &mut next[spent + add];
+                if destination.is_none_or(|current| better_ar_allocation(candidate, current)) {
+                    *destination = Some(candidate);
+                }
+            }
+        }
+        allocations = next;
+    }
+
+    allocations[usize::from(target_spend)]
+        .map(|allocation| allocation.combat)
+        .ok_or_else(|| "AR stat optimizer could not satisfy the stat budget".to_string())
+}
+
+fn ar_for_combat(
+    combat: [u8; COMBAT_STAT_COUNT],
+    request: &OptimizeRequest,
+    prepared: &PreparedWeapon<'_>,
+    upgrade: u8,
+    data: &GameData,
+) -> Result<DamageBreakdown, String> {
+    let mut stats = request.current_stats;
+    stats.str = combat[STAT_STR];
+    stats.dex = combat[STAT_DEX];
+    stats.int = combat[STAT_INT];
+    stats.fai = combat[STAT_FAI];
+    stats.arc = combat[STAT_ARC];
+    calculate_ar(
+        prepared.weapon,
+        upgrade,
+        &stats,
+        effective_str(
+            stats.str,
+            request.two_handing,
+            prepared.weapon.disable_two_hand_bonus,
+        ),
+        data,
+    )
+}
+
+fn ar_primary(objective: OptimizeObjective, ar: DamageBreakdown) -> f32 {
+    match objective {
+        OptimizeObjective::MaxPhysicalAr => ar.physical,
+        _ => ar.total(),
+    }
+}
+
+fn better_ar_allocation(candidate: ArAllocation, current: ArAllocation) -> bool {
+    candidate.primary > current.primary
+        || candidate.primary == current.primary && candidate.total > current.total
+        || candidate.primary == current.primary
+            && candidate.total == current.total
+            && candidate.combat < current.combat
 }
 
 fn materialize_scored_candidates(
@@ -1214,14 +1457,27 @@ fn materialize_scored_candidate(
         damage_multiplier,
         data,
     )?;
+    let reinforce = data
+        .reinforce_level(prepared.weapon.reinforce_type, candidate.upgrade)
+        .ok_or_else(|| {
+            format!(
+                "missing reinforce row type={} level={}",
+                prepared.weapon.reinforce_type, candidate.upgrade
+            )
+        })?;
 
     Ok(OptimizeResult {
         weapon_id: prepared.weapon.weapon_id,
         weapon_name: prepared.weapon.name.clone(),
+        weapon_type_name: prepared.weapon.weapon_type_name.clone(),
         affinity: prepared.weapon.affinity.clone(),
         is_somber: prepared.weapon.is_somber,
         upgrade: candidate.upgrade,
         stats: candidate.stats,
+        requirements: prepared.weapon.requirements,
+        effective_scaling: std::array::from_fn(|idx| {
+            prepared.weapon.scaling[idx] * reinforce.scaling_mult[idx]
+        }),
         ar: ar.expect("complete candidate metric must include AR"),
         aow_id: aow_choice.skill_id,
         aow_name: aow_choice.skill_name.map(str::to_string),
@@ -1696,7 +1952,7 @@ fn prepare_weapons_with_cancel<'a>(
         if !should_continue() {
             return Err("cancelled".to_string());
         }
-        if !weapon_matches_request(weapon, request) {
+        if !data.weapon_ar_supported(weapon) || !weapon_matches_request(weapon, request) {
             continue;
         }
         if !weapon_requirements_can_fit(request, constraints, weapon) {

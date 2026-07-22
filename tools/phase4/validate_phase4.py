@@ -520,18 +520,25 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
     excluded_attack_keys = {
         (int(row["aow_id"]), int(row["sheet_row"])) for row in aow_route_exclusions
     }
+    supported_route_effect_keys = {
+        (int(row["aow_id"]), int(row["sheet_row"]))
+        for row in aow_effect_data
+        if row.get("is_supported") == "1"
+        and row.get("role")
+        in {"per_hit_status", "per_hit_attack_power", "replacement_or_chained"}
+    }
     missing_route_assignments = sorted(
         key
         for key, row in source_attack_rows.items()
         if row.get("is_lacking_fp") == "0"
-        and row.get("is_damaging") == "1"
+        and (row.get("is_damaging") == "1" or key in supported_route_effect_keys)
         and key not in assigned_attack_keys
     )
     if missing_route_assignments:
         issues.append(
             ValidationIssue(
                 "error",
-                f"damaging full-FP attack rows lack route assignments: {missing_route_assignments[:10]}",
+                f"damaging/effect-bearing full-FP attack rows lack route assignments: {missing_route_assignments[:10]}",
             )
         )
     undocumented_lacking_fp = sorted(

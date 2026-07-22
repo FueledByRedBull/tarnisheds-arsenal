@@ -1,9 +1,9 @@
 import { chromium } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { createServer } from "node:net";
-import { tmpdir } from "node:os";
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 
 const executable = process.argv[2];
@@ -62,6 +62,14 @@ try {
   await page.getByRole("button", { name: "Load", exact: true }).click();
   await page.getByText(`Loaded ${presetName}.`, { exact: true }).waitFor();
   await page.locator(".selected-build strong").getByText(selectedWeapon, { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await page.getByRole("button", { name: "Confirm Delete", exact: true }).click();
+  await page.getByText(`Deleted ${presetName}.`, { exact: true }).waitFor();
+  await page.reload();
+  await page.getByRole("combobox", { name: "Saved", exact: true }).selectOption("");
+  if (await page.getByRole("combobox", { name: "Saved", exact: true }).locator(`option:has-text("${presetName}")`).count()) {
+    throw new Error("packaged smoke preset survived explicit cleanup");
+  }
 
   process.stdout.write(`PACKAGED_SMOKE_PASSED ${JSON.stringify({ selectedWeapon, presetName })}\n`);
 } catch (error) {
@@ -75,17 +83,20 @@ try {
 async function launchPackagedApp(executablePath, attempts, timeoutMs, cooldownMs) {
   const failures = [];
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    const profileDirectory = await mkdtemp(join(tmpdir(), "tarnisheds-arsenal-smoke-"));
+    const localAppData = process.env.LOCALAPPDATA;
+    if (!localAppData) throw new Error("LOCALAPPDATA is required for packaged smoke isolation");
+    const profileToken = `tarnisheds-arsenal-smoke-${randomUUID()}`;
+    const profileDirectory = join(localAppData, "main", profileToken);
     const port = await reserveLoopbackPort();
     const endpoint = `http://127.0.0.1:${port}`;
     let output = "";
     let exit = null;
     let browser;
-    const child = spawn(executablePath, [`--packaged-smoke-port=${port}`], {
-      env: {
-        ...process.env,
-        WEBVIEW2_USER_DATA_FOLDER: profileDirectory,
-      },
+    const child = spawn(executablePath, [
+      `--packaged-smoke-port=${port}`,
+      `--packaged-smoke-profile=${profileToken}`,
+    ], {
+      env: process.env,
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
     });

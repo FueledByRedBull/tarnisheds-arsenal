@@ -6,10 +6,13 @@ import type { SolvedBuildDto } from "./types";
 const row: SolvedBuildDto = {
   weaponId: 100,
   weaponName: "Uchigatana",
+  weaponTypeName: "Katana",
   affinity: "Blood",
   isSomber: false,
   upgrade: 25,
   stats: { strStat: 12, dex: 40, intStat: 9, fai: 8, arc: 45 },
+  requirements: { strStat: 11, dex: 15, intStat: 0, fai: 0, arc: 0 },
+  effectiveScaling: { str: 0.4, dex: 2.25, int: 0, fai: 0, arc: 1.1 },
   ar: { physical: 500, magic: 0, fire: 0, lightning: 0, holy: 0, total: 500 },
   aowId: 1,
   aowName: "Seppuku",
@@ -34,6 +37,9 @@ describe("rankings CSV model provenance", () => {
       modelVersion: "aow-routes-v2",
       objective: "max_ar_plus_bleed",
       assumptions: "raw values; enemy defense and negation not applied; resistance growth and proc damage excluded; temporary buff stacking not universal",
+      separateUpgradeCaps: false,
+      aowModelSupported: false,
+      extendedScalingGrades: true,
     });
 
     const [headers, values] = csv.trim().split("\r\n");
@@ -42,5 +48,11 @@ describe("rankings CSV model provenance", () => {
     expect(values).toContain("enemy defense and negation not applied");
     expect(values).toContain("resistance growth and proc damage excluded");
     expect(values).toContain("temporary buff stacking not universal");
+    expect(headers).toContain("weapon_id,weapon,weapon_type");
+    expect(headers).toContain("upgrade_path,is_somber");
+    expect(headers).toContain("grade_str,grade_dex,grade_int,grade_fai,grade_arc");
+    expect(values).toContain("100,Uchigatana,Katana");
+    expect(values).toContain("unified,,11,15,0,0,0");
+    expect(values).toContain("D,S++,-,-,B");
   });
 });

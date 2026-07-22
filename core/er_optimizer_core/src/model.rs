@@ -513,6 +513,10 @@ pub struct GameData {
 }
 
 impl GameData {
+    pub fn weapon_ar_supported(&self, weapon: &Weapon) -> bool {
+        self.profile_id != "convergence" || !weapon_uses_ammunition(weapon)
+    }
+
     pub fn aow_effects(&self, aow_id: u16, sheet_row: u16) -> &[AowEffect] {
         self.aow_effects
             .get(&(aow_id, sheet_row))
@@ -623,4 +627,19 @@ impl GameData {
         }
         Some(self.exact_aow_compat.contains(&(aow_id, weapon_id)))
     }
+}
+
+pub fn weapon_uses_ammunition(weapon: &Weapon) -> bool {
+    matches!(
+        normalize_weapon_type_token(&weapon.weapon_type_name).as_str(),
+        "lightbow" | "bow" | "greatbow" | "crossbow" | "ballista"
+    )
+}
+
+fn normalize_weapon_type_token(value: &str) -> String {
+    value
+        .chars()
+        .filter(|character| character.is_ascii_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
 }

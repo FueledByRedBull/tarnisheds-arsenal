@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::errors::AppError;
 
-pub const MAX_TOP_K: usize = 500;
+pub const MAX_TOP_K: usize = 2_000;
 pub const MAX_LEVELS_AHEAD: u16 = 200;
 pub const MAX_PATH_BATCH: usize = 2;
 
@@ -127,10 +127,13 @@ pub struct SearchEstimateDto {
 pub struct SolvedBuildDto {
     pub weapon_id: u32,
     pub weapon_name: String,
+    pub weapon_type_name: String,
     pub affinity: String,
     pub is_somber: bool,
     pub upgrade: u8,
     pub stats: CombatStateDto,
+    pub requirements: CombatStateDto,
+    pub effective_scaling: ScalingDto,
     pub ar: DamageBreakdownDto,
     pub aow_id: Option<u16>,
     pub aow_name: Option<String>,
@@ -746,6 +749,7 @@ impl From<OptimizeResult> for SolvedBuildDto {
         Self {
             weapon_id: value.weapon_id,
             weapon_name: value.weapon_name,
+            weapon_type_name: value.weapon_type_name,
             affinity: value.affinity,
             is_somber: value.is_somber,
             upgrade: value.upgrade,
@@ -755,6 +759,20 @@ impl From<OptimizeResult> for SolvedBuildDto {
                 int_stat: value.stats.int,
                 fai: value.stats.fai,
                 arc: value.stats.arc,
+            },
+            requirements: CombatStateDto {
+                str_stat: value.requirements[0],
+                dex: value.requirements[1],
+                int_stat: value.requirements[2],
+                fai: value.requirements[3],
+                arc: value.requirements[4],
+            },
+            effective_scaling: ScalingDto {
+                str: value.effective_scaling[0],
+                dex: value.effective_scaling[1],
+                int: value.effective_scaling[2],
+                fai: value.effective_scaling[3],
+                arc: value.effective_scaling[4],
             },
             ar: value.ar.into(),
             aow_id: value.aow_id,
@@ -858,6 +876,15 @@ pub fn set_min_combat_stats(request: &mut OptimizeRequestDto, mins: [u8; COMBAT_
 mod tests {
     use super::*;
     use serde_json::{Value, json};
+
+    #[test]
+    fn export_sized_top_k_limit_is_explicitly_bounded() {
+        let mut request = crate::test_optimize_request();
+        request.top_k = MAX_TOP_K;
+        validate_optimize_request(&request).expect("maximum export row count");
+        request.top_k += 1;
+        assert!(validate_optimize_request(&request).is_err());
+    }
 
     #[test]
     fn representative_catalog_uses_app_contract_keys() {
@@ -968,7 +995,13 @@ mod tests {
         assert_has_path(&value, &["progress", "bestScore"]);
         assert_has_path(&value, &["progress", "elapsedMs"]);
         assert_has_path(&value, &["finished", "rows", "0", "weaponName"]);
+        assert_has_path(&value, &["finished", "rows", "0", "weaponTypeName"]);
         assert_has_path(&value, &["finished", "rows", "0", "stats", "strStat"]);
+        assert_has_path(&value, &["finished", "rows", "0", "requirements", "dex"]);
+        assert_has_path(
+            &value,
+            &["finished", "rows", "0", "effectiveScaling", "arc"],
+        );
         assert_has_path(&value, &["finished", "rows", "0", "aowFirstHitDamage"]);
         assert_missing_path(&value, &["progress", "job_id"]);
         assert_missing_path(&value, &["finished", "rows", "0", "weapon_name"]);
@@ -1171,10 +1204,25 @@ mod tests {
         SolvedBuildDto {
             weapon_id: 100,
             weapon_name: "Uchigatana".to_string(),
+            weapon_type_name: "Katana".to_string(),
             affinity: "Blood".to_string(),
             is_somber: false,
             upgrade: 25,
             stats: combat_state(),
+            requirements: CombatStateDto {
+                str_stat: 11,
+                dex: 15,
+                int_stat: 0,
+                fai: 0,
+                arc: 0,
+            },
+            effective_scaling: ScalingDto {
+                str: 0.2,
+                dex: 0.8,
+                int: 0.0,
+                fai: 0.0,
+                arc: 0.5,
+            },
             ar: DamageBreakdownDto {
                 physical: 500.0,
                 magic: 0.0,

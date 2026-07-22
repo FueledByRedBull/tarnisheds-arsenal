@@ -142,6 +142,9 @@ fn cases() -> Vec<(&'static str, OptimizeRequest)> {
     let mut max_ar = low_level_request();
     let mut max_physical = max_ar.clone();
     max_physical.objective = OptimizeObjective::MaxPhysicalAr;
+    let mut max_ar_export = max_ar.clone();
+    max_ar_export.top_k = 500;
+    let high_level_max_ar = high_level_request();
 
     let mut bleed = max_ar.clone();
     bleed.weapon_type_key = Some("Katana".to_string());
@@ -159,6 +162,8 @@ fn cases() -> Vec<(&'static str, OptimizeRequest)> {
     vec![
         ("open-ranking-max-ar", max_ar),
         ("open-ranking-physical", max_physical),
+        ("open-ranking-max-ar-export-500", max_ar_export),
+        ("open-ranking-max-ar-high-level", high_level_max_ar),
         ("katana-bleed", bleed),
         ("fixed-aow-first-hit", first_hit),
         ("fixed-aow-full-sequence", full_sequence),

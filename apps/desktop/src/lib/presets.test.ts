@@ -74,6 +74,24 @@ describe("saved build persistence", () => {
     expect(savedBuildIndex().builds[0].profileId).toBe("convergence");
   });
 
+  it("removes legacy packaged-smoke presets leaked by older release jobs", () => {
+    const smoke = preset("smoke-id", "Packaged smoke 1784149134195");
+    localStorage.setItem("tarnisheds-arsenal.savedBuild.v1.smoke-id", JSON.stringify(smoke));
+    localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", JSON.stringify({
+      version: 1,
+      builds: [{
+        id: smoke.id,
+        name: smoke.name,
+        profileId: smoke.profileId,
+        dataVersion: smoke.dataVersion,
+        updatedAt: smoke.updatedAt,
+      }],
+    }));
+
+    expect(savedBuildIndex().builds).toEqual([]);
+    expect(localStorage.getItem("tarnisheds-arsenal.savedBuild.v1.smoke-id")).toBeNull();
+  });
+
   it("migrates legacy profile-less presets to Vanilla explicitly", () => {
     const legacy = preset();
     const raw = JSON.parse(JSON.stringify(legacy));

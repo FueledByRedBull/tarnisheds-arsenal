@@ -654,7 +654,35 @@ textarea {
 
 .result-scroll-actions {
   display: inline-flex;
+  align-items: center;
   gap: 6px;
+}
+
+.result-scroll-actions .export-limit {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+
+.result-scroll-actions .export-limit button {
+  width: auto;
+  min-width: 28px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 7px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-radius: 0;
+}
+
+.result-scroll-actions .export-limit button:last-child {
+  border-right: 0;
+}
+
+.result-scroll-actions .export-limit button.active {
+  color: var(--iron-950);
+  background: var(--gold);
 }
 
 .result-scroll-actions button {

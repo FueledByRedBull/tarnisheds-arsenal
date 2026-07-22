@@ -122,12 +122,13 @@ impl AppState {
 pub fn run() {
     let mut context = tauri::generate_context!();
     #[cfg(target_os = "windows")]
-    if let Some(port) = packaged_smoke_port(std::env::args())
+    if let Some(config) = packaged_smoke_config(std::env::args())
         .unwrap_or_else(|message| panic!("invalid packaged smoke configuration: {message}"))
     {
-        let browser_args = packaged_smoke_browser_args(port);
+        let browser_args = packaged_smoke_browser_args(config.port);
         for window in &mut context.config_mut().app.windows {
             window.additional_browser_args = Some(browser_args.clone());
+            window.data_directory = Some(config.profile_directory.clone().into());
         }
     }
 
@@ -174,24 +175,59 @@ pub fn run() {
 }
 
 #[cfg(target_os = "windows")]
-fn packaged_smoke_port(args: impl IntoIterator<Item = String>) -> Result<Option<u16>, String> {
+#[derive(Debug, PartialEq, Eq)]
+struct PackagedSmokeConfig {
+    port: u16,
+    profile_directory: String,
+}
+
+#[cfg(target_os = "windows")]
+fn packaged_smoke_config(
+    args: impl IntoIterator<Item = String>,
+) -> Result<Option<PackagedSmokeConfig>, String> {
     let mut port = None;
+    let mut profile_directory = None;
     for argument in args {
-        let Some(raw_port) = argument.strip_prefix("--packaged-smoke-port=") else {
-            continue;
-        };
-        if port.is_some() {
-            return Err("--packaged-smoke-port may only be provided once".to_string());
+        if let Some(raw_port) = argument.strip_prefix("--packaged-smoke-port=") {
+            if port.is_some() {
+                return Err("--packaged-smoke-port may only be provided once".to_string());
+            }
+            let parsed = raw_port.parse::<u16>().map_err(|_| {
+                "--packaged-smoke-port must be an integer from 1 to 65535".to_string()
+            })?;
+            if parsed == 0 {
+                return Err("--packaged-smoke-port must be an integer from 1 to 65535".to_string());
+            }
+            port = Some(parsed);
+        } else if let Some(raw_profile) = argument.strip_prefix("--packaged-smoke-profile=") {
+            if profile_directory.is_some() {
+                return Err("--packaged-smoke-profile may only be provided once".to_string());
+            }
+            if !raw_profile.starts_with("tarnisheds-arsenal-smoke-")
+                || !raw_profile
+                    .chars()
+                    .all(|ch| ch.is_ascii_alphanumeric() || ch == '-')
+            {
+                return Err(
+                    "--packaged-smoke-profile must be a safe smoke-only directory name".to_string(),
+                );
+            }
+            profile_directory = Some(raw_profile.to_string());
         }
-        let parsed = raw_port
-            .parse::<u16>()
-            .map_err(|_| "--packaged-smoke-port must be an integer from 1 to 65535".to_string())?;
-        if parsed == 0 {
-            return Err("--packaged-smoke-port must be an integer from 1 to 65535".to_string());
-        }
-        port = Some(parsed);
     }
-    Ok(port)
+    match (port, profile_directory) {
+        (None, None) => Ok(None),
+        (Some(port), Some(profile_directory)) => Ok(Some(PackagedSmokeConfig {
+            port,
+            profile_directory,
+        })),
+        (Some(_), None) => {
+            Err("--packaged-smoke-profile is required with --packaged-smoke-port".to_string())
+        }
+        (None, Some(_)) => {
+            Err("--packaged-smoke-port is required with --packaged-smoke-profile".to_string())
+        }
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -357,31 +393,52 @@ pub(crate) fn test_optimize_request() -> dto::OptimizeRequestDto {
 mod release_data_tests {
     #[cfg(target_os = "windows")]
     #[test]
-    fn packaged_smoke_port_is_explicit_and_validated() {
+    fn packaged_smoke_config_is_explicit_isolated_and_validated() {
         assert_eq!(
-            super::packaged_smoke_port(["app.exe".to_string()]).unwrap(),
+            super::packaged_smoke_config(["app.exe".to_string()]).unwrap(),
             None
         );
         assert_eq!(
-            super::packaged_smoke_port([
+            super::packaged_smoke_config([
                 "app.exe".to_string(),
                 "--packaged-smoke-port=43117".to_string(),
+                "--packaged-smoke-profile=tarnisheds-arsenal-smoke-test-123".to_string(),
             ])
             .unwrap(),
-            Some(43_117)
+            Some(super::PackagedSmokeConfig {
+                port: 43_117,
+                profile_directory: "tarnisheds-arsenal-smoke-test-123".to_string(),
+            })
         );
         assert!(
-            super::packaged_smoke_port([
+            super::packaged_smoke_config([
                 "app.exe".to_string(),
                 "--packaged-smoke-port=0".to_string(),
+                "--packaged-smoke-profile=tarnisheds-arsenal-smoke-test-123".to_string(),
             ])
             .is_err()
         );
         assert!(
-            super::packaged_smoke_port([
+            super::packaged_smoke_config([
                 "app.exe".to_string(),
                 "--packaged-smoke-port=43117".to_string(),
                 "--packaged-smoke-port=43118".to_string(),
+                "--packaged-smoke-profile=tarnisheds-arsenal-smoke-test-123".to_string(),
+            ])
+            .is_err()
+        );
+        assert!(
+            super::packaged_smoke_config([
+                "app.exe".to_string(),
+                "--packaged-smoke-port=43117".to_string(),
+            ])
+            .is_err()
+        );
+        assert!(
+            super::packaged_smoke_config([
+                "app.exe".to_string(),
+                "--packaged-smoke-port=43117".to_string(),
+                "--packaged-smoke-profile=../normal-profile".to_string(),
             ])
             .is_err()
         );

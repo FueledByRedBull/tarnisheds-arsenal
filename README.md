@@ -59,16 +59,19 @@ remain isolated by profile. The standalone app does not need an adjacent data
 directory, `regulation.bin`, workbook, FMG file, or other support files.
 Each release also publishes SHA-256 checksums and a machine-readable build report.
 
-Convergence weapon AR, status buildup, passives, affinities, and AoW compatibility
-are supported. Convergence AoW hit/route damage is intentionally disabled and
-clearly labeled until mod-specific motion and sequence data is mapped; Vanilla AoW
-data is never substituted.
+Convergence melee weapon AR, status buildup, passives, affinities, and AoW
+compatibility are supported. Ammunition weapons are excluded from Convergence
+rankings until arrow/bolt and projectile damage is modeled; this prevents their
+incomplete weapon-only values from being compared with melee AR. Convergence AoW
+hit/route damage is also intentionally disabled and clearly labeled until
+mod-specific motion and sequence data is mapped; Vanilla data is never substituted.
 
 > **Convergence profile: Beta.** The supported weapon model is extracted,
 > regression-tested, and differentially validated against the version-bound
-> Convergence 3.0.0.1 reference. It is not yet full mod parity: Ash of War hit and
-> route damage remain unavailable, and broader in-game verification is still in
-> progress. The application itself remains a normal stable `v0.9.0` release.
+> Convergence 3.0.0.1 reference. It is not yet full mod parity: ammunition weapon
+> AR and Ash of War hit/route damage remain unavailable, and broader in-game
+> verification is still in progress. The application itself remains a normal
+> stable release.
 
 Profile mechanics are enforced as data, not UI guesses. Convergence uses one
 weapon reinforcement path from +0 through +15, removes Scadutree Blessing scaling,
@@ -118,6 +121,14 @@ AR and skill values shown in Rankings and Build Detail are raw model outputs.
 Enemy defense and negation are not applied, and affected route details keep
 unsupported-effect warnings adjacent to the result.
 
+CSV export has explicit 25, 100, 500, and 2,000-row maximum controls. A
+visible result set exports immediately; repeated larger exports reuse the previous
+exact result. Files are saved by the system to the user's Downloads folder and
+include profile/model provenance, weapon ID and type, requirements, effective
+numeric scaling and displayed grades, upgrade-path semantics, stats, AR/status,
+and supported AoW route details. Unsupported model values are blank rather than
+exported as misleading zeroes.
+
 ## Search Model
 
 The optimizer can lock or open each major constraint:
@@ -148,13 +159,12 @@ the selected route's ordered actions/hits, damage, status buildup, physical hit
 attribute, buff timing, stamina, and any explicit modeling warning. Mutually
 exclusive branches are never combined into an impossible total.
 
-The Rust optimizer keeps the search exact, but it sizes and enumerates combat
-stat candidates per weapon, affinity, and Ash of War. For each loadout it only
-varies stats that can affect the selected objective, folds weapon requirements
-into the minimum stat floors first, and fills inactive stats only when the level
-budget cannot otherwise be consumed. This keeps rankings deterministic while
-making broad fixed-upgrade searches substantially smaller than a global
-five-stat grid.
+The Rust optimizer keeps the search exact. Max AR and Max Physical AR use a bounded
+dynamic program over only relevant combat stats, avoiding combinatorial five-stat
+enumeration while preserving exhaustive-search results. Other objectives enumerate
+only stats that can affect their selected metric. Weapon requirements are folded
+into minimum floors first, and inactive stats are filled deterministically only
+when the level budget cannot otherwise be consumed.
 
 ## Data
 
@@ -179,9 +189,10 @@ Included data covers:
 Each game profile is an independent versioned, checksummed snapshot. External data
 loading is all-or-nothing; a missing, modified, mixed, or unlisted file fails closed
 rather than falling back to another profile or embedded file. Vanilla provides the
-full supported AoW model. Convergence currently provides verified weapon AR,
-affinities, passive status, and AoW compatibility while clearly disabling AoW hit
-and route damage until its motion data is mapped.
+full supported AoW model. Convergence currently provides verified melee weapon AR,
+affinities, passive status, and AoW compatibility while clearly excluding
+ammunition weapon AR and disabling AoW hit/route damage until those models are
+mapped.
 
 Current boundaries:
 

@@ -135,10 +135,13 @@ export interface StartSearchResponseDto {
 export interface SolvedBuildDto {
   weaponId: number;
   weaponName: string;
+  weaponTypeName?: string;
   affinity: string;
   isSomber: boolean;
   upgrade: number;
   stats: CombatStateDto;
+  requirements?: CombatStateDto;
+  effectiveScaling?: ScalingDto;
   ar: DamageBreakdownDto;
   aowId: number | null;
   aowName: string | null;

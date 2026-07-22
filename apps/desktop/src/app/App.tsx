@@ -108,6 +108,7 @@ export function App() {
 
   const activeProfile = profiles.find((entry) => entry.profile.id === profileId) ?? null;
   const limitedAowModel = activeProfile && (!activeProfile.capabilities.aowDamage || !activeProfile.capabilities.aowRoutes);
+  const convergenceProfile = activeProfile?.profile.id === "convergence";
 
   return (
     <main className="desktop-shell" aria-busy={catalogStatus === "loading"}>
@@ -155,7 +156,7 @@ export function App() {
             <strong>{limitedAowModel ? "Weapon model ready" : "Full model ready"}</strong>
             <span>
               {limitedAowModel
-                ? "AR, status, passives, and compatibility are verified. Convergence AoW hit and route damage stays disabled until its motion data is mapped."
+                ? `${convergenceProfile ? "Melee " : ""}AR, status, passives, and compatibility are verified. ${convergenceProfile ? "Ammo weapons and " : ""}AoW hit/route damage stay disabled until their data is mapped.`
                 : "Weapon and Ash of War calculations are verified for this snapshot."}
             </span>
           </div>

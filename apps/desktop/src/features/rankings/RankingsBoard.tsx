@@ -24,8 +24,11 @@ export function RankingsBoard() {
   const setError = useDesktopStore((state) => state.setError);
   const objective = useDesktopStore((state) => state.request.objective);
   const [isExporting, setExporting] = useState(false);
+  const [exportLimit, setExportLimit] = useState<25 | 100 | 500 | 2000>(25);
+  const exportCache = useRef<{ signature: string; rows: SolvedBuildDto[] } | null>(null);
   const [scalingByRow, setScalingByRow] = useState<Record<string, ScalingDto>>({});
   const [reverseRank, setReverseRank] = useState(false);
+  const [horizontalScroll, setHorizontalScroll] = useState({ overflow: false, left: false, right: false });
   const resultBoard = useRef<HTMLDivElement>(null);
   const rankedRows = useMemo(() => {
     const entries = rows.map((row, rank) => ({ row, rank }));
@@ -78,6 +81,27 @@ export function RankingsBoard() {
     };
   }, [request.profileId, rows, setError]);
 
+  useEffect(() => {
+    const board = resultBoard.current;
+    if (!board) return;
+    const update = () => {
+      const max = Math.max(0, board.scrollWidth - board.clientWidth);
+      setHorizontalScroll({
+        overflow: max > 1,
+        left: board.scrollLeft > 1,
+        right: board.scrollLeft < max - 1,
+      });
+    };
+    update();
+    board.addEventListener("scroll", update, { passive: true });
+    const observer = new ResizeObserver(update);
+    observer.observe(board);
+    return () => {
+      board.removeEventListener("scroll", update);
+      observer.disconnect();
+    };
+  }, [rows.length]);
+
   async function lockAndRerun(row: SolvedBuildDto) {
     useRowAsLocks(row);
     await runSearchFromStore();
@@ -87,11 +111,21 @@ export function RankingsBoard() {
     setExporting(true);
     setError(null);
     try {
+      const requestedRows = exportLimit;
       const exportRequest = {
         ...buildOptimizeRequest(catalog, request, lockedStatMode),
-        topK: 500,
+        topK: requestedRows,
       };
-      const exportRows = await runSearchRequestForRows(exportRequest);
+      const signature = JSON.stringify(exportRequest);
+      let exportRows: SolvedBuildDto[];
+      if (!resultsStale && requestedRows <= rows.length) {
+        exportRows = rows.slice(0, requestedRows);
+      } else if (exportCache.current?.signature === signature) {
+        exportRows = exportCache.current.rows;
+      } else {
+        exportRows = await runSearchRequestForRows(exportRequest);
+        exportCache.current = { signature, rows: exportRows };
+      }
       if (!catalog) throw new Error("Catalog metadata is unavailable; the export was not created.");
       downloadCsv(rankingsCsvFilename(request.profileId), rankingsToCsv(exportRows, {
         profileId: request.profileId,
@@ -114,11 +148,14 @@ export function RankingsBoard() {
             : []),
           "temporary buff stacking not universal",
         ].join("; "),
+        separateUpgradeCaps,
+        aowModelSupported: catalog.dataManifest.capabilities.aowDamage && catalog.dataManifest.capabilities.aowRoutes,
+        extendedScalingGrades,
       }));
       pushNotice({
         scope: "rankings",
         tone: "success",
-        message: `Exported ${exportRows.length} ranked rows to CSV.`,
+        message: `Exported ${exportRows.length} ranked rows to your Downloads folder.`,
       });
     } catch (error) {
       setError(error instanceof Error ? error.message : String(error));
@@ -164,16 +201,35 @@ export function RankingsBoard() {
             <ArrowDownUp size={15} />
             <span className="sr-only">{reverseRank ? "Show best rank first" : "Show lowest rank first"}</span>
           </button>
-          <button type="button" title="Scroll result columns left" onClick={() => scrollResults(-1)}>
-            <ChevronLeft size={16} /><span className="sr-only">Scroll result columns left</span>
-          </button>
-          <button type="button" title="Scroll result columns right" onClick={() => scrollResults(1)}>
-            <ChevronRight size={16} /><span className="sr-only">Scroll result columns right</span>
-          </button>
+          {horizontalScroll.overflow ? (
+            <>
+              <button type="button" title="Show columns hidden to the left" disabled={!horizontalScroll.left} onClick={() => scrollResults(-1)}>
+                <ChevronLeft size={16} /><span className="sr-only">Show columns hidden to the left</span>
+              </button>
+              <button type="button" title="Show columns hidden to the right" disabled={!horizontalScroll.right} onClick={() => scrollResults(1)}>
+                <ChevronRight size={16} /><span className="sr-only">Show columns hidden to the right</span>
+              </button>
+            </>
+          ) : null}
+          <div className="export-limit" role="group" aria-label="CSV row count">
+            {([25, 100, 500, 2000] as const).map((limit) => (
+              <button
+                key={limit}
+                type="button"
+                className={exportLimit === limit ? "active" : ""}
+                aria-pressed={exportLimit === limit}
+                title={limit === 2000 ? "Export up to the 2,000-row safety limit" : `Export up to ${limit} rows`}
+                onClick={() => setExportLimit(limit)}
+                disabled={isSearching || isExporting}
+              >
+                {limit === 2000 ? "Max" : limit}
+              </button>
+            ))}
+          </div>
           <button
             className="export-csv-button"
             type="button"
-            title="Export top 500 rows to CSV"
+            title={`Export up to ${exportLimit.toLocaleString()} rows to CSV`}
             onClick={exportCsv}
             disabled={isSearching || isExporting}
           >

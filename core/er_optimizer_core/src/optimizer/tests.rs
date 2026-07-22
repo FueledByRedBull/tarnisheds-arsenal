@@ -72,6 +72,32 @@ fn convergence_profile_rules_reject_vanilla_upgrade_and_scadutree_inputs() {
 }
 
 #[test]
+fn convergence_ammunition_weapons_are_not_ranked_without_an_ammo_model() {
+    let data = load_convergence_data();
+    let ranged = data
+        .weapons
+        .iter()
+        .find(|weapon| weapon.weapon_type_name == "Greatbow")
+        .expect("Convergence greatbow");
+    let melee = data
+        .weapons
+        .iter()
+        .find(|weapon| weapon.weapon_type_name == "Twinblade")
+        .expect("Convergence twinblade");
+    assert!(!data.weapon_ar_supported(ranged));
+    assert!(data.weapon_ar_supported(melee));
+
+    let mut request = base_request();
+    request.weapon_name = Some(ranged.name.clone());
+    request.affinity = Some(ranged.affinity.clone());
+    request.standard_max_upgrade = 15;
+    request.somber_max_upgrade = 15;
+    request.exact_upgrade = true;
+    let plan = prepare_search(&request, &data).expect("supported Convergence request shape");
+    assert_eq!(plan.estimate().weapon_candidates, 0);
+}
+
+#[test]
 fn convergence_galvanic_optimizer_uses_str_dex_int_without_arcane_fill() {
     let data = load_convergence_data();
     let mut request = base_request();
@@ -91,6 +117,9 @@ fn convergence_galvanic_optimizer_uses_str_dex_int_without_arcane_fill() {
         best.ar.lightning > 280.0,
         "attribute scaling must add lightning AR"
     );
+    assert_eq!(best.weapon_type_name, "Twinblade");
+    assert!((best.effective_scaling[STAT_INT] - 2.277).abs() < 0.001);
+    assert_eq!(best.requirements, [15, 12, 35, 0, 0]);
 }
 
 #[test]
@@ -124,6 +153,7 @@ fn test_result(
     OptimizeResult {
         weapon_id,
         weapon_name: format!("Test Weapon {weapon_id}"),
+        weapon_type_name: "Test Weapon Type".to_string(),
         affinity: "Standard".to_string(),
         is_somber: false,
         upgrade,
@@ -137,6 +167,8 @@ fn test_result(
             fai: 10,
             arc: 10,
         },
+        requirements: [0; COMBAT_STAT_COUNT],
+        effective_scaling: [0.0; COMBAT_STAT_COUNT],
         ar: DamageBreakdown {
             physical: physical_ar,
             magic: 0.0,
@@ -287,6 +319,69 @@ fn optimize_returns_sorted_top_results_for_locked_weapon() {
     );
     assert!(results.iter().all(|result| result.affinity == "Keen"));
     assert!(results.iter().all(|result| result.upgrade <= 25));
+}
+
+#[test]
+fn dynamic_ar_search_matches_exhaustive_search() {
+    let game_data = load_data();
+    for objective in [OptimizeObjective::MaxAr, OptimizeObjective::MaxPhysicalAr] {
+        let mut request = base_request();
+        request.character_level = 60;
+        request.weapon_name = Some("Uchigatana".to_string());
+        request.affinity = Some("Blood".to_string());
+        request.aow_name = Some("Seppuku".to_string());
+        request.standard_max_upgrade = 18;
+        request.exact_upgrade = true;
+        request.objective = objective;
+        request.top_k = 5;
+        let plan = prepare_search(&request, &game_data).expect("prepare AR comparison");
+        let unit = *plan.serial_work_units.first().expect("AR work unit");
+        let mut dynamic_progress =
+            SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
+        let dynamic = search_ar_work_unit(
+            &plan,
+            unit,
+            result_group_mode(&request),
+            &mut dynamic_progress,
+        )
+        .expect("dynamic AR search");
+        let mut exhaustive_progress =
+            SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
+        let exhaustive = search_work_unit_exhaustive(
+            &plan,
+            unit,
+            result_group_mode(&request),
+            &mut exhaustive_progress,
+        )
+        .expect("exhaustive AR search");
+
+        assert_eq!(dynamic.len(), exhaustive.len());
+        for (fast, reference) in dynamic.iter().zip(exhaustive.iter()) {
+            assert_eq!(fast.upgrade, reference.upgrade);
+            assert_eq!(fast.stats, reference.stats);
+            assert_eq!(fast.metric.score, reference.metric.score);
+            let fast_ar = fast.metric.ar.expect("dynamic AR metric");
+            let reference_ar = reference.metric.ar.expect("exhaustive AR metric");
+            assert_eq!(fast_ar.physical, reference_ar.physical);
+            assert_eq!(fast_ar.magic, reference_ar.magic);
+            assert_eq!(fast_ar.fire, reference_ar.fire);
+            assert_eq!(fast_ar.lightning, reference_ar.lightning);
+            assert_eq!(fast_ar.holy, reference_ar.holy);
+        }
+    }
+}
+
+#[test]
+fn vanilla_export_sized_search_handles_unsupported_utility_effect_rows() {
+    let game_data = load_data();
+    let mut request = broad_request();
+    request.character_level = 180;
+    request.two_handing = true;
+    request.top_k = 500;
+
+    let rows = optimize(&request, &game_data).expect("top-500 Vanilla export search");
+    assert!(!rows.is_empty());
+    assert!(rows.len() <= 500);
 }
 
 #[test]

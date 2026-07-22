@@ -101,10 +101,13 @@ impl OptimizeRequest {
 pub struct OptimizeResult {
     pub weapon_id: u32,
     pub weapon_name: String,
+    pub weapon_type_name: String,
     pub affinity: String,
     pub is_somber: bool,
     pub upgrade: u8,
     pub stats: Stats,
+    pub requirements: [u8; COMBAT_STAT_COUNT],
+    pub effective_scaling: [f32; COMBAT_STAT_COUNT],
     pub ar: DamageBreakdown,
     pub aow_id: Option<u16>,
     pub aow_name: Option<String>,

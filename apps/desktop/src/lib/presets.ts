@@ -31,7 +31,15 @@ export function savedBuildIndex(): SavedBuildIndexV1 {
       return false;
     }
   });
-  return { version: 1, builds };
+  const retained = builds.filter((entry) => {
+    if (!/^Packaged smoke \d{10,}$/.test(entry.name)) return true;
+    localStorage.removeItem(`${PRESET_PREFIX}${entry.id}`);
+    return false;
+  });
+  if (retained.length !== builds.length) {
+    localStorage.setItem(INDEX_KEY, JSON.stringify({ version: 1, builds: retained } satisfies SavedBuildIndexV1));
+  }
+  return { version: 1, builds: retained };
 }
 
 export function loadBuildPreset(id: string): BuildPresetV1 | null {
