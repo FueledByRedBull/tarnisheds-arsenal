@@ -120,6 +120,7 @@ function previewBuild(
   stats: SolvedBuildDto["stats"],
   options: Partial<Pick<SolvedBuildDto, "isSomber" | "upgrade" | "aowId" | "aowName">> = {},
 ): SolvedBuildDto {
+  const effectiveScaling = fixtureScalingFor(weaponName, affinity);
   return {
     weaponId,
     weaponName,
@@ -129,7 +130,7 @@ function previewBuild(
     upgrade: options.upgrade ?? 25,
     stats,
     requirements: { strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 },
-    effectiveScaling: { str: 0, dex: 0, int: 0, fai: 0, arc: 0 },
+    effectiveScaling,
     ar: { physical: physicalAr, magic: 0, fire: 0, lightning: 0, holy: 0, total: physicalAr },
     aowId: options.aowId ?? 1,
     aowName: options.aowName === undefined ? "Seppuku" : options.aowName,
@@ -145,6 +146,20 @@ function previewBuild(
     aowFullSequenceDamage,
     aowRoute: null,
     score,
+  };
+}
+
+function fixtureScalingFor(weaponName: string, affinity: string): ScalingDto {
+  const weapon = FIXTURE_WEAPONS.find((row) => row.name === weaponName && row.affinity === affinity);
+  if (!weapon) {
+    throw new Error(`Preview build has no matching weapon fixture: ${weaponName} / ${affinity}`);
+  }
+  return {
+    str: Number(weapon.str_scaling),
+    dex: Number(weapon.dex_scaling),
+    int: Number(weapon.int_scaling),
+    fai: Number(weapon.fai_scaling),
+    arc: Number(weapon.arc_scaling),
   };
 }
 
