@@ -22,6 +22,16 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
+  const emptyPodiumCards = page.locator(".top-card-empty");
+  await expect(emptyPodiumCards).toHaveCount(3);
+  await expect(page.locator(".top-card.active")).toHaveCount(0);
+  await expect.poll(async () => emptyPodiumCards.evaluateAll((cards) => cards.every((card) => {
+    const cardRect = card.parentElement!.getBoundingClientRect();
+    const rankRect = card.firstElementChild!.getBoundingClientRect();
+    const copyRect = card.lastElementChild!.getBoundingClientRect();
+    return rankRect.left - cardRect.left >= 12 && cardRect.right - copyRect.right >= 12;
+  }))).toBe(true);
+
   await expect(page.getByRole("textbox", { name: "Level" })).toHaveValue("9");
   await expect(page.getByText("Redistrib", { exact: true })).toBeVisible();
   await page.getByRole("combobox", { name: "Class" }).click();
@@ -85,6 +95,11 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(page.getByText("Inputs changed")).toBeVisible();
   await page.getByRole("button", { name: "Update Results" }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await expect.poll(async () => {
+    const widths = await page.locator(".result-row-full .damage-token-grid .metric-token, .result-row-full .status-token-grid .metric-token")
+      .evaluateAll((nodes) => nodes.map((node) => Math.round(node.getBoundingClientRect().width * 10) / 10));
+    return widths.length > 0 && new Set(widths).size === 1 && Math.min(...widths) > 0;
+  }).toBe(true);
 
   await page.locator(".top-card").first().getByRole("button", { name: "Lock" }).click();
   await expect(page.getByText("Exact upgrade and stat locks active")).toBeVisible();
@@ -115,16 +130,25 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(page.getByText("+25").first()).toBeVisible();
 
   await page.getByRole("navigation").getByRole("button", { name: "Paths" }).click();
+  await page.getByRole("spinbutton", { name: "Current + N" }).fill("90");
   await page.getByRole("button", { name: "Start" }).click();
   await expect(page.getByText("Selected").first()).toBeVisible();
   await expect(page.getByText("Compare").first()).toBeVisible();
   await expect(page.locator(".path-chart")).toContainText("Stat breakpoint");
+  await expect.poll(() => page.locator(".path-chart .spark-line").first().evaluate(
+    (node) => node.scrollWidth <= node.clientWidth + 1,
+  )).toBe(true);
+  await expect.poll(() => page.evaluate(
+    () => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+  )).toBe(true);
   await expect.poll(() => page.locator(".paths-panel").evaluate((node) => getComputedStyle(node).overflowY)).toBe("auto");
 
   await page.getByRole("navigation").getByRole("button", { name: "Affinity Watch" }).click();
   await page.getByRole("button", { name: "Start" }).click();
   await expect(page.getByText("Keen").first()).toBeVisible();
   await expect(page.locator(".affinity-chart")).toContainText("Best-affinity crossover");
+  await expect(page.locator(".affinity-plot svg")).toBeVisible();
+  await expect(page.locator(".affinity-chart .spark-line")).toHaveCount(0);
   await expect(page.getByRole("grid", { name: "Affinity watch rankings" })).toContainText("Occult");
 });
 

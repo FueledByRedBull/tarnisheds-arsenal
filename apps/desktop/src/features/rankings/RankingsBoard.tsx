@@ -253,7 +253,7 @@ export function RankingsBoard() {
             key={idx}
             row={rows[idx] ?? null}
             index={idx}
-            active={rowFingerprint(rows[idx] ?? null) === rowFingerprint(selected)}
+            active={Boolean(rows[idx]) && rowFingerprint(rows[idx]) === rowFingerprint(selected)}
             objective={objective}
             onSelect={() => rows[idx] && selectRow(rows[idx])}
             onLock={() => rows[idx] && lockAndRerun(rows[idx])}
@@ -341,11 +341,13 @@ function TopCard({
           </button>
         </>
       ) : (
-        <>
+        <div className="top-card-empty">
           <span>#{index + 1}</span>
-          <strong>No result yet</strong>
-          <small>Run a search to fill this slot.</small>
-        </>
+          <span className="top-card-empty-copy">
+            <strong>No result yet</strong>
+            <small>Run a search to fill this slot.</small>
+          </span>
+        </div>
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import { Pause, Play } from "lucide-react";
 import { useMemo, useRef } from "react";
 import { api, hasTauriRuntime } from "../../lib/api";
 import { cachedAffinityWatch } from "../../lib/analysis-cache";
+import { contiguousMetricSegments, metricRatio, paddedMetricDomain } from "../../lib/chart";
 import { useAffinityJob, useRequestBudget } from "../../lib/hooks";
 import { fixed1, objectiveLabel, statLine } from "../../lib/format";
 import { clampHorizon, stableSignature } from "../../lib/session";
@@ -137,8 +138,8 @@ export function AffinityWatchView() {
 
   return (
     <section className="workspace-panel affinity-panel">
-      <div className="workspace-header">
-        <div>
+      <div className="workspace-header analysis-workspace-header">
+        <div className="workspace-heading-copy">
           <h1>Affinity Watch</h1>
           <span>{selected ? `${selected.weaponName} across Current +${effectiveHorizon}` : "Requires selected result"}</span>
           {selected ? <small className="selected-summary">{selected.affinity} / {selected.aowName ?? "Native"} / +{selected.upgrade} · {objectiveLabel(request.objective)} · data {catalog?.dataManifest.datasetVersion ?? "unknown"}</small> : null}
@@ -200,34 +201,88 @@ function Progress({ checked, total, busy, label }: { checked: number; total: num
 
 function AffinityChart({ payload, objective }: { payload: AffinityWatchPayloadDto | null; objective: string }) {
   const values = payload?.lines.flatMap((line) => line.points.map((point) => point.metric).filter((metric): metric is number => metric !== null)) ?? [];
-  const min = Math.min(...values, 0);
-  const max = Math.max(...values, 1);
+  const domain = paddedMetricDomain(values);
+  const observedMin = values.length ? Math.min(...values) : 0;
+  const observedMax = values.length ? Math.max(...values) : 1;
   const levels = payload?.lines.flatMap((line) => line.points.map((point) => point.level)) ?? [];
   const firstLevel = levels.length ? Math.min(...levels) : null;
   const lastLevel = levels.length ? Math.max(...levels) : null;
-  const breakpointLevels = new Set(payload?.breakpoints.map((point) => point.level) ?? []);
+  const plotFirstLevel = firstLevel ?? 0;
+  const plotLastLevel = lastLevel ?? plotFirstLevel;
+  const hasLines = Boolean(payload?.lines.length && firstLevel !== null && lastLevel !== null);
   return (
-    <figure className="path-chart affinity-chart" aria-label={`${objective} by level for ${payload?.lines.length ?? 0} affinities`}>
-      <figcaption><strong>{objective}</strong><span>Level →</span></figcaption>
-      <div className="chart-axis" aria-hidden="true">
-        <span>{fixed1(max)}</span><span>{firstLevel === null ? "No levels" : `Level ${firstLevel} to ${lastLevel}`}</span><span>{fixed1(min)}</span>
-      </div>
-      <div className="chart-legend" aria-hidden="true">
-        {payload?.lines.map((line, index) => <span className={`series-${index % 3}`} key={line.affinity}>{line.affinity}</span>)}
-        <span className="breakpoint-key">◆ Best-affinity crossover</span>
-      </div>
-      {payload?.lines.map((line, lineIndex) => (
-        <div className={`spark-line series-${lineIndex % 3}`} key={line.affinity} aria-hidden="true">
-          {line.points.map((point) => (
-            <span
-              className={breakpointLevels.has(point.level) ? "breakpoint" : undefined}
-              key={`${line.affinity}-${point.level}`}
-              style={{ height: `${metricHeight(point.metric, min, max)}%` }}
-              title={`${line.affinity} ${point.level}: ${fixed1(point.metric)}`}
-            />
-          ))}
+    <figure className="affinity-chart" aria-label={`${objective} by level for ${payload?.lines.length ?? 0} affinities`}>
+      <figcaption>
+        <span><small>Affinity crossover map</small><strong>{objective}</strong></span>
+        <span>{hasLines ? `Level ${firstLevel} to ${lastLevel}` : "Awaiting analysis"}</span>
+      </figcaption>
+      {hasLines ? (
+        <>
+          <div className="affinity-legend" aria-hidden="true">
+            {payload?.lines.map((line, index) => (
+              <span key={line.affinity}>
+                <i style={{ background: affinityColor(index) }} />
+                <strong>{line.affinity}</strong>
+                <small>{fixed1(line.startMetric)} → {fixed1(line.endMetric)}</small>
+              </span>
+            ))}
+            <span className="affinity-crossover-key"><i /> Best-affinity crossover</span>
+          </div>
+          <div className="affinity-plot" aria-hidden="true">
+            <div className="affinity-y-axis">
+              <span>{fixed1(observedMax)}</span>
+              <span>{fixed1((observedMin + observedMax) / 2)}</span>
+              <span>{fixed1(observedMin)}</span>
+            </div>
+            <svg viewBox="0 0 1000 220" preserveAspectRatio="none">
+              {[22, 110, 198].map((y) => <line className="affinity-grid-line" x1="0" x2="1000" y1={y} y2={y} key={y} />)}
+              {payload?.breakpoints.map((point) => {
+                const x = chartX(point.level, plotFirstLevel, plotLastLevel);
+                return (
+                  <g className="affinity-crossover-marker" key={`${point.level}-${point.incomingAffinity}`}>
+                    <line x1={x} x2={x} y1="14" y2="206" />
+                    <rect x={x - 4} y="16" width="8" height="8" transform={`rotate(45 ${x} 20)`} />
+                  </g>
+                );
+              })}
+              {payload?.lines.map((line, index) => (
+                <g className="affinity-series-group" key={line.affinity}>
+                  {contiguousMetricSegments(line.points).map((segment, segmentIndex) => (
+                    <polyline
+                      className="affinity-series"
+                      points={linePoints(segment, plotFirstLevel, plotLastLevel, domain)}
+                      stroke={affinityColor(index)}
+                      key={`${line.affinity}-segment-${segmentIndex}`}
+                    />
+                  ))}
+                  {line.points.filter((point) => point.metric !== null).map((point) => (
+                    <circle
+                      className="affinity-series-point"
+                      cx={chartX(point.level, plotFirstLevel, plotLastLevel)}
+                      cy={chartY(point.metric, domain)}
+                      fill={affinityColor(index)}
+                      key={`${line.affinity}-${point.level}`}
+                      r="3.5"
+                    >
+                      <title>{line.affinity} level {point.level}: {fixed1(point.metric)}</title>
+                    </circle>
+                  ))}
+                </g>
+              ))}
+            </svg>
+            <div className="affinity-x-axis">
+              <span>Lv {firstLevel}</span>
+              <span>Character level</span>
+              <span>Lv {lastLevel}</span>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="affinity-chart-empty">
+          <strong>Compare every legal affinity over future levels</strong>
+          <span>Start Affinity Watch to reveal scaling curves and exact crossover points.</span>
         </div>
-      ))}
+      )}
       <table className="sr-only">
         <caption>{objective} affinity values by character level</caption>
         <thead><tr><th>Affinity</th><th>Level</th><th>{objective}</th></tr></thead>
@@ -237,9 +292,46 @@ function AffinityChart({ payload, objective }: { payload: AffinityWatchPayloadDt
   );
 }
 
-function metricHeight(metric: number | null, min: number, max: number): number {
-  if (metric === null) return 8;
-  return 12 + ((metric - min) / Math.max(max - min, 1)) * 88;
+const AFFINITY_COLORS = [
+  "#e0b967",
+  "#79bfd0",
+  "#8fc19c",
+  "#d28a77",
+  "#b59ad8",
+  "#d7d2b6",
+  "#d76969",
+  "#729fe0",
+  "#b7cb72",
+  "#d889b3",
+  "#63b7a2",
+  "#e39252",
+  "#8f86d8",
+];
+
+function affinityColor(index: number): string {
+  return AFFINITY_COLORS[index % AFFINITY_COLORS.length];
+}
+
+function chartX(level: number, firstLevel: number, lastLevel: number): number {
+  if (lastLevel === firstLevel) return 500;
+  return 12 + ((level - firstLevel) / (lastLevel - firstLevel)) * 976;
+}
+
+function chartY(metric: number | null, domain: ReturnType<typeof paddedMetricDomain>): number {
+  const ratio = metricRatio(metric, domain);
+  return ratio === null ? 206 : 206 - ratio * 192;
+}
+
+function linePoints(
+  points: AffinityWatchPayloadDto["lines"][number]["points"],
+  firstLevel: number,
+  lastLevel: number,
+  domain: ReturnType<typeof paddedMetricDomain>,
+): string {
+  return points
+    .filter((point) => point.metric !== null)
+    .map((point) => `${chartX(point.level, firstLevel, lastLevel)},${chartY(point.metric, domain)}`)
+    .join(" ");
 }
 
 function clamp(value: number, min: number, max: number): number {

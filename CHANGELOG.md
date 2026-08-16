@@ -4,6 +4,16 @@ Release notes are maintained in [`docs/release-notes/`](docs/release-notes/READM
 
 Use that index for per-version notes and GitHub release links.
 
+## v0.9.3 — 2026-08-16
+
+- Keep long Paths horizons inside the chart panel and scale both analysis charts to
+  their observed metric range instead of flattening positive values against zero.
+- Give Affinity Watch a distinct responsive crossover-line chart with clear series,
+  crossover markers, bounds, and an accessible data table.
+- Keep every damage, element, and status token equal-width and centered across
+  ranking rows.
+- Give populated and empty podium cards consistent internal spacing.
+
 ## v0.9.2 — 2026-07-23
 
 - Keep numeric stat editing responsive by committing local drafts after idle,

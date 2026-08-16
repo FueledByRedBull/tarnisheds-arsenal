@@ -2,6 +2,7 @@ import { Pause, Play } from "lucide-react";
 import { useMemo, useRef } from "react";
 import { api, hasTauriRuntime } from "../../lib/api";
 import { cachedPathPreview } from "../../lib/analysis-cache";
+import { metricRatio, paddedMetricDomain } from "../../lib/chart";
 import { usePathJob, useRequestBudget } from "../../lib/hooks";
 import { fixed1, objectiveLabel } from "../../lib/format";
 import { clampHorizon, stableSignature } from "../../lib/session";
@@ -143,8 +144,8 @@ export function PathsView() {
 
   return (
     <section className="workspace-panel paths-panel">
-      <div className="workspace-header">
-        <div>
+      <div className="workspace-header analysis-workspace-header">
+        <div className="workspace-heading-copy">
           <h1>Paths</h1>
           <span>{selected ? `Current +${effectiveHorizon} ${target ? "selected and compare lanes" : "selected lane"}` : "Requires selected result"}</span>
           {selected ? <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)} · data {catalog?.dataManifest.datasetVersion ?? "unknown"}{target ? ` · vs ${target.weaponName} / ${target.affinity} / +${target.upgrade}` : ""}</small> : null}
@@ -227,8 +228,9 @@ function Progress({ checked, total, busy }: { checked: number; total: number; bu
 
 function PathChart({ paths, objective }: { paths: PathPreviewDto[]; objective: string }) {
   const values = paths.flatMap((path) => path.steps.map((step) => step.metric).filter((metric): metric is number => metric !== null));
-  const min = Math.min(...values, 0);
-  const max = Math.max(...values, 1);
+  const domain = paddedMetricDomain(values);
+  const observedMin = values.length ? Math.min(...values) : 0;
+  const observedMax = values.length ? Math.max(...values) : 1;
   const levels = paths.flatMap((path) => path.steps.map((step) => step.level));
   const firstLevel = levels.length ? Math.min(...levels) : null;
   const lastLevel = levels.length ? Math.max(...levels) : null;
@@ -236,20 +238,25 @@ function PathChart({ paths, objective }: { paths: PathPreviewDto[]; objective: s
     <figure className="path-chart" aria-label={`${objective} by level for ${paths.length} path lanes`}>
       <figcaption><strong>{objective}</strong><span>Level →</span></figcaption>
       <div className="chart-axis" aria-hidden="true">
-        <span>{fixed1(max)}</span><span>{firstLevel === null ? "No levels" : `Level ${firstLevel} to ${lastLevel}`}</span><span>{fixed1(min)}</span>
+        <span>{fixed1(observedMax)}</span><span>{firstLevel === null ? "No levels" : `Level ${firstLevel} to ${lastLevel}`}</span><span>{fixed1(observedMin)}</span>
       </div>
       <div className="chart-legend" aria-hidden="true">
         {paths.map((path, index) => <span className={`series-${index % 3}`} key={path.title}>{path.title}</span>)}
         <span className="breakpoint-key">◆ Stat breakpoint</span>
       </div>
       {paths.map((path, pathIndex) => (
-        <div className={`spark-line series-${pathIndex % 3}`} key={path.title} aria-hidden="true">
+        <div
+          className={`spark-line series-${pathIndex % 3}`}
+          key={path.title}
+          aria-hidden="true"
+          style={{ gridTemplateColumns: `repeat(${Math.max(path.steps.length, 1)}, minmax(0, 1fr))` }}
+        >
           {path.steps.map((step) => (
             <span
-              className={step.addedStat ? "breakpoint" : undefined}
+              className={[step.addedStat ? "breakpoint" : "", step.metric === null ? "missing" : ""].filter(Boolean).join(" ") || undefined}
               key={`${path.title}-${step.level}`}
-              style={{ height: `${metricHeight(step.metric, min, max)}%` }}
-              title={`${path.title} ${step.level}: ${fixed1(step.metric)}`}
+              style={{ height: `${metricHeight(step.metric, domain)}%` }}
+              title={`${path.title} ${step.level}: ${step.metric === null ? "unavailable" : fixed1(step.metric)}`}
             />
           ))}
         </div>
@@ -263,9 +270,10 @@ function PathChart({ paths, objective }: { paths: PathPreviewDto[]; objective: s
   );
 }
 
-function metricHeight(metric: number | null, min: number, max: number): number {
-  if (metric === null) return 8;
-  return 12 + ((metric - min) / Math.max(max - min, 1)) * 88;
+function metricHeight(metric: number | null, domain: ReturnType<typeof paddedMetricDomain>): number {
+  const ratio = metricRatio(metric, domain);
+  if (ratio === null) return 8;
+  return 12 + ratio * 88;
 }
 
 function clamp(value: number, min: number, max: number): number {
