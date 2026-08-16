@@ -629,6 +629,18 @@ impl GameData {
     }
 }
 
+pub fn normalize_weapon_type_display(raw: &str) -> &str {
+    match raw.trim() {
+        "Hand-to-Hand" => "Hand-to-Hand Arts",
+        "Heavy Spear" => "Great Spear",
+        "Reverse-hand Blade" => "Backhand Blade",
+        "Scythe" => "Reaper",
+        "Seal" => "Sacred Seal",
+        "Staff" => "Glintstone Staff",
+        other => other,
+    }
+}
+
 pub fn weapon_uses_ammunition(weapon: &Weapon) -> bool {
     matches!(
         normalize_weapon_type_token(&weapon.weapon_type_name).as_str(),
@@ -642,4 +654,24 @@ fn normalize_weapon_type_token(value: &str) -> String {
         .filter(|character| character.is_ascii_alphanumeric())
         .flat_map(char::to_lowercase)
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_weapon_type_display;
+
+    #[test]
+    fn weapon_type_display_aliases_are_canonical() {
+        for (raw, expected) in [
+            ("Hand-to-Hand", "Hand-to-Hand Arts"),
+            ("Heavy Spear", "Great Spear"),
+            ("Reverse-hand Blade", "Backhand Blade"),
+            ("Scythe", "Reaper"),
+            ("Seal", "Sacred Seal"),
+            ("Staff", "Glintstone Staff"),
+            (" Katana ", "Katana"),
+        ] {
+            assert_eq!(normalize_weapon_type_display(raw), expected);
+        }
+    }
 }

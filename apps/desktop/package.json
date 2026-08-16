@@ -1,7 +1,7 @@
 {
   "name": "tarnisheds-arsenal-desktop",
   "private": true,
-  "version": "0.9.3",
+  "version": "0.10.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 1420",
@@ -13,7 +13,6 @@
     "test:packaged": "node ./scripts/smoke-packaged.mjs"
   },
   "dependencies": {
-    "@tanstack/react-table": "^8.20.5",
     "@tauri-apps/api": "^2.0.0",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",

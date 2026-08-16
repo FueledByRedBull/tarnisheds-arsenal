@@ -1,7 +1,6 @@
 import { Pause, Play } from "lucide-react";
-import { useMemo, useRef } from "react";
-import { api, hasTauriRuntime } from "../../lib/api";
-import { cachedPathPreview } from "../../lib/analysis-cache";
+import { useMemo } from "react";
+import { api } from "../../lib/api";
 import { metricRatio, paddedMetricDomain } from "../../lib/chart";
 import { usePathJob, useRequestBudget } from "../../lib/hooks";
 import { fixed1, objectiveLabel } from "../../lib/format";
@@ -18,7 +17,6 @@ export function PathsView() {
   const horizon = useDesktopStore((state) => state.pathHorizon);
   const setHorizon = useDesktopStore((state) => state.setPathHorizon);
   const paths = useDesktopStore((state) => state.paths);
-  const setPaths = useDesktopStore((state) => state.setPaths);
   const isPathBusy = useDesktopStore((state) => state.isPathBusy);
   const setPathBusy = useDesktopStore((state) => state.setPathBusy);
   const beginPath = useDesktopStore((state) => state.beginPath);
@@ -29,7 +27,6 @@ export function PathsView() {
   const setPathProgress = useDesktopStore((state) => state.setPathProgress);
   const pushNotice = useDesktopStore((state) => state.pushNotice);
   const setError = useDesktopStore((state) => state.setError);
-  const fallbackRequest = useRef<AbortController | null>(null);
   const { base } = useRequestBudget(catalog, request, lockedStatMode);
   const effectiveHorizon = clampHorizon(request, horizon);
   const signature = stableSignature({
@@ -49,7 +46,6 @@ export function PathsView() {
   });
 
   async function refresh() {
-    let fallbackController: AbortController | null = null;
     if (!selected) {
       pushNotice({ scope: "paths", tone: "warning", message: "Pick a selected result first." });
       return;
@@ -67,47 +63,18 @@ export function PathsView() {
         { base, solved: selected, levelsAhead: effectiveHorizon, title: "Selected" },
         ...(target ? [{ base, solved: target, levelsAhead: effectiveHorizon, title: "Compare" }] : []),
       ];
-      if (hasTauriRuntime()) {
-        const { jobId } = await api.startPathPreview(requests);
-        const current = useDesktopStore.getState();
-        if (
-          current.pathGeneration !== generation ||
-          current.activePathSignature !== signature
-        ) {
-          await api.cancelPathPreview(jobId);
-          return;
-        }
-        setActivePathJobId(jobId);
-      } else {
-        fallbackRequest.current?.abort();
-        fallbackController = new AbortController();
-        fallbackRequest.current = fallbackController;
-        const next = await Promise.all(
-          requests.map((entry) => cachedPathPreview(
-            entry.base,
-            entry.solved,
-            entry.levelsAhead,
-            entry.title,
-            fallbackController?.signal,
-          )),
-        );
-        const current = useDesktopStore.getState();
-        if (
-          current.pathGeneration !== generation ||
-          current.activePathSignature !== signature
-        ) {
-          fallbackController.abort();
-          return;
-        }
-        setPaths(next, signature);
-        setPathBusy(false);
-      }
-    } catch (error) {
+      const { jobId } = await api.startPathPreview(requests);
       const current = useDesktopStore.getState();
-      if (fallbackController?.signal.aborted) {
-        if (current.pathGeneration === generation) setPathBusy(false);
+      if (
+        current.pathGeneration !== generation ||
+        current.activePathSignature !== signature
+      ) {
+        await api.cancelPathPreview(jobId);
         return;
       }
+      setActivePathJobId(jobId);
+    } catch (error) {
+      const current = useDesktopStore.getState();
       if (
         current.pathGeneration === generation &&
         current.activePathSignature === signature
@@ -115,14 +82,10 @@ export function PathsView() {
         setError(error instanceof Error ? error.message : String(error));
         setPathBusy(false);
       }
-    } finally {
-      if (fallbackRequest.current === fallbackController) fallbackRequest.current = null;
     }
   }
 
   async function stop() {
-    fallbackRequest.current?.abort();
-    fallbackRequest.current = null;
     if (!activePathJobId) setPathBusy(false);
     if (activePathJobId) await api.cancelPathPreview(activePathJobId);
   }

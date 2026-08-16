@@ -1,14 +1,16 @@
 use std::collections::{BTreeSet, HashMap};
 
 use er_optimizer_core::math::STARTING_CLASSES;
-use er_optimizer_core::{GameData, OptimizeObjective, SomberFilter, Weapon};
+use er_optimizer_core::{
+    GameData, OptimizeObjective, SomberFilter, Weapon, normalize_weapon_type_display,
+};
 use tauri::State;
 
 use crate::AppState;
 use crate::dto::{
     CatalogDto, ClassMetadataDto, CombatStateDto, CompatibleAowsForAffinityRequestDto,
-    CompatibleAowsRequestDto, EightStatsDto, ScalingDto, WeaponNamesForTypeRequestDto,
-    WeaponProfileDto, WeaponProfileRequestDto, WeaponScalingRequestDto, WeaponTypeOptionDto,
+    CompatibleAowsRequestDto, EightStatsDto, WeaponNamesForTypeRequestDto, WeaponProfileDto,
+    WeaponProfileRequestDto, WeaponTypeOptionDto,
 };
 use crate::errors::AppError;
 
@@ -286,20 +288,6 @@ pub fn compatible_aow_names_for_affinity(
 }
 
 #[tauri::command]
-pub fn weapon_scaling_for_upgrade(
-    request: WeaponScalingRequestDto,
-    state: State<'_, AppState>,
-) -> Result<ScalingDto, AppError> {
-    let profile = state.profile(&request.profile_id)?;
-    weapon_scaling_for_upgrade_inner(
-        &profile.data,
-        &request.weapon_name,
-        &request.affinity,
-        request.upgrade,
-    )
-}
-
-#[tauri::command]
 pub fn affinities_for_weapon(
     profile_id: String,
     weapon_name: String,
@@ -480,53 +468,6 @@ pub fn weapon_disables_two_hand_bonus(
             .get(&index_key(weapon_name))
             .copied()
             .unwrap_or(false),
-    }
-}
-
-pub fn weapon_scaling_for_upgrade_inner(
-    data: &GameData,
-    weapon_name: &str,
-    affinity: &str,
-    upgrade: u8,
-) -> Result<ScalingDto, AppError> {
-    let weapon = data
-        .weapons
-        .iter()
-        .find(|weapon| {
-            weapon.name.eq_ignore_ascii_case(weapon_name)
-                && weapon.affinity.eq_ignore_ascii_case(affinity)
-        })
-        .ok_or_else(|| {
-            AppError::new(format!(
-                "weapon not found for scaling lookup: {weapon_name} | {affinity}"
-            ))
-        })?;
-    let reinforce = data
-        .reinforce_level(weapon.reinforce_type, upgrade)
-        .ok_or_else(|| {
-            AppError::new(format!(
-                "missing reinforce level for scaling lookup: type={} level={upgrade}",
-                weapon.reinforce_type
-            ))
-        })?;
-    Ok(ScalingDto {
-        str: weapon.scaling[0] * reinforce.scaling_mult[0],
-        dex: weapon.scaling[1] * reinforce.scaling_mult[1],
-        int: weapon.scaling[2] * reinforce.scaling_mult[2],
-        fai: weapon.scaling[3] * reinforce.scaling_mult[3],
-        arc: weapon.scaling[4] * reinforce.scaling_mult[4],
-    })
-}
-
-pub fn normalize_weapon_type_display(raw: &str) -> &str {
-    match raw.trim() {
-        "Hand-to-Hand" => "Hand-to-Hand Arts",
-        "Heavy Spear" => "Great Spear",
-        "Reverse-hand Blade" => "Backhand Blade",
-        "Scythe" => "Reaper",
-        "Seal" => "Sacred Seal",
-        "Staff" => "Glintstone Staff",
-        other => other,
     }
 }
 

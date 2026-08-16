@@ -6,14 +6,14 @@ use std::time::{Duration, Instant};
 use rayon::prelude::*;
 
 use crate::math::{
-    apply_aow_attack_buffs, apply_aow_status_buffs, calculate_aow_damage, calculate_aow_routes,
-    calculate_ar, calculate_status_buildup, class_by_name, compute_free_points, effective_str,
-    meets_requirements,
+    apply_aow_attack_buffs, apply_aow_bleed_buffs, apply_aow_status_buffs, calculate_aow_damage,
+    calculate_aow_routes, calculate_ar, calculate_bleed_buildup, calculate_status_buildup,
+    class_by_name, compute_free_points, effective_str, meets_requirements,
 };
 use crate::model::{
     Aow, AowAttackRow, AowRouteResult, COMBAT_STAT_COUNT, DamageBreakdown, DamageType, GameData,
     STAT_ARC, STAT_DEX, STAT_FAI, STAT_INT, STAT_STR, Stats, StatusBuildup, StatusEffectSource,
-    Weapon,
+    Weapon, normalize_weapon_type_display,
 };
 
 mod types;
@@ -151,6 +151,7 @@ struct CandidateMetric {
     score: f32,
     ar: Option<DamageBreakdown>,
     status_buildup: Option<StatusBuildup>,
+    bleed_buildup: Option<f32>,
     aow_first_hit_damage: Option<f32>,
     aow_full_sequence_damage: Option<f32>,
 }
@@ -158,7 +159,7 @@ struct CandidateMetric {
 #[derive(Clone, Copy, Debug, Default)]
 struct BaseWeaponMetric {
     ar: Option<DamageBreakdown>,
-    status_buildup: Option<StatusBuildup>,
+    bleed_buildup: Option<f32>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -988,6 +989,7 @@ where
                     score,
                     ar,
                     status_buildup,
+                    bleed_buildup,
                     aow_first_hit_damage,
                     aow_full_sequence_damage,
                 } = match metric {
@@ -1028,6 +1030,7 @@ where
                         score,
                         ar,
                         status_buildup,
+                        bleed_buildup,
                         aow_first_hit_damage,
                         aow_full_sequence_damage,
                     },
@@ -1387,6 +1390,7 @@ fn complete_scored_candidate_status(
             &candidate.stats,
             data,
         )?);
+        candidate.metric.bleed_buildup = None;
     }
     Ok(())
 }
@@ -1499,6 +1503,7 @@ fn materialize_scored_candidate(
         score: _,
         ar,
         status_buildup,
+        bleed_buildup: _,
         aow_first_hit_damage,
         aow_full_sequence_damage,
     } = full;
@@ -2082,22 +2087,16 @@ fn score_candidate(
                 score,
                 ar: Some(ar),
                 status_buildup: None,
+                bleed_buildup: None,
                 aow_first_hit_damage: None,
                 aow_full_sequence_damage: None,
             })
         }
         OptimizeObjective::MaxArPlusBleed => {
-            let ar = apply_aow_attack_buffs(
+            let bleed_buildup = apply_aow_bleed_buffs(
                 base_metric
-                    .ar
-                    .expect("AR + Bleed must prepare a base AR metric"),
-                aow_choice.aow,
-            )
-            .scale(damage_multiplier);
-            let status_buildup = apply_aow_status_buffs(
-                base_metric
-                    .status_buildup
-                    .expect("AR + Bleed must prepare base status buildup"),
+                    .bleed_buildup
+                    .expect("AR + Bleed must prepare base bleed buildup"),
                 prepared.weapon,
                 upgrade,
                 stats,
@@ -2105,9 +2104,10 @@ fn score_candidate(
                 aow_choice.aow,
             )?;
             Ok(CandidateMetric {
-                score: score_for(objective, ar.total(), status_buildup, 0.0, 0.0),
-                ar: Some(ar),
-                status_buildup: Some(status_buildup),
+                score: bleed_buildup,
+                ar: None,
+                status_buildup: None,
+                bleed_buildup: Some(bleed_buildup),
                 aow_first_hit_damage: None,
                 aow_full_sequence_damage: None,
             })
@@ -2132,6 +2132,7 @@ fn score_candidate(
                 ),
                 ar: None,
                 status_buildup: None,
+                bleed_buildup: None,
                 aow_first_hit_damage: Some(aow_first_hit_damage),
                 aow_full_sequence_damage: Some(aow_full_sequence_damage),
             })
@@ -2156,17 +2157,11 @@ fn calculate_base_weapon_metric(
                 effective_str_value,
                 data,
             )?),
-            status_buildup: None,
+            bleed_buildup: None,
         }),
         OptimizeObjective::MaxArPlusBleed => Ok(BaseWeaponMetric {
-            ar: Some(calculate_ar(
-                prepared.weapon,
-                upgrade,
-                stats,
-                effective_str_value,
-                data,
-            )?),
-            status_buildup: Some(calculate_status_buildup(
+            ar: None,
+            bleed_buildup: Some(calculate_bleed_buildup(
                 prepared.weapon,
                 upgrade,
                 stats,
@@ -2231,6 +2226,7 @@ fn complete_candidate_metric(
         ),
         ar: Some(ar),
         status_buildup: Some(status_buildup),
+        bleed_buildup: Some(status_buildup.bleed),
         aow_first_hit_damage: Some(first),
         aow_full_sequence_damage: Some(full),
     })
@@ -2261,6 +2257,24 @@ fn calculate_status_with_buffs(
 ) -> Result<StatusBuildup, String> {
     apply_aow_status_buffs(
         calculate_status_buildup(prepared.weapon, upgrade, stats, data)?,
+        prepared.weapon,
+        upgrade,
+        stats,
+        data,
+        aow_choice.aow,
+    )
+}
+
+#[cfg(test)]
+fn calculate_bleed_with_buffs(
+    prepared: &PreparedWeapon<'_>,
+    aow_choice: &AowChoice<'_>,
+    upgrade: u8,
+    stats: &Stats,
+    data: &GameData,
+) -> Result<f32, String> {
+    apply_aow_bleed_buffs(
+        calculate_bleed_buildup(prepared.weapon, upgrade, stats, data)?,
         prepared.weapon,
         upgrade,
         stats,
@@ -2338,18 +2352,6 @@ fn weapon_type_matches(weapon: &Weapon, type_key: &str) -> bool {
             .weapon_type_keys
             .split('|')
             .any(|key| key.eq_ignore_ascii_case(type_key))
-}
-
-fn normalize_weapon_type_display(raw: &str) -> &str {
-    match raw.trim() {
-        "Hand-to-Hand" => "Hand-to-Hand Arts",
-        "Heavy Spear" => "Great Spear",
-        "Reverse-hand Blade" => "Backhand Blade",
-        "Scythe" => "Reaper",
-        "Seal" => "Sacred Seal",
-        "Staff" => "Glintstone Staff",
-        other => other,
-    }
 }
 
 fn available_upgrades(

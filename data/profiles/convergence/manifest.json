@@ -101,19 +101,9 @@
   ],
   "diagnosticFiles": [
     {
-      "path": "aow_affinity_compat.csv",
-      "size": 116629,
-      "sha256": "0bb2324e7b678eb498ae686d23612f74167c5f326e8c3f28fcf77a0b1e2e748e"
-    },
-    {
       "path": "passive_effect_coverage.csv",
       "size": 42224,
       "sha256": "aed929e6d9e6d94823d7b76d09facfd6436b5b1c7712230a0df7b44c29b4ddba"
-    },
-    {
-      "path": "weapon_scaling_summary.csv",
-      "size": 381098,
-      "sha256": "dfd8a8d270c853c6db068dbe926233136eea1a10e508ecc2dea9bcfe6da625ac"
     }
   ],
   "sources": [

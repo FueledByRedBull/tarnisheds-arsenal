@@ -52,12 +52,6 @@ jobs:
         run: |
           python tools/phase4/validate_release_metadata.py
 
-      - name: Build and install Rust bindings
-        run: |
-          python -m maturin build --release --locked --manifest-path core/er_optimizer_core/Cargo.toml --features python
-          $wheel = Get-ChildItem core/er_optimizer_core/target/wheels/er_optimizer_core-*.whl | Sort-Object LastWriteTime | Select-Object -Last 1
-          python -m pip install --force-reinstall $wheel.FullName
-
       - name: Rust tests
         run: |
           cargo test --locked --manifest-path core/er_optimizer_core/Cargo.toml

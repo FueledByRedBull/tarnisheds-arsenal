@@ -1,6 +1,6 @@
 import { Crosshair, Filter, Play, RotateCcw, SlidersHorizontal, Swords } from "lucide-react";
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
-import { api, hasTauriRuntime } from "../../lib/api";
+import { api } from "../../lib/api";
 import { useRequestBudget, useSearchJob, useWeaponProfile } from "../../lib/hooks";
 import { fixed1, objectiveLabel } from "../../lib/format";
 import { SearchableSelect, openOption } from "../../lib/SearchableSelect";
@@ -10,23 +10,20 @@ import {
   scadutreeDamageNegation,
   scadutreeReceivedDamageMultiplier,
 } from "../../lib/scadutree";
-import { classMeta, classOptions, derivedLevel, stableSignature } from "../../lib/session";
+import { classMeta, classOptions, derivedLevel } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { OptimizeRequestDto, SearchFinishedDto, SearchProgressDto } from "../../lib/types";
+import { runSearchFromStore } from "../../lib/workflows";
 
 export function CommandRail() {
   const catalog = useDesktopStore((state) => state.catalog);
   const request = useDesktopStore((state) => state.request);
   const patchRequest = useDesktopStore((state) => state.patchRequest);
   const applyClass = useDesktopStore((state) => state.applyClass);
-  const setEstimate = useDesktopStore((state) => state.setEstimate);
-  const setRows = useDesktopStore((state) => state.setRows);
-  const clearResults = useDesktopStore((state) => state.clearResults);
   const markResultsStale = useDesktopStore((state) => state.markResultsStale);
   const resultsStale = useDesktopStore((state) => state.resultsStale);
   const setError = useDesktopStore((state) => state.setError);
   const setSearching = useDesktopStore((state) => state.setSearching);
-  const beginSearch = useDesktopStore((state) => state.beginSearch);
   const isSearching = useDesktopStore((state) => state.isSearching);
   const searchGeneration = useDesktopStore((state) => state.searchGeneration);
   const activeJobId = useDesktopStore((state) => state.activeJobId);
@@ -130,82 +127,16 @@ export function CommandRail() {
   }, [isSearching, searchStartedAt]);
 
   async function runSearch() {
-    const signature = stableSignature(apiRequest);
-    const generation = beginSearch(signature);
     searchCancellationRequestedRef.current = false;
     setSearchCancellationRequested(false);
     setSearchStartedAt(Date.now());
     setError(null);
     setProgress(null);
-    try {
-      if (hasTauriRuntime()) {
-        const { jobId } = await api.startSearch(apiRequest);
-        const afterStart = useDesktopStore.getState();
-        if (
-          afterStart.searchGeneration !== generation ||
-          afterStart.activeSearchSignature !== signature
-        ) {
-          await api.cancelSearch(jobId);
-          return;
-        }
-        setActiveJobId(jobId);
-        if (searchCancellationRequestedRef.current) {
-          await api.cancelSearch(jobId);
-          return;
-        }
-      } else {
-        const nextEstimate = await api.estimateSearchSpace(apiRequest);
-        const afterEstimate = useDesktopStore.getState();
-        if (
-          afterEstimate.searchGeneration !== generation ||
-          afterEstimate.activeSearchSignature !== signature
-        ) {
-          return;
-        }
-        if (searchCancellationRequestedRef.current) {
-          useDesktopStore.getState().pushNotice({
-            scope: "rankings",
-            tone: "warning",
-            message: "Search stopped. Previous results were retained.",
-          });
-          setSearching(false);
-          setSearchStartedAt(null);
-          setSearchCancellationRequested(false);
-          searchCancellationRequestedRef.current = false;
-          return;
-        }
-        setEstimate(nextEstimate);
-        if (nextEstimate.combinations <= 0) {
-          clearResults("No valid search space for current constraints.");
-          setSearching(false);
-          setSearchStartedAt(null);
-          setSearchCancellationRequested(false);
-          return;
-        }
-        const rows = await api.runSearch(apiRequest);
-        const afterSearch = useDesktopStore.getState();
-        if (
-          afterSearch.searchGeneration !== generation ||
-          afterSearch.activeSearchSignature !== signature
-        ) {
-          return;
-        }
-        setRows(rows);
-        setSearching(false);
-        setSearchStartedAt(null);
-        setSearchCancellationRequested(false);
-      }
-    } catch (error) {
-      const current = useDesktopStore.getState();
-      if (
-        current.searchGeneration === generation &&
-        current.activeSearchSignature === signature
-      ) {
-        setError(error instanceof Error ? error.message : String(error));
-        setSearching(false);
-        setSearchStartedAt(null);
-        setSearchCancellationRequested(false);
-      }
+    const started = await runSearchFromStore(apiRequest, () => searchCancellationRequestedRef.current);
+    if (!started) {
+      setSearchStartedAt(null);
+      setSearchCancellationRequested(false);
+      searchCancellationRequestedRef.current = false;
     }
   }
 

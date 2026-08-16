@@ -1,7 +1,6 @@
 import { Pause, Play } from "lucide-react";
-import { useMemo, useRef } from "react";
-import { api, hasTauriRuntime } from "../../lib/api";
-import { cachedAffinityWatch } from "../../lib/analysis-cache";
+import { useMemo } from "react";
+import { api } from "../../lib/api";
 import { contiguousMetricSegments, metricRatio, paddedMetricDomain } from "../../lib/chart";
 import { useAffinityJob, useRequestBudget } from "../../lib/hooks";
 import { fixed1, objectiveLabel, statLine } from "../../lib/format";
@@ -17,7 +16,6 @@ export function AffinityWatchView() {
   const horizon = useDesktopStore((state) => state.affinityHorizon);
   const setHorizon = useDesktopStore((state) => state.setAffinityHorizon);
   const payload = useDesktopStore((state) => state.affinityPayload);
-  const setAffinityPayload = useDesktopStore((state) => state.setAffinityPayload);
   const isAffinityBusy = useDesktopStore((state) => state.isAffinityBusy);
   const setAffinityBusy = useDesktopStore((state) => state.setAffinityBusy);
   const beginAffinity = useDesktopStore((state) => state.beginAffinity);
@@ -28,7 +26,6 @@ export function AffinityWatchView() {
   const setAffinityProgress = useDesktopStore((state) => state.setAffinityProgress);
   const pushNotice = useDesktopStore((state) => state.pushNotice);
   const setError = useDesktopStore((state) => state.setError);
-  const fallbackRequest = useRef<AbortController | null>(null);
   const { base } = useRequestBudget(catalog, request, lockedStatMode);
   const effectiveHorizon = clampHorizon(request, horizon);
   const signature = stableSignature({ selected, objective: request.objective, level: base.characterLevel, horizon: effectiveHorizon });
@@ -42,7 +39,6 @@ export function AffinityWatchView() {
   });
 
   async function refresh() {
-    let fallbackController: AbortController | null = null;
     if (!selected) {
       pushNotice({ scope: "affinity_watch", tone: "warning", message: "Pick a selected result first." });
       return;
@@ -64,44 +60,18 @@ export function AffinityWatchView() {
         setAffinityBusy(false);
         return;
       }
-      if (hasTauriRuntime()) {
-        const { jobId } = await api.startAffinityWatch(base, selected, effectiveHorizon);
-        current = useDesktopStore.getState();
-        if (
-          current.affinityGeneration !== generation ||
-          current.activeAffinitySignature !== signature
-        ) {
-          await api.cancelAffinityWatch(jobId);
-          return;
-        }
-        setActiveAffinityJobId(jobId);
-      } else {
-        fallbackRequest.current?.abort();
-        fallbackController = new AbortController();
-        fallbackRequest.current = fallbackController;
-        const next = await cachedAffinityWatch(
-          base,
-          selected,
-          effectiveHorizon,
-          fallbackController.signal,
-        );
-        current = useDesktopStore.getState();
-        if (
-          current.affinityGeneration !== generation ||
-          current.activeAffinitySignature !== signature
-        ) {
-          fallbackController.abort();
-          return;
-        }
-        setAffinityPayload(next, signature);
-        setAffinityBusy(false);
-      }
-    } catch (error) {
-      const current = useDesktopStore.getState();
-      if (fallbackController?.signal.aborted) {
-        if (current.affinityGeneration === generation) setAffinityBusy(false);
+      const { jobId } = await api.startAffinityWatch(base, selected, effectiveHorizon);
+      current = useDesktopStore.getState();
+      if (
+        current.affinityGeneration !== generation ||
+        current.activeAffinitySignature !== signature
+      ) {
+        await api.cancelAffinityWatch(jobId);
         return;
       }
+      setActiveAffinityJobId(jobId);
+    } catch (error) {
+      const current = useDesktopStore.getState();
       if (
         current.affinityGeneration === generation &&
         current.activeAffinitySignature === signature
@@ -109,14 +79,10 @@ export function AffinityWatchView() {
         setError(error instanceof Error ? error.message : String(error));
         setAffinityBusy(false);
       }
-    } finally {
-      if (fallbackRequest.current === fallbackController) fallbackRequest.current = null;
     }
   }
 
   async function stop() {
-    fallbackRequest.current?.abort();
-    fallbackRequest.current = null;
     if (!activeAffinityJobId) setAffinityBusy(false);
     if (activeAffinityJobId) await api.cancelAffinityWatch(activeAffinityJobId);
   }

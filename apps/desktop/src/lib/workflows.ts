@@ -1,49 +1,31 @@
-import { api, hasTauriRuntime } from "./api";
+import { api } from "./api";
 import { buildOptimizeRequest, stableSignature } from "./session";
 import { INITIAL_POLL_DELAY_MS, nextPollDelay, progressSignature } from "./polling";
 import { useDesktopStore } from "./state";
 import { OptimizeRequestDto, SolvedBuildDto } from "./types";
 
-export async function runSearchFromStore() {
+export async function runSearchFromStore(
+  requestOverride?: OptimizeRequestDto,
+  cancellationRequested: () => boolean = () => false,
+): Promise<boolean> {
   const state = useDesktopStore.getState();
-  const request = buildOptimizeRequest(state.catalog, state.request, state.lockedStatMode);
+  const request = requestOverride ?? buildOptimizeRequest(state.catalog, state.request, state.lockedStatMode);
   const signature = stableSignature(request);
   const generation = state.beginSearch(signature);
   state.setError(null);
   try {
-    if (hasTauriRuntime()) {
-      const { jobId } = await api.startSearch(request);
-      const current = useDesktopStore.getState();
-      if (
-        current.searchGeneration !== generation ||
-        current.activeSearchSignature !== signature
-      ) {
-        await api.cancelSearch(jobId);
-        return;
-      }
-      current.setActiveJobId(jobId);
-    } else {
-      const estimate = await api.estimateSearchSpace(request);
-      let current = useDesktopStore.getState();
-      if (
-        current.searchGeneration !== generation ||
-        current.activeSearchSignature !== signature
-      ) return;
-      current.setEstimate(estimate);
-      if (estimate.combinations <= 0) {
-        current.clearResults("No valid search space for current constraints.");
-        current.setSearching(false);
-        return;
-      }
-      const rows = await api.runSearch(request);
-      current = useDesktopStore.getState();
-      if (
-        current.searchGeneration !== generation ||
-        current.activeSearchSignature !== signature
-      ) return;
-      current.setRows(rows);
-      current.setSearching(false);
+    const { jobId } = await api.startSearch(request);
+    const current = useDesktopStore.getState();
+    if (
+      current.searchGeneration !== generation ||
+      current.activeSearchSignature !== signature
+    ) {
+      await api.cancelSearch(jobId);
+      return false;
     }
+    current.setActiveJobId(jobId);
+    if (cancellationRequested()) await api.cancelSearch(jobId);
+    return true;
   } catch (error) {
     const current = useDesktopStore.getState();
     if (
@@ -53,18 +35,11 @@ export async function runSearchFromStore() {
       current.setError(error instanceof Error ? error.message : String(error));
       current.setSearching(false);
     }
+    return false;
   }
 }
 
 export async function runSearchRequestForRows(request: OptimizeRequestDto): Promise<SolvedBuildDto[]> {
-  if (!hasTauriRuntime()) {
-    const estimate = await api.estimateSearchSpace(request);
-    if (estimate.combinations <= 0) {
-      throw new Error("No valid search space for current constraints.");
-    }
-    return await api.runSearch(request);
-  }
-
   const { jobId } = await api.startSearch(request);
   return await pollSearchRows(jobId);
 }

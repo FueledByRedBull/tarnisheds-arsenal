@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, hasTauriRuntime } from "./api";
+import { api } from "./api";
 import { cachedWeaponProfile } from "./analysis-cache";
 import { buildOptimizeRequest, budgetSnapshot } from "./session";
 import { stableSignature } from "./session";
@@ -87,6 +87,48 @@ export function useWeaponProfile(
   return weaponProfile;
 }
 
+type JobEvent = { jobId: string };
+type JobStatus<P extends JobEvent, F extends JobEvent> = { progress: P | null; finished: F | null };
+
+function usePollingJob<P extends JobEvent, F extends JobEvent>(options: {
+  activeJobId: string | null;
+  busy: boolean;
+  generation: number;
+  poll: (jobId: string) => Promise<JobStatus<P, F> | null>;
+  cancel: (jobId: string) => Promise<boolean>;
+  setProgress: (progress: P | null) => void;
+  finish: (payload: F, generation: number) => void;
+  missing: (jobId: string) => F;
+  failed: (jobId: string, error: unknown) => F;
+}) {
+  const { activeJobId, busy, generation } = options;
+  const latest = useRef(options);
+  latest.current = options;
+
+  useEffect(() => {
+    if (!activeJobId || !busy) return undefined;
+    const jobId = activeJobId;
+    const polling = startAdaptivePolling({
+      poll: () => latest.current.poll(jobId),
+      progressKey: (status) => progressSignature(status.progress),
+      onStatus: (status) => {
+        if (status.progress?.jobId === jobId) latest.current.setProgress(status.progress);
+        const finished = status.finished;
+        if (!finished || finished.jobId !== jobId) return false;
+        latest.current.finish(finished, generation);
+        return true;
+      },
+      onMissing: () => latest.current.finish(latest.current.missing(jobId), generation),
+      onError: (error) => latest.current.finish(latest.current.failed(jobId, error), generation),
+    });
+    return () => {
+      const unfinished = !polling.isFinished();
+      polling.stop();
+      if (unfinished) void latest.current.cancel(jobId).catch(() => undefined);
+    };
+  }, [activeJobId, busy, generation]);
+}
+
 export function useSearchJob(options: {
   activeJobId: string | null;
   isSearching: boolean;
@@ -94,49 +136,17 @@ export function useSearchJob(options: {
   setProgress: (progress: SearchProgressDto | null) => void;
   finish: (payload: SearchFinishedDto, generation: number) => void;
 }) {
-  const { activeJobId, isSearching, generation, setProgress, finish } = options;
-  const setProgressRef = useRef(setProgress);
-  const finishRef = useRef(finish);
-  setProgressRef.current = setProgress;
-  finishRef.current = finish;
-
-  useEffect(() => {
-    if (!activeJobId || !isSearching) return undefined;
-    const jobId = activeJobId;
-    const polling = startAdaptivePolling({
-      poll: () => api.searchStatus(jobId),
-      progressKey: (status) => progressSignature(status.progress),
-      onStatus: (status) => {
-        if (status.progress?.jobId === jobId) setProgressRef.current(status.progress);
-        if (status.finished?.jobId === jobId) {
-          finishRef.current(status.finished, generation);
-          return true;
-        }
-        return false;
-      },
-      onMissing: () => {
-        finishRef.current({
-            jobId,
-            cancelled: true,
-            rows: [],
-            error: "Search job disappeared before returning a result.",
-        }, generation);
-      },
-      onError: (error) => {
-        finishRef.current({
-          jobId,
-          cancelled: false,
-          rows: [],
-          error: error instanceof Error ? error.message : String(error),
-        }, generation);
-      },
-    });
-    return () => {
-      const unfinished = !polling.isFinished();
-      polling.stop();
-      if (unfinished && hasTauriRuntime()) void api.cancelSearch(jobId).catch(() => undefined);
-    };
-  }, [activeJobId, generation, isSearching]);
+  usePollingJob({
+    activeJobId: options.activeJobId,
+    busy: options.isSearching,
+    generation: options.generation,
+    poll: api.searchStatus,
+    cancel: api.cancelSearch,
+    setProgress: options.setProgress,
+    finish: options.finish,
+    missing: (jobId) => ({ jobId, cancelled: true, rows: [], error: "Search job disappeared before returning a result." }),
+    failed: (jobId, error) => ({ jobId, cancelled: false, rows: [], error: errorMessage(error) }),
+  });
 }
 
 export function usePathJob(options: {
@@ -146,51 +156,17 @@ export function usePathJob(options: {
   setPathProgress: (progress: PathProgressDto | null) => void;
   finish: (payload: PathFinishedDto, generation: number) => void;
 }) {
-  const { activePathJobId, isPathBusy, generation, setPathProgress, finish } = options;
-  const setProgressRef = useRef(setPathProgress);
-  const finishRef = useRef(finish);
-  setProgressRef.current = setPathProgress;
-  finishRef.current = finish;
-
-  useEffect(() => {
-    if (!activePathJobId || !isPathBusy) return undefined;
-    const jobId = activePathJobId;
-    const polling = startAdaptivePolling({
-      poll: () => api.pathPreviewStatus(jobId),
-      progressKey: (status) => progressSignature(status.progress),
-      onStatus: (status) => {
-        if (status.progress?.jobId === jobId) setProgressRef.current(status.progress);
-        if (status.finished?.jobId === jobId) {
-          finishRef.current(status.finished, generation);
-          return true;
-        }
-        return false;
-      },
-      onMissing: () => {
-        finishRef.current({
-            jobId,
-            cancelled: true,
-            paths: [],
-            error: "Path job disappeared before returning a result.",
-        }, generation);
-      },
-      onError: (error) => {
-        finishRef.current({
-          jobId,
-          cancelled: false,
-          paths: [],
-          error: error instanceof Error ? error.message : String(error),
-        }, generation);
-      },
-    });
-    return () => {
-      const unfinished = !polling.isFinished();
-      polling.stop();
-      if (unfinished && hasTauriRuntime()) {
-        void api.cancelPathPreview(jobId).catch(() => undefined);
-      }
-    };
-  }, [activePathJobId, generation, isPathBusy]);
+  usePollingJob({
+    activeJobId: options.activePathJobId,
+    busy: options.isPathBusy,
+    generation: options.generation,
+    poll: api.pathPreviewStatus,
+    cancel: api.cancelPathPreview,
+    setProgress: options.setPathProgress,
+    finish: options.finish,
+    missing: (jobId) => ({ jobId, cancelled: true, paths: [], error: "Path job disappeared before returning a result." }),
+    failed: (jobId, error) => ({ jobId, cancelled: false, paths: [], error: errorMessage(error) }),
+  });
 }
 
 export function useAffinityJob(options: {
@@ -200,53 +176,19 @@ export function useAffinityJob(options: {
   setAffinityProgress: (progress: AffinityWatchProgressDto | null) => void;
   finish: (payload: AffinityWatchFinishedDto, generation: number) => void;
 }) {
-  const { activeAffinityJobId, isAffinityBusy, generation, setAffinityProgress, finish } = options;
-  const setProgressRef = useRef(setAffinityProgress);
-  const finishRef = useRef(finish);
-  setProgressRef.current = setAffinityProgress;
-  finishRef.current = finish;
-
-  useEffect(() => {
-    if (!activeAffinityJobId || !isAffinityBusy) return undefined;
-    const jobId = activeAffinityJobId;
-    const polling = startAdaptivePolling({
-      poll: () => api.affinityWatchStatus(jobId),
-      progressKey: (status) => progressSignature(status.progress),
-      onStatus: (status) => {
-        if (status.progress?.jobId === jobId) setProgressRef.current(status.progress);
-        if (status.finished?.jobId === jobId) {
-          finishRef.current(status.finished, generation);
-          return true;
-        }
-        return false;
-      },
-      onMissing: () => {
-        finishRef.current({
-            jobId,
-            cancelled: true,
-            payload: null,
-            error: "Affinity watch job disappeared before returning a result.",
-        }, generation);
-      },
-      onError: (error) => {
-        finishRef.current({
-          jobId,
-          cancelled: false,
-          payload: null,
-          error: error instanceof Error ? error.message : String(error),
-        }, generation);
-      },
-    });
-    return () => {
-      const unfinished = !polling.isFinished();
-      polling.stop();
-      if (unfinished && hasTauriRuntime()) {
-        void api.cancelAffinityWatch(jobId).catch(() => undefined);
-      }
-    };
-  }, [activeAffinityJobId, generation, isAffinityBusy]);
+  usePollingJob({
+    activeJobId: options.activeAffinityJobId,
+    busy: options.isAffinityBusy,
+    generation: options.generation,
+    poll: api.affinityWatchStatus,
+    cancel: api.cancelAffinityWatch,
+    setProgress: options.setAffinityProgress,
+    finish: options.finish,
+    missing: (jobId) => ({ jobId, cancelled: true, payload: null, error: "Affinity watch job disappeared before returning a result." }),
+    failed: (jobId, error) => ({ jobId, cancelled: false, payload: null, error: errorMessage(error) }),
+  });
 }
 
-export function hasRuntimeTauriJob() {
-  return hasTauriRuntime();
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

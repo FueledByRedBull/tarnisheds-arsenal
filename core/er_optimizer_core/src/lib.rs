@@ -2,8 +2,6 @@ pub mod data;
 pub mod math;
 pub mod model;
 pub mod optimizer;
-#[cfg(feature = "python")]
-pub mod python_api;
 mod snapshot;
 
 pub use data::{
@@ -18,6 +16,7 @@ pub use math::{
 pub use model::{
     Aow, AttackElementCorrect, DamageBreakdown, DamageType, DataCapabilities, GameData,
     ReinforceLevel, STAT_ARC, STAT_DEX, STAT_FAI, STAT_INT, STAT_STR, Stats, Weapon,
+    normalize_weapon_type_display,
 };
 pub use optimizer::{
     CANCELLATION_LATENCY_TARGET_MS, LevelOptimizeResult, OptimizeObjective, OptimizePhaseTimings,

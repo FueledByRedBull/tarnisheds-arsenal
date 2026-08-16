@@ -4,14 +4,12 @@ import argparse
 import json
 import math
 import re
+import subprocess
 import urllib.request
 from urllib.parse import urljoin
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
-import er_optimizer_core as core
-
 
 TCALC_DATA_URL = "https://eldenring.tclark.io/regulation-vanilla-v1.14.js?0"
 TARNISHED_CALCULATOR_URL = "https://www.tarnished.dev/weapon-calculator"
@@ -148,38 +146,39 @@ def site_attack_rating(data: dict[str, Any], case: ComparisonCase) -> float:
     return total
 
 
-def local_attack_rating(data: Any, case: ComparisonCase) -> float:
-    level = 30 + sum(case.stats.values()) - 79
-    rows = core.optimize_builds(
-        data=data,
-        class_name="Wretch",
-        character_level=level,
-        vig=10,
-        mnd=10,
-        end=10,
-        str_stat=case.stats["str"],
-        dex=case.stats["dex"],
-        int_stat=case.stats["int"],
-        fai=case.stats["fai"],
-        arc=case.stats["arc"],
-        max_upgrade=case.upgrade,
-        fixed_upgrade=case.upgrade,
-        two_handing=case.two_handing,
-        weapon_name=case.weapon_name,
-        affinity=case.affinity,
-        aow_name=case.aow_name,
-        objective="max_ar",
-        top_k=1,
-        somber_filter="all",
-        lock_str=case.stats["str"],
-        lock_dex=case.stats["dex"],
-        lock_int=case.stats["int"],
-        lock_fai=case.stats["fai"],
-        lock_arc=case.stats["arc"],
+def local_attack_ratings(root: Path) -> list[float]:
+    payload = [
+        {
+            "weaponName": case.weapon_name,
+            "affinity": case.affinity,
+            "aowName": case.aow_name,
+            "upgrade": case.upgrade,
+            "stats": case.stats,
+            "twoHanding": case.two_handing,
+        }
+        for case in CASES
+    ]
+    completed = subprocess.run(
+        [
+            "cargo",
+            "run",
+            "--quiet",
+            "--release",
+            "--locked",
+            "--manifest-path",
+            str(root / "core" / "er_optimizer_core" / "Cargo.toml"),
+            "--example",
+            "evaluate_ar",
+            "--",
+            str(root / "data" / "phase1"),
+        ],
+        cwd=root,
+        input=json.dumps(payload),
+        capture_output=True,
+        check=True,
+        text=True,
     )
-    if len(rows) != 1:
-        raise RuntimeError(f"local optimizer returned {len(rows)} rows for {case.label}")
-    return float(rows[0].ar_total)
+    return [float(value) for value in json.loads(completed.stdout)]
 
 
 def main() -> int:
@@ -193,13 +192,12 @@ def main() -> int:
 
     root = Path(__file__).resolve().parents[2]
     site_data = fetch_site_data(args.url)
-    local_data = core.load_game_data(str(root / "data" / "phase1"))
+    local_values = local_attack_ratings(root)
     failures = 0
     print(f"source={args.url}")
     print("note=external snapshot identifies itself as App 1.14; cases avoid changed DLC data")
-    for case in CASES:
+    for case, local in zip(CASES, local_values):
         external = site_attack_rating(site_data, case)
-        local = local_attack_rating(local_data, case)
         drift = local - external
         passed = abs(drift) <= args.tolerance and round(local) == round(external)
         failures += int(not passed)

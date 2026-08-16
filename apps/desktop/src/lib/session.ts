@@ -1,7 +1,6 @@
 import {
   CatalogDto,
   ClassMetadataDto,
-  CombatStateDto,
   OptimizeRequestDto,
   ProfileRulesDto,
   SolvedBuildDto,
@@ -214,16 +213,6 @@ function clampUpgrade(value: number, max: number): number {
   return Math.min(Math.max(Math.trunc(value), 0), max);
 }
 
-export function clearLocks(request: OptimizeRequestDto): Partial<OptimizeRequestDto> {
-  return {
-    lockStr: null,
-    lockDex: null,
-    lockInt: null,
-    lockFai: null,
-    lockArc: null,
-  };
-}
-
 export function rowFingerprint(row: SolvedBuildDto | null): string | null {
   if (!row) {
     return null;
@@ -240,16 +229,6 @@ export function rowFingerprint(row: SolvedBuildDto | null): string | null {
     row.stats.fai,
     row.stats.arc,
   ].join("|");
-}
-
-export function combatStateFromRow(row: SolvedBuildDto): CombatStateDto {
-  return {
-    strStat: row.stats.strStat,
-    dex: row.stats.dex,
-    intStat: row.stats.intStat,
-    fai: row.stats.fai,
-    arc: row.stats.arc,
-  };
 }
 
 export function remainingCombatLevels(request: OptimizeRequestDto): number {

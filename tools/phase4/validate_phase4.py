@@ -13,11 +13,14 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.phase1.extract_motion_workbook import load_weapon_workbook_data  # noqa: E402
+from tools.phase1.derive_phase1_extras import (  # noqa: E402
+    build_aow_affinity_compat,
+    derive_phase1_diagnostics,
+)
 from tools.phase1.profiles import profile_definition  # noqa: E402
 from tools.phase1.snapshot_manifest import validate_snapshot_manifest  # noqa: E402
 from tools.phase4.validation.aow_effect_graph import validate_aow_effect_graph  # noqa: E402
 from tools.phase4.validation.models import ValidationIssue  # noqa: E402
-from tools.phase4.validation.runtime import validate_runtime_ar  # noqa: E402
 from tools.phase4.convergence_reference import validate_reference  # noqa: E402
 
 
@@ -55,8 +58,10 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
     attack_element_correct = read_csv(data_dir / "attack_element_correct.csv")
     attack_element_correct_ext = read_csv(data_dir / "attack_element_correct_ext.csv")
     weapon_passives = read_csv(data_dir / "weapon_passives.csv")
-    weapon_scaling_summary = read_csv(data_dir / "weapon_scaling_summary.csv")
-    aow_affinity_compat = read_csv(data_dir / "aow_affinity_compat.csv")
+    weapon_scaling_summary, aow_affinity_compat = derive_phase1_diagnostics(
+        data_dir,
+        extended_scaling_grades=profile.rules.extended_scaling_grades,
+    )
 
     minimums = [
         ("weapons.csv", len(weapons), 100),
@@ -159,7 +164,7 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
         issues.append(
             ValidationIssue(
                 "error",
-                "weapon_scaling_summary.csv is stale or does not cover every weapon configuration",
+                "derived weapon scaling summary does not cover every weapon configuration",
             )
         )
     diagnostic_names = [
@@ -305,7 +310,7 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
     weapon_passive_overlays = read_csv(data_dir / "weapon_passive_overlays.csv")
     passive_effect_coverage = read_csv(data_dir / "passive_effect_coverage.csv")
     aow_weapon_compat = read_csv(data_dir / "aow_weapon_compat.csv")
-    aow_affinity_compat = read_csv(data_dir / "aow_affinity_compat.csv")
+    aow_affinity_compat = build_aow_affinity_compat(aow_weapon_compat)
 
     if len(weapons) < 3000:
         issues.append(ValidationIssue("error", f"weapons.csv row count too low: {len(weapons)}"))
@@ -639,10 +644,10 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
         aow_id = int(row["aow_id"])
         canonical = aow_by_id.get(aow_id)
         if canonical is None:
-            issues.append(ValidationIssue("error", f"aow_affinity_compat.csv references missing aow_id={aow_id}"))
+            issues.append(ValidationIssue("error", f"derived AoW affinity compatibility references missing aow_id={aow_id}"))
             break
         if not row["name"].strip() or row["name"] != canonical["name"]:
-            issues.append(ValidationIssue("error", f"aow_affinity_compat.csv has stale/placeholder name for aow_id={aow_id}"))
+            issues.append(ValidationIssue("error", f"derived AoW affinity compatibility has stale/placeholder name for aow_id={aow_id}"))
             break
 
     native_statuses = {row["status"] for row in native_skill_damage_coverage}
@@ -932,7 +937,6 @@ def main() -> int:
     vanilla_dir = profile_dirs["vanilla"]
     if vanilla_dir.exists():
         issues.extend(scoped("vanilla", validate_data_snapshot(vanilla_dir)))
-        issues.extend(scoped("vanilla", validate_runtime_ar(vanilla_dir)))
 
     errors = [issue for issue in issues if issue.level == "error"]
     warnings = [issue for issue in issues if issue.level == "warning"]

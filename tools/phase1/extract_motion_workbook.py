@@ -235,12 +235,6 @@ def load_weapon_workbook_data(workbook_path: Path) -> dict[int, WeaponWorkbookDa
     return out
 
 
-def safe_parse_float(value: str) -> float:
-    if not value or value in {'-', 'invalid'}:
-        return 0.0
-    return float(value)
-
-
 def find_matching_aow(raw_name: str, aow_names: list[str]) -> str | None:
     simplified = re.sub(r'^\[[^\]]+\]\s*', '', raw_name).strip()
     simplified = re.sub(r'\s*\(Lacking FP\)$', '', simplified).strip()

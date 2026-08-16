@@ -1,4 +1,3 @@
-# Python helpers used by validation, benchmarking, and release packaging.
-maturin==1.12.4
+# Python helpers used by validation and release packaging.
 pyright==1.1.411
 ruff==0.15.7

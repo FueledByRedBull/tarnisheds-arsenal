@@ -1048,9 +1048,6 @@ def main() -> int:
         dir=destination_dir.parent,
     )
     output_dir = Path(staging_owner.name)
-    if destination_dir.is_dir():
-        for existing_csv in destination_dir.glob("*.csv"):
-            shutil.copy2(existing_csv, output_dir / existing_csv.name)
     needs_workbook = (
         profile.use_workbook_weapon_metadata
         or profile.capabilities.aow_damage
@@ -1225,7 +1222,6 @@ def main() -> int:
     )
 
     from tools.phase1.derive_phase1_raw_extras import export_regulation_extras
-    from tools.phase1.derive_phase1_extras import derive_phase1_extras
     from tools.phase1.extract_motion_workbook import run_workbook_exports
     from tools.phase1.snapshot_manifest import (
         promote_snapshot,
@@ -1258,11 +1254,6 @@ def main() -> int:
             output_dir,
             Path(__file__).resolve().parents[2] / "data" / "phase1",
         )
-    derive_phase1_extras(
-        output_dir,
-        output_dir,
-        extended_scaling_grades=profile.rules.extended_scaling_grades,
-    )
     source_paths: dict[str, Path] = {}
     for prefix, paths in (("weaponNames", weapon_name_xmls), ("artsNames", arts_name_xmls)):
         for path in paths:

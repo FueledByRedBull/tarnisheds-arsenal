@@ -13,15 +13,7 @@ use crate::dto::{
     parse_objective, validate_levels_ahead,
 };
 use crate::errors::AppError;
-use crate::{AppState, AsyncJobHandle, CancelFlag, JobRegistry, LatestCancel};
-
-#[tauri::command]
-pub fn build_affinity_watch(
-    request: AffinityWatchRequestDto,
-    state: State<'_, AppState>,
-) -> Result<AffinityWatchPayloadDto, AppError> {
-    build_affinity_watch_inner(request, &state, |_| true, || true)
-}
+use crate::{AppState, AsyncJobHandle, CancelFlag, JobRegistry};
 
 #[tauri::command]
 pub fn start_affinity_watch(
@@ -52,7 +44,6 @@ pub fn start_affinity_watch(
     tauri::async_runtime::spawn_blocking(move || {
         let task_state = AppState {
             profiles,
-            estimate_cancel: Arc::new(LatestCancel::new()),
             search_jobs: Arc::new(JobRegistry::new("search")),
             path_jobs: Arc::new(JobRegistry::new("path")),
             affinity_jobs: Arc::new(JobRegistry::new("affinity watch")),

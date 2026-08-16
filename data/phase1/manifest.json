@@ -101,11 +101,6 @@
   ],
   "diagnosticFiles": [
     {
-      "path": "aow_affinity_compat.csv",
-      "size": 131208,
-      "sha256": "8bf2af671c6b7482cd59fc3107ea6ccb0997ab91c5fc7083e7cb92619b5d9e6d"
-    },
-    {
       "path": "aow_buffs.csv",
       "size": 1472,
       "sha256": "c1a3631da18ba0003a1b22c7e9128d89cdfe07a6ce3f0e544f375970a7ef1d59"
@@ -139,11 +134,6 @@
       "path": "passive_effect_coverage.csv",
       "size": 33357,
       "sha256": "11836b021e8cc7e468ba11b5e4df5336fe39df650d30a1c5f439b6107d007b0c"
-    },
-    {
-      "path": "weapon_scaling_summary.csv",
-      "size": 408285,
-      "sha256": "c1572f60e930c25bf5c190b024ea99f9c77a4285cdc13f3e48425883b2ea8d93"
     }
   ],
   "sources": [

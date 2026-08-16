@@ -10,7 +10,6 @@ import {
   OptimizeRequestDto,
   PathPreviewDto,
   PathProgressDto,
-  SearchEstimateDto,
   SearchProgressDto,
   SolvedBuildDto,
   WorkspaceTab,
@@ -24,7 +23,6 @@ export interface DesktopState {
   catalogStatus: "loading" | "ready" | "error";
   catalogError: string | null;
   request: OptimizeRequestDto;
-  estimate: SearchEstimateDto | null;
   rows: SolvedBuildDto[];
   resultsStale: boolean;
   selected: SolvedBuildDto | null;
@@ -63,7 +61,6 @@ export interface DesktopState {
   setCatalogFailure: (message: string) => void;
   patchRequest: (patch: Partial<OptimizeRequestDto>) => void;
   applyClass: (className: string) => void;
-  setEstimate: (estimate: SearchEstimateDto | null) => void;
   setRows: (rows: SolvedBuildDto[]) => void;
   markResultsStale: () => void;
   clearResults: (message?: string) => void;
@@ -170,7 +167,6 @@ type RequestSlice = Pick<
 
 type SearchSlice = Pick<
   DesktopState,
-  | "estimate"
   | "rows"
   | "resultsStale"
   | "selected"
@@ -180,7 +176,6 @@ type SearchSlice = Pick<
   | "activeSearchSignature"
   | "activeJobId"
   | "progress"
-  | "setEstimate"
   | "setRows"
   | "markResultsStale"
   | "clearResults"
@@ -304,7 +299,6 @@ const createUiSlice: DesktopSlice<UiSlice> = (set) => ({
         weaponTypeKey: null,
         objective: "max_ar",
       }, rules, true),
-      estimate: null,
       rows: [],
       resultsStale: false,
       selected: null,
@@ -359,7 +353,6 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
         { ...state.request, ...patch, profileId: state.request.profileId },
         state.catalog?.dataManifest.rules,
       ),
-      estimate: null,
       compareTarget: null,
       resultsStale: state.rows.length > 0,
       paths: [],
@@ -386,7 +379,6 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
           fai: meta.baseStats.fai,
           arc: meta.baseStats.arc,
         },
-        estimate: null,
         compareTarget: null,
         resultsStale: state.rows.length > 0,
         paths: [],
@@ -443,7 +435,6 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
         lockFai: row.stats.fai,
         lockArc: row.stats.arc,
       },
-      estimate: null,
       lockedStatMode: true,
       compareTarget: null,
       selectedFingerprint: rowFingerprint(row),
@@ -490,7 +481,6 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
 });
 
 const createSearchSlice: DesktopSlice<SearchSlice> = (set) => ({
-  estimate: null,
   rows: [],
   resultsStale: false,
   selected: null,
@@ -500,7 +490,6 @@ const createSearchSlice: DesktopSlice<SearchSlice> = (set) => ({
   activeSearchSignature: null,
   activeJobId: null,
   progress: null,
-  setEstimate: (estimate) => set({ estimate }),
   setRows: (rows) =>
     set((state) => {
       const selected =
@@ -523,7 +512,6 @@ const createSearchSlice: DesktopSlice<SearchSlice> = (set) => ({
       selected: null,
       compareTarget: null,
       selectedFingerprint: null,
-      estimate: null,
       paths: [],
       pathSignature: null,
       affinityPayload: null,

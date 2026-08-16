@@ -240,6 +240,7 @@ fn scored_candidate(
             score,
             ar: None,
             status_buildup: None,
+            bleed_buildup: None,
             aow_first_hit_damage: None,
             aow_full_sequence_damage: None,
         },
@@ -2094,7 +2095,80 @@ fn open_max_ar_plus_bleed_matches_best_explicit_aow() {
         open_results[0].ar.total(),
         expected_best.ar.total()
     );
+    for (label, actual, expected) in [
+        (
+            "bleed",
+            open_results[0].bleed_buildup,
+            expected_best.bleed_buildup,
+        ),
+        (
+            "frost",
+            open_results[0].frost_buildup,
+            expected_best.frost_buildup,
+        ),
+        (
+            "poison",
+            open_results[0].poison_buildup,
+            expected_best.poison_buildup,
+        ),
+        (
+            "scarlet rot",
+            open_results[0].scarlet_rot_buildup,
+            expected_best.scarlet_rot_buildup,
+        ),
+        (
+            "sleep",
+            open_results[0].sleep_buildup,
+            expected_best.sleep_buildup,
+        ),
+        (
+            "madness",
+            open_results[0].madness_buildup,
+            expected_best.madness_buildup,
+        ),
+        (
+            "death",
+            open_results[0].death_buildup,
+            expected_best.death_buildup,
+        ),
+    ] {
+        assert!(
+            (actual - expected).abs() < 0.001,
+            "expected {label} unlocked value {actual} to match explicit value {expected}"
+        );
+    }
     assert!(open_results[0].aow_name.is_some());
+}
+
+#[test]
+fn bleed_only_calculator_matches_full_status_for_open_choices() {
+    let game_data = load_data();
+    let mut request = base_request();
+    request.weapon_name = Some("Uchigatana".to_string());
+    request.affinity = Some("Blood".to_string());
+    request.objective = OptimizeObjective::MaxArPlusBleed;
+    request.current_stats.arc = 45;
+    request.character_level = 150;
+    let constraints = build_combat_constraints(&request).expect("constraints failed");
+    let prepared_weapons =
+        prepare_weapons(&request, &game_data, constraints).expect("weapon preparation failed");
+    let prepared = prepared_weapons.first().expect("missing prepared weapon");
+    let stats = request.current_stats;
+
+    for upgrade in [0, 10, 25] {
+        if !prepared.upgrades.contains(&upgrade) {
+            continue;
+        }
+        for aow_choice in &prepared.aow_choices {
+            let full =
+                calculate_status_with_buffs(prepared, aow_choice, upgrade, &stats, &game_data)
+                    .expect("full status calculation failed");
+            let bleed =
+                calculate_bleed_with_buffs(prepared, aow_choice, upgrade, &stats, &game_data)
+                    .expect("bleed status calculation failed");
+            assert_eq!(bleed, full.bleed, "AoW {:?}", aow_choice.skill_name);
+        }
+    }
 }
 
 #[test]

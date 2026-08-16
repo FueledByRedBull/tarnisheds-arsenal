@@ -170,8 +170,14 @@ pub(super) fn compare_known_candidate_metrics(
             return first_order;
         }
     }
-    if let (Some(left_status), Some(right_status)) = (left.status_buildup, right.status_buildup) {
-        let bleed_order = compare_f32(left_status.bleed, right_status.bleed);
+    if let (Some(left_bleed), Some(right_bleed)) = (
+        left.bleed_buildup
+            .or_else(|| left.status_buildup.map(|status| status.bleed)),
+        right
+            .bleed_buildup
+            .or_else(|| right.status_buildup.map(|status| status.bleed)),
+    ) {
+        let bleed_order = compare_f32(left_bleed, right_bleed);
         if bleed_order != CmpOrdering::Equal {
             return bleed_order;
         }

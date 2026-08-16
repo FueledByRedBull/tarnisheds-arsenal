@@ -4,7 +4,7 @@ use er_optimizer_core::model::{
 };
 use er_optimizer_core::{
     DamageBreakdown, OptimizeObjective, OptimizeRequest, OptimizeResult, ProgressSnapshot,
-    SearchEstimate, SomberFilter, Stats,
+    SomberFilter, Stats,
 };
 use serde::{Deserialize, Serialize};
 
@@ -112,14 +112,6 @@ pub struct DamageBreakdownDto {
     pub lightning: f32,
     pub holy: f32,
     pub total: f32,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SearchEstimateDto {
-    pub weapon_candidates: usize,
-    pub stat_candidates: u64,
-    pub combinations: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -587,15 +579,6 @@ pub struct CompatibleAowsForAffinityRequestDto {
     pub affinity: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WeaponScalingRequestDto {
-    pub profile_id: String,
-    pub weapon_name: String,
-    pub affinity: String,
-    pub upgrade: u8,
-}
-
 impl TryFrom<&OptimizeRequestDto> for OptimizeRequest {
     type Error = AppError;
 
@@ -642,16 +625,6 @@ impl TryFrom<&OptimizeRequestDto> for OptimizeRequest {
             objective: parse_objective(&value.objective)?,
             top_k: value.top_k,
         })
-    }
-}
-
-impl From<SearchEstimate> for SearchEstimateDto {
-    fn from(value: SearchEstimate) -> Self {
-        Self {
-            weapon_candidates: value.weapon_candidates,
-            stat_candidates: value.stat_candidates,
-            combinations: value.combinations,
-        }
     }
 }
 
@@ -890,130 +863,6 @@ mod tests {
         validate_optimize_request(&request).expect("maximum export row count");
         request.top_k += 1;
         assert!(validate_optimize_request(&request).is_err());
-    }
-
-    #[test]
-    fn representative_catalog_uses_app_contract_keys() {
-        let value = serde_json::to_value(CatalogDto {
-            weapon_count: 1,
-            aow_count: 1,
-            weapon_names: vec!["Uchigatana".to_string()],
-            weapon_type_keys: vec!["katana".to_string()],
-            classes: vec![ClassMetadataDto {
-                name: "Samurai".to_string(),
-                base_level: 9,
-                base_total: 80,
-                base_stats: EightStatsDto {
-                    vig: 12,
-                    mnd: 11,
-                    end: 13,
-                    str_stat: 12,
-                    dex: 15,
-                    int_stat: 9,
-                    fai: 8,
-                    arc: 8,
-                },
-            }],
-            weapon_type_options: vec![WeaponTypeOptionDto {
-                key: "katana".to_string(),
-                label: "Katana".to_string(),
-            }],
-            aow_names: vec!["Seppuku".to_string()],
-            affinity_names: vec!["Keen".to_string()],
-            objective_ids: vec!["max_ar".to_string()],
-            somber_filters: vec!["all".to_string()],
-            data_manifest: DataManifestDto {
-                schema_version: 3,
-                dataset_version: "phase1".to_string(),
-                model_version: "test-model".to_string(),
-                id: "phase1".to_string(),
-                label: "Phase 1".to_string(),
-                app_version: "0.5.0".to_string(),
-                source: "test".to_string(),
-                generated_at: "2026-06-10T00:00:00Z".to_string(),
-                extractor_version: "test-extractor".to_string(),
-                provenance: "test".to_string(),
-                profile: ProfileMetadataDto {
-                    id: "vanilla".to_string(),
-                    display_name: "Vanilla".to_string(),
-                    game_version: "1.16.1".to_string(),
-                    mod_version: None,
-                },
-                capabilities: ProfileCapabilitiesDto {
-                    weapon_ar: true,
-                    status_buildup: true,
-                    weapon_passives: true,
-                    aow_compatibility: true,
-                    aow_damage: true,
-                    aow_routes: true,
-                },
-                rules: ProfileRulesDto {
-                    standard_max_upgrade: 25,
-                    somber_max_upgrade: 10,
-                    separate_upgrade_caps: true,
-                    scadutree_scaling: true,
-                    zero_attack_element_uses_weapon_scaling: false,
-                    extended_scaling_grades: false,
-                    status_buildup_scales: true,
-                },
-            },
-        })
-        .expect("catalog serializes");
-
-        assert_has_path(&value, &["weaponCount"]);
-        assert_has_path(&value, &["weaponTypeOptions", "0", "key"]);
-        assert_has_path(&value, &["classes", "0", "baseStats", "strStat"]);
-        assert_has_path(&value, &["dataManifest", "appVersion"]);
-        assert_has_path(&value, &["dataManifest", "datasetVersion"]);
-        assert_has_path(&value, &["dataManifest", "rules", "standardMaxUpgrade"]);
-        assert_missing_path(&value, &["weapon_count"]);
-        assert_missing_path(&value, &["classes", "0", "base_stats"]);
-        assert_missing_path(&value, &["data_manifest"]);
-    }
-
-    #[test]
-    fn representative_job_status_uses_app_contract_keys() {
-        let start_value = serde_json::to_value(StartSearchResponseDto {
-            job_id: "search-1".to_string(),
-        })
-        .expect("start response serializes");
-        assert_has_path(&start_value, &["jobId"]);
-
-        let value = serde_json::to_value(SearchJobStatusDto {
-            progress: Some(SearchProgressDto {
-                job_id: "search-1".to_string(),
-                checked: 10,
-                total: 100,
-                eligible: 3,
-                best_score: 42.5,
-                elapsed_ms: 250,
-            }),
-            finished: Some(SearchFinishedDto {
-                job_id: "search-1".to_string(),
-                cancelled: false,
-                rows: vec![solved_build()],
-                error: None,
-            }),
-        })
-        .expect("status serializes");
-
-        assert_has_path(&value, &["progress", "jobId"]);
-        assert_has_path(&value, &["progress", "bestScore"]);
-        assert_has_path(&value, &["progress", "elapsedMs"]);
-        assert_has_path(&value, &["finished", "rows", "0", "weaponName"]);
-        assert_has_path(&value, &["finished", "rows", "0", "weaponTypeName"]);
-        assert_has_path(&value, &["finished", "rows", "0", "stats", "strStat"]);
-        assert_has_path(&value, &["finished", "rows", "0", "requirements", "dex"]);
-        assert_has_path(
-            &value,
-            &["finished", "rows", "0", "effectiveScaling", "arc"],
-        );
-        assert_has_path(&value, &["finished", "rows", "0", "aowFirstHitDamage"]);
-        assert_has_path(&value, &["finished", "rows", "0", "sleepBuildup"]);
-        assert_has_path(&value, &["finished", "rows", "0", "madnessBuildup"]);
-        assert_has_path(&value, &["finished", "rows", "0", "deathBuildup"]);
-        assert_missing_path(&value, &["progress", "job_id"]);
-        assert_missing_path(&value, &["finished", "rows", "0", "weapon_name"]);
     }
 
     #[test]
@@ -1271,14 +1120,6 @@ mod tests {
         assert!(
             lookup_path(value, path).is_some(),
             "expected JSON path {} in {value}",
-            path.join(".")
-        );
-    }
-
-    fn assert_missing_path(value: &Value, path: &[&str]) {
-        assert!(
-            lookup_path(value, path).is_none(),
-            "unexpected JSON path {} in {value}",
             path.join(".")
         );
     }

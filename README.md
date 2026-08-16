@@ -209,7 +209,7 @@ Current boundaries:
 - route status details cover bleed, frost, poison, scarlet rot, sleep, madness, and
   death buildup, separately from proc damage
 - route stamina is reported but is not an optimization objective
-- temporary buff stacking is not yet modeled as a universal layer
+- temporary buff stacking is not modeled as a universal layer
 
 ## Development
 
@@ -267,9 +267,8 @@ Build a Windows release package:
 python tools/phase4/package_release.py
 ```
 
-The release helper runs core and Tauri tests, builds and installs the
-release-profile local validation binding, runs data validation, installs
-frontend dependencies, builds the Tauri app, and writes
+The release helper runs core and Tauri tests, validates both data profiles,
+installs frontend dependencies, builds the Tauri app, and writes
 `dist/TarnishedsArsenal_<version>` with the MSI, standalone executable, checksums,
 and build report, plus `dist/TarnishedsArsenal_<version>.zip`. See
 [the release guide](docs/releasing.md) for the tag-driven release process.
@@ -293,7 +292,7 @@ lower-level derivation scripts individually for a release snapshot.
 | Path | Role |
 |---|---|
 | `apps/desktop` | Tauri, React, and TypeScript desktop app. |
-| `core/er_optimizer_core` | Rust optimizer and optional PyO3 validation binding. |
+| `core/er_optimizer_core` | Rust optimizer, tests, and release-mode benchmark probes. |
 | `data/phase1` | Committed Vanilla runtime snapshot. |
 | `data/profiles/convergence` | Committed Convergence runtime snapshot. |
 | `tools/phase1` | Extraction and data refresh tooling. |

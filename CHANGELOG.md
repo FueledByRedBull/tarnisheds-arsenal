@@ -4,7 +4,24 @@ Release notes are maintained in [`docs/release-notes/`](docs/release-notes/READM
 
 Use that index for per-version notes and GitHub release links.
 
-## v0.9.3 — 2026-08-16
+## v0.10.0 — 2026-08-17
+
+- Remove duplicate synchronous frontend/native search paths and make browser mocks
+  exercise the same start/status/cancel job contract as the desktop backend.
+- Consolidate polling and search orchestration while preserving request-generation,
+  cancellation, and stale-result protection.
+- Remove the internal PyO3/Maturin bridge, duplicate Python runtime validator,
+  unused APIs/helpers/tests/dependency, and four reproducible diagnostic CSVs;
+  retain native Rust tests, benchmarks, and an external-calculator probe.
+- Canonicalize weapon-type normalization and the Kinetic Forge stylesheet.
+- Score Bleed-then-AR candidates with an exact bleed-only path before calculating
+  full AR/status for tie-breaks and retained rows.
+- Replace release source-text assertions with executable artifact, provenance,
+  checksum, signing, and clean-source gates.
+- Store the Windows product name with a typographic apostrophe so Explorer no
+  longer displays an unintended escape character.
+
+## v0.9.3 — 2026-08-16 (not published separately; included in v0.10.0)
 
 - Keep long Paths horizons inside the chart panel and scale both analysis charts to
   their observed metric range instead of flattening positive values against zero.

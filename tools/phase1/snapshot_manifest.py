@@ -34,6 +34,7 @@ RUNTIME_FILES = {
     "weapon_passives.csv",
     "weapons.csv",
 }
+IN_MEMORY_DIAGNOSTICS = {"aow_affinity_compat.csv", "weapon_scaling_summary.csv"}
 
 
 class FileRecord(TypedDict):
@@ -110,7 +111,7 @@ def write_snapshot_manifest(
     diagnostic_files = [
         _file_record(path)
         for path in sorted(phase1_dir.glob("*.csv"), key=lambda item: item.name)
-        if path.name not in RUNTIME_FILES
+        if path.name not in RUNTIME_FILES | IN_MEMORY_DIAGNOSTICS
     ]
     sources: list[SourceRecord] = [
         {"kind": "regulation", "bundled": False, **_file_record(regulation_path)},
@@ -304,6 +305,10 @@ def promote_snapshot(staging_dir: Path, destination_dir: Path) -> None:
         temporary = destination.with_name(f".{destination.name}.snapshot.tmp")
         shutil.copy2(source, temporary)
         temporary.replace(destination)
+
+    for stale_csv in destination_dir.glob("*.csv"):
+        if stale_csv.name not in file_records:
+            stale_csv.unlink()
 
     manifest_source = staging_dir / "manifest.json"
     manifest_destination = destination_dir / "manifest.json"

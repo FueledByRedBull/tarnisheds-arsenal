@@ -394,49 +394,11 @@ def main() -> int:
         run(
             [
                 python_cmd(),
-                "-m",
-                "maturin",
-                "build",
-                "--release",
-                "--locked",
-                "--manifest-path",
-                str(root / "core/er_optimizer_core/Cargo.toml"),
-                "--features",
-                "python",
-            ],
-            cwd=root,
-        )
-        wheel = newest("target/wheels/er_optimizer_core-*.whl", root / "core" / "er_optimizer_core")
-        binding_root = root / "build_release"
-        binding_root.mkdir(parents=True, exist_ok=True)
-        binding_dir = Path(tempfile.mkdtemp(prefix="python-binding-", dir=binding_root))
-        run(
-            [
-                python_cmd(),
-                "-m",
-                "pip",
-                "install",
-                "--target",
-                str(binding_dir),
-                "--no-deps",
-                str(wheel),
-            ],
-            cwd=root,
-        )
-        validation_env = os.environ.copy()
-        previous_pythonpath = validation_env.get("PYTHONPATH")
-        validation_env["PYTHONPATH"] = str(binding_dir)
-        if previous_pythonpath:
-            validation_env["PYTHONPATH"] += os.pathsep + previous_pythonpath
-        run(
-            [
-                python_cmd(),
                 "tools/phase4/validate_phase4.py",
                 "--report",
                 str(validation_report),
             ],
             cwd=root,
-            env=validation_env,
         )
         validation_completed = True
         completed_gates.extend(

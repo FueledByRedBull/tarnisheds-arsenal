@@ -122,12 +122,6 @@ export interface ScalingDto {
   arc: number;
 }
 
-export interface SearchEstimateDto {
-  weaponCandidates: number;
-  statCandidates: number;
-  combinations: number;
-}
-
 export interface StartSearchResponseDto {
   jobId: string;
 }

@@ -1,6 +1,6 @@
 import { api } from "./api";
 import { rowFingerprint, stableSignature } from "./session";
-import { AffinityWatchPayloadDto, OptimizeRequestDto, PathPreviewDto, ScalingDto, SolvedBuildDto, UpgradePointDto, WeaponProfileDto } from "./types";
+import { OptimizeRequestDto, SolvedBuildDto, UpgradePointDto, WeaponProfileDto } from "./types";
 
 type CacheKey = string;
 type CacheEntry<T> = {
@@ -13,10 +13,7 @@ type CacheEntry<T> = {
 const CACHE_TTL_MS = 15 * 60 * 1000;
 const solveBuildCache = new Map<CacheKey, CacheEntry<SolvedBuildDto | null>>();
 const upgradeSeriesCache = new Map<CacheKey, CacheEntry<UpgradePointDto[]>>();
-const pathPreviewCache = new Map<CacheKey, CacheEntry<PathPreviewDto>>();
-const affinityWatchCache = new Map<CacheKey, CacheEntry<AffinityWatchPayloadDto>>();
 const weaponProfileCache = new Map<CacheKey, CacheEntry<WeaponProfileDto>>();
-const weaponScalingCache = new Map<CacheKey, CacheEntry<ScalingDto>>();
 let cacheDataVersion = "unknown";
 
 export function setAnalysisCacheVersion(dataVersion: string): void {
@@ -28,10 +25,7 @@ export function setAnalysisCacheVersion(dataVersion: string): void {
 export function clearAnalysisCaches(): void {
   solveBuildCache.clear();
   upgradeSeriesCache.clear();
-  pathPreviewCache.clear();
-  affinityWatchCache.clear();
   weaponProfileCache.clear();
-  weaponScalingCache.clear();
 }
 
 export function cachedWeaponProfile(profileId: string, weaponName: string, affinity: string | null, signal?: AbortSignal): Promise<WeaponProfileDto> {
@@ -57,38 +51,6 @@ export function cachedUpgradeSeries(
 ): Promise<UpgradePointDto[]> {
   return cached(upgradeSeriesCache, 64, { base, solved: rowFingerprint(solved), maxUpgrade }, () =>
     api.buildUpgradeSeries(base, solved, maxUpgrade), signal);
-}
-
-export function cachedPathPreview(
-  base: OptimizeRequestDto,
-  solved: SolvedBuildDto,
-  levelsAhead: number,
-  title: string,
-  signal?: AbortSignal,
-): Promise<PathPreviewDto> {
-  return cached(pathPreviewCache, 16, { base, solved: rowFingerprint(solved), levelsAhead, title }, () =>
-    api.buildPathPreview(base, solved, levelsAhead, title), signal);
-}
-
-export function cachedAffinityWatch(
-  base: OptimizeRequestDto,
-  solved: SolvedBuildDto,
-  levelsAhead: number,
-  signal?: AbortSignal,
-): Promise<AffinityWatchPayloadDto> {
-  return cached(affinityWatchCache, 12, { base, solved: rowFingerprint(solved), levelsAhead }, () =>
-    api.buildAffinityWatch(base, solved, levelsAhead), signal);
-}
-
-export function cachedWeaponScalingForUpgrade(
-  profileId: string,
-  weaponName: string,
-  affinity: string,
-  upgrade: number,
-  signal?: AbortSignal,
-): Promise<ScalingDto> {
-  return cached(weaponScalingCache, 256, { profileId, weaponName, affinity, upgrade }, () =>
-    api.weaponScalingForUpgrade(profileId, weaponName, affinity, upgrade), signal);
 }
 
 function cached<T>(

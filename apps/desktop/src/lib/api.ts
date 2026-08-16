@@ -8,7 +8,6 @@ import {
   PathJobStatusDto,
   PathPreviewDto,
   SearchJobStatusDto,
-  SearchEstimateDto,
   StartSearchResponseDto,
   ScalingDto,
   SolvedBuildDto,
@@ -184,11 +183,6 @@ export const api = {
     call<WeaponProfileDto>("get_weapon_profile", {
       request: { profileId, weaponName, affinity },
     }),
-  estimateSearchSpace: (request: OptimizeRequestDto) =>
-    call<SearchEstimateDto>("estimate_search_space", { request }),
-  cancelSearchEstimate: () => call<boolean>("cancel_search_estimate"),
-  runSearch: (request: OptimizeRequestDto) =>
-    call<SolvedBuildDto[]>("run_search", { request }),
   startSearch: (request: OptimizeRequestDto) =>
     call<StartSearchResponseDto>("start_search", { request }),
   cancelSearch: (jobId: string) =>
@@ -212,23 +206,6 @@ export const api = {
     call<UpgradePointDto[]>("build_upgrade_series", {
       request: { base, solved, maxUpgrade },
     }),
-  buildPathPreview: (
-    base: OptimizeRequestDto,
-    solved: SolvedBuildDto,
-    levelsAhead: number,
-    title: string,
-  ) =>
-    call<PathPreviewDto>("build_path_preview", {
-      request: { base, solved, levelsAhead, title },
-    }),
-  buildAffinityWatch: (
-    base: OptimizeRequestDto,
-    solved: SolvedBuildDto,
-    levelsAhead: number,
-  ) =>
-    call<AffinityWatchPayloadDto>("build_affinity_watch", {
-      request: { base, solved, levelsAhead },
-    }),
   affinitiesForWeapon: (profileId: string, weaponName: string) =>
     call<string[]>("affinities_for_weapon", { profileId, weaponName }),
   compatibleAowNames: (profileId: string, weaponName: string | null, affinity: string | null) =>
@@ -242,10 +219,6 @@ export const api = {
   weaponNamesForType: (profileId: string, weaponTypeKey: string | null) =>
     call<string[]>("weapon_names_for_type", {
       request: { profileId, weaponTypeKey },
-    }),
-  weaponScalingForUpgrade: (profileId: string, weaponName: string, affinity: string, upgrade: number) =>
-    call<ScalingDto>("weapon_scaling_for_upgrade", {
-      request: { profileId, weaponName, affinity, upgrade },
     }),
   startPathPreview: (requests: Array<{
     base: OptimizeRequestDto;
@@ -271,6 +244,173 @@ export const api = {
     call<AffinityWatchJobStatusDto | null>("get_affinity_watch_status", { jobId }),
 };
 
+let mockJobSequence = 0;
+let mockSearchJob: SearchJobStatusDto | null = null;
+let mockPathJob: PathJobStatusDto | null = null;
+let mockAffinityJob: AffinityWatchJobStatusDto | null = null;
+
+function nextMockJobId(prefix: string): string {
+  mockJobSequence += 1;
+  return `browser-${prefix}-${mockJobSequence}`;
+}
+
+function mockJobMatches(
+  status: { progress: { jobId: string } | null; finished: { jobId: string } | null } | null,
+  jobId: string,
+): boolean {
+  return status?.progress?.jobId === jobId || status?.finished?.jobId === jobId;
+}
+
+async function mockStartSearch(args: Record<string, unknown> | undefined): Promise<StartSearchResponseDto> {
+  const request = (args?.request as OptimizeRequestDto | undefined) ?? null;
+  const jobId = nextMockJobId("search");
+  const total = await mockSearchCombinationCount(request);
+  mockSearchJob = {
+    progress: { jobId, checked: 0, total, eligible: 0, bestScore: 0, elapsedMs: 0 },
+    finished: null,
+  };
+  void mockRows(request).then((rows) => {
+    if (!mockJobMatches(mockSearchJob, jobId) || mockSearchJob?.finished?.cancelled) return;
+    mockSearchJob = {
+      progress: {
+        jobId,
+        checked: total,
+        total,
+        eligible: rows.length,
+        bestScore: rows[0]?.score ?? 0,
+        elapsedMs: 0,
+      },
+      finished: { jobId, cancelled: false, rows, error: null },
+    };
+  }).catch((error) => {
+    if (!mockJobMatches(mockSearchJob, jobId) || mockSearchJob?.finished?.cancelled) return;
+    mockSearchJob = {
+      progress: mockSearchJob?.progress ?? null,
+      finished: { jobId, cancelled: false, rows: [], error: errorMessage(error) },
+    };
+  });
+  return { jobId };
+}
+
+function mockSearchStatus(args: Record<string, unknown> | undefined): SearchJobStatusDto | null {
+  const jobId = String(args?.jobId ?? "");
+  return mockJobMatches(mockSearchJob, jobId) ? mockSearchJob : null;
+}
+
+function mockCancelSearch(args: Record<string, unknown> | undefined): boolean {
+  const jobId = String(args?.jobId ?? "");
+  const current = mockSearchJob;
+  if (!current || !mockJobMatches(current, jobId) || current.finished) return false;
+  mockSearchJob = {
+    progress: current.progress,
+    finished: { jobId, cancelled: true, rows: [], error: null },
+  };
+  return true;
+}
+
+async function mockStartPathPreview(args: Record<string, unknown> | undefined): Promise<StartSearchResponseDto> {
+  const requests = ((args?.request as {
+    requests?: Array<{ base: OptimizeRequestDto; solved: SolvedBuildDto; levelsAhead: number; title: string }>;
+  } | undefined)?.requests) ?? [];
+  const jobId = nextMockJobId("path");
+  const total = Math.max(requests.reduce((sum, request) => sum + request.levelsAhead + 1, 0), 1);
+  const first = requests[0];
+  mockPathJob = {
+    progress: {
+      jobId,
+      checked: 0,
+      total,
+      title: first?.title ?? "Selected",
+      level: first?.base.characterLevel ?? 0,
+    },
+    finished: null,
+  };
+  void Promise.all(requests.map((request) => mockPathPreview({ request }))).then((paths) => {
+    if (!mockJobMatches(mockPathJob, jobId) || mockPathJob?.finished?.cancelled) return;
+    mockPathJob = {
+      progress: { ...mockPathJob!.progress!, checked: total },
+      finished: { jobId, cancelled: false, paths, error: null },
+    };
+  }).catch((error) => {
+    if (!mockJobMatches(mockPathJob, jobId) || mockPathJob?.finished?.cancelled) return;
+    mockPathJob = {
+      progress: mockPathJob?.progress ?? null,
+      finished: { jobId, cancelled: false, paths: [], error: errorMessage(error) },
+    };
+  });
+  return { jobId };
+}
+
+function mockPathPreviewStatus(args: Record<string, unknown> | undefined): PathJobStatusDto | null {
+  const jobId = String(args?.jobId ?? "");
+  return mockJobMatches(mockPathJob, jobId) ? mockPathJob : null;
+}
+
+function mockCancelPathPreview(args: Record<string, unknown> | undefined): boolean {
+  const jobId = String(args?.jobId ?? "");
+  const current = mockPathJob;
+  if (!current || !mockJobMatches(current, jobId) || current.finished) return false;
+  mockPathJob = {
+    progress: current.progress,
+    finished: { jobId, cancelled: true, paths: [], error: null },
+  };
+  return true;
+}
+
+async function mockStartAffinityWatch(args: Record<string, unknown> | undefined): Promise<StartSearchResponseDto> {
+  const request = args?.request as {
+    base?: OptimizeRequestDto;
+    solved?: SolvedBuildDto;
+    levelsAhead?: number;
+  } | undefined;
+  const jobId = nextMockJobId("affinity");
+  const total = Math.max((request?.levelsAhead ?? 0) + 1, 1);
+  mockAffinityJob = {
+    progress: {
+      jobId,
+      checked: 0,
+      total,
+      affinity: request?.solved?.affinity ?? "Standard",
+      level: request?.base?.characterLevel ?? 0,
+    },
+    finished: null,
+  };
+  void mockAffinityWatch(args).then((payload) => {
+    if (!mockJobMatches(mockAffinityJob, jobId) || mockAffinityJob?.finished?.cancelled) return;
+    mockAffinityJob = {
+      progress: { ...mockAffinityJob!.progress!, checked: total },
+      finished: { jobId, cancelled: false, payload, error: null },
+    };
+  }).catch((error) => {
+    if (!mockJobMatches(mockAffinityJob, jobId) || mockAffinityJob?.finished?.cancelled) return;
+    mockAffinityJob = {
+      progress: mockAffinityJob?.progress ?? null,
+      finished: { jobId, cancelled: false, payload: null, error: errorMessage(error) },
+    };
+  });
+  return { jobId };
+}
+
+function mockAffinityWatchStatus(args: Record<string, unknown> | undefined): AffinityWatchJobStatusDto | null {
+  const jobId = String(args?.jobId ?? "");
+  return mockJobMatches(mockAffinityJob, jobId) ? mockAffinityJob : null;
+}
+
+function mockCancelAffinityWatch(args: Record<string, unknown> | undefined): boolean {
+  const jobId = String(args?.jobId ?? "");
+  const current = mockAffinityJob;
+  if (!current || !mockJobMatches(current, jobId) || current.finished) return false;
+  mockAffinityJob = {
+    progress: current.progress,
+    finished: { jobId, cancelled: true, payload: null, error: null },
+  };
+  return true;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 async function mockInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   switch (command) {
     case "get_profiles":
@@ -281,30 +421,16 @@ async function mockInvoke<T>(command: string, args?: Record<string, unknown>): P
       return mockDataManifest(String(args?.profileId ?? "vanilla")) as T;
     case "get_weapon_profile":
       return await mockWeaponProfile(args) as T;
-    case "estimate_search_space":
-      return await mockSearchEstimate(args) as T;
-    case "cancel_search_estimate":
-      return true as T;
-    case "run_search":
-      return await mockRows((args?.request as OptimizeRequestDto | undefined) ?? null) as T;
     case "start_search":
-      return {
-        jobId: "browser-preview",
-        estimate: await mockSearchEstimate(args),
-      } as T;
+      return await mockStartSearch(args) as T;
     case "cancel_search":
-      return true as T;
+      return mockCancelSearch(args) as T;
     case "get_search_status":
-      return null as T;
+      return mockSearchStatus(args) as T;
     case "solve_build":
       return await mockSolveBuild(args) as T;
     case "build_upgrade_series":
       return await mockUpgradeSeries(args) as T;
-    case "build_path_preview": {
-      return await mockPathPreview(args) as T;
-    }
-    case "build_affinity_watch":
-      return await mockAffinityWatch(args) as T;
     case "weapon_names_for_type": {
       const key = (args?.request as { weaponTypeKey?: string | null })?.weaponTypeKey;
       return await mockWeaponNamesForType(key ?? null) as T;
@@ -313,22 +439,20 @@ async function mockInvoke<T>(command: string, args?: Record<string, unknown>): P
       return await mockCompatibleAowNamesForAffinity(args) as T;
     case "compatible_aow_names":
       return await mockCompatibleAowNames(args) as T;
-    case "weapon_scaling_for_upgrade":
-      return await mockScalingForUpgrade(args) as T;
     case "affinities_for_weapon":
       return await mockAffinitiesForWeapon(args) as T;
     case "start_path_preview":
-      return { jobId: "browser-path-preview" } as T;
+      return await mockStartPathPreview(args) as T;
     case "cancel_path_preview":
-      return true as T;
+      return mockCancelPathPreview(args) as T;
     case "get_path_preview_status":
-      return null as T;
+      return mockPathPreviewStatus(args) as T;
     case "start_affinity_watch":
-      return { jobId: "browser-affinity-watch" } as T;
+      return await mockStartAffinityWatch(args) as T;
     case "cancel_affinity_watch":
-      return true as T;
+      return mockCancelAffinityWatch(args) as T;
     case "get_affinity_watch_status":
-      return null as T;
+      return mockAffinityWatchStatus(args) as T;
     default:
       return null as T;
   }
@@ -468,8 +592,7 @@ async function mockCompatibleAowNames(args: Record<string, unknown> | undefined)
   return uniqueSorted([...nativeSkillNames, ...compatibleNames]);
 }
 
-async function mockSearchEstimate(args: Record<string, unknown> | undefined): Promise<SearchEstimateDto> {
-  const request = (args?.request as OptimizeRequestDto | undefined) ?? null;
+async function mockSearchCombinationCount(request: OptimizeRequestDto | null): Promise<number> {
   const weapons = await mockWeaponCandidates(request);
   const upgradeCount = weapons.reduce((total, weapon) => {
     if (!request) return total + 26;
@@ -477,11 +600,7 @@ async function mockSearchEstimate(args: Record<string, unknown> | undefined): Pr
     const cap = weapon.is_somber === "1" ? request.somberMaxUpgrade : request.standardMaxUpgrade;
     return total + Math.max(Number(cap) + 1, 1);
   }, 0);
-  return {
-    weaponCandidates: weapons.length,
-    statCandidates: 1,
-    combinations: Math.max(upgradeCount, 1),
-  };
+  return Math.max(upgradeCount, 1);
 }
 
 async function mockRows(request: OptimizeRequestDto | null): Promise<SolvedBuildDto[]> {
@@ -694,28 +813,6 @@ function emptySolvedBuild(): SolvedBuildDto {
     aowFullSequenceDamage: 0,
     aowRoute: null,
     score: 0,
-  };
-}
-
-async function mockScalingForUpgrade(args: Record<string, unknown> | undefined): Promise<ScalingDto> {
-  const request = args?.request as {
-    weaponName?: string;
-    affinity?: string;
-    upgrade?: number;
-  } | undefined;
-  const weapons = await phaseWeaponRows();
-  const weapon = weapons.find(
-    (row) => row.name === request?.weaponName && row.affinity === request?.affinity,
-  );
-  if (!weapon) {
-    return { str: 0, dex: 0, int: 0, fai: 0, arc: 0 };
-  }
-  return {
-    str: Number(weapon.str_scaling),
-    dex: Number(weapon.dex_scaling),
-    int: Number(weapon.int_scaling),
-    fai: Number(weapon.fai_scaling),
-    arc: Number(weapon.arc_scaling),
   };
 }
 

@@ -1,59 +1,22 @@
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
-use er_optimizer_core::{
-    OptimizeRequest, estimate_search_space_with_cancel, optimize,
-    optimize_level_range_with_progress, optimize_prepared_with_progress,
-    prepare_search_with_cancel, prepare_upgrade_series_evaluator_with_cancel,
-};
 #[cfg(test)]
+use er_optimizer_core::optimize_with_cancel;
 use er_optimizer_core::{
-    estimate_search_space as core_estimate_search_space, optimize_with_cancel,
+    OptimizeRequest, optimize, optimize_level_range_with_progress, optimize_prepared_with_progress,
+    prepare_search_with_cancel, prepare_upgrade_series_evaluator_with_cancel,
 };
 use tauri::{AppHandle, State};
 
 use crate::commands::data::weapon_upgrade_cap;
 use crate::dto::{
-    SearchEstimateDto, SearchFinishedDto, SearchJobStatusDto, SearchProgressDto,
-    SolveBuildRequestDto, SolvedBuildDto, StartSearchResponseDto, UpgradePointDto,
-    UpgradeSeriesRequestDto, lock_request_to_stats, metric_for_objective, parse_objective,
+    SearchFinishedDto, SearchJobStatusDto, SearchProgressDto, SolveBuildRequestDto, SolvedBuildDto,
+    StartSearchResponseDto, UpgradePointDto, UpgradeSeriesRequestDto, lock_request_to_stats,
+    metric_for_objective, parse_objective,
 };
 use crate::errors::AppError;
 use crate::{AppState, AsyncJobHandle, CancelFlag};
-
-#[tauri::command]
-pub async fn estimate_search_space(
-    request: crate::dto::OptimizeRequestDto,
-    state: State<'_, AppState>,
-) -> Result<SearchEstimateDto, AppError> {
-    let profile = state.profile(&request.profile_id)?;
-    let request = OptimizeRequest::try_from(&request)?;
-    let data = Arc::clone(&profile.data);
-    let controller = Arc::clone(&state.estimate_cancel);
-    let cancel_flag = controller.begin()?;
-    let task_cancel = Arc::clone(&cancel_flag);
-    let joined = tauri::async_runtime::spawn_blocking(move || {
-        estimate_search_space_with_cancel(&request, &data, || !task_cancel.load(Ordering::Relaxed))
-    })
-    .await;
-    controller.finish(&cancel_flag)?;
-    let result =
-        joined.map_err(|error| AppError::new(format!("search estimate task failed: {error}")))?;
-    result.map(SearchEstimateDto::from).map_err(AppError::from)
-}
-
-#[tauri::command]
-pub fn cancel_search_estimate(state: State<'_, AppState>) -> Result<bool, AppError> {
-    state.estimate_cancel.cancel()
-}
-
-#[tauri::command]
-pub fn run_search(
-    request: crate::dto::OptimizeRequestDto,
-    state: State<'_, AppState>,
-) -> Result<Vec<SolvedBuildDto>, AppError> {
-    run_search_inner(request, &state)
-}
 
 pub fn run_search_inner(
     mut request: crate::dto::OptimizeRequestDto,
@@ -350,21 +313,6 @@ mod integration_tests {
         assert_eq!(rows[0].weapon_name, "Uchigatana");
         assert_eq!(rows[0].affinity, "Keen");
         assert_eq!(rows[0].upgrade, 0);
-    }
-
-    #[test]
-    fn packaged_snapshot_executes_a_real_search_estimate() {
-        let state = crate::test_app_state();
-        let mut request = crate::test_optimize_request();
-        clamp_weapon_upgrade_request(&mut request, &state).expect("upgrade cap resolves");
-        let request = OptimizeRequest::try_from(&request).expect("request converts");
-        let profile = state
-            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
-            .unwrap();
-        let estimate = core_estimate_search_space(&request, &profile.data)
-            .expect("real command estimate succeeds");
-        assert_eq!(estimate.weapon_candidates, 1);
-        assert!(estimate.combinations > 0);
     }
 
     #[test]

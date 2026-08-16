@@ -588,6 +588,44 @@ pub fn calculate_status_buildup(
     )?))
 }
 
+pub fn calculate_bleed_buildup(
+    weapon: &Weapon,
+    upgrade: u8,
+    stats: &Stats,
+    data: &GameData,
+) -> Result<f32, String> {
+    let mut base = data.weapon_passive(weapon.weapon_id);
+    if let Some(overlay) = data.weapon_passive_overlay(weapon.weapon_id, upgrade) {
+        base = merge_status_effect_source(base, overlay);
+    }
+    if base.buildup.bleed <= 0.0 {
+        return Ok(base.buildup.bleed);
+    }
+    if !data.rules.status_buildup_scales {
+        return Ok(base.buildup.bleed.floor());
+    }
+
+    let reinforce = data
+        .reinforce_level(weapon.reinforce_type, upgrade)
+        .ok_or_else(|| {
+            format!(
+                "missing reinforce level: type={} level={upgrade}",
+                weapon.reinforce_type
+            )
+        })?;
+    Ok(scale_status_value(
+        base.buildup.bleed,
+        STAT_ARC,
+        stats.arc,
+        weapon.bleed_curve_id,
+        base.correction_flags.bleed,
+        weapon,
+        reinforce,
+        data,
+    )?
+    .floor())
+}
+
 pub fn apply_aow_status_buffs(
     mut buildup: StatusBuildup,
     weapon: &Weapon,
@@ -624,6 +662,53 @@ pub fn apply_aow_status_buffs(
     Ok(truncate_status_buildup(buildup))
 }
 
+pub fn apply_aow_bleed_buffs(
+    mut bleed: f32,
+    weapon: &Weapon,
+    upgrade: u8,
+    stats: &Stats,
+    data: &GameData,
+    aow: Option<&crate::model::Aow>,
+) -> Result<f32, String> {
+    let Some(aow) = aow else {
+        return Ok(bleed);
+    };
+    bleed += aow.bleed_buildup_add;
+    let scaling = aow.scaling_status_add;
+    let has_scaling = scaling.bleed > 0.0
+        || scaling.frost > 0.0
+        || scaling.poison > 0.0
+        || scaling.scarlet_rot > 0.0
+        || scaling.sleep > 0.0
+        || scaling.madness > 0.0
+        || scaling.death > 0.0;
+    if scaling.bleed > 0.0 {
+        if !data.rules.status_buildup_scales {
+            bleed += scaling.bleed;
+        } else {
+            let reinforce = data
+                .reinforce_level(weapon.reinforce_type, upgrade)
+                .ok_or_else(|| {
+                    format!(
+                        "missing reinforce level: type={} level={upgrade}",
+                        weapon.reinforce_type
+                    )
+                })?;
+            bleed += scale_status_value(
+                scaling.bleed,
+                STAT_ARC,
+                stats.arc,
+                weapon.bleed_curve_id,
+                aow.scaling_status_flags.bleed,
+                weapon,
+                reinforce,
+                data,
+            )?;
+        }
+    }
+    Ok(if has_scaling { bleed.floor() } else { bleed })
+}
+
 fn scale_status_additions(
     buildup: StatusBuildup,
     flags: StatusCorrectionFlags,
@@ -644,23 +729,10 @@ fn scale_status_additions(
             )
         })?;
     let scale =
-        |value: f32,
-         stat_idx: usize,
-         stat_value: u8,
-         curve_id: usize,
-         flag: Option<bool>|
-         -> Result<f32, String> {
-            if value <= 0.0
-                || !uses_status_correction(flag, weapon.scaling[stat_idx] > 0.0)
-                || weapon.scaling[stat_idx] <= 0.0
-            {
-                return Ok(value);
-            }
-            let curve_mult = data
-                .calc_curve_value(curve_id, u16::from(stat_value))
-                .ok_or_else(|| format!("missing curve_id={curve_id} for status scaling"))?;
-            Ok(value
-                * (1.0 + weapon.scaling[stat_idx] * reinforce.scaling_mult[stat_idx] * curve_mult))
+        |value: f32, stat_idx: usize, stat_value: u8, curve_id: usize, flag: Option<bool>| {
+            scale_status_value(
+                value, stat_idx, stat_value, curve_id, flag, weapon, reinforce, data,
+            )
         };
     Ok(StatusBuildup {
         bleed: scale(
@@ -713,6 +785,29 @@ fn scale_status_additions(
             flags.death,
         )?,
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn scale_status_value(
+    value: f32,
+    stat_idx: usize,
+    stat_value: u8,
+    curve_id: usize,
+    flag: Option<bool>,
+    weapon: &Weapon,
+    reinforce: &crate::model::ReinforceLevel,
+    data: &GameData,
+) -> Result<f32, String> {
+    if value <= 0.0
+        || !uses_status_correction(flag, weapon.scaling[stat_idx] > 0.0)
+        || weapon.scaling[stat_idx] <= 0.0
+    {
+        return Ok(value);
+    }
+    let curve_mult = data
+        .calc_curve_value(curve_id, u16::from(stat_value))
+        .ok_or_else(|| format!("missing curve_id={curve_id} for status scaling"))?;
+    Ok(value * (1.0 + weapon.scaling[stat_idx] * reinforce.scaling_mult[stat_idx] * curve_mult))
 }
 
 fn truncate_status_buildup(buildup: StatusBuildup) -> StatusBuildup {

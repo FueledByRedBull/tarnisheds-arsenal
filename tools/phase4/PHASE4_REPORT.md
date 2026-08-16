@@ -13,7 +13,7 @@
 ```powershell
 cargo test --manifest-path core/er_optimizer_core/Cargo.toml
 cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
-python tools/phase4/benchmark_optimizer.py
+python tools/phase4/benchmark_optimizer_phases.py --warmups 1 --repeats 5
 python tools/phase4/validate_phase4.py
 cd apps/desktop
 npm run build
@@ -27,7 +27,7 @@ All passed on this workspace.
 python tools/phase4/package_release.py
 ```
 
-This is now a gated release command: it runs core and Tauri `cargo test`, builds and installs the release-profile local validation binding, runs `validate_phase4.py`, installs frontend dependencies with `npm ci`, runs the Tauri production build, and only then writes `dist/`.
+This is now a gated release command: it runs core and Tauri `cargo test`, runs `validate_phase4.py`, installs frontend dependencies with `npm ci`, runs the Tauri production build, and only then writes `dist/`.
 
 Generated:
 

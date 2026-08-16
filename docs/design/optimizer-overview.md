@@ -17,8 +17,8 @@ weapon x affinity x Ash of War x upgrade x relevant stat distribution
 ```
 
 The public request/response contracts live in the Tauri DTO layer and are shared
-with the frontend tests. The Python binding is an optional validation and
-benchmarking path for local tooling and CI.
+with the frontend tests. Validation and benchmarking call the Rust core directly
+through tests and small release-mode examples.
 
 ## Desktop Interface
 
@@ -114,7 +114,7 @@ abandoned in-flight work.
 
 ## Release Flow
 
-CI validates Rust, DTO, data, Python binding, frontend build, and e2e contract
+CI validates Rust, DTO, both data profiles, frontend build, and e2e contract
 coverage. Tag pushes matching `v<app version>` run the release workflow, which
 builds the Tauri package and publishes an MSI, self-contained standalone
 executable, convenience ZIP, SHA-256 checksums, and build provenance. Manual

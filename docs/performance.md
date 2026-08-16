@@ -23,20 +23,6 @@ same exact counts while reducing representative estimates from 0.82-3.10 seconds
 0.046-0.117 seconds (roughly 17-27x). These local timings are diagnostic, not a CI
 guarantee; correctness is enforced by result-equivalence tests.
 
-## Optimizer objectives
-
-Run:
-
-```powershell
-python tools/phase4/benchmark_optimizer.py --warmups 1 --repeats 5 --output dist/benchmarks/optimizer.json
-```
-
-The report covers broad/open searches, high-level and exact locks, all five objectives, open AoW selection, estimates, combination counts, data/model versions, build profile, CPU, thread count, and commit. Compare a reviewed baseline with:
-
-```powershell
-python tools/phase4/benchmark_optimizer.py --warmups 1 --repeats 5 --baseline baseline.json --max-regression-percent 20
-```
-
 ## Analysis workflows
 
 Run:
@@ -55,12 +41,19 @@ Run:
 python tools/phase4/benchmark_optimizer_phases.py --warmups 1 --repeats 5 --output dist/benchmarks/optimizer-phases.json
 ```
 
-The release-mode harness measures cold request preparation, candidate scoring/top-k retention, and final result materialization independently for all five objectives. It records per-phase samples and medians, result counts, search-space size, build profile, Rayon thread count, dataset/model versions, commit, CPU, Rust version, and platform. Compare against a reviewed report with `--baseline`; comparisons report regressions but remain advisory unless a stable dedicated runner explicitly uses `--fail-on-regression`.
+The release-mode harness measures cold request preparation, candidate scoring/top-k retention, and final result materialization independently for all five objectives, including broad/open, high-level, exact-lock, and open-AoW cases. It records per-phase samples and medians, result counts, search-space size, build profile, Rayon thread count, dataset/model versions, commit, CPU, Rust version, and platform. Compare against a reviewed report with `--baseline`; comparisons report regressions but remain advisory unless a stable dedicated runner explicitly uses `--fail-on-regression`.
 
 The phase suite includes both low-level and high-level open Max AR searches. AR
 scoring uses an exact relevant-stat dynamic program and has a direct regression
 against exhaustive enumeration. Reports retain the equivalent exhaustive
 combination count so historical search-space comparisons remain meaningful.
+
+Max AR + Bleed scoring uses a bleed-only calculation while candidates are broad.
+Full AR and all seven status values are calculated only for tie-breaking and final
+rows, with direct equivalence tests against the full status calculation. A measured
+heap-based top-k rewrite was rejected: raising broad export retention from 5 to 500
+cost only about 4.1 ms in scoring and 5.6 ms total, too little to justify more
+complex deterministic grouping and tie handling.
 
 ## Review policy
 

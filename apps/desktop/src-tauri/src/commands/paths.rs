@@ -15,15 +15,7 @@ use crate::dto::{
     validate_levels_ahead, validate_path_batch,
 };
 use crate::errors::AppError;
-use crate::{AppState, AsyncJobHandle, CancelFlag, JobRegistry, LatestCancel};
-
-#[tauri::command]
-pub fn build_path_preview(
-    request: PathPreviewRequestDto,
-    state: State<'_, AppState>,
-) -> Result<PathPreviewDto, AppError> {
-    build_path_preview_inner(request, &state, |_| true)
-}
+use crate::{AppState, AsyncJobHandle, CancelFlag, JobRegistry};
 
 #[tauri::command]
 pub fn start_path_preview(
@@ -70,7 +62,6 @@ pub fn start_path_preview(
     tauri::async_runtime::spawn_blocking(move || {
         let task_state = AppState {
             profiles,
-            estimate_cancel: Arc::new(LatestCancel::new()),
             search_jobs: Arc::new(JobRegistry::new("search")),
             path_jobs: Arc::new(JobRegistry::new("path")),
             affinity_jobs: Arc::new(JobRegistry::new("affinity watch")),
