@@ -60,7 +60,7 @@ Compare, Paths, and Affinity Watch reuse that active session.<br>
 The active-query strip keeps objective, level, reinforcement, handedness, profile, and constraints visible.<br>
 CSV export offers 25, 100, 500, and 2,000-row limits with model and profile provenance.
 
-![Rankings workspace showing Tarnished’s Arsenal build comparisons, active constraints, and result details](docs/images/tarnisheds-arsenal-rankings.jpg)
+![Rankings workspace showing Tarnished’s Arsenal build comparisons, active constraints, and result details](docs/images/tarnisheds-arsenal-rankings.png)
 
 ## Model Details
 
