@@ -1086,89 +1086,6 @@ pub fn compute_free_points(
     Ok(free as u16)
 }
 
-#[derive(Clone, Debug)]
-pub struct StatIter {
-    mins: [u8; COMBAT_STAT_COUNT],
-    free: u16,
-    current: [u8; COMBAT_STAT_COUNT],
-    done: bool,
-}
-
-impl StatIter {
-    pub fn new(mins: [u8; COMBAT_STAT_COUNT], free: u16) -> Result<Self, String> {
-        let capacity: u16 = mins.iter().map(|value| 99_u16 - u16::from(*value)).sum();
-        if free > capacity {
-            return Err(format!(
-                "free points {free} exceed combat stat capacity {capacity} for mins={mins:?}"
-            ));
-        }
-
-        let mut current = mins;
-        let mut remaining = free;
-        for (idx, min_value) in mins.iter().enumerate() {
-            let can_add = (99_u16 - u16::from(*min_value)).min(remaining) as u8;
-            current[idx] = *min_value + can_add;
-            remaining -= u16::from(can_add);
-            if remaining == 0 {
-                break;
-            }
-        }
-
-        Ok(Self {
-            mins,
-            free,
-            current,
-            done: false,
-        })
-    }
-
-    pub fn free(&self) -> u16 {
-        self.free
-    }
-}
-
-impl Iterator for StatIter {
-    type Item = [u8; COMBAT_STAT_COUNT];
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.done {
-            return None;
-        }
-
-        let result = self.current;
-        let mut pivot: Option<usize> = None;
-        for idx in (0..=3).rev() {
-            if self.current[idx] > self.mins[idx] {
-                pivot = Some(idx);
-                break;
-            }
-        }
-
-        let Some(pivot_idx) = pivot else {
-            self.done = true;
-            return Some(result);
-        };
-
-        self.current[pivot_idx] -= 1;
-        let mut freed: u16 = 1;
-        for idx in (pivot_idx + 1)..COMBAT_STAT_COUNT {
-            freed += u16::from(self.current[idx] - self.mins[idx]);
-            self.current[idx] = self.mins[idx];
-        }
-        for idx in (pivot_idx + 1)..COMBAT_STAT_COUNT {
-            if freed == 0 {
-                break;
-            }
-            let room = u16::from(99_u8 - self.current[idx]);
-            let add = room.min(freed) as u8;
-            self.current[idx] += add;
-            freed -= u16::from(add);
-        }
-
-        Some(result)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::path::Path;
@@ -1182,22 +1099,6 @@ mod tests {
             .iter()
             .find(|weapon| weapon.name == name && weapon.affinity == affinity)
             .unwrap_or_else(|| panic!("weapon not found: {name} | {affinity}"))
-    }
-
-    #[test]
-    fn stat_iter_preserves_sum() {
-        let mins = [10, 10, 10, 10, 10];
-        let free = 7;
-        let iter = StatIter::new(mins, free).unwrap();
-        let values: Vec<[u8; COMBAT_STAT_COUNT]> = iter.collect();
-        assert!(!values.is_empty());
-
-        let target_sum = mins.iter().map(|value| u16::from(*value)).sum::<u16>() + free;
-        for value in values {
-            let sum = value.iter().map(|point| u16::from(*point)).sum::<u16>();
-            assert_eq!(sum, target_sum);
-            assert!(value.iter().all(|point| (1..=99).contains(point)));
-        }
     }
 
     #[test]

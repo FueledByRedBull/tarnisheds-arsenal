@@ -1,6 +1,6 @@
 import { api } from "./api";
 import { buildOptimizeRequest, stableSignature } from "./session";
-import { INITIAL_POLL_DELAY_MS, nextPollDelay, progressSignature } from "./polling";
+import { progressSignature, startAdaptivePolling } from "./polling";
 import { useDesktopStore } from "./state";
 import { OptimizeRequestDto, SolvedBuildDto } from "./types";
 
@@ -46,44 +46,22 @@ export async function runSearchRequestForRows(request: OptimizeRequestDto): Prom
 
 async function pollSearchRows(jobId: string): Promise<SolvedBuildDto[]> {
   return await new Promise((resolve, reject) => {
-    let finished = false;
-    let timer: number | undefined;
-    let delay = INITIAL_POLL_DELAY_MS;
-    let lastProgress = "";
-
-    async function poll() {
-      if (finished) return;
-      try {
-        const status = await api.searchStatus(jobId);
-        if (!status) {
-          finished = true;
-          reject(new Error("Search job disappeared before returning a result."));
-          return;
-        }
-        if (!status.finished) {
-          const nextProgress = progressSignature(status.progress);
-          delay = nextPollDelay(delay, nextProgress !== lastProgress);
-          lastProgress = nextProgress;
-          timer = window.setTimeout(() => void poll(), delay);
-          return;
-        }
-        finished = true;
+    startAdaptivePolling({
+      poll: () => api.searchStatus(jobId),
+      progressKey: (status) => progressSignature(status.progress),
+      onStatus: (status) => {
+        if (!status.finished) return false;
         if (status.finished.error) {
           reject(new Error(status.finished.error));
-          return;
-        }
-        if (status.finished.cancelled) {
+        } else if (status.finished.cancelled) {
           reject(new Error("Search stopped."));
-          return;
+        } else {
+          resolve(status.finished.rows);
         }
-        resolve(status.finished.rows);
-      } catch (error) {
-        finished = true;
-        if (timer !== undefined) window.clearTimeout(timer);
-        reject(error);
-      }
-    }
-
-    void poll();
+        return true;
+      },
+      onMissing: () => reject(new Error("Search job disappeared before returning a result.")),
+      onError: reject,
+    });
   });
 }

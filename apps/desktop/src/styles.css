@@ -532,7 +532,6 @@ textarea {
 }
 
 
-.advanced-toggle,
 .clear-locks {
   display: flex;
   align-items: center;
@@ -542,24 +541,6 @@ textarea {
   border-radius: 5px;
   color: var(--muted);
   background: var(--iron-850);
-}
-
-.advanced-toggle {
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 10px;
-}
-
-.advanced-toggle span {
-  flex: 1;
-  text-align: left;
-  color: var(--gold);
-  font-weight: 800;
-}
-
-.advanced-toggle strong {
-  color: var(--muted);
-  font-size: 12px;
 }
 
 .advanced-body {

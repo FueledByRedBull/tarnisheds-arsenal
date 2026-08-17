@@ -17,37 +17,25 @@ import {
 import { upgradeCapForRow } from "./session";
 import { STARTING_CLASS_METADATA } from "./session";
 
-type CsvRow = Record<string, string>;
+type MockWeapon = {
+  weaponId: number;
+  name: string;
+  affinity: string;
+  weaponTypeName: string;
+  requirements: WeaponProfileDto["requirements"];
+  scaling: ScalingDto;
+  isSomber: boolean;
+};
 
-const FIXTURE_WEAPONS: CsvRow[] = [
-  fixtureWeapon("100", "Uchigatana", "Blood", "Katana", "Katana", "11", "13", "0.61", "0.93", "0", "0", "0.44", "700"),
-  fixtureWeapon("101", "Uchigatana", "Occult", "Katana", "Katana", "11", "13", "0.21", "0.33", "0", "0", "1.39", "670"),
-  fixtureWeapon("102", "Uchigatana", "Keen", "Katana", "Katana", "11", "13", "0.25", "1.2", "0", "0", "0", "640"),
-  fixtureWeapon("200", "Zweihander", "Standard", "Colossal Sword", "Colossal Sword", "19", "11", "0.7", "0.35", "0", "0", "0", "610"),
-  fixtureWeapon("300", "Ancient Meteoric Ore Greatsword", "Unique", "Great Katana", "Great Katana", "35", "10", "1.0", "0.2", "0", "0", "0.6", "590", "1"),
+const MOCK_WEAPONS: MockWeapon[] = [
+  mockWeapon(100, "Uchigatana", "Blood", "Katana", 11, 13, scaling(0.61, 0.93, 0, 0, 0.44)),
+  mockWeapon(101, "Uchigatana", "Occult", "Katana", 11, 13, scaling(0.21, 0.33, 0, 0, 1.39)),
+  mockWeapon(102, "Uchigatana", "Keen", "Katana", 11, 13, scaling(0.25, 1.2)),
+  mockWeapon(200, "Zweihander", "Standard", "Colossal Sword", 19, 11, scaling(0.7, 0.35)),
+  mockWeapon(300, "Ancient Meteoric Ore Greatsword", "Unique", "Great Katana", 35, 10, scaling(1, 0.2, 0, 0, 0.6), true),
 ];
 
-const FIXTURE_AOWS: CsvRow[] = [
-  { aow_id: "1", name: "Seppuku" },
-  { aow_id: "2", name: "Bloodhound's Step" },
-];
-
-const FIXTURE_AOW_AFFINITIES: CsvRow[] = [
-  "Blood",
-  "Occult",
-  "Keen",
-  "Standard",
-].flatMap((affinity) => FIXTURE_AOWS.map((aow) => ({ affinity, name: aow.name, aow_id: aow.aow_id })));
-
-const FIXTURE_AOW_WEAPON_COMPAT: CsvRow[] = FIXTURE_WEAPONS
-  .filter((weapon) => weapon.name !== "Ancient Meteoric Ore Greatsword")
-  .flatMap((weapon) => FIXTURE_AOWS.map((aow) => ({
-    weapon_id: weapon.weapon_id,
-    weapon_name: weapon.name,
-    affinity: weapon.affinity,
-    aow_id: aow.aow_id,
-    aow_name: aow.name,
-  })));
+const MOCK_AOW_NAMES = ["Bloodhound's Step", "Seppuku"];
 
 const PREVIEW_SOLVED_BUILDS: SolvedBuildDto[] = [
   previewBuild(100, "Uchigatana", "Blood", 700, 84, 854, 2205, 700, { strStat: 13, dex: 22, intStat: 9, fai: 8, arc: 60 }),
@@ -61,50 +49,29 @@ const PREVIEW_SOLVED_BUILDS: SolvedBuildDto[] = [
   }),
 ];
 
-function fixtureWeapon(
-  weaponId: string,
+function mockWeapon(
+  weaponId: number,
   name: string,
   affinity: string,
   weaponTypeName: string,
-  weaponTypeKeys: string,
-  reqStr: string,
-  reqDex: string,
-  strScaling: string,
-  dexScaling: string,
-  intScaling: string,
-  faiScaling: string,
-  arcScaling: string,
-  previewTotalAr: string,
-  isSomber = "0",
-): CsvRow {
+  reqStr: number,
+  reqDex: number,
+  weaponScaling: ScalingDto,
+  isSomber = false,
+): MockWeapon {
   return {
-    weapon_id: weaponId,
+    weaponId,
     name,
     affinity,
-    weapon_type_name: weaponTypeName,
-    weapon_type_keys: weaponTypeKeys,
-    req_str: reqStr,
-    req_dex: reqDex,
-    req_int: "0",
-    req_fai: "0",
-    req_arc: "0",
-    disable_two_hand_bonus: "0",
-    is_somber: isSomber,
-    reinforce_type: "0",
-    native_skill_id: "",
-    native_skill_name: "",
-    str_scaling: strScaling,
-    dex_scaling: dexScaling,
-    int_scaling: intScaling,
-    fai_scaling: faiScaling,
-    arc_scaling: arcScaling,
-    base_physical: previewTotalAr,
-    base_magic: "0",
-    base_fire: "0",
-    base_lightning: "0",
-    base_holy: "0",
-    preview_total_ar: previewTotalAr,
+    weaponTypeName,
+    requirements: { strStat: reqStr, dex: reqDex, intStat: 0, fai: 0, arc: 0 },
+    scaling: weaponScaling,
+    isSomber,
   };
+}
+
+function scaling(str: number, dex: number, int = 0, fai = 0, arc = 0): ScalingDto {
+  return { str, dex, int, fai, arc };
 }
 
 function previewBuild(
@@ -119,17 +86,19 @@ function previewBuild(
   stats: SolvedBuildDto["stats"],
   options: Partial<Pick<SolvedBuildDto, "isSomber" | "upgrade" | "aowId" | "aowName">> = {},
 ): SolvedBuildDto {
-  const effectiveScaling = fixtureScalingFor(weaponName, affinity);
+  const weapon = MOCK_WEAPONS.find((row) => row.name === weaponName && row.affinity === affinity);
+  if (!weapon) throw new Error(`Preview build has no weapon fixture: ${weaponName} / ${affinity}`);
+  const isSomber = options.isSomber ?? weapon.isSomber;
   return {
     weaponId,
     weaponName,
-    weaponTypeName: "Preview weapon",
+    weaponTypeName: weapon.weaponTypeName,
     affinity,
-    isSomber: options.isSomber ?? false,
-    upgrade: options.upgrade ?? 25,
+    isSomber,
+    upgrade: options.upgrade ?? (isSomber ? 10 : 25),
     stats,
-    requirements: { strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 },
-    effectiveScaling,
+    requirements: weapon.requirements,
+    effectiveScaling: weapon.scaling,
     ar: { physical: physicalAr, magic: 0, fire: 0, lightning: 0, holy: 0, total: physicalAr },
     aowId: options.aowId ?? 1,
     aowName: options.aowName === undefined ? "Seppuku" : options.aowName,
@@ -145,20 +114,6 @@ function previewBuild(
     aowFullSequenceDamage,
     aowRoute: null,
     score,
-  };
-}
-
-function fixtureScalingFor(weaponName: string, affinity: string): ScalingDto {
-  const weapon = FIXTURE_WEAPONS.find((row) => row.name === weaponName && row.affinity === affinity);
-  if (!weapon) {
-    throw new Error(`Preview build has no matching weapon fixture: ${weaponName} / ${affinity}`);
-  }
-  return {
-    str: Number(weapon.str_scaling),
-    dex: Number(weapon.dex_scaling),
-    int: Number(weapon.int_scaling),
-    fai: Number(weapon.fai_scaling),
-    arc: Number(weapon.arc_scaling),
   };
 }
 
@@ -459,18 +414,17 @@ async function mockInvoke<T>(command: string, args?: Record<string, unknown>): P
 }
 
 async function mockCatalog(profileId = "vanilla"): Promise<CatalogDto> {
-  const [weapons, aows] = await Promise.all([phaseWeaponRows(), phaseAowRows()]);
-  const weaponNames = uniqueSorted(weapons.map((row) => row.name).filter(Boolean));
-  const weaponTypeOptions = weaponTypeOptionsFromRows(weapons);
+  const weaponTypeOptions = uniqueSorted(MOCK_WEAPONS.map((weapon) => weapon.weaponTypeName))
+    .map((label) => ({ key: label, label }));
   return {
-    weaponCount: weapons.length,
-    aowCount: aows.length,
-    weaponNames,
+    weaponCount: MOCK_WEAPONS.length,
+    aowCount: MOCK_AOW_NAMES.length,
+    weaponNames: uniqueSorted(MOCK_WEAPONS.map((weapon) => weapon.name)),
     weaponTypeKeys: weaponTypeOptions.map((entry) => entry.label),
     classes: STARTING_CLASS_METADATA,
     weaponTypeOptions,
-    aowNames: uniqueSorted(aows.map((row) => row.name).filter(Boolean)),
-    affinityNames: uniqueSorted(weapons.map((row) => row.affinity).filter(Boolean)),
+    aowNames: MOCK_AOW_NAMES,
+    affinityNames: uniqueSorted(MOCK_WEAPONS.map((weapon) => weapon.affinity)),
     objectiveIds: profileId === "convergence"
       ? ["max_ar", "max_physical_ar", "max_ar_plus_bleed"]
       : ["max_ar", "max_physical_ar", "max_ar_plus_bleed", "aow_first_hit", "aow_full_sequence"],
@@ -520,84 +474,63 @@ function mockDataManifest(profileId = "vanilla"): DataManifestDto {
 
 async function mockWeaponProfile(args: Record<string, unknown> | undefined): Promise<WeaponProfileDto> {
   const request = args?.request as { weaponName: string; affinity: string | null };
-  const [weapons, compatibleAows] = await Promise.all([
-    phaseWeaponRows(),
-    mockCompatibleAowNames({ request: { weaponName: request.weaponName, affinity: request.affinity } }),
-  ]);
-  const matches = weapons.filter((row) =>
+  const matches = MOCK_WEAPONS.filter((row) =>
     row.name === request.weaponName && (!request.affinity || row.affinity === request.affinity),
   );
   const first = matches[0];
   const requirements = matches.reduce(
     (current, row) => ({
-      strStat: Math.max(current.strStat, Number(row.req_str || 0)),
-      dex: Math.max(current.dex, Number(row.req_dex || 0)),
-      intStat: Math.max(current.intStat, Number(row.req_int || 0)),
-      fai: Math.max(current.fai, Number(row.req_fai || 0)),
-      arc: Math.max(current.arc, Number(row.req_arc || 0)),
+      strStat: Math.max(current.strStat, row.requirements.strStat),
+      dex: Math.max(current.dex, row.requirements.dex),
+      intStat: Math.max(current.intStat, row.requirements.intStat),
+      fai: Math.max(current.fai, row.requirements.fai),
+      arc: Math.max(current.arc, row.requirements.arc),
     }),
     { strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 },
   );
-  const maxUpgrade = first?.is_somber === "1" ? 10 : 25;
+  const maxUpgrade = first?.isSomber ? 10 : 25;
   return {
     requirements,
     maxUpgrade,
-    isSomber: maxUpgrade <= 10,
-    disablesTwoHandBonus: matches.some((row) => row.disable_two_hand_bonus === "1"),
-    affinities: uniqueSorted(weapons.filter((row) => row.name === request.weaponName).map((row) => row.affinity)),
-    compatibleAows,
+    isSomber: first?.isSomber ?? false,
+    disablesTwoHandBonus: false,
+    affinities: uniqueSorted(MOCK_WEAPONS.filter((row) => row.name === request.weaponName).map((row) => row.affinity)),
+    compatibleAows: await mockCompatibleAowNames({ request }),
   };
 }
 
 async function mockWeaponNamesForType(weaponTypeKey: string | null): Promise<string[]> {
-  const weapons = await phaseWeaponRows();
   return uniqueSorted(
-    weapons
-      .filter((row) => !weaponTypeKey || weaponTypeMatches(row, weaponTypeKey))
+    MOCK_WEAPONS
+      .filter((row) => !weaponTypeKey || row.weaponTypeName === weaponTypeKey)
       .map((row) => row.name),
   );
 }
 
 async function mockAffinitiesForWeapon(args: Record<string, unknown> | undefined): Promise<string[]> {
   const weaponName = args?.weaponName as string | undefined;
-  const weapons = await phaseWeaponRows();
-  return uniqueSorted(weapons.filter((row) => row.name === weaponName).map((row) => row.affinity));
+  return uniqueSorted(MOCK_WEAPONS.filter((row) => row.name === weaponName).map((row) => row.affinity));
 }
 
 async function mockCompatibleAowNamesForAffinity(args: Record<string, unknown> | undefined): Promise<string[]> {
-  const affinity = (args?.request as { affinity?: string | null } | undefined)?.affinity;
-  const rows = await phaseAowAffinityRows();
-  return uniqueSorted(rows.filter((row) => !affinity || row.affinity === affinity).map((row) => row.name));
+  void args;
+  return MOCK_AOW_NAMES;
 }
 
 async function mockCompatibleAowNames(args: Record<string, unknown> | undefined): Promise<string[]> {
   const request = args?.request as { weaponName?: string | null; affinity?: string | null } | undefined;
-  if (!request?.weaponName) {
-    return request?.affinity
-      ? mockCompatibleAowNamesForAffinity({ request: { affinity: request.affinity } })
-      : uniqueSorted((await phaseAowRows()).map((row) => row.name));
-  }
-  const [weapons, compatRows] = await Promise.all([phaseWeaponRows(), phaseAowWeaponCompatRows()]);
-  const nativeSkillNames = weapons
-    .filter((row) =>
-      row.name === request.weaponName && (!request.affinity || row.affinity === request.affinity),
-    )
-    .map((row) => row.native_skill_name)
-    .filter(Boolean);
-  const compatibleNames = compatRows
-    .filter((row) =>
-      row.weapon_name === request.weaponName && (!request.affinity || row.affinity === request.affinity),
-    )
-    .map((row) => row.aow_name);
-  return uniqueSorted([...nativeSkillNames, ...compatibleNames]);
+  if (!request?.weaponName) return MOCK_AOW_NAMES;
+  const weapon = MOCK_WEAPONS.find((row) =>
+    row.name === request.weaponName && (!request.affinity || row.affinity === request.affinity)
+  );
+  return weapon?.isSomber ? [] : MOCK_AOW_NAMES;
 }
 
 async function mockSearchCombinationCount(request: OptimizeRequestDto | null): Promise<number> {
-  const weapons = await mockWeaponCandidates(request);
-  const upgradeCount = weapons.reduce((total, weapon) => {
+  const upgradeCount = PREVIEW_SOLVED_BUILDS.filter((row) => matchesPreviewRow(row, request)).reduce((total, row) => {
     if (!request) return total + 26;
     if (request.exactUpgrade) return total + 1;
-    const cap = weapon.is_somber === "1" ? request.somberMaxUpgrade : request.standardMaxUpgrade;
+    const cap = row.isSomber ? request.somberMaxUpgrade : request.standardMaxUpgrade;
     return total + Math.max(Number(cap) + 1, 1);
   }, 0);
   return Math.max(upgradeCount, 1);
@@ -606,19 +539,6 @@ async function mockSearchCombinationCount(request: OptimizeRequestDto | null): P
 async function mockRows(request: OptimizeRequestDto | null): Promise<SolvedBuildDto[]> {
   const topK = Math.min(Math.max(Number(request?.topK ?? 25), 1), 500);
   return PREVIEW_SOLVED_BUILDS.filter((row) => matchesPreviewRow(row, request)).slice(0, topK);
-}
-
-async function mockWeaponCandidates(request: OptimizeRequestDto | null): Promise<CsvRow[]> {
-  const [weapons, compatRows] = await Promise.all([phaseWeaponRows(), phaseAowWeaponCompatRows()]);
-  return weapons.filter((weapon) => {
-    if (request?.weaponName && weapon.name !== request.weaponName) return false;
-    if (request?.affinity && weapon.affinity !== request.affinity) return false;
-    if (request?.weaponTypeKey && !weaponTypeMatches(weapon, request.weaponTypeKey)) return false;
-    if (request?.somberFilter === "standard_only" && weapon.is_somber === "1") return false;
-    if (request?.somberFilter === "somber_only" && weapon.is_somber !== "1") return false;
-    if (request?.aowName && !mockAowCompatible(weapon, request.aowName, compatRows)) return false;
-    return true;
-  });
 }
 
 async function mockSolveBuild(args: Record<string, unknown> | undefined): Promise<SolvedBuildDto | null> {
@@ -641,20 +561,12 @@ async function mockSolveBuild(args: Record<string, unknown> | undefined): Promis
   return rows[0] ?? null;
 }
 
-function mockAowCompatible(weapon: CsvRow, aowName: string, compatRows: CsvRow[]): boolean {
-  return weapon.native_skill_name === aowName
-    || compatRows.some((row) => row.weapon_id === weapon.weapon_id && row.aow_name === aowName);
-}
-
 function matchesPreviewRow(row: SolvedBuildDto, request: OptimizeRequestDto | null): boolean {
   if (!request) return true;
   if (request.weaponName && row.weaponName !== request.weaponName) return false;
   if (request.affinity && row.affinity !== request.affinity) return false;
   if (request.aowName && row.aowName !== request.aowName) return false;
-  if (request.weaponTypeKey) {
-    const weapon = FIXTURE_WEAPONS.find((entry) => entry.name === row.weaponName && entry.affinity === row.affinity);
-    if (!weapon || !weaponTypeMatches(weapon, request.weaponTypeKey)) return false;
-  }
+  if (request.weaponTypeKey && row.weaponTypeName !== request.weaponTypeKey) return false;
   if (request.somberFilter === "somber_only" && !row.isSomber) return false;
   if (request.somberFilter === "standard_only" && row.isSomber) return false;
   const cap = upgradeCapForRow(row, request);
@@ -706,7 +618,7 @@ async function mockPathPreview(args: Record<string, unknown> | undefined): Promi
   const base = request?.base;
   const solved = request?.solved;
   if (!base || !solved) {
-    return { title: request?.title ?? "Path", solved: emptySolvedBuild(), steps: [] };
+    throw new Error("Path preview requires a base request and solved build.");
   }
   const levelsAhead = Math.max(0, Math.trunc(Number(request?.levelsAhead ?? 0)));
   const steps = [
@@ -790,91 +702,8 @@ async function mockAffinityWatch(args: Record<string, unknown> | undefined): Pro
   };
 }
 
-function emptySolvedBuild(): SolvedBuildDto {
-  return {
-    weaponId: 0,
-    weaponName: "",
-    affinity: "",
-    isSomber: false,
-    upgrade: 0,
-    stats: { strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 },
-    ar: { physical: 0, magic: 0, fire: 0, lightning: 0, holy: 0, total: 0 },
-    aowId: null,
-    aowName: null,
-    bleedBuildup: 0,
-    bleedBuildupAdd: 0,
-    frostBuildup: 0,
-    poisonBuildup: 0,
-    scarletRotBuildup: 0,
-    sleepBuildup: 0,
-    madnessBuildup: 0,
-    deathBuildup: 0,
-    aowFirstHitDamage: 0,
-    aowFullSequenceDamage: 0,
-    aowRoute: null,
-    score: 0,
-  };
-}
-
 function fixed1(value: number): number {
   return Number(value.toFixed(1));
-}
-
-function phaseWeaponRows(): Promise<CsvRow[]> {
-  return Promise.resolve(FIXTURE_WEAPONS);
-}
-
-function phaseAowRows(): Promise<CsvRow[]> {
-  return Promise.resolve(FIXTURE_AOWS);
-}
-
-function phaseAowAffinityRows(): Promise<CsvRow[]> {
-  return Promise.resolve(FIXTURE_AOW_AFFINITIES);
-}
-
-function phaseAowWeaponCompatRows(): Promise<CsvRow[]> {
-  return Promise.resolve(FIXTURE_AOW_WEAPON_COMPAT);
-}
-
-function weaponTypeOptionsFromRows(weapons: CsvRow[]): Array<{ key: string; label: string }> {
-  const options = new Map<string, { key: string; label: string }>();
-  for (const weapon of weapons) {
-    const label = normalizeWeaponTypeDisplay(weapon.weapon_type_name);
-    if (!label || options.has(label)) {
-      continue;
-    }
-    const keys = weapon.weapon_type_keys.split("|").map((key) => key.trim()).filter(Boolean);
-    const key = keys.find((candidate) => candidate.toLocaleLowerCase() === label.toLocaleLowerCase()) ?? keys[0] ?? label;
-    options.set(label, { key, label });
-  }
-  return Array.from(options.values()).sort((left, right) => left.label.localeCompare(right.label));
-}
-
-function weaponTypeMatches(weapon: CsvRow, weaponTypeKey: string): boolean {
-  return normalizeWeaponTypeDisplay(weapon.weapon_type_name).toLocaleLowerCase() === weaponTypeKey.toLocaleLowerCase()
-    || weapon.weapon_type_name.toLocaleLowerCase() === weaponTypeKey.toLocaleLowerCase()
-    || weapon.weapon_type_keys
-      .split("|")
-      .some((candidate) => candidate.toLocaleLowerCase() === weaponTypeKey.toLocaleLowerCase());
-}
-
-function normalizeWeaponTypeDisplay(raw: string): string {
-  switch (raw.trim()) {
-    case "Hand-to-Hand":
-      return "Hand-to-Hand Arts";
-    case "Heavy Spear":
-      return "Great Spear";
-    case "Reverse-hand Blade":
-      return "Backhand Blade";
-    case "Scythe":
-      return "Reaper";
-    case "Seal":
-      return "Sacred Seal";
-    case "Staff":
-      return "Glintstone Staff";
-    default:
-      return raw.trim();
-  }
 }
 
 function uniqueSorted(values: string[]): string[] {
