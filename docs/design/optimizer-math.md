@@ -8,6 +8,11 @@ the system, this document describes why its results are correct.
 Functions are cited by name rather than by line number so the references survive
 edits. Everything here lives in `core/er_optimizer_core/src/`.
 
+The AR equation is a fan-made implementation model reconstructed from version-bound
+regulation PARAM fields and checked against known regression fixtures and the optional
+[external-calculator comparison](../validation/v0.7.0-correction-report.md). It is not
+an official FromSoftware specification.
+
 ## 1. Notation
 
 There are eight character stats. Five of them affect combat and are searched:
@@ -61,7 +66,11 @@ so the smallest displayed Strength satisfying a requirement $r$ while two-handin
 $$s_{\min}(r) = \left\lceil \tfrac{2r}{3} \right\rceil$$
 
 `minimum_str_for_requirement` obtains this by upward scan rather than by the closed
-form; the two agree for all $r \le 99$.
+form. The two agree for every $r$, by cases on $r \bmod 3$: writing $r = 3k$, $3k+1$,
+$3k+2$ gives $s_{\min} = 2k$, $2k+1$, $2k+2$, whose effective Strengths are $3k$,
+$3k+1$, $3k+3$ — each at least $r$ — while $s_{\min}-1$ yields $3k-2$, $3k$, $3k+1$,
+each short of it. `two_handed_requirement_scan_matches_closed_form` pins the scan to
+that identity for every in-game requirement value from 0 through 99.
 
 ### Active stats and the spend target
 
@@ -104,7 +113,7 @@ $$AR_d(x) = b_d\, r_d \Bigl( 1 + \sum_{i} I_{i,d}\, s_i\, q_i\, \gamma_d(x_i') \
 | $s_i$ | weapon scaling coefficient | weapon, affinity |
 | $q_i$ | reinforcement scaling multiplier | weapon, upgrade |
 | $\gamma_d$ | calc-correct curve for $d$'s curve id | weapon, damage type |
-| $x_i'$ | effective stat ($\mathrm{effSTR}$ applied to STR) | request |
+| $x_i'$ | effective stat; $\mathrm{effSTR}$ replaces STR only when two-handing and the weapon does not disable the bonus, otherwise $x_i' = x_i$ | request, weapon |
 
 $$AR_{\text{total}}(x) = \sum_d AR_d(x)$$
 
@@ -131,6 +140,12 @@ This holds because `calculate_ar_for_type` multiplies a stat-independent base by
 $(1 + \text{sum of independent contributions})$ and **rounds nowhere**. It is the
 load-bearing assumption of the entire optimizer.
 
+Two-handing does not weaken it. $\mathrm{effSTR}(s) = \lfloor 3s/2 \rfloor$ remains a
+one-variable mapping from displayed Strength to effective Strength. Its alternating
+$+1$ and $+2$ increments introduce no cross-stat interaction, so separability is
+preserved; separability constrains which *variables* a term may involve, not how smooth
+or uniform that term is.
+
 > **Proof obligation.** Any change that introduces a cross-stat term, or that floors
 > or truncates a damage component the way the in-game display does, breaks this lemma
 > and invalidates the exactness proof. The DP-versus-exhaustive regression test covers
@@ -152,7 +167,7 @@ stats and spending exactly $p$, is therefore exact:
 $$D_i(p) = \max_{0 \le a \le \min(c_i,\, p)} \bigl[\, D_{i-1}(p - a) + \Delta_i(a) \,\bigr],
 \qquad D_0(0) = F(m^\star)$$
 
-The answer is $D_{|A|}(T)$.
+The answer is $D_{\lvert A \rvert}(T)$.
 
 > **Why one state per spend level suffices.** Suppose allocations $\alpha$ and $\beta$
 > both spend $p$ over the first $i$ stats, with $\alpha$ preferred. Any completion
@@ -161,6 +176,12 @@ The answer is $D_{|A|}(T)$.
 > $\beta + \delta$ for every $\delta$: dominance is preserved under extension, and
 > discarding $\beta$ cannot lose the optimum. This exchange argument is valid *only*
 > under the separability lemma.
+
+> **No shape assumption.** The exact AR DP evaluates every bounded discrete step by
+> scanning every legal $a \in [0, \min(c_i, p)]$ rather than using greedy soft-cap
+> behavior or assuming concavity or monotonicity. Because the calc-correct curves are
+> piecewise, with soft caps around 20, 50, and 80, exactness does not depend on a smooth
+> curve shape.
 
 ### Comparison order
 
@@ -213,8 +234,9 @@ spending exactly $T$ is the generating-function coefficient
 
 $$N(T) = [z^T] \prod_{i \in A} \bigl( 1 + z + z^2 + \cdots + z^{c_i} \bigr)$$
 
-`count_relevant_distributions` evaluates this, and identical $(m, u, A, R)$ keys share
-one cached count across weapons.
+`count_relevant_distributions` evaluates this, and weapons sharing a
+`DistributionCountKey` — the full tuple of $m$, $u$, $A$, $R$, and the inactive-fill
+requirement — share one cached count.
 
 Scores are:
 
@@ -228,12 +250,17 @@ AoW_{\text{sequence}}(x) & \text{AoW Full Sequence}
 \end{cases}
 ```
 
-**Bleed, then AR maximizes bleed alone.** AR is a tie-break, never a summand. One
-consequence is worth stating because it is not obvious: `active_stats_for_choice`
-marks a stat active if it can raise AR **or** bleed, so this objective enumerates the
-full AR-relevant space even though its score depends only on Arcane. That breadth is
-required for the AR tie-break to be exact, and it makes this the most expensive
-objective in the app.
+**Bleed, then AR maximizes bleed alone.** AR is a tie-break, never a summand.
+`active_stats_for_choice` therefore keeps stats that can affect bleed or AR; unrelated
+poison, frost, sleep, madness, scarlet-rot, and death-blight scaling does not make a
+stat active for this objective.
+
+The relevance test is also profile-gated. `stat_can_increase_bleed_for_choice` returns
+`false` outright when a profile's `status_buildup_scales` rule is off, because bleed is
+then a floored constant that no stat can move — so on Convergence, Arcane becomes active
+for this objective only if it raises AR. `bleed_relevance_uses_profile_status_scaling_rule`
+pins that, and `bleed_relevance_prunes_non_bleed_status_distributions` pins the
+narrowing's effect on `candidate_count`.
 
 During the broad search, bleed is computed by `calculate_bleed_buildup` and
 `apply_aow_bleed_buffs` — an exact bleed-only path. The full seven-status calculation

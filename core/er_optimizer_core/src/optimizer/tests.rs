@@ -1405,6 +1405,97 @@ fn relevant_stat_masks_track_scaling_sources() {
             Some("Seppuku")
         )[STAT_ARC]
     );
+    assert!(
+        active_mask_for(
+            &game_data,
+            "Erdsteel Dagger",
+            "Blood",
+            OptimizeObjective::BleedThenAr,
+            None
+        )[STAT_ARC]
+    );
+    assert!(
+        !active_mask_for(
+            &game_data,
+            "Erdsteel Dagger",
+            "Poison",
+            OptimizeObjective::BleedThenAr,
+            None
+        )[STAT_ARC]
+    );
+}
+
+#[test]
+fn bleed_relevance_uses_profile_status_scaling_rule() {
+    for (profile, game_data, affinity) in [
+        ("Vanilla", load_data(), "Blood"),
+        ("Convergence", load_convergence_data(), "Mystic"),
+    ] {
+        let mut request = broad_request();
+        request.standard_max_upgrade = game_data.rules.standard_max_upgrade;
+        request.somber_max_upgrade = game_data.rules.somber_max_upgrade;
+        request.weapon_name = Some("Uchigatana".to_string());
+        request.affinity = Some(affinity.to_string());
+        request.objective = OptimizeObjective::BleedThenAr;
+        let constraints = build_combat_constraints(&request).expect("constraints failed");
+        let prepared_weapons =
+            prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
+        let prepared = prepared_weapons.first().expect("expected prepared weapon");
+        let aow_choice = prepared.aow_choices.first().expect("expected AoW choice");
+
+        assert!(
+            game_data
+                .weapon_passive(prepared.weapon.weapon_id)
+                .buildup
+                .bleed
+                > 0.0
+        );
+        assert!(prepared.weapon.scaling[STAT_ARC] > 0.0);
+        assert_eq!(
+            stat_can_increase_bleed_for_choice(prepared, aow_choice, &game_data, STAT_ARC),
+            game_data.rules.status_buildup_scales,
+            "unexpected {profile} bleed relevance"
+        );
+    }
+}
+
+#[test]
+fn bleed_relevance_prunes_non_bleed_status_distributions() {
+    let game_data = load_data();
+    let mut request = broad_request();
+    request.weapon_name = Some("Erdsteel Dagger".to_string());
+    request.affinity = Some("Poison".to_string());
+    request.objective = OptimizeObjective::BleedThenAr;
+    let constraints = build_combat_constraints(&request).expect("constraints failed");
+    let prepared_weapons =
+        prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
+    let prepared = prepared_weapons.first().expect("expected prepared weapon");
+    let aow_choice = prepared
+        .aow_choices
+        .first()
+        .expect("expected no-AoW choice");
+    assert!(aow_choice.skill_id.is_none());
+
+    let active = active_stats_for_choice(&request, prepared, aow_choice, &game_data);
+    assert!(!active[STAT_ARC]);
+    let mut counts = HashMap::new();
+    let narrowed =
+        RelevantStatSearch::new(&request, constraints, prepared.weapon, active, &mut counts)
+            .expect("expected narrowed search");
+
+    let mut previous_active = active;
+    previous_active[STAT_ARC] = true;
+    let previous = RelevantStatSearch::new(
+        &request,
+        constraints,
+        prepared.weapon,
+        previous_active,
+        &mut counts,
+    )
+    .expect("expected previous search");
+
+    assert_eq!(narrowed.candidate_count, 1_275);
+    assert_eq!(previous.candidate_count, 22_100);
 }
 
 #[test]
@@ -1731,6 +1822,17 @@ fn paired_weapon_two_handing_does_not_inflate_ar() {
     assert!(!one_hand_results.is_empty());
     assert!(!two_hand_results.is_empty());
     assert!((one_hand_results[0].ar.total() - two_hand_results[0].ar.total()).abs() < 0.001);
+}
+
+#[test]
+fn two_handed_requirement_scan_matches_closed_form() {
+    for requirement in 0..=99 {
+        let closed_form = ((u16::from(requirement) * 2).div_ceil(3)) as u8;
+        assert_eq!(
+            minimum_str_for_requirement(requirement, true, false),
+            closed_form
+        );
+    }
 }
 
 #[test]

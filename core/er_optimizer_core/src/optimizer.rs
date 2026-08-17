@@ -2966,7 +2966,7 @@ fn active_stats_for_choice(
         }),
         OptimizeObjective::BleedThenAr => std::array::from_fn(|idx| {
             weapon_stat_can_increase_ar(prepared.weapon, data, idx)
-                || stat_can_increase_status_for_choice(prepared, aow_choice, data, idx)
+                || stat_can_increase_bleed_for_choice(prepared, aow_choice, data, idx)
         }),
         OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence => {
             std::array::from_fn(|idx| {
@@ -3026,20 +3026,29 @@ fn attack_row_stat_can_increase_damage(
     })
 }
 
-fn stat_can_increase_status_for_choice(
+fn stat_can_increase_bleed_for_choice(
     prepared: &PreparedWeapon<'_>,
     aow_choice: &AowChoice<'_>,
     data: &GameData,
     stat_idx: usize,
 ) -> bool {
+    if !data.rules.status_buildup_scales {
+        return false;
+    }
+
     prepared.upgrades.iter().any(|upgrade| {
         let mut source = data.weapon_passive(prepared.weapon.weapon_id);
         if let Some(overlay) = data.weapon_passive_overlay(prepared.weapon.weapon_id, *upgrade) {
-            source = merge_status_source_for_relevance(source, overlay);
+            merge_status_relevance_value(
+                &mut source.buildup.bleed,
+                &mut source.correction_flags.bleed,
+                overlay.buildup.bleed,
+                overlay.correction_flags.bleed,
+            );
         }
-        status_source_stat_can_scale(source, prepared.weapon, stat_idx)
+        bleed_source_stat_can_scale(source, prepared.weapon, stat_idx)
     }) || aow_choice.aow.is_some_and(|aow| {
-        status_source_stat_can_scale(aow_status_source(aow), prepared.weapon, stat_idx)
+        bleed_source_stat_can_scale(aow_status_source(aow), prepared.weapon, stat_idx)
     })
 }
 
@@ -3050,55 +3059,6 @@ fn aow_status_source(aow: &Aow) -> StatusEffectSource {
     }
 }
 
-fn merge_status_source_for_relevance(
-    mut base: StatusEffectSource,
-    overlay: StatusEffectSource,
-) -> StatusEffectSource {
-    merge_status_relevance_value(
-        &mut base.buildup.bleed,
-        &mut base.correction_flags.bleed,
-        overlay.buildup.bleed,
-        overlay.correction_flags.bleed,
-    );
-    merge_status_relevance_value(
-        &mut base.buildup.frost,
-        &mut base.correction_flags.frost,
-        overlay.buildup.frost,
-        overlay.correction_flags.frost,
-    );
-    merge_status_relevance_value(
-        &mut base.buildup.poison,
-        &mut base.correction_flags.poison,
-        overlay.buildup.poison,
-        overlay.correction_flags.poison,
-    );
-    merge_status_relevance_value(
-        &mut base.buildup.scarlet_rot,
-        &mut base.correction_flags.scarlet_rot,
-        overlay.buildup.scarlet_rot,
-        overlay.correction_flags.scarlet_rot,
-    );
-    merge_status_relevance_value(
-        &mut base.buildup.sleep,
-        &mut base.correction_flags.sleep,
-        overlay.buildup.sleep,
-        overlay.correction_flags.sleep,
-    );
-    merge_status_relevance_value(
-        &mut base.buildup.madness,
-        &mut base.correction_flags.madness,
-        overlay.buildup.madness,
-        overlay.correction_flags.madness,
-    );
-    merge_status_relevance_value(
-        &mut base.buildup.death,
-        &mut base.correction_flags.death,
-        overlay.buildup.death,
-        overlay.correction_flags.death,
-    );
-    base
-}
-
 fn merge_status_relevance_value(
     base_value: &mut f32,
     base_flag: &mut Option<bool>,
@@ -3107,36 +3067,21 @@ fn merge_status_relevance_value(
 ) {
     if overlay_value > 0.0 {
         *base_value = overlay_value;
-        *base_flag = overlay_flag;
+        if overlay_flag.is_some() {
+            *base_flag = overlay_flag;
+        }
     }
 }
 
-fn status_source_stat_can_scale(
+fn bleed_source_stat_can_scale(
     source: StatusEffectSource,
     weapon: &Weapon,
     stat_idx: usize,
 ) -> bool {
-    if weapon.scaling[stat_idx] <= 0.0 {
+    if stat_idx != STAT_ARC || weapon.scaling[stat_idx] <= 0.0 {
         return false;
     }
-    match stat_idx {
-        STAT_INT => {
-            source.buildup.frost > 0.0
-                && status_uses_correction(source.correction_flags.frost, true)
-        }
-        STAT_ARC => {
-            status_value_can_scale(source.buildup.bleed, source.correction_flags.bleed)
-                || status_value_can_scale(source.buildup.poison, source.correction_flags.poison)
-                || status_value_can_scale(
-                    source.buildup.scarlet_rot,
-                    source.correction_flags.scarlet_rot,
-                )
-                || status_value_can_scale(source.buildup.sleep, source.correction_flags.sleep)
-                || status_value_can_scale(source.buildup.madness, source.correction_flags.madness)
-                || status_value_can_scale(source.buildup.death, source.correction_flags.death)
-        }
-        _ => false,
-    }
+    status_value_can_scale(source.buildup.bleed, source.correction_flags.bleed)
 }
 
 fn status_value_can_scale(value: f32, flag: Option<bool>) -> bool {
