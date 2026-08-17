@@ -4,6 +4,22 @@ Release notes are maintained in [`docs/release-notes/`](docs/release-notes/READM
 
 Use that index for per-version notes and GitHub release links.
 
+## v0.10.1 — 2026-08-17
+
+- Preserve the historical Windows Installer upgrade identity across product-name
+  typography changes and verify it in both source metadata and the built MSI.
+- Keep the configured window title and Windows product name consistent.
+- Test exact snapshot promotion, including stale-CSV removal and fail-before-write
+  handling for unsafe manifest paths.
+- Verify the optimized bleed-only scoring path against full status calculation for
+  both scaling and non-scaling game profiles.
+- Normalize the documented `-99999` missing-status sentinel to zero and reject all
+  other negative or non-finite status buildup at the runtime-data boundary.
+- Rename the internal bleed objective to match its `Bleed, then AR` behavior while
+  preserving existing request and saved-build wire IDs.
+- Replace the long project README with a concise user-first guide and current app
+  screenshot; document why final AR is recomputed after dynamic-program selection.
+
 ## v0.10.0 — 2026-08-17
 
 - Remove duplicate synchronous frontend/native search paths and make browser mocks
