@@ -238,7 +238,7 @@ pub fn get_catalog(profile_id: String, state: State<'_, AppState>) -> Result<Cat
                 OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr => {
                     data.capabilities.weapon_ar
                 }
-                OptimizeObjective::MaxArPlusBleed => data.capabilities.status_buildup,
+                OptimizeObjective::BleedThenAr => data.capabilities.status_buildup,
                 OptimizeObjective::AowFirstHit => data.capabilities.aow_damage,
                 OptimizeObjective::AowFullSequence => {
                     data.capabilities.aow_damage && data.capabilities.aow_routes

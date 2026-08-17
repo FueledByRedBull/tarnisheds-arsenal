@@ -306,8 +306,8 @@ fn validate_profile_capabilities(request: &OptimizeRequest, data: &GameData) -> 
     }
     match request.objective {
         OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr => Ok(()),
-        OptimizeObjective::MaxArPlusBleed if data.capabilities.status_buildup => Ok(()),
-        OptimizeObjective::MaxArPlusBleed => {
+        OptimizeObjective::BleedThenAr if data.capabilities.status_buildup => Ok(()),
+        OptimizeObjective::BleedThenAr => {
             Err(format!("{profile} does not provide status-buildup data"))
         }
         OptimizeObjective::AowFirstHit if data.capabilities.aow_damage => Ok(()),
@@ -1163,6 +1163,8 @@ where
 
 #[derive(Clone, Copy)]
 struct ArAllocation {
+    // DP-only selection estimates. Final AR is recomputed from `combat`; never expose
+    // these accumulated f32 values as a result metric.
     primary: f32,
     total: f32,
     combat: [u8; COMBAT_STAT_COUNT],
@@ -2052,7 +2054,7 @@ fn score_for(
     match objective {
         OptimizeObjective::MaxAr => total_ar,
         OptimizeObjective::MaxPhysicalAr => total_ar,
-        OptimizeObjective::MaxArPlusBleed => status_buildup.bleed,
+        OptimizeObjective::BleedThenAr => status_buildup.bleed,
         OptimizeObjective::AowFirstHit => aow_first_hit_damage,
         OptimizeObjective::AowFullSequence => aow_full_sequence_damage,
     }
@@ -2092,7 +2094,7 @@ fn score_candidate(
                 aow_full_sequence_damage: None,
             })
         }
-        OptimizeObjective::MaxArPlusBleed => {
+        OptimizeObjective::BleedThenAr => {
             let bleed_buildup = apply_aow_bleed_buffs(
                 base_metric
                     .bleed_buildup
@@ -2159,7 +2161,7 @@ fn calculate_base_weapon_metric(
             )?),
             bleed_buildup: None,
         }),
-        OptimizeObjective::MaxArPlusBleed => Ok(BaseWeaponMetric {
+        OptimizeObjective::BleedThenAr => Ok(BaseWeaponMetric {
             ar: None,
             bleed_buildup: Some(calculate_bleed_buildup(
                 prepared.weapon,
@@ -2454,7 +2456,7 @@ fn resolve_aow_choices<'a>(
         request.objective,
         OptimizeObjective::MaxAr
             | OptimizeObjective::MaxPhysicalAr
-            | OptimizeObjective::MaxArPlusBleed
+            | OptimizeObjective::BleedThenAr
     ) {
         return Ok(Some(open_aow_choices_for_objective(
             weapon,
@@ -2542,7 +2544,7 @@ fn aow_affects_objective(aow: &Aow, objective: OptimizeObjective) -> bool {
         OptimizeObjective::MaxPhysicalAr => {
             aow.buff_attack_power[DamageType::Physical.as_index()] != 0.0
         }
-        OptimizeObjective::MaxArPlusBleed => {
+        OptimizeObjective::BleedThenAr => {
             changes_any_ar || aow.bleed_buildup_add != 0.0 || aow.scaling_status_add.bleed != 0.0
         }
         OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence => true,
@@ -2962,7 +2964,7 @@ fn active_stats_for_choice(
         OptimizeObjective::MaxPhysicalAr => std::array::from_fn(|idx| {
             weapon_stat_can_increase_damage_type(prepared.weapon, data, idx, DamageType::Physical)
         }),
-        OptimizeObjective::MaxArPlusBleed => std::array::from_fn(|idx| {
+        OptimizeObjective::BleedThenAr => std::array::from_fn(|idx| {
             weapon_stat_can_increase_ar(prepared.weapon, data, idx)
                 || stat_can_increase_status_for_choice(prepared, aow_choice, data, idx)
         }),

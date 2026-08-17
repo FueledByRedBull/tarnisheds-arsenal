@@ -31,7 +31,7 @@ fn objective_aliases_parse_to_canonical_variants() {
     );
     assert_eq!(
         OptimizeObjective::parse("max_ar+bleed").unwrap(),
-        OptimizeObjective::MaxArPlusBleed
+        OptimizeObjective::BleedThenAr
     );
     assert_eq!(
         OptimizeObjective::parse("aow_full").unwrap().as_str(),
@@ -1015,7 +1015,7 @@ fn prepared_plan_groups_aows_that_share_one_stat_search() {
     request.affinity = None;
     request.weapon_type_key = Some("Katana".to_string());
     request.exact_upgrade = true;
-    request.objective = OptimizeObjective::MaxArPlusBleed;
+    request.objective = OptimizeObjective::BleedThenAr;
     request.top_k = 5;
 
     let plan = prepare_search(&request, &game_data).expect("prepare failed");
@@ -1401,7 +1401,7 @@ fn relevant_stat_masks_track_scaling_sources() {
             &game_data,
             "Uchigatana",
             "Blood",
-            OptimizeObjective::MaxArPlusBleed,
+            OptimizeObjective::BleedThenAr,
             Some("Seppuku")
         )[STAT_ARC]
     );
@@ -1692,7 +1692,7 @@ fn optimize_rejects_seppuku_on_cold_affinity() {
     let mut request = base_request();
     request.affinity = Some("Cold".to_string());
     request.aow_name = Some("Seppuku".to_string());
-    request.objective = OptimizeObjective::MaxArPlusBleed;
+    request.objective = OptimizeObjective::BleedThenAr;
 
     let results = optimize(&request, &game_data).expect("optimizer failed");
     assert!(results.is_empty());
@@ -1851,13 +1851,13 @@ fn exact_aow_compatibility_is_loaded_from_csv() {
 }
 
 #[test]
-fn max_ar_plus_bleed_uses_innate_weapon_buildup() {
+fn bleed_then_ar_uses_innate_weapon_buildup() {
     let game_data = load_data();
     let mut request = base_request();
     request.weapon_name = Some("Rivers of Blood".to_string());
     request.affinity = Some("Standard".to_string());
     request.aow_name = None;
-    request.objective = OptimizeObjective::MaxArPlusBleed;
+    request.objective = OptimizeObjective::BleedThenAr;
     request.standard_max_upgrade = 10;
     request.somber_max_upgrade = 10;
     request.exact_upgrade = true;
@@ -1880,9 +1880,9 @@ fn max_ar_plus_bleed_uses_innate_weapon_buildup() {
 }
 
 #[test]
-fn max_ar_plus_bleed_score_is_bleed_buildup() {
+fn bleed_then_ar_score_is_bleed_buildup() {
     let score = score_for(
-        OptimizeObjective::MaxArPlusBleed,
+        OptimizeObjective::BleedThenAr,
         900.0,
         StatusBuildup {
             bleed: 78.0,
@@ -1901,7 +1901,7 @@ fn max_ar_plus_bleed_score_is_bleed_buildup() {
 }
 
 #[test]
-fn max_ar_plus_bleed_prefers_higher_bleed_over_higher_ar_plus_bleed() {
+fn bleed_then_ar_prefers_higher_bleed_over_higher_ar() {
     let high_ar = test_result(1, 25, 900.0, 40.0);
     let high_bleed = test_result(2, 25, 500.0, 60.0);
 
@@ -1910,7 +1910,7 @@ fn max_ar_plus_bleed_prefers_higher_bleed_over_higher_ar_plus_bleed() {
 }
 
 #[test]
-fn max_ar_plus_bleed_equal_bleed_falls_through_to_higher_ar() {
+fn bleed_then_ar_equal_bleed_falls_through_to_higher_ar() {
     let low_ar = test_result(1, 25, 500.0, 60.0);
     let high_ar = test_result(2, 25, 900.0, 60.0);
 
@@ -2031,7 +2031,7 @@ fn open_max_ar_search_considers_compatible_buff_aows() {
 }
 
 #[test]
-fn open_max_ar_plus_bleed_matches_best_explicit_aow() {
+fn open_bleed_then_ar_matches_best_explicit_aow() {
     let game_data = load_data();
     let mut request = base_request();
     request.weapon_name = Some("Uchigatana".to_string());
@@ -2051,7 +2051,7 @@ fn open_max_ar_plus_bleed_matches_best_explicit_aow() {
     request.somber_max_upgrade = 10;
     request.exact_upgrade = true;
     request.locked_combat_stats = [Some(18), Some(40), Some(9), Some(8), Some(45)];
-    request.objective = OptimizeObjective::MaxArPlusBleed;
+    request.objective = OptimizeObjective::BleedThenAr;
 
     let open_results = optimize(&request, &game_data).expect("open optimizer failed");
     assert!(!open_results.is_empty());
@@ -2085,13 +2085,13 @@ fn open_max_ar_plus_bleed_matches_best_explicit_aow() {
         expected_best.expect("expected at least one compatible AoW for Keen Uchigatana");
     assert!(
         (open_results[0].score - expected_best.score).abs() < 0.001,
-        "expected unlocked Max AR + Bleed score {} to match best explicit score {}",
+        "expected unlocked Bleed, then AR score {} to match best explicit score {}",
         open_results[0].score,
         expected_best.score
     );
     assert!(
         (open_results[0].ar.total() - expected_best.ar.total()).abs() < 0.001,
-        "expected equal-bleed unlocked Max AR + Bleed AR {} to match best explicit AR {}",
+        "expected unlocked equal-bleed AR {} to match best explicit AR {}",
         open_results[0].ar.total(),
         expected_best.ar.total()
     );
@@ -2142,31 +2142,67 @@ fn open_max_ar_plus_bleed_matches_best_explicit_aow() {
 
 #[test]
 fn bleed_only_calculator_matches_full_status_for_open_choices() {
-    let game_data = load_data();
-    let mut request = base_request();
-    request.weapon_name = Some("Uchigatana".to_string());
-    request.affinity = Some("Blood".to_string());
-    request.objective = OptimizeObjective::MaxArPlusBleed;
-    request.current_stats.arc = 45;
-    request.character_level = 150;
-    let constraints = build_combat_constraints(&request).expect("constraints failed");
-    let prepared_weapons =
-        prepare_weapons(&request, &game_data, constraints).expect("weapon preparation failed");
-    let prepared = prepared_weapons.first().expect("missing prepared weapon");
-    let stats = request.current_stats;
+    for (profile, game_data, upgrades, status_buildup_scales) in [
+        ("Vanilla", load_data(), [0, 10, 25], true),
+        ("Convergence", load_convergence_data(), [0, 7, 15], false),
+    ] {
+        assert_eq!(
+            game_data.rules.status_buildup_scales, status_buildup_scales,
+            "unexpected {profile} status scaling rule"
+        );
+        let (weapon_name, affinity, aow_names): (&str, &str, &[Option<&str>]) =
+            if profile == "Vanilla" {
+                (
+                    "Uchigatana",
+                    "Blood",
+                    &[None, Some("Seppuku"), Some("Double Slash")],
+                )
+            } else {
+                (
+                    "Bloodstained Dagger",
+                    "Standard",
+                    &[None, Some("Aeonian Rush")],
+                )
+            };
+        let mut request = base_request();
+        request.weapon_name = Some(weapon_name.to_string());
+        request.affinity = Some(affinity.to_string());
+        request.objective = OptimizeObjective::BleedThenAr;
+        request.current_stats.arc = 45;
+        request.character_level = 150;
+        request.standard_max_upgrade = upgrades[2];
+        request.somber_max_upgrade = upgrades[2];
+        let stats = request.current_stats;
 
-    for upgrade in [0, 10, 25] {
-        if !prepared.upgrades.contains(&upgrade) {
-            continue;
-        }
-        for aow_choice in &prepared.aow_choices {
-            let full =
-                calculate_status_with_buffs(prepared, aow_choice, upgrade, &stats, &game_data)
+        for aow_name in aow_names {
+            request.aow_name = aow_name.map(str::to_string);
+            let constraints = build_combat_constraints(&request).expect("constraints failed");
+            let prepared_weapons = prepare_weapons(&request, &game_data, constraints)
+                .expect("weapon preparation failed");
+            let prepared = prepared_weapons.first().unwrap_or_else(|| {
+                panic!("missing {profile} {affinity} {aow_name:?} prepared weapon")
+            });
+
+            for upgrade in upgrades {
+                if !prepared.upgrades.contains(&upgrade) {
+                    continue;
+                }
+                for aow_choice in &prepared.aow_choices {
+                    let full = calculate_status_with_buffs(
+                        prepared, aow_choice, upgrade, &stats, &game_data,
+                    )
                     .expect("full status calculation failed");
-            let bleed =
-                calculate_bleed_with_buffs(prepared, aow_choice, upgrade, &stats, &game_data)
+                    let bleed = calculate_bleed_with_buffs(
+                        prepared, aow_choice, upgrade, &stats, &game_data,
+                    )
                     .expect("bleed status calculation failed");
-            assert_eq!(bleed, full.bleed, "AoW {:?}", aow_choice.skill_name);
+                    assert_eq!(
+                        bleed, full.bleed,
+                        "{profile} upgrade={upgrade} AoW {:?}",
+                        aow_choice.skill_name
+                    );
+                }
+            }
         }
     }
 }

@@ -6,7 +6,7 @@ use std::time::Duration;
 pub enum OptimizeObjective {
     MaxAr,
     MaxPhysicalAr,
-    MaxArPlusBleed,
+    BleedThenAr,
     AowFirstHit,
     AowFullSequence,
 }
@@ -15,7 +15,7 @@ impl OptimizeObjective {
     pub const ALL: [Self; 5] = [
         Self::MaxAr,
         Self::MaxPhysicalAr,
-        Self::MaxArPlusBleed,
+        Self::BleedThenAr,
         Self::AowFirstHit,
         Self::AowFullSequence,
     ];
@@ -27,7 +27,7 @@ impl OptimizeObjective {
                 Ok(Self::MaxPhysicalAr)
             }
             "max_ar_plus_bleed" | "max_ar+bleed" | "max_ar_plus_bleed_buildup" | "bleed" => {
-                Ok(Self::MaxArPlusBleed)
+                Ok(Self::BleedThenAr)
             }
             "aow_first_hit" | "max_aow_first_hit" | "first_hit" => Ok(Self::AowFirstHit),
             "aow_full_sequence" | "max_aow_full_sequence" | "aow_full" | "full_sequence" => {
@@ -43,7 +43,7 @@ impl OptimizeObjective {
         match self {
             Self::MaxAr => "max_ar",
             Self::MaxPhysicalAr => "max_physical_ar",
-            Self::MaxArPlusBleed => "max_ar_plus_bleed",
+            Self::BleedThenAr => "max_ar_plus_bleed",
             Self::AowFirstHit => "aow_first_hit",
             Self::AowFullSequence => "aow_full_sequence",
         }

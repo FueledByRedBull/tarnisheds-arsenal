@@ -91,6 +91,12 @@ objectives enumerate only combat stats that can affect their selected metric.
 Requirements are folded into minimum floors, and inactive stats are filled only
 when the session level budget cannot otherwise be consumed.
 
+The AR dynamic program's accumulated `f32` totals select a stat allocation only.
+After selection, the core recomputes AR directly from those stats before ranking or
+display; the accumulated totals must never become a user-visible result. The final
+lexicographic stat tie-break stabilizes candidates retained after objective-specific
+pruning, not allocations already collapsed inside the dynamic program.
+
 Medium and broad searches use Rayon when the estimated combination count and
 work-unit count justify parallel execution. Parallel work is split by individual
 Ash of War choices for better load balance. Candidate ranking uses a lightweight

@@ -830,7 +830,7 @@ pub fn metric_for_objective(solved: &SolvedBuildDto, objective: OptimizeObjectiv
         OptimizeObjective::MaxPhysicalAr => solved.ar.physical,
         OptimizeObjective::AowFirstHit => solved.aow_first_hit_damage,
         OptimizeObjective::AowFullSequence => solved.aow_full_sequence_damage,
-        OptimizeObjective::MaxArPlusBleed => solved.bleed_buildup,
+        OptimizeObjective::BleedThenAr => solved.bleed_buildup,
         OptimizeObjective::MaxAr => solved.ar.total,
     }
 }

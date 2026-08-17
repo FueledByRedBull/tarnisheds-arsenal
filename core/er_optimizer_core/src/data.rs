@@ -215,6 +215,19 @@ fn parse_f32(value: &str, field: &str) -> Result<f32, String> {
         .map_err(|err| format!("invalid f32 for {field}: {value} ({err})"))
 }
 
+fn parse_status_buildup(value: &str, field: &str) -> Result<f32, String> {
+    let parsed = parse_f32(value, field)?;
+    if parsed == -99999.0 {
+        return Ok(0.0);
+    }
+    if !parsed.is_finite() || parsed < 0.0 {
+        return Err(format!(
+            "{field} must be a finite non-negative value or the -99999 missing-value sentinel: {value}"
+        ));
+    }
+    Ok(parsed)
+}
+
 fn parse_bool_u8(value: &str, field: &str) -> Result<bool, String> {
     Ok(parse_u8(value, field)? != 0)
 }
@@ -629,20 +642,20 @@ fn load_aows(path: PathBuf, buff_rows: &HashMap<u16, AowBuffRow>) -> Result<Vec<
         out.push(Aow {
             aow_id,
             name: table.get(row, "name")?.to_string(),
-            bleed_buildup_add: parse_f32(
+            bleed_buildup_add: parse_status_buildup(
                 table.get(row, "bleed_buildup_add")?,
                 "bleed_buildup_add",
             )?,
-            frost_buildup_add: parse_f32(
+            frost_buildup_add: parse_status_buildup(
                 table.get(row, "frost_buildup_add")?,
                 "frost_buildup_add",
             )?,
-            poison_buildup_add: parse_f32(
+            poison_buildup_add: parse_status_buildup(
                 table.get(row, "poison_buildup_add")?,
                 "poison_buildup_add",
             )?,
             scarlet_rot_buildup_add: match table.idx("scarlet_rot_buildup_add") {
-                Ok(_) => parse_f32(
+                Ok(_) => parse_status_buildup(
                     table.get(row, "scarlet_rot_buildup_add")?,
                     "scarlet_rot_buildup_add",
                 )?,
@@ -730,16 +743,19 @@ fn load_aow_effects(path: PathBuf) -> Result<HashMap<(u16, u16), Vec<AowEffect>>
                 parse_f32(table.get(row, "holy_attack_power")?, "holy_attack_power")?,
             ],
             status_buildup: StatusBuildup {
-                bleed: parse_f32(table.get(row, "bleed_buildup")?, "bleed_buildup")?,
-                frost: parse_f32(table.get(row, "frost_buildup")?, "frost_buildup")?,
-                poison: parse_f32(table.get(row, "poison_buildup")?, "poison_buildup")?,
-                scarlet_rot: parse_f32(
+                bleed: parse_status_buildup(table.get(row, "bleed_buildup")?, "bleed_buildup")?,
+                frost: parse_status_buildup(table.get(row, "frost_buildup")?, "frost_buildup")?,
+                poison: parse_status_buildup(table.get(row, "poison_buildup")?, "poison_buildup")?,
+                scarlet_rot: parse_status_buildup(
                     table.get(row, "scarlet_rot_buildup")?,
                     "scarlet_rot_buildup",
                 )?,
-                sleep: parse_f32(table.get(row, "sleep_buildup")?, "sleep_buildup")?,
-                madness: parse_f32(table.get(row, "madness_buildup")?, "madness_buildup")?,
-                death: parse_f32(table.get(row, "death_buildup")?, "death_buildup")?,
+                sleep: parse_status_buildup(table.get(row, "sleep_buildup")?, "sleep_buildup")?,
+                madness: parse_status_buildup(
+                    table.get(row, "madness_buildup")?,
+                    "madness_buildup",
+                )?,
+                death: parse_status_buildup(table.get(row, "death_buildup")?, "death_buildup")?,
             },
             uses_status_correction: parse_bool_u8(
                 table.get(row, "uses_status_correction")?,
@@ -1039,16 +1055,16 @@ fn parse_status_effect_source(
 ) -> Result<StatusEffectSource, String> {
     Ok(StatusEffectSource {
         buildup: StatusBuildup {
-            bleed: parse_f32(table.get(row, "bleed")?, "bleed")?,
-            frost: parse_f32(table.get(row, "frost")?, "frost")?,
-            poison: parse_f32(table.get(row, "poison")?, "poison")?,
+            bleed: parse_status_buildup(table.get(row, "bleed")?, "bleed")?,
+            frost: parse_status_buildup(table.get(row, "frost")?, "frost")?,
+            poison: parse_status_buildup(table.get(row, "poison")?, "poison")?,
             scarlet_rot: match table.idx("scarlet_rot") {
-                Ok(_) => parse_f32(table.get(row, "scarlet_rot")?, "scarlet_rot")?,
+                Ok(_) => parse_status_buildup(table.get(row, "scarlet_rot")?, "scarlet_rot")?,
                 Err(_) => 0.0,
             },
-            sleep: parse_f32(table.get(row, "sleep")?, "sleep")?,
-            madness: parse_f32(table.get(row, "madness")?, "madness")?,
-            death: parse_f32(table.get(row, "death")?, "death")?,
+            sleep: parse_status_buildup(table.get(row, "sleep")?, "sleep")?,
+            madness: parse_status_buildup(table.get(row, "madness")?, "madness")?,
+            death: parse_status_buildup(table.get(row, "death")?, "death")?,
         },
         correction_flags: StatusCorrectionFlags {
             bleed: parse_optional_bool_u8(table, row, "bleed_uses_status_correction")?,
@@ -1110,7 +1126,8 @@ fn load_exact_aow_compat_optional(path: PathBuf) -> Result<HashSet<(u16, u32)>, 
 #[cfg(test)]
 mod tests {
     use super::{
-        CONVERGENCE_PROFILE_ID, load_embedded_game_data, load_embedded_game_profile, load_game_data,
+        CONVERGENCE_PROFILE_ID, CsvTable, load_embedded_game_data, load_embedded_game_profile,
+        load_game_data, parse_status_effect_source,
     };
     use crate::model::AowEffectRole;
 
@@ -1186,6 +1203,23 @@ mod tests {
         };
         assert!(error.contains("failed reading"));
         assert!(error.contains("manifest.json"));
+    }
+
+    #[test]
+    fn status_buildup_normalizes_only_the_known_missing_sentinel() {
+        let table = CsvTable::from_content(
+            "test.csv".to_string(),
+            "bleed,frost,poison,scarlet_rot,sleep,madness,death\n-99999,0,0,0,0,0,0\n-0.5,0,0,0,0,0,0\n",
+        )
+        .expect("status CSV parses");
+        let source = parse_status_effect_source(&table, &table.rows[0])
+            .expect("known missing-value sentinel must load");
+        assert_eq!(source.buildup.bleed, 0.0);
+
+        let error = parse_status_effect_source(&table, &table.rows[1])
+            .expect_err("negative buildup must fail closed");
+        assert!(error.contains("bleed"));
+        assert!(error.contains("finite non-negative"));
     }
 
     #[test]

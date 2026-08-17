@@ -148,7 +148,7 @@ fn cases() -> Vec<(&'static str, OptimizeRequest)> {
 
     let mut bleed = max_ar.clone();
     bleed.weapon_type_key = Some("Katana".to_string());
-    bleed.objective = OptimizeObjective::MaxArPlusBleed;
+    bleed.objective = OptimizeObjective::BleedThenAr;
     let mut bleed_export = bleed.clone();
     bleed_export.top_k = 500;
 

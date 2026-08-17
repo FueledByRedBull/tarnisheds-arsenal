@@ -128,9 +128,9 @@ fn compare_scored_candidates(
         return skill_order;
     }
 
-    // Final result ordering intentionally has no stat tie-break. Make the retained
-    // representative stable across serial/parallel merge order by preferring the
-    // lexicographically smaller combat-stat allocation.
+    // Public result ordering intentionally has no stat tie-break. Among scored
+    // candidates retained after objective-specific pruning, stabilize serial/parallel
+    // merges by preferring the lexicographically smaller combat-stat allocation.
     right
         .stats
         .combat_array()

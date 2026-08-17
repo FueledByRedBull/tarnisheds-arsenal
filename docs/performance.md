@@ -48,7 +48,7 @@ scoring uses an exact relevant-stat dynamic program and has a direct regression
 against exhaustive enumeration. Reports retain the equivalent exhaustive
 combination count so historical search-space comparisons remain meaningful.
 
-Max AR + Bleed scoring uses a bleed-only calculation while candidates are broad.
+Bleed, then AR scoring uses a bleed-only calculation while candidates are broad.
 Full AR and all seven status values are calculated only for tie-breaking and final
 rows, with direct equivalence tests against the full status calculation. A measured
 heap-based top-k rewrite was rejected: raising broad export retention from 5 to 500
