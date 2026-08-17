@@ -14,7 +14,8 @@ off the optimizer worker path and avoids stale CPU work.
 
 The exact estimator is retained in the core as `estimate_search_space` and is
 cancellable, but it has no command or frontend caller: since v0.10.0 nothing in
-`apps/` or `tools/` invokes it, and it is exercised only by `optimizer/tests.rs`. Its
+`apps/` or `tools/` invokes it, and it is exercised only by
+`core/er_optimizer_core/src/optimizer/tests.rs`. Its
 result must still equal the full prepared plan's weapon, stat-distribution, and
 equivalent combination counts, which `estimate_search_space_uses_relevant_stat_counts`
 enforces. Estimation omits scoring work-unit materialization, reuses distribution
