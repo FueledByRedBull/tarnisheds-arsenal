@@ -12,11 +12,14 @@ estimator. The command rail shows a constant-time scope summary; exact candidate
 preparation begins only when Search is pressed. This keeps rapid multi-field edits
 off the optimizer worker path and avoids stale CPU work.
 
-The exact estimator remains available to workflows and is cancellable. Its result
-must equal the full prepared plan's weapon, stat-distribution, and equivalent
-combination counts. Estimation omits scoring work-unit materialization, reuses
-distribution counts with identical stat bounds, and checks weapon requirements with
-an arithmetic feasibility test.
+The exact estimator is retained in the core as `estimate_search_space` and is
+cancellable, but it has no command or frontend caller: since v0.10.0 nothing in
+`apps/` or `tools/` invokes it, and it is exercised only by `optimizer/tests.rs`. Its
+result must still equal the full prepared plan's weapon, stat-distribution, and
+equivalent combination counts, which `estimate_search_space_uses_relevant_stat_counts`
+enforces. Estimation omits scoring work-unit materialization, reuses distribution
+counts with identical stat bounds, and checks weapon requirements with an arithmetic
+feasibility test.
 
 On the July 2026 reference snapshot, a one-thread release benchmark retained the
 same exact counts while reducing representative estimates from 0.82-3.10 seconds to
