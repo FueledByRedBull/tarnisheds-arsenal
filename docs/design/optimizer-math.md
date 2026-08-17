@@ -12,7 +12,7 @@ edits. Everything here lives in `core/er_optimizer_core/src/`.
 
 There are eight character stats. Five of them affect combat and are searched:
 
-$$i \in \{\mathrm{STR}, \mathrm{DEX}, \mathrm{INT}, \mathrm{FAI}, \mathrm{ARC}\},
+$$i \in \lbrace \mathrm{STR}, \mathrm{DEX}, \mathrm{INT}, \mathrm{FAI}, \mathrm{ARC} \rbrace,
 \qquad n = 5$$
 
 | Symbol | Meaning |
@@ -54,7 +54,7 @@ remaining capacity $\sum_i c_i$.
 deducting from $R$, and discards the weapon if they cannot be met. Two-handing is
 folded in here rather than treated as a separate case. `effective_str` computes
 
-$$\operatorname{effSTR}(s) = \left\lfloor \tfrac{3s}{2} \right\rfloor$$
+$$\mathrm{effSTR}(s) = \left\lfloor \tfrac{3s}{2} \right\rfloor$$
 
 so the smallest displayed Strength satisfying a requirement $r$ while two-handing is
 
@@ -84,10 +84,10 @@ This is what guarantees the dynamic program below terminates with a solution.
 
 The searched region for a weapon is therefore
 
-$$\mathcal{X}_w = \Bigl\{\, x \in \mathbb{Z}^n \;:\;
+$$\mathcal{X}_w = \left\{\, x \in \mathbb{Z}^n \;:\;
 m_i \le x_i \le u_i\ \text{for } i \in A,\;
 x_i = m_i^\star\ \text{for } i \notin A,\;
-\sum_{i \in A} (x_i - m_i) = T \,\Bigr\}$$
+\sum_{i \in A} (x_i - m_i) = T \,\right\}$$
 
 ## 3. Attack rating
 
@@ -104,7 +104,7 @@ $$AR_d(x) = b_d\, r_d \Bigl( 1 + \sum_{i} I_{i,d}\, s_i\, q_i\, \gamma_d(x_i') \
 | $s_i$ | weapon scaling coefficient | weapon, affinity |
 | $q_i$ | reinforcement scaling multiplier | weapon, upgrade |
 | $\gamma_d$ | calc-correct curve for $d$'s curve id | weapon, damage type |
-| $x_i'$ | effective stat ($\operatorname{effSTR}$ applied to STR) | request |
+| $x_i'$ | effective stat ($\mathrm{effSTR}$ applied to STR) | request |
 
 $$AR_{\text{total}}(x) = \sum_d AR_d(x)$$
 
@@ -181,7 +181,7 @@ regardless of level.
 | Stage | Cost | Notes |
 |---|---|---|
 | Precompute $\Delta_i$ | $\sum_i (\min(c_i,T) + 1)$ AR evaluations | the expensive part; curve lookups |
-| Recurrence | $O(|A| \cdot T \cdot c_{\max}) \subseteq O(n \cdot T \cdot c_{\max})$ float additions | cheap; **linear in $T$**, not quadratic |
+| Recurrence | $O(\lvert A \rvert \cdot T \cdot c_{\max}) \subseteq O(n \cdot T \cdot c_{\max})$ float additions | cheap; **linear in $T$**, not quadratic |
 | Working memory | $O(T)$ states | |
 
 The comparison worth making is against naive enumeration. Without binding per-stat
