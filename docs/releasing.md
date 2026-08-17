@@ -14,6 +14,9 @@ release.
    - `core/er_optimizer_core/Cargo.toml` and its local-package lock entry
    Keep the WiX `upgradeCode` pinned to the historical product-family GUID; changing
    the display name must not create a second Windows Installer product family.
+   The pinned value was verified directly from the published v0.8.1, v0.9.0,
+   v0.9.1, and v0.9.2 MSI Property tables. v0.10.0 is the known one-release fork
+   caused by its unpinned display-name change and is not the identity source of truth.
 2. Add `docs/release-notes/v<version>.md` and update the release-notes index.
 3. Validate all metadata:
 
