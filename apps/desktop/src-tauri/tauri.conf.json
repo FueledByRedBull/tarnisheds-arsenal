@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Tarnished's Arsenal",
+        "title": "Tarnished’s Arsenal",
         "width": 1440,
         "height": 900,
         "minWidth": 1200,
@@ -26,6 +26,11 @@
   "bundle": {
     "active": true,
     "targets": ["msi"],
-    "icon": ["icons/icon.ico"]
+    "icon": ["icons/icon.ico"],
+    "windows": {
+      "wix": {
+        "upgradeCode": "{EC17FDAC-E313-5440-BD56-B985F2F0DA58}"
+      }
+    }
   }
 }

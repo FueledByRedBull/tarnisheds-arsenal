@@ -13,6 +13,9 @@ if str(ROOT) not in sys.path:
 
 from tools.phase1.snapshot_manifest import SCHEMA_VERSION  # noqa: E402
 
+EXPECTED_PRODUCT_NAME = "Tarnished’s Arsenal"
+EXPECTED_UPGRADE_CODE = "{EC17FDAC-E313-5440-BD56-B985F2F0DA58}"
+
 
 def load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -55,6 +58,29 @@ def main() -> int:
     version = tauri_config["version"]
     expected_tag = f"v{version}"
     errors: list[str] = []
+    expect_equal(
+        "Tauri productName",
+        tauri_config.get("productName"),
+        EXPECTED_PRODUCT_NAME,
+        errors,
+    )
+    windows = tauri_config.get("app", {}).get("windows", [])
+    for index, window in enumerate(windows):
+        expect_equal(
+            f"Tauri app.windows[{index}].title",
+            window.get("title"),
+            EXPECTED_PRODUCT_NAME,
+            errors,
+        )
+    expect_equal(
+        "Tauri WiX upgradeCode",
+        tauri_config.get("bundle", {})
+        .get("windows", {})
+        .get("wix", {})
+        .get("upgradeCode"),
+        EXPECTED_UPGRADE_CODE,
+        errors,
+    )
     toolchain = load_toml(root / "rust-toolchain.toml").get("toolchain", {})
     rust_version = toolchain.get("channel")
     python_version = (root / ".python-version").read_text(encoding="utf-8").strip()

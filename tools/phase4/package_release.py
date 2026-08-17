@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import ctypes
 import hashlib
 import json
 import os
@@ -10,6 +11,9 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
+
+EXPECTED_PRODUCT_NAME = "Tarnished’s Arsenal"
+EXPECTED_UPGRADE_CODE = "{EC17FDAC-E313-5440-BD56-B985F2F0DA58}"
 
 
 def npm_cmd() -> str:
@@ -193,6 +197,96 @@ def find_signtool() -> Path:
     return candidates[0]
 
 
+def msi_property(path: Path, property_name: str) -> str:
+    if os.name != "nt":
+        raise RuntimeError("MSI metadata validation requires Windows")
+
+    handle_type = ctypes.c_uint
+    msi = ctypes.WinDLL("msi.dll", use_last_error=True)
+    msi.MsiOpenDatabaseW.argtypes = [
+        ctypes.c_wchar_p,
+        ctypes.c_wchar_p,
+        ctypes.POINTER(handle_type),
+    ]
+    msi.MsiOpenDatabaseW.restype = handle_type
+    msi.MsiDatabaseOpenViewW.argtypes = [
+        handle_type,
+        ctypes.c_wchar_p,
+        ctypes.POINTER(handle_type),
+    ]
+    msi.MsiDatabaseOpenViewW.restype = handle_type
+    msi.MsiViewExecute.argtypes = [handle_type, handle_type]
+    msi.MsiViewExecute.restype = handle_type
+    msi.MsiViewFetch.argtypes = [handle_type, ctypes.POINTER(handle_type)]
+    msi.MsiViewFetch.restype = handle_type
+    msi.MsiRecordGetStringW.argtypes = [
+        handle_type,
+        ctypes.c_uint,
+        ctypes.POINTER(ctypes.c_wchar),
+        ctypes.POINTER(ctypes.c_uint),
+    ]
+    msi.MsiRecordGetStringW.restype = handle_type
+    msi.MsiCloseHandle.argtypes = [handle_type]
+    msi.MsiCloseHandle.restype = handle_type
+
+    database = handle_type()
+    result = msi.MsiOpenDatabaseW(str(path), None, ctypes.byref(database))
+    if result:
+        raise RuntimeError(f"cannot open MSI {path} (Windows Installer error {result})")
+
+    view = handle_type()
+    try:
+        query = f"SELECT `Value` FROM `Property` WHERE `Property` = '{property_name}'"
+        result = msi.MsiDatabaseOpenViewW(database, query, ctypes.byref(view))
+        if result:
+            raise RuntimeError(f"cannot query MSI {path} (Windows Installer error {result})")
+        result = msi.MsiViewExecute(view, 0)
+        if result:
+            raise RuntimeError(f"cannot read MSI {path} (Windows Installer error {result})")
+
+        record = handle_type()
+        try:
+            result = msi.MsiViewFetch(view, ctypes.byref(record))
+            if result == 259:
+                raise RuntimeError(f"MSI {path} has no {property_name} property")
+            if result:
+                raise RuntimeError(f"cannot fetch MSI {path} (Windows Installer error {result})")
+
+            capacity = 256
+            while True:
+                buffer = ctypes.create_unicode_buffer(capacity)
+                length = ctypes.c_uint(capacity - 1)
+                result = msi.MsiRecordGetStringW(record, 1, buffer, ctypes.byref(length))
+                if result == 234:
+                    capacity = length.value + 1
+                    continue
+                if result:
+                    raise RuntimeError(
+                        f"cannot read MSI {property_name} (Windows Installer error {result})"
+                    )
+                return buffer.value
+        finally:
+            if record.value:
+                msi.MsiCloseHandle(record)
+    finally:
+        if view.value:
+            msi.MsiCloseHandle(view)
+        msi.MsiCloseHandle(database)
+
+
+def verify_msi_identity(path: Path, product_name: str, upgrade_code: str) -> None:
+    actual_product_name = msi_property(path, "ProductName")
+    actual_upgrade_code = msi_property(path, "UpgradeCode")
+    if actual_product_name != product_name:
+        raise RuntimeError(
+            f"MSI ProductName is {actual_product_name!r}; expected {product_name!r}"
+        )
+    if actual_upgrade_code != upgrade_code:
+        raise RuntimeError(
+            f"MSI UpgradeCode is {actual_upgrade_code!r}; expected {upgrade_code!r}"
+        )
+
+
 def sign_windows_binary(
     signtool: Path,
     certificate: Path,
@@ -336,6 +430,10 @@ def main() -> int:
             ],
             cwd=root,
         )
+        run(
+            [python_cmd(), "-m", "unittest", "tools.phase1.test_snapshot_manifest"],
+            cwd=root,
+        )
         run([python_cmd(), "-m", "ruff", "check", "tools"], cwd=root)
         run([python_cmd(), "-m", "pyright", "tools"], cwd=root)
         run(
@@ -404,6 +502,7 @@ def main() -> int:
         completed_gates.extend(
             [
                 "release-metadata",
+                "python-unit-tests",
                 "ruff",
                 "pyright",
                 "rustfmt",
@@ -443,6 +542,8 @@ def main() -> int:
     )
     if code_signed:
         completed_gates.append("windows-code-signing")
+    verify_msi_identity(packaged_msi, EXPECTED_PRODUCT_NAME, EXPECTED_UPGRADE_CODE)
+    completed_gates.append("windows-msi-identity")
     run(
         [node_cmd(), "./scripts/smoke-packaged.mjs", str(packaged_exe)],
         cwd=app_dir,

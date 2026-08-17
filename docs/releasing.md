@@ -12,6 +12,8 @@ release.
    - `apps/desktop/src-tauri/tauri.conf.json`
    - `apps/desktop/src-tauri/Cargo.toml` and its two local-package lock entries
    - `core/er_optimizer_core/Cargo.toml` and its local-package lock entry
+   Keep the WiX `upgradeCode` pinned to the historical product-family GUID; changing
+   the display name must not create a second Windows Installer product family.
 2. Add `docs/release-notes/v<version>.md` and update the release-notes index.
 3. Validate all metadata:
 

@@ -6,7 +6,7 @@ import json
 import shutil
 import sys
 from datetime import date
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Mapping, TypedDict, cast
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -75,6 +75,17 @@ def _file_record(path: Path) -> FileRecord:
         "size": path.stat().st_size,
         "sha256": _sha256(path),
     }
+
+
+def _validate_snapshot_file_name(value: object) -> str:
+    if (
+        not isinstance(value, str)
+        or not value
+        or PurePosixPath(value).name != value
+        or PureWindowsPath(value).name != value
+    ):
+        raise ValueError(f"unsafe snapshot file path: {value!r}")
+    return value
 
 
 def _matches_record(path: Path, record: Mapping[str, object]) -> bool:
@@ -223,16 +234,16 @@ def validate_snapshot_manifest(
     diagnostic_records = manifest.get("diagnosticFiles")
     if not isinstance(runtime_records, list) or not isinstance(diagnostic_records, list):
         raise ValueError("snapshot manifest file lists are malformed")
+    all_records = runtime_records + diagnostic_records
+    if not all(isinstance(record, dict) for record in all_records):
+        raise ValueError("snapshot manifest file records are malformed")
     runtime_paths = {record.get("path") for record in runtime_records}
     if runtime_paths != RUNTIME_FILES or len(runtime_records) != len(RUNTIME_FILES):
         raise ValueError("snapshot runtime file set is not exact")
 
-    all_records = runtime_records + diagnostic_records
     listed_paths: set[str] = set()
     for record in all_records:
-        relative = record.get("path")
-        if not isinstance(relative, str) or Path(relative).name != relative:
-            raise ValueError(f"unsafe snapshot file path: {relative!r}")
+        relative = _validate_snapshot_file_name(record.get("path"))
         if relative in listed_paths:
             raise ValueError(f"duplicate snapshot file record: {relative}")
         listed_paths.add(relative)
@@ -253,12 +264,15 @@ def validate_snapshot_manifest(
     sources = manifest.get("sources")
     if not isinstance(sources, list):
         raise ValueError("snapshot source records are malformed")
+    if not all(isinstance(record, dict) for record in sources):
+        raise ValueError("snapshot source records are malformed")
     source_by_kind = {record.get("kind"): record for record in sources}
     if len(source_by_kind) != len(sources) or "regulation" not in source_by_kind:
         raise ValueError("snapshot source kinds must be unique and include regulation")
     if (capabilities["aowDamage"] or capabilities["aowRoutes"]) and "workbook" not in source_by_kind:
         raise ValueError("AoW-capable snapshots require a motion workbook source")
     for kind, record in source_by_kind.items():
+        source_name = _validate_snapshot_file_name(record.get("path"))
         if not isinstance(record.get("bundled"), bool):
             raise ValueError(f"snapshot {kind} source bundled flag is malformed")
         sha256 = record.get("sha256")
@@ -269,7 +283,7 @@ def validate_snapshot_manifest(
         ):
             raise ValueError(f"snapshot {kind} source SHA-256 is malformed")
         if record["bundled"]:
-            source_path = phase1_dir / str(record.get("path", ""))
+            source_path = phase1_dir / source_name
             if (
                 not source_path.is_file()
                 or record.get("size") != source_path.stat().st_size

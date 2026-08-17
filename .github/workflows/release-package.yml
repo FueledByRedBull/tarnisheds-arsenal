@@ -215,6 +215,7 @@ jobs:
 
           $requiredGates = @(
             "release-metadata",
+            "python-unit-tests",
             "ruff",
             "pyright",
             "rustfmt",
@@ -227,6 +228,7 @@ jobs:
             "frontend-e2e",
             "frontend-build",
             "tauri-release-build",
+            "windows-msi-identity",
             "packaged-app-smoke"
           )
           foreach ($gate in $requiredGates) {

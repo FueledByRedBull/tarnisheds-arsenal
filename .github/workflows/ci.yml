@@ -64,8 +64,9 @@ jobs:
           cargo clippy --locked --manifest-path core/er_optimizer_core/Cargo.toml --all-targets -- -D warnings
           cargo clippy --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings
 
-      - name: Python lint and type checking
+      - name: Python tests, lint and type checking
         run: |
+          python -m unittest tools.phase1.test_snapshot_manifest
           python -m ruff check tools
           python -m pyright tools
 
