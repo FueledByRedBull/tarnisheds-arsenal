@@ -84,15 +84,15 @@ This is what guarantees the dynamic program below terminates with a solution.
 
 The searched region for a weapon is therefore
 
-$$\mathcal{X}_w = \left\{\, x \in \mathbb{Z}^n \;:\;
+$$\mathcal{X}_w = \left\lbrace \, x \in \mathbb{Z}^n \;:\;
 m_i \le x_i \le u_i\ \text{for } i \in A,\;
 x_i = m_i^\star\ \text{for } i \notin A,\;
-\sum_{i \in A} (x_i - m_i) = T \,\right\}$$
+\sum_{i \in A} (x_i - m_i) = T \, \right\rbrace$$
 
 ## 3. Attack rating
 
 `calculate_ar_for_type` and `calculate_ar` (`math.rs`) compute, for each damage type
-$d \in \{\text{physical}, \text{magic}, \text{fire}, \text{lightning}, \text{holy}\}$:
+$d \in \lbrace \text{physical}, \text{magic}, \text{fire}, \text{lightning}, \text{holy} \rbrace$:
 
 $$AR_d(x) = b_d\, r_d \Bigl( 1 + \sum_{i} I_{i,d}\, s_i\, q_i\, \gamma_d(x_i') \Bigr)$$
 
@@ -218,13 +218,15 @@ one cached count across weapons.
 
 Scores are:
 
-$$S(x) = \begin{cases}
+```math
+S(x) = \begin{cases}
 AR_{\text{total}}(x) & \text{Max AR} \\
 AR_{\text{physical}}(x) & \text{Max Physical AR} \\
 \mathrm{Bleed}(x) & \text{Bleed, then AR} \\
 AoW_{\text{first}}(x) & \text{AoW First Hit} \\
 AoW_{\text{sequence}}(x) & \text{AoW Full Sequence}
-\end{cases}$$
+\end{cases}
+```
 
 **Bleed, then AR maximizes bleed alone.** AR is a tie-break, never a summand. One
 consequence is worth stating because it is not obvious: `active_stats_for_choice`
