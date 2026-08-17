@@ -29,6 +29,7 @@ test-results/
 /dist/
 /apps/desktop/dist/
 /TODO.md
+/HARDEN.md
 dist_release/
 build/
 build_release/

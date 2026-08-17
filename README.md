@@ -169,6 +169,7 @@ see the [release guide](docs/releasing.md) for the tag-driven process. See the [
 tooling guide](tools/phase1/README.md) to refresh versioned data snapshots.
 
 More references: [tooling overview](tools/README.md), [optimizer design](docs/design/optimizer-overview.md),
+[optimizer mathematics](docs/design/optimizer-math.md),
 [runtime invariants](docs/architecture/runtime-invariants.md), [performance guide](docs/performance.md),
 [release notes](docs/release-notes/README.md), and [CHANGELOG](CHANGELOG.md).
 

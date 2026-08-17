@@ -91,6 +91,10 @@ objectives enumerate only combat stats that can affect their selected metric.
 Requirements are folded into minimum floors, and inactive stats are filled only
 when the session level budget cannot otherwise be consumed.
 
+[`optimizer-math.md`](optimizer-math.md) states the model formally: the point budget,
+the attack-rating formula, the separability property that makes the dynamic program
+exact, its cost bounds, and the scope of the exactness claim.
+
 The AR dynamic program's accumulated `f32` totals select a stat allocation only.
 After selection, the core recomputes AR directly from those stats before ranking or
 display; the accumulated totals must never become a user-visible result. The final
