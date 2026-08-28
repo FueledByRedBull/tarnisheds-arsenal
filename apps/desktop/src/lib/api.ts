@@ -180,6 +180,7 @@ export const api = {
     solved: SolvedBuildDto;
     levelsAhead: number;
     title: string;
+    mode: "no_respec" | "optimum_envelope";
   }>) => call<{ jobId: string }>("start_path_preview", { request: { requests } }),
   cancelPathPreview: (jobId: string) =>
     call<boolean>("cancel_path_preview", { jobId }),
@@ -421,7 +422,7 @@ async function mockCatalog(profileId = "vanilla"): Promise<CatalogDto> {
     aowCount: MOCK_AOW_NAMES.length,
     weaponNames: uniqueSorted(MOCK_WEAPONS.map((weapon) => weapon.name)),
     weaponTypeKeys: weaponTypeOptions.map((entry) => entry.label),
-    classes: STARTING_CLASS_METADATA,
+    classes: profileId === "convergence" ? STARTING_CLASS_METADATA.slice(0, 10) : STARTING_CLASS_METADATA,
     weaponTypeOptions,
     aowNames: MOCK_AOW_NAMES,
     affinityNames: uniqueSorted(MOCK_WEAPONS.map((weapon) => weapon.affinity)),
@@ -429,6 +430,14 @@ async function mockCatalog(profileId = "vanilla"): Promise<CatalogDto> {
       ? ["max_ar", "max_physical_ar", "max_ar_plus_bleed"]
       : ["max_ar", "max_physical_ar", "max_ar_plus_bleed", "aow_first_hit", "aow_full_sequence"],
     somberFilters: ["all", "standard_only", "somber_only"],
+    filterDimensions: [
+      { id: "weapon_family", label: "Weapon Family", options: uniqueSorted(MOCK_WEAPONS.map((row) => row.name)).map((label, index) => ({ id: `weapon:${index}`, label, count: 1 })) },
+      { id: "weapon_type", label: "Weapon Type", options: weaponTypeOptions.map((entry, index) => ({ id: `weapon-type:${index}`, label: entry.label, count: MOCK_WEAPONS.filter((row) => row.weaponTypeName === entry.label).length })) },
+      { id: "affinity", label: "Affinity", options: uniqueSorted(MOCK_WEAPONS.map((row) => row.affinity)).map((label, index) => ({ id: `affinity:${index}`, label, count: MOCK_WEAPONS.filter((row) => row.affinity === label).length })) },
+      { id: "aow", label: "Ash of War", options: MOCK_AOW_NAMES.map((label, index) => ({ id: `aow:${index}`, label, count: MOCK_WEAPONS.length })) },
+      { id: "reinforcement", label: "Reinforcement", options: [{ id: "reinforcement:standard", label: "Standard", count: MOCK_WEAPONS.filter((row) => !row.isSomber).length }, { id: "reinforcement:somber", label: "Somber", count: MOCK_WEAPONS.filter((row) => row.isSomber).length }] },
+      { id: "coverage", label: "Model Coverage", options: [{ id: "coverage:weapon-ar", label: "Weapon AR", count: MOCK_WEAPONS.length }] },
+    ],
     dataManifest: mockDataManifest(profileId),
   };
 }
@@ -437,11 +446,11 @@ function mockDataManifest(profileId = "vanilla"): DataManifestDto {
   const convergence = profileId === "convergence";
   return {
     schemaVersion: 3,
-    datasetVersion: convergence ? "convergence-3.0.0.1" : "vanilla-1.16.1",
-    modelVersion: "aow-routes-effects-v2-profile-rules",
-    id: convergence ? "convergence-3.0.0.1" : "vanilla-1.16.1",
-    label: convergence ? "Convergence 3.0.0.1" : "Vanilla 1.16.1",
-    appVersion: "1.16.1",
+    datasetVersion: convergence ? "convergence-3.0.0.1" : "vanilla-1.17",
+    modelVersion: "aow-routes-effects-v3-profile-semantics",
+    id: convergence ? "convergence-3.0.0.1" : "vanilla-1.17",
+    label: convergence ? "Convergence 3.0.0.1" : "Vanilla 1.17",
+    appVersion: convergence ? "1.16.1" : "1.17",
     source: "ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx",
     generatedAt: "2026-05-18",
     extractorVersion: "phase1-python-v5-profile-rules",
@@ -449,7 +458,7 @@ function mockDataManifest(profileId = "vanilla"): DataManifestDto {
     profile: {
       id: profileId,
       displayName: convergence ? "Convergence" : "Vanilla",
-      gameVersion: "1.16.1",
+      gameVersion: convergence ? "1.16.1" : "1.17",
       modVersion: convergence ? "3.0.0.1" : null,
     },
     capabilities: {
@@ -697,6 +706,9 @@ async function mockAffinityWatch(args: Record<string, unknown> | undefined): Pro
         incomingAffinity: lines[1].affinity,
         outgoingMetric: lines[0].endMetric,
         incomingMetric: lines[1].endMetric,
+        lead: (lines[1].endMetric ?? 0) - (lines[0].endMetric ?? 0),
+        leadPercent: lines[0].endMetric ? ((lines[1].endMetric ?? 0) - lines[0].endMetric) / Math.abs(lines[0].endMetric) * 100 : null,
+        quality: "clear" as const,
       }]
       : [],
   };

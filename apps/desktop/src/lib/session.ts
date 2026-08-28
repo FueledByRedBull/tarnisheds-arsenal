@@ -77,14 +77,22 @@ export const STARTING_CLASS_METADATA: ClassMetadataDto[] = [
     baseTotal: 80,
     baseStats: { vig: 10, mnd: 10, end: 10, strStat: 10, dex: 10, intStat: 10, fai: 10, arc: 10 },
   },
+  {
+    name: "Idus Knight",
+    baseLevel: 7,
+    baseTotal: 86,
+    baseStats: { vig: 10, mnd: 12, end: 11, strStat: 13, dex: 15, intStat: 8, fai: 11, arc: 6 },
+  },
+  {
+    name: "Heavy Knight",
+    baseLevel: 10,
+    baseTotal: 89,
+    baseStats: { vig: 14, mnd: 8, end: 17, strStat: 15, dex: 11, intStat: 7, fai: 8, arc: 9 },
+  },
 ];
 
 export function classOptions(catalog: CatalogDto | null): ClassMetadataDto[] {
-  const byName = new Map(STARTING_CLASS_METADATA.map((entry) => [entry.name, entry]));
-  for (const entry of catalog?.classes ?? []) {
-    byName.set(entry.name, entry);
-  }
-  return STARTING_CLASS_METADATA.map((entry) => byName.get(entry.name) ?? entry);
+  return catalog?.classes.length ? catalog.classes : STARTING_CLASS_METADATA;
 }
 
 export function classMeta(catalog: CatalogDto | null, className: string): ClassMetadataDto {
@@ -92,7 +100,7 @@ export function classMeta(catalog: CatalogDto | null, className: string): ClassM
   if (found) {
     return found;
   }
-  return STARTING_CLASS_METADATA[0];
+  throw new Error(`Unknown starting class: ${className}`);
 }
 
 export function currentStatTotal(request: OptimizeRequestDto): number {
@@ -101,7 +109,13 @@ export function currentStatTotal(request: OptimizeRequestDto): number {
 
 export function derivedLevel(catalog: CatalogDto | null, request: OptimizeRequestDto): number {
   const meta = classMeta(catalog, request.className);
-  return meta.baseLevel + (currentStatTotal(request) - meta.baseTotal);
+  if (request.budgetMode === "offensive_points") {
+    const fixedUps = Math.max(0, request.vig - meta.baseStats.vig)
+      + Math.max(0, request.mnd - meta.baseStats.mnd)
+      + Math.max(0, request.end - meta.baseStats.end);
+    return Math.min(713, meta.baseLevel + fixedUps + request.offensivePointBudget);
+  }
+  return Math.max(meta.baseLevel, Math.min(713, request.characterLevel));
 }
 
 export function budgetSnapshot(catalog: CatalogDto | null, request: OptimizeRequestDto) {

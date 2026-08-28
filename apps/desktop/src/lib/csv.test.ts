@@ -59,4 +59,19 @@ describe("rankings CSV model provenance", () => {
     expect(values).toContain("unified,,11,15,0,0,0");
     expect(values).toContain("D,S++,-,-,B");
   });
+
+  it("neutralizes spreadsheet formulas in exported text", () => {
+    const csv = rankingsToCsv([{ ...row, weaponName: "=HYPERLINK(\"bad\")" }], {
+      profileId: "vanilla",
+      appVersion: "0.10.2",
+      schemaVersion: "7",
+      datasetVersion: "vanilla-1.16.1",
+      modelVersion: "aow-routes-v2",
+      objective: "max_ar",
+      assumptions: "+external input",
+    });
+
+    expect(csv).toContain("\"'=HYPERLINK(\"\"bad\"\")\"");
+    expect(csv).toContain("'+external input");
+  });
 });

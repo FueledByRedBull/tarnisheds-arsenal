@@ -12,7 +12,7 @@ import {
 } from "../../lib/scadutree";
 import { classMeta, classOptions, derivedLevel } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
-import { OptimizeRequestDto, SearchFinishedDto, SearchProgressDto } from "../../lib/types";
+import { FilterDimensionDto, OptimizeRequestDto, SearchFinishedDto, SearchProgressDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
 
 export function CommandRail() {
@@ -80,6 +80,21 @@ export function CommandRail() {
   const upgradeSummary = separateUpgradeCaps
     ? `${request.exactUpgrade ? "Exact" : "Up to"} +${request.standardMaxUpgrade} / +${request.somberMaxUpgrade}`
     : `${request.exactUpgrade ? "Exact" : "Up to"} +${request.standardMaxUpgrade}`;
+
+  function setBudgetMode(mode: OptimizeRequestDto["budgetMode"]) {
+    if (mode === request.budgetMode) return;
+    if (mode === "target_level") {
+      patchRequest({ budgetMode: mode, characterLevel: derivedLevel(catalog, request) });
+      return;
+    }
+    const fixedUps = Math.max(0, request.vig - meta.baseStats.vig)
+      + Math.max(0, request.mnd - meta.baseStats.mnd)
+      + Math.max(0, request.end - meta.baseStats.end);
+    patchRequest({
+      budgetMode: mode,
+      offensivePointBudget: Math.max(0, derivedLevel(catalog, request) - meta.baseLevel - fixedUps),
+    });
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -207,10 +222,22 @@ export function CommandRail() {
             options={startingClasses.map((entry) => ({ value: entry.name, label: entry.name }))}
             onChange={(value) => value && applyClass(value)}
           />
+          <div className="segmented" aria-label="Level budget mode">
+            <button type="button" className={request.budgetMode === "target_level" ? "active" : ""} onClick={() => setBudgetMode("target_level")}>Target level</button>
+            <button type="button" className={request.budgetMode === "offensive_points" ? "active" : ""} onClick={() => setBudgetMode("offensive_points")}>Offensive points</button>
+          </div>
           <div className="level-strip">
             <label>
-              Level
-              <input readOnly value={derivedLevel(catalog, request)} />
+              {request.budgetMode === "target_level" ? "Level" : "Offensive Points"}
+              <DraftNumberInput
+                min={0}
+                max={request.budgetMode === "target_level" ? 713 : 712}
+                value={request.budgetMode === "target_level" ? request.characterLevel : request.offensivePointBudget}
+                onDraftChange={markResultsStale}
+                onCommit={(value) => patchRequest(request.budgetMode === "target_level"
+                  ? { characterLevel: Math.max(meta.baseLevel, value) }
+                  : { offensivePointBudget: value })}
+              />
             </label>
             <div className="budget-readout" title={`Levels above ${request.className}'s base level ${budget.baseLevel}`}>
               <span>Lv Ups</span>
@@ -390,6 +417,19 @@ export function CommandRail() {
               onCommit={(topK) => patchRequest({ topK })}
             />
           </label>
+          <div className="segmented" aria-label="Result grouping">
+            {(["automatic", "weapon", "loadout"] as const).map((grouping) => (
+              <button
+                type="button"
+                key={grouping}
+                className={request.resultGrouping === grouping ? "active" : ""}
+                onClick={() => patchRequest({ resultGrouping: grouping })}
+              >
+                {grouping === "automatic" ? "Auto" : grouping === "weapon" ? "Per weapon" : "Per loadout"}
+              </button>
+            ))}
+          </div>
+          <GenericFilters dimensions={catalog?.filterDimensions ?? []} request={request} patchRequest={patchRequest} />
         </section>
 
         <section className="rail-section">
@@ -552,6 +592,65 @@ export function CommandRail() {
         ) : null}
       </div>
     </aside>
+  );
+}
+
+function GenericFilters({
+  dimensions,
+  request,
+  patchRequest,
+}: {
+  dimensions: FilterDimensionDto[];
+  request: OptimizeRequestDto;
+  patchRequest: (patch: Partial<OptimizeRequestDto>) => void;
+}) {
+  if (!dimensions.length) return null;
+  const active = request.filters.entries.length;
+  return (
+    <details className="generic-filters">
+      <summary>Filters{active ? ` (${active})` : ""}</summary>
+      {active ? <button type="button" className="clear-locks" onClick={() => patchRequest({ filters: { version: 1, entries: [] } })}>Clear filters</button> : null}
+      {dimensions.map((dimension) => (
+        <FilterDimensionControl key={dimension.id} dimension={dimension} request={request} patchRequest={patchRequest} />
+      ))}
+      <small>Click once to include, twice to exclude, three times to clear.</small>
+    </details>
+  );
+}
+
+function FilterDimensionControl({
+  dimension,
+  request,
+  patchRequest,
+}: {
+  dimension: FilterDimensionDto;
+  request: OptimizeRequestDto;
+  patchRequest: (patch: Partial<OptimizeRequestDto>) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const options = dimension.options.filter((option) => option.label.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
+  function cycle(id: string) {
+    const current = request.filters.entries.find((entry) => entry.dimension === dimension.id && entry.id === id);
+    const entries = request.filters.entries.filter((entry) => !(entry.dimension === dimension.id && entry.id === id));
+    if (!current) entries.push({ dimension: dimension.id, id, mode: "include" });
+    else if (current.mode === "include") entries.push({ dimension: dimension.id, id, mode: "exclude" });
+    patchRequest({ filters: { version: 1, entries } });
+  }
+  return (
+    <details className="filter-dimension" open={dimension.id === "weapon_family"}>
+      <summary>{dimension.label}</summary>
+      {dimension.options.length > 16 ? <input type="search" value={query} placeholder={`Find ${dimension.label.toLocaleLowerCase()}`} onChange={(event) => setQuery(event.target.value)} /> : null}
+      <div className="filter-option-list">
+        {options.map((option) => {
+          const mode = request.filters.entries.find((entry) => entry.dimension === dimension.id && entry.id === option.id)?.mode;
+          return (
+            <button type="button" className={mode ?? "neutral"} aria-pressed={Boolean(mode)} key={option.id} onClick={() => cycle(option.id)}>
+              <span>{option.label}</span><small>{option.count.toLocaleString()}</small>
+            </button>
+          );
+        })}
+      </div>
+    </details>
   );
 }
 

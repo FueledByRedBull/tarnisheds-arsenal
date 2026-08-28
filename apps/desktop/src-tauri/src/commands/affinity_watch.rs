@@ -156,6 +156,7 @@ fn build_affinity_watch_inner(
         row_request.top_k = 1;
         row_request.weapon_type_key = None;
         row_request.somber_filter = "all".to_string();
+        row_request.filters.entries.clear();
         row_request.lock_str = None;
         row_request.lock_dex = None;
         row_request.lock_int = None;
@@ -208,7 +209,7 @@ fn build_affinity_watch_inner(
         });
     }
 
-    lines.sort_by(|left, right| compare_lines(right, left));
+    lines.sort_by(|left, right| compare_lines(right, left, objective));
     let breakpoints = detect_breakpoints(&lines, &levels, objective);
     Ok(AffinityWatchPayloadDto { lines, breakpoints })
 }
@@ -271,12 +272,25 @@ fn detect_breakpoints(
         {
             let outgoing = metric_at(lines, previous, *level);
             let incoming = metric_at(lines, &leader.affinity, *level);
+            let lead = incoming.zip(outgoing).map(|(incoming, outgoing)| incoming - outgoing);
+            let lead_percent = incoming.zip(outgoing).and_then(|(incoming, outgoing)| {
+                (outgoing.abs() > f32::EPSILON).then_some((incoming - outgoing) / outgoing.abs() * 100.0)
+            });
+            let quality = match lead_percent {
+                None => "unknown",
+                Some(value) if value.abs() <= 0.01 => "tie",
+                Some(value) if value.abs() < 1.0 => "narrow",
+                Some(_) => "clear",
+            };
             breakpoints.push(AffinityBreakpointDto {
                 level: *level,
                 outgoing_affinity: previous.clone(),
                 incoming_affinity: leader.affinity.clone(),
                 outgoing_metric: outgoing,
                 incoming_metric: incoming,
+                lead,
+                lead_percent,
+                quality: quality.to_string(),
             });
         }
         leader_affinity = Some(leader.affinity.clone());
@@ -296,15 +310,17 @@ fn metric_at(lines: &[AffinityWatchLineDto], affinity: &str, level: u16) -> Opti
         })
 }
 
-fn compare_lines(left: &AffinityWatchLineDto, right: &AffinityWatchLineDto) -> Ordering {
+fn compare_lines(
+    left: &AffinityWatchLineDto,
+    right: &AffinityWatchLineDto,
+    objective: er_optimizer_core::OptimizeObjective,
+) -> Ordering {
     left.end_metric
         .unwrap_or(f32::NEG_INFINITY)
         .total_cmp(&right.end_metric.unwrap_or(f32::NEG_INFINITY))
         .then_with(
             || match (left.final_build.as_ref(), right.final_build.as_ref()) {
-                (Some(left), Some(right)) => {
-                    compare_solved(left, right, er_optimizer_core::OptimizeObjective::MaxAr)
-                }
+                (Some(left), Some(right)) => compare_solved(left, right, objective),
                 (Some(_), None) => Ordering::Greater,
                 (None, Some(_)) => Ordering::Less,
                 (None, None) => Ordering::Equal,

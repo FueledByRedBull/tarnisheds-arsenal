@@ -3,7 +3,7 @@ import { api } from "../../lib/api";
 import { cachedSolveBuild, cachedUpgradeSeries } from "../../lib/analysis-cache";
 import { compactNumber, fixed1, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
 import { SearchableSelect, openOption } from "../../lib/SearchableSelect";
-import { compareUpgradeHorizon, upgradeCapForRow } from "../../lib/session";
+import { compareUpgradeHorizon, rowFingerprint, upgradeCapForRow } from "../../lib/session";
 import { stableSignature } from "../../lib/session";
 import { LatestRequest } from "../../lib/request-generation";
 import { useRequestBudget } from "../../lib/hooks";
@@ -23,6 +23,8 @@ export function CompareView() {
   const selected = useDesktopStore((state) => state.selected);
   const rows = useDesktopStore((state) => state.rows);
   const target = useDesktopStore((state) => state.compareTarget);
+  const compareBench = useDesktopStore((state) => state.compareBench);
+  const clearCompareBench = useDesktopStore((state) => state.clearCompareBench);
   const setCompareTarget = useDesktopStore((state) => state.setCompareTarget);
   const request = useDesktopStore((state) => state.request);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
@@ -118,6 +120,7 @@ export function CompareView() {
       request,
       rows,
       selected,
+      compareBench,
     }));
     async function resolveRows() {
       if (!selected) {
@@ -153,11 +156,12 @@ export function CompareView() {
         lanes.push({ label: "Compare", row: compareRow });
         summaryTarget = compareRow;
       } else {
-        const rivalInputs = rows
+        const sources = compareBench.length ? compareBench : rows;
+        const rivalInputs = sources
           .slice(0, 5)
           .map((row, index) => ({ row, index }))
-          .filter(({ row }) => row !== selected)
-          .slice(0, 3);
+          .filter(({ row }) => rowFingerprint(row) !== rowFingerprint(selected))
+          .slice(0, compareBench.length ? 5 : 3);
         const rivals = await Promise.all(
           rivalInputs.map(async ({ row, index }) => ({
             label: `Top #${index + 1}`,
@@ -207,7 +211,7 @@ export function CompareView() {
       controller.abort();
       seriesRequest.current.invalidate(token);
     };
-  }, [baseRequest, compareControls, request, rows, selected, setCompareTarget, setError]);
+  }, [baseRequest, compareBench, compareControls, request, rows, selected, setCompareTarget, setError]);
 
   const matrixHorizon = compareUpgradeHorizon(request);
   const dataVersion = catalog
@@ -232,7 +236,7 @@ export function CompareView() {
       <div className="workspace-header">
         <div>
           <h1>Compare</h1>
-          <span>Selected line, explicit target, or top ranked rivals</span>
+          <span>Selected line, explicit target, or {compareBench.length ? `${compareBench.length} pinned builds` : "top ranked rivals"}</span>
           <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)} · {dataVersion}</small>
         </div>
       </div>
@@ -242,6 +246,7 @@ export function CompareView() {
         {seriesStatus === "ready" ? "Comparison current" : null}
       </div>
       <div className="compare-toolbar">
+        {compareBench.length ? <button type="button" className="clear-locks" onClick={clearCompareBench}>Clear {compareBench.length} pinned</button> : null}
         <SearchableSelect
           label="Compare Type"
           value={compareControls.weaponTypeKey}
@@ -279,15 +284,11 @@ export function CompareView() {
       </div>
       <div className="compare-lanes" aria-busy={seriesStatus === "loading"}>
         <Lane title="Selected" row={series[0]?.row ?? selected} objective={request.objective} scaling={series[0]?.scaling ?? null} extendedScalingGrades={extendedScalingGrades} emptyLabel="Selected build unavailable" />
-        <Lane
-          title="Target"
-          row={target}
-          objective={request.objective}
-          scaling={series[1]?.scaling ?? null}
-          extendedScalingGrades={extendedScalingGrades}
-          emptyLabel={seriesStatus === "loading" ? "Loading target…" : compareControls.weaponName ? "No compatible target" : "No ranked rival available"}
-        />
+        {series.length > 1 ? series.slice(1).map((lane) => (
+          <Lane key={lane.label} title={lane.label} row={lane.row} objective={request.objective} scaling={lane.scaling} extendedScalingGrades={extendedScalingGrades} emptyLabel="No compatible target" />
+        )) : <Lane title="Target" row={target} objective={request.objective} scaling={null} extendedScalingGrades={extendedScalingGrades} emptyLabel={seriesStatus === "loading" ? "Loading target…" : "No ranked rival available"} />}
       </div>
+      <DeltaTable baseline={series[0]?.row ?? selected} candidates={series.slice(1)} objective={request.objective} />
       <div className="matrix-toolbar">
         <span>{compareControls.weaponName ? "Explicit target" : "Top ranked rivals"}</span>
         <div>
@@ -308,6 +309,48 @@ export function CompareView() {
       </div>
     </section>
   );
+}
+
+function DeltaTable({ baseline, candidates, objective }: { baseline: SolvedBuildDto; candidates: CompareLane[]; objective: ReturnType<typeof useDesktopStore.getState>["request"]["objective"] }) {
+  if (!candidates.length) return null;
+  const metrics = [
+    ["Objective", (row: SolvedBuildDto) => metricForObjective(row, objective)],
+    ["AR", (row: SolvedBuildDto) => row.ar.total],
+    ["Physical", (row: SolvedBuildDto) => row.ar.physical],
+    ["Magic", (row: SolvedBuildDto) => row.ar.magic],
+    ["Fire", (row: SolvedBuildDto) => row.ar.fire],
+    ["Lightning", (row: SolvedBuildDto) => row.ar.lightning],
+    ["Holy", (row: SolvedBuildDto) => row.ar.holy],
+    ["Bleed", (row: SolvedBuildDto) => row.bleedBuildup],
+    ["AoW first", (row: SolvedBuildDto) => row.aowFirstHitDamage],
+    ["AoW full", (row: SolvedBuildDto) => row.aowFullSequenceDamage],
+    ["Stamina", (row: SolvedBuildDto) => row.aowRoute?.totalStaminaCost ?? 0],
+  ] as const;
+  return (
+    <div className="compare-deltas">
+      <table>
+        <caption>Deltas from {baseline.weaponName} / {baseline.affinity}</caption>
+        <thead><tr><th>Build</th>{metrics.map(([label]) => <th key={label}>{label}</th>)}</tr></thead>
+        <tbody>{candidates.map((lane) => lane.row ? (
+          <tr key={lane.label}>
+            <th>{lane.row.weaponName}<small>{lane.row.affinity}</small></th>
+            {metrics.map(([label, value]) => {
+              const delta = value(lane.row!) - value(baseline);
+              return <td className={delta > 0 ? "positive" : delta < 0 ? "negative" : ""} key={label}>{delta > 0 ? "+" : ""}{fixed1(delta)}</td>;
+            })}
+          </tr>
+        ) : null)}</tbody>
+      </table>
+      {candidates.map((lane) => lane.row ? <small key={`${lane.label}-explanation`}>{explainDelta(baseline, lane.row, objective)}</small> : null)}
+    </div>
+  );
+}
+
+function explainDelta(baseline: SolvedBuildDto, candidate: SolvedBuildDto, objective: ReturnType<typeof useDesktopStore.getState>["request"]["objective"]): string {
+  const objectiveDelta = metricForObjective(candidate, objective) - metricForObjective(baseline, objective);
+  const arDelta = candidate.ar.total - baseline.ar.total;
+  const statDelta = ["strStat", "dex", "intStat", "fai", "arc"].reduce((sum, key) => sum + candidate.stats[key as keyof typeof candidate.stats] - baseline.stats[key as keyof typeof baseline.stats], 0);
+  return `${candidate.weaponName}: ${objectiveDelta >= 0 ? "gains" : "loses"} ${fixed1(Math.abs(objectiveDelta))} objective value, ${arDelta >= 0 ? "gains" : "loses"} ${fixed1(Math.abs(arDelta))} AR, and uses ${statDelta >= 0 ? "+" : ""}${statDelta} combat-stat points versus the baseline.`;
 }
 
 function MatrixRow({

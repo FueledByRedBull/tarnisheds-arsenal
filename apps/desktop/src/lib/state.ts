@@ -2,7 +2,7 @@ import { create, type StateCreator } from "zustand";
 import {
   AffinityWatchPayloadDto,
   AffinityWatchProgressDto,
-  BuildPresetV1,
+  BuildPreset,
   CatalogDto,
   DataManifestDto,
   CompareControls,
@@ -10,6 +10,7 @@ import {
   OptimizeRequestDto,
   PathPreviewDto,
   PathProgressDto,
+  PathModeId,
   SearchProgressDto,
   SolvedBuildDto,
   WorkspaceTab,
@@ -27,10 +28,12 @@ export interface DesktopState {
   resultsStale: boolean;
   selected: SolvedBuildDto | null;
   compareTarget: SolvedBuildDto | null;
+  compareBench: SolvedBuildDto[];
   selectedFingerprint: string | null;
   lockedStatMode: boolean;
   compareControls: CompareControls;
   pathHorizon: number;
+  pathMode: PathModeId;
   affinityHorizon: number;
   notices: Notice[];
   isPathBusy: boolean;
@@ -66,8 +69,11 @@ export interface DesktopState {
   clearResults: (message?: string) => void;
   selectRow: (row: SolvedBuildDto | null) => void;
   setCompareTarget: (row: SolvedBuildDto | null) => void;
+  toggleCompareBench: (row: SolvedBuildDto) => void;
+  clearCompareBench: () => void;
   patchCompareControls: (patch: Partial<CompareControls>) => void;
   setPathHorizon: (horizon: number) => void;
+  setPathMode: (mode: PathModeId) => void;
   setAffinityHorizon: (horizon: number) => void;
   setLockedStatMode: (lockedStatMode: boolean) => void;
   useRowAsLocks: (row: SolvedBuildDto) => void;
@@ -88,7 +94,7 @@ export interface DesktopState {
   setActiveAffinityJobId: (activeAffinityJobId: string | null) => void;
   setAffinityProgress: (affinityProgress: AffinityWatchProgressDto | null) => void;
   setAffinityPayload: (affinityPayload: AffinityWatchPayloadDto | null, signature: string | null) => void;
-  loadBuildPreset: (preset: BuildPresetV1) => void;
+  loadBuildPreset: (preset: BuildPreset) => void;
 }
 
 export const defaultRequest: OptimizeRequestDto = {
@@ -124,9 +130,55 @@ export const defaultRequest: OptimizeRequestDto = {
   aowName: null,
   weaponTypeKey: null,
   somberFilter: "all",
+  filters: { version: 1, entries: [] },
+  resultGrouping: "automatic",
+  budgetMode: "target_level",
+  offensivePointBudget: 0,
   objective: "max_ar",
   topK: 25,
 };
+
+function compareBenchKey(profileId: string): string {
+  return `tarnisheds-arsenal.compareBench.v1.${profileId}`;
+}
+
+function readCompareBench(catalog: CatalogDto): SolvedBuildDto[] {
+  if (typeof localStorage === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(compareBenchKey(catalog.dataManifest.profile.id));
+    if (!raw) return [];
+    const value = JSON.parse(raw) as { version?: unknown; datasetVersion?: unknown; rows?: unknown };
+    if (value.version !== 1 || value.datasetVersion !== catalog.dataManifest.datasetVersion || !Array.isArray(value.rows)) {
+      return [];
+    }
+    return value.rows.filter(isStoredBuild).slice(0, 8);
+  } catch {
+    return [];
+  }
+}
+
+function isStoredBuild(row: unknown): row is SolvedBuildDto {
+  if (typeof row !== "object" || row === null) return false;
+  const build = row as Partial<SolvedBuildDto>;
+  return typeof build.weaponId === "number"
+    && typeof build.weaponName === "string"
+    && typeof build.affinity === "string"
+    && typeof build.upgrade === "number"
+    && typeof build.score === "number"
+    && typeof build.stats === "object" && build.stats !== null
+    && [build.stats.strStat, build.stats.dex, build.stats.intStat, build.stats.fai, build.stats.arc].every(Number.isFinite)
+    && typeof build.ar === "object" && build.ar !== null
+    && Number.isFinite(build.ar.total);
+}
+
+function writeCompareBench(catalog: CatalogDto | null, rows: SolvedBuildDto[]) {
+  if (!catalog || typeof localStorage === "undefined") return;
+  localStorage.setItem(compareBenchKey(catalog.dataManifest.profile.id), JSON.stringify({
+    version: 1,
+    datasetVersion: catalog.dataManifest.datasetVersion,
+    rows,
+  }));
+}
 
 type DesktopSlice<T> = StateCreator<DesktopState, [], [], T>;
 
@@ -155,10 +207,12 @@ type RequestSlice = Pick<
   | "request"
   | "lockedStatMode"
   | "pathHorizon"
+  | "pathMode"
   | "affinityHorizon"
   | "patchRequest"
   | "applyClass"
   | "setPathHorizon"
+  | "setPathMode"
   | "setAffinityHorizon"
   | "setLockedStatMode"
   | "useRowAsLocks"
@@ -189,8 +243,11 @@ type SearchSlice = Pick<
 type CompareSlice = Pick<
   DesktopState,
   | "compareTarget"
+  | "compareBench"
   | "compareControls"
   | "setCompareTarget"
+  | "toggleCompareBench"
+  | "clearCompareBench"
   | "patchCompareControls"
 >;
 
@@ -303,6 +360,7 @@ const createUiSlice: DesktopSlice<UiSlice> = (set) => ({
       resultsStale: false,
       selected: null,
       compareTarget: null,
+      compareBench: [],
       selectedFingerprint: null,
       compareControls: {
         weaponTypeKey: null,
@@ -320,18 +378,31 @@ const createUiSlice: DesktopSlice<UiSlice> = (set) => ({
       });
     }),
   setCatalogLoading: () => set({ catalogStatus: "loading", catalogError: null }),
-  setCatalog: (catalog) => set((state) => ({
-    catalog,
-    catalogStatus: "ready",
-    catalogError: null,
-    request: applyProfileRules({
-      ...state.request,
-      profileId: catalog.dataManifest.profile.id,
-      objective: catalog.objectiveIds.includes(state.request.objective)
-        ? state.request.objective
-        : catalog.objectiveIds[0] ?? "max_ar",
-    }, catalog.dataManifest.rules),
-  })),
+  setCatalog: (catalog) => set((state) => {
+    const classInfo = catalog.classes.find((entry) => entry.name === state.request.className)
+      ?? catalog.classes.find((entry) => entry.name === "Samurai")
+      ?? classMeta(null, "Samurai");
+    const resetClass = classInfo.name !== state.request.className;
+    return {
+      catalog,
+      catalogStatus: "ready",
+      catalogError: null,
+      request: applyProfileRules({
+        ...state.request,
+        ...(resetClass ? {
+          className: classInfo.name,
+          characterLevel: classInfo.baseLevel,
+          offensivePointBudget: 0,
+          ...classInfo.baseStats,
+        } : {}),
+        profileId: catalog.dataManifest.profile.id,
+        objective: catalog.objectiveIds.includes(state.request.objective)
+          ? state.request.objective
+          : catalog.objectiveIds[0] ?? "max_ar",
+      }, catalog.dataManifest.rules),
+      compareBench: readCompareBench(catalog),
+    };
+  }),
   setCatalogFailure: (catalogError) => set({ catalogStatus: "error", catalogError }),
   setNotices: (notices) => set({ notices }),
   pushNotice: (notice) =>
@@ -345,6 +416,7 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
   request: defaultRequest,
   lockedStatMode: false,
   pathHorizon: 40,
+  pathMode: "no_respec",
   affinityHorizon: 40,
   patchRequest: (patch) =>
     set((state) => ({
@@ -370,6 +442,7 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
           ...state.request,
           className,
           characterLevel: meta.baseLevel,
+          offensivePointBudget: 0,
           vig: meta.baseStats.vig,
           mnd: meta.baseStats.mnd,
           end: meta.baseStats.end,
@@ -391,6 +464,13 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
     set((state) => ({
       ...invalidatePathJob(state),
       pathHorizon,
+      paths: [],
+      pathSignature: null,
+    })),
+  setPathMode: (pathMode) =>
+    set((state) => ({
+      ...invalidatePathJob(state),
+      pathMode,
       paths: [],
       pathSignature: null,
     })),
@@ -459,6 +539,7 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
           }],
         };
       }
+      writeCompareBench(state.catalog, preset.compareBench);
       return {
         ...invalidateAllJobs(state),
         request: applyProfileRules(
@@ -470,6 +551,7 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
         resultsStale: false,
         selected: preset.selectedBuild,
         compareTarget: preset.compareTarget,
+        compareBench: preset.compareBench,
         selectedFingerprint: rowFingerprint(preset.selectedBuild),
         paths: [],
         pathSignature: null,
@@ -552,6 +634,7 @@ const createSearchSlice: DesktopSlice<SearchSlice> = (set) => ({
 
 const createCompareSlice: DesktopSlice<CompareSlice> = (set) => ({
   compareTarget: null,
+  compareBench: [],
   compareControls: {
     weaponTypeKey: null,
     weaponName: null,
@@ -566,6 +649,21 @@ const createCompareSlice: DesktopSlice<CompareSlice> = (set) => ({
       paths: [],
       pathSignature: null,
     })),
+  toggleCompareBench: (row) =>
+    set((state) => {
+      const fingerprint = rowFingerprint(row);
+      const exists = state.compareBench.some((entry) => rowFingerprint(entry) === fingerprint);
+      const compareBench = exists
+        ? state.compareBench.filter((entry) => rowFingerprint(entry) !== fingerprint)
+        : [...state.compareBench, row].slice(-8);
+      writeCompareBench(state.catalog, compareBench);
+      return { compareBench };
+    }),
+  clearCompareBench: () =>
+    set((state) => {
+      writeCompareBench(state.catalog, []);
+      return { compareBench: [] };
+    }),
   patchCompareControls: (patch) =>
     set((state) => ({
       ...invalidatePathJob(state),

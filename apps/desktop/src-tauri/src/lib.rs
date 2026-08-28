@@ -379,6 +379,8 @@ pub(crate) fn test_optimize_request() -> dto::OptimizeRequestDto {
         aow_name: None,
         weapon_type_key: None,
         somber_filter: "all".to_string(),
+        filters: dto::StableFilterSetDto::default(),
+        result_grouping: "automatic".to_string(),
         objective: "max_ar".to_string(),
         top_k: 1,
     }

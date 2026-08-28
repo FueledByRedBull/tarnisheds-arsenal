@@ -169,6 +169,7 @@ function catalog(profileId: string): CatalogDto {
     affinityNames: ["Standard"],
     objectiveIds: ["max_ar", "max_physical_ar", "max_ar_plus_bleed"],
     somberFilters: ["all"],
+    filterDimensions: [],
     dataManifest: {
       schemaVersion: 3,
       datasetVersion: `${profileId}-test`,

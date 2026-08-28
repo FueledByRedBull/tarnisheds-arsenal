@@ -93,6 +93,7 @@ pub fn solve_build(
     base.aow_name = request.aow_name;
     base.weapon_type_key = None;
     base.somber_filter = "all".to_string();
+    base.filters.entries.clear();
     base.lock_str = None;
     base.lock_dex = None;
     base.lock_int = None;
@@ -131,6 +132,7 @@ where
     base.aow_name = request.solved.aow_name.clone();
     base.weapon_type_key = None;
     base.somber_filter = "all".to_string();
+    base.filters.entries.clear();
     if request.solved.is_somber {
         base.somber_max_upgrade = Some(request.max_upgrade.min(10));
     } else {
@@ -267,11 +269,21 @@ pub fn clamp_weapon_upgrade_request(
     request: &mut crate::dto::OptimizeRequestDto,
     state: &AppState,
 ) -> Result<(), AppError> {
+    let profile = state.profile(&request.profile_id)?;
+    if !crate::commands::data::class_metadata(profile.data_manifest.profile.game_version == "1.17")
+        .iter()
+        .any(|class_info| class_info.name.eq_ignore_ascii_case(&request.class_name))
+    {
+        return Err(AppError::new(format!(
+            "starting class '{}' is not available for profile '{}'",
+            request.class_name, request.profile_id
+        )));
+    }
     let Some(weapon_name) = request.weapon_name.as_deref() else {
         return Ok(());
     };
     let cap = weapon_upgrade_cap(
-        &state.profile(&request.profile_id)?.catalog_index,
+        &profile.catalog_index,
         weapon_name,
         request.affinity.as_deref(),
     )?;

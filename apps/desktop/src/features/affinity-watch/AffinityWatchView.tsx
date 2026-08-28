@@ -147,7 +147,7 @@ export function AffinityWatchView() {
           <div key={`${point.level}-${point.incomingAffinity}`} role="row">
             <span role="cell">Level {point.level}</span>
             <strong role="cell">{point.outgoingAffinity} to {point.incomingAffinity}</strong>
-            <span role="cell">{fixed1(point.outgoingMetric)} / {fixed1(point.incomingMetric)}</span>
+            <span role="cell">{fixed1(point.outgoingMetric)} / {fixed1(point.incomingMetric)} · +{fixed1(point.lead)} ({fixed1(point.leadPercent)}%) · {point.quality}</span>
           </div>
         ))}
       </div>

@@ -126,10 +126,11 @@ function csvCell(value: string | number | boolean | null): string {
     return "";
   }
   const text = String(value);
-  if (!/[",\r\n]/.test(text)) {
-    return text;
+  const safeText = /^[=+\-@]/.test(text) ? `'${text}` : text;
+  if (!/[",\r\n]/.test(safeText)) {
+    return safeText;
   }
-  return `"${text.replace(/"/g, '""')}"`;
+  return `"${safeText.replace(/"/g, '""')}"`;
 }
 
 function pad2(value: number): string {

@@ -16,6 +16,8 @@ export function PathsView() {
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
   const horizon = useDesktopStore((state) => state.pathHorizon);
   const setHorizon = useDesktopStore((state) => state.setPathHorizon);
+  const pathMode = useDesktopStore((state) => state.pathMode);
+  const setPathMode = useDesktopStore((state) => state.setPathMode);
   const paths = useDesktopStore((state) => state.paths);
   const isPathBusy = useDesktopStore((state) => state.isPathBusy);
   const setPathBusy = useDesktopStore((state) => state.setPathBusy);
@@ -35,6 +37,7 @@ export function PathsView() {
     objective: request.objective,
     level: base.characterLevel,
     horizon: effectiveHorizon,
+    pathMode,
   });
 
   usePathJob({
@@ -60,8 +63,8 @@ export function PathsView() {
     const generation = beginPath(signature);
     try {
       const requests = [
-        { base, solved: selected, levelsAhead: effectiveHorizon, title: "Selected" },
-        ...(target ? [{ base, solved: target, levelsAhead: effectiveHorizon, title: "Compare" }] : []),
+        { base, solved: selected, levelsAhead: effectiveHorizon, title: "Selected", mode: pathMode },
+        ...(target ? [{ base, solved: target, levelsAhead: effectiveHorizon, title: "Compare", mode: pathMode }] : []),
       ];
       const { jobId } = await api.startPathPreview(requests);
       const current = useDesktopStore.getState();
@@ -109,11 +112,15 @@ export function PathsView() {
     <section className="workspace-panel paths-panel">
       <div className="workspace-header analysis-workspace-header">
         <div className="workspace-heading-copy">
-          <h1>Paths</h1>
+          <h1>{pathMode === "no_respec" ? "No-respec Paths" : "Optimum Envelope"}</h1>
           <span>{selected ? `Current +${effectiveHorizon} ${target ? "selected and compare lanes" : "selected lane"}` : "Requires selected result"}</span>
           {selected ? <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)} · data {catalog?.dataManifest.datasetVersion ?? "unknown"}{target ? ` · vs ${target.weaponName} / ${target.affinity} / +${target.upgrade}` : ""}</small> : null}
         </div>
         <div className="header-controls">
+          <div className="segmented" aria-label="Path mode">
+            <button type="button" className={pathMode === "no_respec" ? "active" : ""} onClick={() => setPathMode("no_respec")}>No respec</button>
+            <button type="button" className={pathMode === "optimum_envelope" ? "active" : ""} onClick={() => setPathMode("optimum_envelope")}>Envelope</button>
+          </div>
           <label>
             Current + N
             <input
@@ -131,6 +138,7 @@ export function PathsView() {
         </div>
       </div>
       <Progress checked={pathProgress?.checked ?? 0} total={pathProgress?.total ?? (paths.length || 1)} busy={isPathBusy} />
+      <small className="path-mode-note">{pathMode === "no_respec" ? "Terminal allocation is globally optimized; the point-by-point order is greedy and never removes a stat." : "Each level is independently optimized and may mark respec when the best allocation moves points."}</small>
       <div className="path-lanes">
         <LaneSummary title="Selected" path={paths.find((path) => path.title === "Selected")} row={selected} />
         <LaneSummary title="Compare" path={paths.find((path) => path.title === "Compare")} row={target} />

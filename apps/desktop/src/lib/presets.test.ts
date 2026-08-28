@@ -128,6 +128,13 @@ describe("saved build persistence", () => {
 
     expect(parsed.profileId).toBe("vanilla");
     expect(parsed.request.profileId).toBe("vanilla");
+    expect(parsed).toMatchObject({ version: 2, compareBench: [] });
+    expect(parsed.request).toMatchObject({
+      filters: { version: 1, entries: [] },
+      resultGrouping: "automatic",
+      budgetMode: "target_level",
+      offensivePointBudget: 0,
+    });
   });
 
   it("migrates saved builds created before all status fields were exposed", () => {

@@ -562,6 +562,103 @@ textarea {
   justify-content: center;
 }
 
+.generic-filters {
+  margin-top: 10px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.generic-filters > summary,
+.filter-dimension > summary {
+  cursor: pointer;
+  color: var(--parchment);
+}
+
+.generic-filters > .clear-locks {
+  margin: 8px 0;
+}
+
+.filter-dimension {
+  margin-top: 8px;
+}
+
+.filter-dimension > input {
+  width: 100%;
+  margin: 6px 0;
+}
+
+.filter-option-list {
+  display: grid;
+  gap: 4px;
+  max-height: 180px;
+  margin-top: 6px;
+  overflow: auto;
+}
+
+.filter-option-list button {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--muted);
+  background: var(--iron-850);
+  text-align: left;
+}
+
+.filter-option-list button.include {
+  color: var(--parchment);
+  border-color: var(--gold-quiet);
+  background: rgba(202, 168, 94, 0.13);
+}
+
+.filter-option-list button.exclude {
+  color: #efaaa3;
+  border-color: rgba(215, 105, 105, 0.5);
+  text-decoration: line-through;
+}
+
+.compare-deltas {
+  overflow: auto;
+  padding: 0 12px 12px;
+}
+
+.compare-deltas table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.compare-deltas caption,
+.compare-deltas th,
+.compare-deltas td {
+  padding: 6px;
+  border: 1px solid var(--line);
+  text-align: right;
+}
+
+.compare-deltas caption,
+.compare-deltas th:first-child {
+  text-align: left;
+}
+
+.compare-deltas th small,
+.compare-deltas > small {
+  display: block;
+  color: var(--muted);
+}
+
+.compare-deltas .positive { color: #91c79a; }
+.compare-deltas .negative { color: #df958d; }
+
+.path-mode-note {
+  display: block;
+  padding: 6px 14px;
+  color: var(--muted);
+}
+
 .center-workspace {
   min-width: 0;
   height: 100vh;
@@ -771,6 +868,12 @@ textarea {
 
 .top-card small {
   color: var(--muted);
+}
+
+.top-card-actions {
+  display: grid;
+  align-content: center;
+  gap: 4px;
 }
 
 .header-controls button,
@@ -2230,10 +2333,22 @@ textarea:hover {
 .result-row-full {
   grid-template-columns:
     30px 120px 110px 38px
-    minmax(120px, 1fr) minmax(128px, 1.1fr) 66px 54px 40px;
+    minmax(120px, 1fr) minmax(128px, 1.1fr) 66px 54px 112px;
   gap: 7px;
   width: 100%;
   min-width: 760px;
+}
+
+.result-row-full > span:last-child {
+  display: flex;
+  gap: 4px;
+  overflow: visible;
+}
+
+.result-row-full > span:last-child .inline-lock {
+  min-width: 0;
+  padding: 0 6px;
+  font-size: 10px;
 }
 
 .result-head-full > span:nth-child(n),

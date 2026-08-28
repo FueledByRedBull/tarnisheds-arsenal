@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use er_optimizer_core::math::STARTING_CLASSES;
 use er_optimizer_core::{
@@ -9,8 +9,8 @@ use tauri::State;
 use crate::AppState;
 use crate::dto::{
     CatalogDto, ClassMetadataDto, CombatStateDto, CompatibleAowsForAffinityRequestDto,
-    CompatibleAowsRequestDto, EightStatsDto, WeaponNamesForTypeRequestDto, WeaponProfileDto,
-    WeaponProfileRequestDto, WeaponTypeOptionDto,
+    CompatibleAowsRequestDto, EightStatsDto, FilterDimensionDto, FilterOptionDto,
+    WeaponNamesForTypeRequestDto, WeaponProfileDto, WeaponProfileRequestDto, WeaponTypeOptionDto,
 };
 use crate::errors::AppError;
 
@@ -33,6 +33,8 @@ pub struct CatalogIndex {
     requirements_by_weapon_affinity: HashMap<(String, String), [u8; 5]>,
     disables_two_hand_bonus_by_weapon: HashMap<String, bool>,
     disables_two_hand_bonus_by_weapon_affinity: HashMap<(String, String), bool>,
+    forces_two_handing_by_weapon: HashMap<String, bool>,
+    filter_dimensions: Vec<FilterDimensionDto>,
 }
 
 impl CatalogIndex {
@@ -56,6 +58,11 @@ impl CatalogIndex {
         let mut disables_two_hand_bonus_by_weapon = HashMap::<String, bool>::new();
         let mut disables_two_hand_bonus_by_weapon_affinity =
             HashMap::<(String, String), bool>::new();
+        let mut forces_two_handing_by_weapon = HashMap::<String, bool>::new();
+        let mut weapon_family_facets = BTreeMap::<String, (String, usize)>::new();
+        let mut weapon_type_facets = BTreeMap::<String, (String, usize)>::new();
+        let mut affinity_facets = BTreeMap::<String, (String, usize)>::new();
+        let mut reinforcement_facets = BTreeMap::<String, (String, usize)>::new();
 
         for aow in &data.aows {
             aow_names.insert(aow.name.clone());
@@ -70,6 +77,34 @@ impl CatalogIndex {
             let weapon_affinity_key = (weapon_key.clone(), affinity_key.clone());
             weapon_names.insert(weapon.name.clone());
             affinity_names.insert(weapon.affinity.clone());
+            increment_facet(
+                &mut weapon_family_facets,
+                weapon.family_filter_id(),
+                weapon.name.clone(),
+            );
+            increment_facet(
+                &mut weapon_type_facets,
+                weapon.type_filter_id(),
+                normalize_weapon_type_display(&weapon.weapon_type_name).to_string(),
+            );
+            increment_facet(
+                &mut affinity_facets,
+                weapon.affinity_filter_id(),
+                weapon.affinity.clone(),
+            );
+            increment_facet(
+                &mut reinforcement_facets,
+                if weapon.is_somber {
+                    "reinforcement:somber".to_string()
+                } else {
+                    "reinforcement:standard".to_string()
+                },
+                if weapon.is_somber {
+                    "Somber".to_string()
+                } else {
+                    "Standard".to_string()
+                },
+            );
             affinities_by_weapon
                 .entry(weapon_key.clone())
                 .or_default()
@@ -142,6 +177,10 @@ impl CatalogIndex {
                 .entry(weapon_affinity_key.clone())
                 .and_modify(|current| *current |= weapon.disable_two_hand_bonus)
                 .or_insert(weapon.disable_two_hand_bonus);
+            forces_two_handing_by_weapon
+                .entry(weapon_key.clone())
+                .and_modify(|current| *current |= weapon.forces_two_handing())
+                .or_insert_with(|| weapon.forces_two_handing());
 
             if let Some(skill_name) = native_skill_name_for_weapon(data, weapon) {
                 insert_compatible_name(
@@ -169,6 +208,54 @@ impl CatalogIndex {
             }
         }
 
+        let weapon_count = weapon_names.len();
+        let mut aow_facets = BTreeMap::<String, (String, usize)>::new();
+        aow_facets.insert(
+            "aow:none".to_string(),
+            ("No applied Ash".to_string(), weapon_count),
+        );
+        for aow in &data.aows {
+            let count = data
+                .weapons
+                .iter()
+                .filter(|weapon| data.weapon_ar_supported(weapon))
+                .filter(|weapon| data.aow_compatible_with_weapon(aow, weapon))
+                .count();
+            if count > 0 {
+                aow_facets.insert(format!("aow:{}", aow.aow_id), (aow.name.clone(), count));
+            }
+        }
+        let coverage = [
+            ("coverage:weapon-ar", "Weapon AR", data.capabilities.weapon_ar),
+            ("coverage:status", "Status buildup", data.capabilities.status_buildup),
+            (
+                "coverage:aow-compatibility",
+                "Ash compatibility",
+                data.capabilities.aow_compatibility,
+            ),
+            ("coverage:aow-damage", "Ash damage", data.capabilities.aow_damage),
+            ("coverage:aow-routes", "Ash routes", data.capabilities.aow_routes),
+        ]
+        .into_iter()
+        .map(|(id, label, supported)| FilterOptionDto {
+            id: id.to_string(),
+            label: label.to_string(),
+            count: usize::from(supported) * weapon_count,
+        })
+        .collect();
+        let filter_dimensions = vec![
+            facet_dimension("weapon_family", "Weapon family", weapon_family_facets),
+            facet_dimension("weapon_type", "Weapon type", weapon_type_facets),
+            facet_dimension("affinity", "Affinity", affinity_facets),
+            facet_dimension("aow", "Ash of War", aow_facets),
+            facet_dimension("reinforcement", "Reinforcement", reinforcement_facets),
+            FilterDimensionDto {
+                id: "coverage".to_string(),
+                label: "Model coverage".to_string(),
+                options: coverage,
+            },
+        ];
+
         Self {
             weapon_names: weapon_names.into_iter().collect(),
             aow_names: aow_names.into_iter().collect(),
@@ -192,6 +279,8 @@ impl CatalogIndex {
             requirements_by_weapon_affinity,
             disables_two_hand_bonus_by_weapon,
             disables_two_hand_bonus_by_weapon_affinity,
+            forces_two_handing_by_weapon,
+            filter_dimensions,
         }
     }
 }
@@ -228,7 +317,7 @@ pub fn get_catalog(profile_id: String, state: State<'_, AppState>) -> Result<Cat
         aow_count: data.aows.len(),
         weapon_names: index.weapon_names.clone(),
         weapon_type_keys: index.weapon_type_keys.clone(),
-        classes: class_metadata(),
+        classes: class_metadata(profile.data_manifest.profile.game_version == "1.17"),
         weapon_type_options: index.weapon_type_options.clone(),
         aow_names: index.aow_names.clone(),
         affinity_names: index.affinity_names.clone(),
@@ -250,8 +339,37 @@ pub fn get_catalog(profile_id: String, state: State<'_, AppState>) -> Result<Cat
             .into_iter()
             .map(|filter| filter.as_str().to_string())
             .collect(),
+        filter_dimensions: index.filter_dimensions.clone(),
         data_manifest: profile.data_manifest.clone(),
     })
+}
+
+fn increment_facet(
+    facets: &mut BTreeMap<String, (String, usize)>,
+    id: String,
+    label: String,
+) {
+    facets
+        .entry(id)
+        .and_modify(|entry| entry.1 += 1)
+        .or_insert((label, 1));
+}
+
+fn facet_dimension(
+    id: &str,
+    label: &str,
+    facets: BTreeMap<String, (String, usize)>,
+) -> FilterDimensionDto {
+    let mut options = facets
+        .into_iter()
+        .map(|(id, (label, count))| FilterOptionDto { id, label, count })
+        .collect::<Vec<_>>();
+    options.sort_by(|left, right| left.label.cmp(&right.label).then(left.id.cmp(&right.id)));
+    FilterDimensionDto {
+        id: id.to_string(),
+        label: label.to_string(),
+        options,
+    }
 }
 
 #[tauri::command]
@@ -347,9 +465,10 @@ pub fn get_weapon_profile(
     })
 }
 
-pub fn class_metadata() -> Vec<ClassMetadataDto> {
+pub fn class_metadata(include_tarnished_pack: bool) -> Vec<ClassMetadataDto> {
     STARTING_CLASSES
         .iter()
+        .filter(|class_info| include_tarnished_pack || !matches!(class_info.name, "Idus Knight" | "Heavy Knight"))
         .map(|class_info| ClassMetadataDto {
             name: class_info.name.to_string(),
             base_level: class_info.base_level,
@@ -469,6 +588,14 @@ pub fn weapon_disables_two_hand_bonus(
             .copied()
             .unwrap_or(false),
     }
+}
+
+pub fn weapon_forces_two_handing(index: &CatalogIndex, weapon_name: &str) -> bool {
+    index
+        .forces_two_handing_by_weapon
+        .get(&index_key(weapon_name))
+        .copied()
+        .unwrap_or(false)
 }
 
 fn index_key(value: &str) -> String {

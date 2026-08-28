@@ -17,7 +17,7 @@ import {
 } from "../../lib/presets";
 import { budgetSnapshot, buildOptimizeRequest } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
-import { AowRouteDto, BuildPresetV1, CatalogDto, OptimizeRequestDto, SavedBuildIndexEntryV1, SolvedBuildDto, StatusBuildupDto } from "../../lib/types";
+import { AowRouteDto, BuildPreset, CatalogDto, OptimizeRequestDto, SavedBuildIndexEntryV1, SolvedBuildDto, StatusBuildupDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
 import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 import packageInfo from "../../../package.json";
@@ -220,6 +220,7 @@ function SavedBuildPanel() {
   const request = useDesktopStore((state) => state.request);
   const selected = useDesktopStore((state) => state.selected);
   const compareTarget = useDesktopStore((state) => state.compareTarget);
+  const compareBench = useDesktopStore((state) => state.compareBench);
   const hydrate = useDesktopStore((state) => state.loadBuildPreset);
   const pushNotice = useDesktopStore((state) => state.pushNotice);
   const setError = useDesktopStore((state) => state.setError);
@@ -249,7 +250,7 @@ function SavedBuildPanel() {
 
   function saveNew() {
     try {
-      const preset = saveBuildPreset({ name, request, selectedBuild: selected, compareTarget, dataVersion });
+      const preset = saveBuildPreset({ name, request, selectedBuild: selected, compareTarget, compareBench, dataVersion });
       setSelectedId(preset.id);
       refresh();
       pushNotice({ scope: "global", tone: "success", message: `Saved ${preset.name}.` });
@@ -261,7 +262,7 @@ function SavedBuildPanel() {
   function updateCurrent() {
     if (!selectedId) return;
     try {
-      const preset = saveBuildPreset({ id: selectedId, name, request, selectedBuild: selected, compareTarget, dataVersion });
+      const preset = saveBuildPreset({ id: selectedId, name, request, selectedBuild: selected, compareTarget, compareBench, dataVersion });
       refresh();
       pushNotice({ scope: "global", tone: "success", message: `Updated ${preset.name}.` });
     } catch (error) {
@@ -281,7 +282,7 @@ function SavedBuildPanel() {
       return;
     }
     if (dataVersion !== "unknown" && preset.dataVersion !== dataVersion) {
-      hydrate({ ...preset, selectedBuild: null, compareTarget: null });
+      hydrate({ ...preset, selectedBuild: null, compareTarget: null, compareBench: [] });
       pushNotice({
         scope: "global",
         tone: "warning",
@@ -292,7 +293,7 @@ function SavedBuildPanel() {
     hydrate(preset);
   }
 
-  async function migratePreset(preset: BuildPresetV1): Promise<BuildPresetV1 | null> {
+  async function migratePreset(preset: BuildPreset): Promise<BuildPreset | null> {
     if (!catalog) {
       setError("Current catalog metadata is unavailable; retry after game data finishes loading.");
       return null;
@@ -305,7 +306,7 @@ function SavedBuildPanel() {
     setError(null);
     const migration = migratePresetRequest(preset.request, catalog);
     try {
-      hydrate({ ...preset, request: migration.request, selectedBuild: null, compareTarget: null });
+      hydrate({ ...preset, request: migration.request, selectedBuild: null, compareTarget: null, compareBench: [] });
       const state = useDesktopStore.getState();
       const base = buildOptimizeRequest(catalog, state.request, state.lockedStatMode);
       const issues = [...migration.issues];
@@ -329,12 +330,15 @@ function SavedBuildPanel() {
       };
       const migratedSelected = await recompute("Selected build", preset.selectedBuild);
       const migratedCompare = await recompute("Compare build", preset.compareTarget);
+      const migratedBench = (await Promise.all(preset.compareBench.map((row, index) => recompute(`Compare bench ${index + 1}`, row))))
+        .filter((row): row is SolvedBuildDto => row !== null);
       const migrated = saveBuildPreset({
         id: preset.id,
         name: preset.name,
         request: useDesktopStore.getState().request,
         selectedBuild: migratedSelected,
         compareTarget: migratedCompare,
+        compareBench: migratedBench,
         dataVersion,
       });
       hydrate(migrated);

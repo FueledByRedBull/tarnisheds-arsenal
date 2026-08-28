@@ -30,7 +30,7 @@ Get the latest Windows build from [Releases](https://github.com/FueledByRedBull/
 
 The app uses Microsoft Edge WebView2. The MSI downloads its bootstrapper if needed;
 the portable executable expects WebView2 to already be installed. The installer and
-portable executable include checksummed Vanilla 1.16.1 and Convergence 3.0.0.1
+portable executable include checksummed Vanilla 1.17 and Convergence 3.0.0.1
 profiles. Each release publishes SHA-256 checksums plus a machine-readable build
 report. The standalone app
 needs no adjacent data directory, `regulation.bin`, workbook, or FMG files.
@@ -39,7 +39,7 @@ needs no adjacent data directory, `regulation.bin`, workbook, or FMG files.
 
 - What is best if `ARC` must stay above 40?
 - When does `Occult` overtake `Blood`?
-- Which stat path reaches the selected target most efficiently?
+- Which stat does the greedy selected-target preview add next?
 - Which affinity wins when weapon, Ash of War, class, and level budget stay fixed?
 - What happens when the same build is evaluated at every upgrade level?
 - In Vanilla, how does Shadow Realm Scadutree scaling change outgoing damage?

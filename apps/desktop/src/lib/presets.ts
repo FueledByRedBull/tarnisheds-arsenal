@@ -1,12 +1,15 @@
-import { BuildPresetV1, OptimizeRequestDto, SavedBuildIndexV1, SolvedBuildDto } from "./types";
+import { STARTING_CLASS_METADATA } from "./session";
+import { BuildPreset, BuildPresetV1, OptimizeRequestDto, SavedBuildIndexV1, SolvedBuildDto } from "./types";
 
 const INDEX_KEY = "tarnisheds-arsenal.savedBuildIndex.v1";
-const PRESET_PREFIX = "tarnisheds-arsenal.savedBuild.v1.";
-export const SHARE_PREFIX = "ta-v1:";
+const PRESET_PREFIX = "tarnisheds-arsenal.savedBuild.v2.";
+const LEGACY_PRESET_PREFIX = "tarnisheds-arsenal.savedBuild.v1.";
+export const SHARE_PREFIX = "ta-v2:";
+const LEGACY_SHARE_PREFIX = "ta-v1:";
 export const MAX_PRESET_IMPORT_BYTES = 256 * 1024;
 
 export interface PresetImportPreview {
-  preset: BuildPresetV1;
+  preset: BuildPreset;
   bytes: number;
   idConflict: boolean;
   nameConflict: boolean;
@@ -34,6 +37,7 @@ export function savedBuildIndex(): SavedBuildIndexV1 {
   const retained = builds.filter((entry) => {
     if (!/^Packaged smoke \d{10,}$/.test(entry.name)) return true;
     localStorage.removeItem(`${PRESET_PREFIX}${entry.id}`);
+    localStorage.removeItem(`${LEGACY_PRESET_PREFIX}${entry.id}`);
     return false;
   });
   if (retained.length !== builds.length) {
@@ -42,12 +46,13 @@ export function savedBuildIndex(): SavedBuildIndexV1 {
   return { version: 1, builds: retained };
 }
 
-export function loadBuildPreset(id: string): BuildPresetV1 | null {
-  const preset = readJson<unknown>(`${PRESET_PREFIX}${id}`);
+export function loadBuildPreset(id: string): BuildPreset | null {
+  const raw = readJson<unknown>(`${PRESET_PREFIX}${id}`) ?? readJson<unknown>(`${LEGACY_PRESET_PREFIX}${id}`);
   try {
-    migratePreset(preset);
-    assertPreset(preset as BuildPresetV1);
-    return preset as BuildPresetV1;
+    const preset = migratePreset(raw);
+    assertPreset(preset);
+    localStorage.setItem(`${PRESET_PREFIX}${preset.id}`, JSON.stringify(preset));
+    return preset;
   } catch {
     return null;
   }
@@ -59,18 +64,20 @@ export function saveBuildPreset(input: {
   request: OptimizeRequestDto;
   selectedBuild: SolvedBuildDto | null;
   compareTarget: SolvedBuildDto | null;
+  compareBench?: SolvedBuildDto[];
   dataVersion: string;
-}): BuildPresetV1 {
+}): BuildPreset {
   const now = new Date().toISOString();
   const existing = input.id ? loadBuildPreset(input.id) : null;
-  const preset: BuildPresetV1 = {
-    version: 1,
+  const preset: BuildPreset = {
+    version: 2,
     id: input.id ?? crypto.randomUUID(),
     name: input.name.trim() || "Untitled Build",
     profileId: input.request.profileId,
     request: input.request,
     selectedBuild: input.selectedBuild,
     compareTarget: input.compareTarget,
+    compareBench: input.compareBench ?? [],
     dataVersion: input.dataVersion,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
@@ -81,7 +88,7 @@ export function saveBuildPreset(input: {
   return preset;
 }
 
-export function renameBuildPreset(id: string, name: string): BuildPresetV1 {
+export function renameBuildPreset(id: string, name: string): BuildPreset {
   const preset = loadBuildPreset(id);
   if (!preset) {
     throw new Error("Saved build was not found.");
@@ -94,6 +101,7 @@ export function renameBuildPreset(id: string, name: string): BuildPresetV1 {
 
 export function deleteBuildPreset(id: string) {
   localStorage.removeItem(`${PRESET_PREFIX}${id}`);
+  localStorage.removeItem(`${LEGACY_PRESET_PREFIX}${id}`);
   const index = savedBuildIndex();
   localStorage.setItem(INDEX_KEY, JSON.stringify({
     version: 1,
@@ -101,26 +109,24 @@ export function deleteBuildPreset(id: string) {
   } satisfies SavedBuildIndexV1));
 }
 
-export function parsePresetText(raw: string): BuildPresetV1 {
+export function parsePresetText(raw: string): BuildPreset {
   const text = raw.trim();
   const bytes = new TextEncoder().encode(text).byteLength;
   if (bytes > MAX_PRESET_IMPORT_BYTES) {
     throw new Error(`Preset is too large (${bytes.toLocaleString()} bytes; limit ${MAX_PRESET_IMPORT_BYTES.toLocaleString()}).`);
   }
-  const payload = text.startsWith(SHARE_PREFIX)
-    ? decodeURIComponent(text.slice(SHARE_PREFIX.length))
-    : text;
-  const parsed = JSON.parse(payload) as BuildPresetV1;
-  migratePreset(parsed);
+  const prefix = text.startsWith(SHARE_PREFIX) ? SHARE_PREFIX : text.startsWith(LEGACY_SHARE_PREFIX) ? LEGACY_SHARE_PREFIX : "";
+  const payload = prefix ? decodeURIComponent(text.slice(prefix.length)) : text;
+  const parsed = migratePreset(JSON.parse(payload));
   assertPreset(parsed);
   return parsed;
 }
 
-export function shareTextForPreset(preset: BuildPresetV1): string {
+export function shareTextForPreset(preset: BuildPreset): string {
   return `${SHARE_PREFIX}${encodeURIComponent(JSON.stringify(preset))}`;
 }
 
-export function downloadPresetJson(preset: BuildPresetV1) {
+export function downloadPresetJson(preset: BuildPreset) {
   const blob = new Blob([JSON.stringify(preset, null, 2)], { type: "application/json;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -130,7 +136,8 @@ export function downloadPresetJson(preset: BuildPresetV1) {
   URL.revokeObjectURL(url);
 }
 
-export function importBuildPreset(preset: BuildPresetV1): BuildPresetV1 {
+export function importBuildPreset(input: BuildPreset | BuildPresetV1): BuildPreset {
+  const preset = migratePreset(input);
   assertPreset(preset);
   const index = savedBuildIndex();
   const idConflict = loadBuildPreset(preset.id) !== null;
@@ -146,7 +153,8 @@ export function importBuildPreset(preset: BuildPresetV1): BuildPresetV1 {
   return imported;
 }
 
-export function replaceImportedBuildPreset(preset: BuildPresetV1): BuildPresetV1 {
+export function replaceImportedBuildPreset(input: BuildPreset | BuildPresetV1): BuildPreset {
+  const preset = migratePreset(input);
   assertPreset(preset);
   const imported = { ...preset, updatedAt: new Date().toISOString() };
   localStorage.setItem(`${PRESET_PREFIX}${imported.id}`, JSON.stringify(imported));
@@ -165,7 +173,7 @@ export function previewPresetImport(raw: string): PresetImportPreview {
   };
 }
 
-function upsertIndex(preset: BuildPresetV1) {
+function upsertIndex(preset: BuildPreset) {
   const index = savedBuildIndex();
   const builds = [
     { id: preset.id, name: preset.name, profileId: preset.profileId, dataVersion: preset.dataVersion, updatedAt: preset.updatedAt },
@@ -174,8 +182,8 @@ function upsertIndex(preset: BuildPresetV1) {
   localStorage.setItem(INDEX_KEY, JSON.stringify({ version: 1, builds } satisfies SavedBuildIndexV1));
 }
 
-function assertPreset(value: BuildPresetV1) {
-  if (!isRecord(value) || value.version !== 1) throw invalidPreset("schema version must be 1");
+function assertPreset(value: BuildPreset) {
+  if (!isRecord(value) || value.version !== 2) throw invalidPreset("schema version must be 2");
   assertText(value.id, "id", 128);
   assertText(value.name, "name", 200);
   assertProfileId(value.profileId, "profileId");
@@ -188,6 +196,8 @@ function assertPreset(value: BuildPresetV1) {
   }
   assertSolvedBuild(value.selectedBuild, "selectedBuild");
   assertSolvedBuild(value.compareTarget, "compareTarget");
+  assertArray(value.compareBench, "compareBench", 8);
+  value.compareBench.forEach((build, index) => assertSolvedBuild(build, `compareBench[${index}]`));
 }
 
 function assertRequest(value: unknown): asserts value is OptimizeRequestDto {
@@ -217,6 +227,23 @@ function assertRequest(value: unknown): asserts value is OptimizeRequestDto {
   if (!["all", "standard_only", "somber_only"].includes(String(value.somberFilter))) {
     throw invalidPreset("request.somberFilter is invalid");
   }
+  if (!isRecord(value.filters) || value.filters.version !== 1) throw invalidPreset("request.filters must use schema version 1");
+  assertArray(value.filters.entries, "request.filters.entries", 512);
+  value.filters.entries.forEach((entry, index) => {
+    if (!isRecord(entry)) throw invalidPreset(`request.filters.entries[${index}] must be an object`);
+    if (!["weapon_family", "weapon_type", "affinity", "aow", "reinforcement", "coverage"].includes(String(entry.dimension))) {
+      throw invalidPreset(`request.filters.entries[${index}].dimension is invalid`);
+    }
+    assertText(entry.id, `request.filters.entries[${index}].id`, 128);
+    if (!["include", "exclude"].includes(String(entry.mode))) throw invalidPreset(`request.filters.entries[${index}].mode is invalid`);
+  });
+  if (!["automatic", "weapon", "loadout"].includes(String(value.resultGrouping))) {
+    throw invalidPreset("request.resultGrouping is invalid");
+  }
+  if (!["target_level", "offensive_points"].includes(String(value.budgetMode))) {
+    throw invalidPreset("request.budgetMode is invalid");
+  }
+  assertInteger(value.offensivePointBudget, "request.offensivePointBudget", 0, 712);
   if (!["max_ar", "max_physical_ar", "max_ar_plus_bleed", "aow_first_hit", "aow_full_sequence"].includes(String(value.objective))) {
     throw invalidPreset("request.objective is invalid");
   }
@@ -326,8 +353,12 @@ function assertProfileId(value: unknown, label: string): asserts value is string
   if (!/^[a-z0-9][a-z0-9_-]*$/.test(value)) throw invalidPreset(`${label} is invalid`);
 }
 
-function migratePreset(value: unknown): void {
-  if (!isRecord(value) || value.version !== 1 || !isRecord(value.request)) return;
+function migratePreset(value: unknown): BuildPreset {
+  if (!isRecord(value) || !isRecord(value.request) || ![1, 2].includes(Number(value.version))) {
+    throw invalidPreset("schema version must be 1 or 2");
+  }
+  const legacy = value.version === 1;
+  if (!legacy) return value as unknown as BuildPreset;
   if (typeof value.profileId !== "string" && typeof value.request.profileId !== "string") {
     value.profileId = "vanilla";
     value.request.profileId = "vanilla";
@@ -336,6 +367,16 @@ function migratePreset(value: unknown): void {
   } else if (typeof value.request.profileId !== "string") {
     value.request.profileId = value.profileId;
   }
+  const classInfo = STARTING_CLASS_METADATA.find((entry) => entry.name === value.request.className);
+  if (classInfo) {
+    const keys = ["vig", "mnd", "end", "strStat", "dex", "intStat", "fai", "arc"];
+    const total = keys.reduce((sum, key) => sum + (typeof value.request[key] === "number" ? Number(value.request[key]) : 0), 0);
+    value.request.characterLevel = Math.max(classInfo.baseLevel, Math.min(713, classInfo.baseLevel + total - classInfo.baseTotal));
+  }
+  value.request.filters ??= { version: 1, entries: [] };
+  value.request.resultGrouping ??= "automatic";
+  value.request.budgetMode ??= "target_level";
+  value.request.offensivePointBudget ??= 0;
   for (const buildKey of ["selectedBuild", "compareTarget"] as const) {
     const build = value[buildKey];
     if (!isRecord(build)) continue;
@@ -343,6 +384,11 @@ function migratePreset(value: unknown): void {
       if (build[statusKey] === undefined) build[statusKey] = 0;
     }
   }
+  if (!Array.isArray(value.compareBench)) {
+    value.compareBench = value.compareTarget ? [value.compareTarget] : [];
+  }
+  value.version = 2;
+  return value as unknown as BuildPreset;
 }
 
 function assertDate(value: unknown, label: string) {
@@ -387,7 +433,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function invalidPreset(detail: string): Error {
-  return new Error(`Import text is not a valid BuildPresetV1 preset: ${detail}.`);
+  return new Error(`Import text is not a valid BuildPreset preset: ${detail}.`);
 }
 
 function uniqueImportedName(name: string, existingNames: string[]): string {

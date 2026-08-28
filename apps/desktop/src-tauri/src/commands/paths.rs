@@ -7,7 +7,9 @@ use er_optimizer_core::{
 };
 use tauri::{AppHandle, State};
 
-use crate::commands::data::{weapon_disables_two_hand_bonus, weapon_requirements};
+use crate::commands::data::{
+    weapon_disables_two_hand_bonus, weapon_forces_two_handing, weapon_requirements,
+};
 use crate::dto::{
     CombatStateDto, PathFinishedDto, PathJobStatusDto, PathPreviewDto, PathPreviewRequestDto,
     PathProgressDto, PathStepDto, StartPathPreviewRequestDto, StartSearchResponseDto,
@@ -70,7 +72,13 @@ pub fn start_path_preview(
         let total = request
             .requests
             .iter()
-            .map(|lane| 3_u64.saturating_add(u64::from(lane.levels_ahead).saturating_mul(6)))
+            .map(|lane| {
+                if lane.mode == "optimum_envelope" {
+                    u64::from(lane.levels_ahead).saturating_add(1)
+                } else {
+                    3_u64.saturating_add(u64::from(lane.levels_ahead).saturating_mul(6))
+                }
+            })
             .sum::<u64>()
             .max(1);
         let mut checked = 0_u64;
@@ -149,6 +157,12 @@ fn build_path_preview_inner(
     mut continue_cb: impl FnMut(u16) -> bool + Send,
 ) -> Result<PathPreviewDto, AppError> {
     validate_levels_ahead(request.levels_ahead)?;
+    if request.mode == "optimum_envelope" {
+        return build_optimum_envelope(request, state, continue_cb);
+    }
+    if request.mode != "no_respec" {
+        return Err(AppError::new("Path mode must be 'no_respec' or 'optimum_envelope'."));
+    }
     let start_state = request.solved.stats;
     let target_level = request
         .base
@@ -212,6 +226,78 @@ fn build_path_preview_inner(
         solved: request.solved,
         steps,
     })
+}
+
+fn build_optimum_envelope(
+    request: PathPreviewRequestDto,
+    state: &AppState,
+    continue_cb: impl FnMut(u16) -> bool + Send,
+) -> Result<PathPreviewDto, AppError> {
+    let first_level = request.base.character_level;
+    let last_level = first_level.saturating_add(request.levels_ahead);
+    let levels = (first_level..=last_level).collect::<Vec<_>>();
+    let mut template = request.base.clone();
+    template.weapon_name = Some(request.solved.weapon_name.clone());
+    template.affinity = Some(request.solved.affinity.clone());
+    template.aow_name = request.solved.aow_name.clone();
+    template.weapon_type_key = None;
+    template.somber_filter = "all".to_string();
+    template.set_exact_upgrade(request.solved.upgrade, request.solved.is_somber);
+    template.top_k = 1;
+    template.lock_str = None;
+    template.lock_dex = None;
+    template.lock_int = None;
+    template.lock_fai = None;
+    template.lock_arc = None;
+    let rows = crate::commands::optimize::run_level_range_inner_with_progress(
+        template,
+        &levels,
+        state,
+        continue_cb,
+        || true,
+    )?;
+    let objective = parse_objective(&request.base.objective)?;
+    let mut previous = request.solved.stats;
+    let steps = rows
+        .into_iter()
+        .map(|(level, rows)| {
+            let solved = rows.into_iter().next();
+            let stats = solved.as_ref().map_or(previous, |row| row.stats);
+            let added_stat = describe_allocation_change(previous, stats);
+            previous = stats;
+            PathStepDto {
+                level,
+                stats,
+                metric: solved.as_ref().map(|row| metric_for_objective(row, objective)),
+                score: solved.as_ref().map(|row| row.score),
+                added_stat,
+                requirement_gap: u16::from(solved.is_none()),
+            }
+        })
+        .collect();
+    Ok(PathPreviewDto {
+        title: request.title,
+        solved: request.solved,
+        steps,
+    })
+}
+
+fn describe_allocation_change(previous: CombatStateDto, next: CombatStateDto) -> Option<String> {
+    let deltas = [
+        ("str", i16::from(next.str_stat) - i16::from(previous.str_stat)),
+        ("dex", i16::from(next.dex) - i16::from(previous.dex)),
+        ("int", i16::from(next.int_stat) - i16::from(previous.int_stat)),
+        ("fai", i16::from(next.fai) - i16::from(previous.fai)),
+        ("arc", i16::from(next.arc) - i16::from(previous.arc)),
+    ];
+    let changed = deltas.iter().filter(|(_, delta)| *delta != 0).collect::<Vec<_>>();
+    if changed.is_empty() {
+        None
+    } else if changed.len() == 1 && changed[0].1 == 1 {
+        Some(changed[0].0.to_string())
+    } else {
+        Some("respec".to_string())
+    }
 }
 
 fn prepare_path_evaluator<'a>(
@@ -380,7 +466,11 @@ fn requirement_gap(
     };
     let disables_bonus =
         weapon_disables_two_hand_bonus(&profile.catalog_index, weapon_name, affinity);
-    let effective_str = effective_str(stats.str_stat, base.two_handing, disables_bonus);
+    let effective_str = effective_str(
+        stats.str_stat,
+        base.two_handing || weapon_forces_two_handing(&profile.catalog_index, weapon_name),
+        disables_bonus,
+    );
     u16::from(reqs[0]).saturating_sub(effective_str)
         + u16::from(reqs[1].saturating_sub(stats.dex))
         + u16::from(reqs[2].saturating_sub(stats.int_stat))
@@ -474,6 +564,7 @@ mod integration_tests {
             solved,
             levels_ahead: 1,
             title: "Selected".to_string(),
+            mode: "no_respec".to_string(),
         }
     }
 
@@ -484,6 +575,18 @@ mod integration_tests {
             .expect("real path command succeeds");
         assert_eq!(path.title, "Selected");
         assert!(!path.steps.is_empty());
+    }
+
+    #[test]
+    fn optimum_envelope_solves_each_level_independently() {
+        let state = crate::test_app_state();
+        let mut envelope_request = request(&state);
+        envelope_request.mode = "optimum_envelope".to_string();
+        envelope_request.levels_ahead = 2;
+        let path = build_path_preview_inner(envelope_request, &state, |_| true)
+            .expect("optimum envelope succeeds");
+        assert_eq!(path.steps.len(), 3);
+        assert!(path.steps.windows(2).all(|steps| steps[0].level + 1 == steps[1].level));
     }
 
     #[test]

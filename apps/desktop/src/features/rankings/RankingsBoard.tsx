@@ -1,4 +1,4 @@
-import { ArrowDownUp, ChevronLeft, ChevronRight, Download, LockKeyhole, RefreshCcw, Sparkles } from "lucide-react";
+import { ArrowDownUp, ChevronLeft, ChevronRight, Download, LockKeyhole, Pin, RefreshCcw, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { downloadCsv, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
 import { compactNumber, fixed1, metricForObjective, objectiveLabel } from "../../lib/format";
@@ -14,6 +14,8 @@ export function RankingsBoard() {
   const selected = useDesktopStore((state) => state.selected);
   const selectRow = useDesktopStore((state) => state.selectRow);
   const useRowAsLocks = useDesktopStore((state) => state.useRowAsLocks);
+  const compareBench = useDesktopStore((state) => state.compareBench);
+  const toggleCompareBench = useDesktopStore((state) => state.toggleCompareBench);
   const catalog = useDesktopStore((state) => state.catalog);
   const request = useDesktopStore((state) => state.request);
   const patchRequest = useDesktopStore((state) => state.patchRequest);
@@ -45,7 +47,7 @@ export function RankingsBoard() {
     request.minInt > 0 ? "min-int" : null,
     request.minFai > 0 ? "min-fai" : null,
     request.minArc > 0 ? "min-arc" : null,
-  ].filter(Boolean).length;
+  ].filter(Boolean).length + request.filters.entries.length;
   const profileRules = catalog?.dataManifest.rules;
   const separateUpgradeCaps = profileRules?.separateUpgradeCaps ?? true;
   const scadutreeAvailable = profileRules?.scadutreeScaling ?? true;
@@ -257,6 +259,8 @@ export function RankingsBoard() {
             objective={objective}
             onSelect={() => rows[idx] && selectRow(rows[idx])}
             onLock={() => rows[idx] && lockAndRerun(rows[idx])}
+            pinned={Boolean(rows[idx] && compareBench.some((entry) => rowFingerprint(entry) === rowFingerprint(rows[idx])))}
+            onPin={() => rows[idx] && toggleCompareBench(rows[idx])}
           />
         ))}
       </div>
@@ -277,7 +281,7 @@ export function RankingsBoard() {
             ["AR / Elements / Status", "Raw attack rating by damage type and status buildup"],
             ["Raw skill", "Raw skill damage before enemy defense or negation"],
             [`${objectiveLabel(objective)} score`, "Value used by the active ranking objective"],
-            ["Lock", "Use this result as exact search locks"],
+            ["Actions", "Pin for comparison or use this result as exact search locks"],
           ].map(([header, title]) => (
             <span role="columnheader" title={title} key={header}>{header}</span>
           ))}
@@ -294,6 +298,8 @@ export function RankingsBoard() {
             extendedScalingGrades={extendedScalingGrades}
             onClick={() => selectRow(row)}
             onLock={() => lockAndRerun(row)}
+            pinned={compareBench.some((entry) => rowFingerprint(entry) === rowFingerprint(row))}
+            onPin={() => toggleCompareBench(row)}
           />
         ))}
       </div>
@@ -308,6 +314,8 @@ function TopCard({
   objective,
   onSelect,
   onLock,
+  pinned,
+  onPin,
 }: {
   row: SolvedBuildDto | null;
   index: number;
@@ -315,6 +323,8 @@ function TopCard({
   objective: Parameters<typeof metricForObjective>[1];
   onSelect: () => void;
   onLock: () => void;
+  pinned: boolean;
+  onPin: () => void;
 }) {
   return (
     <div className={`top-card ${active ? "active" : ""}`}>
@@ -331,14 +341,19 @@ function TopCard({
             <small>{row.affinity} · {row.aowName ?? "Native"} · +{row.upgrade}</small>
             <b>{fixed1(metricForObjective(row, objective))}</b>
           </button>
-          <button
-            className="top-card-lock"
-            type="button"
-            aria-label={`Lock ${row.weaponName}, ${row.affinity}, rank ${index + 1}`}
-            onClick={onLock}
-          >
-            <LockKeyhole size={14} />Lock
-          </button>
+          <div className="top-card-actions">
+            <button
+              className="top-card-lock"
+              type="button"
+              aria-label={`Lock ${row.weaponName}, ${row.affinity}, rank ${index + 1}`}
+              onClick={onLock}
+            >
+              <LockKeyhole size={14} />Lock
+            </button>
+            <button className="top-card-lock" type="button" aria-pressed={pinned} onClick={onPin}>
+              <Pin size={14} />{pinned ? "Pinned" : "Compare"}
+            </button>
+          </div>
         </>
       ) : (
         <div className="top-card-empty">
@@ -362,6 +377,8 @@ function ResultRow({
   extendedScalingGrades,
   onClick,
   onLock,
+  pinned,
+  onPin,
 }: {
   row: SolvedBuildDto;
   index: number;
@@ -371,6 +388,8 @@ function ResultRow({
   extendedScalingGrades: boolean;
   onClick: () => void;
   onLock: () => void;
+  pinned: boolean;
+  onPin: () => void;
 }) {
   return (
     <div
@@ -400,6 +419,17 @@ function ResultRow({
       <span role="gridcell" className="result-metric-cell"><strong>{compactNumber(row.aowFullSequenceDamage)}</strong><small>First {compactNumber(row.aowFirstHitDamage)}</small></span>
       <span role="gridcell">{fixed1(metricForObjective(row, objective))}</span>
       <span role="gridcell">
+        <button
+          className="inline-lock"
+          type="button"
+          aria-pressed={pinned}
+          onClick={(event) => {
+            event.stopPropagation();
+            onPin();
+          }}
+        >
+          {pinned ? "Pinned" : "Compare"}
+        </button>
         <button
           className="inline-lock"
           type="button"

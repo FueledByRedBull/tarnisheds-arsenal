@@ -7,6 +7,27 @@ export type ObjectiveId =
 
 export type WorkspaceTab = "rankings" | "compare" | "paths" | "affinity_watch";
 export type OptionalText = string | null;
+export type ResultGroupingId = "automatic" | "weapon" | "loadout";
+export type BudgetModeId = "target_level" | "offensive_points";
+export type FilterMode = "include" | "exclude";
+export type FilterDimensionId =
+  | "weapon_family"
+  | "weapon_type"
+  | "affinity"
+  | "aow"
+  | "reinforcement"
+  | "coverage";
+
+export interface StableFilterEntryDto {
+  dimension: FilterDimensionId;
+  id: string;
+  mode: FilterMode;
+}
+
+export interface StableFilterSetDto {
+  version: 1;
+  entries: StableFilterEntryDto[];
+}
 
 export interface CombatStateDto {
   strStat: number;
@@ -49,6 +70,10 @@ export interface OptimizeRequestDto {
   aowName: string | null;
   weaponTypeKey: string | null;
   somberFilter: string;
+  filters: StableFilterSetDto;
+  resultGrouping: ResultGroupingId;
+  budgetMode: BudgetModeId;
+  offensivePointBudget: number;
   objective: ObjectiveId;
   topK: number;
 }
@@ -164,7 +189,20 @@ export interface CatalogDto {
   affinityNames: string[];
   objectiveIds: ObjectiveId[];
   somberFilters: string[];
+  filterDimensions: FilterDimensionDto[];
   dataManifest: DataManifestDto;
+}
+
+export interface FilterDimensionDto {
+  id: FilterDimensionId;
+  label: string;
+  options: FilterOptionDto[];
+}
+
+export interface FilterOptionDto {
+  id: string;
+  label: string;
+  count: number;
 }
 
 export interface DataManifestDto {
@@ -261,6 +299,8 @@ export interface PathPreviewDto {
   steps: PathStepDto[];
 }
 
+export type PathModeId = "no_respec" | "optimum_envelope";
+
 export interface AffinityWatchPointDto {
   level: number;
   metric: number | null;
@@ -281,6 +321,9 @@ export interface AffinityBreakpointDto {
   incomingAffinity: string;
   outgoingMetric: number | null;
   incomingMetric: number | null;
+  lead: number | null;
+  leadPercent: number | null;
+  quality: "tie" | "narrow" | "clear" | "unknown";
 }
 
 export interface AffinityWatchPayloadDto {
@@ -367,6 +410,22 @@ export interface BuildPresetV1 {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface BuildPresetV2 {
+  version: 2;
+  id: string;
+  name: string;
+  profileId: string;
+  request: OptimizeRequestDto;
+  selectedBuild: SolvedBuildDto | null;
+  compareTarget: SolvedBuildDto | null;
+  compareBench: SolvedBuildDto[];
+  dataVersion: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type BuildPreset = BuildPresetV2;
 
 export interface SavedBuildIndexEntryV1 {
   id: string;

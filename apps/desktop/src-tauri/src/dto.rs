@@ -3,8 +3,8 @@ use er_optimizer_core::model::{
     AowActionResult, AowEffect, AowHitResult, AowRouteResult, StatusBuildup,
 };
 use er_optimizer_core::{
-    DamageBreakdown, OptimizeObjective, OptimizeRequest, OptimizeResult, ProgressSnapshot,
-    SomberFilter, Stats,
+    DamageBreakdown, FilterDimension, FilterMode, OptimizeObjective, OptimizeRequest,
+    OptimizeResult, ProgressSnapshot, ResultGrouping, SomberFilter, StableFilter, Stats,
 };
 use serde::{Deserialize, Serialize};
 
@@ -13,6 +13,30 @@ use crate::errors::AppError;
 pub const MAX_TOP_K: usize = 2_000;
 pub const MAX_LEVELS_AHEAD: u16 = 200;
 pub const MAX_PATH_BATCH: usize = 2;
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StableFilterEntryDto {
+    pub dimension: String,
+    pub id: String,
+    pub mode: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StableFilterSetDto {
+    pub version: u8,
+    pub entries: Vec<StableFilterEntryDto>,
+}
+
+impl Default for StableFilterSetDto {
+    fn default() -> Self {
+        Self {
+            version: 1,
+            entries: Vec::new(),
+        }
+    }
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -58,8 +82,16 @@ pub struct OptimizeRequestDto {
     pub aow_name: Option<String>,
     pub weapon_type_key: Option<String>,
     pub somber_filter: String,
+    #[serde(default)]
+    pub filters: StableFilterSetDto,
+    #[serde(default = "default_result_grouping")]
+    pub result_grouping: String,
     pub objective: String,
     pub top_k: usize,
+}
+
+fn default_result_grouping() -> String {
+    "automatic".to_string()
 }
 
 impl OptimizeRequestDto {
@@ -246,6 +278,12 @@ pub struct PathPreviewRequestDto {
     pub solved: SolvedBuildDto,
     pub levels_ahead: u16,
     pub title: String,
+    #[serde(default = "default_path_mode")]
+    pub mode: String,
+}
+
+fn default_path_mode() -> String {
+    "no_respec".to_string()
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -333,6 +371,9 @@ pub struct AffinityBreakpointDto {
     pub incoming_affinity: String,
     pub outgoing_metric: Option<f32>,
     pub incoming_metric: Option<f32>,
+    pub lead: Option<f32>,
+    pub lead_percent: Option<f32>,
+    pub quality: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -414,7 +455,24 @@ pub struct CatalogDto {
     pub affinity_names: Vec<String>,
     pub objective_ids: Vec<String>,
     pub somber_filters: Vec<String>,
+    pub filter_dimensions: Vec<FilterDimensionDto>,
     pub data_manifest: DataManifestDto,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FilterDimensionDto {
+    pub id: String,
+    pub label: String,
+    pub options: Vec<FilterOptionDto>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FilterOptionDto {
+    pub id: String,
+    pub label: String,
+    pub count: usize,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -622,6 +680,9 @@ impl TryFrom<&OptimizeRequestDto> for OptimizeRequest {
             aow_name: value.aow_name.clone(),
             weapon_type_key: value.weapon_type_key.clone(),
             somber_filter: parse_somber_filter(&value.somber_filter)?,
+            filters: parse_stable_filters(&value.filters)?,
+            result_grouping: ResultGrouping::parse(&value.result_grouping)
+                .map_err(AppError::new)?,
             objective: parse_objective(&value.objective)?,
             top_k: value.top_k,
         })
@@ -793,7 +854,40 @@ pub fn validate_optimize_request(request: &OptimizeRequestDto) -> Result<(), App
             request.top_k
         )));
     }
+    if request.scadutree_level > er_optimizer_core::math::SCADUTREE_MAX_LEVEL {
+        return Err(AppError::new(format!(
+            "scadutreeLevel must be {} or lower; got {}",
+            er_optimizer_core::math::SCADUTREE_MAX_LEVEL,
+            request.scadutree_level
+        )));
+    }
+    if request.filters.version != 1 {
+        return Err(AppError::new(format!(
+            "filters.version must be 1; got {}",
+            request.filters.version
+        )));
+    }
+    if request.filters.entries.len() > 512 {
+        return Err(AppError::new("filters.entries must contain at most 512 entries"));
+    }
     Ok(())
+}
+
+fn parse_stable_filters(filters: &StableFilterSetDto) -> Result<Vec<StableFilter>, AppError> {
+    filters
+        .entries
+        .iter()
+        .map(|filter| {
+            if filter.id.is_empty() || filter.id.len() > 128 {
+                return Err(AppError::new("filter ids must contain 1 through 128 characters"));
+            }
+            Ok(StableFilter {
+                dimension: FilterDimension::parse(&filter.dimension).map_err(AppError::new)?,
+                id: filter.id.clone(),
+                mode: FilterMode::parse(&filter.mode).map_err(AppError::new)?,
+            })
+        })
+        .collect()
 }
 
 pub fn validate_levels_ahead(levels_ahead: u16) -> Result<(), AppError> {
@@ -866,6 +960,13 @@ mod tests {
     }
 
     #[test]
+    fn invalid_scadutree_level_is_rejected() {
+        let mut request = crate::test_optimize_request();
+        request.scadutree_level = er_optimizer_core::math::SCADUTREE_MAX_LEVEL + 1;
+        assert!(validate_optimize_request(&request).is_err());
+    }
+
+    #[test]
     fn representative_analysis_payloads_use_app_contract_keys() {
         let path_value = serde_json::to_value(PathJobStatusDto {
             progress: Some(PathProgressDto {
@@ -933,6 +1034,9 @@ mod tests {
                         incoming_affinity: "Blood".to_string(),
                         outgoing_metric: Some(9.0),
                         incoming_metric: Some(10.0),
+                        lead: Some(1.0),
+                        lead_percent: Some(11.111),
+                        quality: "clear".to_string(),
                     }],
                 }),
                 error: None,
