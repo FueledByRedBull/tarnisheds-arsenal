@@ -39,6 +39,7 @@ ui/desktop/er_optimizer_core/
 tmp_*.png
 release-notes-*.md
 /tarnisheds-arsenal-desktop.exe
+/DOCS_LOCAL/
 
 # Retired PyQt desktop workspace kept local-only for old parity checks.
 ui/desktop/
