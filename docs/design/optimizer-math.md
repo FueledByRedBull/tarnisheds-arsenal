@@ -1,7 +1,7 @@
 # Optimizer Mathematics
 
-This document states the model the Rust optimizer implements and the properties that
-make its search exact. It is the companion to
+This document states the model the Rust optimizer implements, the search proof, and
+the arithmetic boundary on that proof. It is the companion to
 [`optimizer-overview.md`](optimizer-overview.md): the overview describes the shape of
 the system, this document describes why its results are correct.
 
@@ -65,17 +65,16 @@ so the smallest displayed Strength satisfying a requirement $r$ while two-handin
 
 $$s_{\min}(r) = \left\lceil \tfrac{2r}{3} \right\rceil$$
 
-`minimum_str_for_requirement` obtains this by upward scan rather than by the closed
-form. The two agree for every $r$, by cases on $r \bmod 3$: writing $r = 3k$, $3k+1$,
-$3k+2$ gives $s_{\min} = 2k$, $2k+1$, $2k+2$, whose effective Strengths are $3k$,
-$3k+1$, $3k+3$ — each at least $r$ — while $s_{\min}-1$ yields $3k-2$, $3k$, $3k+1$,
-each short of it. `two_handed_requirement_scan_matches_closed_form` pins the scan to
-that identity for every in-game requirement value from 0 through 99.
+`minimum_str_for_requirement` obtains this by upward scan. The
+`two_handed_requirement_scan_matches_closed_form` regression test checks the result
+against the closed form for every in-game requirement value from 0 through 99.
 
 ### Active stats and the spend target
 
 For each (weapon, Ash of War, objective), `active_stats_for_choice` marks the stats
-that can change the score. With $A$ the active set and
+that can change the primary score or an earlier ranking tie-break. For example, Max
+Physical AR retains stats that can change total AR, and AoW objectives retain weapon-AR
+stats as well as skill-route stats. With $A$ the active set and
 $C_A = \sum_{i \in A} c_i$ its capacity:
 
 $$\text{inactiveFill} = \max(0,\; R - C_A), \qquad
@@ -136,11 +135,14 @@ $$AR_{\text{total}}(x) = \underbrace{\sum_d \beta_d}_{\text{constant}}
 > additively separable in the searched stats: each is a constant plus a sum of
 > single-variable terms, with no cross-stat products and no intermediate rounding.
 
-This holds because `calculate_ar_for_type` multiplies a stat-independent base by
-$(1 + \text{sum of independent contributions})$ and **rounds nowhere**. It is the
-load-bearing assumption of the entire optimizer.
+This holds at the implemented-model level because `calculate_ar_for_type` multiplies a
+stat-independent base by $(1 + \text{sum of independent contributions})$ and applies
+no explicit integer quantization. Ordinary `f32` operation rounding still applies and
+is covered by the arithmetic boundary below.
 
-Two-handing does not weaken it. $\mathrm{effSTR}(s) = \lfloor 3s/2 \rfloor$ remains a
+Two-handing does not weaken it. Bow-family weapons are evaluated in their forced legal
+two-handed state; paired weapons never receive the Strength bonus.
+$\mathrm{effSTR}(s) = \lfloor 3s/2 \rfloor$ remains a
 one-variable mapping from displayed Strength to effective Strength. Its alternating
 $+1$ and $+2$ increments introduce no cross-stat interaction, so separability is
 preserved; separability constrains which *variables* a term may involve, not how smooth
@@ -179,9 +181,9 @@ The answer is $D_{\lvert A \rvert}(T)$.
 
 > **No shape assumption.** The exact AR DP evaluates every bounded discrete step by
 > scanning every legal $a \in [0, \min(c_i, p)]$ rather than using greedy soft-cap
-> behavior or assuming concavity or monotonicity. Because the calc-correct curves are
-> piecewise, with soft caps around 20, 50, and 80, exactness does not depend on a smooth
-> curve shape.
+> behavior or assuming concavity or monotonicity. Because the profile's calc-correct
+> curves are piecewise, exactness does not depend on a smooth curve shape or universal
+> soft-cap locations.
 
 ### Comparison order
 
@@ -250,6 +252,11 @@ AoW_{\text{sequence}}(x) & \text{AoW Full Sequence}
 \end{cases}
 ```
 
+For an AoW objective, `calculate_aow_metric` selects one legal route by that objective
+and reports both first-hit and full-sequence damage from that same route. Ranking,
+Inspector provenance, and retained tie-break metrics therefore cannot splice values
+from different routes.
+
 **Bleed, then AR maximizes bleed alone.** AR is a tie-break, never a summand.
 `active_stats_for_choice` therefore keeps stats that can affect bleed or AR; unrelated
 poison, frost, sleep, madness, scarlet-rot, and death-blight scaling does not make a
@@ -273,6 +280,10 @@ pins the two paths together across both profiles and both settings of the
 Candidates are scored across every legal (weapon, affinity, Ash of War, upgrade, stat
 allocation) and reduced to the best $K$ by `push_scored_top_k`.
 
+Top-$K$ is grouped by weapon when the request is not locked to one weapon, and by full
+loadout when it is locked. The winning allocation inside each group is retained before
+the global top-$K$ cutoff; it is not a list of every raw stat tuple.
+
 Ranking is staged so expensive metrics are computed only when cheaper comparisons tie.
 `compare_known_candidate_metrics` compares on whatever is already known — score, then
 AR, then AoW damage, then bleed — and `complete_scored_candidate_tie_breaks` fills in
@@ -285,13 +296,19 @@ vector. Parallel work is split by individual Ash-of-War choice; each worker buil
 local top-$K$ and the merge applies the same comparison rules, so **parallelism changes
 throughput and not results.**
 
-## 8. Scope of the exactness claim
+## 8. Scope of the claims
 
-The search is exact with respect to the implemented combat model: for the searched
-space it returns a true optimum, not an approximation or a sampled estimate.
+**Search exactness.** The integer search is exhaustive or uses the separable recurrence
+over the declared result domain. The recurrence selects with `f32` deltas, so an
+extremely close floating-point tie can select a different allocation than direct
+evaluation; every retained result is recomputed by the canonical evaluator before
+ranking and display.
 
-The model itself is deliberately narrower than the game. Enemy defense, negation,
-resistance growth, proc explosion damage, poise and stance damage are not modeled;
-route stamina is reported but is not an objective; temporary buff stacking is not
-modeled as a universal layer. See the boundaries list in the README for the current
-set.
+**Model fidelity.** The evaluator is a fan reconstruction tied to the selected profile,
+regulation sources, and manifest hashes. Enemy defense, negation, resistance growth,
+proc explosion damage, poise and stance damage are not modeled; route stamina is
+reported but is not an objective; temporary buff stacking is not a universal layer.
+
+**Implementation determinism.** Serial and parallel workers use the same total ordering
+and final evaluator. Regression tests pin their equality and the DP/exhaustive result
+on the checked corpus; those tests are validation, not an official game-formula proof.

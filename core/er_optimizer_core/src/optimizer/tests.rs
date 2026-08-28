@@ -57,6 +57,19 @@ fn profile_capabilities_reject_unverified_aow_objectives() {
 }
 
 #[test]
+fn optimizer_rejects_levels_above_the_game_domain() {
+    let data = load_data();
+    let mut request = base_request();
+    request.character_level = 714;
+
+    assert!(
+        optimize(&request, &data)
+            .unwrap_err()
+            .contains("713 or lower")
+    );
+}
+
+#[test]
 fn convergence_profile_rules_reject_vanilla_upgrade_and_scadutree_inputs() {
     let data = load_convergence_data();
     let mut request = base_request();
@@ -175,6 +188,86 @@ fn fixed_native_skill_falls_back_to_generic_rows_by_skill_id() {
     );
 }
 
+#[test]
+fn fixed_native_skill_keeps_its_persistent_buff_effects() {
+    let data = load_data();
+    let weapon = data
+        .weapons
+        .iter()
+        .find(|weapon| weapon.name == "Inseparable Sword" && weapon.affinity == "Standard")
+        .expect("Inseparable Sword");
+
+    let choice = native_skill_choice_for_weapon(weapon, &data, OptimizeObjective::MaxAr)
+        .expect("native Sacred Blade choice");
+
+    assert_eq!(choice.skill_name, Some("Sacred Blade"));
+    assert!(
+        choice
+            .aow
+            .is_some_and(|aow| aow.buff_attack_power[DamageType::Holy.as_index()] > 0.0)
+    );
+}
+
+#[test]
+fn bow_family_uses_legal_two_handed_strength_evaluation() {
+    let data = load_data();
+    let mut request = broad_request();
+    request.weapon_name = Some("Serpent Bow".to_string());
+    request.affinity = Some("Standard".to_string());
+    request.exact_upgrade = true;
+    request.two_handing = false;
+
+    let implicit = optimize(&request, &data).expect("forced two-handed bow search");
+    request.two_handing = true;
+    let explicit = optimize(&request, &data).expect("explicit two-handed bow search");
+
+    assert_eq!(
+        implicit[0].stats.combat_array(),
+        explicit[0].stats.combat_array()
+    );
+    assert_eq!(implicit[0].ar.total(), explicit[0].ar.total());
+}
+
+#[test]
+fn serpent_bow_preserves_its_poison_curve() {
+    let data = load_data();
+    let weapon = data
+        .weapons
+        .iter()
+        .find(|weapon| weapon.name == "Serpent Bow" && weapon.affinity == "Standard")
+        .expect("Serpent Bow");
+
+    assert_eq!(weapon.status_curve_ids.poison, 5);
+    assert_eq!(weapon.status_curve_ids.blood, 6);
+}
+
+#[test]
+fn aow_metrics_stay_on_the_objective_selected_route() {
+    let route = |id: &str, first_hit_damage, total| AowRouteResult {
+        route_id: id.to_string(),
+        route_label: id.to_string(),
+        route_priority: 0,
+        buff_activation_action_id: None,
+        actions: Vec::new(),
+        first_hit_damage,
+        total_damage: DamageBreakdown {
+            physical: total,
+            ..DamageBreakdown::default()
+        },
+        total_status_buildup: StatusBuildup::default(),
+        total_stamina_cost: 0.0,
+    };
+    let routes = vec![route("burst", 100.0, 150.0), route("chain", 80.0, 300.0)];
+
+    let first = select_best_aow_route(routes.clone(), OptimizeObjective::AowFirstHit).unwrap();
+    let full = select_best_aow_route(routes, OptimizeObjective::AowFullSequence).unwrap();
+
+    assert_eq!(first.route_id, "burst");
+    assert_eq!(first.total_damage.total(), 150.0);
+    assert_eq!(full.route_id, "chain");
+    assert_eq!(full.first_hit_damage, 80.0);
+}
+
 fn test_result(
     weapon_id: u32,
     upgrade: u8,
@@ -274,6 +367,8 @@ fn base_request() -> OptimizeRequest {
         aow_name: None,
         weapon_type_key: None,
         somber_filter: SomberFilter::All,
+        filters: Vec::new(),
+        result_grouping: ResultGrouping::Automatic,
         objective: OptimizeObjective::MaxAr,
         top_k: 3,
     }
@@ -306,6 +401,8 @@ fn broad_request() -> OptimizeRequest {
         aow_name: None,
         weapon_type_key: None,
         somber_filter: SomberFilter::All,
+        filters: Vec::new(),
+        result_grouping: ResultGrouping::Automatic,
         objective: OptimizeObjective::MaxAr,
         top_k: 3,
     }
@@ -834,6 +931,46 @@ fn open_weapon_search_returns_one_result_per_weapon() {
             .count(),
         1
     );
+}
+
+#[test]
+fn stable_weapon_family_filter_uses_catalog_id() {
+    let game_data = load_data();
+    let family_id = game_data
+        .weapons
+        .iter()
+        .find(|weapon| weapon.name == "Uchigatana")
+        .expect("missing Uchigatana")
+        .family_filter_id();
+    let mut request = broad_request();
+    request.filters.push(StableFilter {
+        dimension: FilterDimension::WeaponFamily,
+        id: family_id.clone(),
+        mode: FilterMode::Include,
+    });
+    request.top_k = 20;
+
+    let results = optimize(&request, &game_data).expect("optimizer failed");
+
+    assert!(!results.is_empty());
+    assert!(results.iter().all(|result| {
+        game_data
+            .weapons
+            .iter()
+            .find(|weapon| {
+                weapon.weapon_id == result.weapon_id && weapon.affinity == result.affinity
+            })
+            .is_some_and(|weapon| weapon.family_filter_id() == family_id)
+    }));
+}
+
+#[test]
+fn explicit_result_grouping_overrides_automatic_mode() {
+    let mut request = broad_request();
+    request.result_grouping = ResultGrouping::Weapon;
+    assert_eq!(result_group_mode(&request), ResultGroupMode::WeaponOnly);
+    request.result_grouping = ResultGrouping::Loadout;
+    assert_eq!(result_group_mode(&request), ResultGroupMode::Loadout);
 }
 
 #[test]
@@ -1395,6 +1532,17 @@ fn relevant_stat_masks_track_scaling_sources() {
             None
         ),
         [true, true, true, false, false]
+    );
+    assert_eq!(
+        active_mask_for(
+            &game_data,
+            "Sword Lance",
+            "Magic",
+            OptimizeObjective::MaxPhysicalAr,
+            None
+        ),
+        [true, true, true, false, false],
+        "total AR is the secondary key for physical AR"
     );
     assert!(
         active_mask_for(
@@ -1982,27 +2130,6 @@ fn bleed_then_ar_uses_innate_weapon_buildup() {
 }
 
 #[test]
-fn bleed_then_ar_score_is_bleed_buildup() {
-    let score = score_for(
-        OptimizeObjective::BleedThenAr,
-        900.0,
-        StatusBuildup {
-            bleed: 78.0,
-            frost: 0.0,
-            poison: 0.0,
-            scarlet_rot: 0.0,
-            sleep: 0.0,
-            madness: 0.0,
-            death: 0.0,
-        },
-        0.0,
-        0.0,
-    );
-
-    assert_eq!(score, 78.0);
-}
-
-#[test]
 fn bleed_then_ar_prefers_higher_bleed_over_higher_ar() {
     let high_ar = test_result(1, 25, 900.0, 40.0);
     let high_bleed = test_result(2, 25, 500.0, 60.0);
@@ -2552,6 +2679,12 @@ fn somber_weapon_max_ar_keeps_native_skill_metrics() {
     );
     assert!(results[0].aow_first_hit_damage > 0.0);
     assert!(results[0].aow_full_sequence_damage > 0.0);
+    let route = results[0].aow_route.as_ref().expect("selected AoW route");
+    assert_eq!(results[0].aow_first_hit_damage, route.first_hit_damage);
+    assert_eq!(
+        results[0].aow_full_sequence_damage,
+        route.total_damage.total()
+    );
 }
 
 #[test]

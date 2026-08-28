@@ -123,10 +123,39 @@ pub struct Weapon {
     pub reinforce_type: u16,
     pub attack_element_correct_id: usize,
     pub damage_curve_ids: [usize; DAMAGE_TYPE_COUNT],
-    pub bleed_curve_id: usize,
+    pub status_curve_ids: StatusCurveIds,
     pub disable_gem_attr: bool,
     pub is_somber: bool,
     pub disable_two_hand_bonus: bool,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct StatusCurveIds {
+    pub poison: usize,
+    pub blood: usize,
+    pub sleep: usize,
+    pub madness: usize,
+}
+
+impl Weapon {
+    pub fn forces_two_handing(&self) -> bool {
+        matches!(
+            self.weapon_type_name.as_str(),
+            "Bow" | "Light Bow" | "Greatbow" | "Ballista"
+        )
+    }
+
+    pub fn family_filter_id(&self) -> String {
+        format!("weapon:{}", self.weapon_id - self.weapon_id % 1_000)
+    }
+
+    pub fn type_filter_id(&self) -> String {
+        format!("weapon-type:{}", self.weapon_type_id)
+    }
+
+    pub fn affinity_filter_id(&self) -> String {
+        format!("affinity:{}", self.weapon_id % 1_000 / 100)
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -499,7 +528,7 @@ pub struct GameData {
     pub rules: DataRules,
     pub weapons: Vec<Weapon>,
     pub reinforce: Vec<Vec<Option<ReinforceLevel>>>,
-    pub calc_correct: Vec<Vec<f32>>,
+    pub calc_correct: Vec<Option<Vec<Option<f32>>>>,
     pub attack_element_correct: Vec<Option<AttackElementCorrect>>,
     pub attack_element_correct_ext: HashMap<usize, AttackElementCorrectExt>,
     pub aows: Vec<Aow>,
@@ -572,8 +601,10 @@ impl GameData {
     pub fn calc_curve_value(&self, curve_id: usize, stat_value: u16) -> Option<f32> {
         self.calc_correct
             .get(curve_id)
+            .and_then(Option::as_ref)
             .and_then(|curve| curve.get(usize::from(stat_value)))
             .copied()
+            .flatten()
     }
 
     pub fn attack_element(

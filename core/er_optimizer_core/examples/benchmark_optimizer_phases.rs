@@ -200,6 +200,8 @@ fn low_level_request() -> OptimizeRequest {
         aow_name: None,
         weapon_type_key: None,
         somber_filter: SomberFilter::All,
+        filters: Vec::new(),
+        result_grouping: er_optimizer_core::ResultGrouping::Automatic,
         objective: OptimizeObjective::MaxAr,
         top_k: 5,
     }
@@ -232,6 +234,8 @@ fn high_level_request() -> OptimizeRequest {
         aow_name: None,
         weapon_type_key: None,
         somber_filter: SomberFilter::All,
+        filters: Vec::new(),
+        result_grouping: er_optimizer_core::ResultGrouping::Automatic,
         objective: OptimizeObjective::MaxAr,
         top_k: 5,
     }

@@ -6,9 +6,9 @@ use std::time::{Duration, Instant};
 use rayon::prelude::*;
 
 use crate::math::{
-    apply_aow_attack_buffs, apply_aow_bleed_buffs, apply_aow_status_buffs, calculate_aow_damage,
-    calculate_aow_routes, calculate_ar, calculate_bleed_buildup, calculate_status_buildup,
-    class_by_name, compute_free_points, effective_str, meets_requirements,
+    apply_aow_attack_buffs, apply_aow_bleed_buffs, apply_aow_status_buffs, calculate_aow_routes,
+    calculate_ar, calculate_bleed_buildup, calculate_status_buildup, class_by_name,
+    compute_free_points, effective_str, meets_requirements,
 };
 use crate::model::{
     Aow, AowAttackRow, AowRouteResult, COMBAT_STAT_COUNT, DamageBreakdown, DamageType, GameData,
@@ -286,6 +286,18 @@ fn validate_profile_capabilities(request: &OptimizeRequest, data: &GameData) -> 
     } else {
         data.profile_display_name.as_str()
     };
+    if request.scadutree_level > crate::math::SCADUTREE_MAX_LEVEL {
+        return Err(format!(
+            "Scadutree Blessing level must be {} or lower",
+            crate::math::SCADUTREE_MAX_LEVEL
+        ));
+    }
+    if request.character_level > 713 {
+        return Err(format!(
+            "character level must be 713 or lower; got {}",
+            request.character_level
+        ));
+    }
     if request.standard_max_upgrade > data.rules.standard_max_upgrade {
         return Err(format!(
             "{profile} supports weapon upgrades only through +{}",
@@ -323,6 +335,18 @@ fn validate_profile_capabilities(request: &OptimizeRequest, data: &GameData) -> 
             "{profile} does not provide verified Ash of War route data"
         )),
     }
+}
+
+fn weapon_uses_two_handing(request: &OptimizeRequest, weapon: &Weapon) -> bool {
+    request.two_handing || weapon.forces_two_handing()
+}
+
+fn effective_str_for_weapon(request: &OptimizeRequest, weapon: &Weapon, strength: u8) -> u16 {
+    effective_str(
+        strength,
+        weapon_uses_two_handing(request, weapon),
+        weapon.disable_two_hand_bonus,
+    )
 }
 
 pub fn prepare_loadout_evaluator_with_cancel<'a, F>(
@@ -416,6 +440,8 @@ fn validate_reusable_loadout(
         && template.aow_name == request.aow_name
         && template.weapon_type_key == request.weapon_type_key
         && template.somber_filter == request.somber_filter
+        && template.filters == request.filters
+        && template.result_grouping == request.result_grouping
         && template.objective == request.objective;
     if compatible {
         Ok(())
@@ -724,10 +750,11 @@ where
 }
 
 fn result_group_mode(request: &OptimizeRequest) -> ResultGroupMode {
-    if request.weapon_name.is_none() {
-        ResultGroupMode::WeaponOnly
-    } else {
-        ResultGroupMode::Loadout
+    match request.result_grouping {
+        ResultGrouping::Weapon => ResultGroupMode::WeaponOnly,
+        ResultGrouping::Loadout => ResultGroupMode::Loadout,
+        ResultGrouping::Automatic if request.weapon_name.is_none() => ResultGroupMode::WeaponOnly,
+        ResultGrouping::Automatic => ResultGroupMode::Loadout,
     }
 }
 
@@ -942,11 +969,7 @@ where
         stats.fai = combat[STAT_FAI];
         stats.arc = combat[STAT_ARC];
 
-        let effective_str_value = effective_str(
-            stats.str,
-            request.two_handing,
-            prepared.weapon.disable_two_hand_bonus,
-        );
+        let effective_str_value = effective_str_for_weapon(request, prepared.weapon, stats.str);
 
         if !meets_requirements(prepared.weapon, effective_str_value, &stats) {
             let skipped = (prepared.upgrades.len() * aow_indices.len()) as u64;
@@ -1100,11 +1123,7 @@ where
         stats.int = combat[STAT_INT];
         stats.fai = combat[STAT_FAI];
         stats.arc = combat[STAT_ARC];
-        let effective_str_value = effective_str(
-            stats.str,
-            request.two_handing,
-            prepared.weapon.disable_two_hand_bonus,
-        );
+        let effective_str_value = effective_str_for_weapon(request, prepared.weapon, stats.str);
         let base_metric = calculate_base_weapon_metric(
             request.objective,
             prepared,
@@ -1253,11 +1272,7 @@ fn ar_for_combat(
         prepared.weapon,
         upgrade,
         &stats,
-        effective_str(
-            stats.str,
-            request.two_handing,
-            prepared.weapon.disable_two_hand_bonus,
-        ),
+        effective_str_for_weapon(request, prepared.weapon, stats.str),
         data,
     )
 }
@@ -1328,11 +1343,8 @@ fn complete_scored_candidate_ar(
     }
     let prepared = &weapons[candidate.prepared_idx];
     let aow_choice = &prepared.aow_choices[candidate.aow_idx];
-    let effective_str_value = effective_str(
-        candidate.stats.str,
-        request.two_handing,
-        prepared.weapon.disable_two_hand_bonus,
-    );
+    let effective_str_value =
+        effective_str_for_weapon(request, prepared.weapon, candidate.stats.str);
     candidate.metric.ar = Some(calculate_ar_with_buffs(
         prepared,
         aow_choice,
@@ -1358,12 +1370,10 @@ fn complete_scored_candidate_aow(
     }
     let prepared = &weapons[candidate.prepared_idx];
     let aow_choice = &prepared.aow_choices[candidate.aow_idx];
-    let effective_str_value = effective_str(
-        candidate.stats.str,
-        request.two_handing,
-        prepared.weapon.disable_two_hand_bonus,
-    );
+    let effective_str_value =
+        effective_str_for_weapon(request, prepared.weapon, candidate.stats.str);
     let (first, full) = calculate_aow_metric(
+        request.objective,
         prepared,
         aow_choice,
         candidate.upgrade,
@@ -1414,11 +1424,7 @@ fn evaluate_fixed_loadout_upgrade(
         if !should_continue() {
             return Err("cancelled".to_string());
         }
-        let effective_str_value = effective_str(
-            stats.str,
-            request.two_handing,
-            prepared.weapon.disable_two_hand_bonus,
-        );
+        let effective_str_value = effective_str_for_weapon(request, prepared.weapon, stats.str);
         if !meets_requirements(prepared.weapon, effective_str_value, &stats) {
             continue;
         }
@@ -1483,12 +1489,10 @@ fn materialize_scored_candidate(
 ) -> Result<OptimizeResult, String> {
     let prepared = &weapons[candidate.prepared_idx];
     let aow_choice = &prepared.aow_choices[candidate.aow_idx];
-    let effective_str_value = effective_str(
-        candidate.stats.str,
-        request.two_handing,
-        prepared.weapon.disable_two_hand_bonus,
-    );
+    let effective_str_value =
+        effective_str_for_weapon(request, prepared.weapon, candidate.stats.str);
     let full = complete_candidate_metric(
+        request.objective,
         candidate.metric.ar,
         candidate.metric.status_buildup,
         candidate.metric.aow_first_hit_damage,
@@ -1588,12 +1592,28 @@ fn materialize_aow_route(
     damage_multiplier: f32,
     data: &GameData,
 ) -> Result<Option<AowRouteResult>, String> {
-    if aow_choice.attack_rows.is_empty() {
+    let resolved_attack_rows;
+    let attack_rows = if aow_choice.attack_rows.is_empty() {
+        resolved_attack_rows = if prepared.weapon.disable_gem_attr {
+            select_attack_rows(
+                data.native_skill_attack_rows(prepared.weapon.weapon_id),
+                prepared.weapon,
+            )
+        } else if let Some(skill_id) = aow_choice.skill_id {
+            select_aow_attack_rows(skill_id, prepared.weapon, data)
+        } else {
+            Vec::new()
+        };
+        resolved_attack_rows.as_slice()
+    } else {
+        aow_choice.attack_rows.as_slice()
+    };
+    if attack_rows.is_empty() {
         return Ok(None);
     }
     let mut routes = calculate_aow_routes(
         prepared.weapon,
-        &aow_choice.attack_rows,
+        attack_rows,
         upgrade,
         stats,
         effective_str_value,
@@ -1608,21 +1628,24 @@ fn materialize_aow_route(
             }
         }
     }
-    Ok(routes.into_iter().reduce(|best, candidate| {
-        let best_metric = match objective {
-            OptimizeObjective::AowFirstHit => best.first_hit_damage,
-            _ => best.total_damage.total(),
+    Ok(select_best_aow_route(routes, objective))
+}
+
+fn select_best_aow_route(
+    routes: Vec<AowRouteResult>,
+    objective: OptimizeObjective,
+) -> Option<AowRouteResult> {
+    routes.into_iter().reduce(|best, candidate| {
+        let metric = |route: &AowRouteResult| match objective {
+            OptimizeObjective::AowFirstHit => route.first_hit_damage,
+            _ => route.total_damage.total(),
         };
-        let candidate_metric = match objective {
-            OptimizeObjective::AowFirstHit => candidate.first_hit_damage,
-            _ => candidate.total_damage.total(),
-        };
-        if candidate_metric > best_metric {
+        if metric(&candidate) > metric(&best) {
             candidate
         } else {
             best
         }
-    }))
+    })
 }
 
 struct SerialSearchProgress<F>
@@ -2023,7 +2046,7 @@ fn prepare_weapons_with_cancel<'a>(
         if !should_continue() {
             return Err("cancelled".to_string());
         }
-        if !data.weapon_ar_supported(weapon) || !weapon_matches_request(weapon, request) {
+        if !data.weapon_ar_supported(weapon) || !weapon_matches_request(weapon, request, data) {
             continue;
         }
         if !weapon_requirements_can_fit(request, constraints, weapon) {
@@ -2042,22 +2065,6 @@ fn prepare_weapons_with_cancel<'a>(
         });
     }
     Ok(out)
-}
-
-fn score_for(
-    objective: OptimizeObjective,
-    total_ar: f32,
-    status_buildup: StatusBuildup,
-    aow_first_hit_damage: f32,
-    aow_full_sequence_damage: f32,
-) -> f32 {
-    match objective {
-        OptimizeObjective::MaxAr => total_ar,
-        OptimizeObjective::MaxPhysicalAr => total_ar,
-        OptimizeObjective::BleedThenAr => status_buildup.bleed,
-        OptimizeObjective::AowFirstHit => aow_first_hit_damage,
-        OptimizeObjective::AowFullSequence => aow_full_sequence_damage,
-    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2116,6 +2123,7 @@ fn score_candidate(
         }
         OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence => {
             let (aow_first_hit_damage, aow_full_sequence_damage) = calculate_aow_metric(
+                objective,
                 prepared,
                 aow_choice,
                 upgrade,
@@ -2125,13 +2133,11 @@ fn score_candidate(
                 data,
             )?;
             Ok(CandidateMetric {
-                score: score_for(
-                    objective,
-                    0.0,
-                    StatusBuildup::default(),
-                    aow_first_hit_damage,
-                    aow_full_sequence_damage,
-                ),
+                score: match objective {
+                    OptimizeObjective::AowFirstHit => aow_first_hit_damage,
+                    OptimizeObjective::AowFullSequence => aow_full_sequence_damage,
+                    _ => unreachable!("AoW branch requires an AoW objective"),
+                },
                 ar: None,
                 status_buildup: None,
                 bleed_buildup: None,
@@ -2178,6 +2184,7 @@ fn calculate_base_weapon_metric(
 
 #[allow(clippy::too_many_arguments)]
 fn complete_candidate_metric(
+    objective: OptimizeObjective,
     ar: Option<DamageBreakdown>,
     status_buildup: Option<StatusBuildup>,
     aow_first_hit_damage: Option<f32>,
@@ -2209,6 +2216,7 @@ fn complete_candidate_metric(
     let (first, full) = match (aow_first_hit_damage, aow_full_sequence_damage) {
         (Some(first), Some(full)) => (first, full),
         _ => calculate_aow_metric(
+            objective,
             prepared,
             aow_choice,
             upgrade,
@@ -2219,13 +2227,7 @@ fn complete_candidate_metric(
         )?,
     };
     Ok(CandidateMetric {
-        score: score_for(
-            OptimizeObjective::MaxAr,
-            ar.total(),
-            status_buildup,
-            first,
-            full,
-        ),
+        score: ar.total(),
         ar: Some(ar),
         status_buildup: Some(status_buildup),
         bleed_buildup: Some(status_buildup.bleed),
@@ -2285,7 +2287,9 @@ fn calculate_bleed_with_buffs(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn calculate_aow_metric(
+    objective: OptimizeObjective,
     prepared: &PreparedWeapon<'_>,
     aow_choice: &AowChoice<'_>,
     upgrade: u8,
@@ -2313,7 +2317,7 @@ fn calculate_aow_metric(
     if attack_rows.is_empty() {
         return Ok((0.0, 0.0));
     }
-    let (first, full) = calculate_aow_damage(
+    let routes = calculate_aow_routes(
         prepared.weapon,
         attack_rows,
         upgrade,
@@ -2321,10 +2325,16 @@ fn calculate_aow_metric(
         effective_str_value,
         data,
     )?;
-    Ok((first * damage_multiplier, full * damage_multiplier))
+    let Some(route) = select_best_aow_route(routes, objective) else {
+        return Ok((0.0, 0.0));
+    };
+    Ok((
+        route.first_hit_damage * damage_multiplier,
+        route.total_damage.total() * damage_multiplier,
+    ))
 }
 
-fn weapon_matches_request(weapon: &Weapon, request: &OptimizeRequest) -> bool {
+fn weapon_matches_request(weapon: &Weapon, request: &OptimizeRequest, data: &GameData) -> bool {
     if let Some(lock_weapon) = request.weapon_name.as_deref()
         && !weapon.name.eq_ignore_ascii_case(lock_weapon)
     {
@@ -2340,11 +2350,72 @@ fn weapon_matches_request(weapon: &Weapon, request: &OptimizeRequest) -> bool {
     {
         return false;
     }
-    match request.somber_filter {
+    let reinforcement_matches = match request.somber_filter {
         SomberFilter::All => true,
         SomberFilter::StandardOnly => !weapon.is_somber,
         SomberFilter::SomberOnly => weapon.is_somber,
+    };
+    if !reinforcement_matches {
+        return false;
     }
+    let family_id = weapon.family_filter_id();
+    let type_id = weapon.type_filter_id();
+    let affinity_id = weapon.affinity_filter_id();
+    let reinforcement_id = if weapon.is_somber {
+        "reinforcement:somber"
+    } else {
+        "reinforcement:standard"
+    };
+    let mut coverage_ids = vec!["coverage:weapon-ar"];
+    if data.capabilities.status_buildup {
+        coverage_ids.push("coverage:status");
+    }
+    if data.capabilities.aow_compatibility {
+        coverage_ids.push("coverage:aow-compatibility");
+    }
+    if data.capabilities.aow_damage {
+        coverage_ids.push("coverage:aow-damage");
+    }
+    if data.capabilities.aow_routes {
+        coverage_ids.push("coverage:aow-routes");
+    }
+    filter_dimension_matches(request, FilterDimension::WeaponFamily, |id| {
+        id.eq_ignore_ascii_case(&family_id)
+    }) && filter_dimension_matches(request, FilterDimension::WeaponType, |id| {
+        id.eq_ignore_ascii_case(&type_id)
+    }) && filter_dimension_matches(request, FilterDimension::Affinity, |id| {
+        id.eq_ignore_ascii_case(&affinity_id)
+    }) && filter_dimension_matches(request, FilterDimension::Reinforcement, |id| {
+        id.eq_ignore_ascii_case(reinforcement_id)
+    }) && filter_dimension_matches(request, FilterDimension::Coverage, |id| {
+        coverage_ids
+            .iter()
+            .any(|value| id.eq_ignore_ascii_case(value))
+    })
+}
+
+fn filter_dimension_matches(
+    request: &OptimizeRequest,
+    dimension: FilterDimension,
+    matches_id: impl Fn(&str) -> bool,
+) -> bool {
+    let mut has_include = false;
+    let mut include_matches = false;
+    for filter in request
+        .filters
+        .iter()
+        .filter(|filter| filter.dimension == dimension)
+    {
+        match filter.mode {
+            FilterMode::Exclude if matches_id(&filter.id) => return false,
+            FilterMode::Include => {
+                has_include = true;
+                include_matches |= matches_id(&filter.id);
+            }
+            FilterMode::Exclude => {}
+        }
+    }
+    !has_include || include_matches
 }
 
 fn weapon_type_matches(weapon: &Weapon, type_key: &str) -> bool {
@@ -2420,7 +2491,7 @@ fn resolve_aow_choices<'a>(
             {
                 return Ok(None);
             }
-            return Ok(Some(vec![choice.clone()]));
+            return Ok(filter_aow_choices(request, vec![choice.clone()]));
         }
         let compatible_matches: Vec<&Aow> = data
             .aows
@@ -2449,7 +2520,7 @@ fn resolve_aow_choices<'a>(
         {
             return Ok(None);
         }
-        return Ok(Some(vec![choice]));
+        return Ok(filter_aow_choices(request, vec![choice]));
     }
 
     if matches!(
@@ -2458,13 +2529,20 @@ fn resolve_aow_choices<'a>(
             | OptimizeObjective::MaxPhysicalAr
             | OptimizeObjective::BleedThenAr
     ) {
-        return Ok(Some(open_aow_choices_for_objective(
-            weapon,
-            data,
-            no_aow,
-            native_skill_choice,
-            request.objective,
-        )));
+        return Ok(filter_aow_choices(
+            request,
+            open_aow_choices_for_objective(
+                weapon,
+                data,
+                no_aow,
+                native_skill_choice,
+                request.objective,
+                request
+                    .filters
+                    .iter()
+                    .any(|filter| filter.dimension == FilterDimension::Aow),
+            ),
+        ));
     }
 
     let native_skill_id = native_skill_choice
@@ -2483,10 +2561,23 @@ fn resolve_aow_choices<'a>(
             .map(|aow| build_aow_choice(aow, weapon, data, request.objective))
             .filter(|choice| !choice.attack_rows.is_empty()),
     );
-    if choices.is_empty() {
-        return Ok(None);
-    }
-    Ok(Some(choices))
+    Ok(filter_aow_choices(request, choices))
+}
+
+fn filter_aow_choices<'a>(
+    request: &OptimizeRequest,
+    mut choices: Vec<AowChoice<'a>>,
+) -> Option<Vec<AowChoice<'a>>> {
+    choices.retain(|choice| {
+        let id = choice.skill_id.map_or_else(
+            || "aow:none".to_string(),
+            |skill_id| format!("aow:{skill_id}"),
+        );
+        filter_dimension_matches(request, FilterDimension::Aow, |filter_id| {
+            filter_id.eq_ignore_ascii_case(&id)
+        })
+    });
+    (!choices.is_empty()).then_some(choices)
 }
 
 fn build_aow_choice<'a>(
@@ -2513,6 +2604,7 @@ fn open_aow_choices_for_objective<'a>(
     no_aow: AowChoice<'a>,
     native_skill_choice: Option<AowChoice<'a>>,
     objective: OptimizeObjective,
+    include_irrelevant: bool,
 ) -> Vec<AowChoice<'a>> {
     if weapon.disable_gem_attr {
         return native_skill_choice.map_or_else(|| vec![no_aow], |choice| vec![choice]);
@@ -2524,7 +2616,7 @@ fn open_aow_choices_for_objective<'a>(
             .iter()
             .filter(|aow| !aow.name.eq_ignore_ascii_case("No Skill"))
             .filter(|aow| data.aow_compatible_with_weapon(aow, weapon))
-            .filter(|aow| aow_affects_objective(aow, objective))
+            .filter(|aow| include_irrelevant || aow_affects_objective(aow, objective))
             .map(|aow| build_aow_choice(aow, weapon, data, objective)),
     );
     choices
@@ -2573,7 +2665,7 @@ fn native_skill_choice_for_weapon<'a>(
         .as_deref()
         .or_else(|| source_rows.first().map(|row| row.aow_name.as_str()))?;
     Some(AowChoice {
-        aow: None,
+        aow: data.aows.iter().find(|aow| aow.aow_id == native_skill_id),
         skill_id: Some(native_skill_id),
         skill_name: Some(skill_name),
         attack_rows,
@@ -2942,7 +3034,7 @@ fn weapon_requirement_mins(request: &OptimizeRequest, weapon: &Weapon) -> [u8; C
         if idx == STAT_STR {
             minimum_str_for_requirement(
                 weapon.requirements[STAT_STR],
-                request.two_handing,
+                weapon_uses_two_handing(request, weapon),
                 weapon.disable_two_hand_bonus,
             )
         } else {
@@ -2961,37 +3053,22 @@ fn active_stats_for_choice(
         OptimizeObjective::MaxAr => {
             std::array::from_fn(|idx| weapon_stat_can_increase_ar(prepared.weapon, data, idx))
         }
-        OptimizeObjective::MaxPhysicalAr => std::array::from_fn(|idx| {
-            weapon_stat_can_increase_damage_type(prepared.weapon, data, idx, DamageType::Physical)
-        }),
+        OptimizeObjective::MaxPhysicalAr => {
+            std::array::from_fn(|idx| weapon_stat_can_increase_ar(prepared.weapon, data, idx))
+        }
         OptimizeObjective::BleedThenAr => std::array::from_fn(|idx| {
             weapon_stat_can_increase_ar(prepared.weapon, data, idx)
                 || stat_can_increase_bleed_for_choice(prepared, aow_choice, data, idx)
         }),
         OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence => {
             std::array::from_fn(|idx| {
-                aow_choice
-                    .attack_rows
-                    .iter()
-                    .any(|row| attack_row_stat_can_increase_damage(prepared.weapon, row, data, idx))
+                weapon_stat_can_increase_ar(prepared.weapon, data, idx)
+                    || aow_choice.attack_rows.iter().any(|row| {
+                        attack_row_stat_can_increase_damage(prepared.weapon, row, data, idx)
+                    })
             })
         }
     }
-}
-
-fn weapon_stat_can_increase_damage_type(
-    weapon: &Weapon,
-    data: &GameData,
-    stat_idx: usize,
-    damage_type: DamageType,
-) -> bool {
-    if weapon.scaling[stat_idx] <= 0.0 || weapon.base[damage_type.as_index()] <= 0.0 {
-        return false;
-    }
-    let Some(aec) = data.attack_element(weapon.attack_element_correct_id) else {
-        return true;
-    };
-    aec.stat_scales(stat_idx, damage_type)
 }
 
 fn attack_row_stat_can_increase_damage(
@@ -3006,7 +3083,7 @@ fn attack_row_stat_can_increase_damage(
     DamageType::ALL.iter().any(|damage_type| {
         let damage_idx = damage_type.as_index();
         let has_damage_base = weapon.base[damage_idx] > 0.0 && row.motion_values[damage_idx] > 0.0
-            || row.attack_base[damage_idx] > 0.0;
+            || (row.is_add_base_atk || row.is_arrow_attack) && row.attack_base[damage_idx] > 0.0;
         if !has_damage_base {
             return false;
         }
@@ -3022,7 +3099,10 @@ fn attack_row_stat_can_increase_damage(
                 .is_some_and(|rate| rate > 0.0)
                 || weapon.scaling[stat_idx] * aec_ext.influence_rate(stat_idx, damage_idx) > 0.0;
         }
-        weapon_stat_can_increase_damage_type(weapon, data, stat_idx, *damage_type)
+        weapon.scaling[stat_idx] > 0.0
+            && data
+                .attack_element(weapon.attack_element_correct_id)
+                .is_none_or(|aec| aec.stat_scales(stat_idx, *damage_type))
     })
 }
 

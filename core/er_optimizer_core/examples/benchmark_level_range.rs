@@ -158,6 +158,8 @@ fn request(affinity: &str) -> OptimizeRequest {
         aow_name: Some("Seppuku".to_string()),
         weapon_type_key: None,
         somber_filter: SomberFilter::All,
+        filters: Vec::new(),
+        result_grouping: er_optimizer_core::ResultGrouping::Automatic,
         objective: OptimizeObjective::BleedThenAr,
         top_k: 1,
     }

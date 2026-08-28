@@ -68,6 +68,8 @@ fn main() -> Result<(), String> {
                 aow_name: Some(case.aow_name),
                 weapon_type_key: None,
                 somber_filter: SomberFilter::All,
+                filters: Vec::new(),
+                result_grouping: er_optimizer_core::ResultGrouping::Automatic,
                 objective: OptimizeObjective::MaxAr,
                 top_k: 1,
             };

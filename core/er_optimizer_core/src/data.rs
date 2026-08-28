@@ -7,7 +7,7 @@ use crate::model::{
     Aow, AowAttackRow, AowEffect, AowEffectRole, AowRouteAssignment, AttackElementCorrect,
     AttackElementCorrectExt, COMBAT_STAT_COUNT, DAMAGE_TYPE_COUNT, DataCapabilities, DataRules,
     GameData, PhysicalAttackAttribute, ReinforceLevel, StaminaCostMode, StatusBuildup,
-    StatusCorrectionFlags, StatusEffectSource, Weapon,
+    StatusCorrectionFlags, StatusCurveIds, StatusEffectSource, Weapon,
 };
 use crate::snapshot::{SnapshotManifest, validate_embedded_snapshot, validate_external_snapshot};
 
@@ -458,9 +458,11 @@ fn load_weapons(path: PathBuf) -> Result<Vec<Weapon>, String> {
                 "attack_element_correct_id",
             )?,
             damage_curve_ids,
-            bleed_curve_id: match table.idx("curve_id_blood") {
-                Ok(_) => parse_usize(table.get(row, "curve_id_blood")?, "curve_id_blood")?,
-                Err(_) => 6,
+            status_curve_ids: StatusCurveIds {
+                poison: parse_usize(table.get(row, "curve_id_poison")?, "curve_id_poison")?,
+                blood: parse_usize(table.get(row, "curve_id_blood")?, "curve_id_blood")?,
+                sleep: parse_usize(table.get(row, "curve_id_sleep")?, "curve_id_sleep")?,
+                madness: parse_usize(table.get(row, "curve_id_madness")?, "curve_id_madness")?,
             },
             disable_gem_attr: match table.idx("disable_gem_attr") {
                 Ok(_) => parse_bool_u8(table.get(row, "disable_gem_attr")?, "disable_gem_attr")?,
@@ -541,7 +543,7 @@ fn load_reinforce(path: PathBuf) -> Result<Vec<Vec<Option<ReinforceLevel>>>, Str
     Ok(reinforce)
 }
 
-fn load_calc_correct(path: PathBuf) -> Result<Vec<Vec<f32>>, String> {
+fn load_calc_correct(path: PathBuf) -> Result<Vec<Option<Vec<Option<f32>>>>, String> {
     let table = CsvTable::from_path(&path)?;
     let mut entries = Vec::with_capacity(table.rows.len());
     let mut max_curve_id = 0usize;
@@ -559,9 +561,14 @@ fn load_calc_correct(path: PathBuf) -> Result<Vec<Vec<f32>>, String> {
         .map(|(_, stat_value, _)| *stat_value)
         .max()
         .unwrap_or(0);
-    let mut out = vec![vec![0.0_f32; max_stat_value + 1]; max_curve_id + 1];
+    let mut out = vec![None; max_curve_id + 1];
     for (curve_id, stat_value, multiplier) in entries {
-        out[curve_id][stat_value] = multiplier;
+        let curve = out[curve_id].get_or_insert_with(|| vec![None; max_stat_value + 1]);
+        if curve[stat_value].replace(multiplier).is_some() {
+            return Err(format!(
+                "duplicate calc-correct entry curve_id={curve_id} stat_value={stat_value}"
+            ));
+        }
     }
     Ok(out)
 }
@@ -1125,9 +1132,11 @@ fn load_exact_aow_compat_optional(path: PathBuf) -> Result<HashSet<(u16, u32)>, 
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use super::{
-        CONVERGENCE_PROFILE_ID, CsvTable, load_embedded_game_data, load_embedded_game_profile,
-        load_game_data, parse_status_effect_source,
+        CONVERGENCE_PROFILE_ID, CsvTable, load_calc_correct, load_embedded_game_data,
+        load_embedded_game_profile, load_game_data, parse_status_effect_source,
     };
     use crate::model::AowEffectRole;
 
@@ -1138,6 +1147,23 @@ mod tests {
         assert!(data.aows.len() > 100);
         assert!(!data.exact_aow_compat.is_empty());
         assert!(!data.aow_effects.is_empty());
+    }
+
+    #[test]
+    fn calc_correct_holes_are_missing_and_duplicates_fail() {
+        let path = std::env::temp_dir().join(format!(
+            "tarnisheds-arsenal-calc-correct-{}.csv",
+            std::process::id()
+        ));
+        fs::write(&path, "curve_id,stat_value,multiplier\n1,0,0\n1,2,0.5\n").unwrap();
+        let curves = load_calc_correct(path.clone()).unwrap();
+        assert!(curves[0].is_none());
+        assert!(curves[1].as_ref().unwrap()[1].is_none());
+
+        fs::write(&path, "curve_id,stat_value,multiplier\n1,0,0\n1,0,0.5\n").unwrap();
+        let error = load_calc_correct(path.clone()).unwrap_err();
+        fs::remove_file(path).unwrap();
+        assert!(error.contains("duplicate calc-correct entry"));
     }
 
     #[test]

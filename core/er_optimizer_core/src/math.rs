@@ -291,35 +291,6 @@ fn build_override_contributions(
     })
 }
 
-pub fn calculate_aow_damage(
-    weapon: &Weapon,
-    attack_rows: &[&AowAttackRow],
-    upgrade: u8,
-    stats: &Stats,
-    effective_str_value: u16,
-    data: &GameData,
-) -> Result<(f32, f32), String> {
-    let routes = calculate_aow_routes(
-        weapon,
-        attack_rows,
-        upgrade,
-        stats,
-        effective_str_value,
-        data,
-    )?;
-    let mut best_first_hit = 0.0_f32;
-    let mut best_full_sequence = 0.0_f32;
-    for route in routes {
-        if route.first_hit_damage > best_first_hit {
-            best_first_hit = route.first_hit_damage;
-        }
-        if route.total_damage.total() > best_full_sequence {
-            best_full_sequence = route.total_damage.total();
-        }
-    }
-    Ok((best_first_hit, best_full_sequence))
-}
-
 #[derive(Debug)]
 struct PendingRoute {
     label: String,
@@ -617,7 +588,7 @@ pub fn calculate_bleed_buildup(
         base.buildup.bleed,
         STAT_ARC,
         stats.arc,
-        weapon.bleed_curve_id,
+        weapon.status_curve_ids.blood,
         base.correction_flags.bleed,
         weapon,
         reinforce,
@@ -698,7 +669,7 @@ pub fn apply_aow_bleed_buffs(
                 scaling.bleed,
                 STAT_ARC,
                 stats.arc,
-                weapon.bleed_curve_id,
+                weapon.status_curve_ids.blood,
                 aow.scaling_status_flags.bleed,
                 weapon,
                 reinforce,
@@ -739,7 +710,7 @@ fn scale_status_additions(
             buildup.bleed,
             STAT_ARC,
             stats.arc,
-            weapon.bleed_curve_id,
+            weapon.status_curve_ids.blood,
             flags.bleed,
         )?,
         frost: scale(
@@ -753,35 +724,35 @@ fn scale_status_additions(
             buildup.poison,
             STAT_ARC,
             stats.arc,
-            weapon.bleed_curve_id,
+            weapon.status_curve_ids.poison,
             flags.poison,
         )?,
         scarlet_rot: scale(
             buildup.scarlet_rot,
             STAT_ARC,
             stats.arc,
-            weapon.bleed_curve_id,
+            weapon.status_curve_ids.blood,
             flags.scarlet_rot,
         )?,
         sleep: scale(
             buildup.sleep,
             STAT_ARC,
             stats.arc,
-            weapon.bleed_curve_id,
+            weapon.status_curve_ids.sleep,
             flags.sleep,
         )?,
         madness: scale(
             buildup.madness,
             STAT_ARC,
             stats.arc,
-            weapon.bleed_curve_id,
+            weapon.status_curve_ids.madness,
             flags.madness,
         )?,
         death: scale(
             buildup.death,
             STAT_ARC,
             stats.arc,
-            weapon.bleed_curve_id,
+            weapon.status_curve_ids.blood,
             flags.death,
         )?,
     })
@@ -897,7 +868,7 @@ pub struct StartingClass {
     pub base_stats: Stats,
 }
 
-pub const STARTING_CLASSES: [StartingClass; 10] = [
+pub const STARTING_CLASSES: [StartingClass; 12] = [
     StartingClass {
         name: "Vagabond",
         base_level: 9,
@@ -1046,6 +1017,36 @@ pub const STARTING_CLASSES: [StartingClass; 10] = [
             int: 10,
             fai: 10,
             arc: 10,
+        },
+    },
+    StartingClass {
+        name: "Idus Knight",
+        base_level: 7,
+        base_total: 86,
+        base_stats: Stats {
+            vig: 10,
+            mnd: 12,
+            end: 11,
+            str: 13,
+            dex: 15,
+            int: 8,
+            fai: 11,
+            arc: 6,
+        },
+    },
+    StartingClass {
+        name: "Heavy Knight",
+        base_level: 10,
+        base_total: 89,
+        base_stats: Stats {
+            vig: 14,
+            mnd: 8,
+            end: 17,
+            str: 15,
+            dex: 11,
+            int: 7,
+            fai: 8,
+            arc: 9,
         },
     },
 ];
@@ -1529,9 +1530,7 @@ mod tests {
         assert!((r1.total_status_buildup.bleed - weapon_status.bleed * 4.0).abs() < 0.01);
         assert!((r2.total_status_buildup.bleed - weapon_status.bleed * 4.0).abs() < 0.01);
 
-        let (_, best_full) =
-            calculate_aow_damage(weapon, &rows, 25, &stats, 30, &game_data).unwrap();
-        assert!((best_full - r1.total_damage.total().max(r2.total_damage.total())).abs() < 0.001);
+        let best_full = r1.total_damage.total().max(r2.total_damage.total());
         assert!(best_full < r1.total_damage.total() + r2.total_damage.total());
     }
 

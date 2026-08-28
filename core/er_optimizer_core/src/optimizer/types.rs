@@ -57,6 +57,82 @@ pub enum SomberFilter {
     SomberOnly,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ResultGrouping {
+    #[default]
+    Automatic,
+    Weapon,
+    Loadout,
+}
+
+impl ResultGrouping {
+    pub fn parse(raw: &str) -> Result<Self, String> {
+        match raw.trim().to_ascii_lowercase().as_str() {
+            "automatic" | "auto" => Ok(Self::Automatic),
+            "weapon" | "weapon_only" => Ok(Self::Weapon),
+            "loadout" | "setup" => Ok(Self::Loadout),
+            _ => Err(format!(
+                "invalid result grouping '{raw}', expected automatic, weapon, or loadout"
+            )),
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Automatic => "automatic",
+            Self::Weapon => "weapon",
+            Self::Loadout => "loadout",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FilterDimension {
+    WeaponFamily,
+    WeaponType,
+    Affinity,
+    Aow,
+    Reinforcement,
+    Coverage,
+}
+
+impl FilterDimension {
+    pub fn parse(raw: &str) -> Result<Self, String> {
+        match raw.trim().to_ascii_lowercase().as_str() {
+            "weapon_family" => Ok(Self::WeaponFamily),
+            "weapon_type" => Ok(Self::WeaponType),
+            "affinity" => Ok(Self::Affinity),
+            "aow" => Ok(Self::Aow),
+            "reinforcement" => Ok(Self::Reinforcement),
+            "coverage" => Ok(Self::Coverage),
+            _ => Err(format!("invalid filter dimension '{raw}'")),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FilterMode {
+    Include,
+    Exclude,
+}
+
+impl FilterMode {
+    pub fn parse(raw: &str) -> Result<Self, String> {
+        match raw.trim().to_ascii_lowercase().as_str() {
+            "include" => Ok(Self::Include),
+            "exclude" => Ok(Self::Exclude),
+            _ => Err(format!("invalid filter mode '{raw}'")),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StableFilter {
+    pub dimension: FilterDimension,
+    pub id: String,
+    pub mode: FilterMode,
+}
+
 impl SomberFilter {
     pub const ALL: [Self; 3] = [Self::All, Self::StandardOnly, Self::SomberOnly];
 
@@ -87,6 +163,8 @@ pub struct OptimizeRequest {
     pub aow_name: Option<String>,
     pub weapon_type_key: Option<String>,
     pub somber_filter: SomberFilter,
+    pub filters: Vec<StableFilter>,
+    pub result_grouping: ResultGrouping,
     pub objective: OptimizeObjective,
     pub top_k: usize,
 }
