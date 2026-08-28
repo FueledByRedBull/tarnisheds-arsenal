@@ -192,8 +192,8 @@ describe("saved build persistence", () => {
       JSON.stringify({ ...preset(), selectedBuild: { weaponId: 1 } }),
       JSON.stringify({ ...preset(), selectedBuild: { ...solvedBuild(), sleepBuildup: "unknown" } }),
     ];
-    for (const candidate of malformed) {
-      expect(() => parsePresetText(candidate)).toThrow();
+    for (const [index, candidate] of malformed.entries()) {
+      expect(() => parsePresetText(candidate), `malformed corpus entry ${index}`).toThrow();
     }
     expect(savedBuildIndex().builds).toEqual([]);
   });

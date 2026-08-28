@@ -57,7 +57,7 @@ describe("rankings CSV model provenance", () => {
     expect(headers).toContain("bleed,bleed_add,frost,poison,scarlet_rot,sleep,madness,death");
     expect(values).toContain("100,Uchigatana,Katana");
     expect(values).toContain("unified,,11,15,0,0,0");
-    expect(values).toContain("D,S++,-,-,B");
+    expect(values).toContain("D,S++,'-,'-,B");
   });
 
   it("neutralizes spreadsheet formulas in exported text", () => {

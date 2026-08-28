@@ -354,29 +354,34 @@ function assertProfileId(value: unknown, label: string): asserts value is string
 }
 
 function migratePreset(value: unknown): BuildPreset {
-  if (!isRecord(value) || !isRecord(value.request) || ![1, 2].includes(Number(value.version))) {
+  if (!isRecord(value) || ![1, 2].includes(Number(value.version))) {
     throw invalidPreset("schema version must be 1 or 2");
   }
+  const request = value.request;
+  if (!isRecord(request)) throw invalidPreset("request must be an object");
   const legacy = value.version === 1;
   if (!legacy) return value as unknown as BuildPreset;
-  if (typeof value.profileId !== "string" && typeof value.request.profileId !== "string") {
+  if (typeof value.profileId !== "string" && typeof request.profileId !== "string") {
     value.profileId = "vanilla";
-    value.request.profileId = "vanilla";
+    request.profileId = "vanilla";
   } else if (typeof value.profileId !== "string") {
-    value.profileId = value.request.profileId;
-  } else if (typeof value.request.profileId !== "string") {
-    value.request.profileId = value.profileId;
+    value.profileId = request.profileId;
+  } else if (typeof request.profileId !== "string") {
+    request.profileId = value.profileId;
   }
-  const classInfo = STARTING_CLASS_METADATA.find((entry) => entry.name === value.request.className);
+  if (request.characterLevel !== undefined) {
+    assertInteger(request.characterLevel, "request.characterLevel", 1, 713);
+  }
+  const classInfo = STARTING_CLASS_METADATA.find((entry) => entry.name === request.className);
   if (classInfo) {
     const keys = ["vig", "mnd", "end", "strStat", "dex", "intStat", "fai", "arc"];
-    const total = keys.reduce((sum, key) => sum + (typeof value.request[key] === "number" ? Number(value.request[key]) : 0), 0);
-    value.request.characterLevel = Math.max(classInfo.baseLevel, Math.min(713, classInfo.baseLevel + total - classInfo.baseTotal));
+    const total = keys.reduce((sum, key) => sum + (typeof request[key] === "number" ? Number(request[key]) : 0), 0);
+    request.characterLevel = Math.max(classInfo.baseLevel, Math.min(713, classInfo.baseLevel + total - classInfo.baseTotal));
   }
-  value.request.filters ??= { version: 1, entries: [] };
-  value.request.resultGrouping ??= "automatic";
-  value.request.budgetMode ??= "target_level";
-  value.request.offensivePointBudget ??= 0;
+  request.filters ??= { version: 1, entries: [] };
+  request.resultGrouping ??= "automatic";
+  request.budgetMode ??= "target_level";
+  request.offensivePointBudget ??= 0;
   for (const buildKey of ["selectedBuild", "compareTarget"] as const) {
     const build = value[buildKey];
     if (!isRecord(build)) continue;
