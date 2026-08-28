@@ -118,6 +118,8 @@ jobs:
   linux-core-and-data:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      RUSTUP_TOOLCHAIN: "1.97.0"
 
     steps:
       - name: Checkout
