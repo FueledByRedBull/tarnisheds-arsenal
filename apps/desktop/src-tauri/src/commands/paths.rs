@@ -161,7 +161,9 @@ fn build_path_preview_inner(
         return build_optimum_envelope(request, state, continue_cb);
     }
     if request.mode != "no_respec" {
-        return Err(AppError::new("Path mode must be 'no_respec' or 'optimum_envelope'."));
+        return Err(AppError::new(
+            "Path mode must be 'no_respec' or 'optimum_envelope'.",
+        ));
     }
     let start_state = request.solved.stats;
     let target_level = request
@@ -268,7 +270,9 @@ fn build_optimum_envelope(
             PathStepDto {
                 level,
                 stats,
-                metric: solved.as_ref().map(|row| metric_for_objective(row, objective)),
+                metric: solved
+                    .as_ref()
+                    .map(|row| metric_for_objective(row, objective)),
                 score: solved.as_ref().map(|row| row.score),
                 added_stat,
                 requirement_gap: u16::from(solved.is_none()),
@@ -284,13 +288,22 @@ fn build_optimum_envelope(
 
 fn describe_allocation_change(previous: CombatStateDto, next: CombatStateDto) -> Option<String> {
     let deltas = [
-        ("str", i16::from(next.str_stat) - i16::from(previous.str_stat)),
+        (
+            "str",
+            i16::from(next.str_stat) - i16::from(previous.str_stat),
+        ),
         ("dex", i16::from(next.dex) - i16::from(previous.dex)),
-        ("int", i16::from(next.int_stat) - i16::from(previous.int_stat)),
+        (
+            "int",
+            i16::from(next.int_stat) - i16::from(previous.int_stat),
+        ),
         ("fai", i16::from(next.fai) - i16::from(previous.fai)),
         ("arc", i16::from(next.arc) - i16::from(previous.arc)),
     ];
-    let changed = deltas.iter().filter(|(_, delta)| *delta != 0).collect::<Vec<_>>();
+    let changed = deltas
+        .iter()
+        .filter(|(_, delta)| *delta != 0)
+        .collect::<Vec<_>>();
     if changed.is_empty() {
         None
     } else if changed.len() == 1 && changed[0].1 == 1 {
@@ -586,7 +599,11 @@ mod integration_tests {
         let path = build_path_preview_inner(envelope_request, &state, |_| true)
             .expect("optimum envelope succeeds");
         assert_eq!(path.steps.len(), 3);
-        assert!(path.steps.windows(2).all(|steps| steps[0].level + 1 == steps[1].level));
+        assert!(
+            path.steps
+                .windows(2)
+                .all(|steps| steps[0].level + 1 == steps[1].level)
+        );
     }
 
     #[test]

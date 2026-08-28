@@ -30,7 +30,7 @@
     "statusBuildupScales": true
   },
   "generatedAt": "2026-08-28",
-  "extractorVersion": "phase1-python-v6-profile-semantics",
+  "extractorVersion": "phase1-python-v7-profile-semantics",
   "provenance": "profile-bound regulation, names, motion data, and numeric PARAM effect graph",
   "runtimeFiles": [
     {
@@ -55,8 +55,8 @@
     },
     {
       "path": "aow_weapon_compat.csv",
-      "size": 6662088,
-      "sha256": "71c4b94edf7c912d20a83961f83ba0a3164ef3ef5503d1768060c83e80c77d4e"
+      "size": 6885653,
+      "sha256": "546c8ef8b953c6140c8b90c1b64d4c2b8cce80f1a3b205e1e84e88f9bfcdef99"
     },
     {
       "path": "attack_element_correct.csv",
@@ -85,18 +85,18 @@
     },
     {
       "path": "weapon_passive_overlays.csv",
-      "size": 1140295,
-      "sha256": "b87d249c44343d973be66f829e71bda71b414549ca3cb93c24bd9ccc10432821"
+      "size": 1171229,
+      "sha256": "926784bd076fb70e147f577db25f0ca91be7eb7c6bf5771a96153dba819600b8"
     },
     {
       "path": "weapon_passives.csv",
-      "size": 188020,
-      "sha256": "e02d53514fb44f595f774163d693ebd248a26df7eb1c0f42842fbf2b546cc273"
+      "size": 192752,
+      "sha256": "0595acdaa2f0d99cc9bf7d0c0c2e16d5136731ca044600f5d4e08a8e6237e872"
     },
     {
       "path": "weapons.csv",
-      "size": 538027,
-      "sha256": "12b8a525c78809455e8da4c7212227f72da19682c8b87311d39113fbc3055351"
+      "size": 552537,
+      "sha256": "69a83f6663cbb3958f791201630b0568950cd15bf7345d52f762754c550e7e2f"
     }
   ],
   "diagnosticFiles": [
@@ -127,8 +127,8 @@
     },
     {
       "path": "passive_effect_coverage.csv",
-      "size": 33233,
-      "sha256": "fec2f34847ad1454c59124f03b7aa1c08aa4bcc8c9a1a89b74dbc8b11d4525d5"
+      "size": 33869,
+      "sha256": "9b378559af56d0f0ac479c1792bf6a987588a2d7e53d4755469d0d092dd4b4d9"
     }
   ],
   "sources": [

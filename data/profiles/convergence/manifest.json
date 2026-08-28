@@ -30,7 +30,7 @@
     "statusBuildupScales": false
   },
   "generatedAt": "2026-08-28",
-  "extractorVersion": "phase1-python-v6-profile-semantics",
+  "extractorVersion": "phase1-python-v7-profile-semantics",
   "provenance": "profile-bound regulation, names, motion data, and numeric PARAM effect graph",
   "runtimeFiles": [
     {

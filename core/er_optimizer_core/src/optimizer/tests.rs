@@ -965,6 +965,62 @@ fn stable_weapon_family_filter_uses_catalog_id() {
 }
 
 #[test]
+fn included_weapon_types_and_affinities_are_or_within_and_across_dimensions() {
+    let game_data = load_data();
+    let mut request = broad_request();
+    let selected_types = ["Axe", "Greatsword", "Colossal Sword"];
+    let selected_affinities = ["Fire", "Cold"];
+    for name in selected_types {
+        let id = game_data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.weapon_type_name == name)
+            .unwrap_or_else(|| panic!("missing weapon type: {name}"))
+            .type_filter_id();
+        request.filters.push(StableFilter {
+            dimension: FilterDimension::WeaponType,
+            id,
+            mode: FilterMode::Include,
+        });
+    }
+    for name in selected_affinities {
+        let id = game_data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.affinity == name)
+            .unwrap_or_else(|| panic!("missing affinity: {name}"))
+            .affinity_filter_id();
+        request.filters.push(StableFilter {
+            dimension: FilterDimension::Affinity,
+            id,
+            mode: FilterMode::Include,
+        });
+    }
+
+    let matching = game_data
+        .weapons
+        .iter()
+        .filter(|weapon| weapon_matches_request(weapon, &request, &game_data))
+        .collect::<Vec<_>>();
+
+    assert!(!matching.is_empty());
+    assert_eq!(
+        matching
+            .iter()
+            .map(|weapon| weapon.weapon_type_name.as_str())
+            .collect::<HashSet<_>>(),
+        HashSet::from(selected_types)
+    );
+    assert_eq!(
+        matching
+            .iter()
+            .map(|weapon| weapon.affinity.as_str())
+            .collect::<HashSet<_>>(),
+        HashSet::from(selected_affinities)
+    );
+}
+
+#[test]
 fn explicit_result_grouping_overrides_automatic_mode() {
     let mut request = broad_request();
     request.result_grouping = ResultGrouping::Weapon;

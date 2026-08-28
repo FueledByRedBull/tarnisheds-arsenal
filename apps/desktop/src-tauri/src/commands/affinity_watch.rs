@@ -272,9 +272,12 @@ fn detect_breakpoints(
         {
             let outgoing = metric_at(lines, previous, *level);
             let incoming = metric_at(lines, &leader.affinity, *level);
-            let lead = incoming.zip(outgoing).map(|(incoming, outgoing)| incoming - outgoing);
+            let lead = incoming
+                .zip(outgoing)
+                .map(|(incoming, outgoing)| incoming - outgoing);
             let lead_percent = incoming.zip(outgoing).and_then(|(incoming, outgoing)| {
-                (outgoing.abs() > f32::EPSILON).then_some((incoming - outgoing) / outgoing.abs() * 100.0)
+                (outgoing.abs() > f32::EPSILON)
+                    .then_some((incoming - outgoing) / outgoing.abs() * 100.0)
             });
             let quality = match lead_percent {
                 None => "unknown",

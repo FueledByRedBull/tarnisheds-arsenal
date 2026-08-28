@@ -102,6 +102,8 @@ class ProfileDefinition:
     rules: ProfileRules
     use_workbook_weapon_metadata: bool
     allow_param_weapon_names: bool
+    weapon_name_overrides: Mapping[int, str]
+    sword_art_name_overrides: Mapping[int, str]
     weapon_name_xmls: tuple[Path, ...] = ()
     arts_name_xmls: tuple[Path, ...] = ()
     version_file: Path | None = None
@@ -154,6 +156,21 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         ),
         use_workbook_weapon_metadata=True,
         allow_param_weapon_names=True,
+        weapon_name_overrides={
+            3_560_000: "Leontiel's Greatsword",
+            8_530_000: "Hefty Scimitar",
+            13_510_000: "Golden Order Flail",
+            31_540_000: "Silver Grooved Shield",
+            62_520_000: "Ritual Thrusting Shield",
+            64_530_000: "Reverse-Bladed Sword",
+            66_530_000: "Reed Great Katana",
+            67_530_000: "Idus Sword",
+        },
+        sword_art_name_overrides={
+            1_200: "Muleta",
+            1_201: "Causality Wraith",
+            8_000: "Shield Strike",
+        },
     ),
     "convergence": ProfileDefinition(
         id="convergence",
@@ -182,6 +199,8 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         ),
         use_workbook_weapon_metadata=False,
         allow_param_weapon_names=True,
+        weapon_name_overrides={},
+        sword_art_name_overrides={},
         weapon_name_xmls=(
             Path("data/raw/Conv/WeaponName.fmg.xml"),
             Path("data/raw/Conv/WeaponName_dlc01.fmg.xml"),

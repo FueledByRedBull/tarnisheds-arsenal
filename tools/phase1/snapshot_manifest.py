@@ -18,7 +18,7 @@ from tools.phase1.profiles import ProfileDefinition, profile_definition  # noqa:
 
 SCHEMA_VERSION = 3
 MODEL_VERSION = "aow-routes-effects-v3-profile-semantics"
-EXTRACTOR_VERSION = "phase1-python-v6-profile-semantics"
+EXTRACTOR_VERSION = "phase1-python-v7-profile-semantics"
 RUNTIME_FILES = {
     "aow.csv",
     "aow_attack_data.csv",

@@ -123,6 +123,8 @@ describe("saved build persistence", () => {
     const raw = JSON.parse(JSON.stringify(legacy));
     delete raw.profileId;
     delete raw.request.profileId;
+    raw.request.budgetMode = "target_level";
+    raw.request.offensivePointBudget = 40;
 
     const parsed = parsePresetText(JSON.stringify(raw));
 
@@ -132,9 +134,9 @@ describe("saved build persistence", () => {
     expect(parsed.request).toMatchObject({
       filters: { version: 1, entries: [] },
       resultGrouping: "automatic",
-      budgetMode: "target_level",
-      offensivePointBudget: 0,
     });
+    expect(parsed.request).not.toHaveProperty("budgetMode");
+    expect(parsed.request).not.toHaveProperty("offensivePointBudget");
   });
 
   it("migrates saved builds created before all status fields were exposed", () => {

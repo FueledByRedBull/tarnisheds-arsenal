@@ -562,62 +562,69 @@ textarea {
   justify-content: center;
 }
 
-.generic-filters {
+.include-filters {
   margin-top: 10px;
   padding: 9px;
   border: 1px solid var(--line);
   border-radius: 6px;
 }
 
-.generic-filters > summary,
-.filter-dimension > summary {
+.include-filters > summary {
   cursor: pointer;
   color: var(--parchment);
 }
 
-.generic-filters > .clear-locks {
-  margin: 8px 0;
+.include-filters > small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
 }
 
-.filter-dimension {
-  margin-top: 8px;
+.include-filters fieldset {
+  padding: 0;
+  margin: 10px 0 0;
+  border: 0;
 }
 
-.filter-dimension > input {
-  width: 100%;
-  margin: 6px 0;
+.include-filters legend {
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
-.filter-option-list {
+.include-filter-options {
   display: grid;
   gap: 4px;
   max-height: 180px;
-  margin-top: 6px;
+  margin-top: 5px;
   overflow: auto;
 }
 
-.filter-option-list button {
-  display: flex;
-  justify-content: space-between;
+.include-filter-options label {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
   gap: 8px;
   padding: 5px 7px;
   border: 1px solid var(--line);
   border-radius: 4px;
   color: var(--muted);
   background: var(--iron-850);
-  text-align: left;
 }
 
-.filter-option-list button.include {
+.include-filter-options label:has(input:checked) {
   color: var(--parchment);
   border-color: var(--gold-quiet);
   background: rgba(202, 168, 94, 0.13);
 }
 
-.filter-option-list button.exclude {
-  color: #efaaa3;
-  border-color: rgba(215, 105, 105, 0.5);
-  text-decoration: line-through;
+.include-filter-options input {
+  accent-color: var(--gold);
+}
+
+.include-filters > .clear-locks {
+  margin-top: 9px;
 }
 
 .compare-deltas {

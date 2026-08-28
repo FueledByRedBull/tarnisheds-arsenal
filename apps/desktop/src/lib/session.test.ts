@@ -8,14 +8,10 @@ describe("request normalization properties", () => {
     expect(() => classMeta(null, "Unknown Class")).toThrow("Unknown starting class");
   });
 
-  it("keeps target level explicit and derives offensive-point level from fixed utility stats", () => {
-    expect(derivedLevel(null, { ...defaultRequest, characterLevel: 150, vig: 60 })).toBe(150);
-    expect(derivedLevel(null, {
-      ...defaultRequest,
-      budgetMode: "offensive_points",
-      offensivePointBudget: 40,
-      vig: 20,
-    })).toBe(57);
+  it("derives level from all eight entered stats", () => {
+    expect(derivedLevel(null, defaultRequest)).toBe(9);
+    expect(derivedLevel(null, { ...defaultRequest, vig: 60 })).toBe(57);
+    expect(derivedLevel(null, { ...defaultRequest, dex: 99 })).toBe(93);
   });
 
   it("exposes the two 1.17 Tarnished Pack class stat lines", () => {

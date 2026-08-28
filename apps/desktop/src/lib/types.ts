@@ -8,7 +8,6 @@ export type ObjectiveId =
 export type WorkspaceTab = "rankings" | "compare" | "paths" | "affinity_watch";
 export type OptionalText = string | null;
 export type ResultGroupingId = "automatic" | "weapon" | "loadout";
-export type BudgetModeId = "target_level" | "offensive_points";
 export type FilterMode = "include" | "exclude";
 export type FilterDimensionId =
   | "weapon_family"
@@ -72,8 +71,6 @@ export interface OptimizeRequestDto {
   somberFilter: string;
   filters: StableFilterSetDto;
   resultGrouping: ResultGroupingId;
-  budgetMode: BudgetModeId;
-  offensivePointBudget: number;
   objective: ObjectiveId;
   topK: number;
 }

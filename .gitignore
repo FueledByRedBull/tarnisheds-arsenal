@@ -21,25 +21,22 @@ test-results/
 # Rust
 **/target/
 **/src-tauri/gen/
-/core/er_optimizer_core/target/
-/apps/desktop/src-tauri/target/
-/apps/desktop/src-tauri/gen/
 
 # Build/release output
 /dist/
 /apps/desktop/dist/
-/TODO.md
-/HARDEN.md
 dist_release/
 build/
 build_release/
-ui/desktop/er_optimizer_core/
 *.spec
 *.whl
 tmp_*.png
 release-notes-*.md
 /tarnisheds-arsenal-desktop.exe
-/DOCS_LOCAL/
+
+# Local planning
+/TODO.md
+/HARDEN.md
 
 # Retired PyQt desktop workspace kept local-only for old parity checks.
 ui/desktop/

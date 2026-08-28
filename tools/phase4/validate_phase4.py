@@ -384,14 +384,17 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
         standard_weapon_ids = {
             int(row["weapon_id"]) for row in weapons if row.get("affinity") == "Standard"
         }
-        if standard_weapon_ids != workbook_weapon_ids:
+        expected_standard_weapon_ids = workbook_weapon_ids | set(
+            profile_definition("vanilla").weapon_name_overrides
+        )
+        if standard_weapon_ids != expected_standard_weapon_ids:
             issues.append(
                 ValidationIssue(
                     "error",
                     (
-                        "standard player weapon IDs do not match WeaponData: "
-                        f"missing={sorted(workbook_weapon_ids - standard_weapon_ids)[:10]} "
-                        f"extra={sorted(standard_weapon_ids - workbook_weapon_ids)[:10]}"
+                        "standard player weapon IDs do not match WeaponData plus versioned names: "
+                        f"missing={sorted(expected_standard_weapon_ids - standard_weapon_ids)[:10]} "
+                        f"extra={sorted(standard_weapon_ids - expected_standard_weapon_ids)[:10]}"
                     ),
                 )
             )

@@ -433,6 +433,7 @@ def player_weapon_param_name(row: dict[str, str]) -> str:
 def build_standard_name_map(
     weapon_rows: list[dict[str, str]],
     name_map: dict[int, str],
+    name_overrides: Mapping[int, str],
     *,
     allow_param_names: bool,
 ) -> dict[int, str]:
@@ -442,9 +443,10 @@ def build_standard_name_map(
         if weapon_id % 10000 != 0:
             continue
         safe_param_name = player_weapon_param_name(row)
-        if not safe_param_name:
+        override_name = name_overrides.get(weapon_id, "").strip()
+        if not safe_param_name and not override_name:
             continue
-        raw_name = name_map.get(weapon_id, "").strip()
+        raw_name = override_name or name_map.get(weapon_id, "").strip()
         if not raw_name and allow_param_names:
             raw_name = safe_param_name
         if raw_name:
@@ -683,6 +685,7 @@ def build_weapon_rows(
     *,
     use_workbook_weapon_metadata: bool,
     allow_param_weapon_names: bool,
+    weapon_name_overrides: Mapping[int, str],
     weapon_affinity_by_id: Mapping[int, str] | None = None,
     include_disabled_affinity_variants: bool = False,
 ) -> list[dict[str, object]]:
@@ -690,6 +693,7 @@ def build_weapon_rows(
     standard_name_by_series = build_standard_name_map(
         weapon_rows,
         name_map,
+        weapon_name_overrides,
         allow_param_names=allow_param_weapon_names,
     )
 
@@ -702,15 +706,18 @@ def build_weapon_rows(
         if to_int(row, "originEquipWep", -1) < 0:
             continue
         safe_param_name = player_weapon_param_name(row)
-        if not safe_param_name:
-            continue
 
         standard_weapon_id = weapon_series_id(weapon_id)
+        override_name = weapon_name_overrides.get(standard_weapon_id, "").strip()
+        if not safe_param_name and not override_name:
+            continue
         workbook_weapon = player_weapon_data.get(standard_weapon_id)
 
-        raw_name = name_map.get(weapon_id, "").strip()
+        raw_name = override_name or name_map.get(weapon_id, "").strip()
         if not raw_name and allow_param_weapon_names:
             raw_name = safe_param_name
+        if not raw_name:
+            raw_name = standard_name_by_series.get(standard_weapon_id, "")
         if not raw_name:
             continue
 
@@ -1063,6 +1070,7 @@ def main() -> int:
         weapon_name_xmls,
         arts_name_xmls,
     )
+    context.sword_art_name_map.update(profile.sword_art_name_overrides)
     reinforce_csv_rows, max_level_by_type = build_reinforce_rows(context.reinforce_rows)
     attack_csv_rows, _attack_map = build_attack_element_rows(context.attack_rows)
     apply_profile_attack_element_rules(
@@ -1082,6 +1090,7 @@ def main() -> int:
         player_weapon_data,
         use_workbook_weapon_metadata=profile.use_workbook_weapon_metadata,
         allow_param_weapon_names=profile.allow_param_weapon_names,
+        weapon_name_overrides=profile.weapon_name_overrides,
         weapon_affinity_by_id=weapon_affinity_by_id,
         include_disabled_affinity_variants=args.allow_unverified_weapons,
     )

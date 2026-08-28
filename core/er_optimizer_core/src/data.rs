@@ -1144,6 +1144,11 @@ mod tests {
     fn explicit_embedded_snapshot_loads_all_runtime_tables() {
         let data = load_embedded_game_data().expect("embedded snapshot loads");
         assert!(data.weapons.len() > 3000);
+        assert!(
+            data.weapons
+                .iter()
+                .any(|weapon| weapon.name == "Reverse-Bladed Sword")
+        );
         assert!(data.aows.len() > 100);
         assert!(!data.exact_aow_compat.is_empty());
         assert!(!data.aow_effects.is_empty());

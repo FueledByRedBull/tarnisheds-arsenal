@@ -240,10 +240,6 @@ function assertRequest(value: unknown): asserts value is OptimizeRequestDto {
   if (!["automatic", "weapon", "loadout"].includes(String(value.resultGrouping))) {
     throw invalidPreset("request.resultGrouping is invalid");
   }
-  if (!["target_level", "offensive_points"].includes(String(value.budgetMode))) {
-    throw invalidPreset("request.budgetMode is invalid");
-  }
-  assertInteger(value.offensivePointBudget, "request.offensivePointBudget", 0, 712);
   if (!["max_ar", "max_physical_ar", "max_ar_plus_bleed", "aow_first_hit", "aow_full_sequence"].includes(String(value.objective))) {
     throw invalidPreset("request.objective is invalid");
   }
@@ -359,6 +355,8 @@ function migratePreset(value: unknown): BuildPreset {
   }
   const request = value.request;
   if (!isRecord(request)) throw invalidPreset("request must be an object");
+  delete request.budgetMode;
+  delete request.offensivePointBudget;
   const legacy = value.version === 1;
   if (!legacy) return value as unknown as BuildPreset;
   if (typeof value.profileId !== "string" && typeof request.profileId !== "string") {
@@ -380,8 +378,6 @@ function migratePreset(value: unknown): BuildPreset {
   }
   request.filters ??= { version: 1, entries: [] };
   request.resultGrouping ??= "automatic";
-  request.budgetMode ??= "target_level";
-  request.offensivePointBudget ??= 0;
   for (const buildKey of ["selectedBuild", "compareTarget"] as const) {
     const build = value[buildKey];
     if (!isRecord(build)) continue;

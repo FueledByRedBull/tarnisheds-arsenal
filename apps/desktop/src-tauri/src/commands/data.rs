@@ -226,15 +226,31 @@ impl CatalogIndex {
             }
         }
         let coverage = [
-            ("coverage:weapon-ar", "Weapon AR", data.capabilities.weapon_ar),
-            ("coverage:status", "Status buildup", data.capabilities.status_buildup),
+            (
+                "coverage:weapon-ar",
+                "Weapon AR",
+                data.capabilities.weapon_ar,
+            ),
+            (
+                "coverage:status",
+                "Status buildup",
+                data.capabilities.status_buildup,
+            ),
             (
                 "coverage:aow-compatibility",
                 "Ash compatibility",
                 data.capabilities.aow_compatibility,
             ),
-            ("coverage:aow-damage", "Ash damage", data.capabilities.aow_damage),
-            ("coverage:aow-routes", "Ash routes", data.capabilities.aow_routes),
+            (
+                "coverage:aow-damage",
+                "Ash damage",
+                data.capabilities.aow_damage,
+            ),
+            (
+                "coverage:aow-routes",
+                "Ash routes",
+                data.capabilities.aow_routes,
+            ),
         ]
         .into_iter()
         .map(|(id, label, supported)| FilterOptionDto {
@@ -344,11 +360,7 @@ pub fn get_catalog(profile_id: String, state: State<'_, AppState>) -> Result<Cat
     })
 }
 
-fn increment_facet(
-    facets: &mut BTreeMap<String, (String, usize)>,
-    id: String,
-    label: String,
-) {
+fn increment_facet(facets: &mut BTreeMap<String, (String, usize)>, id: String, label: String) {
     facets
         .entry(id)
         .and_modify(|entry| entry.1 += 1)
@@ -468,7 +480,9 @@ pub fn get_weapon_profile(
 pub fn class_metadata(include_tarnished_pack: bool) -> Vec<ClassMetadataDto> {
     STARTING_CLASSES
         .iter()
-        .filter(|class_info| include_tarnished_pack || !matches!(class_info.name, "Idus Knight" | "Heavy Knight"))
+        .filter(|class_info| {
+            include_tarnished_pack || !matches!(class_info.name, "Idus Knight" | "Heavy Knight")
+        })
         .map(|class_info| ClassMetadataDto {
             name: class_info.name.to_string(),
             base_level: class_info.base_level,

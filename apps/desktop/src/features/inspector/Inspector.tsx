@@ -564,7 +564,10 @@ function migratePresetRequest(request: OptimizeRequestDto, catalog: CatalogDto):
 
 function presetVersionLabel(savedVersion: string | undefined, currentVersion: string): string {
   if (!savedVersion) return "Saved metadata unavailable";
-  const [schema, dataset, model] = savedVersion.split(":");
+  const parts = savedVersion.split(":");
+  const [profile, schema, dataset, model] = parts.length === 4
+    ? parts
+    : ["unknown", ...parts];
   const status = savedVersion === currentVersion ? "Current" : "Stale — inputs load, solved rows are discarded";
-  return `${status} · dataset ${dataset ?? "unknown"} · schema ${schema ?? "unknown"} · model ${model ?? "unknown"}`;
+  return `${status} · profile ${profile} · dataset ${dataset} · schema ${schema} · model ${model}`;
 }

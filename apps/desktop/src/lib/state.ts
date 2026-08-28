@@ -132,8 +132,6 @@ export const defaultRequest: OptimizeRequestDto = {
   somberFilter: "all",
   filters: { version: 1, entries: [] },
   resultGrouping: "automatic",
-  budgetMode: "target_level",
-  offensivePointBudget: 0,
   objective: "max_ar",
   topK: 25,
 };
@@ -392,7 +390,6 @@ const createUiSlice: DesktopSlice<UiSlice> = (set) => ({
         ...(resetClass ? {
           className: classInfo.name,
           characterLevel: classInfo.baseLevel,
-          offensivePointBudget: 0,
           ...classInfo.baseStats,
         } : {}),
         profileId: catalog.dataManifest.profile.id,
@@ -442,7 +439,6 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
           ...state.request,
           className,
           characterLevel: meta.baseLevel,
-          offensivePointBudget: 0,
           vig: meta.baseStats.vig,
           mnd: meta.baseStats.mnd,
           end: meta.baseStats.end,

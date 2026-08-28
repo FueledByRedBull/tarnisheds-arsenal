@@ -4,10 +4,54 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.phase1.phase1_dump import MAX_EFFECTIVE_STRENGTH, expand_calc_correct_curve, iter_param_rows
+from tools.phase1.phase1_dump import (
+    MAX_EFFECTIVE_STRENGTH,
+    build_weapon_rows,
+    expand_calc_correct_curve,
+    iter_param_rows,
+)
 
 
 class Phase1DumpTests(unittest.TestCase):
+    def test_versioned_name_recovers_an_unnamed_weapon_series(self) -> None:
+        standard = {
+            "id": "64530000",
+            "sortId": "1750000",
+            "originEquipWep": "64530000",
+            "reinforceTypeId": "0",
+            "wepType": "92",
+            "attackBasePhysics": "115",
+        }
+        heavy = {
+            **standard,
+            "id": "64530100",
+            "sortId": "1750001",
+            "reinforceTypeId": "100",
+            "attackBasePhysics": "110",
+        }
+
+        rows = build_weapon_rows(
+            [standard, heavy],
+            {64_530_000: "Reverse-Bladed Sword"},
+            {},
+            {92: "Reverse-hand Blade"},
+            {92: ("ReverseHandSword",)},
+            {0: "Standard", 1: "Heavy"},
+            {0: 25, 100: 25},
+            {},
+            use_workbook_weapon_metadata=False,
+            allow_param_weapon_names=True,
+            weapon_name_overrides={64_530_000: "Reverse-Bladed Sword"},
+        )
+
+        self.assertEqual(
+            [(row["weapon_id"], row["name"]) for row in rows],
+            [
+                (64_530_000, "Reverse-Bladed Sword"),
+                (64_530_100, "Reverse-Bladed Sword"),
+            ],
+        )
+
     def test_param_rows_use_real_xml_parsing(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "param.xml"

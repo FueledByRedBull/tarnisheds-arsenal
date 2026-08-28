@@ -868,7 +868,9 @@ pub fn validate_optimize_request(request: &OptimizeRequestDto) -> Result<(), App
         )));
     }
     if request.filters.entries.len() > 512 {
-        return Err(AppError::new("filters.entries must contain at most 512 entries"));
+        return Err(AppError::new(
+            "filters.entries must contain at most 512 entries",
+        ));
     }
     Ok(())
 }
@@ -879,7 +881,9 @@ fn parse_stable_filters(filters: &StableFilterSetDto) -> Result<Vec<StableFilter
         .iter()
         .map(|filter| {
             if filter.id.is_empty() || filter.id.len() > 128 {
-                return Err(AppError::new("filter ids must contain 1 through 128 characters"));
+                return Err(AppError::new(
+                    "filter ids must contain 1 through 128 characters",
+                ));
             }
             Ok(StableFilter {
                 dimension: FilterDimension::parse(&filter.dimension).map_err(AppError::new)?,

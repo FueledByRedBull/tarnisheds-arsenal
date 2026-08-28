@@ -109,13 +109,7 @@ export function currentStatTotal(request: OptimizeRequestDto): number {
 
 export function derivedLevel(catalog: CatalogDto | null, request: OptimizeRequestDto): number {
   const meta = classMeta(catalog, request.className);
-  if (request.budgetMode === "offensive_points") {
-    const fixedUps = Math.max(0, request.vig - meta.baseStats.vig)
-      + Math.max(0, request.mnd - meta.baseStats.mnd)
-      + Math.max(0, request.end - meta.baseStats.end);
-    return Math.min(713, meta.baseLevel + fixedUps + request.offensivePointBudget);
-  }
-  return Math.max(meta.baseLevel, Math.min(713, request.characterLevel));
+  return meta.baseLevel + (currentStatTotal(request) - meta.baseTotal);
 }
 
 export function budgetSnapshot(catalog: CatalogDto | null, request: OptimizeRequestDto) {

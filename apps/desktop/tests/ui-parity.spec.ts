@@ -32,7 +32,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
     return rankRect.left - cardRect.left >= 12 && cardRect.right - copyRect.right >= 12;
   }))).toBe(true);
 
-  await expect(page.getByRole("textbox", { name: "Level" })).toHaveValue("9");
+  await expect(page.getByRole("textbox", { name: "Level", exact: true })).toHaveValue("9");
   await expect(page.getByText("Redistrib", { exact: true })).toBeVisible();
   await page.getByRole("combobox", { name: "Class" }).click();
   await expect(page.getByRole("option", { name: "Wretch" })).toBeVisible();
@@ -46,7 +46,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(page.getByRole("spinbutton", { name: "VIG" })).toHaveValue("15");
   await expect(page.getByRole("spinbutton", { name: "STR", exact: true })).toHaveValue("14");
   await expect(page.getByRole("spinbutton", { name: "DEX", exact: true })).toHaveValue("13");
-  await expect(page.getByRole("textbox", { name: "Level" })).toHaveValue("9");
+  await expect(page.getByRole("textbox", { name: "Level", exact: true })).toHaveValue("9");
   await chooseSearchableOption(page, "Weapon Type", "Great Katana");
   await expect(page.getByRole("combobox", { name: "Weapon Type" })).toHaveValue("Great Katana");
   await chooseSearchableOption(page, "Weapon Type", "Open");
@@ -59,8 +59,8 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
 
   await page.getByRole("button", { name: "Search" }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
-  await expect(page.getByText("Uchigatana").first()).toBeVisible();
   const firstRankedRow = page.locator(".result-row-full").first();
+  await expect(firstRankedRow).toContainText("Uchigatana");
   const damageSplit = firstRankedRow.getByRole("list", { name: "Attack rating split" });
   for (const label of [
     "Physical attack rating: 700",
@@ -117,7 +117,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(selectedScaling.getByRole("listitem", { name: "Arcane scaling: D" })).toBeVisible();
   await chooseSearchableOption(page, "Compare Weapon", "Uchigatana");
   await chooseSearchableOption(page, "Compare Affinity", "Occult");
-  const targetLane = page.locator(".compare-lane", { hasText: "Target" });
+  const targetLane = page.locator(".compare-lane", { hasText: "Compare" });
   await expect(targetLane).toContainText("Occult / Seppuku");
   await expect(targetLane).toContainText("ARC 60");
   await expect(targetLane).toContainText("AR 670");
@@ -145,11 +145,12 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
 
   await page.getByRole("navigation").getByRole("button", { name: "Affinity Watch" }).click();
   await page.getByRole("button", { name: "Start" }).click();
-  await expect(page.getByText("Keen").first()).toBeVisible();
+  const affinityRankings = page.getByRole("grid", { name: "Affinity watch rankings" });
+  await expect(affinityRankings).toContainText("Keen");
   await expect(page.locator(".affinity-chart")).toContainText("Best-affinity crossover");
   await expect(page.locator(".affinity-plot svg")).toBeVisible();
   await expect(page.locator(".affinity-chart .spark-line")).toHaveCount(0);
-  await expect(page.getByRole("grid", { name: "Affinity watch rankings" })).toContainText("Occult");
+  await expect(affinityRankings).toContainText("Occult");
 });
 
 test("somber-only exact search uses the somber upgrade cap", async ({ page }) => {
@@ -157,7 +158,7 @@ test("somber-only exact search uses the somber upgrade cap", async ({ page }) =>
 
   await page.getByRole("spinbutton", { name: "STR", exact: true }).fill("60");
   await page.getByRole("spinbutton", { name: "STR", exact: true }).press("Enter");
-  await expect(page.getByRole("textbox", { name: "Level" })).toHaveValue("57");
+  await expect(page.getByRole("textbox", { name: "Level", exact: true })).toHaveValue("57");
   await expect(page.getByRole("spinbutton", { name: "Standard Upgrade" })).toHaveValue("25");
   await expect(page.getByRole("spinbutton", { name: "Somber Upgrade" })).toHaveValue("10");
   await page.getByRole("button", { name: "Use exact levels" }).click();
@@ -168,6 +169,32 @@ test("somber-only exact search uses the somber upgrade cap", async ({ page }) =>
   await expect(page.getByRole("grid", { name: "Ranked builds" })).toContainText("Somber");
   await expect(page.getByRole("grid", { name: "Ranked builds" })).toContainText("Ancient Meteoric Ore Greatsword");
   await expect(page.getByRole("grid", { name: "Ranked builds" })).toContainText("+10");
+});
+
+test("weapon types and affinities use ordinary multi-select checkboxes", async ({ page }) => {
+  await page.goto("/");
+
+  const weaponTypes = page.getByRole("group", { name: "Weapon Type" });
+  const affinities = page.getByRole("group", { name: "Affinity" });
+  const katana = weaponTypes.getByRole("checkbox", { name: /^Katana\b/ });
+  const colossalSword = weaponTypes.getByRole("checkbox", { name: /^Colossal Sword\b/ });
+  const blood = affinities.getByRole("checkbox", { name: /^Blood\b/ });
+  const keen = affinities.getByRole("checkbox", { name: /^Keen\b/ });
+
+  await katana.check();
+  await colossalSword.check();
+  await blood.check();
+  await keen.check();
+  await expect(page.getByText("Weapon types & affinities · 4 selected")).toBeVisible();
+  await expect(katana).toBeChecked();
+  await expect(colossalSword).toBeChecked();
+  await expect(blood).toBeChecked();
+  await expect(keen).toBeChecked();
+
+  await page.getByRole("button", { name: "Clear selections" }).click();
+  await expect(page.getByText("Weapon types & affinities · All")).toBeVisible();
+  await expect(katana).not.toBeChecked();
+  await expect(blood).not.toBeChecked();
 });
 
 test("a ranked row below the podium selects that exact build", async ({ page }) => {
@@ -196,9 +223,12 @@ test("stale saved builds offer explicit input-only loading or recompute migratio
   await expect(page.getByText("4 ranked rows")).toBeVisible();
   await page.getByRole("button", { name: "Save new" }).click();
   await expect(page.getByText(/Saved Build Preset/)).toBeVisible();
+  await expect(page.locator(".saved-build-status")).toContainText(
+    "Current · profile vanilla · dataset vanilla-1.17 · schema 3",
+  );
 
   await page.evaluate(() => {
-    const presetKey = Object.keys(localStorage).find((key) => key.startsWith("tarnisheds-arsenal.savedBuild.v1."));
+    const presetKey = Object.keys(localStorage).find((key) => key.startsWith("tarnisheds-arsenal.savedBuild.v2."));
     if (!presetKey) throw new Error("saved preset was not created");
     const preset = JSON.parse(localStorage.getItem(presetKey) ?? "null");
     preset.dataVersion = "1:old-dataset:old-model";
