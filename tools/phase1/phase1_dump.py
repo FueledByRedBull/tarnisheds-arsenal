@@ -23,8 +23,8 @@ if str(ROOT) not in sys.path:
 
 from tools.phase1.profiles import discover_witchybnd, profile_definition  # noqa: E402
 
-ROW_MARKER = '<row id="'
-ATTR_RE = re.compile(r'(\w+)="([^"]*)"')
+MAX_DISPLAYED_STAT = 99
+MAX_EFFECTIVE_STRENGTH = MAX_DISPLAYED_STAT * 3 // 2
 
 WEAPON_PARAM = "EquipParamWeapon.param"
 REINFORCE_PARAM = "ReinforceParamWeapon.param"
@@ -238,29 +238,10 @@ def serialize_param(unpacked_dir: Path, witchybnd_path: Path, param_name: str) -
 
 
 def iter_param_rows(xml_path: Path) -> Iterator[dict[str, str]]:
-    with xml_path.open("r", encoding="utf-8") as handle:
-        buffer = ""
-        capturing = False
-
-        for raw_line in handle:
-            line = raw_line.strip()
-
-            if not capturing:
-                if ROW_MARKER not in line:
-                    continue
-                buffer = line
-                capturing = True
-            else:
-                buffer = f"{buffer} {line}"
-
-            if "/>" not in line:
-                continue
-
-            attrs = dict(ATTR_RE.findall(buffer))
-            if "id" in attrs:
-                yield attrs
-            buffer = ""
-            capturing = False
+    for _event, element in ET.iterparse(xml_path, events=("end",)):
+        if element.tag.rsplit("}", 1)[-1] == "row" and "id" in element.attrib:
+            yield dict(element.attrib)
+        element.clear()
 
 
 def to_int(attrs: dict[str, str], key: str, default: int = 0) -> int:
@@ -301,7 +282,7 @@ def format_float(value: float) -> str:
 def write_csv(path: Path, fieldnames: list[str], rows: Iterable[dict[str, object]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         for row in rows:
             out: dict[str, str] = {}
@@ -488,20 +469,39 @@ def physical_attack_attributes(row: dict[str, str]) -> tuple[str, str]:
 
 
 def expand_calc_correct_curve(curve: dict[str, str]) -> list[float]:
-    stage_vals = [to_float(curve, f"stageMaxVal{i}") for i in range(5)]
-    stage_grow_vals = [to_float(curve, f"stageMaxGrowVal{i}") for i in range(5)]
-    exponents = [to_float(curve, f"adjPt_maxGrowVal{i}") for i in range(5)]
+    curve_id = curve.get("id", "unknown")
 
-    max_stat_value = max(99, math.ceil(max(stage_vals)))
+    def required_finite(key: str) -> float:
+        raw = curve.get(key)
+        if raw is None or raw == "":
+            raise ValueError(f"curve {curve_id}: missing {key}")
+        value = float(raw)
+        if not math.isfinite(value):
+            raise ValueError(f"curve {curve_id}: non-finite {key}={raw}")
+        return value
+
+    stage_vals = [required_finite(f"stageMaxVal{i}") for i in range(5)]
+    stage_grow_vals = [required_finite(f"stageMaxGrowVal{i}") for i in range(5)]
+    exponents = [required_finite(f"adjPt_maxGrowVal{i}") for i in range(5)]
+    if stage_vals != sorted(stage_vals):
+        raise ValueError(f"curve {curve_id}: stage bounds are not nondecreasing: {stage_vals}")
+    segments = [idx for idx in range(4) if stage_vals[idx] < stage_vals[idx + 1]]
+    max_stat_value = max(MAX_EFFECTIVE_STRENGTH, math.ceil(max(stage_vals)))
+    if not segments:
+        if len(set(stage_grow_vals)) != 1:
+            raise ValueError(
+                f"curve {curve_id}: empty stage ranges have conflicting growth values"
+            )
+        return [0.0] + [stage_grow_vals[0] / 100.0] * max_stat_value
+
     multipliers = [0.0] * (max_stat_value + 1)
     for x in range(1, max_stat_value + 1):
-        segment = None
-        for idx in range(4):
-            if stage_vals[idx] <= x <= stage_vals[idx + 1]:
-                segment = idx
-                break
+        segment = next(
+            (idx for idx in segments if stage_vals[idx] <= x <= stage_vals[idx + 1]),
+            None,
+        )
         if segment is None:
-            segment = 0 if x < stage_vals[0] else 3
+            segment = segments[0] if x < stage_vals[segments[0]] else segments[-1]
 
         left_x = stage_vals[segment]
         right_x = stage_vals[segment + 1]
@@ -509,26 +509,22 @@ def expand_calc_correct_curve(curve: dict[str, str]) -> list[float]:
         right_g = stage_grow_vals[segment + 1]
         exponent = exponents[segment]
 
-        if right_x == left_x:
-            ratio = 0.0
-        else:
-            ratio = (x - left_x) / (right_x - left_x)
-
+        ratio = (x - left_x) / (right_x - left_x)
         ratio = max(0.0, min(1.0, ratio))
-
-        try:
-            if exponent > 0.0:
-                ratio_curve = ratio ** exponent
-            elif exponent < 0.0:
-                ratio_curve = 1.0 - (1.0 - ratio) ** (-exponent)
-            else:
-                ratio_curve = ratio
-        except ZeroDivisionError:
-            ratio_curve = 0.0
+        if exponent > 0.0:
+            ratio_curve = ratio**exponent
+        elif exponent < 0.0:
+            ratio_curve = 1.0 - (1.0 - ratio) ** (-exponent)
+        else:
+            ratio_curve = ratio
         if not math.isfinite(ratio_curve):
-            ratio_curve = 0.0
+            raise ValueError(
+                f"curve {curve_id}: non-finite interpolation at stat {x}, segment {segment}"
+            )
 
         growth = left_g + (right_g - left_g) * ratio_curve
+        if not math.isfinite(growth):
+            raise ValueError(f"curve {curve_id}: non-finite growth at stat {x}")
         multipliers[x] = growth / 100.0
 
     return multipliers

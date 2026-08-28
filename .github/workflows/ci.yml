@@ -66,7 +66,7 @@ jobs:
 
       - name: Python tests, lint and type checking
         run: |
-          python -m unittest tools.phase1.test_snapshot_manifest
+          python -m unittest tools.phase1.test_phase1_dump tools.phase1.test_snapshot_manifest
           python -m ruff check tools
           python -m pyright tools
 
@@ -117,3 +117,30 @@ jobs:
         working-directory: apps/desktop
         run: |
           npm run test:e2e
+
+  linux-core-and-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
+          cache: "pip"
+          cache-dependency-path: requirements-validation.txt
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.97.0
+
+      - name: Install validation dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-validation.txt
+
+      - name: Validate source checkout
+        run: |
+          cargo test --locked --manifest-path core/er_optimizer_core/Cargo.toml
+          python -m unittest tools.phase1.test_phase1_dump tools.phase1.test_snapshot_manifest
+          python tools/phase4/validate_phase4.py --report dist/validation/data-validation-linux.json

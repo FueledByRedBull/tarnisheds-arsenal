@@ -704,7 +704,7 @@ def build_aow_attack_data(project_root: Path, phase1_dir: Path | None = None) ->
         'stamina_cost_mode',
     ]
     with out_path.open('w', encoding='utf-8', newline='') as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator='\n')
         writer.writeheader()
         writer.writerows(rows_out)
 
@@ -721,7 +721,7 @@ def build_aow_attack_data(project_root: Path, phase1_dir: Path | None = None) ->
         'unique_collision_rows',
     ]
     with coverage_path.open('w', encoding='utf-8', newline='') as handle:
-        writer = csv.DictWriter(handle, fieldnames=coverage_fields)
+        writer = csv.DictWriter(handle, fieldnames=coverage_fields, lineterminator='\n')
         writer.writeheader()
         for row in aow_rows:
             entry = coverage[row['name']]
@@ -879,7 +879,7 @@ def build_native_skill_attack_data(project_root: Path, phase1_dir: Path | None =
         'stamina_cost_mode',
     ]
     with out_path.open('w', encoding='utf-8', newline='') as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator='\n')
         writer.writeheader()
         writer.writerows(rows_out)
 
@@ -895,7 +895,7 @@ def build_native_skill_attack_data(project_root: Path, phase1_dir: Path | None =
         'matched_weapon_names',
     ]
     with coverage_path.open('w', encoding='utf-8', newline='') as handle:
-        writer = csv.DictWriter(handle, fieldnames=coverage_fields)
+        writer = csv.DictWriter(handle, fieldnames=coverage_fields, lineterminator='\n')
         writer.writeheader()
         writer.writerows(coverage_rows)
 
@@ -949,7 +949,7 @@ def build_attack_element_correct_ext(project_root: Path, phase1_dir: Path | None
             fieldnames.append(f'{stat_key}_overwrite_{damage_type}')
             fieldnames.append(f'{stat_key}_influence_{damage_type}')
     with out_path.open('w', encoding='utf-8', newline='') as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator='\n')
         writer.writeheader()
         writer.writerows(rows_out)
     print(f'Wrote {len(rows_out)} AttackElementCorrect override rows to {out_path}')
@@ -1120,6 +1120,7 @@ def build_aow_route_data(project_root: Path, phase1_dir: Path | None = None) -> 
                 'action_order',
                 'hit_order',
             ],
+            lineterminator='\n',
         )
         writer.writeheader()
         writer.writerows(assignments)
@@ -1128,6 +1129,7 @@ def build_aow_route_data(project_root: Path, phase1_dir: Path | None = None) -> 
         writer = csv.DictWriter(
             handle,
             fieldnames=['aow_id', 'sheet_row', 'raw_name', 'reason'],
+            lineterminator='\n',
         )
         writer.writeheader()
         writer.writerows(exclusions)

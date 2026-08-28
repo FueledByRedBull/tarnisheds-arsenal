@@ -159,6 +159,7 @@ def write_snapshot_manifest(
     temporary_path.write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     temporary_path.replace(output_path)
     return output_path

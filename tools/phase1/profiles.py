@@ -130,7 +130,7 @@ PROFILES: Mapping[str, ProfileDefinition] = {
     "vanilla": ProfileDefinition(
         id="vanilla",
         display_name="Vanilla",
-        game_version="1.16.1",
+        game_version="1.17",
         mod_version=None,
         raw_dir=Path("data/raw/Vanilla"),
         output_dir=Path("data/phase1"),

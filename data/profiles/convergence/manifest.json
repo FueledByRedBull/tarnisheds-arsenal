@@ -29,81 +29,81 @@
     "extendedScalingGrades": true,
     "statusBuildupScales": false
   },
-  "generatedAt": "2026-07-16",
+  "generatedAt": "2026-08-28",
   "extractorVersion": "phase1-python-v6-profile-semantics",
   "provenance": "profile-bound regulation, names, motion data, and numeric PARAM effect graph",
   "runtimeFiles": [
     {
       "path": "aow.csv",
-      "size": 23146,
-      "sha256": "3b1a6d7ec6369989a2b2223a244f0bcd447f166e7a8e229a2f35f72d0bc3a605"
+      "size": 23020,
+      "sha256": "b5d1c50ddcf64fbe24b683d91c0bce741a81ca7956dd4da42fa9d4d8479b64c0"
     },
     {
       "path": "aow_attack_data.csv",
-      "size": 531,
-      "sha256": "db6861823c1c78351dfa9b9b04acf4dfc2ce890518b017ed6739f378a8ad586b"
+      "size": 530,
+      "sha256": "8cff9eadac85fd0ab68d07a8372fb0c2f62c905d2442216c4ac0b69853ac289f"
     },
     {
       "path": "aow_effect_data.csv",
-      "size": 475,
-      "sha256": "0b432ca4909d42880c65e683eb7c222091db19071d5e16a7caf62ac528f65d7d"
+      "size": 474,
+      "sha256": "3c6c8c7b626bf10378243afb372134121adea4f179e8c93aebb1b981c5a8646a"
     },
     {
       "path": "aow_route_assignments.csv",
-      "size": 96,
-      "sha256": "8160dc3edc71bb58a2751a5b9b396f1de21ef0649f8ed0ad89c26bc9fd770fe6"
+      "size": 95,
+      "sha256": "1795cda1695700aa73de4d3836eec9c3087822ceb5b274e94e4f3d49c328dccd"
     },
     {
       "path": "aow_weapon_compat.csv",
-      "size": 5356469,
-      "sha256": "fbc7285045aa0c99a36110c21bc86134b3ad5ed54c600b193d6d09dba7d707af"
+      "size": 5281178,
+      "sha256": "60959755927b13cbbb7a1dfbb7e7c17d0b31e9db35fae5dd3b78306d09e9d1e5"
     },
     {
       "path": "attack_element_correct.csv",
-      "size": 11221,
-      "sha256": "6111bd8a4be82e6e4787a5f62971f2cbeedde4605a188d568e1f597890c4ed6c"
+      "size": 11035,
+      "sha256": "26e9ed4927b2df1ac5e2323354ff9c954826d564f3b14b0ddbaa12b3dfda6686"
     },
     {
       "path": "attack_element_correct_ext.csv",
-      "size": 44343,
-      "sha256": "d6b1190b1adefef823ddaf9df307b543d25af4d1d47743c5b78a7593f0f67ac0"
+      "size": 44158,
+      "sha256": "23bdb24aac3284cfc2edda4b0109b6a1c065453b46c286791de1a7e14f51ed3e"
     },
     {
       "path": "calc_correct.csv",
-      "size": 464142,
-      "sha256": "58d4105623846b370e5d26ca4a7c0c091074da66b60ca34ed25ce9e802c60b09"
+      "size": 466135,
+      "sha256": "19a912c0c80b3511c1d5e462d4e32e8cd63d4fecedb414d5413391f938b56501"
     },
     {
       "path": "native_skill_attack_data.csv",
-      "size": 573,
-      "sha256": "b4a3d67c3bfe2875fb99f21016914b9c16ee745e92c86dffbe26074984ad55d7"
+      "size": 572,
+      "sha256": "b309d6fe259f52156ff5e4ebae6ae8618fcbc0623cd8f1473eb2442f0828b673"
     },
     {
       "path": "reinforce.csv",
-      "size": 53537,
-      "sha256": "1b54c25aabf72ae5a0528dd76f7bc222da7ef4e9959c1ff89fd3180320fcbb80"
+      "size": 52636,
+      "sha256": "3cc01184553d2863eb3d781923adff5f512c5f73bd3a6f3981722dec6c774ea1"
     },
     {
       "path": "weapon_passive_overlays.csv",
-      "size": 305,
-      "sha256": "a958901fced52888982c8d5d5f22c10b90e40af0e2ef2b65bf76c2d8ba746ccb"
+      "size": 304,
+      "sha256": "b3db7e94c71a4a87e1fa5dd5ee242bcffad25c8bdc5072b54fb6f773251ea2bb"
     },
     {
       "path": "weapon_passives.csv",
-      "size": 187135,
-      "sha256": "215ede4b09f438f441dbf344542863bbb25676f77148130db0193de7daa53cd5"
+      "size": 183945,
+      "sha256": "e3b157fde2f380fefeb901c1e9e77a9277e49680beab2e0e6feaea8816a38404"
     },
     {
       "path": "weapons.csv",
-      "size": 508806,
-      "sha256": "122713d236a449a2422f877e7939c9ece66274661ac5e13c359b49d4ed5d3d10"
+      "size": 505616,
+      "sha256": "3b16529cc9f8599e549593d98c305c37bf8f88223b1d1022d963c01a342fe242"
     }
   ],
   "diagnosticFiles": [
     {
       "path": "passive_effect_coverage.csv",
-      "size": 42224,
-      "sha256": "aed929e6d9e6d94823d7b76d09facfd6436b5b1c7712230a0df7b44c29b4ddba"
+      "size": 42071,
+      "sha256": "e1eb747bb7c922e5a44574f601194d6c75b00b1f5cd97bda2701ea3489c782d3"
     }
   ],
   "sources": [

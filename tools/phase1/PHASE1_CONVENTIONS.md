@@ -7,11 +7,12 @@
   - `weapon_type_keys`: pipe-delimited keys that directly match `aow.csv.valid_weapon_types` tokens.
 - `calc_correct.csv` multipliers are normalized to `0.0..1.0` (`growth / 100.0`).
 - `reinforce.csv` damage/scaling multipliers are emitted as raw multipliers from `ReinforceParamWeapon` (for example `1.058`), with no additional normalization.
-- `calc_correct.csv` is pre-expanded through each curve's final stage point, with at least 100 rows per curve:
+- `calc_correct.csv` is pre-expanded through each curve's final stage point and at least effective Strength 148 (`floor(99 * 1.5)`):
   - `stat_value=0` is always written as `multiplier=0.0` and is reserved.
   - Runtime lookup convention is direct indexing: stat values map to matching indices.
   - No `-1` offset is used for curve lookup.
-  - Some weapon scaling curves extend to `150`; this is required for two-handing effective STR above the normal `99` stat cap.
+  - Authored curves that extend farther (currently through `150`) retain that full range.
+  - Missing curve ids and missing stat cells remain missing at runtime; the loader rejects duplicate `(curve_id, stat_value)` rows rather than silently filling or overwriting them.
   - Expansion uses segmented exponent handling:
     - if `adjPt > 0`: `ratio_curve = ratio ** adjPt`
     - if `adjPt < 0`: `ratio_curve = 1 - (1 - ratio) ** (-adjPt)`
@@ -20,3 +21,4 @@
   - `spEffectId_forAtk*` fields are ignored (they are attack-hit effects for active skill execution).
   - AoW duplicate rows are collapsed per `swordArtsParamId`, preferring non-placeholder rows (`sortId != 999999` / real icon).
   - `valid_weapon_types` is pipe-delimited and intended to be matched against `weapon_type_keys`.
+- Generated CSV and manifest JSON files use canonical LF line endings so snapshots hash identically across supported hosts.

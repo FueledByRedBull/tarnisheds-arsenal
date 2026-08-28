@@ -1,15 +1,15 @@
 {
   "schemaVersion": 3,
-  "datasetVersion": "vanilla-1.16.1",
+  "datasetVersion": "vanilla-1.17",
   "modelVersion": "aow-routes-effects-v3-profile-semantics",
-  "id": "vanilla-1.16.1",
-  "label": "Vanilla dataset - 1.16.1",
-  "appVersion": "1.16.1",
+  "id": "vanilla-1.17",
+  "label": "Vanilla dataset - 1.17",
+  "appVersion": "1.17",
   "source": "regulation.bin",
   "profile": {
     "id": "vanilla",
     "displayName": "Vanilla",
-    "gameVersion": "1.16.1",
+    "gameVersion": "1.17",
     "modVersion": null
   },
   "capabilities": {
@@ -29,111 +29,106 @@
     "extendedScalingGrades": false,
     "statusBuildupScales": true
   },
-  "generatedAt": "2026-07-16",
+  "generatedAt": "2026-08-28",
   "extractorVersion": "phase1-python-v6-profile-semantics",
   "provenance": "profile-bound regulation, names, motion data, and numeric PARAM effect graph",
   "runtimeFiles": [
     {
       "path": "aow.csv",
-      "size": 21623,
-      "sha256": "baf47b096d872075f36672f06e3433195cb8dd6de1327fcb92cb44b82a40a727"
+      "size": 21503,
+      "sha256": "baca5f6d15a7891c3cf79c5e7b6ea1c1aef9bf85586f9e11456c5e5e25c75712"
     },
     {
       "path": "aow_attack_data.csv",
-      "size": 369243,
-      "sha256": "0ef25d78d8be6fcde373997687ee75752117451c866c8540095ccb2df06fbb7d"
+      "size": 367641,
+      "sha256": "e6f1a3a20caaea369d91d35fe0e12eb4c83c4d092e4beb1e9ea24104392ce380"
     },
     {
       "path": "aow_effect_data.csv",
-      "size": 674454,
-      "sha256": "9ecc223cd7c88920af8732b39a5b472112ef35c32bfa0d0d2efe00b108016c56"
+      "size": 671432,
+      "sha256": "e3f9d1a50dd1526474a3d1e3b3260d61f1fe8b111e5a2cf69e94e42d116cda43"
     },
     {
       "path": "aow_route_assignments.csv",
-      "size": 121660,
-      "sha256": "3f7b86f63a9a5f80e3e11d93698bab2604f3490e56d70113d0df451b18edd1a2"
+      "size": 119622,
+      "sha256": "a682827bc300a6bbec2d19ba68b1c77bde4b230ed5592a600084e7ed9bb17572"
     },
     {
       "path": "aow_weapon_compat.csv",
-      "size": 6754765,
-      "sha256": "6c1acc28833c2f2bc147ad3b2155f194959a4b066f6d8cdf46f11f60cdb7ea31"
+      "size": 6662088,
+      "sha256": "71c4b94edf7c912d20a83961f83ba0a3164ef3ef5503d1768060c83e80c77d4e"
     },
     {
       "path": "attack_element_correct.csv",
-      "size": 11164,
-      "sha256": "30518c152427c0771e55d00b725746a23d06ec2b0a0e27a03eb379a63fb004ee"
+      "size": 11094,
+      "sha256": "7d2a0dd48486797bdd14c2793539be59da5963acd519d65db0cc9605e136fd7b"
     },
     {
       "path": "attack_element_correct_ext.csv",
-      "size": 62411,
-      "sha256": "0a3052fd44b9c3809a2fd98f3652d0201b823ad7d9a43468ff07f3e9c56690ce"
+      "size": 62227,
+      "sha256": "70afd09a5914c1d74713bbb5583a8ec0c849eee185887ee3249b2d09b3725517"
     },
     {
       "path": "calc_correct.csv",
-      "size": 453031,
-      "sha256": "a2d2c000b36dd61e3039903fe688ce0dc14d8474aa09530fb85543e269fb5f84"
+      "size": 450928,
+      "sha256": "c81ec8219879fdb25e050c30d84ec6355bab146c4e0d01e44340dfb4160980bf"
     },
     {
       "path": "native_skill_attack_data.csv",
-      "size": 298744,
-      "sha256": "f7bee8ae2c44cae6e6c86f30443e6cd3cf824477939e5722d04dbee08ca9daef"
+      "size": 297612,
+      "sha256": "b723d070fca22a49b4df32360d62d8af99e024e47ed05a9f9cd3446245fb265c"
     },
     {
       "path": "reinforce.csv",
-      "size": 54684,
-      "sha256": "55442a3b4015ad02fa31b7a0aa2c8424a0ba2fd3d2b3c26eacef515ca2b6d267"
+      "size": 55435,
+      "sha256": "002faf38a665b44b49c9ea00c5c55a0de00c54db8dd7b64fa9d9264257c08774"
     },
     {
       "path": "weapon_passive_overlays.csv",
-      "size": 1158080,
-      "sha256": "8d99dd13fe2b08074d088990576c033709deae613de2c6a6bf46497ae443bbf0"
+      "size": 1140295,
+      "sha256": "b87d249c44343d973be66f829e71bda71b414549ca3cb93c24bd9ccc10432821"
     },
     {
       "path": "weapon_passives.csv",
-      "size": 191236,
-      "sha256": "ab40f18bbfaca3fb02261069868ae34b087bf102e86961341779ddbdcb788532"
+      "size": 188020,
+      "sha256": "e02d53514fb44f595f774163d693ebd248a26df7eb1c0f42842fbf2b546cc273"
     },
     {
       "path": "weapons.csv",
-      "size": 541240,
-      "sha256": "8fd1e25596cf8d4643318a9395a0f12932d1dda5518e19446ca2142c2c7179d6"
+      "size": 538027,
+      "sha256": "12b8a525c78809455e8da4c7212227f72da19682c8b87311d39113fbc3055351"
     }
   ],
   "diagnosticFiles": [
     {
-      "path": "aow_buffs.csv",
-      "size": 1472,
-      "sha256": "c1a3631da18ba0003a1b22c7e9128d89cdfe07a6ce3f0e544f375970a7ef1d59"
-    },
-    {
       "path": "aow_damage_coverage.csv",
-      "size": 5718,
-      "sha256": "6d4cb149b75e600be442bba447b4ef57c8820d5d51c406f17c2de93ddff60e85"
+      "size": 5598,
+      "sha256": "49efcc4db661432b64dcac9481e750bb5d381923ff74be476393bd0f37485839"
     },
     {
       "path": "aow_effect_coverage.csv",
-      "size": 227490,
-      "sha256": "0aa9412de8d64f25ea24c58d3b33e67868f148368333e022d78b2dbc6b590518"
+      "size": 224797,
+      "sha256": "3121eaa8e49011c11744410ba13271aa8911ba4bfc1df66c45841ebda2d4c27a"
     },
     {
       "path": "aow_effect_exclusions.csv",
-      "size": 1734,
-      "sha256": "a5c90ab34829adb146edf5f165ec450849eaca2021695b736b0e7ba39d4e24a7"
+      "size": 1718,
+      "sha256": "8196fc4bae0f3508a782c452dc10e2aebe11942304937a994191cc4ba90c88ff"
     },
     {
       "path": "aow_route_exclusions.csv",
-      "size": 44304,
-      "sha256": "047988fc1c8205d93a90f5f635ab1178a6b63975b6fe46fdc6c96cb9c4625879"
+      "size": 43627,
+      "sha256": "89e352de421da7f2b6ef3310d14a301bdbe8d47c7b5aa608b5d3ea69b4e72e40"
     },
     {
       "path": "native_skill_damage_coverage.csv",
-      "size": 146281,
-      "sha256": "6940a3547bf9f3d2ff116a93fc91a83bdc2a70556a8c9f189ed4d23fbad58500"
+      "size": 145164,
+      "sha256": "ba6b3bc90c94fc65d1fc93b9619b008162546e6966e434ac048ce4737e5ae052"
     },
     {
       "path": "passive_effect_coverage.csv",
-      "size": 33357,
-      "sha256": "11836b021e8cc7e468ba11b5e4df5336fe39df650d30a1c5f439b6107d007b0c"
+      "size": 33233,
+      "sha256": "fec2f34847ad1454c59124f03b7aa1c08aa4bcc8c9a1a89b74dbc8b11d4525d5"
     }
   ],
   "sources": [
@@ -141,8 +136,8 @@
       "kind": "regulation",
       "bundled": false,
       "path": "regulation.bin",
-      "size": 2036272,
-      "sha256": "7b6d07c357b639c902d48403ffe3612db35e0cf8d6fcc82d3fb24ea6eb6cf30a"
+      "size": 2045728,
+      "sha256": "fb4afd25e70effc9f9523d3aba89b1fb3e08b0800d8efb9a535cab038c5e8bbd"
     },
     {
       "kind": "workbook",

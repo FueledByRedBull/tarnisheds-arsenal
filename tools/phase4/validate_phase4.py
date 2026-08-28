@@ -921,12 +921,14 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate extracted data and runtime calculations.")
     parser.add_argument("--report", type=Path, help="Write a machine-readable validation report.")
+    parser.add_argument("--diagnostic", action="store_true", help="Include profile versions and CSV row counts in the report and console output.")
     args = parser.parse_args()
     project_root = Path(__file__).resolve().parents[2]
     profile_dirs = {
         "vanilla": project_root / "data" / "phase1",
         "convergence": project_root / "data" / "profiles" / "convergence",
     }
+    diagnostics = {profile_id: profile_diagnostics(data_dir) for profile_id, data_dir in profile_dirs.items()} if args.diagnostic else None
     issues: list[ValidationIssue] = []
     for profile_id, data_dir in profile_dirs.items():
         if not data_dir.exists():
@@ -945,13 +947,15 @@ def main() -> int:
         print(f"WARN: {issue.message}")
     for issue in errors:
         print(f"ERROR: {issue.message}")
+    if diagnostics is not None:
+        print(json.dumps({"diagnostics": diagnostics}, indent=2, sort_keys=True))
 
     if errors:
-        write_validation_report(args.report, "failed", issues, list(profile_dirs))
+        write_validation_report(args.report, "failed", issues, list(profile_dirs), diagnostics)
         print(f"VALIDATION FAILED ({len(errors)} errors, {len(warnings)} warnings)")
         return 1
 
-    write_validation_report(args.report, "passed", issues, list(profile_dirs))
+    write_validation_report(args.report, "passed", issues, list(profile_dirs), diagnostics)
     print(f"VALIDATION PASSED ({len(warnings)} warnings)")
     return 0
 
@@ -961,6 +965,7 @@ def write_validation_report(
     status: str,
     issues: list[ValidationIssue],
     profiles: list[str] | None = None,
+    diagnostics: dict[str, dict[str, object]] | None = None,
 ) -> None:
     if path is None:
         return
@@ -969,6 +974,7 @@ def write_validation_report(
         "errors": sum(issue.level == "error" for issue in issues),
         "warnings": sum(issue.level == "warning" for issue in issues),
         "profiles": profiles or [],
+        "diagnostics": diagnostics,
         "issues": [
             {"level": issue.level, "message": issue.message}
             for issue in issues
@@ -976,6 +982,25 @@ def write_validation_report(
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def profile_diagnostics(data_dir: Path) -> dict[str, object]:
+    manifest_path = data_dir / "manifest.json"
+    if not manifest_path.exists():
+        return {"dataDir": str(data_dir), "missing": True}
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    row_counts = {}
+    for filename in ("weapons.csv", "aow.csv", "aow_weapon_compat.csv", "calc_correct.csv", "reinforce.csv"):
+        path = data_dir / filename
+        if path.exists():
+            with path.open("r", encoding="utf-8", newline="") as handle:
+                row_counts[filename] = max(0, sum(1 for _ in csv.reader(handle)) - 1)
+    return {
+        "datasetVersion": manifest.get("datasetVersion"),
+        "gameVersion": manifest.get("profile", {}).get("gameVersion"),
+        "modelVersion": manifest.get("modelVersion"),
+        "rowCounts": row_counts,
+    }
 
 
 if __name__ == "__main__":
