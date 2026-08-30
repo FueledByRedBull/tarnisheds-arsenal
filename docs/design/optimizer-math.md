@@ -33,9 +33,10 @@ $$P = B_c + (L-L_c) - \sum_{j=1}^{8} a_j.$$
 The request is rejected if a current stat is below its class minimum or $P<0$.
 `build_combat_constraints` (`optimizer.rs`) applies requested floors and locks:
 
-$$m_i=\max(a_i,\operatorname{floor}_i), \qquad u_i=99,$$
+$$m_i=\max(a_i,f_i), \qquad u_i=99,$$
 
-with $m_i=u_i$ for a locked stat. Mandatory raises consume budget, so initially
+where $f_i$ is the requested floor, with $m_i=u_i$ for a locked stat. Mandatory raises
+consume budget, so initially
 
 $$R=P-\sum_i(m_i-a_i).$$
 
@@ -45,7 +46,7 @@ rejected if a mandatory raise exceeds the budget or if $R>\sum_i c_i$.
 
 When two-handing is legal, effective Strength is
 
-$$\operatorname{effSTR}(s)=\left\lfloor\frac{3s}{2}\right\rfloor.$$
+$$e_{\mathrm{STR}}(s)=\left\lfloor\frac{3s}{2}\right\rfloor.$$
 
 This affects requirement checks and curve lookup but remains a function of STR alone.
 Generated and validated calc-correct curves cover every reachable effective value
@@ -79,12 +80,12 @@ The searched region is the union
 $$
 \mathcal X_w=
 \bigcup_{p=p_{\min}}^{p_{\max}}
-\left\{
+\{
 x\in\mathbb Z^5:
 m_i\le x_i\le u_i,\
 \sum_{i\in A}(x_i-m_i)=p,\
 x_i=h_i(R-p)\text{ for }i\notin A
-\right\}.
+\}.
 $$
 
 Searching only $p_{\max}$ would require every active contribution to be monotone.
@@ -103,7 +104,7 @@ $$
 where $b_d$ is base damage, $r_d$ the reinforcement damage multiplier, $I_{i,d}$
 the attack-element routing flag, $s_i$ weapon scaling, $q_i$ reinforcement scaling,
 $\gamma_d$ the selected calc-correct curve, and $x_i'$ the effective stat. Only STR
-changes under two-handing: $x_{\mathrm{STR}}'=\operatorname{effSTR}(x_{\mathrm{STR}})$.
+changes under two-handing: $x_{\mathrm{STR}}'=e_{\mathrm{STR}}(x_{\mathrm{STR}})$.
 
 With $\beta_d=b_dr_d$,
 
@@ -156,7 +157,7 @@ $$D_0(0)=m, \qquad D_0(p)=\bot\quad(p>0),$$
 where $\bot$ is unreachable and is represented by `None`. For each legal addition,
 
 $$
-D_i(p)=\operatorname{best}_{0\le v\le\min(c_i,p)}
+D_i(p)=\mathrm{best}_{0\le v\le\min(c_i,p)}
 \left(D_{i-1}(p-v)\oplus\Delta_i(v)\right).
 $$
 
