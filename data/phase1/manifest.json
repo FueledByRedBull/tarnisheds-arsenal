@@ -29,7 +29,7 @@
     "extendedScalingGrades": false,
     "statusBuildupScales": true
   },
-  "generatedAt": "2026-08-28",
+  "generatedAt": "2026-08-29",
   "extractorVersion": "phase1-python-v7-profile-semantics",
   "provenance": "profile-bound regulation, names, motion data, and numeric PARAM effect graph",
   "runtimeFiles": [
@@ -40,18 +40,18 @@
     },
     {
       "path": "aow_attack_data.csv",
-      "size": 367641,
-      "sha256": "e6f1a3a20caaea369d91d35fe0e12eb4c83c4d092e4beb1e9ea24104392ce380"
+      "size": 376437,
+      "sha256": "a8f6ed60e53385e4951c133d73c75732734933886c3f892766f4e68856385aa2"
     },
     {
       "path": "aow_effect_data.csv",
-      "size": 671432,
-      "sha256": "e3f9d1a50dd1526474a3d1e3b3260d61f1fe8b111e5a2cf69e94e42d116cda43"
+      "size": 673816,
+      "sha256": "ad58cbbbade99fc8496867973c9e6173f9f84c6e4f919a56e2ac690febf0b460"
     },
     {
       "path": "aow_route_assignments.csv",
-      "size": 119622,
-      "sha256": "a682827bc300a6bbec2d19ba68b1c77bde4b230ed5592a600084e7ed9bb17572"
+      "size": 120026,
+      "sha256": "39e24206df00095106756cd3e49ed0908d4b85eb4b232ce997f7e3d422efc2ce"
     },
     {
       "path": "aow_weapon_compat.csv",
@@ -65,8 +65,8 @@
     },
     {
       "path": "attack_element_correct_ext.csv",
-      "size": 62227,
-      "sha256": "70afd09a5914c1d74713bbb5583a8ec0c849eee185887ee3249b2d09b3725517"
+      "size": 62892,
+      "sha256": "d7e386de59147cbb00e8182b084f9863791b66612baf0932eb018fdeade42d11"
     },
     {
       "path": "calc_correct.csv",
@@ -75,8 +75,8 @@
     },
     {
       "path": "native_skill_attack_data.csv",
-      "size": 297612,
-      "sha256": "b723d070fca22a49b4df32360d62d8af99e024e47ed05a9f9cd3446245fb265c"
+      "size": 306410,
+      "sha256": "9fe32df6756a0e6ac6a406326a56ca723c9346ed514991b7063997321b94584a"
     },
     {
       "path": "reinforce.csv",
@@ -95,8 +95,8 @@
     },
     {
       "path": "weapons.csv",
-      "size": 552537,
-      "sha256": "69a83f6663cbb3958f791201630b0568950cd15bf7345d52f762754c550e7e2f"
+      "size": 760050,
+      "sha256": "e12795f768b768b06ba96a2e79c94bbfdc2abc229d51d44dffa384b183af0022"
     }
   ],
   "diagnosticFiles": [
@@ -107,23 +107,23 @@
     },
     {
       "path": "aow_effect_coverage.csv",
-      "size": 224797,
-      "sha256": "3121eaa8e49011c11744410ba13271aa8911ba4bfc1df66c45841ebda2d4c27a"
+      "size": 225732,
+      "sha256": "66e3a4591c370cf0691c930be4776a776777a6cc90d7c34050a10e66789e6db7"
     },
     {
       "path": "aow_effect_exclusions.csv",
       "size": 1718,
-      "sha256": "8196fc4bae0f3508a782c452dc10e2aebe11942304937a994191cc4ba90c88ff"
+      "sha256": "a6c14cdf87dca0f4c4dd51cf04a7dd609bbc9b87b3bb51cbf2920daecc359a7f"
     },
     {
       "path": "aow_route_exclusions.csv",
-      "size": 43627,
-      "sha256": "89e352de421da7f2b6ef3310d14a301bdbe8d47c7b5aa608b5d3ea69b4e72e40"
+      "size": 43879,
+      "sha256": "8f1d06e9e5e0028cc380c8b8496dcb9e1f019da26c43b6569901c3dbb47952c9"
     },
     {
       "path": "native_skill_damage_coverage.csv",
-      "size": 145164,
-      "sha256": "ba6b3bc90c94fc65d1fc93b9619b008162546e6966e434ac048ce4737e5ae052"
+      "size": 146533,
+      "sha256": "bac05a079e93abe492014b88d9432143a01a1c9d7844974e0d8d1ac523a47136"
     },
     {
       "path": "passive_effect_coverage.csv",
@@ -142,9 +142,9 @@
     {
       "kind": "workbook",
       "bundled": true,
-      "path": "ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx",
-      "size": 4194391,
-      "sha256": "a606ec0f349ee616d60e8c04df6491b5377eb288d1dde8335acdd0fd20b11235"
+      "path": "ER - Motion Values and Attack Data (App Ver. 1.17).xlsx",
+      "size": 4188998,
+      "sha256": "6665a72bc9ed615bfcf8f8f5af09983391b673a2a839f2a614478941f79766f6"
     }
   ]
 }

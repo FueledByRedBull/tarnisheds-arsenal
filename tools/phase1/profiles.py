@@ -168,7 +168,7 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         },
         sword_art_name_overrides={
             1_200: "Muleta",
-            1_201: "Causality Wraith",
+            1_201: "Causality's Wrath",
             8_000: "Shield Strike",
         },
     ),

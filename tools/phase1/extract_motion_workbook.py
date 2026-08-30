@@ -21,6 +21,7 @@ WORKBOOK_NS = {
     'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
 }
 DAMAGE_TYPES = ('physical', 'magic', 'fire', 'lightning', 'holy')
+MOTION_WORKBOOK_NAME = 'ER - Motion Values and Attack Data (App Ver. 1.17).xlsx'
 ATTACK_TYPE_COLUMNS = {
     'physical': 'AtkPhys',
     'magic': 'AtkMag',
@@ -80,9 +81,21 @@ class WeaponWorkbookData:
     weapon_id: int
     weapon_class: str
     name: str
+    base_poise: float
     stamina_consumption_rate: float
     physical_attribute_primary: str
     physical_attribute_secondary: str
+    move_count: int
+    one_hand_light_poise: str
+    one_hand_heavy_poise: str
+    one_hand_charged_heavy_poise: str
+    one_hand_jumping_light_poise: str
+    one_hand_jumping_heavy_poise: str
+    two_hand_light_poise: str
+    two_hand_heavy_poise: str
+    two_hand_charged_heavy_poise: str
+    two_hand_jumping_light_poise: str
+    two_hand_jumping_heavy_poise: str
 
 
 class WorkbookReader:
@@ -191,6 +204,7 @@ def load_weapon_workbook_data(workbook_path: Path) -> dict[int, WeaponWorkbookDa
     reader = WorkbookReader(workbook_path)
     try:
         sheet = reader.read_sheet('WeaponData')
+        poise_sheet = reader.read_sheet('Poise Damage - PvE')
     finally:
         reader.close()
 
@@ -202,10 +216,33 @@ def load_weapon_workbook_data(workbook_path: Path) -> dict[int, WeaponWorkbookDa
         'staminaConsumptionRate',
         'atkAttribute',
         'atkAttribute2',
+        'saWeaponDamage',
     }
     missing = sorted(required_headers.difference(header_idx))
     if missing:
         raise ValueError(f'WeaponData is missing columns: {", ".join(missing)}')
+
+    poise_header_idx = {header: idx for idx, header in enumerate(poise_sheet.headers)}
+    poise_columns = {
+        'one_hand_light_poise': '1h R1 1',
+        'one_hand_heavy_poise': '1h R2 1',
+        'one_hand_charged_heavy_poise': '1h Charged R2 1',
+        'one_hand_jumping_light_poise': '1h Jumping R1',
+        'one_hand_jumping_heavy_poise': '1h Jumping R2',
+        'two_hand_light_poise': '2h R1 1',
+        'two_hand_heavy_poise': '2h R2 1',
+        'two_hand_charged_heavy_poise': '2h Charged R2 1',
+        'two_hand_jumping_light_poise': '2h Jumping R1',
+        'two_hand_jumping_heavy_poise': '2h Jumping R2',
+    }
+    missing_poise = sorted({'Weapon', *poise_columns.values()}.difference(poise_header_idx))
+    if missing_poise:
+        raise ValueError(f'Poise Damage - PvE is missing columns: {", ".join(missing_poise)}')
+    poise_by_name = {
+        values[poise_header_idx['Weapon']].strip(): values
+        for values in poise_sheet.rows
+        if values[poise_header_idx['Weapon']].strip()
+    }
 
     out: dict[int, WeaponWorkbookData] = {}
     for values in sheet.rows:
@@ -216,10 +253,14 @@ def load_weapon_workbook_data(workbook_path: Path) -> dict[int, WeaponWorkbookDa
             continue
         if weapon_id in out:
             raise ValueError(f'duplicate WeaponData ID: {weapon_id}')
+        poise_values = poise_by_name.get(weapon_name)
+        if poise_values is None:
+            raise ValueError(f'Poise Damage - PvE contains no row for weapon: {weapon_name}')
         out[weapon_id] = WeaponWorkbookData(
             weapon_id=weapon_id,
             weapon_class=values[header_idx['Weapon Class']].strip(),
             name=weapon_name,
+            base_poise=parse_float(values[header_idx['saWeaponDamage']]),
             stamina_consumption_rate=parse_float(
                 values[header_idx['staminaConsumptionRate']]
             ),
@@ -229,6 +270,11 @@ def load_weapon_workbook_data(workbook_path: Path) -> dict[int, WeaponWorkbookDa
             physical_attribute_secondary=normalize_physical_attribute(
                 values[header_idx['atkAttribute2']]
             ),
+            move_count=sum(value not in {'', '-'} for value in poise_values[2:]),
+            **{
+                field: poise_values[poise_header_idx[column]].strip()
+                for field, column in poise_columns.items()
+            },
         )
     if not out:
         raise ValueError('WeaponData contains no player weapon rows')
@@ -249,7 +295,9 @@ def find_matching_aow(raw_name: str, aow_names: list[str]) -> str | None:
 
 def extract_variant(raw_name: str) -> str:
     match = re.match(r'^\[([^\]]+)\]\s*', raw_name)
-    return match.group(1).strip() if match else ''
+    if not match or match.group(1).strip().casefold() == 'placeholder':
+        return ''
+    return match.group(1).strip()
 
 
 def base_name_without_variant(raw_name: str) -> str:
@@ -504,6 +552,7 @@ def build_attack_row(
         ),
         'status_mv': str(parse_float(values[header_idx['Status MV']])),
         'weapon_buff_mv': str(parse_float(values[header_idx['Weapon Buff MV']])),
+        'poise_mv': str(parse_float(values[header_idx['Poise Dmg MV']])),
         'stamina_cost': str(parse_float(values[header_idx['StaminaCost']])),
         'stamina_cost_mode': stamina_cost_mode,
     }
@@ -591,9 +640,9 @@ def is_damaging_row(
 
 def build_aow_attack_data(project_root: Path, phase1_dir: Path | None = None) -> None:
     phase1_dir = project_root / 'data' / 'phase1' if phase1_dir is None else phase1_dir
-    workbook_path = phase1_dir / 'ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx'
+    workbook_path = phase1_dir / MOTION_WORKBOOK_NAME
     if not workbook_path.exists():
-        workbook_path = project_root / 'data' / 'phase1' / 'ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx'
+        workbook_path = project_root / 'data' / 'phase1' / MOTION_WORKBOOK_NAME
     aow_csv = phase1_dir / 'aow.csv'
     out_path = phase1_dir / 'aow_attack_data.csv'
     coverage_path = phase1_dir / 'aow_damage_coverage.csv'
@@ -700,6 +749,7 @@ def build_aow_attack_data(project_root: Path, phase1_dir: Path | None = None) ->
         'attack_base_holy',
         'status_mv',
         'weapon_buff_mv',
+        'poise_mv',
         'stamina_cost',
         'stamina_cost_mode',
     ]
@@ -745,9 +795,9 @@ def build_aow_attack_data(project_root: Path, phase1_dir: Path | None = None) ->
 
 def build_native_skill_attack_data(project_root: Path, phase1_dir: Path | None = None) -> None:
     phase1_dir = project_root / 'data' / 'phase1' if phase1_dir is None else phase1_dir
-    workbook_path = phase1_dir / 'ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx'
+    workbook_path = phase1_dir / MOTION_WORKBOOK_NAME
     if not workbook_path.exists():
-        workbook_path = project_root / 'data' / 'phase1' / 'ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx'
+        workbook_path = project_root / 'data' / 'phase1' / MOTION_WORKBOOK_NAME
     weapons_csv = phase1_dir / 'weapons.csv'
     aow_csv = phase1_dir / 'aow.csv'
     out_path = phase1_dir / 'native_skill_attack_data.csv'
@@ -875,6 +925,7 @@ def build_native_skill_attack_data(project_root: Path, phase1_dir: Path | None =
         'attack_base_holy',
         'status_mv',
         'weapon_buff_mv',
+        'poise_mv',
         'stamina_cost',
         'stamina_cost_mode',
     ]
@@ -909,9 +960,9 @@ def build_native_skill_attack_data(project_root: Path, phase1_dir: Path | None =
 
 def build_attack_element_correct_ext(project_root: Path, phase1_dir: Path | None = None) -> None:
     phase1_dir = project_root / 'data' / 'phase1' if phase1_dir is None else phase1_dir
-    workbook_path = phase1_dir / 'ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx'
+    workbook_path = phase1_dir / MOTION_WORKBOOK_NAME
     if not workbook_path.exists():
-        workbook_path = project_root / 'data' / 'phase1' / 'ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx'
+        workbook_path = project_root / 'data' / 'phase1' / MOTION_WORKBOOK_NAME
     out_path = phase1_dir / 'attack_element_correct_ext.csv'
     reader = WorkbookReader(workbook_path)
     try:
@@ -1172,7 +1223,7 @@ def run_workbook_exports(
                 f'found {len(candidates)} candidates'
             )
         paramdex_defs_dir = candidates[0]
-    workbook_path = phase1_dir / 'ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx'
+    workbook_path = phase1_dir / MOTION_WORKBOOK_NAME
     if not workbook_path.exists():
         workbook_path = project_root / 'data' / 'phase1' / workbook_path.name
     effect_names = {
