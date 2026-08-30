@@ -789,7 +789,20 @@ def build_weapon_rows(
                 "weapon_type_id": weapon_type_id,
                 "weapon_type_name": weapon_type_name,
                 "weapon_type_keys": "|".join(weapon_type_keys),
+                "weight": to_float(row, "weight", 0.0),
+                "base_poise": getattr(workbook_weapon, "base_poise", 0.0),
                 "stamina_consumption_rate": stamina_consumption_rate,
+                "move_count": getattr(workbook_weapon, "move_count", 0),
+                "one_hand_light_poise": getattr(workbook_weapon, "one_hand_light_poise", ""),
+                "one_hand_heavy_poise": getattr(workbook_weapon, "one_hand_heavy_poise", ""),
+                "one_hand_charged_heavy_poise": getattr(workbook_weapon, "one_hand_charged_heavy_poise", ""),
+                "one_hand_jumping_light_poise": getattr(workbook_weapon, "one_hand_jumping_light_poise", ""),
+                "one_hand_jumping_heavy_poise": getattr(workbook_weapon, "one_hand_jumping_heavy_poise", ""),
+                "two_hand_light_poise": getattr(workbook_weapon, "two_hand_light_poise", ""),
+                "two_hand_heavy_poise": getattr(workbook_weapon, "two_hand_heavy_poise", ""),
+                "two_hand_charged_heavy_poise": getattr(workbook_weapon, "two_hand_charged_heavy_poise", ""),
+                "two_hand_jumping_light_poise": getattr(workbook_weapon, "two_hand_jumping_light_poise", ""),
+                "two_hand_jumping_heavy_poise": getattr(workbook_weapon, "two_hand_jumping_heavy_poise", ""),
                 "physical_attribute_primary": physical_attribute_primary,
                 "physical_attribute_secondary": physical_attribute_secondary,
                 "base_physical": base_physical,
@@ -1038,12 +1051,11 @@ def main() -> int:
                 f"profile version file says {source_version!r}; expected {profile.mod_version!r}"
             )
 
-    from tools.phase1.extract_motion_workbook import load_weapon_workbook_data
+    from tools.phase1.extract_motion_workbook import MOTION_WORKBOOK_NAME, load_weapon_workbook_data
 
-    workbook_name = "ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx"
-    workbook_path = destination_dir / workbook_name
+    workbook_path = destination_dir / MOTION_WORKBOOK_NAME
     if not workbook_path.exists():
-        workbook_path = Path(__file__).resolve().parents[2] / "data" / "phase1" / workbook_name
+        workbook_path = Path(__file__).resolve().parents[2] / "data" / "phase1" / MOTION_WORKBOOK_NAME
 
     destination_dir.parent.mkdir(parents=True, exist_ok=True)
     staging_owner = tempfile.TemporaryDirectory(
@@ -1111,7 +1123,20 @@ def main() -> int:
             "weapon_type_id",
             "weapon_type_name",
             "weapon_type_keys",
+            "weight",
+            "base_poise",
             "stamina_consumption_rate",
+            "move_count",
+            "one_hand_light_poise",
+            "one_hand_heavy_poise",
+            "one_hand_charged_heavy_poise",
+            "one_hand_jumping_light_poise",
+            "one_hand_jumping_heavy_poise",
+            "two_hand_light_poise",
+            "two_hand_heavy_poise",
+            "two_hand_charged_heavy_poise",
+            "two_hand_jumping_light_poise",
+            "two_hand_jumping_heavy_poise",
             "physical_attribute_primary",
             "physical_attribute_secondary",
             "base_physical",

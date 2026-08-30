@@ -39,6 +39,11 @@ STR/DEX/INT/FAI/ARC grid. Status uses a wrapping seven-token grid for bleed, fro
 poison, scarlet rot, sleep, madness, and death blight; zeroes remain visible so a
 missing buildup cannot be mistaken for omitted data.
 
+Build Detail reports actual PvE stance/poise damage for R1, R2, charged R2, jumping
+R1, and jumping R2 attacks. When a selected AoW route is mapped, it also reports
+every hit and the full-route poise total using the workbook's weapon base poise and
+AoW poise multiplier. These values do not use the selected build's attack rating.
+
 The visual system is intentionally lightweight: CSS perspective, short
 state-driven transitions, and a 19 KB low-contrast WebP texture provide depth
 without WebGL or a runtime animation library. `prefers-reduced-motion` collapses
@@ -85,21 +90,28 @@ metric.
 ## Optimization Core
 
 The Rust core narrows stat work per weapon, affinity, Ash of War, and objective.
-Max AR and Max Physical AR use an exact dynamic program over relevant stats, then
-evaluate constant AoW buffs once per solved weapon/upgrade allocation. Other
-objectives enumerate only combat stats that can affect their selected metric.
+Max AR, Max Physical AR, Bleed then AR, AoW First Hit, and AoW Full Sequence use one
+exact lexicographic dynamic program over relevant stats. Legal AoW routes are compiled
+once and optimized independently with compact scalar evaluators.
 Requirements are folded into minimum floors, and inactive stats are filled only
-when the session level budget cannot otherwise be consumed.
+through one canonical completion for each feasible active-stat spend. This preserves
+the final stat-vector tie-break without enumerating equivalent inactive distributions.
 
 [`optimizer-math.md`](optimizer-math.md) states the model formally: the point budget,
 the attack-rating formula, the separability property that makes the dynamic program
 exact, its cost bounds, and the scope of the exactness claim.
 
-The AR dynamic program's accumulated `f32` totals select a stat allocation only.
-After selection, the core recomputes AR directly from those stats before ranking or
-display; the accumulated totals must never become a user-visible result. The final
-lexicographic stat tie-break stabilizes candidates retained after objective-specific
-pruning, not allocations already collapsed inside the dynamic program.
+`RelevantStatSearch` owns the active mask, bounded stat domain, logical candidate count,
+and canonical enumeration retained for the exhaustive oracle/fallback. The DP compares
+the full feasible active-spend interval; searches with the same bounds and mask share
+the cached distribution count. Focused regressions cover interior optima, canonical
+inactive fill, arbitrary decreasing curves, every objective family, and DP/exhaustive
+equivalence.
+
+The dynamic program's accumulated `f32` totals select a stat allocation only. Terminal
+allocations are recomputed directly before comparison, ranking, or display; accumulated
+totals never become user-visible results. States retain objective score, total AR, AoW
+full sequence, AoW first hit, bleed, and the stat vector under final ranking order.
 
 Medium and broad searches use Rayon when the estimated combination count and
 work-unit count justify parallel execution. Parallel work is split by individual
@@ -111,7 +123,8 @@ Final ordering and de-duplication still use the full result comparison logic so
 tie handling, same-loadout replacement, cancellation, and progress reporting
 stay deterministic.
 
-AoW damage materialization evaluates ordered legal routes. Added base attack,
+AoW search evaluates compiled scalar routes without constructing display objects for
+discarded allocations. Final AoW materialization evaluates the retained ordered route. Added base attack,
 fixed and motion components, status motion values, weapon-buff timing, action-level
 stamina, and adaptive Standard/Strike/Slash/Pierce attributes are resolved per hit.
 Conditional replacement effects remain explicit warnings rather than guessed

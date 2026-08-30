@@ -207,6 +207,7 @@ pub struct AowHitDto {
     pub hit_order: u16,
     pub raw_name: String,
     pub damage: DamageBreakdownDto,
+    pub poise_damage: f32,
     pub status_buildup: StatusBuildupDto,
     pub physical_attack_attribute: String,
     pub buff_active: bool,
@@ -233,6 +234,7 @@ pub struct AowRouteDto {
     pub actions: Vec<AowActionDto>,
     pub first_hit_damage: f32,
     pub total_damage: DamageBreakdownDto,
+    pub total_poise_damage: f32,
     pub total_status_buildup: StatusBuildupDto,
     pub total_stamina_cost: f32,
 }
@@ -619,8 +621,23 @@ pub struct WeaponProfileDto {
     pub max_upgrade: u8,
     pub is_somber: bool,
     pub disables_two_hand_bonus: bool,
+    pub forces_two_handing: bool,
+    pub weight: f32,
+    pub move_count: u16,
+    pub one_handed_poise: DisplayPoiseDamageDto,
+    pub two_handed_poise: DisplayPoiseDamageDto,
     pub affinities: Vec<String>,
     pub compatible_aows: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DisplayPoiseDamageDto {
+    pub light: String,
+    pub heavy: String,
+    pub charged_heavy: String,
+    pub jumping_light: String,
+    pub jumping_heavy: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -745,6 +762,7 @@ impl From<AowHitResult> for AowHitDto {
             hit_order: value.hit_order,
             raw_name: value.raw_name,
             damage: value.damage.into(),
+            poise_damage: value.poise_damage,
             status_buildup: value.status_buildup.into(),
             physical_attack_attribute: value.physical_attack_attribute.to_string(),
             buff_active: value.buff_active,
@@ -775,6 +793,7 @@ impl From<AowRouteResult> for AowRouteDto {
             actions: value.actions.into_iter().map(AowActionDto::from).collect(),
             first_hit_damage: value.first_hit_damage,
             total_damage: value.total_damage.into(),
+            total_poise_damage: value.total_poise_damage,
             total_status_buildup: value.total_status_buildup.into(),
             total_stamina_cost: value.total_stamina_cost,
         }

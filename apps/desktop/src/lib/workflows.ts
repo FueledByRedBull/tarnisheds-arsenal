@@ -39,29 +39,52 @@ export async function runSearchFromStore(
   }
 }
 
-export async function runSearchRequestForRows(request: OptimizeRequestDto): Promise<SolvedBuildDto[]> {
+export async function runSearchRequestForRows(request: OptimizeRequestDto, signal?: AbortSignal): Promise<SolvedBuildDto[]> {
+  if (signal?.aborted) throw new Error("cancelled");
   const { jobId } = await api.startSearch(request);
-  return await pollSearchRows(jobId);
+  if (signal?.aborted) {
+    await api.cancelSearch(jobId);
+    throw new Error("cancelled");
+  }
+  return await pollSearchRows(jobId, signal);
 }
 
-async function pollSearchRows(jobId: string): Promise<SolvedBuildDto[]> {
+async function pollSearchRows(jobId: string, signal?: AbortSignal): Promise<SolvedBuildDto[]> {
   return await new Promise((resolve, reject) => {
-    startAdaptivePolling({
+    let settled = false;
+    let stopPolling = () => {};
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      signal?.removeEventListener("abort", abort);
+      stopPolling();
+      callback();
+    };
+    const abort = () => {
+      if (settled) return;
+      void api.cancelSearch(jobId);
+      finish(() => reject(new Error("cancelled")));
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+    const polling = startAdaptivePolling({
       poll: () => api.searchStatus(jobId),
       progressKey: (status) => progressSignature(status.progress),
       onStatus: (status) => {
         if (!status.finished) return false;
         if (status.finished.error) {
-          reject(new Error(status.finished.error));
+          finish(() => reject(new Error(status.finished!.error!)));
         } else if (status.finished.cancelled) {
-          reject(new Error("Search stopped."));
+          finish(() => reject(new Error("Search stopped.")));
         } else {
-          resolve(status.finished.rows);
+          finish(() => resolve(status.finished!.rows));
         }
         return true;
       },
-      onMissing: () => reject(new Error("Search job disappeared before returning a result.")),
-      onError: reject,
+      onMissing: () => finish(() => reject(new Error("Search job disappeared before returning a result."))),
+      onError: (error) => finish(() => reject(error)),
     });
+    stopPolling = polling.stop;
+    if (settled) polling.stop();
+    else if (signal?.aborted) abort();
   });
 }

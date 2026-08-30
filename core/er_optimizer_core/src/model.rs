@@ -105,6 +105,15 @@ impl fmt::Display for PhysicalAttackAttribute {
     }
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct DisplayPoiseDamage {
+    pub light: String,
+    pub heavy: String,
+    pub charged_heavy: String,
+    pub jumping_light: String,
+    pub jumping_heavy: String,
+}
+
 #[derive(Clone, Debug)]
 pub struct Weapon {
     pub weapon_id: u32,
@@ -115,7 +124,12 @@ pub struct Weapon {
     pub weapon_type_id: u16,
     pub weapon_type_name: String,
     pub weapon_type_keys: String,
+    pub weight: f32,
+    pub base_poise: f32,
     pub stamina_consumption_rate: f32,
+    pub move_count: u16,
+    pub one_handed_poise: DisplayPoiseDamage,
+    pub two_handed_poise: DisplayPoiseDamage,
     pub physical_attributes: [PhysicalAttackAttribute; 2],
     pub base: [f32; DAMAGE_TYPE_COUNT],
     pub scaling: [f32; COMBAT_STAT_COUNT],
@@ -218,6 +232,7 @@ pub struct AowAttackRow {
     pub attack_base: [f32; DAMAGE_TYPE_COUNT],
     pub status_mv: f32,
     pub weapon_buff_mv: f32,
+    pub poise_mv: f32,
     pub stamina_cost: f32,
     pub stamina_cost_mode: StaminaCostMode,
 }
@@ -441,6 +456,7 @@ pub struct AowHitResult {
     pub hit_order: u16,
     pub raw_name: String,
     pub damage: DamageBreakdown,
+    pub poise_damage: f32,
     pub status_buildup: StatusBuildup,
     pub physical_attack_attribute: PhysicalAttackAttribute,
     pub buff_active: bool,
@@ -465,6 +481,7 @@ pub struct AowRouteResult {
     pub actions: Vec<AowActionResult>,
     pub first_hit_damage: f32,
     pub total_damage: DamageBreakdown,
+    pub total_poise_damage: f32,
     pub total_status_buildup: StatusBuildup,
     pub total_stamina_cost: f32,
 }

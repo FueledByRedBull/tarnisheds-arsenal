@@ -14,8 +14,8 @@ pub use math::{
     class_by_name, compute_free_points, effective_str, meets_requirements,
 };
 pub use model::{
-    Aow, AttackElementCorrect, DamageBreakdown, DamageType, DataCapabilities, GameData,
-    ReinforceLevel, STAT_ARC, STAT_DEX, STAT_FAI, STAT_INT, STAT_STR, Stats, Weapon,
+    Aow, AttackElementCorrect, DamageBreakdown, DamageType, DataCapabilities, DisplayPoiseDamage,
+    GameData, ReinforceLevel, STAT_ARC, STAT_DEX, STAT_FAI, STAT_INT, STAT_STR, Stats, Weapon,
     normalize_weapon_type_display,
 };
 pub use optimizer::{

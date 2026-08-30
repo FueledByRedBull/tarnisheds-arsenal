@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 use crate::model::{
     Aow, AowAttackRow, AowEffect, AowEffectRole, AowRouteAssignment, AttackElementCorrect,
     AttackElementCorrectExt, COMBAT_STAT_COUNT, DAMAGE_TYPE_COUNT, DataCapabilities, DataRules,
-    GameData, PhysicalAttackAttribute, ReinforceLevel, StaminaCostMode, StatusBuildup,
-    StatusCorrectionFlags, StatusCurveIds, StatusEffectSource, Weapon,
+    DisplayPoiseDamage, GameData, PhysicalAttackAttribute, ReinforceLevel, StaminaCostMode,
+    StatusBuildup, StatusCorrectionFlags, StatusCurveIds, StatusEffectSource, Weapon,
 };
 use crate::snapshot::{SnapshotManifest, validate_embedded_snapshot, validate_external_snapshot};
 
@@ -213,6 +213,27 @@ fn parse_f32(value: &str, field: &str) -> Result<f32, String> {
     value
         .parse::<f32>()
         .map_err(|err| format!("invalid f32 for {field}: {value} ({err})"))
+}
+
+fn optional_f32(table: &CsvTable, row: &[String], field: &str) -> Result<f32, String> {
+    match table.idx(field) {
+        Ok(_) => parse_f32(table.get(row, field)?, field),
+        Err(_) => Ok(0.0),
+    }
+}
+
+fn optional_u16(table: &CsvTable, row: &[String], field: &str) -> Result<u16, String> {
+    match table.idx(field) {
+        Ok(_) => parse_u16(table.get(row, field)?, field),
+        Err(_) => Ok(0),
+    }
+}
+
+fn optional_string(table: &CsvTable, row: &[String], field: &str) -> Result<String, String> {
+    match table.idx(field) {
+        Ok(_) => Ok(table.get(row, field)?.to_string()),
+        Err(_) => Ok(String::new()),
+    }
 }
 
 fn parse_status_buildup(value: &str, field: &str) -> Result<f32, String> {
@@ -441,10 +462,27 @@ fn load_weapons(path: PathBuf) -> Result<Vec<Weapon>, String> {
             weapon_type_id: parse_u16(table.get(row, "weapon_type_id")?, "weapon_type_id")?,
             weapon_type_name: table.get(row, "weapon_type_name")?.to_string(),
             weapon_type_keys: table.get(row, "weapon_type_keys")?.to_string(),
+            weight: optional_f32(&table, row, "weight")?,
+            base_poise: optional_f32(&table, row, "base_poise")?,
             stamina_consumption_rate: parse_f32(
                 table.get(row, "stamina_consumption_rate")?,
                 "stamina_consumption_rate",
             )?,
+            move_count: optional_u16(&table, row, "move_count")?,
+            one_handed_poise: DisplayPoiseDamage {
+                light: optional_string(&table, row, "one_hand_light_poise")?,
+                heavy: optional_string(&table, row, "one_hand_heavy_poise")?,
+                charged_heavy: optional_string(&table, row, "one_hand_charged_heavy_poise")?,
+                jumping_light: optional_string(&table, row, "one_hand_jumping_light_poise")?,
+                jumping_heavy: optional_string(&table, row, "one_hand_jumping_heavy_poise")?,
+            },
+            two_handed_poise: DisplayPoiseDamage {
+                light: optional_string(&table, row, "two_hand_light_poise")?,
+                heavy: optional_string(&table, row, "two_hand_heavy_poise")?,
+                charged_heavy: optional_string(&table, row, "two_hand_charged_heavy_poise")?,
+                jumping_light: optional_string(&table, row, "two_hand_jumping_light_poise")?,
+                jumping_heavy: optional_string(&table, row, "two_hand_jumping_heavy_poise")?,
+            },
             physical_attributes: [
                 parse_physical_attack_attribute(table.get(row, "physical_attribute_primary")?)?,
                 parse_physical_attack_attribute(table.get(row, "physical_attribute_secondary")?)?,
@@ -1002,6 +1040,7 @@ fn parse_aow_attack_row(
         ],
         status_mv: parse_f32(table.get(row, "status_mv")?, "status_mv")?,
         weapon_buff_mv: parse_f32(table.get(row, "weapon_buff_mv")?, "weapon_buff_mv")?,
+        poise_mv: optional_f32(table, row, "poise_mv")?,
         stamina_cost: parse_f32(table.get(row, "stamina_cost")?, "stamina_cost")?,
         stamina_cost_mode: match table.get(row, "stamina_cost_mode")? {
             "weapon_scaled" => StaminaCostMode::WeaponScaled,
@@ -1149,6 +1188,14 @@ mod tests {
                 .iter()
                 .any(|weapon| weapon.name == "Reverse-Bladed Sword")
         );
+        let dagger = data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.weapon_id == 1_000_000)
+            .expect("standard Dagger");
+        assert_eq!(dagger.one_handed_poise.light, "3.0");
+        assert_eq!(dagger.one_handed_poise.jumping_light, "4.5");
+        assert_eq!(dagger.base_poise, 3.0);
         assert!(data.aows.len() > 100);
         assert!(!data.exact_aow_compat.is_empty());
         assert!(!data.aow_effects.is_empty());

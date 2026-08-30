@@ -63,7 +63,7 @@ jobs:
 
       - name: Python tests, lint and type checking
         run: |
-          python -m unittest tools.phase1.test_phase1_dump tools.phase1.test_snapshot_manifest
+          python -m unittest tools.phase1.test_phase1_dump tools.phase1.test_snapshot_manifest tools.phase4.test_validate_phase4
           python -m ruff check tools
           python -m pyright tools
 
@@ -141,5 +141,5 @@ jobs:
       - name: Validate source checkout
         run: |
           cargo test --locked --manifest-path core/er_optimizer_core/Cargo.toml
-          python -m unittest tools.phase1.test_phase1_dump tools.phase1.test_snapshot_manifest
+          python -m unittest tools.phase1.test_phase1_dump tools.phase1.test_snapshot_manifest tools.phase4.test_validate_phase4
           python tools/phase4/validate_phase4.py --report dist/validation/data-validation-linux.json

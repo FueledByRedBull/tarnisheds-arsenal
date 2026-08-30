@@ -71,6 +71,44 @@ describe("desktop result lifecycle", () => {
     expect(useDesktopStore.getState().resultsStale).toBe(false);
   });
 
+  it("keeps multi-filters composable and clears pins for a custom comparison", () => {
+    const state = useDesktopStore.getState();
+    state.patchRequest({ weaponName: "Uchigatana", affinity: "Keen" });
+    state.patchRequest({
+      filters: { version: 1, entries: [{ dimension: "weapon_type", id: "weapon-type:katana", mode: "include" }] },
+    });
+    expect(useDesktopStore.getState().request).toMatchObject({
+      weaponTypeKey: null,
+      weaponName: "Uchigatana",
+      affinity: "Keen",
+      aowName: null,
+    });
+
+    useDesktopStore.getState().patchRequest({ weaponName: "Uchigatana" });
+    expect(useDesktopStore.getState().request.filters.entries).toHaveLength(1);
+
+    useDesktopStore.setState({ selected: row, compareBench: [row] });
+    useDesktopStore.getState().patchCompareControls({
+      filters: { version: 1, entries: [{ dimension: "weapon_type", id: "weapon-type:katana", mode: "include" }] },
+    });
+    expect(useDesktopStore.getState().compareBench).toEqual([]);
+    expect(useDesktopStore.getState().selected).toEqual(row);
+
+    useDesktopStore.getState().toggleCompareBench(row);
+    expect(useDesktopStore.getState()).toMatchObject({
+      compareBench: [row],
+      compareControls: {
+        filters: { version: 1, entries: [] },
+        weaponName: null,
+        aowName: null,
+        matchSelectedAow: true,
+        includeSmithing: true,
+        includeSomber: true,
+      },
+      selected: row,
+    });
+  });
+
   it("records recoverable catalog loading failures", () => {
     const state = useDesktopStore.getState();
     state.setCatalogFailure("manifest checksum mismatch");

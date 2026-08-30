@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { classMeta, derivedLevel, normalizeOptimizeRequest, scalingLetter } from "./session";
+import { classMeta, derivedLevel, normalizeOptimizeRequest, optimalStartingClass, scalingLetter, startingClassLevel } from "./session";
 import { defaultRequest } from "./state";
 
 describe("request normalization properties", () => {
@@ -12,6 +12,13 @@ describe("request normalization properties", () => {
     expect(derivedLevel(null, defaultRequest)).toBe(9);
     expect(derivedLevel(null, { ...defaultRequest, vig: 60 })).toBe(57);
     expect(derivedLevel(null, { ...defaultRequest, dex: 99 })).toBe(93);
+  });
+
+  it("finds the lowest-level starting class for the requested stat floors", () => {
+    const targets = { vig: 40, mnd: 15, end: 20, strStat: 16, dex: 12, intStat: 70, fai: 0, arc: 0 };
+    const optimal = optimalStartingClass(null, targets, "Samurai");
+    expect(optimal.name).toBe("Astrologer");
+    expect(startingClassLevel(optimal, targets)).toBe(110);
   });
 
   it("exposes the two 1.17 Tarnished Pack class stat lines", () => {

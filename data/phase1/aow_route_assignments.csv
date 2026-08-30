@@ -1,12 +1,12 @@
 aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_order,hit_order
 100,Lion's Claw,63,full,Full sequence,0,activation,1,1
 101,Impaling Thrust,946,r1,R1,0,activation,1,1
-101,Impaling Thrust,1844,r1,R1,0,activation,1,1
+101,Impaling Thrust,1852,r1,R1,0,activation,1,1
 101,Impaling Thrust,1142,r1,R1,0,r1,2,1
 101,Impaling Thrust,1143,r1,R1,0,r1,2,2
 101,Impaling Thrust,1144,r1,R1,0,r1,2,3
 101,Impaling Thrust,946,r2,R2,1,activation,1,1
-101,Impaling Thrust,1844,r2,R2,1,activation,1,1
+101,Impaling Thrust,1852,r2,R2,1,activation,1,1
 101,Impaling Thrust,1145,r2,R2,1,r2,2,2
 102,Piercing Fang,958,full,Full sequence,0,activation,1,1
 103,Spinning Slash,880,full,Full sequence,0,stage_1,1,1
@@ -20,7 +20,7 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 103,Spinning Slash,928,full,Full sequence,0,stage_1,1,1
 103,Spinning Slash,934,full,Full sequence,0,stage_1,1,1
 103,Spinning Slash,940,full,Full sequence,0,stage_1,1,1
-103,Spinning Slash,2462,full,Full sequence,0,stage_1,1,1
+103,Spinning Slash,2473,full,Full sequence,0,stage_1,1,1
 103,Spinning Slash,881,full,Full sequence,0,stage_2,2,1
 103,Spinning Slash,887,full,Full sequence,0,stage_2,2,1
 103,Spinning Slash,893,full,Full sequence,0,stage_2,2,1
@@ -32,7 +32,7 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 103,Spinning Slash,929,full,Full sequence,0,stage_2,2,1
 103,Spinning Slash,935,full,Full sequence,0,stage_2,2,1
 103,Spinning Slash,941,full,Full sequence,0,stage_2,2,1
-103,Spinning Slash,2463,full,Full sequence,0,stage_2,2,1
+103,Spinning Slash,2474,full,Full sequence,0,stage_2,2,1
 103,Spinning Slash,882,full,Full sequence,0,stage_2,2,2
 103,Spinning Slash,888,full,Full sequence,0,stage_2,2,2
 103,Spinning Slash,894,full,Full sequence,0,stage_2,2,2
@@ -44,9 +44,9 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 103,Spinning Slash,930,full,Full sequence,0,stage_2,2,2
 103,Spinning Slash,936,full,Full sequence,0,stage_2,2,2
 103,Spinning Slash,942,full,Full sequence,0,stage_2,2,2
-103,Spinning Slash,2464,full,Full sequence,0,stage_2,2,2
-103,Spinning Slash,2465,full,Full sequence,0,stage_2,2,2
-103,Spinning Slash,2466,full,Full sequence,0,stage_2,2,2
+103,Spinning Slash,2475,full,Full sequence,0,stage_2,2,2
+103,Spinning Slash,2476,full,Full sequence,0,stage_2,2,2
+103,Spinning Slash,2477,full,Full sequence,0,stage_2,2,2
 105,Charge Forth,1150,full,Full,0,activation,1,1
 105,Charge Forth,1151,full,Full,0,activation,1,2
 105,Charge Forth,1152,full,Full,0,activation,1,3
@@ -150,27 +150,27 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 118,Loretta's Slash,1281,full,Full sequence,0,activation,1,1
 118,Loretta's Slash,1285,full,Full sequence,0,activation,1,1
 118,Loretta's Slash,1289,full,Full sequence,0,activation,1,1
-118,Loretta's Slash,2470,full,Full sequence,0,activation,1,1
-118,Loretta's Slash,2471,full,Full sequence,0,activation,1,1
+118,Loretta's Slash,2481,full,Full sequence,0,activation,1,1
+118,Loretta's Slash,2482,full,Full sequence,0,activation,1,1
 118,Loretta's Slash,1274,full,Full sequence,0,activation,1,2
 118,Loretta's Slash,1278,full,Full sequence,0,activation,1,2
 118,Loretta's Slash,1282,full,Full sequence,0,activation,1,2
 118,Loretta's Slash,1286,full,Full sequence,0,activation,1,2
 118,Loretta's Slash,1290,full,Full sequence,0,activation,1,2
-118,Loretta's Slash,2472,full,Full sequence,0,activation,1,2
+118,Loretta's Slash,2483,full,Full sequence,0,activation,1,2
 119,Poison Moth Flight,1442,full,Full sequence,0,activation,1,1
 120,Spinning Weapon,1245,full,Full sequence,0,activation,1,1
 120,Spinning Weapon,1259,full,Full sequence,0,activation,1,1
-120,Spinning Weapon,2594,full,Full sequence,0,activation,1,1
+120,Spinning Weapon,2605,full,Full sequence,0,activation,1,1
 120,Spinning Weapon,1246,full,Full sequence,0,activation,1,2
 120,Spinning Weapon,1260,full,Full sequence,0,activation,1,2
-120,Spinning Weapon,2595,full,Full sequence,0,activation,1,2
+120,Spinning Weapon,2606,full,Full sequence,0,activation,1,2
 120,Spinning Weapon,1247,full,Full sequence,0,activation,1,3
 120,Spinning Weapon,1261,full,Full sequence,0,activation,1,3
-120,Spinning Weapon,2596,full,Full sequence,0,activation,1,3
+120,Spinning Weapon,2607,full,Full sequence,0,activation,1,3
 120,Spinning Weapon,1248,full,Full sequence,0,activation,1,4
 120,Spinning Weapon,1262,full,Full sequence,0,activation,1,4
-120,Spinning Weapon,2597,full,Full sequence,0,activation,1,4
+120,Spinning Weapon,2608,full,Full sequence,0,activation,1,4
 120,Spinning Weapon,1249,full,Full sequence,0,activation,1,5
 120,Spinning Weapon,1263,full,Full sequence,0,activation,1,5
 120,Spinning Weapon,1250,full,Full sequence,0,activation,1,6
@@ -242,12 +242,12 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 124,Sword Dance,1080,full,Full sequence,0,stage_2,2,2
 124,Sword Dance,1086,full,Full sequence,0,stage_2,2,2
 124,Sword Dance,1092,full,Full sequence,0,stage_2,2,2
-125,Spinning Chain,2266,r1,R1,0,loop_1,1,1
-125,Spinning Chain,2267,r1,R1,0,r1,2,1
-125,Spinning Chain,2268,r1,R1,0,r1,2,2
-125,Spinning Chain,2266,r2,R2,1,loop_1,1,1
-125,Spinning Chain,2269,r2,R2,1,r2,2,1
-125,Spinning Chain,2270,r2,R2,1,r2,2,2
+125,Spinning Chain,2274,r1,R1,0,loop_1,1,1
+125,Spinning Chain,2275,r1,R1,0,r1,2,1
+125,Spinning Chain,2276,r1,R1,0,r1,2,2
+125,Spinning Chain,2274,r2,R2,1,loop_1,1,1
+125,Spinning Chain,2277,r2,R2,1,r2,2,1
+125,Spinning Chain,2278,r2,R2,1,r2,2,2
 200,Glintblade Phalanx,1224,full,Full sequence,0,activation,1,1
 200,Glintblade Phalanx,1225,full,Full sequence,0,r2,2,2
 201,Sacred Blade,1386,full,Full sequence,0,activation,1,1
@@ -317,9 +317,9 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 222,Sacred Ring of Light,1396,far,Far,1,stage_2,2,2
 222,Sacred Ring of Light,1397,far,Far,1,stage_3,3,3
 222,Sacred Ring of Light,1399,far,Far,1,stage_3,3,3
-223,Firebreather,2602,full,Full sequence,0,activation,1,1
-223,Firebreather,2603,full,Full sequence,0,activation,1,1
-223,Firebreather,2604,full,Full sequence,0,activation,1,1
+223,Firebreather,2613,full,Full sequence,0,activation,1,1
+223,Firebreather,2614,full,Full sequence,0,activation,1,1
+223,Firebreather,2615,full,Full sequence,0,activation,1,1
 224,Blood Blade,1447,full,Full sequence,0,stage_1,1,1
 224,Blood Blade,1448,full,Full sequence,0,stage_1,1,1
 224,Blood Blade,1449,full,Full sequence,0,stage_2,2,2
@@ -1136,62 +1136,62 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 653,Troll's Roar,874,full,Full sequence,0,r2,2,2
 653,Troll's Roar,875,full,Full sequence,0,r2,2,2
 653,Troll's Roar,876,full,Full sequence,0,r2,2,2
-1000,Surge of Faith,2292,full,Full sequence,0,activation,1,1
-1000,Surge of Faith,2293,full,Full sequence,0,activation,1,1
-1000,Surge of Faith,2294,full,Full sequence,0,activation,1,1
-1000,Surge of Faith,2295,full,Full sequence,0,activation,1,1
-1000,Surge of Faith,2296,full,Full sequence,0,activation,1,1
-1000,Surge of Faith,2297,full,Full sequence,0,activation,1,1
-1000,Surge of Faith,2298,full,Full sequence,0,activation,1,1
-1000,Surge of Faith,2299,full,Full sequence,0,activation,1,1
-1000,Surge of Faith,2300,full,Full sequence,0,activation,1,1
-1000,Surge of Faith,2301,full,Full sequence,0,activation,1,1
-1000,Surge of Faith,2302,full,Full sequence,0,activation,1,1
 1000,Surge of Faith,2303,full,Full sequence,0,activation,1,1
 1000,Surge of Faith,2304,full,Full sequence,0,activation,1,1
 1000,Surge of Faith,2305,full,Full sequence,0,activation,1,1
-1001,Flame Spit,2629,full,Full sequence,0,activation,1,1
-1001,Flame Spit,2630,full,Full sequence,0,activation,1,1
-1002,Tongues of Fire,2628,full,Full sequence,0,activation,1,1
-1003,Oracular Bubble,2246,full,Full sequence,0,activation,1,1
-1003,Oracular Bubble,2247,full,Full sequence,0,activation,1,1
-1004,Bubble Shower,2289,full,Full sequence,0,activation,1,1
-1004,Bubble Shower,2290,full,Full sequence,0,activation,1,1
-1004,Bubble Shower,2291,full,Full sequence,0,activation,1,1
-1005,Great Oracular Bubble,2319,full,Full sequence,0,activation,1,1
-1005,Great Oracular Bubble,2320,full,Full sequence,0,activation,1,1
-1006,Sea of Magma,2519,full,Full sequence,0,activation,1,1
-1006,Sea of Magma,2523,full,Full sequence,0,activation,1,1
-1006,Sea of Magma,2524,full,Full sequence,0,activation,1,1
-1006,Sea of Magma,2525,full,Full sequence,0,activation,1,1
-1006,Sea of Magma,2520,full,Full sequence,0,activation,1,2
-1006,Sea of Magma,2521,full,Full sequence,0,loop_1,2,1
-1006,Sea of Magma,2522,full,Full sequence,0,loop_2,3,2
-1007,Viper Bite,2609,full,Full sequence,0,activation,1,1
-1008,Moonlight Greatsword,1755,1h_uncharged,1H / Uncharged,0,r2,1,2
-1008,Moonlight Greatsword,1757,1h_uncharged,1H / Uncharged,0,stage_1,2,1
-1008,Moonlight Greatsword,1759,1h_uncharged,1H / Uncharged,0,stage_2,3,2
-1008,Moonlight Greatsword,1756,1h_charged,1H / Charged,1,r2,1,2
-1008,Moonlight Greatsword,1758,1h_charged,1H / Charged,1,stage_1,2,1
-1008,Moonlight Greatsword,1760,1h_charged,1H / Charged,1,stage_2,3,2
-1008,Moonlight Greatsword,1755,2h_uncharged,2H / Uncharged,2,r2,1,2
-1008,Moonlight Greatsword,1761,2h_uncharged,2H / Uncharged,2,stage_1,2,1
-1008,Moonlight Greatsword,1763,2h_uncharged,2H / Uncharged,2,stage_2,3,2
-1008,Moonlight Greatsword,1756,2h_charged,2H / Charged,3,r2,1,2
-1008,Moonlight Greatsword,1762,2h_charged,2H / Charged,3,stage_1,2,1
-1008,Moonlight Greatsword,1764,2h_charged,2H / Charged,3,stage_2,3,2
-1009,Siluria's Woe,2412,uncharged,Uncharged,0,activation,1,1
-1009,Siluria's Woe,2413,uncharged,Uncharged,0,activation,1,1
-1009,Siluria's Woe,2414,charged,Charged,1,activation,1,1
-1009,Siluria's Woe,2415,charged,Charged,1,activation,1,1
-1009,Siluria's Woe,2416,charged,Charged,1,activation,1,1
-1011,Bear Witness!,2569,full,Full sequence,0,activation,1,1
-1011,Bear Witness!,2570,full,Full sequence,0,activation,1,2
-1011,Bear Witness!,2571,full,Full sequence,0,activation,1,3
-1011,Bear Witness!,2572,full,Full sequence,0,activation,1,4
-1011,Bear Witness!,2573,full,Full sequence,0,activation,1,4
-1011,Bear Witness!,2574,full,Full sequence,0,activation,1,4
-1011,Bear Witness!,2575,full,Full sequence,0,activation,1,4
+1000,Surge of Faith,2306,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2307,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2308,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2309,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2310,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2311,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2312,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2313,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2314,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2315,full,Full sequence,0,activation,1,1
+1000,Surge of Faith,2316,full,Full sequence,0,activation,1,1
+1001,Flame Spit,2640,full,Full sequence,0,activation,1,1
+1001,Flame Spit,2641,full,Full sequence,0,activation,1,1
+1002,Tongues of Fire,2639,full,Full sequence,0,activation,1,1
+1003,Oracular Bubble,2254,full,Full sequence,0,activation,1,1
+1003,Oracular Bubble,2255,full,Full sequence,0,activation,1,1
+1004,Bubble Shower,2300,full,Full sequence,0,activation,1,1
+1004,Bubble Shower,2301,full,Full sequence,0,activation,1,1
+1004,Bubble Shower,2302,full,Full sequence,0,activation,1,1
+1005,Great Oracular Bubble,2330,full,Full sequence,0,activation,1,1
+1005,Great Oracular Bubble,2331,full,Full sequence,0,activation,1,1
+1006,Sea of Magma,2530,full,Full sequence,0,activation,1,1
+1006,Sea of Magma,2534,full,Full sequence,0,activation,1,1
+1006,Sea of Magma,2535,full,Full sequence,0,activation,1,1
+1006,Sea of Magma,2536,full,Full sequence,0,activation,1,1
+1006,Sea of Magma,2531,full,Full sequence,0,activation,1,2
+1006,Sea of Magma,2532,full,Full sequence,0,loop_1,2,1
+1006,Sea of Magma,2533,full,Full sequence,0,loop_2,3,2
+1007,Viper Bite,2620,full,Full sequence,0,activation,1,1
+1008,Moonlight Greatsword,1763,1h_uncharged,1H / Uncharged,0,r2,1,2
+1008,Moonlight Greatsword,1765,1h_uncharged,1H / Uncharged,0,stage_1,2,1
+1008,Moonlight Greatsword,1767,1h_uncharged,1H / Uncharged,0,stage_2,3,2
+1008,Moonlight Greatsword,1764,1h_charged,1H / Charged,1,r2,1,2
+1008,Moonlight Greatsword,1766,1h_charged,1H / Charged,1,stage_1,2,1
+1008,Moonlight Greatsword,1768,1h_charged,1H / Charged,1,stage_2,3,2
+1008,Moonlight Greatsword,1763,2h_uncharged,2H / Uncharged,2,r2,1,2
+1008,Moonlight Greatsword,1769,2h_uncharged,2H / Uncharged,2,stage_1,2,1
+1008,Moonlight Greatsword,1771,2h_uncharged,2H / Uncharged,2,stage_2,3,2
+1008,Moonlight Greatsword,1764,2h_charged,2H / Charged,3,r2,1,2
+1008,Moonlight Greatsword,1770,2h_charged,2H / Charged,3,stage_1,2,1
+1008,Moonlight Greatsword,1772,2h_charged,2H / Charged,3,stage_2,3,2
+1009,Siluria's Woe,2423,uncharged,Uncharged,0,activation,1,1
+1009,Siluria's Woe,2424,uncharged,Uncharged,0,activation,1,1
+1009,Siluria's Woe,2425,charged,Charged,1,activation,1,1
+1009,Siluria's Woe,2426,charged,Charged,1,activation,1,1
+1009,Siluria's Woe,2427,charged,Charged,1,activation,1,1
+1011,Bear Witness!,2580,full,Full sequence,0,activation,1,1
+1011,Bear Witness!,2581,full,Full sequence,0,activation,1,2
+1011,Bear Witness!,2582,full,Full sequence,0,activation,1,3
+1011,Bear Witness!,2583,full,Full sequence,0,activation,1,4
+1011,Bear Witness!,2584,full,Full sequence,0,activation,1,4
+1011,Bear Witness!,2585,full,Full sequence,0,activation,1,4
+1011,Bear Witness!,2586,full,Full sequence,0,activation,1,4
 1012,Eochaid's Dancing Blade,1691,uncharged,Uncharged,0,activation,1,1
 1012,Eochaid's Dancing Blade,1692,uncharged,Uncharged,0,activation,1,2
 1012,Eochaid's Dancing Blade,1693,uncharged,Uncharged,0,activation,1,3
@@ -1213,8 +1213,8 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 1012,Eochaid's Dancing Blade,1709,charged,Charged,1,activation,1,10
 1012,Eochaid's Dancing Blade,1710,charged,Charged,1,activation,1,11
 1012,Eochaid's Dancing Blade,1711,charged,Charged,1,activation,1,12
-1014,Taker's Flames,1744,full,Full sequence,0,activation,1,1
-1014,Taker's Flames,1745,full,Full sequence,0,activation,1,1
+1014,Taker's Flames,1752,full,Full sequence,0,activation,1,1
+1014,Taker's Flames,1753,full,Full sequence,0,activation,1,1
 1015,Shriek of Milos,1672,1h_uncharged,1H / Uncharged,0,activation,1,1
 1015,Shriek of Milos,1673,1h_uncharged,1H / Uncharged,0,activation,1,1
 1015,Shriek of Milos,1674,1h_uncharged,1H / Uncharged,0,activation,1,1
@@ -1246,7 +1246,7 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 1017,Glintstone Dart,1571,uncharged,Uncharged,0,activation,1,1
 1017,Glintstone Dart,1573,uncharged,Uncharged,0,r2,2,2
 1017,Glintstone Dart,1572,charged,Charged,1,activation,1,1
-1018,Flowing Form,1873,full,Full sequence,0,activation,1,1
+1018,Flowing Form,1881,full,Full sequence,0,activation,1,1
 1019,Night-and-Flame Stance,1627,r1,R1,0,r1,1,1
 1019,Night-and-Flame Stance,1628,r1,R1,0,r1,1,1
 1019,Night-and-Flame Stance,1632,r1,R1,0,r1,1,4
@@ -1257,181 +1257,181 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 1019,Night-and-Flame Stance,1635,r2,R2,1,r2,1,2
 1019,Night-and-Flame Stance,1636,r2,R2,1,r2,1,2
 1019,Night-and-Flame Stance,1637,r2,R2,1,r2,1,2
-1020,Wave of Gold,1771,full,Full sequence,0,activation,1,1
-1020,Wave of Gold,1772,full,Full sequence,0,activation,1,1
-1020,Wave of Gold,1773,full,Full sequence,0,activation,1,1
-1020,Wave of Gold,1774,full,Full sequence,0,activation,1,1
-1020,Wave of Gold,1775,full,Full sequence,0,activation,1,1
-1021,Ruinous Ghostflame,1743,full,Full sequence,0,activation,1,1
-1022,Establish Order,1747,full,Full sequence,0,stage_1,1,1
-1022,Establish Order,1748,full,Full sequence,0,stage_2,2,1
-1022,Establish Order,1749,full,Full sequence,0,stage_2,2,2
-1022,Establish Order,1750,full,Full sequence,0,stage_2,2,2
-1022,Establish Order,1751,full,Full sequence,0,stage_2,2,2
-1022,Establish Order,1752,full,Full sequence,0,activation,3,1
+1020,Wave of Gold,1779,full,Full sequence,0,activation,1,1
+1020,Wave of Gold,1780,full,Full sequence,0,activation,1,1
+1020,Wave of Gold,1781,full,Full sequence,0,activation,1,1
+1020,Wave of Gold,1782,full,Full sequence,0,activation,1,1
+1020,Wave of Gold,1783,full,Full sequence,0,activation,1,1
+1021,Ruinous Ghostflame,1751,full,Full sequence,0,activation,1,1
+1022,Establish Order,1755,full,Full sequence,0,stage_1,1,1
+1022,Establish Order,1756,full,Full sequence,0,stage_2,2,1
+1022,Establish Order,1757,full,Full sequence,0,stage_2,2,2
+1022,Establish Order,1758,full,Full sequence,0,stage_2,2,2
+1022,Establish Order,1759,full,Full sequence,0,stage_2,2,2
+1022,Establish Order,1760,full,Full sequence,0,activation,3,1
 1023,Mists of Slumber,1600,full,Full sequence,0,activation,1,1
-1024,Spearcall Ritual,2395,full,Full sequence,0,activation,1,1
-1024,Spearcall Ritual,2396,full,Full sequence,0,activation,1,1
-1024,Spearcall Ritual,2397,full,Full sequence,0,activation,1,1
-1024,Spearcall Ritual,2398,full,Full sequence,0,activation,1,1
-1024,Spearcall Ritual,2399,full,Full sequence,0,activation,1,1
-1025,Wolf's Assault,1780,full,Full sequence,0,activation,1,1
-1025,Wolf's Assault,1781,full,Full sequence,0,activation,1,1
-1025,Wolf's Assault,1782,full,Full sequence,0,activation,1,1
-1026,Thundercloud Form,1855,uncharged,Uncharged,0,activation,1,2
-1026,Thundercloud Form,1854,charged,Charged,1,loop_1,1,1
-1026,Thundercloud Form,1856,charged,Charged,1,loop_1,1,1
-1026,Thundercloud Form,1857,charged,Charged,1,activation,2,2
-1027,Cursed-Blood Slice,1973,full,Full sequence,0,stage_1,1,1
-1027,Cursed-Blood Slice,1974,full,Full sequence,0,stage_2,2,2
-1027,Cursed-Blood Slice,1975,full,Full sequence,0,activation,3,1
-1027,Cursed-Blood Slice,1976,full,Full sequence,0,activation,3,1
-1027,Cursed-Blood Slice,1977,full,Full sequence,0,activation,3,1
-1028,Waterfowl Dance,2043,full,Full sequence,0,stage_1,1,1
-1028,Waterfowl Dance,2044,full,Full sequence,0,stage_1,1,2
-1028,Waterfowl Dance,2045,full,Full sequence,0,stage_1,1,3
-1028,Waterfowl Dance,2046,full,Full sequence,0,stage_1,1,4
-1028,Waterfowl Dance,2047,full,Full sequence,0,stage_2,2,1
-1028,Waterfowl Dance,2048,full,Full sequence,0,stage_2,2,2
-1028,Waterfowl Dance,2049,full,Full sequence,0,stage_3,3,1
-1028,Waterfowl Dance,2050,full,Full sequence,0,stage_3,3,2
-1028,Waterfowl Dance,2051,full,Full sequence,0,stage_3,3,3
-1028,Waterfowl Dance,2052,full,Full sequence,0,stage_3,3,4
-1029,Gold Breaker,2260,full,Full sequence,0,activation,1,1
-1029,Gold Breaker,2261,full,Full sequence,0,activation,1,1
-1029,Gold Breaker,2262,full,Full sequence,0,activation,1,1
-1029,Gold Breaker,2263,full,Full sequence,0,activation,1,1
-1029,Gold Breaker,2264,full,Full sequence,0,activation,1,1
-1030,I Command Thee Kneel!,2214,full,Full sequence,0,stage_1,1,1
-1030,I Command Thee Kneel!,2215,full,Full sequence,0,stage_1,1,1
-1030,I Command Thee Kneel!,2216,full,Full sequence,0,stage_1,1,1
-1030,I Command Thee Kneel!,2217,full,Full sequence,0,stage_1,1,1
-1030,I Command Thee Kneel!,2218,full,Full sequence,0,stage_1,1,1
-1030,I Command Thee Kneel!,2219,full,Full sequence,0,stage_1,1,2
-1030,I Command Thee Kneel!,2220,full,Full sequence,0,stage_1,1,2
-1030,I Command Thee Kneel!,2221,full,Full sequence,0,stage_1,1,2
-1030,I Command Thee Kneel!,2222,full,Full sequence,0,stage_1,1,2
-1030,I Command Thee Kneel!,2223,full,Full sequence,0,stage_1,1,2
-1030,I Command Thee Kneel!,2224,full,Full sequence,0,stage_2,2,2
-1030,I Command Thee Kneel!,2225,full,Full sequence,0,stage_2,2,2
-1030,I Command Thee Kneel!,2226,full,Full sequence,0,stage_2,2,2
-1030,I Command Thee Kneel!,2227,full,Full sequence,0,stage_2,2,2
-1030,I Command Thee Kneel!,2228,full,Full sequence,0,stage_2,2,2
-1031,Regal Roar,2350,uncharged,Uncharged,0,activation,1,1
-1031,Regal Roar,2370,uncharged,Uncharged,0,activation,1,1
-1031,Regal Roar,2351,uncharged,Uncharged,0,activation,1,2
-1031,Regal Roar,2352,uncharged,Uncharged,0,activation,1,2
-1031,Regal Roar,2353,uncharged,Uncharged,0,activation,1,2
-1031,Regal Roar,2354,uncharged,Uncharged,0,activation,1,2
-1031,Regal Roar,2355,uncharged,Uncharged,0,stage_1,2,1
-1031,Regal Roar,2356,uncharged,Uncharged,0,stage_1,2,1
-1031,Regal Roar,2357,uncharged,Uncharged,0,stage_1,2,1
-1031,Regal Roar,2358,uncharged,Uncharged,0,stage_1,2,1
-1031,Regal Roar,2359,uncharged,Uncharged,0,stage_1,2,1
-1031,Regal Roar,2365,uncharged,Uncharged,0,stage_2,3,2
-1031,Regal Roar,2360,charged,Charged,1,stage_1,1,1
-1031,Regal Roar,2361,charged,Charged,1,stage_1,1,1
-1031,Regal Roar,2362,charged,Charged,1,stage_1,1,1
-1031,Regal Roar,2363,charged,Charged,1,stage_1,1,1
-1031,Regal Roar,2364,charged,Charged,1,stage_1,1,1
-1031,Regal Roar,2366,charged,Charged,1,stage_2,2,2
-1031,Regal Roar,2367,charged,Charged,1,stage_2,2,2
-1031,Regal Roar,2368,charged,Charged,1,stage_2,2,2
-1031,Regal Roar,2369,charged,Charged,1,stage_2,2,2
-1032,Starcaller Cry,1791,full,Full sequence,0,activation,1,1
-1032,Starcaller Cry,1792,full,Full sequence,0,activation,1,1
-1032,Starcaller Cry,1793,full,Full sequence,0,activation,1,1
-1032,Starcaller Cry,1794,full,Full sequence,0,activation,1,1
-1032,Starcaller Cry,1795,full,Full sequence,0,activation,1,1
-1032,Starcaller Cry,1796,full,Full sequence,0,activation,1,1
-1032,Starcaller Cry,1797,full,Full sequence,0,activation,1,1
-1032,Starcaller Cry,1798,full,Full sequence,0,activation,1,1
+1024,Spearcall Ritual,2406,full,Full sequence,0,activation,1,1
+1024,Spearcall Ritual,2407,full,Full sequence,0,activation,1,1
+1024,Spearcall Ritual,2408,full,Full sequence,0,activation,1,1
+1024,Spearcall Ritual,2409,full,Full sequence,0,activation,1,1
+1024,Spearcall Ritual,2410,full,Full sequence,0,activation,1,1
+1025,Wolf's Assault,1788,full,Full sequence,0,activation,1,1
+1025,Wolf's Assault,1789,full,Full sequence,0,activation,1,1
+1025,Wolf's Assault,1790,full,Full sequence,0,activation,1,1
+1026,Thundercloud Form,1863,uncharged,Uncharged,0,activation,1,2
+1026,Thundercloud Form,1862,charged,Charged,1,loop_1,1,1
+1026,Thundercloud Form,1864,charged,Charged,1,loop_1,1,1
+1026,Thundercloud Form,1865,charged,Charged,1,activation,2,2
+1027,Cursed-Blood Slice,1981,full,Full sequence,0,stage_1,1,1
+1027,Cursed-Blood Slice,1982,full,Full sequence,0,stage_2,2,2
+1027,Cursed-Blood Slice,1983,full,Full sequence,0,activation,3,1
+1027,Cursed-Blood Slice,1984,full,Full sequence,0,activation,3,1
+1027,Cursed-Blood Slice,1985,full,Full sequence,0,activation,3,1
+1028,Waterfowl Dance,2051,full,Full sequence,0,stage_1,1,1
+1028,Waterfowl Dance,2052,full,Full sequence,0,stage_1,1,2
+1028,Waterfowl Dance,2053,full,Full sequence,0,stage_1,1,3
+1028,Waterfowl Dance,2054,full,Full sequence,0,stage_1,1,4
+1028,Waterfowl Dance,2055,full,Full sequence,0,stage_2,2,1
+1028,Waterfowl Dance,2056,full,Full sequence,0,stage_2,2,2
+1028,Waterfowl Dance,2057,full,Full sequence,0,stage_3,3,1
+1028,Waterfowl Dance,2058,full,Full sequence,0,stage_3,3,2
+1028,Waterfowl Dance,2059,full,Full sequence,0,stage_3,3,3
+1028,Waterfowl Dance,2060,full,Full sequence,0,stage_3,3,4
+1029,Gold Breaker,2268,full,Full sequence,0,activation,1,1
+1029,Gold Breaker,2269,full,Full sequence,0,activation,1,1
+1029,Gold Breaker,2270,full,Full sequence,0,activation,1,1
+1029,Gold Breaker,2271,full,Full sequence,0,activation,1,1
+1029,Gold Breaker,2272,full,Full sequence,0,activation,1,1
+1030,I Command Thee Kneel!,2222,full,Full sequence,0,stage_1,1,1
+1030,I Command Thee Kneel!,2223,full,Full sequence,0,stage_1,1,1
+1030,I Command Thee Kneel!,2224,full,Full sequence,0,stage_1,1,1
+1030,I Command Thee Kneel!,2225,full,Full sequence,0,stage_1,1,1
+1030,I Command Thee Kneel!,2226,full,Full sequence,0,stage_1,1,1
+1030,I Command Thee Kneel!,2227,full,Full sequence,0,stage_1,1,2
+1030,I Command Thee Kneel!,2228,full,Full sequence,0,stage_1,1,2
+1030,I Command Thee Kneel!,2229,full,Full sequence,0,stage_1,1,2
+1030,I Command Thee Kneel!,2230,full,Full sequence,0,stage_1,1,2
+1030,I Command Thee Kneel!,2231,full,Full sequence,0,stage_1,1,2
+1030,I Command Thee Kneel!,2232,full,Full sequence,0,stage_2,2,2
+1030,I Command Thee Kneel!,2233,full,Full sequence,0,stage_2,2,2
+1030,I Command Thee Kneel!,2234,full,Full sequence,0,stage_2,2,2
+1030,I Command Thee Kneel!,2235,full,Full sequence,0,stage_2,2,2
+1030,I Command Thee Kneel!,2236,full,Full sequence,0,stage_2,2,2
+1031,Regal Roar,2361,uncharged,Uncharged,0,activation,1,1
+1031,Regal Roar,2381,uncharged,Uncharged,0,activation,1,1
+1031,Regal Roar,2362,uncharged,Uncharged,0,activation,1,2
+1031,Regal Roar,2363,uncharged,Uncharged,0,activation,1,2
+1031,Regal Roar,2364,uncharged,Uncharged,0,activation,1,2
+1031,Regal Roar,2365,uncharged,Uncharged,0,activation,1,2
+1031,Regal Roar,2366,uncharged,Uncharged,0,stage_1,2,1
+1031,Regal Roar,2367,uncharged,Uncharged,0,stage_1,2,1
+1031,Regal Roar,2368,uncharged,Uncharged,0,stage_1,2,1
+1031,Regal Roar,2369,uncharged,Uncharged,0,stage_1,2,1
+1031,Regal Roar,2370,uncharged,Uncharged,0,stage_1,2,1
+1031,Regal Roar,2376,uncharged,Uncharged,0,stage_2,3,2
+1031,Regal Roar,2371,charged,Charged,1,stage_1,1,1
+1031,Regal Roar,2372,charged,Charged,1,stage_1,1,1
+1031,Regal Roar,2373,charged,Charged,1,stage_1,1,1
+1031,Regal Roar,2374,charged,Charged,1,stage_1,1,1
+1031,Regal Roar,2375,charged,Charged,1,stage_1,1,1
+1031,Regal Roar,2377,charged,Charged,1,stage_2,2,2
+1031,Regal Roar,2378,charged,Charged,1,stage_2,2,2
+1031,Regal Roar,2379,charged,Charged,1,stage_2,2,2
+1031,Regal Roar,2380,charged,Charged,1,stage_2,2,2
 1032,Starcaller Cry,1799,full,Full sequence,0,activation,1,1
 1032,Starcaller Cry,1800,full,Full sequence,0,activation,1,1
 1032,Starcaller Cry,1801,full,Full sequence,0,activation,1,1
 1032,Starcaller Cry,1802,full,Full sequence,0,activation,1,1
 1032,Starcaller Cry,1803,full,Full sequence,0,activation,1,1
 1032,Starcaller Cry,1804,full,Full sequence,0,activation,1,1
-1033,Wave of Destruction,1784,full,Full sequence,0,activation,1,1
-1033,Wave of Destruction,1785,full,Full sequence,0,activation,1,1
-1034,Bloodboon Ritual,2432,full,Full sequence,0,stage_1,1,1
-1034,Bloodboon Ritual,2433,full,Full sequence,0,stage_1,1,1
-1034,Bloodboon Ritual,2434,full,Full sequence,0,stage_1,1,1
-1034,Bloodboon Ritual,2435,full,Full sequence,0,stage_1,1,1
-1034,Bloodboon Ritual,2436,full,Full sequence,0,stage_2,2,2
-1034,Bloodboon Ritual,2437,full,Full sequence,0,stage_2,2,2
-1034,Bloodboon Ritual,2438,full,Full sequence,0,stage_2,2,2
-1034,Bloodboon Ritual,2439,full,Full sequence,0,stage_2,2,2
-1034,Bloodboon Ritual,2440,full,Full sequence,0,stage_3,3,3
-1034,Bloodboon Ritual,2441,full,Full sequence,0,stage_3,3,3
-1034,Bloodboon Ritual,2442,full,Full sequence,0,stage_3,3,3
-1034,Bloodboon Ritual,2443,full,Full sequence,0,stage_3,3,3
-1035,Flowing Form,2248,full,Full sequence,0,activation,1,1
-1035,Flowing Form,2249,full,Full sequence,0,activation,1,2
+1032,Starcaller Cry,1805,full,Full sequence,0,activation,1,1
+1032,Starcaller Cry,1806,full,Full sequence,0,activation,1,1
+1032,Starcaller Cry,1807,full,Full sequence,0,activation,1,1
+1032,Starcaller Cry,1808,full,Full sequence,0,activation,1,1
+1032,Starcaller Cry,1809,full,Full sequence,0,activation,1,1
+1032,Starcaller Cry,1810,full,Full sequence,0,activation,1,1
+1032,Starcaller Cry,1811,full,Full sequence,0,activation,1,1
+1032,Starcaller Cry,1812,full,Full sequence,0,activation,1,1
+1033,Wave of Destruction,1792,full,Full sequence,0,activation,1,1
+1033,Wave of Destruction,1793,full,Full sequence,0,activation,1,1
+1034,Bloodboon Ritual,2443,full,Full sequence,0,stage_1,1,1
+1034,Bloodboon Ritual,2444,full,Full sequence,0,stage_1,1,1
+1034,Bloodboon Ritual,2445,full,Full sequence,0,stage_1,1,1
+1034,Bloodboon Ritual,2446,full,Full sequence,0,stage_1,1,1
+1034,Bloodboon Ritual,2447,full,Full sequence,0,stage_2,2,2
+1034,Bloodboon Ritual,2448,full,Full sequence,0,stage_2,2,2
+1034,Bloodboon Ritual,2449,full,Full sequence,0,stage_2,2,2
+1034,Bloodboon Ritual,2450,full,Full sequence,0,stage_2,2,2
+1034,Bloodboon Ritual,2451,full,Full sequence,0,stage_3,3,3
+1034,Bloodboon Ritual,2452,full,Full sequence,0,stage_3,3,3
+1034,Bloodboon Ritual,2453,full,Full sequence,0,stage_3,3,3
+1034,Bloodboon Ritual,2454,full,Full sequence,0,stage_3,3,3
+1035,Flowing Form,2256,full,Full sequence,0,activation,1,1
+1035,Flowing Form,2257,full,Full sequence,0,activation,1,2
 1036,Blade of Death,1588,full,Full sequence,0,activation,1,1
 1037,Blade of Gold,1586,full,Full sequence,0,activation,1,1
-1038,Destined Death,1837,full,Full sequence,0,activation,1,1
-1038,Destined Death,1839,full,Full sequence,0,activation,1,1
-1038,Destined Death,1840,full,Full sequence,0,activation,1,1
-1038,Destined Death,1841,full,Full sequence,0,activation,1,1
-1038,Destined Death,1838,full,Full sequence,0,activation,1,2
-1039,Spinning Wheel,2321,full,Full sequence,0,activation,1,1
-1039,Spinning Wheel,2322,full,Full sequence,0,activation,1,1
-1039,Spinning Wheel,2323,full,Full sequence,0,activation,1,1
-1039,Spinning Wheel,2324,full,Full sequence,0,activation,1,1
-1040,Alabaster Lords' Pull,1727,full,Full sequence,0,activation,1,1
-1040,Alabaster Lords' Pull,1728,full,Full sequence,0,activation,1,1
-1040,Alabaster Lords' Pull,1729,full,Full sequence,0,activation,1,1
-1040,Alabaster Lords' Pull,1730,full,Full sequence,0,activation,1,1
-1041,Onyx Lords' Repulsion,1938,full,Full sequence,0,activation,1,1
-1041,Onyx Lords' Repulsion,1939,full,Full sequence,0,activation,1,1
-1041,Onyx Lords' Repulsion,1940,full,Full sequence,0,activation,1,1
-1041,Onyx Lords' Repulsion,1941,full,Full sequence,0,activation,1,1
-1043,Ice Lightning Sword,2026,full,Full sequence,0,activation,1,1
-1043,Ice Lightning Sword,2027,full,Full sequence,0,activation,1,1
-1043,Ice Lightning Sword,2028,full,Full sequence,0,activation,1,1
-1043,Ice Lightning Sword,2029,full,Full sequence,0,activation,1,1
-1044,Regal Beastclaw,2306,full,Full sequence,0,activation,1,1
-1044,Regal Beastclaw,2307,full,Full sequence,0,activation,1,1
-1045,Flame Dance,2531,full,Full sequence,0,activation,1,1
-1045,Flame Dance,2532,full,Full sequence,0,activation,1,2
-1045,Flame Dance,2533,full,Full sequence,0,activation,1,3
-1045,Flame Dance,2534,full,Full sequence,0,activation,1,4
-1045,Flame Dance,2535,full,Full sequence,0,activation,1,5
-1046,Claw Flick,2252,full,Full sequence,0,activation,1,1
-1046,Claw Flick,2253,full,Full sequence,0,activation,1,2
-1047,Nebula,2286,full,Full sequence,0,activation,1,1
-1047,Nebula,2287,full,Full sequence,0,activation,1,1
-1048,Ghostflame Ignition,1732,r1,R1,0,activation,1,1
-1048,Ghostflame Ignition,1733,r1,R1,0,activation,1,1
-1048,Ghostflame Ignition,1734,r1,R1,0,activation,1,1
-1048,Ghostflame Ignition,1735,r1,R1,0,r1,2,1
-1048,Ghostflame Ignition,1736,r1,R1,0,r1,2,1
-1048,Ghostflame Ignition,1737,r1,R1,0,r1,2,1
-1048,Ghostflame Ignition,1732,r2,R2,1,activation,1,1
-1048,Ghostflame Ignition,1733,r2,R2,1,activation,1,1
-1048,Ghostflame Ignition,1734,r2,R2,1,activation,1,1
-1048,Ghostflame Ignition,1738,r2,R2,1,r2,2,2
-1048,Ghostflame Ignition,1739,r2,R2,1,r2,2,2
-1049,Ancient Lightning Spear,2400,uncharged,Uncharged,0,activation,1,1
-1049,Ancient Lightning Spear,2402,uncharged,Uncharged,0,activation,1,1
-1049,Ancient Lightning Spear,2401,charged,Charged,1,activation,1,1
-1050,Frenzyflame Thrust,2419,full,Full sequence,0,activation,1,1
-1050,Frenzyflame Thrust,2420,full,Full sequence,0,activation,1,1
-1050,Frenzyflame Thrust,2421,full,Full sequence,0,activation,1,1
-1050,Frenzyflame Thrust,2422,full,Full sequence,0,activation,1,1
-1051,Miquella's Ring of Light,2488,near,Near,0,stage_1,1,1
-1051,Miquella's Ring of Light,2489,near,Near,0,stage_1,1,1
-1051,Miquella's Ring of Light,2491,near,Near,0,stage_2,2,2
-1051,Miquella's Ring of Light,2492,near,Near,0,stage_2,2,2
-1051,Miquella's Ring of Light,2494,near,Near,0,stage_3,3,3
-1051,Miquella's Ring of Light,2495,near,Near,0,stage_3,3,3
-1051,Miquella's Ring of Light,2488,far,Far,1,stage_1,1,1
-1051,Miquella's Ring of Light,2490,far,Far,1,stage_1,1,1
-1051,Miquella's Ring of Light,2491,far,Far,1,stage_2,2,2
-1051,Miquella's Ring of Light,2493,far,Far,1,stage_2,2,2
-1051,Miquella's Ring of Light,2494,far,Far,1,stage_3,3,3
-1051,Miquella's Ring of Light,2496,far,Far,1,stage_3,3,3
+1038,Destined Death,1845,full,Full sequence,0,activation,1,1
+1038,Destined Death,1847,full,Full sequence,0,activation,1,1
+1038,Destined Death,1848,full,Full sequence,0,activation,1,1
+1038,Destined Death,1849,full,Full sequence,0,activation,1,1
+1038,Destined Death,1846,full,Full sequence,0,activation,1,2
+1039,Spinning Wheel,2332,full,Full sequence,0,activation,1,1
+1039,Spinning Wheel,2333,full,Full sequence,0,activation,1,1
+1039,Spinning Wheel,2334,full,Full sequence,0,activation,1,1
+1039,Spinning Wheel,2335,full,Full sequence,0,activation,1,1
+1040,Alabaster Lords' Pull,1735,full,Full sequence,0,activation,1,1
+1040,Alabaster Lords' Pull,1736,full,Full sequence,0,activation,1,1
+1040,Alabaster Lords' Pull,1737,full,Full sequence,0,activation,1,1
+1040,Alabaster Lords' Pull,1738,full,Full sequence,0,activation,1,1
+1041,Onyx Lords' Repulsion,1946,full,Full sequence,0,activation,1,1
+1041,Onyx Lords' Repulsion,1947,full,Full sequence,0,activation,1,1
+1041,Onyx Lords' Repulsion,1948,full,Full sequence,0,activation,1,1
+1041,Onyx Lords' Repulsion,1949,full,Full sequence,0,activation,1,1
+1043,Ice Lightning Sword,2034,full,Full sequence,0,activation,1,1
+1043,Ice Lightning Sword,2035,full,Full sequence,0,activation,1,1
+1043,Ice Lightning Sword,2036,full,Full sequence,0,activation,1,1
+1043,Ice Lightning Sword,2037,full,Full sequence,0,activation,1,1
+1044,Regal Beastclaw,2317,full,Full sequence,0,activation,1,1
+1044,Regal Beastclaw,2318,full,Full sequence,0,activation,1,1
+1045,Flame Dance,2542,full,Full sequence,0,activation,1,1
+1045,Flame Dance,2543,full,Full sequence,0,activation,1,2
+1045,Flame Dance,2544,full,Full sequence,0,activation,1,3
+1045,Flame Dance,2545,full,Full sequence,0,activation,1,4
+1045,Flame Dance,2546,full,Full sequence,0,activation,1,5
+1046,Claw Flick,2260,full,Full sequence,0,activation,1,1
+1046,Claw Flick,2261,full,Full sequence,0,activation,1,2
+1047,Nebula,2297,full,Full sequence,0,activation,1,1
+1047,Nebula,2298,full,Full sequence,0,activation,1,1
+1048,Ghostflame Ignition,1740,r1,R1,0,activation,1,1
+1048,Ghostflame Ignition,1741,r1,R1,0,activation,1,1
+1048,Ghostflame Ignition,1742,r1,R1,0,activation,1,1
+1048,Ghostflame Ignition,1743,r1,R1,0,r1,2,1
+1048,Ghostflame Ignition,1744,r1,R1,0,r1,2,1
+1048,Ghostflame Ignition,1745,r1,R1,0,r1,2,1
+1048,Ghostflame Ignition,1740,r2,R2,1,activation,1,1
+1048,Ghostflame Ignition,1741,r2,R2,1,activation,1,1
+1048,Ghostflame Ignition,1742,r2,R2,1,activation,1,1
+1048,Ghostflame Ignition,1746,r2,R2,1,r2,2,2
+1048,Ghostflame Ignition,1747,r2,R2,1,r2,2,2
+1049,Ancient Lightning Spear,2411,uncharged,Uncharged,0,activation,1,1
+1049,Ancient Lightning Spear,2413,uncharged,Uncharged,0,activation,1,1
+1049,Ancient Lightning Spear,2412,charged,Charged,1,activation,1,1
+1050,Frenzyflame Thrust,2430,full,Full sequence,0,activation,1,1
+1050,Frenzyflame Thrust,2431,full,Full sequence,0,activation,1,1
+1050,Frenzyflame Thrust,2432,full,Full sequence,0,activation,1,1
+1050,Frenzyflame Thrust,2433,full,Full sequence,0,activation,1,1
+1051,Miquella's Ring of Light,2499,near,Near,0,stage_1,1,1
+1051,Miquella's Ring of Light,2500,near,Near,0,stage_1,1,1
+1051,Miquella's Ring of Light,2502,near,Near,0,stage_2,2,2
+1051,Miquella's Ring of Light,2503,near,Near,0,stage_2,2,2
+1051,Miquella's Ring of Light,2505,near,Near,0,stage_3,3,3
+1051,Miquella's Ring of Light,2506,near,Near,0,stage_3,3,3
+1051,Miquella's Ring of Light,2499,far,Far,1,stage_1,1,1
+1051,Miquella's Ring of Light,2501,far,Far,1,stage_1,1,1
+1051,Miquella's Ring of Light,2502,far,Far,1,stage_2,2,2
+1051,Miquella's Ring of Light,2504,far,Far,1,stage_2,2,2
+1051,Miquella's Ring of Light,2505,far,Far,1,stage_3,3,3
+1051,Miquella's Ring of Light,2507,far,Far,1,stage_3,3,3
 1052,Golden Tempering,1590,uncharged,Uncharged,0,r2,1,2
 1052,Golden Tempering,1591,uncharged,Uncharged,0,r2,1,2
 1052,Golden Tempering,1592,charged,Charged,1,r2,1,2
@@ -1464,145 +1464,152 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 1055,Eochaid's Dancing Blade,1622,charged,Charged,1,activation,1,10
 1055,Eochaid's Dancing Blade,1623,charged,Charged,1,activation,1,11
 1055,Eochaid's Dancing Blade,1624,charged,Charged,1,activation,1,12
-1165,Loretta's Slash,2470,full,Full sequence,0,activation,1,1
-1165,Loretta's Slash,2471,full,Full sequence,0,activation,1,1
-1165,Loretta's Slash,2472,full,Full sequence,0,activation,1,2
-1166,Spinning Slash,2462,full,Full sequence,0,stage_1,1,1
-1166,Spinning Slash,2463,full,Full sequence,0,stage_2,2,1
-1166,Spinning Slash,2464,full,Full sequence,0,stage_2,2,2
-1166,Spinning Slash,2465,full,Full sequence,0,stage_2,2,2
-1166,Spinning Slash,2466,full,Full sequence,0,stage_2,2,2
+1165,Loretta's Slash,2481,full,Full sequence,0,activation,1,1
+1165,Loretta's Slash,2482,full,Full sequence,0,activation,1,1
+1165,Loretta's Slash,2483,full,Full sequence,0,activation,1,2
+1166,Spinning Slash,2473,full,Full sequence,0,stage_1,1,1
+1166,Spinning Slash,2474,full,Full sequence,0,stage_2,2,1
+1166,Spinning Slash,2475,full,Full sequence,0,stage_2,2,2
+1166,Spinning Slash,2476,full,Full sequence,0,stage_2,2,2
+1166,Spinning Slash,2477,full,Full sequence,0,stage_2,2,2
 1167,Corpse Wax Cutter,1669,full,Full sequence,0,activation,1,1
 1167,Corpse Wax Cutter,1670,full,Full sequence,0,activation,1,1
-1168,Zamor Ice Storm,1943,full,Full sequence,0,activation,1,1
-1168,Zamor Ice Storm,1944,full,Full sequence,0,activation,1,1
-1168,Zamor Ice Storm,1945,full,Full sequence,0,activation,1,1
-1170,The Queen's Black Flame,1831,full,Full sequence,0,stage_1,1,1
-1170,The Queen's Black Flame,1832,full,Full sequence,0,stage_1,1,2
-1170,The Queen's Black Flame,1833,full,Full sequence,0,stage_2,2,2
-1171,Dynast's Finesse,1846,full,Full sequence,0,activation,1,1
-1171,Dynast's Finesse,1847,full,Full sequence,0,stage_1,2,1
-1171,Dynast's Finesse,1848,full,Full sequence,0,stage_2,3,1
-1171,Dynast's Finesse,1849,full,Full sequence,0,stage_2,3,2
-1172,Magma Shower,1858,full,Full sequence,0,stage_1,1,1
-1172,Magma Shower,1859,full,Full sequence,0,stage_2,2,1
-1172,Magma Shower,1860,full,Full sequence,0,stage_2,2,2
-1172,Magma Shower,1861,full,Full sequence,0,activation,3,1
-1172,Magma Shower,1862,full,Full sequence,0,activation,3,1
-1173,Nebula,1875,full,Full sequence,0,activation,1,1
-1173,Nebula,1876,full,Full sequence,0,activation,1,1
-1173,Nebula,1877,full,Full sequence,0,activation,1,1
-1174,Death Flare,1931,full,Full sequence,0,activation,1,1
-1174,Death Flare,1932,full,Full sequence,0,activation,1,1
-1175,Bloodhound's Finesse,1934,full,Full sequence,0,activation,1,1
-1175,Bloodhound's Finesse,1935,full,Full sequence,0,r2,2,2
-1176,Magma Guillotine,1947,full,Full sequence,0,stage_1,1,1
-1176,Magma Guillotine,1948,full,Full sequence,0,activation,2,1
-1176,Magma Guillotine,1949,full,Full sequence,0,activation,2,1
-1176,Magma Guillotine,1950,full,Full sequence,0,stage_2,3,1
-1176,Magma Guillotine,1951,full,Full sequence,0,stage_2,3,2
-1177,Corpse Piler,2008,full,Full sequence,0,stage_1,1,1
-1177,Corpse Piler,2009,full,Full sequence,0,stage_1,1,1
-1177,Corpse Piler,2010,full,Full sequence,0,stage_1,1,2
-1177,Corpse Piler,2011,full,Full sequence,0,stage_1,1,2
-1177,Corpse Piler,2012,full,Full sequence,0,stage_2,2,1
-1177,Corpse Piler,2013,full,Full sequence,0,stage_2,2,1
-1177,Corpse Piler,2014,full,Full sequence,0,stage_2,2,2
-1177,Corpse Piler,2015,full,Full sequence,0,stage_2,2,2
-1177,Corpse Piler,2016,full,Full sequence,0,stage_2,2,3
-1177,Corpse Piler,2017,full,Full sequence,0,stage_2,2,3
-1177,Corpse Piler,2018,full,Full sequence,0,stage_3,3,3
-1177,Corpse Piler,2019,full,Full sequence,0,stage_3,3,3
-1178,Transient Moonlight,1990,r1,R1,0,r1,1,1
-1178,Transient Moonlight,1991,r1,R1,0,r1,1,1
-1178,Transient Moonlight,1992,r2,R2,1,r2,1,2
-1178,Transient Moonlight,1993,r2,R2,1,r2,1,2
-1179,Bloodblade Dance,2079,full,Full sequence,0,stage_1,1,1
-1179,Bloodblade Dance,2080,full,Full sequence,0,stage_1,1,2
-1179,Bloodblade Dance,2081,full,Full sequence,0,stage_1,1,3
-1179,Bloodblade Dance,2082,full,Full sequence,0,stage_1,1,4
-1179,Bloodblade Dance,2083,full,Full sequence,0,stage_1,1,5
-1179,Bloodblade Dance,2084,full,Full sequence,0,stage_1,1,6
-1179,Bloodblade Dance,2085,full,Full sequence,0,stage_1,1,7
-1179,Bloodblade Dance,2086,full,Full sequence,0,stage_1,1,8
-1179,Bloodblade Dance,2087,full,Full sequence,0,stage_1,1,9
-1179,Bloodblade Dance,2088,full,Full sequence,0,stage_2,2,1
-1179,Bloodblade Dance,2089,full,Full sequence,0,stage_2,2,2
-1179,Bloodblade Dance,2090,full,Full sequence,0,stage_2,2,3
-1182,Knowledge Above All,2254,full,Full sequence,0,activation,1,1
-1183,Devourer of Worlds,2309,full,Full sequence,0,activation,1,1
-1184,Familal Rancor,2276,full,Full sequence,0,activation,1,1
-1184,Familal Rancor,2277,full,Full sequence,0,activation,1,1
-1184,Familal Rancor,2278,full,Full sequence,0,activation,1,1
-1184,Familal Rancor,2279,full,Full sequence,0,activation,1,1
-1184,Familal Rancor,2280,full,Full sequence,0,activation,1,1
-1184,Familal Rancor,2281,full,Full sequence,0,activation,1,1
-1185,Rosus's Summons,2190,full,Full sequence,0,activation,1,1
-1185,Rosus's Summons,2191,full,Full sequence,0,activation,1,1
-1185,Rosus's Summons,2192,full,Full sequence,0,activation,1,1
-1185,Rosus's Summons,2193,full,Full sequence,0,activation,1,1
-1186,Thunderstorm,2169,full,Full sequence,0,stage_1,1,1
-1186,Thunderstorm,2172,full,Full sequence,0,stage_1,1,1
-1186,Thunderstorm,2170,full,Full sequence,0,stage_1,1,2
-1186,Thunderstorm,2173,full,Full sequence,0,stage_1,1,2
-1186,Thunderstorm,2171,full,Full sequence,0,stage_1,1,3
-1186,Thunderstorm,2174,full,Full sequence,0,stage_1,1,3
-1186,Thunderstorm,2175,full,Full sequence,0,stage_2,2,1
-1186,Thunderstorm,2177,full,Full sequence,0,stage_2,2,1
-1186,Thunderstorm,2176,full,Full sequence,0,stage_2,2,2
-1186,Thunderstorm,2178,full,Full sequence,0,stage_2,2,2
-1186,Thunderstorm,2179,full,Full sequence,0,stage_3,3,1
-1186,Thunderstorm,2181,full,Full sequence,0,stage_3,3,1
-1186,Thunderstorm,2180,full,Full sequence,0,stage_3,3,2
-1186,Thunderstorm,2182,full,Full sequence,0,stage_3,3,2
-1187,Sacred Phalanx,2392,full,Full sequence,0,activation,1,1
-1187,Sacred Phalanx,2393,full,Full sequence,0,activation,1,1
-1188,Great-Serpent Hunt,2403,full,Full sequence,0,stage_1,1,1
-1188,Great-Serpent Hunt,2404,full,Full sequence,0,stage_2,2,2
-1188,Great-Serpent Hunt,2407,full,Full sequence,0,activation,3,1
-1188,Great-Serpent Hunt,2408,full,Full sequence,0,activation,3,1
-1188,Great-Serpent Hunt,2409,full,Full sequence,0,activation,3,1
-1188,Great-Serpent Hunt,2410,full,Full sequence,0,activation,3,1
-1188,Great-Serpent Hunt,2411,full,Full sequence,0,activation,3,1
-1189,Angel's Wings,2500,full,Full sequence,0,activation,1,1
-1189,Angel's Wings,2502,full,Full sequence,0,activation,1,1
-1189,Angel's Wings,2501,full,Full sequence,0,activation,1,2
-1190,Storm Kick,2541,full,Full sequence,0,activation,1,1
-1190,Storm Kick,2551,full,Full sequence,0,activation,1,1
-1190,Storm Kick,2542,full,Full sequence,0,activation,1,2
-1190,Storm Kick,2552,full,Full sequence,0,activation,1,2
-1190,Storm Kick,2543,full,Full sequence,0,r2,2,1
-1190,Storm Kick,2553,full,Full sequence,0,r2,2,1
-1190,Storm Kick,2544,full,Full sequence,0,r2,2,2
-1190,Storm Kick,2554,full,Full sequence,0,r2,2,2
-1190,Storm Kick,2545,full,Full sequence,0,r2,2,3
-1190,Storm Kick,2555,full,Full sequence,0,r2,2,3
-1191,Unblockable Blade,2561,full,Full sequence,0,activation,1,1
-1192,Sorcery of the Crozier,2311,full,Full sequence,0,activation,1,1
-1192,Sorcery of the Crozier,2312,full,Full sequence,0,activation,1,1
-1193,Erdtree Slam,2314,full,Full sequence,0,activation,1,1
-1193,Erdtree Slam,2315,full,Full sequence,0,activation,1,1
-1193,Erdtree Slam,2316,full,Full sequence,0,activation,1,1
-1194,Gravity Bolt,2329,full,Full sequence,0,activation,1,1
-1194,Gravity Bolt,2330,full,Full sequence,0,activation,1,1
-1194,Gravity Bolt,2331,full,Full sequence,0,activation,1,1
-1194,Gravity Bolt,2332,full,Full sequence,0,activation,1,1
-1194,Gravity Bolt,2333,full,Full sequence,0,activation,1,1
-1194,Gravity Bolt,2334,full,Full sequence,0,activation,1,1
-1196,Golden Retaliation,2624,full,Full sequence,0,activation,1,1
-1196,Golden Retaliation,2625,full,Full sequence,0,activation,1,1
-1196,Golden Retaliation,2626,full,Full sequence,0,activation,1,1
-1196,Golden Retaliation,2627,full,Full sequence,0,activation,1,1
-1198,Ordovis's Vortex,1719,uncharged,Uncharged,0,activation,1,1
-1198,Ordovis's Vortex,1720,uncharged,Uncharged,0,activation,1,2
-1198,Ordovis's Vortex,1721,charged,Charged,1,activation,1,1
-1198,Ordovis's Vortex,1722,charged,Charged,1,activation,1,2
-1198,Ordovis's Vortex,1723,charged,Charged,1,activation,1,3
-1198,Ordovis's Vortex,1724,charged,Charged,1,activation,1,4
-1199,Spinning Weapon,2594,full,Full sequence,0,activation,1,1
-1199,Spinning Weapon,2595,full,Full sequence,0,activation,1,2
-1199,Spinning Weapon,2596,full,Full sequence,0,activation,1,3
-1199,Spinning Weapon,2597,full,Full sequence,0,activation,1,4
+1168,Zamor Ice Storm,1951,full,Full sequence,0,activation,1,1
+1168,Zamor Ice Storm,1952,full,Full sequence,0,activation,1,1
+1168,Zamor Ice Storm,1953,full,Full sequence,0,activation,1,1
+1170,The Queen's Black Flame,1839,full,Full sequence,0,stage_1,1,1
+1170,The Queen's Black Flame,1840,full,Full sequence,0,stage_1,1,2
+1170,The Queen's Black Flame,1841,full,Full sequence,0,stage_2,2,2
+1171,Dynast's Finesse,1854,full,Full sequence,0,activation,1,1
+1171,Dynast's Finesse,1855,full,Full sequence,0,stage_1,2,1
+1171,Dynast's Finesse,1856,full,Full sequence,0,stage_2,3,1
+1171,Dynast's Finesse,1857,full,Full sequence,0,stage_2,3,2
+1172,Magma Shower,1866,full,Full sequence,0,stage_1,1,1
+1172,Magma Shower,1867,full,Full sequence,0,stage_2,2,1
+1172,Magma Shower,1868,full,Full sequence,0,stage_2,2,2
+1172,Magma Shower,1869,full,Full sequence,0,activation,3,1
+1172,Magma Shower,1870,full,Full sequence,0,activation,3,1
+1173,Nebula,1883,full,Full sequence,0,activation,1,1
+1173,Nebula,1884,full,Full sequence,0,activation,1,1
+1173,Nebula,1885,full,Full sequence,0,activation,1,1
+1174,Death Flare,1939,full,Full sequence,0,activation,1,1
+1174,Death Flare,1940,full,Full sequence,0,activation,1,1
+1175,Bloodhound's Finesse,1942,full,Full sequence,0,activation,1,1
+1175,Bloodhound's Finesse,1943,full,Full sequence,0,r2,2,2
+1176,Magma Guillotine,1955,full,Full sequence,0,stage_1,1,1
+1176,Magma Guillotine,1956,full,Full sequence,0,activation,2,1
+1176,Magma Guillotine,1957,full,Full sequence,0,activation,2,1
+1176,Magma Guillotine,1958,full,Full sequence,0,stage_2,3,1
+1176,Magma Guillotine,1959,full,Full sequence,0,stage_2,3,2
+1177,Corpse Piler,2016,full,Full sequence,0,stage_1,1,1
+1177,Corpse Piler,2017,full,Full sequence,0,stage_1,1,1
+1177,Corpse Piler,2018,full,Full sequence,0,stage_1,1,2
+1177,Corpse Piler,2019,full,Full sequence,0,stage_1,1,2
+1177,Corpse Piler,2020,full,Full sequence,0,stage_2,2,1
+1177,Corpse Piler,2021,full,Full sequence,0,stage_2,2,1
+1177,Corpse Piler,2022,full,Full sequence,0,stage_2,2,2
+1177,Corpse Piler,2023,full,Full sequence,0,stage_2,2,2
+1177,Corpse Piler,2024,full,Full sequence,0,stage_2,2,3
+1177,Corpse Piler,2025,full,Full sequence,0,stage_2,2,3
+1177,Corpse Piler,2026,full,Full sequence,0,stage_3,3,3
+1177,Corpse Piler,2027,full,Full sequence,0,stage_3,3,3
+1178,Transient Moonlight,1998,r1,R1,0,r1,1,1
+1178,Transient Moonlight,1999,r1,R1,0,r1,1,1
+1178,Transient Moonlight,2000,r2,R2,1,r2,1,2
+1178,Transient Moonlight,2001,r2,R2,1,r2,1,2
+1179,Bloodblade Dance,2087,full,Full sequence,0,stage_1,1,1
+1179,Bloodblade Dance,2088,full,Full sequence,0,stage_1,1,2
+1179,Bloodblade Dance,2089,full,Full sequence,0,stage_1,1,3
+1179,Bloodblade Dance,2090,full,Full sequence,0,stage_1,1,4
+1179,Bloodblade Dance,2091,full,Full sequence,0,stage_1,1,5
+1179,Bloodblade Dance,2092,full,Full sequence,0,stage_1,1,6
+1179,Bloodblade Dance,2093,full,Full sequence,0,stage_1,1,7
+1179,Bloodblade Dance,2094,full,Full sequence,0,stage_1,1,8
+1179,Bloodblade Dance,2095,full,Full sequence,0,stage_1,1,9
+1179,Bloodblade Dance,2096,full,Full sequence,0,stage_2,2,1
+1179,Bloodblade Dance,2097,full,Full sequence,0,stage_2,2,2
+1179,Bloodblade Dance,2098,full,Full sequence,0,stage_2,2,3
+1182,Knowledge Above All,2262,full,Full sequence,0,activation,1,1
+1183,Devourer of Worlds,2320,full,Full sequence,0,activation,1,1
+1184,Familal Rancor,2284,full,Full sequence,0,activation,1,1
+1184,Familal Rancor,2285,full,Full sequence,0,activation,1,1
+1184,Familal Rancor,2286,full,Full sequence,0,activation,1,1
+1184,Familal Rancor,2287,full,Full sequence,0,activation,1,1
+1184,Familal Rancor,2288,full,Full sequence,0,activation,1,1
+1184,Familal Rancor,2289,full,Full sequence,0,activation,1,1
+1185,Rosus's Summons,2198,full,Full sequence,0,activation,1,1
+1185,Rosus's Summons,2199,full,Full sequence,0,activation,1,1
+1185,Rosus's Summons,2200,full,Full sequence,0,activation,1,1
+1185,Rosus's Summons,2201,full,Full sequence,0,activation,1,1
+1186,Thunderstorm,2177,full,Full sequence,0,stage_1,1,1
+1186,Thunderstorm,2180,full,Full sequence,0,stage_1,1,1
+1186,Thunderstorm,2178,full,Full sequence,0,stage_1,1,2
+1186,Thunderstorm,2181,full,Full sequence,0,stage_1,1,2
+1186,Thunderstorm,2179,full,Full sequence,0,stage_1,1,3
+1186,Thunderstorm,2182,full,Full sequence,0,stage_1,1,3
+1186,Thunderstorm,2183,full,Full sequence,0,stage_2,2,1
+1186,Thunderstorm,2185,full,Full sequence,0,stage_2,2,1
+1186,Thunderstorm,2184,full,Full sequence,0,stage_2,2,2
+1186,Thunderstorm,2186,full,Full sequence,0,stage_2,2,2
+1186,Thunderstorm,2187,full,Full sequence,0,stage_3,3,1
+1186,Thunderstorm,2189,full,Full sequence,0,stage_3,3,1
+1186,Thunderstorm,2188,full,Full sequence,0,stage_3,3,2
+1186,Thunderstorm,2190,full,Full sequence,0,stage_3,3,2
+1187,Sacred Phalanx,2403,full,Full sequence,0,activation,1,1
+1187,Sacred Phalanx,2404,full,Full sequence,0,activation,1,1
+1188,Great-Serpent Hunt,2414,full,Full sequence,0,stage_1,1,1
+1188,Great-Serpent Hunt,2415,full,Full sequence,0,stage_2,2,2
+1188,Great-Serpent Hunt,2418,full,Full sequence,0,activation,3,1
+1188,Great-Serpent Hunt,2419,full,Full sequence,0,activation,3,1
+1188,Great-Serpent Hunt,2420,full,Full sequence,0,activation,3,1
+1188,Great-Serpent Hunt,2421,full,Full sequence,0,activation,3,1
+1188,Great-Serpent Hunt,2422,full,Full sequence,0,activation,3,1
+1189,Angel's Wings,2511,full,Full sequence,0,activation,1,1
+1189,Angel's Wings,2513,full,Full sequence,0,activation,1,1
+1189,Angel's Wings,2512,full,Full sequence,0,activation,1,2
+1190,Storm Kick,2552,full,Full sequence,0,activation,1,1
+1190,Storm Kick,2562,full,Full sequence,0,activation,1,1
+1190,Storm Kick,2553,full,Full sequence,0,activation,1,2
+1190,Storm Kick,2563,full,Full sequence,0,activation,1,2
+1190,Storm Kick,2554,full,Full sequence,0,r2,2,1
+1190,Storm Kick,2564,full,Full sequence,0,r2,2,1
+1190,Storm Kick,2555,full,Full sequence,0,r2,2,2
+1190,Storm Kick,2565,full,Full sequence,0,r2,2,2
+1190,Storm Kick,2556,full,Full sequence,0,r2,2,3
+1190,Storm Kick,2566,full,Full sequence,0,r2,2,3
+1191,Unblockable Blade,2572,full,Full sequence,0,activation,1,1
+1192,Sorcery of the Crozier,2322,full,Full sequence,0,activation,1,1
+1192,Sorcery of the Crozier,2323,full,Full sequence,0,activation,1,1
+1193,Erdtree Slam,2325,full,Full sequence,0,activation,1,1
+1193,Erdtree Slam,2326,full,Full sequence,0,activation,1,1
+1193,Erdtree Slam,2327,full,Full sequence,0,activation,1,1
+1194,Gravity Bolt,2340,full,Full sequence,0,activation,1,1
+1194,Gravity Bolt,2341,full,Full sequence,0,activation,1,1
+1194,Gravity Bolt,2342,full,Full sequence,0,activation,1,1
+1194,Gravity Bolt,2343,full,Full sequence,0,activation,1,1
+1194,Gravity Bolt,2344,full,Full sequence,0,activation,1,1
+1194,Gravity Bolt,2345,full,Full sequence,0,activation,1,1
+1196,Golden Retaliation,2635,full,Full sequence,0,activation,1,1
+1196,Golden Retaliation,2636,full,Full sequence,0,activation,1,1
+1196,Golden Retaliation,2637,full,Full sequence,0,activation,1,1
+1196,Golden Retaliation,2638,full,Full sequence,0,activation,1,1
+1198,Ordovis's Vortex,1727,uncharged,Uncharged,0,activation,1,1
+1198,Ordovis's Vortex,1728,uncharged,Uncharged,0,activation,1,2
+1198,Ordovis's Vortex,1729,charged,Charged,1,activation,1,1
+1198,Ordovis's Vortex,1730,charged,Charged,1,activation,1,2
+1198,Ordovis's Vortex,1731,charged,Charged,1,activation,1,3
+1198,Ordovis's Vortex,1732,charged,Charged,1,activation,1,4
+1199,Spinning Weapon,2605,full,Full sequence,0,activation,1,1
+1199,Spinning Weapon,2606,full,Full sequence,0,activation,1,2
+1199,Spinning Weapon,2607,full,Full sequence,0,activation,1,3
+1199,Spinning Weapon,2608,full,Full sequence,0,activation,1,4
+1200,Muleta,1719,full,Full sequence,0,activation,1,1
+1200,Muleta,1720,full,Full sequence,0,activation,1,1
+1200,Muleta,1721,full,Full sequence,0,activation,1,1
+1200,Muleta,1722,full,Full sequence,0,activation,1,1
+1201,Causality's Wrath,2294,full,Full sequence,0,activation,1,1
+1201,Causality's Wrath,2295,full,Full sequence,0,activation,1,2
+1201,Causality's Wrath,2296,full,Full sequence,0,activation,1,3
 2000,Dryleaf Whirlwind,1521,full,Full sequence,0,activation,1,1
 2000,Dryleaf Whirlwind,1522,full,Full sequence,0,activation,1,2
 2000,Dryleaf Whirlwind,1523,full,Full sequence,0,activation,1,3
@@ -1648,15 +1655,15 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 4020,Piercing Throw,1134,full,Full sequence,0,stage_2,3,1
 4020,Piercing Throw,1135,full,Full sequence,0,stage_2,3,2
 4030,Scattershot Throw,1132,full,Full sequence,0,stage_1,1,1
-4030,Scattershot Throw,2577,full,Full sequence,0,stage_1,1,1
+4030,Scattershot Throw,2588,full,Full sequence,0,stage_1,1,1
 4030,Scattershot Throw,1133,full,Full sequence,0,stage_1,1,2
-4030,Scattershot Throw,2578,full,Full sequence,0,stage_1,1,2
+4030,Scattershot Throw,2589,full,Full sequence,0,stage_1,1,2
 4030,Scattershot Throw,1134,full,Full sequence,0,stage_2,2,1
-4030,Scattershot Throw,2579,full,Full sequence,0,stage_2,2,1
+4030,Scattershot Throw,2590,full,Full sequence,0,stage_2,2,1
 4030,Scattershot Throw,1135,full,Full sequence,0,stage_2,2,2
-4030,Scattershot Throw,2580,full,Full sequence,0,stage_2,2,2
+4030,Scattershot Throw,2591,full,Full sequence,0,stage_2,2,2
 4030,Scattershot Throw,1136,full,Full sequence,0,activation,3,1
-4030,Scattershot Throw,2581,full,Full sequence,0,activation,3,1
+4030,Scattershot Throw,2592,full,Full sequence,0,activation,3,1
 4040,Wall of Sparks,1529,full,Full sequence,0,activation,1,1
 4040,Wall of Sparks,1530,full,Full sequence,0,activation,1,1
 4040,Wall of Sparks,1531,full,Full sequence,0,activation,1,1
@@ -1676,13 +1683,13 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 4070,Savage Claws,1117,full,Full sequence,0,activation,1,6
 4070,Savage Claws,1125,full,Full sequence,0,r2,2,1
 4070,Savage Claws,1126,full,Full sequence,0,r2,2,2
-4080,Red Bear Hunt,2583,full,Full sequence,0,stage_1,1,1
-4080,Red Bear Hunt,2584,full,Full sequence,0,stage_1,1,1
-4080,Red Bear Hunt,2585,full,Full sequence,0,stage_2,2,2
-4080,Red Bear Hunt,2586,full,Full sequence,0,stage_2,2,2
-4080,Red Bear Hunt,2587,full,Full sequence,0,stage_3,3,1
-4080,Red Bear Hunt,2588,full,Full sequence,0,stage_3,3,2
-4080,Red Bear Hunt,2589,full,Full sequence,0,stage_3,3,3
+4080,Red Bear Hunt,2594,full,Full sequence,0,stage_1,1,1
+4080,Red Bear Hunt,2595,full,Full sequence,0,stage_1,1,1
+4080,Red Bear Hunt,2596,full,Full sequence,0,stage_2,2,2
+4080,Red Bear Hunt,2597,full,Full sequence,0,stage_2,2,2
+4080,Red Bear Hunt,2598,full,Full sequence,0,stage_3,3,1
+4080,Red Bear Hunt,2599,full,Full sequence,0,stage_3,3,2
+4080,Red Bear Hunt,2600,full,Full sequence,0,stage_3,3,3
 4090,Blind Spot,948,full,Full sequence,0,activation,1,1
 4090,Blind Spot,949,full,Full sequence,0,activation,1,1
 4100,Swift Slash,952,uncharged,Uncharged,0,activation,1,1
@@ -1744,88 +1751,88 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 4220,Ghostflame Call,1489,r2,R2,1,activation,1,1
 4220,Ghostflame Call,1493,r2,R2,1,r2,2,2
 4220,Ghostflame Call,1494,r2,R2,1,r2,2,2
-5000,Dragonwound Slash,2062,uncharged,Uncharged,0,activation,1,1
-5000,Dragonwound Slash,2063,charged,Charged,1,activation,1,1
-5000,Dragonwound Slash,2064,charged,Charged,1,activation,1,1
+5000,Dragonwound Slash,2070,uncharged,Uncharged,0,activation,1,1
+5000,Dragonwound Slash,2071,charged,Charged,1,activation,1,1
+5000,Dragonwound Slash,2072,charged,Charged,1,activation,1,1
 5010,Needle Piercer,1641,full,Full sequence,0,activation,1,1
 5010,Needle Piercer,1642,full,Full sequence,0,activation,1,1
 5020,Light,1639,full,Full sequence,0,activation,1,1
 5030,Darkness,1640,full,Full sequence,0,activation,1,1
-5040,Onze's Line of Stars,2031,full,Full sequence,0,stage_1,1,1
-5040,Onze's Line of Stars,2032,full,Full sequence,0,stage_1,1,2
-5040,Onze's Line of Stars,2033,full,Full sequence,0,stage_2,2,1
-5040,Onze's Line of Stars,2034,full,Full sequence,0,stage_2,2,2
-5040,Onze's Line of Stars,2035,full,Full sequence,0,stage_3,3,1
-5040,Onze's Line of Stars,2036,full,Full sequence,0,stage_3,3,2
+5040,Onze's Line of Stars,2039,full,Full sequence,0,stage_1,1,1
+5040,Onze's Line of Stars,2040,full,Full sequence,0,stage_1,1,2
+5040,Onze's Line of Stars,2041,full,Full sequence,0,stage_2,2,1
+5040,Onze's Line of Stars,2042,full,Full sequence,0,stage_2,2,2
+5040,Onze's Line of Stars,2043,full,Full sequence,0,stage_3,3,1
+5040,Onze's Line of Stars,2044,full,Full sequence,0,stage_3,3,2
 5050,The Poison Flower Blooms Twice,1444,full,Full sequence,0,activation,1,1
 5050,The Poison Flower Blooms Twice,1445,full,Full sequence,0,activation,1,1
-5080,Spinning Guillotine,2232,full,Full sequence,0,stage_1,1,1
-5080,Spinning Guillotine,2233,full,Full sequence,0,stage_2,2,1
-5080,Spinning Guillotine,2234,full,Full sequence,0,stage_2,2,2
-5080,Spinning Guillotine,2235,full,Full sequence,0,stage_2,2,3
-5080,Spinning Guillotine,2236,full,Full sequence,0,r2,3,1
-5080,Spinning Guillotine,2237,full,Full sequence,0,r2,3,2
-5080,Spinning Guillotine,2238,full,Full sequence,0,r2,3,3
-5090,Unending Dance,1901,full,Full sequence,0,activation,1,1
-5090,Unending Dance,1902,full,Full sequence,0,loop_1,2,1
-5090,Unending Dance,1903,full,Full sequence,0,loop_2,3,2
-5090,Unending Dance,1904,full,Full sequence,0,loop_3,4,3
-5090,Unending Dance,1905,full,Full sequence,0,loop_4,5,4
-5090,Unending Dance,1906,full,Full sequence,0,loop_5,6,5
-5090,Unending Dance,1907,full,Full sequence,0,loop_6,7,6
-5090,Unending Dance,1908,full,Full sequence,0,loop_7,8,7
-5090,Unending Dance,1909,full,Full sequence,0,loop_8,9,8
-5090,Unending Dance,1910,full,Full sequence,0,loop_9,10,9
-5090,Unending Dance,1911,full,Full sequence,0,loop_10,11,10
-5090,Unending Dance,1912,full,Full sequence,0,loop_11,12,11
-5090,Unending Dance,1913,full,Full sequence,0,loop_12,13,12
-5100,Revenger's Blade,1879,uncharged,Uncharged,0,activation,1,1
-5100,Revenger's Blade,1880,uncharged,Uncharged,0,activation,1,2
-5100,Revenger's Blade,1883,uncharged,Uncharged,0,r1,2,1
-5100,Revenger's Blade,1884,uncharged,Uncharged,0,r1,2,2
-5100,Revenger's Blade,1885,uncharged,Uncharged,0,r1,2,3
-5100,Revenger's Blade,1886,uncharged,Uncharged,0,r1,2,4
-5100,Revenger's Blade,1887,uncharged,Uncharged,0,r1,2,5
-5100,Revenger's Blade,1888,uncharged,Uncharged,0,r1,2,6
-5100,Revenger's Blade,1889,uncharged,Uncharged,0,r1,2,7
-5100,Revenger's Blade,1881,charged,Charged,1,activation,1,1
-5100,Revenger's Blade,1882,charged,Charged,1,activation,1,2
+5080,Spinning Guillotine,2240,full,Full sequence,0,stage_1,1,1
+5080,Spinning Guillotine,2241,full,Full sequence,0,stage_2,2,1
+5080,Spinning Guillotine,2242,full,Full sequence,0,stage_2,2,2
+5080,Spinning Guillotine,2243,full,Full sequence,0,stage_2,2,3
+5080,Spinning Guillotine,2244,full,Full sequence,0,r2,3,1
+5080,Spinning Guillotine,2245,full,Full sequence,0,r2,3,2
+5080,Spinning Guillotine,2246,full,Full sequence,0,r2,3,3
+5090,Unending Dance,1909,full,Full sequence,0,activation,1,1
+5090,Unending Dance,1910,full,Full sequence,0,loop_1,2,1
+5090,Unending Dance,1911,full,Full sequence,0,loop_2,3,2
+5090,Unending Dance,1912,full,Full sequence,0,loop_3,4,3
+5090,Unending Dance,1913,full,Full sequence,0,loop_4,5,4
+5090,Unending Dance,1914,full,Full sequence,0,loop_5,6,5
+5090,Unending Dance,1915,full,Full sequence,0,loop_6,7,6
+5090,Unending Dance,1916,full,Full sequence,0,loop_7,8,7
+5090,Unending Dance,1917,full,Full sequence,0,loop_8,9,8
+5090,Unending Dance,1918,full,Full sequence,0,loop_9,10,9
+5090,Unending Dance,1919,full,Full sequence,0,loop_10,11,10
+5090,Unending Dance,1920,full,Full sequence,0,loop_11,12,11
+5090,Unending Dance,1921,full,Full sequence,0,loop_12,13,12
+5100,Revenger's Blade,1887,uncharged,Uncharged,0,activation,1,1
+5100,Revenger's Blade,1888,uncharged,Uncharged,0,activation,1,2
+5100,Revenger's Blade,1891,uncharged,Uncharged,0,r1,2,1
+5100,Revenger's Blade,1892,uncharged,Uncharged,0,r1,2,2
+5100,Revenger's Blade,1893,uncharged,Uncharged,0,r1,2,3
+5100,Revenger's Blade,1894,uncharged,Uncharged,0,r1,2,4
+5100,Revenger's Blade,1895,uncharged,Uncharged,0,r1,2,5
+5100,Revenger's Blade,1896,uncharged,Uncharged,0,r1,2,6
+5100,Revenger's Blade,1897,uncharged,Uncharged,0,r1,2,7
+5100,Revenger's Blade,1889,charged,Charged,1,activation,1,1
+5100,Revenger's Blade,1890,charged,Charged,1,activation,1,2
 5110,Mists of Eternal Sleep,1602,full,Full sequence,0,activation,1,1
-5120,Dynastic Sickleplay,2505,full,Full sequence,0,stage_1,1,1
-5120,Dynastic Sickleplay,2506,full,Full sequence,0,stage_2,2,1
-5120,Dynastic Sickleplay,2507,full,Full sequence,0,stage_2,2,2
-5120,Dynastic Sickleplay,2508,full,Full sequence,0,stage_2,2,3
-5130,Blinkbolt: Twinaxe,2195,full,Full sequence,0,activation,1,1
-5130,Blinkbolt: Twinaxe,2196,full,Full sequence,0,r2,2,1
-5130,Blinkbolt: Twinaxe,2197,full,Full sequence,0,r2,2,2
-5130,Blinkbolt: Twinaxe,2198,full,Full sequence,0,r2,2,3
-5130,Blinkbolt: Twinaxe,2199,full,Full sequence,0,r2,2,4
-5130,Blinkbolt: Twinaxe,2200,full,Full sequence,0,r2,2,5
-5130,Blinkbolt: Twinaxe,2201,full,Full sequence,0,r2,2,6
-5140,Blinkbolt: Long-hafted Axe,2209,full,Full sequence,0,activation,1,1
-5140,Blinkbolt: Long-hafted Axe,2210,full,Full sequence,0,r2,2,2
-5140,Blinkbolt: Long-hafted Axe,2211,full,Full sequence,0,r2,2,2
-5150,Promised Consort,1805,full,Full sequence,0,stage_1,1,1
-5150,Promised Consort,1806,full,Full sequence,0,stage_1,1,1
-5150,Promised Consort,1808,full,Full sequence,0,stage_1,1,1
-5150,Promised Consort,1807,full,Full sequence,0,stage_1,1,2
-5150,Promised Consort,1809,full,Full sequence,0,stage_2,2,1
-5150,Promised Consort,1810,full,Full sequence,0,stage_2,2,2
-5150,Promised Consort,1811,full,Full sequence,0,stage_2,2,2
-5150,Promised Consort,1812,full,Full sequence,0,stage_2,2,2
-5150,Promised Consort,1813,full,Full sequence,0,stage_3,3,1
-5150,Promised Consort,1815,full,Full sequence,0,stage_3,3,2
-5150,Promised Consort,1814,full,Full sequence,0,stage_3,3,3
-5150,Promised Consort,1816,full,Full sequence,0,stage_3,3,3
-5150,Promised Consort,1817,full,Full sequence,0,stage_3,3,3
-5160,Shadow Sunflower Headbutts,2372,full,Full sequence,0,stage_1,1,1
-5160,Shadow Sunflower Headbutts,2373,full,Full sequence,0,stage_1,1,1
-5160,Shadow Sunflower Headbutts,2374,full,Full sequence,0,stage_2,2,1
-5160,Shadow Sunflower Headbutts,2375,full,Full sequence,0,stage_2,2,1
-5160,Shadow Sunflower Headbutts,2376,full,Full sequence,0,stage_2,2,2
-5160,Shadow Sunflower Headbutts,2377,full,Full sequence,0,stage_2,2,2
-5160,Shadow Sunflower Headbutts,2378,full,Full sequence,0,stage_3,3,3
-5160,Shadow Sunflower Headbutts,2379,full,Full sequence,0,stage_3,3,3
+5120,Dynastic Sickleplay,2516,full,Full sequence,0,stage_1,1,1
+5120,Dynastic Sickleplay,2517,full,Full sequence,0,stage_2,2,1
+5120,Dynastic Sickleplay,2518,full,Full sequence,0,stage_2,2,2
+5120,Dynastic Sickleplay,2519,full,Full sequence,0,stage_2,2,3
+5130,Blinkbolt: Twinaxe,2203,full,Full sequence,0,activation,1,1
+5130,Blinkbolt: Twinaxe,2204,full,Full sequence,0,r2,2,1
+5130,Blinkbolt: Twinaxe,2205,full,Full sequence,0,r2,2,2
+5130,Blinkbolt: Twinaxe,2206,full,Full sequence,0,r2,2,3
+5130,Blinkbolt: Twinaxe,2207,full,Full sequence,0,r2,2,4
+5130,Blinkbolt: Twinaxe,2208,full,Full sequence,0,r2,2,5
+5130,Blinkbolt: Twinaxe,2209,full,Full sequence,0,r2,2,6
+5140,Blinkbolt: Long-hafted Axe,2217,full,Full sequence,0,activation,1,1
+5140,Blinkbolt: Long-hafted Axe,2218,full,Full sequence,0,r2,2,2
+5140,Blinkbolt: Long-hafted Axe,2219,full,Full sequence,0,r2,2,2
+5150,Promised Consort,1813,full,Full sequence,0,stage_1,1,1
+5150,Promised Consort,1814,full,Full sequence,0,stage_1,1,1
+5150,Promised Consort,1816,full,Full sequence,0,stage_1,1,1
+5150,Promised Consort,1815,full,Full sequence,0,stage_1,1,2
+5150,Promised Consort,1817,full,Full sequence,0,stage_2,2,1
+5150,Promised Consort,1818,full,Full sequence,0,stage_2,2,2
+5150,Promised Consort,1819,full,Full sequence,0,stage_2,2,2
+5150,Promised Consort,1820,full,Full sequence,0,stage_2,2,2
+5150,Promised Consort,1821,full,Full sequence,0,stage_3,3,1
+5150,Promised Consort,1823,full,Full sequence,0,stage_3,3,2
+5150,Promised Consort,1822,full,Full sequence,0,stage_3,3,3
+5150,Promised Consort,1824,full,Full sequence,0,stage_3,3,3
+5150,Promised Consort,1825,full,Full sequence,0,stage_3,3,3
+5160,Shadow Sunflower Headbutts,2383,full,Full sequence,0,stage_1,1,1
+5160,Shadow Sunflower Headbutts,2384,full,Full sequence,0,stage_1,1,1
+5160,Shadow Sunflower Headbutts,2385,full,Full sequence,0,stage_2,2,1
+5160,Shadow Sunflower Headbutts,2386,full,Full sequence,0,stage_2,2,1
+5160,Shadow Sunflower Headbutts,2387,full,Full sequence,0,stage_2,2,2
+5160,Shadow Sunflower Headbutts,2388,full,Full sequence,0,stage_2,2,2
+5160,Shadow Sunflower Headbutts,2389,full,Full sequence,0,stage_3,3,3
+5160,Shadow Sunflower Headbutts,2390,full,Full sequence,0,stage_3,3,3
 5170,Moon-and-Fire Stance,1644,r1,R1,0,stage_1,1,1
 5170,Moon-and-Fire Stance,1649,r1,R1,0,stage_1,1,1
 5170,Moon-and-Fire Stance,1645,r1,R1,0,stage_1,1,2
@@ -1843,184 +1850,184 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 5170,Moon-and-Fire Stance,1660,r2,R2,1,r2,1,2
 5170,Moon-and-Fire Stance,1656,r2,R2,1,r2,1,3
 5170,Moon-and-Fire Stance,1659,r2,R2,1,r2,1,3
-5180,Devonia's Vortex,2342,uncharged,Uncharged,0,activation,1,1
-5180,Devonia's Vortex,2343,uncharged,Uncharged,0,activation,1,1
-5180,Devonia's Vortex,2344,uncharged,Uncharged,0,activation,1,1
-5180,Devonia's Vortex,2345,charged,Charged,1,activation,1,1
-5180,Devonia's Vortex,2346,charged,Charged,1,activation,1,1
-5180,Devonia's Vortex,2347,charged,Charged,1,activation,1,1
-5190,Messmer's Assault,2447,full,Full sequence,0,stage_1,1,1
-5190,Messmer's Assault,2449,full,Full sequence,0,stage_1,1,1
-5190,Messmer's Assault,2448,full,Full sequence,0,stage_1,1,2
-5190,Messmer's Assault,2450,full,Full sequence,0,stage_2,2,1
-5190,Messmer's Assault,2451,full,Full sequence,0,stage_2,2,2
-5190,Messmer's Assault,2452,full,Full sequence,0,stage_2,2,3
-5190,Messmer's Assault,2453,full,Full sequence,0,stage_3,3,3
-5190,Messmer's Assault,2454,full,Full sequence,0,stage_3,3,3
-5190,Messmer's Assault,2455,full,Full sequence,0,stage_3,3,3
-5210,Sleep Evermore,2567,full,Full sequence,0,activation,1,1
-5220,Golden Crux,1765,full,Full sequence,0,activation,1,1
-5220,Golden Crux,1766,full,Full sequence,0,activation,1,1
-5220,Golden Crux,1767,full,Full sequence,0,stage_1,2,1
-5220,Golden Crux,1768,full,Full sequence,0,stage_2,3,2
-5240,White Light Charge,1787,full,Full sequence,0,stage_1,1,1
-5240,White Light Charge,1788,full,Full sequence,0,stage_2,2,2
-5250,Rancor Slash,1866,full,Full sequence,0,stage_1,1,1
-5250,Rancor Slash,1867,full,Full sequence,0,stage_1,1,2
-5250,Rancor Slash,1868,full,Full sequence,0,stage_2,2,2
-5250,Rancor Slash,1869,full,Full sequence,0,activation,3,1
-5260,Witching Hour Slash,1996,uncharged,Uncharged,0,activation,1,1
-5260,Witching Hour Slash,1997,uncharged,Uncharged,0,activation,1,2
-5260,Witching Hour Slash,1998,uncharged,Uncharged,0,activation,1,3
-5260,Witching Hour Slash,1999,charged,Charged,1,activation,1,1
-5260,Witching Hour Slash,2000,charged,Charged,1,activation,1,2
-5260,Witching Hour Slash,2001,charged,Charged,1,activation,1,3
-5270,Euporia Vortex,2103,full,Full sequence,0,activation,1,1
-5270,Euporia Vortex,2108,full,Full sequence,0,activation,1,1
-5270,Euporia Vortex,2109,full,Full sequence,0,activation,1,1
-5270,Euporia Vortex,2110,full,Full sequence,0,activation,1,1
+5180,Devonia's Vortex,2353,uncharged,Uncharged,0,activation,1,1
+5180,Devonia's Vortex,2354,uncharged,Uncharged,0,activation,1,1
+5180,Devonia's Vortex,2355,uncharged,Uncharged,0,activation,1,1
+5180,Devonia's Vortex,2356,charged,Charged,1,activation,1,1
+5180,Devonia's Vortex,2357,charged,Charged,1,activation,1,1
+5180,Devonia's Vortex,2358,charged,Charged,1,activation,1,1
+5190,Messmer's Assault,2458,full,Full sequence,0,stage_1,1,1
+5190,Messmer's Assault,2460,full,Full sequence,0,stage_1,1,1
+5190,Messmer's Assault,2459,full,Full sequence,0,stage_1,1,2
+5190,Messmer's Assault,2461,full,Full sequence,0,stage_2,2,1
+5190,Messmer's Assault,2462,full,Full sequence,0,stage_2,2,2
+5190,Messmer's Assault,2463,full,Full sequence,0,stage_2,2,3
+5190,Messmer's Assault,2464,full,Full sequence,0,stage_3,3,3
+5190,Messmer's Assault,2465,full,Full sequence,0,stage_3,3,3
+5190,Messmer's Assault,2466,full,Full sequence,0,stage_3,3,3
+5210,Sleep Evermore,2578,full,Full sequence,0,activation,1,1
+5220,Golden Crux,1773,full,Full sequence,0,activation,1,1
+5220,Golden Crux,1774,full,Full sequence,0,activation,1,1
+5220,Golden Crux,1775,full,Full sequence,0,stage_1,2,1
+5220,Golden Crux,1776,full,Full sequence,0,stage_2,3,2
+5240,White Light Charge,1795,full,Full sequence,0,stage_1,1,1
+5240,White Light Charge,1796,full,Full sequence,0,stage_2,2,2
+5250,Rancor Slash,1874,full,Full sequence,0,stage_1,1,1
+5250,Rancor Slash,1875,full,Full sequence,0,stage_1,1,2
+5250,Rancor Slash,1876,full,Full sequence,0,stage_2,2,2
+5250,Rancor Slash,1877,full,Full sequence,0,activation,3,1
+5260,Witching Hour Slash,2004,uncharged,Uncharged,0,activation,1,1
+5260,Witching Hour Slash,2005,uncharged,Uncharged,0,activation,1,2
+5260,Witching Hour Slash,2006,uncharged,Uncharged,0,activation,1,3
+5260,Witching Hour Slash,2007,charged,Charged,1,activation,1,1
+5260,Witching Hour Slash,2008,charged,Charged,1,activation,1,2
+5260,Witching Hour Slash,2009,charged,Charged,1,activation,1,3
 5270,Euporia Vortex,2111,full,Full sequence,0,activation,1,1
-5270,Euporia Vortex,2113,full,Full sequence,0,activation,1,1
-5270,Euporia Vortex,2114,full,Full sequence,0,activation,1,1
-5270,Euporia Vortex,2115,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2116,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2117,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2118,full,Full sequence,0,activation,1,1
-5270,Euporia Vortex,2120,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2119,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2121,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2122,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2123,full,Full sequence,0,activation,1,1
-5270,Euporia Vortex,2124,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2125,full,Full sequence,0,activation,1,1
-5270,Euporia Vortex,2127,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2126,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2128,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2130,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2131,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2132,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2133,full,Full sequence,0,activation,1,1
-5270,Euporia Vortex,2134,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2135,full,Full sequence,0,activation,1,1
-5270,Euporia Vortex,2137,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2136,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2138,full,Full sequence,0,activation,1,1
-5270,Euporia Vortex,2140,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2139,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2141,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2142,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2143,full,Full sequence,0,activation,1,1
-5270,Euporia Vortex,2144,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2145,full,Full sequence,0,activation,1,1
-5270,Euporia Vortex,2147,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2146,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2148,full,Full sequence,0,activation,1,1
-5270,Euporia Vortex,2150,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2149,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2151,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2152,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2153,full,Full sequence,0,activation,1,1
-5270,Euporia Vortex,2154,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2155,full,Full sequence,0,activation,1,1
-5270,Euporia Vortex,2157,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2156,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2158,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2159,full,Full sequence,0,activation,1,1
-5270,Euporia Vortex,2104,full,Full sequence,0,activation,1,2
+5270,Euporia Vortex,2161,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2162,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2163,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2165,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2166,full,Full sequence,0,activation,1,1
+5270,Euporia Vortex,2167,full,Full sequence,0,activation,1,1
 5270,Euporia Vortex,2112,full,Full sequence,0,activation,1,2
-5270,Euporia Vortex,2126,full,Full sequence,0,activation,1,2
-5270,Euporia Vortex,2105,full,Full sequence,0,activation,1,3
-5270,Euporia Vortex,2116,full,Full sequence,0,activation,1,3
-5270,Euporia Vortex,2129,full,Full sequence,0,activation,1,3
-5270,Euporia Vortex,2106,full,Full sequence,0,activation,1,4
-5270,Euporia Vortex,2119,full,Full sequence,0,activation,1,4
-5270,Euporia Vortex,2132,full,Full sequence,0,activation,1,4
-5270,Euporia Vortex,2107,full,Full sequence,0,activation,1,5
-5270,Euporia Vortex,2121,full,Full sequence,0,activation,1,5
-5270,Euporia Vortex,2136,full,Full sequence,0,activation,1,5
-5270,Euporia Vortex,2139,full,Full sequence,0,activation,1,6
-5270,Euporia Vortex,2142,full,Full sequence,0,activation,1,7
-5270,Euporia Vortex,2146,full,Full sequence,0,activation,1,8
-5270,Euporia Vortex,2149,full,Full sequence,0,activation,1,9
-5270,Euporia Vortex,2152,full,Full sequence,0,activation,1,10
-5270,Euporia Vortex,2156,full,Full sequence,0,activation,1,11
-5280,Smithing Art Spears,2338,full,Full sequence,0,activation,1,1
-5280,Smithing Art Spears,2339,full,Full sequence,0,activation,1,1
-5280,Smithing Art Spears,2340,full,Full sequence,0,activation,1,2
-5290,Rancor Slash,2476,full,Full sequence,0,stage_1,1,1
-5290,Rancor Slash,2477,full,Full sequence,0,stage_1,1,2
-5290,Rancor Slash,2478,full,Full sequence,0,stage_2,2,2
-5290,Rancor Slash,2479,full,Full sequence,0,activation,3,1
-5300,Romina's Purification,2483,full,Full sequence,0,activation,1,1
-5300,Romina's Purification,2485,full,Full sequence,0,activation,1,1
-5300,Romina's Purification,2484,full,Full sequence,0,activation,1,2
-5310,Poison Spear-Hand Strike,2563,full,Full sequence,0,activation,1,1
-5320,Madding Spear-Hand Strike,2565,full,Full sequence,0,activation,1,1
-5330,Feeble Lord's Frenzied Flame,2607,full,Full sequence,0,activation,1,1
-5330,Feeble Lord's Frenzied Flame,2608,full,Full sequence,0,activation,1,1
-5350,Deadly Dance,1980,full,Full sequence,0,stage_1,1,1
-5350,Deadly Dance,1981,full,Full sequence,0,stage_1,1,2
-5350,Deadly Dance,1982,full,Full sequence,0,stage_1,1,3
-5350,Deadly Dance,1983,full,Full sequence,0,stage_1,1,4
-5350,Deadly Dance,1984,full,Full sequence,0,stage_2,2,2
-5370,Discus Hurl,2611,full,Full sequence,0,activation,1,1
-5370,Discus Hurl,2612,full,Full sequence,0,activation,1,2
-5380,Flower Dragonbolt,2255,uncharged,Uncharged,0,activation,1,1
-5380,Flower Dragonbolt,2257,uncharged,Uncharged,0,activation,1,1
-5380,Flower Dragonbolt,2256,charged,Charged,1,activation,1,1
-5390,Kowtower's Resentment,2384,full,Full,0,activation,1,1
-5390,Kowtower's Resentment,2386,full,Full,0,activation,1,1
-5390,Kowtower's Resentment,2385,full,Full,0,activation,1,2
-5390,Kowtower's Resentment,2387,early_release,Early Release,1,early_release,1,1
-5390,Kowtower's Resentment,2388,early_release,Early Release,1,early_release,1,1
-5420,Painful Strike,2513,full,Full sequence,0,activation,1,1
-5420,Painful Strike,2514,full,Full sequence,0,activation,1,2
-5420,Painful Strike,2515,full,Full sequence,0,activation,1,3
+5270,Euporia Vortex,2120,full,Full sequence,0,activation,1,2
+5270,Euporia Vortex,2134,full,Full sequence,0,activation,1,2
+5270,Euporia Vortex,2113,full,Full sequence,0,activation,1,3
+5270,Euporia Vortex,2124,full,Full sequence,0,activation,1,3
+5270,Euporia Vortex,2137,full,Full sequence,0,activation,1,3
+5270,Euporia Vortex,2114,full,Full sequence,0,activation,1,4
+5270,Euporia Vortex,2127,full,Full sequence,0,activation,1,4
+5270,Euporia Vortex,2140,full,Full sequence,0,activation,1,4
+5270,Euporia Vortex,2115,full,Full sequence,0,activation,1,5
+5270,Euporia Vortex,2129,full,Full sequence,0,activation,1,5
+5270,Euporia Vortex,2144,full,Full sequence,0,activation,1,5
+5270,Euporia Vortex,2147,full,Full sequence,0,activation,1,6
+5270,Euporia Vortex,2150,full,Full sequence,0,activation,1,7
+5270,Euporia Vortex,2154,full,Full sequence,0,activation,1,8
+5270,Euporia Vortex,2157,full,Full sequence,0,activation,1,9
+5270,Euporia Vortex,2160,full,Full sequence,0,activation,1,10
+5270,Euporia Vortex,2164,full,Full sequence,0,activation,1,11
+5280,Smithing Art Spears,2349,full,Full sequence,0,activation,1,1
+5280,Smithing Art Spears,2350,full,Full sequence,0,activation,1,1
+5280,Smithing Art Spears,2351,full,Full sequence,0,activation,1,2
+5290,Rancor Slash,2487,full,Full sequence,0,stage_1,1,1
+5290,Rancor Slash,2488,full,Full sequence,0,stage_1,1,2
+5290,Rancor Slash,2489,full,Full sequence,0,stage_2,2,2
+5290,Rancor Slash,2490,full,Full sequence,0,activation,3,1
+5300,Romina's Purification,2494,full,Full sequence,0,activation,1,1
+5300,Romina's Purification,2496,full,Full sequence,0,activation,1,1
+5300,Romina's Purification,2495,full,Full sequence,0,activation,1,2
+5310,Poison Spear-Hand Strike,2574,full,Full sequence,0,activation,1,1
+5320,Madding Spear-Hand Strike,2576,full,Full sequence,0,activation,1,1
+5330,Feeble Lord's Frenzied Flame,2618,full,Full sequence,0,activation,1,1
+5330,Feeble Lord's Frenzied Flame,2619,full,Full sequence,0,activation,1,1
+5350,Deadly Dance,1988,full,Full sequence,0,stage_1,1,1
+5350,Deadly Dance,1989,full,Full sequence,0,stage_1,1,2
+5350,Deadly Dance,1990,full,Full sequence,0,stage_1,1,3
+5350,Deadly Dance,1991,full,Full sequence,0,stage_1,1,4
+5350,Deadly Dance,1992,full,Full sequence,0,stage_2,2,2
+5370,Discus Hurl,2622,full,Full sequence,0,activation,1,1
+5370,Discus Hurl,2623,full,Full sequence,0,activation,1,2
+5380,Flower Dragonbolt,2263,uncharged,Uncharged,0,activation,1,1
+5380,Flower Dragonbolt,2265,uncharged,Uncharged,0,activation,1,1
+5380,Flower Dragonbolt,2264,charged,Charged,1,activation,1,1
+5390,Kowtower's Resentment,2395,full,Full,0,activation,1,1
+5390,Kowtower's Resentment,2397,full,Full,0,activation,1,1
+5390,Kowtower's Resentment,2396,full,Full,0,activation,1,2
+5390,Kowtower's Resentment,2398,early_release,Early Release,1,early_release,1,1
+5390,Kowtower's Resentment,2399,early_release,Early Release,1,early_release,1,1
+5420,Painful Strike,2524,full,Full sequence,0,activation,1,1
+5420,Painful Strike,2525,full,Full sequence,0,activation,1,2
+5420,Painful Strike,2526,full,Full sequence,0,activation,1,3
 5430,Solitary Moon Slash,1712,full,Full sequence,0,activation,1,1
 5430,Solitary Moon Slash,1713,full,Full sequence,0,activation,1,1
 5430,Solitary Moon Slash,1714,full,Full sequence,0,r2,2,2
 5430,Solitary Moon Slash,1715,full,Full sequence,0,r2,2,2
-5440,Revenge of the Night,2614,full,Full sequence,0,activation,1,1
-5440,Revenge of the Night,2615,full,Full sequence,0,activation,1,1
-5450,Weed Cutter,2067,full,Full sequence,0,stage_1,1,1
-5450,Weed Cutter,2068,full,Full sequence,0,stage_1,1,2
-5450,Weed Cutter,2069,full,Full sequence,0,stage_2,2,1
-5450,Weed Cutter,2070,full,Full sequence,0,stage_2,2,2
-5450,Weed Cutter,2071,full,Full sequence,0,stage_3,3,1
-5450,Weed Cutter,2072,full,Full sequence,0,stage_3,3,2
-5470,Jori's Inquisition,2424,full,Full sequence,0,activation,1,1
-5470,Jori's Inquisition,2425,full,Full sequence,0,activation,1,1
-5480,Roaring Bash,2618,full,Full sequence,0,activation,1,1
-5480,Roaring Bash,2621,full,Full sequence,0,activation,1,1
-5480,Roaring Bash,2619,full,Full sequence,0,activation,1,2
-5480,Roaring Bash,2622,full,Full sequence,0,activation,1,2
-5500,Flare- O Serpent,2282,uncharged,Uncharged,0,r2,1,2
-5500,Flare- O Serpent,2284,uncharged,Uncharged,0,r2,1,2
-5500,Flare- O Serpent,2285,uncharged,Uncharged,0,r2,1,2
-5500,Flare- O Serpent,2283,charged,Charged,1,r2,1,2
-5510,Scattershot (Claws),2577,full,Full sequence,0,stage_1,1,1
-5510,Scattershot (Claws),2578,full,Full sequence,0,stage_1,1,2
-5510,Scattershot (Claws),2579,full,Full sequence,0,stage_2,2,1
-5510,Scattershot (Claws),2580,full,Full sequence,0,stage_2,2,2
-5510,Scattershot (Claws),2581,full,Full sequence,0,activation,3,1
-5530,Horn Calling,1927,full,Full sequence,0,activation,1,1
-5530,Horn Calling,1928,full,Full sequence,0,activation,1,1
-5530,Horn Calling,1929,full,Full sequence,0,activation,1,1
-5540,Horn Calling: Storm,1955,full,Full sequence,0,stage_1,1,1
-5540,Horn Calling: Storm,1956,full,Full sequence,0,stage_1,1,1
-5540,Horn Calling: Storm,1957,full,Full sequence,0,stage_1,1,2
-5540,Horn Calling: Storm,1958,full,Full sequence,0,stage_1,1,2
-5540,Horn Calling: Storm,1959,full,Full sequence,0,stage_2,2,1
-5540,Horn Calling: Storm,1960,full,Full sequence,0,stage_2,2,1
-5540,Horn Calling: Storm,1961,full,Full sequence,0,stage_2,2,2
-5540,Horn Calling: Storm,1962,full,Full sequence,0,stage_2,2,2
-5540,Horn Calling: Storm,1963,full,Full sequence,0,stage_3,3,1
-5540,Horn Calling: Storm,1964,full,Full sequence,0,stage_3,3,1
-5540,Horn Calling: Storm,1965,full,Full sequence,0,stage_3,3,2
-5540,Horn Calling: Storm,1966,full,Full sequence,0,stage_3,3,2
-5550,Tremendous Phalanx,1777,full,Full sequence,0,activation,1,1
-5550,Tremendous Phalanx,1778,full,Full sequence,0,r2,2,2
-5560,Bloodfiends' Bloodboon,2426,full,Full sequence,0,stage_1,1,1
-5560,Bloodfiends' Bloodboon,2427,full,Full sequence,0,stage_2,2,2
-5560,Bloodfiends' Bloodboon,2428,full,Full sequence,0,stage_3,3,3
-5570,Dragonform Flame,2165,full,Full sequence,0,activation,1,1
-5570,Dragonform Flame,2166,full,Full sequence,0,activation,1,1
-5570,Dragonform Flame,2167,full,Full sequence,0,activation,1,1
-5580,Lightspeed Slash,1825,uncharged,Uncharged,0,activation,1,1
-5580,Lightspeed Slash,1826,uncharged,Uncharged,0,activation,1,1
-5580,Lightspeed Slash,1827,uncharged,Uncharged,0,activation,1,1
-5580,Lightspeed Slash,1828,charged,Charged,1,activation,1,1
-5580,Lightspeed Slash,1829,charged,Charged,1,activation,1,1
-5580,Lightspeed Slash,1830,charged,Charged,1,activation,1,1
-5590,Impaling Thrust,1844,full,Full sequence,0,activation,1,1
+5440,Revenge of the Night,2625,full,Full sequence,0,activation,1,1
+5440,Revenge of the Night,2626,full,Full sequence,0,activation,1,1
+5450,Weed Cutter,2075,full,Full sequence,0,stage_1,1,1
+5450,Weed Cutter,2076,full,Full sequence,0,stage_1,1,2
+5450,Weed Cutter,2077,full,Full sequence,0,stage_2,2,1
+5450,Weed Cutter,2078,full,Full sequence,0,stage_2,2,2
+5450,Weed Cutter,2079,full,Full sequence,0,stage_3,3,1
+5450,Weed Cutter,2080,full,Full sequence,0,stage_3,3,2
+5470,Jori's Inquisition,2435,full,Full sequence,0,activation,1,1
+5470,Jori's Inquisition,2436,full,Full sequence,0,activation,1,1
+5480,Roaring Bash,2629,full,Full sequence,0,activation,1,1
+5480,Roaring Bash,2632,full,Full sequence,0,activation,1,1
+5480,Roaring Bash,2630,full,Full sequence,0,activation,1,2
+5480,Roaring Bash,2633,full,Full sequence,0,activation,1,2
+5500,Flare- O Serpent,2290,uncharged,Uncharged,0,r2,1,2
+5500,Flare- O Serpent,2292,uncharged,Uncharged,0,r2,1,2
+5500,Flare- O Serpent,2293,uncharged,Uncharged,0,r2,1,2
+5500,Flare- O Serpent,2291,charged,Charged,1,r2,1,2
+5510,Scattershot (Claws),2588,full,Full sequence,0,stage_1,1,1
+5510,Scattershot (Claws),2589,full,Full sequence,0,stage_1,1,2
+5510,Scattershot (Claws),2590,full,Full sequence,0,stage_2,2,1
+5510,Scattershot (Claws),2591,full,Full sequence,0,stage_2,2,2
+5510,Scattershot (Claws),2592,full,Full sequence,0,activation,3,1
+5530,Horn Calling,1935,full,Full sequence,0,activation,1,1
+5530,Horn Calling,1936,full,Full sequence,0,activation,1,1
+5530,Horn Calling,1937,full,Full sequence,0,activation,1,1
+5540,Horn Calling: Storm,1963,full,Full sequence,0,stage_1,1,1
+5540,Horn Calling: Storm,1964,full,Full sequence,0,stage_1,1,1
+5540,Horn Calling: Storm,1965,full,Full sequence,0,stage_1,1,2
+5540,Horn Calling: Storm,1966,full,Full sequence,0,stage_1,1,2
+5540,Horn Calling: Storm,1967,full,Full sequence,0,stage_2,2,1
+5540,Horn Calling: Storm,1968,full,Full sequence,0,stage_2,2,1
+5540,Horn Calling: Storm,1969,full,Full sequence,0,stage_2,2,2
+5540,Horn Calling: Storm,1970,full,Full sequence,0,stage_2,2,2
+5540,Horn Calling: Storm,1971,full,Full sequence,0,stage_3,3,1
+5540,Horn Calling: Storm,1972,full,Full sequence,0,stage_3,3,1
+5540,Horn Calling: Storm,1973,full,Full sequence,0,stage_3,3,2
+5540,Horn Calling: Storm,1974,full,Full sequence,0,stage_3,3,2
+5550,Tremendous Phalanx,1785,full,Full sequence,0,activation,1,1
+5550,Tremendous Phalanx,1786,full,Full sequence,0,r2,2,2
+5560,Bloodfiends' Bloodboon,2437,full,Full sequence,0,stage_1,1,1
+5560,Bloodfiends' Bloodboon,2438,full,Full sequence,0,stage_2,2,2
+5560,Bloodfiends' Bloodboon,2439,full,Full sequence,0,stage_3,3,3
+5570,Dragonform Flame,2173,full,Full sequence,0,activation,1,1
+5570,Dragonform Flame,2174,full,Full sequence,0,activation,1,1
+5570,Dragonform Flame,2175,full,Full sequence,0,activation,1,1
+5580,Lightspeed Slash,1833,uncharged,Uncharged,0,activation,1,1
+5580,Lightspeed Slash,1834,uncharged,Uncharged,0,activation,1,1
+5580,Lightspeed Slash,1835,uncharged,Uncharged,0,activation,1,1
+5580,Lightspeed Slash,1836,charged,Charged,1,activation,1,1
+5580,Lightspeed Slash,1837,charged,Charged,1,activation,1,1
+5580,Lightspeed Slash,1838,charged,Charged,1,activation,1,1
+5590,Impaling Thrust,1852,full,Full sequence,0,activation,1,1
 8000,Shield Strike,1556,full,Full sequence,0,stage_1,1,1
 8000,Shield Strike,1560,full,Full sequence,0,stage_1,1,1
 8000,Shield Strike,1564,full,Full sequence,0,stage_1,1,1

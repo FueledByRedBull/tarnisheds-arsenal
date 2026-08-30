@@ -2,15 +2,15 @@ aow_id,sheet_row,effect_id,role,reason
 119,1442,1620,replacement_or_chained,conditional replacement semantics are not immediate per-hit buildup
 119,1442,1621,replacement_or_chained,conditional child effect is recorded but not treated as immediate hit buildup
 119,1442,1622,replacement_or_chained,conditional child effect is recorded but not treated as immediate hit buildup
-1010,2475,1768,replacement_or_chained,effect delegates through a conditional SpEffect chain
-1010,2475,1769,replacement_or_chained,conditional child effect is recorded but not treated as immediate hit buildup
-1174,1932,1789,replacement_or_chained,conditional replacement semantics are not immediate per-hit buildup
-1174,1932,70,replacement_or_chained,conditional child effect is recorded but not treated as immediate hit buildup
+1010,2486,1768,replacement_or_chained,effect delegates through a conditional SpEffect chain
+1010,2486,1769,replacement_or_chained,conditional child effect is recorded but not treated as immediate hit buildup
+1174,1940,1789,replacement_or_chained,conditional replacement semantics are not immediate per-hit buildup
+1174,1940,70,replacement_or_chained,conditional child effect is recorded but not treated as immediate hit buildup
 5050,1444,20000860,replacement_or_chained,conditional replacement semantics are not immediate per-hit buildup
 5050,1444,20000861,replacement_or_chained,conditional child effect is recorded but not treated as immediate hit buildup
 5050,1444,20000862,replacement_or_chained,conditional child effect is recorded but not treated as immediate hit buildup
-5210,2567,20001040,replacement_or_chained,conditional replacement semantics are not immediate per-hit buildup
-5210,2567,20001044,replacement_or_chained,effect delegates through a conditional SpEffect chain
-5210,2567,20001041,replacement_or_chained,conditional child effect is recorded but not treated as immediate hit buildup
-5210,2567,20001042,replacement_or_chained,conditional child effect is recorded but not treated as immediate hit buildup
-5210,2567,20001045,replacement_or_chained,conditional child effect is recorded but not treated as immediate hit buildup
+5210,2578,20001040,replacement_or_chained,conditional replacement semantics are not immediate per-hit buildup
+5210,2578,20001044,replacement_or_chained,effect delegates through a conditional SpEffect chain
+5210,2578,20001041,replacement_or_chained,conditional child effect is recorded but not treated as immediate hit buildup
+5210,2578,20001042,replacement_or_chained,conditional child effect is recorded but not treated as immediate hit buildup
+5210,2578,20001045,replacement_or_chained,conditional child effect is recorded but not treated as immediate hit buildup

@@ -2,9 +2,9 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::model::{
     AowActionResult, AowAttackRow, AowEffectRole, AowHitResult, AowRouteResult,
-    AttackElementCorrectExt, COMBAT_STAT_COUNT, DamageBreakdown, DamageType, GameData, STAT_ARC,
-    STAT_DEX, STAT_FAI, STAT_INT, STAT_STR, StaminaCostMode, Stats, StatusBuildup,
-    StatusCorrectionFlags, Weapon,
+    AttackElementCorrectExt, COMBAT_STAT_COUNT, DAMAGE_TYPE_COUNT, DamageBreakdown, DamageType,
+    GameData, STAT_ARC, STAT_DEX, STAT_FAI, STAT_INT, STAT_STR, StaminaCostMode, Stats,
+    StatusBuildup, StatusCorrectionFlags, Weapon,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -200,7 +200,7 @@ pub fn apply_aow_attack_buffs(
     breakdown
 }
 
-fn calculate_skill_damage_for_type(
+pub(crate) fn calculate_skill_damage_for_type(
     weapon: &Weapon,
     attack_row: &AowAttackRow,
     upgrade: u8,
@@ -296,6 +296,160 @@ struct PendingRoute {
     label: String,
     priority: u16,
     actions: BTreeMap<(u16, String), AowActionResult>,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct ScalarAowRoute<'a> {
+    pub route_id: String,
+    pub route_priority: u16,
+    hits: Vec<ScalarAowHit<'a>>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ScalarAowHit<'a> {
+    row: &'a AowAttackRow,
+    action_order: u16,
+    hit_order: u16,
+    buff_active: bool,
+    buff_attack_power: [f32; DAMAGE_TYPE_COUNT],
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct ScalarAowRouteMetric {
+    pub first_hit_damage: f32,
+    pub full_sequence_damage: f32,
+}
+
+pub(crate) fn prepare_scalar_aow_routes<'a>(
+    attack_rows: &[&'a AowAttackRow],
+    data: &'a GameData,
+) -> Result<Option<Vec<ScalarAowRoute<'a>>>, String> {
+    let aows_by_id = data
+        .aows
+        .iter()
+        .map(|aow| (aow.aow_id, aow))
+        .collect::<HashMap<_, _>>();
+    let mut activation_orders = HashMap::<(String, u16), u16>::new();
+    for row in attack_rows.iter().filter(|row| !row.is_lacking_fp) {
+        let Some(activation_action_id) = aows_by_id
+            .get(&row.aow_id)
+            .and_then(|aow| aow.buff_activation_action_id.as_deref())
+        else {
+            continue;
+        };
+        for assignment in data.aow_route_assignments(row.aow_id, row.sheet_row) {
+            if assignment.action_id == activation_action_id {
+                activation_orders
+                    .entry((assignment.route_id.clone(), row.aow_id))
+                    .and_modify(|order| *order = (*order).min(assignment.action_order))
+                    .or_insert(assignment.action_order);
+            }
+        }
+    }
+
+    let mut routes = HashMap::<String, ScalarAowRoute<'a>>::new();
+    for row in attack_rows.iter().filter(|row| !row.is_lacking_fp) {
+        let effects = data.aow_effects(row.aow_id, row.sheet_row);
+        if effects.iter().any(|effect| {
+            effect.is_supported && matches!(effect.role, AowEffectRole::PerHitAttackPower)
+        }) {
+            return Ok(None);
+        }
+        let assignments = data.aow_route_assignments(row.aow_id, row.sheet_row);
+        let has_route_effect = effects.iter().any(|effect| {
+            effect.is_supported
+                && matches!(
+                    effect.role,
+                    AowEffectRole::PerHitStatus
+                        | AowEffectRole::PerHitAttackPower
+                        | AowEffectRole::ReplacementOrChained
+                )
+        });
+        if assignments.is_empty() {
+            if row.is_damaging() || has_route_effect {
+                return Err(format!(
+                    "missing AoW route assignment for skill={} sheet_row={}",
+                    row.aow_id, row.sheet_row
+                ));
+            }
+            continue;
+        }
+        if !row.is_damaging() {
+            continue;
+        }
+        let buff_attack_power = aows_by_id
+            .get(&row.aow_id)
+            .map_or([0.0; DAMAGE_TYPE_COUNT], |aow| aow.buff_attack_power);
+        for assignment in assignments {
+            let buff_active = activation_orders
+                .get(&(assignment.route_id.clone(), row.aow_id))
+                .is_some_and(|activation_order| assignment.action_order > *activation_order);
+            routes
+                .entry(assignment.route_id.clone())
+                .or_insert_with(|| ScalarAowRoute {
+                    route_id: assignment.route_id.clone(),
+                    route_priority: assignment.route_priority,
+                    hits: Vec::new(),
+                })
+                .hits
+                .push(ScalarAowHit {
+                    row,
+                    action_order: assignment.action_order,
+                    hit_order: assignment.hit_order,
+                    buff_active,
+                    buff_attack_power,
+                });
+        }
+    }
+
+    let mut routes = routes.into_values().collect::<Vec<_>>();
+    for route in &mut routes {
+        route
+            .hits
+            .sort_by_key(|hit| (hit.action_order, hit.hit_order, hit.row.sheet_row));
+    }
+    routes.sort_by(|left, right| {
+        left.route_priority
+            .cmp(&right.route_priority)
+            .then_with(|| left.route_id.cmp(&right.route_id))
+    });
+    Ok(Some(routes))
+}
+
+pub(crate) fn evaluate_scalar_aow_route(
+    route: &ScalarAowRoute<'_>,
+    weapon: &Weapon,
+    upgrade: u8,
+    stats: &Stats,
+    effective_str_value: u16,
+    damage_multiplier: f32,
+    data: &GameData,
+) -> Result<ScalarAowRouteMetric, String> {
+    let mut metric = ScalarAowRouteMetric::default();
+    for hit in &route.hits {
+        let mut damage = 0.0;
+        for damage_type in DamageType::ALL {
+            damage += calculate_skill_damage_for_type(
+                weapon,
+                hit.row,
+                upgrade,
+                stats,
+                effective_str_value,
+                damage_type,
+                data,
+            )?;
+            if hit.buff_active {
+                damage += hit.buff_attack_power[damage_type.as_index()]
+                    * (hit.row.weapon_buff_mv / 100.0);
+            }
+        }
+        damage *= damage_multiplier;
+        if metric.first_hit_damage <= 0.0 && damage > 0.0 {
+            metric.first_hit_damage = damage;
+        }
+        metric.full_sequence_damage += damage;
+    }
+    Ok(metric)
 }
 
 pub fn calculate_aow_routes(
@@ -466,6 +620,7 @@ pub fn calculate_aow_routes(
                 hit_order: assignment.hit_order,
                 raw_name: row.raw_name.clone(),
                 damage: hit_damage,
+                poise_damage: weapon.base_poise * row.poise_mv / 100.0,
                 status_buildup: hit_status,
                 physical_attack_attribute: row.resolved_physical_attribute(weapon),
                 buff_active,
@@ -485,6 +640,7 @@ pub fn calculate_aow_routes(
                     .sort_by_key(|hit| (hit.hit_order, hit.sheet_row));
             }
             let mut total_damage = DamageBreakdown::default();
+            let mut total_poise_damage = 0.0_f32;
             let mut total_status_buildup = StatusBuildup::default();
             let mut first_hit_damage = 0.0_f32;
             let mut total_stamina_cost = 0.0_f32;
@@ -496,6 +652,7 @@ pub fn calculate_aow_routes(
                         first_hit_damage = hit_damage;
                     }
                     total_damage = total_damage.combined_with(hit.damage);
+                    total_poise_damage += hit.poise_damage;
                     total_status_buildup = total_status_buildup.combined_with(hit.status_buildup);
                 }
             }
@@ -515,6 +672,7 @@ pub fn calculate_aow_routes(
                 actions,
                 first_hit_damage,
                 total_damage,
+                total_poise_damage,
                 total_status_buildup,
                 total_stamina_cost,
             }

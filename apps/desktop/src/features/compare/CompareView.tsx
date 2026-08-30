@@ -1,14 +1,15 @@
-import { WheelEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { cachedSolveBuild, cachedUpgradeSeries } from "../../lib/analysis-cache";
 import { compactNumber, fixed1, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
-import { SearchableSelect, openOption } from "../../lib/SearchableSelect";
+import { CheckboxMultiSelect, SearchableSelect, openOption } from "../../lib/SearchableSelect";
 import { compareUpgradeHorizon, rowFingerprint, upgradeCapForRow } from "../../lib/session";
 import { stableSignature } from "../../lib/session";
 import { LatestRequest } from "../../lib/request-generation";
 import { useRequestBudget } from "../../lib/hooks";
 import { useDesktopStore } from "../../lib/state";
-import { ScalingDto, SolvedBuildDto, UpgradePointDto } from "../../lib/types";
+import { ScalingDto, SolvedBuildDto, StableFilterEntryDto, UpgradePointDto } from "../../lib/types";
+import { runSearchRequestForRows } from "../../lib/workflows";
 import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 
 type CompareLane = {
@@ -16,6 +17,7 @@ type CompareLane = {
   row: SolvedBuildDto | null;
   points: UpgradePointDto[];
   scaling: ScalingDto | null;
+  emptyLabel?: string;
 };
 
 export function CompareView() {
@@ -33,70 +35,74 @@ export function CompareView() {
   const setError = useDesktopStore((state) => state.setError);
   const setWorkspace = useDesktopStore((state) => state.setWorkspace);
   const matrixRef = useRef<HTMLDivElement | null>(null);
-  const weaponNamesRequest = useRef(new LatestRequest());
-  const affinitiesRequest = useRef(new LatestRequest());
   const aowsRequest = useRef(new LatestRequest());
   const seriesRequest = useRef(new LatestRequest());
   const { base: baseRequest } = useRequestBudget(catalog, request, lockedStatMode);
-  const [weaponNames, setWeaponNames] = useState<string[]>([]);
-  const [affinityNames, setAffinityNames] = useState<string[]>([]);
   const [aowNames, setAowNames] = useState<string[]>([]);
   const [series, setSeries] = useState<CompareLane[]>([]);
   const [seriesStatus, setSeriesStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [seriesError, setSeriesError] = useState<string | null>(null);
-  const typeOptions = catalog?.weaponTypeOptions.length
-    ? catalog.weaponTypeOptions
-    : catalog?.weaponTypeKeys.map((key) => ({ key, label: key })) ?? [];
+  const typeDimension = catalog?.filterDimensions.find((dimension) => dimension.id === "weapon_type");
+  const affinityDimension = catalog?.filterDimensions.find((dimension) => dimension.id === "affinity");
+  const selectedTypeIds = compareControls.filters.entries
+    .filter((entry) => entry.dimension === "weapon_type" && entry.mode === "include")
+    .map((entry) => entry.id);
+  const selectedAffinityIds = compareControls.filters.entries
+    .filter((entry) => entry.dimension === "affinity" && entry.mode === "include")
+    .map((entry) => entry.id);
+  const excludedTypeIds = compareControls.filters.entries
+    .filter((entry) => entry.dimension === "weapon_type" && entry.mode === "exclude")
+    .map((entry) => entry.id);
+  const excludedAffinityIds = compareControls.filters.entries
+    .filter((entry) => entry.dimension === "affinity" && entry.mode === "exclude")
+    .map((entry) => entry.id);
+  const selectedTypeLabels = typeDimension?.options
+    .filter((option) => selectedTypeIds.includes(option.id))
+    .map((option) => option.label) ?? [];
+  const selectedAffinityLabels = affinityDimension?.options
+    .filter((option) => selectedAffinityIds.includes(option.id))
+    .map((option) => option.label) ?? [];
+  const aowAffinity = selectedAffinityLabels.length === 1 ? selectedAffinityLabels[0] : null;
+  const customCompare = Boolean(
+    compareControls.weaponName
+    || compareControls.filters.entries.length
+    || compareControls.aowName
+    || !compareControls.matchSelectedAow
+    || !compareControls.includeSmithing
+    || !compareControls.includeSomber,
+  );
+  const compareTargetLabel = compareControls.weaponName
+    ?? (selectedTypeLabels.length ? `Best ${selectedTypeLabels.join(" + ")}` : "Best matching weapon");
+  const reinforcementLabel = compareControls.includeSmithing && compareControls.includeSomber
+    ? null
+    : compareControls.includeSomber
+      ? "Somber"
+      : compareControls.includeSmithing ? "Smithing" : "No reinforcement";
+  const compareSource = customCompare
+    ? [compareTargetLabel, selectedAffinityLabels.join(" + "), reinforcementLabel].filter(Boolean).join(" · ")
+    : compareBench.length
+      ? `${compareBench.length} pinned target${compareBench.length === 1 ? "" : "s"}`
+      : "current ranked rivals";
+  const pinnedMatchesSelected = Boolean(selected)
+    && compareBench.length > 0
+    && compareBench.every((row) => rowFingerprint(row) === rowFingerprint(selected));
+  const emptyTargetLabel = pinnedMatchesSelected
+    ? "The pinned target is already the selected baseline. Pin a different build or choose comparison filters."
+    : "No other current ranked result. Run a broader Rankings search or choose comparison filters.";
   const extendedScalingGrades = catalog?.dataManifest.rules.extendedScalingGrades ?? false;
-
-  useEffect(() => {
-    const token = weaponNamesRequest.current.begin(stableSignature({
-      weaponTypeKey: compareControls.weaponTypeKey,
-    }));
-    api.weaponNamesForType(request.profileId, compareControls.weaponTypeKey).then((names) => {
-      if (weaponNamesRequest.current.isCurrent(token)) setWeaponNames(names);
-    }).catch((error) => {
-      if (weaponNamesRequest.current.isCurrent(token)) {
-        setError(error instanceof Error ? error.message : String(error));
-      }
-    });
-    return () => {
-      weaponNamesRequest.current.invalidate(token);
-    };
-  }, [compareControls.weaponTypeKey, request.profileId, setError]);
-
-  useEffect(() => {
-    const token = affinitiesRequest.current.begin(stableSignature({
-      weaponName: compareControls.weaponName,
-    }));
-    async function loadAffinities() {
-      const names = compareControls.weaponName
-        ? await api.affinitiesForWeapon(request.profileId, compareControls.weaponName)
-        : [];
-      if (affinitiesRequest.current.isCurrent(token)) setAffinityNames(names);
-    }
-    loadAffinities().catch((error) => {
-      if (affinitiesRequest.current.isCurrent(token)) {
-        setError(error instanceof Error ? error.message : String(error));
-      }
-    });
-    return () => {
-      affinitiesRequest.current.invalidate(token);
-    };
-  }, [compareControls.weaponName, request.profileId, setError]);
 
   useEffect(() => {
     const selectedAow = compareControls.matchSelectedAow ? selected?.aowName ?? null : compareControls.aowName;
     const token = aowsRequest.current.begin(stableSignature({
       weaponName: compareControls.weaponName,
-      affinity: compareControls.affinity,
+      affinity: aowAffinity,
       selectedAow,
     }));
     async function loadAows() {
       const names = compareControls.weaponName
-        ? await api.compatibleAowNames(request.profileId, compareControls.weaponName, compareControls.affinity)
-        : compareControls.affinity
-          ? await api.compatibleAowNamesForAffinity(request.profileId, compareControls.affinity)
+        ? await api.compatibleAowNames(request.profileId, compareControls.weaponName, aowAffinity)
+        : aowAffinity
+          ? await api.compatibleAowNamesForAffinity(request.profileId, aowAffinity)
           : catalog?.aowNames ?? [];
       if (aowsRequest.current.isCurrent(token)) {
         setAowNames(selectedAow && !names.includes(selectedAow) ? [selectedAow, ...names] : names);
@@ -110,7 +116,7 @@ export function CompareView() {
     return () => {
       aowsRequest.current.invalidate(token);
     };
-  }, [catalog?.aowNames, compareControls.affinity, compareControls.matchSelectedAow, compareControls.aowName, compareControls.weaponName, request.profileId, selected?.aowName, setError]);
+  }, [aowAffinity, catalog?.aowNames, compareControls.matchSelectedAow, compareControls.aowName, compareControls.weaponName, request.profileId, selected?.aowName, setError]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -131,29 +137,43 @@ export function CompareView() {
       }
       setSeriesStatus("loading");
       setSeriesError(null);
-      const resolvedSelected =
-        await cachedSolveBuild(
-          baseRequest,
-          selected.weaponName,
-          selected.affinity,
-          selected.aowName,
-          controller.signal,
-        ) ?? selected;
-      const lanes: Array<{ label: string; row: SolvedBuildDto | null }> = [
+      const resolvedSelected = selected;
+      const lanes: Array<{ label: string; row: SolvedBuildDto | null; emptyLabel?: string }> = [
         { label: "Selected", row: resolvedSelected },
       ];
       let summaryTarget: SolvedBuildDto | null = null;
 
-      if (compareControls.weaponName) {
+      if (customCompare) {
         const compareAow = compareControls.matchSelectedAow ? resolvedSelected.aowName : compareControls.aowName;
-        const compareRow = await cachedSolveBuild(
-          baseRequest,
-          compareControls.weaponName,
-          compareControls.affinity,
-          compareAow,
-          controller.signal,
-        );
-        lanes.push({ label: "Compare", row: compareRow });
+        const reinforcementSelected = compareControls.includeSmithing || compareControls.includeSomber;
+        const candidates = reinforcementSelected
+          ? await runSearchRequestForRows({
+            ...baseRequest,
+            weaponName: compareControls.weaponName,
+            weaponTypeKey: null,
+            affinity: null,
+            aowName: compareAow,
+            somberFilter: compareControls.includeSmithing === compareControls.includeSomber
+              ? "all"
+              : compareControls.includeSomber ? "somber_only" : "standard_only",
+            filters: compareControls.filters,
+            lockStr: null,
+            lockDex: null,
+            lockInt: null,
+            lockFai: null,
+            lockArc: null,
+            resultGrouping: compareControls.weaponName ? "loadout" : "weapon",
+            topK: 6,
+          }, controller.signal)
+          : [];
+        const compareRow = candidates.find((row) => rowFingerprint(row) !== rowFingerprint(resolvedSelected)) ?? null;
+        lanes.push({
+          label: compareTargetLabel,
+          row: compareRow,
+          emptyLabel: reinforcementSelected
+            ? "No other weapon matches these comparison filters"
+            : "Select Smithing, Somber, or both",
+        });
         summaryTarget = compareRow;
       } else {
         const sources = compareBench.length ? compareBench : rows;
@@ -162,18 +182,18 @@ export function CompareView() {
           .map((row, index) => ({ row, index }))
           .filter(({ row }) => rowFingerprint(row) !== rowFingerprint(selected))
           .slice(0, compareBench.length ? 5 : 3);
-        const rivals = await Promise.all(
-          rivalInputs.map(async ({ row, index }) => ({
-            label: `Top #${index + 1}`,
-            row: await cachedSolveBuild(
+        const rivals = await Promise.all(rivalInputs.map(async ({ row, index }) => ({
+          label: `${compareBench.length ? "Pinned" : "Top"} #${index + 1}`,
+          row: compareBench.length
+            ? await cachedSolveBuild(
               baseRequest,
               row.weaponName,
               row.affinity,
               row.aowName,
               controller.signal,
-            ) ?? row,
-          })),
-        );
+            )
+            : row,
+        })));
         lanes.push(...rivals);
         summaryTarget = rivals[0]?.row ?? null;
       }
@@ -183,13 +203,18 @@ export function CompareView() {
           if (!lane.row) {
             return { ...lane, points: [], scaling: null };
           }
+          const row = lane.row;
           const points = await cachedUpgradeSeries(
             baseRequest,
-            lane.row,
-            upgradeCapForRow(lane.row, request),
+            row,
+            upgradeCapForRow(row, request),
             controller.signal,
-          );
-          return { ...lane, points, scaling: lane.row.effectiveScaling ?? null };
+          ).catch((error) => {
+            throw new Error(
+              `${lane.label} upgrade series at level ${baseRequest.characterLevel} (${statLine(row)}): ${error instanceof Error ? error.message : String(error)}`,
+            );
+          });
+          return { ...lane, points, scaling: row.effectiveScaling ?? null };
         }),
       );
       if (seriesRequest.current.isCurrent(token)) {
@@ -233,10 +258,10 @@ export function CompareView() {
 
   return (
     <section className="workspace-panel compare-panel">
-      <div className="workspace-header">
-        <div>
+      <div className="workspace-header analysis-workspace-header compare-workspace-header">
+        <div className="workspace-heading-copy">
           <h1>Compare</h1>
-          <span>Selected line, explicit target, or {compareBench.length ? `${compareBench.length} pinned builds` : "top ranked rivals"}</span>
+          <span>Selected baseline versus {compareSource}</span>
           <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)} · {dataVersion}</small>
         </div>
       </div>
@@ -246,24 +271,55 @@ export function CompareView() {
         {seriesStatus === "ready" ? "Comparison current" : null}
       </div>
       <div className="compare-toolbar">
-        {compareBench.length ? <button type="button" className="clear-locks" onClick={clearCompareBench}>Clear {compareBench.length} pinned</button> : null}
-        <SearchableSelect
+        {compareBench.length ? (
+          <div className="compare-pins">
+            <button type="button" className="clear-locks" onClick={clearCompareBench}>Clear {compareBench.length} pinned target{compareBench.length === 1 ? "" : "s"}</button>
+            <small>Selected stays as the baseline.</small>
+          </div>
+        ) : null}
+        <CheckboxMultiSelect
           label="Compare Type"
-          value={compareControls.weaponTypeKey}
-          options={[openOption("All"), ...typeOptions.map((entry) => ({ value: entry.key, label: entry.label }))]}
-          onChange={(weaponTypeKey) => patchCompareControls({ weaponTypeKey, weaponName: null, affinity: null, aowName: null })}
+          values={selectedTypeIds}
+          excludedValues={excludedTypeIds}
+          options={typeDimension?.options.map((option) => ({ value: option.id, label: option.label, count: option.count })) ?? []}
+          onChange={(values, excludedValues) => patchCompareControls({
+            weaponName: null,
+            aowName: null,
+            matchSelectedAow: false,
+            filters: { version: 1, entries: replaceCompareFilters(compareControls.filters.entries, "weapon_type", values, excludedValues) },
+          })}
         />
         <SearchableSelect
           label="Compare Weapon"
           value={compareControls.weaponName}
-          options={[openOption("Top ranked rivals"), ...weaponNames.map((name) => ({ value: name, label: name }))]}
-          onChange={(weaponName) => patchCompareControls({ weaponName, affinity: null, aowName: null })}
+          options={[
+            openOption(selectedTypeLabels.length ? `Best ${selectedTypeLabels.join(" + ")}` : compareBench.length ? "Pinned targets" : "Current ranked rivals"),
+            ...(catalog?.weaponNames ?? []).map((name) => ({ value: name, label: name })),
+          ]}
+          onChange={(weaponName) => patchCompareControls({
+            weaponName,
+            aowName: null,
+            filters: {
+              version: 1,
+              entries: replaceCompareFilters(
+                replaceCompareFilters(compareControls.filters.entries, "weapon_type", [], []),
+                "affinity",
+                [],
+                [],
+              ),
+            },
+          })}
         />
-        <SearchableSelect
+        <CheckboxMultiSelect
           label="Compare Affinity"
-          value={compareControls.affinity}
-          options={[openOption(), ...affinitiesForTarget(affinityNames, target, selected).map((name) => ({ value: name, label: name }))]}
-          onChange={(affinity) => patchCompareControls({ affinity, aowName: null })}
+          values={selectedAffinityIds}
+          excludedValues={excludedAffinityIds}
+          options={affinityDimension?.options.map((option) => ({ value: option.id, label: option.label, count: option.count })) ?? []}
+          onChange={(values, excludedValues) => patchCompareControls({
+            aowName: null,
+            matchSelectedAow: false,
+            filters: { version: 1, entries: replaceCompareFilters(compareControls.filters.entries, "affinity", values, excludedValues) },
+          })}
         />
         <SearchableSelect
           label="Compare AoW"
@@ -281,22 +337,41 @@ export function CompareView() {
             )
           }
         />
+        <div className="compare-reinforcement" role="group" aria-label="Compare Reinforcement">
+          <span>Reinforcement</span>
+          <label>
+            <input
+              type="checkbox"
+              checked={compareControls.includeSmithing}
+              onChange={(event) => patchCompareControls({ includeSmithing: event.target.checked })}
+            />
+            Smithing
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={compareControls.includeSomber}
+              onChange={(event) => patchCompareControls({ includeSomber: event.target.checked })}
+            />
+            Somber
+          </label>
+        </div>
       </div>
       <div className="compare-lanes" aria-busy={seriesStatus === "loading"}>
         <Lane title="Selected" row={series[0]?.row ?? selected} objective={request.objective} scaling={series[0]?.scaling ?? null} extendedScalingGrades={extendedScalingGrades} emptyLabel="Selected build unavailable" />
         {series.length > 1 ? series.slice(1).map((lane) => (
-          <Lane key={lane.label} title={lane.label} row={lane.row} objective={request.objective} scaling={lane.scaling} extendedScalingGrades={extendedScalingGrades} emptyLabel="No compatible target" />
-        )) : <Lane title="Target" row={target} objective={request.objective} scaling={null} extendedScalingGrades={extendedScalingGrades} emptyLabel={seriesStatus === "loading" ? "Loading target…" : "No ranked rival available"} />}
+          <Lane key={lane.label} title={lane.label} row={lane.row} objective={request.objective} scaling={lane.scaling} extendedScalingGrades={extendedScalingGrades} emptyLabel={lane.emptyLabel ?? "No compatible target"} />
+        )) : <Lane title="Target" row={target} objective={request.objective} scaling={null} extendedScalingGrades={extendedScalingGrades} emptyLabel={seriesStatus === "loading" ? "Loading target…" : emptyTargetLabel} />}
       </div>
       <DeltaTable baseline={series[0]?.row ?? selected} candidates={series.slice(1)} objective={request.objective} />
       <div className="matrix-toolbar">
-        <span>{compareControls.weaponName ? "Explicit target" : "Top ranked rivals"}</span>
+        <span>{compareSource}</span>
         <div>
           <button type="button" onClick={() => scrollMatrix(matrixRef.current, -1)}>+0</button>
           <button type="button" onClick={() => scrollMatrix(matrixRef.current, 1)}>+{matrixHorizon}</button>
         </div>
       </div>
-      <div className="matrix-wrap" ref={matrixRef} onWheel={scrollMatrixWithWheel} aria-busy={seriesStatus === "loading"}>
+      <div className="matrix-wrap" ref={matrixRef} aria-busy={seriesStatus === "loading"}>
         <div className="metric-matrix" role="grid" aria-label="Compare upgrade metrics">
           <div className="matrix-row matrix-header" role="row">
             <span role="columnheader">Line</span>
@@ -428,16 +503,15 @@ function scrollMatrix(element: HTMLDivElement | null, direction: -1 | 1) {
   });
 }
 
-function scrollMatrixWithWheel(event: WheelEvent<HTMLDivElement>) {
-  if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
-    return;
-  }
-  event.currentTarget.scrollLeft += event.deltaY;
-}
-
-function affinitiesForTarget(backendAffinities: string[], target: SolvedBuildDto | null, selected: SolvedBuildDto | null): string[] {
-  const values = new Set(backendAffinities);
-  if (target) values.add(target.affinity);
-  if (selected) values.add(selected.affinity);
-  return Array.from(values).sort((left, right) => left.localeCompare(right));
+function replaceCompareFilters(
+  entries: StableFilterEntryDto[],
+  dimension: "weapon_type" | "affinity",
+  ids: string[],
+  excludedIds: string[],
+): StableFilterEntryDto[] {
+  return [
+    ...entries.filter((entry) => entry.dimension !== dimension),
+    ...ids.map((id) => ({ dimension, id, mode: "include" as const })),
+    ...excludedIds.map((id) => ({ dimension, id, mode: "exclude" as const })),
+  ];
 }

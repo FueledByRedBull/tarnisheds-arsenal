@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from tools.phase1.extract_motion_workbook import MOTION_WORKBOOK_NAME  # noqa: E402
 from tools.phase1.profiles import ProfileDefinition, profile_definition  # noqa: E402
 
 
@@ -106,7 +107,7 @@ def write_snapshot_manifest(
 ) -> Path:
     phase1_dir = phase1_dir.resolve()
     regulation_path = regulation_path.resolve()
-    workbook_path = phase1_dir / "ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx"
+    workbook_path = phase1_dir / MOTION_WORKBOOK_NAME
     missing_runtime = sorted(name for name in RUNTIME_FILES if not (phase1_dir / name).is_file())
     if missing_runtime:
         raise FileNotFoundError(

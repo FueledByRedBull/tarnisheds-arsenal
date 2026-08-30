@@ -12,11 +12,12 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.phase1.extract_motion_workbook import load_weapon_workbook_data  # noqa: E402
+from tools.phase1.extract_motion_workbook import MOTION_WORKBOOK_NAME, load_weapon_workbook_data  # noqa: E402
 from tools.phase1.derive_phase1_extras import (  # noqa: E402
     build_aow_affinity_compat,
     derive_phase1_diagnostics,
 )
+from tools.phase1.phase1_dump import MAX_EFFECTIVE_STRENGTH  # noqa: E402
 from tools.phase1.profiles import profile_definition  # noqa: E402
 from tools.phase1.snapshot_manifest import validate_snapshot_manifest  # noqa: E402
 from tools.phase4.validation.aow_effect_graph import validate_aow_effect_graph  # noqa: E402
@@ -36,6 +37,43 @@ def max_reinforce_levels(rows: Iterable[dict[str, str]]) -> dict[int, int]:
         level = int(row["level"])
         out[reinforce_type] = max(out.get(reinforce_type, -1), level)
     return out
+
+
+def validate_used_calc_correct_curves(
+    rows: Iterable[dict[str, str]], used_curve_ids: set[int]
+) -> list[ValidationIssue]:
+    curves: dict[int, dict[int, float]] = defaultdict(dict)
+    for row in rows:
+        curves[int(row["curve_id"])][int(row["stat_value"])] = float(row["multiplier"])
+
+    issues: list[ValidationIssue] = []
+    non_monotonic: list[int] = []
+    for curve_id in sorted(used_curve_ids):
+        curve = curves.get(curve_id, {})
+        missing = [
+            stat
+            for stat in range(MAX_EFFECTIVE_STRENGTH + 1)
+            if stat not in curve
+        ]
+        if missing:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    f"used curve {curve_id} is missing stat values: {missing[:10]}",
+                )
+            )
+            continue
+        series = [curve[stat] for stat in range(MAX_EFFECTIVE_STRENGTH + 1)]
+        if any(left > right + 1e-9 for left, right in zip(series, series[1:])):
+            non_monotonic.append(curve_id)
+    if non_monotonic:
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"non-monotonic used curves detected: {non_monotonic[:10]}",
+            )
+        )
+    return issues
 
 
 def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[ValidationIssue]:
@@ -378,15 +416,21 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
             )
         )
 
-    workbook_path = data_dir / "ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx"
+    workbook_path = data_dir / MOTION_WORKBOOK_NAME
     if workbook_path.exists():
-        workbook_weapon_ids = set(load_weapon_workbook_data(workbook_path))
-        standard_weapon_ids = {
-            int(row["weapon_id"]) for row in weapons if row.get("affinity") == "Standard"
+        workbook_weapon_ids = {
+            weapon_id - weapon_id % 1_000
+            for weapon_id in load_weapon_workbook_data(workbook_path)
         }
-        expected_standard_weapon_ids = workbook_weapon_ids | set(
-            profile_definition("vanilla").weapon_name_overrides
-        )
+        standard_weapon_ids = {
+            int(row["weapon_id"]) - int(row["weapon_id"]) % 1_000
+            for row in weapons
+            if row.get("affinity") == "Standard"
+        }
+        expected_standard_weapon_ids = workbook_weapon_ids | {
+            weapon_id - weapon_id % 1_000
+            for weapon_id in profile_definition("vanilla").weapon_name_overrides
+        }
         if standard_weapon_ids != expected_standard_weapon_ids:
             issues.append(
                 ValidationIssue(
@@ -820,22 +864,7 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
                 )
             )
 
-    curves: dict[int, dict[int, float]] = defaultdict(dict)
-    for row in calc_correct:
-        curves[int(row["curve_id"])][int(row["stat_value"])] = float(row["multiplier"])
-
-    non_mono_used: list[int] = []
-    for curve_id in sorted(used_curve_ids):
-        series = [curves[curve_id].get(x, 0.0) for x in range(1, 100)]
-        if any(series[i] > series[i + 1] + 1e-9 for i in range(98)):
-            non_mono_used.append(curve_id)
-    if non_mono_used:
-        issues.append(
-            ValidationIssue(
-                "error",
-                f"non-monotonic used curves detected: {non_mono_used[:10]}",
-            )
-        )
+    issues.extend(validate_used_calc_correct_curves(calc_correct, used_curve_ids))
 
     lions_claw = next((row for row in aows if row["name"] == "Lion's Claw"), None)
     if lions_claw is None:
