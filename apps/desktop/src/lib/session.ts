@@ -1,6 +1,7 @@
 import {
   CatalogDto,
   ClassMetadataDto,
+  EightStatsDto,
   OptimizeRequestDto,
   ProfileRulesDto,
   SolvedBuildDto,
@@ -110,6 +111,27 @@ export function currentStatTotal(request: OptimizeRequestDto): number {
 export function derivedLevel(catalog: CatalogDto | null, request: OptimizeRequestDto): number {
   const meta = classMeta(catalog, request.className);
   return meta.baseLevel + (currentStatTotal(request) - meta.baseTotal);
+}
+
+export function startingClassLevel(meta: ClassMetadataDto, targets: EightStatsDto): number {
+  return meta.baseLevel + EIGHT_STAT_KEYS.reduce(
+    (levels, key) => levels + Math.max(targets[key] - meta.baseStats[key], 0),
+    0,
+  );
+}
+
+export function optimalStartingClass(
+  catalog: CatalogDto | null,
+  targets: EightStatsDto,
+  currentClassName: string,
+): ClassMetadataDto {
+  return classOptions(catalog).reduce((best, candidate) => {
+    const candidateLevel = startingClassLevel(candidate, targets);
+    const bestLevel = startingClassLevel(best, targets);
+    if (candidateLevel < bestLevel) return candidate;
+    if (candidateLevel === bestLevel && candidate.name === currentClassName) return candidate;
+    return best;
+  });
 }
 
 export function budgetSnapshot(catalog: CatalogDto | null, request: OptimizeRequestDto) {

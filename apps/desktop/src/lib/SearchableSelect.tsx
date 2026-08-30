@@ -5,6 +5,12 @@ export interface SelectOption {
   label: string;
 }
 
+export interface MultiSelectOption {
+  value: string;
+  label: string;
+  count?: number;
+}
+
 export function SearchableSelect({
   label,
   value,
@@ -187,4 +193,127 @@ export function SearchableSelect({
 
 export function openOption(label = "Open"): SelectOption {
   return { value: null, label };
+}
+
+export function CheckboxMultiSelect({
+  label,
+  values,
+  excludedValues = [],
+  options,
+  onChange,
+  disabled,
+  placeholder = "All",
+}: {
+  label: string;
+  values: string[];
+  excludedValues?: string[];
+  options: MultiSelectOption[];
+  onChange: (values: string[], excludedValues: string[]) => void;
+  disabled?: boolean;
+  placeholder?: string;
+}) {
+  const id = useId();
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const searchRef = useRef<HTMLInputElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const selected = options.filter((option) => values.includes(option.value) || excludedValues.includes(option.value));
+  const matching = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase();
+    return options.filter((option) => !needle || option.label.toLocaleLowerCase().includes(needle));
+  }, [options, query]);
+  const filtered = matching.slice(0, 80);
+
+  useEffect(() => {
+    if (open) searchRef.current?.focus();
+  }, [open]);
+
+  function toggle(value: string) {
+    const included = new Set(values);
+    const excluded = new Set(excludedValues);
+    if (included.delete(value)) excluded.add(value);
+    else if (excluded.delete(value)) { /* neutral */ }
+    else included.add(value);
+    onChange(
+      options.filter((option) => included.has(option.value)).map((option) => option.value),
+      options.filter((option) => excluded.has(option.value)).map((option) => option.value),
+    );
+  }
+
+  function close() {
+    setOpen(false);
+    setQuery("");
+  }
+
+  return (
+    <div
+      className="checkbox-multi-select"
+      ref={wrapperRef}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) close();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          close();
+          triggerRef.current?.focus();
+        }
+      }}
+    >
+      <span className="checkbox-multi-label">{label}</span>
+      <button
+        ref={triggerRef}
+        type="button"
+        className="checkbox-multi-trigger"
+        aria-label={label}
+        aria-expanded={open && !disabled}
+        aria-controls={`${id}-menu`}
+        disabled={disabled}
+        onClick={() => setOpen((current) => !current)}
+      >
+        {selected.length ? (
+          <>
+            {selected.slice(0, 2).map((option) => (
+              <span className={`filter-chip${excludedValues.includes(option.value) ? " excluded" : ""}`} key={option.value}>
+                {excludedValues.includes(option.value) ? `Not ${option.label}` : option.label}
+              </span>
+            ))}
+            {selected.length > 2 ? <span className="filter-chip">+{selected.length - 2}</span> : null}
+          </>
+        ) : <span className="checkbox-multi-placeholder">{placeholder}</span>}
+      </button>
+      {open && !disabled ? (
+        <div className="select-menu checkbox-select-menu" id={`${id}-menu`}>
+          <input
+            ref={searchRef}
+            type="search"
+            aria-label={`Search ${label}`}
+            value={query}
+            placeholder={`Search ${label.toLocaleLowerCase()}`}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          <div className="checkbox-select-options" role="group" aria-label={label}>
+            {filtered.map((option) => (
+              <label key={option.value} data-mode={values.includes(option.value) ? "include" : excludedValues.includes(option.value) ? "exclude" : "neutral"}>
+                <input
+                  type="checkbox"
+                  checked={values.includes(option.value)}
+                  ref={(node) => { if (node) node.indeterminate = excludedValues.includes(option.value); }}
+                  onChange={() => toggle(option.value)}
+                />
+                <span>{option.label}</span>
+                {option.count === undefined ? null : <small>{option.count.toLocaleString()}</small>}
+              </label>
+            ))}
+            {filtered.length === 0 ? <small>No matches</small> : null}
+          </div>
+          <div className="checkbox-select-footer">
+            <small>{matching.length} {matching.length === 1 ? "match" : "matches"}</small>
+            {values.length || excludedValues.length ? <button type="button" onClick={() => onChange([], [])}>Clear all</button> : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
 }

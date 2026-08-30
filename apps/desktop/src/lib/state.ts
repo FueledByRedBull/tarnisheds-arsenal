@@ -136,6 +136,15 @@ export const defaultRequest: OptimizeRequestDto = {
   topK: 25,
 };
 
+const defaultCompareControls: CompareControls = {
+  filters: { version: 1, entries: [] },
+  weaponName: null,
+  aowName: null,
+  matchSelectedAow: true,
+  includeSmithing: true,
+  includeSomber: true,
+};
+
 function compareBenchKey(profileId: string): string {
   return `tarnisheds-arsenal.compareBench.v1.${profileId}`;
 }
@@ -352,6 +361,7 @@ const createUiSlice: DesktopSlice<UiSlice> = (set) => ({
         affinity: null,
         aowName: null,
         weaponTypeKey: null,
+        filters: { version: 1, entries: [] },
         objective: "max_ar",
       }, rules, true),
       rows: [],
@@ -360,13 +370,7 @@ const createUiSlice: DesktopSlice<UiSlice> = (set) => ({
       compareTarget: null,
       compareBench: [],
       selectedFingerprint: null,
-      compareControls: {
-        weaponTypeKey: null,
-        weaponName: null,
-        affinity: null,
-        aowName: null,
-        matchSelectedAow: true,
-      },
+      compareControls: { ...defaultCompareControls },
       paths: [],
       pathSignature: null,
       affinityPayload: null,
@@ -501,6 +505,7 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
         affinity: row.affinity,
         aowName: row.aowName,
         weaponTypeKey: null,
+        filters: { version: 1, entries: [] },
         somberFilter: "all",
         standardMaxUpgrade: row.isSomber ? state.request.standardMaxUpgrade : row.upgrade,
         somberMaxUpgrade: row.isSomber ? row.upgrade : state.request.somberMaxUpgrade,
@@ -631,13 +636,7 @@ const createSearchSlice: DesktopSlice<SearchSlice> = (set) => ({
 const createCompareSlice: DesktopSlice<CompareSlice> = (set) => ({
   compareTarget: null,
   compareBench: [],
-  compareControls: {
-    weaponTypeKey: null,
-    weaponName: null,
-    affinity: null,
-    aowName: null,
-    matchSelectedAow: true,
-  },
+  compareControls: { ...defaultCompareControls },
   setCompareTarget: (compareTarget) =>
     set((state) => ({
       ...invalidatePathJob(state),
@@ -653,21 +652,49 @@ const createCompareSlice: DesktopSlice<CompareSlice> = (set) => ({
         ? state.compareBench.filter((entry) => rowFingerprint(entry) !== fingerprint)
         : [...state.compareBench, row].slice(-8);
       writeCompareBench(state.catalog, compareBench);
-      return { compareBench };
+      if (exists) return { compareBench };
+      return {
+        ...invalidatePathJob(state),
+        compareBench,
+        compareTarget: null,
+        compareControls: { ...defaultCompareControls },
+        paths: [],
+        pathSignature: null,
+      };
     }),
   clearCompareBench: () =>
     set((state) => {
       writeCompareBench(state.catalog, []);
-      return { compareBench: [] };
+      return {
+        ...invalidatePathJob(state),
+        compareBench: [],
+        compareTarget: null,
+        paths: [],
+        pathSignature: null,
+      };
     }),
   patchCompareControls: (patch) =>
-    set((state) => ({
-      ...invalidatePathJob(state),
-      compareControls: { ...state.compareControls, ...patch },
-      compareTarget: null,
-      paths: [],
-      pathSignature: null,
-    })),
+    set((state) => {
+      const compareControls = { ...state.compareControls, ...patch };
+      const customTarget = compareControls.weaponName
+        || compareControls.filters.entries.length
+        || compareControls.aowName
+        || !compareControls.matchSelectedAow
+        || !compareControls.includeSmithing
+        || !compareControls.includeSomber;
+      const compareBench = customTarget && state.compareBench.length
+        ? []
+        : state.compareBench;
+      if (compareBench !== state.compareBench) writeCompareBench(state.catalog, compareBench);
+      return {
+        ...invalidatePathJob(state),
+        compareControls,
+        compareBench,
+        compareTarget: null,
+        paths: [],
+        pathSignature: null,
+      };
+    }),
 });
 
 const createPathSlice: DesktopSlice<PathSlice> = (set) => ({

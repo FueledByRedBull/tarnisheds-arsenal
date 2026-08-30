@@ -121,7 +121,11 @@ export const hasTauriRuntime = () => "__TAURI_INTERNALS__" in window;
 
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   if (hasTauriRuntime()) {
-    return invoke<T>(command, args);
+    try {
+      return await invoke<T>(command, args);
+    } catch (error) {
+      throw new Error(errorMessage(error));
+    }
   }
   const isDevPreview = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV);
   if (!isDevPreview) {
@@ -364,7 +368,11 @@ function mockCancelAffinityWatch(args: Record<string, unknown> | undefined): boo
 }
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error && typeof error.message === "string") {
+    return error.message;
+  }
+  return String(error);
 }
 
 async function mockInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
@@ -451,7 +459,7 @@ function mockDataManifest(profileId = "vanilla"): DataManifestDto {
     id: convergence ? "convergence-3.0.0.1" : "vanilla-1.17",
     label: convergence ? "Convergence 3.0.0.1" : "Vanilla 1.17",
     appVersion: convergence ? "1.16.1" : "1.17",
-    source: "ER - Motion Values and Attack Data (App Ver. 1.16.1).xlsx",
+    source: "ER - Motion Values and Attack Data (App Ver. 1.17).xlsx",
     generatedAt: "2026-05-18",
     extractorVersion: "phase1-python-v5-profile-rules",
     provenance: "mock snapshot",
@@ -503,6 +511,11 @@ async function mockWeaponProfile(args: Record<string, unknown> | undefined): Pro
     maxUpgrade,
     isSomber: first?.isSomber ?? false,
     disablesTwoHandBonus: false,
+    forcesTwoHanding: false,
+    weight: first?.name === "Pulley Bow" ? 5 : 7,
+    moveCount: 5,
+    oneHandedPoise: { light: "5", heavy: "10", chargedHeavy: "30", jumpingLight: "7.5", jumpingHeavy: "20" },
+    twoHandedPoise: { light: "6.5", heavy: "11", chargedHeavy: "33", jumpingLight: "9.75", jumpingHeavy: "22" },
     affinities: uniqueSorted(MOCK_WEAPONS.filter((row) => row.name === request.weaponName).map((row) => row.affinity)),
     compatibleAows: await mockCompatibleAowNames({ request }),
   };
@@ -578,6 +591,18 @@ function matchesPreviewRow(row: SolvedBuildDto, request: OptimizeRequestDto | nu
   if (request.weaponTypeKey && row.weaponTypeName !== request.weaponTypeKey) return false;
   if (request.somberFilter === "somber_only" && !row.isSomber) return false;
   if (request.somberFilter === "standard_only" && row.isSomber) return false;
+  const typeId = `weapon-type:${uniqueSorted(MOCK_WEAPONS.map((weapon) => weapon.weaponTypeName)).indexOf(row.weaponTypeName ?? "")}`;
+  const affinityId = `affinity:${uniqueSorted(MOCK_WEAPONS.map((weapon) => weapon.affinity)).indexOf(row.affinity)}`;
+  for (const [dimension, id] of [["weapon_type", typeId], ["affinity", affinityId]] as const) {
+    const excluded = request.filters.entries
+      .filter((entry) => entry.dimension === dimension && entry.mode === "exclude")
+      .map((entry) => entry.id);
+    if (excluded.includes(id)) return false;
+    const included = request.filters.entries
+      .filter((entry) => entry.dimension === dimension && entry.mode === "include")
+      .map((entry) => entry.id);
+    if (included.length && !included.includes(id)) return false;
+  }
   const cap = upgradeCapForRow(row, request);
   if (request.exactUpgrade && row.upgrade !== cap) return false;
   if (!request.exactUpgrade && row.upgrade > cap) return false;

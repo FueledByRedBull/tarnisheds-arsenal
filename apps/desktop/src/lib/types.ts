@@ -110,6 +110,7 @@ export interface AowHitDto {
   hitOrder: number;
   rawName: string;
   damage: DamageBreakdownDto;
+  poiseDamage: number;
   statusBuildup: StatusBuildupDto;
   physicalAttackAttribute: string;
   buffActive: boolean;
@@ -132,6 +133,7 @@ export interface AowRouteDto {
   actions: AowActionDto[];
   firstHitDamage: number;
   totalDamage: DamageBreakdownDto;
+  totalPoiseDamage: number;
   totalStatusBuildup: StatusBuildupDto;
   totalStaminaCost: number;
 }
@@ -272,8 +274,21 @@ export interface WeaponProfileDto {
   maxUpgrade: number;
   isSomber: boolean;
   disablesTwoHandBonus: boolean;
+  forcesTwoHanding: boolean;
+  weight: number;
+  moveCount: number;
+  oneHandedPoise: DisplayPoiseDamageDto;
+  twoHandedPoise: DisplayPoiseDamageDto;
   affinities: string[];
   compatibleAows: string[];
+}
+
+export interface DisplayPoiseDamageDto {
+  light: string;
+  heavy: string;
+  chargedHeavy: string;
+  jumpingLight: string;
+  jumpingHeavy: string;
 }
 
 export interface UpgradePointDto {
@@ -438,9 +453,10 @@ export interface SavedBuildIndexV1 {
 }
 
 export interface CompareControls {
-  weaponTypeKey: OptionalText;
+  filters: StableFilterSetDto;
   weaponName: OptionalText;
-  affinity: OptionalText;
   aowName: OptionalText;
   matchSelectedAow: boolean;
+  includeSmithing: boolean;
+  includeSomber: boolean;
 }

@@ -14,8 +14,10 @@ if (!executable || !existsSync(executable)) {
 const startupAttempts = positiveIntegerFromEnv("PACKAGED_SMOKE_START_ATTEMPTS", 2);
 const startupTimeoutMs = positiveIntegerFromEnv("PACKAGED_SMOKE_STARTUP_TIMEOUT_MS", 90_000);
 const retryCooldownMs = positiveIntegerFromEnv("PACKAGED_SMOKE_RETRY_COOLDOWN_MS", 5_000);
+const vanillaCompareBenchKey = "tarnisheds-arsenal.compareBench.v1.vanilla";
 
 let session;
+let previousCompareBench;
 try {
   session = await launchPackagedApp(
     executable,
@@ -26,21 +28,41 @@ try {
   const { page } = session;
   page.setDefaultTimeout(30_000);
 
+  await page.getByText("Full model ready", { exact: true }).waitFor();
+  previousCompareBench = await page.evaluate((key) => localStorage.getItem(key), vanillaCompareBenchKey);
+  await page.getByRole("spinbutton", { name: "STR", exact: true }).fill("96");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  const highLevelFirst = page.locator(".result-row-full").first();
+  await highLevelFirst.waitFor();
+  const pin = highLevelFirst.getByRole("button", { name: "Compare", exact: true });
+  if (await pin.getAttribute("aria-pressed") !== "true") await pin.click();
+
   const profileSwitch = page.getByRole("radiogroup", { name: "Game profile" });
   await profileSwitch.getByRole("radio", { name: /Convergence/ }).click();
   await page.getByText("Weapon model ready", { exact: true }).waitFor();
   await profileSwitch.getByRole("radio", { name: /Vanilla/ }).click();
   await page.getByText("Full model ready", { exact: true }).waitFor();
+  await page.getByRole("spinbutton", { name: "STR", exact: true }).fill("12");
 
   await page.getByRole("button", { name: "Search", exact: true }).click();
-  await page.getByText(/\d+ ranked rows/).waitFor();
   const fourth = page.locator(".result-row-full").nth(3);
-  await fourth.click();
+  await fourth.waitFor();
   const selectedWeapon = (await fourth.locator(".weapon-cell strong").textContent())?.trim();
   if (!selectedWeapon) throw new Error("rank-four selection did not expose a weapon name");
+  await fourth.click();
   await page.locator(".selected-build strong").getByText(selectedWeapon, { exact: true }).waitFor();
 
   await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
+  await page.getByText("Comparison current", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Compare Type", exact: true }).click();
+  await page.getByRole("group", { name: "Compare Type", exact: true })
+    .getByRole("checkbox", { name: /^Axe\b/ })
+    .check();
+  await page.keyboard.press("Escape");
+  const bestTypeLane = page.locator(".compare-lane", { hasText: "Best Axe" });
+  await bestTypeLane.locator("strong").waitFor();
+  const bestTypeWeapon = (await bestTypeLane.locator("strong").textContent())?.trim();
+  if (!bestTypeWeapon) throw new Error("best-Axe comparison did not resolve a target");
   await page.getByText("Comparison current", { exact: true }).waitFor();
 
   await page.getByRole("navigation").getByRole("button", { name: "Paths" }).click();
@@ -76,12 +98,24 @@ try {
     throw new Error("packaged smoke preset survived explicit cleanup");
   }
 
-  process.stdout.write(`PACKAGED_SMOKE_PASSED ${JSON.stringify({ selectedWeapon, presetName })}\n`);
+  process.stdout.write(`PACKAGED_SMOKE_PASSED ${JSON.stringify({ selectedWeapon, bestTypeWeapon, presetName })}\n`);
 } catch (error) {
   const output = session?.output().trim();
-  const suffix = output ? `\nPackaged app output:\n${output.slice(-4000)}` : "";
+  const pageState = session?.page
+    ? await session.page.locator(".analysis-state, .error-banner").allTextContents().catch(() => [])
+    : [];
+  const suffix = [
+    pageState.length ? `\nPackaged page state:\n${pageState.join("\n")}` : "",
+    output ? `\nPackaged app output:\n${output.slice(-4000)}` : "",
+  ].join("");
   throw new Error(`${error instanceof Error ? error.message : String(error)}${suffix}`);
 } finally {
+  if (session?.page && previousCompareBench !== undefined) {
+    await session.page.evaluate(({ key, value }) => {
+      if (value === null) localStorage.removeItem(key);
+      else localStorage.setItem(key, value);
+    }, { key: vanillaCompareBenchKey, value: previousCompareBench }).catch(() => {});
+  }
   await stopSession(session);
 }
 

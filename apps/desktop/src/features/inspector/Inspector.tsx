@@ -1,6 +1,7 @@
 import { Clipboard, Download, GitCompareArrows, LockKeyhole, Pencil, Radar, Route, Save, Target, Trash2, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/api";
+import { cachedWeaponProfile } from "../../lib/analysis-cache";
 import { compactNumber, fixed1, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
 import {
   deleteBuildPreset,
@@ -17,7 +18,7 @@ import {
 } from "../../lib/presets";
 import { budgetSnapshot, buildOptimizeRequest } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
-import { AowRouteDto, BuildPreset, CatalogDto, OptimizeRequestDto, SavedBuildIndexEntryV1, SolvedBuildDto, StatusBuildupDto } from "../../lib/types";
+import { AowRouteDto, BuildPreset, CatalogDto, OptimizeRequestDto, SavedBuildIndexEntryV1, SolvedBuildDto, StatusBuildupDto, WeaponProfileDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
 import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 import packageInfo from "../../../package.json";
@@ -31,6 +32,19 @@ export function Inspector() {
   const setWorkspace = useDesktopStore((state) => state.setWorkspace);
   const useRowAsLocks = useDesktopStore((state) => state.useRowAsLocks);
   const snapshot = budgetSnapshot(catalog, request);
+  const [weaponProfile, setWeaponProfile] = useState<WeaponProfileDto | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!selected) {
+      setWeaponProfile(null);
+      return () => controller.abort();
+    }
+    cachedWeaponProfile(request.profileId, selected.weaponName, selected.affinity, controller.signal)
+      .then(setWeaponProfile)
+      .catch(() => { if (!controller.signal.aborted) setWeaponProfile(null); });
+    return () => controller.abort();
+  }, [request.profileId, selected?.affinity, selected?.weaponName]);
 
   async function lockSelected() {
     if (!selected) return;
@@ -65,6 +79,7 @@ export function Inspector() {
             <span>{selected.affinity} / {selected.aowName ?? "Native"} / +{selected.upgrade}</span>
             {resultsStale ? <small className="stale-label">Previous query build</small> : null}
           </div>
+          <WeaponPoiseDetails profile={weaponProfile} route={selected.aowRoute} twoHanding={request.twoHanding} />
           <div className="metric-grid">
             <Metric label={objectiveLabel(request.objective)} value={fixed1(metricForObjective(selected, request.objective))} />
             <Metric label="AR" value={compactNumber(selected.ar.total)} />
@@ -154,13 +169,42 @@ function ModelCoverage() {
   );
 }
 
+function WeaponPoiseDetails({ profile, route, twoHanding }: { profile: WeaponProfileDto | null; route: AowRouteDto | null; twoHanding: boolean }) {
+  if (!profile || (!profile.moveCount && !profile.weight)) return null;
+  const isTwoHanded = twoHanding || profile.forcesTwoHanding;
+  const poise = isTwoHanded ? profile.twoHandedPoise : profile.oneHandedPoise;
+  const aowPoise = route && route.totalPoiseDamage > 0
+    ? route.actions.flatMap((action) => action.hits.map((hit) => hit.poiseDamage))
+    : [];
+  const poiseEntries: [string, string | number[]][] = [
+    ["R1", poise.light],
+    ["R2", poise.heavy],
+    ["Charged R2", poise.chargedHeavy],
+    ["Jumping R1", poise.jumpingLight],
+    ["Jumping R2", poise.jumpingHeavy],
+  ];
+  if (aowPoise.length) poiseEntries.push(["AoW", aowPoise]);
+  return (
+    <div className="detail-block weapon-poise-detail">
+      <span>Weapon data</span>
+      <strong>Weight {fixed1(profile.weight)} · {profile.moveCount} mapped poise moves · {isTwoHanded ? "2H" : "1H"}</strong>
+      <small className="poise-damage-note">PvE stance / poise damage</small>
+      <div>
+        {poiseEntries
+          .map(([label, value]) => <small key={label}><b>{label}</b>{formatPoiseDamage(value)}</small>)}
+      </div>
+    </div>
+  );
+}
+
 function AowRouteDetails({ route }: { route: AowRouteDto | null }) {
   if (!route) return null;
+  const hasPoise = route.totalPoiseDamage > 0;
   return (
     <details className="aow-route-details">
       <summary>
         <span>{route.routeLabel}</span>
-        <strong>{compactNumber(route.totalDamage.total)} dmg / {fixed1(route.totalStaminaCost)} stamina</strong>
+        <strong>{compactNumber(route.totalDamage.total)} dmg{hasPoise ? ` / ${formatPoiseNumber(route.totalPoiseDamage)} poise` : ""} / {fixed1(route.totalStaminaCost)} stamina</strong>
       </summary>
       {route.buffActivationActionId ? (
         <small>Weapon buff activates at: {route.buffActivationActionId}</small>
@@ -169,12 +213,12 @@ function AowRouteDetails({ route }: { route: AowRouteDto | null }) {
       <div className="aow-actions">
         {route.actions.map((action) => (
           <div className="aow-action" key={`${action.actionOrder}-${action.actionId}`}>
-            <b>{action.actionOrder}. {action.actionId}</b>
+            <b>{action.actionOrder}. {formatActionLabel(action.actionId)}</b>
             <small>{fixed1(action.staminaCost)} stamina</small>
             {action.hits.map((hit) => (
               <div className="aow-hit" key={`${hit.sheetRow}-${hit.hitOrder}`}>
                 <span>{hit.rawName}</span>
-                <strong>{compactNumber(hit.damage.total)} / {hit.physicalAttackAttribute.replaceAll("_", " ")}</strong>
+                <strong>{compactNumber(hit.damage.total)} raw{hasPoise ? ` / ${formatPoiseNumber(hit.poiseDamage)} poise` : ""} / {hit.physicalAttackAttribute.replaceAll("_", " ")}</strong>
                 <small>{formatStatus(hit.statusBuildup)}{hit.buffActive ? " / buff active" : ""}</small>
                 {hit.effects
                   .filter((effect) => effect.role === "per_hit_status" || !effect.isSupported)
@@ -192,6 +236,25 @@ function AowRouteDetails({ route }: { route: AowRouteDto | null }) {
     </details>
   );
 }
+
+function formatActionLabel(actionId: string): string {
+  if (actionId === "activation") return "Skill";
+  if (actionId === "r1") return "R1";
+  if (actionId === "r2") return "R2";
+  const stage = /^stage_(\d+)$/.exec(actionId);
+  return stage ? `Stage ${stage[1]}` : actionId.replaceAll("_", " ");
+}
+
+function formatPoiseDamage(value: string | number[]): string {
+  const hits = Array.isArray(value) ? value : value.match(/\d+(?:\.\d+)?/g)?.map(Number) ?? [];
+  if (!hits.length) return "—";
+  const breakdown = hits.map(formatPoiseNumber).join(" + ");
+  return hits.length > 1
+    ? `${breakdown} (${formatPoiseNumber(hits.reduce((total, hit) => total + hit, 0))} total)`
+    : breakdown;
+}
+
+const formatPoiseNumber = (value: number) => Number(value.toFixed(2)).toString();
 
 function formatStatus(status: StatusBuildupDto): string {
   const values = [

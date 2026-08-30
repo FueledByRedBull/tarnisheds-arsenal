@@ -107,6 +107,7 @@ export function App() {
   }
 
   const activeProfile = profiles.find((entry) => entry.profile.id === profileId) ?? null;
+  const profileReady = catalogStatus === "ready";
   const limitedAowModel = activeProfile && (!activeProfile.capabilities.aowDamage || !activeProfile.capabilities.aowRoutes);
   const convergenceProfile = activeProfile?.profile.id === "convergence";
 
@@ -152,10 +153,12 @@ export function App() {
               );
             })}
           </div>
-          <div className={`profile-coverage ${limitedAowModel ? "limited" : "complete"}`} role="status">
-            <strong>{limitedAowModel ? "Weapon model ready" : "Full model ready"}</strong>
+          <div className={`profile-coverage ${profileReady ? (limitedAowModel ? "limited" : "complete") : "loading"}`} role="status">
+            <strong>{profileReady ? (limitedAowModel ? "Weapon model ready" : "Full model ready") : "Loading profile…"}</strong>
             <span>
-              {limitedAowModel
+              {!profileReady
+                ? "Loading and validating the selected data snapshot."
+                : limitedAowModel
                 ? `${convergenceProfile ? "Melee " : ""}AR, status, passives, and compatibility are verified. ${convergenceProfile ? "Ammo weapons and " : ""}AoW hit/route damage stay disabled until their data is mapped.`
                 : "Weapon and Ash of War calculations are verified for this snapshot."}
             </span>

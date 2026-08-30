@@ -328,6 +328,28 @@ mod integration_tests {
     }
 
     #[test]
+    fn level_93_type_search_returns_distinct_greatswords() {
+        let state = crate::test_app_state();
+        let mut request = crate::test_optimize_request();
+        request.character_level = 93;
+        request.weapon_name = None;
+        request.affinity = None;
+        request.weapon_type_key = Some("Greatsword".to_string());
+        request.standard_max_upgrade = Some(25);
+        request.somber_max_upgrade = Some(10);
+        request.result_grouping = "weapon".to_string();
+        request.top_k = 2;
+
+        let rows = run_search_inner(request, &state).expect("type search succeeds");
+        assert!(rows.len() >= 2);
+        assert!(
+            rows.iter()
+                .skip(1)
+                .any(|row| row.weapon_name != rows[0].weapon_name)
+        );
+    }
+
+    #[test]
     fn real_tauri_search_honors_cancellation() {
         let state = crate::test_app_state();
         let error = run_search_inner_with_cancel(crate::test_optimize_request(), &state, || false)

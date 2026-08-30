@@ -47,9 +47,9 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(page.getByRole("spinbutton", { name: "STR", exact: true })).toHaveValue("14");
   await expect(page.getByRole("spinbutton", { name: "DEX", exact: true })).toHaveValue("13");
   await expect(page.getByRole("textbox", { name: "Level", exact: true })).toHaveValue("9");
-  await chooseSearchableOption(page, "Weapon Type", "Great Katana");
-  await expect(page.getByRole("combobox", { name: "Weapon Type" })).toHaveValue("Great Katana");
-  await chooseSearchableOption(page, "Weapon Type", "Open");
+  await toggleMultiSelectOption(page, "Weapon Type", "Great Katana");
+  await expect(page.getByRole("button", { name: "Weapon Type" })).toContainText("Great Katana");
+  await page.getByRole("button", { name: "Clear all" }).click();
   await chooseSearchableOption(page, "Weapon", "Zweihander");
   await expect(page.getByRole("combobox", { name: "Weapon", exact: true })).toHaveValue("Zweihander");
   await chooseSearchableOption(page, "Weapon", "Open");
@@ -89,6 +89,11 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   )).toBe("sticky");
   await page.getByRole("button", { name: "Select Uchigatana, Occult, rank 2" }).click();
   await expect(page.locator(".selected-build")).toContainText("Occult / Seppuku / +25");
+  await expect(page.locator(".inspector .weapon-poise-detail")).toContainText("Weight 7.0 · 5 mapped poise moves · 1H");
+  await expect(page.locator(".inspector .weapon-poise-detail")).toContainText("PvE stance / poise damage");
+  await expect(page.locator(".inspector .weapon-poise-detail")).toContainText("R15");
+  await expect(page.locator(".inspector .weapon-poise-detail")).toContainText("Jumping R17.5");
+  await expect(page.locator(".inspector .weapon-poise-detail")).toContainText("Jumping R220");
 
   await page.getByRole("spinbutton", { name: "STR", exact: true }).fill("13");
   await expect(page.getByText("4 ranked rows")).toBeVisible();
@@ -107,7 +112,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(page.getByText("Blood / Seppuku / +25").first()).toBeVisible();
 
   await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
-  await expect(page.getByText("Selected line, explicit target, or top ranked rivals")).toBeVisible();
+  await expect(page.getByText("Selected baseline versus current ranked rivals")).toBeVisible();
   const selectedLane = page.locator(".compare-lane", { hasText: "Selected" });
   await expect(selectedLane).toContainText("Uchigatana");
   await expect(selectedLane).toContainText("Blood / Seppuku");
@@ -116,8 +121,8 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(selectedScaling.getByRole("listitem", { name: "Dexterity scaling: B" })).toBeVisible();
   await expect(selectedScaling.getByRole("listitem", { name: "Arcane scaling: D" })).toBeVisible();
   await chooseSearchableOption(page, "Compare Weapon", "Uchigatana");
-  await chooseSearchableOption(page, "Compare Affinity", "Occult");
-  const targetLane = page.locator(".compare-lane", { hasText: "Compare" });
+  await toggleMultiSelectOption(page, "Compare Affinity", "Occult");
+  const targetLane = page.locator(".compare-lane").nth(1);
   await expect(targetLane).toContainText("Occult / Seppuku");
   await expect(targetLane).toContainText("ARC 60");
   await expect(targetLane).toContainText("AR 670");
@@ -128,6 +133,8 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await page.locator(".matrix-toolbar").getByRole("button", { name: "+25" }).click();
   await expect(page.locator(".metric-matrix").getByText("+25")).toBeVisible();
   await expect(page.getByText("+25").first()).toBeVisible();
+  await expect.poll(() => page.locator(".matrix-wrap").evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(true);
+  await expect.poll(() => page.evaluate(() => document.body.scrollWidth <= window.innerWidth + 2)).toBe(true);
 
   await page.getByRole("navigation").getByRole("button", { name: "Paths" }).click();
   await page.getByRole("spinbutton", { name: "Current + N" }).fill("90");
@@ -171,30 +178,148 @@ test("somber-only exact search uses the somber upgrade cap", async ({ page }) =>
   await expect(page.getByRole("grid", { name: "Ranked builds" })).toContainText("+10");
 });
 
-test("weapon types and affinities use ordinary multi-select checkboxes", async ({ page }) => {
+test("original weapon type and affinity selectors support multiple checks", async ({ page }) => {
   await page.goto("/");
 
-  const weaponTypes = page.getByRole("group", { name: "Weapon Type" });
-  const affinities = page.getByRole("group", { name: "Affinity" });
-  const katana = weaponTypes.getByRole("checkbox", { name: /^Katana\b/ });
-  const colossalSword = weaponTypes.getByRole("checkbox", { name: /^Colossal Sword\b/ });
-  const blood = affinities.getByRole("checkbox", { name: /^Blood\b/ });
-  const keen = affinities.getByRole("checkbox", { name: /^Keen\b/ });
+  await chooseSearchableOption(page, "Weapon", "Uchigatana");
+  await expect(page.getByRole("combobox", { name: "Weapon", exact: true })).toHaveValue("Uchigatana");
+  await expect(page.getByText(/Weapon types & affinities/)).toHaveCount(0);
 
-  await katana.check();
-  await colossalSword.check();
-  await blood.check();
-  await keen.check();
-  await expect(page.getByText("Weapon types & affinities · 4 selected")).toBeVisible();
-  await expect(katana).toBeChecked();
-  await expect(colossalSword).toBeChecked();
-  await expect(blood).toBeChecked();
-  await expect(keen).toBeChecked();
+  await toggleMultiSelectOption(page, "Weapon Type", "Katana");
+  await expect(page.getByRole("combobox", { name: "Weapon", exact: true })).toHaveValue("Open");
+  await toggleMultiSelectOption(page, "Weapon Type", "Colossal Sword");
+  await expect(page.getByRole("button", { name: "Weapon Type" })).toContainText("Katana");
+  await expect(page.getByRole("button", { name: "Weapon Type" })).toContainText("Colossal Sword");
+  await page.getByRole("button", { name: "Weapon Type" }).press("Escape");
 
-  await page.getByRole("button", { name: "Clear selections" }).click();
-  await expect(page.getByText("Weapon types & affinities · All")).toBeVisible();
-  await expect(katana).not.toBeChecked();
-  await expect(blood).not.toBeChecked();
+  await toggleMultiSelectOption(page, "Affinity", "Blood");
+  await toggleMultiSelectOption(page, "Affinity", "Keen");
+  await expect(page.getByRole("button", { name: "Affinity", exact: true })).toContainText("Blood");
+  await expect(page.getByRole("button", { name: "Affinity", exact: true })).toContainText("Keen");
+  await page.getByRole("button", { name: "Affinity", exact: true }).press("Escape");
+  await page.getByRole("button", { name: "Reset weapon filters" }).click();
+  await expect(page.getByRole("button", { name: "Weapon Type" })).toContainText("All");
+  await expect(page.getByRole("button", { name: "Affinity", exact: true })).toContainText("All");
+  await expect(page.getByRole("button", { name: "Reset weapon filters" })).toBeDisabled();
+
+  await chooseSearchableOption(page, "Weapon", "Uchigatana");
+  await expect(page.getByRole("button", { name: "Weapon Type" })).toContainText("All");
+});
+
+test("weapon filters cycle include, exclude, and neutral", async ({ page }) => {
+  await page.goto("/");
+
+  await toggleMultiSelectOption(page, "Weapon Type", "Katana");
+  await expect(page.getByRole("button", { name: "Weapon Type" })).toContainText("Katana");
+  await toggleMultiSelectOption(page, "Weapon Type", "Katana");
+  await expect(page.getByRole("button", { name: "Weapon Type" })).toContainText("Not Katana");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("1 ranked row")).toBeVisible();
+
+  await toggleMultiSelectOption(page, "Weapon Type", "Katana");
+  await expect(page.getByRole("button", { name: "Weapon Type" })).toContainText("All");
+});
+
+test("starting class optimization and stat reset keep the level budget valid", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Optimize class" }).click();
+  await expect(page.getByRole("combobox", { name: "Class" })).toHaveValue("Wretch");
+  await expect(page.getByRole("textbox", { name: "Level", exact: true })).toHaveValue("9");
+
+  await page.getByRole("button", { name: "Reset stats" }).click();
+  await expect(page.getByRole("textbox", { name: "Level", exact: true })).toHaveValue("1");
+  for (const stat of ["VIG", "MND", "END", "STR", "DEX", "INT", "FAI", "ARC"]) {
+    await expect(page.getByRole("spinbutton", { name: stat, exact: true })).toHaveValue("10");
+  }
+});
+
+test("compare combines multiple types and affinities with Smithing and Somber toggles", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.locator(".result-row-full").first().click();
+  await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
+
+  await expect.poll(async () => {
+    const header = await page.locator(".compare-workspace-header").boundingBox();
+    const summary = await page.locator(".compare-workspace-header .selected-summary").boundingBox();
+    return Boolean(header && summary && summary.y + summary.height < header.y + header.height - 3);
+  }).toBe(true);
+  await expect.poll(() => page.locator(
+    ".compare-toolbar .searchable-select > input, .compare-toolbar .checkbox-multi-trigger, .compare-reinforcement label",
+  ).evaluateAll((controls) => {
+    const boxes = controls.map((control) => control.getBoundingClientRect());
+    return boxes.length === 6
+      && Math.max(...boxes.map((box) => box.top)) - Math.min(...boxes.map((box) => box.top)) < 2
+      && Math.max(...boxes.map((box) => box.height)) - Math.min(...boxes.map((box) => box.height)) < 2;
+  })).toBe(true);
+
+  await toggleMultiSelectOption(page, "Compare Type", "Great Katana");
+  await toggleMultiSelectOption(page, "Compare Type", "Katana");
+  await toggleMultiSelectOption(page, "Compare Affinity", "Unique");
+  await toggleMultiSelectOption(page, "Compare Affinity", "Keen");
+  const reinforcement = page.getByRole("group", { name: "Compare Reinforcement" });
+  await reinforcement.getByRole("checkbox", { name: "Smithing" }).uncheck();
+
+  const targetLane = page.locator(".compare-lane").nth(1);
+  await expect(targetLane).toContainText("Ancient Meteoric Ore Greatsword");
+  await expect(targetLane).toContainText("Unique");
+  await expect(page.getByText("Best Great Katana + Katana · Keen + Unique · Somber", { exact: true })).toBeVisible();
+
+  await reinforcement.getByRole("checkbox", { name: "Somber" }).uncheck();
+  await expect(targetLane).toContainText("Select Smithing, Somber, or both");
+  await reinforcement.getByRole("checkbox", { name: "Smithing" }).check();
+  await expect(targetLane).toContainText("Uchigatana");
+  await expect(targetLane).toContainText("Keen");
+});
+
+test("comparison targets survive pin, clear, type search, and workspace navigation", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+
+  const occult = page.locator(".result-row-full").nth(1);
+  const keen = page.locator(".result-row-full").nth(2);
+  await occult.click();
+  await keen.getByRole("button", { name: "Compare", exact: true }).click();
+  await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
+  await expect(page.getByText("Selected baseline versus 1 pinned target")).toBeVisible();
+  await expect(page.locator(".compare-lane", { hasText: "Pinned #1" })).toContainText("Keen");
+
+  await page.getByRole("button", { name: "Clear 1 pinned target" }).click();
+  await expect(page.locator(".compare-lane", { hasText: "Selected" })).toContainText("Occult");
+  await expect(page.getByText("Selected baseline versus current ranked rivals")).toBeVisible();
+
+  await page.getByRole("navigation").getByRole("button", { name: "Rankings" }).click();
+  await occult.getByRole("button", { name: "Compare", exact: true }).click();
+  await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
+  await expect(page.getByText(/pinned target is already the selected baseline/i)).toBeVisible();
+
+  await toggleMultiSelectOption(page, "Compare Type", "Great Katana");
+  await expect(page.getByRole("button", { name: "Clear 1 pinned target" })).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "Compare Weapon" })).toHaveValue("Best Great Katana");
+  const bestType = page.locator(".compare-lane", { hasText: "Best Great Katana" });
+  await expect(bestType).toContainText("Ancient Meteoric Ore Greatsword");
+
+  await toggleMultiSelectOption(page, "Compare Type", "Great Katana");
+  await toggleMultiSelectOption(page, "Compare Type", "Katana");
+  await expect(page.locator(".compare-lane", { hasText: "Best Katana" })).toContainText("Uchigatana");
+  await toggleMultiSelectOption(page, "Compare Type", "Katana");
+  await toggleMultiSelectOption(page, "Compare Type", "Great Katana");
+  await toggleMultiSelectOption(page, "Compare Type", "Great Katana");
+  await expect(bestType).toContainText("Ancient Meteoric Ore Greatsword");
+
+  await page.getByRole("navigation").getByRole("button", { name: "Rankings" }).click();
+  await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
+  await expect(bestType).toContainText("Ancient Meteoric Ore Greatsword");
+
+  await page.getByRole("navigation").getByRole("button", { name: "Rankings" }).click();
+  await keen.getByRole("button", { name: "Compare", exact: true }).click();
+  await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
+  await expect(page.getByRole("button", { name: "Compare Type" })).toContainText("All");
+  await expect(page.getByText("Selected baseline versus 1 pinned target")).toBeVisible();
+  await expect(page.locator(".compare-lane", { hasText: "Pinned #1" })).toContainText("Keen");
+  await expect(page.locator(".compare-lane", { hasText: "Selected" })).toContainText("Occult");
 });
 
 test("a ranked row below the podium selects that exact build", async ({ page }) => {
@@ -304,6 +429,13 @@ async function chooseSearchableOption(page: import("@playwright/test").Page, lab
   const field = page.getByRole("combobox", { name: label, exact: true });
   await field.fill(option);
   await page.keyboard.press("Enter");
+}
+
+async function toggleMultiSelectOption(page: import("@playwright/test").Page, label: string, option: string) {
+  const group = page.getByRole("group", { name: label, exact: true });
+  if (!await group.isVisible()) await page.getByRole("button", { name: label, exact: true }).click();
+  const checkbox = group.getByRole("checkbox", { name: new RegExp(`^${option.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`) });
+  await checkbox.click();
 }
 
 async function expectRankingsBoardToFit(page: import("@playwright/test").Page) {

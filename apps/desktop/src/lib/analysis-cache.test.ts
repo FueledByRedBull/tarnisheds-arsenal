@@ -14,6 +14,11 @@ const profile: WeaponProfileDto = {
   maxUpgrade: 25,
   isSomber: false,
   disablesTwoHandBonus: false,
+  forcesTwoHanding: false,
+  weight: 9,
+  moveCount: 5,
+  oneHandedPoise: { light: "5", heavy: "10", chargedHeavy: "30", jumpingLight: "7.5", jumpingHeavy: "20" },
+  twoHandedPoise: { light: "6.5", heavy: "11", chargedHeavy: "33", jumpingLight: "9.75", jumpingHeavy: "22" },
   affinities: ["Standard"],
   compatibleAows: ["Lion's Claw"],
 };

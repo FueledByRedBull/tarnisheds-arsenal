@@ -1,18 +1,18 @@
-import { Crosshair, Filter, Play, RotateCcw, SlidersHorizontal, Swords } from "lucide-react";
+import { Crosshair, Filter, Play, RotateCcw, SlidersHorizontal, Sparkles, Swords } from "lucide-react";
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { useRequestBudget, useSearchJob, useWeaponProfile } from "../../lib/hooks";
 import { fixed1, objectiveLabel } from "../../lib/format";
-import { SearchableSelect, openOption } from "../../lib/SearchableSelect";
+import { CheckboxMultiSelect, SearchableSelect, openOption } from "../../lib/SearchableSelect";
 import {
   SCADUTREE_MAX_LEVEL,
   scadutreeAttackMultiplier,
   scadutreeDamageNegation,
   scadutreeReceivedDamageMultiplier,
 } from "../../lib/scadutree";
-import { classMeta, classOptions, derivedLevel } from "../../lib/session";
+import { classMeta, classOptions, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, startingClassLevel, STAT_KEYS } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
-import { FilterDimensionDto, OptimizeRequestDto, SearchFinishedDto, SearchProgressDto } from "../../lib/types";
+import { EightStatsDto, FilterDimensionDto, OptimizeRequestDto, SearchFinishedDto, SearchProgressDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
 
 export function CommandRail() {
@@ -32,7 +32,6 @@ export function CommandRail() {
   const setProgress = useDesktopStore((state) => state.setProgress);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
   const setLockedStatMode = useDesktopStore((state) => state.setLockedStatMode);
-  const [weaponNames, setWeaponNames] = useState<string[]>([]);
   const [aowNames, setAowNames] = useState<string[]>([]);
   const [searchStartedAt, setSearchStartedAt] = useState<number | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -64,10 +63,26 @@ export function CommandRail() {
   const missingRequirements = requirementGaps
     ? Object.values(requirementGaps).some((gap) => gap > 0)
     : false;
-  const affinityOptions = weaponProfile?.affinities.length ? weaponProfile.affinities : catalog?.affinityNames ?? [];
-  const typeOptions = catalog?.weaponTypeOptions.length
-    ? catalog.weaponTypeOptions
-    : catalog?.weaponTypeKeys.map((key) => ({ key, label: key })) ?? [];
+  const typeDimension = catalog?.filterDimensions.find((dimension) => dimension.id === "weapon_type");
+  const affinityDimension = catalog?.filterDimensions.find((dimension) => dimension.id === "affinity");
+  const legacyTypeLabel = catalog?.weaponTypeOptions.find((entry) => entry.key === request.weaponTypeKey)?.label
+    ?? request.weaponTypeKey;
+  const selectedTypeIds = selectedFilterIds(typeDimension, request.filters.entries, legacyTypeLabel);
+  const selectedAffinityIds = selectedFilterIds(affinityDimension, request.filters.entries, request.affinity);
+  const excludedTypeIds = selectedFilterIds(typeDimension, request.filters.entries, null, "exclude");
+  const excludedAffinityIds = selectedFilterIds(affinityDimension, request.filters.entries, null, "exclude");
+  const selectedAffinityNames = affinityDimension?.options
+    .filter((option) => selectedAffinityIds.includes(option.id))
+    .map((option) => option.label) ?? [];
+  const aowAffinity = selectedAffinityNames.length === 1 ? selectedAffinityNames[0] : request.affinity;
+  const weaponFiltersActive = Boolean(
+    request.weaponTypeKey
+    || request.weaponName
+    || request.affinity
+    || request.aowName
+    || request.somberFilter !== "all"
+    || request.filters.entries.some((entry) => entry.dimension === "weapon_type" || entry.dimension === "affinity"),
+  );
   const startingClasses = classOptions(catalog);
   const activeMinimums = [request.minStr, request.minDex, request.minInt, request.minFai, request.minArc]
     .filter((value) => value > 0).length;
@@ -83,21 +98,11 @@ export function CommandRail() {
 
   useEffect(() => {
     let cancelled = false;
-    api.weaponNamesForType(request.profileId, request.weaponTypeKey).then((names) => {
-      if (!cancelled) setWeaponNames(names);
-    }).catch((error) => setError(error instanceof Error ? error.message : String(error)));
-    return () => {
-      cancelled = true;
-    };
-  }, [request.profileId, request.weaponTypeKey, setError]);
-
-  useEffect(() => {
-    let cancelled = false;
     async function loadAows() {
       const names = request.weaponName
-        ? await api.compatibleAowNames(request.profileId, request.weaponName, request.affinity)
-        : request.affinity
-          ? await api.compatibleAowNamesForAffinity(request.profileId, request.affinity)
+        ? await api.compatibleAowNames(request.profileId, request.weaponName, aowAffinity)
+        : aowAffinity
+          ? await api.compatibleAowNamesForAffinity(request.profileId, aowAffinity)
           : catalog?.aowNames ?? [];
       if (!cancelled) setAowNames(names);
     }
@@ -105,7 +110,7 @@ export function CommandRail() {
     return () => {
       cancelled = true;
     };
-  }, [catalog?.aowNames, request.affinity, request.profileId, request.weaponName, setError]);
+  }, [aowAffinity, catalog?.aowNames, request.profileId, request.weaponName, setError]);
 
   useSearchJob({
     activeJobId,
@@ -187,6 +192,55 @@ export function CommandRail() {
     }
   }
 
+  function optimizeClass() {
+    const targets: EightStatsDto = {
+      vig: request.vig,
+      mnd: request.mnd,
+      end: request.end,
+      strStat: lockedStatMode ? request.lockStr ?? request.minStr : request.minStr,
+      dex: lockedStatMode ? request.lockDex ?? request.minDex : request.minDex,
+      intStat: lockedStatMode ? request.lockInt ?? request.minInt : request.minInt,
+      fai: lockedStatMode ? request.lockFai ?? request.minFai : request.minFai,
+      arc: lockedStatMode ? request.lockArc ?? request.minArc : request.minArc,
+    };
+    const optimal = optimalStartingClass(catalog, targets, request.className);
+    const targetLevel = Math.max(derivedLevel(catalog, request), startingClassLevel(optimal, targets));
+    const targetTotal = optimal.baseTotal + targetLevel - optimal.baseLevel;
+    const stats = Object.fromEntries(EIGHT_STAT_KEYS.map((key) => [
+      key,
+      Math.max(optimal.baseStats[key], targets[key]),
+    ])) as unknown as EightStatsDto;
+    let remaining = targetTotal - EIGHT_STAT_KEYS.reduce((sum, key) => sum + stats[key], 0);
+    const preferred = [...STAT_KEYS].sort((left, right) => request[right] - request[left]);
+    for (const key of preferred) {
+      const points = Math.min(remaining, Math.max(request[key] - stats[key], 0));
+      stats[key] += points;
+      remaining -= points;
+    }
+    for (const key of preferred) {
+      const points = Math.min(remaining, 99 - stats[key]);
+      stats[key] += points;
+      remaining -= points;
+    }
+    patchRequest({ className: optimal.name, characterLevel: targetLevel, ...stats });
+  }
+
+  function resetWeaponFilters() {
+    patchRequest({
+      weaponTypeKey: null,
+      weaponName: null,
+      affinity: null,
+      aowName: null,
+      somberFilter: "all",
+      filters: {
+        version: 1,
+        entries: request.filters.entries.filter((entry) =>
+          entry.dimension !== "weapon_type" && entry.dimension !== "affinity"
+        ),
+      },
+    });
+  }
+
   return (
     <aside className="command-rail">
       <div className="brand-block">
@@ -207,6 +261,16 @@ export function CommandRail() {
             options={startingClasses.map((entry) => ({ value: entry.name, label: entry.name }))}
             onChange={(value) => value && applyClass(value)}
           />
+          <div className="character-action-row">
+            <button type="button" onClick={optimizeClass} title="Choose the lowest-cost class for fixed stats, minimums, and exact locks">
+              <Sparkles size={14} />
+              Optimize class
+            </button>
+            <button type="button" onClick={() => applyClass(request.className)} title="Reset all eight stats to this class's base values">
+              <RotateCcw size={14} />
+              Reset stats
+            </button>
+          </div>
           <div className="level-strip">
             <label>
               Level
@@ -284,23 +348,48 @@ export function CommandRail() {
             <Filter size={15} />
             <span>Loadout</span>
           </div>
-          <SearchableSelect
+          <CheckboxMultiSelect
             label="Weapon Type"
-            value={request.weaponTypeKey}
-            options={[openOption(), ...typeOptions.map((entry) => ({ value: entry.key, label: entry.label }))]}
-            onChange={(weaponTypeKey) => patchRequest({ weaponTypeKey, weaponName: null, affinity: null, aowName: null })}
+            values={selectedTypeIds}
+            excludedValues={excludedTypeIds}
+            options={typeDimension?.options.map((option) => ({ value: option.id, label: option.label, count: option.count })) ?? []}
+            onChange={(values, excludedValues) => patchRequest({
+              weaponTypeKey: null,
+              weaponName: null,
+              aowName: null,
+              filters: { version: 1, entries: replaceDimensionFilters(request.filters.entries, "weapon_type", values, excludedValues) },
+            })}
           />
           <SearchableSelect
             label="Weapon"
             value={request.weaponName}
-            options={[openOption(), ...weaponNames.map((name) => ({ value: name, label: name }))]}
-            onChange={(weaponName) => patchRequest({ weaponName, affinity: null, aowName: null })}
+            options={[openOption(), ...(catalog?.weaponNames ?? []).map((name) => ({ value: name, label: name }))]}
+            onChange={(weaponName) => patchRequest({
+              weaponName,
+              weaponTypeKey: null,
+              affinity: null,
+              aowName: null,
+              filters: {
+                version: 1,
+                entries: replaceDimensionFilters(
+                  replaceDimensionFilters(request.filters.entries, "weapon_type", [], []),
+                  "affinity",
+                  [],
+                  [],
+                ),
+              },
+            })}
           />
-          <SearchableSelect
+          <CheckboxMultiSelect
             label="Affinity"
-            value={request.affinity}
-            options={[openOption(), ...affinityOptions.map((name) => ({ value: name, label: name }))]}
-            onChange={(affinity) => patchRequest({ affinity, aowName: null })}
+            values={selectedAffinityIds}
+            excludedValues={excludedAffinityIds}
+            options={affinityDimension?.options.map((option) => ({ value: option.id, label: option.label, count: option.count })) ?? []}
+            onChange={(values, excludedValues) => patchRequest({
+              affinity: null,
+              aowName: null,
+              filters: { version: 1, entries: replaceDimensionFilters(request.filters.entries, "affinity", values, excludedValues) },
+            })}
           />
           <SearchableSelect
             label="AoW"
@@ -308,6 +397,15 @@ export function CommandRail() {
             options={[openOption(), ...(aowNames ?? []).map((name) => ({ value: name, label: name }))]}
             onChange={(aowName) => patchRequest({ aowName })}
           />
+          <button
+            type="button"
+            className="rail-reset-button"
+            disabled={!weaponFiltersActive}
+            onClick={resetWeaponFilters}
+          >
+            <RotateCcw size={14} />
+            Reset weapon filters
+          </button>
           {separateUpgradeCaps ? (
             <div className="rail-pair">
               <label>
@@ -402,7 +500,6 @@ export function CommandRail() {
               </button>
             ))}
           </div>
-          <IncludeFilters dimensions={catalog?.filterDimensions ?? []} request={request} patchRequest={patchRequest} />
         </section>
 
         <section className="rail-section">
@@ -556,7 +653,7 @@ export function CommandRail() {
         ) : catalog ? (
           <div className="estimate-strip quick-estimate">
             <span>Search scope</span>
-            <strong>{request.weaponName || (request.weaponTypeKey ? "Filtered" : "Open")}</strong>
+            <strong>{request.weaponName || (selectedTypeIds.length ? `${selectedTypeIds.length} type${selectedTypeIds.length === 1 ? "" : "s"}` : "Open")}</strong>
             <span>{budget.redistributable} free points</span>
             <small>
               Exact combinations are prepared only after Search, keeping stat editing responsive.
@@ -568,63 +665,31 @@ export function CommandRail() {
   );
 }
 
-function IncludeFilters({
-  dimensions,
-  request,
-  patchRequest,
-}: {
-  dimensions: FilterDimensionDto[];
-  request: OptimizeRequestDto;
-  patchRequest: (patch: Partial<OptimizeRequestDto>) => void;
-}) {
-  const visible = dimensions.filter((dimension) => dimension.id === "weapon_type" || dimension.id === "affinity");
-  if (!visible.length) return null;
-  const active = request.filters.entries.filter((entry) =>
-    (entry.dimension === "weapon_type" || entry.dimension === "affinity") && entry.mode === "include"
-  ).length;
-  function toggle(dimension: "weapon_type" | "affinity", id: string, checked: boolean) {
-    const entries = request.filters.entries.filter((entry) =>
-      (entry.dimension === "weapon_type" || entry.dimension === "affinity")
-      && entry.mode === "include"
-      && !(entry.dimension === dimension && entry.id === id)
-    );
-    if (checked) entries.push({ dimension, id, mode: "include" });
-    patchRequest({ filters: { version: 1, entries } });
-  }
-  return (
-    <details className="include-filters" open>
-      <summary>Weapon types & affinities · {active ? `${active} selected` : "All"}</summary>
-      <small>Check any combination. No checks means include all.</small>
-      {visible.map((dimension) => (
-        <fieldset key={dimension.id}>
-          <legend>{dimension.label}</legend>
-          <div className="include-filter-options">
-            {dimension.options.map((option) => {
-              const checked = request.filters.entries.some((entry) =>
-                entry.dimension === dimension.id && entry.id === option.id && entry.mode === "include"
-              );
-              return (
-                <label key={option.id}>
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={(event) => toggle(dimension.id as "weapon_type" | "affinity", option.id, event.target.checked)}
-                  />
-                  <span>{option.label}</span>
-                  <small>{option.count.toLocaleString()}</small>
-                </label>
-              );
-            })}
-          </div>
-        </fieldset>
-      ))}
-      {request.filters.entries.length ? (
-        <button type="button" className="clear-locks" onClick={() => patchRequest({ filters: { version: 1, entries: [] } })}>
-          Clear selections
-        </button>
-      ) : null}
-    </details>
-  );
+function selectedFilterIds(
+  dimension: FilterDimensionDto | undefined,
+  entries: OptimizeRequestDto["filters"]["entries"],
+  legacyLabel: string | null,
+  mode: "include" | "exclude" = "include",
+): string[] {
+  const selected = entries
+    .filter((entry) => entry.dimension === dimension?.id && entry.mode === mode)
+    .map((entry) => entry.id);
+  if (selected.length || !legacyLabel || mode === "exclude") return selected;
+  const legacy = dimension?.options.find((option) => option.label === legacyLabel);
+  return legacy ? [legacy.id] : [];
+}
+
+function replaceDimensionFilters(
+  entries: OptimizeRequestDto["filters"]["entries"],
+  dimension: "weapon_type" | "affinity",
+  ids: string[],
+  excludedIds: string[],
+) {
+  return [
+    ...entries.filter((entry) => entry.dimension !== dimension),
+    ...ids.map((id) => ({ dimension, id, mode: "include" as const })),
+    ...excludedIds.map((id) => ({ dimension, id, mode: "exclude" as const })),
+  ];
 }
 
 function SearchProgressPanel({
@@ -644,7 +709,7 @@ function SearchProgressPanel({
         <strong aria-label={progress ? `${objective} best score` : "Elapsed time"}>
           {progress ? fixed1(progress.bestScore) : formatDuration(elapsedMs)}
         </strong>
-        <span>{progress ? `${progress.eligible} eligible` : "checking"}</span>
+        <span>{progress ? `${progress.eligible} covered` : "checking"}</span>
       </div>
       <div className={`search-progress-bar ${pct === null ? "indeterminate" : ""}`}>
         <i style={pct === null ? undefined : { width: `${pct}%` }} />

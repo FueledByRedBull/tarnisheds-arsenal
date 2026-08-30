@@ -142,6 +142,7 @@ export function RankingsBoard() {
       weaponName: "Uchigatana",
       affinity: "Standard",
       aowName: null,
+      filters: { version: 1, entries: [] },
       standardMaxUpgrade: 3,
       exactUpgrade: true,
       objective: "max_ar",
