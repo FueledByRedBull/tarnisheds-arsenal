@@ -210,9 +210,13 @@ fn parse_usize(value: &str, field: &str) -> Result<usize, String> {
 }
 
 fn parse_f32(value: &str, field: &str) -> Result<f32, String> {
-    value
+    let parsed = value
         .parse::<f32>()
-        .map_err(|err| format!("invalid f32 for {field}: {value} ({err})"))
+        .map_err(|err| format!("invalid f32 for {field}: {value} ({err})"))?;
+    if !parsed.is_finite() {
+        return Err(format!("{field} must be finite: {value}"));
+    }
+    Ok(parsed)
 }
 
 fn optional_f32(table: &CsvTable, row: &[String], field: &str) -> Result<f32, String> {
@@ -241,7 +245,7 @@ fn parse_status_buildup(value: &str, field: &str) -> Result<f32, String> {
     if parsed == -99999.0 {
         return Ok(0.0);
     }
-    if !parsed.is_finite() || parsed < 0.0 {
+    if parsed < 0.0 {
         return Err(format!(
             "{field} must be a finite non-negative value or the -99999 missing-value sentinel: {value}"
         ));
@@ -1175,7 +1179,7 @@ mod tests {
 
     use super::{
         CONVERGENCE_PROFILE_ID, CsvTable, load_calc_correct, load_embedded_game_data,
-        load_embedded_game_profile, load_game_data, parse_status_effect_source,
+        load_embedded_game_profile, load_game_data, parse_f32, parse_status_effect_source,
     };
     use crate::model::AowEffectRole;
 
@@ -1298,6 +1302,14 @@ mod tests {
             .expect_err("negative buildup must fail closed");
         assert!(error.contains("bleed"));
         assert!(error.contains("finite non-negative"));
+    }
+
+    #[test]
+    fn numeric_csv_fields_reject_non_finite_values() {
+        for value in ["NaN", "inf", "-inf"] {
+            let error = parse_f32(value, "test_value").expect_err("non-finite value must fail");
+            assert!(error.contains("test_value must be finite"));
+        }
     }
 
     #[test]

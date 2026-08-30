@@ -129,6 +129,10 @@ Final ordering and de-duplication still use the full result comparison logic so
 tie handling, same-loadout replacement, cancellation, and progress reporting
 stay deterministic.
 
+Within one loadout, tied routes compare the numeric objective key, combat stats,
+route priority, then route ID. Public materialization uses a weaker display comparator;
+equal rows retain their existing deterministic scored-candidate order.
+
 AoW search evaluates compiled scalar routes without constructing display objects for
 discarded allocations. Final AoW materialization evaluates the retained ordered route. Added base attack,
 fixed and motion components, status motion values, weapon-buff timing, action-level

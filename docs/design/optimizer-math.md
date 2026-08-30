@@ -45,15 +45,18 @@ $$R=P-\sum_i(m_i-a_i).$$
 weapon's requirements and deducts those raises from $R$. The request or weapon is
 rejected if a mandatory raise exceeds the budget or if $R>\sum_i c_i$. All later
 capacities $c_i=u_i-m_i$ use the final bounds after floors, locks, and requirements.
+Every retained bound satisfies $a_i\le m_i\le u_i\le99$.
 
-Resolved handling determines whether the weapon receives the Strength bonus. When
-it does, effective Strength is
+Resolved weapon handling determines effective Strength for weapon requirements and
+weapon AR. When the weapon receives the Strength bonus,
 
 $$e_{\mathrm{STR}}(s)=\left\lfloor\frac{3s}{2}\right\rfloor.$$
 
-Forced bow-family handling and paired/no-bonus exceptions are resolved before
-requirements and curve lookup; individual AoW rows can also disable the bonus.
-These decisions are fixed for the work unit and remain functions of STR alone.
+Forced bow-family handling and paired/no-bonus weapon exceptions are resolved before
+both uses. Each AoW attack row then independently uses that resolved value or raw STR
+for its own scaling curve. Row-level suppression changes only that row's damage; it
+does not change whether the weapon meets its requirements. All choices are fixed for
+the work unit and remain functions of STR alone.
 Generated and validated calc-correct curves cover every reachable effective value
 through 148.
 
@@ -281,12 +284,16 @@ an unsupported evaluator mechanic.
 
 ## 6. Result ordering
 
-Inside a fixed-route DP, only $M_o$ and the combat vector vary. Scored candidates use
-numeric metrics, ascending weapon ID, descending upgrade, ascending skill ID, then
-ascending combat stats and internal indices. Route metric ties use priority and ID
-for stable display. Public result ordering omits the combat-stat tie-break. The
-serial/parallel merge shares the scored-candidate comparator; determinism is distinct
-from equivalence to a canonical exhaustive optimum.
+Inside a fixed-route DP, only $M_o$ and the combat vector vary. Across routes for one
+loadout, the effective order is $M_o$, ascending combat stats, ascending route priority,
+then ascending route ID. Priority and ID apply only after the numeric key and stats tie.
+
+Scored candidates use numeric metrics, ascending weapon ID, descending upgrade,
+ascending skill ID, ascending combat stats, then internal indices. Materialization
+reinserts them with the public comparator, which omits combat stats and skill ID;
+equal rows retain deterministic scored-candidate order because insertion keeps the
+earlier equal row first. Serial and parallel merges share that scored comparator.
+Determinism is distinct from equivalence to a canonical exhaustive optimum.
 
 ## 7. Scope of the claims
 
@@ -301,6 +308,9 @@ negation, resistance growth, proc explosion damage, or universal temporary-buff
 stacking. Workbook-derived PvE stance/poise damage and route stamina are reported,
 but are not objectives; enemy stagger thresholds, recovery, and timing are not simulated.
 
-**Data validity.** Runtime loading fails on missing curve entries, and offline
-validation requires every used curve value through effective stat 148. Monotonicity is
-also checked as a data-quality invariant, but the recurrence does not assume it.
+**Data validity.** The shared runtime CSV parser rejects NaN and infinities. Runtime
+loading also fails on missing curve entries, and offline validation requires every
+used curve value through effective stat 148. Shipped-data regressions check that
+modeled bases, curves, coefficients, and buffs used by the first-hit argument are
+finite and nonnegative. Monotonicity is checked separately as a data-quality invariant,
+but the recurrence does not assume it.
