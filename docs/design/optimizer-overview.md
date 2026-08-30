@@ -91,27 +91,33 @@ metric.
 
 The Rust core narrows stat work per weapon, affinity, Ash of War, and objective.
 Max AR, Max Physical AR, Bleed then AR, AoW First Hit, and AoW Full Sequence use one
-exact lexicographic dynamic program over relevant stats. Legal AoW routes are compiled
+lexicographic dynamic program over relevant stats. Legal AoW routes are compiled
 once and optimized independently with compact scalar evaluators.
 Requirements are folded into minimum floors, and inactive stats are filled only
 through one canonical completion for each feasible active-stat spend. This preserves
 the final stat-vector tie-break without enumerating equivalent inactive distributions.
 
 [`optimizer-math.md`](optimizer-math.md) states the model formally: the point budget,
-the attack-rating formula, the separability property that makes the dynamic program
-exact, its cost bounds, and the scope of the exactness claim.
+the attack-rating formula, the conditions that make the recurrence exact in exact
+arithmetic, its cost bounds, and the implementation's floating-point limitation.
 
 `RelevantStatSearch` owns the active mask, bounded stat domain, logical candidate count,
 and canonical enumeration retained for the exhaustive oracle/fallback. The DP compares
 the full feasible active-spend interval; searches with the same bounds and mask share
 the cached distribution count. Focused regressions cover interior optima, canonical
-inactive fill, arbitrary decreasing curves, every objective family, and DP/exhaustive
-equivalence.
+inactive fill, arbitrary decreasing curves, and every objective family. This reduced
+exhaustive path shares the active mask; matching it alone cannot validate relevance.
 
 The dynamic program's accumulated `f32` totals select a stat allocation only. Terminal
 allocations are recomputed directly before comparison, ranking, or display; accumulated
-totals never become user-visible results. States retain objective score, total AR, AoW
-full sequence, AoW first hit, bleed, and the stat vector under final ranking order.
+totals never become user-visible results. Reevaluation cannot recover a preferred
+allocation discarded at an earlier state. States retain objective score, total AR, AoW
+full sequence, AoW first hit, bleed, and the stat vector under candidate ranking order.
+
+Progress counts the logical candidate domain covered, not DP transitions or individual
+allocations evaluated. For active capacities $c_i$, that count is
+
+$$N=\sum_{p=p_{\min}}^{p_{\max}}[z^p]\prod_{i\in A}(1+z+\cdots+z^{c_i}).$$
 
 Medium and broad searches use Rayon when the estimated combination count and
 work-unit count justify parallel execution. Parallel work is split by individual
@@ -134,6 +140,47 @@ Desktop jobs use exact job IDs plus request generations/signatures. Polling is
 single-flight with adaptive 200-1000 ms delay, cancellation reaches search
 preparation/enumeration/nested analyses, and shared caches evict rejected or fully
 abandoned in-flight work.
+
+## Numerical evidence and decision
+
+The follow-up in `optimizer/tests.rs` separates three questions:
+
+- **Relevance:** an independent recursive enumerator searches all five bounded stats
+  without `RelevantStatSearch::visit`, its mask, count, or inactive-fill helper. Small
+  budgets cover both profiles, all supported objectives, buffs, branching skills,
+  locks/floors, paired weapons, bows, and Strength near the effective-stat cap. Its
+  direct numeric and stat-vector winners match reduced exhaustive search. Omitted
+  stats are also swept through their bounds to check numeric invariance. Bounds and
+  metric formulas still come from production code; this is an independent enumeration,
+  not an independent game model or proof over every loadout.
+- **Arithmetic:** sampled DP winners match all numeric fields exactly, without an
+  epsilon comparator. A real Convergence Mystic Uchigatana +15 case with starting
+  STR/DEX/INT/FAI/ARC `67/40/35/35/35`, two-handing, and three free points returns
+  `67/40/35/36/37`; exhaustive evaluation prefers `67/40/35/35/38`. Both have the same
+  numeric key (AR approximately 791.3289, bleed 50, no AoW damage). The test records
+  this known limitation, not successful canonical tie-breaking. A separate one-ULP
+  example shows a common rounded completion collapsing a strict score difference
+  into a tie whose preferred stat vector was already discarded.
+- **Routes:** scalar and materialized first/full metrics are checked together by route
+  ID. Per-hit reconstruction from single-stat deltas covers branching finishers,
+  repeat hits, fixed/projectile damage, low/max upgrades, both handling modes,
+  mixed allocations, and stat sweeps through 99. The first positive hit's identity
+  is checked throughout. A separate synthetic zero-damage activation followed by a
+  buffed hit exercises activation timing without claiming that timing for the real
+  skill. All loaded bases, curves, scaling/override coefficients, and buff powers
+  are checked nonnegative. Route reconstruction allows `32 * f32::EPSILON` relative
+  error (absolute below magnitude 1) for different summation orders; this is a test
+  tolerance, not an optimizer tie rule or universal error bound.
+
+**Decision:** retain the current evaluator and `f32` selection in this follow-up.
+The checks demonstrate a stat-vector tie discrepancy, not a numeric metric loss in
+the sampled searches. They do not rule out numeric losses elsewhere. Merely promoting
+already-rounded deltas to `f64` cannot recover their rounding, and higher precision
+alone does not establish translation-invariant lexicographic pruning. No heuristic
+epsilon tie-break, arithmetic-contract change, or release rollback is introduced.
+Strict canonical tie equivalence remains a documented follow-up: first choose the
+metric contract, then use exact contribution arithmetic or conservatively resolve
+ambiguous states against that contract, verified by this independent oracle.
 
 ## Release Flow
 

@@ -544,6 +544,547 @@ fn dynamic_search_matches_exhaustive_search_for_every_objective() {
     }
 }
 
+// Deliberately independent of RelevantStatSearch, its mask, counter, and inactive fill.
+fn all_five_allocations(
+    mins: [u8; COMBAT_STAT_COUNT],
+    maxs: [u8; COMBAT_STAT_COUNT],
+    budget: u16,
+) -> Vec<[u8; COMBAT_STAT_COUNT]> {
+    fn visit(
+        current: &mut [u8; COMBAT_STAT_COUNT],
+        maxs: &[u8; COMBAT_STAT_COUNT],
+        index: usize,
+        left: u16,
+        out: &mut Vec<[u8; COMBAT_STAT_COUNT]>,
+    ) {
+        if index == COMBAT_STAT_COUNT {
+            if left == 0 {
+                out.push(*current);
+            }
+            return;
+        }
+        let minimum = current[index];
+        for add in 0..=left.min(u16::from(maxs[index] - minimum)) {
+            current[index] = minimum + add as u8;
+            visit(current, maxs, index + 1, left - add, out);
+        }
+        current[index] = minimum;
+    }
+    let mut result = Vec::new();
+    let mut current = mins;
+    visit(&mut current, &maxs, 0, budget, &mut result);
+    result
+}
+
+fn numeric_key(key: ObjectiveKey) -> [f32; 5] {
+    [
+        key.score,
+        key.ar_total,
+        key.aow_full,
+        key.aow_first,
+        key.bleed,
+    ]
+}
+
+#[test]
+fn independent_all_five_oracle_checks_relevance_and_numeric_winners() {
+    for data in [load_data(), load_convergence_data()] {
+        let cases = if data.profile_id == "vanilla" {
+            vec![
+                ("Uchigatana", "Blood", Some("Seppuku")),
+                ("Uchigatana", "Keen", Some("Unsheathe")),
+                ("Claymore", "Standard", Some("Wild Strikes")),
+                ("Claymore", "Sacred", Some("Sacred Blade")),
+                ("Giant-Crusher", "Heavy", Some("Prelate's Charge")),
+                ("Iron Ball", "Heavy", None),
+                ("Longbow", "Standard", None),
+            ]
+        } else {
+            vec![("Uchigatana", "Mystic", None)]
+        };
+        for (weapon, affinity, aow) in cases {
+            for objective in [
+                OptimizeObjective::MaxAr,
+                OptimizeObjective::MaxPhysicalAr,
+                OptimizeObjective::BleedThenAr,
+                OptimizeObjective::AowFirstHit,
+                OptimizeObjective::AowFullSequence,
+            ] {
+                if (data.profile_id != "vanilla" || aow.is_none() || aow == Some("Seppuku"))
+                    && matches!(
+                        objective,
+                        OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
+                    )
+                {
+                    continue;
+                }
+                for (strength, locked) in [(67, false), (98, true)] {
+                    let mut request = base_request();
+                    request.current_stats =
+                        stats_with_combat(request.current_stats, [strength, 40, 35, 35, 35]);
+                    request.character_level = 9 + request.current_stats.sum_all_8() - 88 + 3;
+                    request.weapon_name = Some(weapon.to_string());
+                    request.affinity = Some(affinity.to_string());
+                    request.aow_name = aow.map(str::to_string);
+                    request.objective = objective;
+                    request.exact_upgrade = true;
+                    request.standard_max_upgrade = data.rules.standard_max_upgrade;
+                    request.somber_max_upgrade = data.rules.somber_max_upgrade;
+                    request.two_handing = true;
+                    if locked {
+                        request.locked_combat_stats[STAT_INT] = Some(35);
+                        request.min_combat_stats[STAT_FAI] = 36;
+                    }
+                    let plan = prepare_search(&request, &data).expect("oracle request");
+                    let group = plan.groups.first().unwrap_or_else(|| {
+                        panic!(
+                            "no oracle group: {} {weapon}/{affinity} {aow:?} {objective:?}",
+                            data.profile_id
+                        )
+                    });
+                    let prepared = &plan.weapons[group.prepared_idx];
+                    let choice = &prepared.aow_choices[group.aow_indices[0]];
+                    let routes = prepare_scalar_aow_routes(&choice.attack_rows, &data)
+                        .unwrap()
+                        .unwrap();
+                    let routes: Vec<_> = if routes.is_empty() {
+                        vec![None]
+                    } else {
+                        routes.iter().map(Some).collect()
+                    };
+                    let search = &group.search;
+                    let upgrade = prepared.upgrades[0];
+                    let all = all_five_allocations(search.mins, search.maxs, search.remaining_free);
+                    assert!(!all.is_empty());
+                    let mut reduced = Vec::new();
+                    let mut current = search.mins;
+                    search.visit(&mut current, |combat| {
+                        reduced.push(*combat);
+                        true
+                    });
+                    for route in routes {
+                        let evaluate = |combat| {
+                            evaluate_objective_allocation(
+                                combat, &request, prepared, choice, upgrade, route, &data,
+                            )
+                            .unwrap()
+                        };
+                        let best = |candidates: &[[u8; COMBAT_STAT_COUNT]]| {
+                            candidates
+                                .iter()
+                                .copied()
+                                .map(evaluate)
+                                .reduce(|a, b| {
+                                    if better_objective_allocation(b, a) {
+                                        b
+                                    } else {
+                                        a
+                                    }
+                                })
+                                .unwrap()
+                        };
+                        let reference = best(&all);
+                        let pruned = best(&reduced);
+                        let context = format!(
+                            "{} {weapon}/{affinity} {objective:?} STR={strength} route={:?}",
+                            data.profile_id,
+                            route.map(|r| &r.route_id)
+                        );
+                        assert_eq!(
+                            pruned.combat, reference.combat,
+                            "active-set reduction: {context}"
+                        );
+                        assert_eq!(
+                            numeric_key(pruned.key),
+                            numeric_key(reference.key),
+                            "active-set metrics: {context}"
+                        );
+                        let baseline = numeric_key(evaluate(search.mins).key);
+                        for stat in 0..COMBAT_STAT_COUNT {
+                            if search.active[stat] {
+                                continue;
+                            }
+                            for value in search.mins[stat]..=search.maxs[stat] {
+                                let mut combat = search.mins;
+                                combat[stat] = value;
+                                assert_eq!(
+                                    numeric_key(evaluate(combat).key),
+                                    baseline,
+                                    "inactive stat {stat}={value}: {context}"
+                                );
+                            }
+                        }
+                        let progress = SerialSearchProgress::new(0, 0, |_| true);
+                        let dynamic = best_objective_allocation(
+                            search, &request, prepared, choice, upgrade, route, &data, &progress,
+                        )
+                        .unwrap();
+                        // Numeric agreement is distinct from stat-vector tie agreement;
+                        // the latter has an explicit floating-point boundary test below.
+                        assert_eq!(
+                            numeric_key(dynamic.key),
+                            numeric_key(reference.key),
+                            "DP metrics: {context}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn f32_dp_can_discard_the_canonical_stat_tie_winner() {
+    let data = load_convergence_data();
+    let mut request = base_request();
+    request.current_stats = stats_with_combat(request.current_stats, [67, 40, 35, 35, 35]);
+    request.character_level = 9 + request.current_stats.sum_all_8() - 88 + 3;
+    request.affinity = Some("Mystic".to_string());
+    request.standard_max_upgrade = 15;
+    request.somber_max_upgrade = 15;
+    request.exact_upgrade = true;
+    request.two_handing = true;
+    let plan = prepare_search(&request, &data).unwrap();
+    let group = &plan.groups[0];
+    let prepared = &plan.weapons[group.prepared_idx];
+    let choice = &prepared.aow_choices[group.aow_indices[0]];
+    let evaluate = |combat| {
+        evaluate_objective_allocation(combat, &request, prepared, choice, 15, None, &data).unwrap()
+    };
+    let reference = all_five_allocations(
+        group.search.mins,
+        group.search.maxs,
+        group.search.remaining_free,
+    )
+    .into_iter()
+    .map(evaluate)
+    .reduce(|a, b| {
+        if better_objective_allocation(b, a) {
+            b
+        } else {
+            a
+        }
+    })
+    .unwrap();
+    let progress = SerialSearchProgress::new(0, 0, |_| true);
+    let dynamic = best_objective_allocation(
+        &group.search,
+        &request,
+        prepared,
+        choice,
+        15,
+        None,
+        &data,
+        &progress,
+    )
+    .unwrap();
+    assert_eq!(numeric_key(dynamic.key), numeric_key(reference.key));
+    assert_eq!(dynamic.combat, [67, 40, 35, 36, 37]);
+    assert_eq!(reference.combat, [67, 40, 35, 35, 38]);
+    assert!(better_objective_allocation(reference, dynamic));
+}
+
+#[test]
+fn rounded_completion_can_reverse_the_stat_vector_tie_break() {
+    let preferred_stats = ObjectiveAllocation {
+        key: ObjectiveKey {
+            score: 1.0,
+            ..Default::default()
+        },
+        ar: DamageBreakdown::default(),
+        combat: [10, 11, 10, 10, 10],
+    };
+    let slightly_higher = ObjectiveAllocation {
+        key: ObjectiveKey {
+            score: f32::from_bits(1.0_f32.to_bits() + 1),
+            ..Default::default()
+        },
+        combat: [11, 10, 10, 10, 10],
+        ..preferred_stats
+    };
+    assert!(better_objective_allocation(
+        slightly_higher,
+        preferred_stats
+    ));
+    let completion = ObjectiveKey {
+        score: 4.0,
+        ..Default::default()
+    };
+    let complete = |mut allocation: ObjectiveAllocation| {
+        allocation.key = add_objective_key(allocation.key, completion);
+        allocation
+    };
+    assert_eq!(
+        complete(preferred_stats).key.score,
+        complete(slightly_higher).key.score
+    );
+    assert!(better_objective_allocation(
+        complete(preferred_stats),
+        complete(slightly_higher)
+    ));
+}
+
+#[test]
+fn shipped_scalar_coefficients_preserve_hit_positivity() {
+    let nonnegative = |values: &[f32]| values.iter().all(|x| x.is_finite() && *x >= 0.0);
+    for data in [load_data(), load_convergence_data()] {
+        for weapon in &data.weapons {
+            assert!(
+                nonnegative(&weapon.base) && nonnegative(&weapon.scaling),
+                "{}",
+                weapon.name
+            );
+        }
+        for reinforce in data.reinforce.iter().flatten().flatten() {
+            assert!(nonnegative(&reinforce.damage_mult));
+            assert!(nonnegative(&reinforce.scaling_mult));
+            assert!(nonnegative(&[reinforce.base_attack_mult]));
+        }
+        for (id, curve) in data.calc_correct.iter().enumerate() {
+            if let Some(curve) = curve {
+                for (stat, value) in curve.iter().enumerate() {
+                    if let Some(value) = value {
+                        assert!(
+                            nonnegative(&[*value]),
+                            "{} curve={id} stat={stat}",
+                            data.profile_id
+                        );
+                    }
+                }
+            }
+        }
+        for (id, correction) in &data.attack_element_correct_ext {
+            for stat in 0..COMBAT_STAT_COUNT {
+                assert!(nonnegative(&correction.influence[stat]), "override {id}");
+                for rate in correction.overwrite[stat].iter().flatten() {
+                    assert!(nonnegative(&[*rate]), "override {id}");
+                }
+            }
+        }
+        for aow in &data.aows {
+            assert!(nonnegative(&aow.buff_attack_power), "{}", aow.name);
+        }
+        for row in data
+            .aow_attack_rows
+            .values()
+            .chain(data.native_skill_attack_rows.values())
+            .flatten()
+        {
+            assert!(
+                nonnegative(&row.motion_values)
+                    && nonnegative(&row.attack_base)
+                    && nonnegative(&[row.weapon_buff_mv]),
+                "{} row={}",
+                row.raw_name,
+                row.sheet_row
+            );
+        }
+    }
+}
+
+#[test]
+fn compiled_routes_preserve_first_hit_and_per_hit_separability() {
+    let data = load_data();
+    let close = |left: f32, right: f32| {
+        assert!(
+            (left - right).abs() <= 32.0 * f32::EPSILON * left.abs().max(right.abs()).max(1.0),
+            "{left} != {right}"
+        );
+    };
+    let mut route_count = 0;
+    for (weapon, affinity, aow) in [
+        ("Uchigatana", "Keen", "Unsheathe"),
+        ("Claymore", "Standard", "Wild Strikes"),
+        ("Claymore", "Sacred", "Sacred Blade"),
+        ("Claymore", "Fire", "Flaming Strike"),
+        ("Giant-Crusher", "Heavy", "Prelate's Charge"),
+        ("Iron Ball", "Cold", "Hoarfrost Stomp"),
+    ] {
+        let mut request = broad_request();
+        request.weapon_name = Some(weapon.to_string());
+        request.affinity = Some(affinity.to_string());
+        request.aow_name = Some(aow.to_string());
+        request.objective = OptimizeObjective::AowFullSequence;
+        let plan = prepare_search(&request, &data).unwrap();
+        let group = plan
+            .groups
+            .first()
+            .unwrap_or_else(|| panic!("no routes for {weapon}/{aow}"));
+        let prepared = &plan.weapons[group.prepared_idx];
+        let choice = &prepared.aow_choices[group.aow_indices[0]];
+        let routes = prepare_scalar_aow_routes(&choice.attack_rows, &data)
+            .unwrap()
+            .unwrap();
+        assert!(!routes.is_empty(), "{weapon}/{aow}");
+        for upgrade in [0, prepared.upgrades[0]] {
+            for two_handing in [false, true] {
+                request.two_handing = two_handing;
+                let evaluate = |combat| {
+                    let stats = stats_with_combat(request.current_stats, combat);
+                    calculate_aow_routes(
+                        prepared.weapon,
+                        &choice.attack_rows,
+                        upgrade,
+                        &stats,
+                        effective_str_for_weapon(&request, prepared.weapon, stats.str),
+                        &data,
+                    )
+                    .unwrap()
+                };
+                let minimum = group.search.mins;
+                let base = evaluate(minimum);
+                let mut samples = all_five_allocations(minimum, [99; COMBAT_STAT_COUNT], 2);
+                // Include soft caps and every reachable effective STR, not just low-budget moves.
+                for stat in 0..COMBAT_STAT_COUNT {
+                    for value in minimum[stat]..=99 {
+                        let mut combat = minimum;
+                        combat[stat] = value;
+                        samples.push(combat);
+                    }
+                }
+                samples.extend([[99; COMBAT_STAT_COUNT], [80; COMBAT_STAT_COUNT]]);
+                for route in &routes {
+                    route_count += 1;
+                    let base_route = base.iter().find(|r| r.route_id == route.route_id).unwrap();
+                    let base_hits: Vec<_> =
+                        base_route.actions.iter().flat_map(|a| &a.hits).collect();
+                    let first = base_hits.iter().position(|hit| hit.damage.total() > 0.0);
+                    for combat in &samples {
+                        let actual = evaluate(*combat);
+                        let actual = actual
+                            .iter()
+                            .find(|r| r.route_id == route.route_id)
+                            .unwrap();
+                        let hits: Vec<_> = actual.actions.iter().flat_map(|a| &a.hits).collect();
+                        assert_eq!(hits.len(), base_hits.len());
+                        assert_eq!(
+                            hits.iter().position(|h| h.damage.total() > 0.0),
+                            first,
+                            "{weapon}/{aow}/{}",
+                            route.route_id
+                        );
+                        let stats = stats_with_combat(request.current_stats, *combat);
+                        for multiplier in [1.0, 2.05] {
+                            let scalar = evaluate_scalar_aow_route(
+                                route,
+                                prepared.weapon,
+                                upgrade,
+                                &stats,
+                                effective_str_for_weapon(&request, prepared.weapon, stats.str),
+                                multiplier,
+                                &data,
+                            )
+                            .unwrap();
+                            close(
+                                scalar.first_hit_damage,
+                                actual.first_hit_damage * multiplier,
+                            );
+                            close(
+                                scalar.full_sequence_damage,
+                                actual.total_damage.total() * multiplier,
+                            );
+                        }
+                        let single_stat_routes: Vec<_> = (0..COMBAT_STAT_COUNT)
+                            .map(|stat| {
+                                let mut single = minimum;
+                                single[stat] = combat[stat];
+                                evaluate(single)
+                                    .into_iter()
+                                    .find(|r| r.route_id == route.route_id)
+                                    .unwrap()
+                            })
+                            .collect();
+                        for (index, hit) in hits.iter().enumerate() {
+                            let mut reconstructed = f64::from(base_hits[index].damage.total());
+                            for single in &single_stat_routes {
+                                let single_hit = single
+                                    .actions
+                                    .iter()
+                                    .flat_map(|a| &a.hits)
+                                    .nth(index)
+                                    .unwrap();
+                                assert_eq!(single_hit.sheet_row, hit.sheet_row);
+                                assert_eq!(single_hit.buff_active, hit.buff_active);
+                                reconstructed += f64::from(single_hit.damage.total())
+                                    - f64::from(base_hits[index].damage.total());
+                            }
+                            close(hit.damage.total(), reconstructed as f32);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    assert!(route_count > 24, "include branching routes");
+}
+
+#[test]
+fn compiled_first_hit_skips_zero_damage_activation() {
+    let mut data = load_data();
+    let aow = data
+        .aows
+        .iter_mut()
+        .find(|a| a.name == "Flaming Strike")
+        .unwrap();
+    // Synthetic activation-before-hit case, not a claim about real Flaming Strike timing.
+    aow.buff_activation_action_id = Some("activation".to_string());
+    aow.buff_attack_power = [0.0, 0.0, 90.0, 0.0, 0.0];
+    let aow_id = aow.aow_id;
+    let row = data
+        .aow_attack_rows
+        .get_mut(&aow_id)
+        .unwrap()
+        .iter_mut()
+        .find(|r| r.sheet_row == 1305)
+        .unwrap();
+    // Keep the activation row but make its damage zero.
+    row.motion_values = [0.0; 5];
+    row.attack_base = [0.0; 5];
+    let mut request = broad_request();
+    request.weapon_name = Some("Claymore".to_string());
+    request.affinity = Some("Fire".to_string());
+    request.aow_name = Some("Flaming Strike".to_string());
+    request.objective = OptimizeObjective::AowFirstHit;
+    let plan = prepare_search(&request, &data).unwrap();
+    let group = &plan.groups[0];
+    let prepared = &plan.weapons[group.prepared_idx];
+    let choice = &prepared.aow_choices[group.aow_indices[0]];
+    let routes = prepare_scalar_aow_routes(&choice.attack_rows, &data)
+        .unwrap()
+        .unwrap();
+    assert!(!routes.is_empty());
+    let mut samples = all_five_allocations(group.search.mins, [99; COMBAT_STAT_COUNT], 2);
+    samples.extend([group.search.mins, [99; COMBAT_STAT_COUNT]]);
+    for combat in samples {
+        let stats = stats_with_combat(request.current_stats, combat);
+        let strength = effective_str_for_weapon(&request, prepared.weapon, stats.str);
+        let displayed = calculate_aow_routes(
+            prepared.weapon,
+            &choice.attack_rows,
+            25,
+            &stats,
+            strength,
+            &data,
+        )
+        .unwrap();
+        for route in &routes {
+            let displayed = displayed
+                .iter()
+                .find(|r| r.route_id == route.route_id)
+                .unwrap();
+            let hits: Vec<_> = displayed.actions.iter().flat_map(|a| &a.hits).collect();
+            assert_eq!(hits[0].damage.total(), 0.0);
+            let first = hits.iter().find(|h| h.damage.total() > 0.0).unwrap();
+            assert_eq!(first.sheet_row, 1306);
+            assert!(first.buff_active);
+            let scalar =
+                evaluate_scalar_aow_route(route, prepared.weapon, 25, &stats, strength, 1.0, &data)
+                    .unwrap();
+            assert_eq!(scalar.first_hit_damage, first.damage.total());
+        }
+    }
+}
+
 #[test]
 fn dynamic_ar_search_checks_every_feasible_active_spend() {
     for (values, expected_str) in [

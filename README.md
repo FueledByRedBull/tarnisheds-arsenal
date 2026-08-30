@@ -9,7 +9,7 @@
 [![Latest Release](https://img.shields.io/github/v/release/FueledByRedBull/tarnisheds-arsenal?label=release)](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest)
 
 **Tarnished’s Arsenal** is a Windows desktop optimizer for Elden Ring builds. It
-performs an exact Rust search across weapons, affinities, Ashes of War, upgrade
+performs a Rust search across weapons, affinities, Ashes of War, upgrade
 levels, and relevant stat distributions, then carries one versioned build session
 through rankings, comparisons, stat paths, affinity breakpoints, exports, and presets.
 
@@ -78,10 +78,16 @@ or opened:
 | Upgrade | Exact `+N` | Full `+0..+N` range |
 | Combat stats | Exact locked result | Optimize within the session budget |
 
-Max AR and Max Physical AR use a bounded dynamic program over relevant combat stats.
-Other objectives enumerate only stats that can affect their metric. Weapon requirements
-become minimum floors first, and inactive stats are filled deterministically when the
-level budget would otherwise be unused.
+All five objectives use a bounded lexicographic dynamic program over relevant combat
+stats, including numeric tie-break dependencies. Weapon requirements become minimum
+floors first; every feasible active-stat spend is compared after deterministic
+inactive-stat completion.
+
+The recurrence is exact under exact arithmetic and the documented model assumptions.
+The implementation uses `f32`, so sufficiently close intermediate comparisons can
+discard the allocation preferred by exhaustive evaluation, even after terminal
+metrics are recomputed. See the [mathematical scope](docs/design/optimizer-math.md#7-scope-of-the-claims)
+and [numerical evidence](docs/design/optimizer-overview.md#numerical-evidence-and-decision).
 
 AoW damage objectives evaluate one legal route at a time. Inspector and Compare expose
 the selected route’s ordered actions and hits, damage, status buildup, physical-hit
