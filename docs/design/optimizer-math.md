@@ -1,314 +1,241 @@
 # Optimizer Mathematics
 
-This document states the model the Rust optimizer implements, the search proof, and
-the arithmetic boundary on that proof. It is the companion to
-[`optimizer-overview.md`](optimizer-overview.md): the overview describes the shape of
-the system, this document describes why its results are correct.
+This document states the attack-rating model, searched domain, and exactness argument
+implemented by the Rust optimizer. The companion
+[`optimizer-overview.md`](optimizer-overview.md) covers implementation structure,
+ranking, parallel work, tests, and release engineering. Functions named here live in
+`core/er_optimizer_core/src/`.
 
-Functions are cited by name rather than by line number so the references survive
-edits. Everything here lives in `core/er_optimizer_core/src/`.
+The equations are a fan-made model reconstructed from version-bound regulation data.
+They are not an official FromSoftware specification. The model boundary is summarized
+in [Section 7](#7-scope-of-the-claims).
 
-The AR equation is a fan-made implementation model reconstructed from version-bound
-regulation PARAM fields and checked against known regression fixtures and the optional
-[external-calculator comparison](../validation/v0.7.0-correction-report.md). It is not
-an official FromSoftware specification.
+## 1. Notation and point budget
 
-## 1. Notation
-
-There are eight character stats. Five of them affect combat and are searched:
-
-$$i \in \lbrace \mathrm{STR}, \mathrm{DEX}, \mathrm{INT}, \mathrm{FAI}, \mathrm{ARC} \rbrace,
-\qquad n = 5$$
+The optimizer distributes points among the five offensive scaling attributes STR,
+DEX, INT, FAI, and ARC. Let:
 
 | Symbol | Meaning |
 |---|---|
 | $L$ | requested character level |
 | $B_c, L_c$ | starting class stat total and starting level |
-| $x_j$ | current value of character stat $j$ (all eight) |
-| $P$ | free points available to allocate |
-| $m_i, u_i$ | lower and upper bound for searched stat $i$ |
-| $T$ | points the search must distribute among *active* stats |
-| $c_i = u_i - m_i$ | remaining capacity of stat $i$ |
+| $a_j$ | current value of character stat $j$, over all eight stats |
+| $P$ | free points before floors and weapon requirements |
+| $m_i, u_i$ | lower and upper bounds for offensive stat $i$ |
+| $c_i=u_i-m_i$ | remaining capacity of offensive stat $i$ |
+| $R$ | points left after mandatory offensive-stat raises |
+| $A$ | stats relevant to the objective and its earlier tie-breaks |
 
-## 2. Point budget
+`compute_free_points` (`math.rs`) computes
 
-`compute_free_points` (`math.rs`) derives the allocatable budget from the class and
-the requested level:
+$$P = B_c + (L-L_c) - \sum_{j=1}^{8} a_j.$$
 
-$$P = B_c + (L - L_c) - \sum_{j=1}^{8} x_j$$
+The request is rejected if a current stat is below its class minimum or $P<0$.
+`build_combat_constraints` (`optimizer.rs`) applies requested floors and locks:
 
-The request is rejected if any current stat is below its class minimum, or if $P < 0$.
+$$m_i=\max(a_i,\operatorname{floor}_i), \qquad u_i=99,$$
 
-`build_combat_constraints` (`optimizer.rs`) then converts request constraints into
-box bounds. For each searched stat:
+with $m_i=u_i$ for a locked stat. Mandatory raises consume budget, so initially
 
-$$m_i = \max(x_i,\; \text{floor}_i), \qquad u_i = 99$$
+$$R=P-\sum_i(m_i-a_i).$$
 
-where $\text{floor}_i$ is the caller's minimum. A locked stat sets $m_i = u_i = \ell_i$.
-Note that $m_i \ge x_i$: **the optimizer never proposes lowering a stat the character
-already has.** Raising the floors consumes budget:
+`RelevantStatSearch::new` raises the minima again when needed to satisfy the selected
+weapon's requirements and deducts those raises from $R$. The request or weapon is
+rejected if a mandatory raise exceeds the budget or if $R>\sum_i c_i$.
 
-$$R = P - \sum_i \bigl(m_i - x_i\bigr)$$
+When two-handing is legal, effective Strength is
 
-The request is rejected if the mandatory raise exceeds $P$, or if $R$ exceeds the total
-remaining capacity $\sum_i c_i$.
+$$\operatorname{effSTR}(s)=\left\lfloor\frac{3s}{2}\right\rfloor.$$
 
-### Weapon requirements
+This affects requirement checks and curve lookup but remains a function of STR alone.
+Generated and validated calc-correct curves cover every reachable effective value
+through 148.
 
-`RelevantStatSearch::new` raises $m_i$ again to the selected weapon's requirements,
-deducting from $R$, and discards the weapon if they cannot be met. Two-handing is
-folded in here rather than treated as a separate case. `effective_str` computes
+## 2. Feasible spend domain
 
-$$\mathrm{effSTR}(s) = \left\lfloor \tfrac{3s}{2} \right\rfloor$$
+For one weapon, Ash of War, and objective, `active_stats_for_choice` selects the set
+$A$ of stats that can change the primary metric or an earlier ranking tie-break. Let
 
-so the smallest displayed Strength satisfying a requirement $r$ while two-handing is
+$$C_A=\sum_{i\in A}c_i, \qquad
+C_I=\sum_{i\notin A}c_i.$$
 
-$$s_{\min}(r) = \left\lceil \tfrac{2r}{3} \right\rceil$$
+If $p$ points are spent on active stats, the remaining $R-p$ must fit in inactive
+stats. Therefore the complete feasible active-spend interval is
 
-`minimum_str_for_requirement` obtains this by upward scan. The
-`two_handed_requirement_scan_matches_closed_form` regression test checks the result
-against the closed form for every in-game requirement value from 0 through 99.
+$$p_{\min}=\max(0,R-C_I), \qquad
+p_{\max}=\min(R,C_A).$$
 
-### Active stats and the spend target
+The total-capacity check guarantees $p_{\min}\le p_{\max}$, so at least one feasible
+final state exists. Termination follows separately from the finite stat and budget
+loops.
 
-For each (weapon, Ash of War, objective), `active_stats_for_choice` marks the stats
-that can change the primary score or an earlier ranking tie-break. For example, Max
-Physical AR retains stats that can change total AR, and AoW objectives retain weapon-AR
-stats as well as skill-route stats. With $A$ the active set and
-$C_A = \sum_{i \in A} c_i$ its capacity:
+For every $q\le C_I$, let $h(q)$ be the lexicographically smallest inactive-stat
+completion that spends exactly $q$. `fill_inactive_stats` computes $h$. Inactive stats
+cannot change the primary metric or any earlier tie-break, so retaining only this one
+completion loses no preferred result and avoids enumerating equivalent allocations.
 
-$$\text{inactiveFill} = \max(0,\; R - C_A), \qquad
-T = R - \text{inactiveFill} = \min(R,\; C_A)$$
+The searched region is the union
 
-Points that active stats cannot absorb go to inactive stats by
-`fill_inactive_stats`, which is deterministic and — because inactive stats cannot by
-definition change the score — does not affect optimality.
+$$
+\mathcal X_w=
+\bigcup_{p=p_{\min}}^{p_{\max}}
+\left\{
+x\in\mathbb Z^5:
+m_i\le x_i\le u_i,\
+\sum_{i\in A}(x_i-m_i)=p,\
+x_i=h_i(R-p)\text{ for }i\notin A
+\right\}.
+$$
 
-Let $m^\star$ denote $m$ after that deterministic inactive fill. Active components
-are unchanged.
+Searching only $p_{\max}$ would require every active contribution to be monotone.
+Searching the full interval does not: an interior spend remains eligible even when a
+curve decreases.
 
-Since $T \le C_A$ by construction, a distribution spending exactly $T$ always exists.
-This is what guarantees the dynamic program below terminates with a solution.
+## 3. Attack rating and separability
 
-The searched region for a weapon is therefore
+For damage type $d$ in physical, magic, fire, lightning, and holy,
+`calculate_ar_for_type` and `calculate_ar` (`math.rs`) compute
 
-$$\mathcal{X}_w = \left\lbrace \, x \in \mathbb{Z}^n \;:\;
-m_i \le x_i \le u_i\ \text{for } i \in A,\;
-x_i = m_i^\star\ \text{for } i \notin A,\;
-\sum_{i \in A} (x_i - m_i) = T \, \right\rbrace$$
+$$
+AR_d(x)=b_d r_d\left(1+\sum_i I_{i,d}s_iq_i\gamma_d(x_i')\right),
+$$
 
-## 3. Attack rating
+where $b_d$ is base damage, $r_d$ the reinforcement damage multiplier, $I_{i,d}$
+the attack-element routing flag, $s_i$ weapon scaling, $q_i$ reinforcement scaling,
+$\gamma_d$ the selected calc-correct curve, and $x_i'$ the effective stat. Only STR
+changes under two-handing: $x_{\mathrm{STR}}'=\operatorname{effSTR}(x_{\mathrm{STR}})$.
 
-`calculate_ar_for_type` and `calculate_ar` (`math.rs`) compute, for each damage type
-$d \in \lbrace \text{physical}, \text{magic}, \text{fire}, \text{lightning}, \text{holy} \rbrace$:
+With $\beta_d=b_dr_d$,
 
-$$AR_d(x) = b_d\, r_d \Bigl( 1 + \sum_{i} I_{i,d}\, s_i\, q_i\, \gamma_d(x_i') \Bigr)$$
+$$
+AR_d(x)=\beta_d+
+\sum_i\beta_d I_{i,d}s_iq_i\gamma_d(x_i').
+$$
 
-| Symbol | Meaning | Depends on |
-|---|---|---|
-| $b_d$ | weapon base damage | weapon |
-| $r_d$ | reinforcement damage multiplier | weapon, upgrade |
-| $I_{i,d}$ | whether stat $i$ scales damage type $d$ | attack-element correction row |
-| $s_i$ | weapon scaling coefficient | weapon, affinity |
-| $q_i$ | reinforcement scaling multiplier | weapon, upgrade |
-| $\gamma_d$ | calc-correct curve for $d$'s curve id | weapon, damage type |
-| $x_i'$ | effective stat; $\mathrm{effSTR}$ replaces STR only when two-handing and the weapon does not disable the bonus, otherwise $x_i' = x_i$ | request, weapon |
+Thus both physical AR and
 
-$$AR_{\text{total}}(x) = \sum_d AR_d(x)$$
+$$AR_{\mathrm{total}}(x)=\sum_d AR_d(x)$$
 
-Ash-of-War flat attack buffs and the world-scaling multiplier are applied after this,
-by `apply_aow_attack_buffs` and `DamageBreakdown::scale`.
+are a constant plus a sum of single-stat terms. Two-handing does not alter this: its
+floor operation is wholly inside the STR term.
 
-## 4. Separability — the property the search depends on
+> **Separability obligation.** A nonlinear operation applied after contributions from
+> multiple decision variables have been combined may break separability. Independent
+> per-stat rounding remains separable. Any formula change that introduces a cross-stat
+> term must either prove the recurrence still valid or replace it with exhaustive
+> evaluation over the affected variables.
 
-Write $\beta_d = b_d r_d$, which is constant in $x$. Then
+## 4. Generalized lexicographic dynamic program
 
-$$AR_d(x) = \beta_d + \sum_i \beta_d\, I_{i,d}\, s_i\, q_i\, \gamma_d(x_i')$$
+All five objectives use `best_objective_allocation`. For a fixed weapon, upgrade,
+Ash of War, and legal AoW route, the retained key is
 
-Summing over damage types and collecting terms:
+$$
+K(x)=(S(x),AR_{\mathrm{total}}(x),AoW_{\mathrm{full}}(x),
+AoW_{\mathrm{first}}(x),Bleed(x),-x),
+$$
 
-$$AR_{\text{total}}(x) = \underbrace{\sum_d \beta_d}_{\text{constant}}
-\;+\; \sum_i \underbrace{\Bigl( \sum_d \beta_d\, I_{i,d}\, s_i\, q_i\, \gamma_d(x_i')
-\Bigr)}_{\textstyle g_i(x_i),\ \text{depends on } x_i \text{ alone}}$$
+ordered lexicographically. $S$ is total AR, physical AR, bleed, first-hit damage, or
+full-sequence damage according to the requested objective. The final $-x$ notation
+means that the lexicographically smaller combat-stat vector wins an otherwise exact
+tie.
 
-> **Lemma (separability).** $AR_{\text{total}}$ and $AR_{\text{physical}}$ are
-> additively separable in the searched stats: each is a constant plus a sum of
-> single-variable terms, with no cross-stat products and no intermediate rounding.
+Weapon AR, modeled bleed, and every scalar AoW hit are a constant plus independent
+single-stat contributions. A complete route is the sum of its hits, so first-hit and
+full-sequence route values are separable too. For each active stat $i$ and addition
+$v\in[0,c_i]$, the optimizer evaluates the independent vector delta $\Delta_i(v)$
+for every numeric component of $K$.
 
-This holds at the implemented-model level because `calculate_ar_for_type` multiplies a
-stat-independent base by $(1 + \text{sum of independent contributions})$ and applies
-no explicit integer quantization. Ordinary `f32` operation rounding still applies and
-is covered by the arithmetic boundary below.
+Let $D_i(p)$ be the preferred partial allocation using the first $i$ active stats and
+spending exactly $p$ under $K$.
 
-Two-handing does not weaken it. Bow-family weapons are evaluated in their forced legal
-two-handed state; paired weapons never receive the Strength bonus.
-$\mathrm{effSTR}(s) = \lfloor 3s/2 \rfloor$ remains a
-one-variable mapping from displayed Strength to effective Strength. Its alternating
-$+1$ and $+2$ increments introduce no cross-stat interaction, so separability is
-preserved; separability constrains which *variables* a term may involve, not how smooth
-or uniform that term is.
+Initialization is
 
-> **Proof obligation.** Any change that introduces a cross-stat term, or that floors
-> or truncates a damage component the way the in-game display does, breaks this lemma
-> and invalidates the exactness proof. The DP-versus-exhaustive regression test covers
-> representative data, but cannot prove arbitrary formula changes correct. Treat such
-> a change as a redesign of the search, not a refinement of the formula.
+$$D_0(0)=m, \qquad D_0(p)=\bot\quad(p>0),$$
 
-## 5. Dynamic program for the AR objectives
+where $\bot$ is unreachable and is represented by `None`. For each legal addition,
 
-Let $F$ be the objective's AR function. `best_ar_combat_stats` precomputes, for each
-active stat $i$ and each
-$a \in [0, \min(c_i, T)]$:
+$$
+D_i(p)=\operatorname{best}_{0\le v\le\min(c_i,p)}
+\left(D_{i-1}(p-v)\oplus\Delta_i(v)\right).
+$$
 
-$$\Delta_i(a) = F(m^\star + a\,e_i) - F(m^\star)$$
+The operator $\oplus$ adds the metric deltas and records the selected stat value. The
+state retains the allocation itself; the stat vector is not treated as an additive
+numeric score.
 
-By the lemma, $\Delta_i(a) = g_i(m_i + a) - g_i(m_i)$ — independent of what the other
-stats hold. The recurrence over $D_i(p)$, the best value using the first $i$ active
-stats and spending exactly $p$, is therefore exact:
+One state per $(i,p)$ is sufficient. If partial allocation $\alpha$ is preferred to
+$\beta$ at the same state, every common completion adds the same metric vector. A
+lexicographic order is translation-invariant, and fixed stat processing means a later
+completion cannot reverse an earlier stat-vector difference. Discarding $\beta$
+therefore cannot remove the optimum.
 
-$$D_i(p) = \max_{0 \le a \le \min(c_i,\, p)} \bigl[\, D_{i-1}(p - a) + \Delta_i(a) \,\bigr],
-\qquad D_0(0) = F(m^\star)$$
+After the last active stat, every reachable $D_{|A|}(p)$ for
+$p\in[p_{\min},p_{\max}]$ receives its canonical inactive completion $h(R-p)$.
+`better_objective_allocation` then compares those completed states. Filling first matters
+because the full stat vector is the final tie-break.
 
-The answer is $D_{\lvert A \rvert}(T)$.
-
-> **Why one state per spend level suffices.** Suppose allocations $\alpha$ and $\beta$
-> both spend $p$ over the first $i$ stats, with $\alpha$ preferred. Any completion
-> $\delta$ over the remaining stats adds the same amount to both, because $\Delta$ terms
-> do not depend on the current partial allocation. So $\alpha + \delta$ is preferred to
-> $\beta + \delta$ for every $\delta$: dominance is preserved under extension, and
-> discarding $\beta$ cannot lose the optimum. This exchange argument is valid *only*
-> under the separability lemma.
-
-> **No shape assumption.** The exact AR DP evaluates every bounded discrete step by
-> scanning every legal $a \in [0, \min(c_i, p)]$ rather than using greedy soft-cap
-> behavior or assuming concavity or monotonicity. Because the profile's calc-correct
-> curves are piecewise, exactness does not depend on a smooth curve shape or universal
-> soft-cap locations.
-
-### Comparison order
-
-`better_ar_allocation` compares states lexicographically:
-
-1. primary score descending — $AR_{\text{physical}}$ for Max Physical AR, $AR_{\text{total}}$ otherwise (`ar_primary`);
-2. total AR descending;
-3. the stat vector itself ascending.
-
-Rule 3 makes the retained allocation the lexicographically smallest among exact ties,
-so the result does not depend on iteration order.
+No recurrence or terminal-selection step assumes monotonicity, concavity, smoothness,
+or universal soft caps.
 
 ### Cost
 
-Let $c_{\max} = \max_i \min(c_i, T)$. Since $u_i = 99$, we have $c_{\max} \le 99$
-regardless of level.
+Let $T=p_{\max}$ and $c_{\max}=\max_i\min(c_i,T)$. Precomputation uses
+$\sum_i(\min(c_i,T)+1)$ compact scalar evaluations per legal route. The recurrence costs
 
-| Stage | Cost | Notes |
-|---|---|---|
-| Precompute $\Delta_i$ | $\sum_i (\min(c_i,T) + 1)$ AR evaluations | the expensive part; curve lookups |
-| Recurrence | $O(\lvert A \rvert \cdot T \cdot c_{\max}) \subseteq O(n \cdot T \cdot c_{\max})$ float additions | cheap; **linear in $T$**, not quadratic |
-| Working memory | $O(T)$ states | |
+$$O(|A|Tc_{\max})$$
 
-The comparison worth making is against naive enumeration. Without binding per-stat
-caps it visits $\binom{T + n - 1}{n - 1}$ allocations — roughly
-$4.6 \times 10^6$ at $T = 100$ and $n = 5$ — each requiring a full AR evaluation.
-Caps can only reduce that count. The dynamic program needs a few hundred AR
-evaluations for the same exact answer.
+with $O(T)$ working states; the final spend scan is $O(T)$. Since the in-game stat cap
+fixes $c_{\max}\le99$, the recurrence is effectively linear in $T$ within this domain.
 
 ### Floating-point boundary
 
-$\Delta_i$ values and the accumulated $D_i(p)$ are `f32`, and summing them is not
-bit-identical to evaluating $F$ directly at the same stats. **The accumulated totals
-select an allocation and nothing else.** `search_ar_work_unit` recomputes AR from the
-chosen stat vector via `calculate_base_weapon_metric` before scoring, ranking, or
-display.
+The DP accumulates `f32` deltas, whose addition order is not bit-identical to direct
+evaluation. These values select an allocation only. Every retained terminal stat
+vector is re-evaluated canonically before terminal comparison, ranking, or display.
+Accumulated DP totals never become reported metrics.
 
-The consequence is that rounding drift can select a near-tied allocation if the
-accumulation changes their ordering, but it can never produce a reported number that
-disagrees with `calculate_ar`. Preserve this: do not promote a $D_i(p)$ value into a
-result metric.
+## 5. Compiled routes, oracle, and fallback
 
-## 6. The remaining objectives
+`prepare_scalar_aow_routes` compiles route membership, hit order, and buff activation
+once per loadout. During DP, `evaluate_scalar_aow_route` calculates only first-hit and
+full-sequence numbers. Display actions, hit objects, effects, warnings, strings, and
+maps are materialized once for retained results.
 
-Bleed and the two Ash-of-War objectives do not use the AR-only dynamic program: their
-primary score is status or skill damage, with AR used only as a tie-break. Therefore
-`search_work_unit_exhaustive` enumerates $\mathcal{X}_w$ directly — but only over the
-active set, which is usually far smaller than five stats. The number of distributions
-spending exactly $T$ is the generating-function coefficient
+Each legal route is optimized separately; route winners are compared under the same
+key $K$. This is exact because route choice is a finite outer maximum over independent
+DP problems. Equal route metrics use route priority and ID for stable display.
 
-$$N(T) = [z^T] \prod_{i \in A} \bigl( 1 + z + z^2 + \cdots + z^{c_i} \bigr)$$
+`search_work_unit_exhaustive` remains the differential-test oracle and the explicit
+fallback if a future supported mechanic introduces a non-separable per-hit term. Its
+logical candidate count is
 
-`count_relevant_distributions` evaluates this, and weapons sharing a
-`DistributionCountKey` — the full tuple of $m$, $u$, $A$, $R$, and the inactive-fill
-requirement — share one cached count.
+$$
+N=\sum_{p=p_{\min}}^{p_{\max}}
+[z^p]\prod_{i\in A}(1+z+\cdots+z^{c_i}).
+$$
 
-Scores are:
+Progress reports this logical domain as candidates covered, even though DP does not
+visit each allocation individually.
 
-```math
-S(x) = \begin{cases}
-AR_{\text{total}}(x) & \text{Max AR} \\
-AR_{\text{physical}}(x) & \text{Max Physical AR} \\
-\mathrm{Bleed}(x) & \text{Bleed, then AR} \\
-AoW_{\text{first}}(x) & \text{AoW First Hit} \\
-AoW_{\text{sequence}}(x) & \text{AoW Full Sequence}
-\end{cases}
-```
+## 6. Result ordering
 
-For an AoW objective, `calculate_aow_metric` selects one legal route by that objective
-and reports both first-hit and full-sequence damage from that same route. Ranking,
-Inspector provenance, and retained tie-break metrics therefore cannot splice values
-from different routes.
+Every legal weapon, affinity, Ash of War, upgrade, and retained stat allocation is
+reduced under the objective-specific comparison. Final ordering also includes stable
+loadout identifiers and the completed combat-stat vector, making serial and parallel
+execution deterministic under the same model and floating-point boundary.
 
-**Bleed, then AR maximizes bleed alone.** AR is a tie-break, never a summand.
-`active_stats_for_choice` therefore keeps stats that can affect bleed or AR; unrelated
-poison, frost, sleep, madness, scarlet-rot, and death-blight scaling does not make a
-stat active for this objective.
+## 7. Scope of the claims
 
-The relevance test is also profile-gated. `stat_can_increase_bleed_for_choice` returns
-`false` outright when a profile's `status_buildup_scales` rule is off, because bleed is
-then a floored constant that no stat can move — so on Convergence, Arcane becomes active
-for this objective only if it raises AR. `bleed_relevance_uses_profile_status_scaling_rule`
-pins that, and `bleed_relevance_prunes_non_bleed_status_distributions` pins the
-narrowing's effect on `candidate_count`.
+**Search exactness.** The generalized DP is exact over the declared integer domain
+under separability and its stated `f32` selection boundary. The exhaustive oracle
+visits the same domain and guards every objective family in differential tests.
 
-During the broad search, bleed is computed by `calculate_bleed_buildup` and
-`apply_aow_bleed_buffs` — an exact bleed-only path. The full seven-status calculation
-runs only for tie-breaks and retained rows. `bleed_only_calculator_matches_full_status_for_open_choices`
-pins the two paths together across both profiles and both settings of the
-`status_buildup_scales` rule.
+**Model fidelity.** The evaluator is a fan reconstruction tied to selected profile,
+dataset, model, source, and manifest hashes. It does not model enemy defense,
+negation, resistance growth, proc explosion damage, poise, stance damage, or universal
+temporary-buff stacking. Route stamina is reported but is not an objective.
 
-## 7. Ranking
-
-Candidates are scored across every legal (weapon, affinity, Ash of War, upgrade, stat
-allocation) and reduced to the best $K$ by `push_scored_top_k`.
-
-Top-$K$ is grouped by weapon when the request is not locked to one weapon, and by full
-loadout when it is locked. The winning allocation inside each group is retained before
-the global top-$K$ cutoff; it is not a list of every raw stat tuple.
-
-Ranking is staged so expensive metrics are computed only when cheaper comparisons tie.
-`compare_known_candidate_metrics` compares on whatever is already known — score, then
-AR, then AoW damage, then bleed — and `complete_scored_candidate_tie_breaks` fills in
-the next metric only when the comparison comes back equal. `could_enter_scored_top_k`
-is a cheap admission gate; when a metric is absent it reports *equal* rather than
-*less*, so it can only admit extra candidates, never discard a real one.
-
-Final ordering falls through to weapon id, upgrade, skill id, and the combat-stat
-vector. Parallel work is split by individual Ash-of-War choice; each worker builds a
-local top-$K$ and the merge applies the same comparison rules, so **parallelism changes
-throughput and not results.**
-
-## 8. Scope of the claims
-
-**Search exactness.** The integer search is exhaustive or uses the separable recurrence
-over the declared result domain. The recurrence selects with `f32` deltas, so an
-extremely close floating-point tie can select a different allocation than direct
-evaluation; every retained result is recomputed by the canonical evaluator before
-ranking and display.
-
-**Model fidelity.** The evaluator is a fan reconstruction tied to the selected profile,
-regulation sources, and manifest hashes. Enemy defense, negation, resistance growth,
-proc explosion damage, poise and stance damage are not modeled; route stamina is
-reported but is not an objective; temporary buff stacking is not a universal layer.
-
-**Implementation determinism.** Serial and parallel workers use the same total ordering
-and final evaluator. Regression tests pin their equality and the DP/exhaustive result
-on the checked corpus; those tests are validation, not an official game-formula proof.
+**Data validity.** Runtime loading fails on missing curve entries, and offline
+validation requires every used curve value through effective stat 148. Monotonicity is
+also checked as a data-quality invariant, but search exactness does not depend on it.

@@ -9,8 +9,9 @@ use tauri::State;
 use crate::AppState;
 use crate::dto::{
     CatalogDto, ClassMetadataDto, CombatStateDto, CompatibleAowsForAffinityRequestDto,
-    CompatibleAowsRequestDto, EightStatsDto, FilterDimensionDto, FilterOptionDto,
-    WeaponNamesForTypeRequestDto, WeaponProfileDto, WeaponProfileRequestDto, WeaponTypeOptionDto,
+    CompatibleAowsRequestDto, DisplayPoiseDamageDto, EightStatsDto, FilterDimensionDto,
+    FilterOptionDto, WeaponNamesForTypeRequestDto, WeaponProfileDto, WeaponProfileRequestDto,
+    WeaponTypeOptionDto,
 };
 use crate::errors::AppError;
 
@@ -453,6 +454,25 @@ pub fn get_weapon_profile(
     let requirements =
         weapon_requirements(index, &request.weapon_name, request.affinity.as_deref())?;
     let max_upgrade = weapon_upgrade_cap(index, &request.weapon_name, request.affinity.as_deref())?;
+    let weapon = profile
+        .data
+        .weapons
+        .iter()
+        .find(|weapon| {
+            weapon.name.eq_ignore_ascii_case(&request.weapon_name)
+                && request
+                    .affinity
+                    .as_deref()
+                    .is_none_or(|affinity| weapon.affinity.eq_ignore_ascii_case(affinity))
+        })
+        .ok_or_else(|| AppError::new(format!("weapon not found: {}", request.weapon_name)))?;
+    let poise = |values: &er_optimizer_core::DisplayPoiseDamage| DisplayPoiseDamageDto {
+        light: values.light.clone(),
+        heavy: values.heavy.clone(),
+        charged_heavy: values.charged_heavy.clone(),
+        jumping_light: values.jumping_light.clone(),
+        jumping_heavy: values.jumping_heavy.clone(),
+    };
     Ok(WeaponProfileDto {
         requirements: CombatStateDto {
             str_stat: requirements[0],
@@ -468,6 +488,11 @@ pub fn get_weapon_profile(
             &request.weapon_name,
             request.affinity.as_deref(),
         ),
+        forces_two_handing: weapon_forces_two_handing(index, &request.weapon_name),
+        weight: weapon.weight,
+        move_count: weapon.move_count,
+        one_handed_poise: poise(&weapon.one_handed_poise),
+        two_handed_poise: poise(&weapon.two_handed_poise),
         affinities: affinities_for_weapon_inner(index, &request.weapon_name),
         compatible_aows: compatible_aow_names_inner(
             index,

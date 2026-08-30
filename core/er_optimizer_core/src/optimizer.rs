@@ -5,10 +5,12 @@ use std::time::{Duration, Instant};
 
 use rayon::prelude::*;
 
+use crate::math::ScalarAowRoute;
 use crate::math::{
     apply_aow_attack_buffs, apply_aow_bleed_buffs, apply_aow_status_buffs, calculate_aow_routes,
     calculate_ar, calculate_bleed_buildup, calculate_status_buildup, class_by_name,
-    compute_free_points, effective_str, meets_requirements,
+    compute_free_points, effective_str, evaluate_scalar_aow_route, meets_requirements,
+    prepare_scalar_aow_routes,
 };
 use crate::model::{
     Aow, AowAttackRow, AowRouteResult, COMBAT_STAT_COUNT, DamageBreakdown, DamageType, GameData,
@@ -464,42 +466,18 @@ fn build_prepared_plan<'a>(
     let mut distribution_counts = HashMap::new();
 
     for (prepared_idx, prepared) in weapons.iter().enumerate() {
-        let shared_ar_search = if matches!(
-            request.objective,
-            OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr
-        ) {
-            prepared.aow_choices.first().and_then(|choice| {
-                relevant_stat_search(
-                    request,
-                    data,
-                    constraints,
-                    prepared,
-                    choice,
-                    &mut distribution_counts,
-                )
-            })
-        } else {
-            None
-        };
         for (aow_idx, aow_choice) in prepared.aow_choices.iter().enumerate() {
             if !should_continue() {
                 return Err("cancelled".to_string());
             }
-            let search = if matches!(
-                request.objective,
-                OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr
-            ) {
-                shared_ar_search
-            } else {
-                relevant_stat_search(
-                    request,
-                    data,
-                    constraints,
-                    prepared,
-                    aow_choice,
-                    &mut distribution_counts,
-                )
-            };
+            let search = relevant_stat_search(
+                request,
+                data,
+                constraints,
+                prepared,
+                aow_choice,
+                &mut distribution_counts,
+            );
             let Some(search) = search else {
                 continue;
             };
@@ -930,13 +908,7 @@ fn search_work_unit<P>(
 where
     P: SearchProgress,
 {
-    if matches!(
-        plan.request.objective,
-        OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr
-    ) {
-        return search_ar_work_unit(plan, unit, group_mode, progress);
-    }
-    search_work_unit_exhaustive(plan, unit, group_mode, progress)
+    search_dp_work_unit(plan, unit, group_mode, progress)
 }
 
 fn search_work_unit_exhaustive<P>(
@@ -1089,7 +1061,7 @@ where
     Ok(candidates)
 }
 
-fn search_ar_work_unit<P>(
+fn search_dp_work_unit<P>(
     plan: &PreparedSearchPlan<'_>,
     unit: SearchWorkUnit,
     group_mode: ResultGroupMode,
@@ -1103,57 +1075,82 @@ where
     let prepared = &plan.weapons[group.prepared_idx];
     let aow_indices = &group.aow_indices[unit.aow_start..unit.aow_end];
     let mut candidates = Vec::with_capacity(request.top_k.min(aow_indices.len()));
-    let damage_multiplier = request.damage_multiplier();
+    let mut route_sets = Vec::with_capacity(aow_indices.len());
+    for &aow_idx in aow_indices {
+        let Some(routes) =
+            prepare_scalar_aow_routes(&prepared.aow_choices[aow_idx].attack_rows, plan.data)?
+        else {
+            return search_work_unit_exhaustive(plan, unit, group_mode, progress);
+        };
+        route_sets.push((aow_idx, routes));
+    }
 
-    for upgrade in &prepared.upgrades {
+    for (aow_idx, routes) in route_sets {
         if progress.is_cancelled() {
             return Err("cancelled".to_string());
         }
-        let combat = best_ar_combat_stats(
-            &group.search,
-            request,
-            prepared,
-            *upgrade,
-            plan.data,
-            progress,
-        )?;
-        let mut stats = request.current_stats;
-        stats.str = combat[STAT_STR];
-        stats.dex = combat[STAT_DEX];
-        stats.int = combat[STAT_INT];
-        stats.fai = combat[STAT_FAI];
-        stats.arc = combat[STAT_ARC];
-        let effective_str_value = effective_str_for_weapon(request, prepared.weapon, stats.str);
-        let base_metric = calculate_base_weapon_metric(
-            request.objective,
-            prepared,
-            *upgrade,
-            &stats,
-            effective_str_value,
-            plan.data,
-        )?;
-        for aow_idx in aow_indices {
-            let aow_choice = &prepared.aow_choices[*aow_idx];
-            let metric = score_candidate(
-                request.objective,
-                prepared,
-                aow_choice,
-                *upgrade,
-                &stats,
-                effective_str_value,
-                damage_multiplier,
-                base_metric,
-                plan.data,
-            )?;
+        let aow_choice = &prepared.aow_choices[aow_idx];
+        for &upgrade in &prepared.upgrades {
+            let best = if routes.is_empty() {
+                best_objective_allocation(
+                    &group.search,
+                    request,
+                    prepared,
+                    aow_choice,
+                    upgrade,
+                    None,
+                    plan.data,
+                    progress,
+                )?
+            } else {
+                let mut best = None;
+                for route in &routes {
+                    let candidate = best_objective_allocation(
+                        &group.search,
+                        request,
+                        prepared,
+                        aow_choice,
+                        upgrade,
+                        Some(route),
+                        plan.data,
+                        progress,
+                    )?;
+                    if best.is_none_or(|current| better_objective_allocation(candidate, current)) {
+                        best = Some(candidate);
+                    }
+                }
+                best.ok_or_else(|| "AoW route optimizer found no feasible allocation".to_string())?
+            };
+            let metric = CandidateMetric {
+                score: best.key.score,
+                ar: Some(best.ar),
+                status_buildup: None,
+                bleed_buildup: Some(best.key.bleed),
+                aow_first_hit_damage: Some(best.key.aow_first),
+                aow_full_sequence_damage: Some(best.key.aow_full),
+            };
+            if matches!(request.objective, OptimizeObjective::AowFirstHit)
+                && best.key.aow_first <= 0.0
+                || matches!(request.objective, OptimizeObjective::AowFullSequence)
+                    && best.key.aow_full <= 0.0
+            {
+                progress.advance(
+                    group.search.candidate_count,
+                    group.search.candidate_count,
+                    None,
+                )?;
+                continue;
+            }
             progress.advance(
                 group.search.candidate_count,
                 group.search.candidate_count,
                 Some(metric.score),
             )?;
+            let stats = stats_with_combat(request.current_stats, best.combat);
             let candidate = ScoredCandidate {
                 prepared_idx: group.prepared_idx,
-                aow_idx: *aow_idx,
-                upgrade: *upgrade,
+                aow_idx,
+                upgrade,
                 stats,
                 metric,
             };
@@ -1180,38 +1177,49 @@ where
     Ok(candidates)
 }
 
-#[derive(Clone, Copy)]
-struct ArAllocation {
-    // DP-only selection estimates. Final AR is recomputed from `combat`; never expose
-    // these accumulated f32 values as a result metric.
-    primary: f32,
-    total: f32,
+#[derive(Clone, Copy, Debug, Default)]
+struct ObjectiveKey {
+    score: f32,
+    ar_total: f32,
+    aow_full: f32,
+    aow_first: f32,
+    bleed: f32,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ObjectiveAllocation {
+    key: ObjectiveKey,
+    ar: DamageBreakdown,
     combat: [u8; COMBAT_STAT_COUNT],
 }
 
-fn best_ar_combat_stats<P>(
+#[allow(clippy::too_many_arguments)]
+fn best_objective_allocation<P>(
     search: &RelevantStatSearch,
     request: &OptimizeRequest,
     prepared: &PreparedWeapon<'_>,
+    aow_choice: &AowChoice<'_>,
     upgrade: u8,
+    route: Option<&ScalarAowRoute<'_>>,
     data: &GameData,
     progress: &P,
-) -> Result<[u8; COMBAT_STAT_COUNT], String>
+) -> Result<ObjectiveAllocation, String>
 where
     P: SearchProgress,
 {
-    let mut base_combat = search.mins;
-    fill_inactive_stats(search, &mut base_combat, search.required_inactive_fill());
-    let base_ar = ar_for_combat(base_combat, request, prepared, upgrade, data)?;
-    let target_spend = search
-        .remaining_free
-        .saturating_sub(search.required_inactive_fill());
-    let mut allocations = vec![None; usize::from(target_spend) + 1];
-    allocations[0] = Some(ArAllocation {
-        primary: ar_primary(request.objective, base_ar),
-        total: base_ar.total(),
-        combat: base_combat,
-    });
+    let base_combat = search.mins;
+    let base = evaluate_objective_allocation(
+        base_combat,
+        request,
+        prepared,
+        aow_choice,
+        upgrade,
+        route,
+        data,
+    )?;
+    let max_active_spend = search.max_active_spend();
+    let mut allocations = vec![None; usize::from(max_active_spend) + 1];
+    allocations[0] = Some(base);
 
     for stat_idx in 0..COMBAT_STAT_COUNT {
         if !search.active[stat_idx] {
@@ -1220,29 +1228,28 @@ where
         if progress.is_cancelled() {
             return Err("cancelled".to_string());
         }
-        let cap = u16::from(search.maxs[stat_idx] - search.mins[stat_idx]).min(target_spend);
+        let cap = u16::from(search.maxs[stat_idx] - search.mins[stat_idx]).min(max_active_spend);
         let mut stat_values = Vec::with_capacity(usize::from(cap) + 1);
         for add in 0..=cap {
             let mut combat = base_combat;
             combat[stat_idx] = search.mins[stat_idx] + add as u8;
-            let ar = ar_for_combat(combat, request, prepared, upgrade, data)?;
-            stat_values.push((
-                ar_primary(request.objective, ar) - ar_primary(request.objective, base_ar),
-                ar.total() - base_ar.total(),
-            ));
+            let value = evaluate_objective_allocation(
+                combat, request, prepared, aow_choice, upgrade, route, data,
+            )?;
+            stat_values.push(subtract_objective_key(value.key, base.key));
         }
 
         let mut next = vec![None; allocations.len()];
         for (spent, entry) in allocations.iter().enumerate() {
             let Some(entry) = entry else { continue };
-            let remaining = usize::from(target_spend).saturating_sub(spent);
+            let remaining = usize::from(max_active_spend).saturating_sub(spent);
             for add in 0..=usize::from(cap).min(remaining) {
                 let mut candidate = *entry;
-                candidate.primary = entry.primary + stat_values[add].0;
-                candidate.total = entry.total + stat_values[add].1;
+                candidate.key = add_objective_key(entry.key, stat_values[add]);
                 candidate.combat[stat_idx] = search.mins[stat_idx] + add as u8;
                 let destination = &mut next[spent + add];
-                if destination.is_none_or(|current| better_ar_allocation(candidate, current)) {
+                if destination.is_none_or(|current| better_objective_allocation(candidate, current))
+                {
                     *destination = Some(candidate);
                 }
             }
@@ -1250,45 +1257,148 @@ where
         allocations = next;
     }
 
-    allocations[usize::from(target_spend)]
-        .map(|allocation| allocation.combat)
-        .ok_or_else(|| "AR stat optimizer could not satisfy the stat budget".to_string())
+    (search.min_active_spend()..=max_active_spend)
+        .filter_map(|spent| allocations[usize::from(spent)].map(|allocation| (spent, allocation)))
+        .map(|(spent, mut allocation)| {
+            fill_inactive_stats(
+                search,
+                &mut allocation.combat,
+                search.remaining_free - spent,
+            );
+            evaluate_objective_allocation(
+                allocation.combat,
+                request,
+                prepared,
+                aow_choice,
+                upgrade,
+                route,
+                data,
+            )
+        })
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .reduce(|best, candidate| {
+            if better_objective_allocation(candidate, best) {
+                candidate
+            } else {
+                best
+            }
+        })
+        .ok_or_else(|| "stat optimizer could not satisfy the stat budget".to_string())
 }
 
-fn ar_for_combat(
+#[allow(clippy::too_many_arguments)]
+fn evaluate_objective_allocation(
     combat: [u8; COMBAT_STAT_COUNT],
     request: &OptimizeRequest,
     prepared: &PreparedWeapon<'_>,
+    aow_choice: &AowChoice<'_>,
     upgrade: u8,
+    route: Option<&ScalarAowRoute<'_>>,
     data: &GameData,
-) -> Result<DamageBreakdown, String> {
-    let mut stats = request.current_stats;
+) -> Result<ObjectiveAllocation, String> {
+    let stats = stats_with_combat(request.current_stats, combat);
+    let effective_str_value = effective_str_for_weapon(request, prepared.weapon, stats.str);
+    let ar = calculate_ar_with_buffs(
+        prepared,
+        aow_choice,
+        upgrade,
+        &stats,
+        effective_str_value,
+        request.damage_multiplier(),
+        data,
+    )?;
+    let bleed = apply_aow_bleed_buffs(
+        calculate_bleed_buildup(prepared.weapon, upgrade, &stats, data)?,
+        prepared.weapon,
+        upgrade,
+        &stats,
+        data,
+        aow_choice.aow,
+    )?;
+    let aow = route.map_or(Ok(Default::default()), |route| {
+        evaluate_scalar_aow_route(
+            route,
+            prepared.weapon,
+            upgrade,
+            &stats,
+            effective_str_value,
+            request.damage_multiplier(),
+            data,
+        )
+    })?;
+    let score = match request.objective {
+        OptimizeObjective::MaxAr => ar.total(),
+        OptimizeObjective::MaxPhysicalAr => ar.physical,
+        OptimizeObjective::BleedThenAr => bleed,
+        OptimizeObjective::AowFirstHit => aow.first_hit_damage,
+        OptimizeObjective::AowFullSequence => aow.full_sequence_damage,
+    };
+    Ok(ObjectiveAllocation {
+        key: ObjectiveKey {
+            score,
+            ar_total: ar.total(),
+            aow_full: aow.full_sequence_damage,
+            aow_first: aow.first_hit_damage,
+            bleed,
+        },
+        ar,
+        combat,
+    })
+}
+
+fn stats_with_combat(mut stats: Stats, combat: [u8; COMBAT_STAT_COUNT]) -> Stats {
     stats.str = combat[STAT_STR];
     stats.dex = combat[STAT_DEX];
     stats.int = combat[STAT_INT];
     stats.fai = combat[STAT_FAI];
     stats.arc = combat[STAT_ARC];
-    calculate_ar(
-        prepared.weapon,
-        upgrade,
-        &stats,
-        effective_str_for_weapon(request, prepared.weapon, stats.str),
-        data,
-    )
+    stats
 }
 
-fn ar_primary(objective: OptimizeObjective, ar: DamageBreakdown) -> f32 {
-    match objective {
-        OptimizeObjective::MaxPhysicalAr => ar.physical,
-        _ => ar.total(),
+fn add_objective_key(left: ObjectiveKey, right: ObjectiveKey) -> ObjectiveKey {
+    ObjectiveKey {
+        score: left.score + right.score,
+        ar_total: left.ar_total + right.ar_total,
+        aow_full: left.aow_full + right.aow_full,
+        aow_first: left.aow_first + right.aow_first,
+        bleed: left.bleed + right.bleed,
     }
 }
 
-fn better_ar_allocation(candidate: ArAllocation, current: ArAllocation) -> bool {
-    candidate.primary > current.primary
-        || candidate.primary == current.primary && candidate.total > current.total
-        || candidate.primary == current.primary
-            && candidate.total == current.total
+fn subtract_objective_key(left: ObjectiveKey, right: ObjectiveKey) -> ObjectiveKey {
+    ObjectiveKey {
+        score: left.score - right.score,
+        ar_total: left.ar_total - right.ar_total,
+        aow_full: left.aow_full - right.aow_full,
+        aow_first: left.aow_first - right.aow_first,
+        bleed: left.bleed - right.bleed,
+    }
+}
+
+fn better_objective_allocation(
+    candidate: ObjectiveAllocation,
+    current: ObjectiveAllocation,
+) -> bool {
+    candidate.key.score > current.key.score
+        || candidate.key.score == current.key.score && candidate.key.ar_total > current.key.ar_total
+        || candidate.key.score == current.key.score
+            && candidate.key.ar_total == current.key.ar_total
+            && candidate.key.aow_full > current.key.aow_full
+        || candidate.key.score == current.key.score
+            && candidate.key.ar_total == current.key.ar_total
+            && candidate.key.aow_full == current.key.aow_full
+            && candidate.key.aow_first > current.key.aow_first
+        || candidate.key.score == current.key.score
+            && candidate.key.ar_total == current.key.ar_total
+            && candidate.key.aow_full == current.key.aow_full
+            && candidate.key.aow_first == current.key.aow_first
+            && candidate.key.bleed > current.key.bleed
+        || candidate.key.score == current.key.score
+            && candidate.key.ar_total == current.key.ar_total
+            && candidate.key.aow_full == current.key.aow_full
+            && candidate.key.aow_first == current.key.aow_first
+            && candidate.key.bleed == current.key.bleed
             && candidate.combat < current.combat
 }
 
@@ -1636,11 +1746,29 @@ fn select_best_aow_route(
     objective: OptimizeObjective,
 ) -> Option<AowRouteResult> {
     routes.into_iter().reduce(|best, candidate| {
-        let metric = |route: &AowRouteResult| match objective {
-            OptimizeObjective::AowFirstHit => route.first_hit_damage,
-            _ => route.total_damage.total(),
+        let candidate_primary = match objective {
+            OptimizeObjective::AowFirstHit => candidate.first_hit_damage,
+            _ => candidate.total_damage.total(),
         };
-        if metric(&candidate) > metric(&best) {
+        let best_primary = match objective {
+            OptimizeObjective::AowFirstHit => best.first_hit_damage,
+            _ => best.total_damage.total(),
+        };
+        let candidate_secondary = match objective {
+            OptimizeObjective::AowFirstHit => candidate.total_damage.total(),
+            _ => candidate.first_hit_damage,
+        };
+        let best_secondary = match objective {
+            OptimizeObjective::AowFirstHit => best.total_damage.total(),
+            _ => best.first_hit_damage,
+        };
+        if candidate_primary > best_primary
+            || candidate_primary == best_primary && candidate_secondary > best_secondary
+            || candidate_primary == best_primary
+                && candidate_secondary == best_secondary
+                && (candidate.route_priority, &candidate.route_id)
+                    < (best.route_priority, &best.route_id)
+        {
             candidate
         } else {
             best
@@ -1979,7 +2107,9 @@ fn build_combat_constraints(request: &OptimizeRequest) -> Result<CombatConstrain
         mandatory_raise += u16::from(mins[idx].saturating_sub(current[idx]));
     }
     if mandatory_raise > free_points {
-        return Err("combat stat floors exceed free point budget".to_string());
+        return Err(format!(
+            "combat stat floors require {mandatory_raise} points, but the level budget has {free_points}"
+        ));
     }
 
     let remaining_free = free_points - mandatory_raise;
@@ -2584,17 +2714,13 @@ fn build_aow_choice<'a>(
     aow: &'a Aow,
     weapon: &Weapon,
     data: &'a GameData,
-    objective: OptimizeObjective,
+    _objective: OptimizeObjective,
 ) -> AowChoice<'a> {
     AowChoice {
         aow: Some(aow),
         skill_id: Some(aow.aow_id),
         skill_name: Some(aow.name.as_str()),
-        attack_rows: if objective_uses_aow_damage(objective) {
-            select_aow_attack_rows(aow.aow_id, weapon, data)
-        } else {
-            Vec::new()
-        },
+        attack_rows: select_aow_attack_rows(aow.aow_id, weapon, data),
     }
 }
 
@@ -2622,13 +2748,6 @@ fn open_aow_choices_for_objective<'a>(
     choices
 }
 
-fn objective_uses_aow_damage(objective: OptimizeObjective) -> bool {
-    matches!(
-        objective,
-        OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
-    )
-}
-
 fn aow_affects_objective(aow: &Aow, objective: OptimizeObjective) -> bool {
     let changes_any_ar = aow.buff_attack_power.iter().any(|value| *value != 0.0);
     match objective {
@@ -2646,7 +2765,7 @@ fn aow_affects_objective(aow: &Aow, objective: OptimizeObjective) -> bool {
 fn native_skill_choice_for_weapon<'a>(
     weapon: &'a Weapon,
     data: &'a GameData,
-    objective: OptimizeObjective,
+    _objective: OptimizeObjective,
 ) -> Option<AowChoice<'a>> {
     let native_skill_id = weapon.native_skill_id?;
     let exact_rows = data.native_skill_attack_rows(weapon.weapon_id);
@@ -2655,11 +2774,7 @@ fn native_skill_choice_for_weapon<'a>(
     } else {
         exact_rows
     };
-    let attack_rows = if objective_uses_aow_damage(objective) {
-        select_attack_rows(source_rows, weapon)
-    } else {
-        Vec::new()
-    };
+    let attack_rows = select_attack_rows(source_rows, weapon);
     let skill_name = weapon
         .native_skill_name
         .as_deref()
@@ -2769,7 +2884,6 @@ struct RelevantStatSearch {
     maxs: [u8; COMBAT_STAT_COUNT],
     active: [bool; COMBAT_STAT_COUNT],
     remaining_free: u16,
-    required_inactive_fill: u16,
     candidate_count: u64,
 }
 
@@ -2797,7 +2911,6 @@ struct DistributionCountKey {
     maxs: [u8; COMBAT_STAT_COUNT],
     active: [bool; COMBAT_STAT_COUNT],
     remaining_free: u16,
-    required_inactive_fill: u16,
 }
 
 impl RelevantStatSearch {
@@ -2826,33 +2939,20 @@ impl RelevantStatSearch {
             }
         }
 
-        let active_capacity: u16 = (0..COMBAT_STAT_COUNT)
-            .filter(|idx| active[*idx])
-            .map(|idx| u16::from(maxs[idx] - mins[idx]))
-            .sum();
-        let required_inactive_fill = remaining_free.saturating_sub(active_capacity);
         let count_key = DistributionCountKey {
             mins,
             maxs,
             active,
             remaining_free,
-            required_inactive_fill,
         };
-        let candidate_count = *distribution_counts.entry(count_key).or_insert_with(|| {
-            count_relevant_distributions(
-                &mins,
-                &maxs,
-                &active,
-                remaining_free,
-                required_inactive_fill,
-            )
-        });
+        let candidate_count = *distribution_counts
+            .entry(count_key)
+            .or_insert_with(|| count_relevant_distributions(&mins, &maxs, &active, remaining_free));
         (candidate_count > 0).then_some(Self {
             mins,
             maxs,
             active,
             remaining_free,
-            required_inactive_fill,
             candidate_count,
         })
     }
@@ -2864,8 +2964,23 @@ impl RelevantStatSearch {
         visit_relevant_stat_candidates_inner(0, self.remaining_free, self, current, &mut visitor);
     }
 
-    fn required_inactive_fill(&self) -> u16 {
-        self.required_inactive_fill
+    fn inactive_capacity(&self) -> u16 {
+        (0..COMBAT_STAT_COUNT)
+            .filter(|idx| !self.active[*idx])
+            .map(|idx| u16::from(self.maxs[idx] - self.mins[idx]))
+            .sum()
+    }
+
+    fn min_active_spend(&self) -> u16 {
+        self.remaining_free.saturating_sub(self.inactive_capacity())
+    }
+
+    fn max_active_spend(&self) -> u16 {
+        let active_capacity: u16 = (0..COMBAT_STAT_COUNT)
+            .filter(|idx| self.active[*idx])
+            .map(|idx| u16::from(self.maxs[idx] - self.mins[idx]))
+            .sum();
+        self.remaining_free.min(active_capacity)
     }
 }
 
@@ -2874,14 +2989,17 @@ fn count_relevant_distributions(
     maxs: &[u8; COMBAT_STAT_COUNT],
     active: &[bool; COMBAT_STAT_COUNT],
     remaining_free: u16,
-    required_inactive_fill: u16,
 ) -> u64 {
+    let inactive_capacity = (0..COMBAT_STAT_COUNT)
+        .filter(|idx| !active[*idx])
+        .map(|idx| u16::from(maxs[idx] - mins[idx]))
+        .sum();
     let mut memo: HashMap<(usize, u16), u64> = HashMap::new();
     count_active_distributions(
         mins,
         maxs,
         active,
-        required_inactive_fill,
+        inactive_capacity,
         0,
         remaining_free,
         &mut memo,
@@ -2892,13 +3010,13 @@ fn count_active_distributions(
     mins: &[u8; COMBAT_STAT_COUNT],
     maxs: &[u8; COMBAT_STAT_COUNT],
     active: &[bool; COMBAT_STAT_COUNT],
-    required_inactive_fill: u16,
+    inactive_capacity: u16,
     idx: usize,
     remaining_free: u16,
     memo: &mut HashMap<(usize, u16), u64>,
 ) -> u64 {
     if idx == COMBAT_STAT_COUNT {
-        return if remaining_free == required_inactive_fill {
+        return if remaining_free <= inactive_capacity {
             1
         } else {
             0
@@ -2915,7 +3033,7 @@ fn count_active_distributions(
                     mins,
                     maxs,
                     active,
-                    required_inactive_fill,
+                    inactive_capacity,
                     idx + 1,
                     remaining_free - add,
                     memo,
@@ -2927,7 +3045,7 @@ fn count_active_distributions(
             mins,
             maxs,
             active,
-            required_inactive_fill,
+            inactive_capacity,
             idx + 1,
             remaining_free,
             memo,
@@ -2948,7 +3066,7 @@ where
     F: FnMut(&[u8; COMBAT_STAT_COUNT]) -> bool,
 {
     if idx == COMBAT_STAT_COUNT {
-        if remaining_free != search.required_inactive_fill() {
+        if remaining_free > search.inactive_capacity() {
             return true;
         }
         let mut filled = *current;
@@ -3049,26 +3167,15 @@ fn active_stats_for_choice(
     aow_choice: &AowChoice<'_>,
     data: &GameData,
 ) -> [bool; COMBAT_STAT_COUNT] {
-    match request.objective {
-        OptimizeObjective::MaxAr => {
-            std::array::from_fn(|idx| weapon_stat_can_increase_ar(prepared.weapon, data, idx))
-        }
-        OptimizeObjective::MaxPhysicalAr => {
-            std::array::from_fn(|idx| weapon_stat_can_increase_ar(prepared.weapon, data, idx))
-        }
-        OptimizeObjective::BleedThenAr => std::array::from_fn(|idx| {
-            weapon_stat_can_increase_ar(prepared.weapon, data, idx)
-                || stat_can_increase_bleed_for_choice(prepared, aow_choice, data, idx)
-        }),
-        OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence => {
-            std::array::from_fn(|idx| {
-                weapon_stat_can_increase_ar(prepared.weapon, data, idx)
-                    || aow_choice.attack_rows.iter().any(|row| {
-                        attack_row_stat_can_increase_damage(prepared.weapon, row, data, idx)
-                    })
-            })
-        }
-    }
+    let _ = request;
+    std::array::from_fn(|idx| {
+        weapon_stat_can_increase_ar(prepared.weapon, data, idx)
+            || stat_can_increase_bleed_for_choice(prepared, aow_choice, data, idx)
+            || aow_choice
+                .attack_rows
+                .iter()
+                .any(|row| attack_row_stat_can_increase_damage(prepared.weapon, row, data, idx))
+    })
 }
 
 fn attack_row_stat_can_increase_damage(

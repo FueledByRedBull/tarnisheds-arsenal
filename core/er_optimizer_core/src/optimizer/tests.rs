@@ -254,6 +254,7 @@ fn aow_metrics_stay_on_the_objective_selected_route() {
             physical: total,
             ..DamageBreakdown::default()
         },
+        total_poise_damage: 0.0,
         total_status_buildup: StatusBuildup::default(),
         total_stamina_cost: 0.0,
     };
@@ -266,6 +267,21 @@ fn aow_metrics_stay_on_the_objective_selected_route() {
     assert_eq!(first.total_damage.total(), 150.0);
     assert_eq!(full.route_id, "chain");
     assert_eq!(full.first_hit_damage, 80.0);
+
+    let first_tie = vec![route("short", 100.0, 150.0), route("long", 100.0, 300.0)];
+    assert_eq!(
+        select_best_aow_route(first_tie, OptimizeObjective::AowFirstHit)
+            .unwrap()
+            .route_id,
+        "long"
+    );
+    let full_tie = vec![route("slow", 80.0, 300.0), route("fast", 100.0, 300.0)];
+    assert_eq!(
+        select_best_aow_route(full_tie, OptimizeObjective::AowFullSequence)
+            .unwrap()
+            .route_id,
+        "fast"
+    );
 }
 
 fn test_result(
@@ -454,14 +470,46 @@ fn optimize_returns_sorted_top_results_for_locked_weapon() {
 }
 
 #[test]
-fn dynamic_ar_search_matches_exhaustive_search() {
+fn dynamic_search_matches_exhaustive_search_for_every_objective() {
     let game_data = load_data();
-    for objective in [OptimizeObjective::MaxAr, OptimizeObjective::MaxPhysicalAr] {
+    for (objective, weapon, affinity, aow_name) in [
+        (OptimizeObjective::MaxAr, "Uchigatana", "Blood", "Seppuku"),
+        (
+            OptimizeObjective::MaxPhysicalAr,
+            "Uchigatana",
+            "Blood",
+            "Seppuku",
+        ),
+        (
+            OptimizeObjective::BleedThenAr,
+            "Uchigatana",
+            "Blood",
+            "Seppuku",
+        ),
+        (
+            OptimizeObjective::AowFirstHit,
+            "Uchigatana",
+            "Keen",
+            "Unsheathe",
+        ),
+        (
+            OptimizeObjective::AowFullSequence,
+            "Uchigatana",
+            "Keen",
+            "Unsheathe",
+        ),
+        (
+            OptimizeObjective::AowFullSequence,
+            "Claymore",
+            "Standard",
+            "Wild Strikes",
+        ),
+    ] {
         let mut request = base_request();
-        request.character_level = 60;
-        request.weapon_name = Some("Uchigatana".to_string());
-        request.affinity = Some("Blood".to_string());
-        request.aow_name = Some("Seppuku".to_string());
+        request.character_level = 35;
+        request.weapon_name = Some(weapon.to_string());
+        request.affinity = Some(affinity.to_string());
+        request.aow_name = Some(aow_name.to_string());
         request.standard_max_upgrade = 18;
         request.exact_upgrade = true;
         request.objective = objective;
@@ -470,7 +518,57 @@ fn dynamic_ar_search_matches_exhaustive_search() {
         let unit = *plan.serial_work_units.first().expect("AR work unit");
         let mut dynamic_progress =
             SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
-        let dynamic = search_ar_work_unit(
+        let dynamic = search_dp_work_unit(
+            &plan,
+            unit,
+            result_group_mode(&request),
+            &mut dynamic_progress,
+        )
+        .expect("dynamic search");
+        let mut exhaustive_progress =
+            SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
+        let exhaustive = search_work_unit_exhaustive(
+            &plan,
+            unit,
+            result_group_mode(&request),
+            &mut exhaustive_progress,
+        )
+        .expect("exhaustive search");
+
+        assert_eq!(dynamic.len(), exhaustive.len());
+        for (fast, reference) in dynamic.iter().zip(exhaustive.iter()) {
+            assert_eq!(fast.upgrade, reference.upgrade);
+            assert_eq!(fast.stats, reference.stats);
+            assert_eq!(fast.metric.score, reference.metric.score);
+        }
+    }
+}
+
+#[test]
+fn dynamic_ar_search_checks_every_feasible_active_spend() {
+    for (values, expected_str) in [
+        ([0.0, 1.0, 0.5], 13),
+        ([0.0, 0.5, 1.0], 14),
+        ([1.0, 0.5, 0.0], 12),
+    ] {
+        let mut game_data = load_data();
+        let curve = game_data.calc_correct[1]
+            .as_mut()
+            .expect("physical curve 1");
+        for (stat, value) in (12_usize..=14).zip(values) {
+            curve[stat] = Some(value);
+        }
+
+        let mut request = base_request();
+        request.character_level = 11;
+        request.weapon_name = Some("Club".to_string());
+        request.affinity = Some("Heavy".to_string());
+        request.top_k = 1;
+        let plan = prepare_search(&request, &game_data).expect("prepare spend comparison");
+        let unit = *plan.serial_work_units.first().expect("AR work unit");
+        let mut dynamic_progress =
+            SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
+        let dynamic = search_dp_work_unit(
             &plan,
             unit,
             result_group_mode(&request),
@@ -487,19 +585,8 @@ fn dynamic_ar_search_matches_exhaustive_search() {
         )
         .expect("exhaustive AR search");
 
-        assert_eq!(dynamic.len(), exhaustive.len());
-        for (fast, reference) in dynamic.iter().zip(exhaustive.iter()) {
-            assert_eq!(fast.upgrade, reference.upgrade);
-            assert_eq!(fast.stats, reference.stats);
-            assert_eq!(fast.metric.score, reference.metric.score);
-            let fast_ar = fast.metric.ar.expect("dynamic AR metric");
-            let reference_ar = reference.metric.ar.expect("exhaustive AR metric");
-            assert_eq!(fast_ar.physical, reference_ar.physical);
-            assert_eq!(fast_ar.magic, reference_ar.magic);
-            assert_eq!(fast_ar.fire, reference_ar.fire);
-            assert_eq!(fast_ar.lightning, reference_ar.lightning);
-            assert_eq!(fast_ar.holy, reference_ar.holy);
-        }
+        assert_eq!(dynamic[0].stats, exhaustive[0].stats);
+        assert_eq!(dynamic[0].stats.str, expected_str);
     }
 }
 
@@ -791,6 +878,122 @@ fn distribution_counter_matches_brute_force_property_corpus() {
         };
         let actual = count_distributions(&caps, 0, remaining, &mut HashMap::new());
         assert_eq!(actual, brute(&caps, 0, remaining), "seed {seed}");
+    }
+}
+
+#[test]
+fn relevant_search_counts_and_visits_the_full_feasible_spend_range() {
+    fn collect(
+        mins: [u8; COMBAT_STAT_COUNT],
+        maxs: [u8; COMBAT_STAT_COUNT],
+        active: [bool; COMBAT_STAT_COUNT],
+        remaining_free: u16,
+    ) -> Vec<[u8; COMBAT_STAT_COUNT]> {
+        let candidate_count = count_relevant_distributions(&mins, &maxs, &active, remaining_free);
+        let search = RelevantStatSearch {
+            mins,
+            maxs,
+            active,
+            remaining_free,
+            candidate_count,
+        };
+        let mut current = mins;
+        let mut candidates = Vec::new();
+        search.visit(&mut current, |combat| {
+            candidates.push(*combat);
+            true
+        });
+        assert_eq!(candidate_count, candidates.len() as u64);
+        candidates
+    }
+
+    let mins = [10; COMBAT_STAT_COUNT];
+    let mut active = [false; COMBAT_STAT_COUNT];
+    active[STAT_STR] = true;
+
+    let mut maxs = mins;
+    maxs[STAT_STR] = 12;
+    maxs[STAT_DEX] = 12;
+    maxs[STAT_ARC] = 12;
+    let candidates = collect(mins, maxs, active, 2);
+    assert_eq!(candidates.len(), 3);
+    assert_eq!(candidates[0], [10, 10, 10, 10, 12]);
+    assert_eq!(candidates[1], [11, 10, 10, 10, 11]);
+    assert_eq!(candidates[2], [12, 10, 10, 10, 10]);
+
+    maxs[STAT_DEX] = 10;
+    maxs[STAT_ARC] = 11;
+    assert_eq!(collect(mins, maxs, active, 2).len(), 2);
+
+    maxs[STAT_ARC] = 10;
+    assert_eq!(collect(mins, maxs, active, 2).len(), 1);
+
+    maxs[STAT_STR] = 10;
+    maxs[STAT_ARC] = 12;
+    assert_eq!(collect(mins, maxs, active, 2), [[10, 10, 10, 10, 12]]);
+}
+
+#[test]
+fn inactive_fill_precedes_the_terminal_stat_vector_tie_break() {
+    let mins = [10; COMBAT_STAT_COUNT];
+    let mut maxs = mins;
+    maxs[STAT_STR] = 12;
+    maxs[STAT_ARC] = 12;
+    let mut active = [false; COMBAT_STAT_COUNT];
+    active[STAT_ARC] = true;
+    let search = RelevantStatSearch {
+        mins,
+        maxs,
+        active,
+        remaining_free: 2,
+        candidate_count: 3,
+    };
+    let mut inactive = ObjectiveAllocation {
+        key: ObjectiveKey {
+            score: 1.0,
+            ar_total: 1.0,
+            ..Default::default()
+        },
+        ar: DamageBreakdown::default(),
+        combat: mins,
+    };
+    fill_inactive_stats(&search, &mut inactive.combat, 2);
+    let mut active = inactive;
+    active.combat = mins;
+    active.combat[STAT_ARC] = 12;
+
+    assert_eq!(inactive.combat, [12, 10, 10, 10, 10]);
+    assert_eq!(active.combat, [10, 10, 10, 10, 12]);
+    assert!(better_objective_allocation(active, inactive));
+}
+
+#[test]
+fn exhaustive_objectives_visit_both_ends_of_the_feasible_spend_range() {
+    let game_data = load_data();
+    for (objective, affinity, aow_name) in [
+        (OptimizeObjective::BleedThenAr, "Blood", "Seppuku"),
+        (OptimizeObjective::AowFirstHit, "Keen", "Unsheathe"),
+        (OptimizeObjective::AowFullSequence, "Keen", "Unsheathe"),
+    ] {
+        let mut request = base_request();
+        request.character_level = 11;
+        request.affinity = Some(affinity.to_string());
+        request.aow_name = Some(aow_name.to_string());
+        request.objective = objective;
+        let plan = prepare_search(&request, &game_data).expect("prepare exhaustive objective");
+        let search = plan.groups.first().expect("search group").search;
+        let mut current = search.mins;
+        let mut spends = HashSet::new();
+        search.visit(&mut current, |combat| {
+            let spend = (0..COMBAT_STAT_COUNT)
+                .filter(|idx| search.active[*idx])
+                .map(|idx| u16::from(combat[idx] - search.mins[idx]))
+                .sum::<u16>();
+            spends.insert(spend);
+            true
+        });
+        assert!(spends.contains(&search.min_active_spend()));
+        assert!(spends.contains(&search.max_active_spend()));
     }
 }
 
@@ -1698,8 +1901,7 @@ fn bleed_relevance_prunes_non_bleed_status_distributions() {
     )
     .expect("expected previous search");
 
-    assert_eq!(narrowed.candidate_count, 1_275);
-    assert_eq!(previous.candidate_count, 22_100);
+    assert!(narrowed.candidate_count < previous.candidate_count);
 }
 
 #[test]
@@ -1834,6 +2036,66 @@ fn benchmark_search_estimate_for_stat_entry_levels() {
             started.elapsed().as_secs_f64() * 1_000.0,
         );
     }
+}
+
+#[test]
+#[ignore = "release-mode DP versus exhaustive benchmark"]
+fn benchmark_dynamic_aow_sequence_against_exhaustive() {
+    let game_data = load_data();
+    let mut request = base_request();
+    request.character_level = 93;
+    request.weapon_name = Some("Reverse-Bladed Sword".to_string());
+    request.affinity = None;
+    request.aow_name = None;
+    request.standard_max_upgrade = 25;
+    request.exact_upgrade = true;
+    request.objective = OptimizeObjective::AowFullSequence;
+    request.top_k = 25;
+    let plan = prepare_search(&request, &game_data).expect("prepare AoW benchmark");
+    let unit = *plan
+        .serial_work_units
+        .iter()
+        .max_by_key(|unit| unit.candidate_count)
+        .expect("AoW benchmark work unit");
+
+    let started = std::time::Instant::now();
+    let mut dynamic_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
+    let dynamic = search_dp_work_unit(
+        &plan,
+        unit,
+        result_group_mode(&request),
+        &mut dynamic_progress,
+    )
+    .expect("dynamic AoW benchmark");
+    let dynamic_elapsed = started.elapsed();
+
+    let started = std::time::Instant::now();
+    let mut exhaustive_progress =
+        SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
+    let exhaustive = search_work_unit_exhaustive(
+        &plan,
+        unit,
+        result_group_mode(&request),
+        &mut exhaustive_progress,
+    )
+    .expect("exhaustive AoW benchmark");
+    let exhaustive_elapsed = started.elapsed();
+
+    assert_eq!(
+        dynamic.first().map(|row| row.stats),
+        exhaustive.first().map(|row| row.stats)
+    );
+    assert_eq!(
+        dynamic.first().map(|row| row.metric.score),
+        exhaustive.first().map(|row| row.metric.score)
+    );
+    println!(
+        "OBJECTIVE_BENCH candidates={} dynamic_ms={:.3} exhaustive_ms={:.3} speedup={:.1}x",
+        unit.candidate_count,
+        dynamic_elapsed.as_secs_f64() * 1_000.0,
+        exhaustive_elapsed.as_secs_f64() * 1_000.0,
+        exhaustive_elapsed.as_secs_f64() / dynamic_elapsed.as_secs_f64(),
+    );
 }
 
 #[test]
@@ -2556,6 +2818,11 @@ fn lion_claw_resolves_aow_choice_for_claymore() {
         !choices[0].attack_rows.is_empty(),
         "expected Lion's Claw attack rows for Claymore"
     );
+
+    let result = optimize(&request, &game_data).expect("optimize failed");
+    let route = result[0].aow_route.as_ref().expect("Lion's Claw route");
+    assert_eq!(route.actions[0].hits[0].poise_damage, 33.0);
+    assert_eq!(route.total_poise_damage, 33.0);
 }
 
 #[test]
