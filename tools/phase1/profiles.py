@@ -50,6 +50,8 @@ CONVERGENCE_AFFINITIES: Mapping[int, str] = {
 @dataclass(frozen=True)
 class ProfileCapabilities:
     weapon_ar: bool
+    weapon_ar_for_ammunition: bool
+    class_budget: bool
     status_buildup: bool
     weapon_passives: bool
     aow_compatibility: bool
@@ -59,6 +61,8 @@ class ProfileCapabilities:
     def as_manifest_dict(self) -> dict[str, bool]:
         return {
             "weaponAr": self.weapon_ar,
+            "weaponArForAmmunition": self.weapon_ar_for_ammunition,
+            "classBudget": self.class_budget,
             "statusBuildup": self.status_buildup,
             "weaponPassives": self.weapon_passives,
             "aowCompatibility": self.aow_compatibility,
@@ -98,6 +102,7 @@ class ProfileDefinition:
     raw_dir: Path
     output_dir: Path
     affinity_by_slot: Mapping[int, str]
+    somber_reinforce_types: frozenset[int] | None
     capabilities: ProfileCapabilities
     rules: ProfileRules
     use_workbook_weapon_metadata: bool
@@ -137,8 +142,11 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         raw_dir=Path("data/raw/Vanilla"),
         output_dir=Path("data/phase1"),
         affinity_by_slot=VANILLA_AFFINITIES,
+        somber_reinforce_types=None,
         capabilities=ProfileCapabilities(
             weapon_ar=True,
+            weapon_ar_for_ammunition=True,
+            class_budget=True,
             status_buildup=True,
             weapon_passives=True,
             aow_compatibility=True,
@@ -180,8 +188,11 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         raw_dir=Path("data/raw/Conv"),
         output_dir=Path("data/profiles/convergence"),
         affinity_by_slot=CONVERGENCE_AFFINITIES,
+        somber_reinforce_types=frozenset({2200, 2400}),
         capabilities=ProfileCapabilities(
             weapon_ar=True,
+            weapon_ar_for_ammunition=False,
+            class_budget=False,
             status_buildup=True,
             weapon_passives=True,
             aow_compatibility=True,

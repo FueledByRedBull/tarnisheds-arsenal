@@ -16,7 +16,6 @@ aow_id,aow_name,status,standard_rows,damaging_rows,lacking_fp_rows,variant_rows,
 114,Unsheathe,direct_damage,4,4,2,0,0,0,0
 115,Square Off,direct_damage,4,4,2,0,0,0,0
 116,Giant Hunt,direct_damage,2,2,1,0,0,0,0
-117,Torch Attack,missing,0,0,0,0,0,0,0
 118,Loretta's Slash,direct_damage,25,24,12,20,0,0,5
 119,Poison Moth Flight,direct_damage,2,2,1,0,0,0,0
 120,Spinning Weapon,direct_damage,36,36,18,14,0,0,8
@@ -43,7 +42,6 @@ aow_id,aow_name,status,standard_rows,damaging_rows,lacking_fp_rows,variant_rows,
 220,Vacuum Slice,direct_damage,3,3,1,0,1,0,0
 221,Black Flame Tornado,direct_damage,4,4,2,0,2,0,0
 222,Sacred Ring of Light,direct_damage,12,12,3,0,6,0,0
-223,Firebreather,direct_damage,3,2,0,0,2,0,3
 224,Blood Blade,direct_damage,9,9,3,0,3,0,0
 225,Phantom Slash,direct_damage,6,6,2,0,2,0,0
 226,Spectral Lance,direct_damage,1,1,0,0,1,0,0
@@ -52,7 +50,6 @@ aow_id,aow_name,status,standard_rows,damaging_rows,lacking_fp_rows,variant_rows,
 300,Shield Bash,direct_damage,4,4,2,2,0,0,0
 301,Barricade Shield,missing,0,0,0,0,0,0,0
 302,Parry,missing,0,0,0,0,0,0,0
-303,Buckler Parry,missing,0,0,0,0,0,0,0
 305,Carian Retaliation,direct_damage,4,2,0,0,3,1,0
 306,Storm Wall,missing,0,0,0,0,0,0,0
 307,Golden Parry,missing,0,0,0,0,0,0,0

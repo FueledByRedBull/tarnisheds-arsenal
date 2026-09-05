@@ -37,6 +37,7 @@ release-notes-*.md
 # Local planning
 /TODO.md
 /HARDEN.md
+/AUDITS.md
 
 # Retired PyQt desktop workspace kept local-only for old parity checks.
 ui/desktop/

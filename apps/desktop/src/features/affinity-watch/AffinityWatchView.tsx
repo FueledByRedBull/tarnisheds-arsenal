@@ -108,7 +108,7 @@ export function AffinityWatchView() {
         <div className="workspace-heading-copy">
           <h1>Affinity Watch</h1>
           <span>{selected ? `${selected.weaponName} across Current +${effectiveHorizon}` : "Requires selected result"}</span>
-          {selected ? <small className="selected-summary">{selected.affinity} / {selected.aowName ?? "Native"} / +{selected.upgrade} · {objectiveLabel(request.objective)} · data {catalog?.dataManifest.datasetVersion ?? "unknown"}</small> : null}
+          {selected ? <small className="selected-summary">{selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade} · {objectiveLabel(request.objective)} · data {catalog?.dataManifest.datasetVersion ?? "unknown"}</small> : null}
         </div>
         <div className="header-controls">
           <label>
@@ -121,6 +121,7 @@ export function AffinityWatchView() {
           </button>
         </div>
       </div>
+      <small className="path-mode-note">Each affinity independently optimizes combat stats at the same level budget, ignoring exact stat locks while retaining minimums. The selected skill and upgrade stay fixed; incompatible affinities are excluded.</small>
       <Progress
         checked={affinityProgress?.checked ?? 0}
         total={affinityProgress?.total ?? (payload?.lines.length || 1)}

@@ -10,6 +10,8 @@ import { cachedWeaponProfile as cachedProfileWeaponProfile, clearAnalysisCaches,
 import type { WeaponProfileDto } from "./types";
 
 const profile: WeaponProfileDto = {
+  canChangeAow: true,
+  nativeSkillName: "Stamp (Upward Cut)",
   requirements: { strStat: 16, dex: 13, intStat: 9, fai: 9, arc: 7 },
   maxUpgrade: 25,
   isSomber: false,

@@ -7,12 +7,70 @@ from pathlib import Path
 from tools.phase1.phase1_dump import (
     MAX_EFFECTIVE_STRENGTH,
     build_weapon_rows,
+    build_aow_rows,
+    canonical_gem_rows,
     expand_calc_correct_curve,
     iter_param_rows,
 )
 
 
 class Phase1DumpTests(unittest.TestCase):
+    def test_gem_defaults_are_profile_specific_and_overrides_win(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "gem.xml"
+            path.write_text(
+                "<param><fields>"
+                '<field name="configurableWepAttr00" defaultValue="1" />'
+                '<field name="configurableWepAttr11" defaultValue="1" />'
+                '<field name="configurableWepAttr12" defaultValue="1" />'
+                '<field name="gemMountType" defaultValue="2" />'
+                '</fields><rows><row id="21400" name="Ash of War: Flaming Strike" '
+                'sortId="354000" iconId="8342" swordArtsParamId="214" '
+                'configurableWepAttr12="0" canMountWep_ThrustingShield="1" /></rows></param>',
+                encoding="utf-8",
+            )
+            gems = list(iter_param_rows(path, apply_defaults=True))
+            rows = build_aow_rows(gems, {}, {}, {0: "Standard", 11: "Night", 12: "Lava"})
+            self.assertEqual(rows[0]["valid_affinities"], "Standard|Night")
+            selected = list(iter_param_rows(path, default_fields=("gemMountType",)))[0]
+            self.assertEqual(selected["gemMountType"], "2")
+            self.assertNotIn("configurableWepAttr11", selected)
+
+    def test_native_only_gems_are_not_transferable_ashes(self) -> None:
+        gems = [
+            {
+                "id": str(skill),
+                "name": "Ash of War: Native",
+                "swordArtsParamId": str(skill),
+                "sortId": "999999",
+                "iconId": "0",
+            }
+            for skill in (117, 223, 303)
+        ]
+        real = {
+            "id": "21400",
+            "name": "Ash of War: Flaming Strike",
+            "swordArtsParamId": "214",
+            "sortId": "354000",
+            "iconId": "8342",
+        }
+        self.assertEqual(canonical_gem_rows([*gems, real]), {214: real})
+        self.assertEqual(build_aow_rows(gems, {}, {}, {0: "Standard"}), [])
+
+    def test_mounting_permission_is_independent_of_infusion(self) -> None:
+        from tools.phase1.derive_phase1_extras import build_aow_affinity_compat
+
+        weapon = {"name": "Shortbow", "affinity": "Standard", "weapon_type_keys": "BowSmall",
+                  "can_change_aow": "1", "disable_gem_attr": "1"}
+        ash = {"aow_id": "1", "name": "Barrage", "valid_affinities": "Standard",
+               "valid_weapon_types": "BowSmall"}
+        rows = build_aow_affinity_compat([weapon], [ash])
+        self.assertEqual(rows[0]["sample_weapon_names"], "Shortbow")
+        self.assertEqual(rows[0]["weapon_count"], "1")
+        for invalid in ({**weapon, "can_change_aow": "0", "disable_gem_attr": "0"},
+                        {**weapon, "affinity": "Night"}, {**weapon, "weapon_type_keys": "Bow"}):
+            self.assertEqual(build_aow_affinity_compat([invalid], [ash]), [])
+
     def test_versioned_name_recovers_an_unnamed_weapon_series(self) -> None:
         standard = {
             "id": "64530000",
@@ -51,6 +109,33 @@ class Phase1DumpTests(unittest.TestCase):
                 (64_530_100, "Reverse-Bladed Sword"),
             ],
         )
+
+    def test_profile_somber_types_override_upgrade_cap_heuristic(self) -> None:
+        row = {
+            "id": "2090000",
+            "name": "Unique Blade",
+            "sortId": "1",
+            "originEquipWep": "2090000",
+            "reinforceTypeId": "2200",
+            "wepType": "5",
+            "attackBasePhysics": "100",
+            "disableGemAttr": "1",
+        }
+        rows = build_weapon_rows(
+            [row],
+            {2090000: "Unique Blade"},
+            {},
+            {5: "Greatsword"},
+            {5: ("SwordLarge",)},
+            {0: "Standard"},
+            {2200: 15},
+            {},
+            use_workbook_weapon_metadata=False,
+            allow_param_weapon_names=True,
+            weapon_name_overrides={},
+            somber_reinforce_types=frozenset({2200}),
+        )
+        self.assertEqual(rows[0]["is_somber"], 1)
 
     def test_param_rows_use_real_xml_parsing(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

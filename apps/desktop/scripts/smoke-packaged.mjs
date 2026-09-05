@@ -39,7 +39,12 @@ try {
 
   const profileSwitch = page.getByRole("radiogroup", { name: "Game profile" });
   await profileSwitch.getByRole("radio", { name: /Convergence/ }).click();
-  await page.getByText("Weapon model ready", { exact: true }).waitFor();
+  await page.getByText("Experimental fixed-stat model", { exact: true }).waitFor();
+  if (await page.getByRole("combobox", { name: "Class", exact: true }).inputValue() !== "Custom stats") {
+    throw new Error("Convergence substituted a starting-class budget for fixed stats");
+  }
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.locator(".result-row-full").first().waitFor();
   await profileSwitch.getByRole("radio", { name: /Vanilla/ }).click();
   await page.getByText("Full model ready", { exact: true }).waitFor();
   await page.getByRole("spinbutton", { name: "STR", exact: true }).fill("12");

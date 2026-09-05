@@ -116,6 +116,28 @@ def main() -> int:
     if args.tag:
         expect_equal("release tag", args.tag, expected_tag, errors)
 
+    notes_path = root / "docs" / "release-notes" / f"{expected_tag}.md"
+    if not notes_path.exists():
+        errors.append(f"missing release notes: {notes_path.relative_to(root)}")
+
+    notes_index = root / "docs" / "release-notes" / "README.md"
+    try:
+        index_text = notes_index.read_text(encoding="utf-8")
+    except OSError:
+        errors.append(f"missing release notes index: {notes_index.relative_to(root)}")
+    else:
+        if expected_tag not in index_text:
+            errors.append(f"release notes index does not mention {expected_tag}")
+        release_url = (
+            "https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/"
+            f"{expected_tag}"
+        )
+        if release_url not in index_text:
+            errors.append(
+                f"release notes index must link {expected_tag} directly; "
+                "do not leave a Pending publication entry"
+            )
+
     expect_exact_version("Rust toolchain", rust_version, errors)
     expect_exact_version("Python toolchain", python_version, errors)
     expect_exact_version("Node toolchain", node_version, errors)
@@ -182,14 +204,6 @@ def main() -> int:
         version,
         errors,
     )
-
-    notes_path = root / "docs" / "release-notes" / f"{expected_tag}.md"
-    if not notes_path.exists():
-        errors.append(f"missing release notes: {notes_path.relative_to(root)}")
-
-    notes_index = root / "docs" / "release-notes" / "README.md"
-    if expected_tag not in notes_index.read_text(encoding="utf-8"):
-        errors.append(f"release notes index does not mention {expected_tag}")
 
     if errors:
         for error in errors:

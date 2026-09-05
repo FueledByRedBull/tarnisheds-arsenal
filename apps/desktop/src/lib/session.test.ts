@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { classMeta, derivedLevel, normalizeOptimizeRequest, optimalStartingClass, scalingLetter, startingClassLevel } from "./session";
+import { classMeta, derivedLevel, EIGHT_STAT_KEYS, normalizeOptimizeRequest, optimalStartingClass, scalingLetter, STARTING_CLASS_METADATA, startingClassLevel } from "./session";
 import { defaultRequest } from "./state";
 
 describe("request normalization properties", () => {
@@ -24,6 +24,18 @@ describe("request normalization properties", () => {
   it("exposes the two 1.17 Tarnished Pack class stat lines", () => {
     expect(classMeta(null, "Idus Knight")).toMatchObject({ baseLevel: 7, baseStats: { dex: 15, arc: 6 } });
     expect(classMeta(null, "Heavy Knight")).toMatchObject({ baseLevel: 10, baseStats: { vig: 14, end: 17 } });
+  });
+
+  it("checks every class against the independent total-stats minus 79 level rule", () => {
+    for (const targets of [defaultRequest, { ...defaultRequest, intStat: 70, mnd: 38 },
+      { ...defaultRequest, strStat: 1, dex: 99, arc: 45 }]) {
+      const levels = STARTING_CLASS_METADATA.map((entry) => {
+        const level = EIGHT_STAT_KEYS.reduce((sum, key) => sum + Math.max(entry.baseStats[key], targets[key]), 0) - 79;
+        expect(startingClassLevel(entry, targets)).toBe(level);
+        return level;
+      });
+      expect(startingClassLevel(optimalStartingClass(null, targets, "Samurai"), targets)).toBe(Math.min(...levels));
+    }
   });
 
   it("clamps legacy and current upgrade values for a structured numeric corpus", () => {

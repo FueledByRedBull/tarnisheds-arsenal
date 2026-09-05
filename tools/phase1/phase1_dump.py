@@ -237,10 +237,20 @@ def serialize_param(unpacked_dir: Path, witchybnd_path: Path, param_name: str) -
     return xml_path
 
 
-def iter_param_rows(xml_path: Path) -> Iterator[dict[str, str]]:
+def iter_param_rows(
+    xml_path: Path, *, apply_defaults: bool = False, default_fields: tuple[str, ...] = ()
+) -> Iterator[dict[str, str]]:
+    defaults: dict[str, str] = {}
     for _event, element in ET.iterparse(xml_path, events=("end",)):
-        if element.tag.rsplit("}", 1)[-1] == "row" and "id" in element.attrib:
-            yield dict(element.attrib)
+        tag = element.tag.rsplit("}", 1)[-1]
+        if (
+            tag == "field"
+            and "defaultValue" in element.attrib
+            and (apply_defaults or element.get("name") in default_fields)
+        ):
+            defaults[element.attrib["name"]] = element.attrib["defaultValue"]
+        if tag == "row" and "id" in element.attrib:
+            yield defaults | element.attrib
         element.clear()
 
 
@@ -686,6 +696,7 @@ def build_weapon_rows(
     use_workbook_weapon_metadata: bool,
     allow_param_weapon_names: bool,
     weapon_name_overrides: Mapping[int, str],
+    somber_reinforce_types: frozenset[int] | None = None,
     weapon_affinity_by_id: Mapping[int, str] | None = None,
     include_disabled_affinity_variants: bool = False,
 ) -> list[dict[str, object]]:
@@ -751,7 +762,11 @@ def build_weapon_rows(
 
         attack_element_correct_id = to_int(row, "attackElementCorrectId")
         damage_curve_ids = derive_damage_curve_ids(row)
-        is_somber = 1 if max_level_by_type.get(reinforce_type, 25) <= 10 else 0
+        is_somber = int(
+            reinforce_type in somber_reinforce_types
+            if somber_reinforce_types is not None
+            else max_level_by_type.get(reinforce_type, 25) <= 10
+        )
         weapon_type_id = to_int(row, "wepType", 0)
         weapon_type_name = wep_type_name_map.get(weapon_type_id, "Unknown")
         weapon_type_keys = weapon_type_keys_by_id.get(weapon_type_id, ())
@@ -834,6 +849,7 @@ def build_weapon_rows(
                 "native_skill_id": native_skill_id if native_skill_id > 0 else "",
                 "native_skill_name": native_skill_name,
                 "disable_gem_attr": disable_gem_attr,
+                "can_change_aow": int(to_int(row, "gemMountType", 0) == 2),
                 "disable_two_hand_bonus": to_int(row, "isDualBlade", 0),
                 "is_somber": is_somber,
             }
@@ -873,24 +889,25 @@ def build_speffect_map(sp_rows: list[dict[str, str]]) -> dict[int, tuple[float, 
     return effect_map
 
 
-def build_aow_rows(
-    aow_rows: list[dict[str, str]],
-    effect_map: dict[int, tuple[float, float, float, float]],
-    sword_art_name_map: Mapping[int, str],
-) -> list[dict[str, object]]:
-    grouped_rows: dict[int, list[dict[str, str]]] = defaultdict(list)
-
-    for row in aow_rows:
+def canonical_gem_rows(gem_rows: list[dict[str, str]]) -> dict[int, dict[str, str]]:
+    grouped_rows: dict[int, list[dict[str, str]]] = {}
+    for row in gem_rows:
         raw_name = param_row_name(row)
-        if not raw_name.startswith("Ash of War:"):
+        if (
+            not raw_name.startswith("Ash of War:")
+            or to_int(row, "sortId", 999999) == 999999
+            or to_int(row, "iconId", 0) == 0
+        ):
             continue
-
+        canonical_name = raw_name.replace("Ash of War:", "", 1).strip()
+        if not canonical_name:
+            continue
         sword_art_id = to_int(row, "swordArtsParamId", -1)
         if sword_art_id < 0:
             continue
-        grouped_rows[sword_art_id].append(row)
+        grouped_rows.setdefault(sword_art_id, []).append(row)
 
-    rows_out: list[dict[str, object]] = []
+    out: dict[int, dict[str, str]] = {}
     for sword_art_id, rows in grouped_rows.items():
         def score(item: dict[str, str]) -> tuple[int, int, int, int]:
             sort_real = 1 if item.get("sortId") not in (None, "", "999999") else 0
@@ -898,7 +915,18 @@ def build_aow_rows(
             special = 1 if to_int(item, "isSpecialSwordArt", 0) != 0 else 0
             return (sort_real, icon_real, special, to_int(item, "id", 0))
 
-        canonical = max(rows, key=score)
+        out[sword_art_id] = max(rows, key=score)
+    return out
+
+
+def build_aow_rows(
+    aow_rows: list[dict[str, str]],
+    effect_map: dict[int, tuple[float, float, float, float]],
+    sword_art_name_map: Mapping[int, str],
+    affinity_by_slot: Mapping[int, str],
+) -> list[dict[str, object]]:
+    rows_out: list[dict[str, object]] = []
+    for sword_art_id, canonical in canonical_gem_rows(aow_rows).items():
         aow_name = sword_art_name_map.get(sword_art_id, "").strip()
         if not aow_name:
             aow_name = param_row_name(canonical).replace("Ash of War:", "", 1).strip()
@@ -940,6 +968,11 @@ def build_aow_rows(
                 "poison_buildup_add": poison,
                 "scarlet_rot_buildup_add": scarlet_rot,
                 "valid_weapon_types": "|".join(sorted(valid_weapon_types)),
+                "valid_affinities": "|".join(
+                    affinity
+                    for slot, affinity in affinity_by_slot.items()
+                    if to_int(canonical, f"configurableWepAttr{slot:02d}", 0) != 0
+                ),
             }
         )
 
@@ -965,11 +998,11 @@ def load_regulation_context(
             AOW_PARAM: serialize_param(unpacked_dir, witchybnd_path, AOW_PARAM),
             SPEFFECT_PARAM: serialize_param(unpacked_dir, witchybnd_path, SPEFFECT_PARAM),
         }
-    weapon_rows = list(iter_param_rows(xml_paths[WEAPON_PARAM]))
+    weapon_rows = list(iter_param_rows(xml_paths[WEAPON_PARAM], default_fields=("gemMountType",)))
     reinforce_rows = list(iter_param_rows(xml_paths[REINFORCE_PARAM]))
     curve_rows = list(iter_param_rows(xml_paths[CALC_CORRECT_PARAM]))
     attack_rows = list(iter_param_rows(xml_paths[ATTACK_ELEMENT_PARAM]))
-    aow_rows = list(iter_param_rows(xml_paths[AOW_PARAM]))
+    aow_rows = list(iter_param_rows(xml_paths[AOW_PARAM], apply_defaults=True))
     sp_rows = list(iter_param_rows(xml_paths[SPEFFECT_PARAM]))
     weapon_name_map = (
         load_merged_fmg_name_map(weapon_name_xmls, "weapon")
@@ -1103,6 +1136,7 @@ def main() -> int:
         use_workbook_weapon_metadata=profile.use_workbook_weapon_metadata,
         allow_param_weapon_names=profile.allow_param_weapon_names,
         weapon_name_overrides=profile.weapon_name_overrides,
+        somber_reinforce_types=profile.somber_reinforce_types,
         weapon_affinity_by_id=weapon_affinity_by_id,
         include_disabled_affinity_variants=args.allow_unverified_weapons,
     )
@@ -1112,6 +1146,7 @@ def main() -> int:
         context.aow_rows,
         sp_effect_map,
         context.sword_art_name_map,
+        profile.affinity_by_slot,
     )
 
     write_csv(
@@ -1168,6 +1203,7 @@ def main() -> int:
             "native_skill_id",
             "native_skill_name",
             "disable_gem_attr",
+            "can_change_aow",
             "disable_two_hand_bonus",
             "is_somber",
         ],
@@ -1247,6 +1283,7 @@ def main() -> int:
             "poison_buildup_add",
             "scarlet_rot_buildup_add",
             "valid_weapon_types",
+            "valid_affinities",
         ],
         aow_csv_rows,
     )
@@ -1264,13 +1301,8 @@ def main() -> int:
         reinforce_csv_rows=[{key: str(value) for key, value in row.items()} for row in reinforce_csv_rows],
         weapon_param_rows={to_int(row, "id"): row for row in context.weapon_rows},
         reinforce_param_rows={to_int(row, "id"): row for row in context.reinforce_rows},
-        gem_rows=context.aow_rows,
         sp_effect_rows={to_int(row, "id"): row for row in context.sp_rows},
         output_dir=output_dir,
-        aow_names_by_id={
-            object_to_int(row["aow_id"]): str(row["name"])
-            for row in aow_csv_rows
-        },
     )
     if profile.capabilities.aow_damage or profile.capabilities.aow_routes:
         run_workbook_exports(
@@ -1304,6 +1336,15 @@ def main() -> int:
         source_paths=source_paths,
     )
     validate_snapshot_manifest(output_dir, profile)
+    from tools.phase4.validate_phase4 import validate_profile_snapshot
+
+    errors = [
+        issue.message
+        for issue in validate_profile_snapshot(output_dir, profile.id)
+        if issue.level == "error"
+    ]
+    if errors:
+        raise ValueError("snapshot validation failed: " + "; ".join(errors))
     promote_snapshot(output_dir, destination_dir)
     staging_owner.cleanup()
 

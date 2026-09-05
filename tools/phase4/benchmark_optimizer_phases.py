@@ -44,6 +44,8 @@ def compare_baseline(
         old = previous.get(case["name"])
         if not old:
             continue
+        if old.get("results") is not None and old["results"] != case.get("results"):
+            raise ValueError(f"{case['name']} changed ranked results; review correctness before accepting timings")
         comparison: dict[str, float] = {}
         for key in PHASE_KEYS:
             old_value = float(old.get(key, 0.0))
@@ -65,6 +67,8 @@ def compare_baseline(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--profile", choices=("vanilla", "convergence"), default="vanilla")
+    parser.add_argument("--case", help="Run one named Rust benchmark case.")
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--warmups", type=int, default=1)
     parser.add_argument("--output", type=Path)
@@ -89,15 +93,19 @@ def main() -> int:
         "cargo",
         "run",
         "--locked",
+        "--offline",
         "--release",
         "--manifest-path",
         str(MANIFEST),
         "--example",
         "benchmark_optimizer_phases",
         "--",
+        f"--profile={args.profile}",
         f"--warmups={args.warmups}",
         f"--repeats={args.repeats}",
     ]
+    if args.case:
+        command.append(f"--case={args.case}")
     result = subprocess.run(
         command,
         cwd=ROOT,

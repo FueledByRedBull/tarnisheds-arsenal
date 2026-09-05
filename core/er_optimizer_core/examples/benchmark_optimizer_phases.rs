@@ -11,18 +11,23 @@ use serde_json::json;
 const PREFIX: &str = "PHASE_BENCH ";
 
 fn main() -> Result<(), String> {
-    let (warmups, repeats) = parse_args()?;
+    let (warmups, repeats, profile, selected_case) = parse_args()?;
     let data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("..")
         .join("data")
-        .join("phase1");
+        .join(if profile == "vanilla" {
+            "phase1"
+        } else {
+            "profiles/convergence"
+        });
     let (data, manifest) = load_game_data_with_manifest(data_dir)?;
     println!(
         "{PREFIX}{}",
         json!({
             "kind": "metadata",
             "datasetId": manifest.id,
+            "profileId": data.profile_id,
             "datasetVersion": manifest.dataset_version,
             "modelVersion": manifest.model_version,
             "profile": if cfg!(debug_assertions) { "debug" } else { "release" },
@@ -32,7 +37,25 @@ fn main() -> Result<(), String> {
         })
     );
 
-    for (name, request) in cases() {
+    for (name, mut request) in cases() {
+        if selected_case
+            .as_deref()
+            .is_some_and(|selected| name != selected)
+        {
+            continue;
+        }
+        if matches!(
+            request.objective,
+            OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
+        ) && !data.capabilities.aow_damage
+        {
+            if selected_case.is_some() {
+                return Err(format!("{name} is unsupported for {profile}"));
+            }
+            continue;
+        }
+        request.standard_max_upgrade = data.rules.standard_max_upgrade;
+        request.somber_max_upgrade = data.rules.somber_max_upgrade;
         for _ in 0..warmups {
             optimize_profiled(&request, &data)?;
         }
@@ -45,7 +68,9 @@ fn main() -> Result<(), String> {
     Ok(())
 }
 
-fn parse_args() -> Result<(usize, usize), String> {
+fn parse_args() -> Result<(usize, usize, String, Option<String>), String> {
+    let mut profile = "vanilla".to_string();
+    let mut selected_case = None;
     let mut warmups = 1_usize;
     let mut repeats = 5_usize;
     for argument in env::args().skip(1) {
@@ -57,6 +82,16 @@ fn parse_args() -> Result<(usize, usize), String> {
             repeats = value
                 .parse()
                 .map_err(|_| format!("invalid repeat count: {value}"))?;
+        } else if let Some(value) = argument.strip_prefix("--profile=") {
+            if !["vanilla", "convergence"].contains(&value) {
+                return Err(format!("unknown profile: {value}"));
+            }
+            profile = value.to_string();
+        } else if let Some(value) = argument.strip_prefix("--case=") {
+            if !cases().iter().any(|(name, _)| *name == value) {
+                return Err(format!("unknown case: {value}"));
+            }
+            selected_case = Some(value.to_string());
         } else {
             return Err(format!("unknown argument: {argument}"));
         }
@@ -64,7 +99,7 @@ fn parse_args() -> Result<(usize, usize), String> {
     if repeats == 0 {
         return Err("repeats must be at least one".to_string());
     }
-    Ok((warmups, repeats))
+    Ok((warmups, repeats, profile, selected_case))
 }
 
 fn print_case(
@@ -75,7 +110,7 @@ fn print_case(
 ) -> Result<(), String> {
     let first = samples.first().ok_or_else(|| "no samples".to_string())?;
     if samples.iter().any(|sample| {
-        sample.rows.len() != first.rows.len()
+        format!("{:?}", sample.rows) != format!("{:?}", first.rows)
             || sample.estimate.combinations != first.estimate.combinations
     }) {
         return Err(format!("{name} produced inconsistent samples"));
@@ -107,6 +142,7 @@ fn print_case(
             "weaponCandidates": first.estimate.weapon_candidates,
             "combinations": first.estimate.combinations,
             "rows": first.rows.len(),
+            "results": format!("{:?}", first.rows),
             "preparationMedianMs": median_ms(&preparation),
             "scoringMedianMs": median_ms(&scoring),
             "materializationMedianMs": median_ms(&materialization),

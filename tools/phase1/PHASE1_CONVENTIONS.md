@@ -5,6 +5,7 @@
   - `weapon_type_id`: raw `wepType` numeric value from `EquipParamWeapon`.
   - `weapon_type_name`: display name from Paramdex `WEP_TYPE` enum.
   - `weapon_type_keys`: pipe-delimited keys that directly match `aow.csv.valid_weapon_types` tokens.
+  - `can_change_aow`: true only when raw `gemMountType` is 2, resolving the XML field default when omitted. Independent of `disable_gem_attr`, which restricts infusion, not Ash mounting.
 - `calc_correct.csv` multipliers are normalized to `0.0..1.0` (`growth / 100.0`).
 - `reinforce.csv` damage/scaling multipliers are emitted as raw multipliers from `ReinforceParamWeapon` (for example `1.058`), with no additional normalization.
 - `calc_correct.csv` is pre-expanded through each curve's final stage point and at least effective Strength 148 (`floor(99 * 1.5)`):
@@ -19,6 +20,11 @@
     - if `adjPt == 0`: `ratio_curve = ratio`
 - `aow.csv` status extraction uses only passive effect fields (`spEffectId0`, `spEffectId1`).
   - `spEffectId_forAtk*` fields are ignored (they are attack-hit effects for active skill execution).
-  - AoW duplicate rows are collapsed per `swordArtsParamId`, preferring non-placeholder rows (`sortId != 999999` / real icon).
+  - Native-only placeholder gems (missing real sort ID or icon) are excluded before collapsing duplicate rows per `swordArtsParamId`. Native weapon skills remain available separately.
+  - Gem XML rows inherit their declared field defaults before compatibility extraction; defaults are profile-specific.
+  - `valid_affinities` lists profile affinity names permitted by the gem's `configurableWepAttrNN` flags. Together with mounting permission and weapon types, this is the sole runtime compatibility rule; no per-pair matrix is generated or loaded.
+  - Infused weapons may retain their native skill only when the skill is a compatible transferable Ash; native-only skills remain available on Standard weapons.
   - `valid_weapon_types` is pipe-delimited and intended to be matched against `weapon_type_keys`.
+- Snapshot schema 4 requires `weapons.csv.can_change_aow` and `aow.csv.valid_affinities`, and removes the redundant compatibility matrix from the runtime file set. Old schema-3 snapshots must be regenerated; changing their version field alone is not a migration.
+- Compact diagnostic summaries are derived in memory from the same permission fields. Regression fingerprints preserve all 87,879 Vanilla and 147,201 Convergence legal pairs from the pre-compaction snapshots.
 - Generated CSV and manifest JSON files use canonical LF line endings so snapshots hash identically across supported hosts.

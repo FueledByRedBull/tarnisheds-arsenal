@@ -5,13 +5,12 @@ use std::path::{Component, Path};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-pub const SNAPSHOT_SCHEMA_VERSION: u32 = 3;
-pub const RUNTIME_DATA_FILES: [&str; 13] = [
+pub const SNAPSHOT_SCHEMA_VERSION: u32 = 4;
+pub const RUNTIME_DATA_FILES: [&str; 12] = [
     "aow.csv",
     "aow_attack_data.csv",
     "aow_effect_data.csv",
     "aow_route_assignments.csv",
-    "aow_weapon_compat.csv",
     "attack_element_correct.csv",
     "attack_element_correct_ext.csv",
     "calc_correct.csv",
@@ -53,6 +52,8 @@ pub struct SnapshotProfile {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SnapshotCapabilities {
     pub weapon_ar: bool,
+    pub weapon_ar_for_ammunition: bool,
+    pub class_budget: bool,
     pub status_buildup: bool,
     pub weapon_passives: bool,
     pub aow_compatibility: bool,
@@ -382,6 +383,8 @@ mod tests {
                 },
                 capabilities: SnapshotCapabilities {
                     weapon_ar: true,
+                    weapon_ar_for_ammunition: true,
+                    class_budget: true,
                     status_buildup: true,
                     weapon_passives: true,
                     aow_compatibility: true,
@@ -473,6 +476,18 @@ mod tests {
     }
 
     #[test]
+    fn old_csv_schema_is_rejected_at_manifest_boundary() {
+        let snapshot = TestSnapshot::create();
+        let mut manifest: serde_json::Value =
+            serde_json::from_slice(&fs::read(snapshot.path.join("manifest.json")).unwrap())
+                .unwrap();
+        manifest["schemaVersion"] = 3.into();
+        let error =
+            parse_and_validate_manifest(&serde_json::to_vec(&manifest).unwrap()).unwrap_err();
+        assert_eq!(error, "unsupported data snapshot schema 3; expected 4");
+    }
+
+    #[test]
     fn manifest_parser_rejects_structured_mutation_corpus_without_panicking() {
         type ManifestMutation = (&'static str, Box<dyn Fn(&mut serde_json::Value)>);
 
@@ -483,6 +498,10 @@ mod tests {
         let mutations: Vec<ManifestMutation> = vec![
             (
                 "wrong schema",
+                Box::new(|value| value["schemaVersion"] = 3.into()),
+            ),
+            (
+                "unknown future schema",
                 Box::new(|value| value["schemaVersion"] = 999.into()),
             ),
             ("empty id", Box::new(|value| value["id"] = "".into())),

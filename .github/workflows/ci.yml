@@ -51,11 +51,15 @@ jobs:
 
       - name: Rust tests
         run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $true
           cargo test --locked --manifest-path core/er_optimizer_core/Cargo.toml
           cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
 
       - name: Rust formatting and Clippy
         run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $true
           cargo fmt --all --manifest-path core/er_optimizer_core/Cargo.toml -- --check
           cargo fmt --all --manifest-path apps/desktop/src-tauri/Cargo.toml -- --check
           cargo clippy --locked --manifest-path core/er_optimizer_core/Cargo.toml --all-targets -- -D warnings
@@ -63,7 +67,10 @@ jobs:
 
       - name: Python tests, lint and type checking
         run: |
-          python -m unittest tools.phase1.test_phase1_dump tools.phase1.test_snapshot_manifest tools.phase4.test_validate_phase4
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $true
+          python -m unittest discover -s tools/phase1 -p "test_*.py"
+          python -m unittest discover -s tools/phase4 -p "test_*.py"
           python -m ruff check tools
           python -m pyright tools
 
@@ -107,6 +114,8 @@ jobs:
       - name: Desktop TypeScript build
         working-directory: apps/desktop
         run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $true
           npm test
           npm run build
 
@@ -140,6 +149,8 @@ jobs:
 
       - name: Validate source checkout
         run: |
+          set -e
           cargo test --locked --manifest-path core/er_optimizer_core/Cargo.toml
-          python -m unittest tools.phase1.test_phase1_dump tools.phase1.test_snapshot_manifest tools.phase4.test_validate_phase4
+          python -m unittest discover -s tools/phase1 -p "test_*.py"
+          python -m unittest discover -s tools/phase4 -p "test_*.py"
           python tools/phase4/validate_phase4.py --report dist/validation/data-validation-linux.json

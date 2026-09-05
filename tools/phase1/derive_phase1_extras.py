@@ -93,12 +93,18 @@ def build_weapon_scaling_summary(
 
 
 def build_aow_affinity_compat(
-    exact_compat_rows: list[dict[str, str]],
+    weapons: list[dict[str, str]],
+    aows: list[dict[str, str]],
 ) -> list[dict[str, str]]:
     grouped: dict[tuple[str, str, str], set[str]] = defaultdict(set)
-    for row in exact_compat_rows:
-        key = (row["aow_id"], row["aow_name"], row["affinity"])
-        grouped[key].add(row["weapon_name"])
+    for ash in aows:
+        affinities = set(ash["valid_affinities"].split("|"))
+        weapon_types = set(ash["valid_weapon_types"].split("|"))
+        for weapon in weapons:
+            if (weapon["can_change_aow"] == "1"
+                    and weapon["affinity"] in affinities
+                    and weapon_types.intersection(weapon["weapon_type_keys"].split("|"))):
+                grouped[(ash["aow_id"], ash["name"], weapon["affinity"])].add(weapon["name"])
 
     rows: list[dict[str, str]] = []
     for (aow_id, name, affinity), weapon_names in sorted(grouped.items(), key=lambda item: (item[0][1], item[0][2])):
@@ -122,7 +128,7 @@ def derive_phase1_diagnostics(
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
     weapons = read_csv(input_dir / "weapons.csv")
     aec_rows = read_csv(input_dir / "attack_element_correct.csv")
-    exact_compat_rows = read_csv(input_dir / "aow_weapon_compat.csv")
+    aows = read_csv(input_dir / "aow.csv")
 
     return (
         build_weapon_scaling_summary(
@@ -130,5 +136,5 @@ def derive_phase1_diagnostics(
             aec_rows,
             extended_scaling_grades=extended_scaling_grades,
         ),
-        build_aow_affinity_compat(exact_compat_rows),
+        build_aow_affinity_compat(weapons, aows),
     )

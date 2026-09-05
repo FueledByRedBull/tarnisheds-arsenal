@@ -9,7 +9,6 @@ import os
 import shutil
 import subprocess
 import tempfile
-import time
 from pathlib import Path
 
 EXPECTED_PRODUCT_NAME = "Tarnished’s Arsenal"
@@ -30,31 +29,6 @@ def python_cmd() -> str:
 
 def run(cmd: list[str], cwd: Path, *, env: dict[str, str] | None = None) -> None:
     subprocess.run(cmd, cwd=cwd, check=True, env=env)
-
-
-def run_with_retries(
-    cmd: list[str],
-    cwd: Path,
-    *,
-    attempts: int,
-    delay_seconds: float,
-    env: dict[str, str] | None = None,
-) -> None:
-    if attempts < 1:
-        raise ValueError("attempts must be at least 1")
-    for attempt in range(1, attempts + 1):
-        try:
-            run(cmd, cwd=cwd, env=env)
-            return
-        except subprocess.CalledProcessError:
-            if attempt == attempts:
-                raise
-            delay = delay_seconds * attempt
-            print(
-                f"Command failed on attempt {attempt}/{attempts}; retrying in {delay:g}s",
-                flush=True,
-            )
-            time.sleep(delay)
 
 
 def write_text(path: Path, text: str) -> None:
@@ -274,9 +248,15 @@ def msi_property(path: Path, property_name: str) -> str:
         msi.MsiCloseHandle(database)
 
 
-def verify_msi_identity(path: Path, product_name: str, upgrade_code: str) -> None:
+def verify_msi_identity(
+    path: Path,
+    product_name: str,
+    upgrade_code: str,
+    product_version: str,
+) -> None:
     actual_product_name = msi_property(path, "ProductName")
     actual_upgrade_code = msi_property(path, "UpgradeCode")
+    actual_product_version = msi_property(path, "ProductVersion")
     if actual_product_name != product_name:
         raise RuntimeError(
             f"MSI ProductName is {actual_product_name!r}; expected {product_name!r}"
@@ -285,6 +265,50 @@ def verify_msi_identity(path: Path, product_name: str, upgrade_code: str) -> Non
         raise RuntimeError(
             f"MSI UpgradeCode is {actual_upgrade_code!r}; expected {upgrade_code!r}"
         )
+    if actual_product_version != product_version:
+        raise RuntimeError(
+            f"MSI ProductVersion is {actual_product_version!r}; expected {product_version!r}"
+        )
+
+
+def verify_msi_payload(path: Path, portable_exe: Path, workspace: Path) -> None:
+    """Extract the MSI administrative payload and compare its executable bytes."""
+    if os.name != "nt":
+        raise RuntimeError("MSI payload validation requires Windows")
+    msiexec = shutil.which("msiexec.exe") or str(
+        Path(os.environ.get("WINDIR", "C:/Windows")) / "System32" / "msiexec.exe"
+    )
+    if not Path(msiexec).is_file():
+        raise FileNotFoundError("msiexec.exe was not found for MSI payload validation")
+
+    workspace.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="tarnisheds-msi-verify-", dir=workspace) as directory:
+        destination = Path(directory)
+        result = subprocess.run(
+            [msiexec, "/a", str(path), "/qn", f"TARGETDIR={destination}"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout or "msiexec returned an error").strip()
+            raise RuntimeError(
+                f"MSI administrative extraction failed for {path.name} "
+                f"(exit {result.returncode}): {detail}"
+            )
+
+        embedded = list(destination.rglob(portable_exe.name))
+        if len(embedded) != 1:
+            raise RuntimeError(
+                f"MSI administrative extraction found {len(embedded)} copies of "
+                f"{portable_exe.name}; expected exactly one"
+            )
+        if sha256(embedded[0]) != sha256(portable_exe):
+            raise RuntimeError(
+                f"MSI payload executable differs from the tested portable executable: "
+                f"{portable_exe.name}"
+            )
 
 
 def sign_windows_binary(
@@ -361,7 +385,7 @@ def main() -> int:
     parser.add_argument(
         "--skip-validation",
         action="store_true",
-        help="Skip test/data validation when CI already validated this commit.",
+        help="Skip source tests and lint when exact-commit CI already validated this commit.",
     )
     parser.add_argument(
         "--replace-output",
@@ -430,10 +454,20 @@ def main() -> int:
             ],
             cwd=root,
         )
-        run(
-            [python_cmd(), "-m", "unittest", "tools.phase1.test_snapshot_manifest"],
-            cwd=root,
-        )
+        for test_dir in ("tools/phase1", "tools/phase4"):
+            run(
+                [
+                    python_cmd(),
+                    "-m",
+                    "unittest",
+                    "discover",
+                    "-s",
+                    test_dir,
+                    "-p",
+                    "test_*.py",
+                ],
+                cwd=root,
+            )
         run([python_cmd(), "-m", "ruff", "check", "tools"], cwd=root)
         run([python_cmd(), "-m", "pyright", "tools"], cwd=root)
         run(
@@ -515,26 +549,22 @@ def main() -> int:
     require_unchanged_tracked_source(root, source_commit, stage="release validation")
     run([npm_cmd(), "ci", "--prefer-offline", "--no-audit", "--fund=false"], cwd=app_dir)
     require_unchanged_tracked_source(root, source_commit, stage="npm ci")
-    run(
-        [
-            node_cmd(),
-            "./node_modules/@playwright/test/cli.js",
-            "install",
-            "chromium",
-        ],
-        cwd=app_dir,
-    )
-    require_unchanged_tracked_source(root, source_commit, stage="Playwright browser install")
-    run([npm_cmd(), "test"], cwd=app_dir)
-    require_unchanged_tracked_source(root, source_commit, stage="frontend tests")
-    run([npm_cmd(), "run", "test:e2e"], cwd=app_dir)
-    require_unchanged_tracked_source(root, source_commit, stage="frontend E2E tests")
-    run_with_retries(
-        [npm_cmd(), "run", "tauri", "--", "build", "--", "--locked"],
-        cwd=app_dir,
-        attempts=3,
-        delay_seconds=5,
-    )
+    if not args.skip_validation:
+        run(
+            [
+                node_cmd(),
+                "./node_modules/@playwright/test/cli.js",
+                "install",
+                "chromium",
+            ],
+            cwd=app_dir,
+        )
+        require_unchanged_tracked_source(root, source_commit, stage="Playwright browser install")
+        run([npm_cmd(), "test"], cwd=app_dir)
+        require_unchanged_tracked_source(root, source_commit, stage="frontend tests")
+        run([npm_cmd(), "run", "test:e2e"], cwd=app_dir)
+        require_unchanged_tracked_source(root, source_commit, stage="frontend E2E tests")
+    run([npm_cmd(), "run", "tauri", "--", "build", "--", "--locked"], cwd=app_dir)
     require_unchanged_tracked_source(root, source_commit, stage="Tauri build")
     packaged_exe, packaged_msi, code_signed = sign_release_binaries_if_configured(
         app_dir,
@@ -542,23 +572,17 @@ def main() -> int:
     )
     if code_signed:
         completed_gates.append("windows-code-signing")
-    verify_msi_identity(packaged_msi, EXPECTED_PRODUCT_NAME, EXPECTED_UPGRADE_CODE)
+    verify_msi_identity(packaged_msi, EXPECTED_PRODUCT_NAME, EXPECTED_UPGRADE_CODE, version)
+    verify_msi_payload(packaged_msi, packaged_exe, root / "dist")
     completed_gates.append("windows-msi-identity")
     run(
         [node_cmd(), "./scripts/smoke-packaged.mjs", str(packaged_exe)],
         cwd=app_dir,
     )
     require_unchanged_tracked_source(root, source_commit, stage="packaged app smoke")
-    completed_gates.extend(
-        [
-            "playwright-browser",
-            "frontend-tests",
-            "frontend-e2e",
-            "frontend-build",
-            "tauri-release-build",
-            "packaged-app-smoke",
-        ]
-    )
+    completed_gates.extend(["frontend-build", "tauri-release-build", "packaged-app-smoke"])
+    if not args.skip_validation:
+        completed_gates.extend(["playwright-browser", "frontend-tests", "frontend-e2e"])
 
     release_dir.mkdir(parents=True, exist_ok=args.replace_output)
     if validation_completed:

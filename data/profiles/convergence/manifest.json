@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "datasetVersion": "convergence-3.0.0.1",
-  "modelVersion": "aow-routes-effects-v3-profile-semantics",
+  "modelVersion": "aow-routes-effects-v5-compact-compatibility",
   "id": "convergence-3.0.0.1",
   "label": "The Convergence dataset - 3.0.0.1",
   "appVersion": "1.16.1",
@@ -14,6 +14,8 @@
   },
   "capabilities": {
     "weaponAr": true,
+    "weaponArForAmmunition": false,
+    "classBudget": false,
     "statusBuildup": true,
     "weaponPassives": true,
     "aowCompatibility": true,
@@ -29,19 +31,19 @@
     "extendedScalingGrades": true,
     "statusBuildupScales": false
   },
-  "generatedAt": "2026-08-28",
-  "extractorVersion": "phase1-python-v7-profile-semantics",
-  "provenance": "profile-bound regulation, names, motion data, and numeric PARAM effect graph",
+  "generatedAt": "2026-09-04",
+  "extractorVersion": "phase1-python-v9-compact-compatibility",
+  "provenance": "profile-bound regulation, names, and numeric PARAM effect graph",
   "runtimeFiles": [
     {
       "path": "aow.csv",
-      "size": 23020,
-      "sha256": "b5d1c50ddcf64fbe24b683d91c0bce741a81ca7956dd4da42fa9d4d8479b64c0"
+      "size": 41225,
+      "sha256": "376cf665196722d00c14e5f6780dafe76e647a393519fe61ae8ec59648e6abbc"
     },
     {
       "path": "aow_attack_data.csv",
-      "size": 530,
-      "sha256": "8cff9eadac85fd0ab68d07a8372fb0c2f62c905d2442216c4ac0b69853ac289f"
+      "size": 539,
+      "sha256": "afeea247b7c1a119072992b40e96c2dcaeafb44dc299d5498fec5d1ab8604933"
     },
     {
       "path": "aow_effect_data.csv",
@@ -52,11 +54,6 @@
       "path": "aow_route_assignments.csv",
       "size": 95,
       "sha256": "1795cda1695700aa73de4d3836eec9c3087822ceb5b274e94e4f3d49c328dccd"
-    },
-    {
-      "path": "aow_weapon_compat.csv",
-      "size": 5281178,
-      "sha256": "60959755927b13cbbb7a1dfbb7e7c17d0b31e9db35fae5dd3b78306d09e9d1e5"
     },
     {
       "path": "attack_element_correct.csv",
@@ -75,8 +72,8 @@
     },
     {
       "path": "native_skill_attack_data.csv",
-      "size": 572,
-      "sha256": "b309d6fe259f52156ff5e4ebae6ae8618fcbc0623cd8f1473eb2442f0828b673"
+      "size": 581,
+      "sha256": "b3feadcf9e44326a4b7091f1cac276c5eae604283eb6d53810b30f72eeb75576"
     },
     {
       "path": "reinforce.csv",
@@ -95,8 +92,8 @@
     },
     {
       "path": "weapons.csv",
-      "size": 505616,
-      "sha256": "3b16529cc9f8599e549593d98c305c37bf8f88223b1d1022d963c01a342fe242"
+      "size": 566889,
+      "sha256": "f3b19c2026dad9fd0a4b96260c041a1dacd05548b0fd01c82c64a4a000c6fd41"
     }
   ],
   "diagnosticFiles": [

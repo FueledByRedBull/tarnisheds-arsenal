@@ -106,7 +106,7 @@ impl OptimizeRequestDto {
         self.somber_max_upgrade
             .or_else(|| self.max_upgrade.map(|value| value.min(10)))
             .unwrap_or(10)
-            .min(10)
+            .min(25)
     }
 
     pub fn exact_upgrade_enabled(&self) -> bool {
@@ -115,7 +115,7 @@ impl OptimizeRequestDto {
 
     pub fn set_exact_upgrade(&mut self, upgrade: u8, is_somber: bool) {
         if is_somber {
-            self.somber_max_upgrade = Some(upgrade.min(10));
+            self.somber_max_upgrade = Some(upgrade.min(25));
         } else {
             self.standard_max_upgrade = Some(upgrade.min(25));
         }
@@ -280,12 +280,16 @@ pub struct PathPreviewRequestDto {
     pub solved: SolvedBuildDto,
     pub levels_ahead: u16,
     pub title: String,
-    #[serde(default = "default_path_mode")]
-    pub mode: String,
+    #[serde(default)]
+    pub mode: PathMode,
 }
 
-fn default_path_mode() -> String {
-    "no_respec".to_string()
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PathMode {
+    #[default]
+    NoRespec,
+    OptimumEnvelope,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -507,7 +511,9 @@ pub struct ProfileMetadataDto {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileCapabilitiesDto {
+    pub class_budget: bool,
     pub weapon_ar: bool,
+    pub weapon_ar_for_ammunition: bool,
     pub status_buildup: bool,
     pub weapon_passives: bool,
     pub aow_compatibility: bool,
@@ -547,7 +553,9 @@ impl From<er_optimizer_core::SnapshotManifest> for DataManifestDto {
                 mod_version: value.profile.mod_version,
             },
             capabilities: ProfileCapabilitiesDto {
+                class_budget: value.capabilities.class_budget,
                 weapon_ar: value.capabilities.weapon_ar,
+                weapon_ar_for_ammunition: value.capabilities.weapon_ar_for_ammunition,
                 status_buildup: value.capabilities.status_buildup,
                 weapon_passives: value.capabilities.weapon_passives,
                 aow_compatibility: value.capabilities.aow_compatibility,
@@ -617,6 +625,8 @@ pub struct WeaponProfileRequestDto {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WeaponProfileDto {
+    pub can_change_aow: bool,
+    pub native_skill_name: Option<String>,
     pub requirements: CombatStateDto,
     pub max_upgrade: u8,
     pub is_somber: bool,

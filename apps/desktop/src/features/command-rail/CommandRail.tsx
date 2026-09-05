@@ -1,5 +1,6 @@
 import { Crosshair, Filter, Play, RotateCcw, SlidersHorizontal, Sparkles, Swords } from "lucide-react";
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { AowSelect } from "../../lib/AowSelect";
 import { api } from "../../lib/api";
 import { useRequestBudget, useSearchJob, useWeaponProfile } from "../../lib/hooks";
 import { fixed1, objectiveLabel } from "../../lib/format";
@@ -10,7 +11,7 @@ import {
   scadutreeDamageNegation,
   scadutreeReceivedDamageMultiplier,
 } from "../../lib/scadutree";
-import { classMeta, classOptions, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, startingClassLevel, STAT_KEYS } from "../../lib/session";
+import { classMeta, classOptions, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, startingClassLevel } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { EightStatsDto, FilterDimensionDto, OptimizeRequestDto, SearchFinishedDto, SearchProgressDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
@@ -32,7 +33,6 @@ export function CommandRail() {
   const setProgress = useDesktopStore((state) => state.setProgress);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
   const setLockedStatMode = useDesktopStore((state) => state.setLockedStatMode);
-  const [aowNames, setAowNames] = useState<string[]>([]);
   const [searchStartedAt, setSearchStartedAt] = useState<number | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [searchCancellationRequested, setSearchCancellationRequested] = useState(false);
@@ -84,6 +84,7 @@ export function CommandRail() {
     || request.filters.entries.some((entry) => entry.dimension === "weapon_type" || entry.dimension === "affinity"),
   );
   const startingClasses = classOptions(catalog);
+  const fixedStats = catalog?.dataManifest.capabilities.classBudget === false;
   const activeMinimums = [request.minStr, request.minDex, request.minInt, request.minFai, request.minArc]
     .filter((value) => value > 0).length;
   const exactLocksActive = lockedStatMode && request.lockStr !== null;
@@ -95,22 +96,6 @@ export function CommandRail() {
   const upgradeSummary = separateUpgradeCaps
     ? `${request.exactUpgrade ? "Exact" : "Up to"} +${request.standardMaxUpgrade} / +${request.somberMaxUpgrade}`
     : `${request.exactUpgrade ? "Exact" : "Up to"} +${request.standardMaxUpgrade}`;
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadAows() {
-      const names = request.weaponName
-        ? await api.compatibleAowNames(request.profileId, request.weaponName, aowAffinity)
-        : aowAffinity
-          ? await api.compatibleAowNamesForAffinity(request.profileId, aowAffinity)
-          : catalog?.aowNames ?? [];
-      if (!cancelled) setAowNames(names);
-    }
-    loadAows().catch((error) => setError(error instanceof Error ? error.message : String(error)));
-    return () => {
-      cancelled = true;
-    };
-  }, [aowAffinity, catalog?.aowNames, request.profileId, request.weaponName, setError]);
 
   useSearchJob({
     activeJobId,
@@ -193,35 +178,13 @@ export function CommandRail() {
   }
 
   function optimizeClass() {
-    const targets: EightStatsDto = {
-      vig: request.vig,
-      mnd: request.mnd,
-      end: request.end,
-      strStat: lockedStatMode ? request.lockStr ?? request.minStr : request.minStr,
-      dex: lockedStatMode ? request.lockDex ?? request.minDex : request.minDex,
-      intStat: lockedStatMode ? request.lockInt ?? request.minInt : request.minInt,
-      fai: lockedStatMode ? request.lockFai ?? request.minFai : request.minFai,
-      arc: lockedStatMode ? request.lockArc ?? request.minArc : request.minArc,
-    };
+    const targets: EightStatsDto = request;
     const optimal = optimalStartingClass(catalog, targets, request.className);
-    const targetLevel = Math.max(derivedLevel(catalog, request), startingClassLevel(optimal, targets));
-    const targetTotal = optimal.baseTotal + targetLevel - optimal.baseLevel;
+    const targetLevel = startingClassLevel(optimal, targets);
     const stats = Object.fromEntries(EIGHT_STAT_KEYS.map((key) => [
       key,
       Math.max(optimal.baseStats[key], targets[key]),
     ])) as unknown as EightStatsDto;
-    let remaining = targetTotal - EIGHT_STAT_KEYS.reduce((sum, key) => sum + stats[key], 0);
-    const preferred = [...STAT_KEYS].sort((left, right) => request[right] - request[left]);
-    for (const key of preferred) {
-      const points = Math.min(remaining, Math.max(request[key] - stats[key], 0));
-      stats[key] += points;
-      remaining -= points;
-    }
-    for (const key of preferred) {
-      const points = Math.min(remaining, 99 - stats[key]);
-      stats[key] += points;
-      remaining -= points;
-    }
     patchRequest({ className: optimal.name, characterLevel: targetLevel, ...stats });
   }
 
@@ -257,32 +220,33 @@ export function CommandRail() {
           </div>
           <SearchableSelect
             label="Class"
+            disabled={fixedStats}
             value={request.className}
             options={startingClasses.map((entry) => ({ value: entry.name, label: entry.name }))}
             onChange={(value) => value && applyClass(value)}
           />
           <div className="character-action-row">
-            <button type="button" onClick={optimizeClass} title="Choose the lowest-cost class for fixed stats, minimums, and exact locks">
+            <button type="button" onClick={optimizeClass} disabled={fixedStats} title="Choose the lowest required level for all eight entered stats">
               <Sparkles size={14} />
               Optimize class
             </button>
-            <button type="button" onClick={() => applyClass(request.className)} title="Reset all eight stats to this class's base values">
+            <button type="button" onClick={() => fixedStats ? patchRequest({ vig: 1, mnd: 1, end: 1, strStat: 1, dex: 1, intStat: 1, fai: 1, arc: 1 }) : applyClass(request.className)} title={fixedStats ? "Reset all eight stats to 1" : "Reset all eight stats to this class's base values"}>
               <RotateCcw size={14} />
               Reset stats
             </button>
           </div>
           <div className="level-strip">
             <label>
-              Level
+              {fixedStats ? "Stat total" : "Level"}
               <input readOnly value={derivedLevel(catalog, request)} />
             </label>
-            <div className="budget-readout" title={`Levels above ${request.className}'s base level ${budget.baseLevel}`}>
+            {!fixedStats && <div className="budget-readout" title={`Levels above ${request.className}'s base level ${budget.baseLevel}`}>
               <span>Lv Ups</span>
               <strong>{budget.levelUps}</strong>
-            </div>
+            </div>}
             <div className="budget-readout" title="Movable STR/DEX/INT/FAI/ARC points after class minimums, fixed VIG/MND/END, and advanced minimum floors">
-              <span>Redistrib</span>
-              <strong>{budget.redistributable}</strong>
+              <span>{fixedStats ? "Mode" : "Redistrib"}</span>
+              <strong>{fixedStats ? "Fixed stats" : budget.redistributable}</strong>
             </div>
           </div>
           <div className="stat-grid">
@@ -302,7 +266,7 @@ export function CommandRail() {
               >
                 {label}
                 <DraftNumberInput
-                  min={Number(min)}
+                  min={Math.max(1, Number(min))}
                   max={99}
                   value={Number(request[key as keyof typeof request])}
                   onDraftChange={markResultsStale}
@@ -313,7 +277,7 @@ export function CommandRail() {
           </div>
           <div className="hero-chip-row">
             <span>{request.twoHanding ? "Two-handed strength" : "One-handed strength"}</span>
-            <span>{lockedStatMode ? "Exact combat stats" : "Stats optimized"}</span>
+            <span>{fixedStats || lockedStatMode ? "Exact combat stats" : "Stats optimized"}</span>
             <span>{upgradeSummary}</span>
             <span>
               {scadutreeAvailable
@@ -391,11 +355,15 @@ export function CommandRail() {
               filters: { version: 1, entries: replaceDimensionFilters(request.filters.entries, "affinity", values, excludedValues) },
             })}
           />
-          <SearchableSelect
+          <AowSelect
             label="AoW"
+            profileId={request.profileId}
+            weaponName={request.weaponName}
+            affinity={aowAffinity}
+            catalogNames={catalog?.aowNames}
             value={request.aowName}
-            options={[openOption(), ...(aowNames ?? []).map((name) => ({ value: name, label: name }))]}
             onChange={(aowName) => patchRequest({ aowName })}
+            setError={setError}
           />
           <button
             type="button"
@@ -602,15 +570,16 @@ export function CommandRail() {
               <label className="toggle-line" title="Use combat stats captured by Use As Locks">
                 <input
                   type="checkbox"
-                  checked={lockedStatMode}
+                  checked={fixedStats || lockedStatMode}
+                  disabled={fixedStats}
                   onChange={(event) => setLockedStatMode(event.target.checked)}
                 />
-                Use Locked Result Stats
+                {fixedStats ? "Use entered combat stats exactly" : "Use Locked Result Stats"}
               </label>
               <div className="lock-readout">
                 <span>Locks</span>
                 <strong>
-                  {!lockedStatMode || request.lockStr === null
+                  {fixedStats ? `STR ${request.strStat} DEX ${request.dex} INT ${request.intStat} FAI ${request.fai} ARC ${request.arc}` : !lockedStatMode || request.lockStr === null
                     ? "Open"
                     : `STR ${request.lockStr} DEX ${request.lockDex} INT ${request.lockInt} FAI ${request.lockFai} ARC ${request.lockArc}`}
                 </strong>
@@ -618,6 +587,7 @@ export function CommandRail() {
               <button
                 className="clear-locks"
                 type="button"
+                disabled={fixedStats}
                 onClick={() => {
                   setLockedStatMode(false);
                   patchRequest({ lockStr: null, lockDex: null, lockInt: null, lockFai: null, lockArc: null });
