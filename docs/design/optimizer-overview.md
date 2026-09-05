@@ -121,12 +121,21 @@ cache scalar weapon contributions and every DP predecessor tied on objective sco
 and total AR. Route-specific work visits those tied predecessors and compares the
 remaining skill, bleed, and stat-vector fields. All legal Ash choices remain visible,
 including unbuffed skills that can win secondary ties. The cache is request-local
-and released after each upgrade; it does not retain cross-request data.
+and released after each upgrade; it does not retain cross-request data. Retained
+increments use one byte each, with per-state vectors, and each work unit contains
+at most eight Ash choices.
+
+When every feasible spend has one retained predecessor path, the plan can cache a
+unique winner after direct primary reevaluation and inactive-stat completion. Tied
+prefix comparisons or ambiguous paths use route-specific DP. This avoids repeated
+route scoring while retaining the numerical limitation below; uniqueness in the
+retained graph does not establish global exhaustive equivalence.
 
 `shared_primary_frontiers_match_independent_dp_including_all_ties` compares shared
 and independent DP allocations across both profiles, buffs/routes, upgrades, and
-zero/small/larger budgets. This preserves the existing DP's floating-point semantics;
-it does not claim to remove the numerical limitation documented below.
+zero/small/larger budgets. These sampled comparisons check behavioral equivalence
+under the existing floating-point arithmetic; they do not establish it for every
+input or remove the numerical limitation documented below.
 
 Progress counts the logical candidate domain covered, not DP transitions or individual
 allocations evaluated. For active capacities $c_i$, that count is
@@ -204,8 +213,12 @@ ambiguous states against that contract, verified by this independent oracle.
 ## Release Flow
 
 CI validates Rust, DTO, both data profiles, frontend build, and e2e contract
-coverage. Tag pushes matching `v<app version>` run the release workflow, which
-builds the Tauri package and publishes an MSI, self-contained standalone
-executable, convenience ZIP, SHA-256 checksums, and build provenance. Manual
-workflow runs build artifacts but never publish a GitHub release. Release notes
-come from `docs/release-notes`.
+coverage. The release workflow requires successful main-branch push CI for the exact
+source commit before packaging. Tag pushes matching `v<app version>` publish an MSI,
+portable executable, convenience ZIP, SHA-256 checksums, and build provenance.
+The portable executable requires WebView2; the MSI can install that prerequisite.
+
+Manual runs default to build-only. With `publish=true`, a run from the default branch
+builds and verifies the packages before creating the version tag and publishing the
+release. Release notes and download links are committed beforehand, so publication
+does not require a follow-up documentation push. Notes come from `docs/release-notes`.
