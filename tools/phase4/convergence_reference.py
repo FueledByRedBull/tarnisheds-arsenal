@@ -233,7 +233,7 @@ def main() -> int:
     if args.refresh:
         reference = build_reference(args.snapshot, args.url)
         args.reference.parent.mkdir(parents=True, exist_ok=True)
-        args.reference.write_text(json.dumps(reference, indent=2) + "\n", encoding="utf-8")
+        args.reference.write_text(json.dumps(reference, indent=2) + "\n", encoding="utf-8", newline="\n")
         print(f"Wrote {reference['matchedWeaponCount']} weapon IDs to {args.reference}")
     else:
         validate_reference(args.snapshot, args.reference)
