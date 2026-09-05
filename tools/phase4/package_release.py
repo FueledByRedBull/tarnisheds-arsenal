@@ -8,6 +8,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -23,10 +24,6 @@ def npm_cmd() -> str:
 
 def node_cmd() -> str:
     return "node.exe" if os.name == "nt" else "node"
-
-
-def python_cmd() -> str:
-    return "python"
 
 
 def run(cmd: list[str], cwd: Path, *, env: dict[str, str] | None = None) -> None:
@@ -46,11 +43,8 @@ def newest(path_glob: str, root: Path) -> Path:
 
 
 def sha256(path: Path) -> str:
-    digest = hashlib.sha256()
     with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+        return hashlib.file_digest(handle, "sha256").hexdigest()
 
 
 def expected_msi_payload_sha256(binary: Path) -> str:
@@ -606,7 +600,7 @@ def main() -> int:
     if not args.skip_validation:
         run(
             [
-                python_cmd(),
+                sys.executable,
                 "tools/phase4/validate_release_metadata.py",
                 "--tag",
                 f"v{version}",
@@ -616,7 +610,7 @@ def main() -> int:
         for test_dir in ("tools/phase1", "tools/phase4"):
             run(
                 [
-                    python_cmd(),
+                    sys.executable,
                     "-m",
                     "unittest",
                     "discover",
@@ -627,8 +621,8 @@ def main() -> int:
                 ],
                 cwd=root,
             )
-        run([python_cmd(), "-m", "ruff", "check", "tools"], cwd=root)
-        run([python_cmd(), "-m", "pyright", "tools"], cwd=root)
+        run([sys.executable, "-m", "ruff", "check", "tools"], cwd=root)
+        run([sys.executable, "-m", "pyright", "tools"], cwd=root)
         run(
             [
                 "cargo",
@@ -684,7 +678,7 @@ def main() -> int:
         )
         run(
             [
-                python_cmd(),
+                sys.executable,
                 "tools/phase4/validate_phase4.py",
                 "--report",
                 str(validation_report),

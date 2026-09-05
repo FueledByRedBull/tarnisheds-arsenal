@@ -18,14 +18,7 @@ PREFIX = "WORKFLOW_BENCH "
 
 
 def command_output(*command: str) -> str:
-    result = subprocess.run(
-        command,
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return result.stdout.strip()
+    return subprocess.check_output(command, cwd=ROOT, text=True, stderr=subprocess.PIPE).strip()
 
 
 def case_key(case: dict[str, Any]) -> str:
