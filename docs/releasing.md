@@ -80,10 +80,15 @@ exact source commit. CI keeps the data-validation report as a workflow artifact;
 it is not duplicated as an end-user release asset. Authenticode signing is conditional:
 configure the protected `WINDOWS_SIGNING_CERTIFICATE_BASE64` and
 `WINDOWS_SIGNING_CERTIFICATE_PASSWORD` repository secrets, plus the optional
-`WINDOWS_SIGNING_TIMESTAMP_URL` variable. The package job signs the executable,
-rebuilds the MSI around it, signs the MSI, verifies both signatures, extracts the
-MSI administrative payload, and compares its executable bytes with the tested
-portable executable. It records `codeSigned` and the `windows-code-signing`
+`WINDOWS_SIGNING_TIMESTAMP_URL` variable. The package job builds the executable
+without bundling, then uses Tauri's signing hook to sign the MSI executable after
+its bundle marker is patched. The hook checks that its input differs from the
+compiled portable only by that marker. After Tauri restores the portable, the job
+signs it and the MSI container.
+It verifies the signatures and extracts the MSI administrative payload. Unsigned
+payloads must match the portable executable except for Tauri's exact `UNK`/`MSI`
+bundle marker; signed payloads must match the signed installer variant captured
+by the hook. The portable marker is preserved. It records `codeSigned` and the `windows-code-signing`
 provenance gate. Without both secrets, the artifacts remain explicitly unsigned
 and do not claim that gate.
 
