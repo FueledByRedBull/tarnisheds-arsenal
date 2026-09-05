@@ -45,7 +45,7 @@ const PREVIEW_SOLVED_BUILDS: SolvedBuildDto[] = [
     isSomber: true,
     upgrade: 10,
     aowId: null,
-    aowName: null,
+    aowName: "White Light Charge",
   }),
 ];
 
@@ -430,7 +430,8 @@ async function mockCatalog(profileId = "vanilla"): Promise<CatalogDto> {
     aowCount: MOCK_AOW_NAMES.length,
     weaponNames: uniqueSorted(MOCK_WEAPONS.map((weapon) => weapon.name)),
     weaponTypeKeys: weaponTypeOptions.map((entry) => entry.label),
-    classes: profileId === "convergence" ? STARTING_CLASS_METADATA.slice(0, 10) : STARTING_CLASS_METADATA,
+    classes: profileId === "convergence" ? [{ name: "Custom stats", baseLevel: 0, baseTotal: 0,
+      baseStats: { vig: 0, mnd: 0, end: 0, strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 } }] : STARTING_CLASS_METADATA,
     weaponTypeOptions,
     aowNames: MOCK_AOW_NAMES,
     affinityNames: uniqueSorted(MOCK_WEAPONS.map((weapon) => weapon.affinity)),
@@ -453,15 +454,15 @@ async function mockCatalog(profileId = "vanilla"): Promise<CatalogDto> {
 function mockDataManifest(profileId = "vanilla"): DataManifestDto {
   const convergence = profileId === "convergence";
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     datasetVersion: convergence ? "convergence-3.0.0.1" : "vanilla-1.17",
-    modelVersion: "aow-routes-effects-v3-profile-semantics",
+    modelVersion: "aow-routes-effects-v5-compact-compatibility",
     id: convergence ? "convergence-3.0.0.1" : "vanilla-1.17",
     label: convergence ? "Convergence 3.0.0.1" : "Vanilla 1.17",
     appVersion: convergence ? "1.16.1" : "1.17",
     source: "ER - Motion Values and Attack Data (App Ver. 1.17).xlsx",
     generatedAt: "2026-05-18",
-    extractorVersion: "phase1-python-v5-profile-rules",
+    extractorVersion: "phase1-python-v9-compact-compatibility",
     provenance: "mock snapshot",
     profile: {
       id: profileId,
@@ -470,7 +471,9 @@ function mockDataManifest(profileId = "vanilla"): DataManifestDto {
       modVersion: convergence ? "3.0.0.1" : null,
     },
     capabilities: {
+      classBudget: !convergence,
       weaponAr: true,
+      weaponArForAmmunition: !convergence,
       statusBuildup: true,
       weaponPassives: true,
       aowCompatibility: true,
@@ -508,6 +511,8 @@ async function mockWeaponProfile(args: Record<string, unknown> | undefined): Pro
   const maxUpgrade = first?.isSomber ? 10 : 25;
   return {
     requirements,
+    canChangeAow: first?.name !== "Ancient Meteoric Ore Greatsword",
+    nativeSkillName: first?.name === "Ancient Meteoric Ore Greatsword" ? "White Light Charge" : null,
     maxUpgrade,
     isSomber: first?.isSomber ?? false,
     disablesTwoHandBonus: false,
@@ -545,7 +550,7 @@ async function mockCompatibleAowNames(args: Record<string, unknown> | undefined)
   const weapon = MOCK_WEAPONS.find((row) =>
     row.name === request.weaponName && (!request.affinity || row.affinity === request.affinity)
   );
-  return weapon?.isSomber ? [] : MOCK_AOW_NAMES;
+  return weapon?.name === "Ancient Meteoric Ore Greatsword" ? ["White Light Charge"] : MOCK_AOW_NAMES;
 }
 
 async function mockSearchCombinationCount(request: OptimizeRequestDto | null): Promise<number> {

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 
 pub const STAT_STR: usize = 0;
@@ -139,6 +139,7 @@ pub struct Weapon {
     pub damage_curve_ids: [usize; DAMAGE_TYPE_COUNT],
     pub status_curve_ids: StatusCurveIds,
     pub disable_gem_attr: bool,
+    pub can_change_aow: bool,
     pub is_somber: bool,
     pub disable_two_hand_bonus: bool,
 }
@@ -168,7 +169,12 @@ impl Weapon {
     }
 
     pub fn affinity_filter_id(&self) -> String {
-        format!("affinity:{}", self.weapon_id % 1_000 / 100)
+        let slot = if self.affinity.eq_ignore_ascii_case("Standard") {
+            0
+        } else {
+            self.weapon_id % 10_000 / 100
+        };
+        format!("affinity:{slot}")
     }
 }
 
@@ -333,6 +339,7 @@ pub struct Aow {
     pub poison_buildup_add: f32,
     pub scarlet_rot_buildup_add: f32,
     pub valid_weapon_types: String,
+    pub valid_affinities: String,
     pub buff_attack_power: [f32; DAMAGE_TYPE_COUNT],
     pub scaling_status_add: StatusBuildup,
     pub scaling_status_flags: StatusCorrectionFlags,
@@ -489,6 +496,8 @@ pub struct AowRouteResult {
 #[derive(Clone, Debug)]
 pub struct DataCapabilities {
     pub weapon_ar: bool,
+    pub weapon_ar_for_ammunition: bool,
+    pub class_budget: bool,
     pub status_buildup: bool,
     pub weapon_passives: bool,
     pub aow_compatibility: bool,
@@ -500,6 +509,8 @@ impl Default for DataCapabilities {
     fn default() -> Self {
         Self {
             weapon_ar: true,
+            weapon_ar_for_ammunition: true,
+            class_budget: true,
             status_buildup: true,
             weapon_passives: true,
             aow_compatibility: true,
@@ -555,12 +566,12 @@ pub struct GameData {
     pub aow_effects: HashMap<(u16, u16), Vec<AowEffect>>,
     pub weapon_passives: HashMap<u32, StatusEffectSource>,
     pub weapon_passive_overlays: HashMap<u32, Vec<Option<StatusEffectSource>>>,
-    pub exact_aow_compat: HashSet<(u16, u32)>,
 }
 
 impl GameData {
     pub fn weapon_ar_supported(&self, weapon: &Weapon) -> bool {
-        self.profile_id != "convergence" || !weapon_uses_ammunition(weapon)
+        self.capabilities.weapon_ar
+            && (self.capabilities.weapon_ar_for_ammunition || !weapon_uses_ammunition(weapon))
     }
 
     pub fn aow_effects(&self, aow_id: u16, sheet_row: u16) -> &[AowEffect] {
@@ -571,34 +582,29 @@ impl GameData {
     }
 
     pub fn aow_compatible_with_weapon(&self, aow: &Aow, weapon: &Weapon) -> bool {
-        if weapon.disable_gem_attr {
+        weapon.can_change_aow
+            && aow
+                .valid_affinities
+                .split('|')
+                .any(|affinity| affinity == weapon.affinity)
+            && weapon
+                .weapon_type_keys
+                .split('|')
+                .filter(|key| !key.is_empty())
+                .any(|key| aow.valid_weapon_types.split('|').any(|valid| valid == key))
+    }
+
+    pub fn native_skill_compatible_with_weapon(&self, weapon: &Weapon) -> bool {
+        let Some(skill_id) = weapon.native_skill_id else {
             return false;
-        }
-        if let Some(exact_match) = self.exact_aow_compatibility(aow.aow_id, weapon.weapon_id) {
-            return exact_match;
-        }
-        if aow.name.eq_ignore_ascii_case("Seppuku")
-            && (weapon.affinity.eq_ignore_ascii_case("Magic")
-                || weapon.affinity.eq_ignore_ascii_case("Cold"))
-        {
-            return false;
-        }
-        if aow.valid_weapon_types.is_empty() {
+        };
+        if weapon.affinity.eq_ignore_ascii_case("Standard") {
             return true;
         }
-        if weapon.weapon_type_keys.is_empty() {
-            return false;
-        }
-        weapon
-            .weapon_type_keys
-            .split('|')
-            .filter(|value| !value.is_empty())
-            .any(|weapon_key| {
-                aow.valid_weapon_types
-                    .split('|')
-                    .filter(|value| !value.is_empty())
-                    .any(|valid_key| weapon_key == valid_key)
-            })
+        self.aows
+            .iter()
+            .find(|aow| aow.aow_id == skill_id)
+            .is_some_and(|aow| self.aow_compatible_with_weapon(aow, weapon))
     }
 
     pub fn aow_route_assignments(&self, aow_id: u16, sheet_row: u16) -> &[AowRouteAssignment] {
@@ -667,13 +673,6 @@ impl GameData {
             .get(&weapon_id)
             .and_then(|levels| levels.get(usize::from(level)))
             .and_then(|entry| *entry)
-    }
-
-    pub fn exact_aow_compatibility(&self, aow_id: u16, weapon_id: u32) -> Option<bool> {
-        if self.exact_aow_compat.is_empty() {
-            return None;
-        }
-        Some(self.exact_aow_compat.contains(&(aow_id, weapon_id)))
     }
 }
 

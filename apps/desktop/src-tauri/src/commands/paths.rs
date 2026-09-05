@@ -11,10 +11,10 @@ use crate::commands::data::{
     weapon_disables_two_hand_bonus, weapon_forces_two_handing, weapon_requirements,
 };
 use crate::dto::{
-    CombatStateDto, PathFinishedDto, PathJobStatusDto, PathPreviewDto, PathPreviewRequestDto,
-    PathProgressDto, PathStepDto, StartPathPreviewRequestDto, StartSearchResponseDto,
-    lock_request_to_stats, metric_for_objective, parse_objective, set_min_combat_stats,
-    validate_levels_ahead, validate_path_batch,
+    CombatStateDto, PathFinishedDto, PathJobStatusDto, PathMode, PathPreviewDto,
+    PathPreviewRequestDto, PathProgressDto, PathStepDto, StartPathPreviewRequestDto,
+    StartSearchResponseDto, lock_request_to_stats, metric_for_objective, parse_objective,
+    set_min_combat_stats, validate_levels_ahead, validate_path_batch,
 };
 use crate::errors::AppError;
 use crate::{AppState, AsyncJobHandle, CancelFlag, JobRegistry};
@@ -42,7 +42,11 @@ pub fn start_path_preview(
             "All path lanes must use the same game profile.",
         ));
     }
-    state.profile(&profile_id)?;
+    if !state.profile(&profile_id)?.data.capabilities.class_budget {
+        return Err(AppError::new(
+            "Paths requires verified profile class budgets.",
+        ));
+    }
     let profiles = state.profiles.clone();
     let job_number = state.next_job.fetch_add(1, Ordering::Relaxed);
     let job_id = format!("path-{job_number}");
@@ -73,7 +77,7 @@ pub fn start_path_preview(
             .requests
             .iter()
             .map(|lane| {
-                if lane.mode == "optimum_envelope" {
+                if lane.mode == PathMode::OptimumEnvelope {
                     u64::from(lane.levels_ahead).saturating_add(1)
                 } else {
                     3_u64.saturating_add(u64::from(lane.levels_ahead).saturating_mul(6))
@@ -157,13 +161,8 @@ fn build_path_preview_inner(
     mut continue_cb: impl FnMut(u16) -> bool + Send,
 ) -> Result<PathPreviewDto, AppError> {
     validate_levels_ahead(request.levels_ahead)?;
-    if request.mode == "optimum_envelope" {
+    if request.mode == PathMode::OptimumEnvelope {
         return build_optimum_envelope(request, state, continue_cb);
-    }
-    if request.mode != "no_respec" {
-        return Err(AppError::new(
-            "Path mode must be 'no_respec' or 'optimum_envelope'.",
-        ));
     }
     let start_state = request.solved.stats;
     let target_level = request
@@ -450,7 +449,7 @@ fn evaluate_step(
     let requirement_gap = if solved.is_some() {
         0
     } else {
-        requirement_gap(base, weapon_name, Some(affinity), stats, state)
+        requirement_gap(base, weapon_name, Some(affinity), stats, state)?
     };
     Ok(PathStepDto {
         level,
@@ -470,13 +469,9 @@ fn requirement_gap(
     affinity: Option<&str>,
     stats: CombatStateDto,
     state: &AppState,
-) -> u16 {
-    let Ok(profile) = state.profile(&base.profile_id) else {
-        return 999;
-    };
-    let Ok(reqs) = weapon_requirements(&profile.catalog_index, weapon_name, affinity) else {
-        return 999;
-    };
+) -> Result<u16, AppError> {
+    let profile = state.profile(&base.profile_id)?;
+    let reqs = weapon_requirements(&profile.catalog_index, weapon_name, affinity)?;
     let disables_bonus =
         weapon_disables_two_hand_bonus(&profile.catalog_index, weapon_name, affinity);
     let effective_str = effective_str(
@@ -484,11 +479,11 @@ fn requirement_gap(
         base.two_handing || weapon_forces_two_handing(&profile.catalog_index, weapon_name),
         disables_bonus,
     );
-    u16::from(reqs[0]).saturating_sub(effective_str)
+    Ok(u16::from(reqs[0]).saturating_sub(effective_str)
         + u16::from(reqs[1].saturating_sub(stats.dex))
         + u16::from(reqs[2].saturating_sub(stats.int_stat))
         + u16::from(reqs[3].saturating_sub(stats.fai))
-        + u16::from(reqs[4].saturating_sub(stats.arc))
+        + u16::from(reqs[4].saturating_sub(stats.arc)))
 }
 
 fn floor_mins(
@@ -577,8 +572,29 @@ mod integration_tests {
             solved,
             levels_ahead: 1,
             title: "Selected".to_string(),
-            mode: "no_respec".to_string(),
+            mode: PathMode::NoRespec,
         }
+    }
+
+    #[test]
+    fn invalid_path_modes_and_unknown_requirements_fail_explicitly() {
+        assert!(serde_json::from_str::<PathMode>("\"unknown\"").is_err());
+        assert_eq!(
+            serde_json::to_string(&PathMode::NoRespec).unwrap(),
+            "\"no_respec\""
+        );
+        let state = crate::test_app_state();
+        let request = request(&state);
+        assert!(
+            requirement_gap(
+                &request.base,
+                "Unknown weapon",
+                None,
+                request.solved.stats,
+                &state
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -594,7 +610,7 @@ mod integration_tests {
     fn optimum_envelope_solves_each_level_independently() {
         let state = crate::test_app_state();
         let mut envelope_request = request(&state);
-        envelope_request.mode = "optimum_envelope".to_string();
+        envelope_request.mode = PathMode::OptimumEnvelope;
         envelope_request.levels_ahead = 2;
         let path = build_path_preview_inner(envelope_request, &state, |_| true)
             .expect("optimum envelope succeeds");

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>AoW selector component fixture</title></head>
+<body>
+<div id="root"></div>
+<script type="module">
+  import React, { useState } from "react";
+  import { createRoot } from "react-dom/client";
+  import { AowSelect } from "../src/lib/AowSelect";
+  import { api } from "../src/lib/api";
+  import { clearAnalysisCaches } from "../src/lib/analysis-cache";
+
+  const root = createRoot(document.getElementById("root"));
+  let initial = {};
+  let generation = 0;
+  let pending = [];
+  let changes = [];
+  let errors = [];
+  let patchSelection;
+  api.weaponProfile = (profileId, weaponName, affinity) => new Promise((resolve, reject) => {
+    pending.push({ profileId, weaponName, affinity, resolve, reject });
+  });
+
+  function Harness() {
+    const [selection, setSelection] = useState(initial);
+    patchSelection = (patch) => setSelection((current) => ({ ...current, ...patch }));
+    return React.createElement(AowSelect, {
+      ...selection,
+      onChange(value) {
+        changes.push(value);
+        setSelection((current) => ({ ...current, value }));
+      },
+      setError(message) { errors.push(message); },
+    });
+  }
+
+  window.selectorFixture = {
+    mount(props) {
+      clearAnalysisCaches();
+      initial = { label: "AoW", profileId: "vanilla", weaponName: null, affinity: null,
+        catalogNames: ["No Skill"], value: null, ...props };
+      pending = [];
+      changes = [];
+      errors = [];
+      root.render(React.createElement(React.StrictMode, null,
+        React.createElement(Harness, { key: ++generation })));
+    },
+    unmount() { root.render(null); },
+    patch(patch) { patchSelection(patch); },
+    pending(weaponName) { return pending.filter((item) => item.weaponName === weaponName).length; },
+    resolve(weaponName, affinity = null) {
+      const fixed = weaponName === "Rivers of Blood";
+      const nativeSkillName = fixed ? "Corpse Piler" : affinity ? null : "Buckler Parry";
+      const compatibleAows = fixed ? ["Corpse Piler"] : affinity ? ["No Skill"] : ["Buckler Parry", "Parry", "No Skill"];
+      const profile = { canChangeAow: !fixed, nativeSkillName, compatibleAows,
+        requirements: { strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 },
+        maxUpgrade: fixed ? 10 : 25, isSomber: fixed, disablesTwoHandBonus: false,
+        forcesTwoHanding: false, weight: 1, moveCount: 1, affinities: ["Standard", "Blood"],
+        oneHandedPoise: { light: "0", heavy: "0", chargedHeavy: "0", jumpingLight: "0", jumpingHeavy: "0" },
+        twoHandedPoise: { light: "0", heavy: "0", chargedHeavy: "0", jumpingLight: "0", jumpingHeavy: "0" } };
+      const matches = pending.filter((item) => item.weaponName === weaponName && item.affinity === affinity);
+      pending = pending.filter((item) => !matches.includes(item));
+      for (const item of matches) item.resolve(profile);
+    },
+    reject(weaponName) {
+      for (const item of pending.filter((item) => item.weaponName === weaponName)) {
+        item.reject(new Error("Profile lookup failed"));
+      }
+      pending = pending.filter((item) => item.weaponName !== weaponName);
+    },
+    changes() { return changes; },
+    errors() { return errors; },
+  };
+</script>
+</body>
+</html>

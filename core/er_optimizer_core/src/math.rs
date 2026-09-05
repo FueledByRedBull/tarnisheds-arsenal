@@ -1026,6 +1026,26 @@ pub struct StartingClass {
     pub base_stats: Stats,
 }
 
+pub const CUSTOM_STATS_CLASS_NAME: &str = "Custom stats";
+
+pub fn custom_stats_class() -> StartingClass {
+    StartingClass {
+        name: CUSTOM_STATS_CLASS_NAME,
+        base_level: 0,
+        base_total: 0,
+        base_stats: Stats {
+            vig: 0,
+            mnd: 0,
+            end: 0,
+            str: 0,
+            dex: 0,
+            int: 0,
+            fai: 0,
+            arc: 0,
+        },
+    }
+}
+
 pub const STARTING_CLASSES: [StartingClass; 12] = [
     StartingClass {
         name: "Vagabond",
@@ -1210,6 +1230,9 @@ pub const STARTING_CLASSES: [StartingClass; 12] = [
 ];
 
 pub fn class_by_name(name: &str) -> Option<StartingClass> {
+    if name.eq_ignore_ascii_case(CUSTOM_STATS_CLASS_NAME) {
+        return Some(custom_stats_class());
+    }
     STARTING_CLASSES
         .iter()
         .copied()
@@ -1258,6 +1281,25 @@ mod tests {
             .iter()
             .find(|weapon| weapon.name == name && weapon.affinity == affinity)
             .unwrap_or_else(|| panic!("weapon not found: {name} | {affinity}"))
+    }
+
+    #[test]
+    fn custom_stats_class_is_neutral_and_has_no_budget_floor() {
+        let class = class_by_name(CUSTOM_STATS_CLASS_NAME).expect("custom stats class");
+        assert_eq!(class.base_level, 0);
+        assert_eq!(class.base_total, 0);
+        assert_eq!(class.base_stats.sum_all_8(), 0);
+        let stats = Stats {
+            vig: 1,
+            mnd: 1,
+            end: 1,
+            str: 1,
+            dex: 1,
+            int: 1,
+            fai: 1,
+            arc: 1,
+        };
+        assert_eq!(compute_free_points(class, 8, &stats), Ok(0));
     }
 
     #[test]

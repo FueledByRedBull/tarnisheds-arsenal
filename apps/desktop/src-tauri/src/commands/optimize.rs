@@ -4,16 +4,16 @@ use std::sync::atomic::Ordering;
 #[cfg(test)]
 use er_optimizer_core::optimize_with_cancel;
 use er_optimizer_core::{
-    OptimizeRequest, optimize, optimize_level_range_with_progress, optimize_prepared_with_progress,
-    prepare_search_with_cancel, prepare_upgrade_series_evaluator_with_cancel,
+    GameData, OptimizeRequest, optimize, optimize_level_range_with_progress,
+    optimize_prepared_with_progress, prepare_search_with_cancel,
+    prepare_upgrade_series_evaluator_with_cancel,
 };
 use tauri::{AppHandle, State};
 
-use crate::commands::data::weapon_upgrade_cap;
 use crate::dto::{
-    SearchFinishedDto, SearchJobStatusDto, SearchProgressDto, SolveBuildRequestDto, SolvedBuildDto,
-    StartSearchResponseDto, UpgradePointDto, UpgradeSeriesRequestDto, lock_request_to_stats,
-    metric_for_objective, parse_objective,
+    CombatStateDto, SearchFinishedDto, SearchJobStatusDto, SearchProgressDto, SolveBuildRequestDto,
+    SolvedBuildDto, StartSearchResponseDto, UpgradePointDto, UpgradeSeriesRequestDto,
+    lock_request_to_stats, metric_for_objective, parse_objective,
 };
 use crate::errors::AppError;
 use crate::{AppState, AsyncJobHandle, CancelFlag};
@@ -99,6 +99,21 @@ pub fn solve_build(
     base.lock_int = None;
     base.lock_fai = None;
     base.lock_arc = None;
+    if !state
+        .profile(&base.profile_id)?
+        .data
+        .capabilities
+        .class_budget
+    {
+        let stats = CombatStateDto {
+            str_stat: base.str_stat,
+            dex: base.dex,
+            int_stat: base.int_stat,
+            fai: base.fai,
+            arc: base.arc,
+        };
+        lock_request_to_stats(&mut base, stats);
+    }
     base.top_k = 1;
     run_search_inner(base, &state).map(|mut rows| rows.pop())
 }
@@ -133,11 +148,8 @@ where
     base.weapon_type_key = None;
     base.somber_filter = "all".to_string();
     base.filters.entries.clear();
-    if request.solved.is_somber {
-        base.somber_max_upgrade = Some(request.max_upgrade.min(10));
-    } else {
-        base.standard_max_upgrade = Some(request.max_upgrade.min(25));
-    }
+    base.standard_max_upgrade = None;
+    base.somber_max_upgrade = None;
     base.exact_upgrade = Some(false);
     base.max_upgrade = None;
     base.fixed_upgrade = None;
@@ -149,8 +161,27 @@ where
     base.min_arc = 0;
     lock_request_to_stats(&mut base, request.solved.stats);
 
-    let objective = parse_objective(&base.objective)?;
     let profile = state.profile(&base.profile_id)?;
+    let (is_somber, profile_upgrade_cap) = weapon_reinforcement_info(
+        &profile.data,
+        &request.solved.weapon_name,
+        Some(&request.solved.affinity),
+    )?;
+    if is_somber != request.solved.is_somber {
+        return Err(AppError::new(format!(
+            "solved weapon reinforcement type does not match profile data for '{}'",
+            request.solved.weapon_name
+        )));
+    }
+    if is_somber {
+        base.somber_max_upgrade = Some(request.max_upgrade);
+    } else {
+        base.standard_max_upgrade = Some(request.max_upgrade);
+    }
+    clamp_weapon_upgrade_request(&mut base, state)?;
+    let max_upgrade = request.max_upgrade.min(profile_upgrade_cap);
+
+    let objective = parse_objective(&base.objective)?;
     let core_request = OptimizeRequest::try_from(&base)?;
     let evaluator = prepare_upgrade_series_evaluator_with_cancel(
         &core_request,
@@ -159,7 +190,7 @@ where
     )
     .map_err(AppError::from)?;
     Ok(evaluator
-        .evaluate_with_cancel(&core_request, request.max_upgrade, &mut should_continue)
+        .evaluate_with_cancel(&core_request, max_upgrade, &mut should_continue)
         .map_err(AppError::from)?
         .into_iter()
         .map(SolvedBuildDto::from)
@@ -270,31 +301,114 @@ pub fn clamp_weapon_upgrade_request(
     state: &AppState,
 ) -> Result<(), AppError> {
     let profile = state.profile(&request.profile_id)?;
-    if !crate::commands::data::class_metadata(profile.data_manifest.profile.game_version == "1.17")
-        .iter()
-        .any(|class_info| class_info.name.eq_ignore_ascii_case(&request.class_name))
+    if !crate::commands::data::class_metadata(
+        profile.data_manifest.profile.game_version == "1.17",
+        profile.data.capabilities.class_budget,
+    )
+    .iter()
+    .any(|class_info| class_info.name.eq_ignore_ascii_case(&request.class_name))
     {
         return Err(AppError::new(format!(
             "starting class '{}' is not available for profile '{}'",
             request.class_name, request.profile_id
         )));
     }
+    if !profile.data.capabilities.class_budget {
+        if !request
+            .class_name
+            .eq_ignore_ascii_case(er_optimizer_core::CUSTOM_STATS_CLASS_NAME)
+        {
+            return Err(AppError::new(format!(
+                "profile '{}' requires {} for custom stat budgets",
+                request.profile_id,
+                er_optimizer_core::CUSTOM_STATS_CLASS_NAME
+            )));
+        }
+        let level_from_stats = [
+            request.vig,
+            request.mnd,
+            request.end,
+            request.str_stat,
+            request.dex,
+            request.int_stat,
+            request.fai,
+            request.arc,
+        ]
+        .into_iter()
+        .map(u16::from)
+        .sum::<u16>();
+        if request.character_level != level_from_stats {
+            return Err(AppError::new(format!(
+                "custom stat profile '{}' requires character level {} for the selected stats; got {}",
+                request.profile_id, level_from_stats, request.character_level
+            )));
+        }
+        for (label, lock, current) in [
+            ("str", request.lock_str, request.str_stat),
+            ("dex", request.lock_dex, request.dex),
+            ("int", request.lock_int, request.int_stat),
+            ("fai", request.lock_fai, request.fai),
+            ("arc", request.lock_arc, request.arc),
+        ] {
+            if lock != Some(current) {
+                return Err(AppError::new(format!(
+                    "custom stat profile '{}' requires {label} to be locked to its current value",
+                    request.profile_id
+                )));
+            }
+        }
+    }
+    let standard_cap = request
+        .standard_upgrade_cap()
+        .min(profile.data.rules.standard_max_upgrade);
+    let somber_cap = request
+        .somber_upgrade_cap()
+        .min(profile.data.rules.somber_max_upgrade);
+    request.standard_max_upgrade = Some(standard_cap);
+    request.somber_max_upgrade = Some(somber_cap);
     let Some(weapon_name) = request.weapon_name.as_deref() else {
         return Ok(());
     };
-    let cap = weapon_upgrade_cap(
-        &profile.catalog_index,
-        weapon_name,
-        request.affinity.as_deref(),
-    )?;
-    if cap <= 10 {
-        request.somber_max_upgrade = Some(request.somber_upgrade_cap().min(cap));
+    let (is_somber, profile_upgrade_cap) =
+        weapon_reinforcement_info(&profile.data, weapon_name, request.affinity.as_deref())?;
+    if is_somber {
+        request.somber_max_upgrade = Some(somber_cap.min(profile_upgrade_cap));
     } else {
-        request.standard_max_upgrade = Some(request.standard_upgrade_cap().min(cap));
+        request.standard_max_upgrade = Some(standard_cap.min(profile_upgrade_cap));
     }
     request.max_upgrade = None;
     request.fixed_upgrade = None;
     Ok(())
+}
+
+fn weapon_reinforcement_info(
+    data: &GameData,
+    weapon_name: &str,
+    affinity: Option<&str>,
+) -> Result<(bool, u8), AppError> {
+    let mut matches = data.weapons.iter().filter(|weapon| {
+        weapon.name.eq_ignore_ascii_case(weapon_name)
+            && affinity.is_none_or(|value| weapon.affinity.eq_ignore_ascii_case(value))
+    });
+    let Some(first) = matches.next() else {
+        return Err(AppError::new(format!(
+            "weapon not found in profile data: {}",
+            weapon_name
+        )));
+    };
+    let is_somber = first.is_somber;
+    if matches.any(|weapon| weapon.is_somber != is_somber) {
+        return Err(AppError::new(format!(
+            "weapon '{}' has mixed reinforcement types; specify an affinity",
+            weapon_name
+        )));
+    }
+    let profile_upgrade_cap = if is_somber {
+        data.rules.somber_max_upgrade
+    } else {
+        data.rules.standard_max_upgrade
+    };
+    Ok((is_somber, profile_upgrade_cap))
 }
 
 #[cfg(test)]
@@ -314,6 +428,34 @@ mod integration_tests {
             solved,
             max_upgrade: 25,
         }
+    }
+
+    fn convergence_custom_stats_request() -> crate::dto::OptimizeRequestDto {
+        let mut request = crate::test_optimize_request();
+        request.profile_id = er_optimizer_core::CONVERGENCE_PROFILE_ID.to_string();
+        request.class_name = er_optimizer_core::CUSTOM_STATS_CLASS_NAME.to_string();
+        request.vig = 20;
+        request.mnd = 20;
+        request.end = 20;
+        request.str_stat = 40;
+        request.dex = 40;
+        request.int_stat = 40;
+        request.fai = 20;
+        request.arc = 20;
+        request.character_level = 220;
+        request.lock_str = Some(request.str_stat);
+        request.lock_dex = Some(request.dex);
+        request.lock_int = Some(request.int_stat);
+        request.lock_fai = Some(request.fai);
+        request.lock_arc = Some(request.arc);
+        request.standard_max_upgrade = Some(25);
+        request.somber_max_upgrade = Some(25);
+        request.exact_upgrade = Some(true);
+        request.max_upgrade = None;
+        request.fixed_upgrade = None;
+        request.weapon_name = Some("Galvanic Culling Blade [Twinblade]".to_string());
+        request.affinity = Some("Standard".to_string());
+        request
     }
 
     #[test]
@@ -370,6 +512,65 @@ mod integration_tests {
         let error = build_upgrade_series_inner_with_cancel(request, &state, || false)
             .expect_err("cancelled upgrade series must fail closed");
         assert_eq!(error.message, "cancelled");
+    }
+
+    #[test]
+    fn convergence_unique_somber_upgrade_series_reaches_plus_fifteen() {
+        let state = crate::test_app_state();
+        let base = convergence_custom_stats_request();
+        let solved = run_search_inner(base.clone(), &state)
+            .expect("Convergence fixed-stat seed search succeeds")
+            .pop()
+            .expect("Convergence unique weapon seed exists");
+        assert!(solved.is_somber);
+        assert_eq!(solved.upgrade, 15);
+
+        let points = build_upgrade_series_inner(
+            UpgradeSeriesRequestDto {
+                base,
+                solved,
+                max_upgrade: 25,
+            },
+            &state,
+        )
+        .expect("Convergence upgrade series succeeds");
+        assert_eq!(
+            points.iter().map(|point| point.upgrade).collect::<Vec<_>>(),
+            (0_u8..=15).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn vanilla_somber_request_keeps_the_ten_level_cap() {
+        let state = crate::test_app_state();
+        let mut request = crate::test_optimize_request();
+        request.weapon_name = Some("Black Knife".to_string());
+        request.affinity = Some("Standard".to_string());
+        request.standard_max_upgrade = Some(25);
+        request.somber_max_upgrade = Some(25);
+        request.exact_upgrade = Some(false);
+
+        clamp_weapon_upgrade_request(&mut request, &state)
+            .expect("Vanilla unique weapon request should clamp");
+        assert_eq!(request.standard_max_upgrade, Some(25));
+        assert_eq!(request.somber_max_upgrade, Some(10));
+    }
+
+    #[test]
+    fn convergence_custom_stats_boundary_requires_exact_level_and_locks() {
+        let state = crate::test_app_state();
+
+        let mut wrong_level = convergence_custom_stats_request();
+        wrong_level.character_level += 1;
+        let error = clamp_weapon_upgrade_request(&mut wrong_level, &state)
+            .expect_err("custom stats with an inconsistent level must be rejected");
+        assert!(error.message.contains("requires character level"));
+
+        let mut missing_lock = convergence_custom_stats_request();
+        missing_lock.lock_arc = None;
+        let error = clamp_weapon_upgrade_request(&mut missing_lock, &state)
+            .expect_err("custom stats without all combat locks must be rejected");
+        assert!(error.message.contains("arc to be locked"));
     }
 
     #[test]

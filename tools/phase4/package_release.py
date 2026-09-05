@@ -9,11 +9,12 @@ import os
 import shutil
 import subprocess
 import tempfile
-import time
 from pathlib import Path
 
 EXPECTED_PRODUCT_NAME = "Tarnished’s Arsenal"
 EXPECTED_UPGRADE_CODE = "{EC17FDAC-E313-5440-BD56-B985F2F0DA58}"
+BUNDLE_TYPE_UNKNOWN = b"__TAURI_BUNDLE_TYPE_VAR_UNK"
+BUNDLE_TYPE_MSI = b"__TAURI_BUNDLE_TYPE_VAR_MSI"
 
 
 def npm_cmd() -> str:
@@ -30,31 +31,6 @@ def python_cmd() -> str:
 
 def run(cmd: list[str], cwd: Path, *, env: dict[str, str] | None = None) -> None:
     subprocess.run(cmd, cwd=cwd, check=True, env=env)
-
-
-def run_with_retries(
-    cmd: list[str],
-    cwd: Path,
-    *,
-    attempts: int,
-    delay_seconds: float,
-    env: dict[str, str] | None = None,
-) -> None:
-    if attempts < 1:
-        raise ValueError("attempts must be at least 1")
-    for attempt in range(1, attempts + 1):
-        try:
-            run(cmd, cwd=cwd, env=env)
-            return
-        except subprocess.CalledProcessError:
-            if attempt == attempts:
-                raise
-            delay = delay_seconds * attempt
-            print(
-                f"Command failed on attempt {attempt}/{attempts}; retrying in {delay:g}s",
-                flush=True,
-            )
-            time.sleep(delay)
 
 
 def write_text(path: Path, text: str) -> None:
@@ -75,6 +51,22 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def expected_msi_payload_sha256(binary: Path) -> str:
+    """Hash the MSI-marked byte variant represented by a portable executable."""
+    portable_bytes = binary.read_bytes()
+    if portable_bytes.count(BUNDLE_TYPE_UNKNOWN) != 1:
+        raise RuntimeError(
+            f"portable executable must contain exactly one Tauri unknown bundle marker: "
+            f"{binary.name}"
+        )
+    if portable_bytes.count(BUNDLE_TYPE_MSI):
+        raise RuntimeError(
+            f"portable executable unexpectedly contains the MSI bundle marker: {binary.name}"
+        )
+    msi_bytes = portable_bytes.replace(BUNDLE_TYPE_UNKNOWN, BUNDLE_TYPE_MSI, 1)
+    return hashlib.sha256(msi_bytes).hexdigest()
 
 
 def git_commit(root: Path) -> str:
@@ -274,9 +266,15 @@ def msi_property(path: Path, property_name: str) -> str:
         msi.MsiCloseHandle(database)
 
 
-def verify_msi_identity(path: Path, product_name: str, upgrade_code: str) -> None:
+def verify_msi_identity(
+    path: Path,
+    product_name: str,
+    upgrade_code: str,
+    product_version: str,
+) -> None:
     actual_product_name = msi_property(path, "ProductName")
     actual_upgrade_code = msi_property(path, "UpgradeCode")
+    actual_product_version = msi_property(path, "ProductVersion")
     if actual_product_name != product_name:
         raise RuntimeError(
             f"MSI ProductName is {actual_product_name!r}; expected {product_name!r}"
@@ -285,6 +283,90 @@ def verify_msi_identity(path: Path, product_name: str, upgrade_code: str) -> Non
         raise RuntimeError(
             f"MSI UpgradeCode is {actual_upgrade_code!r}; expected {upgrade_code!r}"
         )
+    if actual_product_version != product_version:
+        raise RuntimeError(
+            f"MSI ProductVersion is {actual_product_version!r}; expected {product_version!r}"
+        )
+
+
+def verify_msi_payload(
+    path: Path,
+    portable_exe: Path,
+    workspace: Path,
+    *,
+    expected_payload: bytes | None = None,
+) -> None:
+    """Extract and verify the MSI executable payload.
+
+    Tauri intentionally patches the embedded executable's bundle-type marker to
+    ``MSI`` and restores the portable executable's ``UNK`` marker after bundling.
+    Unsigned builds therefore compare equal after that one documented marker
+    replacement. Signed builds compare byte-for-byte with the exact post-patch
+    executable captured by Tauri's signing hook.
+    """
+    if os.name != "nt":
+        raise RuntimeError("MSI payload validation requires Windows")
+    msiexec = shutil.which("msiexec.exe") or str(
+        Path(os.environ.get("WINDIR", "C:/Windows")) / "System32" / "msiexec.exe"
+    )
+    if not Path(msiexec).is_file():
+        raise FileNotFoundError("msiexec.exe was not found for MSI payload validation")
+
+    workspace.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="tarnisheds-msi-verify-", dir=workspace) as directory:
+        destination = Path(directory)
+        result = subprocess.run(
+            [msiexec, "/a", str(path), "/qn", f"TARGETDIR={destination}"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout or "msiexec returned an error").strip()
+            raise RuntimeError(
+                f"MSI administrative extraction failed for {path.name} "
+                f"(exit {result.returncode}): {detail}"
+            )
+
+        embedded = list(destination.rglob(portable_exe.name))
+        if len(embedded) != 1:
+            raise RuntimeError(
+                f"MSI administrative extraction found {len(embedded)} copies of "
+                f"{portable_exe.name}; expected exactly one"
+            )
+        portable_bytes = portable_exe.read_bytes()
+        embedded_bytes = embedded[0].read_bytes()
+        if portable_bytes.count(BUNDLE_TYPE_UNKNOWN) != 1:
+            raise RuntimeError(
+                f"portable executable must contain exactly one Tauri unknown bundle marker: "
+                f"{portable_exe.name}"
+            )
+        if portable_bytes.count(BUNDLE_TYPE_MSI):
+            raise RuntimeError(
+                f"portable executable unexpectedly contains the MSI bundle marker: "
+                f"{portable_exe.name}"
+            )
+        if embedded_bytes.count(BUNDLE_TYPE_MSI) != 1:
+            raise RuntimeError(
+                f"MSI payload executable must contain exactly one Tauri MSI bundle marker: "
+                f"{portable_exe.name}"
+            )
+        if embedded_bytes.count(BUNDLE_TYPE_UNKNOWN):
+            raise RuntimeError(
+                f"MSI payload executable unexpectedly contains the unknown bundle marker: "
+                f"{portable_exe.name}"
+            )
+        if expected_payload is not None:
+            payload_matches = embedded_bytes == expected_payload
+        else:
+            expected_embedded = portable_bytes.replace(BUNDLE_TYPE_UNKNOWN, BUNDLE_TYPE_MSI, 1)
+            payload_matches = embedded_bytes == expected_embedded
+        if not payload_matches:
+            raise RuntimeError(
+                f"MSI payload executable differs from the expected post-patch executable: "
+                f"{portable_exe.name}"
+            )
 
 
 def sign_windows_binary(
@@ -311,6 +393,14 @@ def sign_windows_binary(
     ]
     try:
         subprocess.run(command, check=True, capture_output=True, text=True)
+        verify_windows_binary(signtool, binary)
+    except subprocess.CalledProcessError as error:
+        detail = (error.stderr or error.stdout or "signtool returned an error").strip()
+        raise RuntimeError(f"Authenticode signing failed for {binary.name}: {detail}") from None
+
+
+def verify_windows_binary(signtool: Path, binary: Path) -> None:
+    try:
         subprocess.run(
             [str(signtool), "verify", "/pa", "/v", str(binary)],
             check=True,
@@ -318,20 +408,82 @@ def sign_windows_binary(
             text=True,
         )
     except subprocess.CalledProcessError as error:
-        detail = (error.stderr or error.stdout or "signtool returned an error").strip()
-        raise RuntimeError(f"Authenticode signing failed for {binary.name}: {detail}") from None
+        detail = (error.stderr or error.stdout or "signtool verification returned an error").strip()
+        raise RuntimeError(f"Authenticode verification failed for {binary.name}: {detail}") from None
+
+
+def write_tauri_signing_config(
+    directory: Path,
+    executable_name: str,
+) -> Path:
+    script = directory / "sign-msi-payload.ps1"
+    script.write_text(
+        f"""$ErrorActionPreference = \"Stop\"
+$binary = $args[0]
+$expectedName = {json.dumps(executable_name)}
+if ([IO.Path]::GetFileName($binary) -ne $expectedName) {{
+  throw \"unexpected Tauri signing target: $binary\"
+}}
+$bytes = [IO.File]::ReadAllBytes($binary)
+$text = [Text.Encoding]::ASCII.GetString($bytes)
+$msiMarker = \"{BUNDLE_TYPE_MSI.decode('ascii')}\"
+$unknownMarker = \"{BUNDLE_TYPE_UNKNOWN.decode('ascii')}\"
+$firstMsi = $text.IndexOf($msiMarker, [StringComparison]::Ordinal)
+if ($firstMsi -lt 0 -or $text.IndexOf($msiMarker, $firstMsi + $msiMarker.Length, [StringComparison]::Ordinal) -ge 0 -or $text.Contains($unknownMarker, [StringComparison]::Ordinal)) {{
+  throw \"Tauri signing target does not contain exactly one MSI bundle marker\"
+}}
+$actualHash = (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actualHash -ne $env:TAURI_RELEASE_EXPECTED_MSI_PAYLOAD_SHA256.ToLowerInvariant()) {{
+  throw \"Tauri changed bytes other than the documented MSI bundle marker\"
+}}
+if (Test-Path -LiteralPath $env:TAURI_RELEASE_SIGNED_MSI_PAYLOAD) {{
+  throw \"Tauri signing hook was invoked more than once for the MSI payload\"
+}}
+& $env:TAURI_RELEASE_SIGNTOOL sign /fd SHA256 /td SHA256 /tr $env:TAURI_RELEASE_TIMESTAMP_URL /f $env:TAURI_RELEASE_CERTIFICATE /p $env:TAURI_RELEASE_CERTIFICATE_PASSWORD $binary
+if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}
+& $env:TAURI_RELEASE_SIGNTOOL verify /pa /v $binary
+if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}
+Copy-Item -LiteralPath $binary -Destination $env:TAURI_RELEASE_SIGNED_MSI_PAYLOAD -Force
+""",
+        encoding="utf-8",
+    )
+    config = directory / "tauri-signing.json"
+    config.write_text(
+        json.dumps(
+            {
+                "bundle": {
+                    "windows": {
+                        "signCommand": {
+                            "cmd": "pwsh.exe",
+                            "args": [
+                                "-NoLogo",
+                                "-NoProfile",
+                                "-NonInteractive",
+                                "-ExecutionPolicy",
+                                "Bypass",
+                                "-File",
+                                str(script),
+                                "%1",
+                            ],
+                        }
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    return config
 
 
 def sign_release_binaries_if_configured(
     app_dir: Path,
     tauri_dir: Path,
-) -> tuple[Path, Path, bool]:
+) -> tuple[Path, Path, bool, bytes | None]:
     exe = newest("target/release/tarnisheds-arsenal-desktop.exe", tauri_dir)
-    msi = newest("target/release/bundle/msi/*.msi", tauri_dir)
     encoded_certificate = os.environ.get("WINDOWS_SIGNING_CERTIFICATE_BASE64", "").strip()
     password = os.environ.get("WINDOWS_SIGNING_CERTIFICATE_PASSWORD", "")
     if not encoded_certificate and not password:
-        return exe, msi, False
+        return exe, newest("target/release/bundle/msi/*.msi", tauri_dir), False, None
     if not encoded_certificate or not password:
         raise RuntimeError("Windows signing requires both certificate and password credentials")
 
@@ -340,20 +492,51 @@ def sign_release_binaries_if_configured(
         os.environ.get("WINDOWS_SIGNING_TIMESTAMP_URL", "").strip()
         or "http://timestamp.digicert.com"
     )
-    with tempfile.TemporaryDirectory(prefix="tarnisheds-signing-") as directory:
+    workspace = tauri_dir.parents[2] / "dist"
+    workspace.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="tarnisheds-signing-", dir=workspace) as directory:
         certificate = Path(directory) / "certificate.pfx"
         try:
             certificate.write_bytes(base64.b64decode(encoded_certificate, validate=True))
         except ValueError as error:
             raise RuntimeError("Windows signing certificate is not valid base64") from error
-        sign_windows_binary(signtool, certificate, password, timestamp_url, exe)
-        run(
-            [npm_cmd(), "run", "tauri", "--", "bundle", "--bundles", "msi"],
-            cwd=app_dir,
+        expected_msi_hash = expected_msi_payload_sha256(exe)
+        snapshot = Path(directory) / "signed-msi-payload.exe"
+        config = write_tauri_signing_config(Path(directory), exe.name)
+        signing_env = os.environ.copy()
+        signing_env.update(
+            {
+                "TAURI_RELEASE_SIGNTOOL": str(signtool),
+                "TAURI_RELEASE_CERTIFICATE": str(certificate),
+                "TAURI_RELEASE_CERTIFICATE_PASSWORD": password,
+                "TAURI_RELEASE_TIMESTAMP_URL": timestamp_url,
+                "TAURI_RELEASE_SIGNED_MSI_PAYLOAD": str(snapshot),
+                "TAURI_RELEASE_EXPECTED_MSI_PAYLOAD_SHA256": expected_msi_hash,
+            }
         )
+        run(
+            [
+                npm_cmd(),
+                "run",
+                "tauri",
+                "--",
+                "bundle",
+                "--bundles",
+                "msi",
+                "--config",
+                str(config),
+            ],
+            cwd=app_dir,
+            env=signing_env,
+        )
+        if not snapshot.is_file():
+            raise RuntimeError("Tauri signing hook did not capture the signed MSI payload")
+        expected_payload = snapshot.read_bytes()
+        verify_windows_binary(signtool, snapshot)
         msi = newest("target/release/bundle/msi/*.msi", tauri_dir)
+        sign_windows_binary(signtool, certificate, password, timestamp_url, exe)
         sign_windows_binary(signtool, certificate, password, timestamp_url, msi)
-    return exe, msi, True
+    return exe, msi, True, expected_payload
 
 
 def main() -> int:
@@ -361,7 +544,7 @@ def main() -> int:
     parser.add_argument(
         "--skip-validation",
         action="store_true",
-        help="Skip test/data validation when CI already validated this commit.",
+        help="Skip source tests and lint when exact-commit CI already validated this commit.",
     )
     parser.add_argument(
         "--replace-output",
@@ -430,10 +613,20 @@ def main() -> int:
             ],
             cwd=root,
         )
-        run(
-            [python_cmd(), "-m", "unittest", "tools.phase1.test_snapshot_manifest"],
-            cwd=root,
-        )
+        for test_dir in ("tools/phase1", "tools/phase4"):
+            run(
+                [
+                    python_cmd(),
+                    "-m",
+                    "unittest",
+                    "discover",
+                    "-s",
+                    test_dir,
+                    "-p",
+                    "test_*.py",
+                ],
+                cwd=root,
+            )
         run([python_cmd(), "-m", "ruff", "check", "tools"], cwd=root)
         run([python_cmd(), "-m", "pyright", "tools"], cwd=root)
         run(
@@ -515,50 +708,53 @@ def main() -> int:
     require_unchanged_tracked_source(root, source_commit, stage="release validation")
     run([npm_cmd(), "ci", "--prefer-offline", "--no-audit", "--fund=false"], cwd=app_dir)
     require_unchanged_tracked_source(root, source_commit, stage="npm ci")
-    run(
-        [
-            node_cmd(),
-            "./node_modules/@playwright/test/cli.js",
-            "install",
-            "chromium",
-        ],
-        cwd=app_dir,
+    if not args.skip_validation:
+        run(
+            [
+                node_cmd(),
+                "./node_modules/@playwright/test/cli.js",
+                "install",
+                "chromium",
+            ],
+            cwd=app_dir,
+        )
+        require_unchanged_tracked_source(root, source_commit, stage="Playwright browser install")
+        run([npm_cmd(), "test"], cwd=app_dir)
+        require_unchanged_tracked_source(root, source_commit, stage="frontend tests")
+        run([npm_cmd(), "run", "test:e2e"], cwd=app_dir)
+        require_unchanged_tracked_source(root, source_commit, stage="frontend E2E tests")
+    signing_requested = bool(
+        os.environ.get("WINDOWS_SIGNING_CERTIFICATE_BASE64", "").strip()
+        or os.environ.get("WINDOWS_SIGNING_CERTIFICATE_PASSWORD", "")
     )
-    require_unchanged_tracked_source(root, source_commit, stage="Playwright browser install")
-    run([npm_cmd(), "test"], cwd=app_dir)
-    require_unchanged_tracked_source(root, source_commit, stage="frontend tests")
-    run([npm_cmd(), "run", "test:e2e"], cwd=app_dir)
-    require_unchanged_tracked_source(root, source_commit, stage="frontend E2E tests")
-    run_with_retries(
-        [npm_cmd(), "run", "tauri", "--", "build", "--", "--locked"],
-        cwd=app_dir,
-        attempts=3,
-        delay_seconds=5,
-    )
+    build_command = [npm_cmd(), "run", "tauri", "--", "build"]
+    if signing_requested:
+        build_command.append("--no-bundle")
+    build_command.extend(["--", "--locked"])
+    run(build_command, cwd=app_dir)
     require_unchanged_tracked_source(root, source_commit, stage="Tauri build")
-    packaged_exe, packaged_msi, code_signed = sign_release_binaries_if_configured(
+    packaged_exe, packaged_msi, code_signed, expected_msi_payload = sign_release_binaries_if_configured(
         app_dir,
         tauri_dir,
     )
     if code_signed:
         completed_gates.append("windows-code-signing")
-    verify_msi_identity(packaged_msi, EXPECTED_PRODUCT_NAME, EXPECTED_UPGRADE_CODE)
+    verify_msi_identity(packaged_msi, EXPECTED_PRODUCT_NAME, EXPECTED_UPGRADE_CODE, version)
+    verify_msi_payload(
+        packaged_msi,
+        packaged_exe,
+        root / "dist",
+        expected_payload=expected_msi_payload,
+    )
     completed_gates.append("windows-msi-identity")
     run(
         [node_cmd(), "./scripts/smoke-packaged.mjs", str(packaged_exe)],
         cwd=app_dir,
     )
     require_unchanged_tracked_source(root, source_commit, stage="packaged app smoke")
-    completed_gates.extend(
-        [
-            "playwright-browser",
-            "frontend-tests",
-            "frontend-e2e",
-            "frontend-build",
-            "tauri-release-build",
-            "packaged-app-smoke",
-        ]
-    )
+    completed_gates.extend(["frontend-build", "tauri-release-build", "packaged-app-smoke"])
+    if not args.skip_validation:
+        completed_gates.extend(["playwright-browser", "frontend-tests", "frontend-e2e"])
 
     release_dir.mkdir(parents=True, exist_ok=args.replace_output)
     if validation_completed:
@@ -583,7 +779,7 @@ def main() -> int:
                 "",
                 "## Included",
                 f"- `{msi_out.name}` installer",
-                f"- `{exe_out.name}` self-contained standalone executable",
+                f"- `{exe_out.name}` portable executable",
                 "- `SHA256SUMS.txt` integrity hashes",
                 "- `build-report.json` build provenance",
                 *( ["- `data-validation.json` generated-data validation report"] if validation_completed else [] ),
@@ -591,6 +787,8 @@ def main() -> int:
                 "",
                 "## Install",
                 "Run the MSI installer, or launch the standalone executable directly.",
+                "The portable executable requires Microsoft Edge WebView2 to be installed.",
+                "The MSI downloads the WebView2 bootstrapper if it is needed.",
                 "",
                 "## Runtime Data",
                 "Both artifacts contain the same compile-time Vanilla and Convergence runtime snapshots.",

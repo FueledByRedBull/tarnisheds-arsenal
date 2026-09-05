@@ -9,13 +9,46 @@ test("profile switch isolates results and explains Convergence coverage", async 
 
   await profiles.getByRole("radio", { name: /Convergence/ }).click();
   await expect(profiles.getByRole("radio", { name: /Convergence/ })).toHaveAttribute("aria-checked", "true");
-  await expect(page.getByText("Weapon model ready", { exact: true })).toBeVisible();
+  await expect(page.getByText("Experimental fixed-stat model", { exact: true })).toBeVisible();
   await expect(
-    page.getByText(/Ammo weapons and AoW hit\/route damage stay disabled/),
+    page.getByText(/Ammo weapons and AoW hit\/route damage remain unsupported/),
   ).toBeVisible();
   await expect(page.getByText("4 ranked rows")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "AoW First Hit" })).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "Class", exact: true })).toHaveValue("Custom stats");
+  await expect(page.getByRole("button", { name: "Optimize class" })).toBeDisabled();
+  await expect(page.getByRole("textbox", { name: "Stat total", exact: true })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: "Use entered combat stats exactly" })).toBeChecked();
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("1 ranked rows")).toBeVisible();
+  await expect(page.getByRole("navigation").getByRole("button", { name: "Paths", exact: true })).toBeDisabled();
   await expect.poll(() => page.evaluate(() => localStorage.getItem("tarnisheds-arsenal.gameProfile.v1"))).toBe("convergence");
+  await profiles.getByRole("radio", { name: /Vanilla/ }).click();
+  await expect(page.getByRole("combobox", { name: "Class", exact: true })).toHaveValue("Samurai");
+  await expect(page.getByRole("button", { name: "Optimize class" })).toBeEnabled();
+});
+
+test("fixed skill controls use the same native selection in Rankings and Compare", async ({ page }) => {
+  await page.goto("/");
+  await chooseSearchableOption(page, "Weapon", "Ancient Meteoric Ore Greatsword");
+  const rankingSkill = page.getByRole("combobox", { name: "AoW (fixed)", exact: true });
+  await expect(rankingSkill).toHaveValue("White Light Charge");
+  await expect(rankingSkill).toBeDisabled();
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("1 ranked rows")).toBeVisible();
+  await expect(page.getByRole("grid", { name: "Ranked builds" })).toContainText("White Light Charge");
+  await chooseSearchableOption(page, "Weapon", "Open");
+  await page.getByRole("button", { name: "Update Results", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await page.locator(".result-row-full").first().click();
+  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await chooseSearchableOption(page, "Compare Weapon", "Ancient Meteoric Ore Greatsword");
+  const comparisonSkill = page.getByRole("combobox", { name: "Compare AoW (fixed)", exact: true });
+  await expect(comparisonSkill).toHaveValue("White Light Charge");
+  await expect(comparisonSkill).toBeDisabled();
+  await page.getByRole("navigation").getByRole("button", { name: "Rankings", exact: true }).click();
+  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await expect(comparisonSkill).toHaveValue("White Light Charge");
 });
 
 test("session-driven search, lock, compare, paths, and affinity watch", async ({ page }) => {
@@ -55,7 +88,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await chooseSearchableOption(page, "Weapon", "Open");
   await chooseSearchableOption(page, "AoW", "Bloodhound's Step");
   await expect(page.getByRole("combobox", { name: "AoW" })).toHaveValue("Bloodhound's Step");
-  await chooseSearchableOption(page, "AoW", "Open");
+  await chooseSearchableOption(page, "AoW", "Automatic (best legal skill)");
 
   await page.getByRole("button", { name: "Search" }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
@@ -223,10 +256,16 @@ test("weapon filters cycle include, exclude, and neutral", async ({ page }) => {
 test("starting class optimization and stat reset keep the level budget valid", async ({ page }) => {
   await page.goto("/");
 
+  const stats = ["VIG", "MND", "END", "STR", "DEX", "INT", "FAI", "ARC"];
+  const before = await Promise.all(stats.map((stat) => page.getByRole("spinbutton", { name: stat, exact: true }).inputValue()));
   await page.getByRole("button", { name: "Optimize class" }).click();
-  await expect(page.getByRole("combobox", { name: "Class" })).toHaveValue("Wretch");
+  await expect(page.getByRole("combobox", { name: "Class" })).toHaveValue("Samurai");
   await expect(page.getByRole("textbox", { name: "Level", exact: true })).toHaveValue("9");
+  for (const [index, stat] of stats.entries()) {
+    await expect(page.getByRole("spinbutton", { name: stat, exact: true })).toHaveValue(before[index]);
+  }
 
+  await chooseSearchableOption(page, "Class", "Wretch");
   await page.getByRole("button", { name: "Reset stats" }).click();
   await expect(page.getByRole("textbox", { name: "Level", exact: true })).toHaveValue("1");
   for (const stat of ["VIG", "MND", "END", "STR", "DEX", "INT", "FAI", "ARC"]) {
@@ -349,7 +388,7 @@ test("stale saved builds offer explicit input-only loading or recompute migratio
   await page.getByRole("button", { name: "Save new" }).click();
   await expect(page.getByText(/Saved Build Preset/)).toBeVisible();
   await expect(page.locator(".saved-build-status")).toContainText(
-    "Current · profile vanilla · dataset vanilla-1.17 · schema 3",
+    "Current · profile vanilla · dataset vanilla-1.17 · schema 4",
   );
 
   await page.evaluate(() => {

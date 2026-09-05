@@ -225,7 +225,7 @@ export function RankingsBoard() {
       <div className="query-summary" aria-label="Active search summary">
         <span className="query-summary-title"><Sparkles size={14} />{resultsStale ? "Pending query" : "Active query"}</span>
         <span>{objectiveLabel(request.objective)}</span>
-        <span>Level {derivedLevel(catalog, request)}</span>
+        <span>{catalog?.dataManifest.capabilities.classBudget === false ? "Stat total" : "Level"} {derivedLevel(catalog, request)}</span>
         <span>
           {request.exactUpgrade ? "Exact" : "Up to"} +{request.standardMaxUpgrade}
           {separateUpgradeCaps ? ` / +${request.somberMaxUpgrade}` : ""}
@@ -339,7 +339,7 @@ function TopCard({
           >
             <span>#{index + 1}</span>
             <strong>{row.weaponName}</strong>
-            <small>{row.affinity} · {row.aowName ?? "Native"} · +{row.upgrade}</small>
+            <small>{row.affinity} · {row.aowName ?? "Unspecified skill"} · +{row.upgrade}</small>
             <b>{fixed1(metricForObjective(row, objective))}</b>
           </button>
           <div className="top-card-actions">
@@ -413,7 +413,7 @@ function ResultRow({
     >
       <span role="gridcell" className="rank-cell">{index + 1}</span>
       <span role="gridcell" className="weapon-cell"><strong>{row.weaponName}</strong><small>{row.isSomber ? "Somber" : "Standard"}</small></span>
-      <span role="gridcell" className="setup-cell"><strong>{row.affinity}</strong><small>{row.aowName ?? "Native"}</small></span>
+      <span role="gridcell" className="setup-cell"><strong>{row.affinity}</strong><small>{row.aowName ?? "Unspecified skill"}</small></span>
       <span role="gridcell">+{row.upgrade}</span>
       <span role="gridcell" className="scaling-cell"><ScalingTokens scaling={scaling} extended={extendedScalingGrades} /></span>
       <span role="gridcell" className="result-metric-cell ar-status-cell"><strong>AR {compactNumber(row.ar.total)}</strong><DamageTokens ar={row.ar} /><StatusTokens row={row} /></span>

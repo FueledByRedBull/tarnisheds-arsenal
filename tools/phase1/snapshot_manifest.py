@@ -17,15 +17,14 @@ from tools.phase1.extract_motion_workbook import MOTION_WORKBOOK_NAME  # noqa: E
 from tools.phase1.profiles import ProfileDefinition, profile_definition  # noqa: E402
 
 
-SCHEMA_VERSION = 3
-MODEL_VERSION = "aow-routes-effects-v3-profile-semantics"
-EXTRACTOR_VERSION = "phase1-python-v7-profile-semantics"
+SCHEMA_VERSION = 4
+MODEL_VERSION = "aow-routes-effects-v5-compact-compatibility"
+EXTRACTOR_VERSION = "phase1-python-v9-compact-compatibility"
 RUNTIME_FILES = {
     "aow.csv",
     "aow_attack_data.csv",
     "aow_effect_data.csv",
     "aow_route_assignments.csv",
-    "aow_weapon_compat.csv",
     "attack_element_correct.csv",
     "attack_element_correct_ext.csv",
     "calc_correct.csv",
@@ -54,9 +53,14 @@ class SnapshotManifest(TypedDict):
     datasetVersion: str
     modelVersion: str
     id: str
+    label: str
+    appVersion: str
     profile: dict[str, str | None]
     capabilities: dict[str, bool]
     rules: dict[str, bool | int]
+    generatedAt: str
+    extractorVersion: str
+    provenance: str
     runtimeFiles: list[FileRecord]
     diagnosticFiles: list[FileRecord]
     sources: list[SourceRecord]
@@ -137,6 +141,9 @@ def write_snapshot_manifest(
         sources.append({"kind": kind, "bundled": False, **_file_record(resolved)})
 
     version_label = profile.mod_version or profile.game_version
+    provenance = "profile-bound regulation, names, and numeric PARAM effect graph"
+    if workbook_path.is_file():
+        provenance = "profile-bound regulation, names, motion data, and numeric PARAM effect graph"
     manifest = {
         "schemaVersion": SCHEMA_VERSION,
         "datasetVersion": profile.dataset_version,
@@ -150,7 +157,7 @@ def write_snapshot_manifest(
         "rules": profile.rules.as_manifest_dict(),
         "generatedAt": generated_at or date.today().isoformat(),
         "extractorVersion": EXTRACTOR_VERSION,
-        "provenance": "profile-bound regulation, names, motion data, and numeric PARAM effect graph",
+        "provenance": provenance,
         "runtimeFiles": runtime_files,
         "diagnosticFiles": diagnostic_files,
         "sources": sources,
@@ -204,6 +211,8 @@ def validate_snapshot_manifest(
             raise ValueError("snapshot datasetVersion does not match the selected profile")
     expected_capability_keys = {
         "weaponAr",
+        "weaponArForAmmunition",
+        "classBudget",
         "statusBuildup",
         "weaponPassives",
         "aowCompatibility",

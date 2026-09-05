@@ -5,6 +5,12 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Create the version tag and publish the release after packaging"
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: release-${{ github.workflow }}-${{ github.ref }}
@@ -19,6 +25,14 @@ jobs:
       contents: read
 
     steps:
+      - name: Require the default branch for manual publication
+        if: github.event_name == 'workflow_dispatch' && inputs.publish == true
+        shell: pwsh
+        run: |
+          if ("$env:GITHUB_REF_NAME" -ne "${{ github.event.repository.default_branch }}") {
+            throw "Manual publication must run from the default branch; got $env:GITHUB_REF_NAME"
+          }
+
       - name: Wait for successful CI on this commit
         shell: pwsh
         env:
@@ -111,12 +125,25 @@ jobs:
 
       - name: Validate release metadata
         run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $true
           $config = Get-Content apps/desktop/src-tauri/tauri.conf.json | ConvertFrom-Json
           $version = $config.version
           "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           $tag = "v$version"
           if ($env:GITHUB_REF -like "refs/tags/*") {
             $tag = $env:GITHUB_REF_NAME
+          }
+          "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $localTag = git tag --list $tag
+          if ($localTag -eq $tag) {
+            $existingCommit = git rev-list -n 1 "refs/tags/$tag^{commit}"
+            if ($LASTEXITCODE -ne 0 -or -not $existingCommit) {
+              throw "Unable to resolve local release tag $tag"
+            }
+            if ($existingCommit -ne $env:GITHUB_SHA) {
+              throw "Release tag $tag already points to $existingCommit; expected $env:GITHUB_SHA"
+            }
           }
           python tools/phase4/validate_release_metadata.py --tag $tag
 
@@ -129,10 +156,11 @@ jobs:
           WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
           WINDOWS_SIGNING_TIMESTAMP_URL: ${{ vars.WINDOWS_SIGNING_TIMESTAMP_URL }}
         run: |
-          python tools/phase4/package_release.py
+          python tools/phase4/package_release.py --skip-validation
 
       - name: Prepare release assets
         run: |
+          $ErrorActionPreference = "Stop"
           $releaseDir = Get-Item "dist/TarnishedsArsenal_$env:RELEASE_VERSION"
           if (-not $releaseDir) { throw "No release directory found in dist" }
           $zipPath = Join-Path "dist" "TarnishedsArsenal_$env:RELEASE_VERSION.zip"
@@ -147,59 +175,47 @@ jobs:
           $msiPath = $msiCandidates[0]
           $checksumsPath = Join-Path $releaseDir.FullName "SHA256SUMS.txt"
           $reportPath = Join-Path $releaseDir.FullName "build-report.json"
-          $validationPath = Join-Path $releaseDir.FullName "data-validation.json"
           if (-not $exePath) { throw "No portable executable found in $($releaseDir.FullName)" }
           if (-not $msiPath) { throw "No MSI found in $($releaseDir.FullName)" }
           if (-not (Test-Path $zipPath)) { throw "No release archive found at $zipPath" }
           if (-not (Test-Path $checksumsPath)) { throw "No checksum file found in $($releaseDir.FullName)" }
           if (-not (Test-Path $reportPath)) { throw "No build report found in $($releaseDir.FullName)" }
-          if (-not (Test-Path $validationPath)) { throw "No data validation report found in $($releaseDir.FullName)" }
 
           $exeUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION`_portable.exe"
           $msiUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION`_x64_en-US.msi"
           $zipUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION.zip"
           $checksumsUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION`_SHA256SUMS.txt"
           $reportUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION`_build-report.json"
-          $validationUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION`_data-validation.json"
           Copy-Item -LiteralPath $exePath.FullName -Destination $exeUpload -Force
           Copy-Item -LiteralPath $msiPath.FullName -Destination $msiUpload -Force
           Copy-Item -LiteralPath $zipPath -Destination $zipUpload -Force
           Copy-Item -LiteralPath $checksumsPath -Destination $checksumsUpload -Force
           Copy-Item -LiteralPath $reportPath -Destination $reportUpload -Force
-          Copy-Item -LiteralPath $validationPath -Destination $validationUpload -Force
 
           "RELEASE_EXE=$exeUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "RELEASE_MSI=$msiUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "RELEASE_ZIP=$zipUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "RELEASE_CHECKSUMS=$checksumsUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "RELEASE_REPORT=$reportUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "RELEASE_DATA_VALIDATION=$validationUpload" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Verify release provenance and checksums
         run: |
+          $ErrorActionPreference = "Stop"
           $report = Get-Content -LiteralPath $env:RELEASE_REPORT -Raw | ConvertFrom-Json
+          if ($report.version -ne $env:RELEASE_VERSION) {
+            throw "Build report version mismatch: $($report.version); expected $env:RELEASE_VERSION"
+          }
           if ($report.commit -ne $env:GITHUB_SHA) {
             throw "Build report commit mismatch: $($report.commit); expected $env:GITHUB_SHA"
           }
           if ($report.sourceDirty -ne $false) {
             throw "Build report source is dirty"
           }
-          if ($report.validationSkipped -ne $false) {
-            throw "Build report says validation was skipped"
-          }
-          if ($report.dataValidationReport -ne "data-validation.json") {
-            throw "Build report does not identify the packaged data validation report"
+          if ($report.validationSkipped -ne $true) {
+            throw "Build report must identify the release as packaged from the exact CI-validated commit"
           }
           if ($report.dataManifestIds.vanilla -notmatch '^vanilla-' -or $report.dataManifestIds.convergence -notmatch '^convergence-') {
             throw "Build report does not identify both Vanilla and Convergence snapshots"
-          }
-          $validation = Get-Content -LiteralPath $env:RELEASE_DATA_VALIDATION -Raw | ConvertFrom-Json
-          if ($validation.status -ne "passed" -or $validation.errors -ne 0) {
-            throw "Packaged data validation did not pass cleanly"
-          }
-          $validatedProfiles = @($validation.profiles)
-          if ($validatedProfiles.Count -ne 2 -or "vanilla" -notin $validatedProfiles -or "convergence" -notin $validatedProfiles) {
-            throw "Packaged data validation does not cover exactly Vanilla and Convergence"
           }
           if ($report.codeSigned -eq $true) {
             foreach ($path in @($env:RELEASE_EXE, $env:RELEASE_MSI)) {
@@ -211,18 +227,6 @@ jobs:
           }
 
           $requiredGates = @(
-            "release-metadata",
-            "python-unit-tests",
-            "ruff",
-            "pyright",
-            "rustfmt",
-            "clippy",
-            "core-tests",
-            "tauri-tests",
-            "runtime-data-validation",
-            "playwright-browser",
-            "frontend-tests",
-            "frontend-e2e",
             "frontend-build",
             "tauri-release-build",
             "windows-msi-identity",
@@ -261,7 +265,7 @@ jobs:
             }
           }
 
-          foreach ($path in @($env:RELEASE_ZIP, $env:RELEASE_CHECKSUMS, $env:RELEASE_REPORT, $env:RELEASE_DATA_VALIDATION)) {
+          foreach ($path in @($env:RELEASE_ZIP, $env:RELEASE_CHECKSUMS, $env:RELEASE_REPORT)) {
             if ((Get-Item -LiteralPath $path).Length -le 0) {
               throw "Release asset is empty: $path"
             }
@@ -277,7 +281,6 @@ jobs:
               "TarnishedsArsenal_$env:RELEASE_VERSION`_x64_en-US.msi",
               "SHA256SUMS.txt",
               "build-report.json",
-              "data-validation.json",
               "README.md",
               "LICENSE"
             )) {
@@ -289,7 +292,9 @@ jobs:
 
       - name: Prepare release notes
         run: |
-          $tag = if ($env:GITHUB_REF -like "refs/tags/*") { $env:GITHUB_REF_NAME } else { "v$env:RELEASE_VERSION" }
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $true
+          $tag = $env:RELEASE_TAG
           $assetDir = "dist/release-assets"
           New-Item -ItemType Directory -Force $assetDir | Out-Null
           $notesOut = Join-Path $assetDir "release-notes-$tag.md"
@@ -301,9 +306,13 @@ jobs:
           }
 
           $notesText = Get-Content $notesOut -Raw
-          if ($env:GITHUB_REF -like "refs/tags/*" -and $notesText -notmatch "Full Changelog") {
-            $previousTag = git describe --tags --abbrev=0 "$tag^" 2>$null
-            if ($LASTEXITCODE -eq 0 -and $previousTag) {
+          if ($notesText -notmatch "Full Changelog") {
+            $previousNativeCommandUseErrorActionPreference = $PSNativeCommandUseErrorActionPreference
+            $PSNativeCommandUseErrorActionPreference = $false
+            $previousTag = git describe --tags --abbrev=0 "$($env:GITHUB_SHA)^" 2>$null
+            $describeExitCode = $LASTEXITCODE
+            $PSNativeCommandUseErrorActionPreference = $previousNativeCommandUseErrorActionPreference
+            if ($describeExitCode -eq 0 -and $previousTag) {
               "`nFull Changelog: https://github.com/$env:GITHUB_REPOSITORY/compare/$previousTag...$tag`n" |
                 Out-File -FilePath $notesOut -Encoding utf8 -Append
             }
@@ -319,11 +328,94 @@ jobs:
           path: |
             dist/
 
+      - name: Create release tag for manual publication
+        if: github.event_name == 'workflow_dispatch' && inputs.publish == true
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $true
+          $tagRef = "refs/tags/$env:RELEASE_TAG"
+
+          function Get-RemoteTagCommit {
+            $lines = @(git ls-remote origin $tagRef "${tagRef}^{}")
+            if ($LASTEXITCODE -ne 0) {
+              throw "Unable to inspect remote release tag $env:RELEASE_TAG"
+            }
+            $direct = $null
+            foreach ($line in $lines) {
+              $parts = $line -split "\s+"
+              if ($parts.Count -lt 2) { continue }
+              if ($parts[1] -eq "${tagRef}^{}") { return $parts[0] }
+              if ($parts[1] -eq $tagRef) { $direct = $parts[0] }
+            }
+            return $direct
+          }
+
+          $remoteCommit = Get-RemoteTagCommit
+          if ($remoteCommit) {
+            if ($remoteCommit -ne $env:GITHUB_SHA) {
+              throw "Remote release tag $env:RELEASE_TAG already points to $remoteCommit; expected $env:GITHUB_SHA"
+            }
+            Write-Output "Remote release tag $env:RELEASE_TAG already points to $env:GITHUB_SHA"
+            exit 0
+          }
+
+          $localTag = git tag --list $env:RELEASE_TAG
+          if ($localTag -eq $env:RELEASE_TAG) {
+            $localCommit = git rev-list -n 1 "refs/tags/$env:RELEASE_TAG^{commit}"
+            if ($LASTEXITCODE -ne 0 -or -not $localCommit) {
+              throw "Unable to resolve local release tag $env:RELEASE_TAG"
+            }
+            if ($localCommit -ne $env:GITHUB_SHA) {
+              throw "Local release tag $env:RELEASE_TAG already points to $localCommit; expected $env:GITHUB_SHA"
+            }
+          } else {
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a $env:RELEASE_TAG -m "Release $env:RELEASE_TAG" $env:GITHUB_SHA
+          }
+
+          $PSNativeCommandUseErrorActionPreference = $false
+          git push origin $env:RELEASE_TAG
+          if ($LASTEXITCODE -ne 0) {
+            $remoteCommit = Get-RemoteTagCommit
+            if ($remoteCommit -ne $env:GITHUB_SHA) {
+              throw "Unable to publish release tag $env:RELEASE_TAG at $env:GITHUB_SHA"
+            }
+            Write-Output "Release tag $env:RELEASE_TAG was created concurrently at $env:GITHUB_SHA"
+          }
+
+      - name: Verify release tag before publication
+        if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish == true)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $true
+          $tagRef = "refs/tags/$env:RELEASE_TAG"
+          $lines = @(git ls-remote origin $tagRef "${tagRef}^{}")
+          if ($LASTEXITCODE -ne 0) {
+            throw "Unable to inspect remote release tag $env:RELEASE_TAG before publication"
+          }
+          $direct = $null
+          $peeled = $null
+          foreach ($line in $lines) {
+            $parts = $line -split "\s+"
+            if ($parts.Count -lt 2) { continue }
+            if ($parts[1] -eq "${tagRef}^{}") { $peeled = $parts[0] }
+            if ($parts[1] -eq $tagRef) { $direct = $parts[0] }
+          }
+          $remoteCommit = if ($peeled) { $peeled } else { $direct }
+          if ($remoteCommit -ne $env:GITHUB_SHA) {
+            throw "Remote release tag $env:RELEASE_TAG points to $remoteCommit; expected $env:GITHUB_SHA"
+          }
+
       - name: Publish GitHub release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish == true)
         uses: softprops/action-gh-release@v3.0.2
         with:
-          name: Tarnished's Arsenal ${{ github.ref_name }}
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
+          name: Tarnished's Arsenal ${{ env.RELEASE_TAG }}
           body_path: ${{ env.RELEASE_NOTES }}
           generate_release_notes: false
           overwrite_files: false
@@ -335,4 +427,3 @@ jobs:
             ${{ env.RELEASE_ZIP }}
             ${{ env.RELEASE_CHECKSUMS }}
             ${{ env.RELEASE_REPORT }}
-            ${{ env.RELEASE_DATA_VALIDATION }}

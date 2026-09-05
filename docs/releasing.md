@@ -1,85 +1,97 @@
 # Releasing Tarnished's Arsenal
 
-Releases are created from Git tags. A manual run of the Release workflow builds
-and uploads a workflow artifact for inspection, but it never publishes a GitHub
-release.
+Releases are created from Git tags. The Release workflow can package a tag that
+already exists, or create the configured version tag and publish it when a manual
+run is started from the default branch with `publish` enabled.
 
 ## Prepare a release
 
-1. Set the same version in:
-   - `apps/desktop/package.json`
-   - `apps/desktop/package-lock.json` (top level and root package)
-   - `apps/desktop/src-tauri/tauri.conf.json`
-   - `apps/desktop/src-tauri/Cargo.toml` and its two local-package lock entries
-   - `core/er_optimizer_core/Cargo.toml` and its local-package lock entry
+1. Run the version preparation helper:
+
+   ```powershell
+   python tools/phase4/prepare_release.py <version>
+   ```
+
+   It updates the synchronized application/core manifests and local lock entries.
    Keep the WiX `upgradeCode` pinned to the historical product-family GUID; changing
    the display name must not create a second Windows Installer product family.
    The pinned value was verified directly from the published v0.8.1, v0.9.0,
    v0.9.1, and v0.9.2 MSI Property tables. v0.10.0 is the known one-release fork
    caused by its unpinned display-name change and is not the identity source of truth.
-2. Add `docs/release-notes/v<version>.md` and update the release-notes index.
-3. Validate all metadata:
+2. Add `docs/release-notes/v<version>.md` and update the release-notes index with
+   the final GitHub Releases URL. The URL is deterministic, so use the real link
+   in the release preparation commit; do not leave a `Pending publication` row
+   that needs a follow-up documentation commit.
+3. Validate all metadata and run the targeted source checks:
 
    ```powershell
    python tools/phase4/validate_release_metadata.py --tag v<version>
+   python -m unittest discover -s tools/phase1 -p 'test_*.py'
+   python -m unittest discover -s tools/phase4 -p 'test_*.py'
    ```
 
-4. Run the complete release build:
-
-   ```powershell
-   python tools/phase4/package_release.py
-   ```
-
-   The command refuses to overwrite an existing version directory by default. Use
-   `--replace-output` only when deliberately refreshing the known files for the same
-   local pre-commit build; it refuses directories containing unexpected entries.
-   Packaging installs the locked Chromium runtime when needed and runs the
-   Playwright frontend-contract suite before the Tauri production build.
-
-5. Review the diff and generated checksums, then commit and push `main` normally.
-6. Wait for the ordinary `CI` workflow to succeed on that exact commit.
+4. Review the diff, commit the release preparation, and push `main` normally.
+5. Wait for the ordinary `CI` workflow to succeed on that exact commit. The release
+   workflow is the source of truth for the complete package build. If a local
+   rehearsal is useful, run `python tools/phase4/package_release.py` from this clean
+   committed checkout after the push; it refuses dirty source and does not replace
+   the CI artifacts.
 
 ## Publish
 
-Create and push an annotated tag that exactly matches the configured version:
+For the explicit tag path, create and push an annotated tag that exactly matches
+the configured version:
 
 ```powershell
 git tag -a v<version> -m "Release v<version>"
 git push origin v<version>
 ```
 
-The tag-triggered workflow repeats all release gates and publishes:
+The tag-triggered workflow waits for successful ordinary CI on the exact tagged
+commit, then builds and publishes:
 
 - `TarnishedsArsenal_<version>_x64_en-US.msi`
 - `TarnishedsArsenal_<version>_portable.exe`
 - `TarnishedsArsenal_<version>.zip`
 - `TarnishedsArsenal_<version>_SHA256SUMS.txt`
 - `TarnishedsArsenal_<version>_build-report.json`
-- `TarnishedsArsenal_<version>_data-validation.json`
 
-The release workflow independently verifies that the ordinary `CI` workflow has
-already succeeded for the exact tag commit. If a tag is pushed while CI is still
-running, release packaging waits; failed, cancelled, missing, or timed-out CI blocks
-publication. Rust, Python, Node, and validation-tool versions are pinned so local, CI,
-and release checks do not silently drift apart.
+To make tagging and publication one operation, run the Release workflow from the
+default branch with `publish` enabled. It performs the same exact-commit CI wait,
+packages the commit, and asks GitHub to create `v<version>` at that commit while
+publishing the release. A failed package never creates a release. A manual run with
+`publish` disabled only uploads the package for inspection.
 
-Packaging refuses a dirty input tree and fails if the build changes tracked source
-other than Windows-only CRLF normalization.
-Before upload, the workflow independently checks the build commit, clean-source and
-validation flags, completed gates, artifact sizes, and EXE/MSI SHA-256 hashes.
-The final Tauri bundle build also runs Cargo in locked mode.
+```powershell
+gh workflow run release-package.yml --ref main -f publish=true
+```
+
+The release workflow independently verifies that ordinary `CI` has succeeded for
+the exact source commit. Normal source tests, lint, type checks, formatting, Clippy,
+and data validation belong to that CI run; the release job packages the already
+validated commit and keeps the release-only MSI identity, MSI payload, packaged
+startup smoke, signing, and checksum checks. The final Tauri build runs Cargo in
+locked mode.
 
 Both binaries contain the verified compile-time Vanilla and Convergence runtime
 snapshots. Neither needs an adjacent data directory, `regulation.bin`, FMG XML, or
-source workbook. The build report must identify both profile manifest IDs and the
-validation report covers both snapshots. Authenticode signing is conditional:
+source workbook. The build report identifies both profile manifest IDs and the
+exact source commit. CI keeps the data-validation report as a workflow artifact;
+it is not duplicated as an end-user release asset. Authenticode signing is conditional:
 configure the protected `WINDOWS_SIGNING_CERTIFICATE_BASE64` and
 `WINDOWS_SIGNING_CERTIFICATE_PASSWORD` repository secrets, plus the optional
-`WINDOWS_SIGNING_TIMESTAMP_URL` variable. The package job signs the executable,
-rebuilds the MSI around it, signs the MSI, verifies both signatures, and records
-`codeSigned` and the `windows-code-signing` provenance gate. Without both secrets,
-the artifacts remain explicitly unsigned and do not claim that gate.
+`WINDOWS_SIGNING_TIMESTAMP_URL` variable. The package job builds the executable
+without bundling, then uses Tauri's signing hook to sign the MSI executable after
+its bundle marker is patched. The hook checks that its input differs from the
+compiled portable only by that marker. After Tauri restores the portable, the job
+signs it and the MSI container.
+It verifies the signatures and extracts the MSI administrative payload. Unsigned
+payloads must match the portable executable except for Tauri's exact `UNK`/`MSI`
+bundle marker; signed payloads must match the signed installer variant captured
+by the hook. The portable marker is preserved. It records `codeSigned` and the `windows-code-signing`
+provenance gate. Without both secrets, the artifacts remain explicitly unsigned
+and do not claim that gate.
 
 The packager refuses a dirty worktree and records the exact source commit with
-`sourceDirty: false`. Run targeted pre-commit checks directly; create release
+`sourceDirty: false`. Run targeted pre-commit checks directly; create local release
 artifacts only after the intended source is committed.

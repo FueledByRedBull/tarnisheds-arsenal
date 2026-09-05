@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { defaultRequest, useDesktopStore } from "./state";
+import { buildOptimizeRequest, normalizeOptimizeRequest } from "./session";
 import type { CatalogDto, SolvedBuildDto } from "./types";
 
 const row: SolvedBuildDto = {
@@ -193,6 +194,27 @@ describe("desktop result lifecycle", () => {
       somberFilter: "all",
     });
   });
+
+  it("uses exact entered stats and retains +15 caps for a profile without class budgets", () => {
+    const profile = catalog("convergence");
+    profile.dataManifest.capabilities.classBudget = false;
+    profile.classes = [{ name: "Custom stats", baseLevel: 0, baseTotal: 0,
+      baseStats: { vig: 0, mnd: 0, end: 0, strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 } }];
+    useDesktopStore.getState().setCatalog(profile);
+    const request = { ...useDesktopStore.getState().request, strStat: 1, dex: 99 };
+    const fixed = buildOptimizeRequest(profile, request, false);
+    expect(fixed).toMatchObject({ className: "Custom stats", strStat: 1, dex: 99, lockStr: 1, lockDex: 99,
+      lockInt: request.intStat, lockFai: request.fai, lockArc: request.arc });
+    expect(fixed.characterLevel).toBe(request.vig + request.mnd + request.end + 1 + 99 + request.intStat + request.fai + request.arc);
+    useDesktopStore.getState().setWorkspace("paths");
+    expect(useDesktopStore.getState().activeWorkspace).toBe("rankings");
+    expect(normalizeOptimizeRequest({ ...request, somberMaxUpgrade: 15 }, request, profile.dataManifest.rules).somberMaxUpgrade).toBe(15);
+    useDesktopStore.getState().loadBuildPreset({ version: 2, id: "old-profile", name: "Old profile inputs",
+      profileId: "convergence", request: { ...request, className: "Samurai", somberMaxUpgrade: 15 },
+      selectedBuild: null, compareTarget: null, compareBench: [], dataVersion: "old",
+      createdAt: "2026-01-01", updatedAt: "2026-01-01" });
+    expect(useDesktopStore.getState().request).toMatchObject({ className: "Custom stats", strStat: 1, dex: 99, somberMaxUpgrade: 15 });
+  });
 });
 
 function catalog(profileId: string): CatalogDto {
@@ -209,7 +231,7 @@ function catalog(profileId: string): CatalogDto {
     somberFilters: ["all"],
     filterDimensions: [],
     dataManifest: {
-      schemaVersion: 3,
+      schemaVersion: 4,
       datasetVersion: `${profileId}-test`,
       modelVersion: "test-model",
       id: `${profileId}-test`,
@@ -226,6 +248,8 @@ function catalog(profileId: string): CatalogDto {
         modVersion: profileId === "convergence" ? "test" : null,
       },
       capabilities: {
+        classBudget: true,
+        weaponArForAmmunition: true,
         weaponAr: true,
         statusBuildup: true,
         weaponPassives: true,

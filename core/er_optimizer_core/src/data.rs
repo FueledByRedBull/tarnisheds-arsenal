@@ -121,7 +121,6 @@ fn embedded_vanilla_csv(name: &str) -> Option<&'static str> {
             "../../../data/phase1/aow_route_assignments.csv"
         )),
         "aow_effect_data.csv" => Some(include_str!("../../../data/phase1/aow_effect_data.csv")),
-        "aow_weapon_compat.csv" => Some(include_str!("../../../data/phase1/aow_weapon_compat.csv")),
         "attack_element_correct.csv" => Some(include_str!(
             "../../../data/phase1/attack_element_correct.csv"
         )),
@@ -153,9 +152,6 @@ fn embedded_convergence_csv(name: &str) -> Option<&'static str> {
         )),
         "aow_effect_data.csv" => Some(include_str!(
             "../../../data/profiles/convergence/aow_effect_data.csv"
-        )),
-        "aow_weapon_compat.csv" => Some(include_str!(
-            "../../../data/profiles/convergence/aow_weapon_compat.csv"
         )),
         "attack_element_correct.csv" => Some(include_str!(
             "../../../data/profiles/convergence/attack_element_correct.csv"
@@ -321,7 +317,6 @@ fn load_validated_game_data(
     let weapon_passives = load_weapon_passives_optional(data_dir.join("weapon_passives.csv"))?;
     let weapon_passive_overlays =
         load_weapon_passive_overlays_optional(data_dir.join("weapon_passive_overlays.csv"))?;
-    let exact_aow_compat = load_exact_aow_compat_optional(data_dir.join("aow_weapon_compat.csv"))?;
 
     let data = GameData {
         snapshot_schema_version: manifest.schema_version,
@@ -331,6 +326,8 @@ fn load_validated_game_data(
         profile_display_name: manifest.profile.display_name.clone(),
         capabilities: DataCapabilities {
             weapon_ar: manifest.capabilities.weapon_ar,
+            weapon_ar_for_ammunition: manifest.capabilities.weapon_ar_for_ammunition,
+            class_budget: manifest.capabilities.class_budget,
             status_buildup: manifest.capabilities.status_buildup,
             weapon_passives: manifest.capabilities.weapon_passives,
             aow_compatibility: manifest.capabilities.aow_compatibility,
@@ -360,7 +357,6 @@ fn load_validated_game_data(
         aow_effects,
         weapon_passives,
         weapon_passive_overlays,
-        exact_aow_compat,
     };
     Ok((data, manifest))
 }
@@ -506,6 +502,7 @@ fn load_weapons(path: PathBuf) -> Result<Vec<Weapon>, String> {
                 sleep: parse_usize(table.get(row, "curve_id_sleep")?, "curve_id_sleep")?,
                 madness: parse_usize(table.get(row, "curve_id_madness")?, "curve_id_madness")?,
             },
+            can_change_aow: parse_bool_u8(table.get(row, "can_change_aow")?, "can_change_aow")?,
             disable_gem_attr: match table.idx("disable_gem_attr") {
                 Ok(_) => parse_bool_u8(table.get(row, "disable_gem_attr")?, "disable_gem_attr")?,
                 Err(_) => false,
@@ -711,6 +708,7 @@ fn load_aows(path: PathBuf, buff_rows: &HashMap<u16, AowBuffRow>) -> Result<Vec<
                 Err(_) => 0.0,
             },
             valid_weapon_types: table.get(row, "valid_weapon_types")?.to_string(),
+            valid_affinities: table.get(row, "valid_affinities")?.to_string(),
             buff_attack_power: buff_row.buff_attack_power,
             scaling_status_add: buff_row.scaling_status_add,
             scaling_status_flags: buff_row.scaling_status_flags,
@@ -1160,19 +1158,6 @@ fn load_weapon_passive_overlays_optional(
     Ok(out)
 }
 
-fn load_exact_aow_compat_optional(path: PathBuf) -> Result<HashSet<(u16, u32)>, String> {
-    let Some(table) = CsvTable::from_optional_path(&path)? else {
-        return Ok(HashSet::new());
-    };
-    let mut out = HashSet::with_capacity(table.rows.len());
-    for row in &table.rows {
-        let aow_id = parse_u16(table.get(row, "aow_id")?, "aow_id")?;
-        let weapon_id = parse_u32(table.get(row, "weapon_id")?, "weapon_id")?;
-        out.insert((aow_id, weapon_id));
-    }
-    Ok(out)
-}
-
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -1201,7 +1186,6 @@ mod tests {
         assert_eq!(dagger.one_handed_poise.jumping_light, "4.5");
         assert_eq!(dagger.base_poise, 3.0);
         assert!(data.aows.len() > 100);
-        assert!(!data.exact_aow_compat.is_empty());
         assert!(!data.aow_effects.is_empty());
     }
 
@@ -1231,6 +1215,8 @@ mod tests {
         assert_eq!(data.rules.standard_max_upgrade, 15);
         assert_eq!(data.rules.somber_max_upgrade, 15);
         assert!(!data.rules.separate_upgrade_caps);
+        assert!(!data.capabilities.weapon_ar_for_ammunition);
+        assert!(!data.capabilities.class_budget);
         assert!(!data.rules.scadutree_scaling);
         assert!(data.rules.zero_attack_element_uses_weapon_scaling);
         assert!(data.rules.extended_scaling_grades);
@@ -1245,6 +1231,19 @@ mod tests {
             .iter()
             .find(|weapon| weapon.weapon_id == 10_200_000)
             .expect("Galvanic twinblade");
+        let inseparable = data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.weapon_id == 2_090_000)
+            .expect("Inseparable Sword");
+        let three_finger = data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.weapon_id == 8_090_000)
+            .expect("Three Finger Blade");
+        assert!(inseparable.is_somber);
+        assert!(three_finger.is_somber);
+        assert_eq!(data.rules.somber_max_upgrade, 15);
         let plus_thirteen = data
             .reinforce_level(galvanic.reinforce_type, 13)
             .expect("Galvanic +13 reinforcement");
@@ -1266,7 +1265,6 @@ mod tests {
             weapon.native_skill_id == Some(105)
                 && weapon.native_skill_name.as_deref() == Some("Ancient Thunderclap")
         }));
-        assert!(!data.exact_aow_compat.is_empty());
         assert!(!data.capabilities.aow_damage);
         assert!(!data.capabilities.aow_routes);
         let fallback = data

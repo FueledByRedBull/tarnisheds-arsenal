@@ -228,7 +228,9 @@ export interface ProfileMetadataDto {
 }
 
 export interface ProfileCapabilitiesDto {
+  classBudget: boolean;
   weaponAr: boolean;
+  weaponArForAmmunition: boolean;
   statusBuildup: boolean;
   weaponPassives: boolean;
   aowCompatibility: boolean;
@@ -270,6 +272,8 @@ export interface WeaponTypeOptionDto {
 }
 
 export interface WeaponProfileDto {
+  canChangeAow: boolean;
+  nativeSkillName: string | null;
   requirements: CombatStateDto;
   maxUpgrade: number;
   isSomber: boolean;

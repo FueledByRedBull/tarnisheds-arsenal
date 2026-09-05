@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "../../lib/api";
+import { AowSelect } from "../../lib/AowSelect";
 import { cachedSolveBuild, cachedUpgradeSeries } from "../../lib/analysis-cache";
 import { compactNumber, fixed1, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
 import { CheckboxMultiSelect, SearchableSelect, openOption } from "../../lib/SearchableSelect";
@@ -35,10 +35,8 @@ export function CompareView() {
   const setError = useDesktopStore((state) => state.setError);
   const setWorkspace = useDesktopStore((state) => state.setWorkspace);
   const matrixRef = useRef<HTMLDivElement | null>(null);
-  const aowsRequest = useRef(new LatestRequest());
   const seriesRequest = useRef(new LatestRequest());
   const { base: baseRequest } = useRequestBudget(catalog, request, lockedStatMode);
-  const [aowNames, setAowNames] = useState<string[]>([]);
   const [series, setSeries] = useState<CompareLane[]>([]);
   const [seriesStatus, setSeriesStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [seriesError, setSeriesError] = useState<string | null>(null);
@@ -90,33 +88,6 @@ export function CompareView() {
     ? "The pinned target is already the selected baseline. Pin a different build or choose comparison filters."
     : "No other current ranked result. Run a broader Rankings search or choose comparison filters.";
   const extendedScalingGrades = catalog?.dataManifest.rules.extendedScalingGrades ?? false;
-
-  useEffect(() => {
-    const selectedAow = compareControls.matchSelectedAow ? selected?.aowName ?? null : compareControls.aowName;
-    const token = aowsRequest.current.begin(stableSignature({
-      weaponName: compareControls.weaponName,
-      affinity: aowAffinity,
-      selectedAow,
-    }));
-    async function loadAows() {
-      const names = compareControls.weaponName
-        ? await api.compatibleAowNames(request.profileId, compareControls.weaponName, aowAffinity)
-        : aowAffinity
-          ? await api.compatibleAowNamesForAffinity(request.profileId, aowAffinity)
-          : catalog?.aowNames ?? [];
-      if (aowsRequest.current.isCurrent(token)) {
-        setAowNames(selectedAow && !names.includes(selectedAow) ? [selectedAow, ...names] : names);
-      }
-    }
-    loadAows().catch((error) => {
-      if (aowsRequest.current.isCurrent(token)) {
-        setError(error instanceof Error ? error.message : String(error));
-      }
-    });
-    return () => {
-      aowsRequest.current.invalidate(token);
-    };
-  }, [aowAffinity, catalog?.aowNames, compareControls.matchSelectedAow, compareControls.aowName, compareControls.weaponName, request.profileId, selected?.aowName, setError]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -262,6 +233,7 @@ export function CompareView() {
         <div className="workspace-heading-copy">
           <h1>Compare</h1>
           <span>Selected baseline versus {compareSource}</span>
+          <small>Pinned loadouts keep their weapon, affinity, and skill; stats and upgrades are reoptimized for the current budget.</small>
           <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)} · {dataVersion}</small>
         </div>
       </div>
@@ -321,14 +293,15 @@ export function CompareView() {
             filters: { version: 1, entries: replaceCompareFilters(compareControls.filters.entries, "affinity", values, excludedValues) },
           })}
         />
-        <SearchableSelect
+        <AowSelect
           label="Compare AoW"
+          profileId={request.profileId}
+          weaponName={compareControls.weaponName}
+          affinity={aowAffinity}
+          catalogNames={catalog?.aowNames}
+          allowMatchSelected
+          setError={setError}
           value={compareControls.matchSelectedAow ? "__match_selected__" : compareControls.aowName}
-          options={[
-            { value: "__match_selected__", label: "<Match Selected>" },
-            openOption(),
-            ...(aowNames ?? []).map((name) => ({ value: name, label: name })),
-          ]}
           onChange={(value) =>
             patchCompareControls(
               value === "__match_selected__"
@@ -473,7 +446,7 @@ function Lane({
       {row ? (
         <>
           <strong>{row.weaponName}</strong>
-          <small>{row.affinity} / {row.aowName ?? "Native"} / +{row.upgrade}</small>
+          <small>{row.affinity} / {row.aowName ?? "Unspecified skill"} / +{row.upgrade}</small>
           <ScalingTokens scaling={scaling} extended={extendedScalingGrades} />
           <div className="lane-metrics">
             <span>Metric <b>{fixed1(metricForObjective(row, objective))}</b></span>

@@ -8,6 +8,19 @@ coverage diagnostics into a sibling staging directory; validates hashes and file
 sets; then promotes files with `manifest.json` last. A runtime loader can never
 accept a partially promoted snapshot.
 
+## Snapshot contract
+
+The current storage schema is **4**. It requires explicit Ash mounting permission
+in `weapons.csv.can_change_aow` and compatible affinity/type lists in `aow.csv`.
+The extractor no longer emits `aow_weapon_compat.csv`; legality is derived from
+those compact fields. Runtime manifests list 12 required tables, and diagnostic
+Ash/affinity summaries are computed in memory.
+
+Regenerate older snapshots with this extractor. Both runtime and Python validation
+reject schema 3 before attempting to use its incompatible tables. Do not merely
+edit an old manifest's version number. Dataset/game versions do not change when
+only the storage contract changes; source hashes remain tied to the original inputs.
+
 ## Required Inputs
 
 - A profile-specific `regulation.bin`

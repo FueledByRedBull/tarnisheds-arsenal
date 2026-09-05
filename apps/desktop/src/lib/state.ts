@@ -343,7 +343,10 @@ const createUiSlice: DesktopSlice<UiSlice> = (set) => ({
   catalogError: null,
   notices: [],
   error: null,
-  setWorkspace: (activeWorkspace) => set({ activeWorkspace }),
+  setWorkspace: (activeWorkspace) => set((state) => ({
+    activeWorkspace: activeWorkspace !== "rankings" && state.catalog?.dataManifest.capabilities.classBudget === false
+      ? "rankings" : activeWorkspace,
+  })),
   setProfiles: (profiles) => set({ profiles }),
   beginProfileSwitch: (profileId) =>
     set((state) => {
@@ -383,6 +386,7 @@ const createUiSlice: DesktopSlice<UiSlice> = (set) => ({
   setCatalog: (catalog) => set((state) => {
     const classInfo = catalog.classes.find((entry) => entry.name === state.request.className)
       ?? catalog.classes.find((entry) => entry.name === "Samurai")
+      ?? catalog.classes[0]
       ?? classMeta(null, "Samurai");
     const resetClass = classInfo.name !== state.request.className;
     return {
@@ -394,7 +398,7 @@ const createUiSlice: DesktopSlice<UiSlice> = (set) => ({
         ...(resetClass ? {
           className: classInfo.name,
           characterLevel: classInfo.baseLevel,
-          ...classInfo.baseStats,
+          ...(catalog.dataManifest.capabilities.classBudget ? classInfo.baseStats : {}),
         } : {}),
         profileId: catalog.dataManifest.profile.id,
         objective: catalog.objectiveIds.includes(state.request.objective)
@@ -544,7 +548,10 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
       return {
         ...invalidateAllJobs(state),
         request: applyProfileRules(
-          normalizeOptimizeRequest(preset.request, state.request),
+          normalizeOptimizeRequest({ ...preset.request,
+            ...(state.catalog?.dataManifest.capabilities.classBudget === false
+              ? { className: state.catalog.classes[0].name } : {}),
+          }, state.request, state.catalog?.dataManifest.rules),
           state.catalog?.dataManifest.rules,
         ),
         lockedStatMode: preset.request.lockStr !== null,
