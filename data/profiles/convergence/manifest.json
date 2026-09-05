@@ -136,8 +136,8 @@
       "kind": "weaponAvailability",
       "bundled": false,
       "path": "convergence-3.0.0.1-weapons.json",
-      "size": 231519,
-      "sha256": "588f6b4addff1579f6f1463b75701fa021f1a13c0ea88c96584ca6d2b85f484b"
+      "size": 218723,
+      "sha256": "72a313f6c758b308fe1927a829724bae6246081bf5209a952acc3218f313e88d"
     },
     {
       "kind": "weaponNamesBase",
