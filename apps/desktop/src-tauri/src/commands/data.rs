@@ -151,7 +151,11 @@ impl CatalogIndex {
                     .insert(weapon.name.clone());
             }
 
-            let cap = if weapon.is_somber { 10 } else { 25 };
+            let cap = if weapon.is_somber {
+                data.rules.somber_max_upgrade
+            } else {
+                data.rules.standard_max_upgrade
+            };
             upgrade_cap_by_weapon
                 .entry(weapon_key.clone())
                 .and_modify(|current| *current = (*current).max(cap))
@@ -512,7 +516,7 @@ fn weapon_profile_inner(
             arc: requirements[4],
         },
         max_upgrade,
-        is_somber: max_upgrade <= 10,
+        is_somber: weapon.is_somber,
         disables_two_hand_bonus: weapon_disables_two_hand_bonus(
             index,
             &request.weapon_name,
@@ -844,6 +848,41 @@ mod compatibility_tests {
                     assert!(index.aow_names.iter().any(|name| name == skill));
                 }
             }
+        }
+    }
+
+    #[test]
+    fn weapon_profiles_use_profile_caps_and_reinforcement_identity() {
+        for (profile_id, weapon_name, expected_cap, expected_somber) in [
+            (
+                "convergence",
+                "Galvanic Culling Blade [Twinblade]",
+                15,
+                true,
+            ),
+            ("vanilla", "Black Knife", 10, true),
+        ] {
+            let data = er_optimizer_core::load_embedded_game_profile(profile_id).unwrap();
+            let index = CatalogIndex::build(&data);
+            let profile = weapon_profile_inner(
+                &data,
+                &index,
+                &WeaponProfileRequestDto {
+                    profile_id: profile_id.to_owned(),
+                    weapon_name: weapon_name.to_owned(),
+                    affinity: Some("Standard".to_owned()),
+                },
+            )
+            .unwrap();
+
+            assert_eq!(
+                profile.max_upgrade, expected_cap,
+                "{profile_id}: {weapon_name}"
+            );
+            assert_eq!(
+                profile.is_somber, expected_somber,
+                "{profile_id}: {weapon_name}"
+            );
         }
     }
 }

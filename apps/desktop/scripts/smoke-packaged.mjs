@@ -55,13 +55,19 @@ try {
     throw new Error("packaged smoke did not start on the Vanilla profile");
   }
   previousCompareBench = await page.evaluate((key) => localStorage.getItem(key), vanillaCompareBenchKey);
+  markSmokeStage("select exact-level high-level search");
+  const exactLevelPolicy = page.getByRole("button", { name: "Use exact levels", exact: true });
+  await exactLevelPolicy.click();
+  if (await exactLevelPolicy.getAttribute("aria-pressed") !== "true") {
+    throw new Error("packaged smoke could not select exact-level upgrade search");
+  }
   markSmokeStage("run vanilla high-level search");
   await page.getByRole("spinbutton", { name: "STR", exact: true }).fill("96");
   await page.getByRole("spinbutton", { name: "STR", exact: true }).press("Enter");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   const highLevelFirst = page.locator(".result-row-full").first();
   markSmokeStage("wait for vanilla high-level result");
-  // This open query covers every upgrade level and takes over 30 seconds with two workers.
+  // Keep headroom for slower CI even though exact levels avoid the measured open-query cost.
   await highLevelFirst.waitFor({ timeout: 120_000 });
   const pin = highLevelFirst.getByRole("button", { name: "Compare", exact: true });
   if (await pin.getAttribute("aria-pressed") !== "true") await pin.click();
@@ -82,6 +88,12 @@ try {
   await profileSwitch.getByRole("radio", { name: /Vanilla/ }).click();
   markSmokeStage("wait for Vanilla model after profile switch");
   await page.getByText("Full model ready", { exact: true }).waitFor();
+  markSmokeStage("select cap-exploration low-level search");
+  const capExplorationPolicy = page.getByRole("button", { name: "Explore up to caps", exact: true });
+  await capExplorationPolicy.click();
+  if (await capExplorationPolicy.getAttribute("aria-pressed") !== "true") {
+    throw new Error("packaged smoke could not select cap-exploration upgrade search");
+  }
   await page.getByRole("spinbutton", { name: "STR", exact: true }).fill("12");
   await page.getByRole("spinbutton", { name: "STR", exact: true }).press("Enter");
 

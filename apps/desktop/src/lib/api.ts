@@ -493,7 +493,7 @@ function mockDataManifest(profileId = "vanilla"): DataManifestDto {
 }
 
 async function mockWeaponProfile(args: Record<string, unknown> | undefined): Promise<WeaponProfileDto> {
-  const request = args?.request as { weaponName: string; affinity: string | null };
+  const request = args?.request as { profileId?: string; weaponName: string; affinity: string | null };
   const matches = MOCK_WEAPONS.filter((row) =>
     row.name === request.weaponName && (!request.affinity || row.affinity === request.affinity),
   );
@@ -508,7 +508,8 @@ async function mockWeaponProfile(args: Record<string, unknown> | undefined): Pro
     }),
     { strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 },
   );
-  const maxUpgrade = first?.isSomber ? 10 : 25;
+  const rules = mockDataManifest(request.profileId).rules;
+  const maxUpgrade = first?.isSomber ? rules.somberMaxUpgrade : rules.standardMaxUpgrade;
   return {
     requirements,
     canChangeAow: first?.name !== "Ancient Meteoric Ore Greatsword",

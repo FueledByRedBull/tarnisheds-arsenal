@@ -52,6 +52,26 @@ scoring uses an exact relevant-stat dynamic program and has a direct regression
 against exhaustive enumeration. Reports retain the equivalent exhaustive
 combination count so historical search-space comparisons remain meaningful.
 
+The original phase cases use exact upgrade caps: +25/+10 for Vanilla and +15 for
+Convergence. The application's default search covers every level from +0 through
+the selected caps. The `all-upgrades-max-ar-high-level` case measures that broader
+search at level 93 with 25 results. Keep these workloads separate when comparing
+timings.
+
+For that all-upgrade case, the optimizer caches a primary allocation only when
+every feasible spend has one retained DP path and exact primary re-evaluation
+produces a unique winner. Ambiguous paths and exact primary ties retain the
+route-aware evaluation. This avoids repeating route scoring for allocations that
+cannot win without relying on additive floating-point bounds.
+
+On the reference host with two Rayon workers, the original single-run baseline
+was 76,207.7 ms. An intermediate implementation's three-sample run measured
+35,742.6, 37,952.7, and 70,213.6 ms (median 37,952.7 ms); after simplifying
+the uniqueness check to direct backtracking, a final-source run measured
+21,144.7 ms. Every run retained the complete 25-row fingerprint and
+253,137,580,441 equivalent combinations. The variability and different sample
+counts make these diagnostic measurements, not a fixed latency guarantee.
+
 AR and Bleed scoring share primary weapon contributions and tied DP transitions
 among compatible Ashes with identical primary effects. Route-specific metrics still
 choose among all primary ties; final rows retain complete numeric comparisons.

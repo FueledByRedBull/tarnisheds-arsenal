@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { classMeta, derivedLevel, EIGHT_STAT_KEYS, normalizeOptimizeRequest, optimalStartingClass, scalingLetter, STARTING_CLASS_METADATA, startingClassLevel } from "./session";
+import { buildOptimizeRequest, classMeta, derivedLevel, EIGHT_STAT_KEYS, normalizeOptimizeRequest, optimalStartingClass, scalingLetter, STARTING_CLASS_METADATA, startingClassLevel } from "./session";
 import { defaultRequest } from "./state";
+import type { CatalogDto } from "./types";
 
 describe("request normalization properties", () => {
   it("rejects unknown starting classes instead of using Vagabond", () => {
@@ -60,6 +61,61 @@ describe("request normalization properties", () => {
       const migrated = normalizeOptimizeRequest({ ...defaultRequest, maxUpgrade: value }, defaultRequest);
       expect(normalizeOptimizeRequest(migrated, defaultRequest)).toEqual(migrated);
     }
+  });
+
+  it("uses a profile's Somber cap when migrating its legacy max upgrade", () => {
+    const convergenceRules = {
+      standardMaxUpgrade: 15,
+      somberMaxUpgrade: 15,
+      separateUpgradeCaps: false,
+      scadutreeScaling: false,
+      zeroAttackElementUsesWeaponScaling: true,
+      extendedScalingGrades: true,
+      statusBuildupScales: false,
+    };
+    const { standardMaxUpgrade: _standardMaxUpgrade, somberMaxUpgrade: _somberMaxUpgrade, ...legacyRequest } = defaultRequest;
+    const normalized = normalizeOptimizeRequest(
+      { ...legacyRequest, profileId: "convergence", maxUpgrade: 15 },
+      { ...defaultRequest, profileId: "convergence" },
+      convergenceRules,
+    );
+
+    expect(normalized.standardMaxUpgrade).toBe(15);
+    expect(normalized.somberMaxUpgrade).toBe(15);
+  });
+
+  it("builds a full-range Convergence custom-stat request", () => {
+    const catalog = {
+      classes: [{
+        name: "Custom stats",
+        baseLevel: 0,
+        baseTotal: 0,
+        baseStats: { vig: 0, mnd: 0, end: 0, strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 },
+      }],
+      dataManifest: { capabilities: { classBudget: false } },
+    } as unknown as CatalogDto;
+    const request = {
+      ...defaultRequest,
+      profileId: "convergence",
+      className: "Custom stats",
+      vig: 99,
+      mnd: 99,
+      end: 99,
+      strStat: 99,
+      dex: 99,
+      intStat: 99,
+      fai: 99,
+      arc: 99,
+    };
+
+    expect(buildOptimizeRequest(catalog, request)).toMatchObject({
+      characterLevel: 792,
+      lockStr: 99,
+      lockDex: 99,
+      lockInt: 99,
+      lockFai: 99,
+      lockArc: 99,
+    });
   });
 
   it("uses Convergence S+ and S++ grades without changing Vanilla grades", () => {

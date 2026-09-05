@@ -204,7 +204,7 @@ function assertRequest(value: unknown): asserts value is OptimizeRequestDto {
   if (!isRecord(value)) throw invalidPreset("request must be an object");
   assertProfileId(value.profileId, "request.profileId");
   assertText(value.className, "request.className", 80);
-  assertInteger(value.characterLevel, "request.characterLevel", 1, 713);
+  assertInteger(value.characterLevel, "request.characterLevel", 1, 792);
   for (const key of ["vig", "mnd", "end", "strStat", "dex", "intStat", "fai", "arc"] as const) {
     assertInteger(value[key], `request.${key}`, 0, 99);
   }
@@ -215,7 +215,9 @@ function assertRequest(value: unknown): asserts value is OptimizeRequestDto {
     assertNullableInteger(value[key], `request.${key}`, 0, 99);
   }
   assertInteger(value.standardMaxUpgrade, "request.standardMaxUpgrade", 0, 25);
-  assertInteger(value.somberMaxUpgrade, "request.somberMaxUpgrade", 0, 10);
+  // Profile rules are applied when a preset is loaded. Keep the persisted
+  // shape wide enough for profiles such as Convergence, whose Somber cap is 15.
+  assertInteger(value.somberMaxUpgrade, "request.somberMaxUpgrade", 0, 25);
   assertBoolean(value.exactUpgrade, "request.exactUpgrade");
   assertBoolean(value.twoHanding, "request.twoHanding");
   assertBoolean(value.dlcScaling, "request.dlcScaling");
@@ -368,7 +370,7 @@ function migratePreset(value: unknown): BuildPreset {
     request.profileId = value.profileId;
   }
   if (request.characterLevel !== undefined) {
-    assertInteger(request.characterLevel, "request.characterLevel", 1, 713);
+    assertInteger(request.characterLevel, "request.characterLevel", 1, 792);
   }
   const classInfo = STARTING_CLASS_METADATA.find((entry) => entry.name === request.className);
   if (classInfo) {

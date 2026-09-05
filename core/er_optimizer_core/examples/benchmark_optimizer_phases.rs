@@ -181,6 +181,7 @@ fn cases() -> Vec<(&'static str, OptimizeRequest)> {
     let mut max_ar_export = max_ar.clone();
     max_ar_export.top_k = 500;
     let high_level_max_ar = high_level_request();
+    let all_upgrades_high_level_max_ar = all_upgrades_high_level_request();
 
     let mut bleed = max_ar.clone();
     bleed.weapon_type_key = Some("Katana".to_string());
@@ -202,6 +203,10 @@ fn cases() -> Vec<(&'static str, OptimizeRequest)> {
         ("open-ranking-physical", max_physical),
         ("open-ranking-max-ar-export-500", max_ar_export),
         ("open-ranking-max-ar-high-level", high_level_max_ar),
+        (
+            "all-upgrades-max-ar-high-level",
+            all_upgrades_high_level_max_ar,
+        ),
         ("katana-bleed", bleed),
         ("katana-bleed-export-500", bleed_export),
         ("fixed-aow-first-hit", first_hit),
@@ -274,5 +279,43 @@ fn high_level_request() -> OptimizeRequest {
         result_grouping: er_optimizer_core::ResultGrouping::Automatic,
         objective: OptimizeObjective::MaxAr,
         top_k: 5,
+    }
+}
+
+// The desktop request derives RL93 from entered STR96, then normalizes the
+// combat inputs to Samurai's class floors before calling the core optimizer.
+// Keep that normalized STR12 input here so this case measures the real UI
+// workload rather than an exact fixed-stat API request.
+fn all_upgrades_high_level_request() -> OptimizeRequest {
+    OptimizeRequest {
+        class_name: "Samurai".to_string(),
+        character_level: 93,
+        current_stats: Stats {
+            vig: 12,
+            mnd: 11,
+            end: 13,
+            str: 12,
+            dex: 15,
+            int: 9,
+            fai: 8,
+            arc: 8,
+        },
+        min_combat_stats: [0; 5],
+        locked_combat_stats: [None; 5],
+        standard_max_upgrade: 25,
+        somber_max_upgrade: 10,
+        exact_upgrade: false,
+        two_handing: false,
+        dlc_scaling: false,
+        scadutree_level: 0,
+        weapon_name: None,
+        affinity: None,
+        aow_name: None,
+        weapon_type_key: None,
+        somber_filter: SomberFilter::All,
+        filters: Vec::new(),
+        result_grouping: er_optimizer_core::ResultGrouping::Automatic,
+        objective: OptimizeObjective::MaxAr,
+        top_k: 25,
     }
 }

@@ -314,10 +314,15 @@ fn validate_profile_capabilities(request: &OptimizeRequest, data: &GameData) -> 
             crate::math::SCADUTREE_MAX_LEVEL
         ));
     }
-    if request.character_level > 713 {
+    let max_character_level: u16 = if data.capabilities.class_budget {
+        713
+    } else {
+        8 * 99
+    };
+    if request.character_level > max_character_level {
         return Err(format!(
-            "character level must be 713 or lower; got {}",
-            request.character_level
+            "character level must be {max_character_level} or lower; got {}",
+            request.character_level,
         ));
     }
     if request.standard_max_upgrade > data.rules.standard_max_upgrade {
@@ -1257,6 +1262,7 @@ struct PrimaryAllocationPlan {
     base: ObjectiveAllocation,
     values: [Vec<ObjectiveAllocation>; COMBAT_STAT_COUNT],
     additions: [Vec<Vec<u8>>; COMBAT_STAT_COUNT],
+    exact_unique_combat: Option<[u8; COMBAT_STAT_COUNT]>,
 }
 
 fn primary_effect_key(choice: &AowChoice<'_>) -> [u32; 9] {
@@ -1305,6 +1311,7 @@ fn prepare_primary_allocations<P: SearchProgress>(
         base,
         values: std::array::from_fn(|_| Vec::new()),
         additions: std::array::from_fn(|_| Vec::new()),
+        exact_unique_combat: None,
     };
     let budget = usize::from(search.max_active_spend());
     let mut keys = vec![None; budget + 1];
@@ -1357,7 +1364,85 @@ fn prepare_primary_allocations<P: SearchProgress>(
         plan.additions[stat_idx] = additions;
         keys = next;
     }
+    plan.exact_unique_combat = exact_unique_primary_allocation(
+        search, request, prepared, choice, upgrade, data, progress, &plan,
+    )?;
     Ok(plan)
+}
+
+fn primary_key_better(left: ObjectiveKey, right: ObjectiveKey) -> bool {
+    left.score > right.score || left.score == right.score && left.ar_total > right.ar_total
+}
+
+fn primary_keys_equal(left: ObjectiveKey, right: ObjectiveKey) -> bool {
+    left.score == right.score && left.ar_total == right.ar_total
+}
+
+#[allow(clippy::too_many_arguments)]
+fn exact_unique_primary_allocation<P: SearchProgress>(
+    search: &RelevantStatSearch,
+    request: &OptimizeRequest,
+    prepared: &PreparedWeapon<'_>,
+    choice: &AowChoice<'_>,
+    upgrade: u8,
+    data: &GameData,
+    progress: &P,
+    primary: &PrimaryAllocationPlan,
+) -> Result<Option<[u8; COMBAT_STAT_COUNT]>, String> {
+    if search.remaining_free == 0 {
+        return Ok(None);
+    }
+    let active_stats = (0..COMBAT_STAT_COUNT)
+        .filter(|&stat_idx| search.active[stat_idx])
+        .collect::<Vec<_>>();
+
+    let mut best = None;
+    for spent in search.min_active_spend()..=search.max_active_spend() {
+        if progress.is_cancelled() {
+            return Err("cancelled".to_string());
+        }
+        let Some(mut combat) = unique_primary_combat(search, primary, &active_stats, spent) else {
+            // A tied predecessor or missing terminal path needs the normal
+            // route-aware DP to preserve every candidate and tie-break.
+            return Ok(None);
+        };
+        fill_inactive_stats(search, &mut combat, search.remaining_free - spent);
+        let allocation =
+            evaluate_objective_allocation(combat, request, prepared, choice, upgrade, None, data)?;
+        match best {
+            None => best = Some((allocation.key, combat)),
+            Some((best_key, _)) if primary_key_better(allocation.key, best_key) => {
+                best = Some((allocation.key, combat));
+            }
+            Some((best_key, _)) if primary_keys_equal(allocation.key, best_key) => {
+                // Route metrics are the next tie-break, so the route cannot
+                // be skipped when the exact primary metrics tie.
+                return Ok(None);
+            }
+            Some(_) => {}
+        }
+    }
+    Ok(best.map(|(_, combat)| combat))
+}
+
+fn unique_primary_combat(
+    search: &RelevantStatSearch,
+    primary: &PrimaryAllocationPlan,
+    active_stats: &[usize],
+    spent: u16,
+) -> Option<[u8; COMBAT_STAT_COUNT]> {
+    let mut combat = search.mins;
+    let mut destination = usize::from(spent);
+    for &stat_idx in active_stats.iter().rev() {
+        let additions = &primary.additions[stat_idx][destination];
+        let [add] = additions.as_slice() else {
+            return None;
+        };
+        let add = usize::from(*add);
+        combat[stat_idx] = search.mins[stat_idx] + add as u8;
+        destination -= add;
+    }
+    (destination == 0).then_some(combat)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1375,6 +1460,30 @@ fn best_objective_allocation<P>(
 where
     P: SearchProgress,
 {
+    if search.remaining_free == 0 {
+        if progress.is_cancelled() {
+            return Err("cancelled".to_string());
+        }
+        return evaluate_objective_allocation(
+            search.mins,
+            request,
+            prepared,
+            aow_choice,
+            upgrade,
+            route,
+            data,
+        );
+    }
+    if let Some(primary) = primary
+        && let Some(combat) = primary.exact_unique_combat
+    {
+        if progress.is_cancelled() {
+            return Err("cancelled".to_string());
+        }
+        return evaluate_objective_allocation(
+            combat, request, prepared, aow_choice, upgrade, route, data,
+        );
+    }
     let base_combat = search.mins;
     let with_route = |mut value: ObjectiveAllocation| -> Result<ObjectiveAllocation, String> {
         if let Some(route) = route {
@@ -1455,7 +1564,13 @@ where
         allocations = next;
     }
 
-    (search.min_active_spend()..=max_active_spend)
+    let uses_separable_primary = matches!(
+        request.objective,
+        OptimizeObjective::MaxAr
+            | OptimizeObjective::MaxPhysicalAr
+            | OptimizeObjective::BleedThenAr
+    );
+    let final_allocations = (search.min_active_spend()..=max_active_spend)
         .filter_map(|spent| allocations[usize::from(spent)].map(|allocation| (spent, allocation)))
         .map(|(spent, mut allocation)| {
             fill_inactive_stats(
@@ -1463,15 +1578,48 @@ where
                 &mut allocation.combat,
                 search.remaining_free - spent,
             );
-            evaluate_objective_allocation(
-                allocation.combat,
-                request,
-                prepared,
-                aow_choice,
-                upgrade,
-                route,
-                data,
-            )
+            let primary = uses_separable_primary
+                .then(|| {
+                    evaluate_objective_allocation(
+                        allocation.combat,
+                        request,
+                        prepared,
+                        aow_choice,
+                        upgrade,
+                        None,
+                        data,
+                    )
+                })
+                .transpose()?;
+            Ok((allocation, primary))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let best_primary_key = final_allocations
+        .iter()
+        .filter_map(|(_, primary)| primary.map(|value| value.key))
+        .reduce(|best, key| {
+            if primary_key_better(key, best) {
+                key
+            } else {
+                best
+            }
+        });
+    final_allocations
+        .into_iter()
+        .filter_map(|(allocation, primary)| {
+            let Some(best_key) = best_primary_key else {
+                return Some(evaluate_objective_allocation(
+                    allocation.combat,
+                    request,
+                    prepared,
+                    aow_choice,
+                    upgrade,
+                    route,
+                    data,
+                ));
+            };
+            let primary = primary.expect("separable objectives must have a primary metric");
+            primary_keys_equal(primary.key, best_key).then(|| with_route(primary))
         })
         .collect::<Result<Vec<_>, _>>()?
         .into_iter()
