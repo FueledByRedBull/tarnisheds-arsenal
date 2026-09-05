@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use crate::data::load_game_data;
+use crate::math::CUSTOM_STATS_CLASS_NAME;
 
 use super::*;
 
@@ -557,6 +558,68 @@ fn shared_primary_frontiers_match_independent_dp_including_all_ties() {
 }
 
 #[test]
+fn unique_primary_backtrack_rejects_a_tie_at_an_earlier_stage() {
+    let search = RelevantStatSearch {
+        mins: [0; COMBAT_STAT_COUNT],
+        maxs: [2, 2, 2, 0, 0],
+        active: [true, true, true, false, false],
+        remaining_free: 2,
+        candidate_count: 1,
+    };
+    let mut additions = std::array::from_fn(|_| vec![Vec::new(); 3]);
+    additions[STAT_STR][0] = vec![0];
+    additions[STAT_DEX][1] = vec![0, 1];
+    additions[STAT_INT][2] = vec![1];
+    let primary = PrimaryAllocationPlan {
+        base: ObjectiveAllocation {
+            key: ObjectiveKey::default(),
+            ar: DamageBreakdown::default(),
+            combat: [0; COMBAT_STAT_COUNT],
+        },
+        values: std::array::from_fn(|_| Vec::new()),
+        additions,
+        exact_unique_combat: None,
+    };
+
+    assert_eq!(
+        unique_primary_combat(&search, &primary, &[STAT_STR, STAT_DEX, STAT_INT], 2),
+        None
+    );
+}
+
+#[test]
+fn convergence_custom_stats_accepts_all_eight_stats_at_99() {
+    let data = load_convergence_data();
+    let mut request = base_request();
+    request.class_name = CUSTOM_STATS_CLASS_NAME.to_string();
+    request.character_level = 8 * 99;
+    request.current_stats = Stats {
+        vig: 99,
+        mnd: 99,
+        end: 99,
+        str: 99,
+        dex: 99,
+        int: 99,
+        fai: 99,
+        arc: 99,
+    };
+    request.standard_max_upgrade = 15;
+    request.somber_max_upgrade = 15;
+    request.exact_upgrade = true;
+    request.weapon_name = Some("Galvanic Culling Blade [Twinblade]".to_string());
+    request.affinity = Some("Standard".to_string());
+
+    let rows = optimize(&request, &data)
+        .expect("Convergence custom stats should support the full eight-stat range");
+    let best = rows.first().expect("full-range Convergence result");
+    assert_eq!(best.stats, request.current_stats);
+
+    request.character_level += 1;
+    let error = optimize(&request, &data).expect_err("793 must exceed the custom-stats domain");
+    assert!(error.contains("792 or lower"));
+}
+
+#[test]
 fn dynamic_search_matches_exhaustive_search_for_every_objective() {
     let game_data = load_data();
     for (objective, weapon, affinity, aow_name) in [
@@ -627,6 +690,80 @@ fn dynamic_search_matches_exhaustive_search_for_every_objective() {
             assert_eq!(fast.upgrade, reference.upgrade);
             assert_eq!(fast.stats, reference.stats);
             assert_eq!(fast.metric.score, reference.metric.score);
+        }
+    }
+}
+
+#[test]
+fn zero_budget_dynamic_search_matches_exhaustive_search_for_every_objective() {
+    let data = load_data();
+    let mut request = base_request();
+    request.character_level = 93;
+    request.current_stats = Stats {
+        vig: 12,
+        mnd: 11,
+        end: 13,
+        str: 96,
+        dex: 15,
+        int: 9,
+        fai: 8,
+        arc: 8,
+    };
+    request.weapon_name = Some("Giant-Crusher".to_string());
+    request.affinity = Some("Heavy".to_string());
+    request.exact_upgrade = false;
+    request.standard_max_upgrade = data.rules.standard_max_upgrade;
+    request.somber_max_upgrade = data.rules.somber_max_upgrade;
+    request.top_k = 25;
+
+    for objective in [
+        OptimizeObjective::MaxAr,
+        OptimizeObjective::MaxPhysicalAr,
+        OptimizeObjective::BleedThenAr,
+        OptimizeObjective::AowFirstHit,
+        OptimizeObjective::AowFullSequence,
+    ] {
+        request.objective = objective;
+        let plan = prepare_search(&request, &data).expect("zero-budget comparison plan");
+        assert!(
+            plan.groups
+                .iter()
+                .all(|group| group.search.remaining_free == 0),
+            "{objective:?} unexpectedly has a stat budget"
+        );
+        for unit in &plan.serial_work_units {
+            let mut dynamic_progress =
+                SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
+            let dynamic = search_dp_work_unit(
+                &plan,
+                *unit,
+                result_group_mode(&request),
+                &mut dynamic_progress,
+            )
+            .expect("zero-budget dynamic search");
+            let mut exhaustive_progress =
+                SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
+            let exhaustive = search_work_unit_exhaustive(
+                &plan,
+                *unit,
+                result_group_mode(&request),
+                &mut exhaustive_progress,
+            )
+            .expect("zero-budget exhaustive search");
+
+            assert_eq!(dynamic.len(), exhaustive.len());
+            for (fast, reference) in dynamic.iter().zip(exhaustive.iter()) {
+                assert_eq!(fast.upgrade, reference.upgrade);
+                assert_eq!(fast.stats, reference.stats);
+                if matches!(
+                    objective,
+                    OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
+                ) {
+                    assert!((fast.metric.score - reference.metric.score).abs() <= 0.001);
+                } else {
+                    assert_eq!(fast.metric.score, reference.metric.score);
+                }
+            }
         }
     }
 }

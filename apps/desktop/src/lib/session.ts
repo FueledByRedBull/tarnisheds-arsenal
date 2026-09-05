@@ -212,7 +212,9 @@ export function normalizeOptimizeRequest(
     ),
     somberMaxUpgrade: clampUpgrade(
       numberOrNull(raw.somberMaxUpgrade) ?? (
-        legacyMaxUpgrade === null ? fallback.somberMaxUpgrade : Math.min(legacyMaxUpgrade, 10)
+        legacyMaxUpgrade === null
+          ? fallback.somberMaxUpgrade
+          : Math.min(legacyMaxUpgrade, rules?.somberMaxUpgrade ?? 10)
       ),
       rules?.somberMaxUpgrade ?? 10,
     ),

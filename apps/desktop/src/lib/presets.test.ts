@@ -100,6 +100,57 @@ describe("saved build persistence", () => {
     expect(savedBuildIndex().builds[0].profileId).toBe("convergence");
   });
 
+  it("round-trips a Convergence preset with the profile's +15 caps", () => {
+    const convergence = preset();
+    convergence.profileId = "convergence";
+    convergence.request = {
+      ...defaultRequest,
+      profileId: "convergence",
+      className: "Custom stats",
+      characterLevel: 792,
+      vig: 99,
+      mnd: 99,
+      end: 99,
+      strStat: 99,
+      dex: 99,
+      intStat: 99,
+      fai: 99,
+      arc: 99,
+      lockStr: 99,
+      lockDex: 99,
+      lockInt: 99,
+      lockFai: 99,
+      lockArc: 99,
+      standardMaxUpgrade: 15,
+      somberMaxUpgrade: 15,
+    };
+    convergence.dataVersion = "convergence:4:convergence-3.0.0.1:model";
+
+    const parsed = parsePresetText(JSON.stringify(convergence));
+
+    expect(parsed.profileId).toBe("convergence");
+    expect(parsed.request).toMatchObject({
+      profileId: "convergence",
+      characterLevel: 792,
+      standardMaxUpgrade: 15,
+      somberMaxUpgrade: 15,
+    });
+
+    const saved = saveBuildPreset({
+      name: parsed.name,
+      request: parsed.request,
+      selectedBuild: parsed.selectedBuild,
+      compareTarget: parsed.compareTarget,
+      compareBench: parsed.compareBench,
+      dataVersion: parsed.dataVersion,
+    });
+    expect(loadBuildPreset(saved.id)?.request).toMatchObject({
+      characterLevel: 792,
+      standardMaxUpgrade: 15,
+      somberMaxUpgrade: 15,
+    });
+  });
+
   it("removes legacy packaged-smoke presets leaked by older release jobs", () => {
     const smoke = preset("smoke-id", "Packaged smoke 1784149134195");
     localStorage.setItem("tarnisheds-arsenal.savedBuild.v1.smoke-id", JSON.stringify(smoke));
