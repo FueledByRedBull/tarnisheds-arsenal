@@ -60,7 +60,8 @@ export function Inspector() {
       </div>
       <div className="detail-block">
         <span>Stat Budget</span>
-        <strong>Level {snapshot.level} / +{snapshot.levelUps} level ups</strong>
+        <strong>{catalog?.dataManifest.capabilities.classBudget === false
+          ? `Stat total ${snapshot.level}` : `Level ${snapshot.level} / +${snapshot.levelUps} level ups`}</strong>
         <small>Redistrib {snapshot.redistributable} / Free {snapshot.freePoints} / Total points {snapshot.total}</small>
       </div>
       <div className="detail-block">
@@ -76,7 +77,7 @@ export function Inspector() {
         <>
           <div className="selected-build">
             <strong>{selected.weaponName}</strong>
-            <span>{selected.affinity} / {selected.aowName ?? "Native"} / +{selected.upgrade}</span>
+            <span>{selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade}</span>
             {resultsStale ? <small className="stale-label">Previous query build</small> : null}
           </div>
           <WeaponPoiseDetails profile={weaponProfile} route={selected.aowRoute} twoHanding={request.twoHanding} />
@@ -117,9 +118,9 @@ export function Inspector() {
           <AowRouteDetails route={selected.aowRoute} />
           <div className="inspector-actions stacked">
             <button type="button" onClick={lockSelected}><LockKeyhole size={15} />Use as search locks</button>
-            <button type="button" onClick={() => setWorkspace("compare")} disabled={resultsStale} title={resultsStale ? "Update rankings before comparing" : undefined}><GitCompareArrows size={15} />Compare</button>
-            <button type="button" onClick={() => setWorkspace("paths")} disabled={resultsStale} title={resultsStale ? "Update rankings before tracing paths" : undefined}><Route size={15} />Paths</button>
-            <button type="button" onClick={() => setWorkspace("affinity_watch")} disabled={resultsStale} title={resultsStale ? "Update rankings before watching affinities" : undefined}><Radar size={15} />Affinity Watch</button>
+            <button type="button" onClick={() => setWorkspace("compare")} disabled={resultsStale || catalog?.dataManifest.capabilities.classBudget === false} title={resultsStale ? "Update rankings before comparing" : undefined}><GitCompareArrows size={15} />Compare</button>
+            <button type="button" onClick={() => setWorkspace("paths")} disabled={resultsStale || catalog?.dataManifest.capabilities.classBudget === false} title={resultsStale ? "Update rankings before tracing paths" : undefined}><Route size={15} />Paths</button>
+            <button type="button" onClick={() => setWorkspace("affinity_watch")} disabled={resultsStale || catalog?.dataManifest.capabilities.classBudget === false} title={resultsStale ? "Update rankings before watching affinities" : undefined}><Radar size={15} />Affinity Watch</button>
           </div>
         </>
       ) : (
@@ -590,7 +591,7 @@ function migratePresetRequest(request: OptimizeRequestDto, catalog: CatalogDto):
     issues.push(`class '${migrated.className}' no longer exists`);
     const replacement = catalog.classes[0];
     migrated.className = replacement?.name ?? "Samurai";
-    if (replacement) {
+    if (replacement && catalog.dataManifest.capabilities.classBudget) {
       migrated.characterLevel = replacement.baseLevel;
       migrated.vig = replacement.baseStats.vig;
       migrated.mnd = replacement.baseStats.mnd;

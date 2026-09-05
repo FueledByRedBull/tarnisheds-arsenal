@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "datasetVersion": "vanilla-1.17",
-  "modelVersion": "aow-routes-effects-v3-profile-semantics",
+  "modelVersion": "aow-routes-effects-v5-compact-compatibility",
   "id": "vanilla-1.17",
   "label": "Vanilla dataset - 1.17",
   "appVersion": "1.17",
@@ -14,6 +14,8 @@
   },
   "capabilities": {
     "weaponAr": true,
+    "weaponArForAmmunition": true,
+    "classBudget": true,
     "statusBuildup": true,
     "weaponPassives": true,
     "aowCompatibility": true,
@@ -29,19 +31,19 @@
     "extendedScalingGrades": false,
     "statusBuildupScales": true
   },
-  "generatedAt": "2026-08-29",
-  "extractorVersion": "phase1-python-v7-profile-semantics",
+  "generatedAt": "2026-09-04",
+  "extractorVersion": "phase1-python-v9-compact-compatibility",
   "provenance": "profile-bound regulation, names, motion data, and numeric PARAM effect graph",
   "runtimeFiles": [
     {
       "path": "aow.csv",
-      "size": 21503,
-      "sha256": "baca5f6d15a7891c3cf79c5e7b6ea1c1aef9bf85586f9e11456c5e5e25c75712"
+      "size": 27801,
+      "sha256": "0a5b244631ba847c37316567f82982209647b5a893043173379dd8b9e9d7d92f"
     },
     {
       "path": "aow_attack_data.csv",
-      "size": 376437,
-      "sha256": "a8f6ed60e53385e4951c133d73c75732734933886c3f892766f4e68856385aa2"
+      "size": 375848,
+      "sha256": "ecc128ba21b5bbc021869591077c6f43f3e1af5d8b119b2489aeac6d255fda5f"
     },
     {
       "path": "aow_effect_data.csv",
@@ -52,11 +54,6 @@
       "path": "aow_route_assignments.csv",
       "size": 120026,
       "sha256": "39e24206df00095106756cd3e49ed0908d4b85eb4b232ce997f7e3d422efc2ce"
-    },
-    {
-      "path": "aow_weapon_compat.csv",
-      "size": 6885653,
-      "sha256": "546c8ef8b953c6140c8b90c1b64d4c2b8cce80f1a3b205e1e84e88f9bfcdef99"
     },
     {
       "path": "attack_element_correct.csv",
@@ -95,15 +92,15 @@
     },
     {
       "path": "weapons.csv",
-      "size": 760050,
-      "sha256": "e12795f768b768b06ba96a2e79c94bbfdc2abc229d51d44dffa384b183af0022"
+      "size": 766655,
+      "sha256": "feb2912554d5bd69e29a3df3cc78754d56bc7402726369b78c31f3f778f6658b"
     }
   ],
   "diagnosticFiles": [
     {
       "path": "aow_damage_coverage.csv",
-      "size": 5598,
-      "sha256": "49efcc4db661432b64dcac9481e750bb5d381923ff74be476393bd0f37485839"
+      "size": 5474,
+      "sha256": "6363d25584e3fba94384292303d9fad9ec791c01fb8ef8681793b1e6ae521341"
     },
     {
       "path": "aow_effect_coverage.csv",

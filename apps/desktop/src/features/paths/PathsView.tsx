@@ -177,7 +177,7 @@ function LaneSummary({ title, path, row }: { title: string; path: PathPreviewDto
       <strong>{title}</strong>
       {solved ? (
         <>
-          <span>{solved.weaponName} / {solved.affinity} / {solved.aowName ?? "Native"} / +{solved.upgrade}</span>
+          <span>{solved.weaponName} / {solved.affinity} / {solved.aowName ?? "Unspecified skill"} / +{solved.upgrade}</span>
           <small>{path ? `${path.steps.length} steps, final ${fixed1(path.steps.at(-1)?.metric)}` : "Ready to trace"}</small>
         </>
       ) : (

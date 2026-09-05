@@ -470,6 +470,93 @@ fn optimize_returns_sorted_top_results_for_locked_weapon() {
 }
 
 #[test]
+fn shared_primary_frontiers_match_independent_dp_including_all_ties() {
+    for data in [load_data(), load_convergence_data()] {
+        for weapon in ["Uchigatana", "Dueling Shield"] {
+            for free in [0, 3, 40] {
+                let mut request = base_request();
+                request.weapon_name = Some(weapon.to_string());
+                request.affinity = Some("Standard".to_string());
+                request.current_stats = stats_with_combat(request.current_stats, [50; 5]);
+                request.character_level = 9 + request.current_stats.sum_all_8() - 88 + free;
+                request.standard_max_upgrade = data.rules.standard_max_upgrade;
+                request.somber_max_upgrade = data.rules.somber_max_upgrade;
+                request.exact_upgrade = true;
+                for objective in [
+                    OptimizeObjective::MaxAr,
+                    OptimizeObjective::MaxPhysicalAr,
+                    OptimizeObjective::BleedThenAr,
+                ] {
+                    request.objective = objective;
+                    let plan = prepare_search(&request, &data).unwrap();
+                    let progress = SerialSearchProgress::new(0, 0, |_| true);
+                    for group in &plan.groups {
+                        let prepared = &plan.weapons[group.prepared_idx];
+                        for upgrade in [0, request.standard_max_upgrade] {
+                            let mut shared = HashMap::new();
+                            for &index in &group.aow_indices {
+                                let choice = &prepared.aow_choices[index];
+                                let Some(routes) =
+                                    prepare_scalar_aow_routes(&choice.attack_rows, &data).unwrap()
+                                else {
+                                    continue;
+                                };
+                                let key = primary_effect_key(choice);
+                                let primary = shared.entry(key).or_insert_with(|| {
+                                    prepare_primary_allocations(
+                                        &group.search,
+                                        &request,
+                                        prepared,
+                                        choice,
+                                        upgrade,
+                                        &data,
+                                        &progress,
+                                    )
+                                    .unwrap()
+                                });
+                                for route in std::iter::once(None).chain(routes.iter().map(Some)) {
+                                    let original = best_objective_allocation(
+                                        &group.search,
+                                        &request,
+                                        prepared,
+                                        choice,
+                                        upgrade,
+                                        route,
+                                        &data,
+                                        &progress,
+                                        None,
+                                    )
+                                    .unwrap();
+                                    let cached = best_objective_allocation(
+                                        &group.search,
+                                        &request,
+                                        prepared,
+                                        choice,
+                                        upgrade,
+                                        route,
+                                        &data,
+                                        &progress,
+                                        Some(primary),
+                                    )
+                                    .unwrap();
+                                    assert_eq!(
+                                        format!("{cached:?}"),
+                                        format!("{original:?}"),
+                                        "{} {weapon} {free} {objective:?} {upgrade} {:?}",
+                                        data.profile_id,
+                                        choice.skill_name
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn dynamic_search_matches_exhaustive_search_for_every_objective() {
     let game_data = load_data();
     for (objective, weapon, affinity, aow_name) in [
@@ -717,6 +804,7 @@ fn independent_all_five_oracle_checks_relevance_and_numeric_winners() {
                         let progress = SerialSearchProgress::new(0, 0, |_| true);
                         let dynamic = best_objective_allocation(
                             search, &request, prepared, choice, upgrade, route, &data, &progress,
+                            None,
                         )
                         .unwrap();
                         // Numeric agreement is distinct from stat-vector tie agreement;
@@ -776,6 +864,7 @@ fn f32_dp_can_discard_the_canonical_stat_tie_winner() {
         None,
         &data,
         &progress,
+        None,
     )
     .unwrap();
     assert_eq!(numeric_key(dynamic.key), numeric_key(reference.key));
@@ -1765,6 +1854,45 @@ fn included_weapon_types_and_affinities_are_or_within_and_across_dimensions() {
 }
 
 #[test]
+fn affinity_filters_keep_every_profile_affinity_distinct() {
+    for data in [load_data(), load_convergence_data()] {
+        let mut ids = HashMap::new();
+        for weapon in &data.weapons {
+            let id = weapon.affinity_filter_id();
+            if let Some(previous) = ids.insert(id, weapon.affinity.as_str()) {
+                assert_eq!(
+                    previous, weapon.affinity,
+                    "{}: affinity ID collision",
+                    data.profile_id
+                );
+            }
+        }
+        for (id, affinity) in ids {
+            let mut request = base_request();
+            request.weapon_name = None;
+            request.affinity = None;
+            request.filters = vec![StableFilter {
+                dimension: FilterDimension::Affinity,
+                id,
+                mode: FilterMode::Include,
+            }];
+            for weapon in &data.weapons {
+                if data.weapon_ar_supported(weapon) {
+                    assert_eq!(
+                        weapon_matches_request(weapon, &request, &data),
+                        weapon.affinity == affinity,
+                        "{}: {} / {} filtered as {affinity}",
+                        data.profile_id,
+                        weapon.name,
+                        weapon.affinity
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn explicit_result_grouping_overrides_automatic_mode() {
     let mut request = broad_request();
     request.result_grouping = ResultGrouping::Weapon;
@@ -1774,7 +1902,7 @@ fn explicit_result_grouping_overrides_automatic_mode() {
 }
 
 #[test]
-fn open_ar_search_excludes_compatible_aows_that_cannot_change_ar() {
+fn open_ar_search_keeps_compatible_aows_for_ranking_ties() {
     let game_data = load_data();
     let request = base_request();
     let weapon = game_data
@@ -1792,12 +1920,8 @@ fn open_ar_search_excludes_compatible_aows_that_cannot_change_ar() {
         .collect::<HashSet<_>>();
 
     assert!(names.contains("Seppuku"));
-    assert!(!names.contains("Double Slash"));
-    assert!(choices.iter().all(|choice| {
-        choice
-            .aow
-            .is_none_or(|aow| aow_affects_objective(aow, OptimizeObjective::MaxAr))
-    }));
+    assert!(names.contains("Double Slash"));
+    assert!(choices.iter().all(|choice| !choice.no_applied_ash));
 }
 
 #[test]
@@ -1924,7 +2048,7 @@ fn parallel_threshold_accepts_medium_searches_when_threads_are_available() {
 }
 
 #[test]
-fn parallel_work_units_split_to_single_aow_choices() {
+fn primary_work_units_share_ashes_but_damage_work_units_stay_fine_grained() {
     let game_data = load_data();
     let mut request = base_request();
     request.aow_name = None;
@@ -1935,7 +2059,14 @@ fn parallel_work_units_split_to_single_aow_choices() {
     let grouped = build_search_work_units(&plan, false);
 
     assert!(!fine.is_empty());
-    assert!(fine.iter().all(|unit| unit.aow_end - unit.aow_start == 1));
+    assert!(fine.iter().any(|unit| unit.aow_end - unit.aow_start > 1));
+    request.objective = OptimizeObjective::AowFirstHit;
+    let damage = prepare_search(&request, &game_data).unwrap();
+    assert!(
+        build_search_work_units(&damage, true)
+            .iter()
+            .all(|unit| unit.aow_end - unit.aow_start == 1)
+    );
     assert_eq!(
         fine.iter().map(|unit| unit.candidate_count).sum::<u64>(),
         grouped.iter().map(|unit| unit.candidate_count).sum::<u64>()
@@ -2413,6 +2544,7 @@ fn bleed_relevance_prunes_non_bleed_status_distributions() {
     let mut request = broad_request();
     request.weapon_name = Some("Erdsteel Dagger".to_string());
     request.affinity = Some("Poison".to_string());
+    request.aow_name = Some("Quickstep".to_string());
     request.objective = OptimizeObjective::BleedThenAr;
     let constraints = build_combat_constraints(&request).expect("constraints failed");
     let prepared_weapons =
@@ -2421,8 +2553,8 @@ fn bleed_relevance_prunes_non_bleed_status_distributions() {
     let aow_choice = prepared
         .aow_choices
         .first()
-        .expect("expected no-AoW choice");
-    assert!(aow_choice.skill_id.is_none());
+        .expect("expected Quickstep choice");
+    assert_eq!(aow_choice.skill_name, Some("Quickstep"));
 
     let active = active_stats_for_choice(&request, prepared, aow_choice, &game_data);
     assert!(!active[STAT_ARC]);
@@ -2797,6 +2929,150 @@ fn optimize_rejects_seppuku_on_cold_affinity() {
 }
 
 #[test]
+fn open_aow_ranking_is_not_worse_than_a_locked_legal_choice() {
+    let data = load_data();
+    for (weapon, affinity, objective, skill) in [
+        (
+            "Caestus",
+            "Standard",
+            OptimizeObjective::MaxPhysicalAr,
+            "Flaming Strike",
+        ),
+        (
+            "Dueling Shield",
+            "Standard",
+            OptimizeObjective::MaxPhysicalAr,
+            "Flaming Strike",
+        ),
+        (
+            "Star Fist",
+            "Occult",
+            OptimizeObjective::MaxAr,
+            "Hoarah Loux's Earthshaker",
+        ),
+    ] {
+        let mut request = base_request();
+        request.class_name = "Wretch".to_string();
+        request.current_stats = Stats {
+            vig: 10,
+            mnd: 10,
+            end: 10,
+            str: 50,
+            dex: 50,
+            int: 50,
+            fai: 50,
+            arc: 50,
+        };
+        request.character_level = request.current_stats.sum_all_8() - 79;
+        request.locked_combat_stats = request.current_stats.combat_array().map(Some);
+        request.weapon_name = Some(weapon.to_string());
+        request.affinity = Some(affinity.to_string());
+        request.objective = objective;
+        request.standard_max_upgrade = 0;
+        request.somber_max_upgrade = 0;
+        request.exact_upgrade = true;
+        request.top_k = 1;
+        let open = optimize(&request, &data).unwrap();
+        request.aow_name = Some(skill.to_string());
+        let locked = optimize(&request, &data).unwrap();
+        assert_eq!(open.len(), 1, "{weapon}");
+        assert_eq!(locked.len(), 1, "{weapon}");
+        assert!(
+            !better_result(&locked[0], &open[0]),
+            "{weapon}: open={:?}, locked={:?}",
+            open[0],
+            locked[0]
+        );
+    }
+}
+
+#[test]
+fn no_skill_filter_matches_the_explicit_lock() {
+    let data = load_data();
+    let mut request = base_request();
+    request.weapon_name = Some("Buckler".to_string());
+    request.affinity = Some("Standard".to_string());
+    request.aow_name = Some("No Skill".to_string());
+    let locked = optimize(&request, &data).unwrap();
+    assert!(!locked.is_empty());
+    request.aow_name = None;
+    request.filters = vec![StableFilter {
+        dimension: FilterDimension::Aow,
+        id: "aow:10".to_string(),
+        mode: FilterMode::Include,
+    }];
+    let filtered = optimize(&request, &data).unwrap();
+    assert_eq!(filtered.len(), locked.len());
+    for (actual, expected) in filtered.iter().zip(&locked) {
+        assert_eq!(actual.aow_id, Some(10));
+        assert_eq!(actual.score, expected.score);
+        assert_eq!(actual.upgrade, expected.upgrade);
+    }
+}
+
+#[test]
+fn no_applied_ash_preserves_native_skills_without_inventing_infusions() {
+    for data in [load_data(), load_convergence_data()] {
+        let mut request = base_request();
+        request.filters = vec![StableFilter {
+            dimension: FilterDimension::Aow,
+            id: "aow:none".to_string(),
+            mode: FilterMode::Include,
+        }];
+        for weapon in &data.weapons {
+            let choices = resolve_aow_choices(weapon, &request, &data)
+                .unwrap()
+                .unwrap_or_default();
+            if weapon.affinity == "Standard" {
+                assert_eq!(choices.len(), 1, "{} / {}", data.profile_id, weapon.name);
+                if weapon.native_skill_name.is_some() {
+                    assert_eq!(choices[0].skill_id, weapon.native_skill_id);
+                }
+                assert!(choices[0].no_applied_ash);
+            } else {
+                assert!(
+                    choices.is_empty(),
+                    "{} / {} / {}",
+                    data.profile_id,
+                    weapon.name,
+                    weapon.affinity
+                );
+            }
+        }
+    }
+    let data = load_data();
+    let mut request = base_request();
+    request.filters = vec![StableFilter {
+        dimension: FilterDimension::Aow,
+        id: "aow:none".to_string(),
+        mode: FilterMode::Exclude,
+    }];
+    for (name, skill, expected) in [
+        ("Rivers of Blood", "Corpse Piler", false),
+        ("Uchigatana", "Unsheathe", true),
+    ] {
+        let weapon = data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.name == name && weapon.affinity == "Standard")
+            .unwrap();
+        request.aow_name = Some(skill.to_string());
+        let choices = resolve_aow_choices(weapon, &request, &data)
+            .unwrap()
+            .unwrap_or_default();
+        assert_eq!(!choices.is_empty(), expected, "{name}");
+        assert!(choices.iter().all(|choice| !choice.no_applied_ash));
+        request.filters[0].mode = FilterMode::Include;
+        let choices = resolve_aow_choices(weapon, &request, &data)
+            .unwrap()
+            .unwrap();
+        assert_eq!(choices.len(), 1);
+        assert_eq!(choices[0].skill_name, Some(skill));
+        request.filters[0].mode = FilterMode::Exclude;
+    }
+}
+
+#[test]
 fn paired_weapon_two_handing_does_not_inflate_ar() {
     let game_data = load_data();
     let mut one_hand = base_request();
@@ -2931,7 +3207,182 @@ fn wasted_points_on_zero_scaling_stats_are_filtered() {
 }
 
 #[test]
-fn exact_aow_compatibility_is_loaded_from_csv() {
+fn compact_compatibility_preserves_every_pre_migration_pair() {
+    use sha2::{Digest, Sha256};
+    for (data, expected_digest) in [
+        (
+            load_data(),
+            "37b50bc76ea2265f17f8c4d2bad50ffaba2afc65c346ae9fd5d5edbae8021bb3",
+        ),
+        (
+            load_convergence_data(),
+            "4eb4fbfa982e2c2483d0765266914263a555583b7ded3185cc94f04122ea3c77",
+        ),
+    ] {
+        assert!(
+            data.aows
+                .iter()
+                .all(|aow| ![117, 223, 303].contains(&aow.aow_id))
+        );
+        let mut pairs = Vec::new();
+        for weapon in &data.weapons {
+            for aow in &data.aows {
+                let expected = weapon.can_change_aow
+                    && aow
+                        .valid_affinities
+                        .split('|')
+                        .any(|affinity| affinity == weapon.affinity)
+                    && weapon
+                        .weapon_type_keys
+                        .split('|')
+                        .filter(|key| !key.is_empty())
+                        .any(|key| {
+                            aow.valid_weapon_types
+                                .split('|')
+                                .any(|allowed| allowed == key)
+                        });
+                assert_eq!(data.aow_compatible_with_weapon(aow, weapon), expected);
+                if expected {
+                    pairs.push((aow.aow_id, weapon.weapon_id));
+                }
+            }
+        }
+        pairs.sort_unstable();
+        let mut digest = Sha256::new();
+        for (ash, weapon) in pairs {
+            digest.update(format!("{ash}:{weapon}\n"));
+        }
+        assert_eq!(
+            format!("{:x}", digest.finalize()),
+            expected_digest,
+            "{}",
+            data.profile_id
+        );
+    }
+}
+
+#[test]
+fn native_skills_cannot_bypass_infusion_rules() {
+    let data = load_data();
+    let mut request = base_request();
+    for (name, skill) in [
+        ("Godskin Peeler", "Black Flame Tornado"),
+        ("Prelate's Inferno Crozier", "Prelate's Charge"),
+    ] {
+        for affinity in [
+            "Lightning",
+            "Sacred",
+            "Magic",
+            "Cold",
+            "Poison",
+            "Blood",
+            "Occult",
+        ] {
+            let weapon = data
+                .weapons
+                .iter()
+                .find(|weapon| weapon.name == name && weapon.affinity == affinity)
+                .unwrap();
+            assert!(!data.native_skill_compatible_with_weapon(weapon));
+            for objective in [
+                OptimizeObjective::MaxAr,
+                OptimizeObjective::MaxPhysicalAr,
+                OptimizeObjective::BleedThenAr,
+                OptimizeObjective::AowFirstHit,
+                OptimizeObjective::AowFullSequence,
+            ] {
+                request.objective = objective;
+                request.aow_name = Some(skill.to_string());
+                assert!(
+                    resolve_aow_choices(weapon, &request, &data)
+                        .unwrap()
+                        .is_none()
+                );
+                request.aow_name = None;
+                let choices = resolve_aow_choices(weapon, &request, &data)
+                    .unwrap()
+                    .unwrap_or_default();
+                assert!(
+                    choices
+                        .iter()
+                        .all(|choice| choice.skill_name != Some(skill))
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn native_only_skills_can_be_searched_with_weapon_unlocked() {
+    let data = load_data();
+    let mut request = base_request();
+    request.weapon_name = None;
+    request.affinity = None;
+    request.standard_max_upgrade = 0;
+    request.somber_max_upgrade = 0;
+    for (skill, expected_weapon) in [
+        ("Firebreather", "Steel-Wire Torch"),
+        ("Buckler Parry", "Buckler"),
+    ] {
+        request.aow_name = Some(skill.to_string());
+        let constraints = build_combat_constraints(&request).unwrap();
+        let weapons = prepare_weapons(&request, &data, constraints).unwrap();
+        assert!(!weapons.is_empty());
+        assert!(
+            weapons
+                .iter()
+                .all(|prepared| prepared.weapon.name == expected_weapon
+                    && prepared.weapon.affinity == "Standard")
+        );
+    }
+}
+
+#[test]
+fn mounting_and_native_skill_regressions() {
+    for (data, cases) in [
+        (
+            load_data(),
+            vec![
+                ("Icerind Hatchet", "Standard", "Flaming Strike", false),
+                ("Shortbow", "Standard", "Rain of Arrows", true),
+                (
+                    "Firespark Perfume Bottle",
+                    "Standard",
+                    "Rolling Sparks",
+                    true,
+                ),
+                ("Dueling Shield", "Flame Art", "Flaming Strike", true),
+                ("Brass Shield", "Fire", "Flaming Strike", false),
+                ("Buckler", "Standard", "Buckler Parry", true),
+                ("Buckler", "Blood", "Buckler Parry", false),
+                ("Steel-Wire Torch", "Standard", "Firebreather", true),
+                ("Uchigatana", "Keen", "Firebreather", false),
+                ("Rivers of Blood", "Standard", "Corpse Piler", true),
+            ],
+        ),
+        (
+            load_convergence_data(),
+            vec![("Dueling Shield", "Night", "Flaming Strike", true)],
+        ),
+    ] {
+        let mut request = base_request();
+        request.objective = OptimizeObjective::MaxAr;
+        for (name, affinity, skill, expected) in cases {
+            let weapon = data
+                .weapons
+                .iter()
+                .find(|weapon| weapon.name == name && weapon.affinity == affinity)
+                .unwrap();
+            request.aow_name = Some(skill.to_string());
+            let accepted =
+                resolve_aow_choices(weapon, &request, &data).is_ok_and(|choices| choices.is_some());
+            assert_eq!(accepted, expected, "{name} / {affinity} / {skill}");
+        }
+    }
+}
+
+#[test]
+fn compact_compatibility_rejects_forbidden_affinities() {
     let game_data = load_data();
     let cold_uchi = game_data
         .weapons
@@ -3565,4 +4016,97 @@ fn utility_aow_has_no_results_for_aow_damage_objective() {
 
     let results = optimize(&request, &game_data).expect("optimizer failed");
     assert!(results.is_empty());
+}
+
+#[test]
+fn partially_modeled_aows_are_excluded_from_damage_objectives() {
+    let game_data = load_data();
+    let weapon = game_data
+        .weapons
+        .iter()
+        .find(|weapon| weapon.name == "Dagger" && weapon.affinity == "Standard")
+        .expect("standard Dagger");
+    for objective in [
+        OptimizeObjective::AowFirstHit,
+        OptimizeObjective::AowFullSequence,
+    ] {
+        let mut request = base_request();
+        request.weapon_name = Some(weapon.name.clone());
+        request.affinity = Some(weapon.affinity.clone());
+        request.aow_name = Some("Poison Moth Flight".to_string());
+        request.objective = objective;
+        request.standard_max_upgrade = 0;
+        request.somber_max_upgrade = 0;
+        request.exact_upgrade = true;
+
+        assert!(
+            resolve_aow_choices(weapon, &request, &game_data)
+                .expect("resolve AoW")
+                .is_none(),
+            "partially modeled AoW must not enter {objective:?} ranking"
+        );
+    }
+}
+
+#[test]
+fn fully_modeled_aows_remain_eligible_for_damage_objectives() {
+    let game_data = load_data();
+    let weapon = game_data
+        .weapons
+        .iter()
+        .find(|weapon| weapon.name == "Dagger" && weapon.affinity == "Standard")
+        .expect("standard Dagger");
+    for objective in [
+        OptimizeObjective::AowFirstHit,
+        OptimizeObjective::AowFullSequence,
+    ] {
+        let mut request = base_request();
+        request.weapon_name = Some(weapon.name.clone());
+        request.affinity = Some(weapon.affinity.clone());
+        request.aow_name = Some("Sacred Blade".to_string());
+        request.objective = objective;
+
+        let choices = resolve_aow_choices(weapon, &request, &game_data)
+            .expect("resolve AoW")
+            .expect("fully modeled AoW must remain eligible");
+        assert_eq!(choices.len(), 1);
+        assert_eq!(choices[0].skill_name, Some("Sacred Blade"));
+        assert!(choices[0].attack_rows.iter().any(|row| !row.is_lacking_fp));
+    }
+}
+
+#[test]
+fn unsupported_effects_on_missing_fp_rows_do_not_exclude_damage_objectives() {
+    let mut game_data = load_data();
+    let missing_fp_effect = game_data
+        .aow_effects
+        .get(&(201, 1388))
+        .and_then(|effects| effects.first())
+        .cloned()
+        .expect("Sacred Blade missing-FP effect");
+    let mut unsupported_effect = missing_fp_effect;
+    unsupported_effect.is_supported = false;
+    unsupported_effect.role = AowEffectRole::ReplacementOrChained;
+    game_data
+        .aow_effects
+        .get_mut(&(201, 1388))
+        .expect("Sacred Blade missing-FP effects")
+        .push(unsupported_effect);
+
+    let weapon = game_data
+        .weapons
+        .iter()
+        .find(|weapon| weapon.name == "Dagger" && weapon.affinity == "Standard")
+        .expect("standard Dagger");
+    let mut request = base_request();
+    request.weapon_name = Some(weapon.name.clone());
+    request.affinity = Some(weapon.affinity.clone());
+    request.aow_name = Some("Sacred Blade".to_string());
+    request.objective = OptimizeObjective::AowFirstHit;
+
+    let choices = resolve_aow_choices(weapon, &request, &game_data)
+        .expect("resolve AoW")
+        .expect("unsupported missing-FP effects must be ignored");
+    assert_eq!(choices.len(), 1);
+    assert!(choices[0].attack_rows.iter().any(|row| row.is_lacking_fp));
 }

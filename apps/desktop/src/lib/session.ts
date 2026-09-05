@@ -97,6 +97,10 @@ export function classOptions(catalog: CatalogDto | null): ClassMetadataDto[] {
 }
 
 export function classMeta(catalog: CatalogDto | null, className: string): ClassMetadataDto {
+  if (!catalog && className === "Custom stats") {
+    return { name: className, baseLevel: 0, baseTotal: 0,
+      baseStats: { vig: 0, mnd: 0, end: 0, strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 } };
+  }
   const found = classOptions(catalog).find((entry) => entry.name === className);
   if (found) {
     return found;
@@ -163,6 +167,14 @@ export function buildOptimizeRequest(
   useLockedStats = true,
 ): OptimizeRequestDto {
   const meta = classMeta(catalog, uiRequest.className);
+  if (catalog?.dataManifest.capabilities.classBudget === false) {
+    return {
+      ...uiRequest,
+      characterLevel: currentStatTotal(uiRequest),
+      lockStr: uiRequest.strStat, lockDex: uiRequest.dex, lockInt: uiRequest.intStat,
+      lockFai: uiRequest.fai, lockArc: uiRequest.arc,
+    };
+  }
   return {
     ...uiRequest,
     characterLevel: derivedLevel(catalog, uiRequest),
@@ -182,6 +194,7 @@ export function buildOptimizeRequest(
 export function normalizeOptimizeRequest(
   raw: LegacyUpgradeRequest,
   fallback: OptimizeRequestDto,
+  rules?: ProfileRulesDto,
 ): OptimizeRequestDto {
   const legacyMaxUpgrade = numberOrNull(raw.maxUpgrade);
   const {
@@ -195,13 +208,13 @@ export function normalizeOptimizeRequest(
     ...next,
     standardMaxUpgrade: clampUpgrade(
       numberOrNull(raw.standardMaxUpgrade) ?? legacyMaxUpgrade ?? fallback.standardMaxUpgrade,
-      25,
+      rules?.standardMaxUpgrade ?? 25,
     ),
     somberMaxUpgrade: clampUpgrade(
       numberOrNull(raw.somberMaxUpgrade) ?? (
         legacyMaxUpgrade === null ? fallback.somberMaxUpgrade : Math.min(legacyMaxUpgrade, 10)
       ),
-      10,
+      rules?.somberMaxUpgrade ?? 10,
     ),
     exactUpgrade: Boolean(raw.exactUpgrade ?? (raw.fixedUpgrade !== undefined && raw.fixedUpgrade !== null)),
   };

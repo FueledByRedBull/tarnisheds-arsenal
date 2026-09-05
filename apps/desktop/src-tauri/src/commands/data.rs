@@ -184,6 +184,7 @@ impl CatalogIndex {
                 .or_insert_with(|| weapon.forces_two_handing());
 
             if let Some(skill_name) = native_skill_name_for_weapon(data, weapon) {
+                aow_names.insert(skill_name.to_string());
                 insert_compatible_name(
                     &mut compatible_aows_by_weapon,
                     &mut compatible_aows_by_affinity,
@@ -220,10 +221,28 @@ impl CatalogIndex {
                 .weapons
                 .iter()
                 .filter(|weapon| data.weapon_ar_supported(weapon))
-                .filter(|weapon| data.aow_compatible_with_weapon(aow, weapon))
+                .filter(|weapon| {
+                    data.aow_compatible_with_weapon(aow, weapon)
+                        || (weapon.native_skill_id == Some(aow.aow_id)
+                            && data.native_skill_compatible_with_weapon(weapon))
+                })
                 .count();
             if count > 0 {
                 aow_facets.insert(format!("aow:{}", aow.aow_id), (aow.name.clone(), count));
+            }
+        }
+        for weapon in &data.weapons {
+            if !data.weapon_ar_supported(weapon) {
+                continue;
+            }
+            if let Some(skill_name) = native_skill_name_for_weapon(data, weapon)
+                && let Some(skill_id) = weapon.native_skill_id
+                && !data.aows.iter().any(|aow| aow.aow_id == skill_id)
+            {
+                aow_facets
+                    .entry(format!("aow:{skill_id}"))
+                    .or_insert_with(|| (skill_name.to_string(), 0))
+                    .1 += 1;
             }
         }
         let coverage = [
@@ -334,7 +353,10 @@ pub fn get_catalog(profile_id: String, state: State<'_, AppState>) -> Result<Cat
         aow_count: data.aows.len(),
         weapon_names: index.weapon_names.clone(),
         weapon_type_keys: index.weapon_type_keys.clone(),
-        classes: class_metadata(profile.data_manifest.profile.game_version == "1.17"),
+        classes: class_metadata(
+            profile.data_manifest.profile.game_version == "1.17",
+            profile.data.capabilities.class_budget,
+        ),
         weapon_type_options: index.weapon_type_options.clone(),
         aow_names: index.aow_names.clone(),
         affinity_names: index.affinity_names.clone(),
@@ -450,12 +472,18 @@ pub fn get_weapon_profile(
     state: State<'_, AppState>,
 ) -> Result<WeaponProfileDto, AppError> {
     let profile = state.profile(&request.profile_id)?;
-    let index = &profile.catalog_index;
+    weapon_profile_inner(&profile.data, &profile.catalog_index, &request)
+}
+
+fn weapon_profile_inner(
+    data: &GameData,
+    index: &CatalogIndex,
+    request: &WeaponProfileRequestDto,
+) -> Result<WeaponProfileDto, AppError> {
     let requirements =
         weapon_requirements(index, &request.weapon_name, request.affinity.as_deref())?;
     let max_upgrade = weapon_upgrade_cap(index, &request.weapon_name, request.affinity.as_deref())?;
-    let weapon = profile
-        .data
+    let weapon = data
         .weapons
         .iter()
         .find(|weapon| {
@@ -474,6 +502,8 @@ pub fn get_weapon_profile(
         jumping_heavy: values.jumping_heavy.clone(),
     };
     Ok(WeaponProfileDto {
+        can_change_aow: weapon.can_change_aow,
+        native_skill_name: native_skill_name_for_weapon(data, weapon).map(str::to_owned),
         requirements: CombatStateDto {
             str_stat: requirements[0],
             dex: requirements[1],
@@ -502,7 +532,24 @@ pub fn get_weapon_profile(
     })
 }
 
-pub fn class_metadata(include_tarnished_pack: bool) -> Vec<ClassMetadataDto> {
+pub fn class_metadata(include_tarnished_pack: bool, class_budget: bool) -> Vec<ClassMetadataDto> {
+    if !class_budget {
+        return vec![ClassMetadataDto {
+            name: "Custom stats".to_string(),
+            base_level: 0,
+            base_total: 0,
+            base_stats: EightStatsDto {
+                vig: 0,
+                mnd: 0,
+                end: 0,
+                str_stat: 0,
+                dex: 0,
+                int_stat: 0,
+                fai: 0,
+                arc: 0,
+            },
+        }];
+    }
     STARTING_CLASSES
         .iter()
         .filter(|class_info| {
@@ -648,10 +695,10 @@ fn merge_requirements(current: &mut [u8; 5], next: [u8; 5]) {
 }
 
 fn native_skill_name_for_weapon<'a>(data: &'a GameData, weapon: &'a Weapon) -> Option<&'a str> {
-    let native_rows = data.native_skill_attack_rows(weapon.weapon_id);
-    if native_rows.is_empty() {
+    if !data.native_skill_compatible_with_weapon(weapon) {
         return None;
     }
+    let native_rows = data.native_skill_attack_rows(weapon.weapon_id);
     weapon
         .native_skill_name
         .as_deref()
@@ -694,4 +741,109 @@ fn finalize_pair_set_map(
     map.into_iter()
         .map(|(key, values)| (key, values.into_iter().collect()))
         .collect()
+}
+
+#[cfg(test)]
+mod compatibility_tests {
+    use super::*;
+
+    #[test]
+    fn weapon_profiles_expose_native_skills_and_mount_permissions() {
+        let data = er_optimizer_core::load_embedded_game_profile("vanilla").unwrap();
+        let index = CatalogIndex::build(&data);
+        for (weapon_name, affinity, native_skill, can_change) in [
+            ("Buckler", None, Some("Buckler Parry"), true),
+            ("Buckler", Some("Blood"), None, true),
+            ("Rivers of Blood", None, Some("Corpse Piler"), false),
+            ("Icerind Hatchet", None, Some("Hoarfrost Stomp"), false),
+        ] {
+            let profile = weapon_profile_inner(
+                &data,
+                &index,
+                &WeaponProfileRequestDto {
+                    profile_id: "vanilla".to_owned(),
+                    weapon_name: weapon_name.to_owned(),
+                    affinity: affinity.map(str::to_owned),
+                },
+            )
+            .unwrap();
+            assert_eq!(
+                profile.native_skill_name.as_deref(),
+                native_skill,
+                "{weapon_name}"
+            );
+            assert_eq!(profile.can_change_aow, can_change, "{weapon_name}");
+        }
+    }
+
+    #[test]
+    fn catalog_exposes_every_affinity_once() {
+        for (profile, expected_count) in [("vanilla", 13), ("convergence", 22)] {
+            let data = er_optimizer_core::load_embedded_game_profile(profile).unwrap();
+            let index = CatalogIndex::build(&data);
+            let options = &index
+                .filter_dimensions
+                .iter()
+                .find(|dimension| dimension.id == "affinity")
+                .unwrap()
+                .options;
+            assert_eq!(options.len(), expected_count, "{profile}");
+            let expected = data
+                .weapons
+                .iter()
+                .filter(|weapon| data.weapon_ar_supported(weapon))
+                .map(|weapon| weapon.affinity.as_str())
+                .collect::<BTreeSet<_>>();
+            assert_eq!(
+                options
+                    .iter()
+                    .map(|option| option.label.as_str())
+                    .collect::<BTreeSet<_>>(),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn catalog_preserves_native_skills_without_bypassing_compatibility() {
+        for (profile, cases) in [
+            (
+                "vanilla",
+                vec![
+                    ("Godskin Peeler", "Cold", "Black Flame Tornado", false),
+                    ("Icerind Hatchet", "Standard", "Flaming Strike", false),
+                    ("Uchigatana", "Keen", "Firebreather", false),
+                    ("Shortbow", "Standard", "Rain of Arrows", true),
+                    (
+                        "Firespark Perfume Bottle",
+                        "Standard",
+                        "Rolling Sparks",
+                        true,
+                    ),
+                    ("Steel-Wire Torch", "Standard", "Firebreather", true),
+                    ("Buckler", "Standard", "Buckler Parry", true),
+                    ("Buckler", "Blood", "Buckler Parry", false),
+                    ("Dueling Shield", "Flame Art", "Flaming Strike", true),
+                ],
+            ),
+            (
+                "convergence",
+                vec![("Dueling Shield", "Night", "Flaming Strike", true)],
+            ),
+        ] {
+            let data = er_optimizer_core::load_embedded_game_profile(profile).unwrap();
+            let index = CatalogIndex::build(&data);
+            for (weapon, affinity, skill, expected) in cases {
+                let names = compatible_aow_names_inner(&index, Some(weapon), Some(affinity));
+                assert_eq!(
+                    names.iter().any(|name| name == skill),
+                    expected,
+                    "{profile}: {weapon} / {affinity} / {skill}"
+                );
+                if expected {
+                    assert!(index.aow_names.iter().any(|name| name == skill));
+                }
+            }
+        }
+    }
 }

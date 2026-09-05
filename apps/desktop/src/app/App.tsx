@@ -154,12 +154,12 @@ export function App() {
             })}
           </div>
           <div className={`profile-coverage ${profileReady ? (limitedAowModel ? "limited" : "complete") : "loading"}`} role="status">
-            <strong>{profileReady ? (limitedAowModel ? "Weapon model ready" : "Full model ready") : "Loading profile…"}</strong>
+            <strong>{profileReady ? (limitedAowModel ? "Experimental fixed-stat model" : "Full model ready") : "Loading profile…"}</strong>
             <span>
               {!profileReady
                 ? "Loading and validating the selected data snapshot."
                 : limitedAowModel
-                ? `${convergenceProfile ? "Melee " : ""}AR, status, passives, and compatibility are verified. ${convergenceProfile ? "Ammo weapons and " : ""}AoW hit/route damage stay disabled until their data is mapped.`
+                ? `${convergenceProfile ? "Convergence " : ""}base weapon fields are reference-checked; final AR and customization remain experimental. Enter exact stats: class budgets, Compare, Paths, and Affinity Watch are unavailable. Ammo weapons and AoW hit/route damage remain unsupported.`
                 : "Weapon and Ash of War calculations are verified for this snapshot."}
             </span>
           </div>
@@ -167,14 +167,15 @@ export function App() {
         <nav className="workspace-tabs">
           {tabs.map(({ id, label, icon: Icon }) => {
             const requiresSelection = id !== "rankings" && !selected;
-            const disabled = catalogStatus !== "ready" || requiresSelection;
+            const unsupportedBudget = id !== "rankings" && activeProfile?.capabilities.classBudget === false;
+            const disabled = catalogStatus !== "ready" || requiresSelection || unsupportedBudget;
             return (
               <button
                 key={id}
                 className={`${activeWorkspace === id ? "active" : ""} ${requiresSelection ? "locked" : ""}`}
                 type="button"
                 onClick={() => setWorkspace(id)}
-                title={requiresSelection ? `${label} requires a selected ranked build` : label}
+                title={unsupportedBudget ? "Requires verified profile class budgets" : requiresSelection ? `${label} requires a selected ranked build` : label}
                 disabled={disabled}
               >
                 <Icon size={16} />

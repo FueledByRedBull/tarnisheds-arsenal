@@ -22,7 +22,16 @@ pub fn start_affinity_watch(
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
     validate_levels_ahead(request.levels_ahead)?;
-    state.profile(&request.base.profile_id)?;
+    if !state
+        .profile(&request.base.profile_id)?
+        .data
+        .capabilities
+        .class_budget
+    {
+        return Err(AppError::new(
+            "Affinity Watch requires verified profile class budgets.",
+        ));
+    }
     let profiles = state.profiles.clone();
     let job_number = state.next_job.fetch_add(1, AtomicOrdering::Relaxed);
     let job_id = format!("affinity-{job_number}");

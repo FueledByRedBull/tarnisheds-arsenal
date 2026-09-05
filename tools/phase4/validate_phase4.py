@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import sys
 from collections import defaultdict
@@ -14,12 +15,11 @@ if str(ROOT) not in sys.path:
 
 from tools.phase1.extract_motion_workbook import MOTION_WORKBOOK_NAME, load_weapon_workbook_data  # noqa: E402
 from tools.phase1.derive_phase1_extras import (  # noqa: E402
-    build_aow_affinity_compat,
     derive_phase1_diagnostics,
 )
 from tools.phase1.phase1_dump import MAX_EFFECTIVE_STRENGTH  # noqa: E402
-from tools.phase1.profiles import profile_definition  # noqa: E402
-from tools.phase1.snapshot_manifest import validate_snapshot_manifest  # noqa: E402
+from tools.phase1.profiles import ProfileDefinition, profile_definition  # noqa: E402
+from tools.phase1.snapshot_manifest import SnapshotManifest, validate_snapshot_manifest  # noqa: E402
 from tools.phase4.validation.aow_effect_graph import validate_aow_effect_graph  # noqa: E402
 from tools.phase4.validation.models import ValidationIssue  # noqa: E402
 from tools.phase4.convergence_reference import validate_reference  # noqa: E402
@@ -28,6 +28,72 @@ from tools.phase4.convergence_reference import validate_reference  # noqa: E402
 def read_csv(path: Path) -> list[dict[str, str]]:
     with path.open("r", encoding="utf-8", newline="") as handle:
         return list(csv.DictReader(handle))
+
+
+def validate_profile_source_provenance(
+    manifest: SnapshotManifest,
+    profile: ProfileDefinition,
+) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    reference_path = profile.weapon_reference_path
+    if reference_path is not None:
+        record = next(
+            (source for source in manifest["sources"] if source.get("kind") == "weaponAvailability"),
+            None,
+        )
+        if record is None:
+            issues.append(ValidationIssue("error", "weaponAvailability manifest provenance is missing"))
+        else:
+            path = (ROOT / reference_path).resolve()
+            if not path.is_file():
+                issues.append(ValidationIssue("error", f"tracked weapon reference is missing: {path}"))
+            else:
+                digest = hashlib.sha256(path.read_bytes()).hexdigest()
+                if record.get("size") != path.stat().st_size or record.get("sha256") != digest:
+                    issues.append(
+                        ValidationIssue(
+                            "error",
+                            "weaponAvailability manifest provenance does not match the tracked reference",
+                        )
+                    )
+
+    # Vanilla's workbook is a known tracked input. Do not resolve an arbitrary path
+    # from the manifest: a changed path would otherwise let an unrelated workbook
+    # satisfy the source contract.
+    if profile.id == "vanilla":
+        workbook_record = next(
+            (source for source in manifest["sources"] if source.get("kind") == "workbook"),
+            None,
+        )
+        expected_relative_path = MOTION_WORKBOOK_NAME
+        expected_path = ROOT / "data" / "phase1" / expected_relative_path
+        if workbook_record is None:
+            issues.append(ValidationIssue("error", "workbook manifest provenance is missing"))
+        elif (
+            workbook_record.get("path") != expected_relative_path
+            or workbook_record.get("bundled") is not True
+        ):
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "workbook manifest provenance does not identify the tracked Vanilla workbook",
+                )
+            )
+        elif not expected_path.is_file():
+            issues.append(ValidationIssue("error", f"tracked Vanilla workbook is missing: {expected_path}"))
+        else:
+            digest = hashlib.sha256(expected_path.read_bytes()).hexdigest()
+            if (
+                workbook_record.get("size") != expected_path.stat().st_size
+                or workbook_record.get("sha256") != digest
+            ):
+                issues.append(
+                    ValidationIssue(
+                        "error",
+                        "workbook manifest provenance does not match the tracked Vanilla workbook",
+                    )
+                )
+    return issues
 
 
 def max_reinforce_levels(rows: Iterable[dict[str, str]]) -> dict[int, int]:
@@ -76,6 +142,35 @@ def validate_used_calc_correct_curves(
     return issues
 
 
+def validate_aow_compatibility(
+    weapons: list[dict[str, str]],
+    aows: list[dict[str, str]],
+    *,
+    expected_affinities: set[str] | None = None,
+) -> list[ValidationIssue]:
+    if any(weapon.get("can_change_aow") not in {"0", "1"} for weapon in weapons):
+        return [
+            ValidationIssue("error", "weapons.csv has missing or invalid Ash mounting permissions")
+        ]
+    if any(not aow.get("valid_affinities") or not aow.get("valid_weapon_types") for aow in aows):
+        return [ValidationIssue("error", "aow.csv has missing affinity or weapon-type permissions")]
+    for ash in aows:
+        for field in ("valid_affinities", "valid_weapon_types"):
+            tokens = ash[field].split("|")
+            if any(not token.strip() or token != token.strip() for token in tokens) or len(tokens) != len(set(tokens)):
+                return [ValidationIssue("error", f"aow.csv has malformed {field} permissions")]
+        if expected_affinities is not None:
+            unknown = sorted(set(ash["valid_affinities"].split("|")) - expected_affinities)
+            if unknown:
+                return [
+                    ValidationIssue(
+                        "error",
+                        f"aow.csv has unknown affinity permissions for {ash.get('aow_id', '<unknown>')}: {unknown}",
+                    )
+                ]
+    return []
+
+
 def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[ValidationIssue]:
     """Validate contracts shared by every profile without assuming Vanilla mechanics."""
     issues: list[ValidationIssue] = []
@@ -84,6 +179,7 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
         manifest = validate_snapshot_manifest(data_dir, profile)
     except (OSError, ValueError, json.JSONDecodeError) as error:
         return [ValidationIssue("error", f"invalid atomic snapshot manifest: {error}")]
+    issues.extend(validate_profile_source_provenance(manifest, profile))
 
     weapons = read_csv(data_dir / "weapons.csv")
     reinforce = read_csv(data_dir / "reinforce.csv")
@@ -92,7 +188,13 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
     aow_attack_data = read_csv(data_dir / "aow_attack_data.csv")
     native_skill_attack_data = read_csv(data_dir / "native_skill_attack_data.csv")
     aow_route_assignments = read_csv(data_dir / "aow_route_assignments.csv")
-    aow_weapon_compat = read_csv(data_dir / "aow_weapon_compat.csv")
+    issues.extend(
+        validate_aow_compatibility(
+            weapons,
+            aows,
+            expected_affinities=set(profile.affinity_by_slot.values()),
+        )
+    )
     attack_element_correct = read_csv(data_dir / "attack_element_correct.csv")
     attack_element_correct_ext = read_csv(data_dir / "attack_element_correct_ext.csv")
     weapon_passives = read_csv(data_dir / "weapon_passives.csv")
@@ -142,8 +244,6 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
                 f"weapon_passives.csv must align 1:1 with weapons.csv ({len(weapon_passives)} vs {len(weapons)})",
             )
         )
-    if manifest["capabilities"]["aowCompatibility"] and not aow_weapon_compat:
-        issues.append(ValidationIssue("error", "AoW compatibility is declared but no compatibility rows exist"))
     reinforce_caps = max_reinforce_levels(reinforce)
     weapon_caps = {
         reinforce_caps.get(int(row["reinforce_type"]), -1)
@@ -181,22 +281,7 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
                     "profile requires weapon-scaling fallback but attack-element row 0 is not fully enabled",
                 )
             )
-    aow_names_by_id = {row["aow_id"]: row["name"] for row in aows}
     weapons_by_id = {row["weapon_id"]: row for row in weapons}
-    invalid_compatibility = [
-        row
-        for row in aow_weapon_compat
-        if aow_names_by_id.get(row.get("aow_id", "")) != row.get("aow_name")
-        or weapons_by_id.get(row.get("weapon_id", ""), {}).get("name") != row.get("weapon_name")
-        or weapons_by_id.get(row.get("weapon_id", ""), {}).get("affinity") != row.get("affinity")
-    ]
-    if invalid_compatibility:
-        issues.append(
-            ValidationIssue(
-                "error",
-                f"AoW compatibility contains stale profile names or IDs: {invalid_compatibility[0]}",
-            )
-        )
     scaling_ids = {row.get("weapon_id", "") for row in weapon_scaling_summary}
     if scaling_ids != set(weapons_by_id):
         issues.append(
@@ -215,6 +300,14 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
     if any("[npc]" in name.casefold() or "(npc)" in name.casefold() for name in diagnostic_names):
         issues.append(ValidationIssue("error", "derived diagnostics contain NPC-only weapon names"))
     source_kinds = {source.get("kind") for source in manifest["sources"]}
+    has_motion_source = "workbook" in source_kinds
+    if ("motion data" in str(manifest.get("provenance", ""))) != has_motion_source:
+        issues.append(
+            ValidationIssue(
+                "error",
+                "snapshot provenance must mention motion data exactly when a workbook source is present",
+            )
+        )
     if profile_id == "convergence":
         reference_path = ROOT / "data" / "reference" / "convergence-3.0.0.1-weapons.json"
         try:
@@ -347,8 +440,6 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
     weapon_passives = read_csv(data_dir / "weapon_passives.csv")
     weapon_passive_overlays = read_csv(data_dir / "weapon_passive_overlays.csv")
     passive_effect_coverage = read_csv(data_dir / "passive_effect_coverage.csv")
-    aow_weapon_compat = read_csv(data_dir / "aow_weapon_compat.csv")
-    aow_affinity_compat = build_aow_affinity_compat(aow_weapon_compat)
 
     if len(weapons) < 3000:
         issues.append(ValidationIssue("error", f"weapons.csv row count too low: {len(weapons)}"))
@@ -530,16 +621,6 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
                     f"weapon_passives.csv is missing columns: {', '.join(missing_columns)}",
                 )
             )
-    if len(aow_weapon_compat) < 40000:
-        issues.append(
-            ValidationIssue(
-                "error",
-                f"aow_weapon_compat.csv row count too low: {len(aow_weapon_compat)}",
-            )
-        )
-
-    aow_by_id = {int(row["aow_id"]): row for row in aows}
-    weapon_by_id = {int(row["weapon_id"]): row for row in weapons}
     attack_element_ext_ids = {
         int(row["attack_element_correct_id"])
         for row in attack_element_correct_ext
@@ -672,30 +753,6 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
                     f"{file_name} has invalid physical attack attributes: {invalid[:3]}",
                 )
             )
-
-    for row in aow_weapon_compat:
-        aow_id = int(row["aow_id"])
-        weapon_id = int(row["weapon_id"])
-        canonical = aow_by_id.get(aow_id)
-        if canonical is None:
-            issues.append(ValidationIssue("error", f"aow_weapon_compat.csv references missing aow_id={aow_id}"))
-            break
-        if not row["aow_name"].strip() or row["aow_name"] != canonical["name"]:
-            issues.append(ValidationIssue("error", f"aow_weapon_compat.csv has stale/placeholder name for aow_id={aow_id}"))
-            break
-        if weapon_id not in weapon_by_id:
-            issues.append(ValidationIssue("error", f"aow_weapon_compat.csv references missing weapon_id={weapon_id}"))
-            break
-
-    for row in aow_affinity_compat:
-        aow_id = int(row["aow_id"])
-        canonical = aow_by_id.get(aow_id)
-        if canonical is None:
-            issues.append(ValidationIssue("error", f"derived AoW affinity compatibility references missing aow_id={aow_id}"))
-            break
-        if not row["name"].strip() or row["name"] != canonical["name"]:
-            issues.append(ValidationIssue("error", f"derived AoW affinity compatibility has stale/placeholder name for aow_id={aow_id}"))
-            break
 
     native_statuses = {row["status"] for row in native_skill_damage_coverage}
     unexpected_native_statuses = sorted(native_statuses.difference({"matched", "generic_aow"}))
@@ -1022,7 +1079,7 @@ def profile_diagnostics(data_dir: Path) -> dict[str, object]:
         return {"dataDir": str(data_dir), "missing": True}
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     row_counts = {}
-    for filename in ("weapons.csv", "aow.csv", "aow_weapon_compat.csv", "calc_correct.csv", "reinforce.csv"):
+    for filename in ("weapons.csv", "aow.csv", "calc_correct.csv", "reinforce.csv"):
         path = data_dir / filename
         if path.exists():
             with path.open("r", encoding="utf-8", newline="") as handle:

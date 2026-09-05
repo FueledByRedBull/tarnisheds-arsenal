@@ -78,6 +78,12 @@ or opened:
 | Upgrade | Exact `+N` | Full `+0..+N` range |
 | Combat stats | Exact locked result | Optimize within the session budget |
 
+Selecting a weapon starts with its native skill when legal for the chosen affinity.
+In Rankings and Compare, changeable weapons offer **Automatic (best legal skill)**;
+fixed skills show their name in a disabled **AoW (fixed)** field. Explicit choices,
+including Automatic, survive reopening a workspace or restoring inputs. Buckler's
+native skill is **Buckler Parry**; **No Skill** is a separate legal override.
+
 All five objectives use a bounded lexicographic dynamic program over relevant combat
 stats, including numeric tie-break dependencies. Weapon requirements become minimum
 floors first; every feasible active-stat spend is compared after deterministic
@@ -100,14 +106,22 @@ extraction. They cover weapon affinities, reinforcement, scaling graphs, AoW
 compatibility and routes, innate and upgrade-dependent passives, skill attack data,
 effect graphs, paired and two-hand behavior, and Shadow of the Erdtree attack scaling.
 
+Snapshots use **schema 4**: mounting permission and Ash affinity/type lists are the
+single source of compatibility. Schema-3 snapshots are rejected before CSV loading;
+regenerate them with the current extractor rather than relabeling their manifests.
+
 Each profile is independent, versioned, and checksummed. Missing, modified, mixed, or
 unlisted files fail closed instead of loading data from another profile.
 
 ### Convergence 3.0.0.1 beta
 
-The Convergence profile is beta. Its extracted weapon model is regression-tested and
-differentially validated against a version-bound reference and currently supports melee
-weapon AR, status buildup, passives, affinities, and Ash of War compatibility.
+The Convergence profile is experimental. A version-bound reference checks weapon
+availability, base attack, requirements, raw scaling, affinities, and base status.
+Those checks do not independently verify final AR mechanics or customization legality.
+Convergence evaluates the exact combat stats entered under **Custom stats**. The
+displayed stat total is not a Rune Level: starting-class budgets, class optimization,
+Compare, Paths, and Affinity Watch are disabled until a version-pinned class catalog
+is verified. Vanilla class rules are never substituted for the mod's classes.
 Ammunition weapon AR is excluded until arrow, bolt, and projectile damage are modeled;
 Ash of War hit and route damage is disabled until mod-specific motion and sequence data
 is mapped. Vanilla data is never substituted. Broader in-game verification remains in
@@ -120,8 +134,8 @@ nonzero damage component for row-0 attack-element weapons.
 
 ### Current model boundaries
 
-- Enemy defense, negation, resistance growth, proc explosion damage, and poise/stance
-  damage are not modeled.
+- Enemy defense, negation, resistance growth, and proc explosion damage are not
+  modeled. Raw PvE poise/stance values are reported for supported weapon attacks and routes.
 - Route status details cover bleed, frost, poison, scarlet rot, sleep, madness, and
   death buildup separately from proc damage.
 - Route stamina is reported but is not an optimization objective.

@@ -52,12 +52,77 @@ scoring uses an exact relevant-stat dynamic program and has a direct regression
 against exhaustive enumeration. Reports retain the equivalent exhaustive
 combination count so historical search-space comparisons remain meaningful.
 
-Bleed, then AR scoring uses a bleed-only calculation while candidates are broad.
-Full AR and all seven status values are calculated only for tie-breaking and final
-rows, with direct equivalence tests against the full status calculation. A measured
+AR and Bleed scoring share primary weapon contributions and tied DP transitions
+among compatible Ashes with identical primary effects. Route-specific metrics still
+choose among all primary ties; final rows retain complete numeric comparisons.
+The exhaustive path retains its bleed-only scoring optimization, with direct
+equivalence tests against the full status calculation. A measured
 heap-based top-k rewrite was rejected: raising broad export retention from 5 to 500
 cost only about 4.1 ms in scoring and 5.6 ms total, too little to justify more
 complex deterministic grouping and tie handling.
+
+With a one-thread Rayon pool, searches prepare scalar AoW route templates once
+per resolved choice and reuse them when the route is stat-independent. A pool
+with multiple threads retains per-work-unit preparation because eager
+compilation creates a serial preparation barrier without a measurable scoring
+benefit. Choices with supported per-hit attack-power effects keep the exhaustive
+evaluator because their route values depend on the evolving stats. On the current
+Windows 11 reference host,
+one-thread release medians with one warmup and five samples changed open Max AR
+from 3,690.073 ms to 3,066.442 ms (−16.90% total; scoring −22.86%) with an
+identical ranked-result fingerprint. A three-sample high-level run changed
+4,496.057 ms to 4,479.665 ms (−0.36%), also with an identical fingerprint; its
+preparation is higher because the conditional fallback path preserves the full
+evaluator. These are local diagnostic measurements, not timing guarantees.
+
+At 16 Rayon threads, the saved Convergence v5 report was rejected until two
+stale `is_somber` flags in its first rows were corrected to match the current
+data. With only that data correction, the complete fingerprint matched and the
+current parallel fallback measured 282.127 ms total versus 348.292 ms in the
+saved report (−19.00%).
+
+The optimizer also excludes partially modeled AoWs from first-hit and full
+sequence damage ranking when a selected non-missing-FP attack row contains an
+unsupported effect. Missing-FP rows are ignored because the route evaluator
+does not evaluate them. This prevents an incomplete route from competing
+numerically with fully modeled skills; AR and status objectives retain their
+existing warning behavior.
+
+## All-Ash compatibility regression
+
+Ash counts and equivalent exhaustive-combination estimates are not measured latency.
+The compact-schema/shared-primary change was compared with the corrected, unoptimized
+worktree using release binaries, 16 Rayon threads, one warmup and three measured
+samples per case. These are local diagnostic medians, not universal timing promises:
+
+| Profile / case | Before (ms) | After (ms) |
+| --- | ---: | ---: |
+| Vanilla / open Max AR | 863.63 | 814.18 |
+| Vanilla / open Physical AR | 866.19 | 816.06 |
+| Vanilla / high-level Max AR | 1223.07 | 1068.95 |
+| Vanilla / Katana Bleed | 11.15 | 11.07 |
+| Convergence / open Max AR | 458.72 | 348.29 |
+| Convergence / open Physical AR | 467.91 | 350.17 |
+| Convergence / high-level Max AR | 737.46 | 457.22 |
+| Convergence / Katana Bleed | 8.07 | 6.09 |
+
+Every case retained identical ranked rows, stats, and numeric metrics. All broad-case
+medians remain below the local 1.5-second review budget. The small Katana timing
+change should not be interpreted as a meaningful speedup. The reference is the
+pre-optimization dirty worktree, not an assertion about historical HEAD latency.
+
+Run a profile/case through the existing runner (one thread by default):
+
+```powershell
+python tools/phase4/benchmark_optimizer_phases.py --profile convergence --case open-ranking-max-ar-high-level --warmups 1 --repeats 5 --output dist/benchmarks/convergence-ar.json
+```
+
+Set `RAYON_NUM_THREADS` explicitly when comparing another thread count. Unsupported
+Convergence damage-objective cases are excluded from the default profile suite;
+requesting one explicitly fails. New reports include ranked-result fingerprints;
+a baseline comparison with changed results fails rather than accepting faster,
+incorrect answers. Older reports without fingerprints still require the equivalence
+tests before performance conclusions are drawn.
 
 ## Review policy
 

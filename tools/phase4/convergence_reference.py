@@ -175,7 +175,8 @@ def build_reference(snapshot: Path, url: str) -> dict[str, Any]:
 
 def validate_reference(snapshot: Path, reference_path: Path) -> None:
     reference = json.loads(reference_path.read_text(encoding="utf-8"))
-    actual_ids = sorted(int(row["weapon_id"]) for row in _load_csv(snapshot / "weapons.csv"))
+    actual_rows = _load_csv(snapshot / "weapons.csv")
+    actual_ids = sorted(int(row["weapon_id"]) for row in actual_rows)
     expected_ids = sorted(int(row["weaponId"]) for row in reference["weapons"])
     if actual_ids != expected_ids:
         missing = sorted(set(expected_ids) - set(actual_ids))
@@ -187,9 +188,19 @@ def validate_reference(snapshot: Path, reference_path: Path) -> None:
         int(row["weaponId"]): str(row["affinity"])
         for row in reference["weapons"]
     }
+    affinity_mismatches = [
+        (int(row["weapon_id"]), row["affinity"], affinity_by_id[int(row["weapon_id"])])
+        for row in actual_rows
+        if row["affinity"] != affinity_by_id[int(row["weapon_id"])]
+    ]
+    if affinity_mismatches:
+        raise ValueError(
+            "Convergence weapon affinities differ from the external reference: "
+            f"{affinity_mismatches[:10]}"
+        )
     modeled_rows = [
-        [int(row["weapon_id"]), affinity_by_id[int(row["weapon_id"])], _ours_signature(row)]
-        for row in _load_csv(snapshot / "weapons.csv")
+        [int(row["weapon_id"]), row["affinity"], _ours_signature(row)]
+        for row in actual_rows
     ]
     modeled_rows.sort(key=lambda item: item[0])
     if _canonical_hash(modeled_rows) != reference["modeledWeaponDataSha256"]:

@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.phase1.phase1_dump import iter_param_rows, param_row_name, to_int  # noqa: E402
+from tools.phase1.phase1_dump import iter_param_rows, to_int  # noqa: E402
 
 WEAPON_EFFECT_FIELDS = (
     "spEffectBehaviorId0",
@@ -97,30 +97,6 @@ def write_csv(path: Path, fieldnames: list[str], rows: list[dict[str, object]]) 
             writer.writerow({key: row.get(key, "") for key in fieldnames})
 
 
-def canonical_gem_rows(gem_rows: list[dict[str, str]]) -> dict[int, dict[str, str]]:
-    grouped_rows: dict[int, list[dict[str, str]]] = {}
-    for row in gem_rows:
-        raw_name = param_row_name(row)
-        if not raw_name.startswith("Ash of War:"):
-            continue
-        canonical_name = raw_name.replace("Ash of War:", "", 1).strip()
-        if not canonical_name:
-            continue
-        sword_art_id = to_int(row, "swordArtsParamId", -1)
-        if sword_art_id < 0:
-            continue
-        grouped_rows.setdefault(sword_art_id, []).append(row)
-
-    out: dict[int, dict[str, str]] = {}
-    for sword_art_id, rows in grouped_rows.items():
-        def score(item: dict[str, str]) -> tuple[int, int, int, int]:
-            sort_real = 1 if item.get("sortId") not in (None, "", "999999") else 0
-            icon_real = 1 if item.get("iconId") not in (None, "", "0") else 0
-            special = 1 if to_int(item, "isSpecialSwordArt", 0) != 0 else 0
-            return (sort_real, icon_real, special, to_int(item, "id", 0))
-
-        out[sword_art_id] = max(rows, key=score)
-    return out
 def weapon_effect_ids_from_param_rows(
     weapon_param_rows: dict[int, dict[str, str]],
     weapon_csv_rows: list[dict[str, str]],
@@ -179,26 +155,6 @@ def build_passive_effect_coverage(
             }
         )
     return rows_out
-
-
-def aow_valid_for_weapon(
-    gem_row: dict[str, str],
-    weapon_row: dict[str, str],
-) -> bool:
-    if to_int(weapon_row, "disable_gem_attr", 0) != 0:
-        return False
-
-    weapon_id = int(weapon_row["weapon_id"])
-    affinity_slot = (weapon_id % 10_000) // 100
-    affinity_field = f"configurableWepAttr{affinity_slot:02d}"
-    affinity_default = 1 if affinity_slot <= 10 else 0
-    if to_int(gem_row, affinity_field, affinity_default) == 0:
-        return False
-
-    weapon_types = [value for value in weapon_row["weapon_type_keys"].split("|") if value]
-    if not weapon_types:
-        return False
-    return any(to_int(gem_row, f"canMountWep_{weapon_type}", 0) != 0 for weapon_type in weapon_types)
 
 
 def build_weapon_passives(
@@ -347,41 +303,6 @@ def build_weapon_passive_overlays(
     return rows_out
 
 
-def build_exact_aow_compat(
-    weapon_csv_rows: list[dict[str, str]],
-    gem_rows_by_aow_id: dict[int, dict[str, str]],
-    aow_names_by_id: dict[int, str],
-) -> list[dict[str, object]]:
-    rows_out: list[dict[str, object]] = []
-    for weapon in weapon_csv_rows:
-        for aow_id, gem_row in gem_rows_by_aow_id.items():
-            if not aow_valid_for_weapon(gem_row, weapon):
-                continue
-            aow_name = aow_names_by_id.get(aow_id, "").strip()
-            if not aow_name:
-                raise ValueError(f"compatible AoW {aow_id} has no authoritative name")
-            rows_out.append(
-                {
-                    "aow_id": aow_id,
-                    "aow_name": aow_name,
-                    "weapon_id": weapon["weapon_id"],
-                    "weapon_name": weapon["name"],
-                    "affinity": weapon["affinity"],
-                    "weapon_type_name": weapon["weapon_type_name"],
-                    "weapon_type_keys": weapon["weapon_type_keys"],
-                }
-            )
-    rows_out.sort(
-        key=lambda row: (
-            str(row["aow_name"]),
-            str(row["weapon_name"]),
-            str(row["affinity"]),
-            _object_to_int(row["weapon_id"]),
-        )
-    )
-    return rows_out
-
-
 def _fmt(value: float) -> str:
     text = f"{value:.2f}".rstrip("0").rstrip(".")
     return text if text else "0"
@@ -418,10 +339,8 @@ def export_regulation_extras(
     reinforce_csv_rows: list[dict[str, str]],
     weapon_param_rows: dict[int, dict[str, str]],
     reinforce_param_rows: dict[int, dict[str, str]],
-    gem_rows: list[dict[str, str]],
     sp_effect_rows: dict[int, dict[str, str]],
     output_dir: Path,
-    aow_names_by_id: dict[int, str],
 ) -> None:
     max_level_by_type: dict[int, int] = {}
     for row in reinforce_csv_rows:
@@ -448,14 +367,6 @@ def export_regulation_extras(
         reinforce_param_rows,
         max_level_by_type,
     )
-
-    exact_aow_compat: list[dict[str, object]] = []
-    if gem_rows:
-        exact_aow_compat = build_exact_aow_compat(
-            weapon_csv_rows,
-            canonical_gem_rows(gem_rows),
-            aow_names_by_id,
-        )
 
     write_csv(
         output_dir / "passive_effect_coverage.csv",
@@ -506,16 +417,8 @@ def export_regulation_extras(
         ],
         weapon_passive_overlays,
     )
-    if exact_aow_compat:
-        write_csv(
-            output_dir / "aow_weapon_compat.csv",
-            ["aow_id", "aow_name", "weapon_id", "weapon_name", "affinity", "weapon_type_name", "weapon_type_keys"],
-            exact_aow_compat,
-        )
     print(f"Wrote {len(weapon_passives)} weapon passive rows")
     print(f"Wrote {len(weapon_passive_overlays)} weapon passive overlay rows")
-    if exact_aow_compat:
-        print(f"Wrote {len(exact_aow_compat)} exact AoW compatibility rows")
 
 
 def main() -> int:
@@ -525,7 +428,6 @@ def main() -> int:
     output_dir = args.output
 
     weapon_xml = workdir / "EquipParamWeapon.param.xml"
-    gem_xml = workdir / "EquipParamGem.param.xml"
     sp_effect_xml = workdir / "SpEffectParam.param.xml"
     if not sp_effect_xml.exists():
         raise FileNotFoundError(f"Missing required regulation export: {sp_effect_xml}")
@@ -540,7 +442,6 @@ def main() -> int:
         if (workdir / "ReinforceParamWeapon.param.xml").exists()
         else {}
     )
-    gem_rows = list(iter_param_rows(gem_xml)) if gem_xml.exists() else []
     sp_effect_rows = {to_int(row, "id"): row for row in iter_param_rows(sp_effect_xml)}
 
     export_regulation_extras(
@@ -548,13 +449,8 @@ def main() -> int:
         reinforce_csv_rows=reinforce_csv_rows,
         weapon_param_rows=weapon_param_rows,
         reinforce_param_rows=reinforce_param_rows,
-        gem_rows=gem_rows,
         sp_effect_rows=sp_effect_rows,
         output_dir=output_dir,
-        aow_names_by_id={
-            int(row["aow_id"]): row["name"]
-            for row in read_csv(phase1_dir / "aow.csv")
-        },
     )
     return 0
 

@@ -14,7 +14,8 @@ Python tooling.
 ## Retained diagnostics
 
 ```powershell
-python tools/phase4/benchmark_optimizer_phases.py --warmups 1 --repeats 5
+python tools/phase4/benchmark_optimizer_phases.py --profile vanilla --warmups 1 --repeats 5
+python tools/phase4/benchmark_optimizer_phases.py --profile convergence --case open-ranking-max-ar-high-level --warmups 1 --repeats 5
 python tools/phase4/validate_external_calculator.py
 ```
 

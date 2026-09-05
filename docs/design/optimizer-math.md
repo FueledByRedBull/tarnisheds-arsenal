@@ -251,6 +251,22 @@ $O(|A|Tc_{\max})$, effectively linear in $T$ under the fixed in-game stat cap.
 Optimizing $\rho$ legal routes multiplies the per-route work by $\rho$; the cost of
 each scalar evaluation also depends on that route's hit count.
 
+### Sharing primary work across Ash choices
+
+For non-damage objectives, choices with the same stat domain and primary-effect
+signature have the same first two key components `(objective score, total AR)`.
+The shared plan retains **every** predecessor addition tied on those components
+at each stat/spend state. A route-specific recurrence then evaluates only these
+transitions and selects the complete lexicographic key, including skill damage,
+bleed, and canonical combat stats. Selecting one primary-optimal allocation first
+would be incorrect: secondary metrics can prefer a different tied allocation.
+
+The primary pass costs `O(|A| (T+1) (c_max+1))` once per effect signature/upgrade.
+Subsequent route recurrences traverse the retained tied transitions. In the worst
+case all primary values tie, so the original per-route bound still applies. Retained
+additions use one byte each (a stat increment is at most 98), plus per-state vectors;
+plans live only for the current upgrade and bounded eight-Ash work unit.
+
 ### Floating-point boundary
 
 The implementation accumulates `f32` deltas. Rounded subtraction/addition is not

@@ -43,6 +43,8 @@ Status: accepted. These rules describe contracts that tests and future refactors
   exposed to catalog/search/export until an arrow/bolt projectile model exists.
   They must never compete using weapon-only or duplicated damage components.
 - A mod profile with a version-bound availability reference extracts only exact referenced configuration IDs. Offline validation compares every common modeled weapon field and status family; a missing, stale, or mismatched reference fails the release gate.
+- The current storage schema is 4. Required mounting/affinity permissions are validated before use, and schema 3 is rejected at the manifest boundary. No per-pair compatibility CSV or runtime pair set is retained.
+- Ash compatibility is exactly mounting permission AND affinity membership AND weapon-type intersection. Native-only skills are handled separately and cannot bypass infusion restrictions.
 - Schema version describes storage compatibility, dataset version identifies extracted content, and model version identifies calculation semantics. They change independently.
 
 ## Change checklist

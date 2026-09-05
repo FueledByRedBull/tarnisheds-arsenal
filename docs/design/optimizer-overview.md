@@ -114,14 +114,29 @@ totals never become user-visible results. Reevaluation cannot recover a preferre
 allocation discarded at an earlier state. States retain objective score, total AR, AoW
 full sequence, AoW first hit, bleed, and the stat vector under candidate ranking order.
 
+For Max AR, Max Physical AR, and Bleed then AR, each work unit builds one primary
+plan per upgrade and identical primary-effect signature. The signature includes
+attack buffs, bleed additions/correction, and status-driven bleed rounding. Plans
+cache scalar weapon contributions and every DP predecessor tied on objective score
+and total AR. Route-specific work visits those tied predecessors and compares the
+remaining skill, bleed, and stat-vector fields. All legal Ash choices remain visible,
+including unbuffed skills that can win secondary ties. The cache is request-local
+and released after each upgrade; it does not retain cross-request data.
+
+`shared_primary_frontiers_match_independent_dp_including_all_ties` compares shared
+and independent DP allocations across both profiles, buffs/routes, upgrades, and
+zero/small/larger budgets. This preserves the existing DP's floating-point semantics;
+it does not claim to remove the numerical limitation documented below.
+
 Progress counts the logical candidate domain covered, not DP transitions or individual
 allocations evaluated. For active capacities $c_i$, that count is
 
 $$N=\sum_{p=p_{\min}}^{p_{\max}}[z^p]\prod_{i\in A}(1+z+\cdots+z^{c_i}).$$
 
 Medium and broad searches use Rayon when the estimated combination count and
-work-unit count justify parallel execution. Parallel work is split by individual
-Ash of War choices for better load balance. Candidate ranking uses a lightweight
+work-unit count justify parallel execution. Damage-objective work is split by individual
+Ash choices. AR and Bleed work uses bounded chunks of eight Ashes so primary-score
+plans can be shared without serializing an entire weapon search. Candidate ranking uses a lightweight
 score-only buffer first, then materializes full result rows only after local
 top-K pruning.
 

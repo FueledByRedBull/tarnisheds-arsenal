@@ -12,6 +12,7 @@ from tools.phase1.snapshot_manifest import (
     RUNTIME_FILES,
     promote_snapshot,
     write_snapshot_manifest,
+    validate_snapshot_manifest,
 )
 
 
@@ -54,6 +55,15 @@ class SnapshotPromotionTests(unittest.TestCase):
             json.dumps(manifest, indent=2) + "\n",
             encoding="utf-8",
         )
+
+    def test_previous_schema_is_rejected_before_loading_tables(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            staging = self._create_staging(Path(temporary))
+            manifest = json.loads((staging / "manifest.json").read_text(encoding="utf-8"))
+            manifest["schemaVersion"] = 3
+            self._write_manifest(staging, manifest)
+            with self.assertRaisesRegex(ValueError, "expected 4"):
+                validate_snapshot_manifest(staging)
 
     def test_promotion_reconciles_csvs_and_preserves_non_csv_files(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
