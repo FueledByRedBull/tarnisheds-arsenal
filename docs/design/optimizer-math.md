@@ -108,9 +108,10 @@ x_i=h_i(R-p)\text{ for }i\notin A
 \}.
 $$
 
-Searching only $p_{\max}$ would require every active contribution to be monotone.
-Searching the full interval does not: an interior spend remains eligible even when a
-curve decreases.
+Restricting the search to $p_{\max}$ needs a separate dominance argument, including
+tie handling. Searching the full feasible interval avoids that requirement: an
+interior spend remains eligible when a curve decreases or a numeric plateau leaves
+it with the preferred combat-stat vector.
 
 ## 3. Attack rating and separability
 
@@ -253,19 +254,54 @@ each scalar evaluation also depends on that route's hit count.
 
 ### Sharing primary work across Ash choices
 
-For non-damage objectives, choices with the same stat domain and primary-effect
-signature have the same first two key components `(objective score, total AR)`.
+For Max AR, Max Physical AR, and Bleed then AR, the shared prefix is
+$Q_o(x)=(S_o(x),\widetilde{AR}_{\mathrm{total}}(x))$, the first two numeric key components.
+
+**Shared-plan obligation.** Participating choices use the same state graph:
+bounds, budget, active stat identities/order, and feasible terminal spends. Their
+prefix baseline and per-stat contributions represent identical functions throughout
+that domain; equality at the baseline alone is insufficient. The implementation
+groups identical `RelevantStatSearch` values before matching primary-effect signatures,
+so choices with different active masks do not share a plan.
+
 The shared plan retains **every** predecessor addition tied on those components
-at each stat/spend state. A route-specific recurrence then evaluates only these
+at each stat/spend state, without using route metrics or the combat-stat tie-break
+to prune those transitions. A route-specific recurrence then evaluates only these
 transitions and selects the complete lexicographic key, including skill damage,
 bleed, and canonical combat stats. Selecting one primary-optimal allocation first
 would be incorrect: secondary metrics can prefer a different tied allocation.
 
+Under exact arithmetic and the separability obligations above, every full-key
+optimum follows prefix-optimal transitions. Otherwise, replacing a nonoptimal
+partial prefix at the same stat/spend state leaves the remaining choices unchanged
+and adds the same remaining contributions, producing a strictly better final prefix.
+That contradicts full-key optimality. Retaining all prefix-optimal transitions thus
+lets the route recurrence select the preferred secondary metrics and stat vector.
+
 The primary pass costs `O(|A| (T+1) (c_max+1))` once per effect signature/upgrade.
-Subsequent route recurrences traverse the retained tied transitions. In the worst
-case all primary values tie, so the original per-route bound still applies. Retained
-additions use one byte each (a stat increment is at most 98), plus per-state vectors;
-plans live only for the current upgrade and bounded eight-Ash work unit.
+If $E_i(p)$ is the retained transition set at layer $i$, spend $p$, and
+$E=\sum_{i,p}|E_i(p)|$, additional shared-plan storage is
+
+$$O(E+|A|(T+1)),\qquad E\le |A|(T+1)(c_{\max}+1).$$
+
+This includes the transition lists, per-state containers, and cached per-stat
+contributions, in addition to rolling recurrence states. Subsequent route recurrences
+traverse the retained transitions. If all primary values tie, the original per-route
+bound still applies; sharing can add bookkeeping without reducing that traversal.
+
+### Unique retained allocations
+
+The implementation can skip route-specific DP when every feasible terminal spend
+has one retained predecessor path. It reconstructs each path, fills inactive stats,
+and directly recomputes its prefix before selecting a winner. An ambiguous path or
+a tied prefix comparison declines the shortcut. With a unique best prefix, secondary
+route metrics cannot improve a losing prefix, so each route evaluates that allocation
+directly. The general path likewise retains all best directly recomputed terminal
+prefixes before applying route tie-breaks.
+
+This shortcut establishes uniqueness only within the retained transition graph.
+It inherits the exact-arithmetic conditions and floating-point limitation below;
+direct recomputation does not prove that earlier pruning preserved the global winner.
 
 ### Floating-point boundary
 
@@ -292,11 +328,13 @@ The existing exhaustive path shares the active set and cannot independently dete
 an omitted dependency. Separate small-budget tests enumerate all five bounded stats
 without its mask, distribution counter, or inactive-fill helper.
 
-Compilation currently declines supported `PerHitAttackPower` effects; it is not a
-general nonseparability detector. A future cross-stat product, multi-stat clamp,
-damage-dependent transition, or proc threshold requires a new proof or an explicitly
-supported exhaustive path. Routing to exhaustive search does not itself implement
-an unsupported evaluator mechanic.
+For `PerHitAttackPower` rows marked `is_supported` in the effect data, the scalar
+route compiler declines compilation and the materialized evaluator reports that
+the mechanic is unimplemented. The data flag alone does not establish evaluator
+support. The compiler is not a general nonseparability detector. A future cross-stat
+product, multi-stat clamp, damage-dependent transition, or proc threshold requires
+a new proof or an explicitly supported exhaustive path. Routing to exhaustive search
+does not itself implement an unsupported evaluator mechanic.
 
 ## 6. Result ordering
 
