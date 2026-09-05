@@ -143,6 +143,18 @@ nonzero damage component for row-0 attack-element weapons.
 
 ## For Contributors
 
+Report bugs through [GitHub Issues](https://github.com/FueledByRedBull/tarnisheds-arsenal/issues).
+Include the app version, game profile, reproduction steps, and expected versus actual
+results. For security issues, use the private channel in [SECURITY.md](SECURITY.md).
+
+Submit focused pull requests against `main`. Explain the problem and the checks run,
+follow the existing code style, and add a regression test for behavior changes.
+Keep raw game files, credentials, build output, and local audit reports out of commits.
+
+The Rust core lives in `core/er_optimizer_core`, and the desktop in `apps/desktop`.
+`tools/phase1` handles extraction; `tools/phase4` handles validation, benchmarks, and
+releases. The phase names are historical: phases 2 and 3 became the core and desktop.
+
 ### Requirements
 
 - Rust 1.97.0 with `clippy` and `rustfmt` (pinned by `rust-toolchain.toml`)
@@ -188,7 +200,7 @@ The helper produces the MSI, portable executable, checksums, build report, and Z
 see the [release guide](docs/releasing.md) for the tag-driven process. See the [phase 1
 tooling guide](tools/phase1/README.md) to refresh versioned data snapshots.
 
-More references: [tooling overview](tools/README.md), [optimizer design](docs/design/optimizer-overview.md),
+More references: [optimizer design](docs/design/optimizer-overview.md),
 [optimizer mathematics](docs/design/optimizer-math.md),
 [runtime invariants](docs/architecture/runtime-invariants.md), [performance guide](docs/performance.md),
 [release notes](docs/release-notes/README.md), and [CHANGELOG](CHANGELOG.md).

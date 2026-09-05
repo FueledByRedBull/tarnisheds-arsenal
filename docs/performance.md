@@ -1,5 +1,9 @@
 # Performance regression workflow
 
+For an optional independent Vanilla AR comparison, run
+`python tools/phase4/validate_external_calculator.py`. This uses supported cases
+from the public T. Clark calculator; external inputs are not release dependencies.
+
 Performance work is measured in release mode with one Rayon thread by default so algorithm changes are visible without scheduler noise.
 
 Broad Search, Paths, and Affinity Watch cancellation has a 250 ms latency target on the reference development machine. Core enumeration checks this with a synchronized broad-search regression test; workflow tests separately prove cancellation propagates through their nested evaluators and returns no successful partial payload.
