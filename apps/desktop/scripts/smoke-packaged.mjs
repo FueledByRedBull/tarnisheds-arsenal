@@ -1,4 +1,4 @@
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
@@ -69,7 +69,9 @@ try {
   markSmokeStage("wait for vanilla high-level result");
   // Keep headroom for slower CI even though exact levels avoid the measured open-query cost.
   await highLevelFirst.waitFor({ timeout: 120_000 });
-  const pin = highLevelFirst.getByRole("button", { name: "Compare", exact: true });
+  await expect(highLevelFirst.getByRole("gridcell").nth(5)).toContainText("First");
+  await expect(highLevelFirst.getByRole("gridcell").nth(5)).not.toContainText("Unavailable");
+  const pin = highLevelFirst.getByRole("button", { name: /^Compare / });
   if (await pin.getAttribute("aria-pressed") !== "true") await pin.click();
 
   const profileSwitch = page.getByRole("radiogroup", { name: "Game profile" });
@@ -80,14 +82,47 @@ try {
   if (await page.getByRole("combobox", { name: "Class", exact: true }).inputValue() !== "Custom stats") {
     throw new Error("Convergence substituted a starting-class budget for fixed stats");
   }
+  await expect(page.getByRole("button", { name: "AoW First Hit", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Optimize class", exact: true })).toBeDisabled();
+  for (const name of ["Compare", "Paths", "Affinity Watch"]) {
+    await expect(page.getByRole("navigation").getByRole("button", { name, exact: true })).toBeDisabled();
+  }
+  markSmokeStage("save Convergence fixed stats");
+  const convergencePresetName = `Convergence verification ${Date.now()}`;
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill(convergencePresetName);
+  await page.getByRole("button", { name: "Save new", exact: true }).click();
+  await page.getByText(`Saved ${convergencePresetName}.`, { exact: true }).waitFor();
+  const convergenceTotal = await page.getByRole("textbox", { name: "Stat total", exact: true }).inputValue();
   markSmokeStage("run Convergence search");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   markSmokeStage("wait for Convergence result");
-  await page.locator(".result-row-full").first().waitFor();
+  const convergenceRow = page.locator(".result-row-full").first();
+  await convergenceRow.waitFor();
+  await expect(convergenceRow.getByRole("gridcell").nth(3)).toHaveText("+15");
+  await expect(convergenceRow.getByRole("gridcell").nth(5)).toHaveText("Unavailable");
+  const convergenceAr = await convergenceRow.locator(".ar-status-cell > strong").innerText();
+  if (!(Number(convergenceAr.replace(/[^0-9.]/g, "")) > 0)) {
+    throw new Error(`Convergence returned invalid weapon AR: ${convergenceAr}`);
+  }
+  await convergenceRow.click();
+  await expect(page.locator(".metric-tile").filter({ hasText: "AoW model" })).toContainText("Unavailable");
+  const convergenceWeapon = await convergenceRow.locator(".weapon-cell > strong").innerText();
+  await expect(page.locator(".selected-build > strong")).toHaveText(convergenceWeapon);
+  await page.getByRole("button", { name: "Update selected", exact: true }).click();
+  await page.getByText(`Updated ${convergencePresetName}.`, { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Load", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Stat total", exact: true })).toHaveValue(convergenceTotal);
+  await expect(page.locator(".selected-build > strong")).toHaveText(convergenceWeapon);
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await page.getByRole("button", { name: "Confirm Delete", exact: true }).click();
+  process.stdout.write(`PACKAGED_SMOKE_CONVERGENCE ${JSON.stringify({ weapon: convergenceWeapon, ar: convergenceAr, upgrade: 15 })}\n`);
   markSmokeStage("switch back to Vanilla profile");
   await profileSwitch.getByRole("radio", { name: /Vanilla/ }).click();
   markSmokeStage("wait for Vanilla model after profile switch");
   await page.getByText("Full model ready", { exact: true }).waitFor();
+  await expect(page.getByRole("button", { name: "AoW First Hit", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Optimize class", exact: true })).toBeEnabled();
+  await expect(page.getByRole("combobox", { name: "Class", exact: true })).toHaveValue("Samurai");
   markSmokeStage("select cap-exploration low-level search");
   const capExplorationPolicy = page.getByRole("button", { name: "Explore up to caps", exact: true });
   await capExplorationPolicy.click();
@@ -102,10 +137,12 @@ try {
   const fourth = page.locator(".result-row-full").nth(3);
   markSmokeStage("wait for vanilla rank-four result");
   await fourth.waitFor();
+  await expect(fourth.getByRole("gridcell").nth(5)).toContainText("First");
   const selectedWeapon = (await fourth.locator(".weapon-cell strong").textContent())?.trim();
   if (!selectedWeapon) throw new Error("rank-four selection did not expose a weapon name");
   await fourth.click();
   await page.locator(".selected-build strong").getByText(selectedWeapon, { exact: true }).waitFor();
+  await expect(page.locator(".metric-tile").filter({ hasText: "Raw AoW" })).not.toContainText("Unavailable");
 
   markSmokeStage("open comparison");
   await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
@@ -126,14 +163,14 @@ try {
   markSmokeStage("run Paths preview");
   await page.getByRole("navigation").getByRole("button", { name: "Paths" }).click();
   await page.getByRole("spinbutton", { name: "Current + N" }).fill("10");
-  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await page.getByRole("button", { name: "Trace paths", exact: true }).click();
   markSmokeStage("wait for Paths preview");
   await page.getByRole("grid", { name: "Path steps" }).locator('[role="row"]').nth(1).waitFor();
 
   markSmokeStage("run Affinity Watch");
   await page.getByRole("navigation").getByRole("button", { name: "Affinity Watch" }).click();
   await page.getByRole("spinbutton", { name: "Current + N" }).fill("10");
-  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await page.getByRole("button", { name: "Watch affinities", exact: true }).click();
   markSmokeStage("wait for Affinity Watch");
   await page.getByRole("grid", { name: "Affinity watch rankings" }).locator('[role="row"]').nth(1).waitFor();
 
@@ -148,6 +185,14 @@ try {
   markSmokeStage("wait for preset load");
   await page.getByText(`Loaded ${presetName}.`, { exact: true }).waitFor();
   await page.locator(".selected-build strong").getByText(selectedWeapon, { exact: true }).waitFor();
+  markSmokeStage("save stale results as inputs only");
+  const twoHanding = page.getByRole("checkbox", { name: "Two-handing", exact: true });
+  await twoHanding.setChecked(!(await twoHanding.isChecked()));
+  await page.getByText("Inputs changed", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Update selected", exact: true }).click();
+  await page.getByText(/Inputs only; rerun search for current results/).waitFor();
+  await page.getByRole("button", { name: "Load", exact: true }).click();
+  await expect(page.locator(".result-row-full")).toHaveCount(0);
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   await page.getByRole("button", { name: "Confirm Delete", exact: true }).click();
   markSmokeStage("wait for preset deletion");

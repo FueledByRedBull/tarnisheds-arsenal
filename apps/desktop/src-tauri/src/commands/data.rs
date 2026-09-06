@@ -156,14 +156,19 @@ impl CatalogIndex {
             } else {
                 data.rules.standard_max_upgrade
             };
-            upgrade_cap_by_weapon
-                .entry(weapon_key.clone())
-                .and_modify(|current| *current = (*current).max(cap))
-                .or_insert(cap);
-            upgrade_cap_by_weapon_affinity
-                .entry(weapon_affinity_key.clone())
-                .and_modify(|current| *current = (*current).max(cap))
-                .or_insert(cap);
+            if let Some(cap) = (0..=cap)
+                .rev()
+                .find(|&level| data.reinforce_level(weapon.reinforce_type, level).is_some())
+            {
+                upgrade_cap_by_weapon
+                    .entry(weapon_key.clone())
+                    .and_modify(|current| *current = (*current).max(cap))
+                    .or_insert(cap);
+                upgrade_cap_by_weapon_affinity
+                    .entry(weapon_affinity_key.clone())
+                    .and_modify(|current| *current = (*current).max(cap))
+                    .or_insert(cap);
+            }
 
             requirements_by_weapon
                 .entry(weapon_key.clone())
@@ -861,6 +866,8 @@ mod compatibility_tests {
                 true,
             ),
             ("vanilla", "Black Knife", 10, true),
+            ("vanilla", "Dagger", 25, false),
+            ("vanilla", "Meteorite Staff", 0, true),
         ] {
             let data = er_optimizer_core::load_embedded_game_profile(profile_id).unwrap();
             let index = CatalogIndex::build(&data);
@@ -884,5 +891,31 @@ mod compatibility_tests {
                 "{profile_id}: {weapon_name}"
             );
         }
+    }
+
+    #[test]
+    fn upgrade_metadata_uses_available_levels_within_the_profile_ceiling() {
+        let mut data = er_optimizer_core::load_embedded_game_profile("vanilla").unwrap();
+        let weapon = data
+            .weapons
+            .iter()
+            .find(|w| w.name == "Dagger" && w.affinity == "Standard")
+            .unwrap();
+        let reinforce_type = usize::from(weapon.reinforce_type);
+        data.reinforce[reinforce_type][25] = None;
+        let index = CatalogIndex::build(&data);
+        assert_eq!(
+            weapon_upgrade_cap(&index, "Dagger", Some("Standard")).unwrap(),
+            24
+        );
+        data.rules.standard_max_upgrade = 3;
+        let index = CatalogIndex::build(&data);
+        assert_eq!(
+            weapon_upgrade_cap(&index, "Dagger", Some("Standard")).unwrap(),
+            3
+        );
+        data.reinforce[reinforce_type].fill(None);
+        let index = CatalogIndex::build(&data);
+        assert!(weapon_upgrade_cap(&index, "Dagger", Some("Standard")).is_err());
     }
 }

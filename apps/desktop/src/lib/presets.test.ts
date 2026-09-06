@@ -1,14 +1,17 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { defaultRequest } from "./state";
 import {
   MAX_PRESET_IMPORT_BYTES,
+  deleteBuildPreset,
   importBuildPreset,
   loadBuildPreset,
   parsePresetText,
   previewPresetImport,
   saveBuildPreset,
   savedBuildIndex,
+  renameBuildPreset,
+  replaceImportedBuildPreset,
 } from "./presets";
 import type { BuildPresetV1, SolvedBuildDto } from "./types";
 
@@ -151,7 +154,7 @@ describe("saved build persistence", () => {
     });
   });
 
-  it("removes legacy packaged-smoke presets leaked by older release jobs", () => {
+  it("never deletes a build based on its name", () => {
     const smoke = preset("smoke-id", "Packaged smoke 1784149134195");
     localStorage.setItem("tarnisheds-arsenal.savedBuild.v1.smoke-id", JSON.stringify(smoke));
     localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", JSON.stringify({
@@ -165,8 +168,11 @@ describe("saved build persistence", () => {
       }],
     }));
 
-    expect(savedBuildIndex().builds).toEqual([]);
-    expect(localStorage.getItem("tarnisheds-arsenal.savedBuild.v1.smoke-id")).toBeNull();
+    expect(savedBuildIndex().builds).toHaveLength(1);
+    expect(localStorage.getItem("tarnisheds-arsenal.savedBuild.v1.smoke-id")).not.toBeNull();
+    saveBuildPreset({ ...preset("new-smoke", smoke.name) });
+    expect(savedBuildIndex().builds).toHaveLength(2);
+    expect(loadBuildPreset("new-smoke")).not.toBeNull();
   });
 
   it("migrates legacy profile-less presets to Vanilla explicitly", () => {
@@ -250,4 +256,87 @@ describe("saved build persistence", () => {
     }
     expect(savedBuildIndex().builds).toEqual([]);
   });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("rejects new saves and imports at capacity before changing storage", () => {
+    for (let index = 0; index < 500; index += 1) saveBuildPreset(preset(`build-${index}`));
+    const before = localStorage.getItem("tarnisheds-arsenal.savedBuildIndex.v1");
+    expect(() => saveBuildPreset(preset("overflow"))).toThrow(/limit reached/);
+    expect(() => importBuildPreset(preset("overflow"))).toThrow(/limit reached/);
+    expect(() => replaceImportedBuildPreset(preset("overflow"))).toThrow(/limit reached/);
+    expect(localStorage.getItem("tarnisheds-arsenal.savedBuild.v2.overflow")).toBeNull();
+    expect(localStorage.getItem("tarnisheds-arsenal.savedBuildIndex.v1")).toBe(before);
+    saveBuildPreset(preset("build-0", "Updated"));
+    expect(savedBuildIndex().builds).toHaveLength(500);
+    expect(loadBuildPreset("build-0")?.name).toBe("Updated");
+  });
+
+  it("retains an oversized existing library and permits updates", () => {
+    const saved = saveBuildPreset(preset("build-0"));
+    const entry = savedBuildIndex().builds[0];
+    const builds = Array.from({ length: 501 }, (_, index) => ({ ...entry, id: `build-${index}` }));
+    localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", JSON.stringify({ version: 1, builds }));
+    expect(savedBuildIndex().builds).toHaveLength(501);
+    renameBuildPreset(saved.id, "Renamed");
+    expect(savedBuildIndex().builds).toHaveLength(501);
+    expect(() => saveBuildPreset(preset("overflow"))).toThrow(/limit reached/);
+  });
+
+  it("rejects overlong rename without damaging the existing build", () => {
+    const saved = saveBuildPreset(preset());
+    expect(() => renameBuildPreset(saved.id, "x".repeat(201))).toThrow(/200 characters/);
+    expect(loadBuildPreset(saved.id)?.name).toBe(saved.name);
+    expect(savedBuildIndex().builds).toHaveLength(1);
+  });
+
+  it("bounds imported names including successive conflict suffixes", () => {
+    const saved = saveBuildPreset(preset("long-name", "x".repeat(200)));
+    const first = importBuildPreset(saved);
+    const second = importBuildPreset(saved);
+    expect(first.name).toHaveLength(200);
+    expect(second.name).toHaveLength(200);
+    expect(second.name).not.toBe(first.name);
+    expect(loadBuildPreset(first.id)?.name).toBe(first.name);
+    expect(loadBuildPreset(second.id)?.name).toBe(second.name);
+    expect(savedBuildIndex().builds).toHaveLength(3);
+  });
+
+  it("loads and migrates legacy builds without requiring writable storage", () => {
+    const legacy = preset();
+    localStorage.setItem(`tarnisheds-arsenal.savedBuild.v1.${legacy.id}`, JSON.stringify(legacy));
+    const write = vi.spyOn(localStorage, "setItem").mockImplementation(() => {
+      throw new DOMException("Storage quota exceeded", "QuotaExceededError");
+    });
+    expect(loadBuildPreset(legacy.id)).toMatchObject({ version: 2, name: legacy.name });
+    expect(write).not.toHaveBeenCalled();
+    expect(() => saveBuildPreset(legacy)).toThrow(/Storage quota exceeded/);
+  });
+
+  it("rolls back a preset write when its index cannot be saved", () => {
+    const saved = saveBuildPreset(preset());
+    const write = localStorage.setItem.bind(localStorage);
+    vi.spyOn(localStorage, "setItem").mockImplementation((key, value) => {
+      if (key === "tarnisheds-arsenal.savedBuildIndex.v1") throw new Error("index quota exceeded");
+      write(key, value);
+    });
+    expect(() => renameBuildPreset(saved.id, "Changed")).toThrow(/index quota/);
+    expect(loadBuildPreset(saved.id)?.name).toBe(saved.name);
+    expect(() => saveBuildPreset(preset("new-id"))).toThrow(/index quota/);
+    expect(loadBuildPreset("new-id")).toBeNull();
+  });
+
+  it("preserves the record and index if deletion cannot save the index", () => {
+    const saved = saveBuildPreset(preset());
+    const write = vi.spyOn(localStorage, "setItem").mockImplementation(() => {
+      throw new DOMException("index quota exceeded", "QuotaExceededError");
+    });
+    expect(() => deleteBuildPreset(saved.id)).toThrow(/index quota/);
+    expect(loadBuildPreset(saved.id)).toEqual(saved);
+    expect(savedBuildIndex().builds.map((entry) => entry.id)).toEqual([saved.id]);
+    write.mockRestore();
+    deleteBuildPreset(saved.id);
+    expect(loadBuildPreset(saved.id)).toBeNull();
+    expect(savedBuildIndex().builds).toEqual([]);
+  });
+
 });

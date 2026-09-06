@@ -113,11 +113,6 @@ export function App() {
 
   return (
     <main className="desktop-shell" aria-busy={catalogStatus === "loading"}>
-      <div className="ambient-field" aria-hidden="true">
-        <i />
-        <i />
-        <i />
-      </div>
       <CommandRail />
       <section className="center-workspace">
         <header className="profile-bar">
@@ -153,15 +148,22 @@ export function App() {
               );
             })}
           </div>
-          <div className={`profile-coverage ${profileReady ? (limitedAowModel ? "limited" : "complete") : "loading"}`} role="status">
+          <div
+            className={`profile-coverage ${profileReady ? (limitedAowModel ? "limited" : "complete") : "loading"}`}
+            role="status"
+            title={profileReady && !limitedAowModel ? "Weapon and Ash of War calculations are verified for this snapshot." : undefined}
+          >
             <strong>{profileReady ? (limitedAowModel ? "Experimental fixed-stat model" : "Full model ready") : "Loading profile…"}</strong>
-            <span>
-              {!profileReady
-                ? "Loading and validating the selected data snapshot."
-                : limitedAowModel
-                ? `${convergenceProfile ? "Convergence " : ""}base weapon fields are reference-checked; final AR and customization remain experimental. Enter exact stats: class budgets, Compare, Paths, and Affinity Watch are unavailable. Ammo weapons and AoW hit/route damage remain unsupported.`
-                : "Weapon and Ash of War calculations are verified for this snapshot."}
-            </span>
+            {!profileReady ? (
+              <span>Loading and validating the selected data snapshot.</span>
+            ) : limitedAowModel ? (
+              <details>
+                <summary>Model coverage and assumptions</summary>
+                <span>
+                  {convergenceProfile ? "Convergence " : ""}base weapon fields are reference-checked; final AR and customization remain experimental. Enter exact stats: class budgets, Compare, Paths, and Affinity Watch are unavailable. Ammo weapons and AoW hit/route damage remain unsupported.
+                </span>
+              </details>
+            ) : null}
           </div>
         </header>
         <nav className="workspace-tabs">
@@ -174,11 +176,12 @@ export function App() {
                 key={id}
                 className={`${activeWorkspace === id ? "active" : ""} ${requiresSelection ? "locked" : ""}`}
                 type="button"
+                aria-current={activeWorkspace === id ? "page" : undefined}
                 onClick={() => setWorkspace(id)}
                 title={unsupportedBudget ? "Requires verified profile class budgets" : requiresSelection ? `${label} requires a selected ranked build` : label}
                 disabled={disabled}
               >
-                <Icon size={16} />
+                <Icon size={16} aria-hidden="true" />
                 <span>{label}</span>
               </button>
             );

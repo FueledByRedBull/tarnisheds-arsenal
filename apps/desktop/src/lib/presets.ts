@@ -17,7 +17,7 @@ export interface PresetImportPreview {
 
 export function savedBuildIndex(): SavedBuildIndexV1 {
   const value = readJson<unknown>(INDEX_KEY);
-  if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.builds) || value.builds.length > 500) {
+  if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.builds)) {
     return { version: 1, builds: [] };
   }
   const builds = value.builds.filter((entry): entry is SavedBuildIndexV1["builds"][number] => {
@@ -34,16 +34,7 @@ export function savedBuildIndex(): SavedBuildIndexV1 {
       return false;
     }
   });
-  const retained = builds.filter((entry) => {
-    if (!/^Packaged smoke \d{10,}$/.test(entry.name)) return true;
-    localStorage.removeItem(`${PRESET_PREFIX}${entry.id}`);
-    localStorage.removeItem(`${LEGACY_PRESET_PREFIX}${entry.id}`);
-    return false;
-  });
-  if (retained.length !== builds.length) {
-    localStorage.setItem(INDEX_KEY, JSON.stringify({ version: 1, builds: retained } satisfies SavedBuildIndexV1));
-  }
-  return { version: 1, builds: retained };
+  return { version: 1, builds };
 }
 
 export function loadBuildPreset(id: string): BuildPreset | null {
@@ -51,7 +42,6 @@ export function loadBuildPreset(id: string): BuildPreset | null {
   try {
     const preset = migratePreset(raw);
     assertPreset(preset);
-    localStorage.setItem(`${PRESET_PREFIX}${preset.id}`, JSON.stringify(preset));
     return preset;
   } catch {
     return null;
@@ -83,8 +73,7 @@ export function saveBuildPreset(input: {
     updatedAt: now,
   };
   assertPreset(preset);
-  localStorage.setItem(`${PRESET_PREFIX}${preset.id}`, JSON.stringify(preset));
-  upsertIndex(preset);
+  persistPreset(preset);
   return preset;
 }
 
@@ -94,19 +83,18 @@ export function renameBuildPreset(id: string, name: string): BuildPreset {
     throw new Error("Saved build was not found.");
   }
   const renamed = { ...preset, name: name.trim() || preset.name, updatedAt: new Date().toISOString() };
-  localStorage.setItem(`${PRESET_PREFIX}${id}`, JSON.stringify(renamed));
-  upsertIndex(renamed);
+  persistPreset(renamed);
   return renamed;
 }
 
 export function deleteBuildPreset(id: string) {
-  localStorage.removeItem(`${PRESET_PREFIX}${id}`);
-  localStorage.removeItem(`${LEGACY_PRESET_PREFIX}${id}`);
   const index = savedBuildIndex();
   localStorage.setItem(INDEX_KEY, JSON.stringify({
     version: 1,
     builds: index.builds.filter((entry) => entry.id !== id),
   } satisfies SavedBuildIndexV1));
+  localStorage.removeItem(`${PRESET_PREFIX}${id}`);
+  localStorage.removeItem(`${LEGACY_PRESET_PREFIX}${id}`);
 }
 
 export function parsePresetText(raw: string): BuildPreset {
@@ -148,8 +136,7 @@ export function importBuildPreset(input: BuildPreset | BuildPresetV1): BuildPres
     createdAt: idConflict ? new Date().toISOString() : preset.createdAt,
     updatedAt: new Date().toISOString(),
   };
-  localStorage.setItem(`${PRESET_PREFIX}${imported.id}`, JSON.stringify(imported));
-  upsertIndex(imported);
+  persistPreset(imported);
   return imported;
 }
 
@@ -157,8 +144,7 @@ export function replaceImportedBuildPreset(input: BuildPreset | BuildPresetV1): 
   const preset = migratePreset(input);
   assertPreset(preset);
   const imported = { ...preset, updatedAt: new Date().toISOString() };
-  localStorage.setItem(`${PRESET_PREFIX}${imported.id}`, JSON.stringify(imported));
-  upsertIndex(imported);
+  persistPreset(imported);
   return imported;
 }
 
@@ -173,13 +159,26 @@ export function previewPresetImport(raw: string): PresetImportPreview {
   };
 }
 
-function upsertIndex(preset: BuildPreset) {
+function persistPreset(preset: BuildPreset) {
+  assertPreset(preset);
   const index = savedBuildIndex();
+  if (index.builds.length >= 500 && !index.builds.some((entry) => entry.id === preset.id)) {
+    throw new Error("Saved build limit reached (500). Delete a build before saving another.");
+  }
   const builds = [
     { id: preset.id, name: preset.name, profileId: preset.profileId, dataVersion: preset.dataVersion, updatedAt: preset.updatedAt },
     ...index.builds.filter((entry) => entry.id !== preset.id),
   ];
-  localStorage.setItem(INDEX_KEY, JSON.stringify({ version: 1, builds } satisfies SavedBuildIndexV1));
+  const key = `${PRESET_PREFIX}${preset.id}`;
+  const previous = localStorage.getItem(key);
+  localStorage.setItem(key, JSON.stringify(preset));
+  try {
+    localStorage.setItem(INDEX_KEY, JSON.stringify({ version: 1, builds } satisfies SavedBuildIndexV1));
+  } catch (error) {
+    if (previous === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, previous);
+    throw error;
+  }
 }
 
 function assertPreset(value: BuildPreset) {
@@ -442,10 +441,11 @@ function invalidPreset(detail: string): Error {
 function uniqueImportedName(name: string, existingNames: string[]): string {
   const occupied = new Set(existingNames.map((entry) => entry.toLocaleLowerCase()));
   if (!occupied.has(name.toLocaleLowerCase())) return name;
-  if (!occupied.has(`${name} (imported)`.toLocaleLowerCase())) return `${name} (imported)`;
-  let suffix = 2;
-  while (occupied.has(`${name} (imported ${suffix})`.toLocaleLowerCase())) suffix += 1;
-  return `${name} (imported ${suffix})`;
+  for (let number = 1; ; number += 1) {
+    const suffix = number === 1 ? " (imported)" : ` (imported ${number})`;
+    const candidate = `${name.slice(0, 200 - suffix.length).trimEnd()}${suffix}`;
+    if (!occupied.has(candidate.toLocaleLowerCase())) return candidate;
+  }
 }
 
 function readJson<T>(key: string): T | null {

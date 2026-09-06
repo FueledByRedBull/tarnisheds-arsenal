@@ -1,13 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { weaponProfile } = vi.hoisted(() => ({ weaponProfile: vi.fn() }));
+const { weaponProfile, search } = vi.hoisted(() => ({ weaponProfile: vi.fn(), search: vi.fn() }));
+vi.mock("./workflows", () => ({ runSearchRequestForRows: search }));
 
 vi.mock("./api", () => ({
   api: { weaponProfile },
 }));
 
-import { cachedWeaponProfile as cachedProfileWeaponProfile, clearAnalysisCaches, setAnalysisCacheVersion } from "./analysis-cache";
-import type { WeaponProfileDto } from "./types";
+import { cachedComparisonSearch, cachedWeaponProfile as cachedProfileWeaponProfile, clearAnalysisCaches, setAnalysisCacheVersion } from "./analysis-cache";
+import { defaultRequest } from "./state";
+import type { SolvedBuildDto, WeaponProfileDto } from "./types";
 
 const profile: WeaponProfileDto = {
   canChangeAow: true,
@@ -46,10 +48,49 @@ describe("analysis cache", () => {
     vi.useRealTimers();
     clearAnalysisCaches();
     weaponProfile.mockReset();
+    search.mockReset();
   });
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("reuses only the last completed comparison for the same request and data identity", async () => {
+    search.mockResolvedValue([]);
+    const signal = new AbortController().signal;
+    await cachedComparisonSearch(defaultRequest, signal);
+    await cachedComparisonSearch({ ...defaultRequest }, signal);
+    expect(search).toHaveBeenCalledTimes(1);
+    const changed = { ...defaultRequest, twoHanding: !defaultRequest.twoHanding };
+    await cachedComparisonSearch(changed, signal);
+    await cachedComparisonSearch(defaultRequest, signal);
+    expect(search).toHaveBeenCalledTimes(3);
+    setAnalysisCacheVersion("comparison-new-model");
+    await cachedComparisonSearch(defaultRequest, signal);
+    expect(search).toHaveBeenCalledTimes(4);
+  });
+
+  it("does not retain cancelled, failed, or invalidated comparison work", async () => {
+    const pending = deferred<SolvedBuildDto[]>();
+    search.mockReturnValueOnce(pending.promise).mockRejectedValueOnce(new Error("failed")).mockResolvedValue([]);
+    const controller = new AbortController();
+    const result = cachedComparisonSearch(defaultRequest, controller.signal);
+    controller.abort();
+    pending.resolve([]);
+    await expect(result).rejects.toThrow("cancelled");
+    const signal = new AbortController().signal;
+    await expect(cachedComparisonSearch(defaultRequest, signal)).rejects.toThrow("failed");
+    await cachedComparisonSearch(defaultRequest, signal);
+    expect(search).toHaveBeenCalledTimes(3);
+    clearAnalysisCaches();
+    const stale = deferred<SolvedBuildDto[]>();
+    search.mockReturnValueOnce(stale.promise);
+    const old = cachedComparisonSearch(defaultRequest, signal);
+    clearAnalysisCaches();
+    stale.resolve([]);
+    await old;
+    await cachedComparisonSearch(defaultRequest, signal);
+    expect(search).toHaveBeenCalledTimes(5);
   });
 
   it("reuses a resolved cache hit without calling the loader again", async () => {

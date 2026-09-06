@@ -1,13 +1,13 @@
 import { ArrowDownUp, ChevronLeft, ChevronRight, Download, LockKeyhole, Pin, RefreshCcw, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { downloadCsv, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
-import { compactNumber, fixed1, metricForObjective, objectiveLabel } from "../../lib/format";
+import { compactNumber, fixed1, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
 import { buildOptimizeRequest, derivedLevel, rowFingerprint } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
-import { ScalingDto, SolvedBuildDto } from "../../lib/types";
+import { SearchProgressDto, SolvedBuildDto } from "../../lib/types";
 import { runSearchFromStore, runSearchRequestForRows } from "../../lib/workflows";
-import { DamageTokens, ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 import packageInfo from "../../../package.json";
+import { ScalingTokens } from "../shared/BuildMetricTokens";
 
 export function RankingsBoard() {
   const rows = useDesktopStore((state) => state.rows);
@@ -25,7 +25,10 @@ export function RankingsBoard() {
   const pushNotice = useDesktopStore((state) => state.pushNotice);
   const setError = useDesktopStore((state) => state.setError);
   const objective = useDesktopStore((state) => state.request.objective);
-  const [isExporting, setExporting] = useState(false);
+  const isExporting = useDesktopStore((state) => state.isExporting);
+  const setExporting = useDesktopStore((state) => state.setExporting);
+  const exportController = useRef<AbortController | null>(null);
+  const [exportProgress, setExportProgress] = useState<SearchProgressDto | null>(null);
   const [exportLimit, setExportLimit] = useState<25 | 100 | 500 | 2000>(25);
   const exportCache = useRef<{ signature: string; rows: SolvedBuildDto[] } | null>(null);
   const [reverseRank, setReverseRank] = useState(false);
@@ -53,16 +56,20 @@ export function RankingsBoard() {
   const scadutreeAvailable = profileRules?.scadutreeScaling ?? true;
   const extendedScalingGrades = profileRules?.extendedScalingGrades ?? false;
 
+  useEffect(() => () => exportController.current?.abort(), [catalog, request, lockedStatMode]);
+
   useEffect(() => {
     const board = resultBoard.current;
     if (!board) return;
     const update = () => {
       const max = Math.max(0, board.scrollWidth - board.clientWidth);
-      setHorizontalScroll({
+      const next = {
         overflow: max > 1,
         left: board.scrollLeft > 1,
         right: board.scrollLeft < max - 1,
-      });
+      };
+      setHorizontalScroll((previous) => previous.overflow === next.overflow
+        && previous.left === next.left && previous.right === next.right ? previous : next);
     };
     update();
     board.addEventListener("scroll", update, { passive: true });
@@ -80,7 +87,11 @@ export function RankingsBoard() {
   }
 
   async function exportCsv() {
+    if (useDesktopStore.getState().isSearching || useDesktopStore.getState().isExporting) return;
+    const controller = new AbortController();
+    exportController.current = controller;
     setExporting(true);
+    setExportProgress(null);
     setError(null);
     try {
       const requestedRows = exportLimit;
@@ -88,16 +99,18 @@ export function RankingsBoard() {
         ...buildOptimizeRequest(catalog, request, lockedStatMode),
         topK: requestedRows,
       };
-      const signature = JSON.stringify(exportRequest);
+      const signature = JSON.stringify([catalog?.dataManifest, exportRequest]);
       let exportRows: SolvedBuildDto[];
       if (!resultsStale && requestedRows <= rows.length) {
         exportRows = rows.slice(0, requestedRows);
       } else if (exportCache.current?.signature === signature) {
         exportRows = exportCache.current.rows;
       } else {
-        exportRows = await runSearchRequestForRows(exportRequest);
+        exportRows = await runSearchRequestForRows(exportRequest, controller.signal, setExportProgress);
+        if (controller.signal.aborted) return;
         exportCache.current = { signature, rows: exportRows };
       }
+      if (controller.signal.aborted) return;
       if (!catalog) throw new Error("Catalog metadata is unavailable; the export was not created.");
       downloadCsv(rankingsCsvFilename(request.profileId), rankingsToCsv(exportRows, {
         profileId: request.profileId,
@@ -130,9 +143,9 @@ export function RankingsBoard() {
         message: `Exported ${exportRows.length} ranked rows to your Downloads folder.`,
       });
     } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
+      if (!controller.signal.aborted) setError(error instanceof Error ? error.message : String(error));
     } finally {
-      setExporting(false);
+      if (exportController.current === controller) setExporting(false);
     }
   }
 
@@ -161,7 +174,7 @@ export function RankingsBoard() {
     <section className="workspace-panel rankings-panel">
       <div className="workspace-header">
         <div>
-          <h1>Build Board</h1>
+          <h1>Rankings</h1>
           <span>{rows.length} ranked rows</span>
         </div>
         <div className="result-scroll-actions">
@@ -203,21 +216,25 @@ export function RankingsBoard() {
             className="export-csv-button"
             type="button"
             title={`Export up to ${exportLimit.toLocaleString()} rows to CSV`}
-            onClick={exportCsv}
-            disabled={isSearching || isExporting}
+            onClick={() => isExporting ? exportController.current?.abort() : void exportCsv()}
+            disabled={isSearching}
           >
             <Download size={16} />
-            <span>{isExporting ? "Exporting..." : "Export CSV"}</span>
+            <span>{isExporting ? "Cancel export" : "Export CSV"}</span>
           </button>
         </div>
       </div>
+      {isExporting ? <div className="estimate-strip" role="status">
+        <span>Exporting CSV</span>
+        <strong>{exportProgress ? `${exportProgress.checked.toLocaleString()} / ${exportProgress.total.toLocaleString()}` : "Preparing search..."}</strong>
+      </div> : null}
       {resultsStale && rows.length > 0 ? (
         <div className="stale-results-banner" id="stale-results-message" role="status">
           <div>
             <strong>Inputs changed</strong>
             <span>These rankings are retained from the previous query until the updated search finishes.</span>
           </div>
-          <button type="button" onClick={() => void runSearchFromStore()} disabled={isSearching}>
+          <button type="button" onClick={() => void runSearchFromStore()} disabled={isSearching || isExporting}>
             <RefreshCcw size={14} />{isSearching ? "Updating..." : "Run updated search"}
           </button>
         </div>
@@ -250,21 +267,6 @@ export function RankingsBoard() {
           <div><dt>Lock</dt><dd>Copies the result's loadout, upgrade, and combat stats into the next exact search.</dd></div>
         </dl>
       </details>
-      <div className="top-cards">
-        {[0, 1, 2].map((idx) => (
-          <TopCard
-            key={idx}
-            row={rows[idx] ?? null}
-            index={idx}
-            active={Boolean(rows[idx]) && rowFingerprint(rows[idx]) === rowFingerprint(selected)}
-            objective={objective}
-            onSelect={() => rows[idx] && selectRow(rows[idx])}
-            onLock={() => rows[idx] && lockAndRerun(rows[idx])}
-            pinned={Boolean(rows[idx] && compareBench.some((entry) => rowFingerprint(entry) === rowFingerprint(rows[idx])))}
-            onPin={() => rows[idx] && toggleCompareBench(rows[idx])}
-          />
-        ))}
-      </div>
       <div
         ref={resultBoard}
         className="result-board full-grid"
@@ -272,22 +274,21 @@ export function RankingsBoard() {
         aria-label={resultsStale ? "Ranked builds from the previous query" : "Ranked builds"}
         aria-describedby={resultsStale ? "stale-results-message" : undefined}
       >
-        <div className="result-head result-head-full" role="row">
+        <div className={`result-head result-head-full ${objective !== "max_ar" ? "with-score" : ""}`} role="row">
           {[
             ["#", "Rank"],
             ["Weapon", "Weapon and reinforcement type"],
             ["Setup", "Affinity and Ash of War"],
             ["Upg", "Reinforcement level"],
-            ["Scaling", "Attribute scaling at this reinforcement level"],
-            ["AR / Elements / Status", "Raw attack rating by damage type and status buildup"],
+            ["AR", "Raw attack rating before enemy defense and negation"],
             ["Raw skill", "Raw skill damage before enemy defense or negation"],
-            [`${objectiveLabel(objective)} score`, "Value used by the active ranking objective"],
+            ...(objective !== "max_ar" ? [[`${objectiveLabel(objective)} score`, "Value used by the active ranking objective"]] : []),
             ["Actions", "Pin for comparison or use this result as exact search locks"],
           ].map(([header, title]) => (
             <span role="columnheader" title={title} key={header}>{header}</span>
           ))}
         </div>
-        {rows.length === 0 ? <EmptyRows onExample={runStarterExample} busy={isSearching} /> : null}
+        {rows.length === 0 ? <EmptyRows onExample={runStarterExample} busy={isSearching || isExporting} classBudget={catalog?.dataManifest.capabilities.classBudget !== false} /> : null}
         {rankedRows.map(({ row, rank }) => (
           <ResultRow
             key={`${rowFingerprint(row)}-${rank}`}
@@ -295,7 +296,8 @@ export function RankingsBoard() {
             row={row}
             active={rowFingerprint(selected) === rowFingerprint(row)}
             objective={objective}
-            scaling={row.effectiveScaling ?? null}
+            lockDisabled={isExporting}
+            aowModelSupported={Boolean(catalog?.dataManifest.capabilities.aowDamage && catalog.dataManifest.capabilities.aowRoutes)}
             extendedScalingGrades={extendedScalingGrades}
             onClick={() => selectRow(row)}
             onLock={() => lockAndRerun(row)}
@@ -308,73 +310,13 @@ export function RankingsBoard() {
   );
 }
 
-function TopCard({
-  row,
-  index,
-  active,
-  objective,
-  onSelect,
-  onLock,
-  pinned,
-  onPin,
-}: {
-  row: SolvedBuildDto | null;
-  index: number;
-  active: boolean;
-  objective: Parameters<typeof metricForObjective>[1];
-  onSelect: () => void;
-  onLock: () => void;
-  pinned: boolean;
-  onPin: () => void;
-}) {
-  return (
-    <div className={`top-card ${active ? "active" : ""}`}>
-      {row ? (
-        <>
-          <button
-            className="top-card-select"
-            type="button"
-            onClick={onSelect}
-            aria-label={`Select ${row.weaponName}, ${row.affinity}, rank ${index + 1}`}
-          >
-            <span>#{index + 1}</span>
-            <strong>{row.weaponName}</strong>
-            <small>{row.affinity} · {row.aowName ?? "Unspecified skill"} · +{row.upgrade}</small>
-            <b>{fixed1(metricForObjective(row, objective))}</b>
-          </button>
-          <div className="top-card-actions">
-            <button
-              className="top-card-lock"
-              type="button"
-              aria-label={`Lock ${row.weaponName}, ${row.affinity}, rank ${index + 1}`}
-              onClick={onLock}
-            >
-              <LockKeyhole size={14} />Lock
-            </button>
-            <button className="top-card-lock" type="button" aria-pressed={pinned} onClick={onPin}>
-              <Pin size={14} />{pinned ? "Pinned" : "Compare"}
-            </button>
-          </div>
-        </>
-      ) : (
-        <div className="top-card-empty">
-          <span>#{index + 1}</span>
-          <span className="top-card-empty-copy">
-            <strong>No result yet</strong>
-            <small>Run a search to fill this slot.</small>
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function ResultRow({
   row,
   index,
   active,
   objective,
-  scaling,
+  lockDisabled,
+  aowModelSupported,
   extendedScalingGrades,
   onClick,
   onLock,
@@ -385,16 +327,17 @@ function ResultRow({
   index: number;
   active: boolean;
   objective: Parameters<typeof metricForObjective>[1];
-  scaling: ScalingDto | null;
+  aowModelSupported: boolean;
   extendedScalingGrades: boolean;
   onClick: () => void;
   onLock: () => void;
+  lockDisabled: boolean;
   pinned: boolean;
   onPin: () => void;
 }) {
   return (
     <div
-      className={`result-row result-row-full ${active ? "active" : ""}`}
+      className={`result-row result-row-full ${objective !== "max_ar" ? "with-score" : ""} ${active ? "active" : ""}`}
       role="row"
       aria-selected={active}
       aria-label={`Select ${row.weaponName}, ${row.affinity}, rank ${index + 1}`}
@@ -412,48 +355,65 @@ function ResultRow({
       }}
     >
       <span role="gridcell" className="rank-cell">{index + 1}</span>
-      <span role="gridcell" className="weapon-cell"><strong>{row.weaponName}</strong><small>{row.isSomber ? "Somber" : "Standard"}</small></span>
-      <span role="gridcell" className="setup-cell"><strong>{row.affinity}</strong><small>{row.aowName ?? "Unspecified skill"}</small></span>
+      <span role="gridcell" className="weapon-cell">
+        <strong>{row.weaponName}</strong>
+        <small>{row.isSomber ? "Somber" : "Standard"}</small>
+        <span className="row-detail-label">Combat stats</span>
+        <span className="row-combat-stats">{statLine(row)}</span>
+      </span>
+      <span role="gridcell" className="setup-cell">
+        <strong>{row.affinity}</strong>
+        <small>{row.aowName ?? "Unspecified skill"}</small>
+        <span className="row-detail-label">Weapon scaling</span>
+        <ScalingTokens scaling={row.effectiveScaling} extended={extendedScalingGrades} />
+      </span>
       <span role="gridcell">+{row.upgrade}</span>
-      <span role="gridcell" className="scaling-cell"><ScalingTokens scaling={scaling} extended={extendedScalingGrades} /></span>
-      <span role="gridcell" className="result-metric-cell ar-status-cell"><strong>AR {compactNumber(row.ar.total)}</strong><DamageTokens ar={row.ar} /><StatusTokens row={row} /></span>
-      <span role="gridcell" className="result-metric-cell"><strong>{compactNumber(row.aowFullSequenceDamage)}</strong><small>First {compactNumber(row.aowFirstHitDamage)}</small></span>
-      <span role="gridcell">{fixed1(metricForObjective(row, objective))}</span>
+      <span role="gridcell" className="result-metric-cell ar-status-cell"><strong>{compactNumber(row.ar.total)}</strong></span>
+      <span role="gridcell" className="result-metric-cell" title={aowModelSupported ? undefined : "Raw skill damage is unavailable for this profile."}>
+        {aowModelSupported
+          ? <><strong>{compactNumber(row.aowFullSequenceDamage)}</strong><small>First {compactNumber(row.aowFirstHitDamage)}</small></>
+          : <strong>Unavailable</strong>}
+      </span>
+      {objective !== "max_ar" ? <span role="gridcell" className="objective-score">{fixed1(metricForObjective(row, objective))}</span> : null}
       <span role="gridcell">
         <button
           className="inline-lock"
           type="button"
           aria-pressed={pinned}
+          aria-label={`${pinned ? "Unpin" : "Compare"} ${row.weaponName}, ${row.affinity}, rank ${index + 1}`}
           onClick={(event) => {
             event.stopPropagation();
             onPin();
           }}
         >
-          {pinned ? "Pinned" : "Compare"}
+          <Pin size={15} aria-hidden="true" />
         </button>
         <button
           className="inline-lock"
           type="button"
           aria-label={`Lock ${row.weaponName}, ${row.affinity}, rank ${index + 1}`}
+          disabled={lockDisabled}
           onClick={(event) => {
             event.stopPropagation();
             onLock();
           }}
         >
-          Lock
+          <LockKeyhole size={15} aria-hidden="true" />
         </button>
       </span>
     </div>
   );
 }
 
-function EmptyRows({ onExample, busy }: { onExample: () => void; busy: boolean }) {
+function EmptyRows({ onExample, busy, classBudget }: { onExample: () => void; busy: boolean; classBudget: boolean }) {
   return (
     <div className="empty-state">
       <strong>No rankings loaded</strong>
       <span>Press Search to rank every legal setup under the active query.</span>
       <small>Open loadout fields keep all compatible options eligible.</small>
-      <button type="button" onClick={onExample} disabled={busy}>{busy ? "Searching…" : "Try Samurai +3 example"}</button>
+      {classBudget ? (
+        <button className="inline-lock" type="button" onClick={onExample} disabled={busy}>{busy ? "Searching…" : "Try Uchigatana +3 example"}</button>
+      ) : <small>Convergence uses your entered combat stats exactly.</small>}
     </div>
   );
 }

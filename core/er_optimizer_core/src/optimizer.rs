@@ -303,6 +303,19 @@ where
 }
 
 fn validate_profile_capabilities(request: &OptimizeRequest, data: &GameData) -> Result<(), String> {
+    for filter in &request.filters {
+        if filter.dimension == FilterDimension::WeaponFamily
+            && !data
+                .weapons
+                .iter()
+                .any(|weapon| weapon.family_filter_id().eq_ignore_ascii_case(&filter.id))
+        {
+            return Err(format!(
+                "Weapon family filter {} is no longer valid for this profile; remove it and reselect the weapon family",
+                filter.id
+            ));
+        }
+    }
     let profile = if data.profile_display_name.trim().is_empty() {
         "selected profile"
     } else {
@@ -550,6 +563,7 @@ fn build_prepared_plan<'a>(
 
 pub fn optimize(request: &OptimizeRequest, data: &GameData) -> Result<Vec<OptimizeResult>, String> {
     if request.top_k == 0 {
+        validate_profile_capabilities(request, data)?;
         return Ok(Vec::new());
     }
     let plan = prepare_search(request, data)?;
@@ -566,6 +580,7 @@ where
     F: FnMut(ProgressSnapshot) -> bool + Send,
 {
     if request.top_k == 0 {
+        validate_profile_capabilities(request, data)?;
         return Ok(Vec::new());
     }
     let plan = prepare_search(request, data)?;
@@ -581,6 +596,7 @@ where
     F: FnMut() -> bool + Send,
 {
     if request.top_k == 0 {
+        validate_profile_capabilities(request, data)?;
         return Ok(Vec::new());
     }
     let plan = prepare_search_with_cancel(request, data, &mut should_continue)?;
@@ -598,6 +614,7 @@ where
     F: FnMut(u16) -> bool,
     C: FnMut() -> bool + Send,
 {
+    validate_profile_capabilities(request, data)?;
     if levels.is_empty() {
         return Ok(Vec::new());
     }
@@ -610,6 +627,12 @@ where
             ordered_levels[0], request.character_level
         ));
     }
+    let max_level = *ordered_levels
+        .last()
+        .expect("non-empty levels must have a maximum");
+    let mut max_request = request.clone();
+    max_request.character_level = max_level;
+    validate_profile_capabilities(&max_request, data)?;
     if request.top_k == 0 {
         return Ok(ordered_levels
             .iter()
@@ -621,11 +644,6 @@ where
             .collect());
     }
 
-    let max_level = *ordered_levels
-        .last()
-        .expect("non-empty levels must have a maximum");
-    let mut max_request = request.clone();
-    max_request.character_level = max_level;
     if !should_continue() {
         return Err("cancelled".to_string());
     }

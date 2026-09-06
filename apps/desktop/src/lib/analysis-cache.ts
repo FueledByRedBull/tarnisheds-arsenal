@@ -1,6 +1,7 @@
 import { api } from "./api";
 import { rowFingerprint, stableSignature } from "./session";
 import { OptimizeRequestDto, SolvedBuildDto, UpgradePointDto, WeaponProfileDto } from "./types";
+import { runSearchRequestForRows } from "./workflows";
 
 type CacheKey = string;
 type CacheEntry<T> = {
@@ -15,6 +16,8 @@ const solveBuildCache = new Map<CacheKey, CacheEntry<SolvedBuildDto | null>>();
 const upgradeSeriesCache = new Map<CacheKey, CacheEntry<UpgradePointDto[]>>();
 const weaponProfileCache = new Map<CacheKey, CacheEntry<WeaponProfileDto>>();
 let cacheDataVersion = "unknown";
+let cacheGeneration = 0;
+let completedComparison: { key: string; rows: SolvedBuildDto[] } | null = null;
 
 export function setAnalysisCacheVersion(dataVersion: string): void {
   if (cacheDataVersion === dataVersion) return;
@@ -23,9 +26,23 @@ export function setAnalysisCacheVersion(dataVersion: string): void {
 }
 
 export function clearAnalysisCaches(): void {
+  cacheGeneration += 1;
+  completedComparison = null;
   solveBuildCache.clear();
   upgradeSeriesCache.clear();
   weaponProfileCache.clear();
+}
+
+export async function cachedComparisonSearch(request: OptimizeRequestDto, signal: AbortSignal): Promise<SolvedBuildDto[]> {
+  if (signal.aborted) throw new Error("cancelled");
+  const version = cacheDataVersion;
+  const generation = cacheGeneration;
+  const key = stableSignature({ version, request });
+  if (completedComparison?.key === key) return completedComparison.rows;
+  const rows = await runSearchRequestForRows(request, signal);
+  if (signal.aborted) throw new Error("cancelled");
+  if (cacheGeneration === generation) completedComparison = { key, rows };
+  return rows;
 }
 
 export function cachedWeaponProfile(profileId: string, weaponName: string, affinity: string | null, signal?: AbortSignal): Promise<WeaponProfileDto> {

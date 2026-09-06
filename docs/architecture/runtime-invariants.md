@@ -17,8 +17,10 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - Cancellation is cooperative and fail-closed. A cancelled job cannot replace current rows or populate retained analysis caches.
 - Broad running work targets cancellation within 250 ms on the reference machine. Cancelled multi-lane jobs publish no partial success payload.
 - Polling has one in-flight request at a time and backs off while progress is unchanged.
+- Rankings, custom comparisons, and CSV export share one search queue. The workflow owns polling through native completion, including cancellation; superseded queued requests never start. Rankings UI components do not run a second poller.
 - Numeric input edits do not launch exact optimizer preparation; the command rail shows a constant-time scope summary and exact candidate preparation begins only when Search is pressed. Search-space estimation has no job lifecycle to preserve: it is a cancellable core API with no command or frontend caller, so nothing can publish an estimate into frontend state. Reintroducing a user-facing estimate means giving it a generation, signature, and job ID like any other async request.
 - A profile switch invalidates every job generation before changing inputs, requests cancellation for all active backend jobs, clears profile-bound results, and cannot accept a completion from the previous profile.
+- CSV export owns a cancellable search until the backend reports completion, including after cancellation. Normal searches and comparison searches wait for that slot. Input/profile changes and leaving Rankings cancel export; late results cannot download or populate its cache.
 
 ## Result identity
 
@@ -27,6 +29,7 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - Results retained while inputs change are explicitly stale. Stale rows cannot launch Compare, Paths, or Affinity Watch.
 - Saved solved rows are trusted only when schema, dataset, and model versions match the active catalog; otherwise only normalized inputs are loaded.
 - Presets have an explicit profile ID. Legacy presets migrate to Vanilla, and presets from another profile cannot be loaded or silently converted.
+- Presets save effective stat locks; disabled locks are stored as null. Loadout solving and migration preserve requested locks. Comparison callers explicitly clear locks when reoptimizing a rival's stats.
 - CSV exports include profile/data/model provenance. Unsupported values are blank,
   never numeric zero; unified upgrade profiles do not claim Standard/Somber
   identity. Export reruns and caches use the complete normalized request including

@@ -12,8 +12,6 @@ import {
   OptimizeRequestDto,
   PathFinishedDto,
   PathProgressDto,
-  SearchFinishedDto,
-  SearchProgressDto,
   WeaponProfileDto,
 } from "./types";
 
@@ -127,26 +125,6 @@ function usePollingJob<P extends JobEvent, F extends JobEvent>(options: {
       if (unfinished) void latest.current.cancel(jobId).catch(() => undefined);
     };
   }, [activeJobId, busy, generation]);
-}
-
-export function useSearchJob(options: {
-  activeJobId: string | null;
-  isSearching: boolean;
-  generation: number;
-  setProgress: (progress: SearchProgressDto | null) => void;
-  finish: (payload: SearchFinishedDto, generation: number) => void;
-}) {
-  usePollingJob({
-    activeJobId: options.activeJobId,
-    busy: options.isSearching,
-    generation: options.generation,
-    poll: api.searchStatus,
-    cancel: api.cancelSearch,
-    setProgress: options.setProgress,
-    finish: options.finish,
-    missing: (jobId) => ({ jobId, cancelled: true, rows: [], error: "Search job disappeared before returning a result." }),
-    failed: (jobId, error) => ({ jobId, cancelled: false, rows: [], error: errorMessage(error) }),
-  });
 }
 
 export function usePathJob(options: {

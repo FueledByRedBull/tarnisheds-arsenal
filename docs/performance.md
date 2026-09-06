@@ -52,8 +52,10 @@ python tools/phase4/benchmark_optimizer_phases.py --warmups 1 --repeats 5 --outp
 The release-mode harness measures cold request preparation, candidate scoring/top-k retention, and final result materialization independently for all five objectives, including broad/open, high-level, exact-lock, and open-AoW cases. It records per-phase samples and medians, result counts, search-space size, build profile, Rayon thread count, dataset/model versions, commit, CPU, Rust version, and platform. Compare against a reviewed report with `--baseline`; comparisons report regressions but remain advisory unless a stable dedicated runner explicitly uses `--fail-on-regression`.
 
 The phase suite includes both low-level and high-level open Max AR searches. AR
-scoring uses an exact relevant-stat dynamic program and has a direct regression
-against exhaustive enumeration. Reports retain the equivalent exhaustive
+scoring uses a relevant-stat dynamic program whose exactness proof assumes exact
+arithmetic; the implementation uses `f32` and sampled regressions against exhaustive
+enumeration. Those checks do not prove unconditional floating-point equivalence
+(see [the proof's qualifications](design/optimizer-math.md)). Reports retain the equivalent exhaustive
 combination count so historical search-space comparisons remain meaningful.
 
 The original phase cases use exact upgrade caps: +25/+10 for Vanilla and +15 for
@@ -89,8 +91,9 @@ With a one-thread Rayon pool, searches prepare scalar AoW route templates once
 per resolved choice and reuse them when the route is stat-independent. A pool
 with multiple threads retains per-work-unit preparation because eager
 compilation creates a serial preparation barrier without a measurable scoring
-benefit. Choices with supported per-hit attack-power effects keep the exhaustive
-evaluator because their route values depend on the evolving stats. On the current
+benefit. Choices with per-hit attack-power effects marked supported keep the exhaustive
+evaluator, but that selection does not implement those effects: `PerHitAttackPower`
+remains unsupported by the damage calculation. On the current
 Windows 11 reference host,
 one-thread release medians with one warmup and five samples changed open Max AR
 from 3,690.073 ms to 3,066.442 ms (−16.90% total; scoring −22.86%) with an

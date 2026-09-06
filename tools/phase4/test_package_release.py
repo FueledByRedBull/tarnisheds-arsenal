@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import contextlib
+import io
 import os
 import shutil
 import subprocess
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -13,6 +16,58 @@ from tools.phase4 import package_release
 
 
 class PackageReleaseTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("pwsh"), "PowerShell 7 is required")
+    def test_workflow_preview_allows_an_existing_tag_and_runs_source_validation(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        workflow = (root / ".github/workflows/release-package.yml").read_text(encoding="utf-8")
+
+        def script(name: str) -> str:
+            step = workflow.split(f"      - name: {name}\n", 1)[1].split("\n      - name:", 1)[0]
+            return textwrap.dedent(step.split("        run: |\n", 1)[1])
+
+        with tempfile.TemporaryDirectory() as directory:
+            env = os.environ.copy()
+            env.update({"GITHUB_ENV": str(Path(directory) / "env"), "GITHUB_SHA": "b" * 40,
+                        "GITHUB_REF": "refs/heads/preview", "GITHUB_REF_NAME": "preview"})
+            # Simulate an existing tag at a different commit; execute the workflow's actual scripts.
+            prelude = '''
+function git {
+  $global:LASTEXITCODE = 0
+  if ($args[0] -eq "tag") { "v0.12.0" } else { "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+}
+function python { $global:LASTEXITCODE = 0; Write-Output ($args -join " ") }
+'''
+            # Use the repository's configured version, so this test survives a release bump.
+            version = package_release.json.loads((root / "apps/desktop/src-tauri/tauri.conf.json").read_text(encoding="utf-8"))["version"]
+            prelude = prelude.replace("v0.12.0", f"v{version}")
+            for publish in ["false", "true"]:
+                env["PUBLISH_RELEASE"] = publish
+                result = subprocess.run(
+                    ["pwsh", "-NoProfile", "-NonInteractive", "-Command", prelude + script("Validate release metadata")],
+                    cwd=root, env=env, capture_output=True, text=True, check=False,
+                )
+                if publish == "false":
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertIn(f"ARTIFACT_VERSION={version}-preview-{'b' * 40}", Path(env["GITHUB_ENV"]).read_text(encoding="utf-8-sig"))
+                else:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("already points to", result.stderr)
+                build = subprocess.run(
+                    ["pwsh", "-NoProfile", "-NonInteractive", "-Command", prelude + script("Build Tauri release package")],
+                    cwd=root, env=env, capture_output=True, text=True, check=False,
+                )
+                self.assertEqual(build.returncode, 0, build.stderr)
+                expected = "--skip-validation" if publish == "true" else "--preview"
+                self.assertEqual(build.stdout.strip(), f"tools/phase4/package_release.py {expected}")
+
+    def test_preview_cannot_skip_source_validation(self) -> None:
+        with (patch("sys.argv", ["package_release.py", "--preview", "--skip-validation"]),
+              contextlib.redirect_stderr(io.StringIO()) as stderr,
+              self.assertRaises(SystemExit) as error):
+            package_release.main()
+        self.assertEqual(error.exception.code, 2)
+        self.assertIn("--preview requires source validation", stderr.getvalue())
+
     @patch.object(package_release, "msi_property")
     def test_msi_identity_includes_product_version(self, msi_property) -> None:
         properties = {
@@ -199,8 +254,7 @@ class PackageReleaseTests(unittest.TestCase):
             )
             pwsh = shutil.which("pwsh.exe") or shutil.which("pwsh")
             assert pwsh is not None
-            result = subprocess.run(
-                [
+            command = [
                     pwsh,
                     "-NoLogo",
                     "-NoProfile",
@@ -209,17 +263,33 @@ class PackageReleaseTests(unittest.TestCase):
                     "Bypass",
                     "-File",
                     str(script),
-                    str(binary),
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
-                env=env,
-            )
-
-            self.assertEqual(result.returncode, 0, result.stderr)
+                ]
+            # Tauri's global callback signs extensions, the patched EXE and the MSI.
+            for name in ["WixUtilExtension.dll", binary.name, "release.msi"]:
+                target = root / name
+                if target != binary:
+                    target.write_bytes(b"bundler target")
+                result = subprocess.run(
+                    [*command, str(target)], check=False, capture_output=True, text=True, env=env,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(snapshot.read_bytes(), payload)
-            self.assertEqual(sign_log.read_text(encoding="utf-8").splitlines(), ["sign", "verify"])
+            self.assertEqual(sign_log.read_text(encoding="utf-8").splitlines(), ["sign", "verify"] * 3)
+            for name, content, message in [
+                (binary.name, payload, "more than once"),
+                (binary.name, payload + b"tampered", "changed bytes"),
+                (binary.name, b"missing marker", "exactly one MSI"),
+                ("unexpected.exe", payload, "unexpected Tauri signing target"),
+            ]:
+                target = root / name
+                target.write_bytes(content)
+                result = subprocess.run(
+                    [*command, str(target)], check=False, capture_output=True, text=True, env=env,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stderr)
+                self.assertEqual(snapshot.read_bytes(), payload)
+            self.assertEqual(sign_log.read_text(encoding="utf-8").splitlines(), ["sign", "verify"] * 3)
 
     def test_expected_msi_payload_sha256_replaces_only_bundle_marker(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -291,7 +361,7 @@ class PackageReleaseTests(unittest.TestCase):
                                     tauri_dir,
                                 )
 
-            self.assertEqual(sign_calls, [exe.name, "release.msi"])
+            self.assertEqual(sign_calls, [exe.name])
             self.assertTrue(result[2])
             self.assertEqual(
                 result[3],

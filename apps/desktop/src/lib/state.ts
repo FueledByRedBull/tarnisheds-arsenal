@@ -52,6 +52,7 @@ export interface DesktopState {
   affinityPayload: AffinityWatchPayloadDto | null;
   error: string | null;
   isSearching: boolean;
+  isExporting: boolean;
   searchGeneration: number;
   activeSearchSignature: string | null;
   activeJobId: string | null;
@@ -81,6 +82,7 @@ export interface DesktopState {
   pushNotice: (notice: Notice) => void;
   setError: (error: string | null) => void;
   setSearching: (isSearching: boolean) => void;
+  setExporting: (isExporting: boolean) => void;
   beginSearch: (signature: string) => number;
   setActiveJobId: (activeJobId: string | null) => void;
   setProgress: (progress: SearchProgressDto | null) => void;
@@ -154,8 +156,10 @@ function readCompareBench(catalog: CatalogDto): SolvedBuildDto[] {
   try {
     const raw = localStorage.getItem(compareBenchKey(catalog.dataManifest.profile.id));
     if (!raw) return [];
-    const value = JSON.parse(raw) as { version?: unknown; datasetVersion?: unknown; rows?: unknown };
-    if (value.version !== 1 || value.datasetVersion !== catalog.dataManifest.datasetVersion || !Array.isArray(value.rows)) {
+    const value = JSON.parse(raw) as { version?: unknown; datasetVersion?: unknown; schemaVersion?: unknown; modelVersion?: unknown; rows?: unknown };
+    if (value.version !== 1 || value.datasetVersion !== catalog.dataManifest.datasetVersion
+      || value.schemaVersion !== catalog.dataManifest.schemaVersion
+      || value.modelVersion !== catalog.dataManifest.modelVersion || !Array.isArray(value.rows)) {
       return [];
     }
     return value.rows.filter(isStoredBuild).slice(0, 8);
@@ -183,6 +187,8 @@ function writeCompareBench(catalog: CatalogDto | null, rows: SolvedBuildDto[]) {
   localStorage.setItem(compareBenchKey(catalog.dataManifest.profile.id), JSON.stringify({
     version: 1,
     datasetVersion: catalog.dataManifest.datasetVersion,
+    schemaVersion: catalog.dataManifest.schemaVersion,
+    modelVersion: catalog.dataManifest.modelVersion,
     rows,
   }));
 }
@@ -242,6 +248,8 @@ type SearchSlice = Pick<
   | "clearResults"
   | "selectRow"
   | "setSearching"
+  | "isExporting"
+  | "setExporting"
   | "beginSearch"
   | "setActiveJobId"
   | "setProgress"
@@ -357,9 +365,11 @@ const createUiSlice: DesktopSlice<UiSlice> = (set) => ({
       catalog: null,
       catalogStatus: "loading",
       catalogError: null,
+      lockedStatMode: false,
       request: applyProfileRules({
         ...state.request,
         profileId,
+        lockStr: null, lockDex: null, lockInt: null, lockFai: null, lockArc: null,
         weaponName: null,
         affinity: null,
         aowName: null,
@@ -571,6 +581,8 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
 });
 
 const createSearchSlice: DesktopSlice<SearchSlice> = (set) => ({
+  isExporting: false,
+  setExporting: (isExporting) => set({ isExporting }),
   rows: [],
   resultsStale: false,
   selected: null,

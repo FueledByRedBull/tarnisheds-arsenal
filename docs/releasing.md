@@ -4,6 +4,13 @@ Releases are created from Git tags. The Release workflow can package a tag that
 already exists, or create the configured version tag and publish it when a manual
 run is started from the default branch with `publish` enabled.
 
+Packaging and publication are separate jobs. If publication fails, use **Re-run
+failed jobs** on that original workflow run. The publish job downloads the original
+verified package, checks every existing remote asset against it, and uploads only
+missing files. It publishes the draft only after all five assets match, then checks
+the published release again. A mismatching remote file stops publication; files
+are never silently replaced. Starting another build is not a publication retry.
+
 ## Prepare a release
 
 1. Run the version preparation helper:
@@ -30,7 +37,10 @@ run is started from the default branch with `publish` enabled.
    python -m unittest discover -s tools/phase4 -p 'test_*.py'
    ```
 
-4. Review the diff, commit the release preparation, and push `main` normally.
+4. Review the diff, commit the release preparation on a branch, and open a pull
+   request. Merge after `rust-and-data`, `linux-core-and-data`, and
+   `desktop-frontend` pass with the branch up to date. These checks are required
+   on `main`, including for administrators; no additional review approval is required.
 5. Wait for the ordinary `CI` workflow to succeed on that exact commit. The release
    workflow is the source of truth for the complete package build. If a local
    rehearsal is useful, run `python tools/phase4/package_release.py` from this clean
@@ -62,6 +72,13 @@ packages the commit, and asks GitHub to create `v<version>` at that commit while
 publishing the release. A failed package never creates a release. A manual run with
 `publish` disabled only uploads the package for inspection.
 
+Build-only runs can use any branch and an already released application version.
+They run source validation in the packaging job instead of waiting for main's CI,
+and name artifacts `<version>-preview-<full commit SHA>`. They neither create nor
+require a release tag. For the same local check, use
+`python tools/phase4/package_release.py --preview` from clean committed source;
+preview mode cannot skip validation.
+
 ```powershell
 gh workflow run release-package.yml --ref main -f publish=true
 ```
@@ -84,7 +101,10 @@ configure the protected `WINDOWS_SIGNING_CERTIFICATE_BASE64` and
 without bundling, then uses Tauri's signing hook to sign the MSI executable after
 its bundle marker is patched. The hook checks that its input differs from the
 compiled portable only by that marker. After Tauri restores the portable, the job
-signs it and the MSI container.
+signs the portable. Tauri also invokes the hook for its extension DLLs and the
+finished MSI; those targets are signed and verified without applying the EXE-only
+marker check or overwriting the captured payload. The finished MSI is verified
+again without a second signing pass.
 It verifies the signatures and extracts the MSI administrative payload. Unsigned
 payloads must match the portable executable except for Tauri's exact `UNK`/`MSI`
 bundle marker; signed payloads must match the signed installer variant captured

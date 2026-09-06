@@ -1433,6 +1433,68 @@ fn level_range_matches_independent_exact_searches() {
 }
 
 #[test]
+fn level_range_rejects_the_same_invalid_profile_requests_as_single_search() {
+    for data in [load_data(), load_convergence_data()] {
+        let mut valid = base_request();
+        valid.standard_max_upgrade = data.rules.standard_max_upgrade;
+        valid.somber_max_upgrade = data.rules.somber_max_upgrade;
+        let mut invalid = Vec::new();
+        for objective in [
+            OptimizeObjective::AowFirstHit,
+            OptimizeObjective::AowFullSequence,
+        ] {
+            if !data.capabilities.aow_damage {
+                let mut request = valid.clone();
+                request.objective = objective;
+                invalid.push(request);
+            }
+        }
+        let mut request = valid.clone();
+        request.standard_max_upgrade += 1;
+        invalid.push(request);
+        let mut request = valid.clone();
+        request.somber_max_upgrade += 1;
+        invalid.push(request);
+        let mut request = valid.clone();
+        request.scadutree_level = 21;
+        invalid.push(request);
+        if !data.rules.scadutree_scaling {
+            let mut request = valid.clone();
+            request.dlc_scaling = true;
+            invalid.push(request);
+        }
+        for mut request in invalid {
+            for top_k in [0, 1] {
+                request.top_k = top_k;
+                let expected = optimize(&request, &data).unwrap_err();
+                let actual = optimize_level_range_with_progress(
+                    &request,
+                    &[request.character_level],
+                    &data,
+                    |_| true,
+                    || true,
+                )
+                .unwrap_err();
+                assert_eq!(actual, expected);
+            }
+        }
+        valid.top_k = 0;
+        let invalid_level = if data.capabilities.class_budget {
+            714
+        } else {
+            793
+        };
+        let mut independent = valid.clone();
+        independent.character_level = invalid_level;
+        assert_eq!(
+            optimize_level_range_with_progress(&valid, &[invalid_level], &data, |_| true, || true)
+                .unwrap_err(),
+            optimize(&independent, &data).unwrap_err(),
+        );
+    }
+}
+
+#[test]
 fn level_range_honors_cancellation_before_preparation() {
     let game_data = load_data();
     let error = optimize_level_range_with_progress(
@@ -1932,6 +1994,59 @@ fn stable_weapon_family_filter_uses_catalog_id() {
             })
             .is_some_and(|weapon| weapon.family_filter_id() == family_id)
     }));
+}
+
+#[test]
+fn family_filters_cover_all_affinities_and_preserve_standard_forms() {
+    for (data, count) in [(load_data(), 13), (load_convergence_data(), 22)] {
+        let mut request = base_request();
+        request.weapon_name = None;
+        request.affinity = None;
+        request.standard_max_upgrade = data.rules.standard_max_upgrade;
+        request.somber_max_upgrade = data.rules.somber_max_upgrade;
+        request.filters = vec![StableFilter {
+            dimension: FilterDimension::WeaponFamily,
+            id: "weapon:1000000".to_string(),
+            mode: FilterMode::Include,
+        }];
+        let matching = data
+            .weapons
+            .iter()
+            .filter(|w| weapon_matches_request(w, &request, &data))
+            .collect::<Vec<_>>();
+        assert_eq!(matching.len(), count);
+        assert!(matching.iter().all(|w| w.name == "Dagger"));
+        request.filters[0].mode = FilterMode::Exclude;
+        assert!(
+            data.weapons
+                .iter()
+                .filter(|w| w.name == "Dagger")
+                .all(|w| !weapon_matches_request(w, &request, &data))
+        );
+        for old_id in ["weapon:1001000", "weapon:1002000"] {
+            request.filters[0].id = old_id.to_owned();
+            assert!(
+                optimize(&request, &data)
+                    .unwrap_err()
+                    .contains("reselect the weapon family")
+            );
+        }
+        let forms = data
+            .weapons
+            .iter()
+            .filter(|w| w.name.starts_with("Tricia's Pomander"))
+            .collect::<Vec<_>>();
+        for form in &forms {
+            request.filters[0].id = form.family_filter_id();
+            request.filters[0].mode = FilterMode::Include;
+            let matching = forms
+                .iter()
+                .filter(|w| weapon_matches_request(w, &request, &data))
+                .collect::<Vec<_>>();
+            assert_eq!(matching.len(), 1);
+            assert_eq!(matching[0].name, form.name);
+        }
+    }
 }
 
 #[test]

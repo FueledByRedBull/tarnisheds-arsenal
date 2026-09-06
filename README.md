@@ -54,7 +54,7 @@ The five supported objectives are:
 
 ## Interface
 
-Select any podium card or ranking row to make it the active build.<br>
+Select a ranking row to make it the active build.<br>
 Build Detail shows combat stats, AR split, route damage, status, stamina, and warnings.<br>
 Compare, Paths, and Affinity Watch reuse that active session.<br>
 The active-query strip keeps objective, level, reinforcement, handedness, profile, and constraints visible.<br>
