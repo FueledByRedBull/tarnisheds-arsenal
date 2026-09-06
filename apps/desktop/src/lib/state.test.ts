@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { defaultRequest, useDesktopStore } from "./state";
 import { buildOptimizeRequest, normalizeOptimizeRequest } from "./session";
@@ -125,6 +125,35 @@ describe("desktop result lifecycle", () => {
     });
   });
 
+  it("restores pinned rows only for the same profile, schema, dataset and model", () => {
+    const values = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    });
+    try {
+      const profile = catalog("vanilla");
+      useDesktopStore.setState({ compareBench: [] });
+      useDesktopStore.getState().setCatalog(profile);
+      useDesktopStore.getState().toggleCompareBench(row);
+      useDesktopStore.getState().setCatalog(structuredClone(profile));
+      expect(useDesktopStore.getState().compareBench).toEqual([row]);
+      for (const change of [{ schemaVersion: 5 }, { datasetVersion: "next" }, { modelVersion: "next" }]) {
+        useDesktopStore.getState().setCatalog({ ...profile, dataManifest: { ...profile.dataManifest, ...change } });
+        expect(useDesktopStore.getState().compareBench).toEqual([]);
+      }
+      useDesktopStore.getState().setCatalog(catalog("convergence"));
+      expect(useDesktopStore.getState().compareBench).toEqual([]);
+      values.set("tarnisheds-arsenal.compareBench.v1.vanilla", JSON.stringify({
+        version: 1, datasetVersion: profile.dataManifest.datasetVersion, rows: [row],
+      }));
+      useDesktopStore.getState().setCatalog(profile);
+      expect(useDesktopStore.getState().compareBench).toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("keeps Paths and Affinity Watch horizons independent", () => {
     const state = useDesktopStore.getState();
     state.setPathHorizon(25);
@@ -143,12 +172,18 @@ describe("desktop result lifecycle", () => {
     state.setRows([row]);
     state.setCompareTarget(row);
     state.setWorkspace("compare");
+    useDesktopStore.setState({ lockedStatMode: true, request: {
+      ...useDesktopStore.getState().request,
+      lockStr: 96, lockDex: 15, lockInt: 9, lockFai: 8, lockArc: 8,
+    } });
     const before = useDesktopStore.getState();
 
     before.beginProfileSwitch("convergence");
     const switched = useDesktopStore.getState();
 
     expect(switched.request.profileId).toBe("convergence");
+    expect(switched.lockedStatMode).toBe(false);
+    expect(switched.request).toMatchObject({ lockStr: null, lockDex: null, lockInt: null, lockFai: null, lockArc: null });
     expect(switched.request.standardMaxUpgrade).toBe(15);
     expect(switched.request.somberMaxUpgrade).toBe(15);
     expect(switched.request.dlcScaling).toBe(false);

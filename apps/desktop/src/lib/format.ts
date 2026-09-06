@@ -29,6 +29,18 @@ export function objectiveLabel(objective: ObjectiveId): string {
   }
 }
 
+export function objectiveUnit(objective: ObjectiveId): string {
+  switch (objective) {
+    case "max_ar_plus_bleed":
+      return "bleed build-up";
+    case "aow_first_hit":
+    case "aow_full_sequence":
+      return "damage";
+    default:
+      return "AR";
+  }
+}
+
 export function metricForObjective(row: SolvedBuildDto, objective: ObjectiveId): number {
   switch (objective) {
     case "max_physical_ar":

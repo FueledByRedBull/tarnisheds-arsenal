@@ -161,7 +161,13 @@ impl Weapon {
     }
 
     pub fn family_filter_id(&self) -> String {
-        format!("weapon:{}", self.weapon_id - self.weapon_id % 1_000)
+        // Standard rows can be distinct forms inside one affinity-sized block.
+        let id = if self.affinity.eq_ignore_ascii_case("Standard") {
+            self.weapon_id
+        } else {
+            self.weapon_id - self.weapon_id % 10_000
+        };
+        format!("weapon:{id}")
     }
 
     pub fn type_filter_id(&self) -> String {

@@ -54,13 +54,24 @@ The five supported objectives are:
 
 ## Interface
 
-Select any podium card or ranking row to make it the active build.<br>
+Select a ranking row to make it the active build.<br>
 Build Detail shows combat stats, AR split, route damage, status, stamina, and warnings.<br>
 Compare, Paths, and Affinity Watch reuse that active session.<br>
 The active-query strip keeps objective, level, reinforcement, handedness, profile, and constraints visible.<br>
 CSV export offers 25, 100, 500, and 2,000-row limits with model and profile provenance.
 
 ![Rankings workspace showing Tarnished’s Arsenal build comparisons, active constraints, and result details](docs/images/tarnisheds-arsenal-rankings.png)
+
+<details>
+<summary>Compare, Paths, and Affinity Watch screenshots</summary>
+
+![Compare workspace showing metric differences against the selected build](docs/images/tarnisheds-arsenal-compare.png)
+
+![Paths workspace showing two weapons across future levels and a shared level table](docs/images/tarnisheds-arsenal-paths.png)
+
+![Affinity Watch showing scaling curves and affinity rankings](docs/images/tarnisheds-arsenal-affinity-watch.png)
+
+</details>
 
 ## Model Details
 

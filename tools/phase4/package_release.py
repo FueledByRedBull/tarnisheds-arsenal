@@ -415,29 +415,34 @@ def write_tauri_signing_config(
         f"""$ErrorActionPreference = \"Stop\"
 $binary = $args[0]
 $expectedName = {json.dumps(executable_name)}
-if ([IO.Path]::GetFileName($binary) -ne $expectedName) {{
-  throw \"unexpected Tauri signing target: $binary\"
+$isPayload = [IO.Path]::GetFileName($binary) -eq $expectedName
+if (-not $isPayload -and [IO.Path]::GetExtension($binary) -notin @(".dll", ".msi")) {{
+  throw "unexpected Tauri signing target: $binary"
 }}
-$bytes = [IO.File]::ReadAllBytes($binary)
-$text = [Text.Encoding]::ASCII.GetString($bytes)
-$msiMarker = \"{BUNDLE_TYPE_MSI.decode('ascii')}\"
-$unknownMarker = \"{BUNDLE_TYPE_UNKNOWN.decode('ascii')}\"
-$firstMsi = $text.IndexOf($msiMarker, [StringComparison]::Ordinal)
-if ($firstMsi -lt 0 -or $text.IndexOf($msiMarker, $firstMsi + $msiMarker.Length, [StringComparison]::Ordinal) -ge 0 -or $text.Contains($unknownMarker, [StringComparison]::Ordinal)) {{
-  throw \"Tauri signing target does not contain exactly one MSI bundle marker\"
-}}
-$actualHash = (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant()
-if ($actualHash -ne $env:TAURI_RELEASE_EXPECTED_MSI_PAYLOAD_SHA256.ToLowerInvariant()) {{
-  throw \"Tauri changed bytes other than the documented MSI bundle marker\"
-}}
-if (Test-Path -LiteralPath $env:TAURI_RELEASE_SIGNED_MSI_PAYLOAD) {{
-  throw \"Tauri signing hook was invoked more than once for the MSI payload\"
+if ($isPayload) {{
+  $bytes = [IO.File]::ReadAllBytes($binary)
+  $text = [Text.Encoding]::ASCII.GetString($bytes)
+  $msiMarker = \"{BUNDLE_TYPE_MSI.decode('ascii')}\"
+  $unknownMarker = \"{BUNDLE_TYPE_UNKNOWN.decode('ascii')}\"
+  $firstMsi = $text.IndexOf($msiMarker, [StringComparison]::Ordinal)
+  if ($firstMsi -lt 0 -or $text.IndexOf($msiMarker, $firstMsi + $msiMarker.Length, [StringComparison]::Ordinal) -ge 0 -or $text.Contains($unknownMarker, [StringComparison]::Ordinal)) {{
+    throw \"Tauri signing target does not contain exactly one MSI bundle marker\"
+  }}
+  $actualHash = (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($actualHash -ne $env:TAURI_RELEASE_EXPECTED_MSI_PAYLOAD_SHA256.ToLowerInvariant()) {{
+    throw \"Tauri changed bytes other than the documented MSI bundle marker\"
+  }}
+  if (Test-Path -LiteralPath $env:TAURI_RELEASE_SIGNED_MSI_PAYLOAD) {{
+    throw \"Tauri signing hook was invoked more than once for the MSI payload\"
+  }}
 }}
 & $env:TAURI_RELEASE_SIGNTOOL sign /fd SHA256 /td SHA256 /tr $env:TAURI_RELEASE_TIMESTAMP_URL /f $env:TAURI_RELEASE_CERTIFICATE /p $env:TAURI_RELEASE_CERTIFICATE_PASSWORD $binary
 if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}
 & $env:TAURI_RELEASE_SIGNTOOL verify /pa /v $binary
 if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}
-Copy-Item -LiteralPath $binary -Destination $env:TAURI_RELEASE_SIGNED_MSI_PAYLOAD -Force
+if ($isPayload) {{
+  Copy-Item -LiteralPath $binary -Destination $env:TAURI_RELEASE_SIGNED_MSI_PAYLOAD
+}}
 """,
         encoding="utf-8",
     )
@@ -529,12 +534,16 @@ def sign_release_binaries_if_configured(
         verify_windows_binary(signtool, snapshot)
         msi = newest("target/release/bundle/msi/*.msi", tauri_dir)
         sign_windows_binary(signtool, certificate, password, timestamp_url, exe)
-        sign_windows_binary(signtool, certificate, password, timestamp_url, msi)
+        verify_windows_binary(signtool, msi)
     return exe, msi, True, expected_payload
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build the Windows release package.")
+    parser.add_argument(
+        "--preview", action="store_true",
+        help="Validate this source and label inspection artifacts with its commit SHA.",
+    )
     parser.add_argument(
         "--skip-validation",
         action="store_true",
@@ -546,6 +555,8 @@ def main() -> int:
         help="Deliberately refresh only the known files in an existing version output.",
     )
     args = parser.parse_args()
+    if args.preview and args.skip_validation:
+        parser.error("--preview requires source validation; do not use --skip-validation")
 
     root = Path(__file__).resolve().parents[2]
     app_dir = root / "apps" / "desktop"
@@ -556,9 +567,10 @@ def main() -> int:
     completed_gates: list[str] = []
     validation_report = root / "build_release" / "data-validation.json"
     validation_completed = False
-    release_dir = root / "dist" / f"TarnishedsArsenal_{version}"
-    zip_path = root / "dist" / f"TarnishedsArsenal_{version}.zip"
     source_commit = require_clean_source(root)
+    artifact_version = f"{version}-preview-{source_commit}" if args.preview else version
+    release_dir = root / "dist" / f"TarnishedsArsenal_{artifact_version}"
+    zip_path = root / "dist" / f"TarnishedsArsenal_{artifact_version}.zip"
 
     if release_dir.exists():
         if not args.replace_output:
@@ -574,8 +586,8 @@ def main() -> int:
             "SHA256SUMS.txt",
             "build-report.json",
             "data-validation.json",
-            f"TarnishedsArsenal_{version}_portable.exe",
-            f"TarnishedsArsenal_{version}_x64_en-US.msi",
+            f"TarnishedsArsenal_{artifact_version}_portable.exe",
+            f"TarnishedsArsenal_{artifact_version}_x64_en-US.msi",
         }
         unexpected_names = {path.name for path in release_dir.iterdir()} - expected_names
         if unexpected_names:
@@ -756,8 +768,8 @@ def main() -> int:
 
     exe = packaged_exe
     msi = packaged_msi
-    exe_out = release_dir / f"TarnishedsArsenal_{version}_portable.exe"
-    msi_out = release_dir / f"TarnishedsArsenal_{version}_x64_en-US.msi"
+    exe_out = release_dir / f"TarnishedsArsenal_{artifact_version}_portable.exe"
+    msi_out = release_dir / f"TarnishedsArsenal_{artifact_version}_x64_en-US.msi"
     shutil.copy2(exe, exe_out)
     shutil.copy2(msi, msi_out)
     if (root / "LICENSE").exists():
@@ -767,7 +779,7 @@ def main() -> int:
         release_dir / "README.md",
         "\n".join(
             [
-                f"# {product_name} {version}",
+                f"# {product_name} {artifact_version}",
                 "",
                 "Windows desktop release built with Tauri.",
                 "",

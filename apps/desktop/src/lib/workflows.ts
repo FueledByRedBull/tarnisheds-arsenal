@@ -2,56 +2,81 @@ import { api } from "./api";
 import { buildOptimizeRequest, stableSignature } from "./session";
 import { progressSignature, startAdaptivePolling } from "./polling";
 import { useDesktopStore } from "./state";
-import { OptimizeRequestDto, SolvedBuildDto } from "./types";
+import { OptimizeRequestDto, SearchProgressDto, SolvedBuildDto } from "./types";
+
+let searchQueue: Promise<unknown> = Promise.resolve();
 
 export async function runSearchFromStore(
   requestOverride?: OptimizeRequestDto,
   cancellationRequested: () => boolean = () => false,
 ): Promise<boolean> {
   const state = useDesktopStore.getState();
+  if (state.isExporting) return false;
   const request = requestOverride ?? buildOptimizeRequest(state.catalog, state.request, state.lockedStatMode);
   const signature = stableSignature(request);
   const generation = state.beginSearch(signature);
+  const controller = new AbortController();
+  const isCurrent = () => {
+    const current = useDesktopStore.getState();
+    return current.searchGeneration === generation && current.activeSearchSignature === signature;
+  };
+  const unsubscribe = useDesktopStore.subscribe(() => {
+    if (!isCurrent()) controller.abort();
+  });
   state.setError(null);
   try {
-    const { jobId } = await api.startSearch(request);
-    const current = useDesktopStore.getState();
-    if (
-      current.searchGeneration !== generation ||
-      current.activeSearchSignature !== signature
-    ) {
-      await api.cancelSearch(jobId);
-      return false;
-    }
-    current.setActiveJobId(jobId);
-    if (cancellationRequested()) await api.cancelSearch(jobId);
+    const rows = await runSearchRequestForRows(request, controller.signal, (progress) => {
+      if (isCurrent()) useDesktopStore.getState().setProgress(progress);
+    }, (jobId) => {
+      if (isCurrent()) useDesktopStore.getState().setActiveJobId(jobId);
+      if (cancellationRequested()) controller.abort();
+    });
+    if (!isCurrent()) return false;
+    useDesktopStore.getState().setRows(rows);
     return true;
   } catch (error) {
-    const current = useDesktopStore.getState();
-    if (
-      current.searchGeneration === generation &&
-      current.activeSearchSignature === signature
-    ) {
-      current.setError(error instanceof Error ? error.message : String(error));
-      current.setSearching(false);
+    if (isCurrent()) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        useDesktopStore.getState().pushNotice({
+          scope: "rankings", tone: "warning", message: "Search stopped. Previous results were retained.",
+        });
+      } else {
+        useDesktopStore.getState().setError(error instanceof Error ? error.message : String(error));
+      }
     }
     return false;
+  } finally {
+    unsubscribe();
+    if (isCurrent()) {
+      const current = useDesktopStore.getState();
+      current.setSearching(false);
+      current.setActiveJobId(null);
+      current.setProgress(null);
+    }
   }
 }
 
-export async function runSearchRequestForRows(request: OptimizeRequestDto, signal?: AbortSignal): Promise<SolvedBuildDto[]> {
-  if (signal?.aborted) throw new Error("cancelled");
-  const { jobId } = await api.startSearch(request);
-  if (signal?.aborted) {
-    await api.cancelSearch(jobId);
-    throw new Error("cancelled");
-  }
-  return await pollSearchRows(jobId, signal);
+export function runSearchRequestForRows(
+  request: OptimizeRequestDto,
+  signal?: AbortSignal,
+  onProgress?: (progress: SearchProgressDto | null) => void,
+  onStarted?: (jobId: string) => void,
+): Promise<SolvedBuildDto[]> {
+  const search = searchQueue.then(async () => {
+    if (signal?.aborted) throw new DOMException("Search stopped.", "AbortError");
+    const { jobId } = await api.startSearch(request);
+    onStarted?.(jobId);
+    return await pollSearchRows(jobId, signal, onProgress);
+  });
+  // Cancellation only requests a stop; the next owner waits for terminal status.
+  searchQueue = search.then(() => undefined, () => undefined);
+  return search;
 }
 
-async function pollSearchRows(jobId: string, signal?: AbortSignal): Promise<SolvedBuildDto[]> {
+async function pollSearchRows(jobId: string, signal?: AbortSignal, onProgress?: (progress: SearchProgressDto | null) => void): Promise<SolvedBuildDto[]> {
   return await new Promise((resolve, reject) => {
     let settled = false;
+    let cancelling = false;
     let stopPolling = () => {};
     const finish = (callback: () => void) => {
       if (settled) return;
@@ -61,20 +86,23 @@ async function pollSearchRows(jobId: string, signal?: AbortSignal): Promise<Solv
       callback();
     };
     const abort = () => {
-      if (settled) return;
-      void api.cancelSearch(jobId);
-      finish(() => reject(new Error("cancelled")));
+      if (settled || cancelling) return;
+      cancelling = true;
+      void api.cancelSearch(jobId).catch((error) => finish(() => reject(error)));
     };
     signal?.addEventListener("abort", abort, { once: true });
     const polling = startAdaptivePolling({
       poll: () => api.searchStatus(jobId),
       progressKey: (status) => progressSignature(status.progress),
       onStatus: (status) => {
+        if (!cancelling) onProgress?.(status.progress);
         if (!status.finished) return false;
-        if (status.finished.error) {
+        if (cancelling) {
+          finish(() => reject(new DOMException("Search stopped.", "AbortError")));
+        } else if (status.finished.error) {
           finish(() => reject(new Error(status.finished!.error!)));
         } else if (status.finished.cancelled) {
-          finish(() => reject(new Error("Search stopped.")));
+          finish(() => reject(new DOMException("Search stopped.", "AbortError")));
         } else {
           finish(() => resolve(status.finished!.rows));
         }

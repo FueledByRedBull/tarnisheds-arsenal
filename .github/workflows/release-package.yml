@@ -34,6 +34,7 @@ jobs:
           }
 
       - name: Wait for successful CI on this commit
+        if: startsWith(github.ref, 'refs/tags/') || inputs.publish == true
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -77,11 +78,13 @@ jobs:
           throw "Timed out waiting for successful CI on $env:GITHUB_SHA"
 
   package:
+    env:
+      PUBLISH_RELEASE: ${{ startsWith(github.ref, 'refs/tags/') || inputs.publish == true }}
     needs: verify-ci
     runs-on: windows-latest
     timeout-minutes: 60
     permissions:
-      contents: write
+      contents: read
 
     steps:
       - name: Checkout
@@ -136,7 +139,7 @@ jobs:
           }
           "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           $localTag = git tag --list $tag
-          if ($localTag -eq $tag) {
+          if ($env:PUBLISH_RELEASE -eq "true" -and $localTag -eq $tag) {
             $existingCommit = git rev-list -n 1 "refs/tags/$tag^{commit}"
             if ($LASTEXITCODE -ne 0 -or -not $existingCommit) {
               throw "Unable to resolve local release tag $tag"
@@ -145,6 +148,8 @@ jobs:
               throw "Release tag $tag already points to $existingCommit; expected $env:GITHUB_SHA"
             }
           }
+          $artifactVersion = if ($env:PUBLISH_RELEASE -eq "true") { $version } else { "$version-preview-$env:GITHUB_SHA" }
+          "ARTIFACT_VERSION=$artifactVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           python tools/phase4/validate_release_metadata.py --tag $tag
 
       - name: Build Tauri release package
@@ -156,14 +161,18 @@ jobs:
           WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
           WINDOWS_SIGNING_TIMESTAMP_URL: ${{ vars.WINDOWS_SIGNING_TIMESTAMP_URL }}
         run: |
-          python tools/phase4/package_release.py --skip-validation
+          if ($env:PUBLISH_RELEASE -eq "true") {
+            python tools/phase4/package_release.py --skip-validation
+          } else {
+            python tools/phase4/package_release.py --preview
+          }
 
       - name: Prepare release assets
         run: |
           $ErrorActionPreference = "Stop"
-          $releaseDir = Get-Item "dist/TarnishedsArsenal_$env:RELEASE_VERSION"
+          $releaseDir = Get-Item "dist/TarnishedsArsenal_$env:ARTIFACT_VERSION"
           if (-not $releaseDir) { throw "No release directory found in dist" }
-          $zipPath = Join-Path "dist" "TarnishedsArsenal_$env:RELEASE_VERSION.zip"
+          $zipPath = Join-Path "dist" "TarnishedsArsenal_$env:ARTIFACT_VERSION.zip"
           $assetDir = "dist/release-assets"
           New-Item -ItemType Directory -Force $assetDir | Out-Null
 
@@ -181,11 +190,11 @@ jobs:
           if (-not (Test-Path $checksumsPath)) { throw "No checksum file found in $($releaseDir.FullName)" }
           if (-not (Test-Path $reportPath)) { throw "No build report found in $($releaseDir.FullName)" }
 
-          $exeUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION`_portable.exe"
-          $msiUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION`_x64_en-US.msi"
-          $zipUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION.zip"
-          $checksumsUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION`_SHA256SUMS.txt"
-          $reportUpload = Join-Path $assetDir "TarnishedsArsenal_$env:RELEASE_VERSION`_build-report.json"
+          $exeUpload = Join-Path $assetDir "TarnishedsArsenal_$env:ARTIFACT_VERSION`_portable.exe"
+          $msiUpload = Join-Path $assetDir "TarnishedsArsenal_$env:ARTIFACT_VERSION`_x64_en-US.msi"
+          $zipUpload = Join-Path $assetDir "TarnishedsArsenal_$env:ARTIFACT_VERSION.zip"
+          $checksumsUpload = Join-Path $assetDir "TarnishedsArsenal_$env:ARTIFACT_VERSION`_SHA256SUMS.txt"
+          $reportUpload = Join-Path $assetDir "TarnishedsArsenal_$env:ARTIFACT_VERSION`_build-report.json"
           Copy-Item -LiteralPath $exePath.FullName -Destination $exeUpload -Force
           Copy-Item -LiteralPath $msiPath.FullName -Destination $msiUpload -Force
           Copy-Item -LiteralPath $zipPath -Destination $zipUpload -Force
@@ -211,8 +220,9 @@ jobs:
           if ($report.sourceDirty -ne $false) {
             throw "Build report source is dirty"
           }
-          if ($report.validationSkipped -ne $true) {
-            throw "Build report must identify the release as packaged from the exact CI-validated commit"
+          $expectedSkip = $env:PUBLISH_RELEASE -eq "true"
+          if ($report.validationSkipped -ne $expectedSkip) {
+            throw "Build report source-validation mode does not match publication/preview mode"
           }
           if ($report.dataManifestIds.vanilla -notmatch '^vanilla-' -or $report.dataManifestIds.convergence -notmatch '^convergence-') {
             throw "Build report does not identify both Vanilla and Convergence snapshots"
@@ -232,6 +242,13 @@ jobs:
             "windows-msi-identity",
             "packaged-app-smoke"
           )
+          if (-not $expectedSkip) {
+            $requiredGates += @(
+              "release-metadata", "python-unit-tests", "ruff", "pyright", "rustfmt",
+              "clippy", "core-tests", "tauri-tests", "runtime-data-validation",
+              "playwright-browser", "frontend-tests", "frontend-e2e"
+            )
+          }
           foreach ($gate in $requiredGates) {
             if ($gate -notin $report.completedGates) {
               throw "Build report is missing validation gate: $gate"
@@ -277,8 +294,8 @@ jobs:
           try {
             $archiveNames = @($archive.Entries | ForEach-Object { $_.Name })
             foreach ($name in @(
-              "TarnishedsArsenal_$env:RELEASE_VERSION`_portable.exe",
-              "TarnishedsArsenal_$env:RELEASE_VERSION`_x64_en-US.msi",
+              "TarnishedsArsenal_$env:ARTIFACT_VERSION`_portable.exe",
+              "TarnishedsArsenal_$env:ARTIFACT_VERSION`_x64_en-US.msi",
               "SHA256SUMS.txt",
               "build-report.json",
               "README.md",
@@ -291,6 +308,7 @@ jobs:
           }
 
       - name: Prepare release notes
+        if: startsWith(github.ref, 'refs/tags/') || inputs.publish == true
         run: |
           $ErrorActionPreference = "Stop"
           $PSNativeCommandUseErrorActionPreference = $true
@@ -323,10 +341,45 @@ jobs:
       - name: Upload dist artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: release-dist
+          name: package-${{ env.ARTIFACT_VERSION }}
           if-no-files-found: error
           path: |
             dist/
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/') || inputs.publish == true
+    needs: package
+    runs-on: windows-latest
+    timeout-minutes: 20
+    concurrency:
+      group: publish-release
+      cancel-in-progress: false
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version-file: ".python-version"
+
+      - name: Download the verified package from this run
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $true
+          $version = (Get-Content apps/desktop/src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          "RELEASE_TAG=v$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          gh run download $env:GITHUB_RUN_ID --name "package-$version" --dir dist
 
       - name: Create release tag for manual publication
         if: github.event_name == 'workflow_dispatch' && inputs.publish == true
@@ -409,21 +462,5 @@ jobs:
             throw "Remote release tag $env:RELEASE_TAG points to $remoteCommit; expected $env:GITHUB_SHA"
           }
 
-      - name: Publish GitHub release
-        if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish == true)
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
-        with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          target_commitish: ${{ github.sha }}
-          name: Tarnished's Arsenal ${{ env.RELEASE_TAG }}
-          body_path: ${{ env.RELEASE_NOTES }}
-          generate_release_notes: false
-          overwrite_files: false
-          fail_on_unmatched_files: true
-          make_latest: true
-          files: |
-            ${{ env.RELEASE_EXE }}
-            ${{ env.RELEASE_MSI }}
-            ${{ env.RELEASE_ZIP }}
-            ${{ env.RELEASE_CHECKSUMS }}
-            ${{ env.RELEASE_REPORT }}
+      - name: Publish and verify GitHub release
+        run: python tools/phase4/publish_release.py --repo $env:GITHUB_REPOSITORY --tag $env:RELEASE_TAG --commit $env:GITHUB_SHA --assets dist/release-assets

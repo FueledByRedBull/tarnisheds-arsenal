@@ -87,6 +87,13 @@ pub fn solve_build(
     request: SolveBuildRequestDto,
     state: State<'_, AppState>,
 ) -> Result<Option<SolvedBuildDto>, AppError> {
+    solve_build_inner(request, &state)
+}
+
+fn solve_build_inner(
+    request: SolveBuildRequestDto,
+    state: &AppState,
+) -> Result<Option<SolvedBuildDto>, AppError> {
     let mut base = request.base;
     base.weapon_name = Some(request.weapon_name);
     base.affinity = request.affinity;
@@ -94,11 +101,6 @@ pub fn solve_build(
     base.weapon_type_key = None;
     base.somber_filter = "all".to_string();
     base.filters.entries.clear();
-    base.lock_str = None;
-    base.lock_dex = None;
-    base.lock_int = None;
-    base.lock_fai = None;
-    base.lock_arc = None;
     if !state
         .profile(&base.profile_id)?
         .data
@@ -115,7 +117,7 @@ pub fn solve_build(
         lock_request_to_stats(&mut base, stats);
     }
     base.top_k = 1;
-    run_search_inner(base, &state).map(|mut rows| rows.pop())
+    run_search_inner(base, state).map(|mut rows| rows.pop())
 }
 
 #[tauri::command]
@@ -414,6 +416,38 @@ fn weapon_reinforcement_info(
 #[cfg(test)]
 mod integration_tests {
     use super::*;
+
+    #[test]
+    fn solving_a_saved_loadout_preserves_requested_stat_locks() {
+        let state = crate::test_app_state();
+        let mut base = crate::test_optimize_request();
+        base.character_level = 47;
+        base.standard_max_upgrade = Some(25);
+        base.exact_upgrade = Some(true);
+        base.lock_str = Some(50);
+        base.lock_dex = Some(15);
+        base.lock_int = Some(9);
+        base.lock_fai = Some(8);
+        base.lock_arc = Some(8);
+        let expected = run_search_inner(base.clone(), &state)
+            .unwrap()
+            .pop()
+            .unwrap();
+        let solved = solve_build_inner(
+            SolveBuildRequestDto {
+                base,
+                weapon_name: "Uchigatana".to_string(),
+                affinity: Some("Keen".to_string()),
+                aow_name: None,
+            },
+            &state,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(solved.stats.str_stat, 50);
+        assert_eq!(solved.stats.dex, 15);
+        assert_eq!(solved.ar.total, expected.ar.total);
+    }
 
     fn upgrade_series_request(state: &AppState) -> UpgradeSeriesRequestDto {
         let mut base = crate::test_optimize_request();

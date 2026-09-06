@@ -103,3 +103,12 @@ release validation requires the exact tracked reference match.
 - Snapshot schema 4 requires `weapons.csv.can_change_aow` and `aow.csv.valid_affinities`, and removes the redundant compatibility matrix from the runtime file set. Old schema-3 snapshots must be regenerated; changing their version field alone is not a migration.
 - Compact diagnostic summaries are derived in memory from the same permission fields. Regression fingerprints preserve all 87,879 Vanilla and 147,201 Convergence legal pairs from the pre-compaction snapshots.
 - Generated CSV and manifest JSON files use canonical LF line endings so snapshots hash identically across supported hosts.
+
+## Extraction work directories
+
+Each invocation unpacks the supplied regulation and serializes its parameters with
+the supplied WitchyBND into a fresh child of `--workdir`. Existing XML is never
+reused: its presence does not establish source or tool provenance. `--keep-workdir`
+retains that child for inspection; otherwise only that invocation's child is removed
+after successful snapshot validation. Existing work files are left intact.
+Manifest provenance hashes the copied regulation used by that invocation.

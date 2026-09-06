@@ -2,7 +2,7 @@ import { Crosshair, Filter, Play, RotateCcw, SlidersHorizontal, Sparkles, Swords
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AowSelect } from "../../lib/AowSelect";
 import { api } from "../../lib/api";
-import { useRequestBudget, useSearchJob, useWeaponProfile } from "../../lib/hooks";
+import { useRequestBudget, useWeaponProfile } from "../../lib/hooks";
 import { fixed1, objectiveLabel } from "../../lib/format";
 import { CheckboxMultiSelect, SearchableSelect, openOption } from "../../lib/SearchableSelect";
 import {
@@ -13,11 +13,12 @@ import {
 } from "../../lib/scadutree";
 import { classMeta, classOptions, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, startingClassLevel } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
-import { EightStatsDto, FilterDimensionDto, OptimizeRequestDto, SearchFinishedDto, SearchProgressDto } from "../../lib/types";
+import { EightStatsDto, FilterDimensionDto, OptimizeRequestDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
 
 export function CommandRail() {
   const catalog = useDesktopStore((state) => state.catalog);
+  const activeWorkspace = useDesktopStore((state) => state.activeWorkspace);
   const request = useDesktopStore((state) => state.request);
   const patchRequest = useDesktopStore((state) => state.patchRequest);
   const applyClass = useDesktopStore((state) => state.applyClass);
@@ -26,15 +27,12 @@ export function CommandRail() {
   const setError = useDesktopStore((state) => state.setError);
   const setSearching = useDesktopStore((state) => state.setSearching);
   const isSearching = useDesktopStore((state) => state.isSearching);
-  const searchGeneration = useDesktopStore((state) => state.searchGeneration);
-  const activeJobId = useDesktopStore((state) => state.activeJobId);
-  const progress = useDesktopStore((state) => state.progress);
+  const isExporting = useDesktopStore((state) => state.isExporting);
   const setActiveJobId = useDesktopStore((state) => state.setActiveJobId);
   const setProgress = useDesktopStore((state) => state.setProgress);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
   const setLockedStatMode = useDesktopStore((state) => state.setLockedStatMode);
   const [searchStartedAt, setSearchStartedAt] = useState<number | null>(null);
-  const [elapsedMs, setElapsedMs] = useState(0);
   const [searchCancellationRequested, setSearchCancellationRequested] = useState(false);
   const searchCancellationRequestedRef = useRef(false);
   const meta = classMeta(catalog, request.className);
@@ -81,10 +79,11 @@ export function CommandRail() {
     || request.affinity
     || request.aowName
     || request.somberFilter !== "all"
-    || request.filters.entries.some((entry) => entry.dimension === "weapon_type" || entry.dimension === "affinity"),
+    || request.filters.entries.some((entry) => entry.dimension !== "coverage"),
   );
   const startingClasses = classOptions(catalog);
   const fixedStats = catalog?.dataManifest.capabilities.classBudget === false;
+  const [advancedOpen, setAdvancedOpen] = useState(fixedStats);
   const activeMinimums = [request.minStr, request.minDex, request.minInt, request.minFai, request.minArc]
     .filter((value) => value > 0).length;
   const exactLocksActive = lockedStatMode && request.lockStr !== null;
@@ -97,24 +96,17 @@ export function CommandRail() {
     ? `${request.exactUpgrade ? "Exact" : "Up to"} +${request.standardMaxUpgrade} / +${request.somberMaxUpgrade}`
     : `${request.exactUpgrade ? "Exact" : "Up to"} +${request.standardMaxUpgrade}`;
 
-  useSearchJob({
-    activeJobId,
-    isSearching,
-    generation: searchGeneration,
-    setProgress,
-    finish: finishSearch,
-  });
+  useEffect(() => {
+    setAdvancedOpen(fixedStats);
+  }, [fixedStats]);
 
   useEffect(() => {
-    if (!searchStartedAt || !isSearching) {
-      setElapsedMs(0);
-      return undefined;
+    if (!isSearching) {
+      setSearchStartedAt(null);
+      setSearchCancellationRequested(false);
+      searchCancellationRequestedRef.current = false;
     }
-    const tick = window.setInterval(() => {
-      setElapsedMs(Date.now() - searchStartedAt);
-    }, 200);
-    return () => window.clearInterval(tick);
-  }, [isSearching, searchStartedAt]);
+  }, [isSearching]);
 
   async function runSearch() {
     searchCancellationRequestedRef.current = false;
@@ -122,37 +114,9 @@ export function CommandRail() {
     setSearchStartedAt(Date.now());
     setError(null);
     setProgress(null);
-    const started = await runSearchFromStore(apiRequest, () => searchCancellationRequestedRef.current);
-    if (!started) {
-      setSearchStartedAt(null);
-      setSearchCancellationRequested(false);
-      searchCancellationRequestedRef.current = false;
-    }
+    await runSearchFromStore(apiRequest, () => searchCancellationRequestedRef.current);
   }
 
-  function finishSearch(payload: SearchFinishedDto, generation: number) {
-    const current = useDesktopStore.getState();
-    if (
-      generation !== current.searchGeneration ||
-      !current.activeSearchSignature ||
-      payload.jobId !== current.activeJobId
-    ) return;
-    if (payload.error) current.setError(payload.error);
-    if (payload.cancelled) {
-      current.pushNotice({
-        scope: "rankings",
-        tone: "warning",
-        message: "Search stopped. Previous results were retained.",
-      });
-    }
-    else current.setRows(payload.rows);
-    current.setSearching(false);
-    current.setActiveJobId(null);
-    current.setProgress(null);
-    setSearchStartedAt(null);
-    setSearchCancellationRequested(false);
-    searchCancellationRequestedRef.current = false;
-  }
 
   async function cancelSearch() {
     if (searchCancellationRequested) return;
@@ -198,7 +162,7 @@ export function CommandRail() {
       filters: {
         version: 1,
         entries: request.filters.entries.filter((entry) =>
-          entry.dimension !== "weapon_type" && entry.dimension !== "affinity"
+          entry.dimension === "coverage"
         ),
       },
     });
@@ -244,7 +208,12 @@ export function CommandRail() {
               <span>Lv Ups</span>
               <strong>{budget.levelUps}</strong>
             </div>}
-            <div className="budget-readout" title="Movable STR/DEX/INT/FAI/ARC points after class minimums, fixed VIG/MND/END, and advanced minimum floors">
+            <div
+              className="budget-readout"
+              title={fixedStats
+                ? "Convergence uses the entered combat stats exactly"
+                : "Movable STR/DEX/INT/FAI/ARC points after class minimums, fixed VIG/MND/END, and advanced minimum floors"}
+            >
               <span>{fixedStats ? "Mode" : "Redistrib"}</span>
               <strong>{fixedStats ? "Fixed stats" : budget.redistributable}</strong>
             </div>
@@ -292,7 +261,7 @@ export function CommandRail() {
             <div className="active-lock-warning" role="status">
               <strong>Exact locks active:</strong>
               <span>STR {request.lockStr} / DEX {request.lockDex} / INT {request.lockInt} / FAI {request.lockFai} / ARC {request.lockArc}</span>
-              <small>Changing class or loadout keeps these locks and may make the query incompatible. Clear locks in Fine tuning when you want automatic stats.</small>
+              <small>Changing class or loadout keeps these locks and may make the query incompatible. Clear locks in Advanced when you want automatic stats.</small>
             </div>
           ) : null}
           {weaponProfile ? (
@@ -305,6 +274,69 @@ export function CommandRail() {
               </strong>
             </div>
           ) : null}
+        </section>
+
+        <section className="rail-section">
+          <div className="section-title">
+            <Crosshair size={15} />
+            <span>Objective</span>
+          </div>
+          <div className="segmented" role="group" aria-label="Ranking objective">
+            {(catalog?.objectiveIds ?? []).map((objective) => (
+              <button
+                key={objective}
+                className={request.objective === objective ? "active" : ""}
+                type="button"
+                aria-pressed={request.objective === objective}
+                onClick={() => patchRequest({ objective })}
+              >
+                {objectiveLabel(objective)}
+              </button>
+            ))}
+          </div>
+          <label className="toggle-line" title="Apply the 1.5x effective STR rule when legal">
+            <input
+              type="checkbox"
+              checked={request.twoHanding}
+              onChange={(event) => patchRequest({ twoHanding: event.target.checked })}
+            />
+            Two-handing
+          </label>
+          {scadutreeAvailable ? (
+            <>
+              <label className="toggle-line" title="Apply Shadow of the Erdtree Scadutree Blessing attack scaling">
+                <input
+                  type="checkbox"
+                  checked={request.dlcScaling}
+                  onChange={(event) => patchRequest({ dlcScaling: event.target.checked })}
+                />
+                DLC Scaling
+              </label>
+              <label>
+                Scadutree Level
+                <DraftNumberInput
+                  min={0}
+                  max={SCADUTREE_MAX_LEVEL}
+                  value={request.scadutreeLevel}
+                  onDraftChange={markResultsStale}
+                  onCommit={(scadutreeLevel) => patchRequest({ scadutreeLevel })}
+                />
+              </label>
+              <div className="cap-readout" title="Outgoing damage multiplier and equivalent incoming damage reduction from the selected blessing level">
+                <span>{request.dlcScaling ? "Shadow Realm" : "DLC off"}</span>
+                <strong>
+                  x{scadutreeDamageMultiplier.toFixed(2)} dmg / x{scadutreeTakenMultiplier.toFixed(3)} taken
+                </strong>
+                <small>{(scadutreeNegation * 100).toFixed(1)}% negation</small>
+              </div>
+            </>
+          ) : (
+            <div className="profile-rule-note" role="note">
+              <span>Convergence rule</span>
+              <strong>Scadutree Blessing is removed</strong>
+              <small>Weapon AR is calculated without Shadow Realm blessing controls.</small>
+            </div>
+          )}
         </section>
 
         <section className="rail-section">
@@ -456,12 +488,13 @@ export function CommandRail() {
               onCommit={(topK) => patchRequest({ topK })}
             />
           </label>
-          <div className="segmented" aria-label="Result grouping">
+          <div className="segmented" role="group" aria-label="Result grouping">
             {(["automatic", "weapon", "loadout"] as const).map((grouping) => (
               <button
                 type="button"
                 key={grouping}
                 className={request.resultGrouping === grouping ? "active" : ""}
+                aria-pressed={request.resultGrouping === grouping}
                 onClick={() => patchRequest({ resultGrouping: grouping })}
               >
                 {grouping === "automatic" ? "Auto" : grouping === "weapon" ? "Per weapon" : "Per loadout"}
@@ -470,74 +503,20 @@ export function CommandRail() {
           </div>
         </section>
 
-        <section className="rail-section">
-          <div className="section-title">
-            <Crosshair size={15} />
-            <span>Objective</span>
-          </div>
-          <div className="segmented">
-            {(catalog?.objectiveIds ?? []).map((objective) => (
-              <button
-                key={objective}
-                className={request.objective === objective ? "active" : ""}
-                type="button"
-                onClick={() => patchRequest({ objective })}
-              >
-                {objectiveLabel(objective)}
-              </button>
-            ))}
-          </div>
-          <label className="toggle-line" title="Apply the 1.5x effective STR rule when legal">
-            <input
-              type="checkbox"
-              checked={request.twoHanding}
-              onChange={(event) => patchRequest({ twoHanding: event.target.checked })}
-            />
-            Two-handing
-          </label>
-          {scadutreeAvailable ? (
-            <>
-              <label className="toggle-line" title="Apply Shadow of the Erdtree Scadutree Blessing attack scaling">
-                <input
-                  type="checkbox"
-                  checked={request.dlcScaling}
-                  onChange={(event) => patchRequest({ dlcScaling: event.target.checked })}
-                />
-                DLC Scaling
-              </label>
-              <label>
-                Scadutree Level
-                <DraftNumberInput
-                  min={0}
-                  max={SCADUTREE_MAX_LEVEL}
-                  value={request.scadutreeLevel}
-                  onDraftChange={markResultsStale}
-                  onCommit={(scadutreeLevel) => patchRequest({ scadutreeLevel })}
-                />
-              </label>
-              <div className="cap-readout" title="Outgoing damage multiplier and equivalent incoming damage reduction from the selected blessing level">
-                <span>{request.dlcScaling ? "Shadow Realm" : "DLC off"}</span>
-                <strong>
-                  x{scadutreeDamageMultiplier.toFixed(2)} dmg / x{scadutreeTakenMultiplier.toFixed(3)} taken
-                </strong>
-                <small>{(scadutreeNegation * 100).toFixed(1)}% negation</small>
-              </div>
-            </>
-          ) : (
-            <div className="profile-rule-note" role="note">
-              <span>Convergence rule</span>
-              <strong>Scadutree Blessing is removed</strong>
-              <small>Weapon AR is calculated without Shadow Realm blessing controls.</small>
-            </div>
-          )}
-        </section>
-
-        <section className="rail-section advanced-section">
-          <div className="section-title">
+        <details
+          className="rail-section advanced-section"
+          open={advancedOpen}
+          onToggle={(event) => setAdvancedOpen(event.currentTarget.open)}
+        >
+          <summary className="section-title">
             <SlidersHorizontal size={15} />
-            <span>Fine tuning</span>
-          </div>
-          <p className="section-intro">Optional minimums and exact result locks. Leave these open for automatic optimization.</p>
+            <span>Advanced</span>
+          </summary>
+          <p className="section-intro">
+            {fixedStats
+              ? "Convergence uses the entered combat stats exactly. Minimum floors do not redistribute stats."
+              : "Optional minimums and exact result locks. Leave these open for automatic optimization."}
+          </p>
           <div className="advanced-body">
               {separateUpgradeCaps ? (
                 <SearchableSelect
@@ -596,41 +575,39 @@ export function CommandRail() {
                 Clear Locks
               </button>
           </div>
-        </section>
+        </details>
       </fieldset>
 
-      <div className="rail-actions">
-        <button
-          className={`search-button ${isSearching ? "busy" : ""}`}
-          type="button"
-          onClick={isSearching ? cancelSearch : runSearch}
-          disabled={searchCancellationRequested || (!isSearching && !catalog)}
-        >
-          {isSearching ? <RotateCcw size={17} /> : <Play size={17} />}
-          {isSearching
-            ? (searchCancellationRequested ? "Cancelling..." : "Cancel Search")
-            : resultsStale
-              ? "Update Results"
-              : "Search"}
-        </button>
+      {(activeWorkspace === "rankings" || isSearching) ? (
+        <div className="rail-actions">
+          <button
+            className={`search-button ${isSearching ? "busy" : ""}`}
+            type="button"
+            onClick={isSearching ? cancelSearch : runSearch}
+            disabled={isExporting || searchCancellationRequested || (!isSearching && !catalog)}
+          >
+            {isSearching ? <RotateCcw size={17} /> : <Play size={17} />}
+            {isSearching
+              ? (searchCancellationRequested ? "Cancelling..." : "Cancel Search")
+              : resultsStale
+                ? "Update Results"
+                : "Search"}
+          </button>
 
-        {isSearching ? (
-          <SearchProgressPanel
-            progress={progress}
-            elapsedMs={progress?.elapsedMs ?? elapsedMs}
-            objective={objectiveLabel(request.objective)}
-          />
-        ) : catalog ? (
-          <div className="estimate-strip quick-estimate">
-            <span>Search scope</span>
-            <strong>{request.weaponName || (selectedTypeIds.length ? `${selectedTypeIds.length} type${selectedTypeIds.length === 1 ? "" : "s"}` : "Open")}</strong>
-            <span>{budget.redistributable} free points</span>
-            <small>
-              Exact combinations are prepared only after Search, keeping stat editing responsive.
-            </small>
-          </div>
-        ) : null}
-      </div>
+          {isSearching ? (
+            <SearchProgressPanel
+              searchStartedAt={searchStartedAt}
+              objective={objectiveLabel(request.objective)}
+            />
+          ) : catalog ? (
+            <div className="estimate-strip quick-estimate" aria-label="Search scope">
+              <span>Scope</span>
+              <strong>{request.weaponName || (selectedTypeIds.length ? `${selectedTypeIds.length} type${selectedTypeIds.length === 1 ? "" : "s"}` : "Open")}</strong>
+              <span>{fixedStats ? "Entered stats fixed" : `${budget.redistributable} free points`}</span>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </aside>
   );
 }
@@ -663,14 +640,21 @@ function replaceDimensionFilters(
 }
 
 function SearchProgressPanel({
-  progress,
-  elapsedMs,
+  searchStartedAt,
   objective,
 }: {
-  progress: SearchProgressDto | null;
-  elapsedMs: number;
+  searchStartedAt: number | null;
   objective: string;
 }) {
+  const progress = useDesktopStore((state) => state.progress);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const hasProgress = progress !== null;
+  useEffect(() => {
+    if (hasProgress) return;
+    const startedAt = searchStartedAt ?? Date.now();
+    const tick = window.setInterval(() => setElapsedMs(Date.now() - startedAt), 200);
+    return () => window.clearInterval(tick);
+  }, [hasProgress, searchStartedAt]);
   const pct = progress ? Math.min(100, (progress.checked / Math.max(progress.total, 1)) * 100) : null;
   return (
     <div className="estimate-strip progress-strip">
@@ -684,7 +668,7 @@ function SearchProgressPanel({
       <div className={`search-progress-bar ${pct === null ? "indeterminate" : ""}`}>
         <i style={pct === null ? undefined : { width: `${pct}%` }} />
       </div>
-      <small>{objective} · {formatDuration(elapsedMs)}</small>
+      <small>{objective} · {formatDuration(progress?.elapsedMs ?? elapsedMs)}</small>
     </div>
   );
 }

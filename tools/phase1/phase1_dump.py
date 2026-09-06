@@ -170,22 +170,13 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def ps_quote(value: str) -> str:
-    return "'" + value.replace("'", "''") + "'"
-
-
 def run_witchybnd(witchybnd_path: Path, target_path: Path) -> None:
-    script = (
-        "$ErrorActionPreference='Stop'; "
-        f"$p = Start-Process -FilePath {ps_quote(str(witchybnd_path))} "
-        f"-ArgumentList '-s',{ps_quote(str(target_path))} -PassThru -Wait; "
-        "exit $p.ExitCode"
-    )
     result = subprocess.run(
-        ["powershell", "-NoProfile", "-Command", script],
+        [str(witchybnd_path), "-s", str(target_path)],
         capture_output=True,
         text=True,
         check=False,
+        creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
     )
     if result.returncode != 0:
         stderr = result.stderr.strip() if result.stderr else "(no stderr)"
@@ -193,9 +184,8 @@ def run_witchybnd(witchybnd_path: Path, target_path: Path) -> None:
 
 
 def unpack_regulation(regulation_path: Path, witchybnd_path: Path, workdir: Path) -> Path:
-    if workdir.exists():
-        shutil.rmtree(workdir)
     workdir.mkdir(parents=True, exist_ok=True)
+    workdir = Path(tempfile.mkdtemp(prefix="regulation-", dir=workdir))
 
     regulation_copy = workdir / "regulation.bin"
     shutil.copy2(regulation_path, regulation_copy)
@@ -208,22 +198,6 @@ def unpack_regulation(regulation_path: Path, witchybnd_path: Path, workdir: Path
     if unpacked is None:
         raise RuntimeError("Could not find unpacked regulation folder.")
     return unpacked
-
-
-def serialized_xml_paths_from_workdir(workdir: Path) -> dict[str, Path] | None:
-    unpacked_dir = workdir / "regulation-bin"
-    required = (
-        WEAPON_PARAM,
-        REINFORCE_PARAM,
-        CALC_CORRECT_PARAM,
-        ATTACK_ELEMENT_PARAM,
-        AOW_PARAM,
-        SPEFFECT_PARAM,
-    )
-    xml_paths = {param_name: unpacked_dir / f"{param_name}.xml" for param_name in required}
-    if all(path.exists() for path in xml_paths.values()):
-        return xml_paths
-    return None
 
 
 def serialize_param(unpacked_dir: Path, witchybnd_path: Path, param_name: str) -> Path:
@@ -987,17 +961,12 @@ def load_regulation_context(
     weapon_name_xmls: Sequence[Path] = (),
     arts_name_xmls: Sequence[Path] = (),
 ) -> RegulationContext:
-    xml_paths = serialized_xml_paths_from_workdir(workdir)
-    if xml_paths is None:
-        unpacked_dir = unpack_regulation(regulation_path, witchybnd_path, workdir)
-        xml_paths = {
-            WEAPON_PARAM: serialize_param(unpacked_dir, witchybnd_path, WEAPON_PARAM),
-            REINFORCE_PARAM: serialize_param(unpacked_dir, witchybnd_path, REINFORCE_PARAM),
-            CALC_CORRECT_PARAM: serialize_param(unpacked_dir, witchybnd_path, CALC_CORRECT_PARAM),
-            ATTACK_ELEMENT_PARAM: serialize_param(unpacked_dir, witchybnd_path, ATTACK_ELEMENT_PARAM),
-            AOW_PARAM: serialize_param(unpacked_dir, witchybnd_path, AOW_PARAM),
-            SPEFFECT_PARAM: serialize_param(unpacked_dir, witchybnd_path, SPEFFECT_PARAM),
-        }
+    unpacked_dir = unpack_regulation(regulation_path, witchybnd_path, workdir)
+    xml_paths = {
+        param: serialize_param(unpacked_dir, witchybnd_path, param)
+        for param in (WEAPON_PARAM, REINFORCE_PARAM, CALC_CORRECT_PARAM,
+                      ATTACK_ELEMENT_PARAM, AOW_PARAM, SPEFFECT_PARAM)
+    }
     weapon_rows = list(iter_param_rows(xml_paths[WEAPON_PARAM], default_fields=("gemMountType",)))
     reinforce_rows = list(iter_param_rows(xml_paths[REINFORCE_PARAM]))
     curve_rows = list(iter_param_rows(xml_paths[CALC_CORRECT_PARAM]))
@@ -1018,7 +987,7 @@ def load_regulation_context(
     gem_mount_fields = discover_gem_mount_fields(xml_paths[AOW_PARAM])
     weapon_type_keys_by_id = build_weapon_type_key_map(wep_type_name_map, gem_mount_fields)
     return RegulationContext(
-        workdir=workdir,
+        workdir=unpacked_dir.parent,
         xml_paths=xml_paths,
         weapon_rows=weapon_rows,
         reinforce_rows=reinforce_rows,
@@ -1331,7 +1300,7 @@ def main() -> int:
         source_paths["weaponAvailability"] = profile.weapon_reference_path
     write_snapshot_manifest(
         output_dir,
-        regulation_path,
+        context.workdir / "regulation.bin",
         profile=profile,
         source_paths=source_paths,
     )
@@ -1349,7 +1318,7 @@ def main() -> int:
     staging_owner.cleanup()
 
     if not args.keep_workdir:
-        shutil.rmtree(workdir, ignore_errors=True)
+        shutil.rmtree(context.workdir)
 
     print(f"Wrote CSVs to {destination_dir}")
     print(f"  weapons.csv rows: {len(weapon_csv_rows)}")

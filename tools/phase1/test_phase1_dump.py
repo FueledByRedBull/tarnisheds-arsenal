@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import tempfile
+import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
+
+from tools.phase1 import phase1_dump
 
 from tools.phase1.phase1_dump import (
     MAX_EFFECTIVE_STRENGTH,
@@ -15,6 +19,57 @@ from tools.phase1.phase1_dump import (
 
 
 class Phase1DumpTests(unittest.TestCase):
+    def test_witchybnd_arguments_and_child_errors(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "path with spaces & an apostrophe's.py"
+            marker = target.with_suffix(".ok")
+            target.write_text(
+                "from pathlib import Path\nPath(__file__).with_suffix('.ok').write_text('ok')\n",
+                encoding="utf-8",
+            )
+            phase1_dump.run_witchybnd(Path(sys.executable), target)
+            self.assertEqual(marker.read_text(), "ok")
+            target.write_text("import sys\nsys.exit('child diagnostic')\n", encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "child diagnostic"):
+                phase1_dump.run_witchybnd(Path(sys.executable), target)
+
+    def test_extraction_never_reuses_xml_from_another_source_or_tool(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workdir = root / "work"
+            stale = workdir / "regulation-bin"
+            stale.mkdir(parents=True)
+            params = (phase1_dump.WEAPON_PARAM, phase1_dump.REINFORCE_PARAM,
+                      phase1_dump.CALC_CORRECT_PARAM, phase1_dump.ATTACK_ELEMENT_PARAM,
+                      phase1_dump.AOW_PARAM, phase1_dump.SPEFFECT_PARAM)
+            for param in params:
+                (stale / f"{param}.xml").write_text("stale", encoding="utf-8")
+            source = root / "source.bin"
+            tool = root / "WitchyBND.exe"
+
+            def witchy(_tool: Path, target: Path) -> None:
+                if target.name == "regulation.bin":
+                    unpacked = target.parent / "regulation-bin"
+                    unpacked.mkdir()
+                    for param in params:
+                        (unpacked / param).write_bytes(target.read_bytes())
+                else:
+                    Path(f"{target}.xml").write_text(
+                        f'<param><row id="{target.read_text()}" /></param>', encoding="utf-8",
+                    )
+
+            with (patch.object(phase1_dump, "run_witchybnd", side_effect=witchy),
+                  patch.object(phase1_dump, "load_weapon_name_map", return_value={}),
+                  patch.object(phase1_dump, "load_param_name_map", return_value={}),
+                  patch.object(phase1_dump, "load_wep_type_name_map", return_value={})):
+                contexts = []
+                for content in ("1", "2", "2"):
+                    source.write_text(content, encoding="utf-8")
+                    contexts.append(phase1_dump.load_regulation_context(source, tool, workdir))
+                    self.assertEqual(contexts[-1].weapon_rows[0]["id"], content)
+                self.assertEqual(len({context.workdir for context in contexts}), 3)
+                self.assertEqual((stale / f"{params[0]}.xml").read_text(), "stale")
+
     def test_gem_defaults_are_profile_specific_and_overrides_win(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "gem.xml"
