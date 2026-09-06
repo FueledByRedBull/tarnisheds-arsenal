@@ -176,6 +176,7 @@ export function App() {
                 key={id}
                 className={`${activeWorkspace === id ? "active" : ""} ${requiresSelection ? "locked" : ""}`}
                 type="button"
+                aria-label={label}
                 aria-current={activeWorkspace === id ? "page" : undefined}
                 onClick={() => setWorkspace(id)}
                 title={unsupportedBudget ? "Requires verified profile class budgets" : requiresSelection ? `${label} requires a selected ranked build` : label}
