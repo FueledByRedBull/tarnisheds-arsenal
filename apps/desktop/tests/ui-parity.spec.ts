@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test("profile switch isolates results and explains Convergence coverage", async ({ page }) => {
+  await page.setViewportSize({ width: 1028, height: 749 });
   await page.goto("/");
   const profiles = page.getByRole("radiogroup", { name: "Game profile" });
   await expect(profiles.getByRole("radio", { name: /Vanilla/ })).toHaveAttribute("aria-checked", "true");
@@ -20,6 +21,9 @@ test("profile switch isolates results and explains Convergence coverage", async 
   await expect(page.getByRole("button", { name: "Optimize class" })).toBeDisabled();
   await expect(page.getByRole("textbox", { name: "Stat total", exact: true })).toBeVisible();
   await expect(page.getByRole("checkbox", { name: "Use entered combat stats exactly" })).toBeChecked();
+  for (const name of ["Compare", "Paths", "Affinity Watch"]) {
+    await expect(page.getByRole("navigation").getByRole("button", { name, exact: true })).toBeDisabled();
+  }
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("1 ranked rows")).toBeVisible();
   const rawSkill = page.locator(".result-row-full").first().getByRole("gridcell").nth(5);
