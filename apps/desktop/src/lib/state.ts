@@ -182,15 +182,21 @@ function isStoredBuild(row: unknown): row is SolvedBuildDto {
     && Number.isFinite(build.ar.total);
 }
 
-function writeCompareBench(catalog: CatalogDto | null, rows: SolvedBuildDto[]) {
-  if (!catalog || typeof localStorage === "undefined") return;
-  localStorage.setItem(compareBenchKey(catalog.dataManifest.profile.id), JSON.stringify({
-    version: 1,
-    datasetVersion: catalog.dataManifest.datasetVersion,
-    schemaVersion: catalog.dataManifest.schemaVersion,
-    modelVersion: catalog.dataManifest.modelVersion,
-    rows,
-  }));
+function writeCompareBench(catalog: CatalogDto | null, rows: SolvedBuildDto[]): Notice[] {
+  if (!catalog) return [];
+  try {
+    if (typeof localStorage === "undefined") return [];
+    localStorage.setItem(compareBenchKey(catalog.dataManifest.profile.id), JSON.stringify({
+      version: 1,
+      datasetVersion: catalog.dataManifest.datasetVersion,
+      schemaVersion: catalog.dataManifest.schemaVersion,
+      modelVersion: catalog.dataManifest.modelVersion,
+      rows,
+    }));
+    return [];
+  } catch {
+    return [{ scope: "global", tone: "warning", message: "Comparison changes could not be saved to device storage and may be lost after restarting. Your saved builds are unchanged." }];
+  }
 }
 
 type DesktopSlice<T> = StateCreator<DesktopState, [], [], T>;
@@ -554,7 +560,7 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
           }],
         };
       }
-      writeCompareBench(state.catalog, preset.compareBench);
+      const persistenceNotices = writeCompareBench(state.catalog, preset.compareBench);
       return {
         ...invalidateAllJobs(state),
         request: applyProfileRules(
@@ -575,7 +581,7 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
         pathSignature: null,
         affinityPayload: null,
         affinitySignature: null,
-        notices: [{ scope: "global", tone: "success", message: `Loaded ${preset.name}.` }],
+        notices: [{ scope: "global", tone: "success", message: `Loaded ${preset.name}.` }, ...persistenceNotices],
       };
     }),
 });
@@ -670,11 +676,12 @@ const createCompareSlice: DesktopSlice<CompareSlice> = (set) => ({
       const compareBench = exists
         ? state.compareBench.filter((entry) => rowFingerprint(entry) !== fingerprint)
         : [...state.compareBench, row].slice(-8);
-      writeCompareBench(state.catalog, compareBench);
-      if (exists) return { compareBench };
+      const notices = [...state.notices, ...writeCompareBench(state.catalog, compareBench)];
+      if (exists) return { compareBench, notices };
       return {
         ...invalidatePathJob(state),
         compareBench,
+        notices,
         compareTarget: null,
         compareControls: { ...defaultCompareControls },
         paths: [],
@@ -683,9 +690,10 @@ const createCompareSlice: DesktopSlice<CompareSlice> = (set) => ({
     }),
   clearCompareBench: () =>
     set((state) => {
-      writeCompareBench(state.catalog, []);
+      const notices = [...state.notices, ...writeCompareBench(state.catalog, [])];
       return {
         ...invalidatePathJob(state),
+        notices,
         compareBench: [],
         compareTarget: null,
         paths: [],
@@ -704,9 +712,12 @@ const createCompareSlice: DesktopSlice<CompareSlice> = (set) => ({
       const compareBench = customTarget && state.compareBench.length
         ? []
         : state.compareBench;
-      if (compareBench !== state.compareBench) writeCompareBench(state.catalog, compareBench);
+      const notices = compareBench !== state.compareBench
+        ? [...state.notices, ...writeCompareBench(state.catalog, compareBench)]
+        : state.notices;
       return {
         ...invalidatePathJob(state),
+        notices,
         compareControls,
         compareBench,
         compareTarget: null,

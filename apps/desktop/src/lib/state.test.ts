@@ -166,6 +166,24 @@ describe("desktop result lifecycle", () => {
     expect(useDesktopStore.getState().affinityHorizon).toBe(80);
   });
 
+  it("keeps comparison changes usable in memory when optional persistence fails", () => {
+    vi.stubGlobal("localStorage", { getItem: () => null, setItem: () => { throw new Error("storage full"); } });
+    try {
+      useDesktopStore.getState().setCatalog(catalog("vanilla"));
+      useDesktopStore.setState({ compareBench: [], notices: [] });
+      useDesktopStore.getState().toggleCompareBench(row);
+      expect(useDesktopStore.getState().compareBench).toEqual([row]);
+      expect(useDesktopStore.getState().notices.at(-1)).toMatchObject({ tone: "warning" });
+      useDesktopStore.getState().patchCompareControls({ weaponName: "Uchigatana" });
+      expect(useDesktopStore.getState().compareBench).toEqual([]);
+      useDesktopStore.getState().toggleCompareBench(row);
+      useDesktopStore.getState().clearCompareBench();
+      expect(useDesktopStore.getState().compareBench).toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("switches profiles as one fail-closed state transition", () => {
     const state = useDesktopStore.getState();
     state.setProfiles([catalog("vanilla").dataManifest, catalog("convergence").dataManifest]);
