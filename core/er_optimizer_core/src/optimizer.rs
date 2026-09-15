@@ -104,7 +104,7 @@ impl PreparedLoadoutEvaluator<'_> {
     where
         F: FnMut() -> bool + Send,
     {
-        validate_reusable_loadout(&self.template, request)?;
+        validate_reusable_loadout(&self.template, request, self.data)?;
         let constraints = build_combat_constraints(request)?;
         let plan = build_prepared_plan(
             request,
@@ -128,7 +128,7 @@ impl PreparedUpgradeSeriesEvaluator<'_> {
     where
         F: FnMut() -> bool + Send,
     {
-        validate_reusable_loadout(&self.template, request)?;
+        validate_reusable_loadout(&self.template, request, self.data)?;
         if request.locked_combat_stats.iter().any(Option::is_none) {
             return Err("upgrade series evaluation requires exact combat stats".to_string());
         }
@@ -467,7 +467,9 @@ where
 fn validate_reusable_loadout(
     template: &OptimizeRequest,
     request: &OptimizeRequest,
+    data: &GameData,
 ) -> Result<(), String> {
+    validate_profile_capabilities(request, data)?;
     let compatible = template.class_name == request.class_name
         && template.standard_max_upgrade == request.standard_max_upgrade
         && template.somber_max_upgrade == request.somber_max_upgrade

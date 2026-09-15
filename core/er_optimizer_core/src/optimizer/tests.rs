@@ -1553,6 +1553,57 @@ fn reusable_loadout_evaluator_rejects_loadout_drift() {
     );
 }
 
+#[test]
+fn reusable_evaluators_reject_invalid_profile_levels_like_independent_searches() {
+    for (game_data, max_level) in [(load_data(), 713_u16), (load_convergence_data(), 8 * 99)] {
+        let mut loadout_request = base_request();
+        loadout_request.standard_max_upgrade = game_data.rules.standard_max_upgrade;
+        loadout_request.somber_max_upgrade = game_data.rules.somber_max_upgrade;
+        loadout_request.exact_upgrade = true;
+        loadout_request.character_level = max_level + 1;
+        let expected = optimize(&loadout_request, &game_data)
+            .expect_err("independent loadout evaluation must reject the profile level");
+        {
+            let mut preparation_request = loadout_request.clone();
+            preparation_request.character_level = base_request().character_level;
+            let evaluator =
+                prepare_loadout_evaluator_with_cancel(&preparation_request, &game_data, || true)
+                    .expect("loadout preparation succeeds at the profile level");
+            assert_eq!(
+                evaluator
+                    .evaluate_with_cancel(&loadout_request, || true)
+                    .expect_err("reused loadout evaluation must reject the profile level"),
+                expected
+            );
+        }
+
+        let mut series_request = base_request();
+        series_request.standard_max_upgrade = game_data.rules.standard_max_upgrade;
+        series_request.somber_max_upgrade = game_data.rules.somber_max_upgrade;
+        series_request.character_level = max_level + 1;
+        let stats = series_request.current_stats;
+        lock_request_to_combat_stats(&mut series_request, stats);
+        let expected = optimize(&series_request, &game_data)
+            .expect_err("independent upgrade evaluation must reject the profile level");
+        {
+            let mut preparation_request = series_request.clone();
+            preparation_request.character_level = base_request().character_level;
+            let evaluator = prepare_upgrade_series_evaluator_with_cancel(
+                &preparation_request,
+                &game_data,
+                || true,
+            )
+            .expect("upgrade-series preparation succeeds at the profile level");
+            assert_eq!(
+                evaluator
+                    .evaluate_with_cancel(&series_request, 15, || true)
+                    .expect_err("reused upgrade evaluation must reject the profile level"),
+                expected
+            );
+        }
+    }
+}
+
 fn lock_request_to_combat_stats(request: &mut OptimizeRequest, stats: Stats) {
     request.min_combat_stats = [0; COMBAT_STAT_COUNT];
     request.locked_combat_stats = stats.combat_array().map(Some);
