@@ -210,7 +210,7 @@ function PathSteps({ paths, objective }: { paths: PathPreviewDto[]; objective: P
                   <strong>{fixed1(step.metric)} {objectiveUnit(objective)}</strong>
                   <small>
                     {index === 0 ? "Starting stats" : gain === null ? "Gain unavailable" : `Gain ${fixed1(gain)}`}
-                    {index > 0 ? ` | ${step.addedStat ? `Added ${step.addedStat.toUpperCase()}` : "No stat added"}` : ""}
+                    {index > 0 ? ` | ${step.addedStat === "respec" ? "Respec required" : step.addedStat ? `Added ${step.addedStat.toUpperCase()}` : "No stat added"}` : ""}
                     {step.requirementGap > 0 ? ` | Requirement gap ${step.requirementGap}` : ""}
                   </small>
                   <span>STR {step.stats.strStat} / DEX {step.stats.dex} / INT {step.stats.intStat} / FAI {step.stats.fai} / ARC {step.stats.arc}</span>

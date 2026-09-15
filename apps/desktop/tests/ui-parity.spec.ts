@@ -562,7 +562,7 @@ test("analysis controls align inputs with buttons and path levels compare side b
       ...path,
       steps: Array.from({ length: 41 }, (_, index) => ({
         ...path.steps[0], level: 9 + index, metric: index === 2 ? null : 500 + lane * 100 + (index === 1 ? 0 : index * 2),
-        addedStat: index && index !== 2 ? "dex" : null,
+        addedStat: index === 4 ? "respec" : index && index !== 2 ? "dex" : null,
         requirementGap: index === 2 ? 3 : 0,
       })),
     })), state.pathSignature);
@@ -577,6 +577,8 @@ test("analysis controls align inputs with buttons and path levels compare side b
   await expect(grid.getByRole("row").nth(1)).not.toContainText("Gain -");
   await expect(grid.getByRole("row").nth(2)).toContainText("Gain 0.0 | Added DEX");
   await expect(grid.getByRole("row").nth(3)).toContainText("Gain unavailable | No stat added | Requirement gap 3");
+  await expect(grid.getByRole("row").nth(5)).toContainText("Respec required");
+  await expect(grid).not.toContainText("Added RESPEC");
   await expect(page.getByRole("combobox", { name: "Path level range" }).locator('option[value="0"]')).toHaveText("9–18");
   await expect(page.locator(".path-steps")).not.toContainText("\uFFFD");
   await expect(page.getByRole("button", { name: "Previous levels" })).toBeDisabled();
