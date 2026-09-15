@@ -2,22 +2,23 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
 #[cfg(test)]
-use er_optimizer_core::optimize_with_cancel;
+use er_optimizer_core::optimize;
 use er_optimizer_core::{
-    GameData, OptimizeRequest, optimize, optimize_level_range_with_progress,
-    optimize_prepared_with_progress, prepare_search_with_cancel,
-    prepare_upgrade_series_evaluator_with_cancel,
+    GameData, OptimizeRequest, optimize_level_range_with_progress, optimize_prepared_with_progress,
+    optimize_with_cancel, prepare_search_with_cancel, prepare_upgrade_series_evaluator_with_cancel,
 };
 use tauri::{AppHandle, State};
 
 use crate::dto::{
-    CombatStateDto, SearchFinishedDto, SearchJobStatusDto, SearchProgressDto, SolveBuildRequestDto,
-    SolvedBuildDto, StartSearchResponseDto, UpgradePointDto, UpgradeSeriesRequestDto,
-    lock_request_to_stats, metric_for_objective, parse_objective,
+    AnalysisFinishedDto, AnalysisJobKindDto, AnalysisJobStatusDto, CombatStateDto,
+    SearchFinishedDto, SearchJobStatusDto, SearchProgressDto, SolveBuildRequestDto, SolvedBuildDto,
+    StartSearchResponseDto, UpgradePointDto, UpgradeSeriesRequestDto, lock_request_to_stats,
+    metric_for_objective, parse_objective,
 };
 use crate::errors::AppError;
 use crate::{AppState, AsyncJobHandle, CancelFlag};
 
+#[cfg(test)]
 pub fn run_search_inner(
     mut request: crate::dto::OptimizeRequestDto,
     state: &AppState,
@@ -82,18 +83,10 @@ where
     .map_err(AppError::from)
 }
 
-#[tauri::command]
-pub fn solve_build(
-    request: SolveBuildRequestDto,
-    state: State<'_, AppState>,
-) -> Result<Option<SolvedBuildDto>, AppError> {
-    solve_build_inner(request, &state)
-}
-
-fn solve_build_inner(
+fn solve_build_base(
     request: SolveBuildRequestDto,
     state: &AppState,
-) -> Result<Option<SolvedBuildDto>, AppError> {
+) -> Result<crate::dto::OptimizeRequestDto, AppError> {
     let mut base = request.base;
     base.weapon_name = Some(request.weapon_name);
     base.affinity = request.affinity;
@@ -117,17 +110,77 @@ fn solve_build_inner(
         lock_request_to_stats(&mut base, stats);
     }
     base.top_k = 1;
-    run_search_inner(base, state).map(|mut rows| rows.pop())
+    Ok(base)
+}
+
+fn prepare_solve_build(
+    request: SolveBuildRequestDto,
+    state: &AppState,
+) -> Result<(OptimizeRequest, Arc<GameData>), AppError> {
+    let mut base = solve_build_base(request, state)?;
+    clamp_weapon_upgrade_request(&mut base, state)?;
+    let profile = state.profile(&base.profile_id)?;
+    Ok((OptimizeRequest::try_from(&base)?, Arc::clone(&profile.data)))
+}
+
+#[cfg(test)]
+fn solve_build_inner(
+    request: SolveBuildRequestDto,
+    state: &AppState,
+) -> Result<Option<SolvedBuildDto>, AppError> {
+    solve_build_inner_with_cancel(request, state, || true)
+}
+
+#[cfg(test)]
+fn solve_build_inner_with_cancel<F>(
+    request: SolveBuildRequestDto,
+    state: &AppState,
+    should_continue: F,
+) -> Result<Option<SolvedBuildDto>, AppError>
+where
+    F: FnMut() -> bool + Send,
+{
+    let (request, data) = prepare_solve_build(request, state)?;
+    optimize_with_cancel(&request, &data, should_continue)
+        .map(|mut rows| rows.pop().map(SolvedBuildDto::from))
+        .map_err(AppError::from)
 }
 
 #[tauri::command]
-pub fn build_upgrade_series(
-    request: UpgradeSeriesRequestDto,
+pub fn start_solve_build(
+    request: SolveBuildRequestDto,
     state: State<'_, AppState>,
-) -> Result<Vec<UpgradePointDto>, AppError> {
-    build_upgrade_series_inner(request, &state)
+) -> Result<StartSearchResponseDto, AppError> {
+    let (core_request, data) = prepare_solve_build(request, &state)?;
+    let (job_id, cancel_flag, status) = start_analysis_job(&state)?;
+    let job_id_for_task = job_id.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let (result, error, cancelled) = match optimize_with_cancel(&core_request, &data, || {
+            !cancel_flag.load(Ordering::Relaxed)
+        }) {
+            Ok(mut rows) if !cancel_flag.load(Ordering::Relaxed) => {
+                (rows.pop().map(SolvedBuildDto::from), None, false)
+            }
+            Ok(_) => (None, None, true),
+            Err(message) if message == "cancelled" => (None, None, true),
+            Err(message) => (None, Some(message), false),
+        };
+        let finished = AnalysisFinishedDto {
+            job_id: job_id_for_task,
+            kind: AnalysisJobKindDto::SolveBuild,
+            cancelled,
+            result,
+            points: Vec::new(),
+            error,
+        };
+        if let Ok(mut guard) = status.lock() {
+            guard.finished = Some(finished);
+        }
+    });
+    Ok(StartSearchResponseDto { job_id })
 }
 
+#[cfg(test)]
 pub fn build_upgrade_series_inner(
     request: UpgradeSeriesRequestDto,
     state: &AppState,
@@ -135,14 +188,18 @@ pub fn build_upgrade_series_inner(
     build_upgrade_series_inner_with_cancel(request, state, || true)
 }
 
-pub fn build_upgrade_series_inner_with_cancel<F>(
+fn prepare_upgrade_series(
     request: UpgradeSeriesRequestDto,
     state: &AppState,
-    mut should_continue: F,
-) -> Result<Vec<UpgradePointDto>, AppError>
-where
-    F: FnMut() -> bool + Send,
-{
+) -> Result<
+    (
+        OptimizeRequest,
+        Arc<GameData>,
+        u8,
+        er_optimizer_core::OptimizeObjective,
+    ),
+    AppError,
+> {
     let mut base = request.base;
     base.weapon_name = Some(request.solved.weapon_name.clone());
     base.affinity = Some(request.solved.affinity.clone());
@@ -182,17 +239,30 @@ where
     }
     clamp_weapon_upgrade_request(&mut base, state)?;
     let max_upgrade = request.max_upgrade.min(profile_upgrade_cap);
-
     let objective = parse_objective(&base.objective)?;
-    let core_request = OptimizeRequest::try_from(&base)?;
-    let evaluator = prepare_upgrade_series_evaluator_with_cancel(
-        &core_request,
-        &profile.data,
-        &mut should_continue,
-    )
-    .map_err(AppError::from)?;
+    Ok((
+        OptimizeRequest::try_from(&base)?,
+        Arc::clone(&profile.data),
+        max_upgrade,
+        objective,
+    ))
+}
+
+fn evaluate_upgrade_series_with_cancel<F>(
+    core_request: &OptimizeRequest,
+    data: &GameData,
+    max_upgrade: u8,
+    objective: er_optimizer_core::OptimizeObjective,
+    mut should_continue: F,
+) -> Result<Vec<UpgradePointDto>, AppError>
+where
+    F: FnMut() -> bool + Send,
+{
+    let evaluator =
+        prepare_upgrade_series_evaluator_with_cancel(core_request, data, &mut should_continue)
+            .map_err(AppError::from)?;
     Ok(evaluator
-        .evaluate_with_cancel(&core_request, max_upgrade, &mut should_continue)
+        .evaluate_with_cancel(core_request, max_upgrade, &mut should_continue)
         .map_err(AppError::from)?
         .into_iter()
         .map(SolvedBuildDto::from)
@@ -201,6 +271,104 @@ where
             metric: metric_for_objective(&solved, objective),
         })
         .collect())
+}
+
+#[cfg(test)]
+pub fn build_upgrade_series_inner_with_cancel<F>(
+    request: UpgradeSeriesRequestDto,
+    state: &AppState,
+    mut should_continue: F,
+) -> Result<Vec<UpgradePointDto>, AppError>
+where
+    F: FnMut() -> bool + Send,
+{
+    let (core_request, data, max_upgrade, objective) = prepare_upgrade_series(request, state)?;
+    evaluate_upgrade_series_with_cancel(
+        &core_request,
+        &data,
+        max_upgrade,
+        objective,
+        &mut should_continue,
+    )
+}
+
+#[tauri::command]
+pub fn start_upgrade_series(
+    request: UpgradeSeriesRequestDto,
+    state: State<'_, AppState>,
+) -> Result<StartSearchResponseDto, AppError> {
+    let (core_request, data, max_upgrade, objective) = prepare_upgrade_series(request, &state)?;
+    let (job_id, cancel_flag, status) = start_analysis_job(&state)?;
+    let job_id_for_task = job_id.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let result = evaluate_upgrade_series_with_cancel(
+            &core_request,
+            &data,
+            max_upgrade,
+            objective,
+            || !cancel_flag.load(Ordering::Relaxed),
+        );
+        let (points, error, cancelled) = match result {
+            Ok(points) if !cancel_flag.load(Ordering::Relaxed) => (points, None, false),
+            Ok(_) => (Vec::new(), None, true),
+            Err(error) if error.message == "cancelled" => (Vec::new(), None, true),
+            Err(error) => (Vec::new(), Some(error.message), false),
+        };
+        let finished = AnalysisFinishedDto {
+            job_id: job_id_for_task,
+            kind: AnalysisJobKindDto::UpgradeSeries,
+            cancelled,
+            result: None,
+            points,
+            error,
+        };
+        if let Ok(mut guard) = status.lock() {
+            guard.finished = Some(finished);
+        }
+    });
+    Ok(StartSearchResponseDto { job_id })
+}
+
+fn start_analysis_job(
+    state: &AppState,
+) -> Result<
+    (
+        String,
+        CancelFlag,
+        Arc<std::sync::Mutex<AnalysisJobStatusDto>>,
+    ),
+    AppError,
+> {
+    let job_number = state.next_job.fetch_add(1, Ordering::Relaxed);
+    let job_id = format!("analysis-{job_number}");
+    let cancel_flag: CancelFlag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let status = Arc::new(std::sync::Mutex::new(AnalysisJobStatusDto {
+        finished: None,
+    }));
+    state.analysis_jobs.insert_if_idle(
+        job_id.clone(),
+        AsyncJobHandle {
+            cancel: Arc::clone(&cancel_flag),
+            status: Arc::clone(&status),
+        },
+        |status| status.finished.is_some(),
+    )?;
+    Ok((job_id, cancel_flag, status))
+}
+
+#[tauri::command]
+pub fn cancel_analysis(job_id: String, state: State<'_, AppState>) -> Result<bool, AppError> {
+    state.analysis_jobs.cancel(&job_id)
+}
+
+#[tauri::command]
+pub fn get_analysis_status(
+    job_id: String,
+    state: State<'_, AppState>,
+) -> Result<Option<AnalysisJobStatusDto>, AppError> {
+    state
+        .analysis_jobs
+        .status(&job_id, |status| status.finished.is_some())
 }
 
 #[tauri::command]
@@ -531,6 +699,38 @@ mod integration_tests {
         let error = run_search_inner_with_cancel(crate::test_optimize_request(), &state, || false)
             .expect_err("cancelled command search must fail closed");
         assert_eq!(error.message, "cancelled");
+    }
+
+    #[test]
+    fn real_solve_build_honors_cancellation() {
+        let state = crate::test_app_state();
+        let request = SolveBuildRequestDto {
+            base: crate::test_optimize_request(),
+            weapon_name: "Uchigatana".to_string(),
+            affinity: Some("Keen".to_string()),
+            aow_name: None,
+        };
+        let error = solve_build_inner_with_cancel(request, &state, || false)
+            .expect_err("cancelled solve-build must fail closed");
+        assert_eq!(error.message, "cancelled");
+    }
+
+    #[test]
+    fn direct_analysis_jobs_share_one_slot() {
+        let state = crate::test_app_state();
+        let (job_id, cancel_flag, _) = start_analysis_job(&state).expect("first job starts");
+        let error = match start_analysis_job(&state) {
+            Ok(_) => panic!("second direct analysis job must be rejected"),
+            Err(error) => error,
+        };
+        assert!(error.message.contains("analysis job is already running"));
+        assert!(
+            state
+                .analysis_jobs
+                .cancel(&job_id)
+                .expect("job is cancellable")
+        );
+        assert!(cancel_flag.load(Ordering::Relaxed));
     }
 
     #[test]

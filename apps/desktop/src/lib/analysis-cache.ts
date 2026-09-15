@@ -9,6 +9,7 @@ type CacheEntry<T> = {
   expiresAt: number;
   pending: boolean;
   subscribers: number;
+  controller: AbortController;
 };
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
@@ -28,6 +29,9 @@ export function setAnalysisCacheVersion(dataVersion: string): void {
 export function clearAnalysisCaches(): void {
   cacheGeneration += 1;
   completedComparison = null;
+  for (const cache of [solveBuildCache, upgradeSeriesCache, weaponProfileCache]) {
+    for (const entry of cache.values()) if (entry.pending) entry.controller.abort();
+  }
   solveBuildCache.clear();
   upgradeSeriesCache.clear();
   weaponProfileCache.clear();
@@ -56,8 +60,8 @@ export function cachedSolveBuild(
   aowName: string | null,
   signal?: AbortSignal,
 ): Promise<SolvedBuildDto | null> {
-  return cached(solveBuildCache, 128, { base, weaponName, affinity, aowName }, () =>
-    api.solveBuild(base, weaponName, affinity, aowName), signal);
+  return cached(solveBuildCache, 128, { base, weaponName, affinity, aowName }, signal =>
+    api.solveBuild(base, weaponName, affinity, aowName, signal), signal);
 }
 
 export function cachedUpgradeSeries(
@@ -66,15 +70,15 @@ export function cachedUpgradeSeries(
   maxUpgrade: number,
   signal?: AbortSignal,
 ): Promise<UpgradePointDto[]> {
-  return cached(upgradeSeriesCache, 64, { base, solved: rowFingerprint(solved), maxUpgrade }, () =>
-    api.buildUpgradeSeries(base, solved, maxUpgrade), signal);
+  return cached(upgradeSeriesCache, 64, { base, solved: rowFingerprint(solved), maxUpgrade }, signal =>
+    api.buildUpgradeSeries(base, solved, maxUpgrade, signal), signal);
 }
 
 function cached<T>(
   cache: Map<CacheKey, CacheEntry<T>>,
   maxEntries: number,
   keyParts: unknown,
-  loader: () => Promise<T>,
+  loader: (signal: AbortSignal) => Promise<T>,
   signal?: AbortSignal,
 ): Promise<T> {
   if (signal?.aborted) return Promise.reject(new Error("cancelled"));
@@ -88,15 +92,17 @@ function cached<T>(
   }
   if (entry) cache.delete(key);
   let nextEntry!: CacheEntry<T>;
-  const promise = loader().then((value) => {
+  const controller = new AbortController();
+  const promise = loader(controller.signal).then((value) => {
     nextEntry.pending = false;
+    if (controller.signal.aborted) throw new Error("cancelled");
     return value;
   }).catch((error) => {
     nextEntry.pending = false;
     if (cache.get(key) === nextEntry) cache.delete(key);
     throw error;
   });
-  nextEntry = { promise, expiresAt: now + CACHE_TTL_MS, pending: true, subscribers: 0 };
+  nextEntry = { promise, controller, expiresAt: now + CACHE_TTL_MS, pending: true, subscribers: 0 };
   cache.set(key, nextEntry);
   while (cache.size > maxEntries) {
     const oldest = cache.keys().next().value as string | undefined;
@@ -119,8 +125,9 @@ function subscribe<T>(
     if (released) return;
     released = true;
     entry.subscribers -= 1;
-    if (entry.pending && entry.subscribers === 0 && cache.get(key) === entry) {
-      cache.delete(key);
+    if (entry.pending && entry.subscribers === 0) {
+      entry.controller.abort();
+      if (cache.get(key) === entry) cache.delete(key);
     }
   };
   if (!signal) return entry.promise.finally(release);

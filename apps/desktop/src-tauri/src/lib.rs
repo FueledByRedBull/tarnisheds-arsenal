@@ -97,6 +97,7 @@ impl<T: Clone> JobRegistry<T> {
 
 pub struct AppState {
     pub profiles: HashMap<String, Arc<ProfileData>>,
+    pub analysis_jobs: Arc<JobRegistry<dto::AnalysisJobStatusDto>>,
     pub search_jobs: Arc<JobRegistry<dto::SearchJobStatusDto>>,
     pub path_jobs: Arc<JobRegistry<dto::PathJobStatusDto>>,
     pub affinity_jobs: Arc<JobRegistry<dto::AffinityWatchJobStatusDto>>,
@@ -137,6 +138,7 @@ pub fn run() {
             let profiles = load_desktop_profiles(app)?;
             app.manage(AppState {
                 profiles,
+                analysis_jobs: Arc::new(JobRegistry::new("analysis")),
                 search_jobs: Arc::new(JobRegistry::new("search")),
                 path_jobs: Arc::new(JobRegistry::new("path")),
                 affinity_jobs: Arc::new(JobRegistry::new("affinity watch")),
@@ -153,8 +155,10 @@ pub fn run() {
             commands::data::compatible_aow_names,
             commands::data::compatible_aow_names_for_affinity,
             commands::data::weapon_names_for_type,
-            commands::optimize::solve_build,
-            commands::optimize::build_upgrade_series,
+            commands::optimize::start_solve_build,
+            commands::optimize::start_upgrade_series,
+            commands::optimize::cancel_analysis,
+            commands::optimize::get_analysis_status,
             commands::optimize::start_search,
             commands::optimize::cancel_search,
             commands::optimize::get_search_status,
@@ -335,6 +339,7 @@ pub(crate) fn test_app_state() -> AppState {
     }
     AppState {
         profiles,
+        analysis_jobs: Arc::new(JobRegistry::new("analysis")),
         search_jobs: Arc::new(JobRegistry::new("search")),
         path_jobs: Arc::new(JobRegistry::new("path")),
         affinity_jobs: Arc::new(JobRegistry::new("affinity watch")),

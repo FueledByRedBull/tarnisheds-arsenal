@@ -448,6 +448,30 @@ pub struct SearchJobStatusDto {
     pub finished: Option<SearchFinishedDto>,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AnalysisJobKindDto {
+    SolveBuild,
+    UpgradeSeries,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalysisFinishedDto {
+    pub job_id: String,
+    pub kind: AnalysisJobKindDto,
+    pub cancelled: bool,
+    pub result: Option<SolvedBuildDto>,
+    pub points: Vec<UpgradePointDto>,
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalysisJobStatusDto {
+    pub finished: Option<AnalysisFinishedDto>,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CatalogDto {

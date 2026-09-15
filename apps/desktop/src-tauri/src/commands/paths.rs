@@ -68,6 +68,7 @@ pub fn start_path_preview(
     tauri::async_runtime::spawn_blocking(move || {
         let task_state = AppState {
             profiles,
+            analysis_jobs: Arc::new(JobRegistry::new("analysis")),
             search_jobs: Arc::new(JobRegistry::new("search")),
             path_jobs: Arc::new(JobRegistry::new("path")),
             affinity_jobs: Arc::new(JobRegistry::new("affinity watch")),

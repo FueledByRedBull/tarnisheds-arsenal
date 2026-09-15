@@ -26,7 +26,7 @@ for (const action of ["cancel", "profile", "edit", "navigate"]) {
       api.startSearch = async () => ({ jobId: "export-probe" });
       api.searchStatus = async () => ({
         progress: { jobId: "export-probe", checked: 3, total: 50, eligible: 3, bestScore: 700, elapsedMs: 100 },
-        finished: (window as unknown as { finishExport: boolean }).finishExport ? { rows, cancelled: false, error: null } : null,
+        finished: (window as unknown as { finishExport: boolean }).finishExport ? { jobId: "export-probe", rows, cancelled: false, error: null } : null,
       });
       api.cancelSearch = async () => { Object.assign(window, { exportCancelled: true }); return true; };
     });

@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { createNativeJobQueue } from "./native-jobs";
 import {
   AffinityWatchPayloadDto,
   AffinityWatchJobStatusDto,
@@ -16,6 +17,19 @@ import {
 } from "./types";
 import { upgradeCapForRow } from "./session";
 import { STARTING_CLASS_METADATA } from "./session";
+
+type AnalysisFinished = {
+  jobId: string;
+  kind: "solve_build" | "upgrade_series";
+  cancelled: boolean;
+  result: SolvedBuildDto | null;
+  points: UpgradePointDto[];
+  error: string | null;
+};
+const analysisQueue = createNativeJobQueue<{ finished: AnalysisFinished | null }>(
+  jobId => call("get_analysis_status", { jobId }),
+  jobId => call("cancel_analysis", { jobId }),
+);
 
 type MockWeapon = {
   weaponId: number;
@@ -117,7 +131,7 @@ function previewBuild(
   };
 }
 
-export const hasTauriRuntime = () => "__TAURI_INTERNALS__" in window;
+export const hasTauriRuntime = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   if (hasTauriRuntime()) {
@@ -148,23 +162,33 @@ export const api = {
     call<boolean>("cancel_search", { jobId }),
   searchStatus: (jobId: string) =>
     call<SearchJobStatusDto | null>("get_search_status", { jobId }),
-  solveBuild: (
+  solveBuild: async (
     base: OptimizeRequestDto,
     weaponName: string,
     affinity: string | null,
     aowName: string | null,
-  ) =>
-    call<SolvedBuildDto | null>("solve_build", {
-      request: { base, weaponName, affinity, aowName },
-    }),
-  buildUpgradeSeries: (
+    signal?: AbortSignal,
+  ): Promise<SolvedBuildDto | null> => {
+    if (signal?.aborted) throw new DOMException("Calculation stopped.", "AbortError");
+    const request = { base, weaponName, affinity, aowName };
+    if (!hasTauriRuntime()) return call("solve_build", { request });
+    const finished = await analysisQueue(() => call("start_solve_build", { request }), signal);
+    if (finished.kind !== "solve_build") throw new Error("Unexpected native calculation result.");
+    return finished.result;
+  },
+  buildUpgradeSeries: async (
     base: OptimizeRequestDto,
     solved: SolvedBuildDto,
     maxUpgrade: number,
-  ) =>
-    call<UpgradePointDto[]>("build_upgrade_series", {
-      request: { base, solved, maxUpgrade },
-    }),
+    signal?: AbortSignal,
+  ): Promise<UpgradePointDto[]> => {
+    if (signal?.aborted) throw new DOMException("Calculation stopped.", "AbortError");
+    const request = { base, solved, maxUpgrade };
+    if (!hasTauriRuntime()) return call("build_upgrade_series", { request });
+    const finished = await analysisQueue(() => call("start_upgrade_series", { request }), signal);
+    if (finished.kind !== "upgrade_series") throw new Error("Unexpected native calculation result.");
+    return finished.points;
+  },
   affinitiesForWeapon: (profileId: string, weaponName: string) =>
     call<string[]>("affinities_for_weapon", { profileId, weaponName }),
   compatibleAowNames: (profileId: string, weaponName: string | null, affinity: string | null) =>

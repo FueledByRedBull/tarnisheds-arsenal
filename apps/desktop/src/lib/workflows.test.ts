@@ -38,6 +38,153 @@ it.each(["comparison", "rankings"])("waits for cancelled native work before star
   expect(useDesktopStore.getState().error).toBeNull();
 });
 
+it("keeps a replacement queued when cancellation IPC fails until the worker finishes", async () => {
+  let oldFinished = false;
+  vi.mocked(api.startSearch).mockResolvedValueOnce({ jobId: "old" }).mockResolvedValue({ jobId: "new" });
+  vi.mocked(api.cancelSearch).mockRejectedValueOnce(new Error("cancel IPC failed"));
+  vi.mocked(api.searchStatus).mockImplementation(async (jobId) => ({
+    progress: null,
+    finished: jobId === "new" || (jobId === "old" && oldFinished)
+      ? { jobId, rows: [], cancelled: false, error: null }
+      : null,
+  }));
+  const controller = new AbortController();
+  const old = runSearchRequestForRows(defaultRequest, controller.signal).catch(error => error);
+  await vi.advanceTimersByTimeAsync(0);
+  controller.abort();
+  const replacement = runSearchRequestForRows(defaultRequest);
+  await vi.advanceTimersByTimeAsync(0);
+
+  expect(api.cancelSearch).toHaveBeenCalledWith("old");
+  expect(api.startSearch).toHaveBeenCalledTimes(1);
+  expect(await old).toMatchObject({ message: "cancel IPC failed" });
+
+  oldFinished = true;
+  await vi.advanceTimersByTimeAsync(200);
+  await expect(replacement).resolves.toEqual([]);
+  expect(api.startSearch).toHaveBeenCalledTimes(2);
+});
+
+it("keeps a replacement queued across a status failure and recovers the running worker", async () => {
+  let oldFinished = false;
+  let failedInitialStatus = false;
+  vi.mocked(api.startSearch).mockResolvedValueOnce({ jobId: "old" }).mockResolvedValue({ jobId: "new" });
+  vi.mocked(api.cancelSearch).mockResolvedValue(true);
+  vi.mocked(api.searchStatus).mockImplementation(async (jobId) => {
+    if (jobId === "old" && !failedInitialStatus) {
+      failedInitialStatus = true;
+      throw new Error("status IPC failed");
+    }
+    return {
+      progress: null,
+      finished: jobId === "new" || (jobId === "old" && oldFinished)
+        ? { jobId, rows: [], cancelled: jobId === "old", error: null }
+        : null,
+    };
+  });
+  const old = runSearchRequestForRows(defaultRequest).catch(error => error);
+  await vi.advanceTimersByTimeAsync(0);
+  const replacement = runSearchRequestForRows(defaultRequest);
+  await vi.advanceTimersByTimeAsync(0);
+
+  expect(await old).toMatchObject({ message: "status IPC failed" });
+  expect(api.cancelSearch).toHaveBeenCalledWith("old");
+  expect(api.startSearch).toHaveBeenCalledTimes(1);
+
+  oldFinished = true;
+  await vi.advanceTimersByTimeAsync(200);
+  await expect(replacement).resolves.toEqual([]);
+  expect(api.startSearch).toHaveBeenCalledTimes(2);
+});
+
+it("bounds unknown-worker reconciliation and retries after a known missing job", async () => {
+  let statusMode: "failed" | "missing" = "failed";
+  vi.mocked(api.startSearch).mockResolvedValueOnce({ jobId: "old" }).mockResolvedValue({ jobId: "latest" });
+  vi.mocked(api.cancelSearch).mockResolvedValue(true);
+  vi.mocked(api.searchStatus).mockImplementation(async (jobId) => {
+    if (jobId === "latest") {
+      return { progress: null, finished: { jobId, rows: [], cancelled: false, error: null } };
+    }
+    if (statusMode === "failed") throw new Error("status IPC failed");
+    return null;
+  });
+
+  const old = runSearchRequestForRows(defaultRequest).catch(error => error);
+  await vi.advanceTimersByTimeAsync(0);
+  const blocked = runSearchRequestForRows(defaultRequest).catch(error => error);
+  await vi.advanceTimersByTimeAsync(7_000);
+
+  expect(await old).toMatchObject({ message: "status IPC failed" });
+  expect((await blocked).message).toContain("Worker state is unknown");
+  expect(api.startSearch).toHaveBeenCalledTimes(1);
+
+  statusMode = "missing";
+  await expect(runSearchRequestForRows(defaultRequest)).resolves.toEqual([]);
+  expect(api.startSearch).toHaveBeenCalledTimes(2);
+});
+
+it("bounds reconciliation when cancellation fails and the worker stays running", async () => {
+  let statusMode: "running" | "missing" = "running";
+  vi.mocked(api.startSearch).mockResolvedValueOnce({ jobId: "old" }).mockResolvedValue({ jobId: "latest" });
+  vi.mocked(api.cancelSearch).mockRejectedValue(new Error("cancel IPC failed"));
+  vi.mocked(api.searchStatus).mockImplementation(async (jobId) => {
+    if (jobId === "latest") {
+      return { progress: null, finished: { jobId, rows: [], cancelled: false, error: null } };
+    }
+    return statusMode === "running" ? { progress: null, finished: null } : null;
+  });
+
+  const controller = new AbortController();
+  const old = runSearchRequestForRows(defaultRequest, controller.signal).catch(error => error);
+  await vi.advanceTimersByTimeAsync(0);
+  controller.abort();
+  await vi.advanceTimersByTimeAsync(0);
+  const blocked = runSearchRequestForRows(defaultRequest).catch(error => error);
+  await vi.advanceTimersByTimeAsync(7_000);
+
+  expect(await old).toMatchObject({ message: "cancel IPC failed" });
+  expect((await blocked).message).toContain("Worker state is unknown");
+  expect(api.startSearch).toHaveBeenCalledTimes(1);
+
+  statusMode = "missing";
+  await expect(runSearchRequestForRows(defaultRequest)).resolves.toEqual([]);
+  expect(api.startSearch).toHaveBeenCalledTimes(2);
+});
+
+it("consumes a terminal status that races with cancellation IPC failure", async () => {
+  let resolveOldStatus!: (status: {
+    progress: null;
+    finished: { jobId: string; rows: []; cancelled: boolean; error: null };
+  }) => void;
+  let firstOldStatus = true;
+  vi.mocked(api.startSearch).mockResolvedValueOnce({ jobId: "old" }).mockResolvedValue({ jobId: "new" });
+  vi.mocked(api.cancelSearch).mockRejectedValueOnce(new Error("cancel IPC failed"));
+  vi.mocked(api.searchStatus).mockImplementation(async (jobId) => {
+    if (jobId === "old" && firstOldStatus) {
+      firstOldStatus = false;
+      return await new Promise(resolve => { resolveOldStatus = resolve; });
+    }
+    return {
+      progress: null,
+      finished: { jobId, rows: [], cancelled: jobId === "old", error: null },
+    };
+  });
+
+  const controller = new AbortController();
+  const old = runSearchRequestForRows(defaultRequest, controller.signal).catch(error => error);
+  await vi.advanceTimersByTimeAsync(0);
+  controller.abort();
+  const replacement = runSearchRequestForRows(defaultRequest);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(api.cancelSearch).toHaveBeenCalledWith("old");
+
+  resolveOldStatus({ progress: null, finished: { jobId: "old", rows: [], cancelled: false, error: null } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(await old).toMatchObject({ message: "cancel IPC failed" });
+  await expect(replacement).resolves.toEqual([]);
+  expect(api.startSearch).toHaveBeenCalledTimes(2);
+});
+
 it("drops obsolete queued work and cancels a job whose start reply arrives late", async () => {
   let reply!: (value: { jobId: string }) => void;
   vi.mocked(api.startSearch).mockImplementationOnce(() => new Promise(resolve => { reply = resolve; }))
