@@ -2895,6 +2895,61 @@ fn parallel_search_matches_serial_results() {
 }
 
 #[test]
+fn split_aow_units_preserve_grouped_results_across_serial_and_parallel_search() {
+    let game_data = load_data();
+    let mut request = base_request();
+    request.character_level = 18;
+    request.standard_max_upgrade = 0;
+    request.somber_max_upgrade = 0;
+    request.exact_upgrade = true;
+    request.aow_name = None;
+    request.weapon_name = None;
+    request.affinity = None;
+    request.weapon_type_key = Some("Katana".to_string());
+    request.result_grouping = ResultGrouping::Weapon;
+    request.objective = OptimizeObjective::AowFirstHit;
+    request.top_k = 2;
+
+    let plan = prepare_search(&request, &game_data).expect("prepare failed");
+    assert!(
+        plan.fine_work_units.len() > plan.serial_work_units.len(),
+        "the fixture must split AoWs for fine-grained workers"
+    );
+    let total = plan
+        .serial_work_units
+        .iter()
+        .map(|unit| unit.candidate_count)
+        .sum::<u64>();
+    assert_eq!(
+        total,
+        plan.fine_work_units
+            .iter()
+            .map(|unit| unit.candidate_count)
+            .sum::<u64>()
+    );
+
+    let group_mode = result_group_mode(&request);
+    let mut serial_progress = SerialSearchProgress::new(total, 0, |_| true);
+    let serial = optimize_serial(
+        &plan,
+        &plan.serial_work_units,
+        group_mode,
+        &mut serial_progress,
+    )
+    .expect("grouped serial search failed");
+    let parallel = optimize_parallel(&plan, &plan.fine_work_units, group_mode, total, 0, |_| true)
+        .expect("split parallel search failed");
+
+    assert_eq!(serial.len(), 2);
+    assert!(
+        !serial[0]
+            .weapon_name
+            .eq_ignore_ascii_case(&serial[1].weapon_name)
+    );
+    assert_eq!(format!("{serial:?}"), format!("{parallel:?}"));
+}
+
+#[test]
 fn parallel_threshold_accepts_medium_searches_when_threads_are_available() {
     let thread_count = rayon::current_num_threads();
     assert!(!should_use_parallel_search(

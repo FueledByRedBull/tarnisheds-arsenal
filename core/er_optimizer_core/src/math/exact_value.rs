@@ -515,6 +515,7 @@ mod tests {
         let cases = [
             (2_i128, 126_i16, BigInt::one() << 127),
             (i128::MAX, 1_i16, BigInt::from(i128::MAX) << 1),
+            (i128::MIN, 0_i16, BigInt::from(i128::MIN)),
         ];
 
         for (value, exponent, expected) in cases {
@@ -536,5 +537,20 @@ mod tests {
         let expected =
             BigRational::new(BigInt::from(i128::MAX - 1), BigInt::from(i128::MAX)).to_f32();
         assert_eq!(value.to_f32(), expected);
+    }
+
+    #[test]
+    fn mixed_small_and_big_comparisons_preserve_order() {
+        let maximum = BigInt::from(i128::MAX);
+        let below_one = ExactRational::new_raw(maximum.clone(), &maximum + BigInt::one());
+        let above_one = ExactRational::new_raw(&maximum + BigInt::one(), maximum);
+        let one = ExactRational::one();
+        let forced_big_one_value = BigInt::from(i128::MAX) + BigInt::one();
+        let forced_big_one =
+            ExactRational::new_raw(forced_big_one_value.clone(), forced_big_one_value);
+
+        assert!(below_one < one);
+        assert!(one < above_one);
+        assert_eq!(forced_big_one, one);
     }
 }

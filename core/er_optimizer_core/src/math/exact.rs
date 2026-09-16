@@ -1144,6 +1144,7 @@ fn validate_nonnegative_float(value: f32, field: &str) -> Result<(), String> {
 
 pub(crate) fn rational(value: f32, field: &str) -> Result<ExactRational, String> {
     validate_nonnegative_float(value, field)?;
+    // Preserve the source f32 bits; Ratio<i128>::from_f32 uses an approximation.
     let (mut mantissa, mut exponent, sign) = value.integer_decode();
     if mantissa == 0 {
         return Ok(ExactRational::zero());
@@ -1166,6 +1167,7 @@ mod tests {
     use std::path::Path;
 
     use num_bigint::BigInt;
+    use num_rational::BigRational;
     use num_traits::ToPrimitive;
 
     use crate::data::load_game_data;
@@ -1189,19 +1191,47 @@ mod tests {
             .expect("weapon fixture")
     }
 
+    fn binary_f32_rational(value: f32) -> BigRational {
+        assert!(value.is_finite());
+        let bits = value.to_bits();
+        let sign = if bits & (1 << 31) == 0 { 1 } else { -1 };
+        let exponent_bits = (bits >> 23) & 0xff;
+        let fraction = bits & 0x7f_ffff;
+        let (mantissa, exponent) = if exponent_bits == 0 {
+            (fraction, -149)
+        } else {
+            (fraction | (1 << 23), exponent_bits as i32 - 127 - 23)
+        };
+        let numerator = BigInt::from(sign) * BigInt::from(mantissa);
+        if exponent < 0 {
+            BigRational::new(numerator, BigInt::from(1_u8) << ((-exponent) as usize))
+        } else {
+            BigRational::from_integer(numerator << exponent as usize)
+        }
+    }
+
     #[test]
     fn f32_conversion_is_exact_and_round_trips() {
         let value = 0.1_f32;
         let converted = rational(value, "test value").expect("finite test value");
         assert_eq!(converted.to_f32(), Some(value));
+        assert_eq!(converted.to_big(), binary_f32_rational(value));
         assert_ne!(
             converted,
             ExactRational::new(BigInt::from(1), BigInt::from(10))
         );
+
+        let subnormal = f32::from_bits(1);
+        assert_eq!(
+            rational(subnormal, "subnormal test value")
+                .expect("finite subnormal value")
+                .to_big(),
+            binary_f32_rational(subnormal),
+        );
     }
 
     #[test]
-    fn float_conversion_matches_num_rational_for_finite_nonnegative_bits() {
+    fn float_conversion_matches_independent_ieee_decoder() {
         let mut bits = 0x1234_5678_u32;
         let mut checked = 0;
         for _ in 0..10_000 {
@@ -1211,7 +1241,7 @@ mod tests {
                 continue;
             }
             let converted = rational(value, "test value").expect("finite nonnegative value");
-            let reference = num_rational::BigRational::from_float(value).expect("finite value");
+            let reference = binary_f32_rational(value);
             assert_eq!(converted.to_big(), reference, "bits={bits:08x}");
             checked += 1;
         }
@@ -1235,8 +1265,7 @@ mod tests {
         ];
         for (new_value, old_value) in pairs {
             let actual = exact_float_difference(new_value, old_value).expect("curve values");
-            let expected = num_rational::BigRational::from_float(new_value).expect("new value")
-                - num_rational::BigRational::from_float(old_value).expect("old value");
+            let expected = binary_f32_rational(new_value) - binary_f32_rational(old_value);
             assert_eq!(
                 actual.to_big(),
                 expected,
@@ -1643,5 +1672,13 @@ mod tests {
         let rounded = calculate_bleed_buildup(weapon, 25, &stats, &data).expect("f32 bleed");
         assert_eq!(exact.to_f32(), Some(rounded));
         assert_eq!(exact, floor_ratio(&exact));
+    }
+
+    #[test]
+    fn exact_status_floor_keeps_binary_boundary() {
+        let scaled = rational(0.7, "status base").expect("status base")
+            * rational(10.0, "status scale").expect("status scale");
+        assert_eq!(scaled.floor(), ExactRational::from_integer(BigInt::from(6)));
+        assert_eq!(0.7_f32 * 10.0_f32, 7.0);
     }
 }
