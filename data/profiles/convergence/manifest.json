@@ -1,7 +1,7 @@
 {
   "schemaVersion": 4,
   "datasetVersion": "convergence-3.0.0.1",
-  "modelVersion": "aow-routes-effects-v5-compact-compatibility",
+  "modelVersion": "aow-routes-effects-v6",
   "id": "convergence-3.0.0.1",
   "label": "The Convergence dataset - 3.0.0.1",
   "appVersion": "1.16.1",
@@ -31,8 +31,8 @@
     "extendedScalingGrades": true,
     "statusBuildupScales": false
   },
-  "generatedAt": "2026-09-04",
-  "extractorVersion": "phase1-python-v9-compact-compatibility",
+  "generatedAt": "2026-09-16",
+  "extractorVersion": "phase1-python-v10-skill-ownership",
   "provenance": "profile-bound regulation, names, and numeric PARAM effect graph",
   "runtimeFiles": [
     {

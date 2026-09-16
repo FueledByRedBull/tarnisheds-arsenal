@@ -192,6 +192,139 @@ fn fixed_native_skill_falls_back_to_generic_rows_by_skill_id() {
 }
 
 #[test]
+fn scaling_overrides_control_active_stats_for_ar_and_skills() {
+    let mut data = load_data();
+    let mut weapon = data
+        .weapons
+        .iter()
+        .find(|weapon| weapon.name == "Smithscript Axe" && weapon.affinity == "Flame Art")
+        .unwrap()
+        .clone();
+    let physical = DamageType::Physical.as_index();
+    weapon.base = [100.0, 0.0, 0.0, 0.0, 0.0];
+    weapon.scaling[STAT_INT] = 0.0;
+    let mut attack = data
+        .aow_attack_rows
+        .values()
+        .flatten()
+        .find(|row| row.aow_name == "Spinning Slash" && row.motion_values[physical] > 0.0)
+        .unwrap()
+        .clone();
+    attack.overwrite_attack_element_correct_id = None;
+    attack.attack_base = [0.0; crate::model::DAMAGE_TYPE_COUNT];
+    attack.motion_values = [100.0, 0.0, 0.0, 0.0, 0.0];
+    assert!(weapon_stat_can_increase_ar(&weapon, &data, STAT_INT));
+    assert!(attack_row_stat_can_increase_damage(
+        &weapon, &attack, &data, STAT_INT
+    ));
+
+    weapon.scaling[STAT_INT] = 1.0;
+    data.attack_element_correct_ext
+        .get_mut(&weapon.attack_element_correct_id)
+        .unwrap()
+        .overwrite[STAT_INT][physical] = Some(0.0);
+    assert!(!weapon_stat_can_increase_ar(&weapon, &data, STAT_INT));
+    assert!(!attack_row_stat_can_increase_damage(
+        &weapon, &attack, &data, STAT_INT
+    ));
+}
+
+#[test]
+fn mist_status_overlap_is_explicitly_unmodeled() {
+    let data = load_data();
+    for skill in ["Chilling Mist", "Poisonous Mist"] {
+        let mut request = base_request();
+        request.weapon_name = Some("Uchigatana".into());
+        request.affinity = Some("Standard".into());
+        request.aow_name = Some(skill.into());
+        request.exact_upgrade = true;
+        request.top_k = 1;
+        let rows = optimize(&request, &data).unwrap();
+        assert_eq!((rows[0].frost_buildup, rows[0].poison_buildup), (0.0, 0.0));
+        assert!(
+            rows[0]
+                .aow_route
+                .as_ref()
+                .unwrap()
+                .actions
+                .iter()
+                .flat_map(|action| &action.hits)
+                .all(|hit| hit
+                    .warnings
+                    .iter()
+                    .any(|warning| warning.contains("buff status increment is not modeled")))
+        );
+        for objective in [
+            OptimizeObjective::AowFirstHit,
+            OptimizeObjective::AowFullSequence,
+        ] {
+            request.objective = objective;
+            assert!(optimize(&request, &data).unwrap().is_empty());
+        }
+    }
+}
+
+#[test]
+fn transferable_skills_exclude_unique_weapon_hits() {
+    let data = load_data();
+    for (name, affinity, skill, combat, hit_count, expected) in [
+        (
+            "Battle Axe",
+            "Magic",
+            "Spinning Weapon",
+            [15, 60, 80, 20, 30],
+            7,
+            3071.5261,
+        ),
+        (
+            "Bastard Sword",
+            "Cold",
+            "Spinning Slash",
+            [45, 70, 20, 30, 50],
+            3,
+            1914.1928,
+        ),
+    ] {
+        let mut request = base_request();
+        request.class_name = "Wretch".into();
+        request.current_stats = Stats {
+            vig: 10,
+            mnd: 10,
+            end: 10,
+            str: combat[0],
+            dex: combat[1],
+            int: combat[2],
+            fai: combat[3],
+            arc: combat[4],
+        };
+        request.character_level = request.current_stats.sum_all_8() - 79;
+        request.locked_combat_stats = combat.map(Some);
+        request.weapon_name = Some(name.into());
+        request.affinity = Some(affinity.into());
+        request.aow_name = Some(skill.into());
+        request.exact_upgrade = true;
+        request.top_k = 1;
+        for two_handing in [false, true] {
+            request.two_handing = two_handing;
+            let rows = optimize(&request, &data).unwrap();
+            let route = rows[0].aow_route.as_ref().unwrap();
+            assert_eq!(
+                route
+                    .actions
+                    .iter()
+                    .map(|action| action.hits.len())
+                    .sum::<usize>(),
+                hit_count
+            );
+            assert!(
+                (route.total_damage.total() - expected).abs() < 0.01,
+                "{name}"
+            );
+        }
+    }
+}
+
+#[test]
 fn fixed_native_skill_keeps_its_persistent_buff_effects() {
     let data = load_data();
     let weapon = data

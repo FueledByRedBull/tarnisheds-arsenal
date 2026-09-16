@@ -175,7 +175,8 @@ pub fn calculate_ar(
             data.calc_curve_value(curve_id, stat_values[STAT_ARC])
                 .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
         ];
-        let contributions = build_contributions(weapon, reinforce, aec, &curve_mults, damage_type);
+        let contributions =
+            build_weapon_contributions(weapon, reinforce, aec, &curve_mults, damage_type, data);
         let value = calculate_ar_for_type(actual_base, &contributions);
         match damage_type {
             DamageType::Physical => breakdown.physical = value,
@@ -273,8 +274,29 @@ pub(crate) fn calculate_skill_damage_for_type(
                 weapon.attack_element_correct_id
             )
         })?;
-    let contributions = build_contributions(weapon, reinforce, aec, &curve_mults, damage_type);
+    let contributions =
+        build_weapon_contributions(weapon, reinforce, aec, &curve_mults, damage_type, data);
     Ok(calculate_ar_for_type(actual_base, &contributions))
+}
+
+fn build_weapon_contributions(
+    weapon: &Weapon,
+    reinforce: &crate::model::ReinforceLevel,
+    aec: &crate::model::AttackElementCorrect,
+    curve_mults: &[f32; COMBAT_STAT_COUNT],
+    damage_type: DamageType,
+    data: &GameData,
+) -> [ScalingContribution; COMBAT_STAT_COUNT] {
+    match data.attack_element_ext(weapon.attack_element_correct_id) {
+        Some(ext) => build_override_contributions(
+            weapon,
+            reinforce,
+            ext,
+            curve_mults,
+            damage_type.as_index(),
+        ),
+        None => build_contributions(weapon, reinforce, aec, curve_mults, damage_type),
+    }
 }
 
 fn build_override_contributions(
@@ -534,7 +556,14 @@ pub fn calculate_aow_routes(
             }
         }
         let mut per_hit_status = StatusBuildup::default();
-        let mut warnings = Vec::new();
+        let mut warnings = data
+            .aow_effects(row.aow_id, 0)
+            .iter()
+            .filter(|effect| !effect.is_supported && effect.is_canonical == Some(true))
+            .map(|effect| effect.reason.clone())
+            .collect::<Vec<_>>();
+        warnings.sort();
+        warnings.dedup();
         for effect in &effects {
             if !effect.is_supported {
                 warnings.push(format!(
@@ -700,6 +729,11 @@ pub fn calculate_status_buildup(
     let mut base = data.weapon_passive(weapon.weapon_id);
     if let Some(overlay) = data.weapon_passive_overlay(weapon.weapon_id, upgrade) {
         base = merge_status_effect_source(base, overlay);
+    }
+    // Vanilla Occult Fingerprint Shield loses Madness despite its passive params.
+    // TClark's 1.17 reference documents the same game exception in buildData.ts.
+    if data.profile_id == crate::data::VANILLA_PROFILE_ID && weapon.weapon_id == 32_131_200 {
+        base.buildup.madness = 0.0;
     }
     if base.buildup.bleed <= 0.0
         && base.buildup.frost <= 0.0
@@ -868,6 +902,7 @@ fn scale_status_additions(
                 value, stat_idx, stat_value, curve_id, flag, weapon, reinforce, data,
             )
         };
+    // Only poison, bleed, sleep and madness have attribute-scaling curves.
     Ok(StatusBuildup {
         bleed: scale(
             buildup.bleed,
@@ -876,13 +911,7 @@ fn scale_status_additions(
             weapon.status_curve_ids.blood,
             flags.bleed,
         )?,
-        frost: scale(
-            buildup.frost,
-            STAT_INT,
-            stats.int,
-            weapon.damage_curve_ids[DamageType::Magic.as_index()],
-            flags.frost,
-        )?,
+        frost: buildup.frost,
         poison: scale(
             buildup.poison,
             STAT_ARC,
@@ -890,13 +919,7 @@ fn scale_status_additions(
             weapon.status_curve_ids.poison,
             flags.poison,
         )?,
-        scarlet_rot: scale(
-            buildup.scarlet_rot,
-            STAT_ARC,
-            stats.arc,
-            weapon.status_curve_ids.blood,
-            flags.scarlet_rot,
-        )?,
+        scarlet_rot: buildup.scarlet_rot,
         sleep: scale(
             buildup.sleep,
             STAT_ARC,
@@ -911,13 +934,7 @@ fn scale_status_additions(
             weapon.status_curve_ids.madness,
             flags.madness,
         )?,
-        death: scale(
-            buildup.death,
-            STAT_ARC,
-            stats.arc,
-            weapon.status_curve_ids.blood,
-            flags.death,
-        )?,
+        death: buildup.death,
     })
 }
 
@@ -1775,13 +1792,105 @@ mod tests {
         };
         let cold_status =
             calculate_status_buildup(star_fist_cold, 25, &cold_stats, &game_data).unwrap();
-        assert!(cold_status.frost > 95.0);
+        assert_eq!(cold_status.frost, 105.0);
 
         let antspur_occult = find_weapon(&game_data, "Antspur Rapier", "Occult");
         let antspur_status =
             calculate_status_buildup(antspur_occult, 25, &blood_stats, &game_data).unwrap();
-        assert!(antspur_status.scarlet_rot > 60.0);
+        assert_eq!(antspur_status.scarlet_rot, 50.0);
         assert!(antspur_status.poison <= 0.0);
+    }
+
+    #[test]
+    fn occult_fingerprint_madness_exception_is_vanilla_only() {
+        let data_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/phase1");
+        let mut data = load_game_data(data_path).unwrap();
+        let occult = find_weapon(&data, "Fingerprint Stone Shield", "Occult").clone();
+        let stats = Stats {
+            vig: 10,
+            mnd: 10,
+            end: 10,
+            str: 48,
+            dex: 10,
+            int: 10,
+            fai: 10,
+            arc: 99,
+        };
+        for upgrade in [0, 12, 25] {
+            assert_eq!(
+                calculate_status_buildup(&occult, upgrade, &stats, &data)
+                    .unwrap()
+                    .madness,
+                0.0
+            );
+        }
+        for affinity in ["Standard", "Blood", "Poison"] {
+            let weapon = find_weapon(&data, "Fingerprint Stone Shield", affinity);
+            assert!(
+                calculate_status_buildup(weapon, 25, &stats, &data)
+                    .unwrap()
+                    .madness
+                    > 0.0
+            );
+        }
+        // A mod retaining the same row id must keep its own passive mechanics.
+        data.profile_id = crate::data::CONVERGENCE_PROFILE_ID.into();
+        assert!(
+            calculate_status_buildup(&occult, 25, &stats, &data)
+                .unwrap()
+                .madness
+                > 0.0
+        );
+    }
+
+    #[test]
+    fn frost_rot_and_death_buildup_do_not_gain_attribute_scaling() {
+        let data_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/phase1");
+        let data = load_game_data(data_path).unwrap();
+        for (name, affinity, level, frost, rot) in [
+            ("Bastard Sword", "Cold", 0, 80.0, 0.0),
+            ("Bastard Sword", "Cold", 25, 127.0, 0.0),
+            ("Poleblade of the Bud", "Standard", 0, 0.0, 55.0),
+            ("Poleblade of the Bud", "Standard", 10, 0.0, 55.0),
+        ] {
+            let weapon = find_weapon(&data, name, affinity);
+            for attribute in [10, 40, 99] {
+                let stats = Stats {
+                    vig: 10,
+                    mnd: 10,
+                    end: 10,
+                    str: 20,
+                    dex: 22,
+                    int: attribute,
+                    fai: 10,
+                    arc: attribute,
+                };
+                let actual = calculate_status_buildup(weapon, level, &stats, &data).unwrap();
+                assert_eq!(
+                    (actual.frost, actual.scarlet_rot),
+                    (frost, rot),
+                    "{name} +{level}"
+                );
+                let added = StatusBuildup {
+                    frost: 60.0,
+                    scarlet_rot: 25.0,
+                    death: 30.0,
+                    ..StatusBuildup::default()
+                };
+                let flags = StatusCorrectionFlags {
+                    frost: Some(true),
+                    scarlet_rot: Some(true),
+                    death: Some(true),
+                    ..StatusCorrectionFlags::default()
+                };
+                let scaled =
+                    scale_status_additions(added, flags, weapon, level, &stats, &data).unwrap();
+                assert_eq!(
+                    (scaled.frost, scaled.scarlet_rot, scaled.death),
+                    (60.0, 25.0, 30.0)
+                );
+            }
+        }
     }
 
     #[test]

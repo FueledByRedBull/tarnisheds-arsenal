@@ -36,6 +36,9 @@ export function Inspector() {
   const snapshot = budgetSnapshot(catalog, request);
   const fixedStats = catalog?.dataManifest.capabilities.classBudget === false;
   const pinned = Boolean(selected && compareBench.some((entry) => rowFingerprint(entry) === rowFingerprint(selected)));
+  const modelWarnings = [...new Set(selected?.aowRoute?.actions.flatMap(
+    (action) => action.hits.flatMap((hit) => hit.warnings),
+  ) ?? [])];
   const [weaponProfile, setWeaponProfile] = useState<WeaponProfileDto | null>(null);
 
   useEffect(() => {
@@ -68,6 +71,7 @@ export function Inspector() {
             <strong>{selected.weaponName}</strong>
             <span>{selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade}</span>
             {resultsStale ? <small className="stale-label">Previous query build</small> : null}
+            {modelWarnings.map((warning) => <small className="warning-text" key={warning}>{warning}</small>)}
           </div>
           <div className="metric-grid">
             <Metric label={objectiveLabel(request.objective)} value={fixed1(metricForObjective(selected, request.objective))} />

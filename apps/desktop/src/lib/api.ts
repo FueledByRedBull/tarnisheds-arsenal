@@ -463,7 +463,7 @@ function mockDataManifest(profileId = "vanilla"): DataManifestDto {
   return {
     schemaVersion: 4,
     datasetVersion: convergence ? "convergence-3.0.0.1" : "vanilla-1.17",
-    modelVersion: "aow-routes-effects-v5-compact-compatibility",
+    modelVersion: "aow-routes-effects-v6",
     id: convergence ? "convergence-3.0.0.1" : "vanilla-1.17",
     label: convergence ? "Convergence 3.0.0.1" : "Vanilla 1.17",
     appVersion: convergence ? "1.16.1" : "1.17",

@@ -2,8 +2,8 @@ use super::exact_value::ExactRational;
 use num_traits::{One, Zero, float::FloatCore};
 
 use crate::model::{
-    AowAttackRow, COMBAT_STAT_COUNT, DAMAGE_TYPE_COUNT, DamageType, GameData, ReinforceLevel,
-    STAT_ARC, Stats, Weapon,
+    AowAttackRow, AttackElementCorrect, AttackElementCorrectExt, COMBAT_STAT_COUNT,
+    DAMAGE_TYPE_COUNT, DamageType, GameData, ReinforceLevel, STAT_ARC, Stats, Weapon,
 };
 
 use super::ScalarAowRoute;
@@ -38,6 +38,7 @@ pub(crate) fn exact_ar(
         stat_values_for_scaling(stats, effective_str_value, weapon.disable_two_hand_bonus);
     let mut breakdown = std::array::from_fn(|_| ExactRational::zero());
 
+    let aec_ext = data.attack_element_ext(weapon.attack_element_correct_id);
     for damage_type in DamageType::ALL {
         let damage_idx = damage_type.as_index();
         let actual_base = rational(weapon.base[damage_idx], "weapon base")?
@@ -50,18 +51,7 @@ pub(crate) fn exact_ar(
         }
 
         let curve_mults = curve_values(data, weapon.damage_curve_ids[damage_idx], stat_values)?;
-        let mut coefficients = std::array::from_fn(|_| None);
-        for (stat_idx, coefficient) in coefficients.iter_mut().enumerate() {
-            if aec.stat_scales(stat_idx, damage_type) {
-                *coefficient = Some(
-                    rational(weapon.scaling[stat_idx], "weapon scaling")?
-                        * rational(
-                            reinforce.scaling_mult[stat_idx],
-                            "reinforce scaling multiplier",
-                        )?,
-                );
-            }
-        }
+        let coefficients = weapon_coefficients(weapon, reinforce, aec, damage_type, aec_ext)?;
         breakdown[damage_idx] = apply_scaling(actual_base, &curve_mults, coefficients);
     }
     Ok(breakdown)
@@ -97,6 +87,7 @@ pub(crate) fn exact_ar_upper_bound(
         })?;
     let mut bounds = std::array::from_fn(|_| ExactRational::zero());
 
+    let aec_ext = data.attack_element_ext(weapon.attack_element_correct_id);
     for damage_type in DamageType::ALL {
         let damage_idx = damage_type.as_index();
         let actual_base = rational(weapon.base[damage_idx], "weapon base")?
@@ -109,8 +100,9 @@ pub(crate) fn exact_ar_upper_bound(
         }
 
         let curve_id = weapon.damage_curve_ids[damage_idx];
+        let coefficients = weapon_coefficients(weapon, reinforce, aec, damage_type, aec_ext)?;
         let mut value = actual_base.clone();
-        for stat_idx in 0..COMBAT_STAT_COUNT {
+        for (stat_idx, coefficient) in coefficients.into_iter().enumerate() {
             let maximum_curve = max_curve_value(
                 data,
                 curve_id,
@@ -118,12 +110,7 @@ pub(crate) fn exact_ar_upper_bound(
                 max_stat_values[stat_idx],
                 stat_idx,
             )?;
-            if aec.stat_scales(stat_idx, damage_type) {
-                let coefficient = rational(weapon.scaling[stat_idx], "weapon scaling")?
-                    * rational(
-                        reinforce.scaling_mult[stat_idx],
-                        "reinforce scaling multiplier",
-                    )?;
+            if let Some(coefficient) = coefficient {
                 value += actual_base.clone() * coefficient * maximum_curve;
             }
         }
@@ -341,6 +328,47 @@ impl ExactArFormula {
     }
 }
 
+fn weapon_coefficients(
+    weapon: &Weapon,
+    reinforce: &ReinforceLevel,
+    aec: &AttackElementCorrect,
+    damage_type: DamageType,
+    aec_ext: Option<&AttackElementCorrectExt>,
+) -> Result<[Option<ExactRational>; COMBAT_STAT_COUNT], String> {
+    let damage_idx = damage_type.as_index();
+    let mut coefficients = std::array::from_fn(|_| None);
+    for (stat_idx, coefficient) in coefficients.iter_mut().enumerate() {
+        let contributes = aec_ext.map_or_else(
+            || aec.stat_scales(stat_idx, damage_type),
+            |ext| ext.stat_scales(stat_idx, damage_idx),
+        );
+        if !contributes {
+            continue;
+        }
+        let scaling = match aec_ext.and_then(|ext| ext.overwrite_rate(stat_idx, damage_idx)) {
+            Some(value) => rational(value, "attack correction overwrite")?,
+            None => {
+                let mut scaling = rational(weapon.scaling[stat_idx], "weapon scaling")?;
+                if let Some(ext) = aec_ext {
+                    let influence = ext.influence_rate(stat_idx, damage_idx);
+                    if influence != 1.0 {
+                        scaling *= rational(influence, "attack correction influence")?;
+                    }
+                }
+                scaling
+            }
+        };
+        let scaling_mult = rational(
+            reinforce.scaling_mult[stat_idx],
+            "reinforce scaling multiplier",
+        )?;
+        if !scaling.is_zero() && !scaling_mult.is_zero() {
+            *coefficient = Some(multiply_if_needed(scaling, scaling_mult));
+        }
+    }
+    Ok(coefficients)
+}
+
 pub(crate) fn compile_ar_formula(
     weapon: &Weapon,
     upgrade: u8,
@@ -358,6 +386,7 @@ pub(crate) fn compile_ar_formula(
         })?;
     let mut components = std::array::from_fn(|_| ExactFormula::zero(max_stat_values));
     let mut total = ExactFormula::zero(max_stat_values);
+    let aec_ext = data.attack_element_ext(weapon.attack_element_correct_id);
     for damage_type in DamageType::ALL {
         let damage_idx = damage_type.as_index();
         let actual_base = rational(weapon.base[damage_idx], "weapon base")?
@@ -368,18 +397,7 @@ pub(crate) fn compile_ar_formula(
         if actual_base <= ExactRational::zero() {
             continue;
         }
-        let mut coefficients = std::array::from_fn(|_| None);
-        for (stat_idx, coefficient) in coefficients.iter_mut().enumerate() {
-            if aec.stat_scales(stat_idx, damage_type) {
-                *coefficient = Some(
-                    rational(weapon.scaling[stat_idx], "weapon scaling")?
-                        * rational(
-                            reinforce.scaling_mult[stat_idx],
-                            "reinforce scaling multiplier",
-                        )?,
-                );
-            }
-        }
+        let coefficients = weapon_coefficients(weapon, reinforce, aec, damage_type, aec_ext)?;
         let formula = compile_formula(
             actual_base,
             coefficients,
@@ -775,17 +793,13 @@ pub(crate) fn exact_skill_damage_for_type(
                     weapon.attack_element_correct_id
                 )
             })?;
-        for (stat_idx, coefficient) in coefficients.iter_mut().enumerate() {
-            if aec.stat_scales(stat_idx, damage_type) {
-                let scaling = rational(weapon.scaling[stat_idx], "weapon scaling")?;
-                let scaling_mult = rational(
-                    reinforce.scaling_mult[stat_idx],
-                    "reinforce scaling multiplier",
-                )?;
-                *coefficient = (!scaling.is_zero() && !scaling_mult.is_zero())
-                    .then(|| multiply_if_needed(scaling, scaling_mult));
-            }
-        }
+        coefficients = weapon_coefficients(
+            weapon,
+            reinforce,
+            aec,
+            damage_type,
+            data.attack_element_ext(weapon.attack_element_correct_id),
+        )?;
     }
     Ok(apply_scaling(actual_base, &curve_mults, coefficients))
 }
@@ -902,17 +916,13 @@ fn compile_skill_formula(
                     weapon.attack_element_correct_id
                 )
             })?;
-        for (stat_idx, coefficient) in coefficients.iter_mut().enumerate() {
-            if aec.stat_scales(stat_idx, damage_type) {
-                *coefficient = Some(
-                    rational(weapon.scaling[stat_idx], "weapon scaling")?
-                        * rational(
-                            reinforce.scaling_mult[stat_idx],
-                            "reinforce scaling multiplier",
-                        )?,
-                );
-            }
-        }
+        coefficients = weapon_coefficients(
+            weapon,
+            reinforce,
+            aec,
+            damage_type,
+            data.attack_element_ext(weapon.attack_element_correct_id),
+        )?;
     }
     compile_formula(
         actual_base,
@@ -1171,7 +1181,9 @@ mod tests {
     use num_traits::ToPrimitive;
 
     use crate::data::load_game_data;
-    use crate::math::{calculate_ar, calculate_bleed_buildup, effective_str};
+    use crate::math::{
+        calculate_ar, calculate_bleed_buildup, calculate_skill_damage_for_type, effective_str,
+    };
 
     use super::*;
 
@@ -1422,6 +1434,121 @@ mod tests {
                 .expect("compiled exact AR delta"),
             expected
         );
+    }
+
+    #[test]
+    fn smithscript_aec_overrides_match_reference_and_compiled_paths() {
+        let data = data();
+        let weapon = weapon(&data, "Smithscript Axe", "Flame Art");
+        let stats = Stats {
+            vig: 10,
+            mnd: 10,
+            end: 10,
+            str: 70,
+            dex: 20,
+            int: 60,
+            fai: 30,
+            arc: 60,
+        };
+        let effective_str_value = effective_str(stats.str, false, weapon.disable_two_hand_bonus);
+        let exact = exact_ar(weapon, 0, &stats, effective_str_value, &data).expect("exact AR");
+        // The independent references use decimal CSV values; exact-v1 preserves loaded f32 bits.
+        assert!(
+            (exact[DamageType::Physical.as_index()].to_f64().unwrap() - 115.9599121865).abs()
+                < 1e-5,
+            "physical={:?}",
+            exact[DamageType::Physical.as_index()]
+        );
+        assert!((exact[DamageType::Fire.as_index()].to_f64().unwrap() - 127.216667).abs() < 1e-5);
+
+        let formula = compile_ar_formula(weapon, 0, &data, [148, 99, 99, 99, 99])
+            .expect("compile exact AR formula");
+        assert_eq!(
+            formula
+                .evaluate(&stats, effective_str_value, weapon.disable_two_hand_bonus)
+                .expect("evaluate exact AR formula"),
+            exact
+        );
+
+        let low_stats = Stats {
+            int: 0,
+            fai: 0,
+            ..stats
+        };
+        let low_exact = exact_ar(
+            weapon,
+            0,
+            &low_stats,
+            effective_str(low_stats.str, false, weapon.disable_two_hand_bonus),
+            &data,
+        )
+        .expect("low exact AR");
+        assert!(
+            exact[DamageType::Physical.as_index()] > low_exact[DamageType::Physical.as_index()]
+        );
+
+        let row = data
+            .aow_attack_rows
+            .values()
+            .flat_map(|rows| rows.iter())
+            .find(|row| {
+                row.raw_name == "Wild Strikes - Loop [1]"
+                    && row.overwrite_attack_element_correct_id.is_none()
+            })
+            .expect("Wild Strikes row");
+        let route = ScalarAowRoute {
+            route_id: "smithscript-aec".to_string(),
+            route_priority: 0,
+            hits: vec![ScalarAowHit {
+                row,
+                action_order: 0,
+                hit_order: 0,
+                buff_active: false,
+                buff_attack_power: [0.0; DAMAGE_TYPE_COUNT],
+            }],
+        };
+        let direct_route =
+            exact_scalar_route(&route, weapon, 0, &stats, effective_str_value, 1.0, &data)
+                .expect("direct exact skill route");
+        let compiled_route =
+            compile_scalar_route_formula(&route, weapon, 0, 1.0, &data, [148, 99, 99, 99, 99])
+                .expect("compile exact skill route")
+                .evaluate(&stats, effective_str_value)
+                .expect("evaluate exact skill route");
+        assert_eq!(compiled_route, direct_route);
+
+        let exact_physical = exact_skill_damage_for_type(
+            weapon,
+            row,
+            0,
+            &stats,
+            effective_str_value,
+            DamageType::Physical,
+            &data,
+        )
+        .expect("exact physical skill damage");
+        let rounded_physical = calculate_skill_damage_for_type(
+            weapon,
+            row,
+            0,
+            &stats,
+            effective_str_value,
+            DamageType::Physical,
+            &data,
+        )
+        .expect("rounded physical skill damage");
+        assert!((exact_physical.to_f32().unwrap() - rounded_physical).abs() < 0.001);
+        let low_physical = exact_skill_damage_for_type(
+            weapon,
+            row,
+            0,
+            &low_stats,
+            effective_str(low_stats.str, false, weapon.disable_two_hand_bonus),
+            DamageType::Physical,
+            &data,
+        )
+        .expect("low exact physical skill damage");
+        assert!(exact_physical > low_physical);
     }
 
     #[test]

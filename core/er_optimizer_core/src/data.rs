@@ -1318,9 +1318,20 @@ mod tests {
             .iter()
             .find(|aow| aow.aow_id == 227)
             .expect("Chilling Mist");
-        assert_eq!(chilling_mist.persistent_weapon_status_add.frost, 30.0);
-        assert_eq!(chilling_mist.persistent_on_hit_status_add.frost, 60.0);
-        assert_eq!(chilling_mist.scaling_status_add.frost, 90.0);
+        assert_eq!(chilling_mist.scaling_status_add.frost, 0.0);
+        for (role, expected) in [
+            (AowEffectRole::PersistentWeaponBuff, 30.0),
+            (AowEffectRole::PersistentOnHit, 60.0),
+        ] {
+            let effect = data
+                .aow_effects(227, 0)
+                .iter()
+                .find(|effect| effect.role == role && effect.is_canonical == Some(true))
+                .unwrap();
+            assert_eq!(effect.status_buildup.frost, expected);
+            assert!(!effect.is_supported);
+            assert!(effect.reason.contains("overlap"));
+        }
         assert_eq!(
             chilling_mist.buff_activation_action_id.as_deref(),
             Some("activation")

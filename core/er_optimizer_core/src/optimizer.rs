@@ -3198,6 +3198,7 @@ fn resolve_aow_choices<'a>(
                 && data
                     .aow_effects(row.aow_id, row.sheet_row)
                     .iter()
+                    .chain(data.aow_effects(row.aow_id, 0))
                     .any(|effect| !effect.is_supported)
         }) {
             return false;
@@ -3637,22 +3638,13 @@ fn attack_row_stat_can_increase_damage(
         if !has_damage_base {
             return false;
         }
-        if let Some(override_id) = row.overwrite_attack_element_correct_id {
-            let Some(aec_ext) = data.attack_element_ext(override_id) else {
-                return false;
-            };
-            if !aec_ext.stat_scales(stat_idx, damage_idx) {
-                return false;
-            }
-            return aec_ext
-                .overwrite_rate(stat_idx, damage_idx)
-                .is_some_and(|rate| rate > 0.0)
-                || weapon.scaling[stat_idx] * aec_ext.influence_rate(stat_idx, damage_idx) > 0.0;
-        }
-        weapon.scaling[stat_idx] > 0.0
-            && data
-                .attack_element(weapon.attack_element_correct_id)
-                .is_none_or(|aec| aec.stat_scales(stat_idx, *damage_type))
+        damage_type_stat_can_scale(
+            weapon,
+            data,
+            stat_idx,
+            *damage_type,
+            row.overwrite_attack_element_correct_id,
+        )
     })
 }
 
@@ -3739,20 +3731,33 @@ fn minimum_str_for_requirement(
 }
 
 fn weapon_stat_can_increase_ar(weapon: &Weapon, data: &GameData, stat_idx: usize) -> bool {
-    if weapon.scaling[stat_idx] <= 0.0 {
-        return false;
-    }
-    let Some(aec) = data
-        .attack_element_correct
-        .get(weapon.attack_element_correct_id)
-        .and_then(|entry| *entry)
-    else {
-        return true;
-    };
-
     DamageType::ALL.iter().any(|damage_type| {
-        weapon.base[damage_type.as_index()] > 0.0 && aec.stat_scales(stat_idx, *damage_type)
+        weapon.base[damage_type.as_index()] > 0.0
+            && damage_type_stat_can_scale(weapon, data, stat_idx, *damage_type, None)
     })
+}
+
+fn damage_type_stat_can_scale(
+    weapon: &Weapon,
+    data: &GameData,
+    stat_idx: usize,
+    damage_type: DamageType,
+    override_id: Option<usize>,
+) -> bool {
+    let id = override_id.unwrap_or(weapon.attack_element_correct_id);
+    let damage_idx = damage_type.as_index();
+    if let Some(ext) = data.attack_element_ext(id) {
+        return ext.stat_scales(stat_idx, damage_idx)
+            && ext
+                .overwrite_rate(stat_idx, damage_idx)
+                .unwrap_or(weapon.scaling[stat_idx] * ext.influence_rate(stat_idx, damage_idx))
+                > 0.0;
+    }
+    override_id.is_none()
+        && weapon.scaling[stat_idx] > 0.0
+        && data
+            .attack_element(id)
+            .is_none_or(|aec| aec.stat_scales(stat_idx, damage_type))
 }
 
 #[cfg(test)]

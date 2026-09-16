@@ -1,7 +1,7 @@
 {
   "schemaVersion": 4,
   "datasetVersion": "vanilla-1.17",
-  "modelVersion": "aow-routes-effects-v5-compact-compatibility",
+  "modelVersion": "aow-routes-effects-v6",
   "id": "vanilla-1.17",
   "label": "Vanilla dataset - 1.17",
   "appVersion": "1.17",
@@ -31,8 +31,8 @@
     "extendedScalingGrades": false,
     "statusBuildupScales": true
   },
-  "generatedAt": "2026-09-04",
-  "extractorVersion": "phase1-python-v9-compact-compatibility",
+  "generatedAt": "2026-09-16",
+  "extractorVersion": "phase1-python-v10-skill-ownership",
   "provenance": "profile-bound regulation, names, motion data, and numeric PARAM effect graph",
   "runtimeFiles": [
     {
@@ -42,18 +42,18 @@
     },
     {
       "path": "aow_attack_data.csv",
-      "size": 375848,
-      "sha256": "ecc128ba21b5bbc021869591077c6f43f3e1af5d8b119b2489aeac6d255fda5f"
+      "size": 360976,
+      "sha256": "aa8d7e5182c04331f3d5c77710f62206f4cc30ec2813ffec4c310dc110126b4c"
     },
     {
       "path": "aow_effect_data.csv",
-      "size": 673816,
-      "sha256": "ad58cbbbade99fc8496867973c9e6173f9f84c6e4f919a56e2ac690febf0b460"
+      "size": 664025,
+      "sha256": "d5976295e21fdbac79e131059b54a405375482808b4c4ed5b690ba63ec8d9ed8"
     },
     {
       "path": "aow_route_assignments.csv",
-      "size": 120026,
-      "sha256": "39e24206df00095106756cd3e49ed0908d4b85eb4b232ce997f7e3d422efc2ce"
+      "size": 118293,
+      "sha256": "375fecf422d31f30e06b91ac4b998aec8cc7beb2c2019f51071c4ec0c57b5ca0"
     },
     {
       "path": "attack_element_correct.csv",
@@ -99,23 +99,23 @@
   "diagnosticFiles": [
     {
       "path": "aow_damage_coverage.csv",
-      "size": 5474,
-      "sha256": "6363d25584e3fba94384292303d9fad9ec791c01fb8ef8681793b1e6ae521341"
+      "size": 5554,
+      "sha256": "b7f49bde3195c6c44a7a992e1daa4a6c8a7740e0b8812da01eb9bff6e9857db6"
     },
     {
       "path": "aow_effect_coverage.csv",
-      "size": 225732,
-      "sha256": "66e3a4591c370cf0691c930be4776a776777a6cc90d7c34050a10e66789e6db7"
+      "size": 221636,
+      "sha256": "b3254469134239d872ca56092a259d7e5ed075c89ad849ee9c3f97cac5bf1afd"
     },
     {
       "path": "aow_effect_exclusions.csv",
-      "size": 1718,
-      "sha256": "a6c14cdf87dca0f4c4dd51cf04a7dd609bbc9b87b3bb51cbf2920daecc359a7f"
+      "size": 3114,
+      "sha256": "4a5bdcd9207ccddd7bf54ab3543c2580891648ae678bebc46166aad38a4483cf"
     },
     {
       "path": "aow_route_exclusions.csv",
-      "size": 43879,
-      "sha256": "8f1d06e9e5e0028cc380c8b8496dcb9e1f019da26c43b6569901c3dbb47952c9"
+      "size": 42732,
+      "sha256": "c7602c837c61926ddbcd127e423556b4aff9ee8eaa824f7406fe9634af633e86"
     },
     {
       "path": "native_skill_damage_coverage.csv",

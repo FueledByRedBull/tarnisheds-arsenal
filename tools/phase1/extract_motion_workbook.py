@@ -647,7 +647,8 @@ def build_aow_attack_data(project_root: Path, phase1_dir: Path | None = None) ->
     out_path = phase1_dir / 'aow_attack_data.csv'
     coverage_path = phase1_dir / 'aow_damage_coverage.csv'
 
-    aow_rows = list(csv.DictReader(aow_csv.open('r', encoding='utf-8', newline='')))
+    with aow_csv.open('r', encoding='utf-8', newline='') as handle:
+        aow_rows = list(csv.DictReader(handle))
     aow_id_by_name = {row['name']: int(row['aow_id']) for row in aow_rows}
     ordered_names = sorted(aow_id_by_name, key=len, reverse=True)
     known_attack_element_ext_ids = load_attack_element_correct_ext_ids(workbook_path)
@@ -681,6 +682,7 @@ def build_aow_attack_data(project_root: Path, phase1_dir: Path | None = None) ->
                 continue
             if unique_skill_weapon:
                 coverage[matched]['unique_collision_rows'] += 1
+                continue
             row, damaging, hit_kind = build_attack_row(
                 header_idx,
                 values,
@@ -805,15 +807,12 @@ def build_native_skill_attack_data(project_root: Path, phase1_dir: Path | None =
     weapon_index = load_standard_native_skill_weapons(weapons_csv)
     generic_aow_names: list[str] = []
     if aow_csv.exists():
-        generic_aow_names = sorted(
-            {
-            row['name'].strip()
-            for row in csv.DictReader(aow_csv.open('r', encoding='utf-8', newline=''))
-            if row.get('name', '').strip()
-            },
-            key=len,
-            reverse=True,
-        )
+        with aow_csv.open('r', encoding='utf-8', newline='') as handle:
+            generic_aow_names = sorted(
+                {row['name'].strip() for row in csv.DictReader(handle) if row.get('name', '').strip()},
+                key=len,
+                reverse=True,
+            )
     known_attack_element_ext_ids = load_attack_element_correct_ext_ids(workbook_path)
 
     reader = WorkbookReader(workbook_path)

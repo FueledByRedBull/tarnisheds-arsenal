@@ -387,6 +387,20 @@ def build_aow_effect_graph(
         if active_id <= 0 or active_id not in effects.rows:
             raise ValueError(f"persistent SpEffect root {root_id} has no resolvable cycle child")
         active_effect = effects.rows[active_id]
+        occurrence_id = int(active_effect["atkOccurrenceSpEffectId"])
+        occurrence = effects.rows.get(occurrence_id) if occurrence_id > 0 else None
+        if occurrence_id > 0 and occurrence is None:
+            raise ValueError(
+                f"persistent effect {active_id} references absent attack occurrence {occurrence_id}"
+            )
+        overlapping_status = occurrence is not None and any(
+            float(active_effect[field]) > 0 and float(occurrence[field]) > 0
+            for _, field in STATUS_FIELDS
+        )
+        status_reason = (
+            "persistent weapon and on-hit status overlap; their engine correction and stacking "
+            "are unverified, so the buff status increment is not modeled"
+        )
         common = {
             "aow_id": aow_id,
             "aow_name": expected_name,
@@ -421,18 +435,13 @@ def build_aow_effect_graph(
                 link_kind="cycle",
                 role="persistent_weapon_buff",
                 activation_timing="after_action",
-                is_supported=True,
-                reason="active persistent buff is the root effect's numeric cycle child",
+                is_supported=not overlapping_status,
+                reason=(status_reason if overlapping_status else
+                        "active persistent buff is the root effect's numeric cycle child"),
             )
         )
         signature = list(_effect_signature(active_effect))
-        occurrence_id = int(active_effect["atkOccurrenceSpEffectId"])
-        if occurrence_id > 0:
-            occurrence = effects.rows.get(occurrence_id)
-            if occurrence is None:
-                raise ValueError(
-                    f"persistent effect {active_id} references absent attack occurrence {occurrence_id}"
-                )
+        if occurrence is not None:
             records.append(
                 _record(
                     **common,
@@ -445,8 +454,9 @@ def build_aow_effect_graph(
                     link_kind="attack_occurrence",
                     role="persistent_on_hit",
                     activation_timing="while_buff_active",
-                    is_supported=True,
-                    reason="on-hit payload is linked by atkOccurrenceSpEffectId and remains distinct",
+                    is_supported=not overlapping_status,
+                    reason=(status_reason if overlapping_status else
+                            "on-hit payload is linked by atkOccurrenceSpEffectId and remains distinct"),
                 )
             )
             signature.extend(_effect_signature(occurrence))
