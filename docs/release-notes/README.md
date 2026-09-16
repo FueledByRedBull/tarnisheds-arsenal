@@ -1,8 +1,19 @@
-# Release Notes
+# Release notes
 
-Release notes are grouped by GitHub release tag.
+[Home](../../README.md) · [Documentation](../../README.md#documentation) · [Release guide](../releasing.md)
 
-| Version | Notes | GitHub Release |
+## v0.13.1
+
+Exact numeric ranking, responsive native calculations, and saved-build recovery.
+Read the [v0.13.1 notes](v0.13.1.md) for the changes and download choices.
+
+The table includes release preparation entries. A version's GitHub page and assets
+become available when it is published; [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest)
+always points to an available build.
+
+## Version history
+
+| Version | Notes | GitHub release |
 | --- | --- | --- |
 | v0.13.1 | [v0.13.1.md](v0.13.1.md) | [Tarnished's Arsenal v0.13.1](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.13.1) |
 | v0.13.0 | [v0.13.0.md](v0.13.0.md) | [Tarnished's Arsenal v0.13.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.13.0) |

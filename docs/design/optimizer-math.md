@@ -1,11 +1,19 @@
-# Optimizer Mathematics
+# Optimizer mathematics
 
-This document states the searched domain and the exact-arithmetic argument for the
-Rust optimizer's recurrence. Its conclusions still require the separability,
+Use this page to review the searched domain, recurrence, and exact-arithmetic
+claim behind the Rust optimizer. Its conclusions still require the separability,
 first-hit identity, and active-set obligations below. The companion
 [`optimizer-overview.md`](optimizer-overview.md) covers implementation structure,
 ranking, parallel work, tests, and release engineering. Functions named here live in
 `core/er_optimizer_core/src/`.
+
+**Navigation:** [Home](../../README.md) · [Optimizer overview](optimizer-overview.md) ·
+[Performance](../performance.md) · [Runtime invariants](../architecture/runtime-invariants.md)
+
+**Find a topic:** [Point budget](#1-notation-and-point-budget) ·
+[Feasible domain](#2-feasible-spend-domain) ·
+[Recurrence](#4-generalized-lexicographic-dynamic-program) ·
+[Numerical contract](#numerical-contract) · [Claim boundaries](#7-scope-of-the-claims)
 
 The equations are a fan-made model reconstructed from version-bound regulation data.
 They are not an official FromSoftware specification. The model boundary is summarized

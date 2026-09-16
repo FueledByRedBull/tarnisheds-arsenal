@@ -1,5 +1,7 @@
 # Security reporting
 
+[Home](README.md) · [Documentation](README.md#documentation)
+
 Report suspected vulnerabilities through
 [GitHub private vulnerability reporting](https://github.com/FueledByRedBull/tarnisheds-arsenal/security/advisories/new).
 Include the affected version, reproduction steps, and potential impact. Keep exploit

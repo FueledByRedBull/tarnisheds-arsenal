@@ -1,10 +1,17 @@
-# Optimizer Design Overview
+# Optimizer design overview
 
-This document is the current-state design reference for Tarnished's Arsenal.
-It intentionally avoids historical planning notes and tracks the implementation
-shape that exists in the repository today.
+Use this page to understand how a desktop request moves through profile-bound
+data, the optimizer, and release validation. It is the current-state design
+reference for Tarnished's Arsenal and does not describe historical plans.
 
-## Product Shape
+**Navigation:** [Home](../../README.md) · [Optimizer math](optimizer-math.md) ·
+[Performance](../performance.md) · [Runtime invariants](../architecture/runtime-invariants.md)
+
+**Find a topic:** [App shape](#product-shape) · [Search behavior](#search-behavior) ·
+[Optimizer core](#optimization-core) · [Evidence](#numerical-evidence-and-decision) ·
+[Release flow](#release-flow)
+
+## Product shape
 
 Tarnished's Arsenal is a Windows Tauri desktop app backed by one Rust optimizer
 core. The user works from one build session and carries that session through
@@ -20,7 +27,7 @@ The public request/response contracts live in the Tauri DTO layer and are shared
 with the frontend tests. Validation and benchmarking call the Rust core directly
 through tests and small release-mode examples.
 
-## Desktop Interface
+## Desktop interface
 
 The desktop shell uses a three-region composition: continuously visible session
 controls, the active workspace, and an always-visible Build Detail panel. The
@@ -46,7 +53,12 @@ decorative animation to effectively zero duration. Responsive states prioritize
 the ranking table and let it scroll within the workspace; there is no podium.
 The page itself does not scroll horizontally.
 
-## Data Model
+Frontend state lives in one Zustand store, while each native analysis registry
+holds one active job slot and workers retain an `Arc` to the selected profile.
+Frontend actions invalidate related workspaces atomically. Native registries keep
+job ownership until completion is observed or a finished job is replaced.
+
+## Data model
 
 Runtime data is committed as separate manifest-bound Vanilla (`data/phase1`) and
 Convergence (`data/profiles/convergence`) snapshots generated from local game/mod
@@ -66,7 +78,7 @@ routing, and character stats.
 Data refresh tooling lives in `tools/phase1`. Validation, benchmarking, and
 release packaging helpers live in `tools/phase4`.
 
-## Search Behavior
+## Search behavior
 
 The optimizer accepts locked or open constraints for weapon type, weapon,
 affinity, Ash of War, upgrade caps, combat stat floors, exact combat stat locks,
@@ -82,7 +94,7 @@ that weapon. When weapon is open, rankings return at most one row per weapon:
 the best affinity, Ash of War, upgrade, and stat distribution for the selected
 metric.
 
-## Optimization Core
+## Optimization core
 
 The Rust core narrows stat work per weapon, affinity, Ash of War, and objective.
 Max AR, Max Physical AR, Bleed then AR, AoW First Hit, and AoW Full Sequence use one
@@ -199,7 +211,7 @@ mechanics or certify the profile data against the game. Source `f32` coefficient
 remain the model inputs; arbitrary source precision is not reconstructed. See the
 [numerical contract](optimizer-math.md#numerical-contract) for the precise scope.
 
-## Release Flow
+## Release flow
 
 CI validates Rust, DTO, both data profiles, frontend build, and e2e contract
 coverage. The release workflow requires successful main-branch push CI for the exact

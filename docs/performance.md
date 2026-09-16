@@ -1,5 +1,17 @@
 # Performance regression workflow
 
+Use this page to reproduce and interpret optimizer, native workflow, and
+release-mode responsiveness measurements. Compare matching requests, data, build
+profiles, and thread counts before treating a timing difference as meaningful.
+
+**Navigation:** [Home](../README.md) · [Optimizer overview](design/optimizer-overview.md) ·
+[Optimizer math](design/optimizer-math.md) · [Runtime invariants](architecture/runtime-invariants.md)
+
+**Find a task:** [Run scoring measurements](#exact-scoring-measurements) ·
+[Probe native responsiveness](#analysis-workflows) ·
+[Compare level-range evaluators](#independent-versus-shared-level-range-evaluation) ·
+[Attribute phases](#optimizer-phase-attribution) · [Review a result](#review-policy)
+
 For an optional independent Vanilla AR comparison, run
 `python tools/phase4/validate_external_calculator.py`. This uses supported cases
 from the public T. Clark calculator; external inputs are not release dependencies.

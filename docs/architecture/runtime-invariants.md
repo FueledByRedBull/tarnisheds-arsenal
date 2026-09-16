@@ -1,6 +1,17 @@
 # Runtime invariants
 
+Use this page as the contract for cache identity, asynchronous jobs, result
+selection, snapshot loading, and changes that cross those boundaries.
+
 Status: accepted. These rules describe contracts that tests and future refactors must preserve.
+
+**Navigation:** [Home](../../README.md) · [Optimizer overview](../design/optimizer-overview.md) ·
+[Optimizer math](../design/optimizer-math.md) · [Performance](../performance.md) ·
+[Phase 1 extraction](../../tools/phase1/README.md)
+
+**Find a contract:** [Cache identity](#cache-identity-and-versioning) ·
+[Job lifecycle](#job-lifecycle) · [Result identity](#result-identity) ·
+[Data snapshots](#data-snapshots) · [Change checklist](#change-checklist)
 
 ## Cache identity and versioning
 

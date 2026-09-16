@@ -1,6 +1,15 @@
-# Phase 1 Dump Tooling
+# Phase 1 dump tooling
 
-This folder intentionally excludes bundled WitchyBND binaries to keep the repository lean and publishable.
+Use the profile-aware dump command to regenerate a runtime snapshot from local
+game inputs. This guide covers the inputs, storage contract, normalization, and
+staging rules. Bundled WitchyBND binaries stay out of this folder so the
+repository remains lean and publishable.
+
+**Navigation:** [Home](../../README.md) · [Optimizer overview](../../docs/design/optimizer-overview.md) ·
+[Optimizer math](../../docs/design/optimizer-math.md) · [Runtime invariants](../../docs/architecture/runtime-invariants.md)
+
+**Find a task:** [Regenerate a snapshot](#example) · [Check the storage contract](#snapshot-contract) ·
+[Understand normalized fields](#normalization-and-indexing) · [Inspect staging](#extraction-work-directories)
 
 `phase1_dump.py` is the supported profile-aware snapshot entry point. It extracts numeric
 PARAM relationships, profile-supported attacks and routes, effects, passives, and
@@ -21,7 +30,7 @@ reject schema 3 before attempting to use its incompatible tables. Do not merely
 edit an old manifest's version number. Dataset/game versions do not change when
 only the storage contract changes; source hashes remain tied to the original inputs.
 
-## Required Inputs
+## Required inputs
 
 - A profile-specific `regulation.bin`
 - Local WitchyBND executable path
