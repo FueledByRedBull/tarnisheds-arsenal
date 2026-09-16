@@ -264,6 +264,9 @@ cases. For positive budgets/capacities this is conventionally written
 $O(|A|Tc_{\max})$, effectively linear in $T$ under the fixed in-game stat cap.
 Optimizing $\rho$ legal routes multiplies the per-route work by $\rho$; the cost of
 each scalar evaluation also depends on that route's hit count.
+These bounds count transitions and stored states. Arbitrary-precision operations
+also depend on integer bit lengths; coefficient construction and normalization are
+separate preprocessing costs.
 
 ### Sharing primary work across Ash choices
 
@@ -283,6 +286,13 @@ to prune those transitions. A route-specific recurrence then evaluates only thes
 transitions and selects the complete lexicographic key, including skill damage,
 bleed, and canonical combat stats. Selecting one primary-optimal allocation first
 would be incorrect: secondary metrics can prefer a different tied allocation.
+
+Each state also keeps its smallest combat-stat representative without dropping any
+tied predecessor. After filling inactive stats, the smallest completed vector across
+winning terminal spends can be reused when there is no skill route and the remaining
+numeric components cannot distinguish primary ties. This holds for Bleed then AR,
+and for AR objectives when bleed is stat-invariant. Other cases still evaluate the
+retained transitions for their secondary metrics.
 
 Under exact arithmetic and the separability obligations above, every full-key
 optimum follows prefix-optimal transitions. Otherwise, replacing a nonoptimal
@@ -320,12 +330,22 @@ allowed interval and ignores the joint spend constraint. Nonnegative coefficient
 make the sum an upper bound even for non-monotonic curves. Add the largest permitted
 Ash buff and apply the damage multiplier using exact arithmetic. A work unit is
 skipped only when this bound is strictly below the score of the worst retained result
-in a full top-K buffer; ties are always evaluated. Parallel folds keep local buffers,
-so scheduling affects pruning effectiveness but not the result order.
+in a full top-K buffer; ties are always evaluated. For weapon grouping, a full buffer
+contains K distinct output groups, each represented by its preferred candidate.
+Worker-local buffers obey the same rule, so scheduling affects pruning effectiveness
+but not the result order.
 
 Within one weapon group, skills with strictly worse primary maxima cannot win weapon
 grouping. All tied primary maxima remain eligible for route tie-breaks. A floating-point
 estimate schedules promising weapons first; it never decides whether to discard one.
+
+For weapon-grouped output, a retained result also bounds later configurations of
+that same weapon even before the global top-K fills. Only strictly lower primary
+scores are discarded. Flat-buff dominance compares choices with identical non-buff
+primary formulas over the same feasible domain, in the objective's primary-pair
+order: physical AR before total AR for Max Physical AR, and bleed before total AR
+for Bleed then AR. Total buff magnitude alone is not sufficient for Max Physical AR.
+Equal pairs retain route and stat tie evaluation.
 
 ### Numerical contract
 
@@ -337,8 +357,10 @@ operation `f32` rounding contract. Winners near rounded ties can change.
 
 Two-handing still uses the integer effective-STR rule. Status scaling retains its
 existing floor boundaries: weapon bleed is floored before Ash additions, followed
-by the existing final floor when scaling status additions are present. These are
-one-dimensional ARC lookups, so they do not break additivity across stats.
+by the existing final floor when scaling status additions are present. The positions
+of these floors are unchanged, but their exactly evaluated operands can produce
+different integer status values near a boundary than the former `f32` evaluator.
+These are one-dimensional ARC lookups, so they do not break additivity across stats.
 
 Each fixed-loadout metric component is normalized to a common integer scale, with
 common numerator factors removed. Before using `i128`, the solver bounds every
@@ -349,14 +371,10 @@ make it fit. The same recurrence serves both representations.
 Coefficient arithmetic likewise uses checked `i128` rationals and promotes to
 arbitrary precision on overflow. Within a fixed-loadout DP, constant baselines and
 the common positive world damage multiplier can be omitted: translation and positive
-scaling preserve each component's ordering. Final evaluation and pruning bounds
-still use the complete, scaled metrics.
-
-For weapon-grouped output, a retained result also bounds later configurations of
-that same weapon even before the global top-K fills. Only strictly lower primary
-scores are discarded. Choices with identical bleed effects share a primary formula;
-strictly smaller flat-buff contributions cannot win its primary pair when the world
-damage multiplier is positive. Equal pairs retain route and stat tie evaluation.
+scaling preserve each component's ordering. Normalized integers are compared directly
+only within their shared normalization domain. Cross-loadout, cross-route, and pruning
+comparisons use complete exact metrics with scales and baselines restored. Switching
+between `i128` and `BigInt` must preserve both equality and order.
 
 Exact keys survive terminal evaluation, route choice, top-K retention, parallel
 merges, and final grouping. The chosen route identity is retained during

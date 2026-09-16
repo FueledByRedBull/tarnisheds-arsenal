@@ -136,8 +136,10 @@ eligible for route comparison.
 
 When the best primary rank has one terminal spend and one retained predecessor
 path, the plan can cache a unique winner after direct primary reevaluation and
-inactive-stat completion. Ties on winning paths use route-specific DP. This avoids repeated
-route scoring under the same exact primary ordering as the full recurrence.
+inactive-stat completion. Without a skill route, a canonical primary winner is also
+reused when the remaining metrics are constant or already in the primary pair.
+Other ties on winning paths use route-specific DP. Both shortcuts preserve the full
+numeric and stat order.
 
 `shared_primary_frontiers_match_independent_dp_including_all_ties` compares shared
 and independent DP allocations across both profiles, buffs/routes, upgrades, and
@@ -206,7 +208,8 @@ The follow-up in `optimizer/tests.rs` separates three questions:
   tolerance, not an optimizer tie rule or universal error bound.
 
 The `exact-v1` contract removes intermediate rounding from ranking formulas while
-preserving gameplay floor boundaries. It does not change the supported gameplay
+preserving the positions of gameplay floors. Exactly evaluated operands can change
+integer buildup near those boundaries. It does not change the supported gameplay
 mechanics or certify the profile data against the game. Source `f32` coefficients
 remain the model inputs; arbitrary source precision is not reconstructed. See the
 [numerical contract](optimizer-math.md#numerical-contract) for the precise scope.

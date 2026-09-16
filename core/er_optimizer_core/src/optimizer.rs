@@ -1601,12 +1601,16 @@ fn prepare_primary_allocations<P: SearchProgress>(
         None,
         &mut || progress.poll().is_ok(),
     )?;
-    let best_spent = (search.min_active_spend()..=search.max_active_spend())
-        .filter(|&spent| solved.ranks[usize::from(spent)].is_some())
-        .max_by_key(|&spent| solved.ranks[usize::from(spent)])
+    let (_, std::cmp::Reverse(best_combat)) = (search.min_active_spend()
+        ..=search.max_active_spend())
+        .filter_map(|spent| {
+            let rank = solved.ranks[usize::from(spent)]?;
+            let mut combat = solved.combat[usize::from(spent)]?;
+            fill_inactive_stats(search, &mut combat, search.remaining_free - spent);
+            Some((rank, std::cmp::Reverse(combat)))
+        })
+        .max()
         .ok_or_else(|| "stat optimizer could not satisfy the stat budget".to_string())?;
-    let mut best_combat = solved.combat[usize::from(best_spent)].expect("reachable primary state");
-    fill_inactive_stats(search, &mut best_combat, search.remaining_free - best_spent);
     plan.best_primary = Some(evaluate(best_combat)?);
     plan.additions = solved.additions;
     plan.ranks = solved.ranks;
@@ -1700,6 +1704,19 @@ where
             route,
             data,
         );
+    }
+    if route.is_none()
+        && match request.objective {
+            OptimizeObjective::BleedThenAr => true,
+            OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr => {
+                !stat_can_increase_bleed_for_choice(prepared, aow_choice, data, STAT_ARC)
+            }
+            _ => false,
+        }
+        && let Some(best) = primary.and_then(|plan| plan.best_primary.as_ref())
+    {
+        // Without a route, the remaining metrics are zero, constant, or repeat bleed.
+        return Ok(best.clone());
     }
     if let Some(combat) = primary.and_then(|plan| plan.exact_unique_combat) {
         let mut value = primary

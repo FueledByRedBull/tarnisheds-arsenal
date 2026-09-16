@@ -712,6 +712,9 @@ where
         additions.clear();
         additions.push(add);
     } else if primary_only && ordering == Ordering::Equal {
+        if candidate.combat < current.combat {
+            next[destination] = Some(candidate);
+        }
         additions.push(add);
     }
     Ok(())
@@ -970,55 +973,181 @@ mod tests {
     }
 
     #[test]
-    fn i128_and_bigint_choose_the_same_winner() {
-        let base = [
-            rational(0),
-            rational(0),
-            rational(0),
-            rational(0),
-            rational(0),
+    fn small_normalization_promotes_when_multiple_stat_bounds_sum_past_i128() {
+        let base: [ExactRational; COMPONENT_COUNT] = std::array::from_fn(|_| exact_integer(0));
+        let mut deltas: [Vec<[ExactRational; COMPONENT_COUNT]>; COMPONENT_COUNT] =
+            std::array::from_fn(|_| vec![exact_zero_row()]);
+        let mut first = exact_zero_row();
+        first[0] = exact_integer(i128::MAX);
+        deltas[0].push(first);
+        let mut second = exact_zero_row();
+        second[0] = exact_integer(i128::MAX - 1);
+        deltas[1].push(second);
+        let active = [true, true, false, false, false];
+        let mut normalize_continue = || true;
+        assert!(
+            normalize_small(&base, &deltas, active, 2, &mut normalize_continue)
+                .expect("small normalization succeeds")
+                .is_none()
+        );
+        let result =
+            solve_exact(&base, &deltas, [0; 5], active, 2, false, None, &mut || true).unwrap();
+        assert_eq!(result.combat[2], Some([1, 1, 0, 0, 0]));
+    }
+
+    #[test]
+    fn i128_and_bigint_run_dp_match_for_same_normalized_inputs() {
+        let base: SmallKey<COMPONENT_COUNT> = [7, -3, 11, 5, -2];
+        let deltas: SmallDeltas<COMPONENT_COUNT> = [
+            vec![[0; COMPONENT_COUNT], [2, 1, -1, 0, 3], [5, -2, 2, 1, -1]],
+            vec![[0; COMPONENT_COUNT], [2, 1, 0, 4, -2], [1, 3, -2, -1, 2]],
+            vec![[0; COMPONENT_COUNT], [1, -1, 3, 2, 0], [4, 2, -1, 0, -3]],
+            vec![[0; COMPONENT_COUNT], [3, 0, 1, -2, 1], [2, -3, 0, 1, 4]],
+            vec![[0; COMPONENT_COUNT], [1, 2, -2, 3, -1], [3, -1, 1, -1, 2]],
         ];
-        let mut small_deltas = zero_deltas();
-        small_deltas[0].push(row(rational(2), rational(0), rational(0)));
-        small_deltas[1].push(row(rational(1), rational(0), rational(0)));
-        let mut small_continue = || true;
-        let small = solve(
-            &base,
-            &small_deltas,
-            [0; 5],
-            [true, true, false, false, false],
-            1,
-            false,
-            None,
-            &mut small_continue,
-        )
-        .expect("small DP succeeds");
+        let mins = [10, 20, 30, 40, 50];
+        let active = [true; COMPONENT_COUNT];
+        let big_base: BigKey<COMPONENT_COUNT> =
+            std::array::from_fn(|component| BigInt::from(base[component]));
+        let big_deltas: BigDeltas<COMPONENT_COUNT> = std::array::from_fn(|stat| {
+            deltas[stat]
+                .iter()
+                .map(|delta| std::array::from_fn(|component| BigInt::from(delta[component])))
+                .collect()
+        });
 
-        let denominator = "1000000000000000000000000000000";
-        let numerator = "2000000000000000000000000000001";
-        let mut big_deltas = zero_deltas();
-        big_deltas[0].push(row(
-            rational_text(numerator, denominator),
-            rational(0),
-            rational(0),
-        ));
-        big_deltas[1].push(row(rational(1), rational(0), rational(0)));
-        let mut big_continue = || true;
-        let big = solve(
-            &base,
-            &big_deltas,
-            [0; 5],
-            [true, true, false, false, false],
-            1,
-            false,
-            None,
-            &mut big_continue,
-        )
-        .expect("big DP succeeds");
+        for primary_only in [false, true] {
+            let mut small_continue = || true;
+            let small = run_dp(
+                base,
+                deltas.clone(),
+                mins,
+                active,
+                2,
+                primary_only,
+                None,
+                &mut small_continue,
+            )
+            .expect("i128 DP succeeds");
+            let mut big_continue = || true;
+            let big = run_dp(
+                big_base.clone(),
+                big_deltas.clone(),
+                mins,
+                active,
+                2,
+                primary_only,
+                None,
+                &mut big_continue,
+            )
+            .expect("BigInt DP succeeds");
+            assert_eq!(small, big, "primary_only={primary_only}");
+        }
+    }
 
-        assert_eq!(small.combat[1], Some([1, 0, 0, 0, 0]));
-        assert_eq!(big.combat[1], small.combat[1]);
-        assert_eq!(big.ranks, small.ranks);
+    #[test]
+    fn normalized_dp_matches_independent_rational_exhaustion() {
+        for primary_only in [false, true] {
+            for mask in 0_u8..32 {
+                let active = std::array::from_fn(|stat| mask & (1 << stat) != 0);
+                let mins = [10, 20, 30, 40, 50];
+                let budget = usize::from(mask % 5);
+                let base: [BigRational; 5] = std::array::from_fn(|component| {
+                    BigRational::new((component + 1).into(), (component + 2).into())
+                });
+                let deltas: [Vec<[BigRational; 5]>; 5] = std::array::from_fn(|stat| {
+                    (0..if active[stat] { 3 } else { 1 })
+                        .map(|add| {
+                            std::array::from_fn(|component| {
+                                let sign = if (stat + component + add) % 2 == 0 {
+                                    1
+                                } else {
+                                    -1
+                                };
+                                BigRational::new(
+                                    (sign * ((stat + 1) * (component + 1) * add) as i64).into(),
+                                    (stat + component + 2).into(),
+                                )
+                            })
+                        })
+                        .collect()
+                });
+                let exact_base: [ExactRational; 5] = base.clone().map(ExactRational::from);
+                let exact_deltas = deltas.clone().map(|values| {
+                    values
+                        .into_iter()
+                        .map(|key| key.map(ExactRational::from))
+                        .collect()
+                });
+                let actual = solve_exact(
+                    &exact_base,
+                    &exact_deltas,
+                    mins,
+                    active,
+                    budget,
+                    primary_only,
+                    None,
+                    &mut || true,
+                )
+                .unwrap();
+
+                // Enumerate all five input domains without the DP's normalization or active mask.
+                let mut expected = vec![None::<([BigRational; 5], Combat)>; budget + 1];
+                for encoded in 0..3_usize.pow(5) {
+                    let adds: [usize; 5] =
+                        std::array::from_fn(|stat| encoded / 3_usize.pow(stat as u32) % 3);
+                    let spent: usize = adds.iter().sum();
+                    if spent > budget || (0..5).any(|stat| adds[stat] >= deltas[stat].len()) {
+                        continue;
+                    }
+                    let mut key: [BigRational; 5] = std::array::from_fn(|component| {
+                        &base[component]
+                            + (0..5)
+                                .map(|stat| deltas[stat][adds[stat]][component].clone())
+                                .sum::<BigRational>()
+                    });
+                    if primary_only {
+                        key[2..].fill(BigRational::zero());
+                    }
+                    let combat: Combat = std::array::from_fn(|stat| mins[stat] + adds[stat] as u8);
+                    if expected[spent]
+                        .as_ref()
+                        .is_none_or(|(best_key, best_combat)| {
+                            key > *best_key || key == *best_key && combat < *best_combat
+                        })
+                    {
+                        expected[spent] = Some((key, combat));
+                    }
+                }
+                let mut keys = expected
+                    .iter()
+                    .flatten()
+                    .map(|(key, _)| key.clone())
+                    .collect::<Vec<_>>();
+                keys.sort();
+                keys.dedup();
+                let ranks = expected
+                    .iter()
+                    .map(|state| {
+                        state
+                            .as_ref()
+                            .map(|(key, _)| keys.binary_search(key).unwrap())
+                    })
+                    .collect::<Vec<_>>();
+                let combat = expected
+                    .into_iter()
+                    .map(|state| state.map(|(_, combat)| combat))
+                    .collect::<Vec<_>>();
+                assert_eq!(
+                    actual.combat, combat,
+                    "active mask={mask}, primary={primary_only}"
+                );
+                assert_eq!(
+                    actual.ranks, ranks,
+                    "active mask={mask}, primary={primary_only}"
+                );
+            }
+        }
     }
 
     #[test]
@@ -1080,6 +1209,7 @@ mod tests {
 
         assert_eq!(result.additions[1][1], vec![0, 1]);
         assert_eq!(result.ranks, vec![Some(0), Some(1)]);
+        assert_eq!(result.combat[1], Some([0, 1, 0, 0, 0]));
     }
 
     #[test]

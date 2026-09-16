@@ -22,24 +22,26 @@ Broad Search, Paths, and Affinity Watch cancellation has a 250 ms latency target
 
 ## Exact scoring measurements
 
-A local Windows 11 run compared the `41aeaa1` floating-point implementation with
-`exact-v1`, using Rust 1.97 release builds, Vanilla 1.17, one Rayon thread, one
-warmup, and three measured repeats. Requests and upgrade policies were unchanged.
-These are different numerical contracts: near-tie winners may legitimately change.
-The complete nine-case result fingerprints stayed equivalent across the subsequent
-exact-scoring performance changes, including rational values and selected stats.
+The September 2026 follow-up compared `41aeaa1` (f32), `93bf35a` (the previous
+exact build), and this PR's reviewed exact implementation on Windows 11 with Rust
+1.97 release builds and one Rayon thread. Each case had one warmup, three f32
+repeats, and five exact repeats, with identical requests and upgrade policies.
+These are different numerical contracts: former rounding-induced ties and status
+floors can change. Complete ranked fingerprints, including exact keys and combat
+stats, remained identical between the two exact implementations in all nine Vanilla
+and seven supported Convergence search cases.
 
-| Case | Previous median (ms) | Exact median (ms) | Exact min-max (ms) |
+| Vanilla case | f32 median (ms) | Exact median (ms) | Exact min-max (ms) |
 | --- | ---: | ---: | ---: |
-| Open Max AR | 1,015.9 | 643.9 | 642.8-643.9 |
-| Open physical AR | 1,034.0 | 626.2 | 621.7-627.3 |
-| Max AR, 500-row export | 1,029.9 | 718.8 | 718.3-728.1 |
-| High-level Max AR | 1,449.2 | 640.2 | 634.9-643.3 |
-| High-level, all upgrades | 29,459.4 | 1,441.6 | 1,429.1-1,447.0 |
-| Katana bleed | 13.7 | 11.16 | 11.10-11.19 |
-| Katana bleed, 500 rows | 13.3 | 11.25 | 11.20-11.34 |
-| Fixed AoW first hit | 0.174 | 0.064 | 0.062-0.073 |
-| Fixed AoW sequence | 0.165 | 0.149 | 0.143-0.212 |
+| Open Max AR | 1,026.4 | 636.9 | 631.6-644.1 |
+| Open physical AR | 1,025.0 | 619.8 | 612.8-623.4 |
+| Max AR, 500-row export | 1,016.5 | 706.6 | 701.3-709.8 |
+| High-level Max AR | 1,461.3 | 633.4 | 621.9-646.9 |
+| High-level, all upgrades | 28,794.1 | 1,435.0 | 1,418.2-1,450.5 |
+| Katana bleed | 13.19 | 11.10 | 11.09-11.25 |
+| Katana bleed, 500 rows | 12.88 | 11.44 | 11.22-11.48 |
+| Fixed AoW first hit | 0.169 | 0.064 | 0.063-0.070 |
+| Fixed AoW sequence | 0.163 | 0.140 | 0.139-0.146 |
 
 All nine medians improved in this run. Exact scoring uses inline `i128` rationals
 for ordinary coefficients and checked integer DP keys, promoting to arbitrary
@@ -49,9 +51,29 @@ also benefit from exact bounds and evaluating promising configurations first.
 Scheduling estimates do not prune candidates. These measurements do not establish
 a speedup for every request, and the sub-millisecond cases show timing variability.
 
-The same release-mode workflow harness compared cold calculations with one warmup
-and three repeats. Paths includes one- and two-lane runs; Affinity Watch uses all
-13 eligible affinities.
+For loadouts without a skill route, the primary winner now avoids a second DP
+when all remaining metrics are constant or already in the primary pair. The primary
+pass keeps the canonical stat representative while retaining every tied predecessor.
+This removed an existing Convergence bleed slowdown:
+
+| Convergence case | f32 median (ms) | Previous exact (ms) | Reviewed exact (ms) | Exact min-max (ms) |
+| --- | ---: | ---: | ---: | ---: |
+| Katana bleed | 19.48 | 21.95 | 9.66 | 9.64-9.78 |
+| Katana bleed, 500 rows | 19.57 | 22.43 | 9.84 | 9.71-9.92 |
+
+These core fixtures retain the benchmark's class-based optimization budget; they
+are not measurements of Convergence's fixed Custom-stats UI workflow. All seven
+supported Convergence search medians were below their f32 references. A trial that
+removed redundant DP columns and a range-local formula cache showed no useful
+measured benefit and were discarded.
+
+A four-thread, 500-row Max AR export check also preserved the complete serial result
+fingerprint. Three-repeat medians moved from 565.9 to 551.0 ms for Vanilla and from
+487.4 to 232.5 ms for Convergence; reviewed ranges were 546.9-557.7 and 228.3-234.4 ms.
+
+Earlier exact-v1 workflow measurements used one warmup and three repeats. These
+were not rerun as native application timings in the follow-up. Paths includes one-
+and two-lane runs; Affinity Watch uses all 13 eligible affinities.
 
 | Workflow | Previous median (ms) | Exact median (ms) | Exact min-max (ms) |
 | --- | ---: | ---: | ---: |
@@ -70,9 +92,13 @@ The remaining Paths/upgrade overhead is at most 2.7 ms in these cases. Shorter
 Affinity Watch runs add 13-54 ms, while the 200-level run improves by 352 ms.
 These are measured tradeoffs, not a claim of uniform performance parity. The
 calculations run on cancellable native workers rather than the window thread.
-The separate three-affinity level-range case takes 0.699 ms at horizon zero and
-2.251 ms at horizon ten (previously 0.651 and 1.533 ms); independently evaluating
-each level takes 0.704 and 8.056 ms under the exact contract.
+The follow-up did rerun the separate three-affinity core level-range case at
+horizons 0, 10, 50, and 200. Reviewed exact medians were 0.686, 2.203, 14.289, and
+131.072 ms, versus previous exact medians of 0.696, 2.218, 14.458, and 131.370 ms.
+The f32 references were 0.671, 1.523, 10.532, and 117.984 ms. Independent and shared
+range evaluations retained identical complete result fingerprints. These ranges
+still have pre-existing exact-arithmetic overhead; the search speedups above do
+not establish universal f32 performance parity.
 
 The rebuilt native release EXE completed an uncached eight-build solve batch in
 29.44 ms and a 26-point upgrade series in 4.33 ms (three-repeat medians including
