@@ -10,7 +10,7 @@ export function createNativeJobQueue<S extends { finished: FinishedJob | null }>
 ) {
   let tail: Promise<void> = Promise.resolve();
   let uncertainJobId: string | null = null;
-  let pendingStatus: { jobId: string; promise: Promise<S | null> } | null = null;
+  let pendingStatus: Promise<S | null> | null = null;
   const stopped = () => new DOMException("Calculation stopped.", "AbortError");
   const unknown = () => new Error("Worker state is unknown. Try again to reconnect, or restart the app before calculating.");
 
@@ -43,8 +43,8 @@ export function createNativeJobQueue<S extends { finished: FinishedJob | null }>
     try {
       while (Date.now() < deadline) {
         try {
-          pendingStatus ??= { jobId, promise: status(jobId) };
-          const current = await Promise.race([pendingStatus.promise, expired]);
+          pendingStatus ??= status(jobId);
+          const current = await Promise.race([pendingStatus, expired]);
           if (current === timedOut) return undefined;
           pendingStatus = null;
           // The registry removes only completed jobs; absence establishes no owner.

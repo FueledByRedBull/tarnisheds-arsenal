@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { cpus, platform, release, arch } from "node:os";
+import { medianSample } from "./native-responsiveness-metrics.mjs";
 import { launchPackagedApp, stopSession } from "./packaged-session.mjs";
 
 const [executableArg, ...rawOptions] = process.argv.slice(2);
@@ -101,7 +102,8 @@ try {
     }
     const fingerprints = new Set(samples.map((sample) => sample.fingerprint ?? sample.resultFingerprint));
     if (name !== "cancellation" && fingerprints.size > 1) throw new Error(`${name} changed its result fingerprint across repeats`);
-    measurements.push({ name, warmups, samples, median: medianSample(samples) });
+    const median = medianSample(samples);
+    measurements.push({ name, warmups, samples, ...(median ? { median } : {}) });
   }
 
   const report = {
@@ -290,18 +292,6 @@ async function invokeNative(page, command, args) {
 
 function fingerprint(value) {
   return JSON.stringify(value);
-}
-
-function medianSample(samples) {
-  const fields = ["heavyMs", "lightMs", "cancelMs", "totalMs"];
-  return Object.fromEntries(fields
-    .filter((field) => samples.some((sample) => Number.isFinite(sample[field])))
-    .map((field) => [field, median(samples.map((sample) => sample[field]).filter(Number.isFinite))]));
-}
-
-function median(values) {
-  const sorted = [...values].sort((a, b) => a - b);
-  return sorted[Math.floor(sorted.length / 2)];
 }
 
 function round(value) {

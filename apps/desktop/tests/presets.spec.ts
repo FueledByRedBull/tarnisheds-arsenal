@@ -167,3 +167,42 @@ for (const action of ["delete", "edit", "profile", "update"]) {
     await expect(page.getByText(/Migrated Build Preset/)).toHaveCount(0);
   });
 }
+
+test("failed migration aborts pending recomputations and keeps the original error", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await page.locator(".result-row-full").nth(0).getByRole("button", { name: /^Compare / }).click();
+  await page.locator(".result-row-full").nth(1).getByRole("button", { name: /^Compare / }).click();
+  await page.getByRole("button", { name: "Save new", exact: true }).click();
+  const presetId = await page.evaluate(() => {
+    const key = Object.keys(localStorage).find((key) => key.startsWith("tarnisheds-arsenal.savedBuild.v2."))!;
+    const preset = JSON.parse(localStorage.getItem(key)!);
+    preset.dataVersion = "vanilla:4:old:old";
+    localStorage.setItem(key, JSON.stringify(preset));
+    return preset.id;
+  });
+  await page.reload();
+  await page.evaluate(async (id) => {
+    const { api } = await import("/src/lib/api.ts");
+    const preset = JSON.parse(localStorage.getItem(`tarnisheds-arsenal.savedBuild.v2.${id}`)!);
+    const calls: Array<{ signal: AbortSignal }> = [];
+    api.solveBuild = (_base: unknown, _weapon: unknown, _affinity: unknown, _aow: unknown, signal: AbortSignal) => {
+      const call = calls.length;
+      calls.push({ signal });
+      if (call === 0) return Promise.resolve(preset.selectedBuild);
+      if (call === 1) return Promise.reject(new Error("recompute failed"));
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => {
+          Object.assign(window, { migrationSiblingAborted: true });
+          reject(new DOMException("Calculation stopped.", "AbortError"));
+        }, { once: true });
+      });
+    };
+    Object.assign(window, { migrationCalls: calls, migrationSiblingAborted: false });
+  }, presetId);
+  await page.getByRole("button", { name: "Migrate data", exact: true }).click();
+  await expect(page.locator('.error-strip[role="alert"]')).toContainText("recompute failed");
+  await expect.poll(() => page.evaluate(() => (window as unknown as { migrationSiblingAborted: boolean }).migrationSiblingAborted)).toBe(true);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { migrationCalls: Array<{ signal: AbortSignal }> }).migrationCalls.length)).toBe(3);
+});

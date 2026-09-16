@@ -475,7 +475,9 @@ function SavedBuildPanel() {
       }]);
       return migrated;
     } catch (error) {
-      if (!controller.signal.aborted && (!migrationState || isCurrent())) {
+      const shouldReport = !controller.signal.aborted && (!migrationState || isCurrent());
+      controller.abort();
+      if (shouldReport) {
         setError(error instanceof Error ? error.message : String(error));
       }
       return null;
