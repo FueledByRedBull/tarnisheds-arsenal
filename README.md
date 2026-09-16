@@ -116,6 +116,12 @@ See the [optimizer overview](docs/design/optimizer-overview.md) and
 > where supported; stamina is not an optimization objective. Temporary buff
 > stacking is not a universal layer.
 
+Chilling Mist and Poisonous Mist currently have unmodeled weapon/on-hit status
+increments. They show a warning in AR results and are excluded from skill-damage
+objectives. The [reference comparison runner](docs/performance.md) checks Vanilla
+weapon AR and base status against pinned T. Clark 1.17 code; complex skill formulas
+and in-game damage remain outside that verification.
+
 ### Data and profiles
 
 Each profile is independent, versioned, and checksummed. Missing, modified, mixed,

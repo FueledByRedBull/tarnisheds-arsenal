@@ -110,6 +110,8 @@ release validation requires the exact tracked reference match.
   - Infused weapons may retain their native skill only when the skill is a compatible transferable Ash; native-only skills remain available on Standard weapons.
   - `valid_weapon_types` is pipe-delimited and intended to be matched against `weapon_type_keys`.
 - Snapshot schema 4 requires `weapons.csv.can_change_aow` and `aow.csv.valid_affinities`, and removes the redundant compatibility matrix from the runtime file set. Old schema-3 snapshots must be regenerated; changing their version field alone is not a migration.
+- Workbook attacks owned by a unique weapon are excluded from transferable Ash tables even when their skill names overlap. They remain available through the native-weapon extraction path.
+- Persistent weapon and linked on-hit effects remain separate records. Overlapping status increments, currently Chilling Mist and Poisonous Mist, are marked unsupported until their engine correction and stacking are verified; they must not be added together as an ordinary buff.
 - Compact diagnostic summaries are derived in memory from the same permission fields. Regression fingerprints preserve all 87,879 Vanilla and 147,201 Convergence legal pairs from the pre-compaction snapshots.
 - Generated CSV and manifest JSON files use canonical LF line endings so snapshots hash identically across supported hosts.
 

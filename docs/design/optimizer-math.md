@@ -130,19 +130,24 @@ remain for non-ranking callers and scheduling estimates; they do not choose
 exact-v1 winners.
 
 $$
-AR_d(x)=b_d r_d\left(1+\sum_i I_{i,d}s_iq_i\gamma_d(x_i')\right),
+AR_d(x)=b_d r_d\left(1+\sum_i I_{i,d}c_{i,d}q_i\gamma_d(x_i')\right),
 $$
 
 where $b_d$ is base damage, $r_d$ the reinforcement damage multiplier, $I_{i,d}$
-the attack-element routing flag, $s_i$ weapon scaling, $q_i$ reinforcement scaling,
-$\gamma_d$ the selected calc-correct curve, and $x_i'$ the effective stat. Only STR
-changes under two-handing: $x_{\mathrm{STR}}'=e_{\mathrm{STR}}(x_{\mathrm{STR}})$.
+the attack-element routing flag, $q_i$ reinforcement scaling,
+$\gamma_d$ the selected calc-correct curve, and $x_i'$ the effective stat.
+The coefficient $c_{i,d}$ is the attack-element overwrite rate when present;
+otherwise it is weapon scaling $s_i$ times the attack-element influence rate.
+Ordinary records have no overwrite and an influence rate of 1. An explicit zero
+overwrite suppresses scaling, while a positive overwrite can supply scaling even
+when $s_i=0$. Only STR changes under two-handing:
+$x_{\mathrm{STR}}'=e_{\mathrm{STR}}(x_{\mathrm{STR}})$.
 
 With $\beta_d=b_dr_d$,
 
 $$
 AR_d(x)=\beta_d+
-\sum_i\beta_d I_{i,d}s_iq_i\gamma_d(x_i').
+\sum_i\beta_d I_{i,d}c_{i,d}q_i\gamma_d(x_i').
 $$
 
 Thus both physical AR and
@@ -152,8 +157,9 @@ $$AR_{\mathrm{total}}(x)=\sum_d AR_d(x)$$
 are a constant plus a sum of single-stat terms. Two-handing does not alter this: its
 floor operation is wholly inside the STR term. Equivalently,
 $AR_d=\beta_d+\sum_i\kappa_{i,d}\gamma_d(x_i')$, where every coefficient is fixed
-within the work unit. Base weapon AR uses Boolean routing flags; AoW overrides use
-their own fixed correction coefficients.
+within the work unit. Base weapon AR and ordinary skill hits use the weapon's
+attack-element record; an explicit per-hit AoW override selects its own correction
+record. Routing, overwrite, and influence coefficients remain fixed in either case.
 
 The AR comparison fields include configured AoW attack-power buffs and the request's
 world-damage multiplier: $\widetilde{AR}_d=a(AR_d+b_d^{\mathrm{buff}})$.

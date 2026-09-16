@@ -63,8 +63,8 @@ job ownership until completion is observed or a finished job is replaced.
 Runtime data is committed as separate manifest-bound Vanilla (`data/phase1`) and
 Convergence (`data/profiles/convergence`) snapshots generated from local game/mod
 data. Every runtime file is size/hash checked and each profile loads all-or-nothing.
-The manifest exposes profile-specific capabilities: Vanilla includes the full AoW
-attack/route model, while Convergence currently exposes melee weapon AR, affinities,
+The manifest exposes profile-specific capabilities: Vanilla includes supported AoW
+attack/route tables, while Convergence currently exposes melee weapon AR, affinities,
 compatibility, and passive status data but explicitly excludes ammunition weapons
 and disables unsupported AoW hit/route damage. Profile rules also define reinforcement caps, whether Standard
 and Somber paths are separate, Scadutree availability, attack-element fallback
@@ -77,6 +77,12 @@ routing, and character stats.
 
 Data refresh tooling lives in `tools/phase1`. Validation, benchmarking, and
 release packaging helpers live in `tools/phase4`.
+
+The v6 snapshot model keeps unique-weapon attacks separate from transferable Ashes,
+applies weapon attack-element overwrite/influence rates, and corrects passive-status
+scaling. Chilling Mist and Poisonous Mist retain separate weapon/on-hit effect
+records, but their overlapping status increments are unmodeled. They carry warnings
+in AR results and are excluded from skill-damage objectives.
 
 ## Search behavior
 
@@ -181,7 +187,7 @@ abandoned in-flight work.
 
 ## Numerical evidence and decision
 
-The follow-up in `optimizer/tests.rs` separates three questions:
+The regression suite and external comparison runner separate four questions:
 
 - **Relevance:** an independent recursive enumerator searches all five bounded stats
   without `RelevantStatSearch::visit`, its mask, count, or inactive-fill helper. Small
@@ -206,12 +212,18 @@ The follow-up in `optimizer/tests.rs` separates three questions:
   are checked nonnegative. Route reconstruction allows `32 * f32::EPSILON` relative
   error (absolute below magnitude 1) for different summation orders; this is a test
   tolerance, not an optimizer tie rule or universal error bound.
+- **External reference:** seeded Vanilla weapon AR and base-status comparisons run
+  pinned T. Clark 1.17 code across affinities, upgrades, stats, and both handling
+  modes. AR is compared within 0.001 per component and base status after integer
+  flooring. This checks one independent calculator; it does not certify complex
+  skill formulas or in-game damage. See the [comparison command](../performance.md).
 
 The `exact-v1` contract removes intermediate rounding from ranking formulas while
 preserving the positions of gameplay floors. Exactly evaluated operands can change
-integer buildup near those boundaries. It does not change the supported gameplay
-mechanics or certify the profile data against the game. Source `f32` coefficients
-remain the model inputs; arbitrary source precision is not reconstructed. See the
+integer buildup near those boundaries. The v6 gameplay corrections are separate
+from this arithmetic contract; neither certifies the profile data against the game.
+Source `f32` coefficients remain the model inputs; arbitrary source precision is
+not reconstructed. See the
 [numerical contract](optimizer-math.md#numerical-contract) for the precise scope.
 
 ## Release flow
