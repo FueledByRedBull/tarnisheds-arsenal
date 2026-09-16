@@ -708,7 +708,6 @@ function fixedPathStep(
   level: number;
   stats: SolvedBuildDto["stats"];
   metric: number | null;
-  score: number | null;
   addedStat: string | null;
   requirementGap: number;
 } {
@@ -716,7 +715,6 @@ function fixedPathStep(
     level,
     stats,
     metric,
-    score: metric,
     addedStat,
     requirementGap: 0,
   };

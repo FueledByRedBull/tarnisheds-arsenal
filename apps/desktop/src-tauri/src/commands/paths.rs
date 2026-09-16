@@ -280,7 +280,6 @@ fn build_optimum_envelope(
                 level,
                 stats,
                 metric: solved.as_ref().map(|row| row.score),
-                score: solved.as_ref().map(|row| row.score),
                 added_stat,
                 requirement_gap: u16::from(solved.is_none()),
             }
@@ -462,7 +461,6 @@ fn evaluate_step(
             level,
             stats,
             metric: solved.as_ref().map(|solved| solved.score),
-            score: solved.as_ref().map(|solved| solved.score),
             added_stat,
             requirement_gap,
         },

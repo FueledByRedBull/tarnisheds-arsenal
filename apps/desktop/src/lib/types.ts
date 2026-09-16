@@ -304,7 +304,6 @@ export interface PathStepDto {
   level: number;
   stats: CombatStateDto;
   metric: number | null;
-  score: number | null;
   addedStat: string | null;
   requirementGap: number;
 }

@@ -298,7 +298,6 @@ pub struct PathStepDto {
     pub level: u16,
     pub stats: CombatStateDto,
     pub metric: Option<f32>,
-    pub score: Option<f32>,
     pub added_stat: Option<String>,
     pub requirement_gap: u16,
 }
@@ -1043,7 +1042,6 @@ mod tests {
                         level: 151,
                         stats: combat_state(),
                         metric: Some(10.0),
-                        score: Some(10.0),
                         added_stat: Some("dex".to_string()),
                         requirement_gap: 0,
                     }],
@@ -1060,6 +1058,13 @@ mod tests {
         assert_has_path(
             &path_value,
             &["finished", "paths", "0", "steps", "0", "requirementGap"],
+        );
+        assert!(
+            lookup_path(
+                &path_value,
+                &["finished", "paths", "0", "steps", "0", "score"]
+            )
+            .is_none()
         );
 
         let affinity_value = serde_json::to_value(AffinityWatchJobStatusDto {
