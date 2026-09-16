@@ -14,7 +14,6 @@ try {
       server: { host, port, strictPort: true },
     });
     await server.listen();
-    await waitForServer(baseUrl);
   }
 
   const code = await runPlaywright();
@@ -32,17 +31,6 @@ async function isAvailable(url) {
   } catch {
     return false;
   }
-}
-
-async function waitForServer(url) {
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    if (await isAvailable(url)) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  throw new Error(`Timed out waiting for ${url}`);
 }
 
 function runPlaywright() {
