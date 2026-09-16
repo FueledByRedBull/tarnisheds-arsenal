@@ -338,13 +338,13 @@ jobs:
 
           "RELEASE_NOTES=$notesOut" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Upload dist artifact
+      - name: Upload release assets artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: package-${{ env.ARTIFACT_VERSION }}
           if-no-files-found: error
           path: |
-            dist/
+            dist/release-assets/
 
   publish:
     if: startsWith(github.ref, 'refs/tags/') || inputs.publish == true
@@ -379,7 +379,7 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           $version = (Get-Content apps/desktop/src-tauri/tauri.conf.json | ConvertFrom-Json).version
           "RELEASE_TAG=v$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          gh run download $env:GITHUB_RUN_ID --name "package-$version" --dir dist
+          gh run download $env:GITHUB_RUN_ID --name "package-$version" --dir dist/release-assets
 
       - name: Create release tag for manual publication
         if: github.event_name == 'workflow_dispatch' && inputs.publish == true
