@@ -33,6 +33,27 @@ guarantee; correctness is enforced by result-equivalence tests.
 
 ## Analysis workflows
 
+For a Windows native-command responsiveness probe, run from `apps/desktop/`:
+
+```powershell
+node scripts/native-responsiveness.mjs src-tauri/target/release/tarnisheds-arsenal-desktop.exe --warmups=1 --repeats=3 --output=../../dist/benchmarks/native-responsiveness.json
+```
+
+Create the output directory first. The probe uses the packaged smoke launcher and
+an isolated WebView2 profile. It measures one batch of eight uncached sequential
+loadout solves, an upgrade series, and direct cancellation. These are native-command
+probes, not full comparison or migration UI measurements. Use `--mode=sync` only
+for older binaries exposing the synchronous commands; that mode omits cancellation.
+
+Reports retain the executable SHA-256, the binary's data manifest, host/Node details,
+Rayon thread count, actual requests, complete result fingerprints, individual samples,
+and medians. Rayon defaults to one thread; set `RAYON_NUM_THREADS` explicitly for
+other counts. Compare identical requests, data/model identity and thread settings.
+`startupMs` ends when the model and manifest are ready, before measured work begins.
+Cancellation samples with `cancellationMeasured: false` are inconclusive: the work
+finished before cancellation was observed. Do not treat their timings as cancellation
+latency or a successful cancellation regression.
+
 Run:
 
 ```powershell
@@ -40,6 +61,30 @@ python tools/phase4/benchmark_workflows.py --repeats 5 --output dist/benchmarks/
 ```
 
 This exercises Paths at 10, 50, and 200 levels with one and two lanes, a 13-affinity Affinity Watch at the same horizons, and the direct standard upgrade-series evaluator. The Rust harness performs one warmup before measured samples. The runner records release profile, Rust/Python versions, CPU/platform, Rayon thread count, commit, data/model identity, and best/median/worst samples. It supports the same advisory baseline and percentage-regression options.
+
+## Independent versus shared level-range evaluation
+
+From the repository root:
+
+```powershell
+$env:RAYON_NUM_THREADS = "1"
+cargo run --release --locked --manifest-path core/er_optimizer_core/Cargo.toml --example benchmark_level_range -- --repeats=3 --horizons=10,50,200
+```
+
+Add `--all-affinities` to cover every Uchigatana affinity instead of Keen, Blood,
+and Occult. This compares independent per-level optimization with shared range
+preparation, not full desktop latency. Output is JSON Lines: metadata, each timed
+sample, and per-horizon medians. Redirect stdout into the existing ignored
+`dist/benchmarks/` directory when retaining a run; create that directory first.
+
+Metadata records dataset/model identity, actual Rayon threads, OS/architecture,
+logical CPU count, Windows CPU identifier when available, Rust version, checkout
+revision/dirty status, executable SHA-256, and base requests. Horizons start at
+level 80. Each sample retains the complete ordered results as a Rust Debug string
+and rejects any difference between the two evaluators, including secondary metrics
+and extra rows. Debug fingerprints are diagnostic, not a stable interchange format;
+compare them with the same result types. Checkout metadata describes the checkout
+at execution; use the binary hash to identify an executable copied from elsewhere.
 
 ## Optimizer phase attribution
 
@@ -69,6 +114,11 @@ every feasible spend has one retained DP path and exact primary re-evaluation
 produces a unique winner. Ambiguous paths and exact primary ties retain the
 route-aware evaluation. This avoids repeating route scoring for allocations that
 cannot win without relying on additive floating-point bounds.
+
+The historical timings below are observations, not reusable regression baselines.
+Their original dirty-worktree inputs and saved reports are not identified by
+immutable artifacts here, so these notes alone cannot reproduce those comparisons.
+Use freshly captured reports from identified builds for new performance claims.
 
 On the reference host with two Rayon workers, the original single-run baseline
 was 76,207.7 ms. An intermediate implementation's three-sample run measured

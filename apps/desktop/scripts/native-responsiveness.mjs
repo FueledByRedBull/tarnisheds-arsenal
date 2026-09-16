@@ -1,10 +1,9 @@
-import { chromium } from "@playwright/test";
-import { spawn } from "node:child_process";
-import { createServer } from "node:net";
 import { existsSync } from "node:fs";
-import { rm, writeFile } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
-import { join, resolve } from "node:path";
+import { readFile, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { resolve } from "node:path";
+import { cpus, platform, release, arch } from "node:os";
+import { launchPackagedApp, stopSession } from "./packaged-session.mjs";
 
 const [executableArg, ...rawOptions] = process.argv.slice(2);
 if (!executableArg || !existsSync(executableArg)) {
@@ -66,13 +65,17 @@ const commandNames = {
   analysisCancel: "cancel_analysis",
 };
 
-const appStartedAt = Date.now();
+const executableSha256 = createHash("sha256").update(await readFile(executable)).digest("hex");
+const rayonThreads = positiveInteger(process.env.RAYON_NUM_THREADS, 1, "RAYON_NUM_THREADS");
+process.env.RAYON_NUM_THREADS = String(rayonThreads);
+const appStartedAt = performance.now();
 const session = await launchPackagedApp(executable);
 try {
   const page = session.page;
   page.setDefaultTimeout(600_000);
   await page.getByText("Full model ready", { exact: true }).waitFor({ timeout: 120_000 });
-  await invokeNative(page, "get_data_manifest", { profileId: "vanilla" });
+  const manifest = await invokeNative(page, "get_data_manifest", { profileId: "vanilla" });
+  const startupMs = round(performance.now() - appStartedAt);
 
   const solved = mode === "async"
     ? await waitForJob(page, commandNames.solveStart, commandNames.analysisStatus, {
@@ -82,8 +85,7 @@ try {
   if (!solved) throw new Error("baseline fixture did not produce a solved Uchigatana row");
 
   const cases = [
-    ["cold-multipin", () => runMultipin(page)],
-    ["migration", () => runMigration(page)],
+    ["uncached-solve-batch", () => runSolveBatch(page)],
     ["build-upgrade-series", () => runSeries(page, solved)],
     ...(mode === "async" ? [["cancellation", () => runCancellation(page)]] : []),
   ];
@@ -94,7 +96,7 @@ try {
     for (let index = 0; index < repeats; index += 1) {
       const sample = await run();
       samples.push(sample);
-      const { fingerprint: result, resultFingerprint, ...timings } = sample;
+      const { fingerprint: result, resultFingerprint, request, requests, ...timings } = sample;
       process.stdout.write(`NATIVE_RESPONSIVENESS_SAMPLE ${JSON.stringify({ name, index: index + 1, ...timings })}\n`);
     }
     const fingerprints = new Set(samples.map((sample) => sample.fingerprint ?? sample.resultFingerprint));
@@ -103,19 +105,16 @@ try {
   }
 
   const report = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     executable,
+    executableSha256,
+    environment: { node: process.version, platform: platform(), release: release(), arch: arch(), cpu: cpus()[0]?.model, logicalCpus: cpus().length, rayonThreads },
+    manifest,
     mode,
     commandNames,
     warmups,
     repeats,
-    startupMs: Date.now() - appStartedAt,
-    fixture: {
-      profileId: BASE_REQUEST.profileId,
-      weaponName: solved.weaponName,
-      affinity: solved.affinity,
-      requestFingerprint: JSON.stringify(BASE_REQUEST),
-    },
+    startupMs,
     measurements,
   };
   process.stdout.write(`NATIVE_RESPONSIVENESS_SUMMARY ${JSON.stringify(measurements.map(({ name, median }) => ({ name, median })))}\n`);
@@ -132,22 +131,13 @@ function seriesRequest(base, solved) {
   return { base, solved, maxUpgrade: solved.isSomber ? 10 : 25 };
 }
 
-async function runMultipin(page) {
+async function runSolveBatch(page) {
   const requests = Array.from({ length: 8 }, () => solveRequest({
     ...BASE_REQUEST,
     exactUpgrade: false,
     topK: 1,
   }));
-  return measureNativeWork(page, () => runHeavyBatch(page, "solve_build", requests), "solve_build");
-}
-
-async function runMigration(page) {
-  const requests = Array.from({ length: 8 }, () => solveRequest({
-    ...BASE_REQUEST,
-    exactUpgrade: false,
-    topK: 1,
-  }));
-  return measureNativeWork(page, () => runHeavyBatch(page, "solve_build", requests), "migration.solve_build");
+  return { ...await measureNativeWork(page, () => runHeavyBatch(page, "solve_build", requests), "solve_build"), requests };
 }
 
 async function runHeavyBatch(page, command, requests) {
@@ -157,11 +147,8 @@ async function runHeavyBatch(page, command, requests) {
 }
 
 async function runSeries(page, solved) {
-  return measureNativeWork(
-    page,
-    () => invokeHeavy(page, "build_upgrade_series", { request: seriesRequest({ ...BASE_REQUEST }, solved) }),
-    "build_upgrade_series",
-  );
+  const request = seriesRequest({ ...BASE_REQUEST }, solved);
+  return { ...await measureNativeWork(page, () => invokeHeavy(page, "build_upgrade_series", { request }), "build_upgrade_series"), request };
 }
 
 async function runCancellation(page) {
@@ -253,6 +240,7 @@ async function measureCancellableJob(page, config) {
     process.stderr.write("Cancellation timing inconclusive: calculation finished before cancellation took effect.\n");
   }
   return {
+    request: config.request,
     operation: `${config.start}/${config.cancel}`,
     startMs: round(cancelRequestedAt - startedAt),
     cancelMs: round(finishedAt - cancelRequestedAt),
@@ -338,99 +326,4 @@ function positiveInteger(value, fallback, name) {
   const parsed = value === undefined ? fallback : Number(value);
   if (!Number.isInteger(parsed) || parsed <= 0) throw new Error(`${name} must be a positive integer`);
   return parsed;
-}
-
-async function launchPackagedApp(executablePath) {
-  const localAppData = process.env.LOCALAPPDATA;
-  if (!localAppData) throw new Error("LOCALAPPDATA is required for packaged smoke isolation");
-  const profileToken = `tarnisheds-arsenal-smoke-${randomUUID()}`;
-  const profileDirectory = join(localAppData, "main", profileToken);
-  if (existsSync(profileDirectory)) throw new Error("native responsiveness profile directory already exists");
-  const port = await reserveLoopbackPort();
-  const endpoint = `http://127.0.0.1:${port}`;
-  let output = "";
-  let exit = null;
-  const child = spawn(executablePath, [
-    `--packaged-smoke-port=${port}`,
-    `--packaged-smoke-profile=${profileToken}`,
-  ], {
-    env: { ...process.env, WEBVIEW2_USER_DATA_FOLDER: profileDirectory },
-    stdio: ["ignore", "pipe", "pipe"],
-    windowsHide: true,
-  });
-  child.stdout.on("data", (chunk) => { output += chunk.toString(); });
-  child.stderr.on("data", (chunk) => { output += chunk.toString(); });
-  child.once("exit", (code, signal) => { exit = { code, signal }; });
-  const session = {
-    child,
-    exit: () => exit,
-    output: () => output,
-    browser: null,
-    page: null,
-    profileDirectory,
-  };
-  try {
-    await waitForEndpoint(`${endpoint}/json/version`, 120_000, () => exit);
-    session.browser = await chromium.connectOverCDP(endpoint);
-    session.page = await waitForAppPage(session.browser, 30_000, () => exit);
-    return session;
-  } catch (error) {
-    await stopSession(session);
-    throw new Error(`${error instanceof Error ? error.message : String(error)}\n${output.slice(-4000)}`);
-  }
-}
-
-async function stopSession(sessionToStop) {
-  if (!sessionToStop) return;
-  await sessionToStop.browser?.close().catch(() => undefined);
-  if (!sessionToStop.exit() && !sessionToStop.child.killed) sessionToStop.child.kill();
-  await Promise.race([
-    new Promise((resolveExit) => {
-      if (sessionToStop.exit()) resolveExit();
-      else sessionToStop.child.once("exit", resolveExit);
-    }),
-    delay(5_000),
-  ]);
-  if (!sessionToStop.exit()) sessionToStop.child.kill("SIGKILL");
-  await rm(sessionToStop.profileDirectory, { recursive: true, force: true, maxRetries: 3, retryDelay: 250 }).catch(() => undefined);
-}
-
-async function reserveLoopbackPort() {
-  const server = createServer();
-  await new Promise((resolveListen, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolveListen);
-  });
-  const address = server.address();
-  if (!address || typeof address === "string") throw new Error("could not reserve a loopback port");
-  const port = address.port;
-  await new Promise((resolveClose, reject) => server.close((error) => error ? reject(error) : resolveClose()));
-  return port;
-}
-
-async function waitForEndpoint(url, timeoutMs, getExit) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (getExit()) throw new Error("packaged app exited before WebView2 was ready");
-    try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(2_000) });
-      if (response.ok && typeof (await response.json()).webSocketDebuggerUrl === "string") return;
-    } catch {
-      // WebView2 has not opened its local debugging endpoint yet.
-    }
-    await delay(250);
-  }
-  throw new Error(`timed out waiting for packaged WebView2 endpoint ${url}`);
-}
-
-async function waitForAppPage(browser, timeoutMs, getExit) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (getExit()) throw new Error("packaged app exited before its page was ready");
-    for (const context of browser.contexts()) {
-      for (const page of context.pages()) if (await page.locator(".desktop-shell").count()) return page;
-    }
-    await delay(100);
-  }
-  throw new Error("packaged WebView2 page did not expose the application shell");
 }

@@ -24,20 +24,15 @@ through tests and small release-mode examples.
 
 The desktop shell uses a three-region composition: continuously visible session
 controls, the active workspace, and an always-visible Build Detail panel. The
-Rankings workspace has one selection contract for podium cards, mouse-activated
-rows, and keyboard-activated rows. Selecting any rank updates Build Detail;
-locking is the only separate row action because it mutates search inputs and reruns
-the optimizer.
+Rankings workspace uses the same selection contract for mouse and keyboard
+activation. Selecting a row updates Build Detail; separate row actions pin a
+comparison or apply its stats as search locks.
 
-The default ranking grid contains rank, weapon, affinity/Ash setup, upgrade,
-scaling, raw AR/status, raw skill damage, objective score, and Lock. Full combat
-stats, AR split, route actions/hits, status, stamina, buff timing, and warnings stay
-in Build Detail without a modal. A persistent active-query strip exposes the major
-assumptions before execution, including whether reinforcement levels are exact or
-searched from zero to the configured caps. Scaling uses a responsive five-token
-STR/DEX/INT/FAI/ARC grid. Status uses a wrapping seven-token grid for bleed, frost,
-poison, scarlet rot, sleep, madness, and death blight; zeroes remain visible so a
-missing buildup cannot be mistaken for omitted data.
+Compact ranking rows show weapon, affinity/Ash setup, upgrade, combat stats,
+weapon scaling, AR, raw skill damage, and the active objective where applicable.
+Detailed damage splits, status, route actions/hits, stamina, buff timing, and
+warnings live in Build Detail. The active-query strip exposes the current search
+assumptions, including whether upgrades are exact or searched from zero to the caps.
 
 Build Detail reports actual PvE stance/poise damage for R1, R2, charged R2, jumping
 R1, and jumping R2 attacks. When a selected AoW route is mapped, it also reports
@@ -48,8 +43,8 @@ The visual system is intentionally lightweight: CSS perspective, short
 state-driven transitions, and a 19 KB low-contrast WebP texture provide depth
 without WebGL or a runtime animation library. `prefers-reduced-motion` collapses
 decorative animation to effectively zero duration. Responsive states prioritize
-the table and remove the redundant podium at narrower supported window widths;
-the page itself does not scroll horizontally.
+the ranking table and let it scroll within the workspace; there is no podium.
+The page itself does not scroll horizontally.
 
 ## Data Model
 
