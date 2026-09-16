@@ -12,15 +12,27 @@ profiles, and thread counts before treating a timing difference as meaningful.
 [Compare level-range evaluators](#independent-versus-shared-level-range-evaluation) ·
 [Attribute phases](#optimizer-phase-attribution) · [Review a result](#review-policy)
 
-For an optional independent Vanilla AR comparison, run
-`python tools/phase4/validate_external_calculator.py`. This uses supported cases
-from the public T. Clark calculator; external inputs are not release dependencies.
+For an independent Vanilla AR and base-status comparison, run
+`python tools/phase4/validate_external_calculator.py --count 100 --seed 20260918`.
+The seed selects weapon names, affinities, stats, and legal unbuffed skills; each
+selected configuration is checked at zero, random, and maximum upgrades with
+both handling modes. The runner uses pinned T. Clark 1.17 source and data,
+the installed frontend TypeScript compiler, and the current Rust optimizer.
+Use another seed for fresh cases, or `--count 487` to cover every named weapon.
+Optional `--report` and `--csv` paths retain results. External inputs are not
+release dependencies. This checks weapon AR, base passives, and selected-skill
+identity; it does not certify projectile formulas, temporary buffs, or in-game
+damage after enemy defenses.
 
 Performance work is measured in release mode with one Rayon thread by default so algorithm changes are visible without scheduler noise.
 
 Broad Search, Paths, and Affinity Watch cancellation has a 250 ms latency target on the reference development machine. Core enumeration checks this with a synchronized broad-search regression test; workflow tests separately prove cancellation propagates through their nested evaluators and returns no successful partial payload.
 
 ## Exact scoring measurements
+
+These timings predate the `aow-routes-effects-v6` gameplay corrections. The
+corrected model intentionally changes affected skill routes, status buildup,
+and weapon scaling; use the commands above for a current correctness comparison.
 
 The September 2026 follow-up compared `41aeaa1` (f32), `93bf35a` (the previous
 exact build), and this PR's reviewed exact implementation on Windows 11 with Rust
