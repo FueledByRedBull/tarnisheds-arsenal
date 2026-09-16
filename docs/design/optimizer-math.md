@@ -1,8 +1,8 @@
 # Optimizer Mathematics
 
-This document states the searched domain and an exact-arithmetic argument for the
-Rust optimizer's recurrence. It is not an unconditional exactness proof for its
-floating-point implementation. The companion
+This document states the searched domain and the exact-arithmetic argument for the
+Rust optimizer's recurrence. Its conclusions still require the separability,
+first-hit identity, and active-set obligations below. The companion
 [`optimizer-overview.md`](optimizer-overview.md) covers implementation structure,
 ranking, parallel work, tests, and release engineering. Functions named here live in
 `core/er_optimizer_core/src/`.
@@ -116,7 +116,10 @@ it with the preferred combat-stat vector.
 ## 3. Attack rating and separability
 
 For damage type $d$ in physical, magic, fire, lightning, and holy,
-`calculate_ar_for_type` and `calculate_ar` (`math.rs`) compute
+`exact_ar` (`math/exact.rs`) evaluates the ranking formula below.
+The legacy `f32` helpers `calculate_ar_for_type` and `calculate_ar` (`math.rs`)
+remain for non-ranking callers and scheduling estimates; they do not choose
+exact-v1 winners.
 
 $$
 AR_d(x)=b_d r_d\left(1+\sum_i I_{i,d}s_iq_i\gamma_d(x_i')\right),
@@ -169,6 +172,8 @@ ordered lexicographically. $S_o$ is buffed/scaled total AR, buffed/scaled physic
 bleed, first-hit damage, or full-sequence damage for the requested objective.
 Repeated fields are harmless: deleting a later duplicate gives the equivalent
 objective-specific key. Keeping this common representation matches the comparator.
+Internal primary probes may retain only the one or two leading components needed by
+that pass; final completion restores the full five-component key.
 
 ### Bleed and route contributions
 
@@ -291,32 +296,65 @@ bound still applies; sharing can add bookkeeping without reducing that traversal
 
 ### Unique retained allocations
 
-The implementation can skip route-specific DP when every feasible terminal spend
-has one retained predecessor path. It reconstructs each path, fills inactive stats,
-and directly recomputes its prefix before selecting a winner. An ambiguous path or
-a tied prefix comparison declines the shortcut. With a unique best prefix, secondary
-route metrics cannot improve a losing prefix, so each route evaluates that allocation
-directly. The general path likewise retains all best directly recomputed terminal
-prefixes before applying route tie-breaks.
+The implementation skips route-specific DP when the best feasible primary rank
+has exactly one terminal spend and one retained predecessor path. Ties at strictly
+lower ranks do not matter. With a unique best prefix, secondary route metrics cannot
+improve a losing prefix, so each route evaluates that allocation directly. Otherwise,
+the route recurrence retains all primary-optimal transitions and selects the full key.
 
-This shortcut establishes uniqueness only within the retained transition graph.
-It inherits the exact-arithmetic conditions and floating-point limitation below;
-direct recomputation does not prove that earlier pruning preserved the global winner.
+Terminal ranks are computed from normalized integer keys. Each component's positive
+scale preserves its order, so only the winning allocation needs direct evaluation.
 
-### Floating-point boundary
+### Bounds and scheduling
 
-The implementation accumulates `f32` deltas. Rounded subtraction/addition is not
-the exact arithmetic above: reassociation can change comparisons, and adding a
-common completion can collapse a strict numeric difference into a tie with a
-different preferred stat vector. A preferred allocation can be discarded permanently.
+For AR objectives, an upper bound maximizes each stat's curve independently over its
+allowed interval and ignores the joint spend constraint. Nonnegative coefficients
+make the sum an upper bound even for non-monotonic curves. Add the largest permitted
+Ash buff and apply the damage multiplier using exact arithmetic. A work unit is
+skipped only when this bound is strictly below the score of the worst retained result
+in a full top-K buffer; ties are always evaluated. Parallel folds keep local buffers,
+so scheduling affects pruning effectiveness but not the result order.
 
-Every retained terminal is re-evaluated directly before terminal comparison.
-This gives correct direct metrics and ordering **among retained terminals**, not a
-guarantee that the canonical exhaustive winner survived. Accumulated DP totals are
-not reported metrics. A shipped Convergence fixture demonstrates equal numeric
-metrics but a different stat-vector winner; evidence and the numerical decision
-are recorded in the overview. `f64` alone would reduce rounding without proving
-the pruning step exact.
+Within one weapon group, skills with strictly worse primary maxima cannot win weapon
+grouping. All tied primary maxima remain eligible for route tie-breaks. A floating-point
+estimate schedules promising weapons first; it never decides whether to discard one.
+
+### Numerical contract
+
+The `exact-v1` scoring contract treats each finite, validated loaded `f32` model value
+as its exact binary rational. Products, sums, and percentage division in ranking
+formulas are evaluated exactly. This does not recover precision lost while extracting
+or loading the source data, and it deliberately changes the former operation-by-
+operation `f32` rounding contract. Winners near rounded ties can change.
+
+Two-handing still uses the integer effective-STR rule. Status scaling retains its
+existing floor boundaries: weapon bleed is floored before Ash additions, followed
+by the existing final floor when scaling status additions are present. These are
+one-dimensional ARC lookups, so they do not break additivity across stats.
+
+Each fixed-loadout metric component is normalized to a common integer scale, with
+common numerator factors removed. Before using `i128`, the solver bounds every
+partial sum by the absolute baseline plus the sum of each stat's largest absolute
+delta. If that bound does not fit, it uses `BigInt`. No coefficient is rounded to
+make it fit. The same recurrence serves both representations.
+
+Coefficient arithmetic likewise uses checked `i128` rationals and promotes to
+arbitrary precision on overflow. Within a fixed-loadout DP, constant baselines and
+the common positive world damage multiplier can be omitted: translation and positive
+scaling preserve each component's ordering. Final evaluation and pruning bounds
+still use the complete, scaled metrics.
+
+For weapon-grouped output, a retained result also bounds later configurations of
+that same weapon even before the global top-K fills. Only strictly lower primary
+scores are discarded. Choices with identical bleed effects share a primary formula;
+strictly smaller flat-buff contributions cannot win its primary pair when the world
+damage multiplier is positive. Equal pairs retain route and stat tie evaluation.
+
+Exact keys survive terminal evaluation, route choice, top-K retention, parallel
+merges, and final grouping. The chosen route identity is retained during
+materialization. Public floating-point fields are projections for display, not
+inputs to ranking. The runtime model identity includes `exact-v1`, invalidating
+persisted results from the former scoring contract without relabeling snapshot files.
 
 ## 5. Compiled routes, oracle, and fallback
 
@@ -343,18 +381,18 @@ loadout, the effective order is $M_o$, ascending combat stats, ascending route p
 then ascending route ID. Priority and ID apply only after the numeric key and stats tie.
 
 Scored candidates use numeric metrics, ascending weapon ID, descending upgrade,
-ascending skill ID, ascending combat stats, then internal indices. Materialization
-reinserts them with the public comparator, which omits combat stats and skill ID;
-equal rows retain deterministic scored-candidate order because insertion keeps the
-earlier equal row first. Serial and parallel merges share that scored comparator.
+ascending skill ID, ascending combat stats, then internal indices. Materialized
+rows retain a private exact key and use the same numeric, weapon, upgrade, skill,
+and stat order. Serial and parallel merges share the scored comparator.
 Determinism is distinct from equivalence to a canonical exhaustive optimum.
 
 ## 7. Scope of the claims
 
 **Combinatorial exactness.** Under exact arithmetic, separability, fixed first-hit
 identity, and active-set soundness, the recurrence returns the preferred allocation
-over the declared integer domain. The `f32` implementation has the pruning limitation
-above. Differential regressions are evidence, not a proof covering all inputs.
+over the declared integer domain. Exact integer accumulation removes the former floating-point pruning limitation.
+Differential regressions test the implementation; they do not establish gameplay
+fidelity or discharge the other model assumptions for arbitrary future mechanics.
 
 **Model fidelity.** The evaluator is a fan reconstruction tied to selected profile,
 dataset, model, source, and manifest hashes. It does not model enemy defense,

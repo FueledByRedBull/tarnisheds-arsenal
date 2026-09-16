@@ -9,11 +9,12 @@ use crate::commands::optimize::run_level_range_inner_with_progress;
 use crate::dto::{
     AffinityBreakpointDto, AffinityWatchFinishedDto, AffinityWatchJobStatusDto,
     AffinityWatchLineDto, AffinityWatchPayloadDto, AffinityWatchPointDto, AffinityWatchProgressDto,
-    AffinityWatchRequestDto, SolvedBuildDto, StartSearchResponseDto, metric_for_objective,
-    parse_objective, validate_levels_ahead,
+    AffinityWatchRequestDto, SolvedBuildDto, StartSearchResponseDto, parse_objective,
+    validate_levels_ahead,
 };
 use crate::errors::AppError;
 use crate::{AppState, AsyncJobHandle, CancelFlag, JobRegistry};
+use er_optimizer_core::OptimizeResult;
 
 #[tauri::command]
 pub fn start_affinity_watch(
@@ -135,7 +136,7 @@ fn build_affinity_watch_inner(
     mut should_continue: impl FnMut() -> bool + Send,
 ) -> Result<AffinityWatchPayloadDto, AppError> {
     validate_levels_ahead(request.levels_ahead)?;
-    let objective = parse_objective(&request.base.objective)?;
+    parse_objective(&request.base.objective)?;
     let affinities =
         affinity_watch_affinities_for_profile(&request.solved, state, &request.base.profile_id);
     let levels: Vec<u16> = (0..=request.levels_ahead)
@@ -189,39 +190,61 @@ fn build_affinity_watch_inner(
             },
             &mut should_continue,
         )?;
-        let points: Vec<AffinityWatchPointDto> = level_rows
+        let points: Vec<ExactAffinityWatchPoint> = level_rows
             .into_iter()
-            .map(|(level, mut rows)| {
-                let solved = rows.pop();
-                let metric = solved
-                    .as_ref()
-                    .map(|solved| metric_for_objective(solved, objective));
-                AffinityWatchPointDto {
-                    level,
-                    metric,
+            .map(|entry| {
+                let solved = entry.rows.into_iter().next();
+                ExactAffinityWatchPoint {
+                    level: entry.level,
                     solved,
                 }
             })
             .collect();
-        let valid: Vec<&AffinityWatchPointDto> = points
-            .iter()
-            .filter(|point| point.metric.is_some() && point.solved.is_some())
-            .collect();
-        if valid.is_empty() {
+        if !points.iter().any(|point| point.solved.is_some()) {
             continue;
         }
-        lines.push(AffinityWatchLineDto {
-            affinity,
-            start_metric: valid.first().and_then(|point| point.metric),
-            end_metric: valid.last().and_then(|point| point.metric),
-            final_build: valid.last().and_then(|point| point.solved.clone()),
-            points,
-        });
+        lines.push(ExactAffinityWatchLine { affinity, points });
     }
 
-    lines.sort_by(|left, right| compare_lines(right, left, objective));
-    let breakpoints = detect_breakpoints(&lines, &levels, objective);
+    lines.sort_by(|left, right| compare_lines(right, left));
+    let breakpoints = detect_breakpoints(&lines, &levels);
+    let lines = lines
+        .into_iter()
+        .map(|line| {
+            let points: Vec<AffinityWatchPointDto> = line
+                .points
+                .into_iter()
+                .map(|point| AffinityWatchPointDto {
+                    level: point.level,
+                    metric: point.solved.as_ref().map(|solved| solved.score),
+                    solved: point.solved.map(SolvedBuildDto::from),
+                })
+                .collect();
+            let start_metric = points.iter().find_map(|point| point.metric);
+            let final_build = points.iter().rev().find_map(|point| point.solved.clone());
+            let end_metric = final_build.as_ref().map(|build| build.score);
+            AffinityWatchLineDto {
+                affinity: line.affinity,
+                points,
+                start_metric,
+                end_metric,
+                final_build,
+            }
+        })
+        .collect();
     Ok(AffinityWatchPayloadDto { lines, breakpoints })
+}
+
+#[derive(Debug)]
+struct ExactAffinityWatchPoint {
+    level: u16,
+    solved: Option<OptimizeResult>,
+}
+
+#[derive(Debug)]
+struct ExactAffinityWatchLine {
+    affinity: String,
+    points: Vec<ExactAffinityWatchPoint>,
 }
 
 fn affinity_watch_affinities_for_profile(
@@ -256,9 +279,8 @@ fn affinity_watch_affinities_for_profile(
 }
 
 fn detect_breakpoints(
-    lines: &[AffinityWatchLineDto],
+    lines: &[ExactAffinityWatchLine],
     levels: &[u16],
-    objective: er_optimizer_core::OptimizeObjective,
 ) -> Vec<AffinityBreakpointDto> {
     let mut breakpoints = Vec::new();
     let mut leader_affinity: Option<String> = None;
@@ -273,7 +295,7 @@ fn detect_breakpoints(
         }
         let Some(leader) = contenders
             .into_iter()
-            .max_by(|left, right| compare_solved(left, right, objective))
+            .max_by(|left, right| compare_solved(left, right))
         else {
             continue;
         };
@@ -311,7 +333,7 @@ fn detect_breakpoints(
     breakpoints
 }
 
-fn metric_at(lines: &[AffinityWatchLineDto], affinity: &str, level: u16) -> Option<f32> {
+fn metric_at(lines: &[ExactAffinityWatchLine], affinity: &str, level: u16) -> Option<f32> {
     lines
         .iter()
         .find(|line| line.affinity == affinity)
@@ -319,46 +341,28 @@ fn metric_at(lines: &[AffinityWatchLineDto], affinity: &str, level: u16) -> Opti
             line.points
                 .iter()
                 .find(|point| point.level == level)
-                .and_then(|point| point.metric)
+                .and_then(|point| point.solved.as_ref().map(|solved| solved.score))
         })
 }
 
-fn compare_lines(
-    left: &AffinityWatchLineDto,
-    right: &AffinityWatchLineDto,
-    objective: er_optimizer_core::OptimizeObjective,
-) -> Ordering {
-    left.end_metric
-        .unwrap_or(f32::NEG_INFINITY)
-        .total_cmp(&right.end_metric.unwrap_or(f32::NEG_INFINITY))
-        .then_with(
-            || match (left.final_build.as_ref(), right.final_build.as_ref()) {
-                (Some(left), Some(right)) => compare_solved(left, right, objective),
-                (Some(_), None) => Ordering::Greater,
-                (None, Some(_)) => Ordering::Less,
-                (None, None) => Ordering::Equal,
-            },
-        )
+fn compare_lines(left: &ExactAffinityWatchLine, right: &ExactAffinityWatchLine) -> Ordering {
+    match (final_build(left), final_build(right)) {
+        (Some(left), Some(right)) => compare_solved(left, right),
+        (Some(_), None) => Ordering::Greater,
+        (None, Some(_)) => Ordering::Less,
+        (None, None) => Ordering::Equal,
+    }
 }
 
-fn compare_solved(
-    left: &SolvedBuildDto,
-    right: &SolvedBuildDto,
-    objective: er_optimizer_core::OptimizeObjective,
-) -> Ordering {
-    metric_for_objective(left, objective)
-        .total_cmp(&metric_for_objective(right, objective))
-        .then_with(|| left.score.total_cmp(&right.score))
-        .then_with(|| left.ar.total.total_cmp(&right.ar.total))
-        .then_with(|| {
-            left.aow_full_sequence_damage
-                .total_cmp(&right.aow_full_sequence_damage)
-        })
-        .then_with(|| {
-            left.aow_first_hit_damage
-                .total_cmp(&right.aow_first_hit_damage)
-        })
-        .then_with(|| left.bleed_buildup.total_cmp(&right.bleed_buildup))
+fn final_build(line: &ExactAffinityWatchLine) -> Option<&OptimizeResult> {
+    line.points
+        .iter()
+        .rev()
+        .find_map(|point| point.solved.as_ref())
+}
+
+fn compare_solved(left: &OptimizeResult, right: &OptimizeResult) -> Ordering {
+    left.compare_numeric(right)
         .then_with(|| right.weapon_id.cmp(&left.weapon_id))
         .then_with(|| left.upgrade.cmp(&right.upgrade))
 }
@@ -462,6 +466,7 @@ mod integration_tests {
                 "WORKFLOW_BENCH {}",
                 serde_json::json!({
                     "workflow": "affinity_watch",
+                    "model_version": state.profile("vanilla").unwrap().data.model_version,
                     "horizon": horizon,
                     "affinities": affinity_count,
                     "repeats": repeats,

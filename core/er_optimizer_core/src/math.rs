@@ -7,6 +7,9 @@ use crate::model::{
     StatusBuildup, StatusCorrectionFlags, Weapon,
 };
 
+pub(crate) mod exact;
+pub(crate) mod exact_value;
+
 #[derive(Clone, Copy, Debug)]
 pub struct ScalingContribution {
     pub scaling: f32,
@@ -315,6 +318,7 @@ struct ScalarAowHit<'a> {
 }
 
 #[derive(Clone, Copy, Debug, Default)]
+#[cfg(test)]
 pub(crate) struct ScalarAowRouteMetric {
     pub first_hit_damage: f32,
     pub full_sequence_damage: f32,
@@ -416,6 +420,7 @@ pub(crate) fn prepare_scalar_aow_routes<'a>(
     Ok(Some(routes))
 }
 
+#[cfg(test)]
 pub(crate) fn evaluate_scalar_aow_route(
     route: &ScalarAowRoute<'_>,
     weapon: &Weapon,

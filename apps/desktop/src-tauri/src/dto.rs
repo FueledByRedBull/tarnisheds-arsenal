@@ -562,7 +562,7 @@ impl From<er_optimizer_core::SnapshotManifest> for DataManifestDto {
         Self {
             schema_version: value.schema_version,
             dataset_version: value.dataset_version,
-            model_version: value.model_version,
+            model_version: er_optimizer_core::runtime_model_version(&value.model_version),
             id: value.id,
             label: value.label,
             app_version: value.app_version,

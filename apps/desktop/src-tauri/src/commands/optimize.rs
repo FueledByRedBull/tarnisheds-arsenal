@@ -4,8 +4,9 @@ use std::sync::atomic::Ordering;
 #[cfg(test)]
 use er_optimizer_core::optimize;
 use er_optimizer_core::{
-    GameData, OptimizeRequest, optimize_level_range_with_progress, optimize_prepared_with_progress,
-    optimize_with_cancel, prepare_search_with_cancel, prepare_upgrade_series_evaluator_with_cancel,
+    GameData, LevelOptimizeResult, OptimizeRequest, optimize_level_range_with_progress,
+    optimize_prepared_with_progress, optimize_with_cancel, prepare_search_with_cancel,
+    prepare_upgrade_series_evaluator_with_cancel,
 };
 use tauri::{AppHandle, State};
 
@@ -54,7 +55,7 @@ pub fn run_level_range_inner_with_progress<F, C>(
     state: &AppState,
     level_complete: F,
     should_continue: C,
-) -> Result<Vec<(u16, Vec<SolvedBuildDto>)>, AppError>
+) -> Result<Vec<LevelOptimizeResult>, AppError>
 where
     F: FnMut(u16) -> bool,
     C: FnMut() -> bool + Send,
@@ -69,17 +70,6 @@ where
         level_complete,
         should_continue,
     )
-    .map(|levels| {
-        levels
-            .into_iter()
-            .map(|entry| {
-                (
-                    entry.level,
-                    entry.rows.into_iter().map(SolvedBuildDto::from).collect(),
-                )
-            })
-            .collect()
-    })
     .map_err(AppError::from)
 }
 
@@ -832,6 +822,7 @@ mod integration_tests {
             "WORKFLOW_BENCH {}",
             serde_json::json!({
                 "workflow": "upgrade_series",
+                "model_version": state.profile("vanilla").unwrap().data.model_version,
                 "reinforcement": "standard",
                 "points": 26,
                 "repeats": repeats,

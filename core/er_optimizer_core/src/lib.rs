@@ -4,6 +4,11 @@ pub mod model;
 pub mod optimizer;
 mod snapshot;
 
+/// Include the compiled scoring contract in persisted result/cache identities.
+pub fn runtime_model_version(snapshot_model: &str) -> String {
+    format!("{snapshot_model}/exact-v1")
+}
+
 pub use data::{
     CONVERGENCE_PROFILE_ID, VANILLA_PROFILE_ID, load_embedded_game_data,
     load_embedded_game_data_with_manifest, load_embedded_game_profile,

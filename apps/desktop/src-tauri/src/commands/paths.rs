@@ -3,7 +3,8 @@ use std::sync::atomic::Ordering;
 
 use er_optimizer_core::model::COMBAT_STAT_COUNT;
 use er_optimizer_core::{
-    OptimizeRequest, PreparedLoadoutEvaluator, effective_str, prepare_loadout_evaluator_with_cancel,
+    OptimizeRequest, OptimizeResult, PreparedLoadoutEvaluator, effective_str,
+    prepare_loadout_evaluator_with_cancel,
 };
 use tauri::{AppHandle, State};
 
@@ -13,8 +14,8 @@ use crate::commands::data::{
 use crate::dto::{
     CombatStateDto, PathFinishedDto, PathJobStatusDto, PathMode, PathPreviewDto,
     PathPreviewRequestDto, PathProgressDto, PathStepDto, StartPathPreviewRequestDto,
-    StartSearchResponseDto, lock_request_to_stats, metric_for_objective, parse_objective,
-    set_min_combat_stats, validate_levels_ahead, validate_path_batch,
+    StartSearchResponseDto, lock_request_to_stats, set_min_combat_stats, validate_levels_ahead,
+    validate_path_batch,
 };
 use crate::errors::AppError;
 use crate::{AppState, AsyncJobHandle, CancelFlag, JobRegistry};
@@ -174,7 +175,7 @@ fn build_path_preview_inner(
         return Err(AppError::new("cancelled"));
     }
     let evaluator = prepare_path_evaluator(&request, target_level, state, &mut continue_cb)?;
-    let mut steps = vec![evaluate_step(
+    let first = evaluate_step(
         &request.base,
         &request.solved.weapon_name,
         &request.solved.affinity,
@@ -187,7 +188,8 @@ fn build_path_preview_inner(
         state,
         &evaluator,
         &mut continue_cb,
-    )?];
+    )?;
+    let mut steps = vec![first.dto];
 
     if !continue_cb(target_level) {
         return Err(AppError::new("cancelled"));
@@ -219,8 +221,8 @@ fn build_path_preview_inner(
         else {
             break;
         };
-        current_state = next.stats;
-        steps.push(next);
+        current_state = next.dto.stats;
+        steps.push(next.dto);
     }
 
     Ok(PathPreviewDto {
@@ -258,21 +260,26 @@ fn build_optimum_envelope(
         continue_cb,
         || true,
     )?;
-    let objective = parse_objective(&request.base.objective)?;
     let mut previous = request.solved.stats;
     let steps = rows
         .into_iter()
-        .map(|(level, rows)| {
+        .map(|entry| {
+            let level = entry.level;
+            let rows = entry.rows;
             let solved = rows.into_iter().next();
-            let stats = solved.as_ref().map_or(previous, |row| row.stats);
+            let stats = solved.as_ref().map_or(previous, |row| CombatStateDto {
+                str_stat: row.stats.str,
+                dex: row.stats.dex,
+                int_stat: row.stats.int,
+                fai: row.stats.fai,
+                arc: row.stats.arc,
+            });
             let added_stat = describe_allocation_change(previous, stats);
             previous = stats;
             PathStepDto {
                 level,
                 stats,
-                metric: solved
-                    .as_ref()
-                    .map(|row| metric_for_objective(row, objective)),
+                metric: solved.as_ref().map(|row| row.score),
                 score: solved.as_ref().map(|row| row.score),
                 added_stat,
                 requirement_gap: u16::from(solved.is_none()),
@@ -375,7 +382,7 @@ fn choose_next_step(
     state: &AppState,
     evaluator: &PreparedLoadoutEvaluator<'_>,
     continue_cb: &mut (impl FnMut(u16) -> bool + Send),
-) -> Result<Option<PathStepDto>, AppError> {
+) -> Result<Option<EvaluatedPathStep>, AppError> {
     let mut candidates = Vec::new();
     for stat in ["str", "dex", "int", "fai", "arc"] {
         if combat_value(current_state, stat) >= combat_value(target_state, stat) {
@@ -423,7 +430,7 @@ fn evaluate_step(
     state: &AppState,
     evaluator: &PreparedLoadoutEvaluator<'_>,
     continue_cb: &mut (impl FnMut(u16) -> bool + Send),
-) -> Result<PathStepDto, AppError> {
+) -> Result<EvaluatedPathStep, AppError> {
     let mut request = base.clone();
     request.character_level = level;
     request.weapon_name = Some(weapon_name.to_string());
@@ -444,23 +451,22 @@ fn evaluate_step(
     let solved = evaluator
         .evaluate_with_cancel(&core_request, || continue_cb(level))
         .map_err(AppError::from)?
-        .pop()
-        .map(crate::dto::SolvedBuildDto::from);
-    let objective = parse_objective(&base.objective)?;
+        .pop();
     let requirement_gap = if solved.is_some() {
         0
     } else {
         requirement_gap(base, weapon_name, Some(affinity), stats, state)?
     };
-    Ok(PathStepDto {
-        level,
-        stats,
-        metric: solved
-            .as_ref()
-            .map(|solved| metric_for_objective(solved, objective)),
-        score: solved.as_ref().map(|solved| solved.score),
-        added_stat,
-        requirement_gap,
+    Ok(EvaluatedPathStep {
+        dto: PathStepDto {
+            level,
+            stats,
+            metric: solved.as_ref().map(|solved| solved.score),
+            score: solved.as_ref().map(|solved| solved.score),
+            added_stat,
+            requirement_gap,
+        },
+        solved,
     })
 }
 
@@ -524,26 +530,23 @@ fn combat_value(state: CombatStateDto, stat: &str) -> u8 {
     }
 }
 
-fn compare_steps(left: &PathStepDto, right: &PathStepDto) -> std::cmp::Ordering {
-    let left_key = step_key(left);
-    let right_key = step_key(right);
-    left_key
-        .0
-        .cmp(&right_key.0)
-        .then_with(|| left_key.1.total_cmp(&right_key.1))
-        .then_with(|| left_key.2.total_cmp(&right_key.2))
-        .then_with(|| left_key.3.cmp(&right_key.3))
-        .then_with(|| left_key.4.cmp(&right_key.4))
+struct EvaluatedPathStep {
+    dto: PathStepDto,
+    solved: Option<OptimizeResult>,
 }
 
-fn step_key(step: &PathStepDto) -> (u8, f32, f32, i16, i16) {
-    (
-        u8::from(step.metric.is_some() && step.score.is_some()),
-        step.score.unwrap_or(0.0),
-        step.metric.unwrap_or(0.0),
-        -(step.requirement_gap as i16),
-        -stat_priority(step.added_stat.as_deref()),
-    )
+fn compare_steps(left: &EvaluatedPathStep, right: &EvaluatedPathStep) -> std::cmp::Ordering {
+    match (&left.solved, &right.solved) {
+        (Some(left), Some(right)) => left.compare_numeric(right),
+        (Some(_), None) => std::cmp::Ordering::Greater,
+        (None, Some(_)) => std::cmp::Ordering::Less,
+        (None, None) => std::cmp::Ordering::Equal,
+    }
+    .then_with(|| right.dto.requirement_gap.cmp(&left.dto.requirement_gap))
+    .then_with(|| {
+        stat_priority(right.dto.added_stat.as_deref())
+            .cmp(&stat_priority(left.dto.added_stat.as_deref()))
+    })
 }
 
 fn stat_priority(stat: Option<&str>) -> i16 {
@@ -684,6 +687,7 @@ mod integration_tests {
                     "WORKFLOW_BENCH {}",
                     serde_json::json!({
                         "workflow": "paths",
+                        "model_version": state.profile("vanilla").unwrap().data.model_version,
                         "horizon": horizon,
                         "lanes": lanes,
                         "repeats": repeats,

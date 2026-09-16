@@ -3,14 +3,16 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use crate::math::exact_value::ExactRational;
+use num_traits::{One, ToPrimitive, Zero};
 use rayon::prelude::*;
 
 use crate::math::ScalarAowRoute;
+#[cfg(test)]
+use crate::math::evaluate_scalar_aow_route;
 use crate::math::{
-    apply_aow_attack_buffs, apply_aow_bleed_buffs, apply_aow_status_buffs, calculate_aow_routes,
-    calculate_ar, calculate_bleed_buildup, calculate_status_buildup, class_by_name,
-    compute_free_points, effective_str, evaluate_scalar_aow_route, meets_requirements,
-    prepare_scalar_aow_routes,
+    apply_aow_status_buffs, calculate_aow_routes, calculate_status_buildup, class_by_name,
+    compute_free_points, effective_str, meets_requirements, prepare_scalar_aow_routes,
 };
 use crate::model::{
     Aow, AowAttackRow, AowEffectRole, AowRouteResult, COMBAT_STAT_COUNT, DamageBreakdown,
@@ -22,6 +24,7 @@ mod types;
 pub use types::*;
 mod ranking;
 use ranking::*;
+mod exact_dp;
 
 #[derive(Clone, Debug)]
 struct AowChoice<'a> {
@@ -48,6 +51,18 @@ impl<'routes, 'data> ScalarRouteSet<'routes, 'data> {
             Self::Cached(routes) => routes,
             Self::Owned(routes) => routes,
         }
+    }
+}
+
+fn scalar_route_set<'routes, 'data>(
+    choice: &'routes AowChoice<'data>,
+    data: &'data GameData,
+) -> Result<Option<ScalarRouteSet<'routes, 'data>>, String> {
+    match &choice.scalar_routes {
+        Some(Ok(routes)) => Ok(routes.as_ref().map(|routes| ScalarRouteSet::Cached(routes))),
+        Some(Err(error)) => Err(error.clone()),
+        None => prepare_scalar_aow_routes(&choice.attack_rows, data)
+            .map(|routes| routes.map(ScalarRouteSet::Owned)),
     }
 }
 
@@ -106,6 +121,30 @@ impl PreparedLoadoutEvaluator<'_> {
     {
         validate_reusable_loadout(&self.template, request, self.data)?;
         let constraints = build_combat_constraints(request)?;
+        if request.top_k == 1 && request.locked_combat_stats.iter().all(Option::is_some) {
+            let stats = stats_with_combat(request.current_stats, constraints.mins);
+            let mut upgrades = self
+                .weapons
+                .iter()
+                .flat_map(|weapon| weapon.upgrades.iter().copied())
+                .collect::<Vec<_>>();
+            upgrades.sort_unstable();
+            upgrades.dedup();
+            let mut rows = Vec::new();
+            for upgrade in upgrades {
+                if let Some(row) = evaluate_fixed_loadout_upgrade(
+                    request,
+                    self.data,
+                    &self.weapons,
+                    upgrade,
+                    stats,
+                    &mut should_continue,
+                )? {
+                    push_top_k(&mut rows, row, 1, ResultGroupMode::Loadout);
+                }
+            }
+            return Ok(rows);
+        }
         let plan = build_prepared_plan(
             request,
             self.data,
@@ -171,26 +210,20 @@ impl PreparedSearchPlan<'_> {
 #[derive(Clone, Copy, Debug)]
 struct CandidateMetric {
     score: f32,
-    ar: Option<DamageBreakdown>,
-    status_buildup: Option<StatusBuildup>,
-    bleed_buildup: Option<f32>,
-    aow_first_hit_damage: Option<f32>,
-    aow_full_sequence_damage: Option<f32>,
+    ar: DamageBreakdown,
+    aow_first_hit_damage: f32,
+    aow_full_sequence_damage: f32,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
-struct BaseWeaponMetric {
-    ar: Option<DamageBreakdown>,
-    bleed_buildup: Option<f32>,
-}
-
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 struct ScoredCandidate {
     prepared_idx: usize,
     aow_idx: usize,
     upgrade: u8,
     stats: Stats,
     metric: CandidateMetric,
+    key: ObjectiveKey,
+    route_id: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -221,6 +254,7 @@ trait SearchProgress {
         best_score: Option<f32>,
     ) -> Result<(), String>;
     fn is_cancelled(&self) -> bool;
+    fn poll(&mut self) -> Result<(), String>;
     fn finish(&mut self) -> Result<(), String> {
         Ok(())
     }
@@ -229,7 +263,7 @@ trait SearchProgress {
 const PARALLEL_SEARCH_MIN_COMBINATIONS: u64 = 1_000_000;
 const PARALLEL_AOW_CHUNK_SIZE: usize = 8;
 const PARALLEL_PROGRESS_BATCH: u64 = 8_192;
-const SCORED_TOP_K_LOADOUT_OVERSAMPLE: usize = 8;
+const PROGRESS_POLL_BATCH: u32 = 1_024;
 const PROGRESS_MIN_INTERVAL: Duration = Duration::from_millis(100);
 pub const CANCELLATION_LATENCY_TARGET_MS: u64 = 250;
 
@@ -557,8 +591,8 @@ fn build_prepared_plan<'a>(
         estimate,
     };
     if build_work_units {
-        plan.fine_work_units = build_search_work_units(&plan, true);
-        plan.serial_work_units = build_search_work_units(&plan, false);
+        plan.fine_work_units = build_search_work_units(&plan, true)?;
+        plan.serial_work_units = build_search_work_units(&plan, false)?;
     }
     Ok(plan)
 }
@@ -788,17 +822,23 @@ fn should_use_parallel_search(total: u64, work_unit_count: usize) -> bool {
         && total >= PARALLEL_SEARCH_MIN_COMBINATIONS
 }
 
-fn build_search_work_units(plan: &PreparedSearchPlan<'_>, split_aows: bool) -> Vec<SearchWorkUnit> {
+fn build_search_work_units(
+    plan: &PreparedSearchPlan<'_>,
+    split_aows: bool,
+) -> Result<Vec<SearchWorkUnit>, String> {
     let mut units = Vec::new();
     for (group_idx, group) in plan.groups.iter().enumerate() {
-        let chunk_size = if split_aows
-            && matches!(
-                plan.request.objective,
-                OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
-            ) {
-            1
+        let chunk_size = if matches!(
+            plan.request.objective,
+            OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
+        ) {
+            if split_aows {
+                1
+            } else {
+                PARALLEL_AOW_CHUNK_SIZE
+            }
         } else {
-            PARALLEL_AOW_CHUNK_SIZE
+            group.aow_indices.len().max(1)
         };
         for aow_start in (0..group.aow_indices.len()).step_by(chunk_size) {
             let aow_end = (aow_start + chunk_size).min(group.aow_indices.len());
@@ -816,7 +856,76 @@ fn build_search_work_units(plan: &PreparedSearchPlan<'_>, split_aows: bool) -> V
             });
         }
     }
-    units
+    if matches!(
+        plan.request.objective,
+        OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr
+    ) {
+        // Float estimates only schedule work; every pruning decision uses exact bounds.
+        let estimates = plan
+            .groups
+            .iter()
+            .map(|group| {
+                let prepared = &plan.weapons[group.prepared_idx];
+                let weapon = prepared.weapon;
+                let upgrade = *prepared
+                    .upgrades
+                    .last()
+                    .ok_or("weapon has no eligible upgrades")?;
+                let mut best = 0.0_f32;
+                for stat in 0..COMBAT_STAT_COUNT {
+                    let mut combat = group.search.mins;
+                    combat[stat] += u16::from(group.search.maxs[stat] - combat[stat])
+                        .min(group.search.remaining_free) as u8;
+                    let stats = stats_with_combat(plan.request.current_stats, combat);
+                    let ar = crate::math::calculate_ar(
+                        weapon,
+                        upgrade,
+                        &stats,
+                        effective_str_for_weapon(&plan.request, weapon, stats.str),
+                        plan.data,
+                    )?;
+                    let score =
+                        if matches!(plan.request.objective, OptimizeObjective::MaxPhysicalAr) {
+                            ar.physical
+                        } else {
+                            ar.total()
+                        };
+                    best = best.max(score);
+                }
+                Ok(best)
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        units.sort_by(|left, right| {
+            estimates[right.group_idx].total_cmp(&estimates[left.group_idx])
+        });
+    }
+    Ok(units)
+}
+
+fn score_cutoff<'a>(
+    plan: &PreparedSearchPlan<'_>,
+    unit: SearchWorkUnit,
+    candidates: &'a [ScoredCandidate],
+    group_mode: ResultGroupMode,
+) -> Option<&'a ExactRational> {
+    let global = (candidates.len() == plan.request.top_k)
+        .then(|| candidates.last().map(|candidate| &candidate.key.score))
+        .flatten();
+    let group = if matches!(group_mode, ResultGroupMode::WeaponOnly) {
+        let weapon = plan.weapons[plan.groups[unit.group_idx].prepared_idx].weapon;
+        candidates
+            .iter()
+            .find(|candidate| {
+                plan.weapons[candidate.prepared_idx]
+                    .weapon
+                    .name
+                    .eq_ignore_ascii_case(&weapon.name)
+            })
+            .map(|candidate| &candidate.key.score)
+    } else {
+        None
+    };
+    global.max(group)
 }
 
 fn score_serial<F>(
@@ -830,18 +939,17 @@ where
 {
     let request = &plan.request;
     progress.emit_initial()?;
-    let mut candidates = Vec::with_capacity(request.top_k);
+    let mut candidates = Vec::<ScoredCandidate>::with_capacity(request.top_k);
     for unit in work_units {
-        let mut unit_results = search_work_unit(plan, *unit, group_mode, progress)?;
+        let cutoff = score_cutoff(plan, *unit, &candidates, group_mode);
+        let mut unit_results = search_work_unit(plan, *unit, group_mode, progress, cutoff)?;
         merge_scored_top_k(
             &mut candidates,
             unit_results.drain(..),
-            request,
-            plan.data,
             &plan.weapons,
             group_mode,
             request.top_k,
-        )?;
+        );
     }
     progress.emit_final()?;
     Ok(candidates)
@@ -868,15 +976,27 @@ where
     progress.emit_initial()?;
     let partial_results = work_units
         .par_iter()
-        .map(|unit| {
-            let mut local_progress = ParallelLocalProgress::new(Arc::clone(&progress));
-            let result = search_work_unit(plan, *unit, group_mode, &mut local_progress);
-            let finish_result = local_progress.finish();
-            match (result, finish_result) {
-                (Ok(results), Ok(())) => Ok(results),
-                (Err(err), _) | (_, Err(err)) => Err(err),
-            }
-        })
+        .try_fold(
+            || Vec::<ScoredCandidate>::with_capacity(request.top_k),
+            |mut candidates, unit| {
+                let mut local_progress = ParallelLocalProgress::new(Arc::clone(&progress));
+                let cutoff = score_cutoff(plan, *unit, &candidates, group_mode);
+                let result = search_work_unit(plan, *unit, group_mode, &mut local_progress, cutoff);
+                let finish_result = local_progress.finish();
+                let results = match (result, finish_result) {
+                    (Ok(results), Ok(())) => results,
+                    (Err(error), _) | (_, Err(error)) => return Err(error),
+                };
+                merge_scored_top_k(
+                    &mut candidates,
+                    results,
+                    &plan.weapons,
+                    group_mode,
+                    request.top_k,
+                );
+                Ok(candidates)
+            },
+        )
         .collect::<Result<Vec<_>, String>>()?;
 
     let mut candidates = Vec::with_capacity(request.top_k);
@@ -884,12 +1004,10 @@ where
         merge_scored_top_k(
             &mut candidates,
             unit_results,
-            request,
-            plan.data,
             &plan.weapons,
             group_mode,
             request.top_k,
-        )?;
+        );
     }
     progress.emit_final()?;
     if progress.is_cancelled() {
@@ -953,11 +1071,12 @@ fn search_work_unit<P>(
     unit: SearchWorkUnit,
     group_mode: ResultGroupMode,
     progress: &mut P,
+    cutoff: Option<&ExactRational>,
 ) -> Result<Vec<ScoredCandidate>, String>
 where
     P: SearchProgress,
 {
-    search_dp_work_unit(plan, unit, group_mode, progress)
+    search_dp_work_unit(plan, unit, group_mode, progress, cutoff)
 }
 
 fn search_work_unit_exhaustive<P>(
@@ -974,7 +1093,6 @@ where
     let prepared = &plan.weapons[group.prepared_idx];
     let aow_indices = &group.aow_indices[unit.aow_start..unit.aow_end];
     let mut candidates = Vec::with_capacity(request.top_k);
-    let damage_multiplier = request.damage_multiplier();
     let mut visit_result: Result<(), String> = Ok(());
 
     let mut current_combat = group.search.mins;
@@ -1002,104 +1120,43 @@ where
         }
 
         for upgrade in &prepared.upgrades {
-            let base_metric = match calculate_base_weapon_metric(
-                request.objective,
-                prepared,
-                *upgrade,
-                &stats,
-                effective_str_value,
-                plan.data,
-            ) {
-                Ok(metric) => metric,
-                Err(err) => {
-                    visit_result = Err(err);
-                    return false;
-                }
-            };
             for aow_idx in aow_indices {
-                let aow_choice = &prepared.aow_choices[*aow_idx];
-                let metric = score_candidate(
-                    request.objective,
-                    prepared,
-                    aow_choice,
-                    *upgrade,
-                    &stats,
-                    effective_str_value,
-                    damage_multiplier,
-                    base_metric,
-                    plan.data,
-                );
-                let CandidateMetric {
-                    score,
-                    ar,
-                    status_buildup,
-                    bleed_buildup,
-                    aow_first_hit_damage,
-                    aow_full_sequence_damage,
-                } = match metric {
-                    Ok(metric) => metric,
-                    Err(err) => {
-                        visit_result = Err(err);
-                        return false;
-                    }
-                };
-                if matches!(request.objective, OptimizeObjective::AowFirstHit)
-                    && aow_first_hit_damage.unwrap_or(0.0) <= 0.0
-                {
-                    if let Err(err) = progress.advance(1, 1, None) {
-                        visit_result = Err(err);
-                        return false;
-                    }
-                    continue;
-                }
-                if matches!(request.objective, OptimizeObjective::AowFullSequence)
-                    && aow_full_sequence_damage.unwrap_or(0.0) <= 0.0
-                {
-                    if let Err(err) = progress.advance(1, 1, None) {
-                        visit_result = Err(err);
-                        return false;
-                    }
-                    continue;
-                }
-                if let Err(err) = progress.advance(1, 1, Some(score)) {
-                    visit_result = Err(err);
-                    return false;
-                }
-                let candidate = ScoredCandidate {
-                    prepared_idx: group.prepared_idx,
-                    aow_idx: *aow_idx,
-                    upgrade: *upgrade,
-                    stats,
-                    metric: CandidateMetric {
-                        score,
-                        ar,
-                        status_buildup,
-                        bleed_buildup,
-                        aow_first_hit_damage,
-                        aow_full_sequence_damage,
-                    },
-                };
-                if !could_enter_scored_top_k(
-                    &candidates,
-                    &candidate,
-                    &plan.weapons,
-                    request.top_k,
-                    group_mode,
-                ) {
-                    continue;
-                }
-                if let Err(err) = push_scored_top_k(
-                    &mut candidates,
-                    candidate,
+                let candidate = match exact_candidate(
                     request,
                     plan.data,
                     &plan.weapons,
-                    group_mode,
-                    request.top_k,
+                    group.prepared_idx,
+                    *aow_idx,
+                    *upgrade,
+                    stats,
                 ) {
-                    visit_result = Err(err);
+                    Ok(candidate) => candidate,
+                    Err(error) => {
+                        visit_result = Err(error);
+                        return false;
+                    }
+                };
+                if let Err(error) = progress.advance(1, 1, Some(candidate.metric.score)) {
+                    visit_result = Err(error);
                     return false;
                 }
+                if matches!(
+                    request.objective,
+                    OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
+                ) && candidate.key.score <= ExactRational::zero()
+                {
+                    continue;
+                }
+                if !could_enter_scored_top_k(&candidates, &candidate, request.top_k) {
+                    continue;
+                }
+                push_scored_top_k(
+                    &mut candidates,
+                    candidate,
+                    &plan.weapons,
+                    group_mode,
+                    request.top_k,
+                );
             }
         }
         true
@@ -1115,6 +1172,7 @@ fn search_dp_work_unit<P>(
     unit: SearchWorkUnit,
     group_mode: ResultGroupMode,
     progress: &mut P,
+    cutoff: Option<&ExactRational>,
 ) -> Result<Vec<ScoredCandidate>, String>
 where
     P: SearchProgress,
@@ -1126,22 +1184,76 @@ where
     let mut candidates = Vec::with_capacity(request.top_k.min(aow_indices.len()));
     let mut route_sets = Vec::with_capacity(aow_indices.len());
     for &aow_idx in aow_indices {
-        let routes = match &prepared.aow_choices[aow_idx].scalar_routes {
-            Some(Ok(Some(routes))) => ScalarRouteSet::Cached(routes.as_slice()),
-            Some(Ok(None)) => return search_work_unit_exhaustive(plan, unit, group_mode, progress),
-            Some(Err(error)) => return Err(error.clone()),
-            None => match prepare_scalar_aow_routes(
-                &prepared.aow_choices[aow_idx].attack_rows,
-                plan.data,
-            )? {
-                Some(routes) => ScalarRouteSet::Owned(routes),
-                None => return search_work_unit_exhaustive(plan, unit, group_mode, progress),
-            },
+        progress.poll()?;
+        let Some(routes) = scalar_route_set(&prepared.aow_choices[aow_idx], plan.data)? else {
+            return search_work_unit_exhaustive(plan, unit, group_mode, progress);
         };
         route_sets.push((aow_idx, routes));
     }
 
-    let share_primary = aow_indices.len() > 1
+    if matches!(group_mode, ResultGroupMode::WeaponOnly)
+        && request.damage_multiplier() > 0.0
+        && matches!(
+            request.objective,
+            OptimizeObjective::MaxAr
+                | OptimizeObjective::MaxPhysicalAr
+                | OptimizeObjective::BleedThenAr
+        )
+    {
+        // With the same bleed effect, flat buffs order the shared primary pair independently of stats.
+        let mut best_buffs = HashMap::new();
+        let mut keys = Vec::with_capacity(route_sets.len());
+        for (index, _) in &route_sets {
+            let choice = &prepared.aow_choices[*index];
+            let bleed_effect: [u32; 4] =
+                if matches!(request.objective, OptimizeObjective::BleedThenAr) {
+                    primary_effect_key(choice)[5..]
+                        .try_into()
+                        .expect("four bleed effect fields")
+                } else {
+                    [0; 4]
+                };
+            let buff = choice.aow.map_or([0.0; 5], |ash| ash.buff_attack_power);
+            let components = buff
+                .map(rational)
+                .into_iter()
+                .collect::<Result<Vec<_>, _>>()?;
+            let total = components
+                .iter()
+                .filter(|value| !value.is_zero())
+                .cloned()
+                .sum::<ExactRational>();
+            let score = match request.objective {
+                OptimizeObjective::MaxPhysicalAr => components[0].clone(),
+                OptimizeObjective::BleedThenAr => ExactRational::zero(),
+                _ => total.clone(),
+            };
+            let key = (score, total);
+            best_buffs
+                .entry(bleed_effect)
+                .and_modify(|best: &mut (ExactRational, ExactRational)| {
+                    if key > *best {
+                        *best = key.clone();
+                    }
+                })
+                .or_insert_with(|| key.clone());
+            keys.push((bleed_effect, key));
+        }
+        let mut keys = keys.iter();
+        let original_count = route_sets.len();
+        route_sets.retain(|_| {
+            let (effect, key) = keys.next().expect("one key per route set");
+            best_buffs.get(effect) == Some(key)
+        });
+        let skipped = group
+            .search
+            .candidate_count
+            .saturating_mul((original_count - route_sets.len()) as u64)
+            .saturating_mul(prepared.upgrades.len() as u64);
+        progress.advance(skipped, skipped, None)?;
+    }
+
+    let share_primary = group.search.remaining_free > 0
         && matches!(
             request.objective,
             OptimizeObjective::MaxAr
@@ -1149,30 +1261,109 @@ where
                 | OptimizeObjective::BleedThenAr
         );
     for &upgrade in &prepared.upgrades {
-        let mut primary_plans = HashMap::new();
-        for &(aow_idx, ref route_set) in &route_sets {
-            if progress.is_cancelled() {
-                return Err("cancelled".to_string());
+        if let Some(cutoff) = cutoff
+            && matches!(
+                request.objective,
+                OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr
+            )
+        {
+            let mut mins = group.search.mins.map(u16::from);
+            let maxima = formula_max_stats(&group.search, request, prepared.weapon);
+            mins[0] = effective_str_for_weapon(request, prepared.weapon, group.search.mins[0]);
+            let upper = crate::math::exact::exact_ar_upper_bound(
+                prepared.weapon,
+                upgrade,
+                plan.data,
+                mins,
+                maxima,
+            )?;
+            let physical_only = matches!(request.objective, OptimizeObjective::MaxPhysicalAr);
+            let base_upper = if physical_only {
+                upper[0].clone()
+            } else {
+                sum_components(&upper)
+            };
+            let mut buff_upper = ExactRational::zero();
+            for &aow_idx in aow_indices {
+                if let Some(ash) = prepared.aow_choices[aow_idx].aow {
+                    let buff = if physical_only {
+                        rational(ash.buff_attack_power[0])?
+                    } else {
+                        ash.buff_attack_power
+                            .into_iter()
+                            .map(rational)
+                            .collect::<Result<Vec<_>, _>>()?
+                            .into_iter()
+                            .sum()
+                    };
+                    buff_upper = buff_upper.max(buff);
+                }
             }
-            let aow_choice = &prepared.aow_choices[aow_idx];
-            let routes = route_set.as_slice();
-            let primary = if share_primary {
-                let key = primary_effect_key(aow_choice);
-                if let std::collections::hash_map::Entry::Vacant(entry) = primary_plans.entry(key) {
+            if (base_upper + buff_upper) * rational(request.damage_multiplier())? < *cutoff {
+                let count = group
+                    .search
+                    .candidate_count
+                    .saturating_mul(route_sets.len() as u64);
+                progress.advance(count, count, None)?;
+                continue;
+            }
+        }
+        let mut primary_plans = HashMap::new();
+        if share_primary {
+            for &(aow_idx, _) in &route_sets {
+                let choice = &prepared.aow_choices[aow_idx];
+                if let std::collections::hash_map::Entry::Vacant(entry) =
+                    primary_plans.entry(primary_effect_key(choice))
+                {
                     entry.insert(prepare_primary_allocations(
                         &group.search,
                         request,
                         prepared,
-                        aow_choice,
+                        choice,
                         upgrade,
                         plan.data,
                         progress,
                     )?);
                 }
-                primary_plans.get(&key)
-            } else {
-                None
-            };
+            }
+        }
+        let best_primary_key = if matches!(group_mode, ResultGroupMode::WeaponOnly) {
+            primary_plans
+                .values()
+                .filter_map(|primary| primary.best_primary.as_ref())
+                .map(|value| (&value.key.score, &value.key.ar_total))
+                .max()
+        } else {
+            None
+        };
+        for &(aow_idx, ref route_set) in &route_sets {
+            progress.poll()?;
+            let aow_choice = &prepared.aow_choices[aow_idx];
+            let routes = route_set.as_slice();
+            let primary = primary_plans.get(&primary_effect_key(aow_choice));
+            if let (Some(cutoff), Some(primary)) =
+                (cutoff, primary.and_then(|p| p.best_primary.as_ref()))
+                && primary.key.score < *cutoff
+            {
+                progress.advance(
+                    group.search.candidate_count,
+                    group.search.candidate_count,
+                    None,
+                )?;
+                continue;
+            }
+            if let (Some(bound), Some(primary)) = (
+                best_primary_key,
+                primary.and_then(|p| p.best_primary.as_ref()),
+            ) && (&primary.key.score, &primary.key.ar_total) < bound
+            {
+                progress.advance(
+                    group.search.candidate_count,
+                    group.search.candidate_count,
+                    None,
+                )?;
+                continue;
+            }
             let best = if routes.is_empty() {
                 best_objective_allocation(
                     &group.search,
@@ -1199,24 +1390,20 @@ where
                         progress,
                         primary,
                     )?;
-                    if best.is_none_or(|current| better_objective_allocation(candidate, current)) {
+                    if best
+                        .as_ref()
+                        .is_none_or(|current| better_objective_allocation(&candidate, current))
+                    {
                         best = Some(candidate);
                     }
                 }
                 best.ok_or_else(|| "AoW route optimizer found no feasible allocation".to_string())?
             };
-            let metric = CandidateMetric {
-                score: best.key.score,
-                ar: Some(best.ar),
-                status_buildup: None,
-                bleed_buildup: Some(best.key.bleed),
-                aow_first_hit_damage: Some(best.key.aow_first),
-                aow_full_sequence_damage: Some(best.key.aow_full),
-            };
+            let metric = metric_from_allocation(&best)?;
             if matches!(request.objective, OptimizeObjective::AowFirstHit)
-                && best.key.aow_first <= 0.0
+                && best.key.aow_first <= ExactRational::zero()
                 || matches!(request.objective, OptimizeObjective::AowFullSequence)
-                    && best.key.aow_full <= 0.0
+                    && best.key.aow_full <= ExactRational::zero()
             {
                 progress.advance(
                     group.search.candidate_count,
@@ -1237,23 +1424,17 @@ where
                 upgrade,
                 stats,
                 metric,
+                key: best.key,
+                route_id: best.route_id,
             };
-            if could_enter_scored_top_k(
-                &candidates,
-                &candidate,
-                &plan.weapons,
-                request.top_k,
-                group_mode,
-            ) {
+            if could_enter_scored_top_k(&candidates, &candidate, request.top_k) {
                 push_scored_top_k(
                     &mut candidates,
                     candidate,
-                    request,
-                    plan.data,
                     &plan.weapons,
                     group_mode,
                     request.top_k,
-                )?;
+                );
             }
         }
     }
@@ -1261,28 +1442,56 @@ where
     Ok(candidates)
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
 struct ObjectiveKey {
-    score: f32,
-    ar_total: f32,
-    aow_full: f32,
-    aow_first: f32,
-    bleed: f32,
+    score: ExactRational,
+    ar_total: ExactRational,
+    aow_full: ExactRational,
+    aow_first: ExactRational,
+    bleed: ExactRational,
 }
 
-#[derive(Clone, Copy, Debug)]
+impl ObjectiveKey {
+    fn components(&self) -> [ExactRational; 5] {
+        [
+            self.score.clone(),
+            self.ar_total.clone(),
+            self.aow_full.clone(),
+            self.aow_first.clone(),
+            self.bleed.clone(),
+        ]
+    }
+}
+
+#[derive(Clone, Debug)]
 struct ObjectiveAllocation {
     key: ObjectiveKey,
     ar: DamageBreakdown,
     combat: [u8; COMBAT_STAT_COUNT],
+    route_id: Option<String>,
 }
 
 #[derive(Debug)]
 struct PrimaryAllocationPlan {
     base: ObjectiveAllocation,
-    values: [Vec<ObjectiveAllocation>; COMBAT_STAT_COUNT],
+    values: [Vec<ObjectiveKey>; COMBAT_STAT_COUNT],
     additions: [Vec<Vec<u8>>; COMBAT_STAT_COUNT],
+    ranks: Vec<Option<usize>>,
+    best_primary: Option<ObjectiveAllocation>,
     exact_unique_combat: Option<[u8; COMBAT_STAT_COUNT]>,
+}
+
+fn formula_max_stats(
+    search: &RelevantStatSearch,
+    request: &OptimizeRequest,
+    weapon: &Weapon,
+) -> [u16; 5] {
+    let mut values = std::array::from_fn(|stat| {
+        u16::from(search.mins[stat])
+            + u16::from(search.maxs[stat] - search.mins[stat]).min(search.remaining_free)
+    });
+    values[0] = values[0].max(effective_str_for_weapon(request, weapon, values[0] as u8));
+    values
 }
 
 fn primary_effect_key(choice: &AowChoice<'_>) -> [u32; 9] {
@@ -1323,91 +1532,95 @@ fn prepare_primary_allocations<P: SearchProgress>(
     choice: &AowChoice<'_>,
     upgrade: u8,
     data: &GameData,
-    progress: &P,
+    progress: &mut P,
 ) -> Result<PrimaryAllocationPlan, String> {
-    let base =
-        evaluate_objective_allocation(search.mins, request, prepared, choice, upgrade, None, data)?;
+    progress.poll()?;
+    let ar_formula = crate::math::exact::compile_ar_formula(
+        prepared.weapon,
+        upgrade,
+        data,
+        formula_max_stats(search, request, prepared.weapon),
+    )?;
+    let evaluate = |combat| {
+        evaluate_allocation_with_formulas(
+            combat,
+            request,
+            prepared,
+            choice,
+            upgrade,
+            None,
+            data,
+            Some(&ar_formula),
+            None,
+        )
+    };
+    let base = evaluate(search.mins)?;
     let mut plan = PrimaryAllocationPlan {
         base,
         values: std::array::from_fn(|_| Vec::new()),
         additions: std::array::from_fn(|_| Vec::new()),
+        ranks: Vec::new(),
+        best_primary: None,
         exact_unique_combat: None,
     };
     let budget = usize::from(search.max_active_spend());
-    let mut keys = vec![None; budget + 1];
-    keys[0] = Some(base.key);
-    for stat_idx in 0..COMBAT_STAT_COUNT {
-        if !search.active[stat_idx] {
+    let mut deltas = std::array::from_fn(|_| Vec::new());
+    for stat in 0..COMBAT_STAT_COUNT {
+        if !search.active[stat] {
             continue;
         }
-        if progress.is_cancelled() {
-            return Err("cancelled".to_string());
-        }
-        let cap = usize::from(search.maxs[stat_idx] - search.mins[stat_idx]).min(budget);
+        let cap = usize::from(search.maxs[stat] - search.mins[stat]).min(budget);
+        deltas[stat].reserve(cap + 1);
+        plan.values[stat].reserve(cap + 1);
         for add in 0..=cap {
+            progress.poll()?;
             let mut combat = search.mins;
-            combat[stat_idx] += add as u8;
-            plan.values[stat_idx].push(evaluate_objective_allocation(
-                combat, request, prepared, choice, upgrade, None, data,
-            )?);
+            combat[stat] += add as u8;
+            let delta = primary_delta(
+                stat,
+                combat,
+                &plan.base,
+                request,
+                prepared,
+                choice,
+                upgrade,
+                data,
+                &ar_formula,
+            )?;
+            deltas[stat].push([delta.score.clone(), delta.ar_total.clone()]);
+            plan.values[stat].push(delta);
         }
-        let mut next: Vec<Option<ObjectiveKey>> = vec![None; budget + 1];
-        let mut additions = vec![Vec::new(); budget + 1];
-        for (spent, key) in keys.iter().enumerate() {
-            let Some(key) = key else { continue };
-            for add in 0..=cap.min(budget - spent) {
-                let candidate = add_objective_key(
-                    *key,
-                    subtract_objective_key(plan.values[stat_idx][add].key, base.key),
-                );
-                let destination = spent + add;
-                let ordering = next[destination].map_or(std::cmp::Ordering::Greater, |current| {
-                    if candidate.score == current.score && candidate.ar_total == current.ar_total {
-                        std::cmp::Ordering::Equal
-                    } else if candidate.score > current.score
-                        || candidate.score == current.score && candidate.ar_total > current.ar_total
-                    {
-                        std::cmp::Ordering::Greater
-                    } else {
-                        std::cmp::Ordering::Less
-                    }
-                });
-                if ordering.is_gt() {
-                    next[destination] = Some(candidate);
-                    additions[destination].clear();
-                }
-                if !ordering.is_lt() {
-                    additions[destination].push(add as u8);
-                }
-            }
-        }
-        plan.additions[stat_idx] = additions;
-        keys = next;
     }
-    plan.exact_unique_combat = exact_unique_primary_allocation(
-        search, request, prepared, choice, upgrade, data, progress, &plan,
+    let solved = exact_dp::solve_exact(
+        &std::array::from_fn(|_| ExactRational::zero()),
+        &deltas,
+        search.mins,
+        search.active,
+        budget,
+        true,
+        None,
+        &mut || progress.poll().is_ok(),
     )?;
+    let best_spent = (search.min_active_spend()..=search.max_active_spend())
+        .filter(|&spent| solved.ranks[usize::from(spent)].is_some())
+        .max_by_key(|&spent| solved.ranks[usize::from(spent)])
+        .ok_or_else(|| "stat optimizer could not satisfy the stat budget".to_string())?;
+    let mut best_combat = solved.combat[usize::from(best_spent)].expect("reachable primary state");
+    fill_inactive_stats(search, &mut best_combat, search.remaining_free - best_spent);
+    plan.best_primary = Some(evaluate(best_combat)?);
+    plan.additions = solved.additions;
+    plan.ranks = solved.ranks;
+    plan.exact_unique_combat =
+        exact_unique_primary_allocation(search, progress, &plan.ranks, &plan.additions)?;
     Ok(plan)
-}
-
-fn primary_key_better(left: ObjectiveKey, right: ObjectiveKey) -> bool {
-    left.score > right.score || left.score == right.score && left.ar_total > right.ar_total
-}
-
-fn primary_keys_equal(left: ObjectiveKey, right: ObjectiveKey) -> bool {
-    left.score == right.score && left.ar_total == right.ar_total
 }
 
 #[allow(clippy::too_many_arguments)]
 fn exact_unique_primary_allocation<P: SearchProgress>(
     search: &RelevantStatSearch,
-    request: &OptimizeRequest,
-    prepared: &PreparedWeapon<'_>,
-    choice: &AowChoice<'_>,
-    upgrade: u8,
-    data: &GameData,
-    progress: &P,
-    primary: &PrimaryAllocationPlan,
+    progress: &mut P,
+    ranks: &[Option<usize>],
+    additions: &[Vec<Vec<u8>>; COMBAT_STAT_COUNT],
 ) -> Result<Option<[u8; COMBAT_STAT_COUNT]>, String> {
     if search.remaining_free == 0 {
         return Ok(None);
@@ -1418,43 +1631,39 @@ fn exact_unique_primary_allocation<P: SearchProgress>(
 
     let mut best = None;
     for spent in search.min_active_spend()..=search.max_active_spend() {
-        if progress.is_cancelled() {
-            return Err("cancelled".to_string());
-        }
-        let Some(mut combat) = unique_primary_combat(search, primary, &active_stats, spent) else {
-            // A tied predecessor or missing terminal path needs the normal
-            // route-aware DP to preserve every candidate and tie-break.
-            return Ok(None);
+        progress.poll()?;
+        let Some(rank) = ranks[usize::from(spent)] else {
+            continue;
         };
-        fill_inactive_stats(search, &mut combat, search.remaining_free - spent);
-        let allocation =
-            evaluate_objective_allocation(combat, request, prepared, choice, upgrade, None, data)?;
         match best {
-            None => best = Some((allocation.key, combat)),
-            Some((best_key, _)) if primary_key_better(allocation.key, best_key) => {
-                best = Some((allocation.key, combat));
+            None => best = Some((rank, spent, false)),
+            Some((best_rank, _, _)) if rank > best_rank => best = Some((rank, spent, false)),
+            Some((best_rank, best_spent, _)) if rank == best_rank => {
+                best = Some((best_rank, best_spent, true))
             }
-            Some((best_key, _)) if primary_keys_equal(allocation.key, best_key) => {
-                // Route metrics are the next tie-break, so the route cannot
-                // be skipped when the exact primary metrics tie.
-                return Ok(None);
-            }
-            Some(_) => {}
+            _ => {}
         }
     }
-    Ok(best.map(|(_, combat)| combat))
+    let Some((_, spent, false)) = best else {
+        return Ok(None);
+    };
+    let Some(mut combat) = unique_primary_combat(search, additions, &active_stats, spent) else {
+        return Ok(None);
+    };
+    fill_inactive_stats(search, &mut combat, search.remaining_free - spent);
+    Ok(Some(combat))
 }
 
 fn unique_primary_combat(
     search: &RelevantStatSearch,
-    primary: &PrimaryAllocationPlan,
+    additions: &[Vec<Vec<u8>>; COMBAT_STAT_COUNT],
     active_stats: &[usize],
     spent: u16,
 ) -> Option<[u8; COMBAT_STAT_COUNT]> {
     let mut combat = search.mins;
     let mut destination = usize::from(spent);
     for &stat_idx in active_stats.iter().rev() {
-        let additions = &primary.additions[stat_idx][destination];
+        let additions = &additions[stat_idx][destination];
         let [add] = additions.as_slice() else {
             return None;
         };
@@ -1474,16 +1683,14 @@ fn best_objective_allocation<P>(
     upgrade: u8,
     route: Option<&ScalarAowRoute<'_>>,
     data: &GameData,
-    progress: &P,
+    progress: &mut P,
     primary: Option<&PrimaryAllocationPlan>,
 ) -> Result<ObjectiveAllocation, String>
 where
     P: SearchProgress,
 {
+    progress.poll()?;
     if search.remaining_free == 0 {
-        if progress.is_cancelled() {
-            return Err("cancelled".to_string());
-        }
         return evaluate_objective_allocation(
             search.mins,
             request,
@@ -1494,21 +1701,14 @@ where
             data,
         );
     }
-    if let Some(primary) = primary
-        && let Some(combat) = primary.exact_unique_combat
-    {
-        if progress.is_cancelled() {
-            return Err("cancelled".to_string());
-        }
-        return evaluate_objective_allocation(
-            combat, request, prepared, aow_choice, upgrade, route, data,
-        );
-    }
-    let base_combat = search.mins;
-    let with_route = |mut value: ObjectiveAllocation| -> Result<ObjectiveAllocation, String> {
+    if let Some(combat) = primary.and_then(|plan| plan.exact_unique_combat) {
+        let mut value = primary
+            .and_then(|plan| plan.best_primary.clone())
+            .expect("unique primary winner");
+        value.combat = combat;
         if let Some(route) = route {
-            let stats = stats_with_combat(request.current_stats, value.combat);
-            let metric = evaluate_scalar_aow_route(
+            let stats = stats_with_combat(request.current_stats, combat);
+            let (first, full) = crate::math::exact::exact_scalar_route(
                 route,
                 prepared.weapon,
                 upgrade,
@@ -1517,140 +1717,285 @@ where
                 request.damage_multiplier(),
                 data,
             )?;
-            value.key.aow_full = metric.full_sequence_damage;
-            value.key.aow_first = metric.first_hit_damage;
+            value.key.aow_first = first;
+            value.key.aow_full = full;
+            value.route_id = Some(route.route_id.clone());
         }
-        Ok(value)
-    };
-    let base = if let Some(primary) = primary {
-        with_route(primary.base)?
+        return Ok(value);
+    }
+    let maxima = formula_max_stats(search, request, prepared.weapon);
+    let route_formula = route
+        .map(|route| {
+            crate::math::exact::compile_scalar_route_formula(
+                route,
+                prepared.weapon,
+                upgrade,
+                request.damage_multiplier(),
+                data,
+                maxima,
+            )
+        })
+        .transpose()?;
+    if matches!(
+        request.objective,
+        OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
+    ) && let Some(formula) = &route_formula
+        && let Some(stat) =
+            formula.sole_scaling_stat(request.objective == OptimizeObjective::AowFirstHit)
+        && search.active[stat]
+        && search.remaining_free <= u16::from(search.maxs[stat] - search.mins[stat])
+    {
+        let mut combat = search.mins;
+        combat[stat] += search.remaining_free as u8;
+        let old_stats = stats_with_combat(request.current_stats, search.mins);
+        let old_str = effective_str_for_weapon(request, prepared.weapon, old_stats.str);
+        let primary_value = |combat| -> Result<ExactRational, String> {
+            let stats = stats_with_combat(request.current_stats, combat);
+            let (first, full) = formula.unscaled_delta(
+                stat,
+                &old_stats,
+                &stats,
+                old_str,
+                effective_str_for_weapon(request, prepared.weapon, stats.str),
+            )?;
+            Ok(if request.objective == OptimizeObjective::AowFirstHit {
+                first
+            } else {
+                full
+            })
+        };
+        let maximum = primary_value(combat)?;
+        let mut unique = true;
+        for add in 0..search.remaining_free {
+            progress.poll()?;
+            let mut other = search.mins;
+            other[stat] += add as u8;
+            if primary_value(other)? >= maximum {
+                unique = false;
+                break;
+            }
+        }
+        if unique {
+            return evaluate_objective_allocation(
+                combat, request, prepared, aow_choice, upgrade, route, data,
+            );
+        }
+    }
+    let mut route_primary = None;
+    if matches!(
+        request.objective,
+        OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
+    ) && let Some(formula) = &route_formula
+        && formula.has_scaling(request.objective == OptimizeObjective::AowFirstHit)
+    {
+        let old_stats = stats_with_combat(request.current_stats, search.mins);
+        let old_str = effective_str_for_weapon(request, prepared.weapon, old_stats.str);
+        let budget = usize::from(search.max_active_spend());
+        let mut primary_deltas = std::array::from_fn(|_| Vec::new());
+        for stat in 0..COMBAT_STAT_COUNT {
+            if !search.active[stat] {
+                continue;
+            }
+            let cap = usize::from(search.maxs[stat] - search.mins[stat]).min(budget);
+            primary_deltas[stat].reserve(cap + 1);
+            for add in 0..=cap {
+                progress.poll()?;
+                let mut combat = search.mins;
+                combat[stat] += add as u8;
+                let stats = stats_with_combat(request.current_stats, combat);
+                let (first, full) = formula.unscaled_delta(
+                    stat,
+                    &old_stats,
+                    &stats,
+                    old_str,
+                    effective_str_for_weapon(request, prepared.weapon, stats.str),
+                )?;
+                let score = if request.objective == OptimizeObjective::AowFirstHit {
+                    first
+                } else {
+                    full
+                };
+                primary_deltas[stat].push([score]);
+            }
+        }
+        let solved = exact_dp::solve_exact(
+            &std::array::from_fn(|_| ExactRational::zero()),
+            &primary_deltas,
+            search.mins,
+            search.active,
+            budget,
+            true,
+            None,
+            &mut || progress.poll().is_ok(),
+        )?;
+        if let Some(combat) =
+            exact_unique_primary_allocation(search, progress, &solved.ranks, &solved.additions)?
+        {
+            return evaluate_objective_allocation(
+                combat, request, prepared, aow_choice, upgrade, route, data,
+            );
+        }
+        route_primary = Some(solved);
+    }
+    let ar_formula = if primary.is_none() {
+        Some(crate::math::exact::compile_ar_formula(
+            prepared.weapon,
+            upgrade,
+            data,
+            maxima,
+        )?)
     } else {
-        evaluate_objective_allocation(
-            base_combat,
+        None
+    };
+    let evaluate = |combat| {
+        evaluate_allocation_with_formulas(
+            combat,
             request,
             prepared,
             aow_choice,
             upgrade,
             route,
             data,
-        )?
+            ar_formula.as_ref(),
+            route_formula.as_ref(),
+        )
     };
-    let max_active_spend = search.max_active_spend();
-    let mut allocations = vec![None; usize::from(max_active_spend) + 1];
-    allocations[0] = Some(base);
-
-    for stat_idx in 0..COMBAT_STAT_COUNT {
-        if !search.active[stat_idx] {
+    let with_route = |mut value: ObjectiveAllocation| -> Result<ObjectiveAllocation, String> {
+        if let Some(route) = route {
+            let stats = stats_with_combat(request.current_stats, value.combat);
+            let (first, full) = route_formula.as_ref().expect("compiled route").evaluate(
+                &stats,
+                effective_str_for_weapon(request, prepared.weapon, stats.str),
+            )?;
+            value.key.aow_full = full;
+            value.key.aow_first = first;
+            value.route_id = Some(route.route_id.clone());
+        }
+        Ok(value)
+    };
+    let base = match primary {
+        Some(plan) => with_route(plan.base.clone())?,
+        None => evaluate(search.mins)?,
+    };
+    let budget = usize::from(search.max_active_spend());
+    let mut deltas = std::array::from_fn(|_| Vec::new());
+    for stat in 0..COMBAT_STAT_COUNT {
+        if !search.active[stat] {
             continue;
         }
-        if progress.is_cancelled() {
-            return Err("cancelled".to_string());
-        }
-        let cap = u16::from(search.maxs[stat_idx] - search.mins[stat_idx]).min(max_active_spend);
-        let mut stat_values = Vec::with_capacity(usize::from(cap) + 1);
+        let cap = usize::from(search.maxs[stat] - search.mins[stat]).min(budget);
+        deltas[stat].reserve(cap + 1);
         for add in 0..=cap {
-            let mut combat = base_combat;
-            combat[stat_idx] = search.mins[stat_idx] + add as u8;
-            let value = if let Some(primary) = primary {
-                with_route(primary.values[stat_idx][usize::from(add)])?
-            } else {
-                evaluate_objective_allocation(
-                    combat, request, prepared, aow_choice, upgrade, route, data,
-                )?
-            };
-            stat_values.push(subtract_objective_key(value.key, base.key));
-        }
-
-        let mut next = vec![None; allocations.len()];
-        let all_additions = (0..=cap as u8).collect::<Vec<_>>();
-        for (destination, slot) in next.iter_mut().enumerate() {
-            let additions = primary.map_or(
-                &all_additions[..=usize::from(cap).min(destination)],
-                |primary| &primary.additions[stat_idx][destination],
-            );
-            for &add in additions {
-                let add = usize::from(add);
-                let Some(entry) = allocations[destination - add] else {
-                    continue;
-                };
-                let mut candidate = entry;
-                candidate.key = add_objective_key(entry.key, stat_values[add]);
-                candidate.combat[stat_idx] = search.mins[stat_idx] + add as u8;
-                if slot.is_none_or(|current| better_objective_allocation(candidate, current)) {
-                    *slot = Some(candidate);
-                }
-            }
-        }
-        allocations = next;
-    }
-
-    let uses_separable_primary = matches!(
-        request.objective,
-        OptimizeObjective::MaxAr
-            | OptimizeObjective::MaxPhysicalAr
-            | OptimizeObjective::BleedThenAr
-    );
-    let final_allocations = (search.min_active_spend()..=max_active_spend)
-        .filter_map(|spent| allocations[usize::from(spent)].map(|allocation| (spent, allocation)))
-        .map(|(spent, mut allocation)| {
-            fill_inactive_stats(
-                search,
-                &mut allocation.combat,
-                search.remaining_free - spent,
-            );
-            let primary = uses_separable_primary
-                .then(|| {
-                    evaluate_objective_allocation(
-                        allocation.combat,
-                        request,
-                        prepared,
-                        aow_choice,
-                        upgrade,
-                        None,
-                        data,
-                    )
-                })
-                .transpose()?;
-            Ok((allocation, primary))
-        })
-        .collect::<Result<Vec<_>, String>>()?;
-    let best_primary_key = final_allocations
-        .iter()
-        .filter_map(|(_, primary)| primary.map(|value| value.key))
-        .reduce(|best, key| {
-            if primary_key_better(key, best) {
-                key
-            } else {
-                best
-            }
-        });
-    final_allocations
-        .into_iter()
-        .filter_map(|(allocation, primary)| {
-            let Some(best_key) = best_primary_key else {
-                return Some(evaluate_objective_allocation(
-                    allocation.combat,
+            progress.poll()?;
+            let mut combat = search.mins;
+            combat[stat] += add as u8;
+            let mut delta = match primary {
+                Some(plan) => plan.values[stat][add].clone(),
+                None => primary_delta(
+                    stat,
+                    combat,
+                    &base,
                     request,
                     prepared,
                     aow_choice,
                     upgrade,
-                    route,
                     data,
-                ));
+                    ar_formula.as_ref().expect("compiled AR"),
+                )?,
             };
-            let primary = primary.expect("separable objectives must have a primary metric");
-            primary_keys_equal(primary.key, best_key).then(|| with_route(primary))
-        })
-        .collect::<Result<Vec<_>, _>>()?
-        .into_iter()
-        .reduce(|best, candidate| {
-            if better_objective_allocation(candidate, best) {
-                candidate
-            } else {
-                best
+            if let Some(formula) = &route_formula {
+                let old_stats = stats_with_combat(request.current_stats, search.mins);
+                let new_stats = stats_with_combat(request.current_stats, combat);
+                let (first, full) = formula.unscaled_delta(
+                    stat,
+                    &old_stats,
+                    &new_stats,
+                    effective_str_for_weapon(request, prepared.weapon, old_stats.str),
+                    effective_str_for_weapon(request, prepared.weapon, new_stats.str),
+                )?;
+                delta.aow_first = first;
+                delta.aow_full = full;
+                match request.objective {
+                    OptimizeObjective::AowFirstHit => delta.score = delta.aow_first.clone(),
+                    OptimizeObjective::AowFullSequence => delta.score = delta.aow_full.clone(),
+                    _ => {}
+                }
             }
-        })
-        .ok_or_else(|| "stat optimizer could not satisfy the stat budget".to_string())
+            deltas[stat].push(delta.components());
+        }
+    }
+    let solved = exact_dp::solve_exact(
+        &std::array::from_fn(|_| ExactRational::zero()),
+        &deltas,
+        search.mins,
+        search.active,
+        budget,
+        false,
+        primary
+            .map(|plan| &plan.additions)
+            .or_else(|| route_primary.as_ref().map(|plan| &plan.additions)),
+        &mut || progress.poll().is_ok(),
+    )?;
+    let mut best = None;
+    for spent in search.min_active_spend()..=search.max_active_spend() {
+        progress.poll()?;
+        let Some(mut combat) = solved.combat[usize::from(spent)] else {
+            continue;
+        };
+        fill_inactive_stats(search, &mut combat, search.remaining_free - spent);
+        let rank = solved.ranks[usize::from(spent)].expect("reachable DP state has a rank");
+        if best.as_ref().is_none_or(|&(current_rank, current_combat)| {
+            rank > current_rank || rank == current_rank && combat < current_combat
+        }) {
+            best = Some((rank, combat));
+        }
+    }
+    let (_, combat) =
+        best.ok_or_else(|| "stat optimizer could not satisfy the stat budget".to_string())?;
+    evaluate(combat)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn primary_delta(
+    stat: usize,
+    combat: [u8; 5],
+    base: &ObjectiveAllocation,
+    request: &OptimizeRequest,
+    prepared: &PreparedWeapon<'_>,
+    choice: &AowChoice<'_>,
+    upgrade: u8,
+    data: &GameData,
+    formula: &crate::math::exact::ExactArFormula,
+) -> Result<ObjectiveKey, String> {
+    let old_stats = stats_with_combat(request.current_stats, base.combat);
+    let new_stats = stats_with_combat(request.current_stats, combat);
+    let (ar_total, physical) = formula.primary_delta(
+        stat,
+        &old_stats,
+        &new_stats,
+        effective_str_for_weapon(request, prepared.weapon, old_stats.str),
+        effective_str_for_weapon(request, prepared.weapon, new_stats.str),
+        prepared.weapon.disable_two_hand_bonus,
+        request.objective == OptimizeObjective::MaxPhysicalAr,
+    )?;
+    let bleed = if stat == STAT_ARC {
+        crate::math::exact::exact_bleed(prepared.weapon, upgrade, &new_stats, data, choice.aow)?
+            - &base.key.bleed
+    } else {
+        ExactRational::zero()
+    };
+    let score = match request.objective {
+        OptimizeObjective::MaxAr => ar_total.clone(),
+        OptimizeObjective::MaxPhysicalAr => physical,
+        OptimizeObjective::BleedThenAr => bleed.clone(),
+        _ => ExactRational::zero(),
+    };
+    Ok(ObjectiveKey {
+        score,
+        ar_total,
+        bleed,
+        ..ObjectiveKey::default()
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1663,27 +2008,56 @@ fn evaluate_objective_allocation(
     route: Option<&ScalarAowRoute<'_>>,
     data: &GameData,
 ) -> Result<ObjectiveAllocation, String> {
+    evaluate_allocation_with_formulas(
+        combat, request, prepared, aow_choice, upgrade, route, data, None, None,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn evaluate_allocation_with_formulas(
+    combat: [u8; COMBAT_STAT_COUNT],
+    request: &OptimizeRequest,
+    prepared: &PreparedWeapon<'_>,
+    aow_choice: &AowChoice<'_>,
+    upgrade: u8,
+    route: Option<&ScalarAowRoute<'_>>,
+    data: &GameData,
+    ar_formula: Option<&crate::math::exact::ExactArFormula>,
+    route_formula: Option<&crate::math::exact::ExactScalarRouteFormula>,
+) -> Result<ObjectiveAllocation, String> {
     let stats = stats_with_combat(request.current_stats, combat);
     let effective_str_value = effective_str_for_weapon(request, prepared.weapon, stats.str);
-    let ar = calculate_ar_with_buffs(
-        prepared,
-        aow_choice,
-        upgrade,
-        &stats,
-        effective_str_value,
-        request.damage_multiplier(),
-        data,
-    )?;
-    let bleed = apply_aow_bleed_buffs(
-        calculate_bleed_buildup(prepared.weapon, upgrade, &stats, data)?,
-        prepared.weapon,
-        upgrade,
-        &stats,
-        data,
-        aow_choice.aow,
-    )?;
-    let aow = route.map_or(Ok(Default::default()), |route| {
-        evaluate_scalar_aow_route(
+    let mut components = match ar_formula {
+        Some(formula) => formula.evaluate(
+            &stats,
+            effective_str_value,
+            prepared.weapon.disable_two_hand_bonus,
+        )?,
+        None => crate::math::exact::exact_ar(
+            prepared.weapon,
+            upgrade,
+            &stats,
+            effective_str_value,
+            data,
+        )?,
+    };
+    let multiplier = rational(request.damage_multiplier())?;
+    for (index, value) in components.iter_mut().enumerate() {
+        if let Some(ash) = aow_choice.aow
+            && ash.buff_attack_power[index] != 0.0
+        {
+            *value += rational(ash.buff_attack_power[index])?;
+        }
+        if !multiplier.is_one() {
+            *value *= &multiplier;
+        }
+    }
+    let ar_total = sum_components(&components);
+    let bleed =
+        crate::math::exact::exact_bleed(prepared.weapon, upgrade, &stats, data, aow_choice.aow)?;
+    let (first, full) = match (route_formula, route) {
+        (Some(formula), _) => formula.evaluate(&stats, effective_str_value)?,
+        (None, Some(route)) => crate::math::exact::exact_scalar_route(
             route,
             prepared.weapon,
             upgrade,
@@ -1691,25 +2065,66 @@ fn evaluate_objective_allocation(
             effective_str_value,
             request.damage_multiplier(),
             data,
-        )
-    })?;
+        )?,
+        (None, None) => (ExactRational::zero(), ExactRational::zero()),
+    };
     let score = match request.objective {
-        OptimizeObjective::MaxAr => ar.total(),
-        OptimizeObjective::MaxPhysicalAr => ar.physical,
-        OptimizeObjective::BleedThenAr => bleed,
-        OptimizeObjective::AowFirstHit => aow.first_hit_damage,
-        OptimizeObjective::AowFullSequence => aow.full_sequence_damage,
+        OptimizeObjective::MaxAr => ar_total.clone(),
+        OptimizeObjective::MaxPhysicalAr => components[0].clone(),
+        OptimizeObjective::BleedThenAr => bleed.clone(),
+        OptimizeObjective::AowFirstHit => first.clone(),
+        OptimizeObjective::AowFullSequence => full.clone(),
     };
     Ok(ObjectiveAllocation {
         key: ObjectiveKey {
             score,
-            ar_total: ar.total(),
-            aow_full: aow.full_sequence_damage,
-            aow_first: aow.first_hit_damage,
+            ar_total,
+            aow_full: full,
+            aow_first: first,
             bleed,
         },
-        ar,
+        ar: project_damage(&components)?,
         combat,
+        route_id: route.map(|route| route.route_id.clone()),
+    })
+}
+
+fn rational(value: f32) -> Result<ExactRational, String> {
+    crate::math::exact::rational(value, "model coefficient")
+}
+
+fn project(value: &ExactRational) -> Result<f32, String> {
+    value
+        .to_f32()
+        .filter(|value| value.is_finite())
+        .ok_or_else(|| "exact score is outside the display range".to_string())
+}
+
+fn sum_components(values: &[ExactRational; 5]) -> ExactRational {
+    values
+        .iter()
+        .filter(|value| !value.is_zero())
+        .cloned()
+        .reduce(|left, right| left + right)
+        .unwrap_or_else(ExactRational::zero)
+}
+
+fn project_damage(values: &[ExactRational; 5]) -> Result<DamageBreakdown, String> {
+    Ok(DamageBreakdown {
+        physical: project(&values[0])?,
+        magic: project(&values[1])?,
+        fire: project(&values[2])?,
+        lightning: project(&values[3])?,
+        holy: project(&values[4])?,
+    })
+}
+
+fn metric_from_allocation(value: &ObjectiveAllocation) -> Result<CandidateMetric, String> {
+    Ok(CandidateMetric {
+        score: project(&value.key.score)?,
+        ar: value.ar,
+        aow_first_hit_damage: project(&value.key.aow_first)?,
+        aow_full_sequence_damage: project(&value.key.aow_full)?,
     })
 }
 
@@ -1722,50 +2137,86 @@ fn stats_with_combat(mut stats: Stats, combat: [u8; COMBAT_STAT_COUNT]) -> Stats
     stats
 }
 
-fn add_objective_key(left: ObjectiveKey, right: ObjectiveKey) -> ObjectiveKey {
+#[cfg(test)]
+fn add_objective_key(left: &ObjectiveKey, right: &ObjectiveKey) -> ObjectiveKey {
     ObjectiveKey {
-        score: left.score + right.score,
-        ar_total: left.ar_total + right.ar_total,
-        aow_full: left.aow_full + right.aow_full,
-        aow_first: left.aow_first + right.aow_first,
-        bleed: left.bleed + right.bleed,
-    }
-}
-
-fn subtract_objective_key(left: ObjectiveKey, right: ObjectiveKey) -> ObjectiveKey {
-    ObjectiveKey {
-        score: left.score - right.score,
-        ar_total: left.ar_total - right.ar_total,
-        aow_full: left.aow_full - right.aow_full,
-        aow_first: left.aow_first - right.aow_first,
-        bleed: left.bleed - right.bleed,
+        score: &left.score + &right.score,
+        ar_total: &left.ar_total + &right.ar_total,
+        aow_full: &left.aow_full + &right.aow_full,
+        aow_first: &left.aow_first + &right.aow_first,
+        bleed: &left.bleed + &right.bleed,
     }
 }
 
 fn better_objective_allocation(
-    candidate: ObjectiveAllocation,
-    current: ObjectiveAllocation,
+    candidate: &ObjectiveAllocation,
+    current: &ObjectiveAllocation,
 ) -> bool {
-    candidate.key.score > current.key.score
-        || candidate.key.score == current.key.score && candidate.key.ar_total > current.key.ar_total
-        || candidate.key.score == current.key.score
-            && candidate.key.ar_total == current.key.ar_total
-            && candidate.key.aow_full > current.key.aow_full
-        || candidate.key.score == current.key.score
-            && candidate.key.ar_total == current.key.ar_total
-            && candidate.key.aow_full == current.key.aow_full
-            && candidate.key.aow_first > current.key.aow_first
-        || candidate.key.score == current.key.score
-            && candidate.key.ar_total == current.key.ar_total
-            && candidate.key.aow_full == current.key.aow_full
-            && candidate.key.aow_first == current.key.aow_first
-            && candidate.key.bleed > current.key.bleed
-        || candidate.key.score == current.key.score
-            && candidate.key.ar_total == current.key.ar_total
-            && candidate.key.aow_full == current.key.aow_full
-            && candidate.key.aow_first == current.key.aow_first
-            && candidate.key.bleed == current.key.bleed
-            && candidate.combat < current.combat
+    candidate.key > current.key || candidate.key == current.key && candidate.combat < current.combat
+}
+
+fn exact_candidate(
+    request: &OptimizeRequest,
+    data: &GameData,
+    weapons: &[PreparedWeapon<'_>],
+    prepared_idx: usize,
+    aow_idx: usize,
+    upgrade: u8,
+    stats: Stats,
+) -> Result<ScoredCandidate, String> {
+    let prepared = &weapons[prepared_idx];
+    let choice = &prepared.aow_choices[aow_idx];
+    let routes = scalar_route_set(choice, data)?
+        .ok_or_else(|| "supported per-hit attack-power effect is not implemented".to_string())?;
+    let base = evaluate_objective_allocation(
+        stats.combat_array(),
+        request,
+        prepared,
+        choice,
+        upgrade,
+        None,
+        data,
+    )?;
+    let effective_str_value = effective_str_for_weapon(request, prepared.weapon, stats.str);
+    let mut best = None;
+    for route in routes.as_slice() {
+        let mut candidate = base.clone();
+        let (first, full) = crate::math::exact::exact_scalar_route(
+            route,
+            prepared.weapon,
+            upgrade,
+            &stats,
+            effective_str_value,
+            request.damage_multiplier(),
+            data,
+        )?;
+        candidate.key.aow_first = first;
+        candidate.key.aow_full = full;
+        match request.objective {
+            OptimizeObjective::AowFirstHit => candidate.key.score = candidate.key.aow_first.clone(),
+            OptimizeObjective::AowFullSequence => {
+                candidate.key.score = candidate.key.aow_full.clone()
+            }
+            _ => {}
+        }
+        candidate.route_id = Some(route.route_id.clone());
+        if best
+            .as_ref()
+            .is_none_or(|current| better_objective_allocation(&candidate, current))
+        {
+            best = Some(candidate);
+        }
+    }
+    let best = best.unwrap_or(base);
+    Ok(ScoredCandidate {
+        prepared_idx,
+        aow_idx,
+        upgrade,
+        stats,
+        metric: metric_from_allocation(&best)?,
+        key: best.key,
+        route_id: best.route_id,
+    })
 }
 
 fn materialize_scored_candidates(
@@ -1783,104 +2234,6 @@ fn materialize_scored_candidates(
         push_top_k(&mut results, result, request.top_k, group_mode);
     }
     Ok(results)
-}
-
-fn complete_scored_candidate_tie_breaks(
-    left: &mut ScoredCandidate,
-    right: &mut ScoredCandidate,
-    request: &OptimizeRequest,
-    data: &GameData,
-    weapons: &[PreparedWeapon<'_>],
-) -> Result<(), String> {
-    complete_scored_candidate_ar(left, request, data, weapons)?;
-    complete_scored_candidate_ar(right, request, data, weapons)?;
-    if compare_known_candidate_metrics(&left.metric, &right.metric) != std::cmp::Ordering::Equal {
-        return Ok(());
-    }
-
-    complete_scored_candidate_aow(left, request, data, weapons)?;
-    complete_scored_candidate_aow(right, request, data, weapons)?;
-    if compare_known_candidate_metrics(&left.metric, &right.metric) != std::cmp::Ordering::Equal {
-        return Ok(());
-    }
-
-    complete_scored_candidate_status(left, data, weapons)?;
-    complete_scored_candidate_status(right, data, weapons)
-}
-
-fn complete_scored_candidate_ar(
-    candidate: &mut ScoredCandidate,
-    request: &OptimizeRequest,
-    data: &GameData,
-    weapons: &[PreparedWeapon<'_>],
-) -> Result<(), String> {
-    if candidate.metric.ar.is_some() {
-        return Ok(());
-    }
-    let prepared = &weapons[candidate.prepared_idx];
-    let aow_choice = &prepared.aow_choices[candidate.aow_idx];
-    let effective_str_value =
-        effective_str_for_weapon(request, prepared.weapon, candidate.stats.str);
-    candidate.metric.ar = Some(calculate_ar_with_buffs(
-        prepared,
-        aow_choice,
-        candidate.upgrade,
-        &candidate.stats,
-        effective_str_value,
-        request.damage_multiplier(),
-        data,
-    )?);
-    Ok(())
-}
-
-fn complete_scored_candidate_aow(
-    candidate: &mut ScoredCandidate,
-    request: &OptimizeRequest,
-    data: &GameData,
-    weapons: &[PreparedWeapon<'_>],
-) -> Result<(), String> {
-    if candidate.metric.aow_first_hit_damage.is_some()
-        && candidate.metric.aow_full_sequence_damage.is_some()
-    {
-        return Ok(());
-    }
-    let prepared = &weapons[candidate.prepared_idx];
-    let aow_choice = &prepared.aow_choices[candidate.aow_idx];
-    let effective_str_value =
-        effective_str_for_weapon(request, prepared.weapon, candidate.stats.str);
-    let (first, full) = calculate_aow_metric(
-        request.objective,
-        prepared,
-        aow_choice,
-        candidate.upgrade,
-        &candidate.stats,
-        effective_str_value,
-        request.damage_multiplier(),
-        data,
-    )?;
-    candidate.metric.aow_first_hit_damage = Some(first);
-    candidate.metric.aow_full_sequence_damage = Some(full);
-    Ok(())
-}
-
-fn complete_scored_candidate_status(
-    candidate: &mut ScoredCandidate,
-    data: &GameData,
-    weapons: &[PreparedWeapon<'_>],
-) -> Result<(), String> {
-    if candidate.metric.status_buildup.is_none() {
-        let prepared = &weapons[candidate.prepared_idx];
-        let aow_choice = &prepared.aow_choices[candidate.aow_idx];
-        candidate.metric.status_buildup = Some(calculate_status_with_buffs(
-            prepared,
-            aow_choice,
-            candidate.upgrade,
-            &candidate.stats,
-            data,
-        )?);
-        candidate.metric.bleed_buildup = None;
-    }
-    Ok(())
 }
 
 fn evaluate_fixed_loadout_upgrade(
@@ -1904,56 +2257,41 @@ fn evaluate_fixed_loadout_upgrade(
         if !meets_requirements(prepared.weapon, effective_str_value, &stats) {
             continue;
         }
-        let base_metric = calculate_base_weapon_metric(
-            request.objective,
-            prepared,
-            upgrade,
-            &stats,
-            effective_str_value,
-            data,
-        )?;
-        for (aow_idx, aow_choice) in prepared.aow_choices.iter().enumerate() {
+        for (aow_idx, _) in prepared.aow_choices.iter().enumerate() {
             if !should_continue() {
                 return Err("cancelled".to_string());
             }
-            let metric = score_candidate(
-                request.objective,
-                prepared,
-                aow_choice,
-                upgrade,
-                &stats,
-                effective_str_value,
-                damage_multiplier,
-                base_metric,
-                data,
-            )?;
-            if matches!(request.objective, OptimizeObjective::AowFirstHit)
-                && metric.aow_first_hit_damage.unwrap_or(0.0) <= 0.0
-            {
-                continue;
-            }
-            if matches!(request.objective, OptimizeObjective::AowFullSequence)
-                && metric.aow_full_sequence_damage.unwrap_or(0.0) <= 0.0
-            {
-                continue;
-            }
-            let row = materialize_scored_candidate(
-                ScoredCandidate {
-                    prepared_idx,
-                    aow_idx,
-                    upgrade,
-                    stats,
-                    metric,
-                },
+            let candidate = exact_candidate(
                 request,
                 data,
                 weapons,
-                damage_multiplier,
+                prepared_idx,
+                aow_idx,
+                upgrade,
+                stats,
             )?;
-            push_top_k(&mut results, row, 1, ResultGroupMode::Loadout);
+            if matches!(
+                request.objective,
+                OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
+            ) && candidate.key.score <= ExactRational::zero()
+            {
+                continue;
+            }
+            push_scored_top_k(
+                &mut results,
+                candidate,
+                weapons,
+                ResultGroupMode::Loadout,
+                1,
+            );
         }
     }
-    Ok(results.pop())
+    results
+        .pop()
+        .map(|candidate| {
+            materialize_scored_candidate(candidate, request, data, weapons, damage_multiplier)
+        })
+        .transpose()
 }
 
 fn materialize_scored_candidate(
@@ -1967,30 +2305,21 @@ fn materialize_scored_candidate(
     let aow_choice = &prepared.aow_choices[candidate.aow_idx];
     let effective_str_value =
         effective_str_for_weapon(request, prepared.weapon, candidate.stats.str);
-    let full = complete_candidate_metric(
-        request.objective,
-        candidate.metric.ar,
-        candidate.metric.status_buildup,
-        candidate.metric.aow_first_hit_damage,
-        candidate.metric.aow_full_sequence_damage,
+    let status_buildup = calculate_status_with_buffs(
         prepared,
         aow_choice,
         candidate.upgrade,
         &candidate.stats,
-        effective_str_value,
-        damage_multiplier,
         data,
     )?;
     let CandidateMetric {
-        score: _,
+        score,
         ar,
-        status_buildup,
-        bleed_buildup: _,
         aow_first_hit_damage,
         aow_full_sequence_damage,
-    } = full;
+    } = candidate.metric;
     let aow_route = materialize_aow_route(
-        request.objective,
+        candidate.route_id.as_deref(),
         prepared,
         aow_choice,
         candidate.upgrade,
@@ -2020,46 +2349,31 @@ fn materialize_scored_candidate(
         effective_scaling: std::array::from_fn(|idx| {
             prepared.weapon.scaling[idx] * reinforce.scaling_mult[idx]
         }),
-        ar: ar.expect("complete candidate metric must include AR"),
+        ar,
         aow_id: aow_choice.skill_id,
         aow_name: aow_choice.skill_name.map(str::to_string),
-        bleed_buildup: status_buildup
-            .expect("complete candidate metric must include status")
-            .bleed,
+        bleed_buildup: project(&candidate.key.bleed)?,
         bleed_buildup_add: aow_choice
             .aow
             .map(|aow| aow.bleed_buildup_add)
             .unwrap_or(0.0),
-        frost_buildup: status_buildup
-            .expect("complete candidate metric must include status")
-            .frost,
-        poison_buildup: status_buildup
-            .expect("complete candidate metric must include status")
-            .poison,
-        scarlet_rot_buildup: status_buildup
-            .expect("complete candidate metric must include status")
-            .scarlet_rot,
-        sleep_buildup: status_buildup
-            .expect("complete candidate metric must include status")
-            .sleep,
-        madness_buildup: status_buildup
-            .expect("complete candidate metric must include status")
-            .madness,
-        death_buildup: status_buildup
-            .expect("complete candidate metric must include status")
-            .death,
-        aow_first_hit_damage: aow_first_hit_damage
-            .expect("complete candidate metric must include first-hit damage"),
-        aow_full_sequence_damage: aow_full_sequence_damage
-            .expect("complete candidate metric must include full-sequence damage"),
+        frost_buildup: status_buildup.frost,
+        poison_buildup: status_buildup.poison,
+        scarlet_rot_buildup: status_buildup.scarlet_rot,
+        sleep_buildup: status_buildup.sleep,
+        madness_buildup: status_buildup.madness,
+        death_buildup: status_buildup.death,
+        aow_first_hit_damage,
+        aow_full_sequence_damage,
         aow_route,
-        score: candidate.metric.score,
+        score,
+        exact_key: candidate.key,
     })
 }
 
 #[allow(clippy::too_many_arguments)]
 fn materialize_aow_route(
-    objective: OptimizeObjective,
+    selected_route: Option<&str>,
     prepared: &PreparedWeapon<'_>,
     aow_choice: &AowChoice<'_>,
     upgrade: u8,
@@ -2087,7 +2401,10 @@ fn materialize_aow_route(
     if attack_rows.is_empty() {
         return Ok(None);
     }
-    let mut routes = calculate_aow_routes(
+    let Some(selected_route) = selected_route else {
+        return Ok(None);
+    };
+    let routes = calculate_aow_routes(
         prepared.weapon,
         attack_rows,
         upgrade,
@@ -2095,51 +2412,61 @@ fn materialize_aow_route(
         effective_str_value,
         data,
     )?;
-    for route in &mut routes {
-        route.first_hit_damage *= damage_multiplier;
-        route.total_damage = route.total_damage.scale(damage_multiplier);
-        for action in &mut route.actions {
-            for hit in &mut action.hits {
-                hit.damage = hit.damage.scale(damage_multiplier);
+    let mut route = routes
+        .into_iter()
+        .find(|route| route.route_id == selected_route)
+        .ok_or_else(|| {
+            format!("selected exact route {selected_route} is missing during materialization")
+        })?;
+    let multiplier = rational(damage_multiplier)?;
+    let mut totals: [ExactRational; 5] = std::array::from_fn(|_| ExactRational::zero());
+    let mut first = ExactRational::zero();
+    for action in &mut route.actions {
+        for hit in &mut action.hits {
+            let row = attack_rows
+                .iter()
+                .find(|row| row.sheet_row == hit.sheet_row)
+                .ok_or_else(|| {
+                    format!(
+                        "missing attack row {} during materialization",
+                        hit.sheet_row
+                    )
+                })?;
+            let mut values: [ExactRational; 5] = std::array::from_fn(|_| ExactRational::zero());
+            for damage_type in DamageType::ALL {
+                let index = damage_type.as_index();
+                if row.is_damaging() {
+                    values[index] = crate::math::exact::exact_skill_damage_for_type(
+                        prepared.weapon,
+                        row,
+                        upgrade,
+                        stats,
+                        effective_str_value,
+                        damage_type,
+                        data,
+                    )?;
+                }
+                if row.is_damaging()
+                    && hit.buff_active
+                    && let Some(ash) = data.aows.iter().find(|ash| ash.aow_id == row.aow_id)
+                {
+                    values[index] += rational(ash.buff_attack_power[index])?
+                        * rational(row.weapon_buff_mv)?
+                        / ExactRational::from_integer(100.into());
+                }
+                values[index] *= &multiplier;
+                totals[index] += &values[index];
             }
+            let total = sum_components(&values);
+            if first.is_zero() && total > ExactRational::zero() {
+                first = total;
+            }
+            hit.damage = project_damage(&values)?;
         }
     }
-    Ok(select_best_aow_route(routes, objective))
-}
-
-fn select_best_aow_route(
-    routes: Vec<AowRouteResult>,
-    objective: OptimizeObjective,
-) -> Option<AowRouteResult> {
-    routes.into_iter().reduce(|best, candidate| {
-        let candidate_primary = match objective {
-            OptimizeObjective::AowFirstHit => candidate.first_hit_damage,
-            _ => candidate.total_damage.total(),
-        };
-        let best_primary = match objective {
-            OptimizeObjective::AowFirstHit => best.first_hit_damage,
-            _ => best.total_damage.total(),
-        };
-        let candidate_secondary = match objective {
-            OptimizeObjective::AowFirstHit => candidate.total_damage.total(),
-            _ => candidate.first_hit_damage,
-        };
-        let best_secondary = match objective {
-            OptimizeObjective::AowFirstHit => best.total_damage.total(),
-            _ => best.first_hit_damage,
-        };
-        if candidate_primary > best_primary
-            || candidate_primary == best_primary && candidate_secondary > best_secondary
-            || candidate_primary == best_primary
-                && candidate_secondary == best_secondary
-                && (candidate.route_priority, &candidate.route_id)
-                    < (best.route_priority, &best.route_id)
-        {
-            candidate
-        } else {
-            best
-        }
-    })
+    route.total_damage = project_damage(&totals)?;
+    route.first_hit_damage = project(&first)?;
+    Ok(Some(route))
 }
 
 struct SerialSearchProgress<F>
@@ -2155,6 +2482,7 @@ where
     last_emit: ProgressEmitState,
     callback: F,
     cancelled: bool,
+    poll_count: u32,
 }
 
 impl<F> SerialSearchProgress<F>
@@ -2176,6 +2504,7 @@ where
             },
             callback,
             cancelled: false,
+            poll_count: 0,
         }
     }
 
@@ -2187,11 +2516,13 @@ where
         self.emit(true)
     }
 
-    fn emit_if_due(&mut self) -> Result<(), String> {
+    fn emit_if_due(&mut self, ignore_count_threshold: bool) -> Result<(), String> {
         if self.progress_every == 0 {
             return Ok(());
         }
-        if self.checked.saturating_sub(self.last_emit.last_checked) < self.progress_every {
+        if !ignore_count_threshold
+            && self.checked.saturating_sub(self.last_emit.last_checked) < self.progress_every
+        {
             return Ok(());
         }
         if self.last_emit.last_at.elapsed() < PROGRESS_MIN_INTERVAL {
@@ -2240,11 +2571,26 @@ where
         {
             self.best_score = Some(score);
         }
-        self.emit_if_due()
+        self.emit_if_due(false)
     }
 
     fn is_cancelled(&self) -> bool {
         self.cancelled
+    }
+
+    fn poll(&mut self) -> Result<(), String> {
+        if self.cancelled {
+            return Err("cancelled".to_string());
+        }
+        if self.progress_every == 0 {
+            return Ok(());
+        }
+        self.poll_count = self.poll_count.saturating_add(1);
+        if self.poll_count < PROGRESS_POLL_BATCH {
+            return Ok(());
+        }
+        self.poll_count = 0;
+        self.emit_if_due(true)
     }
 }
 
@@ -2307,18 +2653,18 @@ where
                 *guard = Some(score);
             }
         }
-        self.emit_if_due(force)
+        self.emit_if_due(force, false)
     }
 
     fn emit_initial(&self) -> Result<(), String> {
-        self.emit_if_due(true)
+        self.emit_if_due(true, false)
     }
 
     fn emit_final(&self) -> Result<(), String> {
-        self.emit_if_due(true)
+        self.emit_if_due(true, false)
     }
 
-    fn emit_if_due(&self, force: bool) -> Result<(), String> {
+    fn emit_if_due(&self, force: bool, ignore_count_threshold: bool) -> Result<(), String> {
         if self.cancelled.load(Ordering::Relaxed) && !force {
             return Err("cancelled".to_string());
         }
@@ -2331,9 +2677,12 @@ where
                 .last_emit
                 .lock()
                 .map_err(|_| "failed to lock progress emit state".to_string())?;
-            if checked.saturating_sub(emit_guard.last_checked) < self.progress_every
-                || emit_guard.last_at.elapsed() < PROGRESS_MIN_INTERVAL
+            if !ignore_count_threshold
+                && checked.saturating_sub(emit_guard.last_checked) < self.progress_every
             {
+                return Ok(());
+            }
+            if emit_guard.last_at.elapsed() < PROGRESS_MIN_INTERVAL {
                 return Ok(());
             }
             *emit_guard = ProgressEmitState {
@@ -2386,6 +2735,7 @@ where
     checked: u64,
     eligible: u64,
     best_score: Option<f32>,
+    poll_count: u32,
 }
 
 impl<F> ParallelLocalProgress<F>
@@ -2398,6 +2748,7 @@ where
             checked: 0,
             eligible: 0,
             best_score: None,
+            poll_count: 0,
         }
     }
 
@@ -2440,6 +2791,22 @@ where
 
     fn is_cancelled(&self) -> bool {
         self.shared.is_cancelled()
+    }
+
+    fn poll(&mut self) -> Result<(), String> {
+        if self.shared.is_cancelled() {
+            return Err("cancelled".to_string());
+        }
+        if self.shared.progress_every == 0 {
+            return Ok(());
+        }
+        self.poll_count = self.poll_count.saturating_add(1);
+        if self.poll_count < PROGRESS_POLL_BATCH {
+            return Ok(());
+        }
+        self.poll_count = 0;
+        self.flush(false)?;
+        self.shared.emit_if_due(false, true)
     }
 
     fn finish(&mut self) -> Result<(), String> {
@@ -2542,7 +2909,7 @@ fn prepare_weapons_with_cancel<'a>(
         if !should_continue() {
             return Err("cancelled".to_string());
         }
-        if !data.weapon_ar_supported(weapon) || !weapon_matches_request(weapon, request, data) {
+        if !weapon_matches_request(weapon, request, data) || !data.weapon_ar_supported(weapon) {
             continue;
         }
         if !weapon_requirements_can_fit(request, constraints, weapon) {
@@ -2561,191 +2928,6 @@ fn prepare_weapons_with_cancel<'a>(
         });
     }
     Ok(out)
-}
-
-#[allow(clippy::too_many_arguments)]
-fn score_candidate(
-    objective: OptimizeObjective,
-    prepared: &PreparedWeapon<'_>,
-    aow_choice: &AowChoice<'_>,
-    upgrade: u8,
-    stats: &Stats,
-    effective_str_value: u16,
-    damage_multiplier: f32,
-    base_metric: BaseWeaponMetric,
-    data: &GameData,
-) -> Result<CandidateMetric, String> {
-    match objective {
-        OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr => {
-            let ar = apply_aow_attack_buffs(
-                base_metric
-                    .ar
-                    .expect("AR objectives must prepare a base AR metric"),
-                aow_choice.aow,
-            )
-            .scale(damage_multiplier);
-            let score = match objective {
-                OptimizeObjective::MaxPhysicalAr => ar.physical,
-                _ => ar.total(),
-            };
-            Ok(CandidateMetric {
-                score,
-                ar: Some(ar),
-                status_buildup: None,
-                bleed_buildup: None,
-                aow_first_hit_damage: None,
-                aow_full_sequence_damage: None,
-            })
-        }
-        OptimizeObjective::BleedThenAr => {
-            let bleed_buildup = apply_aow_bleed_buffs(
-                base_metric
-                    .bleed_buildup
-                    .expect("AR + Bleed must prepare base bleed buildup"),
-                prepared.weapon,
-                upgrade,
-                stats,
-                data,
-                aow_choice.aow,
-            )?;
-            Ok(CandidateMetric {
-                score: bleed_buildup,
-                ar: None,
-                status_buildup: None,
-                bleed_buildup: Some(bleed_buildup),
-                aow_first_hit_damage: None,
-                aow_full_sequence_damage: None,
-            })
-        }
-        OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence => {
-            let (aow_first_hit_damage, aow_full_sequence_damage) = calculate_aow_metric(
-                objective,
-                prepared,
-                aow_choice,
-                upgrade,
-                stats,
-                effective_str_value,
-                damage_multiplier,
-                data,
-            )?;
-            Ok(CandidateMetric {
-                score: match objective {
-                    OptimizeObjective::AowFirstHit => aow_first_hit_damage,
-                    OptimizeObjective::AowFullSequence => aow_full_sequence_damage,
-                    _ => unreachable!("AoW branch requires an AoW objective"),
-                },
-                ar: None,
-                status_buildup: None,
-                bleed_buildup: None,
-                aow_first_hit_damage: Some(aow_first_hit_damage),
-                aow_full_sequence_damage: Some(aow_full_sequence_damage),
-            })
-        }
-    }
-}
-
-fn calculate_base_weapon_metric(
-    objective: OptimizeObjective,
-    prepared: &PreparedWeapon<'_>,
-    upgrade: u8,
-    stats: &Stats,
-    effective_str_value: u16,
-    data: &GameData,
-) -> Result<BaseWeaponMetric, String> {
-    match objective {
-        OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr => Ok(BaseWeaponMetric {
-            ar: Some(calculate_ar(
-                prepared.weapon,
-                upgrade,
-                stats,
-                effective_str_value,
-                data,
-            )?),
-            bleed_buildup: None,
-        }),
-        OptimizeObjective::BleedThenAr => Ok(BaseWeaponMetric {
-            ar: None,
-            bleed_buildup: Some(calculate_bleed_buildup(
-                prepared.weapon,
-                upgrade,
-                stats,
-                data,
-            )?),
-        }),
-        OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence => {
-            Ok(BaseWeaponMetric::default())
-        }
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn complete_candidate_metric(
-    objective: OptimizeObjective,
-    ar: Option<DamageBreakdown>,
-    status_buildup: Option<StatusBuildup>,
-    aow_first_hit_damage: Option<f32>,
-    aow_full_sequence_damage: Option<f32>,
-    prepared: &PreparedWeapon<'_>,
-    aow_choice: &AowChoice<'_>,
-    upgrade: u8,
-    stats: &Stats,
-    effective_str_value: u16,
-    damage_multiplier: f32,
-    data: &GameData,
-) -> Result<CandidateMetric, String> {
-    let ar = match ar {
-        Some(ar) => ar,
-        None => calculate_ar_with_buffs(
-            prepared,
-            aow_choice,
-            upgrade,
-            stats,
-            effective_str_value,
-            damage_multiplier,
-            data,
-        )?,
-    };
-    let status_buildup = match status_buildup {
-        Some(status_buildup) => status_buildup,
-        None => calculate_status_with_buffs(prepared, aow_choice, upgrade, stats, data)?,
-    };
-    let (first, full) = match (aow_first_hit_damage, aow_full_sequence_damage) {
-        (Some(first), Some(full)) => (first, full),
-        _ => calculate_aow_metric(
-            objective,
-            prepared,
-            aow_choice,
-            upgrade,
-            stats,
-            effective_str_value,
-            damage_multiplier,
-            data,
-        )?,
-    };
-    Ok(CandidateMetric {
-        score: ar.total(),
-        ar: Some(ar),
-        status_buildup: Some(status_buildup),
-        bleed_buildup: Some(status_buildup.bleed),
-        aow_first_hit_damage: Some(first),
-        aow_full_sequence_damage: Some(full),
-    })
-}
-
-fn calculate_ar_with_buffs(
-    prepared: &PreparedWeapon<'_>,
-    aow_choice: &AowChoice<'_>,
-    upgrade: u8,
-    stats: &Stats,
-    effective_str_value: u16,
-    damage_multiplier: f32,
-    data: &GameData,
-) -> Result<DamageBreakdown, String> {
-    Ok(apply_aow_attack_buffs(
-        calculate_ar(prepared.weapon, upgrade, stats, effective_str_value, data)?,
-        aow_choice.aow,
-    )
-    .scale(damage_multiplier))
 }
 
 fn calculate_status_with_buffs(
@@ -2773,61 +2955,14 @@ fn calculate_bleed_with_buffs(
     stats: &Stats,
     data: &GameData,
 ) -> Result<f32, String> {
-    apply_aow_bleed_buffs(
-        calculate_bleed_buildup(prepared.weapon, upgrade, stats, data)?,
+    crate::math::apply_aow_bleed_buffs(
+        crate::math::calculate_bleed_buildup(prepared.weapon, upgrade, stats, data)?,
         prepared.weapon,
         upgrade,
         stats,
         data,
         aow_choice.aow,
     )
-}
-
-#[allow(clippy::too_many_arguments)]
-fn calculate_aow_metric(
-    objective: OptimizeObjective,
-    prepared: &PreparedWeapon<'_>,
-    aow_choice: &AowChoice<'_>,
-    upgrade: u8,
-    stats: &Stats,
-    effective_str_value: u16,
-    damage_multiplier: f32,
-    data: &GameData,
-) -> Result<(f32, f32), String> {
-    let resolved_attack_rows;
-    let attack_rows = if aow_choice.attack_rows.is_empty() {
-        resolved_attack_rows = if !prepared.weapon.can_change_aow {
-            select_attack_rows(
-                data.native_skill_attack_rows(prepared.weapon.weapon_id),
-                prepared.weapon,
-            )
-        } else if let Some(skill_id) = aow_choice.skill_id {
-            select_aow_attack_rows(skill_id, prepared.weapon, data)
-        } else {
-            Vec::new()
-        };
-        resolved_attack_rows.as_slice()
-    } else {
-        aow_choice.attack_rows.as_slice()
-    };
-    if attack_rows.is_empty() {
-        return Ok((0.0, 0.0));
-    }
-    let routes = calculate_aow_routes(
-        prepared.weapon,
-        attack_rows,
-        upgrade,
-        stats,
-        effective_str_value,
-        data,
-    )?;
-    let Some(route) = select_best_aow_route(routes, objective) else {
-        return Ok((0.0, 0.0));
-    };
-    Ok((
-        route.first_hit_damage * damage_multiplier,
-        route.total_damage.total() * damage_multiplier,
-    ))
 }
 
 fn weapon_matches_request(weapon: &Weapon, request: &OptimizeRequest, data: &GameData) -> bool {
@@ -2853,6 +2988,9 @@ fn weapon_matches_request(weapon: &Weapon, request: &OptimizeRequest, data: &Gam
     };
     if !reinforcement_matches {
         return false;
+    }
+    if request.filters.is_empty() {
+        return true;
     }
     let family_id = weapon.family_filter_id();
     let type_id = weapon.type_filter_id();
@@ -3314,69 +3452,33 @@ fn count_relevant_distributions(
     active: &[bool; COMBAT_STAT_COUNT],
     remaining_free: u16,
 ) -> u64 {
-    let inactive_capacity = (0..COMBAT_STAT_COUNT)
-        .filter(|idx| !active[*idx])
-        .map(|idx| u16::from(maxs[idx] - mins[idx]))
+    let budget = usize::from(remaining_free);
+    let inactive_capacity: usize = (0..COMBAT_STAT_COUNT)
+        .filter(|&stat| !active[stat])
+        .map(|stat| usize::from(maxs[stat] - mins[stat]))
         .sum();
-    let mut memo: HashMap<(usize, u16), u64> = HashMap::new();
-    count_active_distributions(
-        mins,
-        maxs,
-        active,
-        inactive_capacity,
-        0,
-        remaining_free,
-        &mut memo,
-    )
-}
-
-fn count_active_distributions(
-    mins: &[u8; COMBAT_STAT_COUNT],
-    maxs: &[u8; COMBAT_STAT_COUNT],
-    active: &[bool; COMBAT_STAT_COUNT],
-    inactive_capacity: u16,
-    idx: usize,
-    remaining_free: u16,
-    memo: &mut HashMap<(usize, u16), u64>,
-) -> u64 {
-    if idx == COMBAT_STAT_COUNT {
-        return if remaining_free <= inactive_capacity {
-            1
-        } else {
-            0
-        };
+    let mut counts = vec![0u64; budget + 1];
+    counts[0] = 1;
+    for stat in 0..COMBAT_STAT_COUNT {
+        if !active[stat] {
+            continue;
+        }
+        let cap = usize::from(maxs[stat] - mins[stat]);
+        let mut next = vec![0u64; budget + 1];
+        let mut window = 0u64;
+        for spent in 0..=budget {
+            // Five u8 stat domains contain at most 256^5 distributions.
+            window += counts[spent];
+            if spent > cap {
+                window -= counts[spent - cap - 1];
+            }
+            next[spent] = window;
+        }
+        counts = next;
     }
-    if let Some(value) = memo.get(&(idx, remaining_free)) {
-        return *value;
-    }
-    let total = if active[idx] {
-        let cap = u16::from(maxs[idx] - mins[idx]).min(remaining_free);
-        (0..=cap)
-            .map(|add| {
-                count_active_distributions(
-                    mins,
-                    maxs,
-                    active,
-                    inactive_capacity,
-                    idx + 1,
-                    remaining_free - add,
-                    memo,
-                )
-            })
-            .fold(0_u64, u64::saturating_add)
-    } else {
-        count_active_distributions(
-            mins,
-            maxs,
-            active,
-            inactive_capacity,
-            idx + 1,
-            remaining_free,
-            memo,
-        )
-    };
-    memo.insert((idx, remaining_free), total);
-    total
+    counts[budget.saturating_sub(inactive_capacity)..]
+        .iter()
+        .sum()
 }
 
 fn visit_relevant_stat_candidates_inner<F>(

@@ -100,10 +100,11 @@ stats, including numeric tie-break dependencies. Weapon requirements become mini
 floors first; every feasible active-stat spend is compared after deterministic
 inactive-stat completion.
 
-The recurrence is exact under exact arithmetic and the documented model assumptions.
-The implementation uses `f32`, so sufficiently close intermediate comparisons can
-discard the allocation preferred by exhaustive evaluation, even after terminal
-metrics are recomputed. See the [mathematical scope](docs/design/optimizer-math.md#7-scope-of-the-claims)
+The recurrence and ranking comparisons use the `exact-v1` arithmetic contract under
+the documented model assumptions. Each finite, validated loaded `f32` input is treated
+as its exact binary value; bounded DP uses checked `i128` coefficients and promotes to
+`BigInt` when needed, while gameplay floor boundaries remain. Display values are
+rounded for readability. See the [mathematical scope](docs/design/optimizer-math.md#7-scope-of-the-claims)
 and [numerical evidence](docs/design/optimizer-overview.md#numerical-evidence-and-decision).
 
 AoW damage objectives evaluate one legal route at a time. Inspector and Compare expose

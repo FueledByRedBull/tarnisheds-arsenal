@@ -94,7 +94,7 @@ the final stat-vector tie-break without enumerating equivalent inactive distribu
 
 [`optimizer-math.md`](optimizer-math.md) states the model formally: the point budget,
 the attack-rating formula, the conditions that make the recurrence exact in exact
-arithmetic, its cost bounds, and the implementation's floating-point limitation.
+arithmetic, its cost bounds, and the exact scoring contract.
 
 `RelevantStatSearch` owns the active mask, bounded stat domain, logical candidate count,
 and canonical enumeration retained for the exhaustive oracle/fallback. The DP compares
@@ -103,11 +103,12 @@ the cached distribution count. Focused regressions cover interior optima, canoni
 inactive fill, arbitrary decreasing curves, and every objective family. This reduced
 exhaustive path shares the active mask; matching it alone cannot validate relevance.
 
-The dynamic program's accumulated `f32` totals select a stat allocation only. Terminal
-allocations are recomputed directly before comparison, ranking, or display; accumulated
-totals never become user-visible results. Reevaluation cannot recover a preferred
-allocation discarded at an earlier state. States retain objective score, total AR, AoW
-full sequence, AoW first hit, bleed, and the stat vector under candidate ranking order.
+The dynamic program uses exact scaled integer coefficients. A checked bound selects
+`i128` when safe, otherwise `BigInt`. Terminal keys remain exact rationals across
+loadouts with different scales. Floating-point fields are generated for display
+after selection. Prefix probes retain only the one or two key components they compare;
+the final scoring pass retains objective score, total AR, AoW full sequence, AoW first
+hit, bleed, and the stat vector under candidate ranking order.
 
 For Max AR, Max Physical AR, and Bleed then AR, each work unit builds one primary
 plan per upgrade and identical primary-effect signature. The signature includes
@@ -117,20 +118,20 @@ and total AR. Route-specific work visits those tied predecessors and compares th
 remaining skill, bleed, and stat-vector fields. All legal Ash choices remain visible,
 including unbuffed skills that can win secondary ties. The cache is request-local
 and released after each upgrade; it does not retain cross-request data. Retained
-increments use one byte each, with per-state vectors, and each work unit contains
-at most eight Ash choices.
+increments use one byte each, with per-state vectors. Weapon-grouped output can
+skip strictly dominated flat buffs with identical bleed effects; primary ties remain
+eligible for route comparison.
 
-When every feasible spend has one retained predecessor path, the plan can cache a
-unique winner after direct primary reevaluation and inactive-stat completion. Tied
-prefix comparisons or ambiguous paths use route-specific DP. This avoids repeated
-route scoring while retaining the numerical limitation below; uniqueness in the
-retained graph does not establish global exhaustive equivalence.
+When the best primary rank has one terminal spend and one retained predecessor
+path, the plan can cache a unique winner after direct primary reevaluation and
+inactive-stat completion. Ties on winning paths use route-specific DP. This avoids repeated
+route scoring under the same exact primary ordering as the full recurrence.
 
 `shared_primary_frontiers_match_independent_dp_including_all_ties` compares shared
 and independent DP allocations across both profiles, buffs/routes, upgrades, and
 zero/small/larger budgets. These sampled comparisons check behavioral equivalence
-under the existing floating-point arithmetic; they do not establish it for every
-input or remove the numerical limitation documented below.
+under the exact scoring contract; the proof obligations still apply to newly added
+mechanics and data dependencies.
 
 Progress counts the logical candidate domain covered, not DP transitions or individual
 allocations evaluated. For active capacities $c_i$, that count is
@@ -139,9 +140,9 @@ $$N=\sum_{p=p_{\min}}^{p_{\max}}[z^p]\prod_{i\in A}(1+z+\cdots+z^{c_i}).$$
 
 Medium and broad searches use Rayon when the estimated combination count and
 work-unit count justify parallel execution. Damage-objective work is split by individual
-Ash choices. AR and Bleed work uses bounded chunks of eight Ashes so primary-score
-plans can be shared without serializing an entire weapon search. Candidate ranking uses a lightweight
-score-only buffer first, then materializes full result rows only after local
+Ash choices. AR and Bleed work keeps each weapon/stat-bound group together so its
+primary plans are reused across all compatible Ashes. Candidate ranking uses a lightweight
+exact-key buffer first, then materializes full result rows only after local
 top-K pruning.
 
 Final ordering and de-duplication still use the full result comparison logic so
@@ -149,8 +150,8 @@ tie handling, same-loadout replacement, cancellation, and progress reporting
 stay deterministic.
 
 Within one loadout, tied routes compare the numeric objective key, combat stats,
-route priority, then route ID. Public materialization uses a weaker display comparator;
-equal rows retain their existing deterministic scored-candidate order.
+route priority, then route ID. Materialized rows retain a private exact key and use
+the same complete numeric and stat ordering.
 
 AoW search evaluates compiled scalar routes without constructing display objects for
 discarded allocations. Final AoW materialization evaluates the retained ordered route. Added base attack,
@@ -176,14 +177,11 @@ The follow-up in `optimizer/tests.rs` separates three questions:
   stats are also swept through their bounds to check numeric invariance. Bounds and
   metric formulas still come from production code; this is an independent enumeration,
   not an independent game model or proof over every loadout.
-- **Arithmetic:** sampled DP winners match all numeric fields exactly, without an
-  epsilon comparator. A real Convergence Mystic Uchigatana +15 case with starting
-  STR/DEX/INT/FAI/ARC `67/40/35/35/35`, two-handing, and three free points returns
-  `67/40/35/36/37`; exhaustive evaluation prefers `67/40/35/35/38`. Both have the same
-  numeric key (AR approximately 791.3289, bleed 50, no AoW damage). The test records
-  this known limitation, not successful canonical tie-breaking. A separate one-ULP
-  example shows a common rounded completion collapsing a strict score difference
-  into a tie whose preferred stat vector was already discarded.
+- **Arithmetic:** DP is compared with exhaustive evaluation using exact numeric keys
+  and canonical stat vectors. The former Convergence Mystic Uchigatana counterexample
+  and strict-difference/completion case are regressions for exact pruning. Integer
+  backend checks cover both the `i128` path and `BigInt` fallback. Agreement is under
+  the new numerical contract, not a promise to retain former rounded winners.
 - **Routes:** scalar and materialized first/full metrics are checked together by route
   ID. Per-hit reconstruction from single-stat deltas covers branching finishers,
   repeat hits, fixed/projectile damage, low/max upgrades, both handling modes,
@@ -195,15 +193,11 @@ The follow-up in `optimizer/tests.rs` separates three questions:
   error (absolute below magnitude 1) for different summation orders; this is a test
   tolerance, not an optimizer tie rule or universal error bound.
 
-**Decision:** retain the current evaluator and `f32` selection in this follow-up.
-The checks demonstrate a stat-vector tie discrepancy, not a numeric metric loss in
-the sampled searches. They do not rule out numeric losses elsewhere. Merely promoting
-already-rounded deltas to `f64` cannot recover their rounding, and higher precision
-alone does not establish translation-invariant lexicographic pruning. No heuristic
-epsilon tie-break, arithmetic-contract change, or release rollback is introduced.
-Strict canonical tie equivalence remains a documented follow-up: first choose the
-metric contract, then use exact contribution arithmetic or conservatively resolve
-ambiguous states against that contract, verified by this independent oracle.
+The `exact-v1` contract removes intermediate rounding from ranking formulas while
+preserving gameplay floor boundaries. It does not change the supported gameplay
+mechanics or certify the profile data against the game. Source `f32` coefficients
+remain the model inputs; arbitrary source precision is not reconstructed. See the
+[numerical contract](optimizer-math.md#numerical-contract) for the precise scope.
 
 ## Release Flow
 

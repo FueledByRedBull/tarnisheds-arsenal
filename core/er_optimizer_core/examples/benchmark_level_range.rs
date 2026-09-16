@@ -48,7 +48,7 @@ fn main() -> Result<(), String> {
             "logicalCpus": std::thread::available_parallelism().map_err(|e| e.to_string())?.get(),
             "rayonThreads": rayon::current_num_threads(),
             "requests": affinities.iter().map(|a| format!("{:?}", request(a))).collect::<Vec<_>>(),
-            "modelVersion": manifest.model_version,
+            "modelVersion": data.model_version,
             "profile": if cfg!(debug_assertions) { "debug" } else { "release" },
             "repeats": config.repeats,
             "warmups": 1,

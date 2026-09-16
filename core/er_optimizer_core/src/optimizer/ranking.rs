@@ -5,72 +5,35 @@ use super::*;
 pub(super) fn could_enter_scored_top_k(
     results: &[ScoredCandidate],
     candidate: &ScoredCandidate,
-    weapons: &[PreparedWeapon<'_>],
     top_k: usize,
-    group_mode: ResultGroupMode,
 ) -> bool {
-    let limit = scored_candidate_limit(top_k, group_mode);
-    if results.len() < limit {
-        return true;
-    }
-    results.iter().any(|existing| {
-        same_scored_result_group(candidate, existing, weapons, group_mode)
-            && compare_known_candidate_metrics(&candidate.metric, &existing.metric)
-                != CmpOrdering::Less
-    }) || results.last().is_none_or(|worst| {
-        compare_known_candidate_metrics(&candidate.metric, &worst.metric) != CmpOrdering::Less
-    })
+    results.len() < top_k
+        || results
+            .last()
+            .is_none_or(|worst| candidate.key >= worst.key)
 }
 
 pub(super) fn merge_scored_top_k(
     results: &mut Vec<ScoredCandidate>,
     candidates: impl IntoIterator<Item = ScoredCandidate>,
-    request: &OptimizeRequest,
-    data: &GameData,
     weapons: &[PreparedWeapon<'_>],
     group_mode: ResultGroupMode,
     top_k: usize,
-) -> Result<(), String> {
+) {
     for candidate in candidates {
-        push_scored_top_k(
-            results, candidate, request, data, weapons, group_mode, top_k,
-        )?;
+        push_scored_top_k(results, candidate, weapons, group_mode, top_k);
     }
-    Ok(())
 }
 
 pub(super) fn push_scored_top_k(
     results: &mut Vec<ScoredCandidate>,
-    mut candidate: ScoredCandidate,
-    request: &OptimizeRequest,
-    data: &GameData,
+    candidate: ScoredCandidate,
     weapons: &[PreparedWeapon<'_>],
     group_mode: ResultGroupMode,
     top_k: usize,
-) -> Result<(), String> {
+) {
     if top_k == 0 {
-        return Ok(());
-    }
-
-    let tied_indices = results
-        .iter()
-        .enumerate()
-        .filter_map(|(index, existing)| {
-            (compare_known_candidate_metrics(&candidate.metric, &existing.metric)
-                == CmpOrdering::Equal)
-                .then_some(index)
-        })
-        .collect::<Vec<_>>();
-    if !tied_indices.is_empty() {
-        for index in tied_indices {
-            complete_scored_candidate_tie_breaks(
-                &mut candidate,
-                &mut results[index],
-                request,
-                data,
-                weapons,
-            )?;
-        }
+        return;
     }
 
     if let Some(existing_idx) = results
@@ -80,7 +43,7 @@ pub(super) fn push_scored_top_k(
         if compare_scored_candidates(&candidate, &results[existing_idx], weapons)
             != CmpOrdering::Greater
         {
-            return Ok(());
+            return;
         }
         results.remove(existing_idx);
     }
@@ -93,9 +56,7 @@ pub(super) fn push_scored_top_k(
         .unwrap_or(results.len());
     results.insert(insert_at, candidate);
 
-    let limit = scored_candidate_limit(top_k, group_mode);
-    results.truncate(limit);
-    Ok(())
+    results.truncate(top_k);
 }
 
 fn compare_scored_candidates(
@@ -103,7 +64,7 @@ fn compare_scored_candidates(
     right: &ScoredCandidate,
     weapons: &[PreparedWeapon<'_>],
 ) -> CmpOrdering {
-    let metric_order = compare_known_candidate_metrics(&left.metric, &right.metric);
+    let metric_order = left.key.cmp(&right.key);
     if metric_order != CmpOrdering::Equal {
         return metric_order;
     }
@@ -128,80 +89,13 @@ fn compare_scored_candidates(
         return skill_order;
     }
 
-    // Public result ordering intentionally has no stat tie-break. Among scored
-    // candidates retained after objective-specific pruning, stabilize serial/parallel
-    // merges by preferring the lexicographically smaller combat-stat allocation.
+    // Match the final result ordering; internal indices only stabilize identical rows.
     right
         .stats
         .combat_array()
         .cmp(&left.stats.combat_array())
         .then_with(|| right.prepared_idx.cmp(&left.prepared_idx))
         .then_with(|| right.aow_idx.cmp(&left.aow_idx))
-}
-
-pub(super) fn compare_known_candidate_metrics(
-    left: &CandidateMetric,
-    right: &CandidateMetric,
-) -> CmpOrdering {
-    let score_order = compare_f32(left.score, right.score);
-    if score_order != CmpOrdering::Equal {
-        return score_order;
-    }
-    if let (Some(left_ar), Some(right_ar)) = (left.ar, right.ar) {
-        let ar_order = compare_f32(left_ar.total(), right_ar.total());
-        if ar_order != CmpOrdering::Equal {
-            return ar_order;
-        }
-    }
-    if let (Some(left_full), Some(right_full)) = (
-        left.aow_full_sequence_damage,
-        right.aow_full_sequence_damage,
-    ) {
-        let full_order = compare_f32(left_full, right_full);
-        if full_order != CmpOrdering::Equal {
-            return full_order;
-        }
-    }
-    if let (Some(left_first), Some(right_first)) =
-        (left.aow_first_hit_damage, right.aow_first_hit_damage)
-    {
-        let first_order = compare_f32(left_first, right_first);
-        if first_order != CmpOrdering::Equal {
-            return first_order;
-        }
-    }
-    if let (Some(left_bleed), Some(right_bleed)) = (
-        left.bleed_buildup
-            .or_else(|| left.status_buildup.map(|status| status.bleed)),
-        right
-            .bleed_buildup
-            .or_else(|| right.status_buildup.map(|status| status.bleed)),
-    ) {
-        let bleed_order = compare_f32(left_bleed, right_bleed);
-        if bleed_order != CmpOrdering::Equal {
-            return bleed_order;
-        }
-    }
-    CmpOrdering::Equal
-}
-
-fn compare_f32(left: f32, right: f32) -> CmpOrdering {
-    if left > right {
-        CmpOrdering::Greater
-    } else if left < right {
-        CmpOrdering::Less
-    } else {
-        CmpOrdering::Equal
-    }
-}
-
-fn scored_candidate_limit(top_k: usize, group_mode: ResultGroupMode) -> usize {
-    match group_mode {
-        ResultGroupMode::WeaponOnly => top_k,
-        ResultGroupMode::Loadout => top_k
-            .saturating_mul(SCORED_TOP_K_LOADOUT_OVERSAMPLE)
-            .max(top_k),
-    }
 }
 
 fn same_scored_result_group(
@@ -276,41 +170,8 @@ fn same_result_group(
 }
 
 pub(super) fn better_result(left: &OptimizeResult, right: &OptimizeResult) -> bool {
-    if left.score > right.score {
-        return true;
-    }
-    if left.score < right.score {
-        return false;
-    }
-
-    let left_ar = left.ar.total();
-    let right_ar = right.ar.total();
-    if left_ar > right_ar {
-        return true;
-    }
-    if left_ar < right_ar {
-        return false;
-    }
-
-    if left.aow_full_sequence_damage > right.aow_full_sequence_damage {
-        return true;
-    }
-    if left.aow_full_sequence_damage < right.aow_full_sequence_damage {
-        return false;
-    }
-
-    if left.aow_first_hit_damage > right.aow_first_hit_damage {
-        return true;
-    }
-    if left.aow_first_hit_damage < right.aow_first_hit_damage {
-        return false;
-    }
-
-    if left.bleed_buildup > right.bleed_buildup {
-        return true;
-    }
-    if left.bleed_buildup < right.bleed_buildup {
-        return false;
+    if left.exact_key != right.exact_key {
+        return left.exact_key > right.exact_key;
     }
 
     if left.weapon_id != right.weapon_id {
@@ -319,5 +180,6 @@ pub(super) fn better_result(left: &OptimizeResult, right: &OptimizeResult) -> bo
     if left.upgrade != right.upgrade {
         return left.upgrade > right.upgrade;
     }
-    false
+    left.aow_id < right.aow_id
+        || left.aow_id == right.aow_id && left.stats.combat_array() < right.stats.combat_array()
 }

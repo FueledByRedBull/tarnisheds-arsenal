@@ -5,6 +5,7 @@ Status: accepted. These rules describe contracts that tests and future refactors
 ## Cache identity and versioning
 
 - Analysis cache keys include the profile ID, every behavior-affecting input, and the dataset schema, dataset version, and model version.
+- The runtime model version appends `/exact-v1` to the snapshot model version. Ranking treats each finite, validated loaded `f32` input as its exact binary rational while preserving gameplay floor boundaries. This identity change invalidates solved results from the former rounded contract while preserving normalized saved inputs; snapshot schema and dataset versions remain unchanged, so an old snapshot must not be relabeled as a migration.
 - A solved-build key uses the stable result fingerprint: weapon ID/name, affinity, AoW identity, upgrade, somber flag, and all five combat stats.
 - Caches are bounded. Eviction may reduce performance but must never alter results.
 - An aborted subscriber cannot populate a cache entry. When the last subscriber leaves, the pending entry is evicted immediately; backend work is also cancelled when that command exposes cancellation.

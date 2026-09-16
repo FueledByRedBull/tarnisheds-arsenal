@@ -8,6 +8,70 @@ Performance work is measured in release mode with one Rayon thread by default so
 
 Broad Search, Paths, and Affinity Watch cancellation has a 250 ms latency target on the reference development machine. Core enumeration checks this with a synchronized broad-search regression test; workflow tests separately prove cancellation propagates through their nested evaluators and returns no successful partial payload.
 
+## Exact scoring measurements
+
+A local Windows 11 run compared the `41aeaa1` floating-point implementation with
+`exact-v1`, using Rust 1.97 release builds, Vanilla 1.17, one Rayon thread, one
+warmup, and three measured repeats. Requests and upgrade policies were unchanged.
+These are different numerical contracts: near-tie winners may legitimately change.
+The complete nine-case result fingerprints stayed equivalent across the subsequent
+exact-scoring performance changes, including rational values and selected stats.
+
+| Case | Previous median (ms) | Exact median (ms) | Exact min-max (ms) |
+| --- | ---: | ---: | ---: |
+| Open Max AR | 1,015.9 | 643.9 | 642.8-643.9 |
+| Open physical AR | 1,034.0 | 626.2 | 621.7-627.3 |
+| Max AR, 500-row export | 1,029.9 | 718.8 | 718.3-728.1 |
+| High-level Max AR | 1,449.2 | 640.2 | 634.9-643.3 |
+| High-level, all upgrades | 29,459.4 | 1,441.6 | 1,429.1-1,447.0 |
+| Katana bleed | 13.7 | 11.16 | 11.10-11.19 |
+| Katana bleed, 500 rows | 13.3 | 11.25 | 11.20-11.34 |
+| Fixed AoW first hit | 0.174 | 0.064 | 0.062-0.073 |
+| Fixed AoW sequence | 0.165 | 0.149 | 0.143-0.212 |
+
+All nine medians improved in this run. Exact scoring uses inline `i128` rationals
+for ordinary coefficients and checked integer DP keys, promoting to arbitrary
+precision when needed. Shared primary plans retain every primary tie; unique
+primary winners avoid unnecessary secondary work. Broad and all-upgrade searches
+also benefit from exact bounds and evaluating promising configurations first.
+Scheduling estimates do not prune candidates. These measurements do not establish
+a speedup for every request, and the sub-millisecond cases show timing variability.
+
+The same release-mode workflow harness compared cold calculations with one warmup
+and three repeats. Paths includes one- and two-lane runs; Affinity Watch uses all
+13 eligible affinities.
+
+| Workflow | Previous median (ms) | Exact median (ms) | Exact min-max (ms) |
+| --- | ---: | ---: | ---: |
+| Affinity Watch, 10 levels | 23.152 | 36.193 | 35.890-36.233 |
+| Affinity Watch, 50 levels | 185.962 | 240.301 | 240.242-241.122 |
+| Affinity Watch, 200 levels | 2,971.433 | 2,619.789 | 2,608.413-2,629.535 |
+| Upgrade series, 26 points | 0.405 | 0.605 | 0.578-0.686 |
+| Paths, 10 levels, one lane | 0.749 | 0.892 | 0.887-0.909 |
+| Paths, 10 levels, two lanes | 1.473 | 1.733 | 1.725-1.742 |
+| Paths, 50 levels, one lane | 1.064 | 1.292 | 1.285-1.320 |
+| Paths, 50 levels, two lanes | 2.131 | 2.593 | 2.582-2.604 |
+| Paths, 200 levels, one lane | 4.118 | 5.436 | 5.436-5.479 |
+| Paths, 200 levels, two lanes | 8.199 | 10.898 | 10.896-10.912 |
+
+The remaining Paths/upgrade overhead is at most 2.7 ms in these cases. Shorter
+Affinity Watch runs add 13-54 ms, while the 200-level run improves by 352 ms.
+These are measured tradeoffs, not a claim of uniform performance parity. The
+calculations run on cancellable native workers rather than the window thread.
+The separate three-affinity level-range case takes 0.699 ms at horizon zero and
+2.251 ms at horizon ten (previously 0.651 and 1.533 ms); independently evaluating
+each level takes 0.704 and 8.056 ms under the exact contract.
+
+The rebuilt native release EXE completed an uncached eight-build solve batch in
+29.44 ms and a 26-point upgrade series in 4.33 ms (three-repeat medians including
+native communication). Concurrent manifest commands took 1.89 and 1.98 ms. Two
+conclusive cancellation samples both took 3.65 ms; a third calculation completed
+before cancellation took effect and was excluded from that median. The native
+smoke flow passed both profiles, comparisons, Paths, Affinity Watch, and saved
+builds. This was a local release EXE, not a newly published or signed MSI. These
+checks establish application behavior, not independent in-game validation of
+damage formulas.
+
 ## Stat-entry and search-space estimation
 
 Editing a numeric character field is local UI draft state. A valid value commits on
@@ -97,10 +161,11 @@ python tools/phase4/benchmark_optimizer_phases.py --warmups 1 --repeats 5 --outp
 The release-mode harness measures cold request preparation, candidate scoring/top-k retention, and final result materialization independently for all five objectives, including broad/open, high-level, exact-lock, and open-AoW cases. It records per-phase samples and medians, result counts, search-space size, build profile, Rayon thread count, dataset/model versions, commit, CPU, Rust version, and platform. Compare against a reviewed report with `--baseline`; comparisons report regressions but remain advisory unless a stable dedicated runner explicitly uses `--fail-on-regression`.
 
 The phase suite includes both low-level and high-level open Max AR searches. AR
-scoring uses a relevant-stat dynamic program whose exactness proof assumes exact
-arithmetic; the implementation uses `f32` and sampled regressions against exhaustive
-enumeration. Those checks do not prove unconditional floating-point equivalence
-(see [the proof's qualifications](design/optimizer-math.md)). Reports retain the equivalent exhaustive
+scoring uses exact integer DP coefficients and exact rational terminal keys.
+The proof still requires separability and sound active-stat selection
+(see [the numerical contract](design/optimizer-math.md#numerical-contract)).
+Comparisons with older `f32` builds may legitimately change near-tie winners;
+review those changes separately from same-contract parity. Reports retain the equivalent exhaustive
 combination count so historical search-space comparisons remain meaningful.
 
 The original phase cases use exact upgrade caps: +25/+10 for Vanilla and +15 for
@@ -110,10 +175,10 @@ search at level 93 with 25 results. Keep these workloads separate when comparing
 timings.
 
 For that all-upgrade case, the optimizer caches a primary allocation only when
-every feasible spend has one retained DP path and exact primary re-evaluation
-produces a unique winner. Ambiguous paths and exact primary ties retain the
+the best primary rank has one terminal spend and one retained DP path.
+Ambiguous winning paths and exact primary ties retain the
 route-aware evaluation. This avoids repeating route scoring for allocations that
-cannot win without relying on additive floating-point bounds.
+cannot win under the exact primary ordering.
 
 The historical timings below are observations, not reusable regression baselines.
 Their original dirty-worktree inputs and saved reports are not identified by

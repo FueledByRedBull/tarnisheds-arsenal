@@ -321,7 +321,7 @@ fn load_validated_game_data(
     let data = GameData {
         snapshot_schema_version: manifest.schema_version,
         dataset_version: manifest.dataset_version.clone(),
-        model_version: manifest.model_version.clone(),
+        model_version: crate::runtime_model_version(&manifest.model_version),
         profile_id: manifest.profile.id.clone(),
         profile_display_name: manifest.profile.display_name.clone(),
         capabilities: DataCapabilities {
