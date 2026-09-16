@@ -151,7 +151,6 @@ async function call<T>(command: string, args?: Record<string, unknown>): Promise
 export const api = {
   profiles: () => call<DataManifestDto[]>("get_profiles"),
   catalog: (profileId: string) => call<CatalogDto>("get_catalog", { profileId }),
-  dataManifest: (profileId: string) => call<DataManifestDto>("get_data_manifest", { profileId }),
   weaponProfile: (profileId: string, weaponName: string, affinity: string | null) =>
     call<WeaponProfileDto>("get_weapon_profile", {
       request: { profileId, weaponName, affinity },
@@ -191,17 +190,9 @@ export const api = {
   },
   affinitiesForWeapon: (profileId: string, weaponName: string) =>
     call<string[]>("affinities_for_weapon", { profileId, weaponName }),
-  compatibleAowNames: (profileId: string, weaponName: string | null, affinity: string | null) =>
-    call<string[]>("compatible_aow_names", {
-      request: { profileId, weaponName, affinity },
-    }),
   compatibleAowNamesForAffinity: (profileId: string, affinity: string | null) =>
     call<string[]>("compatible_aow_names_for_affinity", {
       request: { profileId, affinity },
-    }),
-  weaponNamesForType: (profileId: string, weaponTypeKey: string | null) =>
-    call<string[]>("weapon_names_for_type", {
-      request: { profileId, weaponTypeKey },
     }),
   startPathPreview: (requests: Array<{
     base: OptimizeRequestDto;
@@ -405,8 +396,6 @@ async function mockInvoke<T>(command: string, args?: Record<string, unknown>): P
       return [mockDataManifest("vanilla"), mockDataManifest("convergence")] as T;
     case "get_catalog":
       return await mockCatalog(String(args?.profileId ?? "vanilla")) as T;
-    case "get_data_manifest":
-      return mockDataManifest(String(args?.profileId ?? "vanilla")) as T;
     case "get_weapon_profile":
       return await mockWeaponProfile(args) as T;
     case "start_search":
@@ -419,14 +408,8 @@ async function mockInvoke<T>(command: string, args?: Record<string, unknown>): P
       return await mockSolveBuild(args) as T;
     case "build_upgrade_series":
       return await mockUpgradeSeries(args) as T;
-    case "weapon_names_for_type": {
-      const key = (args?.request as { weaponTypeKey?: string | null })?.weaponTypeKey;
-      return await mockWeaponNamesForType(key ?? null) as T;
-    }
     case "compatible_aow_names_for_affinity":
       return await mockCompatibleAowNamesForAffinity(args) as T;
-    case "compatible_aow_names":
-      return await mockCompatibleAowNames(args) as T;
     case "affinities_for_weapon":
       return await mockAffinitiesForWeapon(args) as T;
     case "start_path_preview":
@@ -549,14 +532,6 @@ async function mockWeaponProfile(args: Record<string, unknown> | undefined): Pro
     affinities: uniqueSorted(MOCK_WEAPONS.filter((row) => row.name === request.weaponName).map((row) => row.affinity)),
     compatibleAows: await mockCompatibleAowNames({ request }),
   };
-}
-
-async function mockWeaponNamesForType(weaponTypeKey: string | null): Promise<string[]> {
-  return uniqueSorted(
-    MOCK_WEAPONS
-      .filter((row) => !weaponTypeKey || row.weaponTypeName === weaponTypeKey)
-      .map((row) => row.name),
-  );
 }
 
 async function mockAffinitiesForWeapon(args: Record<string, unknown> | undefined): Promise<string[]> {

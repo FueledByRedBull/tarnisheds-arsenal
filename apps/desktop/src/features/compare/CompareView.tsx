@@ -3,12 +3,11 @@ import { AowSelect } from "../../lib/AowSelect";
 import { cachedComparisonSearch, cachedSolveBuild, cachedUpgradeSeries } from "../../lib/analysis-cache";
 import { compactNumber, fixed1, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
 import { CheckboxMultiSelect, SearchableSelect, openOption } from "../../lib/SearchableSelect";
-import { compareUpgradeHorizon, rowFingerprint, upgradeCapForRow } from "../../lib/session";
-import { stableSignature } from "../../lib/session";
+import { compareUpgradeHorizon, replaceFilterEntries, rowFingerprint, stableSignature, upgradeCapForRow } from "../../lib/session";
 import { LatestRequest } from "../../lib/request-generation";
 import { useRequestBudget } from "../../lib/hooks";
 import { useDesktopStore } from "../../lib/state";
-import { ScalingDto, SolvedBuildDto, StableFilterEntryDto, UpgradePointDto } from "../../lib/types";
+import { ScalingDto, SolvedBuildDto, UpgradePointDto } from "../../lib/types";
 import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 
 type CompareLane = {
@@ -264,7 +263,7 @@ export function CompareView() {
             weaponName: null,
             aowName: null,
             matchSelectedAow: false,
-            filters: { version: 1, entries: replaceCompareFilters(compareControls.filters.entries, "weapon_type", values, excludedValues) },
+            filters: { version: 1, entries: replaceFilterEntries(compareControls.filters.entries, "weapon_type", values, excludedValues) },
           })}
         />
         <SearchableSelect
@@ -279,8 +278,8 @@ export function CompareView() {
             aowName: null,
             filters: {
               version: 1,
-              entries: replaceCompareFilters(
-                replaceCompareFilters(compareControls.filters.entries, "weapon_type", [], []),
+              entries: replaceFilterEntries(
+                replaceFilterEntries(compareControls.filters.entries, "weapon_type", [], []),
                 "affinity",
                 [],
                 [],
@@ -296,7 +295,7 @@ export function CompareView() {
           onChange={(values, excludedValues) => patchCompareControls({
             aowName: null,
             matchSelectedAow: false,
-            filters: { version: 1, entries: replaceCompareFilters(compareControls.filters.entries, "affinity", values, excludedValues) },
+            filters: { version: 1, entries: replaceFilterEntries(compareControls.filters.entries, "affinity", values, excludedValues) },
           })}
         />
         <AowSelect
@@ -510,17 +509,4 @@ function scrollMatrix(element: HTMLDivElement | null, direction: -1 | 1) {
     left: direction < 0 ? 0 : element.scrollWidth,
     behavior: "smooth",
   });
-}
-
-function replaceCompareFilters(
-  entries: StableFilterEntryDto[],
-  dimension: "weapon_type" | "affinity",
-  ids: string[],
-  excludedIds: string[],
-): StableFilterEntryDto[] {
-  return [
-    ...entries.filter((entry) => entry.dimension !== dimension),
-    ...ids.map((id) => ({ dimension, id, mode: "include" as const })),
-    ...excludedIds.map((id) => ({ dimension, id, mode: "exclude" as const })),
-  ];
 }

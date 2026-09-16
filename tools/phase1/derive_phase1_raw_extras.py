@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.phase1.phase1_dump import iter_param_rows, to_int  # noqa: E402
+from tools.phase1.phase1_dump import iter_param_rows, object_to_int, to_int  # noqa: E402
 
 WEAPON_EFFECT_FIELDS = (
     "spEffectBehaviorId0",
@@ -52,12 +52,6 @@ KNOWN_ABSENT_PASSIVE_EFFECTS = {
         "there is no status payload to extract."
     ),
 }
-
-
-def _object_to_int(value: object) -> int:
-    if isinstance(value, (int, float, str)):
-        return int(value)
-    raise TypeError(f"expected an integer-compatible value, got {type(value).__name__}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -220,7 +214,7 @@ def build_weapon_passives(
             }
         )
     rows_out.sort(
-        key=lambda row: (str(row["name"]), str(row["affinity"]), _object_to_int(row["weapon_id"]))
+        key=lambda row: (str(row["name"]), str(row["affinity"]), object_to_int(row["weapon_id"]))
     )
     return rows_out
 
@@ -296,8 +290,8 @@ def build_weapon_passive_overlays(
         key=lambda row: (
             str(row["name"]),
             str(row["affinity"]),
-            _object_to_int(row["weapon_id"]),
-            _object_to_int(row["level"]),
+            object_to_int(row["weapon_id"]),
+            object_to_int(row["level"]),
         )
     )
     return rows_out

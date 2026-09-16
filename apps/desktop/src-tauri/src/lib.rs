@@ -18,14 +18,14 @@ pub struct AsyncJobHandle<T> {
 
 pub struct JobRegistry<T> {
     kind: &'static str,
-    handles: Mutex<std::collections::HashMap<String, AsyncJobHandle<T>>>,
+    handle: Mutex<Option<(String, AsyncJobHandle<T>)>>,
 }
 
 impl<T: Clone> JobRegistry<T> {
     pub fn new(kind: &'static str) -> Self {
         Self {
             kind,
-            handles: Mutex::new(std::collections::HashMap::new()),
+            handle: Mutex::new(None),
         }
     }
 
@@ -35,29 +35,31 @@ impl<T: Clone> JobRegistry<T> {
         handle: AsyncJobHandle<T>,
         is_finished: impl Fn(&T) -> bool,
     ) -> Result<(), errors::AppError> {
-        let mut guard = self.handles.lock().map_err(|_| self.lock_error())?;
-        guard.retain(|_, handle| {
+        let mut guard = self.handle.lock().map_err(|_| self.lock_error())?;
+        if guard.as_ref().is_some_and(|(_, handle)| {
             handle
                 .status
                 .lock()
                 .map(|status| !is_finished(&status))
                 .unwrap_or(false)
-        });
-        if !guard.is_empty() {
+        }) {
             return Err(errors::AppError::new(format!(
                 "{} job is already running. Stop or wait for it before starting another.",
                 self.kind
             )));
         }
-        guard.insert(job_id, handle);
+        *guard = Some((job_id, handle));
         Ok(())
     }
 
     pub fn cancel(&self, job_id: &str) -> Result<bool, errors::AppError> {
-        let guard = self.handles.lock().map_err(|_| self.lock_error())?;
-        let Some(handle) = guard.get(job_id) else {
+        let guard = self.handle.lock().map_err(|_| self.lock_error())?;
+        let Some((active_id, handle)) = guard.as_ref() else {
             return Ok(false);
         };
+        if active_id != job_id {
+            return Ok(false);
+        }
         handle.cancel.store(true, Ordering::Relaxed);
         Ok(true)
     }
@@ -67,22 +69,27 @@ impl<T: Clone> JobRegistry<T> {
         job_id: &str,
         is_finished: impl Fn(&T) -> bool,
     ) -> Result<Option<T>, errors::AppError> {
-        let mut guard = self.handles.lock().map_err(|_| self.lock_error())?;
-        let Some(handle) = guard.get(job_id) else {
-            return Ok(None);
+        let mut guard = self.handle.lock().map_err(|_| self.lock_error())?;
+        let status = {
+            let Some((active_id, handle)) = guard.as_ref() else {
+                return Ok(None);
+            };
+            if active_id != job_id {
+                return Ok(None);
+            }
+            handle
+                .status
+                .lock()
+                .map_err(|_| {
+                    errors::AppError::new(format!(
+                        "{} job status is unavailable. Retry once, then restart the app if it persists.",
+                        self.kind
+                    ))
+                })?
+                .clone()
         };
-        let status = handle
-            .status
-            .lock()
-            .map_err(|_| {
-                errors::AppError::new(format!(
-                    "{} job status is unavailable. Retry once, then restart the app if it persists.",
-                    self.kind
-                ))
-            })?
-            .clone();
         if is_finished(&status) {
-            guard.remove(job_id);
+            guard.take();
         }
         Ok(Some(status))
     }
@@ -95,12 +102,80 @@ impl<T: Clone> JobRegistry<T> {
     }
 }
 
+#[cfg(test)]
+mod job_registry_tests {
+    use super::*;
+
+    fn handle(status: Arc<Mutex<bool>>) -> AsyncJobHandle<bool> {
+        AsyncJobHandle {
+            cancel: Arc::new(AtomicBool::new(false)),
+            status,
+        }
+    }
+
+    #[test]
+    fn registry_replaces_finished_jobs_without_leaking_old_ids() {
+        let registry = JobRegistry::new("test");
+        let first_status = Arc::new(Mutex::new(false));
+        registry
+            .insert_if_idle(
+                "first".to_string(),
+                handle(Arc::clone(&first_status)),
+                |status| *status,
+            )
+            .unwrap();
+        assert!(
+            registry
+                .insert_if_idle(
+                    "second".to_string(),
+                    handle(Arc::new(Mutex::new(false))),
+                    |status| *status,
+                )
+                .is_err()
+        );
+        assert!(registry.cancel("first").unwrap());
+        assert!(
+            registry
+                .insert_if_idle(
+                    "second".to_string(),
+                    handle(Arc::new(Mutex::new(false))),
+                    |status| *status,
+                )
+                .is_err()
+        );
+
+        *first_status.lock().unwrap() = true;
+        let second_cancel = Arc::new(AtomicBool::new(false));
+        let second_status = Arc::new(Mutex::new(true));
+        registry
+            .insert_if_idle(
+                "second".to_string(),
+                AsyncJobHandle {
+                    cancel: Arc::clone(&second_cancel),
+                    status: second_status,
+                },
+                |status| *status,
+            )
+            .unwrap();
+        assert!(!registry.cancel("first").unwrap());
+        assert!(!second_cancel.load(Ordering::Relaxed));
+        assert!(registry.cancel("second").unwrap());
+        assert!(second_cancel.load(Ordering::Relaxed));
+        assert_eq!(registry.status("first", |status| *status).unwrap(), None);
+        assert_eq!(
+            registry.status("second", |status| *status).unwrap(),
+            Some(true)
+        );
+        assert_eq!(registry.status("second", |status| *status).unwrap(), None);
+    }
+}
+
 pub struct AppState {
     pub profiles: HashMap<String, Arc<ProfileData>>,
-    pub analysis_jobs: Arc<JobRegistry<dto::AnalysisJobStatusDto>>,
-    pub search_jobs: Arc<JobRegistry<dto::SearchJobStatusDto>>,
-    pub path_jobs: Arc<JobRegistry<dto::PathJobStatusDto>>,
-    pub affinity_jobs: Arc<JobRegistry<dto::AffinityWatchJobStatusDto>>,
+    pub analysis_jobs: JobRegistry<dto::AnalysisJobStatusDto>,
+    pub search_jobs: JobRegistry<dto::SearchJobStatusDto>,
+    pub path_jobs: JobRegistry<dto::PathJobStatusDto>,
+    pub affinity_jobs: JobRegistry<dto::AffinityWatchJobStatusDto>,
     pub next_job: AtomicU64,
 }
 
@@ -138,10 +213,10 @@ pub fn run() {
             let profiles = load_desktop_profiles(app)?;
             app.manage(AppState {
                 profiles,
-                analysis_jobs: Arc::new(JobRegistry::new("analysis")),
-                search_jobs: Arc::new(JobRegistry::new("search")),
-                path_jobs: Arc::new(JobRegistry::new("path")),
-                affinity_jobs: Arc::new(JobRegistry::new("affinity watch")),
+                analysis_jobs: JobRegistry::new("analysis"),
+                search_jobs: JobRegistry::new("search"),
+                path_jobs: JobRegistry::new("path"),
+                affinity_jobs: JobRegistry::new("affinity watch"),
                 next_job: AtomicU64::new(1),
             });
             Ok(())
@@ -339,10 +414,10 @@ pub(crate) fn test_app_state() -> AppState {
     }
     AppState {
         profiles,
-        analysis_jobs: Arc::new(JobRegistry::new("analysis")),
-        search_jobs: Arc::new(JobRegistry::new("search")),
-        path_jobs: Arc::new(JobRegistry::new("path")),
-        affinity_jobs: Arc::new(JobRegistry::new("affinity watch")),
+        analysis_jobs: JobRegistry::new("analysis"),
+        search_jobs: JobRegistry::new("search"),
+        path_jobs: JobRegistry::new("path"),
+        affinity_jobs: JobRegistry::new("affinity watch"),
         next_job: AtomicU64::new(1),
     }
 }

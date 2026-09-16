@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOptimizeRequest, classMeta, derivedLevel, EIGHT_STAT_KEYS, normalizeOptimizeRequest, optimalStartingClass, scalingLetter, STARTING_CLASS_METADATA, startingClassLevel } from "./session";
+import { buildOptimizeRequest, classMeta, derivedLevel, EIGHT_STAT_KEYS, normalizeOptimizeRequest, optimalStartingClass, replaceFilterEntries, scalingLetter, STARTING_CLASS_METADATA, startingClassLevel } from "./session";
 import { defaultRequest } from "./state";
 import type { CatalogDto } from "./types";
 
@@ -125,5 +125,20 @@ describe("request normalization properties", () => {
     expect(scalingLetter(2.25, true)).toBe("S++");
     expect(scalingLetter(2.277, true)).toBe("S++");
     expect(scalingLetter(2.277)).toBe("S");
+  });
+
+  it("replaces one filter dimension while preserving the others", () => {
+    const entries = [
+      { dimension: "coverage" as const, id: "coverage:weapon-ar", mode: "include" as const },
+      { dimension: "weapon_type" as const, id: "weapon-type:old", mode: "include" as const },
+      { dimension: "affinity" as const, id: "affinity:old", mode: "exclude" as const },
+    ];
+
+    expect(replaceFilterEntries(entries, "weapon_type", ["weapon-type:new"], ["weapon-type:blocked"])).toEqual([
+      entries[0],
+      { dimension: "affinity", id: "affinity:old", mode: "exclude" },
+      { dimension: "weapon_type", id: "weapon-type:new", mode: "include" },
+      { dimension: "weapon_type", id: "weapon-type:blocked", mode: "exclude" },
+    ]);
   });
 });

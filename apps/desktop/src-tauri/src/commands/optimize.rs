@@ -8,7 +8,7 @@ use er_optimizer_core::{
     optimize_prepared_with_progress, optimize_with_cancel, prepare_search_with_cancel,
     prepare_upgrade_series_evaluator_with_cancel,
 };
-use tauri::{AppHandle, State};
+use tauri::State;
 
 use crate::dto::{
     AnalysisFinishedDto, AnalysisJobKindDto, AnalysisJobStatusDto, CombatStateDto,
@@ -17,7 +17,7 @@ use crate::dto::{
     metric_for_objective, parse_objective,
 };
 use crate::errors::AppError;
-use crate::{AppState, AsyncJobHandle, CancelFlag};
+use crate::{AppState, AsyncJobHandle, CancelFlag, ProfileData};
 
 #[cfg(test)]
 pub fn run_search_inner(
@@ -52,7 +52,7 @@ where
 pub fn run_level_range_inner_with_progress<F, C>(
     mut request: crate::dto::OptimizeRequestDto,
     levels: &[u16],
-    state: &AppState,
+    profile: &ProfileData,
     level_complete: F,
     should_continue: C,
 ) -> Result<Vec<LevelOptimizeResult>, AppError>
@@ -60,8 +60,7 @@ where
     F: FnMut(u16) -> bool,
     C: FnMut() -> bool + Send,
 {
-    clamp_weapon_upgrade_request(&mut request, state)?;
-    let profile = state.profile(&request.profile_id)?;
+    clamp_weapon_upgrade_request_for_profile(&mut request, profile)?;
     let request = OptimizeRequest::try_from(&request)?;
     optimize_level_range_with_progress(
         &request,
@@ -364,7 +363,6 @@ pub fn get_analysis_status(
 #[tauri::command]
 pub fn start_search(
     mut request: crate::dto::OptimizeRequestDto,
-    _app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
     clamp_weapon_upgrade_request(&mut request, &state)?;
@@ -413,7 +411,7 @@ pub fn start_search(
             let mut payload = SearchProgressDto::from(snapshot);
             payload.job_id = progress_job_id.clone();
             if let Ok(mut guard) = status.lock() {
-                guard.progress = Some(payload.clone());
+                guard.progress = Some(payload);
             }
             true
         });
@@ -434,7 +432,7 @@ pub fn start_search(
             error,
         };
         if let Ok(mut guard) = status.lock() {
-            guard.finished = Some(finished.clone());
+            guard.finished = Some(finished);
         }
     });
 
@@ -461,6 +459,19 @@ pub fn clamp_weapon_upgrade_request(
     state: &AppState,
 ) -> Result<(), AppError> {
     let profile = state.profile(&request.profile_id)?;
+    clamp_weapon_upgrade_request_for_profile(request, profile)
+}
+
+fn clamp_weapon_upgrade_request_for_profile(
+    request: &mut crate::dto::OptimizeRequestDto,
+    profile: &ProfileData,
+) -> Result<(), AppError> {
+    if profile.data_manifest.profile.id != request.profile_id {
+        return Err(AppError::new(format!(
+            "Unknown game profile {:?}. Reload the catalog and choose an available profile.",
+            request.profile_id
+        )));
+    }
     if !crate::commands::data::class_metadata(
         profile.data_manifest.profile.game_version == "1.17",
         profile.data.capabilities.class_budget,

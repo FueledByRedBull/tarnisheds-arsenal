@@ -15,7 +15,8 @@ if str(ROOT) not in sys.path:
 
 from tools.phase1.extract_motion_workbook import MOTION_WORKBOOK_NAME, load_weapon_workbook_data  # noqa: E402
 from tools.phase1.derive_phase1_extras import (  # noqa: E402
-    derive_phase1_diagnostics,
+    build_aow_affinity_compat,
+    build_weapon_scaling_summary,
 )
 from tools.phase1.phase1_dump import MAX_EFFECTIVE_STRENGTH  # noqa: E402
 from tools.phase1.profiles import ProfileDefinition, profile_definition  # noqa: E402
@@ -172,7 +173,7 @@ def validate_aow_compatibility(
 
 
 def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[ValidationIssue]:
-    """Validate contracts shared by every profile without assuming Vanilla mechanics."""
+    """Validate shared contracts and the selected profile's coverage requirements."""
     issues: list[ValidationIssue] = []
     profile = profile_definition(profile_id)
     try:
@@ -181,13 +182,24 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
         return [ValidationIssue("error", f"invalid atomic snapshot manifest: {error}")]
     issues.extend(validate_profile_source_provenance(manifest, profile))
 
-    weapons = read_csv(data_dir / "weapons.csv")
-    reinforce = read_csv(data_dir / "reinforce.csv")
-    calc_correct = read_csv(data_dir / "calc_correct.csv")
-    aows = read_csv(data_dir / "aow.csv")
-    aow_attack_data = read_csv(data_dir / "aow_attack_data.csv")
-    native_skill_attack_data = read_csv(data_dir / "native_skill_attack_data.csv")
-    aow_route_assignments = read_csv(data_dir / "aow_route_assignments.csv")
+    tables = {
+        name: read_csv(data_dir / f"{name}.csv")
+        for name in (
+            "weapons", "reinforce", "calc_correct", "aow", "aow_attack_data",
+            "native_skill_attack_data", "aow_route_assignments", "attack_element_correct",
+            "attack_element_correct_ext", "weapon_passives",
+        )
+    }
+    weapons = tables["weapons"]
+    reinforce = tables["reinforce"]
+    calc_correct = tables["calc_correct"]
+    aows = tables["aow"]
+    aow_attack_data = tables["aow_attack_data"]
+    native_skill_attack_data = tables["native_skill_attack_data"]
+    aow_route_assignments = tables["aow_route_assignments"]
+    attack_element_correct = tables["attack_element_correct"]
+    attack_element_correct_ext = tables["attack_element_correct_ext"]
+    weapon_passives = tables["weapon_passives"]
     issues.extend(
         validate_aow_compatibility(
             weapons,
@@ -195,20 +207,19 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
             expected_affinities=set(profile.affinity_by_slot.values()),
         )
     )
-    attack_element_correct = read_csv(data_dir / "attack_element_correct.csv")
-    attack_element_correct_ext = read_csv(data_dir / "attack_element_correct_ext.csv")
-    weapon_passives = read_csv(data_dir / "weapon_passives.csv")
-    weapon_scaling_summary, aow_affinity_compat = derive_phase1_diagnostics(
-        data_dir,
+    weapon_scaling_summary = build_weapon_scaling_summary(
+        weapons,
+        attack_element_correct,
         extended_scaling_grades=profile.rules.extended_scaling_grades,
     )
+    aow_affinity_compat = build_aow_affinity_compat(weapons, aows)
 
     minimums = [
-        ("weapons.csv", len(weapons), 100),
-        ("reinforce.csv", len(reinforce), 100),
-        ("calc_correct.csv", len(calc_correct), 1_000),
-        ("aow.csv", len(aows), 50),
-        ("attack_element_correct_ext.csv", len(attack_element_correct_ext), 100),
+        ("weapons.csv", len(weapons), 3_000 if profile_id == "vanilla" else 100),
+        ("reinforce.csv", len(reinforce), 800 if profile_id == "vanilla" else 100),
+        ("calc_correct.csv", len(calc_correct), 7_000 if profile_id == "vanilla" else 1_000),
+        ("aow.csv", len(aows), 100 if profile_id == "vanilla" else 50),
+        ("attack_element_correct_ext.csv", len(attack_element_correct_ext), 150 if profile_id == "vanilla" else 100),
     ]
     for label, actual, minimum in minimums:
         if actual < minimum:
@@ -406,6 +417,9 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
                 "AoW routes are declared unsupported but route rows are present and could be consumed silently",
             )
         )
+    if profile_id == "vanilla":
+        issues.extend(_validate_vanilla_snapshot(data_dir, tables, reinforce_caps))
+
     return issues
 
 
@@ -415,42 +429,30 @@ def scoped(profile_id: str, issues: Iterable[ValidationIssue]) -> list[Validatio
 
 
 
-def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
+def _validate_vanilla_snapshot(
+    data_dir: Path,
+    tables: dict[str, list[dict[str, str]]],
+    reinforce_max: dict[int, int],
+) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
 
-    try:
-        validate_snapshot_manifest(data_dir)
-    except (OSError, ValueError, json.JSONDecodeError) as error:
-        issues.append(ValidationIssue("error", f"invalid atomic snapshot manifest: {error}"))
-
-    weapons = read_csv(data_dir / "weapons.csv")
-    reinforce = read_csv(data_dir / "reinforce.csv")
-    calc_correct = read_csv(data_dir / "calc_correct.csv")
-    aows = read_csv(data_dir / "aow.csv")
-    aow_attack_data = read_csv(data_dir / "aow_attack_data.csv")
+    weapons = tables["weapons"]
+    calc_correct = tables["calc_correct"]
+    aows = tables["aow"]
+    aow_attack_data = tables["aow_attack_data"]
+    native_skill_attack_data = tables["native_skill_attack_data"]
+    aow_route_assignments = tables["aow_route_assignments"]
+    attack_element_correct_ext = tables["attack_element_correct_ext"]
+    weapon_passives = tables["weapon_passives"]
     aow_effect_data = read_csv(data_dir / "aow_effect_data.csv")
     aow_effect_coverage = read_csv(data_dir / "aow_effect_coverage.csv")
     aow_effect_exclusions = read_csv(data_dir / "aow_effect_exclusions.csv")
     aow_damage_coverage = read_csv(data_dir / "aow_damage_coverage.csv")
-    native_skill_attack_data = read_csv(data_dir / "native_skill_attack_data.csv")
     native_skill_damage_coverage = read_csv(data_dir / "native_skill_damage_coverage.csv")
-    aow_route_assignments = read_csv(data_dir / "aow_route_assignments.csv")
     aow_route_exclusions = read_csv(data_dir / "aow_route_exclusions.csv")
-    attack_element_correct_ext = read_csv(data_dir / "attack_element_correct_ext.csv")
-    weapon_passives = read_csv(data_dir / "weapon_passives.csv")
     weapon_passive_overlays = read_csv(data_dir / "weapon_passive_overlays.csv")
     passive_effect_coverage = read_csv(data_dir / "passive_effect_coverage.csv")
 
-    if len(weapons) < 3000:
-        issues.append(ValidationIssue("error", f"weapons.csv row count too low: {len(weapons)}"))
-    if len(reinforce) < 800:
-        issues.append(ValidationIssue("error", f"reinforce.csv row count too low: {len(reinforce)}"))
-    if len(calc_correct) < 7000:
-        issues.append(
-            ValidationIssue("error", f"calc_correct.csv row count too low: {len(calc_correct)}")
-        )
-    if len(aows) < 100:
-        issues.append(ValidationIssue("error", f"aow.csv row count too low: {len(aows)}"))
     if len(aow_attack_data) < 1000:
         issues.append(
             ValidationIssue("error", f"aow_attack_data.csv row count too low: {len(aow_attack_data)}")
@@ -480,14 +482,6 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
                     "weapon_passive_overlays.csv row count too low: "
                     f"{len(weapon_passive_overlays)}"
                 ),
-            )
-        )
-    npc_rows = [row for row in weapons if "[NPC]" in row.get("name", "")]
-    if npc_rows:
-        issues.append(
-            ValidationIssue(
-                "error",
-                f"weapons.csv contains NPC-only rows: {npc_rows[0].get('name', '<unknown>')}",
             )
         )
     disabled_nonstandard = [
@@ -550,30 +544,6 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
                     "aow_damage_coverage.csv should align 1:1 with aow.csv "
                     f"({len(aow_damage_coverage)} vs {len(aows)})"
                 ),
-            )
-        )
-    if len(attack_element_correct_ext) < 150:
-        issues.append(
-            ValidationIssue(
-                "error",
-                f"attack_element_correct_ext.csv row count too low: {len(attack_element_correct_ext)}",
-            )
-        )
-    if len(weapon_passives) != len(weapons):
-        issues.append(
-            ValidationIssue(
-                "error",
-                (
-                    "weapon_passives.csv should align 1:1 with weapons.csv "
-                    f"({len(weapon_passives)} vs {len(weapons)})"
-                ),
-            )
-        )
-    if len(weapon_passive_overlays) < 1000:
-        issues.append(
-            ValidationIssue(
-                "error",
-                f"weapon_passive_overlays.csv row count too low: {len(weapon_passive_overlays)}",
             )
         )
     if weapons:
@@ -807,7 +777,6 @@ def validate_data_snapshot(data_dir: Path) -> list[ValidationIssue]:
             )
         )
 
-    reinforce_max = max_reinforce_levels(reinforce)
     used_types: dict[int, list[int]] = defaultdict(list)
     zero_base_count = 0
     used_curve_ids: set[int] = set()
@@ -1024,10 +993,6 @@ def main() -> int:
             issues.append(ValidationIssue("error", f"[{profile_id}] missing data dir {data_dir}"))
             continue
         issues.extend(scoped(profile_id, validate_profile_snapshot(data_dir, profile_id)))
-
-    vanilla_dir = profile_dirs["vanilla"]
-    if vanilla_dir.exists():
-        issues.extend(scoped("vanilla", validate_data_snapshot(vanilla_dir)))
 
     errors = [issue for issue in issues if issue.level == "error"]
     warnings = [issue for issue in issues if issue.level == "warning"]

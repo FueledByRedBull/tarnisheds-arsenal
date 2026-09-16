@@ -6,7 +6,7 @@ use er_optimizer_core::{
     OptimizeRequest, OptimizeResult, PreparedLoadoutEvaluator, effective_str,
     prepare_loadout_evaluator_with_cancel,
 };
-use tauri::{AppHandle, State};
+use tauri::State;
 
 use crate::commands::data::{
     weapon_disables_two_hand_bonus, weapon_forces_two_handing, weapon_requirements,
@@ -18,12 +18,11 @@ use crate::dto::{
     validate_path_batch,
 };
 use crate::errors::AppError;
-use crate::{AppState, AsyncJobHandle, CancelFlag, JobRegistry};
+use crate::{AppState, AsyncJobHandle, CancelFlag, ProfileData};
 
 #[tauri::command]
 pub fn start_path_preview(
     request: StartPathPreviewRequestDto,
-    _app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
     validate_path_batch(request.requests.len())?;
@@ -48,7 +47,7 @@ pub fn start_path_preview(
             "Paths requires verified profile class budgets.",
         ));
     }
-    let profiles = state.profiles.clone();
+    let profile = Arc::clone(state.profile(&profile_id)?);
     let job_number = state.next_job.fetch_add(1, Ordering::Relaxed);
     let job_id = format!("path-{job_number}");
     let cancel_flag: CancelFlag = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -67,14 +66,6 @@ pub fn start_path_preview(
 
     let job_id_for_task = job_id.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let task_state = AppState {
-            profiles,
-            analysis_jobs: Arc::new(JobRegistry::new("analysis")),
-            search_jobs: Arc::new(JobRegistry::new("search")),
-            path_jobs: Arc::new(JobRegistry::new("path")),
-            affinity_jobs: Arc::new(JobRegistry::new("affinity watch")),
-            next_job: Default::default(),
-        };
         let total = request
             .requests
             .iter()
@@ -97,7 +88,7 @@ pub fn start_path_preview(
                 break;
             }
             let title = lane.title.clone();
-            match build_path_preview_inner(lane, &task_state, |level| {
+            match build_path_preview_inner(lane, &profile, |level| {
                 if cancel_flag.load(Ordering::Relaxed) {
                     return false;
                 }
@@ -135,7 +126,7 @@ pub fn start_path_preview(
             error,
         };
         if let Ok(mut guard) = status.lock() {
-            guard.finished = Some(finished.clone());
+            guard.finished = Some(finished);
         }
     });
 
@@ -159,12 +150,18 @@ pub fn get_path_preview_status(
 
 fn build_path_preview_inner(
     request: PathPreviewRequestDto,
-    state: &AppState,
+    profile: &ProfileData,
     mut continue_cb: impl FnMut(u16) -> bool + Send,
 ) -> Result<PathPreviewDto, AppError> {
+    if profile.data_manifest.profile.id != request.base.profile_id {
+        return Err(AppError::new(format!(
+            "Unknown game profile {:?}. Reload the catalog and choose an available profile.",
+            request.base.profile_id
+        )));
+    }
     validate_levels_ahead(request.levels_ahead)?;
     if request.mode == PathMode::OptimumEnvelope {
-        return build_optimum_envelope(request, state, continue_cb);
+        return build_optimum_envelope(request, profile, continue_cb);
     }
     let start_state = request.solved.stats;
     let target_level = request
@@ -174,7 +171,7 @@ fn build_path_preview_inner(
     if !continue_cb(request.base.character_level) {
         return Err(AppError::new("cancelled"));
     }
-    let evaluator = prepare_path_evaluator(&request, target_level, state, &mut continue_cb)?;
+    let evaluator = prepare_path_evaluator(&request, target_level, profile, &mut continue_cb)?;
     let first = evaluate_step(
         &request.base,
         &request.solved.weapon_name,
@@ -185,7 +182,7 @@ fn build_path_preview_inner(
         request.base.character_level,
         start_state,
         None,
-        state,
+        profile,
         &evaluator,
         &mut continue_cb,
     )?;
@@ -214,7 +211,7 @@ fn build_path_preview_inner(
             level,
             current_state,
             target.stats,
-            state,
+            profile,
             &evaluator,
             &mut continue_cb,
         )?
@@ -234,7 +231,7 @@ fn build_path_preview_inner(
 
 fn build_optimum_envelope(
     request: PathPreviewRequestDto,
-    state: &AppState,
+    profile: &ProfileData,
     continue_cb: impl FnMut(u16) -> bool + Send,
 ) -> Result<PathPreviewDto, AppError> {
     let first_level = request.base.character_level;
@@ -256,7 +253,7 @@ fn build_optimum_envelope(
     let rows = crate::commands::optimize::run_level_range_inner_with_progress(
         template,
         &levels,
-        state,
+        profile,
         continue_cb,
         || true,
     )?;
@@ -322,7 +319,7 @@ fn describe_allocation_change(previous: CombatStateDto, next: CombatStateDto) ->
 fn prepare_path_evaluator<'a>(
     request: &PathPreviewRequestDto,
     target_level: u16,
-    state: &'a AppState,
+    profile: &'a ProfileData,
     continue_cb: &mut (impl FnMut(u16) -> bool + Send),
 ) -> Result<PreparedLoadoutEvaluator<'a>, AppError> {
     let mut template = request.base.clone();
@@ -335,7 +332,6 @@ fn prepare_path_evaluator<'a>(
     template.set_exact_upgrade(request.solved.upgrade, request.solved.is_somber);
     template.top_k = 1;
     let core_request = OptimizeRequest::try_from(&template)?;
-    let profile = state.profile(&request.base.profile_id)?;
     prepare_loadout_evaluator_with_cancel(&core_request, &profile.data, || {
         continue_cb(target_level)
     })
@@ -378,7 +374,7 @@ fn choose_next_step(
     level: u16,
     current_state: CombatStateDto,
     target_state: CombatStateDto,
-    state: &AppState,
+    profile: &ProfileData,
     evaluator: &PreparedLoadoutEvaluator<'_>,
     continue_cb: &mut (impl FnMut(u16) -> bool + Send),
 ) -> Result<Option<EvaluatedPathStep>, AppError> {
@@ -403,7 +399,7 @@ fn choose_next_step(
             level,
             next_state,
             Some(stat.to_string()),
-            state,
+            profile,
             evaluator,
             continue_cb,
         )?);
@@ -426,7 +422,7 @@ fn evaluate_step(
     level: u16,
     stats: CombatStateDto,
     added_stat: Option<String>,
-    state: &AppState,
+    profile: &ProfileData,
     evaluator: &PreparedLoadoutEvaluator<'_>,
     continue_cb: &mut (impl FnMut(u16) -> bool + Send),
 ) -> Result<EvaluatedPathStep, AppError> {
@@ -454,7 +450,7 @@ fn evaluate_step(
     let requirement_gap = if solved.is_some() {
         0
     } else {
-        requirement_gap(base, weapon_name, Some(affinity), stats, state)?
+        requirement_gap(base, weapon_name, Some(affinity), stats, profile)?
     };
     Ok(EvaluatedPathStep {
         dto: PathStepDto {
@@ -473,9 +469,8 @@ fn requirement_gap(
     weapon_name: &str,
     affinity: Option<&str>,
     stats: CombatStateDto,
-    state: &AppState,
+    profile: &ProfileData,
 ) -> Result<u16, AppError> {
-    let profile = state.profile(&base.profile_id)?;
     let reqs = weapon_requirements(&profile.catalog_index, weapon_name, affinity)?;
     let disables_bonus =
         weapon_disables_two_hand_bonus(&profile.catalog_index, weapon_name, affinity);
@@ -593,7 +588,9 @@ mod integration_tests {
                 "Unknown weapon",
                 None,
                 request.solved.stats,
-                &state
+                state
+                    .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+                    .expect("Vanilla profile exists")
             )
             .is_err()
         );
@@ -602,7 +599,10 @@ mod integration_tests {
     #[test]
     fn packaged_snapshot_executes_real_path_command_logic() {
         let state = crate::test_app_state();
-        let path = build_path_preview_inner(request(&state), &state, |_| true)
+        let profile = state
+            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+            .expect("Vanilla profile exists");
+        let path = build_path_preview_inner(request(&state), profile, |_| true)
             .expect("real path command succeeds");
         assert_eq!(path.title, "Selected");
         assert!(!path.steps.is_empty());
@@ -614,7 +614,10 @@ mod integration_tests {
         let mut envelope_request = request(&state);
         envelope_request.mode = PathMode::OptimumEnvelope;
         envelope_request.levels_ahead = 2;
-        let path = build_path_preview_inner(envelope_request, &state, |_| true)
+        let profile = state
+            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+            .expect("Vanilla profile exists");
+        let path = build_path_preview_inner(envelope_request, profile, |_| true)
             .expect("optimum envelope succeeds");
         assert_eq!(path.steps.len(), 3);
         assert!(
@@ -627,7 +630,10 @@ mod integration_tests {
     #[test]
     fn real_path_command_honors_cancellation() {
         let state = crate::test_app_state();
-        let error = build_path_preview_inner(request(&state), &state, |_| false)
+        let profile = state
+            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+            .expect("Vanilla profile exists");
+        let error = build_path_preview_inner(request(&state), profile, |_| false)
             .expect_err("cancelled path must fail closed");
         assert_eq!(error.message, "cancelled");
     }
@@ -644,8 +650,11 @@ mod integration_tests {
             .weapons
             .len()
             + 8;
+        let profile = state
+            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+            .expect("Vanilla profile exists");
         let mut polls = 0_usize;
-        let error = build_path_preview_inner(nested_request, &state, |_| {
+        let error = build_path_preview_inner(nested_request, profile, |_| {
             polls += 1;
             polls < cancel_after
         })
@@ -658,6 +667,9 @@ mod integration_tests {
     #[ignore = "release-mode workflow benchmark"]
     fn workflow_benchmark_paths() {
         let state = crate::test_app_state();
+        let profile = state
+            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+            .expect("Vanilla profile exists");
         let repeats = std::env::var("ER_BENCH_REPEATS")
             .ok()
             .and_then(|value| value.parse::<usize>().ok())
@@ -672,7 +684,7 @@ mod integration_tests {
                         let mut lane_request = request(&state);
                         lane_request.levels_ahead = horizon;
                         lane_request.title = format!("Lane {}", lane + 1);
-                        let path = build_path_preview_inner(lane_request, &state, |_| true)
+                        let path = build_path_preview_inner(lane_request, profile, |_| true)
                             .expect("benchmark path succeeds");
                         assert!(!path.steps.is_empty());
                     }

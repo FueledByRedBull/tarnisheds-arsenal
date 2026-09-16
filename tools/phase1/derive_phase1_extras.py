@@ -2,17 +2,10 @@
 
 from __future__ import annotations
 
-import csv
 from collections import defaultdict
-from pathlib import Path
 
 STAT_KEYS = ("str", "dex", "int", "fai", "arc")
 DAMAGE_KEYS = ("physical", "magic", "fire", "lightning", "holy")
-
-
-def read_csv(path: Path) -> list[dict[str, str]]:
-    with path.open("r", encoding="utf-8", newline="") as handle:
-        return list(csv.DictReader(handle))
 
 
 def scale_letter(value: float, extended: bool = False) -> str:
@@ -119,22 +112,3 @@ def build_aow_affinity_compat(
             }
         )
     return rows
-
-
-def derive_phase1_diagnostics(
-    input_dir: Path,
-    *,
-    extended_scaling_grades: bool = False,
-) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
-    weapons = read_csv(input_dir / "weapons.csv")
-    aec_rows = read_csv(input_dir / "attack_element_correct.csv")
-    aows = read_csv(input_dir / "aow.csv")
-
-    return (
-        build_weapon_scaling_summary(
-            weapons,
-            aec_rows,
-            extended_scaling_grades=extended_scaling_grades,
-        ),
-        build_aow_affinity_compat(weapons, aows),
-    )
