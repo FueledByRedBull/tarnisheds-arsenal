@@ -238,13 +238,14 @@ fn build_optimum_envelope(
     let last_level = first_level.saturating_add(request.levels_ahead);
     let levels = (first_level..=last_level).collect::<Vec<_>>();
     let mut template = request.base.clone();
-    template.weapon_name = Some(request.solved.weapon_name.clone());
-    template.affinity = Some(request.solved.affinity.clone());
-    template.aow_name = request.solved.aow_name.clone();
-    template.weapon_type_key = None;
-    template.somber_filter = "all".to_string();
-    template.set_exact_upgrade(request.solved.upgrade, request.solved.is_somber);
-    template.top_k = 1;
+    set_path_loadout(
+        &mut template,
+        &request.solved.weapon_name,
+        &request.solved.affinity,
+        request.solved.aow_name.as_deref(),
+        request.solved.upgrade,
+        request.solved.is_somber,
+    );
     template.lock_str = None;
     template.lock_dex = None;
     template.lock_int = None;
@@ -324,13 +325,14 @@ fn prepare_path_evaluator<'a>(
 ) -> Result<PreparedLoadoutEvaluator<'a>, AppError> {
     let mut template = request.base.clone();
     template.character_level = target_level;
-    template.weapon_name = Some(request.solved.weapon_name.clone());
-    template.affinity = Some(request.solved.affinity.clone());
-    template.aow_name = request.solved.aow_name.clone();
-    template.weapon_type_key = None;
-    template.somber_filter = "all".to_string();
-    template.set_exact_upgrade(request.solved.upgrade, request.solved.is_somber);
-    template.top_k = 1;
+    set_path_loadout(
+        &mut template,
+        &request.solved.weapon_name,
+        &request.solved.affinity,
+        request.solved.aow_name.as_deref(),
+        request.solved.upgrade,
+        request.solved.is_somber,
+    );
     let core_request = OptimizeRequest::try_from(&template)?;
     prepare_loadout_evaluator_with_cancel(&core_request, &profile.data, || {
         continue_cb(target_level)
@@ -346,13 +348,14 @@ fn path_target_build(
 ) -> Result<Option<crate::dto::SolvedBuildDto>, AppError> {
     let mut target_request = request.base.clone();
     target_request.character_level = target_level;
-    target_request.weapon_name = Some(request.solved.weapon_name.clone());
-    target_request.affinity = Some(request.solved.affinity.clone());
-    target_request.aow_name = request.solved.aow_name.clone();
-    target_request.set_exact_upgrade(request.solved.upgrade, request.solved.is_somber);
-    target_request.top_k = 1;
-    target_request.weapon_type_key = None;
-    target_request.somber_filter = "all".to_string();
+    set_path_loadout(
+        &mut target_request,
+        &request.solved.weapon_name,
+        &request.solved.affinity,
+        request.solved.aow_name.as_deref(),
+        request.solved.upgrade,
+        request.solved.is_somber,
+    );
     target_request.lock_str = None;
     target_request.lock_dex = None;
     target_request.lock_int = None;
@@ -428,13 +431,14 @@ fn evaluate_step(
 ) -> Result<EvaluatedPathStep, AppError> {
     let mut request = base.clone();
     request.character_level = level;
-    request.weapon_name = Some(weapon_name.to_string());
-    request.affinity = Some(affinity.to_string());
-    request.aow_name = aow_name.map(str::to_string);
-    request.set_exact_upgrade(upgrade, is_somber);
-    request.top_k = 1;
-    request.weapon_type_key = None;
-    request.somber_filter = "all".to_string();
+    set_path_loadout(
+        &mut request,
+        weapon_name,
+        affinity,
+        aow_name,
+        upgrade,
+        is_somber,
+    );
     request.min_str = 0;
     request.min_dex = 0;
     request.min_int = 0;
@@ -462,6 +466,24 @@ fn evaluate_step(
         },
         solved,
     })
+}
+
+fn set_path_loadout(
+    request: &mut crate::dto::OptimizeRequestDto,
+    weapon_name: &str,
+    affinity: &str,
+    aow_name: Option<&str>,
+    upgrade: u8,
+    is_somber: bool,
+) {
+    request.weapon_name = Some(weapon_name.to_string());
+    request.affinity = Some(affinity.to_string());
+    request.aow_name = aow_name.map(str::to_string);
+    request.weapon_type_key = None;
+    request.somber_filter = "all".to_string();
+    request.filters.entries.clear();
+    request.set_exact_upgrade(upgrade, is_somber);
+    request.top_k = 1;
 }
 
 fn requirement_gap(
@@ -625,6 +647,61 @@ mod integration_tests {
                 .windows(2)
                 .all(|steps| steps[0].level + 1 == steps[1].level)
         );
+    }
+
+    #[test]
+    fn path_modes_ignore_discovery_filters_for_selected_loadout() {
+        let state = crate::test_app_state();
+        let profile = state
+            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+            .expect("Vanilla profile exists");
+        let mut path_request = request(&state);
+        let selected_weapon = profile
+            .data
+            .weapons
+            .iter()
+            .find(|weapon| {
+                weapon
+                    .name
+                    .eq_ignore_ascii_case(&path_request.solved.weapon_name)
+                    && weapon
+                        .affinity
+                        .eq_ignore_ascii_case(&path_request.solved.affinity)
+            })
+            .expect("selected loadout exists in profile");
+        let conflicting_weapon = profile
+            .data
+            .weapons
+            .iter()
+            .find(|weapon| {
+                weapon.type_filter_id() != selected_weapon.type_filter_id()
+                    && weapon.affinity_filter_id() != selected_weapon.affinity_filter_id()
+            })
+            .expect("profile has a different type and affinity");
+        path_request.base.filters.entries = vec![
+            crate::dto::StableFilterEntryDto {
+                dimension: "weapon_type".to_string(),
+                id: conflicting_weapon.type_filter_id(),
+                mode: "include".to_string(),
+            },
+            crate::dto::StableFilterEntryDto {
+                dimension: "affinity".to_string(),
+                id: conflicting_weapon.affinity_filter_id(),
+                mode: "include".to_string(),
+            },
+        ];
+
+        for mode in [PathMode::NoRespec, PathMode::OptimumEnvelope] {
+            let mut lane = path_request.clone();
+            lane.mode = mode;
+            lane.levels_ahead = 2;
+            let path = build_path_preview_inner(lane, profile, |_| true)
+                .expect("fixed selected loadout remains evaluable");
+            assert!(
+                path.steps.iter().all(|step| step.metric.is_some()),
+                "{mode:?} should ignore discovery filters for the selected loadout"
+            );
+        }
     }
 
     #[test]

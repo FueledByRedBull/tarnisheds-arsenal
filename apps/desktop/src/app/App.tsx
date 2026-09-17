@@ -151,9 +151,9 @@ export function App() {
           <div
             className={`profile-coverage ${profileReady ? (limitedAowModel ? "limited" : "complete") : "loading"}`}
             role="status"
-            title={profileReady && !limitedAowModel ? "Weapon and Ash of War calculations are verified for this snapshot." : undefined}
+            title={profileReady ? "Validated snapshot loaded; available calculations follow its declared capabilities." : undefined}
           >
-            <strong>{profileReady ? (limitedAowModel ? "Experimental fixed-stat model" : "Full model ready") : "Loading profile…"}</strong>
+            <strong>{profileReady ? (limitedAowModel ? "Experimental fixed-stat model" : "Snapshot loaded") : "Loading profile…"}</strong>
             {!profileReady ? (
               <span>Loading and validating the selected data snapshot.</span>
             ) : limitedAowModel ? (

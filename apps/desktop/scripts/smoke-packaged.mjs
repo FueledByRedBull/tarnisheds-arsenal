@@ -46,7 +46,7 @@ try {
   }
 
   markSmokeStage("wait for vanilla model");
-  await page.getByText("Full model ready", { exact: true }).waitFor();
+  await page.getByText("Snapshot loaded", { exact: true }).waitFor();
   if (await page.getByRole("radio", { name: /Vanilla/ }).getAttribute("aria-checked") !== "true") {
     throw new Error("packaged smoke did not start on the Vanilla profile");
   }
@@ -115,7 +115,7 @@ try {
   markSmokeStage("switch back to Vanilla profile");
   await profileSwitch.getByRole("radio", { name: /Vanilla/ }).click();
   markSmokeStage("wait for Vanilla model after profile switch");
-  await page.getByText("Full model ready", { exact: true }).waitFor();
+  await page.getByText("Snapshot loaded", { exact: true }).waitFor();
   await expect(page.getByRole("button", { name: "AoW First Hit", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Optimize class", exact: true })).toBeEnabled();
   await expect(page.getByRole("combobox", { name: "Class", exact: true })).toHaveValue("Samurai");
@@ -195,7 +195,7 @@ try {
   await page.getByText(`Deleted ${presetName}.`, { exact: true }).waitFor();
   await page.reload();
   markSmokeStage("wait for final Vanilla model");
-  await page.getByText("Full model ready", { exact: true }).waitFor();
+  await page.getByText("Snapshot loaded", { exact: true }).waitFor();
   const savedBuilds = page.getByRole("combobox", { name: "Saved", exact: true });
   await savedBuilds.locator('option[value=""]').waitFor({ state: "attached" });
   if (await savedBuilds.inputValue() !== "") {

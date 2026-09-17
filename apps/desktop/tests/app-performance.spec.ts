@@ -85,7 +85,27 @@ test("returning to an unchanged custom comparison reuses the completed search", 
   await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
   expect(await page.locator(".compare-lane").allTextContents()).toEqual(lanes);
   expect(await page.evaluate(() => (window as any).comparisonSearches)).toBe(initialSearches);
+  await page.evaluate(async () => {
+    const { api } = await import("/src/lib/api.ts");
+    const original = api.buildUpgradeSeries;
+    (window as any).comparisonUpgradeSeries = 0;
+    api.buildUpgradeSeries = async (...args: Parameters<typeof original>) => {
+      (window as any).comparisonUpgradeSeries++;
+      return original(...args);
+    };
+  });
+  const initialUpgradeSeries = await page.evaluate(() => (window as any).comparisonUpgradeSeries);
   await page.getByRole("checkbox", { name: "Two-handing", exact: true }).check();
+  await expect(page.getByText("Update Rankings before comparing", { exact: true })).toBeVisible();
+  await expect(page.locator(".compare-lane")).toHaveCount(0);
+  await expect(page.locator(".compare-deltas")).toHaveCount(0);
+  await expect(page.locator(".matrix-wrap")).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).comparisonSearches)).toBe(initialSearches);
+  expect(await page.evaluate(() => (window as any).comparisonUpgradeSeries)).toBe(initialUpgradeSeries);
+  await page.getByRole("button", { name: "Go to Rankings", exact: true }).click();
+  await page.getByRole("button", { name: "Update Results", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await nav.getByRole("button", { name: "Compare", exact: true }).click();
   await expect.poll(() => page.evaluate(() => (window as any).comparisonSearches)).toBeGreaterThan(initialSearches);
   await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
 });

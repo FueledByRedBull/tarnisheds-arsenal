@@ -1,16 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import { cachedWeaponProfile } from "./analysis-cache";
 import { buildOptimizeRequest, budgetSnapshot } from "./session";
 import { stableSignature } from "./session";
-import { progressSignature, startAdaptivePolling } from "./polling";
+import { progressSignature } from "./polling";
+import { createNativeJobQueue } from "./native-jobs";
 import { LatestRequest } from "./request-generation";
 import {
   AffinityWatchFinishedDto,
+  AffinityWatchJobStatusDto,
   AffinityWatchProgressDto,
   CatalogDto,
   OptimizeRequestDto,
   PathFinishedDto,
+  PathJobStatusDto,
   PathProgressDto,
   WeaponProfileDto,
 } from "./types";
@@ -88,85 +91,92 @@ export function useWeaponProfile(
 type JobEvent = { jobId: string };
 type JobStatus<P extends JobEvent, F extends JobEvent> = { progress: P | null; finished: F | null };
 
-function usePollingJob<P extends JobEvent, F extends JobEvent>(options: {
-  activeJobId: string | null;
+type NativeJobQueue<S extends { finished: JobEvent | null }> = (
+  start: () => Promise<{ jobId: string }>,
+  signal?: AbortSignal,
+  onStatus?: (status: S) => void,
+  onStarted?: (jobId: string) => void,
+) => Promise<NonNullable<S["finished"]>>;
+
+const pathQueue = createNativeJobQueue<PathJobStatusDto>(
+  jobId => api.pathPreviewStatus(jobId),
+  jobId => api.cancelPathPreview(jobId),
+  status => progressSignature(status.progress),
+);
+
+const affinityQueue = createNativeJobQueue<AffinityWatchJobStatusDto>(
+  jobId => api.affinityWatchStatus(jobId),
+  jobId => api.cancelAffinityWatch(jobId),
+  status => progressSignature(status.progress),
+);
+
+function usePollingJob<P extends JobEvent, F extends JobEvent, S extends JobStatus<P, F>>(options: {
   busy: boolean;
   generation: number;
-  poll: (jobId: string) => Promise<JobStatus<P, F> | null>;
-  cancel: (jobId: string) => Promise<boolean>;
+  queue: NativeJobQueue<S>;
   setProgress: (progress: P | null) => void;
-  finish: (payload: F, generation: number) => void;
-  missing: (jobId: string) => F;
-  failed: (jobId: string, error: unknown) => F;
-}) {
-  const { activeJobId, busy, generation } = options;
+  onStarted: (jobId: string, generation: number) => void;
+}): (start: () => Promise<{ jobId: string }>, generation: number) => Promise<F> {
   const latest = useRef(options);
   latest.current = options;
+  const active = useRef<{ controller: AbortController; generation: number } | null>(null);
 
   useEffect(() => {
-    if (!activeJobId || !busy) return undefined;
-    const jobId = activeJobId;
-    const polling = startAdaptivePolling({
-      poll: () => latest.current.poll(jobId),
-      progressKey: (status) => progressSignature(status.progress),
-      onStatus: (status) => {
-        if (status.progress?.jobId === jobId) latest.current.setProgress(status.progress);
-        const finished = status.finished;
-        if (!finished || finished.jobId !== jobId) return false;
-        latest.current.finish(finished, generation);
-        return true;
-      },
-      onMissing: () => latest.current.finish(latest.current.missing(jobId), generation),
-      onError: (error) => latest.current.finish(latest.current.failed(jobId, error), generation),
-    });
+    const effectGeneration = options.generation;
     return () => {
-      const unfinished = !polling.isFinished();
-      polling.stop();
-      if (unfinished) void latest.current.cancel(jobId).catch(() => undefined);
+      if (active.current?.generation === effectGeneration) active.current.controller.abort();
     };
-  }, [activeJobId, busy, generation]);
+  }, [options.busy, options.generation]);
+
+  return useCallback((start: () => Promise<{ jobId: string }>, generation: number) => {
+    active.current?.controller.abort();
+    const controller = new AbortController();
+    active.current = { controller, generation };
+    let jobId: string | null = null;
+    const result = latest.current.queue(
+      start,
+      controller.signal,
+      status => {
+        if (status.progress?.jobId === jobId) latest.current.setProgress(status.progress);
+      },
+      startedJobId => {
+        jobId = startedJobId;
+        if (controller.signal.aborted) throw new DOMException("Calculation stopped.", "AbortError");
+        latest.current.onStarted(startedJobId, generation);
+      },
+    );
+    return result.finally(() => {
+      if (active.current?.controller === controller) active.current = null;
+    });
+  }, []);
 }
 
 export function usePathJob(options: {
-  activePathJobId: string | null;
   isPathBusy: boolean;
   generation: number;
   setPathProgress: (progress: PathProgressDto | null) => void;
-  finish: (payload: PathFinishedDto, generation: number) => void;
+  onStarted: (jobId: string, generation: number) => void;
 }) {
-  usePollingJob({
-    activeJobId: options.activePathJobId,
+  return usePollingJob<PathProgressDto, PathFinishedDto, PathJobStatusDto>({
     busy: options.isPathBusy,
     generation: options.generation,
-    poll: api.pathPreviewStatus,
-    cancel: api.cancelPathPreview,
+    queue: pathQueue,
     setProgress: options.setPathProgress,
-    finish: options.finish,
-    missing: (jobId) => ({ jobId, cancelled: true, paths: [], error: "Path job disappeared before returning a result." }),
-    failed: (jobId, error) => ({ jobId, cancelled: false, paths: [], error: errorMessage(error) }),
+    onStarted: options.onStarted,
   });
 }
 
 export function useAffinityJob(options: {
-  activeAffinityJobId: string | null;
   isAffinityBusy: boolean;
   generation: number;
   setAffinityProgress: (progress: AffinityWatchProgressDto | null) => void;
-  finish: (payload: AffinityWatchFinishedDto, generation: number) => void;
+  onStarted: (jobId: string, generation: number) => void;
 }) {
-  usePollingJob({
-    activeJobId: options.activeAffinityJobId,
+  return usePollingJob<AffinityWatchProgressDto, AffinityWatchFinishedDto, AffinityWatchJobStatusDto>({
     busy: options.isAffinityBusy,
     generation: options.generation,
-    poll: api.affinityWatchStatus,
-    cancel: api.cancelAffinityWatch,
+    queue: affinityQueue,
     setProgress: options.setAffinityProgress,
-    finish: options.finish,
-    missing: (jobId) => ({ jobId, cancelled: true, payload: null, error: "Affinity watch job disappeared before returning a result." }),
-    failed: (jobId, error) => ({ jobId, cancelled: false, payload: null, error: errorMessage(error) }),
+    onStarted: options.onStarted,
   });
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

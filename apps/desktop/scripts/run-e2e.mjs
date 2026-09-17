@@ -2,21 +2,21 @@ import { spawn } from "node:child_process";
 import { createServer } from "vite";
 
 const host = "127.0.0.1";
-const port = 1420;
-const baseUrl = `http://${host}:${port}`;
 
 let server = null;
 
 try {
-  if (!(await isAvailable(baseUrl))) {
-    server = await createServer({
-      logLevel: "error",
-      server: { host, port, strictPort: true },
-    });
-    await server.listen();
+  server = await createServer({
+    logLevel: "error",
+    server: { host, port: 0 },
+  });
+  await server.listen();
+  const baseUrl = server.resolvedUrls?.local[0];
+  if (!baseUrl) {
+    throw new Error("Vite did not report a local test URL.");
   }
 
-  const code = await runPlaywright();
+  const code = await runPlaywright(baseUrl);
   process.exitCode = code;
 } finally {
   if (server) {
@@ -24,19 +24,10 @@ try {
   }
 }
 
-async function isAvailable(url) {
-  try {
-    const response = await fetch(url);
-    return response.ok;
-  } catch {
-    return false;
-  }
-}
-
-function runPlaywright() {
+function runPlaywright(baseUrl) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, ["./node_modules/@playwright/test/cli.js", "test"], {
-      env: { ...process.env, PW_TEST_HTML_REPORT_OPEN: "never" },
+      env: { ...process.env, PLAYWRIGHT_BASE_URL: baseUrl, PW_TEST_HTML_REPORT_OPEN: "never" },
       shell: false,
       stdio: "inherit",
     });

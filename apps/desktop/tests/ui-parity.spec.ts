@@ -442,7 +442,7 @@ test("stale saved builds offer explicit input-only loading or recompute migratio
   await page.getByRole("button", { name: "Save new" }).click();
   await expect(page.getByText(/Saved Build Preset/)).toBeVisible();
   await expect(page.locator(".saved-build-status")).toContainText(
-    "Current · profile vanilla · dataset vanilla-1.17 · schema 4",
+    "Current · profile vanilla · dataset vanilla-1.17 · schema 5",
   );
 
   await page.evaluate(() => {

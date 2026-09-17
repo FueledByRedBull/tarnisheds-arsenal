@@ -50,12 +50,17 @@ export function PathsView() {
     outcome: runOutcome,
   });
 
-  usePathJob({
-    activePathJobId,
+  const startPathJob = usePathJob({
     isPathBusy,
     generation: pathGeneration,
     setPathProgress,
-    finish: finishPathPreview,
+    onStarted: (jobId, generation) => {
+      const current = useDesktopStore.getState();
+      if (!current.isPathBusy || current.pathGeneration !== generation || current.activePathSignature !== signature) {
+        throw new DOMException("Calculation stopped.", "AbortError");
+      }
+      setActivePathJobId(jobId);
+    },
   });
 
   async function refresh() {
@@ -77,17 +82,8 @@ export function PathsView() {
         { base, solved: selected, levelsAhead: effectiveHorizon, title: "Selected", mode: pathMode },
         ...(target ? [{ base, solved: target, levelsAhead: effectiveHorizon, title: "Compare", mode: pathMode }] : []),
       ];
-      const { jobId } = await api.startPathPreview(requests);
-      const current = useDesktopStore.getState();
-      if (
-        !current.isPathBusy ||
-        current.pathGeneration !== generation ||
-        current.activePathSignature !== signature
-      ) {
-        await api.cancelPathPreview(jobId);
-        return;
-      }
-      setActivePathJobId(jobId);
+      const finished = await startPathJob(() => api.startPathPreview(requests), generation);
+      finishPathPreview(finished, generation);
     } catch (error) {
       const current = useDesktopStore.getState();
       if (
@@ -95,9 +91,16 @@ export function PathsView() {
         current.pathGeneration === generation &&
         current.activePathSignature === signature
       ) {
-        setError(error instanceof Error ? error.message : String(error));
-        setRunOutcome("failed");
+        if (error instanceof DOMException && error.name === "AbortError") {
+          current.pushNotice({ scope: "paths", tone: "warning", message: "Path preview stopped." });
+          setRunOutcome("cancelled");
+        } else {
+          setError(error instanceof Error ? error.message : String(error));
+          setRunOutcome("failed");
+        }
         setPathBusy(false);
+        setActivePathJobId(null);
+        setPathProgress(null);
       }
     }
   }
@@ -105,7 +108,17 @@ export function PathsView() {
   async function stop() {
     setRunOutcome("cancelled");
     if (!activePathJobId) setPathBusy(false);
-    if (activePathJobId) await api.cancelPathPreview(activePathJobId);
+    if (activePathJobId) {
+      try {
+        await api.cancelPathPreview(activePathJobId);
+      } catch (error) {
+        const current = useDesktopStore.getState();
+        if (current.isPathBusy && current.activePathJobId === activePathJobId) {
+          setError(error instanceof Error ? error.message : String(error));
+          setRunOutcome("failed");
+        }
+      }
+    }
   }
 
   function finishPathPreview(payload: PathFinishedDto, generation: number) {

@@ -74,7 +74,7 @@ const session = await launchPackagedApp(executable);
 try {
   const page = session.page;
   page.setDefaultTimeout(600_000);
-  await page.getByText("Full model ready", { exact: true }).waitFor({ timeout: 120_000 });
+  await page.getByText("Snapshot loaded", { exact: true }).waitFor({ timeout: 120_000 });
   const manifest = await invokeNative(page, "get_data_manifest", { profileId: "vanilla" });
   const startupMs = round(performance.now() - appStartedAt);
 
