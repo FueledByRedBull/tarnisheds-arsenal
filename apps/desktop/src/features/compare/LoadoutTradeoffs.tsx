@@ -128,7 +128,7 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
           <h2 id="loadout-tradeoffs-heading">AR / Bleed tradeoffs</h2>
           <small>
             Fixed loadout: {selected.weaponName} / {selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade}.
-            The frontier keeps this query&apos;s class budget, floors, locks, handling, and world settings.
+            The frontier keeps this query&apos;s class budget, floors, locks, handling, and world settings.{" "}
           </small>
           {allCombatLocksActive || (status === "ready" && points?.length === 1) ? (
             <small>

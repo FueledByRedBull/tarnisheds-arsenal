@@ -155,6 +155,7 @@ test("singleton frontier explains tied allocations", async ({ page }) => {
   await section.getByRole("button", { name: "Compute trade-offs", exact: true }).click();
   await expect(section.getByRole("status")).toHaveText("1 exact trade-off point ready.");
   await expect(section).toContainText("Only one non-dominated AR / bleed outcome exists under these constraints; other allocations may tie.");
+  await expect(section.locator(".tradeoff-header")).toContainText("world settings. Only one");
 });
 
 test("leaving Compare aborts a pending frontier and discards its late result", async ({ page }) => {

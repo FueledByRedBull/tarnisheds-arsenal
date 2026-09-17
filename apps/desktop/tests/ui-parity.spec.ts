@@ -638,6 +638,35 @@ for (const [width, height] of [[923, 789], [1200, 720], [1366, 768], [1650, 950]
   });
 }
 
+test("ranking actions stay reachable at minimum width with either column layout", async ({ page }) => {
+  await page.setViewportSize({ width: 1200, height: 720 });
+  await page.goto("/");
+  for (const objective of ["Max AR", "Bleed, then AR"]) {
+    await page.getByRole("button", { name: objective, exact: true }).click();
+    await page.getByRole("button", { name: /^(Search|Update Results)$/ }).click();
+    await expect(page.getByText("4 ranked rows")).toBeVisible();
+    const board = page.locator(".result-board");
+    const row = board.locator(".result-row-full").first();
+    for (const edge of ["start", "end"]) {
+      await board.evaluate((grid, edge) => { grid.scrollLeft = edge === "start" ? 0 : grid.scrollWidth; }, edge);
+      await expect.poll(() => row.evaluate((row) => {
+        const board = row.closest(".result-board")!.getBoundingClientRect();
+        return [...row.querySelectorAll("button")].every(button => {
+          const box = button.getBoundingClientRect();
+          return box.left >= board.left && box.right <= board.right
+            && button.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2));
+        });
+      })).toBe(true);
+      const pin = row.getByRole("button", { name: /^(Compare|Unpin) / });
+      await pin.click();
+      await expect(pin).toHaveAttribute("aria-pressed", "true");
+      await pin.click();
+      await expect(pin).toHaveAttribute("aria-pressed", "false");
+      await row.getByRole("button", { name: /^Lock / }).click({ trial: true });
+    }
+  }
+});
+
 for (const [width, height] of [[1200, 720], [1366, 768], [1650, 950]]) {
   test(`frontend hierarchy and controls fit at ${width}x${height}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
