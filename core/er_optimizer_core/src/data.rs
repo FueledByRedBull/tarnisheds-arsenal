@@ -76,6 +76,14 @@ impl CsvTable {
         if headers.is_empty() {
             return Err(format!("{source} has no headers"));
         }
+        let mut seen_headers = HashSet::with_capacity(headers.len());
+        for header in &headers {
+            if !seen_headers.insert(header) {
+                return Err(format!(
+                    "{source} has duplicate csv column header: {header}"
+                ));
+            }
+        }
 
         let mut rows = Vec::new();
         for record in reader.records() {
@@ -579,8 +587,11 @@ fn load_reinforce(path: PathBuf) -> Result<Vec<Vec<Option<ReinforceLevel>>>, Str
     for (reinforce_type, level, value) in entries {
         if let Some(levels) = reinforce.get_mut(reinforce_type)
             && level < levels.len()
+            && levels[level].replace(value).is_some()
         {
-            levels[level] = Some(value);
+            return Err(format!(
+                "duplicate reinforce entry reinforce_type={reinforce_type} level={level}"
+            ));
         }
     }
     Ok(reinforce)
@@ -677,7 +688,11 @@ fn load_attack_element_correct(path: PathBuf) -> Result<Vec<Option<AttackElement
 
     let mut out = vec![None; max_id + 1];
     for (row_id, value) in entries {
-        out[row_id] = Some(value);
+        if out[row_id].replace(value).is_some() {
+            return Err(format!(
+                "duplicate attack-element-correct entry id={row_id}"
+            ));
+        }
     }
     Ok(out)
 }
@@ -936,14 +951,21 @@ fn load_attack_element_correct_ext_optional(
                     parse_f32(table.get(row, &influence_field)?, &influence_field)? / 100.0;
             }
         }
-        out.insert(
-            row_id,
-            AttackElementCorrectExt {
-                scales,
-                overwrite,
-                influence,
-            },
-        );
+        if out
+            .insert(
+                row_id,
+                AttackElementCorrectExt {
+                    scales,
+                    overwrite,
+                    influence,
+                },
+            )
+            .is_some()
+        {
+            return Err(format!(
+                "duplicate attack-element-correct-ext entry id={row_id}"
+            ));
+        }
     }
     Ok(out)
 }
@@ -1098,7 +1120,14 @@ fn load_weapon_passives_optional(
     let mut out = HashMap::with_capacity(table.rows.len());
     for row in &table.rows {
         let weapon_id = parse_u32(table.get(row, "weapon_id")?, "weapon_id")?;
-        out.insert(weapon_id, parse_status_effect_source(&table, row)?);
+        if out
+            .insert(weapon_id, parse_status_effect_source(&table, row)?)
+            .is_some()
+        {
+            return Err(format!(
+                "duplicate weapon passive entry weapon_id={weapon_id}"
+            ));
+        }
     }
     Ok(out)
 }
@@ -1157,8 +1186,12 @@ fn load_weapon_passive_overlays_optional(
         out.insert(weapon_id, vec![None; max_level + 1]);
     }
     for (weapon_id, level, source) in entries {
-        if let Some(levels) = out.get_mut(&weapon_id) {
-            levels[level] = Some(source);
+        if let Some(levels) = out.get_mut(&weapon_id)
+            && levels[level].replace(source).is_some()
+        {
+            return Err(format!(
+                "duplicate weapon passive overlay entry weapon_id={weapon_id} level={level}"
+            ));
         }
     }
     Ok(out)
@@ -1169,10 +1202,39 @@ mod tests {
     use std::fs;
 
     use super::{
-        CONVERGENCE_PROFILE_ID, CsvTable, load_calc_correct, load_embedded_game_data,
-        load_embedded_game_profile, load_game_data, parse_f32, parse_status_effect_source,
+        CONVERGENCE_PROFILE_ID, CsvTable, load_attack_element_correct,
+        load_attack_element_correct_ext_optional, load_calc_correct, load_embedded_game_data,
+        load_embedded_game_profile, load_game_data, load_reinforce,
+        load_weapon_passive_overlays_optional, load_weapon_passives_optional, parse_f32,
+        parse_status_effect_source,
     };
     use crate::model::AowEffectRole;
+
+    fn duplicate_first_data_row(content: &str) -> String {
+        let mut lines = content.lines();
+        let header = lines.next().expect("CSV header");
+        let row = lines.next().expect("CSV data row");
+        format!("{header}\n{row}\n{row}\n")
+    }
+
+    fn assert_duplicate_row_rejected<T>(
+        name: &str,
+        content: &str,
+        load: impl FnOnce(std::path::PathBuf) -> Result<T, String>,
+        expected_error: &str,
+    ) {
+        let path = std::env::temp_dir().join(format!(
+            "tarnisheds-arsenal-duplicate-{name}-{}.csv",
+            std::process::id()
+        ));
+        fs::write(&path, duplicate_first_data_row(content)).unwrap();
+        let error = match load(path.clone()) {
+            Ok(_) => panic!("duplicate {name} row must fail"),
+            Err(error) => error,
+        };
+        fs::remove_file(path).unwrap();
+        assert!(error.contains(expected_error), "unexpected error: {error}");
+    }
 
     #[test]
     fn explicit_embedded_snapshot_loads_all_runtime_tables() {
@@ -1210,6 +1272,49 @@ mod tests {
         let error = load_calc_correct(path.clone()).unwrap_err();
         fs::remove_file(path).unwrap();
         assert!(error.contains("duplicate calc-correct entry"));
+    }
+
+    #[test]
+    fn duplicate_trimmed_csv_headers_fail_closed() {
+        let error = match CsvTable::from_content("test.csv".to_string(), "id, id \n1,2\n") {
+            Ok(_) => panic!("duplicate trimmed headers must fail"),
+            Err(error) => error,
+        };
+        assert!(error.contains("duplicate csv column header: id"));
+    }
+
+    #[test]
+    fn keyed_csv_loaders_reject_duplicate_rows() {
+        assert_duplicate_row_rejected(
+            "reinforce",
+            include_str!("../../../data/phase1/reinforce.csv"),
+            load_reinforce,
+            "duplicate reinforce entry",
+        );
+        assert_duplicate_row_rejected(
+            "attack-element-correct",
+            include_str!("../../../data/phase1/attack_element_correct.csv"),
+            load_attack_element_correct,
+            "duplicate attack-element-correct entry",
+        );
+        assert_duplicate_row_rejected(
+            "attack-element-correct-ext",
+            include_str!("../../../data/phase1/attack_element_correct_ext.csv"),
+            load_attack_element_correct_ext_optional,
+            "duplicate attack-element-correct-ext entry",
+        );
+        assert_duplicate_row_rejected(
+            "weapon-passives",
+            include_str!("../../../data/phase1/weapon_passives.csv"),
+            load_weapon_passives_optional,
+            "duplicate weapon passive entry",
+        );
+        assert_duplicate_row_rejected(
+            "weapon-passive-overlays",
+            include_str!("../../../data/phase1/weapon_passive_overlays.csv"),
+            load_weapon_passive_overlays_optional,
+            "duplicate weapon passive overlay entry",
+        );
     }
 
     #[test]

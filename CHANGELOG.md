@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.14.1](docs/release-notes/v0.14.1.md)
+
+Correct Affinity Watch's chart scale, clarify the fixed-loadout AR sacrifice
+baseline, and distinguish profile capabilities from weapon filters. Reject
+ambiguous CSV data and malformed extraction numbers before they reach the model.
+
 ## [v0.14.0](docs/release-notes/v0.14.0.md)
 
 Exact ranking arithmetic, corrected weapon and skill calculations, AR / bleed

@@ -132,6 +132,12 @@ additional reference-input discrepancies and missing hits; see the dated
 
 ## Checking model coverage
 
+Profile capabilities describe which calculations a dataset offers; they do not
+certify every weapon or skill. The profile header explains these limits, and
+Build Detail shows the selected build's model assumptions. Older saved capability
+filters remain active until removed using **Remove saved profile filters**;
+excluding a supported capability excludes all results in that profile.
+
 Run a seeded Vanilla weapon AR/base-status comparison from the repository root:
 
 ```powershell

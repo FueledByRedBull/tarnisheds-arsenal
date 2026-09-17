@@ -479,7 +479,6 @@ async function mockCatalog(profileId = "vanilla"): Promise<CatalogDto> {
       { id: "affinity", label: "Affinity", options: uniqueSorted(MOCK_WEAPONS.map((row) => row.affinity)).map((label, index) => ({ id: `affinity:${index}`, label, count: MOCK_WEAPONS.filter((row) => row.affinity === label).length })) },
       { id: "aow", label: "Ash of War", options: MOCK_AOW_NAMES.map((label, index) => ({ id: `aow:${index}`, label, count: MOCK_WEAPONS.length })) },
       { id: "reinforcement", label: "Reinforcement", options: [{ id: "reinforcement:standard", label: "Standard", count: MOCK_WEAPONS.filter((row) => !row.isSomber).length }, { id: "reinforcement:somber", label: "Somber", count: MOCK_WEAPONS.filter((row) => row.isSomber).length }] },
-      { id: "coverage", label: "Model Coverage", options: [{ id: "coverage:weapon-ar", label: "Weapon AR", count: MOCK_WEAPONS.length }] },
     ],
     dataManifest: mockDataManifest(profileId),
   };

@@ -1903,7 +1903,7 @@ textarea {
 
 .affinity-y-axis {
   position: absolute;
-  inset: 13px auto 26px 10px;
+  inset: 16px auto 28px 10px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;

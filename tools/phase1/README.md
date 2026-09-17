@@ -87,6 +87,12 @@ release validation requires the exact tracked reference match.
 
 ## Normalization and indexing
 
+- Integer fields must be integral, and numeric fields must be finite. Required
+  row IDs, reinforcement multipliers, damage-curve IDs, and attack-element fields
+  fail extraction when absent. Declared XML defaults are materialized for these
+  fields; intentional optional-field defaults remain explicit in the extractor.
+- Runtime CSV loading rejects duplicate trimmed headers and duplicate keys in
+  reinforcement, attack-element, and passive tables rather than overwriting rows.
 - `weapons.csv` scaling columns (`str_scaling`, `dex_scaling`, `int_scaling`, `fai_scaling`, `arc_scaling`) are normalized to `0.0..1.0` by dividing raw weapon param values by `100.0`.
 - `weapons.csv` includes AoW-filtering type fields:
   - `weapon_type_id`: raw `wepType` numeric value from `EquipParamWeapon`.

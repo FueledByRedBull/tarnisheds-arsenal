@@ -163,7 +163,16 @@ export function App() {
                   {convergenceProfile ? "Convergence " : ""}base weapon fields are reference-checked; final AR and customization remain experimental. Enter exact stats: class budgets, Compare, Paths, and Affinity Watch are unavailable. Ammo weapons and AoW hit/route damage remain unsupported.
                 </span>
               </details>
-            ) : null}
+            ) : (
+              <details>
+                <summary>Model coverage and assumptions</summary>
+                <span>
+                  Weapon AR, status buildup, and supported Ash routes are available. Profile capabilities
+                  do not guarantee every skill is modeled; check the selected build's model coverage.
+                  Buildup is not a prediction of status procs or damage after enemy defenses.
+                </span>
+              </details>
+            )}
           </div>
         </header>
         <nav className="workspace-tabs">

@@ -14,6 +14,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping, Sequence
 
@@ -223,23 +224,37 @@ def iter_param_rows(
             and (apply_defaults or element.get("name") in default_fields)
         ):
             defaults[element.attrib["name"]] = element.attrib["defaultValue"]
-        if tag == "row" and "id" in element.attrib:
+        if tag == "row":
+            to_int(element.attrib, "id", None)
             yield defaults | element.attrib
         element.clear()
 
 
-def to_int(attrs: dict[str, str], key: str, default: int = 0) -> int:
+def to_int(attrs: dict[str, str], key: str, default: int | None = 0) -> int:
     raw = attrs.get(key)
-    if raw is None or raw == "":
+    if raw is None and default is not None:
         return default
-    return int(float(raw))
+    if raw is None:
+        raise ValueError(f"row {attrs.get('id', 'unknown')}: missing {key}")
+    try:
+        value = Decimal(raw)
+    except InvalidOperation as exc:
+        raise ValueError(f"invalid integer {key}={raw!r}") from exc
+    if not value.is_finite() or value != value.to_integral_value():
+        raise ValueError(f"invalid integer {key}={raw!r}")
+    return int(value)
 
 
-def to_float(attrs: dict[str, str], key: str, default: float = 0.0) -> float:
+def to_float(attrs: dict[str, str], key: str, default: float | None = 0.0) -> float:
     raw = attrs.get(key)
-    if raw is None or raw == "":
+    if raw is None and default is not None:
         return default
-    return float(raw)
+    if raw is None:
+        raise ValueError(f"row {attrs.get('id', 'unknown')}: missing {key}")
+    value = float(raw)
+    if not math.isfinite(value):
+        raise ValueError(f"non-finite {key}={raw!r}")
+    return value
 
 
 def param_row_name(attrs: Mapping[str, str]) -> str:
@@ -423,7 +438,7 @@ def build_standard_name_map(
 ) -> dict[int, str]:
     out: dict[int, str] = {}
     for row in weapon_rows:
-        weapon_id = to_int(row, "id")
+        weapon_id = to_int(row, "id", None)
         if weapon_id % 10000 != 0:
             continue
         safe_param_name = player_weapon_param_name(row)
@@ -518,11 +533,11 @@ def expand_calc_correct_curve(curve: dict[str, str]) -> list[float]:
 
 def derive_damage_curve_ids(weapon: dict[str, str]) -> dict[str, int]:
     return {
-        "physical": to_int(weapon, "correctType_Physics"),
-        "magic": to_int(weapon, "correctType_Magic"),
-        "fire": to_int(weapon, "correctType_Fire"),
-        "lightning": to_int(weapon, "correctType_Thunder"),
-        "holy": to_int(weapon, "correctType_Dark"),
+        "physical": to_int(weapon, "correctType_Physics", None),
+        "magic": to_int(weapon, "correctType_Magic", None),
+        "fire": to_int(weapon, "correctType_Fire", None),
+        "lightning": to_int(weapon, "correctType_Thunder", None),
+        "holy": to_int(weapon, "correctType_Dark", None),
         "poison": to_int(weapon, "correctType_Poison", 6),
         "blood": to_int(weapon, "correctType_Blood", 6),
         "sleep": to_int(weapon, "correctType_Sleep", 6),
@@ -537,7 +552,7 @@ def build_reinforce_rows(
     max_level_by_type: dict[int, int] = {}
 
     for row in reinforce_rows:
-        row_id = to_int(row, "id")
+        row_id = to_int(row, "id", None)
         level = row_id % 100
         reinforce_type = row_id - level
 
@@ -546,17 +561,17 @@ def build_reinforce_rows(
             {
                 "reinforce_type": reinforce_type,
                 "level": level,
-                "physical_damage_mult": to_float(row, "physicsAtkRate", 1.0),
-                "magic_damage_mult": to_float(row, "magicAtkRate", 1.0),
-                "fire_damage_mult": to_float(row, "fireAtkRate", 1.0),
-                "lightning_damage_mult": to_float(row, "thunderAtkRate", 1.0),
-                "holy_damage_mult": to_float(row, "darkAtkRate", 1.0),
-                "str_scaling_mult": to_float(row, "correctStrengthRate", 1.0),
-                "dex_scaling_mult": to_float(row, "correctAgilityRate", 1.0),
-                "int_scaling_mult": to_float(row, "correctMagicRate", 1.0),
-                "fai_scaling_mult": to_float(row, "correctFaithRate", 1.0),
-                "arc_scaling_mult": to_float(row, "correctLuckRate", 1.0),
-                "base_attack_mult": to_float(row, "baseAtkRate", 1.0),
+                "physical_damage_mult": to_float(row, "physicsAtkRate", None),
+                "magic_damage_mult": to_float(row, "magicAtkRate", None),
+                "fire_damage_mult": to_float(row, "fireAtkRate", None),
+                "lightning_damage_mult": to_float(row, "thunderAtkRate", None),
+                "holy_damage_mult": to_float(row, "darkAtkRate", None),
+                "str_scaling_mult": to_float(row, "correctStrengthRate", None),
+                "dex_scaling_mult": to_float(row, "correctAgilityRate", None),
+                "int_scaling_mult": to_float(row, "correctMagicRate", None),
+                "fai_scaling_mult": to_float(row, "correctFaithRate", None),
+                "arc_scaling_mult": to_float(row, "correctLuckRate", None),
+                "base_attack_mult": to_float(row, "baseAtkRate", None),
             }
         )
 
@@ -573,13 +588,13 @@ def build_attack_element_rows(
     attack_map: dict[int, dict[str, str]] = {}
 
     for row in attack_rows:
-        row_id = to_int(row, "id")
+        row_id = to_int(row, "id", None)
         attack_map[row_id] = row
         out_row: dict[str, object] = {"attack_element_correct_id": row_id}
         for stat_key, aec_prefix in STAT_AEC_PREFIX.items():
             for damage_name, damage_suffix, _, _ in DAMAGE_INFOS:
                 field = f"is{aec_prefix}Correct_by{damage_suffix}"
-                out_row[f"{stat_key}_scales_{damage_name}"] = to_int(row, field, 0)
+                out_row[f"{stat_key}_scales_{damage_name}"] = to_int(row, field, None)
         rows_out.append(out_row)
 
     rows_out.sort(key=lambda item: object_to_int(item["attack_element_correct_id"]))
@@ -620,20 +635,20 @@ def build_attack_element_correct_ext_rows(
 
     rows_out: list[dict[str, object]] = []
     for source in attack_rows:
-        row_id = to_int(source, "id")
+        row_id = to_int(source, "id", None)
         if row_id <= 0:
             continue
         row: dict[str, object] = {"attack_element_correct_id": row_id}
         for stat_key, raw_stat in STAT_AEC_PREFIX.items():
             for damage_type, raw_damage, _, _ in DAMAGE_INFOS:
                 row[f"{stat_key}_scales_{damage_type}"] = to_int(
-                    source, f"is{raw_stat}Correct_by{raw_damage}", 0
+                    source, f"is{raw_stat}Correct_by{raw_damage}", None
                 )
                 row[f"{stat_key}_overwrite_{damage_type}"] = to_float(
-                    source, f"overwrite{raw_stat}CorrectRate_by{raw_damage}", -1.0
+                    source, f"overwrite{raw_stat}CorrectRate_by{raw_damage}", None
                 )
                 row[f"{stat_key}_influence_{damage_type}"] = to_float(
-                    source, f"Influence{raw_stat}CorrectRate_by{raw_damage}", 100.0
+                    source, f"Influence{raw_stat}CorrectRate_by{raw_damage}", None
                 )
         rows_out.append(row)
     rows_out.sort(key=lambda item: object_to_int(item["attack_element_correct_id"]))
@@ -683,7 +698,7 @@ def build_weapon_rows(
     )
 
     for row in weapon_rows:
-        weapon_id = to_int(row, "id")
+        weapon_id = to_int(row, "id", None)
         if weapon_id % 100 != 0:
             continue
         if weapon_affinity_by_id is not None and weapon_id not in weapon_affinity_by_id:
@@ -706,7 +721,7 @@ def build_weapon_rows(
         if not raw_name:
             continue
 
-        reinforce_type = to_int(row, "reinforceTypeId")
+        reinforce_type = to_int(row, "reinforceTypeId", None)
         affinity_slot = weapon_affinity_slot(weapon_id)
         disable_gem_attr = to_int(row, "disableGemAttr", 0)
         if weapon_affinity_by_id is not None:
@@ -837,7 +852,7 @@ def build_weapon_rows(
 def build_calc_correct_rows(curve_rows: list[dict[str, str]]) -> list[dict[str, object]]:
     rows_out: list[dict[str, object]] = []
     for row in curve_rows:
-        curve_id = to_int(row, "id")
+        curve_id = to_int(row, "id", None)
         expanded = expand_calc_correct_curve(row)
         for stat_value, multiplier in enumerate(expanded):
             rows_out.append(
@@ -854,7 +869,7 @@ def build_calc_correct_rows(curve_rows: list[dict[str, str]]) -> list[dict[str, 
 def build_speffect_map(sp_rows: list[dict[str, str]]) -> dict[int, tuple[float, float, float, float]]:
     effect_map: dict[int, tuple[float, float, float, float]] = {}
     for row in sp_rows:
-        effect_id = to_int(row, "id")
+        effect_id = to_int(row, "id", None)
         effect_map[effect_id] = (
             to_float(row, "bloodAttackPower", 0.0),
             to_float(row, "freezeAttackPower", 0.0),
@@ -968,10 +983,13 @@ def load_regulation_context(
         for param in (WEAPON_PARAM, REINFORCE_PARAM, CALC_CORRECT_PARAM,
                       ATTACK_ELEMENT_PARAM, AOW_PARAM, SPEFFECT_PARAM)
     }
-    weapon_rows = list(iter_param_rows(xml_paths[WEAPON_PARAM], default_fields=("gemMountType",)))
-    reinforce_rows = list(iter_param_rows(xml_paths[REINFORCE_PARAM]))
-    curve_rows = list(iter_param_rows(xml_paths[CALC_CORRECT_PARAM]))
-    attack_rows = list(iter_param_rows(xml_paths[ATTACK_ELEMENT_PARAM]))
+    weapon_rows = list(iter_param_rows(xml_paths[WEAPON_PARAM], default_fields=(
+        "gemMountType", "reinforceTypeId", "correctType_Physics", "correctType_Magic",
+        "correctType_Fire", "correctType_Thunder", "correctType_Dark",
+    )))
+    reinforce_rows = list(iter_param_rows(xml_paths[REINFORCE_PARAM], apply_defaults=True))
+    curve_rows = list(iter_param_rows(xml_paths[CALC_CORRECT_PARAM], apply_defaults=True))
+    attack_rows = list(iter_param_rows(xml_paths[ATTACK_ELEMENT_PARAM], apply_defaults=True))
     aow_rows = list(iter_param_rows(xml_paths[AOW_PARAM], apply_defaults=True))
     sp_rows = list(iter_param_rows(xml_paths[SPEFFECT_PARAM]))
     weapon_name_map = (
@@ -1270,9 +1288,9 @@ def main() -> int:
     export_regulation_extras(
         weapon_csv_rows=[{key: str(value) for key, value in row.items()} for row in weapon_csv_rows],
         reinforce_csv_rows=[{key: str(value) for key, value in row.items()} for row in reinforce_csv_rows],
-        weapon_param_rows={to_int(row, "id"): row for row in context.weapon_rows},
-        reinforce_param_rows={to_int(row, "id"): row for row in context.reinforce_rows},
-        sp_effect_rows={to_int(row, "id"): row for row in context.sp_rows},
+        weapon_param_rows={to_int(row, "id", None): row for row in context.weapon_rows},
+        reinforce_param_rows={to_int(row, "id", None): row for row in context.reinforce_rows},
+        sp_effect_rows={to_int(row, "id", None): row for row in context.sp_rows},
         output_dir=output_dir,
     )
     if profile.capabilities.aow_damage or profile.capabilities.aow_routes:
