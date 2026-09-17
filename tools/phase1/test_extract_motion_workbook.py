@@ -21,6 +21,12 @@ from tools.phase1.extract_motion_workbook import (
 
 
 class MotionWorkbookTests(unittest.TestCase):
+    def test_generated_effect_exclusions_are_unique(self) -> None:
+        path = Path(__file__).resolve().parents[2] / 'data/phase1/aow_effect_exclusions.csv'
+        with path.open(encoding='utf-8', newline='') as stream:
+            rows = [tuple(row) for row in csv.reader(stream)]
+        self.assertEqual(len(rows), len(set(rows)))
+
     def test_explicit_paramdex_directory_is_preserved(self) -> None:
         project_root = Path(__file__).resolve().parents[2]
         phase1_dir = project_root / 'data' / 'phase1'

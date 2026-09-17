@@ -3,10 +3,8 @@ aow_id,sheet_row,effect_id,role,reason
 119,1442,1621,replacement_or_chained,conditional child effect is recorded but not treated as immediate hit buildup
 119,1442,1622,replacement_or_chained,conditional child effect is recorded but not treated as immediate hit buildup
 227,0,880,persistent_on_hit,"persistent weapon and on-hit status overlap; their engine correction and stacking are unverified, so the buff status increment is not modeled"
-227,0,880,persistent_on_hit,"persistent weapon and on-hit status overlap; their engine correction and stacking are unverified, so the buff status increment is not modeled"
 227,0,826,persistent_weapon_buff,"persistent weapon and on-hit status overlap; their engine correction and stacking are unverified, so the buff status increment is not modeled"
 227,0,828,persistent_weapon_buff,"persistent weapon and on-hit status overlap; their engine correction and stacking are unverified, so the buff status increment is not modeled"
-228,0,882,persistent_on_hit,"persistent weapon and on-hit status overlap; their engine correction and stacking are unverified, so the buff status increment is not modeled"
 228,0,882,persistent_on_hit,"persistent weapon and on-hit status overlap; their engine correction and stacking are unverified, so the buff status increment is not modeled"
 228,0,831,persistent_weapon_buff,"persistent weapon and on-hit status overlap; their engine correction and stacking are unverified, so the buff status increment is not modeled"
 228,0,833,persistent_weapon_buff,"persistent weapon and on-hit status overlap; their engine correction and stacking are unverified, so the buff status increment is not modeled"

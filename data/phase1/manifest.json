@@ -109,8 +109,8 @@
     },
     {
       "path": "aow_effect_exclusions.csv",
-      "size": 3114,
-      "sha256": "4a5bdcd9207ccddd7bf54ab3543c2580891648ae678bebc46166aad38a4483cf"
+      "size": 2770,
+      "sha256": "dae0e1228066320d93e242e659911cf0bb87b62aec032611099022dbc8d51193"
     },
     {
       "path": "aow_route_exclusions.csv",

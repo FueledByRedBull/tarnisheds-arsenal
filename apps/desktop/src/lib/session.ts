@@ -10,8 +10,6 @@ import {
 
 export const STAT_KEYS = ["strStat", "dex", "intStat", "fai", "arc"] as const;
 export const EIGHT_STAT_KEYS = ["vig", "mnd", "end", ...STAT_KEYS] as const;
-export type CombatStatKey = (typeof STAT_KEYS)[number];
-export type EightStatKey = (typeof EIGHT_STAT_KEYS)[number];
 
 export function replaceFilterEntries(
   entries: StableFilterEntryDto[],

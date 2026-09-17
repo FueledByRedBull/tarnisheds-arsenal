@@ -492,6 +492,7 @@ def build_aow_effect_graph(
         for row in records
         if row["is_supported"] == "0"
     ]
+    exclusions = list({tuple(row.items()): row for row in exclusions}.values())
     _write_csv(phase1_dir / "aow_effect_data.csv", OUTPUT_FIELDS, records)
     _write_csv(
         phase1_dir / "aow_effect_coverage.csv",
