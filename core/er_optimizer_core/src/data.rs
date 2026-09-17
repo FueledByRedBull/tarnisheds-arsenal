@@ -464,6 +464,10 @@ fn load_weapons(path: PathBuf) -> Result<Vec<Weapon>, String> {
             weapon_type_keys: table.get(row, "weapon_type_keys")?.to_string(),
             weight: optional_f32(&table, row, "weight")?,
             base_poise: optional_f32(&table, row, "base_poise")?,
+            critical_damage_percent: parse_u16(
+                table.get(row, "critical_damage_percent")?,
+                "critical_damage_percent",
+            )?,
             stamina_consumption_rate: parse_f32(
                 table.get(row, "stamina_consumption_rate")?,
                 "stamina_consumption_rate",
@@ -1017,6 +1021,8 @@ fn parse_aow_attack_row(
         )?,
         is_add_base_atk: parse_bool_u8(table.get(row, "is_add_base_atk")?, "is_add_base_atk")?,
         is_arrow_attack: parse_bool_u8(table.get(row, "is_arrow_attack")?, "is_arrow_attack")?,
+        is_bullet_attack: parse_bool_u8(table.get(row, "is_bullet_attack")?, "is_bullet_attack")?,
+        is_throw_attack: parse_bool_u8(table.get(row, "is_throw_attack")?, "is_throw_attack")?,
         physical_attack_attribute: parse_physical_attack_attribute(
             table.get(row, "physical_attack_attribute")?,
         )?,

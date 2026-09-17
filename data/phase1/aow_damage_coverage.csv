@@ -93,7 +93,7 @@ aow_id,aow_name,status,standard_rows,damaging_rows,lacking_fp_rows,variant_rows,
 2000,Dryleaf Whirlwind,direct_damage,8,8,4,0,0,0,0
 2001,Aspects of the Crucible: Wings,direct_damage,23,23,0,23,0,0,0
 4000,Spinning Gravity Thrust,direct_damage,18,18,9,0,0,0,0
-4010,Palm Blast,direct_damage,4,4,2,0,0,0,0
+4010,Palm Blast,direct_damage,4,4,2,0,2,0,0
 4020,Piercing Throw,unique_skill_collision_only,0,0,0,0,0,0,2
 4030,Scattershot Throw,unique_skill_collision_only,0,0,0,0,0,0,12
 4040,Wall of Sparks,direct_damage,4,3,0,0,4,0,0
@@ -114,4 +114,4 @@ aow_id,aow_name,status,standard_rows,damaging_rows,lacking_fp_rows,variant_rows,
 4210,Igon's Drake Hunt,missing,0,0,0,0,0,0,0
 4220,Ghostflame Call,direct_damage,11,11,3,0,5,0,0
 5050,The Poison Flower Blooms Twice,direct_damage,3,3,1,0,1,0,0
-8000,Shield Strike,direct_damage,15,15,0,15,0,0,0
+8000,Shield Strike,direct_damage,15,15,0,15,2,0,0

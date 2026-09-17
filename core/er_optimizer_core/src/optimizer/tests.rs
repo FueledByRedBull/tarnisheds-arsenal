@@ -192,6 +192,64 @@ fn fixed_native_skill_falls_back_to_generic_rows_by_skill_id() {
 }
 
 #[test]
+fn unnamed_native_skill_preserves_id_without_inventing_damage() {
+    let data = load_convergence_data();
+    let weapon = data
+        .weapons
+        .iter()
+        .find(|weapon| weapon.name == "Stormcaller's Dirk")
+        .unwrap();
+    let choice = native_skill_choice_for_weapon(weapon, &data, OptimizeObjective::MaxAr).unwrap();
+    assert_eq!(choice.skill_id, weapon.native_skill_id);
+    assert!(choice.skill_name.is_none());
+    assert!(choice.attack_rows.is_empty());
+
+    let mut request = base_request();
+    request.weapon_name = Some(weapon.name.clone());
+    request.character_level = 80;
+    request.exact_upgrade = true;
+    request.affinity = Some(weapon.affinity.clone());
+    request.aow_name = None;
+    request.standard_max_upgrade = 15;
+    request.somber_max_upgrade = 15;
+    request.filters = vec![StableFilter {
+        dimension: FilterDimension::Aow,
+        id: format!("aow:{}", weapon.native_skill_id.unwrap()),
+        mode: FilterMode::Include,
+    }];
+    let rows = optimize(&request, &data).unwrap();
+    assert!(!rows.is_empty());
+    assert!(rows.iter().all(|row| row.aow_id == weapon.native_skill_id
+        && row.aow_name.is_none()
+        && row.aow_route.is_none()));
+}
+
+#[test]
+fn native_skill_uses_the_profile_ash_name_when_localized_name_is_missing() {
+    let data = load_convergence_data();
+    let weapon = data
+        .weapons
+        .iter()
+        .find(|weapon| weapon.name == "Dueling Shield" && weapon.affinity == "Standard")
+        .unwrap();
+    assert!(weapon.native_skill_name.is_none());
+    let choice = native_skill_choice_for_weapon(weapon, &data, OptimizeObjective::MaxAr).unwrap();
+    assert_eq!(choice.skill_name, Some("Shield Strike"));
+    let mut request = base_request();
+    request.character_level = 80;
+    request.weapon_name = Some(weapon.name.clone());
+    request.affinity = Some(weapon.affinity.clone());
+    request.aow_name = Some("Shield Strike".into());
+    request.standard_max_upgrade = 15;
+    request.somber_max_upgrade = 15;
+    request.exact_upgrade = true;
+    let rows = optimize(&request, &data).unwrap();
+    assert!(!rows.is_empty());
+    assert!(rows.iter().all(|row| row.aow_id == Some(8000)
+        && row.aow_name.as_deref() == Some("Shield Strike")));
+}
+
+#[test]
 fn scaling_overrides_control_active_stats_for_ar_and_skills() {
     let mut data = load_data();
     let mut weapon = data
@@ -1147,6 +1205,24 @@ fn dynamic_search_matches_exhaustive_search_for_every_objective() {
                     "Claymore",
                     "Standard",
                     Some("Wild Strikes"),
+                ),
+                (
+                    OptimizeObjective::AowFirstHit,
+                    "Caestus",
+                    "Occult",
+                    Some("Lifesteal Fist"),
+                ),
+                (
+                    OptimizeObjective::AowFullSequence,
+                    "Caestus",
+                    "Occult",
+                    Some("Lifesteal Fist"),
+                ),
+                (
+                    OptimizeObjective::MaxAr,
+                    "Caestus",
+                    "Occult",
+                    Some("Lifesteal Fist"),
                 ),
             ]
         } else {
@@ -3343,9 +3419,16 @@ fn progress_emits_initial_and_final_snapshots() {
     })
     .expect("optimizer failed");
 
-    assert_eq!(snapshots.len(), 2);
+    // Timer-based heartbeats may arrive between the mandatory boundary snapshots.
+    assert!(snapshots.len() >= 2);
     assert_eq!(snapshots[0].checked, 0);
-    assert_eq!(snapshots[1].checked, snapshots[1].total);
+    let last = snapshots.last().unwrap();
+    assert_eq!(last.checked, last.total);
+    assert!(
+        snapshots
+            .windows(2)
+            .all(|pair| pair[0].checked <= pair[1].checked)
+    );
 }
 
 #[test]

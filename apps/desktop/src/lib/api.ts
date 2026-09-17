@@ -461,9 +461,9 @@ async function mockCatalog(profileId = "vanilla"): Promise<CatalogDto> {
 function mockDataManifest(profileId = "vanilla"): DataManifestDto {
   const convergence = profileId === "convergence";
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     datasetVersion: convergence ? "convergence-3.0.0.1" : "vanilla-1.17",
-    modelVersion: "aow-routes-effects-v6",
+    modelVersion: "aow-routes-effects-v7",
     id: convergence ? "convergence-3.0.0.1" : "vanilla-1.17",
     label: convergence ? "Convergence 3.0.0.1" : "Vanilla 1.17",
     appVersion: convergence ? "1.16.1" : "1.17",

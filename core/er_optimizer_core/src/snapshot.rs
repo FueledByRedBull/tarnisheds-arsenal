@@ -5,7 +5,7 @@ use std::path::{Component, Path};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-pub const SNAPSHOT_SCHEMA_VERSION: u32 = 4;
+pub const SNAPSHOT_SCHEMA_VERSION: u32 = 5;
 pub const RUNTIME_DATA_FILES: [&str; 12] = [
     "aow.csv",
     "aow_attack_data.csv",
@@ -481,10 +481,10 @@ mod tests {
         let mut manifest: serde_json::Value =
             serde_json::from_slice(&fs::read(snapshot.path.join("manifest.json")).unwrap())
                 .unwrap();
-        manifest["schemaVersion"] = 3.into();
+        manifest["schemaVersion"] = 4.into();
         let error =
             parse_and_validate_manifest(&serde_json::to_vec(&manifest).unwrap()).unwrap_err();
-        assert_eq!(error, "unsupported data snapshot schema 3; expected 4");
+        assert_eq!(error, "unsupported data snapshot schema 4; expected 5");
     }
 
     #[test]

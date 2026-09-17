@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "datasetVersion": "vanilla-1.17",
-  "modelVersion": "aow-routes-effects-v6",
+  "modelVersion": "aow-routes-effects-v7",
   "id": "vanilla-1.17",
   "label": "Vanilla dataset - 1.17",
   "appVersion": "1.17",
@@ -31,8 +31,8 @@
     "extendedScalingGrades": false,
     "statusBuildupScales": true
   },
-  "generatedAt": "2026-09-16",
-  "extractorVersion": "phase1-python-v10-skill-ownership",
+  "generatedAt": "2026-09-17",
+  "extractorVersion": "phase1-python-v11-attack-provenance",
   "provenance": "profile-bound regulation, names, motion data, and numeric PARAM effect graph",
   "runtimeFiles": [
     {
@@ -42,8 +42,8 @@
     },
     {
       "path": "aow_attack_data.csv",
-      "size": 360976,
-      "sha256": "aa8d7e5182c04331f3d5c77710f62206f4cc30ec2813ffec4c310dc110126b4c"
+      "size": 367117,
+      "sha256": "07bf1c112d3b3c71bb337f03271d17ec607b5ec216f261c404dd1ed69eb3d5c8"
     },
     {
       "path": "aow_effect_data.csv",
@@ -72,8 +72,8 @@
     },
     {
       "path": "native_skill_attack_data.csv",
-      "size": 306410,
-      "sha256": "9fe32df6756a0e6ac6a406326a56ca723c9346ed514991b7063997321b94584a"
+      "size": 311011,
+      "sha256": "7b318103491a5e50d0d88bd33ef9058181a373b3dff8a1beb35c70e30414bb3e"
     },
     {
       "path": "reinforce.csv",
@@ -92,15 +92,15 @@
     },
     {
       "path": "weapons.csv",
-      "size": 766655,
-      "sha256": "feb2912554d5bd69e29a3df3cc78754d56bc7402726369b78c31f3f778f6658b"
+      "size": 779859,
+      "sha256": "21fcf327fd2ec6943675d696008afac747897cbcc88fff8c2cd2d15621b84fa8"
     }
   ],
   "diagnosticFiles": [
     {
       "path": "aow_damage_coverage.csv",
       "size": 5554,
-      "sha256": "b7f49bde3195c6c44a7a992e1daa4a6c8a7740e0b8812da01eb9bff6e9857db6"
+      "sha256": "3700a9f48676283128ccc912715c5363bfb24bf10387e15946f0c43e0f9b7b82"
     },
     {
       "path": "aow_effect_coverage.csv",

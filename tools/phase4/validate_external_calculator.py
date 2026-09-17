@@ -7,6 +7,7 @@ import json
 import math
 import random
 import subprocess
+import sys
 import tempfile
 import unicodedata
 import urllib.request
@@ -16,6 +17,12 @@ from pathlib import Path
 from typing import Any, Iterator
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from tools.phase1.param_binary import load_param_definition, load_param_table  # noqa: E402
+from tools.phase1.profiles import profile_definition  # noqa: E402
+
 STATS = ("str", "dex", "int", "fai", "arc")
 STAT_CHOICES = (10, 15, 20, 25, 30, 40, 45, 50, 60, 70, 80, 99)
 
@@ -52,6 +59,54 @@ AFFINITIES = {
     10: "Poison",
     11: "Blood",
     12: "Occult",
+}
+
+# This mapping is deliberately kept in the validator.  The expected compatibility
+# set must be derived from the raw PARAM fields rather than from the snapshot's
+# already-normalized weapon_type_keys/valid_weapon_types columns.
+RAW_WEP_TYPE_MOUNT_FIELDS = {
+    1: "Dagger",
+    3: "SwordNormal",
+    5: "SwordLarge",
+    7: "SwordGigantic",
+    9: "SaberNormal",
+    11: "SaberLarge",
+    13: "katana",
+    14: "SwordDoubleEdge",
+    15: "SwordPierce",
+    16: "RapierHeavy",
+    17: "AxeNormal",
+    19: "AxeLarge",
+    21: "HammerNormal",
+    23: "HammerLarge",
+    24: "Flail",
+    25: "SpearNormal",
+    28: "SpearHeavy",
+    29: "SpearAxe",
+    31: "Sickle",
+    35: "Knuckle",
+    37: "Claw",
+    39: "Whip",
+    41: "AxhammerLarge",
+    50: "BowSmall",
+    51: "BowNormal",
+    53: "BowLarge",
+    55: "ClossBow",
+    56: "Ballista",
+    57: "Staff",
+    61: "Talisman",
+    65: "ShieldSmall",
+    67: "ShieldNormal",
+    69: "ShieldLarge",
+    87: "Torch",
+    88: "HandToHand",
+    89: "PerfumeBottle",
+    90: "ThrustingShield",
+    91: "ThrowingWeapon",
+    92: "ReverseHandSword",
+    93: "LightGreatsword",
+    94: "GreatKatana",
+    95: "BeastClaw",
 }
 
 
@@ -118,6 +173,332 @@ def _external_max_upgrade(weapon: dict[str, Any]) -> int:
 
 def _local_key(name: str, affinity: str) -> tuple[str, str]:
     return normalize_name(name), affinity.casefold()
+
+
+def _raw_regulation_tables(
+    regulation_dir: Path,
+    paramdex_dir: Path,
+) -> tuple[dict[int, dict[str, Any]], dict[int, dict[str, Any]]]:
+    weapon_fields = (
+        "originEquipWep",
+        "wepType",
+        "gemMountType",
+        "swordArtsParamId",
+    )
+    mount_fields = [
+        field.name
+        for field in load_param_definition(paramdex_dir / "EquipParamGem.xml").fields
+        if field.name.startswith("canMountWep_")
+    ]
+    gem_fields = [
+        "iconId",
+        "sortId",
+        "swordArtsParamId",
+        *[f"configurableWepAttr{slot:02d}" for slot in range(24)],
+        *mount_fields,
+    ]
+    weapons = load_param_table(
+        regulation_dir / "EquipParamWeapon.param",
+        paramdex_dir / "EquipParamWeapon.xml",
+        weapon_fields,
+    )
+    gems = load_param_table(
+        regulation_dir / "EquipParamGem.param",
+        paramdex_dir / "EquipParamGem.xml",
+        gem_fields,
+    )
+    return weapons.rows, gems.rows
+
+
+def _raw_transferable_gems(gem_rows: dict[int, dict[str, Any]]) -> dict[int, dict[str, Any]]:
+    """Return one raw legal Ash row per sword-art id.
+
+    The binary PARAM has no display-name attributes.  These fields are the same
+    raw markers used by extraction to distinguish transferable Ashes from native
+    or menu-only Gem rows, and do not consult the normalized aow.csv snapshot.
+    """
+
+    transferable: dict[int, dict[str, Any]] = {}
+    for row_id, row in gem_rows.items():
+        if (
+            int(row["sortId"]) == 999999
+            or int(row["iconId"]) == 0
+            or int(row["swordArtsParamId"]) < 0
+        ):
+            continue
+        skill_id = int(row["swordArtsParamId"])
+        previous = transferable.get(skill_id)
+        if previous is None or row_id > int(previous["_rowId"]):
+            transferable[skill_id] = {**row, "_rowId": row_id}
+    return transferable
+
+
+def raw_compatibility_expectation(
+    profile: str,
+    regulation_dir: Path,
+    paramdex_dir: Path,
+    local_catalog: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Build an independent compatibility oracle from the raw regulation.
+
+    `local_catalog` supplies the set of extracted weapon configuration IDs and
+    the core's observed compatibility result.  Legality itself comes only from
+    raw EquipParamWeapon/EquipParamGem fields and profile affinity slots.
+    """
+
+    weapon_rows, gem_rows = _raw_regulation_tables(regulation_dir, paramdex_dir)
+    transferable = _raw_transferable_gems(gem_rows)
+    affinity_by_slot = profile_definition(profile).affinity_by_slot
+    local_ids = [int(row["id"]) for row in local_catalog]
+    if len(local_ids) != len(set(local_ids)):
+        raise ValueError("local catalog has duplicate weapon configuration IDs")
+
+    expected_transfer: set[tuple[int, int]] = set()
+    expected_native: set[tuple[int, int]] = set()
+    expected_can_change: set[int] = set()
+    for local in local_catalog:
+        weapon_id = int(local["id"])
+        raw = weapon_rows.get(weapon_id)
+        if raw is None:
+            raise ValueError(f"raw regulation has no weapon row {weapon_id}")
+        can_change = int(raw["gemMountType"]) == 2
+        if can_change:
+            expected_can_change.add(weapon_id)
+
+        affinity = str(local["affinity"])
+        slot = (weapon_id % 10000) // 100
+        if can_change:
+            expected_affinity = affinity_by_slot.get(slot)
+            if expected_affinity is None:
+                raise ValueError(
+                    f"raw regulation has no {profile} affinity for weapon {weapon_id} slot {slot}"
+                )
+            if affinity != expected_affinity:
+                raise ValueError(
+                    f"local/raw affinity mismatch for weapon {weapon_id}: "
+                    f"local={affinity!r} raw={expected_affinity!r}"
+                )
+            mount_field = RAW_WEP_TYPE_MOUNT_FIELDS.get(int(raw["wepType"]))
+            if mount_field is None:
+                raise ValueError(
+                    f"raw weapon type {raw['wepType']} has no canMountWep field for {weapon_id}"
+                )
+            mount_field = f"canMountWep_{mount_field}"
+            affinity_field = f"configurableWepAttr{slot:02d}"
+            for ash_id, gem in transferable.items():
+                if int(gem[affinity_field]) != 0 and int(gem[mount_field]) != 0:
+                    expected_transfer.add((weapon_id, ash_id))
+
+        native_skill_id = int(raw["swordArtsParamId"])
+        if native_skill_id <= 0:
+            continue
+        native_ok = affinity.casefold() == "standard"
+        if not native_ok and can_change:
+            gem = transferable.get(native_skill_id)
+            if gem is not None:
+                affinity_field = f"configurableWepAttr{slot:02d}"
+                mount_field_name = RAW_WEP_TYPE_MOUNT_FIELDS.get(int(raw["wepType"]))
+                if mount_field_name is None:
+                    raise ValueError(
+                        f"raw weapon type {raw['wepType']} has no canMountWep field for {weapon_id}"
+                    )
+                native_ok = int(gem[affinity_field]) != 0 and int(
+                    gem[f"canMountWep_{mount_field_name}"]
+                ) != 0
+        if native_ok:
+            expected_native.add((weapon_id, native_skill_id))
+
+    return {
+        "weapon_ids": set(local_ids),
+        "transferable_ash_ids": set(transferable),
+        "expected_transfer": expected_transfer,
+        "expected_native": expected_native,
+        "expected_can_change": expected_can_change,
+    }
+
+
+def compare_raw_compatibility(
+    local_catalog: list[dict[str, Any]],
+    expectation: dict[str, Any],
+) -> dict[str, Any]:
+    """Compare core's catalog result, including every expected negative pair."""
+
+    expected_weapon_ids = expectation["weapon_ids"]
+    expected_ashes = expectation["transferable_ash_ids"]
+    expected_transfer = expectation["expected_transfer"]
+    expected_native = expectation["expected_native"]
+    expected_can_change = expectation["expected_can_change"]
+    actual_transfer: set[tuple[int, int]] = set()
+    actual_native: set[tuple[int, int]] = set()
+    actual_can_change: set[int] = set()
+    errors: list[str] = []
+    actual_weapon_ids: set[int] = set()
+    for row in local_catalog:
+        try:
+            weapon_id = int(row["id"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError("catalog compatibility output is missing numeric weapon id") from error
+        actual_weapon_ids.add(weapon_id)
+        if _as_bool(row.get("canChangeAow")):
+            actual_can_change.add(weapon_id)
+        for ash in row.get("ashes", ()):
+            try:
+                actual_transfer.add((weapon_id, int(ash["id"])))
+            except (KeyError, TypeError, ValueError) as error:
+                raise ValueError("catalog compatibility output has an Ash without numeric id") from error
+        native = row.get("nativeSkill")
+        if native is not None:
+            if not isinstance(native, dict):
+                raise ValueError("catalog nativeSkill output is not an object or null")
+            try:
+                native_id = int(native["id"])
+            except (KeyError, TypeError, ValueError) as error:
+                raise ValueError("catalog nativeSkill output has no numeric id") from error
+            if _as_bool(native.get("compatible")):
+                actual_native.add((weapon_id, native_id))
+
+    if actual_weapon_ids != expected_weapon_ids:
+        errors.append(
+            f"weapon IDs differ: expected={len(expected_weapon_ids)} actual={len(actual_weapon_ids)}"
+        )
+    if actual_can_change != expected_can_change:
+        errors.append(
+            f"canChangeAow differs: expected={len(expected_can_change)} actual={len(actual_can_change)}"
+        )
+    if actual_transfer != expected_transfer:
+        errors.append(
+            f"transfer compatibility differs: expected={len(expected_transfer)} actual={len(actual_transfer)}"
+        )
+    if actual_native != expected_native:
+        errors.append(
+            f"native compatibility differs: expected={len(expected_native)} actual={len(actual_native)}"
+        )
+
+    candidates = {(weapon_id, ash_id) for weapon_id in expected_weapon_ids for ash_id in expected_ashes}
+    expected_rejected = candidates - expected_transfer
+    actual_rejected = candidates - actual_transfer
+    if actual_rejected != expected_rejected:
+        errors.append(
+            f"negative compatibility differs: expected={len(expected_rejected)} actual={len(actual_rejected)}"
+        )
+
+    return {
+        "passed": not errors,
+        "errors": errors,
+        "weaponConfigurations": len(expected_weapon_ids),
+        "transferableAshes": len(expected_ashes),
+        "expectedTransferPairs": len(expected_transfer),
+        "actualTransferPairs": len(actual_transfer),
+        "totalCandidatePairs": len(candidates),
+        "negativePairsRejected": len(actual_rejected),
+        "expectedNativePairs": len(expected_native),
+        "actualNativePairs": len(actual_native),
+        "unexpectedTransferPairs": sorted(actual_transfer - expected_transfer)[:5],
+        "missingTransferPairs": sorted(expected_transfer - actual_transfer)[:5],
+        "unexpectedNativePairs": sorted(actual_native - expected_native)[:5],
+        "missingNativePairs": sorted(expected_native - actual_native)[:5],
+    }
+
+
+def compare_exhaustive_result(
+    profile: str,
+    result: dict[str, Any],
+    expectation: dict[str, Any],
+) -> dict[str, Any]:
+    expected_transfer = len(expectation["expected_transfer"])
+    expected_native = len(expectation["expected_native"])
+    rules = profile_definition(profile).rules
+    errors: list[str] = []
+    if result.get("profile") != profile:
+        errors.append(f"profile differs: expected={profile!r} actual={result.get('profile')!r}")
+    if result.get("transferablePairs") != expected_transfer:
+        errors.append(
+            f"transfer pair count differs: expected={expected_transfer} "
+            f"actual={result.get('transferablePairs')!r}"
+        )
+    if result.get("nativePairs") != expected_native:
+        errors.append(
+            f"native pair count differs: expected={expected_native} "
+            f"actual={result.get('nativePairs')!r}"
+        )
+    if result.get("transferEvaluations") != expected_transfer * 4:
+        errors.append("transfer matrix does not cover +0/+max at 1H/2H")
+    if result.get("nativeEvaluations") != expected_native * 4:
+        errors.append("native matrix does not cover +0/+max at 1H/2H")
+    evaluations = (expected_transfer + expected_native) * 4
+    if (
+        result.get("arChecks", 0)
+        + result.get("unsupportedArEvaluations", 0)
+        != evaluations
+    ):
+        errors.append("AR/unsupported evaluation counts do not cover the complete matrix")
+    if (
+        result.get("statusChecks", 0)
+        + result.get("unsupportedWeaponEvaluations", 0)
+        != evaluations
+    ):
+        errors.append("status-buff/unsupported-weapon counts do not cover the complete matrix")
+    if result.get("nonUnitWeaponInfluenceWeapons") != 0:
+        errors.append("weapon-owned non-unit attack-element influence is present")
+    routes = result.get("routes")
+    if not isinstance(routes, dict):
+        errors.append("exhaustive result has no route coverage object")
+        routes = {}
+    for kind, expected in (("Transfer", expected_transfer), ("Native", expected_native)):
+        mapped = routes.get(f"mapped{kind}Evaluations")
+        unmapped = routes.get(f"unmapped{kind}Evaluations")
+        unsupported = routes.get(f"unsupported{kind}Evaluations")
+        if not (
+            isinstance(mapped, int)
+            and isinstance(unmapped, int)
+            and isinstance(unsupported, int)
+        ):
+            errors.append(f"{kind.casefold()} route coverage does not cover all legal evaluations")
+        elif mapped + unmapped + unsupported != expected * 4:
+            errors.append(f"{kind.casefold()} route coverage does not cover all legal evaluations")
+    if routes.get("capability") != profile_definition(profile).capabilities.aow_routes:
+        errors.append("route capability does not match the selected profile")
+    if routes.get("damageCapability") != profile_definition(profile).capabilities.aow_damage:
+        errors.append("AoW damage capability does not match the selected profile")
+    if routes.get("capability") is False and (
+        routes.get("unsupportedTransferEvaluations") != expected_transfer * 4
+        or routes.get("unsupportedNativeEvaluations") != expected_native * 4
+    ):
+        errors.append("profile without route support did not label every route evaluation")
+    for field in (
+        "materializedRoutes",
+        "materializedHits",
+        "unsupportedEffectEvaluations",
+        "routeErrorEvaluations",
+    ):
+        if not isinstance(routes.get(field), int) or routes[field] < 0:
+            errors.append(f"route coverage field {field} is missing or invalid")
+    if routes.get("capability") and evaluations and routes.get("materializedRoutes", 0) == 0:
+        errors.append("route-capable profile materialized no routes")
+    expected_caps = {
+        "standard": rules.standard_max_upgrade,
+        "somber": rules.somber_max_upgrade,
+        "separate": rules.separate_upgrade_caps,
+    }
+    if result.get("upgradeCaps") != expected_caps:
+        errors.append(f"upgrade caps differ: expected={expected_caps!r} actual={result.get('upgradeCaps')!r}")
+    if result.get("fixedStats") != [99, 99, 99, 99, 99]:
+        errors.append("fixed exhaustive stats are not all 99")
+    return {
+        "passed": not errors,
+        "errors": errors,
+        "transferablePairs": expected_transfer,
+        "nativePairs": expected_native,
+        "evaluations": (expected_transfer + expected_native) * 4,
+        "arChecks": result.get("arChecks"),
+        "unsupportedArEvaluations": result.get("unsupportedArEvaluations"),
+        "unsupportedWeaponEvaluations": result.get("unsupportedWeaponEvaluations"),
+        "statusChecks": result.get("statusChecks"),
+        "nonUnitWeaponInfluenceWeapons": result.get("nonUnitWeaponInfluenceWeapons"),
+        "routes": routes,
+        "upgradeCaps": result.get("upgradeCaps"),
+        "fixedStats": result.get("fixedStats"),
+    }
 
 
 def select_weapon_names(
@@ -415,7 +796,12 @@ def run_node_reference(
 
 
 def run_cargo(
-    root: Path, data_dir: Path, cases: list[ComparisonCase] | None, details: bool = False, catalog: bool = False
+    root: Path,
+    data_dir: Path,
+    cases: list[ComparisonCase] | None,
+    details: bool = False,
+    catalog: bool = False,
+    exhaustive: bool = False,
 ) -> Any:
     command = [
         "cargo",
@@ -434,6 +820,8 @@ def run_cargo(
         command.append("--details")
     if catalog:
         command.append("--catalog")
+    if exhaustive:
+        command.append("--exhaustive")
     payload = "" if cases is None else json.dumps([case.payload() for case in cases])
     completed = subprocess.run(
         command,
@@ -627,6 +1015,12 @@ def build_report(
             },
         },
         "localSnapshot": _snapshot_identity(data_dir),
+        "localEvaluator": {
+            "attackRating": "exact loaded binary rationals, projected once to f32",
+            "bleed": "exact production floor",
+            "otherStatus": "production status evaluator",
+            "skillDamage": "not compared by this AR/passive check",
+        },
         "localSource": {
             "commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
             "corePatchSha256": hashlib.sha256(subprocess.check_output(
@@ -646,9 +1040,67 @@ def build_report(
     }
 
 
+def run_exhaustive_profile(
+    profile: str,
+    data_dir: Path,
+    regulation_dir: Path,
+    paramdex_dir: Path,
+) -> dict[str, Any]:
+    print(f"[exhaustive] {profile}: loading catalog", file=sys.stderr, flush=True)
+    local_catalog = run_cargo(ROOT, data_dir, None, catalog=True)
+    expectation = raw_compatibility_expectation(
+        profile,
+        regulation_dir,
+        paramdex_dir,
+        local_catalog,
+    )
+    compatibility = compare_raw_compatibility(local_catalog, expectation)
+    print(
+        f"[exhaustive] {profile}: compatibility {compatibility['expectedTransferPairs']} transfer pairs, "
+        f"{compatibility['expectedNativePairs']} native pairs; running fixed evaluations",
+        file=sys.stderr,
+        flush=True,
+    )
+    matrix_result = run_cargo(ROOT, data_dir, None, exhaustive=True)
+    matrix = compare_exhaustive_result(profile, matrix_result, expectation)
+    print(
+        f"[exhaustive] {profile}: {matrix['evaluations']} evaluations complete",
+        file=sys.stderr,
+        flush=True,
+    )
+    return {
+        "status": "passed" if compatibility["passed"] and matrix["passed"] else "failed",
+        "snapshot": _snapshot_identity(data_dir),
+        "rawRegulation": str(regulation_dir),
+        "compatibility": compatibility,
+        "matrix": matrix,
+    }
+
+
+def run_exhaustive(
+    data_dirs: dict[str, Path],
+    regulation_dirs: dict[str, Path],
+    paramdex_dir: Path,
+) -> dict[str, Any]:
+    profiles = {
+        profile: run_exhaustive_profile(
+            profile,
+            data_dirs[profile],
+            regulation_dirs[profile],
+            paramdex_dir,
+        )
+        for profile in ("vanilla", "convergence")
+    }
+    return {
+        "status": "passed" if all(report["status"] == "passed" for report in profiles.values()) else "failed",
+        "mode": "exhaustive",
+        "profiles": profiles,
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Compare the local Vanilla AR/passive model with pinned T. Clark 1.17 code."
+        description="Compare the local AR/passive model with pinned T. Clark 1.17 code."
     )
     parser.add_argument("--seed", type=int, default=20260916)
     parser.add_argument("--count", type=int, default=100)
@@ -657,6 +1109,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--report", type=Path)
     parser.add_argument("--csv", type=Path)
     parser.add_argument("--tolerance", type=float, default=0.001)
+    parser.add_argument(
+        "--exhaustive",
+        action="store_true",
+        help="check raw compatibility and every fixed-stat AoW combination for both profiles",
+    )
+    parser.add_argument(
+        "--convergence-data-dir",
+        type=Path,
+        default=ROOT / "data" / "profiles" / "convergence",
+    )
+    parser.add_argument("--paramdex-dir", type=Path)
+    parser.add_argument("--vanilla-raw-dir", type=Path)
+    parser.add_argument("--convergence-raw-dir", type=Path)
     args = parser.parse_args(argv)
     if not math.isfinite(args.tolerance) or args.tolerance < 0 or args.tolerance > 0.001:
         parser.error("tolerance must be between 0 and 0.001")
@@ -664,6 +1129,44 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"data directory is missing: {args.data_dir}")
 
     try:
+        if args.exhaustive:
+            if args.vanilla_raw_dir is None or args.convergence_raw_dir is None:
+                raise ValueError(
+                    "--vanilla-raw-dir and --convergence-raw-dir are required with --exhaustive"
+                )
+            paramdex_dir = args.paramdex_dir or (
+                ROOT
+                / "data"
+                / "raw"
+                / "WitchyBND-3.0.1.0-win-x64"
+                / "Assets"
+                / "Paramdex"
+                / "ER"
+                / "Defs"
+            )
+            data_dirs = {
+                "vanilla": args.data_dir,
+                "convergence": args.convergence_data_dir,
+            }
+            regulation_dirs = {
+                "vanilla": args.vanilla_raw_dir,
+                "convergence": args.convergence_raw_dir,
+            }
+            for profile, data_dir in data_dirs.items():
+                if not data_dir.is_dir():
+                    raise ValueError(f"{profile} data directory is missing: {data_dir}")
+            for profile, regulation_dir in regulation_dirs.items():
+                if not regulation_dir.is_dir():
+                    raise ValueError(f"{profile} raw regulation directory is missing: {regulation_dir}")
+            if not paramdex_dir.is_dir():
+                raise ValueError(f"Paramdex definitions directory is missing: {paramdex_dir}")
+            report = run_exhaustive(data_dirs, regulation_dirs, paramdex_dir)
+            if args.report:
+                args.report.parent.mkdir(parents=True, exist_ok=True)
+                args.report.write_text(json.dumps(report, separators=(",", ":")), encoding="utf-8")
+            print(json.dumps(report, separators=(",", ":")))
+            return 0 if report["status"] == "passed" else 1
+
         identity = _snapshot_identity(args.data_dir)
         if identity.get("profile") != "vanilla" or identity.get("datasetVersion") != "vanilla-1.17":
             raise ValueError("the pinned reference requires the Vanilla 1.17 dataset")

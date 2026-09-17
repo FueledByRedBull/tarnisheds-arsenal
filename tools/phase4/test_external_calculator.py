@@ -5,7 +5,10 @@ import unittest
 
 from tools.phase4.validate_external_calculator import (
     ComparisonCase,
+    _raw_transferable_gems,
     compare_cases,
+    compare_exhaustive_result,
+    compare_raw_compatibility,
     floor_status,
     normalize_name,
     sample_cases,
@@ -57,6 +60,79 @@ def external() -> list[dict[str, object]]:
 
 
 class ExternalCalculatorTests(unittest.TestCase):
+    def test_raw_transferable_gems_excludes_native_and_menu_rows(self) -> None:
+        rows = {
+            1: {"sortId": 999999, "iconId": 1, "swordArtsParamId": 10},
+            2: {"sortId": 1, "iconId": 0, "swordArtsParamId": 11},
+            3: {"sortId": 1, "iconId": 1, "swordArtsParamId": -1},
+            4: {"sortId": 1, "iconId": 1, "swordArtsParamId": 12},
+        }
+        self.assertEqual(set(_raw_transferable_gems(rows)), {12})
+
+    def test_raw_compatibility_includes_negative_pairs(self) -> None:
+        expectation = {
+            "weapon_ids": {1, 2},
+            "transferable_ash_ids": {10, 20},
+            "expected_transfer": {(1, 10), (2, 20)},
+            "expected_native": {(1, 101)},
+            "expected_can_change": {1},
+        }
+        catalog = [
+            {
+                "id": 1,
+                "canChangeAow": True,
+                "ashes": [{"id": 10}],
+                "nativeSkill": {"id": 101, "compatible": True},
+            },
+            {
+                "id": 2,
+                "canChangeAow": False,
+                "ashes": [{"id": 20}],
+                "nativeSkill": {"id": 102, "compatible": False},
+            },
+        ]
+        report = compare_raw_compatibility(catalog, expectation)
+        self.assertTrue(report["passed"])
+        self.assertEqual(report["totalCandidatePairs"], 4)
+        self.assertEqual(report["negativePairsRejected"], 2)
+
+    def test_exhaustive_result_requires_profile_caps_and_all_four_poses(self) -> None:
+        expectation = {
+            "expected_transfer": {(1, 10)},
+            "expected_native": {(1, 101)},
+        }
+        result = {
+            "profile": "vanilla",
+            "transferablePairs": 1,
+            "nativePairs": 1,
+            "transferEvaluations": 4,
+            "nativeEvaluations": 4,
+            "arChecks": 8,
+            "unsupportedArEvaluations": 0,
+            "unsupportedWeaponEvaluations": 0,
+            "statusChecks": 8,
+            "nonUnitWeaponInfluenceWeapons": 0,
+            "fixedStats": [99, 99, 99, 99, 99],
+            "upgradeCaps": {"standard": 25, "somber": 10, "separate": True},
+            "routes": {
+                "damageCapability": True,
+                "capability": True,
+                "mappedTransferEvaluations": 4,
+                "unmappedTransferEvaluations": 0,
+                "unsupportedTransferEvaluations": 0,
+                "mappedNativeEvaluations": 4,
+                "unmappedNativeEvaluations": 0,
+                "unsupportedNativeEvaluations": 0,
+                "materializedRoutes": 2,
+                "materializedHits": 2,
+                "unsupportedEffectEvaluations": 0,
+                "routeErrorEvaluations": 0,
+            },
+        }
+        report = compare_exhaustive_result("vanilla", result, expectation)
+        self.assertTrue(report["passed"])
+        self.assertEqual(report["evaluations"], 8)
+
     def test_name_normalization_handles_game_text(self) -> None:
         self.assertEqual(normalize_name("Malenia’s Épée"), normalize_name("malenia's epee"))
 

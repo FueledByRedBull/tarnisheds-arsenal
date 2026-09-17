@@ -17,9 +17,9 @@ from tools.phase1.extract_motion_workbook import MOTION_WORKBOOK_NAME  # noqa: E
 from tools.phase1.profiles import ProfileDefinition, profile_definition  # noqa: E402
 
 
-SCHEMA_VERSION = 4
-MODEL_VERSION = "aow-routes-effects-v6"
-EXTRACTOR_VERSION = "phase1-python-v10-skill-ownership"
+SCHEMA_VERSION = 5
+MODEL_VERSION = "aow-routes-effects-v7"
+EXTRACTOR_VERSION = "phase1-python-v11-attack-provenance"
 RUNTIME_FILES = {
     "aow.csv",
     "aow_attack_data.csv",

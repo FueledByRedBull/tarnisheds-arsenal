@@ -1,5 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
+use num_traits::Zero;
+
 use crate::model::{
     AowActionResult, AowAttackRow, AowEffectRole, AowHitResult, AowRouteResult,
     AttackElementCorrectExt, COMBAT_STAT_COUNT, DAMAGE_TYPE_COUNT, DamageBreakdown, DamageType,
@@ -9,6 +11,7 @@ use crate::model::{
 
 pub(crate) mod exact;
 pub(crate) mod exact_value;
+use exact_value::ExactRational;
 
 #[derive(Clone, Copy, Debug)]
 pub struct ScalingContribution {
@@ -135,6 +138,36 @@ pub fn calculate_ar(
     effective_str_value: u16,
     data: &GameData,
 ) -> Result<DamageBreakdown, String> {
+    use num_traits::ToPrimitive;
+    let values = exact::exact_ar(weapon, upgrade, stats, effective_str_value, data)?;
+    let values = values.map(|value| value.to_f32().filter(|value| value.is_finite()));
+    let [
+        Some(physical),
+        Some(magic),
+        Some(fire),
+        Some(lightning),
+        Some(holy),
+    ] = values
+    else {
+        return Err("AR is outside the display range".to_string());
+    };
+    Ok(DamageBreakdown {
+        physical,
+        magic,
+        fire,
+        lightning,
+        holy,
+    })
+}
+
+// Approximation used only to schedule work; never rank or prune results with it.
+pub(crate) fn estimate_ar(
+    weapon: &Weapon,
+    upgrade: u8,
+    stats: &Stats,
+    effective_str_value: u16,
+    data: &GameData,
+) -> Result<DamageBreakdown, String> {
     let reinforce = data
         .reinforce_level(weapon.reinforce_type, upgrade)
         .ok_or_else(|| {
@@ -204,6 +237,7 @@ pub fn apply_aow_attack_buffs(
     breakdown
 }
 
+#[cfg(test)]
 pub(crate) fn calculate_skill_damage_for_type(
     weapon: &Weapon,
     attack_row: &AowAttackRow,
@@ -213,70 +247,19 @@ pub(crate) fn calculate_skill_damage_for_type(
     damage_type: DamageType,
     data: &GameData,
 ) -> Result<f32, String> {
-    let damage_idx = damage_type.as_index();
-    let reinforce = data
-        .reinforce_level(weapon.reinforce_type, upgrade)
-        .ok_or_else(|| {
-            format!(
-                "missing reinforce level: type={} level={upgrade}",
-                weapon.reinforce_type
-            )
-        })?;
-    let weapon_motion_component = weapon.base[damage_idx]
-        * reinforce.damage_mult[damage_idx]
-        * (attack_row.motion_values[damage_idx] / 100.0);
-    let fixed_attack_component = if attack_row.is_add_base_atk || attack_row.is_arrow_attack {
-        attack_row.attack_base[damage_idx] * reinforce.base_attack_mult
-    } else {
-        0.0
-    };
-    let actual_base = weapon_motion_component + fixed_attack_component;
-    if actual_base <= 0.0 {
-        return Ok(0.0);
-    }
-
-    let stat_values = stat_values_for_scaling(
+    use num_traits::ToPrimitive;
+    exact::exact_skill_damage_for_type(
+        weapon,
+        attack_row,
+        upgrade,
         stats,
         effective_str_value,
-        attack_row.is_disable_both_hands_bonus,
-    );
-    let curve_id = weapon.damage_curve_ids[damage_idx];
-    let curve_mults = [
-        data.calc_curve_value(curve_id, stat_values[STAT_STR])
-            .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
-        data.calc_curve_value(curve_id, stat_values[STAT_DEX])
-            .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
-        data.calc_curve_value(curve_id, stat_values[STAT_INT])
-            .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
-        data.calc_curve_value(curve_id, stat_values[STAT_FAI])
-            .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
-        data.calc_curve_value(curve_id, stat_values[STAT_ARC])
-            .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
-    ];
-
-    if let Some(override_id) = attack_row.overwrite_attack_element_correct_id {
-        let aec_ext = data.attack_element_ext(override_id).ok_or_else(|| {
-            format!(
-                "missing attack_element_correct_ext_id={} for AoW row {} ({})",
-                override_id, attack_row.sheet_row, attack_row.raw_name
-            )
-        })?;
-        let contributions =
-            build_override_contributions(weapon, reinforce, aec_ext, &curve_mults, damage_idx);
-        return Ok(calculate_ar_for_type(actual_base, &contributions));
-    }
-
-    let aec = data
-        .attack_element(weapon.attack_element_correct_id)
-        .ok_or_else(|| {
-            format!(
-                "missing attack_element_correct_id={}",
-                weapon.attack_element_correct_id
-            )
-        })?;
-    let contributions =
-        build_weapon_contributions(weapon, reinforce, aec, &curve_mults, damage_type, data);
-    Ok(calculate_ar_for_type(actual_base, &contributions))
+        damage_type,
+        data,
+    )?
+    .to_f32()
+    .filter(|value| value.is_finite())
+    .ok_or_else(|| "skill damage is outside the display range".to_string())
 }
 
 fn build_weapon_contributions(
@@ -321,6 +304,9 @@ struct PendingRoute {
     label: String,
     priority: u16,
     actions: BTreeMap<(u16, String), AowActionResult>,
+    total_damage: [ExactRational; DAMAGE_TYPE_COUNT],
+    first_hit_damage: ExactRational,
+    first_hit_key: Option<(u16, u16, u16)>,
 }
 
 #[derive(Clone, Debug)]
@@ -328,6 +314,24 @@ pub(crate) struct ScalarAowRoute<'a> {
     pub route_id: String,
     pub route_priority: u16,
     hits: Vec<ScalarAowHit<'a>>,
+}
+
+impl ScalarAowRoute<'_> {
+    pub(crate) fn is_additive(&self, data: &GameData) -> bool {
+        self.hits.iter().all(|hit| {
+            hit.row
+                .overwrite_attack_element_correct_id
+                .and_then(|id| data.attack_element_ext(id))
+                .is_none_or(|ext| {
+                    (0..COMBAT_STAT_COUNT).all(|stat| {
+                        (0..DAMAGE_TYPE_COUNT).all(|damage| {
+                            !ext.stat_scales(stat, damage)
+                                || ext.influence_rate(stat, damage) == 1.0
+                        })
+                    })
+                })
+        })
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -487,6 +491,27 @@ pub fn calculate_aow_routes(
     effective_str_value: u16,
     data: &GameData,
 ) -> Result<Vec<AowRouteResult>, String> {
+    calculate_aow_routes_scaled(
+        weapon,
+        attack_rows,
+        upgrade,
+        stats,
+        effective_str_value,
+        1.0,
+        data,
+    )
+}
+
+pub(crate) fn calculate_aow_routes_scaled(
+    weapon: &Weapon,
+    attack_rows: &[&AowAttackRow],
+    upgrade: u8,
+    stats: &Stats,
+    effective_str_value: u16,
+    damage_multiplier: f32,
+    data: &GameData,
+) -> Result<Vec<AowRouteResult>, String> {
+    let damage_multiplier = exact::rational(damage_multiplier, "damage multiplier")?;
     let weapon_status = calculate_status_buildup(weapon, upgrade, stats, data)?;
     let aows_by_id = data
         .aows
@@ -534,10 +559,10 @@ pub fn calculate_aow_routes(
             continue;
         }
 
-        let mut damage = DamageBreakdown::default();
+        let mut damage = std::array::from_fn(|_| ExactRational::zero());
         if row.is_damaging() {
             for damage_type in DamageType::ALL {
-                let value = calculate_skill_damage_for_type(
+                damage[damage_type.as_index()] = exact::exact_skill_damage_for_type(
                     weapon,
                     row,
                     upgrade,
@@ -546,13 +571,6 @@ pub fn calculate_aow_routes(
                     damage_type,
                     data,
                 )?;
-                match damage_type {
-                    DamageType::Physical => damage.physical = value,
-                    DamageType::Magic => damage.magic = value,
-                    DamageType::Fire => damage.fire = value,
-                    DamageType::Lightning => damage.lightning = value,
-                    DamageType::Holy => damage.holy = value,
-                }
             }
         }
         let mut per_hit_status = StatusBuildup::default();
@@ -615,20 +633,25 @@ pub fn calculate_aow_routes(
             let buff_active = activation_orders
                 .get(&(assignment.route_id.clone(), row.aow_id))
                 .is_some_and(|activation_order| assignment.action_order > *activation_order);
-            let mut hit_damage = damage;
+            let mut hit_damage = damage.clone();
             let mut hit_status = weapon_status;
             if buff_active && let Some(aow) = aow {
-                let buff_mv = row.weapon_buff_mv / 100.0;
-                hit_damage.physical +=
-                    aow.buff_attack_power[DamageType::Physical.as_index()] * buff_mv;
-                hit_damage.magic += aow.buff_attack_power[DamageType::Magic.as_index()] * buff_mv;
-                hit_damage.fire += aow.buff_attack_power[DamageType::Fire.as_index()] * buff_mv;
-                hit_damage.lightning +=
-                    aow.buff_attack_power[DamageType::Lightning.as_index()] * buff_mv;
-                hit_damage.holy += aow.buff_attack_power[DamageType::Holy.as_index()] * buff_mv;
+                if row.is_damaging() {
+                    for damage_type in DamageType::ALL {
+                        hit_damage[damage_type.as_index()] += exact::exact_buff_damage(
+                            aow.buff_attack_power[damage_type.as_index()],
+                            row.weapon_buff_mv,
+                        )?;
+                    }
+                }
                 hit_status =
                     apply_aow_status_buffs(hit_status, weapon, upgrade, stats, data, Some(aow))?;
             }
+            for value in &mut hit_damage {
+                *value *= &damage_multiplier;
+            }
+            let projected_damage = exact::project_damage(&hit_damage)?;
+            let hit_total = exact::sum_components(&hit_damage);
             hit_status = hit_status
                 .scale(row.status_mv / 100.0)
                 .combined_with(per_hit_status);
@@ -638,7 +661,22 @@ pub fn calculate_aow_routes(
                     label: assignment.route_label.clone(),
                     priority: assignment.route_priority,
                     actions: BTreeMap::new(),
+                    total_damage: std::array::from_fn(|_| ExactRational::zero()),
+                    first_hit_damage: ExactRational::zero(),
+                    first_hit_key: None,
                 });
+            for (total, value) in route.total_damage.iter_mut().zip(hit_damage.iter()) {
+                *total += value;
+            }
+            let hit_key = (assignment.action_order, assignment.hit_order, row.sheet_row);
+            if hit_total > ExactRational::zero()
+                && route
+                    .first_hit_key
+                    .is_none_or(|first_hit_key| hit_key < first_hit_key)
+            {
+                route.first_hit_damage = hit_total;
+                route.first_hit_key = Some(hit_key);
+            }
             let action = route
                 .actions
                 .entry((assignment.action_order, assignment.action_id.clone()))
@@ -653,7 +691,7 @@ pub fn calculate_aow_routes(
                 sheet_row: row.sheet_row,
                 hit_order: assignment.hit_order,
                 raw_name: row.raw_name.clone(),
-                damage: hit_damage,
+                damage: projected_damage,
                 poise_damage: weapon.base_poise * row.poise_mv / 100.0,
                 status_buildup: hit_status,
                 physical_attack_attribute: row.resolved_physical_attribute(weapon),
@@ -666,31 +704,26 @@ pub fn calculate_aow_routes(
 
     let mut routes = pending
         .into_iter()
-        .map(|(route_id, pending)| {
+        .map(|(route_id, pending)| -> Result<_, String> {
             let mut actions = pending.actions.into_values().collect::<Vec<_>>();
             for action in &mut actions {
                 action
                     .hits
                     .sort_by_key(|hit| (hit.hit_order, hit.sheet_row));
             }
-            let mut total_damage = DamageBreakdown::default();
             let mut total_poise_damage = 0.0_f32;
             let mut total_status_buildup = StatusBuildup::default();
-            let mut first_hit_damage = 0.0_f32;
             let mut total_stamina_cost = 0.0_f32;
             for action in &actions {
                 total_stamina_cost += action.stamina_cost;
                 for hit in &action.hits {
-                    let hit_damage = hit.damage.total();
-                    if first_hit_damage <= 0.0 && hit_damage > 0.0 {
-                        first_hit_damage = hit_damage;
-                    }
-                    total_damage = total_damage.combined_with(hit.damage);
                     total_poise_damage += hit.poise_damage;
                     total_status_buildup = total_status_buildup.combined_with(hit.status_buildup);
                 }
             }
-            AowRouteResult {
+            let total_damage = exact::project_damage(&pending.total_damage)?;
+            let first_hit_damage = exact::project(&pending.first_hit_damage)?;
+            Ok(AowRouteResult {
                 route_id,
                 route_label: pending.label,
                 route_priority: pending.priority,
@@ -709,9 +742,9 @@ pub fn calculate_aow_routes(
                 total_poise_damage,
                 total_status_buildup,
                 total_stamina_cost,
-            }
+            })
         })
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>, _>>()?;
     routes.sort_by(|left, right| {
         left.route_priority
             .cmp(&right.route_priority)
@@ -746,14 +779,16 @@ pub fn calculate_status_buildup(
         return Ok(base.buildup);
     }
 
-    Ok(truncate_status_buildup(scale_status_additions(
+    let mut result = truncate_status_buildup(scale_status_additions(
         base.buildup,
         base.correction_flags,
         weapon,
         upgrade,
         stats,
         data,
-    )?))
+    )?);
+    result.bleed = calculate_bleed_buildup(weapon, upgrade, stats, data)?;
+    Ok(result)
 }
 
 pub fn calculate_bleed_buildup(
@@ -762,36 +797,11 @@ pub fn calculate_bleed_buildup(
     stats: &Stats,
     data: &GameData,
 ) -> Result<f32, String> {
-    let mut base = data.weapon_passive(weapon.weapon_id);
-    if let Some(overlay) = data.weapon_passive_overlay(weapon.weapon_id, upgrade) {
-        base = merge_status_effect_source(base, overlay);
-    }
-    if base.buildup.bleed <= 0.0 {
-        return Ok(base.buildup.bleed);
-    }
-    if !data.rules.status_buildup_scales {
-        return Ok(base.buildup.bleed.floor());
-    }
-
-    let reinforce = data
-        .reinforce_level(weapon.reinforce_type, upgrade)
-        .ok_or_else(|| {
-            format!(
-                "missing reinforce level: type={} level={upgrade}",
-                weapon.reinforce_type
-            )
-        })?;
-    Ok(scale_status_value(
-        base.buildup.bleed,
-        STAT_ARC,
-        stats.arc,
-        weapon.status_curve_ids.blood,
-        base.correction_flags.bleed,
-        weapon,
-        reinforce,
-        data,
-    )?
-    .floor())
+    use num_traits::ToPrimitive;
+    exact::exact_bleed(weapon, upgrade, stats, data, None)?
+        .to_f32()
+        .filter(|value| value.is_finite())
+        .ok_or_else(|| "bleed buildup is outside the display range".to_string())
 }
 
 pub fn apply_aow_status_buffs(
@@ -1754,6 +1764,92 @@ mod tests {
 
         let best_full = r1.total_damage.total().max(r2.total_damage.total());
         assert!(best_full < r1.total_damage.total() + r2.total_damage.total());
+    }
+
+    #[test]
+    fn scaled_buff_route_matches_exact_full_sequence_score() -> Result<(), String> {
+        let data_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("data")
+            .join("phase1");
+        let mut game_data = load_game_data(data_path)?;
+        let aow = game_data
+            .aows
+            .iter_mut()
+            .find(|aow| aow.name == "Flame Skewer")
+            .expect("Flame Skewer");
+        aow.buff_activation_action_id = Some("activation".to_string());
+        aow.buff_attack_power = [0.0, 0.0, 95.0, 0.0, 0.0];
+        let row = game_data
+            .aow_attack_rows
+            .get_mut(&4140)
+            .expect("Flame Skewer rows")
+            .iter_mut()
+            .find(|row| row.sheet_row == 1331)
+            .expect("Flame Skewer follow-up row");
+        row.weapon_buff_mv = 100.0;
+        let weapon = find_weapon(&game_data, "Claymore", "Fire");
+
+        let rows = game_data
+            .aow_attack_rows(4140)
+            .iter()
+            .filter(|row| !row.is_lacking_fp && row.variant_weapon_type.is_empty())
+            .collect::<Vec<_>>();
+        let stats = Stats {
+            vig: 40,
+            mnd: 20,
+            end: 30,
+            str: 60,
+            dex: 40,
+            int: 20,
+            fai: 20,
+            arc: 20,
+        };
+        let effective_str_value = effective_str(stats.str, false, weapon.disable_two_hand_bonus);
+        let base =
+            calculate_aow_routes(weapon, &rows, 25, &stats, effective_str_value, &game_data)?
+                .into_iter()
+                .find(|route| route.route_id == "full")
+                .expect("Flame Skewer route");
+        let scaled = calculate_aow_routes_scaled(
+            weapon,
+            &rows,
+            25,
+            &stats,
+            effective_str_value,
+            2.05,
+            &game_data,
+        )?
+        .into_iter()
+        .find(|route| route.route_id == "full")
+        .expect("scaled Flame Skewer route");
+        assert!(
+            scaled
+                .actions
+                .iter()
+                .flat_map(|action| &action.hits)
+                .any(|hit| hit.buff_active)
+        );
+
+        let scalar_route = prepare_scalar_aow_routes(&rows, &game_data)?
+            .expect("scalar Flame Skewer route")
+            .into_iter()
+            .find(|route| route.route_id == "full")
+            .expect("scalar Flame Skewer route");
+        let scalar = evaluate_scalar_aow_route(
+            &scalar_route,
+            weapon,
+            25,
+            &stats,
+            effective_str_value,
+            2.05,
+            &game_data,
+        )?;
+        assert!((scaled.total_damage.total() - scalar.full_sequence_damage).abs() < 0.001);
+        assert!((scaled.first_hit_damage - scalar.first_hit_damage).abs() < 0.001);
+        assert!((scaled.total_damage.total() - base.total_damage.total() * 2.05).abs() < 0.001);
+        Ok(())
     }
 
     #[test]

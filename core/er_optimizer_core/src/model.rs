@@ -126,6 +126,7 @@ pub struct Weapon {
     pub weapon_type_keys: String,
     pub weight: f32,
     pub base_poise: f32,
+    pub critical_damage_percent: u16,
     pub stamina_consumption_rate: f32,
     pub move_count: u16,
     pub one_handed_poise: DisplayPoiseDamage,
@@ -239,6 +240,8 @@ pub struct AowAttackRow {
     pub is_disable_both_hands_bonus: bool,
     pub is_add_base_atk: bool,
     pub is_arrow_attack: bool,
+    pub is_bullet_attack: bool,
+    pub is_throw_attack: bool,
     pub physical_attack_attribute: PhysicalAttackAttribute,
     pub motion_values: [f32; DAMAGE_TYPE_COUNT],
     pub attack_base: [f32; DAMAGE_TYPE_COUNT],
@@ -252,8 +255,17 @@ pub struct AowAttackRow {
 impl AowAttackRow {
     pub fn is_damaging(&self) -> bool {
         self.motion_values.iter().any(|value| *value > 0.0)
-            || ((self.is_add_base_atk || self.is_arrow_attack)
-                && self.attack_base.iter().any(|value| *value > 0.0))
+            || (self.uses_fixed_attack_base() && self.attack_base.iter().any(|value| *value > 0.0))
+    }
+
+    pub(crate) fn uses_fixed_attack_base(&self) -> bool {
+        self.is_add_base_atk || self.is_arrow_attack || self.is_bullet_attack
+    }
+
+    pub(crate) fn has_fixed_damage(&self, profile_id: &str) -> bool {
+        // Patch 1.04 removed weapon/attribute scaling from Carian Retaliation swords.
+        profile_id == crate::data::VANILLA_PROFILE_ID
+            && matches!(self.atk_id, 300_000_682 | 300_000_683)
     }
 
     pub fn resolved_physical_attribute(&self, weapon: &Weapon) -> PhysicalAttackAttribute {

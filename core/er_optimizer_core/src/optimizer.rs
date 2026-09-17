@@ -3,17 +3,18 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use crate::math::exact::{project, project_damage, sum_components};
 use crate::math::exact_value::ExactRational;
-use num_traits::{One, ToPrimitive, Zero};
+use num_traits::{One, Zero};
 use rayon::prelude::*;
 
 use crate::math::ScalarAowRoute;
-#[cfg(test)]
-use crate::math::evaluate_scalar_aow_route;
 use crate::math::{
-    apply_aow_status_buffs, calculate_aow_routes, calculate_status_buildup, class_by_name,
+    apply_aow_status_buffs, calculate_aow_routes_scaled, calculate_status_buildup, class_by_name,
     compute_free_points, effective_str, meets_requirements, prepare_scalar_aow_routes,
 };
+#[cfg(test)]
+use crate::math::{calculate_aow_routes, evaluate_scalar_aow_route};
 use crate::model::{
     Aow, AowAttackRow, AowEffectRole, AowRouteResult, COMBAT_STAT_COUNT, DamageBreakdown,
     DamageType, GameData, STAT_ARC, STAT_DEX, STAT_FAI, STAT_INT, STAT_STR, Stats, StatusBuildup,
@@ -877,7 +878,7 @@ fn build_search_work_units(
                     combat[stat] += u16::from(group.search.maxs[stat] - combat[stat])
                         .min(group.search.remaining_free) as u8;
                     let stats = stats_with_combat(plan.request.current_stats, combat);
-                    let ar = crate::math::calculate_ar(
+                    let ar = crate::math::estimate_ar(
                         weapon,
                         upgrade,
                         &stats,
@@ -1740,6 +1741,38 @@ where
         }
         return Ok(value);
     }
+    if route.is_some_and(|route| !route.is_additive(data)) {
+        // Penalty corrections couple stats; additive DP cannot prune them safely.
+        let mut best = None;
+        let mut error = None;
+        let mut combat = search.mins;
+        search.visit(&mut combat, |combat| {
+            let candidate = progress.poll().and_then(|()| {
+                evaluate_objective_allocation(
+                    *combat, request, prepared, aow_choice, upgrade, route, data,
+                )
+            });
+            match candidate {
+                Ok(candidate) => {
+                    if best
+                        .as_ref()
+                        .is_none_or(|current| better_objective_allocation(&candidate, current))
+                    {
+                        best = Some(candidate);
+                    }
+                    true
+                }
+                Err(failure) => {
+                    error = Some(failure);
+                    false
+                }
+            }
+        });
+        if let Some(error) = error {
+            return Err(error);
+        }
+        return best.ok_or_else(|| "no feasible skill allocation".to_string());
+    }
     let maxima = formula_max_stats(search, request, prepared.weapon);
     let route_formula = route
         .map(|route| {
@@ -2110,32 +2143,6 @@ fn rational(value: f32) -> Result<ExactRational, String> {
     crate::math::exact::rational(value, "model coefficient")
 }
 
-fn project(value: &ExactRational) -> Result<f32, String> {
-    value
-        .to_f32()
-        .filter(|value| value.is_finite())
-        .ok_or_else(|| "exact score is outside the display range".to_string())
-}
-
-fn sum_components(values: &[ExactRational; 5]) -> ExactRational {
-    values
-        .iter()
-        .filter(|value| !value.is_zero())
-        .cloned()
-        .reduce(|left, right| left + right)
-        .unwrap_or_else(ExactRational::zero)
-}
-
-fn project_damage(values: &[ExactRational; 5]) -> Result<DamageBreakdown, String> {
-    Ok(DamageBreakdown {
-        physical: project(&values[0])?,
-        magic: project(&values[1])?,
-        fire: project(&values[2])?,
-        lightning: project(&values[3])?,
-        holy: project(&values[4])?,
-    })
-}
-
 fn metric_from_allocation(value: &ObjectiveAllocation) -> Result<CandidateMetric, String> {
     Ok(CandidateMetric {
         score: project(&value.key.score)?,
@@ -2421,68 +2428,21 @@ fn materialize_aow_route(
     let Some(selected_route) = selected_route else {
         return Ok(None);
     };
-    let routes = calculate_aow_routes(
+    let routes = calculate_aow_routes_scaled(
         prepared.weapon,
         attack_rows,
         upgrade,
         stats,
         effective_str_value,
+        damage_multiplier,
         data,
     )?;
-    let mut route = routes
+    let route = routes
         .into_iter()
         .find(|route| route.route_id == selected_route)
         .ok_or_else(|| {
             format!("selected exact route {selected_route} is missing during materialization")
         })?;
-    let multiplier = rational(damage_multiplier)?;
-    let mut totals: [ExactRational; 5] = std::array::from_fn(|_| ExactRational::zero());
-    let mut first = ExactRational::zero();
-    for action in &mut route.actions {
-        for hit in &mut action.hits {
-            let row = attack_rows
-                .iter()
-                .find(|row| row.sheet_row == hit.sheet_row)
-                .ok_or_else(|| {
-                    format!(
-                        "missing attack row {} during materialization",
-                        hit.sheet_row
-                    )
-                })?;
-            let mut values: [ExactRational; 5] = std::array::from_fn(|_| ExactRational::zero());
-            for damage_type in DamageType::ALL {
-                let index = damage_type.as_index();
-                if row.is_damaging() {
-                    values[index] = crate::math::exact::exact_skill_damage_for_type(
-                        prepared.weapon,
-                        row,
-                        upgrade,
-                        stats,
-                        effective_str_value,
-                        damage_type,
-                        data,
-                    )?;
-                }
-                if row.is_damaging()
-                    && hit.buff_active
-                    && let Some(ash) = data.aows.iter().find(|ash| ash.aow_id == row.aow_id)
-                {
-                    values[index] += rational(ash.buff_attack_power[index])?
-                        * rational(row.weapon_buff_mv)?
-                        / ExactRational::from_integer(100.into());
-                }
-                values[index] *= &multiplier;
-                totals[index] += &values[index];
-            }
-            let total = sum_components(&values);
-            if first.is_zero() && total > ExactRational::zero() {
-                first = total;
-            }
-            hit.damage = project_damage(&values)?;
-        }
-    }
-    route.total_damage = project_damage(&totals)?;
-    route.first_hit_damage = project(&first)?;
     Ok(Some(route))
 }
 
@@ -3253,15 +3213,17 @@ fn native_skill_choice_for_weapon<'a>(
         exact_rows
     };
     let attack_rows = select_attack_rows(source_rows, weapon);
+    let aow = data.aows.iter().find(|aow| aow.aow_id == native_skill_id);
     let skill_name = weapon
         .native_skill_name
         .as_deref()
-        .or_else(|| source_rows.first().map(|row| row.aow_name.as_str()))?;
+        .or_else(|| aow.map(|aow| aow.name.as_str()))
+        .or_else(|| source_rows.first().map(|row| row.aow_name.as_str()));
     Some(AowChoice {
         no_applied_ash: weapon.affinity.eq_ignore_ascii_case("Standard"),
-        aow: data.aows.iter().find(|aow| aow.aow_id == native_skill_id),
+        aow,
         skill_id: Some(native_skill_id),
-        skill_name: Some(skill_name),
+        skill_name,
         attack_rows,
         scalar_routes: None,
     })
@@ -3628,13 +3590,13 @@ fn attack_row_stat_can_increase_damage(
     data: &GameData,
     stat_idx: usize,
 ) -> bool {
-    if row.is_lacking_fp || !row.is_damaging() {
+    if row.is_lacking_fp || !row.is_damaging() || row.has_fixed_damage(&data.profile_id) {
         return false;
     }
     DamageType::ALL.iter().any(|damage_type| {
         let damage_idx = damage_type.as_index();
         let has_damage_base = weapon.base[damage_idx] > 0.0 && row.motion_values[damage_idx] > 0.0
-            || (row.is_add_base_atk || row.is_arrow_attack) && row.attack_base[damage_idx] > 0.0;
+            || row.uses_fixed_attack_base() && row.attack_base[damage_idx] > 0.0;
         if !has_damage_base {
             return false;
         }

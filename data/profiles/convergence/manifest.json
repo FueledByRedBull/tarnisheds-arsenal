@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "datasetVersion": "convergence-3.0.0.1",
-  "modelVersion": "aow-routes-effects-v6",
+  "modelVersion": "aow-routes-effects-v7",
   "id": "convergence-3.0.0.1",
   "label": "The Convergence dataset - 3.0.0.1",
   "appVersion": "1.16.1",
@@ -31,8 +31,8 @@
     "extendedScalingGrades": true,
     "statusBuildupScales": false
   },
-  "generatedAt": "2026-09-16",
-  "extractorVersion": "phase1-python-v10-skill-ownership",
+  "generatedAt": "2026-09-17",
+  "extractorVersion": "phase1-python-v11-attack-provenance",
   "provenance": "profile-bound regulation, names, and numeric PARAM effect graph",
   "runtimeFiles": [
     {
@@ -42,8 +42,8 @@
     },
     {
       "path": "aow_attack_data.csv",
-      "size": 539,
-      "sha256": "afeea247b7c1a119072992b40e96c2dcaeafb44dc299d5498fec5d1ab8604933"
+      "size": 572,
+      "sha256": "bd48defdbd3e533d0fc2bf8318b34ad6090b375725d20227150ed74ccb6cb51e"
     },
     {
       "path": "aow_effect_data.csv",
@@ -72,8 +72,8 @@
     },
     {
       "path": "native_skill_attack_data.csv",
-      "size": 581,
-      "sha256": "b3feadcf9e44326a4b7091f1cac276c5eae604283eb6d53810b30f72eeb75576"
+      "size": 614,
+      "sha256": "0a336a73f111b0057845f5be5cd8c824b623b15eb382acb26fec7da376dcfb2a"
     },
     {
       "path": "reinforce.csv",
@@ -92,8 +92,8 @@
     },
     {
       "path": "weapons.csv",
-      "size": 566889,
-      "sha256": "f3b19c2026dad9fd0a4b96260c041a1dacd05548b0fd01c82c64a4a000c6fd41"
+      "size": 579669,
+      "sha256": "6b61da01015b7be673fbec678bdc24b1dfae96a2dfcc81cb96f770aa535d134f"
     }
   ],
   "diagnosticFiles": [

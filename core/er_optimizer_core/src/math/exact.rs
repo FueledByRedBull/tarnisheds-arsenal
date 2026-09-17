@@ -1,9 +1,10 @@
 use super::exact_value::ExactRational;
-use num_traits::{One, Zero, float::FloatCore};
+use num_traits::{One, ToPrimitive, Zero, float::FloatCore};
 
 use crate::model::{
     AowAttackRow, AttackElementCorrect, AttackElementCorrectExt, COMBAT_STAT_COUNT,
-    DAMAGE_TYPE_COUNT, DamageType, GameData, ReinforceLevel, STAT_ARC, Stats, Weapon,
+    DAMAGE_TYPE_COUNT, DamageBreakdown, DamageType, GameData, ReinforceLevel, STAT_ARC, Stats,
+    Weapon,
 };
 
 use super::ScalarAowRoute;
@@ -709,6 +710,12 @@ pub(crate) fn exact_skill_damage_for_type(
 ) -> Result<ExactRational, String> {
     let damage_idx = damage_type.as_index();
     let reinforce = reinforce_level(weapon, upgrade, data)?;
+    if attack_row.has_fixed_damage(&data.profile_id) {
+        return rational(
+            attack_row.attack_base[damage_idx],
+            "fixed unscaled skill damage",
+        );
+    }
     let weapon_base = rational(weapon.base[damage_idx], "weapon base")?;
     let damage_mult = rational(
         reinforce.damage_mult[damage_idx],
@@ -722,7 +729,7 @@ pub(crate) fn exact_skill_damage_for_type(
             multiply_if_needed(multiply_if_needed(weapon_base, damage_mult), motion_value)
                 / rational(100.0, "percent denominator")?
         };
-    let fixed_attack_component = if attack_row.is_add_base_atk || attack_row.is_arrow_attack {
+    let fixed_attack_component = if attack_row.uses_fixed_attack_base() {
         let attack_base = rational(attack_row.attack_base[damage_idx], "fixed attack base")?;
         let base_attack_mult = rational(
             reinforce.base_attack_mult,
@@ -736,13 +743,14 @@ pub(crate) fn exact_skill_damage_for_type(
     } else {
         ExactRational::zero()
     };
-    let actual_base = if weapon_motion_component.is_zero() {
+    let mut actual_base = if weapon_motion_component.is_zero() {
         fixed_attack_component
     } else if fixed_attack_component.is_zero() {
         weapon_motion_component
     } else {
         weapon_motion_component + fixed_attack_component
     };
+    apply_throw_multiplier(&mut actual_base, weapon, attack_row);
     if actual_base.is_zero() {
         return Ok(ExactRational::zero());
     }
@@ -753,7 +761,7 @@ pub(crate) fn exact_skill_damage_for_type(
         attack_row.is_disable_both_hands_bonus,
     );
     let curve_mults = curve_values(data, weapon.damage_curve_ids[damage_idx], stat_values)?;
-    let mut coefficients = std::array::from_fn(|_| None);
+    let coefficients;
     if let Some(override_id) = attack_row.overwrite_attack_element_correct_id {
         let aec_ext = data.attack_element_ext(override_id).ok_or_else(|| {
             format!(
@@ -761,29 +769,41 @@ pub(crate) fn exact_skill_damage_for_type(
                 override_id, attack_row.sheet_row, attack_row.raw_name
             )
         })?;
-        for (stat_idx, coefficient) in coefficients.iter_mut().enumerate() {
+        // Influence changes the whole contribution, including its constant term.
+        // A negative contribution selects the strongest penalty instead of adding bonuses.
+        let mut total = ExactRational::zero();
+        let mut minimum = ExactRational::zero();
+        for (stat_idx, curve) in curve_mults.iter().enumerate() {
             if !aec_ext.stat_scales(stat_idx, damage_idx) {
                 continue;
             }
-            let scaling = aec_ext
-                .overwrite_rate(stat_idx, damage_idx)
-                .map(|value| rational(value, "attack correction overwrite"))
-                .unwrap_or_else(|| {
-                    Ok(multiply_if_needed(
-                        rational(weapon.scaling[stat_idx], "weapon scaling")?,
-                        rational(
-                            aec_ext.influence_rate(stat_idx, damage_idx),
-                            "attack correction influence",
-                        )?,
-                    ))
-                })?;
-            let scaling_mult = rational(
-                reinforce.scaling_mult[stat_idx],
-                "reinforce scaling multiplier",
+            let influence = rational(
+                aec_ext.influence_rate(stat_idx, damage_idx),
+                "attack correction influence",
             )?;
-            *coefficient = (!scaling.is_zero() && !scaling_mult.is_zero())
-                .then(|| multiply_if_needed(scaling, scaling_mult));
+            let scaling = rational(
+                aec_ext
+                    .overwrite_rate(stat_idx, damage_idx)
+                    .unwrap_or(weapon.scaling[stat_idx]),
+                "attack correction scaling",
+            )?;
+            let contribution = influence.clone() - ExactRational::one()
+                + scaling
+                    * rational(
+                        reinforce.scaling_mult[stat_idx],
+                        "reinforce scaling multiplier",
+                    )?
+                    * curve
+                    * influence;
+            minimum = minimum.min(contribution.clone());
+            total += contribution;
         }
+        let bonus = if minimum < ExactRational::zero() {
+            minimum
+        } else {
+            total
+        };
+        return Ok(actual_base * (ExactRational::one() + bonus));
     } else {
         let aec = data
             .attack_element(weapon.attack_element_correct_id)
@@ -856,6 +876,14 @@ fn compile_skill_formula(
     max_stat_values: [u16; COMBAT_STAT_COUNT],
 ) -> Result<ExactFormula, String> {
     let damage_idx = damage_type.as_index();
+    if attack_row.has_fixed_damage(&data.profile_id) {
+        let mut formula = ExactFormula::zero(max_stat_values);
+        formula.base = rational(
+            attack_row.attack_base[damage_idx],
+            "fixed unscaled skill damage",
+        )?;
+        return Ok(formula);
+    }
     let weapon_motion_component = rational(weapon.base[damage_idx], "weapon base")?
         * rational(
             reinforce.damage_mult[damage_idx],
@@ -863,7 +891,7 @@ fn compile_skill_formula(
         )?
         * rational(attack_row.motion_values[damage_idx], "motion value")?
         / rational(100.0, "percent denominator")?;
-    let fixed_attack_component = if attack_row.is_add_base_atk || attack_row.is_arrow_attack {
+    let fixed_attack_component = if attack_row.uses_fixed_attack_base() {
         rational(attack_row.attack_base[damage_idx], "fixed attack base")?
             * rational(
                 reinforce.base_attack_mult,
@@ -872,7 +900,8 @@ fn compile_skill_formula(
     } else {
         ExactRational::zero()
     };
-    let actual_base = weapon_motion_component + fixed_attack_component;
+    let mut actual_base = weapon_motion_component + fixed_attack_component;
+    apply_throw_multiplier(&mut actual_base, weapon, attack_row);
     if actual_base <= ExactRational::zero() {
         return Ok(ExactFormula::zero(max_stat_values));
     }
@@ -888,6 +917,9 @@ fn compile_skill_formula(
         for (stat_idx, coefficient) in coefficients.iter_mut().enumerate() {
             if !aec_ext.stat_scales(stat_idx, damage_idx) {
                 continue;
+            }
+            if aec_ext.influence_rate(stat_idx, damage_idx) != 1.0 {
+                return Err("non-additive skill correction requires direct evaluation".to_string());
             }
             let scaling = aec_ext
                 .overwrite_rate(stat_idx, damage_idx)
@@ -931,6 +963,13 @@ fn compile_skill_formula(
         weapon.damage_curve_ids[damage_idx],
         max_stat_values,
     )
+}
+
+fn apply_throw_multiplier(damage: &mut ExactRational, weapon: &Weapon, row: &AowAttackRow) {
+    if row.is_throw_attack && weapon.critical_damage_percent != 100 {
+        *damage *= ExactRational::from_integer(weapon.critical_damage_percent.into())
+            / ExactRational::from_integer(100.into());
+    }
 }
 
 fn reinforce_level<'a>(
@@ -1099,7 +1138,10 @@ fn scale_if_needed(value: &mut ExactRational, multiplier: &ExactRational) {
     }
 }
 
-fn exact_buff_damage(attack_power: f32, weapon_buff_mv: f32) -> Result<ExactRational, String> {
+pub(crate) fn exact_buff_damage(
+    attack_power: f32,
+    weapon_buff_mv: f32,
+) -> Result<ExactRational, String> {
     let attack_power = rational(attack_power, "Ash attack power buff")?;
     let weapon_buff_mv = rational(weapon_buff_mv, "weapon buff motion value")?;
     if attack_power.is_zero() || weapon_buff_mv.is_zero() {
@@ -1170,6 +1212,34 @@ pub(crate) fn rational(value: f32, field: &str) -> Result<ExactRational, String>
         i128::from(mantissa),
         exponent,
     ))
+}
+
+pub(crate) fn project(value: &ExactRational) -> Result<f32, String> {
+    value
+        .to_f32()
+        .filter(|value| value.is_finite())
+        .ok_or_else(|| "exact score is outside the display range".to_string())
+}
+
+pub(crate) fn sum_components(values: &[ExactRational; DAMAGE_TYPE_COUNT]) -> ExactRational {
+    values
+        .iter()
+        .filter(|value| !value.is_zero())
+        .cloned()
+        .reduce(|left, right| left + right)
+        .unwrap_or_else(ExactRational::zero)
+}
+
+pub(crate) fn project_damage(
+    values: &[ExactRational; DAMAGE_TYPE_COUNT],
+) -> Result<DamageBreakdown, String> {
+    Ok(DamageBreakdown {
+        physical: project(&values[DamageType::Physical.as_index()])?,
+        magic: project(&values[DamageType::Magic.as_index()])?,
+        fire: project(&values[DamageType::Fire.as_index()])?,
+        lightning: project(&values[DamageType::Lightning.as_index()])?,
+        holy: project(&values[DamageType::Holy.as_index()])?,
+    })
 }
 
 #[cfg(test)]
@@ -1552,6 +1622,253 @@ mod tests {
     }
 
     #[test]
+    fn carian_retaliation_is_independent_of_weapon_upgrade_and_stats() {
+        let data = data();
+        let weapon = data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.name == "Perfumer's Shield" && weapon.affinity == "Cold")
+            .unwrap();
+        for row in data
+            .aow_attack_rows
+            .values()
+            .flatten()
+            .filter(|row| matches!(row.atk_id, 300_000_682 | 300_000_683))
+        {
+            for upgrade in [0, 7, 25] {
+                for stat in [10, 99] {
+                    let stats = Stats {
+                        vig: 10,
+                        mnd: 10,
+                        end: 10,
+                        str: stat,
+                        dex: stat,
+                        int: stat,
+                        fai: stat,
+                        arc: stat,
+                    };
+                    for two_handing in [false, true] {
+                        let strength = effective_str(stat, two_handing, false);
+                        let direct = exact_skill_damage_for_type(
+                            weapon,
+                            row,
+                            upgrade,
+                            &stats,
+                            strength,
+                            DamageType::Magic,
+                            &data,
+                        )
+                        .unwrap();
+                        assert_eq!(direct.to_f32(), Some(270.0));
+                        let compiled = compile_skill_formula(
+                            weapon,
+                            row,
+                            data.reinforce_level(weapon.reinforce_type, upgrade)
+                                .unwrap(),
+                            DamageType::Magic,
+                            &data,
+                            [148, 99, 99, 99, 99],
+                        )
+                        .unwrap();
+                        assert_eq!(
+                            compiled
+                                .evaluate([
+                                    strength,
+                                    stat.into(),
+                                    stat.into(),
+                                    stat.into(),
+                                    stat.into()
+                                ])
+                                .unwrap(),
+                            direct
+                        );
+                        assert!(!row.has_fixed_damage(crate::data::CONVERGENCE_PROFILE_ID));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn numeric_bullets_include_fixed_damage_without_add_base_flag() {
+        let data = data();
+        let stats = Stats {
+            vig: 10,
+            mnd: 10,
+            end: 10,
+            str: 20,
+            dex: 22,
+            int: 10,
+            fai: 10,
+            arc: 10,
+        };
+        for name in ["Dragonscale Blade", "Dragon Halberd"] {
+            let weapon = data
+                .weapons
+                .iter()
+                .find(|weapon| weapon.name == name && weapon.affinity == "Standard")
+                .unwrap();
+            for (attack_id, fixed) in [(30_090_011, 149.0), (30_090_012, 69.0)] {
+                let row = data.native_skill_attack_rows[&weapon.weapon_id]
+                    .iter()
+                    .find(|row| row.atk_id == attack_id)
+                    .unwrap();
+                assert!(!row.is_add_base_atk);
+                assert!(row.is_bullet_attack && row.uses_fixed_attack_base());
+                for upgrade in [0, 10] {
+                    let reinforce = data
+                        .reinforce_level(weapon.reinforce_type, upgrade)
+                        .unwrap();
+                    let expected = rational(fixed, "test fixed base").unwrap()
+                        * rational(reinforce.base_attack_mult, "test upgrade rate").unwrap();
+                    let direct = exact_skill_damage_for_type(
+                        weapon,
+                        row,
+                        upgrade,
+                        &stats,
+                        20,
+                        DamageType::Lightning,
+                        &data,
+                    )
+                    .unwrap();
+                    assert_eq!(direct, expected);
+                    let compiled = compile_skill_formula(
+                        weapon,
+                        row,
+                        reinforce,
+                        DamageType::Lightning,
+                        &data,
+                        [148, 99, 99, 99, 99],
+                    )
+                    .unwrap();
+                    assert_eq!(compiled.evaluate([20, 22, 10, 10, 10]).unwrap(), direct);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn lifesteal_influence_penalty_matches_independent_calculator() {
+        let data = data();
+        let weapon = data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.name == "Caestus" && weapon.affinity == "Occult")
+            .unwrap();
+        let row = data
+            .aow_attack_rows
+            .values()
+            .flatten()
+            .find(|row| row.raw_name == "Lifesteal Fist - Grab")
+            .unwrap();
+        let stats = Stats {
+            vig: 10,
+            mnd: 10,
+            end: 10,
+            str: 15,
+            dex: 70,
+            int: 70,
+            fai: 20,
+            arc: 70,
+        };
+        // tarnished.tools 1.17: same raw parameters, independently evaluated formula.
+        for (damage_type, expected) in [
+            (DamageType::Physical, 105.71547663176304),
+            (DamageType::Magic, 292.74),
+        ] {
+            let actual =
+                exact_skill_damage_for_type(weapon, row, 25, &stats, 15, damage_type, &data)
+                    .unwrap();
+            assert!(
+                (actual.to_f64().unwrap() - expected).abs() < 0.0001,
+                "{damage_type}: {actual:?}"
+            );
+        }
+        // Even a positive DEX contribution must not offset a negative STR contribution.
+        let ext = data.attack_element_ext(52000).unwrap();
+        assert!(ext.influence_rate(0, 0) < 1.0);
+        assert!(
+            compile_skill_formula(
+                weapon,
+                row,
+                data.reinforce_level(weapon.reinforce_type, 25).unwrap(),
+                DamageType::Physical,
+                &data,
+                [148, 99, 99, 99, 99]
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn lifesteal_grabs_apply_weapon_critical_damage() {
+        let data = data();
+        let stats = Stats {
+            vig: 10,
+            mnd: 10,
+            end: 10,
+            str: 40,
+            dex: 40,
+            int: 40,
+            fai: 40,
+            arc: 40,
+        };
+        for name in ["Katar", "Pata", "Raptor Talons"] {
+            let weapon = weapon(&data, name, "Standard");
+            assert_eq!(weapon.critical_damage_percent, 110);
+            let mut normal_critical = weapon.clone();
+            normal_critical.critical_damage_percent = 100;
+            let rows = data
+                .aow_attack_rows
+                .values()
+                .flatten()
+                .filter(|row| row.aow_name == "Lifesteal Fist");
+            let mut grabbed = false;
+            let mut contact = false;
+            for row in rows {
+                grabbed |= row.is_throw_attack;
+                contact |= !row.is_throw_attack;
+                for upgrade in [0, 25] {
+                    for damage_type in [DamageType::Physical, DamageType::Magic] {
+                        let normal = exact_skill_damage_for_type(
+                            &normal_critical,
+                            row,
+                            upgrade,
+                            &stats,
+                            60,
+                            damage_type,
+                            &data,
+                        )
+                        .unwrap();
+                        let actual = exact_skill_damage_for_type(
+                            weapon,
+                            row,
+                            upgrade,
+                            &stats,
+                            60,
+                            damage_type,
+                            &data,
+                        )
+                        .unwrap();
+                        let expected = if row.is_throw_attack {
+                            normal * ExactRational::from_integer(11.into())
+                                / ExactRational::from_integer(10.into())
+                        } else {
+                            normal
+                        };
+                        assert_eq!(
+                            actual, expected,
+                            "{name}: {} +{upgrade} {damage_type}",
+                            row.raw_name
+                        );
+                    }
+                }
+            }
+            assert!(grabbed && contact);
+        }
+    }
+
+    #[test]
     fn exact_ar_upper_bound_covers_nonmonotonic_curve_domain() {
         let mut data = data();
         let weapon_idx = data
@@ -1799,6 +2116,45 @@ mod tests {
         let rounded = calculate_bleed_buildup(weapon, 25, &stats, &data).expect("f32 bleed");
         assert_eq!(exact.to_f32(), Some(rounded));
         assert_eq!(exact, floor_ratio(&exact));
+    }
+
+    #[test]
+    fn public_status_evaluator_uses_the_exact_bleed_floor() {
+        let mut data = data();
+        let mut weapon = weapon(&data, "Uchigatana", "Blood").clone();
+        weapon.scaling[STAT_ARC] = 9.0;
+        data.weapon_passive_overlays.remove(&weapon.weapon_id);
+        let source = data.weapon_passives.get_mut(&weapon.weapon_id).unwrap();
+        source.buildup.bleed = 0.7;
+        source.correction_flags.bleed = Some(true);
+        data.reinforce[usize::from(weapon.reinforce_type)][0]
+            .as_mut()
+            .unwrap()
+            .scaling_mult[STAT_ARC] = 1.0;
+        data.calc_correct[weapon.status_curve_ids.blood]
+            .as_mut()
+            .unwrap()[99] = Some(1.0);
+        let stats = Stats {
+            vig: 10,
+            mnd: 10,
+            end: 10,
+            str: 11,
+            dex: 15,
+            int: 10,
+            fai: 10,
+            arc: 99,
+        };
+        assert_eq!(
+            crate::math::calculate_status_buildup(&weapon, 0, &stats, &data)
+                .unwrap()
+                .bleed,
+            6.0
+        );
+        assert_eq!(
+            calculate_bleed_buildup(&weapon, 0, &stats, &data).unwrap(),
+            6.0
+        );
+        assert_eq!((0.7_f32 * 10.0).floor(), 7.0);
     }
 
     #[test]

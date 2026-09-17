@@ -175,6 +175,7 @@ class Phase1DumpTests(unittest.TestCase):
             "wepType": "5",
             "attackBasePhysics": "100",
             "disableGemAttr": "1",
+            "throwAtkRate": "10",
         }
         rows = build_weapon_rows(
             [row],
@@ -191,6 +192,7 @@ class Phase1DumpTests(unittest.TestCase):
             somber_reinforce_types=frozenset({2200}),
         )
         self.assertEqual(rows[0]["is_somber"], 1)
+        self.assertEqual(rows[0]["critical_damage_percent"], 110)
 
     def test_param_rows_use_real_xml_parsing(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
