@@ -125,9 +125,10 @@ it with the preferred combat-stat vector.
 
 For damage type $d$ in physical, magic, fire, lightning, and holy,
 `exact_ar` (`math/exact.rs`) evaluates the ranking formula below.
-The legacy `f32` helpers `calculate_ar_for_type` and `calculate_ar` (`math.rs`)
-remain for non-ranking callers and scheduling estimates; they do not choose
-exact-v1 winners.
+Public `calculate_ar` uses the same exact evaluator and projects its result to
+`f32` only for display/API fields. The lower-level `calculate_ar_for_type` helper is
+used by `estimate_ar`, whose float approximation exists only to schedule work; it
+never ranks or prunes a candidate.
 
 $$
 AR_d(x)=b_d r_d\left(1+\sum_i I_{i,d}c_{i,d}q_i\gamma_d(x_i')\right),
@@ -194,10 +195,24 @@ that pass; final completion restores the full five-component key.
 Modeled bleed has the form $B(x)=C_B+b_{\mathrm{ARC}}(x_{\mathrm{ARC}})$.
 Profile-specific buildup, upgrade factors, and configured status buffs are constants
 or ARC-only terms. Their local floors do not combine different decision variables.
+The public bleed evaluator and the external AR/passive report use this same exact
+production path: base weapon bleed is floored before Ash additions, followed by the
+existing final floor when a scaling status addition is present.
+The external comparison records four documented Bloodfiend's Fork (Keen) boundary
+cases: exact 61 versus reference 62 at +7/ARC 45 and exact 67 versus reference 68 at
++25/ARC 50, each in both handling modes. These differences follow the exact-floor
+contract; they do not show universal external status agreement or certify gameplay
+behavior.
 
 For route $r$, hit $k$, the scalar damage formula is
 
 $$H_{r,k}(x)=C_{r,k}+\sum_i h_{r,k,i}(x_i).$$
+
+Attack provenance remains explicit in the loaded rows. `is_bullet_attack` comes from
+raw `Bullet.param.atkId_Bullet`; raw throw flag value `2` becomes `is_throw_attack`.
+The exact evaluator applies a weapon's `critical_damage_percent` only to throw rows.
+For Lifesteal Fist, Katar, Pata, and Raptor Talons therefore apply 110% to grab
+rows, while initial contact rows remain at their ordinary multiplier.
 
 Each damage component multiplies a fixed weapon-motion/fixed-attack base by
 $1+\sum_i\kappa_i\gamma_i(x_i')$. Motion values, reinforcement factors,
@@ -329,6 +344,15 @@ the route recurrence retains all primary-optimal transitions and selects the ful
 Terminal ranks are computed from normalized integer keys. Each component's positive
 scale preserves its order, so only the winning allocation needs direct evaluation.
 
+Influence corrections apply their offset to the whole weighted overwrite/scaling
+contribution. If a contribution is negative, the strongest penalty is selected
+instead of adding positive and negative terms. Compiled routes reject this
+non-additive case. When no unique primary allocation is available, the optimizer
+directly enumerates the affected allocations
+so additive DP cannot prune coupled stat contributions. The Lifesteal Fist regression
+matches the independently evaluated tarnished.tools 1.17 formula; an older ERDB
+result differs. This is calculator agreement, not proof of in-game behavior.
+
 ### Bounds and scheduling
 
 For AR objectives, an upper bound maximizes each stat's curve independently over its
@@ -385,8 +409,11 @@ between `i128` and `BigInt` must preserve both equality and order.
 Exact keys survive terminal evaluation, route choice, top-K retention, parallel
 merges, and final grouping. The chosen route identity is retained during
 materialization. Public floating-point fields are projections for display, not
-inputs to ranking. The runtime model identity includes `exact-v1`, invalidating
-persisted results from the former scoring contract without relabeling snapshot files.
+inputs to ranking. Public `calculate_ar` and `calculate_bleed_buildup` use the exact
+production evaluators before projecting display values; `estimate_ar` is the float
+scheduling approximation. The runtime model identity is
+`aow-routes-effects-v7/exact-v1`, invalidating persisted results from the former
+scoring contract without relabeling snapshot files.
 
 ## 5. Compiled routes, oracle, and fallback
 
@@ -429,7 +456,9 @@ fidelity or discharge the other model assumptions for arbitrary future mechanics
 **Model fidelity.** The evaluator is a fan reconstruction tied to selected profile,
 dataset, model, source, and manifest hashes. It does not model enemy defense,
 negation, resistance growth, proc explosion damage, or universal temporary-buff
-stacking. Workbook-derived PvE stance/poise damage and route stamina are reported,
+stacking; Chilling Mist and Poisonous Mist remain unsupported where sources conflict
+on their correction and stacking. Workbook-derived PvE stance/poise damage and route
+stamina are reported,
 but are not objectives; enemy stagger thresholds, recovery, and timing are not simulated.
 
 **Data validity.** The shared runtime CSV parser rejects NaN and infinities. Runtime

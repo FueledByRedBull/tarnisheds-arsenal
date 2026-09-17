@@ -30,97 +30,95 @@ Broad Search, Paths, and Affinity Watch cancellation has a 250 ms latency target
 
 ## Exact scoring measurements
 
-These timings predate the `aow-routes-effects-v6` gameplay corrections. The
-corrected model intentionally changes affected skill routes, status buildup,
-and weapon scaling; use the commands above for a current correctness comparison.
+The September 17, 2026 follow-up isolates the reachable-state DP bounds from
+gameplay corrections. Both builds use the current schema-5, `aow-routes-effects-v7`
+snapshots and `exact-v1` scoring; the baseline replaces only `exact_dp.rs` with
+the unbounded recurrence from `831ca38`. This measures the loop change, not the
+entire PR against f32 or an older gameplay model.
 
-The September 2026 follow-up compared `41aeaa1` (f32), `93bf35a` (the previous
-exact build), and this PR's reviewed exact implementation on Windows 11 with Rust
-1.97 release builds and one Rayon thread. Each case had one warmup, three f32
-repeats, and five exact repeats, with identical requests and upgrade policies.
-These are different numerical contracts: former rounding-induced ties and status
-floors can change. Complete ranked fingerprints, including exact keys and combat
-stats, remained identical between the two exact implementations in all nine Vanilla
-and seven supported Convergence search cases.
+Rust 1.97 release builds ran on a Ryzen 7 7800X3D, Windows 11, with one Rayon
+thread pinned to logical processor 6. Separate Cargo target directories prevent
+one build from overwriting the other executable. Each search used two reversed-
+order blocks, one warmup and three samples per block (six samples per build).
+No builds or tests ran during measurement; ordinary desktop activity remained.
+Raw samples, binary/snapshot hashes, requests and full ranked fingerprints were
+retained locally. All 16 fingerprints match across builds and repeats.
 
-| Vanilla case | f32 median (ms) | Exact median (ms) | Exact min-max (ms) |
+| Profile / case | Unbounded (ms) | Bounded (ms) | Bounded min-max (ms) |
 | --- | ---: | ---: | ---: |
-| Open Max AR | 1,026.4 | 636.9 | 631.6-644.1 |
-| Open physical AR | 1,025.0 | 619.8 | 612.8-623.4 |
-| Max AR, 500-row export | 1,016.5 | 706.6 | 701.3-709.8 |
-| High-level Max AR | 1,461.3 | 633.4 | 621.9-646.9 |
-| High-level, all upgrades | 28,794.1 | 1,435.0 | 1,418.2-1,450.5 |
-| Katana bleed | 13.19 | 11.10 | 11.09-11.25 |
-| Katana bleed, 500 rows | 12.88 | 11.44 | 11.22-11.48 |
-| Fixed AoW first hit | 0.169 | 0.064 | 0.063-0.070 |
-| Fixed AoW sequence | 0.163 | 0.140 | 0.139-0.146 |
+| Vanilla / Open Max AR | 649.142 | 654.037 | 646.286-662.260 |
+| Vanilla / Open physical AR | 642.310 | 639.076 | 634.798-646.688 |
+| Vanilla / Max AR, 500 rows | 728.593 | 730.768 | 726.974-734.139 |
+| Vanilla / High-level Max AR | 660.386 | 659.715 | 653.699-664.901 |
+| Vanilla / High-level, all upgrades | 1,453.430 | 1,464.898 | 1,443.102-1,486.263 |
+| Vanilla / Katana bleed | 11.047 | 10.752 | 10.615-10.909 |
+| Vanilla / Katana bleed, 500 rows | 11.143 | 11.066 | 10.974-11.208 |
+| Vanilla / Fixed AoW first hit | 0.072 | 0.074 | 0.070-0.075 |
+| Vanilla / Fixed AoW sequence | 0.153 | 0.142 | 0.138-0.151 |
+| Convergence / Open Max AR | 408.472 | 402.848 | 401.730-409.201 |
+| Convergence / Open physical AR | 385.334 | 383.654 | 381.723-386.569 |
+| Convergence / Max AR, 500 rows | 525.175 | 519.052 | 516.820-522.817 |
+| Convergence / High-level Max AR | 450.544 | 448.388 | 445.798-470.858 |
+| Convergence / High-level, all upgrades | 1,400.188 | 1,345.984 | 1,326.785-1,372.496 |
+| Convergence / Katana bleed | 10.090 | 9.888 | 9.860-9.933 |
+| Convergence / Katana bleed, 500 rows | 10.127 | 10.069 | 10.007-10.168 |
 
-All nine medians improved in this run. Exact scoring uses inline `i128` rationals
-for ordinary coefficients and checked integer DP keys, promoting to arbitrary
-precision when needed. Shared primary plans retain every primary tie; unique
-primary winners avoid unnecessary secondary work. Broad and all-upgrade searches
-also benefit from exact bounds and evaluating promising configurations first.
-Scheduling estimates do not prune candidates. These measurements do not establish
-a speedup for every request, and the sub-millisecond cases show timing variability.
+Broad-search medians are mostly unchanged: Vanilla's largest increase is 0.8%,
+within overlapping sample ranges. Convergence's all-upgrade median improves
+3.9%, although its baseline has a noisy upper sample. Fixed first-hit work adds
+about 0.002 ms; the sequence median improves 7.2%. These measurements support
+the small loop change, not a universal speedup claim.
 
-For loadouts without a skill route, the primary winner now avoids a second DP
-when all remaining metrics are constant or already in the primary pair. The primary
-pass keeps the canonical stat representative while retaining every tied predecessor.
-This removed an existing Convergence bleed slowdown:
+The three-affinity level-range case used one warmup and five samples per block
+(ten per build). Full results match across builds; independent and shared range
+evaluation also agree within each build.
 
-| Convergence case | f32 median (ms) | Previous exact (ms) | Reviewed exact (ms) | Exact min-max (ms) |
-| --- | ---: | ---: | ---: | ---: |
-| Katana bleed | 19.48 | 21.95 | 9.66 | 9.64-9.78 |
-| Katana bleed, 500 rows | 19.57 | 22.43 | 9.84 | 9.71-9.92 |
-
-These core fixtures retain the benchmark's class-based optimization budget; they
-are not measurements of Convergence's fixed Custom-stats UI workflow. All seven
-supported Convergence search medians were below their f32 references. A trial that
-removed redundant DP columns and a range-local formula cache showed no useful
-measured benefit and were discarded.
-
-A four-thread, 500-row Max AR export check also preserved the complete serial result
-fingerprint. Three-repeat medians moved from 565.9 to 551.0 ms for Vanilla and from
-487.4 to 232.5 ms for Convergence; reviewed ranges were 546.9-557.7 and 228.3-234.4 ms.
-
-Earlier exact-v1 workflow measurements used one warmup and three repeats. These
-were not rerun as native application timings in the follow-up. Paths includes one-
-and two-lane runs; Affinity Watch uses all 13 eligible affinities.
-
-| Workflow | Previous median (ms) | Exact median (ms) | Exact min-max (ms) |
+| Additional levels | Unbounded (ms) | Bounded (ms) | Bounded min-max (ms) |
 | --- | ---: | ---: | ---: |
-| Affinity Watch, 10 levels | 23.152 | 36.193 | 35.890-36.233 |
-| Affinity Watch, 50 levels | 185.962 | 240.301 | 240.242-241.122 |
-| Affinity Watch, 200 levels | 2,971.433 | 2,619.789 | 2,608.413-2,629.535 |
-| Upgrade series, 26 points | 0.405 | 0.605 | 0.578-0.686 |
-| Paths, 10 levels, one lane | 0.749 | 0.892 | 0.887-0.909 |
-| Paths, 10 levels, two lanes | 1.473 | 1.733 | 1.725-1.742 |
-| Paths, 50 levels, one lane | 1.064 | 1.292 | 1.285-1.320 |
-| Paths, 50 levels, two lanes | 2.131 | 2.593 | 2.582-2.604 |
-| Paths, 200 levels, one lane | 4.118 | 5.436 | 5.436-5.479 |
-| Paths, 200 levels, two lanes | 8.199 | 10.898 | 10.896-10.912 |
+| 0 | 0.692 | 0.674 | 0.668-0.704 |
+| 10 | 2.235 | 2.171 | 2.154-2.197 |
+| 50 | 14.322 | 13.568 | 13.510-13.785 |
+| 200 | 129.597 | 108.722 | 108.266-113.157 |
 
-The remaining Paths/upgrade overhead is at most 2.7 ms in these cases. Shorter
-Affinity Watch runs add 13-54 ms, while the 200-level run improves by 352 ms.
-These are measured tradeoffs, not a claim of uniform performance parity. The
-calculations run on cancellable native workers rather than the window thread.
-The follow-up did rerun the separate three-affinity core level-range case at
-horizons 0, 10, 50, and 200. Reviewed exact medians were 0.686, 2.203, 14.289, and
-131.072 ms, versus previous exact medians of 0.696, 2.218, 14.458, and 131.370 ms.
-The f32 references were 0.671, 1.523, 10.532, and 117.984 ms. Independent and shared
-range evaluations retained identical complete result fingerprints. These ranges
-still have pre-existing exact-arithmetic overhead; the search speedups above do
-not establish universal f32 performance parity.
+The 200-level case improves 16.1%, while 10 and 50 levels improve 2.9% and 5.3%.
+Bounds skip only unreachable DP destinations/additions; sparse allowed choices,
+unused budget and the complete tie order remain intact.
 
-The rebuilt native release EXE completed an uncached eight-build solve batch in
-29.44 ms and a 26-point upgrade series in 4.33 ms (three-repeat medians including
-native communication). Concurrent manifest commands took 1.89 and 1.98 ms. Two
-conclusive cancellation samples both took 3.65 ms; a third calculation completed
-before cancellation took effect and was excluded from that median. The native
-smoke flow passed both profiles, comparisons, Paths, Affinity Watch, and saved
-builds. This was a local release EXE, not a newly published or signed MSI. These
-checks establish application behavior, not independent in-game validation of
-damage formulas.
+Reproduce searches with `benchmark_optimizer_phases --warmups=1 --repeats=3`
+and ranges with `benchmark_level_range --repeats=5 --horizons=0,10,50,200` below.
+Reverse build order and retain full outputs rather than comparing only winners.
+Convergence search benchmarks use the harness's class-based budget, not the
+fixed Custom-stats UI workflow.
+
+### Historical f32 comparison
+
+The earlier same-snapshot v6 comparison of `41aeaa1` (f32), `6dc4aba` (previous
+exact) and `831ca38` found all 16 search medians faster than f32. Four broad
+searches were 2.7-4.7% slower than the previous exact build in 14-sample
+confirmation runs. Those builds have different gameplay/rounding contracts;
+their full fingerprints do not all match. They are historical context, not a
+same-contract regression baseline for the current corrected model.
+
+Historical f32 three-affinity range medians were 0.652, 1.539, 9.848 and 117.697 ms
+at horizons 0, 10, 50 and 200. The bounded exact implementation closes part of
+the short-range gap and beats that historical 200-level timing, but short ranges
+still cost roughly 0.6-3.7 ms more. This does **not** establish universal f32
+performance parity. Retain exact ordering rather than weakening correctness to
+remove those milliseconds.
+
+### Native responsiveness
+
+The rebuilt local release EXE completed an uncached eight-build solve batch in
+29.66 ms and a 26-point upgrade series in 4.43 ms (three-repeat medians after
+one warmup, including native communication). Concurrent manifest commands took
+1.89 and 2.06 ms and completed before the heavy work in every sample.
+All three cancellation probes finished their calculation before cancellation
+took effect, so this run establishes no cancellation latency. The synchronized
+core/backend cancellation regressions provide separate behavioral coverage.
+
+Native smoke passed both profiles, comparisons, Paths, Affinity Watch and saved
+builds. This was a local release EXE, not a newly published or signed MSI, and
+does not establish in-game damage accuracy.
 
 ## Stat-entry and search-space estimation
 

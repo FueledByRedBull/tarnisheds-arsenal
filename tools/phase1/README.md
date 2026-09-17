@@ -19,14 +19,18 @@ accept a partially promoted snapshot.
 
 ## Snapshot contract
 
-The current storage schema is **4**. It requires explicit Ash mounting permission
+The current storage schema is **5**. It requires explicit Ash mounting permission
 in `weapons.csv.can_change_aow` and compatible affinity/type lists in `aow.csv`.
 The extractor no longer emits `aow_weapon_compat.csv`; legality is derived from
 those compact fields. Runtime manifests list 12 required tables, and diagnostic
 Ash/affinity summaries are computed in memory.
 
+The regenerated snapshots use model identity `aow-routes-effects-v7`; the runtime
+scoring identity appends `/exact-v1`. The extractor version recorded for the current
+attack provenance is `phase1-python-v11-attack-provenance`.
+
 Regenerate older snapshots with this extractor. Both runtime and Python validation
-reject schema 3 before attempting to use its incompatible tables. Do not merely
+reject schema 4 before attempting to use its incompatible tables. Do not merely
 edit an old manifest's version number. Dataset/game versions do not change when
 only the storage contract changes; source hashes remain tied to the original inputs.
 
@@ -109,9 +113,24 @@ release validation requires the exact tracked reference match.
   - `valid_affinities` lists profile affinity names permitted by the gem's `configurableWepAttrNN` flags. Together with mounting permission and weapon types, this is the sole runtime compatibility rule; no per-pair matrix is generated or loaded.
   - Infused weapons may retain their native skill only when the skill is a compatible transferable Ash; native-only skills remain available on Standard weapons.
   - `valid_weapon_types` is pipe-delimited and intended to be matched against `weapon_type_keys`.
-- Snapshot schema 4 requires `weapons.csv.can_change_aow` and `aow.csv.valid_affinities`, and removes the redundant compatibility matrix from the runtime file set. Old schema-3 snapshots must be regenerated; changing their version field alone is not a migration.
+- `aow_attack_data.csv` and `native_skill_attack_data.csv` include the required
+  `is_bullet_attack` and `is_throw_attack` fields. The former is derived from raw
+  `Bullet.param.atkId_Bullet` IDs; the latter is derived from raw throw flag `2`.
+  Fixed projectile/raw components remain distinct from `is_add_base_atk` rows, and
+  throw-only weapon critical multipliers remain distinct from initial contact rows.
+- The `weapons.csv` `critical_damage_percent` field preserves the source weapon
+  critical multiplier used by throw rows. Lifesteal Fist applies 110% to grab rows
+  for Katar, Pata, and Raptor Talons; their initial contact rows are unaffected.
+- Snapshot schema 5 requires `weapons.csv.can_change_aow`, `aow.csv.valid_affinities`,
+  `is_bullet_attack`, `is_throw_attack`, and `critical_damage_percent`, and removes
+  the redundant compatibility matrix from the runtime file set. Old schema-4
+  snapshots must be regenerated; changing their version field alone is not a
+  migration.
 - Workbook attacks owned by a unique weapon are excluded from transferable Ash tables even when their skill names overlap. They remain available through the native-weapon extraction path.
-- Persistent weapon and linked on-hit effects remain separate records. Overlapping status increments, currently Chilling Mist and Poisonous Mist, are marked unsupported until their engine correction and stacking are verified; they must not be added together as an ordinary buff.
+- Persistent weapon and linked on-hit effects remain separate records. Overlapping
+  status increments, currently Chilling Mist and Poisonous Mist, remain unsupported
+  because available sources conflict on engine correction and stacking; they must not
+  be added together as an ordinary buff.
 - Compact diagnostic summaries are derived in memory from the same permission fields. Regression fingerprints preserve all 87,879 Vanilla and 147,201 Convergence legal pairs from the pre-compaction snapshots.
 - Generated CSV and manifest JSON files use canonical LF line endings so snapshots hash identically across supported hosts.
 

@@ -69,6 +69,11 @@ as stale. Convergence uses a different [fixed-stat workflow](#convergence-3001-b
 Pinned loadouts keep their weapon, affinity, and skill. Their stats and upgrades
 are reoptimized for the current budget; the upgrade chart shows how each develops.
 
+Compare requires fresh Rankings results. When the ranking request changes, retained
+rows become stale; Compare clears its visible series and target and waits for a new
+ranking before starting calculations. Its baseline and curves use the same current
+request, so an identical loadout has zero delta.
+
 ![Compare showing aligned differences between the selected baseline and another loadout](docs/images/tarnisheds-arsenal-compare.png)
 
 </details>
@@ -104,9 +109,11 @@ Vanilla supports **Max AR**, **Max Physical AR**, **Bleed, then AR**,
 or cover the full range from `+0`. Selecting a weapon starts with its legal native
 skill; changeable weapons also offer **Automatic (best legal skill)**.
 
-The `exact-v1` contract ranks with exact arithmetic over the loaded model inputs;
-displayed values are rounded. That prevents intermediate rounding from deciding
-close winners. It does not establish that every modeled value matches the game.
+The `aow-routes-effects-v7` snapshot model uses the `exact-v1` ranking contract:
+loaded model inputs are evaluated with exact arithmetic and displayed values are
+rounded. Runtime result and cache identities append `/exact-v1` to the snapshot
+model. This prevents intermediate rounding from deciding close winners, but does
+not establish that every modeled value matches the game.
 See the [optimizer overview](docs/design/optimizer-overview.md) and
 [mathematical scope](docs/design/optimizer-math.md#7-scope-of-the-claims).
 
@@ -117,18 +124,29 @@ See the [optimizer overview](docs/design/optimizer-overview.md) and
 > stacking is not a universal layer.
 
 Chilling Mist and Poisonous Mist currently have unmodeled weapon/on-hit status
-increments. They show a warning in AR results and are excluded from skill-damage
-objectives. The [reference comparison runner](docs/performance.md) checks Vanilla
-weapon AR and base status against pinned T. Clark 1.17 code; complex skill formulas
-and in-game damage remain outside that verification.
+increments because the available sources conflict on their engine correction and
+stacking. They show a warning in AR results and are excluded from skill-damage
+objectives. The [reference comparison runner](docs/performance.md) compares Vanilla
+weapon AR and base status against pinned T. Clark 1.17 code. Its report identifies
+the local AR evaluator as exact loaded binary rationals projected once to `f32` and
+bleed as the exact production floor; this AR/passive check does not compare complex
+skill formulas or prove in-game damage. Four documented Bloodfiend's Fork (Keen)
+base-bleed boundary cases are expected to differ under that contract: exact 61 versus
+reference 62 at +7/ARC 45, and exact 67 versus reference 68 at +25/ARC 50, in both
+handling modes. External status agreement is therefore not universal, and no
+gameplay certification is implied.
 
 ### Data and profiles
 
 Each profile is independent, versioned, and checksummed. Missing, modified, mixed,
-or unlisted snapshot files are rejected. Runtime snapshots use **schema 4**, with
-mounting permission and Ash affinity/type lists defining compatibility. Regenerate
-older snapshots with the [extraction guide](tools/phase1/README.md); do not relabel
-their manifests.
+or unlisted snapshot files are rejected. Runtime snapshots use **schema 5**, with
+mounting permission and Ash affinity/type lists defining compatibility. Attack
+provenance includes `is_bullet_attack` and `is_throw_attack`, and weapon rows carry
+their source `critical_damage_percent`. Regenerate older snapshots with the
+[extraction guide](tools/phase1/README.md); do not relabel their manifests. The UI's
+**Snapshot loaded** state means the selected
+manifest-bound snapshot passed loading checks and exposes its declared capabilities;
+it is not independent verification of every formula.
 
 ### Convergence 3.0.0.1 beta
 

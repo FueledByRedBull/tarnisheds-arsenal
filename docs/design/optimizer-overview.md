@@ -46,6 +46,12 @@ R1, and jumping R2 attacks. When a selected AoW route is mapped, it also reports
 every hit and the full-route poise total using the workbook's weapon base poise and
 AoW poise multiplier. These values do not use the selected build's attack rating.
 
+Compare requires current Rankings results. A changed ranking request marks retained
+rows stale, clears the visible comparison series and target, and blocks comparison
+work until Rankings is refreshed. One comparison operation uses one request context;
+if a solve or upgrade sibling fails, its remaining siblings are aborted and the
+original error is reported. Shared cached work remains alive for other subscribers.
+
 The visual system is intentionally lightweight: CSS perspective, short
 state-driven transitions, and a 19 KB low-contrast WebP texture provide depth
 without WebGL or a runtime animation library. `prefers-reduced-motion` collapses
@@ -78,11 +84,27 @@ routing, and character stats.
 Data refresh tooling lives in `tools/phase1`. Validation, benchmarking, and
 release packaging helpers live in `tools/phase4`.
 
-The v6 snapshot model keeps unique-weapon attacks separate from transferable Ashes,
-applies weapon attack-element overwrite/influence rates, and corrects passive-status
-scaling. Chilling Mist and Poisonous Mist retain separate weapon/on-hit effect
-records, but their overlapping status increments are unmodeled. They carry warnings
-in AR results and are excluded from skill-damage objectives.
+The `aow-routes-effects-v7` snapshot model keeps unique-weapon attacks separate from
+transferable Ashes, applies weapon attack-element overwrite/influence rates, and
+corrects passive-status scaling. Raw `Bullet.param.atkId_Bullet` provenance is
+materialized in the required schema-5 `is_bullet_attack` field. The raw throw flag
+value `2` is materialized as `is_throw_attack`, and weapon rows retain their source
+`critical_damage_percent`. This keeps Ice Lightning Sword's 149 lightning and 69
+Water AoE components as raw bullets even when `is_add_base_atk` is false. Vanilla
+Carian Retaliation attack IDs `300000682` and `300000683` use the fixed 270 base
+found in the raw parameters, independent of stats and upgrades. The Patch 1.04
+official notes support the removal of weapon/status scaling; they are not the source
+of the numeric 270 value ([official notes](https://en.bandainamcoent.eu/elden-ring/news/elden-ring-patch-notes-104)).
+The exact evaluator applies `critical_damage_percent` only to rows marked
+`is_throw_attack`. Lifesteal Fist therefore receives the 110% weapon critical
+multiplier on Katar, Pata, and Raptor Talons grab rows, while initial contact rows
+remain unchanged.
+The runtime identity appends `/exact-v1` to this snapshot model.
+
+Chilling Mist and Poisonous Mist retain separate weapon/on-hit effect records, but
+their overlapping status increments remain unmodeled because available sources
+conflict on engine correction and stacking. They carry warnings in AR results and
+are excluded from skill-damage objectives.
 
 ## Search behavior
 
@@ -99,6 +121,11 @@ When a specific weapon is selected, rankings may return multiple loadouts for
 that weapon. When weapon is open, rankings return at most one row per weapon:
 the best affinity, Ash of War, upgrade, and stat distribution for the selected
 metric.
+
+Paths pin the selected weapon, affinity, Ash, and upgrade before evaluating a fixed
+loadout, then clear discovery filters so weapon-type, affinity, and other search
+constraints cannot leak into the path evaluator. Affinity Watch uses its own
+independent analysis queue.
 
 ## Optimization core
 
@@ -180,14 +207,19 @@ stamina, and adaptive Standard/Strike/Slash/Pierce attributes are resolved per h
 Conditional replacement effects remain explicit warnings rather than guessed
 damage/status.
 
+Influence corrections that can produce a negative contribution select the strongest
+penalty rather than unsafe additive aggregation. When no unique primary allocation
+is available, the affected route is directly enumerated because its stat
+contributions are coupled.
+
 Desktop jobs use exact job IDs plus request generations/signatures. Polling is
 single-flight with adaptive 200-1000 ms delay, cancellation reaches search
 preparation/enumeration/nested analyses, and shared caches evict rejected or fully
-abandoned in-flight work.
+abandoned in-flight work when no subscribers remain.
 
 ## Numerical evidence and decision
 
-The regression suite and external comparison runner separate four questions:
+The regression suite and external comparisons distinguish these questions:
 
 - **Relevance:** an independent recursive enumerator searches all five bounded stats
   without `RelevantStatSearch::visit`, its mask, count, or inactive-fill helper. Small
@@ -214,14 +246,54 @@ The regression suite and external comparison runner separate four questions:
   tolerance, not an optimizer tie rule or universal error bound.
 - **External reference:** seeded Vanilla weapon AR and base-status comparisons run
   pinned T. Clark 1.17 code across affinities, upgrades, stats, and both handling
-  modes. AR is compared within 0.001 per component and base status after integer
-  flooring. This checks one independent calculator; it does not certify complex
-  skill formulas or in-game damage. See the [comparison command](../performance.md).
+  modes. The report identifies AR as exact loaded binary rationals projected once to
+  `f32`, bleed as the exact production floor, and other status as the production
+  evaluator. AR is compared within 0.001 per component and base status after integer
+  flooring. Four documented Bloodfiend's Fork (Keen) base-bleed boundary cases retain
+  exact 61 versus reference 62 at +7/ARC 45 and exact 67 versus reference 68 at
+  +25/ARC 50, in both handling modes. These are exact-floor contract differences;
+  external status results do not all match. This checks one independent calculator;
+  it does not compare complex skill formulas or certify gameplay behavior. See the
+  [comparison command](../performance.md).
+- **Complex skill cross-check:** a [separate calculator engine](https://elden-ring-calculator-steel.vercel.app/assets/index-DaxW64Ds.js)
+  matched 13,666 of 13,968 hit instances directly. Diagnostic reruns traced 146
+  discrepancies to reference inputs: 134 curve lookups, eight misparsed Fire Knight's Greatsword
+  records, and four missing Reed Great Katana default-correction lookups. The
+  unchanged reference formulas agree after those input repairs; the original
+  calculator output remains a mismatch, not a clean pass. Another 156 hit instances
+  have no matching reference attack. These checks do not certify enemy defenses,
+  in-game damage, or the unsupported Mist effect interactions.
+- **Exhaustive raw compatibility and production matrix:** the final run checked all
+  382,220 Vanilla and 389,058 Convergence candidate pairs, including 87,879 and
+  147,201 legal transferable pairs plus 3,197 and 3,084 native entries. The finite
+  production matrix covered 364,304 Vanilla and 601,140 Convergence fixed-stat
+  `+0`/maximum-upgrade, one-/two-hand scenarios (965,444 total): 964,272 entered
+  AR/status evaluation, while 1,172 Convergence ammunition scenarios were
+  explicitly unsupported before production evaluation. Vanilla materialized 254,608
+  selected routes across 769,868 hits; 184 previously empty Shield Strike cases now
+  retain skill identity and computed AR without fabricated route rows. All AoW route
+  damage remained disabled by Convergence's profile capability. The raw oracle checks
+  legal and rejected pairs from raw Gem permissions; this finite production matrix is
+  not independent numeric or gameplay verification.
+
+The retained exhaustive validator requires local raw regulation directories for both
+profiles. With the default snapshot locations, an invocation is:
+
+```powershell
+python tools/phase4/validate_external_calculator.py --exhaustive `
+  --vanilla-raw-dir <vanilla-regulation-directory> `
+  --convergence-raw-dir <convergence-regulation-directory> `
+  --paramdex-dir <paramdex-definitions-directory>
+```
+
+The angle-bracket arguments must point to local raw-input directories; those inputs
+stay outside release snapshots.
 
 The `exact-v1` contract removes intermediate rounding from ranking formulas while
 preserving the positions of gameplay floors. Exactly evaluated operands can change
-integer buildup near those boundaries. The v6 gameplay corrections are separate
-from this arithmetic contract; neither certifies the profile data against the game.
+integer buildup near those boundaries. The `aow-routes-effects-v7` gameplay
+corrections are separate from this arithmetic contract; neither certifies the
+profile data against the game.
 Source `f32` coefficients remain the model inputs; arbitrary source precision is
 not reconstructed. See the
 [numerical contract](optimizer-math.md#numerical-contract) for the precise scope.
