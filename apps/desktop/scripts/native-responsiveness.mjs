@@ -88,7 +88,20 @@ try {
   const cases = [
     ["uncached-solve-batch", () => runSolveBatch(page)],
     ["build-upgrade-series", () => runSeries(page, solved)],
-    ...(mode === "async" ? [["cancellation", () => runCancellation(page)]] : []),
+    ...(mode === "async" ? [
+      ["cancellation", () => runCancellation(page)],
+      ["ar-bleed-frontier", async () => {
+        const request = { base: BASE_REQUEST, solved };
+        return { ...await measureNativeWork(page,
+          () => waitForJob(page, "start_ar_bleed_frontier", commandNames.analysisStatus, { request }),
+          "ar-bleed-frontier"), request };
+      }],
+      ["frontier-cancellation", () => measureCancellableJob(page, {
+        start: "start_ar_bleed_frontier", status: commandNames.analysisStatus, cancel: commandNames.analysisCancel,
+        request: { base: { ...BASE_REQUEST, characterLevel: 300, vig: 12, end: 13 }, solved },
+        result: status => status.finished?.frontier, delayMs: 0,
+      })],
+    ] : []),
   ];
   const measurements = [];
   for (const [name, run] of cases) {
@@ -101,7 +114,7 @@ try {
       process.stdout.write(`NATIVE_RESPONSIVENESS_SAMPLE ${JSON.stringify({ name, index: index + 1, ...timings })}\n`);
     }
     const fingerprints = new Set(samples.map((sample) => sample.fingerprint ?? sample.resultFingerprint));
-    if (name !== "cancellation" && fingerprints.size > 1) throw new Error(`${name} changed its result fingerprint across repeats`);
+    if (!name.endsWith("cancellation") && fingerprints.size > 1) throw new Error(`${name} changed its result fingerprint across repeats`);
     const median = medianSample(samples);
     measurements.push({ name, warmups, samples, ...(median ? { median } : {}) });
   }
@@ -268,6 +281,7 @@ async function waitForJob(page, startCommand, statusCommand, args) {
   if (finished.error) throw new Error(`${startCommand} failed: ${finished.error}`);
   if (finished.kind === "solve_build") return finished.result;
   if (finished.kind === "upgrade_series") return finished.points;
+  if (finished.kind === "ar_bleed_frontier") return finished.frontier;
   throw new Error(`${startCommand} returned unknown analysis kind`);
 }
 

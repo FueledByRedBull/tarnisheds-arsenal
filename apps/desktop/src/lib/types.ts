@@ -463,3 +463,11 @@ export interface CompareControls {
   includeSmithing: boolean;
   includeSomber: boolean;
 }
+
+export interface ArBleedFrontierPointDto {
+  result: SolvedBuildDto;
+  arLoss: number;
+  arLossPercent: number;
+  minimumArLossBps: number;
+  bleedGain: number;
+}

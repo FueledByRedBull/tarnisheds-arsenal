@@ -5,7 +5,9 @@ use std::time::{Duration, Instant};
 
 use crate::math::exact::{project, project_damage, sum_components};
 use crate::math::exact_value::ExactRational;
-use num_traits::{One, Zero};
+use num_bigint::BigInt;
+use num_integer::Integer;
+use num_traits::{One, ToPrimitive, Zero};
 use rayon::prelude::*;
 
 use crate::math::ScalarAowRoute;
@@ -156,6 +158,116 @@ impl PreparedLoadoutEvaluator<'_> {
         )?;
         optimize_prepared_with_progress(&plan, 1_024, |_snapshot| should_continue())
     }
+
+    /// All nondominated AR/bleed pairs for this fixed loadout and stat budget.
+    pub fn evaluate_ar_bleed_frontier_with_cancel<F>(
+        &self,
+        request: &OptimizeRequest,
+        mut should_continue: F,
+    ) -> Result<Vec<ArBleedFrontierPoint>, String>
+    where
+        F: FnMut() -> bool + Send,
+    {
+        validate_reusable_loadout(&self.template, request, self.data)?;
+        if !self.data.capabilities.status_buildup {
+            return Err("selected profile does not provide status-buildup data".into());
+        }
+        if !should_continue() {
+            return Err("cancelled".into());
+        }
+        let constraints = build_combat_constraints(request)?;
+        let mut weapons = self.weapons.to_vec();
+        for weapon in &mut weapons {
+            weapon
+                .aow_choices
+                .retain(|choice| match request.aow_name.as_deref() {
+                    Some(name) => choice
+                        .skill_name
+                        .is_some_and(|skill| skill.eq_ignore_ascii_case(name)),
+                    None => choice.no_applied_ash || choice.skill_name.is_none(),
+                });
+        }
+        if weapons.len() != 1 || weapons[0].aow_choices.len() != 1 || weapons[0].upgrades.len() != 1
+        {
+            return Err(
+                "AR / bleed tradeoffs require one weapon, affinity, skill, and upgrade".into(),
+            );
+        }
+        let mut fixed = request.clone();
+        fixed.objective = OptimizeObjective::MaxAr;
+        fixed.result_grouping = ResultGrouping::Loadout;
+        fixed.top_k = 1;
+        let evaluator = PreparedLoadoutEvaluator {
+            template: fixed.clone(),
+            data: self.data,
+            weapons: Arc::from(weapons),
+        };
+        let other_capacity: u16 = (0..COMBAT_STAT_COUNT)
+            .filter(|&stat| stat != STAT_ARC)
+            .map(|stat| u16::from(constraints.maxs[stat] - constraints.mins[stat]))
+            .sum();
+        let min_spend = constraints.remaining_free.saturating_sub(other_capacity);
+        let max_spend = constraints.remaining_free.min(u16::from(
+            constraints.maxs[STAT_ARC] - constraints.mins[STAT_ARC],
+        ));
+        let mut candidates = Vec::new();
+        // Bleed varies only with ARC. Reuse the ordinary solver for every remaining
+        // stat and skill-route tie rather than creating a second ranking contract.
+        for spend in min_spend..=max_spend {
+            if !should_continue() {
+                return Err("cancelled".into());
+            }
+            fixed.locked_combat_stats[STAT_ARC] = Some(constraints.mins[STAT_ARC] + spend as u8);
+            candidates.extend(evaluator.evaluate_with_cancel(&fixed, &mut should_continue)?);
+        }
+        candidates.sort_by(|a, b| {
+            b.exact_key
+                .ar_total
+                .cmp(&a.exact_key.ar_total)
+                .then_with(|| b.exact_key.bleed.cmp(&a.exact_key.bleed))
+                .then_with(|| {
+                    if better_result(a, b) {
+                        std::cmp::Ordering::Less
+                    } else if better_result(b, a) {
+                        std::cmp::Ordering::Greater
+                    } else {
+                        std::cmp::Ordering::Equal
+                    }
+                })
+        });
+        let Some(first) = candidates.first() else {
+            return Ok(Vec::new());
+        };
+        let max_ar = first.exact_key.ar_total.clone();
+        let base_bleed = first.exact_key.bleed.clone();
+        let mut best_bleed = None;
+        let mut frontier = Vec::new();
+        for result in candidates {
+            if !should_continue() {
+                return Err("cancelled".into());
+            }
+            if best_bleed
+                .as_ref()
+                .is_some_and(|best| result.exact_key.bleed <= *best)
+            {
+                continue;
+            }
+            best_bleed = Some(result.exact_key.bleed.clone());
+            let loss = &max_ar - &result.exact_key.ar_total;
+            frontier.push(ArBleedFrontierPoint {
+                ar_loss: project(&loss)?,
+                ar_loss_percent: if max_ar.is_zero() {
+                    0.0
+                } else {
+                    project(&(&loss * rational(100.0)? / &max_ar))?
+                },
+                minimum_ar_loss_bps: minimum_ar_loss_bps(&loss, &max_ar)?,
+                bleed_gain: project(&(&result.exact_key.bleed - &base_bleed))?,
+                result,
+            });
+        }
+        Ok(frontier)
+    }
 }
 
 impl PreparedUpgradeSeriesEvaluator<'_> {
@@ -233,6 +345,202 @@ struct SearchWorkUnit {
     aow_start: usize,
     aow_end: usize,
     candidate_count: u64,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+struct DpSearchShape {
+    mins: [u8; COMBAT_STAT_COUNT],
+    maxs: [u8; COMBAT_STAT_COUNT],
+    active: [bool; COMBAT_STAT_COUNT],
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+enum DpCacheStage {
+    Primary,
+    Final {
+        route_id: Option<String>,
+        allowed: bool,
+    },
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+struct DpCacheKey {
+    shape: DpSearchShape,
+    prepared_idx: usize,
+    aow_idx: usize,
+    upgrade: u8,
+    stage: DpCacheStage,
+}
+
+type DpAdditions = [Vec<Vec<u8>>; COMBAT_STAT_COUNT];
+
+struct CachedDpResult {
+    combat: Vec<Option<[u8; COMBAT_STAT_COUNT]>>,
+    additions: Arc<DpAdditions>,
+    ranks: Arc<Vec<Option<usize>>>,
+}
+
+enum DpSolve {
+    Owned(exact_dp::DpResult),
+    Shared(Arc<CachedDpResult>),
+}
+
+impl DpSolve {
+    fn combat(&self) -> &[Option<[u8; COMBAT_STAT_COUNT]>] {
+        match self {
+            Self::Owned(result) => &result.combat,
+            Self::Shared(result) => &result.combat,
+        }
+    }
+
+    fn additions(&self) -> &DpAdditions {
+        match self {
+            Self::Owned(result) => &result.additions,
+            Self::Shared(result) => result.additions.as_ref(),
+        }
+    }
+
+    fn ranks(&self) -> &[Option<usize>] {
+        match self {
+            Self::Owned(result) => &result.ranks,
+            Self::Shared(result) => result.ranks.as_ref(),
+        }
+    }
+
+    fn into_shared_parts(self) -> (Arc<DpAdditions>, Arc<Vec<Option<usize>>>) {
+        match self {
+            Self::Owned(result) => (Arc::new(result.additions), Arc::new(result.ranks)),
+            Self::Shared(result) => (result.additions.clone(), result.ranks.clone()),
+        }
+    }
+}
+
+struct DpReuse {
+    max_searches: HashMap<DpSearchShape, RelevantStatSearch>,
+    solved: HashMap<DpCacheKey, Arc<CachedDpResult>>,
+}
+
+impl DpReuse {
+    fn from_plan(plan: &PreparedSearchPlan<'_>) -> Self {
+        let mut max_searches = HashMap::new();
+        for group in &plan.groups {
+            max_searches
+                .entry(group.search.shape())
+                .and_modify(|current: &mut RelevantStatSearch| {
+                    if group.search.remaining_free > current.remaining_free {
+                        *current = group.search;
+                    }
+                })
+                .or_insert(group.search);
+        }
+        Self {
+            max_searches,
+            solved: HashMap::new(),
+        }
+    }
+
+    fn max_search(&self, search: &RelevantStatSearch) -> Option<RelevantStatSearch> {
+        let max_search = self.max_searches.get(&search.shape())?;
+        (max_search.remaining_free >= search.remaining_free).then_some(*max_search)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn solve<const N: usize>(
+        &mut self,
+        key: DpCacheKey,
+        base: &[ExactRational; N],
+        deltas: &[Vec<[ExactRational; N]>; COMBAT_STAT_COUNT],
+        mins: [u8; COMBAT_STAT_COUNT],
+        active: [bool; COMBAT_STAT_COUNT],
+        budget: usize,
+        primary_only: bool,
+        allowed: Option<&[Vec<Vec<u8>>; COMBAT_STAT_COUNT]>,
+        should_continue: &mut impl FnMut() -> bool,
+    ) -> Result<Arc<CachedDpResult>, String> {
+        if let Some(result) = self.solved.get(&key) {
+            if !should_continue() {
+                return Err("cancelled".to_string());
+            }
+            return Ok(Arc::clone(result));
+        }
+        let result = exact_dp::solve_exact(
+            base,
+            deltas,
+            mins,
+            active,
+            budget,
+            primary_only,
+            allowed,
+            should_continue,
+        )?;
+        let result = Arc::new(CachedDpResult {
+            combat: result.combat,
+            additions: Arc::new(result.additions),
+            ranks: Arc::new(result.ranks),
+        });
+        self.solved.insert(key, Arc::clone(&result));
+        Ok(result)
+    }
+}
+
+fn dp_cache_key(
+    reuse: Option<&DpReuse>,
+    search: &RelevantStatSearch,
+    prepared_idx: usize,
+    aow_idx: usize,
+    upgrade: u8,
+    stage: DpCacheStage,
+) -> Option<DpCacheKey> {
+    reuse
+        .and_then(|reuse| reuse.max_search(search))
+        .map(|_| DpCacheKey {
+            shape: search.shape(),
+            prepared_idx,
+            aow_idx,
+            upgrade,
+            stage,
+        })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn solve_exact_with_reuse<const N: usize>(
+    reuse: Option<&mut DpReuse>,
+    key: Option<DpCacheKey>,
+    base: &[ExactRational; N],
+    deltas: &[Vec<[ExactRational; N]>; COMBAT_STAT_COUNT],
+    mins: [u8; COMBAT_STAT_COUNT],
+    active: [bool; COMBAT_STAT_COUNT],
+    budget: usize,
+    primary_only: bool,
+    allowed: Option<&[Vec<Vec<u8>>; COMBAT_STAT_COUNT]>,
+    should_continue: &mut impl FnMut() -> bool,
+) -> Result<DpSolve, String> {
+    match (reuse, key) {
+        (Some(reuse), Some(key)) => Ok(DpSolve::Shared(reuse.solve(
+            key,
+            base,
+            deltas,
+            mins,
+            active,
+            budget,
+            primary_only,
+            allowed,
+            should_continue,
+        )?)),
+        _ => {
+            let result = exact_dp::solve_exact(
+                base,
+                deltas,
+                mins,
+                active,
+                budget,
+                primary_only,
+                allowed,
+                should_continue,
+            )?;
+            Ok(DpSolve::Owned(result))
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -689,6 +997,16 @@ where
         prepare_weapons_with_cancel(&max_request, data, max_constraints, &mut should_continue)?
             .into_boxed_slice(),
     );
+    let mut max_plan = Some(build_prepared_plan(
+        &max_request,
+        data,
+        max_constraints,
+        Arc::clone(&shared_weapons),
+        &mut should_continue,
+        true,
+    )?);
+    let mut dp_reuse = DpReuse::from_plan(max_plan.as_ref().expect("max plan exists"));
+    let range_reuse_enabled = level_range_reuse_enabled(request);
 
     let mut results = Vec::with_capacity(ordered_levels.len());
     for level in ordered_levels {
@@ -697,22 +1015,58 @@ where
         }
         let mut level_request = request.clone();
         level_request.character_level = level;
-        let constraints = build_combat_constraints(&level_request)?;
-        let plan = build_prepared_plan(
-            &level_request,
-            data,
-            constraints,
-            Arc::clone(&shared_weapons),
-            &mut should_continue,
-            true,
-        )?;
-        let rows = optimize_prepared_with_progress(&plan, 1_024, |_snapshot| should_continue())?;
+        let plan = if level == max_level {
+            max_plan.take().expect("max plan is consumed once")
+        } else {
+            let constraints = build_combat_constraints(&level_request)?;
+            build_prepared_plan(
+                &level_request,
+                data,
+                constraints,
+                Arc::clone(&shared_weapons),
+                &mut should_continue,
+                true,
+            )?
+        };
+        let rows = if range_reuse_enabled && level_plan_can_reuse(&plan, &dp_reuse) {
+            optimize_prepared_with_reuse(
+                &plan,
+                1_024,
+                |_snapshot| should_continue(),
+                &mut dp_reuse,
+            )?
+        } else {
+            optimize_prepared_with_progress(&plan, 1_024, |_snapshot| should_continue())?
+        };
         results.push(LevelOptimizeResult { level, rows });
         if !level_complete(level) {
             return Err("cancelled".to_string());
         }
     }
     Ok(results)
+}
+
+fn level_range_reuse_enabled(request: &OptimizeRequest) -> bool {
+    // ponytail: fixed-loadout cache stays bounded; broaden after measuring other range shapes.
+    request.top_k == 1
+        && request.exact_upgrade
+        && request.weapon_name.is_some()
+        && request.affinity.is_some()
+        && request.aow_name.is_some()
+        && matches!(
+            request.objective,
+            OptimizeObjective::MaxAr
+                | OptimizeObjective::MaxPhysicalAr
+                | OptimizeObjective::BleedThenAr
+        )
+}
+
+fn level_plan_can_reuse(plan: &PreparedSearchPlan<'_>, reuse: &DpReuse) -> bool {
+    !plan.groups.is_empty()
+        && plan
+            .groups
+            .iter()
+            .all(|group| reuse.max_search(&group.search).is_some())
 }
 
 pub fn optimize_prepared_with_progress<F>(
@@ -724,6 +1078,44 @@ where
     F: FnMut(ProgressSnapshot) -> bool + Send,
 {
     let (candidates, group_mode) = score_prepared_with_progress(plan, progress_every, progress_cb)?;
+    materialize_scored_candidates(
+        &plan.request,
+        plan.data,
+        &plan.weapons,
+        candidates,
+        group_mode,
+    )
+}
+
+fn optimize_prepared_with_reuse<F>(
+    plan: &PreparedSearchPlan<'_>,
+    progress_every: u64,
+    progress_cb: F,
+    reuse: &mut DpReuse,
+) -> Result<Vec<OptimizeResult>, String>
+where
+    F: FnMut(ProgressSnapshot) -> bool + Send,
+{
+    let group_mode = result_group_mode(&plan.request);
+    if plan.request.top_k == 0 || plan.weapons.is_empty() {
+        return Ok(Vec::new());
+    }
+    let total = plan
+        .serial_work_units
+        .iter()
+        .map(|unit| unit.candidate_count)
+        .sum::<u64>();
+    if total == 0 {
+        return Ok(Vec::new());
+    }
+    let mut progress = SerialSearchProgress::new(total, progress_every, progress_cb);
+    let candidates = score_serial(
+        plan,
+        &plan.serial_work_units,
+        group_mode,
+        &mut progress,
+        Some(reuse),
+    )?;
     materialize_scored_candidates(
         &plan.request,
         plan.data,
@@ -802,7 +1194,13 @@ where
         )?
     } else {
         let mut progress = SerialSearchProgress::new(total, progress_every, progress_cb);
-        score_serial(plan, &plan.serial_work_units, group_mode, &mut progress)?
+        score_serial(
+            plan,
+            &plan.serial_work_units,
+            group_mode,
+            &mut progress,
+            None,
+        )?
     };
     Ok((candidates, group_mode))
 }
@@ -934,6 +1332,7 @@ fn score_serial<F>(
     work_units: &[SearchWorkUnit],
     group_mode: ResultGroupMode,
     progress: &mut SerialSearchProgress<F>,
+    mut reuse: Option<&mut DpReuse>,
 ) -> Result<Vec<ScoredCandidate>, String>
 where
     F: FnMut(ProgressSnapshot) -> bool,
@@ -943,7 +1342,14 @@ where
     let mut candidates = Vec::<ScoredCandidate>::with_capacity(request.top_k);
     for unit in work_units {
         let cutoff = score_cutoff(plan, *unit, &candidates, group_mode);
-        let mut unit_results = search_work_unit(plan, *unit, group_mode, progress, cutoff)?;
+        let mut unit_results = search_dp_work_unit(
+            plan,
+            *unit,
+            group_mode,
+            progress,
+            cutoff,
+            reuse.as_deref_mut(),
+        )?;
         merge_scored_top_k(
             &mut candidates,
             unit_results.drain(..),
@@ -982,7 +1388,8 @@ where
             |mut candidates, unit| {
                 let mut local_progress = ParallelLocalProgress::new(Arc::clone(&progress));
                 let cutoff = score_cutoff(plan, *unit, &candidates, group_mode);
-                let result = search_work_unit(plan, *unit, group_mode, &mut local_progress, cutoff);
+                let result =
+                    search_dp_work_unit(plan, *unit, group_mode, &mut local_progress, cutoff, None);
                 let finish_result = local_progress.finish();
                 let results = match (result, finish_result) {
                     (Ok(results), Ok(())) => results,
@@ -1027,7 +1434,7 @@ fn optimize_serial<F>(
 where
     F: FnMut(ProgressSnapshot) -> bool,
 {
-    let candidates = score_serial(plan, work_units, group_mode, progress)?;
+    let candidates = score_serial(plan, work_units, group_mode, progress, None)?;
     materialize_scored_candidates(
         &plan.request,
         plan.data,
@@ -1065,19 +1472,6 @@ where
         candidates,
         group_mode,
     )
-}
-
-fn search_work_unit<P>(
-    plan: &PreparedSearchPlan<'_>,
-    unit: SearchWorkUnit,
-    group_mode: ResultGroupMode,
-    progress: &mut P,
-    cutoff: Option<&ExactRational>,
-) -> Result<Vec<ScoredCandidate>, String>
-where
-    P: SearchProgress,
-{
-    search_dp_work_unit(plan, unit, group_mode, progress, cutoff)
 }
 
 fn search_work_unit_exhaustive<P>(
@@ -1174,6 +1568,7 @@ fn search_dp_work_unit<P>(
     group_mode: ResultGroupMode,
     progress: &mut P,
     cutoff: Option<&ExactRational>,
+    mut reuse: Option<&mut DpReuse>,
 ) -> Result<Vec<ScoredCandidate>, String>
 where
     P: SearchProgress,
@@ -1182,6 +1577,10 @@ where
     let group = &plan.groups[unit.group_idx];
     let prepared = &plan.weapons[group.prepared_idx];
     let aow_indices = &group.aow_indices[unit.aow_start..unit.aow_end];
+    let reused_search = reuse
+        .as_deref()
+        .and_then(|reuse| reuse.max_search(&group.search));
+    let dp_search = reused_search.as_ref().unwrap_or(&group.search);
     let mut candidates = Vec::with_capacity(request.top_k.min(aow_indices.len()));
     let mut route_sets = Vec::with_capacity(aow_indices.len());
     for &aow_idx in aow_indices {
@@ -1318,12 +1717,16 @@ where
                 {
                     entry.insert(prepare_primary_allocations(
                         &group.search,
+                        dp_search,
                         request,
                         prepared,
                         choice,
                         upgrade,
                         plan.data,
                         progress,
+                        group.prepared_idx,
+                        aow_idx,
+                        reuse.as_deref_mut(),
                     )?);
                 }
             }
@@ -1368,6 +1771,7 @@ where
             let best = if routes.is_empty() {
                 best_objective_allocation(
                     &group.search,
+                    dp_search,
                     request,
                     prepared,
                     aow_choice,
@@ -1376,12 +1780,16 @@ where
                     plan.data,
                     progress,
                     primary,
+                    reuse.as_deref_mut(),
+                    group.prepared_idx,
+                    aow_idx,
                 )?
             } else {
                 let mut best = None;
                 for route in routes {
                     let candidate = best_objective_allocation(
                         &group.search,
+                        dp_search,
                         request,
                         prepared,
                         aow_choice,
@@ -1390,6 +1798,9 @@ where
                         plan.data,
                         progress,
                         primary,
+                        reuse.as_deref_mut(),
+                        group.prepared_idx,
+                        aow_idx,
                     )?;
                     if best
                         .as_ref()
@@ -1476,8 +1887,7 @@ struct ObjectiveAllocation {
 struct PrimaryAllocationPlan {
     base: ObjectiveAllocation,
     values: [Vec<ObjectiveKey>; COMBAT_STAT_COUNT],
-    additions: [Vec<Vec<u8>>; COMBAT_STAT_COUNT],
-    ranks: Vec<Option<usize>>,
+    additions: Arc<DpAdditions>,
     best_primary: Option<ObjectiveAllocation>,
     exact_unique_combat: Option<[u8; COMBAT_STAT_COUNT]>,
 }
@@ -1528,19 +1938,23 @@ fn primary_effect_key(choice: &AowChoice<'_>) -> [u32; 9] {
 #[allow(clippy::too_many_arguments)]
 fn prepare_primary_allocations<P: SearchProgress>(
     search: &RelevantStatSearch,
+    dp_search: &RelevantStatSearch,
     request: &OptimizeRequest,
     prepared: &PreparedWeapon<'_>,
     choice: &AowChoice<'_>,
     upgrade: u8,
     data: &GameData,
     progress: &mut P,
+    prepared_idx: usize,
+    aow_idx: usize,
+    reuse: Option<&mut DpReuse>,
 ) -> Result<PrimaryAllocationPlan, String> {
     progress.poll()?;
     let ar_formula = crate::math::exact::compile_ar_formula(
         prepared.weapon,
         upgrade,
         data,
-        formula_max_stats(search, request, prepared.weapon),
+        formula_max_stats(dp_search, request, prepared.weapon),
     )?;
     let evaluate = |combat| {
         evaluate_allocation_with_formulas(
@@ -1556,23 +1970,16 @@ fn prepare_primary_allocations<P: SearchProgress>(
         )
     };
     let base = evaluate(search.mins)?;
-    let mut plan = PrimaryAllocationPlan {
-        base,
-        values: std::array::from_fn(|_| Vec::new()),
-        additions: std::array::from_fn(|_| Vec::new()),
-        ranks: Vec::new(),
-        best_primary: None,
-        exact_unique_combat: None,
-    };
-    let budget = usize::from(search.max_active_spend());
+    let mut values: [Vec<ObjectiveKey>; COMBAT_STAT_COUNT] = std::array::from_fn(|_| Vec::new());
+    let budget = usize::from(dp_search.max_active_spend());
     let mut deltas = std::array::from_fn(|_| Vec::new());
     for stat in 0..COMBAT_STAT_COUNT {
-        if !search.active[stat] {
+        if !dp_search.active[stat] {
             continue;
         }
-        let cap = usize::from(search.maxs[stat] - search.mins[stat]).min(budget);
+        let cap = usize::from(dp_search.maxs[stat] - dp_search.mins[stat]).min(budget);
         deltas[stat].reserve(cap + 1);
-        plan.values[stat].reserve(cap + 1);
+        values[stat].reserve(cap + 1);
         for add in 0..=cap {
             progress.poll()?;
             let mut combat = search.mins;
@@ -1580,7 +1987,7 @@ fn prepare_primary_allocations<P: SearchProgress>(
             let delta = primary_delta(
                 stat,
                 combat,
-                &plan.base,
+                &base,
                 request,
                 prepared,
                 choice,
@@ -1589,10 +1996,20 @@ fn prepare_primary_allocations<P: SearchProgress>(
                 &ar_formula,
             )?;
             deltas[stat].push([delta.score.clone(), delta.ar_total.clone()]);
-            plan.values[stat].push(delta);
+            values[stat].push(delta);
         }
     }
-    let solved = exact_dp::solve_exact(
+    let key = dp_cache_key(
+        reuse.as_deref(),
+        search,
+        prepared_idx,
+        aow_idx,
+        upgrade,
+        DpCacheStage::Primary,
+    );
+    let solved = solve_exact_with_reuse(
+        reuse,
+        key,
         &std::array::from_fn(|_| ExactRational::zero()),
         &deltas,
         search.mins,
@@ -1605,19 +2022,24 @@ fn prepare_primary_allocations<P: SearchProgress>(
     let (_, std::cmp::Reverse(best_combat)) = (search.min_active_spend()
         ..=search.max_active_spend())
         .filter_map(|spent| {
-            let rank = solved.ranks[usize::from(spent)]?;
-            let mut combat = solved.combat[usize::from(spent)]?;
+            let rank = solved.ranks()[usize::from(spent)]?;
+            let mut combat = solved.combat()[usize::from(spent)]?;
             fill_inactive_stats(search, &mut combat, search.remaining_free - spent);
             Some((rank, std::cmp::Reverse(combat)))
         })
         .max()
         .ok_or_else(|| "stat optimizer could not satisfy the stat budget".to_string())?;
-    plan.best_primary = Some(evaluate(best_combat)?);
-    plan.additions = solved.additions;
-    plan.ranks = solved.ranks;
-    plan.exact_unique_combat =
-        exact_unique_primary_allocation(search, progress, &plan.ranks, &plan.additions)?;
-    Ok(plan)
+    let best_primary = Some(evaluate(best_combat)?);
+    let (additions, ranks) = solved.into_shared_parts();
+    let exact_unique_combat =
+        exact_unique_primary_allocation(search, progress, &ranks, &additions)?;
+    Ok(PrimaryAllocationPlan {
+        base,
+        values,
+        additions,
+        best_primary,
+        exact_unique_combat,
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1682,6 +2104,7 @@ fn unique_primary_combat(
 #[allow(clippy::too_many_arguments)]
 fn best_objective_allocation<P>(
     search: &RelevantStatSearch,
+    dp_search: &RelevantStatSearch,
     request: &OptimizeRequest,
     prepared: &PreparedWeapon<'_>,
     aow_choice: &AowChoice<'_>,
@@ -1690,6 +2113,9 @@ fn best_objective_allocation<P>(
     data: &GameData,
     progress: &mut P,
     primary: Option<&PrimaryAllocationPlan>,
+    reuse: Option<&mut DpReuse>,
+    prepared_idx: usize,
+    aow_idx: usize,
 ) -> Result<ObjectiveAllocation, String>
 where
     P: SearchProgress,
@@ -1773,7 +2199,7 @@ where
         }
         return best.ok_or_else(|| "no feasible skill allocation".to_string());
     }
-    let maxima = formula_max_stats(search, request, prepared.weapon);
+    let maxima = formula_max_stats(dp_search, request, prepared.weapon);
     let route_formula = route
         .map(|route| {
             crate::math::exact::compile_scalar_route_formula(
@@ -1840,13 +2266,13 @@ where
     {
         let old_stats = stats_with_combat(request.current_stats, search.mins);
         let old_str = effective_str_for_weapon(request, prepared.weapon, old_stats.str);
-        let budget = usize::from(search.max_active_spend());
+        let budget = usize::from(dp_search.max_active_spend());
         let mut primary_deltas = std::array::from_fn(|_| Vec::new());
         for stat in 0..COMBAT_STAT_COUNT {
-            if !search.active[stat] {
+            if !dp_search.active[stat] {
                 continue;
             }
-            let cap = usize::from(search.maxs[stat] - search.mins[stat]).min(budget);
+            let cap = usize::from(dp_search.maxs[stat] - dp_search.mins[stat]).min(budget);
             primary_deltas[stat].reserve(cap + 1);
             for add in 0..=cap {
                 progress.poll()?;
@@ -1868,7 +2294,9 @@ where
                 primary_deltas[stat].push([score]);
             }
         }
-        let solved = exact_dp::solve_exact(
+        let solved = solve_exact_with_reuse(
+            None,
+            None,
             &std::array::from_fn(|_| ExactRational::zero()),
             &primary_deltas,
             search.mins,
@@ -1879,7 +2307,7 @@ where
             &mut || progress.poll().is_ok(),
         )?;
         if let Some(combat) =
-            exact_unique_primary_allocation(search, progress, &solved.ranks, &solved.additions)?
+            exact_unique_primary_allocation(search, progress, solved.ranks(), solved.additions())?
         {
             return evaluate_objective_allocation(
                 combat, request, prepared, aow_choice, upgrade, route, data,
@@ -1927,13 +2355,13 @@ where
         Some(plan) => with_route(plan.base.clone())?,
         None => evaluate(search.mins)?,
     };
-    let budget = usize::from(search.max_active_spend());
+    let budget = usize::from(dp_search.max_active_spend());
     let mut deltas = std::array::from_fn(|_| Vec::new());
     for stat in 0..COMBAT_STAT_COUNT {
-        if !search.active[stat] {
+        if !dp_search.active[stat] {
             continue;
         }
-        let cap = usize::from(search.maxs[stat] - search.mins[stat]).min(budget);
+        let cap = usize::from(dp_search.maxs[stat] - dp_search.mins[stat]).min(budget);
         deltas[stat].reserve(cap + 1);
         for add in 0..=cap {
             progress.poll()?;
@@ -1974,7 +2402,20 @@ where
             deltas[stat].push(delta.components());
         }
     }
-    let solved = exact_dp::solve_exact(
+    let key = dp_cache_key(
+        reuse.as_deref(),
+        search,
+        prepared_idx,
+        aow_idx,
+        upgrade,
+        DpCacheStage::Final {
+            route_id: route.map(|route| route.route_id.clone()),
+            allowed: primary.is_some() || route_primary.is_some(),
+        },
+    );
+    let solved = solve_exact_with_reuse(
+        reuse,
+        key,
         &std::array::from_fn(|_| ExactRational::zero()),
         &deltas,
         search.mins,
@@ -1982,18 +2423,18 @@ where
         budget,
         false,
         primary
-            .map(|plan| &plan.additions)
-            .or_else(|| route_primary.as_ref().map(|plan| &plan.additions)),
+            .map(|plan| plan.additions.as_ref())
+            .or_else(|| route_primary.as_ref().map(|plan| plan.additions())),
         &mut || progress.poll().is_ok(),
     )?;
     let mut best = None;
     for spent in search.min_active_spend()..=search.max_active_spend() {
         progress.poll()?;
-        let Some(mut combat) = solved.combat[usize::from(spent)] else {
+        let Some(mut combat) = solved.combat()[usize::from(spent)] else {
             continue;
         };
         fill_inactive_stats(search, &mut combat, search.remaining_free - spent);
-        let rank = solved.ranks[usize::from(spent)].expect("reachable DP state has a rank");
+        let rank = solved.ranks()[usize::from(spent)].expect("reachable DP state has a rank");
         if best.as_ref().is_none_or(|&(current_rank, current_combat)| {
             rank > current_rank || rank == current_rank && combat < current_combat
         }) {
@@ -2141,6 +2582,23 @@ fn evaluate_allocation_with_formulas(
 
 fn rational(value: f32) -> Result<ExactRational, String> {
     crate::math::exact::rational(value, "model coefficient")
+}
+
+fn minimum_ar_loss_bps(ar_loss: &ExactRational, max_ar: &ExactRational) -> Result<u16, String> {
+    if max_ar.is_zero() {
+        return Ok(0);
+    }
+    let scaled = (ar_loss * ExactRational::from_integer(BigInt::from(10_000))) / max_ar;
+    let scaled = scaled.to_big();
+    let (quotient, remainder) = scaled.numer().div_rem(scaled.denom());
+    let bps = quotient
+        + if remainder.is_zero() {
+            BigInt::from(0)
+        } else {
+            BigInt::from(1)
+        };
+    bps.to_u16()
+        .ok_or_else(|| "AR loss basis points exceed the supported range".to_string())
 }
 
 fn metric_from_allocation(value: &ObjectiveAllocation) -> Result<CandidateMetric, String> {
@@ -3356,6 +3814,14 @@ struct DistributionCountKey {
 }
 
 impl RelevantStatSearch {
+    fn shape(&self) -> DpSearchShape {
+        DpSearchShape {
+            mins: self.mins,
+            maxs: self.maxs,
+            active: self.active,
+        }
+    }
+
     fn new(
         request: &OptimizeRequest,
         constraints: CombatConstraints,

@@ -738,6 +738,60 @@ textarea {
   color: var(--muted);
 }
 
+/* The shortlist and plot are views of the same fixed-loadout frontier. */
+.loadout-tradeoffs {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-top: 1px solid var(--line);
+}
+.tradeoff-header, .tradeoff-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.tradeoff-header > div { flex: 1 1 260px; }
+.tradeoff-header h2 { margin: 0 0 6px; }
+.tradeoff-header small, .tradeoff-controls small { color: var(--muted); }
+.loadout-tradeoffs button {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--iron-850);
+  color: var(--parchment);
+  min-height: 34px;
+}
+.loadout-tradeoffs button:hover { border-color: var(--cyan); }
+.loadout-tradeoffs button:disabled { opacity: 0.6; cursor: default; }
+.tradeoff-controls input { width: 100px; }
+.tradeoff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.tradeoff-table th, .tradeoff-table td {
+  padding: 8px;
+  text-align: right;
+  border-bottom: 1px solid var(--line);
+}
+.tradeoff-table th:first-child, .tradeoff-table td:first-child { text-align: left; }
+.tradeoff-table caption { text-align: left; padding: 6px 0; color: var(--muted); }
+.tradeoff-table tr[aria-selected="true"], .tradeoff-table tr.selected { background: #8bbebf18; }
+.tradeoff-all, .tradeoff-plot { min-width: 0; overflow-x: auto; }
+.tradeoff-plot { margin: 12px 0; }
+.tradeoff-plot figcaption { display: grid; gap: 4px; margin-bottom: 12px; }
+.tradeoff-plot svg { display: block; width: 100%; min-width: 280px; height: auto; }
+.tradeoff-axis { stroke: var(--muted); stroke-width: 1; }
+.tradeoff-axis-label, .tradeoff-plot text { fill: var(--muted); font-size: 16px; }
+.tradeoff-point { fill: var(--gold); cursor: pointer; stroke: var(--iron-850); stroke-width: 2; }
+.tradeoff-point.selected, .tradeoff-point:focus { fill: #8bbebf; stroke: #f0e4c9; }
+.tradeoff-inspection { border-left: 2px solid #8bbebf; padding-left: 12px; }
+.tradeoff-inspection p { margin: 6px 0; }
+.tradeoff-inspection > small { display: block; margin-top: 8px; color: var(--muted); }
+
 .compare-deltas .positive { color: #91c79a; }
 .compare-deltas .negative { color: #df958d; }
 

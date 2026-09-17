@@ -232,6 +232,7 @@ pub fn run() {
             commands::data::weapon_names_for_type,
             commands::optimize::start_solve_build,
             commands::optimize::start_upgrade_series,
+            commands::optimize::start_ar_bleed_frontier,
             commands::optimize::cancel_analysis,
             commands::optimize::get_analysis_status,
             commands::optimize::start_search,

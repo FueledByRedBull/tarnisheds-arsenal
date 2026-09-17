@@ -4,17 +4,19 @@ use std::sync::atomic::Ordering;
 #[cfg(test)]
 use er_optimizer_core::optimize;
 use er_optimizer_core::{
-    GameData, LevelOptimizeResult, OptimizeRequest, optimize_level_range_with_progress,
-    optimize_prepared_with_progress, optimize_with_cancel, prepare_search_with_cancel,
+    FilterDimension, FilterMode, GameData, LevelOptimizeResult, OptimizeRequest, StableFilter,
+    optimize_level_range_with_progress, optimize_prepared_with_progress, optimize_with_cancel,
+    prepare_loadout_evaluator_with_cancel, prepare_search_with_cancel,
     prepare_upgrade_series_evaluator_with_cancel,
 };
 use tauri::State;
 
 use crate::dto::{
-    AnalysisFinishedDto, AnalysisJobKindDto, AnalysisJobStatusDto, CombatStateDto,
-    SearchFinishedDto, SearchJobStatusDto, SearchProgressDto, SolveBuildRequestDto, SolvedBuildDto,
-    StartSearchResponseDto, UpgradePointDto, UpgradeSeriesRequestDto, lock_request_to_stats,
-    metric_for_objective, parse_objective,
+    AnalysisFinishedDto, AnalysisJobKindDto, AnalysisJobStatusDto, ArBleedFrontierPointDto,
+    ArBleedFrontierRequestDto, CombatStateDto, SearchFinishedDto, SearchJobStatusDto,
+    SearchProgressDto, SolveBuildRequestDto, SolvedBuildDto, StartSearchResponseDto,
+    UpgradePointDto, UpgradeSeriesRequestDto, lock_request_to_stats, metric_for_objective,
+    parse_objective,
 };
 use crate::errors::AppError;
 use crate::{AppState, AsyncJobHandle, CancelFlag, ProfileData};
@@ -160,6 +162,7 @@ pub fn start_solve_build(
             cancelled,
             result,
             points: Vec::new(),
+            frontier: Vec::new(),
             error,
         };
         if let Ok(mut guard) = status.lock() {
@@ -309,10 +312,127 @@ pub fn start_upgrade_series(
             cancelled,
             result: None,
             points,
+            frontier: Vec::new(),
             error,
         };
         if let Ok(mut guard) = status.lock() {
             guard.finished = Some(finished);
+        }
+    });
+    Ok(StartSearchResponseDto { job_id })
+}
+
+fn prepare_ar_bleed_frontier(
+    request: ArBleedFrontierRequestDto,
+    state: &AppState,
+) -> Result<(OptimizeRequest, Arc<GameData>), AppError> {
+    let profile = state.profile(&request.base.profile_id)?;
+    if !profile.data.capabilities.class_budget || !profile.data.capabilities.status_buildup {
+        return Err(AppError::new(
+            "AR / bleed tradeoffs require class budgets and status modeling",
+        ));
+    }
+    let solved = request.solved;
+    let weapon = profile
+        .data
+        .weapons
+        .iter()
+        .find(|weapon| weapon.weapon_id == solved.weapon_id)
+        .filter(|weapon| weapon.name == solved.weapon_name && weapon.affinity == solved.affinity)
+        .ok_or_else(|| AppError::new("selected weapon identity does not match profile data"))?;
+    let (is_somber, cap) =
+        weapon_reinforcement_info(&profile.data, &solved.weapon_name, Some(&solved.affinity))?;
+    if is_somber != solved.is_somber
+        || solved.upgrade > cap
+        || profile
+            .data
+            .reinforce_level(weapon.reinforce_type, solved.upgrade)
+            .is_none()
+    {
+        return Err(AppError::new(
+            "selected loadout upgrade does not match profile data",
+        ));
+    }
+    let mut base = request.base;
+    base.objective = "max_ar".into();
+    base.exact_upgrade = Some(true);
+    base.standard_max_upgrade = Some(solved.upgrade);
+    base.somber_max_upgrade = Some(solved.upgrade);
+    base.max_upgrade = None;
+    base.fixed_upgrade = None;
+    let (mut request, data) = prepare_solve_build(
+        SolveBuildRequestDto {
+            base,
+            weapon_name: solved.weapon_name,
+            affinity: Some(solved.affinity),
+            aow_name: solved.aow_name,
+        },
+        state,
+    )?;
+    request.filters.push(StableFilter {
+        dimension: FilterDimension::Aow,
+        mode: FilterMode::Include,
+        id: solved
+            .aow_id
+            .map_or_else(|| "aow:none".into(), |id| format!("aow:{id}")),
+    });
+    Ok((request, data))
+}
+
+fn evaluate_ar_bleed_frontier<F>(
+    request: &OptimizeRequest,
+    data: &GameData,
+    mut should_continue: F,
+) -> Result<Vec<ArBleedFrontierPointDto>, AppError>
+where
+    F: FnMut() -> bool + Send,
+{
+    let evaluator = prepare_loadout_evaluator_with_cancel(request, data, &mut should_continue)
+        .map_err(AppError::from)?;
+    evaluator
+        .evaluate_ar_bleed_frontier_with_cancel(request, &mut should_continue)
+        .map(|points| {
+            points
+                .into_iter()
+                .map(|point| ArBleedFrontierPointDto {
+                    result: SolvedBuildDto::from(point.result),
+                    ar_loss: point.ar_loss,
+                    ar_loss_percent: point.ar_loss_percent,
+                    minimum_ar_loss_bps: point.minimum_ar_loss_bps,
+                    bleed_gain: point.bleed_gain,
+                })
+                .collect()
+        })
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn start_ar_bleed_frontier(
+    request: ArBleedFrontierRequestDto,
+    state: State<'_, AppState>,
+) -> Result<StartSearchResponseDto, AppError> {
+    let (request, data) = prepare_ar_bleed_frontier(request, &state)?;
+    let (job_id, cancel_flag, status) = start_analysis_job(&state)?;
+    let task_id = job_id.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let result =
+            evaluate_ar_bleed_frontier(&request, &data, || !cancel_flag.load(Ordering::Relaxed));
+        let (frontier, error, cancelled) = match result {
+            Ok(points) if !cancel_flag.load(Ordering::Relaxed) => (points, None, false),
+            Ok(_) => (Vec::new(), None, true),
+            Err(error) if error.message == "cancelled" => (Vec::new(), None, true),
+            Err(error) => (Vec::new(), Some(error.message), false),
+        };
+        if let Ok(mut guard) = status.lock() {
+            guard.finished = Some(AnalysisFinishedDto {
+                job_id: task_id,
+                kind: AnalysisJobKindDto::ArBleedFrontier,
+                cancelled,
+                result: None,
+                points: Vec::new(),
+                frontier,
+                error,
+            });
         }
     });
     Ok(StartSearchResponseDto { job_id })
@@ -714,6 +834,103 @@ mod integration_tests {
         let error = solve_build_inner_with_cancel(request, &state, || false)
             .expect_err("cancelled solve-build must fail closed");
         assert_eq!(error.message, "cancelled");
+    }
+
+    #[test]
+    fn frontier_preserves_loadout_context_locks_and_cancellation() {
+        let state = crate::test_app_state();
+        let mut base = crate::test_optimize_request();
+        base.character_level = 80;
+        base.affinity = Some("Blood".into());
+        base.aow_name = Some("Seppuku".into());
+        base.standard_max_upgrade = Some(25);
+        base.lock_str = Some(15);
+        let solved = run_search_inner(base.clone(), &state)
+            .unwrap()
+            .pop()
+            .unwrap();
+        let (request, data) = prepare_ar_bleed_frontier(
+            ArBleedFrontierRequestDto {
+                base: base.clone(),
+                solved: solved.clone(),
+            },
+            &state,
+        )
+        .unwrap();
+        let points = evaluate_ar_bleed_frontier(&request, &data, || true).unwrap();
+        assert!(!points.is_empty());
+        for point in &points {
+            assert_eq!(point.result.weapon_id, solved.weapon_id);
+            assert_eq!(point.result.affinity, solved.affinity);
+            assert_eq!(point.result.aow_name, solved.aow_name);
+            assert_eq!(point.result.upgrade, solved.upgrade);
+            assert_eq!(point.result.stats.str_stat, 15);
+        }
+        assert_eq!(points[0].minimum_ar_loss_bps, 0);
+        assert_eq!(
+            evaluate_ar_bleed_frontier(&request, &data, || false)
+                .unwrap_err()
+                .message,
+            "cancelled"
+        );
+        base.profile_id = "convergence".into();
+        assert!(
+            prepare_ar_bleed_frontier(ArBleedFrontierRequestDto { base, solved }, &state).is_err()
+        );
+    }
+
+    #[test]
+    fn frontier_validates_selected_identity_and_native_skill() {
+        let state = crate::test_app_state();
+        let mut base = crate::test_optimize_request();
+        base.weapon_name = Some("Dagger".into());
+        base.affinity = Some("Standard".into());
+        base.aow_name = Some("Quickstep".into());
+        let solved = run_search_inner(base.clone(), &state)
+            .unwrap()
+            .pop()
+            .unwrap();
+        let prepare = |solved| {
+            prepare_ar_bleed_frontier(
+                ArBleedFrontierRequestDto {
+                    base: base.clone(),
+                    solved,
+                },
+                &state,
+            )
+        };
+        let (request, data) = prepare(solved.clone()).unwrap();
+        let points = evaluate_ar_bleed_frontier(&request, &data, || true).unwrap();
+        assert!(!points.is_empty());
+        assert!(
+            points
+                .iter()
+                .all(|point| point.result.aow_id == solved.aow_id)
+        );
+        let mut invalid = solved.clone();
+        invalid.weapon_id = u32::MAX;
+        assert!(prepare(invalid).is_err());
+        let mut invalid = solved.clone();
+        invalid.upgrade = 26;
+        assert!(prepare(invalid).is_err());
+        let mut invalid = solved;
+        invalid.aow_id = Some(9999);
+        let (request, data) = prepare(invalid).unwrap();
+        assert!(evaluate_ar_bleed_frontier(&request, &data, || true).is_err());
+
+        base.weapon_name = Some("Meteorite Staff".into());
+        base.aow_name = None;
+        base.exact_upgrade = Some(false);
+        base.character_level = 80;
+        let mut solved = run_search_inner(base.clone(), &state)
+            .unwrap()
+            .pop()
+            .unwrap();
+        assert_eq!(solved.upgrade, 0);
+        solved.upgrade = 1;
+        assert!(
+            prepare_ar_bleed_frontier(ArBleedFrontierRequestDto { base, solved }, &state).is_err()
+        );
     }
 
     #[test]

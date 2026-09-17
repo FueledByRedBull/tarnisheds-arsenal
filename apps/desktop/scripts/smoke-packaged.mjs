@@ -144,6 +144,24 @@ try {
   await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
   markSmokeStage("wait for current comparison");
   await page.getByText("Comparison current", { exact: true }).waitFor();
+
+  markSmokeStage("compute fixed-loadout AR / bleed tradeoffs");
+  const tradeoffs = page.locator(".loadout-tradeoffs");
+  await tradeoffs.getByRole("button", { name: "Compute trade-offs", exact: true }).click();
+  await expect(tradeoffs.getByRole("status")).toContainText("exact trade-off points ready.");
+  await expect(tradeoffs.getByRole("table", { name: "Trade-off options", exact: true })).toBeVisible();
+  await expect(tradeoffs.locator(".tradeoff-inspection")).toContainText(selectedWeapon);
+  await tradeoffs.getByRole("spinbutton", { name: "Max AR sacrifice (%)" }).fill("3");
+  await expect(tradeoffs.locator(".tradeoff-inspection")).toContainText("Full stat spread");
+  await expect(page.locator(".selected-build strong")).toHaveText(selectedWeapon);
+  const statText = await tradeoffs.locator(".tradeoff-inspection p").filter({ hasText: "Full stat spread" }).textContent();
+  const exactStats = statText.match(/STR \d+ \/ DEX \d+ \/ INT \d+ \/ FAI \d+ \/ ARC \d+/)?.[0];
+  if (!exactStats) throw new Error("frontier did not expose an exact combat allocation");
+  await tradeoffs.getByRole("button", { name: "Use exact allocation", exact: true }).click();
+  await expect(page.locator(".result-row-full")).toHaveCount(1);
+  await expect(page.locator(".detail-block").filter({ hasText: "Combat Stats" }).locator("strong")).toHaveText(exactStats);
+  await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
+  await page.getByText("Comparison current", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Compare Type", exact: true }).click();
   await page.getByRole("group", { name: "Compare Type", exact: true })
     .getByRole("checkbox", { name: /^Axe\b/ })

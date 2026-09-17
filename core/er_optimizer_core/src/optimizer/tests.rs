@@ -805,17 +805,22 @@ fn shared_primary_frontiers_match_independent_dp_including_all_ties() {
                                 let primary = shared.entry(key).or_insert_with(|| {
                                     prepare_primary_allocations(
                                         &group.search,
+                                        &group.search,
                                         &request,
                                         prepared,
                                         choice,
                                         upgrade,
                                         &data,
                                         &mut progress,
+                                        0,
+                                        0,
+                                        None,
                                     )
                                     .unwrap()
                                 });
                                 for route in std::iter::once(None).chain(routes.iter().map(Some)) {
                                     let original = best_objective_allocation(
+                                        &group.search,
                                         &group.search,
                                         &request,
                                         prepared,
@@ -825,9 +830,13 @@ fn shared_primary_frontiers_match_independent_dp_including_all_ties() {
                                         &data,
                                         &mut progress,
                                         None,
+                                        None,
+                                        0,
+                                        0,
                                     )
                                     .unwrap();
                                     let cached = best_objective_allocation(
+                                        &group.search,
                                         &group.search,
                                         &request,
                                         prepared,
@@ -837,6 +846,9 @@ fn shared_primary_frontiers_match_independent_dp_including_all_ties() {
                                         &data,
                                         &mut progress,
                                         Some(primary),
+                                        None,
+                                        0,
+                                        0,
                                     )
                                     .unwrap();
                                     assert_eq!(
@@ -892,6 +904,7 @@ fn grouped_shared_primary_pruning_matches_independent_search() {
             unit,
             ResultGroupMode::WeaponOnly,
             &mut dynamic_progress,
+            None,
             None,
         )
         .expect("grouped exact search");
@@ -952,6 +965,7 @@ fn grouped_score_cutoff_preserves_full_fingerprint_before_global_top_k_is_full()
             &plan.serial_work_units,
             group_mode,
             &mut pruned_progress,
+            None,
         )
         .expect("grouped cutoff search");
 
@@ -1024,7 +1038,7 @@ fn exact_cutoff_preserves_the_winner_at_equal_score() {
     let group_mode = result_group_mode(&request);
 
     let mut unpruned_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_| true);
-    let unpruned = search_dp_work_unit(&plan, unit, group_mode, &mut unpruned_progress, None)
+    let unpruned = search_dp_work_unit(&plan, unit, group_mode, &mut unpruned_progress, None, None)
         .expect("unpruned exact search");
     let winner = unpruned.first().expect("unpruned winner");
 
@@ -1035,6 +1049,7 @@ fn exact_cutoff_preserves_the_winner_at_equal_score() {
         group_mode,
         &mut equal_progress,
         Some(&winner.key.score),
+        None,
     )
     .expect("equal-score cutoff search");
     assert_eq!(equal_cutoff.len(), unpruned.len());
@@ -1052,6 +1067,7 @@ fn exact_cutoff_preserves_the_winner_at_equal_score() {
         group_mode,
         &mut above_progress,
         Some(&above_score),
+        None,
     )
     .expect("above-score cutoff search");
     assert!(above_cutoff.is_empty());
@@ -1070,27 +1086,9 @@ fn unique_primary_backtrack_rejects_a_tie_at_an_earlier_stage() {
     additions[STAT_STR][0] = vec![0];
     additions[STAT_DEX][1] = vec![0, 1];
     additions[STAT_INT][2] = vec![1];
-    let primary = PrimaryAllocationPlan {
-        base: ObjectiveAllocation {
-            key: ObjectiveKey::default(),
-            ar: DamageBreakdown::default(),
-            combat: [0; COMBAT_STAT_COUNT],
-            route_id: None,
-        },
-        values: std::array::from_fn(|_| Vec::new()),
-        additions,
-        ranks: vec![None; 3],
-        best_primary: None,
-        exact_unique_combat: None,
-    };
 
     assert_eq!(
-        unique_primary_combat(
-            &search,
-            &primary.additions,
-            &[STAT_STR, STAT_DEX, STAT_INT],
-            2
-        ),
+        unique_primary_combat(&search, &additions, &[STAT_STR, STAT_DEX, STAT_INT], 2),
         None
     );
 }
@@ -1111,24 +1109,11 @@ fn unique_primary_allocation_ignores_ties_in_losing_spends() {
     additions[STAT_INT][0] = vec![0];
     additions[STAT_INT][1] = vec![0];
     additions[STAT_INT][2] = vec![2];
-    let primary = PrimaryAllocationPlan {
-        base: ObjectiveAllocation {
-            key: ObjectiveKey::default(),
-            ar: DamageBreakdown::default(),
-            combat: [0; COMBAT_STAT_COUNT],
-            route_id: None,
-        },
-        values: std::array::from_fn(|_| Vec::new()),
-        additions,
-        ranks: vec![Some(0), Some(0), Some(1)],
-        best_primary: None,
-        exact_unique_combat: None,
-    };
+    let ranks = vec![Some(0), Some(0), Some(1)];
     let mut progress = SerialSearchProgress::new(0, 0, |_| true);
 
     assert_eq!(
-        exact_unique_primary_allocation(&search, &mut progress, &primary.ranks, &primary.additions)
-            .unwrap(),
+        exact_unique_primary_allocation(&search, &mut progress, &ranks, &additions).unwrap(),
         Some([0, 0, 2, 0, 0])
     );
 }
@@ -1258,6 +1243,7 @@ fn dynamic_search_matches_exhaustive_search_for_every_objective() {
                 result_group_mode(&request),
                 &mut dynamic_progress,
                 None,
+                None,
             )
             .expect("exact dynamic search");
             let mut exhaustive_progress =
@@ -1326,6 +1312,7 @@ fn zero_budget_dynamic_search_matches_exhaustive_search_for_every_objective() {
                 *unit,
                 result_group_mode(&request),
                 &mut dynamic_progress,
+                None,
                 None,
             )
             .expect("zero-budget dynamic search");
@@ -1517,6 +1504,7 @@ fn independent_all_five_oracle_checks_relevance_and_exact_winners() {
                         let mut progress = SerialSearchProgress::new(0, 0, |_| true);
                         let dynamic = best_objective_allocation(
                             search,
+                            search,
                             &request,
                             prepared,
                             choice,
@@ -1525,6 +1513,9 @@ fn independent_all_five_oracle_checks_relevance_and_exact_winners() {
                             &data,
                             &mut progress,
                             None,
+                            None,
+                            0,
+                            0,
                         )
                         .unwrap();
                         // Exact-key agreement is distinct from stat-vector canonical tie
@@ -1577,6 +1568,7 @@ fn exact_dp_matches_exhaustive_on_the_former_f32_counterexample() {
     let mut progress = SerialSearchProgress::new(0, 0, |_| true);
     let dynamic = best_objective_allocation(
         &group.search,
+        &group.search,
         &request,
         prepared,
         choice,
@@ -1585,6 +1577,9 @@ fn exact_dp_matches_exhaustive_on_the_former_f32_counterexample() {
         &data,
         &mut progress,
         None,
+        None,
+        0,
+        0,
     )
     .unwrap();
     // The old f32 DP rounded these two allocations into a tie and retained
@@ -2000,6 +1995,7 @@ fn sole_scaling_aow_shortcut_respects_plateaus_and_nonmonotonic_curves() {
             let mut progress = SerialSearchProgress::new(0, 0, |_| true);
             let actual = best_objective_allocation(
                 &group.search,
+                &group.search,
                 &request,
                 prepared,
                 choice,
@@ -2008,6 +2004,9 @@ fn sole_scaling_aow_shortcut_respects_plateaus_and_nonmonotonic_curves() {
                 &data,
                 &mut progress,
                 None,
+                None,
+                0,
+                0,
             )
             .expect("exact sole-scaling AoW allocation");
             assert_eq!(actual.key, reference.key, "objective={objective:?}");
@@ -2049,6 +2048,7 @@ fn dynamic_ar_search_checks_every_feasible_active_spend() {
             unit,
             result_group_mode(&request),
             &mut dynamic_progress,
+            None,
             None,
         )
         .expect("dynamic AR search");
@@ -2146,6 +2146,89 @@ fn level_range_matches_independent_exact_searches() {
             assert!((actual.score - expected.score).abs() < 0.001);
         }
     }
+}
+
+fn assert_level_range_matches_independent_searches(
+    request: &OptimizeRequest,
+    levels: &[u16],
+    game_data: &GameData,
+) {
+    let mut ordered_levels = levels.to_vec();
+    ordered_levels.sort_unstable();
+    ordered_levels.dedup();
+    let ranged = optimize_level_range_with_progress(request, levels, game_data, |_| true, || true)
+        .expect("fixed loadout range succeeds");
+    let independent = ordered_levels
+        .iter()
+        .map(|level| {
+            let mut level_request = request.clone();
+            level_request.character_level = *level;
+            optimize(&level_request, game_data).map(|rows| LevelOptimizeResult {
+                level: *level,
+                rows,
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .expect("fixed loadout independent searches succeed");
+
+    assert_eq!(format!("{ranged:?}"), format!("{independent:?}"));
+}
+
+#[test]
+fn fixed_loadout_level_range_reuse_preserves_objectives_and_budget_edges() {
+    let game_data = load_data();
+    for objective in [
+        OptimizeObjective::MaxAr,
+        OptimizeObjective::MaxPhysicalAr,
+        OptimizeObjective::BleedThenAr,
+    ] {
+        let mut request = base_request();
+        request.character_level = 80;
+        request.affinity = Some("Blood".to_string());
+        request.aow_name = Some("Seppuku".to_string());
+        request.exact_upgrade = true;
+        request.top_k = 1;
+        request.objective = objective;
+        assert_level_range_matches_independent_searches(
+            &request,
+            &[100, 80, 90, 81, 100],
+            &game_data,
+        );
+
+        let active = active_mask_for(
+            &game_data,
+            "Uchigatana",
+            "Blood",
+            objective,
+            Some("Seppuku"),
+        );
+        let inactive = active
+            .iter()
+            .enumerate()
+            .filter_map(|(index, is_active)| (!is_active).then_some(index))
+            .collect::<Vec<_>>();
+        assert!(
+            inactive.len() >= 2,
+            "fixture needs two inactive combat stats"
+        );
+        let mut constrained = request.clone();
+        let current = constrained.current_stats.combat_array();
+        constrained.min_combat_stats[inactive[0]] = current[inactive[0]] + 2;
+        constrained.locked_combat_stats[inactive[1]] = Some(current[inactive[1]] + 3);
+        assert_level_range_matches_independent_searches(
+            &constrained,
+            &[100, 80, 90, 80, 100],
+            &game_data,
+        );
+    }
+
+    let mut threshold = base_request();
+    threshold.affinity = Some("Blood".to_string());
+    threshold.aow_name = Some("Seppuku".to_string());
+    threshold.exact_upgrade = true;
+    threshold.top_k = 1;
+    threshold.weapon_name = Some("Bastard Sword".to_string());
+    assert_level_range_matches_independent_searches(&threshold, &[30, 9, 20, 12, 30], &game_data);
 }
 
 #[test]
@@ -2302,6 +2385,213 @@ fn reusable_loadout_evaluator_matches_invalid_budget_and_requirement_results() {
         "fixture must fail the weapon requirement"
     );
     assert_eq!(format!("{actual:?}"), format!("{expected:?}"));
+}
+
+#[test]
+fn ar_bleed_frontier_matches_repeated_locked_arc_solves_and_preserves_ties() {
+    let mut game_data = load_data();
+    let weapon = game_data
+        .weapons
+        .iter()
+        .find(|weapon| weapon.name == "Uchigatana" && weapon.affinity == "Blood")
+        .expect("blood Uchigatana")
+        .clone();
+    for curve_id in [weapon.damage_curve_ids[0], weapon.status_curve_ids.blood] {
+        let curve = game_data
+            .calc_correct
+            .get_mut(curve_id)
+            .and_then(Option::as_mut)
+            .expect("curve exists");
+        curve[8] = Some(1.0);
+        curve[9] = Some(4.0);
+        curve[10] = Some(2.0);
+    }
+
+    let mut request = base_request();
+    request.character_level = 96;
+    request.current_stats.dex = 99;
+    request.weapon_name = Some("Uchigatana".to_string());
+    request.affinity = Some("Blood".to_string());
+    request.aow_name = Some("Seppuku".to_string());
+    request.standard_max_upgrade = 0;
+    request.somber_max_upgrade = 0;
+    request.exact_upgrade = true;
+    request.min_combat_stats = [12, 16, 9, 8, 8];
+    request.min_combat_stats[STAT_DEX] = 99;
+    request.locked_combat_stats[STAT_STR] = Some(12);
+    request.locked_combat_stats[STAT_INT] = Some(9);
+    request.two_handing = true;
+    request.top_k = 1;
+
+    let evaluator = prepare_loadout_evaluator_with_cancel(&request, &game_data, || true)
+        .expect("frontier evaluator preparation succeeds");
+    let frontier = evaluator
+        .evaluate_ar_bleed_frontier_with_cancel(&request, || true)
+        .expect("frontier evaluation succeeds");
+    assert!(!frontier.is_empty());
+    assert!(frontier.windows(2).all(|pair| {
+        pair[0].result.bleed_buildup <= pair[1].result.bleed_buildup
+            && pair[0].result.ar.total() >= pair[1].result.ar.total()
+    }));
+
+    let constraints = build_combat_constraints(&request).expect("frontier constraints");
+    for point in &frontier {
+        let mut locked = request.clone();
+        locked.locked_combat_stats[STAT_ARC] = Some(point.result.stats.arc);
+        let expected = optimize(&locked, &game_data)
+            .expect("locked ARC solve")
+            .into_iter()
+            .next()
+            .expect("locked ARC result");
+        assert_eq!(point.result.exact_key, expected.exact_key);
+        assert_eq!(point.result.weapon_id, expected.weapon_id);
+        assert_eq!(point.result.aow_id, expected.aow_id);
+    }
+    assert!(frontier.iter().all(|point| {
+        point.result.stats.arc >= constraints.mins[STAT_ARC]
+            && point.result.stats.arc <= constraints.maxs[STAT_ARC]
+    }));
+}
+
+#[test]
+fn ar_bleed_frontier_matches_complete_all_five_stat_enumeration() {
+    let mut data = load_data();
+    for (affinity, skill, flat_curves) in [
+        ("Blood", "Seppuku", false),
+        ("Occult", "Bloody Slash", false),
+        ("Keen", "Unsheathe", false),
+        ("Blood", "Seppuku", true),
+    ] {
+        let mut request = base_request();
+        request.affinity = Some(affinity.into());
+        request.aow_name = Some(skill.into());
+        request.objective = OptimizeObjective::MaxAr;
+        request.character_level = 14;
+        request.exact_upgrade = true;
+        request.two_handing = true;
+        request.top_k = 1;
+        request.min_combat_stats[STAT_DEX] = 16;
+        request.locked_combat_stats[STAT_INT] = Some(9);
+        if flat_curves {
+            // AR plateaus force secondary skill metrics and canonical stat ties;
+            // the bleed curve remains free to vary independently.
+            let weapon = data
+                .weapons
+                .iter()
+                .find(|w| w.name == "Uchigatana" && w.affinity == affinity)
+                .unwrap();
+            for id in weapon.damage_curve_ids {
+                if let Some(Some(curve)) = data.calc_correct.get_mut(id) {
+                    for value in curve.iter_mut().flatten() {
+                        *value = 1.0;
+                    }
+                }
+            }
+        }
+        let evaluator = prepare_loadout_evaluator_with_cancel(&request, &data, || true).unwrap();
+        let plan = prepare_search(&request, &data).unwrap();
+        let search = &plan.groups[0].search;
+        let upgrade = evaluator.weapons[0].upgrades[0];
+        let all = all_five_allocations(search.mins, search.maxs, search.remaining_free)
+            .into_iter()
+            .map(|combat| {
+                evaluate_fixed_loadout_upgrade(
+                    &request,
+                    &data,
+                    &evaluator.weapons,
+                    upgrade,
+                    stats_with_combat(request.current_stats, combat),
+                    &mut || true,
+                )
+                .unwrap()
+                .unwrap()
+            })
+            .collect::<Vec<_>>();
+        let mut expected = all
+            .iter()
+            .filter(|candidate| {
+                !all.iter().any(|other| {
+                    let a = &candidate.exact_key;
+                    let b = &other.exact_key;
+                    b.ar_total >= a.ar_total
+                        && b.bleed >= a.bleed
+                        && (b.ar_total > a.ar_total
+                            || b.bleed > a.bleed
+                            || better_result(other, candidate))
+                })
+            })
+            .collect::<Vec<_>>();
+        expected.sort_by(|a, b| b.exact_key.ar_total.cmp(&a.exact_key.ar_total));
+        let actual = evaluator
+            .evaluate_ar_bleed_frontier_with_cancel(&request, || true)
+            .unwrap();
+        assert_eq!(
+            format!("{:?}", actual.iter().map(|p| &p.result).collect::<Vec<_>>()),
+            format!("{expected:?}"),
+            "{affinity} / {skill} plateau={flat_curves}"
+        );
+    }
+}
+
+#[test]
+fn ar_bleed_frontier_honors_cancellation() {
+    let game_data = load_data();
+    let mut request = base_request();
+    request.exact_upgrade = true;
+    request.character_level = 80;
+    request.affinity = Some("Blood".into());
+    request.aow_name = Some("Seppuku".into());
+    let evaluator = prepare_loadout_evaluator_with_cancel(&request, &game_data, || true)
+        .expect("frontier evaluator preparation succeeds");
+    assert_eq!(
+        evaluator
+            .evaluate_ar_bleed_frontier_with_cancel(&request, || false)
+            .expect_err("cancelled frontier must fail closed"),
+        "cancelled"
+    );
+    let mut polls = 0;
+    assert_eq!(
+        evaluator
+            .evaluate_ar_bleed_frontier_with_cancel(&request, || {
+                polls += 1;
+                polls < 20
+            })
+            .expect_err("cancellation during calculation must discard the frontier"),
+        "cancelled"
+    );
+}
+
+#[test]
+fn ar_bleed_frontier_loss_basis_points_round_up_at_exact_boundaries() {
+    let max_ar = ExactRational::new(
+        num_bigint::BigInt::from(100_u8),
+        num_bigint::BigInt::from(1_u8),
+    );
+    let zero = ExactRational::zero();
+    let half_basis_point = ExactRational::new(
+        num_bigint::BigInt::from(1_u8),
+        num_bigint::BigInt::from(200_u16),
+    );
+    let ninety_nine_percent = ExactRational::new(
+        num_bigint::BigInt::from(99_u8),
+        num_bigint::BigInt::from(1_u8),
+    );
+    let just_over_ninety_nine_percent = ExactRational::new(
+        num_bigint::BigInt::from(9_901_u16),
+        num_bigint::BigInt::from(100_u8),
+    );
+
+    assert_eq!(minimum_ar_loss_bps(&zero, &max_ar).unwrap(), 0);
+    assert_eq!(minimum_ar_loss_bps(&half_basis_point, &max_ar).unwrap(), 1);
+    assert_eq!(
+        minimum_ar_loss_bps(&ninety_nine_percent, &max_ar).unwrap(),
+        9_900
+    );
+    assert_eq!(
+        minimum_ar_loss_bps(&just_over_ninety_nine_percent, &max_ar).unwrap(),
+        9_901
+    );
+    assert_eq!(minimum_ar_loss_bps(&zero, &zero).unwrap(), 0);
 }
 
 #[test]
@@ -3884,6 +4174,7 @@ fn benchmark_dynamic_aow_sequence_against_exhaustive() {
         unit,
         result_group_mode(&request),
         &mut dynamic_progress,
+        None,
         None,
     )
     .expect("dynamic AoW benchmark");

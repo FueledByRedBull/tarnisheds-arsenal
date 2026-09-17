@@ -260,6 +260,23 @@ pub struct SolveBuildRequestDto {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ArBleedFrontierRequestDto {
+    pub base: OptimizeRequestDto,
+    pub solved: SolvedBuildDto,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArBleedFrontierPointDto {
+    pub result: SolvedBuildDto,
+    pub ar_loss: f32,
+    pub ar_loss_percent: f32,
+    pub minimum_ar_loss_bps: u16,
+    pub bleed_gain: f32,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpgradeSeriesRequestDto {
     pub base: OptimizeRequestDto,
     pub solved: SolvedBuildDto,
@@ -452,6 +469,7 @@ pub struct SearchJobStatusDto {
 pub enum AnalysisJobKindDto {
     SolveBuild,
     UpgradeSeries,
+    ArBleedFrontier,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -462,6 +480,7 @@ pub struct AnalysisFinishedDto {
     pub cancelled: bool,
     pub result: Option<SolvedBuildDto>,
     pub points: Vec<UpgradePointDto>,
+    pub frontier: Vec<ArBleedFrontierPointDto>,
     pub error: Option<String>,
 }
 

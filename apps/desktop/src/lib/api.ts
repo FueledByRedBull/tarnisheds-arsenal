@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { createNativeJobQueue } from "./native-jobs";
 import {
+  ArBleedFrontierPointDto,
   AffinityWatchPayloadDto,
   AffinityWatchJobStatusDto,
   CatalogDto,
@@ -20,10 +21,11 @@ import { STARTING_CLASS_METADATA } from "./session";
 
 type AnalysisFinished = {
   jobId: string;
-  kind: "solve_build" | "upgrade_series";
+  kind: "solve_build" | "upgrade_series" | "ar_bleed_frontier";
   cancelled: boolean;
   result: SolvedBuildDto | null;
   points: UpgradePointDto[];
+  frontier: ArBleedFrontierPointDto[];
   error: string | null;
 };
 const analysisQueue = createNativeJobQueue<{ finished: AnalysisFinished | null }>(
@@ -174,6 +176,18 @@ export const api = {
     const finished = await analysisQueue(() => call("start_solve_build", { request }), signal);
     if (finished.kind !== "solve_build") throw new Error("Unexpected native calculation result.");
     return finished.result;
+  },
+  arBleedFrontier: async (
+    base: OptimizeRequestDto,
+    solved: SolvedBuildDto,
+    signal?: AbortSignal,
+  ): Promise<ArBleedFrontierPointDto[]> => {
+    if (signal?.aborted) throw new DOMException("Calculation stopped.", "AbortError");
+    const request = { base, solved };
+    if (!hasTauriRuntime()) return call("ar_bleed_frontier", { request });
+    const finished = await analysisQueue(() => call("start_ar_bleed_frontier", { request }), signal);
+    if (finished.kind !== "ar_bleed_frontier") throw new Error("Unexpected native calculation result.");
+    return finished.frontier;
   },
   buildUpgradeSeries: async (
     base: OptimizeRequestDto,
@@ -406,6 +420,19 @@ async function mockInvoke<T>(command: string, args?: Record<string, unknown>): P
       return mockSearchStatus(args) as T;
     case "solve_build":
       return await mockSolveBuild(args) as T;
+    case "ar_bleed_frontier": {
+      // Explicit browser-preview fixtures; native results are calculated by the core.
+      const { solved } = args?.request as { solved: SolvedBuildDto };
+      return [0, 1, 3, 5].map((loss, index) => ({
+        result: { ...solved,
+          ar: { ...solved.ar, total: solved.ar.total * (1 - loss / 100) },
+          bleedBuildup: solved.bleedBuildup + index * 5,
+          stats: { ...solved.stats, dex: solved.stats.dex - index, arc: solved.stats.arc + index },
+        },
+        arLoss: solved.ar.total * loss / 100, arLossPercent: loss,
+        minimumArLossBps: loss * 100, bleedGain: index * 5,
+      })) as T;
+    }
     case "build_upgrade_series":
       return await mockUpgradeSeries(args) as T;
     case "compatible_aow_names_for_affinity":

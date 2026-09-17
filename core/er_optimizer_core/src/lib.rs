@@ -25,8 +25,8 @@ pub use model::{
     normalize_weapon_type_display,
 };
 pub use optimizer::{
-    CANCELLATION_LATENCY_TARGET_MS, FilterDimension, FilterMode, LevelOptimizeResult,
-    OptimizeObjective, OptimizePhaseTimings, OptimizeRequest, OptimizeResult,
+    ArBleedFrontierPoint, CANCELLATION_LATENCY_TARGET_MS, FilterDimension, FilterMode,
+    LevelOptimizeResult, OptimizeObjective, OptimizePhaseTimings, OptimizeRequest, OptimizeResult,
     PreparedLoadoutEvaluator, PreparedSearchPlan, PreparedUpgradeSeriesEvaluator,
     ProfiledOptimizeResult, ProgressSnapshot, ResultGrouping, SearchEstimate, SomberFilter,
     StableFilter, estimate_search_space, estimate_search_space_with_cancel, optimize,

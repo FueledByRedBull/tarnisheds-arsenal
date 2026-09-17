@@ -9,6 +9,7 @@ import { useRequestBudget } from "../../lib/hooks";
 import { useDesktopStore } from "../../lib/state";
 import { ScalingDto, SolvedBuildDto, UpgradePointDto } from "../../lib/types";
 import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
+import { LoadoutTradeoffs } from "./LoadoutTradeoffs";
 
 type CompareLane = {
   label: string;
@@ -361,6 +362,9 @@ export function CompareView() {
           </label>
         </div>
       </div>
+      {catalog?.dataManifest.capabilities.classBudget && catalog.dataManifest.capabilities.statusBuildup
+        ? <LoadoutTradeoffs base={baseRequest} current={request} selected={selected} />
+        : <p className="analysis-state">AR / bleed tradeoffs require class budgets and status modeling.</p>}
       <DeltaTable baseline={series[0]?.row ?? selected} candidates={series.slice(1)} objective={request.objective} />
       <details className="compare-build-details" open>
         <summary>Build details</summary>
