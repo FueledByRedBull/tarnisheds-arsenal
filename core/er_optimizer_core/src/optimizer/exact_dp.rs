@@ -559,6 +559,7 @@ where
         combat: mins,
     });
     let mut additions: Additions = std::array::from_fn(|_| Vec::new());
+    let mut max_reachable = 0;
 
     for stat in 0..COMPONENT_COUNT {
         if !active[stat] {
@@ -567,7 +568,11 @@ where
         check_continue(should_continue)?;
         additions[stat] = vec![Vec::new(); slots];
         let mut next: Vec<Option<State<I, N>>> = vec![None; slots];
-        for (destination, destination_additions) in additions[stat].iter_mut().enumerate() {
+        let cap = deltas[stat].len() - 1;
+        let next_max = budget.min(max_reachable + cap);
+        for (destination, destination_additions) in
+            additions[stat].iter_mut().enumerate().take(next_max + 1)
+        {
             check_continue(should_continue)?;
             if let Some(allowed_stat) = allowed.map(|entries| &entries[stat]) {
                 if let Some(adds) = allowed_stat.get(destination) {
@@ -586,8 +591,9 @@ where
                     }
                 }
             } else {
-                let max_add = destination.min(deltas[stat].len() - 1);
-                for add in 0..=max_add {
+                let min_add = destination.saturating_sub(max_reachable);
+                let max_add = destination.min(cap);
+                for add in min_add..=max_add {
                     consider(
                         &states,
                         &mut next,
@@ -603,6 +609,7 @@ where
             }
         }
         states = next;
+        max_reachable = next_max;
     }
 
     let ranks = rank_states(&states, primary_only);
@@ -1043,6 +1050,63 @@ mod tests {
             .expect("BigInt DP succeeds");
             assert_eq!(small, big, "primary_only={primary_only}");
         }
+    }
+
+    #[test]
+    fn reachability_bounds_preserve_holes_and_unused_budget() {
+        let deltas = [
+            vec![[0i128], [1], [2]],
+            vec![[0], [1]],
+            vec![],
+            vec![],
+            vec![],
+        ];
+        let mut allowed: Additions = std::array::from_fn(|_| vec![vec![]; 9]);
+        allowed[0][0] = vec![0];
+        allowed[0][2] = vec![2];
+        allowed[1][1] = vec![1];
+        allowed[1][2] = vec![0];
+        allowed[1][3] = vec![1];
+        let result = run_dp(
+            [0],
+            deltas,
+            [10; 5],
+            [true, true, false, false, false],
+            8,
+            false,
+            Some(&allowed),
+            &mut || true,
+        )
+        .unwrap();
+        assert_eq!(
+            result.combat,
+            vec![
+                None,
+                Some([10, 11, 10, 10, 10]),
+                Some([12, 10, 10, 10, 10]),
+                Some([12, 11, 10, 10, 10]),
+                None,
+                None,
+                None,
+                None,
+                None,
+            ]
+        );
+        assert_eq!(
+            result.ranks,
+            vec![
+                None,
+                Some(0),
+                Some(1),
+                Some(2),
+                None,
+                None,
+                None,
+                None,
+                None
+            ]
+        );
+        assert_eq!(result.additions[1][3], vec![1]);
     }
 
     #[test]
