@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import zipfile
 from pathlib import Path
 
 EXPECTED_PRODUCT_NAME = "Tarnished’s Arsenal"
@@ -45,6 +46,24 @@ def newest(path_glob: str, root: Path) -> Path:
 def sha256(path: Path) -> str:
     with path.open("rb") as handle:
         return hashlib.file_digest(handle, "sha256").hexdigest()
+
+
+def create_portable_archive(zip_path: Path, release_dir: Path, portable_name: str) -> None:
+    required_names = [portable_name, "README.md", "build-report.json"]
+    archive_names = required_names + [
+        name for name in ("LICENSE", "data-validation.json") if (release_dir / name).is_file()
+    ]
+    missing_names = [name for name in required_names if not (release_dir / name).is_file()]
+    if missing_names:
+        raise FileNotFoundError(
+            "portable archive is missing required files: " + ", ".join(missing_names)
+        )
+
+    checksum = f"{sha256(release_dir / portable_name)}  {portable_name}\n"
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+        for name in archive_names:
+            archive.write(release_dir / name, f"{release_dir.name}/{name}")
+        archive.writestr(f"{release_dir.name}/SHA256SUMS.txt", checksum)
 
 
 def expected_msi_payload_sha256(binary: Path) -> str:
@@ -784,7 +803,6 @@ def main() -> int:
                 "Windows desktop release built with Tauri.",
                 "",
                 "## Included",
-                f"- `{msi_out.name}` installer",
                 f"- `{exe_out.name}` portable executable",
                 "- `SHA256SUMS.txt` integrity hashes",
                 "- `build-report.json` build provenance",
@@ -792,12 +810,12 @@ def main() -> int:
                 "- `LICENSE`",
                 "",
                 "## Install",
-                "Run the MSI installer, or launch the standalone executable directly.",
+                "Launch the standalone executable directly.",
                 "The portable executable requires Microsoft Edge WebView2 to be installed.",
-                "The MSI downloads the WebView2 bootstrapper if it is needed.",
+                "The MSI installer is published separately with this release.",
                 "",
                 "## Runtime Data",
-                "Both artifacts contain the same compile-time Vanilla and Convergence runtime snapshots.",
+                "The executable contains the compile-time Vanilla and Convergence runtime snapshots.",
                 "No adjacent data directory, regulation.bin, or source workbook is required.",
             ]
         )
@@ -847,11 +865,10 @@ def main() -> int:
         )
         + "\n",
     )
-    shutil.make_archive(
-        str(zip_path.with_suffix("")),
-        "zip",
-        root / "dist",
-        release_dir.name,
+    create_portable_archive(
+        zip_path,
+        release_dir,
+        exe_out.name,
     )
 
     print(f"Release packaged: {release_dir}")

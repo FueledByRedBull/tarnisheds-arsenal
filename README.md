@@ -33,13 +33,13 @@ links; those links become available when that release is published.
 | --- | --- |
 | **Installer** (`.msi`) | Normal installation, with WebView2 setup if needed |
 | **Portable app** (`.exe`) | Run directly with WebView2 already installed |
-| **Archive** (`.zip`) | Keep or transfer the compressed release folder |
+| **Archive** (`.zip`) | Keep or transfer the portable app and release documentation |
 
 Both binaries include the Vanilla **1.17** and Convergence **3.0.0.1** snapshots.
 No adjacent data folder, game installation, `regulation.bin`, or source workbook is
 needed. Each release includes SHA-256 checksums and a build report identifying its
-source and data. The MSI’s WebView2 bootstrapper needs internet access if that
-runtime is missing.
+source and data. The ZIP contains the portable app; the MSI’s WebView2 bootstrapper
+needs internet access if that runtime is missing.
 
 ## Your first build
 

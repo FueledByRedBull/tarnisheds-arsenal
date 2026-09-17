@@ -69,6 +69,9 @@ A failed package never creates a release. The five release assets are:
 - `TarnishedsArsenal_<version>_SHA256SUMS.txt`
 - `TarnishedsArsenal_<version>_build-report.json`
 
+The ZIP is a portable-only archive with the standalone executable and release
+documentation. The MSI remains a separate release asset.
+
 ### Alternative: push an explicit tag
 
 Create and push an annotated tag matching the configured version, from the exact

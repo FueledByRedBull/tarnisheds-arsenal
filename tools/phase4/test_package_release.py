@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 import textwrap
 import unittest
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -67,6 +68,54 @@ function python { $global:LASTEXITCODE = 0; Write-Output ($args -join " ") }
             package_release.main()
         self.assertEqual(error.exception.code, 2)
         self.assertIn("--preview requires source validation", stderr.getvalue())
+
+    def test_portable_archive_omits_msi_and_scopes_checksum(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            release_dir = root / "TarnishedsArsenal_0.12.0"
+            release_dir.mkdir()
+            portable_name = "TarnishedsArsenal_0.12.0_portable.exe"
+            portable = release_dir / portable_name
+            portable.write_bytes(b"portable")
+            msi_name = "TarnishedsArsenal_0.12.0_x64_en-US.msi"
+            msi = release_dir / msi_name
+            msi.write_bytes(b"installer")
+            (release_dir / "README.md").write_text("portable release\n", encoding="utf-8")
+            (release_dir / "build-report.json").write_text("{}\n", encoding="utf-8")
+            (release_dir / "data-validation.json").write_text("{}\n", encoding="utf-8")
+            (release_dir / "LICENSE").write_text("license\n", encoding="utf-8")
+            full_checksums = (
+                f"{hashlib.sha256(portable.read_bytes()).hexdigest()}  {portable_name}\n"
+                f"{hashlib.sha256(msi.read_bytes()).hexdigest()}  {msi_name}\n"
+            )
+            (release_dir / "SHA256SUMS.txt").write_text(full_checksums, encoding="utf-8")
+            archive_path = root / "release.zip"
+
+            package_release.create_portable_archive(archive_path, release_dir, portable_name)
+
+            with zipfile.ZipFile(archive_path) as archive:
+                names = archive.namelist()
+                expected_names = {
+                    f"{release_dir.name}/{name}"
+                    for name in (
+                        portable_name,
+                        "README.md",
+                        "build-report.json",
+                        "data-validation.json",
+                        "LICENSE",
+                        "SHA256SUMS.txt",
+                    )
+                }
+                self.assertEqual(set(names), expected_names)
+                self.assertFalse(any(name.lower().endswith(".msi") for name in names))
+                checksum_name = f"{release_dir.name}/SHA256SUMS.txt"
+                checksum_text = archive.read(checksum_name).decode("utf-8")
+                self.assertEqual(
+                    checksum_text,
+                    f"{hashlib.sha256(portable.read_bytes()).hexdigest()}  {portable_name}\n",
+                )
+                self.assertNotIn(".msi", checksum_text.lower())
+            self.assertEqual((release_dir / "SHA256SUMS.txt").read_text(encoding="utf-8"), full_checksums)
 
     @patch.object(package_release, "msi_property")
     def test_msi_identity_includes_product_version(self, msi_property) -> None:
