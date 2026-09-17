@@ -2220,6 +2220,15 @@ fn fixed_loadout_level_range_reuse_preserves_objectives_and_budget_edges() {
             &[100, 80, 90, 80, 100],
             &game_data,
         );
+        constrained.two_handing = true;
+        constrained.dlc_scaling = true;
+        constrained.scadutree_level = 12;
+        constrained.locked_combat_stats[0] = Some(20);
+        assert_level_range_matches_independent_searches(
+            &constrained,
+            &[80, 81, 99, 200],
+            &game_data,
+        );
     }
 
     let mut threshold = base_request();
@@ -2229,6 +2238,43 @@ fn fixed_loadout_level_range_reuse_preserves_objectives_and_budget_edges() {
     threshold.top_k = 1;
     threshold.weapon_name = Some("Bastard Sword".to_string());
     assert_level_range_matches_independent_searches(&threshold, &[30, 9, 20, 12, 30], &game_data);
+}
+
+#[test]
+fn cached_primary_preparation_remains_cancellable() {
+    let data = load_data();
+    let mut request = base_request();
+    request.character_level = 80;
+    request.affinity = Some("Blood".to_string());
+    request.aow_name = Some("Seppuku".to_string());
+    request.exact_upgrade = true;
+    request.top_k = 1;
+    let plan = prepare_search(&request, &data).unwrap();
+    let mut reuse = DpReuse::from_plan(&plan);
+    optimize_prepared_with_reuse(&plan, 1, |_| true, &mut reuse).unwrap();
+    assert!(!reuse.primary.is_empty());
+    let group = &plan.groups[0];
+    let prepared = &plan.weapons[group.prepared_idx];
+    let aow_idx = group.aow_indices[0];
+    let mut progress = SerialSearchProgress::new(0, 1, |_| false);
+    // Enter the populated cache, then cancel at the first winner/tie scan poll.
+    progress.poll_count = PROGRESS_POLL_BATCH - 2;
+    progress.last_emit.last_at -= PROGRESS_MIN_INTERVAL;
+    let error = prepare_primary_allocations(
+        &group.search,
+        &group.search,
+        &request,
+        prepared,
+        &prepared.aow_choices[aow_idx],
+        prepared.upgrades[0],
+        &data,
+        &mut progress,
+        group.prepared_idx,
+        aow_idx,
+        Some(&mut reuse),
+    )
+    .unwrap_err();
+    assert_eq!(error, "cancelled");
 }
 
 #[test]

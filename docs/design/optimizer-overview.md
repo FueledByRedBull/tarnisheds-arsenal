@@ -113,8 +113,9 @@ Affinity Watch evaluates compatible affinity alternatives. Their stat-treatment
 differences are explained once in the [interface guide](../../README.md#interface).
 Reusable evaluators revalidate variable inputs against profile capabilities.
 
-Fixed-loadout, exact-upgrade level ranges reuse terminal DP tables when stat bounds,
-active attributes, and scoring context match. Each level still scans its own
+Fixed-loadout, exact-upgrade level ranges reuse primary formulas, stat contributions,
+and terminal DP tables when stat bounds, active attributes, and scoring context match.
+The preparation cache lives only for that range request. Each level still scans its own
 feasible spend interval and fills inactive stats canonically. Reuse is limited to
 top-one AR, physical AR, and bleed objectives; no-respec progression retains its
 separate allocation rule.

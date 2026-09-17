@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -43,29 +44,19 @@ struct AowChoice<'a> {
     scalar_routes: Option<Result<Option<Vec<ScalarAowRoute<'a>>>, String>>,
 }
 
-enum ScalarRouteSet<'routes, 'data> {
-    Cached(&'routes [ScalarAowRoute<'data>]),
-    Owned(Vec<ScalarAowRoute<'data>>),
-}
-
-impl<'routes, 'data> ScalarRouteSet<'routes, 'data> {
-    fn as_slice(&self) -> &[ScalarAowRoute<'data>] {
-        match self {
-            Self::Cached(routes) => routes,
-            Self::Owned(routes) => routes,
-        }
-    }
-}
+type ScalarRouteSet<'routes, 'data> = Cow<'routes, [ScalarAowRoute<'data>]>;
 
 fn scalar_route_set<'routes, 'data>(
     choice: &'routes AowChoice<'data>,
     data: &'data GameData,
 ) -> Result<Option<ScalarRouteSet<'routes, 'data>>, String> {
     match &choice.scalar_routes {
-        Some(Ok(routes)) => Ok(routes.as_ref().map(|routes| ScalarRouteSet::Cached(routes))),
+        Some(Ok(routes)) => Ok(routes
+            .as_ref()
+            .map(|routes| Cow::Borrowed(routes.as_slice()))),
         Some(Err(error)) => Err(error.clone()),
         None => prepare_scalar_aow_routes(&choice.attack_rows, data)
-            .map(|routes| routes.map(ScalarRouteSet::Owned)),
+            .map(|routes| routes.map(Cow::Owned)),
     }
 }
 
@@ -418,6 +409,7 @@ impl DpSolve {
 struct DpReuse {
     max_searches: HashMap<DpSearchShape, RelevantStatSearch>,
     solved: HashMap<DpCacheKey, Arc<CachedDpResult>>,
+    primary: HashMap<DpCacheKey, Arc<PrimaryPreparation>>,
 }
 
 impl DpReuse {
@@ -436,6 +428,7 @@ impl DpReuse {
         Self {
             max_searches,
             solved: HashMap::new(),
+            primary: HashMap::new(),
         }
     }
 
@@ -1743,7 +1736,7 @@ where
         for &(aow_idx, ref route_set) in &route_sets {
             progress.poll()?;
             let aow_choice = &prepared.aow_choices[aow_idx];
-            let routes = route_set.as_slice();
+            let routes = route_set.as_ref();
             let primary = primary_plans.get(&primary_effect_key(aow_choice));
             if let (Some(cutoff), Some(primary)) =
                 (cutoff, primary.and_then(|p| p.best_primary.as_ref()))
@@ -1884,9 +1877,16 @@ struct ObjectiveAllocation {
 }
 
 #[derive(Debug)]
+struct PrimaryPreparation {
+    ar_formula: crate::math::exact::ExactArFormula,
+    base: ObjectiveAllocation,
+    values: Arc<[Vec<ObjectiveKey>; COMBAT_STAT_COUNT]>,
+}
+
+#[derive(Debug)]
 struct PrimaryAllocationPlan {
     base: ObjectiveAllocation,
-    values: [Vec<ObjectiveKey>; COMBAT_STAT_COUNT],
+    values: Arc<[Vec<ObjectiveKey>; COMBAT_STAT_COUNT]>,
     additions: Arc<DpAdditions>,
     best_primary: Option<ObjectiveAllocation>,
     exact_unique_combat: Option<[u8; COMBAT_STAT_COUNT]>,
@@ -1947,58 +1947,9 @@ fn prepare_primary_allocations<P: SearchProgress>(
     progress: &mut P,
     prepared_idx: usize,
     aow_idx: usize,
-    reuse: Option<&mut DpReuse>,
+    mut reuse: Option<&mut DpReuse>,
 ) -> Result<PrimaryAllocationPlan, String> {
     progress.poll()?;
-    let ar_formula = crate::math::exact::compile_ar_formula(
-        prepared.weapon,
-        upgrade,
-        data,
-        formula_max_stats(dp_search, request, prepared.weapon),
-    )?;
-    let evaluate = |combat| {
-        evaluate_allocation_with_formulas(
-            combat,
-            request,
-            prepared,
-            choice,
-            upgrade,
-            None,
-            data,
-            Some(&ar_formula),
-            None,
-        )
-    };
-    let base = evaluate(search.mins)?;
-    let mut values: [Vec<ObjectiveKey>; COMBAT_STAT_COUNT] = std::array::from_fn(|_| Vec::new());
-    let budget = usize::from(dp_search.max_active_spend());
-    let mut deltas = std::array::from_fn(|_| Vec::new());
-    for stat in 0..COMBAT_STAT_COUNT {
-        if !dp_search.active[stat] {
-            continue;
-        }
-        let cap = usize::from(dp_search.maxs[stat] - dp_search.mins[stat]).min(budget);
-        deltas[stat].reserve(cap + 1);
-        values[stat].reserve(cap + 1);
-        for add in 0..=cap {
-            progress.poll()?;
-            let mut combat = search.mins;
-            combat[stat] += add as u8;
-            let delta = primary_delta(
-                stat,
-                combat,
-                &base,
-                request,
-                prepared,
-                choice,
-                upgrade,
-                data,
-                &ar_formula,
-            )?;
-            deltas[stat].push([delta.score.clone(), delta.ar_total.clone()]);
-            values[stat].push(delta);
-        }
-    }
     let key = dp_cache_key(
         reuse.as_deref(),
         search,
@@ -2007,18 +1958,88 @@ fn prepare_primary_allocations<P: SearchProgress>(
         upgrade,
         DpCacheStage::Primary,
     );
-    let solved = solve_exact_with_reuse(
-        reuse,
-        key,
-        &std::array::from_fn(|_| ExactRational::zero()),
-        &deltas,
-        search.mins,
-        search.active,
-        budget,
-        true,
-        None,
-        &mut || progress.poll().is_ok(),
-    )?;
+    let cached = key.as_ref().and_then(|key| {
+        let reuse = reuse.as_deref()?;
+        Some((
+            reuse.primary.get(key)?.clone(),
+            DpSolve::Shared(reuse.solved.get(key)?.clone()),
+        ))
+    });
+    let (preparation, solved) = if let Some(cached) = cached {
+        cached
+    } else {
+        let ar_formula = crate::math::exact::compile_ar_formula(
+            prepared.weapon,
+            upgrade,
+            data,
+            formula_max_stats(dp_search, request, prepared.weapon),
+        )?;
+        let evaluate = |combat| {
+            evaluate_allocation_with_formulas(
+                combat,
+                request,
+                prepared,
+                choice,
+                upgrade,
+                None,
+                data,
+                Some(&ar_formula),
+                None,
+            )
+        };
+        let base = evaluate(search.mins)?;
+        let mut values: [Vec<ObjectiveKey>; COMBAT_STAT_COUNT] =
+            std::array::from_fn(|_| Vec::new());
+        let budget = usize::from(dp_search.max_active_spend());
+        let mut deltas = std::array::from_fn(|_| Vec::new());
+        for stat in 0..COMBAT_STAT_COUNT {
+            if !dp_search.active[stat] {
+                continue;
+            }
+            let cap = usize::from(dp_search.maxs[stat] - dp_search.mins[stat]).min(budget);
+            deltas[stat].reserve(cap + 1);
+            values[stat].reserve(cap + 1);
+            for add in 0..=cap {
+                progress.poll()?;
+                let mut combat = search.mins;
+                combat[stat] += add as u8;
+                let delta = primary_delta(
+                    stat,
+                    combat,
+                    &base,
+                    request,
+                    prepared,
+                    choice,
+                    upgrade,
+                    data,
+                    &ar_formula,
+                )?;
+                deltas[stat].push([delta.score.clone(), delta.ar_total.clone()]);
+                values[stat].push(delta);
+            }
+        }
+        let solved = solve_exact_with_reuse(
+            reuse.as_deref_mut(),
+            key.clone(),
+            &std::array::from_fn(|_| ExactRational::zero()),
+            &deltas,
+            search.mins,
+            search.active,
+            budget,
+            true,
+            None,
+            &mut || progress.poll().is_ok(),
+        )?;
+        let preparation = Arc::new(PrimaryPreparation {
+            ar_formula,
+            base,
+            values: Arc::new(values),
+        });
+        if let (Some(reuse), Some(key)) = (reuse, key) {
+            reuse.primary.insert(key, preparation.clone());
+        }
+        (preparation, solved)
+    };
     let (_, std::cmp::Reverse(best_combat)) = (search.min_active_spend()
         ..=search.max_active_spend())
         .filter_map(|spent| {
@@ -2029,10 +2050,24 @@ fn prepare_primary_allocations<P: SearchProgress>(
         })
         .max()
         .ok_or_else(|| "stat optimizer could not satisfy the stat budget".to_string())?;
-    let best_primary = Some(evaluate(best_combat)?);
+    let best_primary = Some(evaluate_allocation_with_formulas(
+        best_combat,
+        request,
+        prepared,
+        choice,
+        upgrade,
+        None,
+        data,
+        Some(&preparation.ar_formula),
+        None,
+    )?);
     let (additions, ranks) = solved.into_shared_parts();
     let exact_unique_combat =
         exact_unique_primary_allocation(search, progress, &ranks, &additions)?;
+    let (base, values) = match Arc::try_unwrap(preparation) {
+        Ok(preparation) => (preparation.base, preparation.values),
+        Err(preparation) => (preparation.base.clone(), preparation.values.clone()),
+    };
     Ok(PrimaryAllocationPlan {
         base,
         values,
@@ -2661,7 +2696,7 @@ fn exact_candidate(
     )?;
     let effective_str_value = effective_str_for_weapon(request, prepared.weapon, stats.str);
     let mut best = None;
-    for route in routes.as_slice() {
+    for route in routes.as_ref() {
         let mut candidate = base.clone();
         let (first, full) = crate::math::exact::exact_scalar_route(
             route,

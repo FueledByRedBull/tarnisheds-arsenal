@@ -60,7 +60,7 @@ unused budget, the full feasible stat-spend interval, and the complete tie order
 On 2026-09-17, all 16 search fingerprints matched across the bounded and unbounded
 builds and repeats; broad-search medians were mostly unchanged; and the
 three-affinity 200-level range changed from 129.597 ms to 108.722 ms (16.1%).
-Short exact ranges still cost about 0.6-3.7 ms more than historical f32
+At that point, short exact ranges cost about 0.6-3.7 ms more than historical f32
 measurements under a different gameplay and rounding contract. Detailed current
 measurements are in the [v0.14.0 verification record](release-notes/v0.14.0.md#verification).
 
@@ -85,6 +85,28 @@ blocks used one warmup and three repeats; ordinary searches stayed close to the
 baseline. The retained build's broad-search median differences ranged from about
 -2.0% to +1.2%; the short first-hit case added roughly 0.002 ms. This is a measured
 range improvement, not a universal no-slowdown or f32-equivalence claim.
+
+A follow-up against `1a759e2` moved primary formula and contribution preparation
+behind the same request-local cache lookup. Eligibility is unchanged; each level
+still selects its own winner, feasible spend interval, and complete stat tie order.
+Two blocks per build used the same pinned CPU and release settings above, with
+one warmup and five repeats per range block (ten samples pooled below):
+
+| Additional levels | Before preparation reuse (ms) | After (ms) | After min–max (ms) |
+| --- | ---: | ---: | ---: |
+| 0 | 0.711 | 0.702 | 0.690–0.720 |
+| 10 | 1.761 | 0.895 | 0.880–0.929 |
+| 50 | 10.492 | 1.738 | 1.706–1.781 |
+| 200 | 42.859 | 5.126 | 5.076–5.187 |
+
+Every complete range fingerprint matched both builds and independent evaluation.
+All 16 ordinary-search fingerprints also matched in two three-repeat blocks per
+build. Their pooled median differences were -1.5% to +1.3%, except the short
+first-hit case (+0.004 ms, 5.5%). The first candidate retained formulas throughout
+ordinary route scoring and showed roughly 3% scoring regressions in several
+Vanilla cases; the retained version releases those formulas after primary winner
+selection unless the range cache owns them. This trades request-local memory for
+less repeated preparation, without a persistent cache or expanded search domain.
 
 The exact Lagrangian-bound experiment also preserved all 16 fingerprints, but its
 extra work cost more than it saved: Convergence export/all-upgrade cases regressed
