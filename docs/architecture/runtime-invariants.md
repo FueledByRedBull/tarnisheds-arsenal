@@ -105,4 +105,6 @@ plot read that same completed result without starting more optimizer work.
 Inspecting an option preserves its exact allocation; it does not feed the option
 through the pinned-loadout reoptimizer. Applying it pins the equipment, upgrade,
 and all five combat stats through the existing lock/search actions before saving.
+The returned result and a saved/reloaded build must preserve that setup, allocation,
+AR, and bleed buildup; a matching weapon name alone does not establish this contract.
 This feature creates no persisted format.

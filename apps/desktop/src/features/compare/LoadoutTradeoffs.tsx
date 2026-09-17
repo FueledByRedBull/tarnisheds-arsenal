@@ -35,6 +35,8 @@ const STAT_FIELDS = [
 ] as const;
 
 export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsProps) {
+  const allCombatLocksActive = [base.lockStr, base.lockDex, base.lockInt, base.lockFai, base.lockArc]
+    .every((value) => typeof value === "number");
   const contextSignature = stableSignature({ base, selected });
   const contextRef = useRef(contextSignature);
   contextRef.current = contextSignature;
@@ -128,6 +130,13 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
             Fixed loadout: {selected.weaponName} / {selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade}.
             The frontier keeps this query&apos;s class budget, floors, locks, handling, and world settings.
           </small>
+          {allCombatLocksActive || (status === "ready" && points?.length === 1) ? (
+            <small>
+              {allCombatLocksActive
+                ? "All five combat locks are active, so there is no stat allocation left to vary."
+                : "Only one non-dominated AR / bleed outcome exists under these constraints; other allocations may tie."}
+            </small>
+          ) : null}
         </div>
         <button type="button" onClick={status === "loading" ? stop : compute} disabled={status === "ready"}>
           {status === "loading" ? "Stop" : points ? "Computed for this context" : "Compute trade-offs"}
@@ -158,7 +167,7 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
         {status === "loading" ? "Calculating the exact frontier…" : null}
         {status === "error" ? `Trade-off calculation failed: ${error}` : null}
         {status === "ready" && !points?.length ? "No AR / bleed trade-off points were returned." : null}
-        {status === "ready" && points?.length ? `${points.length} exact trade-off points ready.` : null}
+        {status === "ready" && points?.length ? `${points.length} exact trade-off point${points.length === 1 ? "" : "s"} ready.` : null}
       </div>
 
       {points?.length ? (

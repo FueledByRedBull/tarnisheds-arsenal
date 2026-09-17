@@ -74,6 +74,8 @@ level budget, stat floors/locks, and handling fixed. Compute its complete fronti
 then inspect maximum AR, maximum bleed, or the most bleed within a stated AR loss.
 The 1%, 3%, and 5% choices are sacrifice limits, not bleed-proc breakpoints. An
 all-options table and optional plot show the same achievable allocations.
+One point means one non-dominated AR/bleed outcome; other allocations may tie.
+With all combat stats locked, there is no allocation to vary.
 Use **Use exact allocation** to lock its equipment, upgrade, and combat stats in
 Rankings; the existing Build Detail and save actions then use those exact stats.
 
