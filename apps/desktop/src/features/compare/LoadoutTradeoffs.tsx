@@ -157,7 +157,7 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
           />
         </label>
         <small id="tradeoff-sacrifice-help">
-          Selects the point with the largest bleed buildup within the entered AR sacrifice.
+          Selects the point with the largest bleed buildup within the entered AR sacrifice relative to this fixed loadout&apos;s maximum AR.
         </small>
         {sacrifice === null ? <span role="alert">Enter 0 to 100 in steps of 0.01%.</span> : null}
       </div>
@@ -358,7 +358,7 @@ function TradeoffInspection({
   return (
     <div className="tradeoff-inspection" aria-live="polite">
       <h3>{labels.length ? labels.join(" · ") : "Selected exact point"}</h3>
-      <p>Gain <strong>{fixed1(point.bleedGain)} bleed buildup</strong> for <strong>{fixed1(point.arLoss)} AR ({point.arLossPercent.toFixed(2)}%)</strong> compared with the maximum-AR allocation.</p>
+      <p>Gain <strong>{fixed1(point.bleedGain)} bleed buildup</strong> for <strong>{fixed1(point.arLoss)} AR ({point.arLossPercent.toFixed(2)}%)</strong> compared with this fixed loadout&apos;s maximum AR allocation.</p>
       <p><strong>Loadout</strong> {point.result.weaponName} / {point.result.affinity} / {point.result.aowName ?? "Unspecified skill"} / +{point.result.upgrade}</p>
       <p><strong>Full stat spread</strong> {fullStatLine(current, point.result)}</p>
       <p><strong>Changes from your current stats</strong> {formatStatDelta(current, point.result)}</p>

@@ -203,7 +203,7 @@ existing final floor when a scaling status addition is present.
 Current profile corrections and external comparison notes are maintained in the
 [model reference](../model-reference.md).
 
-For route $r$, hit $k$, the scalar damage formula is
+For routes admitted to the additive compiler, route $r$, hit $k$ has the scalar damage formula
 
 $$H_{r,k}(x)=C_{r,k}+\sum_i h_{r,k,i}(x_i).$$
 
@@ -213,6 +213,9 @@ override coefficients, and curve identities are fixed. Route order fixes buff
 activation; active flat weapon buffs add constants, then world scaling multiplies
 the result by a fixed positive factor. No modeled proc threshold or stat-dependent
 route transition is part of this scalar expression.
+
+This equation does not cover non-additive rules such as strongest-negative
+correction. Those routes use the separate exact enumeration path described below.
 
 First-hit means the first **positive-damage** hit, not necessarily row 1. For the
 shipped nonnegative bases, curves, coefficients, and buffs, each component is either

@@ -215,8 +215,7 @@ function Progress({ checked, total, status, resultCount }: { checked: number; to
 function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPayloadDto | null; objective: string; unit: string }) {
   const values = payload?.lines.flatMap((line) => line.points.map((point) => point.metric).filter((metric): metric is number => metric !== null)) ?? [];
   const domain = paddedMetricDomain(values);
-  const observedMin = values.length ? Math.min(...values) : 0;
-  const observedMax = values.length ? Math.max(...values) : 1;
+  const axisMetrics = [domain.max, (domain.min + domain.max) / 2, domain.min];
   const levels = payload?.lines.flatMap((line) => line.points.map((point) => point.level)) ?? [];
   const firstLevel = levels.length ? Math.min(...levels) : null;
   const lastLevel = levels.length ? Math.max(...levels) : null;
@@ -243,12 +242,13 @@ function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPay
           </div>
           <div className="affinity-plot" aria-hidden="true">
             <div className="affinity-y-axis">
-              <span>{fixed1(observedMax)}</span>
-              <span>{fixed1((observedMin + observedMax) / 2)}</span>
-              <span>{fixed1(observedMin)}</span>
+              {axisMetrics.map((metric, index) => <span key={index}>{fixed1(metric)}</span>)}
             </div>
             <svg viewBox="0 0 1000 220" preserveAspectRatio="none">
-              {[22, 110, 198].map((y) => <line className="affinity-grid-line" x1="0" x2="1000" y1={y} y2={y} key={y} />)}
+              {axisMetrics.map((metric, index) => {
+                const y = chartY(metric, domain);
+                return <line className="affinity-grid-line" x1="0" x2="1000" y1={y} y2={y} key={index} />;
+              })}
               {payload?.breakpoints.map((point) => {
                 const x = chartX(point.level, plotFirstLevel, plotLastLevel);
                 return (

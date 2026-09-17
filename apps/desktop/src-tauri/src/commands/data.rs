@@ -254,51 +254,12 @@ impl CatalogIndex {
                     .1 += 1;
             }
         }
-        let coverage = [
-            (
-                "coverage:weapon-ar",
-                "Weapon AR",
-                data.capabilities.weapon_ar,
-            ),
-            (
-                "coverage:status",
-                "Status buildup",
-                data.capabilities.status_buildup,
-            ),
-            (
-                "coverage:aow-compatibility",
-                "Ash compatibility",
-                data.capabilities.aow_compatibility,
-            ),
-            (
-                "coverage:aow-damage",
-                "Ash damage",
-                data.capabilities.aow_damage,
-            ),
-            (
-                "coverage:aow-routes",
-                "Ash routes",
-                data.capabilities.aow_routes,
-            ),
-        ]
-        .into_iter()
-        .map(|(id, label, supported)| FilterOptionDto {
-            id: id.to_string(),
-            label: label.to_string(),
-            count: usize::from(supported) * weapon_count,
-        })
-        .collect();
         let filter_dimensions = vec![
             facet_dimension("weapon_family", "Weapon family", weapon_family_facets),
             facet_dimension("weapon_type", "Weapon type", weapon_type_facets),
             facet_dimension("affinity", "Affinity", affinity_facets),
             facet_dimension("aow", "Ash of War", aow_facets),
             facet_dimension("reinforcement", "Reinforcement", reinforcement_facets),
-            FilterDimensionDto {
-                id: "coverage".to_string(),
-                label: "Model coverage".to_string(),
-                options: coverage,
-            },
         ];
 
         Self {
@@ -790,6 +751,12 @@ mod compatibility_tests {
         for (profile, expected_count) in [("vanilla", 13), ("convergence", 22)] {
             let data = er_optimizer_core::load_embedded_game_profile(profile).unwrap();
             let index = CatalogIndex::build(&data);
+            assert!(
+                index
+                    .filter_dimensions
+                    .iter()
+                    .all(|dimension| dimension.id != "coverage")
+            );
             let options = &index
                 .filter_dimensions
                 .iter()

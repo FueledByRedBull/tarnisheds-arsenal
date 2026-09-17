@@ -28,6 +28,7 @@ test("tradeoff views select exact threshold choices and persist an exact apply",
   await expect(shortlist.locator("tbody tr")).toHaveCount(3);
   await expect(shortlist.getByRole("button", { name: /^Max AR/ })).toContainText("Within 1%");
   const input = section.getByRole("spinbutton", { name: "Max AR sacrifice (%)" });
+  await expect(section.locator("#tradeoff-sacrifice-help")).toContainText("this fixed loadout's maximum AR");
   await input.fill("1");
   await expect(section.locator(".tradeoff-inspection")).toContainText("Gain 0.0 bleed buildup");
   await input.fill("1.01");

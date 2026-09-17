@@ -1,5 +1,43 @@
 import { expect, test } from "@playwright/test";
 
+test("saved profile filters stay readable and can be removed without changing weapon filters", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Search", exact: true })).toBeEnabled();
+  await page.locator(".profile-coverage summary").click();
+  await expect(page.locator(".profile-coverage")).toContainText("do not guarantee every skill is modeled");
+  const affinityId = await page.evaluate(async () => {
+    const statePath = "/src/lib/state.ts";
+    const presetsPath = "/src/lib/presets.ts";
+    const { useDesktopStore } = await import(statePath);
+    const { saveBuildPreset, loadBuildPreset } = await import(presetsPath);
+    const state = useDesktopStore.getState();
+    const affinityId = state.catalog.filterDimensions.find((dimension: any) => dimension.id === "affinity")
+      .options.find((option: any) => option.label === "Blood").id;
+    const stored = saveBuildPreset({
+      version: 1, id: "coverage-regression", name: "Saved capability filters", profileId: "vanilla",
+      request: { ...state.request, filters: { version: 1, entries: [
+        { dimension: "coverage", id: "coverage:aow-damage", mode: "exclude" },
+        { dimension: "affinity", id: affinityId, mode: "include" },
+      ] } },
+      selectedBuild: null, compareTarget: null, dataVersion: "1:dataset:model",
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    });
+    state.loadBuildPreset(loadBuildPreset(stored.id));
+    return affinityId;
+  });
+  const filters = page.getByRole("region", { name: "Saved profile filters" });
+  await expect(filters).toContainText("Exclude aow damage");
+  await expect(filters).toContainText("Excluding a supported capability excludes every result");
+  await filters.getByRole("button", { name: "Remove saved profile filters" }).click();
+  await expect(filters).toHaveCount(0);
+  const remaining = await page.evaluate(async () => {
+    const modulePath = "/src/lib/state.ts";
+    const { useDesktopStore } = await import(modulePath);
+    return useDesktopStore.getState().request.filters.entries;
+  });
+  expect(remaining).toEqual([{ dimension: "affinity", id: affinityId, mode: "include" }]);
+});
+
 test("profile switch isolates results and explains Convergence coverage", async ({ page }) => {
   await page.setViewportSize({ width: 1028, height: 749 });
   await page.goto("/");
@@ -112,7 +150,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(rowScaling.getByRole("listitem", { name: "Strength scaling: C", exact: true })).toBeVisible();
   await expect(rowScaling.getByRole("listitem", { name: "Arcane scaling: D", exact: true })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "AR", exact: true })).toBeVisible();
-  await page.getByText("Model coverage and assumptions").click();
+  await page.locator(".model-coverage").getByText("Model coverage and assumptions").click();
   await expect(page.getByText("Attack rating is calculated before enemy defense and negation.")).toBeVisible();
   await expect(page.getByText(/Temporary buff stacking is not a universal layer/)).toBeVisible();
   await expectRankingsBoardToFit(page);

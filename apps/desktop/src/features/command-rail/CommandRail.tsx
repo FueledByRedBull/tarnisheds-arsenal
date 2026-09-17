@@ -63,6 +63,7 @@ export function CommandRail() {
     : false;
   const typeDimension = catalog?.filterDimensions.find((dimension) => dimension.id === "weapon_type");
   const affinityDimension = catalog?.filterDimensions.find((dimension) => dimension.id === "affinity");
+  const savedCoverageFilters = request.filters.entries.filter((entry) => entry.dimension === "coverage");
   const legacyTypeLabel = catalog?.weaponTypeOptions.find((entry) => entry.key === request.weaponTypeKey)?.label
     ?? request.weaponTypeKey;
   const selectedTypeIds = selectedFilterIds(typeDimension, request.filters.entries, legacyTypeLabel);
@@ -502,6 +503,28 @@ export function CommandRail() {
             ))}
           </div>
         </section>
+
+        {savedCoverageFilters.length > 0 ? (
+          <section className="rail-section" aria-label="Saved profile filters">
+            <strong>Saved profile filters</strong>
+            <p className="section-intro">
+              These saved filters apply to the whole profile, not individual weapons or skills.
+              Excluding a supported capability excludes every result.
+            </p>
+            <ul>
+              {savedCoverageFilters.map((entry) => (
+                <li key={`${entry.mode}:${entry.id}`}>
+                  {entry.mode === "exclude" ? "Exclude" : "Include"} {entry.id.replace("coverage:", "").replaceAll("-", " ")}
+                </li>
+              ))}
+            </ul>
+            <button type="button" onClick={() => patchRequest({
+              filters: { version: 1, entries: request.filters.entries.filter((entry) => entry.dimension !== "coverage") },
+            })}>
+              Remove saved profile filters
+            </button>
+          </section>
+        ) : null}
 
         <details
           className="rail-section advanced-section"
