@@ -19,6 +19,40 @@ from tools.phase1.phase1_dump import (
 
 
 class Phase1DumpTests(unittest.TestCase):
+    def test_numeric_fields_reject_lossy_or_nonfinite_values(self) -> None:
+        for raw in ("1.9", "NaN", "Infinity", "-Infinity", "", "1.0000000000000000001"):
+            with self.subTest(raw=raw), self.assertRaises(ValueError):
+                phase1_dump.to_int({"value": raw}, "value")
+        for raw in ("NaN", "Infinity", "-Infinity", "1e309", ""):
+            with self.subTest(raw=raw), self.assertRaises(ValueError):
+                phase1_dump.to_float({"value": raw}, "value")
+        self.assertEqual(phase1_dump.to_int({"value": "9007199254740993"}, "value"), 9007199254740993)
+        self.assertEqual(phase1_dump.to_int({"value": "1.0"}, "value"), 1)
+        self.assertEqual(phase1_dump.to_int({}, "optional", 6), 6)
+        self.assertEqual(phase1_dump.to_float({}, "optional", 1.0), 1.0)
+
+    def test_required_model_fields_use_declared_defaults_only(self) -> None:
+        fields = ("physicsAtkRate", "magicAtkRate", "fireAtkRate", "thunderAtkRate", "darkAtkRate",
+                  "correctStrengthRate", "correctAgilityRate", "correctMagicRate",
+                  "correctFaithRate", "correctLuckRate", "baseAtkRate")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "reinforce.xml"
+            declarations = "".join(f'<field name="{name}" defaultValue="1" />' for name in fields)
+            path.write_text(f'<param><fields>{declarations}</fields><rows><row id="0" /></rows></param>')
+            rows = list(iter_param_rows(path, apply_defaults=True))
+            output, _ = phase1_dump.build_reinforce_rows(rows)
+            self.assertEqual(output[0]["physical_damage_mult"], 1.0)
+            del rows[0]["physicsAtkRate"]
+            with self.assertRaisesRegex(ValueError, "missing physicsAtkRate"):
+                phase1_dump.build_reinforce_rows(rows)
+            path.write_text('<param><rows><row /></rows></param>')
+            with self.assertRaisesRegex(ValueError, "missing id"):
+                list(iter_param_rows(path))
+        with self.assertRaisesRegex(ValueError, "missing correctType_Physics"):
+            phase1_dump.derive_damage_curve_ids({"id": "1"})
+        with self.assertRaisesRegex(ValueError, "missing isStrengthCorrect_byPhysics"):
+            phase1_dump.build_attack_element_rows([{"id": "1"}])
+
     def test_witchybnd_arguments_and_child_errors(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "path with spaces & an apostrophe's.py"
@@ -128,6 +162,7 @@ class Phase1DumpTests(unittest.TestCase):
 
     def test_versioned_name_recovers_an_unnamed_weapon_series(self) -> None:
         standard = {
+            **{f"correctType_{kind}": "0" for kind in ("Physics", "Magic", "Fire", "Thunder", "Dark")},
             "id": "64530000",
             "sortId": "1750000",
             "originEquipWep": "64530000",
@@ -167,6 +202,7 @@ class Phase1DumpTests(unittest.TestCase):
 
     def test_profile_somber_types_override_upgrade_cap_heuristic(self) -> None:
         row = {
+            **{f"correctType_{kind}": "0" for kind in ("Physics", "Magic", "Fire", "Thunder", "Dark")},
             "id": "2090000",
             "name": "Unique Blade",
             "sortId": "1",
