@@ -14,7 +14,7 @@ comparisons and progression previews.
 [![Published release](https://img.shields.io/github/v/release/FueledByRedBull/tarnisheds-arsenal?label=published)](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest)
 
 **[Download for Windows](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest)**
-· [What’s new in v0.14.0](docs/release-notes/v0.14.0.md)
+· [What’s new in v0.14.1](docs/release-notes/v0.14.1.md)
 · [Your first build](#your-first-build)
 · [Documentation](#documentation)
 
@@ -26,7 +26,7 @@ its score, with the selected build’s full breakdown on the right.
 ## Download
 
 Choose an asset from the [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
-The [v0.14.0 notes](docs/release-notes/v0.14.0.md) include versioned downloads,
+The [v0.14.1 notes](docs/release-notes/v0.14.1.md) include versioned downloads,
 calculation changes, and verification limits.
 
 | Choose | Best for |
@@ -72,6 +72,8 @@ are reoptimized for the current budget; the upgrade chart shows how each develop
 **AR / Bleed tradeoffs** keeps the selected weapon, affinity, skill, upgrade,
 level budget, stat floors/locks, and handling fixed. Compute its complete frontier,
 then inspect maximum AR, maximum bleed, or the most bleed within a stated AR loss.
+AR loss is measured against that fixed loadout's maximum AR, not the highest AR
+across all weapons.
 The 1%, 3%, and 5% choices are sacrifice limits, not bleed-proc breakpoints. An
 all-options table and optional plot show the same achievable allocations.
 One point means one non-dominated AR/bleed outcome; other allocations may tie.
@@ -140,7 +142,7 @@ Choose a guide for the task at hand:
 
 | I want to… | Read |
 | --- | --- |
-| See what changed in **v0.14.0** | [Release notes](docs/release-notes/v0.14.0.md) · [All versions](docs/release-notes/README.md) |
+| See what changed in **v0.14.1** | [Release notes](docs/release-notes/v0.14.1.md) · [All versions](docs/release-notes/README.md) |
 | Understand supported mechanics and limitations | [Model reference](docs/model-reference.md) |
 | Find components and trace a calculation | [Optimizer overview](docs/design/optimizer-overview.md) |
 | Inspect the exact ranking contract and proof | [Optimizer mathematics](docs/design/optimizer-math.md) |

@@ -2,10 +2,10 @@
 
 [Home](../../README.md) · [Documentation](../../README.md#documentation) · [Release guide](../releasing.md)
 
-## v0.14.0
+## v0.14.1
 
-Exact ranking, actionable AR / bleed tradeoffs, faster level ranges, and safer recovery.
-Read the [v0.14.0 notes](v0.14.0.md) for the changes and download choices.
+Correct chart labels, clearer tradeoff scope, and stricter data parsing.
+Read the [v0.14.1 notes](v0.14.1.md) for the changes and download choices.
 
 For the current Windows installer and portable app, visit the
 [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
@@ -14,6 +14,7 @@ For the current Windows installer and portable app, visit the
 
 | Version | Notes | GitHub release |
 | --- | --- | --- |
+| v0.14.1 | [v0.14.1.md](v0.14.1.md) | [Tarnished's Arsenal v0.14.1](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.14.1) |
 | v0.14.0 | [v0.14.0.md](v0.14.0.md) | [Tarnished's Arsenal v0.14.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.14.0) |
 | v0.13.0 | [v0.13.0.md](v0.13.0.md) | [Tarnished's Arsenal v0.13.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.13.0) |
 | v0.12.0 | [v0.12.0.md](v0.12.0.md) | [Tarnished's Arsenal v0.12.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.12.0) |
