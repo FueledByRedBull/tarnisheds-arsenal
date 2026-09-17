@@ -26,8 +26,8 @@ its score, with the selected build’s full breakdown on the right.
 ## Download
 
 Choose an asset from the [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
-The [v0.14.0 notes](docs/release-notes/v0.14.0.md) include its versioned download
-links; those links become available when that release is published.
+The [v0.14.0 notes](docs/release-notes/v0.14.0.md) include versioned downloads,
+calculation changes, and verification limits.
 
 | Choose | Best for |
 | --- | --- |

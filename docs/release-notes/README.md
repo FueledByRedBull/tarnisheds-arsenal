@@ -7,9 +7,8 @@
 Exact ranking, actionable AR / bleed tradeoffs, faster level ranges, and safer recovery.
 Read the [v0.14.0 notes](v0.14.0.md) for the changes and download choices.
 
-The table includes release preparation entries. A version's GitHub page and assets
-become available when it is published; [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest)
-always points to an available build.
+For the current Windows installer and portable app, visit the
+[latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
 
 ## Version history
 
