@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { weaponProfile, search } = vi.hoisted(() => ({ weaponProfile: vi.fn(), search: vi.fn() }));
+const { weaponProfile, search, solveBuild } = vi.hoisted(() => ({ weaponProfile: vi.fn(), search: vi.fn(), solveBuild: vi.fn() }));
 vi.mock("./workflows", () => ({ runSearchRequestForRows: search }));
 
 vi.mock("./api", () => ({
-  api: { weaponProfile },
+  api: { weaponProfile, solveBuild },
 }));
 
-import { cachedComparisonSearch, cachedWeaponProfile as cachedProfileWeaponProfile, clearAnalysisCaches, setAnalysisCacheVersion } from "./analysis-cache";
+import { cachedComparisonSearch, cachedSolveBuild, cachedWeaponProfile as cachedProfileWeaponProfile, clearAnalysisCaches, setAnalysisCacheVersion } from "./analysis-cache";
 import { defaultRequest } from "./state";
 import type { SolvedBuildDto, WeaponProfileDto } from "./types";
 
@@ -49,6 +49,7 @@ describe("analysis cache", () => {
     clearAnalysisCaches();
     weaponProfile.mockReset();
     search.mockReset();
+    solveBuild.mockReset();
   });
 
   afterEach(() => {
@@ -100,6 +101,28 @@ describe("analysis cache", () => {
     await expect(cachedWeaponProfile("Claymore", "Standard")).resolves.toEqual(profile);
 
     expect(weaponProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["last subscriber", "profile change", "eviction"])("cancels shared native work on %s", async (reason) => {
+    const pending = deferred<SolvedBuildDto | null>();
+    solveBuild.mockReturnValueOnce(pending.promise).mockResolvedValue(null);
+    const first = new AbortController();
+    const second = new AbortController();
+    const a = cachedSolveBuild(defaultRequest, "Uchigatana", "Keen", null, first.signal).catch(error => error);
+    const b = cachedSolveBuild(defaultRequest, "Uchigatana", "Keen", null, second.signal).catch(error => error);
+    const nativeSignal = solveBuild.mock.calls[0][4] as AbortSignal;
+    expect(solveBuild).toHaveBeenCalledTimes(1);
+    first.abort();
+    expect(nativeSignal.aborted).toBe(false);
+    if (reason === "eviction") {
+      for (let index = 0; index < 128; index++) await cachedSolveBuild(defaultRequest, `Weapon ${index}`, null, null);
+    }
+    if (reason === "profile change") clearAnalysisCaches();
+    else second.abort();
+    expect(nativeSignal.aborted).toBe(true);
+    pending.resolve(null);
+    expect(await a).toBeInstanceOf(Error);
+    expect(await b).toBeInstanceOf(Error);
   });
 
   it("keeps identical loadouts isolated across game profiles", async () => {

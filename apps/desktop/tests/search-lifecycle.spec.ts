@@ -51,3 +51,90 @@ for (const replacement of ["compare", "rankings"]) {
     await expect(page.locator('.error-strip[role="alert"]')).toHaveCount(0);
   });
 }
+
+test("Compare solve failure aborts its sibling lanes and keeps shared work alive", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await page.evaluate(async () => {
+    const { api } = await import("/src/lib/api.ts");
+    const { cachedSolveBuild } = await import("/src/lib/analysis-cache.ts");
+    const { buildOptimizeRequest } = await import("/src/lib/session.ts");
+    const { useDesktopStore } = await import("/src/lib/state.ts");
+    const state = useDesktopStore.getState();
+    const rows = state.rows;
+    const base = buildOptimizeRequest(state.catalog, state.request, state.lockedStatMode);
+    const probe: {
+      calls: Array<{ signal: AbortSignal; resolve: (row: typeof rows[number] | null) => void; aborted: boolean }>;
+      heldResolved: boolean;
+      siblingAborted: boolean;
+    } = { calls: [], heldResolved: false, siblingAborted: false };
+    let failNextRoot = true;
+    api.solveBuild = (_base, _weaponName, _affinity, _aowName, signal) => {
+      const index = probe.calls.length;
+      const isRootFailure = index > 0 && failNextRoot;
+      if (isRootFailure) failNextRoot = false;
+      let resolveCall!: (row: typeof rows[number] | null) => void;
+      const call = { signal, resolve: (row: typeof rows[number] | null) => resolveCall(row), aborted: false };
+      probe.calls.push(call);
+      return new Promise<typeof rows[number] | null>((resolve, reject) => {
+        resolveCall = resolve;
+        signal.addEventListener("abort", () => {
+          call.aborted = true;
+          if (!isRootFailure) {
+            probe.siblingAborted = true;
+            failNextRoot = true;
+          }
+          reject(new Error("cancelled"));
+        }, { once: true });
+        if (isRootFailure) reject(new Error("comparison solve failed"));
+      });
+    };
+    const held = cachedSolveBuild(base, rows[2].weaponName, rows[2].affinity, rows[2].aowName);
+    void held.then(() => { probe.heldResolved = true; }, () => undefined);
+    state.toggleCompareBench(rows[1]);
+    state.toggleCompareBench(rows[2]);
+    state.toggleCompareBench(rows[3]);
+    Object.assign(window, { compareSolveProbe: probe, resolveHeldCompareSolve: () => probe.calls[0]?.resolve(rows[2]) });
+  });
+  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await expect(page.locator('.error-strip[role="alert"]')).toContainText("comparison solve failed");
+  await expect.poll(() => page.evaluate(() => (window as any).compareSolveProbe.calls.length)).toBeGreaterThanOrEqual(3);
+  await expect.poll(() => page.evaluate(() => (window as any).compareSolveProbe.siblingAborted)).toBe(true);
+  expect(await page.evaluate(() => (window as any).compareSolveProbe.calls[0].aborted)).toBe(false);
+  await page.evaluate(() => (window as any).resolveHeldCompareSolve());
+  await expect.poll(() => page.evaluate(() => (window as any).compareSolveProbe.heldResolved)).toBe(true);
+});
+
+test("Compare upgrade failure aborts the remaining upgrade lanes and keeps the original error", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await page.evaluate(async () => {
+    const { api } = await import("/src/lib/api.ts");
+    const probe: { calls: Array<{ signal: AbortSignal; aborted: boolean }>; siblingAborted: boolean } = { calls: [], siblingAborted: false };
+    let failNextRoot = true;
+    api.buildUpgradeSeries = (_base, _solved, _maxUpgrade, signal) => {
+      const isRootFailure = failNextRoot;
+      if (isRootFailure) failNextRoot = false;
+      const call = { signal, aborted: false };
+      probe.calls.push(call);
+      return new Promise((resolve, reject) => {
+        signal.addEventListener("abort", () => {
+          call.aborted = true;
+          if (!isRootFailure) {
+            probe.siblingAborted = true;
+            failNextRoot = true;
+          }
+          reject(new Error("cancelled"));
+        }, { once: true });
+        if (isRootFailure) reject(new Error("comparison upgrade failed"));
+      });
+    };
+    Object.assign(window, { compareUpgradeProbe: probe });
+  });
+  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await expect(page.locator('.error-strip[role="alert"]')).toContainText("comparison upgrade failed");
+  await expect.poll(() => page.evaluate(() => (window as any).compareUpgradeProbe.calls.length)).toBeGreaterThanOrEqual(4);
+  await expect.poll(() => page.evaluate(() => (window as any).compareUpgradeProbe.siblingAborted)).toBe(true);
+});

@@ -14,6 +14,8 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from tools.phase1.param_binary import load_param_table  # noqa: E402
+
 MAIN_NS = '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
 REL_NS = '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}'
 WORKBOOK_NS = {
@@ -497,6 +499,8 @@ def build_attack_row(
     skill_name: str,
     raw_name: str,
     known_attack_element_ext_ids: set[int] | None = None,
+    bullet_attack_ids: set[int] | None = None,
+    throw_attack_ids: set[int] | None = None,
 ) -> tuple[dict[str, str], bool, str]:
     variant_weapon_type = extract_variant(raw_name)
     sequence_variant = parse_sequence_variant(raw_name, skill_name)
@@ -511,6 +515,9 @@ def build_attack_row(
     }
     is_add_base_atk = (values[header_idx['isAddBaseAtk']] or '0') != '0'
     is_arrow_attack = (values[header_idx['IsArrowAtk']] or '0') != '0'
+    atk_id = parse_int(values[header_idx['AtkId']])
+    is_bullet_attack = bullet_attack_ids is not None and atk_id in bullet_attack_ids
+    is_throw_attack = throw_attack_ids is not None and atk_id in throw_attack_ids
     unique_skill_weapon = values[header_idx['Unique Skill Weapon']].strip()
     stamina_cost_mode = (
         'precalculated'
@@ -522,6 +529,7 @@ def build_attack_row(
         attack_bases,
         is_add_base_atk,
         is_arrow_attack,
+        is_bullet_attack,
     )
     overwrite_id = parse_int(values[header_idx['overwriteAttackElementCorrectId']])
     if known_attack_element_ext_ids is not None and overwrite_id > 0 and overwrite_id not in known_attack_element_ext_ids:
@@ -538,7 +546,7 @@ def build_attack_row(
         'hit_order': str(parse_hit_order(raw_name, sequence_variant)),
         'is_lacking_fp': '1' if raw_name.endswith('(Lacking FP)') else '0',
         'is_damaging': '1' if damaging else '0',
-        'atk_id': str(parse_int(values[header_idx['AtkId']])),
+        'atk_id': str(atk_id),
         **{
             f'sp_effect_id{index}': str(parse_int(values[header_idx[f'spEffectId{index}']]))
             for index in range(5)
@@ -547,6 +555,8 @@ def build_attack_row(
         'is_disable_both_hands_bonus': values[header_idx['isDisableBothHandsAtkBonus']] or '0',
         'is_add_base_atk': '1' if is_add_base_atk else '0',
         'is_arrow_attack': '1' if is_arrow_attack else '0',
+        'is_bullet_attack': '1' if is_bullet_attack else '0',
+        'is_throw_attack': '1' if is_throw_attack else '0',
         'physical_attack_attribute': normalize_physical_attribute(
             values[header_idx['PhysAtkAttribute']]
         ),
@@ -628,17 +638,24 @@ def is_damaging_row(
     attack_bases: dict[str, float],
     is_add_base_atk: bool,
     is_arrow_attack: bool,
+    is_bullet_attack: bool = False,
 ) -> bool:
     return (
         any(value > 0.0 for value in motion_values.values())
         or (
-            (is_add_base_atk or is_arrow_attack)
+            (is_add_base_atk or is_arrow_attack or is_bullet_attack)
             and any(value > 0.0 for value in attack_bases.values())
         )
     )
 
 
-def build_aow_attack_data(project_root: Path, phase1_dir: Path | None = None) -> None:
+def build_aow_attack_data(
+    project_root: Path,
+    phase1_dir: Path | None = None,
+    *,
+    bullet_attack_ids: set[int] | None = None,
+    throw_attack_ids: set[int] | None = None,
+) -> None:
     phase1_dir = project_root / 'data' / 'phase1' if phase1_dir is None else phase1_dir
     workbook_path = phase1_dir / MOTION_WORKBOOK_NAME
     if not workbook_path.exists():
@@ -647,7 +664,8 @@ def build_aow_attack_data(project_root: Path, phase1_dir: Path | None = None) ->
     out_path = phase1_dir / 'aow_attack_data.csv'
     coverage_path = phase1_dir / 'aow_damage_coverage.csv'
 
-    aow_rows = list(csv.DictReader(aow_csv.open('r', encoding='utf-8', newline='')))
+    with aow_csv.open('r', encoding='utf-8', newline='') as handle:
+        aow_rows = list(csv.DictReader(handle))
     aow_id_by_name = {row['name']: int(row['aow_id']) for row in aow_rows}
     ordered_names = sorted(aow_id_by_name, key=len, reverse=True)
     known_attack_element_ext_ids = load_attack_element_correct_ext_ids(workbook_path)
@@ -681,6 +699,7 @@ def build_aow_attack_data(project_root: Path, phase1_dir: Path | None = None) ->
                 continue
             if unique_skill_weapon:
                 coverage[matched]['unique_collision_rows'] += 1
+                continue
             row, damaging, hit_kind = build_attack_row(
                 header_idx,
                 values,
@@ -689,11 +708,13 @@ def build_aow_attack_data(project_root: Path, phase1_dir: Path | None = None) ->
                 matched,
                 raw_name,
                 known_attack_element_ext_ids,
+                bullet_attack_ids,
+                throw_attack_ids,
             )
             coverage[matched]['standard_rows'] += 1
             coverage[matched]['lacking_fp_rows'] += int(raw_name.endswith('(Lacking FP)'))
             coverage[matched]['variant_rows'] += int(bool(row['variant_weapon_type']))
-            coverage[matched]['bullet_rows'] += int(hit_kind == 'bullet')
+            coverage[matched]['bullet_rows'] += int(row['is_bullet_attack'] == '1')
             coverage[matched]['parry_rows'] += int(hit_kind == 'parry')
             coverage[matched]['damaging_rows'] += int(damaging)
             rows_out.append(row)
@@ -736,6 +757,8 @@ def build_aow_attack_data(project_root: Path, phase1_dir: Path | None = None) ->
         'is_disable_both_hands_bonus',
         'is_add_base_atk',
         'is_arrow_attack',
+        'is_bullet_attack',
+        'is_throw_attack',
         'physical_attack_attribute',
         'physical_mv',
         'magic_mv',
@@ -793,7 +816,13 @@ def build_aow_attack_data(project_root: Path, phase1_dir: Path | None = None) ->
     print(f'Wrote {len(aow_rows)} AoW coverage rows to {coverage_path}')
 
 
-def build_native_skill_attack_data(project_root: Path, phase1_dir: Path | None = None) -> None:
+def build_native_skill_attack_data(
+    project_root: Path,
+    phase1_dir: Path | None = None,
+    *,
+    bullet_attack_ids: set[int] | None = None,
+    throw_attack_ids: set[int] | None = None,
+) -> None:
     phase1_dir = project_root / 'data' / 'phase1' if phase1_dir is None else phase1_dir
     workbook_path = phase1_dir / MOTION_WORKBOOK_NAME
     if not workbook_path.exists():
@@ -805,15 +834,12 @@ def build_native_skill_attack_data(project_root: Path, phase1_dir: Path | None =
     weapon_index = load_standard_native_skill_weapons(weapons_csv)
     generic_aow_names: list[str] = []
     if aow_csv.exists():
-        generic_aow_names = sorted(
-            {
-            row['name'].strip()
-            for row in csv.DictReader(aow_csv.open('r', encoding='utf-8', newline=''))
-            if row.get('name', '').strip()
-            },
-            key=len,
-            reverse=True,
-        )
+        with aow_csv.open('r', encoding='utf-8', newline='') as handle:
+            generic_aow_names = sorted(
+                {row['name'].strip() for row in csv.DictReader(handle) if row.get('name', '').strip()},
+                key=len,
+                reverse=True,
+            )
     known_attack_element_ext_ids = load_attack_element_correct_ext_ids(workbook_path)
 
     reader = WorkbookReader(workbook_path)
@@ -878,6 +904,8 @@ def build_native_skill_attack_data(project_root: Path, phase1_dir: Path | None =
                     skill_name,
                     raw_name,
                     known_attack_element_ext_ids,
+                    bullet_attack_ids,
+                    throw_attack_ids,
                 )
                 row['weapon_id'] = weapon['weapon_id']
                 row['weapon_name'] = weapon['name']
@@ -912,6 +940,8 @@ def build_native_skill_attack_data(project_root: Path, phase1_dir: Path | None =
         'is_disable_both_hands_bonus',
         'is_add_base_atk',
         'is_arrow_attack',
+        'is_bullet_attack',
+        'is_throw_attack',
         'physical_attack_attribute',
         'physical_mv',
         'magic_mv',
@@ -1202,6 +1232,38 @@ def load_attack_element_correct_ext_ids(workbook_path: Path) -> set[int]:
         reader.close()
 
 
+def load_bullet_attack_ids(
+    regulation_bin_dir: Path,
+    paramdex_defs_dir: Path,
+) -> set[int]:
+    bullets = load_param_table(
+        regulation_bin_dir / 'Bullet.param',
+        paramdex_defs_dir / 'BulletParam.xml',
+        {'atkId_Bullet'},
+    )
+    return {
+        attack_id
+        for row in bullets.rows.values()
+        if (attack_id := int(row['atkId_Bullet'])) > 0
+    }
+
+
+def load_throw_attack_ids(
+    regulation_bin_dir: Path,
+    paramdex_defs_dir: Path,
+) -> set[int]:
+    attacks = load_param_table(
+        regulation_bin_dir / 'AtkParam_Pc.param',
+        paramdex_defs_dir / 'AtkParam.xml',
+        {'throwFlag'},
+    )
+    return {
+        attack_id
+        for attack_id, row in attacks.rows.items()
+        if attack_id > 0 and int(row['throwFlag']) == 2
+    }
+
+
 def run_workbook_exports(
     project_root: Path,
     phase1_dir: Path | None = None,
@@ -1209,10 +1271,6 @@ def run_workbook_exports(
     paramdex_defs_dir: Path | None = None,
 ) -> None:
     phase1_dir = project_root / 'data' / 'phase1' if phase1_dir is None else phase1_dir
-    build_aow_attack_data(project_root, phase1_dir)
-    build_native_skill_attack_data(project_root, phase1_dir)
-    build_aow_route_data(project_root, phase1_dir)
-    build_attack_element_correct_ext(project_root, phase1_dir)
     if regulation_bin_dir is None:
         regulation_bin_dir = project_root / 'data' / '_work_phase1_reparse' / 'regulation-bin'
     if paramdex_defs_dir is None:
@@ -1223,6 +1281,22 @@ def run_workbook_exports(
                 f'found {len(candidates)} candidates'
             )
         paramdex_defs_dir = candidates[0]
+    bullet_attack_ids = load_bullet_attack_ids(regulation_bin_dir, paramdex_defs_dir)
+    throw_attack_ids = load_throw_attack_ids(regulation_bin_dir, paramdex_defs_dir)
+    build_aow_attack_data(
+        project_root,
+        phase1_dir,
+        bullet_attack_ids=bullet_attack_ids,
+        throw_attack_ids=throw_attack_ids,
+    )
+    build_native_skill_attack_data(
+        project_root,
+        phase1_dir,
+        bullet_attack_ids=bullet_attack_ids,
+        throw_attack_ids=throw_attack_ids,
+    )
+    build_aow_route_data(project_root, phase1_dir)
+    build_attack_element_correct_ext(project_root, phase1_dir)
     workbook_path = phase1_dir / MOTION_WORKBOOK_NAME
     if not workbook_path.exists():
         workbook_path = project_root / 'data' / 'phase1' / workbook_path.name

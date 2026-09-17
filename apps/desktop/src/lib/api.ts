@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
+import { createNativeJobQueue } from "./native-jobs";
 import {
+  ArBleedFrontierPointDto,
   AffinityWatchPayloadDto,
   AffinityWatchJobStatusDto,
   CatalogDto,
@@ -16,6 +18,20 @@ import {
 } from "./types";
 import { upgradeCapForRow } from "./session";
 import { STARTING_CLASS_METADATA } from "./session";
+
+type AnalysisFinished = {
+  jobId: string;
+  kind: "solve_build" | "upgrade_series" | "ar_bleed_frontier";
+  cancelled: boolean;
+  result: SolvedBuildDto | null;
+  points: UpgradePointDto[];
+  frontier: ArBleedFrontierPointDto[];
+  error: string | null;
+};
+const analysisQueue = createNativeJobQueue<{ finished: AnalysisFinished | null }>(
+  jobId => call("get_analysis_status", { jobId }),
+  jobId => call("cancel_analysis", { jobId }),
+);
 
 type MockWeapon = {
   weaponId: number;
@@ -117,7 +133,7 @@ function previewBuild(
   };
 }
 
-export const hasTauriRuntime = () => "__TAURI_INTERNALS__" in window;
+export const hasTauriRuntime = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   if (hasTauriRuntime()) {
@@ -137,7 +153,6 @@ async function call<T>(command: string, args?: Record<string, unknown>): Promise
 export const api = {
   profiles: () => call<DataManifestDto[]>("get_profiles"),
   catalog: (profileId: string) => call<CatalogDto>("get_catalog", { profileId }),
-  dataManifest: (profileId: string) => call<DataManifestDto>("get_data_manifest", { profileId }),
   weaponProfile: (profileId: string, weaponName: string, affinity: string | null) =>
     call<WeaponProfileDto>("get_weapon_profile", {
       request: { profileId, weaponName, affinity },
@@ -148,36 +163,50 @@ export const api = {
     call<boolean>("cancel_search", { jobId }),
   searchStatus: (jobId: string) =>
     call<SearchJobStatusDto | null>("get_search_status", { jobId }),
-  solveBuild: (
+  solveBuild: async (
     base: OptimizeRequestDto,
     weaponName: string,
     affinity: string | null,
     aowName: string | null,
-  ) =>
-    call<SolvedBuildDto | null>("solve_build", {
-      request: { base, weaponName, affinity, aowName },
-    }),
-  buildUpgradeSeries: (
+    signal?: AbortSignal,
+  ): Promise<SolvedBuildDto | null> => {
+    if (signal?.aborted) throw new DOMException("Calculation stopped.", "AbortError");
+    const request = { base, weaponName, affinity, aowName };
+    if (!hasTauriRuntime()) return call("solve_build", { request });
+    const finished = await analysisQueue(() => call("start_solve_build", { request }), signal);
+    if (finished.kind !== "solve_build") throw new Error("Unexpected native calculation result.");
+    return finished.result;
+  },
+  arBleedFrontier: async (
+    base: OptimizeRequestDto,
+    solved: SolvedBuildDto,
+    signal?: AbortSignal,
+  ): Promise<ArBleedFrontierPointDto[]> => {
+    if (signal?.aborted) throw new DOMException("Calculation stopped.", "AbortError");
+    const request = { base, solved };
+    if (!hasTauriRuntime()) return call("ar_bleed_frontier", { request });
+    const finished = await analysisQueue(() => call("start_ar_bleed_frontier", { request }), signal);
+    if (finished.kind !== "ar_bleed_frontier") throw new Error("Unexpected native calculation result.");
+    return finished.frontier;
+  },
+  buildUpgradeSeries: async (
     base: OptimizeRequestDto,
     solved: SolvedBuildDto,
     maxUpgrade: number,
-  ) =>
-    call<UpgradePointDto[]>("build_upgrade_series", {
-      request: { base, solved, maxUpgrade },
-    }),
+    signal?: AbortSignal,
+  ): Promise<UpgradePointDto[]> => {
+    if (signal?.aborted) throw new DOMException("Calculation stopped.", "AbortError");
+    const request = { base, solved, maxUpgrade };
+    if (!hasTauriRuntime()) return call("build_upgrade_series", { request });
+    const finished = await analysisQueue(() => call("start_upgrade_series", { request }), signal);
+    if (finished.kind !== "upgrade_series") throw new Error("Unexpected native calculation result.");
+    return finished.points;
+  },
   affinitiesForWeapon: (profileId: string, weaponName: string) =>
     call<string[]>("affinities_for_weapon", { profileId, weaponName }),
-  compatibleAowNames: (profileId: string, weaponName: string | null, affinity: string | null) =>
-    call<string[]>("compatible_aow_names", {
-      request: { profileId, weaponName, affinity },
-    }),
   compatibleAowNamesForAffinity: (profileId: string, affinity: string | null) =>
     call<string[]>("compatible_aow_names_for_affinity", {
       request: { profileId, affinity },
-    }),
-  weaponNamesForType: (profileId: string, weaponTypeKey: string | null) =>
-    call<string[]>("weapon_names_for_type", {
-      request: { profileId, weaponTypeKey },
     }),
   startPathPreview: (requests: Array<{
     base: OptimizeRequestDto;
@@ -381,8 +410,6 @@ async function mockInvoke<T>(command: string, args?: Record<string, unknown>): P
       return [mockDataManifest("vanilla"), mockDataManifest("convergence")] as T;
     case "get_catalog":
       return await mockCatalog(String(args?.profileId ?? "vanilla")) as T;
-    case "get_data_manifest":
-      return mockDataManifest(String(args?.profileId ?? "vanilla")) as T;
     case "get_weapon_profile":
       return await mockWeaponProfile(args) as T;
     case "start_search":
@@ -393,16 +420,23 @@ async function mockInvoke<T>(command: string, args?: Record<string, unknown>): P
       return mockSearchStatus(args) as T;
     case "solve_build":
       return await mockSolveBuild(args) as T;
+    case "ar_bleed_frontier": {
+      // Explicit browser-preview fixtures; native results are calculated by the core.
+      const { solved } = args?.request as { solved: SolvedBuildDto };
+      return [0, 1, 3, 5].map((loss, index) => ({
+        result: { ...solved,
+          ar: { ...solved.ar, total: solved.ar.total * (1 - loss / 100) },
+          bleedBuildup: solved.bleedBuildup + index * 5,
+          stats: { ...solved.stats, dex: solved.stats.dex - index, arc: solved.stats.arc + index },
+        },
+        arLoss: solved.ar.total * loss / 100, arLossPercent: loss,
+        minimumArLossBps: loss * 100, bleedGain: index * 5,
+      })) as T;
+    }
     case "build_upgrade_series":
       return await mockUpgradeSeries(args) as T;
-    case "weapon_names_for_type": {
-      const key = (args?.request as { weaponTypeKey?: string | null })?.weaponTypeKey;
-      return await mockWeaponNamesForType(key ?? null) as T;
-    }
     case "compatible_aow_names_for_affinity":
       return await mockCompatibleAowNamesForAffinity(args) as T;
-    case "compatible_aow_names":
-      return await mockCompatibleAowNames(args) as T;
     case "affinities_for_weapon":
       return await mockAffinitiesForWeapon(args) as T;
     case "start_path_preview":
@@ -454,9 +488,9 @@ async function mockCatalog(profileId = "vanilla"): Promise<CatalogDto> {
 function mockDataManifest(profileId = "vanilla"): DataManifestDto {
   const convergence = profileId === "convergence";
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     datasetVersion: convergence ? "convergence-3.0.0.1" : "vanilla-1.17",
-    modelVersion: "aow-routes-effects-v5-compact-compatibility",
+    modelVersion: "aow-routes-effects-v7",
     id: convergence ? "convergence-3.0.0.1" : "vanilla-1.17",
     label: convergence ? "Convergence 3.0.0.1" : "Vanilla 1.17",
     appVersion: convergence ? "1.16.1" : "1.17",
@@ -525,14 +559,6 @@ async function mockWeaponProfile(args: Record<string, unknown> | undefined): Pro
     affinities: uniqueSorted(MOCK_WEAPONS.filter((row) => row.name === request.weaponName).map((row) => row.affinity)),
     compatibleAows: await mockCompatibleAowNames({ request }),
   };
-}
-
-async function mockWeaponNamesForType(weaponTypeKey: string | null): Promise<string[]> {
-  return uniqueSorted(
-    MOCK_WEAPONS
-      .filter((row) => !weaponTypeKey || row.weaponTypeName === weaponTypeKey)
-      .map((row) => row.name),
-  );
 }
 
 async function mockAffinitiesForWeapon(args: Record<string, unknown> | undefined): Promise<string[]> {
@@ -684,7 +710,6 @@ function fixedPathStep(
   level: number;
   stats: SolvedBuildDto["stats"];
   metric: number | null;
-  score: number | null;
   addedStat: string | null;
   requirementGap: number;
 } {
@@ -692,7 +717,6 @@ function fixedPathStep(
     level,
     stats,
     metric,
-    score: metric,
     addedStat,
     requirementGap: 0,
   };

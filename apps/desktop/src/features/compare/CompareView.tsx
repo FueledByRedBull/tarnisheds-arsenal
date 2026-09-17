@@ -3,13 +3,13 @@ import { AowSelect } from "../../lib/AowSelect";
 import { cachedComparisonSearch, cachedSolveBuild, cachedUpgradeSeries } from "../../lib/analysis-cache";
 import { compactNumber, fixed1, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
 import { CheckboxMultiSelect, SearchableSelect, openOption } from "../../lib/SearchableSelect";
-import { compareUpgradeHorizon, rowFingerprint, upgradeCapForRow } from "../../lib/session";
-import { stableSignature } from "../../lib/session";
+import { compareUpgradeHorizon, replaceFilterEntries, rowFingerprint, stableSignature, upgradeCapForRow } from "../../lib/session";
 import { LatestRequest } from "../../lib/request-generation";
 import { useRequestBudget } from "../../lib/hooks";
 import { useDesktopStore } from "../../lib/state";
-import { ScalingDto, SolvedBuildDto, StableFilterEntryDto, UpgradePointDto } from "../../lib/types";
+import { ScalingDto, SolvedBuildDto, UpgradePointDto } from "../../lib/types";
 import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
+import { LoadoutTradeoffs } from "./LoadoutTradeoffs";
 
 type CompareLane = {
   label: string;
@@ -25,6 +25,7 @@ export function CompareView() {
   const catalog = useDesktopStore((state) => state.catalog);
   const selected = useDesktopStore((state) => state.selected);
   const rows = useDesktopStore((state) => state.rows);
+  const resultsStale = useDesktopStore((state) => state.resultsStale);
   const target = useDesktopStore((state) => state.compareTarget);
   const compareBench = useDesktopStore((state) => state.compareBench);
   const clearCompareBench = useDesktopStore((state) => state.clearCompareBench);
@@ -96,13 +97,22 @@ export function CompareView() {
     const token = seriesRequest.current.begin(stableSignature({
       baseRequest,
       compareControls,
+      resultsStale,
       request,
       rows,
       selected,
       compareBench,
     }));
     async function resolveRows() {
+      if (resultsStale) {
+        setSeries([]);
+        setSeriesError(null);
+        setCompareTarget(null);
+        setSeriesStatus("idle");
+        return;
+      }
       if (isExporting) {
+        setSeries([]);
         setSeriesStatus("loading");
         return;
       }
@@ -112,6 +122,8 @@ export function CompareView() {
         setSeriesStatus("idle");
         return;
       }
+      setSeries([]);
+      setCompareTarget(null);
       setSeriesStatus("loading");
       setSeriesError(null);
       const resolvedSelected = selected;
@@ -201,6 +213,7 @@ export function CompareView() {
       }
     }
     resolveRows().catch((error) => {
+      controller.abort();
       if (seriesRequest.current.isCurrent(token)) {
         setSeries([]);
         const message = error instanceof Error ? error.message : String(error);
@@ -213,7 +226,7 @@ export function CompareView() {
       controller.abort();
       seriesRequest.current.invalidate(token);
     };
-  }, [baseRequest, compareBench, compareControls, isExporting, request, rows, selected, setCompareTarget, setError]);
+  }, [baseRequest, compareBench, compareControls, isExporting, request, resultsStale, rows, selected, setCompareTarget, setError]);
 
   const matrixHorizon = compareUpgradeHorizon(request);
   const dataVersion = catalog
@@ -227,6 +240,19 @@ export function CompareView() {
         <div className="empty-state workspace-prerequisite">
           <strong>Select a ranking first</strong>
           <span>Run or update Rankings, then select any row to use as the baseline.</span>
+          <button type="button" onClick={() => setWorkspace("rankings")}>Go to Rankings</button>
+        </div>
+      </section>
+    );
+  }
+
+  if (resultsStale) {
+    return (
+      <section className="workspace-panel compare-panel">
+        <div className="workspace-header"><div><h1>Compare</h1><span>Requires current ranked results</span></div></div>
+        <div className="empty-state workspace-prerequisite">
+          <strong>Update Rankings before comparing</strong>
+          <span>The selected build and comparison targets belong to the previous query.</span>
           <button type="button" onClick={() => setWorkspace("rankings")}>Go to Rankings</button>
         </div>
       </section>
@@ -264,7 +290,7 @@ export function CompareView() {
             weaponName: null,
             aowName: null,
             matchSelectedAow: false,
-            filters: { version: 1, entries: replaceCompareFilters(compareControls.filters.entries, "weapon_type", values, excludedValues) },
+            filters: { version: 1, entries: replaceFilterEntries(compareControls.filters.entries, "weapon_type", values, excludedValues) },
           })}
         />
         <SearchableSelect
@@ -279,8 +305,8 @@ export function CompareView() {
             aowName: null,
             filters: {
               version: 1,
-              entries: replaceCompareFilters(
-                replaceCompareFilters(compareControls.filters.entries, "weapon_type", [], []),
+              entries: replaceFilterEntries(
+                replaceFilterEntries(compareControls.filters.entries, "weapon_type", [], []),
                 "affinity",
                 [],
                 [],
@@ -296,7 +322,7 @@ export function CompareView() {
           onChange={(values, excludedValues) => patchCompareControls({
             aowName: null,
             matchSelectedAow: false,
-            filters: { version: 1, entries: replaceCompareFilters(compareControls.filters.entries, "affinity", values, excludedValues) },
+            filters: { version: 1, entries: replaceFilterEntries(compareControls.filters.entries, "affinity", values, excludedValues) },
           })}
         />
         <AowSelect
@@ -336,6 +362,9 @@ export function CompareView() {
           </label>
         </div>
       </div>
+      {catalog?.dataManifest.capabilities.classBudget && catalog.dataManifest.capabilities.statusBuildup
+        ? <LoadoutTradeoffs base={baseRequest} current={request} selected={selected} />
+        : <p className="analysis-state">AR / bleed tradeoffs require class budgets and status modeling.</p>}
       <DeltaTable baseline={series[0]?.row ?? selected} candidates={series.slice(1)} objective={request.objective} />
       <details className="compare-build-details" open>
         <summary>Build details</summary>
@@ -510,17 +539,4 @@ function scrollMatrix(element: HTMLDivElement | null, direction: -1 | 1) {
     left: direction < 0 ? 0 : element.scrollWidth,
     behavior: "smooth",
   });
-}
-
-function replaceCompareFilters(
-  entries: StableFilterEntryDto[],
-  dimension: "weapon_type" | "affinity",
-  ids: string[],
-  excludedIds: string[],
-): StableFilterEntryDto[] {
-  return [
-    ...entries.filter((entry) => entry.dimension !== dimension),
-    ...ids.map((id) => ({ dimension, id, mode: "include" as const })),
-    ...excludedIds.map((id) => ({ dimension, id, mode: "exclude" as const })),
-  ];
 }

@@ -1,10 +1,6 @@
-import { chromium, expect } from "@playwright/test";
-import { spawn } from "node:child_process";
+import { expect } from "@playwright/test";
 import { existsSync } from "node:fs";
-import { rm } from "node:fs/promises";
-import { createServer } from "node:net";
-import { randomUUID } from "node:crypto";
-import { join } from "node:path";
+import { launchPackagedApp, stopSession } from "./packaged-session.mjs";
 
 const executable = process.argv[2];
 if (!executable || !existsSync(executable)) {
@@ -50,7 +46,7 @@ try {
   }
 
   markSmokeStage("wait for vanilla model");
-  await page.getByText("Full model ready", { exact: true }).waitFor();
+  await page.getByText("Snapshot loaded", { exact: true }).waitFor();
   if (await page.getByRole("radio", { name: /Vanilla/ }).getAttribute("aria-checked") !== "true") {
     throw new Error("packaged smoke did not start on the Vanilla profile");
   }
@@ -119,7 +115,7 @@ try {
   markSmokeStage("switch back to Vanilla profile");
   await profileSwitch.getByRole("radio", { name: /Vanilla/ }).click();
   markSmokeStage("wait for Vanilla model after profile switch");
-  await page.getByText("Full model ready", { exact: true }).waitFor();
+  await page.getByText("Snapshot loaded", { exact: true }).waitFor();
   await expect(page.getByRole("button", { name: "AoW First Hit", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Optimize class", exact: true })).toBeEnabled();
   await expect(page.getByRole("combobox", { name: "Class", exact: true })).toHaveValue("Samurai");
@@ -148,6 +144,57 @@ try {
   await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
   markSmokeStage("wait for current comparison");
   await page.getByText("Comparison current", { exact: true }).waitFor();
+
+  markSmokeStage("compute fixed-loadout AR / bleed tradeoffs");
+  const tradeoffs = page.locator(".loadout-tradeoffs");
+  await tradeoffs.getByRole("button", { name: "Compute trade-offs", exact: true }).click();
+  await expect(tradeoffs.getByRole("status")).toContainText(/exact trade-off points? ready\./);
+  await expect(tradeoffs.getByRole("table", { name: "Trade-off options", exact: true })).toBeVisible();
+  await expect(tradeoffs.locator(".tradeoff-inspection")).toContainText(selectedWeapon);
+  await tradeoffs.getByRole("spinbutton", { name: "Max AR sacrifice (%)" }).fill("3");
+  await expect(tradeoffs.locator(".tradeoff-inspection")).toContainText("Full stat spread");
+  const chosenTradeoffRow = tradeoffs.locator(".tradeoff-shortlist tbody tr.selected");
+  await chosenTradeoffRow.waitFor();
+  const chosenPointAr = (await chosenTradeoffRow.locator("td").nth(0).innerText()).trim();
+  const chosenPointBleed = (await chosenTradeoffRow.locator("td").nth(1).innerText()).trim();
+  await expect(page.locator(".selected-build strong")).toHaveText(selectedWeapon);
+  const statText = await tradeoffs.locator(".tradeoff-inspection p").filter({ hasText: "Full stat spread" }).textContent();
+  const exactStats = statText.match(/STR \d+ \/ DEX \d+ \/ INT \d+ \/ FAI \d+ \/ ARC \d+/)?.[0];
+  if (!exactStats) throw new Error("frontier did not expose an exact combat allocation");
+  const expectedSetup = await page.locator(".selected-build > span").innerText();
+  await tradeoffs.getByRole("button", { name: "Use exact allocation", exact: true }).click();
+  await expect(page.locator(".result-row-full")).toHaveCount(1);
+  const exactRow = page.locator(".result-row-full").first();
+  const exactWeapon = (await exactRow.locator(".weapon-cell strong").innerText()).trim();
+  const exactAffinity = (await exactRow.locator(".setup-cell strong").innerText()).trim();
+  const exactAow = (await exactRow.locator(".setup-cell > small").innerText()).trim();
+  const exactUpgrade = (await exactRow.getByRole("gridcell").nth(3).innerText()).trim();
+  const [expectedAffinity, expectedAow, expectedUpgrade] = expectedSetup.split(" / ");
+  const exactAr = (await exactRow.locator(".ar-status-cell strong").innerText()).trim();
+  const exactBleedLabel = await page.locator('[aria-label^="Bleed buildup:"]').first().getAttribute("aria-label");
+  if (!exactBleedLabel) throw new Error("exact allocation did not expose bleed buildup");
+  const returnedInspectorAr = (await page.locator(".metric-tile").filter({ hasText: "Max AR" }).locator("strong").innerText()).trim();
+  const returnedBleed = Number(exactBleedLabel.match(/Bleed buildup:\s*([0-9.]+)/)?.[1]);
+  if (returnedInspectorAr !== chosenPointAr) {
+    throw new Error(`exact allocation AR ${returnedInspectorAr} did not match chosen point AR ${chosenPointAr}`);
+  }
+  if (!Number.isFinite(returnedBleed) || returnedBleed !== Number(chosenPointBleed)) {
+    throw new Error(`exact allocation bleed ${returnedBleed} did not match chosen point bleed ${chosenPointBleed}`);
+  }
+  await expect(exactRow.locator(".weapon-cell strong")).toHaveText(selectedWeapon);
+  await expect(exactRow.locator(".setup-cell strong")).toHaveText(expectedAffinity);
+  await expect(exactRow.locator(".setup-cell > small")).toHaveText(expectedAow);
+  await expect(exactRow.getByRole("gridcell").nth(3)).toHaveText(expectedUpgrade);
+  await expect(exactRow.locator(".row-combat-stats")).toHaveText(exactStats);
+  await expect(page.locator(".detail-block").filter({ hasText: "Combat Stats" }).locator("strong")).toHaveText(exactStats);
+  if (!exactAr) throw new Error("exact allocation did not expose AR");
+  markSmokeStage("save exact applied tradeoff");
+  const presetName = `Release verification ${Date.now()}`;
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill(presetName);
+  await page.getByRole("button", { name: "Save new", exact: true }).click();
+  await page.getByText(`Saved ${presetName}.`, { exact: true }).waitFor();
+  await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
+  await page.getByText("Comparison current", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Compare Type", exact: true }).click();
   await page.getByRole("group", { name: "Compare Type", exact: true })
     .getByRole("checkbox", { name: /^Axe\b/ })
@@ -174,17 +221,24 @@ try {
   markSmokeStage("wait for Affinity Watch");
   await page.getByRole("grid", { name: "Affinity watch rankings" }).locator('[role="row"]').nth(1).waitFor();
 
-  markSmokeStage("save and reload preset");
-  const presetName = `Release verification ${Date.now()}`;
-  await page.getByRole("textbox", { name: "Name", exact: true }).fill(presetName);
-  await page.getByRole("button", { name: "Save new", exact: true }).click();
-  await page.getByText(`Saved ${presetName}.`, { exact: true }).waitFor();
+  markSmokeStage("reload saved exact tradeoff");
   await page.reload();
   await page.getByRole("combobox", { name: "Saved", exact: true }).selectOption({ label: `${presetName} — vanilla · current data` });
   await page.getByRole("button", { name: "Load", exact: true }).click();
   markSmokeStage("wait for preset load");
   await page.getByText(`Loaded ${presetName}.`, { exact: true }).waitFor();
-  await page.locator(".selected-build strong").getByText(selectedWeapon, { exact: true }).waitFor();
+  await expect(page.locator(".result-row-full")).toHaveCount(1);
+  const reloadedRow = page.locator(".result-row-full").first();
+  await expect(reloadedRow.locator(".weapon-cell strong")).toHaveText(exactWeapon);
+  await expect(reloadedRow.locator(".setup-cell strong")).toHaveText(exactAffinity);
+  await expect(reloadedRow.locator(".setup-cell > small")).toHaveText(exactAow);
+  await expect(reloadedRow.getByRole("gridcell").nth(3)).toHaveText(exactUpgrade);
+  await expect(reloadedRow.locator(".row-combat-stats")).toHaveText(exactStats);
+  await expect(reloadedRow.locator(".ar-status-cell strong")).toHaveText(exactAr);
+  await expect(page.locator(`[aria-label="${exactBleedLabel}"]`)).toBeVisible();
+  await expect(page.locator(".selected-build > strong")).toHaveText(exactWeapon);
+  await expect(page.locator(".selected-build > span")).toHaveText(`${exactAffinity} / ${exactAow} / ${exactUpgrade}`);
+  await expect(page.locator(".detail-block").filter({ hasText: "Combat Stats" }).locator("strong")).toHaveText(exactStats);
   markSmokeStage("save stale results as inputs only");
   const twoHanding = page.getByRole("checkbox", { name: "Two-handing", exact: true });
   await twoHanding.setChecked(!(await twoHanding.isChecked()));
@@ -199,7 +253,7 @@ try {
   await page.getByText(`Deleted ${presetName}.`, { exact: true }).waitFor();
   await page.reload();
   markSmokeStage("wait for final Vanilla model");
-  await page.getByText("Full model ready", { exact: true }).waitFor();
+  await page.getByText("Snapshot loaded", { exact: true }).waitFor();
   const savedBuilds = page.getByRole("combobox", { name: "Saved", exact: true });
   await savedBuilds.locator('option[value=""]').waitFor({ state: "attached" });
   if (await savedBuilds.inputValue() !== "") {
@@ -245,145 +299,6 @@ try {
     }, { key: vanillaCompareBenchKey, value: previousCompareBench }).catch(() => {});
   }
   await stopSession(session);
-}
-
-async function launchPackagedApp(executablePath, attempts, timeoutMs, cooldownMs) {
-  const failures = [];
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    const localAppData = process.env.LOCALAPPDATA;
-    if (!localAppData) throw new Error("LOCALAPPDATA is required for packaged smoke isolation");
-    const profileToken = `tarnisheds-arsenal-smoke-${randomUUID()}`;
-    const profileDirectory = join(localAppData, "main", profileToken);
-    if (existsSync(profileDirectory)) throw new Error("packaged smoke profile directory already exists");
-    const port = await reserveLoopbackPort();
-    const endpoint = `http://127.0.0.1:${port}`;
-    let output = "";
-    let exit = null;
-    let browser;
-    const child = spawn(executablePath, [
-      `--packaged-smoke-port=${port}`,
-      `--packaged-smoke-profile=${profileToken}`,
-    ], {
-      // Tauri 2.11.1 drops WindowConfig.data_directory while converting it to
-      // WebviewAttributes. WebView2 honors this documented process override,
-      // so every smoke attempt gets an isolated browser data directory.
-      env: { ...process.env, WEBVIEW2_USER_DATA_FOLDER: profileDirectory },
-      stdio: ["ignore", "pipe", "pipe"],
-      windowsHide: true,
-    });
-    process.stdout.write(
-      `PACKAGED_SMOKE_START attempt=${attempt}/${attempts} pid=${child.pid ?? "unknown"} port=${port} timeoutMs=${timeoutMs}\n`,
-    );
-    child.stdout.on("data", (chunk) => { output += chunk.toString(); });
-    child.stderr.on("data", (chunk) => { output += chunk.toString(); });
-    child.once("exit", (code, signal) => { exit = { code, signal }; });
-    const candidate = {
-      browser,
-      child,
-      exit: () => exit,
-      output: () => output,
-      page: undefined,
-      profileDirectory,
-    };
-
-    try {
-      await waitForEndpoint(`${endpoint}/json/version`, timeoutMs, () => exit);
-      browser = await chromium.connectOverCDP(endpoint);
-      candidate.browser = browser;
-      candidate.page = await waitForAppPage(browser, 30_000, () => exit);
-      if (!existsSync(profileDirectory)) throw new Error("WebView2 did not create the isolated smoke profile");
-      return candidate;
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      const childState = exit
-        ? `exited with code ${String(exit.code)} and signal ${String(exit.signal)}`
-        : `still running as PID ${child.pid ?? "unknown"}`;
-      const captured = output.trim();
-      failures.push(
-        `attempt ${attempt}/${attempts} on ${endpoint}: ${reason}; process ${childState}`
-        + (captured ? `\n${captured.slice(-2000)}` : ""),
-      );
-      await stopSession(candidate);
-      if (attempt < attempts) {
-        process.stdout.write(`PACKAGED_SMOKE_RETRY cooldownMs=${cooldownMs}\n`);
-        await new Promise((resolve) => setTimeout(resolve, cooldownMs));
-      }
-    }
-  }
-  throw new Error(`packaged WebView2 startup failed after ${attempts} attempts:\n${failures.join("\n")}`);
-}
-
-async function stopSession(sessionToStop) {
-  if (!sessionToStop) return;
-  await sessionToStop.browser?.close().catch(() => undefined);
-  if (!sessionToStop.exit() && !sessionToStop.child.killed) sessionToStop.child.kill();
-  await Promise.race([
-    new Promise((resolve) => {
-      if (sessionToStop.exit()) resolve();
-      else sessionToStop.child.once("exit", resolve);
-    }),
-    new Promise((resolve) => setTimeout(resolve, 5_000)),
-  ]);
-  if (!sessionToStop.exit()) sessionToStop.child.kill("SIGKILL");
-  await rm(sessionToStop.profileDirectory, {
-    recursive: true,
-    force: true,
-    maxRetries: 3,
-    retryDelay: 250,
-  }).catch(() => undefined);
-}
-
-async function reserveLoopbackPort() {
-  const server = createServer();
-  await new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
-  });
-  const address = server.address();
-  if (!address || typeof address === "string") {
-    server.close();
-    throw new Error("could not reserve a loopback port for packaged smoke testing");
-  }
-  await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-  return address.port;
-}
-
-async function waitForEndpoint(url, timeoutMs, getExit) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const exit = getExit();
-    if (exit) {
-      throw new Error(`packaged app exited before WebView2 was ready (code ${String(exit.code)}, signal ${String(exit.signal)})`);
-    }
-    try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(2_000) });
-      if (response.ok) {
-        const metadata = await response.json();
-        if (typeof metadata.webSocketDebuggerUrl === "string") return;
-      }
-    } catch {
-      // WebView2 has not opened its local debugging endpoint yet.
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  throw new Error(`timed out after ${timeoutMs} ms waiting for packaged WebView2 endpoint ${url}`);
-}
-
-async function waitForAppPage(connectedBrowser, timeoutMs, getExit) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const exit = getExit();
-    if (exit) {
-      throw new Error(`packaged app exited before its page was ready (code ${String(exit.code)}, signal ${String(exit.signal)})`);
-    }
-    for (const context of connectedBrowser.contexts()) {
-      for (const page of context.pages()) {
-        if (await page.locator(".desktop-shell").count()) return page;
-      }
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  throw new Error("packaged WebView2 page did not expose the application shell");
 }
 
 function positiveIntegerFromEnv(name, fallback) {

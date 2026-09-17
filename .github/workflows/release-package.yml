@@ -293,15 +293,32 @@ jobs:
           $archive = [System.IO.Compression.ZipFile]::OpenRead($archivePath)
           try {
             $archiveNames = @($archive.Entries | ForEach-Object { $_.Name })
+            if (@($archiveNames | Where-Object { $_ -like "*.msi" }).Count -ne 0) {
+              throw "Portable release archive must not include an MSI"
+            }
             foreach ($name in @(
               "TarnishedsArsenal_$env:ARTIFACT_VERSION`_portable.exe",
-              "TarnishedsArsenal_$env:ARTIFACT_VERSION`_x64_en-US.msi",
               "SHA256SUMS.txt",
               "build-report.json",
               "README.md",
               "LICENSE"
             )) {
               if ($name -notin $archiveNames) { throw "Release archive is missing $name" }
+            }
+            $archiveChecksums = @($archive.Entries | Where-Object { $_.Name -eq "SHA256SUMS.txt" })
+            if ($archiveChecksums.Count -ne 1) {
+              throw "Portable release archive must contain exactly one checksum file"
+            }
+            $checksumReader = [System.IO.StreamReader]::new($archiveChecksums[0].Open())
+            try {
+              $checksumText = $checksumReader.ReadToEnd()
+            } finally {
+              $checksumReader.Dispose()
+            }
+            $portableName = "TarnishedsArsenal_$env:ARTIFACT_VERSION`_portable.exe"
+            $expectedArchiveChecksum = "$($checksumRows[$portableName])  $portableName"
+            if ($checksumText.Trim() -cne $expectedArchiveChecksum) {
+              throw "Portable release archive checksum file does not match the portable executable"
             }
           } finally {
             $archive.Dispose()
@@ -338,13 +355,13 @@ jobs:
 
           "RELEASE_NOTES=$notesOut" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Upload dist artifact
+      - name: Upload release assets artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: package-${{ env.ARTIFACT_VERSION }}
           if-no-files-found: error
           path: |
-            dist/
+            dist/release-assets/
 
   publish:
     if: startsWith(github.ref, 'refs/tags/') || inputs.publish == true
@@ -379,7 +396,7 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           $version = (Get-Content apps/desktop/src-tauri/tauri.conf.json | ConvertFrom-Json).version
           "RELEASE_TAG=v$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          gh run download $env:GITHUB_RUN_ID --name "package-$version" --dir dist
+          gh run download $env:GITHUB_RUN_ID --name "package-$version" --dir dist/release-assets
 
       - name: Create release tag for manual publication
         if: github.event_name == 'workflow_dispatch' && inputs.publish == true

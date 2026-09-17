@@ -3,9 +3,10 @@ use std::sync::atomic::Ordering;
 
 use er_optimizer_core::model::COMBAT_STAT_COUNT;
 use er_optimizer_core::{
-    OptimizeRequest, PreparedLoadoutEvaluator, effective_str, prepare_loadout_evaluator_with_cancel,
+    OptimizeRequest, OptimizeResult, PreparedLoadoutEvaluator, effective_str,
+    prepare_loadout_evaluator_with_cancel,
 };
-use tauri::{AppHandle, State};
+use tauri::State;
 
 use crate::commands::data::{
     weapon_disables_two_hand_bonus, weapon_forces_two_handing, weapon_requirements,
@@ -13,16 +14,15 @@ use crate::commands::data::{
 use crate::dto::{
     CombatStateDto, PathFinishedDto, PathJobStatusDto, PathMode, PathPreviewDto,
     PathPreviewRequestDto, PathProgressDto, PathStepDto, StartPathPreviewRequestDto,
-    StartSearchResponseDto, lock_request_to_stats, metric_for_objective, parse_objective,
-    set_min_combat_stats, validate_levels_ahead, validate_path_batch,
+    StartSearchResponseDto, lock_request_to_stats, set_min_combat_stats, validate_levels_ahead,
+    validate_path_batch,
 };
 use crate::errors::AppError;
-use crate::{AppState, AsyncJobHandle, CancelFlag, JobRegistry};
+use crate::{AppState, AsyncJobHandle, CancelFlag, ProfileData};
 
 #[tauri::command]
 pub fn start_path_preview(
     request: StartPathPreviewRequestDto,
-    _app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
     validate_path_batch(request.requests.len())?;
@@ -47,7 +47,7 @@ pub fn start_path_preview(
             "Paths requires verified profile class budgets.",
         ));
     }
-    let profiles = state.profiles.clone();
+    let profile = Arc::clone(state.profile(&profile_id)?);
     let job_number = state.next_job.fetch_add(1, Ordering::Relaxed);
     let job_id = format!("path-{job_number}");
     let cancel_flag: CancelFlag = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -66,13 +66,6 @@ pub fn start_path_preview(
 
     let job_id_for_task = job_id.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let task_state = AppState {
-            profiles,
-            search_jobs: Arc::new(JobRegistry::new("search")),
-            path_jobs: Arc::new(JobRegistry::new("path")),
-            affinity_jobs: Arc::new(JobRegistry::new("affinity watch")),
-            next_job: Default::default(),
-        };
         let total = request
             .requests
             .iter()
@@ -95,7 +88,7 @@ pub fn start_path_preview(
                 break;
             }
             let title = lane.title.clone();
-            match build_path_preview_inner(lane, &task_state, |level| {
+            match build_path_preview_inner(lane, &profile, |level| {
                 if cancel_flag.load(Ordering::Relaxed) {
                     return false;
                 }
@@ -133,7 +126,7 @@ pub fn start_path_preview(
             error,
         };
         if let Ok(mut guard) = status.lock() {
-            guard.finished = Some(finished.clone());
+            guard.finished = Some(finished);
         }
     });
 
@@ -157,12 +150,18 @@ pub fn get_path_preview_status(
 
 fn build_path_preview_inner(
     request: PathPreviewRequestDto,
-    state: &AppState,
+    profile: &ProfileData,
     mut continue_cb: impl FnMut(u16) -> bool + Send,
 ) -> Result<PathPreviewDto, AppError> {
+    if profile.data_manifest.profile.id != request.base.profile_id {
+        return Err(AppError::new(format!(
+            "Unknown game profile {:?}. Reload the catalog and choose an available profile.",
+            request.base.profile_id
+        )));
+    }
     validate_levels_ahead(request.levels_ahead)?;
     if request.mode == PathMode::OptimumEnvelope {
-        return build_optimum_envelope(request, state, continue_cb);
+        return build_optimum_envelope(request, profile, continue_cb);
     }
     let start_state = request.solved.stats;
     let target_level = request
@@ -172,8 +171,8 @@ fn build_path_preview_inner(
     if !continue_cb(request.base.character_level) {
         return Err(AppError::new("cancelled"));
     }
-    let evaluator = prepare_path_evaluator(&request, target_level, state, &mut continue_cb)?;
-    let mut steps = vec![evaluate_step(
+    let evaluator = prepare_path_evaluator(&request, target_level, profile, &mut continue_cb)?;
+    let first = evaluate_step(
         &request.base,
         &request.solved.weapon_name,
         &request.solved.affinity,
@@ -183,10 +182,11 @@ fn build_path_preview_inner(
         request.base.character_level,
         start_state,
         None,
-        state,
+        profile,
         &evaluator,
         &mut continue_cb,
-    )?];
+    )?;
+    let mut steps = vec![first.dto];
 
     if !continue_cb(target_level) {
         return Err(AppError::new("cancelled"));
@@ -211,15 +211,15 @@ fn build_path_preview_inner(
             level,
             current_state,
             target.stats,
-            state,
+            profile,
             &evaluator,
             &mut continue_cb,
         )?
         else {
             break;
         };
-        current_state = next.stats;
-        steps.push(next);
+        current_state = next.dto.stats;
+        steps.push(next.dto);
     }
 
     Ok(PathPreviewDto {
@@ -231,20 +231,21 @@ fn build_path_preview_inner(
 
 fn build_optimum_envelope(
     request: PathPreviewRequestDto,
-    state: &AppState,
+    profile: &ProfileData,
     continue_cb: impl FnMut(u16) -> bool + Send,
 ) -> Result<PathPreviewDto, AppError> {
     let first_level = request.base.character_level;
     let last_level = first_level.saturating_add(request.levels_ahead);
     let levels = (first_level..=last_level).collect::<Vec<_>>();
     let mut template = request.base.clone();
-    template.weapon_name = Some(request.solved.weapon_name.clone());
-    template.affinity = Some(request.solved.affinity.clone());
-    template.aow_name = request.solved.aow_name.clone();
-    template.weapon_type_key = None;
-    template.somber_filter = "all".to_string();
-    template.set_exact_upgrade(request.solved.upgrade, request.solved.is_somber);
-    template.top_k = 1;
+    set_path_loadout(
+        &mut template,
+        &request.solved.weapon_name,
+        &request.solved.affinity,
+        request.solved.aow_name.as_deref(),
+        request.solved.upgrade,
+        request.solved.is_somber,
+    );
     template.lock_str = None;
     template.lock_dex = None;
     template.lock_int = None;
@@ -253,26 +254,30 @@ fn build_optimum_envelope(
     let rows = crate::commands::optimize::run_level_range_inner_with_progress(
         template,
         &levels,
-        state,
+        profile,
         continue_cb,
         || true,
     )?;
-    let objective = parse_objective(&request.base.objective)?;
     let mut previous = request.solved.stats;
     let steps = rows
         .into_iter()
-        .map(|(level, rows)| {
+        .map(|entry| {
+            let level = entry.level;
+            let rows = entry.rows;
             let solved = rows.into_iter().next();
-            let stats = solved.as_ref().map_or(previous, |row| row.stats);
+            let stats = solved.as_ref().map_or(previous, |row| CombatStateDto {
+                str_stat: row.stats.str,
+                dex: row.stats.dex,
+                int_stat: row.stats.int,
+                fai: row.stats.fai,
+                arc: row.stats.arc,
+            });
             let added_stat = describe_allocation_change(previous, stats);
             previous = stats;
             PathStepDto {
                 level,
                 stats,
-                metric: solved
-                    .as_ref()
-                    .map(|row| metric_for_objective(row, objective)),
-                score: solved.as_ref().map(|row| row.score),
+                metric: solved.as_ref().map(|row| row.score),
                 added_stat,
                 requirement_gap: u16::from(solved.is_none()),
             }
@@ -315,20 +320,20 @@ fn describe_allocation_change(previous: CombatStateDto, next: CombatStateDto) ->
 fn prepare_path_evaluator<'a>(
     request: &PathPreviewRequestDto,
     target_level: u16,
-    state: &'a AppState,
+    profile: &'a ProfileData,
     continue_cb: &mut (impl FnMut(u16) -> bool + Send),
 ) -> Result<PreparedLoadoutEvaluator<'a>, AppError> {
     let mut template = request.base.clone();
     template.character_level = target_level;
-    template.weapon_name = Some(request.solved.weapon_name.clone());
-    template.affinity = Some(request.solved.affinity.clone());
-    template.aow_name = request.solved.aow_name.clone();
-    template.weapon_type_key = None;
-    template.somber_filter = "all".to_string();
-    template.set_exact_upgrade(request.solved.upgrade, request.solved.is_somber);
-    template.top_k = 1;
+    set_path_loadout(
+        &mut template,
+        &request.solved.weapon_name,
+        &request.solved.affinity,
+        request.solved.aow_name.as_deref(),
+        request.solved.upgrade,
+        request.solved.is_somber,
+    );
     let core_request = OptimizeRequest::try_from(&template)?;
-    let profile = state.profile(&request.base.profile_id)?;
     prepare_loadout_evaluator_with_cancel(&core_request, &profile.data, || {
         continue_cb(target_level)
     })
@@ -343,13 +348,14 @@ fn path_target_build(
 ) -> Result<Option<crate::dto::SolvedBuildDto>, AppError> {
     let mut target_request = request.base.clone();
     target_request.character_level = target_level;
-    target_request.weapon_name = Some(request.solved.weapon_name.clone());
-    target_request.affinity = Some(request.solved.affinity.clone());
-    target_request.aow_name = request.solved.aow_name.clone();
-    target_request.set_exact_upgrade(request.solved.upgrade, request.solved.is_somber);
-    target_request.top_k = 1;
-    target_request.weapon_type_key = None;
-    target_request.somber_filter = "all".to_string();
+    set_path_loadout(
+        &mut target_request,
+        &request.solved.weapon_name,
+        &request.solved.affinity,
+        request.solved.aow_name.as_deref(),
+        request.solved.upgrade,
+        request.solved.is_somber,
+    );
     target_request.lock_str = None;
     target_request.lock_dex = None;
     target_request.lock_int = None;
@@ -371,10 +377,10 @@ fn choose_next_step(
     level: u16,
     current_state: CombatStateDto,
     target_state: CombatStateDto,
-    state: &AppState,
+    profile: &ProfileData,
     evaluator: &PreparedLoadoutEvaluator<'_>,
     continue_cb: &mut (impl FnMut(u16) -> bool + Send),
-) -> Result<Option<PathStepDto>, AppError> {
+) -> Result<Option<EvaluatedPathStep>, AppError> {
     let mut candidates = Vec::new();
     for stat in ["str", "dex", "int", "fai", "arc"] {
         if combat_value(current_state, stat) >= combat_value(target_state, stat) {
@@ -396,7 +402,7 @@ fn choose_next_step(
             level,
             next_state,
             Some(stat.to_string()),
-            state,
+            profile,
             evaluator,
             continue_cb,
         )?);
@@ -419,19 +425,20 @@ fn evaluate_step(
     level: u16,
     stats: CombatStateDto,
     added_stat: Option<String>,
-    state: &AppState,
+    profile: &ProfileData,
     evaluator: &PreparedLoadoutEvaluator<'_>,
     continue_cb: &mut (impl FnMut(u16) -> bool + Send),
-) -> Result<PathStepDto, AppError> {
+) -> Result<EvaluatedPathStep, AppError> {
     let mut request = base.clone();
     request.character_level = level;
-    request.weapon_name = Some(weapon_name.to_string());
-    request.affinity = Some(affinity.to_string());
-    request.aow_name = aow_name.map(str::to_string);
-    request.set_exact_upgrade(upgrade, is_somber);
-    request.top_k = 1;
-    request.weapon_type_key = None;
-    request.somber_filter = "all".to_string();
+    set_path_loadout(
+        &mut request,
+        weapon_name,
+        affinity,
+        aow_name,
+        upgrade,
+        is_somber,
+    );
     request.min_str = 0;
     request.min_dex = 0;
     request.min_int = 0;
@@ -443,24 +450,40 @@ fn evaluate_step(
     let solved = evaluator
         .evaluate_with_cancel(&core_request, || continue_cb(level))
         .map_err(AppError::from)?
-        .pop()
-        .map(crate::dto::SolvedBuildDto::from);
-    let objective = parse_objective(&base.objective)?;
+        .pop();
     let requirement_gap = if solved.is_some() {
         0
     } else {
-        requirement_gap(base, weapon_name, Some(affinity), stats, state)?
+        requirement_gap(base, weapon_name, Some(affinity), stats, profile)?
     };
-    Ok(PathStepDto {
-        level,
-        stats,
-        metric: solved
-            .as_ref()
-            .map(|solved| metric_for_objective(solved, objective)),
-        score: solved.as_ref().map(|solved| solved.score),
-        added_stat,
-        requirement_gap,
+    Ok(EvaluatedPathStep {
+        dto: PathStepDto {
+            level,
+            stats,
+            metric: solved.as_ref().map(|solved| solved.score),
+            added_stat,
+            requirement_gap,
+        },
+        solved,
     })
+}
+
+fn set_path_loadout(
+    request: &mut crate::dto::OptimizeRequestDto,
+    weapon_name: &str,
+    affinity: &str,
+    aow_name: Option<&str>,
+    upgrade: u8,
+    is_somber: bool,
+) {
+    request.weapon_name = Some(weapon_name.to_string());
+    request.affinity = Some(affinity.to_string());
+    request.aow_name = aow_name.map(str::to_string);
+    request.weapon_type_key = None;
+    request.somber_filter = "all".to_string();
+    request.filters.entries.clear();
+    request.set_exact_upgrade(upgrade, is_somber);
+    request.top_k = 1;
 }
 
 fn requirement_gap(
@@ -468,9 +491,8 @@ fn requirement_gap(
     weapon_name: &str,
     affinity: Option<&str>,
     stats: CombatStateDto,
-    state: &AppState,
+    profile: &ProfileData,
 ) -> Result<u16, AppError> {
-    let profile = state.profile(&base.profile_id)?;
     let reqs = weapon_requirements(&profile.catalog_index, weapon_name, affinity)?;
     let disables_bonus =
         weapon_disables_two_hand_bonus(&profile.catalog_index, weapon_name, affinity);
@@ -523,26 +545,23 @@ fn combat_value(state: CombatStateDto, stat: &str) -> u8 {
     }
 }
 
-fn compare_steps(left: &PathStepDto, right: &PathStepDto) -> std::cmp::Ordering {
-    let left_key = step_key(left);
-    let right_key = step_key(right);
-    left_key
-        .0
-        .cmp(&right_key.0)
-        .then_with(|| left_key.1.total_cmp(&right_key.1))
-        .then_with(|| left_key.2.total_cmp(&right_key.2))
-        .then_with(|| left_key.3.cmp(&right_key.3))
-        .then_with(|| left_key.4.cmp(&right_key.4))
+struct EvaluatedPathStep {
+    dto: PathStepDto,
+    solved: Option<OptimizeResult>,
 }
 
-fn step_key(step: &PathStepDto) -> (u8, f32, f32, i16, i16) {
-    (
-        u8::from(step.metric.is_some() && step.score.is_some()),
-        step.score.unwrap_or(0.0),
-        step.metric.unwrap_or(0.0),
-        -(step.requirement_gap as i16),
-        -stat_priority(step.added_stat.as_deref()),
-    )
+fn compare_steps(left: &EvaluatedPathStep, right: &EvaluatedPathStep) -> std::cmp::Ordering {
+    match (&left.solved, &right.solved) {
+        (Some(left), Some(right)) => left.compare_numeric(right),
+        (Some(_), None) => std::cmp::Ordering::Greater,
+        (None, Some(_)) => std::cmp::Ordering::Less,
+        (None, None) => std::cmp::Ordering::Equal,
+    }
+    .then_with(|| right.dto.requirement_gap.cmp(&left.dto.requirement_gap))
+    .then_with(|| {
+        stat_priority(right.dto.added_stat.as_deref())
+            .cmp(&stat_priority(left.dto.added_stat.as_deref()))
+    })
 }
 
 fn stat_priority(stat: Option<&str>) -> i16 {
@@ -591,7 +610,9 @@ mod integration_tests {
                 "Unknown weapon",
                 None,
                 request.solved.stats,
-                &state
+                state
+                    .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+                    .expect("Vanilla profile exists")
             )
             .is_err()
         );
@@ -600,7 +621,10 @@ mod integration_tests {
     #[test]
     fn packaged_snapshot_executes_real_path_command_logic() {
         let state = crate::test_app_state();
-        let path = build_path_preview_inner(request(&state), &state, |_| true)
+        let profile = state
+            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+            .expect("Vanilla profile exists");
+        let path = build_path_preview_inner(request(&state), profile, |_| true)
             .expect("real path command succeeds");
         assert_eq!(path.title, "Selected");
         assert!(!path.steps.is_empty());
@@ -612,7 +636,10 @@ mod integration_tests {
         let mut envelope_request = request(&state);
         envelope_request.mode = PathMode::OptimumEnvelope;
         envelope_request.levels_ahead = 2;
-        let path = build_path_preview_inner(envelope_request, &state, |_| true)
+        let profile = state
+            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+            .expect("Vanilla profile exists");
+        let path = build_path_preview_inner(envelope_request, profile, |_| true)
             .expect("optimum envelope succeeds");
         assert_eq!(path.steps.len(), 3);
         assert!(
@@ -623,9 +650,67 @@ mod integration_tests {
     }
 
     #[test]
+    fn path_modes_ignore_discovery_filters_for_selected_loadout() {
+        let state = crate::test_app_state();
+        let profile = state
+            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+            .expect("Vanilla profile exists");
+        let mut path_request = request(&state);
+        let selected_weapon = profile
+            .data
+            .weapons
+            .iter()
+            .find(|weapon| {
+                weapon
+                    .name
+                    .eq_ignore_ascii_case(&path_request.solved.weapon_name)
+                    && weapon
+                        .affinity
+                        .eq_ignore_ascii_case(&path_request.solved.affinity)
+            })
+            .expect("selected loadout exists in profile");
+        let conflicting_weapon = profile
+            .data
+            .weapons
+            .iter()
+            .find(|weapon| {
+                weapon.type_filter_id() != selected_weapon.type_filter_id()
+                    && weapon.affinity_filter_id() != selected_weapon.affinity_filter_id()
+            })
+            .expect("profile has a different type and affinity");
+        path_request.base.filters.entries = vec![
+            crate::dto::StableFilterEntryDto {
+                dimension: "weapon_type".to_string(),
+                id: conflicting_weapon.type_filter_id(),
+                mode: "include".to_string(),
+            },
+            crate::dto::StableFilterEntryDto {
+                dimension: "affinity".to_string(),
+                id: conflicting_weapon.affinity_filter_id(),
+                mode: "include".to_string(),
+            },
+        ];
+
+        for mode in [PathMode::NoRespec, PathMode::OptimumEnvelope] {
+            let mut lane = path_request.clone();
+            lane.mode = mode;
+            lane.levels_ahead = 2;
+            let path = build_path_preview_inner(lane, profile, |_| true)
+                .expect("fixed selected loadout remains evaluable");
+            assert!(
+                path.steps.iter().all(|step| step.metric.is_some()),
+                "{mode:?} should ignore discovery filters for the selected loadout"
+            );
+        }
+    }
+
+    #[test]
     fn real_path_command_honors_cancellation() {
         let state = crate::test_app_state();
-        let error = build_path_preview_inner(request(&state), &state, |_| false)
+        let profile = state
+            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+            .expect("Vanilla profile exists");
+        let error = build_path_preview_inner(request(&state), profile, |_| false)
             .expect_err("cancelled path must fail closed");
         assert_eq!(error.message, "cancelled");
     }
@@ -642,8 +727,11 @@ mod integration_tests {
             .weapons
             .len()
             + 8;
+        let profile = state
+            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+            .expect("Vanilla profile exists");
         let mut polls = 0_usize;
-        let error = build_path_preview_inner(nested_request, &state, |_| {
+        let error = build_path_preview_inner(nested_request, profile, |_| {
             polls += 1;
             polls < cancel_after
         })
@@ -656,6 +744,9 @@ mod integration_tests {
     #[ignore = "release-mode workflow benchmark"]
     fn workflow_benchmark_paths() {
         let state = crate::test_app_state();
+        let profile = state
+            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+            .expect("Vanilla profile exists");
         let repeats = std::env::var("ER_BENCH_REPEATS")
             .ok()
             .and_then(|value| value.parse::<usize>().ok())
@@ -670,7 +761,7 @@ mod integration_tests {
                         let mut lane_request = request(&state);
                         lane_request.levels_ahead = horizon;
                         lane_request.title = format!("Lane {}", lane + 1);
-                        let path = build_path_preview_inner(lane_request, &state, |_| true)
+                        let path = build_path_preview_inner(lane_request, profile, |_| true)
                             .expect("benchmark path succeeds");
                         assert!(!path.steps.is_empty());
                     }
@@ -683,6 +774,7 @@ mod integration_tests {
                     "WORKFLOW_BENCH {}",
                     serde_json::json!({
                         "workflow": "paths",
+                        "model_version": state.profile("vanilla").unwrap().data.model_version,
                         "horizon": horizon,
                         "lanes": lanes,
                         "repeats": repeats,

@@ -1,9 +1,9 @@
 aow_id,aow_name,status,standard_rows,damaging_rows,lacking_fp_rows,variant_rows,bullet_rows,parry_rows,unique_collision_rows
 10,No Skill,missing,0,0,0,0,0,0,0
 100,Lion's Claw,direct_damage,2,2,1,0,0,0,0
-101,Impaling Thrust,direct_damage,4,4,2,0,0,0,2
+101,Impaling Thrust,direct_damage,2,2,1,0,0,0,2
 102,Piercing Fang,direct_damage,2,2,1,0,0,0,0
-103,Spinning Slash,direct_damage,74,74,36,66,2,0,8
+103,Spinning Slash,direct_damage,66,66,33,66,0,0,8
 105,Charge Forth,direct_damage,14,14,7,0,0,0,0
 106,Stamp (Upward Cut),direct_damage,2,2,1,0,0,0,0
 107,Stamp (Sweep),direct_damage,4,4,2,0,0,0,0
@@ -16,9 +16,9 @@ aow_id,aow_name,status,standard_rows,damaging_rows,lacking_fp_rows,variant_rows,
 114,Unsheathe,direct_damage,4,4,2,0,0,0,0
 115,Square Off,direct_damage,4,4,2,0,0,0,0
 116,Giant Hunt,direct_damage,2,2,1,0,0,0,0
-118,Loretta's Slash,direct_damage,25,24,12,20,0,0,5
+118,Loretta's Slash,direct_damage,20,20,10,20,0,0,5
 119,Poison Moth Flight,direct_damage,2,2,1,0,0,0,0
-120,Spinning Weapon,direct_damage,36,36,18,14,0,0,8
+120,Spinning Weapon,direct_damage,28,28,14,14,0,0,8
 122,Storm Assault,direct_damage,4,4,1,0,2,0,0
 123,Stormcaller,direct_damage,21,21,7,0,7,0,0
 124,Sword Dance,direct_damage,96,96,48,96,0,0,0
@@ -93,17 +93,17 @@ aow_id,aow_name,status,standard_rows,damaging_rows,lacking_fp_rows,variant_rows,
 2000,Dryleaf Whirlwind,direct_damage,8,8,4,0,0,0,0
 2001,Aspects of the Crucible: Wings,direct_damage,23,23,0,23,0,0,0
 4000,Spinning Gravity Thrust,direct_damage,18,18,9,0,0,0,0
-4010,Palm Blast,direct_damage,4,4,2,0,0,0,0
-4020,Piercing Throw,direct_damage,2,2,1,0,0,0,2
-4030,Scattershot Throw,direct_damage,12,12,2,0,0,0,12
+4010,Palm Blast,direct_damage,4,4,2,0,2,0,0
+4020,Piercing Throw,unique_skill_collision_only,0,0,0,0,0,0,2
+4030,Scattershot Throw,unique_skill_collision_only,0,0,0,0,0,0,12
 4040,Wall of Sparks,direct_damage,4,3,0,0,4,0,0
 4050,Rolling Sparks,direct_damage,3,2,0,0,3,0,0
-4060,Raging Beast,direct_damage,6,6,3,0,0,0,6
-4070,Savage Claws,direct_damage,12,12,6,0,0,0,12
+4060,Raging Beast,unique_skill_collision_only,0,0,0,0,0,0,6
+4070,Savage Claws,unique_skill_collision_only,0,0,0,0,0,0,12
 4090,Blind Spot,direct_damage,4,4,2,0,0,0,0
 4100,Swift Slash,direct_damage,6,6,1,0,2,0,0
-4110,Overhead Stance,direct_damage,8,8,4,0,0,0,8
-4120,Wing Stance,direct_damage,8,8,4,0,0,0,8
+4110,Overhead Stance,unique_skill_collision_only,0,0,0,0,0,0,8
+4120,Wing Stance,unique_skill_collision_only,0,0,0,0,0,0,8
 4130,Blinkbolt,direct_damage,2,2,1,0,0,0,0
 4140,Flame Skewer,direct_damage,36,36,18,32,9,0,0
 4150,Savage Lion's Claw,direct_damage,6,6,3,0,0,0,0
@@ -114,4 +114,4 @@ aow_id,aow_name,status,standard_rows,damaging_rows,lacking_fp_rows,variant_rows,
 4210,Igon's Drake Hunt,missing,0,0,0,0,0,0,0
 4220,Ghostflame Call,direct_damage,11,11,3,0,5,0,0
 5050,The Poison Flower Blooms Twice,direct_damage,3,3,1,0,1,0,0
-8000,Shield Strike,direct_damage,15,15,0,15,0,0,0
+8000,Shield Strike,direct_damage,15,15,0,15,2,0,0

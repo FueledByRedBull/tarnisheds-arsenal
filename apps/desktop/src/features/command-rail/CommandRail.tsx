@@ -11,7 +11,7 @@ import {
   scadutreeDamageNegation,
   scadutreeReceivedDamageMultiplier,
 } from "../../lib/scadutree";
-import { classMeta, classOptions, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, startingClassLevel } from "../../lib/session";
+import { classMeta, classOptions, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, replaceFilterEntries, startingClassLevel } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { EightStatsDto, FilterDimensionDto, OptimizeRequestDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
@@ -353,7 +353,7 @@ export function CommandRail() {
               weaponTypeKey: null,
               weaponName: null,
               aowName: null,
-              filters: { version: 1, entries: replaceDimensionFilters(request.filters.entries, "weapon_type", values, excludedValues) },
+              filters: { version: 1, entries: replaceFilterEntries(request.filters.entries, "weapon_type", values, excludedValues) },
             })}
           />
           <SearchableSelect
@@ -367,8 +367,8 @@ export function CommandRail() {
               aowName: null,
               filters: {
                 version: 1,
-                entries: replaceDimensionFilters(
-                  replaceDimensionFilters(request.filters.entries, "weapon_type", [], []),
+                entries: replaceFilterEntries(
+                  replaceFilterEntries(request.filters.entries, "weapon_type", [], []),
                   "affinity",
                   [],
                   [],
@@ -384,7 +384,7 @@ export function CommandRail() {
             onChange={(values, excludedValues) => patchRequest({
               affinity: null,
               aowName: null,
-              filters: { version: 1, entries: replaceDimensionFilters(request.filters.entries, "affinity", values, excludedValues) },
+              filters: { version: 1, entries: replaceFilterEntries(request.filters.entries, "affinity", values, excludedValues) },
             })}
           />
           <AowSelect
@@ -624,19 +624,6 @@ function selectedFilterIds(
   if (selected.length || !legacyLabel || mode === "exclude") return selected;
   const legacy = dimension?.options.find((option) => option.label === legacyLabel);
   return legacy ? [legacy.id] : [];
-}
-
-function replaceDimensionFilters(
-  entries: OptimizeRequestDto["filters"]["entries"],
-  dimension: "weapon_type" | "affinity",
-  ids: string[],
-  excludedIds: string[],
-) {
-  return [
-    ...entries.filter((entry) => entry.dimension !== dimension),
-    ...ids.map((id) => ({ dimension, id, mode: "include" as const })),
-    ...excludedIds.map((id) => ({ dimension, id, mode: "exclude" as const })),
-  ];
 }
 
 function SearchProgressPanel({

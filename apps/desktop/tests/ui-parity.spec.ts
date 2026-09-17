@@ -442,7 +442,7 @@ test("stale saved builds offer explicit input-only loading or recompute migratio
   await page.getByRole("button", { name: "Save new" }).click();
   await expect(page.getByText(/Saved Build Preset/)).toBeVisible();
   await expect(page.locator(".saved-build-status")).toContainText(
-    "Current · profile vanilla · dataset vanilla-1.17 · schema 4",
+    "Current · profile vanilla · dataset vanilla-1.17 · schema 5",
   );
 
   await page.evaluate(() => {
@@ -562,7 +562,7 @@ test("analysis controls align inputs with buttons and path levels compare side b
       ...path,
       steps: Array.from({ length: 41 }, (_, index) => ({
         ...path.steps[0], level: 9 + index, metric: index === 2 ? null : 500 + lane * 100 + (index === 1 ? 0 : index * 2),
-        addedStat: index && index !== 2 ? "dex" : null,
+        addedStat: index === 4 ? "respec" : index && index !== 2 ? "dex" : null,
         requirementGap: index === 2 ? 3 : 0,
       })),
     })), state.pathSignature);
@@ -577,6 +577,8 @@ test("analysis controls align inputs with buttons and path levels compare side b
   await expect(grid.getByRole("row").nth(1)).not.toContainText("Gain -");
   await expect(grid.getByRole("row").nth(2)).toContainText("Gain 0.0 | Added DEX");
   await expect(grid.getByRole("row").nth(3)).toContainText("Gain unavailable | No stat added | Requirement gap 3");
+  await expect(grid.getByRole("row").nth(5)).toContainText("Respec required");
+  await expect(grid).not.toContainText("Added RESPEC");
   await expect(page.getByRole("combobox", { name: "Path level range" }).locator('option[value="0"]')).toHaveText("9–18");
   await expect(page.locator(".path-steps")).not.toContainText("\uFFFD");
   await expect(page.getByRole("button", { name: "Previous levels" })).toBeDisabled();
@@ -635,6 +637,35 @@ for (const [width, height] of [[923, 789], [1200, 720], [1366, 768], [1650, 950]
     await expect.poll(profileFits).toBe(true);
   });
 }
+
+test("ranking actions stay reachable at minimum width with either column layout", async ({ page }) => {
+  await page.setViewportSize({ width: 1200, height: 720 });
+  await page.goto("/");
+  for (const objective of ["Max AR", "Bleed, then AR"]) {
+    await page.getByRole("button", { name: objective, exact: true }).click();
+    await page.getByRole("button", { name: /^(Search|Update Results)$/ }).click();
+    await expect(page.getByText("4 ranked rows")).toBeVisible();
+    const board = page.locator(".result-board");
+    const row = board.locator(".result-row-full").first();
+    for (const edge of ["start", "end"]) {
+      await board.evaluate((grid, edge) => { grid.scrollLeft = edge === "start" ? 0 : grid.scrollWidth; }, edge);
+      await expect.poll(() => row.evaluate((row) => {
+        const board = row.closest(".result-board")!.getBoundingClientRect();
+        return [...row.querySelectorAll("button")].every(button => {
+          const box = button.getBoundingClientRect();
+          return box.left >= board.left && box.right <= board.right
+            && button.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2));
+        });
+      })).toBe(true);
+      const pin = row.getByRole("button", { name: /^(Compare|Unpin) / });
+      await pin.click();
+      await expect(pin).toHaveAttribute("aria-pressed", "true");
+      await pin.click();
+      await expect(pin).toHaveAttribute("aria-pressed", "false");
+      await row.getByRole("button", { name: /^Lock / }).click({ trial: true });
+    }
+  }
+});
 
 for (const [width, height] of [[1200, 720], [1366, 768], [1650, 950]]) {
   test(`frontend hierarchy and controls fit at ${width}x${height}`, async ({ page }) => {

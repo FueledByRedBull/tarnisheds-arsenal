@@ -5,12 +5,24 @@ import {
   OptimizeRequestDto,
   ProfileRulesDto,
   SolvedBuildDto,
+  StableFilterEntryDto,
 } from "./types";
 
 export const STAT_KEYS = ["strStat", "dex", "intStat", "fai", "arc"] as const;
 export const EIGHT_STAT_KEYS = ["vig", "mnd", "end", ...STAT_KEYS] as const;
-export type CombatStatKey = (typeof STAT_KEYS)[number];
-export type EightStatKey = (typeof EIGHT_STAT_KEYS)[number];
+
+export function replaceFilterEntries(
+  entries: StableFilterEntryDto[],
+  dimension: "weapon_type" | "affinity",
+  ids: string[],
+  excludedIds: string[],
+): StableFilterEntryDto[] {
+  return [
+    ...entries.filter((entry) => entry.dimension !== dimension),
+    ...ids.map((id) => ({ dimension, id, mode: "include" as const })),
+    ...excludedIds.map((id) => ({ dimension, id, mode: "exclude" as const })),
+  ];
+}
 
 type LegacyUpgradeRequest = Partial<OptimizeRequestDto> & {
   fixedUpgrade?: number | null;

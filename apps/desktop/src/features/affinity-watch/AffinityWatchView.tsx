@@ -41,12 +41,17 @@ export function AffinityWatchView() {
     outcome: runOutcome,
   });
 
-  useAffinityJob({
-    activeAffinityJobId,
+  const startAffinityJob = useAffinityJob({
     isAffinityBusy,
     generation: affinityGeneration,
     setAffinityProgress,
-    finish: finishAffinityWatch,
+    onStarted: (jobId, generation) => {
+      const current = useDesktopStore.getState();
+      if (!current.isAffinityBusy || current.affinityGeneration !== generation || current.activeAffinitySignature !== signature) {
+        throw new DOMException("Calculation stopped.", "AbortError");
+      }
+      setActiveAffinityJobId(jobId);
+    },
   });
 
   async function refresh() {
@@ -73,17 +78,11 @@ export function AffinityWatchView() {
         setAffinityBusy(false);
         return;
       }
-      const { jobId } = await api.startAffinityWatch(base, selected, effectiveHorizon);
-      current = useDesktopStore.getState();
-      if (
-        !current.isAffinityBusy ||
-        current.affinityGeneration !== generation ||
-        current.activeAffinitySignature !== signature
-      ) {
-        await api.cancelAffinityWatch(jobId);
-        return;
-      }
-      setActiveAffinityJobId(jobId);
+      const finished = await startAffinityJob(
+        () => api.startAffinityWatch(base, selected, effectiveHorizon),
+        generation,
+      );
+      finishAffinityWatch(finished, generation);
     } catch (error) {
       const current = useDesktopStore.getState();
       if (
@@ -91,9 +90,16 @@ export function AffinityWatchView() {
         current.affinityGeneration === generation &&
         current.activeAffinitySignature === signature
       ) {
-        setError(error instanceof Error ? error.message : String(error));
-        setRunOutcome("failed");
+        if (error instanceof DOMException && error.name === "AbortError") {
+          current.pushNotice({ scope: "affinity_watch", tone: "warning", message: "Affinity watch stopped." });
+          setRunOutcome("cancelled");
+        } else {
+          setError(error instanceof Error ? error.message : String(error));
+          setRunOutcome("failed");
+        }
         setAffinityBusy(false);
+        setActiveAffinityJobId(null);
+        setAffinityProgress(null);
       }
     }
   }
@@ -101,7 +107,17 @@ export function AffinityWatchView() {
   async function stop() {
     setRunOutcome("cancelled");
     if (!activeAffinityJobId) setAffinityBusy(false);
-    if (activeAffinityJobId) await api.cancelAffinityWatch(activeAffinityJobId);
+    if (activeAffinityJobId) {
+      try {
+        await api.cancelAffinityWatch(activeAffinityJobId);
+      } catch (error) {
+        const current = useDesktopStore.getState();
+        if (current.isAffinityBusy && current.activeAffinityJobId === activeAffinityJobId) {
+          setError(error instanceof Error ? error.message : String(error));
+          setRunOutcome("failed");
+        }
+      }
+    }
   }
 
   function finishAffinityWatch(event: AffinityWatchFinishedDto, generation: number) {

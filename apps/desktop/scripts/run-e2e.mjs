@@ -2,22 +2,21 @@ import { spawn } from "node:child_process";
 import { createServer } from "vite";
 
 const host = "127.0.0.1";
-const port = 1420;
-const baseUrl = `http://${host}:${port}`;
 
 let server = null;
 
 try {
-  if (!(await isAvailable(baseUrl))) {
-    server = await createServer({
-      logLevel: "error",
-      server: { host, port, strictPort: true },
-    });
-    await server.listen();
-    await waitForServer(baseUrl);
+  server = await createServer({
+    logLevel: "error",
+    server: { host, port: 0 },
+  });
+  await server.listen();
+  const baseUrl = server.resolvedUrls?.local[0];
+  if (!baseUrl) {
+    throw new Error("Vite did not report a local test URL.");
   }
 
-  const code = await runPlaywright();
+  const code = await runPlaywright(baseUrl);
   process.exitCode = code;
 } finally {
   if (server) {
@@ -25,30 +24,10 @@ try {
   }
 }
 
-async function isAvailable(url) {
-  try {
-    const response = await fetch(url);
-    return response.ok;
-  } catch {
-    return false;
-  }
-}
-
-async function waitForServer(url) {
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    if (await isAvailable(url)) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  throw new Error(`Timed out waiting for ${url}`);
-}
-
-function runPlaywright() {
+function runPlaywright(baseUrl) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, ["./node_modules/@playwright/test/cli.js", "test"], {
-      env: { ...process.env, PW_TEST_HTML_REPORT_OPEN: "never" },
+      env: { ...process.env, PLAYWRIGHT_BASE_URL: baseUrl, PW_TEST_HTML_REPORT_OPEN: "never" },
       shell: false,
       stdio: "inherit",
     });

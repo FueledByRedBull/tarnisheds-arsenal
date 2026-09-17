@@ -1,6 +1,8 @@
+use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use std::env;
 use std::path::PathBuf;
+use std::process::Command;
 use std::time::{Duration, Instant};
 
 use er_optimizer_core::{
@@ -24,12 +26,29 @@ fn main() -> Result<(), String> {
         .join("phase1");
     let (data, manifest) = load_game_data_with_manifest(data_dir)?;
     let affinities = benchmark_affinities(&data, config.all_affinities);
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let executable = env::current_exe().map_err(|e| e.to_string())?;
+    let executable_hash = format!(
+        "{:x}",
+        Sha256::digest(std::fs::read(executable).map_err(|e| e.to_string())?)
+    );
     println!(
         "{}",
         json!({
             "kind": "metadata",
             "datasetId": manifest.id,
-            "modelVersion": manifest.model_version,
+            "datasetVersion": manifest.dataset_version,
+            "sourceCommit": command_output(&root, "git", &["rev-parse", "HEAD"])?,
+            "sourceDirty": !command_output(&root, "git", &["status", "--porcelain"])?.is_empty(),
+            "rustc": command_output(&root, "rustc", &["--version"])?,
+            "executableSha256": executable_hash,
+            "os": env::consts::OS,
+            "arch": env::consts::ARCH,
+            "cpu": env::var("PROCESSOR_IDENTIFIER").ok(),
+            "logicalCpus": std::thread::available_parallelism().map_err(|e| e.to_string())?.get(),
+            "rayonThreads": rayon::current_num_threads(),
+            "requests": affinities.iter().map(|a| format!("{:?}", request(a))).collect::<Vec<_>>(),
+            "modelVersion": data.model_version,
             "profile": if cfg!(debug_assertions) { "debug" } else { "release" },
             "repeats": config.repeats,
             "warmups": 1,
@@ -54,6 +73,15 @@ fn main() -> Result<(), String> {
             let ranged = run_ranged(&data, &affinities, &levels)?;
             ranged_samples.push(ranged_started.elapsed());
             assert_equivalent(&independent, &ranged)?;
+            println!(
+                "{}",
+                json!({
+                    "kind": "sample", "horizon": horizon, "sample": independent_samples.len(),
+                    "independentMs": millis(*independent_samples.last().unwrap()),
+                    "sharedRangeMs": millis(*ranged_samples.last().unwrap()),
+                    "resultFingerprint": format!("{independent:?}"),
+                })
+            );
         }
 
         let independent = median(&mut independent_samples);
@@ -208,35 +236,27 @@ fn assert_equivalent(
     independent: &[(String, Vec<LevelOptimizeResult>)],
     ranged: &[(String, Vec<LevelOptimizeResult>)],
 ) -> Result<(), String> {
-    if independent.len() != ranged.len() {
-        return Err("affinity result count changed".to_string());
-    }
-    for ((independent_affinity, independent_levels), (ranged_affinity, ranged_levels)) in
-        independent.iter().zip(ranged)
-    {
-        if independent_affinity != ranged_affinity
-            || independent_levels.len() != ranged_levels.len()
-        {
-            return Err(format!("level series changed for {independent_affinity}"));
-        }
-        for (independent_level, ranged_level) in independent_levels.iter().zip(ranged_levels) {
-            let independent_row = independent_level.rows.first();
-            let ranged_row = ranged_level.rows.first();
-            let same = independent_level.level == ranged_level.level
-                && independent_row.map(|row| row.weapon_id) == ranged_row.map(|row| row.weapon_id)
-                && independent_row.map(|row| row.stats.combat_array())
-                    == ranged_row.map(|row| row.stats.combat_array())
-                && independent_row.map(|row| row.score.to_bits())
-                    == ranged_row.map(|row| row.score.to_bits());
-            if !same {
-                return Err(format!(
-                    "shared range diverged for {independent_affinity} at level {}",
-                    independent_level.level
-                ));
-            }
-        }
+    if format!("{independent:?}") != format!("{ranged:?}") {
+        return Err("shared range changed complete ranked results".to_string());
     }
     Ok(())
+}
+
+fn command_output(root: &std::path::Path, program: &str, args: &[&str]) -> Result<String, String> {
+    let output = Command::new(program)
+        .args(args)
+        .current_dir(root)
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        return Err(format!(
+            "{program} failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+    String::from_utf8(output.stdout)
+        .map(|s| s.trim().to_string())
+        .map_err(|e| e.to_string())
 }
 
 fn median(samples: &mut [Duration]) -> Duration {
@@ -246,4 +266,18 @@ fn median(samples: &mut [Duration]) -> Duration {
 
 fn millis(duration: Duration) -> f64 {
     duration.as_secs_f64() * 1_000.0
+}
+
+#[test]
+fn equivalence_checks_secondary_metrics_and_extra_rows() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../data/phase1");
+    let (data, _) = load_game_data_with_manifest(path).unwrap();
+    let original = run_independent(&data, &["Blood".to_string()], &[80]).unwrap();
+    assert_equivalent(&original, &original).unwrap();
+    let mut changed = original.clone();
+    changed[0].1[0].rows[0].ar.magic += 1.0;
+    assert!(assert_equivalent(&original, &changed).is_err());
+    let mut changed = original.clone();
+    changed[0].1[0].rows.push(original[0].1[0].rows[0].clone());
+    assert!(assert_equivalent(&original, &changed).is_err());
 }

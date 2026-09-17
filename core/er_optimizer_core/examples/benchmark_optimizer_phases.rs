@@ -29,7 +29,7 @@ fn main() -> Result<(), String> {
             "datasetId": manifest.id,
             "profileId": data.profile_id,
             "datasetVersion": manifest.dataset_version,
-            "modelVersion": manifest.model_version,
+            "modelVersion": data.model_version,
             "profile": if cfg!(debug_assertions) { "debug" } else { "release" },
             "rayonThreads": rayon::current_num_threads(),
             "warmups": warmups,

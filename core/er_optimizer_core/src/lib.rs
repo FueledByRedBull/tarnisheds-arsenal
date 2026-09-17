@@ -4,6 +4,11 @@ pub mod model;
 pub mod optimizer;
 mod snapshot;
 
+/// Include the compiled scoring contract in persisted result/cache identities.
+pub fn runtime_model_version(snapshot_model: &str) -> String {
+    format!("{snapshot_model}/exact-v1")
+}
+
 pub use data::{
     CONVERGENCE_PROFILE_ID, VANILLA_PROFILE_ID, load_embedded_game_data,
     load_embedded_game_data_with_manifest, load_embedded_game_profile,
@@ -20,8 +25,8 @@ pub use model::{
     normalize_weapon_type_display,
 };
 pub use optimizer::{
-    CANCELLATION_LATENCY_TARGET_MS, FilterDimension, FilterMode, LevelOptimizeResult,
-    OptimizeObjective, OptimizePhaseTimings, OptimizeRequest, OptimizeResult,
+    ArBleedFrontierPoint, CANCELLATION_LATENCY_TARGET_MS, FilterDimension, FilterMode,
+    LevelOptimizeResult, OptimizeObjective, OptimizePhaseTimings, OptimizeRequest, OptimizeResult,
     PreparedLoadoutEvaluator, PreparedSearchPlan, PreparedUpgradeSeriesEvaluator,
     ProfiledOptimizeResult, ProgressSnapshot, ResultGrouping, SearchEstimate, SomberFilter,
     StableFilter, estimate_search_space, estimate_search_space_with_cancel, optimize,

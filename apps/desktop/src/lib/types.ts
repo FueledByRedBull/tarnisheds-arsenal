@@ -304,7 +304,6 @@ export interface PathStepDto {
   level: number;
   stats: CombatStateDto;
   metric: number | null;
-  score: number | null;
   addedStat: string | null;
   requirementGap: number;
 }
@@ -463,4 +462,12 @@ export interface CompareControls {
   matchSelectedAow: boolean;
   includeSmithing: boolean;
   includeSomber: boolean;
+}
+
+export interface ArBleedFrontierPointDto {
+  result: SolvedBuildDto;
+  arLoss: number;
+  arLossPercent: number;
+  minimumArLossBps: number;
+  bleedGain: number;
 }

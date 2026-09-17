@@ -1,15 +1,19 @@
 # Releasing Tarnished's Arsenal
 
-Releases are created from Git tags. The Release workflow can package a tag that
-already exists, or create the configured version tag and publish it when a manual
-run is started from the default branch with `publish` enabled.
+[Home](../README.md) · [Release notes](release-notes/README.md) · [Extraction guide](../tools/phase1/README.md)
 
-Packaging and publication are separate jobs. If publication fails, use **Re-run
-failed jobs** on that original workflow run. The publish job downloads the original
-verified package, checks every existing remote asset against it, and uploads only
-missing files. It publishes the draft only after all five assets match, then checks
-the published release again. A mismatching remote file stops publication; files
-are never silently replaced. Starting another build is not a publication retry.
+Prepare the version and documentation together, merge validated source, then use
+one workflow run to build, tag, and publish. Final download links are committed
+before publication, so no follow-up documentation commit is needed.
+
+[Prepare](#prepare-a-release) · [Publish](#publish) · [Preview](#build-a-preview) · [Retry](#retry-publication) · [Package checks](#package-and-signing-checks)
+
+| Stage | What must be true before continuing |
+| --- | --- |
+| **Prepare** | App/core versions, lockfiles, release notes, and download links agree |
+| **CI** | Required checks pass; ordinary CI succeeds on the exact merged commit |
+| **Package** | MSI, portable EXE, embedded data, startup, and hashes pass verification |
+| **Publish** | All five remote assets match the original verified package |
 
 ## Prepare a release
 
@@ -22,13 +26,13 @@ are never silently replaced. Starting another build is not a publication retry.
    It updates the synchronized application/core manifests and local lock entries.
    Keep the WiX `upgradeCode` pinned to the historical product-family GUID; changing
    the display name must not create a second Windows Installer product family.
-   The pinned value was verified directly from the published v0.8.1, v0.9.0,
-   v0.9.1, and v0.9.2 MSI Property tables. v0.10.0 is the known one-release fork
-   caused by its unpinned display-name change and is not the identity source of truth.
 2. Add `docs/release-notes/v<version>.md` and update the release-notes index with
    the final GitHub Releases URL. The URL is deterministic, so use the real link
    in the release preparation commit; do not leave a `Pending publication` row
    that needs a follow-up documentation commit.
+   Update the README and changelog's current-release links. Keep historical notes
+   at their original versions. The release body is copied from the notes file:
+   use absolute GitHub URLs for its cross-document links so they work there too.
 3. Validate all metadata and run the targeted source checks:
 
    ```powershell
@@ -49,16 +53,15 @@ are never silently replaced. Starting another build is not a publication retry.
 
 ## Publish
 
-For the explicit tag path, create and push an annotated tag that exactly matches
-the configured version:
+Run the Release workflow from the default branch with `publish` enabled:
 
 ```powershell
-git tag -a v<version> -m "Release v<version>"
-git push origin v<version>
+gh workflow run release-package.yml --ref main -f publish=true
 ```
 
-The tag-triggered workflow waits for successful ordinary CI on the exact tagged
-commit, then builds and publishes:
+It waits for successful CI on the exact source commit, builds and verifies the
+package, and asks GitHub to create `v<version>` at that commit while publishing.
+A failed package never creates a release. The five release assets are:
 
 - `TarnishedsArsenal_<version>_x64_en-US.msi`
 - `TarnishedsArsenal_<version>_portable.exe`
@@ -66,11 +69,23 @@ commit, then builds and publishes:
 - `TarnishedsArsenal_<version>_SHA256SUMS.txt`
 - `TarnishedsArsenal_<version>_build-report.json`
 
-To make tagging and publication one operation, run the Release workflow from the
-default branch with `publish` enabled. It performs the same exact-commit CI wait,
-packages the commit, and asks GitHub to create `v<version>` at that commit while
-publishing the release. A failed package never creates a release. A manual run with
-`publish` disabled only uploads the package for inspection.
+The ZIP is a portable-only archive with the standalone executable and release
+documentation. The MSI remains a separate release asset.
+
+### Alternative: push an explicit tag
+
+Create and push an annotated tag matching the configured version, from the exact
+commit validated by default-branch CI:
+
+```powershell
+git tag -a v<version> -m "Release v<version>"
+git push origin v<version>
+```
+
+The tag-triggered workflow performs the same CI wait, package verification, and
+publication. Choose one publication path for a release.
+
+## Build a preview
 
 Build-only runs can use any branch and an already released application version.
 They run source validation in the packaging job instead of waiting for main's CI,
@@ -80,11 +95,24 @@ require a release tag. For the same local check, use
 preview mode cannot skip validation.
 
 ```powershell
-gh workflow run release-package.yml --ref main -f publish=true
+gh workflow run release-package.yml --ref <branch> -f publish=false
 ```
 
-The release workflow independently verifies that ordinary `CI` has succeeded for
-the exact source commit. Normal source tests, lint, type checks, formatting, Clippy,
+## Retry publication
+
+Packaging and publication are separate jobs. If publication fails, use **Re-run
+failed jobs** on that original workflow run. The publish job downloads the original
+verified package, checks every existing remote asset against it, and uploads only
+missing files. It publishes the draft only after all five assets match, then checks
+the published release again. A mismatching remote file stops publication; files
+are never silently replaced. Starting another build is not a publication retry.
+
+## Package and signing checks
+
+Publication independently verifies that ordinary `CI` has succeeded for
+the exact source commit. Build-only previews instead validate source in the
+packaging job, as described [above](#build-a-preview).
+Normal source tests, lint, type checks, formatting, Clippy,
 and data validation belong to that CI run; the release job packages the already
 validated commit and keeps the release-only MSI identity, MSI payload, packaged
 startup smoke, signing, and checksum checks. The final Tauri build runs Cargo in
@@ -115,3 +143,12 @@ and do not claim that gate.
 The packager refuses a dirty worktree and records the exact source commit with
 `sourceDirty: false`. Run targeted pre-commit checks directly; create local release
 artifacts only after the intended source is committed.
+
+<details>
+<summary>Why the WiX upgrade code stays fixed</summary>
+
+The pinned value was verified directly from the published v0.8.1, v0.9.0,
+v0.9.1, and v0.9.2 MSI Property tables. v0.10.0 is the known one-release fork
+caused by its unpinned display-name change and is not the identity source of truth.
+
+</details>

@@ -1,4 +1,4 @@
-import { create, type StateCreator } from "zustand";
+import { create } from "zustand";
 import {
   AffinityWatchPayloadDto,
   AffinityWatchProgressDto,
@@ -182,121 +182,22 @@ function isStoredBuild(row: unknown): row is SolvedBuildDto {
     && Number.isFinite(build.ar.total);
 }
 
-function writeCompareBench(catalog: CatalogDto | null, rows: SolvedBuildDto[]) {
-  if (!catalog || typeof localStorage === "undefined") return;
-  localStorage.setItem(compareBenchKey(catalog.dataManifest.profile.id), JSON.stringify({
-    version: 1,
-    datasetVersion: catalog.dataManifest.datasetVersion,
-    schemaVersion: catalog.dataManifest.schemaVersion,
-    modelVersion: catalog.dataManifest.modelVersion,
-    rows,
-  }));
+function writeCompareBench(catalog: CatalogDto | null, rows: SolvedBuildDto[]): Notice[] {
+  if (!catalog) return [];
+  try {
+    if (typeof localStorage === "undefined") return [];
+    localStorage.setItem(compareBenchKey(catalog.dataManifest.profile.id), JSON.stringify({
+      version: 1,
+      datasetVersion: catalog.dataManifest.datasetVersion,
+      schemaVersion: catalog.dataManifest.schemaVersion,
+      modelVersion: catalog.dataManifest.modelVersion,
+      rows,
+    }));
+    return [];
+  } catch {
+    return [{ scope: "global", tone: "warning", message: "Comparison changes could not be saved to device storage and may be lost after restarting. Your saved builds are unchanged." }];
+  }
 }
-
-type DesktopSlice<T> = StateCreator<DesktopState, [], [], T>;
-
-type UiSlice = Pick<
-  DesktopState,
-  | "activeWorkspace"
-  | "profiles"
-  | "catalog"
-  | "catalogStatus"
-  | "catalogError"
-  | "notices"
-  | "error"
-  | "setWorkspace"
-  | "setProfiles"
-  | "beginProfileSwitch"
-  | "setCatalogLoading"
-  | "setCatalog"
-  | "setCatalogFailure"
-  | "setNotices"
-  | "pushNotice"
-  | "setError"
->;
-
-type RequestSlice = Pick<
-  DesktopState,
-  | "request"
-  | "lockedStatMode"
-  | "pathHorizon"
-  | "pathMode"
-  | "affinityHorizon"
-  | "patchRequest"
-  | "applyClass"
-  | "setPathHorizon"
-  | "setPathMode"
-  | "setAffinityHorizon"
-  | "setLockedStatMode"
-  | "useRowAsLocks"
-  | "loadBuildPreset"
->;
-
-type SearchSlice = Pick<
-  DesktopState,
-  | "rows"
-  | "resultsStale"
-  | "selected"
-  | "selectedFingerprint"
-  | "isSearching"
-  | "searchGeneration"
-  | "activeSearchSignature"
-  | "activeJobId"
-  | "progress"
-  | "setRows"
-  | "markResultsStale"
-  | "clearResults"
-  | "selectRow"
-  | "setSearching"
-  | "isExporting"
-  | "setExporting"
-  | "beginSearch"
-  | "setActiveJobId"
-  | "setProgress"
->;
-
-type CompareSlice = Pick<
-  DesktopState,
-  | "compareTarget"
-  | "compareBench"
-  | "compareControls"
-  | "setCompareTarget"
-  | "toggleCompareBench"
-  | "clearCompareBench"
-  | "patchCompareControls"
->;
-
-type PathSlice = Pick<
-  DesktopState,
-  | "isPathBusy"
-  | "pathGeneration"
-  | "activePathSignature"
-  | "activePathJobId"
-  | "pathProgress"
-  | "pathSignature"
-  | "paths"
-  | "setPathBusy"
-  | "beginPath"
-  | "setActivePathJobId"
-  | "setPathProgress"
-  | "setPaths"
->;
-
-type AffinitySlice = Pick<
-  DesktopState,
-  | "isAffinityBusy"
-  | "affinityGeneration"
-  | "activeAffinitySignature"
-  | "activeAffinityJobId"
-  | "affinityProgress"
-  | "affinitySignature"
-  | "affinityPayload"
-  | "setAffinityBusy"
-  | "beginAffinity"
-  | "setActiveAffinityJobId"
-  | "setAffinityProgress"
-  | "setAffinityPayload"
->;
 
 function invalidateAllJobs(state: DesktopState) {
   return {
@@ -343,7 +244,7 @@ function invalidatePathJob(state: DesktopState) {
   };
 }
 
-const createUiSlice: DesktopSlice<UiSlice> = (set) => ({
+export const useDesktopStore = create<DesktopState>()((set) => ({
   activeWorkspace: "rankings",
   profiles: [],
   catalog: null,
@@ -425,9 +326,6 @@ const createUiSlice: DesktopSlice<UiSlice> = (set) => ({
       notices: [...state.notices.filter((entry) => entry.scope !== notice.scope), notice],
     })),
   setError: (error) => set({ error }),
-});
-
-const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
   request: defaultRequest,
   lockedStatMode: false,
   pathHorizon: 40,
@@ -554,7 +452,7 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
           }],
         };
       }
-      writeCompareBench(state.catalog, preset.compareBench);
+      const persistenceNotices = writeCompareBench(state.catalog, preset.compareBench);
       return {
         ...invalidateAllJobs(state),
         request: applyProfileRules(
@@ -575,12 +473,9 @@ const createRequestSlice: DesktopSlice<RequestSlice> = (set) => ({
         pathSignature: null,
         affinityPayload: null,
         affinitySignature: null,
-        notices: [{ scope: "global", tone: "success", message: `Loaded ${preset.name}.` }],
+        notices: [{ scope: "global", tone: "success", message: `Loaded ${preset.name}.` }, ...persistenceNotices],
       };
     }),
-});
-
-const createSearchSlice: DesktopSlice<SearchSlice> = (set) => ({
   isExporting: false,
   setExporting: (isExporting) => set({ isExporting }),
   rows: [],
@@ -650,9 +545,6 @@ const createSearchSlice: DesktopSlice<SearchSlice> = (set) => ({
   },
   setActiveJobId: (activeJobId) => set({ activeJobId }),
   setProgress: (progress) => set({ progress }),
-});
-
-const createCompareSlice: DesktopSlice<CompareSlice> = (set) => ({
   compareTarget: null,
   compareBench: [],
   compareControls: { ...defaultCompareControls },
@@ -670,11 +562,12 @@ const createCompareSlice: DesktopSlice<CompareSlice> = (set) => ({
       const compareBench = exists
         ? state.compareBench.filter((entry) => rowFingerprint(entry) !== fingerprint)
         : [...state.compareBench, row].slice(-8);
-      writeCompareBench(state.catalog, compareBench);
-      if (exists) return { compareBench };
+      const notices = [...state.notices, ...writeCompareBench(state.catalog, compareBench)];
+      if (exists) return { compareBench, notices };
       return {
         ...invalidatePathJob(state),
         compareBench,
+        notices,
         compareTarget: null,
         compareControls: { ...defaultCompareControls },
         paths: [],
@@ -683,9 +576,10 @@ const createCompareSlice: DesktopSlice<CompareSlice> = (set) => ({
     }),
   clearCompareBench: () =>
     set((state) => {
-      writeCompareBench(state.catalog, []);
+      const notices = [...state.notices, ...writeCompareBench(state.catalog, [])];
       return {
         ...invalidatePathJob(state),
+        notices,
         compareBench: [],
         compareTarget: null,
         paths: [],
@@ -704,9 +598,12 @@ const createCompareSlice: DesktopSlice<CompareSlice> = (set) => ({
       const compareBench = customTarget && state.compareBench.length
         ? []
         : state.compareBench;
-      if (compareBench !== state.compareBench) writeCompareBench(state.catalog, compareBench);
+      const notices = compareBench !== state.compareBench
+        ? [...state.notices, ...writeCompareBench(state.catalog, compareBench)]
+        : state.notices;
       return {
         ...invalidatePathJob(state),
+        notices,
         compareControls,
         compareBench,
         compareTarget: null,
@@ -714,9 +611,6 @@ const createCompareSlice: DesktopSlice<CompareSlice> = (set) => ({
         pathSignature: null,
       };
     }),
-});
-
-const createPathSlice: DesktopSlice<PathSlice> = (set) => ({
   isPathBusy: false,
   pathGeneration: 0,
   activePathSignature: null,
@@ -742,9 +636,6 @@ const createPathSlice: DesktopSlice<PathSlice> = (set) => ({
   setActivePathJobId: (activePathJobId) => set({ activePathJobId }),
   setPathProgress: (pathProgress) => set({ pathProgress }),
   setPaths: (paths, pathSignature) => set({ paths, pathSignature }),
-});
-
-const createAffinitySlice: DesktopSlice<AffinitySlice> = (set) => ({
   isAffinityBusy: false,
   affinityGeneration: 0,
   activeAffinitySignature: null,
@@ -771,13 +662,4 @@ const createAffinitySlice: DesktopSlice<AffinitySlice> = (set) => ({
   setAffinityProgress: (affinityProgress) => set({ affinityProgress }),
   setAffinityPayload: (affinityPayload, affinitySignature) =>
     set({ affinityPayload, affinitySignature }),
-});
-
-export const useDesktopStore = create<DesktopState>()((...args) => ({
-  ...createUiSlice(...args),
-  ...createRequestSlice(...args),
-  ...createSearchSlice(...args),
-  ...createCompareSlice(...args),
-  ...createPathSlice(...args),
-  ...createAffinitySlice(...args),
 }));

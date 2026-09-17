@@ -1,12 +1,10 @@
 aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_order,hit_order
 100,Lion's Claw,63,full,Full sequence,0,activation,1,1
 101,Impaling Thrust,946,r1,R1,0,activation,1,1
-101,Impaling Thrust,1852,r1,R1,0,activation,1,1
 101,Impaling Thrust,1142,r1,R1,0,r1,2,1
 101,Impaling Thrust,1143,r1,R1,0,r1,2,2
 101,Impaling Thrust,1144,r1,R1,0,r1,2,3
 101,Impaling Thrust,946,r2,R2,1,activation,1,1
-101,Impaling Thrust,1852,r2,R2,1,activation,1,1
 101,Impaling Thrust,1145,r2,R2,1,r2,2,2
 102,Piercing Fang,958,full,Full sequence,0,activation,1,1
 103,Spinning Slash,880,full,Full sequence,0,stage_1,1,1
@@ -20,7 +18,6 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 103,Spinning Slash,928,full,Full sequence,0,stage_1,1,1
 103,Spinning Slash,934,full,Full sequence,0,stage_1,1,1
 103,Spinning Slash,940,full,Full sequence,0,stage_1,1,1
-103,Spinning Slash,2473,full,Full sequence,0,stage_1,1,1
 103,Spinning Slash,881,full,Full sequence,0,stage_2,2,1
 103,Spinning Slash,887,full,Full sequence,0,stage_2,2,1
 103,Spinning Slash,893,full,Full sequence,0,stage_2,2,1
@@ -32,7 +29,6 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 103,Spinning Slash,929,full,Full sequence,0,stage_2,2,1
 103,Spinning Slash,935,full,Full sequence,0,stage_2,2,1
 103,Spinning Slash,941,full,Full sequence,0,stage_2,2,1
-103,Spinning Slash,2474,full,Full sequence,0,stage_2,2,1
 103,Spinning Slash,882,full,Full sequence,0,stage_2,2,2
 103,Spinning Slash,888,full,Full sequence,0,stage_2,2,2
 103,Spinning Slash,894,full,Full sequence,0,stage_2,2,2
@@ -44,9 +40,6 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 103,Spinning Slash,930,full,Full sequence,0,stage_2,2,2
 103,Spinning Slash,936,full,Full sequence,0,stage_2,2,2
 103,Spinning Slash,942,full,Full sequence,0,stage_2,2,2
-103,Spinning Slash,2475,full,Full sequence,0,stage_2,2,2
-103,Spinning Slash,2476,full,Full sequence,0,stage_2,2,2
-103,Spinning Slash,2477,full,Full sequence,0,stage_2,2,2
 105,Charge Forth,1150,full,Full,0,activation,1,1
 105,Charge Forth,1151,full,Full,0,activation,1,2
 105,Charge Forth,1152,full,Full,0,activation,1,3
@@ -150,27 +143,20 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 118,Loretta's Slash,1281,full,Full sequence,0,activation,1,1
 118,Loretta's Slash,1285,full,Full sequence,0,activation,1,1
 118,Loretta's Slash,1289,full,Full sequence,0,activation,1,1
-118,Loretta's Slash,2481,full,Full sequence,0,activation,1,1
-118,Loretta's Slash,2482,full,Full sequence,0,activation,1,1
 118,Loretta's Slash,1274,full,Full sequence,0,activation,1,2
 118,Loretta's Slash,1278,full,Full sequence,0,activation,1,2
 118,Loretta's Slash,1282,full,Full sequence,0,activation,1,2
 118,Loretta's Slash,1286,full,Full sequence,0,activation,1,2
 118,Loretta's Slash,1290,full,Full sequence,0,activation,1,2
-118,Loretta's Slash,2483,full,Full sequence,0,activation,1,2
 119,Poison Moth Flight,1442,full,Full sequence,0,activation,1,1
 120,Spinning Weapon,1245,full,Full sequence,0,activation,1,1
 120,Spinning Weapon,1259,full,Full sequence,0,activation,1,1
-120,Spinning Weapon,2605,full,Full sequence,0,activation,1,1
 120,Spinning Weapon,1246,full,Full sequence,0,activation,1,2
 120,Spinning Weapon,1260,full,Full sequence,0,activation,1,2
-120,Spinning Weapon,2606,full,Full sequence,0,activation,1,2
 120,Spinning Weapon,1247,full,Full sequence,0,activation,1,3
 120,Spinning Weapon,1261,full,Full sequence,0,activation,1,3
-120,Spinning Weapon,2607,full,Full sequence,0,activation,1,3
 120,Spinning Weapon,1248,full,Full sequence,0,activation,1,4
 120,Spinning Weapon,1262,full,Full sequence,0,activation,1,4
-120,Spinning Weapon,2608,full,Full sequence,0,activation,1,4
 120,Spinning Weapon,1249,full,Full sequence,0,activation,1,5
 120,Spinning Weapon,1263,full,Full sequence,0,activation,1,5
 120,Spinning Weapon,1250,full,Full sequence,0,activation,1,6
@@ -1654,16 +1640,6 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 4020,Piercing Throw,1133,full,Full sequence,0,stage_1,2,2
 4020,Piercing Throw,1134,full,Full sequence,0,stage_2,3,1
 4020,Piercing Throw,1135,full,Full sequence,0,stage_2,3,2
-4030,Scattershot Throw,1132,full,Full sequence,0,stage_1,1,1
-4030,Scattershot Throw,2588,full,Full sequence,0,stage_1,1,1
-4030,Scattershot Throw,1133,full,Full sequence,0,stage_1,1,2
-4030,Scattershot Throw,2589,full,Full sequence,0,stage_1,1,2
-4030,Scattershot Throw,1134,full,Full sequence,0,stage_2,2,1
-4030,Scattershot Throw,2590,full,Full sequence,0,stage_2,2,1
-4030,Scattershot Throw,1135,full,Full sequence,0,stage_2,2,2
-4030,Scattershot Throw,2591,full,Full sequence,0,stage_2,2,2
-4030,Scattershot Throw,1136,full,Full sequence,0,activation,3,1
-4030,Scattershot Throw,2592,full,Full sequence,0,activation,3,1
 4040,Wall of Sparks,1529,full,Full sequence,0,activation,1,1
 4040,Wall of Sparks,1530,full,Full sequence,0,activation,1,1
 4040,Wall of Sparks,1531,full,Full sequence,0,activation,1,1
@@ -1671,9 +1647,6 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 4050,Rolling Sparks,1533,full,Full sequence,0,activation,1,1
 4050,Rolling Sparks,1534,full,Full sequence,0,activation,1,1
 4050,Rolling Sparks,1535,full,Full sequence,0,activation,1,1
-4060,Raging Beast,1124,full,Full sequence,0,activation,1,1
-4060,Raging Beast,1125,full,Full sequence,0,r2,2,1
-4060,Raging Beast,1126,full,Full sequence,0,r2,2,2
 4070,Savage Claws,1112,full,Full sequence,0,activation,1,1
 4070,Savage Claws,1124,full,Full sequence,0,activation,1,1
 4070,Savage Claws,1113,full,Full sequence,0,activation,1,2
@@ -1701,10 +1674,6 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 4110,Overhead Stance,1101,r2,R2,1,r2,1,1
 4110,Overhead Stance,1102,r2,R2,1,r2,1,2
 4110,Overhead Stance,1103,r2,R2,1,r2,1,3
-4120,Wing Stance,1142,r1,R1,0,r1,1,1
-4120,Wing Stance,1143,r1,R1,0,r1,1,2
-4120,Wing Stance,1144,r1,R1,0,r1,1,3
-4120,Wing Stance,1145,r2,R2,1,r2,1,2
 4130,Blinkbolt,1380,full,Full sequence,0,activation,1,1
 4140,Flame Skewer,1330,full,Full sequence,0,activation,1,1
 4140,Flame Skewer,1334,full,Full sequence,0,activation,1,1

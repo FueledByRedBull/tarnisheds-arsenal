@@ -321,7 +321,7 @@ fn load_validated_game_data(
     let data = GameData {
         snapshot_schema_version: manifest.schema_version,
         dataset_version: manifest.dataset_version.clone(),
-        model_version: manifest.model_version.clone(),
+        model_version: crate::runtime_model_version(&manifest.model_version),
         profile_id: manifest.profile.id.clone(),
         profile_display_name: manifest.profile.display_name.clone(),
         capabilities: DataCapabilities {
@@ -464,6 +464,10 @@ fn load_weapons(path: PathBuf) -> Result<Vec<Weapon>, String> {
             weapon_type_keys: table.get(row, "weapon_type_keys")?.to_string(),
             weight: optional_f32(&table, row, "weight")?,
             base_poise: optional_f32(&table, row, "base_poise")?,
+            critical_damage_percent: parse_u16(
+                table.get(row, "critical_damage_percent")?,
+                "critical_damage_percent",
+            )?,
             stamina_consumption_rate: parse_f32(
                 table.get(row, "stamina_consumption_rate")?,
                 "stamina_consumption_rate",
@@ -1017,6 +1021,8 @@ fn parse_aow_attack_row(
         )?,
         is_add_base_atk: parse_bool_u8(table.get(row, "is_add_base_atk")?, "is_add_base_atk")?,
         is_arrow_attack: parse_bool_u8(table.get(row, "is_arrow_attack")?, "is_arrow_attack")?,
+        is_bullet_attack: parse_bool_u8(table.get(row, "is_bullet_attack")?, "is_bullet_attack")?,
+        is_throw_attack: parse_bool_u8(table.get(row, "is_throw_attack")?, "is_throw_attack")?,
         physical_attack_attribute: parse_physical_attack_attribute(
             table.get(row, "physical_attack_attribute")?,
         )?,
@@ -1318,9 +1324,20 @@ mod tests {
             .iter()
             .find(|aow| aow.aow_id == 227)
             .expect("Chilling Mist");
-        assert_eq!(chilling_mist.persistent_weapon_status_add.frost, 30.0);
-        assert_eq!(chilling_mist.persistent_on_hit_status_add.frost, 60.0);
-        assert_eq!(chilling_mist.scaling_status_add.frost, 90.0);
+        assert_eq!(chilling_mist.scaling_status_add.frost, 0.0);
+        for (role, expected) in [
+            (AowEffectRole::PersistentWeaponBuff, 30.0),
+            (AowEffectRole::PersistentOnHit, 60.0),
+        ] {
+            let effect = data
+                .aow_effects(227, 0)
+                .iter()
+                .find(|effect| effect.role == role && effect.is_canonical == Some(true))
+                .unwrap();
+            assert_eq!(effect.status_buildup.frost, expected);
+            assert!(!effect.is_supported);
+            assert!(effect.reason.contains("overlap"));
+        }
         assert_eq!(
             chilling_mist.buff_activation_action_id.as_deref(),
             Some("activation")

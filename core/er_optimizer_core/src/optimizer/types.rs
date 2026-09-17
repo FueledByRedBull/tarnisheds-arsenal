@@ -177,6 +177,7 @@ impl OptimizeRequest {
 
 #[derive(Clone, Debug)]
 pub struct OptimizeResult {
+    pub(super) exact_key: super::ObjectiveKey,
     pub weapon_id: u32,
     pub weapon_name: String,
     pub weapon_type_name: String,
@@ -201,6 +202,25 @@ pub struct OptimizeResult {
     pub aow_full_sequence_damage: f32,
     pub aow_route: Option<AowRouteResult>,
     pub score: f32,
+}
+
+#[derive(Clone, Debug)]
+pub struct ArBleedFrontierPoint {
+    pub result: OptimizeResult,
+    /// Exact AR loss from the highest-AR frontier endpoint, projected for display.
+    pub ar_loss: f32,
+    /// Exact AR loss as a percentage of the highest-AR endpoint, projected for display.
+    pub ar_loss_percent: f32,
+    /// Bleed gain over the highest-AR endpoint, projected for display.
+    pub bleed_gain: f32,
+    /// Minimum whole basis-point sacrifice required to reach this point.
+    pub minimum_ar_loss_bps: u16,
+}
+
+impl OptimizeResult {
+    pub fn compare_numeric(&self, other: &Self) -> std::cmp::Ordering {
+        self.exact_key.cmp(&other.exact_key)
+    }
 }
 
 #[derive(Clone, Copy, Debug)]

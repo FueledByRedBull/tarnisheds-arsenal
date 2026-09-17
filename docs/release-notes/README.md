@@ -1,9 +1,20 @@
-# Release Notes
+# Release notes
 
-Release notes are grouped by GitHub release tag.
+[Home](../../README.md) · [Documentation](../../README.md#documentation) · [Release guide](../releasing.md)
 
-| Version | Notes | GitHub Release |
+## v0.14.0
+
+Exact ranking, actionable AR / bleed tradeoffs, faster level ranges, and safer recovery.
+Read the [v0.14.0 notes](v0.14.0.md) for the changes and download choices.
+
+For the current Windows installer and portable app, visit the
+[latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
+
+## Version history
+
+| Version | Notes | GitHub release |
 | --- | --- | --- |
+| v0.14.0 | [v0.14.0.md](v0.14.0.md) | [Tarnished's Arsenal v0.14.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.14.0) |
 | v0.13.0 | [v0.13.0.md](v0.13.0.md) | [Tarnished's Arsenal v0.13.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.13.0) |
 | v0.12.0 | [v0.12.0.md](v0.12.0.md) | [Tarnished's Arsenal v0.12.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.12.0) |
 | v0.11.1 | [v0.11.1.md](v0.11.1.md) | [Tarnished's Arsenal v0.11.1](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.11.1) |

@@ -5,7 +5,6 @@ aow_id,sheet_row,raw_name,reason
 101,1147,Wing Stance R1 [2] (Lacking FP),lacking_fp_variant
 101,1148,Wing Stance R1 [3] (Lacking FP),lacking_fp_variant
 101,1149,Wing Stance R2 (Lacking FP),lacking_fp_variant
-101,1853,Impaling Thrust (Lacking FP),lacking_fp_variant
 102,959,Piercing Fang (Lacking FP),lacking_fp_variant
 103,883,[Dagger] Spinning Slash #1 (Lacking FP),lacking_fp_variant
 103,884,[Dagger] Spinning Slash #2 [1] (Lacking FP),lacking_fp_variant
@@ -40,9 +39,6 @@ aow_id,sheet_row,raw_name,reason
 103,943,[Twinblade] Spinning Slash #1 (Lacking FP),lacking_fp_variant
 103,944,[Twinblade] Spinning Slash #2 [1] (Lacking FP),lacking_fp_variant
 103,945,[Twinblade] Spinning Slash #2 [2] (Lacking FP),lacking_fp_variant
-103,2478,Spinning Slash #1 (Lacking FP),lacking_fp_variant
-103,2479,Spinning Slash #2 [1] (Lacking FP),lacking_fp_variant
-103,2480,Spinning Slash #2 [2] (Lacking FP),lacking_fp_variant
 105,1157,Charge Forth [1] (Lacking FP),lacking_fp_variant
 105,1158,Charge Forth [2] (Lacking FP),lacking_fp_variant
 105,1159,Charge Forth [3] (Lacking FP),lacking_fp_variant
@@ -129,8 +125,6 @@ aow_id,sheet_row,raw_name,reason
 118,1288,[Halberd] Loretta's Slash [2] (Lacking FP),lacking_fp_variant
 118,1291,[Reaper] Loretta's Slash [1] (Lacking FP),lacking_fp_variant
 118,1292,[Reaper] Loretta's Slash [2] (Lacking FP),lacking_fp_variant
-118,2484,Loretta's Slash [1] (Lacking FP),lacking_fp_variant
-118,2485,Loretta's Slash [2] (Lacking FP),lacking_fp_variant
 119,1443,Poison Moth Flight (Lacking FP),lacking_fp_variant
 120,1252,Spinning Weapon [1] (Lacking FP),lacking_fp_variant
 120,1253,Spinning Weapon [2] (Lacking FP),lacking_fp_variant
@@ -146,10 +140,6 @@ aow_id,sheet_row,raw_name,reason
 120,1270,[Dagger] Spinning Weapon [5] (Lacking FP),lacking_fp_variant
 120,1271,[Dagger] Spinning Weapon [6] (Lacking FP),lacking_fp_variant
 120,1272,[Dagger] Spinning Weapon [7] (Lacking FP),lacking_fp_variant
-120,2609,Spinning Weapon [1] (Lacking FP),lacking_fp_variant
-120,2610,Spinning Weapon [2] (Lacking FP),lacking_fp_variant
-120,2611,Spinning Weapon [3] (Lacking FP),lacking_fp_variant
-120,2612,Spinning Weapon [4] (Lacking FP),lacking_fp_variant
 122,1187,Storm Assault (Lacking FP),lacking_fp_variant
 123,1202,Stormcaller #1 [1] (Lacking FP),lacking_fp_variant
 123,1203,Stormcaller #1 [2] (Lacking FP),lacking_fp_variant
@@ -461,11 +451,6 @@ aow_id,sheet_row,raw_name,reason
 4010,1520,Palm Blast Charged (Lacking FP),lacking_fp_variant
 4020,1131,Piercing Throw (Lacking FP),lacking_fp_variant
 4020,1137,Scattershot Throw (Lacking FP),lacking_fp_variant
-4030,1137,Scattershot Throw (Lacking FP),lacking_fp_variant
-4030,2593,Scattershot Throw (Lacking FP),lacking_fp_variant
-4060,1127,Raging Beast (Lacking FP),lacking_fp_variant
-4060,1128,Raging Beast R2 [1] (Lacking FP),lacking_fp_variant
-4060,1129,Raging Beast R2 [2] (Lacking FP),lacking_fp_variant
 4070,1118,Savage Claws [1] (Lacking FP),lacking_fp_variant
 4070,1119,Savage Claws [2] (Lacking FP),lacking_fp_variant
 4070,1120,Savage Claws [3] (Lacking FP),lacking_fp_variant
@@ -486,10 +471,6 @@ aow_id,sheet_row,raw_name,reason
 4110,1105,Overhead Stance R2 [1] (Lacking FP),lacking_fp_variant
 4110,1106,Overhead Stance R2 [2] (Lacking FP),lacking_fp_variant
 4110,1107,Overhead Stance R2 [3] (Lacking FP),lacking_fp_variant
-4120,1146,Wing Stance R1 [1] (Lacking FP),lacking_fp_variant
-4120,1147,Wing Stance R1 [2] (Lacking FP),lacking_fp_variant
-4120,1148,Wing Stance R1 [3] (Lacking FP),lacking_fp_variant
-4120,1149,Wing Stance R2 (Lacking FP),lacking_fp_variant
 4130,1381,Blinkbolt (Lacking FP),lacking_fp_variant
 4140,1332,Flame Skewer (Lacking FP),lacking_fp_variant
 4140,1333,Flame Skewer R2 (Lacking FP),lacking_fp_variant

@@ -36,6 +36,9 @@ export function Inspector() {
   const snapshot = budgetSnapshot(catalog, request);
   const fixedStats = catalog?.dataManifest.capabilities.classBudget === false;
   const pinned = Boolean(selected && compareBench.some((entry) => rowFingerprint(entry) === rowFingerprint(selected)));
+  const modelWarnings = [...new Set(selected?.aowRoute?.actions.flatMap(
+    (action) => action.hits.flatMap((hit) => hit.warnings),
+  ) ?? [])];
   const [weaponProfile, setWeaponProfile] = useState<WeaponProfileDto | null>(null);
 
   useEffect(() => {
@@ -68,6 +71,7 @@ export function Inspector() {
             <strong>{selected.weaponName}</strong>
             <span>{selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade}</span>
             {resultsStale ? <small className="stale-label">Previous query build</small> : null}
+            {modelWarnings.map((warning) => <small className="warning-text" key={warning}>{warning}</small>)}
           </div>
           <div className="metric-grid">
             <Metric label={objectiveLabel(request.objective)} value={fixed1(metricForObjective(selected, request.objective))} />
@@ -381,11 +385,12 @@ function SavedBuildPanel() {
     }
     if (dataVersion !== "unknown" && preset.dataVersion !== dataVersion) {
       hydrate({ ...preset, selectedBuild: null, compareTarget: null, compareBench: [] });
-      pushNotice({
+      const state = useDesktopStore.getState();
+      state.setNotices([...state.notices.filter(notice => notice.tone === "warning"), {
         scope: "global",
         tone: "warning",
         message: `Loaded ${preset.name} inputs only: saved data ${preset.dataVersion} differs from ${dataVersion}. Rerun the search.`,
-      });
+      }]);
       return;
     }
     hydrate(preset);
@@ -407,6 +412,7 @@ function SavedBuildPanel() {
     migrationController.current = controller;
     const original = JSON.stringify(loadBuildPreset(preset.id));
     let migrationState: ReturnType<typeof useDesktopStore.getState> | undefined;
+    let stopObserving: (() => void) | undefined;
     const isCurrent = () => {
       const current = useDesktopStore.getState();
       return !controller.signal.aborted && migrationState !== undefined
@@ -420,6 +426,9 @@ function SavedBuildPanel() {
       hydrate({ ...preset, request: migration.request, selectedBuild: null, compareTarget: null, compareBench: [] });
       const state = useDesktopStore.getState();
       migrationState = state;
+      stopObserving = useDesktopStore.subscribe(() => {
+        if (!isCurrent()) controller.abort();
+      });
       const base = buildOptimizeRequest(catalog, state.request, state.lockedStatMode);
       const issues = [...migration.issues];
       const recompute = async (label: string, row: SolvedBuildDto | null) => {
@@ -437,7 +446,7 @@ function SavedBuildPanel() {
           issues.push(`${label} skill '${row.aowName}' no longer exists`);
           return null;
         }
-        const solved = await api.solveBuild(base, row.weaponName, row.affinity, row.aowName);
+        const solved = await api.solveBuild(base, row.weaponName, row.affinity, row.aowName, controller.signal);
         if (!solved) issues.push(`${label} configuration is no longer legal for the migrated request`);
         return solved;
       };
@@ -446,6 +455,7 @@ function SavedBuildPanel() {
       const migratedBench = (await Promise.all(preset.compareBench.map((row, index) => recompute(`Compare bench ${index + 1}`, row))))
         .filter((row): row is SolvedBuildDto => row !== null);
       if (!isCurrent()) return null;
+      stopObserving();
       const migrated = saveBuildPreset({
         id: preset.id,
         name: preset.name,
@@ -459,20 +469,24 @@ function SavedBuildPanel() {
       setSelectedId(migrated.id);
       setName(migrated.name);
       refresh();
-      pushNotice({
+      const loaded = useDesktopStore.getState();
+      loaded.setNotices([...loaded.notices.filter(notice => notice.tone === "warning"), {
         scope: "global",
         tone: issues.length ? "warning" : "success",
         message: issues.length
           ? `Migrated ${migrated.name}; cleared or unresolved: ${issues.join("; ")}.`
           : `Migrated ${migrated.name} and recomputed its selected and compare builds on current data.`,
-      });
+      }]);
       return migrated;
     } catch (error) {
-      if (!controller.signal.aborted && (!migrationState || isCurrent())) {
+      const shouldReport = !controller.signal.aborted && (!migrationState || isCurrent());
+      controller.abort();
+      if (shouldReport) {
         setError(error instanceof Error ? error.message : String(error));
       }
       return null;
     } finally {
+      stopObserving?.();
       if (migrationController.current === controller) setMigrating(false);
     }
   }

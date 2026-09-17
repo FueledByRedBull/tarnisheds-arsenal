@@ -76,6 +76,10 @@ def main() -> int:
     if not cases:
         raise RuntimeError("benchmark command produced no workflow cases")
 
+    model_versions = {case["model_version"] for case in cases}
+    if len(model_versions) != 1:
+        raise RuntimeError("workflow cases disagree on runtime model identity")
+
     manifest = json.loads((ROOT / "data" / "phase1" / "manifest.json").read_text(encoding="utf-8"))
     report: dict[str, Any] = {
         "metadata": {
@@ -88,7 +92,7 @@ def main() -> int:
             "commit": command_output("git", "rev-parse", "HEAD"),
             "dataset_id": manifest["id"],
             "dataset_version": manifest["datasetVersion"],
-            "model_version": manifest["modelVersion"],
+            "model_version": next(iter(model_versions)),
         },
         "cases": cases,
     }

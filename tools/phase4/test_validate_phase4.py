@@ -3,10 +3,12 @@ from __future__ import annotations
 import json
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from tools.phase1.extract_motion_workbook import MOTION_WORKBOOK_NAME
 from tools.phase1.phase1_dump import MAX_EFFECTIVE_STRENGTH
 from tools.phase1.profiles import profile_definition
+from tools.phase4 import validate_phase4 as validation
 from tools.phase4.validate_phase4 import (
     validate_aow_compatibility,
     validate_profile_source_provenance,
@@ -26,6 +28,40 @@ def curve_rows() -> list[dict[str, str]]:
 
 
 class ValidatePhase4Tests(unittest.TestCase):
+    def test_vanilla_validation_reads_each_table_once(self) -> None:
+        data_dir = validation.ROOT / "data/phase1"
+        with patch.object(validation, "read_csv", wraps=validation.read_csv) as read:
+            self.assertEqual(validation.validate_profile_snapshot(data_dir, "vanilla"), [])
+        paths = [call.args[0] for call in read.call_args_list]
+        self.assertEqual(len(paths), len(set(paths)))
+
+    def test_vanilla_thresholds_and_unique_coverage_checks_remain_required(self) -> None:
+        read_csv = validation.read_csv
+        cases = [(name, count, f"{name} row count too low") for name, count in (
+            ("weapons.csv", 2_999), ("reinforce.csv", 799),
+            ("calc_correct.csv", 6_999), ("aow.csv", 99),
+            ("attack_element_correct_ext.csv", 149),
+            ("weapon_passive_overlays.csv", 999),
+        )]
+        cases.append(("aow_route_assignments.csv", 0, "lack route assignments"))
+        for filename, count, message in cases:
+            with self.subTest(filename=filename):
+                def read(path: Path) -> list[dict[str, str]]:
+                    rows = read_csv(path)
+                    return rows[:count] if path.name == filename else rows
+
+                with patch.object(validation, "read_csv", side_effect=read):
+                    issues = validation.validate_profile_snapshot(validation.ROOT / "data/phase1", "vanilla")
+                self.assertTrue(any(issue.level == "error" and message in issue.message for issue in issues))
+
+    def test_invalid_manifest_stops_before_loading_tables(self) -> None:
+        with patch.object(validation, "validate_snapshot_manifest", side_effect=ValueError("bad hash")), \
+             patch.object(validation, "read_csv") as read:
+            issues = validation.validate_profile_snapshot(validation.ROOT / "data/phase1", "vanilla")
+        read.assert_not_called()
+        self.assertEqual(issues[0].level, "error")
+        self.assertIn("bad hash", issues[0].message)
+
     def test_tracked_weapon_reference_provenance_is_checked(self) -> None:
         root = Path(__file__).resolve().parents[2]
         manifest = json.loads(

@@ -102,6 +102,11 @@ class PublishReleaseTests(unittest.TestCase):
         publish_job = workflow.split("\n  publish:\n", 1)[1]
         self.assertIn("needs: package", publish_job)
         self.assertIn("gh run download $env:GITHUB_RUN_ID", publish_job)
+        upload = workflow.split("      - name: Upload release assets artifact\n", 1)[1].split("\n  publish:", 1)[0]
+        self.assertIn("            dist/release-assets/\n", upload)
+        self.assertNotIn("            dist/\n", upload)
+        self.assertIn('--name "package-$version" --dir dist/release-assets', publish_job)
+        self.assertIn("--assets dist/release-assets", publish_job)
         self.assertNotIn("package_release.py", publish_job)
         self.assertNotIn("overwrite_files", publish_job)
         self.assertIn("publish_release.py", publish_job)

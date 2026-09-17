@@ -4,181 +4,171 @@
 
 # Tarnished’s Arsenal
 
+**Find your weapon. Compare your options. Plan your next levels.**
+
+A Windows desktop build optimizer for Elden Ring. Search weapons, affinities,
+Ashes of War, upgrades, and combat stats, then carry a selected build into
+comparisons and progression previews.
+
 [![CI](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/ci.yml/badge.svg)](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/ci.yml)
-[![Release Package](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/release-package.yml/badge.svg)](https://github.com/FueledByRedBull/tarnisheds-arsenal/actions/workflows/release-package.yml)
-[![Latest Release](https://img.shields.io/github/v/release/FueledByRedBull/tarnisheds-arsenal?label=release)](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest)
+[![Published release](https://img.shields.io/github/v/release/FueledByRedBull/tarnisheds-arsenal?label=published)](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest)
 
-**Tarnished’s Arsenal** is a Windows desktop optimizer for Elden Ring builds. It
-performs a Rust search across weapons, affinities, Ashes of War, upgrade
-levels, and relevant stat distributions, then carries one versioned build session
-through rankings, comparisons, stat paths, affinity breakpoints, exports, and presets.
+**[Download for Windows](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest)**
+· [What’s new in v0.14.0](docs/release-notes/v0.14.0.md)
+· [Your first build](#your-first-build)
+· [Documentation](#documentation)
 
-Choose a class, level, objective, and constraints; inspect or lock a ranked build;
-then answer follow-up questions without rebuilding the assumptions.
+The Rankings workspace puts each result’s combat stats and weapon scaling beside
+its score, with the selected build’s full breakdown on the right.
 
-> Fan-made tooling, unaffiliated with FromSoftware or Bandai Namco Entertainment;
-> it does not include or distribute Elden Ring.
+![Rankings with weapon setups, combat stats, scaling, and the selected build’s damage breakdown](docs/images/tarnisheds-arsenal-rankings.png)
 
 ## Download
 
-Get the latest Windows build from [Releases](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
+Choose an asset from the [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
+The [v0.14.0 notes](docs/release-notes/v0.14.0.md) include versioned downloads,
+calculation changes, and verification limits.
 
-- `TarnishedsArsenal_<version>_x64_en-US.msi` is the standard installer.
-- `TarnishedsArsenal_<version>_portable.exe` is the standalone app.
-- `TarnishedsArsenal_<version>.zip` bundles the complete release folder for archival
-  or offline transfer.
+| Choose | Best for |
+| --- | --- |
+| **Installer** (`.msi`) | Normal installation, with WebView2 setup if needed |
+| **Portable app** (`.exe`) | Run directly with WebView2 already installed |
+| **Archive** (`.zip`) | Keep or transfer the portable app and release documentation |
 
-The app uses Microsoft Edge WebView2. The MSI downloads its bootstrapper if needed;
-the portable executable expects WebView2 to already be installed. The installer and
-portable executable include checksummed Vanilla 1.17 and Convergence 3.0.0.1
-profiles. Each release publishes SHA-256 checksums plus a machine-readable build
-report. The standalone app
-needs no adjacent data directory, `regulation.bin`, workbook, or FMG files.
+Both binaries include the Vanilla **1.17** and Convergence **3.0.0.1** snapshots.
+No adjacent data folder, game installation, `regulation.bin`, or source workbook is
+needed. Each release includes SHA-256 checksums and a build report identifying its
+source and data. The ZIP contains the portable app; the MSI’s WebView2 bootstrapper
+needs internet access if that runtime is missing.
 
-## What It Answers
+## Your first build
 
-- What is best if `ARC` must stay above 40?
-- When does `Occult` overtake `Blood`?
-- Which stat does the greedy selected-target preview add next?
-- Which affinity wins when weapon, Ash of War, class, and level budget stay fixed?
-- What happens when the same build is evaluated at every upgrade level?
-- In Vanilla, how does Shadow Realm Scadutree scaling change outgoing damage?
+1. Choose **Vanilla**, your starting class, and your character stats or level.
+2. Pick an objective such as **Max AR**. Set any weapon, affinity, skill, or
+   upgrade constraints; open fields allow all legal choices.
+3. Press **Search**, then select a row to inspect its damage, scaling, and stats.
+4. Pin another result for **Compare**, trace future levels in **Paths**, or
+   explore affinity crossover points in **Affinity Watch**.
 
-The five supported objectives are:
-
-- `Max AR`
-- `Max Physical AR`
-- `Bleed, then AR`
-- `AoW First Hit (PvE)`
-- `AoW Full Sequence (PvE)`
+Save builds to return to them later, or export rankings as CSV. The active-query
+strip shows the assumptions behind the results; changed inputs mark old results
+as stale. Convergence uses a different [fixed-stat workflow](#convergence-3001-beta).
 
 ## Interface
 
-Select a ranking row to make it the active build.<br>
-Build Detail shows combat stats, AR split, route damage, status, stamina, and warnings.<br>
-Compare, Paths, and Affinity Watch reuse that active session.<br>
-The active-query strip keeps objective, level, reinforcement, handedness, profile, and constraints visible.<br>
-CSV export offers 25, 100, 500, and 2,000-row limits with model and profile provenance.
-
-![Rankings workspace showing Tarnished’s Arsenal build comparisons, active constraints, and result details](docs/images/tarnisheds-arsenal-rankings.png)
+| Workspace | The question it answers |
+| --- | --- |
+| **Rankings** | What wins within my level, upgrade caps, stat locks, and filters? |
+| **Compare** | How does another loadout compare with the selected baseline? |
+| **Paths** | Which stat comes next on a no-respec path, or what wins with a respec? |
+| **Affinity Watch** | When does one affinity overtake another at future levels? |
 
 <details>
-<summary>Compare, Paths, and Affinity Watch screenshots</summary>
+<summary><strong>Compare — see the differences against your baseline</strong></summary>
 
-![Compare workspace showing metric differences against the selected build](docs/images/tarnisheds-arsenal-compare.png)
+Pinned loadouts keep their weapon, affinity, and skill. Their stats and upgrades
+are reoptimized for the current budget; the upgrade chart shows how each develops.
 
-![Paths workspace showing two weapons across future levels and a shared level table](docs/images/tarnisheds-arsenal-paths.png)
+**AR / Bleed tradeoffs** keeps the selected weapon, affinity, skill, upgrade,
+level budget, stat floors/locks, and handling fixed. Compute its complete frontier,
+then inspect maximum AR, maximum bleed, or the most bleed within a stated AR loss.
+The 1%, 3%, and 5% choices are sacrifice limits, not bleed-proc breakpoints. An
+all-options table and optional plot show the same achievable allocations.
+One point means one non-dominated AR/bleed outcome; other allocations may tie.
+With all combat stats locked, there is no allocation to vary.
+Use **Use exact allocation** to lock its equipment, upgrade, and combat stats in
+Rankings; the existing Build Detail and save actions then use those exact stats.
 
-![Affinity Watch showing scaling curves and affinity rankings](docs/images/tarnisheds-arsenal-affinity-watch.png)
+Compare needs fresh Rankings results. If you change the search inputs, update
+Rankings before comparing again.
+
+![Compare showing aligned differences between the selected baseline and another loadout](docs/images/tarnisheds-arsenal-compare.png)
 
 </details>
 
-## Model Details
+<details>
+<summary><strong>Paths — follow both builds level by level</strong></summary>
 
-### Search model
+No-respec paths optimize a terminal allocation, then add points greedily toward
+that target. The optimum envelope instead finds the best allocation at each level
+and identifies transitions that require a respec. Two lanes share one paginated
+level table.
 
-The optimizer searches legal combinations while each major constraint can be locked
-or opened:
+![Paths showing selected and comparison builds across future levels](docs/images/tarnisheds-arsenal-paths.png)
 
-| Input | Locked | Open |
-|---|---|---|
-| Weapon type | One family | All families |
-| Weapon | One weapon | All weapons |
-| Affinity | One affinity | All legal affinities |
-| Ash of War | One skill | All legal skills |
-| Upgrade | Exact `+N` | Full `+0..+N` range |
-| Combat stats | Exact locked result | Optimize within the session budget |
+</details>
 
-Selecting a weapon starts with its native skill when legal for the chosen affinity.
-In Rankings and Compare, changeable weapons offer **Automatic (best legal skill)**;
-fixed skills show their name in a disabled **AoW (fixed)** field. Explicit choices,
-including Automatic, survive reopening a workspace or restoring inputs. Buckler's
-native skill is **Buckler Parry**; **No Skill** is a separate legal override.
+<details>
+<summary><strong>Affinity Watch — find the crossover points</strong></summary>
 
-All five objectives use a bounded lexicographic dynamic program over relevant combat
-stats, including numeric tie-break dependencies. Weapon requirements become minimum
-floors first; every feasible active-stat spend is compared after deterministic
-inactive-stat completion.
+Keep the weapon, skill, and upgrade fixed while each legal affinity optimizes its
+combat stats at each future level. Exact stat locks are ignored; minimums remain.
 
-The recurrence is exact under exact arithmetic and the documented model assumptions.
-The implementation uses `f32`, so sufficiently close intermediate comparisons can
-discard the allocation preferred by exhaustive evaluation, even after terminal
-metrics are recomputed. See the [mathematical scope](docs/design/optimizer-math.md#7-scope-of-the-claims)
-and [numerical evidence](docs/design/optimizer-overview.md#numerical-evidence-and-decision).
+![Affinity Watch showing damage curves and rankings for legal affinities](docs/images/tarnisheds-arsenal-affinity-watch.png)
 
-AoW damage objectives evaluate one legal route at a time. Inspector and Compare expose
-the selected route’s ordered actions and hits, damage, status buildup, physical-hit
-attribute, buff timing, stamina, and modeling warnings.
+</details>
 
-### Data and profiles
+## What the numbers mean
 
-Runtime snapshots are generated from local game and mod data, FMG names, and workbook
-extraction. They cover weapon affinities, reinforcement, scaling graphs, AoW
-compatibility and routes, innate and upgrade-dependent passives, skill attack data,
-effect graphs, paired and two-hand behavior, and Shadow of the Erdtree attack scaling.
+Rankings compare modeled attack rating, status buildup, or raw skill damage under
+your chosen constraints. **Enemy defenses and status-proc damage are not modeled.**
+Status values describe buildup, not the damage from triggering a proc. Some skill
+interactions remain unsupported; warnings in Build Detail identify those limits.
 
-Snapshots use **schema 4**: mounting permission and Ash affinity/type lists are the
-single source of compatibility. Schema-3 snapshots are rejected before CSV loading;
-regenerate them with the current extractor rather than relabeling their manifests.
+Results use exact arithmetic for ranking and rounded numbers for display. This
+avoids intermediate rounding deciding close winners; it does not certify every
+formula against the game. **Snapshot loaded** means the profile passed its data
+integrity checks, not that every mechanic is modeled.
 
-Each profile is independent, versioned, and checksummed. Missing, modified, mixed, or
-unlisted files fail closed instead of loading data from another profile.
+See the [model reference](docs/model-reference.md) for supported objectives, skill
+effects, profile rules, and known differences from other calculators.
 
 ### Convergence 3.0.0.1 beta
 
-The Convergence profile is experimental. A version-bound reference checks weapon
-availability, base attack, requirements, raw scaling, affinities, and base status.
-Those checks do not independently verify final AR mechanics or customization legality.
-Convergence evaluates the exact combat stats entered under **Custom stats**. The
-displayed stat total is not a Rune Level: starting-class budgets, class optimization,
-Compare, Paths, and Affinity Watch are disabled until a version-pinned class catalog
-is verified. Vanilla class rules are never substituted for the mod's classes.
-Ammunition weapon AR is excluded until arrow, bolt, and projectile damage are modeled;
-Ash of War hit and route damage is disabled until mod-specific motion and sequence data
-is mapped. Vanilla data is never substituted. Broader in-game verification remains in
-progress, while the application itself remains a stable release.
+**Convergence is experimental.** Enter exact **Custom stats**; their total is not a
+Rune Level. The profile supports melee weapon AR, fixed status, and upgrades through
+`+15`. AoW damage, ammunition AR, and class-dependent workflows (Compare, Paths,
+Affinity Watch, and class optimization) are unavailable.
 
-Its profile rules use one weapon reinforcement path from `+0` through `+15`, remove
-Scadutree Blessing scaling, keep weapon status fixed across stats and upgrades, expose
-extended `S+`/`S++` grades, and apply every declared nonzero attribute scaling to every
-nonzero damage component for row-0 attack-element weapons.
+Its final AR mechanics and customization legality still need independent
+verification. Vanilla rules and missing damage tables are never substituted into
+the mod profile. See [Convergence coverage](docs/model-reference.md#convergence).
 
-### Current model boundaries
+## Documentation
 
-- Enemy defense, negation, resistance growth, and proc explosion damage are not
-  modeled. Raw PvE poise/stance values are reported for supported weapon attacks and routes.
-- Route status details cover bleed, frost, poison, scarlet rot, sleep, madness, and
-  death buildup separately from proc damage.
-- Route stamina is reported but is not an optimization objective.
-- Temporary buff stacking is not modeled as a universal layer.
+Choose a guide for the task at hand:
 
-## For Contributors
+| I want to… | Read |
+| --- | --- |
+| See what changed in **v0.14.0** | [Release notes](docs/release-notes/v0.14.0.md) · [All versions](docs/release-notes/README.md) |
+| Understand supported mechanics and limitations | [Model reference](docs/model-reference.md) |
+| Find components and trace a calculation | [Optimizer overview](docs/design/optimizer-overview.md) |
+| Inspect the exact ranking contract and proof | [Optimizer mathematics](docs/design/optimizer-math.md) |
+| Work on jobs, caches, profiles, or saved builds | [Runtime invariants](docs/architecture/runtime-invariants.md) |
+| Measure performance or native responsiveness | [Performance guide](docs/performance.md) |
+| Refresh a game-data snapshot | [Extraction guide](tools/phase1/README.md) |
+| Prepare and publish a release | [Release guide](docs/releasing.md) |
 
-Report bugs through [GitHub Issues](https://github.com/FueledByRedBull/tarnisheds-arsenal/issues).
-Include the app version, game profile, reproduction steps, and expected versus actual
-results. For security issues, use the private channel in [SECURITY.md](SECURITY.md).
+## For contributors
 
-Submit focused pull requests against `main`. Explain the problem and the checks run,
-follow the existing code style, and add a regression test for behavior changes.
-Keep raw game files, credentials, build output, and local audit reports out of commits.
+[Report a bug](https://github.com/FueledByRedBull/tarnisheds-arsenal/issues) with the
+app version, game profile, reproduction steps, and expected versus actual results.
+Use [private vulnerability reporting](SECURITY.md) for security issues.
 
-The Rust core lives in `core/er_optimizer_core`, and the desktop in `apps/desktop`.
-`tools/phase1` handles extraction; `tools/phase4` handles validation, benchmarks, and
-releases. The phase names are historical: phases 2 and 3 became the core and desktop.
+Submit focused pull requests against `main`, explain the problem and checks run,
+and add a regression for behavior changes. Keep raw game files, credentials,
+build output, and local audit reports out of commits.
 
-### Requirements
+<details>
+<summary><strong>Build and validate locally</strong></summary>
 
-- Rust 1.97.0 with `clippy` and `rustfmt` (pinned by `rust-toolchain.toml`)
-- Node.js 22.23.1 with npm (pinned by `.node-version`)
-- Python 3.12.10 for validation and data tooling (pinned by `.python-version`)
+Use the repository’s pinned toolchains: **Rust 1.97.0**, **Node.js 22.23.1**, and
+**Python 3.12.10**. Windows desktop development also needs the
+[Tauri prerequisites](https://v2.tauri.app/start/prerequisites/#windows), including
+Microsoft C++ Build Tools and WebView2. Rust’s `clippy` and `rustfmt` components
+are declared in `rust-toolchain.toml`.
 
-Install Python validation helpers for data validation or release packaging:
-
-```powershell
-python -m pip install -r requirements-validation.txt
-```
-
-### Run and validate
+From the repository root, start the native desktop:
 
 ```powershell
 cd apps/desktop
@@ -186,36 +176,34 @@ npm ci
 npm run tauri dev
 ```
 
-`npm run tauri dev` is the preferred desktop command: Tauri’s `beforeDevCommand`
-starts Vite. `npm run dev` is the frontend-only alternative.
+Tauri starts Vite automatically. `npm run dev` is the frontend-only alternative
+and uses preview data in the browser.
+
+Run core, backend, and data checks from the **repository root**:
 
 ```powershell
-cargo test --manifest-path core/er_optimizer_core/Cargo.toml
-cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+python -m pip install -r requirements-validation.txt
+cargo test --locked --manifest-path core/er_optimizer_core/Cargo.toml
+cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
 python tools/phase4/validate_phase4.py
-cd apps/desktop
+```
+
+Run frontend checks from **`apps/desktop`**:
+
+```powershell
 npm test
 npm run build
+npx playwright install chromium
 npm run test:e2e
 ```
 
-### Release and data
+The full checks and setup live in [CI](.github/workflows/ci.yml). The core is in
+`core/er_optimizer_core`; the desktop is in `apps/desktop`. Historical phase names
+remain for extraction (`tools/phase1`) and validation/packaging (`tools/phase4`).
 
-Build a Windows release package with:
-
-```powershell
-python tools/phase4/package_release.py
-```
-
-The helper produces the MSI, portable executable, checksums, build report, and ZIP;
-see the [release guide](docs/releasing.md) for the tag-driven process. See the [phase 1
-tooling guide](tools/phase1/README.md) to refresh versioned data snapshots.
-
-More references: [optimizer design](docs/design/optimizer-overview.md),
-[optimizer mathematics](docs/design/optimizer-math.md),
-[runtime invariants](docs/architecture/runtime-invariants.md), [performance guide](docs/performance.md),
-[release notes](docs/release-notes/README.md), and [CHANGELOG](CHANGELOG.md).
+</details>
 
 ## License
 
-Code is available under the [MIT License](LICENSE).
+Code is available under the [MIT License](LICENSE). Fan-made tooling, unaffiliated
+with FromSoftware or Bandai Namco Entertainment; it does not distribute Elden Ring.

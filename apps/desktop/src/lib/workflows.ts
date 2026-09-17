@@ -1,10 +1,14 @@
 import { api } from "./api";
 import { buildOptimizeRequest, stableSignature } from "./session";
-import { progressSignature, startAdaptivePolling } from "./polling";
+import { progressSignature } from "./polling";
+import { createNativeJobQueue } from "./native-jobs";
 import { useDesktopStore } from "./state";
-import { OptimizeRequestDto, SearchProgressDto, SolvedBuildDto } from "./types";
+import { OptimizeRequestDto, SearchJobStatusDto, SearchProgressDto, SolvedBuildDto } from "./types";
 
-let searchQueue: Promise<unknown> = Promise.resolve();
+const searchQueue = createNativeJobQueue<SearchJobStatusDto>(
+  jobId => api.searchStatus(jobId), jobId => api.cancelSearch(jobId),
+  status => progressSignature(status.progress),
+);
 
 export async function runSearchFromStore(
   requestOverride?: OptimizeRequestDto,
@@ -56,63 +60,13 @@ export async function runSearchFromStore(
   }
 }
 
-export function runSearchRequestForRows(
+export async function runSearchRequestForRows(
   request: OptimizeRequestDto,
   signal?: AbortSignal,
   onProgress?: (progress: SearchProgressDto | null) => void,
   onStarted?: (jobId: string) => void,
 ): Promise<SolvedBuildDto[]> {
-  const search = searchQueue.then(async () => {
-    if (signal?.aborted) throw new DOMException("Search stopped.", "AbortError");
-    const { jobId } = await api.startSearch(request);
-    onStarted?.(jobId);
-    return await pollSearchRows(jobId, signal, onProgress);
-  });
-  // Cancellation only requests a stop; the next owner waits for terminal status.
-  searchQueue = search.then(() => undefined, () => undefined);
-  return search;
-}
-
-async function pollSearchRows(jobId: string, signal?: AbortSignal, onProgress?: (progress: SearchProgressDto | null) => void): Promise<SolvedBuildDto[]> {
-  return await new Promise((resolve, reject) => {
-    let settled = false;
-    let cancelling = false;
-    let stopPolling = () => {};
-    const finish = (callback: () => void) => {
-      if (settled) return;
-      settled = true;
-      signal?.removeEventListener("abort", abort);
-      stopPolling();
-      callback();
-    };
-    const abort = () => {
-      if (settled || cancelling) return;
-      cancelling = true;
-      void api.cancelSearch(jobId).catch((error) => finish(() => reject(error)));
-    };
-    signal?.addEventListener("abort", abort, { once: true });
-    const polling = startAdaptivePolling({
-      poll: () => api.searchStatus(jobId),
-      progressKey: (status) => progressSignature(status.progress),
-      onStatus: (status) => {
-        if (!cancelling) onProgress?.(status.progress);
-        if (!status.finished) return false;
-        if (cancelling) {
-          finish(() => reject(new DOMException("Search stopped.", "AbortError")));
-        } else if (status.finished.error) {
-          finish(() => reject(new Error(status.finished!.error!)));
-        } else if (status.finished.cancelled) {
-          finish(() => reject(new DOMException("Search stopped.", "AbortError")));
-        } else {
-          finish(() => resolve(status.finished!.rows));
-        }
-        return true;
-      },
-      onMissing: () => finish(() => reject(new Error("Search job disappeared before returning a result."))),
-      onError: (error) => finish(() => reject(error)),
-    });
-    stopPolling = polling.stop;
-    if (settled) polling.stop();
-    else if (signal?.aborted) abort();
-  });
+  const finished = await searchQueue(() => api.startSearch(request), signal,
+    status => onProgress?.(status.progress), onStarted);
+  return finished.rows;
 }

@@ -260,6 +260,23 @@ pub struct SolveBuildRequestDto {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ArBleedFrontierRequestDto {
+    pub base: OptimizeRequestDto,
+    pub solved: SolvedBuildDto,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArBleedFrontierPointDto {
+    pub result: SolvedBuildDto,
+    pub ar_loss: f32,
+    pub ar_loss_percent: f32,
+    pub minimum_ar_loss_bps: u16,
+    pub bleed_gain: f32,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpgradeSeriesRequestDto {
     pub base: OptimizeRequestDto,
     pub solved: SolvedBuildDto,
@@ -298,7 +315,6 @@ pub struct PathStepDto {
     pub level: u16,
     pub stats: CombatStateDto,
     pub metric: Option<f32>,
-    pub score: Option<f32>,
     pub added_stat: Option<String>,
     pub requirement_gap: u16,
 }
@@ -448,6 +464,32 @@ pub struct SearchJobStatusDto {
     pub finished: Option<SearchFinishedDto>,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AnalysisJobKindDto {
+    SolveBuild,
+    UpgradeSeries,
+    ArBleedFrontier,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalysisFinishedDto {
+    pub job_id: String,
+    pub kind: AnalysisJobKindDto,
+    pub cancelled: bool,
+    pub result: Option<SolvedBuildDto>,
+    pub points: Vec<UpgradePointDto>,
+    pub frontier: Vec<ArBleedFrontierPointDto>,
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalysisJobStatusDto {
+    pub finished: Option<AnalysisFinishedDto>,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CatalogDto {
@@ -538,7 +580,7 @@ impl From<er_optimizer_core::SnapshotManifest> for DataManifestDto {
         Self {
             schema_version: value.schema_version,
             dataset_version: value.dataset_version,
-            model_version: value.model_version,
+            model_version: er_optimizer_core::runtime_model_version(&value.model_version),
             id: value.id,
             label: value.label,
             app_version: value.app_version,
@@ -1019,7 +1061,6 @@ mod tests {
                         level: 151,
                         stats: combat_state(),
                         metric: Some(10.0),
-                        score: Some(10.0),
                         added_stat: Some("dex".to_string()),
                         requirement_gap: 0,
                     }],
@@ -1036,6 +1077,13 @@ mod tests {
         assert_has_path(
             &path_value,
             &["finished", "paths", "0", "steps", "0", "requirementGap"],
+        );
+        assert!(
+            lookup_path(
+                &path_value,
+                &["finished", "paths", "0", "steps", "0", "score"]
+            )
+            .is_none()
         );
 
         let affinity_value = serde_json::to_value(AffinityWatchJobStatusDto {

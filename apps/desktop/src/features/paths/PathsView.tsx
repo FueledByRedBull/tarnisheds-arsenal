@@ -50,12 +50,17 @@ export function PathsView() {
     outcome: runOutcome,
   });
 
-  usePathJob({
-    activePathJobId,
+  const startPathJob = usePathJob({
     isPathBusy,
     generation: pathGeneration,
     setPathProgress,
-    finish: finishPathPreview,
+    onStarted: (jobId, generation) => {
+      const current = useDesktopStore.getState();
+      if (!current.isPathBusy || current.pathGeneration !== generation || current.activePathSignature !== signature) {
+        throw new DOMException("Calculation stopped.", "AbortError");
+      }
+      setActivePathJobId(jobId);
+    },
   });
 
   async function refresh() {
@@ -77,17 +82,8 @@ export function PathsView() {
         { base, solved: selected, levelsAhead: effectiveHorizon, title: "Selected", mode: pathMode },
         ...(target ? [{ base, solved: target, levelsAhead: effectiveHorizon, title: "Compare", mode: pathMode }] : []),
       ];
-      const { jobId } = await api.startPathPreview(requests);
-      const current = useDesktopStore.getState();
-      if (
-        !current.isPathBusy ||
-        current.pathGeneration !== generation ||
-        current.activePathSignature !== signature
-      ) {
-        await api.cancelPathPreview(jobId);
-        return;
-      }
-      setActivePathJobId(jobId);
+      const finished = await startPathJob(() => api.startPathPreview(requests), generation);
+      finishPathPreview(finished, generation);
     } catch (error) {
       const current = useDesktopStore.getState();
       if (
@@ -95,9 +91,16 @@ export function PathsView() {
         current.pathGeneration === generation &&
         current.activePathSignature === signature
       ) {
-        setError(error instanceof Error ? error.message : String(error));
-        setRunOutcome("failed");
+        if (error instanceof DOMException && error.name === "AbortError") {
+          current.pushNotice({ scope: "paths", tone: "warning", message: "Path preview stopped." });
+          setRunOutcome("cancelled");
+        } else {
+          setError(error instanceof Error ? error.message : String(error));
+          setRunOutcome("failed");
+        }
         setPathBusy(false);
+        setActivePathJobId(null);
+        setPathProgress(null);
       }
     }
   }
@@ -105,7 +108,17 @@ export function PathsView() {
   async function stop() {
     setRunOutcome("cancelled");
     if (!activePathJobId) setPathBusy(false);
-    if (activePathJobId) await api.cancelPathPreview(activePathJobId);
+    if (activePathJobId) {
+      try {
+        await api.cancelPathPreview(activePathJobId);
+      } catch (error) {
+        const current = useDesktopStore.getState();
+        if (current.isPathBusy && current.activePathJobId === activePathJobId) {
+          setError(error instanceof Error ? error.message : String(error));
+          setRunOutcome("failed");
+        }
+      }
+    }
   }
 
   function finishPathPreview(payload: PathFinishedDto, generation: number) {
@@ -210,7 +223,7 @@ function PathSteps({ paths, objective }: { paths: PathPreviewDto[]; objective: P
                   <strong>{fixed1(step.metric)} {objectiveUnit(objective)}</strong>
                   <small>
                     {index === 0 ? "Starting stats" : gain === null ? "Gain unavailable" : `Gain ${fixed1(gain)}`}
-                    {index > 0 ? ` | ${step.addedStat ? `Added ${step.addedStat.toUpperCase()}` : "No stat added"}` : ""}
+                    {index > 0 ? ` | ${step.addedStat === "respec" ? "Respec required" : step.addedStat ? `Added ${step.addedStat.toUpperCase()}` : "No stat added"}` : ""}
                     {step.requirementGap > 0 ? ` | Requirement gap ${step.requirementGap}` : ""}
                   </small>
                   <span>STR {step.stats.strStat} / DEX {step.stats.dex} / INT {step.stats.intStat} / FAI {step.stats.fai} / ARC {step.stats.arc}</span>
