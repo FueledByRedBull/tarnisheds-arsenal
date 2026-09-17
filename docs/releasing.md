@@ -106,8 +106,10 @@ are never silently replaced. Starting another build is not a publication retry.
 
 ## Package and signing checks
 
-The release workflow independently verifies that ordinary `CI` has succeeded for
-the exact source commit. Normal source tests, lint, type checks, formatting, Clippy,
+Publication independently verifies that ordinary `CI` has succeeded for
+the exact source commit. Build-only previews instead validate source in the
+packaging job, as described [above](#build-a-preview).
+Normal source tests, lint, type checks, formatting, Clippy,
 and data validation belong to that CI run; the release job packages the already
 validated commit and keeps the release-only MSI identity, MSI payload, packaged
 startup smoke, signing, and checksum checks. The final Tauri build runs Cargo in

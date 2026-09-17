@@ -4,11 +4,12 @@ Use this page to review the searched domain, recurrence, and exact-arithmetic
 claim behind the Rust optimizer. Its conclusions still require the separability,
 first-hit identity, and active-set obligations below. The companion
 [`optimizer-overview.md`](optimizer-overview.md) covers implementation structure,
-ranking, parallel work, tests, and release engineering. Functions named here live in
-`core/er_optimizer_core/src/`.
+ranking, and parallel work; verification and release procedures live in their linked
+workflow docs. Functions named here live in `core/er_optimizer_core/src/`.
 
 **Navigation:** [Home](../../README.md) · [Optimizer overview](optimizer-overview.md) ·
-[Performance](../performance.md) · [Runtime invariants](../architecture/runtime-invariants.md)
+[Performance](../performance.md) · [Runtime invariants](../architecture/runtime-invariants.md) ·
+[Model reference](../model-reference.md)
 
 **Find a topic:** [Point budget](#1-notation-and-point-budget) ·
 [Feasible domain](#2-feasible-spend-domain) ·
@@ -66,7 +67,8 @@ for its own scaling curve. Row-level suppression changes only that row's damage;
 does not change whether the weapon meets its requirements. All choices are fixed for
 the work unit and remain functions of STR alone.
 Generated and validated calc-correct curves cover every reachable effective value
-through 148.
+through 148, the maximum effective Strength $\lfloor99\cdot3/2\rfloor$ for the
+declared stat domain.
 
 ## 2. Feasible spend domain
 
@@ -198,21 +200,12 @@ or ARC-only terms. Their local floors do not combine different decision variable
 The public bleed evaluator and the external AR/passive report use this same exact
 production path: base weapon bleed is floored before Ash additions, followed by the
 existing final floor when a scaling status addition is present.
-The external comparison records four documented Bloodfiend's Fork (Keen) boundary
-cases: exact 61 versus reference 62 at +7/ARC 45 and exact 67 versus reference 68 at
-+25/ARC 50, each in both handling modes. These differences follow the exact-floor
-contract; they do not show universal external status agreement or certify gameplay
-behavior.
+Current profile corrections and external comparison notes are maintained in the
+[model reference](../model-reference.md).
 
 For route $r$, hit $k$, the scalar damage formula is
 
 $$H_{r,k}(x)=C_{r,k}+\sum_i h_{r,k,i}(x_i).$$
-
-Attack provenance remains explicit in the loaded rows. `is_bullet_attack` comes from
-raw `Bullet.param.atkId_Bullet`; raw throw flag value `2` becomes `is_throw_attack`.
-The exact evaluator applies a weapon's `critical_damage_percent` only to throw rows.
-For Lifesteal Fist, Katar, Pata, and Raptor Talons therefore apply 110% to grab
-rows, while initial contact rows remain at their ordinary multiplier.
 
 Each damage component multiplies a fixed weapon-motion/fixed-attack base by
 $1+\sum_i\kappa_i\gamma_i(x_i')$. Motion values, reinforcement factors,
@@ -349,9 +342,7 @@ contribution. If a contribution is negative, the strongest penalty is selected
 instead of adding positive and negative terms. Compiled routes reject this
 non-additive case. When no unique primary allocation is available, the optimizer
 directly enumerates the affected allocations
-so additive DP cannot prune coupled stat contributions. The Lifesteal Fist regression
-matches the independently evaluated tarnished.tools 1.17 formula; an older ERDB
-result differs. This is calculator agreement, not proof of in-game behavior.
+so additive DP cannot prune coupled stat contributions.
 
 ### Bounds and scheduling
 
@@ -382,8 +373,8 @@ Equal pairs retain route and stat tie evaluation.
 The `exact-v1` scoring contract treats each finite, validated loaded `f32` model value
 as its exact binary rational. Products, sums, and percentage division in ranking
 formulas are evaluated exactly. This does not recover precision lost while extracting
-or loading the source data, and it deliberately changes the former operation-by-
-operation `f32` rounding contract. Winners near rounded ties can change.
+or loading the source data. Ranked winners near display-rounded ties can therefore
+differ.
 
 Two-handing still uses the integer effective-STR rule. Status scaling retains its
 existing floor boundaries: weapon bleed is floored before Ash additions, followed
@@ -411,9 +402,9 @@ merges, and final grouping. The chosen route identity is retained during
 materialization. Public floating-point fields are projections for display, not
 inputs to ranking. Public `calculate_ar` and `calculate_bleed_buildup` use the exact
 production evaluators before projecting display values; `estimate_ar` is the float
-scheduling approximation. The runtime model identity is
-`aow-routes-effects-v7/exact-v1`, invalidating persisted results from the former
-scoring contract without relabeling snapshot files.
+scheduling approximation. The active snapshot and scoring identities are maintained in
+the [model reference](../model-reference.md); cache and persisted-result consumers
+apply them as specified by the [runtime invariants](../architecture/runtime-invariants.md).
 
 ## 5. Compiled routes, oracle, and fallback
 
@@ -456,14 +447,37 @@ fidelity or discharge the other model assumptions for arbitrary future mechanics
 **Model fidelity.** The evaluator is a fan reconstruction tied to selected profile,
 dataset, model, source, and manifest hashes. It does not model enemy defense,
 negation, resistance growth, proc explosion damage, or universal temporary-buff
-stacking; Chilling Mist and Poisonous Mist remain unsupported where sources conflict
-on their correction and stacking. Workbook-derived PvE stance/poise damage and route
-stamina are reported,
-but are not objectives; enemy stagger thresholds, recovery, and timing are not simulated.
+stacking. Profile coverage and correction notes are maintained in the [model
+reference](../model-reference.md). Workbook-derived PvE stance/poise damage and route
+stamina are reported, but are not objectives; enemy stagger thresholds, recovery, and
+timing are not simulated.
 
 **Data validity.** The shared runtime CSV parser rejects NaN and infinities. Runtime
 loading also fails on missing curve entries, and offline validation requires every
-used curve value through effective stat 148. Shipped-data regressions check that
+used curve value over its reachable effective-stat domain. Shipped-data regressions check that
 modeled bases, curves, coefficients, and buffs used by the first-hit argument are
 finite and nonnegative. Monotonicity is checked separately as a data-quality invariant,
 but the recurrence does not assume it.
+
+## 8. Fixed-loadout AR / bleed frontier
+
+Fix the weapon, affinity, skill, upgrade, budget, floors/locks, non-combat stats,
+and handling/world settings. In the modeled status formula, only ARC can change
+bleed within that context. For each feasible ARC value, maximize AR over the
+remaining integer allocations, keeping the complete numeric/stat tie order.
+Any allocation with lower AR at the same ARC is dominated or has the same metric
+pair as the retained representative. Exact comparison of those representatives
+therefore gives the complete nondominated AR/bleed pairs for this domain. This is
+not a frontier across weapons, affinities, or skill choices.
+
+Equal pairs retain one canonical allocation. A point is removed only if another
+has at least as much AR and bleed, with a strict improvement in one. This argument
+does not require monotone curves or interpolation between integer allocations.
+
+For a sacrifice control in hundredths of a percent, an option is eligible at
+integer limit `b` exactly when `10_000 * (maximum_ar - ar) <= b * maximum_ar`.
+Each point carries the ceiling of that exact ratio; the desktop compares integers
+instead of rounded displayed AR. Zero maximum AR has zero loss. The loss and
+bleed-gain explanation is also subtracted exactly before display projection.
+Neither dominance nor a sacrifice limit establishes proc count, DPS, or a player's
+preferred tradeoff.

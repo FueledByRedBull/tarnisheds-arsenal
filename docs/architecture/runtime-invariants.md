@@ -7,7 +7,7 @@ Status: accepted. These rules describe contracts that tests and future refactors
 
 **Navigation:** [Home](../../README.md) · [Optimizer overview](../design/optimizer-overview.md) ·
 [Optimizer math](../design/optimizer-math.md) · [Performance](../performance.md) ·
-[Phase 1 extraction](../../tools/phase1/README.md)
+[Extracting game data](../../tools/phase1/README.md)
 
 **Find a contract:** [Cache identity](#cache-identity-and-versioning) ·
 [Job lifecycle](#job-lifecycle) · [Result identity](#result-identity) ·
@@ -16,13 +16,9 @@ Status: accepted. These rules describe contracts that tests and future refactors
 ## Cache identity and versioning
 
 - Analysis cache keys include the profile ID, every behavior-affecting input, and the dataset schema, dataset version, and model version.
-- The shipped snapshot model is `aow-routes-effects-v7`; the runtime model version
-  appends `/exact-v1`. Ranking treats each finite, validated loaded `f32` input as
-  its exact binary rational while preserving gameplay floor boundaries. This identity
-  change invalidates solved results from the former rounded contract while preserving
-  normalized saved inputs. The numerical suffix is separate from snapshot storage and
-  dataset versions; incompatible old snapshots must be regenerated, never relabeled as
-  a migration.
+- The active snapshot and scoring identities are recorded in the [model reference](../model-reference.md).
+  Storage, dataset, and calculation identities are independent; incompatible snapshots
+  or persisted results fail closed rather than being relabeled as a migration.
 - A solved-build key uses the stable result fingerprint: weapon ID/name, affinity, AoW identity, upgrade, somber flag, and all five combat stats.
 - Caches are bounded. Eviction may reduce performance but must never alter results.
 - An aborted subscriber cannot populate a cache entry. When the last subscriber leaves, the pending entry is evicted immediately; backend work is also cancelled when that command exposes cancellation.
@@ -76,14 +72,15 @@ Status: accepted. These rules describe contracts that tests and future refactors
   localized label or motion rows are unavailable. The runtime may expose a null
   label and no damage rows, but it must not erase the ID or invent damage data.
 - Convergence ammunition rows remain in the immutable source snapshot but are not
-  exposed to catalog/search/export until an arrow/bolt projectile model exists.
-  They must never compete using weapon-only or duplicated damage components.
+  exposed to catalog/search/export until an arrow/bolt projectile model exists. They
+  must never compete using weapon-only or duplicated damage components; current profile
+  coverage is listed in the [model reference](../model-reference.md).
 - A mod profile with a version-bound availability reference extracts only exact referenced configuration IDs. Offline validation compares every common modeled weapon field and status family; a missing, stale, or mismatched reference fails the release gate.
-- The current storage schema is 5. Required mounting/affinity permissions and the
-  attack-provenance fields (`is_bullet_attack`, `is_throw_attack`) and weapon
-  `critical_damage_percent` are validated before use, and schema 4 is rejected at
-  the manifest boundary. No per-pair compatibility CSV or runtime pair set is
-  retained.
+- Required mounting/affinity permissions, attack-provenance fields
+  (`is_bullet_attack`, `is_throw_attack`), and weapon `critical_damage_percent` are
+  validated before use. Incompatible schema versions fail at the manifest boundary;
+  no per-pair compatibility CSV or runtime pair set is retained. The versioned file
+  contract is maintained in [Extracting game data](../../tools/phase1/README.md#snapshot-contract).
 - Ash compatibility is exactly mounting permission AND affinity membership AND weapon-type intersection. Native-only skills are handled separately and cannot bypass infusion restrictions.
 - A fixed-loadout Paths evaluation pins weapon, affinity, Ash, and upgrade, then clears
   discovery filters before preparing its evaluator. Discovery constraints therefore
@@ -96,3 +93,16 @@ Status: accepted. These rules describe contracts that tests and future refactors
 ## Change checklist
 
 Any cache, async job, result DTO, preset, or snapshot change must update the closest invariant test and run the frontend, core, Tauri packaged-data, and release metadata gates appropriate to that boundary.
+
+## Fixed-loadout tradeoffs
+
+AR/bleed tradeoffs use the shared cancellable analysis worker. Changing the
+request/profile/selected loadout or leaving Compare cancels the subscriber and
+prevents a late result from appearing. The returned frontier belongs to one
+fixed equipment, upgrade, stat-budget, constraint, and handling context.
+Shortlist criteria, sacrifice selection, the all-points table, and the optional
+plot read that same completed result without starting more optimizer work.
+Inspecting an option preserves its exact allocation; it does not feed the option
+through the pinned-loadout reoptimizer. Applying it pins the equipment, upgrade,
+and all five combat stats through the existing lock/search actions before saving.
+This feature creates no persisted format.

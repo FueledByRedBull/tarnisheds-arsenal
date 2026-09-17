@@ -2,10 +2,10 @@
 
 [Home](../../README.md) · [Documentation](../../README.md#documentation) · [Release guide](../releasing.md)
 
-## v0.13.1
+## v0.14.0
 
-Exact numeric ranking, responsive native calculations, and saved-build recovery.
-Read the [v0.13.1 notes](v0.13.1.md) for the changes and download choices.
+Exact ranking, actionable AR / bleed tradeoffs, faster level ranges, and safer recovery.
+Read the [v0.14.0 notes](v0.14.0.md) for the changes and download choices.
 
 The table includes release preparation entries. A version's GitHub page and assets
 become available when it is published; [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest)
@@ -15,7 +15,7 @@ always points to an available build.
 
 | Version | Notes | GitHub release |
 | --- | --- | --- |
-| v0.13.1 | [v0.13.1.md](v0.13.1.md) | [Tarnished's Arsenal v0.13.1](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.13.1) |
+| v0.14.0 | [v0.14.0.md](v0.14.0.md) | [Tarnished's Arsenal v0.14.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.14.0) |
 | v0.13.0 | [v0.13.0.md](v0.13.0.md) | [Tarnished's Arsenal v0.13.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.13.0) |
 | v0.12.0 | [v0.12.0.md](v0.12.0.md) | [Tarnished's Arsenal v0.12.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.12.0) |
 | v0.11.1 | [v0.11.1.md](v0.11.1.md) | [Tarnished's Arsenal v0.11.1](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.11.1) |

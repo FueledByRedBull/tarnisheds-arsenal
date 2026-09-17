@@ -14,7 +14,7 @@ comparisons and progression previews.
 [![Published release](https://img.shields.io/github/v/release/FueledByRedBull/tarnisheds-arsenal?label=published)](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest)
 
 **[Download for Windows](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest)**
-· [What’s new in v0.13.1](docs/release-notes/v0.13.1.md)
+· [What’s new in v0.14.0](docs/release-notes/v0.14.0.md)
 · [Your first build](#your-first-build)
 · [Documentation](#documentation)
 
@@ -26,7 +26,7 @@ its score, with the selected build’s full breakdown on the right.
 ## Download
 
 Choose an asset from the [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
-The [v0.13.1 notes](docs/release-notes/v0.13.1.md) include its versioned download
+The [v0.14.0 notes](docs/release-notes/v0.14.0.md) include its versioned download
 links; those links become available when that release is published.
 
 | Choose | Best for |
@@ -69,10 +69,16 @@ as stale. Convergence uses a different [fixed-stat workflow](#convergence-3001-b
 Pinned loadouts keep their weapon, affinity, and skill. Their stats and upgrades
 are reoptimized for the current budget; the upgrade chart shows how each develops.
 
-Compare requires fresh Rankings results. When the ranking request changes, retained
-rows become stale; Compare clears its visible series and target and waits for a new
-ranking before starting calculations. Its baseline and curves use the same current
-request, so an identical loadout has zero delta.
+**AR / Bleed tradeoffs** keeps the selected weapon, affinity, skill, upgrade,
+level budget, stat floors/locks, and handling fixed. Compute its complete frontier,
+then inspect maximum AR, maximum bleed, or the most bleed within a stated AR loss.
+The 1%, 3%, and 5% choices are sacrifice limits, not bleed-proc breakpoints. An
+all-options table and optional plot show the same achievable allocations.
+Use **Use exact allocation** to lock its equipment, upgrade, and combat stats in
+Rankings; the existing Build Detail and save actions then use those exact stats.
+
+Compare needs fresh Rankings results. If you change the search inputs, update
+Rankings before comparing again.
 
 ![Compare showing aligned differences between the selected baseline and another loadout](docs/images/tarnisheds-arsenal-compare.png)
 
@@ -100,72 +106,31 @@ combat stats at each future level. Exact stat locks are ignored; minimums remain
 
 </details>
 
-## Model details
+## What the numbers mean
 
-### Search model
+Rankings compare modeled attack rating, status buildup, or raw skill damage under
+your chosen constraints. **Enemy defenses and status-proc damage are not modeled.**
+Status values describe buildup, not the damage from triggering a proc. Some skill
+interactions remain unsupported; warnings in Build Detail identify those limits.
 
-Vanilla supports **Max AR**, **Max Physical AR**, **Bleed, then AR**,
-**AoW First Hit (PvE)**, and **AoW Full Sequence (PvE)**. Upgrade caps can be exact
-or cover the full range from `+0`. Selecting a weapon starts with its legal native
-skill; changeable weapons also offer **Automatic (best legal skill)**.
+Results use exact arithmetic for ranking and rounded numbers for display. This
+avoids intermediate rounding deciding close winners; it does not certify every
+formula against the game. **Snapshot loaded** means the profile passed its data
+integrity checks, not that every mechanic is modeled.
 
-The `aow-routes-effects-v7` snapshot model uses the `exact-v1` ranking contract:
-loaded model inputs are evaluated with exact arithmetic and displayed values are
-rounded. Runtime result and cache identities append `/exact-v1` to the snapshot
-model. This prevents intermediate rounding from deciding close winners, but does
-not establish that every modeled value matches the game.
-See the [optimizer overview](docs/design/optimizer-overview.md) and
-[mathematical scope](docs/design/optimizer-math.md#7-scope-of-the-claims).
-
-> **Read the numbers as modeled values.** Enemy defense, negation, resistance
-> growth, and proc explosion damage are not modeled. Status values describe
-> buildup, not proc damage. Raw PvE stance/poise and route stamina are reported
-> where supported; stamina is not an optimization objective. Temporary buff
-> stacking is not a universal layer.
-
-Chilling Mist and Poisonous Mist currently have unmodeled weapon/on-hit status
-increments because the available sources conflict on their engine correction and
-stacking. They show a warning in AR results and are excluded from skill-damage
-objectives. The [reference comparison runner](docs/performance.md) compares Vanilla
-weapon AR and base status against pinned T. Clark 1.17 code. Its report identifies
-the local AR evaluator as exact loaded binary rationals projected once to `f32` and
-bleed as the exact production floor; this AR/passive check does not compare complex
-skill formulas or prove in-game damage. Four documented Bloodfiend's Fork (Keen)
-base-bleed boundary cases are expected to differ under that contract: exact 61 versus
-reference 62 at +7/ARC 45, and exact 67 versus reference 68 at +25/ARC 50, in both
-handling modes. External status agreement is therefore not universal, and no
-gameplay certification is implied.
-
-### Data and profiles
-
-Each profile is independent, versioned, and checksummed. Missing, modified, mixed,
-or unlisted snapshot files are rejected. Runtime snapshots use **schema 5**, with
-mounting permission and Ash affinity/type lists defining compatibility. Attack
-provenance includes `is_bullet_attack` and `is_throw_attack`, and weapon rows carry
-their source `critical_damage_percent`. Regenerate older snapshots with the
-[extraction guide](tools/phase1/README.md); do not relabel their manifests. The UI's
-**Snapshot loaded** state means the selected
-manifest-bound snapshot passed loading checks and exposes its declared capabilities;
-it is not independent verification of every formula.
+See the [model reference](docs/model-reference.md) for supported objectives, skill
+effects, profile rules, and known differences from other calculators.
 
 ### Convergence 3.0.0.1 beta
 
-**Convergence is experimental.** A version-bound reference checks weapon
-availability, base attack, requirements, raw scaling, affinities, and base status.
-Final AR mechanics and customization legality still need independent verification.
+**Convergence is experimental.** Enter exact **Custom stats**; their total is not a
+Rune Level. The profile supports melee weapon AR, fixed status, and upgrades through
+`+15`. AoW damage, ammunition AR, and class-dependent workflows (Compare, Paths,
+Affinity Watch, and class optimization) are unavailable.
 
-| Capability | Current Convergence behavior |
-| --- | --- |
-| Character | Exact **Custom stats**; the displayed total is not a Rune Level |
-| Upgrades | One reinforcement path, `+0` through `+15` |
-| Scaling | Extended `S+`/`S++` grades; no Scadutree Blessing scaling |
-| Status | Fixed across stats and upgrades |
-| AoW damage / ammunition AR | Unavailable until mod-specific attack and route data is modeled |
-| Class optimization / Compare / Paths / Affinity Watch | Disabled until a version-pinned class catalog is verified |
-
-For row-0 attack-element weapons, every declared nonzero attribute scaling applies
-to every nonzero damage component. Vanilla class rules or missing damage tables
-are never substituted into the mod profile.
+Its final AR mechanics and customization legality still need independent
+verification. Vanilla rules and missing damage tables are never substituted into
+the mod profile. See [Convergence coverage](docs/model-reference.md#convergence).
 
 ## Documentation
 
@@ -173,8 +138,9 @@ Choose a guide for the task at hand:
 
 | I want to… | Read |
 | --- | --- |
-| See what changed in **v0.13.1** | [Release notes](docs/release-notes/v0.13.1.md) · [All versions](docs/release-notes/README.md) |
-| Understand the app and calculation model | [Optimizer overview](docs/design/optimizer-overview.md) |
+| See what changed in **v0.14.0** | [Release notes](docs/release-notes/v0.14.0.md) · [All versions](docs/release-notes/README.md) |
+| Understand supported mechanics and limitations | [Model reference](docs/model-reference.md) |
+| Find components and trace a calculation | [Optimizer overview](docs/design/optimizer-overview.md) |
 | Inspect the exact ranking contract and proof | [Optimizer mathematics](docs/design/optimizer-math.md) |
 | Work on jobs, caches, profiles, or saved builds | [Runtime invariants](docs/architecture/runtime-invariants.md) |
 | Measure performance or native responsiveness | [Performance guide](docs/performance.md) |

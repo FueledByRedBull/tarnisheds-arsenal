@@ -1,4 +1,4 @@
-# Phase 1 dump tooling
+# Extracting game data
 
 Use the profile-aware dump command to regenerate a runtime snapshot from local
 game inputs. This guide covers the inputs, storage contract, normalization, and
@@ -6,7 +6,8 @@ staging rules. Bundled WitchyBND binaries stay out of this folder so the
 repository remains lean and publishable.
 
 **Navigation:** [Home](../../README.md) · [Optimizer overview](../../docs/design/optimizer-overview.md) ·
-[Optimizer math](../../docs/design/optimizer-math.md) · [Runtime invariants](../../docs/architecture/runtime-invariants.md)
+[Optimizer math](../../docs/design/optimizer-math.md) · [Runtime invariants](../../docs/architecture/runtime-invariants.md) ·
+[Model reference](../../docs/model-reference.md)
 
 **Find a task:** [Regenerate a snapshot](#example) · [Check the storage contract](#snapshot-contract) ·
 [Understand normalized fields](#normalization-and-indexing) · [Inspect staging](#extraction-work-directories)
@@ -25,9 +26,10 @@ The extractor no longer emits `aow_weapon_compat.csv`; legality is derived from
 those compact fields. Runtime manifests list 12 required tables, and diagnostic
 Ash/affinity summaries are computed in memory.
 
-The regenerated snapshots use model identity `aow-routes-effects-v7`; the runtime
-scoring identity appends `/exact-v1`. The extractor version recorded for the current
-attack provenance is `phase1-python-v11-attack-provenance`.
+The manifest records the snapshot model identity; the runtime adds the numerical
+contract to scoring and cache identities. Current identities and coverage are
+listed in the [model reference](../../docs/model-reference.md).
+The extractor records `phase1-python-v11-attack-provenance` for its current output.
 
 Regenerate older snapshots with this extractor. Both runtime and Python validation
 reject schema 4 before attempting to use its incompatible tables. Do not merely
@@ -69,18 +71,15 @@ python tools/phase1/phase1_dump.py `
 ```
 
 Raw regulation, WitchyBND, and FMG inputs stay under ignored `data/raw/`. Only the
-derived CSV snapshots and their source hashes are committed. Convergence currently
-declares AoW hit and route damage unsupported, producing schema-only files for those
-tables so runtime code cannot mix in Vanilla motion data.
+derived CSV snapshots and their source hashes are committed. Profile capabilities may
+leave unsupported tables schema-only; extraction never copies rows from another profile.
 
-The profile definition also owns gameplay rules that cannot be inferred safely from
-Vanilla defaults. Convergence 3.0.0.1 uses one +15 reinforcement cap, has no
-Scadutree scaling, uses extended `S+`/`S++` grades, and treats attack-element row 0
-as applying each weapon's declared nonzero scaling stats to its nonzero damage
-components. Its weapon status values do not use Vanilla stat scaling. Extraction
-materializes these rules explicitly, filters exact legal configuration IDs, and
-validates all common modeled fields and status families against the offline
-version-bound reference.
+The selected profile definition owns gameplay rules that cannot be inferred safely from
+Vanilla defaults. Extraction materializes those rules explicitly, filters exact legal
+configuration IDs where a profile supplies an availability reference, and validates all
+common modeled fields and status families against the offline version-bound reference.
+See the [model reference](../../docs/model-reference.md) for current profile rules and
+coverage.
 
 `--allow-unverified-weapons` is a maintainer-only bootstrap switch for rebuilding
 the reference candidate set. It must never be used to produce a release snapshot;
@@ -119,19 +118,14 @@ release validation requires the exact tracked reference match.
   Fixed projectile/raw components remain distinct from `is_add_base_atk` rows, and
   throw-only weapon critical multipliers remain distinct from initial contact rows.
 - The `weapons.csv` `critical_damage_percent` field preserves the source weapon
-  critical multiplier used by throw rows. Lifesteal Fist applies 110% to grab rows
-  for Katar, Pata, and Raptor Talons; their initial contact rows are unaffected.
-- Snapshot schema 5 requires `weapons.csv.can_change_aow`, `aow.csv.valid_affinities`,
-  `is_bullet_attack`, `is_throw_attack`, and `critical_damage_percent`, and removes
-  the redundant compatibility matrix from the runtime file set. Old schema-4
-  snapshots must be regenerated; changing their version field alone is not a
-  migration.
+  critical multiplier used by throw rows. Row-specific application and current
+  corrections are documented in the [model reference](../../docs/model-reference.md).
 - Workbook attacks owned by a unique weapon are excluded from transferable Ash tables even when their skill names overlap. They remain available through the native-weapon extraction path.
-- Persistent weapon and linked on-hit effects remain separate records. Overlapping
-  status increments, currently Chilling Mist and Poisonous Mist, remain unsupported
-  because available sources conflict on engine correction and stacking; they must not
-  be added together as an ordinary buff.
-- Compact diagnostic summaries are derived in memory from the same permission fields. Regression fingerprints preserve all 87,879 Vanilla and 147,201 Convergence legal pairs from the pre-compaction snapshots.
+- Persistent weapon and linked on-hit effects remain separate records. Unsupported
+  overlapping status increments must not be added together as an ordinary buff; current
+  coverage and correction notes are documented in the [model reference](../../docs/model-reference.md).
+- Compact diagnostic summaries are derived in memory from the same permission fields;
+  compatibility validation uses those fields rather than a retained pair table.
 - Generated CSV and manifest JSON files use canonical LF line endings so snapshots hash identically across supported hosts.
 
 ## Extraction work directories
