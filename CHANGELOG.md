@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+Enable ThinLTO and one codegen unit for release builds to reduce optimizer runtime
+without changing calculation results or requiring a newer CPU.
+
 ## [v0.14.1](docs/release-notes/v0.14.1.md)
 
 Correct Affinity Watch's chart scale, clarify the fixed-loadout AR sacrifice

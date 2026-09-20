@@ -50,6 +50,44 @@ the model and manifest are ready and is outside measured work. A local EXE does 
 need to be a published or signed MSI. `--mode=sync` supports older binaries with
 synchronous commands and omits cancellation.
 
+## Release compiler settings
+
+Both Cargo packages set `lto = "thin"` and `codegen-units = 1` for release builds.
+The desktop package needs its own settings because Cargo does not inherit a
+dependency's build profile. Debug builds and the baseline CPU target are unchanged.
+
+On 2026-09-21, compiler experiments used v0.14.1 (`ee05408`), Rust 1.97.0,
+Windows, and a Ryzen 7 7800X3D. One Rayon thread was pinned to logical processor 6.
+Two reversed-order blocks used one warmup and three measured repeats per case,
+with no concurrent builds or tests. The combined settings reduced median runtime
+by 3.9–10.3% across 16 search cases and four level-range cases; complete ordered
+results matched every variant and repeat. Six Uchigatana/Seppuku frontier cases
+(Keen, Blood, Occult; levels 80 and 200) used seven repeats per block and retained
+identical complete frontiers, with median reductions of 1.6–7.8%.
+
+| Workload | Default release (ms) | ThinLTO + one unit (ms) |
+| --- | ---: | ---: |
+| Vanilla open Max AR | 650.102 | 603.387 |
+| Vanilla all-upgrade Max AR | 1494.587 | 1437.017 |
+| Convergence open Max AR | 404.924 | 378.484 |
+| Convergence all-upgrade Max AR | 1379.433 | 1322.531 |
+
+Either setting alone produced mixed results, as did CPU-native targeting. These
+are core measurements on one machine, not guaranteed whole-app improvements.
+More cross-crate optimization can increase build time; the release-mode core
+suite passed 205 tests, including exact-arithmetic promotion and DP parity checks.
+
+Profile-guided optimization (PGO), added to the combined settings, reduced broad
+search medians by 22–39% versus defaults in a separate reversed-order comparison,
+including named cases excluded from training. It is not enabled for releases:
+transferring the benchmark profiles to a separate frontier client produced many
+missing-function-profile warnings. A shipping PGO pipeline needs training and
+verification against the actual desktop build. No allocator, BigInt replacement,
+or explicit SIMD dependency was justified by these experiments.
+
+See [Cargo profiles](https://doc.rust-lang.org/cargo/reference/profiles.html) and
+the [Rust PGO workflow](https://doc.rust-lang.org/rustc/profile-guided-optimization.html).
+
 ## Exact scoring measurements
 
 The [numerical contract and identity](model-reference.md#numerical-contract-and-identity)
