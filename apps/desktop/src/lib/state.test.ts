@@ -4,6 +4,23 @@ import { defaultRequest, useDesktopStore } from "./state";
 import { buildOptimizeRequest, normalizeOptimizeRequest } from "./session";
 import type { CatalogDto, SolvedBuildDto } from "./types";
 
+it.each(["paths", "affinity_watch"] as const)("starting %s clears its previous outcome without hiding other notices", (scope) => {
+  useDesktopStore.setState({
+    error: "Previous analysis failed",
+    notices: [
+      { scope, tone: "warning", message: "Previous analysis stopped" },
+      { scope: "global", tone: "warning", message: "Saved rows were discarded" },
+    ],
+  });
+  const state = useDesktopStore.getState();
+  if (scope === "paths") state.beginPath("new-path");
+  else state.beginAffinity("new-affinity");
+  expect(useDesktopStore.getState().error).toBeNull();
+  expect(useDesktopStore.getState().notices).toEqual([
+    { scope: "global", tone: "warning", message: "Saved rows were discarded" },
+  ]);
+});
+
 const row: SolvedBuildDto = {
   weaponId: 1,
   weaponName: "Uchigatana",
@@ -27,6 +44,47 @@ const row: SolvedBuildDto = {
   aowRoute: null,
   score: 500,
 };
+
+const routeRow: SolvedBuildDto = {
+  ...row,
+  weaponTypeName: "Katana",
+  requirements: { strStat: 11, dex: 15, intStat: 0, fai: 0, arc: 0 },
+  effectiveScaling: { str: 0.2, dex: 1.4, int: 0, fai: 0, arc: 0 },
+  aowRoute: {
+    routeId: "light", routeLabel: "Light", routePriority: 0, buffActivationActionId: null,
+    actions: [{
+      actionId: "attack", actionOrder: 0, staminaCost: 10,
+      hits: [{
+        sheetRow: 1, hitOrder: 0, rawName: "Unsheathe", damage: row.ar, poiseDamage: 10,
+        statusBuildup: { bleed: 45, frost: 0, poison: 0, scarletRot: 0, sleep: 0, madness: 0, death: 0 },
+        physicalAttackAttribute: "Slash", buffActive: false, warnings: [],
+        effects: [{
+          effectId: 1, effectName: "Attack", role: "damage", activationTiming: "hit",
+          isSupported: true, reason: "", attackPower: row.ar,
+          statusBuildup: { bleed: 0, frost: 0, poison: 0, scarletRot: 0, sleep: 0, madness: 0, death: 0 },
+        }],
+      }],
+    }],
+    firstHitDamage: 300, totalDamage: row.ar, totalPoiseDamage: 10,
+    totalStatusBuildup: { bleed: 45, frost: 0, poison: 0, scarletRot: 0, sleep: 0, madness: 0, death: 0 },
+    totalStaminaCost: 10,
+  },
+};
+
+function restoreCompareRows(rows: unknown[], profile = catalog("vanilla")) {
+  const payload = JSON.stringify({
+    version: 1, datasetVersion: profile.dataManifest.datasetVersion,
+    schemaVersion: profile.dataManifest.schemaVersion, modelVersion: profile.dataManifest.modelVersion, rows,
+  });
+  vi.stubGlobal("localStorage", { getItem: () => payload });
+  try {
+    useDesktopStore.setState({ compareBench: [], notices: [] });
+    useDesktopStore.getState().setCatalog(profile);
+    return useDesktopStore.getState();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+}
 
 describe("desktop result lifecycle", () => {
   beforeEach(() => {
@@ -152,6 +210,101 @@ describe("desktop result lifecycle", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  it("restores supported comparison rows including complete routes and optional older fields", () => {
+    const unnamedSkill = { ...row, aowId: 65535, aowName: null, score: 3.4028235e38 };
+    const restored = restoreCompareRows([row, routeRow, unnamedSkill]);
+    expect(restored.compareBench).toEqual([row, routeRow, unnamedSkill]);
+    expect(restored.notices).toEqual([]);
+    const convergence = { ...row, isSomber: true, upgrade: 15 };
+    expect(restoreCompareRows([convergence], catalog("convergence")).compareBench).toEqual([convergence]);
+    expect(restoreCompareRows([{ ...convergence, upgrade: 16 }], catalog("convergence")).compareBench).toEqual([]);
+    const statBounds = { ...row, stats: { strStat: 0, dex: 99, intStat: 0, fai: 99, arc: 0 } };
+    expect(restoreCompareRows([statBounds]).compareBench).toEqual([statBounds]);
+  });
+
+  it("discards malformed comparison records while retaining valid records and warning", () => {
+    const invalid: unknown[] = [
+      { ...row, weaponId: -1 }, { ...row, weaponId: 1.5 }, { ...row, weaponId: 2 ** 32 },
+      { ...row, isSomber: "false" }, { ...row, upgrade: 25.5 }, { ...row, upgrade: 26 },
+      { ...row, isSomber: true, upgrade: 11 }, { ...row, score: 1e100 },
+      { ...row, aowId: 65536 }, { ...row, aowId: -1 }, { ...row, aowName: 3 },
+      { ...row, stats: { ...row.stats, dex: 100 } }, { ...row, stats: { ...row.stats, dex: -1 } },
+      { ...row, stats: { ...row.stats, dex: 4.5 } }, { ...row, ar: { total: 500 } },
+      { ...row, ar: { ...row.ar, physical: "500" } }, { ...row, bleedBuildup: "45" },
+      { ...row, aowFullSequenceDamage: null }, { ...row, aowRoute: {} },
+      { ...routeRow, requirements: { strStat: 1 } }, { ...routeRow, effectiveScaling: { dex: 1 } },
+      { ...row, weaponTypeName: 2 },
+    ];
+    for (const [index, candidate] of invalid.entries()) {
+      const restored = restoreCompareRows([candidate, row]);
+      expect(restored.compareBench, `malformed record ${index}`).toEqual([row]);
+      expect(restored.notices.at(-1), `notice for record ${index}`).toMatchObject({ scope: "global", tone: "warning" });
+    }
+  });
+
+  it("rejects malformed numbers, arrays and metadata throughout restored route data", () => {
+    const mutations: ((value: SolvedBuildDto) => void)[] = [
+      (value) => { delete (value as Partial<SolvedBuildDto>).frostBuildup; },
+      (value) => { value.aowRoute!.actions = null as never; },
+      (value) => { value.aowRoute!.routePriority = -1; },
+      (value) => { value.aowRoute!.totalDamage.magic = NaN; },
+      (value) => { value.aowRoute!.totalStaminaCost = Infinity; },
+      (value) => { value.aowRoute!.buffActivationActionId = 1 as never; },
+      (value) => { value.aowRoute!.actions[0].actionOrder = 65536; },
+      (value) => { value.aowRoute!.actions[0].staminaCost = "10" as never; },
+      (value) => { value.aowRoute!.actions[0].hits[0].sheetRow = 0.5; },
+      (value) => { value.aowRoute!.actions[0].hits[0].buffActive = null as never; },
+      (value) => { value.aowRoute!.actions[0].hits[0].warnings = [1] as never; },
+      (value) => { value.aowRoute!.actions[0].hits[0].statusBuildup = {} as never; },
+      (value) => { value.aowRoute!.actions[0].hits[0].effects[0].effectId = 2 ** 32; },
+      (value) => { value.aowRoute!.actions[0].hits[0].effects[0].isSupported = "yes" as never; },
+      (value) => { value.aowRoute!.actions[0].hits[0].effects[0].attackPower = {} as never; },
+    ];
+    for (const [index, mutate] of mutations.entries()) {
+      const invalid = JSON.parse(JSON.stringify(routeRow)) as SolvedBuildDto;
+      mutate(invalid);
+      expect(restoreCompareRows([invalid, row]).compareBench, `route mutation ${index}`).toEqual([row]);
+    }
+  });
+
+  it("requires every serialized DTO field except supported optional metadata", () => {
+    function requiredPaths(value: unknown, prefix: string[] = []): string[][] {
+      if (typeof value !== "object" || value === null) return [];
+      return Object.entries(value).flatMap(([key, child]) => {
+        const path = [...prefix, key];
+        const optional = prefix.length === 0 && ["weaponTypeName", "requirements", "effectiveScaling"].includes(key);
+        const own = Array.isArray(value) || optional ? [] : [path];
+        return [...own, ...requiredPaths(child, path)];
+      });
+    }
+    for (const path of requiredPaths(routeRow)) {
+      // JSON cloning also separates repeated damage objects so each nested guard is exercised.
+      const invalid = JSON.parse(JSON.stringify(routeRow)) as Record<string, unknown>;
+      let parent = invalid;
+      for (const key of path.slice(0, -1)) parent = parent[key] as Record<string, unknown>;
+      delete parent[path.at(-1)!];
+      expect(restoreCompareRows([invalid, row]).compareBench, `missing ${path.join(".")}`).toEqual([row]);
+    }
+  });
+
+  it("rejects nonfinite JSON numbers and keeps the supported eight-row limit", () => {
+    const profile = catalog("vanilla");
+    const payload = JSON.stringify({
+      version: 1, datasetVersion: profile.dataManifest.datasetVersion,
+      schemaVersion: profile.dataManifest.schemaVersion, modelVersion: profile.dataManifest.modelVersion,
+      rows: [{ ...row, score: "overflow" }, row],
+    }).replace('"score":"overflow"', '"score":1e400');
+    vi.stubGlobal("localStorage", { getItem: () => payload });
+    try {
+      useDesktopStore.getState().setCatalog(profile);
+      expect(useDesktopStore.getState().compareBench).toEqual([row]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    const valid = Array.from({ length: 9 }, (_, index) => ({ ...row, weaponId: index + 1 }));
+    expect(restoreCompareRows([{}, ...valid]).compareBench).toEqual(valid.slice(0, 8));
   });
 
   it("keeps Paths and Affinity Watch horizons independent", () => {

@@ -151,35 +151,109 @@ function compareBenchKey(profileId: string): string {
   return `tarnisheds-arsenal.compareBench.v1.${profileId}`;
 }
 
-function readCompareBench(catalog: CatalogDto): SolvedBuildDto[] {
-  if (typeof localStorage === "undefined") return [];
+function readCompareBench(catalog: CatalogDto): { rows: SolvedBuildDto[]; notices: Notice[] } {
+  const empty = { rows: [], notices: [] };
+  if (typeof localStorage === "undefined") return empty;
   try {
     const raw = localStorage.getItem(compareBenchKey(catalog.dataManifest.profile.id));
-    if (!raw) return [];
-    const value = JSON.parse(raw) as { version?: unknown; datasetVersion?: unknown; schemaVersion?: unknown; modelVersion?: unknown; rows?: unknown };
-    if (value.version !== 1 || value.datasetVersion !== catalog.dataManifest.datasetVersion
+    if (!raw) return empty;
+    const value: unknown = JSON.parse(raw);
+    if (!isRecord(value) || value.version !== 1 || value.datasetVersion !== catalog.dataManifest.datasetVersion
       || value.schemaVersion !== catalog.dataManifest.schemaVersion
       || value.modelVersion !== catalog.dataManifest.modelVersion || !Array.isArray(value.rows)) {
-      return [];
+      return empty;
     }
-    return value.rows.filter(isStoredBuild).slice(0, 8);
+    const rows = value.rows.filter((row): row is SolvedBuildDto => isStoredBuild(row, catalog));
+    return {
+      rows: rows.slice(0, 8),
+      notices: rows.length === value.rows.length ? [] : [{
+        scope: "global", tone: "warning", message: "Some saved comparison builds were discarded because their data is invalid.",
+      }],
+    };
   } catch {
-    return [];
+    return empty;
   }
 }
 
-function isStoredBuild(row: unknown): row is SolvedBuildDto {
-  if (typeof row !== "object" || row === null) return false;
-  const build = row as Partial<SolvedBuildDto>;
-  return typeof build.weaponId === "number"
-    && typeof build.weaponName === "string"
-    && typeof build.affinity === "string"
-    && typeof build.upgrade === "number"
-    && typeof build.score === "number"
-    && typeof build.stats === "object" && build.stats !== null
-    && [build.stats.strStat, build.stats.dex, build.stats.intStat, build.stats.fai, build.stats.arc].every(Number.isFinite)
-    && typeof build.ar === "object" && build.ar !== null
-    && Number.isFinite(build.ar.total);
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isStoredInteger(value: unknown, max: number): boolean {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= max;
+}
+
+function isStoredFloat(value: unknown): boolean {
+  // DTO floats are f32; allow the shortest JSON spelling of their rounded values.
+  return typeof value === "number" && Number.isFinite(value) && Number.isFinite(Math.fround(value));
+}
+
+function isStoredStats(value: unknown, max: number): boolean {
+  return isRecord(value) && ["strStat", "dex", "intStat", "fai", "arc"]
+    .every((key) => isStoredInteger(value[key], max));
+}
+
+function isStoredDamage(value: unknown): boolean {
+  return isRecord(value) && ["physical", "magic", "fire", "lightning", "holy", "total"]
+    .every((key) => isStoredFloat(value[key]));
+}
+
+function isStoredStatus(value: unknown): boolean {
+  return isRecord(value) && ["bleed", "frost", "poison", "scarletRot", "sleep", "madness", "death"]
+    .every((key) => isStoredFloat(value[key]));
+}
+
+function isStoredEffect(value: unknown): boolean {
+  return isRecord(value) && isStoredInteger(value.effectId, 0xffff_ffff)
+    && ["effectName", "role", "activationTiming", "reason"].every((key) => typeof value[key] === "string")
+    && typeof value.isSupported === "boolean"
+    && isStoredDamage(value.attackPower) && isStoredStatus(value.statusBuildup);
+}
+
+function isStoredHit(value: unknown): boolean {
+  return isRecord(value) && isStoredInteger(value.sheetRow, 0xffff) && isStoredInteger(value.hitOrder, 0xffff)
+    && typeof value.rawName === "string" && typeof value.physicalAttackAttribute === "string"
+    && isStoredDamage(value.damage) && isStoredFloat(value.poiseDamage) && isStoredStatus(value.statusBuildup)
+    && typeof value.buffActive === "boolean"
+    && Array.isArray(value.effects) && value.effects.every(isStoredEffect)
+    && Array.isArray(value.warnings) && value.warnings.every((warning) => typeof warning === "string");
+}
+
+function isStoredAction(value: unknown): boolean {
+  return isRecord(value) && typeof value.actionId === "string" && isStoredInteger(value.actionOrder, 0xffff)
+    && isStoredFloat(value.staminaCost) && Array.isArray(value.hits) && value.hits.every(isStoredHit);
+}
+
+function isStoredRoute(value: unknown): boolean {
+  return isRecord(value) && typeof value.routeId === "string" && typeof value.routeLabel === "string"
+    && isStoredInteger(value.routePriority, 0xffff)
+    && (value.buffActivationActionId === null || typeof value.buffActivationActionId === "string")
+    && Array.isArray(value.actions) && value.actions.every(isStoredAction)
+    && isStoredFloat(value.firstHitDamage) && isStoredDamage(value.totalDamage)
+    && isStoredFloat(value.totalPoiseDamage) && isStoredStatus(value.totalStatusBuildup)
+    && isStoredFloat(value.totalStaminaCost);
+}
+
+function isStoredBuild(build: unknown, catalog: CatalogDto): build is SolvedBuildDto {
+  if (!isRecord(build)) return false;
+  const scaling = build.effectiveScaling;
+  return isStoredInteger(build.weaponId, 0xffff_ffff)
+    && typeof build.weaponName === "string" && typeof build.affinity === "string"
+    && typeof build.isSomber === "boolean"
+    && isStoredInteger(build.upgrade, build.isSomber
+      ? catalog.dataManifest.rules.somberMaxUpgrade : catalog.dataManifest.rules.standardMaxUpgrade)
+    && isStoredStats(build.stats, 99)
+    && (build.weaponTypeName === undefined || typeof build.weaponTypeName === "string")
+    && (build.requirements === undefined || isStoredStats(build.requirements, 0xff))
+    && (scaling === undefined || (isRecord(scaling)
+      && ["str", "dex", "int", "fai", "arc"].every((key) => isStoredFloat(scaling[key]))))
+    && isStoredDamage(build.ar)
+    && (build.aowId === null || isStoredInteger(build.aowId, 0xffff))
+    && (build.aowName === null || typeof build.aowName === "string")
+    && ["bleedBuildup", "bleedBuildupAdd", "frostBuildup", "poisonBuildup", "scarletRotBuildup",
+      "sleepBuildup", "madnessBuildup", "deathBuildup", "aowFirstHitDamage", "aowFullSequenceDamage", "score"]
+      .every((key) => isStoredFloat(build[key]))
+    && (build.aowRoute === null || isStoredRoute(build.aowRoute));
 }
 
 function writeCompareBench(catalog: CatalogDto | null, rows: SolvedBuildDto[]): Notice[] {
@@ -300,6 +374,7 @@ export const useDesktopStore = create<DesktopState>()((set) => ({
       ?? catalog.classes[0]
       ?? classMeta(null, "Samurai");
     const resetClass = classInfo.name !== state.request.className;
+    const restoredComparisons = readCompareBench(catalog);
     return {
       catalog,
       catalogStatus: "ready",
@@ -316,7 +391,8 @@ export const useDesktopStore = create<DesktopState>()((set) => ({
           ? state.request.objective
           : catalog.objectiveIds[0] ?? "max_ar",
       }, catalog.dataManifest.rules),
-      compareBench: readCompareBench(catalog),
+      compareBench: restoredComparisons.rows,
+      notices: [...state.notices, ...restoredComparisons.notices],
     };
   }),
   setCatalogFailure: (catalogError) => set({ catalogStatus: "error", catalogError }),
@@ -625,6 +701,8 @@ export const useDesktopStore = create<DesktopState>()((set) => ({
       generation = state.pathGeneration + 1;
       return {
         isPathBusy: true,
+        error: null,
+        notices: state.notices.filter((notice) => notice.scope !== "paths"),
         pathGeneration: generation,
         activePathSignature,
         activePathJobId: null,
@@ -650,6 +728,8 @@ export const useDesktopStore = create<DesktopState>()((set) => ({
       generation = state.affinityGeneration + 1;
       return {
         isAffinityBusy: true,
+        error: null,
+        notices: state.notices.filter((notice) => notice.scope !== "affinity_watch"),
         affinityGeneration: generation,
         activeAffinitySignature,
         activeAffinityJobId: null,

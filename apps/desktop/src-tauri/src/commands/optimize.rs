@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
+use std::time::{Duration, Instant};
 
 #[cfg(test)]
 use er_optimizer_core::optimize;
@@ -145,30 +146,42 @@ pub fn start_solve_build(
     let (core_request, data) = prepare_solve_build(request, &state)?;
     let (job_id, cancel_flag, status) = start_analysis_job(&state)?;
     let job_id_for_task = job_id.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let (result, error, cancelled) = match optimize_with_cancel(&core_request, &data, || {
-            !cancel_flag.load(Ordering::Relaxed)
-        }) {
-            Ok(mut rows) if !cancel_flag.load(Ordering::Relaxed) => {
-                (rows.pop().map(SolvedBuildDto::from), None, false)
+    let job_id_for_finish = job_id.clone();
+    let cancel_for_finish = Arc::clone(&cancel_flag);
+    crate::spawn_supervised_job(
+        status,
+        move || {
+            let (result, error, cancelled) =
+                match optimize_with_cancel(&core_request, &data, || {
+                    !cancel_flag.load(Ordering::Relaxed)
+                }) {
+                    Ok(mut rows) if !cancel_flag.load(Ordering::Relaxed) => {
+                        (rows.pop().map(SolvedBuildDto::from), None, false)
+                    }
+                    Ok(_) => (None, None, true),
+                    Err(message) if message == "cancelled" => (None, None, true),
+                    Err(message) => (None, Some(message), false),
+                };
+            AnalysisFinishedDto {
+                job_id: job_id_for_task,
+                kind: AnalysisJobKindDto::SolveBuild,
+                cancelled,
+                result,
+                points: Vec::new(),
+                frontier: Vec::new(),
+                error,
             }
-            Ok(_) => (None, None, true),
-            Err(message) if message == "cancelled" => (None, None, true),
-            Err(message) => (None, Some(message), false),
-        };
-        let finished = AnalysisFinishedDto {
-            job_id: job_id_for_task,
-            kind: AnalysisJobKindDto::SolveBuild,
-            cancelled,
-            result,
-            points: Vec::new(),
-            frontier: Vec::new(),
-            error,
-        };
-        if let Ok(mut guard) = status.lock() {
-            guard.finished = Some(finished);
-        }
-    });
+        },
+        move |status, outcome| {
+            publish_analysis_finished(
+                status,
+                outcome,
+                job_id_for_finish,
+                AnalysisJobKindDto::SolveBuild,
+                &cancel_for_finish,
+            );
+        },
+    );
     Ok(StartSearchResponseDto { job_id })
 }
 
@@ -292,33 +305,44 @@ pub fn start_upgrade_series(
     let (core_request, data, max_upgrade, objective) = prepare_upgrade_series(request, &state)?;
     let (job_id, cancel_flag, status) = start_analysis_job(&state)?;
     let job_id_for_task = job_id.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let result = evaluate_upgrade_series_with_cancel(
-            &core_request,
-            &data,
-            max_upgrade,
-            objective,
-            || !cancel_flag.load(Ordering::Relaxed),
-        );
-        let (points, error, cancelled) = match result {
-            Ok(points) if !cancel_flag.load(Ordering::Relaxed) => (points, None, false),
-            Ok(_) => (Vec::new(), None, true),
-            Err(error) if error.message == "cancelled" => (Vec::new(), None, true),
-            Err(error) => (Vec::new(), Some(error.message), false),
-        };
-        let finished = AnalysisFinishedDto {
-            job_id: job_id_for_task,
-            kind: AnalysisJobKindDto::UpgradeSeries,
-            cancelled,
-            result: None,
-            points,
-            frontier: Vec::new(),
-            error,
-        };
-        if let Ok(mut guard) = status.lock() {
-            guard.finished = Some(finished);
-        }
-    });
+    let job_id_for_finish = job_id.clone();
+    let cancel_for_finish = Arc::clone(&cancel_flag);
+    crate::spawn_supervised_job(
+        status,
+        move || {
+            let result = evaluate_upgrade_series_with_cancel(
+                &core_request,
+                &data,
+                max_upgrade,
+                objective,
+                || !cancel_flag.load(Ordering::Relaxed),
+            );
+            let (points, error, cancelled) = match result {
+                Ok(points) if !cancel_flag.load(Ordering::Relaxed) => (points, None, false),
+                Ok(_) => (Vec::new(), None, true),
+                Err(error) if error.message == "cancelled" => (Vec::new(), None, true),
+                Err(error) => (Vec::new(), Some(error.message), false),
+            };
+            AnalysisFinishedDto {
+                job_id: job_id_for_task,
+                kind: AnalysisJobKindDto::UpgradeSeries,
+                cancelled,
+                result: None,
+                points,
+                frontier: Vec::new(),
+                error,
+            }
+        },
+        move |status, outcome| {
+            publish_analysis_finished(
+                status,
+                outcome,
+                job_id_for_finish,
+                AnalysisJobKindDto::UpgradeSeries,
+                &cancel_for_finish,
+            );
+        },
+    );
     Ok(StartSearchResponseDto { job_id })
 }
 
@@ -414,17 +438,21 @@ pub fn start_ar_bleed_frontier(
     let (request, data) = prepare_ar_bleed_frontier(request, &state)?;
     let (job_id, cancel_flag, status) = start_analysis_job(&state)?;
     let task_id = job_id.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let result =
-            evaluate_ar_bleed_frontier(&request, &data, || !cancel_flag.load(Ordering::Relaxed));
-        let (frontier, error, cancelled) = match result {
-            Ok(points) if !cancel_flag.load(Ordering::Relaxed) => (points, None, false),
-            Ok(_) => (Vec::new(), None, true),
-            Err(error) if error.message == "cancelled" => (Vec::new(), None, true),
-            Err(error) => (Vec::new(), Some(error.message), false),
-        };
-        if let Ok(mut guard) = status.lock() {
-            guard.finished = Some(AnalysisFinishedDto {
+    let job_id_for_finish = job_id.clone();
+    let cancel_for_finish = Arc::clone(&cancel_flag);
+    crate::spawn_supervised_job(
+        status,
+        move || {
+            let result = evaluate_ar_bleed_frontier(&request, &data, || {
+                !cancel_flag.load(Ordering::Relaxed)
+            });
+            let (frontier, error, cancelled) = match result {
+                Ok(points) if !cancel_flag.load(Ordering::Relaxed) => (points, None, false),
+                Ok(_) => (Vec::new(), None, true),
+                Err(error) if error.message == "cancelled" => (Vec::new(), None, true),
+                Err(error) => (Vec::new(), Some(error.message), false),
+            };
+            AnalysisFinishedDto {
                 job_id: task_id,
                 kind: AnalysisJobKindDto::ArBleedFrontier,
                 cancelled,
@@ -432,10 +460,44 @@ pub fn start_ar_bleed_frontier(
                 points: Vec::new(),
                 frontier,
                 error,
-            });
-        }
-    });
+            }
+        },
+        move |status, outcome| {
+            publish_analysis_finished(
+                status,
+                outcome,
+                job_id_for_finish,
+                AnalysisJobKindDto::ArBleedFrontier,
+                &cancel_for_finish,
+            );
+        },
+    );
     Ok(StartSearchResponseDto { job_id })
+}
+
+fn publish_analysis_finished(
+    status: &mut AnalysisJobStatusDto,
+    outcome: Result<AnalysisFinishedDto, String>,
+    job_id: String,
+    kind: AnalysisJobKindDto,
+    cancel: &CancelFlag,
+) {
+    let mut finished = outcome.unwrap_or_else(|error| AnalysisFinishedDto {
+        job_id,
+        kind,
+        cancelled: false,
+        result: None,
+        points: Vec::new(),
+        frontier: Vec::new(),
+        error: Some(error),
+    });
+    if finished.error.is_none() && cancel.load(Ordering::Relaxed) {
+        finished.cancelled = true;
+        finished.result = None;
+        finished.points.clear();
+        finished.frontier.clear();
+    }
+    status.finished = Some(finished);
 }
 
 fn start_analysis_job(
@@ -467,7 +529,9 @@ fn start_analysis_job(
 
 #[tauri::command]
 pub fn cancel_analysis(job_id: String, state: State<'_, AppState>) -> Result<bool, AppError> {
-    state.analysis_jobs.cancel(&job_id)
+    state
+        .analysis_jobs
+        .cancel(&job_id, |status| status.finished.is_some())
 }
 
 #[tauri::command]
@@ -506,62 +570,98 @@ pub fn start_search(
     )?;
 
     let job_id_for_task = job_id.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let progress_job_id = job_id_for_task.clone();
-        let plan = match prepare_search_with_cancel(&core_request, &data, || {
-            !cancel_flag.load(Ordering::Relaxed)
-        }) {
-            Ok(plan) => plan,
-            Err(message) => {
-                if let Ok(mut guard) = status.lock() {
-                    guard.finished = Some(SearchFinishedDto {
+    let job_id_for_finish = job_id.clone();
+    let cancel_for_finish = Arc::clone(&cancel_flag);
+    crate::spawn_supervised_job(
+        Arc::clone(&status),
+        move || {
+            let progress_job_id = job_id_for_task.clone();
+            let plan = match prepare_search_with_cancel(&core_request, &data, || {
+                !cancel_flag.load(Ordering::Relaxed)
+            }) {
+                Ok(plan) => plan,
+                Err(message) => {
+                    return SearchFinishedDto {
                         job_id: job_id_for_task,
                         cancelled: message == "cancelled",
                         rows: Vec::new(),
                         error: (message != "cancelled").then_some(message),
-                    });
+                    };
                 }
-                return;
-            }
-        };
-        let result = optimize_prepared_with_progress(&plan, 10_000, |snapshot| {
-            if cancel_flag.load(Ordering::Relaxed) {
-                return false;
-            }
-            let mut payload = SearchProgressDto::from(snapshot);
-            payload.job_id = progress_job_id.clone();
-            if let Ok(mut guard) = status.lock() {
-                guard.progress = Some(payload);
-            }
-            true
-        });
+            };
+            let mut last_progress_at: Option<Instant> = None;
+            let mut scoring_complete = false;
+            let result = optimize_prepared_with_progress(&plan, 10_000, |snapshot| {
+                if cancel_flag.load(Ordering::Relaxed) {
+                    return false;
+                }
+                // Hydration polls cancellation at each row/route boundary without
+                // advancing scoring counts. Publish status at a bounded rate.
+                let first_scoring_completion =
+                    !scoring_complete && snapshot.checked == snapshot.total;
+                scoring_complete |= snapshot.checked == snapshot.total;
+                if !first_scoring_completion
+                    && last_progress_at.is_some_and(|at| at.elapsed() < Duration::from_millis(100))
+                {
+                    return true;
+                }
+                last_progress_at = Some(Instant::now());
+                let mut payload = SearchProgressDto::from(snapshot);
+                payload.job_id = progress_job_id.clone();
+                if let Ok(mut guard) = status.lock() {
+                    guard.progress = Some(payload);
+                }
+                true
+            });
 
-        let (rows, error, cancelled) = match result {
-            Ok(rows) => (
-                rows.into_iter().map(SolvedBuildDto::from).collect(),
-                None,
-                false,
-            ),
-            Err(message) if message == "cancelled" => (Vec::new(), None, true),
-            Err(message) => (Vec::new(), Some(message), false),
-        };
-        let finished = SearchFinishedDto {
-            job_id: job_id_for_task.clone(),
-            cancelled,
-            rows,
-            error,
-        };
-        if let Ok(mut guard) = status.lock() {
-            guard.finished = Some(finished);
-        }
-    });
+            let (rows, error, cancelled) = match result {
+                Ok(rows) => (
+                    rows.into_iter().map(SolvedBuildDto::from).collect(),
+                    None,
+                    false,
+                ),
+                Err(message) if message == "cancelled" => (Vec::new(), None, true),
+                Err(message) => (Vec::new(), Some(message), false),
+            };
+            SearchFinishedDto {
+                job_id: job_id_for_task.clone(),
+                cancelled,
+                rows,
+                error,
+            }
+        },
+        move |status, outcome| {
+            publish_search_finished(status, outcome, job_id_for_finish, &cancel_for_finish);
+        },
+    );
 
     Ok(StartSearchResponseDto { job_id })
 }
 
+fn publish_search_finished(
+    status: &mut SearchJobStatusDto,
+    outcome: Result<SearchFinishedDto, String>,
+    job_id: String,
+    cancel: &CancelFlag,
+) {
+    let mut finished = outcome.unwrap_or_else(|error| SearchFinishedDto {
+        job_id,
+        cancelled: false,
+        rows: Vec::new(),
+        error: Some(error),
+    });
+    if finished.error.is_none() && cancel.load(Ordering::Relaxed) {
+        finished.cancelled = true;
+        finished.rows.clear();
+    }
+    status.finished = Some(finished);
+}
+
 #[tauri::command]
 pub fn cancel_search(job_id: String, state: State<'_, AppState>) -> Result<bool, AppError> {
-    state.search_jobs.cancel(&job_id)
+    state
+        .search_jobs
+        .cancel(&job_id, |status| status.finished.is_some())
 }
 
 #[tauri::command]
@@ -705,6 +805,390 @@ fn weapon_reinforcement_info(
 #[cfg(test)]
 mod integration_tests {
     use super::*;
+
+    #[test]
+    fn supervised_search_worker_recovers_panics_before_and_during_calculation() {
+        use std::sync::Mutex;
+        use std::sync::atomic::{AtomicBool, AtomicUsize};
+
+        let state = crate::test_app_state();
+        for during_calculation in [false, true] {
+            let registry = crate::JobRegistry::new("search");
+            let status = Arc::new(Mutex::new(SearchJobStatusDto {
+                progress: None,
+                finished: None,
+            }));
+            let cancel = Arc::new(AtomicBool::new(false));
+            registry
+                .insert_if_idle(
+                    "first".into(),
+                    AsyncJobHandle {
+                        cancel: Arc::clone(&cancel),
+                        status: Arc::clone(&status),
+                    },
+                    |status| status.finished.is_some(),
+                )
+                .unwrap();
+            let core_request = OptimizeRequest::try_from(&crate::test_optimize_request()).unwrap();
+            let data = Arc::clone(
+                &state
+                    .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+                    .unwrap()
+                    .data,
+            );
+            let injected = Arc::new(AtomicBool::new(false));
+            let worker_injected = Arc::clone(&injected);
+            let publications = Arc::new(AtomicUsize::new(0));
+            let published = Arc::clone(&publications);
+            let publish_cancel = Arc::clone(&cancel);
+            let supervisor = crate::spawn_supervised_job(
+                Arc::clone(&status),
+                move || {
+                    if !during_calculation {
+                        worker_injected.store(true, Ordering::Relaxed);
+                        panic!("injected before Search calculation");
+                    }
+                    let mut checkpoints = 0;
+                    let rows = optimize_with_cancel(&core_request, &data, || {
+                        checkpoints += 1;
+                        if checkpoints == 3 {
+                            worker_injected.store(true, Ordering::Relaxed);
+                            panic!("injected inside Search calculation");
+                        }
+                        true
+                    })
+                    .unwrap();
+                    SearchFinishedDto {
+                        job_id: "first".into(),
+                        cancelled: false,
+                        rows: rows.into_iter().map(SolvedBuildDto::from).collect(),
+                        error: None,
+                    }
+                },
+                move |status, outcome| {
+                    published.fetch_add(1, Ordering::Relaxed);
+                    publish_search_finished(status, outcome, "first".into(), &publish_cancel);
+                },
+            );
+            tauri::async_runtime::block_on(supervisor).unwrap();
+            assert!(injected.load(Ordering::Relaxed));
+            assert_eq!(publications.load(Ordering::Relaxed), 1);
+            let terminal = status.lock().unwrap();
+            let finished = terminal.finished.as_ref().unwrap();
+            assert!(finished.error.is_some());
+            assert!(!finished.cancelled);
+            assert!(finished.rows.is_empty());
+            drop(terminal);
+            registry
+                .insert_if_idle(
+                    "restart".into(),
+                    AsyncJobHandle {
+                        cancel,
+                        status: Arc::new(Mutex::new(SearchJobStatusDto {
+                            progress: None,
+                            finished: None,
+                        })),
+                    },
+                    |status| status.finished.is_some(),
+                )
+                .expect("joined failed Search job permits restart");
+        }
+    }
+
+    #[test]
+    fn supervised_analysis_workers_recover_panics_before_and_during_calculation() {
+        use std::sync::Mutex;
+        use std::sync::atomic::{AtomicBool, AtomicUsize};
+
+        let state = crate::test_app_state();
+        let base = crate::test_optimize_request();
+        let solved = run_search_inner(base.clone(), &state)
+            .unwrap()
+            .pop()
+            .unwrap();
+        for kind in [
+            AnalysisJobKindDto::SolveBuild,
+            AnalysisJobKindDto::UpgradeSeries,
+            AnalysisJobKindDto::ArBleedFrontier,
+        ] {
+            for during_calculation in [false, true] {
+                let (core_request, data) = match kind {
+                    AnalysisJobKindDto::SolveBuild => prepare_solve_build(
+                        SolveBuildRequestDto {
+                            base: base.clone(),
+                            weapon_name: solved.weapon_name.clone(),
+                            affinity: Some(solved.affinity.clone()),
+                            aow_name: solved.aow_name.clone(),
+                        },
+                        &state,
+                    )
+                    .unwrap(),
+                    AnalysisJobKindDto::UpgradeSeries => {
+                        let (request, data, _, _) = prepare_upgrade_series(
+                            UpgradeSeriesRequestDto {
+                                base: base.clone(),
+                                solved: solved.clone(),
+                                max_upgrade: 0,
+                            },
+                            &state,
+                        )
+                        .unwrap();
+                        (request, data)
+                    }
+                    AnalysisJobKindDto::ArBleedFrontier => prepare_ar_bleed_frontier(
+                        ArBleedFrontierRequestDto {
+                            base: base.clone(),
+                            solved: solved.clone(),
+                        },
+                        &state,
+                    )
+                    .unwrap(),
+                };
+                let registry = crate::JobRegistry::new("analysis");
+                let status = Arc::new(Mutex::new(AnalysisJobStatusDto { finished: None }));
+                let cancel = Arc::new(AtomicBool::new(false));
+                registry
+                    .insert_if_idle(
+                        "first".into(),
+                        AsyncJobHandle {
+                            cancel: Arc::clone(&cancel),
+                            status: Arc::clone(&status),
+                        },
+                        |status| status.finished.is_some(),
+                    )
+                    .unwrap();
+                let injected = Arc::new(AtomicBool::new(false));
+                let worker_injected = Arc::clone(&injected);
+                let publications = Arc::new(AtomicUsize::new(0));
+                let published = Arc::clone(&publications);
+                let publish_cancel = Arc::clone(&cancel);
+                let supervisor = crate::spawn_supervised_job(
+                    Arc::clone(&status),
+                    move || {
+                        if !during_calculation {
+                            worker_injected.store(true, Ordering::Relaxed);
+                            panic!("injected before Analysis calculation");
+                        }
+                        let mut checkpoints = 0;
+                        let checkpoint = || {
+                            checkpoints += 1;
+                            if checkpoints == 3 {
+                                worker_injected.store(true, Ordering::Relaxed);
+                                panic!("injected inside Analysis calculation");
+                            }
+                            true
+                        };
+                        let mut finished = AnalysisFinishedDto {
+                            job_id: "first".into(),
+                            kind,
+                            cancelled: false,
+                            result: None,
+                            points: Vec::new(),
+                            frontier: Vec::new(),
+                            error: None,
+                        };
+                        match kind {
+                            AnalysisJobKindDto::SolveBuild => {
+                                finished.result =
+                                    optimize_with_cancel(&core_request, &data, checkpoint)
+                                        .unwrap()
+                                        .pop()
+                                        .map(SolvedBuildDto::from)
+                            }
+                            AnalysisJobKindDto::UpgradeSeries => {
+                                finished.points = evaluate_upgrade_series_with_cancel(
+                                    &core_request,
+                                    &data,
+                                    0,
+                                    core_request.objective,
+                                    checkpoint,
+                                )
+                                .unwrap()
+                            }
+                            AnalysisJobKindDto::ArBleedFrontier => {
+                                finished.frontier =
+                                    evaluate_ar_bleed_frontier(&core_request, &data, checkpoint)
+                                        .unwrap()
+                            }
+                        }
+                        finished
+                    },
+                    move |status, outcome| {
+                        published.fetch_add(1, Ordering::Relaxed);
+                        publish_analysis_finished(
+                            status,
+                            outcome,
+                            "first".into(),
+                            kind,
+                            &publish_cancel,
+                        );
+                    },
+                );
+                tauri::async_runtime::block_on(supervisor).unwrap();
+                assert!(
+                    injected.load(Ordering::Relaxed),
+                    "{kind:?} must reach injected panic"
+                );
+                assert_eq!(publications.load(Ordering::Relaxed), 1);
+                let terminal = status.lock().unwrap();
+                let finished = terminal.finished.as_ref().unwrap();
+                assert_eq!(finished.kind, kind);
+                assert!(finished.error.is_some());
+                assert!(!finished.cancelled);
+                assert!(finished.result.is_none());
+                assert!(finished.points.is_empty());
+                assert!(finished.frontier.is_empty());
+                drop(terminal);
+                registry
+                    .insert_if_idle(
+                        "restart".into(),
+                        AsyncJobHandle {
+                            cancel,
+                            status: Arc::new(Mutex::new(AnalysisJobStatusDto { finished: None })),
+                        },
+                        |status| status.finished.is_some(),
+                    )
+                    .expect("joined failed Analysis job permits restart");
+            }
+        }
+    }
+
+    #[test]
+    fn search_publisher_cancels_completed_rows_and_preserves_errors() {
+        let state = crate::test_app_state();
+        let rows = run_search_inner(crate::test_optimize_request(), &state).unwrap();
+        assert!(!rows.is_empty());
+        let cancel = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let mut status = SearchJobStatusDto {
+            progress: None,
+            finished: None,
+        };
+        publish_search_finished(
+            &mut status,
+            Ok(SearchFinishedDto {
+                job_id: "search-publish".into(),
+                cancelled: false,
+                rows,
+                error: None,
+            }),
+            "search-publish".into(),
+            &cancel,
+        );
+        let finished = status.finished.take().unwrap();
+        assert!(finished.cancelled);
+        assert!(finished.rows.is_empty());
+        assert!(finished.error.is_none());
+
+        for outcome in [
+            Ok(SearchFinishedDto {
+                job_id: "search-publish".into(),
+                cancelled: false,
+                rows: Vec::new(),
+                error: Some("calculation failed".into()),
+            }),
+            Err(String::from("worker panicked")),
+        ] {
+            let expected_error = match &outcome {
+                Ok(finished) => finished.error.as_deref().unwrap(),
+                Err(error) => error.as_str(),
+            }
+            .to_string();
+            publish_search_finished(&mut status, outcome, "search-publish".into(), &cancel);
+            let finished = status.finished.take().unwrap();
+            assert_eq!(finished.error.as_deref(), Some(expected_error.as_str()));
+            assert!(!finished.cancelled);
+            assert!(finished.rows.is_empty());
+        }
+    }
+
+    #[test]
+    fn analysis_publisher_cancels_every_payload_kind_and_preserves_errors() {
+        let state = crate::test_app_state();
+        let solved = run_search_inner(crate::test_optimize_request(), &state)
+            .unwrap()
+            .pop()
+            .unwrap();
+        let cancel = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let mut status = AnalysisJobStatusDto { finished: None };
+        for kind in [
+            AnalysisJobKindDto::SolveBuild,
+            AnalysisJobKindDto::UpgradeSeries,
+            AnalysisJobKindDto::ArBleedFrontier,
+        ] {
+            let mut completed = AnalysisFinishedDto {
+                job_id: "analysis-publish".into(),
+                kind,
+                cancelled: false,
+                result: None,
+                points: Vec::new(),
+                frontier: Vec::new(),
+                error: None,
+            };
+            match kind {
+                AnalysisJobKindDto::SolveBuild => completed.result = Some(solved.clone()),
+                AnalysisJobKindDto::UpgradeSeries => completed.points.push(UpgradePointDto {
+                    upgrade: solved.upgrade,
+                    metric: solved.score,
+                }),
+                AnalysisJobKindDto::ArBleedFrontier => {
+                    completed.frontier.push(ArBleedFrontierPointDto {
+                        result: solved.clone(),
+                        ar_loss: 0.0,
+                        ar_loss_percent: 0.0,
+                        minimum_ar_loss_bps: 0,
+                        bleed_gain: 0.0,
+                    })
+                }
+            }
+            publish_analysis_finished(
+                &mut status,
+                Ok(completed),
+                "analysis-publish".into(),
+                kind,
+                &cancel,
+            );
+            let finished = status.finished.take().unwrap();
+            assert_eq!(finished.kind, kind);
+            assert!(finished.cancelled);
+            assert!(finished.result.is_none());
+            assert!(finished.points.is_empty());
+            assert!(finished.frontier.is_empty());
+            assert!(finished.error.is_none());
+
+            for outcome in [
+                Ok(AnalysisFinishedDto {
+                    job_id: "analysis-publish".into(),
+                    kind,
+                    cancelled: false,
+                    result: None,
+                    points: Vec::new(),
+                    frontier: Vec::new(),
+                    error: Some("calculation failed".into()),
+                }),
+                Err(String::from("worker panicked")),
+            ] {
+                let expected_error = match &outcome {
+                    Ok(finished) => finished.error.as_deref().unwrap(),
+                    Err(error) => error.as_str(),
+                }
+                .to_string();
+                publish_analysis_finished(
+                    &mut status,
+                    outcome,
+                    "analysis-publish".into(),
+                    kind,
+                    &cancel,
+                );
+                let finished = status.finished.take().unwrap();
+                assert_eq!(finished.kind, kind);
+                assert_eq!(finished.error.as_deref(), Some(expected_error.as_str()));
+                assert!(!finished.cancelled);
+                assert!(finished.result.is_none());
+                assert!(finished.points.is_empty());
+                assert!(finished.frontier.is_empty());
+            }
+        }
+    }
 
     #[test]
     fn solving_a_saved_loadout_preserves_requested_stat_locks() {
@@ -945,7 +1429,7 @@ mod integration_tests {
         assert!(
             state
                 .analysis_jobs
-                .cancel(&job_id)
+                .cancel(&job_id, |status| status.finished.is_some())
                 .expect("job is cancellable")
         );
         assert!(cancel_flag.load(Ordering::Relaxed));

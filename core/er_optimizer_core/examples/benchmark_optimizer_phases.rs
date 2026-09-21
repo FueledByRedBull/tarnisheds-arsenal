@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use er_optimizer_core::{
-    GameData, OptimizeObjective, OptimizeRequest, ProfiledOptimizeResult, SomberFilter, Stats,
-    load_game_data_with_manifest, optimize_profiled,
+    GameData, OptimizeObjective, OptimizeRequest, ProfiledOptimizeResult, ResultGrouping,
+    SomberFilter, Stats, load_game_data_with_manifest, optimize_profiled,
 };
 use serde_json::json;
 
@@ -139,6 +139,7 @@ fn print_case(
             "kind": "case",
             "name": name,
             "objective": request.objective.as_str(),
+            "request": format!("{request:?}"),
             "weaponCandidates": first.estimate.weapon_candidates,
             "combinations": first.estimate.combinations,
             "rows": first.rows.len(),
@@ -180,6 +181,12 @@ fn cases() -> Vec<(&'static str, OptimizeRequest)> {
     max_physical.objective = OptimizeObjective::MaxPhysicalAr;
     let mut max_ar_export = max_ar.clone();
     max_ar_export.top_k = 500;
+    let mut max_ar_25 = max_ar.clone();
+    max_ar_25.top_k = 25;
+    let mut loadouts_25 = max_ar_25.clone();
+    loadouts_25.result_grouping = ResultGrouping::Loadout;
+    let mut loadouts_export = loadouts_25.clone();
+    loadouts_export.top_k = 500;
     let high_level_max_ar = high_level_request();
     let all_upgrades_high_level_max_ar = all_upgrades_high_level_request();
 
@@ -197,11 +204,35 @@ fn cases() -> Vec<(&'static str, OptimizeRequest)> {
     let mut full_sequence = first_hit.clone();
     full_sequence.objective = OptimizeObjective::AowFullSequence;
 
+    let mut wild_strikes = high_level_request();
+    wild_strikes.character_level = 101;
+    wild_strikes.current_stats.str = 20;
+    wild_strikes.current_stats.dex = 20;
+    wild_strikes.current_stats.arc = 20;
+    wild_strikes.locked_combat_stats = [Some(20); 5];
+    wild_strikes.weapon_name = Some("Claymore".to_string());
+    wild_strikes.aow_name = Some("Wild Strikes".to_string());
+    wild_strikes.objective = OptimizeObjective::AowFullSequence;
+    wild_strikes.result_grouping = ResultGrouping::Loadout;
+    wild_strikes.exact_upgrade = false;
+    wild_strikes.top_k = 25;
+    let mut wild_strikes_export = wild_strikes.clone();
+    wild_strikes_export.top_k = 500;
+    let mut war_cry_export = wild_strikes_export.clone();
+    war_cry_export.aow_name = Some("War Cry".to_string());
+    let mut flame_skewer = wild_strikes.clone();
+    flame_skewer.aow_name = Some("Flame Skewer".to_string());
+    flame_skewer.affinity = Some("Fire".to_string());
+    flame_skewer.exact_upgrade = true;
+
     max_ar.objective = OptimizeObjective::MaxAr;
     vec![
         ("open-ranking-max-ar", max_ar),
+        ("open-ranking-max-ar-25", max_ar_25),
         ("open-ranking-physical", max_physical),
         ("open-ranking-max-ar-export-500", max_ar_export),
+        ("open-loadouts-max-ar-25", loadouts_25),
+        ("open-loadouts-max-ar-export-500", loadouts_export),
         ("open-ranking-max-ar-high-level", high_level_max_ar),
         (
             "all-upgrades-max-ar-high-level",
@@ -211,6 +242,10 @@ fn cases() -> Vec<(&'static str, OptimizeRequest)> {
         ("katana-bleed-export-500", bleed_export),
         ("fixed-aow-first-hit", first_hit),
         ("fixed-aow-full-sequence", full_sequence),
+        ("locked-wild-strikes-25", wild_strikes),
+        ("locked-wild-strikes-export-500", wild_strikes_export),
+        ("locked-war-cry-export-500", war_cry_export),
+        ("locked-flame-skewer-control", flame_skewer),
     ]
 }
 

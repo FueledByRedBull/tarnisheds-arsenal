@@ -511,6 +511,34 @@ pub(crate) fn calculate_aow_routes_scaled(
     damage_multiplier: f32,
     data: &GameData,
 ) -> Result<Vec<AowRouteResult>, String> {
+    calculate_aow_routes_scaled_with_cancel(
+        weapon,
+        attack_rows,
+        upgrade,
+        stats,
+        effective_str_value,
+        damage_multiplier,
+        data,
+        None,
+        &mut || true,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn calculate_aow_routes_scaled_with_cancel(
+    weapon: &Weapon,
+    attack_rows: &[&AowAttackRow],
+    upgrade: u8,
+    stats: &Stats,
+    effective_str_value: u16,
+    damage_multiplier: f32,
+    data: &GameData,
+    selected_route: Option<&str>,
+    should_continue: &mut impl FnMut() -> bool,
+) -> Result<Vec<AowRouteResult>, String> {
+    if !should_continue() {
+        return Err("cancelled".into());
+    }
     let damage_multiplier = exact::rational(damage_multiplier, "damage multiplier")?;
     let weapon_status = calculate_status_buildup(weapon, upgrade, stats, data)?;
     let aows_by_id = data
@@ -520,6 +548,9 @@ pub(crate) fn calculate_aow_routes_scaled(
         .collect::<HashMap<_, _>>();
     let mut activation_orders = HashMap::<(String, u16), u16>::new();
     for row in attack_rows.iter().filter(|row| !row.is_lacking_fp) {
+        if !should_continue() {
+            return Err("cancelled".into());
+        }
         let Some(activation_action_id) = aows_by_id
             .get(&row.aow_id)
             .and_then(|aow| aow.buff_activation_action_id.as_deref())
@@ -527,6 +558,9 @@ pub(crate) fn calculate_aow_routes_scaled(
             continue;
         };
         for assignment in data.aow_route_assignments(row.aow_id, row.sheet_row) {
+            if !should_continue() {
+                return Err("cancelled".into());
+            }
             if assignment.action_id == activation_action_id {
                 activation_orders
                     .entry((assignment.route_id.clone(), row.aow_id))
@@ -538,6 +572,9 @@ pub(crate) fn calculate_aow_routes_scaled(
     let mut pending: HashMap<String, PendingRoute> = HashMap::new();
 
     for row in attack_rows.iter().filter(|row| !row.is_lacking_fp) {
+        if !should_continue() {
+            return Err("cancelled".into());
+        }
         let effects = data.aow_effects(row.aow_id, row.sheet_row).to_vec();
         let has_route_effect = effects.iter().any(|effect| {
             effect.is_supported
@@ -583,6 +620,9 @@ pub(crate) fn calculate_aow_routes_scaled(
         warnings.sort();
         warnings.dedup();
         for effect in &effects {
+            if !should_continue() {
+                return Err("cancelled".into());
+            }
             if !effect.is_supported {
                 warnings.push(format!(
                     "effect {} ({}) is not modeled: {}",
@@ -629,6 +669,9 @@ pub(crate) fn calculate_aow_routes_scaled(
         };
 
         for assignment in assignments {
+            if !should_continue() {
+                return Err("cancelled".into());
+            }
             let aow = aows_by_id.get(&row.aow_id).copied();
             let buff_active = activation_orders
                 .get(&(assignment.route_id.clone(), row.aow_id))
@@ -677,6 +720,11 @@ pub(crate) fn calculate_aow_routes_scaled(
                 route.first_hit_damage = hit_total;
                 route.first_hit_key = Some(hit_key);
             }
+            // Keep shared validation and exact accumulators for every route,
+            // but build detailed records only for the selected route.
+            if selected_route.is_some_and(|selected| selected != assignment.route_id) {
+                continue;
+            }
             let action = route
                 .actions
                 .entry((assignment.action_order, assignment.action_id.clone()))
@@ -702,54 +750,69 @@ pub(crate) fn calculate_aow_routes_scaled(
         }
     }
 
-    let mut routes = pending
-        .into_iter()
-        .map(|(route_id, pending)| -> Result<_, String> {
-            let mut actions = pending.actions.into_values().collect::<Vec<_>>();
-            for action in &mut actions {
-                action
-                    .hits
-                    .sort_by_key(|hit| (hit.hit_order, hit.sheet_row));
+    let mut routes = Vec::with_capacity(selected_route.map_or(pending.len(), |_| 1));
+    for (route_id, pending) in pending {
+        if !should_continue() {
+            return Err("cancelled".into());
+        }
+        let mut actions = pending.actions.into_values().collect::<Vec<_>>();
+        for action in &mut actions {
+            if !should_continue() {
+                return Err("cancelled".into());
             }
-            let mut total_poise_damage = 0.0_f32;
-            let mut total_status_buildup = StatusBuildup::default();
-            let mut total_stamina_cost = 0.0_f32;
-            for action in &actions {
-                total_stamina_cost += action.stamina_cost;
-                for hit in &action.hits {
-                    total_poise_damage += hit.poise_damage;
-                    total_status_buildup = total_status_buildup.combined_with(hit.status_buildup);
+            action
+                .hits
+                .sort_by_key(|hit| (hit.hit_order, hit.sheet_row));
+        }
+        let mut total_poise_damage = 0.0_f32;
+        let mut total_status_buildup = StatusBuildup::default();
+        let mut total_stamina_cost = 0.0_f32;
+        for action in &actions {
+            total_stamina_cost += action.stamina_cost;
+            for hit in &action.hits {
+                if !should_continue() {
+                    return Err("cancelled".into());
                 }
+                total_poise_damage += hit.poise_damage;
+                total_status_buildup = total_status_buildup.combined_with(hit.status_buildup);
             }
-            let total_damage = exact::project_damage(&pending.total_damage)?;
-            let first_hit_damage = exact::project(&pending.first_hit_damage)?;
-            Ok(AowRouteResult {
-                route_id,
-                route_label: pending.label,
-                route_priority: pending.priority,
-                buff_activation_action_id: actions.first().and_then(|action| {
-                    action.hits.first().and_then(|hit| {
-                        attack_rows
-                            .iter()
-                            .find(|row| row.sheet_row == hit.sheet_row)
-                            .and_then(|row| aows_by_id.get(&row.aow_id))
-                            .and_then(|aow| aow.buff_activation_action_id.clone())
-                    })
-                }),
-                actions,
-                first_hit_damage,
-                total_damage,
-                total_poise_damage,
-                total_status_buildup,
-                total_stamina_cost,
-            })
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+        }
+        let total_damage = exact::project_damage(&pending.total_damage)?;
+        let first_hit_damage = exact::project(&pending.first_hit_damage)?;
+        // Unselected route totals still project so filtering cannot hide
+        // a failure that the all-routes evaluation would report.
+        if selected_route.is_some_and(|selected| selected != route_id) {
+            continue;
+        }
+        routes.push(AowRouteResult {
+            route_id,
+            route_label: pending.label,
+            route_priority: pending.priority,
+            buff_activation_action_id: actions.first().and_then(|action| {
+                action.hits.first().and_then(|hit| {
+                    attack_rows
+                        .iter()
+                        .find(|row| row.sheet_row == hit.sheet_row)
+                        .and_then(|row| aows_by_id.get(&row.aow_id))
+                        .and_then(|aow| aow.buff_activation_action_id.clone())
+                })
+            }),
+            actions,
+            first_hit_damage,
+            total_damage,
+            total_poise_damage,
+            total_status_buildup,
+            total_stamina_cost,
+        });
+    }
     routes.sort_by(|left, right| {
         left.route_priority
             .cmp(&right.route_priority)
             .then_with(|| left.route_id.cmp(&right.route_id))
     });
+    if !should_continue() {
+        return Err("cancelled".into());
+    }
     Ok(routes)
 }
 

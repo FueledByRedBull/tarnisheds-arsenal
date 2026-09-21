@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+import warnings
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -28,6 +30,12 @@ class PublishReleaseTests(unittest.TestCase):
                                    "sha256": publisher.sha256(path)} for path in files[:2]],
                 }), encoding="utf-8")
                 files[-2].write_text("".join(f"{publisher.sha256(path)}  {path.name}\n" for path in files[:2]), encoding="utf-8")
+                with zipfile.ZipFile(files[2], "w") as archive:
+                    archive.write(files[0], f"{prefix}/{files[0].name}")
+                    archive.writestr(f"{prefix}/SHA256SUMS.txt", f"{publisher.sha256(files[0])}  {files[0].name}\n")
+                    archive.write(files[-1], f"{prefix}/build-report.json")
+                    archive.writestr(f"{prefix}/README.md", "Portable release")
+                    archive.writestr(f"{prefix}/LICENSE", "License")
 
             write_provenance()
             remote = None
@@ -96,6 +104,73 @@ class PublishReleaseTests(unittest.TestCase):
             self.assertTrue(release["isDraft"])
             gh.assert_called_once_with("release", "view", "v1.2.3", "--repo", "owner/repo",
                                        "--json", "isDraft,assets", missing_ok=True)
+
+    def test_publication_rejects_substituted_or_ambiguous_portable_payloads(self) -> None:
+        prefix = "TarnishedsArsenal_1.2.3"
+        portable_name = f"{prefix}_portable.exe"
+        expected_entry = f"{prefix}/{portable_name}"
+        cases = {
+            "substituted": [(expected_entry, b"substituted executable")],
+            "missing": [],
+            "duplicate": [(expected_entry, b"portable"), (expected_entry, b"portable")],
+            "nested-only": [(f"{prefix}/nested/{portable_name}", b"portable")],
+            "nested-duplicate": [(expected_entry, b"portable"), (f"{prefix}/nested/{portable_name}", b"portable")],
+            "case-alias": [(expected_entry, b"portable"), (expected_entry.upper(), b"portable")],
+            "backslash-alias": [(expected_entry.replace("/", "\\"), b"portable")],
+            "dot-alias": [(f"{prefix}/./{portable_name}", b"portable")],
+            "trailing-dot": [(expected_entry, b"portable"), (expected_entry + ".", b"portable")],
+            "trailing-space": [(expected_entry, b"portable"), (expected_entry + " ", b"portable")],
+            "stream-alias": [(expected_entry, b"portable"), (expected_entry + ":payload", b"portable")],
+            "nul-alias": [(expected_entry, b"portable"), (expected_entry + "!", b"other")],
+            "directory-alias": [(expected_entry, b"portable"), (expected_entry + "/", b"")],
+            "unexpected-executable": [(expected_entry, b"portable"), (f"{prefix}/other.exe", b"other")],
+        }
+        for name, executables in cases.items():
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
+                assets = Path(directory)
+                portable = assets / portable_name
+                installer = assets / f"{prefix}_x64_en-US.msi"
+                archive_path = assets / f"{prefix}.zip"
+                report_path = assets / f"{prefix}_build-report.json"
+                checksums_path = assets / f"{prefix}_SHA256SUMS.txt"
+                portable.write_bytes(b"portable")
+                installer.write_bytes(b"installer")
+                report_path.write_text(json.dumps({
+                    "version": "1.2.3", "commit": "a" * 40, "sourceDirty": False,
+                    "artifacts": [{"name": path.name, "bytes": path.stat().st_size,
+                                   "sha256": publisher.sha256(path)} for path in [portable, installer]],
+                }), encoding="utf-8")
+                checksums_path.write_text("".join(
+                    f"{publisher.sha256(path)}  {path.name}\n" for path in [portable, installer]
+                ), encoding="utf-8")
+                (assets / "release-notes-v1.2.3.md").write_text("Release notes", encoding="utf-8")
+                with warnings.catch_warnings(), zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                    warnings.simplefilter("ignore", UserWarning)
+                    for entry, payload in executables:
+                        archive.writestr(entry, payload)
+                    archive.writestr(f"{prefix}/SHA256SUMS.txt", f"{publisher.sha256(portable)}  {portable_name}\n")
+                    archive.write(report_path, f"{prefix}/build-report.json")
+                    archive.writestr(f"{prefix}/README.md", "Portable release")
+                    archive.writestr(f"{prefix}/LICENSE", "License")
+                if name == "backslash-alias":
+                    # ZipInfo normalizes Windows separators when creating entries locally.
+                    # Replace both header spellings to exercise an actual backslash ZIP name.
+                    archive_path.write_bytes(archive_path.read_bytes().replace(
+                        expected_entry.encode(), expected_entry.replace("/", "\\").encode()
+                    ))
+                if name == "nul-alias":
+                    archive_path.write_bytes(archive_path.read_bytes().replace(
+                        (expected_entry + "!").encode(), (expected_entry + "\0").encode()
+                    ))
+                files = [portable, installer, archive_path, report_path, checksums_path]
+                remote = {"isDraft": False, "assets": [{
+                    "name": path.name, "size": path.stat().st_size,
+                    "digest": "sha256:" + publisher.sha256(path), "state": "uploaded",
+                } for path in files]}
+                with patch.object(publisher, "release_info", return_value=remote), patch.object(publisher, "gh") as gh:
+                    with self.assertRaisesRegex(RuntimeError, "Portable archive"):
+                        publisher.publish("owner/repo", "v1.2.3", "a" * 40, assets)
+                    gh.assert_not_called()
 
     def test_publication_job_downloads_the_original_run_artifact(self) -> None:
         workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/release-package.yml").read_text(encoding="utf-8")

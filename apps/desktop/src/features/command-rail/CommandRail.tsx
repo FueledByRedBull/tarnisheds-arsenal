@@ -1,5 +1,6 @@
 import { Crosshair, Filter, Play, RotateCcw, SlidersHorizontal, Sparkles, Swords } from "lucide-react";
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import brandMark from "../../assets/brand-mark.png";
 import { AowSelect } from "../../lib/AowSelect";
 import { api } from "../../lib/api";
 import { useRequestBudget, useWeaponProfile } from "../../lib/hooks";
@@ -172,8 +173,13 @@ export function CommandRail() {
   return (
     <aside className="command-rail">
       <div className="brand-block">
-        <span className="brand-kicker">Tarnished's</span>
-        <strong>Arsenal</strong>
+        <div className="brand-heading">
+          <img className="brand-mark" src={brandMark} width={56} height={56} alt="" />
+          <div>
+            <span className="brand-kicker">Tarnished's</span>
+            <strong>Arsenal</strong>
+          </div>
+        </div>
         <small className="data-version">{catalog?.dataManifest.label ?? "Loading data version"}</small>
       </div>
 

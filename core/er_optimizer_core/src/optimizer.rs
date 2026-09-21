@@ -13,8 +13,9 @@ use rayon::prelude::*;
 
 use crate::math::ScalarAowRoute;
 use crate::math::{
-    apply_aow_status_buffs, calculate_aow_routes_scaled, calculate_status_buildup, class_by_name,
-    compute_free_points, effective_str, meets_requirements, prepare_scalar_aow_routes,
+    apply_aow_status_buffs, calculate_aow_routes_scaled_with_cancel, calculate_status_buildup,
+    class_by_name, compute_free_points, effective_str, meets_requirements,
+    prepare_scalar_aow_routes,
 };
 #[cfg(test)]
 use crate::math::{calculate_aow_routes, evaluate_scalar_aow_route};
@@ -201,64 +202,246 @@ impl PreparedLoadoutEvaluator<'_> {
         let max_spend = constraints.remaining_free.min(u16::from(
             constraints.maxs[STAT_ARC] - constraints.mins[STAT_ARC],
         ));
-        let mut candidates = Vec::new();
-        // Bleed varies only with ARC. Reuse the ordinary solver for every remaining
-        // stat and skill-route tie rather than creating a second ranking contract.
-        for spend in min_spend..=max_spend {
-            if !should_continue() {
-                return Err("cancelled".into());
-            }
-            fixed.locked_combat_stats[STAT_ARC] = Some(constraints.mins[STAT_ARC] + spend as u8);
-            candidates.extend(evaluator.evaluate_with_cancel(&fixed, &mut should_continue)?);
-        }
-        candidates.sort_by(|a, b| {
-            b.exact_key
-                .ar_total
-                .cmp(&a.exact_key.ar_total)
-                .then_with(|| b.exact_key.bleed.cmp(&a.exact_key.bleed))
-                .then_with(|| {
-                    if better_result(a, b) {
-                        std::cmp::Ordering::Less
-                    } else if better_result(b, a) {
-                        std::cmp::Ordering::Greater
-                    } else {
-                        std::cmp::Ordering::Equal
+        let candidates =
+            match ar_bleed_candidates_with_reuse(&evaluator, &fixed, &mut should_continue)? {
+                Some(candidates) => candidates,
+                None => {
+                    let mut candidates = Vec::new();
+                    // Coupled routes retain the ordinary solver's exhaustive path.
+                    for spend in min_spend..=max_spend {
+                        if !should_continue() {
+                            return Err("cancelled".into());
+                        }
+                        fixed.locked_combat_stats[STAT_ARC] =
+                            Some(constraints.mins[STAT_ARC] + spend as u8);
+                        candidates
+                            .extend(evaluator.evaluate_with_cancel(&fixed, &mut should_continue)?);
                     }
-                })
+                    candidates
+                }
+            };
+        build_ar_bleed_frontier(candidates, &mut should_continue)
+    }
+}
+
+fn build_ar_bleed_frontier(
+    mut candidates: Vec<OptimizeResult>,
+    should_continue: &mut impl FnMut() -> bool,
+) -> Result<Vec<ArBleedFrontierPoint>, String> {
+    candidates.sort_by(|a, b| {
+        b.exact_key
+            .ar_total
+            .cmp(&a.exact_key.ar_total)
+            .then_with(|| b.exact_key.bleed.cmp(&a.exact_key.bleed))
+            .then_with(|| {
+                if better_result(a, b) {
+                    std::cmp::Ordering::Less
+                } else if better_result(b, a) {
+                    std::cmp::Ordering::Greater
+                } else {
+                    std::cmp::Ordering::Equal
+                }
+            })
+    });
+    let Some(first) = candidates.first() else {
+        return Ok(Vec::new());
+    };
+    let max_ar = first.exact_key.ar_total.clone();
+    let base_bleed = first.exact_key.bleed.clone();
+    let mut best_bleed = None;
+    let mut frontier = Vec::new();
+    for result in candidates {
+        if !should_continue() {
+            return Err("cancelled".into());
+        }
+        if best_bleed
+            .as_ref()
+            .is_some_and(|best| result.exact_key.bleed <= *best)
+        {
+            continue;
+        }
+        best_bleed = Some(result.exact_key.bleed.clone());
+        let loss = &max_ar - &result.exact_key.ar_total;
+        frontier.push(ArBleedFrontierPoint {
+            ar_loss: project(&loss)?,
+            ar_loss_percent: if max_ar.is_zero() {
+                0.0
+            } else {
+                project(&(&loss * rational(100.0)? / &max_ar))?
+            },
+            minimum_ar_loss_bps: minimum_ar_loss_bps(&loss, &max_ar)?,
+            bleed_gain: project(&(&result.exact_key.bleed - &base_bleed))?,
+            result,
         });
-        let Some(first) = candidates.first() else {
-            return Ok(Vec::new());
+    }
+    Ok(frontier)
+}
+
+fn ar_bleed_candidates_with_reuse(
+    evaluator: &PreparedLoadoutEvaluator<'_>,
+    request: &OptimizeRequest,
+    should_continue: &mut impl FnMut() -> bool,
+) -> Result<Option<Vec<OptimizeResult>>, String> {
+    if !should_continue() {
+        return Err("cancelled".into());
+    }
+    let prepared = &evaluator.weapons[0];
+    let choice = &prepared.aow_choices[0];
+    let upgrade = prepared.upgrades[0];
+    let data = evaluator.data;
+    let Some(routes) = scalar_route_set(choice, data)? else {
+        return Ok(None);
+    };
+    if routes.iter().any(|route| !route.is_additive(data)) {
+        return Ok(None);
+    }
+    let constraints = build_combat_constraints(request)?;
+    let Some(search) = relevant_stat_search(
+        request,
+        data,
+        constraints,
+        prepared,
+        choice,
+        &mut HashMap::new(),
+    ) else {
+        return Ok(Some(Vec::new()));
+    };
+    let maxima = formula_max_stats(&search, request, prepared.weapon);
+    let ar_formula =
+        crate::math::exact::compile_ar_formula(prepared.weapon, upgrade, data, maxima)?;
+    let arc_capacity = search
+        .remaining_free
+        .min(u16::from(search.maxs[STAT_ARC] - search.mins[STAT_ARC]));
+    let mut best: Vec<Option<ObjectiveAllocation>> = vec![None; usize::from(arc_capacity) + 1];
+    let mut other = search;
+    other.active[STAT_ARC] = false;
+    other.maxs[STAT_ARC] = other.mins[STAT_ARC];
+    let budget = usize::from(other.max_active_spend());
+    let routes = if routes.is_empty() {
+        vec![None]
+    } else {
+        routes.iter().map(Some).collect()
+    };
+    for route in routes {
+        if !should_continue() {
+            return Err("cancelled".into());
+        }
+        let route_formula = route
+            .map(|route| {
+                crate::math::exact::compile_scalar_route_formula(
+                    route,
+                    prepared.weapon,
+                    upgrade,
+                    request.damage_multiplier(),
+                    data,
+                    maxima,
+                )
+            })
+            .transpose()?;
+        let evaluate = |combat| {
+            evaluate_allocation_with_formulas(
+                combat,
+                request,
+                prepared,
+                choice,
+                upgrade,
+                route,
+                data,
+                Some(&ar_formula),
+                route_formula.as_ref(),
+            )
         };
-        let max_ar = first.exact_key.ar_total.clone();
-        let base_bleed = first.exact_key.bleed.clone();
-        let mut best_bleed = None;
-        let mut frontier = Vec::new();
-        for result in candidates {
-            if !should_continue() {
-                return Err("cancelled".into());
-            }
-            if best_bleed
-                .as_ref()
-                .is_some_and(|best| result.exact_key.bleed <= *best)
-            {
+        let base = evaluate(search.mins)?.key.components();
+        let mut deltas = std::array::from_fn(|_| Vec::new());
+        for stat in 0..COMBAT_STAT_COUNT {
+            if !other.active[stat] {
                 continue;
             }
-            best_bleed = Some(result.exact_key.bleed.clone());
-            let loss = &max_ar - &result.exact_key.ar_total;
-            frontier.push(ArBleedFrontierPoint {
-                ar_loss: project(&loss)?,
-                ar_loss_percent: if max_ar.is_zero() {
-                    0.0
-                } else {
-                    project(&(&loss * rational(100.0)? / &max_ar))?
-                },
-                minimum_ar_loss_bps: minimum_ar_loss_bps(&loss, &max_ar)?,
-                bleed_gain: project(&(&result.exact_key.bleed - &base_bleed))?,
-                result,
-            });
+            let cap = usize::from(other.maxs[stat] - other.mins[stat]).min(budget);
+            for add in 0..=cap {
+                if !should_continue() {
+                    return Err("cancelled".into());
+                }
+                let mut combat = search.mins;
+                combat[stat] += add as u8;
+                let value = evaluate(combat)?.key.components();
+                deltas[stat].push(std::array::from_fn(|component| {
+                    &value[component] - &base[component]
+                }));
+            }
         }
-        Ok(frontier)
+        // ARC contributes a constant key at each slice. All remaining deltas,
+        // including route ties, are shared; ranks remain comparable across spends.
+        let solved = exact_dp::solve_exact::<5>(
+            &std::array::from_fn(|_| ExactRational::zero()),
+            &deltas,
+            other.mins,
+            other.active,
+            budget,
+            false,
+            None,
+            should_continue,
+        )?;
+        for arc_spend in 0..=arc_capacity {
+            if !should_continue() {
+                return Err("cancelled".into());
+            }
+            let mut slice = other;
+            slice.remaining_free -= arc_spend;
+            slice.mins[STAT_ARC] += arc_spend as u8;
+            slice.maxs[STAT_ARC] = slice.mins[STAT_ARC];
+            let mut winner = None;
+            for spent in slice.min_active_spend()..=slice.max_active_spend() {
+                if !should_continue() {
+                    return Err("cancelled".into());
+                }
+                let Some(mut combat) = solved.combat[usize::from(spent)] else {
+                    continue;
+                };
+                combat[STAT_ARC] = slice.mins[STAT_ARC];
+                fill_inactive_stats(&slice, &mut combat, slice.remaining_free - spent);
+                let rank = solved.ranks[usize::from(spent)].expect("reachable DP rank");
+                if winner.is_none_or(|(current_rank, current_combat)| {
+                    rank > current_rank || rank == current_rank && combat < current_combat
+                }) {
+                    winner = Some((rank, combat));
+                }
+            }
+            if let Some((_, combat)) = winner {
+                let candidate = evaluate(combat)?;
+                let current = &mut best[usize::from(arc_spend)];
+                if current
+                    .as_ref()
+                    .is_none_or(|current| better_objective_allocation(&candidate, current))
+                {
+                    *current = Some(candidate);
+                }
+            }
+        }
     }
+    best.into_iter()
+        .flatten()
+        .map(|value| {
+            let candidate = ScoredCandidate {
+                prepared_idx: 0,
+                aow_idx: 0,
+                upgrade,
+                stats: stats_with_combat(request.current_stats, value.combat),
+                metric: metric_from_allocation(&value)?,
+                key: value.key,
+                route_id: value.route_id,
+            };
+            materialize_scored_candidate(
+                candidate,
+                request,
+                data,
+                &evaluator.weapons,
+                request.damage_multiplier(),
+                should_continue,
+            )
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map(Some)
 }
 
 impl PreparedUpgradeSeriesEvaluator<'_> {
@@ -1065,18 +1248,34 @@ fn level_plan_can_reuse(plan: &PreparedSearchPlan<'_>, reuse: &DpReuse) -> bool 
 pub fn optimize_prepared_with_progress<F>(
     plan: &PreparedSearchPlan<'_>,
     progress_every: u64,
-    progress_cb: F,
+    mut progress_cb: F,
 ) -> Result<Vec<OptimizeResult>, String>
 where
     F: FnMut(ProgressSnapshot) -> bool + Send,
 {
-    let (candidates, group_mode) = score_prepared_with_progress(plan, progress_every, progress_cb)?;
-    materialize_scored_candidates(
+    let started = Instant::now();
+    let mut last_snapshot = ProgressSnapshot {
+        checked: 0,
+        total: 0,
+        eligible: 0,
+        best_score: 0.0,
+        elapsed_ms: 0,
+    };
+    let candidates = score_prepared_with_progress(plan, progress_every, |snapshot| {
+        last_snapshot = snapshot;
+        progress_cb(snapshot)
+    })?;
+    // Hydration does not score more candidates. Keep the final counts while
+    // allowing the same callback to cancel after the scoring workers join.
+    materialize_scored_candidates_with_cancel(
         &plan.request,
         plan.data,
         &plan.weapons,
         candidates,
-        group_mode,
+        &mut || {
+            last_snapshot.elapsed_ms = started.elapsed().as_millis() as u64;
+            progress_cb(last_snapshot)
+        },
     )
 }
 
@@ -1109,12 +1308,12 @@ where
         &mut progress,
         Some(reuse),
     )?;
-    materialize_scored_candidates(
+    materialize_scored_candidates_with_cancel(
         &plan.request,
         plan.data,
         &plan.weapons,
         candidates,
-        group_mode,
+        &mut || progress.emit(true).is_ok(),
     )
 }
 
@@ -1127,17 +1326,11 @@ pub fn optimize_profiled(
     let preparation = preparation_started.elapsed();
 
     let scoring_started = Instant::now();
-    let (candidates, group_mode) = score_prepared_with_progress(&plan, 0, |_| true)?;
+    let candidates = score_prepared_with_progress(&plan, 0, |_| true)?;
     let scoring = scoring_started.elapsed();
 
     let materialization_started = Instant::now();
-    let rows = materialize_scored_candidates(
-        &plan.request,
-        plan.data,
-        &plan.weapons,
-        candidates,
-        group_mode,
-    )?;
+    let rows = materialize_scored_candidates(&plan.request, plan.data, &plan.weapons, candidates)?;
     let materialization = materialization_started.elapsed();
     Ok(ProfiledOptimizeResult {
         rows,
@@ -1154,17 +1347,17 @@ fn score_prepared_with_progress<F>(
     plan: &PreparedSearchPlan<'_>,
     progress_every: u64,
     progress_cb: F,
-) -> Result<(Vec<ScoredCandidate>, ResultGroupMode), String>
+) -> Result<Vec<ScoredCandidate>, String>
 where
     F: FnMut(ProgressSnapshot) -> bool + Send,
 {
     let request = &plan.request;
     let group_mode = result_group_mode(request);
     if request.top_k == 0 {
-        return Ok((Vec::new(), group_mode));
+        return Ok(Vec::new());
     }
     if plan.weapons.is_empty() {
-        return Ok((Vec::new(), group_mode));
+        return Ok(Vec::new());
     }
 
     let fine_work_units = &plan.fine_work_units;
@@ -1173,7 +1366,7 @@ where
         .map(|unit| unit.candidate_count)
         .sum::<u64>();
     if total == 0 {
-        return Ok((Vec::new(), group_mode));
+        return Ok(Vec::new());
     }
 
     let candidates = if should_use_parallel_search(total, fine_work_units.len()) {
@@ -1195,7 +1388,7 @@ where
             None,
         )?
     };
-    Ok((candidates, group_mode))
+    Ok(candidates)
 }
 
 fn result_group_mode(request: &OptimizeRequest) -> ResultGroupMode {
@@ -1428,13 +1621,7 @@ where
     F: FnMut(ProgressSnapshot) -> bool,
 {
     let candidates = score_serial(plan, work_units, group_mode, progress, None)?;
-    materialize_scored_candidates(
-        &plan.request,
-        plan.data,
-        &plan.weapons,
-        candidates,
-        group_mode,
-    )
+    materialize_scored_candidates(&plan.request, plan.data, &plan.weapons, candidates)
 }
 
 #[cfg(test)]
@@ -1458,13 +1645,7 @@ where
         progress_every,
         progress_cb,
     )?;
-    materialize_scored_candidates(
-        &plan.request,
-        plan.data,
-        &plan.weapons,
-        candidates,
-        group_mode,
-    )
+    materialize_scored_candidates(&plan.request, plan.data, &plan.weapons, candidates)
 }
 
 fn search_work_unit_exhaustive<P>(
@@ -2741,14 +2922,35 @@ fn materialize_scored_candidates(
     data: &GameData,
     weapons: &[PreparedWeapon<'_>],
     candidates: Vec<ScoredCandidate>,
-    group_mode: ResultGroupMode,
 ) -> Result<Vec<OptimizeResult>, String> {
+    materialize_scored_candidates_with_cancel(request, data, weapons, candidates, &mut || true)
+}
+
+fn materialize_scored_candidates_with_cancel(
+    request: &OptimizeRequest,
+    data: &GameData,
+    weapons: &[PreparedWeapon<'_>],
+    candidates: Vec<ScoredCandidate>,
+    should_continue: &mut impl FnMut() -> bool,
+) -> Result<Vec<OptimizeResult>, String> {
+    // Scoring has already grouped, bounded and ordered this batch. Hydration
+    // preserves its exact keys and every final tie-break field.
+    debug_assert!(candidates.len() <= request.top_k);
     let damage_multiplier = request.damage_multiplier();
-    let mut results = Vec::with_capacity(request.top_k);
+    let mut results = Vec::with_capacity(candidates.len());
     for candidate in candidates {
-        let result =
-            materialize_scored_candidate(candidate, request, data, weapons, damage_multiplier)?;
-        push_top_k(&mut results, result, request.top_k, group_mode);
+        let result = materialize_scored_candidate(
+            candidate,
+            request,
+            data,
+            weapons,
+            damage_multiplier,
+            should_continue,
+        )?;
+        results.push(result);
+    }
+    if !should_continue() {
+        return Err("cancelled".into());
     }
     Ok(results)
 }
@@ -2803,12 +3005,23 @@ fn evaluate_fixed_loadout_upgrade(
             );
         }
     }
-    results
+    let result = results
         .pop()
         .map(|candidate| {
-            materialize_scored_candidate(candidate, request, data, weapons, damage_multiplier)
+            materialize_scored_candidate(
+                candidate,
+                request,
+                data,
+                weapons,
+                damage_multiplier,
+                should_continue,
+            )
         })
-        .transpose()
+        .transpose()?;
+    if !should_continue() {
+        return Err("cancelled".into());
+    }
+    Ok(result)
 }
 
 fn materialize_scored_candidate(
@@ -2817,7 +3030,11 @@ fn materialize_scored_candidate(
     data: &GameData,
     weapons: &[PreparedWeapon<'_>],
     damage_multiplier: f32,
+    should_continue: &mut impl FnMut() -> bool,
 ) -> Result<OptimizeResult, String> {
+    if !should_continue() {
+        return Err("cancelled".into());
+    }
     let prepared = &weapons[candidate.prepared_idx];
     let aow_choice = &prepared.aow_choices[candidate.aow_idx];
     let effective_str_value =
@@ -2844,7 +3061,11 @@ fn materialize_scored_candidate(
         effective_str_value,
         damage_multiplier,
         data,
+        should_continue,
     )?;
+    if !should_continue() {
+        return Err("cancelled".into());
+    }
     let reinforce = data
         .reinforce_level(prepared.weapon.reinforce_type, candidate.upgrade)
         .ok_or_else(|| {
@@ -2898,7 +3119,11 @@ fn materialize_aow_route(
     effective_str_value: u16,
     damage_multiplier: f32,
     data: &GameData,
+    should_continue: &mut impl FnMut() -> bool,
 ) -> Result<Option<AowRouteResult>, String> {
+    if !should_continue() {
+        return Err("cancelled".into());
+    }
     let resolved_attack_rows;
     let attack_rows = if aow_choice.attack_rows.is_empty() {
         resolved_attack_rows = if !prepared.weapon.can_change_aow {
@@ -2921,7 +3146,7 @@ fn materialize_aow_route(
     let Some(selected_route) = selected_route else {
         return Ok(None);
     };
-    let routes = calculate_aow_routes_scaled(
+    let routes = calculate_aow_routes_scaled_with_cancel(
         prepared.weapon,
         attack_rows,
         upgrade,
@@ -2929,6 +3154,8 @@ fn materialize_aow_route(
         effective_str_value,
         damage_multiplier,
         data,
+        Some(selected_route),
+        should_continue,
     )?;
     let route = routes
         .into_iter()

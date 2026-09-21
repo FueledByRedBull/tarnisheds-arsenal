@@ -120,10 +120,22 @@ feasible spend interval and fills inactive stats canonically. Reuse is limited t
 top-one AR, physical AR, and bleed objectives; no-respec progression retains its
 separate allocation rule.
 
-Compare's AR/bleed frontier scans feasible ARC values with the ordinary evaluator,
-then removes exactly dominated metric pairs. The shortlist and sacrifice control
-query that completed result without recalculation. Point inspection preserves the
-allocation; applying it uses the existing exact stat locks and Rankings actions.
+The gate is `level_range_reuse_enabled` in the
+[optimizer](../../core/er_optimizer_core/src/optimizer.rs); it also requires explicit
+weapon, affinity and Ash selections. The regression
+`fixed_loadout_level_range_reuse_preserves_objectives_and_budget_edges` compares
+complete results with independent searches, including locks, minimums, handling,
+world scaling and requirement thresholds in the
+[optimizer tests](../../core/er_optimizer_core/src/optimizer/tests.rs).
+This bounded reuse does not implement a general all-objective, all-budget DP.
+
+Compare's AR/bleed frontier builds one other-stat DP per certified additive route
+and reuses it across feasible ARC values. Each slice scans its full feasible spend
+interval and retains the complete numeric and canonical stat order. Coupled routes
+use independent locked-ARC solves. The frontier then removes exactly dominated
+metric pairs. The shortlist and sacrifice control query that completed result
+without recalculation. Point inspection preserves the allocation; applying it uses
+the existing exact stat locks and Rankings actions.
 See the [frontier contract](optimizer-math.md#8-fixed-loadout-ar--bleed-frontier).
 
 ## Where to verify a change

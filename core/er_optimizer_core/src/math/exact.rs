@@ -423,6 +423,7 @@ pub(crate) struct ExactScalarRouteFormula {
     multiplier: ExactRational,
     hits: Vec<ExactScalarHitFormula>,
     first_positive_hit: Option<usize>,
+    full: Vec<ExactScalarHitFormula>,
 }
 
 impl ExactScalarRouteFormula {
@@ -468,11 +469,23 @@ impl ExactScalarRouteFormula {
             if first_hit <= ExactRational::zero() && damage > ExactRational::zero() {
                 first_hit = damage.clone();
             }
+            if !self.full.is_empty() {
+                if first_hit > ExactRational::zero() {
+                    break;
+                }
+                continue;
+            }
             if full_sequence.is_zero() {
                 full_sequence = damage;
             } else if !damage.is_zero() {
                 full_sequence += damage;
             }
+        }
+        for hit in &self.full {
+            let values = stat_values_for_scaling(stats, effective_str_value, hit.two_hand_disabled);
+            let mut damage = hit.formula.evaluate(values)?;
+            scale_if_needed(&mut damage, &self.multiplier);
+            add_nonzero(&mut full_sequence, damage);
         }
         Ok((first_hit, full_sequence))
     }
@@ -494,24 +507,32 @@ impl ExactScalarRouteFormula {
         if self.multiplier.is_zero() {
             return Ok((ExactRational::zero(), ExactRational::zero()));
         }
-        let mut first_hit = ExactRational::zero();
-        let mut full_sequence = ExactRational::zero();
-        for (hit_idx, hit) in self.hits.iter().enumerate() {
+        let delta = |hit: &ExactScalarHitFormula| {
             let old_values =
                 stat_values_for_scaling(old_stats, old_effective_str_value, hit.two_hand_disabled);
             let new_values =
                 stat_values_for_scaling(new_stats, new_effective_str_value, hit.two_hand_disabled);
-            let damage = hit
-                .formula
-                .delta(stat_idx, old_values[stat_idx], new_values[stat_idx])?;
-            if self.first_positive_hit == Some(hit_idx) {
+            hit.formula
+                .delta(stat_idx, old_values[stat_idx], new_values[stat_idx])
+        };
+        let mut first_hit = ExactRational::zero();
+        if !self.full.is_empty()
+            && let Some(index) = self.first_positive_hit
+        {
+            first_hit = delta(&self.hits[index])?;
+        }
+        let mut full_sequence = ExactRational::zero();
+        let terms = if self.full.is_empty() {
+            &self.hits
+        } else {
+            &self.full
+        };
+        for (index, hit) in terms.iter().enumerate() {
+            let damage = delta(hit)?;
+            if self.full.is_empty() && self.first_positive_hit == Some(index) {
                 first_hit = damage.clone();
             }
-            if full_sequence.is_zero() {
-                full_sequence = damage;
-            } else if !damage.is_zero() {
-                full_sequence += damage;
-            }
+            add_nonzero(&mut full_sequence, damage);
         }
         Ok((first_hit, full_sequence))
     }
@@ -559,10 +580,26 @@ pub(crate) fn compile_scalar_route_formula(
             two_hand_disabled: hit.row.is_disable_both_hands_bonus,
         });
     }
+    // Compilation has already resolved branches, throw scaling and buff timing.
+    // ExactFormula merges stat/curve identities; raw and effective STR stay apart.
+    let mut full: Vec<ExactScalarHitFormula> = Vec::new();
+    if hits.len() > 1 {
+        for hit in &hits {
+            if let Some(current) = full
+                .iter_mut()
+                .find(|entry| entry.two_hand_disabled == hit.two_hand_disabled)
+            {
+                current.formula.add_assign(hit.formula.clone())?;
+            } else {
+                full.push(hit.clone());
+            }
+        }
+    }
     Ok(ExactScalarRouteFormula {
         multiplier,
         hits,
         first_positive_hit,
+        full,
     })
 }
 
@@ -2096,6 +2133,386 @@ mod tests {
             (delta.0 * &multiplier, delta.1 * &multiplier),
             expected_delta
         );
+    }
+
+    #[test]
+    fn full_route_coefficients_preserve_raw_and_effective_strength() {
+        let data = data();
+        let weapon = weapon(&data, "Uchigatana", "Keen");
+        let mut row = data
+            .aow_attack_rows
+            .values()
+            .flatten()
+            .find(|r| {
+                r.raw_name == "Wild Strikes - Loop [1]"
+                    && r.overwrite_attack_element_correct_id.is_none()
+            })
+            .unwrap()
+            .clone();
+        row.is_disable_both_hands_bonus = false;
+        let mut raw_row = row.clone();
+        raw_row.is_disable_both_hands_bonus = true;
+        let route = ScalarAowRoute {
+            route_id: "mixed-strength".into(),
+            route_priority: 0,
+            hits: [&row, &raw_row, &raw_row]
+                .into_iter()
+                .enumerate()
+                .map(|(index, row)| ScalarAowHit {
+                    row,
+                    action_order: 0,
+                    hit_order: index as u16,
+                    buff_active: index > 0,
+                    buff_attack_power: [7.0, 0.0, 0.0, 0.0, 0.0],
+                })
+                .collect(),
+        };
+        assert!(route.is_additive(&data));
+        for upgrade in [0, 25] {
+            let formula = compile_scalar_route_formula(
+                &route,
+                weapon,
+                upgrade,
+                2.05,
+                &data,
+                [148, 99, 99, 99, 99],
+            )
+            .unwrap();
+            assert_eq!(
+                formula.full.len(),
+                2,
+                "raw/effective transforms must remain distinct"
+            );
+            for strength in 1..=99 {
+                let stats = Stats {
+                    vig: 12,
+                    mnd: 11,
+                    end: 13,
+                    str: strength,
+                    dex: 40,
+                    int: 9,
+                    fai: 8,
+                    arc: 20,
+                };
+                let effective = effective_str(strength, true, false);
+                assert_eq!(
+                    formula.evaluate(&stats, effective).unwrap(),
+                    exact_scalar_route(&route, weapon, upgrade, &stats, effective, 2.05, &data)
+                        .unwrap(),
+                    "upgrade={upgrade} str={strength} effective={effective}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn full_route_coefficients_match_real_routes_and_deltas() {
+        let data = data();
+        let mut route_count = 0;
+        let mut buff_count = 0;
+        let mut projectile_count = 0;
+        for (weapon_name, affinity, ash, variant) in [
+            ("Claymore", "Standard", 110, ""),
+            ("Claymore", "Heavy", 651, "Greatsword"),
+            ("Claymore", "Fire", 214, ""),
+            ("Claymore", "Flame Art", 4140, ""),
+            ("Uchigatana", "Keen", 112, ""),
+            ("Uchigatana", "Keen", 210, ""),
+            ("Uchigatana", "Keen", 114, ""),
+        ] {
+            let weapon = weapon(&data, weapon_name, affinity);
+            let rows: Vec<_> = data
+                .aow_attack_rows(ash)
+                .iter()
+                .filter(|row| !row.is_lacking_fp && row.variant_weapon_type == variant)
+                .collect();
+            let routes = crate::math::prepare_scalar_aow_routes(&rows, &data)
+                .unwrap()
+                .unwrap();
+            assert!(!routes.is_empty(), "ash={ash}");
+            for route in routes {
+                assert!(
+                    route.is_additive(&data),
+                    "ash={ash} route={}",
+                    route.route_id
+                );
+                route_count += 1;
+                buff_count += route.hits.iter().filter(|hit| hit.buff_active).count();
+                projectile_count += route
+                    .hits
+                    .iter()
+                    .filter(|hit| hit.row.overwrite_attack_element_correct_id.is_some())
+                    .count();
+                for (upgrade, multiplier) in [(0, 1.0), (25, 2.05), (25, 0.0)] {
+                    let formula = compile_scalar_route_formula(
+                        &route,
+                        weapon,
+                        upgrade,
+                        multiplier,
+                        &data,
+                        [148, 99, 99, 99, 99],
+                    )
+                    .unwrap();
+                    let base = Stats {
+                        vig: 12,
+                        mnd: 11,
+                        end: 13,
+                        str: 12,
+                        dex: 15,
+                        int: 9,
+                        fai: 8,
+                        arc: 8,
+                    };
+                    let baseline = formula
+                        .evaluate(&base, effective_str(base.str, true, false))
+                        .unwrap();
+                    for stat in 0..COMBAT_STAT_COUNT {
+                        for value in [1, 20, 60, 80, 99] {
+                            let mut combat = base.combat_array();
+                            combat[stat] = value;
+                            let stats = Stats {
+                                str: combat[0],
+                                dex: combat[1],
+                                int: combat[2],
+                                fai: combat[3],
+                                arc: combat[4],
+                                ..base
+                            };
+                            let effective = effective_str(stats.str, true, false);
+                            let direct = exact_scalar_route(
+                                &route, weapon, upgrade, &stats, effective, multiplier, &data,
+                            )
+                            .unwrap();
+                            assert_eq!(
+                                formula.evaluate(&stats, effective).unwrap(),
+                                direct,
+                                "ash={ash} route={} upgrade={upgrade} stat={stat} value={value}",
+                                route.route_id
+                            );
+                            let delta = formula
+                                .unscaled_delta(
+                                    stat,
+                                    &base,
+                                    &stats,
+                                    effective_str(base.str, true, false),
+                                    effective,
+                                )
+                                .unwrap();
+                            let scale = rational(multiplier, "test multiplier").unwrap();
+                            assert_eq!(
+                                (delta.0 * &scale, delta.1 * &scale),
+                                (&direct.0 - &baseline.0, &direct.1 - &baseline.1)
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        assert!(route_count >= 7 && buff_count > 0 && projectile_count > 0);
+        let weapon = weapon(&data, "Caestus", "Occult");
+        let rows: Vec<_> = data
+            .aow_attack_rows(205)
+            .iter()
+            .filter(|row| !row.is_lacking_fp)
+            .collect();
+        let routes = crate::math::prepare_scalar_aow_routes(&rows, &data)
+            .unwrap()
+            .unwrap();
+        assert!(routes.iter().any(|route| !route.is_additive(&data)));
+        for route in routes.iter().filter(|route| !route.is_additive(&data)) {
+            assert!(
+                compile_scalar_route_formula(route, weapon, 25, 1.0, &data, [148, 99, 99, 99, 99])
+                    .is_err()
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "isolated release measurement; no competing builds or tests"]
+    fn benchmark_full_route_coefficients() {
+        fn per_hit_evaluate(
+            formula: &ExactScalarRouteFormula,
+            stats: &Stats,
+            effective_str_value: u16,
+        ) -> Result<(ExactRational, ExactRational), String> {
+            let mut first_hit = ExactRational::zero();
+            let mut full_sequence = ExactRational::zero();
+            for hit in &formula.hits {
+                let stat_values =
+                    stat_values_for_scaling(stats, effective_str_value, hit.two_hand_disabled);
+                let mut damage = hit.formula.evaluate(stat_values)?;
+                if !formula.multiplier.is_one() {
+                    damage *= &formula.multiplier;
+                }
+                if first_hit <= ExactRational::zero() && damage > ExactRational::zero() {
+                    first_hit = damage.clone();
+                }
+                if full_sequence.is_zero() {
+                    full_sequence = damage;
+                } else if !damage.is_zero() {
+                    full_sequence += damage;
+                }
+            }
+            Ok((first_hit, full_sequence))
+        }
+        fn per_hit_delta(
+            formula: &ExactScalarRouteFormula,
+            stat_idx: usize,
+            old_stats: &Stats,
+            new_stats: &Stats,
+            old_effective_str_value: u16,
+            new_effective_str_value: u16,
+        ) -> Result<(ExactRational, ExactRational), String> {
+            if stat_idx >= COMBAT_STAT_COUNT {
+                return Err(format!(
+                    "exact formula stat index {stat_idx} is out of range"
+                ));
+            }
+            // A positive multiplier is common to every allocation and omitted by the DP.
+            if formula.multiplier.is_zero() {
+                return Ok((ExactRational::zero(), ExactRational::zero()));
+            }
+            let mut first_hit = ExactRational::zero();
+            let mut full_sequence = ExactRational::zero();
+            for (hit_idx, hit) in formula.hits.iter().enumerate() {
+                let old_values = stat_values_for_scaling(
+                    old_stats,
+                    old_effective_str_value,
+                    hit.two_hand_disabled,
+                );
+                let new_values = stat_values_for_scaling(
+                    new_stats,
+                    new_effective_str_value,
+                    hit.two_hand_disabled,
+                );
+                let damage =
+                    hit.formula
+                        .delta(stat_idx, old_values[stat_idx], new_values[stat_idx])?;
+                if formula.first_positive_hit == Some(hit_idx) {
+                    first_hit = damage.clone();
+                }
+                if full_sequence.is_zero() {
+                    full_sequence = damage;
+                } else if !damage.is_zero() {
+                    full_sequence += damage;
+                }
+            }
+            Ok((first_hit, full_sequence))
+        }
+        let data = data();
+        let candidate = std::env::var("MATH_VARIANT").as_deref() == Ok("candidate");
+        for (name, ash, variant, affinity) in [
+            ("Wild-Strikes", 110, "", "Standard"),
+            ("War-Cry", 651, "Greatsword", "Heavy"),
+            ("Storm-Blade", 210, "", "Keen"),
+            ("Unsheathe", 114, "", "Keen"),
+        ] {
+            let weapon = weapon(
+                &data,
+                if ash == 114 { "Uchigatana" } else { "Claymore" },
+                affinity,
+            );
+            let rows: Vec<_> = data
+                .aow_attack_rows(ash)
+                .iter()
+                .filter(|row| !row.is_lacking_fp && row.variant_weapon_type == variant)
+                .collect();
+            let routes = crate::math::prepare_scalar_aow_routes(&rows, &data)
+                .unwrap()
+                .unwrap();
+            let route = routes.iter().max_by_key(|route| route.hits.len()).unwrap();
+            assert!(route.is_additive(&data));
+            if ash == 114 {
+                assert_eq!(route.hits.len(), 1, "real one-hit control");
+            } else {
+                assert!(route.hits.len() > 1, "real multi-hit workload");
+            }
+            let base = Stats {
+                vig: 12,
+                mnd: 11,
+                end: 13,
+                str: 20,
+                dex: 20,
+                int: 20,
+                fai: 20,
+                arc: 20,
+            };
+            let inputs: Vec<_> = (0..COMBAT_STAT_COUNT)
+                .flat_map(|stat| {
+                    (20..=99).map(move |value| {
+                        let mut combat = base.combat_array();
+                        combat[stat] = value;
+                        (
+                            stat,
+                            Stats {
+                                str: combat[0],
+                                dex: combat[1],
+                                int: combat[2],
+                                fai: combat[3],
+                                arc: combat[4],
+                                ..base
+                            },
+                        )
+                    })
+                })
+                .collect();
+            let evaluate = |formula: &ExactScalarRouteFormula, aggregated: bool| {
+                inputs
+                    .iter()
+                    .map(|(stat, stats)| {
+                        let effective = effective_str(stats.str, true, false);
+                        if aggregated {
+                            (
+                                formula.evaluate(stats, effective).unwrap(),
+                                formula
+                                    .unscaled_delta(*stat, &base, stats, 30, effective)
+                                    .unwrap(),
+                            )
+                        } else {
+                            (
+                                per_hit_evaluate(formula, stats, effective).unwrap(),
+                                per_hit_delta(formula, *stat, &base, stats, 30, effective).unwrap(),
+                            )
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            };
+            let formula =
+                compile_scalar_route_formula(route, weapon, 25, 2.05, &data, [148, 99, 99, 99, 99])
+                    .unwrap();
+            // Reference loops are copied from the pre-aggregation implementation.
+            let expected = evaluate(&formula, false);
+            assert_eq!(evaluate(&formula, true), expected);
+            let mut samples = Vec::new();
+            let mut compilation_samples = Vec::new();
+            for repeat in 0..8 {
+                let started = std::time::Instant::now();
+                let result = evaluate(std::hint::black_box(&formula), candidate);
+                let elapsed = started.elapsed().as_secs_f64() * 1000.0;
+                assert_eq!(result, expected);
+                let started = std::time::Instant::now();
+                std::hint::black_box(
+                    compile_scalar_route_formula(
+                        route,
+                        weapon,
+                        25,
+                        2.05,
+                        &data,
+                        [148, 99, 99, 99, 99],
+                    )
+                    .unwrap(),
+                );
+                let compilation = started.elapsed().as_secs_f64() * 1000.0;
+                if repeat > 0 {
+                    samples.push(elapsed);
+                    compilation_samples.push(compilation);
+                }
+            }
+            println!(
+                "MATH_BENCH {}",
+                serde_json::json!({"experiment":"m02","variant":if candidate {"candidate"} else {"baseline"},"case":name,"request":format!("weapon={:?} upgrade=25 multiplier=2.05 two_handing=true route={route:?} inputs={inputs:?}",weapon),"profile":data.profile_id,"model":data.model_version,"threads":rayon::current_num_threads(),"hits":route.hits.len(),"warmups":1,"repeats":7,"timing_scope":"cached_route_evaluate_and_five_stat_delta_tables","samples_ms":samples,"candidate_full_compilation_ms":compilation_samples,"results":format!("{expected:?}")})
+            );
+        }
     }
 
     #[test]

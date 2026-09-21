@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/tarnisheds-arsenal-banner.svg" alt="Tarnished’s Arsenal" width="100%">
+  <img src="docs/images/tarnisheds-arsenal-logo.png" alt="Tarnished’s Arsenal" width="320" height="320">
 </p>
 
 # Tarnished’s Arsenal
@@ -20,6 +20,7 @@ comparisons and progression previews.
 
 The Rankings workspace puts each result’s combat stats and weapon scaling beside
 its score, with the selected build’s full breakdown on the right.
+Screenshots show the [current development build](CHANGELOG.md#unreleased).
 
 ![Rankings with weapon setups, combat stats, scaling, and the selected build’s damage breakdown](docs/images/tarnisheds-arsenal-rankings.png)
 
@@ -94,7 +95,8 @@ Rankings before comparing again.
 No-respec paths optimize a terminal allocation, then add points greedily toward
 that target. The optimum envelope instead finds the best allocation at each level
 and identifies transitions that require a respec. Two lanes share one paginated
-level table.
+level table. The chart uses labeled axes and sparse breakpoint markers; hover a
+point or use the **Character level** slider to read that level's values.
 
 ![Paths showing selected and comparison builds across future levels](docs/images/tarnisheds-arsenal-paths.png)
 

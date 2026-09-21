@@ -2,7 +2,7 @@ import { Pause, Play } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { analysisStatus, analysisStatusLabel, type AnalysisOutcome } from "../../lib/analysis-status";
-import { metricRatio, paddedMetricDomain } from "../../lib/chart";
+import { contiguousMetricSegments, metricRatio, paddedMetricDomain } from "../../lib/chart";
 import { usePathJob, useRequestBudget } from "../../lib/hooks";
 import { fixed1, objectiveLabel, objectiveUnit } from "../../lib/format";
 import { clampHorizon, stableSignature } from "../../lib/session";
@@ -72,11 +72,11 @@ export function PathsView() {
       pushNotice({ scope: "paths", tone: "warning", message: "Combat stats are already capped. There is no forward path to trace." });
       return;
     }
+    setRunOutcome(null);
+    const generation = beginPath(signature);
     if (effectiveHorizon < horizon) {
       pushNotice({ scope: "paths", tone: "info", message: `Horizon capped at Current +${effectiveHorizon}.` });
     }
-    setRunOutcome(null);
-    const generation = beginPath(signature);
     try {
       const requests = [
         { base, solved: selected, levelsAhead: effectiveHorizon, title: "Selected", mode: pathMode },
@@ -178,7 +178,7 @@ export function PathsView() {
         <LaneSummary title="Selected" path={paths.find((path) => path.title === "Selected")} row={selected} />
         <LaneSummary title="Compare" path={paths.find((path) => path.title === "Compare")} row={target} />
       </div>
-      <PathChart paths={paths} objective={objectiveLabel(request.objective)} unit={objectiveUnit(request.objective)} />
+      <PathChart key={`chart:${pathSignature ?? "empty"}`} paths={paths} objective={objectiveLabel(request.objective)} unit={objectiveUnit(request.objective)} />
       <PathSteps key={pathSignature ?? "empty"} paths={paths} objective={request.objective} />
     </section>
   );
@@ -205,20 +205,20 @@ function PathSteps({ paths, objective }: { paths: PathPreviewDto[]; objective: P
         </label>
         <button type="button" disabled={currentPage + 1 === pageCount} onClick={() => setPage(currentPage + 1)}>Next levels</button>
       </div>
-      <div className="step-table path-step-table" role="grid" aria-label="Path steps">
+      <div className="step-table path-step-table" role="table" aria-label="Path steps">
         <div className="step-row path-step-row table-header" role="row" style={{ gridTemplateColumns: `54px repeat(${paths.length}, minmax(0, 1fr))` }}>
           <span role="columnheader">Level</span>
           {paths.map(path => <span role="columnheader" key={path.title}>{path.title}<small>{path.solved.weaponName} / {path.solved.affinity}</small></span>)}
         </div>
         {shownLevels.map(level => (
           <div className="step-row path-step-row" role="row" key={level} style={{ gridTemplateColumns: `54px repeat(${paths.length}, minmax(0, 1fr))` }}>
-            <b role="gridcell">{level}</b>
+            <b role="cell">{level}</b>
             {paths.map(path => {
               const index = path.steps.findIndex(step => step.level === level);
               const step = path.steps[index];
               const previous = path.steps[index - 1]?.metric ?? null;
               const gain = step?.metric != null && previous !== null ? step.metric - previous : null;
-              return <span role="gridcell" className="path-step-build" key={path.title}>
+              return <span role="cell" className="path-step-build" key={path.title}>
                 {step ? <>
                   <strong>{fixed1(step.metric)} {objectiveUnit(objective)}</strong>
                   <small>
@@ -271,43 +271,77 @@ function Progress({ checked, total, status, resultCount }: { checked: number; to
 }
 
 function PathChart({ paths, objective, unit }: { paths: PathPreviewDto[]; objective: string; unit: string }) {
+  const [pointIndex, setPointIndex] = useState(0);
   const values = paths.flatMap((path) => path.steps.map((step) => step.metric).filter((metric): metric is number => metric !== null));
   const domain = paddedMetricDomain(values);
-  const observedMin = values.length ? Math.min(...values) : 0;
-  const observedMax = values.length ? Math.max(...values) : 1;
-  const levels = paths.flatMap((path) => path.steps.map((step) => step.level));
-  const firstLevel = levels.length ? Math.min(...levels) : null;
-  const lastLevel = levels.length ? Math.max(...levels) : null;
+  const levels = [...new Set(paths.flatMap((path) => path.steps.map((step) => step.level)))].sort((a, b) => a - b);
+  const firstLevel = levels[0] ?? 0;
+  const lastLevel = levels.at(-1) ?? firstLevel;
+  const selectedIndex = Math.min(pointIndex, Math.max(0, levels.length - 1));
+  const selectedLevel = levels[selectedIndex];
+  const x = (level: number) => lastLevel === firstLevel ? 500 : 12 + (level - firstLevel) / (lastLevel - firstLevel) * 976;
+  const y = (metric: number | null) => 206 - (metricRatio(metric, domain) ?? 0) * 192;
+  const axisMetrics = [domain.max, (domain.min + domain.max) / 2, domain.min];
+  const axisLevels = [...new Set(Array.from({ length: 5 }, (_, index) => Math.round(firstLevel + (lastLevel - firstLevel) * index / 4)))];
+  const inspected = paths.map(path => ({ title: path.title, step: path.steps.find(step => step.level === selectedLevel) }));
+  const valueText = `Level ${selectedLevel}; ${inspected.map(({ title, step }) => `${title} ${step?.metric == null ? "unavailable" : `${fixed1(step.metric)} ${unit}`}`).join("; ")}`;
   return (
     <figure className="path-chart" aria-label={`${objective} by character level for ${paths.length} path lanes`}>
       <figcaption>
         <span><small>Metric by character level</small><strong>{objective} ({unit})</strong></span>
-        <span>{firstLevel === null ? "Awaiting analysis" : `Level ${firstLevel} to ${lastLevel}`}</span>
+        <span>{levels.length ? `Level ${firstLevel} to ${lastLevel}` : "Awaiting analysis"}</span>
       </figcaption>
-      <div className="chart-axis" aria-hidden="true">
-        <span>{fixed1(observedMax)}</span><span>Character level</span><span>{fixed1(observedMin)}</span>
-      </div>
-      <div className="chart-legend" aria-label="Path chart legend">
-        {paths.map((path, index) => <span className={`series-${index % 3}`} key={path.title}>{path.title}</span>)}
-        <span className="breakpoint-key">◆ Stat breakpoint</span>
-      </div>
-      {paths.map((path, pathIndex) => (
-        <div
-          className={`spark-line series-${pathIndex % 3}`}
-          key={path.title}
-          aria-hidden="true"
-          style={{ gridTemplateColumns: `repeat(${Math.max(path.steps.length, 1)}, minmax(0, 1fr))` }}
-        >
-          {path.steps.map((step) => (
-            <span
-              className={[step.addedStat ? "breakpoint" : "", step.metric === null ? "missing" : ""].filter(Boolean).join(" ") || undefined}
-              key={`${path.title}-${step.level}`}
-              style={{ height: `${metricHeight(step.metric, domain)}%` }}
-              title={`${path.title} level ${step.level}: ${step.metric === null ? "unavailable" : `${fixed1(step.metric)} ${unit}`}`}
-            />
-          ))}
+      {levels.length ? <>
+        <div className="chart-legend" aria-label="Path chart legend">
+          {paths.map((path, index) => <span className={`series-${index}`} key={path.title}>{path.title}</span>)}
+          <span className="path-marker-key">○ Allocation changes (sampled)</span>
         </div>
-      ))}
+        <div className="path-plot">
+          <div className="path-y-axis" aria-hidden="true">
+            {axisMetrics.map((metric, index) => <span key={index} style={{ top: `${y(metric) / 2.2}%` }}>{fixed1(metric)}</span>)}
+          </div>
+          <svg viewBox="0 0 1000 220" preserveAspectRatio="none" aria-hidden="true" onPointerMove={event => {
+            const bounds = event.currentTarget.getBoundingClientRect();
+            const level = firstLevel + ((event.clientX - bounds.left) / bounds.width * 1000 - 12) / 976 * (lastLevel - firstLevel);
+            setPointIndex(levels.reduce((best, candidate, index) => Math.abs(candidate - level) < Math.abs(levels[best] - level) ? index : best, 0));
+          }}>
+            {axisMetrics.map((metric, index) => <line className="path-grid-line" x1="12" x2="988" y1={y(metric)} y2={y(metric)} key={index} />)}
+            <line className="path-cursor" x1={x(selectedLevel)} x2={x(selectedLevel)} y1="14" y2="206" />
+            {paths.map((path, pathIndex) => {
+              let lastMarker = -Infinity;
+              const markers = path.steps.filter((step, index) => {
+                if (step.metric === null || !index || !step.addedStat || step.addedStat === path.steps[index - 1].addedStat || step.level - lastMarker < Math.max(1, (lastLevel - firstLevel) / 8)) return false;
+                lastMarker = step.level;
+                return true;
+              });
+              const point = inspected[pathIndex].step;
+              return <g className={`path-series-group series-${pathIndex}`} key={path.title}>
+                {contiguousMetricSegments(path.steps).map((segment, index) => <g key={index}>
+                  <polyline className="path-series" points={segment.map(step => `${x(step.level)},${y(step.metric)}`).join(" ")} />
+                  {segment.length === 1 ? <circle className="path-isolated-point" cx={x(segment[0].level)} cy={y(segment[0].metric)} r="4" /> : null}
+                </g>)}
+                {markers.map(step => <circle className="path-change-marker" key={step.level} cx={x(step.level)} cy={y(step.metric)} r="4" />)}
+                {point?.metric != null ? <circle className="path-selected-point" cx={x(point.level)} cy={y(point.metric)} r="5" /> : null}
+              </g>;
+            })}
+          </svg>
+          <div className="path-x-axis" aria-hidden="true">
+            {axisLevels.map(level => <span key={level} style={{ left: `${x(level) / 10}%` }}>{level}</span>)}
+          </div>
+        </div>
+        <label className="path-inspect-control">
+          Character level
+          <input type="range" aria-label="Inspect path level" aria-valuetext={valueText} min={0} max={levels.length - 1} value={selectedIndex} onChange={event => setPointIndex(Number(event.target.value))} />
+        </label>
+        <div className="path-point-summary" aria-live="polite" aria-atomic="true">
+          <strong>Level {selectedLevel}</strong>
+          {inspected.map(({ title, step }, index) => <span className={`series-${index}`} key={title}>
+            {title} <b>{step?.metric == null ? "Unavailable" : `${fixed1(step.metric)} ${unit}`}</b>
+            <small>{step?.addedStat === "respec" ? "Respec required" : step?.addedStat ? `Added ${step.addedStat.toUpperCase()}` : step?.level === firstLevel ? "Starting stats" : "No stat added"}</small>
+          </span>)}
+        </div>
+        <small className="path-marker-note">Markers show changes in added stat or respec; nearby changes are omitted. Inspect any level above.</small>
+      </> : <p className="path-chart-empty">Trace paths to compare progress by character level.</p>}
       <table className="sr-only">
         <caption>{objective} ({unit}) path values by character level</caption>
         <thead><tr><th>Lane</th><th>Level</th><th>{objective} ({unit})</th></tr></thead>
@@ -315,12 +349,6 @@ function PathChart({ paths, objective, unit }: { paths: PathPreviewDto[]; object
       </table>
     </figure>
   );
-}
-
-function metricHeight(metric: number | null, domain: ReturnType<typeof paddedMetricDomain>): number {
-  const ratio = metricRatio(metric, domain);
-  if (ratio === null) return 8;
-  return 12 + ratio * 88;
 }
 
 function clamp(value: number, min: number, max: number): number {
