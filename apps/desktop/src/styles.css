@@ -239,6 +239,15 @@ button {
   position: relative;
   overflow: hidden;
 }
+.brand-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.brand-mark {
+  flex: 0 0 auto;
+  border-radius: 4px;
+}
 .brand-block strong {
   display: block;
   font-family: Georgia, "Times New Roman", serif;
@@ -1542,46 +1551,106 @@ textarea {
   flex-wrap: wrap;
 }
 
-.chart-axis {
-  display: grid;
-  grid-template-columns: 70px 1fr 70px;
-  align-items: center;
-  color: var(--muted);
-  font-size: 12px;
-}
+.path-chart .series-0 { --path-color: var(--cyan); }
+.path-chart .series-1 { --path-color: var(--gold); }
 
-.chart-axis span:nth-child(2) {
-  text-align: center;
-}
-
-.chart-axis span:last-child {
-  text-align: right;
-}
-
-.path-chart .chart-legend span:not(.breakpoint-key)::before {
+.path-chart .chart-legend span:not(.path-marker-key)::before {
   content: "";
   display: inline-block;
   width: 14px;
-  height: 4px;
   margin-right: 5px;
   vertical-align: middle;
-  border-radius: 2px;
-  background: linear-gradient(90deg, var(--gold), var(--info));
+  border-top: 2px solid var(--path-color);
 }
 
-.path-chart .chart-legend .series-1::before,
-.spark-line.series-1 span {
-  background: linear-gradient(180deg, #8fc19c, #597e9b);
+.path-chart .chart-legend .series-1::before { border-top-style: dashed; }
+
+.path-plot {
+  position: relative;
+  height: 220px;
+  min-width: 0;
+  padding: 0 12px 26px 64px;
 }
 
-.path-chart .chart-legend .series-2::before,
-.spark-line.series-2 span {
-  background: repeating-linear-gradient(45deg, #d28a77 0 3px, #9b7fc0 3px 6px);
+.path-plot svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
-.breakpoint-key {
-  color: #f1cf83;
+.path-grid-line, .path-cursor {
+  stroke: var(--line);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
 }
+
+.path-cursor { stroke-dasharray: 3 5; }
+
+.path-series {
+  fill: none;
+  stroke: var(--path-color);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.path-series-group.series-1 .path-series { stroke-dasharray: 7 5; }
+
+.path-change-marker, .path-selected-point, .path-isolated-point {
+  fill: var(--iron-900);
+  stroke: var(--path-color);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.path-selected-point { fill: var(--path-color); }
+
+.path-y-axis {
+  position: absolute;
+  inset: 0 auto 26px 0;
+  width: 60px;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.path-y-axis span { position: absolute; transform: translateY(-50%); }
+
+.path-x-axis {
+  position: absolute;
+  inset: auto 12px 8px 64px;
+  height: 14px;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.path-x-axis span { position: absolute; transform: translateX(-50%); }
+
+.path-inspect-control {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+
+.path-inspect-control input { width: 100%; min-width: 0; padding: 0; accent-color: var(--cyan); }
+
+.path-point-summary {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.path-point-summary > span { color: var(--path-color); }
+.path-point-summary small { display: block; color: var(--muted); }
+.path-marker-note, .path-marker-key, .path-chart-empty { color: var(--muted); font-size: 12px; }
 
 .table-header {
   position: sticky;
@@ -1589,41 +1658,6 @@ textarea {
   z-index: 2;
   color: var(--parchment);
   background: var(--iron-850);
-}
-
-.spark-line {
-  display: grid;
-  align-items: end;
-  gap: clamp(1px, 0.35vw, 5px);
-  width: 100%;
-  min-width: 0;
-  min-height: 72px;
-  padding: 10px;
-  border-bottom: 1px solid rgba(232, 223, 201, 0.08);
-}
-
-.spark-line span {
-  position: relative;
-  width: 100%;
-  min-width: 0;
-  background: linear-gradient(180deg, var(--gold), var(--info));
-  border-radius: 3px 3px 0 0;
-}
-
-.spark-line span.missing {
-  visibility: hidden;
-}
-
-.spark-line span.breakpoint::after {
-  content: "";
-  position: absolute;
-  top: -5px;
-  left: 50%;
-  width: 6px;
-  height: 6px;
-  background: #fff1c8;
-  border: 1px solid #6e5127;
-  transform: translateX(-50%) rotate(45deg);
 }
 
 .step-table {
@@ -2860,6 +2894,10 @@ textarea:hover {
 @media (max-width: 1320px) {
   .desktop-shell {
     grid-template-columns: 244px minmax(0, 1fr) 286px;
+  }
+
+  .stat-grid:not(.floors) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .center-workspace {

@@ -70,7 +70,9 @@ A failed package never creates a release. The five release assets are:
 - `TarnishedsArsenal_<version>_build-report.json`
 
 The ZIP is a portable-only archive with the standalone executable and release
-documentation. The MSI remains a separate release asset.
+documentation. Verification requires exactly one executable at the expected path
+and checks its bytes against the standalone portable executable's SHA-256; matching
+filenames alone are insufficient. The MSI remains a separate release asset.
 
 ### Alternative: push an explicit tag
 
@@ -113,7 +115,8 @@ Publication independently verifies that ordinary `CI` has succeeded for
 the exact source commit. Build-only previews instead validate source in the
 packaging job, as described [above](#build-a-preview).
 Normal source tests, lint, type checks, formatting, Clippy,
-and data validation belong to that CI run; the release job packages the already
+and data validation belong to that CI run. The Windows CI job also runs locked
+release-profile tests for both Rust crates. The release job packages the already
 validated commit and keeps the release-only MSI identity, MSI payload, packaged
 startup smoke, signing, and checksum checks. The final Tauri build runs Cargo in
 locked mode.

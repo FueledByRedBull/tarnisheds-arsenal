@@ -11,6 +11,28 @@ mod errors;
 
 pub type CancelFlag = Arc<AtomicBool>;
 
+fn spawn_supervised_job<T, R>(
+    status: Arc<Mutex<T>>,
+    worker: impl FnOnce() -> R + Send + 'static,
+    publish: impl FnOnce(&mut T, Result<R, String>) + Send + 'static,
+) -> tauri::async_runtime::JoinHandle<()>
+where
+    T: Send + 'static,
+    R: Send + 'static,
+{
+    let worker = tauri::async_runtime::spawn_blocking(worker);
+    tauri::async_runtime::spawn(async move {
+        let outcome = worker.await.map_err(|_| {
+            "Calculation worker stopped unexpectedly. Retry the operation.".to_string()
+        });
+        // Joining establishes termination, so a poisoned progress update cannot
+        // discard worker ownership or prevent its terminal status from being read.
+        let mut guard = status.lock().unwrap_or_else(|error| error.into_inner());
+        publish(&mut guard, outcome);
+        status.clear_poison();
+    })
+}
+
 pub struct AsyncJobHandle<T> {
     pub cancel: CancelFlag,
     pub status: Arc<Mutex<T>>,
@@ -36,28 +58,35 @@ impl<T: Clone> JobRegistry<T> {
         is_finished: impl Fn(&T) -> bool,
     ) -> Result<(), errors::AppError> {
         let mut guard = self.handle.lock().map_err(|_| self.lock_error())?;
-        if guard.as_ref().is_some_and(|(_, handle)| {
-            handle
-                .status
-                .lock()
-                .map(|status| !is_finished(&status))
-                .unwrap_or(false)
-        }) {
-            return Err(errors::AppError::new(format!(
-                "{} job is already running. Stop or wait for it before starting another.",
-                self.kind
-            )));
+        if let Some((_, previous)) = guard.as_ref() {
+            let status = previous.status.lock().map_err(|_| self.status_error())?;
+            if !is_finished(&status) {
+                return Err(errors::AppError::new(format!(
+                    "{} job is already running. Stop or wait for it before starting another.",
+                    self.kind
+                )));
+            }
         }
         *guard = Some((job_id, handle));
         Ok(())
     }
 
-    pub fn cancel(&self, job_id: &str) -> Result<bool, errors::AppError> {
+    pub fn cancel(
+        &self,
+        job_id: &str,
+        is_finished: impl Fn(&T) -> bool,
+    ) -> Result<bool, errors::AppError> {
         let guard = self.handle.lock().map_err(|_| self.lock_error())?;
         let Some((active_id, handle)) = guard.as_ref() else {
             return Ok(false);
         };
         if active_id != job_id {
+            return Ok(false);
+        }
+        // Serialize with terminal publication. Poisoned status still permits a
+        // cancellation request, but never establishes that the worker finished.
+        let status = handle.status.lock();
+        if status.as_ref().is_ok_and(|status| is_finished(status)) {
             return Ok(false);
         }
         handle.cancel.store(true, Ordering::Relaxed);
@@ -80,18 +109,20 @@ impl<T: Clone> JobRegistry<T> {
             handle
                 .status
                 .lock()
-                .map_err(|_| {
-                    errors::AppError::new(format!(
-                        "{} job status is unavailable. Retry once, then restart the app if it persists.",
-                        self.kind
-                    ))
-                })?
+                .map_err(|_| self.status_error())?
                 .clone()
         };
         if is_finished(&status) {
             guard.take();
         }
         Ok(Some(status))
+    }
+
+    fn status_error(&self) -> errors::AppError {
+        errors::AppError::new(format!(
+            "{} job status is unavailable. Retry once, then restart the app if it persists.",
+            self.kind
+        ))
     }
 
     fn lock_error(&self) -> errors::AppError {
@@ -114,6 +145,100 @@ mod job_registry_tests {
     }
 
     #[test]
+    fn poisoned_status_does_not_allow_replacing_an_unconfirmed_job() {
+        let registry = JobRegistry::new("test");
+        let status = Arc::new(Mutex::new(false));
+        registry
+            .insert_if_idle("first".into(), handle(Arc::clone(&status)), |done| *done)
+            .unwrap();
+        let poisoned = Arc::clone(&status);
+        assert!(
+            std::thread::spawn(move || {
+                let _guard = poisoned.lock().unwrap();
+                panic!("injected status update failure");
+            })
+            .join()
+            .is_err()
+        );
+
+        let replacement = registry.insert_if_idle(
+            "second".into(),
+            handle(Arc::new(Mutex::new(false))),
+            |done| *done,
+        );
+        assert!(
+            replacement.is_err(),
+            "unknown worker state must retain ownership"
+        );
+        assert!(registry.cancel("first", |done| *done).unwrap());
+        assert!(!registry.cancel("second", |done| *done).unwrap());
+        assert!(registry.status("first", |done| *done).is_err());
+    }
+
+    #[test]
+    fn finished_job_rejects_late_cancellation() {
+        let registry = JobRegistry::new("test");
+        let cancel = Arc::new(AtomicBool::new(false));
+        registry
+            .insert_if_idle(
+                "finished".into(),
+                AsyncJobHandle {
+                    cancel: Arc::clone(&cancel),
+                    status: Arc::new(Mutex::new(true)),
+                },
+                |done| *done,
+            )
+            .unwrap();
+        assert!(!registry.cancel("finished", |done| *done).unwrap());
+        assert!(!cancel.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn cancellation_waits_for_in_progress_terminal_publication() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        let registry = Arc::new(JobRegistry::new("test"));
+        let status = Arc::new(Mutex::new(false));
+        let cancel = Arc::new(AtomicBool::new(false));
+        registry
+            .insert_if_idle(
+                "first".into(),
+                AsyncJobHandle {
+                    cancel: Arc::clone(&cancel),
+                    status: Arc::clone(&status),
+                },
+                |done| *done,
+            )
+            .unwrap();
+        let mut publishing = status.lock().unwrap();
+        let cancelling = Arc::clone(&registry);
+        let (started_tx, started_rx) = mpsc::sync_channel(1);
+        let (result_tx, result_rx) = mpsc::sync_channel(1);
+        let caller = std::thread::spawn(move || {
+            started_tx.send(()).unwrap();
+            result_tx
+                .send(cancelling.cancel("first", |done| *done))
+                .unwrap();
+        });
+        started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert!(matches!(
+            result_rx.recv_timeout(Duration::from_millis(20)),
+            Err(mpsc::RecvTimeoutError::Timeout)
+        ));
+        *publishing = true;
+        drop(publishing);
+        assert!(
+            !result_rx
+                .recv_timeout(Duration::from_secs(5))
+                .unwrap()
+                .unwrap()
+        );
+        caller.join().unwrap();
+        assert!(!cancel.load(Ordering::Relaxed));
+    }
+
+    #[test]
     fn registry_replaces_finished_jobs_without_leaking_old_ids() {
         let registry = JobRegistry::new("test");
         let first_status = Arc::new(Mutex::new(false));
@@ -133,7 +258,7 @@ mod job_registry_tests {
                 )
                 .is_err()
         );
-        assert!(registry.cancel("first").unwrap());
+        assert!(registry.cancel("first", |done| *done).unwrap());
         assert!(
             registry
                 .insert_if_idle(
@@ -146,27 +271,127 @@ mod job_registry_tests {
 
         *first_status.lock().unwrap() = true;
         let second_cancel = Arc::new(AtomicBool::new(false));
-        let second_status = Arc::new(Mutex::new(true));
+        let second_status = Arc::new(Mutex::new(false));
         registry
             .insert_if_idle(
                 "second".to_string(),
                 AsyncJobHandle {
                     cancel: Arc::clone(&second_cancel),
-                    status: second_status,
+                    status: Arc::clone(&second_status),
                 },
                 |status| *status,
             )
             .unwrap();
-        assert!(!registry.cancel("first").unwrap());
+        assert!(!registry.cancel("first", |done| *done).unwrap());
         assert!(!second_cancel.load(Ordering::Relaxed));
-        assert!(registry.cancel("second").unwrap());
+        assert!(registry.cancel("second", |done| *done).unwrap());
         assert!(second_cancel.load(Ordering::Relaxed));
+        *second_status.lock().unwrap() = true;
         assert_eq!(registry.status("first", |status| *status).unwrap(), None);
         assert_eq!(
             registry.status("second", |status| *status).unwrap(),
             Some(true)
         );
         assert_eq!(registry.status("second", |status| *status).unwrap(), None);
+    }
+
+    #[test]
+    fn supervisor_reports_panic_only_after_worker_termination_and_recovers_status() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        for poison_status in [false, true] {
+            let registry = JobRegistry::new("test");
+            let status = Arc::new(Mutex::new(None::<Result<(), String>>));
+            registry
+                .insert_if_idle(
+                    "first".into(),
+                    AsyncJobHandle {
+                        cancel: Arc::new(AtomicBool::new(false)),
+                        status: Arc::clone(&status),
+                    },
+                    Option::is_some,
+                )
+                .unwrap();
+            let worker_status = Arc::clone(&status);
+            let (started_tx, started_rx) = mpsc::sync_channel(1);
+            let (release_tx, release_rx) = mpsc::sync_channel(1);
+            let publications = Arc::new(AtomicU64::new(0));
+            let published = Arc::clone(&publications);
+            let supervisor = spawn_supervised_job(
+                Arc::clone(&status),
+                move || {
+                    started_tx.send(()).unwrap();
+                    release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+                    let _guard = poison_status.then(|| worker_status.lock().unwrap());
+                    panic!("injected calculation panic");
+                },
+                move |status, outcome: Result<(), String>| {
+                    published.fetch_add(1, Ordering::Relaxed);
+                    *status = Some(outcome);
+                },
+            );
+            started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+            assert!(registry.cancel("first", Option::is_some).unwrap());
+            assert!(
+                registry
+                    .status("first", Option::is_some)
+                    .unwrap()
+                    .unwrap()
+                    .is_none()
+            );
+            assert!(
+                registry
+                    .insert_if_idle(
+                        "second".into(),
+                        AsyncJobHandle {
+                            cancel: Arc::new(AtomicBool::new(false)),
+                            status: Arc::new(Mutex::new(None)),
+                        },
+                        Option::is_some,
+                    )
+                    .is_err()
+            );
+            release_tx.send(()).unwrap();
+            tauri::async_runtime::block_on(supervisor).unwrap();
+            assert!(!status.is_poisoned());
+            let finished = registry
+                .status("first", Option::is_some)
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            assert_eq!(
+                finished.unwrap_err(),
+                "Calculation worker stopped unexpectedly. Retry the operation."
+            );
+            assert_eq!(publications.load(Ordering::Relaxed), 1);
+            assert!(registry.status("first", Option::is_some).unwrap().is_none());
+            registry
+                .insert_if_idle(
+                    "second".into(),
+                    AsyncJobHandle {
+                        cancel: Arc::new(AtomicBool::new(false)),
+                        status: Arc::new(Mutex::new(None)),
+                    },
+                    Option::is_some,
+                )
+                .unwrap();
+        }
+    }
+
+    #[test]
+    fn supervisor_preserves_worker_results() {
+        for result in [Ok(Some(42)), Err("invalid request".to_string()), Ok(None)] {
+            let status = Arc::new(Mutex::new(None));
+            let expected = result.clone();
+            let supervisor = spawn_supervised_job(
+                Arc::clone(&status),
+                move || result,
+                |status, outcome| *status = Some(outcome.unwrap()),
+            );
+            tauri::async_runtime::block_on(supervisor).unwrap();
+            assert_eq!(*status.lock().unwrap(), Some(expected));
+        }
     }
 }
 

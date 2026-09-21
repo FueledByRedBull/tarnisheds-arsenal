@@ -37,6 +37,14 @@ separate versions. The [extraction guide](../tools/phase1/README.md#snapshot-con
 owns the storage format and regeneration requirements. Incompatible saved results
 must be recalculated; reusable saved inputs are retained.
 
+The former floating-point canonical-tie counterexample is now checked by
+`exact_dp_matches_exhaustive_on_the_former_f32_counterexample`, which requires
+agreement on both the complete exact key and combat stats.
+`exact_completion_preserves_sub_ulp_order` checks ordering across completion;
+the separate all-five-stat oracle checks active-stat relevance. These regressions
+live in the [optimizer tests](../core/er_optimizer_core/src/optimizer/tests.rs).
+They establish implementation agreement for their fixtures, not gameplay fidelity.
+
 ## Vanilla
 
 The bundled snapshot targets **Elden Ring 1.17**. Objectives are **Max AR**,
@@ -115,7 +123,9 @@ are never filled with Vanilla data.
 ## Known reference differences
 
 The pinned [T. Clark 1.17 calculator](https://github.com/ThomasJClark/elden-ring-weapon-calculator/tree/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a)
-uses a different floating-point evaluation order. For Bloodfiend's Fork (Keen),
+uses JavaScript floating-point arithmetic and a small offset before truncating
+display values. Its live 1.17 calculator and [Tarnished.dev](https://www.tarnished.dev/weapon-calculator)
+both display the reference values below. For Bloodfiend's Fork (Keen),
 the exact production bleed floor differs at these boundaries in both handling
 modes:
 
@@ -125,7 +135,8 @@ modes:
 | `+25` / 50 | 67 | 68 |
 
 These are known arithmetic-contract differences, not independently verified
-in-game values. No epsilon adjustment is applied to force agreement. External
+in-game values. The two sites' implementation and data independence is unverified.
+No epsilon adjustment is applied to force agreement. External
 status agreement is therefore not universal. Complex skill comparisons have
 additional reference-input discrepancies and missing hits; see the dated
 [verification results](release-notes/v0.14.0.md#verification).

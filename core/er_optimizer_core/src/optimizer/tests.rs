@@ -656,6 +656,29 @@ fn scored_candidate(
     }
 }
 
+fn materialize_with_ranked_insertion(
+    request: &OptimizeRequest,
+    data: &GameData,
+    weapons: &[PreparedWeapon<'_>],
+    candidates: &[ScoredCandidate],
+    group_mode: ResultGroupMode,
+) -> Vec<OptimizeResult> {
+    let mut rows = Vec::new();
+    for candidate in candidates {
+        let row = materialize_scored_candidate(
+            candidate.clone(),
+            request,
+            data,
+            weapons,
+            request.damage_multiplier(),
+            &mut || true,
+        )
+        .expect("reference candidate materialization");
+        push_top_k(&mut rows, row, request.top_k, group_mode);
+    }
+    rows
+}
+
 fn base_request() -> OptimizeRequest {
     OptimizeRequest {
         class_name: "Samurai".to_string(),
@@ -1008,12 +1031,10 @@ fn grouped_score_cutoff_preserves_full_fingerprint_before_global_top_k_is_full()
             format!("{unpruned:?}"),
             "scored full fingerprint objective={objective:?}"
         );
-        let pruned_rows =
-            materialize_scored_candidates(&request, &data, &plan.weapons, pruned, group_mode)
-                .expect("materialize grouped cutoff search");
-        let unpruned_rows =
-            materialize_scored_candidates(&request, &data, &plan.weapons, unpruned, group_mode)
-                .expect("materialize unpruned grouped search");
+        let pruned_rows = materialize_scored_candidates(&request, &data, &plan.weapons, pruned)
+            .expect("materialize grouped cutoff search");
+        let unpruned_rows = materialize_scored_candidates(&request, &data, &plan.weapons, unpruned)
+            .expect("materialize unpruned grouped search");
         assert_eq!(
             format!("{pruned_rows:?}"),
             format!("{unpruned_rows:?}"),
@@ -1193,6 +1214,42 @@ fn dynamic_search_matches_exhaustive_search_for_every_objective() {
                 ),
                 (
                     OptimizeObjective::AowFirstHit,
+                    "Claymore",
+                    "Heavy",
+                    Some("War Cry"),
+                ),
+                (
+                    OptimizeObjective::AowFullSequence,
+                    "Claymore",
+                    "Heavy",
+                    Some("War Cry"),
+                ),
+                (
+                    OptimizeObjective::AowFullSequence,
+                    "Claymore",
+                    "Fire",
+                    Some("Flaming Strike"),
+                ),
+                (
+                    OptimizeObjective::AowFullSequence,
+                    "Claymore",
+                    "Flame Art",
+                    Some("Flame Skewer"),
+                ),
+                (
+                    OptimizeObjective::AowFullSequence,
+                    "Uchigatana",
+                    "Keen",
+                    Some("Double Slash"),
+                ),
+                (
+                    OptimizeObjective::AowFullSequence,
+                    "Uchigatana",
+                    "Keen",
+                    Some("Storm Blade"),
+                ),
+                (
+                    OptimizeObjective::AowFirstHit,
                     "Caestus",
                     "Occult",
                     Some("Lifesteal Fist"),
@@ -1263,6 +1320,19 @@ fn dynamic_search_matches_exhaustive_search_for_every_objective() {
                 assert_eq!(fast.key, reference.key);
                 assert_eq!(fast.route_id, reference.route_id);
             }
+            assert_eq!(
+                format!(
+                    "{:?}",
+                    materialize_scored_candidates(&request, &game_data, &plan.weapons, dynamic)
+                        .unwrap()
+                ),
+                format!(
+                    "{:?}",
+                    materialize_scored_candidates(&request, &game_data, &plan.weapons, exhaustive)
+                        .unwrap()
+                ),
+                "complete ranked output {weapon}/{aow_name:?}/{objective:?}"
+            );
         }
     }
 }
@@ -2608,6 +2678,349 @@ fn ar_bleed_frontier_honors_cancellation() {
 }
 
 #[test]
+fn arc_frontier_reuse_matches_every_independently_enumerated_winner() {
+    for threads in [1, rayon::current_num_threads()] {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| {
+                for mut data in [load_data(), load_convergence_data()] {
+                    let cases = if data.profile_id == "vanilla" {
+                        vec![
+                            ("Blood", Some("Seppuku")),
+                            ("Occult", Some("Bloody Slash")),
+                            ("Keen", Some("Unsheathe")),
+                        ]
+                    } else {
+                        vec![("Standard", None)]
+                    };
+                    for (affinity, skill) in cases {
+                        for plateau in [false, true] {
+                            let mut request = base_request();
+                            request.affinity = Some(affinity.into());
+                            request.aow_name = skill.map(str::to_string);
+                            request.exact_upgrade = true;
+                            request.standard_max_upgrade = data.rules.standard_max_upgrade;
+                            request.somber_max_upgrade = data.rules.somber_max_upgrade;
+                            request.character_level = 14;
+                            request.min_combat_stats[STAT_DEX] = 16;
+                            request.locked_combat_stats[STAT_INT] = Some(9);
+                            request.two_handing = true;
+                            request.result_grouping = ResultGrouping::Loadout;
+                            request.top_k = 1;
+                            if plateau {
+                                let ids = data
+                                    .weapons
+                                    .iter()
+                                    .find(|w| w.name == "Uchigatana" && w.affinity == affinity)
+                                    .unwrap()
+                                    .damage_curve_ids;
+                                for id in ids {
+                                    if let Some(Some(curve)) = data.calc_correct.get_mut(id) {
+                                        for value in curve.iter_mut().flatten() {
+                                            *value = 1.0;
+                                        }
+                                    }
+                                }
+                            }
+                            let mut evaluator =
+                                prepare_loadout_evaluator_with_cancel(&request, &data, || true)
+                                    .unwrap();
+                            if skill.is_none() {
+                                let mut weapons = evaluator.weapons.to_vec();
+                                weapons[0]
+                                    .aow_choices
+                                    .retain(|c| c.no_applied_ash || c.skill_name.is_none());
+                                evaluator.weapons = Arc::from(weapons);
+                            }
+                            let constraints = build_combat_constraints(&request).unwrap();
+                            let mut expected = std::collections::BTreeMap::new();
+                            for combat in all_five_allocations(
+                                constraints.mins,
+                                constraints.maxs,
+                                constraints.remaining_free,
+                            ) {
+                                if let Some(row) = evaluate_fixed_loadout_upgrade(
+                                    &request,
+                                    &data,
+                                    &evaluator.weapons,
+                                    evaluator.weapons[0].upgrades[0],
+                                    stats_with_combat(request.current_stats, combat),
+                                    &mut || true,
+                                )
+                                .unwrap()
+                                {
+                                    let best = expected
+                                        .entry(combat[STAT_ARC])
+                                        .or_insert_with(|| row.clone());
+                                    if better_result(&row, best) {
+                                        *best = row;
+                                    }
+                                }
+                            }
+                            let actual =
+                                ar_bleed_candidates_with_reuse(&evaluator, &request, &mut || true)
+                                    .unwrap()
+                                    .expect("additive fixture reuses DP");
+                            assert!(!expected.is_empty());
+                            assert_eq!(
+                                format!("{actual:?}"),
+                                format!("{:?}", expected.into_values().collect::<Vec<_>>()),
+                                "{} {affinity} {skill:?} plateau={plateau} threads={threads}",
+                                data.profile_id
+                            );
+                        }
+                    }
+                }
+            });
+    }
+}
+
+#[test]
+fn arc_frontier_reuse_preserves_non_additive_fallback_and_cancellation() {
+    let data = load_data();
+    let mut request = base_request();
+    request.character_level = 12;
+    request.affinity = Some("Blood".into());
+    request.aow_name = Some("Seppuku".into());
+    request.exact_upgrade = true;
+    request.result_grouping = ResultGrouping::Loadout;
+    request.top_k = 1;
+    let evaluator = prepare_loadout_evaluator_with_cancel(&request, &data, || true).unwrap();
+    let mut polls = 0;
+    ar_bleed_candidates_with_reuse(&evaluator, &request, &mut || {
+        polls += 1;
+        true
+    })
+    .unwrap()
+    .unwrap();
+    for stop in 1..=polls {
+        let mut seen = 0;
+        assert_eq!(
+            ar_bleed_candidates_with_reuse(&evaluator, &request, &mut || {
+                seen += 1;
+                seen < stop
+            })
+            .unwrap_err(),
+            "cancelled",
+            "checkpoint {stop}/{polls}"
+        );
+    }
+    request.weapon_name = Some("Caestus".into());
+    request.aow_name = Some("Lifesteal Fist".into());
+    let evaluator = prepare_loadout_evaluator_with_cancel(&request, &data, || true).unwrap();
+    assert!(
+        scalar_route_set(&evaluator.weapons[0].aow_choices[0], &data)
+            .unwrap()
+            .unwrap()
+            .iter()
+            .any(|r| !r.is_additive(&data))
+    );
+    assert!(
+        ar_bleed_candidates_with_reuse(&evaluator, &request, &mut || true)
+            .unwrap()
+            .is_none()
+    );
+}
+
+fn independent_arc_winners(
+    evaluator: &PreparedLoadoutEvaluator<'_>,
+    request: &OptimizeRequest,
+) -> Vec<OptimizeResult> {
+    let constraints = build_combat_constraints(request).unwrap();
+    let other_capacity: u16 = (0..COMBAT_STAT_COUNT)
+        .filter(|&s| s != STAT_ARC)
+        .map(|s| u16::from(constraints.maxs[s] - constraints.mins[s]))
+        .sum();
+    let mut rows = Vec::new();
+    for spent in constraints.remaining_free.saturating_sub(other_capacity)
+        ..=constraints.remaining_free.min(u16::from(
+            constraints.maxs[STAT_ARC] - constraints.mins[STAT_ARC],
+        ))
+    {
+        let mut locked = request.clone();
+        locked.locked_combat_stats[STAT_ARC] = Some(constraints.mins[STAT_ARC] + spent as u8);
+        rows.extend(evaluator.evaluate_with_cancel(&locked, || true).unwrap());
+    }
+    rows
+}
+
+#[test]
+fn arc_frontier_reuse_matches_locked_solves_at_caps_and_large_budgets() {
+    let mut data = load_data();
+    let weapon = data
+        .weapons
+        .iter()
+        .find(|w| w.name == "Uchigatana" && w.affinity == "Blood")
+        .unwrap()
+        .clone();
+    for curve_id in [weapon.damage_curve_ids[0], weapon.status_curve_ids.blood] {
+        let curve = data
+            .calc_correct
+            .get_mut(curve_id)
+            .and_then(Option::as_mut)
+            .unwrap();
+        curve[8] = Some(1.0);
+        curve[9] = Some(4.0);
+        curve[10] = Some(2.0);
+    }
+    for (budget, dex, arc_lock) in [
+        (0, 15, None),
+        (3, 99, None),
+        (150, 15, None),
+        (10, 15, Some(10)),
+    ] {
+        let mut request = base_request();
+        request.current_stats.dex = dex;
+        request.character_level = 9 + request.current_stats.sum_all_8() - 88 + budget;
+        request.affinity = Some("Blood".into());
+        request.aow_name = Some("Seppuku".into());
+        request.exact_upgrade = true;
+        request.locked_combat_stats = [Some(12), None, Some(9), Some(8), arc_lock];
+        request.result_grouping = ResultGrouping::Loadout;
+        request.top_k = 1;
+        let evaluator = prepare_loadout_evaluator_with_cancel(&request, &data, || true).unwrap();
+        let actual = ar_bleed_candidates_with_reuse(&evaluator, &request, &mut || true)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            format!("{actual:?}"),
+            format!("{:?}", independent_arc_winners(&evaluator, &request)),
+            "budget={budget} dex={dex} arc={arc_lock:?}"
+        );
+        let constraints = build_combat_constraints(&request).unwrap();
+        let mut enumerated = std::collections::BTreeMap::new();
+        for combat in all_five_allocations(
+            constraints.mins,
+            constraints.maxs,
+            constraints.remaining_free,
+        ) {
+            let row = evaluate_fixed_loadout_upgrade(
+                &request,
+                &data,
+                &evaluator.weapons,
+                evaluator.weapons[0].upgrades[0],
+                stats_with_combat(request.current_stats, combat),
+                &mut || true,
+            )
+            .unwrap()
+            .unwrap();
+            let best = enumerated
+                .entry(combat[STAT_ARC])
+                .or_insert_with(|| row.clone());
+            if better_result(&row, best) {
+                *best = row;
+            }
+        }
+        assert_eq!(
+            format!("{actual:?}"),
+            format!("{:?}", enumerated.into_values().collect::<Vec<_>>())
+        );
+    }
+    data.weapons
+        .iter_mut()
+        .find(|w| w.name == "Uchigatana" && w.affinity == "Blood")
+        .unwrap()
+        .requirements[STAT_ARC] = 10;
+    let mut request = base_request();
+    request.character_level = 14;
+    request.affinity = Some("Blood".into());
+    request.aow_name = Some("Seppuku".into());
+    request.exact_upgrade = true;
+    request.result_grouping = ResultGrouping::Loadout;
+    request.top_k = 1;
+    let evaluator = prepare_loadout_evaluator_with_cancel(&request, &data, || true).unwrap();
+    let rows = ar_bleed_candidates_with_reuse(&evaluator, &request, &mut || true)
+        .unwrap()
+        .unwrap();
+    assert!(rows.iter().all(|row| row.stats.arc >= 10));
+    assert_eq!(
+        format!("{rows:?}"),
+        format!("{:?}", independent_arc_winners(&evaluator, &request))
+    );
+    request.character_level = 9;
+    assert!(
+        ar_bleed_candidates_with_reuse(&evaluator, &request, &mut || true)
+            .unwrap()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        evaluator
+            .evaluate_with_cancel(&request, || true)
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+#[ignore = "isolated release measurement; no competing builds or tests"]
+fn benchmark_arc_frontier_reuse() {
+    let data = load_data();
+    let candidate = std::env::var("MATH_VARIANT").as_deref() == Ok("candidate");
+    for (affinity, level) in [("Blood", 80), ("Blood", 200), ("Keen", 80)] {
+        let mut request = base_request();
+        request.character_level = level;
+        request.current_stats.vig = 40;
+        request.current_stats.end = 20;
+        request.current_stats.arc = 20;
+        request.affinity = Some(affinity.into());
+        request.aow_name = Some("Seppuku".into());
+        request.exact_upgrade = true;
+        request.result_grouping = ResultGrouping::Loadout;
+        request.top_k = 1;
+        let evaluator = prepare_loadout_evaluator_with_cancel(&request, &data, || true).unwrap();
+        let expected = independent_arc_winners(&evaluator, &request);
+        assert_eq!(
+            format!(
+                "{:?}",
+                ar_bleed_candidates_with_reuse(&evaluator, &request, &mut || true)
+                    .unwrap()
+                    .unwrap()
+            ),
+            format!("{expected:?}")
+        );
+        let frontier = build_ar_bleed_frontier(expected.clone(), &mut || true).unwrap();
+        let mut samples = Vec::new();
+        for repeat in 0..8 {
+            let start = Instant::now();
+            let rows = if candidate {
+                evaluator
+                    .evaluate_ar_bleed_frontier_with_cancel(&request, || true)
+                    .unwrap()
+            } else {
+                build_ar_bleed_frontier(independent_arc_winners(&evaluator, &request), &mut || true)
+                    .unwrap()
+            };
+            let elapsed = start.elapsed().as_secs_f64() * 1000.0;
+            assert_eq!(format!("{rows:?}"), format!("{frontier:?}"));
+            if repeat > 0 {
+                samples.push(elapsed);
+            }
+        }
+        let cancel_after_ms = samples.iter().copied().fold(f64::INFINITY, f64::min) / 4.0;
+        let cancellation_ms = if candidate {
+            let started = Instant::now();
+            assert_eq!(
+                evaluator
+                    .evaluate_ar_bleed_frontier_with_cancel(&request, || started.elapsed()
+                        < Duration::from_secs_f64(cancel_after_ms / 1000.0))
+                    .unwrap_err(),
+                "cancelled"
+            );
+            Some(started.elapsed().as_secs_f64() * 1000.0)
+        } else {
+            None
+        };
+        println!(
+            "MATH_BENCH {}",
+            serde_json::json!({"experiment":"m01", "variant":if candidate {"candidate"} else {"baseline"}, "case":format!("{affinity}-{level}"), "request":format!("{request:?}"), "profile":data.profile_id, "model":data.model_version, "threads":rayon::current_num_threads(), "warmups":1, "repeats":7, "timing_scope":"prepared_loadout_complete_frontier", "samples_ms":samples, "cancel_after_ms":cancel_after_ms, "cancel_elapsed_ms":cancellation_ms, "results":format!("{expected:?}"), "frontier":format!("{frontier:?}")})
+        );
+    }
+}
+
+#[test]
 fn ar_bleed_frontier_loss_basis_points_round_up_at_exact_boundaries() {
     let max_ar = ExactRational::new(
         num_bigint::BigInt::from(100_u8),
@@ -3437,6 +3850,7 @@ fn parallel_search_matches_serial_results() {
         assert_eq!(left.exact_key, right.exact_key);
         assert!((left.score - right.score).abs() < 0.001);
     }
+    assert_eq!(format!("{serial:?}"), format!("{parallel:?}"));
 }
 
 #[test]
@@ -3704,26 +4118,185 @@ fn scored_top_k_applies_final_tie_breaks_at_exact_limit() {
     }
     assert_eq!(retained.len(), 1);
 
-    let bounded = materialize_scored_candidates(
+    let bounded = materialize_scored_candidates(&request, &game_data, &weapons, retained)
+        .expect("bounded candidates materialize");
+    let exhaustive = materialize_with_ranked_insertion(
         &request,
         &game_data,
         &weapons,
-        retained,
+        &all_candidates,
         ResultGroupMode::Loadout,
-    )
-    .expect("bounded candidates materialize");
-    let exhaustive = materialize_scored_candidates(
-        &request,
-        &game_data,
-        &weapons,
-        all_candidates,
-        ResultGroupMode::Loadout,
-    )
-    .expect("exhaustive candidates materialize");
+    );
     assert_eq!(bounded[0].upgrade, exhaustive[0].upgrade);
     assert_eq!(bounded[0].stats, exhaustive[0].stats);
     assert_eq!(bounded[0].exact_key, exhaustive[0].exact_key);
     assert!((bounded[0].ar.total() - exhaustive[0].ar.total()).abs() < 0.001);
+    assert_eq!(format!("{bounded:?}"), format!("{exhaustive:?}"));
+}
+
+#[test]
+fn ordered_materialization_matches_ranked_insertion_for_ties_groups_and_limits() {
+    let data = load_data();
+    let mut request = base_request();
+    let template = data
+        .weapons
+        .iter()
+        .find(|weapon| weapon.name == "Uchigatana" && weapon.affinity == "Keen")
+        .expect("materialization fixture weapon");
+    let mut fixtures = (0..503)
+        .map(|index| {
+            let mut weapon = template.clone();
+            weapon.weapon_id = 1_000_000 + index;
+            weapon.name = format!("Tie Weapon {index:03}");
+            weapon.can_change_aow = false;
+            weapon
+        })
+        .collect::<Vec<_>>();
+    fixtures[502].name = fixtures[0].name.to_uppercase();
+    let weapons = fixtures
+        .iter()
+        .map(|weapon| PreparedWeapon {
+            weapon,
+            aow_choices: [None, Some(11), Some(7)]
+                .into_iter()
+                .map(|skill_id| AowChoice {
+                    no_applied_ash: true,
+                    aow: None,
+                    skill_id,
+                    skill_name: skill_id.map(|_| "Tie Skill"),
+                    attack_rows: Vec::new(),
+                    scalar_routes: None,
+                })
+                .collect(),
+            upgrades: vec![0, 25],
+        })
+        .collect::<Vec<_>>();
+    let mut all_candidates = (0..weapons.len())
+        .map(|index| scored_candidate(index, 0, 0, request.current_stats, 100.0))
+        .collect::<Vec<_>>();
+    for prepared_idx in [0, 1] {
+        for upgrade in [0, 25] {
+            for aow_idx in 0..3 {
+                for extra_strength in [1, 0] {
+                    let mut stats = request.current_stats;
+                    stats.str += extra_strength;
+                    all_candidates.push(scored_candidate(
+                        prepared_idx,
+                        aow_idx,
+                        upgrade,
+                        stats,
+                        100.0,
+                    ));
+                }
+            }
+        }
+    }
+    all_candidates.push(all_candidates[0].clone());
+    all_candidates.push(scored_candidate(0, 0, 0, request.current_stats, 99.0));
+    let tiny = ExactRational::new(BigInt::from(1_u8), BigInt::from(67_108_864_u64));
+    for component in 0..5 {
+        let prepared_idx = if component == 0 { 0 } else { component + 1 };
+        let mut candidate = scored_candidate(prepared_idx, 0, 25, request.current_stats, 100.0);
+        let key = match component {
+            0 => &mut candidate.key.score,
+            1 => &mut candidate.key.ar_total,
+            2 => &mut candidate.key.aow_full,
+            3 => &mut candidate.key.aow_first,
+            _ => &mut candidate.key.bleed,
+        };
+        *key += &tiny;
+        assert_eq!(
+            project(&candidate.key.score).unwrap(),
+            candidate.metric.score
+        );
+        all_candidates.push(candidate);
+    }
+
+    for group_mode in [ResultGroupMode::WeaponOnly, ResultGroupMode::Loadout] {
+        for top_k in [0, 1, 25, 500] {
+            request.top_k = top_k;
+            for reversed in [false, true] {
+                let mut candidates = all_candidates.clone();
+                if reversed {
+                    candidates.reverse();
+                }
+                let expected = materialize_with_ranked_insertion(
+                    &request,
+                    &data,
+                    &weapons,
+                    &candidates,
+                    group_mode,
+                );
+                let mut retained = Vec::new();
+                merge_scored_top_k(&mut retained, candidates, &weapons, group_mode, top_k);
+                assert_eq!(retained.len(), top_k);
+                let actual = materialize_scored_candidates(&request, &data, &weapons, retained)
+                    .expect("ordered batch materialization");
+                assert_eq!(
+                    format!("{actual:?}"),
+                    format!("{expected:?}"),
+                    "group={group_mode:?} top_k={top_k} reversed={reversed}"
+                );
+                if let Some(best) = actual.first() {
+                    assert_eq!(best.weapon_id, fixtures[0].weapon_id);
+                    assert_eq!(best.upgrade, 25);
+                    assert_eq!(best.aow_id, None);
+                    assert_eq!(best.stats, request.current_stats);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn ordered_materialization_preserves_serial_and_populated_reuse_fingerprints() {
+    let data = load_data();
+    let mut request = base_request();
+    request.character_level = 18;
+    request.affinity = Some("Blood".to_string());
+    request.aow_name = Some("Seppuku".to_string());
+    request.exact_upgrade = true;
+    request.top_k = 25;
+    for grouping in [ResultGrouping::Weapon, ResultGrouping::Loadout] {
+        request.result_grouping = grouping;
+        let plan = prepare_search(&request, &data).expect("materialization score fixture");
+        let group_mode = result_group_mode(&request);
+        let total = plan
+            .serial_work_units
+            .iter()
+            .map(|unit| unit.candidate_count)
+            .sum();
+        let mut reuse = DpReuse::from_plan(&plan);
+        assert!(level_plan_can_reuse(&plan, &reuse));
+        let mut fingerprints = Vec::new();
+        for pass in 0..3 {
+            if pass == 2 {
+                assert!(!reuse.primary.is_empty() || !reuse.solved.is_empty());
+            }
+            let mut progress = SerialSearchProgress::new(total, 0, |_| true);
+            let candidates = score_serial(
+                &plan,
+                &plan.serial_work_units,
+                group_mode,
+                &mut progress,
+                (pass > 0).then_some(&mut reuse),
+            )
+            .expect("serial and reused scoring");
+            assert!(!candidates.is_empty());
+            let expected = materialize_with_ranked_insertion(
+                &request,
+                &data,
+                &plan.weapons,
+                &candidates,
+                group_mode,
+            );
+            let actual = materialize_scored_candidates(&request, &data, &plan.weapons, candidates)
+                .expect("materialize serial and reused candidates");
+            assert_eq!(format!("{actual:?}"), format!("{expected:?}"));
+            fingerprints.push(format!("{actual:?}"));
+        }
+        assert!(fingerprints.windows(2).all(|pair| pair[0] == pair[1]));
+    }
 }
 
 #[test]
@@ -3765,6 +4338,500 @@ fn progress_emits_initial_and_final_snapshots() {
             .windows(2)
             .all(|pair| pair[0].checked <= pair[1].checked)
     );
+}
+
+#[test]
+fn materialization_cancellation_after_scoring_discards_large_result_batch() {
+    let game_data = load_data();
+    let mut request = broad_request();
+    request.character_level = 101;
+    request.standard_max_upgrade = 0;
+    request.somber_max_upgrade = 0;
+    request.top_k = 128;
+    request.result_grouping = ResultGrouping::Loadout;
+    let stats = request.current_stats;
+    lock_request_to_combat_stats(&mut request, stats);
+    let plan = prepare_search(&request, &game_data).unwrap();
+    let candidates = score_prepared_with_progress(&plan, 0, |_| true).unwrap();
+    assert_eq!(candidates.len(), request.top_k);
+    let expected =
+        materialize_scored_candidates(&request, &game_data, &plan.weapons, candidates.clone())
+            .unwrap();
+    assert!(expected.iter().any(|row| row.aow_route.is_some()));
+    let mut materialization_polls = 0;
+    let actual = materialize_scored_candidates_with_cancel(
+        &request,
+        &game_data,
+        &plan.weapons,
+        candidates.clone(),
+        &mut || {
+            materialization_polls += 1;
+            true
+        },
+    )
+    .unwrap();
+    assert_eq!(format!("{actual:?}"), format!("{expected:?}"));
+    let mut first_row_polls = 0;
+    materialize_scored_candidate(
+        candidates[0].clone(),
+        &request,
+        &game_data,
+        &plan.weapons,
+        request.damage_multiplier(),
+        &mut || {
+            first_row_polls += 1;
+            true
+        },
+    )
+    .unwrap();
+    for stop_at in [first_row_polls + 1, materialization_polls] {
+        let mut polls = 0;
+        let result = materialize_scored_candidates_with_cancel(
+            &request,
+            &game_data,
+            &plan.weapons,
+            candidates.clone(),
+            &mut || {
+                polls += 1;
+                polls < stop_at
+            },
+        );
+        assert_eq!(result.err().as_deref(), Some("cancelled"));
+        assert_eq!(polls, stop_at);
+    }
+
+    // With progress disabled, scoring emits only its initial and final snapshots.
+    // Accept both, then accept one hydration checkpoint before cancelling.
+    let mut polls = 0;
+    let result = optimize_prepared_with_progress(&plan, 0, |_| {
+        polls += 1;
+        polls < 4
+    });
+    assert_eq!(result.err().as_deref(), Some("cancelled"));
+    assert_eq!(polls, 4);
+}
+
+#[test]
+fn materialization_cancellation_after_reused_scoring_discards_result() {
+    let game_data = load_data();
+    let mut request = base_request();
+    request.exact_upgrade = true;
+    request.top_k = 1;
+    let plan = prepare_search(&request, &game_data).unwrap();
+    let mut reuse = DpReuse::from_plan(&plan);
+    assert!(level_plan_can_reuse(&plan, &reuse));
+    let mut polls = 0;
+    let result = optimize_prepared_with_reuse(
+        &plan,
+        0,
+        |_| {
+            polls += 1;
+            polls < 4
+        },
+        &mut reuse,
+    );
+    assert_eq!(result.err().as_deref(), Some("cancelled"));
+    assert_eq!(polls, 4);
+}
+
+#[test]
+fn materialization_cancellation_after_fixed_loadout_selection_discards_result() {
+    let game_data = load_data();
+    let mut request = broad_request();
+    request.character_level = 101;
+    request.weapon_name = Some("Claymore".into());
+    request.affinity = Some("Standard".into());
+    request.aow_name = Some("Wild Strikes".into());
+    request.objective = OptimizeObjective::AowFullSequence;
+    let stats = request.current_stats;
+    lock_request_to_combat_stats(&mut request, stats);
+    let plan = prepare_search(&request, &game_data).unwrap();
+    assert_eq!(plan.weapons.len(), 1);
+    assert_eq!(plan.weapons[0].aow_choices.len(), 1);
+    // Selection polls once for the weapon and once for its Ash; cancellation
+    // becomes visible only after the selected candidate starts hydration.
+    let mut polls = 0;
+    let result =
+        evaluate_fixed_loadout_upgrade(&request, &game_data, &plan.weapons, 25, stats, &mut || {
+            polls += 1;
+            polls < 4
+        });
+    assert_eq!(result.err().as_deref(), Some("cancelled"));
+    assert_eq!(polls, 4);
+}
+
+#[test]
+fn selected_route_materialization_preserves_complete_payloads_and_optimizer_results() {
+    let data = load_data();
+    let mut saw_buff = false;
+    let mut saw_warning = false;
+    let mut saw_effect = false;
+    let mut saw_status = false;
+    let mut saw_multi_action = false;
+    let mut saw_multi_hit = false;
+    let mut saw_poise = false;
+    let mut saw_stamina = false;
+    for (weapon, affinity, skill, route_count) in [
+        ("Battle Axe", "Blood", Some("Wild Strikes"), 2),
+        ("Claymore", "Heavy", Some("War Cry"), 4),
+        ("Claymore", "Fire", Some("Flame Skewer"), 1),
+        ("Claymore", "Cold", Some("Ghostflame Call"), 2),
+        ("Uchigatana", "Standard", Some("Chilling Mist"), 1),
+        ("Moonveil", "Standard", None, 2),
+    ] {
+        let mut request = broad_request();
+        request.current_stats = stats_with_combat(request.current_stats, [30; COMBAT_STAT_COUNT]);
+        request.character_level = request.current_stats.sum_all_8() - 79;
+        request.weapon_name = Some(weapon.into());
+        request.affinity = Some(affinity.into());
+        request.aow_name = skill.map(str::to_string);
+        request.objective = if skill == Some("Chilling Mist") {
+            OptimizeObjective::MaxAr
+        } else {
+            OptimizeObjective::AowFullSequence
+        };
+        request.top_k = 1;
+        let stats = request.current_stats;
+        lock_request_to_combat_stats(&mut request, stats);
+        let plan = prepare_search(&request, &data).expect("selected-route fixture");
+        assert_eq!(plan.weapons.len(), 1, "{weapon}/{skill:?}");
+        let prepared = &plan.weapons[0];
+        assert_eq!(prepared.aow_choices.len(), 1, "{weapon}/{skill:?}");
+        let choice = &prepared.aow_choices[0];
+        for (upgrade, combat, two_handing, multiplier) in [
+            (0, [30; COMBAT_STAT_COUNT], false, 1.0),
+            (prepared.upgrades[0], [40, 25, 30, 20, 20], true, 2.05),
+        ] {
+            let stats = stats_with_combat(request.current_stats, combat);
+            request.two_handing = two_handing;
+            let strength = effective_str_for_weapon(&request, prepared.weapon, stats.str);
+            let all = calculate_aow_routes_scaled_with_cancel(
+                prepared.weapon,
+                &choice.attack_rows,
+                upgrade,
+                &stats,
+                strength,
+                multiplier,
+                &data,
+                None,
+                &mut || true,
+            )
+            .expect("all-route reference hydration");
+            assert_eq!(all.len(), route_count, "{weapon}/{skill:?}");
+            for route in &all {
+                let selected = calculate_aow_routes_scaled_with_cancel(
+                    prepared.weapon,
+                    &choice.attack_rows,
+                    upgrade,
+                    &stats,
+                    strength,
+                    multiplier,
+                    &data,
+                    Some(&route.route_id),
+                    &mut || true,
+                )
+                .expect("selected-route hydration");
+                assert_eq!(
+                    format!("{selected:?}"),
+                    format!("{:?}", [route]),
+                    "{weapon}/{skill:?}/{} upgrade={upgrade}",
+                    route.route_id
+                );
+                saw_multi_action |= route.actions.len() > 1;
+                saw_poise |= route.total_poise_damage > 0.0;
+                saw_stamina |= route.total_stamina_cost > 0.0;
+                for action in &route.actions {
+                    saw_multi_hit |= action.hits.len() > 1;
+                    for hit in &action.hits {
+                        saw_buff |= hit.buff_active;
+                        saw_warning |= !hit.warnings.is_empty();
+                        saw_effect |= !hit.effects.is_empty();
+                        saw_status |=
+                            hit.status_buildup.bleed > 0.0 || hit.status_buildup.frost > 0.0;
+                    }
+                }
+            }
+        }
+        // Rehydrate the scored winner through the all-route reference before
+        // comparing the entire public optimizer result, not just route totals.
+        let candidates = score_prepared_with_progress(&plan, 0, |_| true).unwrap();
+        assert_eq!(candidates.len(), 1, "{weapon}/{skill:?}");
+        let candidate = candidates[0].clone();
+        let mut expected = materialize_scored_candidate(
+            candidate.clone(),
+            &plan.request,
+            &data,
+            &plan.weapons,
+            plan.request.damage_multiplier(),
+            &mut || true,
+        )
+        .unwrap();
+        let all = calculate_aow_routes_scaled_with_cancel(
+            prepared.weapon,
+            &choice.attack_rows,
+            candidate.upgrade,
+            &candidate.stats,
+            effective_str_for_weapon(&plan.request, prepared.weapon, candidate.stats.str),
+            plan.request.damage_multiplier(),
+            &data,
+            None,
+            &mut || true,
+        )
+        .unwrap();
+        expected.aow_route = Some(
+            all.into_iter()
+                .find(|route| Some(route.route_id.as_str()) == candidate.route_id.as_deref())
+                .expect("scored route exists in full reference"),
+        );
+        let actual = optimize_prepared_with_progress(&plan, 0, |_| true).unwrap();
+        assert_eq!(
+            format!("{actual:?}"),
+            format!("{:?}", [expected]),
+            "{weapon}/{skill:?}"
+        );
+    }
+    assert!(saw_buff && saw_warning && saw_effect && saw_status);
+    assert!(saw_multi_action && saw_multi_hit && saw_poise && saw_stamina);
+}
+
+#[test]
+fn selected_route_materialization_preserves_unselected_route_failures() {
+    for fault in ["row-assignment", "buff-assignment", "route-overflow"] {
+        let mut data = load_data();
+        match fault {
+            "row-assignment" => {
+                assert!(data.aow_route_assignments.remove(&(110, 34)).is_some());
+            }
+            "buff-assignment" => {
+                data.aows
+                    .iter_mut()
+                    .find(|aow| aow.aow_id == 110)
+                    .unwrap()
+                    .buff_activation_action_id = Some("r2".into());
+                data.aow_route_assignments
+                    .get_mut(&(110, 35))
+                    .unwrap()
+                    .iter_mut()
+                    .find(|assignment| assignment.route_id == "r2")
+                    .unwrap()
+                    .action_order = 4;
+                data.aow_attack_rows
+                    .get_mut(&110)
+                    .unwrap()
+                    .iter_mut()
+                    .find(|row| row.sheet_row == 35)
+                    .unwrap()
+                    .weapon_buff_mv = -1.0;
+            }
+            "route-overflow" => {
+                for row in data
+                    .aow_attack_rows
+                    .get_mut(&110)
+                    .unwrap()
+                    .iter_mut()
+                    .filter(|row| matches!(row.sheet_row, 34 | 35))
+                {
+                    row.atk_id = 300_000_682;
+                    row.attack_base = [f32::MAX * 0.75, 0.0, 0.0, 0.0, 0.0];
+                }
+            }
+            _ => unreachable!(),
+        }
+        let weapon = data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.name == "Battle Axe" && weapon.affinity == "Blood")
+            .unwrap();
+        let rows = data
+            .aow_attack_rows(110)
+            .iter()
+            .filter(|row| row.variant_weapon_type == "Axe" && !row.is_lacking_fp)
+            .collect::<Vec<_>>();
+        assert_eq!(rows.len(), 6);
+        let stats = broad_request().current_stats;
+        let evaluate = |rows: &[&AowAttackRow], selected| {
+            calculate_aow_routes_scaled_with_cancel(
+                weapon,
+                rows,
+                25,
+                &stats,
+                u16::from(stats.str),
+                1.0,
+                &data,
+                selected,
+                &mut || true,
+            )
+        };
+        if fault == "route-overflow" {
+            // Each large hit is representable; only their unselected route sum overflows.
+            for omitted in [34, 35] {
+                let single_large_hit = rows
+                    .iter()
+                    .copied()
+                    .filter(|row| row.sheet_row != omitted)
+                    .collect::<Vec<_>>();
+                assert!(evaluate(&single_large_hit, None).is_ok());
+            }
+        }
+        let expected = evaluate(&rows, None).unwrap_err();
+        let selected = evaluate(&rows, Some("r1")).unwrap_err();
+        assert_eq!(selected, expected, "{fault}");
+        let message = match fault {
+            "row-assignment" => "missing AoW route assignment",
+            "buff-assignment" => "weapon buff motion value",
+            "route-overflow" => "exact score is outside the display range",
+            _ => unreachable!(),
+        };
+        assert!(expected.contains(message), "{fault}: {expected}");
+    }
+}
+
+#[test]
+fn materialization_cancellation_inside_complex_routes_and_last_upgrade() {
+    let game_data = load_data();
+    let mut request = broad_request();
+    request.character_level = 101;
+    request.weapon_name = Some("Claymore".into());
+    request.affinity = Some("Standard".into());
+    request.aow_name = Some("Wild Strikes".into());
+    request.objective = OptimizeObjective::AowFullSequence;
+    request.exact_upgrade = false;
+    let stats = request.current_stats;
+    lock_request_to_combat_stats(&mut request, stats);
+    let plan = prepare_search(&request, &game_data).unwrap();
+    let prepared = &plan.weapons[0];
+    let choice = &prepared.aow_choices[0];
+    let mut route_polls = 0;
+    let routes = calculate_aow_routes_scaled_with_cancel(
+        prepared.weapon,
+        &choice.attack_rows,
+        25,
+        &stats,
+        effective_str_for_weapon(&request, prepared.weapon, stats.str),
+        request.damage_multiplier(),
+        &game_data,
+        None,
+        &mut || {
+            route_polls += 1;
+            true
+        },
+    )
+    .unwrap();
+    assert!(routes.len() > 1);
+    assert!(routes.iter().any(|route| route.actions.len() > 1));
+    assert!(
+        routes
+            .iter()
+            .flat_map(|route| &route.actions)
+            .any(|action| action.hits.len() > 1)
+    );
+    // Exercise every interruption point, including row expansion, assignments,
+    // action/hit reduction and the final check after route sorting.
+    assert!(route_polls > choice.attack_rows.len());
+    for stop_at in 1..=route_polls {
+        let mut polls = 0;
+        let result = calculate_aow_routes_scaled_with_cancel(
+            prepared.weapon,
+            &choice.attack_rows,
+            25,
+            &stats,
+            effective_str_for_weapon(&request, prepared.weapon, stats.str),
+            request.damage_multiplier(),
+            &game_data,
+            None,
+            &mut || {
+                polls += 1;
+                polls < stop_at
+            },
+        );
+        assert_eq!(result.err().as_deref(), Some("cancelled"));
+        assert_eq!(polls, stop_at);
+    }
+
+    for route in &routes {
+        let mut selected_polls = 0;
+        let selected = calculate_aow_routes_scaled_with_cancel(
+            prepared.weapon,
+            &choice.attack_rows,
+            25,
+            &stats,
+            effective_str_for_weapon(&request, prepared.weapon, stats.str),
+            request.damage_multiplier(),
+            &game_data,
+            Some(&route.route_id),
+            &mut || {
+                selected_polls += 1;
+                true
+            },
+        )
+        .unwrap();
+        assert_eq!(format!("{selected:?}"), format!("{:?}", [route]));
+        assert!(selected_polls > choice.attack_rows.len());
+        for stop_at in 1..=selected_polls {
+            let mut polls = 0;
+            let result = calculate_aow_routes_scaled_with_cancel(
+                prepared.weapon,
+                &choice.attack_rows,
+                25,
+                &stats,
+                effective_str_for_weapon(&request, prepared.weapon, stats.str),
+                request.damage_multiplier(),
+                &game_data,
+                Some(&route.route_id),
+                &mut || {
+                    polls += 1;
+                    polls < stop_at
+                },
+            );
+            assert_eq!(result.err().as_deref(), Some("cancelled"));
+            assert_eq!(polls, stop_at);
+        }
+    }
+    let missing = calculate_aow_routes_scaled_with_cancel(
+        prepared.weapon,
+        &choice.attack_rows,
+        25,
+        &stats,
+        effective_str_for_weapon(&request, prepared.weapon, stats.str),
+        request.damage_multiplier(),
+        &game_data,
+        Some("missing-route"),
+        &mut || true,
+    )
+    .unwrap();
+    assert!(missing.is_empty());
+    let error = materialize_aow_route(
+        Some("missing-route"),
+        prepared,
+        choice,
+        25,
+        &stats,
+        effective_str_for_weapon(&request, prepared.weapon, stats.str),
+        request.damage_multiplier(),
+        &game_data,
+        &mut || true,
+    )
+    .unwrap_err();
+    assert!(error.contains("selected exact route missing-route is missing"));
+
+    let evaluator =
+        prepare_upgrade_series_evaluator_with_cancel(&request, &game_data, || true).unwrap();
+    let mut series_polls = 0;
+    let rows = evaluator
+        .evaluate_with_cancel(&request, 25, || {
+            series_polls += 1;
+            true
+        })
+        .unwrap();
+    assert_eq!(rows.len(), 26);
+    assert!(rows.iter().all(|row| row.aow_route.is_some()));
+    let mut polls = 0;
+    let cancelled = evaluator.evaluate_with_cancel(&request, 25, || {
+        polls += 1;
+        polls < series_polls
+    });
+    assert_eq!(cancelled.err().as_deref(), Some("cancelled"));
+    assert_eq!(polls, series_polls);
 }
 
 #[test]

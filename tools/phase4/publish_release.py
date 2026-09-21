@@ -7,6 +7,7 @@ import json
 import re
 import subprocess
 import tempfile
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,30 @@ from typing import Any
 def sha256(path: Path) -> str:
     with path.open("rb") as handle:
         return hashlib.file_digest(handle, "sha256").hexdigest()
+
+
+def verify_portable_archive(
+    archive_path: Path, expected_entry: str, expected_sha256: str
+) -> None:
+    with zipfile.ZipFile(archive_path) as archive:
+        executables = []
+        for entry in archive.infolist():
+            # Account for Windows separators, streams, and trailing-dot/space aliases.
+            basename = entry.filename.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+            basename = basename.split(":", 1)[0].rstrip(" .").casefold()
+            if basename.endswith(".exe"):
+                executables.append(entry)
+        # Require the raw spelling too: ZipInfo normalizes separators and truncates NULs.
+        if len(executables) != 1 or executables[0].orig_filename != expected_entry:
+            raise RuntimeError(
+                f"Portable archive must contain exactly one executable at {expected_entry}"
+            )
+        with archive.open(executables[0]) as payload:
+            digest = hashlib.sha256()
+            for chunk in iter(lambda: payload.read(1024 * 1024), b""):
+                digest.update(chunk)
+        if digest.hexdigest() != expected_sha256:
+            raise RuntimeError("Portable archive executable does not match the verified binary")
 
 
 def gh(*args: str, missing_ok: bool = False) -> str | None:
@@ -70,6 +95,9 @@ def publish(repo: str, tag: str, commit: str, assets: Path) -> None:
     checksums = "".join(f"{sha256(path)}  {path.name}\n" for path in files[:2])
     if files[-2].read_text(encoding="utf-8-sig") != checksums:
         raise RuntimeError("Package checksum file does not match its binaries")
+    verify_portable_archive(
+        files[2], f"{prefix}/{files[0].name}", report["artifacts"][0]["sha256"]
+    )
 
     release = release_info(repo, tag)
     if release is None:
