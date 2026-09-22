@@ -96,7 +96,28 @@ and do not establish Convergence performance or a cancellation latency guarantee
 
 Both Cargo packages set `lto = "thin"` and `codegen-units = 1` for release builds.
 The desktop package needs its own settings because Cargo does not inherit a
-dependency's build profile. Debug builds and the baseline CPU target are unchanged.
+dependency's build profile. Local development builds and the baseline CPU target
+are unchanged. CI selects test-profile optimization level 1 for core tests through
+workflow environment variables, retaining debug assertions and overflow checks.
+Backend tests keep the default test profile. These settings do not alter the
+shipping release profile.
+
+Windows test and release checks run concurrently. Within each job, both crates
+share a Cargo target directory; packaging keeps its existing output paths.
+CI links the library tests and the level-range example's assertions explicitly,
+runs documentation tests, and checks the other targets without linking extra
+release executables. When adding integration-test targets, include them in the
+CI test commands. Cargo timing reports are retained as CI artifacts; compare
+compilation, execution, cache transfer and total job time separately, on matching
+commits and runner images. A fresh cache and a warm cache are distinct baselines.
+
+A local comparison on 2026-09-22 used Rust 1.97.0, a Ryzen 7 7800X3D and four
+build, test-harness and Rayon threads. The unchanged core suite plus benchmark
+assertion test passed 222 tests (four ignored) at every optimization level.
+One cold/warm run per level took 287.21/246.66 seconds at level 0,
+254.98/33.69 at level 1, and 279.61/33.46 at level 2. Level 1 had the lowest cold
+total despite longer compilation; these single samples do not establish hosted
+runner speedups or a benefit for backend tests.
 
 On 2026-09-21, compiler experiments used v0.14.1 (`ee05408`), Rust 1.97.0,
 Windows, and a Ryzen 7 7800X3D. One Rayon thread was pinned to logical processor 6.
