@@ -111,6 +111,14 @@ CI test commands. Cargo timing reports are retained as CI artifacts; compare
 compilation, execution, cache transfer and total job time separately, on matching
 commits and runner images. A fresh cache and a warm cache are distinct baselines.
 
+Pull requests select checks from the actual merge diff. Documentation-only changes
+run metadata validation and the required aggregate; frontend-only changes also run
+the frontend unit, build and browser checks. Rust, data, tooling, dependency,
+workflow and unknown paths run every check. Deletions and both sides of renames
+are included. The aggregate rejects failed routing and unexpected skipped jobs.
+Every push to `main` runs the complete suite, preserving exact-commit release
+validation. Keep this conservative allowlist aligned with new cross-layer inputs.
+
 A local comparison on 2026-09-22 used Rust 1.97.0, a Ryzen 7 7800X3D and four
 build, test-harness and Rayon threads. The unchanged core suite plus benchmark
 assertion test passed 222 tests (four ignored) at every optimization level.

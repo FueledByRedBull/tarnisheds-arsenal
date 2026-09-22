@@ -16,16 +16,28 @@ from unittest.mock import patch
 from tools.phase4 import package_release
 
 
+def workflow_script(name: str) -> str:
+    workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/release-package.yml").read_text(encoding="utf-8")
+    step = workflow.split(f"      - name: {name}\n", 1)[1].split("\n      - name:", 1)[0]
+    lines = []
+    for line in step.split("        run: |\n", 1)[1].splitlines():
+        if line and not line.startswith("          "):
+            break
+        lines.append(line)
+    return textwrap.dedent("\n".join(lines))
+
+
 class PackageReleaseTests(unittest.TestCase):
+    def test_workflow_wires_ci_proof_to_only_default_branch_previews(self) -> None:
+        workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/release-package.yml").read_text(encoding="utf-8")
+        self.assertIn("verified-sha: ${{ steps.verify.outputs.verified-sha }}", workflow)
+        self.assertIn("VERIFIED_CI_SHA: ${{ needs.verify-ci.outputs.verified-sha }}", workflow)
+        self.assertIn("if: startsWith(github.ref, 'refs/tags/') || inputs.publish == true || (github.event_name == 'workflow_dispatch' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))", workflow)
+        self.assertIn("    needs: verify-ci", workflow)
+
     @unittest.skipUnless(shutil.which("pwsh"), "PowerShell 7 is required")
     def test_workflow_preview_allows_an_existing_tag_and_runs_source_validation(self) -> None:
         root = Path(__file__).resolve().parents[2]
-        workflow = (root / ".github/workflows/release-package.yml").read_text(encoding="utf-8")
-
-        def script(name: str) -> str:
-            step = workflow.split(f"      - name: {name}\n", 1)[1].split("\n      - name:", 1)[0]
-            return textwrap.dedent(step.split("        run: |\n", 1)[1])
-
         with tempfile.TemporaryDirectory() as directory:
             env = os.environ.copy()
             env.update({"GITHUB_ENV": str(Path(directory) / "env"), "GITHUB_SHA": "b" * 40,
@@ -44,7 +56,7 @@ function python { $global:LASTEXITCODE = 0; Write-Output ($args -join " ") }
             for publish in ["false", "true"]:
                 env["PUBLISH_RELEASE"] = publish
                 result = subprocess.run(
-                    ["pwsh", "-NoProfile", "-NonInteractive", "-Command", prelude + script("Validate release metadata")],
+                    ["pwsh", "-NoProfile", "-NonInteractive", "-Command", prelude + workflow_script("Validate release metadata")],
                     cwd=root, env=env, capture_output=True, text=True, check=False,
                 )
                 if publish == "false":
@@ -53,21 +65,132 @@ function python { $global:LASTEXITCODE = 0; Write-Output ($args -join " ") }
                 else:
                     self.assertNotEqual(result.returncode, 0)
                     self.assertIn("already points to", result.stderr)
-                build = subprocess.run(
-                    ["pwsh", "-NoProfile", "-NonInteractive", "-Command", prelude + script("Build Tauri release package")],
-                    cwd=root, env=env, capture_output=True, text=True, check=False,
-                )
-                self.assertEqual(build.returncode, 0, build.stderr)
-                expected = "--skip-validation" if publish == "true" else "--preview"
-                self.assertEqual(build.stdout.strip(), f"tools/phase4/package_release.py {expected}")
 
-    def test_preview_cannot_skip_source_validation(self) -> None:
-        with (patch("sys.argv", ["package_release.py", "--preview", "--skip-validation"]),
-              contextlib.redirect_stderr(io.StringIO()) as stderr,
-              self.assertRaises(SystemExit) as error):
-            package_release.main()
-        self.assertEqual(error.exception.code, 2)
-        self.assertIn("--preview requires source validation", stderr.getvalue())
+    @unittest.skipUnless(shutil.which("pwsh"), "PowerShell 7 is required")
+    def test_workflow_ci_proof_requires_successful_default_branch_push(self) -> None:
+        sha = "b" * 40
+        base = {"databaseId": 123, "status": "completed", "conclusion": "success",
+                "headBranch": "main", "headSha": sha, "event": "push",
+                "url": "https://github.com/example/repo/actions/runs/123", "createdAt": "2026-09-22T00:00:00Z"}
+        prelude = '''
+function gh {
+  if ($args[0] -ne "run" -or $args[1] -ne "list" -or
+      $args[$args.IndexOf("--workflow") + 1] -ne "ci.yml" -or
+      $args[$args.IndexOf("--event") + 1] -ne "push" -or
+      $args[$args.IndexOf("--commit") + 1] -ne $env:GITHUB_SHA) { throw "Incorrect CI query" }
+  $global:LASTEXITCODE = 0
+  $env:MOCK_RUNS
+}
+function Start-Sleep { throw "No matching completed CI; would wait" }
+'''
+        cases = [({}, True), ({"conclusion": "failure"}, False),
+                 ({"conclusion": "cancelled"}, False), ({"status": "in_progress"}, False),
+                 ({"headSha": "a" * 40}, False), ({"headBranch": "feature"}, False),
+                 ({"event": "pull_request"}, False)]
+        for change, success in cases:
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory) / "output"
+                result = subprocess.run(
+                    ["pwsh", "-NoProfile", "-NonInteractive", "-Command", prelude + workflow_script("Wait for successful CI on this commit")],
+                    env={**os.environ, "GITHUB_SHA": sha, "RELEASE_BRANCH": "main", "GITHUB_OUTPUT": str(output),
+                         "MOCK_RUNS": package_release.json.dumps([{**base, **change}])},
+                    capture_output=True, text=True, check=False, timeout=30,
+                )
+                self.assertEqual(result.returncode == 0, success, result.stderr)
+                if success:
+                    self.assertEqual(output.read_text(encoding="utf-8-sig").strip(), f"verified-sha={sha}")
+                    self.assertIn(base["url"], result.stdout)
+                else:
+                    self.assertFalse(output.exists())
+
+    @unittest.skipUnless(shutil.which("pwsh"), "PowerShell 7 is required")
+    def test_workflow_packaging_reuses_only_matching_ci_proof(self) -> None:
+        sha = "b" * 40
+        cases = [
+            ("false", "refs/heads/main", sha, "--preview --skip-validation"),
+            ("false", "refs/heads/feature", "", "--preview"),
+            ("true", "refs/heads/main", sha, "--skip-validation"),
+            ("true", "refs/tags/v0.14.1", sha, "--skip-validation"),
+            ("false", "refs/heads/main", "", None),
+            ("true", "refs/heads/main", "", None),
+            ("false", "refs/heads/feature", sha, None),
+            ("false", "refs/tags/main", sha, None),
+            ("false", "refs/heads/main", "a" * 40, None),
+            ("true", "refs/heads/main", "malformed", None),
+        ]
+        prelude = 'function python { $global:LASTEXITCODE = 0; Write-Output ($args -join " ") }\n'
+        for publish, ref, proof, expected in cases:
+            with self.subTest(publish=publish, ref=ref, proof=proof):
+                result = subprocess.run(
+                    ["pwsh", "-NoProfile", "-NonInteractive", "-Command", prelude + workflow_script("Build Tauri release package")],
+                    env={**os.environ, "GITHUB_SHA": sha, "RELEASE_BRANCH": "main", "VERIFIED_CI_SHA": proof,
+                         "PUBLISH_RELEASE": publish, "GITHUB_REF": ref, "GITHUB_EVENT_NAME": "workflow_dispatch"},
+                    capture_output=True, text=True, check=False, timeout=30,
+                )
+                self.assertEqual(result.returncode == 0, expected is not None, result.stderr)
+                if expected is not None:
+                    self.assertEqual(result.stdout.strip(), f"tools/phase4/package_release.py {expected}")
+                else:
+                    self.assertNotIn("tools/phase4/package_release.py", result.stdout)
+
+    def test_preview_with_ci_validation_keeps_package_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, contextlib.ExitStack() as stack:
+            root = Path(directory)
+            tauri = root / "apps/desktop/src-tauri"
+            tauri.mkdir(parents=True)
+            (tauri / "tauri.conf.json").write_text('{"version":"0.14.1","productName":"Test"}', encoding="utf-8")
+            for path, profile in [("data/phase1", "vanilla"), ("data/profiles/convergence", "convergence")]:
+                target = root / path
+                target.mkdir(parents=True)
+                (target / "manifest.json").write_text(package_release.json.dumps({"id": profile + "-test", "profile": {"id": profile}}), encoding="utf-8")
+            exe, msi = root / "app.exe", root / "app.msi"
+            exe.write_bytes(b"exe")
+            msi.write_bytes(b"msi")
+            (root / "LICENSE").write_text("Test license", encoding="utf-8")
+            stack.enter_context(patch.object(package_release, "__file__", str(root / "tools/phase4/package_release.py")))
+            stack.enter_context(patch("sys.argv", ["package_release.py", "--preview", "--skip-validation"]))
+            stack.enter_context(patch.object(package_release, "require_clean_source", return_value="b" * 40))
+            unchanged = stack.enter_context(patch.object(package_release, "require_unchanged_tracked_source"))
+            run = stack.enter_context(patch.object(package_release, "run"))
+            stack.enter_context(patch.object(package_release, "sign_release_binaries_if_configured", return_value=(exe, msi, False, None)))
+            identity = stack.enter_context(patch.object(package_release, "verify_msi_identity"))
+            payload = stack.enter_context(patch.object(package_release, "verify_msi_payload"))
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            self.assertEqual(package_release.main(), 0)
+            identity.assert_called_once()
+            payload.assert_called_once()
+            commands = [call.args[0] for call in run.call_args_list]
+            self.assertEqual(len(commands), 3)
+            self.assertIn("ci", commands[0])
+            self.assertIn("tauri", commands[1])
+            self.assertIn("--locked", commands[1])
+            self.assertIn("./scripts/smoke-packaged.mjs", commands[2])
+            self.assertEqual([call.kwargs["stage"] for call in unchanged.call_args_list],
+                             ["release validation", "npm ci", "Tauri build", "packaged app smoke"])
+            report_path = next((root / "dist").glob("*/build-report.json"))
+            report = package_release.json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertTrue(report["validationSkipped"])
+            self.assertEqual(set(report["completedGates"]), {"frontend-build", "tauri-release-build", "windows-msi-identity", "packaged-app-smoke"})
+            self.assertEqual(len(report["artifacts"]), 2)
+            self.assertTrue(next((root / "dist").glob("*.zip")).is_file())
+            if shutil.which("pwsh"):
+                env = {**os.environ, "RELEASE_REPORT": str(report_path), "RELEASE_VERSION": "0.14.1",
+                       "GITHUB_SHA": "b" * 40, "VERIFIED_CI_SHA": "b" * 40, "PUBLISH_RELEASE": "false",
+                       "ARTIFACT_VERSION": "0.14.1-preview-" + "b" * 40,
+                       "RELEASE_EXE": str(next(report_path.parent.glob("*.exe"))),
+                       "RELEASE_MSI": str(next(report_path.parent.glob("*.msi"))),
+                       "RELEASE_CHECKSUMS": str(report_path.parent / "SHA256SUMS.txt"),
+                       "RELEASE_ZIP": str(next((root / "dist").glob("*.zip")))}
+                for change, success in [({}, True), ({"validationSkipped": False}, False),
+                                        ({"completedGates": ["frontend-build", "tauri-release-build"]}, False)]:
+                    with self.subTest(provenance_change=change):
+                        report_path.write_text(package_release.json.dumps({**report, **change}), encoding="utf-8")
+                        result = subprocess.run(
+                            ["pwsh", "-NoProfile", "-NonInteractive", "-Command",
+                             'function python { $global:LASTEXITCODE = 0 }\n' + workflow_script("Verify release provenance and checksums")],
+                            env=env, capture_output=True, text=True, check=False, timeout=30,
+                        )
+                        self.assertEqual(result.returncode == 0, success, result.stderr)
 
     def test_portable_archive_omits_msi_and_scopes_checksum(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

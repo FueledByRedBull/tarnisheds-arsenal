@@ -561,7 +561,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Build the Windows release package.")
     parser.add_argument(
         "--preview", action="store_true",
-        help="Validate this source and label inspection artifacts with its commit SHA.",
+        help="Label inspection artifacts with the source commit SHA.",
     )
     parser.add_argument(
         "--skip-validation",
@@ -574,8 +574,6 @@ def main() -> int:
         help="Deliberately refresh only the known files in an existing version output.",
     )
     args = parser.parse_args()
-    if args.preview and args.skip_validation:
-        parser.error("--preview requires source validation; do not use --skip-validation")
 
     root = Path(__file__).resolve().parents[2]
     app_dir = root / "apps" / "desktop"

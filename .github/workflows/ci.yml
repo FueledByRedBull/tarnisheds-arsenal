@@ -14,23 +14,60 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  select-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      rust: ${{ steps.scope.outputs.rust }}
+      frontend: ${{ steps.scope.outputs.frontend }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 2
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version-file: ".python-version"
+      - name: Validate release metadata
+        run: python tools/phase4/validate_release_metadata.py
+      - name: Select checks
+        id: scope
+        run: python tools/phase4/ci_scope.py
+
   rust-and-data:
-    needs: [windows-debug-and-data, windows-release]
+    needs: [select-checks, windows-debug-and-data, windows-release, linux-core-and-data, desktop-frontend]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Require both Windows checks
+      - name: Require selected checks
         shell: pwsh
         env:
+          SCOPE_RESULT: ${{ needs.select-checks.result }}
+          RUST_SELECTED: ${{ needs.select-checks.outputs.rust }}
+          FRONTEND_SELECTED: ${{ needs.select-checks.outputs.frontend }}
           DEBUG_RESULT: ${{ needs.windows-debug-and-data.result }}
           RELEASE_RESULT: ${{ needs.windows-release.result }}
+          LINUX_RESULT: ${{ needs.linux-core-and-data.result }}
+          FRONTEND_RESULT: ${{ needs.desktop-frontend.result }}
         run: |
-          if ($env:DEBUG_RESULT -ne "success" -or $env:RELEASE_RESULT -ne "success") {
-            throw "Windows checks did not both succeed (debug=$env:DEBUG_RESULT, release=$env:RELEASE_RESULT)."
+          if ($env:SCOPE_RESULT -ne "success" -or
+              $env:RUST_SELECTED -cnotin @("true", "false") -or
+              $env:FRONTEND_SELECTED -cnotin @("true", "false") -or
+              ($env:RUST_SELECTED -eq "true" -and $env:FRONTEND_SELECTED -ne "true")) {
+            throw "Check selection failed or returned invalid outputs."
+          }
+          $rustExpected = if ($env:RUST_SELECTED -eq "true") { "success" } else { "skipped" }
+          $frontendExpected = if ($env:FRONTEND_SELECTED -eq "true") { "success" } else { "skipped" }
+          if ($env:DEBUG_RESULT -ne $rustExpected -or $env:RELEASE_RESULT -ne $rustExpected -or
+              $env:LINUX_RESULT -ne $rustExpected -or $env:FRONTEND_RESULT -ne $frontendExpected) {
+            throw "Selected checks did not succeed or unselected checks were not skipped."
           }
 
   windows-debug-and-data:
+    needs: select-checks
+    if: ${{ needs.select-checks.outputs.rust == 'true' }}
     runs-on: windows-latest
     timeout-minutes: 45
     env:
@@ -133,6 +170,8 @@ jobs:
           if-no-files-found: error
 
   windows-release:
+    needs: select-checks
+    if: ${{ needs.select-checks.outputs.rust == 'true' }}
     runs-on: windows-latest
     timeout-minutes: 45
     env:
@@ -198,6 +237,8 @@ jobs:
           if-no-files-found: error
 
   desktop-frontend:
+    needs: select-checks
+    if: ${{ needs.select-checks.outputs.frontend == 'true' }}
     runs-on: windows-latest
     timeout-minutes: 20
 
@@ -236,6 +277,8 @@ jobs:
           npm run test:e2e
 
   linux-core-and-data:
+    needs: select-checks
+    if: ${{ needs.select-checks.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
