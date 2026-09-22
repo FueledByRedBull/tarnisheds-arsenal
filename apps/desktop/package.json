@@ -7,6 +7,8 @@
     "dev": "vite --host 127.0.0.1 --port 1420",
     "build": "tsc && vite build",
     "test": "vitest run",
+    "lint": "eslint src --max-warnings 0",
+    "test:contracts": "node scripts/check-dto-contract.mjs && node --test scripts/check-dto-contract.test.mjs scripts/lint-config.test.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 1420",
     "tauri": "tauri",
     "test:e2e": "node ./scripts/run-e2e.mjs",
@@ -15,16 +17,19 @@
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
     "lucide-react": "^0.468.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "zustand": "^5.0.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
     "@tauri-apps/cli": "^2.0.0",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@typescript-eslint/parser": "^8.70.1",
     "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "typescript": "^5.6.3",
     "vite": "^8.0.12",
     "vitest": "^4.1.11"

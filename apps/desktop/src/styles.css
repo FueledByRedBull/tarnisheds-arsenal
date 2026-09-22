@@ -3084,62 +3084,6 @@ summary:focus-visible {
   outline-offset: 2px;
 }
 
-.reproduction-report,
-.report-preview {
-  display: grid;
-  gap: 10px;
-  min-width: 0;
-}
-
-.reproduction-report {
-  margin-top: 16px;
-}
-
-.saved-build-recovery {
-  margin: 12px 0;
-  font-size: 12px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-
-.saved-build-recovery label {
-  margin: 8px 0;
-}
-
-.saved-build-recovery p {
-  color: var(--muted);
-  font-weight: 400;
-}
-
-.saved-build-recovery > button,
-.saved-build-recovery .import-preview button {
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--iron-850);
-  color: var(--text);
-  padding: 6px 8px;
-  min-height: 30px;
-}
-
-.saved-build-recovery ul {
-  max-height: 220px;
-  overflow: auto;
-  padding-left: 20px;
-}
-
-.report-preview p,
-.build-explanation p {
-  font-size: 12px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-
-.report-preview textarea {
-  width: 100%;
-  max-width: 100%;
-  font-size: 11px;
-}
-
 .header-controls .analysis-action,
 .header-controls .analysis-action:hover {
   color: var(--iron-950);

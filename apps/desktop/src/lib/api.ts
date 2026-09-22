@@ -1,34 +1,34 @@
 import { invoke } from "@tauri-apps/api/core";
 import { createNativeJobQueue } from "./native-jobs";
 import {
+  AnalysisJobStatusDto,
+  ArBleedFrontierRequestDto,
   ArBleedFrontierPointDto,
+  AffinityWatchRequestDto,
   AffinityWatchPayloadDto,
   AffinityWatchJobStatusDto,
   CatalogDto,
+  CompatibleAowsForAffinityRequestDto,
   DataManifestDto,
   OptimizeRequestDto,
   PathJobStatusDto,
   PathPreviewDto,
+  PathPreviewRequestDto,
   SearchJobStatusDto,
   StartSearchResponseDto,
   ScalingDto,
   SolvedBuildDto,
+  SolveBuildRequestDto,
+  StartPathPreviewRequestDto,
+  UpgradeSeriesRequestDto,
   UpgradePointDto,
   WeaponProfileDto,
+  WeaponProfileRequestDto,
 } from "./types";
 import { upgradeCapForRow } from "./session";
 import { STARTING_CLASS_METADATA } from "./session";
 
-type AnalysisFinished = {
-  jobId: string;
-  kind: "solve_build" | "upgrade_series" | "ar_bleed_frontier";
-  cancelled: boolean;
-  result: SolvedBuildDto | null;
-  points: UpgradePointDto[];
-  frontier: ArBleedFrontierPointDto[];
-  error: string | null;
-};
-const analysisQueue = createNativeJobQueue<{ finished: AnalysisFinished | null }>(
+const analysisQueue = createNativeJobQueue<AnalysisJobStatusDto>(
   jobId => call("get_analysis_status", { jobId }),
   jobId => call("cancel_analysis", { jobId }),
 );
@@ -155,7 +155,7 @@ export const api = {
   catalog: (profileId: string) => call<CatalogDto>("get_catalog", { profileId }),
   weaponProfile: (profileId: string, weaponName: string, affinity: string | null) =>
     call<WeaponProfileDto>("get_weapon_profile", {
-      request: { profileId, weaponName, affinity },
+      request: { profileId, weaponName, affinity } satisfies WeaponProfileRequestDto,
     }),
   startSearch: (request: OptimizeRequestDto) =>
     call<StartSearchResponseDto>("start_search", { request }),
@@ -171,7 +171,7 @@ export const api = {
     signal?: AbortSignal,
   ): Promise<SolvedBuildDto | null> => {
     if (signal?.aborted) throw new DOMException("Calculation stopped.", "AbortError");
-    const request = { base, weaponName, affinity, aowName };
+    const request = { base, weaponName, affinity, aowName } satisfies SolveBuildRequestDto;
     if (!hasTauriRuntime()) return call("solve_build", { request });
     const finished = await analysisQueue(() => call("start_solve_build", { request }), signal);
     if (finished.kind !== "solve_build") throw new Error("Unexpected native calculation result.");
@@ -183,7 +183,7 @@ export const api = {
     signal?: AbortSignal,
   ): Promise<ArBleedFrontierPointDto[]> => {
     if (signal?.aborted) throw new DOMException("Calculation stopped.", "AbortError");
-    const request = { base, solved };
+    const request = { base, solved } satisfies ArBleedFrontierRequestDto;
     if (!hasTauriRuntime()) return call("ar_bleed_frontier", { request });
     const finished = await analysisQueue(() => call("start_ar_bleed_frontier", { request }), signal);
     if (finished.kind !== "ar_bleed_frontier") throw new Error("Unexpected native calculation result.");
@@ -196,7 +196,7 @@ export const api = {
     signal?: AbortSignal,
   ): Promise<UpgradePointDto[]> => {
     if (signal?.aborted) throw new DOMException("Calculation stopped.", "AbortError");
-    const request = { base, solved, maxUpgrade };
+    const request = { base, solved, maxUpgrade } satisfies UpgradeSeriesRequestDto;
     if (!hasTauriRuntime()) return call("build_upgrade_series", { request });
     const finished = await analysisQueue(() => call("start_upgrade_series", { request }), signal);
     if (finished.kind !== "upgrade_series") throw new Error("Unexpected native calculation result.");
@@ -206,15 +206,12 @@ export const api = {
     call<string[]>("affinities_for_weapon", { profileId, weaponName }),
   compatibleAowNamesForAffinity: (profileId: string, affinity: string | null) =>
     call<string[]>("compatible_aow_names_for_affinity", {
-      request: { profileId, affinity },
+      request: { profileId, affinity } satisfies CompatibleAowsForAffinityRequestDto,
     }),
-  startPathPreview: (requests: Array<{
-    base: OptimizeRequestDto;
-    solved: SolvedBuildDto;
-    levelsAhead: number;
-    title: string;
-    mode: "no_respec" | "optimum_envelope";
-  }>) => call<{ jobId: string }>("start_path_preview", { request: { requests } }),
+  startPathPreview: (requests: PathPreviewRequestDto[]) =>
+    call<StartSearchResponseDto>("start_path_preview", {
+      request: { requests } satisfies StartPathPreviewRequestDto,
+    }),
   cancelPathPreview: (jobId: string) =>
     call<boolean>("cancel_path_preview", { jobId }),
   pathPreviewStatus: (jobId: string) =>
@@ -224,8 +221,8 @@ export const api = {
     solved: SolvedBuildDto,
     levelsAhead: number,
   ) =>
-    call<{ jobId: string }>("start_affinity_watch", {
-      request: { base, solved, levelsAhead },
+    call<StartSearchResponseDto>("start_affinity_watch", {
+      request: { base, solved, levelsAhead } satisfies AffinityWatchRequestDto,
     }),
   cancelAffinityWatch: (jobId: string) =>
     call<boolean>("cancel_affinity_watch", { jobId }),

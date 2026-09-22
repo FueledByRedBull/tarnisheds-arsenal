@@ -95,7 +95,8 @@ export function CompareView() {
 
   useEffect(() => {
     const controller = new AbortController();
-    const token = seriesRequest.current.begin(stableSignature({
+    const currentRequest = seriesRequest.current;
+    const token = currentRequest.begin(stableSignature({
       baseRequest,
       compareControls,
       resultsStale,
@@ -225,9 +226,9 @@ export function CompareView() {
     });
     return () => {
       controller.abort();
-      seriesRequest.current.invalidate(token);
+      currentRequest.invalidate(token);
     };
-  }, [baseRequest, compareBench, compareControls, isExporting, request, resultsStale, rows, selected, setCompareTarget, setError]);
+  }, [baseRequest, compareBench, compareControls, compareTargetLabel, customCompare, isExporting, request, resultsStale, rows, selected, setCompareTarget, setError]);
 
   const matrixHorizon = compareUpgradeHorizon(request);
   const dataVersion = catalog

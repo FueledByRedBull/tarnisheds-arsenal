@@ -36,6 +36,12 @@ The phase and workflow runners also accept `--baseline <report>`. Baseline
 comparisons are advisory unless a stable dedicated runner opts into
 `--fail-on-regression`.
 
+The phase runner accepts `--threads=1`, `--threads=2`, or another positive count;
+`--threads=default` explicitly clears `RAYON_NUM_THREADS`. Without that option it
+preserves an existing environment setting and otherwise selects one thread. The
+report records the actual Rayon pool size, and the harness checks complete ordered
+results for every warmup as well as every measured repeat.
+
 From `apps/desktop/`, with the same thread setting, probe a packaged executable:
 
 ```powershell
@@ -92,6 +98,63 @@ low-level K=500 workload; this small sequential comparison does not establish a
 general threading policy. The measurements predate the subsequent math experiments
 and do not establish Convergence performance or a cancellation latency guarantee.
 
+### Rayon policy investigation
+
+On 2026-09-22, the existing phase harness was rebuilt from core source at `e34f300`
+with warmup-result verification added, Rust 1.97.0, ThinLTO and one codegen unit.
+The same release executable (`c6ffc35a8b57ae50...`) ran on the Ryzen 7 7800X3D,
+without CPU affinity pinning or competing builds/tests. The observed default pool
+contained 16 threads. Each policy used one warmup and three measured repeats in
+each of two blocks, ordered 1/2/4/default and default/4/2/1. Completed affordable
+cases were reused when the broader experiment was narrowed; expensive exploratory
+cases occurred between some first-block cases, and their actual execution order
+is retained. This is a bounded local comparison, not a randomized experiment.
+
+All five requests and complete ordered results matched across 120 measured samples
+and 40 warmups. Core/data inputs, compiler configuration and the executable hash
+were unchanged. Values below are total core-phase median [min–max] milliseconds
+across six measured samples per cell:
+
+| Case | 1 thread | 2 threads | 4 threads | Default (16) |
+| --- | ---: | ---: | ---: | ---: |
+| Vanilla, RL46 Max AR, weapon grouping, K=500 | 724.19 [680.74–774.58] | 620.64 [616.62–667.22] | 522.48 [514.67–528.96] | 488.74 [462.77–510.72] |
+| Convergence, same harness case | 489.29 [473.11–519.01] | 323.52 [315.60–326.22] | 211.48 [209.19–212.27] | 159.77 [157.56–164.22] |
+| Vanilla, Katana Bleed then AR | 10.32 [9.95–10.76] | 8.70 [8.33–8.88] | 7.36 [7.14–8.43] | 6.58 [6.15–6.69] |
+| Convergence, Katana Bleed then AR | 9.36 [9.10–12.23] | 6.25 [6.03–6.54] | 4.42 [4.21–4.55] | 3.44 [3.22–3.57] |
+| Vanilla, locked War Cry, K=500 | 21.63 [20.60–22.42] | 21.92 [20.29–22.55] | 21.55 [20.30–22.43] | 22.38 [20.76–23.34] |
+
+The first four cases use exact profile upgrade caps; the locked War Cry case
+searches all upgrades. Convergence uses the harness's class-based budget, not the
+desktop's fixed Custom-stats workflow. The historical native K=500 measurement
+above used loadout grouping and IPC/job timing, so it is a different workload.
+
+Exploratory higher-budget searches exposed the opposite tradeoff. In one block
+with three samples per policy, Vanilla RL150 exact-upgrade Max AR took 630.79
+[622.95–633.87] ms at one thread, 611.02 [596.47–620.81] at two, 9883.76
+[9868.52–9899.87] at four, and 6308.05 [6108.58–6727.84] at the default 16.
+Scoring accounted for the regression: its median rose from 49.71 ms at one thread
+to 9472.71 at four. Complete results matched every policy. The corresponding
+Convergence case improved from 422.77 to 176.00 ms at one/default threads.
+
+The RL93 all-upgrade case took 1495.06/6680.49 ms in Vanilla and
+1367.86/2347.71 ms in Convergence at one/two threads, with complete result parity
+for those samples. The Vanilla four-thread process exceeded its 120-second cap
+while attempting one warmup and three repeats. That is a censored process timeout,
+not an individual sample duration or a parity pass. This broader matrix was
+stopped and narrowed; its partial results and failure remain recorded.
+
+The runtime policy remains unchanged. A universal one-thread cap would regress
+the completed low-budget searches, while a universal four-thread cap would regress
+the measured high-budget Vanilla case. Search currently enables parallel scoring
+at one million combinations and two work units; one-thread preparation also
+precomputes scalar AoW routes. These are useful profiling targets, not sufficient
+evidence for a new threshold. Investigate expensive scoring/work partitioning
+before proposing request-specific pool selection, then verify native latency,
+Paths and cancellation on both profiles. Raw samples, full fingerprints, source
+and compiler identity, execution order, scripts and timeout evidence remain under
+`.codex-tmp/frontend-maintenance/threads/` (`bounded/summary.json` and
+`exploratory-summary.json`).
+
 ## Release compiler settings
 
 Both Cargo packages set `lto = "thin"` and `codegen-units = 1` for release builds.
@@ -113,7 +176,7 @@ commits and runner images. A fresh cache and a warm cache are distinct baselines
 
 Pull requests select checks from the actual merge diff. Documentation-only changes
 run metadata validation and the required aggregate; frontend-only changes also run
-the frontend unit, build and browser checks. Rust, data, tooling, dependency,
+the React lint, Rust–TypeScript contract, frontend unit, build and browser checks. Rust, data, tooling, dependency,
 workflow and unknown paths run every check. Deletions and both sides of renames
 are included. The aggregate rejects failed routing and unexpected skipped jobs.
 Every push to `main` runs the complete suite, preserving exact-commit release

@@ -25,6 +25,24 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - Caches are bounded. Eviction may reduce performance but must never alter results.
 - An aborted subscriber cannot populate a cache entry. When the last subscriber leaves, the pending entry is evicted immediately; backend work is also cancelled when that command exposes cancellation.
 
+## Frontend and native types
+
+- `npm run test:contracts` in `apps/desktop` compares public DTO declarations in
+  `src-tauri/src/dto.rs` with `src/lib/types.ts`, including nested fields, arrays,
+  nullability and native enum variants. API request construction uses those named
+  interfaces. New Rust/serde syntax must be explicitly supported by the checker.
+- Deliberate differences are narrowly checked: the frontend sends explicit
+  upgrade-policy values and omits older upgrade inputs; older persisted builds
+  may lack three optional display fields. Other missing/optional fields fail.
+- This source check is not a serializer, numeric-range check or command-registry
+  verifier. Rust validators and serialization tests remain required. Native String
+  fields can have narrower frontend literal types; permitted values still belong
+  to native validation.
+- React Hooks ordering and effect dependencies are lint errors. Async effects
+  must retain generation/cancellation guards when dependencies change. Comparison
+  persistence validation lives in `src/lib/compare-bench.ts`; moving it does not
+  change the stored format or the store's job ownership.
+
 ## Job lifecycle
 
 - Search, Paths, and Affinity Watch each own a monotonically increasing frontend generation, an input signature containing the profile ID, and at most one backend job ID.

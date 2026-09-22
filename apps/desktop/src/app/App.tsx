@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, CircleAlert, GitCompareArrows, Layers3, LoaderCircle, Radar, RotateCcw, Route, Table2, X } from "lucide-react";
 import { api } from "../lib/api";
 import { setAnalysisCacheVersion } from "../lib/analysis-cache";
@@ -40,35 +40,7 @@ export function App() {
   const [catalogAttempt, setCatalogAttempt] = useState(0);
   const profileGeneration = useRef(0);
 
-  useEffect(() => {
-    const generation = ++profileGeneration.current;
-    setCatalogLoading();
-    api.profiles().then(async (availableProfiles) => {
-      if (generation !== profileGeneration.current) return;
-      if (availableProfiles.length === 0) throw new Error("No verified game profiles are available.");
-      const currentState = useDesktopStore.getState();
-      const retryProfile = currentState.profiles.length > 0
-        ? currentState.request.profileId
-        : null;
-      setProfiles(availableProfiles);
-      const stored = readStoredProfile();
-      const preferred = retryProfile ?? stored;
-      const initialProfile = preferred !== null && availableProfiles.some((entry) => entry.profile.id === preferred)
-        ? preferred
-        : availableProfiles.some((entry) => entry.profile.id === "vanilla")
-          ? "vanilla"
-          : availableProfiles[0].profile.id;
-      await loadProfile(initialProfile, generation);
-    }).catch((err) => {
-      if (generation !== profileGeneration.current) return;
-      setCatalogFailure(err instanceof Error ? err.message : String(err));
-    });
-    return () => {
-      if (profileGeneration.current === generation) profileGeneration.current += 1;
-    };
-  }, [catalogAttempt, setCatalogFailure, setCatalogLoading, setProfiles]);
-
-  async function loadProfile(nextProfileId: string, generation = ++profileGeneration.current) {
+  const loadProfile = useCallback(async (nextProfileId: string, generation = ++profileGeneration.current) => {
     const before = useDesktopStore.getState();
     const activeJobs = [
       before.activeJobId ? api.cancelSearch(before.activeJobId) : null,
@@ -97,7 +69,35 @@ export function App() {
       if (generation !== profileGeneration.current) return;
       setCatalogFailure(err instanceof Error ? err.message : String(err));
     }
-  }
+  }, [beginProfileSwitch, setCatalog, setCatalogFailure]);
+
+  useEffect(() => {
+    const generation = ++profileGeneration.current;
+    setCatalogLoading();
+    api.profiles().then(async (availableProfiles) => {
+      if (generation !== profileGeneration.current) return;
+      if (availableProfiles.length === 0) throw new Error("No verified game profiles are available.");
+      const currentState = useDesktopStore.getState();
+      const retryProfile = currentState.profiles.length > 0
+        ? currentState.request.profileId
+        : null;
+      setProfiles(availableProfiles);
+      const stored = readStoredProfile();
+      const preferred = retryProfile ?? stored;
+      const initialProfile = preferred !== null && availableProfiles.some((entry) => entry.profile.id === preferred)
+        ? preferred
+        : availableProfiles.some((entry) => entry.profile.id === "vanilla")
+          ? "vanilla"
+          : availableProfiles[0].profile.id;
+      await loadProfile(initialProfile, generation);
+    }).catch((err) => {
+      if (generation !== profileGeneration.current) return;
+      setCatalogFailure(err instanceof Error ? err.message : String(err));
+    });
+    return () => {
+      if (profileGeneration.current === generation) profileGeneration.current += 1;
+    };
+  }, [catalogAttempt, loadProfile, setCatalogFailure, setCatalogLoading, setProfiles]);
 
   function readStoredProfile(): string | null {
     try {

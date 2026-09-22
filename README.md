@@ -219,11 +219,23 @@ python tools/phase4/validate_phase4.py
 Run frontend checks from **`apps/desktop`**:
 
 ```powershell
+npm run lint
+npm run test:contracts
 npm test
 npm run build
 npx playwright install chromium
 npm run test:e2e
 ```
+
+The frontend uses React 19.3 with the modern JSX transform. Hooks linting rejects
+conditional Hooks and missing effect dependencies. The DTO contract check compares
+all public Rust DTO field shapes and enums with TypeScript, including the request
+types used by the API adapter. It does not replace native value validation or
+serialization tests. CI and full package validation run both checks.
+
+Comparison-bench persistence lives in `src/lib/compare-bench.ts`; the store retains
+state transitions. Shared saved-build/report styles live in
+`src/features/shared/build-tools.css`, loaded after the global stylesheet.
 
 The full checks and setup live in [CI](.github/workflows/ci.yml). The core is in
 `core/er_optimizer_core`; the desktop is in `apps/desktop`. Historical phase names

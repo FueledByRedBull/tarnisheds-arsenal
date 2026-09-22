@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Upgrade React and React DOM to 19.3, enforce React Hooks linting, and catch
+  Rust/TypeScript DTO drift before builds. Keep late profile replies from updating
+  the inspector after cancellation.
+- Separate comparison persistence and shared build-tool styles from the growing
+  frontend store and global stylesheet without changing saved formats.
+- Add explicit thread-policy benchmark selection and verify warmup result parity;
+  document measured workload tradeoffs while retaining the runtime thread policy.
 - Recover damaged saved-build indexes without discarding original data, and add
   bulk backup previews and non-destructive restore as copies.
 - Add previewable reproduction reports, calculated build explanations, and

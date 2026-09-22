@@ -33,7 +33,7 @@ export function Inspector() {
   const resultsStale = useDesktopStore((state) => state.resultsStale);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
   const setWorkspace = useDesktopStore((state) => state.setWorkspace);
-  const useRowAsLocks = useDesktopStore((state) => state.useRowAsLocks);
+  const applyRowLocks = useDesktopStore((state) => state.useRowAsLocks);
   const compareBench = useDesktopStore((state) => state.compareBench);
   const toggleCompareBench = useDesktopStore((state) => state.toggleCompareBench);
   const snapshot = budgetSnapshot(catalog, request);
@@ -43,22 +43,24 @@ export function Inspector() {
     (action) => action.hits.flatMap((hit) => hit.warnings),
   ) ?? [])];
   const [weaponProfile, setWeaponProfile] = useState<WeaponProfileDto | null>(null);
+  const selectedWeapon = selected?.weaponName;
+  const selectedAffinity = selected?.affinity;
 
   useEffect(() => {
     const controller = new AbortController();
-    if (!selected) {
+    if (!selectedWeapon || selectedAffinity === undefined) {
       setWeaponProfile(null);
       return () => controller.abort();
     }
-    cachedWeaponProfile(request.profileId, selected.weaponName, selected.affinity, controller.signal)
-      .then(setWeaponProfile)
+    cachedWeaponProfile(request.profileId, selectedWeapon, selectedAffinity, controller.signal)
+      .then((profile) => { if (!controller.signal.aborted) setWeaponProfile(profile); })
       .catch(() => { if (!controller.signal.aborted) setWeaponProfile(null); });
     return () => controller.abort();
-  }, [request.profileId, selected?.affinity, selected?.weaponName]);
+  }, [request.profileId, selectedAffinity, selectedWeapon]);
 
   async function lockSelected() {
     if (!selected) return;
-    useRowAsLocks(selected);
+    applyRowLocks(selected);
     await runSearchFromStore();
   }
 
@@ -349,7 +351,7 @@ function SavedBuildPanel() {
       const next = savedBuildIndex().builds;
       setEntries(next);
       setLibraryError(null);
-      if (!next.some(entry => entry.id === selectedId)) setSelectedId(next[0]?.id ?? "");
+      setSelectedId(current => next.some(entry => entry.id === current) ? current : next[0]?.id ?? "");
     } catch (error) {
       setEntries([]);
       setSelectedId("");

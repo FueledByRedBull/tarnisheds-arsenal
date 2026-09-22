@@ -13,7 +13,7 @@ export function RankingsBoard() {
   const rows = useDesktopStore((state) => state.rows);
   const selected = useDesktopStore((state) => state.selected);
   const selectRow = useDesktopStore((state) => state.selectRow);
-  const useRowAsLocks = useDesktopStore((state) => state.useRowAsLocks);
+  const applyRowLocks = useDesktopStore((state) => state.useRowAsLocks);
   const compareBench = useDesktopStore((state) => state.compareBench);
   const toggleCompareBench = useDesktopStore((state) => state.toggleCompareBench);
   const catalog = useDesktopStore((state) => state.catalog);
@@ -82,7 +82,7 @@ export function RankingsBoard() {
   }, [rows.length]);
 
   async function lockAndRerun(row: SolvedBuildDto) {
-    useRowAsLocks(row);
+    applyRowLocks(row);
     await runSearchFromStore();
   }
 
