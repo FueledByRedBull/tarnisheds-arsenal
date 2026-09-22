@@ -19,7 +19,9 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - The active snapshot and scoring identities are recorded in the [model reference](../model-reference.md).
   Storage, dataset, and calculation identities are independent; incompatible snapshots
   or persisted results fail closed rather than being relabeled as a migration.
-- A solved-build key uses the stable result fingerprint: weapon ID/name, affinity, AoW identity, upgrade, somber flag, and all five combat stats.
+- A solved-build key uses the stable result fingerprint: weapon ID/name, affinity,
+  AoW name, upgrade, and all five combat stats. Reinforcement type belongs to the
+  profile-bound weapon identity rather than a separate fingerprint field.
 - Caches are bounded. Eviction may reduce performance but must never alter results.
 - An aborted subscriber cannot populate a cache entry. When the last subscriber leaves, the pending entry is evicted immediately; backend work is also cancelled when that command exposes cancellation.
 
@@ -60,6 +62,20 @@ Status: accepted. These rules describe contracts that tests and future refactors
   never numeric zero; unified upgrade profiles do not claim Standard/Somber
   identity. Export reruns and caches use the complete normalized request including
   profile and requested row count.
+- Missing or malformed saved-build indexes are distinct from an empty library.
+  Essential writes refuse to replace an unreadable index. Recovery previews bind
+  the exact source records/index, reject changed previews, preserve the original
+  index before replacement, and leave unreadable records untouched. Storage read
+  failures must not throw through component rendering.
+- Bulk build backups use `tarnisheds-arsenal.build-backup` version 1, containing
+  existing versioned presets, bounded to 500 builds/10 MiB. Validate the entire
+  backup before writing; restore with new IDs and commit the index last. Failed
+  cleanup leaves new records recoverable as orphans.
+- Reproduction reports project known request/result fields, including nested
+  structures, and omit raw storage, logs, and private manifest source paths.
+  Report text redaction is an additional precaution; users preview before sharing.
+  Captures describe current inputs and displayed results, never imply a failed
+  request was captured or a saved result independently recalculated.
 
 ## Data snapshots
 

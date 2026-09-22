@@ -10,6 +10,7 @@ import { CompareView } from "../features/compare/CompareView";
 import { Inspector } from "../features/inspector/Inspector";
 import { PathsView } from "../features/paths/PathsView";
 import { RankingsBoard } from "../features/rankings/RankingsBoard";
+import { ReproductionReport } from "../features/shared/ReproductionReport";
 
 const tabs: Array<{ id: WorkspaceTab; label: string; icon: typeof Table2 }> = [
   { id: "rankings", label: "Rankings", icon: Table2 },
@@ -233,6 +234,7 @@ export function App() {
             <CircleAlert size={24} />
             <strong>Game data could not be loaded</strong>
             <span>{catalogError}</span>
+            <ReproductionReport />
             <button type="button" onClick={() => setCatalogAttempt((attempt) => attempt + 1)}>
               <RotateCcw size={15} />Retry loading
             </button>

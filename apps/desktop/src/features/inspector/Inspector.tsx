@@ -22,6 +22,9 @@ import { AowRouteDto, BuildPreset, CatalogDto, OptimizeRequestDto, SavedBuildInd
 import { runSearchFromStore } from "../../lib/workflows";
 import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 import packageInfo from "../../../package.json";
+import { explainBuild } from "../../lib/build-explanation";
+import { ReproductionReport } from "../shared/ReproductionReport";
+import { SavedBuildRecovery } from "../shared/SavedBuildRecovery";
 
 export function Inspector() {
   const catalog = useDesktopStore((state) => state.catalog);
@@ -132,6 +135,10 @@ export function Inspector() {
             </small>
           </div>
           <AowRouteDetails route={selected.aowRoute} />
+          {!resultsStale ? <details className="model-coverage build-explanation">
+            <summary>Why this build?</summary>
+            {explainBuild(selected, buildOptimizeRequest(catalog, request, lockedStatMode)).map(line => <p key={line}>{line}</p>)}
+          </details> : null}
           <ModelCoverage />
         </>
       ) : (
@@ -163,6 +170,7 @@ export function Inspector() {
         </small>
       </div>
       <SavedBuildPanel />
+      <ReproductionReport />
     </aside>
   );
 }
@@ -323,6 +331,7 @@ function SavedBuildPanel() {
   const pushNotice = useDesktopStore((state) => state.pushNotice);
   const setError = useDesktopStore((state) => state.setError);
   const [entries, setEntries] = useState<SavedBuildIndexEntryV1[]>([]);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [name, setName] = useState("Build Preset");
   const [importText, setImportText] = useState("");
@@ -336,9 +345,16 @@ function SavedBuildPanel() {
     : "unknown";
 
   function refresh() {
-    const next = savedBuildIndex().builds;
-    setEntries(next);
-    if (!selectedId && next[0]) setSelectedId(next[0].id);
+    try {
+      const next = savedBuildIndex().builds;
+      setEntries(next);
+      setLibraryError(null);
+      if (!next.some(entry => entry.id === selectedId)) setSelectedId(next[0]?.id ?? "");
+    } catch (error) {
+      setEntries([]);
+      setSelectedId("");
+      setLibraryError(error instanceof Error ? error.message : String(error));
+    }
   }
 
   useEffect(refresh, []);
@@ -350,7 +366,7 @@ function SavedBuildPanel() {
   }
 
   function currentPreset() {
-    return selectedId ? loadBuildPreset(selectedId) : null;
+    return selectedPreset;
   }
 
   function saveCurrent(id?: string) {
@@ -581,7 +597,10 @@ function SavedBuildPanel() {
       return { value: null, error: error instanceof Error ? error.message : String(error) };
     }
   }, [importText]);
-  const selectedPreset = currentPreset();
+  let selectedPreset: BuildPreset | null = null;
+  let selectedReadError: string | null = null;
+  try { selectedPreset = selectedId ? loadBuildPreset(selectedId) : null; }
+  catch { selectedReadError = "Saved builds could not be read. Storage access is unavailable; existing data was preserved."; }
   const selectedPresetStale = Boolean(selectedPreset && dataVersion !== "unknown" && selectedPreset.dataVersion !== dataVersion);
 
   return (
@@ -590,6 +609,7 @@ function SavedBuildPanel() {
         <Save size={17} />
         <span>Saved Builds</span>
       </div>
+      {libraryError || selectedReadError ? <p className="warning-text" role="alert">{libraryError || selectedReadError}</p> : null}
       <label>
         Name
         <input value={name} onChange={(event) => { cancelMigration(); setName(event.target.value); }} />
@@ -608,19 +628,19 @@ function SavedBuildPanel() {
       {selectedId ? <small className="saved-build-status">{presetVersionLabel(currentPreset()?.dataVersion, dataVersion)}</small> : null}
       <div className="inspector-actions stacked">
         <button type="button" onClick={() => saveCurrent()}><Save size={15} />Save new</button>
-        <button type="button" onClick={() => saveCurrent(selectedId)} disabled={!selectedId}><Save size={15} />Update selected</button>
-        <button type="button" onClick={loadCurrent} disabled={!selectedId || isMigrating}><Upload size={15} />{selectedPresetStale ? "Load inputs only" : "Load"}</button>
+        <button type="button" onClick={() => saveCurrent(selectedId)} disabled={!selectedPreset}><Save size={15} />Update selected</button>
+        <button type="button" onClick={loadCurrent} disabled={!selectedPreset || isMigrating}><Upload size={15} />{selectedPresetStale ? "Load inputs only" : "Load"}</button>
         {selectedPresetStale ? (
           <button type="button" onClick={() => selectedPreset && void migratePreset(selectedPreset)} disabled={isMigrating}>
             <Upload size={15} />{isMigrating ? "Migrating..." : "Migrate data"}
           </button>
         ) : null}
-        <button type="button" onClick={renameCurrent} disabled={!selectedId}><Pencil size={15} />Rename</button>
-        <button type="button" onClick={deleteCurrent} disabled={!selectedId}>
+        <button type="button" onClick={renameCurrent} disabled={!selectedPreset}><Pencil size={15} />Rename</button>
+        <button type="button" onClick={deleteCurrent} disabled={!selectedPreset}>
           <Trash2 size={15} />{deleteArmedId === selectedId ? "Confirm Delete" : "Delete"}
         </button>
-        <button type="button" onClick={exportCurrent} disabled={!selectedId}><Download size={15} />Export</button>
-        <button type="button" onClick={copyCurrent} disabled={!selectedId}><Clipboard size={15} />Copy Share</button>
+        <button type="button" onClick={exportCurrent} disabled={!selectedPreset}><Download size={15} />Export</button>
+        <button type="button" onClick={copyCurrent} disabled={!selectedPreset}><Clipboard size={15} />Copy Share</button>
       </div>
       <label>
         Import JSON or Share Text
@@ -654,6 +674,7 @@ function SavedBuildPanel() {
       <button className="clear-locks" type="button" onClick={() => void importCurrent()} disabled={!importPreview?.value || isMigrating}>
         <Upload size={15} />{isMigrating ? "Migrating..." : "Import"}
       </button>
+      <SavedBuildRecovery onChanged={refresh} revision={entries} />
     </div>
   );
 }

@@ -2,13 +2,17 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api } from "./api";
 import { defaultRequest, useDesktopStore } from "./state";
 import { runSearchFromStore, runSearchRequestForRows } from "./workflows";
+import type { SearchJobStatusDto, SolvedBuildDto } from "./types";
 
 vi.mock("./api", () => ({ api: { startSearch: vi.fn(), searchStatus: vi.fn(), cancelSearch: vi.fn() } }));
 
 beforeEach(() => {
   vi.useFakeTimers();
   vi.resetAllMocks();
-  useDesktopStore.setState({ isExporting: false, isSearching: false, activeJobId: null, activeSearchSignature: null, error: null });
+  useDesktopStore.setState({
+    request: defaultRequest, catalog: null, rows: [], notices: [], progress: null,
+    isExporting: false, isSearching: false, activeJobId: null, activeSearchSignature: null, error: null,
+  });
 });
 afterEach(() => vi.useRealTimers());
 
@@ -236,3 +240,52 @@ it("allows another search after a rejected start", async () => {
   await expect(runSearchRequestForRows(defaultRequest)).rejects.toThrow("Invalid request");
   await expect(runSearchRequestForRows(defaultRequest)).resolves.toEqual([]);
 });
+
+for (const invalidation of ["profile switch", "request edit"] as const) {
+  it.each(["success", "cancelled", "error", "progress"] as const)(
+    `ignores late %s after ${invalidation} without clearing replacement state`, async (outcome) => {
+      const oldRows: SolvedBuildDto[] = [];
+      const newRows: SolvedBuildDto[] = [];
+      let completeOld!: (status: SearchJobStatusDto) => void;
+      let completeNew!: (status: SearchJobStatusDto) => void;
+      const oldStatus = new Promise<SearchJobStatusDto>(resolve => { completeOld = resolve; });
+      const newStatus = new Promise<SearchJobStatusDto>(resolve => { completeNew = resolve; });
+      vi.mocked(api.startSearch).mockResolvedValueOnce({ jobId: "old" }).mockResolvedValue({ jobId: "new" });
+      vi.mocked(api.cancelSearch).mockResolvedValue(true);
+      vi.mocked(api.searchStatus).mockImplementationOnce(() => oldStatus).mockImplementation(async (jobId) =>
+        jobId === "new" ? newStatus : {
+          progress: null, finished: { jobId, rows: oldRows, cancelled: false, error: null },
+        });
+
+      const old = runSearchFromStore(defaultRequest);
+      await vi.advanceTimersByTimeAsync(0);
+      if (invalidation === "profile switch") useDesktopStore.getState().beginProfileSwitch("convergence");
+      else useDesktopStore.getState().patchRequest({ twoHanding: !defaultRequest.twoHanding });
+      const retainedRows = useDesktopStore.getState().rows;
+      const replacement = runSearchFromStore(useDesktopStore.getState().request);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(api.startSearch).toHaveBeenCalledTimes(1);
+      expect(api.cancelSearch).toHaveBeenCalledExactlyOnceWith("old");
+
+      completeOld(outcome === "progress" ? {
+        progress: { jobId: "old", checked: 10, total: 10, eligible: 1, bestScore: 999, elapsedMs: 100 },
+        finished: null,
+      } : {
+        progress: null,
+        finished: { jobId: "old", rows: oldRows, cancelled: outcome === "cancelled", error: outcome === "error" ? "obsolete failure" : null },
+      });
+      await vi.advanceTimersByTimeAsync(200);
+      expect(await old).toBe(false);
+      expect(api.startSearch).toHaveBeenCalledTimes(2);
+      expect(useDesktopStore.getState()).toMatchObject({
+        isSearching: true, activeJobId: "new", progress: null, error: null, notices: [],
+      });
+      expect(useDesktopStore.getState().rows).toBe(retainedRows);
+
+      completeNew({ progress: null, finished: { jobId: "new", rows: newRows, cancelled: false, error: null } });
+      expect(await replacement).toBe(true);
+      expect(useDesktopStore.getState().rows).toBe(newRows);
+      expect(useDesktopStore.getState()).toMatchObject({ isSearching: false, activeJobId: null, error: null });
+    },
+  );
+}

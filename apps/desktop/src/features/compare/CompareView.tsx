@@ -10,6 +10,7 @@ import { useDesktopStore } from "../../lib/state";
 import { ScalingDto, SolvedBuildDto, UpgradePointDto } from "../../lib/types";
 import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 import { LoadoutTradeoffs } from "./LoadoutTradeoffs";
+import { explainBuildComparison } from "../../lib/build-explanation";
 
 type CompareLane = {
   label: string;
@@ -453,16 +454,9 @@ function DeltaTable({ baseline, candidates, objective }: { baseline: SolvedBuild
           {renderTable(metrics, "All candidate deltas versus baseline")}
         </details>
       ) : null}
-      {candidates.map((lane) => lane.row ? <small key={`${lane.label}-explanation`}>{explainDelta(baseline, lane.row, objective)}</small> : null)}
+      {candidates.map((lane) => lane.row ? <small key={`${lane.label}-explanation`}>{explainBuildComparison(baseline, lane.row, { objective })}</small> : null)}
     </div>
   );
-}
-
-function explainDelta(baseline: SolvedBuildDto, candidate: SolvedBuildDto, objective: ReturnType<typeof useDesktopStore.getState>["request"]["objective"]): string {
-  const objectiveDelta = metricForObjective(candidate, objective) - metricForObjective(baseline, objective);
-  const arDelta = candidate.ar.total - baseline.ar.total;
-  const statDelta = ["strStat", "dex", "intStat", "fai", "arc"].reduce((sum, key) => sum + candidate.stats[key as keyof typeof candidate.stats] - baseline.stats[key as keyof typeof baseline.stats], 0);
-  return `${candidate.weaponName}: ${objectiveDelta >= 0 ? "gains" : "loses"} ${fixed1(Math.abs(objectiveDelta))} objective value, ${arDelta >= 0 ? "gains" : "loses"} ${fixed1(Math.abs(arDelta))} AR, and uses ${statDelta >= 0 ? "+" : ""}${statDelta} combat-stat points versus the baseline.`;
 }
 
 function MatrixRow({

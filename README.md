@@ -55,6 +55,23 @@ Save builds to return to them later, or export rankings as CSV. The active-query
 strip shows the assumptions behind the results; changed inputs mark old results
 as stale. Convergence uses a different [fixed-stat workflow](#convergence-3001-beta).
 
+### Saved builds and recovery
+
+Saved Builds includes **Backup and recovery**. **Export all builds** backs up
+readable builds across profiles. Select a backup file to preview its contents,
+then restore as new copies; existing builds are kept. Backups support up to 500
+builds and 10 MiB. Existing schema 1/2 builds remain readable.
+
+If the saved-build list is damaged or incomplete, scan it and review the recovery
+count and issues. Recovery rebuilds the list from readable records, preserves the
+original index on this device, and leaves unreadable records untouched. Exported
+backups exclude unreadable records. If storage access or space is unavailable,
+the app reports the failure instead of replacing your library with an empty one.
+
+**Why this build?** explains the selected result's objective, damage split, and
+active constraints. Compare also lists individual stat changes. These are
+calculation summaries, not estimates of each stat's causal damage contribution.
+
 ## Interface
 
 | Workspace | The question it answers |
@@ -158,6 +175,13 @@ Choose a guide for the task at hand:
 [Report a bug](https://github.com/FueledByRedBull/tarnisheds-arsenal/issues) with the
 app version, game profile, reproduction steps, and expected versus actual results.
 Use [private vulnerability reporting](SECURITY.md) for security issues.
+
+Use **Preview reproduction report** below Saved Builds to review and download
+current normalized inputs, snapshot identity, the displayed selection when it is
+not stale, and an error if present. It does not replay a failed request or recompute
+a saved result. The saved-build library and raw logs are excluded; recognizable
+paths, addresses, and credential-like text are omitted. Review the preview before
+sharing it. Nothing is uploaded automatically.
 
 Submit focused pull requests against `main`, explain the problem and checks run,
 and add a regression for behavior changes. Keep raw game files, credentials,

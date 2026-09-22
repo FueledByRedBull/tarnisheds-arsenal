@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Recover damaged saved-build indexes without discarding original data, and add
+  bulk backup previews and non-destructive restore as copies.
+- Add previewable reproduction reports, calculated build explanations, and
+  per-stat comparison differences.
+- Exercise interrupted storage writes, malformed backups, and late job replies;
+  keep the interface usable when saved-build storage access is denied.
+
 - Enable ThinLTO and one codegen unit for release builds to reduce optimizer runtime
   without changing calculation results or requiring a newer CPU.
 - Harden background-job failure and cancellation handling, snapshot loading, and
