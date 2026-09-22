@@ -5,6 +5,7 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
+import zipfile
 
 from tools.phase1.extract_motion_workbook import (
     MOTION_WORKBOOK_NAME,
@@ -16,11 +17,56 @@ from tools.phase1.extract_motion_workbook import (
     find_matching_aow,
     load_weapon_workbook_data,
     load_throw_attack_ids,
+    read_sp_effect_sheet,
     run_workbook_exports,
 )
 
 
 class MotionWorkbookTests(unittest.TestCase):
+    def test_reader_closes_archive_when_workbook_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / 'empty.xlsx'
+            with zipfile.ZipFile(path, 'w'):
+                pass
+            archive = zipfile.ZipFile(path)
+            with patch('tools.phase1.extract_motion_workbook.zipfile.ZipFile', return_value=archive):
+                with self.assertRaises(KeyError):
+                    read_sp_effect_sheet(path)
+            self.assertIsNone(archive.fp)
+
+    def test_effect_sheet_uses_second_row_headers_and_preserves_sparse_values(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / 'effects.xlsx'
+            with zipfile.ZipFile(path, 'w') as archive:
+                archive.writestr('xl/workbook.xml', '''<workbook
+                    xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+                    xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+                    <sheets><sheet name="SpEffectParam" r:id="sheet1"/></sheets></workbook>''')
+                archive.writestr('xl/_rels/workbook.xml.rels',
+                                '<Relationships><Relationship Id="sheet1" Target="sheet.xml"/></Relationships>')
+                archive.writestr('xl/sharedStrings.xml', '''<sst
+                    xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+                    <si>
+                        <t>ID</t>
+                    </si><si><t>Name</t></si><si>
+                        <r><t>  effect</t></r><r><t>  </t></r>
+                    </si></sst>''')
+                archive.writestr('xl/sheet.xml', '''<worksheet
+                    xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>
+                    <row><c r="A1"><v>999</v></c></row>
+                    <row><c r="A2" t="s"><v>0</v></c><c r="C2" t="s"><v>1</v></c></row>
+                    <row><c r="A3"><v>0</v></c><c r="C3" t="s"><v>2</v></c></row>
+                    <row/>
+                    <row><c r="A5"><v>42</v></c></row>
+                    <row><c r="A6"><v>43</v></c><c r="C6" t="inlineStr"><is>
+                        <r><t> inline</t></r><r><t> effect </t></r>
+                    </is></c></row>
+                    </sheetData></worksheet>''')
+            self.assertEqual(read_sp_effect_sheet(path), [
+                {'ID': '0', 'Name': '  effect  '}, {'ID': '42', 'Name': ''},
+                {'ID': '43', 'Name': ' inline effect '},
+            ])
+
     def test_generated_effect_exclusions_are_unique(self) -> None:
         path = Path(__file__).resolve().parents[2] / 'data/phase1/aow_effect_exclusions.csv'
         with path.open(encoding='utf-8', newline='') as stream:

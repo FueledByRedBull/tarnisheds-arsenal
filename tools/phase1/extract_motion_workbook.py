@@ -104,10 +104,14 @@ class WorkbookReader:
     def __init__(self, path: Path) -> None:
         self.path = path
         self.archive = zipfile.ZipFile(path)
-        self.shared_strings = self._load_shared_strings()
-        self.workbook = ET.fromstring(self.archive.read('xl/workbook.xml'))
-        workbook_rels = ET.fromstring(self.archive.read('xl/_rels/workbook.xml.rels'))
-        self.workbook_rel_map = {rel.attrib['Id']: rel.attrib['Target'] for rel in workbook_rels}
+        try:
+            self.shared_strings = self._load_shared_strings()
+            self.workbook = ET.fromstring(self.archive.read('xl/workbook.xml'))
+            workbook_rels = ET.fromstring(self.archive.read('xl/_rels/workbook.xml.rels'))
+            self.workbook_rel_map = {rel.attrib['Id']: rel.attrib['Target'] for rel in workbook_rels}
+        except BaseException:
+            self.archive.close()
+            raise
 
     def close(self) -> None:
         self.archive.close()
@@ -118,7 +122,7 @@ class WorkbookReader:
         sst = ET.fromstring(self.archive.read('xl/sharedStrings.xml'))
         out: list[str] = []
         for item in sst:
-            out.append(''.join(node.text or '' for node in item.iter() if node.text))
+            out.append(''.join(node.text or '' for node in item.iter(f'{MAIN_NS}t')))
         return out
 
     def read_sheet(self, name: str) -> WorkbookSheet:
@@ -170,7 +174,7 @@ class WorkbookReader:
             inline = cell.find(f'{MAIN_NS}is')
             if inline is None:
                 return ''
-            return ''.join(node.text or '' for node in inline.iter() if node.text)
+            return ''.join(node.text or '' for node in inline.iter(f'{MAIN_NS}t'))
         return value.text if value is not None and value.text is not None else ''
 
 
@@ -573,62 +577,18 @@ def build_attack_row(
 
 
 def read_sp_effect_sheet(workbook_path: Path) -> list[dict[str, str]]:
-    rel_ns = '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}'
+    reader = WorkbookReader(workbook_path)
+    try:
+        sheet = reader.read_sheet('SpEffectParam')
+    finally:
+        reader.close()
 
-    def column_index(cell_ref: str) -> int:
-        letters = ''.join(ch for ch in cell_ref if ch.isalpha())
-        value = 0
-        for ch in letters:
-            value = value * 26 + (ord(ch.upper()) - 64)
-        return value - 1
-
-    with zipfile.ZipFile(workbook_path) as archive:
-        shared_strings: list[str] = []
-        if 'xl/sharedStrings.xml' in archive.namelist():
-            sst = ET.fromstring(archive.read('xl/sharedStrings.xml'))
-            for item in sst:
-                shared_strings.append(''.join(node.text or '' for node in item.iter(f'{MAIN_NS}t')))
-
-        workbook = ET.fromstring(archive.read('xl/workbook.xml'))
-        workbook_rels = ET.fromstring(archive.read('xl/_rels/workbook.xml.rels'))
-        rel_map = {rel.attrib['Id']: rel.attrib['Target'] for rel in workbook_rels}
-
-        target: str | None = None
-        sheets = workbook.find('x:sheets', WORKBOOK_NS)
-        for sheet in ([] if sheets is None else sheets):
-            if sheet.attrib['name'] == 'SpEffectParam':
-                target = rel_map[sheet.attrib[f'{rel_ns}id']]
-                break
-        if target is None:
-            raise ValueError('missing sheet: SpEffectParam')
-
-        sheet_xml = ET.fromstring(archive.read(f'xl/{target}'))
-        sheet_data = sheet_xml.find(f'{MAIN_NS}sheetData')
-        if sheet_data is None:
-            raise ValueError('missing sheetData for SpEffectParam')
-
-        parsed_rows: list[list[str]] = []
-        width = 0
-        for row in sheet_data:
-            parsed: dict[int, str] = {}
-            for cell in row:
-                idx = column_index(cell.attrib['r'])
-                cell_type = cell.attrib.get('t')
-                value = cell.find(f'{MAIN_NS}v')
-                if cell_type == 's':
-                    text = '' if value is None else shared_strings[int(value.text or '0')]
-                else:
-                    text = value.text if value is not None and value.text is not None else ''
-                parsed[idx] = text
-                width = max(width, idx + 1)
-            parsed_rows.append([parsed.get(idx, '') for idx in range(width)])
-
-    if len(parsed_rows) < 3:
+    if len(sheet.rows) < 2:
         return []
-    headers = parsed_rows[1]
+    headers = sheet.rows[0]
     return [
         {headers[idx]: values[idx] if idx < len(values) else '' for idx in range(len(headers)) if headers[idx]}
-        for values in parsed_rows[2:]
+        for values in sheet.rows[1:]
         if values and any(value for value in values)
     ]
 

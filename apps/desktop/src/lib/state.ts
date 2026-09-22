@@ -155,26 +155,13 @@ function invalidateAllJobs(state: DesktopState) {
     activeSearchSignature: null,
     activeJobId: null,
     progress: null,
-    isPathBusy: false,
-    pathGeneration: state.pathGeneration + 1,
-    activePathSignature: null,
-    activePathJobId: null,
-    pathProgress: null,
-    isAffinityBusy: false,
-    affinityGeneration: state.affinityGeneration + 1,
-    activeAffinitySignature: null,
-    activeAffinityJobId: null,
-    affinityProgress: null,
+    ...invalidateAnalysisJobs(state),
   };
 }
 
 function invalidateAnalysisJobs(state: DesktopState) {
   return {
-    isPathBusy: false,
-    pathGeneration: state.pathGeneration + 1,
-    activePathSignature: null,
-    activePathJobId: null,
-    pathProgress: null,
+    ...invalidatePathJob(state),
     isAffinityBusy: false,
     affinityGeneration: state.affinityGeneration + 1,
     activeAffinitySignature: null,

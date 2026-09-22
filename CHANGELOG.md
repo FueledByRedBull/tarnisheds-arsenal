@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Remove unused frontend helpers and duplicate workbook parsing; require lint and
+  DTO validation evidence when verifying packages built with full source checks.
 - Upgrade React and React DOM to 19.3, enforce React Hooks linting, and catch
   Rust/TypeScript DTO drift before builds. Keep late profile replies from updating
   the inspector after cancellation.

@@ -217,6 +217,26 @@ function Start-Sleep { throw "No matching completed CI; would wait" }
                         )
                         self.assertEqual(result.returncode == 0, success, result.stderr)
 
+                source_gates = [
+                    "release-metadata", "python-unit-tests", "ruff", "pyright", "rustfmt",
+                    "clippy", "core-tests", "tauri-tests", "runtime-data-validation",
+                    "frontend-lint", "dto-contracts", "playwright-browser", "frontend-tests", "frontend-e2e",
+                ]
+                for missing in [None, "frontend-lint", "dto-contracts"]:
+                    with self.subTest(missing_source_gate=missing):
+                        report_path.write_text(package_release.json.dumps({
+                            **report, "validationSkipped": False,
+                            "completedGates": report["completedGates"] + [gate for gate in source_gates if gate != missing],
+                        }), encoding="utf-8")
+                        result = subprocess.run(
+                            ["pwsh", "-NoProfile", "-NonInteractive", "-Command",
+                             'function python { $global:LASTEXITCODE = 0 }\n' + workflow_script("Verify release provenance and checksums")],
+                            env={**env, "VERIFIED_CI_SHA": ""}, capture_output=True, text=True, check=False, timeout=30,
+                        )
+                        self.assertEqual(result.returncode == 0, missing is None, result.stderr)
+                        if missing:
+                            self.assertIn(f"missing validation gate: {missing}", result.stderr)
+
     def test_portable_archive_omits_msi_and_scopes_checksum(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

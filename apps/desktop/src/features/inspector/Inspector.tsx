@@ -367,10 +367,6 @@ function SavedBuildPanel() {
     setMigrating(false);
   }
 
-  function currentPreset() {
-    return selectedPreset;
-  }
-
   function saveCurrent(id?: string) {
     try {
       const { characterLevel, lockStr, lockDex, lockInt, lockFai, lockArc } = buildOptimizeRequest(catalog, request, lockedStatMode);
@@ -391,7 +387,7 @@ function SavedBuildPanel() {
   }
 
   function loadCurrent() {
-    const preset = currentPreset();
+    const preset = selectedPreset;
     if (!preset) return;
     if (preset.profileId !== request.profileId) {
       pushNotice({
@@ -528,7 +524,7 @@ function SavedBuildPanel() {
       return;
     }
     try {
-      const deletedName = currentPreset()?.name ?? "saved build";
+      const deletedName = selectedPreset?.name ?? "saved build";
       deleteBuildPreset(selectedId);
       cancelMigration();
       setSelectedId("");
@@ -549,7 +545,7 @@ function SavedBuildPanel() {
   }
 
   async function copyCurrent() {
-    const preset = currentPreset();
+    const preset = selectedPreset;
     if (!preset) return;
     try {
       await navigator.clipboard.writeText(shareTextForPreset(preset));
@@ -560,7 +556,7 @@ function SavedBuildPanel() {
   }
 
   function exportCurrent() {
-    const preset = currentPreset();
+    const preset = selectedPreset;
     if (preset) downloadPresetJson(preset);
   }
 
@@ -627,7 +623,7 @@ function SavedBuildPanel() {
           ))}
         </select>
       </label>
-      {selectedId ? <small className="saved-build-status">{presetVersionLabel(currentPreset()?.dataVersion, dataVersion)}</small> : null}
+      {selectedId ? <small className="saved-build-status">{presetVersionLabel(selectedPreset?.dataVersion, dataVersion)}</small> : null}
       <div className="inspector-actions stacked">
         <button type="button" onClick={() => saveCurrent()}><Save size={15} />Save new</button>
         <button type="button" onClick={() => saveCurrent(selectedId)} disabled={!selectedPreset}><Save size={15} />Update selected</button>
