@@ -3,6 +3,30 @@ import { createNativeJobQueue } from "./native-jobs";
 
 afterEach(() => vi.useRealTimers());
 
+it("stops polling a worker failure and permits the next job", async () => {
+  vi.useFakeTimers();
+  type Status = { finished: { jobId: string; cancelled: boolean; error: string | null } | null };
+  const status = vi.fn()
+    .mockResolvedValueOnce({ finished: null })
+    .mockResolvedValueOnce({ finished: {
+      jobId: "failed", cancelled: false,
+      error: "Calculation worker stopped unexpectedly. Retry the operation.",
+    } })
+    .mockResolvedValueOnce({ finished: { jobId: "next", cancelled: false, error: null } });
+  const cancel = vi.fn();
+  const start = vi.fn().mockResolvedValueOnce({ jobId: "failed" }).mockResolvedValueOnce({ jobId: "next" });
+  const queue = createNativeJobQueue<Status>(status, cancel);
+  const failed = queue(start).catch(error => error);
+  await vi.advanceTimersByTimeAsync(1_000);
+  expect(await failed).toMatchObject({ message: "Calculation worker stopped unexpectedly. Retry the operation." });
+  await vi.advanceTimersByTimeAsync(10_000);
+  expect(status).toHaveBeenCalledTimes(2);
+  expect(cancel).not.toHaveBeenCalled();
+  await expect(queue(start)).resolves.toMatchObject({ jobId: "next" });
+  expect(status).toHaveBeenCalledTimes(3);
+  expect(start).toHaveBeenCalledTimes(2);
+});
+
 it("bounds cancellation while a status reply is stalled, then reconciles that same reply", async () => {
   vi.useFakeTimers();
   type Status = { finished: { jobId: string; cancelled: boolean; error: null } | null };

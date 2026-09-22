@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- Enable ThinLTO and one codegen unit for release builds to reduce optimizer runtime
+  without changing calculation results or requiring a newer CPU.
+- Harden background-job failure and cancellation handling, snapshot loading, and
+  saved-session recovery.
+- Reduce repeated exact calculations for status scaling and multi-hit skill routes.
+- Make Paths charts easier to read with labeled axes, sparse markers, and a
+  level-inspection slider.
+- Add the textured Arsenal brand mark and a simplified Windows icon.
+- Restrict production connections, update affected dependencies, and verify the
+  executable inside release ZIPs against the standalone portable binary.
+
 ## [v0.14.1](docs/release-notes/v0.14.1.md)
 
 Correct Affinity Watch's chart scale, clarify the fixed-loadout AR sacrifice

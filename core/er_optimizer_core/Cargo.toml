@@ -3,6 +3,10 @@ name = "er_optimizer_core"
 version = "0.14.1"
 edition = "2024"
 
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
 [lib]
 name = "er_optimizer_core"
 crate-type = ["rlib"]

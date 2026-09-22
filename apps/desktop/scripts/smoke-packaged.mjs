@@ -32,6 +32,19 @@ try {
   );
   const { page } = session;
   page.setDefaultTimeout(30_000);
+  const policyErrors = [];
+  let ipcResponses = 0;
+  page.on("console", (message) => {
+    const text = message.text();
+    if (!text.includes("/__csp_probe__") && /content security policy|IPC custom protocol failed/i.test(text)) {
+      policyErrors.push(text);
+    }
+  });
+  page.on("response", (response) => {
+    if (new URL(response.url()).hostname === "ipc.localhost") ipcResponses += 1;
+  });
+  markSmokeStage("verify production connection policy");
+  await assertProductionConnections(page);
   const viewport = await page.evaluate(() => ({
     innerWidth: window.innerWidth,
     innerHeight: window.innerHeight,
@@ -212,7 +225,7 @@ try {
   await page.getByRole("spinbutton", { name: "Current + N" }).fill("10");
   await page.getByRole("button", { name: "Trace paths", exact: true }).click();
   markSmokeStage("wait for Paths preview");
-  await page.getByRole("grid", { name: "Path steps" }).locator('[role="row"]').nth(1).waitFor();
+  await page.getByRole("table", { name: "Path steps", exact: true }).locator('[role="row"]').nth(1).waitFor();
 
   markSmokeStage("run Affinity Watch");
   await page.getByRole("navigation").getByRole("button", { name: "Affinity Watch" }).click();
@@ -263,7 +276,9 @@ try {
     throw new Error("packaged smoke preset survived explicit cleanup");
   }
 
-  process.stdout.write(`PACKAGED_SMOKE_PASSED ${JSON.stringify({ selectedWeapon, bestTypeWeapon, presetName })}\n`);
+  if (policyErrors.length > 0) throw new Error(`Unexpected CSP or IPC errors: ${policyErrors.join("\n")}`);
+  if (ipcResponses === 0) throw new Error("Packaged smoke observed no custom-protocol IPC responses");
+  process.stdout.write(`PACKAGED_SMOKE_PASSED ${JSON.stringify({ selectedWeapon, bestTypeWeapon, presetName, ipcResponses })}\n`);
 } catch (error) {
   const output = session?.output().trim();
   const pageState = session?.page
@@ -299,6 +314,54 @@ try {
     }, { key: vanillaCompareBenchKey, value: previousCompareBench }).catch(() => {});
   }
   await stopSession(session);
+}
+
+async function assertProductionConnections(page) {
+  const report = await page.evaluate(async () => {
+    if (location.hostname !== "tauri.localhost") throw new Error(`Expected packaged origin, received ${location.origin}`);
+    const response = await fetch(location.href);
+    const csp = response.headers.get("content-security-policy");
+    if (!csp) throw new Error("Packaged document did not expose an enforced CSP header");
+    const blocked = [];
+    for (const host of ["localhost", "127.0.0.1", "127.1", "[::1]"]) {
+      for (const scheme of ["http", "https", "ws", "wss"]) {
+        const target = `${scheme}://${host}:1420/__csp_probe__`;
+        const violation = await new Promise((resolve) => {
+          const controller = new AbortController();
+          let socket;
+          const finish = (value) => {
+            clearTimeout(timer);
+            document.removeEventListener("securitypolicyviolation", onViolation);
+            controller.abort();
+            socket?.close();
+            resolve(value);
+          };
+          const onViolation = (event) => {
+            if (event.effectiveDirective === "connect-src" && event.disposition === "enforce"
+              && new URL(event.blockedURI).origin === new URL(target).origin) {
+              finish({ target, blockedURI: event.blockedURI, directive: event.effectiveDirective, disposition: event.disposition });
+            }
+          };
+          const timer = setTimeout(() => finish(null), 1_500);
+          document.addEventListener("securitypolicyviolation", onViolation);
+          if (scheme.startsWith("ws")) {
+            try {
+              socket = new WebSocket(target);
+              socket.addEventListener("error", () => {});
+            } catch {
+              // Only an enforced CSP event establishes denial; a socket error does not.
+            }
+          } else {
+            void fetch(target, { mode: "no-cors", signal: controller.signal }).catch(() => {});
+          }
+        });
+        if (!violation) throw new Error(`No enforced connect-src violation for ${target}`);
+        blocked.push(violation);
+      }
+    }
+    return { origin: location.origin, csp, blocked };
+  });
+  process.stdout.write(`PACKAGED_SMOKE_CSP ${JSON.stringify(report)}\n`);
 }
 
 function positiveIntegerFromEnv(name, fallback) {

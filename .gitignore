@@ -1,7 +1,6 @@
 ﻿# Python
 __pycache__/
 *.py[cod]
-*.pyo
 .venv/
 venv/
 .pytest_cache/
@@ -34,7 +33,10 @@ tmp_*.png
 release-notes-*.md
 /tarnisheds-arsenal-desktop.exe
 
-# Local planning
+# Local planning and audit evidence
+/AGENTS.md
+/.codex-tmp/
+/IGNORE/
 /TODO.md
 /HARDEN.md
 /AUDITS.md
@@ -45,8 +47,6 @@ ui/desktop/
 archive/python-desktop/
 
 # Local data workdirs
-data/_work_phase1/
-data/_work_phase1_reparse*/
 data/_witchy_profile/
 data/.phase1-snapshot-*/
 data/phase1/*.tmp

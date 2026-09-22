@@ -120,7 +120,15 @@ export function App() {
             <Layers3 size={16} aria-hidden="true" />
             <span>Game profile</span>
           </div>
-          <div className="profile-switch" role="radiogroup" aria-label="Game profile">
+          <div className="profile-switch" role="radiogroup" aria-label="Game profile" onKeyDown={(event) => {
+            const direction = ["ArrowRight", "ArrowDown"].includes(event.key) ? 1
+              : ["ArrowLeft", "ArrowUp"].includes(event.key) ? -1 : 0;
+            if (!direction || catalogStatus === "loading") return;
+            event.preventDefault();
+            const index = (profiles.findIndex((profile) => profile.profile.id === profileId) + direction + profiles.length) % profiles.length;
+            event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')[index]?.focus();
+            void loadProfile(profiles[index].profile.id);
+          }}>
             {profiles.map((profile) => {
               const active = profile.profile.id === profileId;
               const version = profile.profile.modVersion ?? profile.profile.gameVersion;
@@ -130,6 +138,7 @@ export function App() {
                   type="button"
                   role="radio"
                   aria-checked={active}
+                  tabIndex={active ? 0 : -1}
                   className={active ? "active" : ""}
                   disabled={catalogStatus === "loading" && !active}
                   onClick={() => {

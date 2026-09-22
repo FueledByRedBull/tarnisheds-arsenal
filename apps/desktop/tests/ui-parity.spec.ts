@@ -1,5 +1,72 @@
 import { expect, test } from "@playwright/test";
 
+test("profile radios use one tab stop and arrow-key selection", async ({ page }) => {
+  await page.goto("/");
+  const vanilla = page.getByRole("radio", { name: /Vanilla/ });
+  const convergence = page.getByRole("radio", { name: /Convergence/ });
+  await expect(vanilla).toHaveAttribute("tabindex", "0");
+  await expect(convergence).toHaveAttribute("tabindex", "-1");
+  await vanilla.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(convergence).toBeFocused();
+  await expect(convergence).toHaveAttribute("aria-checked", "true");
+  await expect(vanilla).toHaveAttribute("tabindex", "-1");
+  await expect(vanilla).toBeEnabled();
+  await page.keyboard.press("ArrowDown");
+  await expect(vanilla).toBeFocused();
+  await expect(vanilla).toHaveAttribute("aria-checked", "true");
+});
+
+test("long Paths curves retain all points with sparse markers and keyboard inspection", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
+  await page.getByRole("navigation").getByRole("button", { name: "Paths", exact: true }).click();
+  await page.getByRole("button", { name: "Trace paths", exact: true }).click();
+  await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "completed");
+  await page.evaluate(async () => {
+    const { useDesktopStore } = await import("/src/lib/state.ts");
+    const state = useDesktopStore.getState();
+    state.setPaths(state.paths.map((path: any, lane: number) => ({
+      ...path,
+      steps: Array.from({ length: 201 }, (_, index) => ({
+        ...path.steps[0], level: 57 + index, metric: index === 2 ? null : 500 + lane * 100 + index * 2,
+        addedStat: index ? (index % 2 ? "dex" : "str") : null,
+      })),
+    })), state.pathSignature);
+  });
+  const chart = page.locator(".path-chart");
+  await expect(chart.locator(".path-series")).toHaveCount(4);
+  expect(await chart.locator(".path-series").evaluateAll(lines => lines.reduce((count, line) => count + line.getAttribute("points")!.split(" ").length, 0))).toBe(400);
+  expect(await chart.locator(".path-change-marker").count()).toBeLessThanOrEqual(18);
+  expect(await chart.locator(".path-change-marker").count()).toBeGreaterThan(0);
+  await expect(chart.locator(".path-y-axis span")).toHaveText(["1040.0", "750.0", "460.0"]);
+  await expect(chart.locator(".path-x-axis span")).toHaveText(["57", "107", "157", "207", "257"]);
+  const inspect = page.getByRole("slider", { name: "Inspect path level" });
+  await inspect.focus();
+  await page.keyboard.press("End");
+  await expect(inspect).toHaveAttribute("aria-valuetext", /Level 257.*Selected 900.0 AR.*Compare 1000.0 AR/);
+  await page.keyboard.press("Home");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  await expect(inspect).toHaveAttribute("aria-valuetext", /Level 59.*Selected unavailable.*Compare unavailable/);
+  await expect(page.getByRole("table", { name: "Path steps", exact: true })).toBeVisible();
+  for (const width of [1028, 1650]) {
+    await page.setViewportSize({ width, height: 950 });
+    expect(await chart.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  }
+  await page.evaluate(async () => {
+    const { useDesktopStore } = await import("/src/lib/state.ts");
+    const state = useDesktopStore.getState();
+    state.setPaths([{ ...state.paths[0], steps: state.paths[0].steps.slice(0, 3).map((step: any, index: number) => ({ ...step, metric: index === 1 ? null : 500 })) }], state.pathSignature);
+  });
+  await expect(chart.locator(".path-isolated-point")).toHaveCount(2);
+  await expect(chart.locator(".path-series-group")).toHaveCount(1);
+  await expect(chart.locator(".path-y-axis span")).toHaveText(["510.0", "500.0", "490.0"]);
+});
+
 test("saved profile filters stay readable and can be removed without changing weapon filters", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("button", { name: "Search", exact: true })).toBeEnabled();
@@ -214,15 +281,15 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await page.getByRole("button", { name: "Trace paths" }).click();
   await expect(page.getByText("Selected").first()).toBeVisible();
   await expect(page.getByText("Compare").first()).toBeVisible();
-  await expect(page.locator(".path-chart")).toContainText("Stat breakpoint");
+  await expect(page.locator(".path-chart")).toContainText("Allocation changes (sampled)");
   await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "completed");
   await page.getByRole("button", { name: "Envelope", exact: true }).click();
   await expect(page.getByRole("button", { name: "Envelope", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "ready");
-  await expect(page.locator(".path-chart .spark-line")).toHaveCount(0);
+  await expect(page.locator(".path-chart .path-series")).toHaveCount(0);
   await page.getByRole("button", { name: "Trace paths", exact: true }).click();
   await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "completed");
-  await expect.poll(() => page.locator(".path-chart .spark-line").first().evaluate(
+  await expect.poll(() => page.locator(".path-chart").evaluate(
     (node) => node.scrollWidth <= node.clientWidth + 1,
   )).toBe(true);
   await expect.poll(() => page.evaluate(
@@ -605,31 +672,31 @@ test("analysis controls align inputs with buttons and path levels compare side b
       })),
     })), state.pathSignature);
   });
-  const grid = page.getByRole("grid", { name: "Path steps" });
-  await expect(grid.getByRole("row")).toHaveCount(11);
-  await expect(grid.getByRole("columnheader")).toHaveCount(3);
-  await expect(grid.getByRole("row").nth(1).getByRole("gridcell").nth(0)).toHaveText("9");
-  await expect(grid.getByRole("row").nth(1)).toContainText("500.0 AR");
-  await expect(grid.getByRole("row").nth(1)).toContainText("600.0 AR");
-  await expect(grid.getByRole("row").nth(1)).toContainText("Starting stats");
-  await expect(grid.getByRole("row").nth(1)).not.toContainText("Gain -");
-  await expect(grid.getByRole("row").nth(2)).toContainText("Gain 0.0 | Added DEX");
-  await expect(grid.getByRole("row").nth(3)).toContainText("Gain unavailable | No stat added | Requirement gap 3");
-  await expect(grid.getByRole("row").nth(5)).toContainText("Respec required");
-  await expect(grid).not.toContainText("Added RESPEC");
+  const table = page.getByRole("table", { name: "Path steps", exact: true });
+  await expect(table.getByRole("row")).toHaveCount(11);
+  await expect(table.getByRole("columnheader")).toHaveCount(3);
+  await expect(table.getByRole("row").nth(1).getByRole("cell").nth(0)).toHaveText("9");
+  await expect(table.getByRole("row").nth(1)).toContainText("500.0 AR");
+  await expect(table.getByRole("row").nth(1)).toContainText("600.0 AR");
+  await expect(table.getByRole("row").nth(1)).toContainText("Starting stats");
+  await expect(table.getByRole("row").nth(1)).not.toContainText("Gain -");
+  await expect(table.getByRole("row").nth(2)).toContainText("Gain 0.0 | Added DEX");
+  await expect(table.getByRole("row").nth(3)).toContainText("Gain unavailable | No stat added | Requirement gap 3");
+  await expect(table.getByRole("row").nth(5)).toContainText("Respec required");
+  await expect(table).not.toContainText("Added RESPEC");
   await expect(page.getByRole("combobox", { name: "Path level range" }).locator('option[value="0"]')).toHaveText("9–18");
   await expect(page.locator(".path-steps")).not.toContainText("\uFFFD");
   await expect(page.getByRole("button", { name: "Previous levels" })).toBeDisabled();
   await page.getByRole("button", { name: "Next levels" }).click();
-  await expect(grid.getByRole("row").nth(1).getByRole("gridcell").nth(0)).toHaveText("19");
-  await expect(grid.getByRole("row").nth(1)).toContainText("Gain 2.0");
+  await expect(table.getByRole("row").nth(1).getByRole("cell").nth(0)).toHaveText("19");
+  await expect(table.getByRole("row").nth(1)).toContainText("Gain 2.0");
   await page.getByRole("combobox", { name: "Path level range" }).selectOption("4");
-  await expect(grid.getByRole("row")).toHaveCount(2);
-  await expect(grid.getByRole("row").nth(1).getByRole("gridcell").nth(0)).toHaveText("49");
+  await expect(table.getByRole("row")).toHaveCount(2);
+  await expect(table.getByRole("row").nth(1).getByRole("cell").nth(0)).toHaveText("49");
   await expect(page.getByRole("button", { name: "Next levels" })).toBeDisabled();
-  await expect.poll(() => grid.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+  await expect.poll(() => table.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
   await page.getByRole("button", { name: "Envelope", exact: true }).click();
-  await expect(grid).toHaveCount(0);
+  await expect(table).toHaveCount(0);
 });
 
 async function toggleMultiSelectOption(page: import("@playwright/test").Page, label: string, option: string) {

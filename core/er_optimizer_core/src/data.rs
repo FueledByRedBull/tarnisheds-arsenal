@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
-use std::fs;
 use std::io::Cursor;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::model::{
     Aow, AowAttackRow, AowEffect, AowEffectRole, AowRouteAssignment, AttackElementCorrect,
@@ -37,29 +36,10 @@ struct CsvTable {
 }
 
 impl CsvTable {
-    fn from_path(path: &Path) -> Result<Self, String> {
-        if is_embedded_data_path(path) {
-            let content = embedded_csv_for_path(path)
-                .ok_or_else(|| format!("missing embedded CSV: {}", csv_file_name(path)))?;
-            return Self::from_content(format!("embedded:{}", csv_file_name(path)), content);
-        }
-        let content = fs::read_to_string(path)
-            .map_err(|err| format!("failed reading {}: {err}", path.display()))?;
-        Self::from_content(path.display().to_string(), &content)
-    }
-
-    fn from_optional_path(path: &Path) -> Result<Option<Self>, String> {
-        if is_embedded_data_path(path) {
-            return embedded_csv_for_path(path)
-                .map(|content| {
-                    Self::from_content(format!("embedded:{}", csv_file_name(path)), content)
-                })
-                .transpose();
-        }
-        if path.exists() {
-            return Self::from_path(path).map(Some);
-        }
-        Ok(None)
+    fn from_bytes(source: String, content: &[u8]) -> Result<Self, String> {
+        let content = std::str::from_utf8(content)
+            .map_err(|error| format!("{source} is not valid UTF-8: {error}"))?;
+        Self::from_content(source, content)
     }
 
     fn from_content(source: String, content: &str) -> Result<Self, String> {
@@ -104,13 +84,6 @@ impl CsvTable {
         let idx = self.idx(field)?;
         Ok(row[idx].as_str())
     }
-}
-
-fn csv_file_name(path: &Path) -> String {
-    path.file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("<unknown>")
-        .to_string()
 }
 
 fn embedded_csv_for_path(path: &Path) -> Option<&'static str> {
@@ -299,32 +272,39 @@ pub fn load_game_data_with_manifest(
     if is_embedded_data_path(data_dir) {
         return Err("embedded snapshots must be loaded explicitly".to_string());
     }
-    let manifest = validate_external_snapshot(data_dir)?;
-    load_validated_game_data(data_dir, manifest)
+    let snapshot = validate_external_snapshot(data_dir)?;
+    load_validated_game_data(snapshot.manifest, |name| {
+        snapshot.runtime_files.get(name).map(Vec::as_slice)
+    })
 }
 
-fn load_validated_game_data(
-    data_dir: &Path,
+fn load_validated_game_data<'a>(
     manifest: SnapshotManifest,
+    content_for_file: impl Fn(&str) -> Option<&'a [u8]>,
 ) -> Result<(GameData, SnapshotManifest), String> {
-    let weapons = load_weapons(data_dir.join("weapons.csv"))?;
-    let reinforce = load_reinforce(data_dir.join("reinforce.csv"))?;
-    let calc_correct = load_calc_correct(data_dir.join("calc_correct.csv"))?;
-    let attack_element_correct =
-        load_attack_element_correct(data_dir.join("attack_element_correct.csv"))?;
+    // The manifest requires every runtime table. Parse the same immutable bytes
+    // that were verified, including tables whose supported row set can be empty.
+    let table = |name: &str| {
+        let bytes = content_for_file(name)
+            .ok_or_else(|| format!("missing verified runtime CSV: {name}"))?;
+        CsvTable::from_bytes(name.to_string(), bytes)
+    };
+    let weapons = load_weapons(table("weapons.csv")?)?;
+    let reinforce = load_reinforce(table("reinforce.csv")?)?;
+    let calc_correct = load_calc_correct(table("calc_correct.csv")?)?;
+    let attack_element_correct = load_attack_element_correct(table("attack_element_correct.csv")?)?;
     let attack_element_correct_ext =
-        load_attack_element_correct_ext_optional(data_dir.join("attack_element_correct_ext.csv"))?;
-    let aow_effects = load_aow_effects(data_dir.join("aow_effect_data.csv"))?;
+        load_attack_element_correct_ext(table("attack_element_correct_ext.csv")?)?;
+    let aow_effects = load_aow_effects(table("aow_effect_data.csv")?)?;
     let aow_buffs = derive_aow_buffs(&aow_effects)?;
-    let aows = load_aows(data_dir.join("aow.csv"), &aow_buffs)?;
-    let aow_attack_rows = load_aow_attack_rows_optional(data_dir.join("aow_attack_data.csv"))?;
+    let aows = load_aows(table("aow.csv")?, &aow_buffs)?;
+    let aow_attack_rows = load_aow_attack_rows(table("aow_attack_data.csv")?)?;
     let native_skill_attack_rows =
-        load_native_skill_attack_rows_optional(data_dir.join("native_skill_attack_data.csv"))?;
-    let aow_route_assignments =
-        load_aow_route_assignments(data_dir.join("aow_route_assignments.csv"))?;
-    let weapon_passives = load_weapon_passives_optional(data_dir.join("weapon_passives.csv"))?;
+        load_native_skill_attack_rows(table("native_skill_attack_data.csv")?)?;
+    let aow_route_assignments = load_aow_route_assignments(table("aow_route_assignments.csv")?)?;
+    let weapon_passives = load_weapon_passives(table("weapon_passives.csv")?)?;
     let weapon_passive_overlays =
-        load_weapon_passive_overlays_optional(data_dir.join("weapon_passive_overlays.csv"))?;
+        load_weapon_passive_overlays(table("weapon_passive_overlays.csv")?)?;
 
     let data = GameData {
         snapshot_schema_version: manifest.schema_version,
@@ -405,11 +385,12 @@ pub fn load_embedded_game_profile_with_manifest(
             manifest.profile.id
         ));
     }
-    load_validated_game_data(root_path, manifest)
+    load_validated_game_data(manifest, |name| {
+        embedded_csv_for_path(&root_path.join(name)).map(str::as_bytes)
+    })
 }
 
-fn load_weapons(path: PathBuf) -> Result<Vec<Weapon>, String> {
-    let table = CsvTable::from_path(&path)?;
+fn load_weapons(table: CsvTable) -> Result<Vec<Weapon>, String> {
     let mut out = Vec::with_capacity(table.rows.len());
 
     for row in &table.rows {
@@ -532,8 +513,7 @@ fn load_weapons(path: PathBuf) -> Result<Vec<Weapon>, String> {
     Ok(out)
 }
 
-fn load_reinforce(path: PathBuf) -> Result<Vec<Vec<Option<ReinforceLevel>>>, String> {
-    let table = CsvTable::from_path(&path)?;
+fn load_reinforce(table: CsvTable) -> Result<Vec<Vec<Option<ReinforceLevel>>>, String> {
     let mut entries = Vec::with_capacity(table.rows.len());
     let mut max_type = 0usize;
     let mut max_level_by_type: HashMap<usize, usize> = HashMap::new();
@@ -597,8 +577,7 @@ fn load_reinforce(path: PathBuf) -> Result<Vec<Vec<Option<ReinforceLevel>>>, Str
     Ok(reinforce)
 }
 
-fn load_calc_correct(path: PathBuf) -> Result<Vec<Option<Vec<Option<f32>>>>, String> {
-    let table = CsvTable::from_path(&path)?;
+fn load_calc_correct(table: CsvTable) -> Result<Vec<Option<Vec<Option<f32>>>>, String> {
     let mut entries = Vec::with_capacity(table.rows.len());
     let mut max_curve_id = 0usize;
 
@@ -627,8 +606,9 @@ fn load_calc_correct(path: PathBuf) -> Result<Vec<Option<Vec<Option<f32>>>>, Str
     Ok(out)
 }
 
-fn load_attack_element_correct(path: PathBuf) -> Result<Vec<Option<AttackElementCorrect>>, String> {
-    let table = CsvTable::from_path(&path)?;
+fn load_attack_element_correct(
+    table: CsvTable,
+) -> Result<Vec<Option<AttackElementCorrect>>, String> {
     let mut entries = Vec::with_capacity(table.rows.len());
     let mut max_id = 0usize;
 
@@ -697,8 +677,7 @@ fn load_attack_element_correct(path: PathBuf) -> Result<Vec<Option<AttackElement
     Ok(out)
 }
 
-fn load_aows(path: PathBuf, buff_rows: &HashMap<u16, AowBuffRow>) -> Result<Vec<Aow>, String> {
-    let table = CsvTable::from_path(&path)?;
+fn load_aows(table: CsvTable, buff_rows: &HashMap<u16, AowBuffRow>) -> Result<Vec<Aow>, String> {
     let mut out = Vec::with_capacity(table.rows.len());
 
     for row in &table.rows {
@@ -762,8 +741,7 @@ fn parse_pipe_u32(value: &str, field: &str) -> Result<Vec<u32>, String> {
         .collect()
 }
 
-fn load_aow_effects(path: PathBuf) -> Result<HashMap<(u16, u16), Vec<AowEffect>>, String> {
-    let table = CsvTable::from_path(&path)?;
+fn load_aow_effects(table: CsvTable) -> Result<HashMap<(u16, u16), Vec<AowEffect>>, String> {
     let mut out: HashMap<(u16, u16), Vec<AowEffect>> = HashMap::new();
     let mut record_ids = HashSet::with_capacity(table.rows.len());
     for row in &table.rows {
@@ -917,12 +895,9 @@ fn merge_status_correction_flags(
     merge(&mut flags.death, status.death);
 }
 
-fn load_attack_element_correct_ext_optional(
-    path: PathBuf,
+fn load_attack_element_correct_ext(
+    table: CsvTable,
 ) -> Result<HashMap<usize, AttackElementCorrectExt>, String> {
-    let Some(table) = CsvTable::from_optional_path(&path)? else {
-        return Ok(HashMap::new());
-    };
     let mut out = HashMap::with_capacity(table.rows.len());
     for row in &table.rows {
         let row_id = parse_usize(
@@ -970,10 +945,7 @@ fn load_attack_element_correct_ext_optional(
     Ok(out)
 }
 
-fn load_aow_attack_rows_optional(path: PathBuf) -> Result<HashMap<u16, Vec<AowAttackRow>>, String> {
-    let Some(table) = CsvTable::from_optional_path(&path)? else {
-        return Ok(HashMap::new());
-    };
+fn load_aow_attack_rows(table: CsvTable) -> Result<HashMap<u16, Vec<AowAttackRow>>, String> {
     let mut out: HashMap<u16, Vec<AowAttackRow>> = HashMap::new();
     for row in &table.rows {
         let aow_id = parse_u16(table.get(row, "aow_id")?, "aow_id")?;
@@ -988,12 +960,9 @@ fn load_aow_attack_rows_optional(path: PathBuf) -> Result<HashMap<u16, Vec<AowAt
     Ok(out)
 }
 
-fn load_native_skill_attack_rows_optional(
-    path: PathBuf,
+fn load_native_skill_attack_rows(
+    table: CsvTable,
 ) -> Result<HashMap<u32, Vec<AowAttackRow>>, String> {
-    let Some(table) = CsvTable::from_optional_path(&path)? else {
-        return Ok(HashMap::new());
-    };
     let mut out: HashMap<u32, Vec<AowAttackRow>> = HashMap::new();
     for row in &table.rows {
         let weapon_id = parse_u32(table.get(row, "weapon_id")?, "weapon_id")?;
@@ -1081,9 +1050,8 @@ fn parse_aow_attack_row(
 }
 
 fn load_aow_route_assignments(
-    path: PathBuf,
+    table: CsvTable,
 ) -> Result<HashMap<(u16, u16), Vec<AowRouteAssignment>>, String> {
-    let table = CsvTable::from_path(&path)?;
     let mut out: HashMap<(u16, u16), Vec<AowRouteAssignment>> = HashMap::new();
     for row in &table.rows {
         let aow_id = parse_u16(table.get(row, "aow_id")?, "aow_id")?;
@@ -1111,12 +1079,7 @@ fn load_aow_route_assignments(
     Ok(out)
 }
 
-fn load_weapon_passives_optional(
-    path: PathBuf,
-) -> Result<HashMap<u32, StatusEffectSource>, String> {
-    let Some(table) = CsvTable::from_optional_path(&path)? else {
-        return Ok(HashMap::new());
-    };
+fn load_weapon_passives(table: CsvTable) -> Result<HashMap<u32, StatusEffectSource>, String> {
     let mut out = HashMap::with_capacity(table.rows.len());
     for row in &table.rows {
         let weapon_id = parse_u32(table.get(row, "weapon_id")?, "weapon_id")?;
@@ -1161,12 +1124,9 @@ fn parse_status_effect_source(
     })
 }
 
-fn load_weapon_passive_overlays_optional(
-    path: PathBuf,
+fn load_weapon_passive_overlays(
+    table: CsvTable,
 ) -> Result<HashMap<u32, Vec<Option<StatusEffectSource>>>, String> {
-    let Some(table) = CsvTable::from_optional_path(&path)? else {
-        return Ok(HashMap::new());
-    };
     let mut max_level_by_weapon = HashMap::<u32, usize>::new();
     let mut entries = Vec::<(u32, usize, StatusEffectSource)>::with_capacity(table.rows.len());
     for row in &table.rows {
@@ -1203,10 +1163,9 @@ mod tests {
 
     use super::{
         CONVERGENCE_PROFILE_ID, CsvTable, load_attack_element_correct,
-        load_attack_element_correct_ext_optional, load_calc_correct, load_embedded_game_data,
-        load_embedded_game_profile, load_game_data, load_reinforce,
-        load_weapon_passive_overlays_optional, load_weapon_passives_optional, parse_f32,
-        parse_status_effect_source,
+        load_attack_element_correct_ext, load_calc_correct, load_embedded_game_data,
+        load_embedded_game_profile, load_game_data, load_reinforce, load_weapon_passive_overlays,
+        load_weapon_passives, parse_f32, parse_status_effect_source,
     };
     use crate::model::AowEffectRole;
 
@@ -1220,7 +1179,7 @@ mod tests {
     fn assert_duplicate_row_rejected<T>(
         name: &str,
         content: &str,
-        load: impl FnOnce(std::path::PathBuf) -> Result<T, String>,
+        load: impl FnOnce(CsvTable) -> Result<T, String>,
         expected_error: &str,
     ) {
         let path = std::env::temp_dir().join(format!(
@@ -1228,12 +1187,65 @@ mod tests {
             std::process::id()
         ));
         fs::write(&path, duplicate_first_data_row(content)).unwrap();
-        let error = match load(path.clone()) {
+        let table = CsvTable::from_bytes(name.to_string(), &fs::read(&path).unwrap()).unwrap();
+        let error = match load(table) {
             Ok(_) => panic!("duplicate {name} row must fail"),
             Err(error) => error,
         };
         fs::remove_file(path).unwrap();
         assert!(error.contains(expected_error), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn external_snapshot_parses_verified_bytes_after_files_are_replaced() {
+        let original = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/phase1");
+        let manifest = crate::snapshot::validate_external_snapshot(&original)
+            .unwrap()
+            .manifest;
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let directory =
+            std::env::temp_dir().join(format!("verified-snapshot-{}-{unique}", std::process::id()));
+        fs::create_dir(&directory).unwrap();
+        let names = std::iter::once("manifest.json")
+            .chain(manifest.runtime_files.iter().map(|file| file.path.as_str()))
+            .chain(
+                manifest
+                    .diagnostic_files
+                    .iter()
+                    .map(|file| file.path.as_str()),
+            )
+            .chain(
+                manifest
+                    .sources
+                    .iter()
+                    .filter(|source| source.bundled)
+                    .map(|source| source.path.as_str()),
+            )
+            .collect::<Vec<_>>();
+        for name in &names {
+            fs::copy(original.join(name), directory.join(name)).unwrap();
+        }
+        let verified = crate::snapshot::validate_external_snapshot(&directory).unwrap();
+        for record in &verified.manifest.runtime_files {
+            fs::write(directory.join(&record.path), b"replaced,invalid\n1,2\n").unwrap();
+        }
+        fs::write(directory.join("manifest.json"), b"replaced manifest").unwrap();
+        let result = super::load_validated_game_data(verified.manifest, |name| {
+            verified.runtime_files.get(name).map(Vec::as_slice)
+        });
+        for name in &names {
+            fs::remove_file(directory.join(name)).unwrap();
+        }
+        fs::remove_dir(&directory).unwrap();
+        let (data, loaded_manifest) = result.expect("parse only the originally verified bytes");
+        assert_eq!(loaded_manifest.id, manifest.id);
+        assert_eq!(data.profile_id, super::VANILLA_PROFILE_ID);
+        assert!(data.weapons.len() > 3000);
+        assert!(data.aows.len() > 100);
+        assert!(!data.aow_effects.is_empty());
     }
 
     #[test]
@@ -1264,12 +1276,18 @@ mod tests {
             std::process::id()
         ));
         fs::write(&path, "curve_id,stat_value,multiplier\n1,0,0\n1,2,0.5\n").unwrap();
-        let curves = load_calc_correct(path.clone()).unwrap();
+        let curves = load_calc_correct(
+            CsvTable::from_bytes("calc_correct.csv".into(), &fs::read(&path).unwrap()).unwrap(),
+        )
+        .unwrap();
         assert!(curves[0].is_none());
         assert!(curves[1].as_ref().unwrap()[1].is_none());
 
         fs::write(&path, "curve_id,stat_value,multiplier\n1,0,0\n1,0,0.5\n").unwrap();
-        let error = load_calc_correct(path.clone()).unwrap_err();
+        let error = load_calc_correct(
+            CsvTable::from_bytes("calc_correct.csv".into(), &fs::read(&path).unwrap()).unwrap(),
+        )
+        .unwrap_err();
         fs::remove_file(path).unwrap();
         assert!(error.contains("duplicate calc-correct entry"));
     }
@@ -1300,19 +1318,19 @@ mod tests {
         assert_duplicate_row_rejected(
             "attack-element-correct-ext",
             include_str!("../../../data/phase1/attack_element_correct_ext.csv"),
-            load_attack_element_correct_ext_optional,
+            load_attack_element_correct_ext,
             "duplicate attack-element-correct-ext entry",
         );
         assert_duplicate_row_rejected(
             "weapon-passives",
             include_str!("../../../data/phase1/weapon_passives.csv"),
-            load_weapon_passives_optional,
+            load_weapon_passives,
             "duplicate weapon passive entry",
         );
         assert_duplicate_row_rejected(
             "weapon-passive-overlays",
             include_str!("../../../data/phase1/weapon_passive_overlays.csv"),
-            load_weapon_passive_overlays_optional,
+            load_weapon_passive_overlays,
             "duplicate weapon passive overlay entry",
         );
     }

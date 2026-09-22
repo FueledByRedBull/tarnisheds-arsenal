@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Component, Path};
 
@@ -94,7 +94,15 @@ pub struct SnapshotManifest {
     pub sources: Vec<SnapshotSource>,
 }
 
-pub(crate) fn validate_external_snapshot(data_dir: &Path) -> Result<SnapshotManifest, String> {
+#[derive(Debug)]
+pub(crate) struct ValidatedExternalSnapshot {
+    pub manifest: SnapshotManifest,
+    pub runtime_files: HashMap<String, Vec<u8>>,
+}
+
+pub(crate) fn validate_external_snapshot(
+    data_dir: &Path,
+) -> Result<ValidatedExternalSnapshot, String> {
     let manifest_path = data_dir.join("manifest.json");
     let manifest_bytes = fs::read(&manifest_path).map_err(|err| {
         format!(
@@ -110,27 +118,28 @@ pub(crate) fn validate_external_snapshot(data_dir: &Path) -> Result<SnapshotMani
         .map(|record| record.path.as_str())
         .collect::<HashSet<_>>();
 
-    for record in manifest
-        .runtime_files
-        .iter()
-        .chain(&manifest.diagnostic_files)
-    {
-        validate_external_file(data_dir, record)?;
+    let mut runtime_files = HashMap::with_capacity(manifest.runtime_files.len());
+    for record in &manifest.runtime_files {
+        runtime_files.insert(
+            record.path.clone(),
+            read_validated_external_file(data_dir, record)?,
+        );
     }
-    let actual_csvs = fs::read_dir(data_dir)
-        .map_err(|err| {
-            format!(
-                "invalid runtime data snapshot: failed listing {}: {err}",
-                data_dir.display()
-            )
-        })?
-        .filter_map(Result::ok)
-        .filter_map(|entry| {
-            let path = entry.path();
-            (path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("csv"))
-                .then(|| entry.file_name().to_string_lossy().into_owned())
-        })
-        .collect::<HashSet<_>>();
+    for record in &manifest.diagnostic_files {
+        read_validated_external_file(data_dir, record)?;
+    }
+    let entries = fs::read_dir(data_dir).map_err(|err| {
+        format!(
+            "invalid runtime data snapshot: failed listing {}: {err}",
+            data_dir.display()
+        )
+    })?;
+    let actual_csvs = snapshot_csv_names(entries).map_err(|error| {
+        format!(
+            "invalid runtime data snapshot: failed listing {}: {error}",
+            data_dir.display()
+        )
+    })?;
     let unlisted = actual_csvs
         .iter()
         .filter(|name| !listed_csvs.contains(name.as_str()))
@@ -146,7 +155,26 @@ pub(crate) fn validate_external_snapshot(data_dir: &Path) -> Result<SnapshotMani
     for source in manifest.sources.iter().filter(|source| source.bundled) {
         validate_external_source(data_dir, source)?;
     }
-    Ok(manifest)
+    Ok(ValidatedExternalSnapshot {
+        manifest,
+        runtime_files,
+    })
+}
+
+fn snapshot_csv_names(
+    entries: impl IntoIterator<Item = std::io::Result<fs::DirEntry>>,
+) -> Result<HashSet<String>, String> {
+    let mut names = HashSet::new();
+    for entry in entries {
+        let entry = entry.map_err(|error| format!("failed reading directory entry: {error}"))?;
+        let path = entry.path();
+        let metadata = fs::metadata(&path)
+            .map_err(|error| format!("failed reading metadata for {}: {error}", path.display()))?;
+        if metadata.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("csv") {
+            names.insert(entry.file_name().to_string_lossy().into_owned());
+        }
+    }
+    Ok(names)
 }
 
 pub(crate) fn validate_embedded_snapshot(
@@ -285,7 +313,7 @@ fn validate_sha256(value: &str, path: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_external_file(data_dir: &Path, record: &SnapshotFile) -> Result<(), String> {
+fn read_validated_external_file(data_dir: &Path, record: &SnapshotFile) -> Result<Vec<u8>, String> {
     let path = data_dir.join(&record.path);
     let content = fs::read(&path).map_err(|err| {
         format!(
@@ -293,7 +321,8 @@ fn validate_external_file(data_dir: &Path, record: &SnapshotFile) -> Result<(), 
             path.display()
         )
     })?;
-    validate_bytes("runtime file", record, &content)
+    validate_bytes("runtime file", record, &content)?;
+    Ok(content)
 }
 
 fn validate_external_source(data_dir: &Path, source: &SnapshotSource) -> Result<(), String> {
@@ -451,10 +480,32 @@ mod tests {
     }
 
     #[test]
+    fn snapshot_directory_enumeration_errors_fail_closed() {
+        let entries = [Err(std::io::Error::other("injected directory entry error"))];
+        let error =
+            super::snapshot_csv_names(entries).expect_err("entry errors must not be dropped");
+        assert!(error.contains("injected directory entry error"));
+    }
+
+    #[test]
+    fn snapshot_directory_metadata_errors_fail_closed() {
+        let snapshot = TestSnapshot::create();
+        let entry = fs::read_dir(&snapshot.path)
+            .unwrap()
+            .map(Result::unwrap)
+            .find(|entry| entry.file_name() == "weapons.csv")
+            .unwrap();
+        fs::remove_file(entry.path()).unwrap();
+        let error = super::snapshot_csv_names([Ok(entry)])
+            .expect_err("metadata errors must not be dropped");
+        assert!(error.contains("weapons.csv"));
+    }
+
+    #[test]
     fn external_snapshot_rejects_corruption_missing_and_unlisted_files() {
         let snapshot = TestSnapshot::create();
         let manifest = validate_external_snapshot(&snapshot.path).expect("valid snapshot");
-        assert_eq!(manifest.dataset_version, "test-dataset");
+        assert_eq!(manifest.manifest.dataset_version, "test-dataset");
 
         fs::write(snapshot.path.join("aow.csv"), b"mixed-version-data")
             .expect("corrupt runtime file");

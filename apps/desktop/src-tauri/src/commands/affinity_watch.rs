@@ -50,60 +50,87 @@ pub fn start_affinity_watch(
     )?;
 
     let job_id_for_task = job_id.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let affinities = affinity_watch_affinities_for_profile(&request.solved, &profile);
-        let total = (affinities.len() as u64).saturating_mul(u64::from(request.levels_ahead) + 1);
-        let progress = AffinityWatchProgressDto {
-            job_id: job_id_for_task.clone(),
-            checked: 0,
-            total: total.max(1),
-            affinity: request.solved.affinity.clone(),
-            level: request.base.character_level,
-        };
-        if let Ok(mut guard) = status.lock() {
-            guard.progress = Some(progress.clone());
-        }
-        let (payload, error, cancelled) = if cancel_flag.load(AtomicOrdering::Relaxed) {
-            (None, None, true)
-        } else {
-            match build_affinity_watch_inner(
-                request,
-                &profile,
-                |progress| {
-                    if cancel_flag.load(AtomicOrdering::Relaxed) {
-                        return false;
-                    }
-                    let mut payload = progress;
-                    payload.job_id = job_id_for_task.clone();
-                    if let Ok(mut guard) = status.lock() {
-                        guard.progress = Some(payload);
-                    }
-                    true
-                },
-                || !cancel_flag.load(AtomicOrdering::Relaxed),
-            ) {
-                Ok(payload) => (Some(payload), None, false),
-                Err(err) if err.message == "cancelled" => (None, None, true),
-                Err(err) => (None, Some(err.message), false),
+    let job_id_for_finish = job_id.clone();
+    let cancel_for_finish = Arc::clone(&cancel_flag);
+    crate::spawn_supervised_job(
+        Arc::clone(&status),
+        move || {
+            let affinities = affinity_watch_affinities_for_profile(&request.solved, &profile);
+            let total =
+                (affinities.len() as u64).saturating_mul(u64::from(request.levels_ahead) + 1);
+            let progress = AffinityWatchProgressDto {
+                job_id: job_id_for_task.clone(),
+                checked: 0,
+                total: total.max(1),
+                affinity: request.solved.affinity.clone(),
+                level: request.base.character_level,
+            };
+            if let Ok(mut guard) = status.lock() {
+                guard.progress = Some(progress.clone());
             }
-        };
-        let finished = AffinityWatchFinishedDto {
-            job_id: job_id_for_task.clone(),
-            cancelled,
-            payload,
-            error,
-        };
-        if let Ok(mut guard) = status.lock() {
-            guard.finished = Some(finished);
-        }
-    });
+            let (payload, error, cancelled) = if cancel_flag.load(AtomicOrdering::Relaxed) {
+                (None, None, true)
+            } else {
+                match build_affinity_watch_inner(
+                    request,
+                    &profile,
+                    |progress| {
+                        if cancel_flag.load(AtomicOrdering::Relaxed) {
+                            return false;
+                        }
+                        let mut payload = progress;
+                        payload.job_id = job_id_for_task.clone();
+                        if let Ok(mut guard) = status.lock() {
+                            guard.progress = Some(payload);
+                        }
+                        true
+                    },
+                    || !cancel_flag.load(AtomicOrdering::Relaxed),
+                ) {
+                    Ok(payload) => (Some(payload), None, false),
+                    Err(err) if err.message == "cancelled" => (None, None, true),
+                    Err(err) => (None, Some(err.message), false),
+                }
+            };
+            AffinityWatchFinishedDto {
+                job_id: job_id_for_task.clone(),
+                cancelled,
+                payload,
+                error,
+            }
+        },
+        move |status, outcome| {
+            publish_affinity_finished(status, outcome, job_id_for_finish, &cancel_for_finish);
+        },
+    );
 
     Ok(StartSearchResponseDto { job_id })
 }
 
+fn publish_affinity_finished(
+    status: &mut AffinityWatchJobStatusDto,
+    outcome: Result<AffinityWatchFinishedDto, String>,
+    job_id: String,
+    cancel: &CancelFlag,
+) {
+    let mut finished = outcome.unwrap_or_else(|error| AffinityWatchFinishedDto {
+        job_id,
+        cancelled: false,
+        payload: None,
+        error: Some(error),
+    });
+    if finished.error.is_none() && cancel.load(AtomicOrdering::Relaxed) {
+        finished.cancelled = true;
+        finished.payload = None;
+    }
+    status.finished = Some(finished);
+}
+
 #[tauri::command]
 pub fn cancel_affinity_watch(job_id: String, state: State<'_, AppState>) -> Result<bool, AppError> {
-    state.affinity_jobs.cancel(&job_id)
+    state
+        .affinity_jobs
+        .cancel(&job_id, |status| status.finished.is_some())
 }
 
 #[tauri::command]
@@ -359,6 +386,58 @@ fn compare_solved(left: &OptimizeResult, right: &OptimizeResult) -> Ordering {
 mod integration_tests {
     use super::*;
     use crate::commands::optimize::run_search_inner;
+
+    #[test]
+    fn affinity_publisher_cancels_completed_payload_and_preserves_errors() {
+        let state = crate::test_app_state();
+        let profile = state
+            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+            .unwrap();
+        let payload =
+            build_affinity_watch_inner(request(&state), profile, |_| true, || true).unwrap();
+        assert!(!payload.lines.is_empty());
+        let cancel = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let mut status = AffinityWatchJobStatusDto {
+            progress: None,
+            finished: None,
+        };
+        publish_affinity_finished(
+            &mut status,
+            Ok(AffinityWatchFinishedDto {
+                job_id: "affinity-publish".into(),
+                cancelled: false,
+                payload: Some(payload),
+                error: None,
+            }),
+            "affinity-publish".into(),
+            &cancel,
+        );
+        let finished = status.finished.take().unwrap();
+        assert!(finished.cancelled);
+        assert!(finished.payload.is_none());
+        assert!(finished.error.is_none());
+
+        for outcome in [
+            Ok(AffinityWatchFinishedDto {
+                job_id: "affinity-publish".into(),
+                cancelled: false,
+                payload: None,
+                error: Some("calculation failed".into()),
+            }),
+            Err(String::from("worker panicked")),
+        ] {
+            let expected_error = match &outcome {
+                Ok(finished) => finished.error.as_deref().unwrap(),
+                Err(error) => error.as_str(),
+            }
+            .to_string();
+            publish_affinity_finished(&mut status, outcome, "affinity-publish".into(), &cancel);
+            let finished = status.finished.take().unwrap();
+            assert_eq!(finished.error.as_deref(), Some(expected_error.as_str()));
+            assert!(!finished.cancelled);
+            assert!(finished.payload.is_none());
+        }
+    }
 
     fn request(state: &AppState) -> AffinityWatchRequestDto {
         let base = crate::test_optimize_request();
