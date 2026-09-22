@@ -115,9 +115,15 @@ Publication independently verifies that ordinary `CI` has succeeded for
 the exact source commit. Build-only previews instead validate source in the
 packaging job, as described [above](#build-a-preview).
 Normal source tests, lint, type checks, formatting, Clippy,
-and data validation belong to that CI run. The Windows CI job also runs locked
-release-profile tests for both Rust crates. The release job packages the already
-validated commit and keeps the release-only MSI identity, MSI payload, packaged
+and data validation belong to that CI run. Independent Windows jobs run the test
+and release profiles for both Rust crates; the required `rust-and-data` check
+succeeds only when both jobs succeed. CI's core tests use optimization level 1
+with debug assertions and overflow checks enabled; backend tests keep the default
+test profile. Release tests retain the
+shipping ThinLTO profile. Both profiles execute library, documentation and
+level-range benchmark assertion tests; Clippy and release checks cover all targets.
+The release job packages the already validated commit and keeps the release-only
+MSI identity, MSI payload, packaged
 startup smoke, signing, and checksum checks. The final Tauri build runs Cargo in
 locked mode.
 
