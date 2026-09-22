@@ -90,11 +90,14 @@ publication. Choose one publication path for a release.
 ## Build a preview
 
 Build-only runs can use any branch and an already released application version.
-They run source validation in the packaging job instead of waiting for main's CI,
-and name artifacts `<version>-preview-<full commit SHA>`. They neither create nor
-require a release tag. For the same local check, use
+On the default branch, they wait for a successful `ci.yml` push run on that exact
+commit and reuse its source validation. Other branches run full source validation
+in the packaging job. Artifacts are named `<version>-preview-<full commit SHA>`.
+Previews neither create nor require a release tag. For the same local check, use
 `python tools/phase4/package_release.py --preview` from clean committed source;
-preview mode cannot skip validation.
+add `--skip-validation` only when successful exact-commit CI has already validated
+that source. The workflow verifies the default branch, event, commit and CI result
+before passing that flag, and logs the successful CI run URL.
 
 ```powershell
 gh workflow run release-package.yml --ref <branch> -f publish=false
@@ -112,12 +115,15 @@ are never silently replaced. Starting another build is not a publication retry.
 ## Package and signing checks
 
 Publication independently verifies that ordinary `CI` has succeeded for
-the exact source commit. Build-only previews instead validate source in the
-packaging job, as described [above](#build-a-preview).
+the exact source commit. Default-branch previews reuse the same verification;
+other previews validate source in the packaging job, as described
+[above](#build-a-preview).
 Normal source tests, lint, type checks, formatting, Clippy,
 and data validation belong to that CI run. Independent Windows jobs run the test
-and release profiles for both Rust crates; the required `rust-and-data` check
-succeeds only when both jobs succeed. CI's core tests use optimization level 1
+and release profiles for both Rust crates. Every default-branch push runs the full
+suite. Pull requests may skip expensive jobs for documentation-only or
+frontend-only changes; the required `rust-and-data` aggregate accepts only
+successful selected jobs and explicitly unselected skips. CI's core tests use optimization level 1
 with debug assertions and overflow checks enabled; backend tests keep the default
 test profile. Release tests retain the
 shipping ThinLTO profile. Both profiles execute library, documentation and

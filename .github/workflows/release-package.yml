@@ -20,6 +20,8 @@ jobs:
   verify-ci:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    outputs:
+      verified-sha: ${{ steps.verify.outputs.verified-sha }}
     permissions:
       actions: read
       contents: read
@@ -29,12 +31,13 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.publish == true
         shell: pwsh
         run: |
-          if ("$env:GITHUB_REF_NAME" -ne "${{ github.event.repository.default_branch }}") {
+          if ("$env:GITHUB_REF" -ne "refs/heads/${{ github.event.repository.default_branch }}") {
             throw "Manual publication must run from the default branch; got $env:GITHUB_REF_NAME"
           }
 
       - name: Wait for successful CI on this commit
-        if: startsWith(github.ref, 'refs/tags/') || inputs.publish == true
+        id: verify
+        if: startsWith(github.ref, 'refs/tags/') || inputs.publish == true || (github.event_name == 'workflow_dispatch' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -43,6 +46,7 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $PSNativeCommandUseErrorActionPreference = $true
+          if ($env:GITHUB_SHA -cnotmatch '^[0-9a-f]{40}$') { throw "Invalid source commit SHA" }
           $deadline = [DateTime]::UtcNow.AddMinutes(40)
           while ([DateTime]::UtcNow -lt $deadline) {
             $runs = @(
@@ -51,11 +55,12 @@ jobs:
                 --commit $env:GITHUB_SHA `
                 --event push `
                 --limit 20 `
-                --json databaseId,status,conclusion,headBranch,headSha,url,createdAt |
+                --json databaseId,status,conclusion,headBranch,headSha,event,url,createdAt |
                 ConvertFrom-Json
             ) | Where-Object {
               $_.headSha -eq $env:GITHUB_SHA -and
-              $_.headBranch -eq $env:RELEASE_BRANCH
+              $_.headBranch -eq $env:RELEASE_BRANCH -and
+              $_.event -eq "push"
             } |
               Sort-Object createdAt -Descending
 
@@ -64,7 +69,8 @@ jobs:
               if ($latest.conclusion -ne "success") {
                 throw "CI run $($latest.databaseId) concluded $($latest.conclusion): $($latest.url)"
               }
-              Write-Output "CI run $($latest.databaseId) succeeded for $env:GITHUB_SHA"
+              Write-Output "CI run $($latest.databaseId) succeeded for $env:GITHUB_SHA`: $($latest.url)"
+              "verified-sha=$env:GITHUB_SHA" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
               exit 0
             }
 
@@ -80,6 +86,8 @@ jobs:
   package:
     env:
       PUBLISH_RELEASE: ${{ startsWith(github.ref, 'refs/tags/') || inputs.publish == true }}
+      VERIFIED_CI_SHA: ${{ needs.verify-ci.outputs.verified-sha }}
+      RELEASE_BRANCH: ${{ github.event.repository.default_branch }}
     needs: verify-ci
     runs-on: windows-latest
     timeout-minutes: 60
@@ -161,8 +169,23 @@ jobs:
           WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
           WINDOWS_SIGNING_TIMESTAMP_URL: ${{ vars.WINDOWS_SIGNING_TIMESTAMP_URL }}
         run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $true
+          $reuseCI = -not [string]::IsNullOrEmpty($env:VERIFIED_CI_SHA)
+          if ($reuseCI -and ($env:VERIFIED_CI_SHA -cnotmatch '^[0-9a-f]{40}$' -or $env:VERIFIED_CI_SHA -cne $env:GITHUB_SHA)) {
+            throw "Verified CI SHA does not match this source commit"
+          }
+          $mainPreview = $env:GITHUB_EVENT_NAME -eq "workflow_dispatch" -and $env:GITHUB_REF -ceq "refs/heads/$env:RELEASE_BRANCH"
+          if (($env:PUBLISH_RELEASE -eq "true" -or $mainPreview) -and -not $reuseCI) {
+            throw "Default-branch preview and publication require verified CI"
+          }
+          if ($reuseCI -and $env:PUBLISH_RELEASE -ne "true" -and -not $mainPreview) {
+            throw "Only default-branch previews can reuse verified CI"
+          }
           if ($env:PUBLISH_RELEASE -eq "true") {
             python tools/phase4/package_release.py --skip-validation
+          } elseif ($reuseCI) {
+            python tools/phase4/package_release.py --preview --skip-validation
           } else {
             python tools/phase4/package_release.py --preview
           }
@@ -220,9 +243,9 @@ jobs:
           if ($report.sourceDirty -ne $false) {
             throw "Build report source is dirty"
           }
-          $expectedSkip = $env:PUBLISH_RELEASE -eq "true"
+          $expectedSkip = -not [string]::IsNullOrEmpty($env:VERIFIED_CI_SHA)
           if ($report.validationSkipped -ne $expectedSkip) {
-            throw "Build report source-validation mode does not match publication/preview mode"
+            throw "Build report source-validation mode does not match verified CI mode"
           }
           if ($report.dataManifestIds.vanilla -notmatch '^vanilla-' -or $report.dataManifestIds.convergence -notmatch '^convergence-') {
             throw "Build report does not identify both Vanilla and Convergence snapshots"

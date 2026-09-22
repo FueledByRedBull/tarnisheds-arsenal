@@ -1586,25 +1586,18 @@ mod tests {
             .join("data")
             .join("phase1");
         let mut game_data = load_game_data(data_path).unwrap();
-        let (weapon, attack_row, damage_type) = game_data
+        let weapon = find_weapon(&game_data, "Dagger", "Standard").clone();
+        let damage_type = DamageType::Physical;
+        let attack_row = game_data
             .aow_attack_rows
             .values()
             .flat_map(|rows| rows.iter())
-            .filter(|row| row.overwrite_attack_element_correct_id.is_some() && row.is_damaging())
-            .find_map(|row| {
-                game_data.weapons.iter().find_map(|weapon| {
-                    let reinforce = game_data.reinforce_level(weapon.reinforce_type, 25)?;
-                    DamageType::ALL.iter().copied().find_map(|damage_type| {
-                        let idx = damage_type.as_index();
-                        let actual_base = weapon.base[idx]
-                            * reinforce.damage_mult[idx]
-                            * (row.motion_values[idx] / 100.0)
-                            + row.attack_base[idx];
-                        (actual_base > 0.0).then(|| (weapon.clone(), row.clone(), damage_type))
-                    })
-                })
-            })
-            .expect("missing override attack row with positive damage");
+            .find(|row| row.atk_id == 300_000_461)
+            .expect("Storm Assault jump attack row")
+            .clone();
+        // Fixed-damage rows such as Carian Retaliation do not consult overrides.
+        assert!(!attack_row.has_fixed_damage(&game_data.profile_id));
+        assert!(attack_row.motion_values[damage_type.as_index()] > 0.0);
         let override_id = attack_row
             .overwrite_attack_element_correct_id
             .expect("missing override id");
