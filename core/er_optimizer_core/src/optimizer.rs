@@ -1567,13 +1567,35 @@ where
         progress_cb,
     ));
     progress.emit_initial()?;
+    // Keep serial's exact top-K cutoff visible across Rayon folds.
+    // Only these objectives consume work-unit cutoffs during scoring.
+    let shared_candidates = matches!(
+        request.objective,
+        OptimizeObjective::MaxAr
+            | OptimizeObjective::MaxPhysicalAr
+            | OptimizeObjective::BleedThenAr
+    )
+    .then(|| Mutex::new(Vec::<ScoredCandidate>::with_capacity(request.top_k)));
     let partial_results = work_units
         .par_iter()
         .try_fold(
             || Vec::<ScoredCandidate>::with_capacity(request.top_k),
             |mut candidates, unit| {
                 let mut local_progress = ParallelLocalProgress::new(Arc::clone(&progress));
-                let cutoff = score_cutoff(plan, *unit, &candidates, group_mode);
+                // Completed units are already shared; copy only the exact cutoff.
+                let shared_cutoff = if let Some(shared_candidates) = &shared_candidates {
+                    let shared = shared_candidates
+                        .lock()
+                        .map_err(|_| "failed to lock parallel top-K candidates".to_string())?;
+                    score_cutoff(plan, *unit, &shared, group_mode).cloned()
+                } else {
+                    None
+                };
+                let cutoff = if shared_candidates.is_some() {
+                    shared_cutoff.as_ref()
+                } else {
+                    score_cutoff(plan, *unit, &candidates, group_mode)
+                };
                 let result =
                     search_dp_work_unit(plan, *unit, group_mode, &mut local_progress, cutoff, None);
                 let finish_result = local_progress.finish();
@@ -1581,6 +1603,18 @@ where
                     (Ok(results), Ok(())) => results,
                     (Err(error), _) | (_, Err(error)) => return Err(error),
                 };
+                if let Some(shared_candidates) = &shared_candidates {
+                    let mut shared = shared_candidates
+                        .lock()
+                        .map_err(|_| "failed to lock parallel top-K candidates".to_string())?;
+                    merge_scored_top_k(
+                        &mut shared,
+                        results.iter().cloned(),
+                        &plan.weapons,
+                        group_mode,
+                        request.top_k,
+                    );
+                }
                 merge_scored_top_k(
                     &mut candidates,
                     results,

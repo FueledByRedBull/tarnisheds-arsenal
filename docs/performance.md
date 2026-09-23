@@ -145,15 +145,92 @@ stopped and narrowed; its partial results and failure remain recorded.
 
 The runtime policy remains unchanged. A universal one-thread cap would regress
 the completed low-budget searches, while a universal four-thread cap would regress
-the measured high-budget Vanilla case. Search currently enables parallel scoring
-at one million combinations and two work units; one-thread preparation also
-precomputes scalar AoW routes. These are useful profiling targets, not sufficient
-evidence for a new threshold. Investigate expensive scoring/work partitioning
-before proposing request-specific pool selection, then verify native latency,
-Paths and cancellation on both profiles. Raw samples, full fingerprints, source
-and compiler identity, execution order, scripts and timeout evidence remain under
+the measured Convergence case. The unresolved high-budget Vanilla regression was
+traced and fixed in the follow-up below. The earlier timeout remains a censored
+historical result, not a parity pass. Raw samples, full fingerprints, source and
+compiler identity, execution order, scripts and timeout evidence remain under
 `.codex-tmp/frontend-maintenance/threads/` (`bounded/summary.json` and
 `exploratory-summary.json`).
+
+### Cross-worker exact top-K cutoff
+
+The Vanilla RL150 Max AR slowdown came from losing the serial scorer's global
+top-K cutoff in parallel mode. Serial scoring visits estimate-ordered work units
+and shares its exact-ranked candidates after each unit. Rayon workers previously
+kept independent top-K lists and merged them only after scoring, so exact upper
+bounds could not prune work using candidates found by another worker. Parallel
+scoring now copies the shared exact cutoff and merges new results into the
+bounded top-K list at work-unit boundaries for Max AR, Max Physical AR and
+Bleed then AR. Pruning still uses exact
+rational scores and strict upper-bound comparisons, preserving equal-score tie
+handling; work continues outside the lock.
+
+On 2026-09-23, the same Vanilla RL150 Max AR request (5.147 billion estimated
+combinations, 3,294 weapon candidates, exact upgrades, K=5) was measured before
+and after with Rust 1.97.0, one warmup and three measured samples per thread
+policy. The before reports use the clean `e6534df` source; final reports share one
+source fingerprint, compiler fingerprint and dataset identity. Complete ordered
+result hashes match across every policy.
+
+| Rayon threads | Before scoring median | After scoring median | After total median |
+| ---: | ---: | ---: | ---: |
+| 1 | 49.12 ms | 49.65 ms | 667.73 ms |
+| 4 | 12,208.87 ms | 64.18 ms | 476.85 ms |
+| 16 (default) | — | 30.33 ms | 458.69 ms |
+
+The four-thread scoring phase is about 190 times faster than the prior build.
+The serial path is unchanged, although its measured time varies between runs.
+The K=500 loadout-grouped export exposed overhead in the initial shared-list
+implementation, so the final implementation copies only the cutoff and merges
+only each completed unit's new results. With the same request, compiler,
+dataset and full 500-row output, its baseline versus final scoring medians were
+55.96 versus 52.91 ms at one thread, 758.67 versus 99.85 ms at four threads,
+and 1,903.32 versus 112.82 ms at the default 16 threads. Total medians were
+692.98 versus 704.19 ms, 1,289.49 versus 564.06 ms, and 2,415.84 versus
+684.26 ms respectively. Other final checks also returned identical ordered
+results: Vanilla RL46 weapon-grouped K=500 completed in 756 ms at one thread
+and 508 ms at four; Vanilla RL93 all-upgrades K=25 completed in 2,114 ms at one
+and 873 ms at four; Convergence RL150 completed in 445 ms at one and 151 ms
+with the default 16-thread pool. These comparisons include preparation,
+which can parallelize independently. The complete reports and fingerprints are
+retained under `.codex-tmp/optimizer-shared-cutoff-2026-09-22/`.
+
+The measured evidence supports keeping the current Rayon selection threshold and
+pool policy. A rebuilt Windows executable passed the packaged WebView2 smoke,
+including Vanilla RL150 exact-level high-level AR search and a Convergence search.
+The post-change production native probe also passed with one thread and the runtime
+default: a 500-row search, a locked solve, both 50-level Paths modes and Search,
+Solve and Paths cancellation. Both policies used the same executable, manifest and
+requests. Complete result fingerprints matched, every cancellation was accepted
+and observed terminally cancelled, and concurrent manifest requests completed
+before the heavy jobs. The refined executable repeated the production suite,
+and seven isolated one-thread 500-row search samples clustered at 1.43–1.64 s
+(median 1.47 s); an earlier full-suite one-thread run had unusually variable
+2.05–4.67 s samples, retained as an outlier rather than erased. Raw reports are
+under `.codex-tmp/optimizer-shared-cutoff-2026-09-22/native-*.json`.
+These IPC timings include status polling; they do not measure UI frame latency or
+the exact instant a cancelled worker exits.
+
+The calculation audit matched all 3,295 supported Vanilla 1.17 weapon/affinity
+configurations to the pinned [T. Clark calculator source](https://github.com/ThomasJClark/elden-ring-weapon-calculator/blob/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a/src/calculator/calculator.ts)
+and [regulation data](https://github.com/ThomasJClark/elden-ring-weapon-calculator/blob/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a/public/regulation-vanilla-v1.17.js).
+All 19,770 AR and passive-status evaluations passed at zero, sampled intermediate
+and maximum upgrade, in one- and two-handed use. The maximum AR component
+difference was 0.0001303 against a 0.001 tolerance; integer passive status
+matched exactly. Against freshly unpacked local regulation tables, the exhaustive
+legal-combination check matched 87,879 transferable and 3,197 native Vanilla
+weapon/Ash pairs and rejected 294,341 invalid transferable pairs. For Convergence
+3.0.0.1 it matched 147,201 transferable and 3,084 native pairs and rejected
+241,857 invalid transferable pairs. Fixed-stat evaluation covered 364,304 Vanilla
+and 601,140 Convergence cases. These checks do not enumerate every stat allocation
+or intermediate upgrade. The [available external Convergence calculator](https://github.com/MatejVitek/Elden-Ring-Weapon-Calculator/blob/master/src/app/regulationVersions.tsx)
+uses v2.2.3, so it is not an independent numeric oracle for this app's v3.0.0.1
+profile. Reports and the task-local reproduction script are retained under
+`.codex-tmp/optimizer-shared-cutoff-2026-09-22/`.
+
+The rebuilt production executable passed packaged WebView2 smoke; this follow-up
+did not rebuild or validate an MSI. Release packaging still requires the clean
+committed source and the checks in `docs/releasing.md`.
 
 ## Release compiler settings
 
