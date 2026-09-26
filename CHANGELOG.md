@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [v0.15.0](docs/release-notes/v0.15.0.md)
 
 - Ignore late cancellation replies from superseded searches, compare every pinned
   build, and retain unupgradeable weapons such as Meteorite Staff in comparisons.
@@ -29,7 +29,6 @@
   per-stat comparison differences.
 - Exercise interrupted storage writes, malformed backups, and late job replies;
   keep the interface usable when saved-build storage access is denied.
-
 - Enable ThinLTO and one codegen unit for release builds to reduce optimizer runtime
   without changing calculation results or requiring a newer CPU.
 - Harden background-job failure and cancellation handling, snapshot loading, and

@@ -14,20 +14,20 @@ comparisons and progression previews.
 [![Published release](https://img.shields.io/github/v/release/FueledByRedBull/tarnisheds-arsenal?label=published)](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest)
 
 **[Download for Windows](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest)**
-· [What’s new in v0.14.1](docs/release-notes/v0.14.1.md)
+· [What’s new in v0.15.0](docs/release-notes/v0.15.0.md)
 · [Your first build](#your-first-build)
 · [Documentation](#documentation)
 
 The Rankings workspace puts each result’s combat stats and weapon scaling beside
 its score, with the selected build’s full breakdown on the right.
-Screenshots show the [current development build](CHANGELOG.md#unreleased).
+Screenshots show the [current development build](CHANGELOG.md#v0150).
 
 ![Rankings with weapon setups, combat stats, scaling, and the selected build’s damage breakdown](docs/images/tarnisheds-arsenal-rankings.png)
 
 ## Download
 
 Choose an asset from the [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
-The [v0.14.1 notes](docs/release-notes/v0.14.1.md) include versioned downloads,
+The [v0.15.0 notes](docs/release-notes/v0.15.0.md) include versioned downloads,
 calculation changes, and verification limits.
 
 | Choose | Best for |
@@ -161,7 +161,7 @@ Choose a guide for the task at hand:
 
 | I want to… | Read |
 | --- | --- |
-| See what changed in **v0.14.1** | [Release notes](docs/release-notes/v0.14.1.md) · [All versions](docs/release-notes/README.md) |
+| See what changed in **v0.15.0** | [Release notes](docs/release-notes/v0.15.0.md) · [All versions](docs/release-notes/README.md) |
 | Understand supported mechanics and limitations | [Model reference](docs/model-reference.md) |
 | Find components and trace a calculation | [Optimizer overview](docs/design/optimizer-overview.md) |
 | Inspect the exact ranking contract and proof | [Optimizer mathematics](docs/design/optimizer-math.md) |
