@@ -150,6 +150,22 @@ export interface StartSearchResponseDto {
   jobId: string;
 }
 
+export type AnalysisJobKindDto = "solve_build" | "upgrade_series" | "ar_bleed_frontier";
+
+export interface AnalysisFinishedDto {
+  jobId: string;
+  kind: AnalysisJobKindDto;
+  cancelled: boolean;
+  result: SolvedBuildDto | null;
+  points: UpgradePointDto[];
+  frontier: ArBleedFrontierPointDto[];
+  error: string | null;
+}
+
+export interface AnalysisJobStatusDto {
+  finished: AnalysisFinishedDto | null;
+}
+
 export interface SolvedBuildDto {
   weaponId: number;
   weaponName: string;
@@ -470,4 +486,62 @@ export interface ArBleedFrontierPointDto {
   arLossPercent: number;
   minimumArLossBps: number;
   bleedGain: number;
+}
+
+export interface SolveBuildRequestDto {
+  base: OptimizeRequestDto;
+  weaponName: string;
+  affinity: string | null;
+  aowName: string | null;
+}
+
+export interface ArBleedFrontierRequestDto {
+  base: OptimizeRequestDto;
+  solved: SolvedBuildDto;
+}
+
+export interface UpgradeSeriesRequestDto {
+  base: OptimizeRequestDto;
+  solved: SolvedBuildDto;
+  maxUpgrade: number;
+}
+
+export interface PathPreviewRequestDto {
+  base: OptimizeRequestDto;
+  solved: SolvedBuildDto;
+  levelsAhead: number;
+  title: string;
+  mode: PathModeId;
+}
+
+export interface StartPathPreviewRequestDto {
+  requests: PathPreviewRequestDto[];
+}
+
+export interface AffinityWatchRequestDto {
+  base: OptimizeRequestDto;
+  solved: SolvedBuildDto;
+  levelsAhead: number;
+}
+
+export interface CompatibleAowsRequestDto {
+  profileId: string;
+  weaponName: string | null;
+  affinity: string | null;
+}
+
+export interface WeaponProfileRequestDto {
+  profileId: string;
+  weaponName: string;
+  affinity: string | null;
+}
+
+export interface WeaponNamesForTypeRequestDto {
+  profileId: string;
+  weaponTypeKey: string | null;
+}
+
+export interface CompatibleAowsForAffinityRequestDto {
+  profileId: string;
+  affinity: string | null;
 }

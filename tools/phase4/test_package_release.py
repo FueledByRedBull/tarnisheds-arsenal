@@ -28,6 +28,31 @@ def workflow_script(name: str) -> str:
 
 
 class PackageReleaseTests(unittest.TestCase):
+    def test_frontend_gate_failure_stops_packaging(self) -> None:
+        for gate in ["lint", "test:contracts"]:
+            with self.subTest(gate=gate), tempfile.TemporaryDirectory() as directory, contextlib.ExitStack() as stack:
+                root = Path(directory)
+                tauri = root / "apps/desktop/src-tauri"
+                tauri.mkdir(parents=True)
+                (tauri / "tauri.conf.json").write_text(
+                    '{"version":"0.14.1","productName":"Test"}', encoding="utf-8")
+                stack.enter_context(patch.object(package_release, "__file__", str(root / "tools/phase4/package_release.py")))
+                stack.enter_context(patch("sys.argv", ["package_release.py", "--preview"]))
+                stack.enter_context(patch.object(package_release, "require_clean_source", return_value="b" * 40))
+                stack.enter_context(patch.object(package_release, "require_unchanged_tracked_source"))
+
+                def fail_gate(command: list[str], **_kwargs: object) -> None:
+                    if command[1:] == ["run", gate]:
+                        raise subprocess.CalledProcessError(1, command)
+
+                run = stack.enter_context(patch.object(package_release, "run", side_effect=fail_gate))
+                with self.assertRaises(subprocess.CalledProcessError):
+                    package_release.main()
+                commands = [call.args[0] for call in run.call_args_list]
+                self.assertEqual(commands[-1][1:], ["run", gate])
+                self.assertFalse(any("tauri" in command for command in commands))
+                self.assertFalse((root / "dist").exists())
+
     def test_workflow_wires_ci_proof_to_only_default_branch_previews(self) -> None:
         workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/release-package.yml").read_text(encoding="utf-8")
         self.assertIn("verified-sha: ${{ steps.verify.outputs.verified-sha }}", workflow)
@@ -191,6 +216,26 @@ function Start-Sleep { throw "No matching completed CI; would wait" }
                             env=env, capture_output=True, text=True, check=False, timeout=30,
                         )
                         self.assertEqual(result.returncode == 0, success, result.stderr)
+
+                source_gates = [
+                    "release-metadata", "python-unit-tests", "ruff", "pyright", "rustfmt",
+                    "clippy", "core-tests", "tauri-tests", "runtime-data-validation",
+                    "frontend-lint", "dto-contracts", "playwright-browser", "frontend-tests", "frontend-e2e",
+                ]
+                for missing in [None, "frontend-lint", "dto-contracts"]:
+                    with self.subTest(missing_source_gate=missing):
+                        report_path.write_text(package_release.json.dumps({
+                            **report, "validationSkipped": False,
+                            "completedGates": report["completedGates"] + [gate for gate in source_gates if gate != missing],
+                        }), encoding="utf-8")
+                        result = subprocess.run(
+                            ["pwsh", "-NoProfile", "-NonInteractive", "-Command",
+                             'function python { $global:LASTEXITCODE = 0 }\n' + workflow_script("Verify release provenance and checksums")],
+                            env={**env, "VERIFIED_CI_SHA": ""}, capture_output=True, text=True, check=False, timeout=30,
+                        )
+                        self.assertEqual(result.returncode == 0, missing is None, result.stderr)
+                        if missing:
+                            self.assertIn(f"missing validation gate: {missing}", result.stderr)
 
     def test_portable_archive_omits_msi_and_scopes_checksum(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

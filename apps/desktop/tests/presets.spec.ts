@@ -1,5 +1,27 @@
 import { expect, test } from "@playwright/test";
 
+test("rejects malformed comparison pins without importing them or disabling search", async ({ page }) => {
+  const crashes: string[] = [];
+  page.on("pageerror", error => crashes.push(error.message));
+  await page.goto("/");
+  await page.getByRole("button", { name: "Save new", exact: true }).click();
+  const malformed = await page.evaluate(() => {
+    const key = Object.keys(localStorage).find(key => key.startsWith("tarnisheds-arsenal.savedBuild.v2."))!;
+    const preset = JSON.parse(localStorage.getItem(key)!);
+    preset.compareBench = [null];
+    return JSON.stringify(preset);
+  });
+  const before = await page.evaluate(() => JSON.stringify(localStorage));
+  await page.getByRole("textbox", { name: "Import JSON or Share Text", exact: true }).fill(malformed);
+  await expect(page.getByRole("button", { name: "Import", exact: true })).toBeDisabled();
+  await expect(page.getByText(/compareBench\[0\] must be a build/)).toBeVisible();
+  expect(await page.evaluate(() => JSON.stringify(localStorage))).toBe(before);
+  await page.getByRole("button", { name: "Load", exact: true }).click();
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  expect(crashes).toEqual([]);
+});
+
 for (const stale of [false, true]) {
   test(`loads ${stale ? "stale inputs" : "a saved result"} when optional comparison storage fails`, async ({ page }) => {
     await page.goto("/");

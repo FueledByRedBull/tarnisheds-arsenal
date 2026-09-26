@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "datasetVersion": "vanilla-1.17",
-  "modelVersion": "aow-routes-effects-v7",
+  "modelVersion": "aow-routes-effects-v8",
   "id": "vanilla-1.17",
   "label": "Vanilla dataset - 1.17",
   "appVersion": "1.17",
@@ -31,8 +31,8 @@
     "extendedScalingGrades": false,
     "statusBuildupScales": true
   },
-  "generatedAt": "2026-09-17",
-  "extractorVersion": "phase1-python-v11-attack-provenance",
+  "generatedAt": "2026-09-26",
+  "extractorVersion": "phase1-python-v12-route-hit-counts",
   "provenance": "profile-bound regulation, names, motion data, and numeric PARAM effect graph",
   "runtimeFiles": [
     {
@@ -42,8 +42,8 @@
     },
     {
       "path": "aow_attack_data.csv",
-      "size": 367117,
-      "sha256": "07bf1c112d3b3c71bb337f03271d17ec607b5ec216f261c404dd1ed69eb3d5c8"
+      "size": 373280,
+      "sha256": "a610b1d7359d622838d6a16711ca95862940b80b650c41774e69a329eee50cd5"
     },
     {
       "path": "aow_effect_data.csv",
@@ -52,8 +52,8 @@
     },
     {
       "path": "aow_route_assignments.csv",
-      "size": 118293,
-      "sha256": "375fecf422d31f30e06b91ac4b998aec8cc7beb2c2019f51071c4ec0c57b5ca0"
+      "size": 122690,
+      "sha256": "0db0f21ee16e9c075f31ced8ad8c799f8be5ad6d90ef23066a3b8a062e4f783a"
     },
     {
       "path": "attack_element_correct.csv",
@@ -72,8 +72,8 @@
     },
     {
       "path": "native_skill_attack_data.csv",
-      "size": 311011,
-      "sha256": "7b318103491a5e50d0d88bd33ef9058181a373b3dff8a1beb35c70e30414bb3e"
+      "size": 315635,
+      "sha256": "8f62f02c5ef1a7351afc2aa962c46248c8366dbc967aaa0b6a8cc55c85cdb8b0"
     },
     {
       "path": "reinforce.csv",

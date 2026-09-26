@@ -6,7 +6,7 @@ mod snapshot;
 
 /// Include the compiled scoring contract in persisted result/cache identities.
 pub fn runtime_model_version(snapshot_model: &str) -> String {
-    format!("{snapshot_model}/exact-v1")
+    format!("{snapshot_model}/exact-v2")
 }
 
 pub use data::{

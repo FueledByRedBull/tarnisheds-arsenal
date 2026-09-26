@@ -1,5 +1,63 @@
 import { expect, test } from "@playwright/test";
 
+for (const outcome of ["already-finished", "failure"] as const) {
+  test(`a late ${outcome} cancellation reply cannot change a replacement search`, async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: "Search", exact: true })).toBeEnabled();
+    await page.evaluate(async () => {
+      const { api } = await import("/src/lib/api.ts");
+      const probe = {
+        starts: 0, oldFinished: false, cancellationHeld: false,
+        resolveCancel: (_value: boolean) => {}, rejectCancel: (_error: Error) => {},
+      };
+      Object.assign(window, { delayedCancelProbe: probe });
+      api.startSearch = async () => ({ jobId: `search-${++probe.starts}` });
+      api.cancelSearch = async () => {
+        if (probe.cancellationHeld) return true;
+        probe.cancellationHeld = true;
+        return new Promise<boolean>((resolve, reject) => {
+          probe.resolveCancel = resolve;
+          probe.rejectCancel = reject;
+        });
+      };
+      api.searchStatus = async (jobId: string) => ({
+        progress: null,
+        finished: jobId === "search-1" && probe.oldFinished
+          ? { jobId, rows: [], cancelled: true, error: null } : null,
+      });
+    });
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await expect.poll(() => page.evaluate(async () => {
+      const { useDesktopStore } = await import("/src/lib/state.ts");
+      return useDesktopStore.getState().activeJobId;
+    })).toBe("search-1");
+    await page.getByRole("button", { name: "Cancel Search", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Cancelling...", exact: true })).toBeDisabled();
+
+    await page.getByRole("spinbutton", { name: "VIG", exact: true }).fill("13");
+    await page.getByRole("spinbutton", { name: "VIG", exact: true }).press("Enter");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page.evaluate(() => { (window as any).delayedCancelProbe.oldFinished = true; });
+    await expect.poll(() => page.evaluate(async () => {
+      const { useDesktopStore } = await import("/src/lib/state.ts");
+      return useDesktopStore.getState().activeJobId;
+    })).toBe("search-2");
+
+    await page.evaluate(outcome => {
+      const probe = (window as any).delayedCancelProbe;
+      if (outcome === "already-finished") probe.resolveCancel(false);
+      else probe.rejectCancel(new Error("obsolete cancellation failed"));
+    }, outcome);
+    await expect(page.getByRole("button", { name: "Cancel Search", exact: true })).toBeEnabled();
+    await expect(page.locator('.error-strip[role="alert"]')).toHaveCount(0);
+    expect(await page.evaluate(async () => {
+      const { useDesktopStore } = await import("/src/lib/state.ts");
+      const state = useDesktopStore.getState();
+      return { searching: state.isSearching, jobId: state.activeJobId };
+    })).toEqual({ searching: true, jobId: "search-2" });
+  });
+}
+
 for (const replacement of ["compare", "rankings"]) {
   test(`changing Compare waits for cancellation before starting ${replacement}`, async ({ page }) => {
     await page.goto("/");
@@ -137,4 +195,26 @@ test("Compare upgrade failure aborts the remaining upgrade lanes and keeps the o
   await expect(page.locator('.error-strip[role="alert"]')).toContainText("comparison upgrade failed");
   await expect.poll(() => page.evaluate(() => (window as any).compareUpgradeProbe.calls.length)).toBeGreaterThanOrEqual(4);
   await expect.poll(() => page.evaluate(() => (window as any).compareUpgradeProbe.siblingAborted)).toBe(true);
+});
+
+test("Compare displays all eight explicit pins while excluding the selected baseline", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await page.evaluate(async () => {
+    const { api } = await import("/src/lib/api.ts");
+    const { useDesktopStore } = await import("/src/lib/state.ts");
+    const state = useDesktopStore.getState();
+    const pins = [state.selected!, ...Array.from({ length: 7 }, (_, index) => ({
+      ...state.rows[1], weaponId: 1_000 + index, weaponName: `Pinned weapon ${index + 1}`,
+    }))];
+    api.solveBuild = async (_base, weaponName) => pins.find(row => row.weaponName === weaponName) ?? null;
+    for (const row of pins) state.toggleCompareBench(row);
+  });
+  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
+  await expect(page.locator(".compare-lanes").getByRole("group")).toHaveCount(8);
+  await expect(page.getByRole("group", { name: "Selected baseline", exact: true })).toBeVisible();
+  await expect(page.getByRole("group", { name: "Pinned #1", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Pinned #8", exact: true })).toContainText("Pinned weapon 7");
 });

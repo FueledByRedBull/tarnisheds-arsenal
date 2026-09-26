@@ -19,9 +19,29 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - The active snapshot and scoring identities are recorded in the [model reference](../model-reference.md).
   Storage, dataset, and calculation identities are independent; incompatible snapshots
   or persisted results fail closed rather than being relabeled as a migration.
-- A solved-build key uses the stable result fingerprint: weapon ID/name, affinity, AoW identity, upgrade, somber flag, and all five combat stats.
+- A solved-build key uses the stable result fingerprint: weapon ID/name, affinity,
+  AoW name, upgrade, and all five combat stats. Reinforcement type belongs to the
+  profile-bound weapon identity rather than a separate fingerprint field.
 - Caches are bounded. Eviction may reduce performance but must never alter results.
 - An aborted subscriber cannot populate a cache entry. When the last subscriber leaves, the pending entry is evicted immediately; backend work is also cancelled when that command exposes cancellation.
+
+## Frontend and native types
+
+- `npm run test:contracts` in `apps/desktop` compares public DTO declarations in
+  `src-tauri/src/dto.rs` with `src/lib/types.ts`, including nested fields, arrays,
+  nullability and native enum variants. API request construction uses those named
+  interfaces. New Rust/serde syntax must be explicitly supported by the checker.
+- Deliberate differences are narrowly checked: the frontend sends explicit
+  upgrade-policy values and omits older upgrade inputs; older persisted builds
+  may lack three optional display fields. Other missing/optional fields fail.
+- This source check is not a serializer, numeric-range check or command-registry
+  verifier. Rust validators and serialization tests remain required. Native String
+  fields can have narrower frontend literal types; permitted values still belong
+  to native validation.
+- React Hooks ordering and effect dependencies are lint errors. Async effects
+  must retain generation/cancellation guards when dependencies change. Comparison
+  persistence validation lives in `src/lib/compare-bench.ts`; moving it does not
+  change the stored format or the store's job ownership.
 
 ## Job lifecycle
 
@@ -30,6 +50,8 @@ Status: accepted. These rules describe contracts that tests and future refactors
   uncertainty in one queue retains that queue's native ownership without blocking
   the other queue.
 - A response may update state only when generation, signature, and job ID all exactly match the active request.
+- Cancellation replies and errors obey the same generation/job ownership rule;
+  a late acknowledgement cannot clear or report an error on a replacement search.
 - Input changes invalidate the active generation before dependent state is changed.
 - Cancellation is cooperative and fail-closed. A cancelled job cannot replace current rows or populate retained analysis caches.
 - Broad running work targets cancellation within 250 ms on the reference machine. Cancelled multi-lane jobs publish no partial success payload.
@@ -41,6 +63,9 @@ Status: accepted. These rules describe contracts that tests and future refactors
   sibling fails, the operation aborts its remaining siblings and reports the
   original error; aborting one subscriber does not cancel shared cached work needed
   by another subscriber.
+- Compare evaluates all stored pins (up to eight), excluding the selected baseline.
+  Each selected weapon uses its actual available upgrade cap, including +0 for
+  unupgradeable weapons, when resolving the profile-wide upgrade policy.
 - Numeric input edits do not launch exact optimizer preparation; the command rail shows a constant-time scope summary and exact candidate preparation begins only when Search is pressed. Search-space estimation has no job lifecycle to preserve: it is a cancellable core API with no command or frontend caller, so nothing can publish an estimate into frontend state. Reintroducing a user-facing estimate means giving it a generation, signature, and job ID like any other async request.
 - A profile switch invalidates every job generation before changing inputs, requests cancellation for all active backend jobs, clears profile-bound results, and cannot accept a completion from the previous profile.
 - CSV export owns a cancellable search until the backend reports completion, including after cancellation. Normal searches and comparison searches wait for that slot. Input/profile changes and leaving Rankings cancel export; late results cannot download or populate its cache.
@@ -60,6 +85,22 @@ Status: accepted. These rules describe contracts that tests and future refactors
   never numeric zero; unified upgrade profiles do not claim Standard/Somber
   identity. Export reruns and caches use the complete normalized request including
   profile and requested row count.
+- Missing or malformed saved-build indexes are distinct from an empty library.
+  Essential writes refuse to replace an unreadable index. Recovery previews bind
+  the exact source records/index, reject changed previews, preserve the original
+  index before replacement, and leave unreadable records untouched. Storage read
+  failures must not throw through component rendering.
+- Bulk build backups use `tarnisheds-arsenal.build-backup` version 1, containing
+  existing versioned presets, bounded to 500 builds/10 MiB. Validate the entire
+  backup before writing; restore with new IDs and commit the index last. Failed
+  cleanup leaves new records recoverable as orphans.
+- Preset, backup and recovery validation rejects null comparison pins and requires
+  request enum values to be strings before they can reach the UI or native commands.
+- Reproduction reports project known request/result fields, including nested
+  structures, and omit raw storage, logs, and private manifest source paths.
+  Report text redaction is an additional precaution; users preview before sharing.
+  Captures describe current inputs and displayed results, never imply a failed
+  request was captured or a saved result independently recalculated.
 
 ## Data snapshots
 
@@ -85,6 +126,9 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - A fixed-loadout Paths evaluation pins weapon, affinity, Ash, and upgrade, then clears
   discovery filters before preparing its evaluator. Discovery constraints therefore
   cannot leak into a selected path.
+- Reusable loadout and upgrade evaluators retain equipment across validated stat
+  budget changes and check eligibility against each evaluation's budget. Cancellation
+  is honored even when a locked evaluation has no eligible weapons.
 - Schema version describes storage compatibility, dataset version identifies extracted content, and model version identifies calculation semantics. They change independently.
 - The UI's “Snapshot loaded” state reports a manifest-bound snapshot that passed
   loading checks and declares capabilities; it does not independently verify every

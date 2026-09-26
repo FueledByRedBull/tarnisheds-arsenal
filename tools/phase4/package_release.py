@@ -732,6 +732,9 @@ def main() -> int:
     run([npm_cmd(), "ci", "--prefer-offline", "--no-audit", "--fund=false"], cwd=app_dir)
     require_unchanged_tracked_source(root, source_commit, stage="npm ci")
     if not args.skip_validation:
+        run([npm_cmd(), "run", "lint"], cwd=app_dir)
+        run([npm_cmd(), "run", "test:contracts"], cwd=app_dir)
+        require_unchanged_tracked_source(root, source_commit, stage="frontend lint and DTO contracts")
         run(
             [
                 node_cmd(),
@@ -777,7 +780,7 @@ def main() -> int:
     require_unchanged_tracked_source(root, source_commit, stage="packaged app smoke")
     completed_gates.extend(["frontend-build", "tauri-release-build", "packaged-app-smoke"])
     if not args.skip_validation:
-        completed_gates.extend(["playwright-browser", "frontend-tests", "frontend-e2e"])
+        completed_gates.extend(["frontend-lint", "dto-contracts", "playwright-browser", "frontend-tests", "frontend-e2e"])
 
     release_dir.mkdir(parents=True, exist_ok=args.replace_output)
     if validation_completed:

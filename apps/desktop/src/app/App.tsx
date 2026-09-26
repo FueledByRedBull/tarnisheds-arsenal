@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, CircleAlert, GitCompareArrows, Layers3, LoaderCircle, Radar, RotateCcw, Route, Table2, X } from "lucide-react";
 import { api } from "../lib/api";
 import { setAnalysisCacheVersion } from "../lib/analysis-cache";
@@ -10,6 +10,7 @@ import { CompareView } from "../features/compare/CompareView";
 import { Inspector } from "../features/inspector/Inspector";
 import { PathsView } from "../features/paths/PathsView";
 import { RankingsBoard } from "../features/rankings/RankingsBoard";
+import { ReproductionReport } from "../features/shared/ReproductionReport";
 
 const tabs: Array<{ id: WorkspaceTab; label: string; icon: typeof Table2 }> = [
   { id: "rankings", label: "Rankings", icon: Table2 },
@@ -33,41 +34,14 @@ export function App() {
   const setCatalogLoading = useDesktopStore((state) => state.setCatalogLoading);
   const setCatalogFailure = useDesktopStore((state) => state.setCatalogFailure);
   const selected = useDesktopStore((state) => state.selected);
+  const resultsStale = useDesktopStore((state) => state.resultsStale);
   const error = useDesktopStore((state) => state.error);
   const setError = useDesktopStore((state) => state.setError);
   const notices = useDesktopStore((state) => state.notices);
   const [catalogAttempt, setCatalogAttempt] = useState(0);
   const profileGeneration = useRef(0);
 
-  useEffect(() => {
-    const generation = ++profileGeneration.current;
-    setCatalogLoading();
-    api.profiles().then(async (availableProfiles) => {
-      if (generation !== profileGeneration.current) return;
-      if (availableProfiles.length === 0) throw new Error("No verified game profiles are available.");
-      const currentState = useDesktopStore.getState();
-      const retryProfile = currentState.profiles.length > 0
-        ? currentState.request.profileId
-        : null;
-      setProfiles(availableProfiles);
-      const stored = readStoredProfile();
-      const preferred = retryProfile ?? stored;
-      const initialProfile = preferred !== null && availableProfiles.some((entry) => entry.profile.id === preferred)
-        ? preferred
-        : availableProfiles.some((entry) => entry.profile.id === "vanilla")
-          ? "vanilla"
-          : availableProfiles[0].profile.id;
-      await loadProfile(initialProfile, generation);
-    }).catch((err) => {
-      if (generation !== profileGeneration.current) return;
-      setCatalogFailure(err instanceof Error ? err.message : String(err));
-    });
-    return () => {
-      if (profileGeneration.current === generation) profileGeneration.current += 1;
-    };
-  }, [catalogAttempt, setCatalogFailure, setCatalogLoading, setProfiles]);
-
-  async function loadProfile(nextProfileId: string, generation = ++profileGeneration.current) {
+  const loadProfile = useCallback(async (nextProfileId: string, generation = ++profileGeneration.current) => {
     const before = useDesktopStore.getState();
     const activeJobs = [
       before.activeJobId ? api.cancelSearch(before.activeJobId) : null,
@@ -96,7 +70,35 @@ export function App() {
       if (generation !== profileGeneration.current) return;
       setCatalogFailure(err instanceof Error ? err.message : String(err));
     }
-  }
+  }, [beginProfileSwitch, setCatalog, setCatalogFailure]);
+
+  useEffect(() => {
+    const generation = ++profileGeneration.current;
+    setCatalogLoading();
+    api.profiles().then(async (availableProfiles) => {
+      if (generation !== profileGeneration.current) return;
+      if (availableProfiles.length === 0) throw new Error("No verified game profiles are available.");
+      const currentState = useDesktopStore.getState();
+      const retryProfile = currentState.profiles.length > 0
+        ? currentState.request.profileId
+        : null;
+      setProfiles(availableProfiles);
+      const stored = readStoredProfile();
+      const preferred = retryProfile ?? stored;
+      const initialProfile = preferred !== null && availableProfiles.some((entry) => entry.profile.id === preferred)
+        ? preferred
+        : availableProfiles.some((entry) => entry.profile.id === "vanilla")
+          ? "vanilla"
+          : availableProfiles[0].profile.id;
+      await loadProfile(initialProfile, generation);
+    }).catch((err) => {
+      if (generation !== profileGeneration.current) return;
+      setCatalogFailure(err instanceof Error ? err.message : String(err));
+    });
+    return () => {
+      if (profileGeneration.current === generation) profileGeneration.current += 1;
+    };
+  }, [catalogAttempt, loadProfile, setCatalogFailure, setCatalogLoading, setProfiles]);
 
   function readStoredProfile(): string | null {
     try {
@@ -186,7 +188,7 @@ export function App() {
         </header>
         <nav className="workspace-tabs">
           {tabs.map(({ id, label, icon: Icon }) => {
-            const requiresSelection = id !== "rankings" && !selected;
+            const requiresSelection = id !== "rankings" && (!selected || resultsStale);
             const unsupportedBudget = id !== "rankings" && activeProfile?.capabilities.classBudget === false;
             const disabled = catalogStatus !== "ready" || requiresSelection || unsupportedBudget;
             return (
@@ -197,7 +199,7 @@ export function App() {
                 aria-label={label}
                 aria-current={activeWorkspace === id ? "page" : undefined}
                 onClick={() => setWorkspace(id)}
-                title={unsupportedBudget ? "Requires verified profile class budgets" : requiresSelection ? `${label} requires a selected ranked build` : label}
+                title={unsupportedBudget ? "Requires verified profile class budgets" : requiresSelection ? `${label} requires a current selected ranking` : label}
                 disabled={disabled}
               >
                 <Icon size={16} aria-hidden="true" />
@@ -233,6 +235,7 @@ export function App() {
             <CircleAlert size={24} />
             <strong>Game data could not be loaded</strong>
             <span>{catalogError}</span>
+            <ReproductionReport />
             <button type="button" onClick={() => setCatalogAttempt((attempt) => attempt + 1)}>
               <RotateCcw size={15} />Retry loading
             </button>

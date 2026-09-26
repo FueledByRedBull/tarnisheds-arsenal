@@ -56,14 +56,16 @@ fn main() -> Result<(), String> {
         }
         request.standard_max_upgrade = data.rules.standard_max_upgrade;
         request.somber_max_upgrade = data.rules.somber_max_upgrade;
+        let mut warmup_results = Vec::with_capacity(warmups);
         for _ in 0..warmups {
-            optimize_profiled(&request, &data)?;
+            let result = optimize_profiled(&request, &data)?;
+            warmup_results.push((format!("{:?}", result.rows), result.estimate.combinations));
         }
         let mut samples = Vec::with_capacity(repeats);
         for _ in 0..repeats {
             samples.push(optimize_profiled(&request, &data)?);
         }
-        print_case(name, &request, &data, samples)?;
+        print_case(name, &request, &data, samples, &warmup_results)?;
     }
     Ok(())
 }
@@ -107,8 +109,15 @@ fn print_case(
     request: &OptimizeRequest,
     _data: &GameData,
     samples: Vec<ProfiledOptimizeResult>,
+    warmup_results: &[(String, u64)],
 ) -> Result<(), String> {
     let first = samples.first().ok_or_else(|| "no samples".to_string())?;
+    let results = format!("{:?}", first.rows);
+    if warmup_results.iter().any(|(rows, combinations)| {
+        rows != &results || *combinations != first.estimate.combinations
+    }) {
+        return Err(format!("{name} produced inconsistent warmups"));
+    }
     if samples.iter().any(|sample| {
         format!("{:?}", sample.rows) != format!("{:?}", first.rows)
             || sample.estimate.combinations != first.estimate.combinations
@@ -143,7 +152,8 @@ fn print_case(
             "weaponCandidates": first.estimate.weapon_candidates,
             "combinations": first.estimate.combinations,
             "rows": first.rows.len(),
-            "results": format!("{:?}", first.rows),
+            "results": results,
+            "warmupResultsVerified": warmup_results.len(),
             "preparationMedianMs": median_ms(&preparation),
             "scoringMedianMs": median_ms(&scoring),
             "materializationMedianMs": median_ms(&materialization),

@@ -248,6 +248,7 @@ pub struct AowAttackRow {
     pub status_mv: f32,
     pub weapon_buff_mv: f32,
     pub poise_mv: f32,
+    pub poise_base: f32,
     pub stamina_cost: f32,
     pub stamina_cost_mode: StaminaCostMode,
 }
@@ -473,6 +474,7 @@ pub struct AowRouteAssignment {
     pub action_id: String,
     pub action_order: u16,
     pub hit_order: u16,
+    pub hit_count: u16,
 }
 
 #[derive(Clone, Debug)]

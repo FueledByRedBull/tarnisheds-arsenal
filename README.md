@@ -14,20 +14,20 @@ comparisons and progression previews.
 [![Published release](https://img.shields.io/github/v/release/FueledByRedBull/tarnisheds-arsenal?label=published)](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest)
 
 **[Download for Windows](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest)**
-· [What’s new in v0.14.1](docs/release-notes/v0.14.1.md)
+· [What’s new in v0.15.0](docs/release-notes/v0.15.0.md)
 · [Your first build](#your-first-build)
 · [Documentation](#documentation)
 
 The Rankings workspace puts each result’s combat stats and weapon scaling beside
 its score, with the selected build’s full breakdown on the right.
-Screenshots show the [current development build](CHANGELOG.md#unreleased).
+Screenshots show the [current development build](CHANGELOG.md#v0150).
 
 ![Rankings with weapon setups, combat stats, scaling, and the selected build’s damage breakdown](docs/images/tarnisheds-arsenal-rankings.png)
 
 ## Download
 
 Choose an asset from the [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
-The [v0.14.1 notes](docs/release-notes/v0.14.1.md) include versioned downloads,
+The [v0.15.0 notes](docs/release-notes/v0.15.0.md) include versioned downloads,
 calculation changes, and verification limits.
 
 | Choose | Best for |
@@ -54,6 +54,23 @@ needs internet access if that runtime is missing.
 Save builds to return to them later, or export rankings as CSV. The active-query
 strip shows the assumptions behind the results; changed inputs mark old results
 as stale. Convergence uses a different [fixed-stat workflow](#convergence-3001-beta).
+
+### Saved builds and recovery
+
+Saved Builds includes **Backup and recovery**. **Export all builds** backs up
+readable builds across profiles. Select a backup file to preview its contents,
+then restore as new copies; existing builds are kept. Backups support up to 500
+builds and 10 MiB. Existing schema 1/2 builds remain readable.
+
+If the saved-build list is damaged or incomplete, scan it and review the recovery
+count and issues. Recovery rebuilds the list from readable records, preserves the
+original index on this device, and leaves unreadable records untouched. Exported
+backups exclude unreadable records. If storage access or space is unavailable,
+the app reports the failure instead of replacing your library with an empty one.
+
+**Why this build?** explains the selected result's objective, damage split, and
+active constraints. Compare also lists individual stat changes. These are
+calculation summaries, not estimates of each stat's causal damage contribution.
 
 ## Interface
 
@@ -144,7 +161,7 @@ Choose a guide for the task at hand:
 
 | I want to… | Read |
 | --- | --- |
-| See what changed in **v0.14.1** | [Release notes](docs/release-notes/v0.14.1.md) · [All versions](docs/release-notes/README.md) |
+| See what changed in **v0.15.0** | [Release notes](docs/release-notes/v0.15.0.md) · [All versions](docs/release-notes/README.md) |
 | Understand supported mechanics and limitations | [Model reference](docs/model-reference.md) |
 | Find components and trace a calculation | [Optimizer overview](docs/design/optimizer-overview.md) |
 | Inspect the exact ranking contract and proof | [Optimizer mathematics](docs/design/optimizer-math.md) |
@@ -158,6 +175,13 @@ Choose a guide for the task at hand:
 [Report a bug](https://github.com/FueledByRedBull/tarnisheds-arsenal/issues) with the
 app version, game profile, reproduction steps, and expected versus actual results.
 Use [private vulnerability reporting](SECURITY.md) for security issues.
+
+Use **Preview reproduction report** below Saved Builds to review and download
+current normalized inputs, snapshot identity, the displayed selection when it is
+not stale, and an error if present. It does not replay a failed request or recompute
+a saved result. The saved-build library and raw logs are excluded; recognizable
+paths, addresses, and credential-like text are omitted. Review the preview before
+sharing it. Nothing is uploaded automatically.
 
 Submit focused pull requests against `main`, explain the problem and checks run,
 and add a regression for behavior changes. Keep raw game files, credentials,
@@ -195,11 +219,23 @@ python tools/phase4/validate_phase4.py
 Run frontend checks from **`apps/desktop`**:
 
 ```powershell
+npm run lint
+npm run test:contracts
 npm test
 npm run build
 npx playwright install chromium
 npm run test:e2e
 ```
+
+The frontend uses React 19.3 with the modern JSX transform. Hooks linting rejects
+conditional Hooks and missing effect dependencies. The DTO contract check compares
+all public Rust DTO field shapes and enums with TypeScript, including the request
+types used by the API adapter. It does not replace native value validation or
+serialization tests. CI and full package validation run both checks.
+
+Comparison-bench persistence lives in `src/lib/compare-bench.ts`; the store retains
+state transitions. Shared saved-build/report styles live in
+`src/features/shared/build-tools.css`, loaded after the global stylesheet.
 
 The full checks and setup live in [CI](.github/workflows/ci.yml). The core is in
 `core/er_optimizer_core`; the desktop is in `apps/desktop`. Historical phase names

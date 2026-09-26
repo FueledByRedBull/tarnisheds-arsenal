@@ -269,7 +269,7 @@ jobs:
             $requiredGates += @(
               "release-metadata", "python-unit-tests", "ruff", "pyright", "rustfmt",
               "clippy", "core-tests", "tauri-tests", "runtime-data-validation",
-              "playwright-browser", "frontend-tests", "frontend-e2e"
+              "frontend-lint", "dto-contracts", "playwright-browser", "frontend-tests", "frontend-e2e"
             )
           }
           foreach ($gate in $requiredGates) {

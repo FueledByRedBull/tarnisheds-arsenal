@@ -213,7 +213,6 @@ export function CheckboxMultiSelect({
   placeholder?: string;
 }) {
   const id = useId();
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
   const [open, setOpen] = useState(false);
@@ -249,7 +248,6 @@ export function CheckboxMultiSelect({
   return (
     <div
       className="checkbox-multi-select"
-      ref={wrapperRef}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) close();
       }}

@@ -51,6 +51,11 @@ before publication, so no follow-up documentation commit is needed.
    committed checkout after the push; it refuses dirty source and does not replace
    the CI artifacts.
 
+Frontend source validation includes `npm run lint` and `npm run test:contracts`,
+before browser installation and unit/browser tests. Full local package validation
+runs these gates too. A preview reusing verified exact-commit CI retains that proof
+and skips duplicate source checks; package-specific validation is still mandatory.
+
 ## Publish
 
 Run the Release workflow from the default branch with `publish` enabled:

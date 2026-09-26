@@ -1,4 +1,4 @@
-import { ObjectiveId, SolvedBuildDto } from "./types";
+import { ObjectiveId, OptimizeRequestDto, SolvedBuildDto } from "./types";
 
 export function compactNumber(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) {
@@ -58,4 +58,12 @@ export function metricForObjective(row: SolvedBuildDto, objective: ObjectiveId):
 
 export function statLine(row: SolvedBuildDto): string {
   return `STR ${row.stats.strStat} / DEX ${row.stats.dex} / INT ${row.stats.intStat} / FAI ${row.stats.fai} / ARC ${row.stats.arc}`;
+}
+
+export function statLockLine(request: OptimizeRequestDto): string {
+  return [["STR", request.lockStr], ["DEX", request.lockDex], ["INT", request.lockInt],
+    ["FAI", request.lockFai], ["ARC", request.lockArc]]
+    .filter(([, value]) => value !== null)
+    .map(([label, value]) => `${label} ${value}`)
+    .join(" / ");
 }

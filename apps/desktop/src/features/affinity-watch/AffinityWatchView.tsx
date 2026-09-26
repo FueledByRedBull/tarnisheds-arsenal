@@ -12,6 +12,8 @@ import { AffinityWatchFinishedDto, AffinityWatchPayloadDto } from "../../lib/typ
 export function AffinityWatchView() {
   const catalog = useDesktopStore((state) => state.catalog);
   const selected = useDesktopStore((state) => state.selected);
+  const resultsStale = useDesktopStore((state) => state.resultsStale);
+  const setWorkspace = useDesktopStore((state) => state.setWorkspace);
   const request = useDesktopStore((state) => state.request);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
   const horizon = useDesktopStore((state) => state.affinityHorizon);
@@ -47,7 +49,7 @@ export function AffinityWatchView() {
     setAffinityProgress,
     onStarted: (jobId, generation) => {
       const current = useDesktopStore.getState();
-      if (!current.isAffinityBusy || current.affinityGeneration !== generation || current.activeAffinitySignature !== signature) {
+      if (current.resultsStale || !current.isAffinityBusy || current.affinityGeneration !== generation || current.activeAffinitySignature !== signature) {
         throw new DOMException("Calculation stopped.", "AbortError");
       }
       setActiveAffinityJobId(jobId);
@@ -55,6 +57,7 @@ export function AffinityWatchView() {
   });
 
   async function refresh() {
+    if (useDesktopStore.getState().resultsStale) return;
     if (!selected) {
       pushNotice({ scope: "affinity_watch", tone: "warning", message: "Pick a selected result first." });
       return;
@@ -69,7 +72,7 @@ export function AffinityWatchView() {
       const legal = await api.affinitiesForWeapon(request.profileId, selected.weaponName);
       let current = useDesktopStore.getState();
       if (
-        !current.isAffinityBusy ||
+        current.resultsStale || !current.isAffinityBusy ||
         current.affinityGeneration !== generation ||
         current.activeAffinitySignature !== signature
       ) return;
@@ -123,7 +126,7 @@ export function AffinityWatchView() {
   function finishAffinityWatch(event: AffinityWatchFinishedDto, generation: number) {
     const current = useDesktopStore.getState();
     if (
-      generation !== current.affinityGeneration ||
+      current.resultsStale || generation !== current.affinityGeneration ||
       current.activeAffinitySignature !== signature ||
       event.jobId !== current.activeAffinityJobId
     ) return;
@@ -140,6 +143,19 @@ export function AffinityWatchView() {
     current.setAffinityBusy(false);
     current.setActiveAffinityJobId(null);
     current.setAffinityProgress(null);
+  }
+
+  if (resultsStale) {
+    return (
+      <section className="workspace-panel affinity-panel">
+        <div className="workspace-header"><div><h1>Affinity Watch</h1><span>Requires current ranked results</span></div></div>
+        <div className="empty-state workspace-prerequisite">
+          <strong>Update Rankings before continuing</strong>
+          <span>The selected build belongs to the previous query.</span>
+          <button type="button" onClick={() => setWorkspace("rankings")}>Go to Rankings</button>
+        </div>
+      </section>
+    );
   }
 
   return (

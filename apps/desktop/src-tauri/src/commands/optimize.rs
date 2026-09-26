@@ -227,7 +227,7 @@ fn prepare_upgrade_series(
 
     let profile = state.profile(&base.profile_id)?;
     let (is_somber, profile_upgrade_cap) = weapon_reinforcement_info(
-        &profile.data,
+        profile,
         &request.solved.weapon_name,
         Some(&request.solved.affinity),
     )?;
@@ -365,7 +365,7 @@ fn prepare_ar_bleed_frontier(
         .filter(|weapon| weapon.name == solved.weapon_name && weapon.affinity == solved.affinity)
         .ok_or_else(|| AppError::new("selected weapon identity does not match profile data"))?;
     let (is_somber, cap) =
-        weapon_reinforcement_info(&profile.data, &solved.weapon_name, Some(&solved.affinity))?;
+        weapon_reinforcement_info(profile, &solved.weapon_name, Some(&solved.affinity))?;
     if is_somber != solved.is_somber
         || solved.upgrade > cap
         || profile
@@ -761,7 +761,7 @@ fn clamp_weapon_upgrade_request_for_profile(
         return Ok(());
     };
     let (is_somber, profile_upgrade_cap) =
-        weapon_reinforcement_info(&profile.data, weapon_name, request.affinity.as_deref())?;
+        weapon_reinforcement_info(profile, weapon_name, request.affinity.as_deref())?;
     if is_somber {
         request.somber_max_upgrade = Some(somber_cap.min(profile_upgrade_cap));
     } else {
@@ -773,11 +773,11 @@ fn clamp_weapon_upgrade_request_for_profile(
 }
 
 fn weapon_reinforcement_info(
-    data: &GameData,
+    profile: &ProfileData,
     weapon_name: &str,
     affinity: Option<&str>,
 ) -> Result<(bool, u8), AppError> {
-    let mut matches = data.weapons.iter().filter(|weapon| {
+    let mut matches = profile.data.weapons.iter().filter(|weapon| {
         weapon.name.eq_ignore_ascii_case(weapon_name)
             && affinity.is_none_or(|value| weapon.affinity.eq_ignore_ascii_case(value))
     });
@@ -794,11 +794,8 @@ fn weapon_reinforcement_info(
             weapon_name
         )));
     }
-    let profile_upgrade_cap = if is_somber {
-        data.rules.somber_max_upgrade
-    } else {
-        data.rules.standard_max_upgrade
-    };
+    let profile_upgrade_cap =
+        crate::commands::data::weapon_upgrade_cap(&profile.catalog_index, weapon_name, affinity)?;
     Ok((is_somber, profile_upgrade_cap))
 }
 
@@ -1490,6 +1487,40 @@ mod integration_tests {
             .expect("Vanilla unique weapon request should clamp");
         assert_eq!(request.standard_max_upgrade, Some(25));
         assert_eq!(request.somber_max_upgrade, Some(10));
+    }
+
+    #[test]
+    fn selected_loadout_clamps_to_its_available_upgrade_cap() {
+        let state = crate::test_app_state();
+        let mut base = crate::test_optimize_request();
+        base.character_level = 80;
+        base.standard_max_upgrade = Some(25);
+        base.somber_max_upgrade = Some(10);
+        let solved = solve_build_inner(
+            SolveBuildRequestDto {
+                base: base.clone(),
+                weapon_name: "Meteorite Staff".into(),
+                affinity: Some("Standard".into()),
+                aow_name: None,
+            },
+            &state,
+        )
+        .unwrap()
+        .expect("an unupgradeable pinned weapon remains available at +0");
+        assert_eq!(solved.weapon_name, "Meteorite Staff");
+        assert_eq!(solved.upgrade, 0);
+        let points = build_upgrade_series_inner(
+            UpgradeSeriesRequestDto {
+                base,
+                solved: solved.clone(),
+                max_upgrade: 10,
+            },
+            &state,
+        )
+        .unwrap();
+        assert_eq!(points.len(), 1);
+        assert_eq!(points[0].upgrade, 0);
+        assert_eq!(points[0].metric, solved.score);
     }
 
     #[test]

@@ -60,9 +60,9 @@ class SnapshotPromotionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             staging = self._create_staging(Path(temporary))
             manifest = json.loads((staging / "manifest.json").read_text(encoding="utf-8"))
-            manifest["schemaVersion"] = 4
+            manifest["schemaVersion"] = 5
             self._write_manifest(staging, manifest)
-            with self.assertRaisesRegex(ValueError, "expected 5"):
+            with self.assertRaisesRegex(ValueError, "expected 6"):
                 validate_snapshot_manifest(staging)
 
     def test_promotion_reconciles_csvs_and_preserves_non_csv_files(self) -> None:

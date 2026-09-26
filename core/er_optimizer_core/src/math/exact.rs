@@ -611,25 +611,24 @@ pub(crate) fn exact_bleed(
     aow: Option<&crate::model::Aow>,
 ) -> Result<ExactRational, String> {
     let base_source = data.weapon_passive(weapon.weapon_id);
-    let mut base_bleed = rational(base_source.buildup.bleed, "weapon bleed buildup")?;
+    let mut base_bleed = base_source.buildup.bleed;
+    validate_nonnegative_float(base_bleed, "weapon bleed buildup")?;
     let mut base_flag = base_source.correction_flags.bleed;
     if let Some(overlay) = data.weapon_passive_overlay(weapon.weapon_id, upgrade) {
-        let overlay_bleed = rational(overlay.buildup.bleed, "weapon overlay bleed buildup")?;
+        validate_nonnegative_float(overlay.buildup.bleed, "weapon overlay bleed buildup")?;
         if overlay.buildup.bleed > 0.0 {
-            base_bleed = overlay_bleed;
+            base_bleed = overlay.buildup.bleed;
             if overlay.correction_flags.bleed.is_some() {
                 base_flag = overlay.correction_flags.bleed;
             }
         }
     }
 
-    let mut bleed = if base_bleed <= ExactRational::zero() {
-        base_bleed
-    } else if !data.rules.status_buildup_scales {
-        floor_ratio(&base_bleed)
-    } else {
+    // Status amounts round in f32 before their gameplay floors. The resulting
+    // ARC-only value is then exact for DP and cross-loadout comparisons.
+    let scaled_bleed = if base_bleed > 0.0 && data.rules.status_buildup_scales {
         let reinforce = reinforce_level(weapon, upgrade, data)?;
-        floor_ratio(&scale_status_value(
+        super::scale_status_value(
             base_bleed,
             STAT_ARC,
             stats.arc,
@@ -638,15 +637,17 @@ pub(crate) fn exact_bleed(
             weapon,
             reinforce,
             data,
-        )?)
+        )?
+    } else {
+        base_bleed
     };
+    let bleed = rational(scaled_bleed, "weapon bleed buildup")?.floor();
 
     let Some(aow) = aow else {
         return Ok(bleed);
     };
-    bleed += rational(aow.bleed_buildup_add, "Ash bleed buildup addition")?;
-
-    let scaling_values = [
+    validate_nonnegative_float(aow.bleed_buildup_add, "Ash bleed buildup addition")?;
+    for value in [
         aow.scaling_status_add.bleed,
         aow.scaling_status_add.frost,
         aow.scaling_status_add.poison,
@@ -654,39 +655,13 @@ pub(crate) fn exact_bleed(
         aow.scaling_status_add.sleep,
         aow.scaling_status_add.madness,
         aow.scaling_status_add.death,
-    ];
-    let mut bleed_scaling = ExactRational::zero();
-    let mut has_scaling = false;
-    for (idx, value) in scaling_values.iter().enumerate() {
-        validate_nonnegative_float(*value, "Ash scaling status addition")?;
-        has_scaling |= *value > 0.0;
-        if idx == 0 && *value > 0.0 {
-            bleed_scaling = rational(*value, "Ash scaling status addition")?;
-        }
+    ] {
+        validate_nonnegative_float(value, "Ash scaling status addition")?;
     }
-
-    if !bleed_scaling.is_zero() {
-        if !data.rules.status_buildup_scales {
-            add_nonzero(&mut bleed, bleed_scaling);
-        } else {
-            let reinforce = reinforce_level(weapon, upgrade, data)?;
-            bleed += scale_status_value(
-                bleed_scaling,
-                STAT_ARC,
-                stats.arc,
-                weapon.status_curve_ids.blood,
-                aow.scaling_status_flags.bleed,
-                weapon,
-                reinforce,
-                data,
-            )?;
-        }
-    }
-    Ok(if has_scaling {
-        floor_ratio(&bleed)
-    } else {
-        bleed
-    })
+    rational(
+        super::apply_aow_bleed_buffs(project(&bleed)?, weapon, upgrade, stats, data, Some(aow))?,
+        "buffed bleed buildup",
+    )
 }
 
 pub(crate) fn exact_scalar_route(
@@ -1185,40 +1160,6 @@ pub(crate) fn exact_buff_damage(
         return Ok(ExactRational::zero());
     }
     Ok(multiply_if_needed(attack_power, weapon_buff_mv) / rational(100.0, "percent denominator")?)
-}
-
-#[allow(clippy::too_many_arguments)]
-fn scale_status_value(
-    value: ExactRational,
-    stat_idx: usize,
-    stat_value: u8,
-    curve_id: usize,
-    flag: Option<bool>,
-    weapon: &Weapon,
-    reinforce: &ReinforceLevel,
-    data: &GameData,
-) -> Result<ExactRational, String> {
-    if value <= ExactRational::zero()
-        || !flag.unwrap_or(weapon.scaling[stat_idx] > 0.0)
-        || weapon.scaling[stat_idx] <= 0.0
-    {
-        return Ok(value);
-    }
-    let curve_mult = data
-        .calc_curve_value(curve_id, u16::from(stat_value))
-        .ok_or_else(|| format!("missing curve_id={curve_id} for status scaling"))?;
-    Ok(value
-        * (ExactRational::one()
-            + rational(weapon.scaling[stat_idx], "weapon status scaling")?
-                * rational(
-                    reinforce.scaling_mult[stat_idx],
-                    "reinforce status scaling multiplier",
-                )?
-                * rational(curve_mult, "status calc-correct curve")?))
-}
-
-fn floor_ratio(value: &ExactRational) -> ExactRational {
-    value.floor()
 }
 
 fn validate_nonnegative_float(value: f32, field: &str) -> Result<(), String> {
@@ -2532,11 +2473,11 @@ mod tests {
         let exact = exact_bleed(weapon, 25, &stats, &data, None).expect("exact bleed");
         let rounded = calculate_bleed_buildup(weapon, 25, &stats, &data).expect("f32 bleed");
         assert_eq!(exact.to_f32(), Some(rounded));
-        assert_eq!(exact, floor_ratio(&exact));
+        assert_eq!(exact, exact.floor());
     }
 
     #[test]
-    fn public_status_evaluator_uses_the_exact_bleed_floor() {
+    fn public_status_evaluator_rounds_scaled_bleed_before_flooring() {
         let mut data = data();
         let mut weapon = weapon(&data, "Uchigatana", "Blood").clone();
         weapon.scaling[STAT_ARC] = 9.0;
@@ -2565,20 +2506,55 @@ mod tests {
             crate::math::calculate_status_buildup(&weapon, 0, &stats, &data)
                 .unwrap()
                 .bleed,
-            6.0
+            7.0
         );
         assert_eq!(
             calculate_bleed_buildup(&weapon, 0, &stats, &data).unwrap(),
-            6.0
+            7.0
         );
         assert_eq!((0.7_f32 * 10.0).floor(), 7.0);
     }
 
     #[test]
-    fn exact_status_floor_keeps_binary_boundary() {
-        let scaled = rational(0.7, "status base").expect("status base")
-            * rational(10.0, "status scale").expect("status scale");
-        assert_eq!(scaled.floor(), ExactRational::from_integer(BigInt::from(6)));
-        assert_eq!(0.7_f32 * 10.0_f32, 7.0);
+    fn ash_status_additions_round_before_the_final_bleed_floor() {
+        let mut data = data();
+        let mut weapon = weapon(&data, "Uchigatana", "Blood").clone();
+        weapon.scaling[STAT_ARC] = 9.0;
+        data.weapon_passive_overlays.remove(&weapon.weapon_id);
+        data.weapon_passives
+            .get_mut(&weapon.weapon_id)
+            .unwrap()
+            .buildup
+            .bleed = 0.0;
+        data.reinforce[usize::from(weapon.reinforce_type)][0]
+            .as_mut()
+            .unwrap()
+            .scaling_mult[STAT_ARC] = 1.0;
+        data.calc_correct[weapon.status_curve_ids.blood]
+            .as_mut()
+            .unwrap()[99] = Some(1.0);
+        let mut ash = data
+            .aows
+            .iter()
+            .find(|ash| ash.name == "Seppuku")
+            .unwrap()
+            .clone();
+        let stats = Stats {
+            vig: 10,
+            mnd: 10,
+            end: 10,
+            str: 11,
+            dex: 15,
+            int: 10,
+            fai: 10,
+            arc: 99,
+        };
+        for (flat, scaling, flag) in [(0.3, 6.7, false), (0.0, 0.7, true)] {
+            ash.bleed_buildup_add = flat;
+            ash.scaling_status_add.bleed = scaling;
+            ash.scaling_status_flags.bleed = Some(flag);
+            let actual = exact_bleed(&weapon, 0, &stats, &data, Some(&ash)).unwrap();
+            assert_eq!(actual, ExactRational::from_integer(BigInt::from(7)));
+        }
     }
 }

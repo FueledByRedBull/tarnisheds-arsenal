@@ -16,36 +16,174 @@ export interface PresetImportPreview {
 }
 
 export function savedBuildIndex(): SavedBuildIndexV1 {
-  const value = readJson<unknown>(INDEX_KEY);
-  if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.builds)) {
+  const raw = localStorage.getItem(INDEX_KEY);
+  if (raw === null) {
+    if (presetStorageKeys().length) throw new Error("Saved build index is missing. Open backup and recovery before saving.");
     return { version: 1, builds: [] };
   }
-  const builds = value.builds.filter((entry): entry is SavedBuildIndexV1["builds"][number] => {
-    if (!isRecord(entry)) return false;
-    try {
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.builds)) throw new Error();
+    const ids = new Set<string>();
+    for (const entry of value.builds) {
+      if (!isRecord(entry)) throw new Error();
       assertText(entry.id, "saved index id", 128);
       assertText(entry.name, "saved index name", 200);
-      if (typeof entry.profileId !== "string") entry.profileId = "vanilla";
+      entry.profileId ??= "vanilla";
       assertProfileId(entry.profileId, "saved index profileId");
       assertDataVersion(entry.dataVersion);
       assertDate(entry.updatedAt, "saved index updatedAt");
-      return true;
-    } catch {
-      return false;
+      if (ids.has(entry.id)) throw new Error();
+      ids.add(entry.id);
     }
+    return value as unknown as SavedBuildIndexV1;
+  } catch {
+    throw new Error("Saved build index is damaged. Open backup and recovery before saving; original data is preserved.");
+  }
+}
+
+export const MAX_BUILD_BACKUP_BYTES = 10 * 1024 * 1024;
+export const MAX_BUILD_BACKUP_COUNT = 500;
+
+export interface SavedBuildInspection {
+  presets: BuildPreset[];
+  issues: string[];
+  orphanCount: number;
+  needsRecovery: boolean;
+  // Exact source bytes let confirmation reject changes made since the preview.
+  source: { index: string | null; records: [string, string | null][] };
+}
+
+function presetStorageKeys(): string[] {
+  const keys: string[] = [];
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+    if (key?.startsWith(PRESET_PREFIX) || key?.startsWith(LEGACY_PRESET_PREFIX)) keys.push(key);
+  }
+  return keys.sort();
+}
+
+function presetIndexEntry(preset: BuildPreset): SavedBuildIndexV1["builds"][number] {
+  const { id, name, profileId, dataVersion, updatedAt } = preset;
+  return { id, name, profileId, dataVersion, updatedAt };
+}
+
+export function inspectSavedBuilds(): SavedBuildInspection {
+  const source = {
+    index: localStorage.getItem(INDEX_KEY),
+    records: presetStorageKeys().map((key): [string, string | null] => [key, localStorage.getItem(key)]),
+  };
+  const issues: string[] = [];
+  let index: SavedBuildIndexV1 = { version: 1, builds: [] };
+  let needsRecovery = false;
+  try { index = savedBuildIndex(); }
+  catch (error) { issues.push(String((error as Error).message)); needsRecovery = true; }
+  const valid = new Map<string, BuildPreset>();
+  // Prefer the current record when both schema versions remain after migration.
+  for (const [key, raw] of source.records) {
+    try {
+      const preset = migratePreset(JSON.parse(raw ?? ""));
+      assertPreset(preset);
+      const prefix = key.startsWith(PRESET_PREFIX) ? PRESET_PREFIX : LEGACY_PRESET_PREFIX;
+      if (preset.id !== key.slice(prefix.length)) throw new Error("record ID does not match its storage key");
+      valid.set(preset.id, preset);
+    } catch (error) { issues.push(`${key}: ${(error as Error).message}`); }
+  }
+  const indexedIds = new Set(index.builds.map((entry) => entry.id));
+  for (const entry of index.builds) {
+    const preset = valid.get(entry.id);
+    if (!preset) { issues.push(`Saved build '${entry.name}' has no readable record.`); needsRecovery = true; }
+    else if (Object.entries(presetIndexEntry(preset)).some(([key, value]) => entry[key as keyof typeof entry] !== value)) {
+      issues.push(`Saved build '${entry.name}' has out-of-date index details.`);
+      needsRecovery = true;
+    }
+  }
+  const presets = [...valid.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id));
+  const orphanCount = presets.filter((preset) => !indexedIds.has(preset.id)).length;
+  return { presets, issues, orphanCount, needsRecovery: needsRecovery || orphanCount > 0, source };
+}
+
+export function recoverSavedBuilds(preview: SavedBuildInspection): string | null {
+  const current = inspectSavedBuilds();
+  if (JSON.stringify(current.source) !== JSON.stringify(preview.source)) {
+    throw new Error("Saved builds changed after this preview. Scan again before recovery.");
+  }
+  const backupKey = current.source.index === null ? null : `tarnisheds-arsenal.savedBuildIndex.recovery.${crypto.randomUUID()}`;
+  if (backupKey) localStorage.setItem(backupKey, current.source.index!);
+  // Copy the original index first; a quota failure must never erase its only copy.
+  localStorage.setItem(INDEX_KEY, JSON.stringify({ version: 1, builds: current.presets.map(presetIndexEntry) }));
+  return backupKey;
+}
+
+export function savedBuildBackupText(inspection: SavedBuildInspection): string {
+  const text = JSON.stringify({ format: "tarnisheds-arsenal.build-backup", version: 1, builds: inspection.presets });
+  previewBuildBackup(text);
+  return text;
+}
+
+export function previewBuildBackup(raw: string): { presets: BuildPreset[]; bytes: number } {
+  const bytes = new TextEncoder().encode(raw).byteLength;
+  if (bytes > MAX_BUILD_BACKUP_BYTES) throw new Error("Build backup is too large (limit 10 MiB).");
+  const parsed: unknown = JSON.parse(raw);
+  if (!isRecord(parsed) || parsed.format !== "tarnisheds-arsenal.build-backup" || parsed.version !== 1) {
+    throw new Error("Not a supported saved-build backup. Individual presets use Import JSON or Share Text.");
+  }
+  assertArray(parsed.builds, "backup builds", MAX_BUILD_BACKUP_COUNT);
+  const presets = parsed.builds.map((value) => {
+    const preset = migratePreset(value);
+    assertPreset(preset);
+    return preset;
   });
-  return { version: 1, builds };
+  const ids = new Set(presets.map((preset) => preset.id));
+  if (ids.size !== presets.length) throw new Error("Build backup contains duplicate IDs.");
+  return { presets, bytes };
+}
+
+export function restoreBuildBackup(raw: string): BuildPreset[] {
+  const { presets } = previewBuildBackup(raw);
+  const inspection = inspectSavedBuilds();
+  if (inspection.needsRecovery) throw new Error("Recover the saved-build index before restoring a backup.");
+  const index = savedBuildIndex();
+  if (index.builds.length + presets.length > MAX_BUILD_BACKUP_COUNT) throw new Error("Saved build limit reached (500). Export or delete builds before restoring.");
+  const names = index.builds.map((entry) => entry.name);
+  const now = new Date().toISOString();
+  const imported = presets.map((preset) => {
+    const name = uniqueImportedName(preset.name, names);
+    names.push(name);
+    // Restores never overwrite existing records, including unreadable records.
+    let id: string;
+    do { id = crypto.randomUUID(); } while (localStorage.getItem(`${PRESET_PREFIX}${id}`) !== null || localStorage.getItem(`${LEGACY_PRESET_PREFIX}${id}`) !== null);
+    return { ...preset, id, name, updatedAt: now };
+  });
+  const written: string[] = [];
+  try {
+    for (const preset of imported) {
+      const key = `${PRESET_PREFIX}${preset.id}`;
+      localStorage.setItem(key, JSON.stringify(preset));
+      written.push(key);
+    }
+    localStorage.setItem(INDEX_KEY, JSON.stringify({ version: 1, builds: [...imported.map(presetIndexEntry), ...index.builds] }));
+  } catch (error) {
+    // If the process stops before index commit, these new records are recoverable orphans.
+    for (const key of written) {
+      try { localStorage.removeItem(key); } catch { /* Leave the recoverable record when storage is unavailable. */ }
+    }
+    throw error;
+  }
+  return imported;
 }
 
 export function loadBuildPreset(id: string): BuildPreset | null {
-  const raw = readJson<unknown>(`${PRESET_PREFIX}${id}`) ?? readJson<unknown>(`${LEGACY_PRESET_PREFIX}${id}`);
-  try {
-    const preset = migratePreset(raw);
-    assertPreset(preset);
-    return preset;
-  } catch {
-    return null;
+  for (const prefix of [PRESET_PREFIX, LEGACY_PRESET_PREFIX]) {
+    const raw = localStorage.getItem(`${prefix}${id}`);
+    if (raw === null) continue;
+    try {
+      const preset = migratePreset(JSON.parse(raw));
+      assertPreset(preset);
+      if (preset.id === id) return preset;
+    } catch { /* A readable older record can still be recovered. */ }
   }
+  return null;
 }
 
 export function saveBuildPreset(input: {
@@ -99,7 +237,7 @@ export function deleteBuildPreset(id: string) {
 
 export function parsePresetText(raw: string): BuildPreset {
   const text = raw.trim();
-  const bytes = new TextEncoder().encode(text).byteLength;
+  const bytes = new TextEncoder().encode(raw).byteLength;
   if (bytes > MAX_PRESET_IMPORT_BYTES) {
     throw new Error(`Preset is too large (${bytes.toLocaleString()} bytes; limit ${MAX_PRESET_IMPORT_BYTES.toLocaleString()}).`);
   }
@@ -171,6 +309,15 @@ function persistPreset(preset: BuildPreset) {
   ];
   const key = `${PRESET_PREFIX}${preset.id}`;
   const previous = localStorage.getItem(key);
+  if (previous !== null) {
+    try {
+      const stored = migratePreset(JSON.parse(previous));
+      assertPreset(stored);
+      if (stored.id !== preset.id) throw new Error();
+    } catch {
+      throw new Error("Existing saved build is unreadable. Export available builds and use a new ID; original data is preserved.");
+    }
+  }
   localStorage.setItem(key, JSON.stringify(preset));
   try {
     localStorage.setItem(INDEX_KEY, JSON.stringify({ version: 1, builds } satisfies SavedBuildIndexV1));
@@ -196,7 +343,10 @@ function assertPreset(value: BuildPreset) {
   assertSolvedBuild(value.selectedBuild, "selectedBuild");
   assertSolvedBuild(value.compareTarget, "compareTarget");
   assertArray(value.compareBench, "compareBench", 8);
-  value.compareBench.forEach((build, index) => assertSolvedBuild(build, `compareBench[${index}]`));
+  value.compareBench.forEach((build, index) => {
+    if (build === null) throw invalidPreset(`compareBench[${index}] must be a build`);
+    assertSolvedBuild(build, `compareBench[${index}]`);
+  });
 }
 
 function assertRequest(value: unknown): asserts value is OptimizeRequestDto {
@@ -225,23 +375,23 @@ function assertRequest(value: unknown): asserts value is OptimizeRequestDto {
   assertNullableText(value.affinity, "request.affinity", 80);
   assertNullableText(value.aowName, "request.aowName", 200);
   assertNullableText(value.weaponTypeKey, "request.weaponTypeKey", 100);
-  if (!["all", "standard_only", "somber_only"].includes(String(value.somberFilter))) {
+  if (typeof value.somberFilter !== "string" || !["all", "standard_only", "somber_only"].includes(value.somberFilter)) {
     throw invalidPreset("request.somberFilter is invalid");
   }
   if (!isRecord(value.filters) || value.filters.version !== 1) throw invalidPreset("request.filters must use schema version 1");
   assertArray(value.filters.entries, "request.filters.entries", 512);
   value.filters.entries.forEach((entry, index) => {
     if (!isRecord(entry)) throw invalidPreset(`request.filters.entries[${index}] must be an object`);
-    if (!["weapon_family", "weapon_type", "affinity", "aow", "reinforcement", "coverage"].includes(String(entry.dimension))) {
+    if (typeof entry.dimension !== "string" || !["weapon_family", "weapon_type", "affinity", "aow", "reinforcement", "coverage"].includes(entry.dimension)) {
       throw invalidPreset(`request.filters.entries[${index}].dimension is invalid`);
     }
     assertText(entry.id, `request.filters.entries[${index}].id`, 128);
-    if (!["include", "exclude"].includes(String(entry.mode))) throw invalidPreset(`request.filters.entries[${index}].mode is invalid`);
+    if (typeof entry.mode !== "string" || !["include", "exclude"].includes(entry.mode)) throw invalidPreset(`request.filters.entries[${index}].mode is invalid`);
   });
-  if (!["automatic", "weapon", "loadout"].includes(String(value.resultGrouping))) {
+  if (typeof value.resultGrouping !== "string" || !["automatic", "weapon", "loadout"].includes(value.resultGrouping)) {
     throw invalidPreset("request.resultGrouping is invalid");
   }
-  if (!["max_ar", "max_physical_ar", "max_ar_plus_bleed", "aow_first_hit", "aow_full_sequence"].includes(String(value.objective))) {
+  if (typeof value.objective !== "string" || !["max_ar", "max_physical_ar", "max_ar_plus_bleed", "aow_first_hit", "aow_full_sequence"].includes(value.objective)) {
     throw invalidPreset("request.objective is invalid");
   }
   assertInteger(value.topK, "request.topK", 1, 500);
@@ -252,6 +402,14 @@ function assertSolvedBuild(value: unknown, label: string): asserts value is Solv
   if (!isRecord(value)) throw invalidPreset(`${label} must be an object or null`);
   assertInteger(value.weaponId, `${label}.weaponId`, 0, 0xffff_ffff);
   assertText(value.weaponName, `${label}.weaponName`, 200);
+  if (value.weaponTypeName !== undefined) assertText(value.weaponTypeName, `${label}.weaponTypeName`, 200, true);
+  if (value.requirements !== undefined) assertCombatStats(value.requirements, `${label}.requirements`, 0xff);
+  if (value.effectiveScaling !== undefined) {
+    if (!isRecord(value.effectiveScaling)) throw invalidPreset(`${label}.effectiveScaling must be an object`);
+    for (const key of ["str", "dex", "int", "fai", "arc"] as const) {
+      assertFinite(value.effectiveScaling[key], `${label}.effectiveScaling.${key}`);
+    }
+  }
   assertText(value.affinity, `${label}.affinity`, 80);
   assertBoolean(value.isSomber, `${label}.isSomber`);
   assertInteger(value.upgrade, `${label}.upgrade`, 0, 25);
@@ -272,10 +430,11 @@ function assertAowRoute(value: unknown, label: string) {
   if (!isRecord(value)) throw invalidPreset(`${label} must be an object or null`);
   assertText(value.routeId, `${label}.routeId`, 200);
   assertText(value.routeLabel, `${label}.routeLabel`, 300);
-  assertInteger(value.routePriority, `${label}.routePriority`, -1_000_000, 1_000_000);
+  assertInteger(value.routePriority, `${label}.routePriority`, 0, 0xffff);
   assertNullableText(value.buffActivationActionId, `${label}.buffActivationActionId`, 200);
   assertFinite(value.firstHitDamage, `${label}.firstHitDamage`);
   assertDamage(value.totalDamage, `${label}.totalDamage`);
+  assertFinite(value.totalPoiseDamage, `${label}.totalPoiseDamage`);
   assertStatus(value.totalStatusBuildup, `${label}.totalStatusBuildup`);
   assertFinite(value.totalStaminaCost, `${label}.totalStaminaCost`);
   assertArray(value.actions, `${label}.actions`, 512);
@@ -283,7 +442,7 @@ function assertAowRoute(value: unknown, label: string) {
     const actionLabel = `${label}.actions[${actionIndex}]`;
     if (!isRecord(action)) throw invalidPreset(`${actionLabel} must be an object`);
     assertText(action.actionId, `${actionLabel}.actionId`, 200);
-    assertInteger(action.actionOrder, `${actionLabel}.actionOrder`, 0, 1_000_000);
+    assertInteger(action.actionOrder, `${actionLabel}.actionOrder`, 0, 0xffff);
     assertFinite(action.staminaCost, `${actionLabel}.staminaCost`);
     assertArray(action.hits, `${actionLabel}.hits`, 4096);
     action.hits.forEach((hit, hitIndex) => assertAowHit(hit, `${actionLabel}.hits[${hitIndex}]`));
@@ -292,10 +451,11 @@ function assertAowRoute(value: unknown, label: string) {
 
 function assertAowHit(value: unknown, label: string) {
   if (!isRecord(value)) throw invalidPreset(`${label} must be an object`);
-  assertInteger(value.sheetRow, `${label}.sheetRow`, 0, 10_000_000);
-  assertInteger(value.hitOrder, `${label}.hitOrder`, 0, 1_000_000);
+  assertInteger(value.sheetRow, `${label}.sheetRow`, 0, 0xffff);
+  assertInteger(value.hitOrder, `${label}.hitOrder`, 0, 0xffff);
   assertText(value.rawName, `${label}.rawName`, 500, true);
   assertDamage(value.damage, `${label}.damage`);
+  assertFinite(value.poiseDamage, `${label}.poiseDamage`);
   assertStatus(value.statusBuildup, `${label}.statusBuildup`);
   assertText(value.physicalAttackAttribute, `${label}.physicalAttackAttribute`, 80, true);
   assertBoolean(value.buffActive, `${label}.buffActive`);
@@ -316,10 +476,10 @@ function assertAowHit(value: unknown, label: string) {
   });
 }
 
-function assertCombatStats(value: unknown, label: string) {
+function assertCombatStats(value: unknown, label: string, max = 99) {
   if (!isRecord(value)) throw invalidPreset(`${label} must be an object`);
   for (const key of ["strStat", "dex", "intStat", "fai", "arc"] as const) {
-    assertInteger(value[key], `${label}.${key}`, 0, 99);
+    assertInteger(value[key], `${label}.${key}`, 0, max);
   }
 }
 
@@ -409,7 +569,9 @@ function assertNullableText(value: unknown, label: string, maxLength: number): a
 }
 
 function assertFinite(value: unknown, label: string): asserts value is number {
-  if (typeof value !== "number" || !Number.isFinite(value)) throw invalidPreset(`${label} must be finite`);
+  if (typeof value !== "number" || !Number.isFinite(value) || !Number.isFinite(Math.fround(value))) {
+    throw invalidPreset(`${label} must be a finite native float`);
+  }
 }
 
 function assertInteger(value: unknown, label: string, min: number, max: number): asserts value is number {
@@ -445,18 +607,6 @@ function uniqueImportedName(name: string, existingNames: string[]): string {
     const suffix = number === 1 ? " (imported)" : ` (imported ${number})`;
     const candidate = `${name.slice(0, 200 - suffix.length).trimEnd()}${suffix}`;
     if (!occupied.has(candidate.toLocaleLowerCase())) return candidate;
-  }
-}
-
-function readJson<T>(key: string): T | null {
-  const raw = localStorage.getItem(key);
-  if (!raw) {
-    return null;
-  }
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return null;
   }
 }
 

@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { cpus, platform, release, arch } from "node:os";
+import { setTimeout as delay } from "node:timers/promises";
 import { cancellationMeasured, medianSample, sampleStatistics } from "./native-responsiveness-metrics.mjs";
 import { launchPackagedApp, stopSession } from "./packaged-session.mjs";
 
@@ -124,7 +125,7 @@ try {
     }
     const allSamples = [...warmupSamples, ...samples];
     const fingerprints = new Set(allSamples.map((sample) => sample.fingerprint ?? sample.resultFingerprint));
-    const requests = new Set(allSamples.map((sample) => fingerprint(sample.request ?? sample.requests)));
+    const requests = new Set(allSamples.map((sample) => JSON.stringify(sample.request ?? sample.requests)));
     if (requests.size !== 1 || requests.has(undefined)) throw new Error(`${name} changed or omitted requests across warmups/repeats`);
     if (!name.endsWith("cancellation") && (fingerprints.size !== 1 || fingerprints.has(undefined))) {
       throw new Error(`${name} changed or omitted its result fingerprint across warmups/repeats`);
@@ -306,7 +307,7 @@ async function measureNativeWork(page, heavy, label) {
     heavyMs: round(heavyFinishedAt - heavyStartedAt),
     lightMs: round(lightFinishedAt - lightStartedAt),
     totalMs: round(finishedAt - heavyStartedAt),
-    fingerprint: fingerprint(heavyResult),
+    fingerprint: JSON.stringify(heavyResult),
     resultCount: Array.isArray(heavyResult) ? heavyResult.length : undefined,
     lightCommand: "get_data_manifest",
     lightCompleted: Boolean(lightResult),
@@ -355,7 +356,7 @@ async function measureCancellableJob(page, config) {
     cancelled: finished?.finished?.cancelled === true,
     cancellationMeasured: measured,
     requestedDelayMs: delayMs,
-    resultFingerprint: fingerprint(config.result?.(finished) ?? finished?.finished),
+    resultFingerprint: JSON.stringify(config.result?.(finished) ?? finished?.finished),
     lightCommand: "get_data_manifest",
     lightCompletedBeforeHeavy: lightFinishedAt <= finishedAt,
   };
@@ -396,16 +397,8 @@ async function invokeNative(page, command, args) {
   }, { command, args });
 }
 
-function fingerprint(value) {
-  return JSON.stringify(value);
-}
-
 function round(value) {
   return Math.round(value * 100) / 100;
-}
-
-function delay(ms) {
-  return new Promise((resolveDelay) => setTimeout(resolveDelay, ms));
 }
 
 function parseOptions(args) {

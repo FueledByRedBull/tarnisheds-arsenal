@@ -1,14 +1,38 @@
 from __future__ import annotations
 
 import json
+import argparse
+import os
+import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
-from tools.phase4.benchmark_optimizer_phases import PHASE_KEYS, compare_baseline
+from tools.phase4.benchmark_optimizer_phases import PHASE_KEYS, compare_baseline, main, thread_policy
 
 
 class BenchmarkComparisonTests(unittest.TestCase):
+    def test_thread_policy_accepts_only_default_or_positive_counts(self) -> None:
+        for value in ("default", "1", "2", "4"):
+            self.assertEqual(thread_policy(value), value)
+        for value in ("0", "-1", "1.5", "auto", ""):
+            with self.subTest(value=value), self.assertRaises(argparse.ArgumentTypeError):
+                thread_policy(value)
+
+    def test_cli_thread_policy_controls_the_benchmark_environment(self) -> None:
+        for arguments, expected in (([], "8"), (["--threads=default"], None), (["--threads=2"], "2")):
+            with (
+                self.subTest(arguments=arguments),
+                patch.object(sys, "argv", ["benchmark", *arguments]),
+                patch.dict(os.environ, {"RAYON_NUM_THREADS": "8"}),
+                patch("tools.phase4.benchmark_optimizer_phases.capture_build_metadata"),
+                patch("tools.phase4.benchmark_optimizer_phases.subprocess.run", side_effect=RuntimeError("stop before benchmark")) as run,
+                self.assertRaisesRegex(RuntimeError, "stop before benchmark"),
+            ):
+                main()
+            self.assertEqual(run.call_args.kwargs["env"].get("RAYON_NUM_THREADS"), expected)
+
     def test_timing_improvements_cannot_hide_changed_ranked_results(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             baseline = Path(temporary) / "baseline.json"

@@ -42,7 +42,8 @@ export function useWeaponProfile(
 
   useEffect(() => {
     const controller = new AbortController();
-    const token = profileRequest.current.begin(stableSignature({
+    const currentRequest = profileRequest.current;
+    const token = currentRequest.begin(stableSignature({
       profileId: request.profileId,
       weaponName: request.weaponName,
       affinity: request.affinity,
@@ -81,7 +82,7 @@ export function useWeaponProfile(
 
     return () => {
       controller.abort();
-      profileRequest.current.invalidate(token);
+      currentRequest.invalidate(token);
     };
   }, [patchRequest, request.affinity, request.aowName, request.profileId, request.weaponName, setError]);
 
