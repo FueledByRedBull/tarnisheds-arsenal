@@ -2,7 +2,7 @@ import { Clipboard, Download, GitCompareArrows, LockKeyhole, Pencil, Pin, Radar,
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { cachedWeaponProfile } from "../../lib/analysis-cache";
-import { compactNumber, fixed1, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
+import { compactNumber, fixed1, metricForObjective, objectiveLabel, statLine, statLockLine } from "../../lib/format";
 import {
   deleteBuildPreset,
   downloadPresetJson,
@@ -16,12 +16,15 @@ import {
   savedBuildIndex,
   shareTextForPreset,
 } from "../../lib/presets";
-import { budgetSnapshot, buildOptimizeRequest, rowFingerprint } from "../../lib/session";
+import { budgetSnapshot, buildOptimizeRequest, hasCombatStatLocks, rowFingerprint } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { AowRouteDto, BuildPreset, CatalogDto, OptimizeRequestDto, SavedBuildIndexEntryV1, SolvedBuildDto, StatusBuildupDto, WeaponProfileDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
 import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 import packageInfo from "../../../package.json";
+import { explainBuild } from "../../lib/build-explanation";
+import { ReproductionReport } from "../shared/ReproductionReport";
+import { SavedBuildRecovery } from "../shared/SavedBuildRecovery";
 
 export function Inspector() {
   const catalog = useDesktopStore((state) => state.catalog);
@@ -30,7 +33,7 @@ export function Inspector() {
   const resultsStale = useDesktopStore((state) => state.resultsStale);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
   const setWorkspace = useDesktopStore((state) => state.setWorkspace);
-  const useRowAsLocks = useDesktopStore((state) => state.useRowAsLocks);
+  const applyRowLocks = useDesktopStore((state) => state.useRowAsLocks);
   const compareBench = useDesktopStore((state) => state.compareBench);
   const toggleCompareBench = useDesktopStore((state) => state.toggleCompareBench);
   const snapshot = budgetSnapshot(catalog, request);
@@ -40,22 +43,24 @@ export function Inspector() {
     (action) => action.hits.flatMap((hit) => hit.warnings),
   ) ?? [])];
   const [weaponProfile, setWeaponProfile] = useState<WeaponProfileDto | null>(null);
+  const selectedWeapon = selected?.weaponName;
+  const selectedAffinity = selected?.affinity;
 
   useEffect(() => {
     const controller = new AbortController();
-    if (!selected) {
+    if (!selectedWeapon || selectedAffinity === undefined) {
       setWeaponProfile(null);
       return () => controller.abort();
     }
-    cachedWeaponProfile(request.profileId, selected.weaponName, selected.affinity, controller.signal)
-      .then(setWeaponProfile)
+    cachedWeaponProfile(request.profileId, selectedWeapon, selectedAffinity, controller.signal)
+      .then((profile) => { if (!controller.signal.aborted) setWeaponProfile(profile); })
       .catch(() => { if (!controller.signal.aborted) setWeaponProfile(null); });
     return () => controller.abort();
-  }, [request.profileId, selected?.affinity, selected?.weaponName]);
+  }, [request.profileId, selectedAffinity, selectedWeapon]);
 
   async function lockSelected() {
     if (!selected) return;
-    useRowAsLocks(selected);
+    applyRowLocks(selected);
     await runSearchFromStore();
   }
 
@@ -132,6 +137,10 @@ export function Inspector() {
             </small>
           </div>
           <AowRouteDetails route={selected.aowRoute} />
+          {!resultsStale ? <details className="model-coverage build-explanation">
+            <summary>Why this build?</summary>
+            {explainBuild(selected, buildOptimizeRequest(catalog, request, lockedStatMode)).map(line => <p key={line}>{line}</p>)}
+          </details> : null}
           <ModelCoverage />
         </>
       ) : (
@@ -153,16 +162,17 @@ export function Inspector() {
         <span>Lock State</span>
         <strong>{fixedStats
           ? "Fixed stats evaluated as entered"
-          : lockedStatMode && request.lockStr !== null ? "Exact upgrade and stat locks active" : "Open or partial locks"}</strong>
+          : lockedStatMode && hasCombatStatLocks(request) ? "Combat stat locks active" : "Combat stats unlocked"}</strong>
         <small>
           {fixedStats
             ? "This profile does not derive a class budget or redistribute combat stats."
-            : request.lockStr === null
+            : !lockedStatMode || !hasCombatStatLocks(request)
               ? "No captured combat stat locks."
-              : `STR ${request.lockStr} DEX ${request.lockDex} INT ${request.lockInt} FAI ${request.lockFai} ARC ${request.lockArc}`}
+              : statLockLine(request)}
         </small>
       </div>
       <SavedBuildPanel />
+      <ReproductionReport />
     </aside>
   );
 }
@@ -323,6 +333,7 @@ function SavedBuildPanel() {
   const pushNotice = useDesktopStore((state) => state.pushNotice);
   const setError = useDesktopStore((state) => state.setError);
   const [entries, setEntries] = useState<SavedBuildIndexEntryV1[]>([]);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [name, setName] = useState("Build Preset");
   const [importText, setImportText] = useState("");
@@ -336,9 +347,16 @@ function SavedBuildPanel() {
     : "unknown";
 
   function refresh() {
-    const next = savedBuildIndex().builds;
-    setEntries(next);
-    if (!selectedId && next[0]) setSelectedId(next[0].id);
+    try {
+      const next = savedBuildIndex().builds;
+      setEntries(next);
+      setLibraryError(null);
+      setSelectedId(current => next.some(entry => entry.id === current) ? current : next[0]?.id ?? "");
+    } catch (error) {
+      setEntries([]);
+      setSelectedId("");
+      setLibraryError(error instanceof Error ? error.message : String(error));
+    }
   }
 
   useEffect(refresh, []);
@@ -347,10 +365,6 @@ function SavedBuildPanel() {
   function cancelMigration() {
     migrationController.current?.abort();
     setMigrating(false);
-  }
-
-  function currentPreset() {
-    return selectedId ? loadBuildPreset(selectedId) : null;
   }
 
   function saveCurrent(id?: string) {
@@ -373,7 +387,7 @@ function SavedBuildPanel() {
   }
 
   function loadCurrent() {
-    const preset = currentPreset();
+    const preset = selectedPreset;
     if (!preset) return;
     if (preset.profileId !== request.profileId) {
       pushNotice({
@@ -510,7 +524,7 @@ function SavedBuildPanel() {
       return;
     }
     try {
-      const deletedName = currentPreset()?.name ?? "saved build";
+      const deletedName = selectedPreset?.name ?? "saved build";
       deleteBuildPreset(selectedId);
       cancelMigration();
       setSelectedId("");
@@ -531,7 +545,7 @@ function SavedBuildPanel() {
   }
 
   async function copyCurrent() {
-    const preset = currentPreset();
+    const preset = selectedPreset;
     if (!preset) return;
     try {
       await navigator.clipboard.writeText(shareTextForPreset(preset));
@@ -542,7 +556,7 @@ function SavedBuildPanel() {
   }
 
   function exportCurrent() {
-    const preset = currentPreset();
+    const preset = selectedPreset;
     if (preset) downloadPresetJson(preset);
   }
 
@@ -581,7 +595,10 @@ function SavedBuildPanel() {
       return { value: null, error: error instanceof Error ? error.message : String(error) };
     }
   }, [importText]);
-  const selectedPreset = currentPreset();
+  let selectedPreset: BuildPreset | null = null;
+  let selectedReadError: string | null = null;
+  try { selectedPreset = selectedId ? loadBuildPreset(selectedId) : null; }
+  catch { selectedReadError = "Saved builds could not be read. Storage access is unavailable; existing data was preserved."; }
   const selectedPresetStale = Boolean(selectedPreset && dataVersion !== "unknown" && selectedPreset.dataVersion !== dataVersion);
 
   return (
@@ -590,6 +607,7 @@ function SavedBuildPanel() {
         <Save size={17} />
         <span>Saved Builds</span>
       </div>
+      {libraryError || selectedReadError ? <p className="warning-text" role="alert">{libraryError || selectedReadError}</p> : null}
       <label>
         Name
         <input value={name} onChange={(event) => { cancelMigration(); setName(event.target.value); }} />
@@ -605,22 +623,22 @@ function SavedBuildPanel() {
           ))}
         </select>
       </label>
-      {selectedId ? <small className="saved-build-status">{presetVersionLabel(currentPreset()?.dataVersion, dataVersion)}</small> : null}
+      {selectedId ? <small className="saved-build-status">{presetVersionLabel(selectedPreset?.dataVersion, dataVersion)}</small> : null}
       <div className="inspector-actions stacked">
         <button type="button" onClick={() => saveCurrent()}><Save size={15} />Save new</button>
-        <button type="button" onClick={() => saveCurrent(selectedId)} disabled={!selectedId}><Save size={15} />Update selected</button>
-        <button type="button" onClick={loadCurrent} disabled={!selectedId || isMigrating}><Upload size={15} />{selectedPresetStale ? "Load inputs only" : "Load"}</button>
+        <button type="button" onClick={() => saveCurrent(selectedId)} disabled={!selectedPreset}><Save size={15} />Update selected</button>
+        <button type="button" onClick={loadCurrent} disabled={!selectedPreset || isMigrating}><Upload size={15} />{selectedPresetStale ? "Load inputs only" : "Load"}</button>
         {selectedPresetStale ? (
           <button type="button" onClick={() => selectedPreset && void migratePreset(selectedPreset)} disabled={isMigrating}>
             <Upload size={15} />{isMigrating ? "Migrating..." : "Migrate data"}
           </button>
         ) : null}
-        <button type="button" onClick={renameCurrent} disabled={!selectedId}><Pencil size={15} />Rename</button>
-        <button type="button" onClick={deleteCurrent} disabled={!selectedId}>
+        <button type="button" onClick={renameCurrent} disabled={!selectedPreset}><Pencil size={15} />Rename</button>
+        <button type="button" onClick={deleteCurrent} disabled={!selectedPreset}>
           <Trash2 size={15} />{deleteArmedId === selectedId ? "Confirm Delete" : "Delete"}
         </button>
-        <button type="button" onClick={exportCurrent} disabled={!selectedId}><Download size={15} />Export</button>
-        <button type="button" onClick={copyCurrent} disabled={!selectedId}><Clipboard size={15} />Copy Share</button>
+        <button type="button" onClick={exportCurrent} disabled={!selectedPreset}><Download size={15} />Export</button>
+        <button type="button" onClick={copyCurrent} disabled={!selectedPreset}><Clipboard size={15} />Copy Share</button>
       </div>
       <label>
         Import JSON or Share Text
@@ -654,6 +672,7 @@ function SavedBuildPanel() {
       <button className="clear-locks" type="button" onClick={() => void importCurrent()} disabled={!importPreview?.value || isMigrating}>
         <Upload size={15} />{isMigrating ? "Migrating..." : "Import"}
       </button>
+      <SavedBuildRecovery onChanged={refresh} revision={entries} />
     </div>
   );
 }

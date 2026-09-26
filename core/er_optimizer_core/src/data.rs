@@ -983,6 +983,10 @@ fn parse_aow_attack_row(
     row: &[String],
     aow_id: u16,
 ) -> Result<AowAttackRow, String> {
+    let poise_base = parse_f32(table.get(row, "poise_base")?, "poise_base")?;
+    if poise_base < 0.0 {
+        return Err("poise_base must be nonnegative".into());
+    }
     let overwrite_raw = table
         .get(row, "overwrite_attack_element_correct_id")?
         .parse::<i32>()
@@ -1039,7 +1043,8 @@ fn parse_aow_attack_row(
         ],
         status_mv: parse_f32(table.get(row, "status_mv")?, "status_mv")?,
         weapon_buff_mv: parse_f32(table.get(row, "weapon_buff_mv")?, "weapon_buff_mv")?,
-        poise_mv: optional_f32(table, row, "poise_mv")?,
+        poise_mv: parse_f32(table.get(row, "poise_mv")?, "poise_mv")?,
+        poise_base,
         stamina_cost: parse_f32(table.get(row, "stamina_cost")?, "stamina_cost")?,
         stamina_cost_mode: match table.get(row, "stamina_cost_mode")? {
             "weapon_scaled" => StaminaCostMode::WeaponScaled,
@@ -1056,6 +1061,10 @@ fn load_aow_route_assignments(
     for row in &table.rows {
         let aow_id = parse_u16(table.get(row, "aow_id")?, "aow_id")?;
         let sheet_row = parse_u16(table.get(row, "sheet_row")?, "sheet_row")?;
+        let hit_count = parse_u16(table.get(row, "hit_count")?, "hit_count")?;
+        if hit_count == 0 {
+            return Err("route hit_count must be positive".into());
+        }
         out.entry((aow_id, sheet_row))
             .or_default()
             .push(AowRouteAssignment {
@@ -1065,6 +1074,7 @@ fn load_aow_route_assignments(
                 action_id: table.get(row, "action_id")?.to_string(),
                 action_order: parse_u16(table.get(row, "action_order")?, "action_order")?,
                 hit_order: parse_u16(table.get(row, "hit_order")?, "hit_order")?,
+                hit_count,
             });
     }
     for assignments in out.values_mut() {
@@ -1168,6 +1178,22 @@ mod tests {
         load_weapon_passives, parse_f32, parse_status_effect_source,
     };
     use crate::model::AowEffectRole;
+
+    #[test]
+    fn route_counts_are_required_positive_integers() {
+        let header = "aow_id,sheet_row,route_id,route_label,route_priority,action_id,action_order,hit_order,hit_count\n";
+        for value in ["", "0", "-1", "1.5", "65536"] {
+            let csv = format!("{header}200,1224,full,Full,0,cast,1,0,{value}\n");
+            let table = CsvTable::from_content("test".into(), &csv).unwrap();
+            assert!(super::load_aow_route_assignments(table).is_err(), "{value}");
+        }
+        let csv = format!("{header}200,1224,full,Full,0,cast,1,0,4\n");
+        let table = CsvTable::from_content("test".into(), &csv).unwrap();
+        assert_eq!(
+            super::load_aow_route_assignments(table).unwrap()[&(200, 1224)][0].hit_count,
+            4
+        );
+    }
 
     fn duplicate_first_data_row(content: &str) -> String {
         let mut lines = content.lines();

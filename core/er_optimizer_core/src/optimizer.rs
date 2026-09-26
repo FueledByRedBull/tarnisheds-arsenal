@@ -114,6 +114,9 @@ impl PreparedLoadoutEvaluator<'_> {
     where
         F: FnMut() -> bool + Send,
     {
+        if !should_continue() {
+            return Err("cancelled".into());
+        }
         validate_reusable_loadout(&self.template, request, self.data)?;
         let constraints = build_combat_constraints(request)?;
         if request.top_k == 1 && request.locked_combat_stats.iter().all(Option::is_some) {
@@ -773,7 +776,7 @@ where
     validate_profile_capabilities(request, data)?;
     let constraints = build_combat_constraints(request)?;
     let weapons = Arc::from(
-        prepare_weapons_with_cancel(request, data, constraints, &mut should_continue)?
+        prepare_weapons_with_cancel(request, data, Some(constraints), &mut should_continue)?
             .into_boxed_slice(),
     );
     build_prepared_plan(
@@ -808,7 +811,7 @@ where
     validate_profile_capabilities(request, data)?;
     let constraints = build_combat_constraints(request)?;
     let weapons = Arc::from(
-        prepare_weapons_with_cancel(request, data, constraints, &mut should_continue)?
+        prepare_weapons_with_cancel(request, data, Some(constraints), &mut should_continue)?
             .into_boxed_slice(),
     );
     build_prepared_plan(
@@ -927,15 +930,10 @@ where
     preparation_request.min_combat_stats = [0; COMBAT_STAT_COUNT];
     preparation_request.locked_combat_stats = [None; COMBAT_STAT_COUNT];
     preparation_request.top_k = 1;
-    let constraints = build_combat_constraints(&preparation_request)?;
+    build_combat_constraints(&preparation_request)?;
     let weapons = Arc::from(
-        prepare_weapons_with_cancel(
-            &preparation_request,
-            data,
-            constraints,
-            &mut should_continue,
-        )?
-        .into_boxed_slice(),
+        prepare_weapons_with_cancel(&preparation_request, data, None, &mut should_continue)?
+            .into_boxed_slice(),
     );
     Ok(PreparedLoadoutEvaluator {
         template: preparation_request,
@@ -966,15 +964,10 @@ where
     preparation_request.min_combat_stats = [0; COMBAT_STAT_COUNT];
     preparation_request.locked_combat_stats = [None; COMBAT_STAT_COUNT];
     preparation_request.top_k = 1;
-    let constraints = build_combat_constraints(&preparation_request)?;
+    build_combat_constraints(&preparation_request)?;
     let weapons = Arc::from(
-        prepare_weapons_with_cancel(
-            &preparation_request,
-            data,
-            constraints,
-            &mut should_continue,
-        )?
-        .into_boxed_slice(),
+        prepare_weapons_with_cancel(&preparation_request, data, None, &mut should_continue)?
+            .into_boxed_slice(),
     );
     Ok(PreparedUpgradeSeriesEvaluator {
         template: preparation_request,
@@ -1170,8 +1163,13 @@ where
     }
     let max_constraints = build_combat_constraints(&max_request)?;
     let shared_weapons = Arc::from(
-        prepare_weapons_with_cancel(&max_request, data, max_constraints, &mut should_continue)?
-            .into_boxed_slice(),
+        prepare_weapons_with_cancel(
+            &max_request,
+            data,
+            Some(max_constraints),
+            &mut should_continue,
+        )?
+        .into_boxed_slice(),
     );
     let mut max_plan = Some(build_prepared_plan(
         &max_request,
@@ -1567,13 +1565,35 @@ where
         progress_cb,
     ));
     progress.emit_initial()?;
+    // Keep serial's exact top-K cutoff visible across Rayon folds.
+    // Only these objectives consume work-unit cutoffs during scoring.
+    let shared_candidates = matches!(
+        request.objective,
+        OptimizeObjective::MaxAr
+            | OptimizeObjective::MaxPhysicalAr
+            | OptimizeObjective::BleedThenAr
+    )
+    .then(|| Mutex::new(Vec::<ScoredCandidate>::with_capacity(request.top_k)));
     let partial_results = work_units
         .par_iter()
         .try_fold(
             || Vec::<ScoredCandidate>::with_capacity(request.top_k),
             |mut candidates, unit| {
                 let mut local_progress = ParallelLocalProgress::new(Arc::clone(&progress));
-                let cutoff = score_cutoff(plan, *unit, &candidates, group_mode);
+                // Completed units are already shared; copy only the exact cutoff.
+                let shared_cutoff = if let Some(shared_candidates) = &shared_candidates {
+                    let shared = shared_candidates
+                        .lock()
+                        .map_err(|_| "failed to lock parallel top-K candidates".to_string())?;
+                    score_cutoff(plan, *unit, &shared, group_mode).cloned()
+                } else {
+                    None
+                };
+                let cutoff = if shared_candidates.is_some() {
+                    shared_cutoff.as_ref()
+                } else {
+                    score_cutoff(plan, *unit, &candidates, group_mode)
+                };
                 let result =
                     search_dp_work_unit(plan, *unit, group_mode, &mut local_progress, cutoff, None);
                 let finish_result = local_progress.finish();
@@ -1581,6 +1601,18 @@ where
                     (Ok(results), Ok(())) => results,
                     (Err(error), _) | (_, Err(error)) => return Err(error),
                 };
+                if let Some(shared_candidates) = &shared_candidates {
+                    let mut shared = shared_candidates
+                        .lock()
+                        .map_err(|_| "failed to lock parallel top-K candidates".to_string())?;
+                    merge_scored_top_k(
+                        &mut shared,
+                        results.iter().cloned(),
+                        &plan.weapons,
+                        group_mode,
+                        request.top_k,
+                    );
+                }
                 merge_scored_top_k(
                     &mut candidates,
                     results,
@@ -3365,7 +3397,6 @@ where
         if self.cancelled.load(Ordering::Relaxed) && !force {
             return Err("cancelled".to_string());
         }
-        let checked = self.checked.load(Ordering::Relaxed);
         if !force {
             if self.progress_every == 0 {
                 return Ok(());
@@ -3374,6 +3405,7 @@ where
                 .last_emit
                 .lock()
                 .map_err(|_| "failed to lock progress emit state".to_string())?;
+            let checked = self.checked.load(Ordering::Relaxed);
             if !ignore_count_threshold
                 && checked.saturating_sub(emit_guard.last_checked) < self.progress_every
             {
@@ -3388,28 +3420,31 @@ where
             };
         } else if let Ok(mut emit_guard) = self.last_emit.lock() {
             *emit_guard = ProgressEmitState {
-                last_checked: checked,
+                last_checked: self.checked.load(Ordering::Relaxed),
                 last_at: Instant::now(),
             };
         }
 
-        let best_score = self
-            .best_score
-            .lock()
-            .map_err(|_| "failed to lock progress best score".to_string())?
-            .unwrap_or(0.0);
-        let snapshot = ProgressSnapshot {
-            checked,
-            total: self.total,
-            eligible: self.eligible.load(Ordering::Relaxed),
-            best_score,
-            elapsed_ms: self.started.elapsed().as_millis() as u64,
-        };
         let should_continue = {
             let mut callback = self
                 .callback
                 .lock()
                 .map_err(|_| "failed to lock progress callback".to_string())?;
+            // Capture after acquiring delivery order so a delayed emitter cannot
+            // send an older snapshot after a newer worker's notification.
+            let best_score = self
+                .best_score
+                .lock()
+                .map_err(|_| "failed to lock progress best score".to_string())?
+                .unwrap_or(0.0);
+            let eligible = self.eligible.load(Ordering::Relaxed);
+            let snapshot = ProgressSnapshot {
+                checked: self.checked.load(Ordering::Relaxed),
+                total: self.total,
+                eligible,
+                best_score,
+                elapsed_ms: self.started.elapsed().as_millis() as u64,
+            };
             (callback)(snapshot)
         };
         if !should_continue {
@@ -3433,6 +3468,36 @@ where
     eligible: u64,
     best_score: Option<f32>,
     poll_count: u32,
+}
+
+#[cfg(test)]
+mod parallel_progress_tests {
+    use super::*;
+
+    #[test]
+    fn callback_reads_progress_after_waiting_for_previous_delivery() {
+        let delivered = Arc::new(AtomicU64::new(0));
+        let observed = Arc::clone(&delivered);
+        let progress = Arc::new(ParallelSearchProgress::new(2, 1, move |snapshot| {
+            observed.store(snapshot.checked, Ordering::Relaxed);
+            true
+        }));
+        // Hold the callback while a worker prepares a notification. More work
+        // finishes before delivery, so that notification must not be obsolete.
+        let delivery = progress.callback.lock().unwrap();
+        let worker_progress = Arc::clone(&progress);
+        let worker = std::thread::spawn(move || worker_progress.record(1, 1, None, true));
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while progress.last_emit.lock().unwrap().last_checked != 1 {
+            assert!(Instant::now() < deadline, "worker did not reach delivery");
+            std::thread::yield_now();
+        }
+        progress.checked.fetch_add(1, Ordering::Relaxed);
+        progress.eligible.fetch_add(1, Ordering::Relaxed);
+        drop(delivery);
+        worker.join().unwrap().unwrap();
+        assert_eq!(delivered.load(Ordering::Relaxed), 2);
+    }
 }
 
 impl<F> ParallelLocalProgress<F>
@@ -3592,13 +3657,13 @@ fn prepare_weapons<'a>(
     data: &'a GameData,
     constraints: CombatConstraints,
 ) -> Result<Vec<PreparedWeapon<'a>>, String> {
-    prepare_weapons_with_cancel(request, data, constraints, &mut || true)
+    prepare_weapons_with_cancel(request, data, Some(constraints), &mut || true)
 }
 
 fn prepare_weapons_with_cancel<'a>(
     request: &OptimizeRequest,
     data: &'a GameData,
-    constraints: CombatConstraints,
+    constraints: Option<CombatConstraints>,
     should_continue: &mut impl FnMut() -> bool,
 ) -> Result<Vec<PreparedWeapon<'a>>, String> {
     let mut out = Vec::new();
@@ -3609,7 +3674,10 @@ fn prepare_weapons_with_cancel<'a>(
         if !weapon_matches_request(weapon, request, data) || !data.weapon_ar_supported(weapon) {
             continue;
         }
-        if !weapon_requirements_can_fit(request, constraints, weapon) {
+        // Reusable evaluators can change stat budgets after preparation.
+        if constraints
+            .is_some_and(|constraints| !weapon_requirements_can_fit(request, constraints, weapon))
+        {
             continue;
         }
         let Some(upgrades) = available_upgrades(weapon, request, data) else {

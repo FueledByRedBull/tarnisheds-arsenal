@@ -3,6 +3,34 @@ import { expect, test } from "@playwright/test";
 type AnalysisKind = "path" | "affinity";
 
 for (const kind of ["path", "affinity"] as const) {
+  test(`${kind} blocks stale selections in navigation and an already-open workspace`, async ({ page }) => {
+    await prepareAnalysis(page, kind);
+    await page.locator(".stat-grid input").first().fill("");
+    await expect(page.getByRole("navigation").getByRole("button", {
+      name: kind === "path" ? "Paths" : "Affinity Watch", exact: true,
+    })).toBeDisabled();
+    await expect(page.getByText("Update Rankings before continuing")).toBeVisible();
+    await expect(page.getByRole("button", { name: kind === "path" ? "Trace paths" : "Watch affinities", exact: true })).toHaveCount(0);
+  });
+
+  test(`${kind} cancels a late native start when its selected ranking becomes stale`, async ({ page }) => {
+    await prepareAnalysis(page, kind);
+    await installLateStartProbe(page, kind);
+    await page.getByRole("button", { name: kind === "path" ? "Trace paths" : "Watch affinities", exact: true }).click();
+    await expect.poll(() => page.evaluate(() => (window as any).lateAnalysisProbe.started)).toBe(true);
+    await page.locator(".stat-grid input").first().fill("");
+    await page.evaluate(() => (window as any).lateAnalysisProbe.resolveStart({ jobId: "stale-job" }));
+    await expect.poll(() => page.evaluate(() => (window as any).lateAnalysisProbe.cancellations)).toContain("stale-job");
+    await expect(page.getByText("Update Rankings before continuing")).toBeVisible();
+    expect(await page.evaluate(async () => {
+      const { useDesktopStore } = await import("/src/lib/state.ts");
+      const state = useDesktopStore.getState();
+      return { paths: state.paths, affinity: state.affinityPayload };
+    })).toEqual({ paths: [], affinity: null });
+  });
+}
+
+for (const kind of ["path", "affinity"] as const) {
   test(`${kind} adapter keeps native ownership after status and cancellation failures`, async ({ page }) => {
     await prepareAnalysis(page, kind);
     await installFailureProbe(page, kind);

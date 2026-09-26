@@ -12,6 +12,8 @@ import { PathFinishedDto, PathPreviewDto, SolvedBuildDto } from "../../lib/types
 export function PathsView() {
   const catalog = useDesktopStore((state) => state.catalog);
   const selected = useDesktopStore((state) => state.selected);
+  const resultsStale = useDesktopStore((state) => state.resultsStale);
+  const setWorkspace = useDesktopStore((state) => state.setWorkspace);
   const target = useDesktopStore((state) => state.compareTarget);
   const request = useDesktopStore((state) => state.request);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
@@ -56,7 +58,7 @@ export function PathsView() {
     setPathProgress,
     onStarted: (jobId, generation) => {
       const current = useDesktopStore.getState();
-      if (!current.isPathBusy || current.pathGeneration !== generation || current.activePathSignature !== signature) {
+      if (current.resultsStale || !current.isPathBusy || current.pathGeneration !== generation || current.activePathSignature !== signature) {
         throw new DOMException("Calculation stopped.", "AbortError");
       }
       setActivePathJobId(jobId);
@@ -64,6 +66,7 @@ export function PathsView() {
   });
 
   async function refresh() {
+    if (useDesktopStore.getState().resultsStale) return;
     if (!selected) {
       pushNotice({ scope: "paths", tone: "warning", message: "Pick a selected result first." });
       return;
@@ -124,7 +127,7 @@ export function PathsView() {
   function finishPathPreview(payload: PathFinishedDto, generation: number) {
     const current = useDesktopStore.getState();
     if (
-      generation !== current.pathGeneration ||
+      current.resultsStale || generation !== current.pathGeneration ||
       current.activePathSignature !== signature ||
       payload.jobId !== current.activePathJobId
     ) return;
@@ -141,6 +144,19 @@ export function PathsView() {
     current.setPathBusy(false);
     current.setActivePathJobId(null);
     current.setPathProgress(null);
+  }
+
+  if (resultsStale) {
+    return (
+      <section className="workspace-panel paths-panel">
+        <div className="workspace-header"><div><h1>Paths</h1><span>Requires current ranked results</span></div></div>
+        <div className="empty-state workspace-prerequisite">
+          <strong>Update Rankings before continuing</strong>
+          <span>The selected build belongs to the previous query.</span>
+          <button type="button" onClick={() => setWorkspace("rankings")}>Go to Rankings</button>
+        </div>
+      </section>
+    );
   }
 
   return (

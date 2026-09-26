@@ -49,3 +49,27 @@ it("bounds cancellation while a status reply is stalled, then reconciles that sa
   await expect(replacement).resolves.toMatchObject({ jobId: "new" });
   expect(start).toHaveBeenCalledTimes(2);
 });
+
+it("rejects a different job's terminal reply without releasing the current worker", async () => {
+  vi.useFakeTimers();
+  type Status = { finished: { jobId: string; cancelled: boolean; error: null } | null };
+  let oldFinished = false;
+  const status = vi.fn().mockResolvedValueOnce({ finished: { jobId: "unrelated", cancelled: false, error: null } })
+    .mockImplementation(async (jobId: string) => ({
+      finished: jobId === "new" || oldFinished ? { jobId, cancelled: false, error: null } : null,
+    }));
+  const cancel = vi.fn().mockResolvedValue(true);
+  const start = vi.fn().mockResolvedValueOnce({ jobId: "old" }).mockResolvedValue({ jobId: "new" });
+  const queue = createNativeJobQueue<Status>(status, cancel);
+  const old = queue(start).catch(error => error);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(await old).toMatchObject({ message: "Native status returned a different job." });
+  const replacement = queue(start);
+  await vi.advanceTimersByTimeAsync(200);
+  expect(start).toHaveBeenCalledTimes(1);
+  expect(cancel).toHaveBeenCalledExactlyOnceWith("old");
+  oldFinished = true;
+  await vi.advanceTimersByTimeAsync(1_000);
+  await expect(replacement).resolves.toMatchObject({ jobId: "new" });
+  expect(start).toHaveBeenCalledTimes(2);
+});

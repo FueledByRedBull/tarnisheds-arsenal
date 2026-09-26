@@ -36,6 +36,12 @@ The phase and workflow runners also accept `--baseline <report>`. Baseline
 comparisons are advisory unless a stable dedicated runner opts into
 `--fail-on-regression`.
 
+The phase runner accepts `--threads=1`, `--threads=2`, or another positive count;
+`--threads=default` explicitly clears `RAYON_NUM_THREADS`. Without that option it
+preserves an existing environment setting and otherwise selects one thread. The
+report records the actual Rayon pool size, and the harness checks complete ordered
+results for every warmup as well as every measured repeat.
+
 From `apps/desktop/`, with the same thread setting, probe a packaged executable:
 
 ```powershell
@@ -92,6 +98,174 @@ low-level K=500 workload; this small sequential comparison does not establish a
 general threading policy. The measurements predate the subsequent math experiments
 and do not establish Convergence performance or a cancellation latency guarantee.
 
+### Rayon policy investigation
+
+On 2026-09-22, the existing phase harness was rebuilt from core source at `e34f300`
+with warmup-result verification added, Rust 1.97.0, ThinLTO and one codegen unit.
+The same release executable (`c6ffc35a8b57ae50...`) ran on the Ryzen 7 7800X3D,
+without CPU affinity pinning or competing builds/tests. The observed default pool
+contained 16 threads. Each policy used one warmup and three measured repeats in
+each of two blocks, ordered 1/2/4/default and default/4/2/1. Completed affordable
+cases were reused when the broader experiment was narrowed; expensive exploratory
+cases occurred between some first-block cases, and their actual execution order
+is retained. This is a bounded local comparison, not a randomized experiment.
+
+All five requests and complete ordered results matched across 120 measured samples
+and 40 warmups. Core/data inputs, compiler configuration and the executable hash
+were unchanged. Values below are total core-phase median [min–max] milliseconds
+across six measured samples per cell:
+
+| Case | 1 thread | 2 threads | 4 threads | Default (16) |
+| --- | ---: | ---: | ---: | ---: |
+| Vanilla, RL46 Max AR, weapon grouping, K=500 | 724.19 [680.74–774.58] | 620.64 [616.62–667.22] | 522.48 [514.67–528.96] | 488.74 [462.77–510.72] |
+| Convergence, same harness case | 489.29 [473.11–519.01] | 323.52 [315.60–326.22] | 211.48 [209.19–212.27] | 159.77 [157.56–164.22] |
+| Vanilla, Katana Bleed then AR | 10.32 [9.95–10.76] | 8.70 [8.33–8.88] | 7.36 [7.14–8.43] | 6.58 [6.15–6.69] |
+| Convergence, Katana Bleed then AR | 9.36 [9.10–12.23] | 6.25 [6.03–6.54] | 4.42 [4.21–4.55] | 3.44 [3.22–3.57] |
+| Vanilla, locked War Cry, K=500 | 21.63 [20.60–22.42] | 21.92 [20.29–22.55] | 21.55 [20.30–22.43] | 22.38 [20.76–23.34] |
+
+The first four cases use exact profile upgrade caps; the locked War Cry case
+searches all upgrades. Convergence uses the harness's class-based budget, not the
+desktop's fixed Custom-stats workflow. The historical native K=500 measurement
+above used loadout grouping and IPC/job timing, so it is a different workload.
+
+Exploratory higher-budget searches exposed the opposite tradeoff. In one block
+with three samples per policy, Vanilla RL150 exact-upgrade Max AR took 630.79
+[622.95–633.87] ms at one thread, 611.02 [596.47–620.81] at two, 9883.76
+[9868.52–9899.87] at four, and 6308.05 [6108.58–6727.84] at the default 16.
+Scoring accounted for the regression: its median rose from 49.71 ms at one thread
+to 9472.71 at four. Complete results matched every policy. The corresponding
+Convergence case improved from 422.77 to 176.00 ms at one/default threads.
+
+The RL93 all-upgrade case took 1495.06/6680.49 ms in Vanilla and
+1367.86/2347.71 ms in Convergence at one/two threads, with complete result parity
+for those samples. The Vanilla four-thread process exceeded its 120-second cap
+while attempting one warmup and three repeats. That is a censored process timeout,
+not an individual sample duration or a parity pass. This broader matrix was
+stopped and narrowed; its partial results and failure remain recorded.
+
+The runtime policy remains unchanged. A universal one-thread cap would regress
+the completed low-budget searches, while a universal four-thread cap would regress
+the measured Convergence case. The unresolved high-budget Vanilla regression was
+traced and fixed in the follow-up below. The earlier timeout remains a censored
+historical result, not a parity pass. Raw samples, full fingerprints, source and
+compiler identity, execution order, scripts and timeout evidence remain under
+`.codex-tmp/frontend-maintenance/threads/` (`bounded/summary.json` and
+`exploratory-summary.json`).
+
+### Cross-worker exact top-K cutoff
+
+The Vanilla RL150 Max AR slowdown came from losing the serial scorer's global
+top-K cutoff in parallel mode. Serial scoring visits estimate-ordered work units
+and shares its exact-ranked candidates after each unit. Rayon workers previously
+kept independent top-K lists and merged them only after scoring, so exact upper
+bounds could not prune work using candidates found by another worker. Parallel
+scoring now copies the shared exact cutoff and merges new results into the
+bounded top-K list at work-unit boundaries for Max AR, Max Physical AR and
+Bleed then AR. Pruning still uses exact
+rational scores and strict upper-bound comparisons, preserving equal-score tie
+handling; work continues outside the lock.
+
+On 2026-09-23, the same Vanilla RL150 Max AR request (5.147 billion estimated
+combinations, 3,294 weapon candidates, exact upgrades, K=5) was measured before
+and after with Rust 1.97.0, one warmup and three measured samples per thread
+policy. The before reports use the clean `e6534df` source; final reports share one
+source fingerprint, compiler fingerprint and dataset identity. Complete ordered
+result hashes match across every policy.
+
+| Rayon threads | Before scoring median | After scoring median | After total median |
+| ---: | ---: | ---: | ---: |
+| 1 | 49.12 ms | 49.65 ms | 667.73 ms |
+| 4 | 12,208.87 ms | 64.18 ms | 476.85 ms |
+| 16 (default) | — | 30.33 ms | 458.69 ms |
+
+The four-thread scoring phase is about 190 times faster than the prior build.
+The serial path is unchanged, although its measured time varies between runs.
+The K=500 loadout-grouped export exposed overhead in the initial shared-list
+implementation, so the final implementation copies only the cutoff and merges
+only each completed unit's new results. With the same request, compiler,
+dataset and full 500-row output, its baseline versus final scoring medians were
+55.96 versus 52.91 ms at one thread, 758.67 versus 99.85 ms at four threads,
+and 1,903.32 versus 112.82 ms at the default 16 threads. Total medians were
+692.98 versus 704.19 ms, 1,289.49 versus 564.06 ms, and 2,415.84 versus
+684.26 ms respectively. Other final checks also returned identical ordered
+results: Vanilla RL46 weapon-grouped K=500 completed in 756 ms at one thread
+and 508 ms at four; Vanilla RL93 all-upgrades K=25 completed in 2,114 ms at one
+and 873 ms at four; Convergence RL150 completed in 445 ms at one and 151 ms
+with the default 16-thread pool. These comparisons include preparation,
+which can parallelize independently. The complete reports and fingerprints are
+retained under `.codex-tmp/optimizer-shared-cutoff-2026-09-22/`.
+
+The measured evidence supports keeping the current Rayon selection threshold and
+pool policy. A rebuilt Windows executable passed the packaged WebView2 smoke,
+including Vanilla RL150 exact-level high-level AR search and a Convergence search.
+The post-change production native probe also passed with one thread and the runtime
+default: a 500-row search, a locked solve, both 50-level Paths modes and Search,
+Solve and Paths cancellation. Both policies used the same executable, manifest and
+requests. Complete result fingerprints matched, every cancellation was accepted
+and observed terminally cancelled, and concurrent manifest requests completed
+before the heavy jobs. The refined executable repeated the production suite,
+and seven isolated one-thread 500-row search samples clustered at 1.43–1.64 s
+(median 1.47 s); an earlier full-suite one-thread run had unusually variable
+2.05–4.67 s samples, retained as an outlier rather than erased. Raw reports are
+under `.codex-tmp/optimizer-shared-cutoff-2026-09-22/native-*.json`.
+These IPC timings include status polling; they do not measure UI frame latency or
+the exact instant a cancelled worker exits.
+
+The calculation audit matched all 3,295 supported Vanilla 1.17 weapon/affinity
+configurations to the pinned [T. Clark calculator source](https://github.com/ThomasJClark/elden-ring-weapon-calculator/blob/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a/src/calculator/calculator.ts)
+and [regulation data](https://github.com/ThomasJClark/elden-ring-weapon-calculator/blob/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a/public/regulation-vanilla-v1.17.js).
+All 19,770 AR and passive-status evaluations passed at zero, sampled intermediate
+and maximum upgrade, in one- and two-handed use. The maximum AR component
+difference was 0.0001303 against a 0.001 tolerance; integer passive status
+matched exactly. Against freshly unpacked local regulation tables, the exhaustive
+legal-combination check matched 87,879 transferable and 3,197 native Vanilla
+weapon/Ash pairs and rejected 294,341 invalid transferable pairs. For Convergence
+3.0.0.1 it matched 147,201 transferable and 3,084 native pairs and rejected
+241,857 invalid transferable pairs. Fixed-stat evaluation covered 364,304 Vanilla
+and 601,140 Convergence cases. These checks do not enumerate every stat allocation
+or intermediate upgrade. The subsequent correctness audit located the matching
+[T. Clark Convergence 3.0.0.1 reference](https://github.com/ThomasJClark/elden-ring-weapon-calculator/blob/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a/public/regulation-convergence-v3.0.0.1.js),
+whose hash matches the tracked reference. The earlier claim that no matching
+independent reference existed was incorrect. Reports and the task-local reproduction script are retained under
+`.codex-tmp/optimizer-shared-cutoff-2026-09-22/`.
+
+The rebuilt production executable passed packaged WebView2 smoke; this follow-up
+did not rebuild or validate an MSI. Release packaging still requires the clean
+committed source and the checks in `docs/releasing.md`.
+
+## Correctness follow-up (2026-09-26)
+
+The subsequent audit found source/model defects outside the parallel cutoff:
+missing repeated skill contacts and fixed stance terms, five truncated Scadutree
+values, and status-floor boundaries that could change a Bleed-then-AR winner.
+The corrected snapshots use schema 6 and runtime model
+`aow-routes-effects-v8/exact-v2`. Historical timings above retain their original
+model identity; they are not a same-contract comparison against this correction.
+
+Against pinned T. Clark source and profile-matched data, the corrected evaluator
+passes 1,345,950 Vanilla cases across all 3,295 supported configurations and 415,011
+Convergence cases covering all 3,156 supported configurations. Maximum AR component
+differences are 0.0001337143 and 0.0004300 respectively, below 0.001. All 32 original
+Bloodfiend's Fork bleed failures now pass and are permanent external-validator
+regressions. A separate 33,462-case sweep covers its 13 affinities, 26 upgrades and
+99 Arcane values against the shared status arithmetic; 4,056 of those are numerical
+checks below requirements, not legal optimized builds.
+
+Raw checks compare 16 fields across all 2,654 distinct exported attacks, including
+fixed stance damage, plus all 21 Scadutree outgoing multipliers and the 15 explicit
+repetition annotations. Only the already documented Flame Spit correction-ID
+normalization differs from raw fields. At the original fixed stats, Glintblade
+Phalanx now totals 449.89035 instead of 280.97452, retains first-hit damage 56.305275,
+and gives each blade five stance damage. Needle Piercer includes ten needles and
+totals 919.95435. These are raw complete-contact routes before target defenses.
+
+Saved-result regressions cover stale analysis/export cancellation, partial stat
+locks and malformed poise values. A deterministic callback-contention test covers
+the additional progress-ordering race. Raw evidence and before/after numerical
+reports remain in `.codex-tmp/correctness-audit-2026-09-26/`; supported mechanics and
+unverified per-hit status semantics are stated in the
+[model reference](model-reference.md#known-reference-differences).
+
 ## Release compiler settings
 
 Both Cargo packages set `lto = "thin"` and `codegen-units = 1` for release builds.
@@ -113,7 +287,7 @@ commits and runner images. A fresh cache and a warm cache are distinct baselines
 
 Pull requests select checks from the actual merge diff. Documentation-only changes
 run metadata validation and the required aggregate; frontend-only changes also run
-the frontend unit, build and browser checks. Rust, data, tooling, dependency,
+the React lint, Rust–TypeScript contract, frontend unit, build and browser checks. Rust, data, tooling, dependency,
 workflow and unknown paths run every check. Deletions and both sides of renames
 are included. The aggregate rejects failed routing and unexpected skipped jobs.
 Every push to `main` runs the complete suite, preserving exact-commit release

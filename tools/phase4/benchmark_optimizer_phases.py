@@ -29,6 +29,17 @@ PHASE_KEYS = (
 )
 
 
+def thread_policy(value: str) -> str:
+    if value == "default":
+        return value
+    try:
+        if int(value) > 0:
+            return str(int(value))
+    except ValueError:
+        pass
+    raise argparse.ArgumentTypeError("threads must be 'default' or a positive integer")
+
+
 def compare_baseline(
     cases: list[dict[str, Any]], baseline_path: Path, threshold: float,
     *, requested_cases: list[str] | None = None, coverage: dict[str, Any] | None = None,
@@ -105,6 +116,10 @@ def main() -> int:
     parser.add_argument("--case", help="Run one named Rust benchmark case.")
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--warmups", type=int, default=1)
+    parser.add_argument(
+        "--threads", type=thread_policy,
+        help="Rayon thread count, or 'default' to unset RAYON_NUM_THREADS. Omitted: environment or 1.",
+    )
     parser.add_argument("--output", type=Path)
     parser.add_argument("--baseline", type=Path)
     parser.add_argument("--max-regression-percent", type=float, default=20.0)
@@ -127,6 +142,10 @@ def main() -> int:
 
     environment = os.environ.copy()
     environment.setdefault("RAYON_NUM_THREADS", "1")
+    if args.threads == "default":
+        environment.pop("RAYON_NUM_THREADS", None)
+    elif args.threads is not None:
+        environment["RAYON_NUM_THREADS"] = args.threads
     command = [
         "cargo",
         "run",

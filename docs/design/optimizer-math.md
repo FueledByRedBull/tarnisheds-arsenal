@@ -373,18 +373,22 @@ Equal pairs retain route and stat tie evaluation.
 
 ### Numerical contract
 
-The `exact-v1` scoring contract treats each finite, validated loaded `f32` model value
-as its exact binary rational. Products, sums, and percentage division in ranking
-formulas are evaluated exactly. This does not recover precision lost while extracting
+The `exact-v2` scoring contract treats each finite, validated loaded `f32` damage
+coefficient as its exact binary rational. Products, sums, and percentage division
+in damage ranking formulas are evaluated exactly. This does not recover precision lost while extracting
 or loading the source data. Ranked winners near display-rounded ties can therefore
 differ.
 
-Two-handing still uses the integer effective-STR rule. Status scaling retains its
-existing floor boundaries: weapon bleed is floored before Ash additions, followed
-by the existing final floor when scaling status additions are present. The positions
-of these floors are unchanged, but their exactly evaluated operands can produce
-different integer status values near a boundary than the former `f32` evaluator.
-These are one-dimensional ARC lookups, so they do not break additivity across stats.
+Two-handing still uses the integer effective-STR rule. Status scaling uses the
+shared `f32` evaluator before its gameplay floors: weapon bleed is floored before
+Ash additions, followed by the existing final floor when scaling status additions
+are present. The final status value is converted to an exact binary rational for
+every optimizer comparison. These are one-dimensional ARC lookups, so they do not
+break additivity across stats. For example, Heavy Bloodfiend's Fork +25 at ARC50
+evaluates `50 * (1 + 0.25 * 1.8 * 0.8)` to 68 in this status sequence; exact-v1
+floored the unrounded rational operand 67.99999979138374 to 67. No epsilon is used.
+The change is isolated to gameplay status evaluation; DP accumulation, pruning,
+route damage, and tie comparisons remain exact.
 
 Each fixed-loadout metric component is normalized to a common integer scale, with
 common numerator factors removed. Before using `i128`, the solver bounds every

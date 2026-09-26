@@ -12,6 +12,12 @@ import {
   savedBuildIndex,
   renameBuildPreset,
   replaceImportedBuildPreset,
+  inspectSavedBuilds,
+  recoverSavedBuilds,
+  savedBuildBackupText,
+  previewBuildBackup,
+  restoreBuildBackup,
+  MAX_BUILD_BACKUP_BYTES,
 } from "./presets";
 import type { BuildPresetV1, SolvedBuildDto } from "./types";
 
@@ -63,6 +69,21 @@ function solvedBuild(): SolvedBuildDto {
     aowFullSequenceDamage: 300,
     aowRoute: null,
     score: 500,
+  };
+}
+
+function routedBuild(): SolvedBuildDto {
+  const build = solvedBuild();
+  const status = { bleed: 45, frost: 0, poison: 0, scarletRot: 0, sleep: 0, madness: 0, death: 0 };
+  return { ...build, weaponTypeName: "Katana", requirements: build.stats,
+    effectiveScaling: { str: 0.2, dex: 1.4, int: 0, fai: 0, arc: 0 },
+    aowRoute: { routeId: "light", routeLabel: "Light", routePriority: 0, buffActivationActionId: null,
+      firstHitDamage: 300, totalDamage: build.ar, totalPoiseDamage: 10, totalStatusBuildup: status, totalStaminaCost: 10,
+      actions: [{ actionId: "attack", actionOrder: 0, staminaCost: 10, hits: [{
+        sheetRow: 1, hitOrder: 0, rawName: "Unsheathe", damage: build.ar, poiseDamage: 10,
+        statusBuildup: status, physicalAttackAttribute: "Slash", buffActive: false, warnings: [], effects: [],
+      }] }],
+    },
   };
 }
 
@@ -258,6 +279,190 @@ describe("saved build persistence", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it("rejects null comparison pins before import, restore, or recovery can expose them to the UI", () => {
+    const malformed = { ...preset(), version: 2, compareBench: [null] };
+    expect(() => parsePresetText(JSON.stringify(malformed))).toThrow(/compareBench/);
+    expect(() => restoreBuildBackup(JSON.stringify({
+      format: "tarnisheds-arsenal.build-backup", version: 1, builds: [malformed],
+    }))).toThrow(/compareBench/);
+    expect(savedBuildIndex().builds).toEqual([]);
+    localStorage.setItem(`tarnisheds-arsenal.savedBuild.v2.${malformed.id}`, JSON.stringify(malformed));
+    expect(loadBuildPreset(malformed.id)).toBeNull();
+    expect(inspectSavedBuilds().presets).toEqual([]);
+  });
+
+  it("rejects array-valued request enums instead of accepting their string conversion", () => {
+    const mutations = [
+      ["somberFilter", ["all"]], ["objective", ["max_ar"]],
+      ["resultGrouping", ["automatic"]],
+      ["filters", { version: 1, entries: [{ dimension: ["affinity"], id: "Keen", mode: "include" }] }],
+      ["filters", { version: 1, entries: [{ dimension: "affinity", id: "Keen", mode: ["include"] }] }],
+    ] as const;
+    for (const [key, value] of mutations) {
+      const malformed = { ...preset(), request: { ...defaultRequest, [key]: value } };
+      expect(() => parsePresetText(JSON.stringify(malformed)), key).toThrow(/valid BuildPreset/);
+      expect(() => previewBuildBackup(JSON.stringify({
+        format: "tarnisheds-arsenal.build-backup", version: 1, builds: [malformed],
+      })), key).toThrow(/valid BuildPreset/);
+    }
+  });
+
+  it("blocks writes to a damaged index and recovers valid orphan records without erasing evidence", () => {
+    const saved = saveBuildPreset(preset());
+    const indexKey = "tarnisheds-arsenal.savedBuildIndex.v1";
+    localStorage.setItem(indexKey, "{broken");
+    localStorage.setItem("tarnisheds-arsenal.savedBuild.v2.bad", "{also broken");
+    expect(() => savedBuildIndex()).toThrow(/recovery/i);
+    expect(() => saveBuildPreset(preset("new"))).toThrow(/recovery/i);
+    const scan = inspectSavedBuilds();
+    expect(scan.presets.map((entry) => entry.id)).toEqual([saved.id]);
+    expect(scan.issues).toHaveLength(2);
+    const backupKey = recoverSavedBuilds(scan);
+    expect(localStorage.getItem(backupKey!)).toBe("{broken");
+    expect(localStorage.getItem("tarnisheds-arsenal.savedBuild.v2.bad")).toBe("{also broken");
+    expect(savedBuildIndex().builds[0].id).toBe(saved.id);
+  });
+
+  it("rejects malformed route, hit and display fields at both preset and backup boundaries", () => {
+    const valid = { ...preset(), selectedBuild: routedBuild() };
+    expect(parsePresetText(JSON.stringify(valid)).selectedBuild).toEqual(valid.selectedBuild);
+    const mutations = [
+      ["aowRoute.totalPoiseDamage", "10"], ["aowRoute.totalPoiseDamage", undefined],
+      ["aowRoute.actions.0.hits.0.poiseDamage", "10"], ["aowRoute.actions.0.hits.0.poiseDamage", null],
+      ["aowRoute.totalDamage.total", 1e39], ["aowRoute.actions.0.hits.0.poiseDamage", 1e39],
+      ["aowRoute.routePriority", -1], ["aowRoute.routePriority", 65536],
+      ["aowRoute.actions.0.actionOrder", 65536], ["aowRoute.actions.0.hits.0.hitOrder", 65536],
+      ["aowRoute.actions.0.hits.0.sheetRow", 65536],
+      ["effectiveScaling.str", "1.4"], ["effectiveScaling.arc", 1e39],
+      ["requirements.dex", "15"], ["requirements.dex", 256], ["weaponTypeName", {}],
+    ] as const;
+    for (const [path, value] of mutations) {
+      const malformed = JSON.parse(JSON.stringify(valid));
+      const keys = path.split(".");
+      let target = malformed.selectedBuild;
+      for (const key of keys.slice(0, -1)) target = target[key];
+      target[keys.at(-1)!] = value;
+      expect(() => parsePresetText(JSON.stringify(malformed)), path).toThrow(/valid BuildPreset/);
+      expect(() => previewBuildBackup(JSON.stringify({ format: "tarnisheds-arsenal.build-backup", version: 1, builds: [malformed] })), path).toThrow(/valid BuildPreset/);
+    }
+  });
+
+  it("rejects stale recovery previews and leaves all stored bytes untouched on backup quota failure", () => {
+    saveBuildPreset(preset());
+    const scan = inspectSavedBuilds();
+    saveBuildPreset(preset("second"));
+    expect(() => recoverSavedBuilds(scan)).toThrow(/changed/i);
+    localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", "broken");
+    const broken = inspectSavedBuilds();
+    vi.spyOn(localStorage, "setItem").mockImplementation(() => { throw new Error("quota"); });
+    expect(() => recoverSavedBuilds(broken)).toThrow(/quota/);
+    expect(localStorage.getItem("tarnisheds-arsenal.savedBuildIndex.v1")).toBe("broken");
+  });
+
+  it("validates an entire backup before restoring and keeps every existing build on conflict", () => {
+    const saved = saveBuildPreset(preset());
+    const backup = savedBuildBackupText(inspectSavedBuilds());
+    const parsed = previewBuildBackup(backup);
+    expect(parsed.presets).toHaveLength(1);
+    const restored = restoreBuildBackup(backup);
+    expect(restored[0].id).not.toBe(saved.id);
+    expect(restored[0].name).toBe("Dexterity route (imported)");
+    const malformed = JSON.parse(backup);
+    malformed.builds.push({ version: 2 });
+    expect(() => restoreBuildBackup(JSON.stringify(malformed))).toThrow();
+    expect(savedBuildIndex().builds).toHaveLength(2);
+    expect(loadBuildPreset(saved.id)).toEqual(saved);
+  });
+
+  it("rolls back a partially written backup restore without modifying existing builds", () => {
+    const saved = saveBuildPreset(preset());
+    const backup = savedBuildBackupText(inspectSavedBuilds());
+    const write = localStorage.setItem.bind(localStorage);
+    vi.spyOn(localStorage, "setItem").mockImplementation((key, value) => {
+      if (key === "tarnisheds-arsenal.savedBuildIndex.v1") throw new Error("index quota");
+      write(key, value);
+    });
+    expect(() => restoreBuildBackup(backup)).toThrow(/index quota/);
+    expect(inspectSavedBuilds().presets).toEqual([saved]);
+    expect(savedBuildIndex().builds).toHaveLength(1);
+  });
+
+  it("retains recoverable orphan records when interruption prevents cleanup", () => {
+    const saved = saveBuildPreset(preset());
+    const backup = savedBuildBackupText(inspectSavedBuilds());
+    const write = localStorage.setItem.bind(localStorage);
+    vi.spyOn(localStorage, "setItem").mockImplementation((key, value) => {
+      if (key === "tarnisheds-arsenal.savedBuildIndex.v1") throw new Error("index unavailable");
+      write(key, value);
+    });
+    vi.spyOn(localStorage, "removeItem").mockImplementation(() => { throw new Error("cleanup unavailable"); });
+    expect(() => restoreBuildBackup(backup)).toThrow(/index unavailable/);
+    expect(savedBuildIndex().builds).toHaveLength(1);
+    expect(loadBuildPreset(saved.id)).toEqual(saved);
+    const interrupted = inspectSavedBuilds();
+    expect(interrupted).toMatchObject({ orphanCount: 1, needsRecovery: true });
+    expect(interrupted.presets).toHaveLength(2);
+    vi.restoreAllMocks();
+    recoverSavedBuilds(interrupted);
+    expect(savedBuildIndex().builds).toHaveLength(2);
+  });
+
+  it("rejects oversized, duplicate, and malformed backup entries before any write", () => {
+    saveBuildPreset(preset());
+    const raw = savedBuildBackupText(inspectSavedBuilds());
+    const envelope = JSON.parse(raw);
+    const write = vi.spyOn(localStorage, "setItem");
+    expect(() => restoreBuildBackup(" ".repeat(MAX_BUILD_BACKUP_BYTES) + raw)).toThrow(/too large/);
+    expect(() => restoreBuildBackup(JSON.stringify({ ...envelope, builds: [envelope.builds[0], envelope.builds[0]] }))).toThrow(/duplicate/);
+    expect(() => restoreBuildBackup(JSON.stringify({ ...envelope, builds: Array(501).fill(envelope.builds[0]) }))).toThrow(/500/);
+    // Deterministic field mutations cover the shared single/bulk import boundary.
+    const badValues = [null, [], {}, false, 0, "", "x".repeat(301)];
+    for (const field of ["id", "name", "request", "dataVersion", "createdAt", "selectedBuild"]) {
+      for (const value of badValues) {
+        if (field === "selectedBuild" && value === null) continue;
+        const invalid = { ...envelope.builds[0], [field]: value };
+        expect(() => restoreBuildBackup(JSON.stringify({ ...envelope, builds: [envelope.builds[0], invalid] }))).toThrow();
+      }
+    }
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it("detects partial and duplicate indexes instead of discarding their bad entries", () => {
+    saveBuildPreset(preset());
+    const entry = savedBuildIndex().builds[0];
+    for (const builds of [[entry, null], [entry, entry], [{ ...entry, id: "" }]]) {
+      const raw = JSON.stringify({ version: 1, builds });
+      localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", raw);
+      expect(() => savedBuildIndex()).toThrow(/recovery/);
+      expect(() => deleteBuildPreset(entry.id)).toThrow(/recovery/);
+      expect(localStorage.getItem("tarnisheds-arsenal.savedBuildIndex.v1")).toBe(raw);
+    }
+  });
+
+  it("preserves a damaged current record while recovering its readable legacy version", () => {
+    const legacy = preset();
+    localStorage.setItem(`tarnisheds-arsenal.savedBuild.v1.${legacy.id}`, JSON.stringify(legacy));
+    const currentKey = `tarnisheds-arsenal.savedBuild.v2.${legacy.id}`;
+    localStorage.setItem(currentKey, "{broken");
+    const scan = inspectSavedBuilds();
+    expect(scan.presets).toHaveLength(1);
+    recoverSavedBuilds(scan);
+    expect(loadBuildPreset(legacy.id)?.name).toBe(legacy.name);
+    expect(() => renameBuildPreset(legacy.id, "Changed")).toThrow(/unreadable/);
+    expect(localStorage.getItem(currentKey)).toBe("{broken");
+  });
+
+
+  it("backs up existing valid records beyond the single-share import limit", () => {
+    const saved = saveBuildPreset(preset());
+    // Existing schemas permit extension fields; the total backup still has a 10 MiB limit.
+    const stored = { ...saved, retainedExtension: "x".repeat(MAX_PRESET_IMPORT_BYTES) };
+    localStorage.setItem(`tarnisheds-arsenal.savedBuild.v2.${saved.id}`, JSON.stringify(stored));
+    expect(loadBuildPreset(saved.id)).toEqual(stored);
+    const backup = savedBuildBackupText(inspectSavedBuilds());
+    expect(previewBuildBackup(backup).presets).toEqual([stored]);
+  });
+
   it("rejects new saves and imports at capacity before changing storage", () => {
     for (let index = 0; index < 500; index += 1) saveBuildPreset(preset(`build-${index}`));
     const before = localStorage.getItem("tarnisheds-arsenal.savedBuildIndex.v1");
@@ -309,7 +514,7 @@ describe("saved build persistence", () => {
     });
     expect(loadBuildPreset(legacy.id)).toMatchObject({ version: 2, name: legacy.name });
     expect(write).not.toHaveBeenCalled();
-    expect(() => saveBuildPreset(legacy)).toThrow(/Storage quota exceeded/);
+    expect(() => saveBuildPreset(legacy)).toThrow(/index is missing.*recovery/);
   });
 
   it("rolls back a preset write when its index cannot be saved", () => {

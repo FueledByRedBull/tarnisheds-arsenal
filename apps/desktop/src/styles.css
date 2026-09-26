@@ -2541,12 +2541,10 @@ textarea:hover {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
-.damage-token-grid,
 .status-token-grid {
   grid-template-columns: repeat(10, minmax(0, 1fr));
 }
 
-.damage-token-grid > .metric-token,
 .status-token-grid > .metric-token {
   grid-column: span 2;
 }

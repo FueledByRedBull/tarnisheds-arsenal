@@ -24,15 +24,16 @@ general buff-stacking simulation. An unavailable value is not zero damage.
 
 ### Numerical contract and identity
 
-Ranking evaluates loaded binary coefficients exactly, retaining gameplay floors
-at their specified stages. Display values are rounded afterward. This prevents
+Damage ranking evaluates loaded binary coefficients exactly. Status scaling uses
+the existing `f32` operation sequence and gameplay floors; its completed value is
+then represented exactly in ranking. Display values are rounded afterward. This prevents
 intermediate floating-point rounding from changing close winners; it does not
 recover original decimal precision or establish in-game accuracy. The
 [mathematical contract](design/optimizer-math.md#numerical-contract) defines the
 arithmetic, tie order, and proof obligations.
 
-The current snapshot model is `aow-routes-effects-v7`; runtime results and caches
-use `aow-routes-effects-v7/exact-v1`. Storage schema and calculation semantics are
+The current snapshot model is `aow-routes-effects-v8`; runtime results and caches
+use `aow-routes-effects-v8/exact-v2`. Storage schema and calculation semantics are
 separate versions. The [extraction guide](../tools/phase1/README.md#snapshot-contract)
 owns the storage format and regeneration requirements. Incompatible saved results
 must be recalculated; reusable saved inputs are retained.
@@ -72,6 +73,17 @@ The bundled snapshot targets **Elden Ring 1.17**. Objectives are **Max AR**,
 Routes resolve weapon-motion and fixed/projectile components, per-hit scaling,
 status motion values, supported weapon-buff timing, action stamina, and attack
 attributes. Unique-weapon attacks are kept separate from transferable versions.
+Repeated contacts explicitly marked in the source workbook, plus Glintblade
+Phalanx's four independently hitting blades, count once per contact. First-hit
+damage stays one contact, and stamina is charged once per action. Charge variants
+and the one-to-three Thundercloud Form loops are separate routes. These sequence
+totals assume all modeled contacts land; overlapping bullet hitboxes are not
+automatically multiplied by their raw spawn count.
+Stance damage includes both `weapon base poise * poise MV / 100` and the attack's
+fixed `atkSuperArmor` term, for each contact.
+Stamina retains the source action maximum; repeated contact counts alone do not
+establish whether held loops consume stamina per tick. Those loop costs are not
+independently verified.
 Weapon-specific attack-element overrides and influence rates apply to each
 component. Negative influence corrections select the strongest penalty instead
 of adding positive contributions to it.
@@ -125,21 +137,26 @@ are never filled with Vanilla data.
 The pinned [T. Clark 1.17 calculator](https://github.com/ThomasJClark/elden-ring-weapon-calculator/tree/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a)
 uses JavaScript floating-point arithmetic and a small offset before truncating
 display values. Its live 1.17 calculator and [Tarnished.dev](https://www.tarnished.dev/weapon-calculator)
-both display the reference values below. For Bloodfiend's Fork (Keen),
-the exact production bleed floor differs at these boundaries in both handling
-modes:
+both display the reference values below. `exact-v2` fixes the previous
+Bloodfiend's Fork (Keen) boundary disagreements in both handling modes:
 
-| Upgrade / Arcane | Exact production floor | Reference floor |
+| Upgrade / Arcane | Current production floor | Reference floor |
 | --- | ---: | ---: |
-| `+7` / 45 | 61 | 62 |
-| `+25` / 50 | 67 | 68 |
+| `+7` / 45 | 62 | 62 |
+| `+25` / 50 | 68 | 68 |
 
-These are known arithmetic-contract differences, not independently verified
-in-game values. The two sites' implementation and data independence is unverified.
-No epsilon adjustment is applied to force agreement. External
-status agreement is therefore not universal. Complex skill comparisons have
-additional reference-input discrepancies and missing hits; see the dated
+These are reference-backed arithmetic checks, not live in-game measurements.
+The two sites' implementation and data independence is unverified. The corrected
+status operation sequence needs no epsilon; damage and optimizer accumulation
+remain exact. Complex skill comparisons still have limits in source coverage and
+engine semantics; see the dated
 [verification results](release-notes/v0.14.0.md#verification).
+
+In particular, raw attack-point status corrections and overlapping SpEffect
+payloads do not yet have an independent engine oracle. Their correction flag
+alone does not justify multiplying all hit effects by the point MV: some frost
+and bleed bullet effects have a zero point MV. Per-hit status totals are modeled
+estimates, and this audit does not certify those stacking/rounding mechanics.
 
 ## Checking model coverage
 
@@ -158,7 +175,8 @@ python tools/phase4/validate_external_calculator.py --count 100 --seed 20260918
 The runner uses pinned T. Clark source/data, the installed frontend TypeScript
 compiler, and the current Rust evaluator. Each sampled configuration covers zero,
 random, and maximum upgrades in both handling modes. Use another seed for new
-cases or `--count 487` for every named weapon. Optional `--report` and `--csv`
+cases or `--count 487` for every named weapon. Every Vanilla run also includes the
+32 known Bloodfiend's Fork boundary cases across eight affinities. Optional `--report` and `--csv`
 paths retain results. AR tolerance is 0.001 per component; status is compared
 after integer flooring. This also checks selected-skill identity, not complex
 projectile formulas, buff stacking, or damage after enemy defenses.

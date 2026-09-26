@@ -4,6 +4,7 @@ import argparse
 import csv
 import hashlib
 import json
+import math
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -669,7 +670,21 @@ def _validate_vanilla_snapshot(
 
     route_ids_by_skill: dict[str, set[str]] = defaultdict(set)
     for row in aow_route_assignments:
+        try:
+            valid_count = 1 <= int(row.get("hit_count", "")) <= 65535
+        except ValueError:
+            valid_count = False
+        if not valid_count:
+            issues.append(ValidationIssue("error", f"invalid route hit_count at sheet row {row['sheet_row']}"))
         route_ids_by_skill[row["aow_name"]].add(row["route_id"])
+    for row in source_attack_rows.values():
+        try:
+            poise_base = float(row.get("poise_base", ""))
+            valid_poise = math.isfinite(poise_base) and poise_base >= 0
+        except ValueError:
+            valid_poise = False
+        if not valid_poise:
+            issues.append(ValidationIssue("error", f"invalid poise_base at sheet row {row['sheet_row']}"))
     expected_route_ids = {
         "Wild Strikes": {"r1", "r2"},
         "Ghostflame Call": {"r1", "r2"},

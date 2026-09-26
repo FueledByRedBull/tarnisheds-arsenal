@@ -20,7 +20,10 @@ accept a partially promoted snapshot.
 
 ## Snapshot contract
 
-The current storage schema is **5**. It requires explicit Ash mounting permission
+The current storage schema is **6**. It requires fixed attack stance damage in
+`aow_attack_data.csv.poise_base` and `native_skill_attack_data.csv.poise_base`,
+and positive integer contact counts in `aow_route_assignments.csv.hit_count`.
+It retains explicit Ash mounting permission
 in `weapons.csv.can_change_aow` and compatible affinity/type lists in `aow.csv`.
 The extractor no longer emits `aow_weapon_compat.csv`; legality is derived from
 those compact fields. Runtime manifests list 12 required tables, and diagnostic
@@ -29,10 +32,10 @@ Ash/affinity summaries are computed in memory.
 The manifest records the snapshot model identity; the runtime adds the numerical
 contract to scoring and cache identities. Current identities and coverage are
 listed in the [model reference](../../docs/model-reference.md).
-The extractor records `phase1-python-v11-attack-provenance` for its current output.
+The extractor records `phase1-python-v12-route-hit-counts` for its current output.
 
 Regenerate older snapshots with this extractor. Both runtime and Python validation
-reject schema 4 before attempting to use its incompatible tables. Do not merely
+reject schema 5 before attempting to use its incompatible tables. Do not merely
 edit an old manifest's version number. Dataset/game versions do not change when
 only the storage contract changes; source hashes remain tied to the original inputs.
 
@@ -123,6 +126,12 @@ release validation requires the exact tracked reference match.
   `Bullet.param.atkId_Bullet` IDs; the latter is derived from raw throw flag `2`.
   Fixed projectile/raw components remain distinct from `is_add_base_atk` rows, and
   throw-only weapon critical multipliers remain distinct from initial contact rows.
+- `poise_base` preserves the workbook's raw `AtkSuperArmor` fixed stance term;
+  `poise_mv` preserves `atkSuperArmorCorrection`. Both contribute per contact.
+  Route counts preserve explicit workbook `(Nx)` annotations. Glintblade Phalanx's
+  four contacts are separately bound to attack `300200867` / Bullet `2300`, and
+  extraction checks its source spawn count. Raw `numShoot` is not a universal
+  damage multiplier: overlapping/fan-shaped hitboxes may share one hit event.
 - The `weapons.csv` `critical_damage_percent` field preserves the source weapon
   critical multiplier used by throw rows. Row-specific application and current
   corrections are documented in the [model reference](../../docs/model-reference.md).

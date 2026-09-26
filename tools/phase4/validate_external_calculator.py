@@ -637,7 +637,41 @@ def sample_cases(
 ) -> tuple[list[str], list[ComparisonCase]]:
     rng = random.Random(seed)
     selected = select_weapon_names(external_weapons, local_catalog, count, rng)
-    return selected, build_cases(external_weapons, local_catalog, selected, rng)
+    cases = build_cases(external_weapons, local_catalog, selected, rng)
+    name = "Bloodfiend's Fork"
+    boundary_configs = {
+        _affinity_name(weapon.get("affinityId")): index
+        for index, weapon in enumerate(external_weapons)
+        if normalize_name(str(weapon["weaponName"])) == normalize_name(name)
+    }
+    if boundary_configs:
+        local_configs = {
+            str(weapon["affinity"])
+            for weapon in local_catalog
+            if normalize_name(str(weapon["name"])) == normalize_name(name)
+            and _as_bool(weapon.get("supported", True))
+        }
+        # Keep known status-floor boundaries in every gate, independent of the random sample.
+        for affinity, other_upgrade, other_arc in (
+            ("Heavy", 14, 99), ("Keen", 23, 99), ("Quality", 7, 99), ("Fire", 1, 99),
+            ("Flame Art", 7, 45), ("Lightning", 14, 99), ("Sacred", 23, 99), ("Magic", 7, 99),
+        ):
+            if affinity not in boundary_configs or affinity not in local_configs:
+                raise ValueError(f"missing bleed-boundary configuration: {name} / {affinity}")
+            for upgrade, arc in ((25, 50), (other_upgrade, other_arc)):
+                for two_handing in (False, True):
+                    cases.append(ComparisonCase(
+                        case_id=len(cases) + 1,
+                        sample_weapon=0,
+                        external_index=boundary_configs[affinity],
+                        weapon_name=name,
+                        affinity=affinity,
+                        aow_name=None,
+                        upgrade=upgrade,
+                        stats={stat: arc if stat == "arc" else 99 for stat in STATS},
+                        two_handing=two_handing,
+                    ))
+    return selected, cases
 
 
 def _sha256(path: Path) -> str:
@@ -1017,7 +1051,7 @@ def build_report(
         "localSnapshot": _snapshot_identity(data_dir),
         "localEvaluator": {
             "attackRating": "exact loaded binary rationals, projected once to f32",
-            "bleed": "exact production floor",
+            "bleed": "production f32 status rounding and floors, then exact ranking key",
             "otherStatus": "production status evaluator",
             "skillDamage": "not compared by this AR/passive check",
         },
@@ -1031,6 +1065,7 @@ def build_report(
             "seed": seed,
             "uniqueWeapons": len(selected),
             "cases": len(cases),
+            "regressionCases": sum(case.sample_weapon == 0 for case in cases),
             "phases": ["zero", "random", "max"],
             "handing": ["1H", "2H"],
             "weapons": selected,
