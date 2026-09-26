@@ -223,14 +223,48 @@ weapon/Ash pairs and rejected 294,341 invalid transferable pairs. For Convergenc
 3.0.0.1 it matched 147,201 transferable and 3,084 native pairs and rejected
 241,857 invalid transferable pairs. Fixed-stat evaluation covered 364,304 Vanilla
 and 601,140 Convergence cases. These checks do not enumerate every stat allocation
-or intermediate upgrade. The [available external Convergence calculator](https://github.com/MatejVitek/Elden-Ring-Weapon-Calculator/blob/master/src/app/regulationVersions.tsx)
-uses v2.2.3, so it is not an independent numeric oracle for this app's v3.0.0.1
-profile. Reports and the task-local reproduction script are retained under
+or intermediate upgrade. The subsequent correctness audit located the matching
+[T. Clark Convergence 3.0.0.1 reference](https://github.com/ThomasJClark/elden-ring-weapon-calculator/blob/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a/public/regulation-convergence-v3.0.0.1.js),
+whose hash matches the tracked reference. The earlier claim that no matching
+independent reference existed was incorrect. Reports and the task-local reproduction script are retained under
 `.codex-tmp/optimizer-shared-cutoff-2026-09-22/`.
 
 The rebuilt production executable passed packaged WebView2 smoke; this follow-up
 did not rebuild or validate an MSI. Release packaging still requires the clean
 committed source and the checks in `docs/releasing.md`.
+
+## Correctness follow-up (2026-09-26)
+
+The subsequent audit found source/model defects outside the parallel cutoff:
+missing repeated skill contacts and fixed stance terms, five truncated Scadutree
+values, and status-floor boundaries that could change a Bleed-then-AR winner.
+The corrected snapshots use schema 6 and runtime model
+`aow-routes-effects-v8/exact-v2`. Historical timings above retain their original
+model identity; they are not a same-contract comparison against this correction.
+
+Against pinned T. Clark source and profile-matched data, the corrected evaluator
+passes 1,345,950 Vanilla cases across all 3,295 supported configurations and 415,011
+Convergence cases covering all 3,156 supported configurations. Maximum AR component
+differences are 0.0001337143 and 0.0004300 respectively, below 0.001. All 32 original
+Bloodfiend's Fork bleed failures now pass and are permanent external-validator
+regressions. A separate 33,462-case sweep covers its 13 affinities, 26 upgrades and
+99 Arcane values against the shared status arithmetic; 4,056 of those are numerical
+checks below requirements, not legal optimized builds.
+
+Raw checks compare 16 fields across all 2,654 distinct exported attacks, including
+fixed stance damage, plus all 21 Scadutree outgoing multipliers and the 15 explicit
+repetition annotations. Only the already documented Flame Spit correction-ID
+normalization differs from raw fields. At the original fixed stats, Glintblade
+Phalanx now totals 449.89035 instead of 280.97452, retains first-hit damage 56.305275,
+and gives each blade five stance damage. Needle Piercer includes ten needles and
+totals 919.95435. These are raw complete-contact routes before target defenses.
+
+Saved-result regressions cover stale analysis/export cancellation, partial stat
+locks and malformed poise values. A deterministic callback-contention test covers
+the additional progress-ordering race. Raw evidence and before/after numerical
+reports remain in `.codex-tmp/correctness-audit-2026-09-26/`; supported mechanics and
+unverified per-hit status semantics are stated in the
+[model reference](model-reference.md#known-reference-differences).
 
 ## Release compiler settings
 

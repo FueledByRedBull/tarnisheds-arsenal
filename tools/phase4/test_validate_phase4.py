@@ -62,6 +62,27 @@ class ValidatePhase4Tests(unittest.TestCase):
         self.assertEqual(issues[0].level, "error")
         self.assertIn("bad hash", issues[0].message)
 
+    def test_routes_require_positive_hit_counts_and_finite_fixed_poise(self) -> None:
+        read_csv = validation.read_csv
+        for filename, field, invalid in (
+            ("aow_route_assignments.csv", "hit_count", "0"),
+            ("aow_route_assignments.csv", "hit_count", "1.5"),
+            ("aow_route_assignments.csv", "hit_count", "65536"),
+            ("aow_attack_data.csv", "poise_base", "nan"),
+            ("aow_attack_data.csv", "poise_base", "-1"),
+            ("aow_attack_data.csv", "poise_base", ""),
+        ):
+            with self.subTest(field=field, invalid=invalid):
+                def read(path: Path) -> list[dict[str, str]]:
+                    rows = read_csv(path)
+                    if path.name == filename:
+                        rows[0][field] = invalid
+                    return rows
+
+                with patch.object(validation, "read_csv", side_effect=read):
+                    issues = validation.validate_profile_snapshot(validation.ROOT / "data/phase1", "vanilla")
+                self.assertTrue(any(issue.level == "error" and field in issue.message for issue in issues))
+
     def test_tracked_weapon_reference_provenance_is_checked(self) -> None:
         root = Path(__file__).resolve().parents[2]
         manifest = json.loads(

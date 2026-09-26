@@ -399,6 +399,14 @@ function assertSolvedBuild(value: unknown, label: string): asserts value is Solv
   if (!isRecord(value)) throw invalidPreset(`${label} must be an object or null`);
   assertInteger(value.weaponId, `${label}.weaponId`, 0, 0xffff_ffff);
   assertText(value.weaponName, `${label}.weaponName`, 200);
+  if (value.weaponTypeName !== undefined) assertText(value.weaponTypeName, `${label}.weaponTypeName`, 200, true);
+  if (value.requirements !== undefined) assertCombatStats(value.requirements, `${label}.requirements`, 0xff);
+  if (value.effectiveScaling !== undefined) {
+    if (!isRecord(value.effectiveScaling)) throw invalidPreset(`${label}.effectiveScaling must be an object`);
+    for (const key of ["str", "dex", "int", "fai", "arc"] as const) {
+      assertFinite(value.effectiveScaling[key], `${label}.effectiveScaling.${key}`);
+    }
+  }
   assertText(value.affinity, `${label}.affinity`, 80);
   assertBoolean(value.isSomber, `${label}.isSomber`);
   assertInteger(value.upgrade, `${label}.upgrade`, 0, 25);
@@ -419,10 +427,11 @@ function assertAowRoute(value: unknown, label: string) {
   if (!isRecord(value)) throw invalidPreset(`${label} must be an object or null`);
   assertText(value.routeId, `${label}.routeId`, 200);
   assertText(value.routeLabel, `${label}.routeLabel`, 300);
-  assertInteger(value.routePriority, `${label}.routePriority`, -1_000_000, 1_000_000);
+  assertInteger(value.routePriority, `${label}.routePriority`, 0, 0xffff);
   assertNullableText(value.buffActivationActionId, `${label}.buffActivationActionId`, 200);
   assertFinite(value.firstHitDamage, `${label}.firstHitDamage`);
   assertDamage(value.totalDamage, `${label}.totalDamage`);
+  assertFinite(value.totalPoiseDamage, `${label}.totalPoiseDamage`);
   assertStatus(value.totalStatusBuildup, `${label}.totalStatusBuildup`);
   assertFinite(value.totalStaminaCost, `${label}.totalStaminaCost`);
   assertArray(value.actions, `${label}.actions`, 512);
@@ -430,7 +439,7 @@ function assertAowRoute(value: unknown, label: string) {
     const actionLabel = `${label}.actions[${actionIndex}]`;
     if (!isRecord(action)) throw invalidPreset(`${actionLabel} must be an object`);
     assertText(action.actionId, `${actionLabel}.actionId`, 200);
-    assertInteger(action.actionOrder, `${actionLabel}.actionOrder`, 0, 1_000_000);
+    assertInteger(action.actionOrder, `${actionLabel}.actionOrder`, 0, 0xffff);
     assertFinite(action.staminaCost, `${actionLabel}.staminaCost`);
     assertArray(action.hits, `${actionLabel}.hits`, 4096);
     action.hits.forEach((hit, hitIndex) => assertAowHit(hit, `${actionLabel}.hits[${hitIndex}]`));
@@ -439,10 +448,11 @@ function assertAowRoute(value: unknown, label: string) {
 
 function assertAowHit(value: unknown, label: string) {
   if (!isRecord(value)) throw invalidPreset(`${label} must be an object`);
-  assertInteger(value.sheetRow, `${label}.sheetRow`, 0, 10_000_000);
-  assertInteger(value.hitOrder, `${label}.hitOrder`, 0, 1_000_000);
+  assertInteger(value.sheetRow, `${label}.sheetRow`, 0, 0xffff);
+  assertInteger(value.hitOrder, `${label}.hitOrder`, 0, 0xffff);
   assertText(value.rawName, `${label}.rawName`, 500, true);
   assertDamage(value.damage, `${label}.damage`);
+  assertFinite(value.poiseDamage, `${label}.poiseDamage`);
   assertStatus(value.statusBuildup, `${label}.statusBuildup`);
   assertText(value.physicalAttackAttribute, `${label}.physicalAttackAttribute`, 80, true);
   assertBoolean(value.buffActive, `${label}.buffActive`);
@@ -463,10 +473,10 @@ function assertAowHit(value: unknown, label: string) {
   });
 }
 
-function assertCombatStats(value: unknown, label: string) {
+function assertCombatStats(value: unknown, label: string, max = 99) {
   if (!isRecord(value)) throw invalidPreset(`${label} must be an object`);
   for (const key of ["strStat", "dex", "intStat", "fai", "arc"] as const) {
-    assertInteger(value[key], `${label}.${key}`, 0, 99);
+    assertInteger(value[key], `${label}.${key}`, 0, max);
   }
 }
 
@@ -556,7 +566,9 @@ function assertNullableText(value: unknown, label: string, maxLength: number): a
 }
 
 function assertFinite(value: unknown, label: string): asserts value is number {
-  if (typeof value !== "number" || !Number.isFinite(value)) throw invalidPreset(`${label} must be finite`);
+  if (typeof value !== "number" || !Number.isFinite(value) || !Number.isFinite(Math.fround(value))) {
+    throw invalidPreset(`${label} must be a finite native float`);
+  }
 }
 
 function assertInteger(value: unknown, label: string, min: number, max: number): asserts value is number {

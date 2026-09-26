@@ -241,6 +241,20 @@ it("allows another search after a rejected start", async () => {
   await expect(runSearchRequestForRows(defaultRequest)).resolves.toEqual([]);
 });
 
+it("does not publish a running Rankings result after an uncommitted numeric edit", async () => {
+  let finish!: (status: SearchJobStatusDto) => void;
+  vi.mocked(api.startSearch).mockResolvedValue({ jobId: "draft-edit" });
+  vi.mocked(api.cancelSearch).mockResolvedValue(true);
+  vi.mocked(api.searchStatus).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  const running = runSearchFromStore(defaultRequest);
+  await vi.advanceTimersByTimeAsync(0);
+  useDesktopStore.getState().markResultsStale();
+  finish({ progress: null, finished: { jobId: "draft-edit", rows: [], cancelled: false, error: null } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(await running).toBe(false);
+  expect(api.cancelSearch).toHaveBeenCalledWith("draft-edit");
+});
+
 for (const invalidation of ["profile switch", "request edit"] as const) {
   it.each(["success", "cancelled", "error", "progress"] as const)(
     `ignores late %s after ${invalidation} without clearing replacement state`, async (outcome) => {

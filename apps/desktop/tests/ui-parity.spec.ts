@@ -247,7 +247,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   )).toBeLessThan(145);
 
   await page.locator(".result-row-full").first().getByRole("button", { name: /^Lock / }).click();
-  await expect(page.getByText("Exact upgrade and stat locks active")).toBeVisible();
+  await expect(page.getByText("Combat stat locks active")).toBeVisible();
   await expect(page.locator(".active-lock-warning")).toContainText("Changing class or loadout keeps these locks");
   await expect(page.getByText("Blood / Seppuku / +25").first()).toBeVisible();
 
@@ -547,7 +547,7 @@ test("stale saved builds offer explicit input-only loading or recompute migratio
   await page.getByRole("button", { name: "Save new" }).click();
   await expect(page.getByText(/Saved Build Preset/)).toBeVisible();
   await expect(page.locator(".saved-build-status")).toContainText(
-    "Current · profile vanilla · dataset vanilla-1.17 · schema 5",
+    "Current · profile vanilla · dataset vanilla-1.17 · schema 6 · model aow-routes-effects-v8/exact-v2",
   );
 
   await page.evaluate(() => {

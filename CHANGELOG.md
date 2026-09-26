@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Correct Bloodfiend's Fork bleed-floor boundaries while preserving exact optimizer
+  comparisons; retain all 32 formerly failing cases in external validation.
+- Count source-marked repeated skill contacts, separate charge variants, preserve
+  fixed stance damage, and correct five Scadutree multipliers from regulation data.
+  Regenerate both snapshots as schema 6 with runtime model `aow-routes-effects-v8/exact-v2`.
+- Block analyses and exports from stale selections, preserve partial saved stat
+  locks, reject malformed saved poise values, and keep parallel progress ordered.
 - Remove unused frontend helpers and duplicate workbook parsing; require lint and
   DTO validation evidence when verifying packages built with full source checks.
 - Upgrade React and React DOM to 19.3, enforce React Hooks linting, and catch

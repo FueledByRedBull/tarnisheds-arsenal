@@ -31,8 +31,8 @@ pub fn effective_str(str_stat: u8, two_handing: bool, disable_two_hand_bonus: bo
 
 pub const SCADUTREE_MAX_LEVEL: u8 = 20;
 pub const SCADUTREE_ATTACK_MULTIPLIERS: [f32; 21] = [
-    1.00, 1.10, 1.20, 1.25, 1.30, 1.35, 1.42, 1.50, 1.55, 1.60, 1.65, 1.75, 1.85, 1.87, 1.90, 1.92,
-    1.95, 1.97, 2.00, 2.02, 2.05,
+    1.00, 1.10, 1.20, 1.25, 1.30, 1.35, 1.425, 1.50, 1.55, 1.60, 1.65, 1.75, 1.85, 1.875, 1.90,
+    1.925, 1.95, 1.975, 2.00, 2.025, 2.05,
 ];
 
 pub fn scadutree_attack_multiplier(dlc_scaling: bool, scadutree_level: u8) -> f32 {
@@ -410,7 +410,9 @@ pub(crate) fn prepare_scalar_aow_routes<'a>(
         let buff_attack_power = aows_by_id
             .get(&row.aow_id)
             .map_or([0.0; DAMAGE_TYPE_COUNT], |aow| aow.buff_attack_power);
-        for assignment in assignments {
+        for assignment in assignments.iter().flat_map(|assignment| {
+            std::iter::repeat_n(assignment, usize::from(assignment.hit_count))
+        }) {
             let buff_active = activation_orders
                 .get(&(assignment.route_id.clone(), row.aow_id))
                 .is_some_and(|activation_order| assignment.action_order > *activation_order);
@@ -668,7 +670,9 @@ pub(crate) fn calculate_aow_routes_scaled_with_cancel(
             StaminaCostMode::Precalculated => row.stamina_cost,
         };
 
-        for assignment in assignments {
+        for assignment in assignments.iter().flat_map(|assignment| {
+            std::iter::repeat_n(assignment, usize::from(assignment.hit_count))
+        }) {
             if !should_continue() {
                 return Err("cancelled".into());
             }
@@ -740,7 +744,7 @@ pub(crate) fn calculate_aow_routes_scaled_with_cancel(
                 hit_order: assignment.hit_order,
                 raw_name: row.raw_name.clone(),
                 damage: projected_damage,
-                poise_damage: weapon.base_poise * row.poise_mv / 100.0,
+                poise_damage: weapon.base_poise * row.poise_mv / 100.0 + row.poise_base,
                 status_buildup: hit_status,
                 physical_attack_attribute: row.resolved_physical_attribute(weapon),
                 buff_active,
@@ -763,6 +767,12 @@ pub(crate) fn calculate_aow_routes_scaled_with_cancel(
             action
                 .hits
                 .sort_by_key(|hit| (hit.hit_order, hit.sheet_row));
+            // Repeated source contacts share a motion row; give displayed hits
+            // distinct ordered identities without multiplying the action cost.
+            for (index, hit) in action.hits.iter_mut().enumerate() {
+                hit.hit_order =
+                    u16::try_from(index).map_err(|_| "too many hits in AoW action".to_string())?;
+            }
         }
         let mut total_poise_damage = 0.0_f32;
         let mut total_status_buildup = StatusBuildup::default();
@@ -1379,6 +1389,20 @@ mod tests {
     }
 
     #[test]
+    fn scadutree_matches_regulation_117_outgoing_damage() {
+        // Vanilla SpEffect 20000100..20000120: atkEnemyDmgCorrectRate_Physics.
+        // All ten Enemy/Player elemental fields agree in the source regulation.
+        let expected = [
+            1.0, 1.1, 1.2, 1.25, 1.3, 1.35, 1.425, 1.5, 1.55, 1.6, 1.65, 1.75, 1.85, 1.875, 1.9,
+            1.925, 1.95, 1.975, 2.0, 2.025, 2.05,
+        ];
+        for (level, multiplier) in expected.into_iter().enumerate() {
+            assert_eq!(scadutree_attack_multiplier(true, level as u8), multiplier);
+            assert_eq!(scadutree_attack_multiplier(false, level as u8), 1.0);
+        }
+    }
+
+    #[test]
     fn custom_stats_class_is_neutral_and_has_no_budget_floor() {
         let class = class_by_name(CUSTOM_STATS_CLASS_NAME).expect("custom stats class");
         assert_eq!(class.base_level, 0);
@@ -1395,6 +1419,50 @@ mod tests {
             arc: 1,
         };
         assert_eq!(compute_free_points(class, 8, &stats), Ok(0));
+    }
+
+    #[test]
+    fn glintblade_route_preserves_four_contacts_and_fixed_stance_damage() {
+        let data = load_game_data(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/phase1"))
+            .unwrap();
+        let weapon = find_weapon(&data, "Longsword", "Standard");
+        let stats = Stats {
+            vig: 10,
+            mnd: 10,
+            end: 10,
+            str: 20,
+            dex: 30,
+            int: 30,
+            fai: 20,
+            arc: 20,
+        };
+        let rows: Vec<_> = data.aow_attack_rows(200).iter().collect();
+        let routes = calculate_aow_routes(weapon, &rows, 0, &stats, 20, &data).unwrap();
+        let route = &routes[0];
+        let blades: Vec<_> = route
+            .actions
+            .iter()
+            .flat_map(|action| &action.hits)
+            .filter(|hit| hit.sheet_row == 1224)
+            .collect();
+        // Bullet 2300 emits four blades; AtkParam 300200867 has atkSuperArmor=5.
+        assert_eq!(blades.len(), 4);
+        assert!(blades.iter().all(|hit| hit.poise_damage == 5.0));
+        assert!((route.total_damage.total() - 449.89035).abs() < 0.001);
+        assert!((route.first_hit_damage - 56.305275).abs() < 0.001);
+        let scalar = prepare_scalar_aow_routes(&rows, &data).unwrap().unwrap();
+        let metric =
+            evaluate_scalar_aow_route(&scalar[0], weapon, 0, &stats, 20, 1.0, &data).unwrap();
+        assert!((metric.full_sequence_damage - route.total_damage.total()).abs() < 0.001);
+        assert!((metric.first_hit_damage - route.first_hit_damage).abs() < 0.001);
+        for action in &route.actions {
+            assert!(
+                action
+                    .hits
+                    .windows(2)
+                    .all(|pair| pair[0].hit_order < pair[1].hit_order)
+            );
+        }
     }
 
     #[test]

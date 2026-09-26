@@ -203,6 +203,11 @@ export function buildOptimizeRequest(
   };
 }
 
+export function hasCombatStatLocks(request: OptimizeRequestDto): boolean {
+  return [request.lockStr, request.lockDex, request.lockInt, request.lockFai, request.lockArc]
+    .some(value => value !== null);
+}
+
 export function normalizeOptimizeRequest(
   raw: LegacyUpgradeRequest,
   fallback: OptimizeRequestDto,

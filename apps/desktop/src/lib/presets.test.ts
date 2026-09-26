@@ -72,6 +72,21 @@ function solvedBuild(): SolvedBuildDto {
   };
 }
 
+function routedBuild(): SolvedBuildDto {
+  const build = solvedBuild();
+  const status = { bleed: 45, frost: 0, poison: 0, scarletRot: 0, sleep: 0, madness: 0, death: 0 };
+  return { ...build, weaponTypeName: "Katana", requirements: build.stats,
+    effectiveScaling: { str: 0.2, dex: 1.4, int: 0, fai: 0, arc: 0 },
+    aowRoute: { routeId: "light", routeLabel: "Light", routePriority: 0, buffActivationActionId: null,
+      firstHitDamage: 300, totalDamage: build.ar, totalPoiseDamage: 10, totalStatusBuildup: status, totalStaminaCost: 10,
+      actions: [{ actionId: "attack", actionOrder: 0, staminaCost: 10, hits: [{
+        sheetRow: 1, hitOrder: 0, rawName: "Unsheathe", damage: build.ar, poiseDamage: 10,
+        statusBuildup: status, physicalAttackAttribute: "Slash", buffActive: false, warnings: [], effects: [],
+      }] }],
+    },
+  };
+}
+
 describe("saved build persistence", () => {
   beforeEach(() => {
     Object.defineProperty(globalThis, "localStorage", {
@@ -278,6 +293,30 @@ describe("saved build persistence", () => {
     expect(localStorage.getItem(backupKey!)).toBe("{broken");
     expect(localStorage.getItem("tarnisheds-arsenal.savedBuild.v2.bad")).toBe("{also broken");
     expect(savedBuildIndex().builds[0].id).toBe(saved.id);
+  });
+
+  it("rejects malformed route, hit and display fields at both preset and backup boundaries", () => {
+    const valid = { ...preset(), selectedBuild: routedBuild() };
+    expect(parsePresetText(JSON.stringify(valid)).selectedBuild).toEqual(valid.selectedBuild);
+    const mutations = [
+      ["aowRoute.totalPoiseDamage", "10"], ["aowRoute.totalPoiseDamage", undefined],
+      ["aowRoute.actions.0.hits.0.poiseDamage", "10"], ["aowRoute.actions.0.hits.0.poiseDamage", null],
+      ["aowRoute.totalDamage.total", 1e39], ["aowRoute.actions.0.hits.0.poiseDamage", 1e39],
+      ["aowRoute.routePriority", -1], ["aowRoute.routePriority", 65536],
+      ["aowRoute.actions.0.actionOrder", 65536], ["aowRoute.actions.0.hits.0.hitOrder", 65536],
+      ["aowRoute.actions.0.hits.0.sheetRow", 65536],
+      ["effectiveScaling.str", "1.4"], ["effectiveScaling.arc", 1e39],
+      ["requirements.dex", "15"], ["requirements.dex", 256], ["weaponTypeName", {}],
+    ] as const;
+    for (const [path, value] of mutations) {
+      const malformed = JSON.parse(JSON.stringify(valid));
+      const keys = path.split(".");
+      let target = malformed.selectedBuild;
+      for (const key of keys.slice(0, -1)) target = target[key];
+      target[keys.at(-1)!] = value;
+      expect(() => parsePresetText(JSON.stringify(malformed)), path).toThrow(/valid BuildPreset/);
+      expect(() => previewBuildBackup(JSON.stringify({ format: "tarnisheds-arsenal.build-backup", version: 1, builds: [malformed] })), path).toThrow(/valid BuildPreset/);
+    }
   });
 
   it("rejects stale recovery previews and leaves all stored bytes untouched on backup quota failure", () => {

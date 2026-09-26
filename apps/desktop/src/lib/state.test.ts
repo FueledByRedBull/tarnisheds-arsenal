@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { defaultRequest, useDesktopStore } from "./state";
 import { buildOptimizeRequest, normalizeOptimizeRequest } from "./session";
+import { parsePresetText } from "./presets";
 import type { CatalogDto, SolvedBuildDto } from "./types";
 
 it.each(["paths", "affinity_watch"] as const)("starting %s clears its previous outcome without hiding other notices", (scope) => {
@@ -128,6 +129,41 @@ describe("desktop result lifecycle", () => {
 
     useDesktopStore.getState().setRows([{ ...row, score: 510 }]);
     expect(useDesktopStore.getState().resultsStale).toBe(false);
+  });
+
+  it.each(["draft edit", "replacement search"])("invalidates analysis ownership and retained results on %s", (action) => {
+    const state = useDesktopStore.getState();
+    state.setRows([row]);
+    state.setCompareTarget(row);
+    state.beginPath("old-path");
+    state.setActivePathJobId("path-job");
+    state.beginAffinity("old-affinity");
+    state.setActiveAffinityJobId("affinity-job");
+    state.setPaths([{ title: "Selected", solved: row, steps: [] }], "old-path");
+    state.setAffinityPayload({ lines: [], breakpoints: [] }, "old-affinity");
+    const before = useDesktopStore.getState();
+    if (action === "draft edit") state.markResultsStale();
+    else state.beginSearch("new-search");
+    const after = useDesktopStore.getState();
+    expect(after.pathGeneration).toBeGreaterThan(before.pathGeneration);
+    expect(after.affinityGeneration).toBeGreaterThan(before.affinityGeneration);
+    expect(after).toMatchObject({ resultsStale: true, selected: row, compareTarget: null,
+      isPathBusy: false, activePathJobId: null, pathSignature: null, paths: [],
+      isAffinityBusy: false, activeAffinityJobId: null, affinitySignature: null, affinityPayload: null });
+  });
+
+  it.each(["lockDex", "lockInt", "lockFai", "lockArc"] as const)("preserves an imported %s-only lock through hydration and request construction", (lock) => {
+    const preset = parsePresetText(JSON.stringify({
+      version: 2, id: "partial-lock", name: "Partial lock", profileId: "vanilla",
+      request: { ...defaultRequest, [lock]: 40 }, selectedBuild: null, compareTarget: null, compareBench: [],
+      dataVersion: "vanilla:9:dataset:model", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
+    }));
+    useDesktopStore.getState().loadBuildPreset(preset);
+    const loaded = useDesktopStore.getState();
+    const outgoing = buildOptimizeRequest(loaded.catalog, loaded.request, loaded.lockedStatMode);
+    expect(loaded.lockedStatMode).toBe(true);
+    expect(outgoing[lock]).toBe(40);
+    expect(outgoing.lockStr).toBeNull();
   });
 
   it("keeps multi-filters composable and clears pins for a custom comparison", () => {

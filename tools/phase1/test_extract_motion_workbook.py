@@ -11,11 +11,13 @@ from tools.phase1.extract_motion_workbook import (
     MOTION_WORKBOOK_NAME,
     WorkbookReader,
     build_aow_attack_data,
+    build_aow_route_data,
     build_attack_row,
     build_native_skill_attack_data,
     extract_variant,
     find_matching_aow,
     load_weapon_workbook_data,
+    load_bullet_attack_ids,
     load_throw_attack_ids,
     read_sp_effect_sheet,
     run_workbook_exports,
@@ -167,6 +169,7 @@ class MotionWorkbookTests(unittest.TestCase):
             'Status MV',
             'Weapon Buff MV',
             'Poise Dmg MV',
+            'AtkSuperArmor',
             'StaminaCost',
         ]
         values_by_header = {header: '0' for header in headers}
@@ -219,6 +222,66 @@ class MotionWorkbookTests(unittest.TestCase):
         self.assertEqual(reverse_blade.one_hand_light_poise, "5.0")
         self.assertEqual(reverse_blade.two_hand_light_poise, "3 + 3")
         self.assertEqual(extract_variant("[Placeholder] Muleta"), "")
+
+    def test_fixed_stance_damage_survives_workbook_extraction(self) -> None:
+        workbook = WorkbookReader(Path('data/phase1') / MOTION_WORKBOOK_NAME)
+        try:
+            sheet = workbook.read_sheet('Ashes of War Attack Data')
+        finally:
+            workbook.close()
+        header_idx = {header: index for index, header in enumerate(sheet.headers)}
+        values = next(row for row in sheet.rows
+                      if row[header_idx['Name']] == 'Glintblade Phalanx - Bullet')
+        row, _, _ = build_attack_row(
+            header_idx, values, 1224, 200, 'Glintblade Phalanx',
+            'Glintblade Phalanx - Bullet', bullet_attack_ids={300200867},
+        )
+        self.assertEqual(row.get('poise_base'), '5.0')
+        self.assertEqual(row['poise_mv'], '0.0')
+        for invalid in ('-1', 'nan', 'inf'):
+            with self.subTest(poise_base=invalid):
+                changed_values = list(values)
+                changed_values[header_idx['AtkSuperArmor']] = invalid
+                with self.assertRaisesRegex(ValueError, 'fixed poise'):
+                    build_attack_row(
+                        header_idx, changed_values, 1224, 200, 'Glintblade Phalanx',
+                        'Glintblade Phalanx - Bullet', bullet_attack_ids={300200867},
+                    )
+
+    @patch('tools.phase1.extract_motion_workbook.load_param_table')
+    def test_projectile_multiplicity_rejects_changed_source(self, load_param_table_mock) -> None:
+        load_param_table_mock.return_value = SimpleNamespace(
+            rows={2300: {'atkId_Bullet': 300200867, 'numShoot': 3}}
+        )
+        with self.assertRaisesRegex(ValueError, 'projectile hit count'):
+            load_bullet_attack_ids(Path('regulation'), Path('defs'))
+
+    def test_routes_preserve_repeats_without_combining_charge_variants(self) -> None:
+        project_root = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            phase1_dir = Path(temp_dir)
+            for filename in ('aow_attack_data.csv', 'native_skill_attack_data.csv'):
+                shutil.copyfile(project_root / 'data/phase1' / filename, phase1_dir / filename)
+            build_aow_route_data(project_root, phase1_dir)
+            with (phase1_dir / 'aow_route_assignments.csv').open(encoding='utf-8', newline='') as handle:
+                assignments = list(csv.DictReader(handle))
+
+        by_sheet = {}
+        for row in assignments:
+            by_sheet.setdefault(int(row['sheet_row']), []).append(row)
+        self.assertEqual({row.get('hit_count') for row in by_sheet[1224]}, {'4'})
+        self.assertEqual({row.get('hit_count') for row in by_sheet[1305]}, {'1'})
+        for sheet, expected in ((1642, 10), (1953, 4), (2355, 2), (2357, 2), (2358, 2),
+                                (1592, 2), (1593, 1), (1596, 5), (1597, 5),
+                                (1629, 5), (1630, 2), (1631, 4), (1864, 6), (2378, 4)):
+            with self.subTest(sheet=sheet):
+                self.assertEqual({row.get('hit_count') for row in by_sheet[sheet]}, {str(expected)})
+        self.assertEqual({row.get('hit_count') for row in by_sheet[1862]}, {'1', '2', '3'})
+        self.assertTrue({row['route_id'] for row in by_sheet[1592]}.isdisjoint(
+            {row['route_id'] for row in by_sheet[1596]}))
+        self.assertTrue({row['route_id'] for row in by_sheet[1862]}.isdisjoint(
+            {row['route_id'] for row in by_sheet[1864]}))
+        self.assertEqual({row.get('hit_count') for row in by_sheet[1225]}, {'1'})
 
     def test_generic_and_native_skill_outputs_separate_unique_weapon_rows(self) -> None:
         project_root = Path(__file__).resolve().parents[2]

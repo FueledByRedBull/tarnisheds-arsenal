@@ -2,7 +2,7 @@ import { Clipboard, Download, GitCompareArrows, LockKeyhole, Pencil, Pin, Radar,
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { cachedWeaponProfile } from "../../lib/analysis-cache";
-import { compactNumber, fixed1, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
+import { compactNumber, fixed1, metricForObjective, objectiveLabel, statLine, statLockLine } from "../../lib/format";
 import {
   deleteBuildPreset,
   downloadPresetJson,
@@ -16,7 +16,7 @@ import {
   savedBuildIndex,
   shareTextForPreset,
 } from "../../lib/presets";
-import { budgetSnapshot, buildOptimizeRequest, rowFingerprint } from "../../lib/session";
+import { budgetSnapshot, buildOptimizeRequest, hasCombatStatLocks, rowFingerprint } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { AowRouteDto, BuildPreset, CatalogDto, OptimizeRequestDto, SavedBuildIndexEntryV1, SolvedBuildDto, StatusBuildupDto, WeaponProfileDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
@@ -162,13 +162,13 @@ export function Inspector() {
         <span>Lock State</span>
         <strong>{fixedStats
           ? "Fixed stats evaluated as entered"
-          : lockedStatMode && request.lockStr !== null ? "Exact upgrade and stat locks active" : "Open or partial locks"}</strong>
+          : lockedStatMode && hasCombatStatLocks(request) ? "Combat stat locks active" : "Combat stats unlocked"}</strong>
         <small>
           {fixedStats
             ? "This profile does not derive a class budget or redistribute combat stats."
-            : request.lockStr === null
+            : !lockedStatMode || !hasCombatStatLocks(request)
               ? "No captured combat stat locks."
-              : `STR ${request.lockStr} DEX ${request.lockDex} INT ${request.lockInt} FAI ${request.lockFai} ARC ${request.lockArc}`}
+              : statLockLine(request)}
         </small>
       </div>
       <SavedBuildPanel />

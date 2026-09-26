@@ -21,6 +21,7 @@ export function RankingsBoard() {
   const patchRequest = useDesktopStore((state) => state.patchRequest);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
   const isSearching = useDesktopStore((state) => state.isSearching);
+  const searchGeneration = useDesktopStore((state) => state.searchGeneration);
   const resultsStale = useDesktopStore((state) => state.resultsStale);
   const pushNotice = useDesktopStore((state) => state.pushNotice);
   const setError = useDesktopStore((state) => state.setError);
@@ -56,7 +57,7 @@ export function RankingsBoard() {
   const scadutreeAvailable = profileRules?.scadutreeScaling ?? true;
   const extendedScalingGrades = profileRules?.extendedScalingGrades ?? false;
 
-  useEffect(() => () => exportController.current?.abort(), [catalog, request, lockedStatMode]);
+  useEffect(() => () => exportController.current?.abort(), [catalog, request, lockedStatMode, searchGeneration]);
 
   useEffect(() => {
     const board = resultBoard.current;
@@ -89,6 +90,11 @@ export function RankingsBoard() {
   async function exportCsv() {
     if (useDesktopStore.getState().isSearching || useDesktopStore.getState().isExporting) return;
     const controller = new AbortController();
+    const isCurrent = () => {
+      const current = useDesktopStore.getState();
+      return !controller.signal.aborted && current.searchGeneration === searchGeneration
+        && current.activeWorkspace === "rankings";
+    };
     exportController.current = controller;
     setExporting(true);
     setExportProgress(null);
@@ -107,10 +113,10 @@ export function RankingsBoard() {
         exportRows = exportCache.current.rows;
       } else {
         exportRows = await runSearchRequestForRows(exportRequest, controller.signal, setExportProgress);
-        if (controller.signal.aborted) return;
+        if (!isCurrent()) return;
         exportCache.current = { signature, rows: exportRows };
       }
-      if (controller.signal.aborted) return;
+      if (!isCurrent()) return;
       if (!catalog) throw new Error("Catalog metadata is unavailable; the export was not created.");
       downloadCsv(rankingsCsvFilename(request.profileId), rankingsToCsv(exportRows, {
         profileId: request.profileId,

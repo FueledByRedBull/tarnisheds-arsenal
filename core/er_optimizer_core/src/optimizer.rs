@@ -3399,7 +3399,6 @@ where
         if self.cancelled.load(Ordering::Relaxed) && !force {
             return Err("cancelled".to_string());
         }
-        let checked = self.checked.load(Ordering::Relaxed);
         if !force {
             if self.progress_every == 0 {
                 return Ok(());
@@ -3408,6 +3407,7 @@ where
                 .last_emit
                 .lock()
                 .map_err(|_| "failed to lock progress emit state".to_string())?;
+            let checked = self.checked.load(Ordering::Relaxed);
             if !ignore_count_threshold
                 && checked.saturating_sub(emit_guard.last_checked) < self.progress_every
             {
@@ -3422,28 +3422,31 @@ where
             };
         } else if let Ok(mut emit_guard) = self.last_emit.lock() {
             *emit_guard = ProgressEmitState {
-                last_checked: checked,
+                last_checked: self.checked.load(Ordering::Relaxed),
                 last_at: Instant::now(),
             };
         }
 
-        let best_score = self
-            .best_score
-            .lock()
-            .map_err(|_| "failed to lock progress best score".to_string())?
-            .unwrap_or(0.0);
-        let snapshot = ProgressSnapshot {
-            checked,
-            total: self.total,
-            eligible: self.eligible.load(Ordering::Relaxed),
-            best_score,
-            elapsed_ms: self.started.elapsed().as_millis() as u64,
-        };
         let should_continue = {
             let mut callback = self
                 .callback
                 .lock()
                 .map_err(|_| "failed to lock progress callback".to_string())?;
+            // Capture after acquiring delivery order so a delayed emitter cannot
+            // send an older snapshot after a newer worker's notification.
+            let best_score = self
+                .best_score
+                .lock()
+                .map_err(|_| "failed to lock progress best score".to_string())?
+                .unwrap_or(0.0);
+            let eligible = self.eligible.load(Ordering::Relaxed);
+            let snapshot = ProgressSnapshot {
+                checked: self.checked.load(Ordering::Relaxed),
+                total: self.total,
+                eligible,
+                best_score,
+                elapsed_ms: self.started.elapsed().as_millis() as u64,
+            };
             (callback)(snapshot)
         };
         if !should_continue {
@@ -3467,6 +3470,36 @@ where
     eligible: u64,
     best_score: Option<f32>,
     poll_count: u32,
+}
+
+#[cfg(test)]
+mod parallel_progress_tests {
+    use super::*;
+
+    #[test]
+    fn callback_reads_progress_after_waiting_for_previous_delivery() {
+        let delivered = Arc::new(AtomicU64::new(0));
+        let observed = Arc::clone(&delivered);
+        let progress = Arc::new(ParallelSearchProgress::new(2, 1, move |snapshot| {
+            observed.store(snapshot.checked, Ordering::Relaxed);
+            true
+        }));
+        // Hold the callback while a worker prepares a notification. More work
+        // finishes before delivery, so that notification must not be obsolete.
+        let delivery = progress.callback.lock().unwrap();
+        let worker_progress = Arc::clone(&progress);
+        let worker = std::thread::spawn(move || worker_progress.record(1, 1, None, true));
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while progress.last_emit.lock().unwrap().last_checked != 1 {
+            assert!(Instant::now() < deadline, "worker did not reach delivery");
+            std::thread::yield_now();
+        }
+        progress.checked.fetch_add(1, Ordering::Relaxed);
+        progress.eligible.fetch_add(1, Ordering::Relaxed);
+        drop(delivery);
+        worker.join().unwrap().unwrap();
+        assert_eq!(delivered.load(Ordering::Relaxed), 2);
+    }
 }
 
 impl<F> ParallelLocalProgress<F>

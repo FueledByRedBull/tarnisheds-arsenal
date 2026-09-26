@@ -34,6 +34,7 @@ export function App() {
   const setCatalogLoading = useDesktopStore((state) => state.setCatalogLoading);
   const setCatalogFailure = useDesktopStore((state) => state.setCatalogFailure);
   const selected = useDesktopStore((state) => state.selected);
+  const resultsStale = useDesktopStore((state) => state.resultsStale);
   const error = useDesktopStore((state) => state.error);
   const setError = useDesktopStore((state) => state.setError);
   const notices = useDesktopStore((state) => state.notices);
@@ -187,7 +188,7 @@ export function App() {
         </header>
         <nav className="workspace-tabs">
           {tabs.map(({ id, label, icon: Icon }) => {
-            const requiresSelection = id !== "rankings" && !selected;
+            const requiresSelection = id !== "rankings" && (!selected || resultsStale);
             const unsupportedBudget = id !== "rankings" && activeProfile?.capabilities.classBudget === false;
             const disabled = catalogStatus !== "ready" || requiresSelection || unsupportedBudget;
             return (
@@ -198,7 +199,7 @@ export function App() {
                 aria-label={label}
                 aria-current={activeWorkspace === id ? "page" : undefined}
                 onClick={() => setWorkspace(id)}
-                title={unsupportedBudget ? "Requires verified profile class budgets" : requiresSelection ? `${label} requires a selected ranked build` : label}
+                title={unsupportedBudget ? "Requires verified profile class budgets" : requiresSelection ? `${label} requires a current selected ranking` : label}
                 disabled={disabled}
               >
                 <Icon size={16} aria-hidden="true" />

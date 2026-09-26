@@ -16,7 +16,7 @@ import {
   SolvedBuildDto,
   WorkspaceTab,
 } from "./types";
-import { applyProfileRules, classMeta, normalizeOptimizeRequest, rowFingerprint } from "./session";
+import { applyProfileRules, classMeta, hasCombatStatLocks, normalizeOptimizeRequest, rowFingerprint } from "./session";
 
 export interface DesktopState {
   activeWorkspace: WorkspaceTab;
@@ -400,7 +400,7 @@ export const useDesktopStore = create<DesktopState>()((set) => ({
           }, state.request, state.catalog?.dataManifest.rules),
           state.catalog?.dataManifest.rules,
         ),
-        lockedStatMode: preset.request.lockStr !== null,
+        lockedStatMode: hasCombatStatLocks(preset.request),
         rows: preset.selectedBuild ? [preset.selectedBuild] : [],
         resultsStale: false,
         selected: preset.selectedBuild,
@@ -439,7 +439,15 @@ export const useDesktopStore = create<DesktopState>()((set) => ({
       };
     }),
   markResultsStale: () =>
-    set((state) => ({ resultsStale: state.rows.length > 0 })),
+    set((state) => ({
+      ...invalidateAllJobs(state),
+      resultsStale: state.rows.length > 0,
+      compareTarget: null,
+      paths: [],
+      pathSignature: null,
+      affinityPayload: null,
+      affinitySignature: null,
+    })),
   clearResults: (message) =>
     set((state) => ({
       rows: [],
@@ -471,6 +479,12 @@ export const useDesktopStore = create<DesktopState>()((set) => ({
     set((state) => {
       generation = state.searchGeneration + 1;
       return {
+        ...invalidateAnalysisJobs(state),
+        compareTarget: null,
+        paths: [],
+        pathSignature: null,
+        affinityPayload: null,
+        affinitySignature: null,
         isSearching: true,
         resultsStale: state.rows.length > 0,
         searchGeneration: generation,

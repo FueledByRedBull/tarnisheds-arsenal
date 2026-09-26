@@ -484,15 +484,15 @@ async function mockCatalog(profileId = "vanilla"): Promise<CatalogDto> {
 function mockDataManifest(profileId = "vanilla"): DataManifestDto {
   const convergence = profileId === "convergence";
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     datasetVersion: convergence ? "convergence-3.0.0.1" : "vanilla-1.17",
-    modelVersion: "aow-routes-effects-v7",
+    modelVersion: "aow-routes-effects-v8/exact-v2",
     id: convergence ? "convergence-3.0.0.1" : "vanilla-1.17",
     label: convergence ? "Convergence 3.0.0.1" : "Vanilla 1.17",
     appVersion: convergence ? "1.16.1" : "1.17",
     source: "ER - Motion Values and Attack Data (App Ver. 1.17).xlsx",
     generatedAt: "2026-05-18",
-    extractorVersion: "phase1-python-v9-compact-compatibility",
+    extractorVersion: "phase1-python-v12-route-hit-counts",
     provenance: "mock snapshot",
     profile: {
       id: profileId,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import itertools
+import math
 import re
 import sys
 import zipfile
@@ -43,6 +44,9 @@ VARIANT_ALIASES = {
     'greatspear': 'Heavy Spear',
     'reaper': 'Scythe',
 }
+# Distinct homing blades can all hit one target. numShoot alone is not enough:
+# fan-shaped and overlapping area bullets commonly share a single hit event.
+PROJECTILE_HIT_COUNT_SOURCES = {300200867: (2300, 4)}
 
 
 class AowCoverage(TypedDict):
@@ -522,6 +526,9 @@ def build_attack_row(
     atk_id = parse_int(values[header_idx['AtkId']])
     is_bullet_attack = bullet_attack_ids is not None and atk_id in bullet_attack_ids
     is_throw_attack = throw_attack_ids is not None and atk_id in throw_attack_ids
+    poise_base = parse_float(values[header_idx['AtkSuperArmor']])
+    if not math.isfinite(poise_base) or poise_base < 0:
+        raise ValueError(f'invalid fixed poise damage for attack {atk_id}: {poise_base}')
     unique_skill_weapon = values[header_idx['Unique Skill Weapon']].strip()
     stamina_cost_mode = (
         'precalculated'
@@ -566,6 +573,7 @@ def build_attack_row(
         ),
         'status_mv': str(parse_float(values[header_idx['Status MV']])),
         'weapon_buff_mv': str(parse_float(values[header_idx['Weapon Buff MV']])),
+        'poise_base': str(poise_base),
         'poise_mv': str(parse_float(values[header_idx['Poise Dmg MV']])),
         'stamina_cost': str(parse_float(values[header_idx['StaminaCost']])),
         'stamina_cost_mode': stamina_cost_mode,
@@ -732,6 +740,7 @@ def build_aow_attack_data(
         'attack_base_holy',
         'status_mv',
         'weapon_buff_mv',
+        'poise_base',
         'poise_mv',
         'stamina_cost',
         'stamina_cost_mode',
@@ -915,6 +924,7 @@ def build_native_skill_attack_data(
         'attack_base_holy',
         'status_mv',
         'weapon_buff_mv',
+        'poise_base',
         'poise_mv',
         'stamina_cost',
         'stamina_cost_mode',
@@ -996,6 +1006,35 @@ def build_attack_element_correct_ext(project_root: Path, phase1_dir: Path | None
     print(f'Wrote {len(rows_out)} AttackElementCorrect override rows to {out_path}')
 
 
+def _route_charge(text: str) -> str:
+    if re.search(r'\buncharged\b', text):
+        return 'uncharged'
+    if re.search(r'\bpartial\b', text):
+        return 'partial'
+    return 'charged' if re.search(r'\bcharged\b', text) else 'uncharged'
+
+
+def _route_repeat_range(row: dict[str, str]) -> tuple[int, int] | None:
+    match = re.search(r'\b(\d+)-(\d+)x\b', row['raw_name'])
+    if match is None:
+        return None
+    first, last = map(int, match.groups())
+    if not 1 <= first <= last <= 65535:
+        raise ValueError(f"invalid hit-count range: {row['raw_name']}")
+    return first, last
+
+
+def _route_hit_count(row: dict[str, str], route: dict[str, str]) -> int:
+    if _route_repeat_range(row) is not None:
+        return int(route['repeats'])
+    match = re.search(r'\b(\d+)x\b', row['raw_name'])
+    count = (int(match.group(1)) if match is not None else
+             PROJECTILE_HIT_COUNT_SOURCES.get(int(row['atk_id']), (0, 1))[1])
+    if not 1 <= count <= 65535:
+        raise ValueError(f"invalid hit count: {row['raw_name']}")
+    return count
+
+
 def _route_dimension_values(rows: list[dict[str, str]]) -> list[tuple[str, list[str]]]:
     texts = [f"{row['sequence_variant']} {row['raw_name']}".lower() for row in rows]
     dimensions: list[tuple[str, list[str]]] = []
@@ -1005,8 +1044,10 @@ def _route_dimension_values(rows: list[dict[str, str]]) -> list[tuple[str, list[
         re.search(r'\br2\b', text) for text in texts
     ):
         dimensions.append(('button', ['r1', 'r2']))
-    if any('charged' in text for text in texts) and any('charged' not in text for text in texts):
-        dimensions.append(('charge', ['uncharged', 'charged']))
+    charges = {_route_charge(text) for text in texts}
+    if len(charges) > 1:
+        dimensions.append(('charge', [charge for charge in ('uncharged', 'partial', 'charged')
+                                      if charge in charges]))
     if any('early release' in text for text in texts) and any(
         'early release' not in text for text in texts
     ):
@@ -1015,6 +1056,12 @@ def _route_dimension_values(rows: list[dict[str, str]]) -> list[tuple[str, list[
         'bullet' in text and '(far)' not in text for text in texts
     ):
         dimensions.append(('distance', ['near', 'far']))
+    ranges = {repeat_range for row in rows if (repeat_range := _route_repeat_range(row)) is not None}
+    if len(ranges) > 1:
+        raise ValueError('a route has multiple independent hit-count ranges')
+    if ranges:
+        first, last = ranges.pop()
+        dimensions.append(('repeats', [str(count) for count in range(first, last + 1)]))
     return dimensions
 
 
@@ -1030,7 +1077,7 @@ def _row_matches_route(
     if 'button' in route and button_match is not None and route['button'] != button_match.group(1):
         return False
     if 'charge' in route:
-        charge = 'charged' if 'charged' in text else 'uncharged'
+        charge = _route_charge(text)
         if route['charge'] != charge:
             return False
     if 'release' in route:
@@ -1106,6 +1153,13 @@ def build_aow_route_data(project_root: Path, phase1_dir: Path | None = None) -> 
             if not route_rows or not any(row['is_damaging'] == '1' for row in route_rows):
                 continue
             label_parts = list(combination)
+            if 'repeats' in route:
+                if any(_route_repeat_range(row) is not None for row in route_rows):
+                    label_parts[-1] = f"loop {route['repeats']}"
+                else:
+                    if route['repeats'] != dimensions[-1][1][0]:
+                        continue
+                    label_parts.pop()
             route_id = _route_slug(label_parts)
             route_label = ' / '.join(part.replace('_', ' ').title() for part in label_parts) or 'Full sequence'
             action_first_rows: dict[str, int] = {}
@@ -1134,6 +1188,7 @@ def build_aow_route_data(project_root: Path, phase1_dir: Path | None = None) -> 
                         'action_id': action_id,
                         'action_order': action_order[action_id],
                         'hit_order': int(row['hit_order']),
+                        'hit_count': _route_hit_count(row, route),
                     }
                 )
             route_index += 1
@@ -1160,6 +1215,7 @@ def build_aow_route_data(project_root: Path, phase1_dir: Path | None = None) -> 
                 'action_id',
                 'action_order',
                 'hit_order',
+                'hit_count',
             ],
             lineterminator='\n',
         )
@@ -1199,8 +1255,14 @@ def load_bullet_attack_ids(
     bullets = load_param_table(
         regulation_bin_dir / 'Bullet.param',
         paramdex_defs_dir / 'BulletParam.xml',
-        {'atkId_Bullet'},
+        {'atkId_Bullet', 'numShoot'},
     )
+    for attack_id, (bullet_id, hit_count) in PROJECTILE_HIT_COUNT_SOURCES.items():
+        source = bullets.rows.get(bullet_id)
+        if source is None or (
+            int(source['atkId_Bullet']), int(source['numShoot'])
+        ) != (attack_id, hit_count):
+            raise ValueError(f'projectile hit count source changed for attack {attack_id}')
     return {
         attack_id
         for row in bullets.rows.values()

@@ -162,6 +162,37 @@ class ExternalCalculatorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "usable external weapon names"):
             sample_cases(external(), catalog(), count=3, seed=7)
 
+    def test_sampling_always_includes_the_32_bloodfiend_bleed_boundaries(self) -> None:
+        affinities = ("Heavy", "Keen", "Quality", "Fire", "Flame Art", "Lightning", "Sacred", "Magic")
+        local = catalog() + [
+            {"name": "Bloodfiend's Fork", "affinity": affinity, "maxUpgrade": 25}
+            for affinity in affinities
+        ]
+        reference = external() + [
+            {"weaponName": "Bloodfiend's Fork", "affinityId": index, "maxUpgrade": 25}
+            for index in range(1, 9)
+        ]
+        selected, cases = sample_cases(reference, local, count=1, seed=7)
+        boundaries = [case for case in cases if case.sample_weapon == 0]
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(len(boundaries), 32)
+        self.assertEqual([case.case_id for case in cases], list(range(1, 39)))
+        expected = {
+            (affinity, upgrade, arc, two_handing)
+            for affinity, other_upgrade, other_arc in (
+                ("Heavy", 14, 99), ("Keen", 23, 99), ("Quality", 7, 99), ("Fire", 1, 99),
+                ("Flame Art", 7, 45), ("Lightning", 14, 99), ("Sacred", 23, 99), ("Magic", 7, 99),
+            )
+            for upgrade, arc in ((25, 50), (other_upgrade, other_arc))
+            for two_handing in (False, True)
+        }
+        self.assertEqual(
+            {(case.affinity, case.upgrade, case.stats["arc"], case.two_handing) for case in boundaries},
+            expected,
+        )
+        self.assertTrue(all(case.aow_name is None for case in boundaries))
+        self.assertTrue(all(case.weapon_name == "Bloodfiend's Fork" for case in boundaries))
+
     def test_comparison_rejects_incomplete_results(self) -> None:
         case = ComparisonCase(
             case_id=1,

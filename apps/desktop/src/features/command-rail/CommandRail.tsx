@@ -4,7 +4,7 @@ import brandMark from "../../assets/brand-mark.png";
 import { AowSelect } from "../../lib/AowSelect";
 import { api } from "../../lib/api";
 import { useRequestBudget, useWeaponProfile } from "../../lib/hooks";
-import { fixed1, objectiveLabel } from "../../lib/format";
+import { fixed1, objectiveLabel, statLockLine } from "../../lib/format";
 import { CheckboxMultiSelect, SearchableSelect, openOption } from "../../lib/SearchableSelect";
 import {
   SCADUTREE_MAX_LEVEL,
@@ -12,7 +12,7 @@ import {
   scadutreeDamageNegation,
   scadutreeReceivedDamageMultiplier,
 } from "../../lib/scadutree";
-import { classMeta, classOptions, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, replaceFilterEntries, startingClassLevel } from "../../lib/session";
+import { classMeta, classOptions, derivedLevel, EIGHT_STAT_KEYS, hasCombatStatLocks, optimalStartingClass, replaceFilterEntries, startingClassLevel } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { EightStatsDto, FilterDimensionDto, OptimizeRequestDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
@@ -88,7 +88,7 @@ export function CommandRail() {
   const [advancedOpen, setAdvancedOpen] = useState(fixedStats);
   const activeMinimums = [request.minStr, request.minDex, request.minInt, request.minFai, request.minArc]
     .filter((value) => value > 0).length;
-  const exactLocksActive = lockedStatMode && request.lockStr !== null;
+  const exactLocksActive = lockedStatMode && hasCombatStatLocks(request);
   const profileRules = catalog?.dataManifest.rules;
   const separateUpgradeCaps = profileRules?.separateUpgradeCaps ?? true;
   const scadutreeAvailable = profileRules?.scadutreeScaling ?? true;
@@ -253,7 +253,7 @@ export function CommandRail() {
           </div>
           <div className="hero-chip-row">
             <span>{request.twoHanding ? "Two-handed strength" : "One-handed strength"}</span>
-            <span>{fixedStats || lockedStatMode ? "Exact combat stats" : "Stats optimized"}</span>
+            <span>{fixedStats ? "Exact combat stats" : exactLocksActive ? "Stat locks active" : "Stats optimized"}</span>
             <span>{upgradeSummary}</span>
             <span>
               {scadutreeAvailable
@@ -266,8 +266,8 @@ export function CommandRail() {
           </div>
           {exactLocksActive ? (
             <div className="active-lock-warning" role="status">
-              <strong>Exact locks active:</strong>
-              <span>STR {request.lockStr} / DEX {request.lockDex} / INT {request.lockInt} / FAI {request.lockFai} / ARC {request.lockArc}</span>
+              <strong>Stat locks active:</strong>
+              <span>{statLockLine(request)}</span>
               <small>Changing class or loadout keeps these locks and may make the query incompatible. Clear locks in Advanced when you want automatic stats.</small>
             </div>
           ) : null}
@@ -587,9 +587,9 @@ export function CommandRail() {
               <div className="lock-readout">
                 <span>Locks</span>
                 <strong>
-                  {fixedStats ? `STR ${request.strStat} DEX ${request.dex} INT ${request.intStat} FAI ${request.fai} ARC ${request.arc}` : !lockedStatMode || request.lockStr === null
+                  {fixedStats ? `STR ${request.strStat} DEX ${request.dex} INT ${request.intStat} FAI ${request.fai} ARC ${request.arc}` : !exactLocksActive
                     ? "Open"
-                    : `STR ${request.lockStr} DEX ${request.lockDex} INT ${request.lockInt} FAI ${request.lockFai} ARC ${request.lockArc}`}
+                    : statLockLine(request)}
                 </strong>
               </div>
               <button
