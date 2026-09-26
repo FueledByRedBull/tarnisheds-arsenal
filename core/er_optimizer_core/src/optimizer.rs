@@ -114,6 +114,9 @@ impl PreparedLoadoutEvaluator<'_> {
     where
         F: FnMut() -> bool + Send,
     {
+        if !should_continue() {
+            return Err("cancelled".into());
+        }
         validate_reusable_loadout(&self.template, request, self.data)?;
         let constraints = build_combat_constraints(request)?;
         if request.top_k == 1 && request.locked_combat_stats.iter().all(Option::is_some) {
@@ -773,7 +776,7 @@ where
     validate_profile_capabilities(request, data)?;
     let constraints = build_combat_constraints(request)?;
     let weapons = Arc::from(
-        prepare_weapons_with_cancel(request, data, constraints, &mut should_continue)?
+        prepare_weapons_with_cancel(request, data, Some(constraints), &mut should_continue)?
             .into_boxed_slice(),
     );
     build_prepared_plan(
@@ -808,7 +811,7 @@ where
     validate_profile_capabilities(request, data)?;
     let constraints = build_combat_constraints(request)?;
     let weapons = Arc::from(
-        prepare_weapons_with_cancel(request, data, constraints, &mut should_continue)?
+        prepare_weapons_with_cancel(request, data, Some(constraints), &mut should_continue)?
             .into_boxed_slice(),
     );
     build_prepared_plan(
@@ -927,15 +930,10 @@ where
     preparation_request.min_combat_stats = [0; COMBAT_STAT_COUNT];
     preparation_request.locked_combat_stats = [None; COMBAT_STAT_COUNT];
     preparation_request.top_k = 1;
-    let constraints = build_combat_constraints(&preparation_request)?;
+    build_combat_constraints(&preparation_request)?;
     let weapons = Arc::from(
-        prepare_weapons_with_cancel(
-            &preparation_request,
-            data,
-            constraints,
-            &mut should_continue,
-        )?
-        .into_boxed_slice(),
+        prepare_weapons_with_cancel(&preparation_request, data, None, &mut should_continue)?
+            .into_boxed_slice(),
     );
     Ok(PreparedLoadoutEvaluator {
         template: preparation_request,
@@ -966,15 +964,10 @@ where
     preparation_request.min_combat_stats = [0; COMBAT_STAT_COUNT];
     preparation_request.locked_combat_stats = [None; COMBAT_STAT_COUNT];
     preparation_request.top_k = 1;
-    let constraints = build_combat_constraints(&preparation_request)?;
+    build_combat_constraints(&preparation_request)?;
     let weapons = Arc::from(
-        prepare_weapons_with_cancel(
-            &preparation_request,
-            data,
-            constraints,
-            &mut should_continue,
-        )?
-        .into_boxed_slice(),
+        prepare_weapons_with_cancel(&preparation_request, data, None, &mut should_continue)?
+            .into_boxed_slice(),
     );
     Ok(PreparedUpgradeSeriesEvaluator {
         template: preparation_request,
@@ -1170,8 +1163,13 @@ where
     }
     let max_constraints = build_combat_constraints(&max_request)?;
     let shared_weapons = Arc::from(
-        prepare_weapons_with_cancel(&max_request, data, max_constraints, &mut should_continue)?
-            .into_boxed_slice(),
+        prepare_weapons_with_cancel(
+            &max_request,
+            data,
+            Some(max_constraints),
+            &mut should_continue,
+        )?
+        .into_boxed_slice(),
     );
     let mut max_plan = Some(build_prepared_plan(
         &max_request,
@@ -3659,13 +3657,13 @@ fn prepare_weapons<'a>(
     data: &'a GameData,
     constraints: CombatConstraints,
 ) -> Result<Vec<PreparedWeapon<'a>>, String> {
-    prepare_weapons_with_cancel(request, data, constraints, &mut || true)
+    prepare_weapons_with_cancel(request, data, Some(constraints), &mut || true)
 }
 
 fn prepare_weapons_with_cancel<'a>(
     request: &OptimizeRequest,
     data: &'a GameData,
-    constraints: CombatConstraints,
+    constraints: Option<CombatConstraints>,
     should_continue: &mut impl FnMut() -> bool,
 ) -> Result<Vec<PreparedWeapon<'a>>, String> {
     let mut out = Vec::new();
@@ -3676,7 +3674,10 @@ fn prepare_weapons_with_cancel<'a>(
         if !weapon_matches_request(weapon, request, data) || !data.weapon_ar_supported(weapon) {
             continue;
         }
-        if !weapon_requirements_can_fit(request, constraints, weapon) {
+        // Reusable evaluators can change stat budgets after preparation.
+        if constraints
+            .is_some_and(|constraints| !weapon_requirements_can_fit(request, constraints, weapon))
+        {
             continue;
         }
         let Some(upgrades) = available_upgrades(weapon, request, data) else {

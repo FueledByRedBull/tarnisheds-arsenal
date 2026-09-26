@@ -50,6 +50,8 @@ Status: accepted. These rules describe contracts that tests and future refactors
   uncertainty in one queue retains that queue's native ownership without blocking
   the other queue.
 - A response may update state only when generation, signature, and job ID all exactly match the active request.
+- Cancellation replies and errors obey the same generation/job ownership rule;
+  a late acknowledgement cannot clear or report an error on a replacement search.
 - Input changes invalidate the active generation before dependent state is changed.
 - Cancellation is cooperative and fail-closed. A cancelled job cannot replace current rows or populate retained analysis caches.
 - Broad running work targets cancellation within 250 ms on the reference machine. Cancelled multi-lane jobs publish no partial success payload.
@@ -61,6 +63,9 @@ Status: accepted. These rules describe contracts that tests and future refactors
   sibling fails, the operation aborts its remaining siblings and reports the
   original error; aborting one subscriber does not cancel shared cached work needed
   by another subscriber.
+- Compare evaluates all stored pins (up to eight), excluding the selected baseline.
+  Each selected weapon uses its actual available upgrade cap, including +0 for
+  unupgradeable weapons, when resolving the profile-wide upgrade policy.
 - Numeric input edits do not launch exact optimizer preparation; the command rail shows a constant-time scope summary and exact candidate preparation begins only when Search is pressed. Search-space estimation has no job lifecycle to preserve: it is a cancellable core API with no command or frontend caller, so nothing can publish an estimate into frontend state. Reintroducing a user-facing estimate means giving it a generation, signature, and job ID like any other async request.
 - A profile switch invalidates every job generation before changing inputs, requests cancellation for all active backend jobs, clears profile-bound results, and cannot accept a completion from the previous profile.
 - CSV export owns a cancellable search until the backend reports completion, including after cancellation. Normal searches and comparison searches wait for that slot. Input/profile changes and leaving Rankings cancel export; late results cannot download or populate its cache.
@@ -89,6 +94,8 @@ Status: accepted. These rules describe contracts that tests and future refactors
   existing versioned presets, bounded to 500 builds/10 MiB. Validate the entire
   backup before writing; restore with new IDs and commit the index last. Failed
   cleanup leaves new records recoverable as orphans.
+- Preset, backup and recovery validation rejects null comparison pins and requires
+  request enum values to be strings before they can reach the UI or native commands.
 - Reproduction reports project known request/result fields, including nested
   structures, and omit raw storage, logs, and private manifest source paths.
   Report text redaction is an additional precaution; users preview before sharing.
@@ -119,6 +126,9 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - A fixed-loadout Paths evaluation pins weapon, affinity, Ash, and upgrade, then clears
   discovery filters before preparing its evaluator. Discovery constraints therefore
   cannot leak into a selected path.
+- Reusable loadout and upgrade evaluators retain equipment across validated stat
+  budget changes and check eligibility against each evaluation's budget. Cancellation
+  is honored even when a locked evaluation has no eligible weapons.
 - Schema version describes storage compatibility, dataset version identifies extracted content, and model version identifies calculation semantics. They change independently.
 - The UI's “Snapshot loaded” state reports a manifest-bound snapshot that passed
   loading checks and declares capabilities; it does not independently verify every

@@ -124,10 +124,15 @@ export function CommandRail() {
     if (searchCancellationRequested) return;
     searchCancellationRequestedRef.current = true;
     setSearchCancellationRequested(true);
-    const currentJobId = useDesktopStore.getState().activeJobId;
+    const { activeJobId: currentJobId, searchGeneration } = useDesktopStore.getState();
     if (!currentJobId) return;
+    const isCurrent = () => {
+      const current = useDesktopStore.getState();
+      return current.searchGeneration === searchGeneration && current.activeJobId === currentJobId;
+    };
     try {
       const cancelled = await api.cancelSearch(currentJobId);
+      if (!isCurrent()) return;
       if (!cancelled) {
         setSearching(false);
         setActiveJobId(null);
@@ -137,6 +142,7 @@ export function CommandRail() {
         searchCancellationRequestedRef.current = false;
       }
     } catch (error) {
+      if (!isCurrent()) return;
       setSearchCancellationRequested(false);
       searchCancellationRequestedRef.current = false;
       setError(error instanceof Error ? error.message : String(error));

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Ignore late cancellation replies from superseded searches, compare every pinned
+  build, and retain unupgradeable weapons such as Meteorite Staff in comparisons.
+- Reject malformed comparison pins and non-string preset enums before import or
+  recovery. Keep reusable evaluators correct when budgets increase, and honor
+  cancellation even when a locked evaluation has no eligible weapons.
 - Correct Bloodfiend's Fork bleed-floor boundaries while preserving exact optimizer
   comparisons; retain all 32 formerly failing cases in external validation.
 - Count source-marked repeated skill contacts, separate charge variants, preserve

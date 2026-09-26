@@ -169,10 +169,9 @@ export function CompareView() {
       } else {
         const sources = compareBench.length ? compareBench : rows;
         const rivalInputs = sources
-          .slice(0, 5)
           .map((row, index) => ({ row, index }))
           .filter(({ row }) => rowFingerprint(row) !== rowFingerprint(selected))
-          .slice(0, compareBench.length ? 5 : 3);
+          .slice(0, compareBench.length || 3);
         const rivals = await Promise.all(rivalInputs.map(async ({ row, index }) => ({
           label: `${compareBench.length ? "Pinned" : "Top"} #${index + 1}`,
           row: compareBench.length

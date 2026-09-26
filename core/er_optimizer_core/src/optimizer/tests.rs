@@ -2527,6 +2527,69 @@ fn reusable_loadout_evaluator_matches_independent_exact_search() {
 }
 
 #[test]
+fn reusable_evaluators_keep_weapons_for_later_stat_budgets() {
+    let data = load_data();
+    let mut template = base_request();
+    template.class_name = "Wretch".into();
+    template.character_level = 1;
+    template.current_stats = class_by_name("Wretch").unwrap().base_stats;
+    template.weapon_name = Some("Starscourge Greatsword".into());
+    template.affinity = Some("Standard".into());
+    template.standard_max_upgrade = 0;
+    template.somber_max_upgrade = 0;
+    template.exact_upgrade = true;
+    template.top_k = 1;
+    let evaluator = prepare_loadout_evaluator_with_cancel(&template, &data, || true).unwrap();
+
+    let mut later = template.clone();
+    later.character_level = 36;
+    later.locked_combat_stats = [Some(38), Some(12), Some(15), Some(10), Some(10)];
+    let expected = optimize(&later, &data).unwrap();
+    assert_eq!(expected.len(), 1);
+    let locked = evaluator.evaluate_with_cancel(&later, || true);
+    let frontier = evaluator
+        .evaluate_ar_bleed_frontier_with_cancel(&later, || true)
+        .map(|points| points.into_iter().map(|point| point.result).collect());
+    let mut unlocked = later.clone();
+    unlocked.locked_combat_stats = [None; COMBAT_STAT_COUNT];
+    let unlocked = evaluator.evaluate_with_cancel(&unlocked, || true);
+
+    template.exact_upgrade = false;
+    later.exact_upgrade = false;
+    let series = prepare_upgrade_series_evaluator_with_cancel(&template, &data, || true).unwrap();
+    let series = series.evaluate_with_cancel(&later, 0, || true);
+    let evaluations = [locked, frontier, unlocked, series];
+    assert_eq!(
+        evaluations
+            .iter()
+            .map(|result| result.as_ref().ok().map(Vec::len))
+            .collect::<Vec<_>>(),
+        [Some(1); 4],
+        "locked, frontier, unlocked, and upgrade-series evaluations must retain the loadout"
+    );
+    for actual in evaluations {
+        assert_eq!(format!("{:?}", actual.unwrap()), format!("{expected:?}"));
+    }
+}
+
+#[test]
+fn reusable_loadout_evaluator_cancels_an_empty_fully_locked_search() {
+    let data = load_data();
+    let mut request = base_request();
+    request.weapon_name = Some("Starscourge Greatsword".into());
+    request.affinity = Some("Standard".into());
+    request.exact_upgrade = true;
+    request.somber_filter = SomberFilter::StandardOnly;
+    request.top_k = 1;
+    request.locked_combat_stats = request.current_stats.combat_array().map(Some);
+    let evaluator = prepare_loadout_evaluator_with_cancel(&request, &data, || true).unwrap();
+    let error = evaluator
+        .evaluate_with_cancel(&request, || false)
+        .unwrap_err();
+    assert_eq!(error, "cancelled");
+}
+
+#[test]
 fn reusable_loadout_evaluator_matches_invalid_budget_and_requirement_results() {
     let game_data = load_data();
 

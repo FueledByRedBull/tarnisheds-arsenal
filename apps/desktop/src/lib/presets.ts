@@ -343,7 +343,10 @@ function assertPreset(value: BuildPreset) {
   assertSolvedBuild(value.selectedBuild, "selectedBuild");
   assertSolvedBuild(value.compareTarget, "compareTarget");
   assertArray(value.compareBench, "compareBench", 8);
-  value.compareBench.forEach((build, index) => assertSolvedBuild(build, `compareBench[${index}]`));
+  value.compareBench.forEach((build, index) => {
+    if (build === null) throw invalidPreset(`compareBench[${index}] must be a build`);
+    assertSolvedBuild(build, `compareBench[${index}]`);
+  });
 }
 
 function assertRequest(value: unknown): asserts value is OptimizeRequestDto {
@@ -372,23 +375,23 @@ function assertRequest(value: unknown): asserts value is OptimizeRequestDto {
   assertNullableText(value.affinity, "request.affinity", 80);
   assertNullableText(value.aowName, "request.aowName", 200);
   assertNullableText(value.weaponTypeKey, "request.weaponTypeKey", 100);
-  if (!["all", "standard_only", "somber_only"].includes(String(value.somberFilter))) {
+  if (typeof value.somberFilter !== "string" || !["all", "standard_only", "somber_only"].includes(value.somberFilter)) {
     throw invalidPreset("request.somberFilter is invalid");
   }
   if (!isRecord(value.filters) || value.filters.version !== 1) throw invalidPreset("request.filters must use schema version 1");
   assertArray(value.filters.entries, "request.filters.entries", 512);
   value.filters.entries.forEach((entry, index) => {
     if (!isRecord(entry)) throw invalidPreset(`request.filters.entries[${index}] must be an object`);
-    if (!["weapon_family", "weapon_type", "affinity", "aow", "reinforcement", "coverage"].includes(String(entry.dimension))) {
+    if (typeof entry.dimension !== "string" || !["weapon_family", "weapon_type", "affinity", "aow", "reinforcement", "coverage"].includes(entry.dimension)) {
       throw invalidPreset(`request.filters.entries[${index}].dimension is invalid`);
     }
     assertText(entry.id, `request.filters.entries[${index}].id`, 128);
-    if (!["include", "exclude"].includes(String(entry.mode))) throw invalidPreset(`request.filters.entries[${index}].mode is invalid`);
+    if (typeof entry.mode !== "string" || !["include", "exclude"].includes(entry.mode)) throw invalidPreset(`request.filters.entries[${index}].mode is invalid`);
   });
-  if (!["automatic", "weapon", "loadout"].includes(String(value.resultGrouping))) {
+  if (typeof value.resultGrouping !== "string" || !["automatic", "weapon", "loadout"].includes(value.resultGrouping)) {
     throw invalidPreset("request.resultGrouping is invalid");
   }
-  if (!["max_ar", "max_physical_ar", "max_ar_plus_bleed", "aow_first_hit", "aow_full_sequence"].includes(String(value.objective))) {
+  if (typeof value.objective !== "string" || !["max_ar", "max_physical_ar", "max_ar_plus_bleed", "aow_first_hit", "aow_full_sequence"].includes(value.objective)) {
     throw invalidPreset("request.objective is invalid");
   }
   assertInteger(value.topK, "request.topK", 1, 500);

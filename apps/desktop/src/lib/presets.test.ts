@@ -279,6 +279,34 @@ describe("saved build persistence", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it("rejects null comparison pins before import, restore, or recovery can expose them to the UI", () => {
+    const malformed = { ...preset(), version: 2, compareBench: [null] };
+    expect(() => parsePresetText(JSON.stringify(malformed))).toThrow(/compareBench/);
+    expect(() => restoreBuildBackup(JSON.stringify({
+      format: "tarnisheds-arsenal.build-backup", version: 1, builds: [malformed],
+    }))).toThrow(/compareBench/);
+    expect(savedBuildIndex().builds).toEqual([]);
+    localStorage.setItem(`tarnisheds-arsenal.savedBuild.v2.${malformed.id}`, JSON.stringify(malformed));
+    expect(loadBuildPreset(malformed.id)).toBeNull();
+    expect(inspectSavedBuilds().presets).toEqual([]);
+  });
+
+  it("rejects array-valued request enums instead of accepting their string conversion", () => {
+    const mutations = [
+      ["somberFilter", ["all"]], ["objective", ["max_ar"]],
+      ["resultGrouping", ["automatic"]],
+      ["filters", { version: 1, entries: [{ dimension: ["affinity"], id: "Keen", mode: "include" }] }],
+      ["filters", { version: 1, entries: [{ dimension: "affinity", id: "Keen", mode: ["include"] }] }],
+    ] as const;
+    for (const [key, value] of mutations) {
+      const malformed = { ...preset(), request: { ...defaultRequest, [key]: value } };
+      expect(() => parsePresetText(JSON.stringify(malformed)), key).toThrow(/valid BuildPreset/);
+      expect(() => previewBuildBackup(JSON.stringify({
+        format: "tarnisheds-arsenal.build-backup", version: 1, builds: [malformed],
+      })), key).toThrow(/valid BuildPreset/);
+    }
+  });
+
   it("blocks writes to a damaged index and recovers valid orphan records without erasing evidence", () => {
     const saved = saveBuildPreset(preset());
     const indexKey = "tarnisheds-arsenal.savedBuildIndex.v1";
