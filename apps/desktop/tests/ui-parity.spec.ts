@@ -108,6 +108,24 @@ test("saved profile filters stay readable and can be removed without changing we
 test("profile switch isolates results and explains Convergence coverage", async ({ page }) => {
   await page.setViewportSize({ width: 1028, height: 749 });
   await page.goto("/");
+  await page.evaluate(async () => {
+    const { api } = await import("/src/lib/api.ts");
+    const searchStatus = api.searchStatus;
+    api.searchStatus = async (jobId) => {
+      const status = await searchStatus(jobId);
+      if (status?.finished) {
+        // A present route exercises profile capability gating independently of missing-route gating.
+        status.finished.rows = status.finished.rows.map(row => ({ ...row,
+          aowRoute: { routeId: "profile-coverage", routeLabel: "Profile coverage fixture", routePriority: 0,
+            buffActivationActionId: null, actions: [], firstHitDamage: row.aowFirstHitDamage,
+            totalDamage: { physical: row.aowFullSequenceDamage, magic: 0, fire: 0, lightning: 0, holy: 0, total: row.aowFullSequenceDamage },
+            totalPoiseDamage: 0, totalStaminaCost: 0,
+            totalStatusBuildup: { bleed: 0, frost: 0, poison: 0, scarletRot: 0, sleep: 0, madness: 0, death: 0 } },
+        }));
+      }
+      return status;
+    };
+  });
   const profiles = page.getByRole("radiogroup", { name: "Game profile" });
   await expect(profiles.getByRole("radio", { name: /Vanilla/ })).toHaveAttribute("aria-checked", "true");
   await page.getByRole("button", { name: "Search", exact: true }).click();
@@ -131,7 +149,7 @@ test("profile switch isolates results and explains Convergence coverage", async 
   }
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("1 ranked rows")).toBeVisible();
-  const rawSkill = page.locator(".result-row-full").first().getByRole("gridcell").nth(5);
+  const rawSkill = page.locator(".result-row-full").first().locator(".skill-cell");
   await expect(rawSkill).toHaveText("Unavailable");
   await page.locator(".result-row-full").first().click();
   await expect(page.locator(".metric-tile").filter({ hasText: "AoW model" })).toContainText("Unavailable");
@@ -145,7 +163,7 @@ test("profile switch isolates results and explains Convergence coverage", async 
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
   await expect(rawSkill).not.toContainText("Unavailable");
-  await expect(rawSkill).toContainText("First");
+  await expect(rawSkill).toContainText("1st hit");
   await page.locator(".result-row-full").first().click();
   await expect(page.locator(".metric-tile").filter({ hasText: "Raw AoW" })).not.toContainText("Unavailable");
 
@@ -182,7 +200,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(page.locator(".top-cards")).toHaveCount(0);
 
   await expect(page.getByRole("textbox", { name: "Level", exact: true })).toHaveValue("9");
-  await expect(page.getByText("Redistrib", { exact: true })).toBeVisible();
+  await expect(page.getByText("Movable", { exact: true })).toBeVisible();
   await page.getByRole("combobox", { name: "Class" }).click();
   await expect(page.getByRole("option", { name: "Wretch" })).toBeVisible();
   await page.keyboard.press("Escape");
@@ -211,8 +229,10 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   const firstRankedRow = page.locator(".result-row-full").first();
   await expect(firstRankedRow).toContainText("Uchigatana");
   await expect(firstRankedRow.getByRole("list", { name: "Attack rating split" })).toHaveCount(0);
-  await expect(firstRankedRow.getByRole("gridcell").nth(4)).toHaveText("700");
-  await expect(firstRankedRow.locator(".row-combat-stats")).toHaveText("STR 13 / DEX 22 / INT 9 / FAI 8 / ARC 60");
+  await expect(firstRankedRow.locator(".ar-cell")).toHaveText("700.0");
+  expect(await firstRankedRow.getByRole("list", { name: "Combat stats" }).getByRole("listitem")
+    .evaluateAll(items => items.map(item => item.getAttribute("aria-label"))))
+    .toEqual(["Strength 13", "Dexterity 22", "Intelligence 9", "Faith 8", "Arcane 60"]);
   const rowScaling = firstRankedRow.getByRole("list", { name: "Attribute scaling" });
   await expect(rowScaling.getByRole("listitem", { name: "Strength scaling: C", exact: true })).toBeVisible();
   await expect(rowScaling.getByRole("listitem", { name: "Arcane scaling: D", exact: true })).toBeVisible();
@@ -277,14 +297,14 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect.poll(() => page.evaluate(() => document.body.scrollWidth <= window.innerWidth + 2)).toBe(true);
 
   await page.getByRole("navigation").getByRole("button", { name: "Paths" }).click();
-  await page.getByRole("spinbutton", { name: "Current + N" }).fill("90");
+  await page.getByRole("spinbutton", { name: "Levels ahead" }).fill("90");
   await page.getByRole("button", { name: "Trace paths" }).click();
-  await expect(page.getByText("Selected").first()).toBeVisible();
-  await expect(page.getByText("Compare").first()).toBeVisible();
+  await expect(page.locator(".path-lanes").getByText("Selected", { exact: true })).toBeVisible();
+  await expect(page.locator(".path-lanes").getByText("Compare", { exact: true })).toBeVisible();
   await expect(page.locator(".path-chart")).toContainText("Allocation changes (sampled)");
   await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "completed");
-  await page.getByRole("button", { name: "Envelope", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Envelope", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Best per level", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Best per level", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "ready");
   await expect(page.locator(".path-chart .path-series")).toHaveCount(0);
   await page.getByRole("button", { name: "Trace paths", exact: true }).click();
@@ -306,7 +326,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(page.locator(".affinity-chart .spark-line")).toHaveCount(0);
   await expect(affinityRankings).toContainText("Occult");
   await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "completed");
-  await page.getByRole("spinbutton", { name: "Current + N" }).fill("5");
+  await page.getByRole("spinbutton", { name: "Levels ahead" }).fill("5");
   await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "ready");
 });
 
@@ -433,7 +453,7 @@ test("compare combines multiple types and affinities with Smithing and Somber to
   await expect(targetLane).toContainText("Keen");
 });
 
-test("comparison targets survive pin, clear, type search, and workspace navigation", async ({ page }) => {
+test("comparison pins survive custom filters and navigation until explicitly cleared", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
@@ -454,9 +474,10 @@ test("comparison targets survive pin, clear, type search, and workspace navigati
   await occult.getByRole("button", { name: /^Compare / }).click();
   await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
   await expect(page.getByText(/pinned target is already the selected baseline/i)).toBeVisible();
+  const savedPins = await page.evaluate(() => localStorage.getItem("tarnisheds-arsenal.compareBench.v1.vanilla"));
 
   await toggleMultiSelectOption(page, "Compare Type", "Great Katana");
-  await expect(page.getByRole("button", { name: "Clear 1 pinned target" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Clear 1 pinned target" })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Compare Weapon" })).toHaveValue("Best Great Katana");
   const bestType = page.locator(".compare-lane", { hasText: "Best Great Katana" });
   await expect(bestType).toContainText("Ancient Meteoric Ore Greatsword");
@@ -472,14 +493,23 @@ test("comparison targets survive pin, clear, type search, and workspace navigati
   await page.getByRole("navigation").getByRole("button", { name: "Rankings" }).click();
   await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
   await expect(bestType).toContainText("Ancient Meteoric Ore Greatsword");
+  expect(await page.evaluate(() => localStorage.getItem("tarnisheds-arsenal.compareBench.v1.vanilla"))).toBe(savedPins);
+  await page.getByRole("button", { name: "Use pinned targets", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Compare Type" })).toContainText("All");
+  await expect(page.getByText(/pinned target is already the selected baseline/i)).toBeVisible();
 
   await page.getByRole("navigation").getByRole("button", { name: "Rankings" }).click();
   await keen.getByRole("button", { name: /^Compare / }).click();
   await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
   await expect(page.getByRole("button", { name: "Compare Type" })).toContainText("All");
-  await expect(page.getByText("Selected baseline versus 1 pinned target")).toBeVisible();
-  await expect(page.locator(".compare-lane", { hasText: "Pinned #1" })).toContainText("Keen");
+  await expect(page.getByText("Selected baseline versus 2 pinned targets")).toBeVisible();
+  await expect(page.locator(".compare-lane", { hasText: "Pinned #2" })).toContainText("Keen");
   await expect(page.locator(".compare-lane", { hasText: "Selected" })).toContainText("Occult");
+  await page.getByRole("button", { name: "Clear 2 pinned targets", exact: true }).click();
+  await expect(page.getByText("Selected baseline versus current ranked rivals")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Clear \d+ pinned target/ })).toHaveCount(0);
+  await expect(page.locator(".compare-lane", { hasText: "Selected" })).toContainText("Occult");
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("tarnisheds-arsenal.compareBench.v1.vanilla")!).rows)).toEqual([]);
 });
 
 test("ranked rows select the exact build with mouse and keyboard", async ({ page }) => {
@@ -509,11 +539,17 @@ test("ranked rows select the exact build with mouse and keyboard", async ({ page
     const background = getComputedStyle(row).backgroundColor;
     return [...row.children].slice(0, 2).every(cell => getComputedStyle(cell).backgroundColor === background);
   })).toBe(true);
-  await expect.poll(() => hoveredRow.locator(".setup-cell .row-detail-label").evaluate((label) => {
-    const heading = label.getBoundingClientRect();
-    const grades = label.nextElementSibling!.getBoundingClientRect();
-    return getComputedStyle(label).textAlign === "center"
-      && Math.abs(heading.left + heading.width / 2 - grades.left - grades.width / 2) < 1;
+  // Token-column keys live once in the header and must line up with every row's values.
+  await expect.poll(() => page.evaluate(() => {
+    const centers = (nodes: Iterable<Element>) => [...nodes].map((node) => {
+      const box = node.getBoundingClientRect();
+      return box.left + box.width / 2;
+    });
+    const keys = centers(document.querySelectorAll(".result-head-full .token-keys > span"));
+    return [...document.querySelectorAll(".result-row-full")].every((row) => {
+      const values = centers(row.querySelectorAll(".metric-token"));
+      return values.length === keys.length && values.every((center, index) => Math.abs(center - keys[index]) < 1);
+    });
   })).toBe(true);
 });
 
@@ -546,9 +582,8 @@ test("stale saved builds offer explicit input-only loading or recompute migratio
   await expect(page.getByText("4 ranked rows")).toBeVisible();
   await page.getByRole("button", { name: "Save new" }).click();
   await expect(page.getByText(/Saved Build Preset/)).toBeVisible();
-  await expect(page.locator(".saved-build-status")).toContainText(
-    "Current · profile vanilla · dataset vanilla-1.17 · schema 6 · model aow-routes-effects-v8/exact-v2",
-  );
+  await expect(page.locator(".saved-build-status")).toHaveText("Saved with the current game data");
+  await expect(page.locator(".saved-build-status")).toHaveAttribute("title", /^profile vanilla · dataset vanilla-1\.17 · schema \d+ · model /);
 
   await page.evaluate(() => {
     const presetKey = Object.keys(localStorage).find((key) => key.startsWith("tarnisheds-arsenal.savedBuild.v2."));
@@ -567,7 +602,7 @@ test("stale saved builds offer explicit input-only loading or recompute migratio
   await expect(page.getByRole("button", { name: "Load inputs only" })).toBeVisible();
   await page.getByRole("button", { name: "Migrate data" }).click();
   await expect(page.getByText(/Migrated Build Preset/)).toBeVisible();
-  await expect(page.getByText(/Current.*dataset/)).toBeVisible();
+  await expect(page.locator(".saved-build-status")).toHaveText("Saved with the current game data");
   await expect(page.locator(".selected-build")).toContainText("Uchigatana");
 });
 
@@ -695,7 +730,7 @@ test("analysis controls align inputs with buttons and path levels compare side b
   await expect(table.getByRole("row").nth(1).getByRole("cell").nth(0)).toHaveText("49");
   await expect(page.getByRole("button", { name: "Next levels" })).toBeDisabled();
   await expect.poll(() => table.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
-  await page.getByRole("button", { name: "Envelope", exact: true }).click();
+  await page.getByRole("button", { name: "Best per level", exact: true }).click();
   await expect(table).toHaveCount(0);
 });
 
@@ -724,10 +759,15 @@ for (const [width, height] of [[923, 789], [1200, 720], [1366, 768], [1650, 950]
       useDesktopStore.setState({ rows: Array.from({ length: 50 }, (_, index) => rows[index % rows.length]) });
     });
     await expect(page.getByText("50 ranked rows")).toBeVisible();
-    const profileFits = () => page.locator(".profile-bar").evaluate((profile) => {
-      const bottom = profile.getBoundingClientRect().bottom;
-      return [...profile.children].every(child => child.getBoundingClientRect().bottom <= bottom - 5)
-        && document.querySelector(".workspace-tabs")!.getBoundingClientRect().top >= bottom + 7;
+    const profileFits = () => page.evaluate(() => {
+      const brand = document.querySelector(".brand-block")!.getBoundingClientRect();
+      const tabs = document.querySelector(".workspace-tabs")!.getBoundingClientRect();
+      const stage = document.querySelector(".workspace-stage")!.getBoundingClientRect();
+      return tabs.bottom <= stage.top + 1
+        && [...document.querySelectorAll(".profile-control > *, .profile-switch button")].every((node) => {
+          const box = node.getBoundingClientRect();
+          return box.left >= brand.left && box.right <= brand.right && box.bottom <= brand.bottom;
+        });
     });
     await expect.poll(profileFits).toBe(true);
     await expect.poll(() => page.locator(".query-summary").evaluate((query) =>

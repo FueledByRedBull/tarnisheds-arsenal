@@ -47,6 +47,8 @@ VARIANT_ALIASES = {
 # Distinct homing blades can all hit one target. numShoot alone is not enough:
 # fan-shaped and overlapping area bullets commonly share a single hit event.
 PROJECTILE_HIT_COUNT_SOURCES = {300200867: (2300, 4)}
+# ArtsCaption 1017 permits the same thrust after either projectile charge.
+SHARED_CHARGE_ATTACK_SOURCES = {(1017, 300107910): 'Glintstone Dart R2'}
 
 
 class AowCoverage(TypedDict):
@@ -458,8 +460,19 @@ def resolve_unique_skill_weapons(
     unique_skill_weapon: str,
     raw_name: str,
     index: NativeSkillWeaponIndex,
+    aow_id_by_name: dict[str, int],
 ) -> NativeSkillMatch:
     inferred_skill_name = infer_skill_name_from_raw_name(raw_name).strip()
+    transferable_name = find_matching_aow(raw_name, sorted(aow_id_by_name, key=len, reverse=True))
+    owners = resolve_weapon_rows(unique_skill_weapon, index.by_name, index.by_token)
+    transferable_ids = set(aow_id_by_name.values())
+    if transferable_name is not None and owners and all(
+        row.get('can_change_aow') == '1'
+        and int(row['native_skill_id']) in transferable_ids
+        for row in owners
+    ):
+        # This column also names restricted Ash hosts, not only unique skills.
+        return NativeSkillMatch([], 'generic_aow', 'aow_id+weapon', inferred_skill_name)
     skill_rows = index.by_skill_name_token.get(norm_token(inferred_skill_name), [])
     if skill_rows:
         skill_groups = group_rows_by_skill_id(skill_rows)
@@ -636,6 +649,7 @@ def build_aow_attack_data(
         aow_rows = list(csv.DictReader(handle))
     aow_id_by_name = {row['name']: int(row['aow_id']) for row in aow_rows}
     ordered_names = sorted(aow_id_by_name, key=len, reverse=True)
+    weapon_index = load_standard_native_skill_weapons(phase1_dir / 'weapons.csv')
     known_attack_element_ext_ids = load_attack_element_correct_ext_ids(workbook_path)
     coverage: dict[str, AowCoverage] = {
         row['name']: {
@@ -665,7 +679,9 @@ def build_aow_attack_data(
             matched = find_matching_aow(raw_name, ordered_names)
             if matched is None:
                 continue
-            if unique_skill_weapon:
+            if unique_skill_weapon and resolve_unique_skill_weapons(
+                unique_skill_weapon, raw_name, weapon_index, aow_id_by_name
+            ).status != 'generic_aow':
                 coverage[matched]['unique_collision_rows'] += 1
                 continue
             row, damaging, hit_kind = build_attack_row(
@@ -801,14 +817,14 @@ def build_native_skill_attack_data(
     out_path = phase1_dir / 'native_skill_attack_data.csv'
     coverage_path = phase1_dir / 'native_skill_damage_coverage.csv'
     weapon_index = load_standard_native_skill_weapons(weapons_csv)
-    generic_aow_names: list[str] = []
+    aow_id_by_name: dict[str, int] = {}
     if aow_csv.exists():
         with aow_csv.open('r', encoding='utf-8', newline='') as handle:
-            generic_aow_names = sorted(
-                {row['name'].strip() for row in csv.DictReader(handle) if row.get('name', '').strip()},
-                key=len,
-                reverse=True,
-            )
+            aow_id_by_name = {
+                row['name'].strip(): int(row['aow_id'])
+                for row in csv.DictReader(handle) if row.get('name', '').strip()
+            }
+    generic_aow_names = sorted(aow_id_by_name, key=len, reverse=True)
     known_attack_element_ext_ids = load_attack_element_correct_ext_ids(workbook_path)
 
     reader = WorkbookReader(workbook_path)
@@ -826,6 +842,7 @@ def build_native_skill_attack_data(
                 unique_skill_weapon,
                 raw_name,
                 weapon_index,
+                aow_id_by_name,
             )
             status = match.status
             match_source = match.match_source
@@ -950,7 +967,7 @@ def build_native_skill_attack_data(
         writer.writeheader()
         writer.writerows(coverage_rows)
 
-    unresolved = [row for row in coverage_rows if row['status'] != 'matched']
+    unresolved = [row for row in coverage_rows if row['status'] not in {'matched', 'generic_aow'}]
     if unresolved:
         unresolved_list = ', '.join(sorted({row['unique_skill_weapon'] for row in unresolved}))
         print(f'Warning: unresolved native skill workbook rows: {unresolved_list}')
@@ -1011,6 +1028,9 @@ def _route_charge(text: str) -> str:
         return 'uncharged'
     if re.search(r'\bpartial\b', text):
         return 'partial'
+    level = re.search(r'\bcharged\s+(\d+)\b', text)
+    if level is not None:
+        return f'charged_{level.group(1)}'
     return 'charged' if re.search(r'\bcharged\b', text) else 'uncharged'
 
 
@@ -1046,14 +1066,16 @@ def _route_dimension_values(rows: list[dict[str, str]]) -> list[tuple[str, list[
         dimensions.append(('button', ['r1', 'r2']))
     charges = {_route_charge(text) for text in texts}
     if len(charges) > 1:
-        dimensions.append(('charge', [charge for charge in ('uncharged', 'partial', 'charged')
-                                      if charge in charges]))
+        order = ['uncharged', 'partial', 'charged']
+        order.extend(sorted(charges.difference(order)))
+        dimensions.append(('charge', [charge for charge in order if charge in charges]))
     if any('early release' in text for text in texts) and any(
         'early release' not in text for text in texts
     ):
         dimensions.append(('release', ['full', 'early_release']))
     if any('(far)' in text for text in texts) and any(
-        'bullet' in text and '(far)' not in text for text in texts
+        row['is_bullet_attack'] == '1' and '(far)' not in text
+        for row, text in zip(rows, texts)
     ):
         dimensions.append(('distance', ['near', 'far']))
     ranges = {repeat_range for row in rows if (repeat_range := _route_repeat_range(row)) is not None}
@@ -1076,7 +1098,7 @@ def _row_matches_route(
     button_match = re.search(r'\b(r1|r2)\b', text)
     if 'button' in route and button_match is not None and route['button'] != button_match.group(1):
         return False
-    if 'charge' in route:
+    if 'charge' in route and (int(row['aow_id']), int(row['atk_id'])) not in SHARED_CHARGE_ATTACK_SOURCES:
         charge = _route_charge(text)
         if route['charge'] != charge:
             return False
@@ -1084,7 +1106,7 @@ def _row_matches_route(
         release = 'early_release' if 'early release' in text else 'full'
         if route['release'] != release:
             return False
-    if 'distance' in route and 'bullet' in text:
+    if 'distance' in route and row['is_bullet_attack'] == '1':
         distance = 'far' if '(far)' in text else 'near'
         if route['distance'] != distance:
             return False
@@ -1122,6 +1144,14 @@ def build_aow_route_data(project_root: Path, phase1_dir: Path | None = None) -> 
             for row in csv.DictReader(handle):
                 key = (int(row['aow_id']), int(row['sheet_row']))
                 source_rows.setdefault(key, row)
+
+    source_names = {
+        (int(row['aow_id']), int(row['atk_id'])): row['raw_name']
+        for row in source_rows.values()
+    }
+    for source, name in SHARED_CHARGE_ATTACK_SOURCES.items():
+        if source_names.get(source) != name:
+            raise ValueError(f'shared charge attack source changed: {source} ({name})')
 
     by_skill: dict[tuple[int, str], list[dict[str, str]]] = {}
     exclusions: list[dict[str, str]] = []

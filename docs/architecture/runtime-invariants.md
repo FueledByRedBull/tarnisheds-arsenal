@@ -40,8 +40,9 @@ Status: accepted. These rules describe contracts that tests and future refactors
   to native validation.
 - React Hooks ordering and effect dependencies are lint errors. Async effects
   must retain generation/cancellation guards when dependencies change. Comparison
-  persistence validation lives in `src/lib/compare-bench.ts`; moving it does not
-  change the stored format or the store's job ownership.
+  persistence and preset imports share the solved-build shape validator in
+  `src/lib/stored-build.ts`, with explicit profile or archive upgrade bounds.
+  Structural validity does not establish that stored calculations are current.
 
 ## Job lifecycle
 
@@ -59,14 +60,23 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - Rankings, custom comparisons, and CSV export share one search queue. The workflow owns polling through native completion, including cancellation; superseded queued requests never start. Rankings UI components do not run a second poller.
 - Cancellation or status communication errors may end the caller's request, but do not establish that its native worker is idle. Retain uncertain job ownership, bound recovery attempts, and reconcile that worker before starting replacement work.
 - Direct loadout and upgrade-series calculations run off the native main thread, with bounded concurrency and cooperative cancellation. Shared cache work is cancelled only when its last subscriber leaves or its profile/data identity is invalidated.
-- A Compare operation requires fresh Rankings results. If one solve or upgrade
-  sibling fails, the operation aborts its remaining siblings and reports the
-  original error; aborting one subscriber does not cancel shared cached work needed
-  by another subscriber.
+- A Compare operation requires fresh Rankings results. Failed required solves
+  abort their remaining siblings and report the original error. Verified lanes
+  and the target publish before optional upgrade charts; a chart failure leaves
+  those lanes usable and reports that lane's chart error. Aborting one subscriber
+  does not cancel shared cached work needed by another subscriber.
 - Compare evaluates all stored pins (up to eight), excluding the selected baseline.
-  Each selected weapon uses its actual available upgrade cap, including +0 for
-  unupgradeable weapons, when resolving the profile-wide upgrade policy.
-- Numeric input edits do not launch exact optimizer preparation; the command rail shows a constant-time scope summary and exact candidate preparation begins only when Search is pressed. Search-space estimation has no job lifecycle to preserve: it is a cancellable core API with no command or frontend caller, so nothing can publish an estimate into frontend state. Reintroducing a user-facing estimate means giving it a generation, signature, and job ID like any other async request.
+  Exact requests retain their requested upgrade or reject it. Pinned comparisons
+  explicitly request and label +0 for a weapon whose verified profile has no
+  reinforcement levels; other exact levels cannot silently become a lower level.
+- Native job queues resolve only successful terminal payloads; cancellation and
+  errors reject. This type-level guarantee does not release uncertain native
+  ownership or replace generation/signature checks at publication.
+- Numeric input edits do not launch exact optimizer preparation; the command rail
+  shows a constant-time scope summary and exact preparation begins only on Search.
+  `PreparedSearchPlan::estimate` reports the prepared plan's logical candidate
+  count; there is no standalone estimate API or frontend estimate job. A future
+  asynchronous estimate needs a generation, signature, and job ID.
 - A profile switch invalidates every job generation before changing inputs, requests cancellation for all active backend jobs, clears profile-bound results, and cannot accept a completion from the previous profile.
 - CSV export owns a cancellable search until the backend reports completion, including after cancellation. Normal searches and comparison searches wait for that slot. Input/profile changes and leaving Rankings cancel export; late results cannot download or populate its cache.
 
@@ -77,7 +87,29 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - Results retained while inputs change are explicitly stale. Stale rows cannot launch
   Compare, Paths, or Affinity Watch; Compare clears its visible series and target until
   fresh Rankings results exist.
-- Saved solved rows are trusted only when schema, dataset, and model versions match the active catalog; otherwise only normalized inputs are loaded.
+- A preset's starting class must match the active catalog before activation can
+  mutate workspace or storage. An unambiguous case-insensitive match is
+  canonicalized; unknown classes are rejected rather than replaced.
+- Saved solved rows are archives. Even when their schema, dataset and model match,
+  selected rows and comparison snapshots are recalculated through native fixed
+  loadout solving with their exact equipment, upgrade and stats before publication.
+  The selected build and comparison target must fit the saved inputs' level; a
+  pinned comparison uses the level its own stats require.
+  Version mismatches load inputs only. Failed or superseded verification preserves
+  the original saved record and cannot publish late results.
+- Weapon metadata belongs to its exact profile/weapon/affinity key. Loading,
+  failure and retry never expose a previous key's profile as current. Effective
+  Strength includes forced two-handing and weapon-specific bonus suppression.
+  Only a manual weapon selection requests its native default skill; restored
+  and starter inputs retain their explicit Automatic policy as metadata arrives.
+- A restored comparison target remains available in Compare and Paths until the
+  user changes its comparison or build context. Opening a workspace does not
+  discard that target or silently replace it with unrelated comparison controls.
+- Manual comparison controls preserve stored pins. Adding, removing or clearing
+  pins invalidates derived targets and Paths, including work already in flight.
+- Affinity Watch points contain only level and nullable metric. Endpoint summaries
+  use the actual boundary points; missing endpoints remain unavailable and cannot
+  inherit an interior build. Only an available final point supplies final stats.
 - Presets have an explicit profile ID. Legacy presets migrate to Vanilla, and presets from another profile cannot be loaded or silently converted.
 - Presets save effective stat locks; disabled locks are stored as null. Loadout solving and migration preserve requested locks. Comparison callers explicitly clear locks when reoptimizing a rival's stats.
 - Loading a readable preset does not depend on persisting comparison pins. Optional comparison-storage failures leave session state usable and show a warning; essential preset writes still report failure. Obsolete migration requests cancel their native calculations as well as rejecting stale results.
@@ -85,6 +117,9 @@ Status: accepted. These rules describe contracts that tests and future refactors
   never numeric zero; unified upgrade profiles do not claim Standard/Somber
   identity. Export reruns and caches use the complete normalized request including
   profile and requested row count.
+- Skill availability is per result as well as per profile: a missing calculated
+  route is unavailable across displays and exports. A route with calculated zero
+  damage remains a supported zero, not an absent value.
 - Missing or malformed saved-build indexes are distinct from an empty library.
   Essential writes refuse to replace an unreadable index. Recovery previews bind
   the exact source records/index, reject changed previews, preserve the original
@@ -107,6 +142,9 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - Each runtime profile is one immutable manifest snapshot. Every required runtime file must be listed exactly once with its byte length and SHA-256 hash.
 - External loading is all-or-nothing. Missing, modified, duplicate, unlisted, mixed-version, or path-traversing entries fail startup; files never fall back individually to embedded data.
 - The embedded snapshot is validated against the same manifest contract before parsing.
+- CSV headers are resolved once per table. Required numeric, handling and
+  compatibility columns must exist even in empty tables; optional descriptions
+  cannot supply defaults for missing calculation inputs.
 - The runtime profile registry contains an independently validated snapshot for every shipped profile. Commands select one explicit profile and never combine rows, jobs, lanes, caches, or metadata across profiles.
 - Every manifest binds its profile ID, display name, capability flags, mechanics rules, source hashes, and whether each source is bundled. Upgrade caps, upgrade-path shape, Scadutree availability, extended grades, status-scaling semantics, and attack-element fallback behavior are profile data and are enforced in both UI and core. Unsupported model areas use explicit capabilities and schema-only tables, never data copied from another profile.
 - Native skill identity remains anchored to the source `native_skill_id` when a
@@ -144,11 +182,9 @@ AR/bleed tradeoffs use the shared cancellable analysis worker. Changing the
 request/profile/selected loadout or leaving Compare cancels the subscriber and
 prevents a late result from appearing. The returned frontier belongs to one
 fixed equipment, upgrade, stat-budget, constraint, and handling context.
-Shortlist criteria, sacrifice selection, the all-points table, and the optional
-plot read that same completed result without starting more optimizer work.
+Presentation controls read the completed result without more optimizer work.
 Inspecting an option preserves its exact allocation; it does not feed the option
 through the pinned-loadout reoptimizer. Applying it pins the equipment, upgrade,
-and all five combat stats through the existing lock/search actions before saving.
-The returned result and a saved/reloaded build must preserve that setup, allocation,
-AR, and bleed buildup; a matching weapon name alone does not establish this contract.
-This feature creates no persisted format.
+and all five combat stats through lock/search actions. Returned and saved/reloaded
+builds must preserve that setup, allocation, AR, and bleed; matching a weapon name
+alone is insufficient. No new persisted format is introduced.

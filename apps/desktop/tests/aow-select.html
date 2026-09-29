@@ -15,10 +15,12 @@
   let generation = 0;
   let pending = [];
   let changes = [];
-  let errors = [];
   let patchSelection;
   api.weaponProfile = (profileId, weaponName, affinity) => new Promise((resolve, reject) => {
     pending.push({ profileId, weaponName, affinity, resolve, reject });
+  });
+  api.compatibleAowNamesForAffinity = (profileId, affinity) => new Promise((resolve, reject) => {
+    pending.push({ profileId, weaponName: null, affinity, resolve, reject });
   });
 
   function Harness() {
@@ -30,7 +32,6 @@
         changes.push(value);
         setSelection((current) => ({ ...current, value }));
       },
-      setError(message) { errors.push(message); },
     });
   }
 
@@ -41,7 +42,6 @@
         catalogNames: ["No Skill"], value: null, ...props };
       pending = [];
       changes = [];
-      errors = [];
       root.render(React.createElement(React.StrictMode, null,
         React.createElement(Harness, { key: ++generation })));
     },
@@ -49,6 +49,12 @@
     patch(patch) { patchSelection(patch); },
     pending(weaponName) { return pending.filter((item) => item.weaponName === weaponName).length; },
     resolve(weaponName, affinity = null) {
+      if (weaponName === null) {
+        const matches = pending.filter(item => item.weaponName === null && item.affinity === affinity);
+        pending = pending.filter(item => !matches.includes(item));
+        for (const item of matches) item.resolve(["No Skill"]);
+        return;
+      }
       const fixed = weaponName === "Rivers of Blood";
       const nativeSkillName = fixed ? "Corpse Piler" : affinity ? null : "Buckler Parry";
       const compatibleAows = fixed ? ["Corpse Piler"] : affinity ? ["No Skill"] : ["Buckler Parry", "Parry", "No Skill"];
@@ -69,7 +75,6 @@
       pending = pending.filter((item) => item.weaponName !== weaponName);
     },
     changes() { return changes; },
-    errors() { return errors; },
   };
 </script>
 </body>

@@ -21,7 +21,7 @@
 }
 
 .saved-build-recovery p {
-  color: var(--muted);
+  color: var(--text-muted);
   font-weight: 400;
 }
 
@@ -29,7 +29,7 @@
 .saved-build-recovery .import-preview button {
   border: 1px solid var(--line);
   border-radius: 4px;
-  background: var(--iron-850);
+  background: var(--surface-raised);
   color: var(--text);
   padding: 6px 8px;
   min-height: 30px;

@@ -20,9 +20,9 @@ use crate::math::{
 #[cfg(test)]
 use crate::math::{calculate_aow_routes, evaluate_scalar_aow_route};
 use crate::model::{
-    Aow, AowAttackRow, AowEffectRole, AowRouteResult, COMBAT_STAT_COUNT, DamageBreakdown,
-    DamageType, GameData, STAT_ARC, STAT_DEX, STAT_FAI, STAT_INT, STAT_STR, Stats, StatusBuildup,
-    StatusEffectSource, Weapon, normalize_weapon_type_display,
+    Aow, AowAttackRow, AowRouteResult, COMBAT_STAT_COUNT, DamageBreakdown, DamageType, GameData,
+    STAT_ARC, STAT_DEX, STAT_FAI, STAT_INT, STAT_STR, Stats, StatusBuildup, StatusEffectSource,
+    Weapon, normalize_weapon_type_display,
 };
 
 mod types;
@@ -50,14 +50,29 @@ type ScalarRouteSet<'routes, 'data> = Cow<'routes, [ScalarAowRoute<'data>]>;
 fn scalar_route_set<'routes, 'data>(
     choice: &'routes AowChoice<'data>,
     data: &'data GameData,
+    two_handing: bool,
 ) -> Result<Option<ScalarRouteSet<'routes, 'data>>, String> {
     match &choice.scalar_routes {
         Some(Ok(routes)) => Ok(routes
             .as_ref()
             .map(|routes| Cow::Borrowed(routes.as_slice()))),
         Some(Err(error)) => Err(error.clone()),
-        None => prepare_scalar_aow_routes(&choice.attack_rows, data)
-            .map(|routes| routes.map(Cow::Owned)),
+        None => prepare_scalar_aow_routes(&choice.attack_rows, data).map(|routes| {
+            routes.map(|mut routes| {
+                routes.retain(|route| route_matches_handling(&route.route_id, two_handing));
+                Cow::Owned(routes)
+            })
+        }),
+    }
+}
+
+fn route_matches_handling(route_id: &str, two_handing: bool) -> bool {
+    // Extraction puts the optional handedness dimension first in canonical IDs.
+    // Skills with their own fixed animation have no request-handling dimension.
+    match route_id.split('_').next() {
+        Some("1h") => !two_handing,
+        Some("2h") => two_handing,
+        _ => true,
     }
 }
 
@@ -149,7 +164,6 @@ impl PreparedLoadoutEvaluator<'_> {
             constraints,
             Arc::clone(&self.weapons),
             &mut should_continue,
-            true,
         )?;
         optimize_prepared_with_progress(&plan, 1_024, |_snapshot| should_continue())
     }
@@ -292,7 +306,12 @@ fn ar_bleed_candidates_with_reuse(
     let choice = &prepared.aow_choices[0];
     let upgrade = prepared.upgrades[0];
     let data = evaluator.data;
-    let Some(routes) = scalar_route_set(choice, data)? else {
+    let Some(routes) = scalar_route_set(
+        choice,
+        data,
+        weapon_uses_two_handing(request, prepared.weapon),
+    )?
+    else {
         return Ok(None);
     };
     if routes.iter().any(|route| !route.is_additive(data)) {
@@ -755,41 +774,6 @@ const PROGRESS_POLL_BATCH: u32 = 1_024;
 const PROGRESS_MIN_INTERVAL: Duration = Duration::from_millis(100);
 pub const CANCELLATION_LATENCY_TARGET_MS: u64 = 250;
 
-pub fn estimate_search_space(
-    request: &OptimizeRequest,
-    data: &GameData,
-) -> Result<SearchEstimate, String> {
-    estimate_search_space_with_cancel(request, data, || true)
-}
-
-pub fn estimate_search_space_with_cancel<F>(
-    request: &OptimizeRequest,
-    data: &GameData,
-    mut should_continue: F,
-) -> Result<SearchEstimate, String>
-where
-    F: FnMut() -> bool,
-{
-    if !should_continue() {
-        return Err("cancelled".to_string());
-    }
-    validate_profile_capabilities(request, data)?;
-    let constraints = build_combat_constraints(request)?;
-    let weapons = Arc::from(
-        prepare_weapons_with_cancel(request, data, Some(constraints), &mut should_continue)?
-            .into_boxed_slice(),
-    );
-    build_prepared_plan(
-        request,
-        data,
-        constraints,
-        weapons,
-        &mut should_continue,
-        false,
-    )
-    .map(|plan| plan.estimate())
-}
-
 pub fn prepare_search<'a>(
     request: &OptimizeRequest,
     data: &'a GameData,
@@ -814,14 +798,7 @@ where
         prepare_weapons_with_cancel(request, data, Some(constraints), &mut should_continue)?
             .into_boxed_slice(),
     );
-    build_prepared_plan(
-        request,
-        data,
-        constraints,
-        weapons,
-        &mut should_continue,
-        true,
-    )
+    build_prepared_plan(request, data, constraints, weapons, &mut should_continue)
 }
 
 fn validate_profile_capabilities(request: &OptimizeRequest, data: &GameData) -> Result<(), String> {
@@ -1010,7 +987,6 @@ fn build_prepared_plan<'a>(
     constraints: CombatConstraints,
     weapons: Arc<[PreparedWeapon<'a>]>,
     should_continue: &mut impl FnMut() -> bool,
-    build_work_units: bool,
 ) -> Result<PreparedSearchPlan<'a>, String> {
     let mut groups: Vec<PreparedSearchGroup> = Vec::new();
     let mut stat_candidates = 0_u64;
@@ -1068,10 +1044,8 @@ fn build_prepared_plan<'a>(
         serial_work_units: Vec::new(),
         estimate,
     };
-    if build_work_units {
-        plan.fine_work_units = build_search_work_units(&plan, true)?;
-        plan.serial_work_units = build_search_work_units(&plan, false)?;
-    }
+    plan.fine_work_units = build_search_work_units(&plan, true)?;
+    plan.serial_work_units = build_search_work_units(&plan, false)?;
     Ok(plan)
 }
 
@@ -1177,7 +1151,6 @@ where
         max_constraints,
         Arc::clone(&shared_weapons),
         &mut should_continue,
-        true,
     )?);
     let mut dp_reuse = DpReuse::from_plan(max_plan.as_ref().expect("max plan exists"));
     let range_reuse_enabled = level_range_reuse_enabled(request);
@@ -1199,7 +1172,6 @@ where
                 constraints,
                 Arc::clone(&shared_weapons),
                 &mut should_continue,
-                true,
             )?
         };
         let rows = if range_reuse_enabled && level_plan_can_reuse(&plan, &dp_reuse) {
@@ -1791,7 +1763,12 @@ where
     let mut route_sets = Vec::with_capacity(aow_indices.len());
     for &aow_idx in aow_indices {
         progress.poll()?;
-        let Some(routes) = scalar_route_set(&prepared.aow_choices[aow_idx], plan.data)? else {
+        let Some(routes) = scalar_route_set(
+            &prepared.aow_choices[aow_idx],
+            plan.data,
+            weapon_uses_two_handing(request, prepared.weapon),
+        )?
+        else {
             return search_work_unit_exhaustive(plan, unit, group_mode, progress);
         };
         route_sets.push((aow_idx, routes));
@@ -2896,8 +2873,12 @@ fn exact_candidate(
 ) -> Result<ScoredCandidate, String> {
     let prepared = &weapons[prepared_idx];
     let choice = &prepared.aow_choices[aow_idx];
-    let routes = scalar_route_set(choice, data)?
-        .ok_or_else(|| "supported per-hit attack-power effect is not implemented".to_string())?;
+    let routes = scalar_route_set(
+        choice,
+        data,
+        weapon_uses_two_handing(request, prepared.weapon),
+    )?
+    .ok_or_else(|| "supported per-hit attack-power effect is not implemented".to_string())?;
     let base = evaluate_objective_allocation(
         stats.combat_array(),
         request,
@@ -3069,6 +3050,13 @@ fn materialize_scored_candidate(
     }
     let prepared = &weapons[candidate.prepared_idx];
     let aow_choice = &prepared.aow_choices[candidate.aow_idx];
+    if let Some(route_id) = candidate.route_id.as_deref()
+        && !route_matches_handling(route_id, weapon_uses_two_handing(request, prepared.weapon))
+    {
+        return Err(format!(
+            "selected AoW route {route_id} is incompatible with the requested handling"
+        ));
+    }
     let effective_str_value =
         effective_str_for_weapon(request, prepared.weapon, candidate.stats.str);
     let status_buildup = calculate_status_with_buffs(
@@ -3869,7 +3857,7 @@ fn resolve_aow_choices<'a>(
     request: &OptimizeRequest,
     data: &'a GameData,
 ) -> Result<Option<Vec<AowChoice<'a>>>, String> {
-    let native = native_skill_choice_for_weapon(weapon, data, request.objective);
+    let native = native_skill_choice_for_weapon(weapon, data);
     let mut choices: Vec<_> = native.clone().into_iter().collect();
     if native.is_none() && weapon.affinity.eq_ignore_ascii_case("Standard") {
         choices.push(AowChoice {
@@ -3965,20 +3953,8 @@ fn resolve_aow_choices<'a>(
     if rayon::current_num_threads() == 1 {
         for choice in &mut choices {
             choice.scalar_routes = Some(
-                if choice.attack_rows.iter().any(|row| {
-                    !row.is_lacking_fp
-                        && data
-                            .aow_effects(row.aow_id, row.sheet_row)
-                            .iter()
-                            .any(|effect| {
-                                effect.is_supported
-                                    && effect.role == AowEffectRole::PerHitAttackPower
-                            })
-                }) {
-                    Ok(None)
-                } else {
-                    prepare_scalar_aow_routes(&choice.attack_rows, data)
-                },
+                scalar_route_set(choice, data, weapon_uses_two_handing(request, weapon))
+                    .map(|routes| routes.map(Cow::into_owned)),
             );
         }
     }
@@ -3988,7 +3964,6 @@ fn resolve_aow_choices<'a>(
 fn native_skill_choice_for_weapon<'a>(
     weapon: &'a Weapon,
     data: &'a GameData,
-    _objective: OptimizeObjective,
 ) -> Option<AowChoice<'a>> {
     if !data.native_skill_compatible_with_weapon(weapon) {
         return None;

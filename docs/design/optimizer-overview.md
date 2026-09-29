@@ -91,6 +91,15 @@ damage work can split by Ash, while AR/Bleed work stays grouped to reuse primary
 plans. Preparation, scoring, and materialization are measured separately by the
 [performance harnesses](../performance.md).
 
+Parallel AR/physical-AR/bleed scoring shares its exact top-K cutoff at work-unit
+boundaries. Workers copy the cutoff and merge completed candidates under the lock;
+scoring runs outside it. Only strictly lower upper bounds are pruned, preserving
+equal-score ties and the complete result order.
+
+Certified additive full-route formulas combine identical stat/curve terms while
+keeping raw and effective Strength separate. First-positive-hit evaluation keeps
+the original hit order; coupled or floored terms are not aggregated.
+
 ### Ranking and materialization
 
 Scoring retains lightweight exact keys through top-K selection. Only retained
@@ -103,6 +112,12 @@ Final ordering and de-duplication preserve the complete numeric and stat key.
 Tied routes additionally compare route priority and ID. Display rounding cannot
 change the selected winner. Unsupported mechanics stay explicit instead of being
 filled with guessed values.
+
+The already grouped, bounded batch is materialized in rank order without another
+top-K insertion pass. Only the selected route receives detailed action/hit records,
+but every shared row, assignment, and route total is still evaluated so errors in
+unselected routes remain visible. Public all-route evaluation is unchanged.
+Candidate, route, and final-return cancellation checks remain in place.
 
 ## Reuse across workspaces
 

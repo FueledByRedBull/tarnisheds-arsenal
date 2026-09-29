@@ -15,6 +15,15 @@ const row: SolvedBuildDto = {
 };
 
 describe("calculation-derived explanations", () => {
+  it("does not explain a missing skill route as a measured zero or numeric comparison", () => {
+    const missing = { ...row, aowFirstHitDamage: 0, aowFullSequenceDamage: 0 };
+    const request = { ...defaultRequest, objective: "aow_full_sequence" as const };
+    expect(explainBuild(missing, request).join(" ")).toContain("unavailable");
+    expect(explainBuild(missing, request).join(" ")).not.toContain("scores 0.0");
+    expect(explainBuildComparison(row, missing, request)).toContain("unavailable");
+    expect(explainBuildComparison(row, missing, request)).not.toContain("-500.0");
+  });
+
   it("describes lexicographic bleed ranking without adding AR or inventing contribution estimates", () => {
     const text = explainBuild(row, { ...defaultRequest, objective: "max_ar_plus_bleed", lockDex: 40, minStr: 18 }).join(" ");
     expect(text).toContain("bleed buildup first (45.0), then AR (400.0)");

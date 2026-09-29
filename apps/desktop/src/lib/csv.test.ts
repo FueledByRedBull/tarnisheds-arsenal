@@ -31,6 +31,26 @@ const row: SolvedBuildDto = {
 };
 
 describe("rankings CSV model provenance", () => {
+  it.each([true, false])("exports only available skill calculations with profile support %s", (aowModelSupported) => {
+    const zeroRoute = {
+      routeId: "zero", routeLabel: "Zero damage", routePriority: 0, buffActivationActionId: null,
+      actions: [], firstHitDamage: 0, totalDamage: { physical: 0, magic: 0, fire: 0, lightning: 0, holy: 0, total: 0 },
+      totalPoiseDamage: 0, totalStaminaCost: 0,
+      totalStatusBuildup: { bleed: 0, frost: 0, poison: 0, scarletRot: 0, sleep: 0, madness: 0, death: 0 },
+    };
+    const csv = rankingsToCsv([row, { ...row, aowRoute: zeroRoute }], {
+      profileId: "vanilla", appVersion: "test", schemaVersion: "6", datasetVersion: "test",
+      modelVersion: "test", objective: "max_ar", assumptions: "raw values", aowModelSupported,
+    });
+    const [headers, missing, modeled] = csv.trim().split("\r\n").map(line => line.split(","));
+    for (const column of ["aow_first_hit", "aow_full_sequence"]) {
+      expect(missing[headers.indexOf(column)]).toBe("");
+      expect(modeled[headers.indexOf(column)]).toBe(aowModelSupported ? "0" : "");
+    }
+    expect(modeled[headers.indexOf("aow_route_id")]).toBe(aowModelSupported ? "zero" : "");
+    expect(modeled[headers.indexOf("aow_stamina")]).toBe(aowModelSupported ? "0" : "");
+  });
+
   it("keeps model identity and unsupported-mechanic assumptions on every exported row", () => {
     const csv = rankingsToCsv([row], {
       profileId: "convergence",

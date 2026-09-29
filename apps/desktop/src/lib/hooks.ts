@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { api } from "./api";
 import { cachedWeaponProfile } from "./analysis-cache";
 import { buildOptimizeRequest, budgetSnapshot } from "./session";
-import { stableSignature } from "./session";
 import { progressSignature } from "./polling";
-import { createNativeJobQueue } from "./native-jobs";
-import { LatestRequest } from "./request-generation";
+import { createNativeJobQueue, type FinishedJob, type NativeJobSuccess } from "./native-jobs";
+import { useKeyedResource } from "./keyed-resource";
 import {
   AffinityWatchFinishedDto,
   AffinityWatchJobStatusDto,
@@ -15,7 +14,6 @@ import {
   PathFinishedDto,
   PathJobStatusDto,
   PathProgressDto,
-  WeaponProfileDto,
 } from "./types";
 
 export function useRequestBudget(
@@ -35,69 +33,42 @@ export function useRequestBudget(
 export function useWeaponProfile(
   request: OptimizeRequestDto,
   patchRequest: (patch: Partial<OptimizeRequestDto>) => void,
-  setError: (message: string | null) => void,
 ) {
-  const [weaponProfile, setWeaponProfile] = useState<WeaponProfileDto | null>(null);
-  const profileRequest = useRef(new LatestRequest());
+  const resource = useWeaponProfileResource(request.profileId, request.weaponName, request.affinity);
+  const profile = resource.profile;
 
   useEffect(() => {
-    const controller = new AbortController();
-    const currentRequest = profileRequest.current;
-    const token = currentRequest.begin(stableSignature({
-      profileId: request.profileId,
-      weaponName: request.weaponName,
-      affinity: request.affinity,
-      aowName: request.aowName,
-    }));
-    async function loadWeaponProfile() {
-      if (!request.weaponName) {
-        setWeaponProfile(null);
-        return;
-      }
-      const profile = await cachedWeaponProfile(
-        request.profileId,
-        request.weaponName,
-        request.affinity,
-        controller.signal,
-      );
-      if (!profileRequest.current.isCurrent(token)) return;
-      setWeaponProfile(profile);
-
-      const patch: Partial<OptimizeRequestDto> = {};
-      if (request.affinity && !profile.affinities.includes(request.affinity)) {
-        patch.affinity = profile.affinities[0] ?? null;
-      }
-      if (request.aowName && !profile.compatibleAows.includes(request.aowName)) {
-        patch.aowName = null;
-      }
-      if (Object.keys(patch).length > 0) patchRequest(patch);
+    if (!profile) return;
+    const patch: Partial<OptimizeRequestDto> = {};
+    if (request.affinity && !profile.affinities.includes(request.affinity)) {
+      patch.affinity = profile.affinities[0] ?? null;
     }
+    if (request.aowName && !profile.compatibleAows.includes(request.aowName)) {
+      patch.aowName = null;
+    }
+    if (Object.keys(patch).length > 0) patchRequest(patch);
+  }, [patchRequest, profile, request.affinity, request.aowName]);
 
-    loadWeaponProfile().catch((error) => {
-      if (profileRequest.current.isCurrent(token)) {
-        setWeaponProfile(null);
-        setError(error instanceof Error ? error.message : String(error));
-      }
-    });
+  return resource;
+}
 
-    return () => {
-      controller.abort();
-      currentRequest.invalidate(token);
-    };
-  }, [patchRequest, request.affinity, request.aowName, request.profileId, request.weaponName, setError]);
-
-  return weaponProfile;
+export function useWeaponProfileResource(profileId: string, weaponName: string | null, affinity: string | null) {
+  const key = weaponName ? JSON.stringify([profileId, weaponName, affinity]) : null;
+  const load = useCallback((signal: AbortSignal) =>
+    cachedWeaponProfile(profileId, weaponName!, affinity, signal), [profileId, weaponName, affinity]);
+  const resource = useKeyedResource(key, load);
+  return { ...resource, profile: resource.data };
 }
 
 type JobEvent = { jobId: string };
 type JobStatus<P extends JobEvent, F extends JobEvent> = { progress: P | null; finished: F | null };
 
-type NativeJobQueue<S extends { finished: JobEvent | null }> = (
+type NativeJobQueue<S extends { finished: FinishedJob | null }> = (
   start: () => Promise<{ jobId: string }>,
   signal?: AbortSignal,
   onStatus?: (status: S) => void,
   onStarted?: (jobId: string) => void,
-) => Promise<NonNullable<S["finished"]>>;
+) => Promise<NativeJobSuccess<NonNullable<S["finished"]>>>;
 
 const pathQueue = createNativeJobQueue<PathJobStatusDto>(
   jobId => api.pathPreviewStatus(jobId),
@@ -111,13 +82,13 @@ const affinityQueue = createNativeJobQueue<AffinityWatchJobStatusDto>(
   status => progressSignature(status.progress),
 );
 
-function usePollingJob<P extends JobEvent, F extends JobEvent, S extends JobStatus<P, F>>(options: {
+function usePollingJob<P extends JobEvent, F extends FinishedJob, S extends JobStatus<P, F>>(options: {
   busy: boolean;
   generation: number;
   queue: NativeJobQueue<S>;
   setProgress: (progress: P | null) => void;
   onStarted: (jobId: string, generation: number) => void;
-}): (start: () => Promise<{ jobId: string }>, generation: number) => Promise<F> {
+}): (start: () => Promise<{ jobId: string }>, generation: number) => Promise<NativeJobSuccess<F>> {
   const latest = useRef(options);
   latest.current = options;
   const active = useRef<{ controller: AbortController; generation: number } | null>(null);

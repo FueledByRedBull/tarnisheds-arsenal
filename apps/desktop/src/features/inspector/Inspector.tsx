@@ -1,8 +1,8 @@
-import { Clipboard, Download, GitCompareArrows, LockKeyhole, Pencil, Pin, Radar, Route, Save, Target, Trash2, Upload } from "lucide-react";
+import { Clipboard, Download, LockKeyhole, Pencil, Pin, Save, Target, Trash2, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../../lib/api";
-import { cachedWeaponProfile } from "../../lib/analysis-cache";
-import { compactNumber, fixed1, metricForObjective, objectiveLabel, statLine, statLockLine } from "../../lib/format";
+import { activationRequest } from "../../lib/preset-activation";
+import { useWeaponProfileResource } from "../../lib/hooks";
+import { compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine, statLockLine } from "../../lib/format";
 import {
   deleteBuildPreset,
   downloadPresetJson,
@@ -18,7 +18,7 @@ import {
 } from "../../lib/presets";
 import { budgetSnapshot, buildOptimizeRequest, hasCombatStatLocks, rowFingerprint } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
-import { AowRouteDto, BuildPreset, CatalogDto, OptimizeRequestDto, SavedBuildIndexEntryV1, SolvedBuildDto, StatusBuildupDto, WeaponProfileDto } from "../../lib/types";
+import { AowRouteDto, BuildPreset, CatalogDto, OptimizeRequestDto, SavedBuildIndexEntryV1, StatusBuildupDto, WeaponProfileDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
 import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 import packageInfo from "../../../package.json";
@@ -38,25 +38,15 @@ export function Inspector() {
   const toggleCompareBench = useDesktopStore((state) => state.toggleCompareBench);
   const snapshot = budgetSnapshot(catalog, request);
   const fixedStats = catalog?.dataManifest.capabilities.classBudget === false;
+  const aowModelSupported = Boolean(catalog?.dataManifest.capabilities.aowDamage && catalog.dataManifest.capabilities.aowRoutes);
+  const aowAvailable = selected && hasAowDamage(selected, aowModelSupported);
+  const selectedMetric = selected ? metricForObjective(selected, request.objective, aowModelSupported) : null;
   const pinned = Boolean(selected && compareBench.some((entry) => rowFingerprint(entry) === rowFingerprint(selected)));
   const modelWarnings = [...new Set(selected?.aowRoute?.actions.flatMap(
     (action) => action.hits.flatMap((hit) => hit.warnings),
   ) ?? [])];
-  const [weaponProfile, setWeaponProfile] = useState<WeaponProfileDto | null>(null);
-  const selectedWeapon = selected?.weaponName;
-  const selectedAffinity = selected?.affinity;
-
-  useEffect(() => {
-    const controller = new AbortController();
-    if (!selectedWeapon || selectedAffinity === undefined) {
-      setWeaponProfile(null);
-      return () => controller.abort();
-    }
-    cachedWeaponProfile(request.profileId, selectedWeapon, selectedAffinity, controller.signal)
-      .then((profile) => { if (!controller.signal.aborted) setWeaponProfile(profile); })
-      .catch(() => { if (!controller.signal.aborted) setWeaponProfile(null); });
-    return () => controller.abort();
-  }, [request.profileId, selectedAffinity, selectedWeapon]);
+  const weaponResource = useWeaponProfileResource(request.profileId, selected?.weaponName ?? null, selected?.affinity ?? null);
+  const weaponProfile = weaponResource.profile;
 
   async function lockSelected() {
     if (!selected) return;
@@ -71,19 +61,25 @@ export function Inspector() {
         <span>Build detail</span>
       </div>
       {selected ? (
-        <>
+        <div className="selection-detail" key={rowFingerprint(selected)}>
           <div className="selected-build">
             <strong>{selected.weaponName}</strong>
             <span>{selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade}</span>
             {resultsStale ? <small className="stale-label">Previous query build</small> : null}
-            {modelWarnings.map((warning) => <small className="warning-text" key={warning}>{warning}</small>)}
+            {!aowAvailable ? <small className="tone-info">Skill damage isn't modeled for this loadout.</small> : null}
+            {modelWarnings.map((warning) => <small className="tone-warning" key={warning}>{warning}</small>)}
           </div>
+          {weaponResource.status === "loading" ? <WeaponPoiseSkeleton /> : null}
+          {weaponResource.status === "error" ? <div role="alert">
+            <small>{weaponResource.error}</small>
+            <button type="button" onClick={weaponResource.retry}>Retry weapon profile</button>
+          </div> : null}
           <div className="metric-grid">
-            <Metric label={objectiveLabel(request.objective)} value={fixed1(metricForObjective(selected, request.objective))} />
-            {request.objective !== "max_ar" ? <Metric label="AR" value={compactNumber(selected.ar.total)} /> : null}
+            <Metric label={objectiveLabel(request.objective)} value={selectedMetric === null ? "Unavailable" : fixed1(selectedMetric)} />
+            {request.objective !== "max_ar" ? <Metric label="AR" value={fixed1(selected.ar.total)} /> : null}
             <Metric
               label={catalog?.dataManifest.capabilities.aowRoutes ? "Raw AoW" : "AoW model"}
-              value={catalog?.dataManifest.capabilities.aowDamage && catalog.dataManifest.capabilities.aowRoutes
+              value={aowAvailable
                 ? compactNumber(selected.aowFullSequenceDamage)
                 : "Unavailable"}
             />
@@ -108,15 +104,12 @@ export function Inspector() {
             >
               <Pin size={15} />{pinned ? "Unpin compare" : "Pin for compare"}
             </button>
-            <button type="button" onClick={() => setWorkspace("compare")} disabled={resultsStale || fixedStats} title={resultsStale ? "Update rankings before comparing" : undefined}><GitCompareArrows size={15} />Compare</button>
-            <button type="button" onClick={() => setWorkspace("paths")} disabled={resultsStale || fixedStats} title={resultsStale ? "Update rankings before tracing paths" : undefined}><Route size={15} />Paths</button>
-            <button type="button" onClick={() => setWorkspace("affinity_watch")} disabled={resultsStale || fixedStats} title={resultsStale ? "Update rankings before watching affinities" : undefined}><Radar size={15} />Affinity Watch</button>
           </div>
           <div className="detail-block">
             <span>Combat Stats</span>
             <strong>{statLine(selected)}</strong>
           </div>
-          <WeaponPoiseDetails profile={weaponProfile} route={selected.aowRoute} twoHanding={request.twoHanding} />
+          <WeaponPoiseDetails profile={weaponProfile} route={aowAvailable ? selected.aowRoute : null} twoHanding={request.twoHanding} />
           <div className="detail-block build-token-detail">
             <span>Attribute Scaling</span>
             <ScalingTokens
@@ -136,13 +129,13 @@ export function Inspector() {
               HOLY {compactNumber(selected.ar.holy)}
             </small>
           </div>
-          <AowRouteDetails route={selected.aowRoute} />
+          <AowRouteDetails route={aowAvailable ? selected.aowRoute : null} />
           {!resultsStale ? <details className="model-coverage build-explanation">
             <summary>Why this build?</summary>
-            {explainBuild(selected, buildOptimizeRequest(catalog, request, lockedStatMode)).map(line => <p key={line}>{line}</p>)}
+            {explainBuild(selected, buildOptimizeRequest(catalog, request, lockedStatMode), aowModelSupported).map(line => <p key={line}>{line}</p>)}
           </details> : null}
           <ModelCoverage />
-        </>
+        </div>
       ) : (
         <div className="empty-state compact">
           <strong>No build selected</strong>
@@ -156,7 +149,7 @@ export function Inspector() {
           ? `Fixed stat total ${snapshot.level}` : `Level ${snapshot.level} / +${snapshot.levelUps} level ups`}</strong>
         <small>{fixedStats
           ? "Entered combat stats are evaluated as-is; class budgets and redistribution are unavailable."
-          : `Redistrib ${snapshot.redistributable} / Free ${snapshot.freePoints} / Total points ${snapshot.total}`}</small>
+          : `${snapshot.redistributable} movable · ${snapshot.freePoints} unspent · ${snapshot.total} total points`}</small>
       </div>
       <div className="detail-block">
         <span>Lock State</span>
@@ -209,6 +202,18 @@ function ModelCoverage() {
           : "Scadutree unavailable"} · upgrade {request.exactUpgrade ? "exact" : "open range"}
       </small>
     </details>
+  );
+}
+
+function WeaponPoiseSkeleton() {
+  return (
+    <div className="detail-block weapon-poise-detail" role="status" aria-label="Loading weapon data">
+      <span className="skeleton" style={{ width: "38%" }} />
+      <span className="skeleton" style={{ width: "72%", height: 14 }} />
+      <div>
+        {Array.from({ length: 6 }, (_, index) => <span className="skeleton" key={index} style={{ height: 34 }} />)}
+      </div>
+    </div>
   );
 }
 
@@ -266,11 +271,11 @@ function AowRouteDetails({ route }: { route: AowRouteDto | null }) {
                 {hit.effects
                   .filter((effect) => effect.role === "per_hit_status" || !effect.isSupported)
                   .map((effect) => (
-                    <small key={`${hit.sheetRow}-${effect.effectId}`} className={effect.isSupported ? "" : "warning-text"}>
+                    <small key={`${hit.sheetRow}-${effect.effectId}`} className={effect.isSupported ? "" : "tone-warning"}>
                       {effect.effectName || `Effect ${effect.effectId}`}: {effect.reason}
                     </small>
                   ))}
-                {hit.warnings.map((warning) => <small className="warning-text" key={warning}>{warning}</small>)}
+                {hit.warnings.map((warning) => <small className="tone-warning" key={warning}>{warning}</small>)}
               </div>
             ))}
           </div>
@@ -323,6 +328,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 function SavedBuildPanel() {
   const catalog = useDesktopStore((state) => state.catalog);
+  const catalogStatus = useDesktopStore((state) => state.catalogStatus);
   const request = useDesktopStore((state) => state.request);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
   const selected = useDesktopStore((state) => state.selected);
@@ -345,6 +351,9 @@ function SavedBuildPanel() {
   const dataVersion = catalog
     ? `${catalog.dataManifest.profile.id}:${catalog.dataManifest.schemaVersion}:${catalog.dataManifest.datasetVersion}:${catalog.dataManifest.modelVersion}`
     : "unknown";
+  const canSave = catalogStatus === "ready" && catalog?.dataManifest.profile.id === request.profileId;
+  // Loading needs the verified catalog; startup and profile switches must finish first.
+  const canLoad = catalogStatus === "ready";
 
   function refresh() {
     try {
@@ -368,6 +377,7 @@ function SavedBuildPanel() {
   }
 
   function saveCurrent(id?: string) {
+    if (!canSave) return;
     try {
       const { characterLevel, lockStr, lockDex, lockInt, lockFai, lockArc } = buildOptimizeRequest(catalog, request, lockedStatMode);
       const preset = saveBuildPreset({
@@ -386,121 +396,48 @@ function SavedBuildPanel() {
     }
   }
 
-  function loadCurrent() {
-    const preset = selectedPreset;
-    if (!preset) return;
-    if (preset.profileId !== request.profileId) {
-      pushNotice({
-        scope: "global",
-        tone: "warning",
-        message: `${preset.name} belongs to ${preset.profileId}. Switch the game profile first; cross-profile builds are never loaded silently.`,
-      });
-      return;
-    }
-    if (dataVersion !== "unknown" && preset.dataVersion !== dataVersion) {
-      hydrate({ ...preset, selectedBuild: null, compareTarget: null, compareBench: [] });
-      const state = useDesktopStore.getState();
-      state.setNotices([...state.notices.filter(notice => notice.tone === "warning"), {
-        scope: "global",
-        tone: "warning",
-        message: `Loaded ${preset.name} inputs only: saved data ${preset.dataVersion} differs from ${dataVersion}. Rerun the search.`,
-      }]);
-      return;
-    }
-    hydrate(preset);
-  }
-
-  async function migratePreset(preset: BuildPreset): Promise<BuildPreset | null> {
-    if (!catalog) {
-      setError("Current catalog metadata is unavailable; retry after game data finishes loading.");
-      return null;
-    }
-    if (preset.profileId !== request.profileId) {
-      setError(`This preset belongs to ${preset.profileId}. Switch profiles before migrating it.`);
-      return null;
-    }
-    setMigrating(true);
-    setError(null);
+  async function loadCurrent() {
+    if (!selectedPreset) return;
     migrationController.current?.abort();
     const controller = new AbortController();
     migrationController.current = controller;
-    const original = JSON.stringify(loadBuildPreset(preset.id));
-    let migrationState: ReturnType<typeof useDesktopStore.getState> | undefined;
-    let stopObserving: (() => void) | undefined;
-    const isCurrent = () => {
-      const current = useDesktopStore.getState();
-      return !controller.signal.aborted && migrationState !== undefined
-        && current.catalog === catalog && current.request === migrationState.request
-        && current.searchGeneration === migrationState.searchGeneration
-        && current.compareBench === migrationState.compareBench
-        && JSON.stringify(loadBuildPreset(preset.id)) === original;
-    };
-    const migration = migratePresetRequest(preset.request, catalog);
+    setMigrating(true);
     try {
-      hydrate({ ...preset, request: migration.request, selectedBuild: null, compareTarget: null, compareBench: [] });
-      const state = useDesktopStore.getState();
-      migrationState = state;
-      stopObserving = useDesktopStore.subscribe(() => {
-        if (!isCurrent()) controller.abort();
-      });
-      const base = buildOptimizeRequest(catalog, state.request, state.lockedStatMode);
-      const issues = [...migration.issues];
-      const recompute = async (label: string, row: SolvedBuildDto | null) => {
-        if (!isCurrent()) return null;
-        if (!row) return null;
-        if (!catalog.weaponNames.includes(row.weaponName)) {
-          issues.push(`${label} weapon '${row.weaponName}' no longer exists`);
-          return null;
-        }
-        if (!catalog.affinityNames.includes(row.affinity)) {
-          issues.push(`${label} affinity '${row.affinity}' no longer exists`);
-          return null;
-        }
-        if (row.aowName && !catalog.aowNames.includes(row.aowName)) {
-          issues.push(`${label} skill '${row.aowName}' no longer exists`);
-          return null;
-        }
-        const solved = await api.solveBuild(base, row.weaponName, row.affinity, row.aowName, controller.signal);
-        if (!solved) issues.push(`${label} configuration is no longer legal for the migrated request`);
-        return solved;
-      };
-      const migratedSelected = await recompute("Selected build", preset.selectedBuild);
-      const migratedCompare = await recompute("Compare build", preset.compareTarget);
-      const migratedBench = (await Promise.all(preset.compareBench.map((row, index) => recompute(`Compare bench ${index + 1}`, row))))
-        .filter((row): row is SolvedBuildDto => row !== null);
-      if (!isCurrent()) return null;
-      stopObserving();
-      const migrated = saveBuildPreset({
-        id: preset.id,
-        name: preset.name,
-        request: { ...state.request, characterLevel: base.characterLevel },
-        selectedBuild: migratedSelected,
-        compareTarget: migratedCompare,
-        compareBench: migratedBench,
-        dataVersion,
-      });
-      hydrate(migrated);
+      await hydrate(selectedPreset, controller.signal);
+    } catch (error) {
+      if (!controller.signal.aborted) setError(error instanceof Error ? error.message : String(error));
+    } finally {
+      if (migrationController.current === controller) setMigrating(false);
+    }
+  }
+
+  async function migratePreset(preset: BuildPreset): Promise<BuildPreset | null> {
+    migrationController.current?.abort();
+    const controller = new AbortController();
+    migrationController.current = controller;
+    setMigrating(true);
+    setError(null);
+    try {
+      if (!catalog) throw new Error("Current catalog metadata is unavailable; retry after game data finishes loading.");
+      // All storage reads are inside this lifecycle, never in a store subscriber.
+      const original = JSON.stringify(loadBuildPreset(preset.id));
+      const migration = migratePresetRequest(preset.request, catalog);
+      const verified = await hydrate({ ...preset, request: migration.request, dataVersion }, controller.signal);
+      if (!verified || controller.signal.aborted) return null;
+      if (JSON.stringify(loadBuildPreset(preset.id)) !== original) {
+        throw new Error("The saved record changed during verification. Load it again; no record was overwritten.");
+      }
+      const migrated = saveBuildPreset({ ...verified, dataVersion });
       setSelectedId(migrated.id);
       setName(migrated.name);
       refresh();
-      const loaded = useDesktopStore.getState();
-      loaded.setNotices([...loaded.notices.filter(notice => notice.tone === "warning"), {
-        scope: "global",
-        tone: issues.length ? "warning" : "success",
-        message: issues.length
-          ? `Migrated ${migrated.name}; cleared or unresolved: ${issues.join("; ")}.`
-          : `Migrated ${migrated.name} and recomputed its selected and compare builds on current data.`,
-      }]);
+      pushNotice({ scope: "global", tone: migration.issues.length ? "warning" : "success",
+        message: `Migrated ${migrated.name} and verified its saved configurations on current data.${migration.issues.length ? ` Cleared filters: ${migration.issues.join("; ")}.` : ""}` });
       return migrated;
     } catch (error) {
-      const shouldReport = !controller.signal.aborted && (!migrationState || isCurrent());
-      controller.abort();
-      if (shouldReport) {
-        setError(error instanceof Error ? error.message : String(error));
-      }
+      if (!controller.signal.aborted) setError(error instanceof Error ? error.message : String(error));
       return null;
     } finally {
-      stopObserving?.();
       if (migrationController.current === controller) setMigrating(false);
     }
   }
@@ -537,11 +474,15 @@ function SavedBuildPanel() {
   }
 
   function selectPreset(id: string) {
-    cancelMigration();
-    setSelectedId(id);
-    setDeleteArmedId(null);
-    const preset = id ? loadBuildPreset(id) : null;
-    setName(preset?.name ?? "Build Preset");
+    try {
+      const preset = id ? loadBuildPreset(id) : null;
+      cancelMigration();
+      setSelectedId(id);
+      setDeleteArmedId(null);
+      setName(preset?.name ?? "Build Preset");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
+    }
   }
 
   async function copyCurrent() {
@@ -607,7 +548,7 @@ function SavedBuildPanel() {
         <Save size={17} />
         <span>Saved Builds</span>
       </div>
-      {libraryError || selectedReadError ? <p className="warning-text" role="alert">{libraryError || selectedReadError}</p> : null}
+      {libraryError || selectedReadError ? <p className="tone-danger" role="alert">{libraryError || selectedReadError}</p> : null}
       <label>
         Name
         <input value={name} onChange={(event) => { cancelMigration(); setName(event.target.value); }} />
@@ -623,80 +564,75 @@ function SavedBuildPanel() {
           ))}
         </select>
       </label>
-      {selectedId ? <small className="saved-build-status">{presetVersionLabel(selectedPreset?.dataVersion, dataVersion)}</small> : null}
+      {selectedId ? <small className="saved-build-status" title={presetProvenance(selectedPreset?.dataVersion)}>{presetVersionLabel(selectedPreset?.dataVersion, dataVersion)}</small> : null}
       <div className="inspector-actions stacked">
-        <button type="button" onClick={() => saveCurrent()}><Save size={15} />Save new</button>
-        <button type="button" onClick={() => saveCurrent(selectedId)} disabled={!selectedPreset}><Save size={15} />Update selected</button>
-        <button type="button" onClick={loadCurrent} disabled={!selectedPreset || isMigrating}><Upload size={15} />{selectedPresetStale ? "Load inputs only" : "Load"}</button>
+        <button type="button" onClick={() => saveCurrent()} disabled={!canSave}><Save size={15} />Save new</button>
+        <button type="button" onClick={() => saveCurrent(selectedId)} disabled={!canSave || !selectedPreset}><Save size={15} />Update selected</button>
+        <button type="button" onClick={() => void loadCurrent()} disabled={!selectedPreset || isMigrating || !canLoad}><Upload size={15} />{isMigrating ? "Verifying..." : selectedPresetStale ? "Load inputs only" : "Load"}</button>
         {selectedPresetStale ? (
-          <button type="button" onClick={() => selectedPreset && void migratePreset(selectedPreset)} disabled={isMigrating}>
+          <button type="button" onClick={() => selectedPreset && void migratePreset(selectedPreset)} disabled={isMigrating || !canLoad}>
             <Upload size={15} />{isMigrating ? "Migrating..." : "Migrate data"}
           </button>
         ) : null}
-        <button type="button" onClick={renameCurrent} disabled={!selectedPreset}><Pencil size={15} />Rename</button>
-        <button type="button" onClick={deleteCurrent} disabled={!selectedPreset}>
-          <Trash2 size={15} />{deleteArmedId === selectedId ? "Confirm Delete" : "Delete"}
-        </button>
-        <button type="button" onClick={exportCurrent} disabled={!selectedPreset}><Download size={15} />Export</button>
-        <button type="button" onClick={copyCurrent} disabled={!selectedPreset}><Clipboard size={15} />Copy Share</button>
       </div>
-      <label>
-        Import JSON or Share Text
-        <textarea value={importText} onChange={(event) => setImportText(event.target.value)} />
-      </label>
-      {importPreview?.value ? (
-        <div className="import-preview">
-          <strong>{importPreview.value.preset.name}</strong>
-          <span>{presetVersionLabel(importPreview.value.preset.dataVersion, dataVersion)}</span>
-          <small>{importPreview.value.bytes.toLocaleString()} bytes · Level {importPreview.value.preset.request.characterLevel}</small>
-          {importPreview.value.preset.dataVersion !== dataVersion ? (
-            <label>
-              Data handling
-              <select value={importDataMode} onChange={(event) => setImportDataMode(event.target.value as "stale" | "migrate")}>
-                <option value="stale">Keep stale snapshot (safe)</option>
-                <option value="migrate">Migrate and recompute now</option>
-              </select>
-            </label>
-          ) : null}
-          {importPreview.value.idConflict || importPreview.value.nameConflict ? (
-            <label>
-              Conflict handling
-              <select value={replaceImport ? "replace" : "copy"} onChange={(event) => setReplaceImport(event.target.value === "replace")}>
-                <option value="copy">Keep both (safe copy)</option>
-                {importPreview.value.idConflict ? <option value="replace">Replace matching ID</option> : null}
-              </select>
-            </label>
-          ) : null}
-        </div>
-      ) : importPreview?.error ? <small className="warning-text">{importPreview.error}</small> : null}
-      <button className="clear-locks" type="button" onClick={() => void importCurrent()} disabled={!importPreview?.value || isMigrating}>
-        <Upload size={15} />{isMigrating ? "Migrating..." : "Import"}
-      </button>
+      <div className="saved-build-tools" role="group" aria-label="Selected saved build">
+        <button type="button" onClick={renameCurrent} disabled={!selectedPreset} aria-label="Rename" title="Rename to the name above"><Pencil size={15} /></button>
+        <button
+          type="button"
+          className={deleteArmedId === selectedId ? "armed" : undefined}
+          onClick={deleteCurrent}
+          disabled={!selectedPreset}
+          aria-label={deleteArmedId === selectedId ? "Confirm Delete" : "Delete"}
+          title="Delete the selected saved build"
+        >
+          <Trash2 size={15} />{deleteArmedId === selectedId ? <span>Confirm delete</span> : null}
+        </button>
+        <button type="button" onClick={exportCurrent} disabled={!selectedPreset} aria-label="Export" title="Export as a JSON file"><Download size={15} /></button>
+        <button type="button" onClick={copyCurrent} disabled={!selectedPreset} aria-label="Copy Share" title="Copy share text to the clipboard"><Clipboard size={15} /></button>
+      </div>
+      <details className="saved-build-import">
+        <summary>Import a build</summary>
+        <label>
+          Import JSON or Share Text
+          <textarea value={importText} onChange={(event) => setImportText(event.target.value)} />
+        </label>
+        {importPreview?.value ? (
+          <div className="import-preview">
+            <strong>{importPreview.value.preset.name}</strong>
+            <span title={presetProvenance(importPreview.value.preset.dataVersion)}>{presetVersionLabel(importPreview.value.preset.dataVersion, dataVersion)}</span>
+            <small>{importPreview.value.bytes.toLocaleString()} bytes · Level {importPreview.value.preset.request.characterLevel}</small>
+            {importPreview.value.preset.dataVersion !== dataVersion ? (
+              <label>
+                Data handling
+                <select value={importDataMode} onChange={(event) => setImportDataMode(event.target.value as "stale" | "migrate")}>
+                  <option value="stale">Keep stale snapshot (safe)</option>
+                  <option value="migrate">Migrate and recompute now</option>
+                </select>
+              </label>
+            ) : null}
+            {importPreview.value.idConflict || importPreview.value.nameConflict ? (
+              <label>
+                Conflict handling
+                <select value={replaceImport ? "replace" : "copy"} onChange={(event) => setReplaceImport(event.target.value === "replace")}>
+                  <option value="copy">Keep both (safe copy)</option>
+                  {importPreview.value.idConflict ? <option value="replace">Replace matching ID</option> : null}
+                </select>
+              </label>
+            ) : null}
+          </div>
+        ) : importPreview?.error ? <small className="tone-danger">{importPreview.error}</small> : null}
+        <button className="clear-locks" type="button" onClick={() => void importCurrent()} disabled={!importPreview?.value || isMigrating}>
+          <Upload size={15} />{isMigrating ? "Migrating..." : "Import"}
+        </button>
+      </details>
       <SavedBuildRecovery onChanged={refresh} revision={entries} />
     </div>
   );
 }
 
 function migratePresetRequest(request: OptimizeRequestDto, catalog: CatalogDto): { request: OptimizeRequestDto; issues: string[] } {
-  const migrated = { ...request };
+  const migrated = activationRequest(request, catalog);
   const issues: string[] = [];
-  if (!catalog.classes.some((entry) => entry.name === migrated.className)) {
-    issues.push(`class '${migrated.className}' no longer exists`);
-    const replacement = catalog.classes[0];
-    migrated.className = replacement?.name ?? "Samurai";
-    if (replacement && catalog.dataManifest.capabilities.classBudget) {
-      migrated.characterLevel = replacement.baseLevel;
-      migrated.vig = replacement.baseStats.vig;
-      migrated.mnd = replacement.baseStats.mnd;
-      migrated.end = replacement.baseStats.end;
-      migrated.strStat = replacement.baseStats.strStat;
-      migrated.dex = replacement.baseStats.dex;
-      migrated.intStat = replacement.baseStats.intStat;
-      migrated.fai = replacement.baseStats.fai;
-      migrated.arc = replacement.baseStats.arc;
-      issues.push("character stats reset to the replacement class baseline");
-    }
-  }
   if (migrated.weaponTypeKey && !catalog.weaponTypeKeys.includes(migrated.weaponTypeKey)) {
     issues.push(`weapon type '${migrated.weaponTypeKey}' no longer exists`);
     migrated.weaponTypeKey = null;
@@ -720,11 +656,16 @@ function migratePresetRequest(request: OptimizeRequestDto, catalog: CatalogDto):
 }
 
 function presetVersionLabel(savedVersion: string | undefined, currentVersion: string): string {
-  if (!savedVersion) return "Saved metadata unavailable";
+  if (!savedVersion) return "Saved data version unknown";
+  return savedVersion === currentVersion
+    ? "Saved with the current game data"
+    : "Stale: saved with different game data. Inputs load; solved rows are discarded.";
+}
+
+/** Full snapshot identity, kept out of the visible label for troubleshooting. */
+function presetProvenance(savedVersion: string | undefined): string | undefined {
+  if (!savedVersion) return undefined;
   const parts = savedVersion.split(":");
-  const [profile, schema, dataset, model] = parts.length === 4
-    ? parts
-    : ["unknown", ...parts];
-  const status = savedVersion === currentVersion ? "Current" : "Stale — inputs load, solved rows are discarded";
-  return `${status} · profile ${profile} · dataset ${dataset} · schema ${schema} · model ${model}`;
+  const [profile, schema, dataset, model] = parts.length === 4 ? parts : ["unknown", ...parts];
+  return `profile ${profile} · dataset ${dataset} · schema ${schema} · model ${model}`;
 }

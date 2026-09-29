@@ -379,11 +379,7 @@ fn prepare_ar_bleed_frontier(
     }
     let mut base = request.base;
     base.objective = "max_ar".into();
-    base.exact_upgrade = Some(true);
-    base.standard_max_upgrade = Some(solved.upgrade);
-    base.somber_max_upgrade = Some(solved.upgrade);
-    base.max_upgrade = None;
-    base.fixed_upgrade = None;
+    base.set_exact_upgrade(solved.upgrade, solved.is_somber);
     let (mut request, data) = prepare_solve_build(
         SolveBuildRequestDto {
             base,
@@ -749,12 +745,49 @@ fn clamp_weapon_upgrade_request_for_profile(
             }
         }
     }
-    let standard_cap = request
-        .standard_upgrade_cap()
-        .min(profile.data.rules.standard_max_upgrade);
-    let somber_cap = request
-        .somber_upgrade_cap()
-        .min(profile.data.rules.somber_max_upgrade);
+    let standard_cap = request.standard_upgrade_cap();
+    let somber_cap = request.somber_upgrade_cap();
+    if request.exact_upgrade_enabled() {
+        for (kind, requested, supported) in [
+            (
+                "standard",
+                standard_cap,
+                profile.data.rules.standard_max_upgrade,
+            ),
+            ("somber", somber_cap, profile.data.rules.somber_max_upgrade),
+        ] {
+            if requested > supported {
+                return Err(AppError::new(format!(
+                    "profile '{}' does not support exact {kind} +{requested}; its maximum is +{supported}",
+                    request.profile_id,
+                )));
+            }
+        }
+        if let Some(weapon_name) = request.weapon_name.as_deref() {
+            let (is_somber, _) =
+                weapon_reinforcement_info(profile, weapon_name, request.affinity.as_deref())?;
+            let requested = if is_somber { somber_cap } else { standard_cap };
+            let available = profile.data.weapons.iter().any(|weapon| {
+                weapon.name.eq_ignore_ascii_case(weapon_name)
+                    && request
+                        .affinity
+                        .as_deref()
+                        .is_none_or(|affinity| weapon.affinity.eq_ignore_ascii_case(affinity))
+                    && profile
+                        .data
+                        .reinforce_level(weapon.reinforce_type, requested)
+                        .is_some()
+            });
+            if !available {
+                return Err(AppError::new(format!(
+                    "{weapon_name} does not support exact +{requested}; choose an available reinforcement level or use range mode",
+                )));
+            }
+        }
+        return Ok(());
+    }
+    let standard_cap = standard_cap.min(profile.data.rules.standard_max_upgrade);
+    let somber_cap = somber_cap.min(profile.data.rules.somber_max_upgrade);
     request.standard_max_upgrade = Some(standard_cap);
     request.somber_max_upgrade = Some(somber_cap);
     let Some(weapon_name) = request.weapon_name.as_deref() else {
@@ -802,6 +835,138 @@ fn weapon_reinforcement_info(
 #[cfg(test)]
 mod integration_tests {
     use super::*;
+
+    #[test]
+    fn focused_exact_upgrade_does_not_substitute_a_lower_level() {
+        let state = crate::test_app_state();
+        let mut request = crate::test_optimize_request();
+        request.character_level = 80;
+        request.weapon_name = Some("Meteorite Staff".into());
+        request.affinity = Some("Standard".into());
+        request.somber_max_upgrade = Some(10);
+        let error = clamp_weapon_upgrade_request(&mut request, &state)
+            .expect_err("an exact +10 request must not become +0");
+        assert!(error.message.contains("exact +10"));
+        assert_eq!(request.somber_max_upgrade, Some(10));
+    }
+
+    #[test]
+    fn broad_and_focused_upgrade_constraints_agree_for_both_profiles() {
+        let state = crate::test_app_state();
+        for (profile_id, weapon_name, exact_upgrade, is_somber) in [
+            ("vanilla", "Meteorite Staff", 0, true),
+            ("vanilla", "Meteorite Staff", 10, true),
+            ("vanilla", "Dagger", 25, false),
+            ("vanilla", "Black Knife", 10, true),
+            ("convergence", "Dagger", 15, false),
+            (
+                "convergence",
+                "Galvanic Culling Blade [Twinblade]",
+                15,
+                true,
+            ),
+        ] {
+            let mut request = if profile_id == "vanilla" {
+                let mut base = crate::test_optimize_request();
+                base.character_level = 80;
+                base
+            } else {
+                convergence_custom_stats_request()
+            };
+            request.weapon_name = None;
+            request.affinity = Some("Standard".into());
+            request.aow_name = None;
+            request.set_exact_upgrade(exact_upgrade, is_somber);
+            let data = &state.profile(profile_id).unwrap().data;
+            let weapon = data
+                .weapons
+                .iter()
+                .find(|weapon| weapon.name == weapon_name && weapon.affinity == "Standard")
+                .unwrap();
+            request.filters.entries = vec![crate::dto::StableFilterEntryDto {
+                dimension: "weapon_family".into(),
+                id: weapon.family_filter_id(),
+                mode: "include".into(),
+            }];
+            let broad = run_search_inner(request.clone(), &state).unwrap();
+            request.weapon_name = Some(weapon_name.into());
+            if weapon_name == "Meteorite Staff" && exact_upgrade == 10 {
+                assert!(broad.is_empty());
+                assert!(
+                    run_search_inner(request.clone(), &state)
+                        .unwrap_err()
+                        .message
+                        .contains("exact +10")
+                );
+                request.exact_upgrade = Some(false);
+                assert_eq!(run_search_inner(request, &state).unwrap()[0].upgrade, 0);
+            } else {
+                let focused = run_search_inner(request, &state).unwrap();
+                assert!(!focused.is_empty(), "{profile_id} {weapon_name}");
+                assert_eq!(
+                    serde_json::to_value(&focused).unwrap(),
+                    serde_json::to_value(&broad).unwrap()
+                );
+                assert_eq!(focused[0].upgrade, exact_upgrade);
+            }
+        }
+    }
+
+    #[test]
+    fn exact_profile_caps_and_sparse_levels_reject_without_clamping() {
+        let state = crate::test_app_state();
+        for profile_id in ["vanilla", "convergence"] {
+            let mut request = if profile_id == "vanilla" {
+                crate::test_optimize_request()
+            } else {
+                convergence_custom_stats_request()
+            };
+            request.weapon_name = None;
+            request.standard_max_upgrade = Some(26);
+            assert!(
+                clamp_weapon_upgrade_request(&mut request, &state)
+                    .unwrap_err()
+                    .message
+                    .contains("exact standard +26")
+            );
+            assert_eq!(request.standard_max_upgrade, Some(26));
+            request.exact_upgrade = Some(false);
+            clamp_weapon_upgrade_request(&mut request, &state).unwrap();
+            assert_eq!(
+                request.standard_max_upgrade,
+                Some(
+                    state
+                        .profile(profile_id)
+                        .unwrap()
+                        .data
+                        .rules
+                        .standard_max_upgrade
+                )
+            );
+        }
+        let profile = state.profile("vanilla").unwrap();
+        let mut data = (*profile.data).clone();
+        let weapon = data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.name == "Uchigatana" && weapon.affinity == "Keen")
+            .unwrap();
+        let reinforce_type = weapon.reinforce_type;
+        data.reinforce[usize::from(reinforce_type)][5] = None;
+        let profile = ProfileData {
+            data: Arc::new(data),
+            catalog_index: Arc::clone(&profile.catalog_index),
+            data_manifest: profile.data_manifest.clone(),
+        };
+        let mut request = crate::test_optimize_request();
+        request.standard_max_upgrade = Some(5);
+        assert!(
+            clamp_weapon_upgrade_request_for_profile(&mut request, &profile)
+                .unwrap_err()
+                .message
+                .contains("exact +5")
+        );
+    }
 
     #[test]
     fn supervised_search_worker_recovers_panics_before_and_during_calculation() {
@@ -1252,8 +1417,8 @@ mod integration_tests {
         request.lock_int = Some(request.int_stat);
         request.lock_fai = Some(request.fai);
         request.lock_arc = Some(request.arc);
-        request.standard_max_upgrade = Some(25);
-        request.somber_max_upgrade = Some(25);
+        request.standard_max_upgrade = Some(15);
+        request.somber_max_upgrade = Some(15);
         request.exact_upgrade = Some(true);
         request.max_upgrade = None;
         request.fixed_upgrade = None;
@@ -1490,12 +1655,12 @@ mod integration_tests {
     }
 
     #[test]
-    fn selected_loadout_clamps_to_its_available_upgrade_cap() {
+    fn selected_loadout_uses_explicit_zero_upgrade_and_series_range() {
         let state = crate::test_app_state();
         let mut base = crate::test_optimize_request();
         base.character_level = 80;
         base.standard_max_upgrade = Some(25);
-        base.somber_max_upgrade = Some(10);
+        base.somber_max_upgrade = Some(0);
         let solved = solve_build_inner(
             SolveBuildRequestDto {
                 base: base.clone(),

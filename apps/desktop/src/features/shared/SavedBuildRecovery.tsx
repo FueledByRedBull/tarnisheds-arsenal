@@ -77,7 +77,7 @@ export function SavedBuildRecovery({ onChanged, revision }: { onChanged: () => v
     <p>Back up every readable build across profiles. Restoring keeps existing builds and gives each imported build a new ID.</p>
     {inspection ? <>
       <p>{inspection.presets.length} readable builds · {inspection.orphanCount} unlisted builds · {inspection.issues.length} storage issues</p>
-      {inspection.issues.length > 0 ? <ul className="warning-text">{inspection.issues.map((issue, index) => <li key={index}>{issue}</li>)}</ul> : null}
+      {inspection.issues.length > 0 ? <ul className="tone-warning">{inspection.issues.map((issue, index) => <li key={index}>{issue}</li>)}</ul> : null}
       {inspection.needsRecovery ? <>
         <p>Recovery will rebuild the list from these {inspection.presets.length} readable builds. It preserves the original index and leaves unreadable records untouched.</p>
         <button type="button" onClick={recover}>Recover {inspection.presets.length} builds</button>
@@ -95,7 +95,7 @@ export function SavedBuildRecovery({ onChanged, revision }: { onChanged: () => v
       <ul>{preview.presets.map((preset) => <li key={preset.id}>{preset.name} · {preset.profileId} · {preset.dataVersion}</li>)}</ul>
       <button type="button" onClick={restore} disabled={!preview.presets.length || inspection?.needsRecovery}>Restore {preview.presets.length} builds as copies</button>
     </div> : null}
-    {error ? <p className="warning-text" role="alert">{error}</p> : null}
+    {error ? <p className="tone-danger" role="alert">{error}</p> : null}
     {message ? <p role="status">{message}</p> : null}
   </details>;
 }

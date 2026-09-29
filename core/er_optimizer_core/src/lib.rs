@@ -6,7 +6,7 @@ mod snapshot;
 
 /// Include the compiled scoring contract in persisted result/cache identities.
 pub fn runtime_model_version(snapshot_model: &str) -> String {
-    format!("{snapshot_model}/exact-v2")
+    format!("{snapshot_model}/exact-v3")
 }
 
 pub use data::{
@@ -29,11 +29,23 @@ pub use optimizer::{
     LevelOptimizeResult, OptimizeObjective, OptimizePhaseTimings, OptimizeRequest, OptimizeResult,
     PreparedLoadoutEvaluator, PreparedSearchPlan, PreparedUpgradeSeriesEvaluator,
     ProfiledOptimizeResult, ProgressSnapshot, ResultGrouping, SearchEstimate, SomberFilter,
-    StableFilter, estimate_search_space, estimate_search_space_with_cancel, optimize,
-    optimize_level_range_with_progress, optimize_prepared_with_progress, optimize_profiled,
-    optimize_with_cancel, optimize_with_progress, prepare_loadout_evaluator_with_cancel,
-    prepare_search, prepare_search_with_cancel, prepare_upgrade_series_evaluator_with_cancel,
+    StableFilter, optimize, optimize_level_range_with_progress, optimize_prepared_with_progress,
+    optimize_profiled, optimize_with_cancel, optimize_with_progress,
+    prepare_loadout_evaluator_with_cancel, prepare_search, prepare_search_with_cancel,
+    prepare_upgrade_series_evaluator_with_cancel,
 };
 pub use snapshot::{
     SnapshotCapabilities, SnapshotFile, SnapshotManifest, SnapshotProfile, SnapshotSource,
 };
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn runtime_identity_invalidates_results_from_before_route_handling_constraints() {
+        let old_snapshot = "aow-routes-effects-v8";
+        assert_ne!(
+            super::runtime_model_version(old_snapshot),
+            format!("{old_snapshot}/exact-v2")
+        );
+    }
+}

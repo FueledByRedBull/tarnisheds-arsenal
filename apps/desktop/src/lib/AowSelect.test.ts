@@ -20,6 +20,7 @@ describe("weapon skill selection", () => {
     for (const value of [null, "No Skill", "__match_selected__", "Corpse Piler"]) {
       expect(resolveAowSelection(rivers, value, true)).toBe("Corpse Piler");
     }
+    expect(resolveAowSelection(rivers, null, false)).toBeNull();
   });
 
   it("never applies an incompatible native skill to an infusion", () => {

@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from .models import ValidationIssue
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class ValidationIssue:
+    level: str
+    message: str
 
 def validate_aow_effect_graph(
     aows: list[dict[str, str]],

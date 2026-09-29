@@ -4,10 +4,12 @@ import type { OptimizeRequestDto, SolvedBuildDto } from "./types";
 
 const statNames = ["STR", "DEX", "INT", "FAI", "ARC"];
 
-export function explainBuild(row: SolvedBuildDto, request: OptimizeRequestDto): string[] {
+export function explainBuild(row: SolvedBuildDto, request: OptimizeRequestDto, aowModelSupported = true): string[] {
+  const metric = metricForObjective(row, request.objective, aowModelSupported);
   const lines = [request.objective === "max_ar_plus_bleed"
     ? `This search ranks bleed buildup first (${fixed1(row.bleedBuildup)}), then AR (${fixed1(row.ar.total)}). It does not add them together or predict bleed-proc damage.`
-    : `This build scores ${fixed1(metricForObjective(row, request.objective))} for ${objectiveLabel(request.objective)} under the current search constraints.`];
+    : metric === null ? "Skill damage is unavailable for this loadout; no modeled result is available."
+      : `This build scores ${fixed1(metric)} for ${objectiveLabel(request.objective)} under the current search constraints.`];
   const damage = (["physical", "magic", "fire", "lightning", "holy"] as const)
     .map(key => [key, row.ar[key]] as const).filter(([, value]) => value > 0);
   if (damage.length) lines.push(`Weapon AR comes from ${damage.map(([key, value]) => `${fixed1(value)} ${key}`).join(" + ")}. Enemy defenses and negation are not applied.`);
@@ -25,12 +27,16 @@ export function explainBuild(row: SolvedBuildDto, request: OptimizeRequestDto): 
   return lines;
 }
 
-export function explainBuildComparison(baseline: SolvedBuildDto, candidate: SolvedBuildDto, request: Pick<OptimizeRequestDto, "objective">): string {
-  const delta = metricForObjective(candidate, request.objective) - metricForObjective(baseline, request.objective);
+export function explainBuildComparison(baseline: SolvedBuildDto, candidate: SolvedBuildDto, request: Pick<OptimizeRequestDto, "objective">, aowModelSupported = true): string {
+  const baselineMetric = metricForObjective(baseline, request.objective, aowModelSupported);
+  const candidateMetric = metricForObjective(candidate, request.objective, aowModelSupported);
+  const delta = baselineMetric === null || candidateMetric === null ? null : candidateMetric - baselineMetric;
   const arDelta = candidate.ar.total - baseline.ar.total;
   const stats = STAT_KEYS.flatMap((key, index) => {
     const change = candidate.stats[key] - baseline.stats[key];
     return change ? [`${statNames[index]} ${change > 0 ? "+" : ""}${change}`] : [];
   });
-  return `${candidate.weaponName}: ${delta >= 0 ? "+" : ""}${fixed1(delta)} ${request.objective === "max_ar_plus_bleed" ? "bleed buildup" : objectiveLabel(request.objective)}, ${arDelta >= 0 ? "+" : ""}${fixed1(arDelta)} AR versus ${baseline.weaponName}. ${stats.length ? `Stat changes: ${stats.join(", ")}.` : "Combat stats are unchanged."} ${request.objective === "max_ar_plus_bleed" ? "Bleed ranks before AR; this does not estimate proc damage." : "These are raw modeled values before enemy defenses."}`;
+  const metricDifference = delta === null ? "Skill damage comparison unavailable"
+    : `${delta >= 0 ? "+" : ""}${fixed1(delta)} ${request.objective === "max_ar_plus_bleed" ? "bleed buildup" : objectiveLabel(request.objective)}`;
+  return `${candidate.weaponName}: ${metricDifference}, ${arDelta >= 0 ? "+" : ""}${fixed1(arDelta)} AR versus ${baseline.weaponName}. ${stats.length ? `Stat changes: ${stats.join(", ")}.` : "Combat stats are unchanged."} ${request.objective === "max_ar_plus_bleed" ? "Bleed ranks before AR; this does not estimate proc damage." : "These are raw modeled values before enemy defenses."}`;
 }

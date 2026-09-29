@@ -97,11 +97,11 @@ test("tradeoff views select exact threshold choices and persist an exact apply",
   });
   const appliedRow = page.locator(".result-row-full").first();
   await expect(appliedRow.locator(".weapon-cell strong")).toHaveText("Uchigatana");
-  await expect(appliedRow.locator(".setup-cell strong")).toHaveText("Blood");
-  await expect(appliedRow.locator(".setup-cell > small")).toHaveText("Seppuku");
-  await expect(appliedRow.getByRole("gridcell").nth(3)).toHaveText("+25");
-  await expect(appliedRow.locator(".row-combat-stats")).toHaveText("STR 13 / DEX 19 / INT 9 / FAI 8 / ARC 63");
-  await expect(appliedRow.locator(".ar-status-cell strong")).toHaveText("665");
+  await expect(appliedRow.locator(".loadout-affinity")).toHaveText("Blood");
+  await expect(appliedRow.locator(".loadout-skill")).toHaveText("Seppuku");
+  await expect(appliedRow.locator(".loadout-upgrade")).toHaveText("+25");
+  expect(await combatStats(appliedRow)).toEqual(["Strength 13", "Dexterity 19", "Intelligence 9", "Faith 8", "Arcane 63"]);
+  await expect(appliedRow.locator(".ar-cell strong")).toHaveText("665.0");
   await expect(page.locator('[aria-label="Bleed buildup: 99"]')).toBeVisible();
   const returnedResult = await page.evaluate(() => (window as any).appliedTradeoffResult);
   expect(returnedResult).toMatchObject({
@@ -115,17 +115,41 @@ test("tradeoff views select exact threshold choices and persist an exact apply",
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   await page.getByText(`Saved ${presetName}.`, { exact: true }).waitFor();
   await page.reload();
+  await expect(page.getByText("Snapshot loaded", { exact: true })).toBeVisible();
+  await page.evaluate(async expected => {
+    const { api } = await import("/src/lib/api.ts");
+    const solve = api.solveBuild;
+    (window as any).reloadedTradeoffSolves = [];
+    // Loading now recomputes saved results; keep the controlled, lock-compliant
+    // native reply across reload instead of relying on the stat-agnostic preview.
+    api.solveBuild = async (base, weaponName, affinity, aowName, signal) => {
+      (window as any).reloadedTradeoffSolves.push({ base, weaponName, affinity, aowName });
+      if (weaponName === expected.weaponName && affinity === expected.affinity && aowName === expected.aowName
+        && base.lockStr === expected.stats.strStat && base.lockDex === expected.stats.dex
+        && base.lockInt === expected.stats.intStat && base.lockFai === expected.stats.fai && base.lockArc === expected.stats.arc) {
+        return expected;
+      }
+      return solve(base, weaponName, affinity, aowName, signal);
+    };
+  }, returnedResult);
   await page.getByRole("combobox", { name: "Saved", exact: true }).selectOption({ label: `${presetName} — vanilla · current data` });
   await page.getByRole("button", { name: "Load", exact: true }).click();
-  await page.getByText(`Loaded ${presetName}.`, { exact: true }).waitFor();
+  await page.getByText(`Loaded ${presetName}; saved results verified on current data.`, { exact: true }).waitFor();
+  expect(await page.evaluate(() => (window as any).reloadedTradeoffSolves)).toEqual(expect.arrayContaining([
+    expect.objectContaining({
+      weaponName: "Uchigatana", affinity: "Blood", aowName: "Seppuku",
+      base: expect.objectContaining({ exactUpgrade: true, standardMaxUpgrade: 25,
+        lockStr: 13, lockDex: 19, lockInt: 9, lockFai: 8, lockArc: 63 }),
+    }),
+  ]));
   await expect(page.locator(".result-row-full")).toHaveCount(1);
   const reloadedRow = page.locator(".result-row-full").first();
   await expect(reloadedRow.locator(".weapon-cell strong")).toHaveText("Uchigatana");
-  await expect(reloadedRow.locator(".setup-cell strong")).toHaveText("Blood");
-  await expect(reloadedRow.locator(".setup-cell > small")).toHaveText("Seppuku");
-  await expect(reloadedRow.getByRole("gridcell").nth(3)).toHaveText("+25");
-  await expect(reloadedRow.locator(".row-combat-stats")).toHaveText("STR 13 / DEX 19 / INT 9 / FAI 8 / ARC 63");
-  await expect(reloadedRow.locator(".ar-status-cell strong")).toHaveText("665");
+  await expect(reloadedRow.locator(".loadout-affinity")).toHaveText("Blood");
+  await expect(reloadedRow.locator(".loadout-skill")).toHaveText("Seppuku");
+  await expect(reloadedRow.locator(".loadout-upgrade")).toHaveText("+25");
+  expect(await combatStats(reloadedRow)).toEqual(["Strength 13", "Dexterity 19", "Intelligence 9", "Faith 8", "Arcane 63"]);
+  await expect(reloadedRow.locator(".ar-cell strong")).toHaveText("665.0");
   await expect(page.locator('[aria-label="Bleed buildup: 99"]')).toBeVisible();
   await expect(page.locator(".selected-build")).toContainText("Blood / Seppuku / +25");
   await expect(page.locator(".detail-block").filter({ hasText: "Combat Stats" }).locator("strong")).toHaveText("STR 13 / DEX 19 / INT 9 / FAI 8 / ARC 63");
@@ -178,3 +202,8 @@ test("leaving Compare aborts a pending frontier and discards its late result", a
   await expect(page.locator(".loadout-tradeoffs").getByRole("status")).toContainText("Ready to calculate");
   await expect(page.locator(".tradeoff-shortlist")).toHaveCount(0);
 });
+
+async function combatStats(row: import("@playwright/test").Locator) {
+  return row.getByRole("list", { name: "Combat stats" }).getByRole("listitem")
+    .evaluateAll(items => items.map(item => item.getAttribute("aria-label")));
+}

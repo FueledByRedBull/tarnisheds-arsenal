@@ -1,11 +1,6 @@
 aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_order,hit_order,hit_count
 100,Lion's Claw,63,full,Full sequence,0,activation,1,1,1
-101,Impaling Thrust,946,r1,R1,0,activation,1,1,1
-101,Impaling Thrust,1142,r1,R1,0,r1,2,1,1
-101,Impaling Thrust,1143,r1,R1,0,r1,2,2,1
-101,Impaling Thrust,1144,r1,R1,0,r1,2,3,1
-101,Impaling Thrust,946,r2,R2,1,activation,1,1,1
-101,Impaling Thrust,1145,r2,R2,1,r2,2,2,1
+101,Impaling Thrust,946,full,Full sequence,0,activation,1,1,1
 102,Piercing Fang,958,full,Full sequence,0,activation,1,1,1
 103,Spinning Slash,880,full,Full sequence,0,stage_1,1,1,1
 103,Spinning Slash,886,full,Full sequence,0,stage_1,1,1,1
@@ -283,8 +278,8 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 217,Lightning Slash,1377,full,Full sequence,0,activation,1,1,1
 217,Lightning Slash,1378,full,Full sequence,0,activation,1,1,1
 218,Carian Grandeur,1231,uncharged,Uncharged,0,activation,1,1,1
-218,Carian Grandeur,1232,charged,Charged,1,activation,1,1,1
-218,Carian Grandeur,1233,charged,Charged,1,activation,1,1,1
+218,Carian Grandeur,1232,charged_1,Charged 1,1,activation,1,1,1
+218,Carian Grandeur,1233,charged_2,Charged 2,2,activation,1,1,1
 219,Carian Greatsword,1227,uncharged,Uncharged,0,activation,1,1,1
 219,Carian Greatsword,1228,charged,Charged,1,activation,1,1,1
 220,Vacuum Slice,1211,full,Full sequence,0,activation,1,1,1
@@ -1232,6 +1227,7 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 1017,Glintstone Dart,1571,uncharged,Uncharged,0,activation,1,1,1
 1017,Glintstone Dart,1573,uncharged,Uncharged,0,r2,2,2,1
 1017,Glintstone Dart,1572,charged,Charged,1,activation,1,1,1
+1017,Glintstone Dart,1573,charged,Charged,1,r2,2,2,1
 1018,Flowing Form,1881,full,Full sequence,0,activation,1,1,1
 1019,Night-and-Flame Stance,1627,r1,R1,0,r1,1,1,1
 1019,Night-and-Flame Stance,1628,r1,R1,0,r1,1,1,1
@@ -1639,11 +1635,11 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 4010,Palm Blast,1517,uncharged,Uncharged,0,activation,1,1,1
 4010,Palm Blast,1518,charged,Charged,1,activation,1,1,1
 4020,Piercing Throw,1130,full,Full sequence,0,activation,1,1,1
-4020,Piercing Throw,1136,full,Full sequence,0,activation,1,1,1
-4020,Piercing Throw,1132,full,Full sequence,0,stage_1,2,1,1
-4020,Piercing Throw,1133,full,Full sequence,0,stage_1,2,2,1
-4020,Piercing Throw,1134,full,Full sequence,0,stage_2,3,1,1
-4020,Piercing Throw,1135,full,Full sequence,0,stage_2,3,2,1
+4030,Scattershot Throw,1132,near,Near,0,stage_1,1,1,1
+4030,Scattershot Throw,1133,near,Near,0,stage_1,1,2,1
+4030,Scattershot Throw,1134,near,Near,0,stage_2,2,1,1
+4030,Scattershot Throw,1135,near,Near,0,stage_2,2,2,1
+4030,Scattershot Throw,1136,far,Far,1,activation,1,1,1
 4040,Wall of Sparks,1529,full,Full sequence,0,activation,1,1,1
 4040,Wall of Sparks,1530,full,Full sequence,0,activation,1,1,1
 4040,Wall of Sparks,1531,full,Full sequence,0,activation,1,1,1
@@ -1651,15 +1647,15 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 4050,Rolling Sparks,1533,full,Full sequence,0,activation,1,1,1
 4050,Rolling Sparks,1534,full,Full sequence,0,activation,1,1,1
 4050,Rolling Sparks,1535,full,Full sequence,0,activation,1,1,1
+4060,Raging Beast,1124,full,Full sequence,0,activation,1,1,1
+4060,Raging Beast,1125,full,Full sequence,0,r2,2,1,1
+4060,Raging Beast,1126,full,Full sequence,0,r2,2,2,1
 4070,Savage Claws,1112,full,Full sequence,0,activation,1,1,1
-4070,Savage Claws,1124,full,Full sequence,0,activation,1,1,1
 4070,Savage Claws,1113,full,Full sequence,0,activation,1,2,1
 4070,Savage Claws,1114,full,Full sequence,0,activation,1,3,1
 4070,Savage Claws,1115,full,Full sequence,0,activation,1,4,1
 4070,Savage Claws,1116,full,Full sequence,0,activation,1,5,1
 4070,Savage Claws,1117,full,Full sequence,0,activation,1,6,1
-4070,Savage Claws,1125,full,Full sequence,0,r2,2,1,1
-4070,Savage Claws,1126,full,Full sequence,0,r2,2,2,1
 4080,Red Bear Hunt,2594,full,Full sequence,0,stage_1,1,1,1
 4080,Red Bear Hunt,2595,full,Full sequence,0,stage_1,1,1,1
 4080,Red Bear Hunt,2596,full,Full sequence,0,stage_2,2,2,1
@@ -1678,6 +1674,10 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 4110,Overhead Stance,1101,r2,R2,1,r2,1,1,1
 4110,Overhead Stance,1102,r2,R2,1,r2,1,2,1
 4110,Overhead Stance,1103,r2,R2,1,r2,1,3,1
+4120,Wing Stance,1142,r1,R1,0,r1,1,1,1
+4120,Wing Stance,1143,r1,R1,0,r1,1,2,1
+4120,Wing Stance,1144,r1,R1,0,r1,1,3,1
+4120,Wing Stance,1145,r2,R2,1,r2,1,2,1
 4130,Blinkbolt,1380,full,Full sequence,0,activation,1,1,1
 4140,Flame Skewer,1330,full,Full sequence,0,activation,1,1,1
 4140,Flame Skewer,1334,full,Full sequence,0,activation,1,1,1
@@ -1966,11 +1966,11 @@ aow_id,aow_name,sheet_row,route_id,route_label,route_priority,action_id,action_o
 5500,Flare- O Serpent,2292,uncharged,Uncharged,0,r2,1,2,1
 5500,Flare- O Serpent,2293,uncharged,Uncharged,0,r2,1,2,1
 5500,Flare- O Serpent,2291,charged,Charged,1,r2,1,2,1
-5510,Scattershot (Claws),2588,full,Full sequence,0,stage_1,1,1,1
-5510,Scattershot (Claws),2589,full,Full sequence,0,stage_1,1,2,1
-5510,Scattershot (Claws),2590,full,Full sequence,0,stage_2,2,1,1
-5510,Scattershot (Claws),2591,full,Full sequence,0,stage_2,2,2,1
-5510,Scattershot (Claws),2592,full,Full sequence,0,activation,3,1,1
+5510,Scattershot (Claws),2588,near,Near,0,stage_1,1,1,1
+5510,Scattershot (Claws),2589,near,Near,0,stage_1,1,2,1
+5510,Scattershot (Claws),2590,near,Near,0,stage_2,2,1,1
+5510,Scattershot (Claws),2591,near,Near,0,stage_2,2,2,1
+5510,Scattershot (Claws),2592,far,Far,1,activation,1,1,1
 5530,Horn Calling,1935,full,Full sequence,0,activation,1,1,1
 5530,Horn Calling,1936,full,Full sequence,0,activation,1,1,1
 5530,Horn Calling,1937,full,Full sequence,0,activation,1,1,1

@@ -256,7 +256,8 @@ class MotionWorkbookTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'projectile hit count'):
             load_bullet_attack_ids(Path('regulation'), Path('defs'))
 
-    def test_routes_preserve_repeats_without_combining_charge_variants(self) -> None:
+    @staticmethod
+    def build_routes() -> list[dict[str, str]]:
         project_root = Path(__file__).resolve().parents[2]
         with tempfile.TemporaryDirectory() as temp_dir:
             phase1_dir = Path(temp_dir)
@@ -264,7 +265,10 @@ class MotionWorkbookTests(unittest.TestCase):
                 shutil.copyfile(project_root / 'data/phase1' / filename, phase1_dir / filename)
             build_aow_route_data(project_root, phase1_dir)
             with (phase1_dir / 'aow_route_assignments.csv').open(encoding='utf-8', newline='') as handle:
-                assignments = list(csv.DictReader(handle))
+                return list(csv.DictReader(handle))
+
+    def test_routes_preserve_repeats_without_combining_charge_variants(self) -> None:
+        assignments = self.build_routes()
 
         by_sheet = {}
         for row in assignments:
@@ -282,6 +286,53 @@ class MotionWorkbookTests(unittest.TestCase):
         self.assertTrue({row['route_id'] for row in by_sheet[1862]}.isdisjoint(
             {row['route_id'] for row in by_sheet[1864]}))
         self.assertEqual({row.get('hit_count') for row in by_sheet[1225]}, {'1'})
+
+    def test_carian_grandeur_charge_levels_are_separate_single_strikes(self) -> None:
+        routes: dict[str, list[int]] = {}
+        for row in self.build_routes():
+            if row['aow_id'] == '218':
+                routes.setdefault(row['route_id'], []).append(int(row['sheet_row']))
+        self.assertEqual(sorted(routes.values()), [[1231], [1232], [1233]])
+
+    def test_glintstone_dart_followup_is_available_after_either_charge(self) -> None:
+        routes: dict[str, list[int]] = {}
+        for row in self.build_routes():
+            if row['aow_id'] == '1017':
+                routes.setdefault(row['route_id'], []).append(int(row['sheet_row']))
+        self.assertEqual(routes, {'uncharged': [1571, 1573], 'charged': [1572, 1573]})
+
+    def test_scattershot_distance_variants_do_not_stack(self) -> None:
+        assignments = self.build_routes()
+        for near, far in ((1132, 1136), (2588, 2592)):
+            with self.subTest(near=near, far=far):
+                near_routes = {row['route_id'] for row in assignments
+                               if int(row['sheet_row']) == near}
+                far_routes = {row['route_id'] for row in assignments
+                              if int(row['sheet_row']) == far}
+                self.assertEqual(near_routes, {'near'})
+                self.assertEqual(far_routes, {'far'})
+
+    def test_shared_charge_followup_rejects_changed_source_identity(self) -> None:
+        project_root = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            phase1_dir = Path(temp_dir)
+            shutil.copyfile(project_root / 'data/phase1/aow_attack_data.csv',
+                            phase1_dir / 'aow_attack_data.csv')
+            with (project_root / 'data/phase1/native_skill_attack_data.csv').open(
+                encoding='utf-8', newline=''
+            ) as handle:
+                rows = list(csv.DictReader(handle))
+            for row in rows:
+                if row['aow_id'] == '1017' and row['atk_id'] == '300107910':
+                    row['raw_name'] = 'Different attack'
+            with (phase1_dir / 'native_skill_attack_data.csv').open(
+                'w', encoding='utf-8', newline=''
+            ) as handle:
+                writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+                writer.writeheader()
+                writer.writerows(rows)
+            with self.assertRaisesRegex(ValueError, 'shared charge attack source changed'):
+                build_aow_route_data(project_root, phase1_dir)
 
     def test_generic_and_native_skill_outputs_separate_unique_weapon_rows(self) -> None:
         project_root = Path(__file__).resolve().parents[2]
@@ -317,14 +368,26 @@ class MotionWorkbookTests(unittest.TestCase):
                 native_rows = list(csv.DictReader(handle))
 
         generic_sheet_rows = {row["sheet_row"] for row in generic_rows}
-        self.assertFalse(unique_generic_sheet_rows & generic_sheet_rows)
+        transferable_unique_rows = {
+            str(sheet) for start, stop in ((1100, 1108), (1112, 1138), (1142, 1150))
+            for sheet in range(start, stop)
+        }
+        self.assertEqual(unique_generic_sheet_rows & generic_sheet_rows, transferable_unique_rows)
+        for skill_id, first, last in ((4110, 1100, 1108), (4070, 1112, 1124),
+                                     (4060, 1124, 1130), (4020, 1130, 1132),
+                                     (4030, 1132, 1138), (4120, 1142, 1150)):
+            self.assertEqual(
+                {int(row['sheet_row']) for row in generic_rows if int(row['aow_id']) == skill_id},
+                set(range(first, last)),
+            )
+        self.assertFalse(transferable_unique_rows & {row['sheet_row'] for row in native_rows})
         self.assertEqual(
             sum(int(row["standard_rows"]) for row in coverage_rows),
             len(generic_rows),
         )
         self.assertEqual(
             sum(int(row["unique_collision_rows"]) for row in coverage_rows),
-            len(unique_generic_sheet_rows),
+            len(unique_generic_sheet_rows - transferable_unique_rows),
         )
         self.assertEqual(
             int(next(row for row in coverage_rows if row["aow_name"] == "Spinning Weapon")["unique_collision_rows"]),
@@ -338,6 +401,11 @@ class MotionWorkbookTests(unittest.TestCase):
         native_by_weapon = {}
         for row in native_rows:
             native_by_weapon.setdefault(row["weapon_name"], set()).add(row["raw_name"])
+        for weapon, skill_id in (("Carian Regal Scepter", '1199'), ("Dragon Halberd", '1166'),
+                                 ("Claws of Night", '5510'), ("Carian Sorcery Sword", '5590'),
+                                 ("Loretta's War Sickle", '1165')):
+            self.assertEqual({row['aow_id'] for row in native_rows
+                              if row['weapon_name'] == weapon}, {skill_id})
         self.assertEqual(
             native_by_weapon["Carian Regal Scepter"],
             {

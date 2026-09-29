@@ -18,8 +18,8 @@ from tools.phase1.profiles import ProfileDefinition, profile_definition  # noqa:
 
 
 SCHEMA_VERSION = 6
-MODEL_VERSION = "aow-routes-effects-v8"
-EXTRACTOR_VERSION = "phase1-python-v12-route-hit-counts"
+MODEL_VERSION = "aow-routes-effects-v9"
+EXTRACTOR_VERSION = "phase1-python-v13-skill-route-identity"
 RUNTIME_FILES = {
     "aow.csv",
     "aow_attack_data.csv",

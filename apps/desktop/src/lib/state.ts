@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { readCompareBench, writeCompareBench } from "./compare-bench";
+import { activationRequest, catalogVersion, verifyPresetResults } from "./preset-activation";
 import {
   AffinityWatchPayloadDto,
   AffinityWatchProgressDto,
@@ -25,10 +26,12 @@ export interface DesktopState {
   catalogStatus: "loading" | "ready" | "error";
   catalogError: string | null;
   request: OptimizeRequestDto;
+  loadoutSelectionRevision: number;
   rows: SolvedBuildDto[];
   resultsStale: boolean;
   selected: SolvedBuildDto | null;
   compareTarget: SolvedBuildDto | null;
+  restoredCompareTarget: SolvedBuildDto | null;
   compareBench: SolvedBuildDto[];
   selectedFingerprint: string | null;
   lockedStatMode: boolean;
@@ -97,7 +100,7 @@ export interface DesktopState {
   setActiveAffinityJobId: (activeAffinityJobId: string | null) => void;
   setAffinityProgress: (affinityProgress: AffinityWatchProgressDto | null) => void;
   setAffinityPayload: (affinityPayload: AffinityWatchPayloadDto | null, signature: string | null) => void;
-  loadBuildPreset: (preset: BuildPreset) => void;
+  loadBuildPreset: (preset: BuildPreset, signal?: AbortSignal) => Promise<BuildPreset | null>;
 }
 
 export const defaultRequest: OptimizeRequestDto = {
@@ -161,6 +164,7 @@ function invalidateAllJobs(state: DesktopState) {
 
 function invalidateAnalysisJobs(state: DesktopState) {
   return {
+    restoredCompareTarget: null,
     ...invalidatePathJob(state),
     isAffinityBusy: false,
     affinityGeneration: state.affinityGeneration + 1,
@@ -180,7 +184,7 @@ function invalidatePathJob(state: DesktopState) {
   };
 }
 
-export const useDesktopStore = create<DesktopState>()((set) => ({
+export const useDesktopStore = create<DesktopState>()((set, get) => ({
   activeWorkspace: "rankings",
   profiles: [],
   catalog: null,
@@ -203,6 +207,7 @@ export const useDesktopStore = create<DesktopState>()((set) => ({
       catalogStatus: "loading",
       catalogError: null,
       lockedStatMode: false,
+      loadoutSelectionRevision: state.loadoutSelectionRevision + 1,
       request: applyProfileRules({
         ...state.request,
         profileId,
@@ -241,6 +246,7 @@ export const useDesktopStore = create<DesktopState>()((set) => ({
       catalog,
       catalogStatus: "ready",
       catalogError: null,
+      loadoutSelectionRevision: state.loadoutSelectionRevision + 1,
       request: applyProfileRules({
         ...state.request,
         ...(resetClass ? {
@@ -265,6 +271,7 @@ export const useDesktopStore = create<DesktopState>()((set) => ({
     })),
   setError: (error) => set({ error }),
   request: defaultRequest,
+  loadoutSelectionRevision: 0,
   lockedStatMode: false,
   pathHorizon: 40,
   pathMode: "no_respec",
@@ -272,6 +279,11 @@ export const useDesktopStore = create<DesktopState>()((set) => ({
   patchRequest: (patch) =>
     set((state) => ({
       ...invalidateAllJobs(state),
+      // Re-selecting Automatic replaces pending defaults even when its value is already null.
+      loadoutSelectionRevision: state.loadoutSelectionRevision + Number(
+        ["weaponName", "affinity", "aowName", "weaponTypeKey", "somberFilter", "filters"]
+          .some(key => Object.hasOwn(patch, key)),
+      ),
       request: applyProfileRules(
         { ...state.request, ...patch, profileId: state.request.profileId },
         state.catalog?.dataManifest.rules,
@@ -349,6 +361,7 @@ export const useDesktopStore = create<DesktopState>()((set) => ({
   useRowAsLocks: (row) =>
     set((state) => ({
       ...invalidateAllJobs(state),
+      loadoutSelectionRevision: state.loadoutSelectionRevision + 1,
       request: {
         ...state.request,
         weaponName: row.weaponName,
@@ -379,41 +392,66 @@ export const useDesktopStore = create<DesktopState>()((set) => ({
         { scope: "rankings", tone: "info", message: "Locked selected result; rerun search for exact locked stats." },
       ],
     })),
-  loadBuildPreset: (preset) =>
-    set((state) => {
-      if (preset.profileId !== state.request.profileId) {
-        return {
-          notices: [{
-            scope: "global",
-            tone: "warning",
-            message: `${preset.name} belongs to ${preset.profileId}. Switch profiles before loading it.`,
-          }],
-        };
+  loadBuildPreset: async (preset, signal) => {
+    const state = get();
+    const catalog = state.catalog;
+    if (!catalog) throw new Error("Current catalog metadata is unavailable. Wait for game data before loading a saved build.");
+    if (preset.profileId !== state.request.profileId) throw new Error(`Switch to ${preset.profileId} before loading this build.`);
+    const request = activationRequest(preset.request, catalog);
+    if (signal?.aborted) return null;
+    const currentVersion = catalogVersion(catalog);
+    const stale = preset.dataVersion !== currentVersion;
+    const candidate = stale ? { ...preset, request, selectedBuild: null, compareTarget: null, compareBench: [] } : { ...preset, request };
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    signal?.addEventListener("abort", abort, { once: true });
+    const verificationNotice: Notice = { scope: "global", tone: "info", message: `Verifying saved build ${preset.name}...` };
+    set({
+      ...invalidateAllJobs(state),
+      loadoutSelectionRevision: state.loadoutSelectionRevision + 1,
+      request: applyProfileRules(normalizeOptimizeRequest(request, state.request, catalog.dataManifest.rules), catalog.dataManifest.rules),
+      lockedStatMode: hasCombatStatLocks(request), rows: [], resultsStale: false,
+      selected: null, compareTarget: null, restoredCompareTarget: null,
+      compareControls: { ...defaultCompareControls }, compareBench: [], selectedFingerprint: null,
+      paths: [], pathSignature: null, affinityPayload: null, affinitySignature: null, error: null,
+      notices: [verificationNotice],
+    });
+    const context = get();
+    const isCurrent = () => {
+      const latest = get();
+      return !controller.signal.aborted && latest.catalog === catalog && latest.request === context.request
+        && latest.searchGeneration === context.searchGeneration && latest.compareBench === context.compareBench
+        && latest.selectedFingerprint === context.selectedFingerprint && latest.compareControls === context.compareControls
+        && latest.activeWorkspace === context.activeWorkspace;
+    };
+    const stop = useDesktopStore.subscribe(() => { if (!isCurrent()) controller.abort(); });
+    try {
+      const verified = await verifyPresetResults(candidate, catalog, controller.signal);
+      if (!isCurrent()) return null;
+      stop();
+      const persistenceNotices = writeCompareBench(catalog, verified.compareBench);
+      set({ rows: verified.selectedBuild ? [verified.selectedBuild] : [], selected: verified.selectedBuild,
+        compareTarget: verified.compareTarget, restoredCompareTarget: verified.compareTarget,
+        compareBench: verified.compareBench, selectedFingerprint: rowFingerprint(verified.selectedBuild),
+        notices: [{ scope: "global", tone: stale ? "warning" : "success",
+          message: stale ? `Loaded ${preset.name} inputs only: saved data differs from ${currentVersion}. Rerun the search.`
+            : `Loaded ${preset.name}; saved results verified on current data.` }, ...persistenceNotices] });
+      return verified;
+    } catch (error) {
+      if (isCurrent()) {
+        controller.abort();
+        set({ notices: [{ scope: "global", tone: "warning", message: "Saved results could not be verified. Inputs are loaded; the original saved record is unchanged." }] });
+        throw error;
       }
-      const persistenceNotices = writeCompareBench(state.catalog, preset.compareBench);
-      return {
-        ...invalidateAllJobs(state),
-        request: applyProfileRules(
-          normalizeOptimizeRequest({ ...preset.request,
-            ...(state.catalog?.dataManifest.capabilities.classBudget === false
-              ? { className: state.catalog.classes[0].name } : {}),
-          }, state.request, state.catalog?.dataManifest.rules),
-          state.catalog?.dataManifest.rules,
-        ),
-        lockedStatMode: hasCombatStatLocks(preset.request),
-        rows: preset.selectedBuild ? [preset.selectedBuild] : [],
-        resultsStale: false,
-        selected: preset.selectedBuild,
-        compareTarget: preset.compareTarget,
-        compareBench: preset.compareBench,
-        selectedFingerprint: rowFingerprint(preset.selectedBuild),
-        paths: [],
-        pathSignature: null,
-        affinityPayload: null,
-        affinitySignature: null,
-        notices: [{ scope: "global", tone: "success", message: `Loaded ${preset.name}.` }, ...persistenceNotices],
-      };
-    }),
+      return null;
+    } finally {
+      stop();
+      signal?.removeEventListener("abort", abort);
+      if (get().notices.includes(verificationNotice)) {
+        set(current => ({ notices: current.notices.filter(notice => notice !== verificationNotice) }));
+      }
+    }
+  },
   isExporting: false,
   setExporting: (isExporting) => set({ isExporting }),
   rows: [],
@@ -454,6 +492,7 @@ export const useDesktopStore = create<DesktopState>()((set) => ({
       resultsStale: false,
       selected: null,
       compareTarget: null,
+      restoredCompareTarget: null,
       selectedFingerprint: null,
       paths: [],
       pathSignature: null,
@@ -464,15 +503,19 @@ export const useDesktopStore = create<DesktopState>()((set) => ({
         : state.notices,
     })),
   selectRow: (selected) =>
-    set((state) => ({
-      ...invalidateAnalysisJobs(state),
-      selected,
-      selectedFingerprint: rowFingerprint(selected),
-      paths: [],
-      pathSignature: null,
-      affinityPayload: null,
-      affinitySignature: null,
-    })),
+    set((state) => {
+      const selectedFingerprint = rowFingerprint(selected);
+      if (selectedFingerprint === state.selectedFingerprint) return { selected };
+      return {
+        ...invalidateAnalysisJobs(state),
+        selected,
+        selectedFingerprint,
+        paths: [],
+        pathSignature: null,
+        affinityPayload: null,
+        affinitySignature: null,
+      };
+    }),
   setSearching: (isSearching) => set({ isSearching }),
   beginSearch: (activeSearchSignature) => {
     let generation = 0;
@@ -498,6 +541,8 @@ export const useDesktopStore = create<DesktopState>()((set) => ({
   setActiveJobId: (activeJobId) => set({ activeJobId }),
   setProgress: (progress) => set({ progress }),
   compareTarget: null,
+  // A saved comparison remains an input while Compare refreshes its analysis.
+  restoredCompareTarget: null,
   compareBench: [],
   compareControls: { ...defaultCompareControls },
   setCompareTarget: (compareTarget) =>
@@ -515,13 +560,13 @@ export const useDesktopStore = create<DesktopState>()((set) => ({
         ? state.compareBench.filter((entry) => rowFingerprint(entry) !== fingerprint)
         : [...state.compareBench, row].slice(-8);
       const notices = [...state.notices, ...writeCompareBench(state.catalog, compareBench)];
-      if (exists) return { compareBench, notices };
       return {
         ...invalidatePathJob(state),
         compareBench,
         notices,
         compareTarget: null,
-        compareControls: { ...defaultCompareControls },
+        restoredCompareTarget: null,
+        ...(exists ? {} : { compareControls: { ...defaultCompareControls } }),
         paths: [],
         pathSignature: null,
       };
@@ -534,6 +579,7 @@ export const useDesktopStore = create<DesktopState>()((set) => ({
         notices,
         compareBench: [],
         compareTarget: null,
+        restoredCompareTarget: null,
         paths: [],
         pathSignature: null,
       };
@@ -541,24 +587,11 @@ export const useDesktopStore = create<DesktopState>()((set) => ({
   patchCompareControls: (patch) =>
     set((state) => {
       const compareControls = { ...state.compareControls, ...patch };
-      const customTarget = compareControls.weaponName
-        || compareControls.filters.entries.length
-        || compareControls.aowName
-        || !compareControls.matchSelectedAow
-        || !compareControls.includeSmithing
-        || !compareControls.includeSomber;
-      const compareBench = customTarget && state.compareBench.length
-        ? []
-        : state.compareBench;
-      const notices = compareBench !== state.compareBench
-        ? [...state.notices, ...writeCompareBench(state.catalog, compareBench)]
-        : state.notices;
       return {
         ...invalidatePathJob(state),
-        notices,
         compareControls,
-        compareBench,
         compareTarget: null,
+        restoredCompareTarget: null,
         paths: [],
         pathSignature: null,
       };

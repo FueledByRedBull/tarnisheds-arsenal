@@ -78,8 +78,8 @@ try {
   markSmokeStage("wait for vanilla high-level result");
   // Keep headroom for slower CI even though exact levels avoid the measured open-query cost.
   await highLevelFirst.waitFor({ timeout: 120_000 });
-  await expect(highLevelFirst.getByRole("gridcell").nth(5)).toContainText("First");
-  await expect(highLevelFirst.getByRole("gridcell").nth(5)).not.toContainText("Unavailable");
+  await expect(highLevelFirst.locator(".skill-cell")).toContainText("1st hit");
+  await expect(highLevelFirst.locator(".skill-cell")).not.toContainText("Unavailable");
   const pin = highLevelFirst.getByRole("button", { name: /^Compare / });
   if (await pin.getAttribute("aria-pressed") !== "true") await pin.click();
 
@@ -107,15 +107,15 @@ try {
   markSmokeStage("wait for Convergence result");
   const convergenceRow = page.locator(".result-row-full").first();
   await convergenceRow.waitFor();
-  await expect(convergenceRow.getByRole("gridcell").nth(3)).toHaveText("+15");
-  await expect(convergenceRow.getByRole("gridcell").nth(5)).toHaveText("Unavailable");
-  const convergenceAr = await convergenceRow.locator(".ar-status-cell > strong").innerText();
+  await expect(convergenceRow.locator(".loadout-upgrade")).toHaveText("+15");
+  await expect(convergenceRow.locator(".skill-cell")).toHaveText("Unavailable");
+  const convergenceAr = await convergenceRow.locator(".ar-cell > strong").innerText();
   if (!(Number(convergenceAr.replace(/[^0-9.]/g, "")) > 0)) {
     throw new Error(`Convergence returned invalid weapon AR: ${convergenceAr}`);
   }
   await convergenceRow.click();
   await expect(page.locator(".metric-tile").filter({ hasText: "AoW model" })).toContainText("Unavailable");
-  const convergenceWeapon = await convergenceRow.locator(".weapon-cell > strong").innerText();
+  const convergenceWeapon = await convergenceRow.locator(".weapon-cell strong").innerText();
   await expect(page.locator(".selected-build > strong")).toHaveText(convergenceWeapon);
   await page.getByRole("button", { name: "Update selected", exact: true }).click();
   await page.getByText(`Updated ${convergencePresetName}.`, { exact: true }).waitFor();
@@ -146,7 +146,7 @@ try {
   const fourth = page.locator(".result-row-full").nth(3);
   markSmokeStage("wait for vanilla rank-four result");
   await fourth.waitFor();
-  await expect(fourth.getByRole("gridcell").nth(5)).toContainText("First");
+  await expect(fourth.locator(".skill-cell")).toContainText("1st hit");
   const selectedWeapon = (await fourth.locator(".weapon-cell strong").textContent())?.trim();
   if (!selectedWeapon) throw new Error("rank-four selection did not expose a weapon name");
   await fourth.click();
@@ -179,11 +179,11 @@ try {
   await expect(page.locator(".result-row-full")).toHaveCount(1);
   const exactRow = page.locator(".result-row-full").first();
   const exactWeapon = (await exactRow.locator(".weapon-cell strong").innerText()).trim();
-  const exactAffinity = (await exactRow.locator(".setup-cell strong").innerText()).trim();
-  const exactAow = (await exactRow.locator(".setup-cell > small").innerText()).trim();
-  const exactUpgrade = (await exactRow.getByRole("gridcell").nth(3).innerText()).trim();
+  const exactAffinity = (await exactRow.locator(".loadout-affinity").innerText()).trim();
+  const exactAow = (await exactRow.locator(".loadout-skill").innerText()).trim();
+  const exactUpgrade = (await exactRow.locator(".loadout-upgrade").innerText()).trim();
   const [expectedAffinity, expectedAow, expectedUpgrade] = expectedSetup.split(" / ");
-  const exactAr = (await exactRow.locator(".ar-status-cell strong").innerText()).trim();
+  const exactAr = (await exactRow.locator(".ar-cell strong").innerText()).trim();
   const exactBleedLabel = await page.locator('[aria-label^="Bleed buildup:"]').first().getAttribute("aria-label");
   if (!exactBleedLabel) throw new Error("exact allocation did not expose bleed buildup");
   const returnedInspectorAr = (await page.locator(".metric-tile").filter({ hasText: "Max AR" }).locator("strong").innerText()).trim();
@@ -195,10 +195,10 @@ try {
     throw new Error(`exact allocation bleed ${returnedBleed} did not match chosen point bleed ${chosenPointBleed}`);
   }
   await expect(exactRow.locator(".weapon-cell strong")).toHaveText(selectedWeapon);
-  await expect(exactRow.locator(".setup-cell strong")).toHaveText(expectedAffinity);
-  await expect(exactRow.locator(".setup-cell > small")).toHaveText(expectedAow);
-  await expect(exactRow.getByRole("gridcell").nth(3)).toHaveText(expectedUpgrade);
-  await expect(exactRow.locator(".row-combat-stats")).toHaveText(exactStats);
+  await expect(exactRow.locator(".loadout-affinity")).toHaveText(expectedAffinity);
+  await expect(exactRow.locator(".loadout-skill")).toHaveText(expectedAow);
+  await expect(exactRow.locator(".loadout-upgrade")).toHaveText(expectedUpgrade);
+  expect(await rowStatLabels(exactRow)).toEqual(statLabels(exactStats));
   await expect(page.locator(".detail-block").filter({ hasText: "Combat Stats" }).locator("strong")).toHaveText(exactStats);
   if (!exactAr) throw new Error("exact allocation did not expose AR");
   markSmokeStage("save exact applied tradeoff");
@@ -222,14 +222,14 @@ try {
 
   markSmokeStage("run Paths preview");
   await page.getByRole("navigation").getByRole("button", { name: "Paths" }).click();
-  await page.getByRole("spinbutton", { name: "Current + N" }).fill("10");
+  await page.getByRole("spinbutton", { name: "Levels ahead" }).fill("10");
   await page.getByRole("button", { name: "Trace paths", exact: true }).click();
   markSmokeStage("wait for Paths preview");
   await page.getByRole("table", { name: "Path steps", exact: true }).locator('[role="row"]').nth(1).waitFor();
 
   markSmokeStage("run Affinity Watch");
   await page.getByRole("navigation").getByRole("button", { name: "Affinity Watch" }).click();
-  await page.getByRole("spinbutton", { name: "Current + N" }).fill("10");
+  await page.getByRole("spinbutton", { name: "Levels ahead" }).fill("10");
   await page.getByRole("button", { name: "Watch affinities", exact: true }).click();
   markSmokeStage("wait for Affinity Watch");
   await page.getByRole("grid", { name: "Affinity watch rankings" }).locator('[role="row"]').nth(1).waitFor();
@@ -239,15 +239,15 @@ try {
   await page.getByRole("combobox", { name: "Saved", exact: true }).selectOption({ label: `${presetName} — vanilla · current data` });
   await page.getByRole("button", { name: "Load", exact: true }).click();
   markSmokeStage("wait for preset load");
-  await page.getByText(`Loaded ${presetName}.`, { exact: true }).waitFor();
+  await page.getByText(`Loaded ${presetName}; saved results verified on current data.`, { exact: true }).waitFor();
   await expect(page.locator(".result-row-full")).toHaveCount(1);
   const reloadedRow = page.locator(".result-row-full").first();
   await expect(reloadedRow.locator(".weapon-cell strong")).toHaveText(exactWeapon);
-  await expect(reloadedRow.locator(".setup-cell strong")).toHaveText(exactAffinity);
-  await expect(reloadedRow.locator(".setup-cell > small")).toHaveText(exactAow);
-  await expect(reloadedRow.getByRole("gridcell").nth(3)).toHaveText(exactUpgrade);
-  await expect(reloadedRow.locator(".row-combat-stats")).toHaveText(exactStats);
-  await expect(reloadedRow.locator(".ar-status-cell strong")).toHaveText(exactAr);
+  await expect(reloadedRow.locator(".loadout-affinity")).toHaveText(exactAffinity);
+  await expect(reloadedRow.locator(".loadout-skill")).toHaveText(exactAow);
+  await expect(reloadedRow.locator(".loadout-upgrade")).toHaveText(exactUpgrade);
+  expect(await rowStatLabels(reloadedRow)).toEqual(statLabels(exactStats));
+  await expect(reloadedRow.locator(".ar-cell strong")).toHaveText(exactAr);
   await expect(page.locator(`[aria-label="${exactBleedLabel}"]`)).toBeVisible();
   await expect(page.locator(".selected-build > strong")).toHaveText(exactWeapon);
   await expect(page.locator(".selected-build > span")).toHaveText(`${exactAffinity} / ${exactAow} / ${exactUpgrade}`);
@@ -362,6 +362,17 @@ async function assertProductionConnections(page) {
     return { origin: location.origin, csp, blocked };
   });
   process.stdout.write(`PACKAGED_SMOKE_CSP ${JSON.stringify(report)}\n`);
+}
+
+/** "STR 13 / DEX 19 / ..." -> the accessible names of a ranking row's stat tokens. */
+function statLabels(statLine) {
+  const STAT_NAMES = { STR: "Strength", DEX: "Dexterity", INT: "Intelligence", FAI: "Faith", ARC: "Arcane" };
+  return [...statLine.matchAll(/(STR|DEX|INT|FAI|ARC) (\d+)/g)].map(([, key, value]) => `${STAT_NAMES[key]} ${value}`);
+}
+
+function rowStatLabels(row) {
+  return row.getByRole("list", { name: "Combat stats" }).getByRole("listitem")
+    .evaluateAll((items) => items.map((item) => item.getAttribute("aria-label")));
 }
 
 function positiveIntegerFromEnv(name, fallback) {

@@ -4,8 +4,11 @@ use std::time::{Duration, Instant};
 
 use crate::data::load_game_data;
 use crate::math::CUSTOM_STATS_CLASS_NAME;
+use crate::model::AowEffectRole;
 
 use super::*;
+
+mod skill_data;
 
 fn load_data() -> GameData {
     let data_path = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -179,8 +182,7 @@ fn fixed_native_skill_falls_back_to_generic_rows_by_skill_id() {
         .expect("Carian Knight's Sword");
     assert!(data.native_skill_attack_rows(weapon.weapon_id).is_empty());
 
-    let choice = native_skill_choice_for_weapon(weapon, &data, OptimizeObjective::AowFirstHit)
-        .expect("native skill choice");
+    let choice = native_skill_choice_for_weapon(weapon, &data).expect("native skill choice");
     assert_eq!(choice.skill_name, Some("Carian Grandeur"));
     assert!(!choice.attack_rows.is_empty());
     assert!(
@@ -199,7 +201,7 @@ fn unnamed_native_skill_preserves_id_without_inventing_damage() {
         .iter()
         .find(|weapon| weapon.name == "Stormcaller's Dirk")
         .unwrap();
-    let choice = native_skill_choice_for_weapon(weapon, &data, OptimizeObjective::MaxAr).unwrap();
+    let choice = native_skill_choice_for_weapon(weapon, &data).unwrap();
     assert_eq!(choice.skill_id, weapon.native_skill_id);
     assert!(choice.skill_name.is_none());
     assert!(choice.attack_rows.is_empty());
@@ -233,7 +235,7 @@ fn native_skill_uses_the_profile_ash_name_when_localized_name_is_missing() {
         .find(|weapon| weapon.name == "Dueling Shield" && weapon.affinity == "Standard")
         .unwrap();
     assert!(weapon.native_skill_name.is_none());
-    let choice = native_skill_choice_for_weapon(weapon, &data, OptimizeObjective::MaxAr).unwrap();
+    let choice = native_skill_choice_for_weapon(weapon, &data).unwrap();
     assert_eq!(choice.skill_name, Some("Shield Strike"));
     let mut request = base_request();
     request.character_level = 80;
@@ -391,8 +393,7 @@ fn fixed_native_skill_keeps_its_persistent_buff_effects() {
         .find(|weapon| weapon.name == "Inseparable Sword" && weapon.affinity == "Standard")
         .expect("Inseparable Sword");
 
-    let choice = native_skill_choice_for_weapon(weapon, &data, OptimizeObjective::MaxAr)
-        .expect("native Sacred Blade choice");
+    let choice = native_skill_choice_for_weapon(weapon, &data).expect("native Sacred Blade choice");
 
     assert_eq!(choice.skill_name, Some("Sacred Blade"));
     assert!(
@@ -2953,11 +2954,15 @@ fn arc_frontier_reuse_preserves_non_additive_fallback_and_cancellation() {
     request.aow_name = Some("Lifesteal Fist".into());
     let evaluator = prepare_loadout_evaluator_with_cancel(&request, &data, || true).unwrap();
     assert!(
-        scalar_route_set(&evaluator.weapons[0].aow_choices[0], &data)
-            .unwrap()
-            .unwrap()
-            .iter()
-            .any(|r| !r.is_additive(&data))
+        scalar_route_set(
+            &evaluator.weapons[0].aow_choices[0],
+            &data,
+            weapon_uses_two_handing(&request, evaluator.weapons[0].weapon),
+        )
+        .unwrap()
+        .unwrap()
+        .iter()
+        .any(|r| !r.is_additive(&data))
     );
     assert!(
         ar_bleed_candidates_with_reuse(&evaluator, &request, &mut || true)
@@ -5334,7 +5339,7 @@ fn exact_locks_override_relevant_stat_pruning() {
 }
 
 #[test]
-fn estimate_search_space_uses_relevant_stat_counts() {
+fn prepared_search_estimate_uses_relevant_stat_counts() {
     let game_data = load_data();
     let mut request = broad_request();
     request.weapon_type_key = Some("Katana".to_string());
@@ -5349,17 +5354,11 @@ fn estimate_search_space_uses_relevant_stat_counts() {
         .map(|prepared| (prepared.upgrades.len() * prepared.aow_choices.len()) as u64)
         .sum();
     let broad_combinations = broad_stat_count.saturating_mul(broad_slots);
-    let estimate = estimate_search_space(&request, &game_data).expect("estimate failed");
-    let prepared_estimate = prepare_search(&request, &game_data)
+    let estimate = prepare_search(&request, &game_data)
         .expect("search preparation failed")
         .estimate();
 
-    assert_eq!(
-        estimate.weapon_candidates,
-        prepared_estimate.weapon_candidates
-    );
-    assert_eq!(estimate.stat_candidates, prepared_estimate.stat_candidates);
-    assert_eq!(estimate.combinations, prepared_estimate.combinations);
+    assert_eq!(estimate.weapon_candidates, prepared_weapons.len());
     assert!(estimate.combinations < broad_combinations);
     assert!(estimate.stat_candidates < broad_stat_count.saturating_mul(broad_slots));
     assert!(
@@ -5370,36 +5369,11 @@ fn estimate_search_space_uses_relevant_stat_counts() {
 }
 
 #[test]
-fn estimate_search_space_stops_before_preparation_when_cancelled() {
+fn prepared_search_stops_before_preparation_when_cancelled() {
     let game_data = load_data();
-    let error = estimate_search_space_with_cancel(&broad_request(), &game_data, || false)
-        .expect_err("cancelled estimate must fail closed");
+    let error = prepare_search_with_cancel(&broad_request(), &game_data, || false)
+        .expect_err("cancelled preparation must fail closed");
     assert_eq!(error, "cancelled");
-}
-
-#[test]
-#[ignore = "release-mode estimate benchmark"]
-fn benchmark_search_estimate_for_stat_entry_levels() {
-    let game_data = load_data();
-    let mut request = base_request();
-    request.weapon_name = None;
-    request.affinity = None;
-    request.exact_upgrade = false;
-    for (label, level) in [
-        ("base", 9),
-        ("str-99", 96),
-        ("str-dex-99", 180),
-        ("all-99", 452),
-    ] {
-        request.character_level = level;
-        let started = std::time::Instant::now();
-        let estimate = estimate_search_space(&request, &game_data).expect("estimate failed");
-        println!(
-            "ESTIMATE_BENCH label={label} level={level} combinations={} elapsed_ms={:.3}",
-            estimate.combinations,
-            started.elapsed().as_secs_f64() * 1_000.0,
-        );
-    }
 }
 
 #[test]
@@ -5803,6 +5777,149 @@ fn paired_weapon_two_handing_does_not_inflate_ar() {
     assert!(!one_hand_results.is_empty());
     assert!(!two_hand_results.is_empty());
     assert!((one_hand_results[0].ar.total() - two_hand_results[0].ar.total()).abs() < 0.001);
+}
+
+#[test]
+fn handling_specific_routes_follow_the_request_in_search_and_reusable_evaluation() {
+    let data = load_data();
+    for threads in [1, 2] {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| {
+                for (weapon, skill, one_hand_damage, two_hand_damage) in [
+                    ("Longsword", "War Cry", 495.67654, 552.00244),
+                    ("Longsword", "Barbaric Roar", 666.9868, 739.94965),
+                    ("Sword of Milos", "Shriek of Milos", 809.5576, 876.6309),
+                ] {
+                    for two_handing in [false, true] {
+                        let mut request = base_request();
+                        request.class_name = "Wretch".into();
+                        request.current_stats = Stats {
+                            vig: 10,
+                            mnd: 10,
+                            end: 10,
+                            str: 20,
+                            dex: 30,
+                            int: 30,
+                            fai: 20,
+                            arc: 20,
+                        };
+                        request.character_level = 71;
+                        request.weapon_name = Some(weapon.into());
+                        request.affinity = Some("Standard".into());
+                        request.aow_name = Some(skill.into());
+                        request.standard_max_upgrade = 0;
+                        request.somber_max_upgrade = 0;
+                        request.exact_upgrade = true;
+                        request.two_handing = two_handing;
+                        request.top_k = 1;
+                        request.locked_combat_stats =
+                            request.current_stats.combat_array().map(Some);
+                        let expected_route = if two_handing {
+                            "2h_charged"
+                        } else {
+                            "1h_charged"
+                        };
+                        for objective in
+                            [OptimizeObjective::MaxAr, OptimizeObjective::AowFullSequence]
+                        {
+                            request.objective = objective;
+                            let expected_damage = if two_handing {
+                                two_hand_damage
+                            } else {
+                                one_hand_damage
+                            };
+                            let evaluator =
+                                prepare_loadout_evaluator_with_cancel(&request, &data, || true)
+                                    .unwrap();
+                            for rows in [
+                                optimize(&request, &data).unwrap(),
+                                evaluator.evaluate_with_cancel(&request, || true).unwrap(),
+                            ] {
+                                let row = &rows[0];
+                                assert_eq!(
+                                    row.aow_route.as_ref().unwrap().route_id,
+                                    expected_route,
+                                    "{weapon}/{skill}/{objective:?}/threads={threads}"
+                                );
+                                assert!(
+                                    (row.aow_full_sequence_damage - expected_damage).abs() < 0.001,
+                                    "{weapon}/{skill}: {} != {expected_damage}",
+                                    row.aow_full_sequence_damage
+                                );
+                            }
+                            if objective == OptimizeObjective::MaxAr {
+                                for point in evaluator
+                                    .evaluate_ar_bleed_frontier_with_cancel(&request, || true)
+                                    .unwrap()
+                                {
+                                    assert_eq!(
+                                        point.result.aow_route.unwrap().route_id,
+                                        expected_route
+                                    );
+                                }
+                            }
+                        }
+                        request.exact_upgrade = false;
+                        let series =
+                            prepare_upgrade_series_evaluator_with_cancel(&request, &data, || true)
+                                .unwrap()
+                                .evaluate_with_cancel(&request, 0, || true)
+                                .unwrap();
+                        assert_eq!(
+                            series[0].aow_route.as_ref().unwrap().route_id,
+                            expected_route
+                        );
+
+                        request.exact_upgrade = true;
+                        request.locked_combat_stats = [None; COMBAT_STAT_COUNT];
+                        request.character_level += 3;
+                        let rows = optimize(&request, &data).unwrap();
+                        assert_eq!(rows[0].aow_route.as_ref().unwrap().route_id, expected_route);
+                    }
+                }
+            });
+    }
+}
+
+#[test]
+fn route_handling_preserves_paired_weapons_and_unconditioned_skills() {
+    let data = load_data();
+    let mut request = broad_request();
+    request.current_stats = stats_with_combat(request.current_stats, [40; COMBAT_STAT_COUNT]);
+    request.character_level = request.current_stats.sum_all_8() - 79;
+    request.locked_combat_stats = request.current_stats.combat_array().map(Some);
+    request.weapon_name = Some("Iron Ball".into());
+    request.affinity = Some("Standard".into());
+    request.aow_name = Some("War Cry".into());
+    request.objective = OptimizeObjective::AowFullSequence;
+    request.top_k = 1;
+    let mut results = Vec::new();
+    for two_handing in [false, true] {
+        request.two_handing = two_handing;
+        let result = optimize(&request, &data).unwrap().remove(0);
+        assert_eq!(
+            result.aow_route.as_ref().unwrap().route_id,
+            if two_handing {
+                "2h_charged"
+            } else {
+                "1h_charged"
+            }
+        );
+        results.push(result);
+    }
+    // Paired handling chooses its own moveset without granting a Strength bonus.
+    assert_eq!(results[0].ar.total(), results[1].ar.total());
+
+    request.weapon_name = Some("Claymore".into());
+    request.aow_name = Some("Lion's Claw".into());
+    for two_handing in [false, true] {
+        request.two_handing = two_handing;
+        let result = optimize(&request, &data).unwrap().remove(0);
+        assert_eq!(result.aow_route.unwrap().route_id, "full");
+    }
 }
 
 #[test]

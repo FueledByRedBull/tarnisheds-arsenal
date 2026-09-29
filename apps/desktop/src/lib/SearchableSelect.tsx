@@ -30,10 +30,10 @@ export function SearchableSelect({
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
-  const blurTimeoutRef = useRef<number | null>(null);
+  const activeOptionRef = useRef<HTMLButtonElement | null>(null);
   const selectedLabel =
     options.find((option) => option.value === value)?.label ?? (value ?? "");
-  const shownValue = open ? query : selectedLabel;
+  const shownValue = open && !disabled ? query : selectedLabel;
   const matching = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     if (!needle) {
@@ -51,28 +51,22 @@ export function SearchableSelect({
 
   const active = filtered[Math.min(activeIndex, Math.max(filtered.length - 1, 0))];
 
-  useEffect(
-    () => () => {
-      if (blurTimeoutRef.current !== null) {
-        window.clearTimeout(blurTimeoutRef.current);
-      }
-    },
-    [],
-  );
+  useEffect(() => {
+    if (open) activeOptionRef.current?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, open, query]);
 
-  function cancelPendingBlur() {
-    if (blurTimeoutRef.current === null) {
-      return;
+  useEffect(() => {
+    if (disabled) {
+      setOpen(false);
+      setQuery("");
+      setActiveIndex(0);
     }
-    window.clearTimeout(blurTimeoutRef.current);
-    blurTimeoutRef.current = null;
-  }
+  }, [disabled]);
 
   function choose(option: SelectOption | undefined) {
     if (!option) {
       return;
     }
-    cancelPendingBlur();
     onChange(option.value);
     setOpen(false);
     setQuery("");
@@ -103,19 +97,15 @@ export function SearchableSelect({
         aria-expanded={open && !disabled}
         aria-controls={`${id}-listbox`}
         aria-describedby={`${id}-status`}
-        aria-activedescendant={open && active ? `${id}-option-${Math.min(activeIndex, filtered.length - 1)}` : undefined}
+        aria-activedescendant={open && !disabled && active ? `${id}-option-${Math.min(activeIndex, filtered.length - 1)}` : undefined}
         disabled={disabled}
         value={shownValue}
         placeholder={placeholder}
         onBlur={() => {
-          cancelPendingBlur();
-          blurTimeoutRef.current = window.setTimeout(() => {
-            blurTimeoutRef.current = null;
-            commitTypedValue();
-            setOpen(false);
-            setQuery("");
-            setActiveIndex(0);
-          }, 120);
+          if (open) commitTypedValue();
+          setOpen(false);
+          setQuery("");
+          setActiveIndex(0);
         }}
         onChange={(event) => {
           setQuery(event.target.value);
@@ -123,7 +113,6 @@ export function SearchableSelect({
           setActiveIndex(0);
         }}
         onFocus={() => {
-          cancelPendingBlur();
           setOpen(true);
           setQuery("");
           setActiveIndex(0);
@@ -148,6 +137,7 @@ export function SearchableSelect({
           }
           if (event.key === "Enter") {
             event.preventDefault();
+            if (!open) return;
             const exact = filtered.find(
               (option) => option.label.toLocaleLowerCase() === query.trim().toLocaleLowerCase(),
             );
@@ -168,6 +158,7 @@ export function SearchableSelect({
             <button
               key={`${option.value ?? "open"}-${option.label}`}
               id={`${id}-option-${index}`}
+              ref={index === Math.min(activeIndex, filtered.length - 1) ? activeOptionRef : undefined}
               role="option"
               aria-selected={option.value === value}
               className={index === activeIndex ? "active" : undefined}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, CircleAlert, GitCompareArrows, Layers3, LoaderCircle, Radar, RotateCcw, Route, Table2, X } from "lucide-react";
+import { Check, CircleAlert, GitCompareArrows, Radar, RotateCcw, Route, Table2, X } from "lucide-react";
 import { api } from "../lib/api";
 import { setAnalysisCacheVersion } from "../lib/analysis-cache";
 import { useDesktopStore } from "../lib/state";
@@ -113,15 +113,8 @@ export function App() {
   const limitedAowModel = activeProfile && (!activeProfile.capabilities.aowDamage || !activeProfile.capabilities.aowRoutes);
   const convergenceProfile = activeProfile?.profile.id === "convergence";
 
-  return (
-    <main className="desktop-shell" aria-busy={catalogStatus === "loading"}>
-      <CommandRail />
-      <section className="center-workspace">
-        <header className="profile-bar">
-          <div className="profile-bar-title">
-            <Layers3 size={16} aria-hidden="true" />
-            <span>Game profile</span>
-          </div>
+  const profileControl = (
+    <div className="profile-control">
           <div className="profile-switch" role="radiogroup" aria-label="Game profile" onKeyDown={(event) => {
             const direction = ["ArrowRight", "ArrowDown"].includes(event.key) ? 1
               : ["ArrowLeft", "ArrowUp"].includes(event.key) ? -1 : 0;
@@ -150,11 +143,12 @@ export function App() {
                   <span>
                     {active ? <Check size={13} aria-hidden="true" /> : null}
                     {profile.profile.displayName}
-                    {profile.profile.id === "convergence" ? (
-                      <sup className="profile-beta-mark" aria-label="Beta">BETA</sup>
-                    ) : null}
+                    {profile.profile.id === "convergence" ? <span className="sr-only"> Beta</span> : null}
                   </span>
-                  <small>{version}</small>
+                  <small>
+                    {version}
+                    {profile.profile.id === "convergence" ? <span className="profile-beta-mark" aria-hidden="true">Beta</span> : null}
+                  </small>
                 </button>
               );
             })}
@@ -185,7 +179,13 @@ export function App() {
               </details>
             )}
           </div>
-        </header>
+    </div>
+  );
+
+  return (
+    <main className="desktop-shell" aria-busy={catalogStatus === "loading"}>
+      <CommandRail profile={profileControl} />
+      <section className="center-workspace">
         <nav className="workspace-tabs">
           {tabs.map(({ id, label, icon: Icon }) => {
             const requiresSelection = id !== "rankings" && (!selected || resultsStale);
@@ -223,13 +223,6 @@ export function App() {
               <span>{notice.message}</span>
             </div>
           ))}
-        {catalogStatus === "loading" ? (
-          <div className="startup-state" role="status">
-            <LoaderCircle className="spin" size={24} />
-            <strong>Loading verified game data</strong>
-            <span>Checking the snapshot manifest and preparing weapon filters.</span>
-          </div>
-        ) : null}
         {catalogStatus === "error" ? (
           <div className="startup-state error" role="alert">
             <CircleAlert size={24} />
@@ -242,6 +235,27 @@ export function App() {
           </div>
         ) : null}
         <div className="workspace-stage" key={activeWorkspace}>
+          {catalogStatus === "loading" ? (
+            <div className="workspace-panel startup-skeleton" role="status">
+              <div className="workspace-header">
+                <div>
+                  <strong>Loading verified game data</strong>
+                  <span>Checking the snapshot manifest and preparing weapon filters.</span>
+                </div>
+              </div>
+              <div className="startup-skeleton-rows" aria-hidden="true">
+                {Array.from({ length: 9 }, (_, index) => (
+                  <div className="startup-skeleton-row" key={index}>
+                    <span className="skeleton" />
+                    <span><span className="skeleton" /><span className="skeleton" /></span>
+                    <span className="skeleton" />
+                    <span className="skeleton" />
+                    <span className="skeleton" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {catalogStatus === "ready" && activeWorkspace === "rankings" ? <RankingsBoard /> : null}
           {catalogStatus === "ready" && activeWorkspace === "compare" ? <CompareView /> : null}
           {catalogStatus === "ready" && activeWorkspace === "paths" ? <PathsView /> : null}

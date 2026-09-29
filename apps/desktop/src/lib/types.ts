@@ -335,7 +335,6 @@ export type PathModeId = "no_respec" | "optimum_envelope";
 export interface AffinityWatchPointDto {
   level: number;
   metric: number | null;
-  solved: SolvedBuildDto | null;
 }
 
 export interface AffinityWatchLineDto {
@@ -524,21 +523,10 @@ export interface AffinityWatchRequestDto {
   levelsAhead: number;
 }
 
-export interface CompatibleAowsRequestDto {
-  profileId: string;
-  weaponName: string | null;
-  affinity: string | null;
-}
-
 export interface WeaponProfileRequestDto {
   profileId: string;
   weaponName: string;
   affinity: string | null;
-}
-
-export interface WeaponNamesForTypeRequestDto {
-  profileId: string;
-  weaponTypeKey: string | null;
 }
 
 export interface CompatibleAowsForAffinityRequestDto {

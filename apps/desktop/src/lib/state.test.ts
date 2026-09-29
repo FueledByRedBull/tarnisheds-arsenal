@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defaultRequest, useDesktopStore } from "./state";
 import { buildOptimizeRequest, normalizeOptimizeRequest } from "./session";
 import { parsePresetText } from "./presets";
+import { api } from "./api";
+import { STARTING_CLASS_METADATA } from "./session";
 import type { CatalogDto, SolvedBuildDto } from "./types";
 
 it.each(["paths", "affinity_watch"] as const)("starting %s clears its previous outcome without hiding other notices", (scope) => {
@@ -98,6 +100,7 @@ describe("desktop result lifecycle", () => {
       resultsStale: false,
       selected: null,
       compareTarget: null,
+      restoredCompareTarget: null,
       selectedFingerprint: null,
       paths: [],
       pathSignature: null,
@@ -131,6 +134,29 @@ describe("desktop result lifecycle", () => {
     expect(useDesktopStore.getState().resultsStale).toBe(false);
   });
 
+  it("keeps saved comparisons and analysis ownership until the selected build changes", () => {
+    const state = useDesktopStore.getState();
+    state.setRows([row]);
+    const target = { ...row, affinity: "Standard" };
+    useDesktopStore.setState({ compareTarget: target, restoredCompareTarget: target });
+    state.beginPath("saved-path");
+    state.setActivePathJobId("path-job");
+    const before = useDesktopStore.getState();
+
+    state.selectRow({ ...row });
+    expect(useDesktopStore.getState()).toMatchObject({
+      restoredCompareTarget: target, pathGeneration: before.pathGeneration,
+      activePathJobId: "path-job", isPathBusy: true,
+    });
+
+    state.selectRow({ ...row, stats: { ...row.stats, dex: row.stats.dex + 1 } });
+    const changed = useDesktopStore.getState();
+    expect(changed.restoredCompareTarget).toBeNull();
+    expect(changed.pathGeneration).toBeGreaterThan(before.pathGeneration);
+    expect(changed.activePathJobId).toBeNull();
+    expect(changed.isPathBusy).toBe(false);
+  });
+
   it.each(["draft edit", "replacement search"])("invalidates analysis ownership and retained results on %s", (action) => {
     const state = useDesktopStore.getState();
     state.setRows([row]);
@@ -152,13 +178,14 @@ describe("desktop result lifecycle", () => {
       isAffinityBusy: false, activeAffinityJobId: null, affinitySignature: null, affinityPayload: null });
   });
 
-  it.each(["lockDex", "lockInt", "lockFai", "lockArc"] as const)("preserves an imported %s-only lock through hydration and request construction", (lock) => {
+  it.each(["lockDex", "lockInt", "lockFai", "lockArc"] as const)("preserves an imported %s-only lock through hydration and request construction", async (lock) => {
     const preset = parsePresetText(JSON.stringify({
       version: 2, id: "partial-lock", name: "Partial lock", profileId: "vanilla",
       request: { ...defaultRequest, [lock]: 40 }, selectedBuild: null, compareTarget: null, compareBench: [],
       dataVersion: "vanilla:9:dataset:model", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
     }));
-    useDesktopStore.getState().loadBuildPreset(preset);
+    useDesktopStore.setState({ catalog: catalog("vanilla") });
+    await useDesktopStore.getState().loadBuildPreset(preset);
     const loaded = useDesktopStore.getState();
     const outgoing = buildOptimizeRequest(loaded.catalog, loaded.request, loaded.lockedStatMode);
     expect(loaded.lockedStatMode).toBe(true);
@@ -166,7 +193,7 @@ describe("desktop result lifecycle", () => {
     expect(outgoing.lockStr).toBeNull();
   });
 
-  it("keeps multi-filters composable and clears pins for a custom comparison", () => {
+  it("keeps multi-filters composable and preserves pins for a custom comparison", () => {
     const state = useDesktopStore.getState();
     state.patchRequest({ weaponName: "Uchigatana", affinity: "Keen" });
     state.patchRequest({
@@ -186,9 +213,11 @@ describe("desktop result lifecycle", () => {
     useDesktopStore.getState().patchCompareControls({
       filters: { version: 1, entries: [{ dimension: "weapon_type", id: "weapon-type:katana", mode: "include" }] },
     });
-    expect(useDesktopStore.getState().compareBench).toEqual([]);
+    expect(useDesktopStore.getState().compareBench).toEqual([row]);
     expect(useDesktopStore.getState().selected).toEqual(row);
 
+    useDesktopStore.getState().toggleCompareBench(row);
+    expect(useDesktopStore.getState().compareBench).toEqual([]);
     useDesktopStore.getState().toggleCompareBench(row);
     expect(useDesktopStore.getState()).toMatchObject({
       compareBench: [row],
@@ -364,7 +393,7 @@ describe("desktop result lifecycle", () => {
       expect(useDesktopStore.getState().compareBench).toEqual([row]);
       expect(useDesktopStore.getState().notices.at(-1)).toMatchObject({ tone: "warning" });
       useDesktopStore.getState().patchCompareControls({ weaponName: "Uchigatana" });
-      expect(useDesktopStore.getState().compareBench).toEqual([]);
+      expect(useDesktopStore.getState().compareBench).toEqual([row]);
       useDesktopStore.getState().toggleCompareBench(row);
       useDesktopStore.getState().clearCompareBench();
       expect(useDesktopStore.getState().compareBench).toEqual([]);
@@ -437,7 +466,7 @@ describe("desktop result lifecycle", () => {
     });
   });
 
-  it("uses exact entered stats and retains +15 caps for a profile without class budgets", () => {
+  it("uses exact entered stats and retains +15 caps for a profile without class budgets", async () => {
     const profile = catalog("convergence");
     profile.dataManifest.capabilities.classBudget = false;
     profile.classes = [{ name: "Custom stats", baseLevel: 0, baseTotal: 0,
@@ -451,11 +480,101 @@ describe("desktop result lifecycle", () => {
     useDesktopStore.getState().setWorkspace("paths");
     expect(useDesktopStore.getState().activeWorkspace).toBe("rankings");
     expect(normalizeOptimizeRequest({ ...request, somberMaxUpgrade: 15 }, request, profile.dataManifest.rules).somberMaxUpgrade).toBe(15);
-    useDesktopStore.getState().loadBuildPreset({ version: 2, id: "old-profile", name: "Old profile inputs",
-      profileId: "convergence", request: { ...request, className: "Samurai", somberMaxUpgrade: 15 },
+    await useDesktopStore.getState().loadBuildPreset({ version: 2, id: "old-profile", name: "Old profile inputs",
+      profileId: "convergence", request: { ...request, className: "Custom stats", somberMaxUpgrade: 15 },
       selectedBuild: null, compareTarget: null, compareBench: [], dataVersion: "old",
       createdAt: "2026-01-01", updatedAt: "2026-01-01" });
     expect(useDesktopStore.getState().request).toMatchObject({ className: "Custom stats", strStat: 1, dex: 99, somberMaxUpgrade: 15 });
+  });
+});
+
+describe("saved result activation boundary", () => {
+  function activationPreset(className = "Samurai") {
+    const profile = catalog("vanilla");
+    profile.classes = Object.values(STARTING_CLASS_METADATA);
+    const manifest = profile.dataManifest;
+    useDesktopStore.setState({ catalog: profile, request: { ...defaultRequest }, rows: [], selected: null,
+      compareBench: [], compareTarget: null, restoredCompareTarget: null, selectedFingerprint: null, notices: [], error: null });
+    return parsePresetText(JSON.stringify({ version: 2, id: "activation", name: "Activation", profileId: "vanilla",
+      request: { ...defaultRequest, className }, selectedBuild: null, compareTarget: null, compareBench: [],
+      dataVersion: `vanilla:${manifest.schemaVersion}:${manifest.datasetVersion}:${manifest.modelVersion}`,
+      createdAt: "2026-01-01", updatedAt: "2026-01-01" }));
+  }
+
+  it.each(["Unknown", "Obsolete class"])("rejects %s before changing state or storage", async (className) => {
+    const preset = activationPreset(className);
+    const before = useDesktopStore.getState();
+    const write = vi.fn();
+    vi.stubGlobal("localStorage", { setItem: write });
+    try {
+      await expect(Promise.resolve(useDesktopStore.getState().loadBuildPreset(preset))).rejects.toThrow(/class/i);
+      expect(useDesktopStore.getState()).toBe(before);
+      expect(write).not.toHaveBeenCalled();
+    } finally { vi.unstubAllGlobals(); }
+  });
+
+  it.each(["target", "other"])("invalidates derived paths when removing a %s pin", (which) => {
+    const other = { ...row, weaponId: row.weaponId + 1 };
+    useDesktopStore.setState({ compareBench: [row, other], compareTarget: row,
+      restoredCompareTarget: row, paths: [{ title: "Pinned", solved: row, steps: [] }],
+      pathSignature: "old", activePathJobId: "pending", isPathBusy: true });
+    const generation = useDesktopStore.getState().pathGeneration;
+    useDesktopStore.getState().toggleCompareBench(which === "target" ? row : other);
+    expect(useDesktopStore.getState()).toMatchObject({ compareBench: [which === "target" ? other : row],
+      compareTarget: null, restoredCompareTarget: null, paths: [], pathSignature: null,
+      activePathJobId: null, isPathBusy: false, pathGeneration: generation + 1 });
+  });
+
+  it("canonicalizes a unique case-insensitive class without inventing a replacement", async () => {
+    await useDesktopStore.getState().loadBuildPreset(activationPreset("samurai"));
+    expect(useDesktopStore.getState().request.className).toBe("Samurai");
+  });
+
+  it("recomputes imported totals with exact saved equipment and stats before publication", async () => {
+    const preset = activationPreset();
+    preset.selectedBuild = { ...row, ar: { ...row.ar, total: 999999 } };
+    const solve = vi.spyOn(api, "solveBuild").mockResolvedValue(row);
+    try {
+      await useDesktopStore.getState().loadBuildPreset(preset);
+      expect(solve).toHaveBeenCalledWith(expect.objectContaining({ exactUpgrade: true, standardMaxUpgrade: 25,
+        lockStr: 18, lockDex: 40, lockInt: 9, lockFai: 8, lockArc: 8, filters: { version: 1, entries: [] } }),
+        row.weaponName, row.affinity, row.aowName, expect.any(AbortSignal));
+      expect(useDesktopStore.getState().selected?.ar.total).toBe(500);
+      expect(preset.selectedBuild.ar.total).toBe(999999);
+    } finally { solve.mockRestore(); }
+  });
+
+  it("never publishes supplied results while verification is pending or after context changes", async () => {
+    const preset = activationPreset();
+    preset.selectedBuild = row;
+    let finish!: (value: SolvedBuildDto) => void;
+    const solve = vi.spyOn(api, "solveBuild").mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    try {
+      const loading = useDesktopStore.getState().loadBuildPreset(preset);
+      expect(useDesktopStore.getState().selected).toBeNull();
+      useDesktopStore.getState().patchRequest({ dex: 55 });
+      finish(row);
+      await loading;
+      expect(useDesktopStore.getState().request.dex).toBe(55);
+      expect(useDesktopStore.getState().selected).toBeNull();
+      expect(useDesktopStore.getState().notices.some(notice => notice.message.startsWith("Verifying saved"))).toBe(false);
+    } finally { solve.mockRestore(); }
+  });
+
+  it("retires only its own verification notice on external cancellation", async () => {
+    const preset = activationPreset();
+    preset.selectedBuild = row;
+    const controller = new AbortController();
+    let finish!: (value: SolvedBuildDto) => void;
+    const solve = vi.spyOn(api, "solveBuild").mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    try {
+      const loading = useDesktopStore.getState().loadBuildPreset(preset, controller.signal);
+      useDesktopStore.getState().pushNotice({ scope: "global", tone: "info", message: "Newer notification" });
+      controller.abort();
+      finish(row);
+      expect(await loading).toBeNull();
+      expect(useDesktopStore.getState().notices.map(notice => notice.message)).toEqual(["Newer notification"]);
+    } finally { solve.mockRestore(); }
   });
 });
 
@@ -465,7 +584,7 @@ function catalog(profileId: string): CatalogDto {
     aowCount: 1,
     weaponNames: ["Uchigatana"],
     weaponTypeKeys: ["katana"],
-    classes: [],
+    classes: Object.values(STARTING_CLASS_METADATA),
     weaponTypeOptions: [{ key: "katana", label: "Katana" }],
     aowNames: ["Unsheathe"],
     affinityNames: ["Standard"],

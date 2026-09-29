@@ -20,6 +20,7 @@ import {
   MAX_BUILD_BACKUP_BYTES,
 } from "./presets";
 import type { BuildPresetV1, SolvedBuildDto } from "./types";
+import { validateStoredBuild } from "./stored-build";
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();
@@ -88,6 +89,27 @@ function routedBuild(): SolvedBuildDto {
 }
 
 describe("saved build persistence", () => {
+  it.each([
+    ["missing route", (build: any) => { delete build.aowRoute; }, "build.aowRoute"],
+    ["non-native float", (build: any) => { build.aowRoute.actions[0].hits[0].damage = { ...build.ar, total: 1e100 }; }, "build.aowRoute.actions[0].hits[0].damage.total"],
+    ["oversized warning", (build: any) => { build.aowRoute.actions[0].hits[0].warnings = ["x".repeat(1001)]; }, "build.aowRoute.actions[0].hits[0].warnings[0]"],
+    ["invalid stats", (build: any) => { build.stats.dex = 100; }, "build.stats.dex"],
+    ["invalid hit order", (build: any) => { build.aowRoute.actions[0].hits[0].hitOrder = -1; }, "build.aowRoute.actions[0].hits[0].hitOrder"],
+  ] as const)("uses shared structural validation for %s", (_name, mutate, path) => {
+    const build = structuredClone(routedBuild());
+    mutate(build);
+    expect(validateStoredBuild(build, { standardMaxUpgrade: 25, somberMaxUpgrade: 25 })).toMatchObject({ error: { path } });
+    expect(() => parsePresetText(JSON.stringify({ ...preset(), selectedBuild: build }))).toThrow(path.replace(/^build/, "selectedBuild"));
+  });
+
+  it("keeps archive shape limits distinct from profile-specific activation limits", () => {
+    const build = { ...routedBuild(), isSomber: true, upgrade: 15 };
+    expect(validateStoredBuild(build, { standardMaxUpgrade: 25, somberMaxUpgrade: 25 })).toHaveProperty("value");
+    expect(validateStoredBuild(build, { standardMaxUpgrade: 25, somberMaxUpgrade: 10 })).toMatchObject({ error: { path: "build.upgrade" } });
+    expect(validateStoredBuild(build, { standardMaxUpgrade: 15, somberMaxUpgrade: 15 })).toHaveProperty("value");
+    expect(parsePresetText(JSON.stringify({ ...preset(), selectedBuild: build })).selectedBuild).toEqual(build);
+  });
+
   beforeEach(() => {
     Object.defineProperty(globalThis, "localStorage", {
       configurable: true,
