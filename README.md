@@ -257,10 +257,6 @@ all public Rust DTO field shapes and enums with TypeScript, including the reques
 types used by the API adapter. It does not replace native value validation or
 serialization tests. CI and full package validation run both checks.
 
-Comparison-bench persistence lives in `src/lib/compare-bench.ts`; the store retains
-state transitions. Shared saved-build/report styles live in
-`src/features/shared/build-tools.css`, loaded after the global stylesheet.
-
 The full checks and setup live in [CI](.github/workflows/ci.yml). The core is in
 `core/er_optimizer_core`; the desktop is in `apps/desktop`. Historical phase names
 remain for extraction (`tools/phase1`) and validation/packaging (`tools/phase4`).
