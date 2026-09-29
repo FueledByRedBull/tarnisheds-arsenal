@@ -6,8 +6,8 @@
 
 **Find your weapon. Compare your options. Plan your next levels.**
 
-A Windows desktop build optimizer for Elden Ring. Search weapons, affinities,<br>
-Ashes of War, upgrades, and combat stats, then carry a selected build into<br>
+A Windows desktop build optimizer for Elden Ring. Search weapons, affinities,
+Ashes of War, upgrades, and combat stats, then carry a selected build into
 comparisons and progression previews.
 
 [![Download for Windows](https://img.shields.io/badge/Download_for_Windows-c9a45c?style=for-the-badge)](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest)
