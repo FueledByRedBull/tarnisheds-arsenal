@@ -39,3 +39,19 @@ it("verifies each saved row at the level its own stats require", async () => {
   // 84 combat points above the class base -> level 93, with the row's stats as exact locks.
   expect(pinnedRequest).toMatchObject({ characterLevel: 93, strStat: 12, fai: 8, lockStr: 22, lockFai: 79 });
 });
+
+it("verifies the selected build and comparison target against the saved inputs' level", async () => {
+  // Rows needing level 93 cannot be current results of a level-9 build.
+  const oversized = row("Fire Knight's Greatsword", { strStat: 22, dex: 18, intStat: 9, fai: 79, arc: 8 });
+  const preset = {
+    request: { ...defaultRequest, className: "Samurai", characterLevel: 9, ...samurai },
+    selectedBuild: oversized, compareTarget: oversized, compareBench: [],
+  } as unknown as BuildPreset;
+  solveBuild.mockResolvedValue(oversized);
+
+  await verifyPresetResults(preset, catalog, new AbortController().signal);
+
+  for (const [request] of solveBuild.mock.calls) {
+    expect(request).toMatchObject({ characterLevel: 9, lockStr: 22, lockFai: 79 });
+  }
+});

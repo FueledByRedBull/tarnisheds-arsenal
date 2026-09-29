@@ -20,11 +20,11 @@ export function catalogVersion(catalog: CatalogDto): string {
 
 // Persisted numerical snapshots are archives, not evidence that this binary calculated them.
 export async function verifyPresetResults(preset: BuildPreset, catalog: CatalogDto, signal: AbortSignal): Promise<BuildPreset> {
-  async function verify(row: SolvedBuildDto | null, label: string): Promise<SolvedBuildDto | null> {
+  async function verify(row: SolvedBuildDto | null, label: string, ownBudget = false): Promise<SolvedBuildDto | null> {
     if (!row) return null;
-    // A pinned build may come from another level: derive the budget from the row's own
-    // stats, as every locked search does, instead of reusing the preset's level.
-    const base: OptimizeRequestDto = buildOptimizeRequest(catalog, { ...preset.request, ...row.stats,
+    // Current results must fit the saved inputs' level. A pinned build may come from another
+    // level, so its budget is derived from its own stats, as every locked search does.
+    const base: OptimizeRequestDto = buildOptimizeRequest(catalog, { ...preset.request, ...(ownBudget ? row.stats : {}),
       weaponName: row.weaponName, affinity: row.affinity, aowName: row.aowName,
       weaponTypeKey: null, somberFilter: "all", filters: { version: 1, entries: [] },
       exactUpgrade: true,
@@ -47,7 +47,7 @@ export async function verifyPresetResults(preset: BuildPreset, catalog: CatalogD
   const compareTarget = await verify(preset.compareTarget, "Comparison target");
   const compareBench: SolvedBuildDto[] = [];
   for (const [index, row] of preset.compareBench.entries()) {
-    compareBench.push((await verify(row, `Pinned build ${index + 1}`))!);
+    compareBench.push((await verify(row, `Pinned build ${index + 1}`, true))!);
   }
   return { ...preset, selectedBuild, compareTarget, compareBench };
 }
