@@ -306,7 +306,7 @@ function TradeoffPlot({
         <text x="50" y="188" className="tradeoff-axis-label">{fixed1(minBleed)} bleed</text>
         {current ? <g aria-label="Current allocation">
           <rect x={42 + ratio(current.ar.total, minAr, maxAr) * 938 - 6} y={196 - ratio(current.bleedBuildup, minBleed, maxBleed) * 180 - 6}
-            width="12" height="12" fill="none" stroke="var(--parchment)" strokeWidth="2" />
+            width="12" height="12" fill="none" stroke="var(--text-strong)" strokeWidth="2" />
           <title>Current allocation: {fixed1(current.ar.total)} AR / {fixed1(current.bleedBuildup)} bleed</title>
         </g> : null}
         {points.map((point, index) => {

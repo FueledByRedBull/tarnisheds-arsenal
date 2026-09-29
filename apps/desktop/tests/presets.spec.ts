@@ -107,6 +107,7 @@ test("rejects malformed comparison pins without importing them or disabling sear
     return JSON.stringify(preset);
   });
   const before = await page.evaluate(() => JSON.stringify(localStorage));
+  await page.locator(".saved-build-import summary").click();
   await page.getByRole("textbox", { name: "Import JSON or Share Text", exact: true }).fill(malformed);
   await expect(page.getByRole("button", { name: "Import", exact: true })).toBeDisabled();
   await expect(page.getByText(/compareBench\[0\] must be a build/)).toBeVisible();

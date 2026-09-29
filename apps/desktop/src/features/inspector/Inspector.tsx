@@ -1,4 +1,4 @@
-import { Clipboard, Download, GitCompareArrows, LockKeyhole, Pencil, Pin, Radar, Route, Save, Target, Trash2, Upload } from "lucide-react";
+import { Clipboard, Download, LockKeyhole, Pencil, Pin, Save, Target, Trash2, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { activationRequest } from "../../lib/preset-activation";
 import { useWeaponProfileResource } from "../../lib/hooks";
@@ -61,22 +61,22 @@ export function Inspector() {
         <span>Build detail</span>
       </div>
       {selected ? (
-        <>
+        <div className="selection-detail" key={rowFingerprint(selected)}>
           <div className="selected-build">
             <strong>{selected.weaponName}</strong>
             <span>{selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade}</span>
             {resultsStale ? <small className="stale-label">Previous query build</small> : null}
-            {!aowAvailable ? <small className="warning-text">Skill damage unavailable for this loadout.</small> : null}
-            {modelWarnings.map((warning) => <small className="warning-text" key={warning}>{warning}</small>)}
+            {!aowAvailable ? <small className="tone-info">Skill damage isn't modeled for this loadout.</small> : null}
+            {modelWarnings.map((warning) => <small className="tone-warning" key={warning}>{warning}</small>)}
           </div>
-          {weaponResource.status === "loading" ? <small role="status">Loading weapon profile...</small> : null}
+          {weaponResource.status === "loading" ? <WeaponPoiseSkeleton /> : null}
           {weaponResource.status === "error" ? <div role="alert">
             <small>{weaponResource.error}</small>
             <button type="button" onClick={weaponResource.retry}>Retry weapon profile</button>
           </div> : null}
           <div className="metric-grid">
             <Metric label={objectiveLabel(request.objective)} value={selectedMetric === null ? "Unavailable" : fixed1(selectedMetric)} />
-            {request.objective !== "max_ar" ? <Metric label="AR" value={compactNumber(selected.ar.total)} /> : null}
+            {request.objective !== "max_ar" ? <Metric label="AR" value={fixed1(selected.ar.total)} /> : null}
             <Metric
               label={catalog?.dataManifest.capabilities.aowRoutes ? "Raw AoW" : "AoW model"}
               value={aowAvailable
@@ -104,9 +104,6 @@ export function Inspector() {
             >
               <Pin size={15} />{pinned ? "Unpin compare" : "Pin for compare"}
             </button>
-            <button type="button" onClick={() => setWorkspace("compare")} disabled={resultsStale || fixedStats} title={resultsStale ? "Update rankings before comparing" : undefined}><GitCompareArrows size={15} />Compare</button>
-            <button type="button" onClick={() => setWorkspace("paths")} disabled={resultsStale || fixedStats} title={resultsStale ? "Update rankings before tracing paths" : undefined}><Route size={15} />Paths</button>
-            <button type="button" onClick={() => setWorkspace("affinity_watch")} disabled={resultsStale || fixedStats} title={resultsStale ? "Update rankings before watching affinities" : undefined}><Radar size={15} />Affinity Watch</button>
           </div>
           <div className="detail-block">
             <span>Combat Stats</span>
@@ -138,7 +135,7 @@ export function Inspector() {
             {explainBuild(selected, buildOptimizeRequest(catalog, request, lockedStatMode), aowModelSupported).map(line => <p key={line}>{line}</p>)}
           </details> : null}
           <ModelCoverage />
-        </>
+        </div>
       ) : (
         <div className="empty-state compact">
           <strong>No build selected</strong>
@@ -152,7 +149,7 @@ export function Inspector() {
           ? `Fixed stat total ${snapshot.level}` : `Level ${snapshot.level} / +${snapshot.levelUps} level ups`}</strong>
         <small>{fixedStats
           ? "Entered combat stats are evaluated as-is; class budgets and redistribution are unavailable."
-          : `Redistrib ${snapshot.redistributable} / Free ${snapshot.freePoints} / Total points ${snapshot.total}`}</small>
+          : `${snapshot.redistributable} movable · ${snapshot.freePoints} unspent · ${snapshot.total} total points`}</small>
       </div>
       <div className="detail-block">
         <span>Lock State</span>
@@ -205,6 +202,18 @@ function ModelCoverage() {
           : "Scadutree unavailable"} · upgrade {request.exactUpgrade ? "exact" : "open range"}
       </small>
     </details>
+  );
+}
+
+function WeaponPoiseSkeleton() {
+  return (
+    <div className="detail-block weapon-poise-detail" role="status" aria-label="Loading weapon data">
+      <span className="skeleton" style={{ width: "38%" }} />
+      <span className="skeleton" style={{ width: "72%", height: 14 }} />
+      <div>
+        {Array.from({ length: 6 }, (_, index) => <span className="skeleton" key={index} style={{ height: 34 }} />)}
+      </div>
+    </div>
   );
 }
 
@@ -262,11 +271,11 @@ function AowRouteDetails({ route }: { route: AowRouteDto | null }) {
                 {hit.effects
                   .filter((effect) => effect.role === "per_hit_status" || !effect.isSupported)
                   .map((effect) => (
-                    <small key={`${hit.sheetRow}-${effect.effectId}`} className={effect.isSupported ? "" : "warning-text"}>
+                    <small key={`${hit.sheetRow}-${effect.effectId}`} className={effect.isSupported ? "" : "tone-warning"}>
                       {effect.effectName || `Effect ${effect.effectId}`}: {effect.reason}
                     </small>
                   ))}
-                {hit.warnings.map((warning) => <small className="warning-text" key={warning}>{warning}</small>)}
+                {hit.warnings.map((warning) => <small className="tone-warning" key={warning}>{warning}</small>)}
               </div>
             ))}
           </div>
@@ -343,6 +352,8 @@ function SavedBuildPanel() {
     ? `${catalog.dataManifest.profile.id}:${catalog.dataManifest.schemaVersion}:${catalog.dataManifest.datasetVersion}:${catalog.dataManifest.modelVersion}`
     : "unknown";
   const canSave = catalogStatus === "ready" && catalog?.dataManifest.profile.id === request.profileId;
+  // Loading needs the verified catalog; startup and profile switches must finish first.
+  const canLoad = catalogStatus === "ready";
 
   function refresh() {
     try {
@@ -537,7 +548,7 @@ function SavedBuildPanel() {
         <Save size={17} />
         <span>Saved Builds</span>
       </div>
-      {libraryError || selectedReadError ? <p className="warning-text" role="alert">{libraryError || selectedReadError}</p> : null}
+      {libraryError || selectedReadError ? <p className="tone-danger" role="alert">{libraryError || selectedReadError}</p> : null}
       <label>
         Name
         <input value={name} onChange={(event) => { cancelMigration(); setName(event.target.value); }} />
@@ -553,55 +564,67 @@ function SavedBuildPanel() {
           ))}
         </select>
       </label>
-      {selectedId ? <small className="saved-build-status">{presetVersionLabel(selectedPreset?.dataVersion, dataVersion)}</small> : null}
+      {selectedId ? <small className="saved-build-status" title={presetProvenance(selectedPreset?.dataVersion)}>{presetVersionLabel(selectedPreset?.dataVersion, dataVersion)}</small> : null}
       <div className="inspector-actions stacked">
         <button type="button" onClick={() => saveCurrent()} disabled={!canSave}><Save size={15} />Save new</button>
         <button type="button" onClick={() => saveCurrent(selectedId)} disabled={!canSave || !selectedPreset}><Save size={15} />Update selected</button>
-        <button type="button" onClick={() => void loadCurrent()} disabled={!selectedPreset || isMigrating}><Upload size={15} />{isMigrating ? "Verifying..." : selectedPresetStale ? "Load inputs only" : "Load"}</button>
+        <button type="button" onClick={() => void loadCurrent()} disabled={!selectedPreset || isMigrating || !canLoad}><Upload size={15} />{isMigrating ? "Verifying..." : selectedPresetStale ? "Load inputs only" : "Load"}</button>
         {selectedPresetStale ? (
-          <button type="button" onClick={() => selectedPreset && void migratePreset(selectedPreset)} disabled={isMigrating}>
+          <button type="button" onClick={() => selectedPreset && void migratePreset(selectedPreset)} disabled={isMigrating || !canLoad}>
             <Upload size={15} />{isMigrating ? "Migrating..." : "Migrate data"}
           </button>
         ) : null}
-        <button type="button" onClick={renameCurrent} disabled={!selectedPreset}><Pencil size={15} />Rename</button>
-        <button type="button" onClick={deleteCurrent} disabled={!selectedPreset}>
-          <Trash2 size={15} />{deleteArmedId === selectedId ? "Confirm Delete" : "Delete"}
-        </button>
-        <button type="button" onClick={exportCurrent} disabled={!selectedPreset}><Download size={15} />Export</button>
-        <button type="button" onClick={copyCurrent} disabled={!selectedPreset}><Clipboard size={15} />Copy Share</button>
       </div>
-      <label>
-        Import JSON or Share Text
-        <textarea value={importText} onChange={(event) => setImportText(event.target.value)} />
-      </label>
-      {importPreview?.value ? (
-        <div className="import-preview">
-          <strong>{importPreview.value.preset.name}</strong>
-          <span>{presetVersionLabel(importPreview.value.preset.dataVersion, dataVersion)}</span>
-          <small>{importPreview.value.bytes.toLocaleString()} bytes · Level {importPreview.value.preset.request.characterLevel}</small>
-          {importPreview.value.preset.dataVersion !== dataVersion ? (
-            <label>
-              Data handling
-              <select value={importDataMode} onChange={(event) => setImportDataMode(event.target.value as "stale" | "migrate")}>
-                <option value="stale">Keep stale snapshot (safe)</option>
-                <option value="migrate">Migrate and recompute now</option>
-              </select>
-            </label>
-          ) : null}
-          {importPreview.value.idConflict || importPreview.value.nameConflict ? (
-            <label>
-              Conflict handling
-              <select value={replaceImport ? "replace" : "copy"} onChange={(event) => setReplaceImport(event.target.value === "replace")}>
-                <option value="copy">Keep both (safe copy)</option>
-                {importPreview.value.idConflict ? <option value="replace">Replace matching ID</option> : null}
-              </select>
-            </label>
-          ) : null}
-        </div>
-      ) : importPreview?.error ? <small className="warning-text">{importPreview.error}</small> : null}
-      <button className="clear-locks" type="button" onClick={() => void importCurrent()} disabled={!importPreview?.value || isMigrating}>
-        <Upload size={15} />{isMigrating ? "Migrating..." : "Import"}
-      </button>
+      <div className="saved-build-tools" role="group" aria-label="Selected saved build">
+        <button type="button" onClick={renameCurrent} disabled={!selectedPreset} aria-label="Rename" title="Rename to the name above"><Pencil size={15} /></button>
+        <button
+          type="button"
+          className={deleteArmedId === selectedId ? "armed" : undefined}
+          onClick={deleteCurrent}
+          disabled={!selectedPreset}
+          aria-label={deleteArmedId === selectedId ? "Confirm Delete" : "Delete"}
+          title="Delete the selected saved build"
+        >
+          <Trash2 size={15} />{deleteArmedId === selectedId ? <span>Confirm delete</span> : null}
+        </button>
+        <button type="button" onClick={exportCurrent} disabled={!selectedPreset} aria-label="Export" title="Export as a JSON file"><Download size={15} /></button>
+        <button type="button" onClick={copyCurrent} disabled={!selectedPreset} aria-label="Copy Share" title="Copy share text to the clipboard"><Clipboard size={15} /></button>
+      </div>
+      <details className="saved-build-import">
+        <summary>Import a build</summary>
+        <label>
+          Import JSON or Share Text
+          <textarea value={importText} onChange={(event) => setImportText(event.target.value)} />
+        </label>
+        {importPreview?.value ? (
+          <div className="import-preview">
+            <strong>{importPreview.value.preset.name}</strong>
+            <span title={presetProvenance(importPreview.value.preset.dataVersion)}>{presetVersionLabel(importPreview.value.preset.dataVersion, dataVersion)}</span>
+            <small>{importPreview.value.bytes.toLocaleString()} bytes · Level {importPreview.value.preset.request.characterLevel}</small>
+            {importPreview.value.preset.dataVersion !== dataVersion ? (
+              <label>
+                Data handling
+                <select value={importDataMode} onChange={(event) => setImportDataMode(event.target.value as "stale" | "migrate")}>
+                  <option value="stale">Keep stale snapshot (safe)</option>
+                  <option value="migrate">Migrate and recompute now</option>
+                </select>
+              </label>
+            ) : null}
+            {importPreview.value.idConflict || importPreview.value.nameConflict ? (
+              <label>
+                Conflict handling
+                <select value={replaceImport ? "replace" : "copy"} onChange={(event) => setReplaceImport(event.target.value === "replace")}>
+                  <option value="copy">Keep both (safe copy)</option>
+                  {importPreview.value.idConflict ? <option value="replace">Replace matching ID</option> : null}
+                </select>
+              </label>
+            ) : null}
+          </div>
+        ) : importPreview?.error ? <small className="tone-danger">{importPreview.error}</small> : null}
+        <button className="clear-locks" type="button" onClick={() => void importCurrent()} disabled={!importPreview?.value || isMigrating}>
+          <Upload size={15} />{isMigrating ? "Migrating..." : "Import"}
+        </button>
+      </details>
       <SavedBuildRecovery onChanged={refresh} revision={entries} />
     </div>
   );
@@ -633,11 +656,16 @@ function migratePresetRequest(request: OptimizeRequestDto, catalog: CatalogDto):
 }
 
 function presetVersionLabel(savedVersion: string | undefined, currentVersion: string): string {
-  if (!savedVersion) return "Saved metadata unavailable";
+  if (!savedVersion) return "Saved data version unknown";
+  return savedVersion === currentVersion
+    ? "Saved with the current game data"
+    : "Stale: saved with different game data. Inputs load; solved rows are discarded.";
+}
+
+/** Full snapshot identity, kept out of the visible label for troubleshooting. */
+function presetProvenance(savedVersion: string | undefined): string | undefined {
+  if (!savedVersion) return undefined;
   const parts = savedVersion.split(":");
-  const [profile, schema, dataset, model] = parts.length === 4
-    ? parts
-    : ["unknown", ...parts];
-  const status = savedVersion === currentVersion ? "Current" : "Stale — inputs load, solved rows are discarded";
-  return `${status} · profile ${profile} · dataset ${dataset} · schema ${schema} · model ${model}`;
+  const [profile, schema, dataset, model] = parts.length === 4 ? parts : ["unknown", ...parts];
+  return `profile ${profile} · dataset ${dataset} · schema ${schema} · model ${model}`;
 }

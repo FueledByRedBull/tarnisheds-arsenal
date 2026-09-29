@@ -1,5 +1,5 @@
 import { Crosshair, Filter, Play, RotateCcw, SlidersHorizontal, Sparkles, Swords } from "lucide-react";
-import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { KeyboardEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import brandMark from "../../assets/brand-mark.png";
 import { AowSelect, resolveAowSelection } from "../../lib/AowSelect";
 import { api } from "../../lib/api";
@@ -19,7 +19,7 @@ import { EightStatsDto, FilterDimensionDto, OptimizeRequestDto } from "../../lib
 import { runSearchFromStore } from "../../lib/workflows";
 import { effectiveWeaponStrength } from "../../lib/weapon-handling";
 
-export function CommandRail() {
+export function CommandRail({ profile }: { profile: ReactNode }) {
   const catalog = useDesktopStore((state) => state.catalog);
   const activeWorkspace = useDesktopStore((state) => state.activeWorkspace);
   const request = useDesktopStore((state) => state.request);
@@ -245,7 +245,7 @@ export function CommandRail() {
             <strong>Arsenal</strong>
           </div>
         </div>
-        <small className="data-version">{catalog?.dataManifest.label ?? "Loading data version"}</small>
+        {profile}
       </div>
 
       <fieldset className="rail-scroll rail-fieldset" disabled={!catalog} aria-busy={!catalog}>
@@ -277,7 +277,7 @@ export function CommandRail() {
               <input readOnly value={derivedLevel(catalog, request)} />
             </label>
             {!fixedStats && <div className="budget-readout" title={`Levels above ${request.className}'s base level ${budget.baseLevel}`}>
-              <span>Lv Ups</span>
+              <span>Level-ups</span>
               <strong>{budget.levelUps}</strong>
             </div>}
             <div
@@ -286,7 +286,7 @@ export function CommandRail() {
                 ? "Convergence uses the entered combat stats exactly"
                 : "Movable STR/DEX/INT/FAI/ARC points after class minimums, fixed VIG/MND/END, and advanced minimum floors"}
             >
-              <span>{fixedStats ? "Mode" : "Redistrib"}</span>
+              <span>{fixedStats ? "Mode" : "Movable"}</span>
               <strong>{fixedStats ? "Fixed stats" : budget.redistributable}</strong>
             </div>
           </div>
@@ -346,7 +346,12 @@ export function CommandRail() {
               </strong>
             </div>
           ) : null}
-          {profileResource.status === "loading" ? <small role="status">Loading weapon profile...</small> : null}
+          {profileResource.status === "loading" ? (
+            <div className="requirements-skeleton" role="status" aria-label="Loading weapon requirements">
+              <span className="skeleton" style={{ width: "45%" }} />
+              <span className="skeleton" style={{ width: "85%" }} />
+            </div>
+          ) : null}
           {profileResource.status === "error" ? (
             <div role="alert">
               <small>Weapon profile unavailable: {profileResource.error}</small>
@@ -710,7 +715,7 @@ export function CommandRail() {
             <div className="estimate-strip quick-estimate" aria-label="Search scope">
               <span>Scope</span>
               <strong>{request.weaponName || (selectedTypeIds.length ? `${selectedTypeIds.length} type${selectedTypeIds.length === 1 ? "" : "s"}` : "Open")}</strong>
-              <span>{fixedStats ? "Entered stats fixed" : `${budget.redistributable} free points`}</span>
+              <span>{fixedStats ? "Entered stats fixed" : `${budget.redistributable} movable points`}</span>
             </div>
           ) : null}
         </div>

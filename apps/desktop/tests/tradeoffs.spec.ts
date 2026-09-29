@@ -97,11 +97,11 @@ test("tradeoff views select exact threshold choices and persist an exact apply",
   });
   const appliedRow = page.locator(".result-row-full").first();
   await expect(appliedRow.locator(".weapon-cell strong")).toHaveText("Uchigatana");
-  await expect(appliedRow.locator(".setup-cell strong")).toHaveText("Blood");
-  await expect(appliedRow.locator(".setup-cell > small")).toHaveText("Seppuku");
-  await expect(appliedRow.getByRole("gridcell").nth(3)).toHaveText("+25");
-  await expect(appliedRow.locator(".row-combat-stats")).toHaveText("STR 13 / DEX 19 / INT 9 / FAI 8 / ARC 63");
-  await expect(appliedRow.locator(".ar-status-cell strong")).toHaveText("665");
+  await expect(appliedRow.locator(".loadout-affinity")).toHaveText("Blood");
+  await expect(appliedRow.locator(".loadout-skill")).toHaveText("Seppuku");
+  await expect(appliedRow.locator(".loadout-upgrade")).toHaveText("+25");
+  expect(await combatStats(appliedRow)).toEqual(["Strength 13", "Dexterity 19", "Intelligence 9", "Faith 8", "Arcane 63"]);
+  await expect(appliedRow.locator(".ar-cell strong")).toHaveText("665.0");
   await expect(page.locator('[aria-label="Bleed buildup: 99"]')).toBeVisible();
   const returnedResult = await page.evaluate(() => (window as any).appliedTradeoffResult);
   expect(returnedResult).toMatchObject({
@@ -145,11 +145,11 @@ test("tradeoff views select exact threshold choices and persist an exact apply",
   await expect(page.locator(".result-row-full")).toHaveCount(1);
   const reloadedRow = page.locator(".result-row-full").first();
   await expect(reloadedRow.locator(".weapon-cell strong")).toHaveText("Uchigatana");
-  await expect(reloadedRow.locator(".setup-cell strong")).toHaveText("Blood");
-  await expect(reloadedRow.locator(".setup-cell > small")).toHaveText("Seppuku");
-  await expect(reloadedRow.getByRole("gridcell").nth(3)).toHaveText("+25");
-  await expect(reloadedRow.locator(".row-combat-stats")).toHaveText("STR 13 / DEX 19 / INT 9 / FAI 8 / ARC 63");
-  await expect(reloadedRow.locator(".ar-status-cell strong")).toHaveText("665");
+  await expect(reloadedRow.locator(".loadout-affinity")).toHaveText("Blood");
+  await expect(reloadedRow.locator(".loadout-skill")).toHaveText("Seppuku");
+  await expect(reloadedRow.locator(".loadout-upgrade")).toHaveText("+25");
+  expect(await combatStats(reloadedRow)).toEqual(["Strength 13", "Dexterity 19", "Intelligence 9", "Faith 8", "Arcane 63"]);
+  await expect(reloadedRow.locator(".ar-cell strong")).toHaveText("665.0");
   await expect(page.locator('[aria-label="Bleed buildup: 99"]')).toBeVisible();
   await expect(page.locator(".selected-build")).toContainText("Blood / Seppuku / +25");
   await expect(page.locator(".detail-block").filter({ hasText: "Combat Stats" }).locator("strong")).toHaveText("STR 13 / DEX 19 / INT 9 / FAI 8 / ARC 63");
@@ -202,3 +202,8 @@ test("leaving Compare aborts a pending frontier and discards its late result", a
   await expect(page.locator(".loadout-tradeoffs").getByRole("status")).toContainText("Ready to calculate");
   await expect(page.locator(".tradeoff-shortlist")).toHaveCount(0);
 });
+
+async function combatStats(row: import("@playwright/test").Locator) {
+  return row.getByRole("list", { name: "Combat stats" }).getByRole("listitem")
+    .evaluateAll(items => items.map(item => item.getAttribute("aria-label")));
+}

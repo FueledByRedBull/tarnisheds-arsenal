@@ -1,13 +1,13 @@
 import { ArrowDownUp, ChevronLeft, ChevronRight, Download, LockKeyhole, Pin, RefreshCcw, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { downloadCsv, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
-import { compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
+import { compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
 import { buildOptimizeRequest, derivedLevel, rowFingerprint } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { SearchProgressDto, SolvedBuildDto } from "../../lib/types";
 import { runSearchFromStore, runSearchRequestForRows } from "../../lib/workflows";
 import packageInfo from "../../../package.json";
-import { ScalingTokens } from "../shared/BuildMetricTokens";
+import { STAT_KEYS, ScalingTokens, StatTokens } from "../shared/BuildMetricTokens";
 
 export function RankingsBoard() {
   const rows = useDesktopStore((state) => state.rows);
@@ -286,18 +286,22 @@ export function RankingsBoard() {
         aria-describedby={resultsStale ? "stale-results-message" : undefined}
       >
         <div className={`result-head result-head-full ${objective !== "max_ar" ? "with-score" : ""}`} role="row">
-          {[
-            ["#", "Rank"],
-            ["Weapon", "Weapon and reinforcement type"],
-            ["Setup", "Affinity and Ash of War"],
-            ["Upg", "Reinforcement level"],
-            ["AR", "Raw attack rating before enemy defense and negation"],
-            ["Raw skill", "Raw skill damage before enemy defense or negation"],
-            ...(objective !== "max_ar" ? [[`${objectiveLabel(objective)} score`, "Value used by the active ranking objective"]] : []),
-            ["Actions", "Pin for comparison or use this result as exact search locks"],
-          ].map(([header, title]) => (
-            <span role="columnheader" title={title} key={header}>{header}</span>
-          ))}
+          <span role="columnheader" title="Rank">#</span>
+          <span role="columnheader" title="Weapon, affinity, skill, and reinforcement level">Loadout</span>
+          <span role="columnheader" className="token-column-head" title="Attribute scaling grade at this reinforcement level">
+            Scaling<StatKeys />
+          </span>
+          <span role="columnheader" className="token-column-head" title="Combat stats of this build">
+            Stats<StatKeys />
+          </span>
+          <span role="columnheader" title="Raw attack rating before enemy defense and negation">AR</span>
+          <span role="columnheader" title="Raw skill damage for the full route, and its first damaging hit">Skill damage</span>
+          {objective !== "max_ar" ? (
+            <span role="columnheader" title="Value used by the active ranking objective">{objectiveLabel(objective)}</span>
+          ) : null}
+          <span role="columnheader" title="Pin for comparison or use this result as exact search locks">
+            <span className="sr-only">Actions</span>
+          </span>
         </div>
         {rows.length === 0 ? <EmptyRows onExample={runStarterExample} busy={isSearching || isExporting} classBudget={catalog?.dataManifest.capabilities.classBudget !== false} /> : null}
         {rankedRows.map(({ row, rank }) => (
@@ -369,23 +373,27 @@ function ResultRow({
     >
       <span role="gridcell" className="rank-cell">{index + 1}</span>
       <span role="gridcell" className="weapon-cell">
-        <strong>{row.weaponName}</strong>
-        <small>{row.isSomber ? "Somber" : "Standard"}</small>
-        <span className="row-detail-label">Combat stats</span>
-        <span className="row-combat-stats">{statLine(row)}</span>
+        <span className="weapon-line">
+          <strong>{row.weaponName}</strong>
+          {row.isSomber ? <span className="loadout-tag">Somber</span> : null}
+        </span>
+        <small className="loadout-line">
+          <span className="loadout-affinity">{row.affinity}</span>
+          <span className="loadout-skill">{row.aowName ?? "No skill"}</span>
+          <span className="loadout-upgrade">+{row.upgrade}</span>
+        </small>
       </span>
-      <span role="gridcell" className="setup-cell">
-        <strong>{row.affinity}</strong>
-        <small>{row.aowName ?? "Unspecified skill"}</small>
-        <span className="row-detail-label">Weapon scaling</span>
+      <span role="gridcell" className="token-cell scaling-cell">
         <ScalingTokens scaling={row.effectiveScaling} extended={extendedScalingGrades} />
       </span>
-      <span role="gridcell">+{row.upgrade}</span>
-      <span role="gridcell" className="result-metric-cell ar-status-cell"><strong>{compactNumber(row.ar.total)}</strong></span>
-      <span role="gridcell" className="result-metric-cell" title={aowAvailable ? undefined : "Raw skill damage is unavailable for this loadout."}>
+      <span role="gridcell" className="token-cell">
+        <StatTokens row={row} />
+      </span>
+      <span role="gridcell" className="result-metric-cell ar-cell"><strong>{fixed1(row.ar.total)}</strong></span>
+      <span role="gridcell" className="result-metric-cell skill-cell" title={aowAvailable ? undefined : "Skill damage isn't modeled for this loadout."}>
         {aowAvailable
-          ? <><strong>{compactNumber(row.aowFullSequenceDamage)}</strong><small>First {compactNumber(row.aowFirstHitDamage)}</small></>
-          : <strong>Unavailable</strong>}
+          ? <><strong>{compactNumber(row.aowFullSequenceDamage)}</strong><small>1st hit {compactNumber(row.aowFirstHitDamage)}</small></>
+          : <span className="result-unavailable">Unavailable</span>}
       </span>
       {objective !== "max_ar" ? <span role="gridcell" className="objective-score">{metric === null ? "Unavailable" : fixed1(metric)}</span> : null}
       <span role="gridcell">
@@ -415,6 +423,15 @@ function ResultRow({
         </button>
       </span>
     </div>
+  );
+}
+
+/** Column keys shown once in the header so rows can carry bare values. */
+function StatKeys() {
+  return (
+    <span className="token-keys" aria-hidden="true">
+      {STAT_KEYS.map((key) => <span key={key}>{key}</span>)}
+    </span>
   );
 }
 

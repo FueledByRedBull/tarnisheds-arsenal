@@ -48,6 +48,35 @@ export function ScalingTokens({
   );
 }
 
+const COMBAT_STATS = [
+  ["STR", "Strength", "strStat"],
+  ["DEX", "Dexterity", "dex"],
+  ["INT", "Intelligence", "intStat"],
+  ["FAI", "Faith", "fai"],
+  ["ARC", "Arcane", "arc"],
+] as const;
+
+export const STAT_KEYS = COMBAT_STATS.map(([short]) => short);
+
+export function StatTokens({ row }: { row: SolvedBuildDto }) {
+  return (
+    <span className="metric-token-grid stat-token-grid row-combat-stats" role="list" aria-label="Combat stats">
+      {COMBAT_STATS.map(([short, full, key]) => (
+        <span
+          className="metric-token"
+          role="listitem"
+          aria-label={`${full} ${row.stats[key]}`}
+          title={`${full} ${row.stats[key]}`}
+          key={key}
+        >
+          <small aria-hidden="true">{short}</small>
+          <b aria-hidden="true">{row.stats[key]}</b>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 export function StatusTokens({ row }: { row: SolvedBuildDto }) {
   return (
     <span className="metric-token-grid status-token-grid" role="list" aria-label="Status buildup">

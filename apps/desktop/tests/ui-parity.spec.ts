@@ -149,7 +149,7 @@ test("profile switch isolates results and explains Convergence coverage", async 
   }
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("1 ranked rows")).toBeVisible();
-  const rawSkill = page.locator(".result-row-full").first().getByRole("gridcell").nth(5);
+  const rawSkill = page.locator(".result-row-full").first().locator(".skill-cell");
   await expect(rawSkill).toHaveText("Unavailable");
   await page.locator(".result-row-full").first().click();
   await expect(page.locator(".metric-tile").filter({ hasText: "AoW model" })).toContainText("Unavailable");
@@ -163,7 +163,7 @@ test("profile switch isolates results and explains Convergence coverage", async 
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
   await expect(rawSkill).not.toContainText("Unavailable");
-  await expect(rawSkill).toContainText("First");
+  await expect(rawSkill).toContainText("1st hit");
   await page.locator(".result-row-full").first().click();
   await expect(page.locator(".metric-tile").filter({ hasText: "Raw AoW" })).not.toContainText("Unavailable");
 
@@ -200,7 +200,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(page.locator(".top-cards")).toHaveCount(0);
 
   await expect(page.getByRole("textbox", { name: "Level", exact: true })).toHaveValue("9");
-  await expect(page.getByText("Redistrib", { exact: true })).toBeVisible();
+  await expect(page.getByText("Movable", { exact: true })).toBeVisible();
   await page.getByRole("combobox", { name: "Class" }).click();
   await expect(page.getByRole("option", { name: "Wretch" })).toBeVisible();
   await page.keyboard.press("Escape");
@@ -229,8 +229,10 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   const firstRankedRow = page.locator(".result-row-full").first();
   await expect(firstRankedRow).toContainText("Uchigatana");
   await expect(firstRankedRow.getByRole("list", { name: "Attack rating split" })).toHaveCount(0);
-  await expect(firstRankedRow.getByRole("gridcell").nth(4)).toHaveText("700");
-  await expect(firstRankedRow.locator(".row-combat-stats")).toHaveText("STR 13 / DEX 22 / INT 9 / FAI 8 / ARC 60");
+  await expect(firstRankedRow.locator(".ar-cell")).toHaveText("700.0");
+  expect(await firstRankedRow.getByRole("list", { name: "Combat stats" }).getByRole("listitem")
+    .evaluateAll(items => items.map(item => item.getAttribute("aria-label"))))
+    .toEqual(["Strength 13", "Dexterity 22", "Intelligence 9", "Faith 8", "Arcane 60"]);
   const rowScaling = firstRankedRow.getByRole("list", { name: "Attribute scaling" });
   await expect(rowScaling.getByRole("listitem", { name: "Strength scaling: C", exact: true })).toBeVisible();
   await expect(rowScaling.getByRole("listitem", { name: "Arcane scaling: D", exact: true })).toBeVisible();
@@ -295,14 +297,14 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect.poll(() => page.evaluate(() => document.body.scrollWidth <= window.innerWidth + 2)).toBe(true);
 
   await page.getByRole("navigation").getByRole("button", { name: "Paths" }).click();
-  await page.getByRole("spinbutton", { name: "Current + N" }).fill("90");
+  await page.getByRole("spinbutton", { name: "Levels ahead" }).fill("90");
   await page.getByRole("button", { name: "Trace paths" }).click();
-  await expect(page.getByText("Selected").first()).toBeVisible();
-  await expect(page.getByText("Compare").first()).toBeVisible();
+  await expect(page.locator(".path-lanes").getByText("Selected", { exact: true })).toBeVisible();
+  await expect(page.locator(".path-lanes").getByText("Compare", { exact: true })).toBeVisible();
   await expect(page.locator(".path-chart")).toContainText("Allocation changes (sampled)");
   await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "completed");
-  await page.getByRole("button", { name: "Envelope", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Envelope", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Best per level", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Best per level", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "ready");
   await expect(page.locator(".path-chart .path-series")).toHaveCount(0);
   await page.getByRole("button", { name: "Trace paths", exact: true }).click();
@@ -324,7 +326,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(page.locator(".affinity-chart .spark-line")).toHaveCount(0);
   await expect(affinityRankings).toContainText("Occult");
   await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "completed");
-  await page.getByRole("spinbutton", { name: "Current + N" }).fill("5");
+  await page.getByRole("spinbutton", { name: "Levels ahead" }).fill("5");
   await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "ready");
 });
 
@@ -537,11 +539,17 @@ test("ranked rows select the exact build with mouse and keyboard", async ({ page
     const background = getComputedStyle(row).backgroundColor;
     return [...row.children].slice(0, 2).every(cell => getComputedStyle(cell).backgroundColor === background);
   })).toBe(true);
-  await expect.poll(() => hoveredRow.locator(".setup-cell .row-detail-label").evaluate((label) => {
-    const heading = label.getBoundingClientRect();
-    const grades = label.nextElementSibling!.getBoundingClientRect();
-    return getComputedStyle(label).textAlign === "center"
-      && Math.abs(heading.left + heading.width / 2 - grades.left - grades.width / 2) < 1;
+  // Token-column keys live once in the header and must line up with every row's values.
+  await expect.poll(() => page.evaluate(() => {
+    const centers = (nodes: Iterable<Element>) => [...nodes].map((node) => {
+      const box = node.getBoundingClientRect();
+      return box.left + box.width / 2;
+    });
+    const keys = centers(document.querySelectorAll(".result-head-full .token-keys > span"));
+    return [...document.querySelectorAll(".result-row-full")].every((row) => {
+      const values = centers(row.querySelectorAll(".metric-token"));
+      return values.length === keys.length && values.every((center, index) => Math.abs(center - keys[index]) < 1);
+    });
   })).toBe(true);
 });
 
@@ -574,9 +582,8 @@ test("stale saved builds offer explicit input-only loading or recompute migratio
   await expect(page.getByText("4 ranked rows")).toBeVisible();
   await page.getByRole("button", { name: "Save new" }).click();
   await expect(page.getByText(/Saved Build Preset/)).toBeVisible();
-  await expect(page.locator(".saved-build-status")).toContainText(
-    "Current · profile vanilla · dataset vanilla-1.17 · schema 6 · model aow-routes-effects-v8/exact-v2",
-  );
+  await expect(page.locator(".saved-build-status")).toHaveText("Saved with the current game data");
+  await expect(page.locator(".saved-build-status")).toHaveAttribute("title", /^profile vanilla · dataset vanilla-1\.17 · schema \d+ · model /);
 
   await page.evaluate(() => {
     const presetKey = Object.keys(localStorage).find((key) => key.startsWith("tarnisheds-arsenal.savedBuild.v2."));
@@ -595,7 +602,7 @@ test("stale saved builds offer explicit input-only loading or recompute migratio
   await expect(page.getByRole("button", { name: "Load inputs only" })).toBeVisible();
   await page.getByRole("button", { name: "Migrate data" }).click();
   await expect(page.getByText(/Migrated Build Preset/)).toBeVisible();
-  await expect(page.getByText(/Current.*dataset/)).toBeVisible();
+  await expect(page.locator(".saved-build-status")).toHaveText("Saved with the current game data");
   await expect(page.locator(".selected-build")).toContainText("Uchigatana");
 });
 
@@ -723,7 +730,7 @@ test("analysis controls align inputs with buttons and path levels compare side b
   await expect(table.getByRole("row").nth(1).getByRole("cell").nth(0)).toHaveText("49");
   await expect(page.getByRole("button", { name: "Next levels" })).toBeDisabled();
   await expect.poll(() => table.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
-  await page.getByRole("button", { name: "Envelope", exact: true }).click();
+  await page.getByRole("button", { name: "Best per level", exact: true }).click();
   await expect(table).toHaveCount(0);
 });
 
@@ -752,10 +759,15 @@ for (const [width, height] of [[923, 789], [1200, 720], [1366, 768], [1650, 950]
       useDesktopStore.setState({ rows: Array.from({ length: 50 }, (_, index) => rows[index % rows.length]) });
     });
     await expect(page.getByText("50 ranked rows")).toBeVisible();
-    const profileFits = () => page.locator(".profile-bar").evaluate((profile) => {
-      const bottom = profile.getBoundingClientRect().bottom;
-      return [...profile.children].every(child => child.getBoundingClientRect().bottom <= bottom - 5)
-        && document.querySelector(".workspace-tabs")!.getBoundingClientRect().top >= bottom + 7;
+    const profileFits = () => page.evaluate(() => {
+      const brand = document.querySelector(".brand-block")!.getBoundingClientRect();
+      const tabs = document.querySelector(".workspace-tabs")!.getBoundingClientRect();
+      const stage = document.querySelector(".workspace-stage")!.getBoundingClientRect();
+      return tabs.bottom <= stage.top + 1
+        && [...document.querySelectorAll(".profile-control > *, .profile-switch button")].every((node) => {
+          const box = node.getBoundingClientRect();
+          return box.left >= brand.left && box.right <= brand.right && box.bottom <= brand.bottom;
+        });
     });
     await expect.poll(profileFits).toBe(true);
     await expect.poll(() => page.locator(".query-summary").evaluate((query) =>

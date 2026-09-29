@@ -19,8 +19,8 @@ test("missing skill routes stay unavailable across displays, reports, and saved-
     ]);
   });
   const resultRows = page.locator(".result-row-full");
-  await expect(resultRows.first().getByRole("gridcell").nth(5)).toHaveText("Unavailable");
-  await expect(resultRows.nth(1).getByRole("gridcell").nth(5)).toHaveText("0First 0");
+  await expect(resultRows.first().locator(".skill-cell")).toHaveText("Unavailable");
+  await expect(resultRows.nth(1).locator(".skill-cell")).toHaveText("01st hit 0");
   await expect(page.locator(".inspector .metric-grid")).toContainText("Raw AoWUnavailable");
   await page.getByRole("button", { name: "Preview reproduction report", exact: true }).click();
   const report = JSON.parse(await page.getByRole("textbox", { name: "Reproduction report preview" }).inputValue());

@@ -15,6 +15,7 @@ async function saved(page: Page, results = true) {
 }
 
 async function importPreset(page: Page, preset: any) {
+  await openImport(page);
   await page.locator("#saved-builds-panel textarea").fill(JSON.stringify(preset));
   await page.getByRole("button", { name: "Import", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Saved", exact: true })).not.toHaveValue("");
@@ -138,4 +139,9 @@ for (const stage of ["setup", "commit", "earlier error"] as const) {
     await expect(page.getByRole("button", { name: "Migrate data", exact: true })).toBeEnabled();
     expect(await page.evaluate(id => JSON.parse(localStorage.getItem(`tarnisheds-arsenal.savedBuild.v2.${id}`)!).dataVersion, preset.id)).toBe("vanilla:4:old:old");
   });
+}
+
+async function openImport(page: Page) {
+  const details = page.locator(".saved-build-import");
+  if (await details.getAttribute("open") === null) await details.locator("summary").click();
 }

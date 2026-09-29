@@ -238,9 +238,6 @@ export function CompareView() {
 
   const matrixHorizon = compareUpgradeHorizon(request);
   const chartsLoading = series.some(lane => lane.chartStatus === "loading");
-  const dataVersion = catalog
-    ? `${catalog.dataManifest.datasetVersion} · model ${catalog.dataManifest.modelVersion}`
-    : "data unavailable";
 
   if (!selected) {
     return (
@@ -275,7 +272,7 @@ export function CompareView() {
           <h1>Compare</h1>
           <span>Selected baseline versus {compareSource}</span>
           <small>Pinned loadouts keep their weapon, affinity, and skill; stats and upgrades are reoptimized for the current budget. Non-upgradeable pins use +0.</small>
-          <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)} · {dataVersion}</small>
+          <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)}</small>
         </div>
       </div>
       <div className="analysis-state" role="status" aria-live="polite">
@@ -374,9 +371,6 @@ export function CompareView() {
           </label>
         </div>
       </div>
-      {catalog?.dataManifest.capabilities.classBudget && catalog.dataManifest.capabilities.statusBuildup
-        ? <LoadoutTradeoffs base={baseRequest} current={request} selected={selected} />
-        : <p className="analysis-state">AR / bleed tradeoffs require class budgets and status modeling.</p>}
       <DeltaTable baseline={series[0]?.row ?? selected} candidates={series.slice(1)} objective={request.objective} />
       <details className="compare-build-details" open>
         <summary>Build details</summary>
@@ -408,6 +402,9 @@ export function CompareView() {
           </div>
         </div>
       </details>
+      {catalog?.dataManifest.capabilities.classBudget && catalog.dataManifest.capabilities.statusBuildup
+        ? <LoadoutTradeoffs base={baseRequest} current={request} selected={selected} />
+        : <p className="analysis-state">AR / bleed tradeoffs require class budgets and status modeling.</p>}
     </section>
   );
 }
@@ -524,7 +521,7 @@ function Lane({
           <ScalingTokens scaling={row.effectiveScaling} extended={extendedScalingGrades} />
           <div className="lane-metrics">
             {objective !== "max_ar" ? <span>Metric <b>{metric === null ? "Unavailable" : fixed1(metric)}</b></span> : null}
-            <span>AR <b>{compactNumber(row.ar.total)}</b></span>
+            <span>AR <b>{fixed1(row.ar.total)}</b></span>
             <span>AoW <b>{hasAowDamage(row, aowSupported) ? compactNumber(row.aowFullSequenceDamage) : "Unavailable"}</b></span>
           </div>
           <StatusTokens row={row} />

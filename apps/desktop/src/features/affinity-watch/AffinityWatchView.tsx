@@ -156,12 +156,12 @@ export function AffinityWatchView() {
       <div className="workspace-header analysis-workspace-header">
         <div className="workspace-heading-copy">
           <h1>Affinity Watch</h1>
-          <span>{selected ? `${selected.weaponName} across Current +${effectiveHorizon}` : "Requires selected result"}</span>
-          {selected ? <small className="selected-summary">{selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade} · {objectiveLabel(request.objective)} · data {catalog?.dataManifest.datasetVersion ?? "unknown"}</small> : null}
+          <span>{selected ? `${selected.weaponName} over the next ${effectiveHorizon} levels` : "Requires selected result"}</span>
+          {selected ? <small className="selected-summary">{selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade} · {objectiveLabel(request.objective)}</small> : null}
         </div>
         <div className="header-controls">
           <label>
-            Current + N
+            Levels ahead
             <input type="number" min={1} max={200} value={horizon} onChange={(event) => setHorizon(clamp(Number(event.target.value), 1, 200))} />
           </label>
           <button type="button" className="analysis-action" onClick={isAffinityBusy ? stop : refresh} disabled={!selected && !isAffinityBusy}>
@@ -238,7 +238,7 @@ function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPay
   return (
     <figure className="affinity-chart" aria-label={`${objective} by character level for ${payload?.lines.length ?? 0} affinities`}>
       <figcaption>
-        <span><small>Metric by character level</small><strong>{objective} ({unit})</strong></span>
+        <span><strong>{objective.endsWith(unit) ? objective : `${objective} (${unit})`}</strong></span>
         <span>{hasLines ? `Level ${firstLevel} to ${lastLevel}` : "Awaiting analysis"}</span>
       </figcaption>
       {hasLines ? (
