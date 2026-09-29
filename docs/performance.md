@@ -100,6 +100,41 @@ coverage and evidence paths. Current calculation semantics and known limits
 live in the [model reference](model-reference.md#known-reference-differences).
 Timings made before a model correction are not same-contract comparisons.
 
+## Review follow-up measurements (2026-09-29)
+
+These check the v0.16.0 changes the prioritised review asked to measure. The
+baseline is the `v0.15.0` tag (`f1cdefd`) with the v0.16.0 catalog, loader and
+Affinity Watch byte-count benchmarks copied in unchanged; the candidate is
+`2660f35`. Both ran with `RAYON_NUM_THREADS=1`, `ER_BENCH_REPEATS=5`, Rust
+1.97.0 and release test builds, one after the other on an AMD Ryzen 7 7800X3D
+desktop with no builds running. That is not a dedicated runner, and the two
+versions load different snapshots (`v8` and `v9`), so timings are indicative;
+byte counts and compatibility-check counts are exact.
+
+| Measurement | v0.15.0 | v0.16.0 |
+| --- | --- | --- |
+| Affinity Watch payload, 10 / 50 / 200 levels | 599,192 / 2,592,239 / 10,062,342 bytes | 55,442 / 71,919 / 135,007 bytes |
+| Affinity Watch serialization, 200 levels (median) | 13.99 ms | 0.22 ms |
+| Affinity Watch calculation, 200 levels (median, range) | 2,202 ms (1,915–2,323) | 2,142 ms (1,951–2,300) |
+| Catalog compatibility checks, Vanilla / Convergence | 764,440 / 770,064 | 382,220 / 385,032 |
+| Catalog build, Vanilla (median, range) | 124.6 ms (123.4–128.6) | 99.9 ms (93.0–123.9) |
+| Catalog build, Convergence (median, range) | 246.1 ms (225.0–336.7) | 182.4 ms (144.0–228.9) |
+| Cold snapshot load, Vanilla / Convergence (median of 6) | 165.2 / 102.2 ms | 155.4 / 99.2 ms |
+
+Affinity Watch points now carry only a level and metric, which removes about 99%
+of the maximum-horizon payload without changing calculation time. The catalog
+makes one compatibility decision per weapon and Ash instead of two. Snapshot load
+differences are within the sample ranges and are not claimed as an improvement.
+Paths and upgrade-series medians stayed below 16 ms in both versions.
+
+Compare was timed in the release desktop build from clicking **Compare** to the
+first verified comparison and to all upgrade charts, with three pins (four lanes),
+one warmup and five fresh launches driven through the packaged-smoke harness. The
+first comparison appeared after a median 69 ms (62–82) and all charts after 97 ms
+(80–106). v0.15.0 showed nothing until every chart finished, so its first result
+matched the all-charts time. Charts share one native queue, so the gap should grow
+with more lanes; only the three-pin case was measured.
+
 ## Release compiler settings
 
 Both Cargo packages set `lto = "thin"` and `codegen-units = 1` for release builds.
