@@ -52,7 +52,7 @@ and holy.
 | $s_i$, $q_i$ | weapon scaling and reinforcement scaling of stat $i$ | §3 |
 | $\sigma_{i,d}$ | correction coefficient: overwrite rate, or $s_i$ times influence rate | §3 |
 | $\gamma_d$, $x_i'$ | calc-correct curve for damage type $d$; effective stat value | §3 |
-| $\kappa_{i,d}$ | fixed coefficient $\beta_dI_{i,d}\sigma_{i,d}q_i$ | §3 |
+| $\theta_{i,d}$, $\kappa_{i,d}$ | scaling coefficient $I_{i,d}\sigma_{i,d}q_i$; its damage weight $\beta_d\theta_{i,d}$ | §3 |
 | $\delta_d$, $\omega$ | configured Ash attack-power buff; world damage multiplier | §3 |
 | $\iota$, $s_i'$, $t_i$ | influence rate, scaling, and contribution under an AoW correction record | §3 |
 | $\lambda_0$, $\lambda$ | bleed constant and its ARC-only term | §4 |
@@ -162,7 +162,9 @@ helper is used by `estimate_ar`, whose float approximation exists only to schedu
 work; it never ranks or prunes a candidate.
 
 $$
-AR_d(x)=\beta_d\left(1+\sum_i I_{i,d}\,\sigma_{i,d}\,q_i\,\gamma_d(x_i')\right).
+AR_d(x)=\beta_d\left(1+\sum_i \theta_{i,d}\,\gamma_d(x_i')\right),
+\qquad
+\theta_{i,d}=I_{i,d}\,\sigma_{i,d}\,q_i.
 $$
 
 The coefficient $\sigma_{i,d}$ is the attack-element overwrite rate when present;
@@ -171,7 +173,8 @@ Ordinary records have no overwrite and an influence rate of 1. An explicit zero
 overwrite suppresses scaling, while a positive overwrite can supply scaling even
 when $s_i=0$. Only STR changes under two-handing: $x_{\mathrm{STR}}'=\tau(x_{\mathrm{STR}})$.
 
-With $\kappa_{i,d}=\beta_dI_{i,d}\sigma_{i,d}q_i$,
+The scaling coefficient $\theta_{i,d}$ is dimensionless. Weighting it by base damage,
+$\kappa_{i,d}=\beta_d\theta_{i,d}$, gives
 
 $$
 AR_d(x)=\beta_d+\sum_i\kappa_{i,d}\,\gamma_d(x_i'),
@@ -195,9 +198,9 @@ simulation of AR after executing the full route.
 
 Exact evaluation converts every loaded base, multiplier, motion value, scaling,
 overwrite, influence, buff, and curve value through `rational` (`math/exact.rs`),
-which rejects negative and non-finite values. A snapshot that violates this fails evaluation
-instead of being ranked. Every $\beta_d$, $\kappa_{i,d}$, and $\gamma_d$ is
-therefore nonnegative at runtime, which the upper bound in Section 4 and the
+which rejects negative and non-finite values. A snapshot that violates this fails
+evaluation instead of being ranked. Every $\beta_d$, $\theta_{i,d}$, $\kappa_{i,d}$,
+and $\gamma_d$ is therefore nonnegative at runtime, which the upper bound in Section 4 and the
 first-hit identity rely on.
 
 ### Non-additive corrections
@@ -254,7 +257,9 @@ damage formula
 $$H_{r,k}(x)=H^0_{r,k}+\sum_i \phi_{r,k,i}(x_i).$$
 
 Each damage component multiplies a fixed weapon-motion/fixed-attack base by
-$1+\sum_i\kappa_{i,d}\gamma_d(x_i')$. Motion values, reinforcement factors,
+$1+\sum_i\theta_{i,d}\gamma_d(x_i')$, with $\theta_{i,d}$ taken from that hit's
+correction record. Each stat term is therefore that base times
+$\theta_{i,d}\gamma_d(x_i')$. Motion values, reinforcement factors,
 override coefficients, and curve identities are fixed. Route order fixes buff
 activation; active flat weapon buffs add constants, then world scaling multiplies
 the result by a fixed positive factor. No modeled proc threshold or stat-dependent
