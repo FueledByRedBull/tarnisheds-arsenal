@@ -143,10 +143,11 @@ export function App() {
                   <span>
                     {active ? <Check size={13} aria-hidden="true" /> : null}
                     {profile.profile.displayName}
+                    {profile.profile.id === "convergence" ? <span className="sr-only"> Beta</span> : null}
                   </span>
                   <small>
                     {version}
-                    {profile.profile.id === "convergence" ? <span className="profile-beta-mark">Beta</span> : null}
+                    {profile.profile.id === "convergence" ? <span className="profile-beta-mark" aria-hidden="true">Beta</span> : null}
                   </small>
                 </button>
               );
