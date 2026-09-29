@@ -110,12 +110,12 @@ The searched region is the union
 ```math
 \mathcal X_w=
 \bigcup_{p=p_{\min}}^{p_{\max}}
-\{
+\lbrace
 x\in\mathbb Z^5:
 m_i\le x_i\le u_i,\
 \sum_{i\in A}(x_i-m_i)=p,\
 x_i=h_i(R-p)\text{ for }i\notin A
-\}.
+\rbrace.
 ```
 
 Restricting the search to $p_{\max}$ needs a separate dominance argument, including

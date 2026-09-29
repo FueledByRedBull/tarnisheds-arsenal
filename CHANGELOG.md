@@ -22,6 +22,11 @@
   values blank. Preserve saved comparison targets when reopening Compare and Paths.
 - Regenerate schema 6 snapshots with model `aow-routes-effects-v9`; compiled
   scoring identity `exact-v3` invalidates results from the previous route policy.
+- Verify saved comparison pins at the level budget their own stats require, so
+  builds pinned from a higher-level search load instead of failing.
+- Move profile selection into the command rail and show each result's loadout,
+  scaling and combat stats in Rankings. Use semantic status colours, loading
+  placeholders and reduced-motion-aware transitions.
 
 ## [v0.15.0](docs/release-notes/v0.15.0.md)
 

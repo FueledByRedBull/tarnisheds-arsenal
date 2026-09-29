@@ -92,7 +92,8 @@ Status: accepted. These rules describe contracts that tests and future refactors
   canonicalized; unknown classes are rejected rather than replaced.
 - Saved solved rows are archives. Even when their schema, dataset and model match,
   selected rows and comparison snapshots are recalculated through native fixed
-  loadout solving with their exact equipment, upgrade and stats before publication.
+  loadout solving with their exact equipment, upgrade and stats, at the level budget
+  those stats require, before publication.
   Version mismatches load inputs only. Failed or superseded verification preserves
   the original saved record and cannot publish late results.
 - Weapon metadata belongs to its exact profile/weapon/affinity key. Loading,

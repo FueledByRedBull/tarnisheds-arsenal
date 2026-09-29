@@ -20,7 +20,7 @@ comparisons and progression previews.
 
 The Rankings workspace puts each result’s combat stats and weapon scaling beside
 its score, with the selected build’s full breakdown on the right.
-Screenshots show the [current development build](CHANGELOG.md#v0150).
+Screenshots show the [current development build](CHANGELOG.md#unreleased).
 
 ![Rankings with weapon setups, combat stats, scaling, and the selected build’s damage breakdown](docs/images/tarnisheds-arsenal-rankings.png)
 
@@ -51,9 +51,10 @@ needs internet access if that runtime is missing.
 4. Pin another result for **Compare**, trace future levels in **Paths**, or
    explore affinity crossover points in **Affinity Watch**.
 
-Save builds to return to them later, or export rankings as CSV. The active-query
-strip shows the assumptions behind the results; changed inputs mark old results
-as stale. Convergence uses a different [fixed-stat workflow](#convergence-3001-beta).
+Save builds to return to them later, or export rankings as CSV. The **Active
+query** summary above the rankings shows the assumptions behind them; changed
+inputs mark old results as stale. Convergence uses a different
+[fixed-stat workflow](#convergence-3001-beta).
 
 ### Saved builds and recovery
 
@@ -110,9 +111,9 @@ Rankings before comparing again.
 <summary><strong>Paths — follow both builds level by level</strong></summary>
 
 No-respec paths optimize a terminal allocation, then add points greedily toward
-that target. The optimum envelope instead finds the best allocation at each level
-and identifies transitions that require a respec. Two lanes share one paginated
-level table. The chart uses labeled axes and sparse breakpoint markers; hover a
+that target. **Best per level** instead finds the best allocation at each level
+and marks the levels that require a respec. Two lanes share one paginated level
+table. The chart uses labeled axes and sparse breakpoint markers; hover a
 point or use the **Character level** slider to read that level's values.
 
 ![Paths showing selected and comparison builds across future levels](docs/images/tarnisheds-arsenal-paths.png)
