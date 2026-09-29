@@ -108,6 +108,24 @@ test("saved profile filters stay readable and can be removed without changing we
 test("profile switch isolates results and explains Convergence coverage", async ({ page }) => {
   await page.setViewportSize({ width: 1028, height: 749 });
   await page.goto("/");
+  await page.evaluate(async () => {
+    const { api } = await import("/src/lib/api.ts");
+    const searchStatus = api.searchStatus;
+    api.searchStatus = async (jobId) => {
+      const status = await searchStatus(jobId);
+      if (status?.finished) {
+        // A present route exercises profile capability gating independently of missing-route gating.
+        status.finished.rows = status.finished.rows.map(row => ({ ...row,
+          aowRoute: { routeId: "profile-coverage", routeLabel: "Profile coverage fixture", routePriority: 0,
+            buffActivationActionId: null, actions: [], firstHitDamage: row.aowFirstHitDamage,
+            totalDamage: { physical: row.aowFullSequenceDamage, magic: 0, fire: 0, lightning: 0, holy: 0, total: row.aowFullSequenceDamage },
+            totalPoiseDamage: 0, totalStaminaCost: 0,
+            totalStatusBuildup: { bleed: 0, frost: 0, poison: 0, scarletRot: 0, sleep: 0, madness: 0, death: 0 } },
+        }));
+      }
+      return status;
+    };
+  });
   const profiles = page.getByRole("radiogroup", { name: "Game profile" });
   await expect(profiles.getByRole("radio", { name: /Vanilla/ })).toHaveAttribute("aria-checked", "true");
   await page.getByRole("button", { name: "Search", exact: true }).click();
@@ -433,7 +451,7 @@ test("compare combines multiple types and affinities with Smithing and Somber to
   await expect(targetLane).toContainText("Keen");
 });
 
-test("comparison targets survive pin, clear, type search, and workspace navigation", async ({ page }) => {
+test("comparison pins survive custom filters and navigation until explicitly cleared", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
@@ -454,9 +472,10 @@ test("comparison targets survive pin, clear, type search, and workspace navigati
   await occult.getByRole("button", { name: /^Compare / }).click();
   await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
   await expect(page.getByText(/pinned target is already the selected baseline/i)).toBeVisible();
+  const savedPins = await page.evaluate(() => localStorage.getItem("tarnisheds-arsenal.compareBench.v1.vanilla"));
 
   await toggleMultiSelectOption(page, "Compare Type", "Great Katana");
-  await expect(page.getByRole("button", { name: "Clear 1 pinned target" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Clear 1 pinned target" })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Compare Weapon" })).toHaveValue("Best Great Katana");
   const bestType = page.locator(".compare-lane", { hasText: "Best Great Katana" });
   await expect(bestType).toContainText("Ancient Meteoric Ore Greatsword");
@@ -472,14 +491,23 @@ test("comparison targets survive pin, clear, type search, and workspace navigati
   await page.getByRole("navigation").getByRole("button", { name: "Rankings" }).click();
   await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
   await expect(bestType).toContainText("Ancient Meteoric Ore Greatsword");
+  expect(await page.evaluate(() => localStorage.getItem("tarnisheds-arsenal.compareBench.v1.vanilla"))).toBe(savedPins);
+  await page.getByRole("button", { name: "Use pinned targets", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Compare Type" })).toContainText("All");
+  await expect(page.getByText(/pinned target is already the selected baseline/i)).toBeVisible();
 
   await page.getByRole("navigation").getByRole("button", { name: "Rankings" }).click();
   await keen.getByRole("button", { name: /^Compare / }).click();
   await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
   await expect(page.getByRole("button", { name: "Compare Type" })).toContainText("All");
-  await expect(page.getByText("Selected baseline versus 1 pinned target")).toBeVisible();
-  await expect(page.locator(".compare-lane", { hasText: "Pinned #1" })).toContainText("Keen");
+  await expect(page.getByText("Selected baseline versus 2 pinned targets")).toBeVisible();
+  await expect(page.locator(".compare-lane", { hasText: "Pinned #2" })).toContainText("Keen");
   await expect(page.locator(".compare-lane", { hasText: "Selected" })).toContainText("Occult");
+  await page.getByRole("button", { name: "Clear 2 pinned targets", exact: true }).click();
+  await expect(page.getByText("Selected baseline versus current ranked rivals")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Clear \d+ pinned target/ })).toHaveCount(0);
+  await expect(page.locator(".compare-lane", { hasText: "Selected" })).toContainText("Occult");
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("tarnisheds-arsenal.compareBench.v1.vanilla")!).rows)).toEqual([]);
 });
 
 test("ranked rows select the exact build with mouse and keyboard", async ({ page }) => {

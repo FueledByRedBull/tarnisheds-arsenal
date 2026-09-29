@@ -1,6 +1,7 @@
 import packageInfo from "../../package.json";
 import { buildOptimizeRequest, rowFingerprint, STAT_KEYS } from "./session";
 import { defaultRequest, type DesktopState } from "./state";
+import { hasAowDamage } from "./format";
 
 // Reports use an allowlist, never a dump of storage, manifests, or application state.
 export function reproductionReport(state: DesktopState) {
@@ -13,6 +14,7 @@ export function reproductionReport(state: DesktopState) {
     entries: normalized.filters.entries.map(({ dimension, id, mode }) => ({ dimension, id, mode })) };
   const manifest = state.catalog?.dataManifest;
   const row = !state.resultsStale ? state.selected : null;
+  const aowAvailable = row && hasAowDamage(row, Boolean(manifest?.capabilities.aowDamage && manifest.capabilities.aowRoutes));
   const report = {
     format: "tarnisheds-arsenal-reproduction", version: 1,
     appVersion: packageInfo.version,
@@ -34,8 +36,8 @@ export function reproductionReport(state: DesktopState) {
         stats: Object.fromEntries(STAT_KEYS.map(key => [key, row.stats[key]])),
         ar: Object.fromEntries(["physical", "magic", "fire", "lightning", "holy", "total"].map(key => [key, row.ar[key as keyof typeof row.ar]])),
         bleedBuildup: row.bleedBuildup,
-        aowFirstHitDamage: manifest?.capabilities.aowDamage ? row.aowFirstHitDamage : null,
-        aowFullSequenceDamage: manifest?.capabilities.aowDamage ? row.aowFullSequenceDamage : null,
+        aowFirstHitDamage: aowAvailable ? row.aowFirstHitDamage : null,
+        aowFullSequenceDamage: aowAvailable ? row.aowFullSequenceDamage : null,
       } : null },
     error: state.error ?? state.catalogError,
   };

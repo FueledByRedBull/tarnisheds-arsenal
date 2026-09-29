@@ -1,7 +1,7 @@
 import { ArrowDownUp, ChevronLeft, ChevronRight, Download, LockKeyhole, Pin, RefreshCcw, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { downloadCsv, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
-import { compactNumber, fixed1, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
+import { compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
 import { buildOptimizeRequest, derivedLevel, rowFingerprint } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { SearchProgressDto, SolvedBuildDto } from "../../lib/types";
@@ -157,16 +157,21 @@ export function RankingsBoard() {
 
   async function runStarterExample() {
     patchRequest({
+      ...request,
       weaponTypeKey: null,
       weaponName: "Uchigatana",
       affinity: "Standard",
       aowName: null,
+      somberFilter: "all",
       filters: { version: 1, entries: [] },
       standardMaxUpgrade: 3,
       exactUpgrade: true,
       objective: "max_ar",
     });
-    await runSearchFromStore();
+    const completed = await runSearchFromStore();
+    if (completed && useDesktopStore.getState().rows.length === 0) {
+      pushNotice({ scope: "rankings", tone: "warning", message: "No legal Uchigatana +3 build fits your retained character constraints. Review your stat locks, floors, and available level budget, then search again." });
+    }
   }
 
   function scrollResults(direction: -1 | 1) {
@@ -341,6 +346,8 @@ function ResultRow({
   pinned: boolean;
   onPin: () => void;
 }) {
+  const aowAvailable = hasAowDamage(row, aowModelSupported);
+  const metric = metricForObjective(row, objective, aowModelSupported);
   return (
     <div
       className={`result-row result-row-full ${objective !== "max_ar" ? "with-score" : ""} ${active ? "active" : ""}`}
@@ -375,12 +382,12 @@ function ResultRow({
       </span>
       <span role="gridcell">+{row.upgrade}</span>
       <span role="gridcell" className="result-metric-cell ar-status-cell"><strong>{compactNumber(row.ar.total)}</strong></span>
-      <span role="gridcell" className="result-metric-cell" title={aowModelSupported ? undefined : "Raw skill damage is unavailable for this profile."}>
-        {aowModelSupported
+      <span role="gridcell" className="result-metric-cell" title={aowAvailable ? undefined : "Raw skill damage is unavailable for this loadout."}>
+        {aowAvailable
           ? <><strong>{compactNumber(row.aowFullSequenceDamage)}</strong><small>First {compactNumber(row.aowFirstHitDamage)}</small></>
           : <strong>Unavailable</strong>}
       </span>
-      {objective !== "max_ar" ? <span role="gridcell" className="objective-score">{fixed1(metricForObjective(row, objective))}</span> : null}
+      {objective !== "max_ar" ? <span role="gridcell" className="objective-score">{metric === null ? "Unavailable" : fixed1(metric)}</span> : null}
       <span role="gridcell">
         <button
           className="inline-lock"
@@ -418,7 +425,10 @@ function EmptyRows({ onExample, busy, classBudget }: { onExample: () => void; bu
       <span>Press Search to rank every legal setup under the active query.</span>
       <small>Open loadout fields keep all compatible options eligible.</small>
       {classBudget ? (
-        <button className="inline-lock" type="button" onClick={onExample} disabled={busy}>{busy ? "Searching…" : "Try Uchigatana +3 example"}</button>
+        <>
+          <small>Character stats, floors, locks, and world settings are retained by the example.</small>
+          <button className="inline-lock" type="button" onClick={onExample} disabled={busy}>{busy ? "Searching…" : "Try Uchigatana +3 example"}</button>
+        </>
       ) : <small>Convergence uses your entered combat stats exactly.</small>}
     </div>
   );

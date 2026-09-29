@@ -1,11 +1,11 @@
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { api } from "./api";
 import { defaultRequest } from "./state";
 import type { SolvedBuildDto } from "./types";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.resetAllMocks(); });
+afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.resetAllMocks(); });
 
 it("serializes solve and upgrade calculations until cancelled native work finishes", async () => {
   vi.useFakeTimers();
@@ -78,4 +78,28 @@ it("queues the frontier with other analyses and forwards the fixed context", asy
   const controller = new AbortController();
   controller.abort();
   await expect(api.arBleedFrontier(defaultRequest, solved, controller.signal)).rejects.toMatchObject({ name: "AbortError" });
+});
+
+describe("native and browser preview boundary", () => {
+  it("requires the native runtime in a production renderer", async () => {
+    vi.stubGlobal("window", {});
+    vi.stubEnv("DEV", false);
+    await expect(api.profiles()).rejects.toThrow("Tauri runtime is required");
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("loads both fixture profiles only in the development browser preview", async () => {
+    vi.stubGlobal("window", {});
+    vi.stubEnv("DEV", true);
+    expect((await api.profiles()).map(profile => profile.profile.id)).toEqual(["vanilla", "convergence"]);
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("reports a native failure without replacing it with preview results", async () => {
+    vi.stubGlobal("window", { __TAURI_INTERNALS__: {} });
+    vi.stubEnv("DEV", true);
+    vi.mocked(invoke).mockRejectedValueOnce({ message: "Snapshot rejected" });
+    await expect(api.profiles()).rejects.toThrow("Snapshot rejected");
+    expect(invoke).toHaveBeenCalledWith("get_profiles", undefined);
+  });
 });

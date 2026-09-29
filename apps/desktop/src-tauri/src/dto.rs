@@ -96,17 +96,13 @@ fn default_result_grouping() -> String {
 
 impl OptimizeRequestDto {
     pub fn standard_upgrade_cap(&self) -> u8 {
-        self.standard_max_upgrade
-            .or(self.max_upgrade)
-            .unwrap_or(25)
-            .min(25)
+        self.standard_max_upgrade.or(self.max_upgrade).unwrap_or(25)
     }
 
     pub fn somber_upgrade_cap(&self) -> u8 {
         self.somber_max_upgrade
             .or_else(|| self.max_upgrade.map(|value| value.min(10)))
             .unwrap_or(10)
-            .min(25)
     }
 
     pub fn exact_upgrade_enabled(&self) -> bool {
@@ -115,9 +111,9 @@ impl OptimizeRequestDto {
 
     pub fn set_exact_upgrade(&mut self, upgrade: u8, is_somber: bool) {
         if is_somber {
-            self.somber_max_upgrade = Some(upgrade.min(25));
+            self.somber_max_upgrade = Some(upgrade);
         } else {
-            self.standard_max_upgrade = Some(upgrade.min(25));
+            self.standard_max_upgrade = Some(upgrade);
         }
         self.exact_upgrade = Some(true);
         self.max_upgrade = None;
@@ -372,7 +368,6 @@ pub struct AffinityWatchRequestDto {
 pub struct AffinityWatchPointDto {
     pub level: u16,
     pub metric: Option<f32>,
-    pub solved: Option<SolvedBuildDto>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -650,14 +645,6 @@ pub struct WeaponTypeOptionDto {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CompatibleAowsRequestDto {
-    pub profile_id: String,
-    pub weapon_name: Option<String>,
-    pub affinity: Option<String>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct WeaponProfileRequestDto {
     pub profile_id: String,
     pub weapon_name: String,
@@ -690,13 +677,6 @@ pub struct DisplayPoiseDamageDto {
     pub charged_heavy: String,
     pub jumping_light: String,
     pub jumping_heavy: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WeaponNamesForTypeRequestDto {
-    pub profile_id: String,
-    pub weapon_type_key: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1103,7 +1083,6 @@ mod tests {
                         points: vec![AffinityWatchPointDto {
                             level: 151,
                             metric: Some(10.0),
-                            solved: Some(solved_build()),
                         }],
                         start_metric: Some(8.0),
                         end_metric: Some(10.0),
@@ -1124,6 +1103,11 @@ mod tests {
             }),
         })
         .expect("affinity status serializes");
+
+        assert_eq!(
+            affinity_value["finished"]["payload"]["lines"][0]["points"][0],
+            json!({ "level": 151, "metric": 10.0 }),
+        );
 
         assert_has_path(
             &affinity_value,

@@ -20,7 +20,10 @@ Version-specific changes and measurement results belong in the
 
 Enemy defense, negation, resistance growth, and proc explosions are outside the
 model. Temporary effects are modeled only where explicitly supported; there is no
-general buff-stacking simulation. An unavailable value is not zero damage.
+general buff-stacking simulation. An unavailable value is not zero damage:
+skill metrics require a calculated route for that specific build, even when the
+profile supports skill damage. Missing routes display as unavailable and export
+blank values; a calculated route whose damage is zero retains that zero.
 
 ### Numerical contract and identity
 
@@ -32,8 +35,8 @@ recover original decimal precision or establish in-game accuracy. The
 [mathematical contract](design/optimizer-math.md#numerical-contract) defines the
 arithmetic, tie order, and proof obligations.
 
-The current snapshot model is `aow-routes-effects-v8`; runtime results and caches
-use `aow-routes-effects-v8/exact-v2`. Storage schema and calculation semantics are
+The current snapshot model is `aow-routes-effects-v9`; runtime results and caches
+use `aow-routes-effects-v9/exact-v3`. Storage schema and calculation semantics are
 separate versions. The [extraction guide](../tools/phase1/README.md#snapshot-contract)
 owns the storage format and regeneration requirements. Incompatible saved results
 must be recalculated; reusable saved inputs are retained.
@@ -73,12 +76,18 @@ The bundled snapshot targets **Elden Ring 1.17**. Objectives are **Max AR**,
 Routes resolve weapon-motion and fixed/projectile components, per-hit scaling,
 status motion values, supported weapon-buff timing, action stamina, and attack
 attributes. Unique-weapon attacks are kept separate from transferable versions.
+A transferable skill restricted to a weapon family still owns its attacks;
+Wing Stance on Milady is not an Impaling Thrust variant. Routes with explicit
+one-handed and two-handed alternatives must match the weapon's resolved handling.
+Skills with a single forced animation keep that animation's scaling rules.
 Repeated contacts explicitly marked in the source workbook, plus Glintblade
 Phalanx's four independently hitting blades, count once per contact. First-hit
-damage stays one contact, and stamina is charged once per action. Charge variants
-and the one-to-three Thundercloud Form loops are separate routes. These sequence
-totals assume all modeled contacts land; overlapping bullet hitboxes are not
-automatically multiplied by their raw spawn count.
+damage stays one contact, and stamina is charged once per action. Charge variants,
+including Carian Grandeur's two charged levels, and the one-to-three Thundercloud
+Form loops are separate routes. Glintstone Dart's thrust can follow either charge
+state. Near and far projectile phases are alternatives, not extra contacts in one
+route. These sequence totals assume all modeled contacts land; overlapping bullet
+hitboxes are not automatically multiplied by their raw spawn count.
 Stance damage includes both `weapon base poise * poise MV / 100` and the attack's
 fixed `atkSuperArmor` term, for each contact.
 Stamina retains the source action maximum; repeated contact counts alone do not
@@ -106,10 +115,15 @@ but their overlapping status increments remain unmodeled: available sources
 conflict on engine correction and stacking. They show warnings in AR results and
 are excluded from skill-damage objectives. No combined +90 status buff is claimed.
 
-Other unsupported conditional effects are also explicit warnings. Skills with
-unsupported effects on evaluated attack rows cannot compete in skill-damage
-objectives. Choosing an exhaustive evaluator does not implement a missing effect;
+Unsupported conditional effects present in the extracted effect graph carry
+explicit warnings. Skills with unsupported effects on evaluated attack rows cannot
+compete in skill-damage objectives. Choosing an exhaustive evaluator does not implement a missing effect;
 `PerHitAttackPower` remains unsupported.
+
+The effect graph is not exhaustive: War Cry and Barbaric Roar's attack-power
+self-buffs are not currently modeled or individually flagged. Their altered
+heavy-attack routes do not establish fully buffed in-game damage; the buff amount
+and its engine application still require verification.
 
 ## Convergence
 

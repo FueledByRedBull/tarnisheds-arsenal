@@ -32,7 +32,7 @@ Ash/affinity summaries are computed in memory.
 The manifest records the snapshot model identity; the runtime adds the numerical
 contract to scoring and cache identities. Current identities and coverage are
 listed in the [model reference](../../docs/model-reference.md).
-The extractor records `phase1-python-v12-route-hit-counts` for its current output.
+The extractor records `phase1-python-v13-skill-route-identity` for its current output.
 
 Regenerate older snapshots with this extractor. Both runtime and Python validation
 reject schema 5 before attempting to use its incompatible tables. Do not merely
@@ -132,10 +132,19 @@ release validation requires the exact tracked reference match.
   four contacts are separately bound to attack `300200867` / Bullet `2300`, and
   extraction checks its source spawn count. Raw `numShoot` is not a universal
   damage multiplier: overlapping/fan-shaped hitboxes may share one hit event.
+- Numbered charge levels remain mutually exclusive routes. Glintstone Dart's
+  shared follow-up is bound to its skill/attack IDs and checked against the
+  workbook name before inclusion after either charge. Near/far projectile
+  alternatives use numeric Bullet provenance rather than the presence of
+  `Bullet` in a display name.
 - The `weapons.csv` `critical_damage_percent` field preserves the source weapon
   critical multiplier used by throw rows. Row-specific application and current
   corrections are documented in the [model reference](../../docs/model-reference.md).
-- Workbook attacks owned by a unique weapon are excluded from transferable Ash tables even when their skill names overlap. They remain available through the native-weapon extraction path.
+- The workbook's `Unique Skill Weapon` column also names restricted transferable
+  Ash hosts. Rows with a known Ash name on a changeable weapon whose native skill
+  is transferable keep that Ash's identity and use the transferable attack table.
+  Native-only versions retain their weapon-bound IDs and remain separate even
+  when their displayed skill names overlap with transferable Ashes.
 - Persistent weapon and linked on-hit effects remain separate records. Unsupported
   overlapping status increments must not be added together as an ordinary buff; current
   coverage and correction notes are documented in the [model reference](../../docs/model-reference.md).

@@ -8,6 +8,7 @@ import { fixed1, objectiveLabel, objectiveUnit } from "../../lib/format";
 import { clampHorizon, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { PathFinishedDto, PathPreviewDto, SolvedBuildDto } from "../../lib/types";
+import type { NativeJobSuccess } from "../../lib/native-jobs";
 
 export function PathsView() {
   const catalog = useDesktopStore((state) => state.catalog);
@@ -124,23 +125,15 @@ export function PathsView() {
     }
   }
 
-  function finishPathPreview(payload: PathFinishedDto, generation: number) {
+  function finishPathPreview(payload: NativeJobSuccess<PathFinishedDto>, generation: number) {
     const current = useDesktopStore.getState();
     if (
       current.resultsStale || generation !== current.pathGeneration ||
       current.activePathSignature !== signature ||
       payload.jobId !== current.activePathJobId
     ) return;
-    if (payload.error) {
-      current.setError(payload.error);
-      setRunOutcome("failed");
-    } else if (!payload.cancelled) {
-      current.setPaths(payload.paths, signature);
-      setRunOutcome(null);
-    } else {
-      current.pushNotice({ scope: "paths", tone: "warning", message: "Path preview stopped." });
-      setRunOutcome("cancelled");
-    }
+    current.setPaths(payload.paths, signature);
+    setRunOutcome(null);
     current.setPathBusy(false);
     current.setActivePathJobId(null);
     current.setPathProgress(null);

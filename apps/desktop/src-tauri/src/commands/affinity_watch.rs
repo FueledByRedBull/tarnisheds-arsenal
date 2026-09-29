@@ -227,30 +227,7 @@ fn build_affinity_watch_inner(
 
     lines.sort_by(|left, right| compare_lines(right, left));
     let breakpoints = detect_breakpoints(&lines, &levels);
-    let lines = lines
-        .into_iter()
-        .map(|line| {
-            let points: Vec<AffinityWatchPointDto> = line
-                .points
-                .into_iter()
-                .map(|point| AffinityWatchPointDto {
-                    level: point.level,
-                    metric: point.solved.as_ref().map(|solved| solved.score),
-                    solved: point.solved.map(SolvedBuildDto::from),
-                })
-                .collect();
-            let start_metric = points.iter().find_map(|point| point.metric);
-            let final_build = points.iter().rev().find_map(|point| point.solved.clone());
-            let end_metric = final_build.as_ref().map(|build| build.score);
-            AffinityWatchLineDto {
-                affinity: line.affinity,
-                points,
-                start_metric,
-                end_metric,
-                final_build,
-            }
-        })
-        .collect();
+    let lines = lines.into_iter().map(AffinityWatchLineDto::from).collect();
     Ok(AffinityWatchPayloadDto { lines, breakpoints })
 }
 
@@ -264,6 +241,33 @@ struct ExactAffinityWatchPoint {
 struct ExactAffinityWatchLine {
     affinity: String,
     points: Vec<ExactAffinityWatchPoint>,
+}
+
+impl From<ExactAffinityWatchLine> for AffinityWatchLineDto {
+    fn from(mut line: ExactAffinityWatchLine) -> Self {
+        let points: Vec<_> = line
+            .points
+            .iter()
+            .map(|point| AffinityWatchPointDto {
+                level: point.level,
+                metric: point.solved.as_ref().map(|solved| solved.score),
+            })
+            .collect();
+        let start_metric = points.first().and_then(|point| point.metric);
+        let end_metric = points.last().and_then(|point| point.metric);
+        let final_build = line
+            .points
+            .pop()
+            .and_then(|point| point.solved)
+            .map(SolvedBuildDto::from);
+        Self {
+            affinity: line.affinity,
+            points,
+            start_metric,
+            end_metric,
+            final_build,
+        }
+    }
 }
 
 fn affinity_watch_affinities_for_profile(
@@ -370,10 +374,7 @@ fn compare_lines(left: &ExactAffinityWatchLine, right: &ExactAffinityWatchLine) 
 }
 
 fn final_build(line: &ExactAffinityWatchLine) -> Option<&OptimizeResult> {
-    line.points
-        .iter()
-        .rev()
-        .find_map(|point| point.solved.as_ref())
+    line.points.last().and_then(|point| point.solved.as_ref())
 }
 
 fn compare_solved(left: &OptimizeResult, right: &OptimizeResult) -> Ordering {
@@ -386,6 +387,66 @@ fn compare_solved(left: &OptimizeResult, right: &OptimizeResult) -> Ordering {
 mod integration_tests {
     use super::*;
     use crate::commands::optimize::run_search_inner;
+
+    #[test]
+    fn sparse_endpoints_do_not_use_another_level() {
+        let state = crate::test_app_state();
+        let seed_request =
+            er_optimizer_core::OptimizeRequest::try_from(&crate::test_optimize_request()).unwrap();
+        let seed =
+            er_optimizer_core::optimize(&seed_request, &state.profile("vanilla").unwrap().data)
+                .unwrap()
+                .pop()
+                .unwrap();
+        for availability in [
+            [false, true, false],
+            [false, true, true],
+            [true, true, false],
+            [false, false, false],
+            [false, false, true],
+            [true, true, true],
+        ] {
+            let line = ExactAffinityWatchLine {
+                affinity: "Keen".into(),
+                points: availability
+                    .into_iter()
+                    .enumerate()
+                    .map(|(offset, available)| ExactAffinityWatchPoint {
+                        level: 9 + offset as u16,
+                        solved: available.then(|| seed.clone()),
+                    })
+                    .collect(),
+            };
+            assert_eq!(
+                final_build(&line).is_some(),
+                availability[2],
+                "{availability:?}"
+            );
+            let wire = AffinityWatchLineDto::from(line);
+            assert_eq!(
+                wire.start_metric,
+                availability[0].then_some(seed.score),
+                "{availability:?}"
+            );
+            assert_eq!(
+                wire.end_metric,
+                availability[2].then_some(seed.score),
+                "{availability:?}"
+            );
+            assert_eq!(
+                wire.final_build.is_some(),
+                availability[2],
+                "{availability:?}"
+            );
+            assert_eq!(
+                wire.points
+                    .iter()
+                    .map(|point| point.metric.is_some())
+                    .collect::<Vec<_>>(),
+                availability
+            );
+        }
+    }
 
     #[test]
     fn affinity_publisher_cancels_completed_payload_and_preserves_errors() {
@@ -514,6 +575,68 @@ mod integration_tests {
 
     #[test]
     #[ignore = "release-mode workflow benchmark"]
+    fn workflow_profile_affinity_materialization() {
+        let state = crate::test_app_state();
+        let profile = state.profile("vanilla").unwrap();
+        let mut seed = request(&state);
+        seed.solved.aow_name = None;
+        let mut phases = Vec::new();
+        for affinity in affinity_watch_affinities_for_profile(&seed.solved, profile) {
+            for offset in [0, 10, 50, 100, 200] {
+                let mut request = seed.base.clone();
+                request.weapon_name = Some(seed.solved.weapon_name.clone());
+                request.affinity = Some(affinity.clone());
+                request.aow_name = None;
+                request.set_exact_upgrade(seed.solved.upgrade, seed.solved.is_somber);
+                request.character_level += offset;
+                request.top_k = 1;
+                let request = er_optimizer_core::OptimizeRequest::try_from(&request).unwrap();
+                let mut expected = None;
+                for sample in 0..4 {
+                    let profiled =
+                        er_optimizer_core::optimize_profiled(&request, &profile.data).unwrap();
+                    let timing = profiled.timings;
+                    // Keep the same f32 wire encoding as the command payload.
+                    let result = serde_json::to_string(
+                        &profiled
+                            .rows
+                            .into_iter()
+                            .map(SolvedBuildDto::from)
+                            .collect::<Vec<_>>(),
+                    )
+                    .unwrap();
+                    if let Some(expected) = &expected {
+                        assert_eq!(&result, expected);
+                    } else {
+                        expected = Some(result.clone());
+                    }
+                    if sample > 0 {
+                        phases.push(serde_json::json!({
+                            "affinity":affinity, "level":request.character_level, "sample":sample,
+                            "preparation_ms":timing.preparation.as_secs_f64()*1000.0,
+                            "scoring_ms":timing.scoring.as_secs_f64()*1000.0,
+                            "materialization_ms":timing.materialization.as_secs_f64()*1000.0,
+                            "result_json":result,
+                        }));
+                    }
+                }
+            }
+        }
+        if let Ok(directory) = std::env::var("ER_BENCH_OUTPUT") {
+            std::fs::write(
+                std::path::Path::new(&directory).join("affinity-materialization.json"),
+                serde_json::to_vec(&phases).unwrap(),
+            )
+            .unwrap();
+        }
+        println!(
+            "WORKFLOW_BENCH {}",
+            serde_json::json!({"workflow":"affinity_materialization", "samples":phases.len(), "model_version": profile.data.model_version})
+        );
+    }
+
+    #[test]
+    #[ignore = "release-mode workflow benchmark"]
     fn workflow_benchmark_affinity_watch() {
         let state = crate::test_app_state();
         let profile = state
@@ -527,6 +650,9 @@ mod integration_tests {
         for horizon in [10_u16, 50, 200] {
             let mut durations = Vec::with_capacity(repeats);
             let mut affinity_count = 0;
+            let mut serialization_ms = Vec::new();
+            let mut expected = None;
+            let mut bytes = 0;
             for sample in 0..=repeats {
                 let mut benchmark_request = request(&state);
                 benchmark_request.levels_ahead = horizon;
@@ -535,10 +661,28 @@ mod integration_tests {
                 let payload =
                     build_affinity_watch_inner(benchmark_request, profile, |_| true, || true)
                         .expect("benchmark affinity watch succeeds");
+                let elapsed = started.elapsed().as_secs_f64() * 1_000.0;
                 affinity_count = payload.lines.len();
-                if sample > 0 {
-                    durations.push(started.elapsed().as_secs_f64() * 1_000.0);
+                let serialized_at = std::time::Instant::now();
+                let encoded = serde_json::to_vec(&payload).unwrap();
+                let serialization = serialized_at.elapsed().as_secs_f64() * 1000.0;
+                bytes = encoded.len();
+                if let Some(expected) = &expected {
+                    assert_eq!(&encoded, expected);
+                } else {
+                    expected = Some(encoded);
                 }
+                if sample > 0 {
+                    durations.push(elapsed);
+                    serialization_ms.push(serialization);
+                }
+            }
+            if let Ok(directory) = std::env::var("ER_BENCH_OUTPUT") {
+                std::fs::write(
+                    std::path::Path::new(&directory).join(format!("affinity-{horizon}.json")),
+                    expected.unwrap(),
+                )
+                .unwrap();
             }
             durations.sort_by(f64::total_cmp);
             println!(
@@ -548,6 +692,8 @@ mod integration_tests {
                     "model_version": state.profile("vanilla").unwrap().data.model_version,
                     "horizon": horizon,
                     "affinities": affinity_count,
+                    "serialized_bytes": bytes,
+                    "serialization_samples_ms": serialization_ms,
                     "repeats": repeats,
                     "median_ms": durations[durations.len() / 2],
                     "best_ms": durations[0],

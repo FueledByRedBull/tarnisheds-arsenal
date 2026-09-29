@@ -18,8 +18,8 @@ test("affinity chart uses one padded domain for flat-series axes and grid", asyn
           lines: [{
             affinity: "Flat",
             points: [
-              { level: 10, metric: 500, solved: null },
-              { level: 11, metric: 500, solved: null },
+              { level: 10, metric: 500 },
+              { level: 11, metric: 500 },
             ],
             startMetric: 500,
             endMetric: 500,
@@ -48,4 +48,35 @@ test("affinity chart uses one padded domain for flat-series axes and grid", asyn
     return labels.map((center, index) => Math.abs(center - grid[index]));
   });
   expect(Math.max(...axisDeltas)).toBeLessThan(1);
+});
+
+test("affinity summaries show unavailable requested endpoints and preserve chart gaps", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await page.evaluate(async () => {
+    const { api } = await import("/src/lib/api.ts");
+    api.startAffinityWatch = async () => ({ jobId: "sparse-affinity" });
+    api.affinityWatchStatus = async (jobId) => ({
+      progress: null,
+      finished: {
+        jobId, cancelled: false, error: null,
+        payload: {
+          lines: [{
+            affinity: "Sparse",
+            points: [{ level: 10, metric: null }, { level: 11, metric: 300 }, { level: 12, metric: null }],
+            startMetric: null, endMetric: null, finalBuild: null,
+          }],
+          breakpoints: [],
+        },
+      },
+    });
+  });
+  await page.getByRole("navigation").getByRole("button", { name: "Affinity Watch", exact: true }).click();
+  await page.getByRole("button", { name: "Watch affinities", exact: true }).click();
+  await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "completed");
+  await expect(page.getByRole("grid", { name: "Affinity watch rankings" }).getByRole("row").nth(1).getByRole("gridcell")).toHaveText(["1", "Sparse", "Unavailable", "Unavailable", "Unavailable"]);
+  await expect(page.locator(".affinity-legend")).toContainText("Unavailable → Unavailable");
+  await expect(page.locator(".affinity-series-point")).toHaveCount(1);
+  await expect(page.locator(".affinity-series-point title")).toHaveText("Sparse level 11: 300.0");
 });

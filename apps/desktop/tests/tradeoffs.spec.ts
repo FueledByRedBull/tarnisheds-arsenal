@@ -115,9 +115,33 @@ test("tradeoff views select exact threshold choices and persist an exact apply",
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   await page.getByText(`Saved ${presetName}.`, { exact: true }).waitFor();
   await page.reload();
+  await expect(page.getByText("Snapshot loaded", { exact: true })).toBeVisible();
+  await page.evaluate(async expected => {
+    const { api } = await import("/src/lib/api.ts");
+    const solve = api.solveBuild;
+    (window as any).reloadedTradeoffSolves = [];
+    // Loading now recomputes saved results; keep the controlled, lock-compliant
+    // native reply across reload instead of relying on the stat-agnostic preview.
+    api.solveBuild = async (base, weaponName, affinity, aowName, signal) => {
+      (window as any).reloadedTradeoffSolves.push({ base, weaponName, affinity, aowName });
+      if (weaponName === expected.weaponName && affinity === expected.affinity && aowName === expected.aowName
+        && base.lockStr === expected.stats.strStat && base.lockDex === expected.stats.dex
+        && base.lockInt === expected.stats.intStat && base.lockFai === expected.stats.fai && base.lockArc === expected.stats.arc) {
+        return expected;
+      }
+      return solve(base, weaponName, affinity, aowName, signal);
+    };
+  }, returnedResult);
   await page.getByRole("combobox", { name: "Saved", exact: true }).selectOption({ label: `${presetName} — vanilla · current data` });
   await page.getByRole("button", { name: "Load", exact: true }).click();
-  await page.getByText(`Loaded ${presetName}.`, { exact: true }).waitFor();
+  await page.getByText(`Loaded ${presetName}; saved results verified on current data.`, { exact: true }).waitFor();
+  expect(await page.evaluate(() => (window as any).reloadedTradeoffSolves)).toEqual(expect.arrayContaining([
+    expect.objectContaining({
+      weaponName: "Uchigatana", affinity: "Blood", aowName: "Seppuku",
+      base: expect.objectContaining({ exactUpgrade: true, standardMaxUpgrade: 25,
+        lockStr: 13, lockDex: 19, lockInt: 9, lockFai: 8, lockArc: 63 }),
+    }),
+  ]));
   await expect(page.locator(".result-row-full")).toHaveCount(1);
   const reloadedRow = page.locator(".result-row-full").first();
   await expect(reloadedRow.locator(".weapon-cell strong")).toHaveText("Uchigatana");

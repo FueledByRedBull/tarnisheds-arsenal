@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { AowSelect } from "../../lib/AowSelect";
-import { cachedComparisonSearch, cachedSolveBuild, cachedUpgradeSeries } from "../../lib/analysis-cache";
-import { compactNumber, fixed1, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
+import { cachedComparisonSearch, cachedSolveBuild, cachedUpgradeSeries, cachedWeaponProfile } from "../../lib/analysis-cache";
+import { compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
 import { CheckboxMultiSelect, SearchableSelect, openOption } from "../../lib/SearchableSelect";
 import { compareUpgradeHorizon, replaceFilterEntries, rowFingerprint, stableSignature, upgradeCapForRow } from "../../lib/session";
 import { LatestRequest } from "../../lib/request-generation";
 import { useRequestBudget } from "../../lib/hooks";
 import { useDesktopStore } from "../../lib/state";
-import { ScalingDto, SolvedBuildDto, UpgradePointDto } from "../../lib/types";
+import { SolvedBuildDto, UpgradePointDto } from "../../lib/types";
 import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 import { LoadoutTradeoffs } from "./LoadoutTradeoffs";
 import { explainBuildComparison } from "../../lib/build-explanation";
@@ -16,11 +16,12 @@ type CompareLane = {
   label: string;
   row: SolvedBuildDto | null;
   points: UpgradePointDto[];
-  scaling: ScalingDto | null;
+  chartStatus: "idle" | "loading" | "ready" | "error";
+  chartError?: string;
   emptyLabel?: string;
 };
 
-type CompareMetric = readonly [string, (row: SolvedBuildDto) => number | null];
+type CompareMetric = readonly [string, (row: SolvedBuildDto) => number | null, (1 | -1)?];
 
 export function CompareView() {
   const catalog = useDesktopStore((state) => state.catalog);
@@ -28,6 +29,7 @@ export function CompareView() {
   const rows = useDesktopStore((state) => state.rows);
   const resultsStale = useDesktopStore((state) => state.resultsStale);
   const target = useDesktopStore((state) => state.compareTarget);
+  const restoredTarget = useDesktopStore((state) => state.restoredCompareTarget);
   const compareBench = useDesktopStore((state) => state.compareBench);
   const clearCompareBench = useDesktopStore((state) => state.clearCompareBench);
   const setCompareTarget = useDesktopStore((state) => state.setCompareTarget);
@@ -83,8 +85,8 @@ export function CompareView() {
   const compareSource = customCompare
     ? [compareTargetLabel, selectedAffinityLabels.join(" + "), reinforcementLabel].filter(Boolean).join(" · ")
     : compareBench.length
-      ? `${compareBench.length} pinned target${compareBench.length === 1 ? "" : "s"}`
-      : "current ranked rivals";
+      ? `${restoredTarget ? "saved target and " : ""}${compareBench.length} pinned target${compareBench.length === 1 ? "" : "s"}`
+      : restoredTarget ? "saved target" : "current ranked rivals";
   const pinnedMatchesSelected = Boolean(selected)
     && compareBench.length > 0
     && compareBench.every((row) => rowFingerprint(row) === rowFingerprint(selected));
@@ -104,6 +106,7 @@ export function CompareView() {
       rows,
       selected,
       compareBench,
+      restoredTarget,
     }));
     async function resolveRows() {
       if (resultsStale) {
@@ -124,8 +127,10 @@ export function CompareView() {
         setSeriesStatus("idle");
         return;
       }
+      const restored = !customCompare && restoredTarget && rowFingerprint(restoredTarget) !== rowFingerprint(selected)
+        ? restoredTarget : null;
       setSeries([]);
-      setCompareTarget(null);
+      setCompareTarget(restored);
       setSeriesStatus("loading");
       setSeriesError(null);
       const resolvedSelected = selected;
@@ -171,47 +176,49 @@ export function CompareView() {
         const rivalInputs = sources
           .map((row, index) => ({ row, index }))
           .filter(({ row }) => rowFingerprint(row) !== rowFingerprint(selected))
+          .filter(({ row }) => !restored || rowFingerprint(row) !== rowFingerprint(restored))
           .slice(0, compareBench.length || 3);
-        const rivals = await Promise.all(rivalInputs.map(async ({ row, index }) => ({
-          label: `${compareBench.length ? "Pinned" : "Top"} #${index + 1}`,
-          row: compareBench.length
-            ? await cachedSolveBuild(
-              { ...baseRequest, lockStr: null, lockDex: null, lockInt: null, lockFai: null, lockArc: null },
-              row.weaponName,
-              row.affinity,
-              row.aowName,
-              controller.signal,
-            )
-            : row,
-        })));
+        const rivals = await Promise.all(rivalInputs.map(async ({ row, index }) => {
+          const label = `${compareBench.length ? "Pinned" : "Top"} #${index + 1}`;
+          if (!compareBench.length) return { label, row };
+          const profile = baseRequest.exactUpgrade
+            ? await cachedWeaponProfile(baseRequest.profileId, row.weaponName, row.affinity, controller.signal)
+            : null;
+          const fixedAtZero = profile?.maxUpgrade === 0;
+          const solveRequest = { ...baseRequest, lockStr: null, lockDex: null, lockInt: null, lockFai: null, lockArc: null };
+          if (fixedAtZero) {
+            if (profile.isSomber) solveRequest.somberMaxUpgrade = 0;
+            else solveRequest.standardMaxUpgrade = 0;
+          }
+          return {
+            label: fixedAtZero ? `${label} (+0 only)` : label,
+            row: await cachedSolveBuild(solveRequest, row.weaponName, row.affinity, row.aowName, controller.signal),
+          };
+        }));
+        if (restored) lanes.push({ label: "Saved target", row: restored });
         lanes.push(...rivals);
-        summaryTarget = rivals[0]?.row ?? null;
+        summaryTarget = restored ?? rivals.find(({ row }) => row !== null)?.row ?? null;
       }
 
-      const nextSeries = await Promise.all(
-        lanes.map(async (lane) => {
-          if (!lane.row) {
-            return { ...lane, points: [], scaling: null };
-          }
-          const row = lane.row;
-          const points = await cachedUpgradeSeries(
-            baseRequest,
-            row,
-            upgradeCapForRow(row, request),
-            controller.signal,
-          ).catch((error) => {
-            throw new Error(
-              `${lane.label} upgrade series at level ${baseRequest.characterLevel} (${statLine(row)}): ${error instanceof Error ? error.message : String(error)}`,
-            );
-          });
-          return { ...lane, points, scaling: row.effectiveScaling ?? null };
-        }),
-      );
-      if (seriesRequest.current.isCurrent(token)) {
-        setCompareTarget(summaryTarget);
-        setSeries(nextSeries);
-        setSeriesStatus("ready");
-      }
+      if (!currentRequest.isCurrent(token)) return;
+      setCompareTarget(summaryTarget);
+      setSeries(lanes.map(lane => ({ ...lane, points: [], chartStatus: lane.row ? "loading" : "idle" })));
+      setSeriesStatus("ready");
+      // Verified rows are usable independently of the optional, queued charts.
+      await Promise.all(lanes.map(async (lane, index) => {
+        if (!lane.row) return;
+        const row = lane.row;
+        try {
+          const points = await cachedUpgradeSeries(baseRequest, row, upgradeCapForRow(row, request), controller.signal);
+          if (!currentRequest.isCurrent(token)) return;
+          setSeries(current => current.map((entry, i) => i === index ? { ...entry, points, chartStatus: "ready" } : entry));
+        } catch (error) {
+          if (!currentRequest.isCurrent(token)) return;
+          const message = error instanceof Error ? error.message : String(error);
+          setSeries(current => current.map((entry, i) => i === index ? { ...entry, chartStatus: "error", chartError: message } : entry));
+          setError(`${lane.label} upgrade series at level ${baseRequest.characterLevel} (${statLine(row)}): ${message}`);
+        }
+      }));
     }
     resolveRows().catch((error) => {
       controller.abort();
@@ -227,9 +234,10 @@ export function CompareView() {
       controller.abort();
       currentRequest.invalidate(token);
     };
-  }, [baseRequest, compareBench, compareControls, compareTargetLabel, customCompare, isExporting, request, resultsStale, rows, selected, setCompareTarget, setError]);
+  }, [baseRequest, compareBench, compareControls, compareTargetLabel, customCompare, isExporting, request, restoredTarget, resultsStale, rows, selected, setCompareTarget, setError]);
 
   const matrixHorizon = compareUpgradeHorizon(request);
+  const chartsLoading = series.some(lane => lane.chartStatus === "loading");
   const dataVersion = catalog
     ? `${catalog.dataManifest.datasetVersion} · model ${catalog.dataManifest.modelVersion}`
     : "data unavailable";
@@ -266,16 +274,20 @@ export function CompareView() {
         <div className="workspace-heading-copy">
           <h1>Compare</h1>
           <span>Selected baseline versus {compareSource}</span>
-          <small>Pinned loadouts keep their weapon, affinity, and skill; stats and upgrades are reoptimized for the current budget.</small>
+          <small>Pinned loadouts keep their weapon, affinity, and skill; stats and upgrades are reoptimized for the current budget. Non-upgradeable pins use +0.</small>
           <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)} · {dataVersion}</small>
         </div>
       </div>
       <div className="analysis-state" role="status" aria-live="polite">
-        {seriesStatus === "loading" ? "Resolving builds, upgrade series, and scaling…" : null}
+        {seriesStatus === "loading" ? "Resolving comparison builds…" : null}
         {seriesStatus === "error" ? `Compare failed: ${seriesError}` : null}
-        {seriesStatus === "ready" ? "Comparison current" : null}
+        {seriesStatus === "ready" ? chartsLoading ? "Comparison current · Upgrade charts loading…" : "Comparison current" : null}
       </div>
       <div className="compare-toolbar">
+        {customCompare ? <button type="button" className="clear-locks" onClick={() => patchCompareControls({
+          weaponName: null, aowName: null, matchSelectedAow: true, includeSmithing: true, includeSomber: true,
+          filters: { version: 1, entries: [] },
+        })}>{compareBench.length ? "Use pinned targets" : "Use ranked rivals"}</button> : null}
         {compareBench.length ? (
           <div className="compare-pins">
             <button type="button" className="clear-locks" onClick={clearCompareBench}>Clear {compareBench.length} pinned target{compareBench.length === 1 ? "" : "s"}</button>
@@ -333,7 +345,6 @@ export function CompareView() {
           affinity={aowAffinity}
           catalogNames={catalog?.aowNames}
           allowMatchSelected
-          setError={setError}
           value={compareControls.matchSelectedAow ? "__match_selected__" : compareControls.aowName}
           onChange={(value) =>
             patchCompareControls(
@@ -370,10 +381,10 @@ export function CompareView() {
       <details className="compare-build-details" open>
         <summary>Build details</summary>
         <div className="compare-lanes" aria-busy={seriesStatus === "loading"}>
-          <Lane title="Selected baseline" row={series[0]?.row ?? selected} objective={request.objective} scaling={series[0]?.scaling ?? null} extendedScalingGrades={extendedScalingGrades} emptyLabel="Selected build unavailable" />
+          <Lane title="Selected baseline" row={series[0]?.row ?? selected} objective={request.objective} extendedScalingGrades={extendedScalingGrades} emptyLabel="Selected build unavailable" />
           {series.length > 1 ? series.slice(1).map((lane) => (
-            <Lane key={lane.label} title={lane.label} row={lane.row} objective={request.objective} scaling={lane.scaling} extendedScalingGrades={extendedScalingGrades} emptyLabel={lane.emptyLabel ?? "No compatible target"} />
-          )) : <Lane title="Target" row={target} objective={request.objective} scaling={null} extendedScalingGrades={extendedScalingGrades} emptyLabel={seriesStatus === "loading" ? "Loading target…" : emptyTargetLabel} />}
+            <Lane key={lane.label} title={lane.label} row={lane.row} objective={request.objective} extendedScalingGrades={extendedScalingGrades} emptyLabel={lane.emptyLabel ?? "No compatible target"} />
+          )) : <Lane title="Target" row={target} objective={request.objective} extendedScalingGrades={extendedScalingGrades} emptyLabel={seriesStatus === "loading" ? "Loading target…" : emptyTargetLabel} />}
         </div>
       </details>
       <details className="compare-upgrade-details" open>
@@ -385,7 +396,7 @@ export function CompareView() {
             <button type="button" onClick={() => scrollMatrix(matrixRef.current, 1)}>+{matrixHorizon}</button>
           </div>
         </div>
-        <div className="matrix-wrap" ref={matrixRef} aria-busy={seriesStatus === "loading"}>
+        <div className="matrix-wrap" ref={matrixRef} aria-busy={chartsLoading}>
           <div className="metric-matrix" role="grid" aria-label="Compare upgrade metrics">
             <div className="matrix-row matrix-header" role="row">
               <span role="columnheader">Line</span>
@@ -405,7 +416,7 @@ function DeltaTable({ baseline, candidates, objective }: { baseline: SolvedBuild
   const aowSupported = useDesktopStore((state) => Boolean(state.catalog?.dataManifest.capabilities.aowDamage && state.catalog?.dataManifest.capabilities.aowRoutes));
   const objectiveMetric: CompareMetric[] = objective === "max_ar"
     ? []
-    : [["Objective", (row: SolvedBuildDto) => metricForObjective(row, objective)]];
+    : [["Objective", (row: SolvedBuildDto) => metricForObjective(row, objective, aowSupported)]];
   const metrics: CompareMetric[] = [
     ...objectiveMetric,
     ["AR", (row: SolvedBuildDto) => row.ar.total],
@@ -415,9 +426,9 @@ function DeltaTable({ baseline, candidates, objective }: { baseline: SolvedBuild
     ["Lightning", (row: SolvedBuildDto) => row.ar.lightning],
     ["Holy", (row: SolvedBuildDto) => row.ar.holy],
     ["Bleed", (row: SolvedBuildDto) => row.bleedBuildup],
-    ["AoW first", (row: SolvedBuildDto) => aowSupported ? row.aowFirstHitDamage : null],
-    ["AoW full", (row: SolvedBuildDto) => aowSupported ? row.aowFullSequenceDamage : null],
-    ["Stamina", (row: SolvedBuildDto) => row.aowRoute?.totalStaminaCost ?? null],
+    ["AoW first", (row: SolvedBuildDto) => hasAowDamage(row, aowSupported) ? row.aowFirstHitDamage : null],
+    ["AoW full", (row: SolvedBuildDto) => hasAowDamage(row, aowSupported) ? row.aowFullSequenceDamage : null],
+    ["Stamina", (row: SolvedBuildDto) => hasAowDamage(row, aowSupported) ? row.aowRoute?.totalStaminaCost ?? null : null, -1],
   ];
   const primaryMetrics = metrics.filter(([label]) =>
     label === "Objective"
@@ -425,6 +436,7 @@ function DeltaTable({ baseline, candidates, objective }: { baseline: SolvedBuild
     || label === "Bleed"
     || label === "AoW full",
   );
+  const baselineMetric = metricForObjective(baseline, objective, aowSupported);
   const renderTable = (tableMetrics: CompareMetric[], caption: string) => (
     <table>
       <caption>{caption}</caption>
@@ -432,12 +444,13 @@ function DeltaTable({ baseline, candidates, objective }: { baseline: SolvedBuild
       <tbody>{candidates.map((lane) => lane.row ? (
         <tr key={lane.label}>
           <th scope="row">{lane.row.weaponName}<small>{lane.row.affinity}</small></th>
-          {tableMetrics.map(([label, value]) => {
+          {tableMetrics.map(([label, value, direction = 1]) => {
             const candidateValue = value(lane.row!);
             const baselineValue = value(baseline);
             if (candidateValue === null || baselineValue === null) return <td key={label}>Unavailable</td>;
             const delta = candidateValue - baselineValue;
-            return <td className={delta > 0 ? "positive" : delta < 0 ? "negative" : ""} key={label}>{delta > 0 ? "+" : ""}{fixed1(delta)}</td>;
+            const improvement = delta * direction;
+            return <td className={improvement > 0 ? "positive" : improvement < 0 ? "negative" : ""} key={label}>{delta > 0 ? "+" : ""}{fixed1(delta)}</td>;
           })}
         </tr>
       ) : null)}</tbody>
@@ -445,7 +458,7 @@ function DeltaTable({ baseline, candidates, objective }: { baseline: SolvedBuild
   );
   return (
     <div className="compare-deltas">
-      <p><strong>Baseline</strong> {baseline.weaponName} / {baseline.affinity} / +{baseline.upgrade} · {objectiveLabel(objective)} {fixed1(metricForObjective(baseline, objective))}</p>
+      <p><strong>Baseline</strong> {baseline.weaponName} / {baseline.affinity} / +{baseline.upgrade} · {objectiveLabel(objective)} {baselineMetric === null ? "Unavailable" : fixed1(baselineMetric)}</p>
       {!candidates.length ? <small>No comparison target is currently available.</small> : null}
       {candidates.length ? renderTable(primaryMetrics, "Primary deltas versus baseline") : null}
       {candidates.length ? (
@@ -454,7 +467,7 @@ function DeltaTable({ baseline, candidates, objective }: { baseline: SolvedBuild
           {renderTable(metrics, "All candidate deltas versus baseline")}
         </details>
       ) : null}
-      {candidates.map((lane) => lane.row ? <small key={`${lane.label}-explanation`}>{explainBuildComparison(baseline, lane.row, { objective })}</small> : null)}
+      {candidates.map((lane) => lane.row ? <small key={`${lane.label}-explanation`}>{explainBuildComparison(baseline, lane.row, { objective }, aowSupported)}</small> : null)}
     </div>
   );
 }
@@ -468,8 +481,11 @@ function MatrixRow({
 }) {
   const byUpgrade = new Map(lane.points.map((point) => [point.upgrade, point.metric]));
   return (
-    <div className="matrix-row" role="row">
-      <strong role="rowheader">{lane.label}</strong>
+    <div className="matrix-row" role="row" aria-busy={lane.chartStatus === "loading"}>
+      <strong role="rowheader">{lane.label}
+        {lane.chartStatus === "loading" ? <small>Upgrade chart loading…</small> : null}
+        {lane.chartStatus === "error" ? <small role="status">Upgrade chart unavailable: {lane.chartError}</small> : null}
+      </strong>
       {Array.from({ length: maxUpgrade + 1 }, (_, upgrade) => (
         <span
           role="gridcell"
@@ -487,18 +503,17 @@ function Lane({
   title,
   row,
   objective,
-  scaling,
   extendedScalingGrades,
   emptyLabel,
 }: {
   title: string;
   row: SolvedBuildDto | null;
   objective: ReturnType<typeof useDesktopStore.getState>["request"]["objective"];
-  scaling: ScalingDto | null;
   extendedScalingGrades: boolean;
   emptyLabel: string;
 }) {
   const aowSupported = useDesktopStore((state) => Boolean(state.catalog?.dataManifest.capabilities.aowDamage && state.catalog?.dataManifest.capabilities.aowRoutes));
+  const metric = row ? metricForObjective(row, objective, aowSupported) : null;
   return (
     <div className="compare-lane" role="group" aria-label={title}>
       <span>{title}</span>
@@ -506,14 +521,14 @@ function Lane({
         <>
           <strong>{row.weaponName}</strong>
           <small>{row.affinity} / {row.aowName ?? "Unspecified skill"} / +{row.upgrade}</small>
-          <ScalingTokens scaling={scaling} extended={extendedScalingGrades} />
+          <ScalingTokens scaling={row.effectiveScaling} extended={extendedScalingGrades} />
           <div className="lane-metrics">
-            {objective !== "max_ar" ? <span>Metric <b>{fixed1(metricForObjective(row, objective))}</b></span> : null}
+            {objective !== "max_ar" ? <span>Metric <b>{metric === null ? "Unavailable" : fixed1(metric)}</b></span> : null}
             <span>AR <b>{compactNumber(row.ar.total)}</b></span>
-            <span>AoW <b>{aowSupported ? compactNumber(row.aowFullSequenceDamage) : "Unavailable"}</b></span>
+            <span>AoW <b>{hasAowDamage(row, aowSupported) ? compactNumber(row.aowFullSequenceDamage) : "Unavailable"}</b></span>
           </div>
           <StatusTokens row={row} />
-          {row.aowRoute ? (
+          {hasAowDamage(row, aowSupported) && row.aowRoute ? (
             <small>{row.aowRoute.routeLabel} / {fixed1(row.aowRoute.totalStaminaCost)} stamina / {row.aowRoute.actions.length} actions</small>
           ) : null}
           <small>{statLine(row)}</small>

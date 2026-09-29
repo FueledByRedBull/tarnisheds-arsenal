@@ -9,9 +9,8 @@ use tauri::State;
 use crate::AppState;
 use crate::dto::{
     CatalogDto, ClassMetadataDto, CombatStateDto, CompatibleAowsForAffinityRequestDto,
-    CompatibleAowsRequestDto, DisplayPoiseDamageDto, EightStatsDto, FilterDimensionDto,
-    FilterOptionDto, WeaponNamesForTypeRequestDto, WeaponProfileDto, WeaponProfileRequestDto,
-    WeaponTypeOptionDto,
+    DisplayPoiseDamageDto, EightStatsDto, FilterDimensionDto, FilterOptionDto, WeaponProfileDto,
+    WeaponProfileRequestDto, WeaponTypeOptionDto,
 };
 use crate::errors::AppError;
 
@@ -22,7 +21,6 @@ pub struct CatalogIndex {
     affinity_names: Vec<String>,
     weapon_type_keys: Vec<String>,
     weapon_type_options: Vec<WeaponTypeOptionDto>,
-    weapon_names_by_type: HashMap<String, Vec<String>>,
     affinities_by_weapon: HashMap<String, Vec<String>>,
     compatible_aows_by_weapon: HashMap<String, Vec<String>>,
     compatible_aows_by_affinity: HashMap<String, Vec<String>>,
@@ -45,7 +43,6 @@ impl CatalogIndex {
         let mut affinity_names = BTreeSet::new();
         let mut weapon_type_keys = BTreeSet::new();
         let mut weapon_type_options = BTreeSet::<(String, String)>::new();
-        let mut weapon_names_by_type = HashMap::<String, BTreeSet<String>>::new();
         let mut affinities_by_weapon = HashMap::<String, BTreeSet<String>>::new();
         let mut compatible_aows_by_weapon = HashMap::<String, BTreeSet<String>>::new();
         let mut compatible_aows_by_affinity = HashMap::<String, BTreeSet<String>>::new();
@@ -64,6 +61,13 @@ impl CatalogIndex {
         let mut weapon_type_facets = BTreeMap::<String, (String, usize)>::new();
         let mut affinity_facets = BTreeMap::<String, (String, usize)>::new();
         let mut reinforcement_facets = BTreeMap::<String, (String, usize)>::new();
+        let mut aow_facets = BTreeMap::<String, (String, usize)>::new();
+        let mut aow_counts = vec![0; data.aows.len()];
+        let aow_ids = data
+            .aows
+            .iter()
+            .map(|aow| aow.aow_id)
+            .collect::<BTreeSet<_>>();
 
         for aow in &data.aows {
             aow_names.insert(aow.name.clone());
@@ -130,25 +134,6 @@ impl CatalogIndex {
                     .unwrap_or(label.as_str())
                     .to_string();
                 weapon_type_options.insert((label.clone(), key.clone()));
-                weapon_names_by_type
-                    .entry(index_key(&label))
-                    .or_default()
-                    .insert(weapon.name.clone());
-                weapon_names_by_type
-                    .entry(index_key(&key))
-                    .or_default()
-                    .insert(weapon.name.clone());
-            }
-            for key in weapon
-                .weapon_type_keys
-                .split('|')
-                .map(str::trim)
-                .filter(|key| !key.is_empty())
-            {
-                weapon_names_by_type
-                    .entry(index_key(key))
-                    .or_default()
-                    .insert(weapon.name.clone());
             }
 
             let cap = if weapon.is_somber {
@@ -192,6 +177,7 @@ impl CatalogIndex {
                 .and_modify(|current| *current |= weapon.forces_two_handing())
                 .or_insert_with(|| weapon.forces_two_handing());
 
+            let native_compatible = data.native_skill_compatible_with_weapon(weapon);
             if let Some(skill_name) = native_skill_name_for_weapon(data, weapon) {
                 aow_names.insert(skill_name.to_string());
                 insert_compatible_name(
@@ -203,9 +189,25 @@ impl CatalogIndex {
                     &affinity_key,
                     skill_name,
                 );
+                if let Some(skill_id) = weapon.native_skill_id
+                    && !aow_ids.contains(&skill_id)
+                {
+                    increment_facet(
+                        &mut aow_facets,
+                        format!("aow:{skill_id}"),
+                        skill_name.to_string(),
+                    );
+                }
             }
-            for aow in &data.aows {
-                if data.aow_compatible_with_weapon(aow, weapon) {
+            for (aow_index, aow) in data.aows.iter().enumerate() {
+                #[cfg(test)]
+                compatibility_tests::COMPATIBILITY_CALLS
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                let compatible = data.aow_compatible_with_weapon(aow, weapon);
+                if compatible || (native_compatible && weapon.native_skill_id == Some(aow.aow_id)) {
+                    aow_counts[aow_index] += 1;
+                }
+                if compatible {
                     insert_compatible_name(
                         &mut compatible_aows_by_weapon,
                         &mut compatible_aows_by_affinity,
@@ -219,41 +221,15 @@ impl CatalogIndex {
             }
         }
 
-        let weapon_count = weapon_names.len();
-        let mut aow_facets = BTreeMap::<String, (String, usize)>::new();
-        aow_facets.insert(
-            "aow:none".to_string(),
-            ("No applied Ash".to_string(), weapon_count),
-        );
-        for aow in &data.aows {
-            let count = data
-                .weapons
-                .iter()
-                .filter(|weapon| data.weapon_ar_supported(weapon))
-                .filter(|weapon| {
-                    data.aow_compatible_with_weapon(aow, weapon)
-                        || (weapon.native_skill_id == Some(aow.aow_id)
-                            && data.native_skill_compatible_with_weapon(weapon))
-                })
-                .count();
+        for (aow, count) in data.aows.iter().zip(aow_counts) {
             if count > 0 {
                 aow_facets.insert(format!("aow:{}", aow.aow_id), (aow.name.clone(), count));
             }
         }
-        for weapon in &data.weapons {
-            if !data.weapon_ar_supported(weapon) {
-                continue;
-            }
-            if let Some(skill_name) = native_skill_name_for_weapon(data, weapon)
-                && let Some(skill_id) = weapon.native_skill_id
-                && !data.aows.iter().any(|aow| aow.aow_id == skill_id)
-            {
-                aow_facets
-                    .entry(format!("aow:{skill_id}"))
-                    .or_insert_with(|| (skill_name.to_string(), 0))
-                    .1 += 1;
-            }
-        }
+        aow_facets.insert(
+            "aow:none".to_string(),
+            ("No applied Ash".to_string(), weapon_names.len()),
+        );
         let filter_dimensions = vec![
             facet_dimension("weapon_family", "Weapon family", weapon_family_facets),
             facet_dimension("weapon_type", "Weapon type", weapon_type_facets),
@@ -271,7 +247,6 @@ impl CatalogIndex {
                 .into_iter()
                 .map(|(label, key)| WeaponTypeOptionDto { key, label })
                 .collect(),
-            weapon_names_by_type: finalize_set_map(weapon_names_by_type),
             affinities_by_weapon: finalize_set_map(affinities_by_weapon),
             compatible_aows_by_weapon: finalize_set_map(compatible_aows_by_weapon),
             compatible_aows_by_affinity: finalize_set_map(compatible_aows_by_affinity),
@@ -386,18 +361,6 @@ pub fn get_data_manifest(
 }
 
 #[tauri::command]
-pub fn weapon_names_for_type(
-    request: WeaponNamesForTypeRequestDto,
-    state: State<'_, AppState>,
-) -> Result<Vec<String>, AppError> {
-    let profile = state.profile(&request.profile_id)?;
-    Ok(weapon_names_for_type_inner(
-        &profile.catalog_index,
-        request.weapon_type_key.as_deref(),
-    ))
-}
-
-#[tauri::command]
 pub fn compatible_aow_names_for_affinity(
     request: CompatibleAowsForAffinityRequestDto,
     state: State<'_, AppState>,
@@ -420,19 +383,6 @@ pub fn affinities_for_weapon(
     Ok(affinities_for_weapon_inner(
         &profile.catalog_index,
         &weapon_name,
-    ))
-}
-
-#[tauri::command]
-pub fn compatible_aow_names(
-    request: CompatibleAowsRequestDto,
-    state: State<'_, AppState>,
-) -> Result<Vec<String>, AppError> {
-    let profile = state.profile(&request.profile_id)?;
-    Ok(compatible_aow_names_inner(
-        &profile.catalog_index,
-        request.weapon_name.as_deref(),
-        request.affinity.as_deref(),
     ))
 }
 
@@ -541,20 +491,6 @@ pub fn class_metadata(include_tarnished_pack: bool, class_budget: bool) -> Vec<C
             },
         })
         .collect()
-}
-
-pub fn weapon_names_for_type_inner(
-    index: &CatalogIndex,
-    weapon_type_key: Option<&str>,
-) -> Vec<String> {
-    let Some(type_key) = weapon_type_key else {
-        return index.weapon_names.clone();
-    };
-    index
-        .weapon_names_by_type
-        .get(&index_key(type_key))
-        .cloned()
-        .unwrap_or_default()
 }
 
 pub fn affinities_for_weapon_inner(index: &CatalogIndex, weapon_name: &str) -> Vec<String> {
@@ -716,6 +652,133 @@ fn finalize_pair_set_map(
 #[cfg(test)]
 mod compatibility_tests {
     use super::*;
+
+    #[test]
+    fn catalog_facets_count_supported_rows_without_double_counting_native_skills() {
+        for profile in ["vanilla", "convergence"] {
+            let data = er_optimizer_core::load_embedded_game_profile(profile).unwrap();
+            let index = CatalogIndex::build(&data);
+            let supported: Vec<_> = data
+                .weapons
+                .iter()
+                .filter(|weapon| data.weapon_ar_supported(weapon))
+                .collect();
+            let mut expected = BTreeMap::new();
+            expected.insert(
+                "aow:none".to_string(),
+                ("No applied Ash".to_string(), index.weapon_names.len()),
+            );
+            let mut native_and_applied = 0;
+            for aow in &data.aows {
+                let count = supported
+                    .iter()
+                    .filter(|weapon| {
+                        let applied = data.aow_compatible_with_weapon(aow, weapon);
+                        let native = weapon.native_skill_id == Some(aow.aow_id)
+                            && data.native_skill_compatible_with_weapon(weapon);
+                        native_and_applied += usize::from(applied && native);
+                        applied || native
+                    })
+                    .count();
+                if count > 0 {
+                    expected.insert(format!("aow:{}", aow.aow_id), (aow.name.clone(), count));
+                }
+            }
+            for weapon in &supported {
+                if let Some(name) = native_skill_name_for_weapon(&data, weapon)
+                    && let Some(id) = weapon.native_skill_id
+                    && !data.aows.iter().any(|aow| aow.aow_id == id)
+                {
+                    increment_facet(&mut expected, format!("aow:{id}"), name.to_string());
+                }
+            }
+            assert!(
+                native_and_applied > 0,
+                "fixture must exercise native/applied overlap"
+            );
+            assert_eq!(
+                serde_json::to_value(
+                    index
+                        .filter_dimensions
+                        .iter()
+                        .find(|dimension| dimension.id == "aow")
+                        .unwrap()
+                )
+                .unwrap(),
+                serde_json::to_value(facet_dimension("aow", "Ash of War", expected)).unwrap(),
+                "{profile}",
+            );
+        }
+    }
+
+    pub(super) static COMPATIBILITY_CALLS: std::sync::atomic::AtomicUsize =
+        std::sync::atomic::AtomicUsize::new(0);
+
+    fn catalog_snapshot(index: &CatalogIndex) -> serde_json::Value {
+        fn pairs<V: serde::Serialize>(values: &HashMap<(String, String), V>) -> serde_json::Value {
+            let mut entries = values.iter().collect::<Vec<_>>();
+            entries.sort_by(|left, right| left.0.cmp(right.0));
+            serde_json::to_value(entries).unwrap()
+        }
+        serde_json::json!({
+            "weapon_names": index.weapon_names,
+            "aow_names": index.aow_names,
+            "affinity_names": index.affinity_names,
+            "weapon_type_keys": index.weapon_type_keys,
+            "weapon_type_options": index.weapon_type_options,
+            "affinities_by_weapon": index.affinities_by_weapon,
+            "compatible_aows_by_weapon": index.compatible_aows_by_weapon,
+            "compatible_aows_by_affinity": index.compatible_aows_by_affinity,
+            "compatible_aows_by_weapon_affinity": pairs(&index.compatible_aows_by_weapon_affinity),
+            "compatible_aows_all": index.compatible_aows_all,
+            "upgrade_cap_by_weapon": index.upgrade_cap_by_weapon,
+            "upgrade_cap_by_weapon_affinity": pairs(&index.upgrade_cap_by_weapon_affinity),
+            "requirements_by_weapon": index.requirements_by_weapon,
+            "requirements_by_weapon_affinity": pairs(&index.requirements_by_weapon_affinity),
+            "disables_two_hand_bonus_by_weapon": index.disables_two_hand_bonus_by_weapon,
+            "disables_two_hand_bonus_by_weapon_affinity": pairs(&index.disables_two_hand_bonus_by_weapon_affinity),
+            "forces_two_handing_by_weapon": index.forces_two_handing_by_weapon,
+            "filter_dimensions": index.filter_dimensions,
+        })
+    }
+
+    #[test]
+    #[ignore = "release-mode workflow benchmark"]
+    fn workflow_benchmark_catalog() {
+        for profile in ["vanilla", "convergence"] {
+            let data = er_optimizer_core::load_embedded_game_profile(profile).unwrap();
+            let mut samples = Vec::new();
+            let mut predicate_calls = 0;
+            let mut expected = None;
+            for sample in 0..6 {
+                COMPATIBILITY_CALLS.store(0, std::sync::atomic::Ordering::Relaxed);
+                let started = std::time::Instant::now();
+                let index = CatalogIndex::build(&data);
+                let elapsed = started.elapsed().as_secs_f64() * 1000.0;
+                predicate_calls = COMPATIBILITY_CALLS.load(std::sync::atomic::Ordering::Relaxed);
+                let snapshot = catalog_snapshot(&index);
+                if let Some(expected) = &expected {
+                    assert_eq!(&snapshot, expected);
+                } else {
+                    expected = Some(snapshot);
+                }
+                if sample > 0 {
+                    samples.push(elapsed);
+                }
+            }
+            if let Ok(directory) = std::env::var("ER_BENCH_OUTPUT") {
+                std::fs::write(
+                    std::path::Path::new(&directory).join(format!("catalog-{profile}.json")),
+                    serde_json::to_vec(&expected.unwrap()).unwrap(),
+                )
+                .unwrap();
+            }
+            println!(
+                "WORKFLOW_BENCH {}",
+                serde_json::json!({"workflow":"catalog", "profile":profile, "predicate_calls":predicate_calls, "warmups":1, "samples_ms":samples})
+            );
+        }
+    }
 
     #[test]
     fn weapon_profiles_expose_native_skills_and_mount_permissions() {

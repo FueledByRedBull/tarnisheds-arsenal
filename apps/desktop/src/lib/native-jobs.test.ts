@@ -3,6 +3,18 @@ import { createNativeJobQueue } from "./native-jobs";
 
 afterEach(() => vi.useRealTimers());
 
+it.each([null, ""])("normalizes a successful terminal error %j to null", async (error) => {
+  type Status = { finished: { jobId: string; cancelled: boolean; error: string | null; value: number } | null };
+  const queue = createNativeJobQueue<Status>(async () => ({ finished: { jobId: "ok", cancelled: false, error, value: 42 } }), vi.fn());
+  await expect(queue(async () => ({ jobId: "ok" }))).resolves.toEqual({ jobId: "ok", cancelled: false, error: null, value: 42 });
+});
+
+it("rejects even an empty-error cancellation rather than exposing it as success", async () => {
+  type Status = { finished: { jobId: string; cancelled: boolean; error: string | null } | null };
+  const queue = createNativeJobQueue<Status>(async () => ({ finished: { jobId: "cancel", cancelled: true, error: "" } }), vi.fn());
+  await expect(queue(async () => ({ jobId: "cancel" }))).rejects.toMatchObject({ name: "AbortError" });
+});
+
 it("stops polling a worker failure and permits the next job", async () => {
   vi.useFakeTimers();
   type Status = { finished: { jobId: string; cancelled: boolean; error: string | null } | null };

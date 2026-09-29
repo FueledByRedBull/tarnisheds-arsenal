@@ -6,16 +6,15 @@ declare global {
       mount(props: Record<string, unknown>): void;
       unmount(): void;
       patch(props: Record<string, unknown>): void;
-      pending(weapon: string): number;
-      resolve(weapon: string, affinity?: string | null): void;
-      reject(weapon: string): void;
+      pending(weapon: string | null): number;
+      resolve(weapon: string | null, affinity?: string | null): void;
+      reject(weapon: string | null): void;
       changes(): Array<string | null>;
-      errors(): string[];
     };
   }
 }
 
-async function resolveProfile(page: Page, weapon: string, affinity: string | null = null) {
+async function resolveProfile(page: Page, weapon: string | null, affinity: string | null = null) {
   await expect.poll(() => page.evaluate((name) => window.selectorFixture.pending(name), weapon)).toBeGreaterThan(0);
   await page.evaluate(({ weapon, affinity }) => window.selectorFixture.resolve(weapon, affinity), { weapon, affinity });
 }
@@ -75,7 +74,6 @@ for (const label of ["AoW", "Compare AoW"]) {
       await expect(page.getByRole("combobox")).toHaveCount(0);
       await page.evaluate(() => window.selectorFixture.resolve("Buckler", "Blood"));
       await expect.poll(() => page.evaluate(() => window.selectorFixture.changes())).toEqual(["Corpse Piler"]);
-      await expect.poll(() => page.evaluate(() => window.selectorFixture.errors())).toEqual([]);
     });
 
     test("affinity changes clear incompatible native skills and lookup errors are surfaced", async ({ page }) => {
@@ -90,8 +88,36 @@ for (const label of ["AoW", "Compare AoW"]) {
       await page.evaluate(() => window.selectorFixture.patch({ weaponName: "Rivers of Blood", affinity: null }));
       await expect.poll(() => page.evaluate(() => window.selectorFixture.pending("Rivers of Blood"))).toBeGreaterThan(0);
       await page.evaluate(() => window.selectorFixture.reject("Rivers of Blood"));
-      await expect.poll(() => page.evaluate(() => window.selectorFixture.errors())).toEqual(["Profile lookup failed"]);
       await expect(selector).toBeDisabled();
+      await expect(page.getByText("Skills unavailable: Profile lookup failed", { exact: true })).toBeVisible();
+      await page.getByRole("button", { name: `Retry ${label} skills`, exact: true }).click();
+      await resolveProfile(page, "Rivers of Blood");
+      await expect(page.getByRole("combobox", { name: `${label} (fixed)`, exact: true })).toHaveValue("Corpse Piler");
+      await expect(page.getByText("Skills unavailable: Profile lookup failed", { exact: true })).toHaveCount(0);
+    });
+
+    test("unmounting a typed choice does not commit it later", async ({ page }) => {
+      await page.evaluate((label) => window.selectorFixture.mount({ label, weaponName: "Buckler", value: "No Skill" }), label);
+      await resolveProfile(page, "Buckler");
+      const selector = page.getByRole("combobox", { name: label, exact: true });
+      await selector.fill("Parry");
+      await page.evaluate(() => window.selectorFixture.unmount());
+      await page.waitForTimeout(180);
+      expect(await page.evaluate(() => window.selectorFixture.changes())).toEqual([]);
+    });
+
+    test("affinity-only skill failures can be retried without selecting a weapon", async ({ page }) => {
+      await page.evaluate((label) => window.selectorFixture.mount({ label, affinity: "Blood" }), label);
+      await expect.poll(() => page.evaluate(() => window.selectorFixture.pending(null))).toBeGreaterThan(0);
+      await page.evaluate(() => window.selectorFixture.reject(null));
+      await expect(page.getByText("Skills unavailable: Profile lookup failed", { exact: true })).toBeVisible();
+      await page.getByRole("button", { name: `Retry ${label} skills`, exact: true }).click();
+      await resolveProfile(page, null, "Blood");
+      const selector = page.getByRole("combobox", { name: label, exact: true });
+      await expect(selector).toBeEnabled();
+      await selector.click();
+      await page.getByRole("option", { name: "No Skill", exact: true }).click();
+      await expect(selector).toHaveValue("No Skill");
     });
   });
 }

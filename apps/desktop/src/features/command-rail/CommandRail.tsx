@@ -1,8 +1,9 @@
 import { Crosshair, Filter, Play, RotateCcw, SlidersHorizontal, Sparkles, Swords } from "lucide-react";
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import brandMark from "../../assets/brand-mark.png";
-import { AowSelect } from "../../lib/AowSelect";
+import { AowSelect, resolveAowSelection } from "../../lib/AowSelect";
 import { api } from "../../lib/api";
+import { cachedWeaponProfile } from "../../lib/analysis-cache";
 import { useRequestBudget, useWeaponProfile } from "../../lib/hooks";
 import { fixed1, objectiveLabel, statLockLine } from "../../lib/format";
 import { CheckboxMultiSelect, SearchableSelect, openOption } from "../../lib/SearchableSelect";
@@ -12,15 +13,17 @@ import {
   scadutreeDamageNegation,
   scadutreeReceivedDamageMultiplier,
 } from "../../lib/scadutree";
-import { classMeta, classOptions, derivedLevel, EIGHT_STAT_KEYS, hasCombatStatLocks, optimalStartingClass, replaceFilterEntries, startingClassLevel } from "../../lib/session";
+import { classMeta, classOptions, derivedLevel, EIGHT_STAT_KEYS, hasCombatStatLocks, optimalStartingClass, replaceFilterEntries, stableSignature, startingClassLevel } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { EightStatsDto, FilterDimensionDto, OptimizeRequestDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
+import { effectiveWeaponStrength } from "../../lib/weapon-handling";
 
 export function CommandRail() {
   const catalog = useDesktopStore((state) => state.catalog);
   const activeWorkspace = useDesktopStore((state) => state.activeWorkspace);
   const request = useDesktopStore((state) => state.request);
+  const loadoutSelectionRevision = useDesktopStore((state) => state.loadoutSelectionRevision);
   const patchRequest = useDesktopStore((state) => state.patchRequest);
   const applyClass = useDesktopStore((state) => state.applyClass);
   const markResultsStale = useDesktopStore((state) => state.markResultsStale);
@@ -34,21 +37,22 @@ export function CommandRail() {
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
   const setLockedStatMode = useDesktopStore((state) => state.setLockedStatMode);
   const [searchStartedAt, setSearchStartedAt] = useState<number | null>(null);
+  const [isPreparingSearch, setPreparingSearch] = useState(false);
+  const searchPreparation = useRef<AbortController | null>(null);
+  const manualWeaponRevision = useRef<number | null>(null);
   const [searchCancellationRequested, setSearchCancellationRequested] = useState(false);
   const searchCancellationRequestedRef = useRef(false);
   const meta = classMeta(catalog, request.className);
-  const { base: apiRequest, budget } = useRequestBudget(catalog, request, lockedStatMode);
-  const weaponProfile = useWeaponProfile(request, patchRequest, setError);
-  const effectiveStr =
-    request.twoHanding && !weaponProfile?.disablesTwoHandBonus
-      ? Math.min(99, Math.floor(request.strStat * 1.5))
-      : request.strStat;
+  const { budget } = useRequestBudget(catalog, request, lockedStatMode);
+  const profileResource = useWeaponProfile(request, patchRequest);
+  const weaponProfile = profileResource.profile;
+  const effectiveStr = effectiveWeaponStrength(request.strStat, request.twoHanding, weaponProfile);
   const scadutreeDamageMultiplier = scadutreeAttackMultiplier(request.dlcScaling, request.scadutreeLevel);
   const scadutreeTakenMultiplier = scadutreeReceivedDamageMultiplier(request.dlcScaling, request.scadutreeLevel);
   const scadutreeNegation = scadutreeDamageNegation(request.dlcScaling, request.scadutreeLevel);
   const requirementGaps = useMemo(() => {
     const requirements = weaponProfile?.requirements;
-    if (!requirements) {
+    if (!requirements || effectiveStr === null) {
       return null;
     }
     return {
@@ -103,24 +107,79 @@ export function CommandRail() {
   }, [fixedStats]);
 
   useEffect(() => {
-    if (!isSearching) {
+    if (!isSearching && !isPreparingSearch) {
       setSearchStartedAt(null);
       setSearchCancellationRequested(false);
       searchCancellationRequestedRef.current = false;
     }
-  }, [isSearching]);
+  }, [isSearching, isPreparingSearch]);
+
+  useEffect(() => () => searchPreparation.current?.abort(), []);
 
   async function runSearch() {
+    const submitted = useDesktopStore.getState();
+    const input = submitted.request;
+    const weaponChanged = submitted.loadoutSelectionRevision === manualWeaponRevision.current;
+    manualWeaponRevision.current = null;
+    const controller = new AbortController();
+    searchPreparation.current?.abort();
+    searchPreparation.current = controller;
+    const unchangedInputs = () => {
+      const current = useDesktopStore.getState();
+      return current.activeWorkspace === submitted.activeWorkspace
+        && current.lockedStatMode === submitted.lockedStatMode
+        && current.loadoutSelectionRevision === submitted.loadoutSelectionRevision
+        && stableSignature(current.request) === stableSignature(input);
+    };
+    const unsubscribe = useDesktopStore.subscribe(() => {
+      if (!unchangedInputs()) controller.abort();
+    });
     searchCancellationRequestedRef.current = false;
     setSearchCancellationRequested(false);
     setSearchStartedAt(Date.now());
     setError(null);
     setProgress(null);
-    await runSearchFromStore(apiRequest, () => searchCancellationRequestedRef.current);
+    setPreparingSearch(true);
+    try {
+      let loadout: Pick<OptimizeRequestDto, "affinity" | "aowName"> | null = null;
+      if (input.weaponName) {
+        let affinity = input.affinity;
+        let profile = await cachedWeaponProfile(input.profileId, input.weaponName, affinity, controller.signal);
+        if (affinity && !profile.affinities.includes(affinity)) {
+          affinity = profile.affinities[0] ?? null;
+          profile = await cachedWeaponProfile(input.profileId, input.weaponName, affinity, controller.signal);
+        }
+        const aowName = resolveAowSelection(profile, input.aowName, weaponChanged);
+        if (input.affinity !== affinity || input.aowName !== aowName) {
+          loadout = { affinity, aowName };
+        }
+      }
+      if (controller.signal.aborted || !unchangedInputs()) return;
+      unsubscribe();
+      if (loadout) patchRequest(loadout);
+      searchPreparation.current = null;
+      setPreparingSearch(false);
+      await runSearchFromStore(undefined, () => searchCancellationRequestedRef.current);
+    } catch (error) {
+      if (!controller.signal.aborted) setError(error instanceof Error ? error.message : String(error));
+    } finally {
+      unsubscribe();
+      if (searchPreparation.current === controller) {
+        if (weaponChanged && useDesktopStore.getState().loadoutSelectionRevision === submitted.loadoutSelectionRevision) {
+          manualWeaponRevision.current = submitted.loadoutSelectionRevision;
+        }
+        searchPreparation.current = null;
+        setPreparingSearch(false);
+      }
+    }
   }
 
 
   async function cancelSearch() {
+    if (searchPreparation.current) {
+      searchPreparation.current.abort();
+      return;
+    }
     if (searchCancellationRequested) return;
     searchCancellationRequestedRef.current = true;
     setSearchCancellationRequested(true);
@@ -287,6 +346,13 @@ export function CommandRail() {
               </strong>
             </div>
           ) : null}
+          {profileResource.status === "loading" ? <small role="status">Loading weapon profile...</small> : null}
+          {profileResource.status === "error" ? (
+            <div role="alert">
+              <small>Weapon profile unavailable: {profileResource.error}</small>
+              <button type="button" onClick={profileResource.retry}>Retry weapon profile</button>
+            </div>
+          ) : null}
         </section>
 
         <section className="rail-section">
@@ -373,21 +439,26 @@ export function CommandRail() {
             label="Weapon"
             value={request.weaponName}
             options={[openOption(), ...(catalog?.weaponNames ?? []).map((name) => ({ value: name, label: name }))]}
-            onChange={(weaponName) => patchRequest({
-              weaponName,
-              weaponTypeKey: null,
-              affinity: null,
-              aowName: null,
-              filters: {
-                version: 1,
-                entries: replaceFilterEntries(
-                  replaceFilterEntries(request.filters.entries, "weapon_type", [], []),
-                  "affinity",
-                  [],
-                  [],
-                ),
-              },
-            })}
+            onChange={(weaponName) => {
+              patchRequest({
+                weaponName,
+                weaponTypeKey: null,
+                affinity: null,
+                aowName: null,
+                filters: {
+                  version: 1,
+                  entries: replaceFilterEntries(
+                    replaceFilterEntries(request.filters.entries, "weapon_type", [], []),
+                    "affinity",
+                    [],
+                    [],
+                  ),
+                },
+              });
+              // Only a manual weapon choice requests its native default. Restored
+              // and starter requests already carry their intended skill policy.
+              manualWeaponRevision.current = useDesktopStore.getState().loadoutSelectionRevision;
+            }}
           />
           <CheckboxMultiSelect
             label="Affinity"
@@ -408,7 +479,8 @@ export function CommandRail() {
             catalogNames={catalog?.aowNames}
             value={request.aowName}
             onChange={(aowName) => patchRequest({ aowName })}
-            setError={setError}
+            defaultNativeSkill={loadoutSelectionRevision === manualWeaponRevision.current}
+            onWeaponResolved={() => { manualWeaponRevision.current = null; }}
           />
           <button
             type="button"
@@ -480,10 +552,10 @@ export function CommandRail() {
             <div className="cap-readout">
               <span>
                 {separateUpgradeCaps
-                  ? weaponProfile?.isSomber ? "Selected Somber cap" : "Selected Standard cap"
+                  ? weaponProfile ? weaponProfile.isSomber ? "Selected Somber cap" : "Selected Standard cap" : "Profile upgrade limit"
                   : "Selected Convergence cap"}
               </span>
-              <strong>+{weaponProfile?.maxUpgrade ?? standardUpgradeLimit}</strong>
+              <strong>{request.weaponName && !weaponProfile ? "Unavailable" : `+${weaponProfile?.maxUpgrade ?? standardUpgradeLimit}`}</strong>
             </div>
             <small className="rail-helper">
               {request.exactUpgrade
@@ -613,23 +685,23 @@ export function CommandRail() {
         </details>
       </fieldset>
 
-      {(activeWorkspace === "rankings" || isSearching) ? (
+      {(activeWorkspace === "rankings" || isSearching || isPreparingSearch) ? (
         <div className="rail-actions">
           <button
-            className={`search-button ${isSearching ? "busy" : ""}`}
+            className={`search-button ${isSearching || isPreparingSearch ? "busy" : ""}`}
             type="button"
-            onClick={isSearching ? cancelSearch : runSearch}
+            onClick={isSearching || isPreparingSearch ? cancelSearch : runSearch}
             disabled={isExporting || searchCancellationRequested || (!isSearching && !catalog)}
           >
-            {isSearching ? <RotateCcw size={17} /> : <Play size={17} />}
-            {isSearching
+            {isSearching || isPreparingSearch ? <RotateCcw size={17} /> : <Play size={17} />}
+            {isSearching || isPreparingSearch
               ? (searchCancellationRequested ? "Cancelling..." : "Cancel Search")
               : resultsStale
                 ? "Update Results"
                 : "Search"}
           </button>
 
-          {isSearching ? (
+          {isPreparingSearch ? <small role="status">Checking loadout...</small> : isSearching ? (
             <SearchProgressPanel
               searchStartedAt={searchStartedAt}
               objective={objectiveLabel(request.objective)}

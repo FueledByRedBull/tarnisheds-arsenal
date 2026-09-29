@@ -8,6 +8,7 @@ import { fixed1, objectiveLabel, objectiveUnit, statLine } from "../../lib/forma
 import { clampHorizon, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { AffinityWatchFinishedDto, AffinityWatchPayloadDto } from "../../lib/types";
+import type { NativeJobSuccess } from "../../lib/native-jobs";
 
 export function AffinityWatchView() {
   const catalog = useDesktopStore((state) => state.catalog);
@@ -123,23 +124,15 @@ export function AffinityWatchView() {
     }
   }
 
-  function finishAffinityWatch(event: AffinityWatchFinishedDto, generation: number) {
+  function finishAffinityWatch(event: NativeJobSuccess<AffinityWatchFinishedDto>, generation: number) {
     const current = useDesktopStore.getState();
     if (
       current.resultsStale || generation !== current.affinityGeneration ||
       current.activeAffinitySignature !== signature ||
       event.jobId !== current.activeAffinityJobId
     ) return;
-    if (event.error) {
-      current.setError(event.error);
-      setRunOutcome("failed");
-    } else if (event.cancelled) {
-      current.pushNotice({ scope: "affinity_watch", tone: "warning", message: "Affinity watch stopped." });
-      setRunOutcome("cancelled");
-    } else {
-      current.setAffinityPayload(event.payload, signature);
-      setRunOutcome(null);
-    }
+    current.setAffinityPayload(event.payload, signature);
+    setRunOutcome(null);
     current.setAffinityBusy(false);
     current.setActiveAffinityJobId(null);
     current.setAffinityProgress(null);
@@ -193,9 +186,9 @@ export function AffinityWatchView() {
           <div className="affinity-row" key={line.affinity} role="row">
             <b role="gridcell">{index + 1}</b>
             <strong role="gridcell">{line.affinity}</strong>
-            <span role="gridcell">{fixed1(line.startMetric)}</span>
-            <span role="gridcell">{fixed1(line.endMetric)}</span>
-            <small role="gridcell">{line.finalBuild ? statLine(line.finalBuild) : "-"}</small>
+            <span role="gridcell">{endpointMetric(line.startMetric)}</span>
+            <span role="gridcell">{endpointMetric(line.endMetric)}</span>
+            <small role="gridcell">{line.finalBuild ? statLine(line.finalBuild) : "Unavailable"}</small>
           </div>
         ))}
       </div>
@@ -210,6 +203,10 @@ export function AffinityWatchView() {
       </div>
     </section>
   );
+}
+
+function endpointMetric(value: number | null): string {
+  return value === null ? "Unavailable" : fixed1(value);
 }
 
 function Progress({ checked, total, status, resultCount }: { checked: number; total: number; status: ReturnType<typeof analysisStatus>; resultCount: number }) {
@@ -251,7 +248,7 @@ function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPay
               <span key={line.affinity}>
                 <i style={{ background: affinityColor(index) }} />
                 <strong>{line.affinity}</strong>
-                <small>{fixed1(line.startMetric)} → {fixed1(line.endMetric)} {unit}</small>
+                <small>{endpointMetric(line.startMetric)} → {endpointMetric(line.endMetric)} {unit}</small>
               </span>
             ))}
             <span className="affinity-crossover-key"><i /> Best-affinity crossover</span>

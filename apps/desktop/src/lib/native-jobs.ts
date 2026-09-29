@@ -1,6 +1,9 @@
 import { INITIAL_POLL_DELAY_MS, nextPollDelay } from "./polling";
 
-type FinishedJob = { jobId: string; cancelled: boolean; error: string | null };
+export type FinishedJob = { jobId: string; cancelled: boolean; error: string | null };
+export type NativeJobSuccess<T> = T extends FinishedJob
+  ? Omit<T, "cancelled" | "error"> & { cancelled: false; error: null }
+  : never;
 
 // Both queues retain native ownership independently of the caller's promise.
 export function createNativeJobQueue<S extends { finished: FinishedJob | null }>(
@@ -76,7 +79,7 @@ export function createNativeJobQueue<S extends { finished: FinishedJob | null }>
     signal?: AbortSignal,
     onStatus?: (status: S) => void,
     onStarted?: (jobId: string) => void,
-  ): Promise<NonNullable<S["finished"]>> => new Promise((resolve, reject) => {
+  ): Promise<NativeJobSuccess<NonNullable<S["finished"]>>> => new Promise((resolve, reject) => {
     tail = tail.then(async () => {
       if (signal?.aborted) throw stopped();
       if (uncertainJobId) {
@@ -101,7 +104,8 @@ export function createNativeJobQueue<S extends { finished: FinishedJob | null }>
       if (signal?.aborted || finished?.cancelled) throw stopped();
       if (!finished) throw new Error("Native job disappeared before returning a result.");
       if (finished.error) throw new Error(finished.error);
-      resolve(finished as NonNullable<S["finished"]>);
+      // Native null and empty errors both mean success; expose one normalized shape.
+      resolve({ ...finished, cancelled: false, error: null } as NativeJobSuccess<NonNullable<S["finished"]>>);
     }).catch(reject);
   });
 }

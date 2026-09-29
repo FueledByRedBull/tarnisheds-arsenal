@@ -1,8 +1,50 @@
 import { expect, test } from "@playwright/test";
 
+test("saving waits for verified catalog readiness without writing partial presets", async ({ page }) => {
+  let release!: () => void;
+  const loading = new Promise<void>(resolve => { release = resolve; });
+  await page.route(/\/src\/lib\/browser-backend\.ts(?:\?.*)?$/, async route => {
+    await loading;
+    await route.continue();
+  });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const save = page.getByRole("button", { name: "Save new", exact: true });
+  const update = page.getByRole("button", { name: "Update selected", exact: true });
+  try {
+    await expect(save).toBeDisabled();
+    await save.evaluate(button => (button as HTMLButtonElement).click());
+    expect(await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith("tarnisheds-arsenal.savedBuild")))).toEqual([]);
+  } finally { release(); }
+  await expect(page.getByText("Snapshot loaded", { exact: true })).toBeVisible();
+  await save.click();
+  await expect(page.getByText("Saved Build Preset.", { exact: true })).toBeVisible();
+  await expect(update).toBeEnabled();
+  const original = await page.evaluate(() => JSON.stringify(localStorage));
+  await page.evaluate(async () => {
+    const { api } = await import("/src/lib/api.ts");
+    const catalog = await api.catalog("convergence");
+    api.catalog = () => new Promise(resolve => {
+      Object.assign(window, { finishSavingCatalog: () => resolve(catalog) });
+    });
+  });
+  await page.getByRole("radio", { name: "Convergence Beta 3.0.0.1", exact: true }).click();
+  await expect(save).toBeDisabled();
+  await expect(update).toBeDisabled();
+  await save.evaluate(button => (button as HTMLButtonElement).click());
+  await update.evaluate(button => (button as HTMLButtonElement).click());
+  expect(await page.evaluate(() => JSON.stringify(localStorage))).toBe(original);
+  await page.evaluate(() => { (window as any).finishSavingCatalog(); });
+  await expect(page.getByText("Experimental fixed-stat model", { exact: true })).toBeVisible();
+  await expect(save).toBeEnabled();
+  await expect(update).toBeEnabled();
+  await expect(page.locator(".error-strip")).toHaveCount(0);
+});
+
 test("recovers a damaged index without overwriting the original and restores a bulk backup as copies", async ({ page }) => {
   await page.goto("/");
+  await expect(page.getByText("Snapshot loaded", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Save new", exact: true }).click();
+  await expect(page.getByText("Saved Build Preset.", { exact: true })).toBeVisible();
   await page.evaluate(() => localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", "{damaged-index"));
   await page.reload();
   await expect(page.getByText(/index is damaged/).first()).toBeVisible();
@@ -11,7 +53,7 @@ test("recovers a damaged index without overwriting the original and restores a b
     .filter(key => key.startsWith("tarnisheds-arsenal.savedBuildIndex.recovery."))
     .map(key => localStorage.getItem(key)))).toEqual(["{damaged-index"]);
   await page.getByRole("button", { name: "Load", exact: true }).click();
-  await expect(page.getByText("Loaded Build Preset.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Loaded Build Preset; saved results verified on current data.", { exact: true })).toBeVisible();
   await page.getByText("Backup and recovery", { exact: true }).click();
   const downloadEvent = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export all builds", exact: true }).click();
@@ -28,6 +70,7 @@ test("recovers a damaged index without overwriting the original and restores a b
 
 test("denied storage and invalid backups keep existing builds usable", async ({ page }) => {
   await page.goto("/");
+  await expect(page.getByText("Snapshot loaded", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   const before = await page.evaluate(() => JSON.stringify(localStorage));
   await page.getByText("Backup and recovery", { exact: true }).click();
@@ -66,6 +109,7 @@ test("storage read denial after selection reports failure without unmounting the
   const crashes: string[] = [];
   page.on("pageerror", error => crashes.push(error.message));
   await page.goto("/");
+  await expect(page.getByText("Snapshot loaded", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   await page.evaluate(() => { Storage.prototype.getItem = () => { throw new DOMException("denied", "SecurityError"); }; });
   await page.getByRole("checkbox", { name: "Two-handing", exact: true }).check();

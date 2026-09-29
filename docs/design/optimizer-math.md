@@ -107,7 +107,7 @@ only the stat-vector tie-break, so this completion loses no preferred result.
 
 The searched region is the union
 
-$$
+```math
 \mathcal X_w=
 \bigcup_{p=p_{\min}}^{p_{\max}}
 \{
@@ -116,7 +116,7 @@ m_i\le x_i\le u_i,\
 \sum_{i\in A}(x_i-m_i)=p,\
 x_i=h_i(R-p)\text{ for }i\notin A
 \}.
-$$
+```
 
 Restricting the search to $p_{\max}$ needs a separate dominance argument, including
 tie handling. Searching the full feasible interval avoids that requirement: an
@@ -373,11 +373,17 @@ Equal pairs retain route and stat tie evaluation.
 
 ### Numerical contract
 
-The `exact-v2` scoring contract treats each finite, validated loaded `f32` damage
+The `exact-v3` scoring contract treats each finite, validated loaded `f32` damage
 coefficient as its exact binary rational. Products, sums, and percentage division
 in damage ranking formulas are evaluated exactly. This does not recover precision lost while extracting
 or loading the source data. Ranked winners near display-rounded ties can therefore
 differ.
+
+Before scoring, canonical one-handed/two-handed route alternatives are restricted
+to the weapon's resolved handling. This eligibility constraint is separate from
+the Strength bonus: paired weapons can use a two-handed route without that bonus.
+Unconditioned skills retain their own attack-specific scaling rules. This route
+policy changes compiled result identity even for an older external snapshot.
 
 Two-handing still uses the integer effective-STR rule. Status scaling uses the
 shared `f32` evaluator before its gameplay floors: weapon bleed is floored before

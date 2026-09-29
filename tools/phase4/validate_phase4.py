@@ -22,8 +22,7 @@ from tools.phase1.derive_phase1_extras import (  # noqa: E402
 from tools.phase1.phase1_dump import MAX_EFFECTIVE_STRENGTH  # noqa: E402
 from tools.phase1.profiles import ProfileDefinition, profile_definition  # noqa: E402
 from tools.phase1.snapshot_manifest import SnapshotManifest, validate_snapshot_manifest  # noqa: E402
-from tools.phase4.validation.aow_effect_graph import validate_aow_effect_graph  # noqa: E402
-from tools.phase4.validation.models import ValidationIssue  # noqa: E402
+from tools.phase4.aow_effect_graph import ValidationIssue, validate_aow_effect_graph  # noqa: E402
 from tools.phase4.convergence_reference import validate_reference  # noqa: E402
 
 

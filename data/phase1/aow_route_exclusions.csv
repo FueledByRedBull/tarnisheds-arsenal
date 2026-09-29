@@ -1,10 +1,6 @@
 aow_id,sheet_row,raw_name,reason
 100,64,Lion's Claw (Lacking FP),lacking_fp_variant
 101,947,Impaling Thrust (Lacking FP),lacking_fp_variant
-101,1146,Wing Stance R1 [1] (Lacking FP),lacking_fp_variant
-101,1147,Wing Stance R1 [2] (Lacking FP),lacking_fp_variant
-101,1148,Wing Stance R1 [3] (Lacking FP),lacking_fp_variant
-101,1149,Wing Stance R2 (Lacking FP),lacking_fp_variant
 102,959,Piercing Fang (Lacking FP),lacking_fp_variant
 103,883,[Dagger] Spinning Slash #1 (Lacking FP),lacking_fp_variant
 103,884,[Dagger] Spinning Slash #2 [1] (Lacking FP),lacking_fp_variant
@@ -450,16 +446,16 @@ aow_id,sheet_row,raw_name,reason
 4010,1519,Palm Blast (Lacking FP),lacking_fp_variant
 4010,1520,Palm Blast Charged (Lacking FP),lacking_fp_variant
 4020,1131,Piercing Throw (Lacking FP),lacking_fp_variant
-4020,1137,Scattershot Throw (Lacking FP),lacking_fp_variant
+4030,1137,Scattershot Throw (Lacking FP),lacking_fp_variant
+4060,1127,Raging Beast (Lacking FP),lacking_fp_variant
+4060,1128,Raging Beast R2 [1] (Lacking FP),lacking_fp_variant
+4060,1129,Raging Beast R2 [2] (Lacking FP),lacking_fp_variant
 4070,1118,Savage Claws [1] (Lacking FP),lacking_fp_variant
 4070,1119,Savage Claws [2] (Lacking FP),lacking_fp_variant
 4070,1120,Savage Claws [3] (Lacking FP),lacking_fp_variant
 4070,1121,Savage Claws [4] (Lacking FP),lacking_fp_variant
 4070,1122,Savage Claws [5] (Lacking FP),lacking_fp_variant
 4070,1123,Savage Claws [6] (Lacking FP),lacking_fp_variant
-4070,1127,Raging Beast (Lacking FP),lacking_fp_variant
-4070,1128,Raging Beast R2 [1] (Lacking FP),lacking_fp_variant
-4070,1129,Raging Beast R2 [2] (Lacking FP),lacking_fp_variant
 4080,2601,Red Bear Hunt #1 (Lacking FP),lacking_fp_variant
 4080,2602,Red Bear Hunt #2 (Lacking FP),lacking_fp_variant
 4080,2603,Red Bear Hunt #3 [1] (Lacking FP),lacking_fp_variant
@@ -471,6 +467,10 @@ aow_id,sheet_row,raw_name,reason
 4110,1105,Overhead Stance R2 [1] (Lacking FP),lacking_fp_variant
 4110,1106,Overhead Stance R2 [2] (Lacking FP),lacking_fp_variant
 4110,1107,Overhead Stance R2 [3] (Lacking FP),lacking_fp_variant
+4120,1146,Wing Stance R1 [1] (Lacking FP),lacking_fp_variant
+4120,1147,Wing Stance R1 [2] (Lacking FP),lacking_fp_variant
+4120,1148,Wing Stance R1 [3] (Lacking FP),lacking_fp_variant
+4120,1149,Wing Stance R2 (Lacking FP),lacking_fp_variant
 4130,1381,Blinkbolt (Lacking FP),lacking_fp_variant
 4140,1332,Flame Skewer (Lacking FP),lacking_fp_variant
 4140,1333,Flame Skewer R2 (Lacking FP),lacking_fp_variant

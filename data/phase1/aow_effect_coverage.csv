@@ -3,14 +3,6 @@ aow_id,sheet_row,atk_id,atk_effect_count,bullet_source_count,effect_record_count
 100,64,300300821,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 101,946,300000010,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 101,947,300000011,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
-101,1142,600000830,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
-101,1143,600000831,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
-101,1144,600000832,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
-101,1145,600000836,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
-101,1146,600000833,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
-101,1147,600000834,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
-101,1148,600000835,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
-101,1149,600000837,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 102,958,300000050,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 102,959,300000051,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 103,880,300000220,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
@@ -2060,12 +2052,12 @@ aow_id,sheet_row,atk_id,atk_effect_count,bullet_source_count,effect_record_count
 4010,1520,600000007,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 4020,1130,600000050,2,1,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 4020,1131,600000052,2,1,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
-4020,1132,600000120,0,1,0,0,no_effects,no target or shooter SpEffect is attached
-4020,1133,600000121,0,1,0,0,no_effects,no target or shooter SpEffect is attached
-4020,1134,600000122,0,1,0,0,no_effects,no target or shooter SpEffect is attached
-4020,1135,600000123,0,1,0,0,no_effects,no target or shooter SpEffect is attached
-4020,1136,600000128,0,1,0,0,no_effects,no target or shooter SpEffect is attached
-4020,1137,600000129,2,1,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
+4030,1132,600000120,0,1,0,0,no_effects,no target or shooter SpEffect is attached
+4030,1133,600000121,0,1,0,0,no_effects,no target or shooter SpEffect is attached
+4030,1134,600000122,0,1,0,0,no_effects,no target or shooter SpEffect is attached
+4030,1135,600000123,0,1,0,0,no_effects,no target or shooter SpEffect is attached
+4030,1136,600000128,0,1,0,0,no_effects,no target or shooter SpEffect is attached
+4030,1137,600000129,2,1,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 4040,1529,600000022,0,48,4,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 4040,1530,600000023,0,40,0,0,no_effects,no target or shooter SpEffect is attached
 4040,1531,600000020,2,4,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
@@ -2073,6 +2065,12 @@ aow_id,sheet_row,atk_id,atk_effect_count,bullet_source_count,effect_record_count
 4050,1533,600000031,0,28,4,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 4050,1534,600000023,0,40,0,0,no_effects,no target or shooter SpEffect is attached
 4050,1535,600000030,2,4,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
+4060,1124,600000080,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
+4060,1125,600000082,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
+4060,1126,600000083,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
+4060,1127,600000090,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
+4060,1128,600000092,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
+4060,1129,600000093,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 4070,1112,700000290,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 4070,1113,700000291,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 4070,1114,700000292,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
@@ -2085,12 +2083,6 @@ aow_id,sheet_row,atk_id,atk_effect_count,bullet_source_count,effect_record_count
 4070,1121,700000299,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 4070,1122,700000300,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 4070,1123,700000301,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
-4070,1124,600000080,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
-4070,1125,600000082,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
-4070,1126,600000083,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
-4070,1127,600000090,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
-4070,1128,600000092,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
-4070,1129,600000093,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 4080,2594,600000640,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 4080,2595,600000641,0,1,0,0,no_effects,no target or shooter SpEffect is attached
 4080,2596,600000642,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
@@ -2120,6 +2112,14 @@ aow_id,sheet_row,atk_id,atk_effect_count,bullet_source_count,effect_record_count
 4110,1105,600000065,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 4110,1106,600000066,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 4110,1107,600000067,2,0,2,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
+4120,1142,600000830,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
+4120,1143,600000831,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
+4120,1144,600000832,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
+4120,1145,600000836,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
+4120,1146,600000833,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
+4120,1147,600000834,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
+4120,1148,600000835,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
+4120,1149,600000837,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 4130,1380,600000210,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 4130,1381,600000211,1,0,1,0,resolved,numeric AtkParam/Bullet/SpEffect graph resolved
 4140,1330,600000100,0,0,0,0,no_effects,no target or shooter SpEffect is attached

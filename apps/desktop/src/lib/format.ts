@@ -41,14 +41,18 @@ export function objectiveUnit(objective: ObjectiveId): string {
   }
 }
 
-export function metricForObjective(row: SolvedBuildDto, objective: ObjectiveId): number {
+export function hasAowDamage(row: Pick<SolvedBuildDto, "aowRoute">, modelSupported = true): boolean {
+  return modelSupported && row.aowRoute !== null;
+}
+
+export function metricForObjective(row: SolvedBuildDto, objective: ObjectiveId, aowModelSupported = true): number | null {
   switch (objective) {
     case "max_physical_ar":
       return row.ar.physical;
     case "aow_first_hit":
-      return row.aowFirstHitDamage;
+      return hasAowDamage(row, aowModelSupported) ? row.aowFirstHitDamage : null;
     case "aow_full_sequence":
-      return row.aowFullSequenceDamage;
+      return hasAowDamage(row, aowModelSupported) ? row.aowFullSequenceDamage : null;
     case "max_ar_plus_bleed":
       return row.bleedBuildup;
     default:
@@ -66,4 +70,12 @@ export function statLockLine(request: OptimizeRequestDto): string {
     .filter(([, value]) => value !== null)
     .map(([label, value]) => `${label} ${value}`)
     .join(" / ");
+}
+
+export function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error && typeof error.message === "string") {
+    return error.message;
+  }
+  return String(error);
 }
