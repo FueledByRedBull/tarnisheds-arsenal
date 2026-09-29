@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [v0.16.0](docs/release-notes/v0.16.0.md)
 
 - Validate saved starting classes before activation and recalculate saved results
   on current data before displaying them. Preserve archives and contain rendering
@@ -27,6 +27,8 @@
 - Move profile selection into the command rail and show each result's loadout,
   scaling and combat stats in Rankings. Use semantic status colours, loading
   placeholders and reduced-motion-aware transitions.
+- Run the native desktop smoke test for every change, and let browser tests use
+  any free local port.
 
 ## [v0.15.0](docs/release-notes/v0.15.0.md)
 
