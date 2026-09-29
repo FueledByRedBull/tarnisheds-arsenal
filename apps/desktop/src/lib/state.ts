@@ -426,7 +426,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
     };
     const stop = useDesktopStore.subscribe(() => { if (!isCurrent()) controller.abort(); });
     try {
-      const verified = await verifyPresetResults(candidate, controller.signal);
+      const verified = await verifyPresetResults(candidate, catalog, controller.signal);
       if (!isCurrent()) return null;
       stop();
       const persistenceNotices = writeCompareBench(catalog, verified.compareBench);

@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { buildOptimizeRequest } from "./session";
 import type { BuildPreset, CatalogDto, OptimizeRequestDto, SolvedBuildDto } from "./types";
 
 export function activationRequest(request: OptimizeRequestDto, catalog: CatalogDto): OptimizeRequestDto {
@@ -18,10 +19,12 @@ export function catalogVersion(catalog: CatalogDto): string {
 }
 
 // Persisted numerical snapshots are archives, not evidence that this binary calculated them.
-export async function verifyPresetResults(preset: BuildPreset, signal: AbortSignal): Promise<BuildPreset> {
+export async function verifyPresetResults(preset: BuildPreset, catalog: CatalogDto, signal: AbortSignal): Promise<BuildPreset> {
   async function verify(row: SolvedBuildDto | null, label: string): Promise<SolvedBuildDto | null> {
     if (!row) return null;
-    const base: OptimizeRequestDto = { ...preset.request, ...row.stats,
+    // A pinned build may come from another level: derive the budget from the row's own
+    // stats, as every locked search does, instead of reusing the preset's level.
+    const base: OptimizeRequestDto = buildOptimizeRequest(catalog, { ...preset.request, ...row.stats,
       weaponName: row.weaponName, affinity: row.affinity, aowName: row.aowName,
       weaponTypeKey: null, somberFilter: "all", filters: { version: 1, entries: [] },
       exactUpgrade: true,
@@ -30,7 +33,7 @@ export async function verifyPresetResults(preset: BuildPreset, signal: AbortSign
       minStr: 0, minDex: 0, minInt: 0, minFai: 0, minArc: 0,
       lockStr: row.stats.strStat, lockDex: row.stats.dex, lockInt: row.stats.intStat,
       lockFai: row.stats.fai, lockArc: row.stats.arc,
-    };
+    });
     const solved = await api.solveBuild(base, row.weaponName, row.affinity, row.aowName, signal);
     if (!solved) throw new Error(`${label} cannot be verified with its saved equipment, upgrade and stats.`);
     const identity = ["weaponId", "weaponName", "affinity", "isSomber", "upgrade", "aowId", "aowName"] as const;
