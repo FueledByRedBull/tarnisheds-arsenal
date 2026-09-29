@@ -8,7 +8,9 @@ let server = null;
 try {
   server = await createServer({
     logLevel: "error",
-    server: { host, port: 0 },
+    // Vite treats port 0 as its default port, and the app config pins a strict port.
+    // Scan upward instead so another local dev server cannot fail the suite.
+    server: { host, strictPort: false },
   });
   await server.listen();
   const baseUrl = server.resolvedUrls?.local[0];
