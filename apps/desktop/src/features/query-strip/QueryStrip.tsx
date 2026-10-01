@@ -4,6 +4,7 @@ import brandMark from "../../assets/brand-mark.png";
 import { CommandAction, CommandContext } from "../../lib/commands";
 import { fixed1, objectiveLabel, statLockLine } from "../../lib/format";
 import { useRequestBudget, useWeaponProfile } from "../../lib/hooks";
+import { isTextEntry, keyboardOwnedByOverlay } from "../../lib/keyboard";
 import { describeStep, redoQuery, trackQueryHistory, undoQuery, useQueryHistory } from "../../lib/query-history";
 import { scadutreeAttackMultiplier } from "../../lib/scadutree";
 import { classMeta, derivedLevel, EIGHT_STAT_KEYS, hasCombatStatLocks, optimalStartingClass, startingClassLevel } from "../../lib/session";
@@ -30,12 +31,6 @@ import { useSearchRunner } from "./useSearchRunner";
 
 const CommandPalette = lazy(() => import("../command-palette/CommandPalette")
   .then((module) => ({ default: module.CommandPalette })));
-
-// Text entry keeps its own undo and typing; buttons, checkboxes and the page do not.
-function isTextEntry(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && (target.isContentEditable
-    || target.matches("textarea, select, input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit])"));
-}
 
 const STAT_FIELDS = [
   ["VIG", "vig"],
@@ -134,6 +129,19 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
 
   useEffect(() => trackQueryHistory(), []);
 
+  // Mount the palette (closed) once the app is idle, so the first Ctrl+K opens instantly
+  // and keystrokes typed right after it are never lost to a chunk download.
+  useEffect(() => {
+    if (!catalog || paletteLoaded) return;
+    const load = () => setPaletteLoaded(true);
+    if ("requestIdleCallback" in window) {
+      const id = window.requestIdleCallback(load, { timeout: 2_000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(load, 500);
+    return () => clearTimeout(id);
+  }, [catalog, paletteLoaded]);
+
   function startSearch() {
     if (searchBusy || isExporting || !catalog) return;
     setWorkspace("rankings");
@@ -145,13 +153,15 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
     const key = event.key.toLowerCase();
     if (command && key === "k") {
       event.preventDefault();
-      if (!catalog) return;
+      // A modal dialog makes the rest of the page inert, so a palette opened over it would be
+      // unreachable; the dialog keeps the keyboard until it closes.
+      if (!catalog || document.querySelector("dialog[open]")) return;
       setPaletteLoaded(true);
       setPaletteOpen((open) => !open);
       return;
     }
     // An open modal (palette or shortcut list) owns the keyboard.
-    if (event.defaultPrevented || document.querySelector("dialog[open]")) return;
+    if (event.defaultPrevented || keyboardOwnedByOverlay()) return;
     if (command && (key === "z" || key === "y") && !isTextEntry(event.target)) {
       event.preventDefault();
       if (key === "y" || event.shiftKey) redoQuery();

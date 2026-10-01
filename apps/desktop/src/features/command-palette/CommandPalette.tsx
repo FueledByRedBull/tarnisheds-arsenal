@@ -33,8 +33,9 @@ function Highlighted({ text, query }: { text: string; query: string }) {
   return <>{parts}</>;
 }
 
-// Ctrl+K editing: type "str 40", "uchigatana" or "bleed" and apply with Enter. A native modal
-// dialog traps focus and closes on Escape; results come from the same actions as the controls.
+// Ctrl+K editing: type "str 40", "uchigatana" or "bleed" and apply with Enter. A native
+// popover closes on Escape or an outside click; unlike a modal dialog it does not make the
+// rest of the page inert, which would restyle every element on each open.
 export function CommandPalette({ open, context, onRun, onClose }: {
   open: boolean;
   context: CommandContext | null;
@@ -42,26 +43,55 @@ export function CommandPalette({ open, context, onRun, onClose }: {
   onClose: () => void;
 }) {
   const id = useId();
-  const dialog = useRef<HTMLDialogElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const latestOnClose = useRef(onClose);
   const input = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const [activeIndex, setActiveIndex] = useState(0);
   const [recent, setRecent] = useState(readRecent);
+  // A closed palette stays mounted for an instant first open, so it skips the search.
   const results = useMemo(
-    () => (context ? findCommands(deferredQuery, { ...context, recent }) : []),
-    [context, deferredQuery, recent],
+    () => (open && context ? findCommands(deferredQuery, { ...context, recent }) : []),
+    [context, deferredQuery, open, recent],
   );
   const active = Math.min(activeIndex, Math.max(results.length - 1, 0));
 
   useEffect(() => {
-    const element = dialog.current;
+    latestOnClose.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    const element = panel.current;
     if (!element) return;
-    if (open && !element.open) {
-      element.showModal();
+    // Escape and outside clicks close the popover natively. Focus returns to where it was only
+    // when it was in the palette or got lost; a click that closed it keeps its new target.
+    const onToggle = (event: Event) => {
+      if ((event as ToggleEvent).newState !== "closed") return;
+      latestOnClose.current();
+      const active = document.activeElement;
+      const focusLost = !active || active === document.body || element.contains(active);
+      if (focusLost && returnFocus.current?.isConnected && !element.contains(returnFocus.current)) {
+        returnFocus.current.focus({ preventScroll: true });
+      }
+      returnFocus.current = null;
+    };
+    element.addEventListener("toggle", onToggle);
+    return () => element.removeEventListener("toggle", onToggle);
+  }, []);
+
+  useEffect(() => {
+    const element = panel.current;
+    if (!element) return;
+    const shown = element.matches(":popover-open");
+    if (open && !shown) {
+      returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      element.showPopover();
+      input.current?.focus({ preventScroll: true });
       input.current?.select();
-    } else if (!open && element.open) {
-      element.close();
+    } else if (!open && shown) {
+      element.hidePopover();
     }
   }, [open]);
 
@@ -94,14 +124,12 @@ export function CommandPalette({ open, context, onRun, onClose }: {
   }
 
   return (
-    <dialog
-      ref={dialog}
+    <div
+      ref={panel}
+      popover="auto"
+      role="dialog"
       className="command-palette"
       aria-label="Edit anything"
-      onClose={onClose}
-      onClick={(event) => {
-        if (event.target === dialog.current) onClose();
-      }}
     >
       <div className="palette-input">
         <CommandIcon size={16} aria-hidden="true" />
@@ -150,6 +178,6 @@ export function CommandPalette({ open, context, onRun, onClose }: {
         <span><kbd>Enter</kbd> to apply</span>
         <span><kbd>Esc</kbd> to close</span>
       </p>
-    </dialog>
+    </div>
   );
 }

@@ -258,7 +258,7 @@ try {
   await expect(reloadedRow.locator(".loadout-upgrade")).toHaveText(exactUpgrade);
   expect(await rowStatLabels(reloadedRow)).toEqual(statLabels(exactStats));
   await expect(reloadedRow.locator(".ar-cell strong")).toHaveText(exactAr);
-  await expect(page.locator(`[aria-label="${exactBleedLabel}"]`)).toBeVisible();
+  await expect(page.locator(`[aria-label="${exactBleedLabel}"]:visible`)).toBeVisible();
   await expect(page.locator(".selected-build > strong")).toHaveText(exactWeapon);
   await expect(page.locator(".selected-build > span")).toHaveText(`${exactAffinity} / ${exactAow} / ${exactUpgrade}`);
   await expect(page.locator(".detail-block").filter({ hasText: "Combat Stats" }).locator("strong")).toHaveText(exactStats);

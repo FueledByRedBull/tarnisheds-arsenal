@@ -26,7 +26,7 @@ test("long Paths curves retain all points with sparse markers and keyboard inspe
   await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
   await page.getByRole("navigation").getByRole("button", { name: "Paths", exact: true }).click();
   await page.getByRole("button", { name: "Trace paths", exact: true }).click();
-  await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "completed");
+  await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "completed");
   await page.evaluate(async () => {
     const { useDesktopStore } = await import("/src/lib/state.ts");
     const state = useDesktopStore.getState();
@@ -279,7 +279,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(page.locator(".active-lock-warning")).toHaveAttribute("title", /Changing class or loadout keeps these locks/);
   await expect((await openEditor(page, "Limits")).getByText(/Changing class or loadout keeps these locks/)).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.getByText("Blood / Seppuku / +25").first()).toBeVisible();
+  await expect(page.getByText("Blood / Seppuku / +25").filter({ visible: true }).first()).toBeVisible();
 
   await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
   await expect(page.getByText("Selected baseline versus current ranked rivals")).toBeVisible();
@@ -312,13 +312,13 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(page.locator(".path-lanes").getByText("Selected", { exact: true })).toBeVisible();
   await expect(page.locator(".path-lanes").getByText("Compare", { exact: true })).toBeVisible();
   await expect(page.locator(".path-chart")).toContainText("Allocation changes (sampled)");
-  await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "completed");
+  await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "completed");
   await page.getByRole("button", { name: "Best per level", exact: true }).click();
   await expect(page.getByRole("button", { name: "Best per level", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "ready");
+  await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "ready");
   await expect(page.locator(".path-chart .path-series")).toHaveCount(0);
   await page.getByRole("button", { name: "Trace paths", exact: true }).click();
-  await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "completed");
+  await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "completed");
   await expect.poll(() => page.locator(".path-chart").evaluate(
     (node) => node.scrollWidth <= node.clientWidth + 1,
   )).toBe(true);
@@ -335,9 +335,9 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(page.locator(".affinity-plot svg")).toBeVisible();
   await expect(page.locator(".affinity-chart .spark-line")).toHaveCount(0);
   await expect(affinityRankings).toContainText("Occult");
-  await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "completed");
+  await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "completed");
   await page.getByRole("spinbutton", { name: "Levels ahead" }).fill("5");
-  await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "ready");
+  await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "ready");
 });
 
 test("somber-only exact search uses the somber upgrade cap", async ({ page }) => {
@@ -648,7 +648,8 @@ test("reduced-motion preference disables decorative motion", async ({ page }) =>
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
 
-  const animationDurationMs = await page.locator(".workspace-stage").evaluate(
+  // Workspaces animate as they are shown; reduced motion must cut that to nothing.
+  const animationDurationMs = await page.locator(".workspace-stage > .rankings-panel").evaluate(
     (node) => {
       const duration = getComputedStyle(node).animationDuration;
       return Number.parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000);
@@ -715,7 +716,7 @@ test("analysis controls align inputs with buttons and path levels compare side b
     await page.setViewportSize({ width, height: 856 });
     for (const workspace of ["Paths", "Affinity Watch"]) {
       await nav.getByRole("button", { name: workspace, exact: true }).click();
-      await expect.poll(() => page.locator(".analysis-workspace-header .header-controls").evaluate((controls) => {
+      await expect.poll(() => page.locator(".analysis-workspace-header .header-controls:visible").evaluate((controls) => {
         const group = controls.getBoundingClientRect();
         const header = controls.parentElement!.getBoundingClientRect();
         const headerStyle = getComputedStyle(controls.parentElement!);
@@ -733,7 +734,7 @@ test("analysis controls align inputs with buttons and path levels compare side b
   await page.setViewportSize({ width: 1294, height: 856 });
   await nav.getByRole("button", { name: "Paths", exact: true }).click();
   await page.getByRole("button", { name: "Trace paths", exact: true }).click();
-  await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "completed");
+  await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "completed");
   await page.evaluate(async () => {
     const modulePath = "/src/lib/state.ts";
     const { useDesktopStore } = await import(modulePath);

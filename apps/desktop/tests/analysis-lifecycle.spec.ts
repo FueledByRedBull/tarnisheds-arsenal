@@ -9,7 +9,7 @@ for (const kind of ["path", "affinity"] as const) {
     await expect(page.getByRole("navigation").getByRole("button", {
       name: kind === "path" ? "Paths" : "Affinity Watch", exact: true,
     })).toBeDisabled();
-    await expect(page.getByText("Update Rankings before continuing")).toBeVisible();
+    await expect(page.getByText("Update Rankings before continuing").filter({ visible: true })).toBeVisible();
     await expect(page.getByRole("button", { name: kind === "path" ? "Trace paths" : "Watch affinities", exact: true })).toHaveCount(0);
   });
 
@@ -21,7 +21,7 @@ for (const kind of ["path", "affinity"] as const) {
     await page.locator(".ribbon-stat input").first().fill("");
     await page.evaluate(() => (window as any).lateAnalysisProbe.resolveStart({ jobId: "stale-job" }));
     await expect.poll(() => page.evaluate(() => (window as any).lateAnalysisProbe.cancellations)).toContain("stale-job");
-    await expect(page.getByText("Update Rankings before continuing")).toBeVisible();
+    await expect(page.getByText("Update Rankings before continuing").filter({ visible: true })).toBeVisible();
     expect(await page.evaluate(async () => {
       const { useDesktopStore } = await import("/src/lib/state.ts");
       const state = useDesktopStore.getState();
@@ -45,7 +45,7 @@ for (const kind of ["path", "affinity"] as const) {
 
     await page.evaluate(() => { (window as any).analysisFailureProbe.oldTerminal = true; });
     await expect.poll(() => page.evaluate(() => (window as any).analysisFailureProbe.starts.length)).toBe(2);
-    await expect.poll(() => page.locator(".analysis-progress").getAttribute("data-analysis-status")).toBe("completed");
+    await expect.poll(() => page.locator(".analysis-progress:visible").getAttribute("data-analysis-status")).toBe("completed");
     expect(await page.evaluate(() => (window as any).analysisFailureProbe.cancellations)).toEqual([`probe-${kind}-1`]);
   });
 }

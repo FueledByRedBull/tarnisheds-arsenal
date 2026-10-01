@@ -135,6 +135,51 @@ first comparison appeared after a median 69 ms (62–82) and all charts after 97
 matched the all-charts time. Charts share one native queue, so the gap should grow
 with more lanes; only the three-pin case was measured.
 
+## Responsiveness work (2026-10-01)
+
+Measured on the same AMD Ryzen 7 7800X3D desktop with no builds running, release builds,
+default Rayon threads (16) unless stated. Every optimizer change kept complete ordered
+results: the phase runner reported identical results for all 16 cases before and after.
+
+| Phase-runner case (median total) | Before | After |
+| --- | --- | --- |
+| `open-ranking-max-ar` | 432.5 ms | 83.1 ms |
+| `open-ranking-max-ar-high-level` | 907.3 ms | 91.7 ms |
+| `open-ranking-max-ar-export-500` | 785.2 ms | 121.5 ms |
+| `all-upgrades-max-ar-high-level` | 885.0 ms | 214.1 ms |
+| `locked-war-cry-export-500` | 37.0 ms | 18.9 ms |
+
+- **Preparation** was 94% of an open search. Weapons now prepare in parallel chunks of
+  64 per Rayon thread, and each Ash's attack rows are selected once per weapon type. One
+  thread prepares the high-level case in 383 ms instead of about 880 ms.
+- **Bleed searches** sometimes took 25 to 44 s instead of about 1.4 s: one weapon with
+  18 Ashes was solved at every upgrade before a cutoff existed. Units now visit upgrades
+  highest first, and per-weapon grouping skips setups strictly below the weapon's best
+  found so far. A level-129 bleed top-50 search hit 2 slow runs in 12 before; after, 60
+  runs stayed at or under 1.61 s with one result hash, matching the unchanged scorer.
+- **Cancellation** during preparation took 92 to 193 ms on one thread with 1,024-weapon
+  chunks; per-thread chunks bring it to 5 to 20 ms (4 to 23 ms on 16 threads). A request
+  landing in the last ~100 ms of a search is observed at completion, as before.
+- **Polling** now starts at 8 ms and caps at 50 ms (25 ms after progress). A 1.5 s bleed
+  search used 24 status calls per second with no measurable slowdown against the old
+  5 per second; polling every millisecond (318 per second) slowed the same search by 19%.
+
+Desktop interactions were timed as the longest renderer main-thread task, 8 repeats at
+1650x950 with 50 ranked rows (a 120 Hz frame is 8.3 ms):
+
+| Interaction (median / worst) | Before | After |
+| --- | --- | --- |
+| Reverse the sort | 33.0 / 42.3 ms | 18.3 / 19.4 ms |
+| Select a row | 12.8 / 14.0 ms | 6.3 / 8.1 ms |
+| Open and close the palette | 24.0 / 27.0 ms | 2.5 / 7.0 ms |
+| Return to Rankings | 34.4 / 36.3 ms | 16.7 / 18.6 ms |
+| Open Compare | 21.1 / 27.6 ms | 14.9 / 19.0 ms |
+
+The palette is a popover rather than a modal (a modal restyled ~2,900 elements to make
+the page inert), rows are memoised, workspaces stay mounted while hidden, the board uses
+a media query instead of a container query, and metric tokens are blocks instead of
+grids. The first Ctrl+K fell from 335 ms to about 10 ms by mounting the palette at idle.
+
 ## Release compiler settings
 
 Both Cargo packages set `lto = "thin"` and `codegen-units = 1` for release builds.

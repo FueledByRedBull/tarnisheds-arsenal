@@ -181,3 +181,48 @@ test("the palette highlights matches and recalls recent commands", async ({ page
   await expect(page.getByRole("option").first()).toContainText("Weapon: Uchigatana");
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("tarnisheds-arsenal.recentCommands.v1")!))).toEqual(["weapon-Uchigatana"]);
 });
+
+test("closing the palette by clicking a field keeps focus on that field", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Search", exact: true })).toBeEnabled();
+  const opener = page.getByRole("button", { name: "Edit anything", exact: true });
+  const palette = page.getByRole("dialog", { name: "Edit anything", exact: true });
+  await opener.click();
+  await expect(palette).toBeVisible();
+  const vig = page.getByRole("spinbutton", { name: "VIG", exact: true });
+  await vig.click();
+  await expect(palette).toBeHidden();
+  await expect(vig).toBeFocused();
+
+  // Escape has no new target, so focus goes back to where the palette was opened from.
+  await opener.click();
+  await expect(palette).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(palette).toBeHidden();
+  await expect(opener).toBeFocused();
+});
+
+test("Ctrl+K leaves an open shortcut list in charge of the keyboard", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Search", exact: true })).toBeEnabled();
+  await page.keyboard.press("?");
+  const sheet = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+  await expect(sheet).toBeVisible();
+  await page.keyboard.press("Control+k");
+  await expect(page.locator(".command-palette:popover-open")).toHaveCount(0);
+  await expect(sheet).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+k");
+  await expect(page.getByRole("dialog", { name: "Edit anything", exact: true })).toBeVisible();
+});
+
+test("Build Detail never calls a rounded gap an exact tie", async ({ page }) => {
+  await searched(page);
+  await page.evaluate(async () => {
+    const { useDesktopStore } = await import("/src/lib/state.ts");
+    const [first, second, ...rest] = useDesktopStore.getState().rows;
+    useDesktopStore.getState().setRows([first, { ...second, ar: { ...second.ar, total: first.ar.total - 0.01 } }, ...rest]);
+  });
+  await page.locator(".result-row-full").nth(1).click();
+  await expect(page.locator(".rank-context")).toHaveText("Rank 2 of 4 · less than 0.05 behind #1");
+});

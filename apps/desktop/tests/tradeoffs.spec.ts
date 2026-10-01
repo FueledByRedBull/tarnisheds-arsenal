@@ -102,7 +102,7 @@ test("tradeoff views select exact threshold choices and persist an exact apply",
   await expect(appliedRow.locator(".loadout-upgrade")).toHaveText("+25");
   expect(await combatStats(appliedRow)).toEqual(["Strength 13", "Dexterity 19", "Intelligence 9", "Faith 8", "Arcane 63"]);
   await expect(appliedRow.locator(".ar-cell strong")).toHaveText("665.0");
-  await expect(page.locator('[aria-label="Bleed buildup: 99"]')).toBeVisible();
+  await expect(page.locator('[aria-label="Bleed buildup: 99"]:visible')).toBeVisible();
   const returnedResult = await page.evaluate(() => (window as any).appliedTradeoffResult);
   expect(returnedResult).toMatchObject({
     weaponName: "Uchigatana", affinity: "Blood", aowName: "Seppuku", upgrade: 25,
@@ -150,7 +150,7 @@ test("tradeoff views select exact threshold choices and persist an exact apply",
   await expect(reloadedRow.locator(".loadout-upgrade")).toHaveText("+25");
   expect(await combatStats(reloadedRow)).toEqual(["Strength 13", "Dexterity 19", "Intelligence 9", "Faith 8", "Arcane 63"]);
   await expect(reloadedRow.locator(".ar-cell strong")).toHaveText("665.0");
-  await expect(page.locator('[aria-label="Bleed buildup: 99"]')).toBeVisible();
+  await expect(page.locator('[aria-label="Bleed buildup: 99"]:visible')).toBeVisible();
   await expect(page.locator(".selected-build")).toContainText("Blood / Seppuku / +25");
   await expect(page.locator(".detail-block").filter({ hasText: "Combat Stats" }).locator("strong")).toHaveText("STR 13 / DEX 19 / INT 9 / FAI 8 / ARC 63");
   const reloadedState = await page.evaluate(async () => {

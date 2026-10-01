@@ -33,7 +33,7 @@ test("affinity chart uses one padded domain for flat-series axes and grid", asyn
 
   await page.getByRole("navigation").getByRole("button", { name: "Affinity Watch", exact: true }).click();
   await page.getByRole("button", { name: "Watch affinities", exact: true }).click();
-  await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "completed");
+  await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "completed");
   await expect(page.locator(".affinity-y-axis span")).toHaveText(["510.0", "500.0", "490.0"]);
   await expect(page.locator(".affinity-grid-line")).toHaveCount(3);
   expect(await page.locator(".affinity-grid-line").evaluateAll((lines) => lines.map((line) => Number(line.getAttribute("y1"))))).toEqual([14, 110, 206]);
@@ -74,7 +74,7 @@ test("affinity summaries show unavailable requested endpoints and preserve chart
   });
   await page.getByRole("navigation").getByRole("button", { name: "Affinity Watch", exact: true }).click();
   await page.getByRole("button", { name: "Watch affinities", exact: true }).click();
-  await expect(page.locator(".analysis-progress")).toHaveAttribute("data-analysis-status", "completed");
+  await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "completed");
   await expect(page.getByRole("grid", { name: "Affinity watch rankings" }).getByRole("row").nth(1).getByRole("gridcell")).toHaveText(["1", "Sparse", "Unavailable", "Unavailable", "Unavailable"]);
   await expect(page.locator(".affinity-legend")).toContainText("Unavailable → Unavailable");
   await expect(page.locator(".affinity-series-point")).toHaveCount(1);

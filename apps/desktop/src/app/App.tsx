@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { Activity, useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { Check, CircleAlert, GitCompareArrows, Radar, RotateCcw, Route, Table2, X } from "lucide-react";
 import { api } from "../lib/api";
 import { setAnalysisCacheVersion } from "../lib/analysis-cache";
+import { keyboardOwnedByOverlay } from "../lib/keyboard";
 import { useDesktopStore } from "../lib/state";
 import { WorkspaceTab } from "../lib/types";
 import { AffinityWatchView } from "../features/affinity-watch/AffinityWatchView";
@@ -191,7 +192,7 @@ export function App() {
   const onTabShortcut = useEffectEvent((event: KeyboardEvent) => {
     const index = Number(event.key) - 1;
     if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey || !tabs[index]) return;
-    if (document.querySelector("dialog[open]")) return;
+    if (keyboardOwnedByOverlay()) return;
     event.preventDefault();
     if (!tabState(tabs[index].id).disabled) setWorkspace(tabs[index].id);
   });
@@ -253,7 +254,7 @@ export function App() {
             </button>
           </div>
         ) : null}
-        <div className="workspace-stage" key={activeWorkspace}>
+        <div className="workspace-stage">
           {catalogStatus === "loading" ? (
             <div className="workspace-panel startup-skeleton" role="status">
               <div className="workspace-header">
@@ -275,10 +276,16 @@ export function App() {
               </div>
             </div>
           ) : null}
-          {catalogStatus === "ready" && activeWorkspace === "rankings" ? <RankingsBoard /> : null}
-          {catalogStatus === "ready" && activeWorkspace === "compare" ? <CompareView /> : null}
-          {catalogStatus === "ready" && activeWorkspace === "paths" ? <PathsView /> : null}
-          {catalogStatus === "ready" && activeWorkspace === "affinity_watch" ? <AffinityWatchView /> : null}
+          {/* Workspaces stay mounted while hidden, so switching tabs shows them instantly; a
+              hidden workspace's effects stop, exactly as if it had unmounted. */}
+          {catalogStatus === "ready" ? (
+            <>
+              <Activity mode={activeWorkspace === "rankings" ? "visible" : "hidden"}><RankingsBoard /></Activity>
+              <Activity mode={activeWorkspace === "compare" ? "visible" : "hidden"}><CompareView /></Activity>
+              <Activity mode={activeWorkspace === "paths" ? "visible" : "hidden"}><PathsView /></Activity>
+              <Activity mode={activeWorkspace === "affinity_watch" ? "visible" : "hidden"}><AffinityWatchView /></Activity>
+            </>
+          ) : null}
         </div>
       </section>
       <Inspector />

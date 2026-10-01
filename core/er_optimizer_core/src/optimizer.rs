@@ -991,22 +991,38 @@ fn build_prepared_plan<'a>(
     let mut groups: Vec<PreparedSearchGroup> = Vec::new();
     let mut stat_candidates = 0_u64;
     let mut combinations = 0_u64;
-    let mut distribution_counts = HashMap::new();
 
-    for (prepared_idx, prepared) in weapons.iter().enumerate() {
+    // Each Ash choice's stat search depends only on its weapon, so weapons resolve in
+    // parallel (with per-thread count memos) and groups are then built in weapon order.
+    let mut searches: Vec<Vec<Option<RelevantStatSearch>>> = Vec::with_capacity(weapons.len());
+    for chunk in weapons.chunks(prepare_weapon_chunk()) {
+        if !should_continue() {
+            return Err("cancelled".to_string());
+        }
+        searches.par_extend(chunk.par_iter().map_init(
+            HashMap::new,
+            |distribution_counts, prepared| {
+                prepared
+                    .aow_choices
+                    .iter()
+                    .map(|aow_choice| {
+                        relevant_stat_search(
+                            request,
+                            data,
+                            constraints,
+                            prepared,
+                            aow_choice,
+                            distribution_counts,
+                        )
+                    })
+                    .collect()
+            },
+        ));
+    }
+
+    for (prepared_idx, (prepared, choice_searches)) in weapons.iter().zip(searches).enumerate() {
         let mut groups_by_search = HashMap::<RelevantStatSearch, usize>::new();
-        for (aow_idx, aow_choice) in prepared.aow_choices.iter().enumerate() {
-            if !should_continue() {
-                return Err("cancelled".to_string());
-            }
-            let search = relevant_stat_search(
-                request,
-                data,
-                constraints,
-                prepared,
-                aow_choice,
-                &mut distribution_counts,
-            );
+        for (aow_idx, search) in choice_searches.into_iter().enumerate() {
             let Some(search) = search else {
                 continue;
             };
@@ -1759,7 +1775,8 @@ where
         .as_deref()
         .and_then(|reuse| reuse.max_search(&group.search));
     let dp_search = reused_search.as_ref().unwrap_or(&group.search);
-    let mut candidates = Vec::with_capacity(request.top_k.min(aow_indices.len()));
+    let mut candidates: Vec<ScoredCandidate> =
+        Vec::with_capacity(request.top_k.min(aow_indices.len()));
     let mut route_sets = Vec::with_capacity(aow_indices.len());
     for &aow_idx in aow_indices {
         progress.poll()?;
@@ -1843,7 +1860,10 @@ where
                 | OptimizeObjective::MaxPhysicalAr
                 | OptimizeObjective::BleedThenAr
         );
-    for &upgrade in &prepared.upgrades {
+    // Higher upgrades usually score best, so visiting them first lets the weapon-best bound
+    // below skip lower levels early. Ranking is a total order, so visit order never changes
+    // which candidate wins.
+    for &upgrade in prepared.upgrades.iter().rev() {
         if let Some(cutoff) = cutoff
             && matches!(
                 request.objective,
@@ -1928,9 +1948,21 @@ where
             let aow_choice = &prepared.aow_choices[aow_idx];
             let routes = route_set.as_ref();
             let primary = primary_plans.get(&primary_effect_key(aow_choice));
-            if let (Some(cutoff), Some(primary)) =
-                (cutoff, primary.and_then(|p| p.best_primary.as_ref()))
-                && primary.key.score < *cutoff
+            // Per weapon, only the weapon's best setup is listed, so a setup whose primary
+            // score is strictly below one this unit already found cannot appear. Ties are still
+            // solved, so tie order is unchanged.
+            let weapon_best = matches!(group_mode, ResultGroupMode::WeaponOnly)
+                .then(|| {
+                    candidates
+                        .iter()
+                        .map(|candidate| &candidate.key.score)
+                        .max()
+                })
+                .flatten();
+            if let (Some(bound), Some(primary)) = (
+                cutoff.max(weapon_best),
+                primary.and_then(|p| p.best_primary.as_ref()),
+            ) && primary.key.score < *bound
             {
                 progress.advance(
                     group.search.candidate_count,
@@ -3648,39 +3680,68 @@ fn prepare_weapons<'a>(
     prepare_weapons_with_cancel(request, data, Some(constraints), &mut || true)
 }
 
+// Weapons each Rayon thread prepares between cancellation checks. Scaling the chunk with the
+// pool keeps one chunk to a few milliseconds of wall time on any thread count, far inside
+// CANCELLATION_LATENCY_TARGET_MS, while large pools still get enough work per barrier.
+const PREPARE_WEAPONS_PER_THREAD: usize = 64;
+
+fn prepare_weapon_chunk() -> usize {
+    PREPARE_WEAPONS_PER_THREAD * rayon::current_num_threads().max(1)
+}
+
 fn prepare_weapons_with_cancel<'a>(
     request: &OptimizeRequest,
     data: &'a GameData,
     constraints: Option<CombatConstraints>,
     should_continue: &mut impl FnMut() -> bool,
 ) -> Result<Vec<PreparedWeapon<'a>>, String> {
+    // Each weapon prepares independently, so chunks run in parallel. Results keep weapon
+    // order and the first error by weapon order wins, exactly as a serial pass would.
     let mut out = Vec::new();
-    for weapon in &data.weapons {
+    for chunk in data.weapons.chunks(prepare_weapon_chunk()) {
         if !should_continue() {
             return Err("cancelled".to_string());
         }
-        if !weapon_matches_request(weapon, request, data) || !data.weapon_ar_supported(weapon) {
-            continue;
+        let prepared: Vec<Result<Option<PreparedWeapon<'a>>, String>> = chunk
+            .par_iter()
+            .map_init(AttackRowCache::default, |rows, weapon| {
+                prepare_weapon(weapon, request, data, constraints, rows)
+            })
+            .collect();
+        for weapon in prepared {
+            out.extend(weapon?);
         }
-        // Reusable evaluators can change stat budgets after preparation.
-        if constraints
-            .is_some_and(|constraints| !weapon_requirements_can_fit(request, constraints, weapon))
-        {
-            continue;
-        }
-        let Some(upgrades) = available_upgrades(weapon, request, data) else {
-            continue;
-        };
-        let Some(aow_choices) = resolve_aow_choices(weapon, request, data)? else {
-            continue;
-        };
-        out.push(PreparedWeapon {
-            weapon,
-            aow_choices,
-            upgrades,
-        });
     }
     Ok(out)
+}
+
+fn prepare_weapon<'a>(
+    weapon: &'a Weapon,
+    request: &OptimizeRequest,
+    data: &'a GameData,
+    constraints: Option<CombatConstraints>,
+    attack_rows: &mut AttackRowCache<'a>,
+) -> Result<Option<PreparedWeapon<'a>>, String> {
+    if !weapon_matches_request(weapon, request, data) || !data.weapon_ar_supported(weapon) {
+        return Ok(None);
+    }
+    // Reusable evaluators can change stat budgets after preparation.
+    if constraints
+        .is_some_and(|constraints| !weapon_requirements_can_fit(request, constraints, weapon))
+    {
+        return Ok(None);
+    }
+    let Some(upgrades) = available_upgrades(weapon, request, data) else {
+        return Ok(None);
+    };
+    let Some(aow_choices) = resolve_aow_choices_cached(weapon, request, data, attack_rows)? else {
+        return Ok(None);
+    };
+    Ok(Some(PreparedWeapon {
+        weapon,
+        aow_choices,
+        upgrades,
+    }))
 }
 
 fn calculate_status_with_buffs(
@@ -3852,10 +3913,24 @@ fn upgrade_cap_for_weapon(weapon: &Weapon, request: &OptimizeRequest) -> u8 {
     }
 }
 
+/// Attack rows an Ash uses on a weapon type. Selection depends only on the Ash and the
+/// weapon's type name, so one preparation pass reuses it across every affinity and weapon.
+type AttackRowCache<'a> = HashMap<(u16, &'a str), Vec<&'a AowAttackRow>>;
+
+#[cfg(test)]
 fn resolve_aow_choices<'a>(
     weapon: &'a Weapon,
     request: &OptimizeRequest,
     data: &'a GameData,
+) -> Result<Option<Vec<AowChoice<'a>>>, String> {
+    resolve_aow_choices_cached(weapon, request, data, &mut AttackRowCache::default())
+}
+
+fn resolve_aow_choices_cached<'a>(
+    weapon: &'a Weapon,
+    request: &OptimizeRequest,
+    data: &'a GameData,
+    attack_rows: &mut AttackRowCache<'a>,
 ) -> Result<Option<Vec<AowChoice<'a>>>, String> {
     let native = native_skill_choice_for_weapon(weapon, data);
     let mut choices: Vec<_> = native.clone().into_iter().collect();
@@ -3889,7 +3964,10 @@ fn resolve_aow_choices<'a>(
                 aow: Some(aow),
                 skill_id: Some(aow.aow_id),
                 skill_name: Some(aow.name.as_str()),
-                attack_rows: select_aow_attack_rows(aow.aow_id, weapon, data),
+                attack_rows: attack_rows
+                    .entry((aow.aow_id, weapon.weapon_type_name.as_str()))
+                    .or_insert_with(|| select_aow_attack_rows(aow.aow_id, weapon, data))
+                    .clone(),
                 scalar_routes: None,
             });
         }

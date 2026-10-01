@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowDownUp, ArrowUp, ChevronLeft, ChevronRight, Download, LockKeyhole, Pin, RefreshCcw } from "lucide-react";
-import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { memo, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { downloadCsv, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
 import { compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
 import { buildOptimizeRequest, rowFingerprint } from "../../lib/session";
@@ -9,6 +9,20 @@ import { ObjectiveId, SearchProgressDto, SolvedBuildDto } from "../../lib/types"
 import { runSearchFromStore, runSearchRequestForRows } from "../../lib/workflows";
 import packageInfo from "../../../package.json";
 import { STAT_KEYS, ScalingTokens, StatTokens } from "../shared/BuildMetricTokens";
+
+// One key per result set, so fresh results animate in once while sorting or showing the
+// board again only moves or reveals rows (moving an animated row would restart it).
+const resultSetKeys = new WeakMap<SolvedBuildDto[], number>();
+let nextResultSet = 0;
+function resultSetKey(rows: SolvedBuildDto[]): number {
+  let key = resultSetKeys.get(rows);
+  if (key === undefined) {
+    nextResultSet += 1;
+    key = nextResultSet;
+    resultSetKeys.set(rows, key);
+  }
+  return key;
+}
 
 export function RankingsBoard() {
   const rows = useDesktopStore((state) => state.rows);
@@ -79,10 +93,12 @@ export function RankingsBoard() {
     };
   }, [rows.length]);
 
-  async function lockAndRerun(row: SolvedBuildDto) {
+  const lockAndRerun = useCallback(async (row: SolvedBuildDto) => {
     applyRowLocks(row);
     await runSearchFromStore();
-  }
+  }, [applyRowLocks]);
+  const selectedKey = rowFingerprint(selected);
+  const pinnedKeys = useMemo(() => new Set(compareBench.map(rowFingerprint)), [compareBench]);
 
   async function exportCsv() {
     if (useDesktopStore.getState().isSearching || useDesktopStore.getState().isExporting) return;
@@ -301,23 +317,28 @@ export function RankingsBoard() {
             </div>
           </div>
         ) : null}
-        {rankedRows.map(({ row, rank }) => (
-          <ResultRow
-            key={`${rowFingerprint(row)}-${rank}`}
-            index={rank}
-            row={row}
-            movement={movements?.[rank] ?? null}
-            active={rowFingerprint(selected) === rowFingerprint(row)}
-            objective={objective}
-            lockDisabled={isExporting}
-            aowModelSupported={Boolean(catalog?.dataManifest.capabilities.aowDamage && catalog.dataManifest.capabilities.aowRoutes)}
-            extendedScalingGrades={extendedScalingGrades}
-            onClick={() => selectRow(row)}
-            onLock={() => lockAndRerun(row)}
-            pinned={compareBench.some((entry) => rowFingerprint(entry) === rowFingerprint(row))}
-            onPin={() => toggleCompareBench(row)}
-          />
-        ))}
+        <div className="result-rows" role="rowgroup" key={resultSetKey(rows)}>
+        {rankedRows.map(({ row, rank }) => {
+          const key = rowFingerprint(row);
+          return (
+            <ResultRow
+              key={`${key}-${rank}`}
+              index={rank}
+              row={row}
+              movement={movements?.[rank] ?? null}
+              active={selectedKey === key}
+              objective={objective}
+              lockDisabled={isExporting}
+              aowModelSupported={aowSupported}
+              extendedScalingGrades={extendedScalingGrades}
+              onSelect={selectRow}
+              onLock={lockAndRerun}
+              pinned={pinnedKeys.has(key)}
+              onPin={toggleCompareBench}
+            />
+          );
+        })}
+        </div>
       </div>
     </section>
   );
@@ -364,7 +385,9 @@ function moveRowFocus(row: HTMLElement, key: string) {
   target?.focus();
 }
 
-function ResultRow({
+// Memoised with row-taking handlers, so a selection, sort or query edit re-renders only the
+// rows whose own props changed.
+const ResultRow = memo(function ResultRow({
   row,
   index,
   movement,
@@ -373,7 +396,7 @@ function ResultRow({
   lockDisabled,
   aowModelSupported,
   extendedScalingGrades,
-  onClick,
+  onSelect,
   onLock,
   pinned,
   onPin,
@@ -385,11 +408,11 @@ function ResultRow({
   objective: Parameters<typeof metricForObjective>[1];
   aowModelSupported: boolean;
   extendedScalingGrades: boolean;
-  onClick: () => void;
-  onLock: () => void;
+  onSelect: (row: SolvedBuildDto) => void;
+  onLock: (row: SolvedBuildDto) => void;
   lockDisabled: boolean;
   pinned: boolean;
-  onPin: () => void;
+  onPin: (row: SolvedBuildDto) => void;
 }) {
   const aowAvailable = hasAowDamage(row, aowModelSupported);
   const metric = metricForObjective(row, objective, aowModelSupported);
@@ -401,14 +424,14 @@ function ResultRow({
       aria-label={`Select ${row.weaponName}, ${row.affinity}, rank ${index + 1}${movementText(movement) ? `, ${movementText(movement)}` : ""}`}
       title="Select this build"
       tabIndex={0}
-      onClick={onClick}
+      onClick={() => onSelect(row)}
       onKeyDown={(event) => {
         if (event.target !== event.currentTarget) {
           return;
         }
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          onClick();
+          onSelect(row);
         } else if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Home" || event.key === "End") {
           event.preventDefault();
           moveRowFocus(event.currentTarget, event.key);
@@ -463,7 +486,7 @@ function ResultRow({
           aria-label={`${pinned ? "Unpin" : "Compare"} ${row.weaponName}, ${row.affinity}, rank ${index + 1}`}
           onClick={(event) => {
             event.stopPropagation();
-            onPin();
+            onPin(row);
           }}
         >
           <Pin size={15} aria-hidden="true" />
@@ -475,7 +498,7 @@ function ResultRow({
           disabled={lockDisabled}
           onClick={(event) => {
             event.stopPropagation();
-            onLock();
+            void onLock(row);
           }}
         >
           <LockKeyhole size={15} aria-hidden="true" />
@@ -483,7 +506,7 @@ function ResultRow({
       </span>
     </div>
   );
-}
+});
 
 /** Column keys shown once in the header so rows can carry bare values. */
 function StatKeys() {
