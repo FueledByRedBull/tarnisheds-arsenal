@@ -24,23 +24,21 @@ comparisons and progression previews.
 [![Tauri 2](https://img.shields.io/badge/Tauri_2-101315?style=flat-square&logo=tauri&logoColor=c9a45c)](apps/desktop/src-tauri)
 [![React 19](https://img.shields.io/badge/React_19-101315?style=flat-square&logo=react&logoColor=c9a45c)](apps/desktop/src)
 
-[What’s new in v0.16.0](docs/release-notes/v0.16.0.md)
+[What’s new in v0.17.0](docs/release-notes/v0.17.0.md)
 · [Your first build](#your-first-build)
 · [Documentation](#documentation)
 
 </div>
 
 Each Rankings row shows the loadout, weapon scaling, combat stats, AR, and skill
-damage, with the selected build’s full breakdown on the right. Screenshots show
-the query-line interface that follows [v0.16.0](docs/release-notes/v0.16.0.md);
-v0.16.0 itself uses the earlier command rail.
+damage, with the selected build’s full breakdown on the right.
 
 ![Rankings with weapon setups, combat stats, scaling, and the selected build’s damage breakdown](docs/images/tarnisheds-arsenal-rankings.png)
 
 ## Download
 
 Choose an asset from the [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
-The [v0.16.0 notes](docs/release-notes/v0.16.0.md) include versioned downloads,
+The [v0.17.0 notes](docs/release-notes/v0.17.0.md) include versioned downloads,
 calculation changes, and verification limits.
 
 | Choose | Best for |
@@ -194,7 +192,7 @@ Choose a guide for the task at hand:
 
 | I want to… | Read |
 | --- | --- |
-| See what changed in **v0.16.0** | [Release notes](docs/release-notes/v0.16.0.md) · [All versions](docs/release-notes/README.md) |
+| See what changed in **v0.17.0** | [Release notes](docs/release-notes/v0.17.0.md) · [All versions](docs/release-notes/README.md) |
 | Understand supported mechanics and limitations | [Model reference](docs/model-reference.md) |
 | Find components and trace a calculation | [Optimizer overview](docs/design/optimizer-overview.md) |
 | Inspect the exact ranking contract and proof | [Optimizer mathematics](docs/design/optimizer-math.md) |
