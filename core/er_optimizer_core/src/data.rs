@@ -713,10 +713,9 @@ fn load_calc_correct(table: CsvTable) -> Result<Vec<Option<Vec<Option<f32>>>>, S
 
 fn load_attack_element_correct(
     table: CsvTable,
-) -> Result<Vec<Option<AttackElementCorrect>>, String> {
+) -> Result<Vec<(usize, AttackElementCorrect)>, String> {
     let [attack_element_correct_id] = table.columns(["attack_element_correct_id"])?;
     let mut entries = Vec::with_capacity(table.rows.len());
-    let mut max_id = 0usize;
 
     let fields = [
         [
@@ -773,19 +772,17 @@ fn load_attack_element_correct(
                 scales[stat_idx][damage_idx] = value != 0;
             }
         }
-        max_id = max_id.max(row_id);
         entries.push((row_id, AttackElementCorrect { scales }));
     }
 
-    let mut out = vec![None; max_id + 1];
-    for (row_id, value) in entries {
-        if out[row_id].replace(value).is_some() {
-            return Err(format!(
-                "duplicate attack-element-correct entry id={row_id}"
-            ));
-        }
+    entries.sort_by_key(|(row_id, _)| *row_id);
+    if let Some(pair) = entries.windows(2).find(|pair| pair[0].0 == pair[1].0) {
+        return Err(format!(
+            "duplicate attack-element-correct entry id={}",
+            pair[0].0
+        ));
     }
-    Ok(out)
+    Ok(entries)
 }
 
 fn load_aows(table: CsvTable, buff_rows: &HashMap<u16, AowBuffRow>) -> Result<Vec<Aow>, String> {

@@ -577,7 +577,9 @@ pub struct GameData {
     pub weapons: Vec<Weapon>,
     pub reinforce: Vec<Vec<Option<ReinforceLevel>>>,
     pub calc_correct: Vec<Option<Vec<Option<f32>>>>,
-    pub attack_element_correct: Vec<Option<AttackElementCorrect>>,
+    /// Sorted by param id. Ids reach ~20 million while only ~190 exist, so a table indexed by
+    /// id took ~480 MB per profile.
+    pub attack_element_correct: Vec<(usize, AttackElementCorrect)>,
     pub attack_element_correct_ext: HashMap<usize, AttackElementCorrectExt>,
     pub aows: Vec<Aow>,
     pub aow_attack_rows: HashMap<u16, Vec<AowAttackRow>>,
@@ -655,8 +657,9 @@ impl GameData {
         attack_element_correct_id: usize,
     ) -> Option<&AttackElementCorrect> {
         self.attack_element_correct
-            .get(attack_element_correct_id)
-            .and_then(Option::as_ref)
+            .binary_search_by_key(&attack_element_correct_id, |(id, _)| *id)
+            .ok()
+            .map(|index| &self.attack_element_correct[index].1)
     }
 
     pub fn attack_element_ext(

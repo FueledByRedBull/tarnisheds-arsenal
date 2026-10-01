@@ -239,6 +239,25 @@ Headless Chromium also misleads: its overlay scrollbars hide the first cause bel
 
 Results arriving still take ~29 ms: building 50 new rows restyles ~3,200 elements.
 
+### Memory
+
+Private working set of the whole process tree (the app and every WebView2 process), with
+GPU compositing on:
+
+| Stage | Before | After |
+| --- | --- | --- |
+| Idle after start | 1,139 MB | 182 MB |
+| After a 50-row search | 1,196 MB | 246 MB |
+| After Compare, Paths and Affinity Watch | 1,252 MB | 282 MB |
+| After 10 more searches | 1,334 MB | 344 MB |
+
+The native process held ~1,000 MB: each profile kept its attack-element corrections in a
+table indexed by param id. Ids reach ~20 million but only ~190 exist, so each profile
+allocated 482 MB. They are now a sorted list searched by id, which returned the same 50 rows
+for an identical search at the same speed, and launch-to-loaded time fell from ~1.0 s
+to ~0.85 s. WebView2's renderer grows during repeated searches because discarded rows
+are collected lazily: a forced collection returned it from 176 MB to 101 MB.
+
 ## Release compiler settings
 
 Both Cargo packages set `lto = "thin"` and `codegen-units = 1` for release builds.
