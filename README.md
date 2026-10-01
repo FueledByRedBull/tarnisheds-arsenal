@@ -72,7 +72,10 @@ needs internet access if that runtime is missing.
 
 Save builds to return to them later, or export rankings as CSV. The query line
 shows the assumptions behind the rankings; changed inputs mark old results as
-stale. Convergence uses a different
+stale. **Ctrl+Z** undoes any query change. After **Update Results**, each rank
+shows how far that loadout moved and how its score changed. Click **AR**,
+**Skill damage**, or the objective column to sort without losing the rank, and
+press **?** for every shortcut. Convergence uses a different
 [fixed-stat workflow](#convergence-3001-beta).
 
 ### Saved builds and recovery

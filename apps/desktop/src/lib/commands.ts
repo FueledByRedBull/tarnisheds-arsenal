@@ -19,7 +19,10 @@ export type CommandAction =
   | { kind: "cancelSearch" }
   | { kind: "optimizeClass" }
   | { kind: "resetStats" }
-  | { kind: "resetFilters" };
+  | { kind: "resetFilters" }
+  | { kind: "undo" }
+  | { kind: "redo" }
+  | { kind: "shortcuts" };
 
 export interface Command {
   id: string;
@@ -39,6 +42,11 @@ export interface CommandContext {
   hasRows: boolean;
   analysesAvailable: boolean;
   profiles: Array<{ id: string; label: string }>;
+  /** Descriptions of the next undo and redo steps, when there are any. */
+  undoLabel?: string | null;
+  redoLabel?: string | null;
+  /** Ids of recently run commands, newest first. */
+  recent?: string[];
 }
 
 type StatKey = "vig" | "mnd" | "end" | "strStat" | "dex" | "intStat" | "fai" | "arc";
@@ -230,6 +238,8 @@ function stateCommands(context: CommandContext): Command[] {
   const { catalog, request, lockedStatMode, fixedStats, isSearching, resultsStale, analysesAvailable, profiles } = context;
   const rules = catalog.dataManifest.rules;
   const commands: Command[] = [];
+  if (context.undoLabel) commands.push(command("undo", "History", "Undo", context.undoLabel, { kind: "undo" }));
+  if (context.redoLabel) commands.push(command("redo", "History", "Redo", context.redoLabel, { kind: "redo" }));
   commands.push(isSearching
     ? command("cancel-search", "Actions", "Cancel search", undefined, { kind: "cancelSearch" })
     : command("search", "Actions", resultsStale ? "Update results" : "Search", "Rank every legal setup", { kind: "search" }));
@@ -270,15 +280,49 @@ function stateCommands(context: CommandContext): Command[] {
     }
   }
   commands.push(command("reset-filters", "Weapon", "Reset weapon filters", undefined, { kind: "resetFilters" }));
+  commands.push(command("shortcuts", "Help", "Keyboard shortcuts", "Every shortcut in one list", { kind: "shortcuts" }));
   return commands;
 }
 
+// Typed commands carry their value in the id, and history steps change meaning, so neither is recalled.
+export function recallable(entry: Command): boolean {
+  return !/^(set|lock|min)-|^upgrade-|^(top|blessing|undo|redo)$/.test(entry.id);
+}
+
+// The empty palette leads with recent commands still valid for this query, then common actions.
 function suggestions(context: CommandContext): Command[] {
-  const preferred = ["search", "cancel-search", "two-handing", "exact-upgrades", "explore-upgrades", "reset-filters", "workspace-compare", "workspace-paths"];
-  const commands = stateCommands(context);
-  return preferred
-    .map((id) => commands.find((entry) => entry.id === id))
-    .filter((entry): entry is Command => Boolean(entry));
+  const preferred = ["search", "cancel-search", "undo", "two-handing", "exact-upgrades", "explore-upgrades", "reset-filters", "workspace-compare", "workspace-paths"];
+  const states = stateCommands(context);
+  const recentIds = context.recent ?? [];
+  const pool = recentIds.length ? staticCommands(context) : states;
+  const recent = recentIds
+    .map((id) => pool.find((entry) => entry.id === id))
+    .filter((entry): entry is Command => Boolean(entry))
+    .map((entry) => ({ ...entry, group: "Recent" }));
+  const seen = new Set(recent.map((entry) => entry.id));
+  return [...recent, ...preferred
+    .map((id) => states.find((entry) => entry.id === id))
+    .filter((entry): entry is Command => entry !== undefined && !seen.has(entry.id))];
+}
+
+// Character ranges of `label` to emphasise for `query`: each typed word's first match.
+export function highlightRanges(label: string, query: string): Array<[number, number]> {
+  const haystack = label.toLowerCase();
+  const ranges: Array<[number, number]> = [];
+  const tokens = normalizeQuery(query).split(" ").filter(Boolean).sort((a, b) => b.length - a.length);
+  for (const token of tokens) {
+    let index = haystack.indexOf(token);
+    while (index !== -1) {
+      const start = index;
+      const end = start + token.length;
+      if (!ranges.some(([from, to]) => start < to && end > from)) {
+        ranges.push([start, end]);
+        break;
+      }
+      index = haystack.indexOf(token, start + 1);
+    }
+  }
+  return ranges.sort((a, b) => a[0] - b[0]);
 }
 
 function command(id: string, group: string, label: string, detail: string | undefined, action: CommandAction): Command {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CommandContext, findCommands, matchScore } from "./commands";
+import { CommandContext, findCommands, highlightRanges, matchScore, recallable } from "./commands";
 import { STARTING_CLASS_METADATA } from "./session";
 import { defaultRequest } from "./state";
 import type { CatalogDto } from "./types";
@@ -156,5 +156,42 @@ describe("palette search", () => {
     const changed = context({ request: { ...defaultRequest, filters: { version: 1, entries: [{ dimension: "affinity", id: "affinity:keen", mode: "exclude" }] } } });
     const second = findCommands("katana", changed).find((command) => command.id === "type-type:katana")!;
     expect(first.action).not.toEqual(second.action);
+  });
+});
+
+describe("palette history, help and recall", () => {
+  it("offers undo and redo with their descriptions only when they exist", () => {
+    expect(ids("undo")).not.toContain("undo");
+    const withHistory = context({ undoLabel: "STR 12 → 40", redoLabel: "DEX 15 → 20" });
+    const undo = findCommands("undo", withHistory)[0];
+    expect(undo).toMatchObject({ id: "undo", detail: "STR 12 → 40", action: { kind: "undo" } });
+    expect(ids("redo", withHistory)[0]).toBe("redo");
+    expect(ids("", withHistory)).toContain("undo");
+    expect(ids("shortcuts")[0]).toBe("shortcuts");
+  });
+
+  it("leads the empty palette with recent commands that still apply", () => {
+    const recent = context({ recent: ["weapon-Nagakiba", "weapon-Missing", "objective-max_ar_plus_bleed"] });
+    const commands = findCommands("", recent);
+    expect(commands.slice(0, 2).map((command) => [command.id, command.group])).toEqual([
+      ["weapon-Nagakiba", "Recent"],
+      ["objective-max_ar_plus_bleed", "Recent"],
+    ]);
+    expect(commands.map((command) => command.id)).toContain("search");
+  });
+
+  it("recalls named commands but not typed values or history steps", () => {
+    const [set] = findCommands("str 40", context());
+    expect(recallable(set)).toBe(false);
+    expect(recallable(findCommands("uchi", context())[0])).toBe(true);
+    expect(recallable(findCommands("locked", context())[0])).toBe(true);
+    expect(recallable(findCommands("undo", context({ undoLabel: "x" }))[0])).toBe(false);
+  });
+
+  it("highlights each typed word once", () => {
+    expect(highlightRanges("Set STR to 40", "str 40")).toEqual([[4, 7], [11, 13]]);
+    expect(highlightRanges("Weapon: Uchigatana", "uchi")).toEqual([[8, 12]]);
+    expect(highlightRanges("Weapon: Uchigatana", "a a")).toEqual([[2, 3], [13, 14]]);
+    expect(highlightRanges("Search", "")).toEqual([]);
   });
 });

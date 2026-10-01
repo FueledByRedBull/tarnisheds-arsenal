@@ -1,10 +1,11 @@
-import { ArrowDownUp, ChevronLeft, ChevronRight, Download, LockKeyhole, Pin, RefreshCcw } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowDown, ArrowDownUp, ArrowUp, ChevronLeft, ChevronRight, Download, LockKeyhole, Pin, RefreshCcw } from "lucide-react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { downloadCsv, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
 import { compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
 import { buildOptimizeRequest, rowFingerprint } from "../../lib/session";
+import { RankMovement, RankSortKey, rankMovements, sortRanked } from "../../lib/ranking-view";
 import { useDesktopStore } from "../../lib/state";
-import { SearchProgressDto, SolvedBuildDto } from "../../lib/types";
+import { ObjectiveId, SearchProgressDto, SolvedBuildDto } from "../../lib/types";
 import { runSearchFromStore, runSearchRequestForRows } from "../../lib/workflows";
 import packageInfo from "../../../package.json";
 import { STAT_KEYS, ScalingTokens, StatTokens } from "../shared/BuildMetricTokens";
@@ -32,13 +33,22 @@ export function RankingsBoard() {
   const [exportProgress, setExportProgress] = useState<SearchProgressDto | null>(null);
   const [exportLimit, setExportLimit] = useState<25 | 100 | 500 | 2000>(25);
   const exportCache = useRef<{ signature: string; rows: SolvedBuildDto[] } | null>(null);
-  const [reverseRank, setReverseRank] = useState(false);
+  const rankBaseline = useDesktopStore((state) => state.rankBaseline);
+  const [sort, setSort] = useState<{ key: RankSortKey; reverse: boolean }>({ key: "rank", reverse: false });
   const [horizontalScroll, setHorizontalScroll] = useState({ overflow: false, left: false, right: false });
   const resultBoard = useRef<HTMLDivElement>(null);
-  const rankedRows = useMemo(() => {
-    const entries = rows.map((row, rank) => ({ row, rank }));
-    return reverseRank ? entries.reverse() : entries;
-  }, [reverseRank, rows]);
+  const aowSupported = Boolean(catalog?.dataManifest.capabilities.aowDamage && catalog.dataManifest.capabilities.aowRoutes);
+  const rankedRows = useMemo(
+    () => sortRanked(rows, sort.key, sort.reverse, objective, aowSupported),
+    [aowSupported, objective, rows, sort],
+  );
+  const movements = useMemo(
+    () => rankMovements(rows, rankBaseline, objective, aowSupported),
+    [aowSupported, objective, rankBaseline, rows],
+  );
+  const sortBy = (key: RankSortKey) => setSort((current) => ({ key, reverse: current.key === key ? !current.reverse : false }));
+  const ariaSort = (key: RankSortKey) => sort.key !== key ? undefined
+    : (key === "rank") !== sort.reverse ? "ascending" as const : "descending" as const;
   const profileRules = catalog?.dataManifest.rules;
   const separateUpgradeCaps = profileRules?.separateUpgradeCaps ?? true;
   const scadutreeAvailable = profileRules?.scadutreeScaling ?? true;
@@ -178,12 +188,14 @@ export function RankingsBoard() {
         <div className="result-scroll-actions">
           <button
             type="button"
-            title="Reverse rank display; click again to return to best first"
-            aria-pressed={reverseRank}
-            onClick={() => setReverseRank((value) => !value)}
+            title="Reverse the current order; click again to restore it"
+            aria-pressed={sort.reverse}
+            onClick={() => setSort((current) => ({ ...current, reverse: !current.reverse }))}
           >
             <ArrowDownUp size={15} />
-            <span className="sr-only">{reverseRank ? "Show best rank first" : "Show lowest rank first"}</span>
+            <span className="sr-only">{sort.key === "rank"
+              ? sort.reverse ? "Show best rank first" : "Show lowest rank first"
+              : sort.reverse ? "Show highest first" : "Show lowest first"}</span>
           </button>
           {horizontalScroll.overflow ? (
             <>
@@ -256,7 +268,9 @@ export function RankingsBoard() {
         aria-describedby={resultsStale ? "stale-results-message" : undefined}
       >
         <div className={`result-head result-head-full ${objective !== "max_ar" ? "with-score" : ""}`} role="row">
-          <span role="columnheader" title="Rank">#</span>
+          <span role="columnheader" aria-sort={ariaSort("rank")}>
+            <SortButton label="Rank" direction={ariaSort("rank")} onClick={() => sortBy("rank")}>#</SortButton>
+          </span>
           <span role="columnheader" title="Weapon, affinity, skill, and reinforcement level">Loadout</span>
           <span role="columnheader" className="token-column-head" title="Attribute scaling grade at this reinforcement level">
             Scaling<StatKeys />
@@ -264,10 +278,16 @@ export function RankingsBoard() {
           <span role="columnheader" className="token-column-head" title="Combat stats of this build">
             Stats<StatKeys />
           </span>
-          <span role="columnheader" title="Raw attack rating before enemy defense and negation">AR</span>
-          <span role="columnheader" title="Raw skill damage for the full route, and its first damaging hit">Skill damage</span>
+          <span role="columnheader" aria-sort={ariaSort("ar")} title="Raw attack rating before enemy defense and negation">
+            <SortButton direction={ariaSort("ar")} onClick={() => sortBy("ar")}>AR</SortButton>
+          </span>
+          <span role="columnheader" aria-sort={ariaSort("skill")} title="Raw skill damage for the full route, and its first damaging hit">
+            <SortButton direction={ariaSort("skill")} onClick={() => sortBy("skill")}>Skill damage</SortButton>
+          </span>
           {objective !== "max_ar" ? (
-            <span role="columnheader" title="Value used by the active ranking objective">{objectiveLabel(objective)}</span>
+            <span role="columnheader" aria-sort={ariaSort("score")} title="Value used by the active ranking objective">
+              <SortButton direction={ariaSort("score")} onClick={() => sortBy("score")}>{objectiveLabel(objective)}</SortButton>
+            </span>
           ) : null}
           <span role="columnheader" title="Pin for comparison or use this result as exact search locks">
             <span className="sr-only">Actions</span>
@@ -286,6 +306,7 @@ export function RankingsBoard() {
             key={`${rowFingerprint(row)}-${rank}`}
             index={rank}
             row={row}
+            movement={movements?.[rank] ?? null}
             active={rowFingerprint(selected) === rowFingerprint(row)}
             objective={objective}
             lockDisabled={isExporting}
@@ -302,9 +323,51 @@ export function RankingsBoard() {
   );
 }
 
+// The direction mark is aria-hidden so the column keeps its name; aria-sort carries the order.
+function SortButton({ label, direction, onClick, children }: {
+  label?: string;
+  direction: "ascending" | "descending" | undefined;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  const Arrow = direction === "ascending" ? ArrowUp : ArrowDown;
+  return (
+    <button type="button" className={`sort-header${direction ? " active" : ""}`} aria-label={label} onClick={onClick}>
+      {children}
+      {direction ? <Arrow size={11} aria-hidden="true" /> : null}
+    </button>
+  );
+}
+
+function movementText(movement: RankMovement | null): string {
+  if (!movement) return "";
+  if (movement.places === null) return "new since the previous search";
+  if (movement.places === 0) return "";
+  return `${movement.places > 0 ? "up" : "down"} ${Math.abs(movement.places)} since the previous search`;
+}
+
+function MetricDelta({ movement, objective }: { movement: RankMovement | null; objective: ObjectiveId }) {
+  const delta = movement?.metricDelta ?? null;
+  if (delta === null || Math.abs(delta) < 0.05) return null;
+  return (
+    <small className={`metric-delta ${delta > 0 ? "up" : "down"}`} title={`${objectiveLabel(objective)} ${delta > 0 ? "+" : ""}${fixed1(delta)} since the previous search`}>
+      {delta > 0 ? "+" : ""}{fixed1(delta)}
+    </small>
+  );
+}
+
+// Arrow keys move between rows like a grid; Enter and Space still select.
+function moveRowFocus(row: HTMLElement, key: string) {
+  const rows = [...(row.parentElement?.querySelectorAll<HTMLElement>(".result-row-full") ?? [])];
+  const index = rows.indexOf(row);
+  const target = key === "Home" ? rows[0] : key === "End" ? rows.at(-1) : rows[index + (key === "ArrowDown" ? 1 : -1)];
+  target?.focus();
+}
+
 function ResultRow({
   row,
   index,
+  movement,
   active,
   objective,
   lockDisabled,
@@ -317,6 +380,7 @@ function ResultRow({
 }: {
   row: SolvedBuildDto;
   index: number;
+  movement: RankMovement | null;
   active: boolean;
   objective: Parameters<typeof metricForObjective>[1];
   aowModelSupported: boolean;
@@ -334,7 +398,7 @@ function ResultRow({
       className={`result-row result-row-full ${objective !== "max_ar" ? "with-score" : ""} ${active ? "active" : ""}`}
       role="row"
       aria-selected={active}
-      aria-label={`Select ${row.weaponName}, ${row.affinity}, rank ${index + 1}`}
+      aria-label={`Select ${row.weaponName}, ${row.affinity}, rank ${index + 1}${movementText(movement) ? `, ${movementText(movement)}` : ""}`}
       title="Select this build"
       tabIndex={0}
       onClick={onClick}
@@ -345,10 +409,20 @@ function ResultRow({
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           onClick();
+        } else if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Home" || event.key === "End") {
+          event.preventDefault();
+          moveRowFocus(event.currentTarget, event.key);
         }
       }}
     >
-      <span role="gridcell" className="rank-cell">{index + 1}</span>
+      <span role="gridcell" className="rank-cell">
+        {index + 1}
+        {movement && movement.places !== 0 ? (
+          <small className={`rank-move ${movement.places === null ? "new" : movement.places > 0 ? "up" : "down"}`} title={movementText(movement)}>
+            {movement.places === null ? "New" : <>{movement.places > 0 ? <ArrowUp size={10} aria-hidden="true" /> : <ArrowDown size={10} aria-hidden="true" />}{Math.abs(movement.places)}</>}
+          </small>
+        ) : null}
+      </span>
       <span role="gridcell" className="weapon-cell">
         <span className="weapon-line">
           <strong>{row.weaponName}</strong>
@@ -366,13 +440,21 @@ function ResultRow({
       <span role="gridcell" className="token-cell">
         <StatTokens row={row} />
       </span>
-      <span role="gridcell" className="result-metric-cell ar-cell"><strong>{fixed1(row.ar.total)}</strong></span>
+      <span role="gridcell" className="result-metric-cell ar-cell">
+        <strong>{fixed1(row.ar.total)}</strong>
+        {objective === "max_ar" ? <MetricDelta movement={movement} objective={objective} /> : null}
+      </span>
       <span role="gridcell" className="result-metric-cell skill-cell" title={aowAvailable ? undefined : "Skill damage isn't modeled for this loadout."}>
         {aowAvailable
           ? <><strong>{compactNumber(row.aowFullSequenceDamage)}</strong><small>1st hit {compactNumber(row.aowFirstHitDamage)}</small></>
           : <span className="result-unavailable">Unavailable</span>}
       </span>
-      {objective !== "max_ar" ? <span role="gridcell" className="objective-score">{metric === null ? "Unavailable" : fixed1(metric)}</span> : null}
+      {objective !== "max_ar" ? (
+        <span role="gridcell" className="objective-score">
+          {metric === null ? "Unavailable" : fixed1(metric)}
+          <MetricDelta movement={movement} objective={objective} />
+        </span>
+      ) : null}
       <span role="gridcell">
         <button
           className="inline-lock"

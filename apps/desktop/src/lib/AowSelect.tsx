@@ -4,6 +4,7 @@ import { useWeaponProfileResource } from "./hooks";
 import { useKeyedResource } from "./keyed-resource";
 import { SearchableSelect, openOption } from "./SearchableSelect";
 import { WeaponProfileDto } from "./types";
+import { withoutHistory } from "./query-history";
 
 export function resolveAowSelection(
   profile: Pick<WeaponProfileDto, "canChangeAow" | "nativeSkillName" | "compatibleAows">,
@@ -51,7 +52,7 @@ export function AowSelect(props: {
     if (profile) {
       const next = resolveAowSelection(profile, current.current.value,
         current.current.defaultNativeSkill ?? weaponKey !== previousWeapon.current);
-      if (next !== current.current.value) current.current.onChange(next);
+      if (next !== current.current.value) withoutHistory(() => current.current.onChange(next));
     }
     previousWeapon.current = weaponKey;
     current.current.onWeaponResolved?.();

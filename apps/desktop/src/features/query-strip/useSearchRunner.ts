@@ -6,6 +6,7 @@ import { stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { OptimizeRequestDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
+import { withoutHistory } from "../../lib/query-history";
 
 // Owns Search, its loadout preparation and cancellation. `markManualWeapon` records that the
 // player picked a weapon by hand, which is the only case that requests its native skill.
@@ -73,7 +74,8 @@ export function useSearchRunner() {
       }
       if (controller.signal.aborted || !unchangedInputs()) return;
       unsubscribe();
-      if (loadout) patchRequest(loadout);
+      const resolved = loadout;
+      if (resolved) withoutHistory(() => patchRequest(resolved));
       searchPreparation.current = null;
       setPreparingSearch(false);
       await runSearchFromStore(undefined, () => searchCancellationRequestedRef.current);

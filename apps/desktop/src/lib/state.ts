@@ -8,6 +8,7 @@ import {
   CatalogDto,
   DataManifestDto,
   CompareControls,
+  ObjectiveId,
   Notice,
   OptimizeRequestDto,
   PathPreviewDto,
@@ -28,6 +29,10 @@ export interface DesktopState {
   request: OptimizeRequestDto;
   loadoutSelectionRevision: number;
   rows: SolvedBuildDto[];
+  /** Objective the current rows were ranked by; null when they did not come from a search. */
+  rowsObjective: ObjectiveId | null;
+  /** The ranking a search replaced, so rows can show how far they moved. */
+  rankBaseline: { objective: ObjectiveId; rows: SolvedBuildDto[] } | null;
   resultsStale: boolean;
   selected: SolvedBuildDto | null;
   compareTarget: SolvedBuildDto | null;
@@ -220,6 +225,8 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
         objective: "max_ar",
       }, rules, true),
       rows: [],
+      rowsObjective: null,
+      rankBaseline: null,
       resultsStale: false,
       selected: null,
       compareTarget: null,
@@ -410,7 +417,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       ...invalidateAllJobs(state),
       loadoutSelectionRevision: state.loadoutSelectionRevision + 1,
       request: applyProfileRules(normalizeOptimizeRequest(request, state.request, catalog.dataManifest.rules), catalog.dataManifest.rules),
-      lockedStatMode: hasCombatStatLocks(request), rows: [], resultsStale: false,
+      lockedStatMode: hasCombatStatLocks(request), rows: [], rowsObjective: null, rankBaseline: null, resultsStale: false,
       selected: null, compareTarget: null, restoredCompareTarget: null,
       compareControls: { ...defaultCompareControls }, compareBench: [], selectedFingerprint: null,
       paths: [], pathSignature: null, affinityPayload: null, affinitySignature: null, error: null,
@@ -455,6 +462,8 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
   isExporting: false,
   setExporting: (isExporting) => set({ isExporting }),
   rows: [],
+  rowsObjective: null,
+  rankBaseline: null,
   resultsStale: false,
   selected: null,
   selectedFingerprint: null,
@@ -471,6 +480,8 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
         null;
       return {
         rows,
+        rowsObjective: state.request.objective,
+        rankBaseline: state.rows.length && state.rowsObjective ? { objective: state.rowsObjective, rows: state.rows } : null,
         resultsStale: false,
         selected,
         selectedFingerprint: rowFingerprint(selected),
@@ -489,6 +500,8 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
   clearResults: (message) =>
     set((state) => ({
       rows: [],
+      rowsObjective: null,
+      rankBaseline: null,
       resultsStale: false,
       selected: null,
       compareTarget: null,

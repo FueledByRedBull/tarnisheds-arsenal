@@ -42,3 +42,28 @@ test("results, Build Detail and Compare filters have no WCAG A/AA violations", a
   await page.keyboard.press("Escape");
   expect(await violations(page)).toEqual([]);
 });
+
+test("movement markers, sorted headers and the shortcut sheet have no WCAG A/AA violations", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await page.evaluate(async () => {
+    const { useDesktopStore } = await import("/src/lib/state.ts");
+    const [first, second, third, fourth] = useDesktopStore.getState().rows;
+    useDesktopStore.getState().setRows([
+      { ...second, ar: { ...second.ar, total: second.ar.total + 40 } },
+      { ...first, ar: { ...first.ar, total: first.ar.total - 20 } },
+      third,
+      { ...fourth, aowName: "Different skill" },
+    ]);
+  });
+  // The selected row tints its background, so check the down marker on it too.
+  await page.locator(".result-row-full").nth(1).click();
+  await page.getByRole("columnheader", { name: "AR", exact: true }).getByRole("button").click();
+  await expect(page.locator(".rank-move")).toHaveCount(3);
+  expect(await violations(page, ".rankings-panel")).toEqual([]);
+  expect(await violations(page, ".inspector")).toEqual([]);
+  await page.keyboard.press("?");
+  await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeVisible();
+  expect(await violations(page, ".shortcuts-dialog")).toEqual([]);
+});

@@ -29,6 +29,7 @@ import { SavedBuildRecovery } from "../shared/SavedBuildRecovery";
 export function Inspector() {
   const catalog = useDesktopStore((state) => state.catalog);
   const selected = useDesktopStore((state) => state.selected);
+  const rows = useDesktopStore((state) => state.rows);
   const request = useDesktopStore((state) => state.request);
   const resultsStale = useDesktopStore((state) => state.resultsStale);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
@@ -42,6 +43,9 @@ export function Inspector() {
   const aowAvailable = selected && hasAowDamage(selected, aowModelSupported);
   const selectedMetric = selected ? metricForObjective(selected, request.objective, aowModelSupported) : null;
   const pinned = Boolean(selected && compareBench.some((entry) => rowFingerprint(entry) === rowFingerprint(selected)));
+  const rank = selected ? rows.findIndex((row) => rowFingerprint(row) === rowFingerprint(selected)) : -1;
+  const leaderMetric = rows[0] ? metricForObjective(rows[0], request.objective, aowModelSupported) : null;
+  const behindLeader = rank > 0 && leaderMetric !== null && selectedMetric !== null ? leaderMetric - selectedMetric : null;
   const modelWarnings = [...new Set(selected?.aowRoute?.actions.flatMap(
     (action) => action.hits.flatMap((hit) => hit.warnings),
   ) ?? [])];
@@ -84,6 +88,14 @@ export function Inspector() {
                 : "Unavailable"}
             />
           </div>
+          {rank >= 0 && !resultsStale ? (
+            <p className="rank-context">
+              Rank <strong>{rank + 1}</strong> of {rows.length}
+              {rank === 0 ? " · best for this query"
+                : behindLeader === null ? ""
+                  : behindLeader < 0.05 ? " · ties #1; tie order decides" : ` · ${fixed1(behindLeader)} behind #1`}
+            </p>
+          ) : null}
           <div className="inspector-actions stacked">
             <button type="button" onClick={lockSelected}><LockKeyhole size={15} />Use as search locks</button>
             <button

@@ -1,6 +1,37 @@
 import { Command as CommandIcon } from "lucide-react";
-import { KeyboardEvent, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from "react";
-import { Command, CommandAction, CommandContext, findCommands } from "../../lib/commands";
+import { KeyboardEvent, ReactNode, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Command, CommandAction, CommandContext, findCommands, highlightRanges, recallable } from "../../lib/commands";
+
+const RECENT_KEY = "tarnisheds-arsenal.recentCommands.v1";
+
+function readRecent(): string[] {
+  try {
+    const stored: unknown = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
+    return Array.isArray(stored) ? stored.filter((id): id is string => typeof id === "string").slice(0, 5) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeRecent(ids: string[]) {
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(ids));
+  } catch {
+    // Without storage, recent commands last for this session only.
+  }
+}
+
+function Highlighted({ text, query }: { text: string; query: string }) {
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  for (const [start, end] of highlightRanges(text, query)) {
+    if (start > cursor) parts.push(text.slice(cursor, start));
+    parts.push(<mark key={start}>{text.slice(start, end)}</mark>);
+    cursor = end;
+  }
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return <>{parts}</>;
+}
 
 // Ctrl+K editing: type "str 40", "uchigatana" or "bleed" and apply with Enter. A native modal
 // dialog traps focus and closes on Escape; results come from the same actions as the controls.
@@ -16,9 +47,10 @@ export function CommandPalette({ open, context, onRun, onClose }: {
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [recent, setRecent] = useState(readRecent);
   const results = useMemo(
-    () => (context ? findCommands(deferredQuery, context) : []),
-    [context, deferredQuery],
+    () => (context ? findCommands(deferredQuery, { ...context, recent }) : []),
+    [context, deferredQuery, recent],
   );
   const active = Math.min(activeIndex, Math.max(results.length - 1, 0));
 
@@ -35,6 +67,11 @@ export function CommandPalette({ open, context, onRun, onClose }: {
 
   function run(command: Command | undefined) {
     if (!command) return;
+    if (recallable(command)) {
+      const next = [command.id, ...recent.filter((id) => id !== command.id)].slice(0, 5);
+      setRecent(next);
+      writeRecent(next);
+    }
     onRun(command.action);
     setQuery("");
     setActiveIndex(0);
@@ -100,7 +137,7 @@ export function CommandPalette({ open, context, onRun, onClose }: {
             onClick={() => run(command)}
           >
             <span className="palette-group">{command.group}</span>
-            <span className="palette-label">{command.label}</span>
+            <span className="palette-label"><Highlighted text={command.label} query={deferredQuery} /></span>
             {command.detail ? <small>{command.detail}</small> : null}
           </li>
         ))}

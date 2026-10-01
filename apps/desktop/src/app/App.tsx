@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { Check, CircleAlert, GitCompareArrows, Radar, RotateCcw, Route, Table2, X } from "lucide-react";
 import { api } from "../lib/api";
 import { setAnalysisCacheVersion } from "../lib/analysis-cache";
@@ -181,15 +181,34 @@ export function App() {
     </div>
   );
 
+  const tabState = (id: WorkspaceTab) => {
+    const requiresSelection = id !== "rankings" && (!selected || resultsStale);
+    const unsupportedBudget = id !== "rankings" && activeProfile?.capabilities.classBudget === false;
+    return { requiresSelection, unsupportedBudget, disabled: catalogStatus !== "ready" || requiresSelection || unsupportedBudget };
+  };
+
+  // Ctrl+1 to Ctrl+4 follow the tab order, and only reach tabs that are currently available.
+  const onTabShortcut = useEffectEvent((event: KeyboardEvent) => {
+    const index = Number(event.key) - 1;
+    if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey || !tabs[index]) return;
+    if (document.querySelector("dialog[open]")) return;
+    event.preventDefault();
+    if (!tabState(tabs[index].id).disabled) setWorkspace(tabs[index].id);
+  });
+
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => onTabShortcut(event);
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, []);
+
   return (
     <main className="desktop-shell" aria-busy={catalogStatus === "loading"}>
       <QueryStrip profile={profileSwitch} coverage={profileCoverage} onProfileChange={(id) => void loadProfile(id)} />
       <section className="center-workspace">
         <nav className="workspace-tabs">
-          {tabs.map(({ id, label, icon: Icon }) => {
-            const requiresSelection = id !== "rankings" && (!selected || resultsStale);
-            const unsupportedBudget = id !== "rankings" && activeProfile?.capabilities.classBudget === false;
-            const disabled = catalogStatus !== "ready" || requiresSelection || unsupportedBudget;
+          {tabs.map(({ id, label, icon: Icon }, index) => {
+            const { requiresSelection, unsupportedBudget, disabled } = tabState(id);
             return (
               <button
                 key={id}
@@ -197,8 +216,9 @@ export function App() {
                 type="button"
                 aria-label={label}
                 aria-current={activeWorkspace === id ? "page" : undefined}
+                aria-keyshortcuts={`Control+${index + 1}`}
                 onClick={() => setWorkspace(id)}
-                title={unsupportedBudget ? "Requires verified profile class budgets" : requiresSelection ? `${label} requires a current selected ranking` : label}
+                title={unsupportedBudget ? "Requires verified profile class budgets" : requiresSelection ? `${label} requires a current selected ranking` : `${label} (Ctrl+${index + 1})`}
                 disabled={disabled}
               >
                 <Icon size={16} aria-hidden="true" />

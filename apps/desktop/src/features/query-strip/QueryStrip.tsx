@@ -1,14 +1,16 @@
-import { Command as CommandIcon, Play, RotateCcw } from "lucide-react";
-import { lazy, ReactNode, Suspense, useEffect, useMemo, useState } from "react";
+import { Command as CommandIcon, Play, Redo2, RotateCcw, Undo2 } from "lucide-react";
+import { lazy, ReactNode, Suspense, useEffect, useEffectEvent, useMemo, useState } from "react";
 import brandMark from "../../assets/brand-mark.png";
 import { CommandAction, CommandContext } from "../../lib/commands";
 import { fixed1, objectiveLabel, statLockLine } from "../../lib/format";
 import { useRequestBudget, useWeaponProfile } from "../../lib/hooks";
+import { describeStep, redoQuery, trackQueryHistory, undoQuery, useQueryHistory } from "../../lib/query-history";
 import { scadutreeAttackMultiplier } from "../../lib/scadutree";
 import { classMeta, derivedLevel, EIGHT_STAT_KEYS, hasCombatStatLocks, optimalStartingClass, startingClassLevel } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { EightStatsDto, OptimizeRequestDto } from "../../lib/types";
 import { effectiveWeaponStrength } from "../../lib/weapon-handling";
+import { ShortcutsDialog } from "../command-palette/ShortcutsDialog";
 import { Popover } from "../shared/Popover";
 import { DraftNumberInput } from "./DraftNumberInput";
 import {
@@ -28,6 +30,12 @@ import { useSearchRunner } from "./useSearchRunner";
 
 const CommandPalette = lazy(() => import("../command-palette/CommandPalette")
   .then((module) => ({ default: module.CommandPalette })));
+
+// Text entry keeps its own undo and typing; buttons, checkboxes and the page do not.
+function isTextEntry(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && (target.isContentEditable
+    || target.matches("textarea, select, input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit])"));
+}
 
 const STAT_FIELDS = [
   ["VIG", "vig"],
@@ -66,6 +74,12 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   const runner = useSearchRunner();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteLoaded, setPaletteLoaded] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const undoStep = useQueryHistory((state) => state.past.at(-1) ?? null);
+  const redoStep = useQueryHistory((state) => state.future.at(-1) ?? null);
+  const announcement = useQueryHistory((state) => state.announcement);
+  const undoLabel = undoStep ? describeStep(undoStep) : null;
+  const redoLabel = redoStep ? describeStep(redoStep) : null;
 
   const meta = classMeta(catalog, request.className);
   const { budget } = useRequestBudget(catalog, request, lockedStatMode);
@@ -118,17 +132,43 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   const loadout = loadoutSummary(catalog, request);
   const classSummary = fixedStats ? "Custom stats" : request.className;
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        if (!useDesktopStore.getState().catalog) return;
-        setPaletteLoaded(true);
-        setPaletteOpen((open) => !open);
-      }
+  useEffect(() => trackQueryHistory(), []);
+
+  function startSearch() {
+    if (searchBusy || isExporting || !catalog) return;
+    setWorkspace("rankings");
+    void runner.runSearch();
+  }
+
+  const onShortcut = useEffectEvent((event: KeyboardEvent) => {
+    const command = (event.ctrlKey || event.metaKey) && !event.altKey;
+    const key = event.key.toLowerCase();
+    if (command && key === "k") {
+      event.preventDefault();
+      if (!catalog) return;
+      setPaletteLoaded(true);
+      setPaletteOpen((open) => !open);
+      return;
     }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    // An open modal (palette or shortcut list) owns the keyboard.
+    if (event.defaultPrevented || document.querySelector("dialog[open]")) return;
+    if (command && (key === "z" || key === "y") && !isTextEntry(event.target)) {
+      event.preventDefault();
+      if (key === "y" || event.shiftKey) redoQuery();
+      else undoQuery();
+    } else if (command && event.key === "Enter") {
+      event.preventDefault();
+      startSearch();
+    } else if (event.key === "?" && !command && !isTextEntry(event.target)) {
+      event.preventDefault();
+      setShortcutsOpen(true);
+    }
+  });
+
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => onShortcut(event);
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
   }, []);
 
   const commandContext = useMemo<CommandContext | null>(() => catalog ? {
@@ -144,7 +184,9 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
       id: entry.profile.id,
       label: `${entry.profile.displayName} ${entry.profile.modVersion ?? entry.profile.gameVersion}`,
     })),
-  } : null, [analysesAvailable, catalog, fixedStats, hasRows, lockedStatMode, profiles, request, resultsStale, searchBusy]);
+    undoLabel,
+    redoLabel,
+  } : null, [analysesAvailable, catalog, fixedStats, hasRows, lockedStatMode, profiles, redoLabel, request, resultsStale, searchBusy, undoLabel]);
 
   function optimizeClass() {
     const targets: EightStatsDto = request;
@@ -197,8 +239,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
         onProfileChange(action.profileId);
         break;
       case "search":
-        setWorkspace("rankings");
-        void runner.runSearch();
+        startSearch();
         break;
       case "cancelSearch":
         void runner.cancelSearch();
@@ -211,6 +252,15 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
         break;
       case "resetFilters":
         patchRequest(resetWeaponFiltersPatch(current));
+        break;
+      case "undo":
+        undoQuery();
+        break;
+      case "redo":
+        redoQuery();
+        break;
+      case "shortcuts":
+        setShortcutsOpen(true);
         break;
     }
   }
@@ -319,11 +369,37 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
           </Popover>
         </fieldset>
         <div className="strip-actions">
+          <div className="strip-history" role="group" aria-label="Query history">
+            <button
+              type="button"
+              className="strip-icon"
+              aria-label={undoLabel ? `Undo ${undoLabel}` : "Undo"}
+              title={undoLabel ? `Undo ${undoLabel} (Ctrl+Z)` : "Nothing to undo"}
+              aria-keyshortcuts="Control+Z"
+              disabled={!undoLabel}
+              onClick={() => undoQuery()}
+            >
+              <Undo2 size={15} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="strip-icon"
+              aria-label={redoLabel ? `Redo ${redoLabel}` : "Redo"}
+              title={redoLabel ? `Redo ${redoLabel} (Ctrl+Y)` : "Nothing to redo"}
+              aria-keyshortcuts="Control+Y Control+Shift+Z"
+              disabled={!redoLabel}
+              onClick={() => redoQuery()}
+            >
+              <Redo2 size={15} aria-hidden="true" />
+            </button>
+            <span className="sr-only" role="status">{announcement}</span>
+          </div>
           <button
             type="button"
             className="strip-palette"
             aria-label="Edit anything"
             aria-keyshortcuts="Control+K"
+            title="Edit anything by typing (Ctrl+K). Press ? for every shortcut."
             disabled={!catalog}
             onClick={() => {
               setPaletteLoaded(true);
@@ -338,6 +414,8 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
             <button
               className={`search-button ${searchBusy ? "busy" : ""}`}
               type="button"
+              title={searchBusy ? undefined : "Shortcut: Ctrl+Enter"}
+              aria-keyshortcuts={searchBusy ? undefined : "Control+Enter"}
               onClick={searchBusy ? runner.cancelSearch : runner.runSearch}
               disabled={isExporting || runner.searchCancellationRequested || (!isSearching && !catalog)}
             >
@@ -435,6 +513,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
         </div>
       </fieldset>
 
+      <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       {paletteLoaded ? (
         <Suspense fallback={null}>
           <CommandPalette
