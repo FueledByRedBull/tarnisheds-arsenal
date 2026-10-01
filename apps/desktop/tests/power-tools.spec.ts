@@ -92,7 +92,10 @@ test("rankings show movement and value changes since the previous search", async
 
 test("result columns sort without renumbering ranks", async ({ page }) => {
   await searched(page);
-  const ranks = () => page.locator(".result-row-full .rank-cell").evaluateAll((cells) => cells.map((cell) => cell.textContent));
+  // Rows keep rank order in the DOM and sort with CSS order, so read them in on-screen order.
+  const ranks = () => page.locator(".result-row-full .rank-cell").evaluateAll((cells) => cells
+    .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)
+    .map((cell) => cell.textContent));
   const ar = page.getByRole("columnheader", { name: "AR", exact: true });
   await ar.getByRole("button").click();
   await expect(ar).toHaveAttribute("aria-sort", "descending");

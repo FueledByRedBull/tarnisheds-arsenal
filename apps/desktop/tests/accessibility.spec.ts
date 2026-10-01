@@ -32,6 +32,8 @@ test("results, Build Detail and Compare filters have no WCAG A/AA violations", a
   await page.goto("/");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
+  // A finished search's progress strip fades out; check the page once it has gone.
+  await expect(page.locator(".progress-strip")).toHaveCount(0);
   await page.locator(".result-row-full").nth(1).click();
   expect(await violations(page)).toEqual([]);
   await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();

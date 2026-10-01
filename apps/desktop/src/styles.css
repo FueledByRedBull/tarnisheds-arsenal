@@ -300,6 +300,10 @@ button {
 .inspector {
   min-height: 0;
   overflow: auto;
+  /* A reserved gutter: with classic Windows scrollbars, every layout of a container that may
+     gain or lose its scrollbar lays out all of its contents again (6 ms for 50 ranked rows on
+     each sort). Applies to every scroll container whose content changes on a click. */
+  scrollbar-gutter: stable;
   background: var(--surface-panel);
   border-left: 1px solid var(--line);
   padding: 16px 18px;
@@ -847,6 +851,7 @@ textarea {
 .result-board {
   height: calc(100% - 64px);
   overflow: auto;
+  scrollbar-gutter: stable;
   scrollbar-color: var(--accent-quiet) var(--surface-panel);
   scrollbar-width: thin;
 }
@@ -2744,6 +2749,7 @@ textarea:hover {
   margin: 0;
   padding: 6px;
   overflow: auto;
+  scrollbar-gutter: stable;
   list-style: none;
 }
 
@@ -2832,6 +2838,19 @@ textarea:hover {
 .workspace-stage {
   flex: 1 1 auto;
   min-height: 0;
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+}
+
+/* Workspaces share one cell, so Rankings keeps its size and laid-out rows while another
+   workspace is shown over it; content-visibility then skips its rendering entirely. */
+.workspace-stage > * {
+  grid-area: 1 / 1;
+}
+
+.rankings-panel[data-offstage] {
+  visibility: hidden;
+  content-visibility: hidden;
 }
 
 /* A workspace replays its entrance each time it is shown, since hidden ones only lose display. */
@@ -3525,11 +3544,13 @@ textarea:hover {
 }
 
 /* Motion states what changed. Rankings re-forge from lib/motion.ts and a new selection fades
-   in from Inspector.tsx. Row offsets are measured against this group. It stays composited:
+   in from Inspector.tsx. Sorted rows are offset within this group and read in their
+   reading-order (RankingsBoard.tsx). It stays composited:
    animating it then never changes its stacking context (which re-lays out every row), and its
    sticky rank cells share its layer instead of becoming 50 overlap layers of their own. */
 .result-rows {
   position: relative;
+  reading-flow: source-order;
   will-change: opacity;
   transition: opacity 300ms var(--ease-out);
 }

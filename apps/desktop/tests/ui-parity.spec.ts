@@ -250,7 +250,9 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expectRankingsBoardToFit(page);
   await expect(page.getByRole("button", { name: "Show lowest rank first" })).toBeVisible();
   await page.getByRole("button", { name: "Show lowest rank first" }).click();
-  await expect(page.locator(".result-row-full").first().locator(".rank-cell")).toHaveText("4");
+  // Rows keep rank order in the DOM and a sort offsets them, so read the top row as drawn.
+  await expect.poll(() => page.locator(".result-row-full .rank-cell").evaluateAll((cells) => cells
+    .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)[0]?.textContent)).toBe("4");
   await page.getByRole("button", { name: "Show best rank first" }).click();
   await expect(page.locator(".result-row-full").first().locator(".rank-cell")).toHaveText("1");
   await expect.poll(() => page.locator(".result-row-full").first().locator("[role=gridcell]").nth(1).evaluate(

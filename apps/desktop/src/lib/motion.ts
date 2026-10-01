@@ -35,14 +35,13 @@ export function settleRanking(container: HTMLElement, freshResults: boolean, boa
   // Markers start in the next frame and reuse its layout. Reading row offsets now would lay out
   // every new row inside React's commit, joining two long tasks into one.
   requestAnimationFrame(() => {
-    // Row offsets are relative to the rows group; the board scrolls, so translate its view.
-    const top = board ? board.scrollTop - container.offsetTop : 0;
-    const bottom = top + (board?.clientHeight ?? window.innerHeight);
+    // Rows may be shifted by a sort, so compare where they are drawn with the board's view.
+    const view = board?.getBoundingClientRect() ?? { top: 0, bottom: window.innerHeight };
     // Opacity only: a moving marker would make every later row its own layer as well.
     [...container.querySelectorAll<HTMLElement>(".rank-move, .metric-delta")]
       .filter((marker) => {
-        const offset = marker.closest<HTMLElement>(".result-row-full")?.offsetTop ?? 0;
-        return offset + 80 > top && offset < bottom;
+        const row = marker.closest(".result-row-full")?.getBoundingClientRect();
+        return row !== undefined && row.bottom > view.top && row.top < view.bottom;
       })
       .forEach((marker, index) => marker.animate(
         [{ opacity: 0 }, { opacity: 1 }],

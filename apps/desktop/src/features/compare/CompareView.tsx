@@ -46,6 +46,9 @@ export function CompareView() {
   const setWorkspace = useDesktopStore((state) => state.setWorkspace);
   const matrixRef = useRef<HTMLDivElement | null>(null);
   const seriesRequest = useRef(new LatestRequest());
+  // The inputs of the last comparison that finished. Showing the tab again re-runs the effect
+  // below (Activity); with unchanged inputs its lanes and charts are still on screen.
+  const finishedComparison = useRef<string | null>(null);
   const { base: baseRequest } = useRequestBudget(catalog, request, lockedStatMode);
   const [series, setSeries] = useState<CompareLane[]>([]);
   const [seriesStatus, setSeriesStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -127,9 +130,7 @@ export function CompareView() {
   ];
 
   useEffect(() => {
-    const controller = new AbortController();
-    const currentRequest = seriesRequest.current;
-    const token = currentRequest.begin(stableSignature({
+    const signature = stableSignature({
       baseRequest,
       compareControls,
       resultsStale,
@@ -138,24 +139,36 @@ export function CompareView() {
       selected,
       compareBench,
       restoredTarget,
-    }));
+      isExporting,
+    });
+    if (finishedComparison.current === signature) return;
+    finishedComparison.current = null;
+    const controller = new AbortController();
+    const currentRequest = seriesRequest.current;
+    const token = currentRequest.begin(signature);
+    const finish = () => {
+      if (currentRequest.isCurrent(token)) finishedComparison.current = signature;
+    };
     async function resolveRows() {
       if (resultsStale) {
         setSeries([]);
         setSeriesError(null);
         setCompareTarget(null);
         setSeriesStatus("idle");
+        finish();
         return;
       }
       if (isExporting) {
         setSeries([]);
         setSeriesStatus("loading");
+        finish();
         return;
       }
       if (!selected) {
         setSeries([]);
         setCompareTarget(null);
         setSeriesStatus("idle");
+        finish();
         return;
       }
       const restored = !customCompare && restoredTarget && rowFingerprint(restoredTarget) !== rowFingerprint(selected)
@@ -236,6 +249,7 @@ export function CompareView() {
       setSeries(lanes.map(lane => ({ ...lane, points: [], chartStatus: lane.row ? "loading" : "idle" })));
       setSeriesStatus("ready");
       // Verified rows are usable independently of the optional, queued charts.
+      let chartFailed = false;
       await Promise.all(lanes.map(async (lane, index) => {
         if (!lane.row) return;
         const row = lane.row;
@@ -245,11 +259,14 @@ export function CompareView() {
           setSeries(current => current.map((entry, i) => i === index ? { ...entry, points, chartStatus: "ready" } : entry));
         } catch (error) {
           if (!currentRequest.isCurrent(token)) return;
+          chartFailed = true;
           const message = error instanceof Error ? error.message : String(error);
           setSeries(current => current.map((entry, i) => i === index ? { ...entry, chartStatus: "error", chartError: message } : entry));
           setError(`${lane.label} upgrade series at level ${baseRequest.characterLevel} (${statLine(row)}): ${message}`);
         }
       }));
+      // A failed chart retries the next time the tab is shown.
+      if (!chartFailed) finish();
     }
     resolveRows().catch((error) => {
       controller.abort();

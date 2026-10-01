@@ -204,6 +204,41 @@ selection, undo flashes and the search's landing flare. Rules found along the wa
   by transform. A width transition laid out on every frame, and a `background-position`
   shimmer repainted every placeholder on every frame.
 
+### Click hitches
+
+Measured on the app as users run it: GPU compositing on, at the display's 240 Hz. The
+packaged smoke harness passes `--disable-gpu`, so its frames use the software compositor.
+Launch the release exe normally with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` set to a
+remote-debugging port and `WEBVIEW2_USER_DATA_FOLDER` set to a scratch folder instead.
+Headless Chromium also misleads: its overlay scrollbars hide the first cause below.
+
+| Click (longest main-thread task, median) | Before | After |
+| --- | --- | --- |
+| Reverse a column sort | 18.5 ms | 7.7 ms |
+| Select a row | 7.5 ms | 6.6 ms |
+| Return to Rankings | 18.3 ms | 5.5 ms |
+| Open Compare | 20.9 ms | 8.5 ms |
+| Open Paths | 6.5 ms | 3.7 ms |
+
+- **Reserve scrollbar gutters.** With classic Windows scrollbars, laying out a container
+  whose scrollbar might change laid out all of its contents again: 6.5 ms for a sort that
+  dirtied 17 objects, against 0.2 ms with `scrollbar-gutter: stable`.
+- **Sort without moving rows.** Moving 50 row nodes restyled ~3,000 elements and laid out
+  every row. Rows now stay in rank order and a sort offsets them with `top` and sets
+  `reading-order` for keyboard and screen readers. CSS `order` re-laid out every row,
+  and transforms gave each sticky rank cell its own layer (60 layers instead of 15).
+- **Keep Rankings rendered while hidden.** Activity hides workspaces with
+  `display: none`, so returning re-laid out all 50 rows. Rankings now sits in the same grid
+  cell as the others and uses `content-visibility: hidden`; it cancels exports on leaving
+  itself, as the runtime invariants require.
+- **Re-render only what a switch changes.** The tab bar, notices and stage subscribe to
+  the active workspace, so a switch no longer re-renders the query strip and Build
+  Detail. Compare skips its comparison when its inputs match the last finished one.
+  `compactNumber` reuses one `Intl.NumberFormat`; it was constructed 1,000 times per 50
+  rows.
+
+Results arriving still take ~29 ms: building 50 new rows restyles ~3,200 elements.
+
 ## Release compiler settings
 
 Both Cargo packages set `lto = "thin"` and `codegen-units = 1` for release builds.
