@@ -65,11 +65,15 @@ export function CommandPalette({ open, context, onRun, onClose }: {
   useEffect(() => {
     const element = panel.current;
     if (!element) return;
-    // Escape and outside clicks close the popover natively. Focus returns to where it was only
-    // when it was in the palette or got lost; a click that closed it keeps its new target.
+    // Escape and outside clicks close the popover natively. The open state follows at once, in
+    // beforetoggle: the toggle event arrives a task later, and a Ctrl+K in between would toggle
+    // the stale state shut instead of reopening. Focus returns to where it was only when it was
+    // in the palette or got lost; a click that closed it keeps its new target.
+    const onBeforeToggle = (event: Event) => {
+      if ((event as ToggleEvent).newState === "closed") latestOnClose.current();
+    };
     const onToggle = (event: Event) => {
       if ((event as ToggleEvent).newState !== "closed") return;
-      latestOnClose.current();
       const active = document.activeElement;
       const focusLost = !active || active === document.body || element.contains(active);
       if (focusLost && returnFocus.current?.isConnected && !element.contains(returnFocus.current)) {
@@ -77,8 +81,12 @@ export function CommandPalette({ open, context, onRun, onClose }: {
       }
       returnFocus.current = null;
     };
+    element.addEventListener("beforetoggle", onBeforeToggle);
     element.addEventListener("toggle", onToggle);
-    return () => element.removeEventListener("toggle", onToggle);
+    return () => {
+      element.removeEventListener("beforetoggle", onBeforeToggle);
+      element.removeEventListener("toggle", onToggle);
+    };
   }, []);
 
   useEffect(() => {
@@ -119,7 +127,10 @@ export function CommandPalette({ open, context, onRun, onClose }: {
       setActiveIndex(event.key === "Home" ? 0 : Math.max(results.length - 1, 0));
     } else if (event.key === "Enter") {
       event.preventDefault();
-      run(results[active]);
+      // The list follows a deferred query; Enter applies what is typed, even before it renders.
+      const current = deferredQuery === query && results.length ? results
+        : context ? findCommands(query, { ...context, recent }) : [];
+      run(current[current === results ? active : 0]);
     }
   }
 

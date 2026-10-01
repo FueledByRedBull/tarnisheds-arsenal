@@ -4098,18 +4098,13 @@ summary:focus-visible {
   background: var(--selected);
 }
 
-/* Editors, the palette and the shortcut list open from their trigger and leave faster than
-   they arrive. A closing layer ignores the pointer so it never swallows the next click. */
+/* Editors, the palette and the shortcut list open from their trigger and close at once. A
+   fade-out needs overlay and display transitions, and Chromium leaves a popover shown again
+   just as such a transition ends open but unrendered, so its input cannot take focus. */
 .popover-panel,
 .command-palette,
 .shortcuts-dialog {
-  opacity: 0;
-  transform: translateY(-4px) scale(0.985);
-  transition:
-    opacity 110ms ease-in,
-    transform 110ms ease-in,
-    overlay 110ms allow-discrete,
-    display 110ms allow-discrete;
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
 }
 
 .popover-panel {
@@ -4121,15 +4116,6 @@ summary:focus-visible {
   transform-origin: top center;
 }
 
-.popover-panel:popover-open,
-.command-palette:popover-open,
-.shortcuts-dialog[open] {
-  opacity: 1;
-  transform: none;
-  transition-duration: 200ms;
-  transition-timing-function: var(--ease-out);
-}
-
 @starting-style {
   .popover-panel:popover-open,
   .command-palette:popover-open,
@@ -4139,18 +4125,9 @@ summary:focus-visible {
   }
 }
 
-.popover-panel:not(:popover-open),
-.command-palette:not(:popover-open),
-.shortcuts-dialog:not([open]) {
-  pointer-events: none;
-}
-
 .command-palette::backdrop,
 .shortcuts-dialog::backdrop {
-  transition:
-    background-color 200ms var(--ease-out),
-    overlay 200ms allow-discrete,
-    display 200ms allow-discrete;
+  transition: background-color 200ms var(--ease-out);
 }
 
 @starting-style {
