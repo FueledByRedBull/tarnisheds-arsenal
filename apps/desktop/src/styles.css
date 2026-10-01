@@ -3311,17 +3311,6 @@ textarea:hover {
   }
 }
 
-.rail-fieldset {
-  min-inline-size: 0;
-  margin: 0;
-  padding: 0 11px 16px;
-  border: 0;
-}
-
-.rail-fieldset:disabled {
-  opacity: 0.58;
-}
-
 .workspace-tabs button.locked:disabled {
   opacity: 0.42;
   border-style: dashed;
