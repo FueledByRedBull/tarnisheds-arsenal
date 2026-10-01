@@ -1,11 +1,12 @@
 import { Command as CommandIcon, Play, Redo2, RotateCcw, Undo2 } from "lucide-react";
-import { lazy, ReactNode, Suspense, useEffect, useEffectEvent, useMemo, useState } from "react";
+import { lazy, ReactNode, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import brandMark from "../../assets/brand-mark.png";
 import { CommandAction, CommandContext } from "../../lib/commands";
 import { fixed1, objectiveLabel, statLockLine } from "../../lib/format";
 import { useRequestBudget, useWeaponProfile } from "../../lib/hooks";
 import { isTextEntry, keyboardOwnedByOverlay } from "../../lib/keyboard";
 import { describeStep, redoQuery, trackQueryHistory, undoQuery, useQueryHistory } from "../../lib/query-history";
+import { flashChanged } from "../../lib/motion";
 import { scadutreeAttackMultiplier } from "../../lib/scadutree";
 import { classMeta, derivedLevel, EIGHT_STAT_KEYS, hasCombatStatLocks, optimalStartingClass, startingClassLevel } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
@@ -128,6 +129,15 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   const classSummary = fixedStats ? "Custom stats" : request.className;
 
   useEffect(() => trackQueryHistory(), []);
+
+  // Two-handing flashes when the palette or undo flips it, not when it is clicked.
+  const twoHandToggle = useRef<HTMLLabelElement>(null);
+  const shownTwoHanding = useRef(request.twoHanding);
+  useEffect(() => {
+    if (shownTwoHanding.current === request.twoHanding) return;
+    shownTwoHanding.current = request.twoHanding;
+    if (!twoHandToggle.current?.contains(document.activeElement)) flashChanged(twoHandToggle.current);
+  }, [request.twoHanding]);
 
   // Mount the palette (closed) once the app is idle, so the first Ctrl+K opens instantly
   // and keystrokes typed right after it are never lost to a chunk download.
@@ -285,7 +295,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
         {profile}
         <fieldset className="strip-query" disabled={!catalog} aria-busy={!catalog}>
           <legend className="sr-only">Search query</legend>
-          <Popover label="Class" trigger={classSummary} triggerLabel={`Class: ${classSummary}`} triggerClassName="strip-token" panelClassName="editor-panel">
+          <Popover label="Class" changeKey={classSummary} trigger={classSummary} triggerLabel={`Class: ${classSummary}`} triggerClassName="strip-token" panelClassName="editor-panel">
             <ClassEditor
               catalog={catalog}
               request={request}
@@ -296,7 +306,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
             />
           </Popover>
           <span className="strip-joiner">maximising</span>
-          <Popover label="Objective" trigger={objectiveLabel(request.objective)} triggerLabel={`Objective: ${objectiveLabel(request.objective)}`} triggerClassName="strip-token" panelClassName="editor-panel">
+          <Popover label="Objective" changeKey={request.objective} trigger={objectiveLabel(request.objective)} triggerLabel={`Objective: ${objectiveLabel(request.objective)}`} triggerClassName="strip-token" panelClassName="editor-panel">
             {(close) => (
               <ObjectiveEditor
                 objectives={catalog?.objectiveIds ?? []}
@@ -307,7 +317,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
             )}
           </Popover>
           <span className="strip-joiner">with</span>
-          <Popover label="Loadout" trigger={<span className="token-text">{loadout}</span>} triggerLabel={`Loadout: ${loadout}`} triggerTitle={loadout} triggerClassName="strip-token loadout-token" panelClassName="editor-panel loadout-panel">
+          <Popover label="Loadout" changeKey={loadout} trigger={<span className="token-text">{loadout}</span>} triggerLabel={`Loadout: ${loadout}`} triggerTitle={loadout} triggerClassName="strip-token loadout-token" panelClassName="editor-panel loadout-panel">
             <LoadoutEditor
               catalog={catalog}
               request={request}
@@ -318,7 +328,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
             />
           </Popover>
           <span className="strip-joiner">at</span>
-          <Popover label="Upgrades" trigger={upgradeSummary} triggerLabel={`Upgrades: ${upgradeSummary}`} triggerClassName="strip-token" panelClassName="editor-panel">
+          <Popover label="Upgrades" changeKey={upgradeSummary} trigger={upgradeSummary} triggerLabel={`Upgrades: ${upgradeSummary}`} triggerClassName="strip-token" panelClassName="editor-panel">
             <UpgradeEditor
               request={request}
               patchRequest={patchRequest}
@@ -329,7 +339,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
               weaponProfile={weaponProfile}
             />
           </Popover>
-          <label className="strip-token strip-toggle" title="Apply the 1.5x effective STR rule when legal">
+          <label ref={twoHandToggle} className="strip-token strip-toggle" title="Apply the 1.5x effective STR rule when legal">
             <input
               type="checkbox"
               checked={request.twoHanding}
@@ -339,6 +349,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
           </label>
           <Popover
             label="Scaling"
+            changeKey={scalingSummary}
             trigger={scalingSummary}
             triggerLabel={`Scaling: ${scalingSummary}`}
             triggerTitle={scadutreeAvailable && request.dlcScaling
@@ -357,11 +368,12 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
               </div>
             )}
           </Popover>
-          <Popover label="Results" trigger={resultsSummary} triggerLabel={`Results: ${resultsSummary}`} triggerClassName="strip-token" panelClassName="editor-panel">
+          <Popover label="Results" changeKey={resultsSummary} trigger={resultsSummary} triggerLabel={`Results: ${resultsSummary}`} triggerClassName="strip-token" panelClassName="editor-panel">
             <ResultsEditor request={request} patchRequest={patchRequest} markResultsStale={markResultsStale} />
           </Popover>
           <Popover
             label="Limits"
+            changeKey={limitsSummary}
             trigger={limitParts.length ? limitsSummary : <><span aria-hidden="true">+ </span>Limits</>}
             triggerLabel={`Limits: ${limitsSummary}`}
             triggerClassName={`strip-token ${limitParts.length ? "attention" : "quiet"}`}
@@ -516,9 +528,9 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
           {savedCoverageCount ? <span className="ribbon-alert">Profile filters active</span> : null}
         </div>
         <div className="ribbon-end">
-          {runner.isPreparingSearch ? <small className="ribbon-checking" role="status">Checking loadout…</small> : isSearching ? (
-            <SearchProgressPanel searchStartedAt={runner.searchStartedAt} objective={objectiveLabel(request.objective)} />
-          ) : null}
+          {runner.isPreparingSearch ? <small className="ribbon-checking" role="status">Checking loadout…</small> : (
+            <SearchProgress searching={isSearching} searchStartedAt={runner.searchStartedAt} objective={objectiveLabel(request.objective)} />
+          )}
           {coverage}
         </div>
       </fieldset>
@@ -538,16 +550,43 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   );
 }
 
-function SearchProgressPanel({ searchStartedAt, objective }: { searchStartedAt: number | null; objective: string }) {
+// The forge bar runs while a search does. A search that lands new rows keeps the same bar,
+// fills it and lets it flare out; one that stops or fails just leaves.
+function SearchProgress({ searching, searchStartedAt, objective }: { searching: boolean; searchStartedAt: number | null; objective: string }) {
+  const rows = useDesktopStore((state) => state.rows);
+  const [run, setRun] = useState({ searching, rows, landed: false });
+  if (run.searching !== searching) setRun({ searching, rows, landed: !searching && rows !== run.rows });
+  useEffect(() => {
+    if (!run.landed) return;
+    const timer = window.setTimeout(() => setRun((current) => ({ ...current, landed: false })), 700);
+    return () => window.clearTimeout(timer);
+  }, [run.landed]);
+  if (!searching && !run.landed) return null;
+  return <SearchProgressPanel landedRows={searching ? null : rows.length} searchStartedAt={searchStartedAt} objective={objective} />;
+}
+
+function SearchProgressPanel({ landedRows, searchStartedAt, objective }: { landedRows: number | null; searchStartedAt: number | null; objective: string }) {
   const progress = useDesktopStore((state) => state.progress);
   const [elapsedMs, setElapsedMs] = useState(0);
-  const hasProgress = progress !== null;
+  const ticking = landedRows === null && progress === null;
   useEffect(() => {
-    if (hasProgress) return;
+    if (!ticking) return;
     const startedAt = searchStartedAt ?? Date.now();
     const tick = window.setInterval(() => setElapsedMs(Date.now() - startedAt), 200);
     return () => window.clearInterval(tick);
-  }, [hasProgress, searchStartedAt]);
+  }, [searchStartedAt, ticking]);
+  if (landedRows !== null) {
+    return (
+      <div className="progress-strip landed" role="status">
+        <span className="progress-meta">
+          <span>Done</span>
+          <strong>{landedRows}</strong>
+          <span>ranked</span>
+        </span>
+        <span className="forge-bar"><i style={{ transform: "none" }} /></span>
+      </div>
+    );
+  }
   const pct = progress ? Math.min(100, (progress.checked / Math.max(progress.total, 1)) * 100) : null;
   return (
     <div className="progress-strip" role="status">
@@ -558,8 +597,8 @@ function SearchProgressPanel({ searchStartedAt, objective }: { searchStartedAt: 
         </strong>
         <span>{progress ? `${progress.eligible} covered` : "checking"}</span>
       </span>
-      <span className={`search-progress-bar ${pct === null ? "indeterminate" : ""}`}>
-        <i style={pct === null ? undefined : { width: `${pct}%` }} />
+      <span className={`forge-bar ${pct === null ? "indeterminate" : ""}`}>
+        <i style={pct === null ? undefined : { transform: `translateX(${pct - 100}%)` }} />
       </span>
       <small>{formatDuration(progress?.elapsedMs ?? elapsedMs)}</small>
     </div>

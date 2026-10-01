@@ -109,21 +109,28 @@ input[type="number"],
   font-variant-numeric: tabular-nums;
 }
 
-/* Loading placeholders shaped like the content they stand in for. */
+/* Loading placeholders shaped like the content they stand in for. The shimmer moves by
+   transform, so it stays on the compositor while loading keeps the main thread busy. */
 .skeleton {
+  position: relative;
   display: block;
   height: 12px;
+  overflow: hidden;
   border-radius: 3px;
-  background:
-    linear-gradient(90deg, transparent, color-mix(in srgb, var(--text) 7%, transparent), transparent)
-      0 0 / 40% 100% no-repeat,
-    color-mix(in srgb, var(--text) 6%, transparent);
-  animation: skeleton-sweep 1.4s var(--ease-out) infinite;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 25%, color-mix(in srgb, var(--text) 8%, transparent), transparent 75%);
+  transform: translateX(-100%);
+  animation: skeleton-sweep 1.4s var(--ease-out) var(--sweep-delay, 0ms) infinite;
 }
 
 @keyframes skeleton-sweep {
-  from { background-position: -40% 0, 0 0; }
-  to { background-position: 140% 0, 0 0; }
+  to { transform: translateX(100%); }
 }
 
 .searchable-select {
@@ -487,7 +494,21 @@ textarea {
   background: var(--accent);
   font-weight: 700;
   white-space: nowrap;
+  position: relative;
+  overflow: hidden;
   transition: transform var(--duration-fast) var(--ease-out);
+}
+
+/* While a search runs, light passes over the button like heat over metal. */
+.search-button.busy::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 50%;
+  background: linear-gradient(105deg, transparent, color-mix(in srgb, var(--gold-pale) 38%, transparent), transparent);
+  transform: translateX(-100%);
+  animation: forge-sheen 1.6s var(--ease-out) infinite;
+  pointer-events: none;
 }
 
 .search-button:active:not(:disabled) {
@@ -537,25 +558,82 @@ textarea {
   font-variant-numeric: tabular-nums;
 }
 
-.search-progress-bar {
+/* The forge bar: a molten fill glides to each reported fraction (transform only, so a progress
+   poll never lays out), a sheen flows through it and its leading edge runs hot. */
+.forge-bar {
+  position: relative;
   display: block;
-  width: 120px;
   height: 6px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--surface-panel) 78%, transparent);
+  background: color-mix(in srgb, var(--surface-canvas) 72%, transparent);
   border: 1px solid var(--line);
   border-radius: 999px;
+  box-shadow: inset 0 1px 2px var(--shadow);
 }
 
-.search-progress-bar i {
-  display: block;
-  height: 100%;
-  background: var(--accent);
+.forge-bar i {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--gold-quiet), var(--gold) 70%, var(--gold-bright));
+  transform: translateX(-100%);
+  transition: transform 240ms var(--ease-out);
 }
 
-.search-progress-bar.indeterminate i {
+.forge-bar i::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--gold-pale) 60%, transparent), transparent);
+  transform: translateX(-100%);
+  animation: forge-sheen 1.8s linear infinite;
+}
+
+.forge-bar i::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 10px;
+  background: linear-gradient(90deg, transparent, var(--ember-pale));
+}
+
+.forge-bar.indeterminate i {
+  right: auto;
   width: 42%;
+  transform: none;
+  transition: none;
   animation: progress-sweep 1.1s ease-in-out infinite;
+}
+
+@keyframes forge-sheen {
+  to { transform: translateX(250%); }
+}
+
+.progress-strip .forge-bar {
+  width: 132px;
+}
+
+/* A search that lands fills its bar, flares and fades out (QueryStrip.tsx). */
+.progress-strip.landed {
+  animation: strip-out 700ms ease-in forwards;
+}
+
+.progress-strip.landed .forge-bar {
+  animation: forge-flare 600ms var(--ease-out);
+}
+
+@keyframes strip-out {
+  60% { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes forge-flare {
+  30% {
+    border-color: var(--gold-bright);
+    box-shadow: inset 0 1px 2px var(--shadow), 0 0 12px 1px color-mix(in srgb, var(--ember) 60%, transparent);
+  }
 }
 
 .progress-strip small {
@@ -1423,23 +1501,18 @@ textarea {
   color: var(--text-muted);
 }
 
-.workspace-progress > div {
+.workspace-progress > .forge-bar {
   height: 8px;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--surface-panel) 70%, transparent);
-  border: 1px solid var(--line);
-  border-radius: 999px;
 }
 
 /* A finished run reports its result; the full bar adds nothing. */
-.analysis-progress.status-completed > div {
+.analysis-progress.status-completed > .forge-bar {
   display: none;
 }
 
-.workspace-progress i {
-  display: block;
-  height: 100%;
-  background: var(--accent);
+/* Only a running analysis flows; a stopped one keeps its fill still. */
+.analysis-progress:not(.status-running) .forge-bar i::before {
+  animation: none;
 }
 
 .compare-lane,
@@ -2498,20 +2571,11 @@ textarea:hover {
   box-shadow: 0 18px 48px var(--shadow);
 }
 
-.popover-panel:popover-open {
-  animation: popover-enter var(--duration-base) var(--ease-out);
-}
 
 .popover-panel:focus {
   outline: none;
 }
 
-@keyframes popover-enter {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
 
 .editor-panel {
   width: 320px;
@@ -2646,9 +2710,6 @@ textarea:hover {
   box-shadow: 0 24px 64px var(--shadow);
 }
 
-.command-palette:popover-open {
-  animation: popover-enter var(--duration-base) var(--ease-out);
-}
 
 .command-palette::backdrop {
   background: color-mix(in srgb, var(--surface-canvas) 60%, transparent);
@@ -3285,10 +3346,15 @@ textarea:hover {
   backdrop-filter: blur(16px);
 }
 
-/* Startup placeholder mirrors the Rankings table it will become. */
+/* Startup and the first search show placeholder rows that mirror the Rankings table. */
 .startup-skeleton {
   display: flex;
   flex-direction: column;
+}
+
+.startup-skeleton .forge-bar {
+  width: min(240px, 100%);
+  margin-top: 8px;
 }
 
 .startup-skeleton .workspace-header strong {
@@ -3298,15 +3364,16 @@ textarea:hover {
   font-weight: 600;
 }
 
-.startup-skeleton-rows {
+.skeleton-rows {
   display: grid;
   align-content: start;
   overflow: hidden;
 }
 
-.startup-skeleton-row {
+.skeleton-row {
   display: grid;
-  grid-template-columns: 28px minmax(150px, 1.6fr) minmax(112px, 0.9fr) minmax(112px, 0.9fr) 56px 84px;
+  /* The board's columns, with the actions column left empty. */
+  grid-template-columns: 28px minmax(150px, 1.6fr) minmax(112px, 0.9fr) minmax(112px, 0.9fr) 56px 84px 72px;
   align-items: center;
   gap: 8px;
   min-height: 48px;
@@ -3314,16 +3381,16 @@ textarea:hover {
   border-bottom: 1px solid color-mix(in srgb, var(--text) 5.5%, transparent);
 }
 
-.startup-skeleton-row > .skeleton:first-child {
+.skeleton-row > .skeleton:first-child {
   width: 16px;
 }
 
-.startup-skeleton-row > span:nth-child(2) {
+.skeleton-row > span:nth-child(2) {
   display: grid;
   gap: 6px;
 }
 
-.startup-skeleton-row > span:nth-child(2) > .skeleton:last-child {
+.skeleton-row > span:nth-child(2) > .skeleton:last-child {
   width: 62%;
   height: 10px;
 }
@@ -3468,21 +3535,37 @@ textarea:hover {
   }
 }
 
-/* Motion states what changed: fresh results and an arriving notice. A new selection fades
-   in from Inspector.tsx without rebuilding the panel. */
+/* Motion states what changed. Rankings re-forge from lib/motion.ts and a new selection fades
+   in from Inspector.tsx. Row offsets are measured against this group. It stays composited:
+   animating it then never changes its stacking context (which re-lays out every row), and its
+   sticky rank cells share its layer instead of becoming 50 overlap layers of their own. */
 .result-rows {
-  animation: row-enter var(--duration-fast) var(--ease-out) both;
+  position: relative;
+  will-change: opacity;
+  transition: opacity 300ms var(--ease-out);
+}
+
+/* A search longer than a blink cools the ranking it will replace; the new one rises in. */
+.result-rows[data-searching] {
+  opacity: 0.55;
+  transition-delay: 150ms;
+}
+
+.forging-state {
+  display: grid;
+  gap: 4px;
+  padding-top: 12px;
+}
+
+.forging-state > span {
+  padding-inline: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .notice-strip,
 .error-strip {
   animation: notice-enter var(--duration-base) var(--ease-out) both;
-}
-
-@keyframes row-enter {
-  from {
-    opacity: 0.4;
-  }
 }
 
 @keyframes notice-enter {
@@ -3865,9 +3948,6 @@ summary:focus-visible {
   box-shadow: 0 24px 64px var(--shadow);
 }
 
-.shortcuts-dialog[open] {
-  animation: popover-enter var(--duration-base) var(--ease-out);
-}
 
 .shortcuts-dialog::backdrop {
   background: color-mix(in srgb, var(--surface-canvas) 60%, transparent);
@@ -3963,4 +4043,150 @@ summary:focus-visible {
   margin-inline: 2px;
   color: var(--text-faint);
   font-size: 11px;
+}
+
+/* Workspace tabs: one pill travels to the active tab (placed from App.tsx). */
+.workspace-tabs {
+  position: relative;
+}
+
+.workspace-tabs button {
+  z-index: 1;
+  transition: color 200ms var(--ease-out);
+}
+
+.workspace-tabs button.active {
+  border-color: transparent;
+  background: transparent;
+}
+
+.workspace-tabs button::after {
+  display: none;
+}
+
+.tab-pill {
+  position: absolute;
+  top: 3px;
+  left: 0;
+  width: 0;
+  height: 32px;
+  border: 1px solid var(--selected);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--selected) 10%, transparent);
+  pointer-events: none;
+  transform-origin: left;
+  transition: opacity 160ms ease;
+}
+
+.tab-pill::after {
+  content: "";
+  position: absolute;
+  right: 12px;
+  bottom: 2px;
+  left: 12px;
+  height: 1px;
+  background: var(--selected);
+}
+
+/* Editors, the palette and the shortcut list open from their trigger and leave faster than
+   they arrive. A closing layer ignores the pointer so it never swallows the next click. */
+.popover-panel,
+.command-palette,
+.shortcuts-dialog {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.985);
+  transition:
+    opacity 110ms ease-in,
+    transform 110ms ease-in,
+    overlay 110ms allow-discrete,
+    display 110ms allow-discrete;
+}
+
+.popover-panel {
+  transform-origin: top left;
+}
+
+.command-palette,
+.shortcuts-dialog {
+  transform-origin: top center;
+}
+
+.popover-panel:popover-open,
+.command-palette:popover-open,
+.shortcuts-dialog[open] {
+  opacity: 1;
+  transform: none;
+  transition-duration: 200ms;
+  transition-timing-function: var(--ease-out);
+}
+
+@starting-style {
+  .popover-panel:popover-open,
+  .command-palette:popover-open,
+  .shortcuts-dialog[open] {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+}
+
+.popover-panel:not(:popover-open),
+.command-palette:not(:popover-open),
+.shortcuts-dialog:not([open]) {
+  pointer-events: none;
+}
+
+.command-palette::backdrop,
+.shortcuts-dialog::backdrop {
+  transition:
+    background-color 200ms var(--ease-out),
+    overlay 200ms allow-discrete,
+    display 200ms allow-discrete;
+}
+
+@starting-style {
+  .command-palette:popover-open::backdrop,
+  .shortcuts-dialog[open]::backdrop {
+    background-color: transparent;
+  }
+}
+
+/* Supporting motion: chips arrive with a small pop, the stale banner like other notices,
+   the palette's highlight glides, and small buttons give a quick tactile press. */
+.scope-chip {
+  animation: chip-in 180ms var(--ease-out) both;
+}
+
+@keyframes chip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+.stale-results-banner {
+  animation: notice-enter var(--duration-base) var(--ease-out) both;
+}
+
+.palette-results li {
+  transition: background-color 90ms ease;
+}
+
+.strip-icon,
+.strip-palette,
+.chip-action,
+.inline-lock,
+.sort-header,
+.scope-chip button,
+.workspace-tabs button {
+  transition: color 160ms var(--ease-out), background-color 160ms var(--ease-out), border-color 160ms var(--ease-out), transform 160ms var(--ease-out);
+}
+
+.strip-icon:active:not(:disabled),
+.strip-palette:active:not(:disabled),
+.chip-action:active:not(:disabled),
+.inline-lock:active:not(:disabled),
+.scope-chip button:active,
+.workspace-tabs button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.97);
+  transition-duration: 50ms;
 }

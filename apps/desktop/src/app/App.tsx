@@ -11,6 +11,8 @@ import { Popover } from "../features/shared/Popover";
 import { CompareView } from "../features/compare/CompareView";
 import { Inspector } from "../features/inspector/Inspector";
 import { PathsView } from "../features/paths/PathsView";
+import { SkeletonRows } from "../features/shared/SkeletonRows";
+import { EASE_OUT, reducedMotion } from "../lib/motion";
 import { RankingsBoard } from "../features/rankings/RankingsBoard";
 import { ReproductionReport } from "../features/shared/ReproductionReport";
 
@@ -197,6 +199,44 @@ export function App() {
     if (!tabState(tabs[index].id).disabled) setWorkspace(tabs[index].id);
   });
 
+  // One pill slides to the active tab, so a workspace switch reads as movement along the bar.
+  // Its size is set once per switch and the slide is a transform, so no frame lays out. It is
+  // measured in the next frame, reusing that frame's layout: measuring during the commit would
+  // lay out the new workspace twice once its effects change it.
+  const tabBar = useRef<HTMLElement>(null);
+  const tabPill = useRef<HTMLSpanElement>(null);
+  const pillPlaced = useRef(false);
+  useEffect(() => {
+    const bar = tabBar.current;
+    const pill = tabPill.current;
+    if (!bar || !pill) return;
+    const place = (slide: boolean) => {
+      const active = bar.querySelector<HTMLElement>('button[aria-current="page"]');
+      pill.style.opacity = active ? "1" : "0";
+      if (!active) return;
+      // Where the pill is drawn now, mid-slide included.
+      const from = pill.getBoundingClientRect();
+      const left = from.left - bar.getBoundingClientRect().left - bar.clientLeft;
+      pill.style.width = `${active.offsetWidth}px`;
+      pill.style.transform = `translateX(${active.offsetLeft}px)`;
+      if (slide && pillPlaced.current && from.width > 0 && !reducedMotion()) {
+        pill.getAnimations().forEach((animation) => animation.cancel());
+        pill.animate(
+          [{ transform: `translateX(${left}px) scaleX(${from.width / active.offsetWidth})` }, { transform: `translateX(${active.offsetLeft}px)` }],
+          { duration: 300, easing: EASE_OUT },
+        );
+      }
+      pillPlaced.current = true;
+    };
+    const frame = requestAnimationFrame(() => place(true));
+    const observer = new ResizeObserver(() => place(false));
+    observer.observe(bar);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [activeWorkspace, catalogStatus]);
+
   useEffect(() => {
     const listener = (event: KeyboardEvent) => onTabShortcut(event);
     window.addEventListener("keydown", listener);
@@ -207,7 +247,8 @@ export function App() {
     <main className="desktop-shell" aria-busy={catalogStatus === "loading"}>
       <QueryStrip profile={profileSwitch} coverage={profileCoverage} onProfileChange={(id) => void loadProfile(id)} />
       <section className="center-workspace">
-        <nav className="workspace-tabs">
+        <nav className="workspace-tabs" ref={tabBar}>
+          <span className="tab-pill" ref={tabPill} aria-hidden="true" />
           {tabs.map(({ id, label, icon: Icon }, index) => {
             const { requiresSelection, unsupportedBudget, disabled } = tabState(id);
             return (
@@ -261,19 +302,10 @@ export function App() {
                 <div>
                   <strong>Loading verified game data</strong>
                   <span>Checking the snapshot manifest and preparing weapon filters.</span>
+                  <span className="forge-bar indeterminate" aria-hidden="true"><i /></span>
                 </div>
               </div>
-              <div className="startup-skeleton-rows" aria-hidden="true">
-                {Array.from({ length: 9 }, (_, index) => (
-                  <div className="startup-skeleton-row" key={index}>
-                    <span className="skeleton" />
-                    <span><span className="skeleton" /><span className="skeleton" /></span>
-                    <span className="skeleton" />
-                    <span className="skeleton" />
-                    <span className="skeleton" />
-                  </div>
-                ))}
-              </div>
+              <SkeletonRows count={9} />
             </div>
           ) : null}
           {/* Workspaces stay mounted while hidden, so switching tabs shows them instantly; a

@@ -180,6 +180,30 @@ the page inert), rows are memoised, workspaces stay mounted while hidden, the bo
 a media query instead of a container query, and metric tokens are blocks instead of
 grids. The first Ctrl+K fell from 335 ms to about 10 ms by mounting the palette at idle.
 
+### Motion budget
+
+Motion was held to the rendering work of the build before it. Timings swing by 30% between
+runs on one machine, so each change was also checked by counting work per interaction:
+elements restyled, objects laid out and paints in the trace. Layout counts match the
+earlier build (opening Compare: 854 objects against 846), and interleaved timings stayed
+within run-to-run noise. The added paints come from the intended colour animations:
+selection, undo flashes and the search's landing flare. Rules found along the way:
+
+- **No per-row motion.** Sliding each moved row (FLIP) doubled a sort to 37 ms and cost
+  ~30 ms on the next frame. Every moving row became a layer, and so did its sticky cells.
+  A re-rank now animates the rows group as one layer.
+- **Keep the rows group composited.** Starting an animation on it changed its stacking
+  context and laid out all 50 rows again (+7 ms). Without a permanent layer, the 50 sticky
+  rank cells became overlap layers, costing ~6 ms of layerization on every frame.
+  `will-change: opacity` avoids both.
+- **Read layout in the next frame, not in a commit.** Measuring row offsets or the tab
+  pill inside React's commit forced a layout. After results or a tab switch, effects
+  changed the page again, so it was laid out twice: 55 ms instead of 29 ms, or 1,428
+  objects instead of 854. Such reads now run in `requestAnimationFrame`.
+- **Transform and opacity only.** Progress fills, the tab pill and skeleton shimmers move
+  by transform. A width transition laid out on every frame, and a `background-position`
+  shimmer repainted every placeholder on every frame.
+
 ## Release compiler settings
 
 Both Cargo packages set `lto = "thin"` and `codegen-units = 1` for release builds.

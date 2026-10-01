@@ -1,28 +1,16 @@
 import { ArrowDown, ArrowDownUp, ArrowUp, ChevronLeft, ChevronRight, Download, LockKeyhole, Pin, RefreshCcw } from "lucide-react";
-import { memo, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { downloadCsv, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
 import { compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
 import { buildOptimizeRequest, rowFingerprint } from "../../lib/session";
+import { settleRanking } from "../../lib/motion";
 import { RankMovement, RankSortKey, rankMovements, sortRanked } from "../../lib/ranking-view";
 import { useDesktopStore } from "../../lib/state";
 import { ObjectiveId, SearchProgressDto, SolvedBuildDto } from "../../lib/types";
 import { runSearchFromStore, runSearchRequestForRows } from "../../lib/workflows";
 import packageInfo from "../../../package.json";
 import { STAT_KEYS, ScalingTokens, StatTokens } from "../shared/BuildMetricTokens";
-
-// One key per result set, so fresh results animate in once while sorting or showing the
-// board again only moves or reveals rows (moving an animated row would restart it).
-const resultSetKeys = new WeakMap<SolvedBuildDto[], number>();
-let nextResultSet = 0;
-function resultSetKey(rows: SolvedBuildDto[]): number {
-  let key = resultSetKeys.get(rows);
-  if (key === undefined) {
-    nextResultSet += 1;
-    key = nextResultSet;
-    resultSetKeys.set(rows, key);
-  }
-  return key;
-}
+import { SkeletonRows } from "../shared/SkeletonRows";
 
 export function RankingsBoard() {
   const rows = useDesktopStore((state) => state.rows);
@@ -99,6 +87,17 @@ export function RankingsBoard() {
   }, [applyRowLocks]);
   const selectedKey = rowFingerprint(selected);
   const pinnedKeys = useMemo(() => new Set(compareBench.map(rowFingerprint)), [compareBench]);
+
+  // A sort or an updated search re-forges the ranking. Activity re-runs this when the board is
+  // shown again; nothing changed then, so nothing moves.
+  const rowsContainer = useRef<HTMLDivElement>(null);
+  const laidOut = useRef({ rows, rankedRows });
+  useLayoutEffect(() => {
+    const container = rowsContainer.current;
+    const previous = laidOut.current;
+    laidOut.current = { rows, rankedRows };
+    if (container && previous.rankedRows !== rankedRows) settleRanking(container, previous.rows !== rows, resultBoard.current);
+  }, [rankedRows, rows]);
 
   async function exportCsv() {
     if (useDesktopStore.getState().isSearching || useDesktopStore.getState().isExporting) return;
@@ -313,11 +312,18 @@ export function RankingsBoard() {
           // A grid may only own rows, so the empty state sits in one full-width cell.
           <div role="row">
             <div role="gridcell">
-              <EmptyRows onExample={runStarterExample} busy={isSearching || isExporting} classBudget={catalog?.dataManifest.capabilities.classBudget !== false} />
+              {isSearching ? (
+                <div className="forging-state" role="status">
+                  <span>Ranking every legal setup…</span>
+                  <SkeletonRows count={8} />
+                </div>
+              ) : (
+                <EmptyRows onExample={runStarterExample} busy={isExporting} classBudget={catalog?.dataManifest.capabilities.classBudget !== false} />
+              )}
             </div>
           </div>
         ) : null}
-        <div className="result-rows" role="rowgroup" key={resultSetKey(rows)}>
+        <div className="result-rows" role="rowgroup" ref={rowsContainer} data-searching={isSearching || undefined}>
         {rankedRows.map(({ row, rank }) => {
           const key = rowFingerprint(row);
           return (
@@ -526,7 +532,7 @@ function EmptyRows({ onExample, busy, classBudget }: { onExample: () => void; bu
       {classBudget ? (
         <>
           <small>Character stats, floors, locks, and world settings are retained by the example.</small>
-          <button className="inline-lock" type="button" onClick={onExample} disabled={busy}>{busy ? "Searching…" : "Try Uchigatana +3 example"}</button>
+          <button className="inline-lock" type="button" onClick={onExample} disabled={busy}>Try Uchigatana +3 example</button>
         </>
       ) : <small>Convergence uses your entered combat stats exactly.</small>}
     </div>

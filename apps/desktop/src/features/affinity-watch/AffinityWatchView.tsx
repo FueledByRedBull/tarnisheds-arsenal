@@ -220,7 +220,7 @@ function Progress({ checked, total, status, resultCount }: { checked: number; to
   return (
     <div className={`workspace-progress analysis-progress status-${status}`} data-analysis-status={status}>
       <span role="status">{label}</span>
-      <div><i style={{ width: `${pct}%` }} /></div>
+      <div className="forge-bar"><i style={{ transform: `translateX(${pct - 100}%)` }} /></div>
     </div>
   );
 }

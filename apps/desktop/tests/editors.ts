@@ -7,7 +7,10 @@ export type EditorName =
 // until the token is opened, exactly as a player has to open them.
 export async function openEditor(page: Page, editor: EditorName): Promise<Locator> {
   const panel = page.getByRole("dialog", { name: editor, exact: true });
-  if (!(await panel.isVisible())) {
+  // A closing editor stays visible while it fades out, so ask whether it is open.
+  const open = await page.evaluate((name) => [...document.querySelectorAll(".popover-panel:popover-open")]
+    .some((node) => node.getAttribute("aria-label") === name), editor);
+  if (!open) {
     // An open editor can cover a token that wrapped onto the next line, as it would for a player.
     await closeEditors(page);
     await page.getByRole("button", { name: new RegExp(`^${editor}: `) }).click();

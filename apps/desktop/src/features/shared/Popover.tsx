@@ -1,4 +1,5 @@
 import { ReactNode, useCallback, useEffect, useId, useRef } from "react";
+import { flashChanged } from "../../lib/motion";
 
 const GAP = 6;
 const EDGE = 8;
@@ -14,6 +15,7 @@ export function Popover({
   triggerTitle,
   disabled = false,
   panelClassName,
+  changeKey,
   children,
 }: {
   label: string;
@@ -23,6 +25,8 @@ export function Popover({
   triggerTitle?: string;
   disabled?: boolean;
   panelClassName?: string;
+  /** The trigger flashes when this changes while its editor is closed (undo, palette, …). */
+  changeKey?: string;
   children: ReactNode | ((close: () => void) => ReactNode);
 }) {
   const id = useId();
@@ -78,6 +82,13 @@ export function Popover({
   useEffect(() => {
     if (disabled) close();
   }, [close, disabled]);
+
+  const shownKey = useRef(changeKey);
+  useEffect(() => {
+    if (shownKey.current === changeKey) return;
+    shownKey.current = changeKey;
+    if (!panel.current?.matches(":popover-open")) flashChanged(button.current);
+  }, [changeKey]);
 
   return (
     <>

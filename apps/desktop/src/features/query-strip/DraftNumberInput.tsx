@@ -1,4 +1,5 @@
 import { KeyboardEvent, useEffect, useRef, useState } from "react";
+import { flashChanged } from "../../lib/motion";
 
 // Commits on Enter, blur, or after a short idle pause, so typing "40" never searches with "4".
 export function DraftNumberInput({
@@ -20,6 +21,8 @@ export function DraftNumberInput({
 }) {
   const [draft, setDraft] = useState(String(value));
   const idleCommit = useRef<number | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const shownValue = useRef(value);
 
   function clearIdleCommit() {
     if (idleCommit.current !== null) {
@@ -31,6 +34,9 @@ export function DraftNumberInput({
   useEffect(() => {
     clearIdleCommit();
     setDraft(String(value));
+    // A value changed from elsewhere (class, palette, undo) flashes; typing here does not.
+    if (shownValue.current !== value && document.activeElement !== input.current) flashChanged(input.current);
+    shownValue.current = value;
   }, [value]);
 
   useEffect(() => () => clearIdleCommit(), []);
@@ -45,6 +51,8 @@ export function DraftNumberInput({
     const next = clamp(parsed, min, max);
     setDraft(String(next));
     if (next !== value) {
+      // Already on screen: committing (and the blur after Enter) must not flash it as news.
+      shownValue.current = next;
       onCommit(next);
     }
   }
@@ -58,6 +66,7 @@ export function DraftNumberInput({
 
   return (
     <input
+      ref={input}
       type="number"
       className={className}
       min={min}
