@@ -10,13 +10,8 @@ use crate::model::{
 };
 use crate::snapshot::{SnapshotManifest, validate_embedded_snapshot, validate_external_snapshot};
 
-const EMBEDDED_DATA_ROOT: &str = "__er_optimizer_embedded_snapshot__";
 pub const VANILLA_PROFILE_ID: &str = "vanilla";
 pub const CONVERGENCE_PROFILE_ID: &str = "convergence";
-
-fn is_embedded_data_path(path: &Path) -> bool {
-    path.starts_with(EMBEDDED_DATA_ROOT)
-}
 
 #[derive(Clone, Debug, Default)]
 struct AowBuffRow {
@@ -262,11 +257,7 @@ pub fn load_game_data(data_dir: impl AsRef<Path>) -> Result<GameData, String> {
 pub fn load_game_data_with_manifest(
     data_dir: impl AsRef<Path>,
 ) -> Result<(GameData, SnapshotManifest), String> {
-    let data_dir = data_dir.as_ref();
-    if is_embedded_data_path(data_dir) {
-        return Err("embedded snapshots must be loaded explicitly".to_string());
-    }
-    let snapshot = validate_external_snapshot(data_dir)?;
+    let snapshot = validate_external_snapshot(data_dir.as_ref())?;
     load_validated_game_data(snapshot.manifest, |name| {
         snapshot.runtime_files.get(name).map(Vec::as_slice)
     })
