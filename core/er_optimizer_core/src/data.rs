@@ -11,8 +11,6 @@ use crate::model::{
 use crate::snapshot::{SnapshotManifest, validate_embedded_snapshot, validate_external_snapshot};
 
 const EMBEDDED_DATA_ROOT: &str = "__er_optimizer_embedded_snapshot__";
-const EMBEDDED_VANILLA_ROOT: &str = "__er_optimizer_embedded_snapshot__/vanilla";
-const EMBEDDED_CONVERGENCE_ROOT: &str = "__er_optimizer_embedded_snapshot__/convergence";
 pub const VANILLA_PROFILE_ID: &str = "vanilla";
 pub const CONVERGENCE_PROFILE_ID: &str = "convergence";
 
@@ -96,14 +94,24 @@ impl CsvTable {
     }
 }
 
-fn embedded_csv_for_path(path: &Path) -> Option<&'static str> {
-    let name = path.file_name().and_then(|name| name.to_str())?;
-    if path.starts_with(EMBEDDED_CONVERGENCE_ROOT) {
-        return embedded_convergence_csv(name);
-    }
-    embedded_vanilla_csv(name)
+/// (profile, table, brotli-compressed CSV) for every embedded runtime table; see build.rs.
+const EMBEDDED_TABLES: &[(&str, &str, &[u8])] =
+    include!(concat!(env!("OUT_DIR"), "/embedded_tables.rs"));
+
+fn embedded_tables(profile_id: &str) -> Result<HashMap<&'static str, Vec<u8>>, String> {
+    EMBEDDED_TABLES
+        .iter()
+        .filter(|(profile, _, _)| *profile == profile_id)
+        .map(|(_, table, compressed)| {
+            let mut bytes = Vec::new();
+            brotli_decompressor::BrotliDecompress(&mut &compressed[..], &mut bytes)
+                .map_err(|error| format!("embedded {profile_id} {table} is corrupt: {error}"))?;
+            Ok((*table, bytes))
+        })
+        .collect()
 }
 
+#[cfg(test)]
 fn embedded_vanilla_csv(name: &str) -> Option<&'static str> {
     match name {
         "aow.csv" => Some(include_str!("../../../data/phase1/aow.csv")),
@@ -132,6 +140,7 @@ fn embedded_vanilla_csv(name: &str) -> Option<&'static str> {
     }
 }
 
+#[cfg(test)]
 fn embedded_convergence_csv(name: &str) -> Option<&'static str> {
     match name {
         "aow.csv" => Some(include_str!("../../../data/profiles/convergence/aow.csv")),
@@ -349,30 +358,23 @@ pub fn load_embedded_game_profile(profile_id: &str) -> Result<GameData, String> 
 pub fn load_embedded_game_profile_with_manifest(
     profile_id: &str,
 ) -> Result<(GameData, SnapshotManifest), String> {
-    let (root, manifest_bytes): (&str, &'static [u8]) = match profile_id {
-        VANILLA_PROFILE_ID => (
-            EMBEDDED_VANILLA_ROOT,
-            include_bytes!("../../../data/phase1/manifest.json"),
-        ),
-        CONVERGENCE_PROFILE_ID => (
-            EMBEDDED_CONVERGENCE_ROOT,
-            include_bytes!("../../../data/profiles/convergence/manifest.json"),
-        ),
+    let manifest_bytes: &'static [u8] = match profile_id {
+        VANILLA_PROFILE_ID => include_bytes!("../../../data/phase1/manifest.json"),
+        CONVERGENCE_PROFILE_ID => {
+            include_bytes!("../../../data/profiles/convergence/manifest.json")
+        }
         other => return Err(format!("unknown embedded game profile: {other}")),
     };
-    let root_path = Path::new(root);
-    let manifest = validate_embedded_snapshot(manifest_bytes, |name| {
-        embedded_csv_for_path(&root_path.join(name)).map(str::as_bytes)
-    })?;
+    let tables = embedded_tables(profile_id)?;
+    let content = |name: &str| tables.get(name).map(Vec::as_slice);
+    let manifest = validate_embedded_snapshot(manifest_bytes, content)?;
     if manifest.profile.id != profile_id {
         return Err(format!(
             "embedded profile id mismatch: requested {profile_id}, manifest contains {}",
             manifest.profile.id
         ));
     }
-    load_validated_game_data(manifest, |name| {
-        embedded_csv_for_path(&root_path.join(name)).map(str::as_bytes)
-    })
+    load_validated_game_data(manifest, content)
 }
 
 fn load_weapons(table: CsvTable) -> Result<Vec<Weapon>, String> {

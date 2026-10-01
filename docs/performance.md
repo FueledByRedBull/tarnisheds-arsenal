@@ -259,6 +259,12 @@ for an identical search at the same speed, and launch-to-loaded time fell from ~
 to ~0.85 s. WebView2's renderer grows during repeated searches because discarded rows
 are collected lazily: a forced collection returned it from 176 MB to 101 MB.
 
+The portable executable is 12.5 MB instead of 17.6 MB. Its runtime CSVs (5.35 MB) are
+embedded brotli-compressed (0.44 MB) by `core/er_optimizer_core/build.rs` from the same
+data files. Loading decompresses one profile's tables and validates the manifest sizes
+and hashes against the decompressed bytes, as before. Launch-to-loaded time and search
+results were unchanged.
+
 ## Release compiler settings
 
 Both Cargo packages set `lto = "thin"` and `codegen-units = 1` for release builds.

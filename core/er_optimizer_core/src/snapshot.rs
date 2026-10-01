@@ -177,9 +177,9 @@ fn snapshot_csv_names(
     Ok(names)
 }
 
-pub(crate) fn validate_embedded_snapshot(
+pub(crate) fn validate_embedded_snapshot<'a>(
     manifest_bytes: &[u8],
-    content_for_file: impl Fn(&str) -> Option<&'static [u8]>,
+    content_for_file: impl Fn(&str) -> Option<&'a [u8]>,
 ) -> Result<SnapshotManifest, String> {
     let manifest = parse_and_validate_manifest(manifest_bytes)?;
     for record in &manifest.runtime_files {
