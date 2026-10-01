@@ -237,7 +237,8 @@ Headless Chromium also misleads: its overlay scrollbars hide the first cause bel
   `compactNumber` reuses one `Intl.NumberFormat`; it was constructed 1,000 times per 50
   rows.
 
-Results arriving still take ~29 ms: building 50 new rows restyles ~3,200 elements.
+Results arriving take 17 ms instead of 29 ms: rows are keyed by place, so new results update
+the rows on screen (~320 elements restyled) instead of building 50 new ones (~3,200).
 
 ### Memory
 

@@ -361,7 +361,9 @@ export function RankingsBoard() {
           const key = rowFingerprint(row);
           return (
             <ResultRow
-              key={`${key}-${rank}`}
+              // Keyed by place: new results update the rows already on screen instead of
+              // rebuilding all 50 (~3,200 elements) and leaving the old ones as garbage.
+              key={rank}
               index={rank}
               row={row}
               movement={movements?.[rank] ?? null}
