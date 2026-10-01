@@ -1358,8 +1358,8 @@ textarea {
 
 .compare-toolbar {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  align-items: start;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  align-items: end;
   gap: 10px;
   padding: 14px 14px 0;
 }
@@ -1376,26 +1376,23 @@ textarea {
 
 .compare-toolbar .searchable-select > input,
 .compare-toolbar .checkbox-multi-trigger,
-.compare-reinforcement label {
+.compare-toolbar > .clear-locks {
   min-height: 50px;
 }
 
+/* Two stacked 22px toggles plus the gap fill exactly one 50px control height. */
 .compare-reinforcement {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
   gap: 6px;
-}
-
-.compare-reinforcement > span {
-  grid-column: 1 / -1;
 }
 
 .compare-reinforcement label {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-height: 22px;
   margin: 0;
-  padding: 6px 8px;
+  padding: 0 8px;
   color: var(--text-muted);
   background: var(--surface-raised);
   border: 1px solid var(--line);

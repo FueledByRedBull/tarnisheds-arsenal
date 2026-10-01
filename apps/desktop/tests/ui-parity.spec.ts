@@ -438,6 +438,20 @@ test("compare combines multiple types and affinities with Smithing and Somber to
   await toggleMultiSelectOption(page, "Compare Type", "Katana");
   await toggleMultiSelectOption(page, "Compare Affinity", "Unique");
   await toggleMultiSelectOption(page, "Compare Affinity", "Keen");
+  // Every control band, including the rivals button and the stacked Reinforcement pair,
+  // is one 50px box, and controls sharing a row share its bottom edge.
+  await expect.poll(() => page.locator(".compare-toolbar > *:not(.compare-pins)").evaluateAll((items) => {
+    const bands = items.map((item) => {
+      const parts = item.matches("button") ? [item]
+        : [...item.querySelectorAll(".compare-reinforcement label, :scope > input, .checkbox-multi-trigger")];
+      return { top: Math.min(...parts.map((part) => part.getBoundingClientRect().top)),
+        bottom: Math.max(...parts.map((part) => part.getBoundingClientRect().bottom)) };
+    });
+    return items.length === 6 && bands.every((band, index) => Math.abs(band.bottom - band.top - 50) <= 1
+      && bands.every((other) => other.bottom < band.top || other.top > band.bottom
+        || Math.abs(other.bottom - band.bottom) <= 1)
+      && items[index].getBoundingClientRect().width > 0);
+  })).toBe(true);
   const reinforcement = page.getByRole("group", { name: "Compare Reinforcement" });
   await reinforcement.getByRole("checkbox", { name: "Smithing" }).uncheck();
 
