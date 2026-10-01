@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openEditor, openEditorFor } from "./editors";
 
 test("profile radios use one tab stop and arrow-key selection", async ({ page }) => {
   await page.goto("/");
@@ -70,7 +71,7 @@ test("long Paths curves retain all points with sparse markers and keyboard inspe
 test("saved profile filters stay readable and can be removed without changing weapon filters", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("button", { name: "Search", exact: true })).toBeEnabled();
-  await page.locator(".profile-coverage summary").click();
+  await page.locator(".coverage-token").click();
   await expect(page.locator(".profile-coverage")).toContainText("do not guarantee every skill is modeled");
   const affinityId = await page.evaluate(async () => {
     const statePath = "/src/lib/state.ts";
@@ -92,6 +93,7 @@ test("saved profile filters stay readable and can be removed without changing we
     state.loadBuildPreset(loadBuildPreset(stored.id));
     return affinityId;
   });
+  await openEditor(page, "Limits");
   const filters = page.getByRole("region", { name: "Saved profile filters" });
   await expect(filters).toContainText("Exclude aow damage");
   await expect(filters).toContainText("Excluding a supported capability excludes every result");
@@ -134,15 +136,17 @@ test("profile switch isolates results and explains Convergence coverage", async 
   await profiles.getByRole("radio", { name: /Convergence/ }).click();
   await expect(profiles.getByRole("radio", { name: /Convergence/ })).toHaveAttribute("aria-checked", "true");
   await expect(page.getByText("Experimental fixed-stat model", { exact: true })).toBeVisible();
-  await page.locator(".profile-coverage summary").click();
+  await page.locator(".coverage-token").click();
   await expect(
     page.getByText(/Ammo weapons and AoW hit\/route damage remain unsupported/),
   ).toBeVisible();
   await expect(page.getByText("4 ranked rows")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "AoW First Hit" })).toHaveCount(0);
+  await openEditor(page, "Class");
   await expect(page.getByRole("combobox", { name: "Class", exact: true })).toHaveValue("Custom stats");
   await expect(page.getByRole("button", { name: "Optimize class" })).toBeDisabled();
   await expect(page.getByRole("textbox", { name: "Stat total", exact: true })).toBeVisible();
+  await openEditor(page, "Limits");
   await expect(page.getByRole("checkbox", { name: "Use entered combat stats exactly" })).toBeChecked();
   for (const name of ["Compare", "Paths", "Affinity Watch"]) {
     await expect(page.getByRole("navigation").getByRole("button", { name, exact: true })).toBeDisabled();
@@ -158,6 +162,7 @@ test("profile switch isolates results and explains Convergence coverage", async 
   await expect(page.getByRole("navigation").getByRole("button", { name: "Paths", exact: true })).toBeDisabled();
   await expect.poll(() => page.evaluate(() => localStorage.getItem("tarnisheds-arsenal.gameProfile.v1"))).toBe("convergence");
   await profiles.getByRole("radio", { name: /Vanilla/ }).click();
+  await openEditor(page, "Class");
   await expect(page.getByRole("combobox", { name: "Class", exact: true })).toHaveValue("Samurai");
   await expect(page.getByRole("button", { name: "Optimize class" })).toBeEnabled();
   await page.getByRole("button", { name: "Search", exact: true }).click();
@@ -189,6 +194,7 @@ test("fixed skill controls use the same native selection in Rankings and Compare
   await expect(comparisonSkill).toBeDisabled();
   await page.getByRole("navigation").getByRole("button", { name: "Rankings", exact: true }).click();
   await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await openEditor(page, "Comparison filters");
   await expect(comparisonSkill).toHaveValue("White Light Charge");
 });
 
@@ -201,6 +207,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
 
   await expect(page.getByRole("textbox", { name: "Level", exact: true })).toHaveValue("9");
   await expect(page.getByText("Movable", { exact: true })).toBeVisible();
+  await openEditor(page, "Class");
   await page.getByRole("combobox", { name: "Class" }).click();
   await expect(page.getByRole("option", { name: "Wretch" })).toBeVisible();
   await page.keyboard.press("Escape");
@@ -268,7 +275,10 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
 
   await page.locator(".result-row-full").first().getByRole("button", { name: /^Lock / }).click();
   await expect(page.getByText("Combat stat locks active")).toBeVisible();
-  await expect(page.locator(".active-lock-warning")).toContainText("Changing class or loadout keeps these locks");
+  await expect(page.locator(".active-lock-warning")).toContainText("Stat locks active: STR 13 / DEX 22");
+  await expect(page.locator(".active-lock-warning")).toHaveAttribute("title", /Changing class or loadout keeps these locks/);
+  await expect((await openEditor(page, "Limits")).getByText(/Changing class or loadout keeps these locks/)).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(page.getByText("Blood / Seppuku / +25").first()).toBeVisible();
 
   await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
@@ -336,10 +346,10 @@ test("somber-only exact search uses the somber upgrade cap", async ({ page }) =>
   await page.getByRole("spinbutton", { name: "STR", exact: true }).fill("60");
   await page.getByRole("spinbutton", { name: "STR", exact: true }).press("Enter");
   await expect(page.getByRole("textbox", { name: "Level", exact: true })).toHaveValue("57");
+  await openEditor(page, "Upgrades");
   await expect(page.getByRole("spinbutton", { name: "Standard Upgrade" })).toHaveValue("25");
   await expect(page.getByRole("spinbutton", { name: "Somber Upgrade" })).toHaveValue("10");
   await page.getByRole("button", { name: "Use exact levels" }).click();
-  await page.getByText("Advanced", { exact: true }).click();
   await chooseSearchableOption(page, "Somber", "Somber Only");
 
   await page.getByRole("button", { name: "Search" }).click();
@@ -396,6 +406,7 @@ test("starting class optimization and stat reset keep the level budget valid", a
 
   const stats = ["VIG", "MND", "END", "STR", "DEX", "INT", "FAI", "ARC"];
   const before = await Promise.all(stats.map((stat) => page.getByRole("spinbutton", { name: stat, exact: true }).inputValue()));
+  await openEditor(page, "Class");
   await page.getByRole("button", { name: "Optimize class" }).click();
   await expect(page.getByRole("combobox", { name: "Class" })).toHaveValue("Samurai");
   await expect(page.getByRole("textbox", { name: "Level", exact: true })).toHaveValue("9");
@@ -422,35 +433,34 @@ test("compare combines multiple types and affinities with Smithing and Somber to
     const summary = await page.locator(".compare-workspace-header .selected-summary").boundingBox();
     return Boolean(header && summary && summary.y + summary.height < header.y + header.height - 3);
   }).toBe(true);
-  await expect.poll(() => page.locator(
-    ".compare-toolbar .searchable-select > input, .compare-toolbar .checkbox-multi-trigger, .compare-reinforcement label",
-  ).evaluateAll((controls) => {
-    const boxes = controls.map((control) => control.getBoundingClientRect());
-    return boxes.length === 6
-      && controls.every((control) => {
-        const box = control.getBoundingClientRect();
-        const parent = control.parentElement!.getBoundingClientRect();
-        return box.width > 0 && box.right <= parent.right + 1;
-      });
-  })).toBe(true);
+  await expect(page.getByRole("list", { name: "Active comparison filters" })).toHaveCount(0);
+  await expect(page.locator(".compare-toolbar")).toContainText("Current ranked rivals");
 
   await toggleMultiSelectOption(page, "Compare Type", "Great Katana");
   await toggleMultiSelectOption(page, "Compare Type", "Katana");
   await toggleMultiSelectOption(page, "Compare Affinity", "Unique");
   await toggleMultiSelectOption(page, "Compare Affinity", "Keen");
-  // Every control band, including the rivals button and the stacked Reinforcement pair,
-  // is one 50px box, and controls sharing a row share its bottom edge.
-  await expect.poll(() => page.locator(".compare-toolbar > *:not(.compare-pins)").evaluateAll((items) => {
-    const bands = items.map((item) => {
-      const parts = item.matches("button") ? [item]
-        : [...item.querySelectorAll(".compare-reinforcement label, :scope > input, .checkbox-multi-trigger")];
-      return { top: Math.min(...parts.map((part) => part.getBoundingClientRect().top)),
-        bottom: Math.max(...parts.map((part) => part.getBoundingClientRect().bottom)) };
+  const filtersPanel = page.getByRole("dialog", { name: "Comparison filters", exact: true });
+  // Every filter control sits inside the open panel, which stays inside the window.
+  await expect.poll(() => filtersPanel.evaluate((panel) => {
+    const box = panel.getBoundingClientRect();
+    const controls = [...panel.querySelectorAll(".searchable-select > input, .checkbox-multi-trigger, .compare-reinforcement label")];
+    return controls.length === 6 && box.left >= 0 && box.right <= window.innerWidth && box.bottom <= window.innerHeight
+      && controls.every((control) => {
+        const bounds = control.getBoundingClientRect();
+        return bounds.width > 0 && bounds.left >= box.left && bounds.right <= box.right + 1;
+      });
+  })).toBe(true);
+  const chips = page.getByRole("list", { name: "Active comparison filters" });
+  await expect(chips.getByRole("listitem")).toHaveText([/Type\s*Great Katana/, /Type\s*Katana/, /Affinity\s*Keen/, /Affinity\s*Unique/, /Skill\s*Automatic/]);
+  await expect(page.getByRole("button", { name: "Comparison filters: 5 active", exact: true })).toBeVisible();
+  // The chip row stays one band inside the toolbar.
+  await expect.poll(() => page.locator(".compare-toolbar").evaluate((toolbar) => {
+    const box = toolbar.getBoundingClientRect();
+    return [...toolbar.querySelectorAll(".scope-chip, .chip-action")].every((chip) => {
+      const bounds = chip.getBoundingClientRect();
+      return bounds.right <= box.right + 1 && bounds.height <= 34;
     });
-    return items.length === 6 && bands.every((band, index) => Math.abs(band.bottom - band.top - 50) <= 1
-      && bands.every((other) => other.bottom < band.top || other.top > band.bottom
-        || Math.abs(other.bottom - band.bottom) <= 1)
-      && items[index].getBoundingClientRect().width > 0);
   })).toBe(true);
   const reinforcement = page.getByRole("group", { name: "Compare Reinforcement" });
   await reinforcement.getByRole("checkbox", { name: "Smithing" }).uncheck();
@@ -465,6 +475,17 @@ test("compare combines multiple types and affinities with Smithing and Somber to
   await reinforcement.getByRole("checkbox", { name: "Smithing" }).check();
   await expect(targetLane).toContainText("Uchigatana");
   await expect(targetLane).toContainText("Keen");
+  await expect(chips.getByRole("listitem").last()).toHaveText(/Reinforcement\s*Smithing only/);
+
+  await page.keyboard.press("Escape");
+  await expect(filtersPanel).toBeHidden();
+  await expect(page.getByRole("button", { name: /^Comparison filters: / })).toBeFocused();
+  await chips.getByRole("button", { name: "Remove Type Great Katana", exact: true }).click();
+  await expect(chips.getByRole("listitem")).toHaveCount(5);
+  await expect(page.getByText("Best Katana · Keen + Unique · Smithing", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Use ranked rivals", exact: true }).click();
+  await expect(chips).toHaveCount(0);
+  await expect(page.getByText("Selected baseline versus current ranked rivals")).toBeVisible();
 });
 
 test("comparison pins survive custom filters and navigation until explicitly cleared", async ({ page }) => {
@@ -509,12 +530,14 @@ test("comparison pins survive custom filters and navigation until explicitly cle
   await expect(bestType).toContainText("Ancient Meteoric Ore Greatsword");
   expect(await page.evaluate(() => localStorage.getItem("tarnisheds-arsenal.compareBench.v1.vanilla"))).toBe(savedPins);
   await page.getByRole("button", { name: "Use pinned targets", exact: true }).click();
+  await openEditor(page, "Comparison filters");
   await expect(page.getByRole("button", { name: "Compare Type" })).toContainText("All");
   await expect(page.getByText(/pinned target is already the selected baseline/i)).toBeVisible();
 
   await page.getByRole("navigation").getByRole("button", { name: "Rankings" }).click();
   await keen.getByRole("button", { name: /^Compare / }).click();
   await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
+  await openEditor(page, "Comparison filters");
   await expect(page.getByRole("button", { name: "Compare Type" })).toContainText("All");
   await expect(page.getByText("Selected baseline versus 2 pinned targets")).toBeVisible();
   await expect(page.locator(".compare-lane", { hasText: "Pinned #2" })).toContainText("Keen");
@@ -580,6 +603,7 @@ test("saved family filters can be cleared without editing the saved build", asyn
   });
   await page.reload();
   await page.getByRole("button", { name: "Load", exact: true }).click();
+  await openEditor(page, "Loadout");
   const reset = page.getByRole("button", { name: "Reset weapon filters" });
   await expect(reset).toBeEnabled();
   await reset.click();
@@ -635,6 +659,7 @@ test("reduced-motion preference disables decorative motion", async ({ page }) =>
 
 test("searchable selects expose keyboard and screen-reader state", async ({ page }) => {
   await page.goto("/");
+  await openEditor(page, "Class");
   const classField = page.getByRole("combobox", { name: "Class" });
 
   await classField.focus();
@@ -673,6 +698,7 @@ test("1366px layout survives 125 percent text scaling and long labels", async ({
 });
 
 async function chooseSearchableOption(page: import("@playwright/test").Page, label: string, option: string) {
+  await openEditorFor(page, label);
   const field = page.getByRole("combobox", { name: label, exact: true });
   await field.fill(option);
   await page.keyboard.press("Enter");
@@ -749,6 +775,7 @@ test("analysis controls align inputs with buttons and path levels compare side b
 });
 
 async function toggleMultiSelectOption(page: import("@playwright/test").Page, label: string, option: string) {
+  await openEditorFor(page, label);
   const group = page.getByRole("group", { name: label, exact: true });
   if (!await group.isVisible()) await page.getByRole("button", { name: label, exact: true }).click();
   const checkbox = group.getByRole("checkbox", { name: new RegExp(`^${option.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`) });
@@ -773,27 +800,30 @@ for (const [width, height] of [[923, 789], [1200, 720], [1366, 768], [1650, 950]
       useDesktopStore.setState({ rows: Array.from({ length: 50 }, (_, index) => rows[index % rows.length]) });
     });
     await expect(page.getByText("50 ranked rows")).toBeVisible();
-    const profileFits = () => page.evaluate(() => {
-      const brand = document.querySelector(".brand-block")!.getBoundingClientRect();
+    const stripFits = () => page.evaluate(() => {
+      const strip = document.querySelector(".query-strip")!;
+      const box = strip.getBoundingClientRect();
       const tabs = document.querySelector(".workspace-tabs")!.getBoundingClientRect();
       const stage = document.querySelector(".workspace-stage")!.getBoundingClientRect();
-      return tabs.bottom <= stage.top + 1
-        && [...document.querySelectorAll(".profile-control > *, .profile-switch button")].every((node) => {
-          const box = node.getBoundingClientRect();
-          return box.left >= brand.left && box.right <= brand.right && box.bottom <= brand.bottom;
+      const parts = [...strip.querySelectorAll(".strip-brand, .profile-switch, .strip-token, .strip-actions > *, .ribbon-stat")];
+      return box.bottom <= tabs.top + 1 && tabs.bottom <= stage.top + 1 && parts.length > 10
+        && strip.scrollWidth <= strip.clientWidth + 1
+        && parts.every((node) => {
+          const bounds = node.getBoundingClientRect();
+          return bounds.width > 0 && bounds.left >= box.left - 1 && bounds.right <= box.right + 1 && bounds.bottom <= box.bottom + 1;
         });
     });
-    await expect.poll(profileFits).toBe(true);
-    await expect.poll(() => page.locator(".query-summary").evaluate((query) =>
-      document.querySelector(".mechanics-glossary")!.getBoundingClientRect().top - query.getBoundingClientRect().bottom,
-    )).toBeGreaterThanOrEqual(8);
+    await expect.poll(stripFits).toBe(true);
+    await expect.poll(() => page.locator(".rankings-panel .workspace-header").evaluate((header) =>
+      document.querySelector(".mechanics-glossary")!.getBoundingClientRect().top - header.getBoundingClientRect().bottom,
+    )).toBeGreaterThanOrEqual(0);
     await page.locator(".mechanics-glossary summary").click();
     await expect.poll(() => page.locator(".mechanics-glossary dl").evaluate((list) =>
       list.scrollWidth <= list.clientWidth + 1,
     )).toBe(true);
     await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
     await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
-    await expect.poll(profileFits).toBe(true);
+    await expect.poll(stripFits).toBe(true);
   });
 }
 
@@ -801,6 +831,7 @@ test("ranking actions stay reachable at minimum width with either column layout"
   await page.setViewportSize({ width: 1200, height: 720 });
   await page.goto("/");
   for (const objective of ["Max AR", "Bleed, then AR"]) {
+    await openEditor(page, "Objective");
     await page.getByRole("button", { name: objective, exact: true }).click();
     await page.getByRole("button", { name: /^(Search|Update Results)$/ }).click();
     await expect(page.getByText("4 ranked rows")).toBeVisible();
@@ -832,11 +863,17 @@ for (const [width, height] of [[1200, 720], [1366, 768], [1650, 950]]) {
     await page.goto("/");
     const nav = page.getByRole("navigation");
     await expect(nav.getByRole("button", { name: "Rankings", exact: true })).toHaveAttribute("aria-current", "page");
+    await openEditor(page, "Objective");
     await expect(page.getByRole("button", { name: "Max AR", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await openEditor(page, "Results");
     await expect(page.getByRole("button", { name: "Auto", exact: true })).toHaveAttribute("aria-pressed", "true");
-    await expect.poll(() => page.locator(".level-strip").evaluate((group) => {
-      const box = group.getBoundingClientRect();
-      return [...group.children].every((child) => child.getBoundingClientRect().right <= box.right + 1);
+    await page.keyboard.press("Escape");
+    await expect.poll(() => page.locator(".strip-ribbon").evaluate((ribbon) => {
+      const box = ribbon.getBoundingClientRect();
+      return [...ribbon.querySelectorAll(".ribbon-stat, .ribbon-readout")].every((child) => {
+        const bounds = child.getBoundingClientRect();
+        return bounds.right <= box.right + 1 && child.scrollWidth <= child.clientWidth + 1;
+      });
     })).toBe(true);
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect(page.getByText("4 ranked rows")).toBeVisible();
@@ -853,10 +890,12 @@ for (const [width, height] of [[1200, 720], [1366, 768], [1650, 950]]) {
     await nav.getByRole("button", { name: "Compare", exact: true }).click();
     await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Search", exact: true })).toHaveCount(0);
+    await openEditor(page, "Comparison filters");
     await expect.poll(() => page.locator(".compare-reinforcement").evaluate((group) => {
       const box = group.getBoundingClientRect();
       return [...group.querySelectorAll("label")].every(label => label.getBoundingClientRect().right <= box.right + 1);
     })).toBe(true);
+    await page.keyboard.press("Escape");
     await expect.poll(() => page.locator(".compare-deltas").evaluate((table) => {
       const details = document.querySelector(".compare-build-details")!;
       return table.getBoundingClientRect().top < details.getBoundingClientRect().top;

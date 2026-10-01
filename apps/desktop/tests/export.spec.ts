@@ -38,7 +38,7 @@ for (const action of ["cancel", "profile", "edit", "draft", "navigate"]) {
     if (action === "cancel") await page.getByRole("button", { name: "Cancel export", exact: true }).click();
     else if (action === "profile") await page.getByRole("radio", { name: /Convergence/ }).click();
     else if (action === "edit") await page.getByRole("checkbox", { name: "Two-handing", exact: true }).check();
-    else if (action === "draft") await page.locator(".stat-grid input").first().fill("");
+    else if (action === "draft") await page.locator(".ribbon-stat input").first().fill("");
     else await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
     await page.waitForFunction(() => (window as unknown as { exportCancelled: boolean }).exportCancelled);
     if (action === "navigate") await page.getByRole("navigation").getByRole("button", { name: "Rankings", exact: true }).click();

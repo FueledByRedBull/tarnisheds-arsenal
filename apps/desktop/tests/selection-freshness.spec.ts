@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { closeEditors, openEditor } from "./editors";
 
 async function setup(page: Page) {
   await page.goto("/");
@@ -44,6 +45,10 @@ async function setup(page: Page) {
   });
 }
 
+async function loadoutField(page: Page, name: "Weapon" | "AoW") {
+  return (await openEditor(page, "Loadout")).getByRole("combobox", { name, exact: true });
+}
+
 async function patch(page: Page, patch: Record<string, unknown>) {
   await page.evaluate(value => (window as any).selectionProbe.patch(value), patch);
 }
@@ -60,7 +65,7 @@ async function resolve(page: Page, key: Array<string | null>, overrides = {}) {
 
 test("an exact typed weapon commits before immediate Search dispatch", async ({ page }) => {
   await setup(page);
-  await page.getByRole("combobox", { name: "Weapon", exact: true }).fill("Zweihander");
+  await (await loadoutField(page, "Weapon")).fill("Zweihander");
   // The same browser turn models blur immediately followed by submission, without
   // an automation wait allowing a delayed commit to hide the ordering bug.
   await page.evaluate(() => {
@@ -78,7 +83,7 @@ for (const interruption of ["cancel", "edit", "navigate"] as const) {
     await page.evaluate(() => (window as any).selectionProbe.holdProfiles());
     await patch(page, { weaponName: "Zweihander" });
     await page.getByRole("button", { name: "Search", exact: true }).click();
-    await expect(page.getByText("Checking loadout...", { exact: true })).toBeVisible();
+    await expect(page.getByText("Checking loadout…", { exact: true })).toBeVisible();
     if (interruption === "cancel") await page.getByRole("button", { name: "Cancel Search", exact: true }).click();
     else if (interruption === "edit") {
       await page.getByRole("spinbutton", { name: "STR", exact: true }).fill("21");
@@ -87,7 +92,7 @@ for (const interruption of ["cancel", "edit", "navigate"] as const) {
       const { useDesktopStore } = await import("/src/lib/state.ts");
       useDesktopStore.getState().setWorkspace("compare");
     });
-    await expect(page.getByText("Checking loadout...", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Checking loadout…", { exact: true })).toHaveCount(0);
     await resolve(page, ["vanilla", "Zweihander", null], {
       nativeSkillName: "Stamp (Upward Cut)", compatibleAows: ["Stamp (Upward Cut)"],
     });
@@ -100,7 +105,7 @@ for (const interruption of ["cancel", "edit", "navigate"] as const) {
 test("delayed skill defaults cannot invalidate an immediately submitted search", async ({ page }) => {
   await setup(page);
   await page.evaluate(() => (window as any).selectionProbe.holdProfiles());
-  await page.getByRole("combobox", { name: "Weapon", exact: true }).fill("Zweihander");
+  await (await loadoutField(page, "Weapon")).fill("Zweihander");
   await page.evaluate(() => {
     document.querySelector<HTMLInputElement>('input[aria-label="Weapon"]')!.blur();
     document.querySelector<HTMLButtonElement>(".search-button")!.click();
@@ -118,23 +123,24 @@ for (const interruption of ["cancel", "STR edit", "lookup failure"] as const) {
   test(`an undispatched ${interruption} preserves the pending manual native default`, async ({ page }) => {
     await setup(page);
     await page.evaluate(() => (window as any).selectionProbe.holdProfiles());
-    const weapon = page.getByRole("combobox", { name: "Weapon", exact: true });
+    const weapon = await loadoutField(page, "Weapon");
     await weapon.fill("Zweihander");
     await weapon.press("Tab");
     await page.getByRole("button", { name: "Search", exact: true }).click();
-    await expect(page.getByText("Checking loadout...", { exact: true })).toBeVisible();
+    await expect(page.getByText("Checking loadout…", { exact: true })).toBeVisible();
     if (interruption === "cancel") await page.getByRole("button", { name: "Cancel Search", exact: true }).click();
     else if (interruption === "STR edit") await patch(page, { strStat: 21 });
     else {
       await page.evaluate(() => (window as any).selectionProbe.reject(["vanilla", "Zweihander", null]));
       await page.getByRole("button", { name: "Retry weapon profile", exact: true }).click();
+      await openEditor(page, "Loadout");
       await page.getByRole("button", { name: "Retry AoW skills", exact: true }).click();
     }
-    await expect(page.getByText("Checking loadout...", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Checking loadout…", { exact: true })).toHaveCount(0);
     await resolve(page, ["vanilla", "Zweihander", null], {
       nativeSkillName: "Stamp (Upward Cut)", compatibleAows: ["Stamp (Upward Cut)"],
     });
-    await expect(page.getByRole("combobox", { name: "AoW", exact: true })).toHaveValue("Stamp (Upward Cut)");
+    await expect(await loadoutField(page, "AoW")).toHaveValue("Stamp (Upward Cut)");
     expect(await page.evaluate(() => (window as any).selectionProbe.searches)).toEqual([]);
   });
 }
@@ -142,15 +148,15 @@ for (const interruption of ["cancel", "STR edit", "lookup failure"] as const) {
 test("starter Automatic is not overwritten by late native-skill metadata", async ({ page }) => {
   await setup(page);
   await page.evaluate(() => (window as any).selectionProbe.holdProfiles());
-  await page.getByRole("combobox", { name: "Weapon", exact: true }).fill("Uchigatana");
-  await page.getByRole("combobox", { name: "Weapon", exact: true }).press("Tab");
+  await (await loadoutField(page, "Weapon")).fill("Uchigatana");
+  await (await loadoutField(page, "Weapon")).press("Tab");
   await pending(page, ["vanilla", "Uchigatana", null]);
   await page.getByRole("button", { name: "Try Uchigatana +3 example", exact: true }).click();
   await expect.poll(() => page.evaluate(() => (window as any).selectionProbe.searches.length)).toBe(1);
   await resolve(page, ["vanilla", "Uchigatana", "Standard"], {
     nativeSkillName: "Unsheathe", compatibleAows: ["Unsheathe", "Seppuku"], affinities: ["Standard", "Blood", "Occult"],
   });
-  await expect(page.getByRole("combobox", { name: "AoW", exact: true })).toHaveValue("Automatic (best legal skill)");
+  await expect(await loadoutField(page, "AoW")).toHaveValue("Automatic (best legal skill)");
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   expect(await page.evaluate(() => (window as any).selectionProbe.searches[0].aowName)).toBeNull();
   expect(await page.evaluate(() => (window as any).selectionProbe.cancels)).toEqual([]);
@@ -161,7 +167,7 @@ for (const editBeforeMetadata of [true, false]) {
   test(`manual native defaults survive a STR edit ${editBeforeMetadata ? "before" : "after"} metadata`, async ({ page }) => {
     await setup(page);
     await page.evaluate(() => (window as any).selectionProbe.holdProfiles());
-    const weapon = page.getByRole("combobox", { name: "Weapon", exact: true });
+    const weapon = await loadoutField(page, "Weapon");
     await weapon.fill("Zweihander");
     await weapon.press("Tab");
     await pending(page, ["vanilla", "Zweihander", null]);
@@ -172,7 +178,7 @@ for (const editBeforeMetadata of [true, false]) {
     await resolve(page, ["vanilla", "Zweihander", null], {
       nativeSkillName: "Stamp (Upward Cut)", compatibleAows: ["Stamp (Upward Cut)"],
     });
-    await expect(page.getByRole("combobox", { name: "AoW", exact: true })).toHaveValue("Stamp (Upward Cut)");
+    await expect(await loadoutField(page, "AoW")).toHaveValue("Stamp (Upward Cut)");
     if (!editBeforeMetadata) {
       await patch(page, { strStat: 21 });
       await page.getByRole("button", { name: "Search", exact: true }).click();
@@ -186,13 +192,13 @@ for (const submitted of [false, true]) for (const replacement of ["preset", "exp
   test(`same-weapon ${replacement} retires pending manual defaults${submitted ? " after Search" : ""}`, async ({ page }) => {
     await setup(page);
     await page.evaluate(() => (window as any).selectionProbe.holdProfiles());
-    const weapon = page.getByRole("combobox", { name: "Weapon", exact: true });
+    const weapon = await loadoutField(page, "Weapon");
     await weapon.fill("Uchigatana");
     await weapon.press("Tab");
     await pending(page, ["vanilla", "Uchigatana", null]);
     if (submitted) {
       await page.getByRole("button", { name: "Search", exact: true }).click();
-      await expect(page.getByText("Checking loadout...", { exact: true })).toBeVisible();
+      await expect(page.getByText("Checking loadout…", { exact: true })).toBeVisible();
     }
     await page.evaluate(async replacement => {
       const { useDesktopStore } = await import("/src/lib/state.ts");
@@ -206,11 +212,11 @@ for (const submitted of [false, true]) for (const replacement of ["preset", "exp
           dataVersion: `${manifest.profile.id}:${manifest.schemaVersion}:${manifest.datasetVersion}:${manifest.modelVersion}` });
       }
     }, replacement);
-    if (submitted) await expect(page.getByText("Checking loadout...", { exact: true })).toHaveCount(0);
+    if (submitted) await expect(page.getByText("Checking loadout…", { exact: true })).toHaveCount(0);
     await resolve(page, ["vanilla", "Uchigatana", null], {
       nativeSkillName: "Unsheathe", compatibleAows: ["Unsheathe", "Seppuku"],
     });
-    await expect(page.getByRole("combobox", { name: "AoW", exact: true })).toHaveValue("Automatic (best legal skill)");
+    await expect(await loadoutField(page, "AoW")).toHaveValue("Automatic (best legal skill)");
     expect(await page.evaluate(() => (window as any).selectionProbe.searches)).toEqual([]);
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect.poll(() => page.evaluate(() => (window as any).selectionProbe.searches.length)).toBe(1);
@@ -221,7 +227,7 @@ for (const submitted of [false, true]) for (const replacement of ["preset", "exp
 test("Escape then Enter never accepts a hidden option", async ({ page }) => {
   await setup(page);
   await patch(page, { weaponName: "Zweihander" });
-  const input = page.getByRole("combobox", { name: "Weapon", exact: true });
+  const input = await loadoutField(page, "Weapon");
   await expect(input).toHaveValue("Zweihander");
   await input.focus();
   await input.press("Escape");
@@ -233,7 +239,7 @@ test("Escape then Enter never accepts a hidden option", async ({ page }) => {
 
 test("option click, Tab, unmatched text, and rapid refocus preserve committed selections", async ({ page }) => {
   await setup(page);
-  const input = page.getByRole("combobox", { name: "Weapon", exact: true });
+  const input = await loadoutField(page, "Weapon");
   await input.click();
   await page.getByRole("option", { name: "Zweihander", exact: true }).click();
   await expect(input).toHaveValue("Zweihander");
@@ -262,7 +268,7 @@ test("keyboard navigation scrolls the active option into view", async ({ page })
     const state = useDesktopStore.getState();
     useDesktopStore.setState({ catalog: { ...state.catalog!, weaponNames: Array.from({ length: 50 }, (_, i) => `Weapon ${i}`) } });
   });
-  const input = page.getByRole("combobox", { name: "Weapon", exact: true });
+  const input = await loadoutField(page, "Weapon");
   await input.focus();
   for (let i = 0; i < 35; i++) await input.press("ArrowDown");
   expect(await input.evaluate(input => {
@@ -322,12 +328,15 @@ for (const unrelatedError of [null, "Search failed independently"]) {
     await pending(page, ["vanilla", "Zweihander", null]);
     await page.evaluate(() => (window as any).selectionProbe.reject(["vanilla", "Zweihander", null]));
     await expect(page.getByText("Weapon profile unavailable: Metadata unavailable", { exact: true })).toBeVisible();
+    await openEditor(page, "Loadout");
     await expect(page.getByText("Skills unavailable: Metadata unavailable", { exact: true })).toBeVisible();
+    await closeEditors(page);
     await page.getByRole("button", { name: "Retry weapon profile", exact: true }).click();
+    await openEditor(page, "Loadout");
     await page.getByRole("button", { name: "Retry AoW skills", exact: true }).click();
     await resolve(page, ["vanilla", "Zweihander", null]);
     await expect(page.locator(".requirements-strip")).toContainText("STR 19");
-    await expect(page.getByRole("combobox", { name: "AoW", exact: true })).toBeEnabled();
+    await expect(await loadoutField(page, "AoW")).toBeEnabled();
     await expect(page.getByText(/unavailable: Metadata unavailable/)).toHaveCount(0);
     if (unrelatedError) await expect(page.locator(".error-strip")).toHaveText(unrelatedError);
     else await expect(page.locator(".error-strip")).toHaveCount(0);

@@ -32,7 +32,8 @@ comparisons and progression previews.
 
 Each Rankings row shows the loadout, weapon scaling, combat stats, AR, and skill
 damage, with the selected build’s full breakdown on the right. Screenshots show
-[v0.16.0](docs/release-notes/v0.16.0.md).
+the query-line interface that follows [v0.16.0](docs/release-notes/v0.16.0.md);
+v0.16.0 itself uses the earlier command rail.
 
 ![Rankings with weapon setups, combat stats, scaling, and the selected build’s damage breakdown](docs/images/tarnisheds-arsenal-rankings.png)
 
@@ -59,16 +60,19 @@ needs internet access if that runtime is missing.
 
 ## Your first build
 
-1. Choose **Vanilla**, your starting class, and your character stats or level.
-2. Pick an objective such as **Max AR**. Set any weapon, affinity, skill, or
-   upgrade constraints; open fields allow all legal choices.
+1. Choose **Vanilla**. The query line at the top reads as one sentence: click
+   your starting class to change it, and type your stats into the ribbon below.
+2. Click the objective (such as **Max AR**), the loadout, the upgrades, or any
+   other part of the query to edit it; open fields allow all legal choices.
+   Press **Ctrl+K** to type a change instead, such as `str 40`, `uchigatana`,
+   `+20`, or `top 10`.
 3. Press **Search**, then select a row to inspect its damage, scaling, and stats.
 4. Pin another result for **Compare**, trace future levels in **Paths**, or
    explore affinity crossover points in **Affinity Watch**.
 
-Save builds to return to them later, or export rankings as CSV. The **Active
-query** summary above the rankings shows the assumptions behind them; changed
-inputs mark old results as stale. Convergence uses a different
+Save builds to return to them later, or export rankings as CSV. The query line
+shows the assumptions behind the rankings; changed inputs mark old results as
+stale. Convergence uses a different
 [fixed-stat workflow](#convergence-3001-beta).
 
 ### Saved builds and recovery
@@ -102,6 +106,8 @@ calculation summaries, not estimates of each stat's causal damage contribution.
 
 Pinned loadouts keep their weapon, affinity, and skill. Their stats and upgrades
 are reoptimized for the current budget; the upgrade chart shows how each develops.
+Active comparison filters appear as removable chips; **Filters** holds every
+option, and **Use ranked rivals** returns to the default comparison.
 
 **AR / Bleed tradeoffs** keeps the selected weapon, affinity, skill, upgrade,
 level budget, stat floors/locks, and handling fixed. Compute its complete frontier,

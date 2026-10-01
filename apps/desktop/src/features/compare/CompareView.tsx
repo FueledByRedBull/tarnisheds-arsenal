@@ -1,3 +1,4 @@
+import { SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AowSelect } from "../../lib/AowSelect";
 import { cachedComparisonSearch, cachedSolveBuild, cachedUpgradeSeries, cachedWeaponProfile } from "../../lib/analysis-cache";
@@ -7,7 +8,8 @@ import { compareUpgradeHorizon, replaceFilterEntries, rowFingerprint, stableSign
 import { LatestRequest } from "../../lib/request-generation";
 import { useRequestBudget } from "../../lib/hooks";
 import { useDesktopStore } from "../../lib/state";
-import { SolvedBuildDto, UpgradePointDto } from "../../lib/types";
+import { CompareControls, SolvedBuildDto, UpgradePointDto } from "../../lib/types";
+import { Popover } from "../shared/Popover";
 import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 import { LoadoutTradeoffs } from "./LoadoutTradeoffs";
 import { explainBuildComparison } from "../../lib/build-explanation";
@@ -20,6 +22,8 @@ type CompareLane = {
   chartError?: string;
   emptyLabel?: string;
 };
+
+type CompareChip = { key: string; kind: string; label: string; patch: Partial<CompareControls> };
 
 type CompareMetric = readonly [string, (row: SolvedBuildDto) => number | null, (1 | -1)?];
 
@@ -94,6 +98,33 @@ export function CompareView() {
     ? "The pinned target is already the selected baseline. Pin a different build or choose comparison filters."
     : "No other current ranked result. Run a broader Rankings search or choose comparison filters.";
   const extendedScalingGrades = catalog?.dataManifest.rules.extendedScalingGrades ?? false;
+  // Every non-default control is one removable chip, so customCompare is true exactly when chips exist.
+  const chips: CompareChip[] = [
+    ...(compareControls.weaponName
+      ? [{ key: "weapon", kind: "Weapon", label: compareControls.weaponName, patch: { weaponName: null, aowName: null } }]
+      : []),
+    ...compareControls.filters.entries.map((entry) => {
+      const dimension = entry.dimension === "affinity" ? affinityDimension : typeDimension;
+      const name = dimension?.options.find((option) => option.id === entry.id)?.label ?? entry.id;
+      return {
+        key: `${entry.dimension}:${entry.mode}:${entry.id}`,
+        kind: entry.dimension === "affinity" ? "Affinity" : "Type",
+        label: entry.mode === "exclude" ? `Not ${name}` : name,
+        patch: {
+          aowName: null,
+          matchSelectedAow: false,
+          filters: { version: 1 as const, entries: compareControls.filters.entries.filter((other) => other !== entry) },
+        },
+      };
+    }),
+    ...(!compareControls.matchSelectedAow || compareControls.aowName
+      ? [{ key: "aow", kind: "Skill", label: compareControls.aowName ?? "Automatic", patch: { matchSelectedAow: true, aowName: null } }]
+      : []),
+    ...(reinforcementLabel
+      ? [{ key: "reinforcement", kind: "Reinforcement", label: reinforcementLabel === "No reinforcement" ? "None" : `${reinforcementLabel} only`,
+        patch: { includeSmithing: true, includeSomber: true } }]
+      : []),
+  ];
 
   useEffect(() => {
     const controller = new AbortController();
@@ -281,95 +312,119 @@ export function CompareView() {
         {seriesStatus === "ready" ? chartsLoading ? "Comparison current · Upgrade charts loading…" : "Comparison current" : null}
       </div>
       <div className="compare-toolbar">
-        {customCompare ? <button type="button" className="clear-locks" onClick={() => patchCompareControls({
+        <span className="compare-chip-lead">Against</span>
+        {chips.length ? (
+          <ul className="scope-chips" aria-label="Active comparison filters">
+            {chips.map((chip) => (
+              <li className="scope-chip" key={chip.key}>
+                <span className="chip-kind">{chip.kind}</span>
+                <span className="chip-label">{chip.label}</span>
+                <button type="button" aria-label={`Remove ${chip.kind} ${chip.label}`} onClick={() => patchCompareControls(chip.patch)}>
+                  <X size={12} aria-hidden="true" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : <span className="compare-default">{compareBench.length ? "Pinned targets" : "Current ranked rivals"}</span>}
+        <Popover
+          label="Comparison filters"
+          trigger={<><SlidersHorizontal size={14} aria-hidden="true" />Filters</>}
+          triggerLabel={`Comparison filters: ${chips.length ? `${chips.length} active` : "none"}`}
+          triggerClassName="chip-action filters-trigger"
+          panelClassName="editor-panel compare-filters-panel"
+        >
+          <div className="editor-body editor-grid">
+            <CheckboxMultiSelect
+              label="Compare Type"
+              values={selectedTypeIds}
+              excludedValues={excludedTypeIds}
+              options={typeDimension?.options.map((option) => ({ value: option.id, label: option.label, count: option.count })) ?? []}
+              onChange={(values, excludedValues) => patchCompareControls({
+                weaponName: null,
+                aowName: null,
+                matchSelectedAow: false,
+                filters: { version: 1, entries: replaceFilterEntries(compareControls.filters.entries, "weapon_type", values, excludedValues) },
+              })}
+            />
+            <CheckboxMultiSelect
+              label="Compare Affinity"
+              values={selectedAffinityIds}
+              excludedValues={excludedAffinityIds}
+              options={affinityDimension?.options.map((option) => ({ value: option.id, label: option.label, count: option.count })) ?? []}
+              onChange={(values, excludedValues) => patchCompareControls({
+                aowName: null,
+                matchSelectedAow: false,
+                filters: { version: 1, entries: replaceFilterEntries(compareControls.filters.entries, "affinity", values, excludedValues) },
+              })}
+            />
+            <SearchableSelect
+              label="Compare Weapon"
+              value={compareControls.weaponName}
+              options={[
+                openOption(selectedTypeLabels.length ? `Best ${selectedTypeLabels.join(" + ")}` : compareBench.length ? "Pinned targets" : "Current ranked rivals"),
+                ...(catalog?.weaponNames ?? []).map((name) => ({ value: name, label: name })),
+              ]}
+              onChange={(weaponName) => patchCompareControls({
+                weaponName,
+                aowName: null,
+                filters: {
+                  version: 1,
+                  entries: replaceFilterEntries(
+                    replaceFilterEntries(compareControls.filters.entries, "weapon_type", [], []),
+                    "affinity",
+                    [],
+                    [],
+                  ),
+                },
+              })}
+            />
+            <AowSelect
+              label="Compare AoW"
+              profileId={request.profileId}
+              weaponName={compareControls.weaponName}
+              affinity={aowAffinity}
+              catalogNames={catalog?.aowNames}
+              allowMatchSelected
+              value={compareControls.matchSelectedAow ? "__match_selected__" : compareControls.aowName}
+              onChange={(value) =>
+                patchCompareControls(
+                  value === "__match_selected__"
+                    ? { matchSelectedAow: true, aowName: null }
+                    : { matchSelectedAow: false, aowName: value },
+                )
+              }
+            />
+            <div className="compare-reinforcement" role="group" aria-label="Compare Reinforcement">
+              <span>Reinforcement</span>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={compareControls.includeSmithing}
+                  onChange={(event) => patchCompareControls({ includeSmithing: event.target.checked })}
+                />
+                Smithing
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={compareControls.includeSomber}
+                  onChange={(event) => patchCompareControls({ includeSomber: event.target.checked })}
+                />
+                Somber
+              </label>
+            </div>
+          </div>
+        </Popover>
+        {customCompare ? <button type="button" className="chip-action" onClick={() => patchCompareControls({
           weaponName: null, aowName: null, matchSelectedAow: true, includeSmithing: true, includeSomber: true,
           filters: { version: 1, entries: [] },
         })}>{compareBench.length ? "Use pinned targets" : "Use ranked rivals"}</button> : null}
         {compareBench.length ? (
           <div className="compare-pins">
-            <button type="button" className="clear-locks" onClick={clearCompareBench}>Clear {compareBench.length} pinned target{compareBench.length === 1 ? "" : "s"}</button>
+            <button type="button" className="chip-action" onClick={clearCompareBench}>Clear {compareBench.length} pinned target{compareBench.length === 1 ? "" : "s"}</button>
             <small>Selected stays as the baseline.</small>
           </div>
         ) : null}
-        <CheckboxMultiSelect
-          label="Compare Type"
-          values={selectedTypeIds}
-          excludedValues={excludedTypeIds}
-          options={typeDimension?.options.map((option) => ({ value: option.id, label: option.label, count: option.count })) ?? []}
-          onChange={(values, excludedValues) => patchCompareControls({
-            weaponName: null,
-            aowName: null,
-            matchSelectedAow: false,
-            filters: { version: 1, entries: replaceFilterEntries(compareControls.filters.entries, "weapon_type", values, excludedValues) },
-          })}
-        />
-        <SearchableSelect
-          label="Compare Weapon"
-          value={compareControls.weaponName}
-          options={[
-            openOption(selectedTypeLabels.length ? `Best ${selectedTypeLabels.join(" + ")}` : compareBench.length ? "Pinned targets" : "Current ranked rivals"),
-            ...(catalog?.weaponNames ?? []).map((name) => ({ value: name, label: name })),
-          ]}
-          onChange={(weaponName) => patchCompareControls({
-            weaponName,
-            aowName: null,
-            filters: {
-              version: 1,
-              entries: replaceFilterEntries(
-                replaceFilterEntries(compareControls.filters.entries, "weapon_type", [], []),
-                "affinity",
-                [],
-                [],
-              ),
-            },
-          })}
-        />
-        <CheckboxMultiSelect
-          label="Compare Affinity"
-          values={selectedAffinityIds}
-          excludedValues={excludedAffinityIds}
-          options={affinityDimension?.options.map((option) => ({ value: option.id, label: option.label, count: option.count })) ?? []}
-          onChange={(values, excludedValues) => patchCompareControls({
-            aowName: null,
-            matchSelectedAow: false,
-            filters: { version: 1, entries: replaceFilterEntries(compareControls.filters.entries, "affinity", values, excludedValues) },
-          })}
-        />
-        <AowSelect
-          label="Compare AoW"
-          profileId={request.profileId}
-          weaponName={compareControls.weaponName}
-          affinity={aowAffinity}
-          catalogNames={catalog?.aowNames}
-          allowMatchSelected
-          value={compareControls.matchSelectedAow ? "__match_selected__" : compareControls.aowName}
-          onChange={(value) =>
-            patchCompareControls(
-              value === "__match_selected__"
-                ? { matchSelectedAow: true, aowName: null }
-                : { matchSelectedAow: false, aowName: value },
-            )
-          }
-        />
-        <div className="compare-reinforcement" role="group" aria-label="Compare Reinforcement">
-          <span>Reinforcement</span>
-          <label>
-            <input
-              type="checkbox"
-              checked={compareControls.includeSmithing}
-              onChange={(event) => patchCompareControls({ includeSmithing: event.target.checked })}
-            />
-            Smithing
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={compareControls.includeSomber}
-              onChange={(event) => patchCompareControls({ includeSomber: event.target.checked })}
-            />
-            Somber
-          </label>
-        </div>
       </div>
       <DeltaTable baseline={series[0]?.row ?? selected} candidates={series.slice(1)} objective={request.objective} />
       <details className="compare-build-details" open>
@@ -390,7 +445,7 @@ export function CompareView() {
             <button type="button" onClick={() => scrollMatrix(matrixRef.current, 1)}>+{matrixHorizon}</button>
           </div>
         </div>
-        <div className="matrix-wrap" ref={matrixRef} aria-busy={chartsLoading}>
+        <div className="matrix-wrap" ref={matrixRef} aria-busy={chartsLoading} role="region" aria-label="Upgrade matrix" tabIndex={0}>
           <div className="metric-matrix" role="grid" aria-label="Compare upgrade metrics">
             <div className="matrix-row matrix-header" role="row">
               <span role="columnheader">Line</span>

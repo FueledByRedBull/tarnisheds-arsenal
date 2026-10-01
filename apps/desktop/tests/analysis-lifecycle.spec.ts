@@ -5,7 +5,7 @@ type AnalysisKind = "path" | "affinity";
 for (const kind of ["path", "affinity"] as const) {
   test(`${kind} blocks stale selections in navigation and an already-open workspace`, async ({ page }) => {
     await prepareAnalysis(page, kind);
-    await page.locator(".stat-grid input").first().fill("");
+    await page.locator(".ribbon-stat input").first().fill("");
     await expect(page.getByRole("navigation").getByRole("button", {
       name: kind === "path" ? "Paths" : "Affinity Watch", exact: true,
     })).toBeDisabled();
@@ -18,7 +18,7 @@ for (const kind of ["path", "affinity"] as const) {
     await installLateStartProbe(page, kind);
     await page.getByRole("button", { name: kind === "path" ? "Trace paths" : "Watch affinities", exact: true }).click();
     await expect.poll(() => page.evaluate(() => (window as any).lateAnalysisProbe.started)).toBe(true);
-    await page.locator(".stat-grid input").first().fill("");
+    await page.locator(".ribbon-stat input").first().fill("");
     await page.evaluate(() => (window as any).lateAnalysisProbe.resolveStart({ jobId: "stale-job" }));
     await expect.poll(() => page.evaluate(() => (window as any).lateAnalysisProbe.cancellations)).toContain("stale-job");
     await expect(page.getByText("Update Rankings before continuing")).toBeVisible();

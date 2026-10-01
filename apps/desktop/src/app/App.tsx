@@ -5,7 +5,8 @@ import { setAnalysisCacheVersion } from "../lib/analysis-cache";
 import { useDesktopStore } from "../lib/state";
 import { WorkspaceTab } from "../lib/types";
 import { AffinityWatchView } from "../features/affinity-watch/AffinityWatchView";
-import { CommandRail } from "../features/command-rail/CommandRail";
+import { QueryStrip } from "../features/query-strip/QueryStrip";
+import { Popover } from "../features/shared/Popover";
 import { CompareView } from "../features/compare/CompareView";
 import { Inspector } from "../features/inspector/Inspector";
 import { PathsView } from "../features/paths/PathsView";
@@ -113,8 +114,7 @@ export function App() {
   const limitedAowModel = activeProfile && (!activeProfile.capabilities.aowDamage || !activeProfile.capabilities.aowRoutes);
   const convergenceProfile = activeProfile?.profile.id === "convergence";
 
-  const profileControl = (
-    <div className="profile-control">
+  const profileSwitch = (
           <div className="profile-switch" role="radiogroup" aria-label="Game profile" onKeyDown={(event) => {
             const direction = ["ArrowRight", "ArrowDown"].includes(event.key) ? 1
               : ["ArrowLeft", "ArrowUp"].includes(event.key) ? -1 : 0;
@@ -153,38 +153,37 @@ export function App() {
               );
             })}
           </div>
-          <div
-            className={`profile-coverage ${profileReady ? (limitedAowModel ? "limited" : "complete") : "loading"}`}
-            role="status"
-            title={profileReady ? "Validated snapshot loaded; available calculations follow its declared capabilities." : undefined}
-          >
-            <strong>{profileReady ? (limitedAowModel ? "Experimental fixed-stat model" : "Snapshot loaded") : "Loading profile…"}</strong>
-            {!profileReady ? (
-              <span>Loading and validating the selected data snapshot.</span>
-            ) : limitedAowModel ? (
-              <details>
-                <summary>Model coverage and assumptions</summary>
-                <span>
-                  {convergenceProfile ? "Convergence " : ""}base weapon fields are reference-checked; final AR and customization remain experimental. Enter exact stats: class budgets, Compare, Paths, and Affinity Watch are unavailable. Ammo weapons and AoW hit/route damage remain unsupported.
-                </span>
-              </details>
-            ) : (
-              <details>
-                <summary>Model coverage and assumptions</summary>
-                <span>
-                  Weapon AR, status buildup, and supported Ash routes are available. Profile capabilities
-                  do not guarantee every skill is modeled; check the selected build's model coverage.
-                  Buildup is not a prediction of status procs or damage after enemy defenses.
-                </span>
-              </details>
-            )}
-          </div>
+  );
+  const coverageStatus = profileReady ? (limitedAowModel ? "Experimental fixed-stat model" : "Snapshot loaded") : "Loading profile…";
+  const profileCoverage = (
+    <div
+      className={`profile-coverage ${profileReady ? (limitedAowModel ? "limited" : "complete") : "loading"}`}
+      role="status"
+    >
+      <Popover
+        label="Model coverage and assumptions"
+        trigger={<strong>{coverageStatus}</strong>}
+        triggerLabel={`${coverageStatus}. Model coverage and assumptions`}
+        triggerTitle={profileReady ? "Validated snapshot loaded; available calculations follow its declared capabilities." : "Loading and validating the selected data snapshot."}
+        triggerClassName="coverage-token"
+        panelClassName="editor-panel coverage-panel"
+        disabled={!profileReady}
+      >
+        <div className="editor-body">
+          <strong>Model coverage and assumptions</strong>
+          <p className="editor-note">
+            {limitedAowModel
+              ? `${convergenceProfile ? "Convergence " : ""}base weapon fields are reference-checked; final AR and customization remain experimental. Enter exact stats: class budgets, Compare, Paths, and Affinity Watch are unavailable. Ammo weapons and AoW hit/route damage remain unsupported.`
+              : "Weapon AR, status buildup, and supported Ash routes are available. Profile capabilities do not guarantee every skill is modeled; check the selected build's model coverage. Buildup is not a prediction of status procs or damage after enemy defenses."}
+          </p>
+        </div>
+      </Popover>
     </div>
   );
 
   return (
     <main className="desktop-shell" aria-busy={catalogStatus === "loading"}>
-      <CommandRail profile={profileControl} />
+      <QueryStrip profile={profileSwitch} coverage={profileCoverage} onProfileChange={(id) => void loadProfile(id)} />
       <section className="center-workspace">
         <nav className="workspace-tabs">
           {tabs.map(({ id, label, icon: Icon }) => {

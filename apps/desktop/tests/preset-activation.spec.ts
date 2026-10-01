@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./editors";
 
 async function saved(page: Page, results = true) {
   await page.goto("/");
@@ -53,6 +54,7 @@ test("canonicalizes an unambiguous imported class in a mounted workspace", async
   preset.request.className = "samurai";
   await importPreset(page, preset);
   await page.getByRole("button", { name: "Load", exact: true }).click();
+  await openEditor(page, "Class");
   await expect(page.getByRole("combobox", { name: "Class", exact: true })).toHaveValue("Samurai");
   await expect(page.getByText(/saved results verified on current data/)).toBeVisible();
 });

@@ -1,8 +1,8 @@
-import { ArrowDownUp, ChevronLeft, ChevronRight, Download, LockKeyhole, Pin, RefreshCcw, Sparkles } from "lucide-react";
+import { ArrowDownUp, ChevronLeft, ChevronRight, Download, LockKeyhole, Pin, RefreshCcw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { downloadCsv, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
 import { compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
-import { buildOptimizeRequest, derivedLevel, rowFingerprint } from "../../lib/session";
+import { buildOptimizeRequest, rowFingerprint } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { SearchProgressDto, SolvedBuildDto } from "../../lib/types";
 import { runSearchFromStore, runSearchRequestForRows } from "../../lib/workflows";
@@ -39,19 +39,6 @@ export function RankingsBoard() {
     const entries = rows.map((row, rank) => ({ row, rank }));
     return reverseRank ? entries.reverse() : entries;
   }, [reverseRank, rows]);
-  const constraintCount = [
-    request.weaponTypeKey,
-    request.weaponName,
-    request.affinity,
-    request.aowName,
-    request.somberFilter !== "all" ? request.somberFilter : null,
-    lockedStatMode ? "locked-stats" : null,
-    request.minStr > 0 ? "min-str" : null,
-    request.minDex > 0 ? "min-dex" : null,
-    request.minInt > 0 ? "min-int" : null,
-    request.minFai > 0 ? "min-fai" : null,
-    request.minArc > 0 ? "min-arc" : null,
-  ].filter(Boolean).length + request.filters.entries.length;
   const profileRules = catalog?.dataManifest.rules;
   const separateUpgradeCaps = profileRules?.separateUpgradeCaps ?? true;
   const scadutreeAvailable = profileRules?.scadutreeScaling ?? true;
@@ -250,23 +237,6 @@ export function RankingsBoard() {
           </button>
         </div>
       ) : null}
-      <div className="query-summary" aria-label="Active search summary">
-        <span className="query-summary-title"><Sparkles size={14} />{resultsStale ? "Pending query" : "Active query"}</span>
-        <span>{objectiveLabel(request.objective)}</span>
-        <span>{catalog?.dataManifest.capabilities.classBudget === false ? "Stat total" : "Level"} {derivedLevel(catalog, request)}</span>
-        <span>
-          {request.exactUpgrade ? "Exact" : "Up to"} +{request.standardMaxUpgrade}
-          {separateUpgradeCaps ? ` / +${request.somberMaxUpgrade}` : ""}
-        </span>
-        <span>{request.twoHanding ? "Two-handed" : "One-handed"}</span>
-        <span>
-          {scadutreeAvailable
-            ? request.dlcScaling ? `DLC blessing +${request.scadutreeLevel}` : "Base-game scaling"
-            : "No Scadutree scaling"}
-        </span>
-        <span>{constraintCount} active constraint{constraintCount === 1 ? "" : "s"}</span>
-        <small>{catalog?.dataManifest.label ?? "Loading dataset"}</small>
-      </div>
       <details className="mechanics-glossary">
         <summary>Metric glossary</summary>
         <dl>
@@ -303,7 +273,14 @@ export function RankingsBoard() {
             <span className="sr-only">Actions</span>
           </span>
         </div>
-        {rows.length === 0 ? <EmptyRows onExample={runStarterExample} busy={isSearching || isExporting} classBudget={catalog?.dataManifest.capabilities.classBudget !== false} /> : null}
+        {rows.length === 0 ? (
+          // A grid may only own rows, so the empty state sits in one full-width cell.
+          <div role="row">
+            <div role="gridcell">
+              <EmptyRows onExample={runStarterExample} busy={isSearching || isExporting} classBudget={catalog?.dataManifest.capabilities.classBudget !== false} />
+            </div>
+          </div>
+        ) : null}
         {rankedRows.map(({ row, rank }) => (
           <ResultRow
             key={`${rowFingerprint(row)}-${rank}`}

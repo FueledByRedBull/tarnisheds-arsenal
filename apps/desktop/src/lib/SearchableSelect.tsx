@@ -118,7 +118,8 @@ export function SearchableSelect({
           setActiveIndex(0);
         }}
         onKeyDown={(event) => {
-          if (event.key === "Escape") {
+          // A closed list lets Escape reach the surrounding editor so it can dismiss.
+          if (event.key === "Escape" && open) {
             event.preventDefault();
             setOpen(false);
             setQuery("");
@@ -243,7 +244,7 @@ export function CheckboxMultiSelect({
         if (!event.currentTarget.contains(event.relatedTarget)) close();
       }}
       onKeyDown={(event) => {
-        if (event.key === "Escape") {
+        if (event.key === "Escape" && open) {
           event.preventDefault();
           close();
           triggerRef.current?.focus();

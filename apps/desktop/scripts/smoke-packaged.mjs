@@ -65,6 +65,7 @@ try {
   }
   previousCompareBench = await page.evaluate((key) => localStorage.getItem(key), vanillaCompareBenchKey);
   markSmokeStage("select exact-level high-level search");
+  await openEditor(page, "Upgrades");
   const exactLevelPolicy = page.getByRole("button", { name: "Use exact levels", exact: true });
   await exactLevelPolicy.click();
   if (await exactLevelPolicy.getAttribute("aria-pressed") !== "true") {
@@ -88,11 +89,15 @@ try {
   await profileSwitch.getByRole("radio", { name: /Convergence/ }).click();
   markSmokeStage("wait for Convergence model");
   await page.getByText("Experimental fixed-stat model", { exact: true }).waitFor();
+  await openEditor(page, "Class");
   if (await page.getByRole("combobox", { name: "Class", exact: true }).inputValue() !== "Custom stats") {
     throw new Error("Convergence substituted a starting-class budget for fixed stats");
   }
-  await expect(page.getByRole("button", { name: "AoW First Hit", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Optimize class", exact: true })).toBeDisabled();
+  await openEditor(page, "Objective");
+  await expect(page.getByRole("button", { name: "Max AR", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "AoW First Hit", exact: true })).toHaveCount(0);
+  await closeEditors(page);
   for (const name of ["Compare", "Paths", "Affinity Watch"]) {
     await expect(page.getByRole("navigation").getByRole("button", { name, exact: true })).toBeDisabled();
   }
@@ -129,10 +134,13 @@ try {
   await profileSwitch.getByRole("radio", { name: /Vanilla/ }).click();
   markSmokeStage("wait for Vanilla model after profile switch");
   await page.getByText("Snapshot loaded", { exact: true }).waitFor();
+  await openEditor(page, "Objective");
   await expect(page.getByRole("button", { name: "AoW First Hit", exact: true })).toBeVisible();
+  await openEditor(page, "Class");
   await expect(page.getByRole("button", { name: "Optimize class", exact: true })).toBeEnabled();
   await expect(page.getByRole("combobox", { name: "Class", exact: true })).toHaveValue("Samurai");
   markSmokeStage("select cap-exploration low-level search");
+  await openEditor(page, "Upgrades");
   const capExplorationPolicy = page.getByRole("button", { name: "Explore up to caps", exact: true });
   await capExplorationPolicy.click();
   if (await capExplorationPolicy.getAttribute("aria-pressed") !== "true") {
@@ -208,11 +216,13 @@ try {
   await page.getByText(`Saved ${presetName}.`, { exact: true }).waitFor();
   await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
   await page.getByText("Comparison current", { exact: true }).waitFor();
+  await openEditor(page, "Comparison filters");
   await page.getByRole("button", { name: "Compare Type", exact: true }).click();
   await page.getByRole("group", { name: "Compare Type", exact: true })
     .getByRole("checkbox", { name: /^Axe\b/ })
     .check();
-  await page.keyboard.press("Escape");
+  await closeEditors(page);
+  await expect(page.getByRole("list", { name: "Active comparison filters" })).toContainText("Axe");
   const bestTypeLane = page.locator(".compare-lane", { hasText: "Best Axe" });
   markSmokeStage("wait for best-Axe comparison");
   await bestTypeLane.locator("strong").waitFor();
@@ -373,6 +383,23 @@ function statLabels(statLine) {
 function rowStatLabels(row) {
   return row.getByRole("list", { name: "Combat stats" }).getByRole("listitem")
     .evaluateAll((items) => items.map((item) => item.getAttribute("aria-label")));
+}
+
+// Query-strip and Compare controls live in native popovers, hidden until their token opens.
+async function openEditor(page, editor) {
+  const panel = page.getByRole("dialog", { name: editor, exact: true });
+  if (!(await panel.isVisible())) {
+    await closeEditors(page);
+    await page.getByRole("button", { name: new RegExp(`^${editor}: `) }).click();
+    await panel.waitFor();
+  }
+  return panel;
+}
+
+async function closeEditors(page) {
+  await page.evaluate(() => {
+    for (const panel of document.querySelectorAll(".popover-panel:popover-open")) panel.hidePopover();
+  });
 }
 
 function positiveIntegerFromEnv(name, fallback) {
