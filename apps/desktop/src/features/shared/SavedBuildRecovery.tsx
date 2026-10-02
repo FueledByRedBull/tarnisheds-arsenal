@@ -73,7 +73,7 @@ export function SavedBuildRecovery({ onChanged, revision }: { onChanged: () => v
   }
 
   return <details className="saved-build-recovery" open={inspection?.needsRecovery || undefined}>
-    <summary>Backup and recovery{inspection?.needsRecovery ? " — attention needed" : ""}</summary>
+    <summary>Backup and recovery{inspection?.needsRecovery ? ": attention needed" : ""}</summary>
     <p>Back up every readable build across profiles. Restoring keeps existing builds and gives each imported build a new ID.</p>
     {inspection ? <>
       <p>{inspection.presets.length} readable builds · {inspection.orphanCount} unlisted builds · {inspection.issues.length} storage issues</p>

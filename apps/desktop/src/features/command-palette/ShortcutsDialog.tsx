@@ -21,6 +21,8 @@ const GROUPS: Array<{ title: string; items: Shortcut[] }> = [
       { keys: [["Up"], ["Down"]], action: "Move between ranked rows" },
       { keys: [["Home"], ["End"]], action: "First or last row" },
       { keys: [["Enter"]], action: "Select the focused row" },
+      { keys: [["P"]], action: "Pin or unpin the focused row for Compare" },
+      { keys: [["L"]], action: "Lock stats to the focused row and search" },
     ],
   },
   {

@@ -46,6 +46,20 @@ function context(overrides: Partial<CommandContext> = {}): CommandContext {
 
 const ids = (query: string, ctx = context()) => findCommands(query, ctx).map((command) => command.id);
 
+describe("palette level planning", () => {
+  it("turns a target level into the Paths horizon from the derived level", () => {
+    // Samurai's base stats are level 9.
+    const [plan] = findCommands("level 50", context());
+    expect(plan).toMatchObject({ id: "plan-levels", label: "Plan levels 9 to 50", action: { kind: "planLevels", horizon: 41 } });
+    expect(recallable(plan)).toBe(false);
+    expect(findCommands("level 5", context()).some((entry) => entry.id === "plan-levels")).toBe(false);
+  });
+
+  it("asks for a search first when no current selection can be traced", () => {
+    expect(findCommands("lvl 60", context({ analysesAvailable: false }))[0]).toMatchObject({ id: "search", label: "Search first to plan levels to 60" });
+  });
+});
+
 describe("palette parsing", () => {
   it("offers set, lock and minimum for a combat stat, led by the typed verb", () => {
     expect(ids("str 40").slice(0, 3)).toEqual(["set-strStat", "lock-strStat", "min-strStat"]);
@@ -184,7 +198,7 @@ describe("palette history, help and recall", () => {
     const [set] = findCommands("str 40", context());
     expect(recallable(set)).toBe(false);
     expect(recallable(findCommands("uchi", context())[0])).toBe(true);
-    expect(recallable(findCommands("locked", context())[0])).toBe(true);
+    expect(recallable(findCommands("stat locks", context())[0])).toBe(true);
     expect(recallable(findCommands("undo", context({ undoLabel: "x" }))[0])).toBe(false);
   });
 

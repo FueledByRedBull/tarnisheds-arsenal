@@ -12,7 +12,6 @@ import { CompareControls, SolvedBuildDto, UpgradePointDto } from "../../lib/type
 import { Popover } from "../shared/Popover";
 import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 import { LoadoutTradeoffs } from "./LoadoutTradeoffs";
-import { explainBuildComparison } from "../../lib/build-explanation";
 
 type CompareLane = {
   label: string;
@@ -444,7 +443,8 @@ export function CompareView() {
         ) : null}
       </div>
       <DeltaTable baseline={series[0]?.row ?? selected} candidates={series.slice(1)} objective={request.objective} />
-      <details className="compare-build-details" open>
+      {/* The delta table answers the comparison; the full build cards are there on request. */}
+      <details className="compare-build-details">
         <summary>Build details</summary>
         <div className="compare-lanes" aria-busy={seriesStatus === "loading"}>
           <Lane title="Selected baseline" row={series[0]?.row ?? selected} objective={request.objective} extendedScalingGrades={extendedScalingGrades} emptyLabel="Selected build unavailable" />
@@ -536,7 +536,6 @@ function DeltaTable({ baseline, candidates, objective }: { baseline: SolvedBuild
           {renderTable(metrics, "All candidate deltas versus baseline")}
         </details>
       ) : null}
-      {candidates.map((lane) => lane.row ? <small key={`${lane.label}-explanation`}>{explainBuildComparison(baseline, lane.row, { objective }, aowSupported)}</small> : null)}
     </div>
   );
 }

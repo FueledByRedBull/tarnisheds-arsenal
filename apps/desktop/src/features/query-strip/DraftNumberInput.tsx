@@ -10,6 +10,7 @@ export function DraftNumberInput({
   onDraftChange,
   readOnly = false,
   className,
+  description,
 }: {
   value: number;
   min: number;
@@ -18,6 +19,8 @@ export function DraftNumberInput({
   onDraftChange?: () => void;
   readOnly?: boolean;
   className?: string;
+  /** Read by screen readers after the name, e.g. a shortfall shown only as colour and a tooltip. */
+  description?: string;
 }) {
   const [draft, setDraft] = useState(String(value));
   const idleCommit = useRef<number | null>(null);
@@ -69,6 +72,7 @@ export function DraftNumberInput({
       ref={input}
       type="number"
       className={className}
+      aria-description={description}
       min={min}
       max={max}
       readOnly={readOnly}

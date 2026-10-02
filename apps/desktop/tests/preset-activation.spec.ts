@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./editors";
+import { openEditor, openSection } from "./editors";
 
 async function saved(page: Page, results = true) {
   await page.goto("/");
@@ -8,6 +8,7 @@ async function saved(page: Page, results = true) {
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect(page.getByText("4 ranked rows", { exact: true })).toBeVisible();
   }
+  await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   return page.evaluate(() => {
     const key = Object.keys(localStorage).find(key => key.startsWith("tarnisheds-arsenal.savedBuild.v2."))!;
@@ -131,6 +132,7 @@ for (const stage of ["setup", "commit", "earlier error"] as const) {
       };
       Object.assign(window, { restoreSavedReads: () => { Storage.prototype.getItem = read; } });
     }, stage);
+    await openSection(page, "Saved Builds");
     await page.getByRole("button", { name: "Migrate data", exact: true }).click();
     await expect(page.locator('.error-strip[role="alert"]')).toContainText(stage === "earlier error" ? "native verification failed" : "saved storage denied");
     await page.evaluate(async () => {

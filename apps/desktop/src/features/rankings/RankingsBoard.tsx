@@ -3,7 +3,7 @@ import { memo, ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useR
 import { downloadCsv, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
 import { compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
 import { buildOptimizeRequest, rowFingerprint } from "../../lib/session";
-import { reducedMotion, settleRanking } from "../../lib/motion";
+import { EASE_OUT, reducedMotion, settleRanking } from "../../lib/motion";
 import { RankedEntry, RankMovement, RankSortKey, rankMovements, sortRanked } from "../../lib/ranking-view";
 import { useDesktopStore } from "../../lib/state";
 import { ObjectiveId, SearchProgressDto, SolvedBuildDto } from "../../lib/types";
@@ -53,6 +53,9 @@ export function RankingsBoard() {
   const sortBy = (key: RankSortKey) => setSort((current) => ({ key, reverse: current.key === key ? !current.reverse : false }));
   const ariaSort = (key: RankSortKey) => sort.key !== key ? undefined
     : (key === "rank") !== sort.reverse ? "ascending" as const : "descending" as const;
+  // A column that would read "Unavailable" on every row says so once, in the header, instead.
+  const skillColumn = rows.length === 0 || rows.some((row) => hasAowDamage(row, aowSupported));
+  const gridClass = `${objective !== "max_ar" ? "with-score" : ""} ${skillColumn ? "" : "no-skill"}`;
   const profileRules = catalog?.dataManifest.rules;
   const separateUpgradeCaps = profileRules?.separateUpgradeCaps ?? true;
   const scadutreeAvailable = profileRules?.scadutreeScaling ?? true;
@@ -124,10 +127,7 @@ export function RankingsBoard() {
   const wasShown = useRef(shown);
   useLayoutEffect(() => {
     if (shown && !wasShown.current && !reducedMotion()) {
-      panel.current?.animate(
-        [{ opacity: 0, transform: "translateY(7px) scale(0.997)" }, { opacity: 1, transform: "none" }],
-        { duration: 260, easing: "cubic-bezier(0.2, 0.75, 0.2, 1)" },
-      );
+      panel.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 140, easing: EASE_OUT });
     }
     wasShown.current = shown;
   }, [shown]);
@@ -232,6 +232,7 @@ export function RankingsBoard() {
         <div>
           <h1>Rankings</h1>
           <span>{rows.length} ranked rows</span>
+          {skillColumn ? null : <small>Skill damage isn't modeled for these results.</small>}
         </div>
         <div className="result-scroll-actions">
           <button
@@ -255,31 +256,28 @@ export function RankingsBoard() {
               </button>
             </>
           ) : null}
-          <div className="export-limit" role="group" aria-label="CSV row count">
-            {([25, 100, 500, 2000] as const).map((limit) => (
-              <button
-                key={limit}
-                type="button"
-                className={exportLimit === limit ? "active" : ""}
-                aria-pressed={exportLimit === limit}
-                title={limit === 2000 ? "Export up to the 2,000-row safety limit" : `Export up to ${limit} rows`}
-                onClick={() => setExportLimit(limit)}
-                disabled={isSearching || isExporting}
-              >
-                {limit === 2000 ? "Max" : limit}
-              </button>
-            ))}
+          <div className="export-split" role="group" aria-label="CSV export">
+            <button
+              className="export-csv-button"
+              type="button"
+              title={`Export up to ${exportLimit.toLocaleString()} rows to CSV`}
+              onClick={() => isExporting ? exportController.current?.abort() : void exportCsv()}
+              disabled={isSearching}
+            >
+              <Download size={16} />
+              <span>{isExporting ? "Cancel export" : "Export CSV"}</span>
+            </button>
+            <select
+              aria-label="Rows to export"
+              value={exportLimit}
+              onChange={(event) => setExportLimit(Number(event.target.value) as typeof exportLimit)}
+              disabled={isSearching || isExporting}
+            >
+              {([25, 100, 500, 2000] as const).map((limit) => (
+                <option key={limit} value={limit}>{limit === 2000 ? "2,000 rows (max)" : `${limit} rows`}</option>
+              ))}
+            </select>
           </div>
-          <button
-            className="export-csv-button"
-            type="button"
-            title={`Export up to ${exportLimit.toLocaleString()} rows to CSV`}
-            onClick={() => isExporting ? exportController.current?.abort() : void exportCsv()}
-            disabled={isSearching}
-          >
-            <Download size={16} />
-            <span>{isExporting ? "Cancel export" : "Export CSV"}</span>
-          </button>
         </div>
       </div>
       {isExporting ? <div className="estimate-strip" role="status">
@@ -305,7 +303,8 @@ export function RankingsBoard() {
           <div><dt>AoW 1st / Full</dt><dd>First damaging hit or one complete legal Ash of War route.</dd></div>
           <div><dt>Scaling</dt><dd>Attribute contribution grade at the shown reinforcement level.</dd></div>
           <div><dt>Native</dt><dd>The weapon's fixed skill rather than an applied Ash of War.</dd></div>
-          <div><dt>Lock</dt><dd>Copies the result's loadout, upgrade, and combat stats into the next exact search.</dd></div>
+          <div><dt>Pin (P)</dt><dd>Adds the result to Compare as a target.</dd></div>
+          <div><dt>Lock stats (L)</dt><dd>Copies the result's loadout, upgrade, and combat stats into the next exact search as stat locks.</dd></div>
         </dl>
       </details>
       <div
@@ -315,7 +314,7 @@ export function RankingsBoard() {
         aria-label={resultsStale ? "Ranked builds from the previous query" : "Ranked builds"}
         aria-describedby={resultsStale ? "stale-results-message" : undefined}
       >
-        <div className={`result-head result-head-full ${objective !== "max_ar" ? "with-score" : ""}`} role="row">
+        <div className={`result-head result-head-full ${gridClass}`} role="row">
           <span role="columnheader" aria-sort={ariaSort("rank")}>
             <SortButton label="Rank" direction={ariaSort("rank")} onClick={() => sortBy("rank")}>#</SortButton>
           </span>
@@ -329,15 +328,17 @@ export function RankingsBoard() {
           <span role="columnheader" aria-sort={ariaSort("ar")} title="Raw attack rating before enemy defense and negation">
             <SortButton direction={ariaSort("ar")} onClick={() => sortBy("ar")}>AR</SortButton>
           </span>
-          <span role="columnheader" aria-sort={ariaSort("skill")} title="Raw skill damage for the full route, and its first damaging hit">
-            <SortButton direction={ariaSort("skill")} onClick={() => sortBy("skill")}>Skill damage</SortButton>
-          </span>
+          {skillColumn ? (
+            <span role="columnheader" aria-sort={ariaSort("skill")} title="Raw skill damage for the full route, and its first damaging hit">
+              <SortButton direction={ariaSort("skill")} onClick={() => sortBy("skill")}>Skill damage</SortButton>
+            </span>
+          ) : null}
           {objective !== "max_ar" ? (
             <span role="columnheader" aria-sort={ariaSort("score")} title="Value used by the active ranking objective">
               <SortButton direction={ariaSort("score")} onClick={() => sortBy("score")}>{objectiveLabel(objective)}</SortButton>
             </span>
           ) : null}
-          <span role="columnheader" title="Pin for comparison or use this result as exact search locks">
+          <span role="columnheader" title="Pin for comparison (P) or lock stats to this result (L)">
             <span className="sr-only">Actions</span>
           </span>
         </div>
@@ -369,6 +370,8 @@ export function RankingsBoard() {
               movement={movements?.[rank] ?? null}
               active={selectedKey === key}
               objective={objective}
+              gridClass={gridClass}
+              skillColumn={skillColumn}
               lockDisabled={isExporting}
               aowModelSupported={aowSupported}
               extendedScalingGrades={extendedScalingGrades}
@@ -456,6 +459,8 @@ const ResultRow = memo(function ResultRow({
   movement,
   active,
   objective,
+  gridClass,
+  skillColumn,
   lockDisabled,
   aowModelSupported,
   extendedScalingGrades,
@@ -469,6 +474,8 @@ const ResultRow = memo(function ResultRow({
   movement: RankMovement | null;
   active: boolean;
   objective: Parameters<typeof metricForObjective>[1];
+  gridClass: string;
+  skillColumn: boolean;
   aowModelSupported: boolean;
   extendedScalingGrades: boolean;
   onSelect: (row: SolvedBuildDto) => void;
@@ -479,25 +486,35 @@ const ResultRow = memo(function ResultRow({
 }) {
   const aowAvailable = hasAowDamage(row, aowModelSupported);
   const metric = metricForObjective(row, objective, aowModelSupported);
+  // The name carries the ranked number, so arrowing through rows reads the answer itself.
+  const metricName = `${objective === "max_ar" ? "AR" : objectiveLabel(objective)} ${metric === null ? "unavailable" : fixed1(metric)}`;
   return (
     <div
-      className={`result-row result-row-full ${objective !== "max_ar" ? "with-score" : ""} ${active ? "active" : ""}`}
+      className={`result-row result-row-full ${gridClass} ${active ? "active" : ""}`}
       role="row"
       aria-selected={active}
-      aria-label={`Select ${row.weaponName}, ${row.affinity}, rank ${index + 1}${movementText(movement) ? `, ${movementText(movement)}` : ""}`}
-      title="Select this build"
+      aria-label={`Select ${row.weaponName}, ${row.affinity}, rank ${index + 1}, ${metricName}${movementText(movement) ? `, ${movementText(movement)}` : ""}`}
+      aria-keyshortcuts="P L"
       tabIndex={0}
       onClick={() => onSelect(row)}
       onKeyDown={(event) => {
         if (event.target !== event.currentTarget) {
           return;
         }
+        const key = event.key.toLowerCase();
+        const plain = !event.ctrlKey && !event.metaKey && !event.altKey;
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           onSelect(row);
         } else if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Home" || event.key === "End") {
           event.preventDefault();
           moveRowFocus(event.currentTarget, event.key);
+        } else if (plain && key === "p") {
+          event.preventDefault();
+          onPin(row);
+        } else if (plain && key === "l" && !lockDisabled) {
+          event.preventDefault();
+          void onLock(row);
         }
       }}
     >
@@ -530,23 +547,30 @@ const ResultRow = memo(function ResultRow({
         <strong>{fixed1(row.ar.total)}</strong>
         {objective === "max_ar" ? <MetricDelta movement={movement} objective={objective} /> : null}
       </span>
-      <span role="gridcell" className="result-metric-cell skill-cell" title={aowAvailable ? undefined : "Skill damage isn't modeled for this loadout."}>
-        {aowAvailable
-          ? <><strong>{compactNumber(row.aowFullSequenceDamage)}</strong><small>1st hit {compactNumber(row.aowFirstHitDamage)}</small></>
-          : <span className="result-unavailable">Unavailable</span>}
-      </span>
+      {skillColumn ? (
+        <span role="gridcell" className="result-metric-cell skill-cell" title={aowAvailable ? undefined : "Skill damage isn't modeled for this loadout."}>
+          {aowAvailable
+            ? <><strong>{compactNumber(row.aowFullSequenceDamage)}</strong><small>1st hit {compactNumber(row.aowFirstHitDamage)}</small></>
+            : <span className="result-unavailable">Unavailable</span>}
+        </span>
+      ) : null}
       {objective !== "max_ar" ? (
         <span role="gridcell" className="objective-score">
           {metric === null ? "Unavailable" : fixed1(metric)}
           <MetricDelta movement={movement} objective={objective} />
         </span>
       ) : null}
+      {/* Row actions sit outside the tab order: the focused row's P and L reach them, so 25
+          rows are 25 tab stops, not 75. They stay clickable and readable. */}
       <span role="gridcell">
         <button
           className="inline-lock"
           type="button"
+          tabIndex={-1}
           aria-pressed={pinned}
+          aria-keyshortcuts="P"
           aria-label={`${pinned ? "Unpin" : "Compare"} ${row.weaponName}, ${row.affinity}, rank ${index + 1}`}
+          title={pinned ? "Unpin from comparison (P)" : "Pin for comparison (P)"}
           onClick={(event) => {
             event.stopPropagation();
             onPin(row);
@@ -557,7 +581,10 @@ const ResultRow = memo(function ResultRow({
         <button
           className="inline-lock"
           type="button"
-          aria-label={`Lock ${row.weaponName}, ${row.affinity}, rank ${index + 1}`}
+          tabIndex={-1}
+          aria-keyshortcuts="L"
+          aria-label={`Lock stats to ${row.weaponName}, ${row.affinity}, rank ${index + 1}`}
+          title="Lock stats to this result (L)"
           disabled={lockDisabled}
           onClick={(event) => {
             event.stopPropagation();

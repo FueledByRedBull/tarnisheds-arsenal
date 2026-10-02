@@ -79,7 +79,7 @@ test("rankings show movement and value changes since the previous search", async
   await expect(rows.nth(0).locator(".metric-delta")).toHaveText("+12.5");
   await expect(rows.nth(1).locator(".rank-move")).toHaveClass(/down/);
   await expect(rows.nth(3).locator(".rank-move")).toHaveText("New");
-  await expect(page.getByRole("row", { name: /rank 1, up 2 since the previous search$/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /rank 1, AR [\d.]+, up 2 since the previous search$/ })).toBeVisible();
 
   // Running the same search again shows no movement.
   await page.getByRole("button", { name: "Search", exact: true }).click();
@@ -130,7 +130,7 @@ test("arrow keys move between ranked rows and Build Detail shows the rank", asyn
   await expect(rows.nth(3)).toBeFocused();
   await page.keyboard.press("Home");
   await expect(rows.nth(0)).toBeFocused();
-  await expect(page.locator(".rank-context")).toHaveText("Rank 1 of 4 · best for this query");
+  await expect(page.locator(".rank-context")).toHaveText("Rank 1 of 4 · 30.0 ahead of #2");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
   await expect(rows.nth(1)).toHaveAttribute("aria-selected", "true");

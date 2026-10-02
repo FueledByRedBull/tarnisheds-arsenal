@@ -27,6 +27,8 @@ export interface DesktopState {
   catalogStatus: "loading" | "ready" | "error";
   catalogError: string | null;
   request: OptimizeRequestDto;
+  /** The query each profile last had, restored when the player switches back to it. */
+  profileQueries: Record<string, { request: OptimizeRequestDto; lockedStatMode: boolean }>;
   loadoutSelectionRevision: number;
   rows: SolvedBuildDto[];
   /** Objective the current rows were ranked by; null when they did not come from a search. */
@@ -205,15 +207,24 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
   beginProfileSwitch: (profileId) =>
     set((state) => {
       const rules = state.profiles.find((entry) => entry.profile.id === profileId)?.rules;
+      // Profiles never share data, so a query is never carried across; each profile keeps its
+      // own and gets it back on return. Results are not kept: they rerun on demand.
+      const switching = state.catalog !== null && state.request.profileId !== profileId;
+      const profileQueries = switching
+        ? { ...state.profileQueries, [state.request.profileId]: { request: state.request, lockedStatMode: state.lockedStatMode } }
+        : state.profileQueries;
+      const remembered = switching ? profileQueries[profileId] : undefined;
+      const profileName = (id: string) => state.profiles.find((entry) => entry.profile.id === id)?.profile.displayName ?? id;
       return ({
       ...invalidateAllJobs(state),
       activeWorkspace: "rankings",
       catalog: null,
       catalogStatus: "loading",
       catalogError: null,
-      lockedStatMode: false,
+      profileQueries,
+      lockedStatMode: remembered?.lockedStatMode ?? false,
       loadoutSelectionRevision: state.loadoutSelectionRevision + 1,
-      request: applyProfileRules({
+      request: remembered ? applyProfileRules(remembered.request, rules) : applyProfileRules({
         ...state.request,
         profileId,
         lockStr: null, lockDex: null, lockInt: null, lockFai: null, lockArc: null,
@@ -237,7 +248,13 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       pathSignature: null,
       affinityPayload: null,
       affinitySignature: null,
-      notices: [],
+      notices: switching ? [{
+        scope: "global",
+        tone: "info",
+        message: remembered
+          ? `Restored your ${profileName(profileId)} query. Search to rank it again.`
+          : `Your ${profileName(state.request.profileId)} query is kept for when you switch back.`,
+      }] : [],
       error: null,
       });
     }),
@@ -278,6 +295,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
     })),
   setError: (error) => set({ error }),
   request: defaultRequest,
+  profileQueries: {},
   loadoutSelectionRevision: 0,
   lockedStatMode: false,
   pathHorizon: 40,
@@ -396,7 +414,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       affinitySignature: null,
       notices: [
         ...state.notices,
-        { scope: "rankings", tone: "info", message: "Locked selected result; rerun search for exact locked stats." },
+        { scope: "rankings", tone: "info", message: "Stat locks set from the selected result. Clear them under Limits to search freely." },
       ],
     })),
   loadBuildPreset: async (preset, signal) => {

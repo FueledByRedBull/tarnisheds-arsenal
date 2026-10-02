@@ -63,18 +63,24 @@ needs internet access if that runtime is missing.
 2. Click the objective (such as **Max AR**), the loadout, the upgrades, or any
    other part of the query to edit it; open fields allow all legal choices.
    Press **Ctrl+K** to type a change instead, such as `str 40`, `uchigatana`,
-   `+20`, or `top 10`.
+   `+20`, `top 10`, or `level 60` to plan where your next levels go.
 3. Press **Search**, then select a row to inspect its damage, scaling, and stats.
-4. Pin another result for **Compare**, trace future levels in **Paths**, or
-   explore affinity crossover points in **Affinity Watch**.
+   Build Detail shows how far the top result leads the next one and which of
+   your entered stats the build changes.
+4. Pin another result for **Compare** (or press **P** on a focused row), trace
+   future levels in **Paths**, or explore affinity crossover points in
+   **Affinity Watch**. These workspaces unlock once a current result is selected;
+   the tab bar says what is missing.
 
-Save builds to return to them later, or export rankings as CSV. The query line
-shows the assumptions behind the rankings; changed inputs mark old results as
-stale. **Ctrl+Z** undoes any query change. After **Update Results**, each rank
-shows how far that loadout moved and how its score changed. Click **AR**,
-**Skill damage**, or the objective column to sort without losing the rank, and
-press **?** for every shortcut. Convergence uses a different
-[fixed-stat workflow](#convergence-3001-beta).
+Save builds from **Saved Builds**, folded under Build Detail, or export rankings
+as CSV with the row count chosen beside **Export CSV**. Each game profile keeps
+its own query: switch away and back and it is restored, ready to search again.
+The query line shows the assumptions behind the rankings; changed inputs mark
+old results as stale. **Ctrl+Z** undoes any query change. After
+**Update Results**, each rank shows how far that loadout moved and how its score
+changed. Click **AR**, **Skill damage**, or the objective column to sort without
+losing the rank, and press **?** for every shortcut. Convergence uses a
+different [fixed-stat workflow](#convergence-3001-beta).
 
 ### Saved builds and recovery
 
@@ -89,9 +95,11 @@ original index on this device, and leaves unreadable records untouched. Exported
 backups exclude unreadable records. If storage access or space is unavailable,
 the app reports the failure instead of replacing your library with an empty one.
 
-**Why this build?** explains the selected result's objective, damage split, and
-active constraints. Compare also lists individual stat changes. These are
-calculation summaries, not estimates of each stat's causal damage contribution.
+**Why this build?** explains the selected result's objective, its lead over the
+next result and the largest AR difference behind it, its damage split, and active
+constraints. **Stat changes** lists each combat stat the build sets differently
+from the stats you entered. These are calculation summaries, not estimates of
+each stat's causal damage contribution.
 
 ## Interface
 
@@ -108,7 +116,8 @@ calculation summaries, not estimates of each stat's causal damage contribution.
 Pinned loadouts keep their weapon, affinity, and skill. Their stats and upgrades
 are reoptimized for the current budget; the upgrade chart shows how each develops.
 Active comparison filters appear as removable chips; **Filters** holds every
-option, and **Use ranked rivals** returns to the default comparison.
+option, and **Use ranked rivals** returns to the default comparison. The delta
+table answers the comparison; open **Build details** for each loadout's full card.
 
 **AR / Bleed tradeoffs** keeps the selected weapon, affinity, skill, upgrade,
 level budget, stat floors/locks, and handling fixed. Compute its complete frontier,
@@ -132,8 +141,8 @@ Rankings before comparing again.
 <details>
 <summary><strong>Paths — follow both builds level by level</strong></summary>
 
-No-respec paths optimize a terminal allocation, then add points greedily toward
-that target. **Best per level** instead finds the best allocation at each level
+No-respec paths optimize a terminal allocation, then add each level's point where
+it helps most toward that target, so the path never needs a respec. **Best per level** instead finds the best allocation at each level
 and marks the levels that require a respec. Two lanes share one paginated level
 table. The chart uses labeled axes and sparse breakpoint markers; hover a
 point or use the **Character level** slider to read that level's values.
@@ -207,7 +216,8 @@ Choose a guide for the task at hand:
 app version, game profile, reproduction steps, and expected versus actual results.
 Use [private vulnerability reporting](SECURITY.md) for security issues.
 
-Use **Preview reproduction report** below Saved Builds to review and download
+Open **Report a problem** at the bottom of Build Detail and use
+**Preview reproduction report** to review and download
 current normalized inputs, snapshot identity, the displayed selection when it is
 not stale, and an error if present. It does not replay a failed request or recompute
 a saved result. The saved-build library and raw logs are excluded; recognizable

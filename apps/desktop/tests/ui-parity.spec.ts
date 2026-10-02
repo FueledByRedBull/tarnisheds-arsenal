@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { openEditor, openEditorFor } from "./editors";
+import { openCompare, openEditor, openEditorFor, openSection } from "./editors";
 
 test("profile radios use one tab stop and arrow-key selection", async ({ page }) => {
   await page.goto("/");
@@ -153,8 +153,9 @@ test("profile switch isolates results and explains Convergence coverage", async 
   }
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("1 ranked rows")).toBeVisible();
-  const rawSkill = page.locator(".result-row-full").first().locator(".skill-cell");
-  await expect(rawSkill).toHaveText("Unavailable");
+  // No row has modeled skill damage, so the column is replaced by one note in the header.
+  await expect(page.locator(".result-row-full .skill-cell")).toHaveCount(0);
+  await expect(page.getByText("Skill damage isn't modeled for these results.", { exact: true })).toBeVisible();
   await page.locator(".result-row-full").first().click();
   await expect(page.locator(".metric-tile").filter({ hasText: "AoW model" })).toContainText("Unavailable");
   await expect(page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true })).toBeDisabled();
@@ -167,6 +168,7 @@ test("profile switch isolates results and explains Convergence coverage", async 
   await expect(page.getByRole("button", { name: "Optimize class" })).toBeEnabled();
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
+  const rawSkill = page.locator(".result-row-full").first().locator(".skill-cell");
   await expect(rawSkill).not.toContainText("Unavailable");
   await expect(rawSkill).toContainText("1st hit");
   await page.locator(".result-row-full").first().click();
@@ -206,7 +208,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(page.locator(".top-cards")).toHaveCount(0);
 
   await expect(page.getByRole("textbox", { name: "Level", exact: true })).toHaveValue("9");
-  await expect(page.getByText("Movable", { exact: true })).toBeVisible();
+  await expect(page.getByText("Respec", { exact: true })).toBeVisible();
   await openEditor(page, "Class");
   await page.getByRole("combobox", { name: "Class" }).click();
   await expect(page.getByRole("option", { name: "Wretch" })).toBeVisible();
@@ -258,7 +260,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect.poll(() => page.locator(".result-row-full").first().locator("[role=gridcell]").nth(1).evaluate(
     (node) => getComputedStyle(node).position,
   )).toBe("sticky");
-  await page.getByRole("row", { name: "Select Uchigatana, Occult, rank 2", exact: true }).click();
+  await page.getByRole("row", { name: "Select Uchigatana, Occult, rank 2, AR 670.0", exact: true }).click();
   await expect(page.locator(".selected-build")).toContainText("Occult / Seppuku / +25");
   await expect(page.locator(".inspector .weapon-poise-detail")).toContainText("Weight 7.0 · 5 mapped poise moves · 1H");
   await expect(page.locator(".inspector .weapon-poise-detail")).toContainText("PvE stance / poise damage");
@@ -276,14 +278,14 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   )).toBeLessThan(145);
 
   await page.locator(".result-row-full").first().getByRole("button", { name: /^Lock / }).click();
-  await expect(page.getByText("Combat stat locks active")).toBeVisible();
+  await expect(page.getByText("Stat locks active", { exact: true })).toBeVisible();
   await expect(page.locator(".active-lock-warning")).toContainText("Stat locks active: STR 13 / DEX 22");
   await expect(page.locator(".active-lock-warning")).toHaveAttribute("title", /Changing class or loadout keeps these locks/);
   await expect((await openEditor(page, "Limits")).getByText(/Changing class or loadout keeps these locks/)).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByText("Blood / Seppuku / +25").filter({ visible: true }).first()).toBeVisible();
 
-  await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
+  await openCompare(page);
   await expect(page.getByText("Selected baseline versus current ranked rivals")).toBeVisible();
   const selectedLane = page.locator(".compare-lane", { hasText: "Selected" });
   await expect(selectedLane).toContainText("Uchigatana");
@@ -428,7 +430,7 @@ test("compare combines multiple types and affinities with Smithing and Somber to
   await page.goto("/");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await page.locator(".result-row-full").first().click();
-  await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
+  await openCompare(page);
 
   await expect.poll(async () => {
     const header = await page.locator(".compare-workspace-header").boundingBox();
@@ -499,7 +501,7 @@ test("comparison pins survive custom filters and navigation until explicitly cle
   const keen = page.locator(".result-row-full").nth(2);
   await occult.click();
   await keen.getByRole("button", { name: /^Compare / }).click();
-  await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
+  await openCompare(page);
   await expect(page.getByText("Selected baseline versus 1 pinned target")).toBeVisible();
   await expect(page.locator(".compare-lane", { hasText: "Pinned #1" })).toContainText("Keen");
 
@@ -509,7 +511,7 @@ test("comparison pins survive custom filters and navigation until explicitly cle
 
   await page.getByRole("navigation").getByRole("button", { name: "Rankings" }).click();
   await occult.getByRole("button", { name: /^Compare / }).click();
-  await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
+  await openCompare(page);
   await expect(page.getByText(/pinned target is already the selected baseline/i)).toBeVisible();
   const savedPins = await page.evaluate(() => localStorage.getItem("tarnisheds-arsenal.compareBench.v1.vanilla"));
 
@@ -528,7 +530,7 @@ test("comparison pins survive custom filters and navigation until explicitly cle
   await expect(bestType).toContainText("Ancient Meteoric Ore Greatsword");
 
   await page.getByRole("navigation").getByRole("button", { name: "Rankings" }).click();
-  await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
+  await openCompare(page);
   await expect(bestType).toContainText("Ancient Meteoric Ore Greatsword");
   expect(await page.evaluate(() => localStorage.getItem("tarnisheds-arsenal.compareBench.v1.vanilla"))).toBe(savedPins);
   await page.getByRole("button", { name: "Use pinned targets", exact: true }).click();
@@ -538,7 +540,7 @@ test("comparison pins survive custom filters and navigation until explicitly cle
 
   await page.getByRole("navigation").getByRole("button", { name: "Rankings" }).click();
   await keen.getByRole("button", { name: /^Compare / }).click();
-  await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
+  await openCompare(page);
   await openEditor(page, "Comparison filters");
   await expect(page.getByRole("button", { name: "Compare Type" })).toContainText("All");
   await expect(page.getByText("Selected baseline versus 2 pinned targets")).toBeVisible();
@@ -565,6 +567,7 @@ test("ranked rows select the exact build with mouse and keyboard", async ({ page
   await expect(page.locator(".selected-build strong")).toHaveText(weaponName ?? "");
 
   await page.getByRole("button", { name: "Save build", exact: true }).click();
+  await openSection(page, "Saved Builds");
   await expect(page.getByRole("textbox", { name: "Name", exact: true })).toBeFocused();
 
   const thirdRow = page.locator(".result-row-full").nth(2);
@@ -594,6 +597,7 @@ test("ranked rows select the exact build with mouse and keyboard", async ({ page
 
 test("saved family filters can be cleared without editing the saved build", async ({ page }) => {
   await page.goto("/");
+  await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Save new" }).click();
   await expect(page.getByText(/Saved Build Preset/)).toBeVisible();
   await page.evaluate(() => {
@@ -604,6 +608,7 @@ test("saved family filters can be cleared without editing the saved build", asyn
     localStorage.setItem(key, JSON.stringify(preset));
   });
   await page.reload();
+  await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Load", exact: true }).click();
   await openEditor(page, "Loadout");
   const reset = page.getByRole("button", { name: "Reset weapon filters" });
@@ -620,8 +625,10 @@ test("stale saved builds offer explicit input-only loading or recompute migratio
   await page.goto("/");
   await page.getByRole("button", { name: "Search" }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Save new" }).click();
-  await expect(page.getByText(/Saved Build Preset/)).toBeVisible();
+  // Unnamed saves take the selected build's name, as the game names weapons.
+  await expect(page.getByText(/Saved Blood Uchigatana \+25/)).toBeVisible();
   await expect(page.locator(".saved-build-status")).toHaveText("Saved with the current game data");
   await expect(page.locator(".saved-build-status")).toHaveAttribute("title", /^profile vanilla · dataset vanilla-1\.17 · schema \d+ · model /);
 
@@ -638,10 +645,11 @@ test("stale saved builds offer explicit input-only loading or recompute migratio
   });
   await page.reload();
 
+  await openSection(page, "Saved Builds");
   await expect(page.getByText(/Stale.*solved rows are discarded/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Load inputs only" })).toBeVisible();
   await page.getByRole("button", { name: "Migrate data" }).click();
-  await expect(page.getByText(/Migrated Build Preset/)).toBeVisible();
+  await expect(page.getByText(/Migrated Blood Uchigatana \+25/)).toBeVisible();
   await expect(page.locator(".saved-build-status")).toHaveText("Saved with the current game data");
   await expect(page.locator(".selected-build")).toContainText("Uchigatana");
 });
@@ -762,7 +770,7 @@ test("analysis controls align inputs with buttons and path levels compare side b
   await expect(table.getByRole("row").nth(3)).toContainText("Gain unavailable | No stat added | Requirement gap 3");
   await expect(table.getByRole("row").nth(5)).toContainText("Respec required");
   await expect(table).not.toContainText("Added RESPEC");
-  await expect(page.getByRole("combobox", { name: "Path level range" }).locator('option[value="0"]')).toHaveText("9–18");
+  await expect(page.getByRole("combobox", { name: "Path level range" }).locator('option[value="0"]')).toHaveText("9-18");
   await expect(page.locator(".path-steps")).not.toContainText("\uFFFD");
   await expect(page.getByRole("button", { name: "Previous levels" })).toBeDisabled();
   await page.getByRole("button", { name: "Next levels" }).click();
@@ -892,7 +900,8 @@ for (const [width, height] of [[1200, 720], [1366, 768], [1650, 950]]) {
     })).toBe(true);
     await nav.getByRole("button", { name: "Compare", exact: true }).click();
     await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Search", exact: true })).toHaveCount(0);
+    // Search keeps its place on every workspace.
+    await expect(page.getByRole("button", { name: "Search", exact: true })).toBeVisible();
     await openEditor(page, "Comparison filters");
     await expect.poll(() => page.locator(".compare-reinforcement").evaluate((group) => {
       const box = group.getBoundingClientRect();

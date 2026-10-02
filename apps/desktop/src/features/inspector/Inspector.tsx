@@ -1,4 +1,4 @@
-import { Clipboard, Download, LockKeyhole, Pencil, Pin, Save, Target, Trash2, Upload } from "lucide-react";
+import { Check, ChevronDown, Clipboard, Download, LockKeyhole, Pencil, Pin, Save, Target, Trash2, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { activationRequest } from "../../lib/preset-activation";
 import { useWeaponProfileResource } from "../../lib/hooks";
@@ -18,11 +18,11 @@ import {
 } from "../../lib/presets";
 import { budgetSnapshot, buildOptimizeRequest, hasCombatStatLocks, rowFingerprint } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
-import { AowRouteDto, BuildPreset, CatalogDto, OptimizeRequestDto, SavedBuildIndexEntryV1, StatusBuildupDto, WeaponProfileDto } from "../../lib/types";
+import { AowRouteDto, BuildPreset, CatalogDto, OptimizeRequestDto, SavedBuildIndexEntryV1, SolvedBuildDto, StatusBuildupDto, WeaponProfileDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
 import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 import packageInfo from "../../../package.json";
-import { explainBuild } from "../../lib/build-explanation";
+import { explainBuild, leadOver } from "../../lib/build-explanation";
 import { ReproductionReport } from "../shared/ReproductionReport";
 import { SavedBuildRecovery } from "../shared/SavedBuildRecovery";
 
@@ -30,6 +30,7 @@ export function Inspector() {
   const catalog = useDesktopStore((state) => state.catalog);
   const selected = useDesktopStore((state) => state.selected);
   const rows = useDesktopStore((state) => state.rows);
+  const rowsObjective = useDesktopStore((state) => state.rowsObjective);
   const request = useDesktopStore((state) => state.request);
   const resultsStale = useDesktopStore((state) => state.resultsStale);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
@@ -46,6 +47,10 @@ export function Inspector() {
   const rank = selected ? rows.findIndex((row) => rowFingerprint(row) === rowFingerprint(selected)) : -1;
   const leaderMetric = rows[0] ? metricForObjective(rows[0], request.objective, aowModelSupported) : null;
   const behindLeader = rank > 0 && leaderMetric !== null && selectedMetric !== null ? leaderMetric - selectedMetric : null;
+  // The trust line: how far #1 leads #2, and the stat changes it asks of the entered build.
+  const runnerUp = rank === 0 ? rows[1] ?? null : null;
+  const lead = selected && runnerUp ? leadOver(selected, runnerUp, request.objective, aowModelSupported) : null;
+  const statChanges = selected && !fixedStats && !resultsStale ? respecChanges(selected, request) : null;
   const modelWarnings = [...new Set(selected?.aowRoute?.actions.flatMap(
     (action) => action.hits.flatMap((hit) => hit.warnings),
   ) ?? [])];
@@ -77,41 +82,61 @@ export function Inspector() {
       {selected ? (
         <div className="selection-detail" ref={detail}>
           <div className="selected-build">
-            <strong>{selected.weaponName}</strong>
-            <span>{selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade}</span>
-            {resultsStale ? <small className="stale-label">Previous query build</small> : null}
-            {!aowAvailable ? <small className="tone-info">Skill damage isn't modeled for this loadout.</small> : null}
-            {modelWarnings.map((warning) => <small className="tone-warning" key={warning}>{warning}</small>)}
+            <div className="selected-build-head">
+              <div className="selected-build-title">
+                <strong>{selected.weaponName}</strong>
+                {/* Shown only while the header is stuck (styles.css), so the answer stays in view. */}
+                <span className="selected-build-metric" aria-hidden="true">{selectedMetric === null ? "" : fixed1(selectedMetric)}</span>
+              </div>
+              <span>{selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade}</span>
+              {resultsStale ? <small className="stale-label">Previous query build</small> : null}
+            </div>
           </div>
+          {!aowAvailable || modelWarnings.length ? (
+            <div className="selection-notes">
+              {!aowAvailable ? <small className="tone-info">Skill damage isn't modeled for this loadout.</small> : null}
+              {modelWarnings.map((warning) => <small className="tone-warning" key={warning}>{warning}</small>)}
+            </div>
+          ) : null}
           {weaponResource.status === "loading" ? <WeaponPoiseSkeleton /> : null}
           {weaponResource.status === "error" ? <div role="alert">
             <small>{weaponResource.error}</small>
             <button type="button" onClick={weaponResource.retry}>Retry weapon profile</button>
           </div> : null}
           <div className="metric-grid">
-            <Metric label={objectiveLabel(request.objective)} value={selectedMetric === null ? "Unavailable" : fixed1(selectedMetric)} />
+            <Metric label={objectiveLabel(request.objective)} value={selectedMetric === null ? null : fixed1(selectedMetric)} />
             {request.objective !== "max_ar" ? <Metric label="AR" value={fixed1(selected.ar.total)} /> : null}
             <Metric
               label={catalog?.dataManifest.capabilities.aowRoutes ? "Raw AoW" : "AoW model"}
-              value={aowAvailable
-                ? compactNumber(selected.aowFullSequenceDamage)
-                : "Unavailable"}
+              value={aowAvailable ? compactNumber(selected.aowFullSequenceDamage) : null}
             />
           </div>
           {rank >= 0 && !resultsStale ? (
             <p className="rank-context">
               Rank <strong>{rank + 1}</strong> of {rows.length}
-              {rank === 0 ? " · best for this query"
+              {rank === 0
+                ? lead === null ? " · best for this query"
+                  : lead < 0.05 ? " · less than 0.05 ahead of #2" : ` · ${fixed1(lead)} ahead of #2`
                 : behindLeader === null ? ""
                   : behindLeader < 0.05 ? " · less than 0.05 behind #1" : ` · ${fixed1(behindLeader)} behind #1`}
             </p>
           ) : null}
+          {rank >= 0 && !resultsStale && rowsObjective !== null ? (
+            <p className="rank-proof">Exact ranking of every legal setup this query allows.</p>
+          ) : null}
+          {statChanges ? (
+            <div className="detail-block stat-changes">
+              <span>Stat changes</span>
+              <strong>{statChanges.length ? statChanges.join(", ") : "None: uses your stats as entered"}</strong>
+            </div>
+          ) : null}
           <div className="inspector-actions stacked">
-            <button type="button" onClick={lockSelected}><LockKeyhole size={15} />Use as search locks</button>
+            <button type="button" onClick={lockSelected}><LockKeyhole size={15} />Lock stats to this build</button>
             <button
               type="button"
               onClick={() => {
-                const panel = document.getElementById("saved-builds-panel");
+                const panel = document.getElementById("saved-builds-panel") as HTMLDetailsElement | null;
+                if (panel) panel.open = true;
                 panel?.scrollIntoView({ block: "start" });
                 panel?.querySelector("input")?.focus({ preventScroll: true });
               }}
@@ -154,7 +179,7 @@ export function Inspector() {
           <AowRouteDetails route={aowAvailable ? selected.aowRoute : null} />
           {!resultsStale ? <details className="model-coverage build-explanation">
             <summary>Why this build?</summary>
-            {explainBuild(selected, buildOptimizeRequest(catalog, request, lockedStatMode), aowModelSupported).map(line => <p key={line}>{line}</p>)}
+            {explainBuild(selected, buildOptimizeRequest(catalog, request, lockedStatMode), aowModelSupported, runnerUp).map(line => <p key={line}>{line}</p>)}
           </details> : null}
           <ModelCoverage />
         </div>
@@ -171,23 +196,26 @@ export function Inspector() {
           ? `Fixed stat total ${snapshot.level}` : `Level ${snapshot.level} / +${snapshot.levelUps} level ups`}</strong>
         <small>{fixedStats
           ? "Entered combat stats are evaluated as-is; class budgets and redistribution are unavailable."
-          : `${snapshot.redistributable} movable · ${snapshot.freePoints} unspent · ${snapshot.total} total points`}</small>
+          : `${snapshot.redistributable} respec points · ${snapshot.freePoints} unspent · ${snapshot.total} total points`}</small>
       </div>
       <div className="detail-block">
-        <span>Lock State</span>
+        <span>Stat locks</span>
         <strong>{fixedStats
           ? "Fixed stats evaluated as entered"
-          : lockedStatMode && hasCombatStatLocks(request) ? "Combat stat locks active" : "Combat stats unlocked"}</strong>
+          : lockedStatMode && hasCombatStatLocks(request) ? "Stat locks active" : "No stat locks"}</strong>
         <small>
           {fixedStats
             ? "This profile does not derive a class budget or redistribute combat stats."
             : !lockedStatMode || !hasCombatStatLocks(request)
-              ? "No captured combat stat locks."
+              ? "Every combat stat is free to move."
               : statLockLine(request)}
         </small>
       </div>
       <SavedBuildPanel />
-      <ReproductionReport />
+      <details className="model-coverage report-problem">
+        <summary>Report a problem</summary>
+        <ReproductionReport />
+      </details>
     </aside>
   );
 }
@@ -317,7 +345,7 @@ function formatActionLabel(actionId: string): string {
 
 function formatPoiseDamage(value: string | number[]): string {
   const hits = Array.isArray(value) ? value : value.match(/\d+(?:\.\d+)?/g)?.map(Number) ?? [];
-  if (!hits.length) return "—";
+  if (!hits.length) return "None";
   const breakdown = hits.map(formatPoiseNumber).join(" + ");
   return hits.length > 1
     ? `${breakdown} (${formatPoiseNumber(hits.reduce((total, hit) => total + hit, 0))} total)`
@@ -339,13 +367,21 @@ function formatStatus(status: StatusBuildupDto): string {
   return values.length ? values.map(([label, value]) => `${label} ${compactNumber(Number(value))}`).join(" / ") : "none";
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+// A null value is unmodeled: it reads as "Unavailable", in a quieter style than a figure.
+function Metric({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="metric-tile">
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong className={value === null ? "metric-unavailable" : undefined}>{value ?? "Unavailable"}</strong>
     </div>
   );
+}
+
+const COMBAT_STATS = [["STR", "strStat"], ["DEX", "dex"], ["INT", "intStat"], ["FAI", "fai"], ["ARC", "arc"]] as const;
+
+/** Each combat stat the build sets differently from the entered stats, as "DEX 15 → 22". */
+function respecChanges(row: SolvedBuildDto, request: OptimizeRequestDto): string[] {
+  return COMBAT_STATS.flatMap(([label, key]) => row.stats[key] === request[key] ? [] : [`${label} ${request[key]} → ${row.stats[key]}`]);
 }
 
 function SavedBuildPanel() {
@@ -363,7 +399,12 @@ function SavedBuildPanel() {
   const [entries, setEntries] = useState<SavedBuildIndexEntryV1[]>([]);
   const [libraryError, setLibraryError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState("");
-  const [name, setName] = useState("Build Preset");
+  // Until the player types a name, a save is named after the selected build, as the game
+  // names weapons ("Blood Uchigatana +25").
+  const [typedName, setName] = useState<string | null>(null);
+  const name = typedName ?? (selected ? `${selected.affinity === "Standard" ? "" : `${selected.affinity} `}${selected.weaponName} +${selected.upgrade}` : "Build Preset");
+  const [copied, setCopied] = useState(false);
+  const panel = useRef<HTMLDetailsElement>(null);
   const [importText, setImportText] = useState("");
   const [deleteArmedId, setDeleteArmedId] = useState<string | null>(null);
   const [replaceImport, setReplaceImport] = useState(false);
@@ -392,6 +433,11 @@ function SavedBuildPanel() {
 
   useEffect(refresh, []);
   useEffect(() => () => migrationController.current?.abort(), []);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), 1500);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
 
   function cancelMigration() {
     migrationController.current?.abort();
@@ -501,7 +547,7 @@ function SavedBuildPanel() {
       cancelMigration();
       setSelectedId(id);
       setDeleteArmedId(null);
-      setName(preset?.name ?? "Build Preset");
+      setName(preset?.name ?? null);
     } catch (error) {
       setError(error instanceof Error ? error.message : String(error));
     }
@@ -512,7 +558,8 @@ function SavedBuildPanel() {
     if (!preset) return;
     try {
       await navigator.clipboard.writeText(shareTextForPreset(preset));
-      pushNotice({ scope: "global", tone: "success", message: "Copied share text." });
+      // Confirmed on the button itself, where the player is looking (and to screen readers).
+      setCopied(true);
     } catch {
       setError("Could not copy to the clipboard. Check clipboard permission, then retry or use Export instead.");
     }
@@ -564,12 +611,20 @@ function SavedBuildPanel() {
   catch { selectedReadError = "Saved builds could not be read. Storage access is unavailable; existing data was preserved."; }
   const selectedPresetStale = Boolean(selectedPreset && dataVersion !== "unknown" && selectedPreset.dataVersion !== dataVersion);
 
+  // The library is its own task, so it stays folded under Build Detail until it is wanted
+  // (Save build opens it). A library problem opens it, so its alert is never folded away.
+  const libraryProblem = libraryError ?? selectedReadError;
+  useEffect(() => {
+    if (libraryProblem && panel.current) panel.current.open = true;
+  }, [libraryProblem]);
   return (
-    <div id="saved-builds-panel" className="saved-builds">
-      <div className="inspector-title">
+    <details id="saved-builds-panel" className="saved-builds" ref={panel}>
+      <summary className="inspector-title">
         <Save size={17} />
         <span>Saved Builds</span>
-      </div>
+        {entries.length ? <small className="saved-builds-count">{entries.length}</small> : null}
+        <ChevronDown size={15} className="summary-chevron" aria-hidden="true" />
+      </summary>
       {libraryError || selectedReadError ? <p className="tone-danger" role="alert">{libraryError || selectedReadError}</p> : null}
       <label>
         Name
@@ -581,7 +636,7 @@ function SavedBuildPanel() {
           <option value="">None</option>
           {entries.map((entry) => (
             <option key={entry.id} value={entry.id}>
-              {entry.name} — {entry.profileId} · {entry.dataVersion === dataVersion ? "current data" : "different data"}
+              {entry.name} ({entry.profileId}, {entry.dataVersion === dataVersion ? "current data" : "different data"})
             </option>
           ))}
         </select>
@@ -610,7 +665,10 @@ function SavedBuildPanel() {
           <Trash2 size={15} />{deleteArmedId === selectedId ? <span>Confirm delete</span> : null}
         </button>
         <button type="button" onClick={exportCurrent} disabled={!selectedPreset} aria-label="Export" title="Export as a JSON file"><Download size={15} /></button>
-        <button type="button" onClick={copyCurrent} disabled={!selectedPreset} aria-label="Copy Share" title="Copy share text to the clipboard"><Clipboard size={15} /></button>
+        <button type="button" onClick={copyCurrent} disabled={!selectedPreset} aria-label="Copy Share" title="Copy share text to the clipboard">
+          {copied ? <Check size={15} className="copy-confirm" aria-hidden="true" /> : <Clipboard size={15} aria-hidden="true" />}
+        </button>
+        <span className="sr-only" role="status">{copied ? "Copied share text." : ""}</span>
       </div>
       <details className="saved-build-import">
         <summary>Import a build</summary>
@@ -648,7 +706,7 @@ function SavedBuildPanel() {
         </button>
       </details>
       <SavedBuildRecovery onChanged={refresh} revision={entries} />
-    </div>
+    </details>
   );
 }
 

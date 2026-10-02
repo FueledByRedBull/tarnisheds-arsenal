@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openSection } from "./editors";
 
 test("saving waits for verified catalog readiness without writing partial presets", async ({ page }) => {
   let release!: () => void;
@@ -8,6 +9,7 @@ test("saving waits for verified catalog readiness without writing partial preset
     await route.continue();
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
+  await openSection(page, "Saved Builds");
   const save = page.getByRole("button", { name: "Save new", exact: true });
   const update = page.getByRole("button", { name: "Update selected", exact: true });
   try {
@@ -43,6 +45,7 @@ test("saving waits for verified catalog readiness without writing partial preset
 test("recovers a damaged index without overwriting the original and restores a bulk backup as copies", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText("Snapshot loaded", { exact: true })).toBeVisible();
+  await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   await expect(page.getByText("Saved Build Preset.", { exact: true })).toBeVisible();
   await page.evaluate(() => localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", "{damaged-index"));
@@ -52,6 +55,7 @@ test("recovers a damaged index without overwriting the original and restores a b
   expect(await page.evaluate(() => Object.keys(localStorage)
     .filter(key => key.startsWith("tarnisheds-arsenal.savedBuildIndex.recovery."))
     .map(key => localStorage.getItem(key)))).toEqual(["{damaged-index"]);
+  await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Load", exact: true }).click();
   await expect(page.getByText("Loaded Build Preset; saved results verified on current data.", { exact: true })).toBeVisible();
   await page.getByText("Backup and recovery", { exact: true }).click();
@@ -71,6 +75,7 @@ test("recovers a damaged index without overwriting the original and restores a b
 test("denied storage and invalid backups keep existing builds usable", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText("Snapshot loaded", { exact: true })).toBeVisible();
+  await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   const before = await page.evaluate(() => JSON.stringify(localStorage));
   await page.getByText("Backup and recovery", { exact: true }).click();
@@ -91,6 +96,7 @@ test("report preview freezes a redacted snapshot and explanations clear when res
   await expect(page.getByText("4 ranked rows")).toBeVisible();
   await page.getByText("Why this build?", { exact: true }).click();
   await expect(page.getByText(/The optimizer's exact ranking/)).toBeVisible();
+  await openSection(page, "Report a problem");
   await page.getByRole("button", { name: "Preview reproduction report", exact: true }).click();
   const report = page.getByRole("textbox", { name: "Reproduction report preview", exact: true });
   const captured = await report.inputValue();
@@ -110,6 +116,7 @@ test("storage read denial after selection reports failure without unmounting the
   page.on("pageerror", error => crashes.push(error.message));
   await page.goto("/");
   await expect(page.getByText("Snapshot loaded", { exact: true })).toBeVisible();
+  await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   await page.evaluate(() => { Storage.prototype.getItem = () => { throw new DOMException("denied", "SecurityError"); }; });
   await page.getByRole("checkbox", { name: "Two-handing", exact: true }).check();

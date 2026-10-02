@@ -180,7 +180,7 @@ export function AffinityWatchView() {
       <AffinityChart payload={payload} objective={objectiveLabel(request.objective)} unit={objectiveUnit(request.objective)} />
       <div className="affinity-ranking" role="grid" aria-label="Affinity watch rankings">
         <div className="affinity-row table-header" role="row">
-          {["Rank", "Affinity", `Start (${objectiveUnit(request.objective)})`, `End (${objectiveUnit(request.objective)})`, "Final stats"].map((label) => <span role="columnheader" key={label}>{label}</span>)}
+          {["Rank at end", "Affinity", `Start (${objectiveUnit(request.objective)})`, `End (${objectiveUnit(request.objective)})`, "Final stats"].map((label) => <span role="columnheader" key={label}>{label}</span>)}
         </div>
         {payload?.lines.map((line, index) => (
           <div className="affinity-row" key={line.affinity} role="row">
@@ -193,16 +193,26 @@ export function AffinityWatchView() {
         ))}
       </div>
       <div className="crossover-table" role="table" aria-label="Affinity watch breakpoints">
+        {payload?.breakpoints.length ? (
+          <div role="row" className="table-header">
+            {["Level", "Best affinity changes", "Old / new and lead"].map((label) => <span role="columnheader" key={label}>{label}</span>)}
+          </div>
+        ) : null}
         {payload?.breakpoints.map((point) => (
           <div key={`${point.level}-${point.incomingAffinity}`} role="row">
             <span role="cell">Level {point.level}</span>
             <strong role="cell">{point.outgoingAffinity} to {point.incomingAffinity}</strong>
-            <span role="cell">{fixed1(point.outgoingMetric)} / {fixed1(point.incomingMetric)} {objectiveUnit(request.objective)} · +{fixed1(point.lead)} {objectiveUnit(request.objective)} ({fixed1(point.leadPercent)}%) · {point.quality}</span>
+            <span role="cell">{fixed1(point.outgoingMetric)} / {fixed1(point.incomingMetric)} {objectiveUnit(request.objective)} · +{fixed1(point.lead)} {objectiveUnit(request.objective)} ({fixed1(point.leadPercent)}%) · {leadQuality(point.quality)}</span>
           </div>
         ))}
       </div>
     </section>
   );
+}
+
+// The native side grades a crossover's lead as tie, narrow (under 1%) or clear.
+function leadQuality(quality: string): string {
+  return quality === "tie" ? "a tie" : quality === "narrow" ? "narrow lead" : quality === "clear" ? "clear lead" : quality;
 }
 
 function endpointMetric(value: number | null): string {

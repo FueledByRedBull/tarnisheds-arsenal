@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openSection } from "./editors";
 
 async function openCompare(page: import("@playwright/test").Page) {
   await page.goto("/");
@@ -111,6 +112,7 @@ test("tradeoff views select exact threshold choices and persist an exact apply",
   });
 
   const presetName = `Tradeoff exact apply ${Date.now()}`;
+  await openSection(page, "Saved Builds");
   await page.getByRole("textbox", { name: "Name", exact: true }).fill(presetName);
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   await page.getByText(`Saved ${presetName}.`, { exact: true }).waitFor();
@@ -132,7 +134,8 @@ test("tradeoff views select exact threshold choices and persist an exact apply",
       return solve(base, weaponName, affinity, aowName, signal);
     };
   }, returnedResult);
-  await page.getByRole("combobox", { name: "Saved", exact: true }).selectOption({ label: `${presetName} — vanilla · current data` });
+  await openSection(page, "Saved Builds");
+  await page.getByRole("combobox", { name: "Saved", exact: true }).selectOption({ label: `${presetName} (vanilla, current data)` });
   await page.getByRole("button", { name: "Load", exact: true }).click();
   await page.getByText(`Loaded ${presetName}; saved results verified on current data.`, { exact: true }).waitFor();
   expect(await page.evaluate(() => (window as any).reloadedTradeoffSolves)).toEqual(expect.arrayContaining([

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { explainBuild, explainBuildComparison } from "./build-explanation";
+import { explainBuild } from "./build-explanation";
 import { reproductionReport } from "./reproduction-report";
 import { defaultRequest, useDesktopStore } from "./state";
 import type { SolvedBuildDto } from "./types";
@@ -20,8 +20,9 @@ describe("calculation-derived explanations", () => {
     const request = { ...defaultRequest, objective: "aow_full_sequence" as const };
     expect(explainBuild(missing, request).join(" ")).toContain("unavailable");
     expect(explainBuild(missing, request).join(" ")).not.toContain("scores 0.0");
-    expect(explainBuildComparison(row, missing, request)).toContain("unavailable");
-    expect(explainBuildComparison(row, missing, request)).not.toContain("-500.0");
+    const versusMissing = explainBuild(row, request, true, missing).join(" ");
+    expect(versusMissing).toContain("no comparable AoW Sequence value");
+    expect(versusMissing).not.toContain("500.0");
   });
 
   it("describes lexicographic bleed ranking without adding AR or inventing contribution estimates", () => {
@@ -32,12 +33,17 @@ describe("calculation-derived explanations", () => {
     expect(text).toContain("STR minimum 18");
     expect(text).toContain("equal displayed scores need not be exact ties");
   });
-  it("explains redistribution even when total stat spend is unchanged", () => {
-    const candidate = { ...row, stats: { ...row.stats, strStat: 16, dex: 42 }, bleedBuildup: 46 };
-    const text = explainBuildComparison(row, candidate, { objective: "max_ar_plus_bleed" });
-    expect(text).toContain("+1.0 bleed buildup");
-    expect(text).toContain("STR -2, DEX +2");
-    expect(text).toContain("Bleed ranks before AR");
+  it("names the lead over the runner-up in the ranked unit and its largest AR difference", () => {
+    const leader = { ...row, stats: { ...row.stats, strStat: 16, dex: 42 }, bleedBuildup: 46,
+      ar: { ...row.ar, physical: 310, total: 410 } };
+    const text = explainBuild(leader, { ...defaultRequest, objective: "max_ar_plus_bleed" }, true, row).join(" ");
+    expect(text).toContain("leads the next build, Uchigatana (Keen, +7), by 1.0 bleed buildup");
+    expect(text).toContain("largest AR difference is +10.0 physical");
+  });
+
+  it("calls an equal displayed score a tie decided by the exact ranking", () => {
+    const text = explainBuild(row, defaultRequest, true, { ...row, affinity: "Heavy" }).join(" ");
+    expect(text).toContain("ties Uchigatana (Heavy, +7) at the displayed precision");
   });
   it("does not describe unknown imported properties as damage", () => {
     const imported = { ...row, ar: { ...row.ar, privateMetric: 123 } };

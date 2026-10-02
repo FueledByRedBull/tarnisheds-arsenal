@@ -434,6 +434,25 @@ describe("desktop result lifecycle", () => {
     expect(switched.affinityGeneration).toBe(before.affinityGeneration + 1);
   });
 
+  it("keeps each profile's query and restores it, without results, on return", () => {
+    useDesktopStore.getState().setProfiles([catalog("vanilla").dataManifest, catalog("convergence").dataManifest]);
+    useDesktopStore.setState({ catalog: catalog("vanilla"), profileQueries: {}, lockedStatMode: true, rows: [row],
+      request: { ...defaultRequest, weaponName: "Uchigatana", lockDex: 40 } });
+
+    useDesktopStore.getState().beginProfileSwitch("convergence");
+    const away = useDesktopStore.getState();
+    expect(away.request).toMatchObject({ profileId: "convergence", weaponName: null, lockDex: null });
+    expect(away.notices[0].message).toBe("Your vanilla query is kept for when you switch back.");
+
+    useDesktopStore.setState({ catalog: catalog("convergence") });
+    useDesktopStore.getState().beginProfileSwitch("vanilla");
+    const back = useDesktopStore.getState();
+    expect(back.request).toMatchObject({ profileId: "vanilla", weaponName: "Uchigatana", lockDex: 40 });
+    expect(back.lockedStatMode).toBe(true);
+    expect(back.rows).toEqual([]);
+    expect(back.notices[0].message).toBe("Restored your vanilla query. Search to rank it again.");
+  });
+
   it("normalizes unsupported objectives when a profile catalog arrives", () => {
     useDesktopStore.setState({
       request: { ...defaultRequest, profileId: "convergence", objective: "aow_full_sequence" },
