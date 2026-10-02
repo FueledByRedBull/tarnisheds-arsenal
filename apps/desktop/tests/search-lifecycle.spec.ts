@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openEditor } from "./editors";
 
 for (const outcome of ["already-finished", "failure"] as const) {
   test(`a late ${outcome} cancellation reply cannot change a replacement search`, async ({ page }) => {
@@ -32,7 +33,7 @@ for (const outcome of ["already-finished", "failure"] as const) {
       return useDesktopStore.getState().activeJobId;
     })).toBe("search-1");
     await page.getByRole("button", { name: "Cancel Search", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Cancelling...", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Cancelling…", exact: true })).toBeDisabled();
 
     await page.getByRole("spinbutton", { name: "VIG", exact: true }).fill("13");
     await page.getByRole("spinbutton", { name: "VIG", exact: true }).press("Enter");
@@ -85,6 +86,7 @@ for (const replacement of ["compare", "rankings"]) {
     });
     const nav = page.getByRole("navigation");
     await nav.getByRole("button", { name: "Compare", exact: true }).click();
+    await openEditor(page, "Comparison filters");
     await page.getByRole("combobox", { name: "Compare Weapon", exact: true }).click();
     await page.getByRole("option", { name: "Zweihander", exact: true }).click();
     await page.waitForFunction(() => (window as any).searchProbe.starts === 1);

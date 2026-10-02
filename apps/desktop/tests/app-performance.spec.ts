@@ -42,7 +42,7 @@ test("scrolling and progress updates leave unchanged controls alone", async ({ p
     useDesktopStore.getState().setSearching(true);
     await new Promise(requestAnimationFrame);
     await new Promise(requestAnimationFrame);
-    (window as any).renderCounts.CommandRail = 0;
+    (window as any).renderCounts.QueryStrip = 0;
     (window as any).renderCounts.SearchProgressPanel = 0;
   });
   await expect(page.getByLabel("Elapsed time", { exact: true })).not.toHaveText("0.0s");
@@ -53,7 +53,7 @@ test("scrolling and progress updates leave unchanged controls alone", async ({ p
       eligible: 4, bestScore: 700, elapsedMs: 2400 });
   });
   await expect(page.locator(".progress-strip")).toContainText("2.4s");
-  expect(await page.evaluate(() => (window as any).renderCounts.CommandRail)).toBe(0);
+  expect(await page.evaluate(() => (window as any).renderCounts.QueryStrip)).toBe(0);
   expect(await page.evaluate(() => (window as any).renderCounts.SearchProgressPanel)).toBeGreaterThan(0);
 });
 

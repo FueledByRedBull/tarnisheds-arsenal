@@ -1988,11 +1988,14 @@ mod tests {
     fn compiled_scalar_route_formula_matches_direct_exact_route() {
         let data = data();
         let weapon = weapon(&data, "Uchigatana", "Keen");
-        let mut row = data
-            .aow_attack_rows
-            .values()
-            .flat_map(|rows| rows.iter())
-            .find(|row| row.is_damaging())
+        // HashMap order changes per process, and rows that override the weapon's correction
+        // with partial influence need direct evaluation; take the first plain row by AoW id.
+        let mut aows = data.aow_attack_rows.iter().collect::<Vec<_>>();
+        aows.sort_by_key(|(aow_id, _)| **aow_id);
+        let mut row = aows
+            .into_iter()
+            .flat_map(|(_, rows)| rows.iter())
+            .find(|row| row.is_damaging() && row.overwrite_attack_element_correct_id.is_none())
             .expect("damaging attack row")
             .clone();
         row.weapon_buff_mv = 100.0;

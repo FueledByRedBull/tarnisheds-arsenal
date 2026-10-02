@@ -1,5 +1,24 @@
 # Changelog
 
+## [v0.17.0](docs/release-notes/v0.17.0.md)
+
+- Replace the command rail with an editable query line over the results, add a
+  Ctrl+K palette that edits anything by typing, and show active Compare filters as
+  removable chips.
+- Undo and redo query changes, show how each rank moved after a search, sort
+  result columns without renumbering ranks, and add keyboard shortcuts.
+- Add motion that explains changes and searching progress, respecting reduced
+  motion. Bring the empty Rankings grid and Compare matrix to WCAG A/AA.
+- Prepare searches in parallel per thread and visit upgrades highest first:
+  open searches prepare about five times faster with identical results, and bleed
+  searches lose their 25 to 44 second outliers. Poll native jobs sooner.
+- Finish every click within about one 120 Hz frame: reserve scrollbar gutters,
+  sort rows in place, keep Rankings rendered while hidden, and stop tab switches
+  from re-rendering the query line and Build Detail.
+- Store attack-element corrections sparsely, cutting idle memory from about
+  1.1 GB to 180 MB, and embed the runtime tables compressed, shrinking the
+  executable from 17.6 MB to 12.5 MB.
+
 ## [v0.16.0](docs/release-notes/v0.16.0.md)
 
 - Validate saved starting classes before activation and recalculate saved results

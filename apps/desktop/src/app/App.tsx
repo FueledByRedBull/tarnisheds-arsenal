@@ -1,14 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Activity, useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { Check, CircleAlert, GitCompareArrows, Radar, RotateCcw, Route, Table2, X } from "lucide-react";
 import { api } from "../lib/api";
 import { setAnalysisCacheVersion } from "../lib/analysis-cache";
+import { keyboardOwnedByOverlay } from "../lib/keyboard";
 import { useDesktopStore } from "../lib/state";
 import { WorkspaceTab } from "../lib/types";
 import { AffinityWatchView } from "../features/affinity-watch/AffinityWatchView";
-import { CommandRail } from "../features/command-rail/CommandRail";
+import { QueryStrip } from "../features/query-strip/QueryStrip";
+import { Popover } from "../features/shared/Popover";
 import { CompareView } from "../features/compare/CompareView";
 import { Inspector } from "../features/inspector/Inspector";
 import { PathsView } from "../features/paths/PathsView";
+import { SkeletonRows } from "../features/shared/SkeletonRows";
+import { EASE_OUT, reducedMotion } from "../lib/motion";
 import { RankingsBoard } from "../features/rankings/RankingsBoard";
 import { ReproductionReport } from "../features/shared/ReproductionReport";
 
@@ -21,9 +25,14 @@ const tabs: Array<{ id: WorkspaceTab; label: string; icon: typeof Table2 }> = [
 
 const PROFILE_STORAGE_KEY = "tarnisheds-arsenal.gameProfile.v1";
 
+// Hoisted so React reuses the same elements: fresh ones would re-render all four workspaces
+// on every tab switch.
+const rankingsBoard = <RankingsBoard />;
+const compareView = <CompareView />;
+const pathsView = <PathsView />;
+const affinityWatchView = <AffinityWatchView />;
+
 export function App() {
-  const activeWorkspace = useDesktopStore((state) => state.activeWorkspace);
-  const setWorkspace = useDesktopStore((state) => state.setWorkspace);
   const profiles = useDesktopStore((state) => state.profiles);
   const setProfiles = useDesktopStore((state) => state.setProfiles);
   const profileId = useDesktopStore((state) => state.request.profileId);
@@ -33,11 +42,8 @@ export function App() {
   const catalogError = useDesktopStore((state) => state.catalogError);
   const setCatalogLoading = useDesktopStore((state) => state.setCatalogLoading);
   const setCatalogFailure = useDesktopStore((state) => state.setCatalogFailure);
-  const selected = useDesktopStore((state) => state.selected);
-  const resultsStale = useDesktopStore((state) => state.resultsStale);
   const error = useDesktopStore((state) => state.error);
   const setError = useDesktopStore((state) => state.setError);
-  const notices = useDesktopStore((state) => state.notices);
   const [catalogAttempt, setCatalogAttempt] = useState(0);
   const profileGeneration = useRef(0);
 
@@ -113,8 +119,7 @@ export function App() {
   const limitedAowModel = activeProfile && (!activeProfile.capabilities.aowDamage || !activeProfile.capabilities.aowRoutes);
   const convergenceProfile = activeProfile?.profile.id === "convergence";
 
-  const profileControl = (
-    <div className="profile-control">
+  const profileSwitch = (
           <div className="profile-switch" role="radiogroup" aria-label="Game profile" onKeyDown={(event) => {
             const direction = ["ArrowRight", "ArrowDown"].includes(event.key) ? 1
               : ["ArrowLeft", "ArrowUp"].includes(event.key) ? -1 : 0;
@@ -153,61 +158,39 @@ export function App() {
               );
             })}
           </div>
-          <div
-            className={`profile-coverage ${profileReady ? (limitedAowModel ? "limited" : "complete") : "loading"}`}
-            role="status"
-            title={profileReady ? "Validated snapshot loaded; available calculations follow its declared capabilities." : undefined}
-          >
-            <strong>{profileReady ? (limitedAowModel ? "Experimental fixed-stat model" : "Snapshot loaded") : "Loading profile…"}</strong>
-            {!profileReady ? (
-              <span>Loading and validating the selected data snapshot.</span>
-            ) : limitedAowModel ? (
-              <details>
-                <summary>Model coverage and assumptions</summary>
-                <span>
-                  {convergenceProfile ? "Convergence " : ""}base weapon fields are reference-checked; final AR and customization remain experimental. Enter exact stats: class budgets, Compare, Paths, and Affinity Watch are unavailable. Ammo weapons and AoW hit/route damage remain unsupported.
-                </span>
-              </details>
-            ) : (
-              <details>
-                <summary>Model coverage and assumptions</summary>
-                <span>
-                  Weapon AR, status buildup, and supported Ash routes are available. Profile capabilities
-                  do not guarantee every skill is modeled; check the selected build's model coverage.
-                  Buildup is not a prediction of status procs or damage after enemy defenses.
-                </span>
-              </details>
-            )}
-          </div>
+  );
+  const coverageStatus = profileReady ? (limitedAowModel ? "Experimental fixed-stat model" : "Snapshot loaded") : "Loading profile…";
+  const profileCoverage = (
+    <div
+      className={`profile-coverage ${profileReady ? (limitedAowModel ? "limited" : "complete") : "loading"}`}
+      role="status"
+    >
+      <Popover
+        label="Model coverage and assumptions"
+        trigger={<strong>{coverageStatus}</strong>}
+        triggerLabel={`${coverageStatus}. Model coverage and assumptions`}
+        triggerTitle={profileReady ? "Validated snapshot loaded; available calculations follow its declared capabilities." : "Loading and validating the selected data snapshot."}
+        triggerClassName="coverage-token"
+        panelClassName="editor-panel coverage-panel"
+        disabled={!profileReady}
+      >
+        <div className="editor-body">
+          <strong>Model coverage and assumptions</strong>
+          <p className="editor-note">
+            {limitedAowModel
+              ? `${convergenceProfile ? "Convergence " : ""}base weapon fields are reference-checked; final AR and customization remain experimental. Enter exact stats: class budgets, Compare, Paths, and Affinity Watch are unavailable. Ammo weapons and AoW hit/route damage remain unsupported.`
+              : "Weapon AR, status buildup, and supported Ash routes are available. Profile capabilities do not guarantee every skill is modeled; check the selected build's model coverage. Buildup is not a prediction of status procs or damage after enemy defenses."}
+          </p>
+        </div>
+      </Popover>
     </div>
   );
 
   return (
     <main className="desktop-shell" aria-busy={catalogStatus === "loading"}>
-      <CommandRail profile={profileControl} />
+      <QueryStrip profile={profileSwitch} coverage={profileCoverage} onProfileChange={(id) => void loadProfile(id)} />
       <section className="center-workspace">
-        <nav className="workspace-tabs">
-          {tabs.map(({ id, label, icon: Icon }) => {
-            const requiresSelection = id !== "rankings" && (!selected || resultsStale);
-            const unsupportedBudget = id !== "rankings" && activeProfile?.capabilities.classBudget === false;
-            const disabled = catalogStatus !== "ready" || requiresSelection || unsupportedBudget;
-            return (
-              <button
-                key={id}
-                className={`${activeWorkspace === id ? "active" : ""} ${requiresSelection ? "locked" : ""}`}
-                type="button"
-                aria-label={label}
-                aria-current={activeWorkspace === id ? "page" : undefined}
-                onClick={() => setWorkspace(id)}
-                title={unsupportedBudget ? "Requires verified profile class budgets" : requiresSelection ? `${label} requires a current selected ranking` : label}
-                disabled={disabled}
-              >
-                <Icon size={16} aria-hidden="true" />
-                <span>{label}</span>
-              </button>
-            );
-          })}
-        </nav>
+        <WorkspaceTabs ready={profileReady} classBudget={activeProfile?.capabilities.classBudget !== false} />
         {error ? (
           <div className="error-strip" role="alert">
             <CircleAlert size={16} />
@@ -215,14 +198,7 @@ export function App() {
             <button type="button" onClick={() => setError(null)} aria-label="Dismiss error"><X size={14} /></button>
           </div>
         ) : null}
-        {notices
-          .filter((notice) => notice.scope === "global" || notice.scope === activeWorkspace)
-          .slice(-2)
-          .map((notice, index) => (
-            <div className={`notice-strip ${notice.tone}`} key={`${notice.scope}-${index}-${notice.message}`}>
-              <span>{notice.message}</span>
-            </div>
-          ))}
+        <WorkspaceNotices />
         {catalogStatus === "error" ? (
           <div className="startup-state error" role="alert">
             <CircleAlert size={24} />
@@ -234,35 +210,145 @@ export function App() {
             </button>
           </div>
         ) : null}
-        <div className="workspace-stage" key={activeWorkspace}>
+        <div className="workspace-stage">
           {catalogStatus === "loading" ? (
             <div className="workspace-panel startup-skeleton" role="status">
               <div className="workspace-header">
                 <div>
                   <strong>Loading verified game data</strong>
                   <span>Checking the snapshot manifest and preparing weapon filters.</span>
+                  <span className="forge-bar indeterminate" aria-hidden="true"><i /></span>
                 </div>
               </div>
-              <div className="startup-skeleton-rows" aria-hidden="true">
-                {Array.from({ length: 9 }, (_, index) => (
-                  <div className="startup-skeleton-row" key={index}>
-                    <span className="skeleton" />
-                    <span><span className="skeleton" /><span className="skeleton" /></span>
-                    <span className="skeleton" />
-                    <span className="skeleton" />
-                    <span className="skeleton" />
-                  </div>
-                ))}
-              </div>
+              <SkeletonRows count={9} />
             </div>
           ) : null}
-          {catalogStatus === "ready" && activeWorkspace === "rankings" ? <RankingsBoard /> : null}
-          {catalogStatus === "ready" && activeWorkspace === "compare" ? <CompareView /> : null}
-          {catalogStatus === "ready" && activeWorkspace === "paths" ? <PathsView /> : null}
-          {catalogStatus === "ready" && activeWorkspace === "affinity_watch" ? <AffinityWatchView /> : null}
+          {catalogStatus === "ready" ? <Workspaces /> : null}
         </div>
       </section>
       <Inspector />
     </main>
+  );
+}
+
+// The tab bar, notices and stage follow the active workspace themselves, so a tab switch or a
+// selection re-renders only them, not the query strip and Build Detail beside them.
+function WorkspaceTabs({ ready, classBudget }: { ready: boolean; classBudget: boolean }) {
+  const activeWorkspace = useDesktopStore((state) => state.activeWorkspace);
+  const setWorkspace = useDesktopStore((state) => state.setWorkspace);
+  const selected = useDesktopStore((state) => state.selected);
+  const resultsStale = useDesktopStore((state) => state.resultsStale);
+
+  const tabState = (id: WorkspaceTab) => {
+    const requiresSelection = id !== "rankings" && (!selected || resultsStale);
+    const unsupportedBudget = id !== "rankings" && !classBudget;
+    return { requiresSelection, unsupportedBudget, disabled: !ready || requiresSelection || unsupportedBudget };
+  };
+
+  // Ctrl+1 to Ctrl+4 follow the tab order, and only reach tabs that are currently available.
+  const onTabShortcut = useEffectEvent((event: KeyboardEvent) => {
+    const index = Number(event.key) - 1;
+    if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey || !tabs[index]) return;
+    if (keyboardOwnedByOverlay()) return;
+    event.preventDefault();
+    if (!tabState(tabs[index].id).disabled) setWorkspace(tabs[index].id);
+  });
+
+  // One pill slides to the active tab, so a workspace switch reads as movement along the bar.
+  // Its size is set once per switch and the slide is a transform, so no frame lays out. It is
+  // measured in the next frame, reusing that frame's layout: measuring during the commit would
+  // lay out the new workspace twice once its effects change it.
+  const tabBar = useRef<HTMLElement>(null);
+  const tabPill = useRef<HTMLSpanElement>(null);
+  const pillPlaced = useRef(false);
+  useEffect(() => {
+    const bar = tabBar.current;
+    const pill = tabPill.current;
+    if (!bar || !pill) return;
+    const place = (slide: boolean) => {
+      const active = bar.querySelector<HTMLElement>('button[aria-current="page"]');
+      pill.style.opacity = active ? "1" : "0";
+      if (!active) return;
+      // Where the pill is drawn now, mid-slide included.
+      const from = pill.getBoundingClientRect();
+      const left = from.left - bar.getBoundingClientRect().left - bar.clientLeft;
+      pill.style.width = `${active.offsetWidth}px`;
+      pill.style.transform = `translateX(${active.offsetLeft}px)`;
+      if (slide && pillPlaced.current && from.width > 0 && !reducedMotion()) {
+        pill.getAnimations().forEach((animation) => animation.cancel());
+        pill.animate(
+          [{ transform: `translateX(${left}px) scaleX(${from.width / active.offsetWidth})` }, { transform: `translateX(${active.offsetLeft}px)` }],
+          { duration: 300, easing: EASE_OUT },
+        );
+      }
+      pillPlaced.current = true;
+    };
+    const frame = requestAnimationFrame(() => place(true));
+    const observer = new ResizeObserver(() => place(false));
+    observer.observe(bar);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [activeWorkspace, ready]);
+
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => onTabShortcut(event);
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, []);
+
+  return (
+    <nav className="workspace-tabs" ref={tabBar}>
+      <span className="tab-pill" ref={tabPill} aria-hidden="true" />
+      {tabs.map(({ id, label, icon: Icon }, index) => {
+        const { requiresSelection, unsupportedBudget, disabled } = tabState(id);
+        return (
+          <button
+            key={id}
+            className={`${activeWorkspace === id ? "active" : ""} ${requiresSelection ? "locked" : ""}`}
+            type="button"
+            aria-label={label}
+            aria-current={activeWorkspace === id ? "page" : undefined}
+            aria-keyshortcuts={`Control+${index + 1}`}
+            onClick={() => setWorkspace(id)}
+            title={unsupportedBudget ? "Requires verified profile class budgets" : requiresSelection ? `${label} requires a current selected ranking` : `${label} (Ctrl+${index + 1})`}
+            disabled={disabled}
+          >
+            <Icon size={16} aria-hidden="true" />
+            <span>{label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function WorkspaceNotices() {
+  const activeWorkspace = useDesktopStore((state) => state.activeWorkspace);
+  const notices = useDesktopStore((state) => state.notices);
+  return notices
+    .filter((notice) => notice.scope === "global" || notice.scope === activeWorkspace)
+    .slice(-2)
+    .map((notice, index) => (
+      <div className={`notice-strip ${notice.tone}`} key={`${notice.scope}-${index}-${notice.message}`}>
+        <span>{notice.message}</span>
+      </div>
+    ));
+}
+
+// Workspaces stay mounted while hidden, so switching tabs shows them instantly; a hidden
+// workspace's effects stop, exactly as if it had unmounted. Rankings is the exception: it stays
+// rendered and only skips layout and paint while hidden (RankingsBoard.tsx), because laying out
+// its 50 rows again took ~13 ms on every return to the tab.
+function Workspaces() {
+  const activeWorkspace = useDesktopStore((state) => state.activeWorkspace);
+  return (
+    <>
+      {rankingsBoard}
+      <Activity mode={activeWorkspace === "compare" ? "visible" : "hidden"}>{compareView}</Activity>
+      <Activity mode={activeWorkspace === "paths" ? "visible" : "hidden"}>{pathsView}</Activity>
+      <Activity mode={activeWorkspace === "affinity_watch" ? "visible" : "hidden"}>{affinityWatchView}</Activity>
+    </>
   );
 }

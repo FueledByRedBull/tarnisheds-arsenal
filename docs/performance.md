@@ -135,6 +135,136 @@ first comparison appeared after a median 69 ms (62–82) and all charts after 97
 matched the all-charts time. Charts share one native queue, so the gap should grow
 with more lanes; only the three-pin case was measured.
 
+## Responsiveness work (2026-10-01)
+
+Measured on the same AMD Ryzen 7 7800X3D desktop with no builds running, release builds,
+default Rayon threads (16) unless stated. Every optimizer change kept complete ordered
+results: the phase runner reported identical results for all 16 cases before and after.
+
+| Phase-runner case (median total) | Before | After |
+| --- | --- | --- |
+| `open-ranking-max-ar` | 432.5 ms | 83.1 ms |
+| `open-ranking-max-ar-high-level` | 907.3 ms | 91.7 ms |
+| `open-ranking-max-ar-export-500` | 785.2 ms | 121.5 ms |
+| `all-upgrades-max-ar-high-level` | 885.0 ms | 214.1 ms |
+| `locked-war-cry-export-500` | 37.0 ms | 18.9 ms |
+
+- **Preparation** was 94% of an open search. Weapons now prepare in parallel chunks of
+  64 per Rayon thread, and each Ash's attack rows are selected once per weapon type. One
+  thread prepares the high-level case in 383 ms instead of about 880 ms.
+- **Bleed searches** sometimes took 25 to 44 s instead of about 1.4 s: one weapon with
+  18 Ashes was solved at every upgrade before a cutoff existed. Units now visit upgrades
+  highest first, and per-weapon grouping skips setups strictly below the weapon's best
+  found so far. A level-129 bleed top-50 search hit 2 slow runs in 12 before; after, 60
+  runs stayed at or under 1.61 s with one result hash, matching the unchanged scorer.
+- **Cancellation** during preparation took 92 to 193 ms on one thread with 1,024-weapon
+  chunks; per-thread chunks bring it to 5 to 20 ms (4 to 23 ms on 16 threads). A request
+  landing in the last ~100 ms of a search is observed at completion, as before.
+- **Polling** now starts at 8 ms and caps at 50 ms (25 ms after progress). A 1.5 s bleed
+  search used 24 status calls per second with no measurable slowdown against the old
+  5 per second; polling every millisecond (318 per second) slowed the same search by 19%.
+
+Desktop interactions were timed as the longest renderer main-thread task, 8 repeats at
+1650x950 with 50 ranked rows (a 120 Hz frame is 8.3 ms):
+
+| Interaction (median / worst) | Before | After |
+| --- | --- | --- |
+| Reverse the sort | 33.0 / 42.3 ms | 18.3 / 19.4 ms |
+| Select a row | 12.8 / 14.0 ms | 6.3 / 8.1 ms |
+| Open and close the palette | 24.0 / 27.0 ms | 2.5 / 7.0 ms |
+| Return to Rankings | 34.4 / 36.3 ms | 16.7 / 18.6 ms |
+| Open Compare | 21.1 / 27.6 ms | 14.9 / 19.0 ms |
+
+The palette is a popover rather than a modal (a modal restyled ~2,900 elements to make
+the page inert), rows are memoised, workspaces stay mounted while hidden, the board uses
+a media query instead of a container query, and metric tokens are blocks instead of
+grids. The first Ctrl+K fell from 335 ms to about 10 ms by mounting the palette at idle.
+
+### Motion budget
+
+Motion was held to the rendering work of the build before it. Timings swing by 30% between
+runs on one machine, so each change was also checked by counting work per interaction:
+elements restyled, objects laid out and paints in the trace. Layout counts match the
+earlier build (opening Compare: 854 objects against 846), and interleaved timings stayed
+within run-to-run noise. The added paints come from the intended colour animations:
+selection, undo flashes and the search's landing flare. Rules found along the way:
+
+- **No per-row motion.** Sliding each moved row (FLIP) doubled a sort to 37 ms and cost
+  ~30 ms on the next frame. Every moving row became a layer, and so did its sticky cells.
+  A re-rank now animates the rows group as one layer.
+- **Keep the rows group composited.** Starting an animation on it changed its stacking
+  context and laid out all 50 rows again (+7 ms). Without a permanent layer, the 50 sticky
+  rank cells became overlap layers, costing ~6 ms of layerization on every frame.
+  `will-change: opacity` avoids both.
+- **Read layout in the next frame, not in a commit.** Measuring row offsets or the tab
+  pill inside React's commit forced a layout. After results or a tab switch, effects
+  changed the page again, so it was laid out twice: 55 ms instead of 29 ms, or 1,428
+  objects instead of 854. Such reads now run in `requestAnimationFrame`.
+- **Transform and opacity only.** Progress fills, the tab pill and skeleton shimmers move
+  by transform. A width transition laid out on every frame, and a `background-position`
+  shimmer repainted every placeholder on every frame.
+
+### Click hitches
+
+Measured on the app as users run it: GPU compositing on, at the display's 240 Hz. The
+packaged smoke harness passes `--disable-gpu`, so its frames use the software compositor.
+Launch the release exe normally with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` set to a
+remote-debugging port and `WEBVIEW2_USER_DATA_FOLDER` set to a scratch folder instead.
+Headless Chromium also misleads: its overlay scrollbars hide the first cause below.
+
+| Click (longest main-thread task, median) | Before | After |
+| --- | --- | --- |
+| Reverse a column sort | 18.5 ms | 7.7 ms |
+| Select a row | 7.5 ms | 6.6 ms |
+| Return to Rankings | 18.3 ms | 5.5 ms |
+| Open Compare | 20.9 ms | 8.5 ms |
+| Open Paths | 6.5 ms | 3.7 ms |
+
+- **Reserve scrollbar gutters.** With classic Windows scrollbars, laying out a container
+  whose scrollbar might change laid out all of its contents again: 6.5 ms for a sort that
+  dirtied 17 objects, against 0.2 ms with `scrollbar-gutter: stable`.
+- **Sort without moving rows.** Moving 50 row nodes restyled ~3,000 elements and laid out
+  every row. Rows now stay in rank order and a sort offsets them with `top` and sets
+  `reading-order` for keyboard and screen readers. CSS `order` re-laid out every row,
+  and transforms gave each sticky rank cell its own layer (60 layers instead of 15).
+- **Keep Rankings rendered while hidden.** Activity hides workspaces with
+  `display: none`, so returning re-laid out all 50 rows. Rankings now sits in the same grid
+  cell as the others and uses `content-visibility: hidden`; it cancels exports on leaving
+  itself, as the runtime invariants require.
+- **Re-render only what a switch changes.** The tab bar, notices and stage subscribe to
+  the active workspace, so a switch no longer re-renders the query strip and Build
+  Detail. Compare skips its comparison when its inputs match the last finished one.
+  `compactNumber` reuses one `Intl.NumberFormat`; it was constructed 1,000 times per 50
+  rows.
+
+Results arriving take 17 ms instead of 29 ms: rows are keyed by place, so new results update
+the rows on screen (~320 elements restyled) instead of building 50 new ones (~3,200).
+
+### Memory
+
+Private working set of the whole process tree (the app and every WebView2 process), with
+GPU compositing on:
+
+| Stage | Before | After |
+| --- | --- | --- |
+| Idle after start | 1,139 MB | 182 MB |
+| After a 50-row search | 1,196 MB | 246 MB |
+| After Compare, Paths and Affinity Watch | 1,252 MB | 282 MB |
+| After 10 more searches | 1,334 MB | 344 MB |
+
+The native process held ~1,000 MB: each profile kept its attack-element corrections in a
+table indexed by param id. Ids reach ~20 million but only ~190 exist, so each profile
+allocated 482 MB. They are now a sorted list searched by id, which returned the same 50 rows
+for an identical search at the same speed, and launch-to-loaded time fell from ~1.0 s
+to ~0.85 s. WebView2's renderer grows during repeated searches because discarded rows
+are collected lazily: a forced collection returned it from 176 MB to 101 MB.
+
+The portable executable is 12.5 MB instead of 17.6 MB. Its runtime CSVs (5.35 MB) are
+embedded brotli-compressed (0.44 MB) by `core/er_optimizer_core/build.rs` from the same
+data files. Loading decompresses one profile's tables and validates the manifest sizes
+and hashes against the decompressed bytes, as before. Launch-to-loaded time and search
+results were unchanged.
+
 ## Release compiler settings
 
 Both Cargo packages set `lto = "thin"` and `codegen-units = 1` for release builds.

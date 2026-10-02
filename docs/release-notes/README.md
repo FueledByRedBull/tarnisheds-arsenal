@@ -2,11 +2,11 @@
 
 [Home](../../README.md) · [Documentation](../../README.md#documentation) · [Release guide](../releasing.md)
 
-## v0.16.0
+## v0.17.0
 
-A refreshed desktop layout, corrected skill routes, and saved builds that load
-and verify reliably.
-Read the [v0.16.0 notes](v0.16.0.md) for the changes and download choices.
+A query line you can type into, clicks that finish within a 120 Hz frame, and a
+fifth of the memory.
+Read the [v0.17.0 notes](v0.17.0.md) for the changes and download choices.
 
 For the current Windows installer and portable app, visit the
 [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
@@ -15,6 +15,7 @@ For the current Windows installer and portable app, visit the
 
 | Version | Notes | GitHub release |
 | --- | --- | --- |
+| v0.17.0 | [v0.17.0.md](v0.17.0.md) | [Tarnished's Arsenal v0.17.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.17.0) |
 | v0.16.0 | [v0.16.0.md](v0.16.0.md) | [Tarnished's Arsenal v0.16.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.16.0) |
 | v0.15.0 | [v0.15.0.md](v0.15.0.md) | [Tarnished's Arsenal v0.15.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.15.0) |
 | v0.14.1 | [v0.14.1.md](v0.14.1.md) | [Tarnished's Arsenal v0.14.1](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.14.1) |

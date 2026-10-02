@@ -1179,16 +1179,23 @@ mod integration_tests {
         let state = crate::test_app_state();
         let mut nested_request = request(&state);
         nested_request.levels_ahead = 20;
-        let cancel_after = state
-            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
-            .expect("Vanilla profile exists")
-            .data
-            .weapons
-            .len()
-            + 8;
         let profile = state
             .profile(er_optimizer_core::VANILLA_PROFILE_ID)
             .expect("Vanilla profile exists");
+        // Count a complete run's cancellation checks, then cancel eight checks before its end:
+        // well inside nested level evaluation, whatever preparation's batching.
+        let mut total_polls = 0_usize;
+        build_path_preview_inner(
+            nested_request.clone(),
+            profile,
+            || {
+                total_polls += 1;
+                true
+            },
+            |_| {},
+        )
+        .expect("uncancelled path completes");
+        let cancel_after = total_polls - 8;
         let mut polls = 0_usize;
         let error = build_path_preview_inner(
             nested_request,

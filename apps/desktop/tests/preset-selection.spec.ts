@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./editors";
 
 async function restore(page: Page, fixed: boolean, immediateSearch: boolean, explicit = false) {
   await page.goto("/");
@@ -34,6 +35,7 @@ async function restore(page: Page, fixed: boolean, immediateSearch: boolean, exp
     void state.loadBuildPreset(preset).then(result => { probe.completed = true; probe.loaded = result !== null; });
     if (immediateSearch) document.querySelector<HTMLButtonElement>(".search-button")!.click();
   }, { fixed, immediateSearch, explicit });
+  await openEditor(page, "Loadout");
   await expect(page.getByRole("combobox", { name: fixed ? "AoW (fixed)" : "AoW", exact: true })).toHaveValue(
     fixed ? "White Light Charge" : explicit ? "Seppuku" : "Automatic (best legal skill)",
   );
@@ -80,7 +82,7 @@ test("manual weapon selection after restoration still dispatches its native defa
     });
   });
   await expect(page.getByText(/saved results verified on current data/)).toBeVisible();
-  await page.getByRole("combobox", { name: "Weapon", exact: true }).fill("Zweihander");
+  await (await openEditor(page, "Loadout")).getByRole("combobox", { name: "Weapon", exact: true }).fill("Zweihander");
   await page.evaluate(() => {
     document.querySelector<HTMLInputElement>('input[aria-label="Weapon"]')!.blur();
     document.querySelector<HTMLButtonElement>(".search-button")!.click();

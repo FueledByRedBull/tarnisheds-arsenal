@@ -1,13 +1,16 @@
-import { ArrowDownUp, ChevronLeft, ChevronRight, Download, LockKeyhole, Pin, RefreshCcw, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowDown, ArrowDownUp, ArrowUp, ChevronLeft, ChevronRight, Download, LockKeyhole, Pin, RefreshCcw } from "lucide-react";
+import { memo, ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { downloadCsv, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
 import { compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
-import { buildOptimizeRequest, derivedLevel, rowFingerprint } from "../../lib/session";
+import { buildOptimizeRequest, rowFingerprint } from "../../lib/session";
+import { reducedMotion, settleRanking } from "../../lib/motion";
+import { RankedEntry, RankMovement, RankSortKey, rankMovements, sortRanked } from "../../lib/ranking-view";
 import { useDesktopStore } from "../../lib/state";
-import { SearchProgressDto, SolvedBuildDto } from "../../lib/types";
+import { ObjectiveId, SearchProgressDto, SolvedBuildDto } from "../../lib/types";
 import { runSearchFromStore, runSearchRequestForRows } from "../../lib/workflows";
 import packageInfo from "../../../package.json";
 import { STAT_KEYS, ScalingTokens, StatTokens } from "../shared/BuildMetricTokens";
+import { SkeletonRows } from "../shared/SkeletonRows";
 
 export function RankingsBoard() {
   const rows = useDesktopStore((state) => state.rows);
@@ -25,6 +28,8 @@ export function RankingsBoard() {
   const resultsStale = useDesktopStore((state) => state.resultsStale);
   const pushNotice = useDesktopStore((state) => state.pushNotice);
   const setError = useDesktopStore((state) => state.setError);
+  // The board stays rendered while another workspace is shown (App.tsx), so it follows that here.
+  const shown = useDesktopStore((state) => state.activeWorkspace === "rankings");
   const objective = useDesktopStore((state) => state.request.objective);
   const isExporting = useDesktopStore((state) => state.isExporting);
   const setExporting = useDesktopStore((state) => state.setExporting);
@@ -32,32 +37,29 @@ export function RankingsBoard() {
   const [exportProgress, setExportProgress] = useState<SearchProgressDto | null>(null);
   const [exportLimit, setExportLimit] = useState<25 | 100 | 500 | 2000>(25);
   const exportCache = useRef<{ signature: string; rows: SolvedBuildDto[] } | null>(null);
-  const [reverseRank, setReverseRank] = useState(false);
+  const rankBaseline = useDesktopStore((state) => state.rankBaseline);
+  const [sort, setSort] = useState<{ key: RankSortKey; reverse: boolean }>({ key: "rank", reverse: false });
   const [horizontalScroll, setHorizontalScroll] = useState({ overflow: false, left: false, right: false });
   const resultBoard = useRef<HTMLDivElement>(null);
-  const rankedRows = useMemo(() => {
-    const entries = rows.map((row, rank) => ({ row, rank }));
-    return reverseRank ? entries.reverse() : entries;
-  }, [reverseRank, rows]);
-  const constraintCount = [
-    request.weaponTypeKey,
-    request.weaponName,
-    request.affinity,
-    request.aowName,
-    request.somberFilter !== "all" ? request.somberFilter : null,
-    lockedStatMode ? "locked-stats" : null,
-    request.minStr > 0 ? "min-str" : null,
-    request.minDex > 0 ? "min-dex" : null,
-    request.minInt > 0 ? "min-int" : null,
-    request.minFai > 0 ? "min-fai" : null,
-    request.minArc > 0 ? "min-arc" : null,
-  ].filter(Boolean).length + request.filters.entries.length;
+  const aowSupported = Boolean(catalog?.dataManifest.capabilities.aowDamage && catalog.dataManifest.capabilities.aowRoutes);
+  const rankedRows = useMemo(
+    () => sortRanked(rows, sort.key, sort.reverse, objective, aowSupported),
+    [aowSupported, objective, rows, sort],
+  );
+  const movements = useMemo(
+    () => rankMovements(rows, rankBaseline, objective, aowSupported),
+    [aowSupported, objective, rankBaseline, rows],
+  );
+  const sortBy = (key: RankSortKey) => setSort((current) => ({ key, reverse: current.key === key ? !current.reverse : false }));
+  const ariaSort = (key: RankSortKey) => sort.key !== key ? undefined
+    : (key === "rank") !== sort.reverse ? "ascending" as const : "descending" as const;
   const profileRules = catalog?.dataManifest.rules;
   const separateUpgradeCaps = profileRules?.separateUpgradeCaps ?? true;
   const scadutreeAvailable = profileRules?.scadutreeScaling ?? true;
   const extendedScalingGrades = profileRules?.extendedScalingGrades ?? false;
 
-  useEffect(() => () => exportController.current?.abort(), [catalog, request, lockedStatMode, searchGeneration]);
+  // Leaving Rankings cancels an export, like any input or profile change.
+  useEffect(() => () => exportController.current?.abort(), [catalog, request, lockedStatMode, searchGeneration, shown]);
 
   useEffect(() => {
     const board = resultBoard.current;
@@ -72,7 +74,8 @@ export function RankingsBoard() {
       setHorizontalScroll((previous) => previous.overflow === next.overflow
         && previous.left === next.left && previous.right === next.right ? previous : next);
     };
-    update();
+    // The observer's first callback measures after layout. Measuring here would force a full
+    // layout of the board inside the click that reveals it.
     board.addEventListener("scroll", update, { passive: true });
     const observer = new ResizeObserver(update);
     observer.observe(board);
@@ -82,10 +85,52 @@ export function RankingsBoard() {
     };
   }, [rows.length]);
 
-  async function lockAndRerun(row: SolvedBuildDto) {
+  const lockAndRerun = useCallback(async (row: SolvedBuildDto) => {
     applyRowLocks(row);
     await runSearchFromStore();
-  }
+  }, [applyRowLocks]);
+  const selectedKey = rowFingerprint(selected);
+  const pinnedKeys = useMemo(() => new Set(compareBench.map(rowFingerprint)), [compareBench]);
+
+  const rowsContainer = useRef<HTMLDivElement>(null);
+  // Rows stay in rank order in the DOM. A sort offsets them (they are relatively positioned, so
+  // only their positions update) and gives keyboard and screen readers the new order through
+  // reading-order; moving the row nodes instead restyled and laid out all of them (~15 ms per
+  // sort). Transforms would avoid even that, but give each sticky rank cell its own layer.
+  useLayoutEffect(() => {
+    const container = rowsContainer.current;
+    if (!container) return;
+    placeRows(container, rankedRows);
+    // Row heights follow the board width, so a resize re-places a sorted board.
+    const observer = new ResizeObserver(() => placeRows(container, rankedRows));
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [rankedRows]);
+
+  // A sort or an updated search re-forges the ranking. Results that land while another
+  // workspace is shown re-forge when the board is shown again.
+  const laidOut = useRef({ rows, rankedRows });
+  useLayoutEffect(() => {
+    const container = rowsContainer.current;
+    if (!shown) return;
+    const previous = laidOut.current;
+    laidOut.current = { rows, rankedRows };
+    if (container && previous.rankedRows !== rankedRows) settleRanking(container, previous.rows !== rows, resultBoard.current);
+  }, [rankedRows, rows, shown]);
+
+  // Hidden workspaces lose their display and replay the stage entrance in CSS when shown; this
+  // one is only skipped while hidden (styles.css), so it replays the entrance itself.
+  const panel = useRef<HTMLElement>(null);
+  const wasShown = useRef(shown);
+  useLayoutEffect(() => {
+    if (shown && !wasShown.current && !reducedMotion()) {
+      panel.current?.animate(
+        [{ opacity: 0, transform: "translateY(7px) scale(0.997)" }, { opacity: 1, transform: "none" }],
+        { duration: 260, easing: "cubic-bezier(0.2, 0.75, 0.2, 1)" },
+      );
+    }
+    wasShown.current = shown;
+  }, [shown]);
 
   async function exportCsv() {
     if (useDesktopStore.getState().isSearching || useDesktopStore.getState().isExporting) return;
@@ -182,7 +227,7 @@ export function RankingsBoard() {
   }
 
   return (
-    <section className="workspace-panel rankings-panel">
+    <section className="workspace-panel rankings-panel" ref={panel} data-offstage={shown ? undefined : ""}>
       <div className="workspace-header">
         <div>
           <h1>Rankings</h1>
@@ -191,12 +236,14 @@ export function RankingsBoard() {
         <div className="result-scroll-actions">
           <button
             type="button"
-            title="Reverse rank display; click again to return to best first"
-            aria-pressed={reverseRank}
-            onClick={() => setReverseRank((value) => !value)}
+            title="Reverse the current order; click again to restore it"
+            aria-pressed={sort.reverse}
+            onClick={() => setSort((current) => ({ ...current, reverse: !current.reverse }))}
           >
             <ArrowDownUp size={15} />
-            <span className="sr-only">{reverseRank ? "Show best rank first" : "Show lowest rank first"}</span>
+            <span className="sr-only">{sort.key === "rank"
+              ? sort.reverse ? "Show best rank first" : "Show lowest rank first"
+              : sort.reverse ? "Show highest first" : "Show lowest first"}</span>
           </button>
           {horizontalScroll.overflow ? (
             <>
@@ -250,23 +297,6 @@ export function RankingsBoard() {
           </button>
         </div>
       ) : null}
-      <div className="query-summary" aria-label="Active search summary">
-        <span className="query-summary-title"><Sparkles size={14} />{resultsStale ? "Pending query" : "Active query"}</span>
-        <span>{objectiveLabel(request.objective)}</span>
-        <span>{catalog?.dataManifest.capabilities.classBudget === false ? "Stat total" : "Level"} {derivedLevel(catalog, request)}</span>
-        <span>
-          {request.exactUpgrade ? "Exact" : "Up to"} +{request.standardMaxUpgrade}
-          {separateUpgradeCaps ? ` / +${request.somberMaxUpgrade}` : ""}
-        </span>
-        <span>{request.twoHanding ? "Two-handed" : "One-handed"}</span>
-        <span>
-          {scadutreeAvailable
-            ? request.dlcScaling ? `DLC blessing +${request.scadutreeLevel}` : "Base-game scaling"
-            : "No Scadutree scaling"}
-        </span>
-        <span>{constraintCount} active constraint{constraintCount === 1 ? "" : "s"}</span>
-        <small>{catalog?.dataManifest.label ?? "Loading dataset"}</small>
-      </div>
       <details className="mechanics-glossary">
         <summary>Metric glossary</summary>
         <dl>
@@ -286,7 +316,9 @@ export function RankingsBoard() {
         aria-describedby={resultsStale ? "stale-results-message" : undefined}
       >
         <div className={`result-head result-head-full ${objective !== "max_ar" ? "with-score" : ""}`} role="row">
-          <span role="columnheader" title="Rank">#</span>
+          <span role="columnheader" aria-sort={ariaSort("rank")}>
+            <SortButton label="Rank" direction={ariaSort("rank")} onClick={() => sortBy("rank")}>#</SortButton>
+          </span>
           <span role="columnheader" title="Weapon, affinity, skill, and reinforcement level">Loadout</span>
           <span role="columnheader" className="token-column-head" title="Attribute scaling grade at this reinforcement level">
             Scaling<StatKeys />
@@ -294,61 +326,156 @@ export function RankingsBoard() {
           <span role="columnheader" className="token-column-head" title="Combat stats of this build">
             Stats<StatKeys />
           </span>
-          <span role="columnheader" title="Raw attack rating before enemy defense and negation">AR</span>
-          <span role="columnheader" title="Raw skill damage for the full route, and its first damaging hit">Skill damage</span>
+          <span role="columnheader" aria-sort={ariaSort("ar")} title="Raw attack rating before enemy defense and negation">
+            <SortButton direction={ariaSort("ar")} onClick={() => sortBy("ar")}>AR</SortButton>
+          </span>
+          <span role="columnheader" aria-sort={ariaSort("skill")} title="Raw skill damage for the full route, and its first damaging hit">
+            <SortButton direction={ariaSort("skill")} onClick={() => sortBy("skill")}>Skill damage</SortButton>
+          </span>
           {objective !== "max_ar" ? (
-            <span role="columnheader" title="Value used by the active ranking objective">{objectiveLabel(objective)}</span>
+            <span role="columnheader" aria-sort={ariaSort("score")} title="Value used by the active ranking objective">
+              <SortButton direction={ariaSort("score")} onClick={() => sortBy("score")}>{objectiveLabel(objective)}</SortButton>
+            </span>
           ) : null}
           <span role="columnheader" title="Pin for comparison or use this result as exact search locks">
             <span className="sr-only">Actions</span>
           </span>
         </div>
-        {rows.length === 0 ? <EmptyRows onExample={runStarterExample} busy={isSearching || isExporting} classBudget={catalog?.dataManifest.capabilities.classBudget !== false} /> : null}
-        {rankedRows.map(({ row, rank }) => (
-          <ResultRow
-            key={`${rowFingerprint(row)}-${rank}`}
-            index={rank}
-            row={row}
-            active={rowFingerprint(selected) === rowFingerprint(row)}
-            objective={objective}
-            lockDisabled={isExporting}
-            aowModelSupported={Boolean(catalog?.dataManifest.capabilities.aowDamage && catalog.dataManifest.capabilities.aowRoutes)}
-            extendedScalingGrades={extendedScalingGrades}
-            onClick={() => selectRow(row)}
-            onLock={() => lockAndRerun(row)}
-            pinned={compareBench.some((entry) => rowFingerprint(entry) === rowFingerprint(row))}
-            onPin={() => toggleCompareBench(row)}
-          />
-        ))}
+        {rows.length === 0 ? (
+          // A grid may only own rows, so the empty state sits in one full-width cell.
+          <div role="row">
+            <div role="gridcell">
+              {isSearching ? (
+                <div className="forging-state" role="status">
+                  <span>Ranking every legal setup…</span>
+                  <SkeletonRows count={8} />
+                </div>
+              ) : (
+                <EmptyRows onExample={runStarterExample} busy={isExporting} classBudget={catalog?.dataManifest.capabilities.classBudget !== false} />
+              )}
+            </div>
+          </div>
+        ) : null}
+        <div className="result-rows" role="rowgroup" ref={rowsContainer} data-searching={isSearching || undefined}>
+        {rows.map((row, rank) => {
+          const key = rowFingerprint(row);
+          return (
+            <ResultRow
+              // Keyed by place: new results update the rows already on screen instead of
+              // rebuilding all 50 (~3,200 elements) and leaving the old ones as garbage.
+              key={rank}
+              index={rank}
+              row={row}
+              movement={movements?.[rank] ?? null}
+              active={selectedKey === key}
+              objective={objective}
+              lockDisabled={isExporting}
+              aowModelSupported={aowSupported}
+              extendedScalingGrades={extendedScalingGrades}
+              onSelect={selectRow}
+              onLock={lockAndRerun}
+              pinned={pinnedKeys.has(key)}
+              onPin={toggleCompareBench}
+            />
+          );
+        })}
+        </div>
       </div>
     </section>
   );
 }
 
-function ResultRow({
+// The direction mark is aria-hidden so the column keeps its name; aria-sort carries the order.
+function SortButton({ label, direction, onClick, children }: {
+  label?: string;
+  direction: "ascending" | "descending" | undefined;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  const Arrow = direction === "ascending" ? ArrowUp : ArrowDown;
+  return (
+    <button type="button" className={`sort-header${direction ? " active" : ""}`} aria-label={label} onClick={onClick}>
+      {children}
+      {direction ? <Arrow size={11} aria-hidden="true" /> : null}
+    </button>
+  );
+}
+
+function movementText(movement: RankMovement | null): string {
+  if (!movement) return "";
+  if (movement.places === null) return "new since the previous search";
+  if (movement.places === 0) return "";
+  return `${movement.places > 0 ? "up" : "down"} ${Math.abs(movement.places)} since the previous search`;
+}
+
+function MetricDelta({ movement, objective }: { movement: RankMovement | null; objective: ObjectiveId }) {
+  const delta = movement?.metricDelta ?? null;
+  if (delta === null || Math.abs(delta) < 0.05) return null;
+  return (
+    <small className={`metric-delta ${delta > 0 ? "up" : "down"}`} title={`${objectiveLabel(objective)} ${delta > 0 ? "+" : ""}${fixed1(delta)} since the previous search`}>
+      {delta > 0 ? "+" : ""}{fixed1(delta)}
+    </small>
+  );
+}
+
+// Shifts each row from its rank-order place to its sorted one. Rows stack without gaps, so both
+// places are running sums of row heights; fractional heights keep 50 rows from drifting apart.
+function placeRows(container: HTMLElement, ranked: RankedEntry[]) {
+  const rows = [...container.children].filter((row): row is HTMLElement => row instanceof HTMLElement);
+  // Rank order needs no measuring, so fresh results never force a layout here.
+  const unsorted = ranked.every(({ rank }, position) => rank === position);
+  const heights = unsorted ? [] : rows.map((row) => row.getBoundingClientRect().height);
+  const natural: number[] = [];
+  heights.reduce((top, height, rank) => { natural[rank] = top; return top + height; }, 0);
+  let top = 0;
+  ranked.forEach(({ rank }, position) => {
+    const row = rows[rank];
+    if (!row) return;
+    const shift = unsorted ? 0 : top - natural[rank];
+    row.style.top = shift ? `${shift}px` : "";
+    row.style.setProperty("reading-order", String(position));
+    if (!unsorted) top += heights[rank];
+  });
+}
+
+// Arrow keys move between rows like a grid, in the order shown; Enter and Space still select.
+function moveRowFocus(row: HTMLElement, key: string) {
+  const top = (element: HTMLElement) => element.getBoundingClientRect().top;
+  const rows = [...(row.parentElement?.querySelectorAll<HTMLElement>(".result-row-full") ?? [])]
+    .sort((a, b) => top(a) - top(b));
+  const index = rows.indexOf(row);
+  const target = key === "Home" ? rows[0] : key === "End" ? rows.at(-1) : rows[index + (key === "ArrowDown" ? 1 : -1)];
+  target?.focus();
+}
+
+// Memoised with row-taking handlers, so a selection, sort or query edit re-renders only the
+// rows whose own props changed.
+const ResultRow = memo(function ResultRow({
   row,
   index,
+  movement,
   active,
   objective,
   lockDisabled,
   aowModelSupported,
   extendedScalingGrades,
-  onClick,
+  onSelect,
   onLock,
   pinned,
   onPin,
 }: {
   row: SolvedBuildDto;
   index: number;
+  movement: RankMovement | null;
   active: boolean;
   objective: Parameters<typeof metricForObjective>[1];
   aowModelSupported: boolean;
   extendedScalingGrades: boolean;
-  onClick: () => void;
-  onLock: () => void;
+  onSelect: (row: SolvedBuildDto) => void;
+  onLock: (row: SolvedBuildDto) => void;
   lockDisabled: boolean;
   pinned: boolean;
-  onPin: () => void;
+  onPin: (row: SolvedBuildDto) => void;
 }) {
   const aowAvailable = hasAowDamage(row, aowModelSupported);
   const metric = metricForObjective(row, objective, aowModelSupported);
@@ -357,21 +484,31 @@ function ResultRow({
       className={`result-row result-row-full ${objective !== "max_ar" ? "with-score" : ""} ${active ? "active" : ""}`}
       role="row"
       aria-selected={active}
-      aria-label={`Select ${row.weaponName}, ${row.affinity}, rank ${index + 1}`}
+      aria-label={`Select ${row.weaponName}, ${row.affinity}, rank ${index + 1}${movementText(movement) ? `, ${movementText(movement)}` : ""}`}
       title="Select this build"
       tabIndex={0}
-      onClick={onClick}
+      onClick={() => onSelect(row)}
       onKeyDown={(event) => {
         if (event.target !== event.currentTarget) {
           return;
         }
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          onClick();
+          onSelect(row);
+        } else if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Home" || event.key === "End") {
+          event.preventDefault();
+          moveRowFocus(event.currentTarget, event.key);
         }
       }}
     >
-      <span role="gridcell" className="rank-cell">{index + 1}</span>
+      <span role="gridcell" className="rank-cell">
+        {index + 1}
+        {movement && movement.places !== 0 ? (
+          <small className={`rank-move ${movement.places === null ? "new" : movement.places > 0 ? "up" : "down"}`} title={movementText(movement)}>
+            {movement.places === null ? "New" : <>{movement.places > 0 ? <ArrowUp size={10} aria-hidden="true" /> : <ArrowDown size={10} aria-hidden="true" />}{Math.abs(movement.places)}</>}
+          </small>
+        ) : null}
+      </span>
       <span role="gridcell" className="weapon-cell">
         <span className="weapon-line">
           <strong>{row.weaponName}</strong>
@@ -389,13 +526,21 @@ function ResultRow({
       <span role="gridcell" className="token-cell">
         <StatTokens row={row} />
       </span>
-      <span role="gridcell" className="result-metric-cell ar-cell"><strong>{fixed1(row.ar.total)}</strong></span>
+      <span role="gridcell" className="result-metric-cell ar-cell">
+        <strong>{fixed1(row.ar.total)}</strong>
+        {objective === "max_ar" ? <MetricDelta movement={movement} objective={objective} /> : null}
+      </span>
       <span role="gridcell" className="result-metric-cell skill-cell" title={aowAvailable ? undefined : "Skill damage isn't modeled for this loadout."}>
         {aowAvailable
           ? <><strong>{compactNumber(row.aowFullSequenceDamage)}</strong><small>1st hit {compactNumber(row.aowFirstHitDamage)}</small></>
           : <span className="result-unavailable">Unavailable</span>}
       </span>
-      {objective !== "max_ar" ? <span role="gridcell" className="objective-score">{metric === null ? "Unavailable" : fixed1(metric)}</span> : null}
+      {objective !== "max_ar" ? (
+        <span role="gridcell" className="objective-score">
+          {metric === null ? "Unavailable" : fixed1(metric)}
+          <MetricDelta movement={movement} objective={objective} />
+        </span>
+      ) : null}
       <span role="gridcell">
         <button
           className="inline-lock"
@@ -404,7 +549,7 @@ function ResultRow({
           aria-label={`${pinned ? "Unpin" : "Compare"} ${row.weaponName}, ${row.affinity}, rank ${index + 1}`}
           onClick={(event) => {
             event.stopPropagation();
-            onPin();
+            onPin(row);
           }}
         >
           <Pin size={15} aria-hidden="true" />
@@ -416,7 +561,7 @@ function ResultRow({
           disabled={lockDisabled}
           onClick={(event) => {
             event.stopPropagation();
-            onLock();
+            void onLock(row);
           }}
         >
           <LockKeyhole size={15} aria-hidden="true" />
@@ -424,7 +569,7 @@ function ResultRow({
       </span>
     </div>
   );
-}
+});
 
 /** Column keys shown once in the header so rows can carry bare values. */
 function StatKeys() {
@@ -444,7 +589,7 @@ function EmptyRows({ onExample, busy, classBudget }: { onExample: () => void; bu
       {classBudget ? (
         <>
           <small>Character stats, floors, locks, and world settings are retained by the example.</small>
-          <button className="inline-lock" type="button" onClick={onExample} disabled={busy}>{busy ? "Searching…" : "Try Uchigatana +3 example"}</button>
+          <button className="inline-lock" type="button" onClick={onExample} disabled={busy}>Try Uchigatana +3 example</button>
         </>
       ) : <small>Convergence uses your entered combat stats exactly.</small>}
     </div>

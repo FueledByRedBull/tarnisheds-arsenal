@@ -10,15 +10,8 @@ use crate::model::{
 };
 use crate::snapshot::{SnapshotManifest, validate_embedded_snapshot, validate_external_snapshot};
 
-const EMBEDDED_DATA_ROOT: &str = "__er_optimizer_embedded_snapshot__";
-const EMBEDDED_VANILLA_ROOT: &str = "__er_optimizer_embedded_snapshot__/vanilla";
-const EMBEDDED_CONVERGENCE_ROOT: &str = "__er_optimizer_embedded_snapshot__/convergence";
 pub const VANILLA_PROFILE_ID: &str = "vanilla";
 pub const CONVERGENCE_PROFILE_ID: &str = "convergence";
-
-fn is_embedded_data_path(path: &Path) -> bool {
-    path.starts_with(EMBEDDED_DATA_ROOT)
-}
 
 #[derive(Clone, Debug, Default)]
 struct AowBuffRow {
@@ -96,14 +89,24 @@ impl CsvTable {
     }
 }
 
-fn embedded_csv_for_path(path: &Path) -> Option<&'static str> {
-    let name = path.file_name().and_then(|name| name.to_str())?;
-    if path.starts_with(EMBEDDED_CONVERGENCE_ROOT) {
-        return embedded_convergence_csv(name);
-    }
-    embedded_vanilla_csv(name)
+/// (profile, table, brotli-compressed CSV) for every embedded runtime table; see build.rs.
+const EMBEDDED_TABLES: &[(&str, &str, &[u8])] =
+    include!(concat!(env!("OUT_DIR"), "/embedded_tables.rs"));
+
+fn embedded_tables(profile_id: &str) -> Result<HashMap<&'static str, Vec<u8>>, String> {
+    EMBEDDED_TABLES
+        .iter()
+        .filter(|(profile, _, _)| *profile == profile_id)
+        .map(|(_, table, compressed)| {
+            let mut bytes = Vec::new();
+            brotli_decompressor::BrotliDecompress(&mut &compressed[..], &mut bytes)
+                .map_err(|error| format!("embedded {profile_id} {table} is corrupt: {error}"))?;
+            Ok((*table, bytes))
+        })
+        .collect()
 }
 
+#[cfg(test)]
 fn embedded_vanilla_csv(name: &str) -> Option<&'static str> {
     match name {
         "aow.csv" => Some(include_str!("../../../data/phase1/aow.csv")),
@@ -132,6 +135,7 @@ fn embedded_vanilla_csv(name: &str) -> Option<&'static str> {
     }
 }
 
+#[cfg(test)]
 fn embedded_convergence_csv(name: &str) -> Option<&'static str> {
     match name {
         "aow.csv" => Some(include_str!("../../../data/profiles/convergence/aow.csv")),
@@ -253,11 +257,7 @@ pub fn load_game_data(data_dir: impl AsRef<Path>) -> Result<GameData, String> {
 pub fn load_game_data_with_manifest(
     data_dir: impl AsRef<Path>,
 ) -> Result<(GameData, SnapshotManifest), String> {
-    let data_dir = data_dir.as_ref();
-    if is_embedded_data_path(data_dir) {
-        return Err("embedded snapshots must be loaded explicitly".to_string());
-    }
-    let snapshot = validate_external_snapshot(data_dir)?;
+    let snapshot = validate_external_snapshot(data_dir.as_ref())?;
     load_validated_game_data(snapshot.manifest, |name| {
         snapshot.runtime_files.get(name).map(Vec::as_slice)
     })
@@ -349,30 +349,23 @@ pub fn load_embedded_game_profile(profile_id: &str) -> Result<GameData, String> 
 pub fn load_embedded_game_profile_with_manifest(
     profile_id: &str,
 ) -> Result<(GameData, SnapshotManifest), String> {
-    let (root, manifest_bytes): (&str, &'static [u8]) = match profile_id {
-        VANILLA_PROFILE_ID => (
-            EMBEDDED_VANILLA_ROOT,
-            include_bytes!("../../../data/phase1/manifest.json"),
-        ),
-        CONVERGENCE_PROFILE_ID => (
-            EMBEDDED_CONVERGENCE_ROOT,
-            include_bytes!("../../../data/profiles/convergence/manifest.json"),
-        ),
+    let manifest_bytes: &'static [u8] = match profile_id {
+        VANILLA_PROFILE_ID => include_bytes!("../../../data/phase1/manifest.json"),
+        CONVERGENCE_PROFILE_ID => {
+            include_bytes!("../../../data/profiles/convergence/manifest.json")
+        }
         other => return Err(format!("unknown embedded game profile: {other}")),
     };
-    let root_path = Path::new(root);
-    let manifest = validate_embedded_snapshot(manifest_bytes, |name| {
-        embedded_csv_for_path(&root_path.join(name)).map(str::as_bytes)
-    })?;
+    let tables = embedded_tables(profile_id)?;
+    let content = |name: &str| tables.get(name).map(Vec::as_slice);
+    let manifest = validate_embedded_snapshot(manifest_bytes, content)?;
     if manifest.profile.id != profile_id {
         return Err(format!(
             "embedded profile id mismatch: requested {profile_id}, manifest contains {}",
             manifest.profile.id
         ));
     }
-    load_validated_game_data(manifest, |name| {
-        embedded_csv_for_path(&root_path.join(name)).map(str::as_bytes)
-    })
+    load_validated_game_data(manifest, content)
 }
 
 fn load_weapons(table: CsvTable) -> Result<Vec<Weapon>, String> {
@@ -713,10 +706,9 @@ fn load_calc_correct(table: CsvTable) -> Result<Vec<Option<Vec<Option<f32>>>>, S
 
 fn load_attack_element_correct(
     table: CsvTable,
-) -> Result<Vec<Option<AttackElementCorrect>>, String> {
+) -> Result<Vec<(usize, AttackElementCorrect)>, String> {
     let [attack_element_correct_id] = table.columns(["attack_element_correct_id"])?;
     let mut entries = Vec::with_capacity(table.rows.len());
-    let mut max_id = 0usize;
 
     let fields = [
         [
@@ -773,19 +765,17 @@ fn load_attack_element_correct(
                 scales[stat_idx][damage_idx] = value != 0;
             }
         }
-        max_id = max_id.max(row_id);
         entries.push((row_id, AttackElementCorrect { scales }));
     }
 
-    let mut out = vec![None; max_id + 1];
-    for (row_id, value) in entries {
-        if out[row_id].replace(value).is_some() {
-            return Err(format!(
-                "duplicate attack-element-correct entry id={row_id}"
-            ));
-        }
+    entries.sort_by_key(|(row_id, _)| *row_id);
+    if let Some(pair) = entries.windows(2).find(|pair| pair[0].0 == pair[1].0) {
+        return Err(format!(
+            "duplicate attack-element-correct entry id={}",
+            pair[0].0
+        ));
     }
-    Ok(out)
+    Ok(entries)
 }
 
 fn load_aows(table: CsvTable, buff_rows: &HashMap<u16, AowBuffRow>) -> Result<Vec<Aow>, String> {

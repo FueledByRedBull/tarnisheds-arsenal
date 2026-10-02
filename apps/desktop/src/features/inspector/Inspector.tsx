@@ -29,6 +29,7 @@ import { SavedBuildRecovery } from "../shared/SavedBuildRecovery";
 export function Inspector() {
   const catalog = useDesktopStore((state) => state.catalog);
   const selected = useDesktopStore((state) => state.selected);
+  const rows = useDesktopStore((state) => state.rows);
   const request = useDesktopStore((state) => state.request);
   const resultsStale = useDesktopStore((state) => state.resultsStale);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
@@ -42,9 +43,22 @@ export function Inspector() {
   const aowAvailable = selected && hasAowDamage(selected, aowModelSupported);
   const selectedMetric = selected ? metricForObjective(selected, request.objective, aowModelSupported) : null;
   const pinned = Boolean(selected && compareBench.some((entry) => rowFingerprint(entry) === rowFingerprint(selected)));
+  const rank = selected ? rows.findIndex((row) => rowFingerprint(row) === rowFingerprint(selected)) : -1;
+  const leaderMetric = rows[0] ? metricForObjective(rows[0], request.objective, aowModelSupported) : null;
+  const behindLeader = rank > 0 && leaderMetric !== null && selectedMetric !== null ? leaderMetric - selectedMetric : null;
   const modelWarnings = [...new Set(selected?.aowRoute?.actions.flatMap(
     (action) => action.hits.flatMap((hit) => hit.warnings),
   ) ?? [])];
+  // A new selection updates the panel in place and fades it in, instead of rebuilding it.
+  const detail = useRef<HTMLDivElement>(null);
+  const selectedKey = rowFingerprint(selected);
+  useEffect(() => {
+    if (!selectedKey || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    detail.current?.animate(
+      [{ opacity: 0.35, transform: "translateY(4px)" }, { opacity: 1, transform: "none" }],
+      { duration: 200, easing: "cubic-bezier(0.16, 1, 0.3, 1)" },
+    );
+  }, [selectedKey]);
   const weaponResource = useWeaponProfileResource(request.profileId, selected?.weaponName ?? null, selected?.affinity ?? null);
   const weaponProfile = weaponResource.profile;
 
@@ -61,7 +75,7 @@ export function Inspector() {
         <span>Build detail</span>
       </div>
       {selected ? (
-        <div className="selection-detail" key={rowFingerprint(selected)}>
+        <div className="selection-detail" ref={detail}>
           <div className="selected-build">
             <strong>{selected.weaponName}</strong>
             <span>{selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade}</span>
@@ -84,6 +98,14 @@ export function Inspector() {
                 : "Unavailable"}
             />
           </div>
+          {rank >= 0 && !resultsStale ? (
+            <p className="rank-context">
+              Rank <strong>{rank + 1}</strong> of {rows.length}
+              {rank === 0 ? " · best for this query"
+                : behindLeader === null ? ""
+                  : behindLeader < 0.05 ? " · less than 0.05 behind #1" : ` · ${fixed1(behindLeader)} behind #1`}
+            </p>
+          ) : null}
           <div className="inspector-actions stacked">
             <button type="button" onClick={lockSelected}><LockKeyhole size={15} />Use as search locks</button>
             <button

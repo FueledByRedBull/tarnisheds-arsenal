@@ -72,8 +72,9 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - Native job queues resolve only successful terminal payloads; cancellation and
   errors reject. This type-level guarantee does not release uncertain native
   ownership or replace generation/signature checks at publication.
-- Numeric input edits do not launch exact optimizer preparation; the command rail
-  shows a constant-time scope summary and exact preparation begins only on Search.
+- Numeric input edits do not launch exact optimizer preparation; the query strip's
+  tokens and stat ribbon show a constant-time scope summary and exact preparation
+  begins only on Search.
   `PreparedSearchPlan::estimate` reports the prepared plan's logical candidate
   count; there is no standalone estimate API or frontend estimate job. A future
   asynchronous estimate needs a generation, signature, and job ID.

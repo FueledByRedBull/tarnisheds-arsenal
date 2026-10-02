@@ -24,22 +24,21 @@ comparisons and progression previews.
 [![Tauri 2](https://img.shields.io/badge/Tauri_2-101315?style=flat-square&logo=tauri&logoColor=c9a45c)](apps/desktop/src-tauri)
 [![React 19](https://img.shields.io/badge/React_19-101315?style=flat-square&logo=react&logoColor=c9a45c)](apps/desktop/src)
 
-[What’s new in v0.16.0](docs/release-notes/v0.16.0.md)
+[What’s new in v0.17.0](docs/release-notes/v0.17.0.md)
 · [Your first build](#your-first-build)
 · [Documentation](#documentation)
 
 </div>
 
 Each Rankings row shows the loadout, weapon scaling, combat stats, AR, and skill
-damage, with the selected build’s full breakdown on the right. Screenshots show
-[v0.16.0](docs/release-notes/v0.16.0.md).
+damage, with the selected build’s full breakdown on the right.
 
 ![Rankings with weapon setups, combat stats, scaling, and the selected build’s damage breakdown](docs/images/tarnisheds-arsenal-rankings.png)
 
 ## Download
 
 Choose an asset from the [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
-The [v0.16.0 notes](docs/release-notes/v0.16.0.md) include versioned downloads,
+The [v0.17.0 notes](docs/release-notes/v0.17.0.md) include versioned downloads,
 calculation changes, and verification limits.
 
 | Choose | Best for |
@@ -59,16 +58,22 @@ needs internet access if that runtime is missing.
 
 ## Your first build
 
-1. Choose **Vanilla**, your starting class, and your character stats or level.
-2. Pick an objective such as **Max AR**. Set any weapon, affinity, skill, or
-   upgrade constraints; open fields allow all legal choices.
+1. Choose **Vanilla**. The query line at the top reads as one sentence: click
+   your starting class to change it, and type your stats into the ribbon below.
+2. Click the objective (such as **Max AR**), the loadout, the upgrades, or any
+   other part of the query to edit it; open fields allow all legal choices.
+   Press **Ctrl+K** to type a change instead, such as `str 40`, `uchigatana`,
+   `+20`, or `top 10`.
 3. Press **Search**, then select a row to inspect its damage, scaling, and stats.
 4. Pin another result for **Compare**, trace future levels in **Paths**, or
    explore affinity crossover points in **Affinity Watch**.
 
-Save builds to return to them later, or export rankings as CSV. The **Active
-query** summary above the rankings shows the assumptions behind them; changed
-inputs mark old results as stale. Convergence uses a different
+Save builds to return to them later, or export rankings as CSV. The query line
+shows the assumptions behind the rankings; changed inputs mark old results as
+stale. **Ctrl+Z** undoes any query change. After **Update Results**, each rank
+shows how far that loadout moved and how its score changed. Click **AR**,
+**Skill damage**, or the objective column to sort without losing the rank, and
+press **?** for every shortcut. Convergence uses a different
 [fixed-stat workflow](#convergence-3001-beta).
 
 ### Saved builds and recovery
@@ -102,6 +107,8 @@ calculation summaries, not estimates of each stat's causal damage contribution.
 
 Pinned loadouts keep their weapon, affinity, and skill. Their stats and upgrades
 are reoptimized for the current budget; the upgrade chart shows how each develops.
+Active comparison filters appear as removable chips; **Filters** holds every
+option, and **Use ranked rivals** returns to the default comparison.
 
 **AR / Bleed tradeoffs** keeps the selected weapon, affinity, skill, upgrade,
 level budget, stat floors/locks, and handling fixed. Compute its complete frontier,
@@ -185,7 +192,7 @@ Choose a guide for the task at hand:
 
 | I want to… | Read |
 | --- | --- |
-| See what changed in **v0.16.0** | [Release notes](docs/release-notes/v0.16.0.md) · [All versions](docs/release-notes/README.md) |
+| See what changed in **v0.17.0** | [Release notes](docs/release-notes/v0.17.0.md) · [All versions](docs/release-notes/README.md) |
 | Understand supported mechanics and limitations | [Model reference](docs/model-reference.md) |
 | Find components and trace a calculation | [Optimizer overview](docs/design/optimizer-overview.md) |
 | Inspect the exact ranking contract and proof | [Optimizer mathematics](docs/design/optimizer-math.md) |

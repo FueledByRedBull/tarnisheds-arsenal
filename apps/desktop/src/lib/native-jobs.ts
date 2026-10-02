@@ -58,7 +58,8 @@ export function createNativeJobQueue<S extends { finished: FinishedJob | null }>
           }
           if (!cancellationSent) onStatus?.(current);
           const progress = progressKey(current);
-          delay = nextPollDelay(delay, progress !== lastProgress);
+          // The first status is the baseline, not a change.
+          delay = nextPollDelay(delay, lastProgress !== undefined && progress !== lastProgress);
           lastProgress = progress;
         } catch (error) {
           pendingStatus = null;

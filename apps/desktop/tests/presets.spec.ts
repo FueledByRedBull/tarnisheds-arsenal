@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openEditor } from "./editors";
 
 for (const outcome of ["cancelled", "failed"] as const) {
   test(`keeps the saved comparison when its upgrade series is ${outcome}`, async ({ page }) => {
@@ -71,6 +72,7 @@ for (const withPins of [false, true]) {
       const target = useDesktopStore.getState().compareTarget;
       return target && { weaponName: target.weaponName, affinity: target.affinity };
     })).toEqual(savedTarget);
+    await openEditor(page, "Comparison filters");
     await expect(page.getByRole("combobox", { name: "Compare Weapon", exact: true })).not.toHaveValue("Claymore");
     const pins = await page.evaluate(async () => {
       const { useDesktopStore } = await import("/src/lib/state.ts");
@@ -85,6 +87,7 @@ for (const withPins of [false, true]) {
     await expect(page.locator(".path-lane").nth(1)).toContainText(`${savedTarget.weaponName} / ${savedTarget.affinity}`);
     await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
     await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
+    await openEditor(page, "Comparison filters");
     await page.getByRole("checkbox", { name: "Smithing", exact: true }).uncheck();
     await page.getByRole("checkbox", { name: "Somber", exact: true }).uncheck();
     await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
@@ -150,11 +153,12 @@ test("saving with result locks disabled keeps them disabled after loading", asyn
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
   await page.locator(".result-row-full").first().getByRole("button", { name: /^Lock / }).click();
-  await page.getByText("Advanced", { exact: true }).click();
+  await openEditor(page, "Limits");
   const locks = page.getByRole("checkbox", { name: "Use Locked Result Stats", exact: true });
   await locks.uncheck();
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   await page.getByRole("button", { name: "Load", exact: true }).click();
+  await openEditor(page, "Limits");
   await expect(locks).not.toBeChecked();
   const saved = await page.evaluate(() => {
     const key = Object.keys(localStorage).find((key) => key.startsWith("tarnisheds-arsenal.savedBuild.v2."))!;

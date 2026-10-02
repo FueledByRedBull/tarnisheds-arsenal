@@ -15,6 +15,7 @@ import {
   PathJobStatusDto,
   PathProgressDto,
 } from "./types";
+import { withoutHistory } from "./query-history";
 
 export function useRequestBudget(
   catalog: CatalogDto | null,
@@ -46,7 +47,7 @@ export function useWeaponProfile(
     if (request.aowName && !profile.compatibleAows.includes(request.aowName)) {
       patch.aowName = null;
     }
-    if (Object.keys(patch).length > 0) patchRequest(patch);
+    if (Object.keys(patch).length > 0) withoutHistory(() => patchRequest(patch));
   }, [patchRequest, profile, request.affinity, request.aowName]);
 
   return resource;

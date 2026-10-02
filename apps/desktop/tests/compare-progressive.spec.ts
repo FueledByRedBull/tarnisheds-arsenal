@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./editors";
 
 async function prepare(page: Page, pins = false) {
   await page.goto("/");
@@ -133,6 +134,7 @@ test("manual comparison filters preserve pins and unpinning invalidates the Path
   await prepare(page, true);
   await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
   await expect(page.getByRole("group", { name: "Pinned #1", exact: true })).toBeVisible();
+  await openEditor(page, "Comparison filters");
   await page.getByRole("checkbox", { name: "Smithing", exact: true }).uncheck();
   await expect(page.getByRole("button", { name: "Use pinned targets", exact: true })).toBeVisible();
   expect(await page.evaluate(async () => (await import("/src/lib/state.ts")).useDesktopStore.getState().compareBench.length)).toBe(2);
