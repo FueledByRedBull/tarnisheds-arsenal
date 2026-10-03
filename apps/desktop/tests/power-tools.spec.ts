@@ -228,5 +228,5 @@ test("Build Detail never calls a rounded gap an exact tie", async ({ page }) => 
   });
   await page.locator(".result-row-full").nth(1).click();
   await expect(page.locator(".rank-context")).toHaveText("Rank 2 of 4 · less than 0.05 behind #1");
-  await expect(page.locator(".rank-proof")).toHaveText("Ranked exactly against all 100 legal setups this query allows.");
+  await expect(page.locator(".rank-proof")).toHaveText("Ranked exactly across 100 scored setups. Stat spreads that differ only in stats a setup doesn't use count once.");
 });

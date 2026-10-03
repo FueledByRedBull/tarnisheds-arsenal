@@ -111,7 +111,8 @@ export function Inspector() {
               value={aowAvailable ? compactNumber(selected.aowFullSequenceDamage) : null}
             />
           </div>
-          {rank >= 0 && !resultsStale ? (
+          {/* A loaded saved build is alone in the list without having been ranked against anything. */}
+          {rank >= 0 && !resultsStale && rowsSetups !== null ? (
             <p className="rank-context">
               Rank <strong>{rank + 1}</strong> of {rows.length}
               {rank === 0
@@ -123,7 +124,8 @@ export function Inspector() {
           ) : null}
           {rank >= 0 && !resultsStale && rowsSetups !== null ? (
             <p className="rank-proof">
-              {rowsSetups === 1 ? "The only legal setup this query allows." : `Ranked exactly against all ${rowsSetups.toLocaleString()} legal setups this query allows.`}
+              Ranked exactly across {rowsSetups.toLocaleString()} scored {rowsSetups === 1 ? "setup" : "setups"}. Stat spreads that
+              differ only in stats a setup doesn't use count once.
             </p>
           ) : null}
           {statChanges ? (

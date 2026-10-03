@@ -40,8 +40,13 @@ function runnerUpLine(row: SolvedBuildDto, runnerUp: SolvedBuildDto, objective: 
   const rival = `${runnerUp.weaponName} (${runnerUp.affinity}, +${runnerUp.upgrade})`;
   const lead = leadOver(row, runnerUp, objective, aowModelSupported);
   if (lead === null) return `The next build, ${rival}, has no comparable ${objectiveLabel(objective)} value.`;
-  if (Math.abs(lead) < 0.05) return `It ties ${rival} at the displayed precision; the exact ranking and tie order place it first.`;
   const unit = objective === "max_ar_plus_bleed" ? "bleed buildup" : objectiveLabel(objective);
+  // A tie is two values that print the same, not a small difference: 100.06 and 100.04 print apart.
+  const shown = (build: SolvedBuildDto) => fixed1(metricForObjective(build, objective, aowModelSupported) ?? 0);
+  if (shown(row) === shown(runnerUp)) {
+    return `It ties ${rival} at the displayed precision; the exact ranking and tie order place it first.`;
+  }
+  if (Math.abs(lead) < 0.05) return `It leads the next build, ${rival}, by less than 0.05 ${unit}.`;
   const [type, difference] = damageTypes
     .map(key => [key, row.ar[key] - runnerUp.ar[key]] as const)
     .reduce((largest, entry) => Math.abs(entry[1]) > Math.abs(largest[1]) ? entry : largest);

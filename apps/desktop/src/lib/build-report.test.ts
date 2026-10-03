@@ -45,6 +45,13 @@ describe("calculation-derived explanations", () => {
     const text = explainBuild(row, defaultRequest, true, { ...row, affinity: "Heavy" }).join(" ");
     expect(text).toContain("ties Uchigatana (Heavy, +7) at the displayed precision");
   });
+
+  it("does not call scores that print differently a tie", () => {
+    const at = (total: number) => ({ ...row, ar: { ...row.ar, total } });
+    const text = explainBuild(at(100.06), defaultRequest, true, at(100.04)).join(" ");
+    expect(text).not.toContain("It ties");
+    expect(text).toContain("by less than 0.05 Max AR");
+  });
   it("does not describe unknown imported properties as damage", () => {
     const imported = { ...row, ar: { ...row.ar, privateMetric: 123 } };
     expect(explainBuild(imported, defaultRequest).join(" ")).not.toContain("privateMetric");

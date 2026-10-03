@@ -55,14 +55,21 @@ export function rankMovements(
   aowSupported: boolean,
 ): RankMovement[] | null {
   if (!baseline) return null;
+  // The same loadout can be ranked at several upgrades. Match the upgrade first, and follow a
+  // loadout across an upgrade change only when it is ranked once in both searches.
+  const exactKey = (row: SolvedBuildDto) => `${loadoutKey(row)}\u0000${row.upgrade}`;
+  const count = (list: SolvedBuildDto[]) => list.reduce(
+    (counts, row) => counts.set(loadoutKey(row), (counts.get(loadoutKey(row)) ?? 0) + 1), new Map<string, number>());
+  const [countBefore, countNow] = [count(baseline.rows), count(rows)];
   const previous = new Map<string, { rank: number; row: SolvedBuildDto }>();
   baseline.rows.forEach((row, rank) => {
-    const key = loadoutKey(row);
-    if (!previous.has(key)) previous.set(key, { rank, row });
+    for (const key of [exactKey(row), loadoutKey(row)]) if (!previous.has(key)) previous.set(key, { rank, row });
   });
   const sameObjective = baseline.objective === objective;
   return rows.map((row, rank) => {
-    const before = previous.get(loadoutKey(row));
+    const key = loadoutKey(row);
+    const before = previous.get(exactKey(row))
+      ?? (countBefore.get(key) === 1 && countNow.get(key) === 1 ? previous.get(key) : undefined);
     if (!before) return { places: null, metricDelta: null };
     const now = metricForObjective(row, objective, aowSupported);
     const then = sameObjective ? metricForObjective(before.row, objective, aowSupported) : null;

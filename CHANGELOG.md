@@ -1,5 +1,17 @@
 # Changelog
 
+## [v0.17.2](docs/release-notes/v0.17.2.md)
+
+- Show a rank in Build Detail only for search results, so a loaded saved build
+  is not called best for its query.
+- Describe the setup count as scored setups and say beside it that stat spreads
+  differing only in unused stats count once.
+- Match rows to the previous search by upgrade as well, so unchanged results show
+  no rank movement.
+- Call two builds tied only when their values print the same.
+- Restore a profile's query after the profile it was left for failed to load,
+  and keep the query when a failed profile's load is retried.
+
 ## [v0.17.1](docs/release-notes/v0.17.1.md)
 
 - Show in Build Detail how far #1 leads #2, how many legal setups the exact

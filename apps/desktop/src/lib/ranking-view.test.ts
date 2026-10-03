@@ -45,6 +45,16 @@ describe("rankMovements", () => {
     ]);
   });
 
+  it("reports no movement when the same loadout is ranked again at each upgrade", () => {
+    const at = (upgrade: number, ar: number) => ({ ...row("A", ar, 0, null), upgrade });
+    const ranked = [at(3, 300), at(2, 200), at(1, 100)];
+    expect(rankMovements(ranked, { objective: "max_ar", rows: ranked }, "max_ar", true))
+      .toEqual(ranked.map(() => ({ places: 0, metricDelta: 0 })));
+    // A loadout ranked once in both searches is still followed across an upgrade change.
+    expect(rankMovements([at(4, 400)], { objective: "max_ar", rows: [at(3, 300)] }, "max_ar", true))
+      .toEqual([{ places: 0, metricDelta: 100 }]);
+  });
+
   it("omits value changes when the objective changed and has no baseline before a first search", () => {
     const after = [row("A", 600, 0, null)];
     expect(rankMovements(after, { objective: "max_ar_plus_bleed", rows: before }, "max_ar", true)).toEqual([{ places: 0, metricDelta: null }]);
