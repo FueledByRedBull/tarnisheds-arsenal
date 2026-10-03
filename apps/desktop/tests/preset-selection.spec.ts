@@ -66,6 +66,9 @@ test("a restored explicit skill remains explicit", async ({ page }) => {
   expect(await page.evaluate(() => (window as any).restoredSelectionProbe.aborted)).toBe(false);
   await page.evaluate(() => (window as any).restoredSelectionProbe.finish());
   await expect(page.getByText(/saved results verified on current data/)).toBeVisible();
+  // A loaded build was not ranked against anything, so Build Detail claims no rank for it.
+  await expect(page.locator(".selected-build-title")).toBeVisible();
+  await expect(page.locator(".rank-context, .rank-proof")).toHaveCount(0);
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect.poll(() => page.evaluate(() => (window as any).restoredSelectionProbe.searches.length)).toBe(1);
   expect(await page.evaluate(() => (window as any).restoredSelectionProbe.searches[0].aowName)).toBe("Seppuku");

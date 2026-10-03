@@ -456,6 +456,29 @@ describe("desktop result lifecycle", () => {
     expect(back.notices[0].message).toBe("Restored your vanilla query. Search to rank it again.");
   });
 
+  it("restores a profile's query after the profile it was left for failed to load", () => {
+    useDesktopStore.getState().setProfiles([catalog("vanilla").dataManifest, catalog("convergence").dataManifest]);
+    useDesktopStore.setState({ catalog: catalog("vanilla"), profileQueries: {},
+      request: { ...defaultRequest, weaponName: "Uchigatana", lockDex: 40 } });
+    useDesktopStore.getState().beginProfileSwitch("convergence");
+    useDesktopStore.getState().setCatalogFailure("Convergence failed to load");
+
+    useDesktopStore.getState().beginProfileSwitch("vanilla");
+    expect(useDesktopStore.getState().request).toMatchObject({ profileId: "vanilla", weaponName: "Uchigatana", lockDex: 40 });
+  });
+
+  it("keeps the query being edited when the same profile's load is retried", () => {
+    useDesktopStore.getState().setProfiles([catalog("vanilla").dataManifest]);
+    useDesktopStore.setState({ catalog: null, profileQueries: {}, lockedStatMode: true,
+      request: { ...defaultRequest, weaponName: "Uchigatana", lockDex: 40, objective: "max_ar_plus_bleed" } });
+    useDesktopStore.getState().setCatalogFailure("Vanilla failed to load");
+
+    useDesktopStore.getState().beginProfileSwitch("vanilla");
+    const retried = useDesktopStore.getState();
+    expect(retried.request).toMatchObject({ weaponName: "Uchigatana", lockDex: 40, objective: "max_ar_plus_bleed" });
+    expect(retried.lockedStatMode).toBe(true);
+  });
+
   it("normalizes unsupported objectives when a profile catalog arrives", () => {
     useDesktopStore.setState({
       request: { ...defaultRequest, profileId: "convergence", objective: "aow_full_sequence" },

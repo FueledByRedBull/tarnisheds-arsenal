@@ -24,7 +24,7 @@ comparisons and progression previews.
 [![Tauri 2](https://img.shields.io/badge/Tauri_2-101315?style=flat-square&logo=tauri&logoColor=c9a45c)](apps/desktop/src-tauri)
 [![React 19](https://img.shields.io/badge/React_19-101315?style=flat-square&logo=react&logoColor=c9a45c)](apps/desktop/src)
 
-[What’s new in v0.17.1](docs/release-notes/v0.17.1.md)
+[What’s new in v0.17.2](docs/release-notes/v0.17.2.md)
 · [Your first build](#your-first-build)
 · [Documentation](#documentation)
 
@@ -38,7 +38,7 @@ damage, with the selected build’s full breakdown on the right.
 ## Download
 
 Choose an asset from the [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
-The [v0.17.1 notes](docs/release-notes/v0.17.1.md) include versioned downloads,
+The [v0.17.2 notes](docs/release-notes/v0.17.2.md) include versioned downloads,
 calculation changes, and verification limits.
 
 | Choose | Best for |
@@ -65,7 +65,7 @@ needs internet access if that runtime is missing.
    Press **Ctrl+K** to type a change instead, such as `str 40`, `uchigatana`,
    `+20`, `top 10`, or `level 60` to plan where your next levels go.
 3. Press **Search**, then select a row to inspect its damage, scaling, and stats.
-   Build Detail shows how far the top result leads the next one, how many legal
+   Build Detail shows how far the top result leads the next one, how many scored
    setups the search ranked, and which of your entered stats the build changes.
 4. Pin another result for **Compare** (or press **P** on a focused row), trace
    future levels in **Paths**, or explore affinity crossover points in
@@ -201,7 +201,7 @@ Choose a guide for the task at hand:
 
 | I want to… | Read |
 | --- | --- |
-| See what changed in **v0.17.1** | [Release notes](docs/release-notes/v0.17.1.md) · [All versions](docs/release-notes/README.md) |
+| See what changed in **v0.17.2** | [Release notes](docs/release-notes/v0.17.2.md) · [All versions](docs/release-notes/README.md) |
 | Understand supported mechanics and limitations | [Model reference](docs/model-reference.md) |
 | Find components and trace a calculation | [Optimizer overview](docs/design/optimizer-overview.md) |
 | Inspect the exact ranking contract and proof | [Optimizer mathematics](docs/design/optimizer-math.md) |

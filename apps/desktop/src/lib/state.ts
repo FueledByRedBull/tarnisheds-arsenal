@@ -33,7 +33,7 @@ export interface DesktopState {
   rows: SolvedBuildDto[];
   /** Objective the current rows were ranked by; null when they did not come from a search. */
   rowsObjective: ObjectiveId | null;
-  /** Legal setups the search behind the current rows ranked; null when they did not come from one. */
+  /** Scored setups the search behind the current rows ranked; null when they did not come from one. */
   rowsSetups: number | null;
   /** The ranking a search replaced, so rows can show how far they moved. */
   rankBaseline: { objective: ObjectiveId; rows: SolvedBuildDto[] } | null;
@@ -215,7 +215,10 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       const profileQueries = switching
         ? { ...state.profileQueries, [state.request.profileId]: { request: state.request, lockedStatMode: state.lockedStatMode } }
         : state.profileQueries;
-      const remembered = switching ? profileQueries[profileId] : undefined;
+      // A failed load leaves no catalog; the profile it was left for still gets its query back.
+      // Loading the profile already shown is a retry, which keeps the query being edited.
+      const sameProfile = state.request.profileId === profileId;
+      const remembered = sameProfile ? undefined : profileQueries[profileId];
       const profileName = (id: string) => state.profiles.find((entry) => entry.profile.id === id)?.profile.displayName ?? id;
       return ({
       ...invalidateAllJobs(state),
@@ -224,9 +227,10 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       catalogStatus: "loading",
       catalogError: null,
       profileQueries,
-      lockedStatMode: remembered?.lockedStatMode ?? false,
+      lockedStatMode: remembered?.lockedStatMode ?? (sameProfile && state.lockedStatMode),
       loadoutSelectionRevision: state.loadoutSelectionRevision + 1,
-      request: remembered ? applyProfileRules(remembered.request, rules) : applyProfileRules({
+      request: remembered ? applyProfileRules(remembered.request, rules)
+        : sameProfile ? applyProfileRules(state.request, rules) : applyProfileRules({
         ...state.request,
         profileId,
         lockStr: null, lockDex: null, lockInt: null, lockFai: null, lockArc: null,
@@ -251,7 +255,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       pathSignature: null,
       affinityPayload: null,
       affinitySignature: null,
-      notices: switching ? [{
+      notices: switching || remembered ? [{
         scope: "global",
         tone: "info",
         message: remembered
