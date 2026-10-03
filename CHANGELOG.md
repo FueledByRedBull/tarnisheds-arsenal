@@ -1,5 +1,19 @@
 # Changelog
 
+## [v0.17.1](docs/release-notes/v0.17.1.md)
+
+- Show in Build Detail how far #1 leads #2, how many legal setups the exact
+  ranking covers, and which entered stats the build changes; keep its header in
+  view while the details scroll.
+- Fold Saved Builds, the reproduction report and Compare's build cards until
+  opened, and show only inflicted statuses.
+- Say beside the tab bar why a workspace is disabled, count Compare's pins, and
+  keep each profile's query for when the player switches back.
+- Announce each ranked row's AR or score, pin or lock the focused row with P and
+  L, keep notices in one live region, and raise field borders to 3:1 contrast.
+- Open the Ctrl+K palette without motion, plan levels in Paths with `level N`,
+  and unify lock wording as stat locks.
+
 ## [v0.17.0](docs/release-notes/v0.17.0.md)
 
 - Replace the command rail with an editable query line over the results, add a
