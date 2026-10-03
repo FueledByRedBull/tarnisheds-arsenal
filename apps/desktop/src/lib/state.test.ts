@@ -113,7 +113,7 @@ describe("desktop result lifecycle", () => {
 
   it("retains previous rows and labels them stale when result inputs change", () => {
     const state = useDesktopStore.getState();
-    state.setRows([row]);
+    state.setRows([row], 1);
     state.setCompareTarget(row);
     state.patchRequest({ objective: "max_physical_ar" });
 
@@ -126,17 +126,20 @@ describe("desktop result lifecycle", () => {
 
   it("marks replacement rows current after a successful search", () => {
     const state = useDesktopStore.getState();
-    state.setRows([row]);
+    state.setRows([row], 1);
     state.patchRequest({ twoHanding: true });
     expect(useDesktopStore.getState().resultsStale).toBe(true);
 
-    useDesktopStore.getState().setRows([{ ...row, score: 510 }]);
-    expect(useDesktopStore.getState().resultsStale).toBe(false);
+    useDesktopStore.getState().setRows([{ ...row, score: 510 }], 42);
+    expect(useDesktopStore.getState()).toMatchObject({ resultsStale: false, rowsSetups: 42 });
+
+    useDesktopStore.getState().clearResults();
+    expect(useDesktopStore.getState().rowsSetups).toBeNull();
   });
 
   it("keeps saved comparisons and analysis ownership until the selected build changes", () => {
     const state = useDesktopStore.getState();
-    state.setRows([row]);
+    state.setRows([row], 1);
     const target = { ...row, affinity: "Standard" };
     useDesktopStore.setState({ compareTarget: target, restoredCompareTarget: target });
     state.beginPath("saved-path");
@@ -159,7 +162,7 @@ describe("desktop result lifecycle", () => {
 
   it.each(["draft edit", "replacement search"])("invalidates analysis ownership and retained results on %s", (action) => {
     const state = useDesktopStore.getState();
-    state.setRows([row]);
+    state.setRows([row], 1);
     state.setCompareTarget(row);
     state.beginPath("old-path");
     state.setActivePathJobId("path-job");
@@ -405,7 +408,7 @@ describe("desktop result lifecycle", () => {
   it("switches profiles as one fail-closed state transition", () => {
     const state = useDesktopStore.getState();
     state.setProfiles([catalog("vanilla").dataManifest, catalog("convergence").dataManifest]);
-    state.setRows([row]);
+    state.setRows([row], 1);
     state.setCompareTarget(row);
     state.setWorkspace("compare");
     useDesktopStore.setState({ lockedStatMode: true, request: {
@@ -432,6 +435,25 @@ describe("desktop result lifecycle", () => {
     expect(switched.searchGeneration).toBe(before.searchGeneration + 1);
     expect(switched.pathGeneration).toBe(before.pathGeneration + 1);
     expect(switched.affinityGeneration).toBe(before.affinityGeneration + 1);
+  });
+
+  it("keeps each profile's query and restores it, without results, on return", () => {
+    useDesktopStore.getState().setProfiles([catalog("vanilla").dataManifest, catalog("convergence").dataManifest]);
+    useDesktopStore.setState({ catalog: catalog("vanilla"), profileQueries: {}, lockedStatMode: true, rows: [row],
+      request: { ...defaultRequest, weaponName: "Uchigatana", lockDex: 40 } });
+
+    useDesktopStore.getState().beginProfileSwitch("convergence");
+    const away = useDesktopStore.getState();
+    expect(away.request).toMatchObject({ profileId: "convergence", weaponName: null, lockDex: null });
+    expect(away.notices[0].message).toBe("Your vanilla query is kept for when you switch back.");
+
+    useDesktopStore.setState({ catalog: catalog("convergence") });
+    useDesktopStore.getState().beginProfileSwitch("vanilla");
+    const back = useDesktopStore.getState();
+    expect(back.request).toMatchObject({ profileId: "vanilla", weaponName: "Uchigatana", lockDex: 40 });
+    expect(back.lockedStatMode).toBe(true);
+    expect(back.rows).toEqual([]);
+    expect(back.notices[0].message).toBe("Restored your vanilla query. Search to rank it again.");
   });
 
   it("normalizes unsupported objectives when a profile catalog arrives", () => {

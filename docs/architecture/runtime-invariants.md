@@ -79,6 +79,7 @@ Status: accepted. These rules describe contracts that tests and future refactors
   count; there is no standalone estimate API or frontend estimate job. A future
   asynchronous estimate needs a generation, signature, and job ID.
 - A profile switch invalidates every job generation before changing inputs, requests cancellation for all active backend jobs, clears profile-bound results, and cannot accept a completion from the previous profile.
+- Each profile keeps its last query (request and stat-lock mode) in memory and gets it back when the player returns to that profile. A query is never carried into another profile, and results are not restored: the returning query is searched again on demand.
 - CSV export owns a cancellable search until the backend reports completion, including after cancellation. Normal searches and comparison searches wait for that slot. Input/profile changes and leaving Rankings cancel export; late results cannot download or populate its cache.
 
 ## Result identity

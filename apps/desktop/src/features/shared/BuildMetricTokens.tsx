@@ -77,12 +77,16 @@ export function StatTokens({ row }: { row: SolvedBuildDto }) {
   );
 }
 
+// Only the statuses a build actually inflicts: seven tiles that are mostly zero bury the one
+// that matters. Zero is a modeled value here, so "No status buildup" states it plainly.
 export function StatusTokens({ row }: { row: SolvedBuildDto }) {
+  const inflicted = STATUS_STATS.filter(([, , key]) => row[key] > 0);
+  if (!inflicted.length) return <span className="status-none">No status buildup</span>;
   return (
     <span className="metric-token-grid status-token-grid" role="list" aria-label="Status buildup">
-      {STATUS_STATS.map(([short, full, key]) => (
+      {inflicted.map(([short, full, key]) => (
         <span
-          className={`metric-token ${row[key] > 0 ? "active" : "zero"}`}
+          className="metric-token active"
           role="listitem"
           aria-label={`${full} buildup: ${compactNumber(row[key])}`}
           title={`${full} buildup: ${compactNumber(row[key])}`}

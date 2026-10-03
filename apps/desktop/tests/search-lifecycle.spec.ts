@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { openEditor } from "./editors";
+import { openCompare, openEditor } from "./editors";
 
 for (const outcome of ["already-finished", "failure"] as const) {
   test(`a late ${outcome} cancellation reply cannot change a replacement search`, async ({ page }) => {
@@ -24,7 +24,7 @@ for (const outcome of ["already-finished", "failure"] as const) {
       api.searchStatus = async (jobId: string) => ({
         progress: null,
         finished: jobId === "search-1" && probe.oldFinished
-          ? { jobId, rows: [], cancelled: true, error: null } : null,
+          ? { jobId, rows: [], cancelled: true, error: null, setups: 0 } : null,
       });
     });
     await page.getByRole("button", { name: "Search", exact: true }).click();
@@ -81,7 +81,7 @@ for (const replacement of ["compare", "rankings"]) {
       api.searchStatus = async (jobId: string) => {
         if (jobId === "probe-1" && !probe.release) return { progress: null, finished: null };
         probe.active = "";
-        return { progress: null, finished: { jobId, rows, cancelled: jobId === "probe-1", error: null } };
+        return { progress: null, finished: { jobId, rows, cancelled: jobId === "probe-1", error: null, setups: rows.length } };
       };
     });
     const nav = page.getByRole("navigation");
@@ -188,7 +188,7 @@ test("Compare optional upgrade failure preserves verified lanes and independent 
     };
     Object.assign(window, { compareUpgradeProbe: probe });
   });
-  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await openCompare(page);
   await expect(page.locator('.error-strip[role="alert"]')).toContainText("comparison upgrade failed");
   await expect.poll(() => page.evaluate(() => (window as any).compareUpgradeProbe.calls.length)).toBe(4);
   await expect(page.locator(".compare-lanes").getByRole("group")).toHaveCount(4);
@@ -228,7 +228,7 @@ test("Compare displays all eight explicit pins while excluding the selected base
     api.solveBuild = async (_base, weaponName) => pins.find(row => row.weaponName === weaponName) ?? null;
     for (const row of pins) state.toggleCompareBench(row);
   });
-  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await openCompare(page);
   await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
   await expect(page.locator(".compare-lanes").getByRole("group")).toHaveCount(8);
   await expect(page.getByRole("group", { name: "Selected baseline", exact: true })).toBeVisible();

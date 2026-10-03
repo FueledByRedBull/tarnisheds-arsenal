@@ -152,13 +152,13 @@ async function mockStartSearch(args: Record<string, unknown> | undefined): Promi
         bestScore: rows[0]?.score ?? 0,
         elapsedMs: 0,
       },
-      finished: { jobId, cancelled: false, rows, error: null },
+      finished: { jobId, cancelled: false, rows, error: null, setups: total },
     };
   }).catch((error) => {
     if (!mockJobMatches(mockSearchJob, jobId) || mockSearchJob?.finished?.cancelled) return;
     mockSearchJob = {
       progress: mockSearchJob?.progress ?? null,
-      finished: { jobId, cancelled: false, rows: [], error: errorMessage(error) },
+      finished: { jobId, cancelled: false, rows: [], error: errorMessage(error), setups: 0 },
     };
   });
   return { jobId };
@@ -175,7 +175,7 @@ function mockCancelSearch(args: Record<string, unknown> | undefined): boolean {
   if (!current || !mockJobMatches(current, jobId) || current.finished) return false;
   mockSearchJob = {
     progress: current.progress,
-    finished: { jobId, cancelled: true, rows: [], error: null },
+    finished: { jobId, cancelled: true, rows: [], error: null, setups: 0 },
   };
   return true;
 }

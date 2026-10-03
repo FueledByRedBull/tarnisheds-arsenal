@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openCompare, openSection } from "./editors";
 
 test("missing skill routes stay unavailable across displays, reports, and saved-build reload", async ({ page }) => {
   await page.goto("/");
@@ -16,18 +17,20 @@ test("missing skill routes stay unavailable across displays, reports, and saved-
           totalDamage: { physical: 0, magic: 0, fire: 0, lightning: 0, holy: 0, total: 0 },
           totalPoiseDamage: 0, totalStaminaCost: 0,
           totalStatusBuildup: { bleed: 0, frost: 0, poison: 0, scarletRot: 0, sleep: 0, madness: 0, death: 0 } } },
-    ]);
+    ], 100);
   });
   const resultRows = page.locator(".result-row-full");
   await expect(resultRows.first().locator(".skill-cell")).toHaveText("Unavailable");
   await expect(resultRows.nth(1).locator(".skill-cell")).toHaveText("01st hit 0");
   await expect(page.locator(".inspector .metric-grid")).toContainText("Raw AoWUnavailable");
+  await openSection(page, "Report a problem");
   await page.getByRole("button", { name: "Preview reproduction report", exact: true }).click();
   const report = JSON.parse(await page.getByRole("textbox", { name: "Reproduction report preview" }).inputValue());
   expect(report.results.selected.aowFirstHitDamage).toBeNull();
   expect(report.results.selected.aowFullSequenceDamage).toBeNull();
+  await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Save new", exact: true }).click();
-  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await openCompare(page);
   await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
   await expect(page.getByRole("group", { name: "Selected baseline", exact: true })).toContainText("AoW Unavailable");
   await expect(page.getByRole("group", { name: "Top #2", exact: true })).toContainText("AoW 0");
@@ -40,6 +43,7 @@ test("missing skill routes stay unavailable across displays, reports, and saved-
   expect(zeroReport.results.selected.aowFullSequenceDamage).toBe(0);
   await expect(page.locator(".inspector .metric-grid")).toContainText("Raw AoW0");
   await page.reload();
+  await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Load", exact: true }).click();
   await expect(page.locator(".inspector .metric-grid")).toContainText("Raw AoWUnavailable");
 });

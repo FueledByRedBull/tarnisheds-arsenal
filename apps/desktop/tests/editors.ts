@@ -40,3 +40,18 @@ export async function closeEditors(page: Page): Promise<void> {
     for (const panel of document.querySelectorAll<HTMLElement>(".popover-panel:popover-open")) panel.hidePopover();
   });
 }
+
+export type FoldedSection = "Saved Builds" | "Build details" | "Report a problem";
+
+// Saved Builds, Compare's build cards and the problem report are folded until opened, so a
+// test opens them as a player would. Opening an already open section is a no-op.
+export async function openSection(page: Page, section: FoldedSection): Promise<void> {
+  const summary = page.locator("summary").filter({ hasText: section }).first();
+  if (!await summary.evaluate((node) => (node.parentElement as HTMLDetailsElement).open)) await summary.click();
+}
+
+// Compare with its build cards unfolded, for tests that read the lanes.
+export async function openCompare(page: Page): Promise<void> {
+  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await openSection(page, "Build details");
+}

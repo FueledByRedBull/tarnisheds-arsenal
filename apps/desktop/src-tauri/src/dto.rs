@@ -450,6 +450,8 @@ pub struct SearchFinishedDto {
     pub cancelled: bool,
     pub rows: Vec<SolvedBuildDto>,
     pub error: Option<String>,
+    /// Legal setups the prepared search scores; zero when preparation failed.
+    pub setups: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./editors";
+import { openCompare, openEditor } from "./editors";
 
 async function prepare(page: Page, pins = false) {
   await page.goto("/");
@@ -26,7 +26,7 @@ async function prepare(page: Page, pins = false) {
 
 test("publishes multiple verified pins and scaling before any optional chart finishes", async ({ page }, testInfo) => {
   const names = await prepare(page, true);
-  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await openCompare(page);
   await expect(page.getByRole("group", { name: "Pinned #1", exact: true })).toContainText(names[1]);
   await expect(page.getByRole("table", { name: "Primary deltas versus baseline" })).toBeVisible();
   await expect(page.getByRole("group", { name: "Selected baseline", exact: true }).getByRole("listitem", { name: "Strength scaling: C", exact: true })).toBeVisible();
@@ -47,7 +47,7 @@ test("publishes multiple verified pins and scaling before any optional chart fin
 
 test("a failed optional chart preserves verified deltas and other charts", async ({ page }) => {
   const names = await prepare(page);
-  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await openCompare(page);
   await expect.poll(() => page.evaluate(() => (window as any).comparisonProbe.calls.length)).toBe(4);
   await page.evaluate(() => (window as any).comparisonProbe.calls.forEach((call: any, i: number) => i === 1 ? call.reject() : call.resolve()));
   await expect(page.getByText("Upgrade chart unavailable: controlled chart failure", { exact: true })).toBeVisible();
@@ -59,7 +59,7 @@ test("a failed optional chart preserves verified deltas and other charts", async
 
 test("request changes cancel optional charts and cannot republish old comparison rows", async ({ page }) => {
   await prepare(page, true);
-  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await openCompare(page);
   await expect(page.getByRole("group", { name: "Pinned #1", exact: true })).toBeVisible();
   await page.evaluate(async () => {
     const { useDesktopStore } = await import("/src/lib/state.ts");
@@ -82,9 +82,9 @@ test("stamina desirability reverses cost direction without changing arithmetic s
       aowRoute: { routeId: "cost", routeLabel: "Cost", routePriority: 0, buffActivationActionId: null,
         actions: [], firstHitDamage: 0, totalDamage: row.ar, totalPoiseDamage: 0,
         totalStaminaCost: [10, 15, 5, 10][i],
-        totalStatusBuildup: { bleed: 0, frost: 0, poison: 0, scarletRot: 0, sleep: 0, madness: 0, death: 0 } } })));
+        totalStatusBuildup: { bleed: 0, frost: 0, poison: 0, scarletRot: 0, sleep: 0, madness: 0, death: 0 } } })), 100);
   });
-  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await openCompare(page);
   await page.getByText("Full metric breakdown", { exact: true }).click();
   const rows = page.getByRole("table", { name: "All candidate deltas versus baseline" }).getByRole("row");
   for (const [index, text, staminaClass, damageClass] of [[1, "+5.0", "negative", "positive"], [2, "-5.0", "positive", "negative"], [3, "0.0", "", ""]] as const) {
@@ -95,7 +95,7 @@ test("stamina desirability reverses cost direction without changing arithmetic s
   await page.evaluate(async () => {
     const { useDesktopStore } = await import("/src/lib/state.ts");
     const state = useDesktopStore.getState();
-    state.setRows(state.rows.map((row, i) => i === 1 ? { ...row, aowRoute: null } : row));
+    state.setRows(state.rows.map((row, i) => i === 1 ? { ...row, aowRoute: null } : row), 100);
   });
   await page.getByText("Full metric breakdown", { exact: true }).click();
   await expect(rows.nth(1).getByRole("cell").last()).toHaveText("Unavailable");
@@ -110,7 +110,7 @@ test("only a verified non-upgradeable pin selects explicit +0 under an exact bud
     const state = useDesktopStore.getState();
     const [selected, first, second] = state.rows;
     state.patchRequest({ exactUpgrade: true, standardMaxUpgrade: 20 });
-    state.setRows([selected, { ...first, upgrade: 0 }, second]);
+    state.setRows([selected, { ...first, upgrade: 0 }, second], 100);
     state.rows.slice(1, 3).forEach(row => useDesktopStore.getState().toggleCompareBench(row));
     const profile = api.weaponProfile;
     api.weaponProfile = async (...args) => ({ ...await profile(...args), maxUpgrade: args[2] === first.affinity ? 0 : 25 });
@@ -122,7 +122,7 @@ test("only a verified non-upgradeable pin selects explicit +0 under an exact bud
     };
     Object.assign(window, { exactPinCalls: calls });
   });
-  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await openCompare(page);
   await expect.poll(() => page.evaluate(() => (window as any).exactPinCalls)).toEqual([
     { affinity: "Occult", standardMaxUpgrade: 0, exactUpgrade: true },
     { affinity: "Keen", standardMaxUpgrade: 20, exactUpgrade: true },
@@ -132,7 +132,7 @@ test("only a verified non-upgradeable pin selects explicit +0 under an exact bud
 
 test("manual comparison filters preserve pins and unpinning invalidates the Paths target", async ({ page }) => {
   await prepare(page, true);
-  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await openCompare(page);
   await expect(page.getByRole("group", { name: "Pinned #1", exact: true })).toBeVisible();
   await openEditor(page, "Comparison filters");
   await page.getByRole("checkbox", { name: "Smithing", exact: true }).uncheck();
@@ -156,7 +156,7 @@ test("an infeasible first pin does not hide the next verified Paths target", asy
     api.solveBuild = async (_base, _name, affinity) => affinity === valid.affinity ? valid : null;
     return valid;
   });
-  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await openCompare(page);
   await expect(page.getByRole("group", { name: "Pinned #1", exact: true })).toContainText("No compatible target");
   await expect(page.getByRole("group", { name: "Pinned #2", exact: true })).toContainText(expected.affinity);
   expect(await page.evaluate(async () => (await import("/src/lib/state.ts")).useDesktopStore.getState().compareTarget)).toEqual(expected);

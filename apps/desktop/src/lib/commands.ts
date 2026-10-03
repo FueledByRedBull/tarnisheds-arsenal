@@ -1,6 +1,6 @@
 import { objectiveLabel } from "./format";
 import { SCADUTREE_MAX_LEVEL } from "./scadutree";
-import { classMeta, replaceFilterEntries } from "./session";
+import { classMeta, clampHorizon, derivedLevel, replaceFilterEntries } from "./session";
 import { CatalogDto, ObjectiveId, OptimizeRequestDto, WorkspaceTab } from "./types";
 
 // The command palette's vocabulary. Parsing is pure: it returns data describing what to do,
@@ -14,6 +14,7 @@ export type CommandAction =
   | { kind: "lockedMode"; value: boolean }
   | { kind: "clearLocks" }
   | { kind: "workspace"; workspace: WorkspaceTab }
+  | { kind: "planLevels"; horizon: number }
   | { kind: "profile"; profileId: string }
   | { kind: "search" }
   | { kind: "cancelSearch" }
@@ -86,6 +87,7 @@ const STAT_PATTERN = /^(lock|min|minimum|set)?\s*([a-z]+)\s*(?:to|at|=)?\s*(\d{1
 const UPGRADE_PATTERN = /^(upgrade|standard|somber|cap|weapon)?\s*\+\s*(\d{1,2})$|^(upgrade|standard|somber|cap)\s*(\d{1,2})$/;
 const TOP_PATTERN = /^top\s*(\d{1,3})$/;
 const BLESSING_PATTERN = /^(?:blessing|scadutree|sb)\s*(\d{1,2})$/;
+const LEVEL_PATTERN = /^(?:level|lvl|rl)\s*(\d{1,3})$/;
 
 export function normalizeQuery(query: string): string {
   return query.toLowerCase().replace(/\s+/g, " ").trim();
@@ -164,6 +166,19 @@ function parsedCommands(query: string, context: CommandContext): Command[] {
     return value >= 1 && value <= 50
       ? [command("top", "Results", `Show the top ${value} results`, current(String(request.topK)), { kind: "patch", patch: { topK: value } })]
       : [];
+  }
+  // Level is derived from the stats, so a target level means "where do the next levels go":
+  // that is Paths, traced from the selected build up to the target.
+  const levelMatch = LEVEL_PATTERN.exec(query);
+  if (levelMatch && !context.fixedStats) {
+    const target = Number(levelMatch[1]);
+    const level = derivedLevel(catalog, request);
+    const horizon = clampHorizon(request, target - level);
+    if (horizon < 1) return [];
+    return context.analysesAvailable
+      ? [command("plan-levels", "Paths", `Plan levels ${level} to ${level + horizon}`, `Traces where the next ${horizon} levels go for the selected build`,
+        { kind: "planLevels", horizon })]
+      : [command("search", "Actions", `Search first to plan levels to ${target}`, "Paths needs a current selected build", { kind: "search" })];
   }
   const blessingMatch = BLESSING_PATTERN.exec(query);
   if (blessingMatch && rules.scadutreeScaling) {
@@ -273,10 +288,10 @@ function stateCommands(context: CommandContext): Command[] {
   commands.push(command("reset-stats", "Character", "Reset stats", fixedStats ? "All eight stats to 1" : `${request.className} base values`, { kind: "resetStats" }));
   if (!fixedStats) {
     commands.push(command("optimize-class", "Character", "Optimize class", "Lowest level for the entered stats", { kind: "optimizeClass" }));
-    commands.push(command("locked-mode", "Limits", lockedStatMode ? "Stop using locked result stats" : "Use locked result stats", undefined,
+    commands.push(command("locked-mode", "Limits", lockedStatMode ? "Stop using stat locks" : "Use stat locks", undefined,
       { kind: "lockedMode", value: !lockedStatMode }));
     if (lockedStatMode || [request.lockStr, request.lockDex, request.lockInt, request.lockFai, request.lockArc].some((value) => value !== null)) {
-      commands.push(command("clear-locks", "Limits", "Clear locks", undefined, { kind: "clearLocks" }));
+      commands.push(command("clear-locks", "Limits", "Clear stat locks", undefined, { kind: "clearLocks" }));
     }
   }
   commands.push(command("reset-filters", "Weapon", "Reset weapon filters", undefined, { kind: "resetFilters" }));
@@ -286,7 +301,7 @@ function stateCommands(context: CommandContext): Command[] {
 
 // Typed commands carry their value in the id, and history steps change meaning, so neither is recalled.
 export function recallable(entry: Command): boolean {
-  return !/^(set|lock|min)-|^upgrade-|^(top|blessing|undo|redo)$/.test(entry.id);
+  return !/^(set|lock|min)-|^upgrade-|^(top|blessing|undo|redo|plan-levels)$/.test(entry.id);
 }
 
 // The empty palette leads with recent commands still valid for this query, then common actions.

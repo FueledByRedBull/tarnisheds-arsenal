@@ -103,6 +103,7 @@ try {
   }
   markSmokeStage("save Convergence fixed stats");
   const convergencePresetName = `Convergence verification ${Date.now()}`;
+  await openSection(page, "Saved Builds");
   await page.getByRole("textbox", { name: "Name", exact: true }).fill(convergencePresetName);
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   await page.getByText(`Saved ${convergencePresetName}.`, { exact: true }).waitFor();
@@ -113,7 +114,9 @@ try {
   const convergenceRow = page.locator(".result-row-full").first();
   await convergenceRow.waitFor();
   await expect(convergenceRow.locator(".loadout-upgrade")).toHaveText("+15");
-  await expect(convergenceRow.locator(".skill-cell")).toHaveText("Unavailable");
+  // No Convergence row has modeled skill damage, so the column becomes one header note.
+  await expect(page.locator(".result-row-full .skill-cell")).toHaveCount(0);
+  await expect(page.getByText("Skill damage isn't modeled for these results.", { exact: true })).toBeVisible();
   const convergenceAr = await convergenceRow.locator(".ar-cell > strong").innerText();
   if (!(Number(convergenceAr.replace(/[^0-9.]/g, "")) > 0)) {
     throw new Error(`Convergence returned invalid weapon AR: ${convergenceAr}`);
@@ -121,12 +124,12 @@ try {
   await convergenceRow.click();
   await expect(page.locator(".metric-tile").filter({ hasText: "AoW model" })).toContainText("Unavailable");
   const convergenceWeapon = await convergenceRow.locator(".weapon-cell strong").innerText();
-  await expect(page.locator(".selected-build > strong")).toHaveText(convergenceWeapon);
+  await expect(page.locator(".selected-build-title > strong")).toHaveText(convergenceWeapon);
   await page.getByRole("button", { name: "Update selected", exact: true }).click();
   await page.getByText(`Updated ${convergencePresetName}.`, { exact: true }).waitFor();
   await page.getByRole("button", { name: "Load", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Stat total", exact: true })).toHaveValue(convergenceTotal);
-  await expect(page.locator(".selected-build > strong")).toHaveText(convergenceWeapon);
+  await expect(page.locator(".selected-build-title > strong")).toHaveText(convergenceWeapon);
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   await page.getByRole("button", { name: "Confirm Delete", exact: true }).click();
   process.stdout.write(`PACKAGED_SMOKE_CONVERGENCE ${JSON.stringify({ weapon: convergenceWeapon, ar: convergenceAr, upgrade: 15 })}\n`);
@@ -182,7 +185,7 @@ try {
   const statText = await tradeoffs.locator(".tradeoff-inspection p").filter({ hasText: "Full stat spread" }).textContent();
   const exactStats = statText.match(/STR \d+ \/ DEX \d+ \/ INT \d+ \/ FAI \d+ \/ ARC \d+/)?.[0];
   if (!exactStats) throw new Error("frontier did not expose an exact combat allocation");
-  const expectedSetup = await page.locator(".selected-build > span").innerText();
+  const expectedSetup = await page.locator(".selected-build-head > span").innerText();
   await tradeoffs.getByRole("button", { name: "Use exact allocation", exact: true }).click();
   await expect(page.locator(".result-row-full")).toHaveCount(1);
   const exactRow = page.locator(".result-row-full").first();
@@ -192,10 +195,13 @@ try {
   const exactUpgrade = (await exactRow.locator(".loadout-upgrade").innerText()).trim();
   const [expectedAffinity, expectedAow, expectedUpgrade] = expectedSetup.split(" / ");
   const exactAr = (await exactRow.locator(".ar-cell strong").innerText()).trim();
-  const exactBleedLabel = await page.locator('[aria-label^="Bleed buildup:"]').first().getAttribute("aria-label");
-  if (!exactBleedLabel) throw new Error("exact allocation did not expose bleed buildup");
+  // Build Detail shows only inflicted statuses, so a zero-bleed allocation has no bleed tile.
+  const inspectorBleed = page.locator('.inspector [aria-label^="Bleed buildup:"]');
+  const exactBleedLabel = Number(chosenPointBleed) === 0 ? null : await inspectorBleed.first().getAttribute("aria-label");
+  if (exactBleedLabel === null) await expect(inspectorBleed).toHaveCount(0);
+  else if (!exactBleedLabel) throw new Error("exact allocation did not expose bleed buildup");
   const returnedInspectorAr = (await page.locator(".metric-tile").filter({ hasText: "Max AR" }).locator("strong").innerText()).trim();
-  const returnedBleed = Number(exactBleedLabel.match(/Bleed buildup:\s*([0-9.]+)/)?.[1]);
+  const returnedBleed = exactBleedLabel === null ? 0 : Number(exactBleedLabel.match(/Bleed buildup:\s*([0-9.]+)/)?.[1]);
   if (returnedInspectorAr !== chosenPointAr) {
     throw new Error(`exact allocation AR ${returnedInspectorAr} did not match chosen point AR ${chosenPointAr}`);
   }
@@ -211,11 +217,13 @@ try {
   if (!exactAr) throw new Error("exact allocation did not expose AR");
   markSmokeStage("save exact applied tradeoff");
   const presetName = `Release verification ${Date.now()}`;
+  await openSection(page, "Saved Builds");
   await page.getByRole("textbox", { name: "Name", exact: true }).fill(presetName);
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   await page.getByText(`Saved ${presetName}.`, { exact: true }).waitFor();
   await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
   await page.getByText("Comparison current", { exact: true }).waitFor();
+  await openSection(page, "Build details");
   await openEditor(page, "Comparison filters");
   await page.getByRole("button", { name: "Compare Type", exact: true }).click();
   await page.getByRole("group", { name: "Compare Type", exact: true })
@@ -246,7 +254,8 @@ try {
 
   markSmokeStage("reload saved exact tradeoff");
   await page.reload();
-  await page.getByRole("combobox", { name: "Saved", exact: true }).selectOption({ label: `${presetName} — vanilla · current data` });
+  await openSection(page, "Saved Builds");
+  await page.getByRole("combobox", { name: "Saved", exact: true }).selectOption({ label: `${presetName} (vanilla, current data)` });
   await page.getByRole("button", { name: "Load", exact: true }).click();
   markSmokeStage("wait for preset load");
   await page.getByText(`Loaded ${presetName}; saved results verified on current data.`, { exact: true }).waitFor();
@@ -258,9 +267,10 @@ try {
   await expect(reloadedRow.locator(".loadout-upgrade")).toHaveText(exactUpgrade);
   expect(await rowStatLabels(reloadedRow)).toEqual(statLabels(exactStats));
   await expect(reloadedRow.locator(".ar-cell strong")).toHaveText(exactAr);
-  await expect(page.locator(`[aria-label="${exactBleedLabel}"]:visible`)).toBeVisible();
-  await expect(page.locator(".selected-build > strong")).toHaveText(exactWeapon);
-  await expect(page.locator(".selected-build > span")).toHaveText(`${exactAffinity} / ${exactAow} / ${exactUpgrade}`);
+  if (exactBleedLabel === null) await expect(inspectorBleed).toHaveCount(0);
+  else await expect(page.locator(`.inspector [aria-label="${exactBleedLabel}"]:visible`)).toBeVisible();
+  await expect(page.locator(".selected-build-title > strong")).toHaveText(exactWeapon);
+  await expect(page.locator(".selected-build-head > span")).toHaveText(`${exactAffinity} / ${exactAow} / ${exactUpgrade}`);
   await expect(page.locator(".detail-block").filter({ hasText: "Combat Stats" }).locator("strong")).toHaveText(exactStats);
   markSmokeStage("save stale results as inputs only");
   const twoHanding = page.getByRole("checkbox", { name: "Two-handing", exact: true });
@@ -277,6 +287,7 @@ try {
   await page.reload();
   markSmokeStage("wait for final Vanilla model");
   await page.getByText("Snapshot loaded", { exact: true }).waitFor();
+  await openSection(page, "Saved Builds");
   const savedBuilds = page.getByRole("combobox", { name: "Saved", exact: true });
   await savedBuilds.locator('option[value=""]').waitFor({ state: "attached" });
   if (await savedBuilds.inputValue() !== "") {
@@ -397,6 +408,12 @@ async function openEditor(page, editor) {
     await panel.waitFor();
   }
   return panel;
+}
+
+// Saved Builds and Compare's build cards are folded until opened, as a player opens them.
+async function openSection(page, section) {
+  const summary = page.locator("summary").filter({ hasText: section }).first();
+  if (!await summary.evaluate((node) => node.parentElement.open)) await summary.click();
 }
 
 async function closeEditors(page) {

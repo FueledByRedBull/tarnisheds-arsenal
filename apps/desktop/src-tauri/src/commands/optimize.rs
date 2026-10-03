@@ -582,6 +582,7 @@ pub fn start_search(
                         cancelled: message == "cancelled",
                         rows: Vec::new(),
                         error: (message != "cancelled").then_some(message),
+                        setups: 0,
                     };
                 }
             };
@@ -624,6 +625,7 @@ pub fn start_search(
                 cancelled,
                 rows,
                 error,
+                setups: plan.estimate().combinations,
             }
         },
         move |status, outcome| {
@@ -645,6 +647,7 @@ fn publish_search_finished(
         cancelled: false,
         rows: Vec::new(),
         error: Some(error),
+        setups: 0,
     });
     if finished.error.is_none() && cancel.load(Ordering::Relaxed) {
         finished.cancelled = true;
@@ -1025,6 +1028,7 @@ mod integration_tests {
                         cancelled: false,
                         rows: rows.into_iter().map(SolvedBuildDto::from).collect(),
                         error: None,
+                        setups: 0,
                     }
                 },
                 move |status, outcome| {
@@ -1232,6 +1236,7 @@ mod integration_tests {
                 cancelled: false,
                 rows,
                 error: None,
+                setups: 0,
             }),
             "search-publish".into(),
             &cancel,
@@ -1247,6 +1252,7 @@ mod integration_tests {
                 cancelled: false,
                 rows: Vec::new(),
                 error: Some("calculation failed".into()),
+                setups: 0,
             }),
             Err(String::from("worker panicked")),
         ] {

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { openEditor } from "./editors";
+import { openEditor, openSection } from "./editors";
 
 for (const outcome of ["cancelled", "failed"] as const) {
   test(`keeps the saved comparison when its upgrade series is ${outcome}`, async ({ page }) => {
@@ -8,9 +8,11 @@ for (const outcome of ["cancelled", "failed"] as const) {
     await expect(page.getByText("4 ranked rows", { exact: true })).toBeVisible();
     await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
     await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
+    await openSection(page, "Saved Builds");
     await page.getByRole("button", { name: "Save new", exact: true }).click();
     await page.reload();
     await page.getByText("Snapshot loaded", { exact: true }).waitFor();
+    await openSection(page, "Saved Builds");
     await page.getByRole("button", { name: "Load", exact: true }).click();
     const savedTarget = await page.evaluate(async () => {
       const { useDesktopStore } = await import("/src/lib/state.ts");
@@ -56,6 +58,7 @@ for (const withPins of [false, true]) {
       useDesktopStore.setState({ compareTarget: target, compareBench: withPins ? [state.rows[1]] : [] });
       return { weaponName: target.weaponName, affinity: target.affinity };
     }, withPins);
+    await openSection(page, "Saved Builds");
     await page.getByRole("button", { name: "Save new", exact: true }).click();
     await page.reload();
     await page.getByText("Snapshot loaded", { exact: true }).waitFor();
@@ -63,6 +66,7 @@ for (const withPins of [false, true]) {
       const { useDesktopStore } = await import("/src/lib/state.ts");
       useDesktopStore.getState().patchCompareControls({ weaponName: "Claymore", matchSelectedAow: false });
     });
+    await openSection(page, "Saved Builds");
     await page.getByRole("button", { name: "Load", exact: true }).click();
     await page.locator(".result-row-full").click();
     await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
@@ -102,6 +106,7 @@ test("rejects malformed comparison pins without importing them or disabling sear
   const crashes: string[] = [];
   page.on("pageerror", error => crashes.push(error.message));
   await page.goto("/");
+  await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   const malformed = await page.evaluate(() => {
     const key = Object.keys(localStorage).find(key => key.startsWith("tarnisheds-arsenal.savedBuild.v2."))!;
@@ -126,6 +131,7 @@ for (const stale of [false, true]) {
     await page.goto("/");
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect(page.getByText("4 ranked rows")).toBeVisible();
+    await openSection(page, "Saved Builds");
     await page.getByRole("button", { name: "Save new", exact: true }).click();
     const stored = await page.evaluate((stale) => {
       const key = Object.keys(localStorage).find(key => key.startsWith("tarnisheds-arsenal.savedBuild.v2."))!;
@@ -154,8 +160,9 @@ test("saving with result locks disabled keeps them disabled after loading", asyn
   await expect(page.getByText("4 ranked rows")).toBeVisible();
   await page.locator(".result-row-full").first().getByRole("button", { name: /^Lock / }).click();
   await openEditor(page, "Limits");
-  const locks = page.getByRole("checkbox", { name: "Use Locked Result Stats", exact: true });
+  const locks = page.getByRole("checkbox", { name: "Use stat locks", exact: true });
   await locks.uncheck();
+  await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   await page.getByRole("button", { name: "Load", exact: true }).click();
   await openEditor(page, "Limits");
@@ -169,6 +176,7 @@ test("saving with result locks disabled keeps them disabled after loading", asyn
 
 test("a failed deletion reports the error and preserves a loadable build", async ({ page }) => {
   await page.goto("/");
+  await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   await page.evaluate(() => {
     const write = Storage.prototype.setItem;
@@ -192,6 +200,7 @@ test("Convergence saves, updates and reloads the displayed fixed stats", async (
   await page.goto("/");
   await page.getByRole("radio", { name: /Convergence/ }).click();
   await expect(page.getByText("Experimental fixed-stat model", { exact: true })).toBeVisible();
+  await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   await expect(page.getByText("Saved Build Preset.", { exact: true })).toBeVisible();
   await page.getByRole("spinbutton", { name: "STR", exact: true }).fill("40");
@@ -203,6 +212,7 @@ test("Convergence saves, updates and reloads the displayed fixed stats", async (
   });
   expect(saved.request).toMatchObject({ profileId: "convergence", characterLevel: total, strStat: 40 });
   await page.reload();
+  await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Load", exact: true }).click();
   await expect(page.getByRole("spinbutton", { name: "STR", exact: true })).toHaveValue("40");
   await expect(page.getByRole("textbox", { name: "Stat total", exact: true })).toHaveValue(String(total));
@@ -216,6 +226,7 @@ for (const action of ["Save new", "Update selected"]) {
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect(page.getByText("4 ranked rows")).toBeVisible();
     await page.locator(".result-row-full").first().getByRole("button", { name: /^Compare / }).click();
+    await openSection(page, "Saved Builds");
     if (action === "Update selected") await page.getByRole("button", { name: "Save new", exact: true }).click();
     await page.getByRole("checkbox", { name: "Two-handing", exact: true }).check();
     await expect(page.getByText("Inputs changed", { exact: true })).toBeVisible();
@@ -238,6 +249,7 @@ for (const action of ["delete", "edit", "profile", "update"]) {
     await page.goto("/");
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect(page.getByText("4 ranked rows")).toBeVisible();
+    await openSection(page, "Saved Builds");
     await page.getByRole("button", { name: "Save new", exact: true }).click();
     const original = await page.evaluate(() => {
       const key = Object.keys(localStorage).find((key) => key.startsWith("tarnisheds-arsenal.savedBuild.v2."))!;
@@ -256,6 +268,7 @@ for (const action of ["delete", "edit", "profile", "update"]) {
         Object.assign(window, { migrationSignal: signal, finishMigration: () => resolve(row) });
       });
     });
+    await openSection(page, "Saved Builds");
     await page.getByRole("button", { name: "Migrate data", exact: true }).click();
     await page.waitForFunction(() => "finishMigration" in window);
     if (action === "delete") {
@@ -296,6 +309,7 @@ test("failed migration stops further recomputations and keeps the original error
   await expect(page.getByText("4 ranked rows")).toBeVisible();
   await page.locator(".result-row-full").nth(0).getByRole("button", { name: /^Compare / }).click();
   await page.locator(".result-row-full").nth(1).getByRole("button", { name: /^Compare / }).click();
+  await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   const presetId = await page.evaluate(() => {
     const key = Object.keys(localStorage).find((key) => key.startsWith("tarnisheds-arsenal.savedBuild.v2."))!;
@@ -323,6 +337,7 @@ test("failed migration stops further recomputations and keeps the original error
     };
     Object.assign(window, { migrationCalls: calls, migrationSiblingAborted: false });
   }, presetId);
+  await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Migrate data", exact: true }).click();
   await expect(page.locator('.error-strip[role="alert"]')).toContainText("recompute failed");
   await expect.poll(() => page.evaluate(() => (window as unknown as { migrationCalls: Array<{ signal: AbortSignal }> }).migrationCalls.length)).toBe(2);

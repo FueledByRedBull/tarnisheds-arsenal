@@ -182,7 +182,7 @@ export function PathsView() {
         </div>
       </div>
       <Progress checked={pathProgress?.checked ?? 0} total={pathProgress?.total ?? (paths.length || 1)} status={status} resultCount={paths.length} />
-      <small className="path-mode-note">{pathMode === "no_respec" ? "Ends on the best build for the final level. Points are added one level at a time, greedily, and never removed." : "Each level shows its own best build. A respec is marked when that build moves points you already spent."}</small>
+      <small className="path-mode-note">{pathMode === "no_respec" ? "Ends on the best build for the final level. Each level adds its point where it helps most, and no point is ever moved, so the path never needs a respec." : "Each level shows its own best build. A respec is marked when that build moves points you already spent."}</small>
       <div className="path-lanes">
         <LaneSummary title="Selected" path={paths.find((path) => path.title === "Selected")} row={selected} />
         <LaneSummary title="Compare" path={paths.find((path) => path.title === "Compare")} row={target} />
@@ -208,7 +208,7 @@ function PathSteps({ paths, objective }: { paths: PathPreviewDto[]; objective: P
           Levels
           <select aria-label="Path level range" value={currentPage} onChange={event => setPage(Number(event.target.value))}>
             {Array.from({ length: pageCount }, (_, index) => (
-              <option key={index} value={index}>{levels[index * 10]}–{levels[Math.min(index * 10 + 9, levels.length - 1)]}</option>
+              <option key={index} value={index}>{levels[index * 10]}-{levels[Math.min(index * 10 + 9, levels.length - 1)]}</option>
             ))}
           </select>
         </label>

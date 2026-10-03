@@ -71,7 +71,7 @@ test("rankings show movement and value changes since the previous search", async
       first,
       second,
       { ...fourth, aowName: "Different skill" },
-    ]);
+    ], 100);
   });
   const rows = page.locator(".result-row-full");
   await expect(rows.nth(0).locator(".rank-move")).toHaveText("2");
@@ -79,13 +79,13 @@ test("rankings show movement and value changes since the previous search", async
   await expect(rows.nth(0).locator(".metric-delta")).toHaveText("+12.5");
   await expect(rows.nth(1).locator(".rank-move")).toHaveClass(/down/);
   await expect(rows.nth(3).locator(".rank-move")).toHaveText("New");
-  await expect(page.getByRole("row", { name: /rank 1, up 2 since the previous search$/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /rank 1, AR [\d.]+, up 2 since the previous search$/ })).toBeVisible();
 
   // Running the same search again shows no movement.
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await page.evaluate(async () => {
     const { useDesktopStore } = await import("/src/lib/state.ts");
-    useDesktopStore.getState().setRows([...useDesktopStore.getState().rows]);
+    useDesktopStore.getState().setRows([...useDesktopStore.getState().rows], 100);
   });
   await expect(page.locator(".rank-move, .metric-delta")).toHaveCount(0);
 });
@@ -110,7 +110,7 @@ test("result columns sort without renumbering ranks", async ({ page }) => {
   await page.evaluate(async () => {
     const { useDesktopStore } = await import("/src/lib/state.ts");
     const rows = useDesktopStore.getState().rows;
-    useDesktopStore.getState().setRows([rows[0], rows[1], { ...rows[2], ar: { ...rows[2].ar, total: 999 } }, rows[3]]);
+    useDesktopStore.getState().setRows([rows[0], rows[1], { ...rows[2], ar: { ...rows[2].ar, total: 999 } }, rows[3]], 100);
   });
   expect(await ranks()).toEqual(["3", "1", "2", "4"]);
   const rank = page.getByRole("columnheader", { name: "Rank", exact: true });
@@ -130,7 +130,7 @@ test("arrow keys move between ranked rows and Build Detail shows the rank", asyn
   await expect(rows.nth(3)).toBeFocused();
   await page.keyboard.press("Home");
   await expect(rows.nth(0)).toBeFocused();
-  await expect(page.locator(".rank-context")).toHaveText("Rank 1 of 4 · best for this query");
+  await expect(page.locator(".rank-context")).toHaveText("Rank 1 of 4 · 30.0 ahead of #2");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
   await expect(rows.nth(1)).toHaveAttribute("aria-selected", "true");
@@ -224,8 +224,9 @@ test("Build Detail never calls a rounded gap an exact tie", async ({ page }) => 
   await page.evaluate(async () => {
     const { useDesktopStore } = await import("/src/lib/state.ts");
     const [first, second, ...rest] = useDesktopStore.getState().rows;
-    useDesktopStore.getState().setRows([first, { ...second, ar: { ...second.ar, total: first.ar.total - 0.01 } }, ...rest]);
+    useDesktopStore.getState().setRows([first, { ...second, ar: { ...second.ar, total: first.ar.total - 0.01 } }, ...rest], 100);
   });
   await page.locator(".result-row-full").nth(1).click();
   await expect(page.locator(".rank-context")).toHaveText("Rank 2 of 4 · less than 0.05 behind #1");
+  await expect(page.locator(".rank-proof")).toHaveText("Ranked exactly against all 100 legal setups this query allows.");
 });

@@ -151,7 +151,7 @@ export function App() {
                     {profile.profile.id === "convergence" ? <span className="sr-only"> Beta</span> : null}
                   </span>
                   <small>
-                    {version}
+                    <span className="profile-version">{version}</span>
                     {profile.profile.id === "convergence" ? <span className="profile-beta-mark" aria-hidden="true">Beta</span> : null}
                   </small>
                 </button>
@@ -238,12 +238,18 @@ function WorkspaceTabs({ ready, classBudget }: { ready: boolean; classBudget: bo
   const setWorkspace = useDesktopStore((state) => state.setWorkspace);
   const selected = useDesktopStore((state) => state.selected);
   const resultsStale = useDesktopStore((state) => state.resultsStale);
+  const pinnedCount = useDesktopStore((state) => state.compareBench.length);
 
   const tabState = (id: WorkspaceTab) => {
     const requiresSelection = id !== "rankings" && (!selected || resultsStale);
     const unsupportedBudget = id !== "rankings" && !classBudget;
     return { requiresSelection, unsupportedBudget, disabled: !ready || requiresSelection || unsupportedBudget };
   };
+  // Why the analysis tabs are unavailable, said once beside them rather than only on hover.
+  const lockReason = !ready ? null
+    : !classBudget ? "Vanilla only: needs verified class budgets"
+      : resultsStale && selected ? "Update results to unlock"
+        : !selected ? "Search and select a build to unlock" : null;
 
   // Ctrl+1 to Ctrl+4 follow the tab order, and only reach tabs that are currently available.
   const onTabShortcut = useEffectEvent((event: KeyboardEvent) => {
@@ -278,7 +284,7 @@ function WorkspaceTabs({ ready, classBudget }: { ready: boolean; classBudget: bo
         pill.getAnimations().forEach((animation) => animation.cancel());
         pill.animate(
           [{ transform: `translateX(${left}px) scaleX(${from.width / active.offsetWidth})` }, { transform: `translateX(${active.offsetLeft}px)` }],
-          { duration: 300, easing: EASE_OUT },
+          { duration: 200, easing: EASE_OUT },
         );
       }
       pillPlaced.current = true;
@@ -311,30 +317,41 @@ function WorkspaceTabs({ ready, classBudget }: { ready: boolean; classBudget: bo
             aria-label={label}
             aria-current={activeWorkspace === id ? "page" : undefined}
             aria-keyshortcuts={`Control+${index + 1}`}
+            aria-describedby={disabled && lockReason ? "tab-lock-reason" : undefined}
             onClick={() => setWorkspace(id)}
             title={unsupportedBudget ? "Requires verified profile class budgets" : requiresSelection ? `${label} requires a current selected ranking` : `${label} (Ctrl+${index + 1})`}
             disabled={disabled}
           >
             <Icon size={16} aria-hidden="true" />
             <span>{label}</span>
+            {/* Keyed by the count so each pin replays the pop (styles.css). */}
+            {id === "compare" && pinnedCount ? <span className="tab-count" key={pinnedCount} aria-hidden="true">{pinnedCount}</span> : null}
           </button>
         );
       })}
+      {lockReason ? <span className="tab-note" id="tab-lock-reason">{lockReason}</span> : null}
     </nav>
   );
 }
 
+// One live region that is always mounted, so screen readers hear each notice as it arrives.
+// Notices are keyed by content: a newer one arriving must not remount, and so replay the
+// entrance of, one that is still shown.
 function WorkspaceNotices() {
   const activeWorkspace = useDesktopStore((state) => state.activeWorkspace);
   const notices = useDesktopStore((state) => state.notices);
-  return notices
+  const shown = new Map(notices
     .filter((notice) => notice.scope === "global" || notice.scope === activeWorkspace)
-    .slice(-2)
-    .map((notice, index) => (
-      <div className={`notice-strip ${notice.tone}`} key={`${notice.scope}-${index}-${notice.message}`}>
-        <span>{notice.message}</span>
-      </div>
-    ));
+    .map((notice) => [`${notice.scope}:${notice.tone}:${notice.message}`, notice]));
+  return (
+    <div className="workspace-notices" role="status">
+      {[...shown].slice(-2).map(([key, notice]) => (
+        <div className={`notice-strip ${notice.tone}`} key={key}>
+          <span>{notice.message}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // Workspaces stay mounted while hidden, so switching tabs shows them instantly; a hidden

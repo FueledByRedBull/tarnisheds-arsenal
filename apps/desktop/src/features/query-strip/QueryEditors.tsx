@@ -77,6 +77,15 @@ export function ClassEditor({ catalog, request, fixedStats, applyClass, onOptimi
   );
 }
 
+// One line on what each objective ranks by, so the choice does not depend on knowing the label.
+const OBJECTIVE_HINTS: Record<ObjectiveId, string> = {
+  max_ar: "Highest total attack rating",
+  max_physical_ar: "Highest physical attack rating",
+  max_ar_plus_bleed: "Most bleed buildup; AR breaks ties",
+  aow_first_hit: "Hardest first damaging hit of the skill",
+  aow_full_sequence: "Most damage over one full skill route",
+};
+
 export function ObjectiveEditor({ objectives, objective, patchRequest, close }: {
   objectives: ObjectiveId[];
   objective: ObjectiveId;
@@ -92,12 +101,14 @@ export function ObjectiveEditor({ objectives, objective, patchRequest, close }: 
             className={objective === option ? "active" : ""}
             type="button"
             aria-pressed={objective === option}
+            aria-description={OBJECTIVE_HINTS[option]}
             onClick={() => {
               patchRequest({ objective: option });
               close();
             }}
           >
             {objectiveLabel(option)}
+            <small aria-hidden="true">{OBJECTIVE_HINTS[option]}</small>
           </button>
         ))}
       </div>
@@ -391,10 +402,10 @@ export function LimitsEditor({ request, patchRequest, markResultsStale, fixedSta
           disabled={fixedStats}
           onChange={(event) => setLockedStatMode(event.target.checked)}
         />
-        {fixedStats ? "Use entered combat stats exactly" : "Use Locked Result Stats"}
+        {fixedStats ? "Use entered combat stats exactly" : "Use stat locks"}
       </label>
       <div className="editor-readout">
-        <span>Locks</span>
+        <span>Stat locks</span>
         <strong>
           {fixedStats
             ? `STR ${request.strStat} DEX ${request.dex} INT ${request.intStat} FAI ${request.fai} ARC ${request.arc}`
@@ -408,7 +419,7 @@ export function LimitsEditor({ request, patchRequest, markResultsStale, fixedSta
         disabled={fixedStats}
         onClick={onClearLocks}
       >
-        Clear Locks
+        Clear stat locks
       </button>
       {savedCoverageFilters.length > 0 ? (
         <section className="editor-section" aria-label="Saved profile filters">

@@ -1,17 +1,24 @@
 import { fixed1, metricForObjective, objectiveLabel } from "./format";
-import { STAT_KEYS } from "./session";
 import type { OptimizeRequestDto, SolvedBuildDto } from "./types";
 
 const statNames = ["STR", "DEX", "INT", "FAI", "ARC"];
+const damageTypes = ["physical", "magic", "fire", "lightning", "holy"] as const;
 
-export function explainBuild(row: SolvedBuildDto, request: OptimizeRequestDto, aowModelSupported = true): string[] {
+/** How far `row` leads `runnerUp` on the ranked objective; null when either is unavailable. */
+export function leadOver(row: SolvedBuildDto, runnerUp: SolvedBuildDto, objective: OptimizeRequestDto["objective"], aowModelSupported = true): number | null {
+  const metric = metricForObjective(row, objective, aowModelSupported);
+  const runnerMetric = metricForObjective(runnerUp, objective, aowModelSupported);
+  return metric === null || runnerMetric === null ? null : metric - runnerMetric;
+}
+
+export function explainBuild(row: SolvedBuildDto, request: OptimizeRequestDto, aowModelSupported = true, runnerUp: SolvedBuildDto | null = null): string[] {
   const metric = metricForObjective(row, request.objective, aowModelSupported);
   const lines = [request.objective === "max_ar_plus_bleed"
     ? `This search ranks bleed buildup first (${fixed1(row.bleedBuildup)}), then AR (${fixed1(row.ar.total)}). It does not add them together or predict bleed-proc damage.`
     : metric === null ? "Skill damage is unavailable for this loadout; no modeled result is available."
       : `This build scores ${fixed1(metric)} for ${objectiveLabel(request.objective)} under the current search constraints.`];
-  const damage = (["physical", "magic", "fire", "lightning", "holy"] as const)
-    .map(key => [key, row.ar[key]] as const).filter(([, value]) => value > 0);
+  if (runnerUp) lines.push(runnerUpLine(row, runnerUp, request.objective, aowModelSupported));
+  const damage = damageTypes.map(key => [key, row.ar[key]] as const).filter(([, value]) => value > 0);
   if (damage.length) lines.push(`Weapon AR comes from ${damage.map(([key, value]) => `${fixed1(value)} ${key}`).join(" + ")}. Enemy defenses and negation are not applied.`);
   const locks = [request.lockStr, request.lockDex, request.lockInt, request.lockFai, request.lockArc];
   const minimums = [request.minStr, request.minDex, request.minInt, request.minFai, request.minArc];
@@ -27,16 +34,17 @@ export function explainBuild(row: SolvedBuildDto, request: OptimizeRequestDto, a
   return lines;
 }
 
-export function explainBuildComparison(baseline: SolvedBuildDto, candidate: SolvedBuildDto, request: Pick<OptimizeRequestDto, "objective">, aowModelSupported = true): string {
-  const baselineMetric = metricForObjective(baseline, request.objective, aowModelSupported);
-  const candidateMetric = metricForObjective(candidate, request.objective, aowModelSupported);
-  const delta = baselineMetric === null || candidateMetric === null ? null : candidateMetric - baselineMetric;
-  const arDelta = candidate.ar.total - baseline.ar.total;
-  const stats = STAT_KEYS.flatMap((key, index) => {
-    const change = candidate.stats[key] - baseline.stats[key];
-    return change ? [`${statNames[index]} ${change > 0 ? "+" : ""}${change}`] : [];
-  });
-  const metricDifference = delta === null ? "Skill damage comparison unavailable"
-    : `${delta >= 0 ? "+" : ""}${fixed1(delta)} ${request.objective === "max_ar_plus_bleed" ? "bleed buildup" : objectiveLabel(request.objective)}`;
-  return `${candidate.weaponName}: ${metricDifference}, ${arDelta >= 0 ? "+" : ""}${fixed1(arDelta)} AR versus ${baseline.weaponName}. ${stats.length ? `Stat changes: ${stats.join(", ")}.` : "Combat stats are unchanged."} ${request.objective === "max_ar_plus_bleed" ? "Bleed ranks before AR; this does not estimate proc damage." : "These are raw modeled values before enemy defenses."}`;
+// What separates this build from the next one: the lead on the ranked objective, then the
+// largest AR component difference, which is where an affinity or scaling choice shows up.
+function runnerUpLine(row: SolvedBuildDto, runnerUp: SolvedBuildDto, objective: OptimizeRequestDto["objective"], aowModelSupported: boolean): string {
+  const rival = `${runnerUp.weaponName} (${runnerUp.affinity}, +${runnerUp.upgrade})`;
+  const lead = leadOver(row, runnerUp, objective, aowModelSupported);
+  if (lead === null) return `The next build, ${rival}, has no comparable ${objectiveLabel(objective)} value.`;
+  if (Math.abs(lead) < 0.05) return `It ties ${rival} at the displayed precision; the exact ranking and tie order place it first.`;
+  const unit = objective === "max_ar_plus_bleed" ? "bleed buildup" : objectiveLabel(objective);
+  const [type, difference] = damageTypes
+    .map(key => [key, row.ar[key] - runnerUp.ar[key]] as const)
+    .reduce((largest, entry) => Math.abs(entry[1]) > Math.abs(largest[1]) ? entry : largest);
+  const split = Math.abs(difference) < 0.05 ? "" : ` The largest AR difference is ${difference > 0 ? "+" : ""}${fixed1(difference)} ${type}.`;
+  return `It leads the next build, ${rival}, by ${fixed1(lead)} ${unit}.${split}`;
 }

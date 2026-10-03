@@ -203,6 +203,13 @@ selection, undo flashes and the search's landing flare. Rules found along the wa
 - **Transform and opacity only.** Progress fills, the tab pill and skeleton shimmers move
   by transform. A width transition laid out on every frame, and a `background-position`
   shimmer repainted every placeholder on every frame.
+- **No motion on keyboard-summoned surfaces.** The Ctrl+K palette opens with no
+  transition, and the workspace entrance replayed by Ctrl+1 to Ctrl+4 is a 140 ms fade
+  without travel. Both run many times a session, where any animation reads as delay.
+- **Fade disclosures, never transition their visibility.** `<details>` content fades in
+  by opacity only, so the space is taken at once. Transitioning `content-visibility`
+  kept the content hidden for its first frame, so opening a section and focusing a field
+  in it in one handler failed.
 
 ### Click hitches
 

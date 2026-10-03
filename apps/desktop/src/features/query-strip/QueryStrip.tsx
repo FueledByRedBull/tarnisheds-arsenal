@@ -53,7 +53,6 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
 }) {
   const catalog = useDesktopStore((state) => state.catalog);
   const profiles = useDesktopStore((state) => state.profiles);
-  const activeWorkspace = useDesktopStore((state) => state.activeWorkspace);
   const request = useDesktopStore((state) => state.request);
   const loadoutSelectionRevision = useDesktopStore((state) => state.loadoutSelectionRevision);
   const patchRequest = useDesktopStore((state) => state.patchRequest);
@@ -67,6 +66,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
   const setLockedStatMode = useDesktopStore((state) => state.setLockedStatMode);
   const setWorkspace = useDesktopStore((state) => state.setWorkspace);
+  const setPathHorizon = useDesktopStore((state) => state.setPathHorizon);
   const runner = useSearchRunner();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteLoaded, setPaletteLoaded] = useState(false);
@@ -108,7 +108,6 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   const savedCoverageCount = request.filters.entries.filter((entry) => entry.dimension === "coverage").length;
   const analysesAvailable = catalog !== null && hasSelection && !resultsStale && !fixedStats;
   const searchBusy = isSearching || runner.isPreparingSearch;
-  const showSearch = activeWorkspace === "rankings" || searchBusy;
 
   const upgradeSummary = separateUpgradeCaps
     ? `${request.exactUpgrade ? "Exact" : "Up to"} +${request.standardMaxUpgrade} / +${request.somberMaxUpgrade}`
@@ -255,6 +254,10 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
       case "workspace":
         setWorkspace(action.workspace);
         break;
+      case "planLevels":
+        setPathHorizon(action.horizon);
+        setWorkspace("paths");
+        break;
       case "profile":
         onProfileChange(action.profileId);
         break;
@@ -339,7 +342,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
               weaponProfile={weaponProfile}
             />
           </Popover>
-          <label ref={twoHandToggle} className="strip-token strip-toggle" title="Apply the 1.5x effective STR rule when legal">
+          <label ref={twoHandToggle} className="strip-token strip-toggle" title="Apply the 1.5x effective STR rule when legal" aria-description="Applies the 1.5x effective Strength rule when legal">
             <input
               type="checkbox"
               checked={request.twoHanding}
@@ -432,21 +435,20 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
             <span className="strip-palette-label">Edit anything</span>
             <kbd>Ctrl K</kbd>
           </button>
-          {showSearch ? (
-            <button
-              className={`search-button ${searchBusy ? "busy" : ""}`}
-              type="button"
-              title={searchBusy ? undefined : "Shortcut: Ctrl+Enter"}
-              aria-keyshortcuts={searchBusy ? undefined : "Control+Enter"}
-              onClick={searchBusy ? runner.cancelSearch : runner.runSearch}
-              disabled={isExporting || runner.searchCancellationRequested || (!isSearching && !catalog)}
-            >
-              {searchBusy ? <RotateCcw size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
-              {searchBusy
-                ? (runner.searchCancellationRequested ? "Cancelling…" : "Cancel Search")
-                : resultsStale ? "Update Results" : "Search"}
-            </button>
-          ) : null}
+          {/* Search keeps its place on every tab; from another tab it opens Rankings, like Ctrl+Enter. */}
+          <button
+            className={`search-button ${searchBusy ? "busy" : ""}`}
+            type="button"
+            title={searchBusy ? undefined : "Shortcut: Ctrl+Enter"}
+            aria-keyshortcuts={searchBusy ? undefined : "Control+Enter"}
+            onClick={searchBusy ? runner.cancelSearch : startSearch}
+            disabled={isExporting || runner.searchCancellationRequested || (!isSearching && !catalog)}
+          >
+            {searchBusy ? <RotateCcw size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
+            {searchBusy
+              ? (runner.searchCancellationRequested ? "Cancelling…" : "Cancel Search")
+              : resultsStale ? "Update Results" : "Search"}
+          </button>
         </div>
       </div>
 
@@ -456,8 +458,13 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
           {fixedStats ? "Stat total" : "Level"}
           <input readOnly value={derivedLevel(catalog, request)} />
         </label>
+        {/* Definitions are also descriptions, so keyboard and screen-reader users get them too. */}
         {!fixedStats ? (
-          <span className="ribbon-readout" title={`Levels above ${request.className}'s base level ${budget.baseLevel}`}>
+          <span
+            className="ribbon-readout"
+            title={`Levels above ${request.className}'s base level ${budget.baseLevel}`}
+            aria-description={`Levels above ${request.className}'s base level ${budget.baseLevel}`}
+          >
             <span>Level-ups</span>
             <strong>{budget.levelUps}</strong>
           </span>
@@ -466,9 +473,12 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
           className="ribbon-readout"
           title={fixedStats
             ? "Convergence uses the entered combat stats exactly"
-            : "Movable STR/DEX/INT/FAI/ARC points after class minimums, fixed VIG/MND/END, and minimum floors"}
+            : "STR/DEX/INT/FAI/ARC points a respec can move: what is left after class minimums, fixed VIG/MND/END, and minimum floors"}
+          aria-description={fixedStats
+            ? "Convergence uses the entered combat stats exactly"
+            : "STR, DEX, INT, FAI and ARC points a respec can move, after class minimums, fixed VIG, MND and END, and minimum floors"}
         >
-          <span>{fixedStats ? "Mode" : "Movable"}</span>
+          <span>{fixedStats ? "Mode" : "Respec"}</span>
           <strong>{fixedStats ? "Fixed stats" : budget.redistributable}</strong>
         </span>
         <span className="ribbon-divider" aria-hidden="true" />
@@ -481,6 +491,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
             >
               {label}
               <DraftNumberInput
+                description={requirementGaps && (requirementGaps[key] ?? 0) > 0 ? `${requirementGaps[key]} below the selected weapon's requirement` : undefined}
                 min={Math.max(1, meta.baseStats[key as keyof EightStatsDto])}
                 max={99}
                 value={Number(request[key as keyof OptimizeRequestDto])}
