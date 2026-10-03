@@ -57,7 +57,7 @@ test("movement markers, sorted headers and the shortcut sheet have no WCAG A/AA 
       { ...first, ar: { ...first.ar, total: first.ar.total - 20 } },
       third,
       { ...fourth, aowName: "Different skill" },
-    ]);
+    ], 100);
   });
   // The selected row tints its background, so check the down marker on it too.
   await page.locator(".result-row-full").nth(1).click();

@@ -30,7 +30,7 @@ export function Inspector() {
   const catalog = useDesktopStore((state) => state.catalog);
   const selected = useDesktopStore((state) => state.selected);
   const rows = useDesktopStore((state) => state.rows);
-  const rowsObjective = useDesktopStore((state) => state.rowsObjective);
+  const rowsSetups = useDesktopStore((state) => state.rowsSetups);
   const request = useDesktopStore((state) => state.request);
   const resultsStale = useDesktopStore((state) => state.resultsStale);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
@@ -121,8 +121,10 @@ export function Inspector() {
                   : behindLeader < 0.05 ? " · less than 0.05 behind #1" : ` · ${fixed1(behindLeader)} behind #1`}
             </p>
           ) : null}
-          {rank >= 0 && !resultsStale && rowsObjective !== null ? (
-            <p className="rank-proof">Exact ranking of every legal setup this query allows.</p>
+          {rank >= 0 && !resultsStale && rowsSetups !== null ? (
+            <p className="rank-proof">
+              {rowsSetups === 1 ? "The only legal setup this query allows." : `Ranked exactly against all ${rowsSetups.toLocaleString()} legal setups this query allows.`}
+            </p>
           ) : null}
           {statChanges ? (
             <div className="detail-block stat-changes">

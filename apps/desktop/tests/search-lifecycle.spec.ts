@@ -24,7 +24,7 @@ for (const outcome of ["already-finished", "failure"] as const) {
       api.searchStatus = async (jobId: string) => ({
         progress: null,
         finished: jobId === "search-1" && probe.oldFinished
-          ? { jobId, rows: [], cancelled: true, error: null } : null,
+          ? { jobId, rows: [], cancelled: true, error: null, setups: 0 } : null,
       });
     });
     await page.getByRole("button", { name: "Search", exact: true }).click();
@@ -81,7 +81,7 @@ for (const replacement of ["compare", "rankings"]) {
       api.searchStatus = async (jobId: string) => {
         if (jobId === "probe-1" && !probe.release) return { progress: null, finished: null };
         probe.active = "";
-        return { progress: null, finished: { jobId, rows, cancelled: jobId === "probe-1", error: null } };
+        return { progress: null, finished: { jobId, rows, cancelled: jobId === "probe-1", error: null, setups: rows.length } };
       };
     });
     const nav = page.getByRole("navigation");

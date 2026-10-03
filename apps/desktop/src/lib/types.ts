@@ -375,6 +375,7 @@ export interface SearchFinishedDto {
   cancelled: boolean;
   rows: SolvedBuildDto[];
   error: string | null;
+  setups: number;
 }
 
 export interface SearchJobStatusDto {

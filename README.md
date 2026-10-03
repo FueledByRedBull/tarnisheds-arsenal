@@ -65,8 +65,8 @@ needs internet access if that runtime is missing.
    Press **Ctrl+K** to type a change instead, such as `str 40`, `uchigatana`,
    `+20`, `top 10`, or `level 60` to plan where your next levels go.
 3. Press **Search**, then select a row to inspect its damage, scaling, and stats.
-   Build Detail shows how far the top result leads the next one and which of
-   your entered stats the build changes.
+   Build Detail shows how far the top result leads the next one, how many legal
+   setups the search ranked, and which of your entered stats the build changes.
 4. Pin another result for **Compare** (or press **P** on a focused row), trace
    future levels in **Paths**, or explore affinity crossover points in
    **Affinity Watch**. These workspaces unlock once a current result is selected;

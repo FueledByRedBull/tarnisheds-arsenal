@@ -85,7 +85,7 @@ test("tradeoff views select exact threshold choices and persist an exact apply",
     };
     api.searchStatus = async jobId => ({
       progress: null,
-      finished: { jobId, cancelled: false, rows: [appliedResult], error: null },
+      finished: { jobId, cancelled: false, rows: [appliedResult], error: null, setups: 1 },
     });
   }, { chosenAr: Number(chosenPointAr), chosenBleed: Number(chosenPointBleed) });
   await section.getByRole("button", { name: "Use exact allocation", exact: true }).click();

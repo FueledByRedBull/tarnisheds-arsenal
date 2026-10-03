@@ -17,7 +17,7 @@ test("missing skill routes stay unavailable across displays, reports, and saved-
           totalDamage: { physical: 0, magic: 0, fire: 0, lightning: 0, holy: 0, total: 0 },
           totalPoiseDamage: 0, totalStaminaCost: 0,
           totalStatusBuildup: { bleed: 0, frost: 0, poison: 0, scarletRot: 0, sleep: 0, madness: 0, death: 0 } } },
-    ]);
+    ], 100);
   });
   const resultRows = page.locator(".result-row-full");
   await expect(resultRows.first().locator(".skill-cell")).toHaveText("Unavailable");

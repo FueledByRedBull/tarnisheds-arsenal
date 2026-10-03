@@ -113,7 +113,7 @@ describe("desktop result lifecycle", () => {
 
   it("retains previous rows and labels them stale when result inputs change", () => {
     const state = useDesktopStore.getState();
-    state.setRows([row]);
+    state.setRows([row], 1);
     state.setCompareTarget(row);
     state.patchRequest({ objective: "max_physical_ar" });
 
@@ -126,17 +126,20 @@ describe("desktop result lifecycle", () => {
 
   it("marks replacement rows current after a successful search", () => {
     const state = useDesktopStore.getState();
-    state.setRows([row]);
+    state.setRows([row], 1);
     state.patchRequest({ twoHanding: true });
     expect(useDesktopStore.getState().resultsStale).toBe(true);
 
-    useDesktopStore.getState().setRows([{ ...row, score: 510 }]);
-    expect(useDesktopStore.getState().resultsStale).toBe(false);
+    useDesktopStore.getState().setRows([{ ...row, score: 510 }], 42);
+    expect(useDesktopStore.getState()).toMatchObject({ resultsStale: false, rowsSetups: 42 });
+
+    useDesktopStore.getState().clearResults();
+    expect(useDesktopStore.getState().rowsSetups).toBeNull();
   });
 
   it("keeps saved comparisons and analysis ownership until the selected build changes", () => {
     const state = useDesktopStore.getState();
-    state.setRows([row]);
+    state.setRows([row], 1);
     const target = { ...row, affinity: "Standard" };
     useDesktopStore.setState({ compareTarget: target, restoredCompareTarget: target });
     state.beginPath("saved-path");
@@ -159,7 +162,7 @@ describe("desktop result lifecycle", () => {
 
   it.each(["draft edit", "replacement search"])("invalidates analysis ownership and retained results on %s", (action) => {
     const state = useDesktopStore.getState();
-    state.setRows([row]);
+    state.setRows([row], 1);
     state.setCompareTarget(row);
     state.beginPath("old-path");
     state.setActivePathJobId("path-job");
@@ -405,7 +408,7 @@ describe("desktop result lifecycle", () => {
   it("switches profiles as one fail-closed state transition", () => {
     const state = useDesktopStore.getState();
     state.setProfiles([catalog("vanilla").dataManifest, catalog("convergence").dataManifest]);
-    state.setRows([row]);
+    state.setRows([row], 1);
     state.setCompareTarget(row);
     state.setWorkspace("compare");
     useDesktopStore.setState({ lockedStatMode: true, request: {

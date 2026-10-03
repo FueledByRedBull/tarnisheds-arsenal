@@ -29,14 +29,14 @@ export async function runSearchFromStore(
   });
   state.setError(null);
   try {
-    const rows = await runSearchRequestForRows(request, controller.signal, (progress) => {
-      if (isCurrent()) useDesktopStore.getState().setProgress(progress);
+    const { rows, setups } = await searchQueue(() => api.startSearch(request), controller.signal, (status) => {
+      if (isCurrent()) useDesktopStore.getState().setProgress(status.progress);
     }, (jobId) => {
       if (isCurrent()) useDesktopStore.getState().setActiveJobId(jobId);
       if (cancellationRequested()) controller.abort();
     });
     if (!isCurrent()) return false;
-    useDesktopStore.getState().setRows(rows);
+    useDesktopStore.getState().setRows(rows, setups);
     return true;
   } catch (error) {
     if (isCurrent()) {

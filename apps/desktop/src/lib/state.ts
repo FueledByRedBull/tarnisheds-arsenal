@@ -33,6 +33,8 @@ export interface DesktopState {
   rows: SolvedBuildDto[];
   /** Objective the current rows were ranked by; null when they did not come from a search. */
   rowsObjective: ObjectiveId | null;
+  /** Legal setups the search behind the current rows ranked; null when they did not come from one. */
+  rowsSetups: number | null;
   /** The ranking a search replaced, so rows can show how far they moved. */
   rankBaseline: { objective: ObjectiveId; rows: SolvedBuildDto[] } | null;
   resultsStale: boolean;
@@ -76,7 +78,7 @@ export interface DesktopState {
   setCatalogFailure: (message: string) => void;
   patchRequest: (patch: Partial<OptimizeRequestDto>) => void;
   applyClass: (className: string) => void;
-  setRows: (rows: SolvedBuildDto[]) => void;
+  setRows: (rows: SolvedBuildDto[], setups: number) => void;
   markResultsStale: () => void;
   clearResults: (message?: string) => void;
   selectRow: (row: SolvedBuildDto | null) => void;
@@ -237,6 +239,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       }, rules, true),
       rows: [],
       rowsObjective: null,
+      rowsSetups: null,
       rankBaseline: null,
       resultsStale: false,
       selected: null,
@@ -435,7 +438,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       ...invalidateAllJobs(state),
       loadoutSelectionRevision: state.loadoutSelectionRevision + 1,
       request: applyProfileRules(normalizeOptimizeRequest(request, state.request, catalog.dataManifest.rules), catalog.dataManifest.rules),
-      lockedStatMode: hasCombatStatLocks(request), rows: [], rowsObjective: null, rankBaseline: null, resultsStale: false,
+      lockedStatMode: hasCombatStatLocks(request), rows: [], rowsObjective: null, rowsSetups: null, rankBaseline: null, resultsStale: false,
       selected: null, compareTarget: null, restoredCompareTarget: null,
       compareControls: { ...defaultCompareControls }, compareBench: [], selectedFingerprint: null,
       paths: [], pathSignature: null, affinityPayload: null, affinitySignature: null, error: null,
@@ -481,6 +484,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
   setExporting: (isExporting) => set({ isExporting }),
   rows: [],
   rowsObjective: null,
+  rowsSetups: null,
   rankBaseline: null,
   resultsStale: false,
   selected: null,
@@ -490,7 +494,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
   activeSearchSignature: null,
   activeJobId: null,
   progress: null,
-  setRows: (rows) =>
+  setRows: (rows, setups) =>
     set((state) => {
       const selected =
         rows.find((row) => rowFingerprint(row) === state.selectedFingerprint) ??
@@ -499,6 +503,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       return {
         rows,
         rowsObjective: state.request.objective,
+        rowsSetups: setups,
         rankBaseline: state.rows.length && state.rowsObjective ? { objective: state.rowsObjective, rows: state.rows } : null,
         resultsStale: false,
         selected,
@@ -519,6 +524,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
     set((state) => ({
       rows: [],
       rowsObjective: null,
+      rowsSetups: null,
       rankBaseline: null,
       resultsStale: false,
       selected: null,

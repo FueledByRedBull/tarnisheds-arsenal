@@ -22,7 +22,7 @@ it.each(["comparison", "rankings"])("waits for cancelled native work before star
   vi.mocked(api.cancelSearch).mockResolvedValue(true);
   vi.mocked(api.searchStatus).mockImplementation(async (jobId) => ({
     progress: null,
-    finished: jobId === "new" || finished ? { jobId, rows: [], cancelled: jobId === "old", error: null } : null,
+    finished: jobId === "new" || finished ? { jobId, rows: [], cancelled: jobId === "old", error: null, setups: 0 } : null,
   }));
   const controller = new AbortController();
   const old = runSearchRequestForRows(defaultRequest, controller.signal).catch(error => error);
@@ -49,7 +49,7 @@ it("keeps a replacement queued when cancellation IPC fails until the worker fini
   vi.mocked(api.searchStatus).mockImplementation(async (jobId) => ({
     progress: null,
     finished: jobId === "new" || (jobId === "old" && oldFinished)
-      ? { jobId, rows: [], cancelled: false, error: null }
+      ? { jobId, rows: [], cancelled: false, error: null, setups: 0 }
       : null,
   }));
   const controller = new AbortController();
@@ -82,7 +82,7 @@ it("keeps a replacement queued across a status failure and recovers the running 
     return {
       progress: null,
       finished: jobId === "new" || (jobId === "old" && oldFinished)
-        ? { jobId, rows: [], cancelled: jobId === "old", error: null }
+        ? { jobId, rows: [], cancelled: jobId === "old", error: null, setups: 0 }
         : null,
     };
   });
@@ -107,7 +107,7 @@ it("bounds unknown-worker reconciliation and retries after a known missing job",
   vi.mocked(api.cancelSearch).mockResolvedValue(true);
   vi.mocked(api.searchStatus).mockImplementation(async (jobId) => {
     if (jobId === "latest") {
-      return { progress: null, finished: { jobId, rows: [], cancelled: false, error: null } };
+      return { progress: null, finished: { jobId, rows: [], cancelled: false, error: null, setups: 0 } };
     }
     if (statusMode === "failed") throw new Error("status IPC failed");
     return null;
@@ -133,7 +133,7 @@ it("bounds reconciliation when cancellation fails and the worker stays running",
   vi.mocked(api.cancelSearch).mockRejectedValue(new Error("cancel IPC failed"));
   vi.mocked(api.searchStatus).mockImplementation(async (jobId) => {
     if (jobId === "latest") {
-      return { progress: null, finished: { jobId, rows: [], cancelled: false, error: null } };
+      return { progress: null, finished: { jobId, rows: [], cancelled: false, error: null, setups: 0 } };
     }
     return statusMode === "running" ? { progress: null, finished: null } : null;
   });
@@ -158,7 +158,7 @@ it("bounds reconciliation when cancellation fails and the worker stays running",
 it("consumes a terminal status that races with cancellation IPC failure", async () => {
   let resolveOldStatus!: (status: {
     progress: null;
-    finished: { jobId: string; rows: []; cancelled: boolean; error: null };
+    finished: { jobId: string; rows: []; cancelled: boolean; error: null; setups: number };
   }) => void;
   let firstOldStatus = true;
   vi.mocked(api.startSearch).mockResolvedValueOnce({ jobId: "old" }).mockResolvedValue({ jobId: "new" });
@@ -170,7 +170,7 @@ it("consumes a terminal status that races with cancellation IPC failure", async 
     }
     return {
       progress: null,
-      finished: { jobId, rows: [], cancelled: jobId === "old", error: null },
+      finished: { jobId, rows: [], cancelled: jobId === "old", error: null, setups: 0 },
     };
   });
 
@@ -182,7 +182,7 @@ it("consumes a terminal status that races with cancellation IPC failure", async 
   await vi.advanceTimersByTimeAsync(0);
   expect(api.cancelSearch).toHaveBeenCalledWith("old");
 
-  resolveOldStatus({ progress: null, finished: { jobId: "old", rows: [], cancelled: false, error: null } });
+  resolveOldStatus({ progress: null, finished: { jobId: "old", rows: [], cancelled: false, error: null, setups: 0 } });
   await vi.advanceTimersByTimeAsync(0);
   expect(await old).toMatchObject({ message: "cancel IPC failed" });
   await expect(replacement).resolves.toEqual([]);
@@ -195,7 +195,7 @@ it("drops obsolete queued work and cancels a job whose start reply arrives late"
     .mockResolvedValue({ jobId: "latest" });
   vi.mocked(api.cancelSearch).mockResolvedValue(true);
   vi.mocked(api.searchStatus).mockImplementation(async (jobId) => ({
-    progress: null, finished: { jobId, rows: [], cancelled: false, error: null },
+    progress: null, finished: { jobId, rows: [], cancelled: false, error: null, setups: 0 },
   }));
   const first = new AbortController();
   const obsolete = new AbortController();
@@ -222,7 +222,7 @@ it("invalidates queued Rankings before it reaches the native backend", async () 
   const rankings = runSearchFromStore(defaultRequest);
   useDesktopStore.getState().patchRequest({ twoHanding: !defaultRequest.twoHanding });
   vi.mocked(api.searchStatus).mockResolvedValue({
-    progress: null, finished: { jobId: "comparison", rows: [], cancelled: false, error: null },
+    progress: null, finished: { jobId: "comparison", rows: [], cancelled: false, error: null, setups: 0 },
   });
   await vi.advanceTimersByTimeAsync(200);
   await first;
@@ -235,7 +235,7 @@ it("allows another search after a rejected start", async () => {
   vi.mocked(api.startSearch).mockRejectedValueOnce(new Error("Invalid request"))
     .mockResolvedValue({ jobId: "valid" });
   vi.mocked(api.searchStatus).mockResolvedValue({
-    progress: null, finished: { jobId: "valid", rows: [], cancelled: false, error: null },
+    progress: null, finished: { jobId: "valid", rows: [], cancelled: false, error: null, setups: 0 },
   });
   await expect(runSearchRequestForRows(defaultRequest)).rejects.toThrow("Invalid request");
   await expect(runSearchRequestForRows(defaultRequest)).resolves.toEqual([]);
@@ -249,7 +249,7 @@ it("does not publish a running Rankings result after an uncommitted numeric edit
   const running = runSearchFromStore(defaultRequest);
   await vi.advanceTimersByTimeAsync(0);
   useDesktopStore.getState().markResultsStale();
-  finish({ progress: null, finished: { jobId: "draft-edit", rows: [], cancelled: false, error: null } });
+  finish({ progress: null, finished: { jobId: "draft-edit", rows: [], cancelled: false, error: null, setups: 0 } });
   await vi.advanceTimersByTimeAsync(0);
   expect(await running).toBe(false);
   expect(api.cancelSearch).toHaveBeenCalledWith("draft-edit");
@@ -268,7 +268,7 @@ for (const invalidation of ["profile switch", "request edit"] as const) {
       vi.mocked(api.cancelSearch).mockResolvedValue(true);
       vi.mocked(api.searchStatus).mockImplementationOnce(() => oldStatus).mockImplementation(async (jobId) =>
         jobId === "new" ? newStatus : {
-          progress: null, finished: { jobId, rows: oldRows, cancelled: false, error: null },
+          progress: null, finished: { jobId, rows: oldRows, cancelled: false, error: null, setups: 0 },
         });
 
       const old = runSearchFromStore(defaultRequest);
@@ -286,7 +286,7 @@ for (const invalidation of ["profile switch", "request edit"] as const) {
         finished: null,
       } : {
         progress: null,
-        finished: { jobId: "old", rows: oldRows, cancelled: outcome === "cancelled", error: outcome === "error" ? "obsolete failure" : null },
+        finished: { jobId: "old", rows: oldRows, cancelled: outcome === "cancelled", error: outcome === "error" ? "obsolete failure" : null, setups: 0 },
       });
       await vi.advanceTimersByTimeAsync(200);
       expect(await old).toBe(false);
@@ -296,7 +296,7 @@ for (const invalidation of ["profile switch", "request edit"] as const) {
       });
       expect(useDesktopStore.getState().rows).toBe(retainedRows);
 
-      completeNew({ progress: null, finished: { jobId: "new", rows: newRows, cancelled: false, error: null } });
+      completeNew({ progress: null, finished: { jobId: "new", rows: newRows, cancelled: false, error: null, setups: 0 } });
       expect(await replacement).toBe(true);
       expect(useDesktopStore.getState().rows).toBe(newRows);
       expect(useDesktopStore.getState()).toMatchObject({ isSearching: false, activeJobId: null, error: null });
