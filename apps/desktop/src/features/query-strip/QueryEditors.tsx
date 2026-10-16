@@ -180,7 +180,7 @@ export function LoadoutEditor({ catalog, request, patchRequest, runner, loadoutS
         value={request.aowName}
         onChange={(aowName) => patchRequest({ aowName })}
         defaultNativeSkill={loadoutSelectionRevision === runner.manualWeaponRevision.current}
-        onWeaponResolved={() => { runner.manualWeaponRevision.current = null; }}
+        onWeaponResolved={runner.clearManualWeapon}
       />
       {separateUpgradeCaps ? (
         <div className="segmented editor-span" role="group" aria-label="Reinforcement">

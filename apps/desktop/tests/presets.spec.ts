@@ -22,7 +22,7 @@ for (const outcome of ["cancelled", "failed"] as const) {
       api.buildUpgradeSeries = (_base, _row, _maxUpgrade, signal) => new Promise((_resolve, reject) => {
         probe.calls += 1;
         probe.fail = () => reject(new Error("saved comparison upgrade failed"));
-        signal.addEventListener("abort", () => reject(new Error("cancelled")), { once: true });
+        signal?.addEventListener("abort", () => reject(new Error("cancelled")), { once: true });
       });
       Object.assign(window, { savedSeriesProbe: probe });
       return { weaponName: target.weaponName, affinity: target.affinity };
@@ -211,6 +211,20 @@ test("a failed deletion reports the error and preserves a loadable build", async
   await expect(page.getByRole("combobox", { name: "Saved", exact: true })).toHaveValue("");
 });
 
+test("an armed Delete lapses on its own, so a later click never confirms it unseen", async ({ page }) => {
+  await page.clock.install();
+  await page.goto("/");
+  await openSection(page, "Saved Builds");
+  await page.getByRole("button", { name: "Save new", exact: true }).click();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Confirm Delete", exact: true })).toBeVisible();
+  await page.clock.fastForward(4_100);
+  await expect(page.getByRole("button", { name: "Delete", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Confirm Delete", exact: true })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Saved", exact: true })).not.toHaveValue("");
+});
+
 test("Convergence saves, updates and reloads the displayed fixed stats", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("radio", { name: /Convergence/ }).click();
@@ -337,14 +351,14 @@ test("failed migration stops further recomputations and keeps the original error
   await page.evaluate(async (id) => {
     const { api } = await import("/src/lib/api.ts");
     const preset = JSON.parse(localStorage.getItem(`tarnisheds-arsenal.savedBuild.v2.${id}`)!);
-    const calls: Array<{ signal: AbortSignal }> = [];
-    api.solveBuild = (_base: unknown, _weapon: unknown, _affinity: unknown, _aow: unknown, signal: AbortSignal) => {
+    const calls: Array<{ signal?: AbortSignal }> = [];
+    api.solveBuild = (_base: unknown, _weapon: unknown, _affinity: unknown, _aow: unknown, signal?: AbortSignal) => {
       const call = calls.length;
       calls.push({ signal });
       if (call === 0) return Promise.resolve(preset.selectedBuild);
       if (call === 1) return Promise.reject(new Error("recompute failed"));
       return new Promise((_resolve, reject) => {
-        signal.addEventListener("abort", () => {
+        signal?.addEventListener("abort", () => {
           Object.assign(window, { migrationSiblingAborted: true });
           reject(new DOMException("Calculation stopped.", "AbortError"));
         }, { once: true });
@@ -355,6 +369,6 @@ test("failed migration stops further recomputations and keeps the original error
   await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Migrate data", exact: true }).click();
   await expect(page.locator('.error-strip[role="alert"]')).toContainText("recompute failed");
-  await expect.poll(() => page.evaluate(() => (window as unknown as { migrationCalls: Array<{ signal: AbortSignal }> }).migrationCalls.length)).toBe(2);
-  expect(await page.evaluate(() => (window as unknown as { migrationCalls: Array<{ signal: AbortSignal }> }).migrationCalls.every(call => call.signal.aborted))).toBe(true);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { migrationCalls: Array<{ signal?: AbortSignal }> }).migrationCalls.length)).toBe(2);
+  expect(await page.evaluate(() => (window as unknown as { migrationCalls: Array<{ signal?: AbortSignal }> }).migrationCalls.every(call => call.signal?.aborted))).toBe(true);
 });

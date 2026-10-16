@@ -7,9 +7,20 @@ import {
   restoreBuildBackup, savedBuildBackupText, type SavedBuildInspection,
 } from "../../lib/presets";
 
+function readInspection(): { inspection: SavedBuildInspection | null; error: string } {
+  try { return { inspection: inspectSavedBuilds(), error: "" }; }
+  catch (caught) { return { inspection: null, error: errorMessage(caught) }; }
+}
+
 export function SavedBuildRecovery({ onChanged, revision }: { onChanged: () => void; revision?: unknown }) {
-  const [inspection, setInspection] = useState<SavedBuildInspection | null>(null);
-  const [error, setError] = useState("");
+  const [{ inspection, error }, setScan] = useState(readInspection);
+  const [scannedRevision, setScannedRevision] = useState(revision);
+  if (scannedRevision !== revision) {
+    setScannedRevision(revision);
+    setScan(readInspection());
+  }
+  const setInspection = (next: SavedBuildInspection | null) => setScan((current) => ({ ...current, inspection: next }));
+  const setError = (next: string) => setScan((current) => ({ ...current, error: next }));
   const [message, setMessage] = useState("");
   const [backup, setBackup] = useState("");
   const [preview, setPreview] = useState<ReturnType<typeof previewBuildBackup> | null>(null);
@@ -17,10 +28,8 @@ export function SavedBuildRecovery({ onChanged, revision }: { onChanged: () => v
   useEffect(() => () => { fileRead.current += 1; }, []);
 
   function scan() {
-    try { setInspection(inspectSavedBuilds()); setError(""); }
-    catch (caught) { setInspection(null); setError(errorMessage(caught)); }
+    setScan(readInspection());
   }
-  useEffect(scan, [revision]);
 
   function recover() {
     if (!inspection) return;

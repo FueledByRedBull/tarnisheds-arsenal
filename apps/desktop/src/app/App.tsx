@@ -27,6 +27,14 @@ const tabs = WORKSPACES.map((workspace) => ({ ...workspace, icon: TAB_ICONS[work
 
 const PROFILE_STORAGE_KEY = "tarnisheds-arsenal.gameProfile.v1";
 
+function readStoredProfile(): string | null {
+  try {
+    return localStorage.getItem(PROFILE_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
 // Hoisted so React reuses the same elements: fresh ones would re-render all four workspaces
 // on every tab switch.
 const rankingsBoard = <RankingsBoard />;
@@ -117,14 +125,6 @@ export function App() {
       if (profileGeneration.current === generation) profileGeneration.current += 1;
     };
   }, [catalogAttempt, loadProfile, setCatalogFailure, setCatalogLoading, setProfiles]);
-
-  function readStoredProfile(): string | null {
-    try {
-      return localStorage.getItem(PROFILE_STORAGE_KEY);
-    } catch {
-      return null;
-    }
-  }
 
   const activeProfile = profiles.find((entry) => entry.profile.id === profileId) ?? null;
   const profileReady = catalogStatus === "ready";

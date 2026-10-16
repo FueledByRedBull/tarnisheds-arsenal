@@ -55,13 +55,16 @@ export function SearchableSelect({
     if (open) activeOptionRef.current?.scrollIntoView({ block: "nearest" });
   }, [activeIndex, open, query]);
 
-  useEffect(() => {
+  // Disabling closes the list and forgets the typed query, during render rather than after it.
+  const [wasDisabled, setWasDisabled] = useState(disabled);
+  if (wasDisabled !== disabled) {
+    setWasDisabled(disabled);
     if (disabled) {
       setOpen(false);
       setQuery("");
       setActiveIndex(0);
     }
-  }, [disabled]);
+  }
 
   function choose(option: SelectOption | undefined) {
     if (!option) {

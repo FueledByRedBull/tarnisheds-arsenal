@@ -25,13 +25,18 @@ export function useSearchRunner() {
   const [searchCancellationRequested, setSearchCancellationRequested] = useState(false);
   const searchCancellationRequestedRef = useRef(false);
 
-  useEffect(() => {
-    if (!isSearching && !isPreparingSearch) {
+  const idle = !isSearching && !isPreparingSearch;
+  const [wasIdle, setWasIdle] = useState(idle);
+  if (wasIdle !== idle) {
+    setWasIdle(idle);
+    if (idle) {
       setSearchStartedAt(null);
       setSearchCancellationRequested(false);
-      searchCancellationRequestedRef.current = false;
     }
-  }, [isSearching, isPreparingSearch]);
+  }
+  useEffect(() => {
+    if (idle) searchCancellationRequestedRef.current = false;
+  }, [idle]);
 
   useEffect(() => () => searchPreparation.current?.abort(), []);
 
@@ -136,6 +141,9 @@ export function useSearchRunner() {
     manualWeaponRevision,
     markManualWeapon: () => {
       manualWeaponRevision.current = useDesktopStore.getState().loadoutSelectionRevision;
+    },
+    clearManualWeapon: () => {
+      manualWeaponRevision.current = null;
     },
   };
 }

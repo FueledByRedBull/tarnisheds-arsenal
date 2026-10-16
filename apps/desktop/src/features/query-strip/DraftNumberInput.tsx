@@ -17,6 +17,11 @@ export function DraftNumberInput({
   description?: string;
 }) {
   const [draft, setDraft] = useState(String(value));
+  const [syncedValue, setSyncedValue] = useState(value);
+  if (syncedValue !== value) {
+    setSyncedValue(value);
+    setDraft(String(value));
+  }
   const idleCommit = useRef<number | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const shownValue = useRef(value);
@@ -31,7 +36,6 @@ export function DraftNumberInput({
 
   useEffect(() => {
     clearIdleCommit();
-    setDraft(String(value));
     // A value changed from elsewhere (class, palette, undo) flashes; typing here does not.
     if (shownValue.current !== value && document.activeElement !== input.current) flashChanged(input.current);
     shownValue.current = value;
