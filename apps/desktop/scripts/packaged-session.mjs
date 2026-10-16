@@ -33,14 +33,16 @@ export async function launchPackagedApp(executablePath) {
     let output = "";
     let exit = null;
     const startedAt = performance.now();
-    const child = spawn(executablePath, [
-      `--packaged-smoke-port=${port}`,
-      `--packaged-smoke-profile=${profileToken}`,
-    ], {
-      // Tauri 2.11.1 drops WindowConfig.data_directory while converting it to
-      // WebviewAttributes. WebView2 honors this documented process override,
-      // so every smoke attempt gets an isolated browser data directory.
-      env: { ...process.env, WEBVIEW2_USER_DATA_FOLDER: profileDirectory },
+    const child = spawn(executablePath, [], {
+      // WebView2 reads these documented overrides, so the shipped exe needs no debugging
+      // switch and every attempt gets an isolated browser data directory. The first
+      // argument repeats Tauri's default, which an explicit argument list would replace.
+      env: {
+        ...process.env,
+        WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection "
+          + `--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1 --disable-gpu --no-first-run`,
+        WEBVIEW2_USER_DATA_FOLDER: profileDirectory,
+      },
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
     });

@@ -157,10 +157,9 @@ assertion tests; Clippy and release checks cover all targets. The release job
 packages the already validated commit from a clean Cargo target directory and
 keeps the release-only MSI identity, MSI payload, packaged startup smoke, signing,
 and checksum checks. The final Tauri build runs Cargo in locked mode. The packaged
-smoke starts the executable with `--packaged-smoke-port` and
-`--packaged-smoke-profile`; the executable refuses those flags unless
-`WEBVIEW2_USER_DATA_FOLDER` names the same profile directory, so set both for a
-manual smoke run.
+smoke opens the remote-debugging port through `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`
+and isolates the profile with `WEBVIEW2_USER_DATA_FOLDER`; the executable itself has
+no debugging switch.
 
 Both binaries contain the verified compile-time Vanilla and Convergence runtime
 snapshots. Neither needs an adjacent data directory, `regulation.bin`, FMG XML, or
