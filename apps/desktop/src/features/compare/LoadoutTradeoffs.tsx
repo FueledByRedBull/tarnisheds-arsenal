@@ -267,7 +267,7 @@ function TradeoffRow({
   const { point } = choice;
   const label = choice.labels.join(" · ") || `Point ${choice.index + 1}`;
   return (
-    <tr className={selected ? "selected" : undefined} aria-selected={selected}>
+    <tr className={selected ? "selected" : undefined}>
       <th scope="row">
         <button
           type="button"

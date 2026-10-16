@@ -463,7 +463,7 @@ export function CompareView() {
           </div>
         </div>
         <div className="matrix-wrap" ref={matrixRef} aria-busy={chartsLoading} role="region" aria-label="Upgrade matrix" tabIndex={0}>
-          <div className="metric-matrix" role="grid" aria-label="Compare upgrade metrics">
+          <div className="metric-matrix" role="table" aria-label="Compare upgrade metrics">
             <div className="matrix-row matrix-header" role="row">
               <span role="columnheader">Line</span>
               {Array.from({ length: matrixHorizon + 1 }, (_, upgrade) => <span role="columnheader" key={upgrade}>+{upgrade}</span>)}
@@ -556,7 +556,7 @@ function MatrixRow({
       </strong>
       {Array.from({ length: maxUpgrade + 1 }, (_, upgrade) => (
         <span
-          role="gridcell"
+          role="cell"
           className={lane.row?.upgrade === upgrade ? "current-upgrade" : undefined}
           key={`${lane.label}-${upgrade}`}
         >

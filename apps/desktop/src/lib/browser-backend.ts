@@ -314,8 +314,6 @@ export async function mockInvoke<T>(command: string, args?: Record<string, unkno
       return await mockUpgradeSeries(args) as T;
     case "compatible_aow_names_for_affinity":
       return await mockCompatibleAowNamesForAffinity() as T;
-    case "affinities_for_weapon":
-      return await mockAffinitiesForWeapon(args) as T;
     case "start_path_preview":
       return await mockStartPathPreview(args) as T;
     case "cancel_path_preview":
@@ -435,11 +433,6 @@ async function mockWeaponProfile(args: Record<string, unknown> | undefined): Pro
     affinities: uniqueSorted(MOCK_WEAPONS.filter((row) => row.name === request.weaponName).map((row) => row.affinity)),
     compatibleAows: await mockCompatibleAowNames({ request }),
   };
-}
-
-async function mockAffinitiesForWeapon(args: Record<string, unknown> | undefined): Promise<string[]> {
-  const weaponName = args?.weaponName as string | undefined;
-  return uniqueSorted(MOCK_WEAPONS.filter((row) => row.name === weaponName).map((row) => row.affinity));
 }
 
 async function mockCompatibleAowNamesForAffinity(): Promise<string[]> {

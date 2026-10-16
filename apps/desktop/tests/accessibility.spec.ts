@@ -69,3 +69,22 @@ test("movement markers, sorted headers and the shortcut sheet have no WCAG A/AA 
   await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeVisible();
   expect(await violations(page, ".shortcuts-dialog")).toEqual([]);
 });
+
+test("the rankings grid is one tab stop and the Compare tab reads its pinned count", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  const rows = page.locator(".result-row-full");
+  await expect(page.locator('.result-row-full[tabindex="0"]')).toHaveCount(1);
+  await expect(rows.first()).toHaveAttribute("tabindex", "0");
+  await rows.nth(2).click();
+  await expect(rows.nth(2)).toHaveAttribute("tabindex", "0");
+  await expect(page.locator('.result-row-full[tabindex="0"]')).toHaveCount(1);
+  // Arrows still move between rows, and Tab then leaves the grid in one press.
+  await rows.nth(2).focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(rows.nth(3)).toBeFocused();
+  await page.keyboard.press("p");
+  const compare = page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true });
+  await expect(compare).toHaveAccessibleDescription(/1 pinned/);
+});

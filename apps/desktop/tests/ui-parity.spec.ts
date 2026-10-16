@@ -1,20 +1,30 @@
 import { expect, test } from "@playwright/test";
 import { openCompare, openEditor, openEditorFor, openSection } from "./editors";
 
-test("profile radios use one tab stop and arrow-key selection", async ({ page }) => {
+test("profile radios use one tab stop; arrows move focus and Enter switches", async ({ page }) => {
   await page.goto("/");
   const vanilla = page.getByRole("radio", { name: /Vanilla/ });
   const convergence = page.getByRole("radio", { name: /Convergence/ });
   await expect(vanilla).toHaveAttribute("tabindex", "0");
   await expect(convergence).toHaveAttribute("tabindex", "-1");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
   await vanilla.focus();
   await page.keyboard.press("ArrowRight");
   await expect(convergence).toBeFocused();
+  // Moving focus alone keeps the profile and its results.
+  await expect(vanilla).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await page.keyboard.press("Enter");
   await expect(convergence).toHaveAttribute("aria-checked", "true");
   await expect(vanilla).toHaveAttribute("tabindex", "-1");
   await expect(vanilla).toBeEnabled();
+  await vanilla.focus();
   await page.keyboard.press("ArrowDown");
+  await expect(convergence).toBeFocused();
+  await page.keyboard.press("ArrowUp");
   await expect(vanilla).toBeFocused();
+  await page.keyboard.press(" ");
   await expect(vanilla).toHaveAttribute("aria-checked", "true");
 });
 
@@ -333,7 +343,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
 
   await page.getByRole("navigation").getByRole("button", { name: "Affinity Watch" }).click();
   await page.getByRole("button", { name: "Watch affinities" }).click();
-  const affinityRankings = page.getByRole("grid", { name: "Affinity watch rankings" });
+  const affinityRankings = page.getByRole("table", { name: "Affinity watch rankings" });
   await expect(affinityRankings).toContainText("Keen");
   await expect(page.locator(".affinity-chart")).toContainText("Best-affinity crossover");
   await expect(page.locator(".affinity-plot svg")).toBeVisible();
@@ -654,18 +664,23 @@ test("stale saved builds offer explicit input-only loading or recompute migratio
   await expect(page.locator(".selected-build")).toContainText("Uchigatana");
 });
 
-test("reduced-motion preference disables decorative motion", async ({ page }) => {
+test("reduced-motion preference drops travel but keeps loaders alive", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
 
-  // Workspaces animate as they are shown; reduced motion must cut that to nothing.
-  const animationDurationMs = await page.locator(".workspace-stage > .rankings-panel").evaluate(
-    (node) => {
-      const duration = getComputedStyle(node).animationDuration;
-      return Number.parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000);
-    },
-  );
-  expect(animationDurationMs).toBeLessThanOrEqual(0.01);
+  // Entrances only fade, and editors open without travel.
+  await expect(page.locator(".workspace-stage > .rankings-panel")).toHaveCSS("animation-name", "stage-enter");
+  await expect(page.locator(".popover-panel").first()).toHaveCSS("transition-property", "opacity");
+  // A loader pulses in place instead of freezing after one frame.
+  await page.evaluate(() => {
+    const loader = document.createElement("span");
+    loader.className = "skeleton reduced-motion-probe";
+    document.body.append(loader);
+  });
+  const probe = page.locator(".reduced-motion-probe");
+  await expect(probe).toHaveCSS("animation-name", "reduced-pulse");
+  await expect(probe).toHaveCSS("animation-iteration-count", "infinite");
+  expect(await page.evaluate(() => getComputedStyle(document.querySelector(".reduced-motion-probe")!, "::after").animationName)).toBe("none");
 });
 
 test("searchable selects expose keyboard and screen-reader state", async ({ page }) => {

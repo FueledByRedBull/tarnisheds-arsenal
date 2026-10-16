@@ -1,4 +1,4 @@
-import { KeyboardEvent, useEffect, useRef, useState } from "react";
+import { KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { flashChanged } from "../../lib/motion";
 
 // Commits on Enter, blur, or after a short idle pause, so typing "40" never searches with "4".
@@ -20,6 +20,7 @@ export function DraftNumberInput({
   const idleCommit = useRef<number | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const shownValue = useRef(value);
+  const descriptionId = useId();
 
   function clearIdleCommit() {
     if (idleCommit.current !== null) {
@@ -62,10 +63,11 @@ export function DraftNumberInput({
   }
 
   return (
+    <>
     <input
       ref={input}
       type="number"
-      aria-description={description}
+      aria-describedby={description ? descriptionId : undefined}
       min={min}
       max={max}
       value={draft}
@@ -81,6 +83,8 @@ export function DraftNumberInput({
       }}
       onKeyDown={handleKeyDown}
     />
+    {description ? <span id={descriptionId} hidden>{description}</span> : null}
+    </>
   );
 }
 

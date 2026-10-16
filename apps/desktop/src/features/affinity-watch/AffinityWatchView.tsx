@@ -1,7 +1,8 @@
 import { Pause, Play } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
-import { analysisStatus, analysisStatusLabel, type AnalysisOutcome } from "../../lib/analysis-status";
+import { analysisStatus, type AnalysisOutcome } from "../../lib/analysis-status";
+import { AnalysisProgress } from "../shared/AnalysisProgress";
 import { contiguousMetricSegments, metricRatio, paddedMetricDomain } from "../../lib/chart";
 import { useAffinityJob, useBuiltRequest } from "../../lib/hooks";
 import { errorMessage, fixed1, objectiveLabel, objectiveUnit, statLine } from "../../lib/format";
@@ -68,18 +69,6 @@ export function AffinityWatchView() {
     setRunOutcome(null);
     const generation = beginAffinity(signature);
     try {
-      const legal = await api.affinitiesForWeapon(request.profileId, selected.weaponName);
-      let current = useDesktopStore.getState();
-      if (
-        current.resultsStale || !current.isAffinityBusy ||
-        current.affinityGeneration !== generation ||
-        current.activeAffinitySignature !== signature
-      ) return;
-      if (legal.length === 0) {
-        pushNotice({ scope: "affinity_watch", tone: "warning", message: "No legal affinities are available for the selected weapon." });
-        setAffinityBusy(false);
-        return;
-      }
       const finished = await startAffinityJob(
         () => api.startAffinityWatch(base, selected, effectiveHorizon),
         generation,
@@ -169,24 +158,25 @@ export function AffinityWatchView() {
         </div>
       </div>
       <small className="path-mode-note">Each affinity independently optimizes combat stats at the same level budget, ignoring exact stat locks while retaining minimums. The selected skill and upgrade stay fixed; incompatible affinities are excluded.</small>
-      <Progress
+      <AnalysisProgress
         checked={affinityProgress?.checked ?? 0}
         total={affinityProgress?.total ?? (payload?.lines.length || 1)}
         status={status}
-        resultCount={payload?.lines.length ?? 0}
+        running="Analyzing affinities"
+        completed={`Completed · ${payload?.lines.length ?? 0} affinit${payload?.lines.length === 1 ? "y" : "ies"}`}
       />
       <AffinityChart payload={payload} objective={objectiveLabel(request.objective)} unit={objectiveUnit(request.objective)} />
-      <div className="affinity-ranking" role="grid" aria-label="Affinity watch rankings">
+      <div className="affinity-ranking" role="table" aria-label="Affinity watch rankings">
         <div className="affinity-row table-header" role="row">
           {["Rank at end", "Affinity", `Start (${objectiveUnit(request.objective)})`, `End (${objectiveUnit(request.objective)})`, "Final stats"].map((label) => <span role="columnheader" key={label}>{label}</span>)}
         </div>
         {payload?.lines.map((line, index) => (
           <div className="affinity-row" key={line.affinity} role="row">
-            <b role="gridcell">{index + 1}</b>
-            <strong role="gridcell">{line.affinity}</strong>
-            <span role="gridcell">{endpointMetric(line.startMetric)}</span>
-            <span role="gridcell">{endpointMetric(line.endMetric)}</span>
-            <small role="gridcell">{line.finalBuild ? statLine(line.finalBuild) : "Unavailable"}</small>
+            <b role="cell">{index + 1}</b>
+            <strong role="cell">{line.affinity}</strong>
+            <span role="cell">{endpointMetric(line.startMetric)}</span>
+            <span role="cell">{endpointMetric(line.endMetric)}</span>
+            <small role="cell">{line.finalBuild ? statLine(line.finalBuild) : "Unavailable"}</small>
           </div>
         ))}
       </div>
@@ -217,22 +207,6 @@ function endpointMetric(value: number | null): string {
   return value === null ? "Unavailable" : fixed1(value);
 }
 
-function Progress({ checked, total, status, resultCount }: { checked: number; total: number; status: ReturnType<typeof analysisStatus>; resultCount: number }) {
-  const displayChecked = status === "completed" ? total : checked;
-  const pct = Math.min(100, Math.max(0, (displayChecked / Math.max(total, 1)) * 100));
-  const label = status === "running"
-    ? `Analyzing affinities ${checked}/${total}`
-    : status === "completed"
-      ? `Completed · ${resultCount} affinit${resultCount === 1 ? "y" : "ies"}`
-      : analysisStatusLabel(status);
-  return (
-    <div className={`workspace-progress analysis-progress status-${status}`} data-analysis-status={status}>
-      <span role="status">{label}</span>
-      <div className="forge-bar"><i style={{ transform: `translateX(${pct - 100}%)` }} /></div>
-    </div>
-  );
-}
-
 function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPayloadDto | null; objective: string; unit: string }) {
   const values = payload?.lines.flatMap((line) => line.points.map((point) => point.metric).filter((metric): metric is number => metric !== null)) ?? [];
   const domain = paddedMetricDomain(values);
@@ -251,7 +225,7 @@ function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPay
       </figcaption>
       {hasLines ? (
         <>
-          <div className="affinity-legend chart-legend" aria-label="Affinity chart legend">
+          <div className="affinity-legend chart-legend" role="group" aria-label="Affinity chart legend">
             {payload?.lines.map((line, index) => (
               <span key={line.affinity}>
                 <i style={{ background: affinityColor(index) }} />
@@ -280,7 +254,7 @@ function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPay
                 );
               })}
               {payload?.lines.map((line, index) => (
-                <g className="affinity-series-group" key={line.affinity}>
+                <g className={`affinity-series-group series-${index}`} key={line.affinity}>
                   {contiguousMetricSegments(line.points).map((segment, segmentIndex) => (
                     <polyline
                       className="affinity-series"

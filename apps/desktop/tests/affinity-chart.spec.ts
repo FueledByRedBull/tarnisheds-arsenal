@@ -75,7 +75,7 @@ test("affinity summaries show unavailable requested endpoints and preserve chart
   await page.getByRole("navigation").getByRole("button", { name: "Affinity Watch", exact: true }).click();
   await page.getByRole("button", { name: "Watch affinities", exact: true }).click();
   await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "completed");
-  await expect(page.getByRole("grid", { name: "Affinity watch rankings" }).getByRole("row").nth(1).getByRole("gridcell")).toHaveText(["1", "Sparse", "Unavailable", "Unavailable", "Unavailable"]);
+  await expect(page.getByRole("table", { name: "Affinity watch rankings" }).getByRole("row").nth(1).getByRole("cell")).toHaveText(["1", "Sparse", "Unavailable", "Unavailable", "Unavailable"]);
   await expect(page.locator(".affinity-legend")).toContainText("Unavailable → Unavailable");
   await expect(page.locator(".affinity-series-point")).toHaveCount(1);
   await expect(page.locator(".affinity-series-point title")).toHaveText("Sparse level 11: 300.0");
