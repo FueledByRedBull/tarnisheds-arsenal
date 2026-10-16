@@ -94,7 +94,7 @@ jobs:
 
       - name: Install Python deps
         run: |
-          python -m pip install --disable-pip-version-check -r requirements-validation.txt
+          python -m pip install --disable-pip-version-check --require-hashes -r requirements-validation.txt
 
       - name: Python tests, lint and type checking
         run: |
@@ -328,7 +328,7 @@ jobs:
         uses: dtolnay/rust-toolchain@86e7197484018ef6aaa9255d186f6ce1754276dd # 1.97.0
 
       - name: Install validation dependencies
-        run: python -m pip install --disable-pip-version-check -r requirements-validation.txt
+        run: python -m pip install --disable-pip-version-check --require-hashes -r requirements-validation.txt
 
       # Deliberately repeats the Windows Python checks: line endings and path
       # separators have broken cross-platform assumptions before.

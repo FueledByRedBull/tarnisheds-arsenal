@@ -197,6 +197,16 @@ The Dependency audit workflow runs `cargo audit` over both Cargo lockfiles and
 Dependabot opens weekly update pull requests for actions, Cargo, npm and the
 Python validation requirements.
 
+`requirements-validation.txt` pins every validation package, including pyright's
+dependencies, with the SHA-256 of each PyPI file of that version, so the same file
+verifies on Windows and Linux. CI installs it with `--require-hashes`; when a pin
+changes, take the new hashes from PyPI (Dependabot updates them in its pull
+requests). pyright runs the npm package bundled in its wheel, so the wheel hash
+covers it and nothing is fetched from npm. It runs on the Node.js found on `PATH`
+(the runner's, or setup-node's in the release job). Do not set
+`PYRIGHT_PYTHON_FORCE_VERSION`: that makes pyright download an unverified npm
+package.
+
 The packager refuses a dirty worktree and records the exact source commit with
 `sourceDirty: false`. Run targeted pre-commit checks directly; create local release
 artifacts only after the intended source is committed.
