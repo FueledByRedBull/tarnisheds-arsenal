@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "test": "vitest run",
     "lint": "eslint src tests --max-warnings 0 && tsc -p tsconfig.tests.json",
-    "test:contracts": "node --test scripts/check-dto-contract.test.mjs scripts/lint-config.test.mjs",
+    "test:contracts": "node --test scripts/check-dto-contract.test.mjs scripts/lint-config.test.mjs scripts/native-responsiveness-metrics.test.mjs",
     "tauri": "tauri",
     "test:e2e": "node ./scripts/run-e2e.mjs",
     "test:packaged": "node ./scripts/smoke-packaged.mjs"

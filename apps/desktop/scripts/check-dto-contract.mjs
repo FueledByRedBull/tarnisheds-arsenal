@@ -214,3 +214,47 @@ export function checkCommandContract({ commandSources, libSource, buildSource, c
   }
   return { commands: names.length };
 }
+
+// Rust request fields such as objective are plain Strings, so their accepted values live in
+// the core parsers; the frontend's literal lists must name exactly the same ids.
+const stringDomains = { ObjectiveId: "OptimizeObjective", ResultGroupingId: "ResultGrouping",
+  FilterDimensionId: "FilterDimension", FilterMode: "FilterMode" };
+
+export function checkDomainContract({ coreTypesSource, errorsSource, tsSource }) {
+  const file = ts.createSourceFile("types.ts", tsSource, ts.ScriptTarget.Latest, true);
+  const lists = new Map();
+  const aliases = new Map();
+  for (const node of file.statements) {
+    if (ts.isVariableStatement(node)) {
+      for (const { name, initializer } of node.declarationList.declarations) {
+        const array = initializer && ts.isAsExpression(initializer) ? initializer.expression : null;
+        if (array && ts.isArrayLiteralExpression(array)) lists.set(name.getText(file), array.elements.map(element => element.text));
+      }
+    }
+    if (ts.isTypeAliasDeclaration(node)) aliases.set(node.name.text, node.type);
+  }
+  const literals = type => {
+    if (ts.isUnionTypeNode(type)) return type.types.map(member => member.literal?.text);
+    const query = ts.isIndexedAccessTypeNode(type) && (ts.isParenthesizedTypeNode(type.objectType) ? type.objectType.type : type.objectType);
+    return query && ts.isTypeQueryNode(query) ? lists.get(query.exprName.getText(file)) : undefined;
+  };
+  for (const [tsType, rustType] of Object.entries(stringDomains)) {
+    const parser = new RegExp(`\\nimpl ${rustType} \\{([\\s\\S]*?)\\n\\}`).exec(coreTypesSource)?.[1];
+    assert.ok(parser, `Missing core parser: ${rustType}`);
+    const rustIds = [...parser.matchAll(/"(\w+)"\s*=>|=>\s*"(\w+)"/g)].map(([, parsed, written]) => parsed ?? written).sort();
+    const type = aliases.get(tsType);
+    assert.ok(type, `Missing TypeScript domain: ${tsType}`);
+    assert.deepEqual([...(literals(type) ?? [])].sort(), rustIds, `Value domain drift: ${tsType} vs ${rustType}`);
+  }
+  // errorMessage() in format.ts reads a rejected command's `message` field.
+  assert.match(errorsSource, /#\[derive\(Debug, Serialize\)\]\s*pub struct AppError \{\s*pub message: String,\s*\}/,
+    "AppError must serialize as { message: string }");
+  return { domains: Object.keys(stringDomains).length };
+}
+
+/** Field names of one dto.rs struct as they cross IPC. */
+export function dtoFieldNames(rustSource, name) {
+  const declaration = rustDeclarations(rustSource).get(name);
+  assert.ok(declaration?.fields, `Missing Rust DTO: ${name}`);
+  return [...declaration.fields.keys()].sort();
+}

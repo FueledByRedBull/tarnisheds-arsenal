@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
-import { checkCommandContract, checkDtoContract } from "./check-dto-contract.mjs";
+import { checkCommandContract, checkDomainContract, checkDtoContract } from "./check-dto-contract.mjs";
 
 const rust = readFileSync(new URL("../src-tauri/src/dto.rs", import.meta.url), "utf8");
 const frontend = readFileSync(new URL("../src/lib/types.ts", import.meta.url), "utf8");
@@ -86,5 +86,28 @@ for (const [description, mutate, expected] of [
     const changed = mutate(contract);
     assert.notDeepEqual(changed, contract, "mutation must apply to the current source");
     assert.throws(() => checkCommandContract(changed), expected);
+  });
+}
+
+const domainContract = () => ({
+  coreTypesSource: source("../../../core/er_optimizer_core/src/optimizer/types.rs"),
+  errorsSource: source("../src-tauri/src/errors.rs"),
+  tsSource: frontend,
+});
+
+test("string-valued request fields accept the same ids in Rust and TypeScript", () => {
+  assert.equal(checkDomainContract(domainContract()).domains, 4);
+});
+
+for (const [description, mutate, expected] of [
+  ["objective added only in Rust", c => ({ ...c, coreTypesSource: c.coreTypesSource.replace('Self::MaxAr => "max_ar",', 'Self::MaxAr => "max_ar_v2",') }), /Value domain drift: ObjectiveId/],
+  ["grouping removed in TypeScript", c => ({ ...c, tsSource: c.tsSource.replace('"automatic" | ', "") }), /Value domain drift: ResultGroupingId/],
+  ["AppError field renamed", c => ({ ...c, errorsSource: c.errorsSource.replace("pub message: String,", "pub detail: String,") }), /AppError/],
+]) {
+  test(`rejects ${description}`, () => {
+    const contract = domainContract();
+    const changed = mutate(contract);
+    assert.notDeepEqual(changed, contract, "mutation must apply to the current source");
+    assert.throws(() => checkDomainContract(changed), expected);
   });
 }
