@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -71,6 +72,57 @@ def release_notes_errors(root: Path, expected_tag: str) -> list[str]:
             f"release notes index must link {expected_tag} directly; "
             "do not leave a Pending publication entry"
         )
+    return errors
+
+
+def toolchain_reference_errors(root: Path, rust: str, node: str, python: str, tag: str) -> list[str]:
+    """Workflow pins and README prose must name the versions the toolchain files pin."""
+    errors: list[str] = []
+    for workflow in sorted((root / ".github" / "workflows").glob("*.yml")):
+        text = workflow.read_text(encoding="utf-8")
+        for pinned in re.findall(r"dtolnay/rust-toolchain@[0-9a-f]{40} # (\S+)", text):
+            if pinned != rust:
+                errors.append(f"{workflow.name} installs Rust {pinned}; rust-toolchain.toml pins {rust}")
+        if re.search(r"\b(?:node|python)-version:", text):
+            errors.append(f"{workflow.name} sets Node or Python by literal version; use the version file")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    for label, version in (("Rust", rust), ("Node.js", node), ("Python", python)):
+        if not mentions(readme, f"{label} {version}"):
+            errors.append(f"README.md does not name the pinned {label} {version}")
+    for linked in sorted(set(re.findall(r"docs/release-notes/(v\d+\.\d+\.\d+)\.md", readme)) - {tag}):
+        errors.append(f"README.md links {linked} release notes; the current release is {tag}")
+    return errors
+
+
+def heading_anchors(text: str) -> set[str]:
+    """GitHub heading anchors: lower case, punctuation dropped, spaces as hyphens, repeats numbered."""
+    anchors: set[str] = set(re.findall(r'id="([^"]+)"', text))
+    seen: dict[str, int] = {}
+    for heading in re.findall(r"^#{1,6}\s+(.*?)\s*#*\s*$", re.sub(r"```.*?```", "", text, flags=re.S), re.M):
+        slug = re.sub(r"[^\w\- ]", "", heading.lower()).replace(" ", "-")
+        count = seen.get(slug, 0)
+        seen[slug] = count + 1
+        anchors.add(slug if count == 0 else f"{slug}-{count}")
+    return anchors
+
+
+def markdown_link_errors(root: Path, files: list[str]) -> list[str]:
+    """Relative links in committed Markdown must reach a file and, when given, a heading."""
+    errors: list[str] = []
+    for name in files:
+        path = root / name
+        body = re.sub(r"`[^`\n]*`", "", re.sub(r"```.*?```", "", path.read_text(encoding="utf-8"), flags=re.S))
+        for target in re.findall(r"\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)", body):
+            if re.match(r"[a-z]+:", target):
+                continue
+            relative, _, anchor = target.partition("#")
+            destination = (path.parent / relative).resolve() if relative else path
+            if not destination.exists():
+                errors.append(f"{name} links missing {target}")
+            elif anchor and destination.suffix == ".md" and anchor not in heading_anchors(
+                destination.read_text(encoding="utf-8")
+            ):
+                errors.append(f"{name} links missing heading {target}")
     return errors
 
 
@@ -152,6 +204,9 @@ def main() -> int:
     expect_exact_version("Rust toolchain", rust_version, errors)
     expect_exact_version("Python toolchain", python_version, errors)
     expect_exact_version("Node toolchain", node_version, errors)
+    errors.extend(toolchain_reference_errors(root, rust_version, node_version, python_version, expected_tag))
+    markdown = subprocess.check_output(["git", "ls-files", "*.md"], cwd=root, text=True).split()
+    errors.extend(markdown_link_errors(root, markdown))
 
     validation_requirements = (root / "requirements-validation.txt").read_text(encoding="utf-8")
     for package in ("pyright", "ruff"):
