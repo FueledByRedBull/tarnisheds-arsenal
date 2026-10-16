@@ -31,7 +31,8 @@ comparisons and progression previews.
 </div>
 
 Each Rankings row shows the loadout, weapon scaling, combat stats, AR, and skill
-damage, with the selected build’s full breakdown on the right.
+damage, with the selected build’s full breakdown on the right. **Columns** explains
+each one.
 
 ![Rankings with weapon setups, combat stats, scaling, and the selected build’s damage breakdown](docs/images/tarnisheds-arsenal-rankings.png)
 
@@ -52,29 +53,37 @@ calculation changes, and verification limits.
 > **3.0.0.1** snapshots, so no adjacent data folder, game installation,
 > `regulation.bin`, or source workbook is required.
 
-Each release includes SHA-256 checksums and a build report identifying its source
-and data. The ZIP contains the portable app; the MSI’s WebView2 bootstrapper
+Each release includes SHA-256 checksums for the installer, portable app, and ZIP,
+and a build report identifying its source and data. The ZIP contains the portable
+app with the license and third-party notices; the MSI’s WebView2 bootstrapper
 needs internet access if that runtime is missing.
 
 ## Your first build
 
 1. Choose **Vanilla**. The query line at the top reads as one sentence: click
-   your starting class to change it, and type your stats into the ribbon below.
+   your starting class to change it, and type your stats into the boxed fields of
+   the ribbon below. As the ribbon says, Search optimizes STR–ARC: it moves STR,
+   DEX, INT, FAI, and ARC within your level, while VIG, MND, and END stay as entered.
 2. Click the objective (such as **Max AR**), the loadout, the upgrades, or any
    other part of the query to edit it; open fields allow all legal choices.
-   Press **Ctrl+K** to type a change instead, such as `str 40`, `uchigatana`,
-   `+20`, `top 10`, or `level 60` to plan where your next levels go.
+   **+ More options** holds DLC scaling, the result count and grouping, and stat
+   locks and minimums. Press **Ctrl+K** to type a change instead, such as
+   `str 40`, `uchigatana`, `+20`, `top 10`, or `level 60` to plan where your next
+   levels go.
 3. Press **Search**, then select a row to inspect its damage, scaling, and stats.
    Build Detail shows how far the top result leads the next one, how many scored
-   setups the search ranked, and which of your entered stats the build changes.
+   setups the search compared, and which of your entered stats the build changes.
+   **More details** adds weapon data, the stat budget, and the model’s coverage
+   notes.
 4. Pin another result for **Compare** (or press **P** on a focused row), trace
    future levels in **Paths**, or explore affinity crossover points in
    **Affinity Watch**. These workspaces unlock once a current result is selected;
    the tab bar says what is missing.
 
 Save builds from **Saved Builds**, folded under Build Detail, or export rankings
-as CSV with the row count chosen beside **Export CSV**. Each game profile keeps
-its own query: switch away and back and it is restored, ready to search again.
+with **Export CSV**, which asks for 25, 100, 500, or 2,000 rows. Each game profile
+keeps its own query, including across restarts: switch away and back, or reopen
+the app, and it is restored, ready to search again.
 The query line shows the assumptions behind the rankings; changed inputs mark
 old results as stale. **Ctrl+Z** undoes recent query changes (up to 50) outside
 text fields; switching profile starts a new history. After
@@ -112,14 +121,19 @@ each stat's causal damage contribution.
 | **Paths** | Which stat comes next on a no-respec path, or what wins with a respec? |
 | **Affinity Watch** | When does one affinity overtake another at future levels? |
 
+Compare, Paths, and Affinity Watch each explain their method under **How it works**
+below their title.
+
 <details>
 <summary><strong>Compare — see the differences against your baseline</strong></summary>
 
 Pinned loadouts keep their weapon, affinity, and skill. Their stats and upgrades
-are reoptimized for the current budget; the upgrade chart shows how each develops.
+are reoptimized for the current budget. Compare holds up to eight pins and refuses
+a ninth; loading a saved build replaces them only if that build carries its own.
 Active comparison filters appear as removable chips; **Filters** holds every
 option, and **Use ranked rivals** returns to the default comparison. The delta
-table answers the comparison; open **Build details** for each loadout's full card.
+table answers the comparison; open **Build details** for each loadout's full card,
+or **Upgrade matrix** to see how each develops across upgrade levels.
 
 **AR / Bleed tradeoffs** keeps the selected weapon, affinity, skill, upgrade,
 level budget, stat floors/locks, and handling fixed. Compute its complete frontier,
@@ -177,8 +191,10 @@ those limits.
 
 Results use exact arithmetic for ranking and rounded numbers for display. This
 avoids intermediate rounding deciding close winners; it does not certify every
-formula against the game. **Snapshot loaded** means the profile passed its data
-integrity checks, not that every mechanic is modeled.
+formula against the game. A loaded profile has passed its data integrity checks,
+which does not mean every mechanic is modeled; the header stays quiet when it is
+healthy. **Model coverage and assumptions** under Build Detail’s **More details**
+lists what the numbers leave out.
 
 See the [model reference](docs/model-reference.md) for supported objectives, skill
 effects, profile rules, and known differences from other calculators.
@@ -189,10 +205,11 @@ effects, profile rules, and known differences from other calculators.
 > Convergence is experimental. Its final AR mechanics and customization legality
 > still need independent verification.
 
-Enter exact **Custom stats**; their total is not a Rune Level. The profile supports
-melee weapon AR, fixed status, and upgrades through `+15`. AoW damage, ammunition
-AR, and class-dependent workflows (Compare, Paths, Affinity Watch, and class
-optimization) are unavailable.
+The header marks it **Experimental fixed-stat model**; open that label for its
+coverage notes. Enter exact **Custom stats**; their total is not a Rune Level.
+The profile supports melee weapon AR, fixed status, and upgrades through `+15`.
+AoW damage, ammunition AR, and class-dependent workflows (Compare, Paths,
+Affinity Watch, and class optimization) are unavailable.
 
 Vanilla rules and missing damage tables are never substituted into the mod
 profile. See [Convergence coverage](docs/model-reference.md#convergence).

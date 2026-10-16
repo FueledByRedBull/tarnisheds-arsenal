@@ -50,7 +50,9 @@ before publication, so no follow-up documentation commit is needed.
    workflow is the source of truth for the complete package build. If a local
    rehearsal is useful, run `python tools/phase4/package_release.py` from this clean
    committed checkout after the push; it refuses dirty source and does not replace
-   the CI artifacts.
+   the CI artifacts. It also refuses an existing `dist/TarnishedsArsenal_<version>`
+   output or ZIP; `--replace-output` deliberately refreshes only that output's
+   known files and stops if the directory holds anything else.
 
 Frontend source validation includes `npm run lint` and `npm run test:contracts`,
 before browser installation and unit/browser tests. Full local package validation
@@ -78,8 +80,10 @@ delete the draft release and the remote tag by hand. The five release assets are
 - `TarnishedsArsenal_<version>_SHA256SUMS.txt`
 - `TarnishedsArsenal_<version>_build-report.json`
 
-The ZIP is a portable-only archive with the standalone executable and release
-documentation. Verification requires exactly one executable at the expected path
+`SHA256SUMS.txt` lists the MSI, the portable executable and the ZIP. The ZIP is a
+portable-only archive with the standalone executable, release documentation,
+`LICENSE` and `NOTICE`; the MSI installs `LICENSE` and `NOTICE` beside the
+application. Verification requires exactly one executable at the expected path
 and checks its bytes against the standalone portable executable's SHA-256; matching
 filenames alone are insufficient. The MSI remains a separate release asset.
 

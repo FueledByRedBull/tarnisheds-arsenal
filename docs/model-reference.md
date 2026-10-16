@@ -22,8 +22,9 @@ Enemy defense, negation, resistance growth, and proc explosions are outside the
 model. Temporary effects are modeled only where explicitly supported; there is no
 general buff-stacking simulation. An unavailable value is not zero damage:
 skill metrics require a calculated route for that specific build, even when the
-profile supports skill damage. Missing routes display as unavailable and export
-blank values; a calculated route whose damage is zero retains that zero.
+profile supports skill damage. Missing routes export blank values and display as
+unavailable; when no shown result has a route, the skill metric is left out
+instead. A calculated route whose damage is zero retains that zero.
 
 ### Numerical contract and identity
 
@@ -178,10 +179,11 @@ estimates, and this audit does not certify those stacking/rounding mechanics.
 ## Checking model coverage
 
 Profile capabilities describe which calculations a dataset offers; they do not
-certify every weapon or skill. **Model coverage and assumptions**, under the
-profile selector, explains these limits, and Build Detail shows the selected
-build's model assumptions. Older saved capability filters remain active until
-removed using **Remove saved profile filters**;
+certify every weapon or skill. **Model coverage and assumptions**, under Build
+Detail's **More details**, explains these limits next to the selected build's
+model assumptions; for Convergence, the **Experimental fixed-stat model** label in
+the header opens the same notes. Older saved capability filters remain active
+until removed using **Remove saved profile filters** under **More options**;
 excluding a supported capability excludes all results in that profile.
 
 Run a seeded Vanilla weapon AR/base-status comparison from the repository root:
