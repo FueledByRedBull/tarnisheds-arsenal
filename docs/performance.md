@@ -53,10 +53,10 @@ node scripts/native-responsiveness.mjs src-tauri/target/release/tarnisheds-arsen
 The native probe requires an existing local release executable and an output
 directory. It launches through the packaged smoke harness with an isolated WebView2
 profile, then measures eight uncached sequential build solves, an upgrade series,
-concurrent manifest access, and asynchronous cancellation. `startupMs` ends when
-the model and manifest are ready and is outside measured work. A local EXE does not
-need to be a published or signed MSI. `--mode=sync` supports older binaries with
-synchronous commands and omits cancellation.
+concurrent manifest access, and asynchronous cancellation. `startupMs` runs from
+the launch attempt that succeeded, so a retried WebView2 start does not inflate it,
+until the model and manifest are ready; it is outside measured work. A local EXE
+does not need to be a published or signed MSI.
 
 `--suite=production` uses native asynchronous jobs for a locked, non-additive
 Lifesteal Fist solve, a 500-row search, both 50-level Paths modes with two distinct

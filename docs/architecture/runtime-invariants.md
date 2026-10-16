@@ -72,6 +72,7 @@ Status: accepted. These rules describe contracts that tests and future refactors
   those lanes usable and reports that lane's chart error. Aborting one subscriber
   does not cancel shared cached work needed by another subscriber.
 - Compare evaluates all stored pins (up to eight), excluding the selected baseline.
+  A ninth pin is refused with a notice; the oldest pin is never dropped.
   Exact requests retain their requested upgrade or reject it. Pinned comparisons
   explicitly request and label +0 for a weapon whose verified profile has no
   reinforcement levels; other exact levels cannot silently become a lower level.
@@ -87,6 +88,9 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - A profile switch invalidates every job generation before changing inputs, requests cancellation for all active backend jobs, clears profile-bound results, and cannot accept a completion from the previous profile.
 - Each profile keeps its last query (request and stat-lock mode) in memory and gets it back when the player returns to that profile. A query is never carried into another profile, and results are not restored: the returning query is searched again on demand.
 - Each profile's query is also saved on the device under its own profile key, written only while that profile is loaded, and restored at startup or on return after a restart. It is validated like an imported preset request; an unreadable query or one naming another profile is removed with a notice, never repaired or carried across profiles.
+- Release builds swallow WebView2's reload and print keys (F5, Ctrl+R, Ctrl+Shift+R,
+  Ctrl+F5 and Ctrl+P) so they cannot discard the session; development builds keep
+  reload.
 - CSV export owns a cancellable search until the backend reports completion, including after cancellation. Normal searches and comparison searches wait for that slot. Input/profile changes and leaving Rankings cancel export; late results cannot download or populate its cache.
 
 ## Result identity
@@ -116,6 +120,9 @@ Status: accepted. These rules describe contracts that tests and future refactors
   discard that target or silently replace it with unrelated comparison controls.
 - Manual comparison controls preserve stored pins. Adding, removing or clearing
   pins invalidates derived targets and Paths, including work already in flight.
+  Loading a saved build without pins keeps the current pins; a build that carries
+  pins replaces them and says so. Pins saved on other game data are dropped with a
+  notice.
 - Affinity Watch points contain only level and nullable metric. Endpoint summaries
   use the actual boundary points; missing endpoints remain unavailable and cannot
   inherit an interior build. Only an available final point supplies final stats.
@@ -178,7 +185,9 @@ Status: accepted. These rules describe contracts that tests and future refactors
   budget changes and check eligibility against each evaluation's budget. Cancellation
   is honored even when a locked evaluation has no eligible weapons.
 - Schema version describes storage compatibility, dataset version identifies extracted content, and model version identifies calculation semantics. They change independently.
-- The UI's “Snapshot loaded” state reports a manifest-bound snapshot that passed
+- A healthy profile shows nothing in the header corner; “Snapshot loaded” is
+  announced to screen readers only, while loading and the experimental model stay
+  visible. Either way the state reports a manifest-bound snapshot that passed
   loading checks and declares capabilities; it does not independently verify every
   formula.
 
