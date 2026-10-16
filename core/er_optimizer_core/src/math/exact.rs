@@ -715,6 +715,67 @@ pub(crate) fn exact_scalar_route(
     Ok((first_hit, full_sequence))
 }
 
+/// Bounds a route over independent stat intervals; the STR interval must cover raw and
+/// effective STR. Each damage component is nondecreasing in every curve value (signs from
+/// optimizer-math Section 3; an influence penalty only switches from the strongest negative
+/// contribution to the nonnegative sum as values rise), so evaluating every stat at its
+/// interval's largest curve value bounds coupled and additive routes alike.
+pub(crate) fn exact_scalar_route_upper_bound(
+    route: &ScalarAowRoute<'_>,
+    weapon: &Weapon,
+    upgrade: u8,
+    damage_multiplier: f32,
+    data: &GameData,
+    min_stat_values: [u16; COMBAT_STAT_COUNT],
+    max_stat_values: [u16; COMBAT_STAT_COUNT],
+) -> Result<(ExactRational, ExactRational), String> {
+    let damage_multiplier = rational(damage_multiplier, "damage multiplier")?;
+    let mut first_hit = ExactRational::zero();
+    let mut full_sequence = ExactRational::zero();
+    for hit in &route.hits {
+        let mut damage = ExactRational::zero();
+        for damage_type in DamageType::ALL {
+            add_nonzero(
+                &mut damage,
+                skill_damage_with_curves(
+                    weapon,
+                    hit.row,
+                    upgrade,
+                    damage_type,
+                    data,
+                    |curve_id| {
+                        let mut values = std::array::from_fn(|_| ExactRational::zero());
+                        for (stat_idx, value) in values.iter_mut().enumerate() {
+                            *value = max_curve_value(
+                                data,
+                                curve_id,
+                                min_stat_values[stat_idx],
+                                max_stat_values[stat_idx],
+                                stat_idx,
+                            )?;
+                        }
+                        Ok(values)
+                    },
+                )?,
+            );
+            if hit.buff_active {
+                add_nonzero(
+                    &mut damage,
+                    exact_buff_damage(
+                        hit.buff_attack_power[damage_type.as_index()],
+                        hit.row.weapon_buff_mv,
+                    )?,
+                );
+            }
+        }
+        scale_if_needed(&mut damage, &damage_multiplier);
+        // The first nonzero hit may vary with stats; zero bounds a route without one.
+        first_hit = first_hit.max(damage.clone());
+        add_nonzero(&mut full_sequence, damage);
+    }
+    Ok((first_hit, full_sequence))
+}
+
 pub(crate) fn exact_skill_damage_for_type(
     weapon: &Weapon,
     attack_row: &AowAttackRow,
@@ -723,6 +784,24 @@ pub(crate) fn exact_skill_damage_for_type(
     effective_str_value: u16,
     damage_type: DamageType,
     data: &GameData,
+) -> Result<ExactRational, String> {
+    let stat_values = stat_values_for_scaling(
+        stats,
+        effective_str_value,
+        attack_row.is_disable_both_hands_bonus,
+    );
+    skill_damage_with_curves(weapon, attack_row, upgrade, damage_type, data, |curve_id| {
+        curve_values(data, curve_id, stat_values)
+    })
+}
+
+fn skill_damage_with_curves(
+    weapon: &Weapon,
+    attack_row: &AowAttackRow,
+    upgrade: u8,
+    damage_type: DamageType,
+    data: &GameData,
+    curves: impl FnOnce(usize) -> Result<[ExactRational; COMBAT_STAT_COUNT], String>,
 ) -> Result<ExactRational, String> {
     let damage_idx = damage_type.as_index();
     let reinforce = reinforce_level(weapon, upgrade, data)?;
@@ -771,12 +850,7 @@ pub(crate) fn exact_skill_damage_for_type(
         return Ok(ExactRational::zero());
     }
 
-    let stat_values = stat_values_for_scaling(
-        stats,
-        effective_str_value,
-        attack_row.is_disable_both_hands_bonus,
-    );
-    let curve_mults = curve_values(data, weapon.damage_curve_ids[damage_idx], stat_values)?;
+    let curve_mults = curves(weapon.damage_curve_ids[damage_idx])?;
     let coefficients;
     if let Some(override_id) = attack_row.overwrite_attack_element_correct_id {
         let aec_ext = data.attack_element_ext(override_id).ok_or_else(|| {
@@ -2364,6 +2438,59 @@ mod tests {
                 compile_scalar_route_formula(route, weapon, 25, 1.0, &data, [148, 99, 99, 99, 99])
                     .is_err()
             );
+        }
+    }
+
+    #[test]
+    fn route_upper_bound_covers_every_allocation_in_its_interval() {
+        let data = data();
+        let grid = [10_u8, 17, 26, 33, 40];
+        for (weapon_name, affinity, ash) in
+            [("Caestus", "Occult", 205), ("Claymore", "Standard", 110)]
+        {
+            let weapon = weapon(&data, weapon_name, affinity);
+            let rows: Vec<_> = data
+                .aow_attack_rows(ash)
+                .iter()
+                .filter(|row| !row.is_lacking_fp)
+                .collect();
+            let routes = crate::math::prepare_scalar_aow_routes(&rows, &data)
+                .unwrap()
+                .unwrap();
+            for route in &routes {
+                // Raw STR up to 40 and its two-handed value up to 60.
+                let (first_bound, full_bound) = exact_scalar_route_upper_bound(
+                    route,
+                    weapon,
+                    25,
+                    2.05,
+                    &data,
+                    [10; COMBAT_STAT_COUNT],
+                    [60, 40, 40, 40, 40],
+                )
+                .unwrap();
+                for index in 0..grid.len().pow(5) {
+                    let pick = |stat: u32| grid[index / grid.len().pow(stat) % grid.len()];
+                    let stats = Stats {
+                        vig: 10,
+                        mnd: 10,
+                        end: 10,
+                        str: pick(0),
+                        dex: pick(1),
+                        int: pick(2),
+                        fai: pick(3),
+                        arc: pick(4),
+                    };
+                    for effective in [u16::from(stats.str), u16::from(stats.str) * 3 / 2] {
+                        let (first, full) =
+                            exact_scalar_route(route, weapon, 25, &stats, effective, 2.05, &data)
+                                .unwrap();
+                        assert!(first <= first_bound, "{weapon_name} {}", route.route_id);
+                        assert!(full <= full_bound, "{weapon_name} {}", route.route_id);
+                    }
+                }
+            }
+            assert!(ash != 205 || routes.iter().any(|route| !route.is_additive(&data)));
         }
     }
 

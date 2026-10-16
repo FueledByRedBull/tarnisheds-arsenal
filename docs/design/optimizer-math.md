@@ -403,17 +403,39 @@ non-monotonic curves. Add the largest permitted Ash buff and apply the damage
 multiplier using exact arithmetic. A work unit is skipped only when this bound is
 strictly below the score of the worst retained result in a full top-K buffer; ties
 are always evaluated. For weapon grouping, a full buffer contains K distinct output
-groups, each represented by its preferred candidate. Worker-local buffers obey the
-same rule, so scheduling affects pruning effectiveness but not the result order.
+groups, each represented by its preferred candidate. Parallel workers share one
+exact buffer, so scheduling affects pruning effectiveness but not the result order.
+
+For Bleed then AR, bleed reads the stats only through ARC's status-curve value
+(Section 4). Every `f32` step and floor of its evaluation is nondecreasing in that
+value when the reinforcement scaling is nonnegative, so the largest curve value in
+ARC's interval gives each upgrade's exact maximum for each distinct Ash bleed
+effect. An upgrade whose maximum is strictly below the cutoff score is skipped.
+
+For the skill objectives, a route bound evaluates every hit with each stat at its
+interval's largest curve value; the STR interval covers raw and effective STR.
+Each damage component is nondecreasing in every curve value: additive coefficients
+are nonnegative, and the non-additive influence correction moves from the
+strongest negative contribution to the nonnegative sum as values rise. The bound
+therefore holds for coupled and compiled routes alike. The first-hit bound is the
+largest hit bound, and at least zero.
+
+The cutoff is a full key, not only a score: the worst retained result of a full
+buffer, or for weapon grouping that weapon's best, from earlier work units and from
+results the current unit already kept. A skill choice whose primary pair is
+strictly below the cutoff's pair is skipped. A route whose bound on the first key
+component it can still change is strictly below the cutoff's is skipped: the score
+for skill objectives, or full-sequence damage once the primary pair can at best
+tie. Every pruned key is strictly below a retained one; ties are always evaluated.
 
 Within one weapon group, skills with strictly worse primary maxima cannot win
-weapon grouping. All tied primary maxima remain eligible for route tie-breaks. A
-floating-point estimate schedules promising weapons first; it never decides
-whether to discard one.
+weapon grouping. All tied primary maxima remain eligible for route tie-breaks.
+Floating-point AR estimates, preceded by the exact bleed maximum for Bleed then AR,
+schedule promising weapons first; they never decide whether to discard one.
 
 For weapon-grouped output, a retained result also bounds later configurations of
 that same weapon even before the global top-K fills. Only strictly lower primary
-scores are discarded. Flat-buff dominance compares choices with identical non-buff
+pairs are discarded. Flat-buff dominance compares choices with identical non-buff
 primary formulas over the same feasible domain, in the objective's primary-pair
 order: physical AR before total AR for Max Physical AR, and bleed before total AR
 for Bleed then AR. Total buff magnitude alone is not sufficient for Max Physical AR.
