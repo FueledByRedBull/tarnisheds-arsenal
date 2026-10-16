@@ -95,7 +95,7 @@ export function SearchableSelect({
         aria-label={label}
         aria-autocomplete="list"
         aria-expanded={open && !disabled}
-        aria-controls={`${id}-listbox`}
+        aria-controls={open && !disabled ? `${id}-listbox` : undefined}
         aria-describedby={`${id}-status`}
         aria-activedescendant={open && !disabled && active ? `${id}-option-${Math.min(activeIndex, filtered.length - 1)}` : undefined}
         disabled={disabled}
@@ -164,6 +164,7 @@ export function SearchableSelect({
               aria-selected={option.value === value}
               className={index === activeIndex ? "active" : undefined}
               type="button"
+              tabIndex={-1}
               onMouseDown={(event) => event.preventDefault()}
               onMouseEnter={() => setActiveIndex(index)}
               onClick={() => {
@@ -173,12 +174,12 @@ export function SearchableSelect({
               {option.label}
             </button>
           ))}
-          {filtered.length === 0 ? <span>No matches</span> : null}
-          <small id={`${id}-status`} className="select-status" role="status" aria-live="polite">
-            {resultStatus}
-          </small>
+          {/* Shown in the menu; screen readers hear the status outside the listbox instead. */}
+          {filtered.length === 0 ? <span aria-hidden="true">No matches</span> : null}
+          <small className="select-status" aria-hidden="true">{resultStatus}</small>
         </div>
-      ) : <span id={`${id}-status`} className="sr-only">{options.length} options</span>}
+      ) : null}
+      <span id={`${id}-status`} className="sr-only" role="status">{open && !disabled ? resultStatus : `${options.length} options`}</span>
     </label>
   );
 }
@@ -193,16 +194,12 @@ export function CheckboxMultiSelect({
   excludedValues = [],
   options,
   onChange,
-  disabled,
-  placeholder = "All",
 }: {
   label: string;
   values: string[];
   excludedValues?: string[];
   options: MultiSelectOption[];
   onChange: (values: string[], excludedValues: string[]) => void;
-  disabled?: boolean;
-  placeholder?: string;
 }) {
   const id = useId();
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -257,9 +254,8 @@ export function CheckboxMultiSelect({
         type="button"
         className="checkbox-multi-trigger"
         aria-label={label}
-        aria-expanded={open && !disabled}
+        aria-expanded={open}
         aria-controls={`${id}-menu`}
-        disabled={disabled}
         onClick={() => setOpen((current) => !current)}
       >
         {selected.length ? (
@@ -271,9 +267,9 @@ export function CheckboxMultiSelect({
             ))}
             {selected.length > 2 ? <span className="filter-chip">+{selected.length - 2}</span> : null}
           </>
-        ) : <span className="checkbox-multi-placeholder">{placeholder}</span>}
+        ) : <span className="checkbox-multi-placeholder">All</span>}
       </button>
-      {open && !disabled ? (
+      {open ? (
         <div className="select-menu checkbox-select-menu" id={`${id}-menu`}>
           <input
             ref={searchRef}

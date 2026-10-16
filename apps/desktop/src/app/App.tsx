@@ -2,6 +2,7 @@ import { Activity, useCallback, useEffect, useEffectEvent, useRef, useState } fr
 import { Check, CircleAlert, GitCompareArrows, Radar, RotateCcw, Route, Table2, X } from "lucide-react";
 import { api } from "../lib/api";
 import { setAnalysisCacheVersion } from "../lib/analysis-cache";
+import { WORKSPACES } from "../lib/commands";
 import { keyboardOwnedByOverlay } from "../lib/keyboard";
 import { catalogVersion } from "../lib/preset-activation";
 import { useDesktopStore } from "../lib/state";
@@ -16,13 +17,12 @@ import { SkeletonRows } from "../features/shared/SkeletonRows";
 import { EASE_OUT, reducedMotion } from "../lib/motion";
 import { RankingsBoard } from "../features/rankings/RankingsBoard";
 import { ReproductionReport } from "../features/shared/ReproductionReport";
+import { errorMessage } from "../lib/format";
 
-const tabs: Array<{ id: WorkspaceTab; label: string; icon: typeof Table2 }> = [
-  { id: "rankings", label: "Rankings", icon: Table2 },
-  { id: "compare", label: "Compare", icon: GitCompareArrows },
-  { id: "paths", label: "Paths", icon: Route },
-  { id: "affinity_watch", label: "Affinity Watch", icon: Radar },
-];
+const TAB_ICONS: Record<WorkspaceTab, typeof Table2> = {
+  rankings: Table2, compare: GitCompareArrows, paths: Route, affinity_watch: Radar,
+};
+const tabs = WORKSPACES.map((workspace) => ({ ...workspace, icon: TAB_ICONS[workspace.id] }));
 
 const PROFILE_STORAGE_KEY = "tarnisheds-arsenal.gameProfile.v1";
 
@@ -73,7 +73,7 @@ export function App() {
       }
     } catch (err) {
       if (generation !== profileGeneration.current) return;
-      setCatalogFailure(err instanceof Error ? err.message : String(err));
+      setCatalogFailure(errorMessage(err));
     }
   }, [beginProfileSwitch, setCatalog, setCatalogFailure]);
 
@@ -98,7 +98,7 @@ export function App() {
       await loadProfile(initialProfile, generation);
     }).catch((err) => {
       if (generation !== profileGeneration.current) return;
-      setCatalogFailure(err instanceof Error ? err.message : String(err));
+      setCatalogFailure(errorMessage(err));
     });
     return () => {
       if (profileGeneration.current === generation) profileGeneration.current += 1;

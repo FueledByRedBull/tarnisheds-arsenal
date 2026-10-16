@@ -19,9 +19,11 @@ import {
   restoreBuildBackup,
   shareTextForPreset,
   MAX_BUILD_BACKUP_BYTES,
+  MAX_BUILD_BACKUP_COUNT,
 } from "./presets";
 import type { BuildPresetV1, SolvedBuildDto } from "./types";
 import { validateStoredBuild } from "./stored-build";
+import { solvedBuild } from "./test-fixtures";
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();
@@ -45,32 +47,6 @@ function preset(id = "preset-one", name = "Dexterity route"): BuildPresetV1 {
     dataVersion: "1:dataset:model",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
-  };
-}
-
-function solvedBuild(): SolvedBuildDto {
-  return {
-    weaponId: 1,
-    weaponName: "Uchigatana",
-    affinity: "Keen",
-    isSomber: false,
-    upgrade: 25,
-    stats: { strStat: 18, dex: 40, intStat: 9, fai: 8, arc: 8 },
-    ar: { physical: 500, magic: 0, fire: 0, lightning: 0, holy: 0, total: 500 },
-    aowId: 100,
-    aowName: "Unsheathe",
-    bleedBuildup: 45,
-    bleedBuildupAdd: 0,
-    frostBuildup: 0,
-    poisonBuildup: 0,
-    scarletRotBuildup: 0,
-    sleepBuildup: 0,
-    madnessBuildup: 0,
-    deathBuildup: 0,
-    aowFirstHitDamage: 300,
-    aowFullSequenceDamage: 300,
-    aowRoute: null,
-    score: 500,
   };
 }
 
@@ -100,7 +76,8 @@ describe("saved build persistence", () => {
     const build = structuredClone(routedBuild());
     mutate(build);
     expect(validateStoredBuild(build, { standardMaxUpgrade: 25, somberMaxUpgrade: 25 })).toMatchObject({ error: expect.stringContaining(`${path} `) });
-    expect(() => parsePresetText(JSON.stringify({ ...preset(), selectedBuild: build }))).toThrow(path.replace(/^build/, "selectedBuild"));
+    // Schema 2: only schema-1 records get later fields backfilled.
+    expect(() => parsePresetText(JSON.stringify({ ...preset(), version: 2, compareBench: [], selectedBuild: build }))).toThrow(path.replace(/^build/, "selectedBuild"));
   });
 
   it("keeps archive shape limits distinct from profile-specific activation limits", () => {
@@ -240,32 +217,33 @@ describe("saved build persistence", () => {
     expect(parsed.request).not.toHaveProperty("offensivePointBudget");
   });
 
-  it("migrates saved builds created before all status fields were exposed", () => {
+  it("migrates schema-1 builds created before later result fields existed", () => {
     const raw = JSON.parse(JSON.stringify({
       ...preset(),
       selectedBuild: solvedBuild(),
       compareTarget: solvedBuild(),
+      compareBench: [solvedBuild()],
     }));
-    for (const key of ["selectedBuild", "compareTarget"] as const) {
-      delete raw[key].sleepBuildup;
-      delete raw[key].madnessBuildup;
-      delete raw[key].deathBuildup;
+    for (const build of [raw.selectedBuild, raw.compareTarget, raw.compareBench[0]]) {
+      for (const key of ["sleepBuildup", "madnessBuildup", "deathBuildup", "frostBuildup", "bleedBuildupAdd", "aowId", "aowRoute"]) {
+        delete build[key];
+      }
     }
 
     const parsed = parsePresetText(JSON.stringify(raw));
 
-    expect(parsed.selectedBuild).toMatchObject({
-      sleepBuildup: 0,
-      madnessBuildup: 0,
-      deathBuildup: 0,
-    });
-    expect(parsed.compareTarget).toMatchObject({
-      sleepBuildup: 0,
-      madnessBuildup: 0,
-      deathBuildup: 0,
-    });
+    for (const build of [parsed.selectedBuild, parsed.compareTarget, parsed.compareBench[0]]) {
+      expect(build).toMatchObject({
+        sleepBuildup: 0,
+        madnessBuildup: 0,
+        deathBuildup: 0,
+        frostBuildup: 0,
+        bleedBuildupAdd: 0,
+        aowId: null,
+        aowRoute: null,
+      });
+    }
   });
-
   it("previews conflicts and rejects oversized input", () => {
     importBuildPreset(preset());
     const preview = previewPresetImport(JSON.stringify(preset()));
@@ -506,6 +484,34 @@ describe("saved build persistence", () => {
     expect(localStorage.getItem(currentKey)).toBe("{broken");
   });
 
+
+  it("keeps only the three newest recovery copies of the index", () => {
+    localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.recovery.legacy-random-id", "{oldest");
+    vi.useFakeTimers();
+    try {
+      for (let copy = 0; copy < 4; copy += 1) {
+        vi.setSystemTime(new Date(Date.UTC(2026, 0, 1, 0, 0, copy)));
+        localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", `{damaged-${copy}`);
+        recoverSavedBuilds(inspectSavedBuilds());
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+    const copies = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index)!)
+      .filter((key) => key.startsWith("tarnisheds-arsenal.savedBuildIndex.recovery."))
+      .map((key) => localStorage.getItem(key));
+    expect(copies.sort()).toEqual(["{damaged-1", "{damaged-2", "{damaged-3"]);
+  });
+
+  it("exports a recovered library larger than the restore limit", () => {
+    const saved = saveBuildPreset(preset());
+    const record = localStorage.getItem(`tarnisheds-arsenal.savedBuild.v2.${saved.id}`)!;
+    for (let index = 0; index < MAX_BUILD_BACKUP_COUNT; index += 1) {
+      localStorage.setItem(`tarnisheds-arsenal.savedBuild.v2.extra-${index}`, record.replace(saved.id, `extra-${index}`));
+    }
+    const backup = JSON.parse(savedBuildBackupText(inspectSavedBuilds()));
+    expect(backup.builds).toHaveLength(MAX_BUILD_BACKUP_COUNT + 1);
+  });
 
   it("backs up existing valid records beyond the single-share import limit", () => {
     const saved = saveBuildPreset(preset());

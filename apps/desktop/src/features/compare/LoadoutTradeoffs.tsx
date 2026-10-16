@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
-import { fixed1, statLine } from "../../lib/format";
+import { errorMessage, fixed1, statLine } from "../../lib/format";
 import { buildOptimizeRequest, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { ArBleedFrontierPointDto, OptimizeRequestDto, SolvedBuildDto } from "../../lib/types";
@@ -109,7 +109,7 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
         || generation !== runGeneration.current
         || contextRef.current !== contextSignature
       ) return;
-      setError(nextError instanceof Error ? nextError.message : String(nextError));
+      setError(errorMessage(nextError));
       setStatus("error");
     } finally {
       unsubscribe();

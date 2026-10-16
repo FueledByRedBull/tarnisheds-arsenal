@@ -20,6 +20,10 @@ let cacheDataVersion = "unknown";
 let cacheGeneration = 0;
 let completedComparison: { key: string; rows: SolvedBuildDto[] } | null = null;
 
+function stopped(): DOMException {
+  return new DOMException("Calculation stopped.", "AbortError");
+}
+
 export function setAnalysisCacheVersion(dataVersion: string): void {
   if (cacheDataVersion === dataVersion) return;
   cacheDataVersion = dataVersion;
@@ -38,13 +42,13 @@ export function clearAnalysisCaches(): void {
 }
 
 export async function cachedComparisonSearch(request: OptimizeRequestDto, signal: AbortSignal): Promise<SolvedBuildDto[]> {
-  if (signal.aborted) throw new Error("cancelled");
+  if (signal.aborted) throw stopped();
   const version = cacheDataVersion;
   const generation = cacheGeneration;
   const key = stableSignature({ version, request });
   if (completedComparison?.key === key) return completedComparison.rows;
   const rows = await runSearchRequestForRows(request, signal);
-  if (signal.aborted) throw new Error("cancelled");
+  if (signal.aborted) throw stopped();
   if (cacheGeneration === generation) completedComparison = { key, rows };
   return rows;
 }
@@ -81,7 +85,7 @@ function cached<T>(
   loader: (signal: AbortSignal) => Promise<T>,
   signal?: AbortSignal,
 ): Promise<T> {
-  if (signal?.aborted) return Promise.reject(new Error("cancelled"));
+  if (signal?.aborted) return Promise.reject(stopped());
   const key = stableSignature({ dataVersion: cacheDataVersion, keyParts });
   const now = Date.now();
   const entry = cache.get(key);
@@ -95,7 +99,7 @@ function cached<T>(
   const controller = new AbortController();
   const promise = loader(controller.signal).then((value) => {
     nextEntry.pending = false;
-    if (controller.signal.aborted) throw new Error("cancelled");
+    if (controller.signal.aborted) throw stopped();
     return value;
   }).catch((error) => {
     nextEntry.pending = false;
@@ -104,10 +108,11 @@ function cached<T>(
   });
   nextEntry = { promise, controller, expiresAt: now + CACHE_TTL_MS, pending: true, subscribers: 0 };
   cache.set(key, nextEntry);
-  while (cache.size > maxEntries) {
-    const oldest = cache.keys().next().value as string | undefined;
-    if (oldest === undefined) break;
-    cache.delete(oldest);
+  // Pending entries still have subscribers; evicting one would start a duplicate native job
+  // for the same key, so only settled entries are evicted (oldest first).
+  for (const [oldKey, old] of cache) {
+    if (cache.size <= maxEntries) break;
+    if (!old.pending) cache.delete(oldKey);
   }
   return subscribe(cache, key, nextEntry, signal);
 }
@@ -134,7 +139,7 @@ function subscribe<T>(
   return new Promise<T>((resolve, reject) => {
     const abort = () => {
       release();
-      reject(new Error("cancelled"));
+      reject(stopped());
     };
     signal.addEventListener("abort", abort, { once: true });
     entry.promise.then(

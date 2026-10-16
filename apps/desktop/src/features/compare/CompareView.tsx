@@ -2,11 +2,11 @@ import { SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AowSelect } from "../../lib/AowSelect";
 import { cachedComparisonSearch, cachedSolveBuild, cachedUpgradeSeries, cachedWeaponProfile } from "../../lib/analysis-cache";
-import { compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
+import { compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
 import { CheckboxMultiSelect, SearchableSelect, openOption } from "../../lib/SearchableSelect";
 import { compareUpgradeHorizon, replaceFilterEntries, rowFingerprint, stableSignature, upgradeCapForRow } from "../../lib/session";
 import { LatestRequest } from "../../lib/request-generation";
-import { useRequestBudget } from "../../lib/hooks";
+import { useBuiltRequest } from "../../lib/hooks";
 import { useDesktopStore } from "../../lib/state";
 import { CompareControls, SolvedBuildDto, UpgradePointDto } from "../../lib/types";
 import { Popover } from "../shared/Popover";
@@ -48,7 +48,7 @@ export function CompareView() {
   // The inputs of the last comparison that finished. Showing the tab again re-runs the effect
   // below (Activity); with unchanged inputs its lanes and charts are still on screen.
   const finishedComparison = useRef<string | null>(null);
-  const { base: baseRequest } = useRequestBudget(catalog, request, lockedStatMode);
+  const baseRequest = useBuiltRequest(catalog, request, lockedStatMode);
   const [series, setSeries] = useState<CompareLane[]>([]);
   const [seriesStatus, setSeriesStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [seriesError, setSeriesError] = useState<string | null>(null);
@@ -259,7 +259,7 @@ export function CompareView() {
         } catch (error) {
           if (!currentRequest.isCurrent(token)) return;
           chartFailed = true;
-          const message = error instanceof Error ? error.message : String(error);
+          const message = errorMessage(error);
           setSeries(current => current.map((entry, i) => i === index ? { ...entry, chartStatus: "error", chartError: message } : entry));
           setError(`${lane.label} upgrade series at level ${baseRequest.characterLevel} (${statLine(row)}): ${message}`);
         }
@@ -271,7 +271,7 @@ export function CompareView() {
       controller.abort();
       if (seriesRequest.current.isCurrent(token)) {
         setSeries([]);
-        const message = error instanceof Error ? error.message : String(error);
+        const message = errorMessage(error);
         setSeriesError(message);
         setSeriesStatus("error");
         setError(message);

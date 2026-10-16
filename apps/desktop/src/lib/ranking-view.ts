@@ -11,7 +11,7 @@ export interface RankedEntry {
   rank: number;
 }
 
-export function sortValue(row: SolvedBuildDto, key: Exclude<RankSortKey, "rank">, objective: ObjectiveId, aowSupported: boolean): number | null {
+function sortValue(row: SolvedBuildDto, key: Exclude<RankSortKey, "rank">, objective: ObjectiveId, aowSupported: boolean): number | null {
   if (key === "ar") return row.ar.total;
   if (key === "skill") return hasAowDamage(row, aowSupported) ? row.aowFullSequenceDamage : null;
   return metricForObjective(row, objective, aowSupported);
@@ -46,7 +46,7 @@ export interface RankMovement {
   metricDelta: number | null;
 }
 
-export const loadoutKey = (row: SolvedBuildDto) => `${row.weaponName}\u0000${row.affinity}\u0000${row.aowName ?? ""}`;
+const loadoutKey = (row: SolvedBuildDto) => `${row.weaponName}\u0000${row.affinity}\u0000${row.aowName ?? ""}`;
 
 export function rankMovements(
   rows: SolvedBuildDto[],

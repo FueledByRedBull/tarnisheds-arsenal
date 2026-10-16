@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOptimizeRequest, classMeta, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, replaceFilterEntries, scalingLetter, STARTING_CLASS_METADATA, startingClassLevel } from "./session";
+import { buildOptimizeRequest, classMeta, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, replaceFilterEntries, rowFingerprint, scalingLetter, stableSignature, STARTING_CLASS_METADATA, startingClassLevel } from "./session";
+import { solvedBuild } from "./test-fixtures";
 import { defaultRequest } from "./state";
 import type { CatalogDto } from "./types";
 
@@ -95,5 +96,25 @@ describe("request normalization properties", () => {
       { dimension: "weapon_type", id: "weapon-type:new", mode: "include" },
       { dimension: "weapon_type", id: "weapon-type:blocked", mode: "exclude" },
     ]);
+  });
+});
+
+describe("result identity", () => {
+  it("fingerprints every identity field and ignores letter case", () => {
+    const base = solvedBuild();
+    const changed = [
+      { weaponId: 2 }, { weaponName: "Nagakiba" }, { affinity: "Blood" }, { aowName: "Seppuku" }, { upgrade: 24 },
+      ...(["strStat", "dex", "intStat", "fai", "arc"] as const).map((key) => ({ stats: { ...base.stats, [key]: base.stats[key] + 1 } })),
+    ];
+    for (const change of changed) expect(rowFingerprint(solvedBuild(change))).not.toBe(rowFingerprint(base));
+    expect(rowFingerprint(solvedBuild({ weaponName: "UCHIGATANA", affinity: "keen", aowName: "UNSHEATHE" }))).toBe(rowFingerprint(base));
+    expect(rowFingerprint(solvedBuild({ score: 1, ar: { ...base.ar, total: 1 } }))).toBe(rowFingerprint(base));
+  });
+
+  it("signs equal requests equally whatever their key order", () => {
+    const reordered = Object.fromEntries(Object.entries(defaultRequest).reverse());
+    expect(stableSignature(reordered)).toBe(stableSignature(defaultRequest));
+    expect(stableSignature({ ...defaultRequest, dex: defaultRequest.dex + 1 })).not.toBe(stableSignature(defaultRequest));
+    expect(stableSignature({ ...defaultRequest, profileId: "convergence" })).not.toBe(stableSignature(defaultRequest));
   });
 });

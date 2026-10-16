@@ -29,7 +29,7 @@ const analysisQueue = createNativeJobQueue<AnalysisJobStatusDto>(
   jobId => call("cancel_analysis", { jobId }),
 );
 
-export const hasTauriRuntime = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+const hasTauriRuntime = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   if (hasTauriRuntime()) {

@@ -1,6 +1,6 @@
 import { objectiveLabel } from "./format";
 import { SCADUTREE_MAX_LEVEL } from "./scadutree";
-import { classMeta, clampHorizon, derivedLevel, replaceFilterEntries } from "./session";
+import { classMeta, clampHorizon, derivedLevel, hasCombatStatLocks, replaceFilterEntries } from "./session";
 import { CatalogDto, ObjectiveId, OptimizeRequestDto, WorkspaceTab } from "./types";
 
 // The command palette's vocabulary. Parsing is pure: it returns data describing what to do,
@@ -76,34 +76,34 @@ const OBJECTIVE_WORDS: Record<ObjectiveId, string> = {
   aow_first_hit: "aow ash of war skill first hit",
   aow_full_sequence: "aow ash of war skill full sequence combo",
 };
-const WORKSPACES: Array<{ id: WorkspaceTab; label: string }> = [
+export const WORKSPACES: Array<{ id: WorkspaceTab; label: string }> = [
   { id: "rankings", label: "Rankings" },
   { id: "compare", label: "Compare" },
   { id: "paths", label: "Paths" },
   { id: "affinity_watch", label: "Affinity Watch" },
 ];
 
-const STAT_PATTERN = /^(lock|min|minimum|set)?\s*([a-z]+)\s*(?:to|at|=)?\s*(\d{1,3})$/;
+const STAT_PATTERN = /^(?:(lock|minimum|min|set)\s+)?([a-z]+)\s*(?:to|at|=)?\s*(\d{1,3})$/;
 const UPGRADE_PATTERN = /^(upgrade|standard|somber|cap|weapon)?\s*\+\s*(\d{1,2})$|^(upgrade|standard|somber|cap)\s*(\d{1,2})$/;
 const TOP_PATTERN = /^top\s*(\d{1,3})$/;
 const BLESSING_PATTERN = /^(?:blessing|scadutree|sb)\s*(\d{1,2})$/;
 const LEVEL_PATTERN = /^(?:level|lvl|rl)\s*(\d{1,3})$/;
 
-export function normalizeQuery(query: string): string {
+function normalizeQuery(query: string): string {
   return query.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-export function findCommands(rawQuery: string, context: CommandContext, limit = 8): Command[] {
+export function findCommands(rawQuery: string, context: CommandContext): Command[] {
   const query = normalizeQuery(rawQuery);
   const parsed = parsedCommands(query, context);
-  if (!query) return [...parsed, ...suggestions(context)].slice(0, limit);
+  if (!query) return [...parsed, ...suggestions(context)].slice(0, 8);
   const ranked = staticCommands(context)
     .map((command) => ({ command, score: matchScore(query, `${command.label} ${command.group}`) }))
     .filter((entry) => entry.score > 0)
     .sort((a, b) => b.score - a.score || a.command.label.length - b.command.label.length)
     .map((entry) => entry.command);
   const seen = new Set(parsed.map((command) => command.id));
-  return [...parsed, ...ranked.filter((command) => !seen.has(command.id))].slice(0, limit);
+  return [...parsed, ...ranked.filter((command) => !seen.has(command.id))].slice(0, 8);
 }
 
 // Higher is better; zero means no match. Word-prefix matches beat loose substring matches,
@@ -290,7 +290,7 @@ function stateCommands(context: CommandContext): Command[] {
     commands.push(command("optimize-class", "Character", "Optimize class", "Lowest level for the entered stats", { kind: "optimizeClass" }));
     commands.push(command("locked-mode", "Limits", lockedStatMode ? "Stop using stat locks" : "Use stat locks", undefined,
       { kind: "lockedMode", value: !lockedStatMode }));
-    if (lockedStatMode || [request.lockStr, request.lockDex, request.lockInt, request.lockFai, request.lockArc].some((value) => value !== null)) {
+    if (lockedStatMode || hasCombatStatLocks(request)) {
       commands.push(command("clear-locks", "Limits", "Clear stat locks", undefined, { kind: "clearLocks" }));
     }
   }

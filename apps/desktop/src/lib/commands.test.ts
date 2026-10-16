@@ -65,6 +65,7 @@ describe("palette parsing", () => {
     expect(ids("str 40").slice(0, 3)).toEqual(["set-strStat", "lock-strStat", "min-strStat"]);
     expect(ids("lock dex 30").slice(0, 3)).toEqual(["lock-dex", "set-dex", "min-dex"]);
     expect(ids("minimum arcane = 25").slice(0, 3)).toEqual(["min-arc", "set-arc", "lock-arc"]);
+    expect(ids("mind 12")[0]).toBe("set-mnd");
     const [set, lock, min] = findCommands("strength to 40", context());
     expect(set.action).toEqual({ kind: "patch", patch: { strStat: 40 } });
     expect(lock.action).toEqual({ kind: "lock", patch: { lockStr: 40 } });
@@ -165,7 +166,6 @@ describe("palette search", () => {
 
   it("limits results and rebuilds filter commands for each request", () => {
     expect(findCommands("a", context())).toHaveLength(8);
-    expect(findCommands("a", context(), 3)).toHaveLength(3);
     const first = findCommands("katana", context()).find((command) => command.id === "type-type:katana")!;
     const changed = context({ request: { ...defaultRequest, filters: { version: 1, entries: [{ dimension: "affinity", id: "affinity:keen", mode: "exclude" }] } } });
     const second = findCommands("katana", changed).find((command) => command.id === "type-type:katana")!;

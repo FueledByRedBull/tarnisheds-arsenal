@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { api } from "./api";
 import { cachedWeaponProfile } from "./analysis-cache";
-import { buildOptimizeRequest, budgetSnapshot } from "./session";
+import { buildOptimizeRequest } from "./session";
 import { progressSignature } from "./polling";
 import { createNativeJobQueue, type FinishedJob, type NativeJobSuccess } from "./native-jobs";
 import { useKeyedResource } from "./keyed-resource";
@@ -18,18 +18,12 @@ import {
 import { withoutHistory } from "./query-history";
 import { useDesktopStore, type DesktopState } from "./state";
 
-export function useRequestBudget(
+export function useBuiltRequest(
   catalog: CatalogDto | null,
   request: OptimizeRequestDto,
   lockedStatMode: boolean,
 ) {
-  return useMemo(() => {
-    const base = buildOptimizeRequest(catalog, request, lockedStatMode);
-    return {
-      base,
-      budget: budgetSnapshot(catalog, request),
-    };
-  }, [catalog, lockedStatMode, request]);
+  return useMemo(() => buildOptimizeRequest(catalog, request, lockedStatMode), [catalog, lockedStatMode, request]);
 }
 
 export function useWeaponProfile(
@@ -65,12 +59,7 @@ export function useWeaponProfileResource(profileId: string, weaponName: string |
 type JobEvent = { jobId: string };
 type JobStatus<P extends JobEvent, F extends JobEvent> = { progress: P | null; finished: F | null };
 
-type NativeJobQueue<S extends { finished: FinishedJob | null }> = (
-  start: () => Promise<{ jobId: string }>,
-  signal?: AbortSignal,
-  onStatus?: (status: S) => void,
-  onStarted?: (jobId: string) => void,
-) => Promise<NativeJobSuccess<NonNullable<S["finished"]>>>;
+type NativeJobQueue<S extends { finished: FinishedJob | null }> = ReturnType<typeof createNativeJobQueue<S>>;
 
 const pathQueue = createNativeJobQueue<PathJobStatusDto>(
   jobId => api.pathPreviewStatus(jobId),

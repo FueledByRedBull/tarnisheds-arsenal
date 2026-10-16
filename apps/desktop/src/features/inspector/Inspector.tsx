@@ -2,7 +2,7 @@ import { Check, ChevronDown, Clipboard, Download, LockKeyhole, Pencil, Pin, Save
 import { useEffect, useMemo, useRef, useState } from "react";
 import { activationRequest, catalogVersion } from "../../lib/preset-activation";
 import { useWeaponProfileResource } from "../../lib/hooks";
-import { compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine, statLockLine } from "../../lib/format";
+import { compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine, statLockLine } from "../../lib/format";
 import {
   deleteBuildPreset,
   downloadPresetJson,
@@ -429,7 +429,7 @@ function SavedBuildPanel() {
     } catch (error) {
       setEntries([]);
       setSelectedId("");
-      setLibraryError(error instanceof Error ? error.message : String(error));
+      setLibraryError(errorMessage(error));
     }
   }
 
@@ -468,7 +468,7 @@ function SavedBuildPanel() {
       refresh();
       pushNotice({ scope: "global", tone: "success", message: `${id ? "Updated" : "Saved"} ${preset.name}.${resultsStale ? " Inputs only; rerun search for current results." : ""}` });
     } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
+      setError(errorMessage(error));
     }
   }
 
@@ -481,7 +481,7 @@ function SavedBuildPanel() {
     try {
       await hydrate(selectedPreset, controller.signal);
     } catch (error) {
-      if (!controller.signal.aborted) setError(error instanceof Error ? error.message : String(error));
+      if (!controller.signal.aborted) setError(errorMessage(error));
     } finally {
       if (migrationController.current === controller) setMigrating(false);
     }
@@ -511,7 +511,7 @@ function SavedBuildPanel() {
         message: `Migrated ${migrated.name} and verified its saved configurations on current data.${migration.issues.length ? ` Cleared filters: ${migration.issues.join("; ")}.` : ""}` });
       return migrated;
     } catch (error) {
-      if (!controller.signal.aborted) setError(error instanceof Error ? error.message : String(error));
+      if (!controller.signal.aborted) setError(errorMessage(error));
       return null;
     } finally {
       if (migrationController.current === controller) setMigrating(false);
@@ -526,7 +526,7 @@ function SavedBuildPanel() {
       refresh();
       pushNotice({ scope: "global", tone: "success", message: "Saved build renamed." });
     } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
+      setError(errorMessage(error));
     }
   }
 
@@ -545,7 +545,7 @@ function SavedBuildPanel() {
       refresh();
       pushNotice({ scope: "global", tone: "success", message: `Deleted ${deletedName}.` });
     } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
+      setError(errorMessage(error));
     }
   }
 
@@ -557,7 +557,7 @@ function SavedBuildPanel() {
       setDeleteArmedId(null);
       setName(preset?.name ?? null);
     } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
+      setError(errorMessage(error));
     }
   }
 
@@ -601,7 +601,7 @@ function SavedBuildPanel() {
         });
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
+      setError(errorMessage(error));
     }
   }
 
@@ -610,7 +610,7 @@ function SavedBuildPanel() {
     try {
       return { value: previewPresetImport(importText), error: null };
     } catch (error) {
-      return { value: null, error: error instanceof Error ? error.message : String(error) };
+      return { value: null, error: errorMessage(error) };
     }
   }, [importText]);
   let selectedPreset: BuildPreset | null = null;

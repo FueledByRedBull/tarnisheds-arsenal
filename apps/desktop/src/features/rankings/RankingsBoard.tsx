@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowDownUp, ArrowUp, ChevronLeft, ChevronRight, Download, LockKeyhole, Pin, RefreshCcw } from "lucide-react";
 import { memo, ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { downloadText, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
-import { compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
+import { compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
 import { buildOptimizeRequest, rowFingerprint } from "../../lib/session";
 import { EASE_OUT, reducedMotion, settleRanking } from "../../lib/motion";
 import { RankedEntry, RankMovement, RankSortKey, rankMovements, sortRanked } from "../../lib/ranking-view";
@@ -194,7 +194,7 @@ export function RankingsBoard() {
         message: `Exported ${exportRows.length} ranked rows to your Downloads folder.`,
       });
     } catch (error) {
-      if (!controller.signal.aborted) setError(error instanceof Error ? error.message : String(error));
+      if (!controller.signal.aborted) setError(errorMessage(error));
     } finally {
       if (exportController.current === controller) setExporting(false);
     }
