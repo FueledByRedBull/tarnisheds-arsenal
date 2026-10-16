@@ -32,6 +32,10 @@
     "icon": [
       "icons/icon.ico"
     ],
+    "resources": {
+      "../../../LICENSE": "LICENSE",
+      "../../../NOTICE": "NOTICE"
+    },
     "windows": {
       "wix": {
         "upgradeCode": "{EC17FDAC-E313-5440-BD56-B985F2F0DA58}"

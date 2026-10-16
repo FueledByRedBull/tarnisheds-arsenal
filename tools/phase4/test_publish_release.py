@@ -29,13 +29,13 @@ class PublishReleaseTests(unittest.TestCase):
                     "artifacts": [{"name": path.name, "bytes": path.stat().st_size,
                                    "sha256": publisher.sha256(path)} for path in files[:2]],
                 }), encoding="utf-8")
-                files[-2].write_text("".join(f"{publisher.sha256(path)}  {path.name}\n" for path in files[:2]), encoding="utf-8")
                 with zipfile.ZipFile(files[2], "w") as archive:
                     archive.write(files[0], f"{prefix}/{files[0].name}")
                     archive.writestr(f"{prefix}/SHA256SUMS.txt", f"{publisher.sha256(files[0])}  {files[0].name}\n")
                     archive.write(files[-1], f"{prefix}/build-report.json")
                     archive.writestr(f"{prefix}/README.md", "Portable release")
                     archive.writestr(f"{prefix}/LICENSE", "License")
+                files[-2].write_text("".join(f"{publisher.sha256(path)}  {path.name}\n" for path in files[:3]), encoding="utf-8")
 
             write_provenance()
             remote = None
@@ -159,9 +159,6 @@ class PublishReleaseTests(unittest.TestCase):
                     "artifacts": [{"name": path.name, "bytes": path.stat().st_size,
                                    "sha256": publisher.sha256(path)} for path in [portable, installer]],
                 }), encoding="utf-8")
-                checksums_path.write_text("".join(
-                    f"{publisher.sha256(path)}  {path.name}\n" for path in [portable, installer]
-                ), encoding="utf-8")
                 (assets / "release-notes-v1.2.3.md").write_text("Release notes", encoding="utf-8")
                 with warnings.catch_warnings(), zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
                     warnings.simplefilter("ignore", UserWarning)
@@ -181,6 +178,9 @@ class PublishReleaseTests(unittest.TestCase):
                     archive_path.write_bytes(archive_path.read_bytes().replace(
                         (expected_entry + "!").encode(), (expected_entry + "\0").encode()
                     ))
+                checksums_path.write_text("".join(
+                    f"{publisher.sha256(path)}  {path.name}\n" for path in [portable, installer, archive_path]
+                ), encoding="utf-8")
                 files = [portable, installer, archive_path, report_path, checksums_path]
                 remote = {"isDraft": False, "assets": [{
                     "name": path.name, "size": path.stat().st_size,

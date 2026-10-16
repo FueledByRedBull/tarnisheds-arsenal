@@ -46,6 +46,7 @@ def package_main(root: Path, stack: contextlib.ExitStack, *argv: str):
     exe.write_bytes(b"exe")
     msi.write_bytes(b"msi")
     (root / "LICENSE").write_text("Test license", encoding="utf-8")
+    (root / "NOTICE").write_text("Test notices", encoding="utf-8")
 
     def fake_run(command: list[str], **_kwargs: object) -> None:
         if "--report" in command:
@@ -299,6 +300,7 @@ function Start-Sleep { throw "No matching completed CI; would wait" }
             (release_dir / "build-report.json").write_text("{}\n", encoding="utf-8")
             (release_dir / "data-validation.json").write_text("{}\n", encoding="utf-8")
             (release_dir / "LICENSE").write_text("license\n", encoding="utf-8")
+            (release_dir / "NOTICE").write_text("notices\n", encoding="utf-8")
             full_checksums = (
                 f"{hashlib.sha256(portable.read_bytes()).hexdigest()}  {portable_name}\n"
                 f"{hashlib.sha256(msi.read_bytes()).hexdigest()}  {msi_name}\n"
@@ -318,6 +320,7 @@ function Start-Sleep { throw "No matching completed CI; would wait" }
                         "build-report.json",
                         "data-validation.json",
                         "LICENSE",
+                        "NOTICE",
                         "SHA256SUMS.txt",
                     )
                 }
