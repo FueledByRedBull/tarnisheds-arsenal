@@ -81,8 +81,10 @@ test("long Paths curves retain all points with sparse markers and keyboard inspe
 test("saved profile filters stay readable and can be removed without changing weapon filters", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("button", { name: "Search", exact: true })).toBeEnabled();
-  await page.locator(".coverage-token").click();
-  await expect(page.locator(".profile-coverage")).toContainText("do not guarantee every skill is modeled");
+  // A healthy snapshot shows no status label; its coverage notes live in Build Detail.
+  await expect(page.locator(".coverage-token")).toHaveCount(0);
+  await openSection(page, "More details");
+  await expect(page.locator(".model-coverage-notes")).toContainText("do not guarantee every skill is modeled");
   const affinityId = await page.evaluate(async () => {
     const statePath = "/src/lib/state.ts";
     const presetsPath = "/src/lib/presets.ts";
@@ -167,7 +169,9 @@ test("profile switch isolates results and explains Convergence coverage", async 
   await expect(page.locator(".result-row .skill-cell")).toHaveCount(0);
   await expect(page.getByText("Skill damage isn't modeled for these results.", { exact: true })).toBeVisible();
   await page.locator(".result-row").first().click();
-  await expect(page.locator(".metric-tile").filter({ hasText: "AoW model" })).toContainText("Unavailable");
+  await expect(page.locator(".selected-build-title > strong")).toHaveText(await page.locator(".result-row").first().locator(".weapon-cell strong").innerText());
+  // The same note covers Build Detail: no skill-damage tile, never a zero.
+  await expect(page.locator(".metric-tile").filter({ hasText: "AoW" })).toHaveCount(0);
   await expect(page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true })).toBeDisabled();
 
   await expect(page.getByRole("navigation").getByRole("button", { name: "Paths", exact: true })).toBeDisabled();
@@ -217,7 +221,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(page.getByText("Find the best weapon for this character", { exact: true })).toBeVisible();
 
   await expect(page.getByRole("textbox", { name: "Level", exact: true })).toHaveValue("9");
-  await expect(page.getByText("Respec", { exact: true })).toBeVisible();
+  await expect(page.getByText("Respec points", { exact: true })).toBeVisible();
   await openEditor(page, "Class");
   await page.getByRole("combobox", { name: "Class" }).click();
   await expect(page.getByRole("option", { name: "Wretch" })).toBeVisible();
@@ -294,7 +298,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(page.getByText("Blood / Seppuku / +25").filter({ visible: true }).first()).toBeVisible();
 
   await openCompare(page);
-  await expect(page.getByText("Selected baseline versus current ranked rivals")).toBeVisible();
+  await expect(page.locator(".compare-default")).toHaveText("Current ranked rivals");
   const selectedLane = page.locator(".compare-lane", { hasText: "Selected" });
   await expect(selectedLane).toContainText("Uchigatana");
   await expect(selectedLane).toContainText("Blood / Seppuku");
@@ -480,7 +484,7 @@ test("compare combines multiple types and affinities with Smithing and Somber to
   const targetLane = page.locator(".compare-lane").nth(1);
   await expect(targetLane).toContainText("Ancient Meteoric Ore Greatsword");
   await expect(targetLane).toContainText("Unique");
-  await expect(page.getByText("Best Great Katana + Katana · Keen + Unique · Somber", { exact: true })).toBeVisible();
+  await expect(chips.getByRole("listitem").last()).toHaveText(/Reinforcement\s*Somber only/);
 
   await reinforcement.getByRole("checkbox", { name: "Somber" }).uncheck();
   await expect(targetLane).toContainText("Select Smithing, Somber, or both");
@@ -494,10 +498,10 @@ test("compare combines multiple types and affinities with Smithing and Somber to
   await expect(page.getByRole("button", { name: /^Comparison filters: / })).toBeFocused();
   await chips.getByRole("button", { name: "Remove Type Great Katana", exact: true }).click();
   await expect(chips.getByRole("listitem")).toHaveCount(5);
-  await expect(page.getByText("Best Katana · Keen + Unique · Smithing", { exact: true })).toBeVisible();
+  await expect(chips.getByRole("listitem")).toHaveText([/Types*Katana/, /Affinitys*Keen/, /Affinitys*Unique/, /Skills*Automatic/, /Reinforcements*Smithing only/]);
   await page.getByRole("button", { name: "Use ranked rivals", exact: true }).click();
   await expect(chips).toHaveCount(0);
-  await expect(page.getByText("Selected baseline versus current ranked rivals")).toBeVisible();
+  await expect(page.locator(".compare-default")).toHaveText("Current ranked rivals");
 });
 
 test("comparison pins survive custom filters and navigation until explicitly cleared", async ({ page }) => {
@@ -510,12 +514,12 @@ test("comparison pins survive custom filters and navigation until explicitly cle
   await occult.click();
   await keen.getByRole("button", { name: /^Compare / }).click();
   await openCompare(page);
-  await expect(page.getByText("Selected baseline versus 1 pinned target")).toBeVisible();
+  await expect(page.locator(".compare-default")).toHaveText("1 pinned target");
   await expect(page.locator(".compare-lane", { hasText: "Pinned #1" })).toContainText("Keen");
 
   await page.getByRole("button", { name: "Clear 1 pinned target" }).click();
   await expect(page.locator(".compare-lane", { hasText: "Selected" })).toContainText("Occult");
-  await expect(page.getByText("Selected baseline versus current ranked rivals")).toBeVisible();
+  await expect(page.locator(".compare-default")).toHaveText("Current ranked rivals");
 
   await page.getByRole("navigation").getByRole("button", { name: "Rankings" }).click();
   await occult.getByRole("button", { name: /^Compare / }).click();
@@ -551,11 +555,11 @@ test("comparison pins survive custom filters and navigation until explicitly cle
   await openCompare(page);
   await openEditor(page, "Comparison filters");
   await expect(page.getByRole("button", { name: "Compare Type" })).toContainText("All");
-  await expect(page.getByText("Selected baseline versus 2 pinned targets")).toBeVisible();
+  await expect(page.locator(".compare-default")).toHaveText("2 pinned targets");
   await expect(page.locator(".compare-lane", { hasText: "Pinned #2" })).toContainText("Keen");
   await expect(page.locator(".compare-lane", { hasText: "Selected" })).toContainText("Occult");
   await page.getByRole("button", { name: "Clear 2 pinned targets", exact: true }).click();
-  await expect(page.getByText("Selected baseline versus current ranked rivals")).toBeVisible();
+  await expect(page.locator(".compare-default")).toHaveText("Current ranked rivals");
   await expect(page.getByRole("button", { name: /^Clear \d+ pinned target/ })).toHaveCount(0);
   await expect(page.locator(".compare-lane", { hasText: "Selected" })).toContainText("Occult");
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("tarnisheds-arsenal.compareBench.v1.vanilla")!).rows)).toEqual([]);

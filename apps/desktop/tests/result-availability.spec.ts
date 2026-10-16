@@ -45,5 +45,9 @@ test("missing skill routes stay unavailable across displays, reports, and saved-
   await page.reload();
   await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Load", exact: true }).click();
-  await expect(page.locator(".inspector .metric-grid")).toContainText("Raw AoWUnavailable");
+  // Alone in the list, the loaded build has no skill damage to show: the tile is left out (never
+  // a zero) and Rankings says once that skill damage is not modeled.
+  await expect(page.locator(".inspector .metric-grid")).toContainText("Max AR");
+  await expect(page.locator(".inspector .metric-grid")).not.toContainText("Raw AoW");
+  await expect(page.getByText("Skill damage isn't modeled for these results.", { exact: true })).toBeVisible();
 });

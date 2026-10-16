@@ -44,20 +44,21 @@ export async function closeEditors(page: Page): Promise<void> {
   });
 }
 
-export type FoldedSection = "Saved Builds" | "Build details" | "Report a problem" | "More details";
+export type FoldedSection = "Saved Builds" | "Build details" | "Upgrade matrix" | "Report a problem" | "More details";
 
-// Saved Builds, Build Detail's reference details, Compare's build cards and the problem report
-// are folded until opened, so a
-// test opens them as a player would. Opening an already open section is a no-op.
+// Saved Builds, Build Detail's reference details, Compare's build cards and upgrade matrix,
+// and the problem report are folded until opened, so a test opens them as a player would.
+// Opening an already open section is a no-op.
 export async function openSection(page: Page, section: FoldedSection): Promise<void> {
   const summary = page.locator("summary").filter({ hasText: section }).first();
   if (!await summary.evaluate((node) => (node.parentElement as HTMLDetailsElement).open)) await summary.click();
 }
 
-// Compare with its build cards unfolded, for tests that read the lanes.
+// Compare with its build cards and upgrade matrix unfolded, for tests that read them.
 export async function openCompare(page: Page): Promise<void> {
   await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
   await openSection(page, "Build details");
+  await openSection(page, "Upgrade matrix");
 }
 
 // Absence checks wait for the app to settle instead of a fixed sleep: the store must go two

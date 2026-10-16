@@ -174,29 +174,31 @@ export function App() {
           </div>
   );
   const coverageStatus = profileReady ? (limitedAowModel ? "Experimental fixed-stat model" : "Snapshot loaded") : "Loading profile…";
+  // A healthy snapshot is the normal case: it is announced, not shown. Loading and the
+  // experimental model stay visible; the experimental notes sit behind the label.
   const profileCoverage = (
     <div
       className={`profile-coverage ${profileReady ? (limitedAowModel ? "limited" : "complete") : "loading"}`}
       role="status"
     >
-      <Popover
-        label="Model coverage and assumptions"
-        trigger={<strong>{coverageStatus}</strong>}
-        triggerLabel={`${coverageStatus}. Model coverage and assumptions`}
-        triggerTitle={profileReady ? "Validated snapshot loaded; available calculations follow its declared capabilities." : "Loading and validating the selected data snapshot."}
-        triggerClassName="coverage-token"
-        panelClassName="editor-panel coverage-panel"
-        disabled={!profileReady}
-      >
-        <div className="editor-body">
-          <strong>Model coverage and assumptions</strong>
-          <p className="editor-note">
-            {limitedAowModel
-              ? `${convergenceProfile ? "Convergence " : ""}base weapon fields are reference-checked; final AR and customization remain experimental. Enter exact stats: class budgets, Compare, Paths, and Affinity Watch are unavailable. Ammo weapons and AoW hit/route damage remain unsupported.`
-              : "Weapon AR, status buildup, and supported Ash routes are available. Profile capabilities do not guarantee every skill is modeled; check the selected build's model coverage. Buildup is not a prediction of status procs or damage after enemy defenses."}
-          </p>
-        </div>
-      </Popover>
+      {profileReady && !limitedAowModel ? <span className="sr-only">{coverageStatus}</span> : (
+        <Popover
+          label="Model coverage and assumptions"
+          trigger={<strong>{coverageStatus}</strong>}
+          triggerLabel={`${coverageStatus}. Model coverage and assumptions`}
+          triggerTitle={profileReady ? "Validated snapshot loaded; available calculations follow its declared capabilities." : "Loading and validating the selected data snapshot."}
+          triggerClassName="coverage-token"
+          panelClassName="editor-panel coverage-panel"
+          disabled={!profileReady}
+        >
+          <div className="editor-body">
+            <strong>Model coverage and assumptions</strong>
+            <p className="editor-note">
+              {convergenceProfile ? "Convergence " : ""}base weapon fields are reference-checked; final AR and customization remain experimental. Enter exact stats: class budgets, Compare, Paths, and Affinity Watch are unavailable. Ammo weapons and AoW hit/route damage remain unsupported.
+            </p>
+          </div>
+        </Popover>
+      )}
     </div>
   );
 
