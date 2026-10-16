@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOptimizeRequest, classMeta, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, replaceFilterEntries, rowFingerprint, scalingLetter, stableSignature, STARTING_CLASS_METADATA, startingClassLevel } from "./session";
+import { buildOptimizeRequest, classMeta, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, replaceFilterEntries, respecChanges, rowFingerprint, scalingLetter, stableSignature, STARTING_CLASS_METADATA, startingClassLevel } from "./session";
 import { solvedBuild } from "./test-fixtures";
 import { defaultRequest } from "./state";
 import type { CatalogDto } from "./types";
@@ -116,5 +116,18 @@ describe("result identity", () => {
     expect(stableSignature(reordered)).toBe(stableSignature(defaultRequest));
     expect(stableSignature({ ...defaultRequest, dex: defaultRequest.dex + 1 })).not.toBe(stableSignature(defaultRequest));
     expect(stableSignature({ ...defaultRequest, profileId: "convergence" })).not.toBe(stableSignature(defaultRequest));
+  });
+});
+
+describe("stat changes", () => {
+  const entered = { ...defaultRequest, strStat: 12, dex: 15, intStat: 9, fai: 8, arc: 8 };
+
+  it("lists each combat stat the build moves, in level-up order", () => {
+    expect(respecChanges(solvedBuild({ stats: { strStat: 12, dex: 22, intStat: 9, fai: 8, arc: 60 } }), entered))
+      .toEqual(["DEX 15 → 22", "ARC 8 → 60"]);
+  });
+
+  it("is empty when the build uses the stats as entered", () => {
+    expect(respecChanges(solvedBuild({ stats: { strStat: 12, dex: 15, intStat: 9, fai: 8, arc: 8 } }), entered)).toEqual([]);
   });
 });

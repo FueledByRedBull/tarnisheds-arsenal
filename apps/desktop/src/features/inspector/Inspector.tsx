@@ -1,8 +1,8 @@
 import { Check, ChevronDown, Clipboard, Download, LockKeyhole, Pencil, Pin, Save, Target, Trash2, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { activationRequest, catalogVersion } from "../../lib/preset-activation";
+import { catalogVersion, migratePresetRequest } from "../../lib/preset-activation";
 import { useWeaponProfileResource } from "../../lib/hooks";
-import { compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine, statLockLine } from "../../lib/format";
+import { aowModelSupported, compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine, statLockLine } from "../../lib/format";
 import {
   deleteBuildPreset,
   downloadPresetJson,
@@ -16,10 +16,10 @@ import {
   savedBuildIndex,
   shareTextForPreset,
 } from "../../lib/presets";
-import { budgetSnapshot, buildOptimizeRequest, hasCombatStatLocks, rowFingerprint } from "../../lib/session";
+import { budgetSnapshot, buildOptimizeRequest, hasCombatStatLocks, respecChanges, rowFingerprint } from "../../lib/session";
 import { EASE_OUT, reducedMotion } from "../../lib/motion";
 import { useDesktopStore } from "../../lib/state";
-import { AowRouteDto, BuildPreset, CatalogDto, OptimizeRequestDto, SavedBuildIndexEntryV1, SolvedBuildDto, StatusBuildupDto, WeaponProfileDto } from "../../lib/types";
+import { AowRouteDto, BuildPreset, SavedBuildIndexEntryV1, StatusBuildupDto, WeaponProfileDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
 import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 import packageInfo from "../../../package.json";
@@ -39,18 +39,19 @@ export function Inspector() {
   const applyRowLocks = useDesktopStore((state) => state.useRowAsLocks);
   const compareBench = useDesktopStore((state) => state.compareBench);
   const toggleCompareBench = useDesktopStore((state) => state.toggleCompareBench);
+  const isExporting = useDesktopStore((state) => state.isExporting);
   const snapshot = budgetSnapshot(catalog, request);
   const fixedStats = catalog?.dataManifest.capabilities.classBudget === false;
-  const aowModelSupported = Boolean(catalog?.dataManifest.capabilities.aowDamage && catalog.dataManifest.capabilities.aowRoutes);
-  const aowAvailable = selected && hasAowDamage(selected, aowModelSupported);
-  const selectedMetric = selected ? metricForObjective(selected, request.objective, aowModelSupported) : null;
+  const aowSupported = aowModelSupported(catalog?.dataManifest);
+  const aowAvailable = selected && hasAowDamage(selected, aowSupported);
+  const selectedMetric = selected ? metricForObjective(selected, request.objective, aowSupported) : null;
   const pinned = Boolean(selected && compareBench.some((entry) => rowFingerprint(entry) === rowFingerprint(selected)));
   const rank = selected ? rows.findIndex((row) => rowFingerprint(row) === rowFingerprint(selected)) : -1;
-  const leaderMetric = rows[0] ? metricForObjective(rows[0], request.objective, aowModelSupported) : null;
+  const leaderMetric = rows[0] ? metricForObjective(rows[0], request.objective, aowSupported) : null;
   const behindLeader = rank > 0 && leaderMetric !== null && selectedMetric !== null ? leaderMetric - selectedMetric : null;
   // The trust line: how far #1 leads #2, and the stat changes it asks of the entered build.
   const runnerUp = rank === 0 ? rows[1] ?? null : null;
-  const lead = selected && runnerUp ? leadOver(selected, runnerUp, request.objective, aowModelSupported) : null;
+  const lead = selected && runnerUp ? leadOver(selected, runnerUp, request.objective, aowSupported) : null;
   const statChanges = selected && !fixedStats && !resultsStale ? respecChanges(selected, request) : null;
   const modelWarnings = [...new Set(selected?.aowRoute?.actions.flatMap(
     (action) => action.hits.flatMap((hit) => hit.warnings),
@@ -111,7 +112,7 @@ export function Inspector() {
             <Metric label={objectiveLabel(request.objective)} value={selectedMetric === null ? null : fixed1(selectedMetric)} />
             {request.objective !== "max_ar" ? <Metric label="AR" value={fixed1(selected.ar.total)} /> : null}
             <Metric
-              label={catalog?.dataManifest.capabilities.aowRoutes ? "Raw AoW" : "AoW model"}
+              label={aowSupported ? "Raw AoW" : "AoW model"}
               value={aowAvailable ? compactNumber(selected.aowFullSequenceDamage) : null}
             />
           </div>
@@ -128,8 +129,7 @@ export function Inspector() {
           ) : null}
           {rank >= 0 && !resultsStale && rowsSetups !== null ? (
             <p className="rank-proof">
-              Ranked exactly across {rowsSetups.toLocaleString()} scored {rowsSetups === 1 ? "setup" : "setups"}. Stat spreads that
-              differ only in stats a setup doesn't use count once.
+              Compared exactly against {rowsSetups.toLocaleString()} scored {rowsSetups === 1 ? "setup" : "setups"}.
             </p>
           ) : null}
           {statChanges ? (
@@ -139,7 +139,7 @@ export function Inspector() {
             </div>
           ) : null}
           <div className="inspector-actions stacked">
-            <button type="button" onClick={lockSelected}><LockKeyhole size={15} />Lock stats to this build</button>
+            <button type="button" onClick={lockSelected} disabled={isExporting}><LockKeyhole size={15} />Lock stats to this build</button>
             <button
               type="button"
               onClick={() => {
@@ -187,7 +187,7 @@ export function Inspector() {
           <AowRouteDetails route={aowAvailable ? selected.aowRoute : null} />
           {!resultsStale ? <details className="model-coverage build-explanation">
             <summary>Why this build?</summary>
-            {explainBuild(selected, buildOptimizeRequest(catalog, request, lockedStatMode), aowModelSupported, runnerUp).map(line => <p key={line}>{line}</p>)}
+            {explainBuild(selected, buildOptimizeRequest(catalog, request, lockedStatMode), aowSupported, runnerUp).map(line => <p key={line}>{line}</p>)}
           </details> : null}
           <ModelCoverage />
         </div>
@@ -231,10 +231,7 @@ export function Inspector() {
 function ModelCoverage() {
   const catalog = useDesktopStore((state) => state.catalog);
   const request = useDesktopStore((state) => state.request);
-  const aowModelUnavailable = catalog && (
-    !catalog.dataManifest.capabilities.aowDamage ||
-    !catalog.dataManifest.capabilities.aowRoutes
-  );
+  const aowModelUnavailable = catalog && !aowModelSupported(catalog.dataManifest);
   const profileRules = catalog?.dataManifest.rules;
   const objectiveWarning = aowModelUnavailable
     ? "Weapon AR, status, passives, affinities, and AoW compatibility are modeled. This profile's AoW hit and route damage is not mapped, so those objectives are unavailable."
@@ -250,6 +247,7 @@ function ModelCoverage() {
       {profileRules?.zeroAttackElementUsesWeaponScaling ? (
         <p>Convergence weapons with correction row 0 apply each declared nonzero attribute scaling to each nonzero damage component.</p>
       ) : null}
+      <p>Scored setups count stat spreads that differ only in stats a setup doesn't use once.</p>
       <p>Temporary buff stacking is not a universal layer. Values are raw model outputs, not expected damage against a specific enemy.</p>
       <small>
         App {packageInfo.version} · {catalog?.dataManifest.profile.displayName ?? "unknown profile"} · dataset {catalog?.dataManifest.datasetVersion ?? "unknown"} · schema {catalog?.dataManifest.schemaVersion ?? "unknown"} · model {catalog?.dataManifest.modelVersion ?? "unknown"}
@@ -383,13 +381,6 @@ function Metric({ label, value }: { label: string; value: string | null }) {
       <strong className={value === null ? "metric-unavailable" : undefined}>{value ?? "Unavailable"}</strong>
     </div>
   );
-}
-
-const COMBAT_STATS = [["STR", "strStat"], ["DEX", "dex"], ["INT", "intStat"], ["FAI", "fai"], ["ARC", "arc"]] as const;
-
-/** Each combat stat the build sets differently from the entered stats, as "DEX 15 → 22". */
-function respecChanges(row: SolvedBuildDto, request: OptimizeRequestDto): string[] {
-  return COMBAT_STATS.flatMap(([label, key]) => row.stats[key] === request[key] ? [] : [`${label} ${request[key]} → ${row.stats[key]}`]);
 }
 
 function SavedBuildPanel() {
@@ -721,31 +712,6 @@ function SavedBuildPanel() {
       <SavedBuildRecovery onChanged={refresh} revision={entries} />
     </details>
   );
-}
-
-function migratePresetRequest(request: OptimizeRequestDto, catalog: CatalogDto): { request: OptimizeRequestDto; issues: string[] } {
-  const migrated = activationRequest(request, catalog);
-  const issues: string[] = [];
-  if (migrated.weaponTypeKey && !catalog.weaponTypeKeys.includes(migrated.weaponTypeKey)) {
-    issues.push(`weapon type '${migrated.weaponTypeKey}' no longer exists`);
-    migrated.weaponTypeKey = null;
-  }
-  if (migrated.weaponName && !catalog.weaponNames.includes(migrated.weaponName)) {
-    issues.push(`weapon '${migrated.weaponName}' no longer exists`);
-    migrated.weaponName = null;
-    migrated.affinity = null;
-    migrated.aowName = null;
-  }
-  if (migrated.affinity && !catalog.affinityNames.includes(migrated.affinity)) {
-    issues.push(`affinity '${migrated.affinity}' no longer exists`);
-    migrated.affinity = null;
-    migrated.aowName = null;
-  }
-  if (migrated.aowName && !catalog.aowNames.includes(migrated.aowName)) {
-    issues.push(`skill '${migrated.aowName}' no longer exists`);
-    migrated.aowName = null;
-  }
-  return { request: migrated, issues };
 }
 
 function presetVersionLabel(savedVersion: string | undefined, currentVersion: string): string {

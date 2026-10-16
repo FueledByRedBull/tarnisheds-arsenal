@@ -197,3 +197,19 @@ for (const conflict of ["somber", "excluded-type", "weapon-and-skill", "locks"] 
     if (conflict === "locks") await expect(page.getByText(/No legal Uchigatana \+3 build fits your retained character constraints/)).toBeVisible();
   });
 }
+
+test("a delta that rounds to 0.0 reads as no change", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows", { exact: true })).toBeVisible();
+  await page.evaluate(async () => {
+    const { useDesktopStore } = await import("/src/lib/state.ts");
+    const [first, second, ...rest] = useDesktopStore.getState().rows;
+    useDesktopStore.getState().setRows([first, { ...second, ar: { ...second.ar, total: first.ar.total + 0.04 } }, ...rest], 100);
+  });
+  await page.locator(".result-row-full").first().click();
+  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  const arDelta = page.getByRole("table", { name: "Primary deltas versus baseline" }).getByRole("row").nth(1).getByRole("cell").first();
+  await expect(arDelta).toHaveText("0.0");
+  await expect(arDelta).not.toHaveClass(/positive|negative/);
+});

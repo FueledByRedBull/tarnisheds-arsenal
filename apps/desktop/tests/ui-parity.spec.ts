@@ -53,7 +53,7 @@ test("long Paths curves retain all points with sparse markers and keyboard inspe
   expect(await chart.locator(".path-series").evaluateAll(lines => lines.reduce((count, line) => count + line.getAttribute("points")!.split(" ").length, 0))).toBe(400);
   expect(await chart.locator(".path-change-marker").count()).toBeLessThanOrEqual(18);
   expect(await chart.locator(".path-change-marker").count()).toBeGreaterThan(0);
-  await expect(chart.locator(".path-y-axis span")).toHaveText(["1040.0", "750.0", "460.0"]);
+  await expect(chart.locator(".path-y-axis span")).toHaveText(["1000", "800", "600"]);
   await expect(chart.locator(".path-x-axis span")).toHaveText(["57", "107", "157", "207", "257"]);
   const inspect = page.getByRole("slider", { name: "Inspect path level" });
   await inspect.focus();
@@ -75,7 +75,7 @@ test("long Paths curves retain all points with sparse markers and keyboard inspe
   });
   await expect(chart.locator(".path-isolated-point")).toHaveCount(2);
   await expect(chart.locator(".path-series-group")).toHaveCount(1);
-  await expect(chart.locator(".path-y-axis span")).toHaveText(["510.0", "500.0", "490.0"]);
+  await expect(chart.locator(".path-y-axis span")).toHaveText(["510", "505", "500", "495", "490"]);
 });
 
 test("saved profile filters stay readable and can be removed without changing weapon filters", async ({ page }) => {

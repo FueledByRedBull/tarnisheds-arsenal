@@ -89,6 +89,7 @@ describe("rankings CSV model provenance", () => {
       modelVersion: "aow-routes-v2",
       objective: "max_ar",
       assumptions: "+external input",
+      aowModelSupported: true,
     });
 
     expect(csv).toContain("\"'=HYPERLINK(\"\"bad\"\")\"");
@@ -104,6 +105,7 @@ describe("rankings CSV model provenance", () => {
       modelVersion: "aow-routes-v2",
       objective: "max_ar",
       assumptions: "-",
+      aowModelSupported: true,
     });
 
     expect(csv).toContain(",'\t=cmd,");

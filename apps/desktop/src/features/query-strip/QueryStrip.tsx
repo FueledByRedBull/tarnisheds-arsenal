@@ -1,4 +1,4 @@
-import { Command as CommandIcon, Play, Redo2, RotateCcw, Undo2 } from "lucide-react";
+import { Play, Redo2, RotateCcw, Search, Undo2 } from "lucide-react";
 import { lazy, ReactNode, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import brandMark from "../../assets/brand-mark.png";
 import { CommandAction, CommandContext } from "../../lib/commands";
@@ -430,7 +430,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
               setPaletteOpen(true);
             }}
           >
-            <CommandIcon size={15} aria-hidden="true" />
+            <Search size={15} aria-hidden="true" />
             <span className="strip-palette-label">Edit anything</span>
             <kbd>Ctrl K</kbd>
           </button>

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { analysisStatus, type AnalysisOutcome } from "../../lib/analysis-status";
 import { AnalysisProgress } from "../shared/AnalysisProgress";
-import { contiguousMetricSegments, metricRatio, paddedMetricDomain } from "../../lib/chart";
+import { chartX, chartY, contiguousMetricSegments, niceTicks, paddedMetricDomain } from "../../lib/chart";
 import { usePathJob, useBuiltRequest } from "../../lib/hooks";
 import { errorMessage, fixed1, objectiveLabel, objectiveUnit } from "../../lib/format";
 import { clampHorizon, stableSignature } from "../../lib/session";
@@ -271,9 +271,9 @@ function PathChart({ paths, objective, unit }: { paths: PathPreviewDto[]; object
   const lastLevel = levels.at(-1) ?? firstLevel;
   const selectedIndex = Math.min(pointIndex, Math.max(0, levels.length - 1));
   const selectedLevel = levels[selectedIndex];
-  const x = (level: number) => lastLevel === firstLevel ? 500 : 12 + (level - firstLevel) / (lastLevel - firstLevel) * 976;
-  const y = (metric: number | null) => 206 - (metricRatio(metric, domain) ?? 0) * 192;
-  const axisMetrics = [domain.max, (domain.min + domain.max) / 2, domain.min];
+  const x = (level: number) => chartX(level, firstLevel, lastLevel);
+  const y = (metric: number | null) => chartY(metric, domain);
+  const axisMetrics = niceTicks(domain);
   const axisLevels = [...new Set(Array.from({ length: 5 }, (_, index) => Math.round(firstLevel + (lastLevel - firstLevel) * index / 4)))];
   const inspected = paths.map(path => ({ title: path.title, step: path.steps.find(step => step.level === selectedLevel) }));
   const valueText = `Level ${selectedLevel}; ${inspected.map(({ title, step }) => `${title} ${step?.metric == null ? "unavailable" : `${fixed1(step.metric)} ${unit}`}`).join("; ")}`;
@@ -290,14 +290,14 @@ function PathChart({ paths, objective, unit }: { paths: PathPreviewDto[]; object
         </div>
         <div className="path-plot">
           <div className="path-y-axis" aria-hidden="true">
-            {axisMetrics.map((metric, index) => <span key={index} style={{ top: `${y(metric) / 2.2}%` }}>{fixed1(metric)}</span>)}
+            {axisMetrics.map((metric) => <span key={metric} style={{ top: `${y(metric) / 2.2}%` }}>{metric}</span>)}
           </div>
           <svg viewBox="0 0 1000 220" preserveAspectRatio="none" aria-hidden="true" onPointerMove={event => {
             const bounds = event.currentTarget.getBoundingClientRect();
             const level = firstLevel + ((event.clientX - bounds.left) / bounds.width * 1000 - 12) / 976 * (lastLevel - firstLevel);
             setPointIndex(levels.reduce((best, candidate, index) => Math.abs(candidate - level) < Math.abs(levels[best] - level) ? index : best, 0));
           }}>
-            {axisMetrics.map((metric, index) => <line className="path-grid-line" x1="12" x2="988" y1={y(metric)} y2={y(metric)} key={index} />)}
+            {axisMetrics.map((metric) => <line className="path-grid-line" x1="12" x2="988" y1={y(metric)} y2={y(metric)} key={metric} />)}
             <line className="path-cursor" x1={x(selectedLevel)} x2={x(selectedLevel)} y1="14" y2="206" />
             {paths.map((path, pathIndex) => {
               let lastMarker = -Infinity;

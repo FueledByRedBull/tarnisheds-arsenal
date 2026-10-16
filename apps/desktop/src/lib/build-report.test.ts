@@ -13,15 +13,15 @@ describe("calculation-derived explanations", () => {
   it("does not explain a missing skill route as a measured zero or numeric comparison", () => {
     const missing = { ...row, aowFirstHitDamage: 0, aowFullSequenceDamage: 0 };
     const request = { ...defaultRequest, objective: "aow_full_sequence" as const };
-    expect(explainBuild(missing, request).join(" ")).toContain("unavailable");
-    expect(explainBuild(missing, request).join(" ")).not.toContain("scores 0.0");
+    expect(explainBuild(missing, request, true).join(" ")).toContain("unavailable");
+    expect(explainBuild(missing, request, true).join(" ")).not.toContain("scores 0.0");
     const versusMissing = explainBuild(row, request, true, missing).join(" ");
     expect(versusMissing).toContain("no comparable AoW Sequence value");
     expect(versusMissing).not.toContain("500.0");
   });
 
   it("describes lexicographic bleed ranking without adding AR or inventing contribution estimates", () => {
-    const text = explainBuild(row, { ...defaultRequest, objective: "max_ar_plus_bleed", lockDex: 40, minStr: 18 }).join(" ");
+    const text = explainBuild(row, { ...defaultRequest, objective: "max_ar_plus_bleed", lockDex: 40, minStr: 18 }, true).join(" ");
     expect(text).toContain("bleed buildup first (45.0), then AR (400.0)");
     expect(text).toContain("300.0 physical + 100.0 magic");
     expect(text).toContain("DEX locked at 40");
@@ -49,7 +49,7 @@ describe("calculation-derived explanations", () => {
   });
   it("does not describe unknown imported properties as damage", () => {
     const imported = { ...row, ar: { ...row.ar, privateMetric: 123 } };
-    expect(explainBuild(imported, defaultRequest).join(" ")).not.toContain("privateMetric");
+    expect(explainBuild(imported, defaultRequest, true).join(" ")).not.toContain("privateMetric");
   });
 });
 

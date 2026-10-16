@@ -10,6 +10,12 @@ import {
 
 export const STAT_KEYS = ["strStat", "dex", "intStat", "fai", "arc"] as const;
 export const EIGHT_STAT_KEYS = ["vig", "mnd", "end", ...STAT_KEYS] as const;
+const STAT_LABELS = { strStat: "STR", dex: "DEX", intStat: "INT", fai: "FAI", arc: "ARC" } as const;
+
+/** Each combat stat the build sets differently from the entered stats, as "DEX 15 → 22". */
+export function respecChanges(row: SolvedBuildDto, request: OptimizeRequestDto): string[] {
+  return STAT_KEYS.flatMap((key) => row.stats[key] === request[key] ? [] : [`${STAT_LABELS[key]} ${request[key]} → ${row.stats[key]}`]);
+}
 
 export function replaceFilterEntries(
   entries: StableFilterEntryDto[],

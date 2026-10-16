@@ -1,7 +1,7 @@
 import packageInfo from "../../package.json";
 import { buildOptimizeRequest, rowFingerprint, STAT_KEYS } from "./session";
 import { knownRequestFields, type DesktopState } from "./state";
-import { hasAowDamage } from "./format";
+import { aowModelSupported, hasAowDamage } from "./format";
 
 // Reports use an allowlist, never a dump of storage, manifests, or application state.
 export function reproductionReport(state: DesktopState) {
@@ -9,7 +9,7 @@ export function reproductionReport(state: DesktopState) {
   const request = knownRequestFields(normalized);
   const manifest = state.catalog?.dataManifest;
   const row = !state.resultsStale ? state.selected : null;
-  const aowAvailable = row && hasAowDamage(row, Boolean(manifest?.capabilities.aowDamage && manifest.capabilities.aowRoutes));
+  const aowAvailable = row && hasAowDamage(row, aowModelSupported(manifest));
   const report = {
     format: "tarnisheds-arsenal-reproduction", version: 1,
     appVersion: packageInfo.version,

@@ -24,6 +24,25 @@ export function metricRatio(metric: number | null, domain: MetricDomain): number
   return Math.min(1, Math.max(0, (metric - domain.min) / Math.max(domain.max - domain.min, Number.EPSILON)));
 }
 
+// Both line charts draw into a 1000 x 220 view box: levels span x 12-988, metrics y 206-14.
+export function chartX(level: number, firstLevel: number, lastLevel: number): number {
+  return lastLevel === firstLevel ? 500 : 12 + ((level - firstLevel) / (lastLevel - firstLevel)) * 976;
+}
+
+export function chartY(metric: number | null, domain: MetricDomain): number {
+  return 206 - (metricRatio(metric, domain) ?? 0) * 192;
+}
+
+/** Round axis values inside the domain, top first: steps of 1, 2, 2.5 or 5 times a power of ten. */
+export function niceTicks({ min, max }: MetricDomain): number[] {
+  const rough = (max - min) / 5;
+  const power = 10 ** Math.floor(Math.log10(rough));
+  const step = [1, 2, 2.5, 5, 10].map((factor) => factor * power).find((candidate) => candidate >= rough) ?? rough;
+  const ticks: number[] = [];
+  for (let index = Math.ceil(min / step); index * step <= max; index += 1) ticks.push(Number((index * step).toPrecision(12)));
+  return ticks.reverse();
+}
+
 export function contiguousMetricSegments<T extends { metric: number | null }>(points: T[]): T[][] {
   const segments: T[][] = [];
   let segment: T[] | null = null;
