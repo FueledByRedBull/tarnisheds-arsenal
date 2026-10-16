@@ -94,6 +94,8 @@ export function RankingsBoard() {
   }, [applyRowLocks]);
   const selectedKey = rowFingerprint(selected);
   const pinnedKeys = useMemo(() => new Set(compareBench.map(rowFingerprint)), [compareBench]);
+  // One tab stop for the whole grid: the selected row, or the first row before any selection.
+  const tabStopKey = rows.some((row) => rowFingerprint(row) === selectedKey) ? selectedKey : rowFingerprint(rows[0] ?? null);
 
   const rowsContainer = useRef<HTMLDivElement>(null);
   // Rows stay in rank order in the DOM. A sort offsets them (they are relatively positioned, so
@@ -222,7 +224,7 @@ export function RankingsBoard() {
   function scrollResults(direction: -1 | 1) {
     resultBoard.current?.scrollBy({
       left: direction * 360,
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      behavior: reducedMotion() ? "auto" : "smooth",
     });
   }
 
@@ -369,6 +371,7 @@ export function RankingsBoard() {
               row={row}
               movement={movements?.[rank] ?? null}
               active={selectedKey === key}
+              tabStop={tabStopKey === key}
               objective={objective}
               gridClass={gridClass}
               skillColumn={skillColumn}
@@ -458,6 +461,7 @@ const ResultRow = memo(function ResultRow({
   index,
   movement,
   active,
+  tabStop,
   objective,
   gridClass,
   skillColumn,
@@ -473,6 +477,7 @@ const ResultRow = memo(function ResultRow({
   index: number;
   movement: RankMovement | null;
   active: boolean;
+  tabStop: boolean;
   objective: Parameters<typeof metricForObjective>[1];
   gridClass: string;
   skillColumn: boolean;
@@ -495,7 +500,7 @@ const ResultRow = memo(function ResultRow({
       aria-selected={active}
       aria-label={`Select ${row.weaponName}, ${row.affinity}, rank ${index + 1}, ${metricName}${movementText(movement) ? `, ${movementText(movement)}` : ""}`}
       aria-keyshortcuts="P L"
-      tabIndex={0}
+      tabIndex={tabStop ? 0 : -1}
       onClick={() => onSelect(row)}
       onKeyDown={(event) => {
         if (event.target !== event.currentTarget) {

@@ -98,8 +98,6 @@ export const api = {
     if (finished.kind !== "upgrade_series") throw new Error("Unexpected native calculation result.");
     return finished.points;
   },
-  affinitiesForWeapon: (profileId: string, weaponName: string) =>
-    call<string[]>("affinities_for_weapon", { profileId, weaponName }),
   compatibleAowNamesForAffinity: (profileId: string, affinity: string | null) =>
     call<string[]>("compatible_aow_names_for_affinity", {
       request: { profileId, affinity } satisfies CompatibleAowsForAffinityRequestDto,

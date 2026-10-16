@@ -340,13 +340,15 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
               weaponProfile={weaponProfile}
             />
           </Popover>
-          <label ref={twoHandToggle} className="strip-token strip-toggle" title="Apply the 1.5x effective STR rule when legal" aria-description="Applies the 1.5x effective Strength rule when legal">
+          <label ref={twoHandToggle} className="strip-token strip-toggle" title="Apply the 1.5x effective STR rule when legal">
             <input
               type="checkbox"
+              aria-describedby="two-handing-hint"
               checked={request.twoHanding}
               onChange={(event) => patchRequest({ twoHanding: event.target.checked })}
             />
             Two-handing
+            <span id="two-handing-hint" hidden>Applies the 1.5x effective Strength rule when legal</span>
           </label>
           <Popover
             label="Scaling"
@@ -455,15 +457,12 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
           {fixedStats ? "Stat total" : "Level"}
           <input readOnly value={derivedLevel(catalog, request)} />
         </label>
-        {/* Definitions are also descriptions, so keyboard and screen-reader users get them too. */}
+        {/* Definitions are also read in place, so keyboard and screen-reader users get them too. */}
         {!fixedStats ? (
-          <span
-            className="ribbon-readout"
-            title={`Levels above ${request.className}'s base level ${budget.baseLevel}`}
-            aria-description={`Levels above ${request.className}'s base level ${budget.baseLevel}`}
-          >
+          <span className="ribbon-readout" title={`Levels above ${request.className}'s base level ${budget.baseLevel}`}>
             <span>Level-ups</span>
             <strong>{budget.levelUps}</strong>
+            <span className="sr-only">, levels above {request.className}'s base level {budget.baseLevel}</span>
           </span>
         ) : null}
         <span
@@ -471,12 +470,12 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
           title={fixedStats
             ? "Convergence uses the entered combat stats exactly"
             : "STR/DEX/INT/FAI/ARC points a respec can move: what is left after class minimums, fixed VIG/MND/END, and minimum floors"}
-          aria-description={fixedStats
-            ? "Convergence uses the entered combat stats exactly"
-            : "STR, DEX, INT, FAI and ARC points a respec can move, after class minimums, fixed VIG, MND and END, and minimum floors"}
         >
           <span>{fixedStats ? "Mode" : "Respec"}</span>
           <strong>{fixedStats ? "Fixed stats" : budget.redistributable}</strong>
+          <span className="sr-only">{fixedStats
+            ? ", Convergence uses the entered combat stats exactly"
+            : ", STR, DEX, INT, FAI and ARC points a respec can move, after class minimums, fixed VIG, MND and END, and minimum floors"}</span>
         </span>
         <span className="ribbon-divider" aria-hidden="true" />
         <div className="ribbon-stats">
@@ -568,8 +567,13 @@ function SearchProgress({ searching, searchStartedAt, objective }: { searching: 
     const timer = window.setTimeout(() => setRun((current) => ({ ...current, landed: false })), 700);
     return () => window.clearTimeout(timer);
   }, [run.landed]);
-  if (!searching && !run.landed) return null;
-  return <SearchProgressPanel landedRows={searching ? null : rows.length} searchStartedAt={searchStartedAt} objective={objective} />;
+  // The live region stays mounted and names start and finish only, not every progress poll.
+  return <>
+    <span className="sr-only" role="status">{searching ? "Searching" : run.landed ? `Search done, ${rows.length} ranked` : ""}</span>
+    {searching || run.landed
+      ? <SearchProgressPanel landedRows={searching ? null : rows.length} searchStartedAt={searchStartedAt} objective={objective} />
+      : null}
+  </>;
 }
 
 function SearchProgressPanel({ landedRows, searchStartedAt, objective }: { landedRows: number | null; searchStartedAt: number | null; objective: string }) {
@@ -584,7 +588,7 @@ function SearchProgressPanel({ landedRows, searchStartedAt, objective }: { lande
   }, [searchStartedAt, ticking]);
   if (landedRows !== null) {
     return (
-      <div className="progress-strip landed" role="status">
+      <div className="progress-strip landed">
         <span className="progress-meta">
           <span>Done</span>
           <strong>{landedRows}</strong>
@@ -596,7 +600,7 @@ function SearchProgressPanel({ landedRows, searchStartedAt, objective }: { lande
   }
   const pct = progress ? Math.min(100, (progress.checked / Math.max(progress.total, 1)) * 100) : null;
   return (
-    <div className="progress-strip" role="status">
+    <div className="progress-strip">
       <span className="progress-meta">
         <span>{pct === null ? "Starting" : `${fixed1(pct)}%`}</span>
         <strong aria-label={progress ? `${objective} best score` : "Elapsed time"}>

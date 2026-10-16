@@ -129,7 +129,7 @@ input[type="number"],
   inset: 0;
   background: linear-gradient(90deg, transparent 25%, color-mix(in srgb, var(--text) 8%, transparent), transparent 75%);
   transform: translateX(-100%);
-  animation: skeleton-sweep 1.4s var(--ease-out) var(--sweep-delay, 0ms) infinite;
+  animation: skeleton-sweep 1.4s linear var(--sweep-delay, 0ms) infinite;
 }
 
 @keyframes skeleton-sweep {
@@ -522,7 +522,7 @@ textarea {
   width: 50%;
   background: linear-gradient(105deg, transparent, color-mix(in srgb, var(--gold-pale) 38%, transparent), transparent);
   transform: translateX(-100%);
-  animation: forge-sheen 1.6s var(--ease-out) infinite;
+  animation: forge-sheen 1.6s linear infinite;
   pointer-events: none;
 }
 
@@ -632,7 +632,7 @@ textarea {
 
 /* A search that lands fills its bar, flares and fades out (QueryStrip.tsx). */
 .progress-strip.landed {
-  animation: strip-out 700ms ease-in forwards;
+  animation: strip-out 700ms var(--ease-out) forwards;
 }
 
 .progress-strip.landed .forge-bar {
@@ -3423,15 +3423,27 @@ textarea:hover {
   font-size: 12px;
 }
 
+/* High contrast replaces the palette, so selection and series need marks beyond colour. */
 @media (forced-colors: active) {
-  button,
-  input,
-  select,
-  textarea,
-  .result-row,
-  .path-chart {
-    forced-color-adjust: auto;
+  [aria-pressed="true"],
+  [aria-checked="true"],
+  [aria-current="page"],
+  .result-row.active,
+  .tradeoff-table tr.selected {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
   }
+
+  .affinity-legend i,
+  .affinity-series,
+  .affinity-series-point {
+    forced-color-adjust: none;
+  }
+
+  .affinity-series-group.series-1 .affinity-series { stroke-dasharray: 12 6; }
+  .affinity-series-group.series-2 .affinity-series { stroke-dasharray: 3 5; }
+  .affinity-series-group.series-3 .affinity-series { stroke-dasharray: 14 4 3 4; }
+  .affinity-series-group.series-4 .affinity-series { stroke-dasharray: 6 6; }
 }
 
 /* Every unavailable tab looks unavailable, whatever the reason; the reason is printed beside
@@ -3681,15 +3693,6 @@ textarea:hover {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
 }
 
 /* Motion states what changed. Rankings re-forge from lib/motion.ts and a new selection fades
@@ -4360,3 +4363,59 @@ summary:focus-visible {
   transform: translateY(1px) scale(0.97);
   transition-duration: 50ms;
 }
+
+/* Reduced motion drops travel, not feedback: colour and opacity still ease, entrances only
+   fade, and loaders pulse in place so a running search never looks frozen. Kept last so it
+   overrides every motion rule above. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+
+  /* Presses and openings change state in place. */
+  .search-button:active:not(:disabled),
+  .strip-icon:active:not(:disabled),
+  .strip-palette:active:not(:disabled),
+  .chip-action:active:not(:disabled),
+  .inline-lock:active:not(:disabled),
+  .scope-chip button:active,
+  .workspace-tabs button:active:not(:disabled) {
+    transform: none;
+  }
+
+  .popover-panel,
+  .shortcuts-dialog,
+  .saved-builds > summary .summary-chevron {
+    transition-property: opacity;
+  }
+
+  .skeleton::after,
+  .search-button.busy::after,
+  .forge-bar i::before {
+    animation: none;
+  }
+
+  .skeleton,
+  .search-button.busy svg,
+  .forge-bar.indeterminate i {
+    animation: reduced-pulse 1.2s ease-in-out infinite alternate;
+  }
+
+  .forge-bar.indeterminate i {
+    width: 100%;
+  }
+
+  .tab-count,
+  .copy-confirm,
+  .scope-chip,
+  .notice-strip,
+  .error-strip,
+  .stale-results-banner {
+    animation-name: stage-enter;
+  }
+}
+
+@keyframes reduced-pulse {
+  from { opacity: 0.55; }

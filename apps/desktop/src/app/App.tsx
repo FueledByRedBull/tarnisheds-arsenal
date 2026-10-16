@@ -126,9 +126,11 @@ export function App() {
               : ["ArrowLeft", "ArrowUp"].includes(event.key) ? -1 : 0;
             if (!direction || catalogStatus === "loading") return;
             event.preventDefault();
-            const index = (profiles.findIndex((profile) => profile.profile.id === profileId) + direction + profiles.length) % profiles.length;
-            event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')[index]?.focus();
-            void loadProfile(profiles[index].profile.id);
+            // Arrows only move focus; Enter or Space switches, because a switch cancels running
+            // work and replaces the results (manual activation, as the APG allows for costly radios).
+            const radios = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')];
+            const focused = Math.max(0, radios.indexOf(document.activeElement as HTMLButtonElement));
+            radios[(focused + direction + radios.length) % radios.length]?.focus();
           }}>
             {profiles.map((profile) => {
               const active = profile.profile.id === profileId;
@@ -268,6 +270,18 @@ function WorkspaceTabs({ ready, classBudget }: { ready: boolean; classBudget: bo
   const tabBar = useRef<HTMLElement>(null);
   const tabPill = useRef<HTMLSpanElement>(null);
   const pillPlaced = useRef(false);
+  // Only pointer switches slide: Ctrl+1-4, the palette and Enter on a tab place the pill at once.
+  const pointerInput = useRef(false);
+  useEffect(() => {
+    const onPointer = () => { pointerInput.current = true; };
+    const onKey = () => { pointerInput.current = false; };
+    window.addEventListener("pointerdown", onPointer, { capture: true, passive: true });
+    window.addEventListener("keydown", onKey, { capture: true, passive: true });
+    return () => {
+      window.removeEventListener("pointerdown", onPointer, { capture: true });
+      window.removeEventListener("keydown", onKey, { capture: true });
+    };
+  }, []);
   useEffect(() => {
     const bar = tabBar.current;
     const pill = tabPill.current;
@@ -281,7 +295,7 @@ function WorkspaceTabs({ ready, classBudget }: { ready: boolean; classBudget: bo
       const left = from.left - bar.getBoundingClientRect().left - bar.clientLeft;
       pill.style.width = `${active.offsetWidth}px`;
       pill.style.transform = `translateX(${active.offsetLeft}px)`;
-      if (slide && pillPlaced.current && from.width > 0 && !reducedMotion()) {
+      if (slide && pointerInput.current && pillPlaced.current && from.width > 0 && !reducedMotion()) {
         pill.getAnimations().forEach((animation) => animation.cancel());
         pill.animate(
           [{ transform: `translateX(${left}px) scaleX(${from.width / active.offsetWidth})` }, { transform: `translateX(${active.offsetLeft}px)` }],
@@ -318,7 +332,10 @@ function WorkspaceTabs({ ready, classBudget }: { ready: boolean; classBudget: bo
             aria-label={label}
             aria-current={activeWorkspace === id ? "page" : undefined}
             aria-keyshortcuts={`Control+${index + 1}`}
-            aria-describedby={disabled && lockReason ? "tab-lock-reason" : undefined}
+            aria-describedby={[
+              id === "compare" && pinnedCount ? "compare-pinned-count" : null,
+              disabled && lockReason ? "tab-lock-reason" : null,
+            ].filter(Boolean).join(" ") || undefined}
             onClick={() => setWorkspace(id)}
             title={unsupportedBudget ? "Requires verified profile class budgets" : requiresSelection ? `${label} requires a current selected ranking` : `${label} (Ctrl+${index + 1})`}
             disabled={disabled}
@@ -326,7 +343,10 @@ function WorkspaceTabs({ ready, classBudget }: { ready: boolean; classBudget: bo
             <Icon size={16} aria-hidden="true" />
             <span>{label}</span>
             {/* Keyed by the count so each pin replays the pop (styles.css). */}
-            {id === "compare" && pinnedCount ? <span className="tab-count" key={pinnedCount} aria-hidden="true">{pinnedCount}</span> : null}
+            {id === "compare" && pinnedCount ? <>
+              <span className="tab-count" key={pinnedCount} aria-hidden="true">{pinnedCount}</span>
+              <span className="sr-only" id="compare-pinned-count">{pinnedCount} pinned</span>
+            </> : null}
           </button>
         );
       })}

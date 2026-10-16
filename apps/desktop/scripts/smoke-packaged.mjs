@@ -250,7 +250,7 @@ try {
   await page.getByRole("spinbutton", { name: "Levels ahead" }).fill("10");
   await page.getByRole("button", { name: "Watch affinities", exact: true }).click();
   markSmokeStage("wait for Affinity Watch");
-  await page.getByRole("grid", { name: "Affinity watch rankings" }).locator('[role="row"]').nth(1).waitFor();
+  await page.getByRole("table", { name: "Affinity watch rankings" }).locator('[role="row"]').nth(1).waitFor();
 
   markSmokeStage("reload saved exact tradeoff");
   await page.reload();

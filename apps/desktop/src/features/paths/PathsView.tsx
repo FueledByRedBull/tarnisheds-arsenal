@@ -1,7 +1,8 @@
 import { Pause, Play } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
-import { analysisStatus, analysisStatusLabel, type AnalysisOutcome } from "../../lib/analysis-status";
+import { analysisStatus, type AnalysisOutcome } from "../../lib/analysis-status";
+import { AnalysisProgress } from "../shared/AnalysisProgress";
 import { contiguousMetricSegments, metricRatio, paddedMetricDomain } from "../../lib/chart";
 import { usePathJob, useBuiltRequest } from "../../lib/hooks";
 import { errorMessage, fixed1, objectiveLabel, objectiveUnit } from "../../lib/format";
@@ -159,7 +160,7 @@ export function PathsView() {
           {selected ? <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)}{target ? ` · vs ${target.weaponName} / ${target.affinity} / +${target.upgrade}` : ""}</small> : null}
         </div>
         <div className="header-controls">
-          <div className="segmented" aria-label="Path mode">
+          <div className="segmented" role="group" aria-label="Path mode">
             <button type="button" className={pathMode === "no_respec" ? "active" : ""} aria-pressed={pathMode === "no_respec"} onClick={() => setPathMode("no_respec")}>No respec</button>
             <button type="button" className={pathMode === "optimum_envelope" ? "active" : ""} aria-pressed={pathMode === "optimum_envelope"} onClick={() => setPathMode("optimum_envelope")}>Best per level</button>
           </div>
@@ -173,7 +174,13 @@ export function PathsView() {
           </button>
         </div>
       </div>
-      <Progress checked={pathProgress?.checked ?? 0} total={pathProgress?.total ?? (paths.length || 1)} status={status} resultCount={paths.length} />
+      <AnalysisProgress
+        checked={pathProgress?.checked ?? 0}
+        total={pathProgress?.total ?? (paths.length || 1)}
+        status={status}
+        running="Tracing paths"
+        completed={`Completed · ${paths.length} build${paths.length === 1 ? "" : "s"}`}
+      />
       <small className="path-mode-note">{pathMode === "no_respec" ? "Ends on the best build for the final level. Each level adds its point where it helps most, and no point is ever moved, so the path never needs a respec." : "Each level shows its own best build. A respec is marked when that build moves points you already spent."}</small>
       <div className="path-lanes">
         <LaneSummary title="Selected" path={paths.find((path) => path.title === "Selected")} row={selected} />
@@ -194,7 +201,7 @@ function PathSteps({ paths, objective }: { paths: PathPreviewDto[]; objective: P
   if (!levels.length) return null;
   return (
     <div className="path-steps">
-      <div className="path-step-pagination" aria-label="Path level pages">
+      <div className="path-step-pagination" role="group" aria-label="Path level pages">
         <button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous levels</button>
         <label>
           Levels
@@ -255,22 +262,6 @@ function LaneSummary({ title, path, row }: { title: string; path: PathPreviewDto
   );
 }
 
-function Progress({ checked, total, status, resultCount }: { checked: number; total: number; status: ReturnType<typeof analysisStatus>; resultCount: number }) {
-  const displayChecked = status === "completed" ? total : checked;
-  const pct = Math.min(100, Math.max(0, (displayChecked / Math.max(total, 1)) * 100));
-  const label = status === "running"
-    ? `Tracing paths ${checked}/${total}`
-    : status === "completed"
-      ? `Completed · ${resultCount} build${resultCount === 1 ? "" : "s"}`
-      : analysisStatusLabel(status);
-  return (
-    <div className={`workspace-progress analysis-progress status-${status}`} data-analysis-status={status}>
-      <span role="status">{label}</span>
-      <div className="forge-bar"><i style={{ transform: `translateX(${pct - 100}%)` }} /></div>
-    </div>
-  );
-}
-
 function PathChart({ paths, objective, unit }: { paths: PathPreviewDto[]; objective: string; unit: string }) {
   const [pointIndex, setPointIndex] = useState(0);
   const values = paths.flatMap((path) => path.steps.map((step) => step.metric).filter((metric): metric is number => metric !== null));
@@ -293,7 +284,7 @@ function PathChart({ paths, objective, unit }: { paths: PathPreviewDto[]; object
         <span>{levels.length ? `Level ${firstLevel} to ${lastLevel}` : "Awaiting analysis"}</span>
       </figcaption>
       {levels.length ? <>
-        <div className="chart-legend" aria-label="Path chart legend">
+        <div className="chart-legend" role="group" aria-label="Path chart legend">
           {paths.map((path, index) => <span className={`series-${index}`} key={path.title}>{path.title}</span>)}
           <span className="path-marker-key">○ Allocation changes (sampled)</span>
         </div>
@@ -334,7 +325,7 @@ function PathChart({ paths, objective, unit }: { paths: PathPreviewDto[]; object
           Character level
           <input type="range" aria-label="Inspect path level" aria-valuetext={valueText} min={0} max={levels.length - 1} value={selectedIndex} onChange={event => setPointIndex(Number(event.target.value))} />
         </label>
-        <div className="path-point-summary" aria-live="polite" aria-atomic="true">
+        <div className="path-point-summary">
           <strong>Level {selectedLevel}</strong>
           {inspected.map(({ title, step }, index) => <span className={`series-${index}`} key={title}>
             {title} <b>{step?.metric == null ? "Unavailable" : `${fixed1(step.metric)} ${unit}`}</b>

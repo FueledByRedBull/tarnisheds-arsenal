@@ -17,6 +17,7 @@ import {
   shareTextForPreset,
 } from "../../lib/presets";
 import { budgetSnapshot, buildOptimizeRequest, hasCombatStatLocks, rowFingerprint } from "../../lib/session";
+import { EASE_OUT, reducedMotion } from "../../lib/motion";
 import { useDesktopStore } from "../../lib/state";
 import { AowRouteDto, BuildPreset, CatalogDto, OptimizeRequestDto, SavedBuildIndexEntryV1, SolvedBuildDto, StatusBuildupDto, WeaponProfileDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
@@ -58,10 +59,13 @@ export function Inspector() {
   const detail = useRef<HTMLDivElement>(null);
   const selectedKey = rowFingerprint(selected);
   useEffect(() => {
-    if (!selectedKey || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!selectedKey) return;
+    // Reduced motion keeps the fade and drops the rise.
     detail.current?.animate(
-      [{ opacity: 0.35, transform: "translateY(4px)" }, { opacity: 1, transform: "none" }],
-      { duration: 200, easing: "cubic-bezier(0.16, 1, 0.3, 1)" },
+      reducedMotion()
+        ? [{ opacity: 0.35 }, { opacity: 1 }]
+        : [{ opacity: 0.35, transform: "translateY(4px)" }, { opacity: 1, transform: "none" }],
+      { duration: 200, easing: EASE_OUT },
     );
   }, [selectedKey]);
   const weaponResource = useWeaponProfileResource(request.profileId, selected?.weaponName ?? null, selected?.affinity ?? null);

@@ -54,7 +54,7 @@ test("a failed optional chart preserves verified deltas and other charts", async
   await expect(page.getByRole("group", { name: "Top #2", exact: true })).toContainText(names[1]);
   await expect(page.getByRole("table", { name: "Primary deltas versus baseline" }).getByRole("row")).toHaveCount(4);
   expect(await page.evaluate(async () => (await import("/src/lib/state.ts")).useDesktopStore.getState().compareTarget?.weaponName)).toBe(names[1]);
-  await expect(page.locator(".matrix-row").filter({ hasText: "Selected" }).getByRole("gridcell").first()).not.toHaveText("—");
+  await expect(page.locator(".matrix-row").filter({ hasText: "Selected" }).getByRole("cell").first()).not.toHaveText("—");
 });
 
 test("request changes cancel optional charts and cannot republish old comparison rows", async ({ page }) => {

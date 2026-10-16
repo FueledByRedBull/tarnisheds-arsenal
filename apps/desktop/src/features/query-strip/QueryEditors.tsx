@@ -101,14 +101,14 @@ export function ObjectiveEditor({ objectives, objective, patchRequest, close }: 
             className={objective === option ? "active" : ""}
             type="button"
             aria-pressed={objective === option}
-            aria-description={OBJECTIVE_HINTS[option]}
+            aria-describedby={`objective-hint-${option}`}
             onClick={() => {
               patchRequest({ objective: option });
               close();
             }}
           >
             {objectiveLabel(option)}
-            <small aria-hidden="true">{OBJECTIVE_HINTS[option]}</small>
+            <small id={`objective-hint-${option}`} aria-hidden="true">{OBJECTIVE_HINTS[option]}</small>
           </button>
         ))}
       </div>
