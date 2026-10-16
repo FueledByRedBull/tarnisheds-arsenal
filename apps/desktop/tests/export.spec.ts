@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { settled } from "./editors";
 
 // Export opens a choice of row counts; choosing one starts the file.
 async function exportRows(page: Page, rows = "25 rows") {
@@ -51,6 +52,7 @@ for (const action of ["cancel", "profile", "edit", "numeric edit", "navigate"]) 
     await expect(page.getByRole("button", { name: /^(Search|Update Results)$/ })).toBeDisabled();
     await page.evaluate(() => Object.assign(window, { finishExport: true }));
     await expect(page.getByRole("button", { name: /^(Search|Update Results)$/ })).toBeEnabled();
+    await settled(page);
     expect(downloads).toEqual([]);
     await expect(page.locator('.error-strip[role="alert"]')).toHaveCount(0);
   });

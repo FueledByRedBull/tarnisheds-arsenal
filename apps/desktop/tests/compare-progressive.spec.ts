@@ -13,7 +13,7 @@ async function prepare(page: Page, pins = false) {
     const rows = useDesktopStore.getState().rows;
     if (pins) rows.slice(1, 3).forEach(row => useDesktopStore.getState().toggleCompareBench(row));
     api.solveBuild = async (_base, name, affinity) => rows.find(row => row.weaponName === name && row.affinity === affinity) ?? null;
-    const probe = { start: performance.now(), calls: [] as any[], cancelled: [] as string[] };
+    const probe = { calls: [] as any[], cancelled: [] as string[] };
     api.buildUpgradeSeries = (_base, row, _cap, signal) => new Promise((resolve, reject) => {
       probe.calls.push({ name: row.weaponName, resolve: () => resolve([{ upgrade: 0, metric: row.ar.total }]),
         reject: () => reject(new Error("controlled chart failure")) });
@@ -24,25 +24,18 @@ async function prepare(page: Page, pins = false) {
   }, pins);
 }
 
-test("publishes multiple verified pins and scaling before any optional chart finishes", async ({ page }, testInfo) => {
+test("publishes multiple verified pins and scaling before any optional chart finishes", async ({ page }) => {
   const names = await prepare(page, true);
   await openCompare(page);
   await expect(page.getByRole("group", { name: "Pinned #1", exact: true })).toContainText(names[1]);
   await expect(page.getByRole("table", { name: "Primary deltas versus baseline" })).toBeVisible();
   await expect(page.getByRole("group", { name: "Selected baseline", exact: true }).getByRole("listitem", { name: "Strength scaling: C", exact: true })).toBeVisible();
-  const firstMs = await page.evaluate(() => performance.now() - (window as any).comparisonProbe.start);
+  // The verified comparison above is on screen while every chart is still held.
   await expect(page.getByText("Upgrade chart loading…", { exact: true })).toHaveCount(3);
   await page.evaluate(() => (window as any).comparisonProbe.calls[0].resolve());
   await expect(page.getByText("Upgrade chart loading…", { exact: true })).toHaveCount(2);
-  await page.evaluate(async () => {
-    await new Promise(resolve => setTimeout(resolve, 600));
-    (window as any).comparisonProbe.calls.forEach((call: any) => call.resolve());
-  });
+  await page.evaluate(() => (window as any).comparisonProbe.calls.forEach((call: any) => call.resolve()));
   await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
-  const allMs = await page.evaluate(() => performance.now() - (window as any).comparisonProbe.start);
-  await testInfo.attach("controlled-comparison-timing", { body: JSON.stringify({ firstValidComparisonMs: firstMs, allChartsReadyMs: allMs, syntheticHeldResponses: true }), contentType: "application/json" });
-  console.log(JSON.stringify({ firstValidComparisonMs: firstMs, allChartsReadyMs: allMs, syntheticHeldResponses: true }));
-  expect(firstMs).toBeLessThan(allMs);
 });
 
 test("a failed optional chart preserves verified deltas and other charts", async ({ page }) => {

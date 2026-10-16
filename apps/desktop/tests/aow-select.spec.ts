@@ -102,7 +102,8 @@ for (const label of ["AoW", "Compare AoW"]) {
       const selector = page.getByRole("combobox", { name: label, exact: true });
       await selector.fill("Parry");
       await page.evaluate(() => window.selectorFixture.unmount());
-      await page.waitForTimeout(180);
+      // The component has no timers: two frames cover its unmount and any blur commit.
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       expect(await page.evaluate(() => window.selectorFixture.changes())).toEqual([]);
     });
 
