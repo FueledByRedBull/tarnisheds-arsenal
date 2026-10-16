@@ -17,6 +17,7 @@ import {
   savedBuildBackupText,
   previewBuildBackup,
   restoreBuildBackup,
+  shareTextForPreset,
   MAX_BUILD_BACKUP_BYTES,
 } from "./presets";
 import type { BuildPresetV1, SolvedBuildDto } from "./types";
@@ -98,14 +99,14 @@ describe("saved build persistence", () => {
   ] as const)("uses shared structural validation for %s", (_name, mutate, path) => {
     const build = structuredClone(routedBuild());
     mutate(build);
-    expect(validateStoredBuild(build, { standardMaxUpgrade: 25, somberMaxUpgrade: 25 })).toMatchObject({ error: { path } });
+    expect(validateStoredBuild(build, { standardMaxUpgrade: 25, somberMaxUpgrade: 25 })).toMatchObject({ error: expect.stringContaining(`${path} `) });
     expect(() => parsePresetText(JSON.stringify({ ...preset(), selectedBuild: build }))).toThrow(path.replace(/^build/, "selectedBuild"));
   });
 
   it("keeps archive shape limits distinct from profile-specific activation limits", () => {
     const build = { ...routedBuild(), isSomber: true, upgrade: 15 };
     expect(validateStoredBuild(build, { standardMaxUpgrade: 25, somberMaxUpgrade: 25 })).toHaveProperty("value");
-    expect(validateStoredBuild(build, { standardMaxUpgrade: 25, somberMaxUpgrade: 10 })).toMatchObject({ error: { path: "build.upgrade" } });
+    expect(validateStoredBuild(build, { standardMaxUpgrade: 25, somberMaxUpgrade: 10 })).toMatchObject({ error: expect.stringMatching(/^build\.upgrade /) });
     expect(validateStoredBuild(build, { standardMaxUpgrade: 15, somberMaxUpgrade: 15 })).toHaveProperty("value");
     expect(parsePresetText(JSON.stringify({ ...preset(), selectedBuild: build })).selectedBuild).toEqual(build);
   });
@@ -270,8 +271,39 @@ describe("saved build persistence", () => {
     const preview = previewPresetImport(JSON.stringify(preset()));
     expect(preview).toMatchObject({ idConflict: true, nameConflict: true });
 
-    expect(() => parsePresetText("x".repeat(MAX_PRESET_IMPORT_BYTES + 1)))
+    expect(() => parsePresetText("x".repeat(3 * MAX_PRESET_IMPORT_BYTES + 1)))
       .toThrow(/too large/i);
+  });
+
+  function presetWithWarnings(count: number) {
+    const build = routedBuild();
+    build.aowRoute!.actions[0].hits[0].warnings = Array.from({ length: count }, () => "{".repeat(1000));
+    return { ...preset(), selectedBuild: build };
+  }
+
+  it("round-trips share text, including text longer than the limit once encoded", () => {
+    const saved = saveBuildPreset({ ...presetWithWarnings(240), dataVersion: "1:dataset:model" });
+    const share = shareTextForPreset(saved);
+    expect(share.length).toBeGreaterThan(MAX_PRESET_IMPORT_BYTES);
+    expect(parsePresetText(share)).toEqual(saved);
+  });
+
+  it("accepts legacy share text and explains damaged share text", () => {
+    expect(parsePresetText(`ta-v1:${encodeURIComponent(JSON.stringify(preset()))}`)).toMatchObject({ version: 2, name: "Dexterity route" });
+    expect(() => parsePresetText("ta-v2:%E0%A4%A")).toThrow(/damaged or incomplete/);
+  });
+
+  it("refuses to save or import a build over the limit, leaving storage unchanged", () => {
+    const large = { ...presetWithWarnings(200), compareTarget: presetWithWarnings(200).selectedBuild };
+    expect(() => saveBuildPreset({ ...large, dataVersion: "1:dataset:model" })).toThrow(/too large/);
+    expect(localStorage.length).toBe(0);
+    expect(() => parsePresetText(JSON.stringify({ ...large, version: 2, compareBench: [] }))).toThrow(/too large/);
+  });
+
+  it("keeps a __proto__ key as plain data", () => {
+    const text = JSON.stringify(preset()).replace("{", "{\"__proto__\":{\"polluted\":true},");
+    parsePresetText(text);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 
   it("rejects malformed import corpus without persisting anything", () => {

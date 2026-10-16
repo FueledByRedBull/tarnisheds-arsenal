@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { downloadText } from "../../lib/csv";
 import { reproductionReport } from "../../lib/reproduction-report";
 import { useDesktopStore } from "../../lib/state";
 
@@ -16,18 +17,11 @@ export function ReproductionReport() {
   }
   function download() {
     if (!preview) return;
-    let url: string | undefined;
     try {
-      url = URL.createObjectURL(new Blob([preview], { type: "application/json" }));
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "tarnisheds-arsenal-reproduction.json";
-      link.click();
+      downloadText("tarnisheds-arsenal-reproduction.json", preview, "application/json");
       setError(null);
     } catch {
       setError("The report could not be downloaded. You can copy the preview text instead.");
-    } finally {
-      if (url) URL.revokeObjectURL(url);
     }
   }
   return <div className="reproduction-report">

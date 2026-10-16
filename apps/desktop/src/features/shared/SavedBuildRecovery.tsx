@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { downloadText } from "../../lib/csv";
+import { errorMessage } from "../../lib/format";
 import {
   inspectSavedBuilds, MAX_BUILD_BACKUP_BYTES, previewBuildBackup, recoverSavedBuilds,
   restoreBuildBackup, savedBuildBackupText, type SavedBuildInspection,
@@ -33,12 +35,7 @@ export function SavedBuildRecovery({ onChanged, revision }: { onChanged: () => v
     try {
       const current = inspectSavedBuilds();
       const text = savedBuildBackupText(current);
-      const url = URL.createObjectURL(new Blob([text], { type: "application/json;charset=utf-8" }));
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "tarnisheds-arsenal-builds.json";
-      link.click();
-      URL.revokeObjectURL(url);
+      downloadText("tarnisheds-arsenal-builds.json", text, "application/json;charset=utf-8");
       setInspection(current);
       setMessage(`Exported ${current.presets.length} readable builds.${current.issues.length ? " Review the listed storage issues; unreadable records are excluded." : ""}`);
       setError("");
@@ -98,8 +95,4 @@ export function SavedBuildRecovery({ onChanged, revision }: { onChanged: () => v
     {error ? <p className="tone-danger" role="alert">{error}</p> : null}
     {message ? <p role="status">{message}</p> : null}
   </details>;
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

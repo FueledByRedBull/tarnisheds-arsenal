@@ -1,4 +1,8 @@
-import { validateStoredBuild } from "./stored-build";
+import { downloadText } from "./csv";
+import { errorMessage } from "./format";
+import {
+  assertArray, assertBoolean, assertInteger, assertNullableInteger, assertNullableText, assertText, invalidPreset, isRecord, validateStoredBuild,
+} from "./stored-build";
 import { STARTING_CLASS_METADATA } from "./session";
 import { BuildPreset, BuildPresetV1, OptimizeRequestDto, SavedBuildIndexV1, SolvedBuildDto } from "./types";
 
@@ -83,8 +87,7 @@ export function inspectSavedBuilds(): SavedBuildInspection {
   // Prefer the current record when both schema versions remain after migration.
   for (const [key, raw] of source.records) {
     try {
-      const preset = migratePreset(JSON.parse(raw ?? ""));
-      assertPreset(preset);
+      const preset = readPreset(JSON.parse(raw ?? ""));
       const prefix = key.startsWith(PRESET_PREFIX) ? PRESET_PREFIX : LEGACY_PRESET_PREFIX;
       if (preset.id !== key.slice(prefix.length)) throw new Error("record ID does not match its storage key");
       valid.set(preset.id, preset);
@@ -123,18 +126,15 @@ export function savedBuildBackupText(inspection: SavedBuildInspection): string {
 }
 
 export function previewBuildBackup(raw: string): { presets: BuildPreset[]; bytes: number } {
-  const bytes = new TextEncoder().encode(raw).byteLength;
+  // UTF-16 length never exceeds UTF-8 bytes, so oversized text is rejected before encoding.
+  const bytes = raw.length > MAX_BUILD_BACKUP_BYTES ? raw.length : utf8Bytes(raw);
   if (bytes > MAX_BUILD_BACKUP_BYTES) throw new Error("Build backup is too large (limit 10 MiB).");
   const parsed: unknown = JSON.parse(raw);
   if (!isRecord(parsed) || parsed.format !== "tarnisheds-arsenal.build-backup" || parsed.version !== 1) {
     throw new Error("Not a supported saved-build backup. Individual presets use Import JSON or Share Text.");
   }
   assertArray(parsed.builds, "backup builds", MAX_BUILD_BACKUP_COUNT);
-  const presets = parsed.builds.map((value) => {
-    const preset = migratePreset(value);
-    assertPreset(preset);
-    return preset;
-  });
+  const presets = parsed.builds.map(importedPreset);
   const ids = new Set(presets.map((preset) => preset.id));
   if (ids.size !== presets.length) throw new Error("Build backup contains duplicate IDs.");
   return { presets, bytes };
@@ -179,8 +179,7 @@ export function loadBuildPreset(id: string): BuildPreset | null {
     const raw = localStorage.getItem(`${prefix}${id}`);
     if (raw === null) continue;
     try {
-      const preset = migratePreset(JSON.parse(raw));
-      assertPreset(preset);
+      const preset = readPreset(JSON.parse(raw));
       if (preset.id === id) return preset;
     } catch { /* A readable older record can still be recovered. */ }
   }
@@ -236,17 +235,23 @@ export function deleteBuildPreset(id: string) {
   localStorage.removeItem(`${LEGACY_PRESET_PREFIX}${id}`);
 }
 
+// The limit applies to the preset's compact JSON, the form saves store, so every saved build
+// also imports from its share text (which percent-encoding makes up to three times longer).
 export function parsePresetText(raw: string): BuildPreset {
   const text = raw.trim();
-  const bytes = new TextEncoder().encode(raw).byteLength;
-  if (bytes > MAX_PRESET_IMPORT_BYTES) {
-    throw new Error(`Preset is too large (${bytes.toLocaleString()} bytes; limit ${MAX_PRESET_IMPORT_BYTES.toLocaleString()}).`);
-  }
+  if (text.length > 3 * MAX_PRESET_IMPORT_BYTES) throw presetTooLarge();
   const prefix = text.startsWith(SHARE_PREFIX) ? SHARE_PREFIX : text.startsWith(LEGACY_SHARE_PREFIX) ? LEGACY_SHARE_PREFIX : "";
-  const payload = prefix ? decodeURIComponent(text.slice(prefix.length)) : text;
-  const parsed = migratePreset(JSON.parse(payload));
-  assertPreset(parsed);
-  return parsed;
+  let payload = text;
+  if (prefix) {
+    try {
+      payload = decodeURIComponent(text.slice(prefix.length));
+    } catch {
+      throw new Error("Share text is damaged or incomplete. Copy it again from its source.");
+    }
+  }
+  const preset = importedPreset(JSON.parse(payload));
+  assertPresetSize(JSON.stringify(preset));
+  return preset;
 }
 
 export function shareTextForPreset(preset: BuildPreset): string {
@@ -254,18 +259,11 @@ export function shareTextForPreset(preset: BuildPreset): string {
 }
 
 export function downloadPresetJson(preset: BuildPreset) {
-  const blob = new Blob([JSON.stringify(preset, null, 2)], { type: "application/json;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${safeFilename(preset.name)}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
+  downloadText(`${safeFilename(preset.name)}.json`, JSON.stringify(preset, null, 2), "application/json;charset=utf-8");
 }
 
 export function importBuildPreset(input: BuildPreset | BuildPresetV1): BuildPreset {
-  const preset = migratePreset(input);
-  assertPreset(preset);
+  const preset = readPreset(input);
   const index = savedBuildIndex();
   const idConflict = loadBuildPreset(preset.id) !== null;
   const imported = {
@@ -280,8 +278,7 @@ export function importBuildPreset(input: BuildPreset | BuildPresetV1): BuildPres
 }
 
 export function replaceImportedBuildPreset(input: BuildPreset | BuildPresetV1): BuildPreset {
-  const preset = migratePreset(input);
-  assertPreset(preset);
+  const preset = readPreset(input);
   const imported = { ...preset, updatedAt: new Date().toISOString() };
   persistPreset(imported);
   return imported;
@@ -292,7 +289,7 @@ export function previewPresetImport(raw: string): PresetImportPreview {
   const index = savedBuildIndex();
   return {
     preset,
-    bytes: new TextEncoder().encode(raw.trim()).byteLength,
+    bytes: utf8Bytes(JSON.stringify(preset)),
     idConflict: loadBuildPreset(preset.id) !== null,
     nameConflict: index.builds.some((entry) => entry.name.toLocaleLowerCase() === preset.name.toLocaleLowerCase()),
   };
@@ -300,33 +297,63 @@ export function previewPresetImport(raw: string): PresetImportPreview {
 
 function persistPreset(preset: BuildPreset) {
   assertPreset(preset);
+  const text = JSON.stringify(preset);
+  assertPresetSize(text);
   const index = savedBuildIndex();
-  if (index.builds.length >= 500 && !index.builds.some((entry) => entry.id === preset.id)) {
+  if (index.builds.length >= MAX_BUILD_BACKUP_COUNT && !index.builds.some((entry) => entry.id === preset.id)) {
     throw new Error("Saved build limit reached (500). Delete a build before saving another.");
   }
-  const builds = [
-    { id: preset.id, name: preset.name, profileId: preset.profileId, dataVersion: preset.dataVersion, updatedAt: preset.updatedAt },
-    ...index.builds.filter((entry) => entry.id !== preset.id),
-  ];
+  const builds = [presetIndexEntry(preset), ...index.builds.filter((entry) => entry.id !== preset.id)];
   const key = `${PRESET_PREFIX}${preset.id}`;
   const previous = localStorage.getItem(key);
   if (previous !== null) {
     try {
-      const stored = migratePreset(JSON.parse(previous));
-      assertPreset(stored);
-      if (stored.id !== preset.id) throw new Error();
+      if (readPreset(JSON.parse(previous)).id !== preset.id) throw new Error();
     } catch {
       throw new Error("Existing saved build is unreadable. Export available builds and use a new ID; original data is preserved.");
     }
   }
-  localStorage.setItem(key, JSON.stringify(preset));
   try {
-    localStorage.setItem(INDEX_KEY, JSON.stringify({ version: 1, builds } satisfies SavedBuildIndexV1));
+    localStorage.setItem(key, text);
+    try {
+      localStorage.setItem(INDEX_KEY, JSON.stringify({ version: 1, builds } satisfies SavedBuildIndexV1));
+    } catch (error) {
+      if (previous === null) localStorage.removeItem(key);
+      else localStorage.setItem(key, previous);
+      throw error;
+    }
   } catch (error) {
-    if (previous === null) localStorage.removeItem(key);
-    else localStorage.setItem(key, previous);
+    if (error instanceof DOMException && error.name === "QuotaExceededError") {
+      throw new Error("Device storage for saved builds is full. Export a backup, then delete builds you no longer need; nothing was changed.");
+    }
     throw error;
   }
+}
+
+function readPreset(value: unknown): BuildPreset {
+  const preset = migratePreset(value);
+  assertPreset(preset);
+  return preset;
+}
+
+function importedPreset(value: unknown): BuildPreset {
+  try {
+    return readPreset(value);
+  } catch (error) {
+    throw new Error(`Import text is not a valid BuildPreset preset: ${errorMessage(error)}.`);
+  }
+}
+
+function utf8Bytes(text: string): number {
+  return new TextEncoder().encode(text).byteLength;
+}
+
+function presetTooLarge(): Error {
+  return new Error(`Preset is too large (limit ${MAX_PRESET_IMPORT_BYTES / 1024} KiB of JSON). Pin fewer comparison builds before saving or sharing it.`);
+}
+
+function assertPresetSize(json: string) {
+  if (utf8Bytes(json) > MAX_PRESET_IMPORT_BYTES) throw presetTooLarge();
 }
 
 function assertPreset(value: BuildPreset) {
@@ -401,7 +428,7 @@ function assertRequest(value: unknown): asserts value is OptimizeRequestDto {
 function assertSolvedBuild(value: unknown, label: string): asserts value is SolvedBuildDto | null {
   if (value === null) return;
   const checked = validateStoredBuild(value, { standardMaxUpgrade: 25, somberMaxUpgrade: 25 }, label);
-  if ("error" in checked) throw invalidPreset(checked.error.message);
+  if ("error" in checked) throw invalidPreset(checked.error);
 }
 
 function assertDataVersion(value: unknown) {
@@ -463,42 +490,6 @@ function migratePreset(value: unknown): BuildPreset {
 function assertDate(value: unknown, label: string) {
   assertText(value, label, 64);
   if (Number.isNaN(Date.parse(value))) throw invalidPreset(`${label} must be an ISO date`);
-}
-
-function assertText(value: unknown, label: string, maxLength: number, allowEmpty = false): asserts value is string {
-  if (typeof value !== "string" || value.length > maxLength || (!allowEmpty && !value.trim())) {
-    throw invalidPreset(`${label} must be ${allowEmpty ? "a" : "a non-empty"} string no longer than ${maxLength} characters`);
-  }
-}
-
-function assertNullableText(value: unknown, label: string, maxLength: number): asserts value is string | null {
-  if (value !== null) assertText(value, label, maxLength);
-}
-
-function assertInteger(value: unknown, label: string, min: number, max: number): asserts value is number {
-  if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) {
-    throw invalidPreset(`${label} must be an integer from ${min} through ${max}`);
-  }
-}
-
-function assertNullableInteger(value: unknown, label: string, min: number, max: number): asserts value is number | null {
-  if (value !== null) assertInteger(value, label, min, max);
-}
-
-function assertBoolean(value: unknown, label: string): asserts value is boolean {
-  if (typeof value !== "boolean") throw invalidPreset(`${label} must be true or false`);
-}
-
-function assertArray(value: unknown, label: string, maxLength: number): asserts value is unknown[] {
-  if (!Array.isArray(value) || value.length > maxLength) throw invalidPreset(`${label} must be an array with at most ${maxLength} entries`);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function invalidPreset(detail: string): Error {
-  return new Error(`Import text is not a valid BuildPreset preset: ${detail}.`);
 }
 
 function uniqueImportedName(name: string, existingNames: string[]): string {
