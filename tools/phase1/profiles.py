@@ -176,7 +176,7 @@ PROFILES: Mapping[str, ProfileDefinition] = {
             66_530_000: "Reed Great Katana",
             67_530_000: "Idus Sword",
         },
-        dataset_revision=2,
+        dataset_revision=3,
         sword_art_name_overrides={
             1_200: "Muleta",
             1_201: "Causality's Wrath",
@@ -225,7 +225,7 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         ),
         version_file=Path("data/raw/Conv/version.txt"),
         weapon_reference_path=Path("data/reference/convergence-3.0.0.1-weapons.json"),
-        dataset_revision=2,
+        dataset_revision=3,
     ),
 }
 

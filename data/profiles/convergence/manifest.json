@@ -1,8 +1,8 @@
 {
   "schemaVersion": 6,
-  "datasetVersion": "convergence-3.0.0.1-r2",
+  "datasetVersion": "convergence-3.0.0.1-r3",
   "modelVersion": "aow-routes-effects-v9",
-  "id": "convergence-3.0.0.1-r2",
+  "id": "convergence-3.0.0.1-r3",
   "label": "The Convergence dataset - 3.0.0.1",
   "appVersion": "1.16.1",
   "source": "regulation.bin",
@@ -32,7 +32,7 @@
     "statusBuildupScales": false
   },
   "generatedAt": "2026-10-16",
-  "extractorVersion": "phase1-python-v14-fail-closed-provenance",
+  "extractorVersion": "phase1-python-v15-f32-shortest-floats",
   "provenance": "profile-bound regulation, names, and numeric PARAM effect graph",
   "runtimeFiles": [
     {
@@ -67,8 +67,8 @@
     },
     {
       "path": "calc_correct.csv",
-      "size": 22326,
-      "sha256": "16c0879f097dba509fa0dea51a721b31959c0bd91f3958f0e6d062e0ad355bef"
+      "size": 22253,
+      "sha256": "9f2585d8a0d4eec391c0dccd2a8adbbce2af8b20b6606e6f7a4950d9dca0d512"
     },
     {
       "path": "native_skill_attack_data.csv",
