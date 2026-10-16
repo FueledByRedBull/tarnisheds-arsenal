@@ -266,7 +266,7 @@ and uses preview data in the browser.
 Run core, backend, and data checks from the **repository root**:
 
 ```powershell
-python -m pip install -r requirements-validation.txt
+python -m pip install --require-hashes -r requirements-validation.txt
 cargo test --locked --manifest-path core/er_optimizer_core/Cargo.toml
 cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
 python tools/phase4/validate_phase4.py
