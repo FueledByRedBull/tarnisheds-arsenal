@@ -34,11 +34,13 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - Deliberate differences are narrowly checked: the frontend sends explicit
   upgrade-policy values and omits older upgrade inputs; older persisted builds
   may lack three optional display fields. Other missing/optional fields fail.
-- This source check is not a serializer, numeric-range check or command-registry
-  verifier. Rust validators and serialization tests remain required. Native String
-  fields can have narrower frontend literal types; permitted values still belong
-  to native validation.
-- React Hooks ordering and effect dependencies are lint errors. Async effects
+- The same check verifies that every `#[tauri::command]` is registered once in
+  `lib.rs`, listed in `build.rs`, allowed by the default capability, and called
+  from `api.ts` with matching argument names. It is not a serializer or
+  numeric-range check. Rust validators and serialization tests remain required.
+  Native String fields can have narrower frontend literal types; permitted values
+  still belong to native validation.
+- React Hooks rules, including the React Compiler checks, are lint errors. Async effects
   must retain generation/cancellation guards when dependencies change. Comparison
   persistence and preset imports share the solved-build shape validator in
   `src/lib/stored-build.ts`, with explicit profile or archive upgrade bounds.
@@ -58,6 +60,9 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - Cancellation is cooperative and fail-closed. A cancelled job cannot replace current rows or populate retained analysis caches.
 - Broad running work targets cancellation within 250 ms on the reference machine. Cancelled multi-lane jobs publish no partial success payload.
 - Polling has one in-flight request at a time and backs off while progress is unchanged.
+- A finished native job keeps its terminal status until the next job in that queue
+  starts, so a lost status reply can be read again. A page load, including a
+  reload, cancels every running native job, because the new page cannot own them.
 - Rankings, custom comparisons, and CSV export share one search queue. The workflow owns polling through native completion, including cancellation; superseded queued requests never start. Rankings UI components do not run a second poller.
 - Cancellation or status communication errors may end the caller's request, but do not establish that its native worker is idle. Retain uncertain job ownership, bound recovery attempts, and reconcile that worker before starting replacement work.
 - Direct loadout and upgrade-series calculations run off the native main thread, with bounded concurrency and cooperative cancellation. Shared cache work is cancelled only when its last subscriber leaves or its profile/data identity is invalidated.
@@ -137,7 +142,8 @@ Status: accepted. These rules describe contracts that tests and future refactors
   request enum values to be strings before they can reach the UI or native commands.
 - Reproduction reports project known request/result fields, including nested
   structures, and omit raw storage, logs, and private manifest source paths.
-  Report text redaction is an additional precaution; users preview before sharing.
+  Report text redaction, listed in the [security policy](../../SECURITY.md#reproduction-reports),
+  is an additional precaution; users preview before sharing.
   Captures describe current inputs and displayed results, never imply a failed
   request was captured or a saved result independently recalculated.
 

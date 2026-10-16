@@ -1,0 +1,43 @@
+Tarnished's Arsenal
+Copyright (c) 2026 FueledByRedBull. Licensed under the MIT License
+(see LICENSE).
+
+Tarnished's Arsenal is unaffiliated fan-made tooling. Elden Ring is a trademark of
+FromSoftware, Inc. and Bandai Namco Entertainment Inc. This project does not
+distribute the game; its snapshots hold numeric tables derived from game
+parameters.
+
+Third-party data
+----------------
+
+- "ER - Motion Values and Attack Data (App Ver. 1.17)", a community spreadsheet
+  of Elden Ring motion values and attack data. The Vanilla snapshot's skill
+  attack, route, stamina and poise tables are derived from it, and a copy is
+  kept in data/phase1/ as an extraction input. Credit belongs to its author;
+  the workbook's Info sheet links to its source and archived versions.
+- tclark.io, the Elden Ring weapon calculator by T. Clark (ThomasJClark)
+  (https://eldenring.tclark.io, source at
+  https://github.com/ThomasJClark/elden-ring-weapon-calculator). The Convergence
+  availability reference in data/reference/convergence-3.0.0.1-weapons.json is
+  derived from its regulation-convergence-v3.0.0.1.js data, and the validation
+  tools compare results against a pinned version of its source.
+- Paramdex parameter definitions and names (distributed with WitchyBND) are used
+  during extraction; neither is redistributed here.
+
+Rights in these sources remain with their authors.
+
+Third-party software
+--------------------
+
+The desktop executable statically links Rust crates and bundles npm packages
+under their own licenses. The full lists, with versions, are in
+apps/desktop/src-tauri/Cargo.lock and apps/desktop/package-lock.json; each
+package's license text is in its published source.
+
+- Rust crates are mostly MIT OR Apache-2.0. Others include Unicode-3.0 (the ICU4X
+  crates), BSD-3-Clause (brotli, alloc-no-stdlib, alloc-stdlib), Zlib (foldhash)
+  and MPL-2.0. The MPL-2.0 crates are cssparser, cssparser-macros, selectors,
+  dtoa-short and option-ext; they are used unmodified, and their source is
+  available from https://crates.io.
+- Bundled npm packages: react, react-dom, scheduler and zustand (MIT),
+  lucide-react (ISC) and @tauri-apps/api (Apache-2.0 OR MIT).

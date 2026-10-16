@@ -153,8 +153,9 @@ are never filled with Vanilla data.
 The pinned [T. Clark 1.17 calculator](https://github.com/ThomasJClark/elden-ring-weapon-calculator/tree/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a)
 uses JavaScript floating-point arithmetic and a small offset before truncating
 display values. Its live 1.17 calculator and [Tarnished.dev](https://www.tarnished.dev/weapon-calculator)
-both display the reference values below. `exact-v2` fixes the previous
-Bloodfiend's Fork (Keen) boundary disagreements in both handling modes:
+both display the reference values below. The Bloodfiend's Fork (Keen) boundary
+disagreements in both handling modes were fixed in `exact-v2`, and the current
+`exact-v3` scoring still matches:
 
 | Upgrade / Arcane | Current production floor | Reference floor |
 | --- | ---: | ---: |
@@ -192,7 +193,9 @@ python tools/phase4/validate_external_calculator.py --count 100 --seed 20260918
 The runner uses pinned T. Clark source/data, the installed frontend TypeScript
 compiler, and the current Rust evaluator. Each sampled configuration covers zero,
 random, and maximum upgrades in both handling modes. Use another seed for new
-cases or `--count 487` for every named weapon. Every Vanilla run also includes the
+cases. To cover every named weapon, pass a `--count` equal to the number of usable
+upstream weapon names (487 at the pinned commit); a larger count fails and reports
+how many are available. Every Vanilla run also includes the
 32 known Bloodfiend's Fork boundary cases across eight affinities. Optional `--report` and `--csv`
 paths retain results. AR tolerance is 0.001 per component; status is compared
 after integer flooring. This also checks selected-skill identity, not complex

@@ -76,7 +76,8 @@ Save builds from **Saved Builds**, folded under Build Detail, or export rankings
 as CSV with the row count chosen beside **Export CSV**. Each game profile keeps
 its own query: switch away and back and it is restored, ready to search again.
 The query line shows the assumptions behind the rankings; changed inputs mark
-old results as stale. **Ctrl+Z** undoes any query change. After
+old results as stale. **Ctrl+Z** undoes recent query changes (up to 50) outside
+text fields; switching profile starts a new history. After
 **Update Results**, each rank shows how far that loadout moved and how its score
 changed. Click **AR**, **Skill damage**, or the objective column to sort without
 losing the rank, and press **?** for every shortcut. Convergence uses a
@@ -86,8 +87,9 @@ different [fixed-stat workflow](#convergence-3001-beta).
 
 Saved Builds includes **Backup and recovery**. **Export all builds** backs up
 readable builds across profiles. Select a backup file to preview its contents,
-then restore as new copies; existing builds are kept. Backups support up to 500
-builds and 10 MiB. Existing schema 1/2 builds remain readable.
+then restore as new copies; existing builds are kept. A backup file holds up to
+500 builds and 10 MiB, and a restore is refused if your existing and restored
+builds together would exceed 500. Existing schema 1/2 builds remain readable.
 
 If the saved-build list is damaged or incomplete, scan it and review the recovery
 count and issues. Recovery rebuilds the list from readable records, preserves the
@@ -217,12 +219,8 @@ app version, game profile, reproduction steps, and expected versus actual result
 Use [private vulnerability reporting](SECURITY.md) for security issues.
 
 Open **Report a problem** at the bottom of Build Detail and use
-**Preview reproduction report** to review and download
-current normalized inputs, snapshot identity, the displayed selection when it is
-not stale, and an error if present. It does not replay a failed request or recompute
-a saved result. The saved-build library and raw logs are excluded; recognizable
-paths, addresses, and credential-like text are omitted. Review the preview before
-sharing it. Nothing is uploaded automatically.
+**Preview reproduction report** to review and download a report; the
+[security policy](SECURITY.md#reproduction-reports) lists what it contains and omits.
 
 Submit focused pull requests against `main`, explain the problem and checks run,
 and add a regression for behavior changes. Keep raw game files, credentials,
@@ -268,11 +266,13 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-The frontend uses React 19.3 with the modern JSX transform. Hooks linting rejects
-conditional Hooks and missing effect dependencies. The DTO contract check compares
-all public Rust DTO field shapes and enums with TypeScript, including the request
-types used by the API adapter. It does not replace native value validation or
-serialization tests. CI and full package validation run both checks.
+The frontend uses React 19.3 with the modern JSX transform. Linting applies the
+React Hooks plugin's latest recommended rules, including the React Compiler checks,
+and type-checks the browser tests. The contract check compares all public Rust DTO
+field shapes and enums with TypeScript, including the request types used by the
+API adapter, and checks that every native command is registered, allowed and
+called with matching argument names. It does not replace native value validation
+or serialization tests. CI and full package validation run both checks.
 
 The full checks and setup live in [CI](.github/workflows/ci.yml). The core is in
 `core/er_optimizer_core`; the desktop is in `apps/desktop`. Historical phase names
@@ -284,3 +284,4 @@ remain for extraction (`tools/phase1`) and validation/packaging (`tools/phase4`)
 
 Code is available under the [MIT License](LICENSE). Fan-made tooling, unaffiliated
 with FromSoftware or Bandai Namco Entertainment; it does not distribute Elden Ring.
+Third-party data and software credits are in [NOTICE](NOTICE).
