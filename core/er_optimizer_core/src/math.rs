@@ -363,8 +363,15 @@ pub(crate) struct ScalarAowRouteMetric {
 
 type BuffActivationOrders = HashMap<(String, u16), u16>;
 
-fn aows_by_id(data: &GameData) -> HashMap<u16, &Aow> {
-    data.aows.iter().map(|aow| (aow.aow_id, aow)).collect()
+/// The Ashes these rows name; the last entry wins for a repeated id, like a full-table map.
+fn aows_by_id<'a>(attack_rows: &[&AowAttackRow], data: &'a GameData) -> HashMap<u16, &'a Aow> {
+    attack_rows
+        .iter()
+        .filter_map(|row| {
+            let aow = data.aows.iter().rfind(|aow| aow.aow_id == row.aow_id)?;
+            Some((row.aow_id, aow))
+        })
+        .collect()
 }
 
 /// Earliest buff-activation action per (route, Ash); later actions on that route carry the
@@ -450,7 +457,7 @@ pub(crate) fn prepare_scalar_aow_routes<'a>(
     attack_rows: &[&'a AowAttackRow],
     data: &'a GameData,
 ) -> Result<Option<Vec<ScalarAowRoute<'a>>>, String> {
-    let aows_by_id = aows_by_id(data);
+    let aows_by_id = aows_by_id(attack_rows, data);
     let activation_orders = buff_activation_orders(attack_rows, data, &aows_by_id, &mut || true)?;
 
     let mut routes = HashMap::<String, ScalarAowRoute<'a>>::new();
@@ -578,7 +585,7 @@ pub(crate) fn calculate_aow_routes_scaled_with_cancel(
     }
     let damage_multiplier = exact::rational(damage_multiplier, "damage multiplier")?;
     let weapon_status = calculate_status_buildup(weapon, upgrade, stats, data)?;
-    let aows_by_id = aows_by_id(data);
+    let aows_by_id = aows_by_id(attack_rows, data);
     let activation_orders =
         buff_activation_orders(attack_rows, data, &aows_by_id, should_continue)?;
     // Ordered so the first failing route (if any) is reported deterministically.
