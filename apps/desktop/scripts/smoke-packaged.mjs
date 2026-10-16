@@ -259,7 +259,7 @@ try {
   // The browser preview's mock copies these registry rules; this proves them natively.
   markSmokeStage("reject a second native start and cancel cooperatively");
   const registry = await page.evaluate(async (request) => {
-    const invoke = window.__TAURI_INTERNALS__.invoke;
+    const invoke = /** @type {any} */ (window).__TAURI_INTERNALS__.invoke;
     const message = (error) => error?.message ?? String(error);
     const { jobId } = await invoke("start_affinity_watch", { request });
     const second = await invoke("start_affinity_watch", { request }).then(() => "started", message);

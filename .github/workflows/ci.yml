@@ -268,7 +268,7 @@ jobs:
         run: |
           npm ci --prefer-offline --no-audit --fund=false
 
-      - name: React Hooks lint and DTO contract checks
+      - name: Lint, type-check tests and scripts, and check DTO contracts
         working-directory: apps/desktop
         run: |
           $ErrorActionPreference = "Stop"
