@@ -18,7 +18,7 @@ from tools.phase1.profiles import ProfileDefinition  # noqa: E402
 
 SCHEMA_VERSION = 6
 MODEL_VERSION = "aow-routes-effects-v9"
-EXTRACTOR_VERSION = "phase1-python-v13-skill-route-identity"
+EXTRACTOR_VERSION = "phase1-python-v14-fail-closed-provenance"
 RUNTIME_FILES = {
     "aow.csv",
     "aow_attack_data.csv",
