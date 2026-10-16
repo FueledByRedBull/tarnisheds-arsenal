@@ -5,6 +5,7 @@ import { buildOptimizeRequest, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { ArBleedFrontierPointDto, OptimizeRequestDto, SolvedBuildDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
+import { WorkspaceHeading } from "../shared/WorkspaceHeading";
 
 type LoadoutTradeoffsProps = {
   base: OptimizeRequestDto;
@@ -140,11 +141,10 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
   return (
     <section className="loadout-tradeoffs" aria-labelledby="loadout-tradeoffs-heading">
       <div className="tradeoff-header">
-        <div>
-          <h2 id="loadout-tradeoffs-heading">AR / Bleed tradeoffs</h2>
-          <small>
-            Fixed loadout: {selected.weaponName} / {selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade}.
-            The frontier keeps this query&apos;s class budget, floors, locks, handling, and world settings.{" "}
+        <WorkspaceHeading title="AR / Bleed tradeoffs" level={2} id="loadout-tradeoffs-heading" aboutLabel="About AR / Bleed tradeoffs"
+          about="The frontier keeps this query's class budget, floors, locks, handling, and world settings.">
+          <small className="selected-summary">
+            Fixed loadout: {selected.weaponName} / {selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade}
           </small>
           {allCombatLocksActive || (status === "ready" && points?.length === 1) ? (
             <small>
@@ -153,7 +153,7 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
                 : "Only one non-dominated AR / bleed outcome exists under these constraints; other allocations may tie."}
             </small>
           ) : null}
-        </div>
+        </WorkspaceHeading>
         <button type="button" onClick={status === "loading" ? stop : compute} disabled={status === "ready"}>
           {status === "loading" ? "Stop" : points ? "Computed for this context" : "Compute trade-offs"}
         </button>

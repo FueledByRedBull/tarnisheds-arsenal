@@ -10,8 +10,8 @@ import { LatestRequest } from "../../lib/request-generation";
 import { useBuiltRequest } from "../../lib/hooks";
 import { useDesktopStore } from "../../lib/state";
 import { CompareControls, SolvedBuildDto, UpgradePointDto } from "../../lib/types";
-import { AboutPopover } from "../shared/AboutPopover";
 import { Popover } from "../shared/Popover";
+import { WorkspaceHeading } from "../shared/WorkspaceHeading";
 import { WorkspaceGate } from "../shared/WorkspaceGate";
 import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 import { LoadoutTradeoffs } from "./LoadoutTradeoffs";
@@ -295,15 +295,13 @@ export function CompareView() {
   return (
     <section className="workspace-panel compare-panel">
       <div className="workspace-header analysis-workspace-header compare-workspace-header">
-        <div className="workspace-heading-copy">
-          <h1>Compare</h1>
+        <WorkspaceHeading title="Compare" aboutLabel="About Compare" about={<>
+          Every comparison uses this query&apos;s level, stat budget, locks and world settings. Pinned loadouts keep their
+          weapon, affinity and skill; their stats and upgrades are optimized again for the current budget, and pins that
+          cannot be upgraded use +0. The selected build stays the baseline, and deltas are the compared build minus it.
+        </>}>
           <small className="selected-summary">Baseline: {selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)} {baselineMetric === null ? "Unavailable" : fixed1(baselineMetric)}</small>
-          <AboutPopover label="About Compare">
-            Every comparison uses this query&apos;s level, stat budget, locks and world settings. Pinned loadouts keep their
-            weapon, affinity and skill; their stats and upgrades are optimized again for the current budget, and pins that
-            cannot be upgraded use +0. Deltas are the compared build minus the selected baseline.
-          </AboutPopover>
-        </div>
+        </WorkspaceHeading>
       </div>
       <div className="compare-toolbar">
         <span className="compare-chip-lead">Against</span>
@@ -406,10 +404,7 @@ export function CompareView() {
           filters: { version: 1, entries: [] },
         })}>{compareBench.length ? "Use pinned targets" : "Use ranked rivals"}</button> : null}
         {compareBench.length ? (
-          <div className="compare-pins">
-            <button type="button" className="chip-action" onClick={clearCompareBench}>Clear {compareBench.length} pinned target{compareBench.length === 1 ? "" : "s"}</button>
-            <small>Selected stays as the baseline.</small>
-          </div>
+          <button type="button" className="chip-action" onClick={clearCompareBench}>Clear {compareBench.length} pinned target{compareBench.length === 1 ? "" : "s"}</button>
         ) : null}
         {/* The comparison's state sits at the end of its scope line rather than on a row of its own. */}
         <div className="analysis-state compare-status" role="status" aria-live="polite">

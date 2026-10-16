@@ -10,7 +10,7 @@ import { clampHorizon, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { PathPreviewDto, SolvedBuildDto } from "../../lib/types";
 import { DraftNumberInput } from "../query-strip/DraftNumberInput";
-import { AboutPopover } from "../shared/AboutPopover";
+import { WorkspaceHeading } from "../shared/WorkspaceHeading";
 import { WorkspaceGate } from "../shared/WorkspaceGate";
 import { ChartDataTable } from "../../lib/ChartDataTable";
 
@@ -77,17 +77,16 @@ export function PathsView() {
   return (
     <section className="workspace-panel paths-panel">
       <div className="workspace-header analysis-workspace-header">
-        <div className="workspace-heading-copy">
-          <h1>{pathMode === "no_respec" ? "No-respec Paths" : "Best Build per Level"}</h1>
-          <span>{selected ? `Next ${effectiveHorizon} levels · ${target ? "selected build and comparison" : "selected build"}` : "Requires selected result"}</span>
-          {selected ? <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)}{target ? ` · vs ${target.weaponName} / ${target.affinity} / +${target.upgrade}` : ""}</small> : null}
-          <AboutPopover label="About Paths">
-            {pathMode === "no_respec"
-              ? "No respec ends on the best build for the final level. Each level adds its point where it helps most, and no point is ever moved, so the path never needs a respec."
-              : "Best per level shows each level's own best build. A respec is marked when that build moves points you already spent."}
-            {" "}The selected build and the comparison target keep their weapon, affinity, skill and upgrade.
-          </AboutPopover>
-        </div>
+        <WorkspaceHeading title={pathMode === "no_respec" ? "No-respec Paths" : "Best Build per Level"} aboutLabel="About Paths" about={<>
+          {pathMode === "no_respec"
+            ? "No respec ends on the best build for the final level. Each level adds its point where it helps most, and no point is ever moved, so the path never needs a respec."
+            : "Best per level shows each level's own best build. A respec is marked when that build moves points you already spent."}
+          {" "}The selected build and the comparison target keep their weapon, affinity, skill and upgrade.
+        </>}>
+          {selected
+            ? <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)}{target ? ` · vs ${target.weaponName} / ${target.affinity} / +${target.upgrade}` : ""} · next {effectiveHorizon} levels</small>
+            : <span>Requires selected result</span>}
+        </WorkspaceHeading>
         <div className="header-controls">
           <div className="segmented" role="group" aria-label="Path mode">
             <button type="button" className={pathMode === "no_respec" ? "active" : ""} aria-pressed={pathMode === "no_respec"} title="One stat point per level, never moved" onClick={() => setPathMode("no_respec")}>No respec</button>

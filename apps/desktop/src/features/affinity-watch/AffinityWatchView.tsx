@@ -10,7 +10,7 @@ import { clampHorizon, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { AffinityWatchPayloadDto } from "../../lib/types";
 import { DraftNumberInput } from "../query-strip/DraftNumberInput";
-import { AboutPopover } from "../shared/AboutPopover";
+import { WorkspaceHeading } from "../shared/WorkspaceHeading";
 import { WorkspaceGate } from "../shared/WorkspaceGate";
 import { ChartDataTable } from "../../lib/ChartDataTable";
 
@@ -63,16 +63,15 @@ export function AffinityWatchView() {
   return (
     <section className="workspace-panel affinity-panel">
       <div className="workspace-header analysis-workspace-header">
-        <div className="workspace-heading-copy">
-          <h1>Affinity Watch</h1>
-          <span>{selected ? `${selected.weaponName} over the next ${effectiveHorizon} levels` : "Requires selected result"}</span>
-          {selected ? <small className="selected-summary">{selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade} · {objectiveLabel(request.objective)}</small> : null}
-          <AboutPopover label="About Affinity Watch">
-            Each affinity optimizes its own combat stats at the same level budget, ignoring exact stat locks but keeping
-            minimums. The selected skill and upgrade stay fixed, and affinities the skill cannot use are left out. A crossover
-            marks the level where another affinity becomes the best.
-          </AboutPopover>
-        </div>
+        <WorkspaceHeading title="Affinity Watch" aboutLabel="About Affinity Watch" about={<>
+          Each affinity optimizes its own combat stats at the same level budget, ignoring exact stat locks but keeping
+          minimums. The selected skill and upgrade stay fixed, and affinities the skill cannot use are left out. A crossover
+          marks the level where another affinity becomes the best.
+        </>}>
+          {selected
+            ? <small className="selected-summary">{selected.weaponName} / {selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade} · {objectiveLabel(request.objective)} over the next {effectiveHorizon} levels</small>
+            : <span>Requires selected result</span>}
+        </WorkspaceHeading>
         <div className="header-controls">
           <label>
             Levels ahead

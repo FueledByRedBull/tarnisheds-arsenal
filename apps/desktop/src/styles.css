@@ -714,12 +714,11 @@ textarea {
   text-align: left;
 }
 
-/* A plain section heading, not another outlined box. */
+/* A quiet label: the workspace heading above is the entry point. */
 .compare-deltas caption {
   padding: 12px 0 6px;
-  color: var(--text-strong);
+  color: var(--text-muted);
   font-size: var(--text-note);
-  font-weight: 700;
 }
 
 .compare-deltas th small,
@@ -743,8 +742,13 @@ textarea {
   gap: 12px;
 }
 .tradeoff-header > div { flex: 1 1 260px; }
-.tradeoff-header h2 { margin: 0 0 6px; }
-.tradeoff-header small, .tradeoff-controls small { color: var(--text-muted); }
+.tradeoff-header h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: 500;
+}
+.tradeoff-header small:not(.selected-summary), .tradeoff-controls small { color: var(--text-muted); }
 .loadout-tradeoffs button {
   padding: 6px 10px;
   color: var(--text-strong);
@@ -1047,9 +1051,7 @@ textarea {
   padding: 16px;
 }
 
-.detail-block,
-.compare-lane,
-.path-lane {
+.detail-block {
   border: 1px solid var(--line);
 }
 
@@ -1266,10 +1268,8 @@ textarea {
 }
 
 .compare-chip-lead {
-  color: var(--text-faint);
-  font-size: var(--text-label);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  color: var(--text-muted);
+  font-size: var(--text-note);
 }
 
 .compare-default {
@@ -1330,16 +1330,6 @@ textarea {
 .filters-trigger:has(+ .popover-panel:popover-open) {
   color: var(--text-strong);
   border-color: var(--accent);
-}
-
-.compare-pins {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.compare-pins small {
-  color: var(--text-faint);
 }
 
 .editor-panel.compare-filters-panel {
@@ -1472,9 +1462,7 @@ textarea {
   max-height: calc(100% - 304px);
   margin: 0 14px 14px;
   overflow: auto hidden;
-  border: 1px solid var(--line);
   border-radius: 4px;
-  background: color-mix(in srgb, var(--surface-panel) 42%, transparent);
   scrollbar-color: var(--accent-quiet) var(--surface-panel);
   scrollbar-width: thin;
   overscroll-behavior-x: contain;
@@ -1575,24 +1563,18 @@ textarea {
   gap: 6px;
 }
 
-.lane-metrics span {
-  padding: 8px;
-  background: color-mix(in srgb, var(--surface-panel) 52%, transparent);
-  border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
-  border-radius: 4px;
-}
-
+/* Nesting reads through surface tone, not another outlined box: charts sit on the raised
+   tone, and tables are rows under a raised header row. */
 .path-chart,
 .affinity-ranking,
 .crossover-table,
 .step-table {
   margin: 0 14px 14px;
-  border: 1px solid var(--line);
   border-radius: 4px;
-  background: color-mix(in srgb, var(--surface-panel) 42%, transparent);
 }
 
 .path-chart {
+  background: var(--surface-raised);
   display: grid;
   gap: 12px;
   padding: 12px;
@@ -1609,13 +1591,20 @@ textarea {
   gap: 2px;
 }
 
-/* A workspace's rules sit behind one quiet link under its title. */
-.about-trigger {
+/* One header pattern for every analysis section: the title with its rules one quiet link
+   away, then a single summary line. */
+.workspace-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 14px;
+}
+
+button.about-trigger {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   width: fit-content;
-  margin-top: 4px;
   min-height: 24px;
   padding: 2px 0;
   color: var(--text-muted);
@@ -1913,11 +1902,10 @@ textarea {
   gap: 16px;
   min-height: 270px;
   padding: 16px;
-  border: 1px solid var(--line);
   border-radius: 4px;
   background:
     radial-gradient(circle at 78% 14%, color-mix(in srgb, var(--selected) 6%, transparent), transparent 34%),
-    color-mix(in srgb, var(--surface-panel) 42%, transparent);
+    var(--surface-raised);
 }
 
 .affinity-panel .affinity-chart {
@@ -1962,10 +1950,7 @@ textarea {
   align-items: center;
   column-gap: 7px;
   min-width: 118px;
-  padding: 7px 9px;
-  border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--surface-canvas) 25%, transparent);
+  padding: 4px 12px 4px 0;
 }
 
 .affinity-legend i {
@@ -2009,7 +1994,6 @@ textarea {
   height: 230px;
   padding: 12px 12px 24px 54px;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
   border-radius: 4px;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--selected) 2.5%, transparent), transparent 44%),
@@ -3780,10 +3764,6 @@ summary:focus-visible {
 .analysis-workspace-header .header-controls {
   flex: 0 0 auto;
   align-self: center;
-  padding: 8px;
-  border: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--surface-canvas) 30%, transparent);
   align-items: flex-end;
   flex-wrap: wrap;
   max-width: 100%;
