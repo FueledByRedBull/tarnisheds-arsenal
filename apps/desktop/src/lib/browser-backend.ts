@@ -139,7 +139,7 @@ function mockJobRegistry<S extends MockJobStatus>(
   let job: S | null = null;
   let cancelRequested = false;
   const current = (args: Record<string, unknown> | undefined) => {
-    const jobId = String(args?.jobId ?? "");
+    const jobId = (args?.jobId as string | undefined) ?? "";
     return job?.progress?.jobId === jobId ? job : null;
   };
   const finish = (jobId: string, result: Partial<Finished<S>>, progress?: Partial<Progress<S>>) => {
@@ -229,7 +229,7 @@ export async function mockInvoke<T>(command: string, args?: Record<string, unkno
     case "get_profiles":
       return [mockDataManifest("vanilla"), mockDataManifest("convergence")] as T;
     case "get_catalog":
-      return await mockCatalog(String(args?.profileId ?? "vanilla")) as T;
+      return await mockCatalog((args?.profileId as string | undefined) ?? "vanilla") as T;
     case "get_weapon_profile":
       return await mockWeaponProfile(args) as T;
     case "start_search":

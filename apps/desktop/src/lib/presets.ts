@@ -503,7 +503,7 @@ function migratePreset(value: unknown): BuildPreset {
   request.resultGrouping ??= "automatic";
   // Schema-1 records predate later result fields. Loading re-solves saved results, so neutral
   // defaults only let the record be read; they are never shown as verified values.
-  const builds = [value.selectedBuild, value.compareTarget, ...(Array.isArray(value.compareBench) ? value.compareBench : [])];
+  const builds = [value.selectedBuild, value.compareTarget, ...(Array.isArray(value.compareBench) ? value.compareBench as unknown[] : [])];
   for (const build of builds) {
     if (!isRecord(build)) continue;
     for (const key of ["bleedBuildupAdd", "frostBuildup", "poisonBuildup", "scarletRotBuildup", "sleepBuildup",

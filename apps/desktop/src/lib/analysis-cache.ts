@@ -95,7 +95,6 @@ function cached<T>(
     return subscribe(cache, key, entry, signal);
   }
   if (entry) cache.delete(key);
-  let nextEntry!: CacheEntry<T>;
   const controller = new AbortController();
   const promise = loader(controller.signal).then((value) => {
     nextEntry.pending = false;
@@ -106,7 +105,7 @@ function cached<T>(
     if (cache.get(key) === nextEntry) cache.delete(key);
     throw error;
   });
-  nextEntry = { promise, controller, expiresAt: now + CACHE_TTL_MS, pending: true, subscribers: 0 };
+  const nextEntry: CacheEntry<T> = { promise, controller, expiresAt: now + CACHE_TTL_MS, pending: true, subscribers: 0 };
   cache.set(key, nextEntry);
   // Pending entries still have subscribers; evicting one would start a duplicate native job
   // for the same key, so only settled entries are evicted (oldest first).

@@ -7,7 +7,7 @@ const base = {
   resultSignature: "request-1",
   requestSignature: "request-1",
   hasResult: true,
-  outcome: null as null,
+  outcome: null,
 };
 
 describe("analysis lifecycle status", () => {

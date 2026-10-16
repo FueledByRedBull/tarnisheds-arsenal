@@ -123,7 +123,7 @@ export function Inspector() {
             </div>
           ) : null}
           <div className="inspector-actions stacked">
-            <button type="button" onClick={lockSelected} disabled={isExporting}><LockKeyhole size={15} />Lock stats to this build</button>
+            <button type="button" onClick={() => void lockSelected()} disabled={isExporting}><LockKeyhole size={15} />Lock stats to this build</button>
             <button
               type="button"
               onClick={() => {

@@ -277,7 +277,7 @@ export function clampHorizon(request: OptimizeRequestDto, horizon: number): numb
 }
 
 export function stableSignature(value: unknown): string {
-  return JSON.stringify(value, (_key, raw) => {
+  return JSON.stringify(value, (_key, raw: unknown) => {
     if (raw && typeof raw === "object" && !Array.isArray(raw)) {
       return Object.fromEntries(Object.entries(raw).sort(([left], [right]) => left.localeCompare(right)));
     }

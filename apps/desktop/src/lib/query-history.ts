@@ -114,7 +114,7 @@ const LABELS: Partial<Record<keyof OptimizeRequestDto, string>> = {
   somberFilter: "Somber filter", filters: "Filters", resultGrouping: "Grouping", objective: "Objective", topK: "Top results",
 };
 
-function formatValue(key: keyof OptimizeRequestDto, value: unknown): string {
+function formatValue(key: keyof OptimizeRequestDto, value: string | number | boolean | null): string {
   if (key === "objective") return objectiveLabel(value as ObjectiveId);
   if (value === null || value === undefined) return key.startsWith("lock") ? "open" : "any";
   if (typeof value === "boolean") return value ? "on" : "off";
@@ -136,8 +136,8 @@ export function describeStep(step: QueryStep): string {
     changes.push({ key: "lockStr", label: after.lockedStatMode ? "Locked stats on" : "Locked stats off" });
   }
   if (!changes.length) return "query edit";
-  if (changes.length === 1 && keys.length === 1 && keys[0] !== "filters") {
-    const key = keys[0];
+  const key = keys[0];
+  if (changes.length === 1 && keys.length === 1 && key !== "filters") {
     return `${changes[0].label} ${formatValue(key, before.request[key])} → ${formatValue(key, after.request[key])}`;
   }
   const names = changes.map((change) => change.label);

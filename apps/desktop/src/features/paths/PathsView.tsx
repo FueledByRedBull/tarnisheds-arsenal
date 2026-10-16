@@ -96,7 +96,7 @@ export function PathsView() {
             Levels ahead
             <DraftNumberInput value={horizon} min={1} max={200} onCommit={setHorizon} />
           </label>
-          <button type="button" className="analysis-action" onClick={isPathBusy ? analysis.stop : refresh} disabled={!selected && !isPathBusy}>
+          <button type="button" className="analysis-action" onClick={() => void (isPathBusy ? analysis.stop() : refresh())} disabled={!selected && !isPathBusy}>
             {isPathBusy ? <Pause size={15} /> : <Play size={15} />}
             {isPathBusy ? "Stop" : "Trace paths"}
           </button>

@@ -117,6 +117,7 @@ for (const stage of ["setup", "commit", "earlier error"] as const) {
     await page.getByText("Snapshot loaded", { exact: true }).waitFor();
     await page.evaluate(async stage => {
       const { api } = await import("/src/lib/api.ts");
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- saved only to be restored onto the prototype
       const read = Storage.prototype.getItem;
       let denied = stage === "setup";
       Storage.prototype.getItem = function (key) {

@@ -7,7 +7,7 @@
     "dev": "vite --host 127.0.0.1 --port 1420",
     "build": "tsc && vite build",
     "test": "vitest run",
-    "lint": "eslint src tests --max-warnings 0 && tsc -p tsconfig.tests.json",
+    "lint": "eslint . --max-warnings 0 && tsc -p tsconfig.tests.json",
     "test:contracts": "node --test scripts/check-dto-contract.test.mjs scripts/lint-config.test.mjs scripts/native-responsiveness-metrics.test.mjs",
     "tauri": "tauri",
     "test:e2e": "node ./scripts/run-e2e.mjs",
@@ -26,11 +26,11 @@
     "@tauri-apps/cli": "^2.0.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@typescript-eslint/parser": "^8.70.1",
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "typescript": "^5.6.3",
+    "typescript-eslint": "8.70.1",
     "vite": "^8.0.12",
     "vitest": "^4.1.11"
   }
