@@ -1,18 +1,18 @@
 import { Pause, Play } from "lucide-react";
-import { memo, useState } from "react";
+import { memo } from "react";
 import { api } from "../../lib/api";
-import { analysisStatus, type AnalysisOutcome } from "../../lib/analysis-status";
+import { analysisStatus } from "../../lib/analysis-status";
 import { AnalysisProgress } from "../shared/AnalysisProgress";
 import { chartX, chartY, contiguousMetricSegments, niceTicks, paddedMetricDomain } from "../../lib/chart";
-import { useAffinityJob, useBuiltRequest } from "../../lib/hooks";
-import { errorMessage, fixed1, objectiveLabel, objectiveUnit, statLine } from "../../lib/format";
+import { AFFINITY_RUN, useAnalysisRun, useBuiltRequest } from "../../lib/hooks";
+import { fixed1, objectiveLabel, objectiveUnit, statLine } from "../../lib/format";
 import { clampHorizon, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
-import { AffinityWatchFinishedDto, AffinityWatchPayloadDto } from "../../lib/types";
-import type { NativeJobSuccess } from "../../lib/native-jobs";
+import { AffinityWatchPayloadDto } from "../../lib/types";
 import { DraftNumberInput } from "../query-strip/DraftNumberInput";
 import { AboutPopover } from "../shared/AboutPopover";
 import { WorkspaceGate } from "../shared/WorkspaceGate";
+import { ChartDataTable } from "../../lib/ChartDataTable";
 
 export function AffinityWatchView() {
   const catalog = useDesktopStore((state) => state.catalog);
@@ -24,39 +24,19 @@ export function AffinityWatchView() {
   const setHorizon = useDesktopStore((state) => state.setAffinityHorizon);
   const payload = useDesktopStore((state) => state.affinityPayload);
   const isAffinityBusy = useDesktopStore((state) => state.isAffinityBusy);
-  const setAffinityBusy = useDesktopStore((state) => state.setAffinityBusy);
-  const beginAffinity = useDesktopStore((state) => state.beginAffinity);
-  const activeAffinityJobId = useDesktopStore((state) => state.activeAffinityJobId);
-  const setActiveAffinityJobId = useDesktopStore((state) => state.setActiveAffinityJobId);
   const affinityProgress = useDesktopStore((state) => state.affinityProgress);
-  const setAffinityProgress = useDesktopStore((state) => state.setAffinityProgress);
   const pushNotice = useDesktopStore((state) => state.pushNotice);
-  const setError = useDesktopStore((state) => state.setError);
   const base = useBuiltRequest(catalog, request, lockedStatMode);
   const effectiveHorizon = clampHorizon(request, horizon);
   const signature = stableSignature({ base, selected, horizon: effectiveHorizon });
-  // A stopped or failed run is reported only while its inputs are still the current ones.
-  const [run, setRun] = useState<{ signature: string; outcome: AnalysisOutcome }>({ signature, outcome: null });
-  const runOutcome = run.signature === signature ? run.outcome : null;
-  const setRunOutcome = (outcome: AnalysisOutcome) => setRun({ signature, outcome });
   const affinitySignature = useDesktopStore((state) => state.affinitySignature);
+  const analysis = useAnalysisRun(AFFINITY_RUN, signature);
   const status = analysisStatus({
     busy: isAffinityBusy,
     resultSignature: affinitySignature,
     requestSignature: signature,
     hasResult: payload !== null,
-    outcome: runOutcome,
-  });
-
-  const startAffinityJob = useAffinityJob({
-    setAffinityProgress,
-    onStarted: (jobId, generation) => {
-      const current = useDesktopStore.getState();
-      if (current.resultsStale || !current.isAffinityBusy || current.affinityGeneration !== generation || current.activeAffinitySignature !== signature) {
-        throw new DOMException("Calculation stopped.", "AbortError");
-      }
-      setActiveAffinityJobId(jobId);
-    },
+    outcome: analysis.outcome,
   });
 
   async function refresh() {
@@ -69,63 +49,10 @@ export function AffinityWatchView() {
       pushNotice({ scope: "affinity_watch", tone: "warning", message: "Combat stats are already capped. There is no forward horizon to inspect." });
       return;
     }
-    setRunOutcome(null);
-    const generation = beginAffinity(signature);
-    try {
-      const finished = await startAffinityJob(
-        () => api.startAffinityWatch(base, selected, effectiveHorizon),
-        generation,
-      );
-      finishAffinityWatch(finished, generation);
-    } catch (error) {
-      const current = useDesktopStore.getState();
-      if (
-        current.isAffinityBusy &&
-        current.affinityGeneration === generation &&
-        current.activeAffinitySignature === signature
-      ) {
-        if (error instanceof DOMException && error.name === "AbortError") {
-          current.pushNotice({ scope: "affinity_watch", tone: "warning", message: "Affinity watch stopped." });
-          setRunOutcome("cancelled");
-        } else {
-          setError(errorMessage(error));
-          setRunOutcome("failed");
-        }
-        setAffinityBusy(false);
-        setActiveAffinityJobId(null);
-        setAffinityProgress(null);
-      }
-    }
-  }
-
-  async function stop() {
-    setRunOutcome("cancelled");
-    if (!activeAffinityJobId) setAffinityBusy(false);
-    if (activeAffinityJobId) {
-      try {
-        await api.cancelAffinityWatch(activeAffinityJobId);
-      } catch (error) {
-        const current = useDesktopStore.getState();
-        if (current.isAffinityBusy && current.activeAffinityJobId === activeAffinityJobId) {
-          setError(errorMessage(error));
-          setRunOutcome("failed");
-        }
-      }
-    }
-  }
-
-  function finishAffinityWatch(event: NativeJobSuccess<AffinityWatchFinishedDto>, generation: number) {
-    const current = useDesktopStore.getState();
-    if (
-      current.resultsStale || generation !== current.affinityGeneration ||
-      current.activeAffinitySignature !== signature ||
-      event.jobId !== current.activeAffinityJobId
-    ) return;
-    current.setAffinityPayload(event.payload, signature);
-    setRunOutcome(null);
-    current.setAffinityBusy(false);
-    current.setActiveAffinityJobId(null);
-    current.setAffinityProgress(null);
+    await analysis.start(
+      () => api.startAffinityWatch(base, selected, effectiveHorizon),
+      (finished) => useDesktopStore.getState().setAffinityPayload(finished.payload, signature),
+    );
   }
 
   if (resultsStale) {
@@ -151,7 +78,7 @@ export function AffinityWatchView() {
             Levels ahead
             <DraftNumberInput value={horizon} min={1} max={200} onCommit={setHorizon} />
           </label>
-          <button type="button" className="analysis-action" onClick={isAffinityBusy ? stop : refresh} disabled={!selected && !isAffinityBusy}>
+          <button type="button" className="analysis-action" onClick={isAffinityBusy ? analysis.stop : refresh} disabled={!selected && !isAffinityBusy}>
             {isAffinityBusy ? <Pause size={15} /> : <Play size={15} />}
             {isAffinityBusy ? "Stop" : "Watch affinities"}
           </button>
@@ -293,11 +220,8 @@ const AffinityChart = memo(function AffinityChart({ payload, objective, unit }: 
           <span>Watch affinities to reveal scaling curves and exact crossover points.</span>
         </div>
       )}
-      <table className="sr-only">
-        <caption>{objective} ({unit}) affinity values by character level</caption>
-        <thead><tr><th>Affinity</th><th>Level</th><th>{objective} ({unit})</th></tr></thead>
-        <tbody>{payload?.lines.flatMap((line) => line.points.map((point) => <tr key={`${line.affinity}-accessible-${point.level}`}><td>{line.affinity}</td><td>{point.level}</td><td>{fixed1(point.metric)} {unit}</td></tr>))}</tbody>
-      </table>
+      <ChartDataTable caption={`${objective} (${unit}) affinity values by character level`} headers={["Affinity", "Level", `${objective} (${unit})`]}
+        rows={payload?.lines.flatMap((line) => line.points.map((point) => [line.affinity, String(point.level), `${fixed1(point.metric)} ${unit}`])) ?? []} />
     </figure>
   );
 });

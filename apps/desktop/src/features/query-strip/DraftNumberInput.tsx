@@ -1,5 +1,6 @@
 import { KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { flashChanged } from "../../lib/motion";
+import { clamp } from "../../lib/session";
 
 // Commits on Enter, blur, or after a short idle pause, so typing "40" never searches with "4".
 export function DraftNumberInput({
@@ -97,8 +98,4 @@ function parseInteger(value: string): number {
     return Number.NaN;
   }
   return Number(value);
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }

@@ -1,18 +1,18 @@
 import { Pause, Play } from "lucide-react";
 import { memo, useState } from "react";
 import { api } from "../../lib/api";
-import { analysisStatus, type AnalysisOutcome } from "../../lib/analysis-status";
+import { analysisStatus } from "../../lib/analysis-status";
 import { AnalysisProgress } from "../shared/AnalysisProgress";
 import { chartX, chartY, contiguousMetricSegments, niceTicks, paddedMetricDomain } from "../../lib/chart";
-import { usePathJob, useBuiltRequest } from "../../lib/hooks";
-import { errorMessage, fixed1, objectiveLabel, objectiveUnit } from "../../lib/format";
+import { PATH_RUN, useAnalysisRun, useBuiltRequest } from "../../lib/hooks";
+import { fixed1, objectiveLabel, objectiveUnit } from "../../lib/format";
 import { clampHorizon, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
-import { PathFinishedDto, PathPreviewDto, SolvedBuildDto } from "../../lib/types";
-import type { NativeJobSuccess } from "../../lib/native-jobs";
+import { PathPreviewDto, SolvedBuildDto } from "../../lib/types";
 import { DraftNumberInput } from "../query-strip/DraftNumberInput";
 import { AboutPopover } from "../shared/AboutPopover";
 import { WorkspaceGate } from "../shared/WorkspaceGate";
+import { ChartDataTable } from "../../lib/ChartDataTable";
 
 export function PathsView() {
   const catalog = useDesktopStore((state) => state.catalog);
@@ -27,14 +27,8 @@ export function PathsView() {
   const setPathMode = useDesktopStore((state) => state.setPathMode);
   const paths = useDesktopStore((state) => state.paths);
   const isPathBusy = useDesktopStore((state) => state.isPathBusy);
-  const setPathBusy = useDesktopStore((state) => state.setPathBusy);
-  const beginPath = useDesktopStore((state) => state.beginPath);
-  const activePathJobId = useDesktopStore((state) => state.activePathJobId);
-  const setActivePathJobId = useDesktopStore((state) => state.setActivePathJobId);
   const pathProgress = useDesktopStore((state) => state.pathProgress);
-  const setPathProgress = useDesktopStore((state) => state.setPathProgress);
   const pushNotice = useDesktopStore((state) => state.pushNotice);
-  const setError = useDesktopStore((state) => state.setError);
   const base = useBuiltRequest(catalog, request, lockedStatMode);
   const effectiveHorizon = clampHorizon(request, horizon);
   const signature = stableSignature({
@@ -44,28 +38,14 @@ export function PathsView() {
     horizon: effectiveHorizon,
     pathMode,
   });
-  // A stopped or failed run is reported only while its inputs are still the current ones.
-  const [run, setRun] = useState<{ signature: string; outcome: AnalysisOutcome }>({ signature, outcome: null });
-  const runOutcome = run.signature === signature ? run.outcome : null;
-  const setRunOutcome = (outcome: AnalysisOutcome) => setRun({ signature, outcome });
   const pathSignature = useDesktopStore((state) => state.pathSignature);
+  const analysis = useAnalysisRun(PATH_RUN, signature);
   const status = analysisStatus({
     busy: isPathBusy,
     resultSignature: pathSignature,
     requestSignature: signature,
     hasResult: paths.length > 0,
-    outcome: runOutcome,
-  });
-
-  const startPathJob = usePathJob({
-    setPathProgress,
-    onStarted: (jobId, generation) => {
-      const current = useDesktopStore.getState();
-      if (current.resultsStale || !current.isPathBusy || current.pathGeneration !== generation || current.activePathSignature !== signature) {
-        throw new DOMException("Calculation stopped.", "AbortError");
-      }
-      setActivePathJobId(jobId);
-    },
+    outcome: analysis.outcome,
   });
 
   async function refresh() {
@@ -78,67 +58,15 @@ export function PathsView() {
       pushNotice({ scope: "paths", tone: "warning", message: "Combat stats are already capped. There is no forward path to trace." });
       return;
     }
-    setRunOutcome(null);
-    const generation = beginPath(signature);
-    if (effectiveHorizon < horizon) {
-      pushNotice({ scope: "paths", tone: "info", message: `Horizon capped at Current +${effectiveHorizon}.` });
-    }
-    try {
-      const requests = [
-        { base, solved: selected, levelsAhead: effectiveHorizon, title: "Selected", mode: pathMode },
-        ...(target ? [{ base, solved: target, levelsAhead: effectiveHorizon, title: "Compare", mode: pathMode }] : []),
-      ];
-      const finished = await startPathJob(() => api.startPathPreview(requests), generation);
-      finishPathPreview(finished, generation);
-    } catch (error) {
-      const current = useDesktopStore.getState();
-      if (
-        current.isPathBusy &&
-        current.pathGeneration === generation &&
-        current.activePathSignature === signature
-      ) {
-        if (error instanceof DOMException && error.name === "AbortError") {
-          current.pushNotice({ scope: "paths", tone: "warning", message: "Path preview stopped." });
-          setRunOutcome("cancelled");
-        } else {
-          setError(errorMessage(error));
-          setRunOutcome("failed");
-        }
-        setPathBusy(false);
-        setActivePathJobId(null);
-        setPathProgress(null);
-      }
-    }
-  }
-
-  async function stop() {
-    setRunOutcome("cancelled");
-    if (!activePathJobId) setPathBusy(false);
-    if (activePathJobId) {
-      try {
-        await api.cancelPathPreview(activePathJobId);
-      } catch (error) {
-        const current = useDesktopStore.getState();
-        if (current.isPathBusy && current.activePathJobId === activePathJobId) {
-          setError(errorMessage(error));
-          setRunOutcome("failed");
-        }
-      }
-    }
-  }
-
-  function finishPathPreview(payload: NativeJobSuccess<PathFinishedDto>, generation: number) {
-    const current = useDesktopStore.getState();
-    if (
-      current.resultsStale || generation !== current.pathGeneration ||
-      current.activePathSignature !== signature ||
-      payload.jobId !== current.activePathJobId
-    ) return;
-    current.setPaths(payload.paths, signature);
-    setRunOutcome(null);
-    current.setPathBusy(false);
-    current.setActivePathJobId(null);
-    current.setPathProgress(null);
+    const requests = [
+      { base, solved: selected, levelsAhead: effectiveHorizon, title: "Selected", mode: pathMode },
+      ...(target ? [{ base, solved: target, levelsAhead: effectiveHorizon, title: "Compare", mode: pathMode }] : []),
+    ];
+    await analysis.start(
+      () => api.startPathPreview(requests),
+      (finished) => useDesktopStore.getState().setPaths(finished.paths, signature),
+      effectiveHorizon < horizon ? { scope: "paths", tone: "info", message: `Horizon capped at Current +${effectiveHorizon}.` } : undefined,
+    );
   }
 
   if (resultsStale) {
@@ -169,7 +97,7 @@ export function PathsView() {
             Levels ahead
             <DraftNumberInput value={horizon} min={1} max={200} onCommit={setHorizon} />
           </label>
-          <button type="button" className="analysis-action" onClick={isPathBusy ? stop : refresh} disabled={!selected && !isPathBusy}>
+          <button type="button" className="analysis-action" onClick={isPathBusy ? analysis.stop : refresh} disabled={!selected && !isPathBusy}>
             {isPathBusy ? <Pause size={15} /> : <Play size={15} />}
             {isPathBusy ? "Stop" : "Trace paths"}
           </button>
@@ -335,11 +263,8 @@ const PathChart = memo(function PathChart({ paths, objective, unit }: { paths: P
         </div>
         <small className="path-marker-note">Markers show changes in added stat or respec; nearby changes are omitted. Inspect any level above.</small>
       </> : <p className="path-chart-empty">Trace paths to compare progress by character level.</p>}
-      <table className="sr-only">
-        <caption>{objective} ({unit}) path values by character level</caption>
-        <thead><tr><th>Lane</th><th>Level</th><th>{objective} ({unit})</th></tr></thead>
-        <tbody>{paths.flatMap((path) => path.steps.map((step) => <tr key={`${path.title}-accessible-${step.level}`}><td>{path.title}</td><td>{step.level}</td><td>{fixed1(step.metric)} {unit}</td></tr>))}</tbody>
-      </table>
+      <ChartDataTable caption={`${objective} (${unit}) path values by character level`} headers={["Lane", "Level", `${objective} (${unit})`]}
+        rows={paths.flatMap((path) => path.steps.map((step) => [path.title, String(step.level), `${fixed1(step.metric)} ${unit}`]))} />
     </figure>
   );
 });

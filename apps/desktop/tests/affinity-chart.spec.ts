@@ -79,4 +79,8 @@ test("affinity summaries show unavailable requested endpoints and preserve chart
   await expect(page.locator(".affinity-legend")).toContainText("Unavailable → Unavailable");
   await expect(page.locator(".affinity-series-point")).toHaveCount(1);
   await expect(page.locator(".affinity-series-point title")).toHaveText("Sparse level 11: 300.0");
+  // Every value, gaps included, is in the data table, which is rendered only once opened.
+  await expect(page.locator(".affinity-chart table")).toHaveCount(0);
+  await page.locator(".affinity-chart").getByText("Data table", { exact: true }).click();
+  await expect(page.getByRole("table", { name: /affinity values by character level/ }).getByRole("row")).toHaveCount(4);
 });

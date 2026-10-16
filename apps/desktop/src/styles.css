@@ -1792,6 +1792,13 @@ textarea {
 .path-point-summary small { display: block; color: var(--text-muted); }
 .path-marker-note, .path-marker-key, .path-chart-empty { color: var(--text-muted); font-size: var(--text-note); }
 
+/* A chart's values, collapsed until opened (Paths and Affinity Watch). */
+.chart-data { min-width: 0; max-height: 320px; overflow: auto; color: var(--text-muted); font-size: var(--text-note); }
+.chart-data table { width: 100%; border-collapse: collapse; color: var(--text); font-variant-numeric: tabular-nums; }
+.chart-data th, .chart-data td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line); }
+.chart-data th:first-child, .chart-data td:first-child { text-align: left; }
+.chart-data caption { padding: 6px 0; color: var(--text-muted); text-align: left; }
+
 .table-header {
   position: sticky;
   top: 0;

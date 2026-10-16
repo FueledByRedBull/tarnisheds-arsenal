@@ -243,7 +243,11 @@ export function compareUpgradeHorizon(request: OptimizeRequestDto): number {
 }
 
 function clampUpgrade(value: number, max: number): number {
-  return Math.min(Math.max(Math.trunc(value), 0), max);
+  return clamp(Math.trunc(value), 0, max);
+}
+
+export function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
 export function rowFingerprint(row: SolvedBuildDto | null): string | null {
@@ -269,7 +273,7 @@ function remainingCombatLevels(request: OptimizeRequestDto): number {
 }
 
 export function clampHorizon(request: OptimizeRequestDto, horizon: number): number {
-  return Math.max(0, Math.min(200, horizon, remainingCombatLevels(request)));
+  return clamp(horizon, 0, Math.min(200, remainingCombatLevels(request)));
 }
 
 export function stableSignature(value: unknown): string {
