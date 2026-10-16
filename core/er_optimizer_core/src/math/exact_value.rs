@@ -4,10 +4,9 @@ use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 use num_bigint::BigInt;
+use num_integer::Integer;
 use num_rational::{BigRational, Ratio};
-#[cfg(test)]
-use num_traits::Signed;
-use num_traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, One, ToPrimitive, Zero};
+use num_traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, One, Signed, ToPrimitive, Zero};
 
 type SmallRatio = Ratio<i128>;
 
@@ -15,7 +14,10 @@ type SmallRatio = Ratio<i128>;
 ///
 /// Small values always have a positive, nonzero denominator and never use
 /// `i128::MIN` as a numerator. The latter keeps the fixed-width ratio's edge
-/// cases out of projection and normalization helpers.
+/// cases out of projection and normalization helpers. Small values are not kept
+/// in lowest terms (same-denominator sums and raw products skip the gcd), so
+/// compare, project or reduce them; never hash or inspect `numer`/`denom` as a
+/// canonical form.
 #[derive(Clone)]
 pub(crate) enum ExactRational {
     Small(SmallRatio),
@@ -239,6 +241,7 @@ fn mul_values(left: &ExactRational, right: &ExactRational) -> ExactRational {
     ExactRational::from_big(left.to_big() * right.to_big())
 }
 
+/// Panics on a zero divisor, like `BigRational`; callers check divisors first.
 fn div_values(left: &ExactRational, right: &ExactRational) -> ExactRational {
     if right.is_zero() {
         return ExactRational::from_big(left.to_big() / right.to_big());
@@ -424,6 +427,61 @@ impl ToPrimitive for ExactRational {
             Self::Big(value) => value.to_f64(),
         }
     }
+
+    /// Rounds once to the nearest f32 (ties to even). The num-traits default goes
+    /// through f64 and can round twice for values with more than 53 significant bits.
+    fn to_f32(&self) -> Option<f32> {
+        if let Self::Small(value) = self
+            && (*value.denom() as u128).is_power_of_two()
+        {
+            // i128 -> f32 rounds once; the power-of-two scaling is exact unless subnormal.
+            let result = f64::from(*value.numer() as f32) / *value.denom() as f64;
+            if result == 0.0 || result.abs() >= f64::from(f32::MIN_POSITIVE) {
+                return Some(result as f32);
+            }
+        }
+        big_to_f32(&self.to_big())
+    }
+}
+
+fn big_to_f32(value: &BigRational) -> Option<f32> {
+    if value.is_zero() {
+        return Some(0.0);
+    }
+    let numer = value.numer().magnitude();
+    let denom = value.denom().magnitude();
+    // exponent = floor(log2(|value|)), from the operand bit lengths.
+    let estimate = numer.bits() as i64 - denom.bits() as i64;
+    let reaches = |exponent: i64| {
+        if exponent >= 0 {
+            *numer >= denom << exponent as usize
+        } else {
+            numer << (-exponent) as usize >= *denom
+        }
+    };
+    let exponent = if reaches(estimate) {
+        estimate
+    } else {
+        estimate - 1
+    };
+    // 24 significant bits (fewer below the normal range) plus one guard bit.
+    let shift = (23 - exponent).min(149) + 1;
+    let (quotient, remainder) = if shift >= 0 {
+        (numer << shift as usize).div_rem(denom)
+    } else {
+        numer.div_rem(&(denom << (-shift) as usize))
+    };
+    let mut mantissa = &quotient >> 1u8;
+    if quotient.bit(0) && (!remainder.is_zero() || mantissa.bit(0)) {
+        mantissa += 1u8;
+    }
+    // The mantissa fits 25 bits, so this product and the f32 conversion are exact.
+    let magnitude = (mantissa.to_f64()? * 2f64.powi(1 - shift as i32)) as f32;
+    Some(if value.is_negative() {
+        -magnitude
+    } else {
+        magnitude
+    })
 }
 
 impl Sum for ExactRational {
@@ -465,7 +523,7 @@ mod tests {
             assert_eq!((&left / &right).to_big(), &a / &b);
             for value in [&left, &(&left / &right)] {
                 assert_eq!(value.to_f64(), value.to_big().to_f64());
-                assert_eq!(value.to_f32(), value.to_big().to_f32());
+                assert_eq!(value.to_f32(), big_to_f32(&value.to_big()));
             }
         }
     }
@@ -552,5 +610,28 @@ mod tests {
         assert!(below_one < one);
         assert!(one < above_one);
         assert_eq!(forced_big_one, one);
+    }
+
+    #[test]
+    fn f32_projection_rounds_once_near_a_midpoint() {
+        // 1 + 2^-24 lies halfway between 1 and the next f32; a 2^-80 nudge decides the
+        // direction but is lost in f64, where ties-to-even would then give 1.
+        let scale: BigInt = BigInt::one() << 80;
+        let midpoint: BigInt = &scale + (BigInt::one() << 56);
+        let next_up = 1.0 + f32::EPSILON;
+        for (numer, denom, expected) in [
+            (&midpoint + 1u8, scale.clone(), next_up),
+            (&midpoint - 1u8, scale.clone(), 1.0),
+            (midpoint.clone(), scale.clone(), 1.0),
+            (&midpoint * 3u8 + 1u8, &scale * 3u8, next_up),
+            (-(&midpoint * 3u8 + 1u8), &scale * 3u8, -next_up),
+        ] {
+            let value = ExactRational::new(numer, denom);
+            assert_eq!(value.to_f32(), Some(expected), "{value:?}");
+        }
+        let tiny = ExactRational::new(BigInt::from(3), BigInt::one() << 150);
+        assert_eq!(tiny.to_f32(), Some(f32::from_bits(2)));
+        let huge = ExactRational::from_integer(BigInt::one() << 200);
+        assert_eq!(huge.to_f32(), Some(f32::INFINITY));
     }
 }

@@ -4472,7 +4472,7 @@ fn stat_can_increase_bleed_for_choice(
     prepared.upgrades.iter().any(|upgrade| {
         let mut source = data.weapon_passive(prepared.weapon.weapon_id);
         if let Some(overlay) = data.weapon_passive_overlay(prepared.weapon.weapon_id, *upgrade) {
-            merge_status_relevance_value(
+            crate::math::merge_status_value(
                 &mut source.buildup.bleed,
                 &mut source.correction_flags.bleed,
                 overlay.buildup.bleed,
@@ -4492,20 +4492,6 @@ fn aow_status_source(aow: &Aow) -> StatusEffectSource {
     }
 }
 
-fn merge_status_relevance_value(
-    base_value: &mut f32,
-    base_flag: &mut Option<bool>,
-    overlay_value: f32,
-    overlay_flag: Option<bool>,
-) {
-    if overlay_value > 0.0 {
-        *base_value = overlay_value;
-        if overlay_flag.is_some() {
-            *base_flag = overlay_flag;
-        }
-    }
-}
-
 fn bleed_source_stat_can_scale(
     source: StatusEffectSource,
     weapon: &Weapon,
@@ -4518,11 +4504,7 @@ fn bleed_source_stat_can_scale(
 }
 
 fn status_value_can_scale(value: f32, flag: Option<bool>) -> bool {
-    value > 0.0 && status_uses_correction(flag, true)
-}
-
-fn status_uses_correction(flag: Option<bool>, fallback: bool) -> bool {
-    flag.unwrap_or(fallback)
+    value > 0.0 && crate::math::uses_status_correction(flag, true)
 }
 
 fn minimum_str_for_requirement(

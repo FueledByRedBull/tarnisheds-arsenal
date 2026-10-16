@@ -14,9 +14,8 @@ pub use data::{
     load_embedded_game_profile_with_manifest, load_game_data, load_game_data_with_manifest,
 };
 pub use math::{
-    CUSTOM_STATS_CLASS_NAME, ScalingContribution, StartingClass, build_contributions, calculate_ar,
-    calculate_ar_for_type, class_by_name, compute_free_points, custom_stats_class, effective_str,
-    meets_requirements,
+    CUSTOM_STATS_CLASS_NAME, StartingClass, calculate_ar, class_by_name, compute_free_points,
+    custom_stats_class, effective_str, meets_requirements,
 };
 pub use model::{
     Aow, AttackElementCorrect, DamageBreakdown, DamageType, DataCapabilities, DisplayPoiseDamage,

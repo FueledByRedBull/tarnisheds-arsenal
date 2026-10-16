@@ -3,9 +3,9 @@ use std::collections::{BTreeMap, HashMap};
 use num_traits::Zero;
 
 use crate::model::{
-    AowActionResult, AowAttackRow, AowEffectRole, AowHitResult, AowRouteResult,
-    AttackElementCorrectExt, COMBAT_STAT_COUNT, DAMAGE_TYPE_COUNT, DamageBreakdown, DamageType,
-    GameData, STAT_ARC, STAT_DEX, STAT_FAI, STAT_INT, STAT_STR, StaminaCostMode, Stats,
+    Aow, AowActionResult, AowAttackRow, AowEffect, AowEffectRole, AowHitResult, AowRouteAssignment,
+    AowRouteResult, AttackElementCorrectExt, COMBAT_STAT_COUNT, DAMAGE_TYPE_COUNT, DamageBreakdown,
+    DamageType, GameData, STAT_ARC, STAT_DEX, STAT_FAI, STAT_INT, STAT_STR, StaminaCostMode, Stats,
     StatusBuildup, StatusCorrectionFlags, Weapon,
 };
 
@@ -13,8 +13,9 @@ pub(crate) mod exact;
 pub(crate) mod exact_value;
 use exact_value::ExactRational;
 
+/// f32 scheduling estimate only (see `estimate_ar`); never rank or prune with it.
 #[derive(Clone, Copy, Debug)]
-pub struct ScalingContribution {
+pub(crate) struct ScalingContribution {
     pub scaling: f32,
     pub scaling_mult: f32,
     pub curve_mult: f32,
@@ -35,19 +36,13 @@ pub const SCADUTREE_ATTACK_MULTIPLIERS: [f32; 21] = [
     1.925, 1.95, 1.975, 2.00, 2.025, 2.05,
 ];
 
+/// Callers validate the level first (`validate_profile_capabilities`, the request DTO).
 pub fn scadutree_attack_multiplier(dlc_scaling: bool, scadutree_level: u8) -> f32 {
+    debug_assert!(scadutree_level <= SCADUTREE_MAX_LEVEL);
     if !dlc_scaling {
         return 1.0;
     }
     SCADUTREE_ATTACK_MULTIPLIERS[usize::from(scadutree_level.min(SCADUTREE_MAX_LEVEL))]
-}
-
-pub fn scadutree_received_damage_multiplier(dlc_scaling: bool, scadutree_level: u8) -> f32 {
-    1.0 / scadutree_attack_multiplier(dlc_scaling, scadutree_level)
-}
-
-pub fn scadutree_damage_negation(dlc_scaling: bool, scadutree_level: u8) -> f32 {
-    1.0 - scadutree_received_damage_multiplier(dlc_scaling, scadutree_level)
 }
 
 pub fn meets_requirements(weapon: &Weapon, effective_str: u16, stats: &Stats) -> bool {
@@ -58,7 +53,7 @@ pub fn meets_requirements(weapon: &Weapon, effective_str: u16, stats: &Stats) ->
         && stats.arc >= weapon.requirements[STAT_ARC]
 }
 
-pub fn build_contributions(
+pub(crate) fn build_contributions(
     weapon: &Weapon,
     reinforce: &crate::model::ReinforceLevel,
     aec: &crate::model::AttackElementCorrect,
@@ -99,7 +94,7 @@ pub fn build_contributions(
     ]
 }
 
-pub fn calculate_ar_for_type(
+pub(crate) fn calculate_ar_for_type(
     actual_base: f32,
     contributions: &[ScalingContribution; COMBAT_STAT_COUNT],
 ) -> f32 {
@@ -113,7 +108,7 @@ pub fn calculate_ar_for_type(
     actual_base * (1.0 + bonus)
 }
 
-fn stat_values_for_scaling(
+pub(crate) fn stat_values_for_scaling(
     stats: &Stats,
     effective_str_value: u16,
     two_hand_disabled: bool,
@@ -220,21 +215,6 @@ pub(crate) fn estimate_ar(
         }
     }
     Ok(breakdown)
-}
-
-pub fn apply_aow_attack_buffs(
-    mut breakdown: DamageBreakdown,
-    aow: Option<&crate::model::Aow>,
-) -> DamageBreakdown {
-    let Some(aow) = aow else {
-        return breakdown;
-    };
-    breakdown.physical += aow.buff_attack_power[DamageType::Physical.as_index()];
-    breakdown.magic += aow.buff_attack_power[DamageType::Magic.as_index()];
-    breakdown.fire += aow.buff_attack_power[DamageType::Fire.as_index()];
-    breakdown.lightning += aow.buff_attack_power[DamageType::Lightning.as_index()];
-    breakdown.holy += aow.buff_attack_power[DamageType::Holy.as_index()];
-    breakdown
 }
 
 #[cfg(test)]
@@ -350,17 +330,25 @@ pub(crate) struct ScalarAowRouteMetric {
     pub full_sequence_damage: f32,
 }
 
-pub(crate) fn prepare_scalar_aow_routes<'a>(
-    attack_rows: &[&'a AowAttackRow],
-    data: &'a GameData,
-) -> Result<Option<Vec<ScalarAowRoute<'a>>>, String> {
-    let aows_by_id = data
-        .aows
-        .iter()
-        .map(|aow| (aow.aow_id, aow))
-        .collect::<HashMap<_, _>>();
-    let mut activation_orders = HashMap::<(String, u16), u16>::new();
+type BuffActivationOrders = HashMap<(String, u16), u16>;
+
+fn aows_by_id(data: &GameData) -> HashMap<u16, &Aow> {
+    data.aows.iter().map(|aow| (aow.aow_id, aow)).collect()
+}
+
+/// Earliest buff-activation action per (route, Ash); later actions on that route carry the
+/// buff. Scored and displayed routes both use this so their buff timing cannot drift.
+fn buff_activation_orders(
+    attack_rows: &[&AowAttackRow],
+    data: &GameData,
+    aows_by_id: &HashMap<u16, &Aow>,
+    should_continue: &mut impl FnMut() -> bool,
+) -> Result<BuffActivationOrders, String> {
+    let mut activation_orders = BuffActivationOrders::new();
     for row in attack_rows.iter().filter(|row| !row.is_lacking_fp) {
+        if !should_continue() {
+            return Err("cancelled".into());
+        }
         let Some(activation_action_id) = aows_by_id
             .get(&row.aow_id)
             .and_then(|aow| aow.buff_activation_action_id.as_deref())
@@ -368,6 +356,9 @@ pub(crate) fn prepare_scalar_aow_routes<'a>(
             continue;
         };
         for assignment in data.aow_route_assignments(row.aow_id, row.sheet_row) {
+            if !should_continue() {
+                return Err("cancelled".into());
+            }
             if assignment.action_id == activation_action_id {
                 activation_orders
                     .entry((assignment.route_id.clone(), row.aow_id))
@@ -376,6 +367,51 @@ pub(crate) fn prepare_scalar_aow_routes<'a>(
             }
         }
     }
+    Ok(activation_orders)
+}
+
+fn buff_active(
+    activation_orders: &BuffActivationOrders,
+    row: &AowAttackRow,
+    assignment: &AowRouteAssignment,
+) -> bool {
+    activation_orders
+        .get(&(assignment.route_id.clone(), row.aow_id))
+        .is_some_and(|activation_order| assignment.action_order > *activation_order)
+}
+
+/// A row may lack route assignments only when it neither deals damage nor carries a
+/// supported per-hit route effect.
+fn route_assignments<'a>(
+    row: &AowAttackRow,
+    effects: &[AowEffect],
+    data: &'a GameData,
+) -> Result<&'a [AowRouteAssignment], String> {
+    let assignments = data.aow_route_assignments(row.aow_id, row.sheet_row);
+    let has_route_effect = effects.iter().any(|effect| {
+        effect.is_supported
+            && matches!(
+                effect.role,
+                AowEffectRole::PerHitStatus
+                    | AowEffectRole::PerHitAttackPower
+                    | AowEffectRole::ReplacementOrChained
+            )
+    });
+    if assignments.is_empty() && (row.is_damaging() || has_route_effect) {
+        return Err(format!(
+            "missing AoW route assignment for skill={} sheet_row={}",
+            row.aow_id, row.sheet_row
+        ));
+    }
+    Ok(assignments)
+}
+
+pub(crate) fn prepare_scalar_aow_routes<'a>(
+    attack_rows: &[&'a AowAttackRow],
+    data: &'a GameData,
+) -> Result<Option<Vec<ScalarAowRoute<'a>>>, String> {
+    let aows_by_id = aows_by_id(data);
+    let activation_orders = buff_activation_orders(attack_rows, data, &aows_by_id, &mut || true)?;
 
     let mut routes = HashMap::<String, ScalarAowRoute<'a>>::new();
     for row in attack_rows.iter().filter(|row| !row.is_lacking_fp) {
@@ -385,26 +421,8 @@ pub(crate) fn prepare_scalar_aow_routes<'a>(
         }) {
             return Ok(None);
         }
-        let assignments = data.aow_route_assignments(row.aow_id, row.sheet_row);
-        let has_route_effect = effects.iter().any(|effect| {
-            effect.is_supported
-                && matches!(
-                    effect.role,
-                    AowEffectRole::PerHitStatus
-                        | AowEffectRole::PerHitAttackPower
-                        | AowEffectRole::ReplacementOrChained
-                )
-        });
-        if assignments.is_empty() {
-            if row.is_damaging() || has_route_effect {
-                return Err(format!(
-                    "missing AoW route assignment for skill={} sheet_row={}",
-                    row.aow_id, row.sheet_row
-                ));
-            }
-            continue;
-        }
-        if !row.is_damaging() {
+        let assignments = route_assignments(row, effects, data)?;
+        if assignments.is_empty() || !row.is_damaging() {
             continue;
         }
         let buff_attack_power = aows_by_id
@@ -413,9 +431,7 @@ pub(crate) fn prepare_scalar_aow_routes<'a>(
         for assignment in assignments.iter().flat_map(|assignment| {
             std::iter::repeat_n(assignment, usize::from(assignment.hit_count))
         }) {
-            let buff_active = activation_orders
-                .get(&(assignment.route_id.clone(), row.aow_id))
-                .is_some_and(|activation_order| assignment.action_order > *activation_order);
+            let buff_active = buff_active(&activation_orders, row, assignment);
             routes
                 .entry(assignment.route_id.clone())
                 .or_insert_with(|| ScalarAowRoute {
@@ -485,32 +501,13 @@ pub(crate) fn evaluate_scalar_aow_route(
     Ok(metric)
 }
 
-pub fn calculate_aow_routes(
+#[cfg(test)]
+pub(crate) fn calculate_aow_routes(
     weapon: &Weapon,
     attack_rows: &[&AowAttackRow],
     upgrade: u8,
     stats: &Stats,
     effective_str_value: u16,
-    data: &GameData,
-) -> Result<Vec<AowRouteResult>, String> {
-    calculate_aow_routes_scaled(
-        weapon,
-        attack_rows,
-        upgrade,
-        stats,
-        effective_str_value,
-        1.0,
-        data,
-    )
-}
-
-pub(crate) fn calculate_aow_routes_scaled(
-    weapon: &Weapon,
-    attack_rows: &[&AowAttackRow],
-    upgrade: u8,
-    stats: &Stats,
-    effective_str_value: u16,
-    damage_multiplier: f32,
     data: &GameData,
 ) -> Result<Vec<AowRouteResult>, String> {
     calculate_aow_routes_scaled_with_cancel(
@@ -519,7 +516,7 @@ pub(crate) fn calculate_aow_routes_scaled(
         upgrade,
         stats,
         effective_str_value,
-        damage_multiplier,
+        1.0,
         data,
         None,
         &mut || true,
@@ -543,58 +540,19 @@ pub(crate) fn calculate_aow_routes_scaled_with_cancel(
     }
     let damage_multiplier = exact::rational(damage_multiplier, "damage multiplier")?;
     let weapon_status = calculate_status_buildup(weapon, upgrade, stats, data)?;
-    let aows_by_id = data
-        .aows
-        .iter()
-        .map(|aow| (aow.aow_id, aow))
-        .collect::<HashMap<_, _>>();
-    let mut activation_orders = HashMap::<(String, u16), u16>::new();
-    for row in attack_rows.iter().filter(|row| !row.is_lacking_fp) {
-        if !should_continue() {
-            return Err("cancelled".into());
-        }
-        let Some(activation_action_id) = aows_by_id
-            .get(&row.aow_id)
-            .and_then(|aow| aow.buff_activation_action_id.as_deref())
-        else {
-            continue;
-        };
-        for assignment in data.aow_route_assignments(row.aow_id, row.sheet_row) {
-            if !should_continue() {
-                return Err("cancelled".into());
-            }
-            if assignment.action_id == activation_action_id {
-                activation_orders
-                    .entry((assignment.route_id.clone(), row.aow_id))
-                    .and_modify(|order| *order = (*order).min(assignment.action_order))
-                    .or_insert(assignment.action_order);
-            }
-        }
-    }
-    let mut pending: HashMap<String, PendingRoute> = HashMap::new();
+    let aows_by_id = aows_by_id(data);
+    let activation_orders =
+        buff_activation_orders(attack_rows, data, &aows_by_id, should_continue)?;
+    // Ordered so the first failing route (if any) is reported deterministically.
+    let mut pending: BTreeMap<String, PendingRoute> = BTreeMap::new();
 
     for row in attack_rows.iter().filter(|row| !row.is_lacking_fp) {
         if !should_continue() {
             return Err("cancelled".into());
         }
         let effects = data.aow_effects(row.aow_id, row.sheet_row).to_vec();
-        let has_route_effect = effects.iter().any(|effect| {
-            effect.is_supported
-                && matches!(
-                    effect.role,
-                    AowEffectRole::PerHitStatus
-                        | AowEffectRole::PerHitAttackPower
-                        | AowEffectRole::ReplacementOrChained
-                )
-        });
-        let assignments = data.aow_route_assignments(row.aow_id, row.sheet_row);
+        let assignments = route_assignments(row, &effects, data)?;
         if assignments.is_empty() {
-            if row.is_damaging() || has_route_effect {
-                return Err(format!(
-                    "missing AoW route assignment for skill={} sheet_row={}",
-                    row.aow_id, row.sheet_row
-                ));
-            }
             continue;
         }
 
@@ -677,9 +635,7 @@ pub(crate) fn calculate_aow_routes_scaled_with_cancel(
                 return Err("cancelled".into());
             }
             let aow = aows_by_id.get(&row.aow_id).copied();
-            let buff_active = activation_orders
-                .get(&(assignment.route_id.clone(), row.aow_id))
-                .is_some_and(|activation_order| assignment.action_order > *activation_order);
+            let buff_active = buff_active(&activation_orders, row, assignment);
             let mut hit_damage = damage.clone();
             let mut hit_status = weapon_status;
             if buff_active && let Some(aow) = aow {
@@ -1056,7 +1012,7 @@ fn truncate_status_buildup(buildup: StatusBuildup) -> StatusBuildup {
     }
 }
 
-fn uses_status_correction(flag: Option<bool>, fallback: bool) -> bool {
+pub(crate) fn uses_status_correction(flag: Option<bool>, fallback: bool) -> bool {
     flag.unwrap_or(fallback)
 }
 
@@ -1109,7 +1065,8 @@ fn merge_status_effect_source(
     base
 }
 
-fn merge_status_value(
+/// A positive overlay value replaces the base value and, when present, its correction flag.
+pub(crate) fn merge_status_value(
     base_value: &mut f32,
     base_flag: &mut Option<bool>,
     overlay_value: f32,
@@ -1370,7 +1327,7 @@ pub fn compute_free_points(
     if free < 0 {
         return Err("current stats exceed level budget".to_string());
     }
-    Ok(free as u16)
+    u16::try_from(free).map_err(|_| format!("free stat points {free} exceed {}", u16::MAX))
 }
 
 #[cfg(test)]
@@ -1936,7 +1893,7 @@ mod tests {
                 .into_iter()
                 .find(|route| route.route_id == "full")
                 .expect("Flame Skewer route");
-        let scaled = calculate_aow_routes_scaled(
+        let scaled = calculate_aow_routes_scaled_with_cancel(
             weapon,
             &rows,
             25,
@@ -1944,6 +1901,8 @@ mod tests {
             effective_str_value,
             2.05,
             &game_data,
+            None,
+            &mut || true,
         )?
         .into_iter()
         .find(|route| route.route_id == "full")
