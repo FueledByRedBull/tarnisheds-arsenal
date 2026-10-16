@@ -285,10 +285,10 @@ export function SavedBuildPanel() {
       <div className="inspector-actions stacked">
         <button type="button" onClick={() => saveCurrent()} disabled={!canSave}><Save size={15} />Save new</button>
         <button type="button" onClick={() => saveCurrent(selectedId)} disabled={!canSave || !selectedPreset}><Save size={15} />Update selected</button>
-        <button type="button" onClick={() => void loadCurrent()} disabled={!selectedPreset || isMigrating || !canLoad}><Upload size={15} />{isMigrating ? "Verifying..." : selectedPresetStale ? "Load inputs only" : "Load"}</button>
+        <button type="button" onClick={() => void loadCurrent()} disabled={!selectedPreset || isMigrating || !canLoad}><Upload size={15} />{isMigrating ? "Verifying…" : selectedPresetStale ? "Load inputs only" : "Load"}</button>
         {selectedPresetStale ? (
           <button type="button" onClick={() => selectedPreset && void migratePreset(selectedPreset)} disabled={isMigrating || !canLoad}>
-            <Upload size={15} />{isMigrating ? "Migrating..." : "Migrate data"}
+            <Upload size={15} />{isMigrating ? "Migrating…" : "Migrate data"}
           </button>
         ) : null}
       </div>
@@ -343,7 +343,7 @@ export function SavedBuildPanel() {
           </div>
         ) : importPreview?.error ? <small className="tone-danger">{importPreview.error}</small> : null}
         <button className="clear-locks" type="button" onClick={() => void importCurrent()} disabled={!importPreview?.value || isMigrating}>
-          <Upload size={15} />{isMigrating ? "Migrating..." : "Import"}
+          <Upload size={15} />{isMigrating ? "Migrating…" : "Import"}
         </button>
       </details>
       {opened ? <SavedBuildRecovery onChanged={refresh} revision={entries} /> : null}

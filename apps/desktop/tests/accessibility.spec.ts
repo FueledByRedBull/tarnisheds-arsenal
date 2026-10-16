@@ -88,3 +88,28 @@ test("the rankings grid is one tab stop and the Compare tab reads its pinned cou
   const compare = page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true });
   await expect(compare).toHaveAccessibleDescription(/1 pinned/);
 });
+
+test("the disclosed controls (column guide, export, How it works, More details) have no WCAG A/AA violations", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await expect(page.locator(".progress-strip")).toHaveCount(0);
+  await page.locator(".result-row").nth(1).click();
+  await page.getByRole("button", { name: "Column guide", exact: true }).click();
+  expect(await violations(page, ".popover-panel:popover-open")).toEqual([]);
+  await page.keyboard.press("Escape");
+  // Keyboard reaches the export choices, and Escape returns focus to the trigger.
+  await page.getByRole("button", { name: "Export CSV", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("group", { name: "Rows to export" })).toBeVisible();
+  expect(await violations(page, ".popover-panel:popover-open")).toEqual([]);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "Export CSV", exact: true })).toBeFocused();
+  await page.locator("summary").filter({ hasText: "More details" }).click();
+  expect(await violations(page, ".inspector")).toEqual([]);
+  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await page.getByRole("button", { name: "About Compare", exact: true }).click();
+  expect(await violations(page, ".popover-panel:popover-open")).toEqual([]);
+  await page.keyboard.press("Escape");
+  expect(await violations(page, ".compare-panel")).toEqual([]);
+});

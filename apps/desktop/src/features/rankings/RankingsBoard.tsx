@@ -314,7 +314,7 @@ export function RankingsBoard() {
       </div>
       {isExporting ? <div className="estimate-strip" role="status">
         <span>Exporting CSV</span>
-        <strong>{exportProgress ? `${exportProgress.checked.toLocaleString()} / ${exportProgress.total.toLocaleString()}` : "Preparing search..."}</strong>
+        <strong>{exportProgress ? `${exportProgress.checked.toLocaleString()} / ${exportProgress.total.toLocaleString()}` : "Preparing search…"}</strong>
       </div> : null}
       {resultsStale && rows.length > 0 ? (
         <div className="stale-results-banner" id="stale-results-message" role="status">
@@ -323,7 +323,7 @@ export function RankingsBoard() {
             <span>These rankings are retained from the previous query until the updated search finishes.</span>
           </div>
           <button type="button" onClick={() => void runSearchFromStore()} disabled={isSearching || isExporting}>
-            <RefreshCcw size={14} />{isSearching ? "Updating..." : "Run updated search"}
+            <RefreshCcw size={14} />{isSearching ? "Updating…" : "Run updated search"}
           </button>
         </div>
       ) : null}

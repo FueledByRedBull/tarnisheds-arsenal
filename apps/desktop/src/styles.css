@@ -1594,6 +1594,7 @@ textarea {
   gap: 5px;
   width: fit-content;
   margin-top: 4px;
+  min-height: 24px;
   padding: 2px 0;
   color: var(--text-muted);
   background: none;
