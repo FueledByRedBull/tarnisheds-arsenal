@@ -5,7 +5,7 @@ import { setAnalysisCacheVersion } from "../lib/analysis-cache";
 import { WORKSPACES } from "../lib/commands";
 import { keyboardOwnedByOverlay } from "../lib/keyboard";
 import { catalogVersion } from "../lib/preset-activation";
-import { useDesktopStore } from "../lib/state";
+import { persistProfileQueries, useDesktopStore } from "../lib/state";
 import { WorkspaceTab } from "../lib/types";
 import { AffinityWatchView } from "../features/affinity-watch/AffinityWatchView";
 import { QueryStrip } from "../features/query-strip/QueryStrip";
@@ -47,6 +47,8 @@ export function App() {
   const setError = useDesktopStore((state) => state.setError);
   const [catalogAttempt, setCatalogAttempt] = useState(0);
   const profileGeneration = useRef(0);
+
+  useEffect(() => persistProfileQueries(), []);
 
   const loadProfile = useCallback(async (nextProfileId: string, generation = ++profileGeneration.current) => {
     const before = useDesktopStore.getState();

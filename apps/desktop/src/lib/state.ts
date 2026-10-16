@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { MAX_COMPARE_PINS, readCompareBench, writeCompareBench } from "./compare-bench";
 import { activationRequest, catalogVersion, verifyPresetResults } from "./preset-activation";
+import { assertRequest } from "./presets";
+import { isRecord } from "./stored-build";
 import {
   AffinityWatchPayloadDto,
   AffinityWatchProgressDto,
@@ -28,7 +30,7 @@ export interface DesktopState {
   catalogError: string | null;
   request: OptimizeRequestDto;
   /** The query each profile last had, restored when the player switches back to it. */
-  profileQueries: Record<string, { request: OptimizeRequestDto; lockedStatMode: boolean }>;
+  profileQueries: Record<string, ProfileQuery>;
   loadoutSelectionRevision: number;
   rows: SolvedBuildDto[];
   /** Objective the current rows were ranked by; null when they did not come from a search. */
@@ -157,6 +159,60 @@ export function knownRequestFields(request: OptimizeRequestDto): OptimizeRequest
   };
 }
 
+type ProfileQuery = { request: OptimizeRequestDto; lockedStatMode: boolean };
+
+const QUERY_STORAGE_PREFIX = "tarnisheds-arsenal.query.v1.";
+const queryStorageKey = (profileId: string) => `${QUERY_STORAGE_PREFIX}${profileId}`;
+
+// A profile's saved query, checked like an imported preset request. A query that fails the
+// checks, or names another profile, is removed and reported, never carried across profiles.
+function readStoredQuery(profileId: string): { query: ProfileQuery | null; discarded: boolean } {
+  let raw: string | null;
+  try {
+    raw = localStorage.getItem(queryStorageKey(profileId));
+  } catch {
+    return { query: null, discarded: false };
+  }
+  if (raw === null) return { query: null, discarded: false };
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!isRecord(value) || value.version !== 1 || typeof value.lockedStatMode !== "boolean") throw new Error();
+    assertRequest(value.request);
+    // The query renders before its catalog loads, so its class must be one known without it.
+    classMeta(null, value.request.className);
+    if (value.request.profileId !== profileId) throw new Error();
+    return { query: { request: knownRequestFields(value.request), lockedStatMode: value.lockedStatMode }, discarded: false };
+  } catch {
+    try { localStorage.removeItem(queryStorageKey(profileId)); } catch { /* The next save replaces it. */ }
+    return { query: null, discarded: true };
+  }
+}
+
+// The crash screen promises a fresh workspace, and a saved query may be what broke it.
+export function clearSavedQueries() {
+  try {
+    const keys = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index));
+    for (const key of keys) if (key?.startsWith(QUERY_STORAGE_PREFIX)) localStorage.removeItem(key);
+  } catch {
+    // Storage is unavailable, so nothing saved can be restored either.
+  }
+}
+
+// Saves the shown profile's query as it changes, until the returned function is called. Only a
+// loaded profile's query is written, so a switch in progress never overwrites another one.
+export function persistProfileQueries(): () => void {
+  return useDesktopStore.subscribe((state, previous) => {
+    if (state.catalogStatus !== "ready" || state.catalog?.dataManifest.profile.id !== state.request.profileId) return;
+    if (state.request === previous.request && state.lockedStatMode === previous.lockedStatMode && previous.catalogStatus === "ready") return;
+    try {
+      localStorage.setItem(queryStorageKey(state.request.profileId),
+        JSON.stringify({ version: 1, request: state.request, lockedStatMode: state.lockedStatMode }));
+    } catch {
+      // Persistence is optional; the query stays in memory for this session.
+    }
+  });
+}
+
 const defaultCompareControls: CompareControls = {
   filters: { version: 1, entries: [] },
   weaponName: null,
@@ -233,9 +289,12 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
         ? { ...state.profileQueries, [state.request.profileId]: { request: state.request, lockedStatMode: state.lockedStatMode } }
         : state.profileQueries;
       // A failed load leaves no catalog; the profile it was left for still gets its query back.
-      // Loading the profile already shown is a retry, which keeps the query being edited.
+      // Loading the profile already shown is a retry, which keeps the query being edited, unless
+      // nothing was edited yet (startup), when the profile's saved query comes back.
       const sameProfile = state.request.profileId === profileId;
-      const remembered = sameProfile ? undefined : profileQueries[profileId];
+      const keepEdited = sameProfile && state.request !== defaultRequest;
+      const stored = keepEdited || profileQueries[profileId] ? { query: null, discarded: false } : readStoredQuery(profileId);
+      const remembered = keepEdited ? undefined : profileQueries[profileId] ?? stored.query ?? undefined;
       const profileName = (id: string) => state.profiles.find((entry) => entry.profile.id === id)?.profile.displayName ?? id;
       return ({
       ...invalidateAllJobs(state),
@@ -268,13 +327,20 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       compareBench: [],
       selectedFingerprint: null,
       compareControls: { ...defaultCompareControls },
-      notices: switching || remembered ? [{
-        scope: "global",
-        tone: "info",
-        message: remembered
-          ? `Restored your ${profileName(profileId)} query. Search to rank it again.`
-          : `Your ${profileName(state.request.profileId)} query is kept for when you switch back.`,
-      }] : [],
+      notices: [
+        ...(switching || remembered ? [{
+          scope: "global" as const,
+          tone: "info" as const,
+          message: remembered
+            ? `Restored your ${profileName(profileId)} query. Search to rank it again.`
+            : `Your ${profileName(state.request.profileId)} query is kept for when you switch back.`,
+        }] : []),
+        ...(stored.discarded ? [{
+          scope: "global" as const,
+          tone: "warning" as const,
+          message: `Your saved ${profileName(profileId)} query could not be read and was discarded.`,
+        }] : []),
+      ],
       error: null,
       });
     }),
