@@ -31,6 +31,7 @@ export async function launchPackagedApp(executablePath) {
     const port = await reserveLoopbackPort();
     const endpoint = `http://127.0.0.1:${port}`;
     let output = "";
+    /** @type {{ code: number | null, signal: NodeJS.Signals | null } | null} */
     let exit = null;
     const startedAt = performance.now();
     const child = spawn(executablePath, [], {
@@ -119,7 +120,7 @@ async function reserveLoopbackPort() {
   const server = createServer();
   await new Promise((resolve, reject) => {
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
+    server.listen(0, "127.0.0.1", () => resolve(undefined));
   });
   const address = server.address();
   if (!address || typeof address === "string") {

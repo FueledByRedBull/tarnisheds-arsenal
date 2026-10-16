@@ -63,7 +63,9 @@ function rustDeclarations(source) {
 
 function typescriptDeclarations(source) {
   const file = ts.createSourceFile("types.ts", source, ts.ScriptTarget.Latest, true);
-  assert.equal(file.parseDiagnostics.length, 0, "TypeScript source must parse");
+  // parseDiagnostics is internal to the TypeScript API but filled by createSourceFile.
+  const { parseDiagnostics } = /** @type {ts.SourceFile & { parseDiagnostics: readonly ts.Diagnostic[] }} */ (file);
+  assert.equal(parseDiagnostics.length, 0, "TypeScript source must parse");
   const declarations = new Map();
   // `export const NAMES = ["a", "b"] as const;` lists back `(typeof NAMES)[number]` types.
   const stringLists = new Set();
@@ -228,13 +230,13 @@ export function checkDomainContract({ coreTypesSource, errorsSource, tsSource })
     if (ts.isVariableStatement(node)) {
       for (const { name, initializer } of node.declarationList.declarations) {
         const array = initializer && ts.isAsExpression(initializer) ? initializer.expression : null;
-        if (array && ts.isArrayLiteralExpression(array)) lists.set(name.getText(file), array.elements.map(element => element.text));
+        if (array && ts.isArrayLiteralExpression(array)) lists.set(name.getText(file), array.elements.map(element => ts.isLiteralExpression(element) ? element.text : undefined));
       }
     }
     if (ts.isTypeAliasDeclaration(node)) aliases.set(node.name.text, node.type);
   }
   const literals = type => {
-    if (ts.isUnionTypeNode(type)) return type.types.map(member => member.literal?.text);
+    if (ts.isUnionTypeNode(type)) return type.types.map(member => ts.isLiteralTypeNode(member) && ts.isLiteralExpression(member.literal) ? member.literal.text : undefined);
     const query = ts.isIndexedAccessTypeNode(type) && (ts.isParenthesizedTypeNode(type.objectType) ? type.objectType.type : type.objectType);
     return query && ts.isTypeQueryNode(query) ? lists.get(query.exprName.getText(file)) : undefined;
   };

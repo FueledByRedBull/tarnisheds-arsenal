@@ -11,7 +11,7 @@ test("all native DTOs and enums agree with the frontend's wire shapes", () => {
   assert.ok(checked.declarations > 50 && checked.fields > 250);
 });
 
-for (const [description, before, after, expected] of [
+for (const [description, before, after, expected] of /** @type {Array<[string, string, string, RegExp]>} */ ([
   ["renamed field", "pub job_id: String,", "pub job_key: String,", /Contract drift/],
   ["new field", "pub job_id: String,", "pub job_id: String, pub attempt: u8,", /Contract drift/],
   ["primitive change", "pub weapon_id: u32,", "pub weapon_id: String,", /Contract drift/],
@@ -22,7 +22,7 @@ for (const [description, before, after, expected] of [
   ["unsupported serde", "pub job_id: String,", '#[serde(skip_serializing)] pub job_id: String,', /Unsupported serde/],
   ["unsupported Rust type", "pub job_id: String,", "pub job_id: serde_json::Value,", /Unsupported Rust type/],
   ["exception type change", "pub standard_max_upgrade: Option<u8>,", "pub standard_max_upgrade: Option<String>,", /restriction changed/],
-]) {
+])) {
   test(`rejects Rust ${description}`, () => {
     assert.ok(rust.includes(before), "mutation must apply to the current source");
     assert.throws(() => checkDtoContract(rust.replace(before, after), frontend), expected);
@@ -74,13 +74,14 @@ test("every native command is registered, allowed and called with its argument n
   assert.ok(checkCommandContract(commandContract()).commands > 15);
 });
 
-for (const [description, mutate, expected] of [
+/** @typedef {ReturnType<typeof commandContract>} CommandContract */
+for (const [description, mutate, expected] of /** @type {Array<[string, (contract: CommandContract) => CommandContract, RegExp]>} */ ([
   ["unregistered command", c => ({ ...c, libSource: c.libSource.replace("commands::optimize::cancel_search,", "") }), /generate_handler/],
   ["unlisted ACL command", c => ({ ...c, buildSource: c.buildSource.replace('"cancel_search",', "") }), /build.rs/],
   ["capability without the command", c => ({ ...c, capability: { permissions: c.capability.permissions.slice(1) } }), /capability/],
   ["renamed frontend argument", c => ({ ...c, apiSource: c.apiSource.replace('call<boolean>("cancel_search", { jobId })', 'call<boolean>("cancel_search", { id: jobId })') }), /argument drift: cancel_search/],
   ["misspelled frontend command", c => ({ ...c, apiSource: c.apiSource.replace('"cancel_search"', '"cancel_searches"') }), /unregistered command: cancel_searches/],
-]) {
+])) {
   test(`rejects ${description}`, () => {
     const contract = commandContract();
     const changed = mutate(contract);
@@ -99,11 +100,12 @@ test("string-valued request fields accept the same ids in Rust and TypeScript", 
   assert.equal(checkDomainContract(domainContract()).domains, 4);
 });
 
-for (const [description, mutate, expected] of [
+/** @typedef {ReturnType<typeof domainContract>} DomainContract */
+for (const [description, mutate, expected] of /** @type {Array<[string, (contract: DomainContract) => DomainContract, RegExp]>} */ ([
   ["objective added only in Rust", c => ({ ...c, coreTypesSource: c.coreTypesSource.replace('Self::MaxAr => "max_ar",', 'Self::MaxAr => "max_ar_v2",') }), /Value domain drift: ObjectiveId/],
   ["grouping removed in TypeScript", c => ({ ...c, tsSource: c.tsSource.replace('"automatic" | ', "") }), /Value domain drift: ResultGroupingId/],
   ["AppError field renamed", c => ({ ...c, errorsSource: c.errorsSource.replace("pub message: String,", "pub detail: String,") }), /AppError/],
-]) {
+])) {
   test(`rejects ${description}`, () => {
     const contract = domainContract();
     const changed = mutate(contract);

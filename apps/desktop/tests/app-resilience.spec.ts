@@ -64,7 +64,7 @@ test("recovers a damaged index without overwriting the original and restores a b
   const download = await downloadEvent;
   const stream = await download.createReadStream();
   const chunks: Buffer[] = [];
-  for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
   const buffer = Buffer.concat(chunks);
   expect(JSON.parse(buffer.toString()).builds).toHaveLength(1);
   await page.getByLabel("Restore build backup", { exact: false }).setInputFiles({ name: "builds.json", mimeType: "application/json", buffer });

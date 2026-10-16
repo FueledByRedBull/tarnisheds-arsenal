@@ -90,6 +90,7 @@ try {
   });
   if (!solved) throw new Error("baseline fixture did not produce a solved Uchigatana row");
 
+  /** @type {Array<[string, () => Promise<any>]>} */
   const cases = suite === "production" ? await productionCases(page) : [
     ["uncached-solve-batch", () => runSolveBatch(page)],
     ["build-upgrade-series", () => runSeries(page, solved)],
@@ -191,6 +192,7 @@ async function productionCases(page) {
   }
   if (fixtures[0].solved.weaponId === fixtures[1].solved.weaponId) throw new Error("Paths requires distinct loadout fixtures");
   const highK = { ...base, characterLevel: 46, topK: 500, resultGrouping: "loadout" };
+  /** @type {Array<[string, () => Promise<any>]>} */
   const cases = [
     ["locked-non-additive-solve", async () => ({
       ...await measureNativeWork(page, () => waitForJob(page, commandNames.solveStart, commandNames.analysisStatus, { request: coupledRequest }), "locked-non-additive-solve"),
@@ -284,12 +286,15 @@ async function runCancellation(page) {
 
 async function measureNativeWork(page, heavy, label) {
   const heavyStartedAt = performance.now();
+  /** @type {number} */
   let heavyFinishedAt;
   const heavyPromise = Promise.resolve(heavy()).then((result) => {
     heavyFinishedAt = performance.now();
     return result;
   });
+  /** @type {number} */
   let lightStartedAt;
+  /** @type {number} */
   let lightFinishedAt;
   // Chained instead of awaited, so Promise.all below observes a rejection from either side.
   const lightPromise = delay(1).then(() => {
@@ -322,6 +327,7 @@ async function measureCancellableJob(page, config) {
   const delayMs = config.delayMs ?? 20;
   if (delayMs > 0) await delay(delayMs);
   const lightStartedAt = performance.now();
+  /** @type {number} */
   let lightFinishedAt;
   const lightPromise = invokeNative(page, "get_data_manifest", { profileId: "vanilla" }).then((result) => {
     lightFinishedAt = performance.now();
@@ -382,7 +388,7 @@ async function waitForJobStatus(page, command, jobId) {
 
 async function invokeNative(page, command, args) {
   return page.evaluate(async ({ command: name, args: commandArgs }) => {
-    const internals = window.__TAURI_INTERNALS__;
+    const internals = /** @type {any} */ (window).__TAURI_INTERNALS__;
     if (!internals || typeof internals.invoke !== "function") throw new Error("Tauri internals invoke bridge is unavailable");
     try { return await internals.invoke(name, commandArgs); }
     catch (error) { throw new Error(JSON.stringify(error)); }
