@@ -1212,8 +1212,9 @@ def main(argv: list[str] | None = None) -> int:
             return 0 if report["status"] == "passed" else 1
 
         identity = _snapshot_identity(args.data_dir)
-        if identity.get("profile") != "vanilla" or identity.get("datasetVersion") != "vanilla-1.17":
-            raise ValueError("the pinned reference requires the Vanilla 1.17 dataset")
+        vanilla = profile_definition("vanilla")
+        if identity.get("profile") != "vanilla" or identity.get("datasetVersion") != vanilla.dataset_version:
+            raise ValueError(f"the pinned reference requires the {vanilla.dataset_version} dataset")
         with work_directory(ROOT, args.cache_dir) as workdir:
             source_dir, regulation = prepare_reference(workdir)
             external_weapons = run_node_reference(

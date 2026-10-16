@@ -6,14 +6,19 @@ import math
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Mapping
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.phase1.extract_motion_workbook import MOTION_WORKBOOK_NAME, load_weapon_workbook_data  # noqa: E402
-from tools.phase1.phase1_dump import MAX_EFFECTIVE_STRENGTH, read_csv  # noqa: E402
+from tools.phase1.phase1_dump import (  # noqa: E402
+    MAX_EFFECTIVE_STRENGTH,
+    WORKBOOK_POISE_FIELDS,
+    read_csv,
+    weapon_series_id,
+)
 from tools.phase1.profiles import ProfileDefinition, profile_definition  # noqa: E402
 from tools.phase1.snapshot_manifest import (  # noqa: E402
     SnapshotManifest,
@@ -532,7 +537,8 @@ def _validate_vanilla_snapshot(
             )
         )
 
-    workbook_weapon_ids = set(load_weapon_workbook_data(data_dir / MOTION_WORKBOOK_NAME))
+    workbook = load_weapon_workbook_data(data_dir / MOTION_WORKBOOK_NAME)
+    workbook_weapon_ids = set(workbook)
     standard_weapon_ids = {
         int(row["weapon_id"]) for row in weapons if row.get("affinity") == "Standard"
     }
@@ -545,6 +551,24 @@ def _validate_vanilla_snapshot(
                     f"missing={sorted(workbook_weapon_ids - standard_weapon_ids)[:10]} "
                     f"extra={sorted(standard_weapon_ids - workbook_weapon_ids)[:10]}"
                 ),
+            )
+        )
+
+    def poise(values: Mapping[str, object]) -> tuple[object, ...]:
+        return (float(str(values["base_poise"])), int(str(values["move_count"])),
+                *(str(values[field]) for field in WORKBOOK_POISE_FIELDS[2:]))
+
+    poise_mismatches = [
+        row["weapon_id"]
+        for row in weapons
+        if (source := workbook.get(weapon_series_id(int(row["weapon_id"])))) is None
+        or poise(row) != poise(vars(source))
+    ]
+    if poise_mismatches:
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"weapons.csv poise data differs from WeaponData: {poise_mismatches[:10]}",
             )
         )
     issues.extend(

@@ -113,6 +113,8 @@ class ProfileDefinition:
     arts_name_xmls: tuple[Path, ...] = ()
     version_file: Path | None = None
     weapon_reference_path: Path | None = None
+    # Raised when regenerated content changes for the same game and mod version.
+    dataset_revision: int = 1
 
     @property
     def regulation_path(self) -> Path:
@@ -120,9 +122,8 @@ class ProfileDefinition:
 
     @property
     def dataset_version(self) -> str:
-        if self.mod_version:
-            return f"{self.id}-{self.mod_version}"
-        return f"{self.id}-{self.game_version}"
+        version = f"{self.id}-{self.mod_version or self.game_version}"
+        return version if self.dataset_revision == 1 else f"{version}-r{self.dataset_revision}"
 
     def as_manifest_dict(self) -> dict[str, str | None]:
         return {
@@ -175,6 +176,7 @@ PROFILES: Mapping[str, ProfileDefinition] = {
             66_530_000: "Reed Great Katana",
             67_530_000: "Idus Sword",
         },
+        dataset_revision=2,
         sword_art_name_overrides={
             1_200: "Muleta",
             1_201: "Causality's Wrath",
@@ -223,6 +225,7 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         ),
         version_file=Path("data/raw/Conv/version.txt"),
         weapon_reference_path=Path("data/reference/convergence-3.0.0.1-weapons.json"),
+        dataset_revision=2,
     ),
 }
 

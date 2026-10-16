@@ -83,6 +83,21 @@ class ValidatePhase4Tests(unittest.TestCase):
                     issues = validation.validate_profile_snapshot(validation.ROOT / "data/phase1", "vanilla")
                 self.assertTrue(any(issue.level == "error" and field in issue.message for issue in issues))
 
+    def test_vanilla_poise_must_match_weapondata(self) -> None:
+        read_csv = validation.read_csv
+        for field, invalid in (("base_poise", "0"), ("move_count", "0"), ("two_hand_heavy_poise", "")):
+            with self.subTest(field=field):
+                def read(path: Path) -> list[dict[str, str]]:
+                    rows = read_csv(path)
+                    if path.name == "weapons.csv":
+                        target = next(row for row in rows if row["name"] == "Black Steel Greathammer")
+                        target[field] = invalid
+                    return rows
+
+                with patch.object(validation, "read_csv", side_effect=read):
+                    issues = validation.validate_profile_snapshot(validation.ROOT / "data/phase1", "vanilla")
+                self.assertTrue(any("poise data differs from WeaponData" in issue.message for issue in issues))
+
     def test_shared_weapon_model_checks_cover_convergence(self) -> None:
         data_dir = validation.ROOT / "data/profiles/convergence"
         self.assertEqual(validation.validate_profile_snapshot(data_dir, "convergence"), [])

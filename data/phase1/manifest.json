@@ -1,8 +1,8 @@
 {
   "schemaVersion": 6,
-  "datasetVersion": "vanilla-1.17",
+  "datasetVersion": "vanilla-1.17-r2",
   "modelVersion": "aow-routes-effects-v9",
-  "id": "vanilla-1.17",
+  "id": "vanilla-1.17-r2",
   "label": "Vanilla dataset - 1.17",
   "appVersion": "1.17",
   "source": "regulation.bin",
@@ -31,8 +31,8 @@
     "extendedScalingGrades": false,
     "statusBuildupScales": true
   },
-  "generatedAt": "2026-09-28",
-  "extractorVersion": "phase1-python-v13-skill-route-identity",
+  "generatedAt": "2026-10-16",
+  "extractorVersion": "phase1-python-v14-fail-closed-provenance",
   "provenance": "profile-bound regulation, names, motion data, and numeric PARAM effect graph",
   "runtimeFiles": [
     {
@@ -42,8 +42,8 @@
     },
     {
       "path": "aow_attack_data.csv",
-      "size": 382363,
-      "sha256": "6d41c5c0d781e30a7c51429950692b5be067e58b4bc52fd3e7cded047cdb9af3"
+      "size": 361734,
+      "sha256": "8fad3a3a49f947068f779baf18dc49384a0499a76cb2323827d7e667d0de4f1c"
     },
     {
       "path": "aow_effect_data.csv",
@@ -62,18 +62,18 @@
     },
     {
       "path": "attack_element_correct_ext.csv",
-      "size": 62892,
-      "sha256": "d7e386de59147cbb00e8182b084f9863791b66612baf0932eb018fdeade42d11"
+      "size": 44392,
+      "sha256": "bbd8102669061548fde404c43b806842aa6005e996816b9695f7e01dfa5e00ae"
     },
     {
       "path": "calc_correct.csv",
-      "size": 450928,
-      "sha256": "c81ec8219879fdb25e050c30d84ec6355bab146c4e0d01e44340dfb4160980bf"
+      "size": 28205,
+      "sha256": "3da125a8693d6a8f901deed93f09c802ab904f5b43daa5baf0bedf33bc3d7448"
     },
     {
       "path": "native_skill_attack_data.csv",
-      "size": 304867,
-      "sha256": "b740f91c18a9ee634ea55b8c61a4bb7bd9ec624ee41bd84d058bd3a07a49bcc2"
+      "size": 286199,
+      "sha256": "5309e169d6fe03dfa7273d4d94f4957e836e5b4601ec7746edbdfae5f6b5c210"
     },
     {
       "path": "reinforce.csv",
@@ -92,8 +92,8 @@
     },
     {
       "path": "weapons.csv",
-      "size": 779859,
-      "sha256": "21fcf327fd2ec6943675d696008afac747897cbcc88fff8c2cd2d15621b84fa8"
+      "size": 781198,
+      "sha256": "e43fce7ff82f2b8e96f07c0a336d369661c0fdad365d2086d6caff9e56eec300"
     }
   ],
   "diagnosticFiles": [
@@ -142,6 +142,90 @@
       "path": "ER - Motion Values and Attack Data (App Ver. 1.17).xlsx",
       "size": 4188998,
       "sha256": "6665a72bc9ed615bfcf8f8f5af09983391b673a2a839f2a614478941f79766f6"
+    },
+    {
+      "kind": "paramdexDefsAtkParam",
+      "bundled": false,
+      "path": "AtkParam.xml",
+      "size": 59876,
+      "sha256": "eb601cd7125c0a6f52b2343237c6a2b323591595f03c0412887a1e37baa5c2f7"
+    },
+    {
+      "kind": "paramdexDefsAttackElementCorrectParam",
+      "bundled": false,
+      "path": "AttackElementCorrectParam.xml",
+      "size": 19414,
+      "sha256": "bb52dfedd405d5c4d540478a04c4b2c59bf3d8bdeb199240fa560a593c5b902c"
+    },
+    {
+      "kind": "paramdexDefsBulletParam",
+      "bundled": false,
+      "path": "BulletParam.xml",
+      "size": 37452,
+      "sha256": "f17a54b351cfb1e8928fb592c63e82c4479b82f04559a25e9340e3324526758a"
+    },
+    {
+      "kind": "paramdexDefsCalcCorrectGraph",
+      "bundled": false,
+      "path": "CalcCorrectGraph.xml",
+      "size": 6006,
+      "sha256": "27e6d51c4dafba042c06d7a09b93a0d903bad2227ce805247bb2fda510022ea5"
+    },
+    {
+      "kind": "paramdexDefsEquipParamGem",
+      "bundled": false,
+      "path": "EquipParamGem.xml",
+      "size": 30577,
+      "sha256": "efcb6cd3b6b5199931ae75ec79ca445a52c10e66e19a25f5895edfada63012b8"
+    },
+    {
+      "kind": "paramdexDefsEquipParamWeapon",
+      "bundled": false,
+      "path": "EquipParamWeapon.xml",
+      "size": 83556,
+      "sha256": "d7e81e9338c505f3fc2276ceda7ef8a08f0db6d89ab2dd6d9882dfebe31ccedd"
+    },
+    {
+      "kind": "paramdexDefsReinforceParamWeapon",
+      "bundled": false,
+      "path": "ReinforceParamWeapon.xml",
+      "size": 11754,
+      "sha256": "d0880f30a974370345360e90f835fc1baf1887371f82526ce4ccaec9139769d2"
+    },
+    {
+      "kind": "paramdexDefsSpEffect",
+      "bundled": false,
+      "path": "SpEffect.xml",
+      "size": 117444,
+      "sha256": "9227b1e2cb06298bcda9e21fad06f5fff17eb4e456e420e97c4d2ed1fa0e9a7b"
+    },
+    {
+      "kind": "paramdexMetaEquipParamWeapon",
+      "bundled": false,
+      "path": "EquipParamWeapon.xml",
+      "size": 56032,
+      "sha256": "009855ded528862808a3d70fe737894ed6f08517b4dbddbb33f15fb7ebe9fe2a"
+    },
+    {
+      "kind": "paramdexNamesEquipParamWeapon",
+      "bundled": false,
+      "path": "EquipParamWeapon.txt",
+      "size": 111115,
+      "sha256": "3a749beccf5055d1c1d6a1f559ffa722332ec9a2b6d38e91edc06560c92205ad"
+    },
+    {
+      "kind": "paramdexNamesSwordArtsParam",
+      "bundled": false,
+      "path": "SwordArtsParam.txt",
+      "size": 5738,
+      "sha256": "340fcbd3e4d3bc42bdd3f72b32c79596cdfdf7b2fc434d375b3c2c83037043db"
+    },
+    {
+      "kind": "witchybnd",
+      "bundled": false,
+      "path": "WitchyBND.exe",
+      "size": 82128653,
+      "sha256": "00aa5b321d5af0179d3c9154a48d2ab3bb55772eaf624a439cc5f6ad4e21982b"
     }
   ]
 }

@@ -36,7 +36,9 @@ recover original decimal precision or establish in-game accuracy. The
 arithmetic, tie order, and proof obligations.
 
 The current snapshot model is `aow-routes-effects-v9`; runtime results and caches
-use `aow-routes-effects-v9/exact-v3`. Storage schema and calculation semantics are
+use `aow-routes-effects-v9/exact-v3`. The bundled datasets are `vanilla-1.17-r2` and
+`convergence-3.0.0.1-r2`, written by extractor `phase1-python-v14-fail-closed-provenance`.
+Storage schema and calculation semantics are
 separate versions. The [extraction guide](../tools/phase1/README.md#snapshot-contract)
 owns the storage format and regeneration requirements. Incompatible saved results
 must be recalculated; reusable saved inputs are retained.

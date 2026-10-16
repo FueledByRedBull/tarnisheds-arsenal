@@ -1,8 +1,8 @@
 {
   "schemaVersion": 6,
-  "datasetVersion": "convergence-3.0.0.1",
+  "datasetVersion": "convergence-3.0.0.1-r2",
   "modelVersion": "aow-routes-effects-v9",
-  "id": "convergence-3.0.0.1",
+  "id": "convergence-3.0.0.1-r2",
   "label": "The Convergence dataset - 3.0.0.1",
   "appVersion": "1.16.1",
   "source": "regulation.bin",
@@ -31,8 +31,8 @@
     "extendedScalingGrades": true,
     "statusBuildupScales": false
   },
-  "generatedAt": "2026-09-28",
-  "extractorVersion": "phase1-python-v13-skill-route-identity",
+  "generatedAt": "2026-10-16",
+  "extractorVersion": "phase1-python-v14-fail-closed-provenance",
   "provenance": "profile-bound regulation, names, and numeric PARAM effect graph",
   "runtimeFiles": [
     {
@@ -42,8 +42,8 @@
     },
     {
       "path": "aow_attack_data.csv",
-      "size": 583,
-      "sha256": "59b680f1ddf2730147844ae4af4dfebb95191cd416db03bb9383f74aab7dfa0f"
+      "size": 570,
+      "sha256": "7656c0b2792e8499fbd7cc16eb94e2b4af3448f2ef52079a3f0f09cdaf945db0"
     },
     {
       "path": "aow_effect_data.csv",
@@ -67,13 +67,13 @@
     },
     {
       "path": "calc_correct.csv",
-      "size": 466135,
-      "sha256": "19a912c0c80b3511c1d5e462d4e32e8cd63d4fecedb414d5413391f938b56501"
+      "size": 22326,
+      "sha256": "16c0879f097dba509fa0dea51a721b31959c0bd91f3958f0e6d062e0ad355bef"
     },
     {
       "path": "native_skill_attack_data.csv",
-      "size": 625,
-      "sha256": "0c1c3546cbee489677ab016cf89840cd95dad15393f5f50a6cbf51653ff26da6"
+      "size": 612,
+      "sha256": "70433b4fbc3f1d986ccd3c69b4dd41a633c98d2211fd71e129e356850a1f6f3c"
     },
     {
       "path": "reinforce.csv",
@@ -92,8 +92,8 @@
     },
     {
       "path": "weapons.csv",
-      "size": 579669,
-      "sha256": "6b61da01015b7be673fbec678bdc24b1dfae96a2dfcc81cb96f770aa535d134f"
+      "size": 605109,
+      "sha256": "95a96625a7630aae02a06a43727caac6a069d122cd32b53e61fc83ab8c5d1c53"
     }
   ],
   "diagnosticFiles": [
@@ -133,6 +133,55 @@
       "sha256": "6b3f58699cbc9ee04cd116526ccd474f42dcb2c2de79d249a4726c5f7aba783a"
     },
     {
+      "kind": "paramdexDefsAttackElementCorrectParam",
+      "bundled": false,
+      "path": "AttackElementCorrectParam.xml",
+      "size": 19414,
+      "sha256": "bb52dfedd405d5c4d540478a04c4b2c59bf3d8bdeb199240fa560a593c5b902c"
+    },
+    {
+      "kind": "paramdexDefsCalcCorrectGraph",
+      "bundled": false,
+      "path": "CalcCorrectGraph.xml",
+      "size": 6006,
+      "sha256": "27e6d51c4dafba042c06d7a09b93a0d903bad2227ce805247bb2fda510022ea5"
+    },
+    {
+      "kind": "paramdexDefsEquipParamGem",
+      "bundled": false,
+      "path": "EquipParamGem.xml",
+      "size": 30577,
+      "sha256": "efcb6cd3b6b5199931ae75ec79ca445a52c10e66e19a25f5895edfada63012b8"
+    },
+    {
+      "kind": "paramdexDefsEquipParamWeapon",
+      "bundled": false,
+      "path": "EquipParamWeapon.xml",
+      "size": 83556,
+      "sha256": "d7e81e9338c505f3fc2276ceda7ef8a08f0db6d89ab2dd6d9882dfebe31ccedd"
+    },
+    {
+      "kind": "paramdexDefsReinforceParamWeapon",
+      "bundled": false,
+      "path": "ReinforceParamWeapon.xml",
+      "size": 11754,
+      "sha256": "d0880f30a974370345360e90f835fc1baf1887371f82526ce4ccaec9139769d2"
+    },
+    {
+      "kind": "paramdexDefsSpEffect",
+      "bundled": false,
+      "path": "SpEffect.xml",
+      "size": 117444,
+      "sha256": "9227b1e2cb06298bcda9e21fad06f5fff17eb4e456e420e97c4d2ed1fa0e9a7b"
+    },
+    {
+      "kind": "paramdexMetaEquipParamWeapon",
+      "bundled": false,
+      "path": "EquipParamWeapon.xml",
+      "size": 56032,
+      "sha256": "009855ded528862808a3d70fe737894ed6f08517b4dbddbb33f15fb7ebe9fe2a"
+    },
+    {
       "kind": "weaponAvailability",
       "bundled": false,
       "path": "convergence-3.0.0.1-weapons.json",
@@ -152,6 +201,13 @@
       "path": "WeaponName_dlc01.fmg.xml",
       "size": 34842,
       "sha256": "85583d37381423ef516b925655cf62a9336e140aba3b4876471c78cac1758016"
+    },
+    {
+      "kind": "witchybnd",
+      "bundled": false,
+      "path": "WitchyBND.exe",
+      "size": 82128653,
+      "sha256": "00aa5b321d5af0179d3c9154a48d2ab3bb55772eaf624a439cc5f6ad4e21982b"
     }
   ]
 }
