@@ -7,16 +7,15 @@ use num_rational::{BigRational, Ratio};
 use num_traits::{One, Signed, ToPrimitive, Zero};
 
 use crate::math::exact_value::ExactRational;
+use crate::model::COMBAT_STAT_COUNT;
 
-const COMPONENT_COUNT: usize = 5;
-
-type Combat = [u8; COMPONENT_COUNT];
+type Combat = [u8; COMBAT_STAT_COUNT];
 type Key<I, const N: usize> = [I; N];
-type Additions = [Vec<Vec<u8>>; COMPONENT_COUNT];
+type Additions = [Vec<Vec<u8>>; COMBAT_STAT_COUNT];
 type BigKey<const N: usize> = Key<BigInt, N>;
-type BigDeltas<const N: usize> = [Vec<BigKey<N>>; COMPONENT_COUNT];
+type BigDeltas<const N: usize> = [Vec<BigKey<N>>; COMBAT_STAT_COUNT];
 type SmallKey<const N: usize> = Key<i128, N>;
-type SmallDeltas<const N: usize> = [Vec<SmallKey<N>>; COMPONENT_COUNT];
+type SmallDeltas<const N: usize> = [Vec<SmallKey<N>>; COMBAT_STAT_COUNT];
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DpResult {
@@ -28,9 +27,9 @@ pub struct DpResult {
 #[allow(clippy::too_many_arguments)]
 pub fn solve<const N: usize>(
     base: &[BigRational; N],
-    deltas: &[Vec<[BigRational; N]>; COMPONENT_COUNT],
+    deltas: &[Vec<[BigRational; N]>; COMBAT_STAT_COUNT],
     mins: Combat,
-    active: [bool; COMPONENT_COUNT],
+    active: [bool; COMBAT_STAT_COUNT],
     budget: usize,
     primary_only: bool,
     allowed: Option<&Additions>,
@@ -70,9 +69,9 @@ pub fn solve<const N: usize>(
 #[allow(clippy::too_many_arguments)]
 pub fn solve_exact<const N: usize>(
     base: &[ExactRational; N],
-    deltas: &[Vec<[ExactRational; N]>; COMPONENT_COUNT],
+    deltas: &[Vec<[ExactRational; N]>; COMBAT_STAT_COUNT],
     mins: Combat,
-    active: [bool; COMPONENT_COUNT],
+    active: [bool; COMBAT_STAT_COUNT],
     budget: usize,
     primary_only: bool,
     allowed: Option<&Additions>,
@@ -85,7 +84,7 @@ pub fn solve_exact<const N: usize>(
     let Some((base, deltas)) = normalize_small(base, deltas, active, slots, should_continue)?
     else {
         let base = std::array::from_fn(|component| base[component].to_big());
-        let mut big_deltas: [Vec<[BigRational; N]>; COMPONENT_COUNT] =
+        let mut big_deltas: [Vec<[BigRational; N]>; COMBAT_STAT_COUNT] =
             std::array::from_fn(|_| Vec::new());
         for (stat, values) in deltas.iter().enumerate() {
             for delta in values {
@@ -132,13 +131,13 @@ fn check_continue<F: FnMut() -> bool + ?Sized>(should_continue: &mut F) -> Resul
 
 fn normalize<const N: usize>(
     base: &[BigRational; N],
-    deltas: &[Vec<[BigRational; N]>; COMPONENT_COUNT],
-    active: [bool; COMPONENT_COUNT],
+    deltas: &[Vec<[BigRational; N]>; COMBAT_STAT_COUNT],
+    active: [bool; COMBAT_STAT_COUNT],
     slots: usize,
     should_continue: &mut impl FnMut() -> bool,
 ) -> Result<Normalized<N>, String> {
     let mut normalized_deltas: BigDeltas<N> = std::array::from_fn(|_| Vec::new());
-    for stat in 0..COMPONENT_COUNT {
+    for stat in 0..COMBAT_STAT_COUNT {
         if !active[stat] {
             continue;
         }
@@ -206,7 +205,7 @@ fn normalize<const N: usize>(
         let denominator = denominator.as_ref();
 
         let mut values = Vec::with_capacity(
-            1 + (0..COMPONENT_COUNT)
+            1 + (0..COMBAT_STAT_COUNT)
                 .filter(|&stat| active[stat])
                 .map(|stat| normalized_deltas[stat].len())
                 .sum::<usize>(),
@@ -248,7 +247,7 @@ fn normalize<const N: usize>(
         let mut value_index = 0;
         normalized_base[component] = values[value_index].clone();
         value_index += 1;
-        for stat in 0..COMPONENT_COUNT {
+        for stat in 0..COMBAT_STAT_COUNT {
             if !active[stat] {
                 continue;
             }
@@ -294,13 +293,13 @@ fn normalize<const N: usize>(
 
 fn normalize_small<const N: usize>(
     base: &[ExactRational; N],
-    deltas: &[Vec<[ExactRational; N]>; COMPONENT_COUNT],
-    active: [bool; COMPONENT_COUNT],
+    deltas: &[Vec<[ExactRational; N]>; COMBAT_STAT_COUNT],
+    active: [bool; COMBAT_STAT_COUNT],
     slots: usize,
     should_continue: &mut impl FnMut() -> bool,
 ) -> Result<Option<(SmallKey<N>, SmallDeltas<N>)>, String> {
     let mut normalized_deltas: SmallDeltas<N> = std::array::from_fn(|_| Vec::new());
-    for stat in 0..COMPONENT_COUNT {
+    for stat in 0..COMBAT_STAT_COUNT {
         if !active[stat] {
             continue;
         }
@@ -391,7 +390,7 @@ fn normalize_small<const N: usize>(
         }
 
         let mut values = Vec::with_capacity(
-            1 + (0..COMPONENT_COUNT)
+            1 + (0..COMBAT_STAT_COUNT)
                 .filter(|&stat| active[stat])
                 .map(|stat| normalized_deltas[stat].len())
                 .sum::<usize>(),
@@ -437,7 +436,7 @@ fn normalize_small<const N: usize>(
         let mut value_index = 0;
         normalized_base[component] = values[value_index];
         value_index += 1;
-        for stat in 0..COMPONENT_COUNT {
+        for stat in 0..COMBAT_STAT_COUNT {
             if !active[stat] {
                 continue;
             }
@@ -541,9 +540,9 @@ struct State<I, const N: usize> {
 #[allow(clippy::too_many_arguments)]
 fn run_dp<I, const N: usize>(
     base: Key<I, N>,
-    deltas: [Vec<Key<I, N>>; COMPONENT_COUNT],
+    deltas: [Vec<Key<I, N>>; COMBAT_STAT_COUNT],
     mins: Combat,
-    active: [bool; COMPONENT_COUNT],
+    active: [bool; COMBAT_STAT_COUNT],
     budget: usize,
     primary_only: bool,
     allowed: Option<&Additions>,
@@ -561,7 +560,7 @@ where
     let mut additions: Additions = std::array::from_fn(|_| Vec::new());
     let mut max_reachable = 0;
 
-    for stat in 0..COMPONENT_COUNT {
+    for stat in 0..COMBAT_STAT_COUNT {
         if !active[stat] {
             continue;
         }
@@ -845,7 +844,7 @@ mod tests {
         score: ExactRational,
         ar: ExactRational,
         full: ExactRational,
-    ) -> [ExactRational; COMPONENT_COUNT] {
+    ) -> [ExactRational; COMBAT_STAT_COUNT] {
         [
             score,
             ar,
@@ -855,16 +854,16 @@ mod tests {
         ]
     }
 
-    fn exact_zero_row() -> [ExactRational; COMPONENT_COUNT] {
+    fn exact_zero_row() -> [ExactRational; COMBAT_STAT_COUNT] {
         exact_row(exact_integer(0), exact_integer(0), exact_integer(0))
     }
 
     fn to_big_inputs(
-        base: &[ExactRational; COMPONENT_COUNT],
-        deltas: &[Vec<[ExactRational; COMPONENT_COUNT]>; COMPONENT_COUNT],
+        base: &[ExactRational; COMBAT_STAT_COUNT],
+        deltas: &[Vec<[ExactRational; COMBAT_STAT_COUNT]>; COMBAT_STAT_COUNT],
     ) -> (
-        [BigRational; COMPONENT_COUNT],
-        [Vec<[BigRational; COMPONENT_COUNT]>; COMPONENT_COUNT],
+        [BigRational; COMBAT_STAT_COUNT],
+        [Vec<[BigRational; COMBAT_STAT_COUNT]>; COMBAT_STAT_COUNT],
     ) {
         let base = std::array::from_fn(|component| base[component].to_big());
         let deltas = std::array::from_fn(|stat| {
@@ -885,7 +884,7 @@ mod tests {
             exact_integer(0),
             exact_integer(0),
         ];
-        let mut deltas: [Vec<[ExactRational; COMPONENT_COUNT]>; COMPONENT_COUNT] =
+        let mut deltas: [Vec<[ExactRational; COMBAT_STAT_COUNT]>; COMBAT_STAT_COUNT] =
             std::array::from_fn(|_| vec![exact_zero_row()]);
         deltas[0].push(exact_row(
             exact_ratio(1, 6),
@@ -903,7 +902,7 @@ mod tests {
         let small = solve_exact(
             &base,
             &deltas,
-            [0; COMPONENT_COUNT],
+            [0; COMBAT_STAT_COUNT],
             [true, true, false, false, false],
             2,
             false,
@@ -915,7 +914,7 @@ mod tests {
         let big = solve(
             &big_base,
             &big_deltas,
-            [0; COMPONENT_COUNT],
+            [0; COMBAT_STAT_COUNT],
             [true, true, false, false, false],
             2,
             false,
@@ -936,7 +935,7 @@ mod tests {
             exact_integer(0),
             exact_integer(0),
         ];
-        let mut deltas: [Vec<[ExactRational; COMPONENT_COUNT]>; COMPONENT_COUNT] =
+        let mut deltas: [Vec<[ExactRational; COMBAT_STAT_COUNT]>; COMBAT_STAT_COUNT] =
             std::array::from_fn(|_| vec![exact_zero_row()]);
         deltas[0].push(exact_row(
             exact_ratio(i128::MAX, 2),
@@ -956,7 +955,7 @@ mod tests {
         let promoted = solve_exact(
             &base,
             &deltas,
-            [0; COMPONENT_COUNT],
+            [0; COMBAT_STAT_COUNT],
             active,
             1,
             false,
@@ -968,7 +967,7 @@ mod tests {
         let expected = solve(
             &big_base,
             &big_deltas,
-            [0; COMPONENT_COUNT],
+            [0; COMBAT_STAT_COUNT],
             active,
             1,
             false,
@@ -981,8 +980,8 @@ mod tests {
 
     #[test]
     fn small_normalization_promotes_when_multiple_stat_bounds_sum_past_i128() {
-        let base: [ExactRational; COMPONENT_COUNT] = std::array::from_fn(|_| exact_integer(0));
-        let mut deltas: [Vec<[ExactRational; COMPONENT_COUNT]>; COMPONENT_COUNT] =
+        let base: [ExactRational; COMBAT_STAT_COUNT] = std::array::from_fn(|_| exact_integer(0));
+        let mut deltas: [Vec<[ExactRational; COMBAT_STAT_COUNT]>; COMBAT_STAT_COUNT] =
             std::array::from_fn(|_| vec![exact_zero_row()]);
         let mut first = exact_zero_row();
         first[0] = exact_integer(i128::MAX);
@@ -1004,19 +1003,19 @@ mod tests {
 
     #[test]
     fn i128_and_bigint_run_dp_match_for_same_normalized_inputs() {
-        let base: SmallKey<COMPONENT_COUNT> = [7, -3, 11, 5, -2];
-        let deltas: SmallDeltas<COMPONENT_COUNT> = [
-            vec![[0; COMPONENT_COUNT], [2, 1, -1, 0, 3], [5, -2, 2, 1, -1]],
-            vec![[0; COMPONENT_COUNT], [2, 1, 0, 4, -2], [1, 3, -2, -1, 2]],
-            vec![[0; COMPONENT_COUNT], [1, -1, 3, 2, 0], [4, 2, -1, 0, -3]],
-            vec![[0; COMPONENT_COUNT], [3, 0, 1, -2, 1], [2, -3, 0, 1, 4]],
-            vec![[0; COMPONENT_COUNT], [1, 2, -2, 3, -1], [3, -1, 1, -1, 2]],
+        let base: SmallKey<COMBAT_STAT_COUNT> = [7, -3, 11, 5, -2];
+        let deltas: SmallDeltas<COMBAT_STAT_COUNT> = [
+            vec![[0; COMBAT_STAT_COUNT], [2, 1, -1, 0, 3], [5, -2, 2, 1, -1]],
+            vec![[0; COMBAT_STAT_COUNT], [2, 1, 0, 4, -2], [1, 3, -2, -1, 2]],
+            vec![[0; COMBAT_STAT_COUNT], [1, -1, 3, 2, 0], [4, 2, -1, 0, -3]],
+            vec![[0; COMBAT_STAT_COUNT], [3, 0, 1, -2, 1], [2, -3, 0, 1, 4]],
+            vec![[0; COMBAT_STAT_COUNT], [1, 2, -2, 3, -1], [3, -1, 1, -1, 2]],
         ];
         let mins = [10, 20, 30, 40, 50];
-        let active = [true; COMPONENT_COUNT];
-        let big_base: BigKey<COMPONENT_COUNT> =
+        let active = [true; COMBAT_STAT_COUNT];
+        let big_base: BigKey<COMBAT_STAT_COUNT> =
             std::array::from_fn(|component| BigInt::from(base[component]));
-        let big_deltas: BigDeltas<COMPONENT_COUNT> = std::array::from_fn(|stat| {
+        let big_deltas: BigDeltas<COMBAT_STAT_COUNT> = std::array::from_fn(|stat| {
             deltas[stat]
                 .iter()
                 .map(|delta| std::array::from_fn(|component| BigInt::from(delta[component])))

@@ -21,7 +21,10 @@ pub(super) fn merge_scored_top_k(
     top_k: usize,
 ) {
     for candidate in candidates {
-        push_scored_top_k(results, candidate, weapons, group_mode, top_k);
+        // A candidate that cannot enter would only be scanned and truncated.
+        if could_enter_scored_top_k(results, &candidate, top_k) {
+            push_scored_top_k(results, candidate, weapons, group_mode, top_k);
+        }
     }
 }
 
@@ -120,6 +123,7 @@ fn same_scored_result_group(
     }
 }
 
+#[cfg(test)]
 pub(super) fn push_top_k(
     results: &mut Vec<OptimizeResult>,
     candidate: OptimizeResult,
@@ -154,6 +158,7 @@ pub(super) fn push_top_k(
     }
 }
 
+#[cfg(test)]
 fn same_result_group(
     left: &OptimizeResult,
     right: &OptimizeResult,

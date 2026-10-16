@@ -14,8 +14,8 @@ use rayon::prelude::*;
 use crate::math::ScalarAowRoute;
 use crate::math::{
     apply_aow_status_buffs, calculate_aow_routes_scaled_with_cancel, calculate_status_buildup,
-    class_by_name, compute_free_points, effective_str, meets_requirements,
-    prepare_scalar_aow_routes,
+    class_by_name, compute_free_points, effective_str, has_unmodeled_attack_power,
+    meets_requirements, prepare_scalar_aow_routes,
 };
 #[cfg(test)]
 use crate::math::{calculate_aow_routes, evaluate_scalar_aow_route};
@@ -143,7 +143,7 @@ impl PreparedLoadoutEvaluator<'_> {
                 .collect::<Vec<_>>();
             upgrades.sort_unstable();
             upgrades.dedup();
-            let mut rows = Vec::new();
+            let mut best: Option<OptimizeResult> = None;
             for upgrade in upgrades {
                 if let Some(row) = evaluate_fixed_loadout_upgrade(
                     request,
@@ -152,11 +152,12 @@ impl PreparedLoadoutEvaluator<'_> {
                     upgrade,
                     stats,
                     &mut should_continue,
-                )? {
-                    push_top_k(&mut rows, row, 1, ResultGroupMode::Loadout);
+                )? && best.as_ref().is_none_or(|best| better_result(&row, best))
+                {
+                    best = Some(row);
                 }
             }
-            return Ok(rows);
+            return Ok(best.into_iter().collect());
         }
         let plan = build_prepared_plan(
             request,
@@ -760,6 +761,7 @@ trait SearchProgress {
         eligible_delta: u64,
         best_score: Option<f32>,
     ) -> Result<(), String>;
+    #[cfg(test)]
     fn is_cancelled(&self) -> bool;
     fn poll(&mut self) -> Result<(), String>;
     fn finish(&mut self) -> Result<(), String> {
@@ -772,7 +774,6 @@ const PARALLEL_AOW_CHUNK_SIZE: usize = 8;
 const PARALLEL_PROGRESS_BATCH: u64 = 8_192;
 const PROGRESS_POLL_BATCH: u32 = 1_024;
 const PROGRESS_MIN_INTERVAL: Duration = Duration::from_millis(100);
-pub const CANCELLATION_LATENCY_TARGET_MS: u64 = 250;
 
 pub fn prepare_search<'a>(
     request: &OptimizeRequest,
@@ -896,24 +897,9 @@ pub fn prepare_loadout_evaluator_with_cancel<'a, F>(
 where
     F: FnMut() -> bool,
 {
-    validate_profile_capabilities(request, data)?;
-    if request.weapon_name.is_none() || request.affinity.is_none() {
-        return Err("reusable loadout evaluation requires a weapon and affinity".to_string());
-    }
-    if !request.exact_upgrade {
-        return Err("reusable loadout evaluation requires exact upgrade levels".to_string());
-    }
-    let mut preparation_request = request.clone();
-    preparation_request.min_combat_stats = [0; COMBAT_STAT_COUNT];
-    preparation_request.locked_combat_stats = [None; COMBAT_STAT_COUNT];
-    preparation_request.top_k = 1;
-    build_combat_constraints(&preparation_request)?;
-    let weapons = Arc::from(
-        prepare_weapons_with_cancel(&preparation_request, data, None, &mut should_continue)?
-            .into_boxed_slice(),
-    );
+    let (template, weapons) = prepare_reusable_weapons(request, data, true, &mut should_continue)?;
     Ok(PreparedLoadoutEvaluator {
-        template: preparation_request,
+        template,
         data,
         weapons,
     })
@@ -927,12 +913,39 @@ pub fn prepare_upgrade_series_evaluator_with_cancel<'a, F>(
 where
     F: FnMut() -> bool,
 {
+    let (template, weapons) = prepare_reusable_weapons(request, data, false, &mut should_continue)?;
+    Ok(PreparedUpgradeSeriesEvaluator {
+        template,
+        data,
+        weapons,
+    })
+}
+
+/// Prepares one weapon and affinity for every stat budget: stat floors and locks are
+/// cleared so later requests can change them without repeating preparation. Loadout
+/// evaluators use one exact upgrade; upgrade series need an upgrade range.
+fn prepare_reusable_weapons<'a>(
+    request: &OptimizeRequest,
+    data: &'a GameData,
+    exact_upgrade: bool,
+    should_continue: &mut impl FnMut() -> bool,
+) -> Result<(OptimizeRequest, Arc<[PreparedWeapon<'a>]>), String> {
     validate_profile_capabilities(request, data)?;
+    let purpose = if exact_upgrade {
+        "reusable loadout evaluation"
+    } else {
+        "upgrade series evaluation"
+    };
     if request.weapon_name.is_none() || request.affinity.is_none() {
-        return Err("upgrade series evaluation requires a weapon and affinity".to_string());
+        return Err(format!("{purpose} requires a weapon and affinity"));
     }
-    if request.exact_upgrade {
-        return Err("upgrade series evaluation requires an upgrade range".to_string());
+    if request.exact_upgrade != exact_upgrade {
+        let upgrades = if exact_upgrade {
+            "exact upgrade levels"
+        } else {
+            "an upgrade range"
+        };
+        return Err(format!("{purpose} requires {upgrades}"));
     }
     if !should_continue() {
         return Err("cancelled".to_string());
@@ -943,14 +956,10 @@ where
     preparation_request.top_k = 1;
     build_combat_constraints(&preparation_request)?;
     let weapons = Arc::from(
-        prepare_weapons_with_cancel(&preparation_request, data, None, &mut should_continue)?
+        prepare_weapons_with_cancel(&preparation_request, data, None, should_continue)?
             .into_boxed_slice(),
     );
-    Ok(PreparedUpgradeSeriesEvaluator {
-        template: preparation_request,
-        data,
-        weapons,
-    })
+    Ok((preparation_request, weapons))
 }
 
 fn validate_reusable_loadout(
@@ -1061,7 +1070,14 @@ fn build_prepared_plan<'a>(
         estimate,
     };
     plan.fine_work_units = build_search_work_units(&plan, true)?;
-    plan.serial_work_units = build_search_work_units(&plan, false)?;
+    plan.serial_work_units = if matches!(
+        request.objective,
+        OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
+    ) {
+        build_search_work_units(&plan, false)?
+    } else {
+        plan.fine_work_units.clone()
+    };
     Ok(plan)
 }
 
@@ -1072,23 +1088,6 @@ pub fn optimize(request: &OptimizeRequest, data: &GameData) -> Result<Vec<Optimi
     }
     let plan = prepare_search(request, data)?;
     optimize_prepared_with_progress(&plan, 0, |_snapshot| true)
-}
-
-pub fn optimize_with_progress<F>(
-    request: &OptimizeRequest,
-    data: &GameData,
-    progress_every: u64,
-    progress_cb: F,
-) -> Result<Vec<OptimizeResult>, String>
-where
-    F: FnMut(ProgressSnapshot) -> bool + Send,
-{
-    if request.top_k == 0 {
-        validate_profile_capabilities(request, data)?;
-        return Ok(Vec::new());
-    }
-    let plan = prepare_search(request, data)?;
-    optimize_prepared_with_progress(&plan, progress_every, progress_cb)
 }
 
 pub fn optimize_with_cancel<F>(
@@ -1107,6 +1106,7 @@ where
     optimize_prepared_with_progress(&plan, 1_024, move |_snapshot| should_continue())
 }
 
+/// Every level's ranked rows are retained, so callers keep `top_k` small (the desktop uses 1).
 pub fn optimize_level_range_with_progress<F, C>(
     request: &OptimizeRequest,
     levels: &[u16],
@@ -1190,16 +1190,9 @@ where
                 &mut should_continue,
             )?
         };
-        let rows = if range_reuse_enabled && level_plan_can_reuse(&plan, &dp_reuse) {
-            optimize_prepared_with_reuse(
-                &plan,
-                1_024,
-                |_snapshot| should_continue(),
-                &mut dp_reuse,
-            )?
-        } else {
-            optimize_prepared_with_progress(&plan, 1_024, |_snapshot| should_continue())?
-        };
+        let reuse = (range_reuse_enabled && level_plan_can_reuse(&plan, &dp_reuse))
+            .then_some(&mut dp_reuse);
+        let rows = optimize_prepared(&plan, 1_024, |_snapshot| should_continue(), reuse)?;
         results.push(LevelOptimizeResult { level, rows });
         if !level_complete(level) {
             return Err("cancelled".to_string());
@@ -1209,7 +1202,8 @@ where
 }
 
 fn level_range_reuse_enabled(request: &OptimizeRequest) -> bool {
-    // ponytail: fixed-loadout cache stays bounded; broaden after measuring other range shapes.
+    // The fixed-loadout DP cache stays bounded; broaden it only after measuring other range
+    // shapes.
     request.top_k == 1
         && request.exact_upgrade
         && request.weapon_name.is_some()
@@ -1231,10 +1225,25 @@ fn level_plan_can_reuse(plan: &PreparedSearchPlan<'_>, reuse: &DpReuse) -> bool 
             .all(|group| reuse.max_search(&group.search).is_some())
 }
 
+/// `progress_cb` both receives throttled snapshots and decides whether to continue.
+/// `progress_every == 0` disables both, so cancellable callers pass a positive interval.
 pub fn optimize_prepared_with_progress<F>(
     plan: &PreparedSearchPlan<'_>,
     progress_every: u64,
+    progress_cb: F,
+) -> Result<Vec<OptimizeResult>, String>
+where
+    F: FnMut(ProgressSnapshot) -> bool + Send,
+{
+    optimize_prepared(plan, progress_every, progress_cb, None)
+}
+
+/// With `reuse`, scoring runs serially and shares exact DP tables across a level range.
+fn optimize_prepared<F>(
+    plan: &PreparedSearchPlan<'_>,
+    progress_every: u64,
     mut progress_cb: F,
+    reuse: Option<&mut DpReuse>,
 ) -> Result<Vec<OptimizeResult>, String>
 where
     F: FnMut(ProgressSnapshot) -> bool + Send,
@@ -1247,10 +1256,15 @@ where
         best_score: 0.0,
         elapsed_ms: 0,
     };
-    let candidates = score_prepared_with_progress(plan, progress_every, |snapshot| {
-        last_snapshot = snapshot;
-        progress_cb(snapshot)
-    })?;
+    let candidates = score_prepared_with_progress(
+        plan,
+        progress_every,
+        |snapshot| {
+            last_snapshot = snapshot;
+            progress_cb(snapshot)
+        },
+        reuse,
+    )?;
     // Hydration does not score more candidates. Keep the final counts while
     // allowing the same callback to cancel after the scoring workers join.
     materialize_scored_candidates_with_cancel(
@@ -1265,44 +1279,6 @@ where
     )
 }
 
-fn optimize_prepared_with_reuse<F>(
-    plan: &PreparedSearchPlan<'_>,
-    progress_every: u64,
-    progress_cb: F,
-    reuse: &mut DpReuse,
-) -> Result<Vec<OptimizeResult>, String>
-where
-    F: FnMut(ProgressSnapshot) -> bool + Send,
-{
-    let group_mode = result_group_mode(&plan.request);
-    if plan.request.top_k == 0 || plan.weapons.is_empty() {
-        return Ok(Vec::new());
-    }
-    let total = plan
-        .serial_work_units
-        .iter()
-        .map(|unit| unit.candidate_count)
-        .sum::<u64>();
-    if total == 0 {
-        return Ok(Vec::new());
-    }
-    let mut progress = SerialSearchProgress::new(total, progress_every, progress_cb);
-    let candidates = score_serial(
-        plan,
-        &plan.serial_work_units,
-        group_mode,
-        &mut progress,
-        Some(reuse),
-    )?;
-    materialize_scored_candidates_with_cancel(
-        &plan.request,
-        plan.data,
-        &plan.weapons,
-        candidates,
-        &mut || progress.emit(true).is_ok(),
-    )
-}
-
 pub fn optimize_profiled(
     request: &OptimizeRequest,
     data: &GameData,
@@ -1312,7 +1288,7 @@ pub fn optimize_profiled(
     let preparation = preparation_started.elapsed();
 
     let scoring_started = Instant::now();
-    let candidates = score_prepared_with_progress(&plan, 0, |_| true)?;
+    let candidates = score_prepared_with_progress(&plan, 0, |_| true, None)?;
     let scoring = scoring_started.elapsed();
 
     let materialization_started = Instant::now();
@@ -1333,6 +1309,7 @@ fn score_prepared_with_progress<F>(
     plan: &PreparedSearchPlan<'_>,
     progress_every: u64,
     progress_cb: F,
+    reuse: Option<&mut DpReuse>,
 ) -> Result<Vec<ScoredCandidate>, String>
 where
     F: FnMut(ProgressSnapshot) -> bool + Send,
@@ -1355,7 +1332,8 @@ where
         return Ok(Vec::new());
     }
 
-    let candidates = if should_use_parallel_search(total, fine_work_units.len()) {
+    let candidates = if reuse.is_none() && should_use_parallel_search(total, fine_work_units.len())
+    {
         score_parallel(
             plan,
             fine_work_units,
@@ -1371,7 +1349,7 @@ where
             &plan.serial_work_units,
             group_mode,
             &mut progress,
-            None,
+            reuse,
         )?
     };
     Ok(candidates)
@@ -1511,7 +1489,7 @@ where
 {
     let request = &plan.request;
     progress.emit_initial()?;
-    let mut candidates = Vec::<ScoredCandidate>::with_capacity(request.top_k);
+    let mut candidates = Vec::<ScoredCandidate>::with_capacity(request.top_k.min(work_units.len()));
     for unit in work_units {
         let cutoff = score_cutoff(plan, *unit, &candidates, group_mode);
         let mut unit_results = search_dp_work_unit(
@@ -1561,59 +1539,50 @@ where
             | OptimizeObjective::MaxPhysicalAr
             | OptimizeObjective::BleedThenAr
     )
-    .then(|| Mutex::new(Vec::<ScoredCandidate>::with_capacity(request.top_k)));
+    .then(|| Mutex::new(Vec::<ScoredCandidate>::new()));
     let partial_results = work_units
         .par_iter()
-        .try_fold(
-            || Vec::<ScoredCandidate>::with_capacity(request.top_k),
-            |mut candidates, unit| {
-                let mut local_progress = ParallelLocalProgress::new(Arc::clone(&progress));
-                // Completed units are already shared; copy only the exact cutoff.
-                let shared_cutoff = if let Some(shared_candidates) = &shared_candidates {
-                    let shared = shared_candidates
-                        .lock()
-                        .map_err(|_| "failed to lock parallel top-K candidates".to_string())?;
-                    score_cutoff(plan, *unit, &shared, group_mode).cloned()
-                } else {
-                    None
-                };
-                let cutoff = if shared_candidates.is_some() {
-                    shared_cutoff.as_ref()
-                } else {
-                    score_cutoff(plan, *unit, &candidates, group_mode)
-                };
-                let result =
-                    search_dp_work_unit(plan, *unit, group_mode, &mut local_progress, cutoff, None);
-                let finish_result = local_progress.finish();
-                let results = match (result, finish_result) {
-                    (Ok(results), Ok(())) => results,
-                    (Err(error), _) | (_, Err(error)) => return Err(error),
-                };
-                if let Some(shared_candidates) = &shared_candidates {
-                    let mut shared = shared_candidates
-                        .lock()
-                        .map_err(|_| "failed to lock parallel top-K candidates".to_string())?;
-                    merge_scored_top_k(
-                        &mut shared,
-                        results.iter().cloned(),
-                        &plan.weapons,
-                        group_mode,
-                        request.top_k,
-                    );
-                }
-                merge_scored_top_k(
-                    &mut candidates,
-                    results,
-                    &plan.weapons,
-                    group_mode,
-                    request.top_k,
-                );
-                Ok(candidates)
-            },
-        )
+        .try_fold(Vec::<ScoredCandidate>::new, |mut candidates, unit| {
+            let mut local_progress = ParallelLocalProgress::new(Arc::clone(&progress));
+            // Completed units are already shared; copy only the exact cutoff.
+            let shared_cutoff = if let Some(shared_candidates) = &shared_candidates {
+                let shared = shared_candidates
+                    .lock()
+                    .map_err(|_| "failed to lock parallel top-K candidates".to_string())?;
+                score_cutoff(plan, *unit, &shared, group_mode).cloned()
+            } else {
+                None
+            };
+            let cutoff = if shared_candidates.is_some() {
+                shared_cutoff.as_ref()
+            } else {
+                score_cutoff(plan, *unit, &candidates, group_mode)
+            };
+            let result =
+                search_dp_work_unit(plan, *unit, group_mode, &mut local_progress, cutoff, None);
+            let finish_result = local_progress.finish();
+            let results = match (result, finish_result) {
+                (Ok(results), Ok(())) => results,
+                (Err(error), _) | (_, Err(error)) => return Err(error),
+            };
+            // Top-K merging is order-independent, so the shared list is the whole result.
+            let target = match &shared_candidates {
+                Some(shared_candidates) => &mut *shared_candidates
+                    .lock()
+                    .map_err(|_| "failed to lock parallel top-K candidates".to_string())?,
+                None => &mut candidates,
+            };
+            merge_scored_top_k(target, results, &plan.weapons, group_mode, request.top_k);
+            Ok(candidates)
+        })
         .collect::<Result<Vec<_>, String>>()?;
 
-    let mut candidates = Vec::with_capacity(request.top_k);
+    let mut candidates = match shared_candidates {
+        Some(shared) => shared
+            .into_inner()
+            .map_err(|_| "failed to lock parallel top-K candidates".to_string())?,
+        None => Vec::new(),
+    };
     for unit_results in partial_results {
         merge_scored_top_k(
             &mut candidates,
@@ -1668,6 +1637,8 @@ where
     materialize_scored_candidates(&plan.request, plan.data, &plan.weapons, candidates)
 }
 
+/// Test oracle for the DP search.
+#[cfg(test)]
 fn search_work_unit_exhaustive<P>(
     plan: &PreparedSearchPlan<'_>,
     unit: SearchWorkUnit,
@@ -1681,7 +1652,7 @@ where
     let group = &plan.groups[unit.group_idx];
     let prepared = &plan.weapons[group.prepared_idx];
     let aow_indices = &group.aow_indices[unit.aow_start..unit.aow_end];
-    let mut candidates = Vec::with_capacity(request.top_k);
+    let mut candidates = Vec::new();
     let mut visit_result: Result<(), String> = Ok(());
 
     let mut current_combat = group.search.mins;
@@ -1780,14 +1751,13 @@ where
     let mut route_sets = Vec::with_capacity(aow_indices.len());
     for &aow_idx in aow_indices {
         progress.poll()?;
-        let Some(routes) = scalar_route_set(
+        // Choices with unmodeled per-hit attack power are dropped during preparation.
+        let routes = scalar_route_set(
             &prepared.aow_choices[aow_idx],
             plan.data,
             weapon_uses_two_handing(request, prepared.weapon),
         )?
-        else {
-            return search_work_unit_exhaustive(plan, unit, group_mode, progress);
-        };
+        .ok_or_else(|| "supported per-hit attack-power effect is not implemented".to_string())?;
         route_sets.push((aow_idx, routes));
     }
 
@@ -1975,6 +1945,19 @@ where
                 best_primary_key,
                 primary.and_then(|p| p.best_primary.as_ref()),
             ) && (&primary.key.score, &primary.key.ar_total) < bound
+            {
+                progress.advance(
+                    group.search.candidate_count,
+                    group.search.candidate_count,
+                    None,
+                )?;
+                continue;
+            }
+            if routes.is_empty()
+                && matches!(
+                    request.objective,
+                    OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
+                )
             {
                 progress.advance(
                     group.search.candidate_count,
@@ -2240,6 +2223,7 @@ fn prepare_primary_allocations<P: SearchProgress>(
                 values[stat].push(delta);
             }
         }
+        let mut poll_error = None;
         let solved = solve_exact_with_reuse(
             reuse.as_deref_mut(),
             key.clone(),
@@ -2250,8 +2234,9 @@ fn prepare_primary_allocations<P: SearchProgress>(
             budget,
             true,
             None,
-            &mut || progress.poll().is_ok(),
-        )?;
+            &mut || poll_continues(progress, &mut poll_error),
+        )
+        .map_err(|error| poll_error.take().unwrap_or(error))?;
         let preparation = Arc::new(PrimaryPreparation {
             ar_formula,
             base,
@@ -2551,6 +2536,7 @@ where
                 primary_deltas[stat].push([score]);
             }
         }
+        let mut poll_error = None;
         let solved = solve_exact_with_reuse(
             None,
             None,
@@ -2561,8 +2547,9 @@ where
             budget,
             true,
             None,
-            &mut || progress.poll().is_ok(),
-        )?;
+            &mut || poll_continues(progress, &mut poll_error),
+        )
+        .map_err(|error| poll_error.take().unwrap_or(error))?;
         if let Some(combat) =
             exact_unique_primary_allocation(search, progress, solved.ranks(), solved.additions())?
         {
@@ -2670,6 +2657,7 @@ where
             allowed: primary.is_some() || route_primary.is_some(),
         },
     );
+    let mut poll_error = None;
     let solved = solve_exact_with_reuse(
         reuse,
         key,
@@ -2682,8 +2670,9 @@ where
         primary
             .map(|plan| plan.additions.as_ref())
             .or_else(|| route_primary.as_ref().map(|plan| plan.additions())),
-        &mut || progress.poll().is_ok(),
-    )?;
+        &mut || poll_continues(progress, &mut poll_error),
+    )
+    .map_err(|error| poll_error.take().unwrap_or(error))?;
     let mut best = None;
     for spent in search.min_active_spend()..=search.max_active_spend() {
         progress.poll()?;
@@ -2835,6 +2824,18 @@ fn evaluate_allocation_with_formulas(
         combat,
         route_id: route.map(|route| route.route_id.clone()),
     })
+}
+
+/// DP `should_continue` adapter that keeps a failed poll's own error (for example a
+/// poisoned progress lock) instead of the solver's generic cancellation.
+fn poll_continues(progress: &mut impl SearchProgress, error: &mut Option<String>) -> bool {
+    match progress.poll() {
+        Ok(()) => true,
+        Err(poll_error) => {
+            *error = Some(poll_error);
+            false
+        }
+    }
 }
 
 fn rational(value: f32) -> Result<ExactRational, String> {
@@ -3323,6 +3324,7 @@ where
         self.emit_if_due(false)
     }
 
+    #[cfg(test)]
     fn is_cancelled(&self) -> bool {
         self.cancelled
     }
@@ -3571,6 +3573,7 @@ where
         Ok(())
     }
 
+    #[cfg(test)]
     fn is_cancelled(&self) -> bool {
         self.shared.is_cancelled()
     }
@@ -3681,12 +3684,16 @@ fn prepare_weapons<'a>(
 }
 
 // Weapons each Rayon thread prepares between cancellation checks. Scaling the chunk with the
-// pool keeps one chunk to a few milliseconds of wall time on any thread count, far inside
-// CANCELLATION_LATENCY_TARGET_MS, while large pools still get enough work per barrier.
+// pool keeps one chunk to a few milliseconds of wall time on any thread count, far inside the
+// 250 ms cancellation target, while large pools still get enough work per barrier. A
+// one-thread pool also compiles every Ash route during preparation, so it checks per weapon.
 const PREPARE_WEAPONS_PER_THREAD: usize = 64;
 
 fn prepare_weapon_chunk() -> usize {
-    PREPARE_WEAPONS_PER_THREAD * rayon::current_num_threads().max(1)
+    match rayon::current_num_threads() {
+        0 | 1 => 1,
+        threads => PREPARE_WEAPONS_PER_THREAD * threads,
+    }
 }
 
 fn prepare_weapons_with_cancel<'a>(
@@ -4017,6 +4024,15 @@ fn resolve_aow_choices_cached<'a>(
         }) {
             return false;
         }
+        // No objective can score routes with per-hit attack power yet; skip the Ash
+        // instead of failing the whole search.
+        if choice
+            .attack_rows
+            .iter()
+            .any(|row| !row.is_lacking_fp && has_unmodeled_attack_power(row, data))
+        {
+            return false;
+        }
         let skill_id = choice.skill_id.map(|id| format!("aow:{id}"));
         filter_dimension_matches(request, FilterDimension::Aow, |id| {
             if id.eq_ignore_ascii_case("aow:none") {
@@ -4178,7 +4194,7 @@ fn relevant_stat_search(
     aow_choice: &AowChoice<'_>,
     distribution_counts: &mut HashMap<DistributionCountKey, u64>,
 ) -> Option<RelevantStatSearch> {
-    let active = active_stats_for_choice(request, prepared, aow_choice, data);
+    let active = active_stats_for_choice(prepared, aow_choice, data);
     RelevantStatSearch::new(
         request,
         constraints,
@@ -4417,12 +4433,10 @@ fn weapon_requirement_mins(request: &OptimizeRequest, weapon: &Weapon) -> [u8; C
 }
 
 fn active_stats_for_choice(
-    request: &OptimizeRequest,
     prepared: &PreparedWeapon<'_>,
     aow_choice: &AowChoice<'_>,
     data: &GameData,
 ) -> [bool; COMBAT_STAT_COUNT] {
-    let _ = request;
     std::array::from_fn(|idx| {
         weapon_stat_can_increase_ar(prepared.weapon, data, idx)
             || stat_can_increase_bleed_for_choice(prepared, aow_choice, data, idx)
