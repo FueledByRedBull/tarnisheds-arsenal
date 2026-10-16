@@ -9,6 +9,7 @@ if str(ROOT) not in sys.path:
 
 from tools.phase1.phase1_dump import (  # noqa: E402
     STATUS_ATTACK_POWER_FIELDS as STATUS_FIELDS,
+    format_float,
     object_to_int,
     to_float,
     to_int,
@@ -152,13 +153,13 @@ def build_weapon_passives(
                 "name": csv_row["name"],
                 "affinity": csv_row["affinity"],
                 "effect_ids": "|".join(str(effect_id) for effect_id in effect_ids),
-                "bleed": _fmt(totals["bleed"]),
-                "frost": _fmt(totals["frost"]),
-                "poison": _fmt(totals["poison"]),
-                "scarlet_rot": _fmt(totals["scarlet_rot"]),
-                "sleep": _fmt(totals["sleep"]),
-                "madness": _fmt(totals["madness"]),
-                "death": _fmt(totals["death"]),
+                "bleed": format_float(totals["bleed"]),
+                "frost": format_float(totals["frost"]),
+                "poison": format_float(totals["poison"]),
+                "scarlet_rot": format_float(totals["scarlet_rot"]),
+                "sleep": format_float(totals["sleep"]),
+                "madness": format_float(totals["madness"]),
+                "death": format_float(totals["death"]),
                 **{
                     STATUS_CORRECTION_COLUMNS[status_key]: _fmt_optional_bool(correction_flags[status_key])
                     for status_key in STATUS_FIELDS
@@ -231,7 +232,7 @@ def build_weapon_passive_overlays(
                     "affinity": csv_row["affinity"],
                     "level": str(level),
                     "effect_ids": "|".join(str(effect_id) for effect_id in effect_ids),
-                    **{status_key: _fmt(totals[status_key]) for status_key in STATUS_FIELDS},
+                    **{status_key: format_float(totals[status_key]) for status_key in STATUS_FIELDS},
                     **{
                         STATUS_CORRECTION_COLUMNS[status_key]: _fmt_optional_bool(correction_flags[status_key])
                         for status_key in STATUS_FIELDS
@@ -247,11 +248,6 @@ def build_weapon_passive_overlays(
         )
     )
     return rows_out
-
-
-def _fmt(value: float) -> str:
-    text = f"{value:.2f}".rstrip("0").rstrip(".")
-    return text if text else "0"
 
 
 def _optional_bool(row: dict[str, str], key: str) -> bool | None:

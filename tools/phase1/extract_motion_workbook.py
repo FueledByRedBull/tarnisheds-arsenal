@@ -15,7 +15,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.phase1.param_binary import load_param_table  # noqa: E402
-from tools.phase1.phase1_dump import read_csv, to_int, write_csv  # noqa: E402
+from tools.phase1.phase1_dump import format_float, read_csv, to_int, write_csv  # noqa: E402
 
 MAIN_NS = '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
 REL_NS = '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}'
@@ -679,16 +679,16 @@ def build_attack_row(
         'physical_attack_attribute': normalize_physical_attribute(
             values[header_idx['PhysAtkAttribute']]
         ),
-        'status_mv': str(parse_float(values[header_idx['Status MV']])),
-        'weapon_buff_mv': str(parse_float(values[header_idx['Weapon Buff MV']])),
-        'poise_base': str(poise_base),
-        'poise_mv': str(parse_float(values[header_idx['Poise Dmg MV']])),
-        'stamina_cost': str(parse_float(values[header_idx['StaminaCost']])),
+        'status_mv': format_float(parse_float(values[header_idx['Status MV']])),
+        'weapon_buff_mv': format_float(parse_float(values[header_idx['Weapon Buff MV']])),
+        'poise_base': format_float(poise_base),
+        'poise_mv': format_float(parse_float(values[header_idx['Poise Dmg MV']])),
+        'stamina_cost': format_float(parse_float(values[header_idx['StaminaCost']])),
         'stamina_cost_mode': stamina_cost_mode,
     }
     for damage_type in DAMAGE_TYPES:
-        row[f'{damage_type}_mv'] = str(motion_values[damage_type])
-        row[f'attack_base_{damage_type}'] = str(attack_bases[damage_type])
+        row[f'{damage_type}_mv'] = format_float(motion_values[damage_type])
+        row[f'attack_base_{damage_type}'] = format_float(attack_bases[damage_type])
     return row, damaging, hit_kind
 
 

@@ -288,8 +288,8 @@ class MotionWorkbookTests(unittest.TestCase):
             header_idx, values, 1224, 200, 'Glintblade Phalanx',
             'Glintblade Phalanx - Bullet', known_ids, bullet_attack_ids={300200867},
         )
-        self.assertEqual(row.get('poise_base'), '5.0')
-        self.assertEqual(row['poise_mv'], '0.0')
+        self.assertEqual(row.get('poise_base'), '5')
+        self.assertEqual(row['poise_mv'], '0')
         for invalid in ('-1', 'nan', 'inf'):
             with self.subTest(poise_base=invalid):
                 changed_values = list(values)

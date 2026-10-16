@@ -8,13 +8,15 @@ import json
 import math
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal, InvalidOperation
+from fractions import Fraction
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping, Sequence
 
@@ -328,11 +330,39 @@ def normalize_percent(value: float) -> float:
     return value / 100.0
 
 
+def _f32(bits: int) -> Fraction:
+    return Fraction(struct.unpack("<f", struct.pack("<I", bits))[0])
+
+
 def format_float(value: float) -> str:
-    text = f"{value:.8f}".rstrip("0").rstrip(".")
-    if text == "-0":
+    """Return the shortest positional decimal that parses to the f32 nearest to value.
+
+    The runtime parses every float column as f32 and scores it as an exact binary
+    rational, so the text must identify exactly that f32 and nothing more.
+    """
+    if not math.isfinite(value):
+        raise ValueError(f"non-finite float {value!r}")
+    bits = struct.unpack("<I", struct.pack("<f", value))[0] & 0x7FFF_FFFF
+    if bits == 0:
         return "0"
-    return text or "0"
+    target, below = _f32(bits), _f32(bits - 1)
+    # The largest finite f32 has no finite successor; mirror the spacing below it.
+    above = _f32(bits + 1) if bits < 0x7F7F_FFFF else 2 * target - below
+    low, high = (below + target) / 2, (target + above) / 2
+    # Round-half-to-even parsers map a midpoint to target only when target is even.
+    even = bits % 2 == 0
+    exact = Decimal(float(target))  # exact: every f32 is a double
+    for digits in range(1, 10):
+        quantum = Decimal(1).scaleb(exact.adjusted() - digits + 1)
+        fits = [
+            candidate
+            for candidate in (exact.quantize(quantum, ROUND_FLOOR), exact.quantize(quantum, ROUND_CEILING))
+            if (low <= Fraction(candidate) <= high if even else low < Fraction(candidate) < high)
+        ]
+        if fits:
+            text = format(min(fits, key=lambda candidate: abs(Fraction(candidate) - target)).normalize(), "f")
+            return f"-{text}" if value < 0 else text
+    raise AssertionError(f"no nine-digit decimal identifies f32 {float(target)!r}")
 
 
 def write_csv(path: Path, fieldnames: list[str], rows: Iterable[Mapping[str, object]]) -> None:
