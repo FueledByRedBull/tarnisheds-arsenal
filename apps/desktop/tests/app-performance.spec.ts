@@ -13,7 +13,9 @@ test("scrolling and progress updates leave unchanged controls alone", async ({ p
         onCommitFiberRoot: (_id: number, root: { current: unknown }) => {
           function visit(node: any) {
             if (!node) return;
-            if (node.flags & 1 && node.type?.name) counts[node.type.name] = (counts[node.type.name] ?? 0) + 1;
+            // memo() and forwardRef() wrap the component, so read the inner name as well.
+            const name = node.type?.displayName ?? node.type?.name ?? node.type?.type?.name ?? node.type?.render?.name;
+            if (node.flags & 1 && name) counts[name] = (counts[name] ?? 0) + 1;
             visit(node.child);
             visit(node.sibling);
           }
@@ -25,6 +27,8 @@ test("scrolling and progress updates leave unchanged controls alone", async ({ p
   await page.goto("/");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
+  // Positive control: the counter sees RankingsBoard, so a zero below is not vacuous.
+  expect(await page.evaluate(() => (window as any).renderCounts.RankingsBoard)).toBeGreaterThan(0);
   await page.evaluate(async () => {
     await new Promise(requestAnimationFrame);
     await new Promise(requestAnimationFrame);
@@ -39,9 +43,11 @@ test("scrolling and progress updates leave unchanged controls alone", async ({ p
   await page.evaluate(async () => {
     const modulePath = "/src/lib/state.ts";
     const { useDesktopStore } = await import(modulePath);
+    (window as any).renderCounts.QueryStrip = 0;
     useDesktopStore.getState().setSearching(true);
     await new Promise(requestAnimationFrame);
     await new Promise(requestAnimationFrame);
+    if (!((window as any).renderCounts.QueryStrip > 0)) throw new Error("QueryStrip renders were not counted");
     (window as any).renderCounts.QueryStrip = 0;
     (window as any).renderCounts.SearchProgressPanel = 0;
   });

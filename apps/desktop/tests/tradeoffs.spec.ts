@@ -1,15 +1,15 @@
 import { expect, test } from "@playwright/test";
-import { openSection } from "./editors";
+import { openCompare, openSection } from "./editors";
 
-async function openCompare(page: import("@playwright/test").Page) {
+async function searchAndCompare(page: import("@playwright/test").Page) {
   await page.goto("/");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
-  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await openCompare(page);
 }
 
 test("tradeoff views select exact threshold choices and persist an exact apply", async ({ page }) => {
-  await openCompare(page);
+  await searchAndCompare(page);
   await page.evaluate(async () => {
     const { api } = await import("/src/lib/api.ts");
     const original = api.arBleedFrontier;
@@ -172,7 +172,7 @@ test("tradeoff views select exact threshold choices and persist an exact apply",
 });
 
 test("singleton frontier explains tied allocations", async ({ page }) => {
-  await openCompare(page);
+  await searchAndCompare(page);
   await page.evaluate(async () => {
     const { api } = await import("/src/lib/api.ts");
     const original = api.arBleedFrontier;
@@ -201,7 +201,7 @@ async function holdFrontier(page: import("@playwright/test").Page) {
 }
 
 test("a pending frontier keeps running while Compare is hidden and lands on return", async ({ page }) => {
-  await openCompare(page);
+  await searchAndCompare(page);
   await holdFrontier(page);
   await page.getByRole("button", { name: "Compute trade-offs", exact: true }).click();
   await expect(page.locator(".loadout-tradeoffs").getByRole("status")).toContainText("Calculating");
@@ -213,7 +213,7 @@ test("a pending frontier keeps running while Compare is hidden and lands on retu
 });
 
 test("a finished frontier and its chosen point survive leaving Compare", async ({ page }) => {
-  await openCompare(page);
+  await searchAndCompare(page);
   await page.evaluate(async () => {
     const { api } = await import("/src/lib/api.ts");
     const original = api.arBleedFrontier;
@@ -237,7 +237,7 @@ test("a finished frontier and its chosen point survive leaving Compare", async (
 });
 
 test("an input change while Compare is hidden cancels a pending frontier", async ({ page }) => {
-  await openCompare(page);
+  await searchAndCompare(page);
   await holdFrontier(page);
   await page.getByRole("button", { name: "Compute trade-offs", exact: true }).click();
   await expect(page.locator(".loadout-tradeoffs").getByRole("status")).toContainText("Calculating");

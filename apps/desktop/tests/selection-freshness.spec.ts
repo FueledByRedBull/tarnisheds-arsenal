@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { closeEditors, openEditor } from "./editors";
+import { closeEditors, openEditor, settled } from "./editors";
 
 async function setup(page: Page) {
   await page.goto("/");
@@ -73,7 +73,7 @@ test("an exact typed weapon commits before immediate Search dispatch", async ({ 
     document.querySelector<HTMLButtonElement>(".search-button")!.click();
   });
   await expect.poll(() => page.evaluate(() => (window as any).selectionProbe.searches[0]?.weaponName)).toBe("Zweihander");
-  await page.waitForTimeout(180);
+  await settled(page);
   expect(await page.evaluate(() => (window as any).selectionProbe.cancels)).toEqual([]);
 });
 
@@ -96,7 +96,7 @@ for (const interruption of ["cancel", "edit", "navigate"] as const) {
     await resolve(page, ["vanilla", "Zweihander", null], {
       nativeSkillName: "Stamp (Upward Cut)", compatibleAows: ["Stamp (Upward Cut)"],
     });
-    await page.waitForTimeout(180);
+    await settled(page);
     expect(await page.evaluate(() => (window as any).selectionProbe.searches)).toEqual([]);
     expect(await page.evaluate(() => (window as any).selectionProbe.cancels)).toEqual([]);
   });
@@ -115,7 +115,7 @@ test("delayed skill defaults cannot invalidate an immediately submitted search",
   });
   await expect.poll(() => page.evaluate(() => (window as any).selectionProbe.searches[0]?.weaponName)).toBe("Zweihander");
   expect(await page.evaluate(() => (window as any).selectionProbe.searches[0]?.aowName)).toBe("Stamp (Upward Cut)");
-  await page.waitForTimeout(180);
+  await settled(page);
   expect(await page.evaluate(() => (window as any).selectionProbe.cancels)).toEqual([]);
 });
 

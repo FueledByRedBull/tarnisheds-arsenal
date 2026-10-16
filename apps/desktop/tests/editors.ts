@@ -59,3 +59,20 @@ export async function openCompare(page: Page): Promise<void> {
   await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
   await openSection(page, "Build details");
 }
+
+// Absence checks wait for the app to settle instead of a fixed sleep: the store must go two
+// animation frames without a change, so promise- and frame-driven late work has run.
+export async function settled(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const { useDesktopStore } = await import("/src/lib/state.ts");
+    let changed = true;
+    const stop = useDesktopStore.subscribe(() => { changed = true; });
+    const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+    while (changed) {
+      changed = false;
+      await frame();
+      await frame();
+    }
+    stop();
+  });
+}
