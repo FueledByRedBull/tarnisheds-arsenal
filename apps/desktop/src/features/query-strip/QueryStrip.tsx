@@ -82,7 +82,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   const profileResource = useWeaponProfile(request, patchRequest);
   const weaponProfile = profileResource.profile;
   const effectiveStr = effectiveWeaponStrength(request.strStat, request.twoHanding, weaponProfile);
-  const requirementGaps = useMemo(() => {
+  const requirementGaps = useMemo((): Record<string, number> | null => {
     const requirements = weaponProfile?.requirements;
     if (!requirements || effectiveStr === null) return null;
     return {
@@ -91,7 +91,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
       intStat: Math.max(requirements.intStat - request.intStat, 0),
       fai: Math.max(requirements.fai - request.fai, 0),
       arc: Math.max(requirements.arc - request.arc, 0),
-    } as Record<string, number>;
+    };
   }, [effectiveStr, request.arc, request.dex, request.fai, request.intStat, weaponProfile]);
   const missingRequirements = requirementGaps ? Object.values(requirementGaps).some((gap) => gap > 0) : false;
 
@@ -495,10 +495,10 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
               {label}
               <DraftNumberInput
                 description={requirementGaps && (requirementGaps[key] ?? 0) > 0 ? `${requirementGaps[key]} below the selected weapon's requirement` : undefined}
-                min={Math.max(1, meta.baseStats[key as keyof EightStatsDto])}
+                min={Math.max(1, meta.baseStats[key])}
                 max={99}
                 value={Number(request[key as keyof OptimizeRequestDto])}
-                onCommit={(value) => patchRequest({ [key]: value } as Partial<OptimizeRequestDto>)}
+                onCommit={(value) => patchRequest({ [key]: value })}
               />
             </label>
           ))}

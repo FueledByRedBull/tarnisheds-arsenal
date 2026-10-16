@@ -191,6 +191,7 @@ test("a failed deletion reports the error and preserves a loadable build", async
   await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   await page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- saved only to be restored onto the prototype
     const write = Storage.prototype.setItem;
     Object.assign(window, { restoreStorage: () => { Storage.prototype.setItem = write; } });
     Storage.prototype.setItem = function (key, value) {

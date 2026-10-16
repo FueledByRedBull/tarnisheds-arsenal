@@ -1,8 +1,10 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
     "allowImportingTsExtensions": true,
     "paths": { "/src/*": ["./src/*"] }
   },
-  "include": ["src/vite-env.d.ts", "tests", "playwright.config.ts", "vite.config.ts", "vitest.config.ts"]
+  "include": ["src/vite-env.d.ts", "tests", "eslint.config.mjs", "playwright.config.ts", "vite.config.ts", "vitest.config.ts"]
 }

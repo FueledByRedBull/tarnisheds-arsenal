@@ -306,7 +306,7 @@ export function SavedBuildPanel() {
           <Trash2 size={15} />{deleteArmedId === selectedId ? <span>Confirm delete</span> : null}
         </button>
         <button type="button" onClick={exportCurrent} disabled={!selectedPreset} aria-label="Export" title="Export as a JSON file"><Download size={15} /></button>
-        <button type="button" onClick={copyCurrent} disabled={!selectedPreset} aria-label="Copy Share" title="Copy share text to the clipboard">
+        <button type="button" onClick={() => void copyCurrent()} disabled={!selectedPreset} aria-label="Copy Share" title="Copy share text to the clipboard">
           {copied ? <Check size={15} className="copy-confirm" aria-hidden="true" /> : <Clipboard size={15} aria-hidden="true" />}
         </button>
         <span className="sr-only" role="status">{copied ? "Copied share text." : ""}</span>

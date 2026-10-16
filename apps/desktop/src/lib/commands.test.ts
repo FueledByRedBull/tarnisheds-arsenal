@@ -27,7 +27,7 @@ function catalog(profileId: "vanilla" | "convergence" = "vanilla"): CatalogDto {
       rules: { standardMaxUpgrade: vanilla ? 25 : 15, somberMaxUpgrade: vanilla ? 10 : 15, separateUpgradeCaps: vanilla,
         scadutreeScaling: vanilla, zeroAttackElementUsesWeaponScaling: !vanilla, extendedScalingGrades: !vanilla },
     },
-  } as CatalogDto;
+  };
 }
 
 function context(overrides: Partial<CommandContext> = {}): CommandContext {

@@ -77,7 +77,7 @@ export function AffinityWatchView() {
             Levels ahead
             <DraftNumberInput value={horizon} min={1} max={200} onCommit={setHorizon} />
           </label>
-          <button type="button" className="analysis-action" onClick={isAffinityBusy ? analysis.stop : refresh} disabled={!selected && !isAffinityBusy}>
+          <button type="button" className="analysis-action" onClick={() => void (isAffinityBusy ? analysis.stop() : refresh())} disabled={!selected && !isAffinityBusy}>
             {isAffinityBusy ? <Pause size={15} /> : <Play size={15} />}
             {isAffinityBusy ? "Stop" : "Watch affinities"}
           </button>

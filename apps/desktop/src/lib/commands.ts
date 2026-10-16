@@ -66,9 +66,9 @@ const STATS: Array<{ key: StatKey; short: string; names: string[] }> = [
 const LOCK_KEYS: Record<CombatKey, keyof OptimizeRequestDto> = {
   strStat: "lockStr", dex: "lockDex", intStat: "lockInt", fai: "lockFai", arc: "lockArc",
 };
-const MIN_KEYS: Record<CombatKey, keyof OptimizeRequestDto> = {
+const MIN_KEYS = {
   strStat: "minStr", dex: "minDex", intStat: "minInt", fai: "minFai", arc: "minArc",
-};
+} as const satisfies Record<CombatKey, keyof OptimizeRequestDto>;
 const OBJECTIVE_WORDS: Record<ObjectiveId, string> = {
   max_ar: "max ar attack rating damage",
   max_physical_ar: "max physical ar attack rating",

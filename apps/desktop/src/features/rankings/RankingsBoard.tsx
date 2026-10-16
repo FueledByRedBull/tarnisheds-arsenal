@@ -372,7 +372,7 @@ export function RankingsBoard() {
                   <SkeletonRows count={8} />
                 </div>
               ) : (
-                <EmptyRows onExample={runStarterExample} busy={isExporting} classBudget={catalog?.dataManifest.capabilities.classBudget !== false} />
+                <EmptyRows onExample={() => void runStarterExample()} busy={isExporting} classBudget={catalog?.dataManifest.capabilities.classBudget !== false} />
               )}
             </div>
           </div>
@@ -503,7 +503,7 @@ const ResultRow = memo(function ResultRow({
   aowModelSupported: boolean;
   extendedScalingGrades: boolean;
   onSelect: (row: SolvedBuildDto) => void;
-  onLock: (row: SolvedBuildDto) => void;
+  onLock: (row: SolvedBuildDto) => Promise<void>;
   lockDisabled: boolean;
   pinned: boolean;
   onPin: (row: SolvedBuildDto) => void;
