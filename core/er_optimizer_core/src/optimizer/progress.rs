@@ -25,9 +25,11 @@ pub(super) const PARALLEL_PROGRESS_BATCH: u64 = 8_192;
 pub(super) const PROGRESS_POLL_BATCH: u32 = 1_024;
 pub(super) const PROGRESS_MIN_INTERVAL: Duration = Duration::from_millis(100);
 
-pub(super) struct SerialSearchProgress<F>
+/// `should_continue` is read at every poll; `callback` only receives throttled snapshots.
+pub(super) struct SerialSearchProgress<F, C>
 where
-    F: FnMut(ProgressSnapshot) -> bool,
+    F: FnMut(ProgressSnapshot),
+    C: Fn() -> bool,
 {
     pub(super) total: u64,
     pub(super) checked: u64,
@@ -37,15 +39,17 @@ where
     pub(super) progress_every: u64,
     pub(super) last_emit: ProgressEmitState,
     pub(super) callback: F,
+    pub(super) should_continue: C,
     pub(super) cancelled: bool,
     pub(super) poll_count: u32,
 }
 
-impl<F> SerialSearchProgress<F>
+impl<F, C> SerialSearchProgress<F, C>
 where
-    F: FnMut(ProgressSnapshot) -> bool,
+    F: FnMut(ProgressSnapshot),
+    C: Fn() -> bool,
 {
-    pub(super) fn new(total: u64, progress_every: u64, callback: F) -> Self {
+    pub(super) fn new(total: u64, progress_every: u64, callback: F, should_continue: C) -> Self {
         let started = Instant::now();
         Self {
             total,
@@ -59,17 +63,26 @@ where
                 last_at: started,
             },
             callback,
+            should_continue,
             cancelled: false,
             poll_count: 0,
         }
     }
 
+    fn check_cancel(&mut self) -> Result<(), String> {
+        if self.cancelled || !(self.should_continue)() {
+            self.cancelled = true;
+            return Err("cancelled".to_string());
+        }
+        Ok(())
+    }
+
     pub(super) fn emit_initial(&mut self) -> Result<(), String> {
-        self.emit(true)
+        self.emit()
     }
 
     pub(super) fn emit_final(&mut self) -> Result<(), String> {
-        self.emit(true)
+        self.emit()
     }
 
     pub(super) fn emit_if_due(&mut self, ignore_count_threshold: bool) -> Result<(), String> {
@@ -84,13 +97,10 @@ where
         if self.last_emit.last_at.elapsed() < PROGRESS_MIN_INTERVAL {
             return Ok(());
         }
-        self.emit(false)
+        self.emit()
     }
 
-    pub(super) fn emit(&mut self, force: bool) -> Result<(), String> {
-        if self.cancelled && !force {
-            return Err("cancelled".to_string());
-        }
+    pub(super) fn emit(&mut self) -> Result<(), String> {
         let snapshot = ProgressSnapshot {
             checked: self.checked,
             total: self.total,
@@ -98,21 +108,19 @@ where
             best_score: self.best_score.unwrap_or(0.0),
             elapsed_ms: self.started.elapsed().as_millis() as u64,
         };
-        if !(self.callback)(snapshot) {
-            self.cancelled = true;
-            return Err("cancelled".to_string());
-        }
+        (self.callback)(snapshot);
         self.last_emit = ProgressEmitState {
             last_checked: self.checked,
             last_at: Instant::now(),
         };
-        Ok(())
+        self.check_cancel()
     }
 }
 
-impl<F> SearchProgress for SerialSearchProgress<F>
+impl<F, C> SearchProgress for SerialSearchProgress<F, C>
 where
-    F: FnMut(ProgressSnapshot) -> bool,
+    F: FnMut(ProgressSnapshot),
+    C: Fn() -> bool,
 {
     fn advance(
         &mut self,
@@ -127,6 +135,7 @@ where
         {
             self.best_score = Some(score);
         }
+        self.check_cancel()?;
         self.emit_if_due(false)
     }
 
@@ -136,9 +145,7 @@ where
     }
 
     fn poll(&mut self) -> Result<(), String> {
-        if self.cancelled {
-            return Err("cancelled".to_string());
-        }
+        self.check_cancel()?;
         if self.progress_every == 0 {
             return Ok(());
         }
@@ -151,9 +158,10 @@ where
     }
 }
 
-pub(super) struct ParallelSearchProgress<F>
+pub(super) struct ParallelSearchProgress<F, C>
 where
-    F: FnMut(ProgressSnapshot) -> bool + Send,
+    F: FnMut(ProgressSnapshot) + Send,
+    C: Fn() -> bool + Sync,
 {
     pub(super) total: u64,
     pub(super) checked: AtomicU64,
@@ -164,13 +172,15 @@ where
     pub(super) progress_every: u64,
     pub(super) last_emit: Mutex<ProgressEmitState>,
     pub(super) callback: Mutex<F>,
+    pub(super) should_continue: C,
 }
 
-impl<F> ParallelSearchProgress<F>
+impl<F, C> ParallelSearchProgress<F, C>
 where
-    F: FnMut(ProgressSnapshot) -> bool + Send,
+    F: FnMut(ProgressSnapshot) + Send,
+    C: Fn() -> bool + Sync,
 {
-    pub(super) fn new(total: u64, progress_every: u64, callback: F) -> Self {
+    pub(super) fn new(total: u64, progress_every: u64, callback: F, should_continue: C) -> Self {
         let started = Instant::now();
         Self {
             total,
@@ -185,7 +195,16 @@ where
                 last_at: started,
             }),
             callback: Mutex::new(callback),
+            should_continue,
         }
+    }
+
+    pub(super) fn check_cancel(&self) -> Result<(), String> {
+        if self.cancelled.load(Ordering::Relaxed) || !(self.should_continue)() {
+            self.cancelled.store(true, Ordering::Relaxed);
+            return Err("cancelled".to_string());
+        }
+        Ok(())
     }
 
     pub(super) fn record(
@@ -226,10 +245,8 @@ where
         force: bool,
         ignore_count_threshold: bool,
     ) -> Result<(), String> {
-        if self.cancelled.load(Ordering::Relaxed) && !force {
-            return Err("cancelled".to_string());
-        }
         if !force {
+            self.check_cancel()?;
             if self.progress_every == 0 {
                 return Ok(());
             }
@@ -257,7 +274,7 @@ where
             };
         }
 
-        let should_continue = {
+        {
             let mut callback = self
                 .callback
                 .lock()
@@ -277,13 +294,9 @@ where
                 best_score,
                 elapsed_ms: self.started.elapsed().as_millis() as u64,
             };
-            (callback)(snapshot)
-        };
-        if !should_continue {
-            self.cancelled.store(true, Ordering::Relaxed);
-            return Err("cancelled".to_string());
+            (callback)(snapshot);
         }
-        Ok(())
+        self.check_cancel()
     }
 
     pub(super) fn is_cancelled(&self) -> bool {
@@ -291,22 +304,24 @@ where
     }
 }
 
-pub(super) struct ParallelLocalProgress<F>
+pub(super) struct ParallelLocalProgress<F, C>
 where
-    F: FnMut(ProgressSnapshot) -> bool + Send,
+    F: FnMut(ProgressSnapshot) + Send,
+    C: Fn() -> bool + Sync,
 {
-    pub(super) shared: Arc<ParallelSearchProgress<F>>,
+    pub(super) shared: Arc<ParallelSearchProgress<F, C>>,
     pub(super) checked: u64,
     pub(super) eligible: u64,
     pub(super) best_score: Option<f32>,
     pub(super) poll_count: u32,
 }
 
-impl<F> ParallelLocalProgress<F>
+impl<F, C> ParallelLocalProgress<F, C>
 where
-    F: FnMut(ProgressSnapshot) -> bool + Send,
+    F: FnMut(ProgressSnapshot) + Send,
+    C: Fn() -> bool + Sync,
 {
-    pub(super) fn new(shared: Arc<ParallelSearchProgress<F>>) -> Self {
+    pub(super) fn new(shared: Arc<ParallelSearchProgress<F, C>>) -> Self {
         Self {
             shared,
             checked: 0,
@@ -330,9 +345,10 @@ where
     }
 }
 
-impl<F> SearchProgress for ParallelLocalProgress<F>
+impl<F, C> SearchProgress for ParallelLocalProgress<F, C>
 where
-    F: FnMut(ProgressSnapshot) -> bool + Send,
+    F: FnMut(ProgressSnapshot) + Send,
+    C: Fn() -> bool + Sync,
 {
     fn advance(
         &mut self,
@@ -347,6 +363,7 @@ where
         {
             self.best_score = Some(score);
         }
+        self.shared.check_cancel()?;
         if self.checked >= PARALLEL_PROGRESS_BATCH {
             self.flush(false)?;
         }
@@ -359,9 +376,7 @@ where
     }
 
     fn poll(&mut self) -> Result<(), String> {
-        if self.shared.is_cancelled() {
-            return Err("cancelled".to_string());
-        }
+        self.shared.check_cancel()?;
         if self.shared.progress_every == 0 {
             return Ok(());
         }
@@ -387,10 +402,12 @@ mod parallel_progress_tests {
     fn callback_reads_progress_after_waiting_for_previous_delivery() {
         let delivered = Arc::new(AtomicU64::new(0));
         let observed = Arc::clone(&delivered);
-        let progress = Arc::new(ParallelSearchProgress::new(2, 1, move |snapshot| {
-            observed.store(snapshot.checked, Ordering::Relaxed);
-            true
-        }));
+        let progress = Arc::new(ParallelSearchProgress::new(
+            2,
+            1,
+            move |snapshot: ProgressSnapshot| observed.store(snapshot.checked, Ordering::Relaxed),
+            || true,
+        ));
         // Hold the callback while a worker prepares a notification. More work
         // finishes before delivery, so that notification must not be obsolete.
         let delivery = progress.callback.lock().unwrap();

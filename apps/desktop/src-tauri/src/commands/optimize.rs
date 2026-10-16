@@ -51,7 +51,7 @@ pub fn run_level_range_inner_with_progress<F, C>(
 ) -> Result<Vec<LevelOptimizeResult>, AppError>
 where
     F: FnMut(u16) -> bool,
-    C: FnMut() -> bool + Send,
+    C: Fn() -> bool + Sync,
 {
     clamp_weapon_upgrade_request_for_profile(&mut request, profile)?;
     let request = OptimizeRequest::try_from(&request)?;
@@ -114,7 +114,7 @@ fn solve_build_inner_with_cancel<F>(
     should_continue: F,
 ) -> Result<Option<SolvedBuildDto>, AppError>
 where
-    F: FnMut() -> bool + Send,
+    F: Fn() -> bool + Sync,
 {
     let (request, data) = prepare_solve_build(request, state)?;
     optimize_with_cancel(&request, &data, should_continue)
@@ -368,15 +368,15 @@ fn prepare_ar_bleed_frontier(
 fn evaluate_ar_bleed_frontier<F>(
     request: &OptimizeRequest,
     data: &GameData,
-    mut should_continue: F,
+    should_continue: F,
 ) -> Result<Vec<ArBleedFrontierPointDto>, AppError>
 where
-    F: FnMut() -> bool + Send,
+    F: Fn() -> bool + Sync,
 {
-    let evaluator = prepare_loadout_evaluator_with_cancel(request, data, &mut should_continue)
+    let evaluator = prepare_loadout_evaluator_with_cancel(request, data, &should_continue)
         .map_err(AppError::from)?;
     evaluator
-        .evaluate_ar_bleed_frontier_with_cancel(request, &mut should_continue)
+        .evaluate_ar_bleed_frontier_with_cancel(request, &should_continue)
         .map(|points| {
             points
                 .into_iter()
@@ -526,27 +526,28 @@ fn run_search_worker(
     };
     let mut last_progress_at: Option<Instant> = None;
     let mut scoring_complete = false;
-    let result = optimize_prepared_with_progress(&plan, 10_000, |snapshot| {
-        if cancel_flag.load(Ordering::Relaxed) {
-            return false;
-        }
-        // Hydration polls cancellation at each row/route boundary without
-        // advancing scoring counts. Publish status at a bounded rate.
-        let first_scoring_completion = !scoring_complete && snapshot.checked == snapshot.total;
-        scoring_complete |= snapshot.checked == snapshot.total;
-        if !first_scoring_completion
-            && last_progress_at.is_some_and(|at| at.elapsed() < Duration::from_millis(100))
-        {
-            return true;
-        }
-        last_progress_at = Some(Instant::now());
-        let mut payload = SearchProgressDto::from(snapshot);
-        payload.job_id.clone_from(&job_id);
-        if let Ok(mut guard) = status.lock() {
-            guard.progress = Some(payload);
-        }
-        true
-    });
+    let result = optimize_prepared_with_progress(
+        &plan,
+        10_000,
+        || !cancel_flag.load(Ordering::Relaxed),
+        |snapshot| {
+            // Hydration reports at each row/route boundary without advancing
+            // scoring counts. Publish status at a bounded rate.
+            let first_scoring_completion = !scoring_complete && snapshot.checked == snapshot.total;
+            scoring_complete |= snapshot.checked == snapshot.total;
+            if !first_scoring_completion
+                && last_progress_at.is_some_and(|at| at.elapsed() < Duration::from_millis(100))
+            {
+                return;
+            }
+            last_progress_at = Some(Instant::now());
+            let mut payload = SearchProgressDto::from(snapshot);
+            payload.job_id.clone_from(&job_id);
+            if let Ok(mut guard) = status.lock() {
+                guard.progress = Some(payload);
+            }
+        },
+    );
 
     let (rows, error, cancelled) = match result {
         Ok(rows) => (
@@ -937,10 +938,9 @@ mod integration_tests {
                         worker_injected.store(true, Ordering::Relaxed);
                         panic!("injected before Search calculation");
                     }
-                    let mut checkpoints = 0;
+                    let checkpoints = AtomicUsize::new(0);
                     let rows = optimize_with_cancel(&core_request, &data, || {
-                        checkpoints += 1;
-                        if checkpoints == 3 {
+                        if checkpoints.fetch_add(1, Ordering::Relaxed) == 2 {
                             worker_injected.store(true, Ordering::Relaxed);
                             panic!("injected inside Search calculation");
                         }
@@ -1066,10 +1066,9 @@ mod integration_tests {
                             worker_injected.store(true, Ordering::Relaxed);
                             panic!("injected before Analysis calculation");
                         }
-                        let mut checkpoints = 0;
+                        let checkpoints = AtomicUsize::new(0);
                         let checkpoint = || {
-                            checkpoints += 1;
-                            if checkpoints == 3 {
+                            if checkpoints.fetch_add(1, Ordering::Relaxed) == 2 {
                                 worker_injected.store(true, Ordering::Relaxed);
                                 panic!("injected inside Analysis calculation");
                             }

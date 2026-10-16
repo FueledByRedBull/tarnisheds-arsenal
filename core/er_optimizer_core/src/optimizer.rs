@@ -131,7 +131,7 @@ impl PreparedLoadoutEvaluator<'_> {
         mut should_continue: F,
     ) -> Result<Vec<OptimizeResult>, String>
     where
-        F: FnMut() -> bool + Send,
+        F: Fn() -> bool + Sync,
     {
         if !should_continue() {
             return Err("cancelled".into());
@@ -170,7 +170,7 @@ impl PreparedLoadoutEvaluator<'_> {
             Arc::clone(&self.weapons),
             &mut should_continue,
         )?;
-        optimize_prepared_with_progress(&plan, 1_024, |_snapshot| should_continue())
+        optimize_prepared_with_progress(&plan, 0, should_continue, |_| {})
     }
 
     /// All nondominated AR/bleed pairs for this fixed loadout and stat budget.
@@ -180,7 +180,7 @@ impl PreparedLoadoutEvaluator<'_> {
         mut should_continue: F,
     ) -> Result<Vec<ArBleedFrontierPoint>, String>
     where
-        F: FnMut() -> bool + Send,
+        F: Fn() -> bool + Sync,
     {
         validate_reusable_loadout(&self.template, request, self.data)?;
         if !self.data.capabilities.status_buildup {
@@ -237,7 +237,7 @@ impl PreparedLoadoutEvaluator<'_> {
                         fixed.locked_combat_stats[STAT_ARC] =
                             Some(constraints.mins[STAT_ARC] + spend as u8);
                         candidates
-                            .extend(evaluator.evaluate_with_cancel(&fixed, &mut should_continue)?);
+                            .extend(evaluator.evaluate_with_cancel(&fixed, &should_continue)?);
                     }
                     candidates
                 }
@@ -1067,23 +1067,23 @@ pub fn optimize(request: &OptimizeRequest, data: &GameData) -> Result<Vec<Optimi
         return Ok(Vec::new());
     }
     let plan = prepare_search(request, data)?;
-    optimize_prepared_with_progress(&plan, 0, |_snapshot| true)
+    optimize_prepared_with_progress(&plan, 0, || true, |_| {})
 }
 
 pub fn optimize_with_cancel<F>(
     request: &OptimizeRequest,
     data: &GameData,
-    mut should_continue: F,
+    should_continue: F,
 ) -> Result<Vec<OptimizeResult>, String>
 where
-    F: FnMut() -> bool + Send,
+    F: Fn() -> bool + Sync,
 {
     if request.top_k == 0 {
         validate_profile_capabilities(request, data)?;
         return Ok(Vec::new());
     }
-    let plan = prepare_search_with_cancel(request, data, &mut should_continue)?;
-    optimize_prepared_with_progress(&plan, 1_024, move |_snapshot| should_continue())
+    let plan = prepare_search_with_cancel(request, data, &should_continue)?;
+    optimize_prepared_with_progress(&plan, 0, should_continue, |_| {})
 }
 
 /// Every level's ranked rows are retained, so callers keep `top_k` small (the desktop uses 1).
@@ -1096,7 +1096,7 @@ pub fn optimize_level_range_with_progress<F, C>(
 ) -> Result<Vec<LevelOptimizeResult>, String>
 where
     F: FnMut(u16) -> bool,
-    C: FnMut() -> bool + Send,
+    C: Fn() -> bool + Sync,
 {
     validate_profile_capabilities(request, data)?;
     if levels.is_empty() {
@@ -1172,7 +1172,7 @@ where
         };
         let reuse = (range_reuse_enabled && level_plan_can_reuse(&plan, &dp_reuse))
             .then_some(&mut dp_reuse);
-        let rows = optimize_prepared(&plan, 1_024, |_snapshot| should_continue(), reuse)?;
+        let rows = optimize_prepared(&plan, 0, &should_continue, |_| {}, reuse)?;
         results.push(LevelOptimizeResult { level, rows });
         if !level_complete(level) {
             return Err("cancelled".to_string());
@@ -1205,28 +1205,33 @@ fn level_plan_can_reuse(plan: &PreparedSearchPlan<'_>, reuse: &DpReuse) -> bool 
             .all(|group| reuse.max_search(&group.search).is_some())
 }
 
-/// `progress_cb` both receives throttled snapshots and decides whether to continue.
-/// `progress_every == 0` disables both, so cancellable callers pass a positive interval.
-pub fn optimize_prepared_with_progress<F>(
+/// `should_continue` is read at every search poll, from every worker, so keep it cheap.
+/// `progress_cb` only receives snapshots, throttled by `progress_every` checked candidates
+/// and a minimum interval; `progress_every == 0` disables them but not cancellation.
+pub fn optimize_prepared_with_progress<F, C>(
     plan: &PreparedSearchPlan<'_>,
     progress_every: u64,
+    should_continue: C,
     progress_cb: F,
 ) -> Result<Vec<OptimizeResult>, String>
 where
-    F: FnMut(ProgressSnapshot) -> bool + Send,
+    F: FnMut(ProgressSnapshot) + Send,
+    C: Fn() -> bool + Sync,
 {
-    optimize_prepared(plan, progress_every, progress_cb, None)
+    optimize_prepared(plan, progress_every, &should_continue, progress_cb, None)
 }
 
 /// With `reuse`, scoring runs serially and shares exact DP tables across a level range.
-fn optimize_prepared<F>(
+fn optimize_prepared<F, C>(
     plan: &PreparedSearchPlan<'_>,
     progress_every: u64,
+    should_continue: &C,
     mut progress_cb: F,
     reuse: Option<&mut DpReuse>,
 ) -> Result<Vec<OptimizeResult>, String>
 where
-    F: FnMut(ProgressSnapshot) -> bool + Send,
+    F: FnMut(ProgressSnapshot) + Send,
+    C: Fn() -> bool + Sync,
 {
     let started = Instant::now();
     let mut last_snapshot = ProgressSnapshot {
@@ -1239,9 +1244,10 @@ where
     let candidates = score_prepared_with_progress(
         plan,
         progress_every,
+        should_continue,
         |snapshot| {
             last_snapshot = snapshot;
-            progress_cb(snapshot)
+            progress_cb(snapshot);
         },
         reuse,
     )?;
@@ -1254,7 +1260,8 @@ where
         candidates,
         &mut || {
             last_snapshot.elapsed_ms = started.elapsed().as_millis() as u64;
-            progress_cb(last_snapshot)
+            progress_cb(last_snapshot);
+            should_continue()
         },
     )
 }
@@ -1268,7 +1275,7 @@ pub fn optimize_profiled(
     let preparation = preparation_started.elapsed();
 
     let scoring_started = Instant::now();
-    let candidates = score_prepared_with_progress(&plan, 0, |_| true, None)?;
+    let candidates = score_prepared_with_progress(&plan, 0, &|| true, |_| {}, None)?;
     let scoring = scoring_started.elapsed();
 
     let materialization_started = Instant::now();
@@ -1285,14 +1292,16 @@ pub fn optimize_profiled(
     })
 }
 
-fn score_prepared_with_progress<F>(
+fn score_prepared_with_progress<F, C>(
     plan: &PreparedSearchPlan<'_>,
     progress_every: u64,
+    should_continue: &C,
     progress_cb: F,
     reuse: Option<&mut DpReuse>,
 ) -> Result<Vec<ScoredCandidate>, String>
 where
-    F: FnMut(ProgressSnapshot) -> bool + Send,
+    F: FnMut(ProgressSnapshot) + Send,
+    C: Fn() -> bool + Sync,
 {
     let request = &plan.request;
     let group_mode = result_group_mode(request);
@@ -1320,10 +1329,12 @@ where
             group_mode,
             total,
             progress_every,
+            should_continue,
             progress_cb,
         )?
     } else {
-        let mut progress = SerialSearchProgress::new(total, progress_every, progress_cb);
+        let mut progress =
+            SerialSearchProgress::new(total, progress_every, progress_cb, should_continue);
         score_serial(
             plan,
             &plan.serial_work_units,
@@ -1457,15 +1468,16 @@ fn score_cutoff<'a>(
     global.max(group)
 }
 
-fn score_serial<F>(
+fn score_serial<F, C>(
     plan: &PreparedSearchPlan<'_>,
     work_units: &[SearchWorkUnit],
     group_mode: ResultGroupMode,
-    progress: &mut SerialSearchProgress<F>,
+    progress: &mut SerialSearchProgress<F, C>,
     mut reuse: Option<&mut DpReuse>,
 ) -> Result<Vec<ScoredCandidate>, String>
 where
-    F: FnMut(ProgressSnapshot) -> bool,
+    F: FnMut(ProgressSnapshot),
+    C: Fn() -> bool,
 {
     let request = &plan.request;
     progress.emit_initial()?;
@@ -1493,22 +1505,25 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn score_parallel<F>(
+fn score_parallel<F, C>(
     plan: &PreparedSearchPlan<'_>,
     work_units: &[SearchWorkUnit],
     group_mode: ResultGroupMode,
     total: u64,
     progress_every: u64,
+    should_continue: C,
     progress_cb: F,
 ) -> Result<Vec<ScoredCandidate>, String>
 where
-    F: FnMut(ProgressSnapshot) -> bool + Send,
+    F: FnMut(ProgressSnapshot) + Send,
+    C: Fn() -> bool + Send + Sync,
 {
     let request = &plan.request;
     let progress = Arc::new(ParallelSearchProgress::new(
         total,
         progress_every,
         progress_cb,
+        should_continue,
     ));
     progress.emit_initial()?;
     // Keep serial's exact top-K cutoff visible across Rayon folds.
@@ -1580,14 +1595,15 @@ where
 }
 
 #[cfg(test)]
-fn optimize_serial<F>(
+fn optimize_serial<F, C>(
     plan: &PreparedSearchPlan<'_>,
     work_units: &[SearchWorkUnit],
     group_mode: ResultGroupMode,
-    progress: &mut SerialSearchProgress<F>,
+    progress: &mut SerialSearchProgress<F, C>,
 ) -> Result<Vec<OptimizeResult>, String>
 where
-    F: FnMut(ProgressSnapshot) -> bool,
+    F: FnMut(ProgressSnapshot),
+    C: Fn() -> bool,
 {
     let candidates = score_serial(plan, work_units, group_mode, progress, None)?;
     materialize_scored_candidates(&plan.request, plan.data, &plan.weapons, candidates)
@@ -1604,7 +1620,7 @@ fn optimize_parallel<F>(
     progress_cb: F,
 ) -> Result<Vec<OptimizeResult>, String>
 where
-    F: FnMut(ProgressSnapshot) -> bool + Send,
+    F: FnMut(ProgressSnapshot) + Send,
 {
     let candidates = score_parallel(
         plan,
@@ -1612,6 +1628,7 @@ where
         group_mode,
         total,
         progress_every,
+        || true,
         progress_cb,
     )?;
     materialize_scored_candidates(&plan.request, plan.data, &plan.weapons, candidates)

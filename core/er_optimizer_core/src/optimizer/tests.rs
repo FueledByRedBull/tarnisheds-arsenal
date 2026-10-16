@@ -891,7 +891,7 @@ fn shared_primary_frontiers_match_independent_dp_including_all_ties() {
                 ] {
                     request.objective = objective;
                     let plan = prepare_search(&request, &data).unwrap();
-                    let mut progress = SerialSearchProgress::new(0, 0, |_| true);
+                    let mut progress = SerialSearchProgress::new(0, 0, |_| {}, || true);
                     for group in &plan.groups {
                         let prepared = &plan.weapons[group.prepared_idx];
                         for upgrade in [0, request.standard_max_upgrade] {
@@ -1000,7 +1000,8 @@ fn grouped_shared_primary_pruning_matches_independent_search() {
         assert_eq!(result_group_mode(&request), ResultGroupMode::WeaponOnly);
         assert!(unit.aow_end <= group.aow_indices.len());
 
-        let mut dynamic_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_| true);
+        let mut dynamic_progress =
+            SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
         let dynamic = search_dp_work_unit(
             &plan,
             unit,
@@ -1010,7 +1011,8 @@ fn grouped_shared_primary_pruning_matches_independent_search() {
             None,
         )
         .expect("grouped exact search");
-        let mut exhaustive_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_| true);
+        let mut exhaustive_progress =
+            SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
         let exhaustive = search_work_unit_exhaustive(
             &plan,
             unit,
@@ -1061,7 +1063,7 @@ fn grouped_score_cutoff_preserves_full_fingerprint_before_global_top_k_is_full()
             .iter()
             .map(|unit| unit.candidate_count)
             .sum();
-        let mut pruned_progress = SerialSearchProgress::new(total, 0, |_| true);
+        let mut pruned_progress = SerialSearchProgress::new(total, 0, |_| {}, || true);
         let pruned = score_serial(
             &plan,
             &plan.serial_work_units,
@@ -1071,7 +1073,7 @@ fn grouped_score_cutoff_preserves_full_fingerprint_before_global_top_k_is_full()
         )
         .expect("grouped cutoff search");
 
-        let mut unpruned_progress = SerialSearchProgress::new(total, 0, |_| true);
+        let mut unpruned_progress = SerialSearchProgress::new(total, 0, |_| {}, || true);
         let mut unpruned = Vec::<ScoredCandidate>::with_capacity(request.top_k);
         let mut saw_incomplete_group_cutoff = false;
         for unit in &plan.serial_work_units {
@@ -1137,12 +1139,12 @@ fn exact_cutoff_preserves_the_winner_at_equal_score() {
     let unit = *plan.serial_work_units.first().expect("exact cutoff unit");
     let group_mode = result_group_mode(&request);
 
-    let mut unpruned_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_| true);
+    let mut unpruned_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
     let unpruned = search_dp_work_unit(&plan, unit, group_mode, &mut unpruned_progress, None, None)
         .expect("unpruned exact search");
     let winner = unpruned.first().expect("unpruned winner");
 
-    let mut equal_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_| true);
+    let mut equal_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
     let equal_cutoff = search_dp_work_unit(
         &plan,
         unit,
@@ -1160,7 +1162,7 @@ fn exact_cutoff_preserves_the_winner_at_equal_score() {
     );
 
     let above_score = &winner.key.score + rational(1.0).expect("finite cutoff increment");
-    let mut above_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_| true);
+    let mut above_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
     let above_cutoff = search_dp_work_unit(
         &plan,
         unit,
@@ -1210,7 +1212,7 @@ fn unique_primary_allocation_ignores_ties_in_losing_spends() {
     additions[STAT_INT][1] = vec![0];
     additions[STAT_INT][2] = vec![2];
     let ranks = vec![Some(0), Some(0), Some(1)];
-    let mut progress = SerialSearchProgress::new(0, 0, |_| true);
+    let mut progress = SerialSearchProgress::new(0, 0, |_| {}, || true);
 
     assert_eq!(
         exact_unique_primary_allocation(&search, &mut progress, &ranks, &additions).unwrap(),
@@ -1372,7 +1374,7 @@ fn dynamic_search_matches_exhaustive_search_for_every_objective() {
             let plan = prepare_search(&request, &game_data).expect("prepare exact comparison");
             let unit = *plan.serial_work_units.first().expect("exact work unit");
             let mut dynamic_progress =
-                SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
+                SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
             let dynamic = search_dp_work_unit(
                 &plan,
                 unit,
@@ -1383,7 +1385,7 @@ fn dynamic_search_matches_exhaustive_search_for_every_objective() {
             )
             .expect("exact dynamic search");
             let mut exhaustive_progress =
-                SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
+                SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
             let exhaustive = search_work_unit_exhaustive(
                 &plan,
                 unit,
@@ -1455,7 +1457,7 @@ fn zero_budget_dynamic_search_matches_exhaustive_search_for_every_objective() {
         );
         for unit in &plan.serial_work_units {
             let mut dynamic_progress =
-                SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
+                SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
             let dynamic = search_dp_work_unit(
                 &plan,
                 *unit,
@@ -1466,7 +1468,7 @@ fn zero_budget_dynamic_search_matches_exhaustive_search_for_every_objective() {
             )
             .expect("zero-budget dynamic search");
             let mut exhaustive_progress =
-                SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
+                SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
             let exhaustive = search_work_unit_exhaustive(
                 &plan,
                 *unit,
@@ -1650,7 +1652,7 @@ fn independent_all_five_oracle_checks_relevance_and_exact_winners() {
                                 );
                             }
                         }
-                        let mut progress = SerialSearchProgress::new(0, 0, |_| true);
+                        let mut progress = SerialSearchProgress::new(0, 0, |_| {}, || true);
                         let dynamic = best_objective_allocation(
                             search,
                             search,
@@ -1714,7 +1716,7 @@ fn exact_dp_matches_exhaustive_on_the_former_f32_counterexample() {
         }
     })
     .unwrap();
-    let mut progress = SerialSearchProgress::new(0, 0, |_| true);
+    let mut progress = SerialSearchProgress::new(0, 0, |_| {}, || true);
     let dynamic = best_objective_allocation(
         &group.search,
         &group.search,
@@ -2141,7 +2143,7 @@ fn sole_scaling_aow_shortcut_respects_plateaus_and_nonmonotonic_curves() {
             })
             .expect("exhaustive sole-scaling AoW allocation");
 
-            let mut progress = SerialSearchProgress::new(0, 0, |_| true);
+            let mut progress = SerialSearchProgress::new(0, 0, |_| {}, || true);
             let actual = best_objective_allocation(
                 &group.search,
                 &group.search,
@@ -2191,7 +2193,7 @@ fn dynamic_ar_search_checks_every_feasible_active_spend() {
         let plan = prepare_search(&request, &game_data).expect("prepare spend comparison");
         let unit = *plan.serial_work_units.first().expect("AR work unit");
         let mut dynamic_progress =
-            SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
+            SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
         let dynamic = search_dp_work_unit(
             &plan,
             unit,
@@ -2202,7 +2204,7 @@ fn dynamic_ar_search_checks_every_feasible_active_spend() {
         )
         .expect("dynamic AR search");
         let mut exhaustive_progress =
-            SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
+            SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
         let exhaustive = search_work_unit_exhaustive(
             &plan,
             unit,
@@ -2400,15 +2402,22 @@ fn cached_primary_preparation_remains_cancellable() {
     request.top_k = 1;
     let plan = prepare_search(&request, &data).unwrap();
     let mut reuse = DpReuse::from_plan(&plan);
-    optimize_prepared(&plan, 1, |_| true, Some(&mut reuse)).unwrap();
+    optimize_prepared(&plan, 1, &|| true, |_| {}, Some(&mut reuse)).unwrap();
     assert!(!reuse.primary.is_empty());
     let group = &plan.groups[0];
     let prepared = &plan.weapons[group.prepared_idx];
     let aow_idx = group.aow_indices[0];
-    let mut progress = SerialSearchProgress::new(0, 1, |_| false);
     // Enter the populated cache, then cancel at the first winner/tie scan poll.
-    progress.poll_count = PROGRESS_POLL_BATCH - 2;
-    progress.last_emit.last_at -= PROGRESS_MIN_INTERVAL;
+    let polls = Cell::new(0);
+    let mut progress = SerialSearchProgress::new(
+        0,
+        1,
+        |_| {},
+        || {
+            polls.set(polls.get() + 1);
+            polls.get() < 2
+        },
+    );
     let error = prepare_primary_allocations(
         &group.search,
         &group.search,
@@ -2807,12 +2816,11 @@ fn ar_bleed_frontier_honors_cancellation() {
             .expect_err("cancelled frontier must fail closed"),
         "cancelled"
     );
-    let mut polls = 0;
+    let polls = AtomicU64::new(0);
     assert_eq!(
         evaluator
             .evaluate_ar_bleed_frontier_with_cancel(&request, || {
-                polls += 1;
-                polls < 20
+                polls.fetch_add(1, Ordering::Relaxed) < 19
             })
             .expect_err("cancellation during calculation must discard the frontier"),
         "cancelled"
@@ -3902,7 +3910,7 @@ fn parallel_search_matches_serial_results() {
         .map(|unit| unit.candidate_count)
         .sum::<u64>();
 
-    let mut serial_progress = SerialSearchProgress::new(total, 0, |_snapshot| true);
+    let mut serial_progress = SerialSearchProgress::new(total, 0, |_| {}, || true);
     let serial = optimize_serial(
         &plan,
         &work_units,
@@ -3916,7 +3924,7 @@ fn parallel_search_matches_serial_results() {
         result_group_mode(&request),
         total,
         0,
-        |_snapshot| true,
+        |_| {},
     )
     .expect("parallel search failed");
 
@@ -3952,7 +3960,7 @@ fn parallel_results_do_not_depend_on_pool_size_or_scheduling() {
                 let units = &plan.fine_work_units;
                 let total = units.iter().map(|unit| unit.candidate_count).sum::<u64>();
                 let group_mode = result_group_mode(&request);
-                let mut serial_progress = SerialSearchProgress::new(total, 0, |_| true);
+                let mut serial_progress = SerialSearchProgress::new(total, 0, |_| {}, || true);
                 let serial = format!(
                     "{:?}",
                     optimize_serial(&plan, units, group_mode, &mut serial_progress).unwrap()
@@ -3964,7 +3972,7 @@ fn parallel_results_do_not_depend_on_pool_size_or_scheduling() {
                         .unwrap();
                     for _ in 0..2 {
                         let parallel = pool.install(|| {
-                            optimize_parallel(&plan, units, group_mode, total, 0, |_| true).unwrap()
+                            optimize_parallel(&plan, units, group_mode, total, 0, |_| {}).unwrap()
                         });
                         assert_eq!(
                             format!("{parallel:?}"),
@@ -4013,7 +4021,7 @@ fn split_aow_units_preserve_grouped_results_across_serial_and_parallel_search() 
     );
 
     let group_mode = result_group_mode(&request);
-    let mut serial_progress = SerialSearchProgress::new(total, 0, |_| true);
+    let mut serial_progress = SerialSearchProgress::new(total, 0, |_| {}, || true);
     let serial = optimize_serial(
         &plan,
         &plan.serial_work_units,
@@ -4021,7 +4029,7 @@ fn split_aow_units_preserve_grouped_results_across_serial_and_parallel_search() 
         &mut serial_progress,
     )
     .expect("grouped serial search failed");
-    let parallel = optimize_parallel(&plan, &plan.fine_work_units, group_mode, total, 0, |_| true)
+    let parallel = optimize_parallel(&plan, &plan.fine_work_units, group_mode, total, 0, |_| {})
         .expect("split parallel search failed");
 
     assert_eq!(serial.len(), 2);
@@ -4103,7 +4111,8 @@ fn prepared_plan_groups_aows_that_share_one_stat_search() {
         grouped.iter().map(|unit| unit.candidate_count).sum::<u64>(),
         plan.estimate().combinations
     );
-    let rows = optimize_prepared_with_progress(&plan, 0, |_| true).expect("prepared search failed");
+    let rows =
+        optimize_prepared_with_progress(&plan, 0, || true, |_| {}).expect("prepared search failed");
     assert!(!rows.is_empty());
 }
 
@@ -4398,7 +4407,7 @@ fn ordered_materialization_preserves_serial_and_populated_reuse_fingerprints() {
             if pass == 2 {
                 assert!(!reuse.primary.is_empty() || !reuse.solved.is_empty());
             }
-            let mut progress = SerialSearchProgress::new(total, 0, |_| true);
+            let mut progress = SerialSearchProgress::new(total, 0, |_| {}, || true);
             let candidates = score_serial(
                 &plan,
                 &plan.serial_work_units,
@@ -4429,16 +4438,16 @@ fn top_k_zero_short_circuits_without_progress_callbacks() {
     let game_data = load_data();
     let mut request = base_request();
     request.top_k = 0;
-    let mut callback_count = 0;
+    let callback_count = AtomicU64::new(0);
 
     let results = optimize_with_cancel(&request, &game_data, || {
-        callback_count += 1;
+        callback_count.fetch_add(1, Ordering::Relaxed);
         true
     })
     .expect("optimizer failed");
 
     assert!(results.is_empty());
-    assert_eq!(callback_count, 0);
+    assert_eq!(callback_count.into_inner(), 0);
 }
 
 #[test]
@@ -4448,10 +4457,14 @@ fn progress_emits_initial_and_final_snapshots() {
     let mut snapshots = Vec::new();
 
     let plan = prepare_search(&request, &game_data).expect("prepare failed");
-    optimize_prepared_with_progress(&plan, u64::MAX, |snapshot| {
-        snapshots.push(snapshot);
-        true
-    })
+    optimize_prepared_with_progress(
+        &plan,
+        u64::MAX,
+        || true,
+        |snapshot| {
+            snapshots.push(snapshot);
+        },
+    )
     .expect("optimizer failed");
 
     // Timer-based heartbeats may arrive between the mandatory boundary snapshots.
@@ -4478,7 +4491,7 @@ fn materialization_cancellation_after_scoring_discards_large_result_batch() {
     let stats = request.current_stats;
     lock_request_to_combat_stats(&mut request, stats);
     let plan = prepare_search(&request, &game_data).unwrap();
-    let candidates = score_prepared_with_progress(&plan, 0, |_| true, None).unwrap();
+    let candidates = score_prepared_with_progress(&plan, 0, &|| true, |_| {}, None).unwrap();
     assert_eq!(candidates.len(), request.top_k);
     let expected =
         materialize_scored_candidates(&request, &game_data, &plan.weapons, candidates.clone())
@@ -4526,15 +4539,20 @@ fn materialization_cancellation_after_scoring_discards_large_result_batch() {
         assert_eq!(polls, stop_at);
     }
 
-    // With progress disabled, scoring emits only its initial and final snapshots.
-    // Accept both, then accept one hydration checkpoint before cancelling.
-    let mut polls = 0;
-    let result = optimize_prepared_with_progress(&plan, 0, |_| {
-        polls += 1;
-        polls < 4
-    });
+    // Accept the final scoring check and one hydration checkpoint, then cancel.
+    let scored = AtomicBool::new(false);
+    let checks_after_scoring = AtomicU64::new(0);
+    let result = optimize_prepared_with_progress(
+        &plan,
+        0,
+        || {
+            !scored.load(Ordering::Relaxed)
+                || checks_after_scoring.fetch_add(1, Ordering::Relaxed) < 2
+        },
+        |snapshot| scored.store(snapshot.checked == snapshot.total, Ordering::Relaxed),
+    );
     assert_eq!(result.err().as_deref(), Some("cancelled"));
-    assert_eq!(polls, 4);
+    assert_eq!(checks_after_scoring.into_inner(), 3);
 }
 
 #[test]
@@ -4546,18 +4564,20 @@ fn materialization_cancellation_after_reused_scoring_discards_result() {
     let plan = prepare_search(&request, &game_data).unwrap();
     let mut reuse = DpReuse::from_plan(&plan);
     assert!(level_plan_can_reuse(&plan, &reuse));
-    let mut polls = 0;
+    let scored = AtomicBool::new(false);
+    let checks_after_scoring = AtomicU64::new(0);
     let result = optimize_prepared(
         &plan,
         0,
-        |_| {
-            polls += 1;
-            polls < 4
+        &|| {
+            !scored.load(Ordering::Relaxed)
+                || checks_after_scoring.fetch_add(1, Ordering::Relaxed) < 2
         },
+        |snapshot| scored.store(snapshot.checked == snapshot.total, Ordering::Relaxed),
         Some(&mut reuse),
     );
     assert_eq!(result.err().as_deref(), Some("cancelled"));
-    assert_eq!(polls, 4);
+    assert_eq!(checks_after_scoring.into_inner(), 3);
 }
 
 #[test]
@@ -4680,7 +4700,7 @@ fn selected_route_materialization_preserves_complete_payloads_and_optimizer_resu
         }
         // Rehydrate the scored winner through the all-route reference before
         // comparing the entire public optimizer result, not just route totals.
-        let candidates = score_prepared_with_progress(&plan, 0, |_| true, None).unwrap();
+        let candidates = score_prepared_with_progress(&plan, 0, &|| true, |_| {}, None).unwrap();
         assert_eq!(candidates.len(), 1, "{weapon}/{skill:?}");
         let candidate = candidates[0].clone();
         let mut expected = materialize_scored_candidate(
@@ -4709,7 +4729,7 @@ fn selected_route_materialization_preserves_complete_payloads_and_optimizer_resu
                 .find(|route| Some(route.route_id.as_str()) == candidate.route_id.as_deref())
                 .expect("scored route exists in full reference"),
         );
-        let actual = optimize_prepared_with_progress(&plan, 0, |_| true).unwrap();
+        let actual = optimize_prepared_with_progress(&plan, 0, || true, |_| {}).unwrap();
         assert_eq!(
             format!("{actual:?}"),
             format!("{:?}", [expected]),
@@ -4961,44 +4981,107 @@ fn materialization_cancellation_inside_complex_routes_and_last_upgrade() {
 }
 
 #[test]
-fn progress_callback_can_cancel_search() {
+fn refused_continuation_cancels_search_after_the_initial_snapshot() {
     let game_data = load_data();
     let request = base_request();
     let mut callback_count = 0;
 
     let plan = prepare_search(&request, &game_data).expect("prepare failed");
-    let err = optimize_prepared_with_progress(&plan, 1, |_snapshot| {
-        callback_count += 1;
-        false
-    })
-    .expect_err("expected cancellation");
+    let err = optimize_prepared_with_progress(&plan, 1, || false, |_snapshot| callback_count += 1)
+        .expect_err("expected cancellation");
 
     assert_eq!(err, "cancelled");
     assert_eq!(callback_count, 1);
 }
 
 #[test]
-fn progress_poll_emits_without_new_candidates_and_can_cancel() {
+fn progress_poll_emits_without_new_candidates() {
     let callback_count = Cell::new(0);
     let checked_at_callback = Cell::new(None);
-    let mut progress = SerialSearchProgress::new(1, 1, |snapshot| {
-        callback_count.set(callback_count.get() + 1);
-        checked_at_callback.set(Some(snapshot.checked));
-        false
-    });
+    let mut progress = SerialSearchProgress::new(
+        1,
+        1,
+        |snapshot| {
+            callback_count.set(callback_count.get() + 1);
+            checked_at_callback.set(Some(snapshot.checked));
+        },
+        || true,
+    );
     progress.last_emit.last_at = Instant::now() - PROGRESS_MIN_INTERVAL - Duration::from_secs(1);
 
     for _ in 0..(PROGRESS_POLL_BATCH - 1) {
         progress.poll().expect("poll stays quiet before its batch");
     }
-    assert!(!progress.is_cancelled());
+    assert_eq!(callback_count.get(), 0);
 
-    let error = progress
-        .poll()
-        .expect_err("timer poll should reach the callback");
-    assert_eq!(error, "cancelled");
+    progress.poll().expect("timer poll reaches the callback");
     assert_eq!(callback_count.get(), 1);
     assert_eq!(checked_at_callback.get(), Some(0));
+}
+
+#[test]
+fn cancellation_is_read_at_the_next_poll_whatever_the_progress_throttle() {
+    for progress_every in [0, 1, u64::MAX] {
+        let cancelled = AtomicBool::new(false);
+        let callbacks = AtomicU64::new(0);
+        let continue_check = || !cancelled.load(Ordering::Relaxed);
+        let mut serial = SerialSearchProgress::new(
+            1,
+            progress_every,
+            |_| {
+                callbacks.fetch_add(1, Ordering::Relaxed);
+            },
+            continue_check,
+        );
+        let shared = Arc::new(ParallelSearchProgress::new(
+            1,
+            progress_every,
+            |_| {
+                callbacks.fetch_add(1, Ordering::Relaxed);
+            },
+            continue_check,
+        ));
+        let mut parallel = ParallelLocalProgress::new(Arc::clone(&shared));
+        for _ in 0..3 {
+            serial.poll().unwrap();
+            parallel.poll().unwrap();
+        }
+        // A fresh progress state is inside its delivery interval, so no snapshot is due.
+        cancelled.store(true, Ordering::Relaxed);
+        assert_eq!(serial.poll().unwrap_err(), "cancelled", "{progress_every}");
+        assert_eq!(
+            parallel.poll().unwrap_err(),
+            "cancelled",
+            "{progress_every}"
+        );
+        assert_eq!(callbacks.load(Ordering::Relaxed), 0, "{progress_every}");
+    }
+
+    // End to end with progress disabled: a refusal at any poll stops the search.
+    let game_data = load_data();
+    let plan = prepare_search(&base_request(), &game_data).unwrap();
+    let checks = AtomicU64::new(0);
+    optimize_prepared_with_progress(
+        &plan,
+        0,
+        || {
+            checks.fetch_add(1, Ordering::Relaxed);
+            true
+        },
+        |_| {},
+    )
+    .unwrap();
+    let total = checks.into_inner();
+    assert!(total > 2, "{total} cancellation checks");
+    let seen = AtomicU64::new(0);
+    let error = optimize_prepared_with_progress(
+        &plan,
+        0,
+        || seen.fetch_add(1, Ordering::Relaxed) < total / 2,
+        |_| {},
+    )
+    .unwrap_err();
+    assert_eq!(error, "cancelled");
 }
 
 #[test]
@@ -5019,9 +5102,8 @@ fn preparation_callback_can_cancel_before_enumeration() {
 
 #[test]
 fn broad_enumeration_stops_at_the_first_cancelled_poll() {
-    // Latency is the delivery throttle plus one poll batch; keep the throttle inside the
-    // documented 250 ms cancellation target. Wall-clock bounds are left to release probes.
-    assert!(PROGRESS_MIN_INTERVAL < Duration::from_millis(250));
+    // Every poll reads the cancellation signal, independent of the progress throttle.
+    // Wall-clock bounds are left to release probes.
     let game_data = load_data();
     let request = broad_request();
     let plan = prepare_search(&request, &game_data).expect("broad preparation succeeds");
@@ -5033,19 +5115,25 @@ fn broad_enumeration_stops_at_the_first_cancelled_poll() {
     std::thread::scope(|scope| {
         let worker = scope.spawn(|| {
             let mut initial_sent = false;
-            optimize_prepared_with_progress(&plan, 1_024, |_snapshot| {
-                if !initial_sent {
-                    initial_sent = true;
-                    started_tx
-                        .send(())
-                        .expect("test receiver remains available");
-                }
-                let cancelled = cancelled.load(Ordering::Acquire);
-                if cancelled {
-                    calls_after_cancel.fetch_add(1, Ordering::Relaxed);
-                }
-                !cancelled
-            })
+            optimize_prepared_with_progress(
+                &plan,
+                1_024,
+                || {
+                    let cancelled = cancelled.load(Ordering::Acquire);
+                    if cancelled {
+                        calls_after_cancel.fetch_add(1, Ordering::Relaxed);
+                    }
+                    !cancelled
+                },
+                |_snapshot| {
+                    if !initial_sent {
+                        initial_sent = true;
+                        started_tx
+                            .send(())
+                            .expect("test receiver remains available");
+                    }
+                },
+            )
         });
         started_rx.recv().expect("search emits initial progress");
         cancelled.store(true, Ordering::Release);
@@ -5054,12 +5142,11 @@ fn broad_enumeration_stops_at_the_first_cancelled_poll() {
             .expect("search worker does not panic")
             .expect_err("broad search must cancel");
         assert_eq!(error, "cancelled");
-        // One refusal stops every worker: at most one racing call per worker plus the
-        // final forced snapshot.
+        // One refusal stops every worker: at most one racing check per worker.
         let calls = calls_after_cancel.load(Ordering::Relaxed);
         assert!(
-            (1..=rayon::current_num_threads() as u64 + 1).contains(&calls),
-            "{calls} callbacks after cancellation"
+            (1..=rayon::current_num_threads() as u64).contains(&calls),
+            "{calls} checks after cancellation"
         );
     });
 }
