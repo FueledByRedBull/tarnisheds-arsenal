@@ -116,9 +116,9 @@ def publish(repo: str, tag: str, commit: str, assets: Path) -> None:
     for path, row in zip(files[:2], report["artifacts"], strict=True):
         if row != {"name": path.name, "bytes": path.stat().st_size, "sha256": sha256(path)}:
             raise RuntimeError(f"Package provenance hash mismatch: {path.name}")
-    checksums = "".join(f"{sha256(path)}  {path.name}\n" for path in files[:2])
+    checksums = "".join(f"{sha256(path)}  {path.name}\n" for path in files[:3])
     if files[-2].read_text(encoding="utf-8-sig") != checksums:
-        raise RuntimeError("Package checksum file does not match its binaries")
+        raise RuntimeError("Package checksum file does not match its binaries and archive")
     verify_portable_archive(
         files[2], f"{prefix}/{files[0].name}", report["artifacts"][0]["sha256"]
     )

@@ -61,7 +61,7 @@ def newest(path_glob: str, root: Path) -> Path:
 def create_portable_archive(zip_path: Path, release_dir: Path, portable_name: str) -> None:
     required_names = [portable_name, "README.md", "build-report.json"]
     archive_names = required_names + [
-        name for name in ("LICENSE", "data-validation.json") if (release_dir / name).is_file()
+        name for name in ("LICENSE", "NOTICE", "data-validation.json") if (release_dir / name).is_file()
     ]
     missing_names = [name for name in required_names if not (release_dir / name).is_file()]
     if missing_names:
@@ -866,8 +866,9 @@ def main() -> int:
     msi_out = release_dir / f"TarnishedsArsenal_{artifact_version}_x64_en-US.msi"
     shutil.copy2(exe, exe_out)
     shutil.copy2(msi, msi_out)
-    if (root / "LICENSE").exists():
-        shutil.copy2(root / "LICENSE", release_dir / "LICENSE")
+    for notice in ("LICENSE", "NOTICE"):
+        if (root / notice).exists():
+            shutil.copy2(root / notice, release_dir / notice)
 
     write_text(
         release_dir / "README.md",
@@ -883,6 +884,7 @@ def main() -> int:
                 "- `build-report.json` build provenance",
                 *( ["- `data-validation.json` generated-data validation report"] if validation_completed else [] ),
                 "- `LICENSE`",
+                "- `NOTICE` third-party notices",
                 "",
                 "## Install",
                 "Launch the standalone executable directly.",
@@ -945,6 +947,9 @@ def main() -> int:
         release_dir,
         exe_out.name,
     )
+    # The archive carries the build report, so its row is added only once it exists.
+    with (release_dir / "SHA256SUMS.txt").open("a", encoding="utf-8", newline="\n") as checksums:
+        checksums.write(f"{sha256(zip_path)}  {zip_path.name}\n")
 
     print(f"Release packaged: {release_dir}")
     print(f"Installer: {msi_out}")

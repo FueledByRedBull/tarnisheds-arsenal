@@ -292,8 +292,12 @@ jobs:
             }
             $checksumRows[$Matches[2]] = $Matches[1]
           }
-          if ($checksumRows.Count -ne 2 -or @($report.artifacts).Count -ne 2) {
-            throw "Expected exactly two binary checksum and provenance rows"
+          if ($checksumRows.Count -ne 3 -or @($report.artifacts).Count -ne 2) {
+            throw "Expected checksum rows for the executable, MSI and archive, and two provenance rows"
+          }
+          $zipFile = Get-Item -LiteralPath $env:RELEASE_ZIP
+          if ($checksumRows[$zipFile.Name] -ne (Get-FileHash -Algorithm SHA256 -LiteralPath $zipFile.FullName).Hash.ToLowerInvariant()) {
+            throw "Checksum mismatch for $($zipFile.Name)"
           }
 
           foreach ($path in @($env:RELEASE_EXE, $env:RELEASE_MSI)) {
@@ -331,7 +335,8 @@ jobs:
               "SHA256SUMS.txt",
               "build-report.json",
               "README.md",
-              "LICENSE"
+              "LICENSE",
+              "NOTICE"
             )) {
               if ($name -notin $archiveNames) { throw "Release archive is missing $name" }
             }
@@ -442,8 +447,8 @@ jobs:
           "RELEASE_TAG=v$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           gh run download $env:GITHUB_RUN_ID --name "package-$version" --dir dist/release-assets
 
-      - name: Create release tag for manual publication
-        if: github.event_name == 'workflow_dispatch' && inputs.publish == true
+      - name: Create or verify the release tag
+        if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish == true)
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -465,60 +470,29 @@ jobs:
             return $direct
           }
 
+          # Manual publication creates the tag; a tag push or an existing tag is only verified.
+          if ($env:GITHUB_EVENT_NAME -eq "workflow_dispatch" -and -not (Get-RemoteTagCommit)) {
+            $localTag = git tag --list $env:RELEASE_TAG
+            if ($localTag -eq $env:RELEASE_TAG) {
+              $localCommit = git rev-list -n 1 "refs/tags/$env:RELEASE_TAG^{commit}"
+              if ($LASTEXITCODE -ne 0 -or -not $localCommit) {
+                throw "Unable to resolve local release tag $env:RELEASE_TAG"
+              }
+              if ($localCommit -ne $env:GITHUB_SHA) {
+                throw "Local release tag $env:RELEASE_TAG already points to $localCommit; expected $env:GITHUB_SHA"
+              }
+            } else {
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              git tag -a $env:RELEASE_TAG -m "Release $env:RELEASE_TAG" $env:GITHUB_SHA
+            }
+            # A push that loses a race with a concurrent creation is judged by the check below.
+            $PSNativeCommandUseErrorActionPreference = $false
+            git push origin $env:RELEASE_TAG
+            $PSNativeCommandUseErrorActionPreference = $true
+          }
+
           $remoteCommit = Get-RemoteTagCommit
-          if ($remoteCommit) {
-            if ($remoteCommit -ne $env:GITHUB_SHA) {
-              throw "Remote release tag $env:RELEASE_TAG already points to $remoteCommit; expected $env:GITHUB_SHA"
-            }
-            Write-Output "Remote release tag $env:RELEASE_TAG already points to $env:GITHUB_SHA"
-            exit 0
-          }
-
-          $localTag = git tag --list $env:RELEASE_TAG
-          if ($localTag -eq $env:RELEASE_TAG) {
-            $localCommit = git rev-list -n 1 "refs/tags/$env:RELEASE_TAG^{commit}"
-            if ($LASTEXITCODE -ne 0 -or -not $localCommit) {
-              throw "Unable to resolve local release tag $env:RELEASE_TAG"
-            }
-            if ($localCommit -ne $env:GITHUB_SHA) {
-              throw "Local release tag $env:RELEASE_TAG already points to $localCommit; expected $env:GITHUB_SHA"
-            }
-          } else {
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git tag -a $env:RELEASE_TAG -m "Release $env:RELEASE_TAG" $env:GITHUB_SHA
-          }
-
-          $PSNativeCommandUseErrorActionPreference = $false
-          git push origin $env:RELEASE_TAG
-          if ($LASTEXITCODE -ne 0) {
-            $remoteCommit = Get-RemoteTagCommit
-            if ($remoteCommit -ne $env:GITHUB_SHA) {
-              throw "Unable to publish release tag $env:RELEASE_TAG at $env:GITHUB_SHA"
-            }
-            Write-Output "Release tag $env:RELEASE_TAG was created concurrently at $env:GITHUB_SHA"
-          }
-
-      - name: Verify release tag before publication
-        if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish == true)
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $PSNativeCommandUseErrorActionPreference = $true
-          $tagRef = "refs/tags/$env:RELEASE_TAG"
-          $lines = @(git ls-remote origin $tagRef "${tagRef}^{}")
-          if ($LASTEXITCODE -ne 0) {
-            throw "Unable to inspect remote release tag $env:RELEASE_TAG before publication"
-          }
-          $direct = $null
-          $peeled = $null
-          foreach ($line in $lines) {
-            $parts = $line -split "\s+"
-            if ($parts.Count -lt 2) { continue }
-            if ($parts[1] -eq "${tagRef}^{}") { $peeled = $parts[0] }
-            if ($parts[1] -eq $tagRef) { $direct = $parts[0] }
-          }
-          $remoteCommit = if ($peeled) { $peeled } else { $direct }
           if ($remoteCommit -ne $env:GITHUB_SHA) {
             throw "Remote release tag $env:RELEASE_TAG points to $remoteCommit; expected $env:GITHUB_SHA"
           }
