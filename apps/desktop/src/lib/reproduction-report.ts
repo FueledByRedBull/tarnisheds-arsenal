@@ -1,6 +1,7 @@
 import packageInfo from "../../package.json";
 import { buildOptimizeRequest, rowFingerprint, STAT_KEYS } from "./session";
-import { knownRequestFields, type DesktopState } from "./state";
+import { knownRequestFields } from "./presets";
+import type { DesktopState } from "./state";
 import { aowModelSupported, hasAowDamage } from "./format";
 
 // Reports use an allowlist, never a dump of storage, manifests, or application state.

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { MAX_COMPARE_PINS, readCompareBench, writeCompareBench } from "./compare-bench";
 import { activationRequest, catalogVersion, verifyPresetResults } from "./preset-activation";
-import { assertRequest } from "./presets";
+import { assertRequest, knownRequestFields } from "./presets";
 import { isRecord } from "./stored-build";
 import {
   AffinityWatchPayloadDto,
@@ -149,15 +149,6 @@ export const defaultRequest: OptimizeRequestDto = {
   objective: "max_ar",
   topK: 25,
 };
-
-// Stored and imported requests may carry unknown keys; only known fields enter the live query.
-export function knownRequestFields(request: OptimizeRequestDto): OptimizeRequestDto {
-  const known = Object.fromEntries(Object.keys(defaultRequest).map((key) => [key, request[key as keyof OptimizeRequestDto]]));
-  return {
-    ...known as unknown as OptimizeRequestDto,
-    filters: { version: 1, entries: request.filters.entries.map(({ dimension, id, mode }) => ({ dimension, id, mode })) },
-  };
-}
 
 type ProfileQuery = { request: OptimizeRequestDto; lockedStatMode: boolean };
 

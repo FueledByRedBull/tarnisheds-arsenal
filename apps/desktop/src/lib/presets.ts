@@ -6,7 +6,7 @@ import {
 } from "./stored-build";
 import { STARTING_CLASS_METADATA } from "./session";
 import {
-  BuildPreset, BuildPresetV1, FILTER_DIMENSION_IDS, OBJECTIVE_IDS, OptimizeRequestDto, SavedBuildIndexV1, SolvedBuildDto,
+  BuildPreset, BuildPresetV1, FILTER_DIMENSION_IDS, OBJECTIVE_IDS, OptimizeRequestDto, SavedBuildIndexEntryV1, SavedBuildIndexV1, SolvedBuildDto,
 } from "./types";
 
 const INDEX_KEY = "tarnisheds-arsenal.savedBuildIndex.v1";
@@ -45,7 +45,7 @@ export function savedBuildIndex(): SavedBuildIndexV1 {
       if (ids.has(entry.id)) throw new Error();
       ids.add(entry.id);
     }
-    return value as unknown as SavedBuildIndexV1;
+    return { version: 1, builds: (value.builds as SavedBuildIndexEntryV1[]).map(presetIndexEntry) };
   } catch {
     throw new Error("Saved build index is damaged. Open backup and recovery before saving; original data is preserved.");
   }
@@ -72,7 +72,7 @@ function storageKeys(...prefixes: string[]): string[] {
   return keys.sort();
 }
 
-function presetIndexEntry(preset: BuildPreset): SavedBuildIndexV1["builds"][number] {
+function presetIndexEntry(preset: SavedBuildIndexEntryV1): SavedBuildIndexEntryV1 {
   const { id, name, profileId, dataVersion, updatedAt } = preset;
   return { id, name, profileId, dataVersion, updatedAt };
 }
@@ -211,7 +211,7 @@ export function saveBuildPreset(input: {
 }): BuildPreset {
   const now = new Date().toISOString();
   const existing = input.id ? loadBuildPreset(input.id) : null;
-  const preset: BuildPreset = {
+  const preset = checkedPreset({
     version: 2,
     id: input.id ?? crypto.randomUUID(),
     name: input.name.trim() || "Untitled Build",
@@ -223,8 +223,7 @@ export function saveBuildPreset(input: {
     dataVersion: input.dataVersion,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
-  };
-  assertPreset(preset);
+  });
   persistPreset(preset);
   return preset;
 }
@@ -310,8 +309,7 @@ export function previewPresetImport(raw: string): PresetImportPreview {
 }
 
 function persistPreset(preset: BuildPreset) {
-  assertPreset(preset);
-  const text = JSON.stringify(preset);
+  const text = JSON.stringify(checkedPreset(preset));
   assertPresetSize(text);
   const index = savedBuildIndex();
   if (index.builds.length >= MAX_BUILD_BACKUP_COUNT && !index.builds.some((entry) => entry.id === preset.id)) {
@@ -345,9 +343,7 @@ function persistPreset(preset: BuildPreset) {
 }
 
 function readPreset(value: unknown): BuildPreset {
-  const preset = migratePreset(value);
-  assertPreset(preset);
-  return preset;
+  return checkedPreset(migratePreset(value));
 }
 
 function importedPreset(value: unknown): BuildPreset {
@@ -370,7 +366,9 @@ function assertPresetSize(json: string) {
   if (utf8Bytes(json) > MAX_PRESET_IMPORT_BYTES) throw presetTooLarge();
 }
 
-function assertPreset(value: BuildPreset) {
+// Returns a copy rebuilt from known keys, so extra keys in stored or imported presets never
+// reach state, undo history, native requests or later saves.
+function checkedPreset(value: BuildPreset): BuildPreset {
   if (!isRecord(value) || value.version !== 2) throw invalidPreset("schema version must be 2");
   assertText(value.id, "id", 128);
   assertText(value.name, "name", 200);
@@ -382,13 +380,31 @@ function assertPreset(value: BuildPreset) {
   if (value.profileId !== value.request.profileId) {
     throw invalidPreset("profileId must match request.profileId");
   }
-  assertSolvedBuild(value.selectedBuild, "selectedBuild");
-  assertSolvedBuild(value.compareTarget, "compareTarget");
+  const selectedBuild = value.selectedBuild === null ? null : storedBuild(value.selectedBuild, "selectedBuild");
+  const compareTarget = value.compareTarget === null ? null : storedBuild(value.compareTarget, "compareTarget");
   assertArray(value.compareBench, "compareBench", MAX_COMPARE_PINS);
-  value.compareBench.forEach((build, index) => {
-    if (build === null) throw invalidPreset(`compareBench[${index}] must be a build`);
-    assertSolvedBuild(build, `compareBench[${index}]`);
-  });
+  const compareBench = value.compareBench.map((build, index) => storedBuild(build, `compareBench[${index}]`));
+  const { version, id, name, profileId, dataVersion, createdAt, updatedAt } = value;
+  return {
+    version, id, name, profileId, request: knownRequestFields(value.request),
+    selectedBuild, compareTarget, compareBench, dataVersion, createdAt, updatedAt,
+  };
+}
+
+// Stored and imported requests may carry unknown keys; only known fields enter the live query.
+export function knownRequestFields(r: OptimizeRequestDto): OptimizeRequestDto {
+  return {
+    profileId: r.profileId, className: r.className, characterLevel: r.characterLevel,
+    vig: r.vig, mnd: r.mnd, end: r.end, strStat: r.strStat, dex: r.dex, intStat: r.intStat, fai: r.fai, arc: r.arc,
+    minStr: r.minStr, minDex: r.minDex, minInt: r.minInt, minFai: r.minFai, minArc: r.minArc,
+    lockStr: r.lockStr, lockDex: r.lockDex, lockInt: r.lockInt, lockFai: r.lockFai, lockArc: r.lockArc,
+    standardMaxUpgrade: r.standardMaxUpgrade, somberMaxUpgrade: r.somberMaxUpgrade, exactUpgrade: r.exactUpgrade,
+    twoHanding: r.twoHanding, dlcScaling: r.dlcScaling, scadutreeLevel: r.scadutreeLevel,
+    weaponName: r.weaponName, affinity: r.affinity, aowName: r.aowName, weaponTypeKey: r.weaponTypeKey,
+    somberFilter: r.somberFilter,
+    filters: { version: 1, entries: r.filters.entries.map(({ dimension, id, mode }) => ({ dimension, id, mode })) },
+    resultGrouping: r.resultGrouping, objective: r.objective, topK: r.topK,
+  };
 }
 
 export function assertRequest(value: unknown): asserts value is OptimizeRequestDto {
@@ -439,10 +455,10 @@ export function assertRequest(value: unknown): asserts value is OptimizeRequestD
   assertInteger(value.topK, "request.topK", 1, 500);
 }
 
-function assertSolvedBuild(value: unknown, label: string): asserts value is SolvedBuildDto | null {
-  if (value === null) return;
+function storedBuild(value: unknown, label: string): SolvedBuildDto {
   const checked = validateStoredBuild(value, { standardMaxUpgrade: 25, somberMaxUpgrade: 25 }, label);
   if ("error" in checked) throw invalidPreset(checked.error);
+  return checked.value;
 }
 
 function assertDataVersion(value: unknown) {
@@ -464,8 +480,6 @@ function migratePreset(value: unknown): BuildPreset {
   }
   const request = value.request;
   if (!isRecord(request)) throw invalidPreset("request must be an object");
-  delete request.budgetMode;
-  delete request.offensivePointBudget;
   const legacy = value.version === 1;
   if (!legacy) return value as unknown as BuildPreset;
   if (typeof value.profileId !== "string" && typeof request.profileId !== "string") {
