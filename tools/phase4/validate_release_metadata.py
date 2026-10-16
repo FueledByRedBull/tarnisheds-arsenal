@@ -45,6 +45,37 @@ def expect_exact_version(label: str, version: object, errors: list[str]) -> bool
     return True
 
 
+def mentions(text: str, value: str) -> bool:
+    """Match value as a whole token, so v0.17.2 does not match v0.17.20."""
+    return re.search(rf"(?<![\w.]){re.escape(value)}(?![-\w]|\.\w)", text) is not None
+
+
+def release_notes_errors(root: Path, expected_tag: str) -> list[str]:
+    errors: list[str] = []
+    notes_path = root / "docs" / "release-notes" / f"{expected_tag}.md"
+    if not notes_path.is_file() or not notes_path.read_text(encoding="utf-8").strip():
+        errors.append(f"missing or empty release notes: {notes_path.relative_to(root)}")
+
+    notes_index = root / "docs" / "release-notes" / "README.md"
+    try:
+        index_text = notes_index.read_text(encoding="utf-8")
+    except OSError:
+        errors.append(f"missing release notes index: {notes_index.relative_to(root)}")
+        return errors
+    if not mentions(index_text, expected_tag):
+        errors.append(f"release notes index does not mention {expected_tag}")
+    release_url = (
+        "https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/"
+        f"{expected_tag}"
+    )
+    if not mentions(index_text, release_url):
+        errors.append(
+            f"release notes index must link {expected_tag} directly; "
+            "do not leave a Pending publication entry"
+        )
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate release version metadata.")
     parser.add_argument("--tag", help="Git tag to validate, for example v0.5.0")
@@ -65,6 +96,8 @@ def main() -> int:
         errors,
     )
     windows = tauri_config.get("app", {}).get("windows", [])
+    if not windows:
+        errors.append("Tauri app.windows is empty")
     for index, window in enumerate(windows):
         expect_equal(
             f"Tauri app.windows[{index}].title",
@@ -116,27 +149,7 @@ def main() -> int:
     if args.tag:
         expect_equal("release tag", args.tag, expected_tag, errors)
 
-    notes_path = root / "docs" / "release-notes" / f"{expected_tag}.md"
-    if not notes_path.exists():
-        errors.append(f"missing release notes: {notes_path.relative_to(root)}")
-
-    notes_index = root / "docs" / "release-notes" / "README.md"
-    try:
-        index_text = notes_index.read_text(encoding="utf-8")
-    except OSError:
-        errors.append(f"missing release notes index: {notes_index.relative_to(root)}")
-    else:
-        if expected_tag not in index_text:
-            errors.append(f"release notes index does not mention {expected_tag}")
-        release_url = (
-            "https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/"
-            f"{expected_tag}"
-        )
-        if release_url not in index_text:
-            errors.append(
-                f"release notes index must link {expected_tag} directly; "
-                "do not leave a Pending publication entry"
-            )
+    errors.extend(release_notes_errors(root, expected_tag))
 
     expect_exact_version("Rust toolchain", rust_version, errors)
     expect_exact_version("Python toolchain", python_version, errors)

@@ -40,11 +40,19 @@ class PublishReleaseTests(unittest.TestCase):
             write_provenance()
             remote = None
             uploads: list[str] = []
+            edits: list[tuple[str, ...]] = []
             fail_upload = True
             corrupt_upload = False
+            tag_target = "a" * 40
 
             def gh(*args: str, **_kwargs: object) -> str:
                 nonlocal fail_upload, remote
+                if args == ("api", "repos/owner/repo/git/ref/tags/v1.2.3"):
+                    return json.dumps({"object": {"type": "tag", "sha": "f" * 40}})
+                if args == ("api", f"repos/owner/repo/git/tags/{'f' * 40}"):
+                    return json.dumps({"object": {"type": "commit", "sha": tag_target}})
+                if args[:2] == ("release", "list"):
+                    return json.dumps([{"tagName": "v1.10.0"}, {"tagName": "nightly"}])
                 if args[:2] == ("release", "create"):
                     remote = {"isDraft": True, "assets": []}
                     self.assertIn("--draft", args)
@@ -62,6 +70,7 @@ class PublishReleaseTests(unittest.TestCase):
                             raise RuntimeError("interrupted upload")
                 elif args[:2] == ("release", "edit"):
                     assert remote is not None
+                    edits.append(args)
                     remote["isDraft"] = False
                 elif args[:2] == ("release", "download"):
                     source = assets / args[6]
@@ -79,6 +88,7 @@ class PublishReleaseTests(unittest.TestCase):
                 self.assertEqual(len(uploads), 1)
                 publisher.publish("owner/repo", "v1.2.3", "a" * 40, assets)
                 self.assertFalse(remote["isDraft"])
+                self.assertIn("--latest=false", edits[0])
                 self.assertCountEqual(uploads, [path.name for path in files])
                 remote["assets"][0]["digest"] = None
                 publisher.publish("owner/repo", "v1.2.3", "a" * 40, assets)
@@ -96,6 +106,15 @@ class PublishReleaseTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "Remote asset differs"):
                     publisher.publish("owner/repo", "v1.2.3", "a" * 40, assets)
                 self.assertTrue(remote["isDraft"])
+
+                # A tag moved to another commit must stop publication before any mutation.
+                files[1].write_bytes(files[1].name.encode())
+                write_provenance()
+                tag_target = "b" * 40
+                remote = None
+                with self.assertRaisesRegex(RuntimeError, "does not point to the packaged commit"):
+                    publisher.publish("owner/repo", "v1.2.3", "a" * 40, assets)
+                self.assertIsNone(remote)
 
     def test_release_lookup_uses_the_cli_draft_aware_lookup(self) -> None:
         with patch.object(publisher, "gh", return_value='{"isDraft": true, "assets": []}') as gh:

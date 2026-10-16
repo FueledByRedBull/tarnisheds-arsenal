@@ -6,15 +6,17 @@ import hashlib
 import json
 import re
 import subprocess
+import sys
 import tempfile
 import zipfile
 from pathlib import Path
 from typing import Any
 
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-def sha256(path: Path) -> str:
-    with path.open("rb") as handle:
-        return hashlib.file_digest(handle, "sha256").hexdigest()
+from tools.phase1.snapshot_manifest import sha256_file as sha256  # noqa: E402
 
 
 def verify_portable_archive(
@@ -34,10 +36,8 @@ def verify_portable_archive(
                 f"Portable archive must contain exactly one executable at {expected_entry}"
             )
         with archive.open(executables[0]) as payload:
-            digest = hashlib.sha256()
-            for chunk in iter(lambda: payload.read(1024 * 1024), b""):
-                digest.update(chunk)
-        if digest.hexdigest() != expected_sha256:
+            digest = hashlib.sha256(payload.read()).hexdigest()
+        if digest != expected_sha256:
             raise RuntimeError("Portable archive executable does not match the verified binary")
 
 
@@ -53,6 +53,30 @@ def gh(*args: str, missing_ok: bool = False) -> str | None:
 def release_info(repo: str, tag: str) -> dict[str, Any] | None:
     result = gh("release", "view", tag, "--repo", repo, "--json", "isDraft,assets", missing_ok=True)
     return json.loads(result) if result is not None else None
+
+
+def tag_commit(repo: str, tag: str) -> str:
+    """Return the commit a tag points to, peeling an annotated tag."""
+    target = json.loads(gh("api", f"repos/{repo}/git/ref/tags/{tag}") or "{}")["object"]
+    if target["type"] == "tag":
+        target = json.loads(gh("api", f"repos/{repo}/git/tags/{target['sha']}") or "{}")["object"]
+    return target["sha"]
+
+
+def version_key(tag: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in tag[1:].split("."))
+
+
+def is_latest_version(repo: str, tag: str) -> bool:
+    releases = json.loads(
+        gh("release", "list", "--repo", repo, "--exclude-drafts", "--json", "tagName", "--limit", "1000")
+        or "[]"
+    )
+    published = [
+        release["tagName"] for release in releases
+        if re.fullmatch(r"v\d+\.\d+\.\d+", release["tagName"])
+    ]
+    return all(version_key(tag) >= version_key(other) for other in published)
 
 
 def verify_assets(repo: str, tag: str, release: dict[str, Any], files: list[Path]) -> list[Path]:
@@ -98,6 +122,8 @@ def publish(repo: str, tag: str, commit: str, assets: Path) -> None:
     verify_portable_archive(
         files[2], f"{prefix}/{files[0].name}", report["artifacts"][0]["sha256"]
     )
+    if tag_commit(repo, tag) != commit:
+        raise RuntimeError(f"Tag {tag} does not point to the packaged commit {commit}")
 
     release = release_info(repo, tag)
     if release is None:
@@ -113,7 +139,8 @@ def publish(repo: str, tag: str, commit: str, assets: Path) -> None:
     if release is None or verify_assets(repo, tag, release, files):
         raise RuntimeError("Release asset upload is incomplete")
     if release["isDraft"]:
-        gh("release", "edit", tag, "--repo", repo, "--draft=false", "--latest", "--notes-file", str(notes))
+        latest = "--latest" if is_latest_version(repo, tag) else "--latest=false"
+        gh("release", "edit", tag, "--repo", repo, "--draft=false", latest, "--notes-file", str(notes))
     release = release_info(repo, tag)
     if release is None or release["isDraft"] or verify_assets(repo, tag, release, files):
         raise RuntimeError("Published release verification failed")
