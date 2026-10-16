@@ -21,7 +21,10 @@ export function readCompareBench(catalog: CatalogDto): { rows: SolvedBuildDto[];
         scope: "global", tone: "warning", message: "Your pinned comparison builds were saved on different game data and were not restored.",
       }] : [] };
     }
-    const rows = value.rows.filter((row): row is SolvedBuildDto => isStoredBuild(row, catalog));
+    const rows = value.rows.flatMap((row) => {
+      const checked = validateStoredBuild(row, catalog.dataManifest.rules);
+      return "value" in checked ? [checked.value] : [];
+    });
     return {
       rows: rows.slice(0, MAX_COMPARE_PINS),
       notices: rows.length === value.rows.length ? [] : [{
@@ -31,10 +34,6 @@ export function readCompareBench(catalog: CatalogDto): { rows: SolvedBuildDto[];
   } catch {
     return empty;
   }
-}
-
-function isStoredBuild(build: unknown, catalog: CatalogDto): build is SolvedBuildDto {
-  return "value" in validateStoredBuild(build, catalog.dataManifest.rules);
 }
 
 export function writeCompareBench(catalog: CatalogDto | null, rows: SolvedBuildDto[]): Notice[] {

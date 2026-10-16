@@ -284,6 +284,32 @@ describe("saved build persistence", () => {
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 
+  it("rebuilds presets, builds, backups and the index from known keys only", () => {
+    // Adds an extra key and an own __proto__ key to every object in the JSON text.
+    const withExtras = (value: unknown) => JSON.stringify(value).replaceAll("{\"", "{\"__proto__\":{\"polluted\":true},\"extra\":\"x\",\"");
+    const unknownKeys = (value: unknown): boolean => typeof value === "object" && value !== null
+      && (Object.hasOwn(value, "extra") || Object.hasOwn(value, "__proto__") || Object.values(value).some(unknownKeys));
+    const clean = saveBuildPreset({ ...preset(), request: { ...defaultRequest, filters: { version: 1, entries: [{ dimension: "weapon_type", id: "katana", mode: "include" }] } },
+      selectedBuild: routedBuild(), compareTarget: null, compareBench: [routedBuild()] });
+    const text = withExtras(clean);
+    expect(text).toContain("\"extra\"");
+
+    const shared = parsePresetText(`ta-v2:${encodeURIComponent(text)}`);
+    const restoredBackup = previewBuildBackup(withExtras({ format: "tarnisheds-arsenal.build-backup", version: 1, builds: [clean] })).presets[0];
+    localStorage.setItem(`tarnisheds-arsenal.savedBuild.v2.${clean.id}`, text);
+    localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", withExtras(savedBuildIndex()));
+    const stored = loadBuildPreset(clean.id);
+    for (const result of [parsePresetText(text), shared, restoredBackup, stored, inspectSavedBuilds().presets[0]]) {
+      expect(result).toEqual(clean);
+      expect(unknownKeys(result)).toBe(false);
+    }
+    expect(unknownKeys(savedBuildIndex())).toBe(false);
+    const build = validateStoredBuild(JSON.parse(withExtras(routedBuild())), { standardMaxUpgrade: 25, somberMaxUpgrade: 25 });
+    expect(build).toEqual({ value: routedBuild() });
+    expect(unknownKeys(build)).toBe(false);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
   it("rejects malformed import corpus without persisting anything", () => {
     const malformed = [
       "",
@@ -515,8 +541,12 @@ describe("saved build persistence", () => {
 
   it("backs up existing valid records beyond the single-share import limit", () => {
     const saved = saveBuildPreset(preset());
-    // Existing schemas permit extension fields; the total backup still has a 10 MiB limit.
-    const stored = { ...saved, retainedExtension: "x".repeat(MAX_PRESET_IMPORT_BYTES) };
+    // Long route warnings are valid; the total backup still has a 10 MiB limit.
+    const build = routedBuild();
+    const route = build.aowRoute!;
+    const hit = { ...route.actions[0].hits[0], warnings: Array<string>(256).fill("x".repeat(1000)) };
+    const stored = { ...saved, selectedBuild: { ...build, aowRoute: { ...route, actions: [{ ...route.actions[0], hits: [hit, { ...hit, hitOrder: 1 }] }] } } };
+    expect(JSON.stringify(stored).length).toBeGreaterThan(MAX_PRESET_IMPORT_BYTES);
     localStorage.setItem(`tarnisheds-arsenal.savedBuild.v2.${saved.id}`, JSON.stringify(stored));
     expect(loadBuildPreset(saved.id)).toEqual(stored);
     const backup = savedBuildBackupText(inspectSavedBuilds());
