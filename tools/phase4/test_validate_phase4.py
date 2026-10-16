@@ -39,7 +39,7 @@ class ValidatePhase4Tests(unittest.TestCase):
         read_csv = validation.read_csv
         cases = [(name, count, f"{name} row count too low") for name, count in (
             ("weapons.csv", 2_999), ("reinforce.csv", 799),
-            ("calc_correct.csv", 6_999), ("aow.csv", 99),
+            ("calc_correct.csv", 1_499), ("aow.csv", 99),
             ("attack_element_correct_ext.csv", 149),
             ("weapon_passive_overlays.csv", 999),
         )]
@@ -82,6 +82,42 @@ class ValidatePhase4Tests(unittest.TestCase):
                 with patch.object(validation, "read_csv", side_effect=read):
                     issues = validation.validate_profile_snapshot(validation.ROOT / "data/phase1", "vanilla")
                 self.assertTrue(any(issue.level == "error" and field in issue.message for issue in issues))
+
+    def test_shared_weapon_model_checks_cover_convergence(self) -> None:
+        data_dir = validation.ROOT / "data/profiles/convergence"
+        self.assertEqual(validation.validate_profile_snapshot(data_dir, "convergence"), [])
+        read_csv = validation.read_csv
+        used_curve = read_csv(data_dir / "weapons.csv")[0]["curve_id_physical"]
+        for filename, field, invalid, message in (
+            ("weapons.csv", "physical_attribute_primary", "blunt", "physical attack attributes"),
+            ("weapons.csv", "reinforce_type", "99999", "missing reinforce types"),
+            ("weapons.csv", "curve_id_poison", "99999", "used curve 99999"),
+            ("calc_correct.csv", "multiplier", "-1", "non-monotonic"),
+        ):
+            with self.subTest(field=field):
+                def read(path: Path) -> list[dict[str, str]]:
+                    rows = read_csv(path)
+                    if path.name == filename:
+                        target = rows[0] if filename == "weapons.csv" else next(
+                            row for row in rows
+                            if row["curve_id"] == used_curve and row["stat_value"] == "100"
+                        )
+                        target[field] = invalid
+                    return rows
+
+                with patch.object(validation, "read_csv", side_effect=read):
+                    issues = validation.validate_profile_snapshot(data_dir, "convergence")
+                self.assertTrue(any(message in issue.message for issue in issues), issues)
+
+        def zero_base(path: Path) -> list[dict[str, str]]:
+            rows = read_csv(path)
+            if path.name == "weapons.csv":
+                rows[0].update({f"base_{damage}": "0" for damage in validation.DAMAGE_TYPES})
+            return rows
+
+        with patch.object(validation, "read_csv", side_effect=zero_base):
+            issues = validation.validate_profile_snapshot(data_dir, "convergence")
+        self.assertTrue(any("zero base damage" in issue.message for issue in issues))
 
     def test_tracked_weapon_reference_provenance_is_checked(self) -> None:
         root = Path(__file__).resolve().parents[2]

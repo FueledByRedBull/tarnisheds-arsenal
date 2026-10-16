@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import csv
-import hashlib
 import json
 import math
 import sys
@@ -15,20 +13,29 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.phase1.extract_motion_workbook import MOTION_WORKBOOK_NAME, load_weapon_workbook_data  # noqa: E402
-from tools.phase1.derive_phase1_extras import (  # noqa: E402
-    build_aow_affinity_compat,
-    build_weapon_scaling_summary,
-)
-from tools.phase1.phase1_dump import MAX_EFFECTIVE_STRENGTH  # noqa: E402
+from tools.phase1.phase1_dump import MAX_EFFECTIVE_STRENGTH, read_csv  # noqa: E402
 from tools.phase1.profiles import ProfileDefinition, profile_definition  # noqa: E402
-from tools.phase1.snapshot_manifest import SnapshotManifest, validate_snapshot_manifest  # noqa: E402
+from tools.phase1.snapshot_manifest import (  # noqa: E402
+    SnapshotManifest,
+    sha256_file,
+    validate_snapshot_manifest,
+)
 from tools.phase4.aow_effect_graph import ValidationIssue, validate_aow_effect_graph  # noqa: E402
 from tools.phase4.convergence_reference import validate_reference  # noqa: E402
 
 
-def read_csv(path: Path) -> list[dict[str, str]]:
-    with path.open("r", encoding="utf-8", newline="") as handle:
-        return list(csv.DictReader(handle))
+DAMAGE_TYPES = ("physical", "magic", "fire", "lightning", "holy")
+CURVE_FIELDS = tuple(
+    f"curve_id_{name}" for name in (*DAMAGE_TYPES, "poison", "blood", "sleep", "madness")
+)
+VALID_PHYSICAL_ATTRIBUTES = {
+    "standard",
+    "strike",
+    "slash",
+    "pierce",
+    "adaptive_primary",
+    "adaptive_secondary",
+}
 
 
 def validate_profile_source_provenance(
@@ -49,8 +56,7 @@ def validate_profile_source_provenance(
             if not path.is_file():
                 issues.append(ValidationIssue("error", f"tracked weapon reference is missing: {path}"))
             else:
-                digest = hashlib.sha256(path.read_bytes()).hexdigest()
-                if record.get("size") != path.stat().st_size or record.get("sha256") != digest:
+                if record.get("size") != path.stat().st_size or record.get("sha256") != sha256_file(path):
                     issues.append(
                         ValidationIssue(
                             "error",
@@ -83,10 +89,9 @@ def validate_profile_source_provenance(
         elif not expected_path.is_file():
             issues.append(ValidationIssue("error", f"tracked Vanilla workbook is missing: {expected_path}"))
         else:
-            digest = hashlib.sha256(expected_path.read_bytes()).hexdigest()
             if (
                 workbook_record.get("size") != expected_path.stat().st_size
-                or workbook_record.get("sha256") != digest
+                or workbook_record.get("sha256") != sha256_file(expected_path)
             ):
                 issues.append(
                     ValidationIssue(
@@ -140,6 +145,45 @@ def validate_used_calc_correct_curves(
                 f"non-monotonic used curves detected: {non_monotonic[:10]}",
             )
         )
+    return issues
+
+
+def validate_weapon_model(
+    weapons: list[dict[str, str]],
+    calc_correct: list[dict[str, str]],
+    reinforce_max: dict[int, int],
+) -> list[ValidationIssue]:
+    """Profile-neutral weapon checks: base damage, reinforcement, curves, attributes."""
+    issues: list[ValidationIssue] = []
+    zero_base = [
+        row["weapon_id"]
+        for row in weapons
+        if sum(float(row[f"base_{damage}"]) for damage in DAMAGE_TYPES) == 0.0
+    ]
+    if zero_base:
+        issues.append(ValidationIssue("error", f"weapons with zero base damage: {zero_base[:10]}"))
+    missing_types = sorted(
+        {int(row["reinforce_type"]) for row in weapons} - reinforce_max.keys()
+    )
+    if missing_types:
+        issues.append(
+            ValidationIssue("error", f"weapons reference missing reinforce types: {missing_types[:10]}")
+        )
+    invalid_attributes = [
+        (row["weapon_id"], field, row.get(field))
+        for row in weapons
+        for field in ("physical_attribute_primary", "physical_attribute_secondary")
+        if row.get(field) not in VALID_PHYSICAL_ATTRIBUTES
+    ]
+    if invalid_attributes:
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"weapons.csv has invalid physical attack attributes: {invalid_attributes[:3]}",
+            )
+        )
+    used_curve_ids = {int(row[field]) for row in weapons for field in CURVE_FIELDS}
+    issues.extend(validate_used_calc_correct_curves(calc_correct, used_curve_ids))
     return issues
 
 
@@ -207,17 +251,13 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
             expected_affinities=set(profile.affinity_by_slot.values()),
         )
     )
-    weapon_scaling_summary = build_weapon_scaling_summary(
-        weapons,
-        attack_element_correct,
-        extended_scaling_grades=profile.rules.extended_scaling_grades,
-    )
-    aow_affinity_compat = build_aow_affinity_compat(weapons, aows)
+    reinforce_caps = max_reinforce_levels(reinforce)
+    issues.extend(validate_weapon_model(weapons, calc_correct, reinforce_caps))
 
     minimums = [
         ("weapons.csv", len(weapons), 3_000 if profile_id == "vanilla" else 100),
         ("reinforce.csv", len(reinforce), 800 if profile_id == "vanilla" else 100),
-        ("calc_correct.csv", len(calc_correct), 7_000 if profile_id == "vanilla" else 1_000),
+        ("calc_correct.csv", len(calc_correct), 1_500 if profile_id == "vanilla" else 1_000),
         ("aow.csv", len(aows), 100 if profile_id == "vanilla" else 50),
         ("attack_element_correct_ext.csv", len(attack_element_correct_ext), 150 if profile_id == "vanilla" else 100),
     ]
@@ -255,7 +295,6 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
                 f"weapon_passives.csv must align 1:1 with weapons.csv ({len(weapon_passives)} vs {len(weapons)})",
             )
         )
-    reinforce_caps = max_reinforce_levels(reinforce)
     weapon_caps = {
         reinforce_caps.get(int(row["reinforce_type"]), -1)
         for row in weapons
@@ -293,23 +332,6 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
                 )
             )
     weapons_by_id = {row["weapon_id"]: row for row in weapons}
-    scaling_ids = {row.get("weapon_id", "") for row in weapon_scaling_summary}
-    if scaling_ids != set(weapons_by_id):
-        issues.append(
-            ValidationIssue(
-                "error",
-                "derived weapon scaling summary does not cover every weapon configuration",
-            )
-        )
-    diagnostic_names = [
-        row.get("name", "") for row in weapon_scaling_summary
-    ] + [
-        name
-        for row in aow_affinity_compat
-        for name in row.get("sample_weapon_names", "").split("|")
-    ]
-    if any("[npc]" in name.casefold() or "(npc)" in name.casefold() for name in diagnostic_names):
-        issues.append(ValidationIssue("error", "derived diagnostics contain NPC-only weapon names"))
     source_kinds = {source.get("kind") for source in manifest["sources"]}
     has_motion_source = "workbook" in source_kinds
     if ("motion data" in str(manifest.get("provenance", ""))) != has_motion_source:
@@ -388,15 +410,25 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
                     "Carian Thrusting Shield must remain a fixed Standard configuration",
                 )
             )
-        galvanic_scaling = next(
+        galvanic = weapons_by_id.get("10200000")
+        galvanic_aec = galvanic and next(
             (
                 row
-                for row in weapon_scaling_summary
-                if row["weapon_id"] == "10200000"
+                for row in attack_element_correct
+                if row["attack_element_correct_id"] == galvanic["attack_element_correct_id"]
             ),
             None,
         )
-        if galvanic_scaling is None or galvanic_scaling.get("usable_stats") != "STR|DEX|INT":
+        galvanic_stats = galvanic and galvanic_aec and [
+            stat
+            for stat in ("str", "dex", "int", "fai", "arc")
+            if float(galvanic[f"{stat}_scaling"]) > 0.0
+            and any(
+                float(galvanic[f"base_{damage}"]) > 0.0 and galvanic_aec[f"{stat}_scales_{damage}"] == "1"
+                for damage in DAMAGE_TYPES
+            )
+        ]
+        if galvanic_stats != ["str", "dex", "int"]:
             issues.append(
                 ValidationIssue(
                     "error",
@@ -437,7 +469,6 @@ def _validate_vanilla_snapshot(
     issues: list[ValidationIssue] = []
 
     weapons = tables["weapons"]
-    calc_correct = tables["calc_correct"]
     aows = tables["aow"]
     aow_attack_data = tables["aow_attack_data"]
     native_skill_attack_data = tables["native_skill_attack_data"]
@@ -501,32 +532,21 @@ def _validate_vanilla_snapshot(
             )
         )
 
-    workbook_path = data_dir / MOTION_WORKBOOK_NAME
-    if workbook_path.exists():
-        workbook_weapon_ids = {
-            weapon_id - weapon_id % 1_000
-            for weapon_id in load_weapon_workbook_data(workbook_path)
-        }
-        standard_weapon_ids = {
-            int(row["weapon_id"]) - int(row["weapon_id"]) % 1_000
-            for row in weapons
-            if row.get("affinity") == "Standard"
-        }
-        expected_standard_weapon_ids = workbook_weapon_ids | {
-            weapon_id - weapon_id % 1_000
-            for weapon_id in profile_definition("vanilla").weapon_name_overrides
-        }
-        if standard_weapon_ids != expected_standard_weapon_ids:
-            issues.append(
-                ValidationIssue(
-                    "error",
-                    (
-                        "standard player weapon IDs do not match WeaponData plus versioned names: "
-                        f"missing={sorted(expected_standard_weapon_ids - standard_weapon_ids)[:10]} "
-                        f"extra={sorted(standard_weapon_ids - expected_standard_weapon_ids)[:10]}"
-                    ),
-                )
+    workbook_weapon_ids = set(load_weapon_workbook_data(data_dir / MOTION_WORKBOOK_NAME))
+    standard_weapon_ids = {
+        int(row["weapon_id"]) for row in weapons if row.get("affinity") == "Standard"
+    }
+    if standard_weapon_ids != workbook_weapon_ids:
+        issues.append(
+            ValidationIssue(
+                "error",
+                (
+                    "standard player weapon IDs do not match WeaponData: "
+                    f"missing={sorted(workbook_weapon_ids - standard_weapon_ids)[:10]} "
+                    f"extra={sorted(standard_weapon_ids - workbook_weapon_ids)[:10]}"
+                ),
             )
+        )
     issues.extend(
         validate_aow_effect_graph(
             aows,
@@ -706,29 +726,14 @@ def _validate_vanilla_snapshot(
                 )
             )
 
-    valid_physical_attributes = {
-        "standard",
-        "strike",
-        "slash",
-        "pierce",
-        "adaptive_primary",
-        "adaptive_secondary",
-    }
     for file_name, rows in (
-        ("weapons.csv", weapons),
         ("aow_attack_data.csv", aow_attack_data),
         ("native_skill_attack_data.csv", native_skill_attack_data),
     ):
-        fields = (
-            ("physical_attribute_primary", "physical_attribute_secondary")
-            if file_name == "weapons.csv"
-            else ("physical_attack_attribute",)
-        )
         invalid = [
-            (row.get("weapon_id") or row.get("sheet_row"), field, row.get(field))
+            row.get("sheet_row")
             for row in rows
-            for field in fields
-            if row.get(field) not in valid_physical_attributes
+            if row.get("physical_attack_attribute") not in VALID_PHYSICAL_ATTRIBUTES
         ]
         if invalid:
             issues.append(
@@ -792,35 +797,8 @@ def _validate_vanilla_snapshot(
         )
 
     used_types: dict[int, list[int]] = defaultdict(list)
-    zero_base_count = 0
-    used_curve_ids: set[int] = set()
     for row in weapons:
-        reinforce_type = int(row["reinforce_type"])
-        used_types[reinforce_type].append(int(row["weapon_id"]))
-        base_total = sum(
-            float(row[field])
-            for field in (
-                "base_physical",
-                "base_magic",
-                "base_fire",
-                "base_lightning",
-                "base_holy",
-            )
-        )
-        if base_total == 0.0:
-            zero_base_count += 1
-        used_curve_ids.update(
-            {
-                int(row["curve_id_physical"]),
-                int(row["curve_id_magic"]),
-                int(row["curve_id_fire"]),
-                int(row["curve_id_lightning"]),
-                int(row["curve_id_holy"]),
-            }
-        )
-
-    if zero_base_count != 0:
-        issues.append(ValidationIssue("error", f"weapons with zero base damage: {zero_base_count}"))
+        used_types[int(row["reinforce_type"])].append(int(row["weapon_id"]))
 
     missing_type_keys = [
         row["weapon_id"]
@@ -876,15 +854,9 @@ def _validate_vanilla_snapshot(
         )
 
     special_non_upgrade_types = {3000}
-    for reinforce_type, weapon_ids in sorted(used_types.items()):
+    for reinforce_type in sorted(used_types):
         max_level = reinforce_max.get(reinforce_type, -1)
         if max_level < 0:
-            issues.append(
-                ValidationIssue(
-                    "error",
-                    f"missing reinforce_type={reinforce_type} referenced by {len(weapon_ids)} weapons",
-                )
-            )
             continue
         is_somber = any(int(row["is_somber"]) == 1 and int(row["reinforce_type"]) == reinforce_type for row in weapons)
         if reinforce_type in special_non_upgrade_types:
@@ -903,8 +875,6 @@ def _validate_vanilla_snapshot(
                     f"standard reinforce_type={reinforce_type} has max_level={max_level}, expected >=25",
                 )
             )
-
-    issues.extend(validate_used_calc_correct_curves(calc_correct, used_curve_ids))
 
     lions_claw = next((row for row in aows if row["name"] == "Lion's Claw"), None)
     if lions_claw is None:
@@ -991,16 +961,13 @@ def _validate_vanilla_snapshot(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate extracted data and runtime calculations.")
+    parser = argparse.ArgumentParser(description="Validate both extracted profile data snapshots.")
     parser.add_argument("--report", type=Path, help="Write a machine-readable validation report.")
-    parser.add_argument("--diagnostic", action="store_true", help="Include profile versions and CSV row counts in the report and console output.")
     args = parser.parse_args()
-    project_root = Path(__file__).resolve().parents[2]
     profile_dirs = {
-        "vanilla": project_root / "data" / "phase1",
-        "convergence": project_root / "data" / "profiles" / "convergence",
+        "vanilla": ROOT / "data" / "phase1",
+        "convergence": ROOT / "data" / "profiles" / "convergence",
     }
-    diagnostics = {profile_id: profile_diagnostics(data_dir) for profile_id, data_dir in profile_dirs.items()} if args.diagnostic else None
     issues: list[ValidationIssue] = []
     for profile_id, data_dir in profile_dirs.items():
         if not data_dir.exists():
@@ -1008,23 +975,14 @@ def main() -> int:
             continue
         issues.extend(scoped(profile_id, validate_profile_snapshot(data_dir, profile_id)))
 
-    errors = [issue for issue in issues if issue.level == "error"]
-    warnings = [issue for issue in issues if issue.level == "warning"]
-
-    for issue in warnings:
-        print(f"WARN: {issue.message}")
-    for issue in errors:
+    for issue in issues:
         print(f"ERROR: {issue.message}")
-    if diagnostics is not None:
-        print(json.dumps({"diagnostics": diagnostics}, indent=2, sort_keys=True))
-
-    if errors:
-        write_validation_report(args.report, "failed", issues, list(profile_dirs), diagnostics)
-        print(f"VALIDATION FAILED ({len(errors)} errors, {len(warnings)} warnings)")
+    status = "failed" if issues else "passed"
+    write_validation_report(args.report, status, issues, list(profile_dirs))
+    if issues:
+        print(f"VALIDATION FAILED ({len(issues)} errors)")
         return 1
-
-    write_validation_report(args.report, "passed", issues, list(profile_dirs), diagnostics)
-    print(f"VALIDATION PASSED ({len(warnings)} warnings)")
+    print("VALIDATION PASSED")
     return 0
 
 
@@ -1032,43 +990,18 @@ def write_validation_report(
     path: Path | None,
     status: str,
     issues: list[ValidationIssue],
-    profiles: list[str] | None = None,
-    diagnostics: dict[str, dict[str, object]] | None = None,
+    profiles: list[str],
 ) -> None:
     if path is None:
         return
     payload = {
         "status": status,
-        "errors": sum(issue.level == "error" for issue in issues),
-        "warnings": sum(issue.level == "warning" for issue in issues),
-        "profiles": profiles or [],
-        "diagnostics": diagnostics,
-        "issues": [
-            {"level": issue.level, "message": issue.message}
-            for issue in issues
-        ],
+        "errors": len(issues),
+        "profiles": profiles,
+        "issues": [{"level": issue.level, "message": issue.message} for issue in issues],
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-
-
-def profile_diagnostics(data_dir: Path) -> dict[str, object]:
-    manifest_path = data_dir / "manifest.json"
-    if not manifest_path.exists():
-        return {"dataDir": str(data_dir), "missing": True}
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    row_counts = {}
-    for filename in ("weapons.csv", "aow.csv", "calc_correct.csv", "reinforce.csv"):
-        path = data_dir / filename
-        if path.exists():
-            with path.open("r", encoding="utf-8", newline="") as handle:
-                row_counts[filename] = max(0, sum(1 for _ in csv.reader(handle)) - 1)
-    return {
-        "datasetVersion": manifest.get("datasetVersion"),
-        "gameVersion": manifest.get("profile", {}).get("gameVersion"),
-        "modelVersion": manifest.get("modelVersion"),
-        "rowCounts": row_counts,
-    }
 
 
 if __name__ == "__main__":

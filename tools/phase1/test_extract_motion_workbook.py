@@ -16,12 +16,16 @@ from tools.phase1.extract_motion_workbook import (
     build_native_skill_attack_data,
     extract_variant,
     find_matching_aow,
+    load_attack_element_correct_ext_ids,
     load_weapon_workbook_data,
     load_bullet_attack_ids,
     load_throw_attack_ids,
+    parse_flag,
     read_sp_effect_sheet,
     run_workbook_exports,
 )
+
+DATA_DIR = Path(__file__).resolve().parents[2] / 'data' / 'phase1'
 
 
 class MotionWorkbookTests(unittest.TestCase):
@@ -96,7 +100,6 @@ class MotionWorkbookTests(unittest.TestCase):
                 'tools.phase1.extract_motion_workbook.build_native_skill_attack_data'
             ) as build_native,
             patch('tools.phase1.extract_motion_workbook.build_aow_route_data'),
-            patch('tools.phase1.extract_motion_workbook.build_attack_element_correct_ext'),
             patch('tools.phase1.extract_motion_workbook.read_sp_effect_sheet', return_value=[]),
             patch('tools.phase1.aow_effect_graph.build_aow_effect_graph'),
         ):
@@ -190,6 +193,7 @@ class MotionWorkbookTests(unittest.TestCase):
             1,
             'Opaque Skill',
             'Opaque numeric row',
+            set(),
             bullet_attack_ids={1234},
             throw_attack_ids={1234},
         )
@@ -206,6 +210,7 @@ class MotionWorkbookTests(unittest.TestCase):
             1,
             'Opaque Skill',
             'Opaque numeric row',
+            set(),
             bullet_attack_ids={1234},
             throw_attack_ids={1234},
         )
@@ -213,8 +218,45 @@ class MotionWorkbookTests(unittest.TestCase):
         self.assertEqual(nonbullet_row['is_throw_attack'], '0')
         self.assertFalse(nonbullet_damaging)
 
+        for header, value in (('isAddBaseAtk', '0.0'), ('IsArrowAtk', 'TRUE')):
+            with self.subTest(header=header, value=value), self.assertRaisesRegex(ValueError, header):
+                build_attack_row(
+                    header_idx,
+                    [value if name == header else values_by_header[name] for name in headers],
+                    3, 1, 'Opaque Skill', 'Opaque numeric row', set(),
+                )
+        values_by_header['overwriteAttackElementCorrectId'] = '777'
+        with self.assertRaisesRegex(ValueError, 'unknown AttackElementCorrect 777'):
+            build_attack_row(
+                header_idx, [values_by_header[header] for header in headers],
+                3, 1, 'Opaque Skill', 'Opaque numeric row', set(),
+            )
+        row, _, _ = build_attack_row(
+            header_idx, [values_by_header[header] for header in headers],
+            3, 1, 'Opaque Skill', 'Opaque numeric row', {777},
+        )
+        self.assertEqual(row['overwrite_attack_element_correct_id'], '777')
+
+    def test_flags_accept_only_zero_one_or_blank(self) -> None:
+        self.assertTrue(parse_flag('1', 'flag'))
+        self.assertFalse(parse_flag('0', 'flag'))
+        self.assertFalse(parse_flag('', 'flag'))
+        for invalid in ('0.0', '1.0', 'TRUE', '2'):
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(ValueError, 'flag'):
+                parse_flag(invalid, 'flag')
+
+    def test_weapon_ids_are_exact_standard_ids_with_named_corrections(self) -> None:
+        weapons = load_weapon_workbook_data(DATA_DIR / MOTION_WORKBOOK_NAME)
+        self.assertTrue(all(weapon_id % 10_000 == 0 for weapon_id in weapons))
+        for weapon_id, name, poise in ((12_520_000, 'Black Steel Greathammer', 7.0),
+                                       (22_000_000, 'Hookclaws', 4.0)):
+            with self.subTest(name=name):
+                self.assertEqual(weapons[weapon_id].name, name)
+                self.assertEqual(weapons[weapon_id].base_poise, poise)
+                self.assertNotIn(weapon_id + 100, weapons)
+
     def test_117_weapon_moves_and_placeholder_prefix(self) -> None:
-        weapons = load_weapon_workbook_data(Path("data/phase1") / MOTION_WORKBOOK_NAME)
+        weapons = load_weapon_workbook_data(DATA_DIR / MOTION_WORKBOOK_NAME)
         reverse_blade = next(weapon for weapon in weapons.values() if weapon.name == "Reverse-Bladed Sword")
 
         self.assertEqual(reverse_blade.move_count, 68)
@@ -224,7 +266,7 @@ class MotionWorkbookTests(unittest.TestCase):
         self.assertEqual(extract_variant("[Placeholder] Muleta"), "")
 
     def test_fixed_stance_damage_survives_workbook_extraction(self) -> None:
-        workbook = WorkbookReader(Path('data/phase1') / MOTION_WORKBOOK_NAME)
+        workbook = WorkbookReader(DATA_DIR / MOTION_WORKBOOK_NAME)
         try:
             sheet = workbook.read_sheet('Ashes of War Attack Data')
         finally:
@@ -232,9 +274,10 @@ class MotionWorkbookTests(unittest.TestCase):
         header_idx = {header: index for index, header in enumerate(sheet.headers)}
         values = next(row for row in sheet.rows
                       if row[header_idx['Name']] == 'Glintblade Phalanx - Bullet')
+        known_ids = load_attack_element_correct_ext_ids(DATA_DIR)
         row, _, _ = build_attack_row(
             header_idx, values, 1224, 200, 'Glintblade Phalanx',
-            'Glintblade Phalanx - Bullet', bullet_attack_ids={300200867},
+            'Glintblade Phalanx - Bullet', known_ids, bullet_attack_ids={300200867},
         )
         self.assertEqual(row.get('poise_base'), '5.0')
         self.assertEqual(row['poise_mv'], '0.0')
@@ -245,7 +288,7 @@ class MotionWorkbookTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'fixed poise'):
                     build_attack_row(
                         header_idx, changed_values, 1224, 200, 'Glintblade Phalanx',
-                        'Glintblade Phalanx - Bullet', bullet_attack_ids={300200867},
+                        'Glintblade Phalanx - Bullet', known_ids, bullet_attack_ids={300200867},
                     )
 
     @patch('tools.phase1.extract_motion_workbook.load_param_table')
@@ -263,7 +306,7 @@ class MotionWorkbookTests(unittest.TestCase):
             phase1_dir = Path(temp_dir)
             for filename in ('aow_attack_data.csv', 'native_skill_attack_data.csv'):
                 shutil.copyfile(project_root / 'data/phase1' / filename, phase1_dir / filename)
-            build_aow_route_data(project_root, phase1_dir)
+            build_aow_route_data(phase1_dir)
             with (phase1_dir / 'aow_route_assignments.csv').open(encoding='utf-8', newline='') as handle:
                 return list(csv.DictReader(handle))
 
@@ -332,7 +375,7 @@ class MotionWorkbookTests(unittest.TestCase):
                 writer.writeheader()
                 writer.writerows(rows)
             with self.assertRaisesRegex(ValueError, 'shared charge attack source changed'):
-                build_aow_route_data(project_root, phase1_dir)
+                build_aow_route_data(phase1_dir)
 
     def test_generic_and_native_skill_outputs_separate_unique_weapon_rows(self) -> None:
         project_root = Path(__file__).resolve().parents[2]
@@ -355,7 +398,7 @@ class MotionWorkbookTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp_dir:
             phase1_dir = Path(temp_dir)
-            for filename in ("aow.csv", "weapons.csv"):
+            for filename in ("aow.csv", "weapons.csv", "attack_element_correct_ext.csv"):
                 shutil.copyfile(source_phase1 / filename, phase1_dir / filename)
             build_aow_attack_data(project_root, phase1_dir)
             build_native_skill_attack_data(project_root, phase1_dir)

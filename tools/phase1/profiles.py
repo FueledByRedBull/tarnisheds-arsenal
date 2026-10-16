@@ -102,11 +102,11 @@ class ProfileDefinition:
     raw_dir: Path
     output_dir: Path
     affinity_by_slot: Mapping[int, str]
-    somber_reinforce_types: frozenset[int] | None
+    somber_reinforce_types: frozenset[int]
+    regulation_sha256: str
     capabilities: ProfileCapabilities
     rules: ProfileRules
     use_workbook_weapon_metadata: bool
-    allow_param_weapon_names: bool
     weapon_name_overrides: Mapping[int, str]
     sword_art_name_overrides: Mapping[int, str]
     weapon_name_xmls: tuple[Path, ...] = ()
@@ -142,7 +142,9 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         raw_dir=Path("data/raw/Vanilla"),
         output_dir=Path("data/phase1"),
         affinity_by_slot=VANILLA_AFFINITIES,
-        somber_reinforce_types=None,
+        # 3000 is the unupgradeable Meteorite Staff, historically flagged somber.
+        somber_reinforce_types=frozenset({2200, 2400, 3000, 3200, 3300, 3400, 8300, 8500}),
+        regulation_sha256="fb4afd25e70effc9f9523d3aba89b1fb3e08b0800d8efb9a535cab038c5e8bbd",
         capabilities=ProfileCapabilities(
             weapon_ar=True,
             weapon_ar_for_ammunition=True,
@@ -163,7 +165,6 @@ PROFILES: Mapping[str, ProfileDefinition] = {
             status_buildup_scales=True,
         ),
         use_workbook_weapon_metadata=True,
-        allow_param_weapon_names=True,
         weapon_name_overrides={
             3_560_000: "Leontiel's Greatsword",
             8_530_000: "Hefty Scimitar",
@@ -189,6 +190,7 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         output_dir=Path("data/profiles/convergence"),
         affinity_by_slot=CONVERGENCE_AFFINITIES,
         somber_reinforce_types=frozenset({2200, 2400}),
+        regulation_sha256="422fc6cc2ec277e5f38cd82929d52b151a6de548c0591769891e19c5c396c369",
         capabilities=ProfileCapabilities(
             weapon_ar=True,
             weapon_ar_for_ammunition=False,
@@ -209,7 +211,6 @@ PROFILES: Mapping[str, ProfileDefinition] = {
             status_buildup_scales=False,
         ),
         use_workbook_weapon_metadata=False,
-        allow_param_weapon_names=True,
         weapon_name_overrides={},
         sword_art_name_overrides={},
         weapon_name_xmls=(
@@ -242,10 +243,10 @@ def profile_definition(value: str) -> ProfileDefinition:
 
 
 def discover_witchybnd(root: Path) -> Path:
-    candidates = sorted(root.glob("data/raw/WitchyBND-*/WitchyBND.exe"), reverse=True)
-    if not candidates:
+    candidates = sorted(root.glob("data/raw/WitchyBND-*/WitchyBND.exe"))
+    if len(candidates) != 1:
         raise FileNotFoundError(
-            "WitchyBND.exe was not found under data/raw/WitchyBND-*/; "
+            f"expected one WitchyBND.exe under data/raw/WitchyBND-*/, found {len(candidates)}; "
             "pass --witchybnd <path>"
         )
     return candidates[0]
