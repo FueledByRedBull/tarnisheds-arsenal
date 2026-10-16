@@ -40,6 +40,15 @@ class MotionWorkbookTests(unittest.TestCase):
                     read_sp_effect_sheet(path)
             self.assertIsNone(archive.fp)
 
+    def test_reader_refuses_oversized_parts_before_reading(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / 'large.xlsx'
+            with zipfile.ZipFile(path, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr('xl/workbook.xml', '<workbook>' + ' ' * 4096 + '</workbook>')
+            with patch('tools.phase1.extract_motion_workbook.MAX_WORKBOOK_MEMBER_BYTES', 1024):
+                with self.assertRaisesRegex(ValueError, 'xl/workbook.xml exceeds 1024 bytes'):
+                    WorkbookReader(path)
+
     def test_effect_sheet_uses_second_row_headers_and_preserves_sparse_values(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / 'effects.xlsx'

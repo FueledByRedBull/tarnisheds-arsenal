@@ -5,6 +5,7 @@ import struct
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from tools.phase1.param_binary import load_param_definition, load_param_table
 
@@ -91,6 +92,11 @@ class ParamBinaryTests(unittest.TestCase):
         self.assertEqual(layout["flagB"], (8, 1, 3))
         self.assertEqual(layout["pad"], (9, 0, None))
         self.assertNotIn("removed", layout)
+
+    def test_definition_larger_than_the_xml_cap_is_refused(self) -> None:
+        with patch("tools.phase1.param_binary.MAX_XML_BYTES", self.definition.stat().st_size - 1):
+            with self.assertRaisesRegex(ValueError, "XML input exceeds"):
+                load_param_definition(self.definition)
 
     def test_rows_round_trip_with_short_and_long_offsets(self) -> None:
         rows = [(10, row_bytes(300, 1.5, 1, 5)), (20, row_bytes(-1, 0.25, 0, 2))]

@@ -28,6 +28,15 @@ _KIND_FORMATS: dict[str, tuple[str, int]] = {
     "f32": ("f", 4),
     "dummy8": ("B", 1),
 }
+# Serialized params are about 10 MB; the cap only bounds memory for a wrong input file.
+MAX_XML_BYTES = 128 * 1024 * 1024
+
+
+def checked_xml_size(path: Path) -> Path:
+    size = path.stat().st_size
+    if size > MAX_XML_BYTES:
+        raise ValueError(f"XML input exceeds {MAX_XML_BYTES} bytes ({size}): {path}")
+    return path
 
 
 @dataclass(frozen=True)
@@ -67,7 +76,7 @@ def _is_removed(field: ET.Element) -> bool:
 
 
 def load_param_definition(path: Path) -> ParamDefinition:
-    root = ET.parse(path).getroot()
+    root = ET.parse(checked_xml_size(path)).getroot()
     param_type = _child_text(root, "ParamType")
     if not param_type:
         raise ValueError(f"Paramdex definition has no ParamType: {path}")
