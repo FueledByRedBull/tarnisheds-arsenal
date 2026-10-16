@@ -73,7 +73,7 @@ With class budgets, the desktop sends each combat stat at its class base value
 and derives the level from the entered stats. Every point above the class base is
 therefore free to move; floors and exact locks carry the user's constraints.
 
-`build_combat_constraints` (`optimizer.rs`) applies requested floors and locks:
+`build_combat_constraints` (`optimizer/preparation.rs`) applies requested floors and locks:
 
 $$m_i=\max(a_i,f_i), \qquad u_i=99,$$
 
