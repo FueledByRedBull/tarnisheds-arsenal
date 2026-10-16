@@ -147,20 +147,16 @@ impl<T: Clone + Send + 'static> JobRegistry<T> {
     /// Reading a terminal status keeps it until the next start, so a status reply
     /// lost in transit can be read again.
     pub fn status(&self, job_id: &str) -> Result<Option<T>, errors::AppError> {
-        let guard = self.handle.lock().map_err(|_| self.lock_error())?;
-        let Some((active_id, handle)) = guard.as_ref() else {
-            return Ok(None);
+        let status = {
+            let guard = self.handle.lock().map_err(|_| self.lock_error())?;
+            match guard.as_ref() {
+                Some((active_id, handle)) if active_id == job_id => Arc::clone(&handle.status),
+                _ => return Ok(None),
+            }
         };
-        if active_id != job_id {
-            return Ok(None);
-        }
-        Ok(Some(
-            handle
-                .status
-                .lock()
-                .map_err(|_| self.status_error())?
-                .clone(),
-        ))
+        // Clone a possibly large terminal payload without blocking start and cancel.
+        let status = status.lock().map_err(|_| self.status_error())?.clone();
+        Ok(Some(status))
     }
 
     fn status_error(&self) -> errors::AppError {
@@ -607,6 +603,10 @@ fn report_startup_failure(message: &str) {
     eprintln!("Tarnished's Arsenal could not start: {message}");
     #[cfg(windows)]
     {
+        // The packaged smoke waits for the exit code, which a modal message box would hold back.
+        if std::env::args().any(|argument| argument.starts_with("--packaged-smoke-")) {
+            return;
+        }
         #[link(name = "user32")]
         unsafe extern "system" {
             fn MessageBoxW(
