@@ -1,9 +1,5 @@
-#!/usr/bin/env python3
-
 from __future__ import annotations
 
-import argparse
-import csv
 import sys
 from pathlib import Path
 
@@ -11,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.phase1.phase1_dump import iter_param_rows, object_to_int, to_int  # noqa: E402
+from tools.phase1.phase1_dump import object_to_int, to_float, to_int, write_csv  # noqa: E402
 
 WEAPON_EFFECT_FIELDS = (
     "spEffectBehaviorId0",
@@ -52,43 +48,6 @@ KNOWN_ABSENT_PASSIVE_EFFECTS = {
         "there is no status payload to extract."
     ),
 }
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Derive extra CSVs directly from unpacked regulation XML.")
-    parser.add_argument(
-        "--workdir",
-        type=Path,
-        default=Path("data") / "_work_phase1" / "regulation-bin",
-        help="Directory containing serialized param XML files",
-    )
-    parser.add_argument(
-        "--phase1",
-        type=Path,
-        default=Path("data") / "phase1",
-        help="Directory containing the base Phase 1 CSVs",
-    )
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=Path("data") / "phase1",
-        help="Output directory for derived CSVs",
-    )
-    return parser.parse_args()
-
-
-def read_csv(path: Path) -> list[dict[str, str]]:
-    with path.open("r", encoding="utf-8", newline="") as handle:
-        return list(csv.DictReader(handle))
-
-
-def write_csv(path: Path, fieldnames: list[str], rows: list[dict[str, object]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
-        writer.writeheader()
-        for row in rows:
-            writer.writerow({key: row.get(key, "") for key in fieldnames})
 
 
 def weapon_effect_ids_from_param_rows(
@@ -159,10 +118,6 @@ def build_weapon_passives(
     by_id = {int(row["weapon_id"]): row for row in weapon_csv_rows}
     rows_out: list[dict[str, object]] = []
     for weapon_id, csv_row in sorted(by_id.items()):
-        csv_row = by_id.get(weapon_id)
-        if csv_row is None:
-            continue
-
         effect_ids = weapon_effect_ids.get(weapon_id, [])
         totals = {
             "bleed": 0.0,
@@ -180,9 +135,9 @@ def build_weapon_passives(
             effect = sp_effect_rows.get(effect_id)
             if effect is None:
                 continue
-            correction_value = _safe_optional_bool(effect, "isUseStatusAilmentAtkPowerCorrect")
+            correction_value = _optional_bool(effect, "isUseStatusAilmentAtkPowerCorrect")
             for status_key, source_fields in STATUS_FIELDS.items():
-                amount = sum(_safe_to_float(effect, field_name, 0.0) for field_name in source_fields)
+                amount = sum(to_float(effect, field_name, 0.0) for field_name in source_fields)
                 if amount <= 0.0:
                     continue
                 if status_key == "scarlet_rot":
@@ -260,9 +215,9 @@ def build_weapon_passive_overlays(
                 if effect is None:
                     continue
                 effect_ids.append(effect_id)
-                correction_value = _safe_optional_bool(effect, "isUseStatusAilmentAtkPowerCorrect")
+                correction_value = _optional_bool(effect, "isUseStatusAilmentAtkPowerCorrect")
                 for status_key, source_fields in STATUS_FIELDS.items():
-                    amount = sum(_safe_to_float(effect, field_name, 0.0) for field_name in source_fields)
+                    amount = sum(to_float(effect, field_name, 0.0) for field_name in source_fields)
                     if amount <= 0.0:
                         continue
                     totals[status_key] += amount
@@ -302,24 +257,8 @@ def _fmt(value: float) -> str:
     return text if text else "0"
 
 
-def _safe_to_float(row: dict[str, str], key: str, default: float = 0.0) -> float:
-    raw = row.get(key)
-    if raw is None or raw == "":
-        return default
-    try:
-        return float(raw)
-    except ValueError:
-        return default
-
-
-def _safe_optional_bool(row: dict[str, str], key: str) -> bool | None:
-    raw = row.get(key)
-    if raw is None:
-        return None
-    value = raw.strip()
-    if not value:
-        return None
-    return value not in {"0", "0.0"}
+def _optional_bool(row: dict[str, str], key: str) -> bool | None:
+    return None if not row.get(key, "").strip() else to_int(row, key, None) != 0
 
 def _fmt_optional_bool(value: bool | None) -> str:
     if value is None:
@@ -414,40 +353,3 @@ def export_regulation_extras(
     print(f"Wrote {len(weapon_passives)} weapon passive rows")
     print(f"Wrote {len(weapon_passive_overlays)} weapon passive overlay rows")
 
-
-def main() -> int:
-    args = parse_args()
-    workdir = args.workdir
-    phase1_dir = args.phase1
-    output_dir = args.output
-
-    weapon_xml = workdir / "EquipParamWeapon.param.xml"
-    sp_effect_xml = workdir / "SpEffectParam.param.xml"
-    if not sp_effect_xml.exists():
-        raise FileNotFoundError(f"Missing required regulation export: {sp_effect_xml}")
-
-    weapon_csv_rows = read_csv(phase1_dir / "weapons.csv")
-    reinforce_csv_rows = read_csv(phase1_dir / "reinforce.csv")
-    weapon_param_rows = (
-        {to_int(row, "id"): row for row in iter_param_rows(weapon_xml)} if weapon_xml.exists() else {}
-    )
-    reinforce_param_rows = (
-        {to_int(row, "id"): row for row in iter_param_rows(workdir / "ReinforceParamWeapon.param.xml")}
-        if (workdir / "ReinforceParamWeapon.param.xml").exists()
-        else {}
-    )
-    sp_effect_rows = {to_int(row, "id"): row for row in iter_param_rows(sp_effect_xml)}
-
-    export_regulation_extras(
-        weapon_csv_rows=weapon_csv_rows,
-        reinforce_csv_rows=reinforce_csv_rows,
-        weapon_param_rows=weapon_param_rows,
-        reinforce_param_rows=reinforce_param_rows,
-        sp_effect_rows=sp_effect_rows,
-        output_dir=output_dir,
-    )
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

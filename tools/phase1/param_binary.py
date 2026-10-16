@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 import struct
 from dataclasses import dataclass
@@ -161,7 +162,10 @@ def _unpack_field(
     if field.kind == "dummy8":
         return data[field_offset : field_offset + field.array_length]
     if field.array_length == 1:
-        return struct.unpack_from(f"{endian}{format_code}", data, field_offset)[0]
+        value = struct.unpack_from(f"{endian}{format_code}", data, field_offset)[0]
+        if field.kind == "f32" and not math.isfinite(value):
+            raise ValueError(f"non-finite PARAM field {field.name}={value}")
+        return value
     values = struct.unpack_from(
         f"{endian}{field.array_length}{format_code}",
         data,
