@@ -1150,7 +1150,7 @@ fn exact_cutoff_preserves_the_winner_at_equal_score() {
         unit,
         group_mode,
         &mut equal_progress,
-        Some(&winner.key.score),
+        Some(&winner.key),
         None,
     )
     .expect("equal-score cutoff search");
@@ -1161,7 +1161,8 @@ fn exact_cutoff_preserves_the_winner_at_equal_score() {
         winner.stats.combat_array()
     );
 
-    let above_score = &winner.key.score + rational(1.0).expect("finite cutoff increment");
+    let mut above_score = winner.key.clone();
+    above_score.score = &winner.key.score + rational(1.0).expect("finite cutoff increment");
     let mut above_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
     let above_cutoff = search_dp_work_unit(
         &plan,
@@ -4134,8 +4135,12 @@ fn parallel_threshold_accepts_medium_searches_when_threads_are_available() {
     let thread_count = rayon::current_num_threads();
     assert!(!should_use_parallel_search(
         PARALLEL_SEARCH_MIN_COMBINATIONS - 1,
-        usize::MAX
+        PARALLEL_SEARCH_MIN_WORK_UNITS - 1
     ));
+    assert_eq!(
+        should_use_parallel_search(1, PARALLEL_SEARCH_MIN_WORK_UNITS),
+        thread_count > 1
+    );
     assert!(!should_use_parallel_search(
         PARALLEL_SEARCH_MIN_COMBINATIONS,
         1

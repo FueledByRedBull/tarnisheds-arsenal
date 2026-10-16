@@ -753,6 +753,7 @@ enum ResultGroupMode {
 }
 
 const PARALLEL_SEARCH_MIN_COMBINATIONS: u64 = 1_000_000;
+const PARALLEL_SEARCH_MIN_WORK_UNITS: usize = 64;
 const PARALLEL_AOW_CHUNK_SIZE: usize = 8;
 
 pub fn prepare_search<'a>(
@@ -1357,9 +1358,12 @@ fn result_group_mode(request: &OptimizeRequest) -> ResultGroupMode {
 
 fn should_use_parallel_search(total: u64, work_unit_count: usize) -> bool {
     let thread_count = rayon::current_num_threads();
+    // Every work unit evaluates at least one exact allocation per Ash and upgrade, so many
+    // units are real work even when locked stats or a low level leave few combinations.
     thread_count > 1
         && work_unit_count >= thread_count.min(2)
-        && total >= PARALLEL_SEARCH_MIN_COMBINATIONS
+        && (total >= PARALLEL_SEARCH_MIN_COMBINATIONS
+            || work_unit_count >= PARALLEL_SEARCH_MIN_WORK_UNITS)
 }
 
 fn build_search_work_units(
@@ -1398,7 +1402,9 @@ fn build_search_work_units(
     }
     if matches!(
         plan.request.objective,
-        OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr
+        OptimizeObjective::MaxAr
+            | OptimizeObjective::MaxPhysicalAr
+            | OptimizeObjective::BleedThenAr
     ) {
         // Float estimates only schedule work; every pruning decision uses exact bounds.
         let estimates = plan
@@ -1432,11 +1438,29 @@ fn build_search_work_units(
                         };
                     best = best.max(score);
                 }
-                Ok(best)
+                let bleed = if plan.request.objective == OptimizeObjective::BleedThenAr {
+                    let choices = group
+                        .aow_indices
+                        .iter()
+                        .map(|&aow_idx| &prepared.aow_choices[aow_idx]);
+                    max_bleed(
+                        &group.search,
+                        &plan.request,
+                        prepared,
+                        choices,
+                        upgrade,
+                        plan.data,
+                    )?
+                    .map_or(Ok(0.0), |bleed| project(&bleed))?
+                } else {
+                    0.0
+                };
+                Ok((bleed, best))
             })
             .collect::<Result<Vec<_>, String>>()?;
         units.sort_by(|left, right| {
-            estimates[right.group_idx].total_cmp(&estimates[left.group_idx])
+            let (left, right) = (estimates[left.group_idx], estimates[right.group_idx]);
+            right.0.total_cmp(&left.0).then(right.1.total_cmp(&left.1))
         });
     }
     Ok(units)
@@ -1447,9 +1471,9 @@ fn score_cutoff<'a>(
     unit: SearchWorkUnit,
     candidates: &'a [ScoredCandidate],
     group_mode: ResultGroupMode,
-) -> Option<&'a ExactRational> {
+) -> Option<&'a ObjectiveKey> {
     let global = (candidates.len() == plan.request.top_k)
-        .then(|| candidates.last().map(|candidate| &candidate.key.score))
+        .then(|| candidates.last().map(|candidate| &candidate.key))
         .flatten();
     let group = if matches!(group_mode, ResultGroupMode::WeaponOnly) {
         let weapon = plan.weapons[plan.groups[unit.group_idx].prepared_idx].weapon;
@@ -1461,7 +1485,7 @@ fn score_cutoff<'a>(
                     .name
                     .eq_ignore_ascii_case(&weapon.name)
             })
-            .map(|candidate| &candidate.key.score)
+            .map(|candidate| &candidate.key)
     } else {
         None
     };
@@ -1526,67 +1550,46 @@ where
         should_continue,
     ));
     progress.emit_initial()?;
-    // Keep serial's exact top-K cutoff visible across Rayon folds.
-    // Only these objectives consume work-unit cutoffs during scoring.
-    let shared_candidates = matches!(
-        request.objective,
-        OptimizeObjective::MaxAr
-            | OptimizeObjective::MaxPhysicalAr
-            | OptimizeObjective::BleedThenAr
-    )
-    .then(|| Mutex::new(Vec::<ScoredCandidate>::new()));
-    let partial_results = work_units
-        .par_iter()
-        .try_fold(Vec::<ScoredCandidate>::new, |mut candidates, unit| {
-            let mut local_progress = ParallelLocalProgress::new(Arc::clone(&progress));
-            // Completed units are already shared; copy only the exact cutoff.
-            let shared_cutoff = if let Some(shared_candidates) = &shared_candidates {
-                let shared = shared_candidates
-                    .lock()
-                    .map_err(|_| "failed to lock parallel top-K candidates".to_string())?;
-                score_cutoff(plan, *unit, &shared, group_mode).cloned()
-            } else {
-                None
-            };
-            let cutoff = if shared_candidates.is_some() {
-                shared_cutoff.as_ref()
-            } else {
-                score_cutoff(plan, *unit, &candidates, group_mode)
-            };
-            let result =
-                search_dp_work_unit(plan, *unit, group_mode, &mut local_progress, cutoff, None);
-            let finish_result = local_progress.finish();
-            let results = match (result, finish_result) {
-                (Ok(results), Ok(())) => results,
-                (Err(error), _) | (_, Err(error)) => return Err(error),
-            };
-            // Top-K merging is order-independent, so the shared list is the whole result.
-            let target = match &shared_candidates {
-                Some(shared_candidates) => &mut *shared_candidates
-                    .lock()
-                    .map_err(|_| "failed to lock parallel top-K candidates".to_string())?,
-                None => &mut candidates,
-            };
-            merge_scored_top_k(target, results, &plan.weapons, group_mode, request.top_k);
-            Ok(candidates)
-        })
-        .collect::<Result<Vec<_>, String>>()?;
-
-    let mut candidates = match shared_candidates {
-        Some(shared) => shared
-            .into_inner()
-            .map_err(|_| "failed to lock parallel top-K candidates".to_string())?,
-        None => Vec::new(),
-    };
-    for unit_results in partial_results {
+    // Keep serial's exact top-K cutoff visible across Rayon workers. Top-K merging is
+    // order-independent, so the shared list is the whole result.
+    let shared_candidates = Mutex::new(Vec::<ScoredCandidate>::new());
+    work_units.par_iter().try_for_each(|unit| {
+        let mut local_progress = ParallelLocalProgress::new(Arc::clone(&progress));
+        // Completed units are already shared; copy only the exact cutoff.
+        let cutoff = {
+            let shared = shared_candidates
+                .lock()
+                .map_err(|_| "failed to lock parallel top-K candidates".to_string())?;
+            score_cutoff(plan, *unit, &shared, group_mode).cloned()
+        };
+        let result = search_dp_work_unit(
+            plan,
+            *unit,
+            group_mode,
+            &mut local_progress,
+            cutoff.as_ref(),
+            None,
+        );
+        let finish_result = local_progress.finish();
+        let results = match (result, finish_result) {
+            (Ok(results), Ok(())) => results,
+            (Err(error), _) | (_, Err(error)) => return Err(error),
+        };
+        let mut shared = shared_candidates
+            .lock()
+            .map_err(|_| "failed to lock parallel top-K candidates".to_string())?;
         merge_scored_top_k(
-            &mut candidates,
-            unit_results,
+            &mut shared,
+            results,
             &plan.weapons,
             group_mode,
             request.top_k,
         );
-    }
+        Ok(())
+    })?;
+    let candidates = shared_candidates
+        .into_inner()
+        .map_err(|_| "failed to lock parallel top-K candidates".to_string())?;
     progress.emit_final()?;
     if progress.is_cancelled() {
         return Err("cancelled".to_string());
@@ -1729,7 +1732,7 @@ fn search_dp_work_unit<P>(
     unit: SearchWorkUnit,
     group_mode: ResultGroupMode,
     progress: &mut P,
-    cutoff: Option<&ExactRational>,
+    cutoff: Option<&ObjectiveKey>,
     mut reuse: Option<&mut DpReuse>,
 ) -> Result<Vec<ScoredCandidate>, String>
 where
@@ -1869,7 +1872,7 @@ where
                     buff_upper = buff_upper.max(buff);
                 }
             }
-            if (base_upper + buff_upper) * rational(request.damage_multiplier())? < *cutoff {
+            if (base_upper + buff_upper) * rational(request.damage_multiplier())? < cutoff.score {
                 let count = group
                     .search
                     .candidate_count
@@ -1877,6 +1880,27 @@ where
                 progress.advance(count, count, None)?;
                 continue;
             }
+        }
+        if let Some(cutoff) = cutoff
+            && request.objective == OptimizeObjective::BleedThenAr
+            && let Some(maximum) = max_bleed(
+                &group.search,
+                request,
+                prepared,
+                route_sets
+                    .iter()
+                    .map(|(aow_idx, _)| &prepared.aow_choices[*aow_idx]),
+                upgrade,
+                plan.data,
+            )?
+            && maximum < cutoff.score
+        {
+            let count = group
+                .search
+                .candidate_count
+                .saturating_mul(route_sets.len() as u64);
+            progress.advance(count, count, None)?;
+            continue;
         }
         let mut primary_plans = HashMap::new();
         if share_primary {
@@ -1915,21 +1939,20 @@ where
             let aow_choice = &prepared.aow_choices[aow_idx];
             let routes = route_set.as_ref();
             let primary = primary_plans.get(&primary_effect_key(aow_choice));
-            // Per weapon, only the weapon's best setup is listed, so a setup whose primary
-            // score is strictly below one this unit already found cannot appear. Ties are still
-            // solved, so tie order is unchanged.
-            let weapon_best = matches!(group_mode, ResultGroupMode::WeaponOnly)
-                .then(|| {
-                    candidates
-                        .iter()
-                        .map(|candidate| &candidate.key.score)
-                        .max()
-                })
-                .flatten();
-            if let (Some(bound), Some(primary)) = (
-                cutoff.max(weapon_best),
-                primary.and_then(|p| p.best_primary.as_ref()),
-            ) && primary.key.score < *bound
+            // A setup whose key is strictly below the K-th one this unit or earlier units kept,
+            // or (per weapon) below that weapon's best, cannot appear. Ties are still solved,
+            // so tie order is unchanged.
+            let unit_cutoff = if matches!(group_mode, ResultGroupMode::WeaponOnly) {
+                candidates.iter().map(|candidate| &candidate.key).max()
+            } else {
+                (candidates.len() == request.top_k)
+                    .then(|| candidates.last().map(|candidate| &candidate.key))
+                    .flatten()
+            };
+            let threshold = cutoff.max(unit_cutoff);
+            let best_primary = primary.and_then(|p| p.best_primary.as_ref());
+            if let (Some(bound), Some(primary)) = (threshold, best_primary)
+                && (&primary.key.score, &primary.key.ar_total) < (&bound.score, &bound.ar_total)
             {
                 progress.advance(
                     group.search.candidate_count,
@@ -1980,8 +2003,48 @@ where
                     aow_idx,
                 )?
             } else {
+                // A route whose exact bound on the first key component it can still change
+                // is strictly below the threshold's cannot win: a skill objective's score, or
+                // full-sequence damage once the primary pair can at best tie. Ties are solved.
+                let skill_objective = matches!(
+                    request.objective,
+                    OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
+                );
+                let prune_below = threshold.and_then(|bound| {
+                    if skill_objective {
+                        Some(&bound.score)
+                    } else {
+                        best_primary
+                            .filter(|primary| {
+                                (&primary.key.score, &primary.key.ar_total)
+                                    == (&bound.score, &bound.ar_total)
+                            })
+                            .map(|_| &bound.aow_full)
+                    }
+                });
+                let mut pruned = false;
                 let mut best = None;
                 for route in routes {
+                    if let Some(threshold) = prune_below {
+                        let (first, full) = crate::math::exact::exact_scalar_route_upper_bound(
+                            route,
+                            prepared.weapon,
+                            upgrade,
+                            request.damage_multiplier(),
+                            plan.data,
+                            group.search.mins.map(u16::from),
+                            formula_max_stats(dp_search, request, prepared.weapon),
+                        )?;
+                        let bound = if request.objective == OptimizeObjective::AowFirstHit {
+                            first
+                        } else {
+                            full
+                        };
+                        if bound < *threshold {
+                            pruned = true;
+                            continue;
+                        }
+                    }
                     let candidate = best_objective_allocation(
                         &group.search,
                         dp_search,
@@ -2004,7 +2067,20 @@ where
                         best = Some(candidate);
                     }
                 }
-                best.ok_or_else(|| "AoW route optimizer found no feasible allocation".to_string())?
+                match best {
+                    Some(best) => best,
+                    None if pruned => {
+                        progress.advance(
+                            group.search.candidate_count,
+                            group.search.candidate_count,
+                            None,
+                        )?;
+                        continue;
+                    }
+                    None => {
+                        return Err("AoW route optimizer found no feasible allocation".to_string());
+                    }
+                }
             };
             let metric = metric_from_allocation(&best)?;
             if matches!(request.objective, OptimizeObjective::AowFirstHit)
@@ -2105,6 +2181,58 @@ fn formula_max_stats(
     });
     values[0] = values[0].max(effective_str_for_weapon(request, weapon, values[0] as u8));
     values
+}
+
+/// Exact maximum bleed of these choices at one upgrade. Bleed reads stats only through
+/// ARC's status-curve value, and each f32 step and floor of its evaluation is
+/// nondecreasing in that value when the reinforcement scaling is nonnegative, so ARC's
+/// largest curve value in its interval attains the maximum. `None` leaves pruning off.
+fn max_bleed<'a>(
+    search: &RelevantStatSearch,
+    request: &OptimizeRequest,
+    prepared: &PreparedWeapon<'a>,
+    choices: impl Iterator<Item = &'a AowChoice<'a>>,
+    upgrade: u8,
+    data: &GameData,
+) -> Result<Option<ExactRational>, String> {
+    let weapon = prepared.weapon;
+    if data
+        .reinforce_level(weapon.reinforce_type, upgrade)
+        .is_none_or(|reinforce| reinforce.scaling_mult[STAT_ARC] < 0.0)
+    {
+        return Ok(None);
+    }
+    let highest = formula_max_stats(search, request, weapon)[STAT_ARC] as u8;
+    let mut arc = None;
+    for value in search.mins[STAT_ARC]..=highest {
+        let Some(curve) = data.calc_curve_value(weapon.status_curve_ids.blood, u16::from(value))
+        else {
+            return Ok(None);
+        };
+        if arc.is_none_or(|(best, _)| curve > best) {
+            arc = Some((curve, value));
+        }
+    }
+    let Some((_, arc)) = arc else {
+        return Ok(None);
+    };
+    let mut stats = stats_with_combat(request.current_stats, search.mins);
+    stats.arc = arc;
+    let mut maximum = None;
+    let mut effects = Vec::new();
+    for choice in choices {
+        // Bleed reads an Ash only through these primary-effect fields.
+        let effect: [u32; 4] = primary_effect_key(choice)[5..]
+            .try_into()
+            .expect("four bleed effect fields");
+        if effects.contains(&effect) {
+            continue;
+        }
+        effects.push(effect);
+        let bleed = crate::math::exact::exact_bleed(weapon, upgrade, &stats, data, choice.aow)?;
+        maximum = maximum.max(Some(bleed));
+    }
+    Ok(maximum)
 }
 
 fn primary_effect_key(choice: &AowChoice<'_>) -> [u32; 9] {
