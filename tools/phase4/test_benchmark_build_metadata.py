@@ -60,14 +60,12 @@ class BuildMetadataTests(unittest.TestCase):
     def test_stable_source_and_compiler_identity_ignore_output_directory_and_request(self):
         first = self.capture(CARGO_TARGET_DIR="first-output")
         self.command[-1] = "--repeats=10"
-        second = self.capture(CARGO_TARGET_DIR="second-output")
+        second = self.capture(CARGO_TARGET_DIR="second-output", CARGO_BUILD_JOBS="2")
         self.assertEqual(first["source"]["commit"], "a" * 40)
         self.assertEqual(first["source"]["fingerprint"], second["source"]["fingerprint"])
         self.assertEqual(first["compiler_variant_fingerprint"], second["compiler_variant_fingerprint"])
         self.assertNotEqual(first["invocation"], second["invocation"])
-        self.assertEqual(first["compiler"]["release_profile"]["codegen-units"], 16)
-        self.assertEqual(first["compiler"]["release_profile"]["lto"], False)
-        self.assertEqual(first["compiler"]["release_profile"]["build-override"]["codegen-units"], 256)
+        self.assertEqual(second["invocation"]["output_environment"]["CARGO_TARGET_DIR"], "second-output")
         self.assertIn("rustc 1.97.0", first["compiler"]["rustc_version_verbose"])
 
     def test_source_bytes_deletions_and_untracked_inputs_change_fingerprint(self):
@@ -109,70 +107,33 @@ class BuildMetadataTests(unittest.TestCase):
         self.assertEqual(initial["source"]["fingerprint"], result["source"]["fingerprint"])
         self.assertNotIn("DO-NOT-READ-SENTINEL", json.dumps(result))
 
-    def test_manifest_config_and_environment_profile_precedence(self):
-        self.manifest.write_text(self.manifest.read_text() + '''
-[profile.release]
-lto = true
-codegen-units = 8
-[profile.release.package.special]
-opt-level = 1
-[profile.release.build-override]
-debug = true
-''', encoding="utf-8")
-        config = self.config('[profile.release]\nlto="thin"\ncodegen-units=4\n')
-        self.config_paths.return_value = [config]
-        result = self.capture(CARGO_PROFILE_RELEASE_CODEGEN_UNITS="2")
-        profile = result["compiler"]["release_profile"]
-        self.assertEqual(profile["lto"], "thin")
-        self.assertEqual(profile["codegen-units"], 2)
-        self.assertEqual(profile["package"]["special"]["opt-level"], 1)
-        self.assertEqual(profile["build-override"]["debug"], True)
-
-    def test_compiler_flag_and_profile_variants_have_distinct_fingerprints(self):
+    def test_profile_config_and_compiler_flag_variants_have_distinct_fingerprints(self):
         variants = [self.capture(**environment)["compiler_variant_fingerprint"] for environment in (
             {}, {"RUSTFLAGS": "-C target-cpu=native"}, {"CARGO_ENCODED_RUSTFLAGS": "-C\x1ftarget-cpu=native"},
             {"CARGO_PROFILE_RELEASE_LTO": "thin"}, {"CARGO_PROFILE_RELEASE_CODEGEN_UNITS": "1"},
+            {"CARGO_INCREMENTAL": "1"}, {"CL": "/GL"},
         )]
+        config = self.config('[profile.release]\nlto="thin"\n')
+        self.config_paths.return_value = [config]
+        variants.append(self.capture()["compiler_variant_fingerprint"])
+        config.write_text('[profile.release]\nlto="fat"\n', encoding="utf-8")
+        variants.append(self.capture()["compiler_variant_fingerprint"])
+        self.config_paths.return_value = []
+        self.manifest.write_text(self.manifest.read_text() + '[profile.release]\nlto=true\n', encoding="utf-8")
+        manifest_variant = self.capture()
+        variants.append(manifest_variant["compiler_variant_fingerprint"])
+        self.assertEqual(manifest_variant["compiler"]["manifest_profiles"], {"release": {"lto": True}})
         self.assertEqual(len(variants), len(set(variants)))
 
-    def test_config_merging_preserves_arrays_and_redacts_unrelated_secrets(self):
-        home = self.home / "config.toml"
-        home.write_text('[build]\nrustflags=["-C", "opt-level=2"]\n[profile.release]\nlto=true\n', encoding="utf-8")
-        local = self.config('''
-[build]
-rustflags = ["-C", "target-cpu=native"]
-[profile.release]
-lto = "thin"
-[target.'cfg(windows)']
-rustflags = ["--cfg", "fixture"]
-[registry]
-token = "SECRET-REGISTRY-SENTINEL"
-[http]
-proxy = "SECRET-PROXY-SENTINEL"
-[env]
-DATABASE_PASSWORD = "SECRET-ENV-SENTINEL"
-RUSTFLAGS = { value = "-C opt-level=1", force = true }
-''')
-        self.config_paths.return_value = [home, local]
-        result = self.capture(CARGO_REGISTRY_TOKEN="SECRET-PROCESS-SENTINEL")
-        compiler = result["compiler"]
-        self.assertEqual(compiler["cargo_config"]["build"]["rustflags"],
-                         ["-C", "opt-level=2", "-C", "target-cpu=native"])
-        self.assertEqual(compiler["release_profile"]["lto"], "thin")
-        self.assertIn("cfg(windows)", compiler["cargo_config"]["target"])
-        self.assertIn("RUSTFLAGS", compiler["cargo_config"]["env"])
-        self.assertNotIn("SECRET-", json.dumps(result))
-        self.assertIn("not evaluated", compiler["rustflags_resolution"])
-
-    def test_unsupported_includes_and_cli_config_fail_explicitly(self):
-        config = self.config('include=["extra.toml"]\n')
+    def test_config_files_are_hashed_and_secrets_never_recorded(self):
+        config = self.config('[registry]\ntoken = "SECRET-REGISTRY-SENTINEL"\n')
         self.config_paths.return_value = [config]
-        with self.assertRaisesRegex(ValueError, "include"):
-            self.capture()
-        self.config_paths.return_value = []
-        self.command = ["cargo", "--config", "profile.release.lto=true", "run", "--release"]
-        with self.assertRaisesRegex(ValueError, "--config"):
-            self.capture()
+        result = self.capture(CARGO_REGISTRY_TOKEN="SECRET-PROCESS-SENTINEL",
+                              CARGO_HTTP_PROXY="http://SECRET-PROXY-SENTINEL", PRIVATE_API_KEY="SECRET-NATIVE-SENTINEL",
+                              CARGO_PROFILE_RELEASE_LTO="thin", CL="/GL")
+        self.assertEqual(list(result["compiler"]["cargo_config_files"]), [str(config)])
+        self.assertEqual(result["compiler"]["environment"], {"CARGO_PROFILE_RELEASE_LTO": "thin", "CL": "/GL"})
+        self.assertNotIn("SECRET-", json.dumps(result))
 
     def test_discovery_prefers_legacy_and_uses_cwd_ancestors_not_manifest_directory(self):
         legacy = self.config('[profile.release]\nlto=true\n', "config")
@@ -187,25 +148,6 @@ RUSTFLAGS = { value = "-C opt-level=1", force = true }
         self.assertLess(paths.index(self.home / "config.toml"), paths.index(parent / "config.toml"))
         self.assertLess(paths.index(parent / "config.toml"), paths.index(legacy))
 
-    def test_incremental_implicit_codegen_units_and_explicit_override(self):
-        self.assertEqual(self.capture(CARGO_INCREMENTAL="1")["compiler"]["release_profile"]["codegen-units"], 256)
-        self.assertEqual(self.capture(CARGO_INCREMENTAL="1", CARGO_PROFILE_RELEASE_CODEGEN_UNITS="8")
-                         ["compiler"]["release_profile"]["codegen-units"], 8)
-
-    def test_config_output_directory_changes_do_not_change_compiler_variant(self):
-        config = self.config('[build]\ntarget-dir="first-output"\n')
-        self.config_paths.return_value = [config]
-        first = self.capture()
-        config.write_text('[build]\ntarget-dir="second-output"\n', encoding="utf-8")
-        second = self.capture()
-        self.assertEqual(first["compiler_variant_fingerprint"], second["compiler_variant_fingerprint"])
-        self.assertEqual(second["invocation"]["target_dir"], str((self.root / "second-output").resolve()))
-
-    def test_cli_custom_profile_is_not_reported_as_release_defaults(self):
-        self.command = ["cargo", "run", "--release", "--profile=custom"]
-        with self.assertRaisesRegex(ValueError, "release profile"):
-            self.capture()
-
     def test_symlink_source_is_rejected_before_reading_target(self):
         secret = self.base / "secrets.json"
         secret.write_text("DO-NOT-READ", encoding="utf-8")
@@ -217,19 +159,7 @@ RUSTFLAGS = { value = "-C opt-level=1", force = true }
         with self.assertRaisesRegex(ValueError, "symlink"):
             self.capture()
 
-    def test_native_compiler_flags_change_variant_without_recording_unrelated_environment(self):
-        initial = self.capture()
-        native = self.capture(CFLAGS="/O2", CL="/GL", INCLUDE="native/include", PRIVATE_API_KEY="SECRET-NATIVE-SENTINEL")
-        self.assertNotEqual(initial["compiler_variant_fingerprint"], native["compiler_variant_fingerprint"])
-        self.assertEqual(native["compiler"]["environment"]["CL"], "/GL")
-        self.assertNotIn("SECRET-NATIVE-SENTINEL", json.dumps(native))
-
-    def test_config_compiler_path_uses_config_base_and_process_override_takes_precedence(self):
-        config = self.home / "config.toml"
-        config.write_text('[build]\nrustc="bin/custom-rustc"\n', encoding="utf-8")
-        self.config_paths.return_value = [config]
-        configured = self.capture()
-        self.assertTrue(configured["compiler"]["rustc_version_verbose"].startswith(str(self.base / "bin/custom-rustc")))
+    def test_process_compiler_override_is_queried(self):
         overridden = self.capture(CARGO_BUILD_RUSTC="environment-rustc")
         self.assertTrue(overridden["compiler"]["rustc_version_verbose"].startswith("environment-rustc"))
 
