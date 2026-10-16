@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import { cachedWeaponProfile } from "./analysis-cache";
+import type { AnalysisOutcome } from "./analysis-status";
+import { errorMessage } from "./format";
 import { buildOptimizeRequest } from "./session";
 import { progressSignature } from "./polling";
 import { createNativeJobQueue, type FinishedJob, type NativeJobSuccess } from "./native-jobs";
@@ -10,6 +12,7 @@ import {
   AffinityWatchJobStatusDto,
   AffinityWatchProgressDto,
   CatalogDto,
+  Notice,
   OptimizeRequestDto,
   PathFinishedDto,
   PathJobStatusDto,
@@ -112,26 +115,120 @@ function usePollingJob<P extends JobEvent, F extends FinishedJob, S extends JobS
   }, []);
 }
 
-export function usePathJob(options: {
-  setPathProgress: (progress: PathProgressDto | null) => void;
-  onStarted: (jobId: string, generation: number) => void;
-}) {
-  return usePollingJob<PathProgressDto, PathFinishedDto, PathJobStatusDto>({
-    isCurrent: (state, generation) => state.isPathBusy && state.pathGeneration === generation,
-    queue: pathQueue,
-    setProgress: options.setPathProgress,
-    onStarted: options.onStarted,
-  });
+interface AnalysisRun<P extends JobEvent, F extends FinishedJob, S extends JobStatus<P, F>> {
+  queue: NativeJobQueue<S>;
+  cancel: (jobId: string) => Promise<boolean>;
+  scope: "paths" | "affinity_watch";
+  stoppedMessage: string;
+  read: (state: DesktopState) => { busy: boolean; generation: number; signature: string | null; jobId: string | null };
+  begin: (signature: string) => number;
+  setJobId: (jobId: string | null) => void;
+  setBusy: (busy: boolean) => void;
+  setProgress: (progress: P | null) => void;
 }
 
-export function useAffinityJob(options: {
-  setAffinityProgress: (progress: AffinityWatchProgressDto | null) => void;
-  onStarted: (jobId: string, generation: number) => void;
-}) {
-  return usePollingJob<AffinityWatchProgressDto, AffinityWatchFinishedDto, AffinityWatchJobStatusDto>({
-    isCurrent: (state, generation) => state.isAffinityBusy && state.affinityGeneration === generation,
-    queue: affinityQueue,
-    setProgress: options.setAffinityProgress,
-    onStarted: options.onStarted,
+export const PATH_RUN: AnalysisRun<PathProgressDto, PathFinishedDto, PathJobStatusDto> = {
+  queue: pathQueue,
+  cancel: (jobId) => api.cancelPathPreview(jobId),
+  scope: "paths",
+  stoppedMessage: "Path preview stopped.",
+  read: (state) => ({ busy: state.isPathBusy, generation: state.pathGeneration, signature: state.activePathSignature, jobId: state.activePathJobId }),
+  begin: (signature) => useDesktopStore.getState().beginPath(signature),
+  setJobId: (jobId) => useDesktopStore.getState().setActivePathJobId(jobId),
+  setBusy: (busy) => useDesktopStore.getState().setPathBusy(busy),
+  setProgress: (progress) => useDesktopStore.getState().setPathProgress(progress),
+};
+
+export const AFFINITY_RUN: AnalysisRun<AffinityWatchProgressDto, AffinityWatchFinishedDto, AffinityWatchJobStatusDto> = {
+  queue: affinityQueue,
+  cancel: (jobId) => api.cancelAffinityWatch(jobId),
+  scope: "affinity_watch",
+  stoppedMessage: "Affinity watch stopped.",
+  read: (state) => ({ busy: state.isAffinityBusy, generation: state.affinityGeneration, signature: state.activeAffinitySignature, jobId: state.activeAffinityJobId }),
+  begin: (signature) => useDesktopStore.getState().beginAffinity(signature),
+  setJobId: (jobId) => useDesktopStore.getState().setActiveAffinityJobId(jobId),
+  setBusy: (busy) => useDesktopStore.getState().setAffinityBusy(busy),
+  setProgress: (progress) => useDesktopStore.getState().setAffinityProgress(progress),
+};
+
+// Owns one Paths or Affinity Watch run. A reply, error or cancellation may change state only
+// while the run's generation, input signature and native job ID all still match.
+export function useAnalysisRun<P extends JobEvent, F extends FinishedJob, S extends JobStatus<P, F>>(
+  run: AnalysisRun<P, F, S>,
+  signature: string,
+) {
+  // A stopped or failed run is reported only while its inputs are still the current ones.
+  const [reported, setReported] = useState<{ signature: string; outcome: AnalysisOutcome }>({ signature, outcome: null });
+  const outcome = reported.signature === signature ? reported.outcome : null;
+  const setOutcome = (next: AnalysisOutcome) => setReported({ signature, outcome: next });
+  const owns = (state: DesktopState, generation: number) => {
+    const current = run.read(state);
+    return current.busy && current.generation === generation && current.signature === signature;
+  };
+  const idle = () => {
+    run.setBusy(false);
+    run.setJobId(null);
+    run.setProgress(null);
+  };
+
+  const startJob = usePollingJob<P, F, S>({
+    isCurrent: (state, generation) => {
+      const current = run.read(state);
+      return current.busy && current.generation === generation;
+    },
+    queue: run.queue,
+    setProgress: run.setProgress,
+    onStarted: (jobId, generation) => {
+      const state = useDesktopStore.getState();
+      if (state.resultsStale || !owns(state, generation)) throw new DOMException("Calculation stopped.", "AbortError");
+      run.setJobId(jobId);
+    },
   });
+
+  async function start(launch: () => Promise<{ jobId: string }>, publish: (finished: NativeJobSuccess<F>) => void, notice?: Notice) {
+    setOutcome(null);
+    const generation = run.begin(signature);
+    if (notice) useDesktopStore.getState().pushNotice(notice);
+    try {
+      const finished = await startJob(launch, generation);
+      const state = useDesktopStore.getState();
+      const current = run.read(state);
+      if (state.resultsStale || current.generation !== generation || current.signature !== signature || current.jobId !== finished.jobId) return;
+      publish(finished);
+      setOutcome(null);
+      idle();
+    } catch (error) {
+      const state = useDesktopStore.getState();
+      if (!owns(state, generation)) return;
+      if (error instanceof DOMException && error.name === "AbortError") {
+        state.pushNotice({ scope: run.scope, tone: "warning", message: run.stoppedMessage });
+        setOutcome("cancelled");
+      } else {
+        state.setError(errorMessage(error));
+        setOutcome("failed");
+      }
+      idle();
+    }
+  }
+
+  async function stop() {
+    setOutcome("cancelled");
+    const jobId = run.read(useDesktopStore.getState()).jobId;
+    if (!jobId) {
+      run.setBusy(false);
+      return;
+    }
+    try {
+      await run.cancel(jobId);
+    } catch (error) {
+      const state = useDesktopStore.getState();
+      const current = run.read(state);
+      if (current.busy && current.jobId === jobId) {
+        state.setError(errorMessage(error));
+        setOutcome("failed");
+      }
+    }
+  }
+
+  return { outcome, start, stop };
 }
