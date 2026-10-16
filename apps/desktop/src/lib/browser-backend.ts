@@ -118,168 +118,111 @@ function previewBuild(
 }
 
 let mockJobSequence = 0;
-let mockSearchJob: SearchJobStatusDto | null = null;
-let mockPathJob: PathJobStatusDto | null = null;
-let mockAffinityJob: AffinityWatchJobStatusDto | null = null;
 
-function nextMockJobId(prefix: string): string {
-  mockJobSequence += 1;
-  return `browser-${prefix}-${mockJobSequence}`;
+type MockJobStatus = {
+  progress: { jobId: string } | null;
+  finished: { jobId: string; cancelled: boolean; error: string | null } | null;
+};
+type Progress<S extends MockJobStatus> = NonNullable<S["progress"]>;
+type Finished<S extends MockJobStatus> = NonNullable<S["finished"]>;
+
+// Native workers notice a cancellation at their next checkpoint, not when it is requested.
+const MOCK_CANCEL_DELAY_MS = 30;
+
+// Mirrors the native JobRegistry: one job at a time, a second start before the first is
+// terminal is rejected, and a cancellation only becomes terminal once the worker stops.
+function mockJobRegistry<S extends MockJobStatus>(
+  kind: string,
+  prefix: string,
+  emptyResult: Omit<Finished<S>, "jobId" | "cancelled" | "error">,
+) {
+  let job: S | null = null;
+  let cancelRequested = false;
+  const current = (args: Record<string, unknown> | undefined) => {
+    const jobId = String(args?.jobId ?? "");
+    return job?.progress?.jobId === jobId ? job : null;
+  };
+  const finish = (jobId: string, result: Partial<Finished<S>>, progress?: Partial<Progress<S>>) => {
+    if (!job?.progress || job.progress.jobId !== jobId || job.finished) return;
+    job = {
+      progress: { ...job.progress, ...(cancelRequested ? {} : progress) },
+      finished: { ...emptyResult, jobId, cancelled: cancelRequested, error: null, ...(cancelRequested ? {} : result) },
+    } as S;
+  };
+  return {
+    start(
+      progress: Omit<Progress<S>, "jobId">,
+      work: () => Promise<{ result: Partial<Finished<S>>; progress?: Partial<Progress<S>> }>,
+    ): StartSearchResponseDto {
+      if (job && !job.finished) {
+        throw new Error(`${kind} job is already running. Stop or wait for it before starting another.`);
+      }
+      mockJobSequence += 1;
+      const jobId = `browser-${prefix}-${mockJobSequence}`;
+      cancelRequested = false;
+      job = { progress: { ...progress, jobId }, finished: null } as S;
+      // Native work runs on a worker thread: the job stays running at least until a later task.
+      setTimeout(() => void work().then(
+        (done) => finish(jobId, done.result, done.progress),
+        (error) => finish(jobId, { error: errorMessage(error) } as Partial<Finished<S>>),
+      ), 0);
+      return { jobId };
+    },
+    status: current,
+    cancel(args: Record<string, unknown> | undefined): boolean {
+      const running = current(args);
+      if (!running?.progress || running.finished) return false;
+      cancelRequested = true;
+      const { jobId } = running.progress;
+      setTimeout(() => finish(jobId, {}), MOCK_CANCEL_DELAY_MS);
+      return true;
+    },
+  };
 }
 
-function mockJobMatches(
-  status: { progress: { jobId: string } | null; finished: { jobId: string } | null } | null,
-  jobId: string,
-): boolean {
-  return status?.progress?.jobId === jobId || status?.finished?.jobId === jobId;
-}
+const searchJobs = mockJobRegistry<SearchJobStatusDto>("search", "search", { rows: [], setups: 0 });
+const pathJobs = mockJobRegistry<PathJobStatusDto>("path", "path", { paths: [] });
+const affinityJobs = mockJobRegistry<AffinityWatchJobStatusDto>("affinity watch", "affinity", { payload: null });
 
 async function mockStartSearch(args: Record<string, unknown> | undefined): Promise<StartSearchResponseDto> {
   const request = (args?.request as OptimizeRequestDto | undefined) ?? null;
-  const jobId = nextMockJobId("search");
   const total = await mockSearchCombinationCount(request);
-  mockSearchJob = {
-    progress: { jobId, checked: 0, total, eligible: 0, bestScore: 0, elapsedMs: 0 },
-    finished: null,
-  };
-  void mockRows(request).then((rows) => {
-    if (!mockJobMatches(mockSearchJob, jobId) || mockSearchJob?.finished?.cancelled) return;
-    mockSearchJob = {
-      progress: {
-        jobId,
-        checked: total,
-        total,
-        eligible: rows.length,
-        bestScore: rows[0]?.score ?? 0,
-        elapsedMs: 0,
-      },
-      finished: { jobId, cancelled: false, rows, error: null, setups: total },
-    };
-  }).catch((error) => {
-    if (!mockJobMatches(mockSearchJob, jobId) || mockSearchJob?.finished?.cancelled) return;
-    mockSearchJob = {
-      progress: mockSearchJob?.progress ?? null,
-      finished: { jobId, cancelled: false, rows: [], error: errorMessage(error), setups: 0 },
+  return searchJobs.start({ checked: 0, total, eligible: 0, bestScore: 0, elapsedMs: 0 }, async () => {
+    const rows = await mockRows(request);
+    return {
+      result: { rows, setups: total },
+      progress: { checked: total, eligible: rows.length, bestScore: rows[0]?.score ?? 0 },
     };
   });
-  return { jobId };
 }
 
-function mockSearchStatus(args: Record<string, unknown> | undefined): SearchJobStatusDto | null {
-  const jobId = String(args?.jobId ?? "");
-  return mockJobMatches(mockSearchJob, jobId) ? mockSearchJob : null;
-}
-
-function mockCancelSearch(args: Record<string, unknown> | undefined): boolean {
-  const jobId = String(args?.jobId ?? "");
-  const current = mockSearchJob;
-  if (!current || !mockJobMatches(current, jobId) || current.finished) return false;
-  mockSearchJob = {
-    progress: current.progress,
-    finished: { jobId, cancelled: true, rows: [], error: null, setups: 0 },
-  };
-  return true;
-}
-
-async function mockStartPathPreview(args: Record<string, unknown> | undefined): Promise<StartSearchResponseDto> {
+function mockStartPathPreview(args: Record<string, unknown> | undefined): StartSearchResponseDto {
   const requests = ((args?.request as {
     requests?: Array<{ base: OptimizeRequestDto; solved: SolvedBuildDto; levelsAhead: number; title: string }>;
   } | undefined)?.requests) ?? [];
-  const jobId = nextMockJobId("path");
   const total = Math.max(requests.reduce((sum, request) => sum + request.levelsAhead + 1, 0), 1);
   const first = requests[0];
-  mockPathJob = {
-    progress: {
-      jobId,
-      checked: 0,
-      total,
-      title: first?.title ?? "Selected",
-      level: first?.base.characterLevel ?? 0,
-    },
-    finished: null,
-  };
-  void Promise.all(requests.map((request) => mockPathPreview({ request }))).then((paths) => {
-    if (!mockJobMatches(mockPathJob, jobId) || mockPathJob?.finished?.cancelled) return;
-    mockPathJob = {
-      progress: { ...mockPathJob!.progress!, checked: total },
-      finished: { jobId, cancelled: false, paths, error: null },
-    };
-  }).catch((error) => {
-    if (!mockJobMatches(mockPathJob, jobId) || mockPathJob?.finished?.cancelled) return;
-    mockPathJob = {
-      progress: mockPathJob?.progress ?? null,
-      finished: { jobId, cancelled: false, paths: [], error: errorMessage(error) },
-    };
-  });
-  return { jobId };
+  return pathJobs.start(
+    { checked: 0, total, title: first?.title ?? "Selected", level: first?.base.characterLevel ?? 0 },
+    async () => ({
+      result: { paths: await Promise.all(requests.map((request) => mockPathPreview({ request }))) },
+      progress: { checked: total },
+    }),
+  );
 }
 
-function mockPathPreviewStatus(args: Record<string, unknown> | undefined): PathJobStatusDto | null {
-  const jobId = String(args?.jobId ?? "");
-  return mockJobMatches(mockPathJob, jobId) ? mockPathJob : null;
-}
-
-function mockCancelPathPreview(args: Record<string, unknown> | undefined): boolean {
-  const jobId = String(args?.jobId ?? "");
-  const current = mockPathJob;
-  if (!current || !mockJobMatches(current, jobId) || current.finished) return false;
-  mockPathJob = {
-    progress: current.progress,
-    finished: { jobId, cancelled: true, paths: [], error: null },
-  };
-  return true;
-}
-
-async function mockStartAffinityWatch(args: Record<string, unknown> | undefined): Promise<StartSearchResponseDto> {
+function mockStartAffinityWatch(args: Record<string, unknown> | undefined): StartSearchResponseDto {
   const request = args?.request as {
     base?: OptimizeRequestDto;
     solved?: SolvedBuildDto;
     levelsAhead?: number;
   } | undefined;
-  const jobId = nextMockJobId("affinity");
   const total = Math.max((request?.levelsAhead ?? 0) + 1, 1);
-  mockAffinityJob = {
-    progress: {
-      jobId,
-      checked: 0,
-      total,
-      affinity: request?.solved?.affinity ?? "Standard",
-      level: request?.base?.characterLevel ?? 0,
-    },
-    finished: null,
-  };
-  void mockAffinityWatch(args).then((payload) => {
-    if (!mockJobMatches(mockAffinityJob, jobId) || mockAffinityJob?.finished?.cancelled) return;
-    mockAffinityJob = {
-      progress: { ...mockAffinityJob!.progress!, checked: total },
-      finished: { jobId, cancelled: false, payload, error: null },
-    };
-  }).catch((error) => {
-    if (!mockJobMatches(mockAffinityJob, jobId) || mockAffinityJob?.finished?.cancelled) return;
-    mockAffinityJob = {
-      progress: mockAffinityJob?.progress ?? null,
-      finished: { jobId, cancelled: false, payload: null, error: errorMessage(error) },
-    };
-  });
-  return { jobId };
+  return affinityJobs.start(
+    { checked: 0, total, affinity: request?.solved?.affinity ?? "Standard", level: request?.base?.characterLevel ?? 0 },
+    async () => ({ result: { payload: await mockAffinityWatch(args) }, progress: { checked: total } }),
+  );
 }
-
-function mockAffinityWatchStatus(args: Record<string, unknown> | undefined): AffinityWatchJobStatusDto | null {
-  const jobId = String(args?.jobId ?? "");
-  return mockJobMatches(mockAffinityJob, jobId) ? mockAffinityJob : null;
-}
-
-function mockCancelAffinityWatch(args: Record<string, unknown> | undefined): boolean {
-  const jobId = String(args?.jobId ?? "");
-  const current = mockAffinityJob;
-  if (!current || !mockJobMatches(current, jobId) || current.finished) return false;
-  mockAffinityJob = {
-    progress: current.progress,
-    finished: { jobId, cancelled: true, payload: null, error: null },
-  };
-  return true;
-}
-
 
 export async function mockInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   switch (command) {
@@ -292,9 +235,9 @@ export async function mockInvoke<T>(command: string, args?: Record<string, unkno
     case "start_search":
       return await mockStartSearch(args) as T;
     case "cancel_search":
-      return mockCancelSearch(args) as T;
+      return searchJobs.cancel(args) as T;
     case "get_search_status":
-      return mockSearchStatus(args) as T;
+      return searchJobs.status(args) as T;
     case "solve_build":
       return await mockSolveBuild(args) as T;
     case "ar_bleed_frontier": {
@@ -315,19 +258,19 @@ export async function mockInvoke<T>(command: string, args?: Record<string, unkno
     case "compatible_aow_names_for_affinity":
       return await mockCompatibleAowNamesForAffinity() as T;
     case "start_path_preview":
-      return await mockStartPathPreview(args) as T;
+      return mockStartPathPreview(args) as T;
     case "cancel_path_preview":
-      return mockCancelPathPreview(args) as T;
+      return pathJobs.cancel(args) as T;
     case "get_path_preview_status":
-      return mockPathPreviewStatus(args) as T;
+      return pathJobs.status(args) as T;
     case "start_affinity_watch":
-      return await mockStartAffinityWatch(args) as T;
+      return mockStartAffinityWatch(args) as T;
     case "cancel_affinity_watch":
-      return mockCancelAffinityWatch(args) as T;
+      return affinityJobs.cancel(args) as T;
     case "get_affinity_watch_status":
-      return mockAffinityWatchStatus(args) as T;
+      return affinityJobs.status(args) as T;
     default:
-      return null as T;
+      throw new Error(`Unknown command ${command}`);
   }
 }
 
@@ -360,15 +303,15 @@ function mockDataManifest(profileId = "vanilla"): DataManifestDto {
   const convergence = profileId === "convergence";
   return {
     schemaVersion: 6,
-    datasetVersion: convergence ? "convergence-3.0.0.1" : "vanilla-1.17",
-    modelVersion: "aow-routes-effects-v8/exact-v2",
-    id: convergence ? "convergence-3.0.0.1" : "vanilla-1.17",
-    label: convergence ? "Convergence 3.0.0.1" : "Vanilla 1.17",
+    datasetVersion: convergence ? "convergence-3.0.0.1-r2" : "vanilla-1.17-r2",
+    modelVersion: "aow-routes-effects-v9/exact-v3",
+    id: convergence ? "convergence-3.0.0.1-r2" : "vanilla-1.17-r2",
+    label: convergence ? "The Convergence dataset - 3.0.0.1" : "Vanilla dataset - 1.17",
     appVersion: convergence ? "1.16.1" : "1.17",
-    source: "ER - Motion Values and Attack Data (App Ver. 1.17).xlsx",
+    source: "regulation.bin",
     profile: {
       id: profileId,
-      displayName: convergence ? "Convergence" : "Vanilla",
+      displayName: convergence ? "The Convergence" : "Vanilla",
       gameVersion: convergence ? "1.16.1" : "1.17",
       modVersion: convergence ? "3.0.0.1" : null,
     },
@@ -437,8 +380,15 @@ async function mockCompatibleAowNames(args: Record<string, unknown> | undefined)
   return weapon?.name === "Ancient Meteoric Ore Greatsword" ? ["White Light Charge"] : MOCK_AOW_NAMES;
 }
 
+// Convergence rows use that profile's single upgrade cap and model no skill damage, as native does.
+function previewRows(request: OptimizeRequestDto | null): SolvedBuildDto[] {
+  if (request?.profileId !== "convergence") return PREVIEW_SOLVED_BUILDS;
+  const { standardMaxUpgrade } = mockDataManifest("convergence").rules;
+  return PREVIEW_SOLVED_BUILDS.map((row) => ({ ...row, upgrade: standardMaxUpgrade, aowFirstHitDamage: 0, aowFullSequenceDamage: 0 }));
+}
+
 async function mockSearchCombinationCount(request: OptimizeRequestDto | null): Promise<number> {
-  const upgradeCount = PREVIEW_SOLVED_BUILDS.filter((row) => matchesPreviewRow(row, request)).reduce((total, row) => {
+  const upgradeCount = previewRows(request).filter((row) => matchesPreviewRow(row, request)).reduce((total, row) => {
     if (!request) return total + 26;
     if (request.exactUpgrade) return total + 1;
     const cap = row.isSomber ? request.somberMaxUpgrade : request.standardMaxUpgrade;
@@ -449,7 +399,11 @@ async function mockSearchCombinationCount(request: OptimizeRequestDto | null): P
 
 async function mockRows(request: OptimizeRequestDto | null): Promise<SolvedBuildDto[]> {
   const topK = Math.min(Math.max(Number(request?.topK ?? 25), 1), 500);
-  return PREVIEW_SOLVED_BUILDS.filter((row) => matchesPreviewRow(row, request)).slice(0, topK);
+  const objective = request?.objective ?? "max_ar";
+  return previewRows(request)
+    .filter((row) => matchesPreviewRow(row, request))
+    .sort((left, right) => metricPreview(right, objective) - metricPreview(left, objective))
+    .slice(0, topK);
 }
 
 async function mockSolveBuild(args: Record<string, unknown> | undefined): Promise<SolvedBuildDto | null> {

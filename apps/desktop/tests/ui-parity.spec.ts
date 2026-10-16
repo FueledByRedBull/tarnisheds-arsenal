@@ -162,7 +162,7 @@ test("profile switch isolates results and explains Convergence coverage", async 
     await expect(page.getByRole("navigation").getByRole("button", { name, exact: true })).toBeDisabled();
   }
   await page.getByRole("button", { name: "Search", exact: true }).click();
-  await expect(page.getByText("1 ranked rows")).toBeVisible();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
   // No row has modeled skill damage, so the column is replaced by one note in the header.
   await expect(page.locator(".result-row .skill-cell")).toHaveCount(0);
   await expect(page.getByText("Skill damage isn't modeled for these results.", { exact: true })).toBeVisible();
@@ -638,7 +638,7 @@ test("stale saved builds offer explicit input-only loading or recompute migratio
   // Unnamed saves take the selected build's name, as the game names weapons.
   await expect(page.getByText(/Saved Blood Uchigatana \+25/)).toBeVisible();
   await expect(page.locator(".saved-build-status")).toHaveText("Saved with the current game data");
-  await expect(page.locator(".saved-build-status")).toHaveAttribute("title", /^profile vanilla · dataset vanilla-1\.17 · schema \d+ · model /);
+  await expect(page.locator(".saved-build-status")).toHaveAttribute("title", /^profile vanilla · dataset vanilla-1\.17-r2 · schema \d+ · model /);
 
   await page.evaluate(() => {
     const presetKey = Object.keys(localStorage).find((key) => key.startsWith("tarnisheds-arsenal.savedBuild.v2."));

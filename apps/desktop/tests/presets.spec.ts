@@ -246,7 +246,7 @@ test("Convergence saves, updates and reloads the displayed fixed stats", async (
   await expect(page.getByRole("spinbutton", { name: "STR", exact: true })).toHaveValue("40");
   await expect(page.getByRole("textbox", { name: "Stat total", exact: true })).toHaveValue(String(total));
   await page.getByRole("button", { name: "Search", exact: true }).click();
-  await expect(page.getByText("1 ranked rows")).toBeVisible();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
 });
 
 for (const action of ["Save new", "Update selected"]) {
