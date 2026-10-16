@@ -73,7 +73,7 @@ test("rankings show movement and value changes since the previous search", async
       { ...fourth, aowName: "Different skill" },
     ], 100);
   });
-  const rows = page.locator(".result-row-full");
+  const rows = page.locator(".result-row");
   await expect(rows.nth(0).locator(".rank-move")).toHaveText("2");
   await expect(rows.nth(0).locator(".rank-move")).toHaveClass(/up/);
   await expect(rows.nth(0).locator(".metric-delta")).toHaveText("+12.5");
@@ -93,7 +93,7 @@ test("rankings show movement and value changes since the previous search", async
 test("result columns sort without renumbering ranks", async ({ page }) => {
   await searched(page);
   // Rows keep rank order in the DOM and sort with CSS order, so read them in on-screen order.
-  const ranks = () => page.locator(".result-row-full .rank-cell").evaluateAll((cells) => cells
+  const ranks = () => page.locator(".result-row .rank-cell").evaluateAll((cells) => cells
     .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)
     .map((cell) => cell.textContent));
   const ar = page.getByRole("columnheader", { name: "AR", exact: true });
@@ -122,7 +122,7 @@ test("result columns sort without renumbering ranks", async ({ page }) => {
 
 test("arrow keys move between ranked rows and Build Detail shows the rank", async ({ page }) => {
   await searched(page);
-  const rows = page.locator(".result-row-full");
+  const rows = page.locator(".result-row");
   await rows.first().focus();
   await page.keyboard.press("ArrowDown");
   await expect(rows.nth(1)).toBeFocused();
@@ -226,7 +226,7 @@ test("Build Detail never calls a rounded gap an exact tie", async ({ page }) => 
     const [first, second, ...rest] = useDesktopStore.getState().rows;
     useDesktopStore.getState().setRows([first, { ...second, ar: { ...second.ar, total: first.ar.total - 0.01 } }, ...rest], 100);
   });
-  await page.locator(".result-row-full").nth(1).click();
+  await page.locator(".result-row").nth(1).click();
   await expect(page.locator(".rank-context")).toHaveText("Rank 2 of 4 · less than 0.05 behind #1");
   await expect(page.locator(".rank-proof")).toHaveText("Compared exactly against 100 scored setups.");
   // Explanatory text in the muted ink, not the success hue (UIX-005).

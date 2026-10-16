@@ -334,7 +334,7 @@ export function RankingsBoard() {
         aria-label={resultsStale ? "Ranked builds from the previous query" : "Ranked builds"}
         aria-describedby={resultsStale ? "stale-results-message" : undefined}
       >
-        <div className={`result-head result-head-full ${gridClass}`} role="row">
+        <div className={`result-head ${gridClass}`} role="row">
           <span role="columnheader" aria-sort={ariaSort("rank")}>
             <SortButton label="Rank" direction={ariaSort("rank")} onClick={() => sortBy("rank")}>#</SortButton>
           </span>
@@ -466,7 +466,7 @@ function placeRows(container: HTMLElement, ranked: RankedEntry[]) {
 // Arrow keys move between rows like a grid, in the order shown; Enter and Space still select.
 function moveRowFocus(row: HTMLElement, key: string) {
   const top = (element: HTMLElement) => element.getBoundingClientRect().top;
-  const rows = [...(row.parentElement?.querySelectorAll<HTMLElement>(".result-row-full") ?? [])]
+  const rows = [...(row.parentElement?.querySelectorAll<HTMLElement>(".result-row") ?? [])]
     .sort((a, b) => top(a) - top(b));
   const index = rows.indexOf(row);
   const target = key === "Home" ? rows[0] : key === "End" ? rows.at(-1) : rows[index + (key === "ArrowDown" ? 1 : -1)];
@@ -514,7 +514,7 @@ const ResultRow = memo(function ResultRow({
   const metricName = `${objective === "max_ar" ? "AR" : objectiveLabel(objective)} ${metric === null ? "unavailable" : fixed1(metric)}`;
   return (
     <div
-      className={`result-row result-row-full ${gridClass} ${active ? "active" : ""}`}
+      className={`result-row ${gridClass} ${active ? "active" : ""}`}
       role="row"
       aria-selected={active}
       aria-label={`Select ${row.weaponName}, ${row.affinity}, rank ${index + 1}, ${metricName}${movementText(movement) ? `, ${movementText(movement)}` : ""}`}

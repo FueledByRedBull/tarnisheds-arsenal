@@ -34,7 +34,7 @@ test("results, Build Detail and Compare filters have no WCAG A/AA violations", a
   await expect(page.getByText("4 ranked rows")).toBeVisible();
   // A finished search's progress strip fades out; check the page once it has gone.
   await expect(page.locator(".progress-strip")).toHaveCount(0);
-  await page.locator(".result-row-full").nth(1).click();
+  await page.locator(".result-row").nth(1).click();
   expect(await violations(page)).toEqual([]);
   await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
   await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
@@ -60,7 +60,7 @@ test("movement markers, sorted headers and the shortcut sheet have no WCAG A/AA 
     ], 100);
   });
   // The selected row tints its background, so check the down marker on it too.
-  await page.locator(".result-row-full").nth(1).click();
+  await page.locator(".result-row").nth(1).click();
   await page.getByRole("columnheader", { name: "AR", exact: true }).getByRole("button").click();
   await expect(page.locator(".rank-move")).toHaveCount(3);
   expect(await violations(page, ".rankings-panel")).toEqual([]);
@@ -74,12 +74,12 @@ test("the rankings grid is one tab stop and the Compare tab reads its pinned cou
   await page.goto("/");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
-  const rows = page.locator(".result-row-full");
-  await expect(page.locator('.result-row-full[tabindex="0"]')).toHaveCount(1);
+  const rows = page.locator(".result-row");
+  await expect(page.locator('.result-row[tabindex="0"]')).toHaveCount(1);
   await expect(rows.first()).toHaveAttribute("tabindex", "0");
   await rows.nth(2).click();
   await expect(rows.nth(2)).toHaveAttribute("tabindex", "0");
-  await expect(page.locator('.result-row-full[tabindex="0"]')).toHaveCount(1);
+  await expect(page.locator('.result-row[tabindex="0"]')).toHaveCount(1);
   // Arrows still move between rows, and Tab then leaves the grid in one press.
   await rows.nth(2).focus();
   await page.keyboard.press("ArrowDown");

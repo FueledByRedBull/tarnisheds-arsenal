@@ -64,7 +64,7 @@ test("long Paths curves retain all points with sparse markers and keyboard inspe
   await page.keyboard.press("ArrowRight");
   await expect(inspect).toHaveAttribute("aria-valuetext", /Level 59.*Selected unavailable.*Compare unavailable/);
   await expect(page.getByRole("table", { name: "Path steps", exact: true })).toBeVisible();
-  for (const width of [1028, 1650]) {
+  for (const width of [1200, 1650]) {
     await page.setViewportSize({ width, height: 950 });
     expect(await chart.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   }
@@ -118,7 +118,7 @@ test("saved profile filters stay readable and can be removed without changing we
 });
 
 test("profile switch isolates results and explains Convergence coverage", async ({ page }) => {
-  await page.setViewportSize({ width: 1028, height: 749 });
+  await page.setViewportSize({ width: 1200, height: 749 });
   await page.goto("/");
   await page.evaluate(async () => {
     const { api } = await import("/src/lib/api.ts");
@@ -164,9 +164,9 @@ test("profile switch isolates results and explains Convergence coverage", async 
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("1 ranked rows")).toBeVisible();
   // No row has modeled skill damage, so the column is replaced by one note in the header.
-  await expect(page.locator(".result-row-full .skill-cell")).toHaveCount(0);
+  await expect(page.locator(".result-row .skill-cell")).toHaveCount(0);
   await expect(page.getByText("Skill damage isn't modeled for these results.", { exact: true })).toBeVisible();
-  await page.locator(".result-row-full").first().click();
+  await page.locator(".result-row").first().click();
   await expect(page.locator(".metric-tile").filter({ hasText: "AoW model" })).toContainText("Unavailable");
   await expect(page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true })).toBeDisabled();
 
@@ -178,10 +178,10 @@ test("profile switch isolates results and explains Convergence coverage", async 
   await expect(page.getByRole("button", { name: "Optimize class" })).toBeEnabled();
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
-  const rawSkill = page.locator(".result-row-full").first().locator(".skill-cell");
+  const rawSkill = page.locator(".result-row").first().locator(".skill-cell");
   await expect(rawSkill).not.toContainText("Unavailable");
   await expect(rawSkill).toContainText("1st hit");
-  await page.locator(".result-row-full").first().click();
+  await page.locator(".result-row").first().click();
   await expect(page.locator(".metric-tile").filter({ hasText: "Raw AoW" })).not.toContainText("Unavailable");
 
 });
@@ -198,7 +198,7 @@ test("fixed skill controls use the same native selection in Rankings and Compare
   await chooseSearchableOption(page, "Weapon", "Open");
   await page.getByRole("button", { name: "Update Results", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
-  await page.locator(".result-row-full").first().click();
+  await page.locator(".result-row").first().click();
   await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
   await chooseSearchableOption(page, "Compare Weapon", "Ancient Meteoric Ore Greatsword");
   const comparisonSkill = page.getByRole("combobox", { name: "Compare AoW (fixed)", exact: true });
@@ -244,7 +244,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
 
   await page.getByRole("button", { name: "Search" }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
-  const firstRankedRow = page.locator(".result-row-full").first();
+  const firstRankedRow = page.locator(".result-row").first();
   await expect(firstRankedRow).toContainText("Uchigatana");
   await expect(firstRankedRow.getByRole("list", { name: "Attack rating split" })).toHaveCount(0);
   await expect(firstRankedRow.locator(".ar-cell")).toHaveText("700.0");
@@ -262,11 +262,11 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(page.getByRole("button", { name: "Show lowest rank first" })).toBeVisible();
   await page.getByRole("button", { name: "Show lowest rank first" }).click();
   // Rows keep rank order in the DOM and a sort offsets them, so read the top row as drawn.
-  await expect.poll(() => page.locator(".result-row-full .rank-cell").evaluateAll((cells) => cells
+  await expect.poll(() => page.locator(".result-row .rank-cell").evaluateAll((cells) => cells
     .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)[0]?.textContent)).toBe("4");
   await page.getByRole("button", { name: "Show best rank first" }).click();
-  await expect(page.locator(".result-row-full").first().locator(".rank-cell")).toHaveText("1");
-  await expect.poll(() => page.locator(".result-row-full").first().locator("[role=gridcell]").nth(1).evaluate(
+  await expect(page.locator(".result-row").first().locator(".rank-cell")).toHaveText("1");
+  await expect.poll(() => page.locator(".result-row").first().locator("[role=gridcell]").nth(1).evaluate(
     (node) => getComputedStyle(node).position,
   )).toBe("sticky");
   await page.getByRole("row", { name: "Select Uchigatana, Occult, rank 2, AR 670.0", exact: true }).click();
@@ -282,11 +282,11 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(page.getByText("Inputs changed")).toBeVisible();
   await page.getByRole("button", { name: "Update Results" }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
-  await expect.poll(() => page.locator(".result-row-full").first().evaluate(
+  await expect.poll(() => page.locator(".result-row").first().evaluate(
     (node) => node.getBoundingClientRect().height,
   )).toBeLessThan(145);
 
-  await page.locator(".result-row-full").first().getByRole("button", { name: /^Lock / }).click();
+  await page.locator(".result-row").first().getByRole("button", { name: /^Lock / }).click();
   await expect(page.locator(".active-lock-warning")).toContainText("Stat locks active: STR 13 / DEX 22");
   await expect(page.locator(".active-lock-warning")).toHaveAttribute("title", /Changing class or loadout keeps these locks/);
   await expect((await openEditor(page, "Limits")).getByText(/Changing class or loadout keeps these locks/)).toBeVisible();
@@ -437,7 +437,7 @@ test("starting class optimization and stat reset keep the level budget valid", a
 test("compare combines multiple types and affinities with Smithing and Somber toggles", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Search", exact: true }).click();
-  await page.locator(".result-row-full").first().click();
+  await page.locator(".result-row").first().click();
   await openCompare(page);
 
   await expect.poll(async () => {
@@ -505,8 +505,8 @@ test("comparison pins survive custom filters and navigation until explicitly cle
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
 
-  const occult = page.locator(".result-row-full").nth(1);
-  const keen = page.locator(".result-row-full").nth(2);
+  const occult = page.locator(".result-row").nth(1);
+  const keen = page.locator(".result-row").nth(2);
   await occult.click();
   await keen.getByRole("button", { name: /^Compare / }).click();
   await openCompare(page);
@@ -566,7 +566,7 @@ test("ranked rows select the exact build with mouse and keyboard", async ({ page
   await page.getByRole("button", { name: "Search" }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
 
-  const fourthRow = page.locator(".result-row-full").nth(3);
+  const fourthRow = page.locator(".result-row").nth(3);
   const weaponName = (await fourthRow.locator(".weapon-cell strong").textContent())?.trim();
   expect(weaponName).toBeTruthy();
 
@@ -578,12 +578,12 @@ test("ranked rows select the exact build with mouse and keyboard", async ({ page
   await openSection(page, "Saved Builds");
   await expect(page.getByRole("textbox", { name: "Name", exact: true })).toBeFocused();
 
-  const thirdRow = page.locator(".result-row-full").nth(2);
+  const thirdRow = page.locator(".result-row").nth(2);
   await thirdRow.focus();
   await thirdRow.press("Enter");
   await expect(thirdRow).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(".selected-build")).toContainText("Keen / Seppuku / +25");
-  const hoveredRow = page.locator(".result-row-full").nth(1);
+  const hoveredRow = page.locator(".result-row").nth(1);
   await hoveredRow.hover();
   await expect.poll(() => hoveredRow.evaluate((row) => {
     const background = getComputedStyle(row).backgroundColor;
@@ -595,8 +595,8 @@ test("ranked rows select the exact build with mouse and keyboard", async ({ page
       const box = node.getBoundingClientRect();
       return box.left + box.width / 2;
     });
-    const keys = centers(document.querySelectorAll(".result-head-full .token-keys > span"));
-    return [...document.querySelectorAll(".result-row-full")].every((row) => {
+    const keys = centers(document.querySelectorAll(".result-head .token-keys > span"));
+    return [...document.querySelectorAll(".result-row")].every((row) => {
       const values = centers(row.querySelectorAll(".metric-token"));
       return values.length === keys.length && values.every((center, index) => Math.abs(center - keys[index]) < 1);
     });
@@ -811,7 +811,7 @@ async function expectRankingsBoardToFit(page: import("@playwright/test").Page) {
   await expect.poll(() => board.evaluate((node) => node.scrollWidth <= node.clientWidth + 2)).toBe(true);
 }
 
-for (const [width, height] of [[923, 789], [1200, 720], [1366, 768], [1650, 950]]) {
+for (const [width, height] of [[1200, 720], [1366, 768], [1650, 950]]) {
   test(`stacked headers do not overlap with 50 rankings at ${width}x${height}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     await page.goto("/");
@@ -862,7 +862,7 @@ test("ranking actions stay reachable at minimum width with either column layout"
     await page.getByRole("button", { name: /^(Search|Update Results)$/ }).click();
     await expect(page.getByText("4 ranked rows")).toBeVisible();
     const board = page.locator(".result-board");
-    const row = board.locator(".result-row-full").first();
+    const row = board.locator(".result-row").first();
     for (const edge of ["start", "end"]) {
       await board.evaluate((grid, edge) => { grid.scrollLeft = edge === "start" ? 0 : grid.scrollWidth; }, edge);
       await expect.poll(() => row.evaluate((row) => {
@@ -903,10 +903,10 @@ for (const [width, height] of [[1200, 720], [1366, 768], [1650, 950]]) {
     })).toBe(true);
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect(page.getByText("4 ranked rows")).toBeVisible();
-    await expect.poll(() => page.locator(".result-row-full").first().evaluate((row) =>
+    await expect.poll(() => page.locator(".result-row").first().evaluate((row) =>
       [...row.querySelectorAll(".row-combat-stats, .scaling-token-grid")].every(node => node.scrollWidth <= node.clientWidth + 1),
     )).toBe(true);
-    await expect.poll(() => page.locator(".result-row-full").first().evaluate((row) => row.getBoundingClientRect().height)).toBeLessThan(145);
+    await expect.poll(() => page.locator(".result-row").first().evaluate((row) => row.getBoundingClientRect().height)).toBeLessThan(145);
     await expect.poll(() => page.locator(".inspector").evaluate((inspector) => {
       const selected = inspector.querySelector(".selected-build")!;
       const details = [...inspector.querySelectorAll("summary")].find(n => n.textContent === "More details")!;

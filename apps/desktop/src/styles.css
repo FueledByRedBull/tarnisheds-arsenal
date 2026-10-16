@@ -11,7 +11,6 @@
   --iron-950: #080a0b;
   --iron-900: #101315;
   --iron-850: #171b1d;
-  --iron-700: #343c40;
   --iron-500: #5f676b;
   --bone: #e8e5dc;
   --parchment: #f3ead7;
@@ -60,8 +59,6 @@
   --success: var(--green);
   --success-ink: var(--green-pale);
   --info: var(--steel);
-  --series-1: var(--teal);
-  --series-2: var(--gold);
 
   /* Motion */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -78,7 +75,7 @@
 
 body {
   margin: 0;
-  min-width: 1060px;
+  min-width: 1200px; /* the window minimum in tauri.conf.json */
   min-height: 100vh;
   overflow: hidden;
   background: var(--surface-canvas);
@@ -199,9 +196,7 @@ input[type="number"],
   max-height: 240px;
   overflow: auto;
   padding: 4px;
-  background: var(--surface-panel);
   border: 1px solid var(--line-control);
-  border-radius: 4px;
   box-shadow: 0 10px 24px var(--shadow);
 }
 
@@ -349,10 +344,7 @@ select,
 textarea {
   width: 100%;
   min-height: 34px;
-  color: var(--text);
-  background: var(--surface-raised);
   border: 1px solid var(--line-control);
-  border-radius: 4px;
   padding: 6px 8px;
   outline: none;
 }
@@ -462,11 +454,25 @@ textarea {
   margin-bottom: 12px;
 }
 
+/* The raised secondary button: each block below sets only its size and ink. */
 .segmented button,
-.workspace-tabs button,
-.inspector-actions button {
-  border: 1px solid var(--line);
+.inspector-actions button,
+.loadout-tradeoffs button,
+.header-controls button,
+.result-scroll-actions button,
+.inline-lock,
+.matrix-toolbar button,
+.saved-build-tools button,
+.path-step-pagination button,
+.saved-build-recovery > button,
+.saved-build-recovery .import-preview button {
   background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.segmented button,
+.inspector-actions button {
   color: var(--text-muted);
 }
 
@@ -667,24 +673,6 @@ textarea {
   justify-content: center;
 }
 
-.compare-deltas {
-  overflow: auto;
-  padding: 0 12px 12px;
-}
-
-.compare-deltas table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.compare-deltas th,
-.compare-deltas td {
-  padding: 6px;
-  border: 1px solid var(--line);
-  text-align: right;
-}
-
 .compare-deltas caption,
 .compare-deltas th:first-child {
   text-align: left;
@@ -723,9 +711,6 @@ textarea {
 .tradeoff-header small, .tradeoff-controls small { color: var(--text-muted); }
 .loadout-tradeoffs button {
   padding: 6px 10px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--surface-raised);
   color: var(--text-strong);
   min-height: 34px;
 }
@@ -745,7 +730,7 @@ textarea {
 }
 .tradeoff-table th:first-child, .tradeoff-table td:first-child { text-align: left; }
 .tradeoff-table caption { text-align: left; padding: 6px 0; color: var(--text-muted); }
-.tradeoff-table tr[aria-selected="true"], .tradeoff-table tr.selected { background: color-mix(in srgb, var(--selected) 9.4%, transparent); }
+.tradeoff-table tr.selected { background: color-mix(in srgb, var(--selected) 9.4%, transparent); }
 .tradeoff-all, .tradeoff-plot { min-width: 0; overflow-x: auto; }
 .tradeoff-plot { margin: 12px 0; }
 .tradeoff-plot figcaption { display: grid; gap: 4px; margin-bottom: 12px; }
@@ -775,7 +760,9 @@ textarea {
   display: flex;
   flex-direction: column;
 }
+/* Workspace tabs stay flat; one pill travels to the active tab (placed from App.tsx). */
 .workspace-tabs {
+  position: relative;
   gap: 4px;
   height: 40px;
   margin-bottom: 8px;
@@ -786,15 +773,23 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 4px;
 }
+
 .workspace-tabs button {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   height: 32px;
   padding: 0 12px;
-  position: relative;
+  color: var(--text-muted);
   background: transparent;
-  border-color: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+
+.workspace-tabs button.active {
+  color: var(--selected);
 }
 .workspace-panel {
   height: 100%;
@@ -813,11 +808,6 @@ textarea {
   min-height: 58px;
   flex-wrap: wrap;
   gap: 8px;
-}
-.workspace-header h1 {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 500;
 }
 
 .workspace-header span {
@@ -891,12 +881,6 @@ textarea {
   min-height: 0;
 }
 
-.result-scroll-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
 /* The row count lives inside Export, so it is never mistaken for how many rows the board shows. */
 .export-choices {
   display: grid;
@@ -933,9 +917,6 @@ textarea {
 }
 
 .result-scroll-actions button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   width: 34px;
   height: 34px;
 }
@@ -965,9 +946,6 @@ textarea {
   min-height: 30px;
   padding: 0 9px;
   color: var(--text-muted);
-  background: var(--surface-raised);
-  border: 1px solid var(--line);
-  border-radius: 4px;
 }
 
 .header-controls button:hover,
@@ -990,13 +968,6 @@ textarea {
   color: var(--accent);
   font-size: 12px;
 }
-
-.result-head,
-.result-row {
-  display: grid;
-  min-height: 45px;
-  padding: 0 12px;
-}
 /* Gold is for actions and the answer, so headers and rank numbers stay neutral. */
 .result-head {
   position: sticky;
@@ -1005,24 +976,10 @@ textarea {
   color: var(--text-muted);
   background: color-mix(in srgb, var(--surface-panel) 98%, transparent);
   border-bottom: 1px solid var(--line);
-  font-size: 12px;
   font-weight: 800;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-}
-.result-row {
-  color: var(--text);
-  text-align: left;
-  border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
-  background: var(--surface-panel);
-  cursor: pointer;
-  position: relative;
-  min-height: 56px;
-  padding-block: 6px;
-  border-bottom-color: color-mix(in srgb, var(--text) 5.5%, transparent);
-  transition: background 130ms ease, box-shadow 130ms ease, transform 130ms ease;
 }
 
 .result-row:focus-visible {
@@ -1049,19 +1006,6 @@ textarea {
   font-size: 12px;
 }
 
-.rank-cell {
-  color: var(--text-muted);
-  font-weight: 800;
-}
-
-.empty-state {
-  display: grid;
-  place-items: center;
-  gap: 4px;
-  min-height: 180px;
-  color: var(--text-muted);
-}
-
 .empty-state.compact {
   min-height: 120px;
   padding: 16px;
@@ -1071,8 +1015,6 @@ textarea {
 .compare-lane,
 .path-lane {
   border: 1px solid var(--line);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
 }
 
 /* Build Detail's header stays in view while its details scroll, and once it sticks it also
@@ -1169,13 +1111,6 @@ textarea {
   font-weight: 500;
 }
 
-.detail-block {
-  display: grid;
-  gap: 6px;
-  padding: 12px;
-  margin-bottom: 10px;
-}
-
 .detail-block.split small {
   color: var(--text-muted);
 }
@@ -1208,7 +1143,6 @@ textarea {
 
 .aow-route-details {
   border: 1px solid var(--line);
-  border-radius: 4px;
   padding: 8px;
 }
 
@@ -1315,20 +1249,6 @@ textarea {
   margin: 0;
   padding: 0;
   list-style: none;
-}
-
-.scope-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 28px;
-  padding: 0 4px 0 10px;
-  color: var(--text-strong);
-  background: var(--surface-raised);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  font-size: 13px;
-  white-space: nowrap;
 }
 
 .chip-kind {
@@ -1441,9 +1361,6 @@ textarea {
   min-width: 48px;
   min-height: 28px;
   color: var(--text-muted);
-  background: var(--surface-raised);
-  border: 1px solid var(--line);
-  border-radius: 4px;
 }
 
 .saved-builds {
@@ -1472,9 +1389,6 @@ textarea {
   min-height: 32px;
   padding: 0 9px;
   color: var(--text-muted);
-  background: var(--surface-raised);
-  border: 1px solid var(--line);
-  border-radius: 4px;
   font-size: 12px;
 }
 
@@ -1693,15 +1607,6 @@ textarea {
   border-bottom: 1px solid var(--line);
 }
 
-.analysis-workspace-header .header-controls {
-  flex: 0 0 auto;
-  align-self: center;
-  padding: 8px;
-  border: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--surface-canvas) 30%, transparent);
-}
-
 .paths-panel .workspace-progress,
 .affinity-panel .workspace-progress {
   margin: 16px 18px 0;
@@ -1907,9 +1812,6 @@ textarea {
 .path-step-pagination button {
   padding: 7px 10px;
   color: var(--text-strong);
-  background: var(--surface-raised);
-  border: 1px solid var(--line);
-  border-radius: 4px;
 }
 
 .path-step-pagination button:disabled {
@@ -2193,6 +2095,9 @@ textarea:focus-visible,
 }
 
 .workspace-header h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 500;
   font-family: var(--font-display);
   letter-spacing: -0.025em;
 }
@@ -2248,7 +2153,6 @@ textarea:hover {
 }
 
 .segmented button,
-.workspace-tabs button,
 .inspector-actions button,
 .header-controls button,
 .result-scroll-actions button,
@@ -2505,6 +2409,12 @@ textarea:hover {
   font-size: 12px;
 }
 
+.ribbon-level input:focus {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* Level is derived from the stats, so it reads as a readout: no text cursor, no caret. */
 .ribbon-level input {
   width: 5ch;
   min-height: 26px;
@@ -2515,15 +2425,6 @@ textarea:hover {
   font-size: 14px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-}
-
-.ribbon-level input:focus {
-  border-color: transparent;
-  box-shadow: none;
-}
-
-/* Level is derived from the stats, so it reads as a readout: no text cursor, no caret. */
-.ribbon-level input {
   cursor: default;
   caret-color: transparent;
 }
@@ -2726,8 +2627,8 @@ textarea:hover {
   border: 1px solid var(--line-strong);
   border-radius: 6px;
   box-shadow: 0 18px 48px var(--shadow);
+  transform-origin: top left;
 }
-
 
 .popover-panel:focus {
   outline: none;
@@ -2900,7 +2801,8 @@ textarea:hover {
 }
 
 
-.command-palette::backdrop {
+.command-palette::backdrop,
+.shortcuts-dialog::backdrop {
   background: color-mix(in srgb, var(--surface-canvas) 60%, transparent);
 }
 
@@ -2935,16 +2837,6 @@ textarea:hover {
   overflow: auto;
   scrollbar-gutter: stable;
   list-style: none;
-}
-
-.palette-results li {
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr) auto;
-  align-items: baseline;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  cursor: pointer;
 }
 
 .palette-results li.active {
@@ -2997,28 +2889,6 @@ textarea:hover {
   font-size: 12px;
 }
 
-.workspace-tabs button::after {
-  content: "";
-  position: absolute;
-  right: 12px;
-  bottom: 2px;
-  left: 12px;
-  height: 1px;
-  background: var(--accent);
-  transform: scaleX(0);
-  transition: transform 180ms ease;
-}
-
-.workspace-tabs button.active {
-  color: var(--text-strong);
-  background: color-mix(in srgb, var(--accent-strong) 8%, transparent);
-  border-color: color-mix(in srgb, var(--accent-strong) 13%, transparent);
-}
-
-.workspace-tabs button.active::after {
-  transform: scaleX(1);
-}
-
 .workspace-stage {
   flex: 1 1 auto;
   min-height: 0;
@@ -3027,20 +2897,17 @@ textarea:hover {
 }
 
 /* Workspaces share one cell, so Rankings keeps its size and laid-out rows while another
-   workspace is shown over it; content-visibility then skips its rendering entirely. */
+   workspace is shown over it; content-visibility then skips its rendering entirely.
+   A workspace replays its entrance each time it is shown, since hidden ones only lose display.
+   Ctrl+1 to Ctrl+4 switch often, so the entrance is a quick fade with no travel. */
 .workspace-stage > * {
   grid-area: 1 / 1;
+  animation: stage-enter var(--duration-fast) var(--ease-out) both;
 }
 
 .rankings-panel[data-offstage] {
   visibility: hidden;
   content-visibility: hidden;
-}
-
-/* A workspace replays its entrance each time it is shown, since hidden ones only lose display.
-   Ctrl+1 to Ctrl+4 switch often, so the entrance is a quick fade with no travel. */
-.workspace-stage > * {
-  animation: stage-enter var(--duration-fast) var(--ease-out) both;
 }
 
 .rankings-panel {
@@ -3051,8 +2918,11 @@ textarea:hover {
 /* Rankings: one loadout per row. Token-column keys live in the header, so rows carry
    bare values and stay two text lines tall. */
 
-.result-head-full,
-.result-row-full {
+.result-head,
+.result-row {
+  display: grid;
+  min-height: 45px;
+  padding: 0 12px;
   grid-template-columns:
     28px minmax(150px, 1.6fr) minmax(112px, 0.9fr) minmax(112px, 0.9fr) 56px 84px 72px;
   gap: 8px;
@@ -3060,73 +2930,48 @@ textarea:hover {
   min-width: 660px;
 }
 
-.result-head-full.with-score,
-.result-row-full.with-score {
+.result-head.with-score,
+.result-row.with-score {
   grid-template-columns:
     28px minmax(150px, 1.6fr) minmax(112px, 0.9fr) minmax(112px, 0.9fr) 56px 84px 72px 72px;
   min-width: 740px;
 }
 
 /* Without modeled skill damage in any row, the skill column is dropped (RankingsBoard.tsx). */
-.result-head-full.no-skill,
-.result-row-full.no-skill {
+.result-head.no-skill,
+.result-row.no-skill {
   grid-template-columns:
     28px minmax(150px, 1.6fr) minmax(112px, 0.9fr) minmax(112px, 0.9fr) 56px 72px;
   min-width: 568px;
 }
 
-.result-head-full.with-score.no-skill,
-.result-row-full.with-score.no-skill {
+.result-head.with-score.no-skill,
+.result-row.with-score.no-skill {
   grid-template-columns:
     28px minmax(150px, 1.6fr) minmax(112px, 0.9fr) minmax(112px, 0.9fr) 56px 72px 72px;
   min-width: 648px;
 }
 
-/* Narrow boards drop the scaling column; Build Detail still shows it. Below 1131px the board
-   is exactly the window minus 300px, so this matches a board of 720px or less. A container
-   query would do the same but roughly doubles row layout cost on every sort or edit. */
-@media (max-width: 1020px) {
-  .result-head-full > :nth-child(3),
-  .result-row-full > .scaling-cell {
-    display: none;
-  }
-
-  .result-head-full,
-  .result-row-full {
-    grid-template-columns: 28px minmax(140px, 1.6fr) minmax(112px, 1fr) 56px 84px 72px;
-    min-width: 540px;
-  }
-
-  .result-head-full.with-score,
-  .result-row-full.with-score {
-    grid-template-columns: 28px minmax(140px, 1.6fr) minmax(112px, 1fr) 56px 84px 72px 72px;
-    min-width: 620px;
-  }
-
-  .result-head-full.no-skill,
-  .result-row-full.no-skill {
-    grid-template-columns: 28px minmax(140px, 1.6fr) minmax(112px, 1fr) 56px 72px;
-    min-width: 448px;
-  }
-
-  .result-head-full.with-score.no-skill,
-  .result-row-full.with-score.no-skill {
-    grid-template-columns: 28px minmax(140px, 1.6fr) minmax(112px, 1fr) 56px 72px 72px;
-    min-width: 528px;
-  }
-}
-
-.result-row-full {
+.result-row {
+  color: var(--text);
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+  background: var(--surface-panel);
+  cursor: pointer;
+  position: relative;
+  border-bottom-color: color-mix(in srgb, var(--text) 5.5%, transparent);
+  transition: background 130ms ease, box-shadow 130ms ease, transform 130ms ease;
   min-height: 48px;
   padding-block: 5px;
 }
 
-.result-head-full > span,
-.result-row-full > span {
+.result-head > span,
+.result-row > span {
   min-width: 0;
 }
 
-.result-head-full > span {
+.result-head > span {
   align-self: end;
   padding-block: 8px 6px;
   white-space: nowrap;
@@ -3151,15 +2996,15 @@ textarea:hover {
   text-align: center;
 }
 
-.result-row-full .metric-token-grid {
+.result-row .metric-token-grid {
   gap: 2px;
 }
 
-.result-row-full .metric-token {
+.result-row .metric-token {
   padding: 2px 0;
 }
 
-.result-row-full .metric-token b {
+.result-row .metric-token b {
   margin-top: 0;
   font-size: 13px;
 }
@@ -3193,7 +3038,7 @@ textarea:hover {
   border-radius: 3px;
 }
 
-.result-row-full .loadout-line {
+.result-row .loadout-line {
   display: block;
   overflow: hidden;
   color: var(--text-muted);
@@ -3211,13 +3056,13 @@ textarea:hover {
   color: var(--text);
 }
 
-.result-row-full > span:last-child {
+.result-row > span:last-child {
   display: flex;
   gap: 4px;
 }
 
-.result-head-full > span:last-child,
-.result-row-full > span:last-child {
+.result-head > span:last-child,
+.result-row > span:last-child {
   position: sticky;
   right: 0;
   z-index: 4;
@@ -3227,15 +3072,15 @@ textarea:hover {
   background: inherit;
 }
 
-.result-row-full > span:last-child .inline-lock {
+.result-row > span:last-child .inline-lock {
   width: 32px;
   min-height: 32px;
   padding: 4px;
 }
 
-.result-head-full > :nth-child(n + 5):not(:last-child),
-.result-row-full > .result-metric-cell,
-.result-row-full > .objective-score {
+.result-head > :nth-child(n + 5):not(:last-child),
+.result-row > .result-metric-cell,
+.result-row > .objective-score {
   text-align: right;
 }
 
@@ -3244,28 +3089,28 @@ textarea:hover {
   font-size: 12px;
 }
 
-.result-head-full > span:nth-child(-n + 2),
-.result-row-full > span:nth-child(-n + 2) {
+.result-head > span:nth-child(-n + 2),
+.result-row > span:nth-child(-n + 2) {
   position: sticky;
   z-index: 3;
   background: var(--surface-panel);
 }
 
-.result-head-full > span:nth-child(-n + 2) {
+.result-head > span:nth-child(-n + 2) {
   z-index: 5;
 }
 
-.result-head-full > span:first-child,
-.result-row-full > span:first-child {
+.result-head > span:first-child,
+.result-row > span:first-child {
   left: 0;
 }
 
-.result-head-full > span:nth-child(2),
-.result-row-full > span:nth-child(2) {
+.result-head > span:nth-child(2),
+.result-row > span:nth-child(2) {
   left: 36px;
 }
 
-.result-row-full > span:nth-child(-n + 2) {
+.result-row > span:nth-child(-n + 2) {
   background: inherit;
 }
 
@@ -3641,19 +3486,6 @@ textarea:hover {
   border-color: color-mix(in srgb, var(--danger) 38%, transparent);
 }
 
-.stale-results-banner {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  margin: 0 10px 8px;
-  padding: 9px 11px;
-  border: 1px solid color-mix(in srgb, var(--warning) 32%, transparent);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--warning) 8%, transparent);
-}
-
 .stale-results-banner > div {
   display: flex;
   flex-direction: column;
@@ -3734,36 +3566,6 @@ textarea:hover {
 
 }
 
-@media (max-width: 1130px) {
-  .desktop-shell {
-    grid-template-columns: minmax(0, 1fr) 280px;
-  }
-
-  /* The query gets its own full-width row instead of a narrow middle column. */
-  .strip-line {
-    flex-wrap: wrap;
-    row-gap: 6px;
-  }
-
-  .strip-query {
-    flex-basis: 100%;
-    order: 3;
-  }
-
-  .strip-actions {
-    margin-left: auto;
-  }
-
-  .workspace-tabs button span:not(.tab-count) {
-    display: none;
-  }
-
-  .workspace-tabs button {
-    width: 38px;
-    justify-content: center;
-  }
-}
-
 /* Motion states what changed. Rankings re-forge from lib/motion.ts and a new selection fades
    in from Inspector.tsx. Sorted rows are offset within this group and read in their
    reading-order (RankingsBoard.tsx). It stays composited:
@@ -3819,10 +3621,17 @@ textarea:hover {
 }
 
 .result-scroll-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .detail-block {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  margin-bottom: 10px;
   border: 0;
   border-top: 1px solid var(--line);
   border-radius: 0;
@@ -3835,6 +3644,11 @@ textarea:hover {
 }
 
 .empty-state {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  min-height: 180px;
+  color: var(--text-muted);
   padding: 24px;
   text-align: center;
 }
@@ -3846,7 +3660,6 @@ textarea:hover {
 }
 
 button[aria-pressed="true"],
-.workspace-tabs button.active,
 .profile-switch button.active {
   color: var(--selected);
   border-color: var(--selected);
@@ -3854,22 +3667,25 @@ button[aria-pressed="true"],
   box-shadow: none;
 }
 
-.workspace-tabs button::after {
-  background: var(--selected);
-}
-
 .compare-deltas {
+  overflow: auto;
+  padding: 0 12px 12px;
   overflow-x: auto;
 }
 
 .compare-deltas th,
 .compare-deltas td {
+  border: 1px solid var(--line);
+  text-align: right;
   padding: 10px 8px;
   border-inline: 0;
   font-variant-numeric: tabular-nums;
 }
 
 .compare-deltas table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
   min-width: 520px;
 }
 
@@ -3913,6 +3729,12 @@ summary:focus-visible {
 }
 
 .analysis-workspace-header .header-controls {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--surface-canvas) 30%, transparent);
   align-items: flex-end;
   flex-wrap: wrap;
   max-width: 100%;
@@ -4037,6 +3859,8 @@ summary:focus-visible {
 
 /* Movement since the previous search, with arrows so it never relies on colour alone. */
 .rank-cell {
+  color: var(--text-muted);
+  font-weight: 800;
   display: grid;
   align-content: center;
   justify-items: start;
@@ -4069,22 +3893,22 @@ summary:focus-visible {
   color: var(--info);
 }
 
-.result-row-full > .result-metric-cell,
-.result-row-full > .objective-score {
+.result-row > .result-metric-cell,
+.result-row > .objective-score {
   display: grid;
   align-content: center;
   justify-items: end;
 }
 
 /* The ranked number reads first: AR under Max AR, otherwise the objective's own column. */
-.result-row-full:not(.with-score) .ar-cell strong,
-.result-row-full > .objective-score {
+.result-row:not(.with-score) .ar-cell strong,
+.result-row > .objective-score {
   color: var(--text-strong);
   font-size: 15px;
   font-weight: 700;
 }
 
-.result-row-full.with-score .ar-cell strong {
+.result-row.with-score .ar-cell strong {
   color: var(--text);
   font-weight: 500;
 }
@@ -4216,11 +4040,7 @@ summary:focus-visible {
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   box-shadow: 0 24px 64px var(--shadow);
-}
-
-
-.shortcuts-dialog::backdrop {
-  background: color-mix(in srgb, var(--surface-canvas) 60%, transparent);
+  transform-origin: top center;
 }
 
 .shortcuts-head {
@@ -4315,25 +4135,6 @@ summary:focus-visible {
   font-size: 11px;
 }
 
-/* Workspace tabs: one pill travels to the active tab (placed from App.tsx). */
-.workspace-tabs {
-  position: relative;
-}
-
-.workspace-tabs button {
-  z-index: 1;
-  transition: color 200ms var(--ease-out);
-}
-
-.workspace-tabs button.active {
-  border-color: transparent;
-  background: transparent;
-}
-
-.workspace-tabs button::after {
-  display: none;
-}
-
 .tab-pill {
   position: absolute;
   top: 3px;
@@ -4367,14 +4168,6 @@ summary:focus-visible {
   transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
 }
 
-.popover-panel {
-  transform-origin: top left;
-}
-
-.shortcuts-dialog {
-  transform-origin: top center;
-}
-
 @starting-style {
   .popover-panel:popover-open,
   .shortcuts-dialog[open] {
@@ -4396,6 +4189,17 @@ summary:focus-visible {
 /* Supporting motion: chips arrive with a small pop, the stale banner like other notices,
    the palette's highlight glides, and small buttons give a quick tactile press. */
 .scope-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 4px 0 10px;
+  color: var(--text-strong);
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 13px;
+  white-space: nowrap;
   animation: chip-in 180ms var(--ease-out) both;
 }
 
@@ -4407,10 +4211,27 @@ summary:focus-visible {
 }
 
 .stale-results-banner {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 10px 8px;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--warning) 32%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
   animation: notice-enter var(--duration-base) var(--ease-out) both;
 }
 
 .palette-results li {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
   transition: background-color 90ms ease;
 }
 

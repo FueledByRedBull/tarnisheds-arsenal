@@ -75,7 +75,7 @@ try {
   await page.getByRole("spinbutton", { name: "STR", exact: true }).fill("96");
   await page.getByRole("spinbutton", { name: "STR", exact: true }).press("Enter");
   await page.getByRole("button", { name: "Search", exact: true }).click();
-  const highLevelFirst = page.locator(".result-row-full").first();
+  const highLevelFirst = page.locator(".result-row").first();
   markSmokeStage("wait for vanilla high-level result");
   // Keep headroom for slower CI even though exact levels avoid the measured open-query cost.
   await highLevelFirst.waitFor({ timeout: 120_000 });
@@ -111,11 +111,11 @@ try {
   markSmokeStage("run Convergence search");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   markSmokeStage("wait for Convergence result");
-  const convergenceRow = page.locator(".result-row-full").first();
+  const convergenceRow = page.locator(".result-row").first();
   await convergenceRow.waitFor();
   await expect(convergenceRow.locator(".loadout-upgrade")).toHaveText("+15");
   // No Convergence row has modeled skill damage, so the column becomes one header note.
-  await expect(page.locator(".result-row-full .skill-cell")).toHaveCount(0);
+  await expect(page.locator(".result-row .skill-cell")).toHaveCount(0);
   await expect(page.getByText("Skill damage isn't modeled for these results.", { exact: true })).toBeVisible();
   const convergenceAr = await convergenceRow.locator(".ar-cell > strong").innerText();
   if (!(Number(convergenceAr.replace(/[^0-9.]/g, "")) > 0)) {
@@ -154,7 +154,7 @@ try {
 
   markSmokeStage("run vanilla rank-four search");
   await page.getByRole("button", { name: "Search", exact: true }).click();
-  const fourth = page.locator(".result-row-full").nth(3);
+  const fourth = page.locator(".result-row").nth(3);
   markSmokeStage("wait for vanilla rank-four result");
   await fourth.waitFor();
   await expect(fourth.locator(".skill-cell")).toContainText("1st hit");
@@ -187,8 +187,8 @@ try {
   if (!exactStats) throw new Error("frontier did not expose an exact combat allocation");
   const expectedSetup = await page.locator(".selected-build-head > span").innerText();
   await tradeoffs.getByRole("button", { name: "Use exact allocation", exact: true }).click();
-  await expect(page.locator(".result-row-full")).toHaveCount(1);
-  const exactRow = page.locator(".result-row-full").first();
+  await expect(page.locator(".result-row")).toHaveCount(1);
+  const exactRow = page.locator(".result-row").first();
   const exactWeapon = (await exactRow.locator(".weapon-cell strong").innerText()).trim();
   const exactAffinity = (await exactRow.locator(".loadout-affinity").innerText()).trim();
   const exactAow = (await exactRow.locator(".loadout-skill").innerText()).trim();
@@ -259,8 +259,8 @@ try {
   await page.getByRole("button", { name: "Load", exact: true }).click();
   markSmokeStage("wait for preset load");
   await page.getByText(`Loaded ${presetName}; saved results verified on current data.`, { exact: true }).waitFor();
-  await expect(page.locator(".result-row-full")).toHaveCount(1);
-  const reloadedRow = page.locator(".result-row-full").first();
+  await expect(page.locator(".result-row")).toHaveCount(1);
+  const reloadedRow = page.locator(".result-row").first();
   await expect(reloadedRow.locator(".weapon-cell strong")).toHaveText(exactWeapon);
   await expect(reloadedRow.locator(".loadout-affinity")).toHaveText(exactAffinity);
   await expect(reloadedRow.locator(".loadout-skill")).toHaveText(exactAow);
@@ -279,7 +279,7 @@ try {
   await page.getByRole("button", { name: "Update selected", exact: true }).click();
   await page.getByText(/Inputs only; rerun search for current results/).waitFor();
   await page.getByRole("button", { name: "Load", exact: true }).click();
-  await expect(page.locator(".result-row-full")).toHaveCount(0);
+  await expect(page.locator(".result-row")).toHaveCount(0);
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   await page.getByRole("button", { name: "Confirm Delete", exact: true }).click();
   markSmokeStage("wait for preset deletion");
