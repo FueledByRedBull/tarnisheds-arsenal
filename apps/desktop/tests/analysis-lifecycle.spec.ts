@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openSection } from "./editors";
 
 type AnalysisKind = "path" | "affinity";
 
@@ -33,19 +34,7 @@ for (const kind of ["path", "affinity"] as const) {
 for (const kind of ["path", "affinity"] as const) {
   test(`${kind} run keeps going while its tab is hidden and lands on return`, async ({ page }) => {
     await prepareAnalysis(page, kind);
-    await page.evaluate(async (kind) => {
-      const { api } = await import("/src/lib/api.ts");
-      const names = kind === "path"
-        ? { status: "pathPreviewStatus", cancel: "cancelPathPreview" } as const
-        : { status: "affinityWatchStatus", cancel: "cancelAffinityWatch" } as const;
-      const probe = { release: false, cancellations: [] as string[] };
-      const status = api[names.status];
-      const cancel = api[names.cancel];
-      // Hold the run open until the test releases it, so the tab switch happens mid-run.
-      (api as any)[names.status] = (jobId: string) => probe.release ? status(jobId) : Promise.resolve({ progress: null, finished: null });
-      (api as any)[names.cancel] = (jobId: string) => { probe.cancellations.push(jobId); return cancel(jobId); };
-      Object.assign(window, { hiddenRunProbe: probe });
-    }, kind);
+    await installHeldRunProbe(page, kind);
     await page.getByRole("button", { name: kind === "path" ? "Trace paths" : "Watch affinities", exact: true }).click();
     await expect(page.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
 
@@ -61,6 +50,39 @@ for (const kind of ["path", "affinity"] as const) {
     await page.keyboard.press(kind === "path" ? "Control+3" : "Control+4");
     await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "completed");
     await expect(page.getByText(kind === "path" ? "Path preview stopped." : "Affinity watch stopped.")).toHaveCount(0);
+    expect(await page.evaluate(() => (window as any).hiddenRunProbe.cancellations)).toEqual([]);
+  });
+}
+
+for (const source of ["saved target", "ranked rival"] as const) {
+  test(`path run survives a Compare visit that keeps the ${source}`, async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await expect(page.getByText("4 ranked rows")).toBeVisible();
+    await page.keyboard.press("Control+2");
+    await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
+    if (source === "saved target") {
+      // A loaded saved build restores its comparison target before Compare is first shown.
+      await openSection(page, "Saved Builds");
+      await page.getByRole("button", { name: "Save new", exact: true }).click();
+      await page.reload();
+      await page.getByText("Snapshot loaded", { exact: true }).waitFor();
+      await openSection(page, "Saved Builds");
+      await page.getByRole("button", { name: "Load", exact: true }).click();
+      await expect(page.getByText(/saved results verified on current data/)).toBeVisible();
+    }
+    await page.keyboard.press("Control+3");
+    await expect(page.locator(".path-lane").nth(1)).not.toContainText("No compare lane selected.");
+    await installHeldRunProbe(page, "path");
+    await page.getByRole("button", { name: "Trace paths", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
+
+    await page.keyboard.press("Control+2");
+    await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
+    await page.keyboard.press("Control+3");
+    await page.evaluate(() => { (window as any).hiddenRunProbe.release = true; });
+    await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "completed");
+    await expect(page.getByText("Path preview stopped.")).toHaveCount(0);
     expect(await page.evaluate(() => (window as any).hiddenRunProbe.cancellations)).toEqual([]);
   });
 }
@@ -128,6 +150,22 @@ async function prepareAnalysis(page: import("@playwright/test").Page, kind: Anal
     name: kind === "path" ? "Paths" : "Affinity Watch",
     exact: true,
   }).click();
+}
+
+// Holds a run open until the test releases it, so a tab switch happens mid-run.
+async function installHeldRunProbe(page: import("@playwright/test").Page, kind: AnalysisKind) {
+  await page.evaluate(async (kind) => {
+    const { api } = await import("/src/lib/api.ts");
+    const names = kind === "path"
+      ? { status: "pathPreviewStatus", cancel: "cancelPathPreview" } as const
+      : { status: "affinityWatchStatus", cancel: "cancelAffinityWatch" } as const;
+    const probe = { release: false, cancellations: [] as string[] };
+    const status = api[names.status];
+    const cancel = api[names.cancel];
+    (api as any)[names.status] = (jobId: string) => probe.release ? status(jobId) : Promise.resolve({ progress: null, finished: null });
+    (api as any)[names.cancel] = (jobId: string) => { probe.cancellations.push(jobId); return cancel(jobId); };
+    Object.assign(window, { hiddenRunProbe: probe });
+  }, kind);
 }
 
 async function installFailureProbe(page: import("@playwright/test").Page, kind: AnalysisKind) {

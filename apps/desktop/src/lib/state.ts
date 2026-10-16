@@ -20,7 +20,7 @@ import {
   SolvedBuildDto,
   WorkspaceTab,
 } from "./types";
-import { applyProfileRules, classMeta, hasCombatStatLocks, rowFingerprint } from "./session";
+import { applyProfileRules, classMeta, hasCombatStatLocks, rowFingerprint, stableSignature } from "./session";
 
 export interface DesktopState {
   activeWorkspace: WorkspaceTab;
@@ -606,11 +606,12 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
   restoredCompareTarget: null,
   compareBench: [],
   compareControls: { ...defaultCompareControls },
+  // Paths key on the target's content, so re-resolving the same target keeps their run.
   setCompareTarget: (compareTarget) =>
-    set((state) => ({
+    set((state) => stableSignature(compareTarget) === stableSignature(state.compareTarget) ? state : {
       ...invalidatePathJob(state),
       compareTarget,
-    })),
+    }),
   toggleCompareBench: (row) =>
     set((state) => {
       const fingerprint = rowFingerprint(row);

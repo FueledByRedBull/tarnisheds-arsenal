@@ -103,6 +103,16 @@ describe("desktop result lifecycle", () => {
     expect(changed.resultsStale).toBe(true);
   });
 
+  it("keeps a Paths run when the comparison target is set to the same build", () => {
+    useDesktopStore.getState().setCompareTarget(row);
+    useDesktopStore.setState({ isPathBusy: true, activePathJobId: "running" });
+    const before = useDesktopStore.getState();
+    before.setCompareTarget({ ...row });
+    expect(useDesktopStore.getState()).toBe(before);
+    before.setCompareTarget({ ...row, upgrade: row.upgrade - 1 });
+    expect(useDesktopStore.getState()).toMatchObject({ isPathBusy: false, activePathJobId: null, pathGeneration: before.pathGeneration + 1 });
+  });
+
   it("marks replacement rows current after a successful search", () => {
     const state = useDesktopStore.getState();
     state.setRows([row], 1);
