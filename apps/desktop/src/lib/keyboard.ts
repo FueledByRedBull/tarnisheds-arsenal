@@ -10,7 +10,9 @@ export function keyboardOwnedByOverlay(): boolean {
 }
 
 // WebView2 keeps browser reload and print keys; in the app they would discard the unsaved session.
-export function blockBrowserReload(event: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "preventDefault">) {
+// The physical key code also catches non-Latin layouts, whose key value is the typed letter.
+export function blockBrowserReload(event: Pick<KeyboardEvent, "key" | "code" | "ctrlKey" | "metaKey" | "preventDefault">) {
   const key = event.key.toLowerCase();
-  if (key === "f5" || ((event.ctrlKey || event.metaKey) && (key === "r" || key === "p"))) event.preventDefault();
+  const reloadOrPrint = key === "r" || key === "p" || event.code === "KeyR" || event.code === "KeyP";
+  if (key === "f5" || ((event.ctrlKey || event.metaKey) && reloadOrPrint)) event.preventDefault();
 }
