@@ -147,8 +147,17 @@ are skipped only when every path is one of those documentation files. Any other
 path runs every check. The required `rust-and-data` aggregate accepts only
 successful selected jobs and explicitly unselected skips. Pull requests that
 change the packaging path (this workflow, `package_release.py`,
-`publish_release.py`, `tauri.conf.json`, the desktop `Cargo.toml` or the core
-`build.rs`) also build a full preview package.
+`publish_release.py`, `release_gate.py`, `tauri.conf.json`, the desktop
+`Cargo.toml` or the core `build.rs`) also build a full preview package.
+
+Every CI run first lints all workflows with actionlint 1.7.12 (with the runner's
+shellcheck) and the Dependabot and workflow files with zizmor 1.30.1's offline
+audits. Both are release binaries whose SHA-256 is pinned in `ci.yml`; update the
+URL and hash together. The release workflow's gating logic (default branch,
+verified CI wait, release tag and packaging mode) lives in
+[`release_gate.py`](../tools/phase4/release_gate.py) with unit tests, not inline
+in the workflow. The release package job uses no dependency caches, so a poisoned
+cache cannot reach a release build.
 
 CI's core tests use optimization level 1 with debug assertions and overflow
 checks enabled; backend tests keep the default test profile. Release tests retain

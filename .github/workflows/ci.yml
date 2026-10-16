@@ -32,6 +32,26 @@ jobs:
           python-version-file: ".python-version"
       - name: Validate release metadata
         run: python tools/phase4/validate_release_metadata.py
+      # Pinned linter binaries, verified by SHA-256 before use. zizmor runs only its offline
+      # audits, so results do not depend on a token or on upstream branch rewrites.
+      - name: Lint workflows
+        env:
+          ACTIONLINT_URL: https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+          ZIZMOR_URL: https://github.com/zizmorcore/zizmor/releases/download/v1.30.1/zizmor-x86_64-unknown-linux-gnu.tar.gz
+          ZIZMOR_SHA256: e65324f4430c2717591937edcec90ccbefaf14c174f8ec9415e03ca875b46e1a
+        run: |
+          set -euo pipefail
+          tools="$RUNNER_TEMP/workflow-linters"
+          mkdir -p "$tools"
+          curl -fsSL --retry 3 -o "$tools/actionlint.tar.gz" "$ACTIONLINT_URL"
+          curl -fsSL --retry 3 -o "$tools/zizmor.tar.gz" "$ZIZMOR_URL"
+          echo "$ACTIONLINT_SHA256  $tools/actionlint.tar.gz" | sha256sum --check --strict
+          echo "$ZIZMOR_SHA256  $tools/zizmor.tar.gz" | sha256sum --check --strict
+          tar -xzf "$tools/actionlint.tar.gz" -C "$tools" actionlint
+          tar -xzf "$tools/zizmor.tar.gz" -C "$tools" zizmor
+          "$tools/actionlint" -color
+          "$tools/zizmor" --offline --format github .github
       - name: Select checks
         id: scope
         run: python tools/phase4/ci_scope.py
