@@ -8,7 +8,7 @@ import {
   scadutreeDamageNegation,
   scadutreeReceivedDamageMultiplier,
 } from "../../lib/scadutree";
-import { classOptions, clearTypeAndAffinityFilters, replaceFilterEntries } from "../../lib/session";
+import { classOptions, clearTypeAndAffinityFilters, hasCombatStatLocks, replaceFilterEntries } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { CatalogDto, FilterDimensionDto, ObjectiveId, OptimizeRequestDto, WeaponProfileDto } from "../../lib/types";
 import { DraftNumberInput } from "./DraftNumberInput";
@@ -314,11 +314,13 @@ export function ScalingEditor({ request, patchRequest }: {
           onCommit={(scadutreeLevel) => patchRequest({ scadutreeLevel })}
         />
       </label>
-      <div className="editor-readout" title="Outgoing damage multiplier and equivalent incoming damage reduction from the selected blessing level">
-        <span>{request.dlcScaling ? "Shadow Realm" : "DLC off"}</span>
-        <strong>x{attack.toFixed(2)} dmg / x{taken.toFixed(3)} taken</strong>
-        <small>{(negation * 100).toFixed(1)}% negation</small>
-      </div>
+      {request.dlcScaling ? (
+        <div className="editor-readout" title="Outgoing damage multiplier and equivalent incoming damage reduction from the selected blessing level">
+          <span>Shadow Realm</span>
+          <strong>x{attack.toFixed(2)} dmg / x{taken.toFixed(3)} taken</strong>
+          <small>{(negation * 100).toFixed(1)}% negation</small>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -392,7 +394,7 @@ export function LimitsEditor({ request, patchRequest, fixedStats, lockedStatMode
           </label>
         ))}
       </div>
-      <label className="toggle-line" title="Use combat stats captured by Use As Locks">
+      <label className="toggle-line" title="Search with the stats set by Lock stats to this build">
         <input
           type="checkbox"
           checked={fixedStats || lockedStatMode}
@@ -406,14 +408,14 @@ export function LimitsEditor({ request, patchRequest, fixedStats, lockedStatMode
         <strong>
           {fixedStats
             ? `STR ${request.strStat} DEX ${request.dex} INT ${request.intStat} FAI ${request.fai} ARC ${request.arc}`
-            : exactLocksActive ? statLockLine(request) : "Open"}
+            : exactLocksActive ? statLockLine(request) : "None: every stat is free"}
         </strong>
         {exactLocksActive ? <small>Changing class or loadout keeps these locks and may make the query incompatible.</small> : null}
       </div>
       <button
         className="clear-locks"
         type="button"
-        disabled={fixedStats}
+        disabled={fixedStats || !hasCombatStatLocks(request)}
         onClick={onClearLocks}
       >
         Clear stat locks

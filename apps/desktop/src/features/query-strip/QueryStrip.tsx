@@ -478,7 +478,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
             ? "Convergence uses the entered combat stats exactly"
             : "STR/DEX/INT/FAI/ARC points a respec can move: what is left after class minimums, fixed VIG/MND/END, and minimum floors"}
         >
-          <span>{fixedStats ? "Mode" : "Respec"}</span>
+          <span>{fixedStats ? "Mode" : "Respec points"}</span>
           <strong>{fixedStats ? "Fixed stats" : budget.redistributable}</strong>
           <span className="sr-only">{fixedStats
             ? ", Convergence uses the entered combat stats exactly"
@@ -509,12 +509,13 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
             <span
               className="active-lock-warning"
               role="status"
-              title="Changing class or loadout keeps these locks and may make the query incompatible. Clear locks under Limits for automatic stats."
+              title="Changing class or loadout keeps these locks and may make the query incompatible. Clear them under More options to let Search choose every stat."
             >
               <strong>Stat locks active:</strong> <span>{statLockLine(request)}</span>
             </span>
-          ) : (
-            <span className="ribbon-mode">{fixedStats ? "Exact combat stats" : "Stats optimized"}</span>
+          ) : fixedStats ? null : (
+            // Fixed-stat profiles already say so in the Mode readout.
+            <span className="ribbon-mode" title="Search moves STR, DEX, INT, FAI and ARC within your level; VIG, MND and END stay as entered.">Search optimizes STR–ARC</span>
           )}
           {weaponProfile ? (
             <span className={`requirements-strip ${missingRequirements ? "missing" : ""}`}>

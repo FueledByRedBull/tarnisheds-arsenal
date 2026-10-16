@@ -245,7 +245,7 @@ export function RankingsBoard() {
       <div className="workspace-header">
         <div>
           <h1>Rankings</h1>
-          <span>{rows.length} ranked rows</span>
+          {rows.length ? <span>{rows.length} ranked {rows.length === 1 ? "row" : "rows"}</span> : null}
           {skillColumn ? null : <small>Skill damage isn't modeled for these results.</small>}
         </div>
         <div className="result-scroll-actions">

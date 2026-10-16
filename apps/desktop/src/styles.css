@@ -433,7 +433,7 @@ textarea {
 }
 
 .ribbon-mode {
-  color: var(--selected);
+  color: var(--text-muted);
 }
 
 .ribbon-error {
@@ -2496,8 +2496,8 @@ textarea:hover {
   min-height: 26px;
   padding: 2px 3px;
   color: var(--text-strong);
-  background: transparent;
-  border: 1px solid transparent;
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
   border-radius: 4px;
   font-size: var(--text-body);
   font-weight: 700;
@@ -3705,7 +3705,12 @@ button[aria-pressed="true"],
 }
 
 .compare-build-details {
-  margin: 14px;
+  margin: 0 12px 12px;
+}
+
+/* Same inset as the other Compare disclosures; the matrix body keeps its own margins. */
+.compare-matrix > summary {
+  margin: 0 12px 12px;
 }
 
 summary {

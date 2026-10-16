@@ -21,7 +21,6 @@ export function Inspector() {
   const request = useDesktopStore((state) => state.request);
   const resultsStale = useDesktopStore((state) => state.resultsStale);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
-  const setWorkspace = useDesktopStore((state) => state.setWorkspace);
   const applyRowLocks = useDesktopStore((state) => state.useRowAsLocks);
   const compareBench = useDesktopStore((state) => state.compareBench);
   const toggleCompareBench = useDesktopStore((state) => state.toggleCompareBench);
@@ -30,6 +29,8 @@ export function Inspector() {
   const fixedStats = catalog?.dataManifest.capabilities.classBudget === false;
   const aowSupported = aowModelSupported(catalog?.dataManifest);
   const aowAvailable = selected && hasAowDamage(selected, aowSupported);
+  // Skill damage shows only when these results model it; Rankings says once when they don't.
+  const aowTile = aowAvailable || rows.some((row) => hasAowDamage(row, aowSupported));
   const selectedMetric = selected ? metricForObjective(selected, request.objective, aowSupported) : null;
   const pinned = Boolean(selected && compareBench.some((entry) => rowFingerprint(entry) === rowFingerprint(selected)));
   const rank = selected ? rows.findIndex((row) => rowFingerprint(row) === rowFingerprint(selected)) : -1;
@@ -96,10 +97,7 @@ export function Inspector() {
           <div className="metric-grid">
             <Metric label={objectiveLabel(request.objective)} value={selectedMetric === null ? null : fixed1(selectedMetric)} />
             {request.objective !== "max_ar" ? <Metric label="AR" value={fixed1(selected.ar.total)} /> : null}
-            <Metric
-              label={aowSupported ? "Raw AoW" : "AoW model"}
-              value={aowAvailable ? compactNumber(selected.aowFullSequenceDamage) : null}
-            />
+            {aowTile ? <Metric label="Raw AoW" value={aowAvailable ? compactNumber(selected.aowFullSequenceDamage) : null} /> : null}
           </div>
           {/* A loaded saved build is alone in the list without having been ranked against anything. */}
           {rank >= 0 && !resultsStale && rowsSetups !== null ? (
@@ -120,7 +118,8 @@ export function Inspector() {
           {statChanges ? (
             <div className="detail-block stat-changes">
               <span>Stat changes</span>
-              <strong>{statChanges.length ? statChanges.join(", ") : "None: uses your stats as entered"}</strong>
+              {/* Each change wraps as a unit, never between its arrow and value. */}
+              <strong>{statChanges.length ? statChanges.map((change) => change.replaceAll(" ", "\u00a0")).join(", ") : "None: uses your stats as entered"}</strong>
             </div>
           ) : null}
           <div className="inspector-actions stacked">
@@ -178,7 +177,6 @@ export function Inspector() {
         <div className="empty-state compact">
           <strong>No build selected</strong>
           <span>Search, then pick a ranked row to see why it wins.</span>
-          <button type="button" onClick={() => setWorkspace("rankings")}>Go to Rankings</button>
         </div>
       )}
       {/* Reference detail: weapon poise, the stat budget and locks (also shown in the strip),
@@ -234,6 +232,7 @@ function ModelCoverage() {
     <div className="model-coverage-notes">
       <strong>Model coverage and assumptions</strong>
       <p>{objectiveWarning}</p>
+      {aowModelUnavailable ? null : <p>Profile capabilities do not guarantee every skill is modeled; a skill that isn&apos;t shows no skill damage.</p>}
       {profileRules?.zeroAttackElementUsesWeaponScaling ? (
         <p>Convergence weapons with correction row 0 apply each declared nonzero attribute scaling to each nonzero damage component.</p>
       ) : null}

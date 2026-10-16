@@ -115,9 +115,9 @@ try {
     throw new Error(`Convergence returned invalid weapon AR: ${convergenceAr}`);
   }
   await convergenceRow.click();
-  await expect(page.locator(".metric-tile").filter({ hasText: "AoW model" })).toContainText("Unavailable");
   const convergenceWeapon = await convergenceRow.locator(".weapon-cell strong").innerText();
   await expect(page.locator(".selected-build-title > strong")).toHaveText(convergenceWeapon);
+  await expect(page.locator(".metric-tile").filter({ hasText: "AoW" })).toHaveCount(0);
   await page.getByRole("button", { name: "Update selected", exact: true }).click();
   await page.getByText(`Updated ${convergencePresetName}.`, { exact: true }).waitFor();
   await page.getByRole("button", { name: "Load", exact: true }).click();

@@ -83,11 +83,10 @@ export function CompareView() {
     : compareControls.includeSomber
       ? "Somber"
       : compareControls.includeSmithing ? "Smithing" : "No reinforcement";
-  const compareSource = customCompare
-    ? [compareTargetLabel, selectedAffinityLabels.join(" + "), reinforcementLabel].filter(Boolean).join(" · ")
-    : compareBench.length
-      ? `${restoredTarget ? "saved target and " : ""}${compareBench.length} pinned target${compareBench.length === 1 ? "" : "s"}`
-      : restoredTarget ? "saved target" : "current ranked rivals";
+  // Custom comparisons show their filters as chips instead.
+  const compareSource = compareBench.length
+    ? `${restoredTarget ? "Saved target and " : ""}${compareBench.length} pinned target${compareBench.length === 1 ? "" : "s"}`
+    : restoredTarget ? "Saved target" : "Current ranked rivals";
   const pinnedMatchesSelected = Boolean(selected)
     && compareBench.length > 0
     && compareBench.every((row) => rowFingerprint(row) === rowFingerprint(selected));
@@ -291,14 +290,15 @@ export function CompareView() {
       heading="Update Rankings before comparing" message="The selected build and comparison targets belong to the previous query." />;
   }
 
-  const baselineMetric = metricForObjective(selected, request.objective, aowModelSupported(catalog?.dataManifest));
+  const aowSupported = aowModelSupported(catalog?.dataManifest);
+  const baselineMetric = metricForObjective(selected, request.objective, aowSupported);
+  const laneAow = [selected, target, ...series.map((lane) => lane.row)].some((row) => row && hasAowDamage(row, aowSupported));
   return (
     <section className="workspace-panel compare-panel">
       <div className="workspace-header analysis-workspace-header compare-workspace-header">
         <div className="workspace-heading-copy">
           <h1>Compare</h1>
-          <span>Selected baseline versus {compareSource}</span>
-          <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)} {baselineMetric === null ? "Unavailable" : fixed1(baselineMetric)}</small>
+          <small className="selected-summary">Baseline: {selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)} {baselineMetric === null ? "Unavailable" : fixed1(baselineMetric)}</small>
           <AboutPopover label="About Compare">
             Every comparison uses this query&apos;s level, stat budget, locks and world settings. Pinned loadouts keep their
             weapon, affinity and skill; their stats and upgrades are optimized again for the current budget, and pins that
@@ -320,7 +320,7 @@ export function CompareView() {
               </li>
             ))}
           </ul>
-        ) : <span className="compare-default">{compareBench.length ? "Pinned targets" : "Current ranked rivals"}</span>}
+        ) : <span className="compare-default">{compareSource}</span>}
         <Popover
           label="Comparison filters"
           trigger={<><SlidersHorizontal size={14} aria-hidden="true" />Filters</>}
@@ -424,16 +424,17 @@ export function CompareView() {
       <details className="compare-build-details">
         <summary>Build details</summary>
         <div className="compare-lanes" aria-busy={seriesStatus === "loading"}>
-          <Lane title="Selected baseline" row={series[0]?.row ?? selected} objective={request.objective} extendedScalingGrades={extendedScalingGrades} emptyLabel="Selected build unavailable" />
+          <Lane title="Selected baseline" row={series[0]?.row ?? selected} objective={request.objective} extendedScalingGrades={extendedScalingGrades} showAow={laneAow} emptyLabel="Selected build unavailable" />
           {series.length > 1 ? series.slice(1).map((lane) => (
-            <Lane key={lane.label} title={lane.label} row={lane.row} objective={request.objective} extendedScalingGrades={extendedScalingGrades} emptyLabel={lane.emptyLabel ?? "No compatible target"} />
-          )) : <Lane title="Target" row={target} objective={request.objective} extendedScalingGrades={extendedScalingGrades} emptyLabel={seriesStatus === "loading" ? "Loading target…" : emptyTargetLabel} />}
+            <Lane key={lane.label} title={lane.label} row={lane.row} objective={request.objective} extendedScalingGrades={extendedScalingGrades} showAow={laneAow} emptyLabel={lane.emptyLabel ?? "No compatible target"} />
+          )) : <Lane title="Target" row={target} objective={request.objective} extendedScalingGrades={extendedScalingGrades} showAow={laneAow} emptyLabel={seriesStatus === "loading" ? "Loading target…" : emptyTargetLabel} />}
         </div>
       </details>
-      <details open>
+      {/* Folded: the delta table above is the answer; the per-upgrade lines are reference. */}
+      <details className="compare-matrix">
         <summary>Upgrade matrix</summary>
         <div className="matrix-toolbar">
-          <span>{compareSource}</span>
+          <span>{objectiveLabel(request.objective)} at each upgrade</span>
           <div>
             <button type="button" onClick={() => scrollMatrix(matrixRef.current, -1)}>+0</button>
             <button type="button" onClick={() => scrollMatrix(matrixRef.current, 1)}>+{matrixHorizon}</button>
@@ -463,7 +464,8 @@ function DeltaTable({ baseline, candidates, objective }: { baseline: SolvedBuild
   const objectiveMetric: CompareMetric[] = objective === "max_ar"
     ? []
     : [["Objective", (row: SolvedBuildDto) => metricForObjective(row, objective, aowSupported)]];
-  const metrics: CompareMetric[] = [
+  const compared = [baseline, ...candidates.flatMap((lane) => lane.row ? [lane.row] : [])];
+  const allMetrics: CompareMetric[] = [
     ...objectiveMetric,
     ["AR", (row: SolvedBuildDto) => row.ar.total],
     ["Physical", (row: SolvedBuildDto) => row.ar.physical],
@@ -476,6 +478,8 @@ function DeltaTable({ baseline, candidates, objective }: { baseline: SolvedBuild
     ["AoW full", (row: SolvedBuildDto) => hasAowDamage(row, aowSupported) ? row.aowFullSequenceDamage : null],
     ["Stamina", (row: SolvedBuildDto) => hasAowDamage(row, aowSupported) ? row.aowRoute?.totalStaminaCost ?? null : null, -1],
   ];
+  // A metric no compared build models is left out rather than shown as a column of "Unavailable".
+  const metrics = allMetrics.filter(([, value]) => compared.some((row) => value(row) !== null));
   const primaryMetrics = metrics.filter(([label]) =>
     label === "Objective"
     || label === "AR"
@@ -548,12 +552,14 @@ function Lane({
   row,
   objective,
   extendedScalingGrades,
+  showAow,
   emptyLabel,
 }: {
   title: string;
   row: SolvedBuildDto | null;
   objective: ReturnType<typeof useDesktopStore.getState>["request"]["objective"];
   extendedScalingGrades: boolean;
+  showAow: boolean;
   emptyLabel: string;
 }) {
   const aowSupported = useDesktopStore((state) => aowModelSupported(state.catalog?.dataManifest));
@@ -569,7 +575,7 @@ function Lane({
           <div className="lane-metrics">
             {objective !== "max_ar" ? <span>Metric <b>{metric === null ? "Unavailable" : fixed1(metric)}</b></span> : null}
             <span>AR <b>{fixed1(row.ar.total)}</b></span>
-            <span>AoW <b>{hasAowDamage(row, aowSupported) ? compactNumber(row.aowFullSequenceDamage) : "Unavailable"}</b></span>
+            {showAow ? <span>AoW <b>{hasAowDamage(row, aowSupported) ? compactNumber(row.aowFullSequenceDamage) : "Unavailable"}</b></span> : null}
           </div>
           <StatusTokens row={row} />
           {hasAowDamage(row, aowSupported) && row.aowRoute ? (
