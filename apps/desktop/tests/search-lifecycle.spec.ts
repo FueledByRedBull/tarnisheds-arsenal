@@ -125,7 +125,7 @@ test("Compare solve failure aborts its sibling lanes and keeps shared work alive
     const rows = state.rows;
     const base = buildOptimizeRequest(state.catalog, state.request, state.lockedStatMode);
     const probe: {
-      calls: Array<{ signal: AbortSignal; resolve: (row: typeof rows[number] | null) => void; aborted: boolean }>;
+      calls: Array<{ signal?: AbortSignal; resolve: (row: typeof rows[number] | null) => void; aborted: boolean }>;
       heldResolved: boolean;
       siblingAborted: boolean;
     } = { calls: [], heldResolved: false, siblingAborted: false };
@@ -139,7 +139,7 @@ test("Compare solve failure aborts its sibling lanes and keeps shared work alive
       probe.calls.push(call);
       return new Promise<typeof rows[number] | null>((resolve, reject) => {
         resolveCall = resolve;
-        signal.addEventListener("abort", () => {
+        signal?.addEventListener("abort", () => {
           call.aborted = true;
           if (!isRootFailure) {
             probe.siblingAborted = true;
@@ -179,7 +179,7 @@ test("Compare optional upgrade failure preserves verified lanes and independent 
       probe.calls.push(call);
       return new Promise((resolve, reject) => {
         call.finish = () => resolve([{ upgrade: 0, metric: 100 + index }]);
-        signal.addEventListener("abort", () => {
+        signal?.addEventListener("abort", () => {
           call.aborted = true;
           reject(new Error("cancelled"));
         }, { once: true });

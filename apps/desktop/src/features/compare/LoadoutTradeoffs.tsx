@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { errorMessage, fixed1, statLine } from "../../lib/format";
 import { buildOptimizeRequest, stableSignature } from "../../lib/session";
@@ -39,7 +39,7 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
     .every((value) => typeof value === "number");
   const contextSignature = stableSignature({ base, selected });
   const contextRef = useRef(contextSignature);
-  contextRef.current = contextSignature;
+  useLayoutEffect(() => { contextRef.current = contextSignature; });
   const runGeneration = useRef(0);
   const controllerRef = useRef<AbortController | null>(null);
   const [points, setPoints] = useState<ArBleedFrontierPointDto[] | null>(null);

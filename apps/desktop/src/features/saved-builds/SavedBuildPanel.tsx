@@ -34,9 +34,9 @@ export function SavedBuildPanel() {
   const hydrate = useDesktopStore((state) => state.loadBuildPreset);
   const pushNotice = useDesktopStore((state) => state.pushNotice);
   const setError = useDesktopStore((state) => state.setError);
-  const [entries, setEntries] = useState<SavedBuildIndexEntryV1[]>([]);
-  const [libraryError, setLibraryError] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState("");
+  const [library, setLibrary] = useState(readLibrary);
+  const { entries, error: libraryError } = library;
+  const [selectedId, setSelectedId] = useState(library.entries[0]?.id ?? "");
   // Until the player types a name, a save is named after the selected build, as the game
   // names weapons ("Blood Uchigatana +25").
   const [typedName, setName] = useState<string | null>(null);
@@ -57,19 +57,11 @@ export function SavedBuildPanel() {
   const canLoad = catalogStatus === "ready";
 
   function refresh() {
-    try {
-      const next = savedBuildIndex().builds;
-      setEntries(next);
-      setLibraryError(null);
-      setSelectedId(current => next.some(entry => entry.id === current) ? current : next[0]?.id ?? "");
-    } catch (error) {
-      setEntries([]);
-      setSelectedId("");
-      setLibraryError(errorMessage(error));
-    }
+    const next = readLibrary();
+    setLibrary(next);
+    setSelectedId(current => next.entries.some(entry => entry.id === current) ? current : next.entries[0]?.id ?? "");
   }
 
-  useEffect(refresh, []);
   useEffect(() => () => migrationController.current?.abort(), []);
   // A first Delete click only arms; it lapses so a later click can never confirm it unseen.
   useEffect(() => {
@@ -357,6 +349,14 @@ export function SavedBuildPanel() {
       {opened ? <SavedBuildRecovery onChanged={refresh} revision={entries} /> : null}
     </details>
   );
+}
+
+function readLibrary(): { entries: SavedBuildIndexEntryV1[]; error: string | null } {
+  try {
+    return { entries: savedBuildIndex().builds, error: null };
+  } catch (error) {
+    return { entries: [], error: errorMessage(error) };
+  }
 }
 
 function presetVersionLabel(savedVersion: string | undefined, currentVersion: string): string {

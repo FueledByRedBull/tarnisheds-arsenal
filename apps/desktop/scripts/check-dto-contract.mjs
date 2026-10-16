@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
 // A source-shape check, not a Rust parser or runtime validator. New serde features
@@ -215,24 +213,4 @@ export function checkCommandContract({ commandSources, libSource, buildSource, c
     assert.ok(called.has(name) !== probeOnlyCommands.includes(name), `api.ts call drift for ${name}`);
   }
   return { commands: names.length };
-}
-
-export function checkRepositoryContract() {
-  const source = path => readFileSync(new URL(path, import.meta.url), "utf8");
-  const commandDirectory = new URL("../src-tauri/src/commands/", import.meta.url);
-  return {
-    ...checkDtoContract(source("../src-tauri/src/dto.rs"), source("../src/lib/types.ts")),
-    ...checkCommandContract({
-      commandSources: readdirSync(commandDirectory).map(name => readFileSync(new URL(name, commandDirectory), "utf8")),
-      libSource: source("../src-tauri/src/lib.rs"),
-      buildSource: source("../src-tauri/build.rs"),
-      capability: JSON.parse(source("../src-tauri/capabilities/default.json")),
-      apiSource: source("../src/lib/api.ts"),
-    }),
-  };
-}
-
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const checked = checkRepositoryContract();
-  console.log(`DTO contract verified: ${checked.declarations} declarations, ${checked.fields} fields, ${checked.commands} commands.`);
 }

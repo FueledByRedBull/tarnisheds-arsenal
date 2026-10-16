@@ -1,5 +1,5 @@
 import { Pause, Play } from "lucide-react";
-import { memo, useEffect, useState } from "react";
+import { memo, useState } from "react";
 import { api } from "../../lib/api";
 import { analysisStatus, type AnalysisOutcome } from "../../lib/analysis-status";
 import { AnalysisProgress } from "../shared/AnalysisProgress";
@@ -44,8 +44,10 @@ export function PathsView() {
     horizon: effectiveHorizon,
     pathMode,
   });
-  const [runOutcome, setRunOutcome] = useState<AnalysisOutcome>(null);
-  useEffect(() => setRunOutcome(null), [signature]);
+  // A stopped or failed run is reported only while its inputs are still the current ones.
+  const [run, setRun] = useState<{ signature: string; outcome: AnalysisOutcome }>({ signature, outcome: null });
+  const runOutcome = run.signature === signature ? run.outcome : null;
+  const setRunOutcome = (outcome: AnalysisOutcome) => setRun({ signature, outcome });
   const pathSignature = useDesktopStore((state) => state.pathSignature);
   const status = analysisStatus({
     busy: isPathBusy,

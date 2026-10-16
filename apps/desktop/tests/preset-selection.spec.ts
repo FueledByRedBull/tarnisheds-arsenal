@@ -26,7 +26,7 @@ async function restore(page: Page, fixed: boolean, immediateSearch: boolean, exp
     const probe: any = { aborted: false, completed: false, searches: [], expected: preset.request.aowName, row };
     api.solveBuild = (_base, _name, _affinity, _skill, signal) => new Promise((resolve, reject) => {
       probe.finish = () => resolve(row);
-      signal.addEventListener("abort", () => { probe.aborted = true; reject(new Error("cancelled")); }, { once: true });
+      signal?.addEventListener("abort", () => { probe.aborted = true; reject(new Error("cancelled")); }, { once: true });
     });
     api.startSearch = async request => { probe.searches.push(request); return { jobId: "restored-search" }; };
     api.searchStatus = async () => ({ progress: null, finished: null });

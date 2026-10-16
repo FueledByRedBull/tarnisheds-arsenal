@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { api } from "./api";
 import { cachedWeaponProfile } from "./analysis-cache";
 import { buildOptimizeRequest } from "./session";
@@ -82,7 +82,7 @@ function usePollingJob<P extends JobEvent, F extends FinishedJob, S extends JobS
   onStarted: (jobId: string, generation: number) => void;
 }): (start: () => Promise<{ jobId: string }>, generation: number) => Promise<NativeJobSuccess<F>> {
   const latest = useRef(options);
-  latest.current = options;
+  useLayoutEffect(() => { latest.current = options; });
   const active = useRef<AbortController | null>(null);
 
   return useCallback((start: () => Promise<{ jobId: string }>, generation: number) => {

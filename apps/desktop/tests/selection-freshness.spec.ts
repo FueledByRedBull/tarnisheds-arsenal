@@ -22,19 +22,19 @@ async function setup(page: Page) {
         probe.pending.push({ key: [profileId, weaponName, affinity], resolve, reject });
       });
     };
-    probe.resolve = async (key, overrides = {}, latestOnly = false) => {
-      const matches = probe.pending.filter(item => JSON.stringify(item.key) === JSON.stringify(key));
+    probe.resolve = async (key: [string, string, string | null], overrides = {}, latestOnly = false) => {
+      const matches = probe.pending.filter((item: { key: unknown }) => JSON.stringify(item.key) === JSON.stringify(key));
       const items = latestOnly ? matches.slice(-1) : matches;
-      probe.pending = probe.pending.filter(item => !items.includes(item));
+      probe.pending = probe.pending.filter((item: { key: unknown }) => !items.includes(item));
       const profile = { ...await originalProfile(...key), ...overrides };
-      items.forEach(item => item.resolve(profile));
+      items.forEach((item: { resolve: (value: unknown) => void }) => item.resolve(profile));
     };
-    probe.reject = (key) => {
-      const items = probe.pending.filter(item => JSON.stringify(item.key) === JSON.stringify(key));
-      probe.pending = probe.pending.filter(item => !items.includes(item));
-      items.forEach(item => item.reject(new Error("Metadata unavailable")));
+    probe.reject = (key: unknown) => {
+      const items = probe.pending.filter((item: { key: unknown }) => JSON.stringify(item.key) === JSON.stringify(key));
+      probe.pending = probe.pending.filter((item: { key: unknown }) => !items.includes(item));
+      items.forEach((item: { reject: (error: Error) => void }) => item.reject(new Error("Metadata unavailable")));
     };
-    probe.patch = (patch) => {
+    probe.patch = (patch: Record<string, unknown>) => {
       if (patch.profileId && patch.profileId !== useDesktopStore.getState().request.profileId) {
         // Hold the same selected weapon across profiles to exercise hook identity,
         // independently of the normal profile switch resetting the whole query.
@@ -54,7 +54,7 @@ async function patch(page: Page, patch: Record<string, unknown>) {
 }
 
 async function pending(page: Page, key: Array<string | null>) {
-  await expect.poll(() => page.evaluate(key => (window as any).selectionProbe.pending.some(item =>
+  await expect.poll(() => page.evaluate(key => (window as any).selectionProbe.pending.some((item: { key: unknown }) =>
     JSON.stringify(item.key) === JSON.stringify(key)), key)).toBe(true);
 }
 
@@ -351,7 +351,7 @@ test("A to B to A accepts only the current lookup even when older replies arrive
   await patch(page, { weaponName: "Zweihander" });
   await pending(page, ["vanilla", "Zweihander", null]);
   await patch(page, { weaponName: "Uchigatana" });
-  await expect.poll(() => page.evaluate(() => (window as any).selectionProbe.pending.filter(item => item.key[1] === "Uchigatana").length)).toBeGreaterThan(1);
+  await expect.poll(() => page.evaluate(() => (window as any).selectionProbe.pending.filter((item: { key: unknown[] }) => item.key[1] === "Uchigatana").length)).toBeGreaterThan(1);
   await page.evaluate(() => (window as any).selectionProbe.resolve(["vanilla", "Uchigatana", null], {
     requirements: { strStat: 17, dex: 0, intStat: 0, fai: 0, arc: 0 },
   }, true));
