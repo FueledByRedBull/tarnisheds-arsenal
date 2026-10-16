@@ -143,10 +143,11 @@ export function CompareView() {
       if (currentRequest.isCurrent(token)) finishedComparison.current = signature;
     };
     async function resolveRows() {
+      // Stale results and a cleared selection already clear the target in the store. Showing the
+      // tab can re-run this effect with the hidden tab's older inputs, so it must not clear it here.
       if (resultsStale) {
         setSeries([]);
         setSeriesError(null);
-        setCompareTarget(null);
         setSeriesStatus("idle");
         finish();
         return;
@@ -159,7 +160,6 @@ export function CompareView() {
       }
       if (!selected) {
         setSeries([]);
-        setCompareTarget(null);
         setSeriesStatus("idle");
         finish();
         return;
@@ -167,7 +167,6 @@ export function CompareView() {
       const restored = !customCompare && restoredTarget && rowFingerprint(restoredTarget) !== rowFingerprint(selected)
         ? restoredTarget : null;
       setSeries([]);
-      setCompareTarget(restored);
       setSeriesStatus("loading");
       setSeriesError(null);
       const resolvedSelected = selected;

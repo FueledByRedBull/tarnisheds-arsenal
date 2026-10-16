@@ -90,8 +90,12 @@ test("stamina desirability reverses cost direction without changing arithmetic s
     const state = useDesktopStore.getState();
     state.setRows(state.rows.map((row, i) => i === 1 ? { ...row, aowRoute: null } : row), 100);
   });
-  await page.getByText("Full metric breakdown", { exact: true }).click();
-  await expect(rows.nth(1).getByRole("cell").last()).toHaveText("Unavailable");
+  // The refreshed table may or may not have remounted, so open the breakdown only if it closed.
+  const breakdown = page.locator(".compare-deltas > details");
+  await expect(async () => {
+    if (!await breakdown.evaluate((node) => (node as HTMLDetailsElement).open)) await breakdown.locator("summary").click();
+    await expect(rows.nth(1).getByRole("cell").last()).toHaveText("Unavailable", { timeout: 1000 });
+  }).toPass();
   await expect(rows.nth(1).getByRole("cell").last()).not.toHaveAttribute("class", /positive|negative/);
 });
 
