@@ -7,6 +7,7 @@ from pathlib import Path
 from tools.phase4.validate_release_metadata import (
     markdown_link_errors,
     release_notes_errors,
+    requirements_errors,
     toolchain_reference_errors,
 )
 
@@ -38,6 +39,27 @@ class ReleaseNotesTests(unittest.TestCase):
         self.assertEqual(len(errors), 2)
         self.assertIn("does not mention v0.17.2", errors[0])
         self.assertIn("must link v0.17.2", errors[1])
+
+
+class RequirementsTests(unittest.TestCase):
+    def test_hashed_exact_pins_pass_and_anything_else_fails(self) -> None:
+        digest = "--hash=sha256:" + "a" * 64
+        valid = f"# helpers\npyright==1.1.411 \\\n    {digest} \\\n    {digest}\nruff==0.15.7 {digest}  # lint\n"
+        self.assertEqual(requirements_errors(valid), [])
+        for text, message in (
+            (valid + "nodeenv==1.11.0\n", "not an exact pin with sha256 hashes: nodeenv==1.11.0"),
+            (valid + f"nodeenv>=1.6 {digest}\n", "not an exact pin"),
+            (valid + "nodeenv==1.11.0 --hash=sha256:abc\n", "not an exact pin"),
+            (f"ruff==0.15.7 {digest}\n", "does not pin pyright exactly"),
+        ):
+            with self.subTest(text=text):
+                errors = requirements_errors(text)
+                self.assertEqual(len(errors), 1, errors)
+                self.assertIn(message, errors[0])
+
+    def test_repository_requirements_are_hashed(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        self.assertEqual(requirements_errors((root / "requirements-validation.txt").read_text(encoding="utf-8")), [])
 
 
 PIN = "dtolnay/rust-toolchain@" + "a" * 40

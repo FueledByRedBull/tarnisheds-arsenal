@@ -94,6 +94,25 @@ def toolchain_reference_errors(root: Path, rust: str, node: str, python: str, ta
     return errors
 
 
+def requirements_errors(text: str) -> list[str]:
+    """Each requirement must be an exact pin with sha256 hashes, so pip runs in hash-checking mode."""
+    errors: list[str] = []
+    pinned: set[str] = set()
+    for line in text.replace("\\\n", " ").splitlines():
+        requirement = line.split("#", 1)[0].strip()
+        if not requirement:
+            continue
+        match = re.fullmatch(r"([A-Za-z0-9._-]+)==[^\s]+(?:\s+--hash=sha256:[0-9a-f]{64})+", requirement)
+        if match is None:
+            errors.append(f"requirements-validation.txt entry is not an exact pin with sha256 hashes: {requirement}")
+        else:
+            pinned.add(match[1].lower())
+    for package in ("pyright", "ruff"):
+        if package not in pinned:
+            errors.append(f"requirements-validation.txt does not pin {package} exactly")
+    return errors
+
+
 def heading_anchors(text: str) -> set[str]:
     """GitHub heading anchors: lower case, punctuation dropped, spaces as hyphens, repeats numbered."""
     anchors: set[str] = set(re.findall(r'id="([^"]+)"', text))
@@ -208,12 +227,7 @@ def main() -> int:
     markdown = subprocess.check_output(["git", "ls-files", "*.md"], cwd=root, text=True).split()
     errors.extend(markdown_link_errors(root, markdown))
 
-    validation_requirements = (root / "requirements-validation.txt").read_text(encoding="utf-8")
-    for package in ("pyright", "ruff"):
-        if not any(
-            line.startswith(f"{package}==") for line in validation_requirements.splitlines()
-        ):
-            errors.append(f"requirements-validation.txt does not pin {package} exactly")
+    errors.extend(requirements_errors((root / "requirements-validation.txt").read_text(encoding="utf-8")))
 
     expect_equal(
         "apps/desktop/package.json version",
