@@ -10,8 +10,7 @@ pub fn runtime_model_version(snapshot_model: &str) -> String {
 }
 
 pub use data::{
-    CONVERGENCE_PROFILE_ID, VANILLA_PROFILE_ID, load_embedded_game_data,
-    load_embedded_game_data_with_manifest, load_embedded_game_profile,
+    CONVERGENCE_PROFILE_ID, VANILLA_PROFILE_ID, load_embedded_game_profile,
     load_embedded_game_profile_with_manifest, load_game_data, load_game_data_with_manifest,
 };
 pub use math::{
@@ -41,11 +40,11 @@ pub use snapshot::{
 #[cfg(test)]
 mod tests {
     #[test]
-    fn runtime_identity_invalidates_results_from_before_route_handling_constraints() {
-        let old_snapshot = "aow-routes-effects-v8";
-        assert_ne!(
-            super::runtime_model_version(old_snapshot),
-            format!("{old_snapshot}/exact-v2")
+    fn runtime_identity_names_the_current_scoring_contract() {
+        // Persisted results and caches are keyed by this string; change it only with the model.
+        assert_eq!(
+            super::runtime_model_version("aow-routes-effects-v8"),
+            "aow-routes-effects-v8/exact-v3"
         );
     }
 }

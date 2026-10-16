@@ -14,8 +14,8 @@ const PROFILES: [(&str, &str); 2] = [
 const TABLES: [&str; 12] = [
     "aow.csv",
     "aow_attack_data.csv",
-    "aow_route_assignments.csv",
     "aow_effect_data.csv",
+    "aow_route_assignments.csv",
     "attack_element_correct.csv",
     "attack_element_correct_ext.csv",
     "calc_correct.csv",

@@ -74,9 +74,8 @@ impl fmt::Display for DamageType {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PhysicalAttackAttribute {
-    #[default]
     Standard,
     Strike,
     Slash,
@@ -192,7 +191,7 @@ pub struct ReinforceLevel {
     pub base_attack_mult: f32,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug)]
 pub struct AttackElementCorrect {
     pub scales: [[bool; DAMAGE_TYPE_COUNT]; COMBAT_STAT_COUNT],
 }
@@ -434,36 +433,6 @@ impl DamageBreakdown {
     pub fn total(self) -> f32 {
         self.physical + self.magic + self.fire + self.lightning + self.holy
     }
-
-    pub fn scale(self, multiplier: f32) -> Self {
-        Self {
-            physical: self.physical * multiplier,
-            magic: self.magic * multiplier,
-            fire: self.fire * multiplier,
-            lightning: self.lightning * multiplier,
-            holy: self.holy * multiplier,
-        }
-    }
-
-    pub fn combined_with(self, other: Self) -> Self {
-        Self {
-            physical: self.physical + other.physical,
-            magic: self.magic + other.magic,
-            fire: self.fire + other.fire,
-            lightning: self.lightning + other.lightning,
-            holy: self.holy + other.holy,
-        }
-    }
-
-    pub fn by_type(self, damage_type: DamageType) -> f32 {
-        match damage_type {
-            DamageType::Physical => self.physical,
-            DamageType::Magic => self.magic,
-            DamageType::Fire => self.fire,
-            DamageType::Lightning => self.lightning,
-            DamageType::Holy => self.holy,
-        }
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -525,21 +494,6 @@ pub struct DataCapabilities {
     pub aow_routes: bool,
 }
 
-impl Default for DataCapabilities {
-    fn default() -> Self {
-        Self {
-            weapon_ar: true,
-            weapon_ar_for_ammunition: true,
-            class_budget: true,
-            status_buildup: true,
-            weapon_passives: true,
-            aow_compatibility: true,
-            aow_damage: true,
-            aow_routes: true,
-        }
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct DataRules {
     pub standard_max_upgrade: u8,
@@ -551,21 +505,7 @@ pub struct DataRules {
     pub status_buildup_scales: bool,
 }
 
-impl Default for DataRules {
-    fn default() -> Self {
-        Self {
-            standard_max_upgrade: 25,
-            somber_max_upgrade: 10,
-            separate_upgrade_caps: true,
-            scadutree_scaling: true,
-            zero_attack_element_uses_weapon_scaling: false,
-            extended_scaling_grades: false,
-            status_buildup_scales: true,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct GameData {
     pub snapshot_schema_version: u32,
     pub dataset_version: String,
@@ -577,9 +517,9 @@ pub struct GameData {
     pub weapons: Vec<Weapon>,
     pub reinforce: Vec<Vec<Option<ReinforceLevel>>>,
     pub calc_correct: Vec<Option<Vec<Option<f32>>>>,
-    /// Sorted by param id. Ids reach ~20 million while only ~190 exist, so a table indexed by
-    /// id took ~480 MB per profile.
-    pub attack_element_correct: Vec<(usize, AttackElementCorrect)>,
+    /// Sorted by param id with unique ids (the loader enforces both; lookups binary-search).
+    /// Ids reach ~20 million while only ~190 exist, so a table indexed by id took ~480 MB.
+    pub(crate) attack_element_correct: Vec<(usize, AttackElementCorrect)>,
     pub attack_element_correct_ext: HashMap<usize, AttackElementCorrectExt>,
     pub aows: Vec<Aow>,
     pub aow_attack_rows: HashMap<u16, Vec<AowAttackRow>>,
