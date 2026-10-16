@@ -117,12 +117,8 @@ def build_reference(snapshot: Path, url: str) -> dict[str, Any]:
     reference_rows = sorted(reference["weapons"], key=lambda item: int(item["affinityId"]) != -1)
     for row in reference_rows:
         affinity_id = int(row["affinityId"])
-        if affinity_id < 0:
-            affinity = "Standard"
-            candidates = by_affinity_signature[(affinity, _reference_signature(row))]
-        else:
-            affinity = CONVERGENCE_AFFINITIES[affinity_id]
-            candidates = by_affinity_signature[(affinity, _reference_signature(row))]
+        affinity = "Standard" if affinity_id < 0 else CONVERGENCE_AFFINITIES[affinity_id]
+        candidates = by_affinity_signature[(affinity, _reference_signature(row))]
 
         candidates = [candidate for candidate in candidates if int(candidate["weapon_id"]) not in used_ids]
         named_candidates = [

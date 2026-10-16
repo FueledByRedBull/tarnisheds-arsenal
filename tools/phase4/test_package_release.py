@@ -206,6 +206,28 @@ function Start-Sleep { throw "No matching completed CI; would wait" }
         self.assertIn("runtime-data-validation", workflow_required_gates())
         self.assertEqual(set(workflow_required_gates()) - set(report["completedGates"]), set())
 
+    def test_existing_output_is_refreshed_only_on_request_and_only_for_known_files(self) -> None:
+        artifact = f"TarnishedsArsenal_0.14.1-preview-{'b' * 40}"
+        for existing, flags, error in (
+            (["README.md"], (), FileExistsError),
+            (["README.md", "notes.txt"], ("--replace-output",), RuntimeError),
+            (["README.md", f"{artifact}_portable.exe"], ("--replace-output",), None),
+        ):
+            with (self.subTest(existing=existing, flags=flags), tempfile.TemporaryDirectory() as directory,
+                  contextlib.ExitStack() as stack):
+                root = Path(directory)
+                release_dir = root / "dist" / artifact
+                release_dir.mkdir(parents=True)
+                for name in existing:
+                    (release_dir / name).write_text("old", encoding="utf-8")
+                if error is None:
+                    self.assertEqual(package_main(root, stack, "--preview", "--skip-validation", *flags)[0], 0)
+                    self.assertNotEqual((release_dir / "README.md").read_text(encoding="utf-8"), "old")
+                else:
+                    with self.assertRaises(error):
+                        package_main(root, stack, "--preview", "--skip-validation", *flags)
+                    self.assertEqual((release_dir / "README.md").read_text(encoding="utf-8"), "old")
+
     def test_preview_with_ci_validation_keeps_package_checks(self) -> None:
         with tempfile.TemporaryDirectory() as directory, contextlib.ExitStack() as stack:
             root = Path(directory)

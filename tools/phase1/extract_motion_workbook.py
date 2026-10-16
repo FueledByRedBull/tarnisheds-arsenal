@@ -566,23 +566,30 @@ def resolve_unique_skill_weapons(
             return NativeSkillMatch(matched_groups[0], 'matched', 'skill_id+weapon', inferred_skill_name)
         if len(matched_groups) > 1:
             return NativeSkillMatch([], 'ambiguous_skill_family', 'skill_id+weapon', inferred_skill_name)
-        fallback_rows = resolve_weapon_rows(unique_skill_weapon, index.by_name, index.by_token)
-        if fallback_rows:
-            skill_ids = {row.get('native_skill_id', '').strip() for row in fallback_rows if row.get('native_skill_id', '').strip()}
-            if len(skill_ids) == 1:
-                return NativeSkillMatch(fallback_rows, 'matched', 'weapon_name_fallback', inferred_skill_name)
-            return NativeSkillMatch([], 'ambiguous_weapon_name_fallback', 'weapon_name_fallback', inferred_skill_name)
+        fallback = weapon_name_fallback(unique_skill_weapon, index, inferred_skill_name)
+        if fallback is not None:
+            return fallback
         if len(skill_groups) == 1:
             return NativeSkillMatch([], 'unmatched_weapon_in_skill_family', 'skill_id', inferred_skill_name)
         return NativeSkillMatch([], 'ambiguous_skill_name', 'skill_name', inferred_skill_name)
 
+    return weapon_name_fallback(unique_skill_weapon, index, inferred_skill_name) or NativeSkillMatch(
+        [], 'unmatched_weapon', 'none', inferred_skill_name
+    )
+
+
+def weapon_name_fallback(
+    unique_skill_weapon: str,
+    index: NativeSkillWeaponIndex,
+    inferred_skill_name: str,
+) -> NativeSkillMatch | None:
     fallback_rows = resolve_weapon_rows(unique_skill_weapon, index.by_name, index.by_token)
-    if fallback_rows:
-        skill_ids = {row.get('native_skill_id', '').strip() for row in fallback_rows if row.get('native_skill_id', '').strip()}
-        if len(skill_ids) == 1:
-            return NativeSkillMatch(fallback_rows, 'matched', 'weapon_name_fallback', inferred_skill_name)
-        return NativeSkillMatch([], 'ambiguous_weapon_name_fallback', 'weapon_name_fallback', inferred_skill_name)
-    return NativeSkillMatch([], 'unmatched_weapon', 'none', inferred_skill_name)
+    if not fallback_rows:
+        return None
+    skill_ids = {row.get('native_skill_id', '').strip() for row in fallback_rows if row.get('native_skill_id', '').strip()}
+    if len(skill_ids) == 1:
+        return NativeSkillMatch(fallback_rows, 'matched', 'weapon_name_fallback', inferred_skill_name)
+    return NativeSkillMatch([], 'ambiguous_weapon_name_fallback', 'weapon_name_fallback', inferred_skill_name)
 
 
 def build_attack_row(

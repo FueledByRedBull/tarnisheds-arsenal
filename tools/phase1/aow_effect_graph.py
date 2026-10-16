@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Iterable
 
 from tools.phase1.param_binary import ParamValue, load_param_table
-from tools.phase1.phase1_dump import read_csv, write_csv
+from tools.phase1.phase1_dump import STATUS_ATTACK_POWER_FIELDS, read_csv, write_csv
 
 
 DAMAGE_FIELDS = (
@@ -15,15 +15,7 @@ DAMAGE_FIELDS = (
     ("lightning_attack_power", "thunderAttackPower"),
     ("holy_attack_power", "darkAttackPower"),
 )
-STATUS_FIELDS = (
-    ("bleed_buildup", "bloodAttackPower"),
-    ("frost_buildup", "freezeAttackPower"),
-    ("poison_buildup", "poizonAttackPower"),
-    ("scarlet_rot_buildup", "diseaseAttackPower"),
-    ("sleep_buildup", "sleepAttackPower"),
-    ("madness_buildup", "madnessAttackPower"),
-    ("death_buildup", "curseAttackPower"),
-)
+STATUS_FIELDS = tuple((f"{status}_buildup", field) for status, field in STATUS_ATTACK_POWER_FIELDS.items())
 LINK_FIELDS = (
     ("replace", "replaceSpEffectId"),
     ("cycle", "cycleOccurrenceSpEffectId"),

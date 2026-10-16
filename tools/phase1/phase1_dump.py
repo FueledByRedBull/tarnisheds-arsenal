@@ -43,6 +43,15 @@ PARAM_DEFINITIONS = (
     "EquipParamGem",
     "SpEffect",
 )
+STATUS_ATTACK_POWER_FIELDS = {
+    "bleed": "bloodAttackPower",
+    "frost": "freezeAttackPower",
+    "poison": "poizonAttackPower",
+    "scarlet_rot": "diseaseAttackPower",
+    "sleep": "sleepAttackPower",
+    "madness": "madnessAttackPower",
+    "death": "curseAttackPower",
+}
 PHYSICAL_ATTACK_FLAGS = (
     ("isBlowAttackType", "strike"),
     ("isSlashAttackType", "slash"),
@@ -891,12 +900,11 @@ def build_speffect_map(sp_rows: list[dict[str, str]]) -> dict[int, tuple[float, 
     effect_map: dict[int, tuple[float, float, float, float]] = {}
     for row in sp_rows:
         effect_id = to_int(row, "id", None)
-        effect_map[effect_id] = (
-            to_float(row, "bloodAttackPower", 0.0),
-            to_float(row, "freezeAttackPower", 0.0),
-            to_float(row, "poizonAttackPower", 0.0),
-            to_float(row, "diseaseAttackPower", 0.0),
+        bleed, frost, poison, scarlet_rot = (
+            to_float(row, STATUS_ATTACK_POWER_FIELDS[status], 0.0)
+            for status in ("bleed", "frost", "poison", "scarlet_rot")
         )
+        effect_map[effect_id] = (bleed, frost, poison, scarlet_rot)
     return effect_map
 
 
@@ -1333,7 +1341,7 @@ def main() -> int:
     for prefix, paths in (("weaponNames", weapon_name_xmls), ("artsNames", arts_name_xmls)):
         for path in paths:
             lowered = path.name.casefold()
-            suffix = "Dlc01" if "_dlc01" in lowered else "Dlc02" if "_dlc02" in lowered else "Base"
+            suffix = "Dlc01" if "_dlc01" in lowered else "Base"
             kind = f"{prefix}{suffix}"
             if kind in source_paths:
                 raise ValueError(f"duplicate {kind} FMG source: {path}")
@@ -1394,8 +1402,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    try:
-        raise SystemExit(main())
-    except Exception as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        raise SystemExit(1)
+    raise SystemExit(main())
