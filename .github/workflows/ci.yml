@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   select-checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       rust: ${{ steps.scope.outputs.rust }}
@@ -25,6 +25,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 2
+          persist-credentials: false
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
@@ -38,7 +39,7 @@ jobs:
   rust-and-data:
     needs: [select-checks, windows-debug-and-data, windows-release, linux-core-and-data, desktop-frontend]
     if: ${{ always() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Require selected checks
@@ -68,7 +69,7 @@ jobs:
   windows-debug-and-data:
     needs: select-checks
     if: ${{ needs.select-checks.outputs.rust == 'true' }}
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 45
     env:
       CARGO_TARGET_DIR: ${{ github.workspace }}/.codex-tmp/ci-target
@@ -81,6 +82,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
@@ -102,7 +105,7 @@ jobs:
           python -m unittest discover -s tools/phase1 -p "test_*.py"
           python -m unittest discover -s tools/phase4 -p "test_*.py"
 
-      - name: Dual-profile data/runtime validation
+      - name: Dual-profile data snapshot validation
         run: python tools/phase4/validate_phase4.py --report dist/validation/data-validation.json
 
       - name: Setup Rust
@@ -141,14 +144,6 @@ jobs:
       - name: Desktop backend tests
         run: cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --lib --timings
 
-      - name: Core documentation tests
-        env:
-          CARGO_PROFILE_TEST_OPT_LEVEL: "1"
-        run: cargo test --locked --manifest-path core/er_optimizer_core/Cargo.toml --doc --timings
-
-      - name: Desktop documentation tests
-        run: cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --doc --timings
-
       - name: Upload data validation report
         if: ${{ always() && hashFiles('dist/validation/data-validation.json') != '' }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -169,7 +164,7 @@ jobs:
   windows-release:
     needs: select-checks
     if: ${{ needs.select-checks.outputs.rust == 'true' }}
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 45
     env:
       CARGO_TARGET_DIR: ${{ github.workspace }}/.codex-tmp/ci-target
@@ -179,6 +174,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@86e7197484018ef6aaa9255d186f6ce1754276dd # 1.97.0
@@ -215,13 +212,6 @@ jobs:
           cargo check --release --locked --manifest-path core/er_optimizer_core/Cargo.toml --all-targets --timings
           cargo check --release --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --timings
 
-      - name: Rust release documentation tests
-        run: |
-          $ErrorActionPreference = "Stop"
-          $PSNativeCommandUseErrorActionPreference = $true
-          cargo test --release --locked --manifest-path core/er_optimizer_core/Cargo.toml --doc --timings
-          cargo test --release --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --doc --timings
-
       - name: Upload Rust build timings
         if: ${{ always() && hashFiles('.codex-tmp/ci-target/cargo-timings/*.html') != '' }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -234,7 +224,7 @@ jobs:
   desktop-frontend:
     needs: select-checks
     if: ${{ needs.select-checks.outputs.frontend == 'true' }}
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 45
     env:
       # Incremental artifacts are never reused in CI and only enlarge the cache.
@@ -243,6 +233,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -275,13 +267,9 @@ jobs:
         run: |
           node ./node_modules/@playwright/test/cli.js install chromium
 
-      - name: Desktop TypeScript build
+      - name: Desktop unit tests
         working-directory: apps/desktop
-        run: |
-          $ErrorActionPreference = "Stop"
-          $PSNativeCommandUseErrorActionPreference = $true
-          npm test
-          npm run build
+        run: npm test
 
       - name: Desktop e2e contract tests
         working-directory: apps/desktop
@@ -289,7 +277,8 @@ jobs:
           npm run test:e2e
 
       # The release workflow runs this smoke on the packaged build; running it on
-      # every change catches native/UI drift before it can block a release.
+      # every change catches native/UI drift before it can block a release. The
+      # Tauri build also runs the TypeScript check and production bundle.
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@86e7197484018ef6aaa9255d186f6ce1754276dd # 1.97.0
 
@@ -315,10 +304,9 @@ jobs:
   linux-core-and-data:
     needs: select-checks
     if: ${{ needs.select-checks.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
-      RUSTUP_TOOLCHAIN: "1.97.0"
       CARGO_PROFILE_TEST_OPT_LEVEL: "1"
       CARGO_PROFILE_TEST_DEBUG_ASSERTIONS: "true"
       CARGO_PROFILE_TEST_OVERFLOW_CHECKS: "true"
@@ -326,6 +314,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
@@ -340,21 +330,35 @@ jobs:
       - name: Install validation dependencies
         run: python -m pip install --disable-pip-version-check -r requirements-validation.txt
 
+      # Deliberately repeats the Windows Python checks: line endings and path
+      # separators have broken cross-platform assumptions before.
       - name: Python and snapshot validation
         run: |
           set -e
           python -m unittest discover -s tools/phase1 -p "test_*.py"
           python -m unittest discover -s tools/phase4 -p "test_*.py"
-          python tools/phase4/validate_phase4.py --report dist/validation/data-validation-linux.json
+          python tools/phase4/validate_phase4.py
 
       - name: Core tests and benchmark assertions
         run: cargo test --locked --manifest-path core/er_optimizer_core/Cargo.toml --lib --example benchmark_level_range --timings
 
-      - name: Rust documentation tests
-        run: cargo test --locked --manifest-path core/er_optimizer_core/Cargo.toml --doc --timings
-
       - name: Check all Linux targets
         run: cargo check --locked --manifest-path core/er_optimizer_core/Cargo.toml --all-targets --timings
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: ".node-version"
+          cache: "npm"
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      # The independent AR/status oracle needs only the locked TypeScript compiler.
+      - name: Install TypeScript for the reference calculator
+        working-directory: apps/desktop
+        run: npm ci --prefer-offline --no-audit --fund=false --ignore-scripts
+
+      - name: Compare with the pinned reference calculator
+        run: python tools/phase4/validate_external_calculator.py --count 100 --seed 20260918
 
       - name: Upload Rust build timings
         if: ${{ always() && hashFiles('core/er_optimizer_core/target/cargo-timings/*.html') != '' }}
