@@ -86,7 +86,7 @@ test("denied storage and invalid backups keep existing builds usable", async ({ 
   expect(await page.evaluate(() => JSON.stringify(localStorage))).toBe(before);
   await page.evaluate(() => { Storage.prototype.setItem = () => { throw new DOMException("quota exceeded", "QuotaExceededError"); }; });
   await page.getByRole("button", { name: "Save new", exact: true }).click();
-  await expect(page.locator('.error-strip[role="alert"]')).toContainText("quota exceeded");
+  await expect(page.locator('.error-strip[role="alert"]')).toContainText("Device storage for saved builds is full");
   await expect(page.getByRole("button", { name: "Load", exact: true })).toBeEnabled();
 });
 

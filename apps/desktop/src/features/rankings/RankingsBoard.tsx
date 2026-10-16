@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowDownUp, ArrowUp, ChevronLeft, ChevronRight, Download, LockKeyhole, Pin, RefreshCcw } from "lucide-react";
 import { memo, ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { downloadCsv, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
+import { downloadText, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
 import { compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
 import { buildOptimizeRequest, rowFingerprint } from "../../lib/session";
 import { EASE_OUT, reducedMotion, settleRanking } from "../../lib/motion";
@@ -163,7 +163,7 @@ export function RankingsBoard() {
       }
       if (!isCurrent()) return;
       if (!catalog) throw new Error("Catalog metadata is unavailable; the export was not created.");
-      downloadCsv(rankingsCsvFilename(request.profileId), rankingsToCsv(exportRows, {
+      downloadText(rankingsCsvFilename(request.profileId), rankingsToCsv(exportRows, {
         profileId: request.profileId,
         appVersion: packageInfo.version,
         schemaVersion: String(catalog.dataManifest.schemaVersion),
@@ -187,7 +187,7 @@ export function RankingsBoard() {
         separateUpgradeCaps,
         aowModelSupported: catalog.dataManifest.capabilities.aowDamage && catalog.dataManifest.capabilities.aowRoutes,
         extendedScalingGrades,
-      }));
+      }), "text/csv;charset=utf-8");
       pushNotice({
         scope: "rankings",
         tone: "success",

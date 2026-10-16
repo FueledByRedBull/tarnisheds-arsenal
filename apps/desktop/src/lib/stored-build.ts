@@ -1,6 +1,7 @@
+import { errorMessage } from "./format";
 import type { SolvedBuildDto } from "./types";
 
-export function validateStoredBuild(value: unknown, policy: { standardMaxUpgrade: number; somberMaxUpgrade: number }, label = "build"): { value: SolvedBuildDto } | { error: { path: string; message: string } } {
+export function validateStoredBuild(value: unknown, policy: { standardMaxUpgrade: number; somberMaxUpgrade: number }, label = "build"): { value: SolvedBuildDto } | { error: string } {
   try {
     if (value === null) throw invalidPreset(`${label} must be a build`);
     assertSolvedBuild(value, label);
@@ -8,8 +9,7 @@ export function validateStoredBuild(value: unknown, policy: { standardMaxUpgrade
     assertInteger(value.upgrade, `${label}.upgrade`, 0, value.isSomber ? policy.somberMaxUpgrade : policy.standardMaxUpgrade);
     return { value };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { error: { path: message.split(" ")[0], message } };
+    return { error: errorMessage(error) };
   }
 }
 
@@ -113,13 +113,13 @@ function assertStatus(value: unknown, label: string) {
   }
 }
 
-function assertText(value: unknown, label: string, maxLength: number, allowEmpty = false): asserts value is string {
+export function assertText(value: unknown, label: string, maxLength: number, allowEmpty = false): asserts value is string {
   if (typeof value !== "string" || value.length > maxLength || (!allowEmpty && !value.trim())) {
     throw invalidPreset(`${label} must be ${allowEmpty ? "a" : "a non-empty"} string no longer than ${maxLength} characters`);
   }
 }
 
-function assertNullableText(value: unknown, label: string, maxLength: number): asserts value is string | null {
+export function assertNullableText(value: unknown, label: string, maxLength: number): asserts value is string | null {
   if (value !== null) assertText(value, label, maxLength);
 }
 
@@ -129,28 +129,28 @@ function assertFinite(value: unknown, label: string): asserts value is number {
   }
 }
 
-function assertInteger(value: unknown, label: string, min: number, max: number): asserts value is number {
+export function assertInteger(value: unknown, label: string, min: number, max: number): asserts value is number {
   if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) {
     throw invalidPreset(`${label} must be an integer from ${min} through ${max}`);
   }
 }
 
-function assertNullableInteger(value: unknown, label: string, min: number, max: number): asserts value is number | null {
+export function assertNullableInteger(value: unknown, label: string, min: number, max: number): asserts value is number | null {
   if (value !== null) assertInteger(value, label, min, max);
 }
 
-function assertBoolean(value: unknown, label: string): asserts value is boolean {
+export function assertBoolean(value: unknown, label: string): asserts value is boolean {
   if (typeof value !== "boolean") throw invalidPreset(`${label} must be true or false`);
 }
 
-function assertArray(value: unknown, label: string, maxLength: number): asserts value is unknown[] {
+export function assertArray(value: unknown, label: string, maxLength: number): asserts value is unknown[] {
   if (!Array.isArray(value) || value.length > maxLength) throw invalidPreset(`${label} must be an array with at most ${maxLength} entries`);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function invalidPreset(detail: string): Error {
+export function invalidPreset(detail: string): Error {
   return new Error(detail);
 }

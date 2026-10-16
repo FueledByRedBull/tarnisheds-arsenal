@@ -1,4 +1,4 @@
-import { validateStoredBuild } from "./stored-build";
+import { isRecord, validateStoredBuild } from "./stored-build";
 import type { CatalogDto, Notice, SolvedBuildDto } from "./types";
 
 function compareBenchKey(profileId: string): string {
@@ -27,10 +27,6 @@ export function readCompareBench(catalog: CatalogDto): { rows: SolvedBuildDto[];
   } catch {
     return empty;
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isStoredBuild(build: unknown, catalog: CatalogDto): build is SolvedBuildDto {

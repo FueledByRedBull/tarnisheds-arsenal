@@ -77,7 +77,7 @@ describe("rankings CSV model provenance", () => {
     expect(headers).toContain("bleed,bleed_add,frost,poison,scarlet_rot,sleep,madness,death");
     expect(values).toContain("100,Uchigatana,Katana");
     expect(values).toContain("unified,,11,15,0,0,0");
-    expect(values).toContain("D,S++,'-,'-,B");
+    expect(values).toContain("D,S++,-,-,B");
   });
 
   it("neutralizes spreadsheet formulas in exported text", () => {
@@ -93,5 +93,22 @@ describe("rankings CSV model provenance", () => {
 
     expect(csv).toContain("\"'=HYPERLINK(\"\"bad\"\")\"");
     expect(csv).toContain("'+external input");
+  });
+
+  it("guards tab and carriage-return formulas but never numbers", () => {
+    const csv = rankingsToCsv([{ ...row, weaponName: "\t=cmd", aowName: "\r=cmd", score: -1.5 }], {
+      profileId: "vanilla",
+      appVersion: "0.10.2",
+      schemaVersion: "7",
+      datasetVersion: "vanilla-1.16.1",
+      modelVersion: "aow-routes-v2",
+      objective: "max_ar",
+      assumptions: "-",
+    });
+
+    expect(csv).toContain(",'\t=cmd,");
+    expect(csv).toContain("\"'\r=cmd\"");
+    expect(csv).toContain(",-,");
+    expect(csv.trimEnd().endsWith(",-1.5")).toBe(true);
   });
 });
