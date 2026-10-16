@@ -11,7 +11,7 @@
 
 .saved-build-recovery {
   margin: 12px 0;
-  font-size: 12px;
+  font-size: var(--text-note);
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
@@ -40,7 +40,7 @@
 
 .report-preview p,
 .build-explanation p {
-  font-size: 12px;
+  font-size: var(--text-note);
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
@@ -48,5 +48,5 @@
 .report-preview textarea {
   width: 100%;
   max-width: 100%;
-  font-size: 11px;
+  font-size: var(--text-label);
 }
