@@ -20,12 +20,18 @@ test("each profile's query survives a reload without touching the other profile"
   await page.getByRole("radio", { name: /Convergence/ }).click();
   await expect(page.getByText("Experimental fixed-stat model", { exact: true })).toBeVisible();
   await twoHanding(page).setChecked(false);
-  await expect.poll(() => storedQuery(page, "convergence")).toMatchObject({ profileId: "convergence", twoHanding: false });
+  const str = page.getByRole("spinbutton", { name: "STR", exact: true });
+  await str.fill("43");
+  await str.press("Enter");
+  await expect.poll(() => storedQuery(page, "convergence")).toMatchObject({ profileId: "convergence", twoHanding: false, strStat: 43 });
   expect(await storedQuery(page, "vanilla")).toMatchObject({ profileId: "vanilla", twoHanding: true });
 
   // After a reload only storage remembers Vanilla's query; Convergence opens as it was left.
   await page.reload();
   await expect(page.getByText("Experimental fixed-stat model", { exact: true })).toBeVisible();
+  await expect(page.getByText("Restored your The Convergence query. Search to rank it again.")).toBeVisible();
+  await expect(page.getByText(/could not be read and was discarded/)).toHaveCount(0);
+  await expect(str).toHaveValue("43");
   await expect(twoHanding(page)).not.toBeChecked();
   await page.getByRole("radio", { name: /Vanilla/ }).click();
   await expect(page.getByText("Snapshot loaded", { exact: true })).toBeVisible();
