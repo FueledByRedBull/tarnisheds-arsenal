@@ -2,17 +2,12 @@ import { describe, expect, it } from "vitest";
 import { explainBuild } from "./build-explanation";
 import { reproductionReport } from "./reproduction-report";
 import { defaultRequest, useDesktopStore } from "./state";
-import type { SolvedBuildDto } from "./types";
+import { solvedBuild } from "./test-fixtures";
 
-const row: SolvedBuildDto = {
-  weaponId: 1, weaponName: "Uchigatana", affinity: "Keen", isSomber: false, upgrade: 7,
-  stats: { strStat: 18, dex: 40, intStat: 9, fai: 8, arc: 8 },
-  ar: { physical: 300, magic: 100, fire: 0, lightning: 0, holy: 0, total: 400 },
-  aowId: 100, aowName: "Unsheathe", bleedBuildup: 45, bleedBuildupAdd: 0,
-  frostBuildup: 0, poisonBuildup: 0, scarletRotBuildup: 0, sleepBuildup: 0,
-  madnessBuildup: 0, deathBuildup: 0, aowFirstHitDamage: 300,
-  aowFullSequenceDamage: 500, aowRoute: null, score: 400,
-};
+const row = solvedBuild({
+  upgrade: 7, ar: { physical: 300, magic: 100, fire: 0, lightning: 0, holy: 0, total: 400 },
+  aowFullSequenceDamage: 500, score: 400,
+});
 
 describe("calculation-derived explanations", () => {
   it("does not explain a missing skill route as a measured zero or numeric comparison", () => {
@@ -91,9 +86,15 @@ describe("reproduction reports", () => {
     "Unable to open \\\\machine\\private\\data.csv",
     "failed /home/alice/data.csv", "file:///Users/alice/data.csv",
     "contact alice@example.com", "Authorization: Bearer test", "token=test",
+    "Unable to open Users\\alice\\data.csv", "sent Bearer abc", `key ${"a1B2".repeat(10)}`,
   ])("omits private-looking error text: %s", error => {
     const report = JSON.parse(reproductionReport({ ...state(), error }));
     expect(report.error).toMatch(/^\[Omitted:/);
+  });
+  it.each([
+    "Search failed:/ retry", "Unexpected token } in JSON", "Convergence 3.0.0.1 data could not be loaded",
+  ])("keeps ordinary error text: %s", error => {
+    expect(JSON.parse(reproductionReport({ ...state(), error })).error).toBe(error);
   });
   it("retains useful ordinary errors but excludes stale selected results", () => {
     const report = JSON.parse(reproductionReport({ ...state(), resultsStale: true, error: "No legal weapons match the filters." }));

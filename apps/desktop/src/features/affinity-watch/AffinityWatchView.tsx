@@ -3,12 +3,13 @@ import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { analysisStatus, analysisStatusLabel, type AnalysisOutcome } from "../../lib/analysis-status";
 import { contiguousMetricSegments, metricRatio, paddedMetricDomain } from "../../lib/chart";
-import { useAffinityJob, useRequestBudget } from "../../lib/hooks";
-import { fixed1, objectiveLabel, objectiveUnit, statLine } from "../../lib/format";
+import { useAffinityJob, useBuiltRequest } from "../../lib/hooks";
+import { errorMessage, fixed1, objectiveLabel, objectiveUnit, statLine } from "../../lib/format";
 import { clampHorizon, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { AffinityWatchFinishedDto, AffinityWatchPayloadDto } from "../../lib/types";
 import type { NativeJobSuccess } from "../../lib/native-jobs";
+import { DraftNumberInput } from "../query-strip/DraftNumberInput";
 
 export function AffinityWatchView() {
   const catalog = useDesktopStore((state) => state.catalog);
@@ -29,7 +30,7 @@ export function AffinityWatchView() {
   const setAffinityProgress = useDesktopStore((state) => state.setAffinityProgress);
   const pushNotice = useDesktopStore((state) => state.pushNotice);
   const setError = useDesktopStore((state) => state.setError);
-  const { base } = useRequestBudget(catalog, request, lockedStatMode);
+  const base = useBuiltRequest(catalog, request, lockedStatMode);
   const effectiveHorizon = clampHorizon(request, horizon);
   const signature = stableSignature({ base, selected, horizon: effectiveHorizon });
   const [runOutcome, setRunOutcome] = useState<AnalysisOutcome>(null);
@@ -95,7 +96,7 @@ export function AffinityWatchView() {
           current.pushNotice({ scope: "affinity_watch", tone: "warning", message: "Affinity watch stopped." });
           setRunOutcome("cancelled");
         } else {
-          setError(error instanceof Error ? error.message : String(error));
+          setError(errorMessage(error));
           setRunOutcome("failed");
         }
         setAffinityBusy(false);
@@ -114,7 +115,7 @@ export function AffinityWatchView() {
       } catch (error) {
         const current = useDesktopStore.getState();
         if (current.isAffinityBusy && current.activeAffinityJobId === activeAffinityJobId) {
-          setError(error instanceof Error ? error.message : String(error));
+          setError(errorMessage(error));
           setRunOutcome("failed");
         }
       }
@@ -159,7 +160,7 @@ export function AffinityWatchView() {
         <div className="header-controls">
           <label>
             Levels ahead
-            <input type="number" min={1} max={200} value={horizon} onChange={(event) => setHorizon(clamp(Number(event.target.value), 1, 200))} />
+            <DraftNumberInput value={horizon} min={1} max={200} onCommit={setHorizon} />
           </label>
           <button type="button" className="analysis-action" onClick={isAffinityBusy ? stop : refresh} disabled={!selected && !isAffinityBusy}>
             {isAffinityBusy ? <Pause size={15} /> : <Play size={15} />}
@@ -365,9 +366,4 @@ function linePoints(
     .filter((point) => point.metric !== null)
     .map((point) => `${chartX(point.level, firstLevel, lastLevel)},${chartY(point.metric, domain)}`)
     .join(" ");
-}
-
-function clamp(value: number, min: number, max: number): number {
-  if (Number.isNaN(value)) return min;
-  return Math.max(min, Math.min(max, Math.trunc(value)));
 }

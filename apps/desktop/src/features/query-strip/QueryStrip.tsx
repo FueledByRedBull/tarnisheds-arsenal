@@ -3,12 +3,12 @@ import { lazy, ReactNode, Suspense, useEffect, useEffectEvent, useMemo, useRef, 
 import brandMark from "../../assets/brand-mark.png";
 import { CommandAction, CommandContext } from "../../lib/commands";
 import { fixed1, objectiveLabel, statLockLine } from "../../lib/format";
-import { useRequestBudget, useWeaponProfile } from "../../lib/hooks";
+import { useWeaponProfile } from "../../lib/hooks";
 import { isTextEntry, keyboardOwnedByOverlay } from "../../lib/keyboard";
 import { describeStep, redoQuery, trackQueryHistory, undoQuery, useQueryHistory } from "../../lib/query-history";
 import { flashChanged } from "../../lib/motion";
 import { scadutreeAttackMultiplier } from "../../lib/scadutree";
-import { classMeta, derivedLevel, EIGHT_STAT_KEYS, hasCombatStatLocks, optimalStartingClass, startingClassLevel } from "../../lib/session";
+import { budgetSnapshot, classMeta, derivedLevel, EIGHT_STAT_KEYS, hasCombatStatLocks, optimalStartingClass, startingClassLevel } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { EightStatsDto, OptimizeRequestDto } from "../../lib/types";
 import { effectiveWeaponStrength } from "../../lib/weapon-handling";
@@ -77,7 +77,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   const redoLabel = redoStep ? describeStep(redoStep) : null;
 
   const meta = classMeta(catalog, request.className);
-  const { budget } = useRequestBudget(catalog, request, lockedStatMode);
+  const budget = useMemo(() => budgetSnapshot(catalog, request), [catalog, request]);
   // Mounted once here so a selected weapon's legal affinity is enforced while editors are closed.
   const profileResource = useWeaponProfile(request, patchRequest);
   const weaponProfile = profileResource.profile;

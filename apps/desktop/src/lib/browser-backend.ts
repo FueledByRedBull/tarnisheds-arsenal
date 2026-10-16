@@ -6,6 +6,7 @@ import type {
   OptimizeRequestDto,
   PathJobStatusDto,
   PathPreviewDto,
+  PathStepDto,
   SearchJobStatusDto,
   StartSearchResponseDto,
   ScalingDto,
@@ -312,7 +313,7 @@ export async function mockInvoke<T>(command: string, args?: Record<string, unkno
     case "build_upgrade_series":
       return await mockUpgradeSeries(args) as T;
     case "compatible_aow_names_for_affinity":
-      return await mockCompatibleAowNamesForAffinity(args) as T;
+      return await mockCompatibleAowNamesForAffinity() as T;
     case "affinities_for_weapon":
       return await mockAffinitiesForWeapon(args) as T;
     case "start_path_preview":
@@ -441,8 +442,7 @@ async function mockAffinitiesForWeapon(args: Record<string, unknown> | undefined
   return uniqueSorted(MOCK_WEAPONS.filter((row) => row.name === weaponName).map((row) => row.affinity));
 }
 
-async function mockCompatibleAowNamesForAffinity(args: Record<string, unknown> | undefined): Promise<string[]> {
-  void args;
+async function mockCompatibleAowNamesForAffinity(): Promise<string[]> {
   return MOCK_AOW_NAMES;
 }
 
@@ -581,13 +581,7 @@ function fixedPathStep(
   stats: SolvedBuildDto["stats"],
   metric: number,
   addedStat: string | null,
-): {
-  level: number;
-  stats: SolvedBuildDto["stats"];
-  metric: number | null;
-  addedStat: string | null;
-  requirementGap: number;
-} {
+): PathStepDto {
   return {
     level,
     stats,

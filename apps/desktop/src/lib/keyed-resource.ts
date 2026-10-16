@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { errorMessage } from "./format";
 
 export function useKeyedResource<T>(key: string | null, load: (signal: AbortSignal) => Promise<T>) {
   const [attempt, setAttempt] = useState(0);
@@ -17,7 +18,7 @@ export function useKeyedResource<T>(key: string | null, load: (signal: AbortSign
       if (!controller.signal.aborted) setLoaded({ key, attempt, data, error: null });
     }).catch(error => {
       if (!controller.signal.aborted) setLoaded({
-        key, attempt, data: null, error: error instanceof Error ? error.message : String(error),
+        key, attempt, data: null, error: errorMessage(error),
       });
     });
     return () => controller.abort();

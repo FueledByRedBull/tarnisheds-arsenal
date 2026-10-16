@@ -10,6 +10,7 @@ import { BuildPreset, BuildPresetV1, OptimizeRequestDto, SavedBuildIndexV1, Solv
 const INDEX_KEY = "tarnisheds-arsenal.savedBuildIndex.v1";
 const PRESET_PREFIX = "tarnisheds-arsenal.savedBuild.v2.";
 const LEGACY_PRESET_PREFIX = "tarnisheds-arsenal.savedBuild.v1.";
+const RECOVERY_PREFIX = "tarnisheds-arsenal.savedBuildIndex.recovery.";
 export const SHARE_PREFIX = "ta-v2:";
 const LEGACY_SHARE_PREFIX = "ta-v1:";
 export const MAX_PRESET_IMPORT_BYTES = 256 * 1024;
@@ -24,7 +25,7 @@ export interface PresetImportPreview {
 export function savedBuildIndex(): SavedBuildIndexV1 {
   const raw = localStorage.getItem(INDEX_KEY);
   if (raw === null) {
-    if (presetStorageKeys().length) throw new Error("Saved build index is missing. Open backup and recovery before saving.");
+    if (storageKeys(PRESET_PREFIX, LEGACY_PRESET_PREFIX).length) throw new Error("Saved build index is missing. Open backup and recovery before saving.");
     return { version: 1, builds: [] };
   }
   try {
@@ -60,11 +61,11 @@ export interface SavedBuildInspection {
   source: { index: string | null; records: [string, string | null][] };
 }
 
-function presetStorageKeys(): string[] {
+function storageKeys(...prefixes: string[]): string[] {
   const keys: string[] = [];
   for (let index = 0; index < localStorage.length; index += 1) {
     const key = localStorage.key(index);
-    if (key?.startsWith(PRESET_PREFIX) || key?.startsWith(LEGACY_PRESET_PREFIX)) keys.push(key);
+    if (key !== null && prefixes.some((prefix) => key.startsWith(prefix))) keys.push(key);
   }
   return keys.sort();
 }
@@ -77,7 +78,7 @@ function presetIndexEntry(preset: BuildPreset): SavedBuildIndexV1["builds"][numb
 export function inspectSavedBuilds(): SavedBuildInspection {
   const source = {
     index: localStorage.getItem(INDEX_KEY),
-    records: presetStorageKeys().map((key): [string, string | null] => [key, localStorage.getItem(key)]),
+    records: storageKeys(PRESET_PREFIX, LEGACY_PRESET_PREFIX).map((key): [string, string | null] => [key, localStorage.getItem(key)]),
   };
   const issues: string[] = [];
   let index: SavedBuildIndexV1 = { version: 1, builds: [] };
@@ -113,17 +114,27 @@ export function recoverSavedBuilds(preview: SavedBuildInspection): string | null
   if (JSON.stringify(current.source) !== JSON.stringify(preview.source)) {
     throw new Error("Saved builds changed after this preview. Scan again before recovery.");
   }
-  const backupKey = current.source.index === null ? null : `tarnisheds-arsenal.savedBuildIndex.recovery.${crypto.randomUUID()}`;
+  const backupKey = current.source.index === null ? null : `${RECOVERY_PREFIX}${new Date().toISOString()}`;
   if (backupKey) localStorage.setItem(backupKey, current.source.index!);
   // Copy the original index first; a quota failure must never erase its only copy.
   localStorage.setItem(INDEX_KEY, JSON.stringify({ version: 1, builds: current.presets.map(presetIndexEntry) }));
+  // Keep the newest three copies: each takes up to ~100 KB of the quota the builds share.
+  // Older copies named by a random ID sort first, as the oldest.
+  const copies = storageKeys(RECOVERY_PREFIX)
+    .sort((a, b) => recoveryOrder(a).localeCompare(recoveryOrder(b)));
+  for (const key of copies.slice(0, -3)) localStorage.removeItem(key);
   return backupKey;
 }
 
+function recoveryOrder(key: string): string {
+  const name = key.slice(RECOVERY_PREFIX.length);
+  return /^\d{4}-/.test(name) ? name : "";
+}
+
+// Export never refuses: it is how a recovered library over the import limits gets off the
+// device, even though a restore then needs it split into backups of at most 500 builds.
 export function savedBuildBackupText(inspection: SavedBuildInspection): string {
-  const text = JSON.stringify({ format: "tarnisheds-arsenal.build-backup", version: 1, builds: inspection.presets });
-  previewBuildBackup(text);
-  return text;
+  return JSON.stringify({ format: "tarnisheds-arsenal.build-backup", version: 1, builds: inspection.presets });
 }
 
 export function previewBuildBackup(raw: string): { presets: BuildPreset[]; bytes: number } {
@@ -474,12 +485,17 @@ function migratePreset(value: unknown): BuildPreset {
   }
   request.filters ??= { version: 1, entries: [] };
   request.resultGrouping ??= "automatic";
-  for (const buildKey of ["selectedBuild", "compareTarget"] as const) {
-    const build = value[buildKey];
+  // Schema-1 records predate later result fields. Loading re-solves saved results, so neutral
+  // defaults only let the record be read; they are never shown as verified values.
+  const builds = [value.selectedBuild, value.compareTarget, ...(Array.isArray(value.compareBench) ? value.compareBench : [])];
+  for (const build of builds) {
     if (!isRecord(build)) continue;
-    for (const statusKey of ["sleepBuildup", "madnessBuildup", "deathBuildup"] as const) {
-      if (build[statusKey] === undefined) build[statusKey] = 0;
+    for (const key of ["bleedBuildupAdd", "frostBuildup", "poisonBuildup", "scarletRotBuildup", "sleepBuildup",
+      "madnessBuildup", "deathBuildup", "aowFirstHitDamage", "aowFullSequenceDamage"]) {
+      if (build[key] === undefined) build[key] = 0;
     }
+    if (build.aowId === undefined) build.aowId = null;
+    if (build.aowRoute === undefined) build.aowRoute = null;
   }
   if (!Array.isArray(value.compareBench)) {
     value.compareBench = value.compareTarget ? [value.compareTarget] : [];

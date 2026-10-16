@@ -115,7 +115,7 @@ export function classMeta(catalog: CatalogDto | null, className: string): ClassM
   throw new Error(`Unknown starting class: ${className}`);
 }
 
-export function currentStatTotal(request: OptimizeRequestDto): number {
+function currentStatTotal(request: OptimizeRequestDto): number {
   return EIGHT_STAT_KEYS.reduce((total, key) => total + Number(request[key]), 0);
 }
 
@@ -253,7 +253,7 @@ export function rowFingerprint(row: SolvedBuildDto | null): string | null {
   ].join("|");
 }
 
-export function remainingCombatLevels(request: OptimizeRequestDto): number {
+function remainingCombatLevels(request: OptimizeRequestDto): number {
   return STAT_KEYS.reduce((total, key) => total + Math.max(0, 99 - Number(request[key])), 0);
 }
 
