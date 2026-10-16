@@ -6,6 +6,7 @@ import ctypes
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -13,10 +14,23 @@ import tempfile
 import zipfile
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from tools.phase1.snapshot_manifest import sha256_file as sha256  # noqa: E402
+
 EXPECTED_PRODUCT_NAME = "Tarnished’s Arsenal"
 EXPECTED_UPGRADE_CODE = "{EC17FDAC-E313-5440-BD56-B985F2F0DA58}"
 BUNDLE_TYPE_UNKNOWN = b"__TAURI_BUNDLE_TYPE_VAR_UNK"
 BUNDLE_TYPE_MSI = b"__TAURI_BUNDLE_TYPE_VAR_MSI"
+SigningCredentials = tuple[str, str, str]
+# Imported PFX certificates are listed as "<HasPrivateKey> <Thumbprint>" rows.
+IMPORT_CERTIFICATE_SCRIPT = (
+    "$password = ConvertTo-SecureString $env:SIGNING_PFX_PASSWORD -AsPlainText -Force\n"
+    "Import-PfxCertificate -FilePath $env:SIGNING_PFX_PATH -CertStoreLocation Cert:\\CurrentUser\\My "
+    "-Password $password | ForEach-Object { \"$($_.HasPrivateKey) $($_.Thumbprint)\" }\n"
+)
 
 
 def npm_cmd() -> str:
@@ -33,7 +47,8 @@ def run(cmd: list[str], cwd: Path, *, env: dict[str, str] | None = None) -> None
 
 def write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+    # LF on every host: sha256sum -c reads a CR as part of the file name.
+    path.write_text(text, encoding="utf-8", newline="\n")
 
 
 def newest(path_glob: str, root: Path) -> Path:
@@ -41,11 +56,6 @@ def newest(path_glob: str, root: Path) -> Path:
     if not matches:
         raise FileNotFoundError(f"no artifact matched {path_glob} under {root}")
     return matches[-1]
-
-
-def sha256(path: Path) -> str:
-    with path.open("rb") as handle:
-        return hashlib.file_digest(handle, "sha256").hexdigest()
 
 
 def create_portable_archive(zip_path: Path, release_dir: Path, portable_name: str) -> None:
@@ -114,7 +124,7 @@ def require_clean_source(root: Path) -> str:
 
 def git_changed_paths(root: Path) -> list[str]:
     result = subprocess.run(
-        ["git", "diff", "--name-only", "--ignore-cr-at-eol", "HEAD", "--"],
+        ["git", "diff", "--name-only", "HEAD", "--"],
         cwd=root,
         check=True,
         capture_output=True,
@@ -153,7 +163,6 @@ def public_manifest_diff(root: Path, changed_paths: list[str]) -> str:
         [
             "git",
             "diff",
-            "--ignore-cr-at-eol",
             "--unified=1",
             "HEAD",
             "--",
@@ -382,10 +391,65 @@ def verify_msi_payload(
             )
 
 
+def take_signing_credentials() -> SigningCredentials | None:
+    """Remove signing secrets from the environment before any build subprocess starts."""
+    encoded_certificate = os.environ.pop("WINDOWS_SIGNING_CERTIFICATE_BASE64", "").strip()
+    password = os.environ.pop("WINDOWS_SIGNING_CERTIFICATE_PASSWORD", "")
+    timestamp_url = (
+        os.environ.pop("WINDOWS_SIGNING_TIMESTAMP_URL", "").strip() or "http://timestamp.digicert.com"
+    )
+    if not encoded_certificate and not password:
+        return None
+    if not encoded_certificate or not password:
+        raise RuntimeError("Windows signing requires both certificate and password credentials")
+    return encoded_certificate, password, timestamp_url
+
+
+def run_pwsh(script: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["pwsh.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+
+def import_signing_certificate(certificate: Path, password: str) -> tuple[str, list[str]]:
+    """Import the PFX into the user's store so signtool signs by thumbprint.
+
+    The password reaches only this PowerShell child, through its environment, never a
+    command line. Returns the signing thumbprint and every imported thumbprint.
+    """
+    result = run_pwsh(
+        IMPORT_CERTIFICATE_SCRIPT,
+        {**os.environ, "SIGNING_PFX_PATH": str(certificate), "SIGNING_PFX_PASSWORD": password},
+    )
+    rows = re.findall(r"^(True|False) ([0-9A-F]{40})$", result.stdout, re.MULTILINE)
+    imported = [thumbprint for _, thumbprint in rows]
+    signing = [thumbprint for has_key, thumbprint in rows if has_key == "True"]
+    if result.returncode or len(signing) != 1:
+        remove_signing_certificates(imported)
+        raise RuntimeError("Windows signing certificate import did not yield exactly one private key")
+    return signing[0], imported
+
+
+def remove_signing_certificates(thumbprints: list[str]) -> None:
+    if not thumbprints:
+        return
+    result = run_pwsh(
+        "; ".join(
+            f'Remove-Item -LiteralPath "Cert:\\CurrentUser\\My\\{thumbprint}" -DeleteKey -ErrorAction Stop'
+            for thumbprint in thumbprints
+        )
+    )
+    if result.returncode:
+        raise RuntimeError("could not remove the imported Windows signing certificates")
+
+
 def sign_windows_binary(
     signtool: Path,
-    certificate: Path,
-    password: str,
+    thumbprint: str,
     timestamp_url: str,
     binary: Path,
 ) -> None:
@@ -398,10 +462,10 @@ def sign_windows_binary(
         "SHA256",
         "/tr",
         timestamp_url,
-        "/f",
-        str(certificate),
-        "/p",
-        password,
+        "/sha1",
+        thumbprint,
+        "/s",
+        "My",
         str(binary),
     ]
     try:
@@ -455,7 +519,7 @@ if ($isPayload) {{
     throw \"Tauri signing hook was invoked more than once for the MSI payload\"
   }}
 }}
-& $env:TAURI_RELEASE_SIGNTOOL sign /fd SHA256 /td SHA256 /tr $env:TAURI_RELEASE_TIMESTAMP_URL /f $env:TAURI_RELEASE_CERTIFICATE /p $env:TAURI_RELEASE_CERTIFICATE_PASSWORD $binary
+& $env:TAURI_RELEASE_SIGNTOOL sign /fd SHA256 /td SHA256 /tr $env:TAURI_RELEASE_TIMESTAMP_URL /sha1 $env:TAURI_RELEASE_CERTIFICATE_THUMBPRINT /s My $binary
 if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}
 & $env:TAURI_RELEASE_SIGNTOOL verify /pa /v $binary
 if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}
@@ -496,20 +560,14 @@ if ($isPayload) {{
 def sign_release_binaries_if_configured(
     app_dir: Path,
     tauri_dir: Path,
+    credentials: SigningCredentials | None,
 ) -> tuple[Path, Path, bool, bytes | None]:
     exe = newest("target/release/tarnisheds-arsenal-desktop.exe", tauri_dir)
-    encoded_certificate = os.environ.get("WINDOWS_SIGNING_CERTIFICATE_BASE64", "").strip()
-    password = os.environ.get("WINDOWS_SIGNING_CERTIFICATE_PASSWORD", "")
-    if not encoded_certificate and not password:
+    if credentials is None:
         return exe, newest("target/release/bundle/msi/*.msi", tauri_dir), False, None
-    if not encoded_certificate or not password:
-        raise RuntimeError("Windows signing requires both certificate and password credentials")
+    encoded_certificate, password, timestamp_url = credentials
 
     signtool = find_signtool()
-    timestamp_url = (
-        os.environ.get("WINDOWS_SIGNING_TIMESTAMP_URL", "").strip()
-        or "http://timestamp.digicert.com"
-    )
     workspace = tauri_dir.parents[2] / "dist"
     workspace.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="tarnisheds-signing-", dir=workspace) as directory:
@@ -518,42 +576,60 @@ def sign_release_binaries_if_configured(
             certificate.write_bytes(base64.b64decode(encoded_certificate, validate=True))
         except ValueError as error:
             raise RuntimeError("Windows signing certificate is not valid base64") from error
-        expected_msi_hash = expected_msi_payload_sha256(exe)
-        snapshot = Path(directory) / "signed-msi-payload.exe"
-        config = write_tauri_signing_config(Path(directory), exe.name)
-        signing_env = os.environ.copy()
-        signing_env.update(
-            {
-                "TAURI_RELEASE_SIGNTOOL": str(signtool),
-                "TAURI_RELEASE_CERTIFICATE": str(certificate),
-                "TAURI_RELEASE_CERTIFICATE_PASSWORD": password,
-                "TAURI_RELEASE_TIMESTAMP_URL": timestamp_url,
-                "TAURI_RELEASE_SIGNED_MSI_PAYLOAD": str(snapshot),
-                "TAURI_RELEASE_EXPECTED_MSI_PAYLOAD_SHA256": expected_msi_hash,
-            }
-        )
-        run(
-            [
-                npm_cmd(),
-                "run",
-                "tauri",
-                "--",
-                "bundle",
-                "--bundles",
-                "msi",
-                "--config",
-                str(config),
-            ],
-            cwd=app_dir,
-            env=signing_env,
-        )
-        if not snapshot.is_file():
-            raise RuntimeError("Tauri signing hook did not capture the signed MSI payload")
-        expected_payload = snapshot.read_bytes()
-        verify_windows_binary(signtool, snapshot)
-        msi = newest("target/release/bundle/msi/*.msi", tauri_dir)
-        sign_windows_binary(signtool, certificate, password, timestamp_url, exe)
-        verify_windows_binary(signtool, msi)
+        thumbprint, imported = import_signing_certificate(certificate, password)
+        certificate.unlink()
+        try:
+            return _sign_with_thumbprint(
+                app_dir, tauri_dir, exe, signtool, thumbprint, timestamp_url, Path(directory)
+            )
+        finally:
+            remove_signing_certificates(imported)
+
+
+def _sign_with_thumbprint(
+    app_dir: Path,
+    tauri_dir: Path,
+    exe: Path,
+    signtool: Path,
+    thumbprint: str,
+    timestamp_url: str,
+    directory: Path,
+) -> tuple[Path, Path, bool, bytes | None]:
+    expected_msi_hash = expected_msi_payload_sha256(exe)
+    snapshot = directory / "signed-msi-payload.exe"
+    config = write_tauri_signing_config(directory, exe.name)
+    signing_env = os.environ.copy()
+    signing_env.update(
+        {
+            "TAURI_RELEASE_SIGNTOOL": str(signtool),
+            "TAURI_RELEASE_CERTIFICATE_THUMBPRINT": thumbprint,
+            "TAURI_RELEASE_TIMESTAMP_URL": timestamp_url,
+            "TAURI_RELEASE_SIGNED_MSI_PAYLOAD": str(snapshot),
+            "TAURI_RELEASE_EXPECTED_MSI_PAYLOAD_SHA256": expected_msi_hash,
+        }
+    )
+    run(
+        [
+            npm_cmd(),
+            "run",
+            "tauri",
+            "--",
+            "bundle",
+            "--bundles",
+            "msi",
+            "--config",
+            str(config),
+        ],
+        cwd=app_dir,
+        env=signing_env,
+    )
+    if not snapshot.is_file():
+        raise RuntimeError("Tauri signing hook did not capture the signed MSI payload")
+    expected_payload = snapshot.read_bytes()
+    verify_windows_binary(signtool, snapshot)
+    msi = newest("target/release/bundle/msi/*.msi", tauri_dir)
+    sign_windows_binary(signtool, thumbprint, timestamp_url, exe)
+    verify_windows_binary(signtool, msi)
     return exe, msi, True, expected_payload
 
 
@@ -574,6 +650,7 @@ def main() -> int:
         help="Deliberately refresh only the known files in an existing version output.",
     )
     args = parser.parse_args()
+    signing_credentials = take_signing_credentials()
 
     root = Path(__file__).resolve().parents[2]
     app_dir = root / "apps" / "desktop"
@@ -749,12 +826,8 @@ def main() -> int:
         require_unchanged_tracked_source(root, source_commit, stage="frontend tests")
         run([npm_cmd(), "run", "test:e2e"], cwd=app_dir)
         require_unchanged_tracked_source(root, source_commit, stage="frontend E2E tests")
-    signing_requested = bool(
-        os.environ.get("WINDOWS_SIGNING_CERTIFICATE_BASE64", "").strip()
-        or os.environ.get("WINDOWS_SIGNING_CERTIFICATE_PASSWORD", "")
-    )
     build_command = [npm_cmd(), "run", "tauri", "--", "build"]
-    if signing_requested:
+    if signing_credentials is not None:
         build_command.append("--no-bundle")
     build_command.extend(["--", "--locked"])
     run(build_command, cwd=app_dir)
@@ -762,6 +835,7 @@ def main() -> int:
     packaged_exe, packaged_msi, code_signed, expected_msi_payload = sign_release_binaries_if_configured(
         app_dir,
         tauri_dir,
+        signing_credentials,
     )
     if code_signed:
         completed_gates.append("windows-code-signing")
