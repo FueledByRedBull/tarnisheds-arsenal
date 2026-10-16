@@ -312,6 +312,37 @@ impl ScalarAowRoute<'_> {
                 })
         })
     }
+
+    /// Active stats that share an influence-corrected damage type in some hit. That
+    /// correction's minimum couples them; every other active stat stays separable.
+    pub(crate) fn coupled_stats(
+        &self,
+        data: &GameData,
+        active: [bool; COMBAT_STAT_COUNT],
+    ) -> [bool; COMBAT_STAT_COUNT] {
+        let mut coupled = [false; COMBAT_STAT_COUNT];
+        let overrides = self.hits.iter().filter_map(|hit| {
+            hit.row
+                .overwrite_attack_element_correct_id
+                .and_then(|id| data.attack_element_ext(id))
+        });
+        for ext in overrides {
+            for damage in 0..DAMAGE_TYPE_COUNT {
+                let scales = |stat: usize| ext.stat_scales(stat, damage);
+                let shared: [bool; COMBAT_STAT_COUNT] =
+                    std::array::from_fn(|stat| active[stat] && scales(stat));
+                if shared.iter().filter(|&&stat| stat).count() > 1
+                    && (0..COMBAT_STAT_COUNT)
+                        .any(|stat| scales(stat) && ext.influence_rate(stat, damage) != 1.0)
+                {
+                    for (coupled, shared) in coupled.iter_mut().zip(shared) {
+                        *coupled |= shared;
+                    }
+                }
+            }
+        }
+        coupled
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
