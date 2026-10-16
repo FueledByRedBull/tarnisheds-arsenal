@@ -1,6 +1,8 @@
 import { isRecord, validateStoredBuild } from "./stored-build";
 import type { CatalogDto, Notice, SolvedBuildDto } from "./types";
 
+export const MAX_COMPARE_PINS = 8;
+
 function compareBenchKey(profileId: string): string {
   return `tarnisheds-arsenal.compareBench.v1.${profileId}`;
 }
@@ -12,14 +14,16 @@ export function readCompareBench(catalog: CatalogDto): { rows: SolvedBuildDto[];
     const raw = localStorage.getItem(compareBenchKey(catalog.dataManifest.profile.id));
     if (!raw) return empty;
     const value: unknown = JSON.parse(raw);
-    if (!isRecord(value) || value.version !== 1 || value.datasetVersion !== catalog.dataManifest.datasetVersion
-      || value.schemaVersion !== catalog.dataManifest.schemaVersion
-      || value.modelVersion !== catalog.dataManifest.modelVersion || !Array.isArray(value.rows)) {
-      return empty;
+    if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.rows)) return empty;
+    if (value.datasetVersion !== catalog.dataManifest.datasetVersion || value.schemaVersion !== catalog.dataManifest.schemaVersion
+      || value.modelVersion !== catalog.dataManifest.modelVersion) {
+      return { rows: [], notices: value.rows.length ? [{
+        scope: "global", tone: "warning", message: "Your pinned comparison builds were saved on different game data and were not restored.",
+      }] : [] };
     }
     const rows = value.rows.filter((row): row is SolvedBuildDto => isStoredBuild(row, catalog));
     return {
-      rows: rows.slice(0, 8),
+      rows: rows.slice(0, MAX_COMPARE_PINS),
       notices: rows.length === value.rows.length ? [] : [{
         scope: "global", tone: "warning", message: "Some saved comparison builds were discarded because their data is invalid.",
       }],

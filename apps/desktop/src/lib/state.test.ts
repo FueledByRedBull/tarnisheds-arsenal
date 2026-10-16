@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { defaultRequest, useDesktopStore } from "./state";
-import { buildOptimizeRequest, normalizeOptimizeRequest } from "./session";
+import { applyProfileRules, buildOptimizeRequest } from "./session";
 import { parsePresetText } from "./presets";
 import { api } from "./api";
 import { STARTING_CLASS_METADATA } from "./session";
@@ -132,9 +132,6 @@ describe("desktop result lifecycle", () => {
 
     useDesktopStore.getState().setRows([{ ...row, score: 510 }], 42);
     expect(useDesktopStore.getState()).toMatchObject({ resultsStale: false, rowsSetups: 42 });
-
-    useDesktopStore.getState().clearResults();
-    expect(useDesktopStore.getState().rowsSetups).toBeNull();
   });
 
   it("keeps saved comparisons and analysis ownership until the selected build changes", () => {
@@ -236,6 +233,14 @@ describe("desktop result lifecycle", () => {
     });
   });
 
+  it("refuses a ninth pin with a notice and keeps the first eight", () => {
+    useDesktopStore.setState({ catalog: null, compareBench: [], notices: [] });
+    const rows = Array.from({ length: 9 }, (_, index) => ({ ...row, weaponId: index + 1 }));
+    for (const entry of rows) useDesktopStore.getState().toggleCompareBench(entry);
+    expect(useDesktopStore.getState().compareBench).toEqual(rows.slice(0, 8));
+    expect(useDesktopStore.getState().notices.at(-1)?.message).toBe("Compare holds 8 pinned builds. Unpin one before pinning another.");
+  });
+
   it("records recoverable catalog loading failures", () => {
     const state = useDesktopStore.getState();
     state.setCatalogFailure("manifest checksum mismatch");
@@ -265,8 +270,12 @@ describe("desktop result lifecycle", () => {
       useDesktopStore.getState().setCatalog(structuredClone(profile));
       expect(useDesktopStore.getState().compareBench).toEqual([row]);
       for (const change of [{ schemaVersion: 5 }, { datasetVersion: "next" }, { modelVersion: "next" }]) {
+        useDesktopStore.setState({ notices: [] });
         useDesktopStore.getState().setCatalog({ ...profile, dataManifest: { ...profile.dataManifest, ...change } });
         expect(useDesktopStore.getState().compareBench).toEqual([]);
+        expect(useDesktopStore.getState().notices.map((notice) => notice.message)).toEqual([
+          "Your pinned comparison builds were saved on different game data and were not restored.",
+        ]);
       }
       useDesktopStore.getState().setCatalog(catalog("convergence"));
       expect(useDesktopStore.getState().compareBench).toEqual([]);
@@ -524,7 +533,7 @@ describe("desktop result lifecycle", () => {
     expect(fixed.characterLevel).toBe(request.vig + request.mnd + request.end + 1 + 99 + request.intStat + request.fai + request.arc);
     useDesktopStore.getState().setWorkspace("paths");
     expect(useDesktopStore.getState().activeWorkspace).toBe("rankings");
-    expect(normalizeOptimizeRequest({ ...request, somberMaxUpgrade: 15 }, request, profile.dataManifest.rules).somberMaxUpgrade).toBe(15);
+    expect(applyProfileRules({ ...request, somberMaxUpgrade: 15 }, profile.dataManifest.rules).somberMaxUpgrade).toBe(15);
     await useDesktopStore.getState().loadBuildPreset({ version: 2, id: "old-profile", name: "Old profile inputs",
       profileId: "convergence", request: { ...request, className: "Custom stats", somberMaxUpgrade: 15 },
       selectedBuild: null, compareTarget: null, compareBench: [], dataVersion: "old",
@@ -545,6 +554,36 @@ describe("saved result activation boundary", () => {
       dataVersion: `vanilla:${manifest.schemaVersion}:${manifest.datasetVersion}:${manifest.modelVersion}`,
       createdAt: "2026-01-01", updatedAt: "2026-01-01" }));
   }
+
+  it("keeps current pins when the loaded build has none and drops unknown request fields", async () => {
+    const preset = activationPreset();
+    Object.assign(preset.request, { extension: "x".repeat(1000) });
+    Object.assign(preset.request.filters, { extension: true });
+    useDesktopStore.setState({ compareBench: [row] });
+    await useDesktopStore.getState().loadBuildPreset(preset);
+    const state = useDesktopStore.getState();
+    expect(state.compareBench).toEqual([row]);
+    expect(Object.keys(state.request).sort()).toEqual(Object.keys(defaultRequest).sort());
+    expect(state.request.filters).toEqual({ version: 1, entries: [] });
+  });
+
+  it("replaces current pins with a loaded build's pins and says so", async () => {
+    const preset = activationPreset();
+    const pinned = { ...row, weaponId: 2 };
+    preset.compareBench = [pinned];
+    useDesktopStore.setState({ compareBench: [row] });
+    vi.stubGlobal("localStorage", { setItem: vi.fn() });
+    const solve = vi.spyOn(api, "solveBuild").mockResolvedValue(pinned);
+    try {
+      await useDesktopStore.getState().loadBuildPreset(preset);
+      expect(useDesktopStore.getState().compareBench).toEqual([pinned]);
+      expect(useDesktopStore.getState().notices[0].message).toBe(
+        "Loaded Activation; saved results verified on current data. Its pinned builds replaced the 1 you had pinned.");
+    } finally {
+      solve.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
 
   it.each(["Unknown", "Obsolete class"])("rejects %s before changing state or storage", async (className) => {
     const preset = activationPreset(className);

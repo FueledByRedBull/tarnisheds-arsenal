@@ -24,11 +24,6 @@ export function replaceFilterEntries(
   ];
 }
 
-type LegacyUpgradeRequest = Partial<OptimizeRequestDto> & {
-  fixedUpgrade?: number | null;
-  maxUpgrade?: number | null;
-};
-
 export const STARTING_CLASS_METADATA: ClassMetadataDto[] = [
   {
     name: "Vagabond",
@@ -208,37 +203,6 @@ export function hasCombatStatLocks(request: OptimizeRequestDto): boolean {
     .some(value => value !== null);
 }
 
-export function normalizeOptimizeRequest(
-  raw: LegacyUpgradeRequest,
-  fallback: OptimizeRequestDto,
-  rules?: ProfileRulesDto,
-): OptimizeRequestDto {
-  const legacyMaxUpgrade = numberOrNull(raw.maxUpgrade);
-  const {
-    fixedUpgrade: _fixedUpgrade,
-    maxUpgrade: _maxUpgrade,
-    ...next
-  } = raw;
-
-  return {
-    ...fallback,
-    ...next,
-    standardMaxUpgrade: clampUpgrade(
-      numberOrNull(raw.standardMaxUpgrade) ?? legacyMaxUpgrade ?? fallback.standardMaxUpgrade,
-      rules?.standardMaxUpgrade ?? 25,
-    ),
-    somberMaxUpgrade: clampUpgrade(
-      numberOrNull(raw.somberMaxUpgrade) ?? (
-        legacyMaxUpgrade === null
-          ? fallback.somberMaxUpgrade
-          : Math.min(legacyMaxUpgrade, rules?.somberMaxUpgrade ?? 10)
-      ),
-      rules?.somberMaxUpgrade ?? 10,
-    ),
-    exactUpgrade: Boolean(raw.exactUpgrade ?? (raw.fixedUpgrade !== undefined && raw.fixedUpgrade !== null)),
-  };
-}
-
 export function applyProfileRules(
   request: OptimizeRequestDto,
   rules: ProfileRulesDto | null | undefined,
@@ -265,10 +229,6 @@ export function upgradeCapForRow(row: Pick<SolvedBuildDto, "isSomber">, request:
 
 export function compareUpgradeHorizon(request: OptimizeRequestDto): number {
   return Math.max(request.standardMaxUpgrade, request.somberMaxUpgrade);
-}
-
-function numberOrNull(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function clampUpgrade(value: number, max: number): number {

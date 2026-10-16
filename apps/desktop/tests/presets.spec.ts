@@ -131,6 +131,7 @@ for (const stale of [false, true]) {
     await page.goto("/");
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect(page.getByText("4 ranked rows")).toBeVisible();
+    await page.locator(".result-row-full").first().getByRole("button", { name: /^Compare / }).click();
     await openSection(page, "Saved Builds");
     await page.getByRole("button", { name: "Save new", exact: true }).click();
     const stored = await page.evaluate((stale) => {
@@ -149,7 +150,13 @@ for (const stale of [false, true]) {
     await page.getByRole("button", { name: stale ? "Load inputs only" : "Load", exact: true }).click();
     await expect(page.getByRole("checkbox", { name: "Two-handing", exact: true })).not.toBeChecked();
     await expect(page.locator(".result-row-full")).toHaveCount(stale ? 0 : 1);
-    await expect(page.getByText(/Comparison changes could not be saved/)).toBeVisible();
+    if (stale) {
+      // Inputs-only loads drop the saved pins and keep the current ones, so nothing is written.
+      await expect(page.getByText(/inputs only: saved data differs/)).toBeVisible();
+      await expect(page.getByText(/Comparison changes could not be saved/)).toHaveCount(0);
+    } else {
+      await expect(page.getByText(/Comparison changes could not be saved/)).toBeVisible();
+    }
     expect(await page.evaluate(key => localStorage.getItem(key), stored.key)).toBe(stored.value);
   });
 }

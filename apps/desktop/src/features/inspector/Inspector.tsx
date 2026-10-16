@@ -1,6 +1,6 @@
 import { Check, ChevronDown, Clipboard, Download, LockKeyhole, Pencil, Pin, Save, Target, Trash2, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { activationRequest } from "../../lib/preset-activation";
+import { activationRequest, catalogVersion } from "../../lib/preset-activation";
 import { useWeaponProfileResource } from "../../lib/hooks";
 import { compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine, statLockLine } from "../../lib/format";
 import {
@@ -415,9 +415,7 @@ function SavedBuildPanel() {
   const [importDataMode, setImportDataMode] = useState<"stale" | "migrate">("stale");
   const [isMigrating, setMigrating] = useState(false);
   const migrationController = useRef<AbortController | null>(null);
-  const dataVersion = catalog
-    ? `${catalog.dataManifest.profile.id}:${catalog.dataManifest.schemaVersion}:${catalog.dataManifest.datasetVersion}:${catalog.dataManifest.modelVersion}`
-    : "unknown";
+  const dataVersion = catalog ? catalogVersion(catalog) : "unknown";
   const canSave = catalogStatus === "ready" && catalog?.dataManifest.profile.id === request.profileId;
   // Loading needs the verified catalog; startup and profile switches must finish first.
   const canLoad = catalogStatus === "ready";

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { readCompareBench, writeCompareBench } from "./compare-bench";
+import { MAX_COMPARE_PINS, readCompareBench, writeCompareBench } from "./compare-bench";
 import { activationRequest, catalogVersion, verifyPresetResults } from "./preset-activation";
 import {
   AffinityWatchPayloadDto,
@@ -18,7 +18,7 @@ import {
   SolvedBuildDto,
   WorkspaceTab,
 } from "./types";
-import { applyProfileRules, classMeta, hasCombatStatLocks, normalizeOptimizeRequest, rowFingerprint } from "./session";
+import { applyProfileRules, classMeta, hasCombatStatLocks, rowFingerprint } from "./session";
 
 export interface DesktopState {
   activeWorkspace: WorkspaceTab;
@@ -79,7 +79,6 @@ export interface DesktopState {
   patchRequest: (patch: Partial<OptimizeRequestDto>) => void;
   applyClass: (className: string) => void;
   setRows: (rows: SolvedBuildDto[], setups: number) => void;
-  clearResults: (message?: string) => void;
   selectRow: (row: SolvedBuildDto | null) => void;
   setCompareTarget: (row: SolvedBuildDto | null) => void;
   toggleCompareBench: (row: SolvedBuildDto) => void;
@@ -90,7 +89,6 @@ export interface DesktopState {
   setAffinityHorizon: (horizon: number) => void;
   setLockedStatMode: (lockedStatMode: boolean) => void;
   useRowAsLocks: (row: SolvedBuildDto) => void;
-  setNotices: (notices: Notice[]) => void;
   pushNotice: (notice: Notice) => void;
   setError: (error: string | null) => void;
   setSearching: (isSearching: boolean) => void;
@@ -150,6 +148,15 @@ export const defaultRequest: OptimizeRequestDto = {
   topK: 25,
 };
 
+// Stored and imported requests may carry unknown keys; only known fields enter the live query.
+export function knownRequestFields(request: OptimizeRequestDto): OptimizeRequestDto {
+  const known = Object.fromEntries(Object.keys(defaultRequest).map((key) => [key, request[key as keyof OptimizeRequestDto]]));
+  return {
+    ...known as unknown as OptimizeRequestDto,
+    filters: { version: 1, entries: request.filters.entries.map(({ dimension, id, mode }) => ({ dimension, id, mode })) },
+  };
+}
+
 const defaultCompareControls: CompareControls = {
   filters: { version: 1, entries: [] },
   weaponName: null,
@@ -174,14 +181,11 @@ function invalidateAnalysisJobs(state: DesktopState) {
   return {
     restoredCompareTarget: null,
     ...invalidatePathJob(state),
-    isAffinityBusy: false,
-    affinityGeneration: state.affinityGeneration + 1,
-    activeAffinitySignature: null,
-    activeAffinityJobId: null,
-    affinityProgress: null,
+    ...invalidateAffinityJob(state),
   };
 }
 
+// Invalidating a job also discards its results: they belong to the inputs it ran on.
 function invalidatePathJob(state: DesktopState) {
   return {
     isPathBusy: false,
@@ -189,6 +193,20 @@ function invalidatePathJob(state: DesktopState) {
     activePathSignature: null,
     activePathJobId: null,
     pathProgress: null,
+    paths: [],
+    pathSignature: null,
+  };
+}
+
+function invalidateAffinityJob(state: DesktopState) {
+  return {
+    isAffinityBusy: false,
+    affinityGeneration: state.affinityGeneration + 1,
+    activeAffinitySignature: null,
+    activeAffinityJobId: null,
+    affinityProgress: null,
+    affinityPayload: null,
+    affinitySignature: null,
   };
 }
 
@@ -250,10 +268,6 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       compareBench: [],
       selectedFingerprint: null,
       compareControls: { ...defaultCompareControls },
-      paths: [],
-      pathSignature: null,
-      affinityPayload: null,
-      affinitySignature: null,
       notices: switching || remembered ? [{
         scope: "global",
         tone: "info",
@@ -294,7 +308,6 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
     };
   }),
   setCatalogFailure: (catalogError) => set({ catalogStatus: "error", catalogError }),
-  setNotices: (notices) => set({ notices }),
   pushNotice: (notice) =>
     set((state) => ({
       notices: [...state.notices.filter((entry) => entry.scope !== notice.scope), notice],
@@ -321,10 +334,6 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       ),
       compareTarget: null,
       resultsStale: state.rows.length > 0,
-      paths: [],
-      pathSignature: null,
-      affinityPayload: null,
-      affinitySignature: null,
       notices: state.notices.filter((notice) => notice.scope !== "rankings"),
     })),
   applyClass: (className) =>
@@ -347,36 +356,22 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
         },
         compareTarget: null,
         resultsStale: state.rows.length > 0,
-        paths: [],
-        pathSignature: null,
-        affinityPayload: null,
-        affinitySignature: null,
       };
     }),
   setPathHorizon: (pathHorizon) =>
     set((state) => ({
       ...invalidatePathJob(state),
       pathHorizon,
-      paths: [],
-      pathSignature: null,
     })),
   setPathMode: (pathMode) =>
     set((state) => ({
       ...invalidatePathJob(state),
       pathMode,
-      paths: [],
-      pathSignature: null,
     })),
   setAffinityHorizon: (affinityHorizon) =>
     set((state) => ({
-      isAffinityBusy: false,
-      affinityGeneration: state.affinityGeneration + 1,
-      activeAffinitySignature: null,
-      activeAffinityJobId: null,
-      affinityProgress: null,
+      ...invalidateAffinityJob(state),
       affinityHorizon,
-      affinityPayload: null,
-      affinitySignature: null,
     })),
   setLockedStatMode: (lockedStatMode) =>
     set((state) => ({
@@ -384,10 +379,6 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       lockedStatMode,
       resultsStale: state.rows.length > 0,
       compareTarget: null,
-      paths: [],
-      pathSignature: null,
-      affinityPayload: null,
-      affinitySignature: null,
     })),
   useRowAsLocks: (row) =>
     set((state) => ({
@@ -414,10 +405,6 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       compareTarget: null,
       selectedFingerprint: rowFingerprint(row),
       resultsStale: state.rows.length > 0,
-      paths: [],
-      pathSignature: null,
-      affinityPayload: null,
-      affinitySignature: null,
       notices: [
         ...state.notices,
         { scope: "rankings", tone: "info", message: "Stat locks set from the selected result. Clear them under Limits to search freely." },
@@ -428,11 +415,13 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
     const catalog = state.catalog;
     if (!catalog) throw new Error("Current catalog metadata is unavailable. Wait for game data before loading a saved build.");
     if (preset.profileId !== state.request.profileId) throw new Error(`Switch to ${preset.profileId} before loading this build.`);
-    const request = activationRequest(preset.request, catalog);
+    const request = activationRequest(knownRequestFields(preset.request), catalog);
     if (signal?.aborted) return null;
     const currentVersion = catalogVersion(catalog);
     const stale = preset.dataVersion !== currentVersion;
     const candidate = stale ? { ...preset, request, selectedBuild: null, compareTarget: null, compareBench: [] } : { ...preset, request };
+    // A build saved without pins leaves the current pins alone; one with pins replaces them.
+    const keepPins = candidate.compareBench.length === 0;
     const controller = new AbortController();
     const abort = () => controller.abort();
     signal?.addEventListener("abort", abort, { once: true });
@@ -440,11 +429,11 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
     set({
       ...invalidateAllJobs(state),
       loadoutSelectionRevision: state.loadoutSelectionRevision + 1,
-      request: applyProfileRules(normalizeOptimizeRequest(request, state.request, catalog.dataManifest.rules), catalog.dataManifest.rules),
+      request: applyProfileRules(request, catalog.dataManifest.rules),
       lockedStatMode: hasCombatStatLocks(request), rows: [], rowsObjective: null, rowsSetups: null, rankBaseline: null, resultsStale: false,
       selected: null, compareTarget: null, restoredCompareTarget: null,
-      compareControls: { ...defaultCompareControls }, compareBench: [], selectedFingerprint: null,
-      paths: [], pathSignature: null, affinityPayload: null, affinitySignature: null, error: null,
+      compareControls: { ...defaultCompareControls }, compareBench: keepPins ? state.compareBench : [], selectedFingerprint: null,
+      error: null,
       notices: [verificationNotice],
     });
     const context = get();
@@ -460,13 +449,15 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       const verified = await verifyPresetResults(candidate, catalog, controller.signal);
       if (!isCurrent()) return null;
       stop();
-      const persistenceNotices = writeCompareBench(catalog, verified.compareBench);
+      const replacedPins = keepPins || !state.compareBench.length ? ""
+        : ` Its pinned builds replaced the ${state.compareBench.length} you had pinned.`;
+      const persistenceNotices = keepPins ? [] : writeCompareBench(catalog, verified.compareBench);
       set({ rows: verified.selectedBuild ? [verified.selectedBuild] : [], selected: verified.selectedBuild,
         compareTarget: verified.compareTarget, restoredCompareTarget: verified.compareTarget,
-        compareBench: verified.compareBench, selectedFingerprint: rowFingerprint(verified.selectedBuild),
+        ...(keepPins ? {} : { compareBench: verified.compareBench }), selectedFingerprint: rowFingerprint(verified.selectedBuild),
         notices: [{ scope: "global", tone: stale ? "warning" : "success",
           message: stale ? `Loaded ${preset.name} inputs only: saved data differs from ${currentVersion}. Rerun the search.`
-            : `Loaded ${preset.name}; saved results verified on current data.` }, ...persistenceNotices] });
+            : `Loaded ${preset.name}; saved results verified on current data.${replacedPins}` }, ...persistenceNotices] });
       return verified;
     } catch (error) {
       if (isCurrent()) {
@@ -513,25 +504,6 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
         selectedFingerprint: rowFingerprint(selected),
       };
     }),
-  clearResults: (message) =>
-    set((state) => ({
-      rows: [],
-      rowsObjective: null,
-      rowsSetups: null,
-      rankBaseline: null,
-      resultsStale: false,
-      selected: null,
-      compareTarget: null,
-      restoredCompareTarget: null,
-      selectedFingerprint: null,
-      paths: [],
-      pathSignature: null,
-      affinityPayload: null,
-      affinitySignature: null,
-      notices: message
-        ? [...state.notices, { scope: "rankings", tone: "warning", message }]
-        : state.notices,
-    })),
   selectRow: (selected) =>
     set((state) => {
       const selectedFingerprint = rowFingerprint(selected);
@@ -540,10 +512,6 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
         ...invalidateAnalysisJobs(state),
         selected,
         selectedFingerprint,
-        paths: [],
-        pathSignature: null,
-        affinityPayload: null,
-        affinitySignature: null,
       };
     }),
   setSearching: (isSearching) => set({ isSearching }),
@@ -554,10 +522,6 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       return {
         ...invalidateAnalysisJobs(state),
         compareTarget: null,
-        paths: [],
-        pathSignature: null,
-        affinityPayload: null,
-        affinitySignature: null,
         isSearching: true,
         resultsStale: state.rows.length > 0,
         searchGeneration: generation,
@@ -579,16 +543,19 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
     set((state) => ({
       ...invalidatePathJob(state),
       compareTarget,
-      paths: [],
-      pathSignature: null,
     })),
   toggleCompareBench: (row) =>
     set((state) => {
       const fingerprint = rowFingerprint(row);
       const exists = state.compareBench.some((entry) => rowFingerprint(entry) === fingerprint);
+      if (!exists && state.compareBench.length >= MAX_COMPARE_PINS) {
+        return { notices: [...state.notices, {
+          scope: "global", tone: "warning", message: `Compare holds ${MAX_COMPARE_PINS} pinned builds. Unpin one before pinning another.`,
+        }] };
+      }
       const compareBench = exists
         ? state.compareBench.filter((entry) => rowFingerprint(entry) !== fingerprint)
-        : [...state.compareBench, row].slice(-8);
+        : [...state.compareBench, row];
       const notices = [...state.notices, ...writeCompareBench(state.catalog, compareBench)];
       return {
         ...invalidatePathJob(state),
@@ -597,8 +564,6 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
         compareTarget: null,
         restoredCompareTarget: null,
         ...(exists ? {} : { compareControls: { ...defaultCompareControls } }),
-        paths: [],
-        pathSignature: null,
       };
     }),
   clearCompareBench: () =>
@@ -610,8 +575,6 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
         compareBench: [],
         compareTarget: null,
         restoredCompareTarget: null,
-        paths: [],
-        pathSignature: null,
       };
     }),
   patchCompareControls: (patch) =>
@@ -622,8 +585,6 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
         compareControls,
         compareTarget: null,
         restoredCompareTarget: null,
-        paths: [],
-        pathSignature: null,
       };
     }),
   isPathBusy: false,

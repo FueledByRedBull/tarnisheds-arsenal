@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOptimizeRequest, classMeta, derivedLevel, EIGHT_STAT_KEYS, normalizeOptimizeRequest, optimalStartingClass, replaceFilterEntries, scalingLetter, STARTING_CLASS_METADATA, startingClassLevel } from "./session";
+import { buildOptimizeRequest, classMeta, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, replaceFilterEntries, scalingLetter, STARTING_CLASS_METADATA, startingClassLevel } from "./session";
 import { defaultRequest } from "./state";
 import type { CatalogDto } from "./types";
 
@@ -37,51 +37,6 @@ describe("request normalization properties", () => {
       });
       expect(startingClassLevel(optimalStartingClass(null, targets, "Samurai"), targets)).toBe(Math.min(...levels));
     }
-  });
-
-  it("clamps legacy and current upgrade values for a structured numeric corpus", () => {
-    const corpus = [-10_000, -1, -0.1, 0, 1.9, 10, 25, 26, 10_000, Number.NaN, Number.POSITIVE_INFINITY];
-    for (const value of corpus) {
-      const normalized = normalizeOptimizeRequest({
-        ...defaultRequest,
-        standardMaxUpgrade: value,
-        somberMaxUpgrade: value,
-      }, defaultRequest);
-      expect(Number.isInteger(normalized.standardMaxUpgrade)).toBe(true);
-      expect(normalized.standardMaxUpgrade).toBeGreaterThanOrEqual(0);
-      expect(normalized.standardMaxUpgrade).toBeLessThanOrEqual(25);
-      expect(Number.isInteger(normalized.somberMaxUpgrade)).toBe(true);
-      expect(normalized.somberMaxUpgrade).toBeGreaterThanOrEqual(0);
-      expect(normalized.somberMaxUpgrade).toBeLessThanOrEqual(10);
-    }
-  });
-
-  it("is idempotent after legacy upgrade migration", () => {
-    for (let value = -5; value <= 40; value += 1) {
-      const migrated = normalizeOptimizeRequest({ ...defaultRequest, maxUpgrade: value }, defaultRequest);
-      expect(normalizeOptimizeRequest(migrated, defaultRequest)).toEqual(migrated);
-    }
-  });
-
-  it("uses a profile's Somber cap when migrating its legacy max upgrade", () => {
-    const convergenceRules = {
-      standardMaxUpgrade: 15,
-      somberMaxUpgrade: 15,
-      separateUpgradeCaps: false,
-      scadutreeScaling: false,
-      zeroAttackElementUsesWeaponScaling: true,
-      extendedScalingGrades: true,
-      statusBuildupScales: false,
-    };
-    const { standardMaxUpgrade: _standardMaxUpgrade, somberMaxUpgrade: _somberMaxUpgrade, ...legacyRequest } = defaultRequest;
-    const normalized = normalizeOptimizeRequest(
-      { ...legacyRequest, profileId: "convergence", maxUpgrade: 15 },
-      { ...defaultRequest, profileId: "convergence" },
-      convergenceRules,
-    );
-
-    expect(normalized.standardMaxUpgrade).toBe(15);
-    expect(normalized.somberMaxUpgrade).toBe(15);
   });
 
   it("builds a full-range Convergence custom-stat request", () => {
