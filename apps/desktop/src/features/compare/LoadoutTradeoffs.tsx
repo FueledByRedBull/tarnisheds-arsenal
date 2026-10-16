@@ -114,6 +114,9 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
     } finally {
       unsubscribe();
       if (controllerRef.current === controller) controllerRef.current = null;
+      // A context change while Compare is hidden aborts the run without the reset above; the
+      // original context may be back by the time Compare is shown.
+      if (controller.signal.aborted && generation === runGeneration.current) setStatus("idle");
     }
   }
 

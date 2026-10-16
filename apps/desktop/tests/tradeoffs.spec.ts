@@ -194,7 +194,10 @@ async function holdFrontier(page: import("@playwright/test").Page) {
     // The frontier waits for the test, so tab switches and edits happen while it runs.
     api.arBleedFrontier = (base, selected, signal) => new Promise((resolve, reject) => {
       probe.finish = () => { void original(base, selected).then(resolve, reject); };
-      signal?.addEventListener("abort", () => { probe.aborted = true; });
+      signal?.addEventListener("abort", () => {
+        probe.aborted = true;
+        reject(new DOMException("Calculation stopped.", "AbortError"));
+      });
     });
     Object.assign(window, { frontierProbe: probe });
   });
@@ -244,6 +247,21 @@ test("an input change while Compare is hidden cancels a pending frontier", async
   await page.getByRole("navigation").getByRole("button", { name: "Rankings", exact: true }).click();
   await page.getByRole("checkbox", { name: "Two-handing", exact: true }).check();
   await expect.poll(() => page.evaluate(() => (window as any).frontierProbe.aborted)).toBe(true);
+});
+
+test("a frontier cancelled while Compare is hidden is ready again when its context returns", async ({ page }) => {
+  await searchAndCompare(page);
+  await holdFrontier(page);
+  const section = page.getByRole("region", { name: "AR / Bleed tradeoffs" });
+  await section.getByRole("button", { name: "Compute trade-offs", exact: true }).click();
+  await expect(section.getByRole("status")).toContainText("Calculating");
+  await page.keyboard.press("Control+1");
+  await page.locator(".result-row").nth(1).click();
+  await expect.poll(() => page.evaluate(() => (window as any).frontierProbe.aborted)).toBe(true);
+  await page.locator(".result-row").nth(0).click();
+  await page.keyboard.press("Control+2");
+  await expect(section.getByRole("status")).toContainText("Ready to calculate this loadout once.");
+  await expect(section.getByRole("button", { name: "Compute trade-offs", exact: true })).toBeEnabled();
 });
 
 async function combatStats(row: import("@playwright/test").Locator) {
