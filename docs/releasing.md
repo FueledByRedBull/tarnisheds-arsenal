@@ -6,7 +6,7 @@ Prepare the version and documentation together, merge validated source, then use
 one workflow run to build, tag, and publish. Final download links are committed
 before publication, so no follow-up documentation commit is needed.
 
-[Prepare](#prepare-a-release) · [Publish](#publish) · [Preview](#build-a-preview) · [Retry](#retry-publication) · [Package checks](#package-and-signing-checks)
+[Prepare](#prepare-a-release) · [Publish](#publish) · [Preview](#build-a-preview) · [Retry](#retry-publication) · [Package checks](#package-and-signing-checks) · [Repository settings](#repository-settings)
 
 | Stage | What must be true before continuing |
 | --- | --- |
@@ -30,9 +30,10 @@ before publication, so no follow-up documentation commit is needed.
    the final GitHub Releases URL. The URL is deterministic, so use the real link
    in the release preparation commit; do not leave a `Pending publication` row
    that needs a follow-up documentation commit.
-   Update the README and changelog's current-release links. Keep historical notes
-   at their original versions. The release body is copied from the notes file:
-   use absolute GitHub URLs for its cross-document links so they work there too.
+   Update the README's current-release links. Keep historical notes at their
+   original versions. The release body is copied from the notes file: use
+   absolute GitHub URLs for its cross-document links so they work there too, and
+   word its Downloads section so it still reads correctly after publication.
 3. Validate all metadata and run the targeted source checks:
 
    ```powershell
@@ -43,8 +44,8 @@ before publication, so no follow-up documentation commit is needed.
 
 4. Review the diff, commit the release preparation on a branch, and open a pull
    request. Merge after `rust-and-data`, `linux-core-and-data`, and
-   `desktop-frontend` pass with the branch up to date. These checks are required
-   on `main`, including for administrators; no additional review approval is required.
+   `desktop-frontend` pass with the branch up to date. Making these checks
+   required on `main` is a [repository setting](#repository-settings).
 5. Wait for the ordinary `CI` workflow to succeed on that exact commit. The release
    workflow is the source of truth for the complete package build. If a local
    rehearsal is useful, run `python tools/phase4/package_release.py` from this clean
@@ -64,9 +65,12 @@ Run the Release workflow from the default branch with `publish` enabled:
 gh workflow run release-package.yml --ref main -f publish=true
 ```
 
-It waits for successful CI on the exact source commit, builds and verifies the
-package, and asks GitHub to create `v<version>` at that commit while publishing.
-A failed package never creates a release. The five release assets are:
+It waits for successful CI on the exact source commit and builds and verifies
+the package. The publish job then creates and pushes the annotated `v<version>`
+tag at that commit, creates a draft release, uploads the assets and publishes the
+draft. A failed package creates neither a tag nor a release. If publication fails
+after the tag push, [retry](#retry-publication); to abandon the release instead,
+delete the draft release and the remote tag by hand. The five release assets are:
 
 - `TarnishedsArsenal_<version>_x64_en-US.msi`
 - `TarnishedsArsenal_<version>_portable.exe`
@@ -90,7 +94,9 @@ git push origin v<version>
 ```
 
 The tag-triggered workflow performs the same CI wait, package verification, and
-publication. Choose one publication path for a release.
+publication. Because the tag already exists, a failed package leaves it without a
+release: delete the tag by hand before retrying, or release a new version.
+Choose one publication path for a release.
 
 ## Build a preview
 
@@ -123,29 +129,52 @@ Publication independently verifies that ordinary `CI` has succeeded for
 the exact source commit. Default-branch previews reuse the same verification;
 other previews validate source in the packaging job, as described
 [above](#build-a-preview).
-Normal source tests, lint, type checks, formatting, Clippy,
-and data validation belong to that CI run. Independent Windows jobs run the test
-and release profiles for both Rust crates. Every default-branch push runs the full
-suite. Pull requests may skip expensive jobs for documentation-only or
-frontend-only changes; the required `rust-and-data` aggregate accepts only
-successful selected jobs and explicitly unselected skips. CI's core tests use optimization level 1
-with debug assertions and overflow checks enabled; backend tests keep the default
-test profile. Release tests retain the
-shipping ThinLTO profile. Both profiles execute library, documentation and
-level-range benchmark assertion tests; Clippy and release checks cover all targets.
-The release job packages the already validated commit and keeps the release-only
-MSI identity, MSI payload, packaged
-startup smoke, signing, and checksum checks. The final Tauri build runs Cargo in
-locked mode.
+Normal source tests, lint, type checks, formatting, Clippy, data snapshot
+validation and a seeded comparison with the pinned reference calculator belong to
+that CI run. Independent Windows jobs run the test and release profiles for both
+Rust crates; a Linux job repeats the core, Python and snapshot checks on a second
+OS. Every default-branch push runs the full suite.
+
+On pull requests, [`ci_scope.py`](../tools/phase4/ci_scope.py) skips the Rust, data
+and Linux jobs only when every changed path is `README.md`, `LICENSE`, a Markdown
+or image file under `docs/`, or frontend source (`apps/desktop/src/`,
+`apps/desktop/tests/` and the few frontend config files it lists). Frontend jobs
+are skipped only when every path is one of those documentation files. Any other
+path runs every check. The required `rust-and-data` aggregate accepts only
+successful selected jobs and explicitly unselected skips. Pull requests that
+change the packaging path (this workflow, `package_release.py`,
+`publish_release.py`, `tauri.conf.json`, the desktop `Cargo.toml` or the core
+`build.rs`) also build a full preview package.
+
+CI's core tests use optimization level 1 with debug assertions and overflow
+checks enabled; backend tests keep the default test profile. Release tests retain
+the shipping ThinLTO profile. Both profiles run library and level-range benchmark
+assertion tests; Clippy and release checks cover all targets. The release job
+packages the already validated commit from a clean Cargo target directory and
+keeps the release-only MSI identity, MSI payload, packaged startup smoke, signing,
+and checksum checks. The final Tauri build runs Cargo in locked mode. The packaged
+smoke starts the executable with `--packaged-smoke-port` and
+`--packaged-smoke-profile`; the executable refuses those flags unless
+`WEBVIEW2_USER_DATA_FOLDER` names the same profile directory, so set both for a
+manual smoke run.
 
 Both binaries contain the verified compile-time Vanilla and Convergence runtime
 snapshots. Neither needs an adjacent data directory, `regulation.bin`, FMG XML, or
 source workbook. The build report identifies both profile manifest IDs and the
 exact source commit. CI keeps the data-validation report as a workflow artifact;
-it is not duplicated as an end-user release asset. Authenticode signing is conditional:
-configure the protected `WINDOWS_SIGNING_CERTIFICATE_BASE64` and
-`WINDOWS_SIGNING_CERTIFICATE_PASSWORD` repository secrets, plus the optional
-`WINDOWS_SIGNING_TIMESTAMP_URL` variable. The package job builds the executable
+it is not duplicated as an end-user release asset. Published packages also carry
+GitHub build provenance attestations for the executable, MSI and ZIP; check a
+download with
+`gh attestation verify <file> --repo FueledByRedBull/tarnisheds-arsenal`.
+
+Releases are currently unsigned and say so. Authenticode signing is conditional:
+configure the `WINDOWS_SIGNING_CERTIFICATE_BASE64` and
+`WINDOWS_SIGNING_CERTIFICATE_PASSWORD` secrets, plus the optional
+`WINDOWS_SIGNING_TIMESTAMP_URL` variable. `package_release.py` removes both
+secrets from its environment before any build step, imports the certificate into
+the current user's store through `pwsh.exe` (the password reaches only that child
+process's environment), signs by thumbprint and removes the certificate
+afterwards. The package job builds the executable
 without bundling, then uses Tauri's signing hook to sign the MSI executable after
 its bundle marker is patched. The hook checks that its input differs from the
 compiled portable only by that marker. After Tauri restores the portable, the job
@@ -160,9 +189,28 @@ by the hook. The portable marker is preserved. It records `codeSigned` and the `
 provenance gate. Without both secrets, the artifacts remain explicitly unsigned
 and do not claim that gate.
 
+The Dependency audit workflow runs `cargo audit` over both Cargo lockfiles and
+`npm audit` over the bundled runtime packages weekly and when a lockfile changes.
+Dependabot opens weekly update pull requests for actions, Cargo, npm and the
+Python validation requirements.
+
 The packager refuses a dirty worktree and records the exact source commit with
 `sourceDirty: false`. Run targeted pre-commit checks directly; create local release
 artifacts only after the intended source is committed.
+
+## Repository settings
+
+These protections are GitHub settings, not workflow code. They are owner actions,
+and none of them can be confirmed from the repository itself.
+
+| Setting | Expected configuration |
+| --- | --- |
+| Ruleset on `main` | Require a pull request and the `rust-and-data`, `linux-core-and-data` and `desktop-frontend` checks with the branch up to date; no bypass |
+| Tag ruleset for `v*` | Only the maintainer and the release workflow may create, move or delete release tags |
+| `release` environment | Required reviewer: the maintainer. Deployment branches and tags: `main` and `v*`. The publish job already uses it; GitHub creates it unprotected until configured |
+| Signing secrets | When signing is enabled, store them as `release` environment secrets and add `environment: release` to the package job |
+| Private vulnerability reporting | Enabled, so the [security policy](../SECURITY.md) link works |
+| Dependabot alerts and security updates | Enabled |
 
 <details>
 <summary>Why the WiX upgrade code stays fixed</summary>

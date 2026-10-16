@@ -100,177 +100,32 @@ coverage and evidence paths. Current calculation semantics and known limits
 live in the [model reference](model-reference.md#known-reference-differences).
 Timings made before a model correction are not same-contract comparisons.
 
-## Review follow-up measurements (2026-09-29)
+## Desktop responsiveness records
 
-These check the v0.16.0 changes the prioritised review asked to measure. The
-baseline is the `v0.15.0` tag (`f1cdefd`) with the v0.16.0 catalog, loader and
-Affinity Watch byte-count benchmarks copied in unchanged; the candidate is
-`2660f35`. Both ran with `RAYON_NUM_THREADS=1`, `ER_BENCH_REPEATS=5`, Rust
-1.97.0 and release test builds, one after the other on an AMD Ryzen 7 7800X3D
-desktop with no builds running. That is not a dedicated runner, and the two
-versions load different snapshots (`v8` and `v9`), so timings are indicative;
-byte counts and compatibility-check counts are exact.
+The v0.16.0 and v0.17.0 measurements, with their tables, machines and limits, stay
+in the tagged guide: the [review follow-up](https://github.com/FueledByRedBull/tarnisheds-arsenal/blob/v0.17.2/docs/performance.md#review-follow-up-measurements-2026-09-29)
+(Affinity Watch payloads, catalog build, Compare first result), the
+[responsiveness work](https://github.com/FueledByRedBull/tarnisheds-arsenal/blob/v0.17.2/docs/performance.md#responsiveness-work-2026-10-01) (optimizer
+preparation, bleed searches, cancellation and polling), the
+[motion budget](https://github.com/FueledByRedBull/tarnisheds-arsenal/blob/v0.17.2/docs/performance.md#motion-budget), [click hitches](https://github.com/FueledByRedBull/tarnisheds-arsenal/blob/v0.17.2/docs/performance.md#click-hitches) and
+[memory](https://github.com/FueledByRedBull/tarnisheds-arsenal/blob/v0.17.2/docs/performance.md#memory).
 
-| Measurement | v0.15.0 | v0.16.0 |
-| --- | --- | --- |
-| Affinity Watch payload, 10 / 50 / 200 levels | 599,192 / 2,592,239 / 10,062,342 bytes | 55,442 / 71,919 / 135,007 bytes |
-| Affinity Watch serialization, 200 levels (median) | 13.99 ms | 0.22 ms |
-| Affinity Watch calculation, 200 levels (median, range) | 2,202 ms (1,915–2,323) | 2,142 ms (1,951–2,300) |
-| Catalog compatibility checks, Vanilla / Convergence | 764,440 / 770,064 | 382,220 / 385,032 |
-| Catalog build, Vanilla (median, range) | 124.6 ms (123.4–128.6) | 99.9 ms (93.0–123.9) |
-| Catalog build, Convergence (median, range) | 246.1 ms (225.0–336.7) | 182.4 ms (144.0–228.9) |
-| Cold snapshot load, Vanilla / Convergence (median of 6) | 165.2 / 102.2 ms | 155.4 / 99.2 ms |
+These rendering rules came out of that work and still apply:
 
-Affinity Watch points now carry only a level and metric, which removes about 99%
-of the maximum-horizon payload without changing calculation time. The catalog
-makes one compatibility decision per weapon and Ash instead of two. Snapshot load
-differences are within the sample ranges and are not claimed as an improvement.
-Paths and upgrade-series medians stayed below 16 ms in both versions.
+- No per-row motion. A re-rank animates the rows group as one layer.
+- Keep the rows group composited (`will-change: opacity`), so starting an
+  animation neither re-lays out the rows nor turns sticky rank cells into layers.
+- Read layout in the next animation frame, never inside a React commit.
+- Animate transform and opacity only.
+- No motion on keyboard-summoned surfaces such as the Ctrl+K palette.
+- Fade `<details>` content by opacity; never transition its visibility.
+- Reserve scrollbar gutters (`scrollbar-gutter: stable`) on scroll containers.
+- Sort ranking rows by offsetting them, not by moving DOM nodes or using CSS `order`.
 
-Compare was timed in the release desktop build from clicking **Compare** to the
-first verified comparison and to all upgrade charts, with three pins (four lanes),
-one warmup and five fresh launches driven through the packaged-smoke harness. The
-first comparison appeared after a median 69 ms (62–82) and all charts after 97 ms
-(80–106). v0.15.0 showed nothing until every chart finished, so its first result
-matched the all-charts time. Charts share one native queue, so the gap should grow
-with more lanes; only the three-pin case was measured.
-
-## Responsiveness work (2026-10-01)
-
-Measured on the same AMD Ryzen 7 7800X3D desktop with no builds running, release builds,
-default Rayon threads (16) unless stated. Every optimizer change kept complete ordered
-results: the phase runner reported identical results for all 16 cases before and after.
-
-| Phase-runner case (median total) | Before | After |
-| --- | --- | --- |
-| `open-ranking-max-ar` | 432.5 ms | 83.1 ms |
-| `open-ranking-max-ar-high-level` | 907.3 ms | 91.7 ms |
-| `open-ranking-max-ar-export-500` | 785.2 ms | 121.5 ms |
-| `all-upgrades-max-ar-high-level` | 885.0 ms | 214.1 ms |
-| `locked-war-cry-export-500` | 37.0 ms | 18.9 ms |
-
-- **Preparation** was 94% of an open search. Weapons now prepare in parallel chunks of
-  64 per Rayon thread, and each Ash's attack rows are selected once per weapon type. One
-  thread prepares the high-level case in 383 ms instead of about 880 ms.
-- **Bleed searches** sometimes took 25 to 44 s instead of about 1.4 s: one weapon with
-  18 Ashes was solved at every upgrade before a cutoff existed. Units now visit upgrades
-  highest first, and per-weapon grouping skips setups strictly below the weapon's best
-  found so far. A level-129 bleed top-50 search hit 2 slow runs in 12 before; after, 60
-  runs stayed at or under 1.61 s with one result hash, matching the unchanged scorer.
-- **Cancellation** during preparation took 92 to 193 ms on one thread with 1,024-weapon
-  chunks; per-thread chunks bring it to 5 to 20 ms (4 to 23 ms on 16 threads). A request
-  landing in the last ~100 ms of a search is observed at completion, as before.
-- **Polling** now starts at 8 ms and caps at 50 ms (25 ms after progress). A 1.5 s bleed
-  search used 24 status calls per second with no measurable slowdown against the old
-  5 per second; polling every millisecond (318 per second) slowed the same search by 19%.
-
-Desktop interactions were timed as the longest renderer main-thread task, 8 repeats at
-1650x950 with 50 ranked rows (a 120 Hz frame is 8.3 ms):
-
-| Interaction (median / worst) | Before | After |
-| --- | --- | --- |
-| Reverse the sort | 33.0 / 42.3 ms | 18.3 / 19.4 ms |
-| Select a row | 12.8 / 14.0 ms | 6.3 / 8.1 ms |
-| Open and close the palette | 24.0 / 27.0 ms | 2.5 / 7.0 ms |
-| Return to Rankings | 34.4 / 36.3 ms | 16.7 / 18.6 ms |
-| Open Compare | 21.1 / 27.6 ms | 14.9 / 19.0 ms |
-
-The palette is a popover rather than a modal (a modal restyled ~2,900 elements to make
-the page inert), rows are memoised, workspaces stay mounted while hidden, the board uses
-a media query instead of a container query, and metric tokens are blocks instead of
-grids. The first Ctrl+K fell from 335 ms to about 10 ms by mounting the palette at idle.
-
-### Motion budget
-
-Motion was held to the rendering work of the build before it. Timings swing by 30% between
-runs on one machine, so each change was also checked by counting work per interaction:
-elements restyled, objects laid out and paints in the trace. Layout counts match the
-earlier build (opening Compare: 854 objects against 846), and interleaved timings stayed
-within run-to-run noise. The added paints come from the intended colour animations:
-selection, undo flashes and the search's landing flare. Rules found along the way:
-
-- **No per-row motion.** Sliding each moved row (FLIP) doubled a sort to 37 ms and cost
-  ~30 ms on the next frame. Every moving row became a layer, and so did its sticky cells.
-  A re-rank now animates the rows group as one layer.
-- **Keep the rows group composited.** Starting an animation on it changed its stacking
-  context and laid out all 50 rows again (+7 ms). Without a permanent layer, the 50 sticky
-  rank cells became overlap layers, costing ~6 ms of layerization on every frame.
-  `will-change: opacity` avoids both.
-- **Read layout in the next frame, not in a commit.** Measuring row offsets or the tab
-  pill inside React's commit forced a layout. After results or a tab switch, effects
-  changed the page again, so it was laid out twice: 55 ms instead of 29 ms, or 1,428
-  objects instead of 854. Such reads now run in `requestAnimationFrame`.
-- **Transform and opacity only.** Progress fills, the tab pill and skeleton shimmers move
-  by transform. A width transition laid out on every frame, and a `background-position`
-  shimmer repainted every placeholder on every frame.
-- **No motion on keyboard-summoned surfaces.** The Ctrl+K palette opens with no
-  transition, and the workspace entrance replayed by Ctrl+1 to Ctrl+4 is a 140 ms fade
-  without travel. Both run many times a session, where any animation reads as delay.
-- **Fade disclosures, never transition their visibility.** `<details>` content fades in
-  by opacity only, so the space is taken at once. Transitioning `content-visibility`
-  kept the content hidden for its first frame, so opening a section and focusing a field
-  in it in one handler failed.
-
-### Click hitches
-
-Measured on the app as users run it: GPU compositing on, at the display's 240 Hz. The
-packaged smoke harness passes `--disable-gpu`, so its frames use the software compositor.
-Launch the release exe normally with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` set to a
-remote-debugging port and `WEBVIEW2_USER_DATA_FOLDER` set to a scratch folder instead.
-Headless Chromium also misleads: its overlay scrollbars hide the first cause below.
-
-| Click (longest main-thread task, median) | Before | After |
-| --- | --- | --- |
-| Reverse a column sort | 18.5 ms | 7.7 ms |
-| Select a row | 7.5 ms | 6.6 ms |
-| Return to Rankings | 18.3 ms | 5.5 ms |
-| Open Compare | 20.9 ms | 8.5 ms |
-| Open Paths | 6.5 ms | 3.7 ms |
-
-- **Reserve scrollbar gutters.** With classic Windows scrollbars, laying out a container
-  whose scrollbar might change laid out all of its contents again: 6.5 ms for a sort that
-  dirtied 17 objects, against 0.2 ms with `scrollbar-gutter: stable`.
-- **Sort without moving rows.** Moving 50 row nodes restyled ~3,000 elements and laid out
-  every row. Rows now stay in rank order and a sort offsets them with `top` and sets
-  `reading-order` for keyboard and screen readers. CSS `order` re-laid out every row,
-  and transforms gave each sticky rank cell its own layer (60 layers instead of 15).
-- **Keep Rankings rendered while hidden.** Activity hides workspaces with
-  `display: none`, so returning re-laid out all 50 rows. Rankings now sits in the same grid
-  cell as the others and uses `content-visibility: hidden`; it cancels exports on leaving
-  itself, as the runtime invariants require.
-- **Re-render only what a switch changes.** The tab bar, notices and stage subscribe to
-  the active workspace, so a switch no longer re-renders the query strip and Build
-  Detail. Compare skips its comparison when its inputs match the last finished one.
-  `compactNumber` reuses one `Intl.NumberFormat`; it was constructed 1,000 times per 50
-  rows.
-
-Results arriving take 17 ms instead of 29 ms: rows are keyed by place, so new results update
-the rows on screen (~320 elements restyled) instead of building 50 new ones (~3,200).
-
-### Memory
-
-Private working set of the whole process tree (the app and every WebView2 process), with
-GPU compositing on:
-
-| Stage | Before | After |
-| --- | --- | --- |
-| Idle after start | 1,139 MB | 182 MB |
-| After a 50-row search | 1,196 MB | 246 MB |
-| After Compare, Paths and Affinity Watch | 1,252 MB | 282 MB |
-| After 10 more searches | 1,334 MB | 344 MB |
-
-The native process held ~1,000 MB: each profile kept its attack-element corrections in a
-table indexed by param id. Ids reach ~20 million but only ~190 exist, so each profile
-allocated 482 MB. They are now a sorted list searched by id, which returned the same 50 rows
-for an identical search at the same speed, and launch-to-loaded time fell from ~1.0 s
-to ~0.85 s. WebView2's renderer grows during repeated searches because discarded rows
-are collected lazily: a forced collection returned it from 176 MB to 101 MB.
-
-The portable executable is 12.5 MB instead of 17.6 MB. Its runtime CSVs (5.35 MB) are
-embedded brotli-compressed (0.44 MB) by `core/er_optimizer_core/build.rs` from the same
-data files. Loading decompresses one profile's tables and validates the manifest sizes
-and hashes against the decompressed bytes, as before. Launch-to-loaded time and search
-results were unchanged.
+Measure interactions with GPU compositing on: the packaged smoke harness passes
+`--disable-gpu`. Launch the release exe with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`
+set to a remote-debugging port and `WEBVIEW2_USER_DATA_FOLDER` set to a scratch
+folder instead.
 
 ## Release compiler settings
 
@@ -282,22 +137,11 @@ workflow environment variables, retaining debug assertions and overflow checks.
 Backend tests keep the default test profile. These settings do not alter the
 shipping release profile.
 
-Windows test and release checks run concurrently. Within each job, both crates
-share a Cargo target directory; packaging keeps its existing output paths.
-CI links the library tests and the level-range example's assertions explicitly,
-runs documentation tests, and checks the other targets without linking extra
-release executables. When adding integration-test targets, include them in the
-CI test commands. Cargo timing reports are retained as CI artifacts; compare
-compilation, execution, cache transfer and total job time separately, on matching
-commits and runner images. A fresh cache and a warm cache are distinct baselines.
-
-Pull requests select checks from the actual merge diff. Documentation-only changes
-run metadata validation and the required aggregate; frontend-only changes also run
-the React lint, Rust–TypeScript contract, frontend unit, build and browser checks. Rust, data, tooling, dependency,
-workflow and unknown paths run every check. Deletions and both sides of renames
-are included. The aggregate rejects failed routing and unexpected skipped jobs.
-Every push to `main` runs the complete suite, preserving exact-commit release
-validation. Keep this conservative allowlist aligned with new cross-layer inputs.
+CI job selection and test profiles are described in the
+[release guide](releasing.md#package-and-signing-checks). Cargo timing reports are
+retained as CI artifacts; compare compilation, execution, cache transfer and total
+job time separately, on matching commits and runner images. A fresh cache and a
+warm cache are distinct baselines.
 
 The [compiler experiment record](https://github.com/FueledByRedBull/tarnisheds-arsenal/blob/f1cdefd913caad2ea960194129d44a7de85054bf/docs/performance.md#release-compiler-settings) preserves
 the local test-profile, ThinLTO/codegen-unit and PGO comparisons, compiler/CPU
@@ -438,9 +282,11 @@ performance comparisons do not justify changing those correctness conditions.
 ## Native cancellation
 
 The reference cancellation target for Broad Search, Paths, and Affinity Watch is
-250 ms on the reference development machine. Core enumeration tests check the
-target, and backend workflow tests check propagation through nested evaluators and
-fail-closed results without partial payloads.
+250 ms on the reference development machine. Core enumeration tests check that
+the progress throttle stays inside that target and that enumeration stops at the
+first cancelled poll; wall-clock latency is left to the native probes. Backend
+workflow tests check propagation through nested evaluators and fail-closed results
+without partial payloads.
 
 In the native report, `cancellationMeasured: false` means the calculation finished
 before cancellation took effect, so that sample provides no cancellation latency.
