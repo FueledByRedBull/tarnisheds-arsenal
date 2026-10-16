@@ -109,3 +109,12 @@ test("returning to an unchanged custom comparison reuses the completed search", 
   await expect.poll(() => page.evaluate(() => (window as any).comparisonSearches)).toBeGreaterThan(initialSearches);
   await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
 });
+
+test("the ranking rows stay one composited, positioned group", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  // Sorting offsets rows inside this group, and re-forging fades it as one layer (styles.css).
+  await expect(page.locator(".result-rows")).toHaveCSS("will-change", "opacity");
+  await expect(page.locator(".result-rows")).toHaveCSS("position", "relative");
+});
