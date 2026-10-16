@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Iterable
 
 from tools.phase1.param_binary import ParamValue, load_param_table
-from tools.phase1.phase1_dump import STATUS_ATTACK_POWER_FIELDS, read_csv, write_csv
+from tools.phase1.phase1_dump import STATUS_ATTACK_POWER_FIELDS, format_float, read_csv, write_csv
 
 
 DAMAGE_FIELDS = (
@@ -118,11 +118,11 @@ def _classify_direct_effect(
 
 def _effect_values(effect: dict[str, ParamValue]) -> dict[str, str]:
     values = {
-        output: str(float(effect[source])) for output, source in DAMAGE_FIELDS + STATUS_FIELDS
+        output: format_float(float(effect[source])) for output, source in DAMAGE_FIELDS + STATUS_FIELDS
     }
     values.update(
         {
-            "duration_seconds": str(float(effect["effectEndurance"])),
+            "duration_seconds": format_float(float(effect["effectEndurance"])),
             "uses_status_correction": "1"
             if bool(effect["isUseStatusAilmentAtkPowerCorrect"])
             else "0",

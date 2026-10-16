@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import math
+import random
+import struct
 import tempfile
 import sys
 import unittest
+from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 from pathlib import Path
 from unittest.mock import patch
 
@@ -21,6 +25,7 @@ from tools.phase1.phase1_dump import (
     build_aow_rows,
     canonical_gem_rows,
     expand_calc_correct_curve,
+    format_float,
     iter_param_rows,
     read_csv,
 )
@@ -418,6 +423,64 @@ class Phase1DumpTests(unittest.TestCase):
 
         self.assertEqual(values[0], 0.0)
         self.assertEqual(values[MAX_EFFECTIVE_STRENGTH], 0.25)
+
+
+def f32(value: float) -> float:
+    try:
+        return struct.unpack("<f", struct.pack("<f", value))[0]
+    except OverflowError:
+        return math.copysign(math.inf, value)
+
+
+class FormatFloatTests(unittest.TestCase):
+    def assert_shortest_f32_text(self, value: float) -> None:
+        text = format_float(value)
+        target = f32(value)
+        self.assertNotIn("e", text.lower())
+        self.assertEqual(f32(float(text)), target, f"{value!r} -> {text}")
+        digits = len(Decimal(text).normalize().as_tuple().digits)
+        if target == 0.0 or digits == 1:
+            return
+        # No decimal with one fewer significant digit identifies the same f32.
+        exact = Decimal(abs(target))
+        quantum = Decimal(1).scaleb(exact.adjusted() - digits + 2)
+        for rounding in (ROUND_FLOOR, ROUND_CEILING):
+            self.assertNotEqual(f32(float(exact.quantize(quantum, rounding))), abs(target), text)
+
+    def test_writes_the_f32_nearest_to_the_computed_value(self) -> None:
+        # Eight-decimal quantization moved small multipliers by several f32 ulps.
+        value = 0.0083445249
+        self.assertNotEqual(f32(float(f"{value:.8f}")), f32(value))
+        self.assertEqual(f32(float(format_float(value))), f32(value))
+        self.assertEqual(format_float(0.00834452), "0.00834452")
+        self.assertEqual(format_float(0.029999999329447746), "0.03")
+
+    def test_canonical_forms(self) -> None:
+        self.assertEqual(format_float(0.0), "0")
+        self.assertEqual(format_float(-0.0), "0")
+        self.assertEqual(format_float(-1e-50), "0")
+        self.assertEqual(format_float(1.0), "1")
+        self.assertEqual(format_float(-2.5), "-2.5")
+        self.assertEqual(format_float(1.058), "1.058")
+        self.assertEqual(format_float(-99999.0), "-99999")
+        self.assertEqual(format_float(100000000.0), "100000000")
+        self.assertEqual(format_float(16777217.0), "16777216")
+
+    def test_rejects_non_finite_values(self) -> None:
+        for value in (math.nan, math.inf, -math.inf):
+            with self.assertRaises(ValueError):
+                format_float(value)
+
+    def test_round_trips_shortest_text_across_the_f32_range(self) -> None:
+        generator = random.Random(20261016)
+        values = [struct.unpack("<f", struct.pack("<I", generator.getrandbits(31) | sign))[0]
+                  for sign in (0, 1 << 31) for _ in range(2000)]
+        values = [value for value in values if math.isfinite(value)]
+        values += [generator.uniform(-1.0, 1.0) * 10.0 ** generator.randint(-40, 37) for _ in range(4000)]
+        values += [generator.random() / 100.0 for _ in range(2000)]
+        values += [1.4e-45, 1.1754943508222875e-38, 3.4028234663852886e38, 1e-7, 0.1, 123456.789]
+        for value in values:
+            self.assert_shortest_f32_text(value)
 
 
 if __name__ == "__main__":
