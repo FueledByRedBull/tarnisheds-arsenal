@@ -130,3 +130,24 @@ test("storage read denial after selection reports failure without unmounting the
   await expect(page.getByRole("button", { name: "Search", exact: true })).toBeVisible();
   expect(crashes).toEqual([]);
 });
+
+test("a Build Detail render failure stays in its panel and unawaited failures reach the error strip", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await page.evaluate(async () => {
+    const { useDesktopStore } = await import("/src/lib/state.ts");
+    const [row] = useDesktopStore.getState().rows;
+    useDesktopStore.setState({ selected: { ...row, aowRoute: { actions: 5 } as never } });
+  });
+  await expect(page.getByRole("heading", { name: "Build Detail could not be displayed" })).toBeVisible();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await page.evaluate(async () => {
+    const { useDesktopStore } = await import("/src/lib/state.ts");
+    useDesktopStore.setState({ selected: null });
+  });
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(page.getByText("No build selected", { exact: true })).toBeVisible();
+  await page.evaluate(() => { void Promise.reject(new Error("late native failure")); });
+  await expect(page.locator('.error-strip[role="alert"]')).toContainText("late native failure");
+});

@@ -1,5 +1,5 @@
 import { Pause, Play } from "lucide-react";
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { analysisStatus, type AnalysisOutcome } from "../../lib/analysis-status";
 import { AnalysisProgress } from "../shared/AnalysisProgress";
@@ -204,7 +204,8 @@ function endpointMetric(value: number | null): string {
   return value === null ? "Unavailable" : fixed1(value);
 }
 
-function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPayloadDto | null; objective: string; unit: string }) {
+// Memoised: progress polls re-render the view, but the chart changes only with its payload.
+const AffinityChart = memo(function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPayloadDto | null; objective: string; unit: string }) {
   const values = payload?.lines.flatMap((line) => line.points.map((point) => point.metric).filter((metric): metric is number => metric !== null)) ?? [];
   const domain = paddedMetricDomain(values);
   const axisMetrics = niceTicks(domain);
@@ -260,7 +261,9 @@ function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPay
                       key={`${line.affinity}-segment-${segmentIndex}`}
                     />
                   ))}
-                  {line.points.filter((point) => point.metric !== null).map((point) => (
+                  {/* Hover markers are sampled to about 50 per line; the data table keeps every value. */}
+                  {line.points.filter((point, pointIndex) => point.metric !== null
+                    && (pointIndex % Math.ceil(line.points.length / 50) === 0 || pointIndex === line.points.length - 1)).map((point) => (
                     <circle
                       className="affinity-series-point"
                       cx={chartX(point.level, plotFirstLevel, plotLastLevel)}
@@ -295,7 +298,7 @@ function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPay
       </table>
     </figure>
   );
-}
+});
 
 // Series hues stay clear of the status colours (danger red, warning ember, success green).
 const AFFINITY_COLORS = [

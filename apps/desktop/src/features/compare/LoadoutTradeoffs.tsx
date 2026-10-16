@@ -271,7 +271,6 @@ function TradeoffRow({
       <th scope="row">
         <button
           type="button"
-          className="tradeoff-select"
           aria-pressed={selected}
           aria-label={`${label}: ${fixed1(point.bleedGain)} bleed gain, ${fixed1(point.arLossPercent)}% AR loss`}
           onClick={() => onSelect(choice.index)}

@@ -4,7 +4,8 @@ import { AowSelect } from "../../lib/AowSelect";
 import { cachedComparisonSearch, cachedSolveBuild, cachedUpgradeSeries, cachedWeaponProfile } from "../../lib/analysis-cache";
 import { aowModelSupported, compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
 import { CheckboxMultiSelect, SearchableSelect, openOption } from "../../lib/SearchableSelect";
-import { compareUpgradeHorizon, replaceFilterEntries, rowFingerprint, stableSignature, upgradeCapForRow } from "../../lib/session";
+import { clearTypeAndAffinityFilters, compareUpgradeHorizon, replaceFilterEntries, rowFingerprint, stableSignature, upgradeCapForRow } from "../../lib/session";
+import { selectedFilterIds } from "../query-strip/QueryEditors";
 import { LatestRequest } from "../../lib/request-generation";
 import { useBuiltRequest } from "../../lib/hooks";
 import { useDesktopStore } from "../../lib/state";
@@ -55,18 +56,11 @@ export function CompareView() {
   const [seriesError, setSeriesError] = useState<string | null>(null);
   const typeDimension = catalog?.filterDimensions.find((dimension) => dimension.id === "weapon_type");
   const affinityDimension = catalog?.filterDimensions.find((dimension) => dimension.id === "affinity");
-  const selectedTypeIds = compareControls.filters.entries
-    .filter((entry) => entry.dimension === "weapon_type" && entry.mode === "include")
-    .map((entry) => entry.id);
-  const selectedAffinityIds = compareControls.filters.entries
-    .filter((entry) => entry.dimension === "affinity" && entry.mode === "include")
-    .map((entry) => entry.id);
-  const excludedTypeIds = compareControls.filters.entries
-    .filter((entry) => entry.dimension === "weapon_type" && entry.mode === "exclude")
-    .map((entry) => entry.id);
-  const excludedAffinityIds = compareControls.filters.entries
-    .filter((entry) => entry.dimension === "affinity" && entry.mode === "exclude")
-    .map((entry) => entry.id);
+  const filterEntries = compareControls.filters.entries;
+  const selectedTypeIds = selectedFilterIds(typeDimension, filterEntries, null);
+  const selectedAffinityIds = selectedFilterIds(affinityDimension, filterEntries, null);
+  const excludedTypeIds = selectedFilterIds(typeDimension, filterEntries, null, "exclude");
+  const excludedAffinityIds = selectedFilterIds(affinityDimension, filterEntries, null, "exclude");
   const selectedTypeLabels = typeDimension?.options
     .filter((option) => selectedTypeIds.includes(option.id))
     .map((option) => option.label) ?? [];
@@ -319,7 +313,7 @@ export function CompareView() {
             {chips.map((chip) => (
               <li className="scope-chip" key={chip.key}>
                 <span className="chip-kind">{chip.kind}</span>
-                <span className="chip-label">{chip.label}</span>
+                <span>{chip.label}</span>
                 <button type="button" aria-label={`Remove ${chip.kind} ${chip.label}`} onClick={() => patchCompareControls(chip.patch)}>
                   <X size={12} aria-hidden="true" />
                 </button>
@@ -368,15 +362,7 @@ export function CompareView() {
               onChange={(weaponName) => patchCompareControls({
                 weaponName,
                 aowName: null,
-                filters: {
-                  version: 1,
-                  entries: replaceFilterEntries(
-                    replaceFilterEntries(compareControls.filters.entries, "weapon_type", [], []),
-                    "affinity",
-                    [],
-                    [],
-                  ),
-                },
+                filters: { version: 1, entries: clearTypeAndAffinityFilters(compareControls.filters.entries) },
               })}
             />
             <AowSelect
@@ -444,7 +430,7 @@ export function CompareView() {
           )) : <Lane title="Target" row={target} objective={request.objective} extendedScalingGrades={extendedScalingGrades} emptyLabel={seriesStatus === "loading" ? "Loading target…" : emptyTargetLabel} />}
         </div>
       </details>
-      <details className="compare-upgrade-details" open>
+      <details open>
         <summary>Upgrade matrix</summary>
         <div className="matrix-toolbar">
           <span>{compareSource}</span>

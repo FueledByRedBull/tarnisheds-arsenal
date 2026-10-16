@@ -215,7 +215,6 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await page.goto("/");
 
   await expect(page.getByText("Find the best weapon for this character", { exact: true })).toBeVisible();
-  await expect(page.locator(".top-cards")).toHaveCount(0);
 
   await expect(page.getByRole("textbox", { name: "Level", exact: true })).toHaveValue("9");
   await expect(page.getByText("Respec", { exact: true })).toBeVisible();
@@ -346,7 +345,6 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(affinityRankings).toContainText("Keen");
   await expect(page.locator(".affinity-chart")).toContainText("Best-affinity crossover");
   await expect(page.locator(".affinity-plot svg")).toBeVisible();
-  await expect(page.locator(".affinity-chart .spark-line")).toHaveCount(0);
   await expect(affinityRankings).toContainText("Occult");
   await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "completed");
   await page.getByRole("spinbutton", { name: "Levels ahead" }).fill("5");
@@ -905,7 +903,6 @@ for (const [width, height] of [[1200, 720], [1366, 768], [1650, 950]]) {
     })).toBe(true);
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect(page.getByText("4 ranked rows")).toBeVisible();
-    await expect(page.locator(".top-cards")).toHaveCount(0);
     await expect.poll(() => page.locator(".result-row-full").first().evaluate((row) =>
       [...row.querySelectorAll(".row-combat-stats, .scaling-token-grid")].every(node => node.scrollWidth <= node.clientWidth + 1),
     )).toBe(true);

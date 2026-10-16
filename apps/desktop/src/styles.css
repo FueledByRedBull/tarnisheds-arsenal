@@ -2670,6 +2670,47 @@ textarea:hover {
   background: var(--surface-raised);
 }
 
+/* A failed render keeps its message selectable, so a report can quote it. */
+.page-failure,
+.panel-failure {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 24px;
+  color: var(--text);
+}
+
+.page-failure h1,
+.panel-failure h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.page-failure p,
+.panel-failure p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.page-failure pre,
+.panel-failure pre {
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  white-space: pre-wrap;
+  color: var(--danger-ink);
+  background: var(--surface-raised);
+  border-radius: 4px;
+  user-select: text;
+}
+
+.page-failure button,
+.panel-failure button {
+  justify-self: start;
+}
+
 /* Editors: native popovers anchored under their token. Closed panels stay mounted. */
 .popover-panel {
   position: fixed;
@@ -3118,10 +3159,6 @@ textarea:hover {
   padding: 2px 0;
 }
 
-.result-row-full .metric-token small {
-  display: none;
-}
-
 .result-row-full .metric-token b {
   margin-top: 0;
   font-size: 13px;
@@ -3266,15 +3303,7 @@ textarea:hover {
 }
 
 .status-token-grid {
-  grid-template-columns: repeat(10, minmax(0, 1fr));
-}
-
-.status-token-grid > .metric-token {
-  grid-column: span 2;
-}
-
-.status-token-grid > :nth-child(6) {
-  grid-column: 4 / span 2;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 /* Block with centred text rather than a grid per token: a board carries about 500 tokens,

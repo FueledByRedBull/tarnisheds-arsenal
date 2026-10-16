@@ -8,7 +8,7 @@ import {
   scadutreeDamageNegation,
   scadutreeReceivedDamageMultiplier,
 } from "../../lib/scadutree";
-import { classOptions, replaceFilterEntries } from "../../lib/session";
+import { classOptions, clearTypeAndAffinityFilters, replaceFilterEntries } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { CatalogDto, FilterDimensionDto, ObjectiveId, OptimizeRequestDto, WeaponProfileDto } from "../../lib/types";
 import { DraftNumberInput } from "./DraftNumberInput";
@@ -30,7 +30,7 @@ export function selectedFilterIds(
   return legacy ? [legacy.id] : [];
 }
 
-export function somberFilterLabel(value: string): string {
+function somberFilterLabel(value: string): string {
   return value
     .split("_")
     .map((word) => `${word.slice(0, 1).toUpperCase()}${word.slice(1)}`)
@@ -470,7 +470,7 @@ export function groupingLabel(grouping: OptimizeRequestDto["resultGrouping"]): s
   return grouping === "automatic" ? "Auto" : grouping === "weapon" ? "Per weapon" : "Per loadout";
 }
 
-export function weaponFiltersActive(request: OptimizeRequestDto): boolean {
+function weaponFiltersActive(request: OptimizeRequestDto): boolean {
   return Boolean(
     request.weaponTypeKey
     || request.weaponName
@@ -488,15 +488,7 @@ export function weaponPatch(request: OptimizeRequestDto, weaponName: string | nu
     weaponTypeKey: null,
     affinity: null,
     aowName: null,
-    filters: {
-      version: 1,
-      entries: replaceFilterEntries(
-        replaceFilterEntries(request.filters.entries, "weapon_type", [], []),
-        "affinity",
-        [],
-        [],
-      ),
-    },
+    filters: { version: 1, entries: clearTypeAndAffinityFilters(request.filters.entries) },
   };
 }
 

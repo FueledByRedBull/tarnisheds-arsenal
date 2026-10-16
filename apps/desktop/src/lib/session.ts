@@ -30,6 +30,11 @@ export function replaceFilterEntries(
   ];
 }
 
+/** Picking a weapon drops the weapon-type and affinity filters that could exclude it. */
+export function clearTypeAndAffinityFilters(entries: StableFilterEntryDto[]): StableFilterEntryDto[] {
+  return replaceFilterEntries(replaceFilterEntries(entries, "weapon_type", [], []), "affinity", [], []);
+}
+
 export const STARTING_CLASS_METADATA: ClassMetadataDto[] = [
   {
     name: "Vagabond",

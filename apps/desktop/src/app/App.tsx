@@ -17,6 +17,7 @@ import { SkeletonRows } from "../features/shared/SkeletonRows";
 import { EASE_OUT, reducedMotion } from "../lib/motion";
 import { RankingsBoard } from "../features/rankings/RankingsBoard";
 import { ReproductionReport } from "../features/shared/ReproductionReport";
+import { AppErrorBoundary } from "./AppErrorBoundary";
 import { aowModelSupported, errorMessage } from "../lib/format";
 
 const TAB_ICONS: Record<WorkspaceTab, typeof Table2> = {
@@ -49,6 +50,16 @@ export function App() {
   const profileGeneration = useRef(0);
 
   useEffect(() => persistProfileQueries(), []);
+
+  // A promise nobody awaited still reaches the error strip instead of failing silently.
+  useEffect(() => {
+    const onRejection = (event: PromiseRejectionEvent) => {
+      if (event.reason instanceof DOMException && event.reason.name === "AbortError") return;
+      setError(errorMessage(event.reason));
+    };
+    window.addEventListener("unhandledrejection", onRejection);
+    return () => window.removeEventListener("unhandledrejection", onRejection);
+  }, [setError]);
 
   const loadProfile = useCallback(async (nextProfileId: string, generation = ++profileGeneration.current) => {
     const before = useDesktopStore.getState();
@@ -226,10 +237,10 @@ export function App() {
               <SkeletonRows count={9} />
             </div>
           ) : null}
-          {catalogStatus === "ready" ? <Workspaces /> : null}
+          {catalogStatus === "ready" ? <AppErrorBoundary panel="This workspace"><Workspaces /></AppErrorBoundary> : null}
         </div>
       </section>
-      <Inspector />
+      <AppErrorBoundary panel="Build Detail"><Inspector /></AppErrorBoundary>
     </main>
   );
 }
@@ -365,7 +376,7 @@ function WorkspaceNotices() {
     .filter((notice) => notice.scope === "global" || notice.scope === activeWorkspace)
     .map((notice) => [`${notice.scope}:${notice.tone}:${notice.message}`, notice]));
   return (
-    <div className="workspace-notices" role="status">
+    <div role="status">
       {[...shown].slice(-2).map(([key, notice]) => (
         <div className={`notice-strip ${notice.tone}`} key={key}>
           <span>{notice.message}</span>
