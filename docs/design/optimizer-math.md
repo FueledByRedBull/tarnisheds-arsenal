@@ -480,12 +480,16 @@ the Strength bonus: paired weapons can use a two-handed route without that bonus
 Unconditioned skills retain their own attack-specific scaling rules. This route
 policy changes compiled result identity even for an older external snapshot.
 
-A route with the non-additive correction from Section 3 cannot use the DP. When no
-unique primary allocation is available, the optimizer enumerates every allocation
-in $\mathcal X_w$ and compares each with the full key, so additive DP cannot prune
-coupled stat contributions. That costs one full evaluation per allocation, and
-$\mathcal X_w$ holds at most $\binom{R+4}{4}$ allocations: about 22.5 million per
-route at $R=150$.
+A route with the non-additive correction from Section 3 cannot use the DP alone.
+When no unique primary allocation is available, the optimizer enumerates only the
+active stats that share a corrected damage type in some hit (the minimum couples
+them). Every other active stat adds an exact separable delta, and one exact DP gives
+each remaining spend's best completion with the smallest tied combat. Comparing
+(key, combat) over these candidates selects the same allocation as enumerating all
+of $\mathcal X_w$. For AR and bleed objectives, candidates already behind on the
+route-free score and AR total skip route evaluation. Lifesteal Fist's STR/DEX
+coupling needs about $(R+1)(R+2)/2$ evaluations per route and upgrade instead of up
+to $\binom{R+4}{4}$.
 
 The existing exhaustive path shares the active set and cannot independently detect
 an omitted dependency. Separate small-budget tests enumerate all five bounded stats

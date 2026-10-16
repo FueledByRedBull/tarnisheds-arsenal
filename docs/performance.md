@@ -282,7 +282,8 @@ performance comparisons do not justify changing those correctness conditions.
 
 The reference cancellation target for Broad Search, Paths, and Affinity Watch is
 250 ms on the reference development machine. Core enumeration tests check that
-the progress throttle stays inside that target and that enumeration stops at the
+every search poll reads the cancellation signal independent of the progress
+throttle, including with progress disabled, and that enumeration stops at the
 first cancelled poll; wall-clock latency is left to the native probes. Backend
 workflow tests check propagation through nested evaluators and fail-closed results
 without partial payloads.
