@@ -406,6 +406,15 @@ fn route_assignments<'a>(
     Ok(assignments)
 }
 
+/// Supported per-hit attack-power effects have no scalar route model yet.
+pub(crate) fn has_unmodeled_attack_power(row: &AowAttackRow, data: &GameData) -> bool {
+    data.aow_effects(row.aow_id, row.sheet_row)
+        .iter()
+        .any(|effect| {
+            effect.is_supported && matches!(effect.role, AowEffectRole::PerHitAttackPower)
+        })
+}
+
 pub(crate) fn prepare_scalar_aow_routes<'a>(
     attack_rows: &[&'a AowAttackRow],
     data: &'a GameData,
@@ -415,12 +424,10 @@ pub(crate) fn prepare_scalar_aow_routes<'a>(
 
     let mut routes = HashMap::<String, ScalarAowRoute<'a>>::new();
     for row in attack_rows.iter().filter(|row| !row.is_lacking_fp) {
-        let effects = data.aow_effects(row.aow_id, row.sheet_row);
-        if effects.iter().any(|effect| {
-            effect.is_supported && matches!(effect.role, AowEffectRole::PerHitAttackPower)
-        }) {
+        if has_unmodeled_attack_power(row, data) {
             return Ok(None);
         }
+        let effects = data.aow_effects(row.aow_id, row.sheet_row);
         let assignments = route_assignments(row, effects, data)?;
         if assignments.is_empty() || !row.is_damaging() {
             continue;

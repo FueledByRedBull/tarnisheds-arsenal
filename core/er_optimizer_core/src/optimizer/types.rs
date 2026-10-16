@@ -21,22 +21,14 @@ impl OptimizeObjective {
     ];
 
     pub fn parse(raw: &str) -> Result<Self, String> {
-        match raw.trim().to_ascii_lowercase().as_str() {
-            "max_ar" | "ar" | "total_ar" => Ok(Self::MaxAr),
-            "max_physical_ar" | "max_phys_ar" | "max_phy_ar" | "physical" => {
-                Ok(Self::MaxPhysicalAr)
-            }
-            "max_ar_plus_bleed" | "max_ar+bleed" | "max_ar_plus_bleed_buildup" | "bleed" => {
-                Ok(Self::BleedThenAr)
-            }
-            "aow_first_hit" | "max_aow_first_hit" | "first_hit" => Ok(Self::AowFirstHit),
-            "aow_full_sequence" | "max_aow_full_sequence" | "aow_full" | "full_sequence" => {
-                Ok(Self::AowFullSequence)
-            }
-            _ => Err(format!(
-                "invalid objective '{raw}', expected max_ar, max_physical_ar, max_ar_plus_bleed, aow_first_hit, or aow_full_sequence"
-            )),
-        }
+        Self::ALL
+            .into_iter()
+            .find(|objective| objective.as_str() == raw)
+            .ok_or_else(|| {
+                format!(
+                    "invalid objective '{raw}', expected max_ar, max_physical_ar, max_ar_plus_bleed, aow_first_hit, or aow_full_sequence"
+                )
+            })
     }
 
     pub fn as_str(self) -> &'static str {
@@ -67,21 +59,13 @@ pub enum ResultGrouping {
 
 impl ResultGrouping {
     pub fn parse(raw: &str) -> Result<Self, String> {
-        match raw.trim().to_ascii_lowercase().as_str() {
-            "automatic" | "auto" => Ok(Self::Automatic),
-            "weapon" | "weapon_only" => Ok(Self::Weapon),
-            "loadout" | "setup" => Ok(Self::Loadout),
+        match raw {
+            "automatic" => Ok(Self::Automatic),
+            "weapon" => Ok(Self::Weapon),
+            "loadout" => Ok(Self::Loadout),
             _ => Err(format!(
                 "invalid result grouping '{raw}', expected automatic, weapon, or loadout"
             )),
-        }
-    }
-
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Automatic => "automatic",
-            Self::Weapon => "weapon",
-            Self::Loadout => "loadout",
         }
     }
 }

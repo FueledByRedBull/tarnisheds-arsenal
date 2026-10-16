@@ -655,7 +655,10 @@ fn evaluate_with_skill(
     let stats = combat_stats(case);
     let request = OptimizeRequest {
         class_name: "Wretch".to_string(),
-        character_level: stats.sum_all_8() - 79,
+        character_level: stats
+            .sum_all_8()
+            .checked_sub(79)
+            .ok_or("Wretch cases need every stat at 10 or more")?,
         current_stats: stats,
         min_combat_stats: [0; 5],
         locked_combat_stats: stats.combat_array().map(Some),

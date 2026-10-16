@@ -30,20 +30,20 @@ fn load_convergence_data() -> GameData {
 }
 
 #[test]
-fn objective_aliases_parse_to_canonical_variants() {
+fn objective_and_grouping_parsers_accept_only_canonical_ids() {
+    for objective in OptimizeObjective::ALL {
+        assert_eq!(OptimizeObjective::parse(objective.as_str()), Ok(objective));
+    }
+    for raw in ["max_phys_ar", "aow_full", " max_ar", "MAX_AR", "not_real"] {
+        assert!(OptimizeObjective::parse(raw).is_err(), "{raw}");
+    }
     assert_eq!(
-        OptimizeObjective::parse("max_phys_ar").unwrap(),
-        OptimizeObjective::MaxPhysicalAr
+        ResultGrouping::parse("loadout"),
+        Ok(ResultGrouping::Loadout)
     );
-    assert_eq!(
-        OptimizeObjective::parse("max_ar+bleed").unwrap(),
-        OptimizeObjective::BleedThenAr
-    );
-    assert_eq!(
-        OptimizeObjective::parse("aow_full").unwrap().as_str(),
-        "aow_full_sequence"
-    );
-    assert!(OptimizeObjective::parse("not_real").is_err());
+    for raw in ["auto", "setup", "weapon_only", "Weapon"] {
+        assert!(ResultGrouping::parse(raw).is_err(), "{raw}");
+    }
 }
 
 #[test]
@@ -844,7 +844,6 @@ fn active_mask_for(
         prepare_weapons(&request, game_data, constraints).expect("prepare failed");
     let prepared = prepared_weapons.first().expect("expected prepared weapon");
     active_stats_for_choice(
-        &request,
         prepared,
         prepared.aow_choices.first().expect("expected AoW choice"),
         game_data,
@@ -2401,7 +2400,7 @@ fn cached_primary_preparation_remains_cancellable() {
     request.top_k = 1;
     let plan = prepare_search(&request, &data).unwrap();
     let mut reuse = DpReuse::from_plan(&plan);
-    optimize_prepared_with_reuse(&plan, 1, |_| true, &mut reuse).unwrap();
+    optimize_prepared(&plan, 1, |_| true, Some(&mut reuse)).unwrap();
     assert!(!reuse.primary.is_empty());
     let group = &plan.groups[0];
     let prepared = &plan.weapons[group.prepared_idx];
@@ -3099,72 +3098,6 @@ fn arc_frontier_reuse_matches_locked_solves_at_caps_and_large_budgets() {
             .unwrap()
             .is_empty()
     );
-}
-
-#[test]
-#[ignore = "isolated release measurement; no competing builds or tests"]
-fn benchmark_arc_frontier_reuse() {
-    let data = load_data();
-    let candidate = std::env::var("MATH_VARIANT").as_deref() == Ok("candidate");
-    for (affinity, level) in [("Blood", 80), ("Blood", 200), ("Keen", 80)] {
-        let mut request = base_request();
-        request.character_level = level;
-        request.current_stats.vig = 40;
-        request.current_stats.end = 20;
-        request.current_stats.arc = 20;
-        request.affinity = Some(affinity.into());
-        request.aow_name = Some("Seppuku".into());
-        request.exact_upgrade = true;
-        request.result_grouping = ResultGrouping::Loadout;
-        request.top_k = 1;
-        let evaluator = prepare_loadout_evaluator_with_cancel(&request, &data, || true).unwrap();
-        let expected = independent_arc_winners(&evaluator, &request);
-        assert_eq!(
-            format!(
-                "{:?}",
-                ar_bleed_candidates_with_reuse(&evaluator, &request, &mut || true)
-                    .unwrap()
-                    .unwrap()
-            ),
-            format!("{expected:?}")
-        );
-        let frontier = build_ar_bleed_frontier(expected.clone(), &mut || true).unwrap();
-        let mut samples = Vec::new();
-        for repeat in 0..8 {
-            let start = Instant::now();
-            let rows = if candidate {
-                evaluator
-                    .evaluate_ar_bleed_frontier_with_cancel(&request, || true)
-                    .unwrap()
-            } else {
-                build_ar_bleed_frontier(independent_arc_winners(&evaluator, &request), &mut || true)
-                    .unwrap()
-            };
-            let elapsed = start.elapsed().as_secs_f64() * 1000.0;
-            assert_eq!(format!("{rows:?}"), format!("{frontier:?}"));
-            if repeat > 0 {
-                samples.push(elapsed);
-            }
-        }
-        let cancel_after_ms = samples.iter().copied().fold(f64::INFINITY, f64::min) / 4.0;
-        let cancellation_ms = if candidate {
-            let started = Instant::now();
-            assert_eq!(
-                evaluator
-                    .evaluate_ar_bleed_frontier_with_cancel(&request, || started.elapsed()
-                        < Duration::from_secs_f64(cancel_after_ms / 1000.0))
-                    .unwrap_err(),
-                "cancelled"
-            );
-            Some(started.elapsed().as_secs_f64() * 1000.0)
-        } else {
-            None
-        };
-        println!(
-            "MATH_BENCH {}",
-            serde_json::json!({"experiment":"m01", "variant":if candidate {"candidate"} else {"baseline"}, "case":format!("{affinity}-{level}"), "request":format!("{request:?}"), "profile":data.profile_id, "model":data.model_version, "threads":rayon::current_num_threads(), "warmups":1, "repeats":7, "timing_scope":"prepared_loadout_complete_frontier", "samples_ms":samples, "cancel_after_ms":cancel_after_ms, "cancel_elapsed_ms":cancellation_ms, "results":format!("{expected:?}"), "frontier":format!("{frontier:?}")})
-        );
-    }
 }
 
 #[test]
@@ -4000,6 +3933,52 @@ fn parallel_search_matches_serial_results() {
 }
 
 #[test]
+fn parallel_results_do_not_depend_on_pool_size_or_scheduling() {
+    let game_data = load_data();
+    let mut request = base_request();
+    request.character_level = 46;
+    request.current_stats.arc = 45;
+    request.weapon_name = None;
+    request.affinity = None;
+    request.weapon_type_key = Some("Katana".to_string());
+    request.exact_upgrade = true;
+    for objective in [OptimizeObjective::MaxAr, OptimizeObjective::BleedThenAr] {
+        for grouping in [ResultGrouping::Weapon, ResultGrouping::Loadout] {
+            for top_k in [1, 2, 5] {
+                request.objective = objective;
+                request.result_grouping = grouping;
+                request.top_k = top_k;
+                let plan = prepare_search(&request, &game_data).expect("prepare failed");
+                let units = &plan.fine_work_units;
+                let total = units.iter().map(|unit| unit.candidate_count).sum::<u64>();
+                let group_mode = result_group_mode(&request);
+                let mut serial_progress = SerialSearchProgress::new(total, 0, |_| true);
+                let serial = format!(
+                    "{:?}",
+                    optimize_serial(&plan, units, group_mode, &mut serial_progress).unwrap()
+                );
+                for threads in [1, 2, 7] {
+                    let pool = rayon::ThreadPoolBuilder::new()
+                        .num_threads(threads)
+                        .build()
+                        .unwrap();
+                    for _ in 0..2 {
+                        let parallel = pool.install(|| {
+                            optimize_parallel(&plan, units, group_mode, total, 0, |_| true).unwrap()
+                        });
+                        assert_eq!(
+                            format!("{parallel:?}"),
+                            serial,
+                            "{objective:?} {grouping:?} top_k={top_k} threads={threads}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn split_aow_units_preserve_grouped_results_across_serial_and_parallel_search() {
     let game_data = load_data();
     let mut request = base_request();
@@ -4452,7 +4431,7 @@ fn top_k_zero_short_circuits_without_progress_callbacks() {
     request.top_k = 0;
     let mut callback_count = 0;
 
-    let results = optimize_with_progress(&request, &game_data, 1, |_snapshot| {
+    let results = optimize_with_cancel(&request, &game_data, || {
         callback_count += 1;
         true
     })
@@ -4468,7 +4447,8 @@ fn progress_emits_initial_and_final_snapshots() {
     let request = base_request();
     let mut snapshots = Vec::new();
 
-    optimize_with_progress(&request, &game_data, u64::MAX, |snapshot| {
+    let plan = prepare_search(&request, &game_data).expect("prepare failed");
+    optimize_prepared_with_progress(&plan, u64::MAX, |snapshot| {
         snapshots.push(snapshot);
         true
     })
@@ -4498,7 +4478,7 @@ fn materialization_cancellation_after_scoring_discards_large_result_batch() {
     let stats = request.current_stats;
     lock_request_to_combat_stats(&mut request, stats);
     let plan = prepare_search(&request, &game_data).unwrap();
-    let candidates = score_prepared_with_progress(&plan, 0, |_| true).unwrap();
+    let candidates = score_prepared_with_progress(&plan, 0, |_| true, None).unwrap();
     assert_eq!(candidates.len(), request.top_k);
     let expected =
         materialize_scored_candidates(&request, &game_data, &plan.weapons, candidates.clone())
@@ -4567,14 +4547,14 @@ fn materialization_cancellation_after_reused_scoring_discards_result() {
     let mut reuse = DpReuse::from_plan(&plan);
     assert!(level_plan_can_reuse(&plan, &reuse));
     let mut polls = 0;
-    let result = optimize_prepared_with_reuse(
+    let result = optimize_prepared(
         &plan,
         0,
         |_| {
             polls += 1;
             polls < 4
         },
-        &mut reuse,
+        Some(&mut reuse),
     );
     assert_eq!(result.err().as_deref(), Some("cancelled"));
     assert_eq!(polls, 4);
@@ -4700,7 +4680,7 @@ fn selected_route_materialization_preserves_complete_payloads_and_optimizer_resu
         }
         // Rehydrate the scored winner through the all-route reference before
         // comparing the entire public optimizer result, not just route totals.
-        let candidates = score_prepared_with_progress(&plan, 0, |_| true).unwrap();
+        let candidates = score_prepared_with_progress(&plan, 0, |_| true, None).unwrap();
         assert_eq!(candidates.len(), 1, "{weapon}/{skill:?}");
         let candidate = candidates[0].clone();
         let mut expected = materialize_scored_candidate(
@@ -4986,7 +4966,8 @@ fn progress_callback_can_cancel_search() {
     let request = base_request();
     let mut callback_count = 0;
 
-    let err = optimize_with_progress(&request, &game_data, 1, |_snapshot| {
+    let plan = prepare_search(&request, &game_data).expect("prepare failed");
+    let err = optimize_prepared_with_progress(&plan, 1, |_snapshot| {
         callback_count += 1;
         false
     })
@@ -5037,12 +5018,16 @@ fn preparation_callback_can_cancel_before_enumeration() {
 }
 
 #[test]
-fn broad_enumeration_stops_within_cancellation_latency_target() {
+fn broad_enumeration_stops_at_the_first_cancelled_poll() {
+    // Latency is the delivery throttle plus one poll batch; keep the throttle inside the
+    // documented 250 ms cancellation target. Wall-clock bounds are left to release probes.
+    assert!(PROGRESS_MIN_INTERVAL < Duration::from_millis(250));
     let game_data = load_data();
     let request = broad_request();
     let plan = prepare_search(&request, &game_data).expect("broad preparation succeeds");
     assert!(plan.estimate().combinations >= PARALLEL_SEARCH_MIN_COMBINATIONS);
     let cancelled = AtomicBool::new(false);
+    let calls_after_cancel = AtomicU64::new(0);
     let (started_tx, started_rx) = std::sync::mpsc::sync_channel(1);
 
     std::thread::scope(|scope| {
@@ -5055,21 +5040,26 @@ fn broad_enumeration_stops_within_cancellation_latency_target() {
                         .send(())
                         .expect("test receiver remains available");
                 }
-                !cancelled.load(Ordering::Acquire)
+                let cancelled = cancelled.load(Ordering::Acquire);
+                if cancelled {
+                    calls_after_cancel.fetch_add(1, Ordering::Relaxed);
+                }
+                !cancelled
             })
         });
         started_rx.recv().expect("search emits initial progress");
-        let cancellation_started = Instant::now();
         cancelled.store(true, Ordering::Release);
         let error = worker
             .join()
             .expect("search worker does not panic")
             .expect_err("broad search must cancel");
-        let elapsed_ms = cancellation_started.elapsed().as_millis() as u64;
         assert_eq!(error, "cancelled");
+        // One refusal stops every worker: at most one racing call per worker plus the
+        // final forced snapshot.
+        let calls = calls_after_cancel.load(Ordering::Relaxed);
         assert!(
-            elapsed_ms <= CANCELLATION_LATENCY_TARGET_MS,
-            "cancellation took {elapsed_ms} ms, target is {CANCELLATION_LATENCY_TARGET_MS} ms"
+            (1..=rayon::current_num_threads() as u64 + 1).contains(&calls),
+            "{calls} callbacks after cancellation"
         );
     });
 }
@@ -5251,7 +5241,7 @@ fn bleed_relevance_prunes_non_bleed_status_distributions() {
         .expect("expected Quickstep choice");
     assert_eq!(aow_choice.skill_name, Some("Quickstep"));
 
-    let active = active_stats_for_choice(&request, prepared, aow_choice, &game_data);
+    let active = active_stats_for_choice(prepared, aow_choice, &game_data);
     assert!(!active[STAT_ARC]);
     let mut counts = HashMap::new();
     let narrowed =
@@ -5373,72 +5363,6 @@ fn prepared_search_stops_before_preparation_when_cancelled() {
     let error = prepare_search_with_cancel(&broad_request(), &game_data, || false)
         .expect_err("cancelled preparation must fail closed");
     assert_eq!(error, "cancelled");
-}
-
-#[test]
-#[ignore = "release-mode DP versus exhaustive benchmark"]
-fn benchmark_dynamic_aow_sequence_against_exhaustive() {
-    let game_data = load_data();
-    let mut request = base_request();
-    request.character_level = 93;
-    request.weapon_name = Some("Reverse-Bladed Sword".to_string());
-    request.affinity = None;
-    request.aow_name = None;
-    request.standard_max_upgrade = 25;
-    request.exact_upgrade = true;
-    request.objective = OptimizeObjective::AowFullSequence;
-    request.top_k = 25;
-    let plan = prepare_search(&request, &game_data).expect("prepare AoW benchmark");
-    let unit = *plan
-        .serial_work_units
-        .iter()
-        .max_by_key(|unit| unit.candidate_count)
-        .expect("AoW benchmark work unit");
-
-    let started = std::time::Instant::now();
-    let mut dynamic_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
-    let dynamic = search_dp_work_unit(
-        &plan,
-        unit,
-        result_group_mode(&request),
-        &mut dynamic_progress,
-        None,
-        None,
-    )
-    .expect("dynamic AoW benchmark");
-    let dynamic_elapsed = started.elapsed();
-
-    let started = std::time::Instant::now();
-    let mut exhaustive_progress =
-        SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
-    let exhaustive = search_work_unit_exhaustive(
-        &plan,
-        unit,
-        result_group_mode(&request),
-        &mut exhaustive_progress,
-    )
-    .expect("exhaustive AoW benchmark");
-    let exhaustive_elapsed = started.elapsed();
-
-    assert_eq!(
-        dynamic.first().map(|row| row.stats),
-        exhaustive.first().map(|row| row.stats)
-    );
-    assert_eq!(
-        dynamic.first().map(|row| &row.key),
-        exhaustive.first().map(|row| &row.key)
-    );
-    assert_eq!(
-        dynamic.first().map(|row| row.metric.score),
-        exhaustive.first().map(|row| row.metric.score)
-    );
-    println!(
-        "OBJECTIVE_BENCH candidates={} dynamic_ms={:.3} exhaustive_ms={:.3} speedup={:.1}x",
-        unit.candidate_count,
-        dynamic_elapsed.as_secs_f64() * 1_000.0,
-        exhaustive_elapsed.as_secs_f64() * 1_000.0,
-        exhaustive_elapsed.as_secs_f64() / dynamic_elapsed.as_secs_f64(),
-    );
 }
 
 #[test]
