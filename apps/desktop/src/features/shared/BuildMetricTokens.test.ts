@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import type { SolvedBuildDto } from "../../lib/types";
-import { ScalingTokens, StatusTokens } from "./BuildMetricTokens";
+import { ScalingTokens, StatTokens, StatusTokens } from "./BuildMetricTokens";
 
 const row: SolvedBuildDto = {
   weaponId: 1,
@@ -42,6 +42,16 @@ describe("build metric tokens", () => {
     for (const short of ["STR", "DEX", "INT", "FAI", "ARC"]) {
       expect(markup).toContain(`>${short}<`);
     }
+  });
+
+  it("leaves short labels to the table header in ranking rows", () => {
+    const stats = renderToStaticMarkup(createElement(StatTokens, { row }));
+    const rowScaling = renderToStaticMarkup(createElement(ScalingTokens, { scaling: row.effectiveScaling, extended: false, labels: false }));
+
+    expect(stats).toContain("Dexterity 10");
+    expect(stats).not.toContain("<small");
+    expect(rowScaling).toContain("Strength scaling:");
+    expect(rowScaling).not.toContain("<small");
   });
 
   it("renders all seven status families, including explicit zero-capable fields", () => {

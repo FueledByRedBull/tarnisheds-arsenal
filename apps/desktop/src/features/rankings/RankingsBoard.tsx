@@ -9,7 +9,7 @@ import { useDesktopStore } from "../../lib/state";
 import { ObjectiveId, SearchProgressDto, SolvedBuildDto } from "../../lib/types";
 import { runSearchFromStore, runSearchRequestForRows } from "../../lib/workflows";
 import packageInfo from "../../../package.json";
-import { STAT_KEYS, ScalingTokens, StatTokens } from "../shared/BuildMetricTokens";
+import { COMBAT_STAT_LABELS, ScalingTokens, StatTokens } from "../shared/BuildMetricTokens";
 import { Popover } from "../shared/Popover";
 import { SkeletonRows } from "../shared/SkeletonRows";
 
@@ -329,7 +329,7 @@ export function RankingsBoard() {
       ) : null}
       <div
         ref={resultBoard}
-        className="result-board full-grid"
+        className="result-board"
         role="grid"
         aria-label={resultsStale ? "Ranked builds from the previous query" : "Ranked builds"}
         aria-describedby={resultsStale ? "stale-results-message" : undefined}
@@ -561,10 +561,10 @@ const ResultRow = memo(function ResultRow({
           <span className="loadout-upgrade">+{row.upgrade}</span>
         </small>
       </span>
-      <span role="gridcell" className="token-cell scaling-cell">
-        <ScalingTokens scaling={row.effectiveScaling} extended={extendedScalingGrades} />
+      <span role="gridcell" className="scaling-cell">
+        <ScalingTokens scaling={row.effectiveScaling} extended={extendedScalingGrades} labels={false} />
       </span>
-      <span role="gridcell" className="token-cell">
+      <span role="gridcell">
         <StatTokens row={row} />
       </span>
       <span role="gridcell" className="result-metric-cell ar-cell">
@@ -626,7 +626,7 @@ const ResultRow = memo(function ResultRow({
 function StatKeys() {
   return (
     <span className="token-keys" aria-hidden="true">
-      {STAT_KEYS.map((key) => <span key={key}>{key}</span>)}
+      {COMBAT_STAT_LABELS.map((key) => <span key={key}>{key}</span>)}
     </span>
   );
 }

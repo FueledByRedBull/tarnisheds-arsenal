@@ -1,5 +1,5 @@
 import { Pause, Play } from "lucide-react";
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { analysisStatus, type AnalysisOutcome } from "../../lib/analysis-status";
 import { AnalysisProgress } from "../shared/AnalysisProgress";
@@ -260,7 +260,8 @@ function LaneSummary({ title, path, row }: { title: string; path: PathPreviewDto
   );
 }
 
-function PathChart({ paths, objective, unit }: { paths: PathPreviewDto[]; objective: string; unit: string }) {
+// Memoised: progress polls re-render the view, but the chart changes only with its paths.
+const PathChart = memo(function PathChart({ paths, objective, unit }: { paths: PathPreviewDto[]; objective: string; unit: string }) {
   const [pointIndex, setPointIndex] = useState(0);
   const values = paths.flatMap((path) => path.steps.map((step) => step.metric).filter((metric): metric is number => metric !== null));
   const domain = paddedMetricDomain(values);
@@ -339,4 +340,4 @@ function PathChart({ paths, objective, unit }: { paths: PathPreviewDto[]; object
       </table>
     </figure>
   );
-}
+});
