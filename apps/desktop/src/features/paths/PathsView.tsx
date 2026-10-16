@@ -26,7 +26,6 @@ export function PathsView() {
   const isPathBusy = useDesktopStore((state) => state.isPathBusy);
   const setPathBusy = useDesktopStore((state) => state.setPathBusy);
   const beginPath = useDesktopStore((state) => state.beginPath);
-  const pathGeneration = useDesktopStore((state) => state.pathGeneration);
   const activePathJobId = useDesktopStore((state) => state.activePathJobId);
   const setActivePathJobId = useDesktopStore((state) => state.setActivePathJobId);
   const pathProgress = useDesktopStore((state) => state.pathProgress);
@@ -54,8 +53,6 @@ export function PathsView() {
   });
 
   const startPathJob = usePathJob({
-    isPathBusy,
-    generation: pathGeneration,
     setPathProgress,
     onStarted: (jobId, generation) => {
       const current = useDesktopStore.getState();

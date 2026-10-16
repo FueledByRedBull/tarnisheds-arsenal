@@ -16,6 +16,7 @@ import {
   PathProgressDto,
 } from "./types";
 import { withoutHistory } from "./query-history";
+import { useDesktopStore, type DesktopState } from "./state";
 
 export function useRequestBudget(
   catalog: CatalogDto | null,
@@ -83,28 +84,25 @@ const affinityQueue = createNativeJobQueue<AffinityWatchJobStatusDto>(
   status => progressSignature(status.progress),
 );
 
+// A run is cancelled when the store invalidates it (Stop, input, selection or profile change),
+// never by effect cleanup: a hidden workspace's effects stop, but its run keeps going.
 function usePollingJob<P extends JobEvent, F extends FinishedJob, S extends JobStatus<P, F>>(options: {
-  busy: boolean;
-  generation: number;
+  isCurrent: (state: DesktopState, generation: number) => boolean;
   queue: NativeJobQueue<S>;
   setProgress: (progress: P | null) => void;
   onStarted: (jobId: string, generation: number) => void;
 }): (start: () => Promise<{ jobId: string }>, generation: number) => Promise<NativeJobSuccess<F>> {
   const latest = useRef(options);
   latest.current = options;
-  const active = useRef<{ controller: AbortController; generation: number } | null>(null);
-
-  useEffect(() => {
-    const effectGeneration = options.generation;
-    return () => {
-      if (active.current?.generation === effectGeneration) active.current.controller.abort();
-    };
-  }, [options.busy, options.generation]);
+  const active = useRef<AbortController | null>(null);
 
   return useCallback((start: () => Promise<{ jobId: string }>, generation: number) => {
-    active.current?.controller.abort();
+    active.current?.abort();
     const controller = new AbortController();
-    active.current = { controller, generation };
+    active.current = controller;
+    const unsubscribe = useDesktopStore.subscribe((state) => {
+      if (!latest.current.isCurrent(state, generation)) controller.abort();
+    });
     let jobId: string | null = null;
     const result = latest.current.queue(
       start,
@@ -119,20 +117,18 @@ function usePollingJob<P extends JobEvent, F extends FinishedJob, S extends JobS
       },
     );
     return result.finally(() => {
-      if (active.current?.controller === controller) active.current = null;
+      unsubscribe();
+      if (active.current === controller) active.current = null;
     });
   }, []);
 }
 
 export function usePathJob(options: {
-  isPathBusy: boolean;
-  generation: number;
   setPathProgress: (progress: PathProgressDto | null) => void;
   onStarted: (jobId: string, generation: number) => void;
 }) {
   return usePollingJob<PathProgressDto, PathFinishedDto, PathJobStatusDto>({
-    busy: options.isPathBusy,
-    generation: options.generation,
+    isCurrent: (state, generation) => state.isPathBusy && state.pathGeneration === generation,
     queue: pathQueue,
     setProgress: options.setPathProgress,
     onStarted: options.onStarted,
@@ -140,14 +136,11 @@ export function usePathJob(options: {
 }
 
 export function useAffinityJob(options: {
-  isAffinityBusy: boolean;
-  generation: number;
   setAffinityProgress: (progress: AffinityWatchProgressDto | null) => void;
   onStarted: (jobId: string, generation: number) => void;
 }) {
   return usePollingJob<AffinityWatchProgressDto, AffinityWatchFinishedDto, AffinityWatchJobStatusDto>({
-    busy: options.isAffinityBusy,
-    generation: options.generation,
+    isCurrent: (state, generation) => state.isAffinityBusy && state.affinityGeneration === generation,
     queue: affinityQueue,
     setProgress: options.setAffinityProgress,
     onStarted: options.onStarted,

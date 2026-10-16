@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { fixed1, statLine } from "../../lib/format";
-import { stableSignature } from "../../lib/session";
+import { buildOptimizeRequest, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { ArBleedFrontierPointDto, OptimizeRequestDto, SolvedBuildDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
@@ -48,7 +48,12 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
   const [maxArSacrifice, setMaxArSacrifice] = useState("0");
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
+  // Hiding Compare re-runs this effect on return with the same context; only a real context
+  // change resets the frontier. A running frontier is cancelled by compute()'s subscription.
+  const resetFor = useRef(contextSignature);
   useEffect(() => {
+    if (resetFor.current === contextSignature) return;
+    resetFor.current = contextSignature;
     controllerRef.current?.abort();
     controllerRef.current = null;
     runGeneration.current += 1;
@@ -56,11 +61,6 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
     setStatus("idle");
     setError(null);
     setSelectedIndex(null);
-    return () => {
-      controllerRef.current?.abort();
-      controllerRef.current = null;
-      runGeneration.current += 1;
-    };
   }, [contextSignature]);
 
   const choices = points ? buildChoices(points) : [];
@@ -83,6 +83,13 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
     const controller = new AbortController();
     controllerRef.current = controller;
     const generation = ++runGeneration.current;
+    // The frontier keeps running while Compare is hidden; only a new context cancels it.
+    const catalog = useDesktopStore.getState().catalog;
+    const unsubscribe = useDesktopStore.subscribe((state) => {
+      if (state.catalog !== catalog || stableSignature({
+        base: buildOptimizeRequest(state.catalog, state.request, state.lockedStatMode), selected: state.selected,
+      }) !== contextSignature) controller.abort();
+    });
     setStatus("loading");
     setPoints(null);
     setError(null);
@@ -105,6 +112,7 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
       setError(nextError instanceof Error ? nextError.message : String(nextError));
       setStatus("error");
     } finally {
+      unsubscribe();
       if (controllerRef.current === controller) controllerRef.current = null;
     }
   }
@@ -117,7 +125,12 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
     setError(null);
   }
 
+  // The threshold picks a point when the frontier or the sacrifice changes, not when Compare is
+  // shown again, so a point the player chose stays chosen.
+  const thresholdFor = useRef<[typeof points, typeof sacrificeBps] | null>(null);
   useEffect(() => {
+    if (thresholdFor.current?.[0] === points && thresholdFor.current[1] === sacrificeBps) return;
+    thresholdFor.current = [points, sacrificeBps];
     setSelectedIndex(thresholdIndex);
   }, [points, sacrificeBps, thresholdIndex]);
 

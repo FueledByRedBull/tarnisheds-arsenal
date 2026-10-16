@@ -54,6 +54,7 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - Cancellation replies and errors obey the same generation/job ownership rule;
   a late acknowledgement cannot clear or report an error on a replacement search.
 - Input changes invalidate the active generation before dependent state is changed.
+- Hiding a workspace (switching tabs) does not cancel its Paths, Affinity Watch or trade-off work; Stop, input, selection and profile changes do.
 - Cancellation is cooperative and fail-closed. A cancelled job cannot replace current rows or populate retained analysis caches.
 - Broad running work targets cancellation within 250 ms on the reference machine. Cancelled multi-lane jobs publish no partial success payload.
 - Polling has one in-flight request at a time and backs off while progress is unchanged.
@@ -181,8 +182,10 @@ Any cache, async job, result DTO, preset, or snapshot change must update the clo
 ## Fixed-loadout tradeoffs
 
 AR/bleed tradeoffs use the shared cancellable analysis worker. Changing the
-request/profile/selected loadout or leaving Compare cancels the subscriber and
-prevents a late result from appearing. The returned frontier belongs to one
+request/profile/selected loadout cancels the subscriber and prevents a late result
+from appearing. Leaving Compare does not: an in-flight frontier keeps running and a
+finished one, with its selected point, is still shown on return while the context
+is unchanged. The returned frontier belongs to one
 fixed equipment, upgrade, stat-budget, constraint, and handling context.
 Presentation controls read the completed result without more optimizer work.
 Inspecting an option preserves its exact allocation; it does not feed the option
