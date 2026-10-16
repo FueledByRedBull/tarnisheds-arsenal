@@ -689,11 +689,17 @@ test("searchable selects expose keyboard and screen-reader state", async ({ page
   await page.goto("/");
   await openEditor(page, "Class");
   const classField = page.getByRole("combobox", { name: "Class" });
+  await expect(classField).not.toHaveAttribute("aria-controls");
 
   await classField.focus();
   await classField.press("ArrowDown");
   await expect(classField).toHaveAttribute("aria-expanded", "true");
   await expect(classField).toHaveAttribute("aria-activedescendant", /option-/);
+  const listbox = page.getByRole("listbox", { name: "Class" });
+  await expect(classField).toHaveAttribute("aria-controls", (await listbox.getAttribute("id"))!);
+  // The popup sits outside the label, and the listbox holds only unfocusable options.
+  expect(await listbox.evaluate((node) => node.closest("label") === null && node.children.length > 0
+    && [...node.children].every((child) => child.getAttribute("role") === "option" && (child as HTMLElement).tabIndex === -1))).toBe(true);
   await expect(page.locator(".select-status").filter({ hasText: /matches/ }).first()).toBeVisible();
   await classField.press("Escape");
   await expect(classField).toHaveValue("Samurai");

@@ -90,8 +90,8 @@ export function SearchableSelect({
   }
 
   return (
-    <label className="searchable-select" htmlFor={`${id}-input`}>
-      {label}
+    <div className="searchable-select">
+      <label htmlFor={`${id}-input`}>{label}</label>
       <input
         id={`${id}-input`}
         role="combobox"
@@ -157,33 +157,35 @@ export function SearchableSelect({
         }}
       />
       {open && !disabled ? (
-        <div className="select-menu" id={`${id}-listbox`} role="listbox">
-          {filtered.map((option, index) => (
-            <button
-              key={`${option.value ?? "open"}-${option.label}`}
-              id={`${id}-option-${index}`}
-              ref={index === Math.min(activeIndex, filtered.length - 1) ? activeOptionRef : undefined}
-              role="option"
-              aria-selected={option.value === value}
-              className={index === activeIndex ? "active" : undefined}
-              type="button"
-              tabIndex={-1}
-              onMouseDown={(event) => event.preventDefault()}
-              onMouseEnter={() => setActiveIndex(index)}
-              onClick={() => {
-                choose(option);
-              }}
-            >
-              {option.label}
-            </button>
-          ))}
+        <div className="select-menu">
+          <div id={`${id}-listbox`} role="listbox" aria-label={label}>
+            {filtered.map((option, index) => (
+              <button
+                key={`${option.value ?? "open"}-${option.label}`}
+                id={`${id}-option-${index}`}
+                ref={index === Math.min(activeIndex, filtered.length - 1) ? activeOptionRef : undefined}
+                role="option"
+                aria-selected={option.value === value}
+                className={index === activeIndex ? "active" : undefined}
+                type="button"
+                tabIndex={-1}
+                onMouseDown={(event) => event.preventDefault()}
+                onMouseEnter={() => setActiveIndex(index)}
+                onClick={() => {
+                  choose(option);
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
           {/* Shown in the menu; screen readers hear the status outside the listbox instead. */}
           {filtered.length === 0 ? <span aria-hidden="true">No matches</span> : null}
           <small className="select-status" aria-hidden="true">{resultStatus}</small>
         </div>
       ) : null}
       <span id={`${id}-status`} className="sr-only" role="status">{open && !disabled ? resultStatus : `${options.length} options`}</span>
-    </label>
+    </div>
   );
 }
 
