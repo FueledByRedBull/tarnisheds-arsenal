@@ -11,12 +11,13 @@ import { useDesktopStore } from "../../lib/state";
 import { PathFinishedDto, PathPreviewDto, SolvedBuildDto } from "../../lib/types";
 import type { NativeJobSuccess } from "../../lib/native-jobs";
 import { DraftNumberInput } from "../query-strip/DraftNumberInput";
+import { AboutPopover } from "../shared/AboutPopover";
+import { WorkspaceGate } from "../shared/WorkspaceGate";
 
 export function PathsView() {
   const catalog = useDesktopStore((state) => state.catalog);
   const selected = useDesktopStore((state) => state.selected);
   const resultsStale = useDesktopStore((state) => state.resultsStale);
-  const setWorkspace = useDesktopStore((state) => state.setWorkspace);
   const target = useDesktopStore((state) => state.compareTarget);
   const request = useDesktopStore((state) => state.request);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
@@ -139,16 +140,8 @@ export function PathsView() {
   }
 
   if (resultsStale) {
-    return (
-      <section className="workspace-panel paths-panel">
-        <div className="workspace-header"><div><h1>Paths</h1><span>Requires current ranked results</span></div></div>
-        <div className="empty-state workspace-prerequisite">
-          <strong>Update Rankings before continuing</strong>
-          <span>The selected build belongs to the previous query.</span>
-          <button type="button" onClick={() => setWorkspace("rankings")}>Go to Rankings</button>
-        </div>
-      </section>
-    );
+    return <WorkspaceGate panelClass="paths-panel" title="Paths" requirement="Requires current ranked results"
+      heading="Update Rankings before continuing" message="The selected build belongs to the previous query." />;
   }
 
   return (
@@ -158,11 +151,17 @@ export function PathsView() {
           <h1>{pathMode === "no_respec" ? "No-respec Paths" : "Best Build per Level"}</h1>
           <span>{selected ? `Next ${effectiveHorizon} levels · ${target ? "selected build and comparison" : "selected build"}` : "Requires selected result"}</span>
           {selected ? <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)}{target ? ` · vs ${target.weaponName} / ${target.affinity} / +${target.upgrade}` : ""}</small> : null}
+          <AboutPopover label="About Paths">
+            {pathMode === "no_respec"
+              ? "No respec ends on the best build for the final level. Each level adds its point where it helps most, and no point is ever moved, so the path never needs a respec."
+              : "Best per level shows each level's own best build. A respec is marked when that build moves points you already spent."}
+            {" "}The selected build and the comparison target keep their weapon, affinity, skill and upgrade.
+          </AboutPopover>
         </div>
         <div className="header-controls">
           <div className="segmented" role="group" aria-label="Path mode">
-            <button type="button" className={pathMode === "no_respec" ? "active" : ""} aria-pressed={pathMode === "no_respec"} onClick={() => setPathMode("no_respec")}>No respec</button>
-            <button type="button" className={pathMode === "optimum_envelope" ? "active" : ""} aria-pressed={pathMode === "optimum_envelope"} onClick={() => setPathMode("optimum_envelope")}>Best per level</button>
+            <button type="button" className={pathMode === "no_respec" ? "active" : ""} aria-pressed={pathMode === "no_respec"} title="One stat point per level, never moved" onClick={() => setPathMode("no_respec")}>No respec</button>
+            <button type="button" className={pathMode === "optimum_envelope" ? "active" : ""} aria-pressed={pathMode === "optimum_envelope"} title="The best build at each level, respecs allowed" onClick={() => setPathMode("optimum_envelope")}>Best per level</button>
           </div>
           <label>
             Levels ahead
@@ -181,7 +180,6 @@ export function PathsView() {
         running="Tracing paths"
         completed={`Completed · ${paths.length} build${paths.length === 1 ? "" : "s"}`}
       />
-      <small className="path-mode-note">{pathMode === "no_respec" ? "Ends on the best build for the final level. Each level adds its point where it helps most, and no point is ever moved, so the path never needs a respec." : "Each level shows its own best build. A respec is marked when that build moves points you already spent."}</small>
       <div className="path-lanes">
         <LaneSummary title="Selected" path={paths.find((path) => path.title === "Selected")} row={selected} />
         <LaneSummary title="Compare" path={paths.find((path) => path.title === "Compare")} row={target} />

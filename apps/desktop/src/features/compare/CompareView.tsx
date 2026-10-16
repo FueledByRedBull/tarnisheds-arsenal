@@ -9,7 +9,9 @@ import { LatestRequest } from "../../lib/request-generation";
 import { useBuiltRequest } from "../../lib/hooks";
 import { useDesktopStore } from "../../lib/state";
 import { CompareControls, SolvedBuildDto, UpgradePointDto } from "../../lib/types";
+import { AboutPopover } from "../shared/AboutPopover";
 import { Popover } from "../shared/Popover";
+import { WorkspaceGate } from "../shared/WorkspaceGate";
 import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 import { LoadoutTradeoffs } from "./LoadoutTradeoffs";
 
@@ -42,7 +44,6 @@ export function CompareView() {
   const compareControls = useDesktopStore((state) => state.compareControls);
   const patchCompareControls = useDesktopStore((state) => state.patchCompareControls);
   const setError = useDesktopStore((state) => state.setError);
-  const setWorkspace = useDesktopStore((state) => state.setWorkspace);
   const matrixRef = useRef<HTMLDivElement | null>(null);
   const seriesRequest = useRef(new LatestRequest());
   // The inputs of the last comparison that finished. Showing the tab again re-runs the effect
@@ -287,45 +288,29 @@ export function CompareView() {
   const chartsLoading = series.some(lane => lane.chartStatus === "loading");
 
   if (!selected) {
-    return (
-      <section className="workspace-panel compare-panel">
-        <div className="workspace-header"><div><h1>Compare</h1><span>Requires a current ranked build</span></div></div>
-        <div className="empty-state workspace-prerequisite">
-          <strong>Select a ranking first</strong>
-          <span>Run or update Rankings, then select any row to use as the baseline.</span>
-          <button type="button" onClick={() => setWorkspace("rankings")}>Go to Rankings</button>
-        </div>
-      </section>
-    );
+    return <WorkspaceGate panelClass="compare-panel" title="Compare" requirement="Requires a current ranked build"
+      heading="Select a ranking first" message="Run or update Rankings, then select any row to use as the baseline." />;
   }
 
   if (resultsStale) {
-    return (
-      <section className="workspace-panel compare-panel">
-        <div className="workspace-header"><div><h1>Compare</h1><span>Requires current ranked results</span></div></div>
-        <div className="empty-state workspace-prerequisite">
-          <strong>Update Rankings before comparing</strong>
-          <span>The selected build and comparison targets belong to the previous query.</span>
-          <button type="button" onClick={() => setWorkspace("rankings")}>Go to Rankings</button>
-        </div>
-      </section>
-    );
+    return <WorkspaceGate panelClass="compare-panel" title="Compare" requirement="Requires current ranked results"
+      heading="Update Rankings before comparing" message="The selected build and comparison targets belong to the previous query." />;
   }
 
+  const baselineMetric = metricForObjective(selected, request.objective, aowModelSupported(catalog?.dataManifest));
   return (
     <section className="workspace-panel compare-panel">
       <div className="workspace-header analysis-workspace-header compare-workspace-header">
         <div className="workspace-heading-copy">
           <h1>Compare</h1>
           <span>Selected baseline versus {compareSource}</span>
-          <small>Pinned loadouts keep their weapon, affinity, and skill; stats and upgrades are reoptimized for the current budget. Non-upgradeable pins use +0.</small>
-          <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)}</small>
+          <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)} {baselineMetric === null ? "Unavailable" : fixed1(baselineMetric)}</small>
+          <AboutPopover label="About Compare">
+            Every comparison uses this query&apos;s level, stat budget, locks and world settings. Pinned loadouts keep their
+            weapon, affinity and skill; their stats and upgrades are optimized again for the current budget, and pins that
+            cannot be upgraded use +0. Deltas are the compared build minus the selected baseline.
+          </AboutPopover>
         </div>
-      </div>
-      <div className="analysis-state" role="status" aria-live="polite">
-        {seriesStatus === "loading" ? "Resolving comparison builds…" : null}
-        {seriesStatus === "error" ? `Compare failed: ${seriesError}` : null}
-        {seriesStatus === "ready" ? chartsLoading ? "Comparison current · Upgrade charts loading…" : "Comparison current" : null}
       </div>
       <div className="compare-toolbar">
         <span className="compare-chip-lead">Against</span>
@@ -441,6 +426,12 @@ export function CompareView() {
             <small>Selected stays as the baseline.</small>
           </div>
         ) : null}
+        {/* The comparison's state sits at the end of its scope line rather than on a row of its own. */}
+        <div className="analysis-state compare-status" role="status" aria-live="polite">
+          {seriesStatus === "loading" ? "Resolving comparison builds…" : null}
+          {seriesStatus === "error" ? `Compare failed: ${seriesError}` : null}
+          {seriesStatus === "ready" ? chartsLoading ? "Comparison current · Upgrade charts loading…" : "Comparison current" : null}
+        </div>
       </div>
       <DeltaTable baseline={series[0]?.row ?? selected} candidates={series.slice(1)} objective={request.objective} />
       {/* The delta table answers the comparison; the full build cards are there on request. */}
@@ -505,7 +496,6 @@ function DeltaTable({ baseline, candidates, objective }: { baseline: SolvedBuild
     || label === "Bleed"
     || label === "AoW full",
   );
-  const baselineMetric = metricForObjective(baseline, objective, aowSupported);
   const renderTable = (tableMetrics: CompareMetric[], caption: string) => (
     <table>
       <caption>{caption}</caption>
@@ -528,7 +518,6 @@ function DeltaTable({ baseline, candidates, objective }: { baseline: SolvedBuild
   );
   return (
     <div className="compare-deltas">
-      <p><strong>Baseline</strong> {baseline.weaponName} / {baseline.affinity} / +{baseline.upgrade} · {objectiveLabel(objective)} {baselineMetric === null ? "Unavailable" : fixed1(baselineMetric)}</p>
       {!candidates.length ? <small>No comparison target is currently available.</small> : null}
       {candidates.length ? renderTable(primaryMetrics, "Primary deltas versus baseline") : null}
       {candidates.length ? (

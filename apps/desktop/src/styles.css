@@ -678,7 +678,6 @@ textarea {
   font-size: 12px;
 }
 
-.compare-deltas caption,
 .compare-deltas th,
 .compare-deltas td {
   padding: 6px;
@@ -691,8 +690,12 @@ textarea {
   text-align: left;
 }
 
+/* A plain section heading, not another outlined box. */
 .compare-deltas caption {
-  padding: 8px;
+  padding: 12px 0 6px;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .compare-deltas th small,
@@ -894,27 +897,39 @@ textarea {
   gap: 6px;
 }
 
-/* Export and its row count read as one split control, so the count is never mistaken for
-   how many rows the board shows. */
-.export-split {
-  display: inline-flex;
+/* The row count lives inside Export, so it is never mistaken for how many rows the board shows. */
+.export-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
 }
 
-.result-scroll-actions .export-split .export-csv-button {
-  border-radius: 4px 0 0 4px;
+.popover-panel.export-panel {
+  width: 280px;
 }
 
-.export-split select {
-  width: auto;
-  height: 32px;
-  min-height: 32px;
-  padding: 0 6px;
+.popover-panel.column-guide-panel {
+  width: 480px;
+}
+
+.column-guide {
+  margin: 0;
+}
+
+.column-guide > div {
+  display: grid;
+  grid-template-columns: 104px 1fr;
+  gap: 8px;
+}
+
+.column-guide dt {
+  color: var(--text-strong);
+  font-weight: 700;
+}
+
+.column-guide dd {
+  margin: 0;
   color: var(--text-muted);
-  font-size: 12px;
-  background: color-mix(in srgb, var(--surface-raised) 78%, transparent);
-  border-color: var(--line);
-  border-left: 0;
-  border-radius: 0 4px 4px 0;
 }
 
 .result-scroll-actions button {
@@ -925,7 +940,8 @@ textarea {
   height: 34px;
 }
 
-.result-scroll-actions .export-csv-button {
+.result-scroll-actions .export-csv-button,
+.result-scroll-actions .column-guide-trigger {
   width: auto;
   padding: 0 11px;
   white-space: nowrap;
@@ -1641,6 +1657,29 @@ textarea {
   display: grid;
   min-width: 0;
   gap: 2px;
+}
+
+/* A workspace's rules sit behind one quiet link under its title. */
+.about-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  margin-top: 4px;
+  padding: 2px 0;
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.about-trigger:hover {
+  color: var(--accent-ink);
+}
+
+.popover-panel.about-panel {
+  width: 380px;
 }
 
 .analysis-workspace-header .selected-summary {
@@ -2666,6 +2705,37 @@ textarea:hover {
   width: 380px;
 }
 
+/* More options: blessing and results on the left, locks and minimums on the right. */
+.popover-panel.options-panel {
+  width: 660px;
+  max-width: calc(100vw - 16px);
+}
+
+.editor-sections {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  grid-template-rows: auto 1fr;
+}
+
+.editor-sections > section + section {
+  border-top: 1px solid var(--line);
+}
+
+.editor-sections > .options-limits {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  border-top: 0;
+  border-left: 1px solid var(--line);
+}
+
+.editor-sections h3 {
+  margin: 0;
+  padding: 14px 14px 0;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .editor-body {
   display: grid;
   gap: 10px;
@@ -2683,7 +2753,8 @@ textarea:hover {
   align-items: start;
 }
 
-.editor-grid .editor-reset {
+.editor-grid .editor-reset,
+.editor-grid .editor-span {
   grid-column: 1 / -1;
 }
 
@@ -3331,6 +3402,13 @@ textarea:hover {
   font-size: 12px;
 }
 
+.compare-toolbar .compare-status {
+  display: flex;
+  align-items: center;
+  min-height: 0;
+  margin: 0 0 0 auto;
+}
+
 .workspace-prerequisite {
   margin: 24px 14px;
 }
@@ -3357,8 +3435,7 @@ textarea:hover {
   margin: 4px 0 0;
 }
 
-.model-coverage,
-.mechanics-glossary {
+.model-coverage {
   margin: 0 2px 12px;
   padding: 8px 10px;
   border: 1px solid color-mix(in srgb, var(--info) 22%, transparent);
@@ -3366,8 +3443,7 @@ textarea:hover {
   background: color-mix(in srgb, var(--surface-canvas) 32%, transparent);
 }
 
-.model-coverage summary,
-.mechanics-glossary summary {
+.model-coverage summary {
   color: var(--accent-strong);
   cursor: pointer;
   font-size: 12px;
@@ -3381,35 +3457,6 @@ textarea:hover {
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.45;
-}
-
-.mechanics-glossary {
-  flex: 0 0 auto;
-  margin: 8px 10px;
-}
-
-.mechanics-glossary dl {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
-  gap: 8px;
-  margin: 8px 0 0;
-}
-
-.mechanics-glossary dl > div {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 6px;
-}
-
-.mechanics-glossary dt {
-  color: var(--text-strong);
-  font-weight: 700;
-}
-
-.mechanics-glossary dd {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 12px;
 }
 
 .result-head,

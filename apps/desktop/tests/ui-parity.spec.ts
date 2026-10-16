@@ -214,7 +214,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
-  await expect(page.getByText("No rankings loaded", { exact: true })).toBeVisible();
+  await expect(page.getByText("Find the best weapon for this character", { exact: true })).toBeVisible();
   await expect(page.locator(".top-cards")).toHaveCount(0);
 
   await expect(page.getByRole("textbox", { name: "Level", exact: true })).toHaveValue("9");
@@ -256,7 +256,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(rowScaling.getByRole("listitem", { name: "Strength scaling: C", exact: true })).toBeVisible();
   await expect(rowScaling.getByRole("listitem", { name: "Arcane scaling: D", exact: true })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "AR", exact: true })).toBeVisible();
-  await page.locator(".model-coverage").getByText("Model coverage and assumptions").click();
+  await openSection(page, "More details");
   await expect(page.getByText("Attack rating is calculated before enemy defense and negation.")).toBeVisible();
   await expect(page.getByText(/Temporary buff stacking is not a universal layer/)).toBeVisible();
   await expectRankingsBoardToFit(page);
@@ -288,7 +288,6 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   )).toBeLessThan(145);
 
   await page.locator(".result-row-full").first().getByRole("button", { name: /^Lock / }).click();
-  await expect(page.getByText("Stat locks active", { exact: true })).toBeVisible();
   await expect(page.locator(".active-lock-warning")).toContainText("Stat locks active: STR 13 / DEX 22");
   await expect(page.locator(".active-lock-warning")).toHaveAttribute("title", /Changing class or loadout keeps these locks/);
   await expect((await openEditor(page, "Limits")).getByText(/Changing class or loadout keeps these locks/)).toBeVisible();
@@ -364,7 +363,8 @@ test("somber-only exact search uses the somber upgrade cap", async ({ page }) =>
   await expect(page.getByRole("spinbutton", { name: "Standard Upgrade" })).toHaveValue("25");
   await expect(page.getByRole("spinbutton", { name: "Somber Upgrade" })).toHaveValue("10");
   await page.getByRole("button", { name: "Use exact levels" }).click();
-  await chooseSearchableOption(page, "Somber", "Somber Only");
+  await openEditor(page, "Loadout");
+  await page.getByRole("group", { name: "Reinforcement", exact: true }).getByRole("button", { name: "Somber Only", exact: true }).click();
 
   await page.getByRole("button", { name: "Search" }).click();
   await expect(page.getByText("1 ranked row")).toBeVisible();
@@ -840,13 +840,15 @@ for (const [width, height] of [[923, 789], [1200, 720], [1366, 768], [1650, 950]
         });
     });
     await expect.poll(stripFits).toBe(true);
-    await expect.poll(() => page.locator(".rankings-panel .workspace-header").evaluate((header) =>
-      document.querySelector(".mechanics-glossary")!.getBoundingClientRect().top - header.getBoundingClientRect().bottom,
-    )).toBeGreaterThanOrEqual(0);
-    await page.locator(".mechanics-glossary summary").click();
-    await expect.poll(() => page.locator(".mechanics-glossary dl").evaluate((list) =>
-      list.scrollWidth <= list.clientWidth + 1,
-    )).toBe(true);
+    // Column meanings sit in one guide that opens inside the window and also describes each header.
+    await expect(page.getByRole("columnheader", { name: "AR" }).getByRole("button")).toHaveAccessibleDescription(/Raw attack rating/);
+    await page.getByRole("button", { name: "Column guide", exact: true }).click();
+    const guide = page.getByRole("dialog", { name: "Column guide" });
+    await expect.poll(() => guide.evaluate((panel) => {
+      const box = panel.getBoundingClientRect();
+      return box.left >= 0 && box.right <= window.innerWidth && box.bottom <= window.innerHeight && panel.scrollWidth <= panel.clientWidth + 1;
+    })).toBe(true);
+    await page.keyboard.press("Escape");
     await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
     await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
     await expect.poll(stripFits).toBe(true);
@@ -910,8 +912,8 @@ for (const [width, height] of [[1200, 720], [1366, 768], [1650, 950]]) {
     await expect.poll(() => page.locator(".result-row-full").first().evaluate((row) => row.getBoundingClientRect().height)).toBeLessThan(145);
     await expect.poll(() => page.locator(".inspector").evaluate((inspector) => {
       const selected = inspector.querySelector(".selected-build")!;
-      const budget = [...inspector.querySelectorAll(".detail-block")].find(n => n.textContent?.includes("Stat Budget"))!;
-      return selected.getBoundingClientRect().top < budget.getBoundingClientRect().top;
+      const details = [...inspector.querySelectorAll("summary")].find(n => n.textContent === "More details")!;
+      return selected.getBoundingClientRect().top < details.getBoundingClientRect().top;
     })).toBe(true);
     await nav.getByRole("button", { name: "Compare", exact: true }).click();
     await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();

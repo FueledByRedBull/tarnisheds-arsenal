@@ -151,7 +151,7 @@ test("starter Automatic is not overwritten by late native-skill metadata", async
   await (await loadoutField(page, "Weapon")).fill("Uchigatana");
   await (await loadoutField(page, "Weapon")).press("Tab");
   await pending(page, ["vanilla", "Uchigatana", null]);
-  await page.getByRole("button", { name: "Try Uchigatana +3 example", exact: true }).click();
+  await page.getByRole("button", { name: "Try an Uchigatana +3 example", exact: true }).click();
   await expect.poll(() => page.evaluate(() => (window as any).selectionProbe.searches.length)).toBe(1);
   await resolve(page, ["vanilla", "Uchigatana", "Standard"], {
     nativeSkillName: "Unsheathe", compatibleAows: ["Unsheathe", "Seppuku"], affinities: ["Standard", "Blood", "Occult"],

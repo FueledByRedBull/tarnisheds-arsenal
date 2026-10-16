@@ -28,7 +28,8 @@ test("strip tokens summarise the query and their editors apply edits in place", 
   await expect(token("Class")).toHaveAccessibleName("Class: Samurai");
   await expect(token("Objective")).toHaveAccessibleName("Objective: Max AR");
   await expect(token("Loadout")).toHaveAccessibleName("Loadout: Any weapon");
-  await expect(token("Results")).toHaveAccessibleName("Results: Top 25");
+  await expect(token("More options")).toHaveAccessibleName("More options: Base game, Top 25, Locks and minimums");
+  await expect(token("More options")).toHaveText("+ More options");
 
   const classPanel = await openEditor(page, "Class");
   await classPanel.getByRole("combobox", { name: "Class" }).fill("Vagabond");
@@ -53,7 +54,9 @@ test("strip tokens summarise the query and their editors apply edits in place", 
   await expect(loadout).toBeHidden();
   await results.getByRole("spinbutton", { name: "Top Results" }).fill("10");
   await results.getByRole("spinbutton", { name: "Top Results" }).press("Enter");
-  await expect(token("Results")).toHaveAccessibleName(/^Results: Top 10/);
+  await expect(token("More options")).toHaveAccessibleName(/^More options: Base game, Top 10,/);
+  // Only settings that differ from the defaults are spelled out on the token.
+  await expect(token("More options")).toHaveText("Top 10");
 
   await page.getByRole("checkbox", { name: "Two-handing", exact: true }).check();
   expect((await state(page)).request).toMatchObject({ className: "Vagabond", objective: "max_ar_plus_bleed",
@@ -106,7 +109,7 @@ test("Ctrl+K applies typed edits, actions and navigation", async ({ page }) => {
 
   ({ dialog, input } = await palette(page, "top 5"));
   await input.press("Enter");
-  await expect(page.getByRole("button", { name: /^Results: Top 5/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^More options: .*Top 5,/ })).toBeVisible();
 
   ({ dialog, input } = await palette(page, "search"));
   await input.press("Enter");
@@ -149,7 +152,7 @@ for (const [width, height] of [[1200, 720], [1650, 950]]) {
   test(`every strip editor opens inside the window at ${width}x${height}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     await ready(page);
-    for (const editor of ["Class", "Objective", "Loadout", "Upgrades", "Scaling", "Results", "Limits"] satisfies EditorName[]) {
+    for (const editor of ["Class", "Objective", "Loadout", "Upgrades", "Limits"] satisfies EditorName[]) {
       const panel = await openEditor(page, editor);
       await expect.poll(() => panel.evaluate((node) => {
         const box = node.getBoundingClientRect();
@@ -167,7 +170,7 @@ test("Convergence summarises custom stats and hides class-budget commands", asyn
   await page.getByRole("radiogroup", { name: "Game profile" }).getByRole("radio", { name: /Convergence/ }).click();
   await expect(page.getByRole("button", { name: "Class: Custom stats" })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Upgrades: / })).toHaveAccessibleName(/\+15/);
-  await expect(page.getByRole("button", { name: /^Scaling: / })).toHaveAccessibleName(/No Scadutree/);
+  await expect(page.getByRole("button", { name: /^More options: / })).toHaveAccessibleName(/No Scadutree/);
   const { dialog, input } = await palette(page, "str 40");
   await expect(dialog.getByRole("option")).toHaveCount(1);
   await input.fill("optimize class");
