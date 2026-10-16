@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-cancel-affinity-watch"
+description = "Enables the cancel_affinity_watch command without any pre-configured scope."
+commands.allow = ["cancel_affinity_watch"]
+
+[[permission]]
+identifier = "deny-cancel-affinity-watch"
+description = "Denies the cancel_affinity_watch command without any pre-configured scope."
+commands.deny = ["cancel_affinity_watch"]

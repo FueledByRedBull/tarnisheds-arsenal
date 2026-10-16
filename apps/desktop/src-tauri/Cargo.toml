@@ -4,10 +4,10 @@ version = "0.17.2"
 description = "Tarnished's Arsenal desktop app"
 authors = ["Tarnished's Arsenal contributors"]
 license = "MIT"
-repository = ""
 edition = "2024"
 default-run = "tarnisheds-arsenal-desktop"
 
+# Keep the default panic = "unwind": worker panics must become a job error (see lib.rs).
 [profile.release]
 lto = "thin"
 codegen-units = 1
@@ -18,5 +18,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 er_optimizer_core = { path = "../../../core/er_optimizer_core" }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
 tauri = { version = "2", features = [] }
+
+[dev-dependencies]
+serde_json = "1"
