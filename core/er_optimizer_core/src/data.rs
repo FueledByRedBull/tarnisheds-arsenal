@@ -12,6 +12,8 @@ use crate::snapshot::{SnapshotManifest, validate_embedded_snapshot, validate_ext
 
 pub const VANILLA_PROFILE_ID: &str = "vanilla";
 pub const CONVERGENCE_PROFILE_ID: &str = "convergence";
+/// Calc-correct curves are tabulated through stat 999; ids bound the per-curve allocation.
+const MAX_CURVE_STAT_VALUE: usize = 999;
 
 #[derive(Clone, Debug, Default)]
 struct AowBuffRow {
@@ -25,7 +27,7 @@ struct AowBuffRow {
 
 struct CsvTable {
     headers: HashMap<String, usize>,
-    rows: Vec<Vec<String>>,
+    rows: Vec<csv::StringRecord>,
 }
 
 impl CsvTable {
@@ -61,7 +63,7 @@ impl CsvTable {
         let mut rows = Vec::new();
         for record in reader.records() {
             let record = record.map_err(|err| format!("{source} has invalid csv row: {err}"))?;
-            rows.push(record.iter().map(str::to_string).collect());
+            rows.push(record);
         }
         Ok(Self {
             headers: indexed_headers,
@@ -106,74 +108,38 @@ fn embedded_tables(profile_id: &str) -> Result<HashMap<&'static str, Vec<u8>>, S
         .collect()
 }
 
+/// Decompressed embedded tables, so tests read exactly the bytes build.rs embeds.
+#[cfg(test)]
+fn embedded_csv(profile_id: &str, name: &str) -> Option<&'static str> {
+    type Tables = HashMap<&'static str, HashMap<&'static str, &'static str>>;
+    static TABLES: std::sync::OnceLock<Tables> = std::sync::OnceLock::new();
+    TABLES
+        .get_or_init(|| {
+            [VANILLA_PROFILE_ID, CONVERGENCE_PROFILE_ID]
+                .into_iter()
+                .map(|profile| {
+                    let tables = embedded_tables(profile)
+                        .unwrap()
+                        .into_iter()
+                        .map(|(table, bytes)| (table, &*String::from_utf8(bytes).unwrap().leak()))
+                        .collect();
+                    (profile, tables)
+                })
+                .collect()
+        })
+        .get(profile_id)?
+        .get(name)
+        .copied()
+}
+
 #[cfg(test)]
 fn embedded_vanilla_csv(name: &str) -> Option<&'static str> {
-    match name {
-        "aow.csv" => Some(include_str!("../../../data/phase1/aow.csv")),
-        "aow_attack_data.csv" => Some(include_str!("../../../data/phase1/aow_attack_data.csv")),
-        "aow_route_assignments.csv" => Some(include_str!(
-            "../../../data/phase1/aow_route_assignments.csv"
-        )),
-        "aow_effect_data.csv" => Some(include_str!("../../../data/phase1/aow_effect_data.csv")),
-        "attack_element_correct.csv" => Some(include_str!(
-            "../../../data/phase1/attack_element_correct.csv"
-        )),
-        "attack_element_correct_ext.csv" => Some(include_str!(
-            "../../../data/phase1/attack_element_correct_ext.csv"
-        )),
-        "calc_correct.csv" => Some(include_str!("../../../data/phase1/calc_correct.csv")),
-        "native_skill_attack_data.csv" => Some(include_str!(
-            "../../../data/phase1/native_skill_attack_data.csv"
-        )),
-        "reinforce.csv" => Some(include_str!("../../../data/phase1/reinforce.csv")),
-        "weapon_passive_overlays.csv" => Some(include_str!(
-            "../../../data/phase1/weapon_passive_overlays.csv"
-        )),
-        "weapon_passives.csv" => Some(include_str!("../../../data/phase1/weapon_passives.csv")),
-        "weapons.csv" => Some(include_str!("../../../data/phase1/weapons.csv")),
-        _ => None,
-    }
+    embedded_csv(VANILLA_PROFILE_ID, name)
 }
 
 #[cfg(test)]
 fn embedded_convergence_csv(name: &str) -> Option<&'static str> {
-    match name {
-        "aow.csv" => Some(include_str!("../../../data/profiles/convergence/aow.csv")),
-        "aow_attack_data.csv" => Some(include_str!(
-            "../../../data/profiles/convergence/aow_attack_data.csv"
-        )),
-        "aow_route_assignments.csv" => Some(include_str!(
-            "../../../data/profiles/convergence/aow_route_assignments.csv"
-        )),
-        "aow_effect_data.csv" => Some(include_str!(
-            "../../../data/profiles/convergence/aow_effect_data.csv"
-        )),
-        "attack_element_correct.csv" => Some(include_str!(
-            "../../../data/profiles/convergence/attack_element_correct.csv"
-        )),
-        "attack_element_correct_ext.csv" => Some(include_str!(
-            "../../../data/profiles/convergence/attack_element_correct_ext.csv"
-        )),
-        "calc_correct.csv" => Some(include_str!(
-            "../../../data/profiles/convergence/calc_correct.csv"
-        )),
-        "native_skill_attack_data.csv" => Some(include_str!(
-            "../../../data/profiles/convergence/native_skill_attack_data.csv"
-        )),
-        "reinforce.csv" => Some(include_str!(
-            "../../../data/profiles/convergence/reinforce.csv"
-        )),
-        "weapon_passive_overlays.csv" => Some(include_str!(
-            "../../../data/profiles/convergence/weapon_passive_overlays.csv"
-        )),
-        "weapon_passives.csv" => Some(include_str!(
-            "../../../data/profiles/convergence/weapon_passives.csv"
-        )),
-        "weapons.csv" => Some(include_str!(
-            "../../../data/profiles/convergence/weapons.csv"
-        )),
-        _ => None,
-    }
+    embedded_csv(CONVERGENCE_PROFILE_ID, name)
 }
 
 fn parse_u8(value: &str, field: &str) -> Result<u8, String> {
@@ -210,8 +176,8 @@ fn parse_f32(value: &str, field: &str) -> Result<f32, String> {
     Ok(parsed)
 }
 
-fn optional_string(row: &[String], index: Option<usize>) -> String {
-    index.map_or("", |index| row[index].as_str()).to_string()
+fn optional_string(row: &csv::StringRecord, index: Option<usize>) -> String {
+    index.map_or("", |index| &row[index]).to_string()
 }
 
 fn parse_status_buildup(value: &str, field: &str) -> Result<f32, String> {
@@ -228,7 +194,13 @@ fn parse_status_buildup(value: &str, field: &str) -> Result<f32, String> {
 }
 
 fn parse_bool_u8(value: &str, field: &str) -> Result<bool, String> {
-    Ok(parse_u8(value, field)? != 0)
+    match value {
+        "0" => Ok(false),
+        "1" => Ok(true),
+        _ => Err(format!(
+            "invalid flag for {field}: {value} (expected 0 or 1)"
+        )),
+    }
 }
 
 fn parse_physical_attack_attribute(value: &str) -> Result<PhysicalAttackAttribute, String> {
@@ -247,7 +219,7 @@ fn parse_optional_bool_u8(value: &str, field: &str) -> Result<Option<bool>, Stri
     if value.is_empty() {
         return Ok(None);
     }
-    Ok(Some(parse_u8(value, field)? != 0))
+    parse_bool_u8(value, field).map(Some)
 }
 
 pub fn load_game_data(data_dir: impl AsRef<Path>) -> Result<GameData, String> {
@@ -331,15 +303,69 @@ fn load_validated_game_data<'a>(
         weapon_passives,
         weapon_passive_overlays,
     };
+    validate_cross_table_references(&data)?;
     Ok((data, manifest))
 }
 
-pub fn load_embedded_game_data() -> Result<GameData, String> {
-    load_embedded_game_profile(VANILLA_PROFILE_ID)
-}
-
-pub fn load_embedded_game_data_with_manifest() -> Result<(GameData, SnapshotManifest), String> {
-    load_embedded_game_profile_with_manifest(VANILLA_PROFILE_ID)
+/// Rejects ambiguous keys, dangling references and capability/table disagreement at load time
+/// instead of failing per weapon during a search.
+fn validate_cross_table_references(data: &GameData) -> Result<(), String> {
+    let mut weapon_ids = HashSet::with_capacity(data.weapons.len());
+    for weapon in &data.weapons {
+        let id = weapon.weapon_id;
+        if !weapon_ids.insert(id) {
+            return Err(format!("duplicate weapon_id: {id}"));
+        }
+        if data
+            .reinforce
+            .get(usize::from(weapon.reinforce_type))
+            .is_none_or(Vec::is_empty)
+        {
+            return Err(format!(
+                "weapon {id} references missing reinforce_type {}",
+                weapon.reinforce_type
+            ));
+        }
+        if data
+            .attack_element(weapon.attack_element_correct_id)
+            .is_none()
+        {
+            return Err(format!(
+                "weapon {id} references missing attack_element_correct_id {}",
+                weapon.attack_element_correct_id
+            ));
+        }
+        let status = weapon.status_curve_ids;
+        for curve_id in weapon.damage_curve_ids.into_iter().chain([
+            status.poison,
+            status.blood,
+            status.sleep,
+            status.madness,
+        ]) {
+            if data.calc_correct.get(curve_id).is_none_or(Option::is_none) {
+                return Err(format!(
+                    "weapon {id} references missing curve_id {curve_id}"
+                ));
+            }
+        }
+    }
+    let mut aow_ids = HashSet::with_capacity(data.aows.len());
+    if let Some(aow) = data.aows.iter().find(|aow| !aow_ids.insert(aow.aow_id)) {
+        return Err(format!("duplicate aow_id: {}", aow.aow_id));
+    }
+    if data.capabilities.aow_damage == data.aow_attack_rows.is_empty() {
+        return Err(format!(
+            "manifest aowDamage={} disagrees with aow_attack_data.csv",
+            data.capabilities.aow_damage
+        ));
+    }
+    if data.capabilities.aow_routes == data.aow_route_assignments.is_empty() {
+        return Err(format!(
+            "manifest aowRoutes={} disagrees with aow_route_assignments.csv",
+            data.capabilities.aow_routes
+        ));
+    }
+    Ok(())
 }
 
 pub fn load_embedded_game_profile(profile_id: &str) -> Result<GameData, String> {
@@ -489,39 +515,39 @@ fn load_weapons(table: CsvTable) -> Result<Vec<Weapon>, String> {
 
     for row in &table.rows {
         let base = [
-            parse_f32(row[base_physical].as_str(), "base_physical")?,
-            parse_f32(row[base_magic].as_str(), "base_magic")?,
-            parse_f32(row[base_fire].as_str(), "base_fire")?,
-            parse_f32(row[base_lightning].as_str(), "base_lightning")?,
-            parse_f32(row[base_holy].as_str(), "base_holy")?,
+            parse_f32(&row[base_physical], "base_physical")?,
+            parse_f32(&row[base_magic], "base_magic")?,
+            parse_f32(&row[base_fire], "base_fire")?,
+            parse_f32(&row[base_lightning], "base_lightning")?,
+            parse_f32(&row[base_holy], "base_holy")?,
         ];
         let scaling = [
-            parse_f32(row[str_scaling].as_str(), "str_scaling")?,
-            parse_f32(row[dex_scaling].as_str(), "dex_scaling")?,
-            parse_f32(row[int_scaling].as_str(), "int_scaling")?,
-            parse_f32(row[fai_scaling].as_str(), "fai_scaling")?,
-            parse_f32(row[arc_scaling].as_str(), "arc_scaling")?,
+            parse_f32(&row[str_scaling], "str_scaling")?,
+            parse_f32(&row[dex_scaling], "dex_scaling")?,
+            parse_f32(&row[int_scaling], "int_scaling")?,
+            parse_f32(&row[fai_scaling], "fai_scaling")?,
+            parse_f32(&row[arc_scaling], "arc_scaling")?,
         ];
         let requirements = [
-            parse_u8(row[req_str].as_str(), "req_str")?,
-            parse_u8(row[req_dex].as_str(), "req_dex")?,
-            parse_u8(row[req_int].as_str(), "req_int")?,
-            parse_u8(row[req_fai].as_str(), "req_fai")?,
-            parse_u8(row[req_arc].as_str(), "req_arc")?,
+            parse_u8(&row[req_str], "req_str")?,
+            parse_u8(&row[req_dex], "req_dex")?,
+            parse_u8(&row[req_int], "req_int")?,
+            parse_u8(&row[req_fai], "req_fai")?,
+            parse_u8(&row[req_arc], "req_arc")?,
         ];
         let damage_curve_ids = [
-            parse_usize(row[curve_id_physical].as_str(), "curve_id_physical")?,
-            parse_usize(row[curve_id_magic].as_str(), "curve_id_magic")?,
-            parse_usize(row[curve_id_fire].as_str(), "curve_id_fire")?,
-            parse_usize(row[curve_id_lightning].as_str(), "curve_id_lightning")?,
-            parse_usize(row[curve_id_holy].as_str(), "curve_id_holy")?,
+            parse_usize(&row[curve_id_physical], "curve_id_physical")?,
+            parse_usize(&row[curve_id_magic], "curve_id_magic")?,
+            parse_usize(&row[curve_id_fire], "curve_id_fire")?,
+            parse_usize(&row[curve_id_lightning], "curve_id_lightning")?,
+            parse_usize(&row[curve_id_holy], "curve_id_holy")?,
         ];
         out.push(Weapon {
-            weapon_id: parse_u32(row[weapon_id].as_str(), "weapon_id")?,
-            name: row[name].as_str().to_string(),
-            affinity: row[affinity].as_str().to_string(),
+            weapon_id: parse_u32(&row[weapon_id], "weapon_id")?,
+            name: row[name].to_string(),
+            affinity: row[affinity].to_string(),
             native_skill_id: {
-                let value = row[native_skill_id].as_str();
+                let value = &row[native_skill_id];
                 if value.is_empty() {
                     None
                 } else {
@@ -529,21 +555,21 @@ fn load_weapons(table: CsvTable) -> Result<Vec<Weapon>, String> {
                 }
             },
             native_skill_name: native_skill_name
-                .and_then(|index| (!row[index].is_empty()).then(|| row[index].clone())),
-            weapon_type_id: parse_u16(row[weapon_type_id].as_str(), "weapon_type_id")?,
-            weapon_type_name: row[weapon_type_name].as_str().to_string(),
-            weapon_type_keys: row[weapon_type_keys].as_str().to_string(),
-            weight: parse_f32(row[weight].as_str(), "weight")?,
-            base_poise: parse_f32(row[base_poise].as_str(), "base_poise")?,
+                .and_then(|index| (!row[index].is_empty()).then(|| row[index].to_string())),
+            weapon_type_id: parse_u16(&row[weapon_type_id], "weapon_type_id")?,
+            weapon_type_name: row[weapon_type_name].to_string(),
+            weapon_type_keys: row[weapon_type_keys].to_string(),
+            weight: parse_f32(&row[weight], "weight")?,
+            base_poise: parse_f32(&row[base_poise], "base_poise")?,
             critical_damage_percent: parse_u16(
-                row[critical_damage_percent].as_str(),
+                &row[critical_damage_percent],
                 "critical_damage_percent",
             )?,
             stamina_consumption_rate: parse_f32(
-                row[stamina_consumption_rate].as_str(),
+                &row[stamina_consumption_rate],
                 "stamina_consumption_rate",
             )?,
-            move_count: parse_u16(row[move_count].as_str(), "move_count")?,
+            move_count: parse_u16(&row[move_count], "move_count")?,
             one_handed_poise: DisplayPoiseDamage {
                 light: optional_string(row, one_hand_light_poise),
                 heavy: optional_string(row, one_hand_heavy_poise),
@@ -559,29 +585,29 @@ fn load_weapons(table: CsvTable) -> Result<Vec<Weapon>, String> {
                 jumping_heavy: optional_string(row, two_hand_jumping_heavy_poise),
             },
             physical_attributes: [
-                parse_physical_attack_attribute(row[physical_attribute_primary].as_str())?,
-                parse_physical_attack_attribute(row[physical_attribute_secondary].as_str())?,
+                parse_physical_attack_attribute(&row[physical_attribute_primary])?,
+                parse_physical_attack_attribute(&row[physical_attribute_secondary])?,
             ],
             base,
             scaling,
             requirements,
-            reinforce_type: parse_u16(row[reinforce_type].as_str(), "reinforce_type")?,
+            reinforce_type: parse_u16(&row[reinforce_type], "reinforce_type")?,
             attack_element_correct_id: parse_usize(
-                row[attack_element_correct_id].as_str(),
+                &row[attack_element_correct_id],
                 "attack_element_correct_id",
             )?,
             damage_curve_ids,
             status_curve_ids: StatusCurveIds {
-                poison: parse_usize(row[curve_id_poison].as_str(), "curve_id_poison")?,
-                blood: parse_usize(row[curve_id_blood].as_str(), "curve_id_blood")?,
-                sleep: parse_usize(row[curve_id_sleep].as_str(), "curve_id_sleep")?,
-                madness: parse_usize(row[curve_id_madness].as_str(), "curve_id_madness")?,
+                poison: parse_usize(&row[curve_id_poison], "curve_id_poison")?,
+                blood: parse_usize(&row[curve_id_blood], "curve_id_blood")?,
+                sleep: parse_usize(&row[curve_id_sleep], "curve_id_sleep")?,
+                madness: parse_usize(&row[curve_id_madness], "curve_id_madness")?,
             },
-            can_change_aow: parse_bool_u8(row[can_change_aow].as_str(), "can_change_aow")?,
-            disable_gem_attr: parse_bool_u8(row[disable_gem_attr].as_str(), "disable_gem_attr")?,
-            is_somber: parse_bool_u8(row[is_somber].as_str(), "is_somber")?,
+            can_change_aow: parse_bool_u8(&row[can_change_aow], "can_change_aow")?,
+            disable_gem_attr: parse_bool_u8(&row[disable_gem_attr], "disable_gem_attr")?,
+            is_somber: parse_bool_u8(&row[is_somber], "is_somber")?,
             disable_two_hand_bonus: parse_bool_u8(
-                row[disable_two_hand_bonus].as_str(),
+                &row[disable_two_hand_bonus],
                 "disable_two_hand_bonus",
             )?,
         });
@@ -624,21 +650,21 @@ fn load_reinforce(table: CsvTable) -> Result<Vec<Vec<Option<ReinforceLevel>>>, S
     let mut max_level_by_type: HashMap<usize, usize> = HashMap::new();
 
     for row in &table.rows {
-        let reinforce_type = parse_usize(row[reinforce_type].as_str(), "reinforce_type")?;
-        let level = parse_usize(row[level].as_str(), "level")?;
+        let reinforce_type = usize::from(parse_u16(&row[reinforce_type], "reinforce_type")?);
+        let level = usize::from(parse_u8(&row[level], "level")?);
         let damage_mult = [
-            parse_f32(row[physical_damage_mult].as_str(), "physical_damage_mult")?,
-            parse_f32(row[magic_damage_mult].as_str(), "magic_damage_mult")?,
-            parse_f32(row[fire_damage_mult].as_str(), "fire_damage_mult")?,
-            parse_f32(row[lightning_damage_mult].as_str(), "lightning_damage_mult")?,
-            parse_f32(row[holy_damage_mult].as_str(), "holy_damage_mult")?,
+            parse_f32(&row[physical_damage_mult], "physical_damage_mult")?,
+            parse_f32(&row[magic_damage_mult], "magic_damage_mult")?,
+            parse_f32(&row[fire_damage_mult], "fire_damage_mult")?,
+            parse_f32(&row[lightning_damage_mult], "lightning_damage_mult")?,
+            parse_f32(&row[holy_damage_mult], "holy_damage_mult")?,
         ];
         let scaling_mult = [
-            parse_f32(row[str_scaling_mult].as_str(), "str_scaling_mult")?,
-            parse_f32(row[dex_scaling_mult].as_str(), "dex_scaling_mult")?,
-            parse_f32(row[int_scaling_mult].as_str(), "int_scaling_mult")?,
-            parse_f32(row[fai_scaling_mult].as_str(), "fai_scaling_mult")?,
-            parse_f32(row[arc_scaling_mult].as_str(), "arc_scaling_mult")?,
+            parse_f32(&row[str_scaling_mult], "str_scaling_mult")?,
+            parse_f32(&row[dex_scaling_mult], "dex_scaling_mult")?,
+            parse_f32(&row[int_scaling_mult], "int_scaling_mult")?,
+            parse_f32(&row[fai_scaling_mult], "fai_scaling_mult")?,
+            parse_f32(&row[arc_scaling_mult], "arc_scaling_mult")?,
         ];
         max_type = max_type.max(reinforce_type);
         max_level_by_type
@@ -651,7 +677,7 @@ fn load_reinforce(table: CsvTable) -> Result<Vec<Vec<Option<ReinforceLevel>>>, S
             ReinforceLevel {
                 damage_mult,
                 scaling_mult,
-                base_attack_mult: parse_f32(row[base_attack_mult].as_str(), "base_attack_mult")?,
+                base_attack_mult: parse_f32(&row[base_attack_mult], "base_attack_mult")?,
             },
         ));
     }
@@ -680,9 +706,14 @@ fn load_calc_correct(table: CsvTable) -> Result<Vec<Option<Vec<Option<f32>>>>, S
     let mut max_curve_id = 0usize;
 
     for row in &table.rows {
-        let curve_id = parse_usize(row[curve_id].as_str(), "curve_id")?;
-        let stat_value = parse_usize(row[stat_value].as_str(), "stat_value")?;
-        let multiplier = parse_f32(row[multiplier].as_str(), "multiplier")?;
+        let curve_id = usize::from(parse_u16(&row[curve_id], "curve_id")?);
+        let stat_value = usize::from(parse_u16(&row[stat_value], "stat_value")?);
+        if stat_value > MAX_CURVE_STAT_VALUE {
+            return Err(format!(
+                "calc-correct stat_value {stat_value} exceeds {MAX_CURVE_STAT_VALUE}"
+            ));
+        }
+        let multiplier = parse_f32(&row[multiplier], "multiplier")?;
         max_curve_id = max_curve_id.max(curve_id);
         entries.push((curve_id, stat_value, multiplier));
     }
@@ -754,15 +785,14 @@ fn load_attack_element_correct(
     }
 
     for row in &table.rows {
-        let row_id = parse_usize(
-            row[attack_element_correct_id].as_str(),
-            "attack_element_correct_id",
-        )?;
+        let row_id = parse_usize(&row[attack_element_correct_id], "attack_element_correct_id")?;
         let mut scales = [[false; DAMAGE_TYPE_COUNT]; COMBAT_STAT_COUNT];
         for stat_idx in 0..COMBAT_STAT_COUNT {
             for damage_idx in 0..DAMAGE_TYPE_COUNT {
-                let value = parse_u8(row[columns[stat_idx][damage_idx]].as_str(), "aec_scale")?;
-                scales[stat_idx][damage_idx] = value != 0;
+                scales[stat_idx][damage_idx] = parse_bool_u8(
+                    &row[columns[stat_idx][damage_idx]],
+                    fields[stat_idx][damage_idx],
+                )?;
             }
         }
         entries.push((row_id, AttackElementCorrect { scales }));
@@ -801,29 +831,23 @@ fn load_aows(table: CsvTable, buff_rows: &HashMap<u16, AowBuffRow>) -> Result<Ve
     let mut out = Vec::with_capacity(table.rows.len());
 
     for row in &table.rows {
-        let aow_id = parse_u16(row[aow_id].as_str(), "aow_id")?;
+        let aow_id = parse_u16(&row[aow_id], "aow_id")?;
         let buff_row = buff_rows.get(&aow_id).cloned().unwrap_or_default();
         out.push(Aow {
             aow_id,
-            name: row[name].as_str().to_string(),
-            bleed_buildup_add: parse_status_buildup(
-                row[bleed_buildup_add].as_str(),
-                "bleed_buildup_add",
-            )?,
-            frost_buildup_add: parse_status_buildup(
-                row[frost_buildup_add].as_str(),
-                "frost_buildup_add",
-            )?,
+            name: row[name].to_string(),
+            bleed_buildup_add: parse_status_buildup(&row[bleed_buildup_add], "bleed_buildup_add")?,
+            frost_buildup_add: parse_status_buildup(&row[frost_buildup_add], "frost_buildup_add")?,
             poison_buildup_add: parse_status_buildup(
-                row[poison_buildup_add].as_str(),
+                &row[poison_buildup_add],
                 "poison_buildup_add",
             )?,
             scarlet_rot_buildup_add: parse_status_buildup(
-                row[scarlet_rot_buildup_add].as_str(),
+                &row[scarlet_rot_buildup_add],
                 "scarlet_rot_buildup_add",
             )?,
-            valid_weapon_types: row[valid_weapon_types].as_str().to_string(),
-            valid_affinities: row[valid_affinities].as_str().to_string(),
+            valid_weapon_types: row[valid_weapon_types].to_string(),
+            valid_affinities: row[valid_affinities].to_string(),
             buff_attack_power: buff_row.buff_attack_power,
             scaling_status_add: buff_row.scaling_status_add,
             scaling_status_flags: buff_row.scaling_status_flags,
@@ -851,9 +875,11 @@ fn parse_aow_effect_role(value: &str) -> Result<AowEffectRole, String> {
 }
 
 fn parse_pipe_u32(value: &str, field: &str) -> Result<Vec<u32>, String> {
+    if value.is_empty() {
+        return Ok(Vec::new());
+    }
     value
         .split('|')
-        .filter(|part| !part.trim().is_empty())
         .map(|part| parse_u32(part.trim(), field))
         .collect()
 }
@@ -927,59 +953,56 @@ fn load_aow_effects(table: CsvTable) -> Result<HashMap<(u16, u16), Vec<AowEffect
     let mut out: HashMap<(u16, u16), Vec<AowEffect>> = HashMap::new();
     let mut record_ids = HashSet::with_capacity(table.rows.len());
     for row in &table.rows {
-        let record_id = parse_u32(row[record_id].as_str(), "record_id")?;
+        let record_id = parse_u32(&row[record_id], "record_id")?;
         if !record_ids.insert(record_id) {
             return Err(format!("duplicate AoW effect record_id: {record_id}"));
         }
-        let aow_id = parse_u16(row[aow_id].as_str(), "aow_id")?;
-        let sheet_row = parse_u16(row[sheet_row].as_str(), "sheet_row")?;
-        let parent_effect_id = parse_u32(row[parent_effect_id].as_str(), "parent_effect_id")?;
+        let aow_id = parse_u16(&row[aow_id], "aow_id")?;
+        let sheet_row = parse_u16(&row[sheet_row], "sheet_row")?;
+        let parent_effect_id = parse_u32(&row[parent_effect_id], "parent_effect_id")?;
         out.entry((aow_id, sheet_row)).or_default().push(AowEffect {
             record_id,
             aow_id,
             sheet_row,
-            source_kind: row[source_kind].as_str().to_string(),
-            source_param_ids: parse_pipe_u32(row[source_param_ids].as_str(), "source_param_ids")?,
-            effect_id: parse_u32(row[effect_id].as_str(), "effect_id")?,
-            effect_name: row[effect_name].as_str().to_string(),
+            source_kind: row[source_kind].to_string(),
+            source_param_ids: parse_pipe_u32(&row[source_param_ids], "source_param_ids")?,
+            effect_id: parse_u32(&row[effect_id], "effect_id")?,
+            effect_name: row[effect_name].to_string(),
             parent_effect_id: (parent_effect_id != 0).then_some(parent_effect_id),
-            link_kind: row[link_kind].as_str().to_string(),
-            role: parse_aow_effect_role(row[role].as_str())?,
-            activation_action_id: row[activation_action_id].as_str().to_string(),
-            activation_timing: row[activation_timing].as_str().to_string(),
-            hand_variant: row[hand_variant].as_str().to_string(),
-            is_canonical: parse_optional_bool_u8(row[is_canonical].as_str(), "is_canonical")?,
-            is_supported: parse_bool_u8(row[is_supported].as_str(), "is_supported")?,
-            reason: row[reason].as_str().to_string(),
-            duration_seconds: parse_f32(row[duration_seconds].as_str(), "duration_seconds")?,
+            link_kind: row[link_kind].to_string(),
+            role: parse_aow_effect_role(&row[role])?,
+            activation_action_id: row[activation_action_id].to_string(),
+            activation_timing: row[activation_timing].to_string(),
+            hand_variant: row[hand_variant].to_string(),
+            is_canonical: parse_optional_bool_u8(&row[is_canonical], "is_canonical")?,
+            is_supported: parse_bool_u8(&row[is_supported], "is_supported")?,
+            reason: row[reason].to_string(),
+            duration_seconds: parse_f32(&row[duration_seconds], "duration_seconds")?,
             attack_power: [
-                parse_f32(row[physical_attack_power].as_str(), "physical_attack_power")?,
-                parse_f32(row[magic_attack_power].as_str(), "magic_attack_power")?,
-                parse_f32(row[fire_attack_power].as_str(), "fire_attack_power")?,
-                parse_f32(
-                    row[lightning_attack_power].as_str(),
-                    "lightning_attack_power",
-                )?,
-                parse_f32(row[holy_attack_power].as_str(), "holy_attack_power")?,
+                parse_f32(&row[physical_attack_power], "physical_attack_power")?,
+                parse_f32(&row[magic_attack_power], "magic_attack_power")?,
+                parse_f32(&row[fire_attack_power], "fire_attack_power")?,
+                parse_f32(&row[lightning_attack_power], "lightning_attack_power")?,
+                parse_f32(&row[holy_attack_power], "holy_attack_power")?,
             ],
             status_buildup: StatusBuildup {
-                bleed: parse_status_buildup(row[bleed_buildup].as_str(), "bleed_buildup")?,
-                frost: parse_status_buildup(row[frost_buildup].as_str(), "frost_buildup")?,
-                poison: parse_status_buildup(row[poison_buildup].as_str(), "poison_buildup")?,
+                bleed: parse_status_buildup(&row[bleed_buildup], "bleed_buildup")?,
+                frost: parse_status_buildup(&row[frost_buildup], "frost_buildup")?,
+                poison: parse_status_buildup(&row[poison_buildup], "poison_buildup")?,
                 scarlet_rot: parse_status_buildup(
-                    row[scarlet_rot_buildup].as_str(),
+                    &row[scarlet_rot_buildup],
                     "scarlet_rot_buildup",
                 )?,
-                sleep: parse_status_buildup(row[sleep_buildup].as_str(), "sleep_buildup")?,
-                madness: parse_status_buildup(row[madness_buildup].as_str(), "madness_buildup")?,
-                death: parse_status_buildup(row[death_buildup].as_str(), "death_buildup")?,
+                sleep: parse_status_buildup(&row[sleep_buildup], "sleep_buildup")?,
+                madness: parse_status_buildup(&row[madness_buildup], "madness_buildup")?,
+                death: parse_status_buildup(&row[death_buildup], "death_buildup")?,
             },
             uses_status_correction: parse_bool_u8(
-                row[uses_status_correction].as_str(),
+                &row[uses_status_correction],
                 "uses_status_correction",
             )?,
             uses_attack_correction: parse_bool_u8(
-                row[uses_attack_correction].as_str(),
+                &row[uses_attack_correction],
                 "uses_attack_correction",
             )?,
         });
@@ -1086,10 +1109,7 @@ fn load_attack_element_correct_ext(
         }
     }
     for row in &table.rows {
-        let row_id = parse_usize(
-            row[attack_element_correct_id].as_str(),
-            "attack_element_correct_id",
-        )?;
+        let row_id = parse_usize(&row[attack_element_correct_id], "attack_element_correct_id")?;
         let mut scales = [[false; DAMAGE_TYPE_COUNT]; COMBAT_STAT_COUNT];
         let mut overwrite = [[None; DAMAGE_TYPE_COUNT]; COMBAT_STAT_COUNT];
         let mut influence = [[100.0_f32; DAMAGE_TYPE_COUNT]; COMBAT_STAT_COUNT];
@@ -1127,7 +1147,7 @@ fn load_aow_attack_rows(table: CsvTable) -> Result<HashMap<u16, Vec<AowAttackRow
     let [aow_id] = table.columns(["aow_id"])?;
     let mut out: HashMap<u16, Vec<AowAttackRow>> = HashMap::new();
     for row in &table.rows {
-        let aow_id = parse_u16(row[aow_id].as_str(), "aow_id")?;
+        let aow_id = parse_u16(&row[aow_id], "aow_id")?;
         out.entry(aow_id)
             .or_default()
             .push(parse_aow_attack_row(&attack_columns, row, aow_id)?);
@@ -1146,8 +1166,8 @@ fn load_native_skill_attack_rows(
     let [weapon_id, aow_id] = table.columns(["weapon_id", "aow_id"])?;
     let mut out: HashMap<u32, Vec<AowAttackRow>> = HashMap::new();
     for row in &table.rows {
-        let weapon_id = parse_u32(row[weapon_id].as_str(), "weapon_id")?;
-        let aow_id = parse_u16(row[aow_id].as_str(), "aow_id")?;
+        let weapon_id = parse_u32(&row[weapon_id], "weapon_id")?;
+        let aow_id = parse_u16(&row[aow_id], "aow_id")?;
         out.entry(weapon_id)
             .or_default()
             .push(parse_aow_attack_row(&attack_columns, row, aow_id)?);
@@ -1198,7 +1218,7 @@ fn aow_attack_columns(table: &CsvTable) -> Result<[usize; 32], String> {
 
 fn parse_aow_attack_row(
     columns: &[usize; 32],
-    row: &[String],
+    row: &csv::StringRecord,
     aow_id: u16,
 ) -> Result<AowAttackRow, String> {
     let [
@@ -1235,62 +1255,61 @@ fn parse_aow_attack_row(
         stamina_cost,
         stamina_cost_mode,
     ] = *columns;
-    let poise_base = parse_f32(row[poise_base].as_str(), "poise_base")?;
+    let poise_base = parse_f32(&row[poise_base], "poise_base")?;
     if poise_base < 0.0 {
         return Err("poise_base must be nonnegative".into());
     }
     let overwrite_raw = row[overwrite_attack_element_correct_id]
-        .as_str()
         .parse::<i32>()
         .map_err(|err| {
             format!(
                 "invalid i32 for overwrite_attack_element_correct_id: {} ({err})",
-                row[overwrite_attack_element_correct_id].as_str()
+                &row[overwrite_attack_element_correct_id]
             )
         })?;
     Ok(AowAttackRow {
-        sheet_row: parse_u16(row[sheet_row].as_str(), "sheet_row")?,
+        sheet_row: parse_u16(&row[sheet_row], "sheet_row")?,
         aow_id,
-        aow_name: row[aow_name].as_str().to_string(),
-        raw_name: row[raw_name].as_str().to_string(),
-        variant_weapon_type: row[variant_weapon_type].as_str().to_string(),
-        sequence_variant: row[sequence_variant].as_str().to_string(),
-        hit_kind: row[hit_kind].as_str().to_string(),
-        hit_order: parse_u16(row[hit_order].as_str(), "hit_order")?,
-        is_lacking_fp: parse_bool_u8(row[is_lacking_fp].as_str(), "is_lacking_fp")?,
-        atk_id: parse_u32(row[atk_id].as_str(), "atk_id")?,
+        aow_name: row[aow_name].to_string(),
+        raw_name: row[raw_name].to_string(),
+        variant_weapon_type: row[variant_weapon_type].to_string(),
+        sequence_variant: row[sequence_variant].to_string(),
+        hit_kind: row[hit_kind].to_string(),
+        hit_order: parse_u16(&row[hit_order], "hit_order")?,
+        is_lacking_fp: parse_bool_u8(&row[is_lacking_fp], "is_lacking_fp")?,
+        atk_id: parse_u32(&row[atk_id], "atk_id")?,
         overwrite_attack_element_correct_id: (overwrite_raw > 0).then_some(overwrite_raw as usize),
         is_disable_both_hands_bonus: parse_bool_u8(
-            row[is_disable_both_hands_bonus].as_str(),
+            &row[is_disable_both_hands_bonus],
             "is_disable_both_hands_bonus",
         )?,
-        is_add_base_atk: parse_bool_u8(row[is_add_base_atk].as_str(), "is_add_base_atk")?,
-        is_arrow_attack: parse_bool_u8(row[is_arrow_attack].as_str(), "is_arrow_attack")?,
-        is_bullet_attack: parse_bool_u8(row[is_bullet_attack].as_str(), "is_bullet_attack")?,
-        is_throw_attack: parse_bool_u8(row[is_throw_attack].as_str(), "is_throw_attack")?,
+        is_add_base_atk: parse_bool_u8(&row[is_add_base_atk], "is_add_base_atk")?,
+        is_arrow_attack: parse_bool_u8(&row[is_arrow_attack], "is_arrow_attack")?,
+        is_bullet_attack: parse_bool_u8(&row[is_bullet_attack], "is_bullet_attack")?,
+        is_throw_attack: parse_bool_u8(&row[is_throw_attack], "is_throw_attack")?,
         physical_attack_attribute: parse_physical_attack_attribute(
-            row[physical_attack_attribute].as_str(),
+            &row[physical_attack_attribute],
         )?,
         motion_values: [
-            parse_f32(row[physical_mv].as_str(), "physical_mv")?,
-            parse_f32(row[magic_mv].as_str(), "magic_mv")?,
-            parse_f32(row[fire_mv].as_str(), "fire_mv")?,
-            parse_f32(row[lightning_mv].as_str(), "lightning_mv")?,
-            parse_f32(row[holy_mv].as_str(), "holy_mv")?,
+            parse_f32(&row[physical_mv], "physical_mv")?,
+            parse_f32(&row[magic_mv], "magic_mv")?,
+            parse_f32(&row[fire_mv], "fire_mv")?,
+            parse_f32(&row[lightning_mv], "lightning_mv")?,
+            parse_f32(&row[holy_mv], "holy_mv")?,
         ],
         attack_base: [
-            parse_f32(row[attack_base_physical].as_str(), "attack_base_physical")?,
-            parse_f32(row[attack_base_magic].as_str(), "attack_base_magic")?,
-            parse_f32(row[attack_base_fire].as_str(), "attack_base_fire")?,
-            parse_f32(row[attack_base_lightning].as_str(), "attack_base_lightning")?,
-            parse_f32(row[attack_base_holy].as_str(), "attack_base_holy")?,
+            parse_f32(&row[attack_base_physical], "attack_base_physical")?,
+            parse_f32(&row[attack_base_magic], "attack_base_magic")?,
+            parse_f32(&row[attack_base_fire], "attack_base_fire")?,
+            parse_f32(&row[attack_base_lightning], "attack_base_lightning")?,
+            parse_f32(&row[attack_base_holy], "attack_base_holy")?,
         ],
-        status_mv: parse_f32(row[status_mv].as_str(), "status_mv")?,
-        weapon_buff_mv: parse_f32(row[weapon_buff_mv].as_str(), "weapon_buff_mv")?,
-        poise_mv: parse_f32(row[poise_mv].as_str(), "poise_mv")?,
+        status_mv: parse_f32(&row[status_mv], "status_mv")?,
+        weapon_buff_mv: parse_f32(&row[weapon_buff_mv], "weapon_buff_mv")?,
+        poise_mv: parse_f32(&row[poise_mv], "poise_mv")?,
         poise_base,
-        stamina_cost: parse_f32(row[stamina_cost].as_str(), "stamina_cost")?,
-        stamina_cost_mode: match row[stamina_cost_mode].as_str() {
+        stamina_cost: parse_f32(&row[stamina_cost], "stamina_cost")?,
+        stamina_cost_mode: match &row[stamina_cost_mode] {
             "weapon_scaled" => StaminaCostMode::WeaponScaled,
             "precalculated" => StaminaCostMode::Precalculated,
             other => return Err(format!("invalid stamina_cost_mode: {other}")),
@@ -1324,21 +1343,21 @@ fn load_aow_route_assignments(
     ])?;
     let mut out: HashMap<(u16, u16), Vec<AowRouteAssignment>> = HashMap::new();
     for row in &table.rows {
-        let aow_id = parse_u16(row[aow_id].as_str(), "aow_id")?;
-        let sheet_row = parse_u16(row[sheet_row].as_str(), "sheet_row")?;
-        let hit_count = parse_u16(row[hit_count].as_str(), "hit_count")?;
+        let aow_id = parse_u16(&row[aow_id], "aow_id")?;
+        let sheet_row = parse_u16(&row[sheet_row], "sheet_row")?;
+        let hit_count = parse_u16(&row[hit_count], "hit_count")?;
         if hit_count == 0 {
             return Err("route hit_count must be positive".into());
         }
         out.entry((aow_id, sheet_row))
             .or_default()
             .push(AowRouteAssignment {
-                route_id: row[route_id].as_str().to_string(),
-                route_label: row[route_label].as_str().to_string(),
-                route_priority: parse_u16(row[route_priority].as_str(), "route_priority")?,
-                action_id: row[action_id].as_str().to_string(),
-                action_order: parse_u16(row[action_order].as_str(), "action_order")?,
-                hit_order: parse_u16(row[hit_order].as_str(), "hit_order")?,
+                route_id: row[route_id].to_string(),
+                route_label: row[route_label].to_string(),
+                route_priority: parse_u16(&row[route_priority], "route_priority")?,
+                action_id: row[action_id].to_string(),
+                action_order: parse_u16(&row[action_order], "action_order")?,
+                hit_order: parse_u16(&row[hit_order], "hit_order")?,
                 hit_count,
             });
     }
@@ -1359,7 +1378,7 @@ fn load_weapon_passives(table: CsvTable) -> Result<HashMap<u32, StatusEffectSour
     let [weapon_id] = table.columns(["weapon_id"])?;
     let mut out = HashMap::with_capacity(table.rows.len());
     for row in &table.rows {
-        let weapon_id = parse_u32(row[weapon_id].as_str(), "weapon_id")?;
+        let weapon_id = parse_u32(&row[weapon_id], "weapon_id")?;
         if out
             .insert(weapon_id, parse_status_effect_source(&status_columns, row)?)
             .is_some()
@@ -1393,7 +1412,7 @@ fn status_effect_columns(table: &CsvTable) -> Result<[usize; 14], String> {
 
 fn parse_status_effect_source(
     columns: &[usize; 14],
-    row: &[String],
+    row: &csv::StringRecord,
 ) -> Result<StatusEffectSource, String> {
     let [
         bleed,
@@ -1413,41 +1432,41 @@ fn parse_status_effect_source(
     ] = *columns;
     Ok(StatusEffectSource {
         buildup: StatusBuildup {
-            bleed: parse_status_buildup(row[bleed].as_str(), "bleed")?,
-            frost: parse_status_buildup(row[frost].as_str(), "frost")?,
-            poison: parse_status_buildup(row[poison].as_str(), "poison")?,
-            scarlet_rot: parse_status_buildup(row[scarlet_rot].as_str(), "scarlet_rot")?,
-            sleep: parse_status_buildup(row[sleep].as_str(), "sleep")?,
-            madness: parse_status_buildup(row[madness].as_str(), "madness")?,
-            death: parse_status_buildup(row[death].as_str(), "death")?,
+            bleed: parse_status_buildup(&row[bleed], "bleed")?,
+            frost: parse_status_buildup(&row[frost], "frost")?,
+            poison: parse_status_buildup(&row[poison], "poison")?,
+            scarlet_rot: parse_status_buildup(&row[scarlet_rot], "scarlet_rot")?,
+            sleep: parse_status_buildup(&row[sleep], "sleep")?,
+            madness: parse_status_buildup(&row[madness], "madness")?,
+            death: parse_status_buildup(&row[death], "death")?,
         },
         correction_flags: StatusCorrectionFlags {
             bleed: parse_optional_bool_u8(
-                row[bleed_uses_status_correction].as_str(),
+                &row[bleed_uses_status_correction],
                 "bleed_uses_status_correction",
             )?,
             frost: parse_optional_bool_u8(
-                row[frost_uses_status_correction].as_str(),
+                &row[frost_uses_status_correction],
                 "frost_uses_status_correction",
             )?,
             poison: parse_optional_bool_u8(
-                row[poison_uses_status_correction].as_str(),
+                &row[poison_uses_status_correction],
                 "poison_uses_status_correction",
             )?,
             scarlet_rot: parse_optional_bool_u8(
-                row[scarlet_rot_uses_status_correction].as_str(),
+                &row[scarlet_rot_uses_status_correction],
                 "scarlet_rot_uses_status_correction",
             )?,
             sleep: parse_optional_bool_u8(
-                row[sleep_uses_status_correction].as_str(),
+                &row[sleep_uses_status_correction],
                 "sleep_uses_status_correction",
             )?,
             madness: parse_optional_bool_u8(
-                row[madness_uses_status_correction].as_str(),
+                &row[madness_uses_status_correction],
                 "madness_uses_status_correction",
             )?,
             death: parse_optional_bool_u8(
-                row[death_uses_status_correction].as_str(),
+                &row[death_uses_status_correction],
                 "death_uses_status_correction",
             )?,
         },
@@ -1462,8 +1481,8 @@ fn load_weapon_passive_overlays(
     let mut max_level_by_weapon = HashMap::<u32, usize>::new();
     let mut entries = Vec::<(u32, usize, StatusEffectSource)>::with_capacity(table.rows.len());
     for row in &table.rows {
-        let weapon_id = parse_u32(row[weapon_id].as_str(), "weapon_id")?;
-        let level = parse_usize(row[level].as_str(), "level")?;
+        let weapon_id = parse_u32(&row[weapon_id], "weapon_id")?;
+        let level = usize::from(parse_u8(&row[level], "level")?);
         let source = parse_status_effect_source(&status_columns, row)?;
         max_level_by_weapon
             .entry(weapon_id)
@@ -1602,15 +1621,16 @@ mod tests {
                     false,
                 );
                 let invalid: &'static [u8] = Box::leak(invalid.into_bytes().into_boxed_slice());
-                let mut manifest: SnapshotManifest =
+                let mut manifest: serde_json::Value =
                     serde_json::from_slice(manifest_bytes).unwrap();
-                let record = manifest
-                    .runtime_files
+                let record = manifest["runtimeFiles"]
+                    .as_array_mut()
+                    .unwrap()
                     .iter_mut()
-                    .find(|file| file.path == "weapons.csv")
+                    .find(|file| file["path"] == "weapons.csv")
                     .unwrap();
-                record.size = invalid.len() as u64;
-                record.sha256 = format!("{:x}", Sha256::digest(invalid));
+                record["size"] = invalid.len().into();
+                record["sha256"] = format!("{:x}", Sha256::digest(invalid)).into();
                 let content = |name: &str| {
                     if name == "weapons.csv" {
                         Some(invalid)
@@ -1627,6 +1647,41 @@ mod tests {
                 };
                 assert!(error.contains("disable_two_hand_bonus"), "{error}");
             }
+        }
+
+        #[test]
+        fn embedded_tables_are_exactly_the_manifest_runtime_files() {
+            for profile in [VANILLA_PROFILE_ID, CONVERGENCE_PROFILE_ID] {
+                let names = EMBEDDED_TABLES
+                    .iter()
+                    .filter(|(embedded, _, _)| *embedded == profile)
+                    .map(|(_, table, _)| *table)
+                    .collect::<Vec<_>>();
+                assert_eq!(names, crate::snapshot::RUNTIME_DATA_FILES, "{profile}");
+            }
+        }
+
+        #[test]
+        fn attack_element_lookup_sorts_rows_and_misses_cleanly() {
+            let content = embedded_vanilla_csv("attack_element_correct.csv").unwrap();
+            let mut lines = content.lines();
+            let header = lines.next().unwrap();
+            let mut rows = lines.collect::<Vec<_>>();
+            rows.reverse();
+            let table =
+                CsvTable::from_content("aec".into(), &format!("{header}\n{}\n", rows.join("\n")))
+                    .unwrap();
+            let entries = load_attack_element_correct(table).unwrap();
+            assert!(entries.windows(2).all(|pair| pair[0].0 < pair[1].0));
+            let mut data = load_embedded_game_profile(VANILLA_PROFILE_ID).unwrap();
+            data.attack_element_correct = entries;
+            for id in rows
+                .iter()
+                .map(|row| row.split(',').next().unwrap().parse::<usize>().unwrap())
+            {
+                assert!(data.attack_element(id).is_some(), "{id}");
+            }
+            assert!(data.attack_element(usize::MAX).is_none());
         }
 
         #[test]
@@ -1749,10 +1804,10 @@ mod tests {
     }
 
     use super::{
-        CONVERGENCE_PROFILE_ID, CsvTable, load_attack_element_correct,
-        load_attack_element_correct_ext, load_calc_correct, load_embedded_game_data,
-        load_embedded_game_profile, load_game_data, load_reinforce, load_weapon_passive_overlays,
-        load_weapon_passives, parse_f32, parse_status_effect_source,
+        CONVERGENCE_PROFILE_ID, CsvTable, VANILLA_PROFILE_ID, load_attack_element_correct,
+        load_attack_element_correct_ext, load_calc_correct, load_embedded_game_profile,
+        load_game_data, load_reinforce, load_weapon_passive_overlays, load_weapon_passives,
+        parse_f32, parse_status_effect_source,
     };
     use crate::model::AowEffectRole;
 
@@ -1853,7 +1908,7 @@ mod tests {
 
     #[test]
     fn explicit_embedded_snapshot_loads_all_runtime_tables() {
-        let data = load_embedded_game_data().expect("embedded snapshot loads");
+        let data = load_embedded_game_profile(VANILLA_PROFILE_ID).expect("embedded snapshot loads");
         assert!(data.weapons.len() > 3000);
         assert!(
             data.weapons
@@ -1908,31 +1963,31 @@ mod tests {
     fn keyed_csv_loaders_reject_duplicate_rows() {
         assert_duplicate_row_rejected(
             "reinforce",
-            include_str!("../../../data/phase1/reinforce.csv"),
+            super::embedded_vanilla_csv("reinforce.csv").unwrap(),
             load_reinforce,
             "duplicate reinforce entry",
         );
         assert_duplicate_row_rejected(
             "attack-element-correct",
-            include_str!("../../../data/phase1/attack_element_correct.csv"),
+            super::embedded_vanilla_csv("attack_element_correct.csv").unwrap(),
             load_attack_element_correct,
             "duplicate attack-element-correct entry",
         );
         assert_duplicate_row_rejected(
             "attack-element-correct-ext",
-            include_str!("../../../data/phase1/attack_element_correct_ext.csv"),
+            super::embedded_vanilla_csv("attack_element_correct_ext.csv").unwrap(),
             load_attack_element_correct_ext,
             "duplicate attack-element-correct-ext entry",
         );
         assert_duplicate_row_rejected(
             "weapon-passives",
-            include_str!("../../../data/phase1/weapon_passives.csv"),
+            super::embedded_vanilla_csv("weapon_passives.csv").unwrap(),
             load_weapon_passives,
             "duplicate weapon passive entry",
         );
         assert_duplicate_row_rejected(
             "weapon-passive-overlays",
-            include_str!("../../../data/phase1/weapon_passive_overlays.csv"),
+            super::embedded_vanilla_csv("weapon_passive_overlays.csv").unwrap(),
             load_weapon_passive_overlays,
             "duplicate weapon passive overlay entry",
         );
@@ -2050,7 +2105,7 @@ mod tests {
 
     #[test]
     fn persistent_status_effect_roles_remain_separate() {
-        let data = load_embedded_game_data().expect("embedded snapshot loads");
+        let data = load_embedded_game_profile(VANILLA_PROFILE_ID).expect("embedded snapshot loads");
         let chilling_mist = data
             .aows
             .iter()
@@ -2086,7 +2141,7 @@ mod tests {
 
     #[test]
     fn conditional_replacement_effects_are_explicitly_unsupported() {
-        let data = load_embedded_game_data().expect("embedded snapshot loads");
+        let data = load_embedded_game_profile(VANILLA_PROFILE_ID).expect("embedded snapshot loads");
         let poison_moth_replacement = data
             .aow_effects(119, 1442)
             .iter()
@@ -2102,7 +2157,7 @@ mod tests {
 
     #[test]
     fn branch_specific_status_effects_stay_attached_to_their_hits() {
-        let data = load_embedded_game_data().expect("embedded snapshot loads");
+        let data = load_embedded_game_profile(VANILLA_PROFILE_ID).expect("embedded snapshot loads");
         let hoarfrost_spike = data
             .aow_effects(501, 1498)
             .iter()

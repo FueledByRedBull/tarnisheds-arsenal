@@ -7,10 +7,6 @@ edition = "2024"
 lto = "thin"
 codegen-units = 1
 
-[lib]
-name = "er_optimizer_core"
-crate-type = ["rlib"]
-
 [dependencies]
 brotli-decompressor = "5"
 csv = "1.3"
