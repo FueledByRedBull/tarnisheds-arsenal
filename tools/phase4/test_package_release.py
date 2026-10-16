@@ -229,6 +229,15 @@ function Start-Sleep { throw "No matching completed CI; would wait" }
                         package_main(root, stack, "--preview", "--skip-validation", *flags)
                     self.assertEqual((release_dir / "README.md").read_text(encoding="utf-8"), "old")
 
+    def test_replace_output_accepts_a_directory_the_packager_produced(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, contextlib.ExitStack() as stack:
+            root = Path(directory)
+            self.assertEqual(package_main(root, stack, "--preview", "--skip-validation")[0], 0)
+            release_dir = next((root / "dist").glob("*/"))
+            self.assertTrue((release_dir / "NOTICE").is_file())
+            stack.enter_context(patch("sys.argv", ["package_release.py", "--preview", "--skip-validation", "--replace-output"]))
+            self.assertEqual(package_release.main(), 0)
+
     def test_preview_with_ci_validation_keeps_package_checks(self) -> None:
         with tempfile.TemporaryDirectory() as directory, contextlib.ExitStack() as stack:
             root = Path(directory)

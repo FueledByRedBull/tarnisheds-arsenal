@@ -676,6 +676,7 @@ def main() -> int:
             raise NotADirectoryError(f"release output is not a directory: {release_dir}")
         expected_names = {
             "LICENSE",
+            "NOTICE",
             "README.md",
             "SHA256SUMS.txt",
             "build-report.json",
