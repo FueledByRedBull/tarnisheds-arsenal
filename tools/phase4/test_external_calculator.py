@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import copy
+import hashlib
 import math
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
+from tools.phase4 import validate_external_calculator as calculator
 from tools.phase4.validate_external_calculator import (
     ComparisonCase,
     _raw_transferable_gems,
@@ -11,8 +17,40 @@ from tools.phase4.validate_external_calculator import (
     compare_raw_compatibility,
     floor_status,
     normalize_name,
+    raw_compatibility_expectation,
     sample_cases,
 )
+
+
+def exhaustive_result() -> dict[str, object]:
+    return {
+        "profile": "vanilla",
+        "transferablePairs": 1,
+        "nativePairs": 1,
+        "transferEvaluations": 4,
+        "nativeEvaluations": 4,
+        "arChecks": 8,
+        "unsupportedArEvaluations": 0,
+        "unsupportedWeaponEvaluations": 0,
+        "statusChecks": 8,
+        "nonUnitWeaponInfluenceWeapons": 0,
+        "fixedStats": [99, 99, 99, 99, 99],
+        "upgradeCaps": {"standard": 25, "somber": 10, "separate": True},
+        "routes": {
+            "damageCapability": True,
+            "capability": True,
+            "mappedTransferEvaluations": 4,
+            "unmappedTransferEvaluations": 0,
+            "unsupportedTransferEvaluations": 0,
+            "mappedNativeEvaluations": 4,
+            "unmappedNativeEvaluations": 0,
+            "unsupportedNativeEvaluations": 0,
+            "materializedRoutes": 2,
+            "materializedHits": 2,
+            "unsupportedEffectEvaluations": 0,
+            "routeErrorEvaluations": 0,
+        },
+    }
 
 
 def catalog() -> list[dict[str, object]]:
@@ -101,37 +139,110 @@ class ExternalCalculatorTests(unittest.TestCase):
             "expected_transfer": {(1, 10)},
             "expected_native": {(1, 101)},
         }
-        result = {
-            "profile": "vanilla",
-            "transferablePairs": 1,
-            "nativePairs": 1,
-            "transferEvaluations": 4,
-            "nativeEvaluations": 4,
-            "arChecks": 8,
-            "unsupportedArEvaluations": 0,
-            "unsupportedWeaponEvaluations": 0,
-            "statusChecks": 8,
-            "nonUnitWeaponInfluenceWeapons": 0,
-            "fixedStats": [99, 99, 99, 99, 99],
-            "upgradeCaps": {"standard": 25, "somber": 10, "separate": True},
-            "routes": {
-                "damageCapability": True,
-                "capability": True,
-                "mappedTransferEvaluations": 4,
-                "unmappedTransferEvaluations": 0,
-                "unsupportedTransferEvaluations": 0,
-                "mappedNativeEvaluations": 4,
-                "unmappedNativeEvaluations": 0,
-                "unsupportedNativeEvaluations": 0,
-                "materializedRoutes": 2,
-                "materializedHits": 2,
-                "unsupportedEffectEvaluations": 0,
-                "routeErrorEvaluations": 0,
-            },
-        }
-        report = compare_exhaustive_result("vanilla", result, expectation)
+        report = compare_exhaustive_result("vanilla", exhaustive_result(), expectation)
         self.assertTrue(report["passed"])
         self.assertEqual(report["evaluations"], 8)
+
+        def route(field: str, value: object):
+            return lambda result: result["routes"].__setitem__(field, value)
+
+        mutations = {
+            "profile": lambda result: result.update(profile="convergence"),
+            "transfer pairs": lambda result: result.update(transferablePairs=2),
+            "native pairs": lambda result: result.update(nativePairs=0),
+            "transfer poses": lambda result: result.update(transferEvaluations=3),
+            "native poses": lambda result: result.update(nativeEvaluations=5),
+            "AR coverage": lambda result: result.update(arChecks=7),
+            "status coverage": lambda result: result.update(statusChecks=7),
+            "weapon influence": lambda result: result.update(nonUnitWeaponInfluenceWeapons=1),
+            "upgrade caps": lambda result: result.update(upgradeCaps={"standard": 15, "somber": 10, "separate": True}),
+            "fixed stats": lambda result: result.update(fixedStats=[99, 99, 99, 99, 98]),
+            "missing routes": lambda result: result.pop("routes"),
+            "route coverage": route("mappedTransferEvaluations", 3),
+            "route type": route("unmappedNativeEvaluations", None),
+            "route capability": route("capability", False),
+            "damage capability": route("damageCapability", False),
+            "route field": route("routeErrorEvaluations", -1),
+            "no materialized routes": route("materializedRoutes", 0),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(name):
+                result = copy.deepcopy(exhaustive_result())
+                mutate(result)
+                self.assertFalse(compare_exhaustive_result("vanilla", result, expectation)["passed"])
+
+    def test_raw_compatibility_expectation_uses_mount_type_and_affinity_flags(self) -> None:
+        weapons = {
+            1000100: {"wepType": 3, "gemMountType": 2, "swordArtsParamId": 10},
+            1000000: {"wepType": 3, "gemMountType": 2, "swordArtsParamId": 30},
+            2000000: {"wepType": 3, "gemMountType": 0, "swordArtsParamId": 20},
+        }
+        gem = {"sortId": 1, "iconId": 1, "canMountWep_SwordNormal": 1,
+               "configurableWepAttr00": 1, "configurableWepAttr01": 1}
+        gems = {1: {**gem, "swordArtsParamId": 10},
+                2: {**gem, "swordArtsParamId": 11, "configurableWepAttr01": 0},
+                3: {**gem, "swordArtsParamId": 12, "canMountWep_SwordNormal": 0}}
+        catalog = [{"id": 1000100, "affinity": "Heavy"}, {"id": 1000000, "affinity": "Standard"},
+                   {"id": 2000000, "affinity": "Standard"}]
+        with patch.object(calculator, "_raw_regulation_tables", return_value=(weapons, gems)):
+            expectation = raw_compatibility_expectation("vanilla", Path("raw"), Path("defs"), catalog)
+        self.assertEqual(expectation["expected_can_change"], {1000100, 1000000})
+        self.assertEqual(expectation["expected_transfer"],
+                         {(1000100, 10), (1000000, 10), (1000000, 11)})
+        self.assertEqual(expectation["expected_native"],
+                         {(1000100, 10), (1000000, 30), (2000000, 20)})
+        weapons[1000100]["wepType"] = 999
+        with (patch.object(calculator, "_raw_regulation_tables", return_value=(weapons, gems)),
+              self.assertRaisesRegex(ValueError, "no canMountWep field")):
+            raw_compatibility_expectation("vanilla", Path("raw"), Path("defs"), catalog)
+
+    def test_reference_downloads_are_verified_before_use(self) -> None:
+        good = {url: f"content of {url}".encode() for url in (
+            *(f"{calculator.REFERENCE_RAW_URL}/{relative}" for relative in calculator.REFERENCE_FILES),
+            calculator.REGULATION_URL,
+        )}
+        pins = {**calculator.REFERENCE_FILES, calculator.REGULATION_FILE: ""}
+        digests = {relative: hashlib.sha256(content).hexdigest()
+                   for relative, content in zip(pins, good.values())}
+        fetched: list[str] = []
+
+        def fetch(url: str) -> bytes:
+            fetched.append(url)
+            return served[url]
+
+        with (tempfile.TemporaryDirectory() as directory,
+              patch.dict(calculator.REFERENCE_FILES, {key: digests[key] for key in calculator.REFERENCE_FILES}),
+              patch.object(calculator, "REGULATION_SHA256", digests[calculator.REGULATION_FILE]),
+              patch.object(calculator, "fetch_bytes", side_effect=fetch)):
+            workdir = Path(directory)
+            served = dict(good)
+            source_dir, regulation = calculator.prepare_reference(workdir)
+            self.assertEqual(len(fetched), len(good))
+            self.assertEqual(regulation.read_bytes(), good[calculator.REGULATION_URL])
+            self.assertEqual(source_dir, workdir / "tclark" / "src")
+
+            fetched.clear()
+            calculator.prepare_reference(workdir)
+            self.assertEqual(fetched, [])
+
+            regulation.write_bytes(b"truncated")
+            calculator.prepare_reference(workdir)
+            self.assertEqual(fetched, [calculator.REGULATION_URL])
+            self.assertEqual(regulation.read_bytes(), good[calculator.REGULATION_URL])
+
+            regulation.unlink()
+            served[calculator.REGULATION_URL] = b"tampered"
+            with self.assertRaisesRegex(ValueError, "hash mismatch"):
+                calculator.prepare_reference(workdir)
+            self.assertFalse(regulation.exists())
+            self.assertEqual(list(regulation.parent.glob("*.download")), [])
+
+    def test_unexpected_failures_exit_as_tool_errors(self) -> None:
+        with (patch("sys.argv", ["validate_external_calculator.py"]),
+              patch.object(calculator, "_snapshot_identity", side_effect=KeyError("datasetVersion")),
+              patch("builtins.print") as printed):
+            self.assertEqual(calculator.main(), 2)
+        self.assertIn("KeyError", printed.call_args.args[0])
 
     def test_name_normalization_handles_game_text(self) -> None:
         self.assertEqual(normalize_name("Malenia’s Épée"), normalize_name("malenia's epee"))

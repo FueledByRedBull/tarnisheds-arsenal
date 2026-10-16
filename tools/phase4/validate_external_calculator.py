@@ -5,6 +5,7 @@ import csv
 import hashlib
 import json
 import math
+import os
 import random
 import subprocess
 import sys
@@ -22,6 +23,7 @@ if str(ROOT) not in sys.path:
 
 from tools.phase1.param_binary import load_param_definition, load_param_table  # noqa: E402
 from tools.phase1.profiles import profile_definition  # noqa: E402
+from tools.phase1.snapshot_manifest import sha256_file  # noqa: E402
 
 STATS = ("str", "dex", "int", "fai", "arc")
 STAT_CHOICES = (10, 15, 20, 25, 30, 40, 45, 50, 60, 70, 80, 99)
@@ -44,6 +46,7 @@ REGULATION_URL = (
 )
 REGULATION_FILE = "public/regulation-vanilla-v1.17.js"
 REGULATION_SHA256 = "6ae98b99429cf63f3f2c6a737cf90f6e7507fa67c1dd7e45cad5937a2f3824a5"
+MAX_DOWNLOAD_BYTES = 256 * 1024 * 1024
 AFFINITIES = {
     -1: "Standard",
     0: "Standard",
@@ -267,6 +270,9 @@ def raw_compatibility_expectation(
 
         affinity = str(local["affinity"])
         slot = (weapon_id % 10000) // 100
+        mount_name = RAW_WEP_TYPE_MOUNT_FIELDS.get(int(raw["wepType"]))
+        mount_field = f"canMountWep_{mount_name}"
+        affinity_field = f"configurableWepAttr{slot:02d}"
         if can_change:
             expected_affinity = affinity_by_slot.get(slot)
             if expected_affinity is None:
@@ -278,13 +284,10 @@ def raw_compatibility_expectation(
                     f"local/raw affinity mismatch for weapon {weapon_id}: "
                     f"local={affinity!r} raw={expected_affinity!r}"
                 )
-            mount_field = RAW_WEP_TYPE_MOUNT_FIELDS.get(int(raw["wepType"]))
-            if mount_field is None:
+            if mount_name is None:
                 raise ValueError(
                     f"raw weapon type {raw['wepType']} has no canMountWep field for {weapon_id}"
                 )
-            mount_field = f"canMountWep_{mount_field}"
-            affinity_field = f"configurableWepAttr{slot:02d}"
             for ash_id, gem in transferable.items():
                 if int(gem[affinity_field]) != 0 and int(gem[mount_field]) != 0:
                     expected_transfer.add((weapon_id, ash_id))
@@ -295,16 +298,7 @@ def raw_compatibility_expectation(
         native_ok = affinity.casefold() == "standard"
         if not native_ok and can_change:
             gem = transferable.get(native_skill_id)
-            if gem is not None:
-                affinity_field = f"configurableWepAttr{slot:02d}"
-                mount_field_name = RAW_WEP_TYPE_MOUNT_FIELDS.get(int(raw["wepType"]))
-                if mount_field_name is None:
-                    raise ValueError(
-                        f"raw weapon type {raw['wepType']} has no canMountWep field for {weapon_id}"
-                    )
-                native_ok = int(gem[affinity_field]) != 0 and int(
-                    gem[f"canMountWep_{mount_field_name}"]
-                ) != 0
+            native_ok = gem is not None and int(gem[affinity_field]) != 0 and int(gem[mount_field]) != 0
         if native_ok:
             expected_native.add((weapon_id, native_skill_id))
 
@@ -674,43 +668,41 @@ def sample_cases(
     return selected, cases
 
 
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def _verified(path: Path, digest: str) -> bool:
-    return path.is_file() and _sha256(path) == digest
+    return path.is_file() and sha256_file(path) == digest
 
 
 def fetch_bytes(url: str) -> bytes:
     request = urllib.request.Request(url, headers={"User-Agent": "Tarnisheds-Arsenal-validator"})
     with urllib.request.urlopen(request, timeout=60) as response:  # noqa: S310
-        return response.read()
+        content = response.read(MAX_DOWNLOAD_BYTES + 1)
+    if len(content) > MAX_DOWNLOAD_BYTES:
+        raise ValueError(f"download exceeds {MAX_DOWNLOAD_BYTES} bytes: {url}")
+    return content
 
 
-def _download_sources(tclark_dir: Path) -> None:
-    for relative, digest in REFERENCE_FILES.items():
-        content = fetch_bytes(f"{REFERENCE_RAW_URL}/{relative}")
-        if hashlib.sha256(content).hexdigest() != digest:
-            raise ValueError(f"pinned T. Clark source hash mismatch for {relative}")
-        destination = tclark_dir / relative
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(content)
+def _download_verified(url: str, digest: str, destination: Path) -> None:
+    content = fetch_bytes(url)
+    if hashlib.sha256(content).hexdigest() != digest:
+        raise ValueError(f"pinned T. Clark download hash mismatch: {url}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_name(f"{destination.name}.download")
+    temporary.write_bytes(content)
+    temporary.replace(destination)
 
 
 def prepare_reference(workdir: Path) -> tuple[Path, Path]:
+    """Reuse cached pinned files whose hashes match; download any missing or bad file."""
     tclark_dir = workdir / "tclark"
-    tclark_dir.mkdir(parents=True, exist_ok=True)
-    source_ready = all(_verified(tclark_dir / path, digest) for path, digest in REFERENCE_FILES.items())
-    if not source_ready:
-        _download_sources(tclark_dir)
-    regulation = tclark_dir / REGULATION_FILE
-    if not regulation.is_file():
-        regulation.parent.mkdir(parents=True, exist_ok=True)
-        regulation.write_bytes(fetch_bytes(REGULATION_URL))
-    if not _verified(regulation, REGULATION_SHA256):
-        raise ValueError(f"pinned T. Clark regulation hash mismatch: {regulation}")
-    return tclark_dir / "src", regulation
+    pinned = {
+        **{f"{REFERENCE_RAW_URL}/{relative}": (tclark_dir / relative, digest)
+           for relative, digest in REFERENCE_FILES.items()},
+        REGULATION_URL: (tclark_dir / REGULATION_FILE, REGULATION_SHA256),
+    }
+    for url, (path, digest) in pinned.items():
+        if not _verified(path, digest):
+            _download_verified(url, digest, path)
+    return tclark_dir / "src", tclark_dir / REGULATION_FILE
 
 
 @contextmanager
@@ -790,6 +782,10 @@ if (request.mode === "metadata") {
 """
 
 
+# Pinned upstream code runs with only what Node needs to start, no tokens or credentials.
+NODE_ENVIRONMENT = ("PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP")
+
+
 def run_node_reference(
     source_dir: Path,
     regulation: Path,
@@ -816,6 +812,7 @@ def run_node_reference(
         check=False,
         text=True,
         encoding="utf-8",
+        env={key: os.environ[key] for key in NODE_ENVIRONMENT if key in os.environ},
     )
     if completed.returncode:
         detail = completed.stderr.strip().splitlines()
@@ -885,7 +882,7 @@ def _snapshot_identity(data_dir: Path) -> dict[str, Any]:
     payload = json.loads(manifest.read_text(encoding="utf-8"))
     return {
         "profile": payload.get("profile", {}).get("id"),
-        "manifestSha256": _sha256(manifest),
+        "manifestSha256": sha256_file(manifest),
         "datasetVersion": payload.get("datasetVersion"),
         "modelVersion": payload.get("modelVersion"),
         "schemaVersion": payload.get("schemaVersion"),
@@ -1023,6 +1020,20 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
+def core_patch_sha256(root: Path) -> str:
+    """Hash tracked changes and untracked files under the core crate."""
+    core = "core/er_optimizer_core"
+    digest = hashlib.sha256(
+        subprocess.check_output(["git", "diff", "--binary", "HEAD", "--", core], cwd=root)
+    )
+    untracked = subprocess.check_output(
+        ["git", "ls-files", "--others", "--exclude-standard", "-z", "--", core], cwd=root,
+    ).split(b"\0")
+    for name in sorted(filter(None, untracked)):
+        digest.update(name + b"\0" + (root / name.decode()).read_bytes())
+    return digest.hexdigest()
+
+
 def build_report(
     data_dir: Path,
     source_dir: Path,
@@ -1040,11 +1051,11 @@ def build_report(
             "commit": REFERENCE_COMMIT,
             "license": "MIT",
             "regulationUrl": REGULATION_URL,
-            "regulationSha256": _sha256(regulation),
+            "regulationSha256": sha256_file(regulation),
             "sourceFiles": {
-                relative: _sha256(source_dir / relative.removeprefix("src/"))
+                relative: sha256_file(source_dir / relative.removeprefix("src/"))
                 if relative.startswith("src/")
-                else _sha256(source_dir.parent / relative)
+                else sha256_file(source_dir.parent / relative)
                 for relative in REFERENCE_FILES
             },
         },
@@ -1057,9 +1068,7 @@ def build_report(
         },
         "localSource": {
             "commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
-            "corePatchSha256": hashlib.sha256(subprocess.check_output(
-                ["git", "diff", "--binary", "HEAD", "--", "core/er_optimizer_core"], cwd=ROOT,
-            )).hexdigest(),
+            "corePatchSha256": core_patch_sha256(ROOT),
         },
         "sampling": {
             "seed": seed,
@@ -1246,8 +1255,8 @@ def main(argv: list[str] | None = None) -> int:
                 write_csv(args.csv, rows)
             print(json.dumps(report, separators=(",", ":")))
             return 0 if report["status"] == "passed" else 1
-    except (OSError, RuntimeError, ValueError) as error:
-        print(json.dumps({"status": "error", "error": str(error)}, separators=(",", ":")))
+    except Exception as error:
+        print(json.dumps({"status": "error", "error": f"{type(error).__name__}: {error}"}, separators=(",", ":")))
         return 2
 
 
