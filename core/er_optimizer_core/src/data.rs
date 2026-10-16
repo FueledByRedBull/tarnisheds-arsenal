@@ -264,7 +264,6 @@ fn load_validated_game_data<'a>(
         load_weapon_passive_overlays(table("weapon_passive_overlays.csv")?)?;
 
     let data = GameData {
-        snapshot_schema_version: manifest.schema_version,
         dataset_version: manifest.dataset_version.clone(),
         model_version: crate::runtime_model_version(&manifest.model_version),
         profile_id: manifest.profile.id.clone(),
@@ -890,15 +889,15 @@ fn load_aow_effects(table: CsvTable) -> Result<HashMap<(u16, u16), Vec<AowEffect
         aow_id,
         sheet_row,
         parent_effect_id,
-        source_kind,
+        _,
         source_param_ids,
         effect_id,
         effect_name,
-        link_kind,
+        _,
         role,
         activation_action_id,
         activation_timing,
-        hand_variant,
+        _,
         is_canonical,
         is_supported,
         reason,
@@ -959,25 +958,23 @@ fn load_aow_effects(table: CsvTable) -> Result<HashMap<(u16, u16), Vec<AowEffect
         }
         let aow_id = parse_u16(&row[aow_id], "aow_id")?;
         let sheet_row = parse_u16(&row[sheet_row], "sheet_row")?;
-        let parent_effect_id = parse_u32(&row[parent_effect_id], "parent_effect_id")?;
+        // Unused by the model, but still validated so malformed snapshots fail closed.
+        parse_u32(&row[parent_effect_id], "parent_effect_id")?;
+        parse_pipe_u32(&row[source_param_ids], "source_param_ids")?;
+        parse_f32(&row[duration_seconds], "duration_seconds")?;
+        parse_bool_u8(&row[uses_attack_correction], "uses_attack_correction")?;
         out.entry((aow_id, sheet_row)).or_default().push(AowEffect {
             record_id,
             aow_id,
             sheet_row,
-            source_kind: row[source_kind].to_string(),
-            source_param_ids: parse_pipe_u32(&row[source_param_ids], "source_param_ids")?,
             effect_id: parse_u32(&row[effect_id], "effect_id")?,
             effect_name: row[effect_name].to_string(),
-            parent_effect_id: (parent_effect_id != 0).then_some(parent_effect_id),
-            link_kind: row[link_kind].to_string(),
             role: parse_aow_effect_role(&row[role])?,
             activation_action_id: row[activation_action_id].to_string(),
             activation_timing: row[activation_timing].to_string(),
-            hand_variant: row[hand_variant].to_string(),
             is_canonical: parse_optional_bool_u8(&row[is_canonical], "is_canonical")?,
             is_supported: parse_bool_u8(&row[is_supported], "is_supported")?,
             reason: row[reason].to_string(),
-            duration_seconds: parse_f32(&row[duration_seconds], "duration_seconds")?,
             attack_power: [
                 parse_f32(&row[physical_attack_power], "physical_attack_power")?,
                 parse_f32(&row[magic_attack_power], "magic_attack_power")?,
@@ -1000,10 +997,6 @@ fn load_aow_effects(table: CsvTable) -> Result<HashMap<(u16, u16), Vec<AowEffect
             uses_status_correction: parse_bool_u8(
                 &row[uses_status_correction],
                 "uses_status_correction",
-            )?,
-            uses_attack_correction: parse_bool_u8(
-                &row[uses_attack_correction],
-                "uses_attack_correction",
             )?,
         });
     }
@@ -1228,8 +1221,8 @@ fn parse_aow_attack_row(
         aow_name,
         raw_name,
         variant_weapon_type,
-        sequence_variant,
-        hit_kind,
+        _,
+        _,
         hit_order,
         is_lacking_fp,
         atk_id,
@@ -1273,8 +1266,6 @@ fn parse_aow_attack_row(
         aow_name: row[aow_name].to_string(),
         raw_name: row[raw_name].to_string(),
         variant_weapon_type: row[variant_weapon_type].to_string(),
-        sequence_variant: row[sequence_variant].to_string(),
-        hit_kind: row[hit_kind].to_string(),
         hit_order: parse_u16(&row[hit_order], "hit_order")?,
         is_lacking_fp: parse_bool_u8(&row[is_lacking_fp], "is_lacking_fp")?,
         atk_id: parse_u32(&row[atk_id], "atk_id")?,
@@ -1650,6 +1641,28 @@ mod tests {
         }
 
         #[test]
+        fn unused_effect_columns_still_fail_closed() {
+            let content = embedded_vanilla_csv("aow_effect_data.csv").unwrap();
+            let mut lines = content.lines();
+            let header = lines.next().unwrap();
+            let first = lines.next().unwrap();
+            for field in [
+                "parent_effect_id",
+                "source_param_ids",
+                "duration_seconds",
+                "uses_attack_correction",
+            ] {
+                let index = header.split(',').position(|name| name == field).unwrap();
+                let mut row = first.split(',').collect::<Vec<_>>();
+                row[index] = "x";
+                let invalid = format!("{header}\n{}\n", row.join(","));
+                let table = CsvTable::from_content("aow_effect_data.csv".into(), &invalid).unwrap();
+                let error = load_aow_effects(table).unwrap_err();
+                assert!(error.contains(field), "{field}: {error}");
+            }
+        }
+
+        #[test]
         fn embedded_tables_are_exactly_the_manifest_runtime_files() {
             for profile in [VANILLA_PROFILE_ID, CONVERGENCE_PROFILE_ID] {
                 let names = EMBEDDED_TABLES
@@ -1741,7 +1754,6 @@ mod tests {
                 format!(
                     "{:?}",
                     (
-                        &data.snapshot_schema_version,
                         &data.dataset_version,
                         &data.model_version,
                         &data.profile_id,
