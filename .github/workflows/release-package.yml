@@ -121,7 +121,7 @@ jobs:
           cache-dependency-path: requirements-validation.txt
 
       - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: ".node-version"
           cache: "npm"
@@ -172,8 +172,9 @@ jobs:
 
       - name: Build Tauri release package
         env:
-          WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
-          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+          # Pull requests and previews also run this step; only publication receives signing secrets.
+          WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ env.PUBLISH_RELEASE == 'true' && secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 || '' }}
+          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ env.PUBLISH_RELEASE == 'true' && secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD || '' }}
           WINDOWS_SIGNING_TIMESTAMP_URL: ${{ vars.WINDOWS_SIGNING_TIMESTAMP_URL }}
         run: |
           $ErrorActionPreference = "Stop"
