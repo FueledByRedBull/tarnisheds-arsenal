@@ -538,19 +538,7 @@ pub fn run() {
 }
 
 fn start() -> Result<(), String> {
-    let mut context = tauri::generate_context!();
-    #[cfg(target_os = "windows")]
-    if let Some(port) = packaged_smoke_port(
-        std::env::args(),
-        std::env::var_os("WEBVIEW2_USER_DATA_FOLDER"),
-    )
-    .map_err(|message| format!("Invalid packaged smoke configuration: {message}"))?
-    {
-        let browser_args = packaged_smoke_browser_args(port);
-        for window in &mut context.config_mut().app.windows {
-            window.additional_browser_args = Some(browser_args.clone());
-        }
-    }
+    let context = tauri::generate_context!();
     // Load before any window exists, so a slow or failed load never shows a blank window.
     let state = AppState::load(load_desktop_profile).map_err(|error| error.message)?;
 
@@ -603,8 +591,12 @@ fn report_startup_failure(message: &str) {
     eprintln!("Tarnished's Arsenal could not start: {message}");
     #[cfg(windows)]
     {
-        // The packaged smoke waits for the exit code, which a modal message box would hold back.
-        if std::env::args().any(|argument| argument.starts_with("--packaged-smoke-")) {
+        use std::io::IsTerminal;
+        use std::os::windows::io::AsRawHandle;
+        // A parent that redirected stderr (the packaged smoke) reads the message there and
+        // waits for the exit code, which a modal message box would hold back.
+        let stderr = std::io::stderr();
+        if !stderr.as_raw_handle().is_null() && !stderr.is_terminal() {
             return;
         }
         #[link(name = "user32")]
@@ -632,77 +624,6 @@ fn report_startup_failure(message: &str) {
             );
         }
     }
-}
-
-/// Returns the remote-debugging port for a packaged smoke launch. Both flags and an
-/// isolated WebView2 profile are required: Tauri 2.11.1 drops `WindowConfig::data_directory`,
-/// so only `WEBVIEW2_USER_DATA_FOLDER` keeps the debugging session off the user's profile.
-#[cfg(target_os = "windows")]
-fn packaged_smoke_port(
-    args: impl IntoIterator<Item = String>,
-    user_data_folder: Option<std::ffi::OsString>,
-) -> Result<Option<u16>, String> {
-    let mut port = None;
-    let mut profile_directory = None;
-    for argument in args {
-        if let Some(raw_port) = argument.strip_prefix("--packaged-smoke-port=") {
-            if port.is_some() {
-                return Err("--packaged-smoke-port may only be provided once".to_string());
-            }
-            let parsed = raw_port.parse::<u16>().map_err(|_| {
-                "--packaged-smoke-port must be an integer from 1 to 65535".to_string()
-            })?;
-            if parsed == 0 {
-                return Err("--packaged-smoke-port must be an integer from 1 to 65535".to_string());
-            }
-            port = Some(parsed);
-        } else if let Some(raw_profile) = argument.strip_prefix("--packaged-smoke-profile=") {
-            if profile_directory.is_some() {
-                return Err("--packaged-smoke-profile may only be provided once".to_string());
-            }
-            if !raw_profile.starts_with("tarnisheds-arsenal-smoke-")
-                || !raw_profile
-                    .chars()
-                    .all(|ch| ch.is_ascii_alphanumeric() || ch == '-')
-            {
-                return Err(
-                    "--packaged-smoke-profile must be a safe smoke-only directory name".to_string(),
-                );
-            }
-            profile_directory = Some(raw_profile.to_string());
-        }
-    }
-    match (port, profile_directory) {
-        (None, None) => Ok(None),
-        (Some(port), Some(profile_directory)) => {
-            let isolated = user_data_folder.as_deref().is_some_and(|folder| {
-                std::path::Path::new(folder).file_name() == Some(profile_directory.as_ref())
-            });
-            if isolated {
-                Ok(Some(port))
-            } else {
-                Err(
-                    "WEBVIEW2_USER_DATA_FOLDER must name the --packaged-smoke-profile directory"
-                        .to_string(),
-                )
-            }
-        }
-        (Some(_), None) => {
-            Err("--packaged-smoke-profile is required with --packaged-smoke-port".to_string())
-        }
-        (None, Some(_)) => {
-            Err("--packaged-smoke-port is required with --packaged-smoke-profile".to_string())
-        }
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn packaged_smoke_browser_args(port: u16) -> String {
-    format!(
-        "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection \
-         --remote-debugging-port={port} --remote-debugging-address=127.0.0.1 \
-         --disable-gpu --no-first-run"
-    )
 }
 
 fn load_desktop_profile(profile_id: &str) -> Result<(GameData, SnapshotManifest), String> {
@@ -783,47 +704,6 @@ pub(crate) fn test_optimize_request() -> dto::OptimizeRequestDto {
 
 #[cfg(test)]
 mod release_data_tests {
-    #[cfg(target_os = "windows")]
-    #[test]
-    fn packaged_smoke_port_is_explicit_isolated_and_validated() {
-        let parse = |args: &[&str], folder: Option<&str>| {
-            super::packaged_smoke_port(
-                std::iter::once("app.exe")
-                    .chain(args.iter().copied())
-                    .map(str::to_string),
-                folder.map(std::ffi::OsString::from),
-            )
-        };
-        let port = "--packaged-smoke-port=43117";
-        let profile = "--packaged-smoke-profile=tarnisheds-arsenal-smoke-test-123";
-        let isolated = Some(r"C:\Users\me\AppData\Local\main\tarnisheds-arsenal-smoke-test-123");
-        assert_eq!(parse(&[], None).unwrap(), None);
-        assert_eq!(parse(&[port, profile], isolated).unwrap(), Some(43_117));
-        // Without the matching WebView2 folder the debugging port would open on the
-        // user's real profile.
-        assert!(parse(&[port, profile], None).is_err());
-        assert!(parse(&[port, profile], Some(r"C:\Users\me\AppData\Local\other")).is_err());
-        assert!(parse(&["--packaged-smoke-port=0", profile], isolated).is_err());
-        assert!(parse(&[port, "--packaged-smoke-port=43118", profile], isolated).is_err());
-        assert!(parse(&[port], isolated).is_err());
-        assert!(
-            parse(
-                &[port, "--packaged-smoke-profile=../normal-profile"],
-                isolated
-            )
-            .is_err()
-        );
-    }
-
-    #[cfg(target_os = "windows")]
-    #[test]
-    fn packaged_smoke_browser_args_preserve_runtime_defaults() {
-        let args = super::packaged_smoke_browser_args(43_117);
-        assert!(args.contains("--remote-debugging-port=43117"));
-        assert!(args.contains("--remote-debugging-address=127.0.0.1"));
-        assert!(args.contains("msSmartScreenProtection"));
-    }
-
     #[test]
     fn standalone_release_profiles_and_manifests_are_complete() {
         for profile_id in [
