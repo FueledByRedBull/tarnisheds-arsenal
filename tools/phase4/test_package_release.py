@@ -203,7 +203,7 @@ function Start-Sleep { throw "No matching completed CI; would wait" }
             self.assertEqual(result, 0)
             report = package_release.json.loads(next((root / "dist").glob("*/build-report.json")).read_text(encoding="utf-8"))
         self.assertFalse(report["validationSkipped"])
-        self.assertIn("runtime-data-validation", workflow_required_gates())
+        self.assertIn("data-snapshot-validation", workflow_required_gates())
         self.assertEqual(set(workflow_required_gates()) - set(report["completedGates"]), set())
 
     def test_existing_output_is_refreshed_only_on_request_and_only_for_known_files(self) -> None:

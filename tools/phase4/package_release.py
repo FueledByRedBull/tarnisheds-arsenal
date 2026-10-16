@@ -802,7 +802,7 @@ def main() -> int:
                 "clippy",
                 "core-tests",
                 "tauri-tests",
-                "runtime-data-validation",
+                "data-snapshot-validation",
             ]
         )
     require_unchanged_tracked_source(root, source_commit, stage="release validation")
