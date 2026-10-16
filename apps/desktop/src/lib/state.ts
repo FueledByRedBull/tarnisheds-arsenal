@@ -473,7 +473,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       resultsStale: state.rows.length > 0,
       notices: [
         ...state.notices,
-        { scope: "rankings", tone: "info", message: "Stat locks set from the selected result. Clear them under Limits to search freely." },
+        { scope: "rankings", tone: "info", message: "Stat locks set from the selected result. Clear them under More options to search freely." },
       ],
     })),
   loadBuildPreset: async (preset, signal) => {
