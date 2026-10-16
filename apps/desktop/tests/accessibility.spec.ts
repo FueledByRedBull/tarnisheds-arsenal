@@ -18,7 +18,7 @@ test("the strip, every editor and the palette have no WCAG A/AA violations", asy
   await page.goto("/");
   await expect(page.getByRole("button", { name: "Search", exact: true })).toBeEnabled();
   expect(await violations(page)).toEqual([]);
-  for (const editor of ["Class", "Objective", "Loadout", "Upgrades", "Scaling", "Results", "Limits"] satisfies EditorName[]) {
+  for (const editor of ["Class", "Objective", "Loadout", "Upgrades", "Limits"] satisfies EditorName[]) {
     await openEditor(page, editor);
     expect(await violations(page, ".popover-panel:popover-open"), editor).toEqual([]);
   }

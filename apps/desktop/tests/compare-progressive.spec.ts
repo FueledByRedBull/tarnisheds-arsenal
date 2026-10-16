@@ -187,13 +187,13 @@ for (const conflict of ["somber", "excluded-type", "weapon-and-skill", "locks"] 
       };
       return useDesktopStore.getState().request;
     }, conflict);
-    await page.getByRole("button", { name: "Try Uchigatana +3 example", exact: true }).click();
+    await page.getByRole("button", { name: "Try an Uchigatana +3 example", exact: true }).click();
     await expect.poll(() => page.evaluate(() => Boolean((window as any).starterRequest))).toBe(true);
     const request = await page.evaluate(() => (window as any).starterRequest);
     expect(request).toMatchObject({ weaponTypeKey: null, weaponName: "Uchigatana", affinity: "Standard", aowName: null,
       somberFilter: "all", filters: { version: 1, entries: [] }, standardMaxUpgrade: 3, exactUpgrade: true, objective: "max_ar" });
     for (const field of ["className", "vig", "mnd", "end", "minStr", "minDex", "minInt", "minFai", "minArc", "lockStr", "lockDex", "lockInt", "lockFai", "lockArc"] as const) expect(request[field]).toBe(before[field]);
-    await expect(page.getByText(/Character stats, floors, locks, and world settings are retained/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Try an Uchigatana +3 example", exact: true })).toHaveAttribute("title", /Keeps your stats, minimums, locks and world settings/);
     if (conflict === "locks") await expect(page.getByText(/No legal Uchigatana \+3 build fits your retained character constraints/)).toBeVisible();
   });
 }

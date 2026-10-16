@@ -9,7 +9,7 @@ import { describeStep, redoQuery, trackQueryHistory, undoQuery, useQueryHistory 
 import { flashChanged } from "../../lib/motion";
 import { scadutreeAttackMultiplier } from "../../lib/scadutree";
 import { budgetSnapshot, classMeta, derivedLevel, EIGHT_STAT_KEYS, hasCombatStatLocks, optimalStartingClass, startingClassLevel } from "../../lib/session";
-import { useDesktopStore } from "../../lib/state";
+import { defaultRequest, useDesktopStore } from "../../lib/state";
 import { EightStatsDto, OptimizeRequestDto } from "../../lib/types";
 import { effectiveWeaponStrength } from "../../lib/weapon-handling";
 import { ShortcutsDialog } from "../command-palette/ShortcutsDialog";
@@ -123,6 +123,12 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
     savedCoverageCount ? "Profile filters" : null,
   ].filter(Boolean);
   const limitsSummary = limitParts.length ? limitParts.join(", ") : "Locks and minimums";
+  const optionParts = [
+    scadutreeAvailable && request.dlcScaling ? scalingSummary : null,
+    request.topK !== defaultRequest.topK || request.resultGrouping !== defaultRequest.resultGrouping ? resultsSummary : null,
+    ...limitParts,
+  ].filter(Boolean);
+  const optionsSummary = optionParts.join(", ");
   const loadout = loadoutSummary(catalog, request);
   const classSummary = fixedStats ? "Custom stats" : request.className;
 
@@ -350,46 +356,47 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
             Two-handing
             <span id="two-handing-hint" hidden>Applies the 1.5x effective Strength rule when legal</span>
           </label>
+          {/* Rarely changed settings share one token, which names only what differs from the defaults. */}
           <Popover
-            label="Scaling"
-            changeKey={scalingSummary}
-            trigger={scalingSummary}
-            triggerLabel={`Scaling: ${scalingSummary}`}
+            label="More options"
+            changeKey={optionsSummary}
+            trigger={optionParts.length ? optionsSummary : <><span aria-hidden="true">+ </span>More options</>}
+            triggerLabel={`More options: ${scalingSummary}, ${resultsSummary}, ${limitsSummary}`}
             triggerTitle={scadutreeAvailable && request.dlcScaling
               ? `Scadutree Blessing ${request.scadutreeLevel}: x${scadutreeAttackMultiplier(true, request.scadutreeLevel).toFixed(2)} damage`
-              : undefined}
-            triggerClassName="strip-token"
-            panelClassName="editor-panel"
+              : "Scadutree Blessing, result count and grouping, stat locks and minimums"}
+            triggerClassName={`strip-token ${limitParts.length ? "attention" : optionParts.length ? "" : "quiet"}`}
+            panelClassName="editor-panel options-panel"
           >
-            {scadutreeAvailable ? (
-              <ScalingEditor request={request} patchRequest={patchRequest} />
-            ) : (
-              <div className="editor-body profile-rule-note" role="note">
-                <span>Convergence rule</span>
-                <strong>Scadutree Blessing is removed</strong>
-                <small>Weapon AR is calculated without Shadow Realm blessing controls.</small>
-              </div>
-            )}
-          </Popover>
-          <Popover label="Results" changeKey={resultsSummary} trigger={resultsSummary} triggerLabel={`Results: ${resultsSummary}`} triggerClassName="strip-token" panelClassName="editor-panel">
-            <ResultsEditor request={request} patchRequest={patchRequest} />
-          </Popover>
-          <Popover
-            label="Limits"
-            changeKey={limitsSummary}
-            trigger={limitParts.length ? limitsSummary : <><span aria-hidden="true">+ </span>Limits</>}
-            triggerLabel={`Limits: ${limitsSummary}`}
-            triggerClassName={`strip-token ${limitParts.length ? "attention" : "quiet"}`}
-            panelClassName="editor-panel"
-          >
-            <LimitsEditor
-              request={request}
-              patchRequest={patchRequest}
-              fixedStats={fixedStats}
-              lockedStatMode={lockedStatMode}
-              exactLocksActive={exactLocksActive}
-              onClearLocks={clearLocks}
-            />
+            <div className="editor-sections">
+              <section aria-labelledby="options-scaling">
+                <h3 id="options-scaling">Scadutree Blessing</h3>
+                {scadutreeAvailable ? (
+                  <ScalingEditor request={request} patchRequest={patchRequest} />
+                ) : (
+                  <div className="editor-body profile-rule-note" role="note">
+                    <span>Convergence rule</span>
+                    <strong>Scadutree Blessing is removed</strong>
+                    <small>Weapon AR is calculated without Shadow Realm blessing controls.</small>
+                  </div>
+                )}
+              </section>
+              <section aria-labelledby="options-results">
+                <h3 id="options-results">Results</h3>
+                <ResultsEditor request={request} patchRequest={patchRequest} />
+              </section>
+              <section aria-labelledby="options-limits" className="options-limits">
+                <h3 id="options-limits">Stat locks and minimums</h3>
+                <LimitsEditor
+                  request={request}
+                  patchRequest={patchRequest}
+                  fixedStats={fixedStats}
+                  lockedStatMode={lockedStatMode}
+                  exactLocksActive={exactLocksActive}
+                  onClearLocks={clearLocks}
+                />
+              </section>
+            </div>
           </Popover>
         </fieldset>
         <div className="strip-actions">

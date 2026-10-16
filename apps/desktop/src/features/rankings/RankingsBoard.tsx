@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowDownUp, ArrowUp, ChevronLeft, ChevronRight, Download, LockKeyhole, Pin, RefreshCcw } from "lucide-react";
+import { ArrowDown, ArrowDownUp, ArrowUp, ChevronLeft, ChevronRight, CircleHelp, Download, LockKeyhole, Pin, RefreshCcw } from "lucide-react";
 import { memo, ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { downloadText, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
 import { aowModelSupported, compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
@@ -10,7 +10,21 @@ import { ObjectiveId, SearchProgressDto, SolvedBuildDto } from "../../lib/types"
 import { runSearchFromStore, runSearchRequestForRows } from "../../lib/workflows";
 import packageInfo from "../../../package.json";
 import { STAT_KEYS, ScalingTokens, StatTokens } from "../shared/BuildMetricTokens";
+import { Popover } from "../shared/Popover";
 import { SkeletonRows } from "../shared/SkeletonRows";
+
+// What each column means, said once in the column guide and read as each header's description.
+const COLUMN_GUIDE = [
+  ["loadout", "Loadout", "Weapon, affinity, skill, and reinforcement level."],
+  ["scaling", "Scaling", "Attribute contribution grade at the shown reinforcement level."],
+  ["stats", "Stats", "The combat stats this build uses."],
+  ["ar", "AR", "Raw attack rating before enemy defense and negation. Build Detail splits it by damage type."],
+  ["skill", "Skill damage", "Raw damage of one complete legal Ash of War route, with its first damaging hit. Native skills are the weapon's fixed skill."],
+  ["score", "Objective", "The value the active ranking objective sorts by."],
+  ["pin", "Pin (P)", "Adds the result to Compare as a target."],
+  ["lock", "Lock stats (L)", "Copies the result's loadout, upgrade, and combat stats into the next search as exact stat locks."],
+] as const;
+const guideId = (key: string) => `column-guide-${key}`;
 
 export function RankingsBoard() {
   const rows = useDesktopStore((state) => state.rows);
@@ -35,7 +49,6 @@ export function RankingsBoard() {
   const setExporting = useDesktopStore((state) => state.setExporting);
   const exportController = useRef<AbortController | null>(null);
   const [exportProgress, setExportProgress] = useState<SearchProgressDto | null>(null);
-  const [exportLimit, setExportLimit] = useState<25 | 100 | 500 | 2000>(25);
   const exportCache = useRef<{ signature: string; rows: SolvedBuildDto[] } | null>(null);
   const rankBaseline = useDesktopStore((state) => state.rankBaseline);
   const [sort, setSort] = useState<{ key: RankSortKey; reverse: boolean }>({ key: "rank", reverse: false });
@@ -134,7 +147,7 @@ export function RankingsBoard() {
     wasShown.current = shown;
   }, [shown]);
 
-  async function exportCsv() {
+  async function exportCsv(requestedRows: number) {
     if (useDesktopStore.getState().isSearching || useDesktopStore.getState().isExporting) return;
     const controller = new AbortController();
     const isCurrent = () => {
@@ -147,7 +160,6 @@ export function RankingsBoard() {
     setExportProgress(null);
     setError(null);
     try {
-      const requestedRows = exportLimit;
       const exportRequest = {
         ...buildOptimizeRequest(catalog, request, lockedStatMode),
         topK: requestedRows,
@@ -237,6 +249,19 @@ export function RankingsBoard() {
           {skillColumn ? null : <small>Skill damage isn't modeled for these results.</small>}
         </div>
         <div className="result-scroll-actions">
+          <Popover
+            label="Column guide"
+            trigger={<><CircleHelp size={15} aria-hidden="true" /><span>Columns</span></>}
+            triggerLabel="Column guide"
+            triggerClassName="column-guide-trigger"
+            panelClassName="editor-panel column-guide-panel"
+          >
+            <dl className="editor-body column-guide">
+              {COLUMN_GUIDE.map(([key, term, definition]) => (
+                <div key={key}><dt>{term}</dt><dd id={guideId(key)}>{definition}</dd></div>
+              ))}
+            </dl>
+          </Popover>
           <button
             type="button"
             title="Reverse the current order; click again to restore it"
@@ -258,28 +283,33 @@ export function RankingsBoard() {
               </button>
             </>
           ) : null}
-          <div className="export-split" role="group" aria-label="CSV export">
-            <button
-              className="export-csv-button"
-              type="button"
-              title={`Export up to ${exportLimit.toLocaleString()} rows to CSV`}
-              onClick={() => isExporting ? exportController.current?.abort() : void exportCsv()}
+          {isExporting ? (
+            <button className="export-csv-button" type="button" onClick={() => exportController.current?.abort()}>
+              <Download size={16} aria-hidden="true" /><span>Cancel export</span>
+            </button>
+          ) : (
+            <Popover
+              label="Export CSV"
+              trigger={<><Download size={16} aria-hidden="true" /><span>Export CSV</span></>}
+              triggerLabel="Export CSV"
+              triggerClassName="export-csv-button"
+              panelClassName="editor-panel export-panel"
               disabled={isSearching}
             >
-              <Download size={16} />
-              <span>{isExporting ? "Cancel export" : "Export CSV"}</span>
-            </button>
-            <select
-              aria-label="Rows to export"
-              value={exportLimit}
-              onChange={(event) => setExportLimit(Number(event.target.value) as typeof exportLimit)}
-              disabled={isSearching || isExporting}
-            >
-              {([25, 100, 500, 2000] as const).map((limit) => (
-                <option key={limit} value={limit}>{limit === 2000 ? "2,000 rows (max)" : `${limit} rows`}</option>
-              ))}
-            </select>
-          </div>
+              {(close) => (
+                <div className="editor-body">
+                  <div className="export-choices" role="group" aria-label="Rows to export">
+                    {[25, 100, 500, 2000].map((limit) => (
+                      <button type="button" key={limit} onClick={() => { close(); void exportCsv(limit); }}>
+                        {limit === 2000 ? "2,000 rows (max)" : `${limit} rows`}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="editor-note">Rows beyond the current results are ranked again for the file, which lists every assumption.</p>
+                </div>
+              )}
+            </Popover>
+          )}
         </div>
       </div>
       {isExporting ? <div className="estimate-strip" role="status">
@@ -297,18 +327,6 @@ export function RankingsBoard() {
           </button>
         </div>
       ) : null}
-      <details className="mechanics-glossary">
-        <summary>Metric glossary</summary>
-        <dl>
-          <div><dt>AR</dt><dd>Raw attack rating before enemy defense and negation.</dd></div>
-          <div><dt>Split</dt><dd>AR divided across physical, magic, fire, lightning, and holy damage.</dd></div>
-          <div><dt>AoW 1st / Full</dt><dd>First damaging hit or one complete legal Ash of War route.</dd></div>
-          <div><dt>Scaling</dt><dd>Attribute contribution grade at the shown reinforcement level.</dd></div>
-          <div><dt>Native</dt><dd>The weapon's fixed skill rather than an applied Ash of War.</dd></div>
-          <div><dt>Pin (P)</dt><dd>Adds the result to Compare as a target.</dd></div>
-          <div><dt>Lock stats (L)</dt><dd>Copies the result's loadout, upgrade, and combat stats into the next exact search as stat locks.</dd></div>
-        </dl>
-      </details>
       <div
         ref={resultBoard}
         className="result-board full-grid"
@@ -320,27 +338,27 @@ export function RankingsBoard() {
           <span role="columnheader" aria-sort={ariaSort("rank")}>
             <SortButton label="Rank" direction={ariaSort("rank")} onClick={() => sortBy("rank")}>#</SortButton>
           </span>
-          <span role="columnheader" title="Weapon, affinity, skill, and reinforcement level">Loadout</span>
-          <span role="columnheader" className="token-column-head" title="Attribute scaling grade at this reinforcement level">
+          <span role="columnheader" title="Weapon, affinity, skill, and reinforcement level" aria-describedby={guideId("loadout")}>Loadout</span>
+          <span role="columnheader" className="token-column-head" title="Attribute scaling grade at this reinforcement level" aria-describedby={guideId("scaling")}>
             Scaling<StatKeys />
           </span>
-          <span role="columnheader" className="token-column-head" title="Combat stats of this build">
+          <span role="columnheader" className="token-column-head" title="Combat stats of this build" aria-describedby={guideId("stats")}>
             Stats<StatKeys />
           </span>
           <span role="columnheader" aria-sort={ariaSort("ar")} title="Raw attack rating before enemy defense and negation">
-            <SortButton direction={ariaSort("ar")} onClick={() => sortBy("ar")}>AR</SortButton>
+            <SortButton direction={ariaSort("ar")} describedBy={guideId("ar")} onClick={() => sortBy("ar")}>AR</SortButton>
           </span>
           {skillColumn ? (
             <span role="columnheader" aria-sort={ariaSort("skill")} title="Raw skill damage for the full route, and its first damaging hit">
-              <SortButton direction={ariaSort("skill")} onClick={() => sortBy("skill")}>Skill damage</SortButton>
+              <SortButton direction={ariaSort("skill")} describedBy={guideId("skill")} onClick={() => sortBy("skill")}>Skill damage</SortButton>
             </span>
           ) : null}
           {objective !== "max_ar" ? (
             <span role="columnheader" aria-sort={ariaSort("score")} title="Value used by the active ranking objective">
-              <SortButton direction={ariaSort("score")} onClick={() => sortBy("score")}>{objectiveLabel(objective)}</SortButton>
+              <SortButton direction={ariaSort("score")} describedBy={guideId("score")} onClick={() => sortBy("score")}>{objectiveLabel(objective)}</SortButton>
             </span>
           ) : null}
-          <span role="columnheader" title="Pin for comparison (P) or lock stats to this result (L)">
+          <span role="columnheader" title="Pin for comparison (P) or lock stats to this result (L)" aria-describedby={`${guideId("pin")} ${guideId("lock")}`}>
             <span className="sr-only">Actions</span>
           </span>
         </div>
@@ -392,15 +410,16 @@ export function RankingsBoard() {
 }
 
 // The direction mark is aria-hidden so the column keeps its name; aria-sort carries the order.
-function SortButton({ label, direction, onClick, children }: {
+function SortButton({ label, direction, describedBy, onClick, children }: {
   label?: string;
   direction: "ascending" | "descending" | undefined;
+  describedBy?: string;
   onClick: () => void;
   children: ReactNode;
 }) {
   const Arrow = direction === "ascending" ? ArrowUp : ArrowDown;
   return (
-    <button type="button" className={`sort-header${direction ? " active" : ""}`} aria-label={label} onClick={onClick}>
+    <button type="button" className={`sort-header${direction ? " active" : ""}`} aria-label={label} aria-describedby={describedBy} onClick={onClick}>
       {children}
       {direction ? <Arrow size={11} aria-hidden="true" /> : null}
     </button>
@@ -612,18 +631,26 @@ function StatKeys() {
   );
 }
 
+// First run: say what to do next, once. Search itself stays in the strip above.
 function EmptyRows({ onExample, busy, classBudget }: { onExample: () => void; busy: boolean; classBudget: boolean }) {
   return (
     <div className="empty-state">
-      <strong>No rankings loaded</strong>
-      <span>Press Search to rank every legal setup under the active query.</span>
-      <small>Open loadout fields keep all compatible options eligible.</small>
+      <strong>Find the best weapon for this character</strong>
+      <span>
+        {classBudget ? "Set your class and stats above, then press Search (Ctrl+Enter)." : "Enter your combat stats above, then press Search (Ctrl+Enter)."}
+        {" "}Every legal weapon, affinity and skill is ranked unless you narrow the loadout.
+      </span>
       {classBudget ? (
-        <>
-          <small>Character stats, floors, locks, and world settings are retained by the example.</small>
-          <button className="inline-lock" type="button" onClick={onExample} disabled={busy}>Try Uchigatana +3 example</button>
-        </>
-      ) : <small>Convergence uses your entered combat stats exactly.</small>}
+        <button
+          className="inline-lock"
+          type="button"
+          onClick={onExample}
+          disabled={busy}
+          title="Keeps your stats, minimums, locks and world settings"
+        >
+          Try an Uchigatana +3 example
+        </button>
+      ) : null}
     </div>
   );
 }

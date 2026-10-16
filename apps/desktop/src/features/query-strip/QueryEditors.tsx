@@ -139,6 +139,15 @@ export function LoadoutEditor({ catalog, request, patchRequest, runner, loadoutS
   const filtersActive = weaponFiltersActive(request);
   return (
     <div className="editor-body editor-grid">
+      <SearchableSelect
+        label="Weapon"
+        value={request.weaponName}
+        options={[openOption(), ...(catalog?.weaponNames ?? []).map((name) => ({ value: name, label: name }))]}
+        onChange={(weaponName) => {
+          patchRequest(weaponPatch(request, weaponName));
+          runner.markManualWeapon();
+        }}
+      />
       <CheckboxMultiSelect
         label="Weapon Type"
         values={selectedTypeIds}
@@ -150,15 +159,6 @@ export function LoadoutEditor({ catalog, request, patchRequest, runner, loadoutS
           aowName: null,
           filters: { version: 1, entries: replaceFilterEntries(request.filters.entries, "weapon_type", values, excludedValues) },
         })}
-      />
-      <SearchableSelect
-        label="Weapon"
-        value={request.weaponName}
-        options={[openOption(), ...(catalog?.weaponNames ?? []).map((name) => ({ value: name, label: name }))]}
-        onChange={(weaponName) => {
-          patchRequest(weaponPatch(request, weaponName));
-          runner.markManualWeapon();
-        }}
       />
       <CheckboxMultiSelect
         label="Affinity"
@@ -183,12 +183,19 @@ export function LoadoutEditor({ catalog, request, patchRequest, runner, loadoutS
         onWeaponResolved={() => { runner.manualWeaponRevision.current = null; }}
       />
       {separateUpgradeCaps ? (
-        <SearchableSelect
-          label="Somber"
-          value={request.somberFilter}
-          options={(catalog?.somberFilters ?? []).map((value) => ({ value, label: somberFilterLabel(value) }))}
-          onChange={(somberFilter) => somberFilter && patchRequest({ somberFilter })}
-        />
+        <div className="segmented editor-span" role="group" aria-label="Reinforcement">
+          {(catalog?.somberFilters ?? []).map((value) => (
+            <button
+              type="button"
+              key={value}
+              className={request.somberFilter === value ? "active" : ""}
+              aria-pressed={request.somberFilter === value}
+              onClick={() => patchRequest({ somberFilter: value })}
+            >
+              {somberFilterLabel(value)}
+            </button>
+          ))}
+        </div>
       ) : null}
       <button
         type="button"
@@ -364,7 +371,7 @@ export function LimitsEditor({ request, patchRequest, fixedStats, lockedStatMode
       <p className="editor-note">
         {fixedStats
           ? "Convergence uses the entered combat stats exactly. Minimum floors do not redistribute stats."
-          : "Optional minimums and exact result locks. Leave these open for automatic optimization."}
+          : "Optional. Leave open to let the search choose every stat."}
       </p>
       <div className="editor-floors">
         {([

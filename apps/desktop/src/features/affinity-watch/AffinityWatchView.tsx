@@ -11,12 +11,13 @@ import { useDesktopStore } from "../../lib/state";
 import { AffinityWatchFinishedDto, AffinityWatchPayloadDto } from "../../lib/types";
 import type { NativeJobSuccess } from "../../lib/native-jobs";
 import { DraftNumberInput } from "../query-strip/DraftNumberInput";
+import { AboutPopover } from "../shared/AboutPopover";
+import { WorkspaceGate } from "../shared/WorkspaceGate";
 
 export function AffinityWatchView() {
   const catalog = useDesktopStore((state) => state.catalog);
   const selected = useDesktopStore((state) => state.selected);
   const resultsStale = useDesktopStore((state) => state.resultsStale);
-  const setWorkspace = useDesktopStore((state) => state.setWorkspace);
   const request = useDesktopStore((state) => state.request);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
   const horizon = useDesktopStore((state) => state.affinityHorizon);
@@ -126,16 +127,8 @@ export function AffinityWatchView() {
   }
 
   if (resultsStale) {
-    return (
-      <section className="workspace-panel affinity-panel">
-        <div className="workspace-header"><div><h1>Affinity Watch</h1><span>Requires current ranked results</span></div></div>
-        <div className="empty-state workspace-prerequisite">
-          <strong>Update Rankings before continuing</strong>
-          <span>The selected build belongs to the previous query.</span>
-          <button type="button" onClick={() => setWorkspace("rankings")}>Go to Rankings</button>
-        </div>
-      </section>
-    );
+    return <WorkspaceGate panelClass="affinity-panel" title="Affinity Watch" requirement="Requires current ranked results"
+      heading="Update Rankings before continuing" message="The selected build belongs to the previous query." />;
   }
 
   return (
@@ -145,6 +138,11 @@ export function AffinityWatchView() {
           <h1>Affinity Watch</h1>
           <span>{selected ? `${selected.weaponName} over the next ${effectiveHorizon} levels` : "Requires selected result"}</span>
           {selected ? <small className="selected-summary">{selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade} · {objectiveLabel(request.objective)}</small> : null}
+          <AboutPopover label="About Affinity Watch">
+            Each affinity optimizes its own combat stats at the same level budget, ignoring exact stat locks but keeping
+            minimums. The selected skill and upgrade stay fixed, and affinities the skill cannot use are left out. A crossover
+            marks the level where another affinity becomes the best.
+          </AboutPopover>
         </div>
         <div className="header-controls">
           <label>
@@ -157,7 +155,6 @@ export function AffinityWatchView() {
           </button>
         </div>
       </div>
-      <small className="path-mode-note">Each affinity independently optimizes combat stats at the same level budget, ignoring exact stat locks while retaining minimums. The selected skill and upgrade stay fixed; incompatible affinities are excluded.</small>
       <AnalysisProgress
         checked={affinityProgress?.checked ?? 0}
         total={affinityProgress?.total ?? (payload?.lines.length || 1)}

@@ -120,7 +120,12 @@ test("storage read denial after selection reports failure without unmounting the
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   await page.evaluate(() => { Storage.prototype.getItem = () => { throw new DOMException("denied", "SecurityError"); }; });
   await page.getByRole("checkbox", { name: "Two-handing", exact: true }).check();
-  await expect(page.getByText(/Saved builds could not be read/)).toBeVisible();
+  // Records are read on selection, not on every render; reading one now reports the denial.
+  const saved = page.getByRole("combobox", { name: "Saved", exact: true });
+  const id = await saved.inputValue();
+  await saved.selectOption("");
+  await saved.selectOption(id);
+  await expect(page.locator('.error-strip[role="alert"]')).toContainText("denied");
   await expect(page.getByRole("button", { name: "Load", exact: true })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Search", exact: true })).toBeVisible();
   expect(crashes).toEqual([]);

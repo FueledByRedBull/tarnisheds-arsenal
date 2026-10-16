@@ -143,6 +143,11 @@ for (const stale of [false, true]) {
       }
       return { key, value: localStorage.getItem(key) };
     }, stale);
+    // The library reads a record when it is selected, so pick the edited record again.
+    const saved = page.getByRole("combobox", { name: "Saved", exact: true });
+    const id = await saved.inputValue();
+    await saved.selectOption("");
+    await saved.selectOption(id);
     await page.getByRole("checkbox", { name: "Two-handing", exact: true }).check();
     await page.evaluate(() => {
       Storage.prototype.setItem = () => { throw new DOMException("storage full", "QuotaExceededError"); };
