@@ -41,6 +41,13 @@ release-notes-*.md
 /HARDEN.md
 /AUDITS.md
 /ERComparitor_DIFFERENTIAL_REVIEW_*.md
+/.audit/
+/.impeccable/
+/PRODUCT.md
+
+# Local secrets
+.env
+.env.*
 
 # Retired PyQt desktop workspace kept local-only for old parity checks.
 ui/desktop/
