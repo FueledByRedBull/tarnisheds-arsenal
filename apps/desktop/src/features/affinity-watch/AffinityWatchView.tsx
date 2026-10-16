@@ -23,7 +23,6 @@ export function AffinityWatchView() {
   const isAffinityBusy = useDesktopStore((state) => state.isAffinityBusy);
   const setAffinityBusy = useDesktopStore((state) => state.setAffinityBusy);
   const beginAffinity = useDesktopStore((state) => state.beginAffinity);
-  const affinityGeneration = useDesktopStore((state) => state.affinityGeneration);
   const activeAffinityJobId = useDesktopStore((state) => state.activeAffinityJobId);
   const setActiveAffinityJobId = useDesktopStore((state) => state.setActiveAffinityJobId);
   const affinityProgress = useDesktopStore((state) => state.affinityProgress);
@@ -45,8 +44,6 @@ export function AffinityWatchView() {
   });
 
   const startAffinityJob = useAffinityJob({
-    isAffinityBusy,
-    generation: affinityGeneration,
     setAffinityProgress,
     onStarted: (jobId, generation) => {
       const current = useDesktopStore.getState();

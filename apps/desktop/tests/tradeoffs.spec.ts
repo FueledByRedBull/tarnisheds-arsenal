@@ -186,24 +186,64 @@ test("singleton frontier explains tied allocations", async ({ page }) => {
   await expect(section.locator(".tradeoff-header")).toContainText("world settings. Only one");
 });
 
-test("leaving Compare aborts a pending frontier and discards its late result", async ({ page }) => {
-  await openCompare(page);
+async function holdFrontier(page: import("@playwright/test").Page) {
   await page.evaluate(async () => {
     const { api } = await import("/src/lib/api.ts");
-    (window as any).frontierProbe = { aborted: false };
-    api.arBleedFrontier = (_base, _selected, signal) => new Promise(resolve => {
-      (window as any).frontierProbe.finish = resolve;
-      signal?.addEventListener("abort", () => { (window as any).frontierProbe.aborted = true; });
+    const original = api.arBleedFrontier;
+    const probe = { aborted: false, finish: () => undefined as void };
+    // The frontier waits for the test, so tab switches and edits happen while it runs.
+    api.arBleedFrontier = (base, selected, signal) => new Promise((resolve, reject) => {
+      probe.finish = () => { void original(base, selected).then(resolve, reject); };
+      signal?.addEventListener("abort", () => { probe.aborted = true; });
     });
+    Object.assign(window, { frontierProbe: probe });
   });
+}
+
+test("a pending frontier keeps running while Compare is hidden and lands on return", async ({ page }) => {
+  await openCompare(page);
+  await holdFrontier(page);
   await page.getByRole("button", { name: "Compute trade-offs", exact: true }).click();
   await expect(page.locator(".loadout-tradeoffs").getByRole("status")).toContainText("Calculating");
   await page.getByRole("navigation").getByRole("button", { name: "Rankings", exact: true }).click();
-  expect(await page.evaluate(() => (window as any).frontierProbe.aborted)).toBe(true);
-  await page.evaluate(() => (window as any).frontierProbe.finish([]));
+  await page.evaluate(() => (window as any).frontierProbe.finish());
   await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
-  await expect(page.locator(".loadout-tradeoffs").getByRole("status")).toContainText("Ready to calculate");
-  await expect(page.locator(".tradeoff-shortlist")).toHaveCount(0);
+  await expect(page.locator(".loadout-tradeoffs").getByRole("status")).toContainText("4 exact trade-off points ready");
+  expect(await page.evaluate(() => (window as any).frontierProbe.aborted)).toBe(false);
+});
+
+test("a finished frontier and its chosen point survive leaving Compare", async ({ page }) => {
+  await openCompare(page);
+  await page.evaluate(async () => {
+    const { api } = await import("/src/lib/api.ts");
+    const original = api.arBleedFrontier;
+    (window as any).frontierCalls = 0;
+    api.arBleedFrontier = async (...args) => { (window as any).frontierCalls++; return original(...args); };
+  });
+  const section = page.getByRole("region", { name: "AR / Bleed tradeoffs" });
+  await section.getByRole("button", { name: "Compute trade-offs", exact: true }).click();
+  await expect(section.getByRole("status")).toContainText("4 exact trade-off points ready");
+  await section.getByText("Explore all tradeoffs (4)", { exact: true }).click();
+  await section.getByRole("button", { name: /^Point 4:/ }).click();
+  await expect(section.getByRole("button", { name: /^Point 4:/ })).toHaveAttribute("aria-pressed", "true");
+
+  await page.keyboard.press("Control+1");
+  await expect(page.getByRole("navigation").getByRole("button", { name: "Rankings", exact: true })).toHaveAttribute("aria-current", "page");
+  await page.keyboard.press("Control+2");
+  await expect(section.getByRole("status")).toContainText("4 exact trade-off points ready");
+  await expect(section.getByRole("button", { name: /^Point 4:/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(section.locator(".tradeoff-inspection")).toContainText("Gain 15.0 bleed buildup");
+  expect(await page.evaluate(() => (window as any).frontierCalls)).toBe(1);
+});
+
+test("an input change while Compare is hidden cancels a pending frontier", async ({ page }) => {
+  await openCompare(page);
+  await holdFrontier(page);
+  await page.getByRole("button", { name: "Compute trade-offs", exact: true }).click();
+  await expect(page.locator(".loadout-tradeoffs").getByRole("status")).toContainText("Calculating");
+  await page.getByRole("navigation").getByRole("button", { name: "Rankings", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Two-handing", exact: true }).check();
+  await expect.poll(() => page.evaluate(() => (window as any).frontierProbe.aborted)).toBe(true);
 });
 
 async function combatStats(row: import("@playwright/test").Locator) {

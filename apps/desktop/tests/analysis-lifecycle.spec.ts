@@ -30,6 +30,41 @@ for (const kind of ["path", "affinity"] as const) {
   });
 }
 
+for (const kind of ["path", "affinity"] as const) {
+  test(`${kind} run keeps going while its tab is hidden and lands on return`, async ({ page }) => {
+    await prepareAnalysis(page, kind);
+    await page.evaluate(async (kind) => {
+      const { api } = await import("/src/lib/api.ts");
+      const names = kind === "path"
+        ? { status: "pathPreviewStatus", cancel: "cancelPathPreview" } as const
+        : { status: "affinityWatchStatus", cancel: "cancelAffinityWatch" } as const;
+      const probe = { release: false, cancellations: [] as string[] };
+      const status = api[names.status];
+      const cancel = api[names.cancel];
+      // Hold the run open until the test releases it, so the tab switch happens mid-run.
+      (api as any)[names.status] = (jobId: string) => probe.release ? status(jobId) : Promise.resolve({ progress: null, finished: null });
+      (api as any)[names.cancel] = (jobId: string) => { probe.cancellations.push(jobId); return cancel(jobId); };
+      Object.assign(window, { hiddenRunProbe: probe });
+    }, kind);
+    await page.getByRole("button", { name: kind === "path" ? "Trace paths" : "Watch affinities", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
+
+    await page.keyboard.press("Control+1");
+    await expect(page.getByRole("navigation").getByRole("button", { name: "Rankings", exact: true })).toHaveAttribute("aria-current", "page");
+    await page.evaluate(() => { (window as any).hiddenRunProbe.release = true; });
+    await expect.poll(() => page.evaluate(async (kind) => {
+      const { useDesktopStore } = await import("/src/lib/state.ts");
+      const state = useDesktopStore.getState();
+      return kind === "path" ? state.paths.length > 0 : state.affinityPayload !== null;
+    }, kind)).toBe(true);
+
+    await page.keyboard.press(kind === "path" ? "Control+3" : "Control+4");
+    await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "completed");
+    await expect(page.getByText(kind === "path" ? "Path preview stopped." : "Affinity watch stopped.")).toHaveCount(0);
+    expect(await page.evaluate(() => (window as any).hiddenRunProbe.cancellations)).toEqual([]);
+  });
+}
+
 test("an abandoned numeric draft leaves results and analysis tabs current", async ({ page }) => {
   await prepareAnalysis(page, "path");
   const input = page.locator(".ribbon-stat input").first();
