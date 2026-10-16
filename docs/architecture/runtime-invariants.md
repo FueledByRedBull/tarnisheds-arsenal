@@ -118,6 +118,8 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - A restored comparison target remains available in Compare and Paths until the
   user changes its comparison or build context. Opening a workspace does not
   discard that target or silently replace it with unrelated comparison controls.
+  Compare re-resolving the same target (same content) is not a change: it does
+  not invalidate or cancel a Paths run.
 - Manual comparison controls preserve stored pins. Adding, removing or clearing
   pins invalidates derived targets and Paths, including work already in flight.
   Loading a saved build without pins keeps the current pins; a build that carries
