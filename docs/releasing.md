@@ -204,13 +204,14 @@ artifacts only after the intended source is committed.
 
 ## Repository settings
 
-These protections are GitHub settings, not workflow code. They are owner actions,
-and none of them can be confirmed from the repository itself.
+These protections are GitHub settings, not workflow code, so they cannot be
+confirmed from the repository itself. All are configured except the signing secrets:
+releases are deliberately unsigned for now.
 
 | Setting | Expected configuration |
 | --- | --- |
-| Ruleset on `main` | Require a pull request and the `rust-and-data`, `linux-core-and-data` and `desktop-frontend` checks with the branch up to date; no bypass |
-| Tag ruleset for `v*` | Only the maintainer and the release workflow may create, move or delete release tags |
+| Branch protection on `main` | Require a pull request and the `rust-and-data`, `linux-core-and-data` and `desktop-frontend` checks with the branch up to date; applies to admins; no force pushes or deletion |
+| Tag ruleset for `v*` | Nobody but repository admins may move or delete release tags. Creation stays open so the publish job can create the tag |
 | `release` environment | Required reviewer: the maintainer. Deployment branches and tags: `main` and `v*`. The publish job already uses it; GitHub creates it unprotected until configured |
 | Signing secrets | Store `WINDOWS_SIGNING_CERTIFICATE_BASE64` and `WINDOWS_SIGNING_CERTIFICATE_PASSWORD` as repository secrets. The package job passes them to its build step only on publishing runs (version tags or a manual `publish=true` run), so pull request and preview packages are unsigned. Do not add `environment: release` to the package job: it also runs for pull requests and previews, which that environment does not allow |
 | Private vulnerability reporting | Enabled, so the [security policy](../SECURITY.md) link works |
