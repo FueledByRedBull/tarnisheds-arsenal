@@ -192,6 +192,9 @@ test("a failed deletion reports the error and preserves a loadable build", async
   await page.evaluate(() => (window as unknown as { restoreStorage: () => void }).restoreStorage());
   await page.getByRole("button", { name: "Load", exact: true }).click();
   await expect(page.getByText("Loaded Build Preset; saved results verified on current data.", { exact: true })).toBeVisible();
+  // Any other action disarms Delete, so it must be armed again.
+  await expect(page.getByRole("button", { name: "Delete", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
   await page.getByRole("button", { name: "Confirm Delete", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Saved", exact: true })).toHaveValue("");
 });

@@ -203,10 +203,9 @@ export function LoadoutEditor({ catalog, request, patchRequest, runner, loadoutS
   );
 }
 
-export function UpgradeEditor({ request, patchRequest, markResultsStale, separateUpgradeCaps, standardUpgradeLimit, somberUpgradeLimit, weaponProfile }: {
+export function UpgradeEditor({ request, patchRequest, separateUpgradeCaps, standardUpgradeLimit, somberUpgradeLimit, weaponProfile }: {
   request: OptimizeRequestDto;
   patchRequest: Patch;
-  markResultsStale: () => void;
   separateUpgradeCaps: boolean;
   standardUpgradeLimit: number;
   somberUpgradeLimit: number;
@@ -222,7 +221,6 @@ export function UpgradeEditor({ request, patchRequest, markResultsStale, separat
               min={0}
               max={standardUpgradeLimit}
               value={request.standardMaxUpgrade}
-              onDraftChange={markResultsStale}
               onCommit={(standardMaxUpgrade) => patchRequest({ standardMaxUpgrade })}
             />
           </label>
@@ -232,7 +230,6 @@ export function UpgradeEditor({ request, patchRequest, markResultsStale, separat
               min={0}
               max={somberUpgradeLimit}
               value={request.somberMaxUpgrade}
-              onDraftChange={markResultsStale}
               onCommit={(somberMaxUpgrade) => patchRequest({ somberMaxUpgrade })}
             />
           </label>
@@ -244,7 +241,6 @@ export function UpgradeEditor({ request, patchRequest, markResultsStale, separat
             min={0}
             max={standardUpgradeLimit}
             value={request.standardMaxUpgrade}
-            onDraftChange={markResultsStale}
             onCommit={(upgrade) => patchRequest({ standardMaxUpgrade: upgrade, somberMaxUpgrade: upgrade })}
           />
           <small>Convergence uses one +0 to +15 reinforcement path for every weapon.</small>
@@ -285,10 +281,9 @@ export function UpgradeEditor({ request, patchRequest, markResultsStale, separat
   );
 }
 
-export function ScalingEditor({ request, patchRequest, markResultsStale }: {
+export function ScalingEditor({ request, patchRequest }: {
   request: OptimizeRequestDto;
   patchRequest: Patch;
-  markResultsStale: () => void;
 }) {
   const attack = scadutreeAttackMultiplier(request.dlcScaling, request.scadutreeLevel);
   const taken = scadutreeReceivedDamageMultiplier(request.dlcScaling, request.scadutreeLevel);
@@ -309,7 +304,6 @@ export function ScalingEditor({ request, patchRequest, markResultsStale }: {
           min={0}
           max={SCADUTREE_MAX_LEVEL}
           value={request.scadutreeLevel}
-          onDraftChange={markResultsStale}
           onCommit={(scadutreeLevel) => patchRequest({ scadutreeLevel })}
         />
       </label>
@@ -322,10 +316,9 @@ export function ScalingEditor({ request, patchRequest, markResultsStale }: {
   );
 }
 
-export function ResultsEditor({ request, patchRequest, markResultsStale }: {
+export function ResultsEditor({ request, patchRequest }: {
   request: OptimizeRequestDto;
   patchRequest: Patch;
-  markResultsStale: () => void;
 }) {
   return (
     <div className="editor-body">
@@ -335,7 +328,6 @@ export function ResultsEditor({ request, patchRequest, markResultsStale }: {
           min={1}
           max={50}
           value={request.topK}
-          onDraftChange={markResultsStale}
           onCommit={(topK) => patchRequest({ topK })}
         />
       </label>
@@ -357,10 +349,9 @@ export function ResultsEditor({ request, patchRequest, markResultsStale }: {
   );
 }
 
-export function LimitsEditor({ request, patchRequest, markResultsStale, fixedStats, lockedStatMode, exactLocksActive, onClearLocks }: {
+export function LimitsEditor({ request, patchRequest, fixedStats, lockedStatMode, exactLocksActive, onClearLocks }: {
   request: OptimizeRequestDto;
   patchRequest: Patch;
-  markResultsStale: () => void;
   fixedStats: boolean;
   lockedStatMode: boolean;
   exactLocksActive: boolean;
@@ -389,7 +380,6 @@ export function LimitsEditor({ request, patchRequest, markResultsStale, fixedSta
               min={0}
               max={99}
               value={request[key]}
-              onDraftChange={markResultsStale}
               onCommit={(value) => patchRequest({ [key]: value })}
             />
           </label>

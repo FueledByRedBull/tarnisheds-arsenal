@@ -437,6 +437,12 @@ function SavedBuildPanel() {
 
   useEffect(refresh, []);
   useEffect(() => () => migrationController.current?.abort(), []);
+  // A first Delete click only arms; it lapses so a later click can never confirm it unseen.
+  useEffect(() => {
+    if (!deleteArmedId) return;
+    const timer = window.setTimeout(() => setDeleteArmedId(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [deleteArmedId]);
   useEffect(() => {
     if (!copied) return;
     const timer = window.setTimeout(() => setCopied(false), 1500);
@@ -662,6 +668,7 @@ function SavedBuildPanel() {
           type="button"
           className={deleteArmedId === selectedId ? "armed" : undefined}
           onClick={deleteCurrent}
+          onBlur={() => setDeleteArmedId(null)}
           disabled={!selectedPreset}
           aria-label={deleteArmedId === selectedId ? "Confirm Delete" : "Delete"}
           title="Delete the selected saved build"

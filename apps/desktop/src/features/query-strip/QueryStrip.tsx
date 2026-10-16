@@ -57,7 +57,6 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   const loadoutSelectionRevision = useDesktopStore((state) => state.loadoutSelectionRevision);
   const patchRequest = useDesktopStore((state) => state.patchRequest);
   const applyClass = useDesktopStore((state) => state.applyClass);
-  const markResultsStale = useDesktopStore((state) => state.markResultsStale);
   const resultsStale = useDesktopStore((state) => state.resultsStale);
   const hasRows = useDesktopStore((state) => state.rows.length > 0);
   const hasSelection = useDesktopStore((state) => state.selected !== null);
@@ -335,7 +334,6 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
             <UpgradeEditor
               request={request}
               patchRequest={patchRequest}
-              markResultsStale={markResultsStale}
               separateUpgradeCaps={separateUpgradeCaps}
               standardUpgradeLimit={standardUpgradeLimit}
               somberUpgradeLimit={somberUpgradeLimit}
@@ -362,7 +360,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
             panelClassName="editor-panel"
           >
             {scadutreeAvailable ? (
-              <ScalingEditor request={request} patchRequest={patchRequest} markResultsStale={markResultsStale} />
+              <ScalingEditor request={request} patchRequest={patchRequest} />
             ) : (
               <div className="editor-body profile-rule-note" role="note">
                 <span>Convergence rule</span>
@@ -372,7 +370,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
             )}
           </Popover>
           <Popover label="Results" changeKey={resultsSummary} trigger={resultsSummary} triggerLabel={`Results: ${resultsSummary}`} triggerClassName="strip-token" panelClassName="editor-panel">
-            <ResultsEditor request={request} patchRequest={patchRequest} markResultsStale={markResultsStale} />
+            <ResultsEditor request={request} patchRequest={patchRequest} />
           </Popover>
           <Popover
             label="Limits"
@@ -385,7 +383,6 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
             <LimitsEditor
               request={request}
               patchRequest={patchRequest}
-              markResultsStale={markResultsStale}
               fixedStats={fixedStats}
               lockedStatMode={lockedStatMode}
               exactLocksActive={exactLocksActive}
@@ -495,7 +492,6 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
                 min={Math.max(1, meta.baseStats[key as keyof EightStatsDto])}
                 max={99}
                 value={Number(request[key as keyof OptimizeRequestDto])}
-                onDraftChange={markResultsStale}
                 onCommit={(value) => patchRequest({ [key]: value } as Partial<OptimizeRequestDto>)}
               />
             </label>
