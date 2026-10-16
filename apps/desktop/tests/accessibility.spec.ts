@@ -26,6 +26,11 @@ test("the strip, every editor and the palette have no WCAG A/AA violations", asy
     await openEditor(page, editor);
     expect(await violations(page, ".popover-panel:popover-open"), editor).toEqual([]);
   }
+  const classPanel = await openEditor(page, "Class");
+  await classPanel.getByRole("combobox", { name: "Class" }).press("ArrowDown");
+  await expect(classPanel.getByRole("listbox", { name: "Class" })).toBeVisible();
+  expect(await violations(page, ".popover-panel:popover-open"), "open Class list").toEqual([]);
+  await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
   await page.keyboard.press("Control+k");
   await page.getByRole("combobox", { name: "Command" }).fill("str 4");

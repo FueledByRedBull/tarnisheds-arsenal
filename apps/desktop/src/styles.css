@@ -147,8 +147,30 @@ input[type="number"],
   to { transform: translateX(100%); }
 }
 
+/* Laid out like a form label; the label element holds only the text so the popup stays outside it. */
 .searchable-select {
   position: relative;
+  display: grid;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: var(--text-label);
+  letter-spacing: 0.015em;
+}
+
+.searchable-select > label {
+  margin-bottom: 0;
+}
+
+/* The listbox itself scrolls, as a combobox popup, and the status stays pinned below it. */
+.searchable-select .select-menu {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.select-menu > [role="listbox"] {
+  min-height: 0;
+  overflow: auto;
 }
 
 .checkbox-multi-select {
@@ -214,7 +236,7 @@ input[type="number"],
   box-shadow: 0 10px 24px var(--shadow);
 }
 
-.select-menu > button,
+.select-menu > [role="listbox"] > button,
 .select-menu > span {
   display: block;
   width: 100%;
