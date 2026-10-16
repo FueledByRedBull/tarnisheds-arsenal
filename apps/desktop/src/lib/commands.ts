@@ -229,7 +229,8 @@ function entityCommands({ catalog, request }: CommandContext): Command[] {
   let named = entityCache.get(catalog);
   if (!named) {
     named = [
-      ...catalog.classes.map((entry) => command(`class-${entry.name}`, "Class", `Class: ${entry.name}`, `Starts at level ${entry.baseLevel}`,
+      // Without a class budget the only class is Custom stats, whose base values would zero the stats.
+      ...(catalog.dataManifest.capabilities.classBudget ? catalog.classes : []).map((entry) => command(`class-${entry.name}`, "Class", `Class: ${entry.name}`, `Starts at level ${entry.baseLevel}`,
         { kind: "class", className: entry.name })),
       ...catalog.weaponNames.map((name) => command(`weapon-${name}`, "Weapon", `Weapon: ${name}`, undefined, { kind: "weapon", weaponName: name })),
       ...catalog.aowNames.map((name) => command(`aow-${name}`, "Skill", `Skill: ${name}`, undefined, { kind: "patch", patch: { aowName: name } })),
