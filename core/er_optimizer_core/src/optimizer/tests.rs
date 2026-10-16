@@ -2928,6 +2928,94 @@ fn arc_frontier_reuse_matches_every_independently_enumerated_winner() {
 }
 
 #[test]
+fn coupled_route_allocation_matches_enumerating_every_stat() {
+    let data = load_data();
+    let mut compared = 0;
+    let mut saw_coupled_and_separable = false;
+    for affinity in [
+        "Standard", "Heavy", "Keen", "Quality", "Poison", "Blood", "Occult",
+    ] {
+        for (level, two_handing) in [(15, false), (22, true)] {
+            for objective in [
+                OptimizeObjective::MaxAr,
+                OptimizeObjective::BleedThenAr,
+                OptimizeObjective::AowFirstHit,
+                OptimizeObjective::AowFullSequence,
+            ] {
+                let mut request = base_request();
+                request.character_level = level;
+                request.two_handing = two_handing;
+                request.weapon_name = Some("Caestus".into());
+                request.affinity = Some(affinity.into());
+                request.aow_name = Some("Lifesteal Fist".into());
+                request.objective = objective;
+                request.exact_upgrade = true;
+                let plan = prepare_search(&request, &data).unwrap();
+                for group in &plan.groups {
+                    let prepared = &plan.weapons[group.prepared_idx];
+                    let search = &group.search;
+                    for &aow_idx in &group.aow_indices {
+                        let choice = &prepared.aow_choices[aow_idx];
+                        let two_handed = weapon_uses_two_handing(&request, prepared.weapon);
+                        let routes = scalar_route_set(choice, &data, two_handed)
+                            .unwrap()
+                            .unwrap();
+                        for route in routes.iter().filter(|route| !route.is_additive(&data)) {
+                            let coupled = route.coupled_stats(&data, search.active);
+                            saw_coupled_and_separable |= coupled.iter().filter(|&&c| c).count() > 1
+                                && (0..COMBAT_STAT_COUNT).any(|s| search.active[s] && !coupled[s]);
+                            for &upgrade in &prepared.upgrades {
+                                let mut progress = SerialSearchProgress::new(0, 0, |_| {}, || true);
+                                let fast = coupled_route_allocation(
+                                    search,
+                                    &request,
+                                    prepared,
+                                    choice,
+                                    upgrade,
+                                    route,
+                                    &data,
+                                    &mut progress,
+                                )
+                                .unwrap();
+                                let mut reference: Option<ObjectiveAllocation> = None;
+                                let mut combat = search.mins;
+                                search.visit(&mut combat, |combat| {
+                                    let candidate = evaluate_objective_allocation(
+                                        *combat,
+                                        &request,
+                                        prepared,
+                                        choice,
+                                        upgrade,
+                                        Some(route),
+                                        &data,
+                                    )
+                                    .unwrap();
+                                    if reference.as_ref().is_none_or(|current| {
+                                        better_objective_allocation(&candidate, current)
+                                    }) {
+                                        reference = Some(candidate);
+                                    }
+                                    true
+                                });
+                                assert_eq!(
+                                    format!("{fast:?}"),
+                                    format!("{:?}", reference.unwrap()),
+                                    "{affinity} L{level} {objective:?} {}",
+                                    route.route_id
+                                );
+                                compared += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    assert!(compared > 0);
+    assert!(saw_coupled_and_separable);
+}
+
+#[test]
 fn arc_frontier_reuse_preserves_non_additive_fallback_and_cancellation() {
     let data = load_data();
     let mut request = base_request();

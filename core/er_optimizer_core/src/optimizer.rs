@@ -2406,37 +2406,10 @@ where
         }
         return Ok(value);
     }
-    if route.is_some_and(|route| !route.is_additive(data)) {
-        // Penalty corrections couple stats; additive DP cannot prune them safely.
-        let mut best = None;
-        let mut error = None;
-        let mut combat = search.mins;
-        search.visit(&mut combat, |combat| {
-            let candidate = progress.poll().and_then(|()| {
-                evaluate_objective_allocation(
-                    *combat, request, prepared, aow_choice, upgrade, route, data,
-                )
-            });
-            match candidate {
-                Ok(candidate) => {
-                    if best
-                        .as_ref()
-                        .is_none_or(|current| better_objective_allocation(&candidate, current))
-                    {
-                        best = Some(candidate);
-                    }
-                    true
-                }
-                Err(failure) => {
-                    error = Some(failure);
-                    false
-                }
-            }
-        });
-        if let Some(error) = error {
-            return Err(error);
-        }
-        return best.ok_or_else(|| "no feasible skill allocation".to_string());
+    if let Some(route) = route.filter(|route| !route.is_additive(data)) {
+        return coupled_route_allocation(
+            search, request, prepared, aow_choice, upgrade, route, data, progress,
+        );
     }
     let maxima = formula_max_stats(dp_search, request, prepared.weapon);
     let route_formula = route
@@ -2686,6 +2659,176 @@ where
     }
     let (_, combat) =
         best.ok_or_else(|| "stat optimizer could not satisfy the stat budget".to_string())?;
+    evaluate(combat)
+}
+
+/// A non-additive correction couples only the stats sharing a corrected damage type
+/// (optimizer-math Section 3). Those are enumerated; every other active stat adds an exact
+/// separable delta, so one DP gives each remaining spend's best completion. The combined key
+/// is exact and the DP keeps the smallest tied combat, so comparing (key, combat) over these
+/// candidates selects the same allocation as enumerating every stat.
+#[allow(clippy::too_many_arguments)]
+fn coupled_route_allocation<P: SearchProgress>(
+    search: &RelevantStatSearch,
+    request: &OptimizeRequest,
+    prepared: &PreparedWeapon<'_>,
+    aow_choice: &AowChoice<'_>,
+    upgrade: u8,
+    route: &ScalarAowRoute<'_>,
+    data: &GameData,
+    progress: &mut P,
+) -> Result<ObjectiveAllocation, String> {
+    let evaluate = |combat| {
+        evaluate_objective_allocation(
+            combat,
+            request,
+            prepared,
+            aow_choice,
+            upgrade,
+            Some(route),
+            data,
+        )
+    };
+    let key_at = |combat| evaluate(combat).map(|value| value.key.components());
+    // Route damage dominates evaluation cost. For AR and bleed objectives the leading score
+    // and AR total do not involve the route, so a candidate behind on them is skipped.
+    let route_free_prefix = !matches!(
+        request.objective,
+        OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
+    );
+    let route_free_key = |combat| {
+        evaluate_allocation_with_formulas(
+            combat, request, prepared, aow_choice, upgrade, None, data, None, None,
+        )
+        .map(|value| value.key.components())
+    };
+    let coupled = route.coupled_stats(data, search.active);
+    let mut enumerated = *search;
+    let mut separable = *search;
+    for (stat, coupled) in coupled.into_iter().enumerate() {
+        enumerated.active[stat] &= coupled;
+        separable.active[stat] &= !coupled;
+    }
+    let base = key_at(search.mins)?;
+    let budget = usize::from(separable.max_active_spend());
+    let mut deltas = std::array::from_fn(|_| Vec::new());
+    for stat in (0..COMBAT_STAT_COUNT).filter(|&stat| separable.active[stat]) {
+        let cap = usize::from(search.maxs[stat] - search.mins[stat]).min(budget);
+        for add in 0..=cap {
+            progress.poll()?;
+            let mut combat = search.mins;
+            combat[stat] += add as u8;
+            let value = key_at(combat)?;
+            deltas[stat].push(std::array::from_fn(|component| {
+                &value[component] - &base[component]
+            }));
+        }
+    }
+    let mut poll_error = None;
+    let solved = exact_dp::solve_exact::<5>(
+        &std::array::from_fn(|_| ExactRational::zero()),
+        &deltas,
+        search.mins,
+        separable.active,
+        budget,
+        false,
+        None,
+        &mut || poll_continues(progress, &mut poll_error),
+    )
+    .map_err(|error| poll_error.take().unwrap_or(error))?;
+    let completion_values = solved
+        .combat
+        .iter()
+        .map(|combat| {
+            combat.map(|combat| {
+                std::array::from_fn(|component| {
+                    (0..COMBAT_STAT_COUNT)
+                        .filter(|&stat| separable.active[stat])
+                        .fold(ExactRational::zero(), |sum, stat| {
+                            sum + &deltas[stat][usize::from(combat[stat] - search.mins[stat])]
+                                [component]
+                        })
+                })
+            })
+        })
+        .collect::<Vec<Option<[ExactRational; 5]>>>();
+    // Best completion per coupled spend, with coupled stats still at their minimums.
+    let inactive_capacity = search.inactive_capacity();
+    let mut completions = Vec::new();
+    for spent in 0..=enumerated.max_active_spend() {
+        let left = search.remaining_free - spent;
+        let mut best: Option<([ExactRational; 5], [u8; COMBAT_STAT_COUNT])> = None;
+        for separable_spent in left.saturating_sub(inactive_capacity)..=left.min(budget as u16) {
+            progress.poll()?;
+            let (Some(mut combat), Some(value)) = (
+                solved.combat[usize::from(separable_spent)],
+                &completion_values[usize::from(separable_spent)],
+            ) else {
+                continue;
+            };
+            fill_inactive_stats(search, &mut combat, left - separable_spent);
+            if best.as_ref().is_none_or(|(current, current_combat)| {
+                value > current || value == current && combat < *current_combat
+            }) {
+                best = Some((value.clone(), combat));
+            }
+        }
+        completions.push(best);
+    }
+    let mut best: Option<([ExactRational; 5], [u8; COMBAT_STAT_COUNT])> = None;
+    let mut error = None;
+    let mut current = search.mins;
+    // Uncoupled stats are filled like inactive ones here; only the coupled values are used.
+    enumerated.visit(&mut current, |filled| {
+        let spent = (0..COMBAT_STAT_COUNT)
+            .filter(|&stat| enumerated.active[stat])
+            .map(|stat| u16::from(filled[stat] - search.mins[stat]))
+            .sum::<u16>();
+        let mut allocation = search.mins;
+        for stat in (0..COMBAT_STAT_COUNT).filter(|&stat| enumerated.active[stat]) {
+            allocation[stat] = filled[stat];
+        }
+        let candidate = progress.poll().and_then(|()| {
+            let (tail, completion) = completions[usize::from(spent)]
+                .as_ref()
+                .ok_or_else(|| "feasible coupled allocation has no completion".to_string())?;
+            if route_free_prefix && let Some((current, _)) = &best {
+                let head = route_free_key(allocation)?;
+                let prefix = [&head[0] + &tail[0], &head[1] + &tail[1]];
+                if prefix.as_slice() < &current[..2] {
+                    return Ok(None);
+                }
+            }
+            let head = key_at(allocation)?;
+            let mut combat = *completion;
+            for stat in (0..COMBAT_STAT_COUNT).filter(|&stat| enumerated.active[stat]) {
+                combat[stat] = allocation[stat];
+            }
+            Ok(Some((
+                std::array::from_fn(|component| &head[component] + &tail[component]),
+                combat,
+            )))
+        });
+        match candidate {
+            Ok(None) => true,
+            Ok(Some((key, combat))) => {
+                if best.as_ref().is_none_or(|(current, current_combat)| {
+                    key > *current || key == *current && combat < *current_combat
+                }) {
+                    best = Some((key, combat));
+                }
+                true
+            }
+            Err(failure) => {
+                error = Some(failure);
+                false
+            }
+        }
+    });
+    if let Some(error) = error {
+        return Err(error);
+    }
+    let (_, combat) = best.ok_or_else(|| "no feasible skill allocation".to_string())?;
     evaluate(combat)
 }
 
