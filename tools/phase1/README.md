@@ -31,10 +31,10 @@ those compact fields. Runtime manifests list 12 required tables.
 The manifest records the snapshot model identity; the runtime adds the numerical
 contract to scoring and cache identities. Current identities and coverage are
 listed in the [model reference](../../docs/model-reference.md).
-The extractor records `phase1-python-v14-fail-closed-provenance` for its current
+The extractor records `phase1-python-v15-f32-shortest-floats` for its current
 output. When the extracted content changes for the same game or mod version, the
-dataset version gains a revision suffix (`vanilla-1.17-r2`,
-`convergence-3.0.0.1-r2`); never relabel an existing snapshot instead.
+dataset version gains a revision suffix (`vanilla-1.17-r3`,
+`convergence-3.0.0.1-r3`); never relabel an existing snapshot instead.
 
 Regenerate older snapshots with this extractor. Both runtime and Python validation
 reject schema 5 before attempting to use its incompatible tables. Do not merely
@@ -170,6 +170,10 @@ the exact tracked reference match.
   coverage and correction notes are documented in the [model reference](../../docs/model-reference.md).
 - Compatibility validation uses the same permission fields rather than a retained
   pair table.
+- Every float column is written as the shortest positional decimal that parses to the
+  `f32` nearest the extracted value (at most nine significant digits, `-0` as `0`,
+  non-finite values rejected). The runtime reads floats as `f32`, so this text carries
+  exactly the loaded value.
 - Generated CSV and manifest JSON files use canonical LF line endings so snapshots hash identically across supported hosts.
 
 ## Extraction work directories
