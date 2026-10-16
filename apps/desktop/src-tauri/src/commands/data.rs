@@ -6,26 +6,24 @@ use er_optimizer_core::{
 };
 use tauri::State;
 
-use crate::AppState;
 use crate::dto::{
     CatalogDto, ClassMetadataDto, CombatStateDto, CompatibleAowsForAffinityRequestDto,
     DisplayPoiseDamageDto, EightStatsDto, FilterDimensionDto, FilterOptionDto, WeaponProfileDto,
     WeaponProfileRequestDto, WeaponTypeOptionDto,
 };
 use crate::errors::AppError;
+use crate::{AppState, ProfileData};
 
 #[derive(Clone, Debug)]
 pub struct CatalogIndex {
     weapon_names: Vec<String>,
     aow_names: Vec<String>,
     affinity_names: Vec<String>,
-    weapon_type_keys: Vec<String>,
     weapon_type_options: Vec<WeaponTypeOptionDto>,
     affinities_by_weapon: HashMap<String, Vec<String>>,
     compatible_aows_by_weapon: HashMap<String, Vec<String>>,
     compatible_aows_by_affinity: HashMap<String, Vec<String>>,
     compatible_aows_by_weapon_affinity: HashMap<(String, String), Vec<String>>,
-    compatible_aows_all: Vec<String>,
     upgrade_cap_by_weapon: HashMap<String, u8>,
     upgrade_cap_by_weapon_affinity: HashMap<(String, String), u8>,
     requirements_by_weapon: HashMap<String, [u8; 5]>,
@@ -41,14 +39,12 @@ impl CatalogIndex {
         let mut weapon_names = BTreeSet::new();
         let mut aow_names = BTreeSet::new();
         let mut affinity_names = BTreeSet::new();
-        let mut weapon_type_keys = BTreeSet::new();
         let mut weapon_type_options = BTreeSet::<(String, String)>::new();
         let mut affinities_by_weapon = HashMap::<String, BTreeSet<String>>::new();
         let mut compatible_aows_by_weapon = HashMap::<String, BTreeSet<String>>::new();
         let mut compatible_aows_by_affinity = HashMap::<String, BTreeSet<String>>::new();
         let mut compatible_aows_by_weapon_affinity =
             HashMap::<(String, String), BTreeSet<String>>::new();
-        let mut compatible_aows_all = BTreeSet::new();
         let mut upgrade_cap_by_weapon = HashMap::<String, u8>::new();
         let mut upgrade_cap_by_weapon_affinity = HashMap::<(String, String), u8>::new();
         let mut requirements_by_weapon = HashMap::<String, [u8; 5]>::new();
@@ -119,7 +115,6 @@ impl CatalogIndex {
                 .trim()
                 .to_string();
             if !label.is_empty() {
-                weapon_type_keys.insert(label.clone());
                 let key = weapon
                     .weapon_type_keys
                     .split('|')
@@ -184,7 +179,6 @@ impl CatalogIndex {
                     &mut compatible_aows_by_weapon,
                     &mut compatible_aows_by_affinity,
                     &mut compatible_aows_by_weapon_affinity,
-                    &mut compatible_aows_all,
                     &weapon_key,
                     &affinity_key,
                     skill_name,
@@ -212,7 +206,6 @@ impl CatalogIndex {
                         &mut compatible_aows_by_weapon,
                         &mut compatible_aows_by_affinity,
                         &mut compatible_aows_by_weapon_affinity,
-                        &mut compatible_aows_all,
                         &weapon_key,
                         &affinity_key,
                         &aow.name,
@@ -242,7 +235,6 @@ impl CatalogIndex {
             weapon_names: weapon_names.into_iter().collect(),
             aow_names: aow_names.into_iter().collect(),
             affinity_names: affinity_names.into_iter().collect(),
-            weapon_type_keys: weapon_type_keys.into_iter().collect(),
             weapon_type_options: weapon_type_options
                 .into_iter()
                 .map(|(label, key)| WeaponTypeOptionDto { key, label })
@@ -253,7 +245,6 @@ impl CatalogIndex {
             compatible_aows_by_weapon_affinity: finalize_pair_set_map(
                 compatible_aows_by_weapon_affinity,
             ),
-            compatible_aows_all: compatible_aows_all.into_iter().collect(),
             upgrade_cap_by_weapon,
             upgrade_cap_by_weapon_affinity,
             requirements_by_weapon,
@@ -294,31 +285,12 @@ pub fn get_catalog(profile_id: String, state: State<'_, AppState>) -> Result<Cat
     let data = &profile.data;
     let index = &profile.catalog_index;
     Ok(CatalogDto {
-        weapon_count: index.weapon_names.len(),
-        aow_count: data.aows.len(),
         weapon_names: index.weapon_names.clone(),
-        weapon_type_keys: index.weapon_type_keys.clone(),
-        classes: class_metadata(
-            profile.data_manifest.profile.game_version == "1.17",
-            profile.data.capabilities.class_budget,
-        ),
+        classes: class_metadata(profile),
         weapon_type_options: index.weapon_type_options.clone(),
         aow_names: index.aow_names.clone(),
         affinity_names: index.affinity_names.clone(),
-        objective_ids: OptimizeObjective::ALL
-            .into_iter()
-            .filter(|objective| match objective {
-                OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr => {
-                    data.capabilities.weapon_ar
-                }
-                OptimizeObjective::BleedThenAr => data.capabilities.status_buildup,
-                OptimizeObjective::AowFirstHit => data.capabilities.aow_damage,
-                OptimizeObjective::AowFullSequence => {
-                    data.capabilities.aow_damage && data.capabilities.aow_routes
-                }
-            })
-            .map(|objective| objective.as_str().to_string())
-            .collect(),
+        objective_ids: get_catalog_objectives(data),
         somber_filters: SomberFilter::ALL
             .into_iter()
             .map(|filter| filter.as_str().to_string())
@@ -326,6 +298,23 @@ pub fn get_catalog(profile_id: String, state: State<'_, AppState>) -> Result<Cat
         filter_dimensions: index.filter_dimensions.clone(),
         data_manifest: profile.data_manifest.clone(),
     })
+}
+
+fn get_catalog_objectives(data: &GameData) -> Vec<String> {
+    OptimizeObjective::ALL
+        .into_iter()
+        .filter(|objective| match objective {
+            OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr => {
+                data.capabilities.weapon_ar
+            }
+            OptimizeObjective::BleedThenAr => data.capabilities.status_buildup,
+            OptimizeObjective::AowFirstHit => data.capabilities.aow_damage,
+            OptimizeObjective::AowFullSequence => {
+                data.capabilities.aow_damage && data.capabilities.aow_routes
+            }
+        })
+        .map(|objective| objective.as_str().to_string())
+        .collect()
 }
 
 fn increment_facet(facets: &mut BTreeMap<String, (String, usize)>, id: String, label: String) {
@@ -366,24 +355,15 @@ pub fn compatible_aow_names_for_affinity(
     state: State<'_, AppState>,
 ) -> Result<Vec<String>, AppError> {
     let profile = state.profile(&request.profile_id)?;
-    Ok(compatible_aow_names_inner(
-        &profile.catalog_index,
-        None,
-        request.affinity.as_deref(),
-    ))
-}
-
-#[tauri::command]
-pub fn affinities_for_weapon(
-    profile_id: String,
-    weapon_name: String,
-    state: State<'_, AppState>,
-) -> Result<Vec<String>, AppError> {
-    let profile = state.profile(&profile_id)?;
-    Ok(affinities_for_weapon_inner(
-        &profile.catalog_index,
-        &weapon_name,
-    ))
+    let affinity = request
+        .affinity
+        .ok_or_else(|| AppError::new("Choose an affinity to list its Ashes of War."))?;
+    Ok(profile
+        .catalog_index
+        .compatible_aows_by_affinity
+        .get(&index_key(&affinity))
+        .cloned()
+        .unwrap_or_default())
 }
 
 #[tauri::command]
@@ -446,14 +426,14 @@ fn weapon_profile_inner(
         affinities: affinities_for_weapon_inner(index, &request.weapon_name),
         compatible_aows: compatible_aow_names_inner(
             index,
-            Some(&request.weapon_name),
+            &request.weapon_name,
             request.affinity.as_deref(),
         ),
     })
 }
 
-pub fn class_metadata(include_tarnished_pack: bool, class_budget: bool) -> Vec<ClassMetadataDto> {
-    if !class_budget {
+pub fn class_metadata(profile: &ProfileData) -> Vec<ClassMetadataDto> {
+    if !profile.data.capabilities.class_budget {
         return vec![ClassMetadataDto {
             name: "Custom stats".to_string(),
             base_level: 0,
@@ -470,6 +450,17 @@ pub fn class_metadata(include_tarnished_pack: bool, class_budget: bool) -> Vec<C
             },
         }];
     }
+    // Idus Knight and Heavy Knight exist from game version 1.17 onwards.
+    let mut version = profile
+        .data_manifest
+        .profile
+        .game_version
+        .split('.')
+        .map(str::parse::<u16>);
+    let include_tarnished_pack = matches!(
+        (version.next(), version.next()),
+        (Some(Ok(major)), Some(Ok(minor))) if (major, minor) >= (1, 17)
+    );
     STARTING_CLASSES
         .iter()
         .filter(|class_info| {
@@ -503,27 +494,20 @@ pub fn affinities_for_weapon_inner(index: &CatalogIndex, weapon_name: &str) -> V
 
 pub fn compatible_aow_names_inner(
     index: &CatalogIndex,
-    weapon_name: Option<&str>,
+    weapon_name: &str,
     affinity: Option<&str>,
 ) -> Vec<String> {
-    match (weapon_name, affinity) {
-        (Some(weapon_name), Some(affinity)) => index
+    match affinity {
+        Some(affinity) => index
             .compatible_aows_by_weapon_affinity
             .get(&(index_key(weapon_name), index_key(affinity)))
-            .cloned()
-            .unwrap_or_default(),
-        (Some(weapon_name), None) => index
+            .cloned(),
+        None => index
             .compatible_aows_by_weapon
             .get(&index_key(weapon_name))
-            .cloned()
-            .unwrap_or_default(),
-        (None, Some(affinity)) => index
-            .compatible_aows_by_affinity
-            .get(&index_key(affinity))
-            .cloned()
-            .unwrap_or_default(),
-        (None, None) => index.compatible_aows_all.clone(),
+            .cloned(),
     }
+    .unwrap_or_default()
 }
 
 pub fn weapon_upgrade_cap(
@@ -615,7 +599,6 @@ fn insert_compatible_name(
     by_weapon: &mut HashMap<String, BTreeSet<String>>,
     by_affinity: &mut HashMap<String, BTreeSet<String>>,
     by_weapon_affinity: &mut HashMap<(String, String), BTreeSet<String>>,
-    all: &mut BTreeSet<String>,
     weapon_key: &str,
     affinity_key: &str,
     name: &str,
@@ -632,7 +615,6 @@ fn insert_compatible_name(
         .entry((weapon_key.to_string(), affinity_key.to_string()))
         .or_default()
         .insert(name.to_string());
-    all.insert(name.to_string());
 }
 
 fn finalize_set_map(map: HashMap<String, BTreeSet<String>>) -> HashMap<String, Vec<String>> {
@@ -724,13 +706,11 @@ mod compatibility_tests {
             "weapon_names": index.weapon_names,
             "aow_names": index.aow_names,
             "affinity_names": index.affinity_names,
-            "weapon_type_keys": index.weapon_type_keys,
             "weapon_type_options": index.weapon_type_options,
             "affinities_by_weapon": index.affinities_by_weapon,
             "compatible_aows_by_weapon": index.compatible_aows_by_weapon,
             "compatible_aows_by_affinity": index.compatible_aows_by_affinity,
             "compatible_aows_by_weapon_affinity": pairs(&index.compatible_aows_by_weapon_affinity),
-            "compatible_aows_all": index.compatible_aows_all,
             "upgrade_cap_by_weapon": index.upgrade_cap_by_weapon,
             "upgrade_cap_by_weapon_affinity": pairs(&index.upgrade_cap_by_weapon_affinity),
             "requirements_by_weapon": index.requirements_by_weapon,
@@ -766,17 +746,81 @@ mod compatibility_tests {
                     samples.push(elapsed);
                 }
             }
-            if let Ok(directory) = std::env::var("ER_BENCH_OUTPUT") {
-                std::fs::write(
-                    std::path::Path::new(&directory).join(format!("catalog-{profile}.json")),
-                    serde_json::to_vec(&expected.unwrap()).unwrap(),
-                )
-                .unwrap();
-            }
             println!(
                 "WORKFLOW_BENCH {}",
                 serde_json::json!({"workflow":"catalog", "profile":profile, "predicate_calls":predicate_calls, "warmups":1, "samples_ms":samples})
             );
+        }
+    }
+
+    #[test]
+    fn starting_classes_follow_the_game_version() {
+        let state = crate::test_app_state();
+        let vanilla = state.profile("vanilla").unwrap();
+        let with_version = |game_version: &str| {
+            let mut data_manifest = vanilla.data_manifest.clone();
+            data_manifest.profile.game_version = game_version.to_string();
+            let profile = ProfileData {
+                data: std::sync::Arc::clone(&vanilla.data),
+                catalog_index: std::sync::Arc::clone(&vanilla.catalog_index),
+                data_manifest,
+            };
+            class_metadata(&profile)
+                .iter()
+                .any(|class_info| class_info.name == "Idus Knight")
+        };
+        for (game_version, expected) in [
+            ("1.16.1", false),
+            ("1.17", true),
+            ("1.17.1", true),
+            ("1.18", true),
+            ("unknown", false),
+        ] {
+            assert_eq!(with_version(game_version), expected, "{game_version}");
+        }
+    }
+
+    #[test]
+    fn catalog_objectives_match_core_profile_validation() {
+        let state = crate::test_app_state();
+        for profile_id in ["vanilla", "convergence"] {
+            let profile = state.profile(profile_id).unwrap();
+            let offered = get_catalog_objectives(&profile.data);
+            let mut request = crate::test_optimize_request();
+            request.profile_id = profile_id.to_string();
+            request.standard_max_upgrade = Some(0);
+            request.somber_max_upgrade = Some(0);
+            if !profile.data.capabilities.class_budget {
+                request.class_name = er_optimizer_core::CUSTOM_STATS_CLASS_NAME.to_string();
+                request.character_level = [9_u16, 12, 13, 12, 15, 9, 8, 8].iter().sum();
+                request.vig = 9;
+                request.mnd = 12;
+                crate::dto::lock_request_to_stats(
+                    &mut request,
+                    crate::dto::CombatStateDto {
+                        str_stat: 12,
+                        dex: 15,
+                        int_stat: 9,
+                        fai: 8,
+                        arc: 8,
+                    },
+                );
+            }
+            for objective in OptimizeObjective::ALL {
+                request.objective = objective.as_str().to_string();
+                let core_request = er_optimizer_core::OptimizeRequest::try_from(&request).unwrap();
+                let accepted = er_optimizer_core::prepare_search_with_cancel(
+                    &core_request,
+                    &profile.data,
+                    || true,
+                )
+                .is_ok();
+                assert_eq!(
+                    offered.contains(&objective.as_str().to_string()),
+                    accepted,
+                    "{profile_id}: {objective:?}"
+                );
+            }
         }
     }
 
@@ -873,7 +917,7 @@ mod compatibility_tests {
             let data = er_optimizer_core::load_embedded_game_profile(profile).unwrap();
             let index = CatalogIndex::build(&data);
             for (weapon, affinity, skill, expected) in cases {
-                let names = compatible_aow_names_inner(&index, Some(weapon), Some(affinity));
+                let names = compatible_aow_names_inner(&index, weapon, Some(affinity));
                 assert_eq!(
                     names.iter().any(|name| name == skill),
                     expected,

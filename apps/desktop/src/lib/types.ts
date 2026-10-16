@@ -1,21 +1,25 @@
-export type ObjectiveId =
-  | "max_ar"
-  | "max_physical_ar"
-  | "max_ar_plus_bleed"
-  | "aow_first_hit"
-  | "aow_full_sequence";
+export const OBJECTIVE_IDS = [
+  "max_ar",
+  "max_physical_ar",
+  "max_ar_plus_bleed",
+  "aow_first_hit",
+  "aow_full_sequence",
+] as const;
+export type ObjectiveId = (typeof OBJECTIVE_IDS)[number];
 
 export type WorkspaceTab = "rankings" | "compare" | "paths" | "affinity_watch";
 export type OptionalText = string | null;
 export type ResultGroupingId = "automatic" | "weapon" | "loadout";
 export type FilterMode = "include" | "exclude";
-export type FilterDimensionId =
-  | "weapon_family"
-  | "weapon_type"
-  | "affinity"
-  | "aow"
-  | "reinforcement"
-  | "coverage";
+export const FILTER_DIMENSION_IDS = [
+  "weapon_family",
+  "weapon_type",
+  "affinity",
+  "aow",
+  "reinforcement",
+  "coverage",
+] as const;
+export type FilterDimensionId = (typeof FILTER_DIMENSION_IDS)[number];
 
 export interface StableFilterEntryDto {
   dimension: FilterDimensionId;
@@ -194,10 +198,7 @@ export interface SolvedBuildDto {
 }
 
 export interface CatalogDto {
-  weaponCount: number;
-  aowCount: number;
   weaponNames: string[];
-  weaponTypeKeys: string[];
   classes: ClassMetadataDto[];
   weaponTypeOptions: WeaponTypeOptionDto[];
   aowNames: string[];
@@ -228,9 +229,6 @@ export interface DataManifestDto {
   label: string;
   appVersion: string;
   source: string;
-  generatedAt: string;
-  extractorVersion: string;
-  provenance: string;
   profile: ProfileMetadataDto;
   capabilities: ProfileCapabilitiesDto;
   rules: ProfileRulesDto;
@@ -245,11 +243,7 @@ export interface ProfileMetadataDto {
 
 export interface ProfileCapabilitiesDto {
   classBudget: boolean;
-  weaponAr: boolean;
-  weaponArForAmmunition: boolean;
   statusBuildup: boolean;
-  weaponPassives: boolean;
-  aowCompatibility: boolean;
   aowDamage: boolean;
   aowRoutes: boolean;
 }
@@ -261,7 +255,6 @@ export interface ProfileRulesDto {
   scadutreeScaling: boolean;
   zeroAttackElementUsesWeaponScaling: boolean;
   extendedScalingGrades: boolean;
-  statusBuildupScales: boolean;
 }
 
 export interface EightStatsDto {

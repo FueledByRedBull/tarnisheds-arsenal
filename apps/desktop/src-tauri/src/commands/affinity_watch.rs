@@ -5,16 +5,16 @@ use std::sync::atomic::Ordering as AtomicOrdering;
 use tauri::State;
 
 use crate::commands::data::{affinities_for_weapon_inner, compatible_aow_names_inner};
-use crate::commands::optimize::run_level_range_inner_with_progress;
+use crate::commands::optimize::{run_level_range_inner_with_progress, validate_solved_loadout};
 use crate::dto::{
     AffinityBreakpointDto, AffinityWatchFinishedDto, AffinityWatchJobStatusDto,
     AffinityWatchLineDto, AffinityWatchPayloadDto, AffinityWatchPointDto, AffinityWatchProgressDto,
-    AffinityWatchRequestDto, SolvedBuildDto, StartSearchResponseDto, parse_objective,
+    AffinityWatchRequestDto, SolvedBuildDto, StartSearchResponseDto, unlock_combat_stats,
     validate_levels_ahead,
 };
 use crate::errors::AppError;
-use crate::{AppState, AsyncJobHandle, CancelFlag, ProfileData};
-use er_optimizer_core::OptimizeResult;
+use crate::{AppState, ProfileData};
+use er_optimizer_core::{OptimizeObjective, OptimizeResult};
 
 #[tauri::command]
 pub fn start_affinity_watch(
@@ -22,51 +22,32 @@ pub fn start_affinity_watch(
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
     validate_levels_ahead(request.levels_ahead)?;
-    if !state
-        .profile(&request.base.profile_id)?
-        .data
-        .capabilities
-        .class_budget
-    {
+    let profile = Arc::clone(state.profile(&request.base.profile_id)?);
+    if !profile.data.capabilities.class_budget {
         return Err(AppError::new(
             "Affinity Watch requires verified profile class budgets.",
         ));
     }
-    let profile = Arc::clone(state.profile(&request.base.profile_id)?);
-    let job_number = state.next_job.fetch_add(1, AtomicOrdering::Relaxed);
-    let job_id = format!("affinity-{job_number}");
-    let cancel_flag: CancelFlag = Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let status = Arc::new(std::sync::Mutex::new(AffinityWatchJobStatusDto {
-        progress: None,
-        finished: None,
-    }));
-    state.affinity_jobs.insert_if_idle(
-        job_id.clone(),
-        AsyncJobHandle {
-            cancel: Arc::clone(&cancel_flag),
-            status: Arc::clone(&status),
+    validate_solved_loadout(&profile, &request.solved)?;
+    state.affinity_jobs.start(
+        &state.next_job,
+        AffinityWatchJobStatusDto {
+            progress: None,
+            finished: None,
         },
-        |status| status.finished.is_some(),
-    )?;
-
-    let job_id_for_task = job_id.clone();
-    let job_id_for_finish = job_id.clone();
-    let cancel_for_finish = Arc::clone(&cancel_flag);
-    crate::spawn_supervised_job(
-        Arc::clone(&status),
-        move || {
+        move |job_id, cancel_flag, status| {
             let affinities = affinity_watch_affinities_for_profile(&request.solved, &profile);
             let total =
                 (affinities.len() as u64).saturating_mul(u64::from(request.levels_ahead) + 1);
             let progress = AffinityWatchProgressDto {
-                job_id: job_id_for_task.clone(),
+                job_id: job_id.clone(),
                 checked: 0,
                 total: total.max(1),
                 affinity: request.solved.affinity.clone(),
                 level: request.base.character_level,
             };
             if let Ok(mut guard) = status.lock() {
-                guard.progress = Some(progress.clone());
+                guard.progress = Some(progress);
             }
             let (payload, error, cancelled) = if cancel_flag.load(AtomicOrdering::Relaxed) {
                 (None, None, true)
@@ -79,7 +60,7 @@ pub fn start_affinity_watch(
                             return false;
                         }
                         let mut payload = progress;
-                        payload.job_id = job_id_for_task.clone();
+                        payload.job_id.clone_from(&job_id);
                         if let Ok(mut guard) = status.lock() {
                             guard.progress = Some(payload);
                         }
@@ -93,25 +74,21 @@ pub fn start_affinity_watch(
                 }
             };
             AffinityWatchFinishedDto {
-                job_id: job_id_for_task.clone(),
+                job_id,
                 cancelled,
                 payload,
                 error,
             }
         },
-        move |status, outcome| {
-            publish_affinity_finished(status, outcome, job_id_for_finish, &cancel_for_finish);
-        },
-    );
-
-    Ok(StartSearchResponseDto { job_id })
+        publish_affinity_finished,
+    )
 }
 
 fn publish_affinity_finished(
     status: &mut AffinityWatchJobStatusDto,
     outcome: Result<AffinityWatchFinishedDto, String>,
     job_id: String,
-    cancel: &CancelFlag,
+    cancelled: bool,
 ) {
     let mut finished = outcome.unwrap_or_else(|error| AffinityWatchFinishedDto {
         job_id,
@@ -119,7 +96,7 @@ fn publish_affinity_finished(
         payload: None,
         error: Some(error),
     });
-    if finished.error.is_none() && cancel.load(AtomicOrdering::Relaxed) {
+    if finished.error.is_none() && cancelled {
         finished.cancelled = true;
         finished.payload = None;
     }
@@ -128,19 +105,15 @@ fn publish_affinity_finished(
 
 #[tauri::command]
 pub fn cancel_affinity_watch(job_id: String, state: State<'_, AppState>) -> Result<bool, AppError> {
-    state
-        .affinity_jobs
-        .cancel(&job_id, |status| status.finished.is_some())
+    state.affinity_jobs.cancel(&job_id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_affinity_watch_status(
     job_id: String,
     state: State<'_, AppState>,
 ) -> Result<Option<AffinityWatchJobStatusDto>, AppError> {
-    state
-        .affinity_jobs
-        .status(&job_id, |status| status.finished.is_some())
+    state.affinity_jobs.status(&job_id)
 }
 
 fn build_affinity_watch_inner(
@@ -156,7 +129,7 @@ fn build_affinity_watch_inner(
         )));
     }
     validate_levels_ahead(request.levels_ahead)?;
-    parse_objective(&request.base.objective)?;
+    OptimizeObjective::parse(&request.base.objective)?;
     let affinities = affinity_watch_affinities_for_profile(&request.solved, profile);
     let levels: Vec<u16> = (0..=request.levels_ahead)
         .map(|offset| request.base.character_level.saturating_add(offset))
@@ -179,19 +152,13 @@ fn build_affinity_watch_inner(
             return Err(AppError::new("cancelled"));
         }
         let mut row_request = request.base.clone();
-        row_request.weapon_name = Some(request.solved.weapon_name.clone());
-        row_request.affinity = Some(affinity.clone());
-        row_request.aow_name = request.solved.aow_name.clone();
+        row_request.pin_loadout(
+            request.solved.weapon_name.clone(),
+            Some(affinity.clone()),
+            request.solved.aow_name.clone(),
+        );
         row_request.set_exact_upgrade(request.solved.upgrade, request.solved.is_somber);
-        row_request.top_k = 1;
-        row_request.weapon_type_key = None;
-        row_request.somber_filter = "all".to_string();
-        row_request.filters.entries.clear();
-        row_request.lock_str = None;
-        row_request.lock_dex = None;
-        row_request.lock_int = None;
-        row_request.lock_fai = None;
-        row_request.lock_arc = None;
+        unlock_combat_stats(&mut row_request);
 
         let level_rows = run_level_range_inner_with_progress(
             row_request,
@@ -277,13 +244,9 @@ fn affinity_watch_affinities_for_profile(
     let mut affinities = affinities_for_weapon_inner(&profile.catalog_index, &solved.weapon_name);
     if let Some(aow_name) = solved.aow_name.as_deref() {
         affinities.retain(|affinity| {
-            compatible_aow_names_inner(
-                &profile.catalog_index,
-                Some(&solved.weapon_name),
-                Some(affinity),
-            )
-            .iter()
-            .any(|candidate| candidate == aow_name)
+            compatible_aow_names_inner(&profile.catalog_index, &solved.weapon_name, Some(affinity))
+                .iter()
+                .any(|candidate| candidate == aow_name)
         });
     }
     if !affinities
@@ -389,6 +352,63 @@ mod integration_tests {
     use crate::commands::optimize::run_search_inner;
 
     #[test]
+    fn breakpoints_mark_each_leader_change_with_its_margin() {
+        let state = crate::test_app_state();
+        let data = &state.profile("vanilla").unwrap().data;
+        let solve = |affinity: &str, character_level: u16| {
+            let mut request = crate::test_optimize_request();
+            request.affinity = Some(affinity.to_string());
+            request.character_level = character_level;
+            let request = er_optimizer_core::OptimizeRequest::try_from(&request).unwrap();
+            er_optimizer_core::optimize(&request, data)
+                .unwrap()
+                .pop()
+                .unwrap()
+        };
+        let line = |affinity: &str, first: OptimizeResult, second: OptimizeResult| {
+            ExactAffinityWatchLine {
+                affinity: affinity.to_string(),
+                points: vec![
+                    ExactAffinityWatchPoint {
+                        level: 9,
+                        solved: Some(first),
+                    },
+                    ExactAffinityWatchPoint {
+                        level: 10,
+                        solved: Some(second),
+                    },
+                ],
+            }
+        };
+        // Builds from more levels lead, so Keen leads at 9 and Heavy takes over at 10.
+        let (keen_low, keen_high) = (solve("Keen", 9), solve("Keen", 80));
+        let (heavy_low, heavy_high) = (solve("Heavy", 9), solve("Heavy", 80));
+        assert!(keen_high.compare_numeric(&heavy_low).is_gt());
+        assert!(heavy_high.compare_numeric(&keen_low).is_gt());
+        let (outgoing, incoming) = (keen_low.score, heavy_high.score);
+        let lines = [
+            line("Keen", keen_high, keen_low),
+            line("Heavy", heavy_low, heavy_high),
+        ];
+
+        let breakpoints = detect_breakpoints(&lines, &[9, 10]);
+        assert_eq!(breakpoints.len(), 1);
+        let breakpoint = &breakpoints[0];
+        assert_eq!(breakpoint.level, 10);
+        assert_eq!(breakpoint.outgoing_affinity, "Keen");
+        assert_eq!(breakpoint.incoming_affinity, "Heavy");
+        assert_eq!(breakpoint.outgoing_metric, Some(outgoing));
+        assert_eq!(breakpoint.incoming_metric, Some(incoming));
+        assert_eq!(breakpoint.lead, Some(incoming - outgoing));
+        assert_eq!(
+            breakpoint.lead_percent,
+            Some((incoming - outgoing) / outgoing * 100.0)
+        );
+        assert!(breakpoint.lead_percent.unwrap() >= 1.0);
+        assert_eq!(breakpoint.quality, "clear");
+    }
+
+    #[test]
     fn sparse_endpoints_do_not_use_another_level() {
         let state = crate::test_app_state();
         let seed_request =
@@ -457,7 +477,6 @@ mod integration_tests {
         let payload =
             build_affinity_watch_inner(request(&state), profile, |_| true, || true).unwrap();
         assert!(!payload.lines.is_empty());
-        let cancel = Arc::new(std::sync::atomic::AtomicBool::new(true));
         let mut status = AffinityWatchJobStatusDto {
             progress: None,
             finished: None,
@@ -471,7 +490,7 @@ mod integration_tests {
                 error: None,
             }),
             "affinity-publish".into(),
-            &cancel,
+            true,
         );
         let finished = status.finished.take().unwrap();
         assert!(finished.cancelled);
@@ -492,7 +511,7 @@ mod integration_tests {
                 Err(error) => error.as_str(),
             }
             .to_string();
-            publish_affinity_finished(&mut status, outcome, "affinity-publish".into(), &cancel);
+            publish_affinity_finished(&mut status, outcome, "affinity-publish".into(), true);
             let finished = status.finished.take().unwrap();
             assert_eq!(finished.error.as_deref(), Some(expected_error.as_str()));
             assert!(!finished.cancelled);
@@ -582,68 +601,6 @@ mod integration_tests {
 
     #[test]
     #[ignore = "release-mode workflow benchmark"]
-    fn workflow_profile_affinity_materialization() {
-        let state = crate::test_app_state();
-        let profile = state.profile("vanilla").unwrap();
-        let mut seed = request(&state);
-        seed.solved.aow_name = None;
-        let mut phases = Vec::new();
-        for affinity in affinity_watch_affinities_for_profile(&seed.solved, profile) {
-            for offset in [0, 10, 50, 100, 200] {
-                let mut request = seed.base.clone();
-                request.weapon_name = Some(seed.solved.weapon_name.clone());
-                request.affinity = Some(affinity.clone());
-                request.aow_name = None;
-                request.set_exact_upgrade(seed.solved.upgrade, seed.solved.is_somber);
-                request.character_level += offset;
-                request.top_k = 1;
-                let request = er_optimizer_core::OptimizeRequest::try_from(&request).unwrap();
-                let mut expected = None;
-                for sample in 0..4 {
-                    let profiled =
-                        er_optimizer_core::optimize_profiled(&request, &profile.data).unwrap();
-                    let timing = profiled.timings;
-                    // Keep the same f32 wire encoding as the command payload.
-                    let result = serde_json::to_string(
-                        &profiled
-                            .rows
-                            .into_iter()
-                            .map(SolvedBuildDto::from)
-                            .collect::<Vec<_>>(),
-                    )
-                    .unwrap();
-                    if let Some(expected) = &expected {
-                        assert_eq!(&result, expected);
-                    } else {
-                        expected = Some(result.clone());
-                    }
-                    if sample > 0 {
-                        phases.push(serde_json::json!({
-                            "affinity":affinity, "level":request.character_level, "sample":sample,
-                            "preparation_ms":timing.preparation.as_secs_f64()*1000.0,
-                            "scoring_ms":timing.scoring.as_secs_f64()*1000.0,
-                            "materialization_ms":timing.materialization.as_secs_f64()*1000.0,
-                            "result_json":result,
-                        }));
-                    }
-                }
-            }
-        }
-        if let Ok(directory) = std::env::var("ER_BENCH_OUTPUT") {
-            std::fs::write(
-                std::path::Path::new(&directory).join("affinity-materialization.json"),
-                serde_json::to_vec(&phases).unwrap(),
-            )
-            .unwrap();
-        }
-        println!(
-            "WORKFLOW_BENCH {}",
-            serde_json::json!({"workflow":"affinity_materialization", "samples":phases.len(), "model_version": profile.data.model_version})
-        );
-    }
-
-    #[test]
-    #[ignore = "release-mode workflow benchmark"]
     fn workflow_benchmark_affinity_watch() {
         let state = crate::test_app_state();
         let profile = state
@@ -683,13 +640,6 @@ mod integration_tests {
                     durations.push(elapsed);
                     serialization_ms.push(serialization);
                 }
-            }
-            if let Ok(directory) = std::env::var("ER_BENCH_OUTPUT") {
-                std::fs::write(
-                    std::path::Path::new(&directory).join(format!("affinity-{horizon}.json")),
-                    expected.unwrap(),
-                )
-                .unwrap();
             }
             durations.sort_by(f64::total_cmp);
             println!(

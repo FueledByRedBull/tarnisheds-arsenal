@@ -7,10 +7,7 @@ import type { CatalogDto } from "./types";
 function catalog(profileId: "vanilla" | "convergence" = "vanilla"): CatalogDto {
   const vanilla = profileId === "vanilla";
   return {
-    weaponCount: 3,
-    aowCount: 2,
     weaponNames: ["Uchigatana", "Nagakiba", "Zweihander"],
-    weaponTypeKeys: ["katana", "colossal_sword"],
     classes: vanilla ? Object.values(STARTING_CLASS_METADATA) : [{ name: "Custom stats", baseLevel: 0, baseTotal: 0,
       baseStats: { vig: 0, mnd: 0, end: 0, strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 } }],
     weaponTypeOptions: [{ key: "katana", label: "Katana" }],
@@ -24,13 +21,11 @@ function catalog(profileId: "vanilla" | "convergence" = "vanilla"): CatalogDto {
     ],
     dataManifest: {
       schemaVersion: 4, datasetVersion: `${profileId}-test`, modelVersion: "test", id: profileId, label: profileId,
-      appVersion: "1", source: "test", generatedAt: "2026-10-01", extractorVersion: "test", provenance: "test",
+      appVersion: "1", source: "test",
       profile: { id: profileId, displayName: vanilla ? "Vanilla" : "Convergence", gameVersion: "1.17", modVersion: vanilla ? null : "3.0.0.1" },
-      capabilities: { classBudget: vanilla, weaponArForAmmunition: true, weaponAr: true, statusBuildup: true,
-        weaponPassives: true, aowCompatibility: true, aowDamage: vanilla, aowRoutes: vanilla },
+      capabilities: { classBudget: vanilla, statusBuildup: true, aowDamage: vanilla, aowRoutes: vanilla },
       rules: { standardMaxUpgrade: vanilla ? 25 : 15, somberMaxUpgrade: vanilla ? 10 : 15, separateUpgradeCaps: vanilla,
-        scadutreeScaling: vanilla, zeroAttackElementUsesWeaponScaling: !vanilla, extendedScalingGrades: !vanilla,
-        statusBuildupScales: vanilla },
+        scadutreeScaling: vanilla, zeroAttackElementUsesWeaponScaling: !vanilla, extendedScalingGrades: !vanilla },
     },
   } as CatalogDto;
 }

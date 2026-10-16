@@ -11,14 +11,15 @@ use tauri::State;
 use crate::commands::data::{
     weapon_disables_two_hand_bonus, weapon_forces_two_handing, weapon_requirements,
 };
+use crate::commands::optimize::validate_solved_loadout;
 use crate::dto::{
     CombatStateDto, PathFinishedDto, PathJobStatusDto, PathMode, PathPreviewDto,
-    PathPreviewRequestDto, PathProgressDto, PathStepDto, StartPathPreviewRequestDto,
-    StartSearchResponseDto, lock_request_to_stats, set_min_combat_stats, validate_levels_ahead,
-    validate_path_batch,
+    PathPreviewRequestDto, PathProgressDto, PathStepDto, SolvedBuildDto,
+    StartPathPreviewRequestDto, StartSearchResponseDto, lock_request_to_stats,
+    set_min_combat_stats, unlock_combat_stats, validate_levels_ahead, validate_path_batch,
 };
 use crate::errors::AppError;
-use crate::{AppState, AsyncJobHandle, CancelFlag, ProfileData};
+use crate::{AppState, ProfileData};
 
 #[tauri::command]
 pub fn start_path_preview(
@@ -42,75 +43,49 @@ pub fn start_path_preview(
             "All path lanes must use the same game profile.",
         ));
     }
-    if !state.profile(&profile_id)?.data.capabilities.class_budget {
+    let profile = Arc::clone(state.profile(&profile_id)?);
+    if !profile.data.capabilities.class_budget {
         return Err(AppError::new(
             "Paths requires verified profile class budgets.",
         ));
     }
-    let profile = Arc::clone(state.profile(&profile_id)?);
-    let job_number = state.next_job.fetch_add(1, Ordering::Relaxed);
-    let job_id = format!("path-{job_number}");
-    let cancel_flag: CancelFlag = Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let status = Arc::new(std::sync::Mutex::new(PathJobStatusDto {
-        progress: None,
-        finished: None,
-    }));
-    state.path_jobs.insert_if_idle(
-        job_id.clone(),
-        AsyncJobHandle {
-            cancel: Arc::clone(&cancel_flag),
-            status: Arc::clone(&status),
+    for lane in &request.requests {
+        validate_solved_loadout(&profile, &lane.solved)?;
+    }
+    state.path_jobs.start(
+        &state.next_job,
+        PathJobStatusDto {
+            progress: None,
+            finished: None,
         },
-        |status| status.finished.is_some(),
-    )?;
-
-    let job_id_for_task = job_id.clone();
-    let worker_status = Arc::clone(&status);
-    let failed_job_id = job_id.clone();
-    let publish_cancel = Arc::clone(&cancel_flag);
-    crate::spawn_supervised_job(
-        status,
-        move || {
+        move |job_id, cancel_flag, status| {
             run_path_preview_job(
                 request.requests,
                 &profile,
-                job_id_for_task,
+                job_id,
                 || !cancel_flag.load(Ordering::Relaxed),
                 |progress| {
-                    if let Ok(mut guard) = worker_status.lock() {
+                    if let Ok(mut guard) = status.lock() {
                         guard.progress = Some(progress);
                     }
                 },
             )
         },
-        move |status, result| {
-            publish_path_result(
-                status,
-                result,
-                failed_job_id,
-                publish_cancel.load(Ordering::Relaxed),
-            );
-        },
-    );
-
-    Ok(StartSearchResponseDto { job_id })
+        publish_path_result,
+    )
 }
 
 #[tauri::command]
 pub fn cancel_path_preview(job_id: String, state: State<'_, AppState>) -> Result<bool, AppError> {
-    state
-        .path_jobs
-        .cancel(&job_id, |status| status.finished.is_some())
+    state.path_jobs.cancel(&job_id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_path_preview_status(
     job_id: String,
     state: State<'_, AppState>,
 ) -> Result<Option<PathJobStatusDto>, AppError> {
-    state
-        .path_jobs
-        .status(&job_id, |status| status.finished.is_some())
+    state.path_jobs.status(&job_id)
 }
 
 fn run_path_preview_job(
@@ -203,7 +178,13 @@ fn publish_path_result(
 ) {
     match result {
         Ok(mut finished) => {
-            if cancelled {
+            // Like the other job kinds, an error outranks a late cancellation.
+            if cancelled
+                && finished
+                    .finished
+                    .as_ref()
+                    .is_none_or(|result| result.error.is_none())
+            {
                 if let Some(result) = &mut finished.finished {
                     result.cancelled = true;
                     result.paths.clear();
@@ -253,12 +234,7 @@ fn build_path_preview_inner(
     }
     let evaluator = prepare_path_evaluator(&request, target_level, profile, &mut should_continue)?;
     let first = evaluate_step(
-        &request.base,
-        &request.solved.weapon_name,
-        &request.solved.affinity,
-        request.solved.aow_name.as_deref(),
-        request.solved.upgrade,
-        request.solved.is_somber,
+        &request,
         request.base.character_level,
         start_state,
         None,
@@ -321,19 +297,8 @@ fn build_optimum_envelope(
     let last_level = first_level.saturating_add(request.levels_ahead);
     let levels = (first_level..=last_level).collect::<Vec<_>>();
     let mut template = request.base.clone();
-    set_path_loadout(
-        &mut template,
-        &request.solved.weapon_name,
-        &request.solved.affinity,
-        request.solved.aow_name.as_deref(),
-        request.solved.upgrade,
-        request.solved.is_somber,
-    );
-    template.lock_str = None;
-    template.lock_dex = None;
-    template.lock_int = None;
-    template.lock_fai = None;
-    template.lock_arc = None;
+    set_path_loadout(&mut template, &request.solved);
+    unlock_combat_stats(&mut template);
     let rows = crate::commands::optimize::run_level_range_inner_with_progress(
         template,
         &levels,
@@ -348,9 +313,7 @@ fn build_optimum_envelope(
     let steps = rows
         .into_iter()
         .map(|entry| {
-            let level = entry.level;
-            let rows = entry.rows;
-            let solved = rows.into_iter().next();
+            let solved = entry.rows.into_iter().next();
             let stats = solved.as_ref().map_or(previous, |row| CombatStateDto {
                 str_stat: row.stats.str,
                 dex: row.stats.dex,
@@ -358,17 +321,28 @@ fn build_optimum_envelope(
                 fai: row.stats.fai,
                 arc: row.stats.arc,
             });
+            let requirement_gap = if solved.is_some() {
+                0
+            } else {
+                requirement_gap(
+                    &request.base,
+                    &request.solved.weapon_name,
+                    Some(&request.solved.affinity),
+                    stats,
+                    profile,
+                )?
+            };
             let added_stat = describe_allocation_change(previous, stats);
             previous = stats;
-            PathStepDto {
-                level,
+            Ok(PathStepDto {
+                level: entry.level,
                 stats,
                 metric: solved.as_ref().map(|row| row.score),
                 added_stat,
-                requirement_gap: u16::from(solved.is_none()),
-            }
+                requirement_gap,
+            })
         })
-        .collect();
+        .collect::<Result<_, AppError>>()?;
     Ok(PathPreviewDto {
         title: request.title,
         solved: request.solved,
@@ -411,14 +385,7 @@ fn prepare_path_evaluator<'a>(
 ) -> Result<PreparedLoadoutEvaluator<'a>, AppError> {
     let mut template = request.base.clone();
     template.character_level = target_level;
-    set_path_loadout(
-        &mut template,
-        &request.solved.weapon_name,
-        &request.solved.affinity,
-        request.solved.aow_name.as_deref(),
-        request.solved.upgrade,
-        request.solved.is_somber,
-    );
+    set_path_loadout(&mut template, &request.solved);
     let core_request = OptimizeRequest::try_from(&template)?;
     prepare_loadout_evaluator_with_cancel(&core_request, &profile.data, should_continue)
         .map_err(AppError::from)
@@ -429,22 +396,11 @@ fn path_target_build(
     target_level: u16,
     evaluator: &PreparedLoadoutEvaluator<'_>,
     should_continue: &mut (impl FnMut() -> bool + Send),
-) -> Result<Option<crate::dto::SolvedBuildDto>, AppError> {
+) -> Result<Option<SolvedBuildDto>, AppError> {
     let mut target_request = request.base.clone();
     target_request.character_level = target_level;
-    set_path_loadout(
-        &mut target_request,
-        &request.solved.weapon_name,
-        &request.solved.affinity,
-        request.solved.aow_name.as_deref(),
-        request.solved.upgrade,
-        request.solved.is_somber,
-    );
-    target_request.lock_str = None;
-    target_request.lock_dex = None;
-    target_request.lock_int = None;
-    target_request.lock_fai = None;
-    target_request.lock_arc = None;
+    set_path_loadout(&mut target_request, &request.solved);
+    unlock_combat_stats(&mut target_request);
     set_min_combat_stats(
         &mut target_request,
         floor_mins(&request.base, request.solved.stats),
@@ -452,7 +408,7 @@ fn path_target_build(
     let core_request = OptimizeRequest::try_from(&target_request)?;
     evaluator
         .evaluate_with_cancel(&core_request, should_continue)
-        .map(|mut rows| rows.pop().map(crate::dto::SolvedBuildDto::from))
+        .map(|mut rows| rows.pop().map(SolvedBuildDto::from))
         .map_err(AppError::from)
 }
 
@@ -477,12 +433,7 @@ fn choose_next_step(
             return Err(AppError::new("cancelled"));
         }
         candidates.push(evaluate_step(
-            &request.base,
-            &request.solved.weapon_name,
-            &request.solved.affinity,
-            request.solved.aow_name.as_deref(),
-            request.solved.upgrade,
-            request.solved.is_somber,
+            request,
             level,
             next_state,
             Some(stat.to_string()),
@@ -498,14 +449,8 @@ fn choose_next_step(
     Ok(candidates.pop())
 }
 
-#[allow(clippy::too_many_arguments)]
 fn evaluate_step(
-    base: &crate::dto::OptimizeRequestDto,
-    weapon_name: &str,
-    affinity: &str,
-    aow_name: Option<&str>,
-    upgrade: u8,
-    is_somber: bool,
+    path: &PathPreviewRequestDto,
     level: u16,
     stats: CombatStateDto,
     added_stat: Option<String>,
@@ -513,21 +458,10 @@ fn evaluate_step(
     evaluator: &PreparedLoadoutEvaluator<'_>,
     should_continue: &mut (impl FnMut() -> bool + Send),
 ) -> Result<EvaluatedPathStep, AppError> {
-    let mut request = base.clone();
+    let mut request = path.base.clone();
     request.character_level = level;
-    set_path_loadout(
-        &mut request,
-        weapon_name,
-        affinity,
-        aow_name,
-        upgrade,
-        is_somber,
-    );
-    request.min_str = 0;
-    request.min_dex = 0;
-    request.min_int = 0;
-    request.min_fai = 0;
-    request.min_arc = 0;
+    set_path_loadout(&mut request, &path.solved);
+    set_min_combat_stats(&mut request, [0; COMBAT_STAT_COUNT]);
     lock_request_to_stats(&mut request, stats);
 
     let core_request = OptimizeRequest::try_from(&request)?;
@@ -538,7 +472,13 @@ fn evaluate_step(
     let requirement_gap = if solved.is_some() {
         0
     } else {
-        requirement_gap(base, weapon_name, Some(affinity), stats, profile)?
+        requirement_gap(
+            &path.base,
+            &path.solved.weapon_name,
+            Some(&path.solved.affinity),
+            stats,
+            profile,
+        )?
     };
     Ok(EvaluatedPathStep {
         dto: PathStepDto {
@@ -552,22 +492,13 @@ fn evaluate_step(
     })
 }
 
-fn set_path_loadout(
-    request: &mut crate::dto::OptimizeRequestDto,
-    weapon_name: &str,
-    affinity: &str,
-    aow_name: Option<&str>,
-    upgrade: u8,
-    is_somber: bool,
-) {
-    request.weapon_name = Some(weapon_name.to_string());
-    request.affinity = Some(affinity.to_string());
-    request.aow_name = aow_name.map(str::to_string);
-    request.weapon_type_key = None;
-    request.somber_filter = "all".to_string();
-    request.filters.entries.clear();
-    request.set_exact_upgrade(upgrade, is_somber);
-    request.top_k = 1;
+fn set_path_loadout(request: &mut crate::dto::OptimizeRequestDto, solved: &SolvedBuildDto) {
+    request.pin_loadout(
+        solved.weapon_name.clone(),
+        Some(solved.affinity.clone()),
+        solved.aow_name.clone(),
+    );
+    request.set_exact_upgrade(solved.upgrade, solved.is_somber);
 }
 
 fn requirement_gap(
@@ -662,7 +593,8 @@ fn stat_priority(stat: Option<&str>) -> i16 {
 #[cfg(test)]
 mod integration_tests {
     use super::*;
-    use crate::commands::optimize::run_search_inner_with_cancel;
+    use crate::AsyncJobHandle;
+    use crate::commands::optimize::run_search_inner;
 
     #[test]
     fn supervised_path_worker_recovers_panics_before_and_during_calculation() {
@@ -673,7 +605,10 @@ mod integration_tests {
         let seed = request(&state);
         for mode in [PathMode::NoRespec, PathMode::OptimumEnvelope] {
             for during_calculation in [false, true] {
-                let registry = crate::JobRegistry::new("path");
+                let registry =
+                    crate::JobRegistry::new("path", "path", |status: &PathJobStatusDto| {
+                        status.finished.is_some()
+                    });
                 let status = Arc::new(Mutex::new(PathJobStatusDto {
                     progress: None,
                     finished: None,
@@ -686,7 +621,6 @@ mod integration_tests {
                             cancel: Arc::clone(&cancel),
                             status: Arc::clone(&status),
                         },
-                        |status| status.finished.is_some(),
                     )
                     .unwrap();
                 let profile = Arc::clone(
@@ -751,7 +685,6 @@ mod integration_tests {
                                 finished: None,
                             })),
                         },
-                        |status| status.finished.is_some(),
                     )
                     .expect("joined failed Paths job permits restart");
             }
@@ -760,7 +693,7 @@ mod integration_tests {
 
     fn request(state: &AppState) -> PathPreviewRequestDto {
         let base = crate::test_optimize_request();
-        let solved = run_search_inner_with_cancel(base.clone(), state, || true)
+        let solved = run_search_inner(base.clone(), state)
             .expect("seed search succeeds")
             .pop()
             .expect("seed build exists");
@@ -1123,6 +1056,59 @@ mod integration_tests {
     }
 
     #[test]
+    fn both_path_modes_report_the_real_requirement_gap() {
+        let state = crate::test_app_state();
+        let profile = state
+            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+            .unwrap();
+        let mut lane = request(&state);
+        lane.solved.weapon_name = "Giant-Crusher".to_string();
+        lane.solved.affinity = "Standard".to_string();
+        lane.solved.aow_name = None;
+        lane.levels_ahead = 0;
+        let expected = requirement_gap(
+            &lane.base,
+            "Giant-Crusher",
+            Some("Standard"),
+            lane.solved.stats,
+            profile,
+        )
+        .unwrap();
+        assert!(expected > 1);
+        for mode in [PathMode::NoRespec, PathMode::OptimumEnvelope] {
+            lane.mode = mode;
+            let path = build_path_preview_inner(lane.clone(), profile, || true, |_| {}).unwrap();
+            assert!(path.steps[0].metric.is_none(), "{mode:?}");
+            assert_eq!(path.steps[0].requirement_gap, expected, "{mode:?}");
+        }
+    }
+
+    #[test]
+    fn allocation_changes_name_one_added_point_or_a_respec() {
+        let start = CombatStateDto {
+            str_stat: 12,
+            dex: 15,
+            int_stat: 9,
+            fai: 8,
+            arc: 8,
+        };
+        let with = |dex, arc| CombatStateDto { dex, arc, ..start };
+        assert_eq!(describe_allocation_change(start, start), None);
+        assert_eq!(
+            describe_allocation_change(start, with(16, 8)).as_deref(),
+            Some("dex")
+        );
+        assert_eq!(
+            describe_allocation_change(start, with(17, 8)).as_deref(),
+            Some("respec")
+        );
+        assert_eq!(
+            describe_allocation_change(start, with(16, 7)).as_deref(),
+            Some("respec")
+        );
+    }
+
+    #[test]
     fn path_batch_progress_handles_capped_stats_and_unspendable_horizons() {
         let state = crate::test_app_state();
         let profile = state
@@ -1299,7 +1285,7 @@ mod integration_tests {
             base.weapon_name = Some(weapon.to_string());
             base.affinity = Some(affinity.to_string());
             base.aow_name = Some(ash.to_string());
-            let solved = run_search_inner_with_cancel(base.clone(), state, || true)
+            let solved = run_search_inner(base.clone(), state)
                 .expect("benchmark fixture search succeeds")
                 .pop()
                 .expect("benchmark fixture exists");

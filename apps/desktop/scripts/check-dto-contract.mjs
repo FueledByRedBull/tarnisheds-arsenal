@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
@@ -67,7 +67,16 @@ function typescriptDeclarations(source) {
   const file = ts.createSourceFile("types.ts", source, ts.ScriptTarget.Latest, true);
   assert.equal(file.parseDiagnostics.length, 0, "TypeScript source must parse");
   const declarations = new Map();
+  // `export const NAMES = ["a", "b"] as const;` lists back `(typeof NAMES)[number]` types.
+  const stringLists = new Set();
   for (const node of file.statements) {
+    if (ts.isVariableStatement(node)) {
+      for (const { name, initializer } of node.declarationList.declarations) {
+        if (ts.isIdentifier(name) && initializer && ts.isAsExpression(initializer)
+          && initializer.type.getText(file) === "const" && ts.isArrayLiteralExpression(initializer.expression)
+          && initializer.expression.elements.every(ts.isStringLiteral)) stringLists.add(name.text);
+      }
+    }
     if (!ts.isInterfaceDeclaration(node) && !ts.isTypeAliasDeclaration(node)) continue;
     assert.ok(!declarations.has(node.name.text), `Duplicate TypeScript declaration: ${node.name.text}`);
     declarations.set(node.name.text, node);
@@ -82,6 +91,10 @@ function typescriptDeclarations(source) {
       if (node.literal.kind === ts.SyntaxKind.NullKeyword) return "null";
     }
     if (ts.isUnionTypeNode(node)) return union(node.types.map(type => typeShape(type, seen)));
+    if (ts.isIndexedAccessTypeNode(node) && node.indexType.kind === ts.SyntaxKind.NumberKeyword) {
+      const query = ts.isParenthesizedTypeNode(node.objectType) ? node.objectType.type : node.objectType;
+      if (ts.isTypeQueryNode(query) && ts.isIdentifier(query.exprName) && stringLists.has(query.exprName.text)) return "string";
+    }
     if (ts.isArrayTypeNode(node)) return `Array<${typeShape(node.elementType, seen)}>`;
     if (ts.isTypeReferenceNode(node) && ts.isIdentifier(node.typeName) && !node.typeArguments) {
       const name = node.typeName.text;
@@ -98,8 +111,6 @@ function typescriptDeclarations(source) {
 // These are deliberate frontend restrictions, not a second copy of the schema.
 // Exact before/after shapes ensure an exception cannot conceal later drift.
 const differences = {
-  "OptimizeRequestDto.maxUpgrade": ["null | number", undefined],
-  "OptimizeRequestDto.fixedUpgrade": ["null | number", undefined],
   "OptimizeRequestDto.standardMaxUpgrade": ["null | number", "number"],
   "OptimizeRequestDto.somberMaxUpgrade": ["null | number", "number"],
   "OptimizeRequestDto.exactUpgrade": ["boolean | null", "boolean"],
@@ -153,14 +164,75 @@ export function checkDtoContract(rustSource, tsSource) {
   return { declarations: rust.size, fields: fieldCount };
 }
 
+// api.ts sends these only to the browser preview's mock backend.
+const browserOnlyCommands = ["solve_build", "ar_bleed_frontier", "build_upgrade_series"];
+// scripts/native-responsiveness.mjs times this one as its light command; the UI does not call it.
+const probeOnlyCommands = ["get_data_manifest"];
+
+// Every #[tauri::command] must be registered in lib.rs, listed in build.rs, allowed by the
+// capability and called from api.ts with exactly its non-State argument names.
+export function checkCommandContract({ commandSources, libSource, buildSource, capability, apiSource }) {
+  const commands = new Map();
+  for (const source of commandSources) {
+    for (const [, name, params] of source.matchAll(/#\[tauri::command(?:\(async\))?\]\s*pub fn (\w+)\(([^)]*)\)/g)) {
+      const keys = [...params.matchAll(/(\w+)\s*:\s*(State<[^>]*>|[^,]+)/g)]
+        .filter(([, , type]) => !type.startsWith("State<"))
+        .map(([, key]) => camelCase(key));
+      assert.ok(!commands.has(name), `Duplicate command: ${name}`);
+      commands.set(name, keys.sort());
+    }
+  }
+  const names = [...commands.keys()].sort();
+  const handler = /generate_handler!\[([^\]]*)\]/.exec(libSource);
+  assert.ok(handler, "lib.rs must register commands with generate_handler!");
+  assert.deepEqual([...handler[1].matchAll(/commands::\w+::(\w+)/g)].map(([, name]) => name).sort(), names,
+    "generate_handler! must register every command exactly once");
+  const listed = /const COMMANDS: &\[&str\] = &\[([^\]]*)\]/.exec(buildSource);
+  assert.ok(listed, "build.rs must list the app commands");
+  assert.deepEqual([...listed[1].matchAll(/"(\w+)"/g)].map(([, name]) => name).sort(), names,
+    "build.rs must list every command exactly once");
+  assert.deepEqual([...capability.permissions].sort(), names.map(name => `allow-${name.replace(/_/g, "-")}`).sort(),
+    "the default capability must allow exactly the app commands");
+
+  const file = ts.createSourceFile("api.ts", apiSource, ts.ScriptTarget.Latest, true);
+  const called = new Set();
+  const visit = node => {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "call") {
+      const [command, args] = node.arguments;
+      assert.ok(command && ts.isStringLiteral(command), "api.ts call() needs a literal command name");
+      const keys = !args ? [] : ts.isObjectLiteralExpression(args)
+        ? args.properties.map(property => property.name.getText(file)).sort()
+        : assert.fail(`api.ts must pass ${command.text} arguments as an object literal`);
+      called.add(command.text);
+      if (browserOnlyCommands.includes(command.text)) return;
+      assert.ok(commands.has(command.text), `api.ts calls unregistered command: ${command.text}`);
+      assert.deepEqual(keys, commands.get(command.text), `Command argument drift: ${command.text}`);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  for (const name of [...names, ...browserOnlyCommands]) {
+    assert.ok(called.has(name) !== probeOnlyCommands.includes(name), `api.ts call drift for ${name}`);
+  }
+  return { commands: names.length };
+}
+
 export function checkRepositoryContract() {
-  return checkDtoContract(
-    readFileSync(new URL("../src-tauri/src/dto.rs", import.meta.url), "utf8"),
-    readFileSync(new URL("../src/lib/types.ts", import.meta.url), "utf8"),
-  );
+  const source = path => readFileSync(new URL(path, import.meta.url), "utf8");
+  const commandDirectory = new URL("../src-tauri/src/commands/", import.meta.url);
+  return {
+    ...checkDtoContract(source("../src-tauri/src/dto.rs"), source("../src/lib/types.ts")),
+    ...checkCommandContract({
+      commandSources: readdirSync(commandDirectory).map(name => readFileSync(new URL(name, commandDirectory), "utf8")),
+      libSource: source("../src-tauri/src/lib.rs"),
+      buildSource: source("../src-tauri/build.rs"),
+      capability: JSON.parse(source("../src-tauri/capabilities/default.json")),
+      apiSource: source("../src/lib/api.ts"),
+    }),
+  };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const checked = checkRepositoryContract();
-  console.log(`DTO contract verified: ${checked.declarations} declarations, ${checked.fields} fields.`);
+  console.log(`DTO contract verified: ${checked.declarations} declarations, ${checked.fields} fields, ${checked.commands} commands.`);
 }

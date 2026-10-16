@@ -335,10 +335,7 @@ async function mockCatalog(profileId = "vanilla"): Promise<CatalogDto> {
   const weaponTypeOptions = uniqueSorted(MOCK_WEAPONS.map((weapon) => weapon.weaponTypeName))
     .map((label) => ({ key: label, label }));
   return {
-    weaponCount: MOCK_WEAPONS.length,
-    aowCount: MOCK_AOW_NAMES.length,
     weaponNames: uniqueSorted(MOCK_WEAPONS.map((weapon) => weapon.name)),
-    weaponTypeKeys: weaponTypeOptions.map((entry) => entry.label),
     classes: profileId === "convergence" ? [{ name: "Custom stats", baseLevel: 0, baseTotal: 0,
       baseStats: { vig: 0, mnd: 0, end: 0, strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 } }] : STARTING_CLASS_METADATA,
     weaponTypeOptions,
@@ -369,9 +366,6 @@ function mockDataManifest(profileId = "vanilla"): DataManifestDto {
     label: convergence ? "Convergence 3.0.0.1" : "Vanilla 1.17",
     appVersion: convergence ? "1.16.1" : "1.17",
     source: "ER - Motion Values and Attack Data (App Ver. 1.17).xlsx",
-    generatedAt: "2026-05-18",
-    extractorVersion: "phase1-python-v12-route-hit-counts",
-    provenance: "mock snapshot",
     profile: {
       id: profileId,
       displayName: convergence ? "Convergence" : "Vanilla",
@@ -380,11 +374,7 @@ function mockDataManifest(profileId = "vanilla"): DataManifestDto {
     },
     capabilities: {
       classBudget: !convergence,
-      weaponAr: true,
-      weaponArForAmmunition: !convergence,
       statusBuildup: true,
-      weaponPassives: true,
-      aowCompatibility: true,
       aowDamage: !convergence,
       aowRoutes: !convergence,
     },
@@ -395,7 +385,6 @@ function mockDataManifest(profileId = "vanilla"): DataManifestDto {
       scadutreeScaling: !convergence,
       zeroAttackElementUsesWeaponScaling: convergence,
       extendedScalingGrades: convergence,
-      statusBuildupScales: !convergence,
     },
   };
 }

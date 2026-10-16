@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-start-search"
+description = "Enables the start_search command without any pre-configured scope."
+commands.allow = ["start_search"]
+
+[[permission]]
+identifier = "deny-start-search"
+description = "Denies the start_search command without any pre-configured scope."
+commands.deny = ["start_search"]

@@ -643,10 +643,7 @@ describe("saved result activation boundary", () => {
 
 function catalog(profileId: string): CatalogDto {
   return {
-    weaponCount: 1,
-    aowCount: 1,
     weaponNames: ["Uchigatana"],
-    weaponTypeKeys: ["katana"],
     classes: Object.values(STARTING_CLASS_METADATA),
     weaponTypeOptions: [{ key: "katana", label: "Katana" }],
     aowNames: ["Unsheathe"],
@@ -662,9 +659,6 @@ function catalog(profileId: string): CatalogDto {
       label: profileId,
       appVersion: "1.16.1",
       source: "test",
-      generatedAt: "2026-07-16",
-      extractorVersion: "test",
-      provenance: "test",
       profile: {
         id: profileId,
         displayName: profileId,
@@ -673,11 +667,7 @@ function catalog(profileId: string): CatalogDto {
       },
       capabilities: {
         classBudget: true,
-        weaponArForAmmunition: true,
-        weaponAr: true,
         statusBuildup: true,
-        weaponPassives: true,
-        aowCompatibility: true,
         aowDamage: profileId === "vanilla",
         aowRoutes: profileId === "vanilla",
       },
@@ -688,7 +678,6 @@ function catalog(profileId: string): CatalogDto {
         scadutreeScaling: profileId !== "convergence",
         zeroAttackElementUsesWeaponScaling: profileId === "convergence",
         extendedScalingGrades: profileId === "convergence",
-        statusBuildupScales: profileId !== "convergence",
       },
     },
   };

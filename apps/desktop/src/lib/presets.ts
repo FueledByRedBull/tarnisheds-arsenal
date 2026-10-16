@@ -5,7 +5,9 @@ import {
   assertArray, assertBoolean, assertInteger, assertNullableInteger, assertNullableText, assertText, invalidPreset, isRecord, validateStoredBuild,
 } from "./stored-build";
 import { STARTING_CLASS_METADATA } from "./session";
-import { BuildPreset, BuildPresetV1, OptimizeRequestDto, SavedBuildIndexV1, SolvedBuildDto } from "./types";
+import {
+  BuildPreset, BuildPresetV1, FILTER_DIMENSION_IDS, OBJECTIVE_IDS, OptimizeRequestDto, SavedBuildIndexV1, SolvedBuildDto,
+} from "./types";
 
 const INDEX_KEY = "tarnisheds-arsenal.savedBuildIndex.v1";
 const PRESET_PREFIX = "tarnisheds-arsenal.savedBuild.v2.";
@@ -422,7 +424,7 @@ export function assertRequest(value: unknown): asserts value is OptimizeRequestD
   assertArray(value.filters.entries, "request.filters.entries", 512);
   value.filters.entries.forEach((entry, index) => {
     if (!isRecord(entry)) throw invalidPreset(`request.filters.entries[${index}] must be an object`);
-    if (typeof entry.dimension !== "string" || !["weapon_family", "weapon_type", "affinity", "aow", "reinforcement", "coverage"].includes(entry.dimension)) {
+    if (typeof entry.dimension !== "string" || !(FILTER_DIMENSION_IDS as readonly string[]).includes(entry.dimension)) {
       throw invalidPreset(`request.filters.entries[${index}].dimension is invalid`);
     }
     assertText(entry.id, `request.filters.entries[${index}].id`, 128);
@@ -431,7 +433,7 @@ export function assertRequest(value: unknown): asserts value is OptimizeRequestD
   if (typeof value.resultGrouping !== "string" || !["automatic", "weapon", "loadout"].includes(value.resultGrouping)) {
     throw invalidPreset("request.resultGrouping is invalid");
   }
-  if (typeof value.objective !== "string" || !["max_ar", "max_physical_ar", "max_ar_plus_bleed", "aow_first_hit", "aow_full_sequence"].includes(value.objective)) {
+  if (typeof value.objective !== "string" || !(OBJECTIVE_IDS as readonly string[]).includes(value.objective)) {
     throw invalidPreset("request.objective is invalid");
   }
   assertInteger(value.topK, "request.topK", 1, 500);
