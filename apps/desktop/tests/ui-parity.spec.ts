@@ -268,7 +268,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await expect(page.locator(".inspector .weapon-poise-detail")).toContainText("Jumping R17.5");
   await expect(page.locator(".inspector .weapon-poise-detail")).toContainText("Jumping R220");
 
-  await page.getByRole("spinbutton", { name: "STR", exact: true }).fill("13");
+  await page.getByRole("spinbutton", { name: "STR", exact: true }).fill("15");
   await expect(page.getByText("4 ranked rows")).toBeVisible();
   await expect(page.getByText("Inputs changed")).toBeVisible();
   await page.getByRole("button", { name: "Update Results" }).click();

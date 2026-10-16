@@ -7,18 +7,12 @@ export function DraftNumberInput({
   min,
   max,
   onCommit,
-  onDraftChange,
-  readOnly = false,
-  className,
   description,
 }: {
   value: number;
   min: number;
   max: number;
   onCommit: (value: number) => void;
-  onDraftChange?: () => void;
-  readOnly?: boolean;
-  className?: string;
   /** Read by screen readers after the name, e.g. a shortfall shown only as colour and a tooltip. */
   description?: string;
 }) {
@@ -71,20 +65,15 @@ export function DraftNumberInput({
     <input
       ref={input}
       type="number"
-      className={className}
       aria-description={description}
       min={min}
       max={max}
-      readOnly={readOnly}
       value={draft}
       onBlur={(event) => commit(event.target.value)}
       onChange={(event) => {
         const next = event.target.value;
         clearIdleCommit();
         setDraft(next);
-        if (next !== String(value)) {
-          onDraftChange?.();
-        }
         const parsed = parseInteger(next);
         if (Number.isInteger(parsed) && parsed >= min && parsed <= max && parsed !== value) {
           idleCommit.current = window.setTimeout(() => commit(next), 700);
@@ -103,6 +92,5 @@ function parseInteger(value: string): number {
 }
 
 function clamp(value: number, min: number, max: number): number {
-  if (Number.isNaN(value)) return min;
-  return Math.max(min, Math.min(max, Math.trunc(value)));
+  return Math.max(min, Math.min(max, value));
 }

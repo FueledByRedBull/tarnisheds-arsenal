@@ -79,7 +79,6 @@ export interface DesktopState {
   patchRequest: (patch: Partial<OptimizeRequestDto>) => void;
   applyClass: (className: string) => void;
   setRows: (rows: SolvedBuildDto[], setups: number) => void;
-  markResultsStale: () => void;
   clearResults: (message?: string) => void;
   selectRow: (row: SolvedBuildDto | null) => void;
   setCompareTarget: (row: SolvedBuildDto | null) => void;
@@ -514,16 +513,6 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
         selectedFingerprint: rowFingerprint(selected),
       };
     }),
-  markResultsStale: () =>
-    set((state) => ({
-      ...invalidateAllJobs(state),
-      resultsStale: state.rows.length > 0,
-      compareTarget: null,
-      paths: [],
-      pathSignature: null,
-      affinityPayload: null,
-      affinitySignature: null,
-    })),
   clearResults: (message) =>
     set((state) => ({
       rows: [],

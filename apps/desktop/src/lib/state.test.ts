@@ -160,7 +160,7 @@ describe("desktop result lifecycle", () => {
     expect(changed.isPathBusy).toBe(false);
   });
 
-  it.each(["draft edit", "replacement search"])("invalidates analysis ownership and retained results on %s", (action) => {
+  it.each(["committed edit", "replacement search"])("invalidates analysis ownership and retained results on %s", (action) => {
     const state = useDesktopStore.getState();
     state.setRows([row], 1);
     state.setCompareTarget(row);
@@ -171,7 +171,7 @@ describe("desktop result lifecycle", () => {
     state.setPaths([{ title: "Selected", solved: row, steps: [] }], "old-path");
     state.setAffinityPayload({ lines: [], breakpoints: [] }, "old-affinity");
     const before = useDesktopStore.getState();
-    if (action === "draft edit") state.markResultsStale();
+    if (action === "committed edit") state.patchRequest({ topK: 30 });
     else state.beginSearch("new-search");
     const after = useDesktopStore.getState();
     expect(after.pathGeneration).toBeGreaterThan(before.pathGeneration);

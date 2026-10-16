@@ -8,3 +8,9 @@ export function isTextEntry(target: EventTarget | null): boolean {
 export function keyboardOwnedByOverlay(): boolean {
   return document.querySelector("dialog[open], .command-palette:popover-open") !== null;
 }
+
+// WebView2 keeps browser reload and print keys; in the app they would discard the unsaved session.
+export function blockBrowserReload(event: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "preventDefault">) {
+  const key = event.key.toLowerCase();
+  if (key === "f5" || ((event.ctrlKey || event.metaKey) && (key === "r" || key === "p"))) event.preventDefault();
+}

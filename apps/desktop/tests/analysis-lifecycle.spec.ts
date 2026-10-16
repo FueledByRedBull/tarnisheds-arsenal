@@ -5,7 +5,7 @@ type AnalysisKind = "path" | "affinity";
 for (const kind of ["path", "affinity"] as const) {
   test(`${kind} blocks stale selections in navigation and an already-open workspace`, async ({ page }) => {
     await prepareAnalysis(page, kind);
-    await page.locator(".ribbon-stat input").first().fill("");
+    await commitStatEdit(page);
     await expect(page.getByRole("navigation").getByRole("button", {
       name: kind === "path" ? "Paths" : "Affinity Watch", exact: true,
     })).toBeDisabled();
@@ -18,7 +18,7 @@ for (const kind of ["path", "affinity"] as const) {
     await installLateStartProbe(page, kind);
     await page.getByRole("button", { name: kind === "path" ? "Trace paths" : "Watch affinities", exact: true }).click();
     await expect.poll(() => page.evaluate(() => (window as any).lateAnalysisProbe.started)).toBe(true);
-    await page.locator(".ribbon-stat input").first().fill("");
+    await commitStatEdit(page);
     await page.evaluate(() => (window as any).lateAnalysisProbe.resolveStart({ jobId: "stale-job" }));
     await expect.poll(() => page.evaluate(() => (window as any).lateAnalysisProbe.cancellations)).toContain("stale-job");
     await expect(page.getByText("Update Rankings before continuing").filter({ visible: true })).toBeVisible();
@@ -29,6 +29,18 @@ for (const kind of ["path", "affinity"] as const) {
     })).toEqual({ paths: [], affinity: null });
   });
 }
+
+test("an abandoned numeric draft leaves results and analysis tabs current", async ({ page }) => {
+  await prepareAnalysis(page, "path");
+  const input = page.locator(".ribbon-stat input").first();
+  const committed = await input.inputValue();
+  await input.fill("");
+  await input.blur();
+  await expect(input).toHaveValue(committed);
+  await expect(page.getByText("Inputs changed", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Trace paths", exact: true })).toBeEnabled();
+  await expect(page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true })).toBeEnabled();
+});
 
 for (const kind of ["path", "affinity"] as const) {
   test(`${kind} adapter keeps native ownership after status and cancellation failures`, async ({ page }) => {
@@ -64,6 +76,13 @@ for (const kind of ["path", "affinity"] as const) {
     await expect.poll(() => page.evaluate(() => (window as any).lateAnalysisProbe.cancellations)).toContain("late-job");
     expect(await page.evaluate(() => (window as any).lateAnalysisProbe.cancellations)).toEqual(["late-job"]);
   });
+}
+
+// Only a committed value changes the query; an abandoned draft leaves results current.
+async function commitStatEdit(page: import("@playwright/test").Page) {
+  const input = page.locator(".ribbon-stat input").first();
+  await input.fill("20");
+  await input.press("Enter");
 }
 
 async function prepareAnalysis(page: import("@playwright/test").Page, kind: AnalysisKind) {
