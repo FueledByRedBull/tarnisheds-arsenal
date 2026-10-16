@@ -3,6 +3,7 @@ import { Check, CircleAlert, GitCompareArrows, Radar, RotateCcw, Route, Table2, 
 import { api } from "../lib/api";
 import { setAnalysisCacheVersion } from "../lib/analysis-cache";
 import { keyboardOwnedByOverlay } from "../lib/keyboard";
+import { catalogVersion } from "../lib/preset-activation";
 import { useDesktopStore } from "../lib/state";
 import { WorkspaceTab } from "../lib/types";
 import { AffinityWatchView } from "../features/affinity-watch/AffinityWatchView";
@@ -63,9 +64,7 @@ export function App() {
         generation !== profileGeneration.current ||
         useDesktopStore.getState().request.profileId !== nextProfileId
       ) return;
-      setAnalysisCacheVersion(
-        `${catalog.dataManifest.profile.id}:${catalog.dataManifest.schemaVersion}:${catalog.dataManifest.datasetVersion}:${catalog.dataManifest.modelVersion}`,
-      );
+      setAnalysisCacheVersion(catalogVersion(catalog));
       setCatalog(catalog);
       try {
         localStorage.setItem(PROFILE_STORAGE_KEY, nextProfileId);

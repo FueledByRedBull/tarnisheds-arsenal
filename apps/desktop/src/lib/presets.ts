@@ -1,3 +1,4 @@
+import { MAX_COMPARE_PINS } from "./compare-bench";
 import { downloadText } from "./csv";
 import { errorMessage } from "./format";
 import {
@@ -370,7 +371,7 @@ function assertPreset(value: BuildPreset) {
   }
   assertSolvedBuild(value.selectedBuild, "selectedBuild");
   assertSolvedBuild(value.compareTarget, "compareTarget");
-  assertArray(value.compareBench, "compareBench", 8);
+  assertArray(value.compareBench, "compareBench", MAX_COMPARE_PINS);
   value.compareBench.forEach((build, index) => {
     if (build === null) throw invalidPreset(`compareBench[${index}] must be a build`);
     assertSolvedBuild(build, `compareBench[${index}]`);
