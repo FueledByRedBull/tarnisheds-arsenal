@@ -416,7 +416,7 @@ jobs:
     needs: package
     runs-on: windows-2025
     timeout-minutes: 20
-    # Owner action: give this environment required reviewers and limit it to main and v* tags.
+    # The release environment requires maintainer approval and allows only main and v* tags.
     environment: release
     concurrency:
       group: publish-release
