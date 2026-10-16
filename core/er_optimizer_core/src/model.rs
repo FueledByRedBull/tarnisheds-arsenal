@@ -230,8 +230,6 @@ pub struct AowAttackRow {
     pub aow_name: String,
     pub raw_name: String,
     pub variant_weapon_type: String,
-    pub sequence_variant: String,
-    pub hit_kind: String,
     pub hit_order: u16,
     pub is_lacking_fp: bool,
     pub atk_id: u32,
@@ -400,24 +398,17 @@ pub struct AowEffect {
     pub record_id: u32,
     pub aow_id: u16,
     pub sheet_row: u16,
-    pub source_kind: String,
-    pub source_param_ids: Vec<u32>,
     pub effect_id: u32,
     pub effect_name: String,
-    pub parent_effect_id: Option<u32>,
-    pub link_kind: String,
     pub role: AowEffectRole,
     pub activation_action_id: String,
     pub activation_timing: String,
-    pub hand_variant: String,
     pub is_canonical: Option<bool>,
     pub is_supported: bool,
     pub reason: String,
-    pub duration_seconds: f32,
     pub attack_power: [f32; DAMAGE_TYPE_COUNT],
     pub status_buildup: StatusBuildup,
     pub uses_status_correction: bool,
-    pub uses_attack_correction: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -507,7 +498,6 @@ pub struct DataRules {
 
 #[derive(Clone, Debug)]
 pub struct GameData {
-    pub snapshot_schema_version: u32,
     pub dataset_version: String,
     pub model_version: String,
     pub profile_id: String,
