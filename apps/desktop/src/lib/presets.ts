@@ -389,7 +389,7 @@ function assertPreset(value: BuildPreset) {
   });
 }
 
-function assertRequest(value: unknown): asserts value is OptimizeRequestDto {
+export function assertRequest(value: unknown): asserts value is OptimizeRequestDto {
   if (!isRecord(value)) throw invalidPreset("request must be an object");
   assertProfileId(value.profileId, "request.profileId");
   assertText(value.className, "request.className", 80);

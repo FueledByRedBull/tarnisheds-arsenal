@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { defaultRequest, useDesktopStore } from "./state";
+import { defaultRequest, persistProfileQueries, useDesktopStore } from "./state";
 import { applyProfileRules, buildOptimizeRequest } from "./session";
 import { parsePresetText } from "./presets";
 import { api } from "./api";
@@ -693,3 +693,73 @@ function catalog(profileId: string): CatalogDto {
     },
   };
 }
+
+describe("saved profile queries", () => {
+  function memoryStorage() {
+    const values = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    });
+    return values;
+  }
+
+  it("restores a profile's valid saved query at startup and discards an invalid or other-profile one", () => {
+    const values = memoryStorage();
+    try {
+      values.set("tarnisheds-arsenal.query.v1.vanilla", JSON.stringify({
+        version: 1, request: { ...defaultRequest, dex: 30, extension: "dropped" }, lockedStatMode: true,
+      }));
+      values.set("tarnisheds-arsenal.query.v1.convergence", JSON.stringify({
+        version: 1, request: { ...defaultRequest, profileId: "vanilla" }, lockedStatMode: false,
+      }));
+      useDesktopStore.setState({ catalog: null, profiles: [], request: defaultRequest, profileQueries: {}, notices: [] });
+      useDesktopStore.getState().beginProfileSwitch("vanilla");
+      const restored = useDesktopStore.getState();
+      expect(restored.request.dex).toBe(30);
+      expect(restored.request).not.toHaveProperty("extension");
+      expect(restored.lockedStatMode).toBe(true);
+
+      useDesktopStore.getState().beginProfileSwitch("convergence");
+      const other = useDesktopStore.getState();
+      expect(other.request.profileId).toBe("convergence");
+      expect(values.has("tarnisheds-arsenal.query.v1.convergence")).toBe(false);
+      expect(other.notices.map((notice) => notice.message)).toContain("Your saved convergence query could not be read and was discarded.");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("discards a saved query whose class could not render before its catalog loads", () => {
+    const values = memoryStorage();
+    try {
+      values.set("tarnisheds-arsenal.query.v1.vanilla", JSON.stringify({
+        version: 1, request: { ...defaultRequest, className: "Unexpected broken state" }, lockedStatMode: false,
+      }));
+      useDesktopStore.setState({ catalog: null, profiles: [], request: defaultRequest, profileQueries: {}, notices: [] });
+      useDesktopStore.getState().beginProfileSwitch("vanilla");
+      expect(useDesktopStore.getState().request.className).toBe(defaultRequest.className);
+      expect(values.has("tarnisheds-arsenal.query.v1.vanilla")).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("saves only the loaded profile's query", () => {
+    const values = memoryStorage();
+    const stop = persistProfileQueries();
+    try {
+      useDesktopStore.setState({ catalog: null, catalogStatus: "loading", request: defaultRequest, profileQueries: {} });
+      useDesktopStore.getState().setCatalog(catalog("vanilla"));
+      useDesktopStore.getState().patchRequest({ dex: 31 });
+      expect(JSON.parse(values.get("tarnisheds-arsenal.query.v1.vanilla")!).request.dex).toBe(31);
+      useDesktopStore.getState().beginProfileSwitch("convergence");
+      expect(values.has("tarnisheds-arsenal.query.v1.convergence")).toBe(false);
+      expect(JSON.parse(values.get("tarnisheds-arsenal.query.v1.vanilla")!).request.dex).toBe(31);
+    } finally {
+      stop();
+      vi.unstubAllGlobals();
+    }
+  });
+});
