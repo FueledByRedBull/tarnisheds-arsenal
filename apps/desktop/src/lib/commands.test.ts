@@ -89,6 +89,8 @@ describe("palette parsing", () => {
     expect(commands.map((command) => command.id)).not.toContain("lock-strStat");
     expect(findCommands("str 0", fixed).map((command) => command.id)).not.toContain("set-strStat");
     expect(ids("", fixed)).not.toContain("optimize-class");
+    // Applying Custom stats would zero every stat and the stored level.
+    expect(ids("class", fixed)).not.toContain("class-Custom stats");
   });
 
   it("parses separate and shared upgrade caps within each profile's limits", () => {
