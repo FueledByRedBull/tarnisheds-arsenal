@@ -3764,8 +3764,6 @@ textarea:hover {
   }
 }
 
-}
-
 /* Motion states what changed. Rankings re-forge from lib/motion.ts and a new selection fades
    in from Inspector.tsx. Sorted rows are offset within this group and read in their
    reading-order (RankingsBoard.tsx). It stays composited:
@@ -4491,3 +4489,4 @@ summary:focus-visible {
 
 @keyframes reduced-pulse {
   from { opacity: 0.55; }
+}
