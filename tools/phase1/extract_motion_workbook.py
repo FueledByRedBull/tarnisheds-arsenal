@@ -25,6 +25,8 @@ WORKBOOK_NS = {
 }
 DAMAGE_TYPES = ('physical', 'magic', 'fire', 'lightning', 'holy')
 MOTION_WORKBOOK_NAME = 'ER - Motion Values and Attack Data (App Ver. 1.17).xlsx'
+# The largest tracked workbook part is about 7 MB uncompressed.
+MAX_WORKBOOK_MEMBER_BYTES = 64 * 1024 * 1024
 ATTACK_TYPE_COLUMNS = {
     'physical': 'AtkPhys',
     'magic': 'AtkMag',
@@ -174,8 +176,8 @@ class WorkbookReader:
         self.archive = zipfile.ZipFile(path)
         try:
             self.shared_strings = self._load_shared_strings()
-            self.workbook = ET.fromstring(self.archive.read('xl/workbook.xml'))
-            workbook_rels = ET.fromstring(self.archive.read('xl/_rels/workbook.xml.rels'))
+            self.workbook = ET.fromstring(self._read('xl/workbook.xml'))
+            workbook_rels = ET.fromstring(self._read('xl/_rels/workbook.xml.rels'))
             self.workbook_rel_map = {rel.attrib['Id']: rel.attrib['Target'] for rel in workbook_rels}
         except BaseException:
             self.archive.close()
@@ -184,10 +186,17 @@ class WorkbookReader:
     def close(self) -> None:
         self.archive.close()
 
+    def _read(self, name: str) -> bytes:
+        # ZipFile stops decompressing at the declared size, so checking it bounds memory.
+        size = self.archive.getinfo(name).file_size
+        if size > MAX_WORKBOOK_MEMBER_BYTES:
+            raise ValueError(f'workbook part {name} exceeds {MAX_WORKBOOK_MEMBER_BYTES} bytes ({size})')
+        return self.archive.read(name)
+
     def _load_shared_strings(self) -> list[str]:
         if 'xl/sharedStrings.xml' not in self.archive.namelist():
             return []
-        sst = ET.fromstring(self.archive.read('xl/sharedStrings.xml'))
+        sst = ET.fromstring(self._read('xl/sharedStrings.xml'))
         out: list[str] = []
         for item in sst:
             out.append(''.join(node.text or '' for node in item.iter(f'{MAIN_NS}t')))
@@ -203,7 +212,7 @@ class WorkbookReader:
         if target is None:
             raise ValueError(f'missing sheet: {name}')
 
-        sheet_xml = ET.fromstring(self.archive.read(f'xl/{target}'))
+        sheet_xml = ET.fromstring(self._read(f'xl/{target}'))
         sheet_data = sheet_xml.find(f'{MAIN_NS}sheetData')
         if sheet_data is None:
             raise ValueError(f'missing sheetData for {name}')

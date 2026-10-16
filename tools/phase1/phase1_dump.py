@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from tools.phase1.param_binary import checked_xml_size  # noqa: E402
 from tools.phase1.profiles import discover_witchybnd, profile_definition  # noqa: E402
 
 MAX_DISPLAYED_STAT = 99
@@ -272,7 +273,7 @@ def iter_param_rows(
     xml_path: Path, *, apply_defaults: bool = False, default_fields: tuple[str, ...] = ()
 ) -> Iterator[dict[str, str]]:
     defaults: dict[str, str] = {}
-    for _event, element in ET.iterparse(xml_path, events=("end",)):
+    for _event, element in ET.iterparse(checked_xml_size(xml_path), events=("end",)):
         tag = element.tag.rsplit("}", 1)[-1]
         if (
             tag == "field"
@@ -393,7 +394,7 @@ def load_weapon_name_map(witchybnd_path: Path) -> dict[int, str]:
 def load_fmg_name_map(xml_path: Path) -> dict[int, str]:
     if not xml_path.is_file():
         raise FileNotFoundError(f"FMG name source not found: {xml_path}")
-    root = ET.parse(xml_path).getroot()
+    root = ET.parse(checked_xml_size(xml_path)).getroot()
     mapping: dict[int, str] = {}
     for element in root.findall("./entries/text"):
         raw_id = element.get("id")
@@ -435,7 +436,7 @@ def load_wep_type_name_map(witchybnd_path: Path) -> dict[int, str]:
         raise FileNotFoundError(f"Paramdex weapon meta file not found: {meta_path}")
     mapping = {
         to_int(option.attrib, "Value", None): option.attrib["Name"]
-        for enum in ET.parse(meta_path).getroot().iter("Enum")
+        for enum in ET.parse(checked_xml_size(meta_path)).getroot().iter("Enum")
         if enum.get("Name") == "WEP_TYPE"
         for option in enum.iter("Option")
     }
@@ -452,7 +453,7 @@ def discover_gem_mount_fields(xml_path: Path) -> tuple[str, ...]:
     prefix = "canMountWep_"
     names = (
         element.get("name", "")
-        for element in ET.parse(xml_path).getroot().iter()
+        for element in ET.parse(checked_xml_size(xml_path)).getroot().iter()
         if element.tag.rsplit("}", 1)[-1] == "field"
     )
     fields = tuple(dict.fromkeys(name[len(prefix):] for name in names if name.startswith(prefix)))

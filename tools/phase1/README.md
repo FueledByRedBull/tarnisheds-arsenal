@@ -90,6 +90,12 @@ and `paramdex*` sources), plus the workbook and FMG tables when used. Profile
 capabilities may leave unsupported tables schema-only; extraction never copies rows
 from another profile.
 
+The extractor trusts its inputs: they are the owner's own game files, the WitchyBND
+build they chose, and tracked repository files. Python's XML parser does not resolve
+external entities, and the extractor refuses any XML file over 128 MiB and any
+workbook part over 64 MiB before reading it. These caps only stop a wrong or hostile
+file from exhausting memory; they do not make untrusted inputs safe to extract.
+
 The selected profile definition owns gameplay rules that cannot be inferred safely from
 Vanilla defaults. Extraction materializes those rules explicitly, filters exact legal
 configuration IDs where a profile supplies an availability reference, and validates all
