@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { contiguousMetricSegments, metricRatio, paddedMetricDomain } from "./chart";
+import { chartY, contiguousMetricSegments, metricRatio, niceTicks, paddedMetricDomain } from "./chart";
 
 describe("chart metric domains", () => {
   it("frames the observed range instead of anchoring positive values to zero", () => {
@@ -30,6 +30,20 @@ describe("chart metric domains", () => {
     const domain = paddedMetricDomain([734.7, 734.8]);
 
     expect(metricRatio(734.8, domain)! - metricRatio(734.7, domain)!).toBeGreaterThan(0.8);
+  });
+
+  it("labels axes with round values inside the domain", () => {
+    expect(niceTicks({ min: 460, max: 1040 })).toEqual([1000, 800, 600]);
+    expect(niceTicks({ min: 612.3, max: 1018.4 })).toEqual([1000, 900, 800, 700]);
+    expect(niceTicks(paddedMetricDomain([500, 500]))).toEqual([510, 505, 500, 495, 490]);
+    expect(niceTicks({ min: 0.1, max: 1.2 })).toEqual([1, 0.75, 0.5, 0.25]);
+  });
+
+  it("maps metrics to the shared plot height and parks missing values on the floor", () => {
+    const domain = { min: 0, max: 100 };
+    expect(chartY(100, domain)).toBe(14);
+    expect(chartY(0, domain)).toBe(206);
+    expect(chartY(null, domain)).toBe(206);
   });
 
   it("does not bridge unavailable metrics", () => {

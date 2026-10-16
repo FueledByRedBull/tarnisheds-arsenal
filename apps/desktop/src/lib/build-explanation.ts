@@ -5,13 +5,13 @@ const statNames = ["STR", "DEX", "INT", "FAI", "ARC"];
 const damageTypes = ["physical", "magic", "fire", "lightning", "holy"] as const;
 
 /** How far `row` leads `runnerUp` on the ranked objective; null when either is unavailable. */
-export function leadOver(row: SolvedBuildDto, runnerUp: SolvedBuildDto, objective: OptimizeRequestDto["objective"], aowModelSupported = true): number | null {
+export function leadOver(row: SolvedBuildDto, runnerUp: SolvedBuildDto, objective: OptimizeRequestDto["objective"], aowModelSupported: boolean): number | null {
   const metric = metricForObjective(row, objective, aowModelSupported);
   const runnerMetric = metricForObjective(runnerUp, objective, aowModelSupported);
   return metric === null || runnerMetric === null ? null : metric - runnerMetric;
 }
 
-export function explainBuild(row: SolvedBuildDto, request: OptimizeRequestDto, aowModelSupported = true, runnerUp: SolvedBuildDto | null = null): string[] {
+export function explainBuild(row: SolvedBuildDto, request: OptimizeRequestDto, aowModelSupported: boolean, runnerUp: SolvedBuildDto | null = null): string[] {
   const metric = metricForObjective(row, request.objective, aowModelSupported);
   const lines = [request.objective === "max_ar_plus_bleed"
     ? `This search ranks bleed buildup first (${fixed1(row.bleedBuildup)}), then AR (${fixed1(row.ar.total)}). It does not add them together or predict bleed-proc damage.`

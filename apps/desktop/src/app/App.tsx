@@ -17,7 +17,7 @@ import { SkeletonRows } from "../features/shared/SkeletonRows";
 import { EASE_OUT, reducedMotion } from "../lib/motion";
 import { RankingsBoard } from "../features/rankings/RankingsBoard";
 import { ReproductionReport } from "../features/shared/ReproductionReport";
-import { errorMessage } from "../lib/format";
+import { aowModelSupported, errorMessage } from "../lib/format";
 
 const TAB_ICONS: Record<WorkspaceTab, typeof Table2> = {
   rankings: Table2, compare: GitCompareArrows, paths: Route, affinity_watch: Radar,
@@ -117,7 +117,7 @@ export function App() {
 
   const activeProfile = profiles.find((entry) => entry.profile.id === profileId) ?? null;
   const profileReady = catalogStatus === "ready";
-  const limitedAowModel = activeProfile && (!activeProfile.capabilities.aowDamage || !activeProfile.capabilities.aowRoutes);
+  const limitedAowModel = activeProfile && !aowModelSupported(activeProfile);
   const convergenceProfile = activeProfile?.profile.id === "convergence";
 
   const profileSwitch = (

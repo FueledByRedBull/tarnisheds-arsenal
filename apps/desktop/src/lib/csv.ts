@@ -11,7 +11,7 @@ export interface RankingsExportMetadata {
   objective: string;
   assumptions: string;
   separateUpgradeCaps?: boolean;
-  aowModelSupported?: boolean;
+  aowModelSupported: boolean;
   extendedScalingGrades?: boolean;
 }
 

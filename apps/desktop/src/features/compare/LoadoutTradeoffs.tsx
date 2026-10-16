@@ -367,6 +367,7 @@ function TradeoffInspection({
   labels: string[];
   current: OptimizeRequestDto;
 }) {
+  const isExporting = useDesktopStore((state) => state.isExporting);
   if (!point) return <div className="empty-state compact">Select an exact trade-off point to inspect it.</div>;
   return (
     <div className="tradeoff-inspection" aria-live="polite">
@@ -375,7 +376,7 @@ function TradeoffInspection({
       <p><strong>Loadout</strong> {point.result.weaponName} / {point.result.affinity} / {point.result.aowName ?? "Unspecified skill"} / +{point.result.upgrade}</p>
       <p><strong>Full stat spread</strong> {fullStatLine(current, point.result)}</p>
       <p><strong>Changes from your current stats</strong> {formatStatDelta(current, point.result)}</p>
-      <button type="button" onClick={() => {
+      <button type="button" disabled={isExporting} onClick={() => {
         const state = useDesktopStore.getState();
         state.patchRequest({ objective: "max_ar" });
         state.useRowAsLocks(point.result);

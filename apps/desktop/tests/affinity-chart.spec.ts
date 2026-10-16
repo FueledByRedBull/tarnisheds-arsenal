@@ -34,9 +34,9 @@ test("affinity chart uses one padded domain for flat-series axes and grid", asyn
   await page.getByRole("navigation").getByRole("button", { name: "Affinity Watch", exact: true }).click();
   await page.getByRole("button", { name: "Watch affinities", exact: true }).click();
   await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "completed");
-  await expect(page.locator(".affinity-y-axis span")).toHaveText(["510.0", "500.0", "490.0"]);
-  await expect(page.locator(".affinity-grid-line")).toHaveCount(3);
-  expect(await page.locator(".affinity-grid-line").evaluateAll((lines) => lines.map((line) => Number(line.getAttribute("y1"))))).toEqual([14, 110, 206]);
+  await expect(page.locator(".affinity-y-axis span")).toHaveText(["510", "505", "500", "495", "490"]);
+  await expect(page.locator(".affinity-grid-line")).toHaveCount(5);
+  expect(await page.locator(".affinity-grid-line").evaluateAll((lines) => lines.map((line) => Number(line.getAttribute("y1"))))).toEqual([14, 62, 110, 158, 206]);
   expect(await page.locator(".affinity-series-point").evaluateAll((points) => points.map((point) => Number(point.getAttribute("cy"))))).toEqual([110, 110]);
   const axisDeltas = await page.locator(".affinity-plot").evaluate((plot) => {
     const centers = (elements: Element[]) => elements.map((element) => {

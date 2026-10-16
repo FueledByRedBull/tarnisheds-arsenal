@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowDownUp, ArrowUp, ChevronLeft, ChevronRight, Download, LockKeyhole, Pin, RefreshCcw } from "lucide-react";
 import { memo, ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { downloadText, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
-import { compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
+import { aowModelSupported, compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
 import { buildOptimizeRequest, rowFingerprint } from "../../lib/session";
 import { EASE_OUT, reducedMotion, settleRanking } from "../../lib/motion";
 import { RankedEntry, RankMovement, RankSortKey, rankMovements, sortRanked } from "../../lib/ranking-view";
@@ -41,7 +41,7 @@ export function RankingsBoard() {
   const [sort, setSort] = useState<{ key: RankSortKey; reverse: boolean }>({ key: "rank", reverse: false });
   const [horizontalScroll, setHorizontalScroll] = useState({ overflow: false, left: false, right: false });
   const resultBoard = useRef<HTMLDivElement>(null);
-  const aowSupported = Boolean(catalog?.dataManifest.capabilities.aowDamage && catalog.dataManifest.capabilities.aowRoutes);
+  const aowSupported = aowModelSupported(catalog?.dataManifest);
   const rankedRows = useMemo(
     () => sortRanked(rows, sort.key, sort.reverse, objective, aowSupported),
     [aowSupported, objective, rows, sort],
@@ -187,7 +187,7 @@ export function RankingsBoard() {
           "temporary buff stacking not universal",
         ].join("; "),
         separateUpgradeCaps,
-        aowModelSupported: catalog.dataManifest.capabilities.aowDamage && catalog.dataManifest.capabilities.aowRoutes,
+        aowModelSupported: aowSupported,
         extendedScalingGrades,
       }), "text/csv;charset=utf-8");
       pushNotice({

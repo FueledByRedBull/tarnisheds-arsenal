@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { analysisStatus, type AnalysisOutcome } from "../../lib/analysis-status";
 import { AnalysisProgress } from "../shared/AnalysisProgress";
-import { contiguousMetricSegments, metricRatio, paddedMetricDomain } from "../../lib/chart";
+import { chartX, chartY, contiguousMetricSegments, niceTicks, paddedMetricDomain } from "../../lib/chart";
 import { useAffinityJob, useBuiltRequest } from "../../lib/hooks";
 import { errorMessage, fixed1, objectiveLabel, objectiveUnit, statLine } from "../../lib/format";
 import { clampHorizon, stableSignature } from "../../lib/session";
@@ -210,7 +210,7 @@ function endpointMetric(value: number | null): string {
 function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPayloadDto | null; objective: string; unit: string }) {
   const values = payload?.lines.flatMap((line) => line.points.map((point) => point.metric).filter((metric): metric is number => metric !== null)) ?? [];
   const domain = paddedMetricDomain(values);
-  const axisMetrics = [domain.max, (domain.min + domain.max) / 2, domain.min];
+  const axisMetrics = niceTicks(domain);
   const levels = payload?.lines.flatMap((line) => line.points.map((point) => point.level)) ?? [];
   const firstLevel = levels.length ? Math.min(...levels) : null;
   const lastLevel = levels.length ? Math.max(...levels) : null;
@@ -237,12 +237,12 @@ function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPay
           </div>
           <div className="affinity-plot" aria-hidden="true">
             <div className="affinity-y-axis">
-              {axisMetrics.map((metric, index) => <span key={index}>{fixed1(metric)}</span>)}
+              {axisMetrics.map((metric) => <span key={metric} style={{ top: `${chartY(metric, domain) / 2.2}%` }}>{metric}</span>)}
             </div>
             <svg viewBox="0 0 1000 220" preserveAspectRatio="none">
-              {axisMetrics.map((metric, index) => {
+              {axisMetrics.map((metric) => {
                 const y = chartY(metric, domain);
-                return <line className="affinity-grid-line" x1="0" x2="1000" y1={y} y2={y} key={index} />;
+                return <line className="affinity-grid-line" x1="0" x2="1000" y1={y} y2={y} key={metric} />;
               })}
               {payload?.breakpoints.map((point) => {
                 const x = chartX(point.level, plotFirstLevel, plotLastLevel);
@@ -300,34 +300,22 @@ function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPay
   );
 }
 
+// Series hues stay clear of the status colours (danger red, warning ember, success green).
 const AFFINITY_COLORS = [
   "#e0b967",
   "#79bfd0",
-  "#8fc19c",
-  "#d28a77",
   "#b59ad8",
   "#d7d2b6",
-  "#d76969",
   "#729fe0",
-  "#b7cb72",
   "#d889b3",
-  "#63b7a2",
-  "#e39252",
+  "#b7cb72",
   "#8f86d8",
+  "#a7c7e7",
+  "#c9a0dc",
 ];
 
 function affinityColor(index: number): string {
   return AFFINITY_COLORS[index % AFFINITY_COLORS.length];
-}
-
-function chartX(level: number, firstLevel: number, lastLevel: number): number {
-  if (lastLevel === firstLevel) return 500;
-  return 12 + ((level - firstLevel) / (lastLevel - firstLevel)) * 976;
-}
-
-function chartY(metric: number | null, domain: ReturnType<typeof paddedMetricDomain>): number {
-  const ratio = metricRatio(metric, domain);
-  return ratio === null ? 206 : 206 - ratio * 192;
 }
 
 function linePoints(

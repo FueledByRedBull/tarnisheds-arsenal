@@ -2,7 +2,7 @@ import { SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AowSelect } from "../../lib/AowSelect";
 import { cachedComparisonSearch, cachedSolveBuild, cachedUpgradeSeries, cachedWeaponProfile } from "../../lib/analysis-cache";
-import { compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
+import { aowModelSupported, compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
 import { CheckboxMultiSelect, SearchableSelect, openOption } from "../../lib/SearchableSelect";
 import { compareUpgradeHorizon, replaceFilterEntries, rowFingerprint, stableSignature, upgradeCapForRow } from "../../lib/session";
 import { LatestRequest } from "../../lib/request-generation";
@@ -482,7 +482,7 @@ export function CompareView() {
 }
 
 function DeltaTable({ baseline, candidates, objective }: { baseline: SolvedBuildDto; candidates: CompareLane[]; objective: ReturnType<typeof useDesktopStore.getState>["request"]["objective"] }) {
-  const aowSupported = useDesktopStore((state) => Boolean(state.catalog?.dataManifest.capabilities.aowDamage && state.catalog?.dataManifest.capabilities.aowRoutes));
+  const aowSupported = useDesktopStore((state) => aowModelSupported(state.catalog?.dataManifest));
   const objectiveMetric: CompareMetric[] = objective === "max_ar"
     ? []
     : [["Objective", (row: SolvedBuildDto) => metricForObjective(row, objective, aowSupported)]];
@@ -517,7 +517,8 @@ function DeltaTable({ baseline, candidates, objective }: { baseline: SolvedBuild
             const candidateValue = value(lane.row!);
             const baselineValue = value(baseline);
             if (candidateValue === null || baselineValue === null) return <td key={label}>Unavailable</td>;
-            const delta = candidateValue - baselineValue;
+            // Rounded to the shown precision first, so "0.0" is never coloured as a change.
+            const delta = Number(fixed1(candidateValue - baselineValue));
             const improvement = delta * direction;
             return <td className={improvement > 0 ? "positive" : improvement < 0 ? "negative" : ""} key={label}>{delta > 0 ? "+" : ""}{fixed1(delta)}</td>;
           })}
@@ -580,7 +581,7 @@ function Lane({
   extendedScalingGrades: boolean;
   emptyLabel: string;
 }) {
-  const aowSupported = useDesktopStore((state) => Boolean(state.catalog?.dataManifest.capabilities.aowDamage && state.catalog?.dataManifest.capabilities.aowRoutes));
+  const aowSupported = useDesktopStore((state) => aowModelSupported(state.catalog?.dataManifest));
   const metric = row ? metricForObjective(row, objective, aowSupported) : null;
   return (
     <div className="compare-lane" role="group" aria-label={title}>
