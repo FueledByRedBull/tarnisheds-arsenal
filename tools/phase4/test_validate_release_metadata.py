@@ -4,7 +4,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.phase4.validate_release_metadata import release_notes_errors
+from tools.phase4.validate_release_metadata import (
+    markdown_link_errors,
+    release_notes_errors,
+    toolchain_reference_errors,
+)
 
 URL = "https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/"
 
@@ -34,6 +38,52 @@ class ReleaseNotesTests(unittest.TestCase):
         self.assertEqual(len(errors), 2)
         self.assertIn("does not mention v0.17.2", errors[0])
         self.assertIn("must link v0.17.2", errors[1])
+
+
+PIN = "dtolnay/rust-toolchain@" + "a" * 40
+
+
+class ToolchainReferenceTests(unittest.TestCase):
+    def errors(self, workflow: str, readme: str) -> list[str]:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".github" / "workflows").mkdir(parents=True)
+            (root / ".github" / "workflows" / "ci.yml").write_text(workflow, encoding="utf-8")
+            (root / "README.md").write_text(readme, encoding="utf-8")
+            return toolchain_reference_errors(root, "1.97.0", "22.23.1", "3.12.10", "v0.17.2")
+
+    def test_matching_references_pass(self) -> None:
+        readme = "**Rust 1.97.0**, **Node.js 22.23.1**, **Python 3.12.10**. [New](docs/release-notes/v0.17.2.md)\n"
+        workflow = f"uses: {PIN} # 1.97.0\nnode-version-file: .node-version\n"
+        self.assertEqual(self.errors(workflow, readme), [])
+
+    def test_drifted_references_fail(self) -> None:
+        readme = "Rust 1.96.0, Node.js 22.23.1, Python 3.12.10. [New](docs/release-notes/v0.17.1.md)\n"
+        workflow = f"uses: {PIN} # 1.96.0\npython-version: '3.12'\n"
+        errors = self.errors(workflow, readme)
+        self.assertEqual(len(errors), 4, errors)
+        self.assertIn("installs Rust 1.96.0", errors[0])
+        self.assertIn("literal version", errors[1])
+        self.assertIn("pinned Rust 1.97.0", errors[2])
+        self.assertIn("links v0.17.1 release notes", errors[3])
+
+
+class MarkdownLinkTests(unittest.TestCase):
+    def test_missing_files_and_headings_fail(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "docs").mkdir()
+            (root / "docs" / "guide.md").write_text("# Guide\n## Convergence 3.0.0.1 beta\n## Setup\n## Setup\n", encoding="utf-8")
+            (root / "README.md").write_text(
+                "[ok](docs/guide.md#convergence-3001-beta) [again](docs/guide.md#setup-1) [web](https://x.test/a)\n"
+                "[self](#readme) `[code](missing.md)`\n# README\n"
+                "[gone](docs/missing.md) [heading](docs/guide.md#nowhere)\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(markdown_link_errors(root, ["README.md", "docs/guide.md"]), [
+                "README.md links missing docs/missing.md",
+                "README.md links missing heading docs/guide.md#nowhere",
+            ])
 
 
 if __name__ == "__main__":
