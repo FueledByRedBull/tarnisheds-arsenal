@@ -120,7 +120,7 @@ fn build_affinity_watch_inner(
     request: AffinityWatchRequestDto,
     profile: &ProfileData,
     mut progress_cb: impl FnMut(AffinityWatchProgressDto) -> bool,
-    mut should_continue: impl FnMut() -> bool + Send,
+    should_continue: impl Fn() -> bool + Sync,
 ) -> Result<AffinityWatchPayloadDto, AppError> {
     if profile.data_manifest.profile.id != request.base.profile_id {
         return Err(AppError::new(format!(
@@ -174,7 +174,7 @@ fn build_affinity_watch_inner(
                     level,
                 })
             },
-            &mut should_continue,
+            &should_continue,
         )?;
         let points: Vec<ExactAffinityWatchPoint> = level_rows
             .into_iter()
@@ -572,31 +572,28 @@ mod integration_tests {
             .expect("Vanilla profile exists");
         // Count a complete run's cancellation checks, then cancel eight checks before its end:
         // well inside nested level evaluation, whatever preparation's batching.
-        let mut total_polls = 0_usize;
+        let total_polls = std::sync::atomic::AtomicUsize::new(0);
         build_affinity_watch_inner(
             nested_request.clone(),
             profile,
             |_| true,
             || {
-                total_polls += 1;
+                total_polls.fetch_add(1, AtomicOrdering::Relaxed);
                 true
             },
         )
         .expect("uncancelled affinity watch completes");
-        let cancel_after = total_polls - 8;
-        let mut polls = 0_usize;
+        let cancel_after = total_polls.into_inner() - 8;
+        let polls = std::sync::atomic::AtomicUsize::new(0);
         let error = build_affinity_watch_inner(
             nested_request,
             profile,
             |_| true,
-            || {
-                polls += 1;
-                polls < cancel_after
-            },
+            || polls.fetch_add(1, AtomicOrdering::Relaxed) + 1 < cancel_after,
         )
         .expect_err("nested affinity cancellation must not return a partial payload");
         assert_eq!(error.message, "cancelled");
-        assert_eq!(polls, cancel_after);
+        assert_eq!(polls.into_inner(), cancel_after);
     }
 
     #[test]

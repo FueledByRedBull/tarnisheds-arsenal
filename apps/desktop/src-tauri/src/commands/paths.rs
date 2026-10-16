@@ -92,7 +92,7 @@ fn run_path_preview_job(
     requests: Vec<PathPreviewRequestDto>,
     profile: &ProfileData,
     job_id: String,
-    mut should_continue: impl FnMut() -> bool + Send,
+    should_continue: impl Fn() -> bool + Sync,
     mut publish: impl FnMut(PathProgressDto),
 ) -> PathJobStatusDto {
     // Completed levels are work units; reserve one unit for successful batch completion.
@@ -118,7 +118,7 @@ fn run_path_preview_job(
         let planned_levels = path_level_count(&lane);
         let title = lane.title.clone();
         let mut completed_levels = 0;
-        match build_path_preview_inner(lane, profile, &mut should_continue, |level| {
+        match build_path_preview_inner(lane, profile, &should_continue, |level| {
             completed_levels += 1;
             progress.checked += 1;
             progress.title.clone_from(&title);
@@ -211,7 +211,7 @@ fn publish_path_result(
 fn build_path_preview_inner(
     request: PathPreviewRequestDto,
     profile: &ProfileData,
-    mut should_continue: impl FnMut() -> bool + Send,
+    should_continue: impl Fn() -> bool + Sync,
     mut level_complete: impl FnMut(u16),
 ) -> Result<PathPreviewDto, AppError> {
     if profile.data_manifest.profile.id != request.base.profile_id {
@@ -232,7 +232,7 @@ fn build_path_preview_inner(
     if !should_continue() {
         return Err(AppError::new("cancelled"));
     }
-    let evaluator = prepare_path_evaluator(&request, target_level, profile, &mut should_continue)?;
+    let evaluator = prepare_path_evaluator(&request, target_level, profile, &should_continue)?;
     let first = evaluate_step(
         &request,
         request.base.character_level,
@@ -240,7 +240,7 @@ fn build_path_preview_inner(
         None,
         profile,
         &evaluator,
-        &mut should_continue,
+        &should_continue,
     )?;
     let mut steps = vec![first.dto];
     level_complete(request.base.character_level);
@@ -248,7 +248,7 @@ fn build_path_preview_inner(
     if !should_continue() {
         return Err(AppError::new("cancelled"));
     }
-    let target = path_target_build(&request, target_level, &evaluator, &mut should_continue)?;
+    let target = path_target_build(&request, target_level, &evaluator, &should_continue)?;
     if !should_continue() {
         return Err(AppError::new("cancelled"));
     }
@@ -270,7 +270,7 @@ fn build_path_preview_inner(
             target.stats,
             profile,
             &evaluator,
-            &mut should_continue,
+            &should_continue,
         )?
         else {
             break;
@@ -290,7 +290,7 @@ fn build_path_preview_inner(
 fn build_optimum_envelope(
     request: PathPreviewRequestDto,
     profile: &ProfileData,
-    should_continue: impl FnMut() -> bool + Send,
+    should_continue: impl Fn() -> bool + Sync,
     mut level_complete: impl FnMut(u16),
 ) -> Result<PathPreviewDto, AppError> {
     let first_level = request.base.character_level;
@@ -381,7 +381,7 @@ fn prepare_path_evaluator<'a>(
     request: &PathPreviewRequestDto,
     target_level: u16,
     profile: &'a ProfileData,
-    should_continue: &mut (impl FnMut() -> bool + Send),
+    should_continue: &(impl Fn() -> bool + Sync),
 ) -> Result<PreparedLoadoutEvaluator<'a>, AppError> {
     let mut template = request.base.clone();
     template.character_level = target_level;
@@ -395,7 +395,7 @@ fn path_target_build(
     request: &PathPreviewRequestDto,
     target_level: u16,
     evaluator: &PreparedLoadoutEvaluator<'_>,
-    should_continue: &mut (impl FnMut() -> bool + Send),
+    should_continue: &(impl Fn() -> bool + Sync),
 ) -> Result<Option<SolvedBuildDto>, AppError> {
     let mut target_request = request.base.clone();
     target_request.character_level = target_level;
@@ -419,7 +419,7 @@ fn choose_next_step(
     target_state: CombatStateDto,
     profile: &ProfileData,
     evaluator: &PreparedLoadoutEvaluator<'_>,
-    should_continue: &mut (impl FnMut() -> bool + Send),
+    should_continue: &(impl Fn() -> bool + Sync),
 ) -> Result<Option<EvaluatedPathStep>, AppError> {
     let mut candidates = Vec::new();
     for stat in ["str", "dex", "int", "fai", "arc"] {
@@ -456,7 +456,7 @@ fn evaluate_step(
     added_stat: Option<String>,
     profile: &ProfileData,
     evaluator: &PreparedLoadoutEvaluator<'_>,
-    should_continue: &mut (impl FnMut() -> bool + Send),
+    should_continue: &(impl Fn() -> bool + Sync),
 ) -> Result<EvaluatedPathStep, AppError> {
     let mut request = path.base.clone();
     request.character_level = level;
@@ -642,14 +642,13 @@ mod integration_tests {
                             worker_injected.store(true, Ordering::Relaxed);
                             panic!("injected before Paths calculation");
                         }
-                        let mut checkpoints = 0;
+                        let checkpoints = AtomicUsize::new(0);
                         run_path_preview_job(
                             vec![lane],
                             &profile,
                             "first".into(),
                             || {
-                                checkpoints += 1;
-                                if checkpoints == 4 {
+                                if checkpoints.fetch_add(1, Ordering::Relaxed) == 3 {
                                     worker_injected.store(true, Ordering::Relaxed);
                                     panic!("injected inside Paths calculation");
                                 }
@@ -844,21 +843,18 @@ mod integration_tests {
             .unwrap();
         let mut lane = request(&state);
         lane.mode = PathMode::OptimumEnvelope;
-        let mut polls = 0;
+        let polls = std::sync::atomic::AtomicUsize::new(0);
         let result = build_path_preview_inner(
             lane,
             profile,
-            || {
-                polls += 1;
-                polls < 3
-            },
+            || polls.fetch_add(1, Ordering::Relaxed) < 2,
             |_| panic!("cancel must arrive before the first completed level"),
         );
         assert!(
             result.is_err(),
             "must cancel inside optimizer before completing two levels"
         );
-        assert_eq!(polls, 3);
+        assert_eq!(polls.into_inner(), 3);
     }
 
     #[test]
@@ -942,13 +938,13 @@ mod integration_tests {
                     lane.mode = mode;
                     lane.levels_ahead = horizon;
                     let mut snapshots = Vec::new();
-                    let mut polls = 0;
+                    let polls = std::sync::atomic::AtomicUsize::new(0);
                     let status = run_path_preview_job(
                         vec![lane; lanes],
                         profile,
                         "path-test".to_string(),
                         || {
-                            polls += 1;
+                            polls.fetch_add(1, Ordering::Relaxed);
                             true
                         },
                         |snapshot| snapshots.push(snapshot),
@@ -966,7 +962,7 @@ mod integration_tests {
                             .all(|snapshot| snapshot.checked < snapshot.total)
                     );
                     assert_eq!(snapshots[0].checked, 0);
-                    assert!(snapshots.len() < polls);
+                    assert!(snapshots.len() < polls.into_inner());
                     assert!(snapshots.len() <= terminal.checked as usize);
                     snapshots.push(terminal);
                     assert!(
@@ -1005,16 +1001,13 @@ mod integration_tests {
             assert_eq!(progress.checked, 2);
             assert!(progress.checked < progress.total);
 
-            let mut polls = 0;
+            let polls = std::sync::atomic::AtomicUsize::new(0);
             let mut snapshots = Vec::new();
             let status = run_path_preview_job(
                 vec![lane; 2],
                 profile,
                 "cancelled".to_string(),
-                || {
-                    polls += 1;
-                    polls < 5
-                },
+                || polls.fetch_add(1, Ordering::Relaxed) < 4,
                 |snapshot| snapshots.push(snapshot),
             );
             let finished = status.finished.unwrap();
@@ -1170,31 +1163,28 @@ mod integration_tests {
             .expect("Vanilla profile exists");
         // Count a complete run's cancellation checks, then cancel eight checks before its end:
         // well inside nested level evaluation, whatever preparation's batching.
-        let mut total_polls = 0_usize;
+        let total_polls = std::sync::atomic::AtomicUsize::new(0);
         build_path_preview_inner(
             nested_request.clone(),
             profile,
             || {
-                total_polls += 1;
+                total_polls.fetch_add(1, Ordering::Relaxed);
                 true
             },
             |_| {},
         )
         .expect("uncancelled path completes");
-        let cancel_after = total_polls - 8;
-        let mut polls = 0_usize;
+        let cancel_after = total_polls.into_inner() - 8;
+        let polls = std::sync::atomic::AtomicUsize::new(0);
         let error = build_path_preview_inner(
             nested_request,
             profile,
-            || {
-                polls += 1;
-                polls < cancel_after
-            },
+            || polls.fetch_add(1, Ordering::Relaxed) + 1 < cancel_after,
             |_| {},
         )
         .expect_err("nested path cancellation must not return a partial path");
         assert_eq!(error.message, "cancelled");
-        assert_eq!(polls, cancel_after);
+        assert_eq!(polls.into_inner(), cancel_after);
     }
 
     #[test]
