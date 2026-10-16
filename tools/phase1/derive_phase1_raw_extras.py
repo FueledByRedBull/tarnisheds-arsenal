@@ -7,7 +7,13 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.phase1.phase1_dump import object_to_int, to_float, to_int, write_csv  # noqa: E402
+from tools.phase1.phase1_dump import (  # noqa: E402
+    STATUS_ATTACK_POWER_FIELDS as STATUS_FIELDS,
+    object_to_int,
+    to_float,
+    to_int,
+    write_csv,
+)
 
 WEAPON_EFFECT_FIELDS = (
     "spEffectBehaviorId0",
@@ -22,15 +28,6 @@ REINFORCE_OVERLAY_FIELD_TO_WEAPON_FIELD = {
     "spEffectId3": "spEffectBehaviorId2",
 }
 
-STATUS_FIELDS = {
-    "bleed": ("bloodAttackPower",),
-    "frost": ("freezeAttackPower",),
-    "poison": ("poizonAttackPower",),
-    "scarlet_rot": ("diseaseAttackPower",),
-    "sleep": ("sleepAttackPower",),
-    "madness": ("madnessAttackPower",),
-    "death": ("curseAttackPower",),
-}
 STATUS_CORRECTION_COLUMNS = {
     status_key: f"{status_key}_uses_status_correction" for status_key in STATUS_FIELDS
 }
@@ -136,8 +133,8 @@ def build_weapon_passives(
             if effect is None:
                 continue
             correction_value = _optional_bool(effect, "isUseStatusAilmentAtkPowerCorrect")
-            for status_key, source_fields in STATUS_FIELDS.items():
-                amount = sum(to_float(effect, field_name, 0.0) for field_name in source_fields)
+            for status_key, field_name in STATUS_FIELDS.items():
+                amount = to_float(effect, field_name, 0.0)
                 if amount <= 0.0:
                     continue
                 if status_key == "scarlet_rot":
@@ -216,8 +213,8 @@ def build_weapon_passive_overlays(
                     continue
                 effect_ids.append(effect_id)
                 correction_value = _optional_bool(effect, "isUseStatusAilmentAtkPowerCorrect")
-                for status_key, source_fields in STATUS_FIELDS.items():
-                    amount = sum(to_float(effect, field_name, 0.0) for field_name in source_fields)
+                for status_key, field_name in STATUS_FIELDS.items():
+                    amount = to_float(effect, field_name, 0.0)
                     if amount <= 0.0:
                         continue
                     totals[status_key] += amount

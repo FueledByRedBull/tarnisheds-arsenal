@@ -5,11 +5,14 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+from tools.phase4 import convergence_reference
 from tools.phase4.convergence_reference import (
     STATUS_KEYS,
     _canonical_hash,
     _ours_signature,
+    build_reference,
     validate_reference,
 )
 
@@ -71,6 +74,26 @@ class ConvergenceReferenceTests(unittest.TestCase):
                 writer.writerows(rows)
             with self.assertRaisesRegex(ValueError, "affinities differ"):
                 validate_reference(snapshot, reference_path)
+
+    def test_build_reference_matches_rows_by_affinity_and_signature(self) -> None:
+        rows = [{**weapon_row(1, "Standard"), "name": "Blade"}, {**weapon_row(2, "Heavy"), "name": "Blade"}]
+        source = {"weaponName": "Blade", "weaponType": 1, "reinforceTypeId": 0, "attack": [[0, 10]]}
+        reference = {"weapons": [{**source, "affinityId": 1}, {**source, "affinityId": -1}],
+                     "statusSpEffectParams": {}}
+        with tempfile.TemporaryDirectory() as temporary:
+            snapshot = Path(temporary)
+            with (snapshot / "weapons.csv").open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
+                writer.writeheader()
+                writer.writerows(rows)
+            with patch.object(convergence_reference, "_fetch_reference", return_value=(b"payload", reference)):
+                built = build_reference(snapshot, "https://example.invalid/reference.js")
+                self.assertEqual(built["weapons"], [{"weaponId": 1, "affinity": "Standard"},
+                                                    {"weaponId": 2, "affinity": "Heavy"}])
+                self.assertEqual(built["affinityCounts"], {"Heavy": 1, "Standard": 1})
+                reference["weapons"].append({**source, "affinityId": 2})
+                with self.assertRaisesRegex(ValueError, "unmatched 2:Blade"):
+                    build_reference(snapshot, "https://example.invalid/reference.js")
 
 
 if __name__ == "__main__":

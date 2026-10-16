@@ -12,9 +12,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.phase1.snapshot_manifest import SCHEMA_VERSION  # noqa: E402
-
-EXPECTED_PRODUCT_NAME = "Tarnished’s Arsenal"
-EXPECTED_UPGRADE_CODE = "{EC17FDAC-E313-5440-BD56-B985F2F0DA58}"
+from tools.phase4.package_release import EXPECTED_PRODUCT_NAME, EXPECTED_UPGRADE_CODE  # noqa: E402
 
 
 def load_json(path: Path) -> dict:
