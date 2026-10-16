@@ -220,23 +220,22 @@ The phase and workflow reports retain build provenance under `metadata.build`.
 `source.fingerprint` identifies the commit and scoped working-tree file bytes,
 including relevant untracked inputs and deleted tracked files. `source.dirty`
 describes that scope; local audit evidence and generated output are excluded.
-`compiler_variant_fingerprint` separately identifies the toolchain, Cargo release
-profile and compiler configuration inputs. Changing LTO, codegen units or Rust
-flags at the same commit therefore produces a different compiler identity.
-The invocation retains the command and output directory; changing the repeat count
-or target directory alone does not define a new compiler variant. Raw samples and
-complete result fingerprints remain in their existing case records.
-
-The collector follows Cargo's configuration search from the command's working
-directory, including ancestor directories and Cargo home. It retains only relevant
-compiler settings and environment overrides, never the general environment or
-registry credentials. The resolved release-profile table is a Cargo configuration
-record, not a reconstructed rustc command: Rust flags can override code generation,
-target `cfg` conditions are retained without evaluating them, and test builds have
-Cargo's test-specific behavior. Unsupported configuration forms fail explicitly
-instead of silently reporting default settings. See Cargo's
-[configuration precedence](https://doc.rust-lang.org/cargo/reference/config.html)
-and [profile rules](https://doc.rust-lang.org/cargo/reference/profiles.html).
+`compiler_variant_fingerprint` separately identifies the compiler inputs: `cargo -vV`
+and `rustc -vV` output, the manifest's `[profile]` tables, the bytes of every Cargo
+configuration file Cargo would read (`config` or `config.toml` in Cargo home and in
+the working directory and its ancestors), compiler-affecting `CARGO_PROFILE_*`,
+`CARGO_BUILD_*`, `CARGO_TARGET_*`, `CARGO_ENCODED_*` and `CARGO_INCREMENTAL`
+variables, `RUSTFLAGS`-style and native compiler variables, and the Cargo arguments.
+Changing LTO, codegen units or Rust flags at the same commit therefore produces a
+different compiler identity. The collector hashes these inputs and leaves profile
+resolution and precedence to Cargo, so it does not report an effective profile.
+Configuration files are hashed, never copied, and other environment variables
+(including registry tokens and proxies) are never recorded.
+The invocation retains the command and the output-location variables
+(`CARGO_TARGET_DIR`, `CARGO_BUILD_TARGET_DIR`, `CARGO_BUILD_BUILD_DIR`,
+`CARGO_BUILD_JOBS`); changing the repeat count or target directory alone does not
+define a new compiler variant. Raw samples and complete result fingerprints remain
+in their existing case records.
 Both drivers recheck source and compiler fingerprints after execution and discard
 measurements if those inputs changed during the run.
 
