@@ -141,7 +141,7 @@ test("manual comparison filters preserve pins and unpinning invalidates the Path
   await page.getByRole("button", { name: "Use pinned targets", exact: true }).click();
   await expect(page.getByRole("group", { name: "Pinned #1", exact: true })).toBeVisible();
   await page.getByRole("navigation").getByRole("button", { name: "Rankings", exact: true }).click();
-  await page.locator(".result-row-full").nth(1).getByRole("button", { name: /^Unpin / }).click();
+  await page.locator(".result-row").nth(1).getByRole("button", { name: /^Unpin / }).click();
   await page.getByRole("navigation").getByRole("button", { name: "Paths", exact: true }).click();
   await expect(page.locator(".path-lane").nth(1)).toContainText("No compare lane selected.");
   expect(await page.evaluate(async () => (await import("/src/lib/state.ts")).useDesktopStore.getState().compareTarget)).toBeNull();
@@ -207,7 +207,7 @@ test("a delta that rounds to 0.0 reads as no change", async ({ page }) => {
     const [first, second, ...rest] = useDesktopStore.getState().rows;
     useDesktopStore.getState().setRows([first, { ...second, ar: { ...second.ar, total: first.ar.total + 0.04 } }, ...rest], 100);
   });
-  await page.locator(".result-row-full").first().click();
+  await page.locator(".result-row").first().click();
   await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
   const arDelta = page.getByRole("table", { name: "Primary deltas versus baseline" }).getByRole("row").nth(1).getByRole("cell").first();
   await expect(arDelta).toHaveText("0.0");

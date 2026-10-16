@@ -68,7 +68,7 @@ for (const withPins of [false, true]) {
     });
     await openSection(page, "Saved Builds");
     await page.getByRole("button", { name: "Load", exact: true }).click();
-    await page.locator(".result-row-full").click();
+    await page.locator(".result-row").click();
     await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
     await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
     await expect.poll(() => page.evaluate(async () => {
@@ -131,7 +131,7 @@ for (const stale of [false, true]) {
     await page.goto("/");
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect(page.getByText("4 ranked rows")).toBeVisible();
-    await page.locator(".result-row-full").first().getByRole("button", { name: /^Compare / }).click();
+    await page.locator(".result-row").first().getByRole("button", { name: /^Compare / }).click();
     await openSection(page, "Saved Builds");
     await page.getByRole("button", { name: "Save new", exact: true }).click();
     const stored = await page.evaluate((stale) => {
@@ -154,7 +154,7 @@ for (const stale of [false, true]) {
     });
     await page.getByRole("button", { name: stale ? "Load inputs only" : "Load", exact: true }).click();
     await expect(page.getByRole("checkbox", { name: "Two-handing", exact: true })).not.toBeChecked();
-    await expect(page.locator(".result-row-full")).toHaveCount(stale ? 0 : 1);
+    await expect(page.locator(".result-row")).toHaveCount(stale ? 0 : 1);
     if (stale) {
       // Inputs-only loads drop the saved pins and keep the current ones, so nothing is written.
       await expect(page.getByText(/inputs only: saved data differs/)).toBeVisible();
@@ -170,7 +170,7 @@ test("saving with result locks disabled keeps them disabled after loading", asyn
   await page.goto("/");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
-  await page.locator(".result-row-full").first().getByRole("button", { name: /^Lock / }).click();
+  await page.locator(".result-row").first().getByRole("button", { name: /^Lock / }).click();
   await openEditor(page, "Limits");
   const locks = page.getByRole("checkbox", { name: "Use stat locks", exact: true });
   await locks.uncheck();
@@ -254,7 +254,7 @@ for (const action of ["Save new", "Update selected"]) {
     await page.goto("/");
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect(page.getByText("4 ranked rows")).toBeVisible();
-    await page.locator(".result-row-full").first().getByRole("button", { name: /^Compare / }).click();
+    await page.locator(".result-row").first().getByRole("button", { name: /^Compare / }).click();
     await openSection(page, "Saved Builds");
     if (action === "Update selected") await page.getByRole("button", { name: "Save new", exact: true }).click();
     await page.getByRole("checkbox", { name: "Two-handing", exact: true }).check();
@@ -267,7 +267,7 @@ for (const action of ["Save new", "Update selected"]) {
     });
     expect(saved).toMatchObject({ request: { twoHanding: true }, selectedBuild: null, compareTarget: null, compareBench: [] });
     await page.getByRole("button", { name: "Load", exact: true }).click();
-    await expect(page.locator(".result-row-full")).toHaveCount(0);
+    await expect(page.locator(".result-row")).toHaveCount(0);
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect(page.getByText("4 ranked rows")).toBeVisible();
   });
@@ -336,8 +336,8 @@ test("failed migration stops further recomputations and keeps the original error
   await page.goto("/");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
-  await page.locator(".result-row-full").nth(0).getByRole("button", { name: /^Compare / }).click();
-  await page.locator(".result-row-full").nth(1).getByRole("button", { name: /^Compare / }).click();
+  await page.locator(".result-row").nth(0).getByRole("button", { name: /^Compare / }).click();
+  await page.locator(".result-row").nth(1).getByRole("button", { name: /^Compare / }).click();
   await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   const presetId = await page.evaluate(() => {

@@ -19,7 +19,7 @@ test("missing skill routes stay unavailable across displays, reports, and saved-
           totalStatusBuildup: { bleed: 0, frost: 0, poison: 0, scarletRot: 0, sleep: 0, madness: 0, death: 0 } } },
     ], 100);
   });
-  const resultRows = page.locator(".result-row-full");
+  const resultRows = page.locator(".result-row");
   await expect(resultRows.first().locator(".skill-cell")).toHaveText("Unavailable");
   await expect(resultRows.nth(1).locator(".skill-cell")).toHaveText("01st hit 0");
   await expect(page.locator(".inspector .metric-grid")).toContainText("Raw AoWUnavailable");

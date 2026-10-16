@@ -81,7 +81,7 @@ for (const mutation of ["total", "route", "identity", "upgrade"] as const) {
     await page.getByRole("button", { name: "Load", exact: true }).click();
     if (mutation === "identity" || mutation === "upgrade") {
       await expect(page.locator('.error-strip[role="alert"]')).toContainText(/contradict|cannot be verified|upgrade/i);
-      await expect(page.locator(".result-row-full")).toHaveCount(0);
+      await expect(page.locator(".result-row")).toHaveCount(0);
     } else {
       await expect(page.getByText(/saved results verified on current data/)).toBeVisible();
       const result = await page.evaluate(async () => {

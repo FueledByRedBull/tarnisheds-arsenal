@@ -89,14 +89,14 @@ test("tradeoff views select exact threshold choices and persist an exact apply",
     });
   }, { chosenAr: Number(chosenPointAr), chosenBleed: Number(chosenPointBleed) });
   await section.getByRole("button", { name: "Use exact allocation", exact: true }).click();
-  await expect(page.locator(".result-row-full")).toHaveCount(1);
+  await expect(page.locator(".result-row")).toHaveCount(1);
   const applied = await page.evaluate(() => (window as any).appliedTradeoffRequest);
   expect(applied).toMatchObject({
     weaponName: "Uchigatana", affinity: "Blood", aowName: "Seppuku",
     objective: "max_ar", exactUpgrade: true, standardMaxUpgrade: 25,
     lockStr: 13, lockDex: 19, lockInt: 9, lockFai: 8, lockArc: 63,
   });
-  const appliedRow = page.locator(".result-row-full").first();
+  const appliedRow = page.locator(".result-row").first();
   await expect(appliedRow.locator(".weapon-cell strong")).toHaveText("Uchigatana");
   await expect(appliedRow.locator(".loadout-affinity")).toHaveText("Blood");
   await expect(appliedRow.locator(".loadout-skill")).toHaveText("Seppuku");
@@ -145,8 +145,8 @@ test("tradeoff views select exact threshold choices and persist an exact apply",
         lockStr: 13, lockDex: 19, lockInt: 9, lockFai: 8, lockArc: 63 }),
     }),
   ]));
-  await expect(page.locator(".result-row-full")).toHaveCount(1);
-  const reloadedRow = page.locator(".result-row-full").first();
+  await expect(page.locator(".result-row")).toHaveCount(1);
+  const reloadedRow = page.locator(".result-row").first();
   await expect(reloadedRow.locator(".weapon-cell strong")).toHaveText("Uchigatana");
   await expect(reloadedRow.locator(".loadout-affinity")).toHaveText("Blood");
   await expect(reloadedRow.locator(".loadout-skill")).toHaveText("Seppuku");
