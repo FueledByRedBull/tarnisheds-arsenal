@@ -735,6 +735,34 @@ describe("saved profile queries", () => {
     }
   });
 
+  it("round-trips a Custom stats query through storage", () => {
+    const values = memoryStorage();
+    const profile = catalog("convergence");
+    profile.dataManifest.capabilities.classBudget = false;
+    profile.classes = [{ name: "Custom stats", baseLevel: 0, baseTotal: 0,
+      baseStats: { vig: 0, mnd: 0, end: 0, strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 } }];
+    const stop = persistProfileQueries();
+    try {
+      useDesktopStore.setState({ catalog: null, catalogStatus: "loading", profiles: [profile.dataManifest],
+        request: defaultRequest, profileQueries: {}, notices: [] });
+      useDesktopStore.getState().beginProfileSwitch("convergence");
+      useDesktopStore.getState().setCatalog(profile);
+      useDesktopStore.getState().patchRequest({ twoHanding: true, dex: 40 });
+    } finally {
+      stop();
+    }
+    try {
+      useDesktopStore.setState({ catalog: null, catalogStatus: "loading", request: defaultRequest, profileQueries: {}, notices: [] });
+      useDesktopStore.getState().beginProfileSwitch("convergence");
+      const restored = useDesktopStore.getState();
+      expect(restored.notices.map((notice) => notice.tone)).not.toContain("warning");
+      expect(restored.request).toMatchObject({ profileId: "convergence", className: "Custom stats", twoHanding: true, dex: 40 });
+      expect(values.has("tarnisheds-arsenal.query.v1.convergence")).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("saves only the loaded profile's query", () => {
     const values = memoryStorage();
     const stop = persistProfileQueries();

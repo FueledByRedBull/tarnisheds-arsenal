@@ -359,10 +359,11 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       loadoutSelectionRevision: state.loadoutSelectionRevision + 1,
       request: applyProfileRules({
         ...state.request,
+        // Without a class budget the level comes from the entered stats; keep the stored level
+        // valid instead of copying Custom stats' base level 0.
         ...(resetClass ? {
           className: classInfo.name,
-          characterLevel: classInfo.baseLevel,
-          ...(catalog.dataManifest.capabilities.classBudget ? classInfo.baseStats : {}),
+          ...(catalog.dataManifest.capabilities.classBudget ? { characterLevel: classInfo.baseLevel, ...classInfo.baseStats } : {}),
         } : {}),
         profileId: catalog.dataManifest.profile.id,
         objective: catalog.objectiveIds.includes(state.request.objective)
