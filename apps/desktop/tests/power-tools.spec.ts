@@ -46,7 +46,7 @@ test("Ctrl+Z and Ctrl+Y step through query edits with named buttons", async ({ p
 
   // A profile switch starts a fresh history.
   await page.getByRole("radiogroup", { name: "Game profile" }).getByRole("radio", { name: /Convergence/ }).click();
-  await expect(page.getByText("Experimental fixed-stat model", { exact: true })).toBeVisible();
+  await expect(page.getByText("Experimental model", { exact: true })).toBeVisible();
   await expect(undo).toBeDisabled();
   await expect(redo).toBeDisabled();
 });

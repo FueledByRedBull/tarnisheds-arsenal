@@ -14,6 +14,9 @@ if str(ROOT) not in sys.path:
 
 from tools.phase1.extract_motion_workbook import MOTION_WORKBOOK_NAME, load_weapon_workbook_data  # noqa: E402
 from tools.phase1.phase1_dump import (  # noqa: E402
+    CLASS_CATALOG_FILE,
+    CLASS_LEVEL_OFFSET,
+    CLASS_STAT_FIELDS,
     MAX_EFFECTIVE_STRENGTH,
     WORKBOOK_POISE_FIELDS,
     read_csv,
@@ -221,6 +224,60 @@ def validate_aow_compatibility(
     return []
 
 
+def validate_class_catalog(rows: list[dict[str, str]]) -> list[ValidationIssue]:
+    expected_header = ["class_id", "name", "base_level", *(key for key, _ in CLASS_STAT_FIELDS)]
+    if not rows or list(rows[0]) != expected_header:
+        return [ValidationIssue("error", f"{CLASS_CATALOG_FILE} must have rows with header {expected_header}")]
+    names: set[str] = set()
+    for row in rows:
+        stats = [int(row[key]) for key, _ in CLASS_STAT_FIELDS]
+        name = row["name"]
+        if (
+            not name.strip()
+            or name.casefold() in names
+            or name.casefold() == "custom stats"
+            or any(not 1 <= value <= 99 for value in stats)
+            or int(row["base_level"]) != sum(stats) - CLASS_LEVEL_OFFSET
+        ):
+            return [ValidationIssue("error", f"{CLASS_CATALOG_FILE} has an invalid class row: {row}")]
+        names.add(name.casefold())
+    return []
+
+
+def validate_fixed_status_rule(
+    weapons: list[dict[str, str]],
+    weapon_passives: list[dict[str, str]],
+    calc_correct: list[dict[str, str]],
+    overlays: list[dict[str, str]],
+) -> list[ValidationIssue]:
+    """A profile may declare fixed status only when its data cannot scale status."""
+    curves: dict[str, list[float]] = defaultdict(list)
+    for row in calc_correct:
+        curves[row["curve_id"]].append(float(row["multiplier"]))
+    zero_curves = {curve_id for curve_id, values in curves.items() if not any(values)}
+    passives = {row["weapon_id"]: row for row in weapon_passives}
+    scaling = sorted(
+        weapon["weapon_id"]
+        for weapon in weapons
+        if float(weapon["arc_scaling"]) > 0
+        and any(
+            float(passives[weapon["weapon_id"]][status]) > 0
+            and weapon[f"curve_id_{curve}"] not in zero_curves
+            for status, curve in (
+                ("bleed", "blood"), ("poison", "poison"), ("sleep", "sleep"), ("madness", "madness")
+            )
+        )
+    )
+    issues = []
+    if scaling:
+        issues.append(ValidationIssue(
+            "error", f"fixed-status profile has arcane-scaling status weapons: {scaling[:10]}"
+        ))
+    if overlays:
+        issues.append(ValidationIssue("error", "fixed-status profile has upgrade status overlays"))
+    return issues
+
+
 def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[ValidationIssue]:
     """Validate shared contracts and the selected profile's coverage requirements."""
     issues: list[ValidationIssue] = []
@@ -258,6 +315,16 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
     )
     reinforce_caps = max_reinforce_levels(reinforce)
     issues.extend(validate_weapon_model(weapons, calc_correct, reinforce_caps))
+    aec_ids = {row["attack_element_correct_id"] for row in attack_element_correct}
+    missing_aec = sorted({row["attack_element_correct_id"] for row in weapons} - aec_ids)
+    if missing_aec:
+        issues.append(ValidationIssue("error", f"weapons reference missing attack-element rows: {missing_aec[:10]}"))
+    if any(record["path"] == CLASS_CATALOG_FILE for record in manifest["runtimeFiles"]):
+        issues.extend(validate_class_catalog(read_csv(data_dir / CLASS_CATALOG_FILE)))
+    if not manifest["rules"]["statusBuildupScales"]:
+        issues.extend(validate_fixed_status_rule(
+            weapons, weapon_passives, calc_correct, read_csv(data_dir / "weapon_passive_overlays.csv")
+        ))
 
     minimums = [
         ("weapons.csv", len(weapons), 3_000 if profile_id == "vanilla" else 100),
@@ -355,13 +422,6 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
                 ValidationIssue(
                     "error",
                     f"Convergence external-reference differential failed: {error}",
-                )
-            )
-        if manifest["rules"]["statusBuildupScales"]:
-            issues.append(
-                ValidationIssue(
-                    "error",
-                    "Convergence weapon status must remain fixed across stats and upgrades",
                 )
             )
         required_sources = {

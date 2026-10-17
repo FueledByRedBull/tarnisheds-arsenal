@@ -1,6 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-use er_optimizer_core::math::STARTING_CLASSES;
 use er_optimizer_core::{
     GameData, OptimizeObjective, SomberFilter, Weapon, normalize_weapon_type_display,
 };
@@ -432,23 +431,32 @@ fn weapon_profile_inner(
     })
 }
 
+/// Whether a request is budgeted by a class. Custom stats, where the profile offers it,
+/// evaluates the entered stats exactly instead.
+pub fn uses_class_budget(profile: &ProfileData, class_name: &str) -> bool {
+    profile.data.capabilities.class_budget
+        && !(profile.data.offers_custom_stats()
+            && class_name.eq_ignore_ascii_case(er_optimizer_core::CUSTOM_STATS_CLASS_NAME))
+}
+
 pub fn class_metadata(profile: &ProfileData) -> Vec<ClassMetadataDto> {
+    let custom_stats = || ClassMetadataDto {
+        name: er_optimizer_core::CUSTOM_STATS_CLASS_NAME.to_string(),
+        base_level: 0,
+        base_total: 0,
+        base_stats: EightStatsDto {
+            vig: 0,
+            mnd: 0,
+            end: 0,
+            str_stat: 0,
+            dex: 0,
+            int_stat: 0,
+            fai: 0,
+            arc: 0,
+        },
+    };
     if !profile.data.capabilities.class_budget {
-        return vec![ClassMetadataDto {
-            name: "Custom stats".to_string(),
-            base_level: 0,
-            base_total: 0,
-            base_stats: EightStatsDto {
-                vig: 0,
-                mnd: 0,
-                end: 0,
-                str_stat: 0,
-                dex: 0,
-                int_stat: 0,
-                fai: 0,
-                arc: 0,
-            },
-        }];
+        return vec![custom_stats()];
     }
     // Idus Knight and Heavy Knight exist from game version 1.17 onwards.
     let mut version = profile
@@ -461,10 +469,14 @@ pub fn class_metadata(profile: &ProfileData) -> Vec<ClassMetadataDto> {
         (version.next(), version.next()),
         (Some(Ok(major)), Some(Ok(minor))) if (major, minor) >= (1, 17)
     );
-    STARTING_CLASSES
+    let mut classes = profile
+        .data
+        .starting_classes
         .iter()
         .filter(|class_info| {
-            include_tarnished_pack || !matches!(class_info.name, "Idus Knight" | "Heavy Knight")
+            profile.data.profile_id != er_optimizer_core::VANILLA_PROFILE_ID
+                || include_tarnished_pack
+                || !matches!(class_info.name.as_ref(), "Idus Knight" | "Heavy Knight")
         })
         .map(|class_info| ClassMetadataDto {
             name: class_info.name.to_string(),
@@ -481,7 +493,12 @@ pub fn class_metadata(profile: &ProfileData) -> Vec<ClassMetadataDto> {
                 arc: class_info.base_stats.arc,
             },
         })
-        .collect()
+        .collect::<Vec<_>>();
+    // Saved builds and exact-stat entry keep working next to a mod's own classes.
+    if profile.data.offers_custom_stats() {
+        classes.push(custom_stats());
+    }
+    classes
 }
 
 pub fn affinities_for_weapon_inner(index: &CatalogIndex, weapon_name: &str) -> Vec<String> {
@@ -803,7 +820,7 @@ mod compatibility_tests {
             request.profile_id = profile_id.to_string();
             request.standard_max_upgrade = Some(0);
             request.somber_max_upgrade = Some(0);
-            if !profile.data.capabilities.class_budget {
+            if profile.data.offers_custom_stats() {
                 request.class_name = er_optimizer_core::CUSTOM_STATS_CLASS_NAME.to_string();
                 request.character_level = [9_u16, 12, 13, 12, 15, 9, 8, 8].iter().sum();
                 request.vig = 9;

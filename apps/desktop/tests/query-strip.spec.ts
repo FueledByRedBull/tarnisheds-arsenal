@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, type EditorName } from "./editors";
+import { chooseClass, openEditor, type EditorName } from "./editors";
 
 async function ready(page: Page) {
   await page.goto("/");
@@ -188,16 +188,25 @@ for (const [width, height] of [[1200, 720], [1650, 950]]) {
   });
 }
 
-test("Convergence summarises custom stats and hides class-budget commands", async ({ page }) => {
+test("Convergence offers its own classes and keeps Custom stats exact", async ({ page }) => {
   await ready(page);
   await page.getByRole("radiogroup", { name: "Game profile" }).getByRole("radio", { name: /Convergence/ }).click();
-  await expect(page.getByRole("button", { name: "Class: Custom stats" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Class: Retainer" })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Upgrades: / })).toHaveAccessibleName(/\+15/);
   await expect(page.getByRole("button", { name: /^More options: / })).toHaveAccessibleName(/No Scadutree/);
+  {
+    const { dialog, input } = await palette(page, "class samurai");
+    await expect(dialog.getByRole("option", { name: /Samurai/ })).toHaveCount(0);
+    await input.fill("blessing 5");
+    await expect(dialog.getByRole("option", { name: /Scadutree Blessing/ })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+  }
+
+  // The exact-stat entry stays available and keeps its fixed-stat commands.
+  await chooseClass(page, "Custom stats");
+  await expect(page.getByRole("button", { name: "Class: Custom stats" })).toBeVisible();
   const { dialog, input } = await palette(page, "str 40");
   await expect(dialog.getByRole("option")).toHaveCount(1);
-  await input.fill("optimize class");
-  await expect(dialog.getByRole("option", { name: /Optimize class/ })).toHaveCount(0);
-  await input.fill("blessing 5");
-  await expect(dialog.getByRole("option", { name: /Scadutree Blessing/ })).toHaveCount(0);
+  await input.fill("class custom");
+  await expect(dialog.getByRole("option", { name: /Custom stats/ })).toHaveCount(0);
 });

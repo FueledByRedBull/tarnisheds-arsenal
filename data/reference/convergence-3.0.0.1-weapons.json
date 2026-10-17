@@ -11,6 +11,7 @@
   "matchedWeaponIdsSha256": "3e66d85d5930fbe1dfa316653c9dbb0e27fe8b9739f657914a482ea56587ed76",
   "modeledWeaponDataSha256": "248ec06548f3e69d6c9fd7d5bd4fa989f965af8d8596f1beaeacff3f3a712d10",
   "weaponStatusDataSha256": "2bee971c4b20935f4c492f0927d903902189541e2b65b0c78303334a866c88e9",
+  "weaponCorrectionDataSha256": "74321b9857f05d8de921856c870b133ab322bd49804ae9d1309600aae0e24867",
   "affinityCounts": {
     "Aberrant": 124,
     "Bestial": 124,

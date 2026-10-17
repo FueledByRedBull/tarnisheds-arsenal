@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap};
 
 use num_traits::Zero;
@@ -1143,9 +1144,9 @@ pub(crate) fn merge_status_value(
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StartingClass {
-    pub name: &'static str,
+    pub name: Cow<'static, str>,
     pub base_level: u16,
     pub base_total: u16,
     pub base_stats: Stats,
@@ -1155,7 +1156,7 @@ pub const CUSTOM_STATS_CLASS_NAME: &str = "Custom stats";
 
 pub fn custom_stats_class() -> StartingClass {
     StartingClass {
-        name: CUSTOM_STATS_CLASS_NAME,
+        name: Cow::Borrowed(CUSTOM_STATS_CLASS_NAME),
         base_level: 0,
         base_total: 0,
         base_stats: Stats {
@@ -1173,7 +1174,7 @@ pub fn custom_stats_class() -> StartingClass {
 
 pub const STARTING_CLASSES: [StartingClass; 12] = [
     StartingClass {
-        name: "Vagabond",
+        name: Cow::Borrowed("Vagabond"),
         base_level: 9,
         base_total: 88,
         base_stats: Stats {
@@ -1188,7 +1189,7 @@ pub const STARTING_CLASSES: [StartingClass; 12] = [
         },
     },
     StartingClass {
-        name: "Warrior",
+        name: Cow::Borrowed("Warrior"),
         base_level: 8,
         base_total: 87,
         base_stats: Stats {
@@ -1203,7 +1204,7 @@ pub const STARTING_CLASSES: [StartingClass; 12] = [
         },
     },
     StartingClass {
-        name: "Hero",
+        name: Cow::Borrowed("Hero"),
         base_level: 7,
         base_total: 86,
         base_stats: Stats {
@@ -1218,7 +1219,7 @@ pub const STARTING_CLASSES: [StartingClass; 12] = [
         },
     },
     StartingClass {
-        name: "Bandit",
+        name: Cow::Borrowed("Bandit"),
         base_level: 5,
         base_total: 84,
         base_stats: Stats {
@@ -1233,7 +1234,7 @@ pub const STARTING_CLASSES: [StartingClass; 12] = [
         },
     },
     StartingClass {
-        name: "Astrologer",
+        name: Cow::Borrowed("Astrologer"),
         base_level: 6,
         base_total: 85,
         base_stats: Stats {
@@ -1248,7 +1249,7 @@ pub const STARTING_CLASSES: [StartingClass; 12] = [
         },
     },
     StartingClass {
-        name: "Prophet",
+        name: Cow::Borrowed("Prophet"),
         base_level: 7,
         base_total: 86,
         base_stats: Stats {
@@ -1263,7 +1264,7 @@ pub const STARTING_CLASSES: [StartingClass; 12] = [
         },
     },
     StartingClass {
-        name: "Samurai",
+        name: Cow::Borrowed("Samurai"),
         base_level: 9,
         base_total: 88,
         base_stats: Stats {
@@ -1278,7 +1279,7 @@ pub const STARTING_CLASSES: [StartingClass; 12] = [
         },
     },
     StartingClass {
-        name: "Prisoner",
+        name: Cow::Borrowed("Prisoner"),
         base_level: 9,
         base_total: 88,
         base_stats: Stats {
@@ -1293,7 +1294,7 @@ pub const STARTING_CLASSES: [StartingClass; 12] = [
         },
     },
     StartingClass {
-        name: "Confessor",
+        name: Cow::Borrowed("Confessor"),
         base_level: 10,
         base_total: 89,
         base_stats: Stats {
@@ -1308,7 +1309,7 @@ pub const STARTING_CLASSES: [StartingClass; 12] = [
         },
     },
     StartingClass {
-        name: "Wretch",
+        name: Cow::Borrowed("Wretch"),
         base_level: 1,
         base_total: 80,
         base_stats: Stats {
@@ -1323,7 +1324,7 @@ pub const STARTING_CLASSES: [StartingClass; 12] = [
         },
     },
     StartingClass {
-        name: "Idus Knight",
+        name: Cow::Borrowed("Idus Knight"),
         base_level: 7,
         base_total: 86,
         base_stats: Stats {
@@ -1338,7 +1339,7 @@ pub const STARTING_CLASSES: [StartingClass; 12] = [
         },
     },
     StartingClass {
-        name: "Heavy Knight",
+        name: Cow::Borrowed("Heavy Knight"),
         base_level: 10,
         base_total: 89,
         base_stats: Stats {
@@ -1354,18 +1355,19 @@ pub const STARTING_CLASSES: [StartingClass; 12] = [
     },
 ];
 
+/// Vanilla's built-in classes; profile-specific lookups use `GameData::class_by_name`.
 pub fn class_by_name(name: &str) -> Option<StartingClass> {
     if name.eq_ignore_ascii_case(CUSTOM_STATS_CLASS_NAME) {
         return Some(custom_stats_class());
     }
     STARTING_CLASSES
         .iter()
-        .copied()
         .find(|class_info| class_info.name.eq_ignore_ascii_case(name))
+        .cloned()
 }
 
 pub fn compute_free_points(
-    class_info: StartingClass,
+    class_info: &StartingClass,
     character_level: u16,
     current_stats: &Stats,
 ) -> Result<u16, String> {
@@ -1438,7 +1440,7 @@ mod tests {
             fai: 1,
             arc: 1,
         };
-        assert_eq!(compute_free_points(class, 8, &stats), Ok(0));
+        assert_eq!(compute_free_points(&class, 8, &stats), Ok(0));
     }
 
     #[test]
@@ -2144,6 +2146,11 @@ mod tests {
             .join("profiles")
             .join("convergence");
         let game_data = load_game_data(data_path).unwrap();
+        // The mod's default status curve is flat zero, so even arcane-scaling status
+        // affinities gain nothing from Arcane, and player weapons have no upgrade
+        // status offsets.
+        assert!((0..=148).all(|value| game_data.calc_curve_value(28, value) == Some(0.0)));
+        assert!(game_data.weapon_passive_overlays.is_empty());
         let low_stats = Stats {
             vig: 10,
             mnd: 10,
@@ -2159,38 +2166,41 @@ mod tests {
             arc: 99,
             ..low_stats
         };
+        let status = |buildup: StatusBuildup| {
+            [
+                buildup.bleed,
+                buildup.frost,
+                buildup.poison,
+                buildup.scarlet_rot,
+                buildup.sleep,
+                buildup.madness,
+                buildup.death,
+            ]
+        };
 
-        for (name, expected_bleed, expected_frost, expected_rot) in [
-            ("Galvanic Culling Blade [Twinblade]", 0.0, 86.0, 0.0),
-            ("Reduvia", 82.0, 0.0, 0.0),
-            ("Scorpion's Stinger", 0.0, 0.0, 68.0),
+        for (name, affinity, expected) in [
+            (
+                "Galvanic Culling Blade [Twinblade]",
+                "Standard",
+                [0.0, 86.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            ),
+            ("Reduvia", "Standard", [82.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+            (
+                "Scorpion's Stinger",
+                "Standard",
+                [0.0, 0.0, 0.0, 68.0, 0.0, 0.0, 0.0],
+            ),
+            ("Dagger", "Bloodflame", [68.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+            ("Dagger", "Mystic", [0.0, 0.0, 0.0, 0.0, 79.0, 0.0, 0.0]),
         ] {
-            let weapon = find_weapon(&game_data, name, "Standard");
+            let weapon = find_weapon(&game_data, name, affinity);
             let at_zero = calculate_status_buildup(weapon, 0, &low_stats, &game_data).unwrap();
             let at_fifteen = calculate_status_buildup(weapon, 15, &high_stats, &game_data).unwrap();
-            assert_eq!(at_zero.bleed, expected_bleed, "{name} bleed");
-            assert_eq!(at_zero.frost, expected_frost, "{name} frost");
-            assert_eq!(at_zero.scarlet_rot, expected_rot, "{name} rot");
+            assert_eq!(status(at_zero), expected, "{name} / {affinity}");
             assert_eq!(
-                [
-                    at_zero.bleed,
-                    at_zero.frost,
-                    at_zero.poison,
-                    at_zero.scarlet_rot,
-                    at_zero.sleep,
-                    at_zero.madness,
-                    at_zero.death,
-                ],
-                [
-                    at_fifteen.bleed,
-                    at_fifteen.frost,
-                    at_fifteen.poison,
-                    at_fifteen.scarlet_rot,
-                    at_fifteen.sleep,
-                    at_fifteen.madness,
-                    at_fifteen.death,
-                ],
-                "{name} must not scale status"
+                status(at_fifteen),
+                expected,
+                "{name} / {affinity} must not scale"
             );
         }
     }

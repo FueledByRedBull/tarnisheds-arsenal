@@ -18,7 +18,7 @@ test("each profile's query survives a reload without touching the other profile"
   await expect(twoHanding(page)).toBeChecked();
 
   await page.getByRole("radio", { name: /Convergence/ }).click();
-  await expect(page.getByText("Experimental fixed-stat model", { exact: true })).toBeVisible();
+  await expect(page.getByText("Experimental model", { exact: true })).toBeVisible();
   await twoHanding(page).setChecked(false);
   const str = page.getByRole("spinbutton", { name: "STR", exact: true });
   await str.fill("43");
@@ -28,7 +28,7 @@ test("each profile's query survives a reload without touching the other profile"
 
   // After a reload only storage remembers Vanilla's query; Convergence opens as it was left.
   await page.reload();
-  await expect(page.getByText("Experimental fixed-stat model", { exact: true })).toBeVisible();
+  await expect(page.getByText("Experimental model", { exact: true })).toBeVisible();
   await expect(page.getByText("Restored your The Convergence query. Search to rank it again.")).toBeVisible();
   await expect(page.getByText(/could not be read and was discarded/)).toHaveCount(0);
   await expect(str).toHaveValue("43");

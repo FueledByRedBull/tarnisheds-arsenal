@@ -5,6 +5,7 @@ import { setAnalysisCacheVersion } from "../lib/analysis-cache";
 import { WORKSPACES } from "../lib/commands";
 import { keyboardOwnedByOverlay } from "../lib/keyboard";
 import { catalogVersion } from "../lib/preset-activation";
+import { CUSTOM_STATS_CLASS } from "../lib/session";
 import { persistProfileQueries, useDesktopStore } from "../lib/state";
 import { WorkspaceTab } from "../lib/types";
 import { AffinityWatchView } from "../features/affinity-watch/AffinityWatchView";
@@ -173,7 +174,7 @@ export function App() {
             })}
           </div>
   );
-  const coverageStatus = profileReady ? (limitedAowModel ? "Experimental fixed-stat model" : "Snapshot loaded") : "Loading profile…";
+  const coverageStatus = profileReady ? (limitedAowModel ? "Experimental model" : "Snapshot loaded") : "Loading profile…";
   // A healthy snapshot is the normal case: it is announced, not shown. Loading and the
   // experimental model stay visible; the experimental notes sit behind the label.
   const profileCoverage = (
@@ -194,7 +195,7 @@ export function App() {
           <div className="editor-body">
             <strong>Model coverage and assumptions</strong>
             <p className="editor-note">
-              {convergenceProfile ? "Convergence " : ""}base weapon fields are reference-checked; final AR and customization remain experimental. Enter exact stats: class budgets, Compare, Paths, and Affinity Watch are unavailable. Ammo weapons and AoW hit/route damage remain unsupported.
+              {convergenceProfile ? "Convergence " : ""}weapon AR, fixed status, classes, and Ash permissions are checked against the mod's regulation, not measured in game. Custom stats evaluates entered stats exactly, without Compare, Paths, or Affinity Watch. Ammo weapons and AoW hit/route damage remain unsupported.
             </p>
           </div>
         </Popover>
@@ -255,15 +256,17 @@ function WorkspaceTabs({ ready, classBudget }: { ready: boolean; classBudget: bo
   const selected = useDesktopStore((state) => state.selected);
   const resultsStale = useDesktopStore((state) => state.resultsStale);
   const pinnedCount = useDesktopStore((state) => state.compareBench.length);
+  const customStats = useDesktopStore((state) => state.request.className === CUSTOM_STATS_CLASS);
 
   const tabState = (id: WorkspaceTab) => {
     const requiresSelection = id !== "rankings" && (!selected || resultsStale);
-    const unsupportedBudget = id !== "rankings" && !classBudget;
+    const unsupportedBudget = id !== "rankings" && (!classBudget || customStats);
     return { requiresSelection, unsupportedBudget, disabled: !ready || requiresSelection || unsupportedBudget };
   };
   // Why the analysis tabs are unavailable, said once beside them rather than only on hover.
   const lockReason = !ready ? null
-    : !classBudget ? "Vanilla only: needs verified class budgets"
+    : !classBudget ? "Needs verified class budgets"
+      : customStats ? "Choose a class to unlock"
       : resultsStale && selected ? "Update results to unlock"
         : !selected ? "Search and select a build to unlock" : null;
 

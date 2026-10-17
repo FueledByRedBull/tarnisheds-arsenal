@@ -11,6 +11,7 @@ from tools.phase4 import convergence_reference
 from tools.phase4.convergence_reference import (
     STATUS_KEYS,
     _canonical_hash,
+    _ours_corrections,
     _ours_signature,
     build_reference,
     validate_reference,
@@ -30,8 +31,19 @@ def weapon_row(weapon_id: int, affinity: str) -> dict[str, str]:
         row[f"{stat}_scaling"] = "0"
     for damage in ("physical", "magic", "fire", "lightning", "holy"):
         row[f"base_{damage}"] = "0"
+        row[f"curve_id_{damage}"] = "0"
+    for status in ("poison", "blood", "sleep", "madness"):
+        row[f"curve_id_{status}"] = "28"
     row["base_physical"] = "10"
+    row["attack_element_correct_id"] = "16000"
     return row
+
+
+def write_csv(path: Path, rows: list[dict[str, str]]) -> None:
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
+        writer.writeheader()
+        writer.writerows(rows)
 
 
 class ConvergenceReferenceTests(unittest.TestCase):
@@ -50,6 +62,12 @@ class ConvergenceReferenceTests(unittest.TestCase):
             "modeledWeaponDataSha256": _canonical_hash(modeled),
             "weaponStatusDataSha256": _canonical_hash(
                 [[int(row["weapon_id"]), [0.0] * len(STATUS_KEYS)] for row in rows]
+            ),
+            "weaponCorrectionDataSha256": _canonical_hash(
+                [
+                    [int(row["weapon_id"]), _ours_corrections(row, passive)]
+                    for row, passive in zip(rows, passives, strict=True)
+                ]
             ),
         }
         with tempfile.TemporaryDirectory() as temporary:
@@ -75,9 +93,17 @@ class ConvergenceReferenceTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "affinities differ"):
                 validate_reference(snapshot, reference_path)
 
+            # An omitted XML default replaced by a hard-coded fallback must not pass.
+            rows[0]["affinity"], rows[1]["affinity"] = rows[1]["affinity"], rows[0]["affinity"]
+            rows[0]["attack_element_correct_id"] = "0"
+            write_csv(snapshot / "weapons.csv", rows)
+            with self.assertRaisesRegex(ValueError, "correction-curve IDs differ"):
+                validate_reference(snapshot, reference_path)
+
     def test_build_reference_matches_rows_by_affinity_and_signature(self) -> None:
         rows = [{**weapon_row(1, "Standard"), "name": "Blade"}, {**weapon_row(2, "Heavy"), "name": "Blade"}]
-        source = {"weaponName": "Blade", "weaponType": 1, "reinforceTypeId": 0, "attack": [[0, 10]]}
+        source = {"weaponName": "Blade", "weaponType": 1, "reinforceTypeId": 0, "attack": [[0, 10]],
+                  "attackElementCorrectId": 16000}
         reference = {"weapons": [{**source, "affinityId": 1}, {**source, "affinityId": -1}],
                      "statusSpEffectParams": {}}
         with tempfile.TemporaryDirectory() as temporary:
@@ -86,6 +112,9 @@ class ConvergenceReferenceTests(unittest.TestCase):
                 writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
                 writer.writeheader()
                 writer.writerows(rows)
+            write_csv(snapshot / "weapon_passives.csv", [
+                {"weapon_id": row["weapon_id"], **dict.fromkeys(STATUS_KEYS, "0")} for row in rows
+            ])
             with patch.object(convergence_reference, "_fetch_reference", return_value=(b"payload", reference)):
                 built = build_reference(snapshot, "https://example.invalid/reference.js")
                 self.assertEqual(built["weapons"], [{"weaponId": 1, "affinity": "Standard"},

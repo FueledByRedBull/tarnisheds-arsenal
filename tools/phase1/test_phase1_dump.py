@@ -424,6 +424,47 @@ class Phase1DumpTests(unittest.TestCase):
         self.assertEqual(values[0], 0.0)
         self.assertEqual(values[MAX_EFFECTIVE_STRENGTH], 0.25)
 
+    def test_param_label_markers_are_not_weapon_names(self) -> None:
+        for label in ("[Conv] Hermit's Buckler", "NEW - Hermit's Buckler"):
+            self.assertEqual(
+                phase1_dump.player_weapon_param_name({"id": "1", "name": label, "sortId": "1"}),
+                "Hermit's Buckler",
+            )
+
+    def test_class_catalog_uses_menu_order_and_regulation_names(self) -> None:
+        def chara(row_id: int, name: str, level: int, stats: tuple[int, ...]) -> dict[str, str]:
+            fields = [field for _, field in phase1_dump.CLASS_STAT_FIELDS]
+            return {"id": str(row_id), "name": name, "soulLv": str(level),
+                    **{field: str(value) for field, value in zip(fields, stats)}}
+
+        retainer = (15, 10, 11, 14, 13, 9, 9, 7)
+        prisoner = (10,) * 8
+        charas = [
+            chara(3000, "Class - Retainer", 9, retainer),
+            chara(3100, "Class - Retainer", 9, retainer),
+            chara(3026, "Class - Prisoner", 1, prisoner),
+            chara(3152, "Class - Prisoner", 1, prisoner),
+            chara(1000, "[CNT] Knight", 1, prisoner),
+        ]
+        menu = [
+            {"id": "2026", "disableParam_NT": "1", "chrInitParam": "3152", "originChrInitParam": "3026"},
+            {"id": "1000", "disableParam_NT": "0", "chrInitParam": "1000", "originChrInitParam": "1000"},
+            {"id": "2000", "disableParam_NT": "1", "chrInitParam": "3100", "originChrInitParam": "3000"},
+        ]
+        rows = phase1_dump.build_class_rows(menu, charas)
+        self.assertEqual([(row["name"], row["base_level"], row["vig"]) for row in rows],
+                         [("Retainer", 9, 15), ("Prisoner", 1, 10)])
+
+        for broken, message in (
+            ({**charas[0], "soulLv": "10"}, "attribute total"),
+            ({**charas[0], "name": ""}, "no regulation class name"),
+            ({**charas[0], "baseVit": "16"}, "preview stats differ"),
+        ):
+            with self.subTest(message=message), self.assertRaisesRegex(ValueError, message):
+                phase1_dump.build_class_rows(menu, [broken, *charas[1:]])
+        with self.assertRaisesRegex(ValueError, "missing CharaInitParam"):
+            phase1_dump.build_class_rows(menu, charas[2:])
+
 
 def f32(value: float) -> float:
     try:

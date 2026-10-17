@@ -2,7 +2,7 @@ import { LockKeyhole, Pin, Save, Target } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useWeaponProfileResource } from "../../lib/hooks";
 import { aowModelSupported, compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine, statLockLine } from "../../lib/format";
-import { budgetSnapshot, buildOptimizeRequest, hasCombatStatLocks, respecChanges, rowFingerprint } from "../../lib/session";
+import { budgetSnapshot, buildOptimizeRequest, hasCombatStatLocks, respecChanges, rowFingerprint, usesFixedStats } from "../../lib/session";
 import { EASE_OUT, reducedMotion } from "../../lib/motion";
 import { useDesktopStore } from "../../lib/state";
 import { AowRouteDto, StatusBuildupDto, WeaponProfileDto } from "../../lib/types";
@@ -26,7 +26,7 @@ export function Inspector() {
   const toggleCompareBench = useDesktopStore((state) => state.toggleCompareBench);
   const isExporting = useDesktopStore((state) => state.isExporting);
   const snapshot = budgetSnapshot(catalog, request);
-  const fixedStats = catalog?.dataManifest.capabilities.classBudget === false;
+  const fixedStats = usesFixedStats(catalog, request.className);
   const aowSupported = aowModelSupported(catalog?.dataManifest);
   const aowAvailable = selected && hasAowDamage(selected, aowSupported);
   // Skill damage shows only when these results model it; Rankings says once when they don't.
@@ -233,9 +233,6 @@ function ModelCoverage() {
       <strong>Model coverage and assumptions</strong>
       <p>{objectiveWarning}</p>
       {aowModelUnavailable ? null : <p>Profile capabilities do not guarantee every skill is modeled; a skill that isn&apos;t shows no skill damage.</p>}
-      {profileRules?.zeroAttackElementUsesWeaponScaling ? (
-        <p>Convergence weapons with correction row 0 apply each declared nonzero attribute scaling to each nonzero damage component.</p>
-      ) : null}
       <p>Scored setups count stat spreads that differ only in stats a setup doesn't use once.</p>
       <p>Temporary buff stacking is not a universal layer. Values are raw model outputs, not expected damage against a specific enemy.</p>
       <small>

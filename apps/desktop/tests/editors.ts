@@ -33,6 +33,14 @@ const CONTROL_EDITORS: Record<string, EditorName> = {
 };
 
 // Opens the editor that owns a labelled control; controls outside any editor are left alone.
+/** Choose a starting class through the Class editor. */
+export async function chooseClass(page: Page, className: string): Promise<void> {
+  const panel = await openEditor(page, "Class");
+  await panel.getByRole("combobox", { name: "Class" }).fill(className);
+  await page.keyboard.press("Enter");
+  await closeEditors(page);
+}
+
 export async function openEditorFor(page: Page, control: string): Promise<void> {
   const editor = control.startsWith("Compare ") ? "Comparison filters" : CONTROL_EDITORS[control];
   if (editor) await openEditor(page, editor);

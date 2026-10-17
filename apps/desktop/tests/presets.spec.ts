@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { openEditor, openSection } from "./editors";
+import { chooseClass, openEditor, openSection } from "./editors";
 
 for (const outcome of ["cancelled", "failed"] as const) {
   test(`keeps the saved comparison when its upgrade series is ${outcome}`, async ({ page }) => {
@@ -270,10 +270,11 @@ test("an armed Delete lapses on its own, so a later click never confirms it unse
   await expect(page.getByRole("combobox", { name: "Saved", exact: true })).not.toHaveValue("");
 });
 
-test("Convergence saves, updates and reloads the displayed fixed stats", async ({ page }) => {
+test("Convergence saves, updates and reloads the displayed Custom stats", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("radio", { name: /Convergence/ }).click();
-  await expect(page.getByText("Experimental fixed-stat model", { exact: true })).toBeVisible();
+  await expect(page.getByText("Experimental model", { exact: true })).toBeVisible();
+  await chooseClass(page, "Custom stats");
   await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   await expect(page.getByText("Saved Build Preset.", { exact: true })).toBeVisible();
@@ -284,12 +285,36 @@ test("Convergence saves, updates and reloads the displayed fixed stats", async (
     const key = Object.keys(localStorage).find((key) => key.startsWith("tarnisheds-arsenal.savedBuild.v2."))!;
     return JSON.parse(localStorage.getItem(key)!);
   });
-  expect(saved.request).toMatchObject({ profileId: "convergence", characterLevel: total, strStat: 40 });
+  expect(saved.request).toMatchObject({ profileId: "convergence", className: "Custom stats", characterLevel: total, strStat: 40 });
   await page.reload();
   await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Load", exact: true }).click();
   await expect(page.getByRole("spinbutton", { name: "STR", exact: true })).toHaveValue("40");
   await expect(page.getByRole("textbox", { name: "Stat total", exact: true })).toHaveValue(String(total));
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+});
+
+test("Convergence saves, updates and reloads its class and level", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("radio", { name: /Convergence/ }).click();
+  await expect(page.getByText("Experimental model", { exact: true })).toBeVisible();
+  await openSection(page, "Saved Builds");
+  await page.getByRole("button", { name: "Save new", exact: true }).click();
+  await expect(page.getByText("Saved Build Preset.", { exact: true })).toBeVisible();
+  await page.getByRole("spinbutton", { name: "STR", exact: true }).fill("40");
+  await page.getByRole("button", { name: "Update selected", exact: true }).click();
+  const saved = await page.evaluate(() => {
+    const key = Object.keys(localStorage).find((key) => key.startsWith("tarnisheds-arsenal.savedBuild.v2."))!;
+    return JSON.parse(localStorage.getItem(key)!);
+  });
+  // Retainer is level 9 with STR 14, so STR 40 needs 26 more levels.
+  expect(saved.request).toMatchObject({ profileId: "convergence", className: "Retainer", characterLevel: 35, strStat: 40 });
+  await page.reload();
+  await openSection(page, "Saved Builds");
+  await page.getByRole("button", { name: "Load", exact: true }).click();
+  await expect(page.getByRole("spinbutton", { name: "STR", exact: true })).toHaveValue("40");
+  await expect(page.getByRole("button", { name: "Class: Retainer" })).toBeVisible();
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
 });
@@ -350,7 +375,7 @@ for (const action of ["delete", "edit", "profile", "update"]) {
       await page.getByRole("button", { name: "Confirm Delete", exact: true }).click();
     } else if (action === "profile") {
       await page.getByRole("radio", { name: /Convergence/ }).click();
-      await expect(page.getByText("Experimental fixed-stat model", { exact: true })).toBeVisible();
+      await expect(page.getByText("Experimental model", { exact: true })).toBeVisible();
     } else {
       await page.getByRole("checkbox", { name: "Two-handing", exact: true }).check();
       if (action === "update") await page.getByRole("button", { name: "Update selected", exact: true }).click();

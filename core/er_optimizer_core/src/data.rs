@@ -2,13 +2,18 @@ use std::collections::{HashMap, HashSet};
 use std::io::Cursor;
 use std::path::Path;
 
+use crate::math::{CUSTOM_STATS_CLASS_NAME, STARTING_CLASSES, StartingClass};
+use crate::model::Stats;
 use crate::model::{
     Aow, AowAttackRow, AowEffect, AowEffectRole, AowRouteAssignment, AttackElementCorrect,
     AttackElementCorrectExt, COMBAT_STAT_COUNT, DAMAGE_TYPE_COUNT, DataCapabilities, DataRules,
     DisplayPoiseDamage, GameData, PhysicalAttackAttribute, ReinforceLevel, StaminaCostMode,
     StatusBuildup, StatusCorrectionFlags, StatusCurveIds, StatusEffectSource, Weapon,
 };
-use crate::snapshot::{SnapshotManifest, validate_embedded_snapshot, validate_external_snapshot};
+use crate::snapshot::{
+    CLASS_CATALOG_FILE, SnapshotManifest, requires_class_catalog, validate_embedded_snapshot,
+    validate_external_snapshot,
+};
 
 pub const VANILLA_PROFILE_ID: &str = "vanilla";
 pub const CONVERGENCE_PROFILE_ID: &str = "convergence";
@@ -262,6 +267,13 @@ fn load_validated_game_data<'a>(
     let weapon_passives = load_weapon_passives(table("weapon_passives.csv")?)?;
     let weapon_passive_overlays =
         load_weapon_passive_overlays(table("weapon_passive_overlays.csv")?)?;
+    let starting_classes = if !manifest.capabilities.class_budget {
+        Vec::new()
+    } else if requires_class_catalog(&manifest) {
+        load_starting_classes(table(CLASS_CATALOG_FILE)?)?
+    } else {
+        STARTING_CLASSES.to_vec()
+    };
 
     let data = GameData {
         dataset_version: manifest.dataset_version.clone(),
@@ -301,6 +313,7 @@ fn load_validated_game_data<'a>(
         aow_effects,
         weapon_passives,
         weapon_passive_overlays,
+        starting_classes,
     };
     validate_cross_table_references(&data)?;
     Ok((data, manifest))
@@ -391,6 +404,86 @@ pub fn load_embedded_game_profile_with_manifest(
         ));
     }
     load_validated_game_data(manifest, content)
+}
+
+/// Rune Level is the eight-attribute total minus this offset for every class.
+const CLASS_LEVEL_OFFSET: u16 = 79;
+
+fn load_starting_classes(table: CsvTable) -> Result<Vec<StartingClass>, String> {
+    let [
+        name_idx,
+        level_idx,
+        vig,
+        mnd,
+        end,
+        str_idx,
+        dex,
+        int,
+        fai,
+        arc,
+    ] = table.columns([
+        "name",
+        "base_level",
+        "vig",
+        "mnd",
+        "end",
+        "str",
+        "dex",
+        "int",
+        "fai",
+        "arc",
+    ])?;
+    table.idx("class_id")?;
+    let mut classes: Vec<StartingClass> = Vec::with_capacity(table.rows.len());
+    for row in &table.rows {
+        let stat = |index: usize, field: &str| -> Result<u8, String> {
+            let value = parse_u8(&row[index], field)?;
+            if !(1..=99).contains(&value) {
+                return Err(format!(
+                    "{CLASS_CATALOG_FILE} {field} must be 1..99: {value}"
+                ));
+            }
+            Ok(value)
+        };
+        let base_stats = Stats {
+            vig: stat(vig, "vig")?,
+            mnd: stat(mnd, "mnd")?,
+            end: stat(end, "end")?,
+            str: stat(str_idx, "str")?,
+            dex: stat(dex, "dex")?,
+            int: stat(int, "int")?,
+            fai: stat(fai, "fai")?,
+            arc: stat(arc, "arc")?,
+        };
+        let name = row[name_idx].to_string();
+        let base_level = parse_u16(&row[level_idx], "base_level")?;
+        let base_total = base_stats.sum_all_8();
+        if base_level + CLASS_LEVEL_OFFSET != base_total {
+            return Err(format!(
+                "{CLASS_CATALOG_FILE} class {name} level {base_level} does not match its attribute total {base_total}"
+            ));
+        }
+        if name.is_empty()
+            || name.eq_ignore_ascii_case(CUSTOM_STATS_CLASS_NAME)
+            || classes
+                .iter()
+                .any(|class_info| class_info.name.eq_ignore_ascii_case(&name))
+        {
+            return Err(format!(
+                "{CLASS_CATALOG_FILE} class name is empty, reserved, or duplicated: {name:?}"
+            ));
+        }
+        classes.push(StartingClass {
+            name: name.into(),
+            base_level,
+            base_total,
+            base_stats,
+        });
+    }
+    if classes.is_empty() {
+        return Err(format!("{CLASS_CATALOG_FILE} contains no classes"));
+    }
+    Ok(classes)
 }
 
 fn load_weapons(table: CsvTable) -> Result<Vec<Weapon>, String> {
@@ -1664,13 +1757,21 @@ mod tests {
 
         #[test]
         fn embedded_tables_are_exactly_the_manifest_runtime_files() {
-            for profile in [VANILLA_PROFILE_ID, CONVERGENCE_PROFILE_ID] {
+            for (profile, extra) in [
+                (VANILLA_PROFILE_ID, &[][..]),
+                (CONVERGENCE_PROFILE_ID, &[CLASS_CATALOG_FILE][..]),
+            ] {
                 let names = EMBEDDED_TABLES
                     .iter()
                     .filter(|(embedded, _, _)| *embedded == profile)
                     .map(|(_, table, _)| *table)
                     .collect::<Vec<_>>();
-                assert_eq!(names, crate::snapshot::RUNTIME_DATA_FILES, "{profile}");
+                let expected = crate::snapshot::RUNTIME_DATA_FILES
+                    .iter()
+                    .chain(extra)
+                    .copied()
+                    .collect::<Vec<_>>();
+                assert_eq!(names, expected, "{profile}");
             }
         }
 
@@ -2010,14 +2111,26 @@ mod tests {
         let data = load_embedded_game_profile(CONVERGENCE_PROFILE_ID)
             .expect("Convergence embedded snapshot loads");
         assert_eq!(data.profile_id, CONVERGENCE_PROFILE_ID);
-        assert_eq!(data.dataset_version, "convergence-3.0.0.1-r3");
+        assert_eq!(data.dataset_version, "convergence-3.0.0.1-r4");
         assert_eq!(data.rules.standard_max_upgrade, 15);
         assert_eq!(data.rules.somber_max_upgrade, 15);
         assert!(!data.rules.separate_upgrade_caps);
         assert!(!data.capabilities.weapon_ar_for_ammunition);
-        assert!(!data.capabilities.class_budget);
+        assert!(data.capabilities.class_budget);
         assert!(!data.rules.scadutree_scaling);
-        assert!(data.rules.zero_attack_element_uses_weapon_scaling);
+        assert!(!data.rules.zero_attack_element_uses_weapon_scaling);
+        // The regulation's own classes, never Vanilla's, plus the exact Custom stats entry.
+        assert_eq!(data.starting_classes.len(), 27);
+        let retainer = data.class_by_name("Retainer").expect("Convergence class");
+        assert_eq!((retainer.base_level, retainer.base_total), (9, 88));
+        assert!(data.class_by_name("Samurai").is_none());
+        assert!(data.offers_custom_stats());
+        // Every player weapon reads its AttackElementCorrect row; row 0 stays raw.
+        assert!(
+            data.weapons
+                .iter()
+                .all(|weapon| matches!(weapon.attack_element_correct_id, 10_000 | 16_000))
+        );
         assert!(data.rules.extended_scaling_grades);
         assert!(!data.rules.status_buildup_scales);
         assert_eq!(data.weapons.len(), 3189);
@@ -2066,10 +2179,12 @@ mod tests {
         }));
         assert!(!data.capabilities.aow_damage);
         assert!(!data.capabilities.aow_routes);
-        let fallback = data
-            .attack_element(0)
-            .expect("Convergence correction fallback");
-        assert!(fallback.scales.iter().flatten().all(|enabled| *enabled));
+        let universal = data
+            .attack_element(16_000)
+            .expect("Convergence universal scaling row");
+        assert!(universal.scales.iter().flatten().all(|enabled| *enabled));
+        let raw_zero = data.attack_element(0).expect("raw row 0");
+        assert!(raw_zero.scales.iter().flatten().all(|enabled| !*enabled));
         assert!(data.aow_attack_rows.is_empty());
         assert!(data.aow_route_assignments.is_empty());
     }

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { openCompare, openEditor, openEditorFor, openSection } from "./editors";
+import { chooseClass, openCompare, openEditor, openEditorFor, openSection } from "./editors";
 
 test("profile radios use one tab stop; arrows move focus and Enter switches", async ({ page }) => {
   await page.goto("/");
@@ -147,7 +147,7 @@ test("profile switch isolates results and explains Convergence coverage", async 
 
   await profiles.getByRole("radio", { name: /Convergence/ }).click();
   await expect(profiles.getByRole("radio", { name: /Convergence/ })).toHaveAttribute("aria-checked", "true");
-  await expect(page.getByText("Experimental fixed-stat model", { exact: true })).toBeVisible();
+  await expect(page.getByText("Experimental model", { exact: true })).toBeVisible();
   await page.locator(".coverage-token").click();
   await expect(
     page.getByText(/Ammo weapons and AoW hit\/route damage remain unsupported/),
@@ -155,14 +155,19 @@ test("profile switch isolates results and explains Convergence coverage", async 
   await expect(page.getByText("4 ranked rows")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "AoW First Hit" })).toHaveCount(0);
   await openEditor(page, "Class");
-  await expect(page.getByRole("combobox", { name: "Class", exact: true })).toHaveValue("Custom stats");
-  await expect(page.getByRole("button", { name: "Optimize class" })).toBeDisabled();
+  await expect(page.getByRole("combobox", { name: "Class", exact: true })).toHaveValue("Retainer");
+  await expect(page.getByRole("dialog", { name: "Class" }).getByText("4 options", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Optimize class" })).toBeEnabled();
+  await expect(page.getByRole("textbox", { name: "Level", exact: true })).toHaveValue("9");
+  // Custom stats remains the exact-stat entry, with the analysis workspaces locked.
+  await chooseClass(page, "Custom stats");
   await expect(page.getByRole("textbox", { name: "Stat total", exact: true })).toBeVisible();
   await openEditor(page, "Limits");
   await expect(page.getByRole("checkbox", { name: "Use entered combat stats exactly" })).toBeChecked();
   for (const name of ["Compare", "Paths", "Affinity Watch"]) {
     await expect(page.getByRole("navigation").getByRole("button", { name, exact: true })).toBeDisabled();
   }
+  await expect(page.getByText("Choose a class to unlock", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
   // No row has modeled skill damage, so the column is replaced by one note in the header.
@@ -941,6 +946,7 @@ for (const [width, height] of [[1200, 720], [1366, 768], [1650, 950]]) {
       return table.getBoundingClientRect().top < details.getBoundingClientRect().top;
     })).toBe(true);
     await page.getByRole("radio", { name: /Convergence/ }).click();
+    await chooseClass(page, "Custom stats");
     await expect(page.getByRole("textbox", { name: "Stat total", exact: true })).toBeVisible();
     await expect(page.getByText(/\d+ free points/)).toHaveCount(0);
     await expect(page.getByText("Redistrib", { exact: true })).toHaveCount(0);

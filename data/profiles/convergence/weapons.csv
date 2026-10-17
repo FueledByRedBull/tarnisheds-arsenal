@@ -2829,8 +2829,8 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 30130000,Gilded Iron Shield,Standard,65,Small Shield,ShieldSmall,3,0,100,1.06,0,,,,,,,,,,,strike,strike,74,0,0,0,0,0.24,0,0,0,0,8,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,302,Parry,1,1,0,0
 30140000,Ice Crest Shield,Standard,65,Small Shield,ShieldSmall,3,0,100,1.06,0,,,,,,,,,,,strike,strike,74,0,0,0,0,0.24,0,0,0,0,9,0,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,303,Buckler Parry,1,1,0,1
 30150000,Smoldering Shield,Standard,65,Small Shield,ShieldSmall,3,0,100,1.06,0,,,,,,,,,,,strike,strike,58,0,37,0,0,0.24,0,0,0.4,0,10,9,0,12,0,2200,16000,0,0,0,0,0,28,28,28,28,303,Buckler Parry,1,1,0,1
-30160000,NEW - Hermit's Buckler,Standard,65,Small Shield,ShieldSmall,1.5,0,100,0.93,0,,,,,,,,,,,strike,strike,68,0,0,0,0,0.1,0.3,0,0,0,8,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,303,Buckler Parry,1,1,0,0
-30170000,NEW - Shield of Alacrity,Standard,65,Small Shield,ShieldSmall,1.5,0,100,0.93,0,,,,,,,,,,,strike,strike,68,0,0,0,0,0.1,0.3,0,0,0,8,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,303,Buckler Parry,1,1,0,0
+30160000,Hermit's Buckler,Standard,65,Small Shield,ShieldSmall,1.5,0,100,0.93,0,,,,,,,,,,,strike,strike,68,0,0,0,0,0.1,0.3,0,0,0,8,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,303,Buckler Parry,1,1,0,0
+30170000,Shield of Alacrity,Standard,65,Small Shield,ShieldSmall,1.5,0,100,0.93,0,,,,,,,,,,,strike,strike,68,0,0,0,0,0.1,0.3,0,0,0,8,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,303,Buckler Parry,1,1,0,0
 30190000,Spiralhorn Shield,Standard,65,Small Shield,ShieldSmall,2,0,100,1.04,0,,,,,,,,,,,strike,strike,75,0,0,0,0,0.24,0,0,0,0,8,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,302,Parry,1,1,0,0
 30200000,Coil Shield,Standard,65,Small Shield,ShieldSmall,1.5,0,100,0.97,0,,,,,,,,,,,strike,strike,77,0,0,0,0,0.24,0,0,0,0,10,10,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,1007,Viper Bite,1,0,0,1
 30300000,Crest of the Dragon Cult,Standard,67,Medium Shield,ShieldNormal,4.5,0,100,0.93,0,,,,,,,,,,,strike,strike,78,0,0,0,0,0.4,0,0,0,0,12,0,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,10,No Skill,1,1,0,1
@@ -2849,7 +2849,7 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 31130000,Brass Shield,Standard,67,Medium Shield,ShieldNormal,7,0,100,1.175,0,,,,,,,,,,,strike,strike,84,0,0,0,0,0.4,0,0,0,0,16,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,307,Golden Parry,1,1,0,0
 31140000,Great Turtle Shell,Standard,67,Medium Shield,ShieldNormal,5.5,0,100,1.015,0,,,,,,,,,,,strike,strike,81,0,0,0,0,0.4,0,0,0,0,14,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,301,Barricade Shield,1,1,0,0
 31170000,Shield of the Guilty,Standard,65,Small Shield,ShieldSmall,2,0,100,1,0,,,,,,,,,,,strike,strike,75,0,0,0,0,0.4,0,0,0,0,8,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,300,Shield Bash,1,1,0,0
-31180000,NEW - Shield of Starlight,Standard,67,Medium Shield,ShieldNormal,4.5,0,100,0.93,0,,,,,,,,,,,strike,strike,63,40,0,0,0,0.4,0,0.3,0,0,8,8,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,10,No Skill,1,1,0,0
+31180000,Shield of Starlight,Standard,67,Medium Shield,ShieldNormal,4.5,0,100,0.93,0,,,,,,,,,,,strike,strike,63,40,0,0,0,0.4,0,0.3,0,0,8,8,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,10,No Skill,1,1,0,0
 31190000,Carian Knight's Shield,Standard,67,Medium Shield,ShieldNormal,4.5,0,100,0.93,0,,,,,,,,,,,strike,strike,63,40,0,0,0,0.4,0,0.3,0,0,10,10,15,0,0,0,16000,0,0,0,0,0,28,28,28,28,10,No Skill,1,1,0,0
 31230000,Large Leather Shield,Standard,67,Medium Shield,ShieldNormal,3,0,100,0.9,0,,,,,,,,,,,strike,strike,75,0,0,0,0,0.4,0,0,0,0,8,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,302,Parry,1,1,0,0
 31240000,Horse Crest Wooden Shield,Standard,67,Medium Shield,ShieldNormal,3.5,0,100,0.935,0,,,,,,,,,,,strike,strike,76,0,0,0,0,0.4,0,0,0,0,8,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,10,No Skill,1,1,0,0

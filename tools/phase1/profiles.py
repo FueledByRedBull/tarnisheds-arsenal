@@ -115,6 +115,7 @@ class ProfileDefinition:
     weapon_reference_path: Path | None = None
     # Raised when regenerated content changes for the same game and mod version.
     dataset_revision: int = 1
+    class_catalog_from_regulation: bool = False
 
     @property
     def regulation_path(self) -> Path:
@@ -196,7 +197,7 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         capabilities=ProfileCapabilities(
             weapon_ar=True,
             weapon_ar_for_ammunition=False,
-            class_budget=False,
+            class_budget=True,
             status_buildup=True,
             weapon_passives=True,
             aow_compatibility=True,
@@ -208,7 +209,7 @@ PROFILES: Mapping[str, ProfileDefinition] = {
             somber_max_upgrade=15,
             separate_upgrade_caps=False,
             scadutree_scaling=False,
-            zero_attack_element_uses_weapon_scaling=True,
+            zero_attack_element_uses_weapon_scaling=False,
             extended_scaling_grades=True,
             status_buildup_scales=False,
         ),
@@ -225,7 +226,8 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         ),
         version_file=Path("data/raw/Conv/version.txt"),
         weapon_reference_path=Path("data/reference/convergence-3.0.0.1-weapons.json"),
-        dataset_revision=3,
+        dataset_revision=4,
+        class_catalog_from_regulation=True,
     ),
 }
 

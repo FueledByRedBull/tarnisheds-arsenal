@@ -518,9 +518,29 @@ pub struct GameData {
     pub aow_effects: HashMap<(u16, u16), Vec<AowEffect>>,
     pub weapon_passives: HashMap<u32, StatusEffectSource>,
     pub weapon_passive_overlays: HashMap<u32, Vec<Option<StatusEffectSource>>>,
+    /// Character-creation classes of this profile; empty without class budgets.
+    pub starting_classes: Vec<crate::math::StartingClass>,
 }
 
 impl GameData {
+    /// The profile's class of that name, or the neutral Custom stats budget.
+    pub fn class_by_name(&self, name: &str) -> Option<crate::math::StartingClass> {
+        if name.eq_ignore_ascii_case(crate::math::CUSTOM_STATS_CLASS_NAME) {
+            return Some(crate::math::custom_stats_class());
+        }
+        self.starting_classes
+            .iter()
+            .find(|class_info| class_info.name.eq_ignore_ascii_case(name))
+            .cloned()
+    }
+
+    /// Whether Custom stats is an exact-stat entry next to this profile's classes: a
+    /// profile without class budgets, or a mod whose own catalog replaced Custom stats
+    /// as the only class. Vanilla offers only its classes.
+    pub fn offers_custom_stats(&self) -> bool {
+        !self.capabilities.class_budget || self.profile_id != crate::data::VANILLA_PROFILE_ID
+    }
+
     pub fn weapon_ar_supported(&self, weapon: &Weapon) -> bool {
         self.capabilities.weapon_ar
             && (self.capabilities.weapon_ar_for_ammunition || !weapon_uses_ammunition(weapon))

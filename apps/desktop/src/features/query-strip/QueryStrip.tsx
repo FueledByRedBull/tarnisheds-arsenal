@@ -8,7 +8,7 @@ import { isTextEntry, keyboardOwnedByOverlay } from "../../lib/keyboard";
 import { describeStep, redoQuery, trackQueryHistory, undoQuery, useQueryHistory } from "../../lib/query-history";
 import { flashChanged } from "../../lib/motion";
 import { scadutreeAttackMultiplier } from "../../lib/scadutree";
-import { budgetSnapshot, classMeta, derivedLevel, EIGHT_STAT_KEYS, hasCombatStatLocks, optimalStartingClass, startingClassLevel } from "../../lib/session";
+import { budgetSnapshot, classMeta, derivedLevel, EIGHT_STAT_KEYS, hasCombatStatLocks, optimalStartingClass, startingClassLevel, usesFixedStats } from "../../lib/session";
 import { defaultRequest, useDesktopStore } from "../../lib/state";
 import { EightStatsDto, OptimizeRequestDto } from "../../lib/types";
 import { effectiveWeaponStrength } from "../../lib/weapon-handling";
@@ -95,7 +95,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   }, [effectiveStr, request.arc, request.dex, request.fai, request.intStat, weaponProfile]);
   const missingRequirements = requirementGaps ? Object.values(requirementGaps).some((gap) => gap > 0) : false;
 
-  const fixedStats = catalog?.dataManifest.capabilities.classBudget === false;
+  const fixedStats = usesFixedStats(catalog, request.className);
   const rules = catalog?.dataManifest.rules;
   const separateUpgradeCaps = rules?.separateUpgradeCaps ?? true;
   const scadutreeAvailable = rules?.scadutreeScaling ?? true;

@@ -7,9 +7,14 @@ use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
 
-const PROFILES: [(&str, &str); 2] = [
-    ("vanilla", "../../data/phase1"),
-    ("convergence", "../../data/profiles/convergence"),
+// (profile, directory, tables beyond the shared set)
+const PROFILES: [(&str, &str, &[&str]); 2] = [
+    ("vanilla", "../../data/phase1", &[]),
+    (
+        "convergence",
+        "../../data/profiles/convergence",
+        &["classes.csv"],
+    ),
 ];
 
 const TABLES: [&str; 12] = [
@@ -35,7 +40,7 @@ fn main() {
         ..Default::default()
     };
     let mut index = String::from("&[\n");
-    for (profile, directory) in PROFILES {
+    for (profile, directory, extra_tables) in PROFILES {
         let manifest_path = Path::new(directory).join("manifest.json");
         println!("cargo:rerun-if-changed={}", manifest_path.display());
         let manifest: serde_json::Value = serde_json::from_slice(
@@ -43,7 +48,7 @@ fn main() {
                 .unwrap_or_else(|error| panic!("read {}: {error}", manifest_path.display())),
         )
         .unwrap_or_else(|error| panic!("parse {}: {error}", manifest_path.display()));
-        for table in TABLES {
+        for &table in TABLES.iter().chain(extra_tables) {
             let source = Path::new(directory).join(table);
             println!("cargo:rerun-if-changed={}", source.display());
             let bytes = fs::read(&source)

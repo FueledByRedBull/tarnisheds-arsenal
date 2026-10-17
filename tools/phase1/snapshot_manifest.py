@@ -33,6 +33,14 @@ RUNTIME_FILES = {
     "weapon_passives.csv",
     "weapons.csv",
 }
+CLASS_CATALOG_FILE = "classes.csv"
+
+
+def runtime_files_for(profile_id: str, class_budget: bool) -> set[str]:
+    """Vanilla's class budgets are built into the runtime; another profile ships its own."""
+    if class_budget and profile_id != "vanilla":
+        return RUNTIME_FILES | {CLASS_CATALOG_FILE}
+    return set(RUNTIME_FILES)
 
 
 class FileRecord(TypedDict):
@@ -119,7 +127,8 @@ def write_snapshot_manifest(
     phase1_dir = phase1_dir.resolve()
     regulation_path = regulation_path.resolve()
     workbook_path = phase1_dir / MOTION_WORKBOOK_NAME
-    missing_runtime = sorted(name for name in RUNTIME_FILES if not (phase1_dir / name).is_file())
+    runtime_names = runtime_files_for(profile.id, profile.capabilities.class_budget)
+    missing_runtime = sorted(name for name in runtime_names if not (phase1_dir / name).is_file())
     if missing_runtime:
         raise FileNotFoundError(
             "cannot write snapshot manifest; missing runtime files: "
@@ -130,11 +139,11 @@ def write_snapshot_manifest(
     if not regulation_path.is_file():
         raise FileNotFoundError(f"regulation source not found: {regulation_path}")
 
-    runtime_files = [_file_record(phase1_dir / name) for name in sorted(RUNTIME_FILES)]
+    runtime_files = [_file_record(phase1_dir / name) for name in sorted(runtime_names)]
     diagnostic_files = [
         _file_record(path)
         for path in sorted(phase1_dir.glob("*.csv"), key=lambda item: item.name)
-        if path.name not in RUNTIME_FILES
+        if path.name not in runtime_names
     ]
     sources: list[SourceRecord] = [
         {"kind": "regulation", "bundled": False, **_file_record(regulation_path)},
@@ -256,7 +265,8 @@ def validate_snapshot_manifest(
     if not all(isinstance(record, dict) for record in all_records):
         raise ValueError("snapshot manifest file records are malformed")
     runtime_paths = {record.get("path") for record in runtime_records}
-    if runtime_paths != RUNTIME_FILES or len(runtime_records) != len(RUNTIME_FILES):
+    expected_runtime = runtime_files_for(profile_id, capabilities["classBudget"])
+    if runtime_paths != expected_runtime or len(runtime_records) != len(expected_runtime):
         raise ValueError("snapshot runtime file set is not exact")
 
     listed_paths: set[str] = set()

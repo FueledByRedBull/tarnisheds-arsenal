@@ -26,7 +26,9 @@ and positive integer contact counts in `aow_route_assignments.csv.hit_count`.
 It retains explicit Ash mounting permission
 in `weapons.csv.can_change_aow` and compatible affinity/type lists in `aow.csv`.
 The extractor no longer emits `aow_weapon_compat.csv`; legality is derived from
-those compact fields. Runtime manifests list 12 required tables.
+those compact fields. Runtime manifests list 12 shared tables. A profile other
+than Vanilla that declares class budgets also lists `classes.csv`, its
+character-creation class catalog; Vanilla's classes are built into the runtime.
 
 The manifest records the snapshot model identity; the runtime adds the numerical
 contract to scoring and cache identities. Current identities and coverage are
@@ -113,7 +115,16 @@ the exact tracked reference match.
 - Integer fields must be integral, and numeric fields must be finite. Every weapon
   model field is required: an omitted value takes its declared XML default, and a
   field with neither fails extraction. Intentional optional-field defaults remain
-  explicit in the extractor.
+  explicit in the extractor. In Convergence this sets `attackElementCorrectId` to
+  `16000` and the four status correction curves to `28` for almost every weapon.
+- `classes.csv` lists the character-creation classes in menu order:
+  `BaseChrSelectMenuParam` rows outside the network test, each pointing at its
+  `CharaInitParam` class row. Names come only from the regulation's own
+  `Class - <name>` row names, never from Paramdex labels, which describe Vanilla.
+  Extraction fails if a menu preview row disagrees with its class, an attribute
+  is outside 1..99, a name is missing or repeated, or `soulLv` is not the eight-
+  attribute total minus 79.
+- PARAM label fallbacks drop the mod author's `[Conv]` and `NEW - ` markers.
 - Runtime CSV loading rejects duplicate trimmed headers and duplicate keys in
   reinforcement, attack-element, and passive tables rather than overwriting rows.
 - `weapons.csv` scaling columns (`str_scaling`, `dex_scaling`, `int_scaling`, `fai_scaling`, `arc_scaling`) are normalized to `0.0..1.0` by dividing raw weapon param values by `100.0`.

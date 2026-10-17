@@ -73,6 +73,14 @@ fn optimizer_rejects_levels_above_the_game_domain() {
             .unwrap_err()
             .contains("713 or lower")
     );
+    // Vanilla offers no Custom stats entry, so it keeps the Rune Level bound too.
+    assert!(!data.offers_custom_stats());
+    request.class_name = CUSTOM_STATS_CLASS_NAME.to_string();
+    assert!(
+        optimize(&request, &data)
+            .unwrap_err()
+            .contains("713 or lower")
+    );
 }
 
 #[test]
@@ -112,6 +120,7 @@ fn convergence_ammunition_weapons_are_not_ranked_without_an_ammo_model() {
     request.standard_max_upgrade = 15;
     request.somber_max_upgrade = 15;
     request.exact_upgrade = true;
+    use_profile_class(&mut request, &data);
     let plan = prepare_search(&request, &data).expect("supported Convergence request shape");
     assert_eq!(plan.estimate().weapon_candidates, 0);
 }
@@ -127,6 +136,7 @@ fn convergence_galvanic_optimizer_uses_str_dex_int_without_arcane_fill() {
     request.somber_max_upgrade = 13;
     request.exact_upgrade = true;
     request.top_k = 3;
+    use_profile_class(&mut request, &data);
 
     let rows = optimize(&request, &data).expect("Convergence Galvanic search");
     let best = rows.first().expect("Galvanic result");
@@ -219,6 +229,7 @@ fn unnamed_native_skill_preserves_id_without_inventing_damage() {
         id: format!("aow:{}", weapon.native_skill_id.unwrap()),
         mode: FilterMode::Include,
     }];
+    use_profile_class(&mut request, &data);
     let rows = optimize(&request, &data).unwrap();
     assert!(!rows.is_empty());
     assert!(rows.iter().all(|row| row.aow_id == weapon.native_skill_id
@@ -245,6 +256,7 @@ fn native_skill_uses_the_profile_ash_name_when_localized_name_is_missing() {
     request.standard_max_upgrade = 15;
     request.somber_max_upgrade = 15;
     request.exact_upgrade = true;
+    use_profile_class(&mut request, &data);
     let rows = optimize(&request, &data).unwrap();
     assert!(!rows.is_empty());
     assert!(rows.iter().all(|row| row.aow_id == Some(8000)
@@ -680,6 +692,16 @@ fn materialize_with_ranked_insertion(
     rows
 }
 
+/// Vanilla template classes are not mod classes; keep the same budget as Custom stats.
+fn use_profile_class(request: &mut OptimizeRequest, data: &GameData) {
+    if data.class_by_name(&request.class_name).is_none() {
+        let class =
+            crate::math::class_by_name(&request.class_name).expect("Vanilla template class");
+        request.character_level += class.base_total - class.base_level;
+        request.class_name = CUSTOM_STATS_CLASS_NAME.to_string();
+    }
+}
+
 fn base_request() -> OptimizeRequest {
     OptimizeRequest {
         class_name: "Samurai".to_string(),
@@ -839,7 +861,7 @@ fn active_mask_for(
     request.affinity = Some(affinity.to_string());
     request.aow_name = aow_name.map(str::to_string);
     request.objective = objective;
-    let constraints = build_combat_constraints(&request).expect("constraints failed");
+    let constraints = build_combat_constraints(&request, game_data).expect("constraints failed");
     let prepared_weapons =
         prepare_weapons(&request, game_data, constraints).expect("prepare failed");
     let prepared = prepared_weapons.first().expect("expected prepared weapon");
@@ -884,6 +906,7 @@ fn shared_primary_frontiers_match_independent_dp_including_all_ties() {
                 request.standard_max_upgrade = data.rules.standard_max_upgrade;
                 request.somber_max_upgrade = data.rules.somber_max_upgrade;
                 request.exact_upgrade = true;
+                use_profile_class(&mut request, &data);
                 for objective in [
                     OptimizeObjective::MaxAr,
                     OptimizeObjective::MaxPhysicalAr,
@@ -1372,6 +1395,7 @@ fn dynamic_search_matches_exhaustive_search_for_every_objective() {
             request.exact_upgrade = true;
             request.objective = objective;
             request.top_k = 5;
+            use_profile_class(&mut request, &game_data);
             let plan = prepare_search(&request, &game_data).expect("prepare exact comparison");
             let unit = *plan.serial_work_units.first().expect("exact work unit");
             let mut dynamic_progress =
@@ -1574,6 +1598,7 @@ fn independent_all_five_oracle_checks_relevance_and_exact_winners() {
                         request.locked_combat_stats[STAT_INT] = Some(35);
                         request.min_combat_stats[STAT_FAI] = 36;
                     }
+                    use_profile_class(&mut request, &data);
                     let plan = prepare_search(&request, &data).expect("oracle request");
                     let group = plan.groups.first().unwrap_or_else(|| {
                         panic!(
@@ -1695,6 +1720,7 @@ fn exact_dp_matches_exhaustive_on_the_former_f32_counterexample() {
     request.somber_max_upgrade = 15;
     request.exact_upgrade = true;
     request.two_handing = true;
+    use_profile_class(&mut request, &data);
     let plan = prepare_search(&request, &data).unwrap();
     let group = &plan.groups[0];
     let prepared = &plan.weapons[group.prepared_idx];
@@ -2574,7 +2600,7 @@ fn reusable_evaluators_keep_weapons_for_later_stat_budgets() {
     let mut template = base_request();
     template.class_name = "Wretch".into();
     template.character_level = 1;
-    template.current_stats = class_by_name("Wretch").unwrap().base_stats;
+    template.current_stats = data.class_by_name("Wretch").unwrap().base_stats;
     template.weapon_name = Some("Starscourge Greatsword".into());
     template.affinity = Some("Standard".into());
     template.standard_max_upgrade = 0;
@@ -2734,7 +2760,7 @@ fn ar_bleed_frontier_matches_repeated_locked_arc_solves_and_preserves_ties() {
             && pair[0].result.ar.total() >= pair[1].result.ar.total()
     }));
 
-    let constraints = build_combat_constraints(&request).expect("frontier constraints");
+    let constraints = build_combat_constraints(&request, &game_data).expect("frontier constraints");
     for point in &frontier {
         let mut locked = request.clone();
         locked.locked_combat_stats[STAT_ARC] = Some(point.result.stats.arc);
@@ -2892,6 +2918,7 @@ fn arc_frontier_reuse_matches_every_independently_enumerated_winner() {
                             request.two_handing = true;
                             request.result_grouping = ResultGrouping::Loadout;
                             request.top_k = 1;
+                            use_profile_class(&mut request, &data);
                             if plateau {
                                 let ids = data
                                     .weapons
@@ -2917,7 +2944,7 @@ fn arc_frontier_reuse_matches_every_independently_enumerated_winner() {
                                     .retain(|c| c.no_applied_ash || c.skill_name.is_none());
                                 evaluator.weapons = Arc::from(weapons);
                             }
-                            let constraints = build_combat_constraints(&request).unwrap();
+                            let constraints = build_combat_constraints(&request, &data).unwrap();
                             let mut expected = std::collections::BTreeMap::new();
                             for combat in all_five_allocations(
                                 constraints.mins,
@@ -3103,7 +3130,7 @@ fn independent_arc_winners(
     evaluator: &PreparedLoadoutEvaluator<'_>,
     request: &OptimizeRequest,
 ) -> Vec<OptimizeResult> {
-    let constraints = build_combat_constraints(request).unwrap();
+    let constraints = build_combat_constraints(request, evaluator.data).unwrap();
     let other_capacity: u16 = (0..COMBAT_STAT_COUNT)
         .filter(|&s| s != STAT_ARC)
         .map(|s| u16::from(constraints.maxs[s] - constraints.mins[s]))
@@ -3164,7 +3191,7 @@ fn arc_frontier_reuse_matches_locked_solves_at_caps_and_large_budgets() {
             format!("{:?}", independent_arc_winners(&evaluator, &request)),
             "budget={budget} dex={dex} arc={arc_lock:?}"
         );
-        let constraints = build_combat_constraints(&request).unwrap();
+        let constraints = build_combat_constraints(&request, &data).unwrap();
         let mut enumerated = std::collections::BTreeMap::new();
         for combat in all_five_allocations(
             constraints.mins,
@@ -3287,12 +3314,14 @@ fn reusable_evaluators_reject_invalid_profile_levels_like_independent_searches()
         loadout_request.standard_max_upgrade = game_data.rules.standard_max_upgrade;
         loadout_request.somber_max_upgrade = game_data.rules.somber_max_upgrade;
         loadout_request.exact_upgrade = true;
+        use_profile_class(&mut loadout_request, &game_data);
+        let profile_level = loadout_request.character_level;
         loadout_request.character_level = max_level + 1;
         let expected = optimize(&loadout_request, &game_data)
             .expect_err("independent loadout evaluation must reject the profile level");
         {
             let mut preparation_request = loadout_request.clone();
-            preparation_request.character_level = base_request().character_level;
+            preparation_request.character_level = profile_level;
             let evaluator =
                 prepare_loadout_evaluator_with_cancel(&preparation_request, &game_data, || true)
                     .expect("loadout preparation succeeds at the profile level");
@@ -3307,6 +3336,8 @@ fn reusable_evaluators_reject_invalid_profile_levels_like_independent_searches()
         let mut series_request = base_request();
         series_request.standard_max_upgrade = game_data.rules.standard_max_upgrade;
         series_request.somber_max_upgrade = game_data.rules.somber_max_upgrade;
+        use_profile_class(&mut series_request, &game_data);
+        let profile_level = series_request.character_level;
         series_request.character_level = max_level + 1;
         let stats = series_request.current_stats;
         lock_request_to_combat_stats(&mut series_request, stats);
@@ -3314,7 +3345,7 @@ fn reusable_evaluators_reject_invalid_profile_levels_like_independent_searches()
             .expect_err("independent upgrade evaluation must reject the profile level");
         {
             let mut preparation_request = series_request.clone();
-            preparation_request.character_level = base_request().character_level;
+            preparation_request.character_level = profile_level;
             let evaluator = prepare_upgrade_series_evaluator_with_cancel(
                 &preparation_request,
                 &game_data,
@@ -4245,7 +4276,7 @@ fn prepared_plan_groups_aows_that_share_one_stat_search() {
 fn scored_top_k_hard_bounds_cutoff_score_ties_deterministically() {
     let game_data = load_data();
     let request = base_request();
-    let constraints = build_combat_constraints(&request).expect("constraints failed");
+    let constraints = build_combat_constraints(&request, &game_data).expect("constraints failed");
     let weapons = prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
     let stats = request.current_stats;
     let mut candidates = Vec::new();
@@ -4302,7 +4333,7 @@ fn scored_top_k_hard_bounds_cutoff_score_ties_deterministically() {
 fn scored_top_k_replaces_lower_score_for_same_loadout() {
     let game_data = load_data();
     let request = base_request();
-    let constraints = build_combat_constraints(&request).expect("constraints failed");
+    let constraints = build_combat_constraints(&request, &game_data).expect("constraints failed");
     let weapons = prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
     let stats = request.current_stats;
     let mut candidates = Vec::new();
@@ -4330,7 +4361,7 @@ fn scored_top_k_replaces_lower_score_for_same_loadout() {
 fn scored_top_k_discards_equal_score_candidates_with_lower_known_ar() {
     let game_data = load_data();
     let request = base_request();
-    let constraints = build_combat_constraints(&request).expect("constraints failed");
+    let constraints = build_combat_constraints(&request, &game_data).expect("constraints failed");
     let weapons = prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
     let stats = request.current_stats;
     let mut candidates = Vec::new();
@@ -4360,7 +4391,7 @@ fn scored_top_k_applies_final_tie_breaks_at_exact_limit() {
     let game_data = load_data();
     let mut request = base_request();
     request.top_k = 1;
-    let constraints = build_combat_constraints(&request).expect("constraints failed");
+    let constraints = build_combat_constraints(&request, &game_data).expect("constraints failed");
     let weapons = prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
     let all_candidates = (0_u8..=9)
         .map(|upgrade| scored_candidate(0, 0, upgrade, request.current_stats, 100.0))
@@ -5303,7 +5334,7 @@ fn optimize_respects_all_exact_combat_stat_locks() {
     request.exact_upgrade = true;
     request.locked_combat_stats = [Some(12), Some(15), Some(9), Some(8), Some(8)];
 
-    let constraints = build_combat_constraints(&request).expect("constraints failed");
+    let constraints = build_combat_constraints(&request, &game_data).expect("constraints failed");
     assert_eq!(count_stat_candidates(constraints), 1);
 
     let results = optimize(&request, &game_data).expect("optimizer failed");
@@ -5413,7 +5444,9 @@ fn bleed_relevance_uses_profile_status_scaling_rule() {
         request.weapon_name = Some("Uchigatana".to_string());
         request.affinity = Some(affinity.to_string());
         request.objective = OptimizeObjective::BleedThenAr;
-        let constraints = build_combat_constraints(&request).expect("constraints failed");
+        use_profile_class(&mut request, &game_data);
+        let constraints =
+            build_combat_constraints(&request, &game_data).expect("constraints failed");
         let prepared_weapons =
             prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
         let prepared = prepared_weapons.first().expect("expected prepared weapon");
@@ -5443,7 +5476,7 @@ fn bleed_relevance_prunes_non_bleed_status_distributions() {
     request.affinity = Some("Poison".to_string());
     request.aow_name = Some("Quickstep".to_string());
     request.objective = OptimizeObjective::BleedThenAr;
-    let constraints = build_combat_constraints(&request).expect("constraints failed");
+    let constraints = build_combat_constraints(&request, &game_data).expect("constraints failed");
     let prepared_weapons =
         prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
     let prepared = prepared_weapons.first().expect("expected prepared weapon");
@@ -5546,7 +5579,7 @@ fn prepared_search_estimate_uses_relevant_stat_counts() {
     request.weapon_type_key = Some("Katana".to_string());
     request.top_k = 5;
 
-    let constraints = build_combat_constraints(&request).expect("constraints failed");
+    let constraints = build_combat_constraints(&request, &game_data).expect("constraints failed");
     let broad_stat_count = count_stat_candidates(constraints);
     let prepared_weapons =
         prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
@@ -6126,7 +6159,7 @@ fn wasted_points_on_zero_scaling_stats_are_filtered() {
     request.standard_max_upgrade = 25;
     request.somber_max_upgrade = 10;
     request.top_k = 10;
-    let constraints = build_combat_constraints(&request).expect("constraints failed");
+    let constraints = build_combat_constraints(&request, &game_data).expect("constraints failed");
     let prepared_weapons =
         prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
     let prepared = prepared_weapons
@@ -6275,7 +6308,7 @@ fn native_only_skills_can_be_searched_with_weapon_unlocked() {
         ("Buckler Parry", "Buckler"),
     ] {
         request.aow_name = Some(skill.to_string());
-        let constraints = build_combat_constraints(&request).unwrap();
+        let constraints = build_combat_constraints(&request, &data).unwrap();
         let weapons = prepare_weapons(&request, &data, constraints).unwrap();
         assert!(!weapons.is_empty());
         assert!(
@@ -6678,11 +6711,13 @@ fn bleed_only_calculator_matches_full_status_for_open_choices() {
         request.character_level = 150;
         request.standard_max_upgrade = upgrades[2];
         request.somber_max_upgrade = upgrades[2];
+        use_profile_class(&mut request, &game_data);
         let stats = request.current_stats;
 
         for aow_name in aow_names {
             request.aow_name = aow_name.map(str::to_string);
-            let constraints = build_combat_constraints(&request).expect("constraints failed");
+            let constraints =
+                build_combat_constraints(&request, &game_data).expect("constraints failed");
             let prepared_weapons = prepare_weapons(&request, &game_data, constraints)
                 .expect("weapon preparation failed");
             let prepared = prepared_weapons.first().unwrap_or_else(|| {

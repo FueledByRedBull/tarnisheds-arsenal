@@ -4,7 +4,7 @@ import { AowSelect } from "../../lib/AowSelect";
 import { cachedComparisonSearch, cachedSolveBuild, cachedUpgradeSeries, cachedWeaponProfile } from "../../lib/analysis-cache";
 import { aowModelSupported, compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
 import { CheckboxMultiSelect, SearchableSelect, openOption } from "../../lib/SearchableSelect";
-import { clearTypeAndAffinityFilters, compareUpgradeHorizon, replaceFilterEntries, rowFingerprint, stableSignature, upgradeCapForRow } from "../../lib/session";
+import { clearTypeAndAffinityFilters, compareUpgradeHorizon, replaceFilterEntries, rowFingerprint, stableSignature, upgradeCapForRow, usesFixedStats } from "../../lib/session";
 import { selectedFilterIds } from "../query-strip/QueryEditors";
 import { LatestRequest } from "../../lib/request-generation";
 import { useBuiltRequest } from "../../lib/hooks";
@@ -446,7 +446,7 @@ export function CompareView() {
           </div>
         </div>
       </details>
-      {catalog?.dataManifest.capabilities.classBudget && catalog.dataManifest.capabilities.statusBuildup
+      {catalog && !usesFixedStats(catalog, request.className) && catalog.dataManifest.capabilities.statusBuildup
         ? <LoadoutTradeoffs base={baseRequest} current={request} selected={selected} />
         : <p className="analysis-state">AR / bleed tradeoffs require class budgets and status modeling.</p>}
     </section>

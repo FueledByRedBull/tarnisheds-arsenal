@@ -20,7 +20,7 @@ import {
   SolvedBuildDto,
   WorkspaceTab,
 } from "./types";
-import { applyProfileRules, classMeta, hasCombatStatLocks, rowFingerprint, stableSignature } from "./session";
+import { applyProfileRules, classMeta, CUSTOM_STATS_CLASS, currentStatTotal, hasCombatStatLocks, knownWithoutCatalog, rowFingerprint, stableSignature, usesFixedStats } from "./session";
 
 export interface DesktopState {
   activeWorkspace: WorkspaceTab;
@@ -169,8 +169,9 @@ function readStoredQuery(profileId: string): { query: ProfileQuery | null; disca
     const value: unknown = JSON.parse(raw);
     if (!isRecord(value) || value.version !== 1 || typeof value.lockedStatMode !== "boolean") throw new Error();
     assertRequest(value.request);
-    // The query renders before its catalog loads, so its class must be one known without it.
-    classMeta(null, value.request.className);
+    // Vanilla's classes are known before its catalog loads; a mod's own class is checked
+    // against its catalog when that loads.
+    if (profileId === "vanilla" && !knownWithoutCatalog(value.request.className)) throw new Error();
     if (value.request.profileId !== profileId) throw new Error();
     return { query: { request: knownRequestFields(value.request), lockedStatMode: value.lockedStatMode }, discarded: false };
   } catch {
@@ -266,7 +267,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
   notices: [],
   error: null,
   setWorkspace: (activeWorkspace) => set((state) => ({
-    activeWorkspace: activeWorkspace !== "rankings" && state.catalog?.dataManifest.capabilities.classBudget === false
+    activeWorkspace: activeWorkspace !== "rankings" && usesFixedStats(state.catalog, state.request.className)
       ? "rankings" : activeWorkspace,
   })),
   setProfiles: (profiles) => set({ profiles }),
@@ -401,6 +402,15 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
     })),
   applyClass: (className) =>
     set((state) => {
+      // Custom stats keeps the entered stats; its level is their total.
+      if (className === CUSTOM_STATS_CLASS) {
+        return {
+          ...invalidateAllJobs(state),
+          request: { ...state.request, className, characterLevel: currentStatTotal(state.request) },
+          compareTarget: null,
+          resultsStale: state.rows.length > 0,
+        };
+      }
       const meta = classMeta(state.catalog, className);
       return {
         ...invalidateAllJobs(state),

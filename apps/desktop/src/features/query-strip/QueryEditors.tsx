@@ -45,17 +45,19 @@ export function ClassEditor({ catalog, request, fixedStats, applyClass, onOptimi
   onOptimize: () => void;
   onReset: () => void;
 }) {
+  // A profile with class budgets lets Custom stats switch to a class, or Optimize class pick one.
+  const noClasses = catalog?.dataManifest.capabilities.classBudget === false;
   return (
     <div className="editor-body">
       <SearchableSelect
         label="Class"
-        disabled={fixedStats}
+        disabled={noClasses}
         value={request.className}
         options={classOptions(catalog).map((entry) => ({ value: entry.name, label: entry.name }))}
         onChange={(value) => value && applyClass(value)}
       />
       <div className="editor-actions">
-        <button type="button" onClick={onOptimize} disabled={fixedStats} title="Choose the lowest required level for all eight entered stats">
+        <button type="button" onClick={onOptimize} disabled={noClasses} title="Choose the lowest required level for all eight entered stats">
           <Sparkles size={14} aria-hidden="true" />
           Optimize class
         </button>
@@ -69,9 +71,11 @@ export function ClassEditor({ catalog, request, fixedStats, applyClass, onOptimi
         </button>
       </div>
       <p className="editor-note">
-        {fixedStats
-          ? "Convergence uses the entered stats exactly, so there is no starting class."
-          : "Changing class resets all eight stats to its base values."}
+        {noClasses
+          ? "This profile uses the entered stats exactly, so there is no starting class."
+          : fixedStats
+            ? "Custom stats uses the entered stats exactly. Choose a class to plan by Rune Level."
+            : "Changing class resets all eight stats to its base values."}
       </p>
     </div>
   );

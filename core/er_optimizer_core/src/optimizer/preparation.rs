@@ -2,12 +2,14 @@ use super::*;
 
 pub(super) fn build_combat_constraints(
     request: &OptimizeRequest,
+    data: &GameData,
 ) -> Result<CombatConstraints, String> {
     validate_stat_caps(request)?;
-    let class_info = class_by_name(&request.class_name)
+    let class_info = data
+        .class_by_name(&request.class_name)
         .ok_or_else(|| format!("unknown starting class: {}", request.class_name))?;
     let free_points =
-        compute_free_points(class_info, request.character_level, &request.current_stats)?;
+        compute_free_points(&class_info, request.character_level, &request.current_stats)?;
     let current = request.current_stats.combat_array();
 
     let mut mins = [0_u8; COMBAT_STAT_COUNT];

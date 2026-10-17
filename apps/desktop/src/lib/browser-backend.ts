@@ -274,13 +274,24 @@ export async function mockInvoke<T>(command: string, args?: Record<string, unkno
   }
 }
 
+// A subset of the Convergence 3.0.0.1 class catalog (classes.csv), then the exact-stat entry.
+const MOCK_CONVERGENCE_CLASSES = [
+  { name: "Retainer", baseLevel: 9, baseTotal: 88,
+    baseStats: { vig: 15, mnd: 10, end: 11, strStat: 14, dex: 13, intStat: 9, fai: 9, arc: 7 } },
+  { name: "Glint Sorcerer", baseLevel: 6, baseTotal: 85,
+    baseStats: { vig: 9, mnd: 15, end: 9, strStat: 8, dex: 10, intStat: 20, fai: 7, arc: 7 } },
+  { name: "Prisoner", baseLevel: 1, baseTotal: 80,
+    baseStats: { vig: 10, mnd: 10, end: 10, strStat: 10, dex: 10, intStat: 10, fai: 10, arc: 10 } },
+  { name: "Custom stats", baseLevel: 0, baseTotal: 0,
+    baseStats: { vig: 0, mnd: 0, end: 0, strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 } },
+];
+
 async function mockCatalog(profileId = "vanilla"): Promise<CatalogDto> {
   const weaponTypeOptions = uniqueSorted(MOCK_WEAPONS.map((weapon) => weapon.weaponTypeName))
     .map((label) => ({ key: label, label }));
   return {
     weaponNames: uniqueSorted(MOCK_WEAPONS.map((weapon) => weapon.name)),
-    classes: profileId === "convergence" ? [{ name: "Custom stats", baseLevel: 0, baseTotal: 0,
-      baseStats: { vig: 0, mnd: 0, end: 0, strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 } }] : STARTING_CLASS_METADATA,
+    classes: profileId === "convergence" ? MOCK_CONVERGENCE_CLASSES : STARTING_CLASS_METADATA,
     weaponTypeOptions,
     aowNames: MOCK_AOW_NAMES,
     affinityNames: uniqueSorted(MOCK_WEAPONS.map((weapon) => weapon.affinity)),
@@ -303,9 +314,9 @@ function mockDataManifest(profileId = "vanilla"): DataManifestDto {
   const convergence = profileId === "convergence";
   return {
     schemaVersion: 6,
-    datasetVersion: convergence ? "convergence-3.0.0.1-r3" : "vanilla-1.17-r3",
+    datasetVersion: convergence ? "convergence-3.0.0.1-r4" : "vanilla-1.17-r3",
     modelVersion: "aow-routes-effects-v9/exact-v3",
-    id: convergence ? "convergence-3.0.0.1-r3" : "vanilla-1.17-r3",
+    id: convergence ? "convergence-3.0.0.1-r4" : "vanilla-1.17-r3",
     label: convergence ? "The Convergence dataset - 3.0.0.1" : "Vanilla dataset - 1.17",
     appVersion: convergence ? "1.16.1" : "1.17",
     source: "regulation.bin",
@@ -316,7 +327,7 @@ function mockDataManifest(profileId = "vanilla"): DataManifestDto {
       modVersion: convergence ? "3.0.0.1" : null,
     },
     capabilities: {
-      classBudget: !convergence,
+      classBudget: true,
       statusBuildup: true,
       aowDamage: !convergence,
       aowRoutes: !convergence,
@@ -326,7 +337,7 @@ function mockDataManifest(profileId = "vanilla"): DataManifestDto {
       somberMaxUpgrade: convergence ? 15 : 10,
       separateUpgradeCaps: !convergence,
       scadutreeScaling: !convergence,
-      zeroAttackElementUsesWeaponScaling: convergence,
+      zeroAttackElementUsesWeaponScaling: false,
       extendedScalingGrades: convergence,
     },
   };

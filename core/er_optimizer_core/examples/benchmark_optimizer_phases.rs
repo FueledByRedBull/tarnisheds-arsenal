@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use er_optimizer_core::{
-    GameData, OptimizeObjective, OptimizeRequest, ProfiledOptimizeResult, ResultGrouping,
-    SomberFilter, Stats, load_game_data_with_manifest, optimize_profiled,
+    CUSTOM_STATS_CLASS_NAME, GameData, OptimizeObjective, OptimizeRequest, ProfiledOptimizeResult,
+    ResultGrouping, SomberFilter, Stats, load_game_data_with_manifest, optimize_profiled,
 };
 use serde_json::json;
 
@@ -58,6 +58,12 @@ fn main() -> Result<(), String> {
         }
         request.standard_max_upgrade = data.rules.standard_max_upgrade;
         request.somber_max_upgrade = data.rules.somber_max_upgrade;
+        if profile != "vanilla" {
+            // Samurai is a Vanilla class. The same budget (class total = level + 79) as
+            // Custom stats keeps the mod request independent of its own class catalog.
+            request.class_name = CUSTOM_STATS_CLASS_NAME.to_string();
+            request.character_level += 79;
+        }
         let mut warmup_results = Vec::with_capacity(warmups);
         for _ in 0..warmups {
             let result = optimize_profiled(&request, &data)?;

@@ -23,7 +23,7 @@ pub fn start_affinity_watch(
 ) -> Result<StartSearchResponseDto, AppError> {
     validate_levels_ahead(request.levels_ahead)?;
     let profile = Arc::clone(state.profile(&request.base.profile_id)?);
-    if !profile.data.capabilities.class_budget {
+    if !crate::commands::data::uses_class_budget(&profile, &request.base.class_name) {
         return Err(AppError::new(
             "Affinity Watch requires verified profile class budgets.",
         ));

@@ -20,6 +20,12 @@ pub const RUNTIME_DATA_FILES: [&str; 12] = [
     "weapon_passives.csv",
     "weapons.csv",
 ];
+pub const CLASS_CATALOG_FILE: &str = "classes.csv";
+
+/// Vanilla's class budgets are built into the runtime; another profile ships its own.
+pub(crate) fn requires_class_catalog(manifest: &SnapshotManifest) -> bool {
+    manifest.capabilities.class_budget && manifest.profile.id != crate::data::VANILLA_PROFILE_ID
+}
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -249,7 +255,10 @@ fn parse_and_validate_manifest(content: &[u8]) -> Result<SnapshotManifest, Strin
         );
     }
 
-    let expected = RUNTIME_DATA_FILES.into_iter().collect::<HashSet<_>>();
+    let mut expected = RUNTIME_DATA_FILES.into_iter().collect::<HashSet<_>>();
+    if requires_class_catalog(&manifest) {
+        expected.insert(CLASS_CATALOG_FILE);
+    }
     let actual = manifest
         .runtime_files
         .iter()
@@ -405,8 +414,8 @@ mod tests {
     use sha2::{Digest, Sha256};
 
     use super::{
-        RUNTIME_DATA_FILES, SNAPSHOT_SCHEMA_VERSION, parse_and_validate_manifest,
-        validate_embedded_snapshot, validate_external_snapshot,
+        CLASS_CATALOG_FILE, RUNTIME_DATA_FILES, SNAPSHOT_SCHEMA_VERSION,
+        parse_and_validate_manifest, validate_embedded_snapshot, validate_external_snapshot,
     };
 
     struct TestSnapshot {
@@ -425,8 +434,10 @@ mod tests {
             ));
             fs::create_dir(&path).expect("create test snapshot");
 
+            // A non-Vanilla profile with class budgets must ship its class catalog.
             let runtime_files = RUNTIME_DATA_FILES
                 .iter()
+                .chain(&[CLASS_CATALOG_FILE])
                 .map(|name| write_record(&path, name, format!("{name}\n").as_bytes()))
                 .collect::<Vec<_>>();
             let coverage = write_record(&path, "coverage.csv", b"status\nresolved\n");
@@ -552,6 +563,25 @@ mod tests {
         let missing = validate_external_snapshot(&snapshot.path).unwrap_err();
         assert!(missing.contains("weapons.csv"));
         assert!(missing.contains("failed reading"));
+    }
+
+    #[test]
+    fn class_budget_without_a_class_catalog_is_rejected() {
+        let snapshot = TestSnapshot::create();
+        let mut manifest: Value =
+            serde_json::from_slice(&fs::read(snapshot.path.join("manifest.json")).unwrap())
+                .unwrap();
+        manifest["runtimeFiles"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|record| record["path"] != CLASS_CATALOG_FILE);
+        let error =
+            parse_and_validate_manifest(&serde_json::to_vec(&manifest).unwrap()).unwrap_err();
+        assert!(error.contains("runtime file set mismatch"), "{error}");
+        // A profile without class budgets lists no catalog.
+        manifest["capabilities"]["classBudget"] = false.into();
+        parse_and_validate_manifest(&serde_json::to_vec(&manifest).unwrap())
+            .expect("no class budget needs no catalog");
     }
 
     #[test]
@@ -681,7 +711,11 @@ mod tests {
     fn embedded_snapshot_rejects_size_and_hash_mismatches() {
         let snapshot = TestSnapshot::create();
         let manifest = fs::read(snapshot.path.join("manifest.json")).expect("read manifest");
-        let files = RUNTIME_DATA_FILES.map(|name| (name, format!("{name}\n")));
+        let files = RUNTIME_DATA_FILES
+            .iter()
+            .chain(&[CLASS_CATALOG_FILE])
+            .map(|name| (*name, format!("{name}\n")))
+            .collect::<Vec<_>>();
         let content = |replacement: &'static [u8]| {
             let files = &files;
             move |name: &str| {

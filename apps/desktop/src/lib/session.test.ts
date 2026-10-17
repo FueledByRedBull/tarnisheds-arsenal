@@ -7,7 +7,10 @@ import type { CatalogDto } from "./types";
 
 describe("request normalization properties", () => {
   it("rejects unknown starting classes instead of using Vagabond", () => {
-    expect(() => classMeta(null, "Unknown Class")).toThrow("Unknown starting class");
+    const catalog = { classes: STARTING_CLASS_METADATA } as unknown as CatalogDto;
+    expect(() => classMeta(catalog, "Unknown Class")).toThrow("Unknown starting class");
+    // Before a mod's catalog loads its class has no floor; no Vanilla class stands in for it.
+    expect(classMeta(null, "Retainer")).toMatchObject({ name: "Retainer", baseLevel: 0, baseTotal: 0 });
   });
 
   it("derives level from all eight entered stats", () => {

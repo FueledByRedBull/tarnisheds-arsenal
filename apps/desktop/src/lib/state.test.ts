@@ -646,6 +646,38 @@ describe("desktop result lifecycle", () => {
       createdAt: "2026-01-01", updatedAt: "2026-01-01" });
     expect(useDesktopStore.getState().request).toMatchObject({ className: "Custom stats", strStat: 1, dex: 99, somberMaxUpgrade: 15 });
   });
+
+  it("loads a stored Convergence Custom stats build next to the mod's classes and keeps it exact", async () => {
+    const profile = catalog("convergence");
+    profile.dataManifest.capabilities.classBudget = true;
+    profile.classes = [
+      { name: "Retainer", baseLevel: 9, baseTotal: 88,
+        baseStats: { vig: 15, mnd: 10, end: 11, strStat: 14, dex: 13, intStat: 9, fai: 9, arc: 7 } },
+      { name: "Custom stats", baseLevel: 0, baseTotal: 0,
+        baseStats: { vig: 0, mnd: 0, end: 0, strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 } },
+    ];
+    useDesktopStore.getState().setCatalog(profile);
+    expect(useDesktopStore.getState().request.className).toBe("Retainer");
+    const stored = { ...defaultRequest, profileId: "convergence", className: "Custom stats",
+      vig: 20, mnd: 20, end: 20, strStat: 40, dex: 40, intStat: 40, fai: 20, arc: 20,
+      characterLevel: 220, standardMaxUpgrade: 15, somberMaxUpgrade: 15 };
+    await useDesktopStore.getState().loadBuildPreset({ version: 2, id: "custom", name: "Custom stats build",
+      profileId: "convergence", request: stored, selectedBuild: null, compareTarget: null, compareBench: [],
+      dataVersion: "old", createdAt: "2026-01-01", updatedAt: "2026-01-01" });
+    const loaded = useDesktopStore.getState().request;
+    expect(loaded).toMatchObject({ className: "Custom stats", strStat: 40, dex: 40, intStat: 40, fai: 20, arc: 20 });
+    // The native solve receives the same exact budget as before classes existed.
+    expect(buildOptimizeRequest(profile, loaded)).toMatchObject({ characterLevel: 220,
+      lockStr: 40, lockDex: 40, lockInt: 40, lockFai: 20, lockArc: 20 });
+    useDesktopStore.getState().setWorkspace("paths");
+    expect(useDesktopStore.getState().activeWorkspace).toBe("rankings");
+
+    useDesktopStore.getState().applyClass("Retainer");
+    expect(useDesktopStore.getState().request).toMatchObject({ className: "Retainer", characterLevel: 9, strStat: 14 });
+    useDesktopStore.getState().patchRequest({ strStat: 30 });
+    useDesktopStore.getState().applyClass("Custom stats");
+    expect(useDesktopStore.getState().request).toMatchObject({ className: "Custom stats", strStat: 30, characterLevel: 104 });
+  });
 });
 
 describe("saved result activation boundary", () => {

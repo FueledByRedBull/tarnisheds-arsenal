@@ -117,11 +117,7 @@ fn solve_build_base(
 ) -> Result<crate::dto::OptimizeRequestDto, AppError> {
     let mut base = request.base;
     base.pin_loadout(request.weapon_name, request.affinity, request.aow_name);
-    if !state
-        .profile(&base.profile_id)?
-        .data
-        .capabilities
-        .class_budget
+    if !crate::commands::data::uses_class_budget(state.profile(&base.profile_id)?, &base.class_name)
     {
         let stats = CombatStateDto {
             str_stat: base.str_stat,
@@ -382,7 +378,9 @@ fn prepare_ar_bleed_frontier(
     state: &AppState,
 ) -> Result<(OptimizeRequest, Arc<GameData>), AppError> {
     let profile = state.profile(&request.base.profile_id)?;
-    if !profile.data.capabilities.class_budget || !profile.data.capabilities.status_buildup {
+    if !crate::commands::data::uses_class_budget(profile, &request.base.class_name)
+        || !profile.data.capabilities.status_buildup
+    {
         return Err(AppError::new(
             "AR / bleed tradeoffs require class budgets and status modeling",
         ));
@@ -673,7 +671,7 @@ fn clamp_weapon_upgrade_request_for_profile(
             request.class_name, request.profile_id
         )));
     }
-    if !profile.data.capabilities.class_budget {
+    if !crate::commands::data::uses_class_budget(profile, &request.class_name) {
         if !request
             .class_name
             .eq_ignore_ascii_case(er_optimizer_core::CUSTOM_STATS_CLASS_NAME)
@@ -1717,6 +1715,82 @@ mod integration_tests {
         let error = clamp_weapon_upgrade_request(&mut missing_lock, &state)
             .expect_err("custom stats without all combat locks must be rejected");
         assert!(error.message.contains("arc to be locked"));
+    }
+
+    #[test]
+    fn convergence_offers_its_classes_and_custom_stats_but_no_vanilla_class() {
+        let state = crate::test_app_state();
+        let convergence = state.profile("convergence").unwrap();
+        let names = crate::commands::data::class_metadata(convergence)
+            .into_iter()
+            .map(|class_info| class_info.name)
+            .collect::<Vec<_>>();
+        assert_eq!(names.len(), 28);
+        assert_eq!(names.first().map(String::as_str), Some("Retainer"));
+        assert_eq!(
+            names.last().map(String::as_str),
+            Some(er_optimizer_core::CUSTOM_STATS_CLASS_NAME)
+        );
+        let vanilla = state.profile("vanilla").unwrap();
+        assert!(
+            !crate::commands::data::class_metadata(vanilla)
+                .iter()
+                .any(|class_info| class_info.name == er_optimizer_core::CUSTOM_STATS_CLASS_NAME)
+        );
+
+        // A Convergence class budgets stats like a Vanilla class and needs no locks.
+        let mut prisoner = convergence_custom_stats_request();
+        prisoner.class_name = "Prisoner".to_string();
+        prisoner.character_level = 1 + 220 - 80;
+        (prisoner.lock_str, prisoner.lock_dex, prisoner.lock_int) = (None, None, None);
+        (prisoner.lock_fai, prisoner.lock_arc) = (None, None);
+        clamp_weapon_upgrade_request(&mut prisoner, &state).expect("Convergence class");
+        let mut samurai = prisoner.clone();
+        samurai.class_name = "Samurai".to_string();
+        let error = clamp_weapon_upgrade_request(&mut samurai, &state)
+            .expect_err("Vanilla classes must not budget Convergence");
+        assert!(
+            error
+                .message
+                .contains("is not available for profile 'convergence'")
+        );
+    }
+
+    #[test]
+    fn stored_convergence_custom_stats_build_loads_and_solves_exactly() {
+        let state = crate::test_app_state();
+        let base = convergence_custom_stats_request();
+        let ranked = run_search_inner(base.clone(), &state)
+            .expect("Custom stats search succeeds")
+            .pop()
+            .expect("Custom stats result");
+        // A saved build re-solves its exact loadout with the stats it was saved with.
+        let solved = solve_build_inner(
+            SolveBuildRequestDto {
+                base: base.clone(),
+                weapon_name: ranked.weapon_name.clone(),
+                affinity: Some(ranked.affinity.clone()),
+                aow_name: ranked.aow_name.clone(),
+            },
+            &state,
+        )
+        .expect("Custom stats solve succeeds")
+        .expect("Custom stats build solves");
+        assert_eq!(solved.stats, ranked.stats);
+        assert_eq!(
+            serde_json::to_value(solved.ar).unwrap(),
+            serde_json::to_value(ranked.ar).unwrap()
+        );
+        assert_eq!(
+            [
+                solved.stats.str_stat,
+                solved.stats.dex,
+                solved.stats.int_stat,
+                solved.stats.fai,
+                solved.stats.arc
+            ],
+            [base.str_stat, base.dex, base.int_stat, base.fai, base.arc]
+        );
     }
 
     #[test]

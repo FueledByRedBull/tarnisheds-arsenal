@@ -109,9 +109,9 @@ effect_id,status,reason,reference_count,weapon_ids,weapon_names
 5025000,resolved,,1,31170000,Shield of the Guilty
 5025300,resolved,,1,2530000,Carian Sorcery Sword
 5026000,resolved,,1,30020000,Man-Serpent's Shield
-5027000,resolved,,1,30160000,NEW - Hermit's Buckler
-5028000,resolved,,1,30170000,NEW - Shield of Alacrity
-5029000,resolved,,1,31180000,NEW - Shield of Starlight
+5027000,resolved,,1,30160000,Hermit's Buckler
+5028000,resolved,,1,30170000,Shield of Alacrity
+5029000,resolved,,1,31180000,Shield of Starlight
 5030000,resolved,,1,31130000,Brass Shield
 5031400,resolved,,1,3140000,Blasphemous Blade
 5031500,resolved,,1,18200000,Blightpole

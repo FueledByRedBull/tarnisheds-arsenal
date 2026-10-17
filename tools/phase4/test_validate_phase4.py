@@ -214,6 +214,30 @@ class ValidatePhase4Tests(unittest.TestCase):
         self.assertEqual(len(issues), 1)
         self.assertIn("non-monotonic used curves", issues[0].message)
 
+    def test_fixed_status_requires_flat_status_curves_and_no_overlays(self) -> None:
+        zero = [{"curve_id": "28", "stat_value": str(stat), "multiplier": "0"} for stat in range(149)]
+        weapon = {"weapon_id": "1", "arc_scaling": "0.6", "curve_id_blood": "28",
+                  "curve_id_poison": "28", "curve_id_sleep": "28", "curve_id_madness": "28"}
+        passive = {"weapon_id": "1", "bleed": "68", "poison": "0", "sleep": "0", "madness": "0"}
+        self.assertEqual(validation.validate_fixed_status_rule([weapon], [passive], zero, []), [])
+
+        scaling = validation.validate_fixed_status_rule(
+            [{**weapon, "curve_id_blood": "1"}], [passive], zero + curve_rows(), []
+        )
+        self.assertIn("arcane-scaling status weapons: ['1']", scaling[0].message)
+        overlays = validation.validate_fixed_status_rule([weapon], [passive], zero, [{"weapon_id": "1"}])
+        self.assertIn("upgrade status overlays", overlays[0].message)
+
+    def test_class_catalog_rejects_levels_that_are_not_rune_levels(self) -> None:
+        row = {"class_id": "3000", "name": "Retainer", "base_level": "9", "vig": "15", "mnd": "10",
+               "end": "11", "str": "14", "dex": "13", "int": "9", "fai": "9", "arc": "7"}
+        self.assertEqual(validation.validate_class_catalog([row]), [])
+        for broken in ({**row, "base_level": "10"}, {**row, "arc": "0"}, {**row, "name": " "},
+                       {**row, "name": "Custom stats"}):
+            with self.subTest(broken=broken):
+                self.assertEqual(len(validation.validate_class_catalog([broken])), 1)
+        self.assertEqual(len(validation.validate_class_catalog([row, row])), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

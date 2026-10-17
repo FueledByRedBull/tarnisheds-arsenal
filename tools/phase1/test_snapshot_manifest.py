@@ -9,7 +9,7 @@ from typing import Any
 
 from tools.phase1.profiles import profile_definition
 from tools.phase1.snapshot_manifest import (
-    RUNTIME_FILES,
+    runtime_files_for,
     promote_snapshot,
     write_snapshot_manifest,
     validate_snapshot_manifest,
@@ -20,7 +20,7 @@ class SnapshotPromotionTests(unittest.TestCase):
     def _create_staging(self, root: Path) -> Path:
         staging = root / "staging"
         staging.mkdir()
-        for file_name in RUNTIME_FILES:
+        for file_name in runtime_files_for("convergence", True):
             (staging / file_name).write_text(f"{file_name}\n", encoding="utf-8")
         (staging / "listed.csv").write_text("listed\n", encoding="utf-8")
         regulation = root / "regulation.bin"

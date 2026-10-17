@@ -14,8 +14,8 @@ use rayon::prelude::*;
 use crate::math::ScalarAowRoute;
 use crate::math::{
     apply_aow_status_buffs, calculate_aow_routes_scaled_with_cancel, calculate_status_buildup,
-    class_by_name, compute_free_points, effective_str, has_unmodeled_attack_power,
-    meets_requirements, prepare_scalar_aow_routes,
+    compute_free_points, effective_str, has_unmodeled_attack_power, meets_requirements,
+    prepare_scalar_aow_routes,
 };
 #[cfg(test)]
 use crate::math::{calculate_aow_routes, evaluate_scalar_aow_route};
@@ -146,7 +146,7 @@ impl PreparedLoadoutEvaluator<'_> {
             return Err("cancelled".into());
         }
         validate_reusable_loadout(&self.template, request, self.data)?;
-        let constraints = build_combat_constraints(request)?;
+        let constraints = build_combat_constraints(request, self.data)?;
         if request.top_k == 1 && request.locked_combat_stats.iter().all(Option::is_some) {
             let stats = stats_with_combat(request.current_stats, constraints.mins);
             let mut upgrades = self
@@ -198,7 +198,7 @@ impl PreparedLoadoutEvaluator<'_> {
         if !should_continue() {
             return Err("cancelled".into());
         }
-        let constraints = build_combat_constraints(request)?;
+        let constraints = build_combat_constraints(request, self.data)?;
         let mut weapons = self.weapons.to_vec();
         for weapon in &mut weapons {
             weapon
@@ -331,7 +331,7 @@ fn ar_bleed_candidates_with_reuse(
     if routes.iter().any(|route| !route.is_additive(data)) {
         return Ok(None);
     }
-    let constraints = build_combat_constraints(request)?;
+    let constraints = build_combat_constraints(request, evaluator.data)?;
     let Some(search) = relevant_stat_search(
         request,
         data,
@@ -494,7 +494,7 @@ impl PreparedUpgradeSeriesEvaluator<'_> {
         if request.locked_combat_stats.iter().any(Option::is_none) {
             return Err("upgrade series evaluation requires exact combat stats".to_string());
         }
-        let constraints = build_combat_constraints(request)?;
+        let constraints = build_combat_constraints(request, self.data)?;
         let [str_stat, dex, int_stat, fai, arc] = constraints.mins;
         let stats = Stats {
             str: str_stat,
@@ -784,7 +784,7 @@ where
         return Err("cancelled".to_string());
     }
     validate_profile_capabilities(request, data)?;
-    let constraints = build_combat_constraints(request)?;
+    let constraints = build_combat_constraints(request, data)?;
     let weapons = Arc::from(
         prepare_weapons_with_cancel(request, data, Some(constraints), &mut should_continue)?
             .into_boxed_slice(),
@@ -817,7 +817,13 @@ fn validate_profile_capabilities(request: &OptimizeRequest, data: &GameData) -> 
             crate::math::SCADUTREE_MAX_LEVEL
         ));
     }
-    let max_character_level: u16 = if data.capabilities.class_budget {
+    // A Custom stats level offered next to mod classes is the eight-stat total, not a
+    // Rune Level; Vanilla keeps the Rune Level bound for every class.
+    let custom_stats_total = data.offers_custom_stats()
+        && request
+            .class_name
+            .eq_ignore_ascii_case(crate::math::CUSTOM_STATS_CLASS_NAME);
+    let max_character_level: u16 = if data.capabilities.class_budget && !custom_stats_total {
         713
     } else {
         8 * 99
@@ -944,7 +950,7 @@ fn prepare_reusable_weapons<'a>(
     preparation_request.min_combat_stats = [0; COMBAT_STAT_COUNT];
     preparation_request.locked_combat_stats = [None; COMBAT_STAT_COUNT];
     preparation_request.top_k = 1;
-    build_combat_constraints(&preparation_request)?;
+    build_combat_constraints(&preparation_request, data)?;
     let weapons = Arc::from(
         prepare_weapons_with_cancel(&preparation_request, data, None, should_continue)?
             .into_boxed_slice(),
@@ -1139,7 +1145,7 @@ where
     if !should_continue() {
         return Err("cancelled".to_string());
     }
-    let max_constraints = build_combat_constraints(&max_request)?;
+    let max_constraints = build_combat_constraints(&max_request, data)?;
     let shared_weapons = Arc::from(
         prepare_weapons_with_cancel(
             &max_request,
@@ -1169,7 +1175,7 @@ where
         let plan = if level == max_level {
             max_plan.take().expect("max plan is consumed once")
         } else {
-            let constraints = build_combat_constraints(&level_request)?;
+            let constraints = build_combat_constraints(&level_request, data)?;
             build_prepared_plan(
                 &level_request,
                 data,

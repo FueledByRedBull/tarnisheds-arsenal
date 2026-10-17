@@ -1,6 +1,6 @@
 import { expect as baseExpect } from "@playwright/test";
 import { existsSync } from "node:fs";
-import { closeEditors, openEditor, openSection } from "../tests/editors.ts";
+import { chooseClass, closeEditors, openEditor, openSection } from "../tests/editors.ts";
 import { launchPackagedApp, stopSession } from "./packaged-session.mjs";
 
 const executable = process.argv[2];
@@ -81,12 +81,15 @@ try {
   markSmokeStage("switch to Convergence profile");
   await profileSwitch.getByRole("radio", { name: /Convergence/ }).click();
   markSmokeStage("wait for Convergence model");
-  await page.getByText("Experimental fixed-stat model", { exact: true }).waitFor();
+  await page.getByText("Experimental model", { exact: true }).waitFor();
   await openEditor(page, "Class");
-  if (await page.getByRole("combobox", { name: "Class", exact: true }).inputValue() !== "Custom stats") {
-    throw new Error("Convergence substituted a starting-class budget for fixed stats");
+  // Convergence's own first class; a Vanilla class here would mean the catalogs mixed.
+  if (await page.getByRole("combobox", { name: "Class", exact: true }).inputValue() !== "Retainer") {
+    throw new Error("Convergence did not load its own class catalog");
   }
-  await expect(page.getByRole("button", { name: "Optimize class", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Optimize class", exact: true })).toBeEnabled();
+  // Builds saved with Custom stats keep their exact fixed-stat workflow.
+  await chooseClass(page, "Custom stats");
   await openEditor(page, "Objective");
   await expect(page.getByRole("button", { name: "Max AR", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "AoW First Hit", exact: true })).toHaveCount(0);

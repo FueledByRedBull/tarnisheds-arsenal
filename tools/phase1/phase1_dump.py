@@ -36,6 +36,21 @@ CALC_CORRECT_PARAM = "CalcCorrectGraph.param"
 ATTACK_ELEMENT_PARAM = "AttackElementCorrectParam.param"
 AOW_PARAM = "EquipParamGem.param"
 SPEFFECT_PARAM = "SpEffectParam.param"
+CHARA_INIT_PARAM = "CharaInitParam.param"
+CLASS_MENU_PARAM = "BaseChrSelectMenuParam.param"
+CLASS_CATALOG_FILE = "classes.csv"
+CLASS_STAT_FIELDS = (
+    ("vig", "baseVit"),
+    ("mnd", "baseWil"),
+    ("end", "baseEnd"),
+    ("str", "baseStr"),
+    ("dex", "baseDex"),
+    ("int", "baseMag"),
+    ("fai", "baseFai"),
+    ("arc", "baseLuc"),
+)
+# Rune Level is the eight-attribute total minus 79 for every class row.
+CLASS_LEVEL_OFFSET = 79
 WITCHYBND_TIMEOUT_SECONDS = 600
 # Paramdex definitions WitchyBND uses to serialize the params above.
 PARAM_DEFINITIONS = (
@@ -173,6 +188,8 @@ class RegulationContext:
     sword_art_name_map: dict[int, str]
     wep_type_name_map: dict[int, str]
     weapon_type_keys_by_id: dict[int, tuple[str, ...]]
+    class_menu_rows: list[dict[str, str]]
+    chara_init_rows: list[dict[str, str]]
 
 
 def parse_args() -> argparse.Namespace:
@@ -530,7 +547,8 @@ def player_weapon_param_name(row: dict[str, str]) -> str:
         return ""
     if any(marker in lowered for marker in ("[npc]", "(npc)", "dummy", "test weapon")):
         return ""
-    return re.sub(r"^\[conv\]\s*", "", name, flags=re.IGNORECASE)
+    # Mod authors mark some labels with "[Conv]" or "NEW - "; neither is part of the name.
+    return re.sub(r"^(?:\[conv\]\s*|new\s+-\s+)", "", name, flags=re.IGNORECASE)
 
 
 def build_standard_name_map(
@@ -903,6 +921,51 @@ def build_weapon_rows(
     return rows_out
 
 
+def build_class_rows(
+    menu_rows: list[dict[str, str]],
+    chara_init_rows: list[dict[str, str]],
+) -> list[dict[str, object]]:
+    """Return the character-creation classes in menu order.
+
+    Names come only from the regulation's own row names: Paramdex labels describe
+    Vanilla rows and must not name another profile's classes.
+    """
+    chara_by_id = {to_int(row, "id", None): row for row in chara_init_rows}
+    rows_out: list[dict[str, object]] = []
+    names: set[str] = set()
+    for menu in sorted(menu_rows, key=lambda row: to_int(row, "id", None)):
+        # Rows still enabled in the network test are the [CNT] test characters.
+        if to_int(menu, "disableParam_NT", None) == 0:
+            continue
+        class_id = to_int(menu, "originChrInitParam", None)
+        source = chara_by_id.get(class_id)
+        preview = chara_by_id.get(to_int(menu, "chrInitParam", None))
+        if source is None or preview is None:
+            raise ValueError(f"class menu row {menu['id']} references a missing CharaInitParam row")
+        stats = {key: to_int(source, field, None) for key, field in CLASS_STAT_FIELDS}
+        if any(to_int(preview, field, None) != stats[key] for key, field in CLASS_STAT_FIELDS):
+            raise ValueError(f"class menu row {menu['id']} preview stats differ from class {class_id}")
+        if any(not 1 <= value <= 99 for value in stats.values()):
+            raise ValueError(f"class {class_id} has attributes outside 1..99: {stats}")
+        base_level = to_int(source, "soulLv", None)
+        if base_level != sum(stats.values()) - CLASS_LEVEL_OFFSET:
+            raise ValueError(
+                f"class {class_id} level {base_level} is not its attribute total minus "
+                f"{CLASS_LEVEL_OFFSET}"
+            )
+        raw_name = (source.get("name") or "").strip()
+        if not raw_name.startswith("Class - "):
+            raise ValueError(f"class {class_id} has no regulation class name: {raw_name!r}")
+        name = raw_name.removeprefix("Class - ").strip()
+        if not name or name in names:
+            raise ValueError(f"class {class_id} name is empty or duplicated: {name!r}")
+        names.add(name)
+        rows_out.append({"class_id": class_id, "name": name, "base_level": base_level, **stats})
+    if not rows_out:
+        raise ValueError("class menu contains no player classes")
+    return rows_out
+
+
 def build_calc_correct_rows(
     curve_rows: list[dict[str, str]],
     used_curve_ids: set[int],
@@ -1033,13 +1096,14 @@ def load_regulation_context(
     workdir: Path,
     weapon_name_xmls: Sequence[Path] = (),
     arts_name_xmls: Sequence[Path] = (),
+    class_catalog: bool = False,
 ) -> RegulationContext:
     unpacked_dir = unpack_regulation(regulation_path, witchybnd_path, workdir)
-    xml_paths = {
-        param: serialize_param(unpacked_dir, witchybnd_path, param)
-        for param in (WEAPON_PARAM, REINFORCE_PARAM, CALC_CORRECT_PARAM,
-                      ATTACK_ELEMENT_PARAM, AOW_PARAM, SPEFFECT_PARAM)
-    }
+    params = [WEAPON_PARAM, REINFORCE_PARAM, CALC_CORRECT_PARAM,
+              ATTACK_ELEMENT_PARAM, AOW_PARAM, SPEFFECT_PARAM]
+    if class_catalog:
+        params += [CHARA_INIT_PARAM, CLASS_MENU_PARAM]
+    xml_paths = {param: serialize_param(unpacked_dir, witchybnd_path, param) for param in params}
     weapon_rows = list(iter_param_rows(xml_paths[WEAPON_PARAM], default_fields=WEAPON_MODEL_FIELDS))
     reinforce_rows = list(iter_param_rows(xml_paths[REINFORCE_PARAM], apply_defaults=True))
     curve_rows = list(iter_param_rows(xml_paths[CALC_CORRECT_PARAM], apply_defaults=True))
@@ -1059,6 +1123,14 @@ def load_regulation_context(
     wep_type_name_map = load_wep_type_name_map(witchybnd_path)
     gem_mount_fields = discover_gem_mount_fields(xml_paths[AOW_PARAM])
     weapon_type_keys_by_id = build_weapon_type_key_map(wep_type_name_map, gem_mount_fields)
+    class_menu_rows, chara_init_rows = (
+        (
+            list(iter_param_rows(xml_paths[CLASS_MENU_PARAM], apply_defaults=True)),
+            list(iter_param_rows(xml_paths[CHARA_INIT_PARAM], apply_defaults=True)),
+        )
+        if class_catalog
+        else ([], [])
+    )
     return RegulationContext(
         workdir=unpacked_dir.parent,
         weapon_rows=weapon_rows,
@@ -1071,6 +1143,8 @@ def load_regulation_context(
         sword_art_name_map=sword_art_name_map,
         wep_type_name_map=wep_type_name_map,
         weapon_type_keys_by_id=weapon_type_keys_by_id,
+        class_menu_rows=class_menu_rows,
+        chara_init_rows=chara_init_rows,
     )
 
 
@@ -1163,6 +1237,7 @@ def main() -> int:
         workdir,
         weapon_name_xmls,
         arts_name_xmls,
+        class_catalog=profile.class_catalog_from_regulation,
     )
     context.sword_art_name_map.update(profile.sword_art_name_overrides)
     reinforce_csv_rows, max_level_by_type = build_reinforce_rows(context.reinforce_rows)
@@ -1343,6 +1418,13 @@ def main() -> int:
         aow_csv_rows,
     )
 
+    if profile.class_catalog_from_regulation:
+        write_csv(
+            output_dir / CLASS_CATALOG_FILE,
+            ["class_id", "name", "base_level", *(key for key, _ in CLASS_STAT_FIELDS)],
+            build_class_rows(context.class_menu_rows, context.chara_init_rows),
+        )
+
     from tools.phase1.derive_phase1_raw_extras import export_regulation_extras
     from tools.phase1.extract_motion_workbook import run_workbook_exports
     from tools.phase1.snapshot_manifest import (
@@ -1397,6 +1479,8 @@ def main() -> int:
     definitions = list(PARAM_DEFINITIONS)
     if profile.capabilities.aow_damage or profile.capabilities.aow_routes:
         definitions += ["AtkParam", "BulletParam"]
+    if profile.class_catalog_from_regulation:
+        definitions += ["CharaInitParam", "BaseChrSelectMenuParam"]
     for definition in definitions:
         source_paths[f"paramdexDefs{definition}"] = paramdex_path(
             witchybnd_path, "Defs", f"{definition}.xml"

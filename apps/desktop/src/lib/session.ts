@@ -110,12 +110,25 @@ export const STARTING_CLASS_METADATA: ClassMetadataDto[] = [
   },
 ];
 
+export const CUSTOM_STATS_CLASS = "Custom stats";
+
+/** Custom stats, and any profile without class budgets, evaluates the entered stats exactly. */
+export function usesFixedStats(catalog: CatalogDto | null, className: string): boolean {
+  return catalog?.dataManifest.capabilities.classBudget === false || className === CUSTOM_STATS_CLASS;
+}
+
 export function classOptions(catalog: CatalogDto | null): ClassMetadataDto[] {
   return catalog?.classes.length ? catalog.classes : STARTING_CLASS_METADATA;
 }
 
+/** Whether a class is known before any catalog loads: Vanilla's built-in classes and Custom stats. */
+export function knownWithoutCatalog(className: string): boolean {
+  return className === CUSTOM_STATS_CLASS || STARTING_CLASS_METADATA.some((entry) => entry.name === className);
+}
+
 export function classMeta(catalog: CatalogDto | null, className: string): ClassMetadataDto {
-  if (!catalog && className === "Custom stats") {
+  // A mod's own class renders before its catalog loads; setCatalog then reconciles it.
+  if (!catalog && !STARTING_CLASS_METADATA.some((entry) => entry.name === className)) {
     return { name: className, baseLevel: 0, baseTotal: 0,
       baseStats: { vig: 0, mnd: 0, end: 0, strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 } };
   }
@@ -126,7 +139,7 @@ export function classMeta(catalog: CatalogDto | null, className: string): ClassM
   throw new Error(`Unknown starting class: ${className}`);
 }
 
-function currentStatTotal(request: OptimizeRequestDto): number {
+export function currentStatTotal(request: OptimizeRequestDto): number {
   return EIGHT_STAT_KEYS.reduce((total, key) => total + Number(request[key]), 0);
 }
 
@@ -147,7 +160,8 @@ export function optimalStartingClass(
   targets: EightStatsDto,
   currentClassName: string,
 ): ClassMetadataDto {
-  return classOptions(catalog).reduce((best, candidate) => {
+  // Custom stats has no class floor to optimize against.
+  return classOptions(catalog).filter((entry) => entry.name !== CUSTOM_STATS_CLASS).reduce((best, candidate) => {
     const candidateLevel = startingClassLevel(candidate, targets);
     const bestLevel = startingClassLevel(best, targets);
     if (candidateLevel < bestLevel) return candidate;
@@ -185,7 +199,7 @@ export function buildOptimizeRequest(
   useLockedStats = true,
 ): OptimizeRequestDto {
   const meta = classMeta(catalog, uiRequest.className);
-  if (catalog?.dataManifest.capabilities.classBudget === false) {
+  if (usesFixedStats(catalog, uiRequest.className)) {
     return {
       ...uiRequest,
       characterLevel: currentStatTotal(uiRequest),

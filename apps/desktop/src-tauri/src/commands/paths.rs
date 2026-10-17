@@ -44,7 +44,11 @@ pub fn start_path_preview(
         ));
     }
     let profile = Arc::clone(state.profile(&profile_id)?);
-    if !profile.data.capabilities.class_budget {
+    if request
+        .requests
+        .iter()
+        .any(|lane| !crate::commands::data::uses_class_budget(&profile, &lane.base.class_name))
+    {
         return Err(AppError::new(
             "Paths requires verified profile class budgets.",
         ));
@@ -738,6 +742,45 @@ mod integration_tests {
             .expect("real path command succeeds");
         assert_eq!(path.title, "Selected");
         assert!(!path.steps.is_empty());
+    }
+
+    #[test]
+    fn convergence_paths_use_its_own_class_budget() {
+        let state = crate::test_app_state();
+        let mut base = crate::test_optimize_request();
+        base.profile_id = er_optimizer_core::CONVERGENCE_PROFILE_ID.to_string();
+        base.class_name = "Prisoner".to_string();
+        base.character_level = 30;
+        (base.vig, base.mnd, base.end, base.str_stat, base.dex) = (10, 10, 10, 10, 10);
+        (base.int_stat, base.fai, base.arc) = (10, 10, 10);
+        base.weapon_name = Some("Uchigatana".to_string());
+        base.affinity = Some("Keen".to_string());
+        base.standard_max_upgrade = Some(15);
+        base.somber_max_upgrade = Some(15);
+        let solved = run_search_inner(base.clone(), &state)
+            .expect("Convergence seed search succeeds")
+            .pop()
+            .expect("Convergence seed build exists");
+        let profile = state
+            .profile(er_optimizer_core::CONVERGENCE_PROFILE_ID)
+            .expect("Convergence profile exists");
+        let path = build_path_preview_inner(
+            PathPreviewRequestDto {
+                base,
+                solved,
+                levels_ahead: 3,
+                title: "Selected".to_string(),
+                mode: PathMode::NoRespec,
+            },
+            profile,
+            || true,
+            |_| {},
+        )
+        .expect("Convergence path succeeds");
+        assert_eq!(
+            path.steps.iter().map(|step| step.level).collect::<Vec<_>>(),
+            vec![30, 31, 32, 33]
+        );
     }
 
     #[test]

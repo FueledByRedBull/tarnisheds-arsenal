@@ -1,8 +1,8 @@
 {
   "schemaVersion": 6,
-  "datasetVersion": "convergence-3.0.0.1-r3",
+  "datasetVersion": "convergence-3.0.0.1-r4",
   "modelVersion": "aow-routes-effects-v9",
-  "id": "convergence-3.0.0.1-r3",
+  "id": "convergence-3.0.0.1-r4",
   "label": "The Convergence dataset - 3.0.0.1",
   "appVersion": "1.16.1",
   "source": "regulation.bin",
@@ -15,7 +15,7 @@
   "capabilities": {
     "weaponAr": true,
     "weaponArForAmmunition": false,
-    "classBudget": false,
+    "classBudget": true,
     "statusBuildup": true,
     "weaponPassives": true,
     "aowCompatibility": true,
@@ -27,11 +27,11 @@
     "somberMaxUpgrade": 15,
     "separateUpgradeCaps": false,
     "scadutreeScaling": false,
-    "zeroAttackElementUsesWeaponScaling": true,
+    "zeroAttackElementUsesWeaponScaling": false,
     "extendedScalingGrades": true,
     "statusBuildupScales": false
   },
-  "generatedAt": "2026-10-16",
+  "generatedAt": "2026-10-17",
   "extractorVersion": "phase1-python-v15-f32-shortest-floats",
   "provenance": "profile-bound regulation, names, and numeric PARAM effect graph",
   "runtimeFiles": [
@@ -58,7 +58,7 @@
     {
       "path": "attack_element_correct.csv",
       "size": 11035,
-      "sha256": "26e9ed4927b2df1ac5e2323354ff9c954826d564f3b14b0ddbaa12b3dfda6686"
+      "sha256": "2455bf5cb187ad624bbcba44dd648bb0894514897355d370c0b003b4d16074ac"
     },
     {
       "path": "attack_element_correct_ext.csv",
@@ -69,6 +69,11 @@
       "path": "calc_correct.csv",
       "size": 22253,
       "sha256": "9f2585d8a0d4eec391c0dccd2a8adbbce2af8b20b6606e6f7a4950d9dca0d512"
+    },
+    {
+      "path": "classes.csv",
+      "size": 1166,
+      "sha256": "c3f8f004cc9da3242da3a509ea3e4376fa3cd04d890d691dbea8e88fcc407d24"
     },
     {
       "path": "native_skill_attack_data.csv",
@@ -87,20 +92,20 @@
     },
     {
       "path": "weapon_passives.csv",
-      "size": 183945,
-      "sha256": "e3b157fde2f380fefeb901c1e9e77a9277e49680beab2e0e6feaea8816a38404"
+      "size": 183927,
+      "sha256": "759392cb903e2b3e2bc3fa0b5b0694af0143ee58a19e6a47f57391227aa3ca6c"
     },
     {
       "path": "weapons.csv",
-      "size": 605109,
-      "sha256": "95a96625a7630aae02a06a43727caac6a069d122cd32b53e61fc83ab8c5d1c53"
+      "size": 605091,
+      "sha256": "d62165da55525cbf4ed30ee10223f2247fbc4a7b95809b594caad73f6c4ac079"
     }
   ],
   "diagnosticFiles": [
     {
       "path": "passive_effect_coverage.csv",
-      "size": 42071,
-      "sha256": "e1eb747bb7c922e5a44574f601194d6c75b00b1f5cd97bda2701ea3489c782d3"
+      "size": 42053,
+      "sha256": "aad96a132ecb72f998651e89f21d4b5c4d5be7642a9c4bf183b6093e65e70588"
     }
   ],
   "sources": [
@@ -140,11 +145,25 @@
       "sha256": "bb52dfedd405d5c4d540478a04c4b2c59bf3d8bdeb199240fa560a593c5b902c"
     },
     {
+      "kind": "paramdexDefsBaseChrSelectMenuParam",
+      "bundled": false,
+      "path": "BaseChrSelectMenuParam.xml",
+      "size": 2648,
+      "sha256": "7ae6e6c3f7875f415a2e3b637c0b12549b626d023aeabf4a00fb5b8f81b39d73"
+    },
+    {
       "kind": "paramdexDefsCalcCorrectGraph",
       "bundled": false,
       "path": "CalcCorrectGraph.xml",
       "size": 6006,
       "sha256": "27e6d51c4dafba042c06d7a09b93a0d903bad2227ce805247bb2fda510022ea5"
+    },
+    {
+      "kind": "paramdexDefsCharaInitParam",
+      "bundled": false,
+      "path": "CharaInitParam.xml",
+      "size": 30422,
+      "sha256": "4b5203e38fbd19928835ede4ce029077039b52d725f002c59f40e9095d9b8b7a"
     },
     {
       "kind": "paramdexDefsEquipParamGem",
@@ -185,8 +204,8 @@
       "kind": "weaponAvailability",
       "bundled": false,
       "path": "convergence-3.0.0.1-weapons.json",
-      "size": 218723,
-      "sha256": "72a313f6c758b308fe1927a829724bae6246081bf5209a952acc3218f313e88d"
+      "size": 218823,
+      "sha256": "bb33cc35911f7cc10b6ff6c637df3d7c0aecaecfb672c473ed637e27deb75000"
     },
     {
       "kind": "weaponNamesBase",

@@ -36,7 +36,7 @@ test("saving waits for verified catalog readiness without writing partial preset
   await update.evaluate(button => (button as HTMLButtonElement).click());
   expect(await page.evaluate(() => JSON.stringify(localStorage))).toBe(original);
   await page.evaluate(() => { (window as any).finishSavingCatalog(); });
-  await expect(page.getByText("Experimental fixed-stat model", { exact: true })).toBeVisible();
+  await expect(page.getByText("Experimental model", { exact: true })).toBeVisible();
   await expect(save).toBeEnabled();
   await expect(update).toBeEnabled();
   await expect(page.locator(".error-strip")).toHaveCount(0);
