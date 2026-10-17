@@ -139,12 +139,66 @@ export function RankingsBoard() {
   // one is only skipped while hidden (styles.css), so it replays the entrance itself.
   const panel = useRef<HTMLElement>(null);
   const wasShown = useRef(shown);
+  // Rows well outside the board's view rest (styles.css) while Rankings is hidden and while the
+  // window is resized, so a return or a width step renders only the rows near the view instead
+  // of all 50; the others wake a few per frame afterwards.
+  const nearRows = useRef(new Set<Element>());
+  const wakeFrame = useRef(0);
   useLayoutEffect(() => {
     if (shown && !wasShown.current && !reducedMotion()) {
       panel.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 140, easing: EASE_OUT });
     }
+    const container = rowsContainer.current;
+    if (container && shown !== wasShown.current) {
+      cancelAnimationFrame(wakeFrame.current);
+      if (!shown) restRows(container, nearRows.current);
+      // Waking starts in the frame after the one that shows the board.
+      else wakeFrame.current = requestAnimationFrame(() => { wakeFrame.current = requestAnimationFrame(() => wakeRows(container, wakeFrame)); });
+    }
     wasShown.current = shown;
   }, [shown]);
+
+  useEffect(() => {
+    const board = resultBoard.current;
+    const container = rowsContainer.current;
+    if (!board || !container) return;
+    const near = nearRows.current;
+    near.clear();
+    const offstage = () => panel.current?.hasAttribute("data-offstage") ?? true;
+    const observer = new IntersectionObserver((entries) => {
+      // A hidden board reports every row out of view, so it keeps the rows it last showed.
+      if (offstage()) return;
+      for (const { target, isIntersecting } of entries) {
+        if (!isIntersecting) {
+          near.delete(target);
+        } else {
+          near.add(target);
+          target.removeAttribute("data-resting");
+        }
+      }
+    }, { root: board, rootMargin: "96px 0px" });
+    for (const row of container.children) observer.observe(row);
+    let settle = 0;
+    const onResize = () => {
+      if (offstage()) return;
+      if (!settle) {
+        cancelAnimationFrame(wakeFrame.current);
+        restRows(container, near);
+      }
+      clearTimeout(settle);
+      settle = window.setTimeout(() => {
+        settle = 0;
+        wakeRows(container, wakeFrame);
+      }, 150);
+    };
+    window.addEventListener("resize", onResize);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", onResize);
+      clearTimeout(settle);
+      cancelAnimationFrame(wakeFrame.current);
+    };
+  }, [rows.length]);
 
   async function exportCsv(requestedRows: number) {
     if (useDesktopStore.getState().isSearching || useDesktopStore.getState().isExporting) return;
@@ -443,6 +497,23 @@ function MetricDelta({ movement, objective }: { movement: RankMovement | null; o
       {delta > 0 ? "+" : ""}{fixed1(delta)}
     </small>
   );
+}
+
+// Rests every row outside `near` except one holding focus. Without a row in view yet, none rest.
+function restRows(container: HTMLElement, near: Set<Element>) {
+  if (!near.size) return;
+  for (const row of container.children) {
+    if (!near.has(row) && !row.contains(document.activeElement)) row.setAttribute("data-resting", "");
+  }
+}
+
+// Wakes resting rows twelve per frame; a hidden board keeps them resting until it is shown.
+function wakeRows(container: HTMLElement, frame: { current: number }) {
+  frame.current = 0;
+  if (container.closest("[data-offstage]")) return;
+  const resting = [...container.querySelectorAll("[data-resting]")];
+  resting.slice(0, 12).forEach((row) => row.removeAttribute("data-resting"));
+  if (resting.length > 12) frame.current = requestAnimationFrame(() => wakeRows(container, frame));
 }
 
 // Arrow keys move between rows like a grid, in the order shown; Enter and Space still select.

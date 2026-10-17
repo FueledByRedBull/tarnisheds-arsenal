@@ -3026,6 +3026,13 @@ textarea:hover {
   transition: background 130ms ease, box-shadow 130ms ease, transform 130ms ease;
   min-height: 48px;
   padding-block: 5px;
+  contain-intrinsic-height: auto 48px;
+}
+
+/* Rows well outside the board's view rest while the window is resized and while Rankings is
+   hidden (RankingsBoard.tsx). A resting row keeps its last height, so nothing on screen moves. */
+.result-row[data-resting] {
+  content-visibility: hidden;
 }
 
 .result-head > span,

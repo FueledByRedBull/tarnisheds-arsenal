@@ -125,3 +125,42 @@ test("the ranking rows stay one composited flex group", async ({ page }) => {
   await expect(page.locator(".result-rows")).toHaveCSS("will-change", "opacity");
   await expect(page.locator(".result-rows")).toHaveCSS("display", "flex");
 });
+
+test("rows away from the board's view rest during a resize and a return to Rankings", async ({ page }) => {
+  await page.setViewportSize({ width: 1650, height: 950 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await page.evaluate(async () => {
+    const modulePath = "/src/lib/state.ts";
+    const { useDesktopStore } = await import(modulePath);
+    const rows = useDesktopStore.getState().rows;
+    useDesktopStore.setState({ rows: Array.from({ length: 50 }, (_, index) => rows[index % rows.length]) });
+  });
+  await expect(page.getByText("50 ranked rows")).toBeVisible();
+  // Records the most rows seen resting at once.
+  await page.evaluate(() => {
+    const record = window as unknown as { restingSeen: number };
+    record.restingSeen = 0;
+    new MutationObserver(() => {
+      record.restingSeen = Math.max(record.restingSeen, document.querySelectorAll(".result-row[data-resting]").length);
+    }).observe(document.querySelector(".result-rows")!, { subtree: true, attributeFilter: ["data-resting"] });
+  });
+  const restingSeen = () => page.evaluate(() => (window as unknown as { restingSeen: number }).restingSeen);
+  const lastName = page.locator(".result-row").last().locator(".weapon-line strong");
+
+  await page.setViewportSize({ width: 1600, height: 950 });
+  await expect.poll(restingSeen).toBeGreaterThan(20);
+  await expect(page.locator(".result-row[data-resting]")).toHaveCount(0);
+  await expect(lastName).toBeVisible();
+
+  await page.evaluate(() => { (window as unknown as { restingSeen: number }).restingSeen = 0; });
+  const nav = page.getByRole("navigation");
+  await page.keyboard.press("Control+2");
+  await expect(nav.getByRole("button", { name: "Compare", exact: true })).toHaveAttribute("aria-current", "page");
+  await page.keyboard.press("Control+1");
+  await expect(nav.getByRole("button", { name: "Rankings", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect.poll(restingSeen).toBeGreaterThan(20);
+  await expect(page.locator(".result-row[data-resting]")).toHaveCount(0);
+  await expect(lastName).toBeVisible();
+});
