@@ -588,15 +588,18 @@ fn start() -> Result<(), String> {
 
 // Release builds have no console, so a startup failure is also shown in a message box.
 fn report_startup_failure(message: &str) {
-    eprintln!("Tarnished's Arsenal could not start: {message}");
+    use std::io::Write;
+    // `eprintln!` would panic on a closed stderr pipe.
+    let _ = writeln!(
+        std::io::stderr(),
+        "Tarnished's Arsenal could not start: {message}"
+    );
     #[cfg(windows)]
     {
-        use std::io::IsTerminal;
-        use std::os::windows::io::AsRawHandle;
-        // A parent that redirected stderr (the packaged smoke) reads the message there and
-        // waits for the exit code, which a modal message box would hold back.
-        let stderr = std::io::stderr();
-        if !stderr.as_raw_handle().is_null() && !stderr.is_terminal() {
+        // The packaged smoke reads the message from stderr and waits for the exit code,
+        // which a modal message box would hold back.
+        if std::env::var_os("TARNISHEDS_ARSENAL_SMOKE_NO_DIALOG").is_some_and(|value| value == "1")
+        {
             return;
         }
         #[link(name = "user32")]
