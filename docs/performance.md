@@ -412,6 +412,59 @@ Paths, solves and frontiers stayed within noise (under 13 ms). Every phase case
 in both profiles at both thread counts, the 400 seeded requests, and every
 Affinity Watch, Paths and native command payload matched the baseline.
 
+### Coupled routes and upgrade dominance (2026-10-17)
+
+A third pass targeted the searches the sweep below found slowest: Lifesteal Fist,
+whose coupled routes were enumerated with arbitrary-precision rationals, and
+all-upgrades skill searches, which solved every lower upgrade although it almost
+never scored more. Coupled routes now compare on integer keys, and upgrades that
+cannot outrank a higher one are skipped
+([coupled routes](design/optimizer-math.md#5-compiled-routes-oracle-and-fallback),
+[upgrade dominance](design/optimizer-math.md#upgrade-dominance)).
+
+Release builds of `7399abe` and of this pass ran interleaved, five rounds at the
+default thread count (the slowest old case once), on the same 16-thread machine
+while builds and browser tests held several cores, so ranges are wide. Medians,
+with the sample range, in milliseconds; levels use the Samurai fixture with K=25
+unless noted:
+
+| Workload | Before | After |
+| --- | --- | --- |
+| Lifesteal Fist, all upgrades, first hit, RL200 | 182972 | 151 |
+| Lifesteal Fist, exact upgrade, full sequence, RL150 | 27115 [14852, 29568] | 133 [102, 178] |
+| Barbaric Roar, all upgrades, first hit, RL200 | 1356 [922, 1504] | 134 [86, 189] |
+| Open AoW first hit, all upgrades, RL150 | 976 [696, 1133] | 168 [116, 239] |
+| Open AoW full sequence, all upgrades, RL60 | 989 [710, 1266] | 155 [92, 160] |
+| Same, loadout grouping, RL100 | 978 [699, 1100] | 197 [130, 206] |
+| Open AoW first hit, all upgrades, loadouts K=500, RL150 | 1252 [936, 1509] | 482 [350, 514] |
+| Open AoW first hit, all upgrades, levels 80 to 130 | 63211 [42808, 78712] | 5618 [4852, 7319] |
+| All-upgrades Max AR / bleed, RL93 | 107 / 80 | 74 / 77 |
+| Convergence all-upgrades Max AR, RL150 | 134 [94, 205] | 61 [59, 69] |
+
+Exact-upgrade open searches without a coupled route and open Max AR loadouts
+stayed within noise. A sweep of every Ash, plus no Ash, for Max AR, bleed and both
+skill objectives, with exact and all upgrades at levels 60, 100, 150 and 200 in both
+profiles (1,904 searches), fell from 743 s to 39 s in total; its slowest search
+fell from 162 s to 0.24 s. The Vanilla sweep at levels 60 and 150 with loadout
+grouping (944 searches) fell from 352 s to 16 s at K=5 and from 1510 s to 26 s at
+K=100, where the slowest search fell from 709 s to 1.7 s.
+
+With one thread, `benchmark_workflows.py` against the same baseline matched every
+Paths, Affinity Watch and catalog output; Paths and the upgrade series stayed within
+noise, and Affinity Watch over 200 levels with any Ash took 596 ms instead of 739 ms.
+Its catalog case now carries the timing fields and catalog snapshot the runner
+compares; the runner previously stopped at that case.
+
+A level range repeats the open search at each level, so the 51-level case above
+still takes several seconds; with one thread it costs about as much per level as
+one open search (0.67 s against 0.75 s).
+
+Parity: every search of both sweeps (weapon grouping, and loadout grouping at K=5
+and K=100), 1,400 seeded random requests (both profiles, every objective,
+classes, levels 9 to 713, locks, floors, two-handing, Scadutree blessing, weapon,
+affinity and Ash pins, grouping, K and level ranges) at the default and one
+thread, and every case above returned the same complete ranked results.
+
 ## Independent versus shared level-range evaluation
 
 The range command above starts at level 80 and measures independent optimization
