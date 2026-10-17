@@ -2933,9 +2933,12 @@ textarea:hover {
   animation: stage-enter var(--duration-fast) var(--ease-out) both;
 }
 
+/* Hides only the panel's own box: visibility is inherited, so toggling it restyled all ~1,500
+   skipped descendants on every tab switch (6-8 ms each way). */
 .rankings-panel[data-offstage] {
-  visibility: hidden;
   content-visibility: hidden;
+  background: none;
+  border-color: transparent;
 }
 
 .rankings-panel {
