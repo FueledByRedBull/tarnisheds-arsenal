@@ -29,8 +29,11 @@ export function SearchableSelect({
   const id = useId();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
   const activeOptionRef = useRef<HTMLButtonElement | null>(null);
+  // Opened with nothing typed, the list rests on the current value (or on none when it is past
+  // the shown options), so Enter alone keeps that value.
+  const restingIndex = options.slice(0, 80).findIndex((option) => option.value === value);
+  const [activeIndex, setActiveIndex] = useState(restingIndex);
   const selectedLabel =
     options.find((option) => option.value === value)?.label ?? (value ?? "");
   const shownValue = open && !disabled ? query : selectedLabel;
@@ -49,7 +52,7 @@ export function SearchableSelect({
       ? `Showing ${filtered.length} of ${matching.length} matches. Type to narrow the list.`
       : `${matching.length} ${matching.length === 1 ? "match" : "matches"}`;
 
-  const active = filtered[Math.min(activeIndex, Math.max(filtered.length - 1, 0))];
+  const active = activeIndex < 0 ? undefined : filtered[Math.min(activeIndex, filtered.length - 1)];
 
   useEffect(() => {
     if (open) activeOptionRef.current?.scrollIntoView({ block: "nearest" });
@@ -70,7 +73,7 @@ export function SearchableSelect({
     if (!option) {
       return;
     }
-    onChange(option.value);
+    if (option.value !== value) onChange(option.value);
     setOpen(false);
     setQuery("");
     setActiveIndex(0);
@@ -118,7 +121,7 @@ export function SearchableSelect({
         onFocus={() => {
           setOpen(true);
           setQuery("");
-          setActiveIndex(0);
+          setActiveIndex(restingIndex);
         }}
         onKeyDown={(event) => {
           // A closed list lets Escape reach the surrounding editor so it can dismiss.
@@ -135,7 +138,7 @@ export function SearchableSelect({
             const direction = event.key === "ArrowDown" ? 1 : -1;
             setActiveIndex((current) => {
               const count = Math.max(filtered.length, 1);
-              return (current + direction + count) % count;
+              return current < 0 && direction < 0 ? count - 1 : (current + direction + count) % count;
             });
             return;
           }
@@ -145,7 +148,10 @@ export function SearchableSelect({
             const exact = filtered.find(
               (option) => option.label.toLocaleLowerCase() === query.trim().toLocaleLowerCase(),
             );
-            choose(exact ?? active ?? filtered.find((option) => option.value !== null) ?? filtered[0]);
+            const typed = query.trim() ? filtered.find((option) => option.value !== null) ?? filtered[0] : undefined;
+            const chosen = exact ?? active ?? typed;
+            if (chosen) choose(chosen);
+            else setOpen(false);
             return;
           }
           if (event.key === "Tab") {
