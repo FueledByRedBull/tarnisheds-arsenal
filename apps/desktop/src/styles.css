@@ -3073,8 +3073,11 @@ textarea:hover {
   padding: 2px 0;
 }
 
+/* Row values (stats up to 99, grades up to S++) fit their token at the minimum window width,
+   so they skip the overflow clip: 500 clips cost about 15% of every board resize and repaint. */
 .result-row .metric-token b {
   margin-top: 0;
+  overflow: visible;
   font-size: var(--text-note);
 }
 
