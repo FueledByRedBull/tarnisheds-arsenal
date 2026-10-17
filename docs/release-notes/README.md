@@ -4,8 +4,9 @@
 
 ## v0.18.0
 
-Much faster searches with the same results, a calmer screen that keeps rare
-controls one click away, and analyses that survive switching tabs.
+Much faster searches with the same results, Convergence's own starting classes, a
+calmer screen that keeps rare controls one click away, and analyses that survive
+switching tabs.
 Read the [v0.18.0 notes](v0.18.0.md) for the changes and download choices.
 
 For the current Windows installer and portable app, visit the

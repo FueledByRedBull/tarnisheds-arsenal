@@ -36,7 +36,7 @@ listed in the [model reference](../../docs/model-reference.md).
 The extractor records `phase1-python-v15-f32-shortest-floats` for its current
 output. When the extracted content changes for the same game or mod version, the
 dataset version gains a revision suffix (`vanilla-1.17-r3`,
-`convergence-3.0.0.1-r3`); never relabel an existing snapshot instead.
+`convergence-3.0.0.1-r4`); never relabel an existing snapshot instead.
 
 Regenerate older snapshots with this extractor. Both runtime and Python validation
 reject schema 5 before attempting to use its incompatible tables. Do not merely

@@ -38,7 +38,7 @@ arithmetic, tie order, and proof obligations.
 
 The current snapshot model is `aow-routes-effects-v9`; runtime results and caches
 use `aow-routes-effects-v9/exact-v3`. The bundled datasets are `vanilla-1.17-r3` and
-`convergence-3.0.0.1-r3`, written by extractor `phase1-python-v15-f32-shortest-floats`.
+`convergence-3.0.0.1-r4`, written by extractor `phase1-python-v15-f32-shortest-floats`.
 Every snapshot float is the shortest decimal that parses to the `f32` nearest the
 extracted value, so loaded coefficients are exactly those `f32` values.
 Storage schema and calculation semantics are
@@ -214,14 +214,14 @@ In particular, raw attack-point status corrections and overlapping SpEffect
 payloads do not yet have an independent engine oracle. Their correction flag
 alone does not justify multiplying all hit effects by the point MV: some frost
 and bleed bullet effects have a zero point MV. Per-hit status totals are modeled
-estimates, and this audit does not certify those stacking/rounding mechanics.
+estimates; no current check certifies those stacking/rounding mechanics.
 
 ## Checking model coverage
 
 Profile capabilities describe which calculations a dataset offers; they do not
 certify every weapon or skill. **Model coverage and assumptions**, under Build
 Detail's **More details**, explains these limits next to the selected build's
-model assumptions; for Convergence, the **Experimental fixed-stat model** label in
+model assumptions; for Convergence, the **Experimental model** label in
 the header opens the same notes. Older saved capability filters remain active
 until removed using **Remove saved profile filters** under **More options**;
 excluding a supported capability excludes all results in that profile.

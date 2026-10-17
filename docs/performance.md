@@ -90,7 +90,7 @@ The [optimizer overview](design/optimizer-overview.md#exact-scoring) describes
 the shared exact cutoff and tie-preserving pruning. The
 [September 23 record](https://github.com/FueledByRedBull/tarnisheds-arsenal/blob/f1cdefd913caad2ea960194129d44a7de85054bf/docs/performance.md#cross-worker-exact-top-k-cutoff) preserves
 before/after core and native measurements, outliers, result fingerprints,
-calculation-audit scope and the packaged-check boundaries.
+calculation-check scope and the packaged-check boundaries.
 
 ## Correctness follow-up (2026-09-26)
 
@@ -156,10 +156,11 @@ These rendering rules came out of that work and still apply:
 - No explicit `inherit` on the cells of rows that move: one inherited child makes every
   change to the row restyle all of its children.
 
-Measure interactions with GPU compositing on: the packaged smoke harness passes
-`--disable-gpu`. Launch the release exe with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`
-set to a remote-debugging port and `WEBVIEW2_USER_DATA_FOLDER` set to a scratch
-folder instead.
+Measure interactions with GPU compositing on. The packaged smoke harness sets
+`TARNISHEDS_ARSENAL_SMOKE_DEBUG_PORT`, with which the app adds `--disable-gpu` to its
+WebView2 arguments. Instead, launch the release exe without that variable, with
+`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` set to a remote-debugging port and
+`WEBVIEW2_USER_DATA_FOLDER` set to a scratch folder.
 
 ### Frame pacing (2026-10-17)
 
@@ -185,7 +186,7 @@ player never sees.
 Machine: Ryzen 7 7800X3D (16 threads), Radeon RX 7800 XT, 2560x1440 at 240 Hz, so an
 unbroken run reads 4.2 ms; window 1650x950; Vanilla level 192 with 50 rows. Before is
 `a7fe55c` (built from a clean worktree), after adds the four frontend commits of this
-work with the same core; medians of three runs each. Other agents' builds kept the CPU
+work with the same core; medians of three runs each. Other builds kept the CPU
 60-95% busy during most runs, so single maxima vary by one or two 4.2 ms frames. "Busy" scenarios run during an
 AoW first hit search over every weapon (longer than 40 s on this core).
 
@@ -210,9 +211,9 @@ of main-thread time per second) once the forge bar's sheen runs outside its glid
 Sort clicks restyle about 50 elements in 0.7 ms instead of about 400 in 8.5-9 ms, and the
 total style time of the row-selection scenario falls from 106-168 ms to 33-62 ms.
 
-Convergence matches Vanilla except that it has no Compare, Paths or Affinity Watch
-and no objective that keeps a search running, so its busy scenarios follow a short
-search. Search status payloads are at most 182 KB for 50 rows and IPC replies take
+Convergence matched Vanilla, except that at the time it had no Compare, Paths or
+Affinity Watch, and it has no objective that keeps a search running, so its busy
+scenarios follow a short search. Search status payloads are at most 182 KB for 50 rows and IPC replies take
 under 5 ms, so native transfer is not a frame-rate bottleneck.
 
 A follow-up pass the same day sorts ranking rows with flex `order` instead of measured
@@ -401,7 +402,7 @@ which preserves exact-value parity, compilation cost and timing variability.
 | Harness | Workload |
 | --- | --- |
 | `benchmark_optimizer_phases` | Twenty-six release-mode optimizer cases spanning Max AR, Max Physical AR, Bleed then AR, AoW first hit, and AoW full sequence, including weapon/loadout grouping at K=25 and K=500, locked-stat route cases, two-handing, levels 9 and 713, open-weapon skill objectives, the locked non-additive Lifesteal Fist solve, and Convergence's all-locked Custom stats ranking. It reports preparation, scoring, materialization, medians, samples, row counts, equivalent combinations, profile/model identity, and complete request/result fingerprints. |
-| `benchmark_workflows` | Vanilla Paths in No-respec and Best per level (`optimum_envelope`) modes at 10, 50, and 200 levels with one and two distinct lanes; Affinity Watch at the same horizons; and the standard 26-point upgrade series. The Rust tests perform one warmup and retain best, median, worst, and every sample. |
+| `benchmark_workflows` | Vanilla Paths in No-respec and Best per level (`optimum_envelope`) modes at 10, 50, and 200 levels with one and two distinct lanes; Affinity Watch at the same horizons; the standard 26-point upgrade series; and the catalog index build for both profiles. The Rust tests perform one warmup and retain best, median, worst, and every sample. |
 | `benchmark_level_range` | The documented command measures Uchigatana at level 80 plus offsets 0, 10, 50, and 200 for Keen, Blood, and Occult. The CLI defaults to 10, 50, and 200. It compares independent per-level optimization with shared range evaluation and rejects any difference in complete ordered results. Use `--all-affinities` for every available Uchigatana affinity. |
 | `native_command_benchmark` | Ignored release test in the desktop backend: Vanilla open searches (RL46 K=25 and loadout K=500, all upgrades RL93, bleed RL93, AoW full sequence RL150), Convergence Custom stats, two solves and an AR/bleed frontier, each through DTO normalization, the job worker and JSON encoding of the terminal status. Reports samples, payload bytes and the complete payload. Run `cargo test --release --locked --manifest-path apps/desktop/src-tauri/Cargo.toml native_command_benchmark -- --ignored --nocapture --test-threads=1` with `ER_BENCH_REPEATS` and optionally `ER_BENCH_CASE`; the `workflow_benchmark` runner does not select it. |
 | `native-responsiveness.mjs` | Analysis suite: packaged solves, upgrade series, AR/bleed frontier and cancellation. Production suite: locks/non-additive routes, K=500, both Paths modes and cancellation. Both include a concurrent manifest probe and retain executable/manifest identity, requests, complete fingerprints, warmups, samples and timing ranges. |
@@ -410,8 +411,11 @@ Phase cases use profile rules for upgrade caps: Vanilla standard +25/Somber +10;
 Convergence standard and Somber +15. Exact-upgrade and all-upgrades searches are
 different workloads; `all-upgrades-max-ar-high-level` uses the broader level-93,
 25-row case. Convergence damage-objective cases are skipped when the profile does
-not declare AoW damage support and fail when selected explicitly. Convergence phase
-cases use the harness's class-based budget, not the fixed Custom-stats UI workflow.
+not declare AoW damage support and fail when selected explicitly. The other
+Convergence cases run as Custom stats at the Vanilla case's level plus 79, without
+extra locks, so they keep the Vanilla budget independent of the mod's classes.
+`custom-stats-open-ranking-25` runs only on Convergence and locks every combat stat,
+as the desktop does for Custom stats.
 
 ### Ordered result materialization
 
@@ -440,7 +444,8 @@ consistent, reverse build order, and do not run builds or tests during timed sam
 The phase and workflow reports retain build provenance under `metadata.build`.
 `source.fingerprint` identifies the commit and scoped working-tree file bytes,
 including relevant untracked inputs and deleted tracked files. `source.dirty`
-describes that scope; local audit evidence and generated output are excluded.
+describes that scope; untracked files outside the source locations, generated
+output and secret-like paths are excluded.
 `compiler_variant_fingerprint` separately identifies the compiler inputs: `cargo -vV`
 and `rustc -vV` output, the manifest's `[profile]` tables, the bytes of every Cargo
 configuration file Cargo would read (`config` or `config.toml` in Cargo home and in

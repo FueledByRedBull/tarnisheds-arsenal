@@ -137,7 +137,10 @@ Normal source tests, lint, type checks, formatting, Clippy, data snapshot
 validation and a seeded comparison with the pinned reference calculator belong to
 that CI run. Independent Windows jobs run the test and release profiles for both
 Rust crates; a Linux job repeats the core, Python and snapshot checks on a second
-OS. Every default-branch push runs the full suite.
+OS. Every default-branch push runs the full suite. Each Rust job installs the
+toolchain pinned in `rust-toolchain.toml` with the runner's `rustup`. The Linux job
+sets `RUSTUP_TOOLCHAIN` to the same version, which skips the Clippy and rustfmt
+components it does not use; `validate_release_metadata.py` rejects a mismatch.
 
 On pull requests, [`ci_scope.py`](../tools/phase4/ci_scope.py) skips the Rust, data
 and Linux jobs only when every changed path is `README.md`, `LICENSE`, a Markdown
