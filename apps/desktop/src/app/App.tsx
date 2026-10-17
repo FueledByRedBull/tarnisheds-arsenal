@@ -1,4 +1,4 @@
-import { Activity, useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { Activity, useCallback, useDeferredValue, useEffect, useEffectEvent, useRef, useState } from "react";
 import { Check, CircleAlert, GitCompareArrows, Radar, RotateCcw, Route, Table2, X } from "lucide-react";
 import { api } from "../lib/api";
 import { setAnalysisCacheVersion } from "../lib/analysis-cache";
@@ -393,7 +393,9 @@ function WorkspaceNotices() {
 // rendered and only skips layout and paint while hidden (RankingsBoard.tsx), because laying out
 // its 50 rows again took ~13 ms on every return to the tab.
 function Workspaces() {
-  const activeWorkspace = useDesktopStore((state) => state.activeWorkspace);
+  // Deferred, as is the Rankings flag: revealing a workspace (its render and effects, 11-13 ms
+  // for Compare) then runs after the key press in frame-sized slices instead of inside it.
+  const activeWorkspace = useDeferredValue(useDesktopStore((state) => state.activeWorkspace));
   return (
     <>
       {rankingsBoard}

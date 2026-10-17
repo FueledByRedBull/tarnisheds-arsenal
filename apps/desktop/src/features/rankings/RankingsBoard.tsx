@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowDownUp, ArrowUp, ChevronLeft, ChevronRight, CircleHelp, Download, LockKeyhole, Pin, RefreshCcw } from "lucide-react";
-import { memo, ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, ReactNode, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { downloadText, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
 import { aowModelSupported, compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
 import { buildOptimizeRequest, rowFingerprint } from "../../lib/session";
@@ -42,8 +42,9 @@ export function RankingsBoard() {
   const resultsStale = useDesktopStore((state) => state.resultsStale);
   const pushNotice = useDesktopStore((state) => state.pushNotice);
   const setError = useDesktopStore((state) => state.setError);
-  // The board stays rendered while another workspace is shown (App.tsx), so it follows that here.
-  const shown = useDesktopStore((state) => state.activeWorkspace === "rankings");
+  // The board stays rendered while another workspace is shown (App.tsx), so it follows that here,
+  // deferred like the other workspaces so that both switch in the same commit.
+  const shown = useDeferredValue(useDesktopStore((state) => state.activeWorkspace === "rankings"));
   const objective = useDesktopStore((state) => state.request.objective);
   const isExporting = useDesktopStore((state) => state.isExporting);
   const setExporting = useDesktopStore((state) => state.setExporting);
