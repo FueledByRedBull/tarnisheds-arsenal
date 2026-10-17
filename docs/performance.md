@@ -348,6 +348,36 @@ Still short of one 240 Hz frame per step:
 - During a search, resize frames reach p95 8.4 ms and p99 12.5 ms: the optimizer's
   threads compete with the renderer for the CPU.
 
+### Visual refinement pass (2026-10-18)
+
+The pass that unified folds, empty states and chart frames, made searchable lists and
+Build Detail's heading opaque, and let ranked rows' action buttons rest without a box
+was measured the same way: release builds launched normally over CDP, frame intervals
+recorded untraced, Vanilla Samurai level 192 with 50 rows in a 1650x950 window. Before
+is `102db2f`, after adds the pass; four interleaved runs each, eight for the busy
+scenario, and the table gives the median of each run's statistic. Every build ran with
+`RAYON_NUM_THREADS=1`. The busy scenario starts an AoW First Hit search 0.3 s before a
+1650 to 1350 px resize sweep and a wheel scroll; the search lands during the sweep in
+every run, so its result render is included. Other work shared the CPU.
+
+| Scenario (Vanilla) | Before p50 / p95 / p99 / max, ms | After | Key p50 / p95, ms |
+| --- | --- | --- | --- |
+| Wheel and sort header clicks | 4.2 / 4.3 / 4.3 / ≤ 8.4 | 4.2 / 4.3 / 4.3 / ≤ 8.4 | - |
+| Row selection with Build Detail | 4.2 / 4.3 / 4.3 / 4.3 | 4.2 / 4.3 / 4.3 / 4.3 | - |
+| Ctrl+2 then Ctrl+1, six times | 4.2 / 4.3 / 4.3 / 20.9 | 4.2 / 4.3 / 4.3 / 16.6 | 6.8 / 8.0 → 6.5 / 8.1 |
+| Shortcut list open and close | 4.2 / 4.3 / 4.3 / 4.3 | 4.2 / 4.3 / 4.3 / 4.4 | 5.8 / 8.3 → 5.8 / 8.2 |
+| Editor popovers | 4.2 / 4.3 / 4.3 / 4.3 | 4.2 / 4.3 / 4.3 / 4.3 | 6.7 / 7.0 → 6.8 / 7.7 |
+| Palette and typing | 4.2 / 4.3 / 4.3 / 6.3 | 4.2 / 4.3 / 4.3 / 6.4 | 6.3 / 9.0 → 6.5 / 9.0 |
+| Window resize, 1650 to 1350 px and back | 4.2 / 4.3 / 8.4 / 12.6 | 4.2 / 4.3 / 8.4 / 12.5 | - |
+| Busy: resize and wheel as a search lands | 4.2 / 8.3 / 10.5 / 25.0 | 4.2 / 8.4 / 12.4 / 25.1 | - |
+
+The pass adds no element, layer or animation to a ranked row: the action buttons change
+only their resting border and background, and the other changes are static styles
+outside the board. Per-run busy p99 values spread from 8.4 to 16.6 ms in both builds. One
+after run of the busy scenario reached 62.4 ms where the results landed; the other seven
+after runs and all eight before runs peaked at 20.7 to 25.1 ms, so the landing render,
+which this pass does not change, stays the longest frame of that scenario.
+
 ## Release compiler settings
 
 Both Cargo packages set `lto = "thin"` and `codegen-units = 1` for release builds.
