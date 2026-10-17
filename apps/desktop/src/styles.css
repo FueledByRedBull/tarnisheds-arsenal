@@ -1302,7 +1302,7 @@ textarea {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  padding: 12px 14px 0;
+  padding: 12px 18px 0;
 }
 
 .compare-chip-lead {
@@ -1411,7 +1411,7 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 0 14px 8px;
+  margin: 0 18px 8px;
   color: var(--text-muted);
   font-size: var(--text-label);
 }
@@ -1478,13 +1478,6 @@ textarea {
 
 .saved-build-import > summary {
   margin-bottom: 8px;
-  color: var(--text-muted);
-  font-size: var(--text-label);
-  font-weight: 700;
-}
-
-.saved-build-import[open] > summary {
-  color: var(--text-strong);
 }
 
 .matrix-toolbar button:hover {
@@ -1493,12 +1486,12 @@ textarea {
 }
 
 .matrix-wrap {
-  width: calc(100% - 28px);
-  max-width: calc(100% - 28px);
+  width: calc(100% - 36px);
+  max-width: calc(100% - 36px);
   min-width: 0;
   height: auto;
   max-height: calc(100% - 304px);
-  margin: 0 14px 14px;
+  margin: 0 18px 14px;
   overflow: auto hidden;
   border-radius: 4px;
   scrollbar-color: var(--accent-quiet) var(--surface-panel);
@@ -1573,7 +1566,9 @@ textarea {
   height: 8px;
 }
 
-/* A finished run reports its result; the full bar adds nothing. */
+/* A finished run reports its result, and an empty track before the first run reads as a
+   stalled one: the bar shows only once a run has started. */
+.analysis-progress.status-ready > .forge-bar,
 .analysis-progress.status-completed > .forge-bar {
   display: none;
 }
@@ -1614,8 +1609,8 @@ textarea {
 .path-chart {
   background: var(--surface-raised);
   display: grid;
-  gap: 12px;
-  padding: 12px;
+  gap: 16px;
+  padding: 16px;
   min-height: 190px;
 }
 
@@ -1817,7 +1812,7 @@ button.about-trigger {
 
 .path-point-summary > span { color: var(--path-color); }
 .path-point-summary small { display: block; color: var(--text-muted); }
-.path-marker-note, .path-marker-key, .path-chart-empty { color: var(--text-muted); font-size: var(--text-note); }
+.path-marker-note, .path-marker-key { color: var(--text-muted); font-size: var(--text-note); }
 
 /* A chart's values, collapsed until opened (Paths and Affinity Watch). */
 .chart-data { min-width: 0; max-height: 320px; overflow: auto; color: var(--text-muted); font-size: var(--text-note); }
@@ -1950,7 +1945,8 @@ button.about-trigger {
   margin: 16px 18px 14px;
 }
 
-.affinity-chart figcaption {
+.affinity-chart figcaption,
+.path-chart figcaption {
   display: flex;
   align-items: end;
   justify-content: space-between;
@@ -1964,7 +1960,9 @@ button.about-trigger {
   gap: 3px;
 }
 
-.affinity-chart figcaption strong {
+/* Both analysis charts title themselves the same way. */
+.affinity-chart figcaption strong,
+.path-chart figcaption strong {
   color: var(--text-strong);
   font-family: var(--font-display);
   font-size: var(--text-title);
@@ -2119,7 +2117,9 @@ button.about-trigger {
   text-align: right;
 }
 
-.affinity-chart-empty {
+/* Before a first run, each chart says what it will show and how to start it. */
+.affinity-chart-empty,
+.path-chart-empty {
   display: grid;
   place-content: center;
   gap: 7px;
@@ -2129,7 +2129,8 @@ button.about-trigger {
   text-align: center;
 }
 
-.affinity-chart-empty strong {
+.affinity-chart-empty strong,
+.path-chart-empty strong {
   color: var(--text-strong);
   font-family: var(--font-display);
   font-size: var(--text-title);
@@ -3435,19 +3436,11 @@ textarea:hover {
   margin: 4px 0 0;
 }
 
+/* Build Detail's folded sections are rows under a hairline, like its details above them. */
 .model-coverage {
-  margin: 0 2px 12px;
-  padding: 8px 10px;
-  border: 1px solid color-mix(in srgb, var(--info) 22%, transparent);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--surface-canvas) 32%, transparent);
-}
-
-.model-coverage summary {
-  color: var(--accent-strong);
-  cursor: pointer;
-  font-size: var(--text-label);
-  font-weight: 700;
+  margin: 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
 }
 
 .model-coverage p,
@@ -3769,6 +3762,14 @@ textarea:hover {
   text-align: center;
 }
 
+/* Empty states title themselves like the analysis charts' first-run states. */
+.empty-state strong {
+  color: var(--text-strong);
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: 500;
+}
+
 .empty-state .inline-lock {
   width: auto;
   margin-top: 12px;
@@ -3785,7 +3786,7 @@ button[aria-pressed="true"],
 
 .compare-deltas {
   overflow: auto;
-  padding: 0 12px 12px;
+  padding: 0 18px 12px;
   overflow-x: auto;
 }
 
@@ -3806,16 +3807,41 @@ button[aria-pressed="true"],
 }
 
 .compare-build-details {
-  margin: 0 12px 12px;
+  margin: 0 18px 12px;
+}
+
+/* The cards sit inside the disclosure's inset, on Compare's one 18 px content edge. */
+.compare-build-details .compare-lanes {
+  padding-inline: 0;
 }
 
 /* Same inset as the other Compare disclosures; the matrix body keeps its own margins. */
 .compare-matrix > summary {
-  margin: 0 12px 12px;
+  margin: 0 18px 12px;
 }
 
+.compare-panel > .analysis-state {
+  margin-inline: 18px;
+}
+
+.loadout-tradeoffs .analysis-state {
+  margin-inline: 0;
+}
+
+/* One disclosure style everywhere: the row names what opens and the gold marker says it
+   opens. The skill route card and the Saved Builds header keep their own layouts. */
 summary {
   cursor: pointer;
+}
+
+:where(details:not(.aow-route-details, .saved-builds)) > summary {
+  color: var(--text-strong);
+  font-size: var(--text-note);
+  font-weight: 600;
+}
+
+summary::marker {
+  color: var(--accent);
 }
 
 /* Disclosures fade their content in instead of snapping it into place. Opacity only, so the

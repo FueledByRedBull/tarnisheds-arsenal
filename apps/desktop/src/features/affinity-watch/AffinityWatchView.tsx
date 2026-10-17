@@ -91,11 +91,12 @@ export function AffinityWatchView() {
         completed={`Completed · ${payload?.lines.length ?? 0} affinit${payload?.lines.length === 1 ? "y" : "ies"}`}
       />
       <AffinityChart payload={payload} objective={objectiveLabel(request.objective)} unit={objectiveUnit(request.objective)} />
-      <div className="affinity-ranking" role="table" aria-label="Affinity watch rankings">
+      {/* Before a run the chart says what to do; a header over no rows would only add noise. */}
+      {payload?.lines.length ? <div className="affinity-ranking" role="table" aria-label="Affinity watch rankings">
         <div className="affinity-row table-header" role="row">
           {["Rank at end", "Affinity", `Start (${objectiveUnit(request.objective)})`, `End (${objectiveUnit(request.objective)})`, "Final stats"].map((label) => <span role="columnheader" key={label}>{label}</span>)}
         </div>
-        {payload?.lines.map((line, index) => (
+        {payload.lines.map((line, index) => (
           <div className="affinity-row" key={line.affinity} role="row">
             <b role="cell">{index + 1}</b>
             <strong role="cell">{line.affinity}</strong>
@@ -104,7 +105,7 @@ export function AffinityWatchView() {
             <small role="cell">{line.finalBuild ? statLine(line.finalBuild) : "Unavailable"}</small>
           </div>
         ))}
-      </div>
+      </div> : null}
       <div className="crossover-table" role="table" aria-label="Affinity watch breakpoints">
         {payload?.breakpoints.length ? (
           <div role="row" className="table-header">

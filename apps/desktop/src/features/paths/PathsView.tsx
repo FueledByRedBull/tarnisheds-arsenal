@@ -261,7 +261,12 @@ const PathChart = memo(function PathChart({ paths, objective, unit }: { paths: P
           </span>)}
         </div>
         <small className="path-marker-note">Markers show changes in added stat or respec; nearby changes are omitted. Inspect any level above.</small>
-      </> : <p className="path-chart-empty">Trace paths to compare progress by character level.</p>}
+      </> : (
+        <div className="path-chart-empty">
+          <strong>Follow each build level by level</strong>
+          <span>Trace paths to compare progress by character level.</span>
+        </div>
+      )}
       <ChartDataTable caption={`${objective} (${unit}) path values by character level`} headers={["Lane", "Level", `${objective} (${unit})`]}
         rows={paths.flatMap((path) => path.steps.map((step) => [path.title, String(step.level), `${fixed1(step.metric)} ${unit}`]))} />
     </figure>
