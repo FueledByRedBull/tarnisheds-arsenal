@@ -3134,6 +3134,10 @@ textarea:hover {
   background: inherit;
 }
 
+.result-row > span:last-child {
+  background: var(--surface-panel);
+}
+
 .result-row > span:last-child .inline-lock {
   width: 32px;
   min-height: 32px;
@@ -3172,11 +3176,25 @@ textarea:hover {
   left: 36px;
 }
 
-.result-row > span:nth-child(-n + 2) {
-  background: inherit;
+/* The sticky cells repeat the row background state by state instead of inheriting it: one
+   explicitly inherited child makes every positional change of a row restyle all its cells,
+   which doubled the style cost of a sort. They transition in step with the row. */
+.result-row > span:nth-child(-n + 2),
+.result-row > span:last-child {
+  transition: background 130ms ease;
+}
+
+.result-row:focus-visible > span:nth-child(-n + 2),
+.result-row:focus-visible > span:last-child {
+  background: color-mix(in srgb, var(--selected) 8%, var(--surface-panel));
 }
 
 .result-row:hover {
+  background: color-mix(in srgb, var(--text) 4%, var(--surface-panel));
+}
+
+.result-row:hover > span:nth-child(-n + 2),
+.result-row:hover > span:last-child {
   background: color-mix(in srgb, var(--text) 4%, var(--surface-panel));
 }
 
@@ -3184,6 +3202,11 @@ textarea:hover {
   background: color-mix(in srgb, var(--selected) 11%, var(--surface-panel));
   outline: 1px solid color-mix(in srgb, var(--selected) 42%, transparent);
   outline-offset: -1px;
+}
+
+.result-row.active > span:nth-child(-n + 2),
+.result-row.active > span:last-child {
+  background: color-mix(in srgb, var(--selected) 11%, var(--surface-panel));
 }
 
 /* The selected tint lowers faint text below 4.5:1, so muted text takes over there. */
