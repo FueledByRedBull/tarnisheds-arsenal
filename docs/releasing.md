@@ -170,10 +170,10 @@ smoke sets `TARNISHEDS_ARSENAL_SMOKE_DEBUG_PORT` and an isolated
 `WEBVIEW2_USER_DATA_FOLDER`; the app opens a loopback remote-debugging port only when
 both are present and the folder is a `tarnisheds-arsenal-smoke-*` directory. There is no
 command-line switch, so shortcuts, file associations and other users cannot enable it.
-(WebView2's own `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` is ignored on GitHub's Windows
-runners because the app passes its own arguments.) The smoke also sets `TARNISHEDS_ARSENAL_SMOKE_NO_DIALOG=1`, whose
-only effect is that a failed start reports its error on stderr without the startup
-message box, which would otherwise hold back the exit code.
+WebView2's own `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` would need no app code, but
+GitHub's Windows runners do not honour it although it works locally. The same variable
+also makes a failed start report its error on stderr without the startup message box,
+which would otherwise hold back the exit code.
 
 Both binaries contain the verified compile-time Vanilla and Convergence runtime
 snapshots. Neither needs an adjacent data directory, `regulation.bin`, FMG XML, or

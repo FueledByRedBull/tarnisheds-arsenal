@@ -36,13 +36,12 @@ export async function launchPackagedApp(executablePath) {
     const startedAt = performance.now();
     const child = spawn(executablePath, [], {
       // The app opens the debugging port only for this variable and only with an isolated
-      // smoke-only WebView2 data directory, which every attempt gets fresh.
+      // smoke-only WebView2 data directory, which every attempt gets fresh. The variable also
+      // makes a failed start exit with its error on stderr instead of a modal message box.
       env: {
         ...process.env,
         TARNISHEDS_ARSENAL_SMOKE_DEBUG_PORT: String(port),
         WEBVIEW2_USER_DATA_FOLDER: profileDirectory,
-        // A failed start then exits with its error on stderr instead of a modal message box.
-        TARNISHEDS_ARSENAL_SMOKE_NO_DIALOG: "1",
       },
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,

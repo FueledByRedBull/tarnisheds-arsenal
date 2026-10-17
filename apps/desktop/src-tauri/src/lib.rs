@@ -545,8 +545,8 @@ fn start() -> Result<(), String> {
         std::env::var("TARNISHEDS_ARSENAL_SMOKE_DEBUG_PORT").ok(),
         std::env::var_os("WEBVIEW2_USER_DATA_FOLDER"),
     )? {
-        // WebView2 ignores WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS on some runtimes when the app
-        // passes its own arguments, so the packaged smoke asks the app; the list repeats Tauri's default.
+        // GitHub's Windows runners do not honour WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS (documented
+        // as appended, and honoured locally), so the smoke asks the app; the list repeats Tauri's default.
         let browser_args = format!(
             "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection \
              --remote-debugging-port={port} --remote-debugging-address=127.0.0.1 \
@@ -644,10 +644,9 @@ fn report_startup_failure(message: &str) {
     );
     #[cfg(windows)]
     {
-        // The packaged smoke reads the message from stderr and waits for the exit code,
-        // which a modal message box would hold back.
-        if std::env::var_os("TARNISHEDS_ARSENAL_SMOKE_NO_DIALOG").is_some_and(|value| value == "1")
-        {
+        // The packaged smoke reads the message from stderr and waits for the exit code, which a
+        // modal message box would hold back; its one variable also covers a rejected smoke setup.
+        if std::env::var_os("TARNISHEDS_ARSENAL_SMOKE_DEBUG_PORT").is_some() {
             return;
         }
         #[link(name = "user32")]
