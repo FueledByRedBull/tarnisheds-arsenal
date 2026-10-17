@@ -658,8 +658,8 @@ test("stale saved builds offer explicit input-only loading or recompute migratio
   await page.reload();
 
   await openSection(page, "Saved Builds");
-  await expect(page.getByText(/Stale.*solved rows are discarded/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Load inputs only" })).toBeVisible();
+  await expect(page.getByText(/Stale.*Results are recomputed on current data when loaded/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Load", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Migrate data" }).click();
   await expect(page.getByText(/Migrated Blood Uchigatana \+25/)).toBeVisible();
   await expect(page.locator(".saved-build-status")).toHaveText("Saved with the current game data");

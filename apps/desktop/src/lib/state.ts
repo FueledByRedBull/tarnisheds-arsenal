@@ -336,35 +336,40 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       });
     }),
   setCatalogLoading: () => set({ catalogStatus: "loading", catalogError: null }),
-  setCatalog: (catalog) => set((state) => {
-    const classInfo = catalog.classes.find((entry) => entry.name === state.request.className)
-      ?? catalog.classes.find((entry) => entry.name === "Samurai")
-      ?? catalog.classes[0]
-      ?? classMeta(null, "Samurai");
-    const resetClass = classInfo.name !== state.request.className;
+  setCatalog: (catalog) => {
     const restoredComparisons = readCompareBench(catalog);
-    return {
-      catalog,
-      catalogStatus: "ready",
-      catalogError: null,
-      loadoutSelectionRevision: state.loadoutSelectionRevision + 1,
-      request: applyProfileRules({
-        ...state.request,
-        // Without a class budget the level comes from the entered stats; keep the stored level
-        // valid instead of copying Custom stats' base level 0.
-        ...(resetClass ? {
-          className: classInfo.name,
-          ...(catalog.dataManifest.capabilities.classBudget ? { characterLevel: classInfo.baseLevel, ...classInfo.baseStats } : {}),
-        } : {}),
-        profileId: catalog.dataManifest.profile.id,
-        objective: catalog.objectiveIds.includes(state.request.objective)
-          ? state.request.objective
-          : catalog.objectiveIds[0] ?? "max_ar",
-      }, catalog.dataManifest.rules),
-      compareBench: restoredComparisons.rows,
-      notices: [...state.notices, ...restoredComparisons.notices],
-    };
-  }),
+    const recomputing: Notice = { scope: "global", tone: "info", message: "Recomputing your pinned comparison builds on current game data..." };
+    set((state) => {
+      const classInfo = catalog.classes.find((entry) => entry.name === state.request.className)
+        ?? catalog.classes.find((entry) => entry.name === "Samurai")
+        ?? catalog.classes[0]
+        ?? classMeta(null, "Samurai");
+      const resetClass = classInfo.name !== state.request.className;
+      return {
+        catalog,
+        catalogStatus: "ready",
+        catalogError: null,
+        loadoutSelectionRevision: state.loadoutSelectionRevision + 1,
+        request: applyProfileRules({
+          ...state.request,
+          // Without a class budget the level comes from the entered stats; keep the stored level
+          // valid instead of copying Custom stats' base level 0.
+          ...(resetClass ? {
+            className: classInfo.name,
+            ...(catalog.dataManifest.capabilities.classBudget ? { characterLevel: classInfo.baseLevel, ...classInfo.baseStats } : {}),
+          } : {}),
+          profileId: catalog.dataManifest.profile.id,
+          objective: catalog.objectiveIds.includes(state.request.objective)
+            ? state.request.objective
+            : catalog.objectiveIds[0] ?? "max_ar",
+        }, catalog.dataManifest.rules),
+        compareBench: restoredComparisons.rows,
+        notices: [...state.notices, ...restoredComparisons.notices,
+          ...(restoredComparisons.staleRows.length ? [recomputing] : [])],
+      };
+    });
+    if (restoredComparisons.staleRows.length) void recomputeStoredPins(catalog, restoredComparisons.staleRows, recomputing);
+  },
   setCatalogFailure: (catalogError) => set({ catalogStatus: "error", catalogError }),
   pushNotice: (notice) =>
     set((state) => ({
@@ -475,9 +480,9 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
     if (preset.profileId !== state.request.profileId) throw new Error(`Switch to ${preset.profileId} before loading this build.`);
     const request = activationRequest(knownRequestFields(preset.request), catalog);
     if (signal?.aborted) return null;
-    const currentVersion = catalogVersion(catalog);
-    const stale = preset.dataVersion !== currentVersion;
-    const candidate = stale ? { ...preset, request, selectedBuild: null, compareTarget: null, compareBench: [] } : { ...preset, request };
+    // Rows saved on other game data are recalculated like current ones; old numbers are never shown.
+    const stale = preset.dataVersion !== catalogVersion(catalog);
+    const candidate = { ...preset, request };
     // A build saved without pins leaves the current pins alone; one with pins replaces them.
     const keepPins = candidate.compareBench.length === 0;
     const controller = new AbortController();
@@ -513,8 +518,8 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       set({ rows: verified.selectedBuild ? [verified.selectedBuild] : [], selected: verified.selectedBuild,
         compareTarget: verified.compareTarget, restoredCompareTarget: verified.compareTarget,
         ...(keepPins ? {} : { compareBench: verified.compareBench }), selectedFingerprint: rowFingerprint(verified.selectedBuild),
-        notices: [{ scope: "global", tone: stale ? "warning" : "success",
-          message: stale ? `Loaded ${preset.name} inputs only: saved data differs from ${currentVersion}. Rerun the search.`
+        notices: [{ scope: "global", tone: "success",
+          message: stale ? `Loaded ${preset.name}; results recomputed on current game data (saved on ${preset.dataVersion}).${replacedPins}`
             : `Loaded ${preset.name}; saved results verified on current data.${replacedPins}` }, ...persistenceNotices] });
       return verified;
     } catch (error) {
@@ -702,3 +707,46 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
   setAffinityPayload: (affinityPayload, affinitySignature) =>
     set({ affinityPayload, affinitySignature }),
 }));
+
+// Pins stored with other game data are recalculated with their exact equipment, upgrade and
+// stats before they are shown. A catalog change or a change to the pins discards the result.
+async function recomputeStoredPins(catalog: CatalogDto, staleRows: SolvedBuildDto[], recomputing: Notice) {
+  const context = useDesktopStore.getState();
+  const controller = new AbortController();
+  const isCurrent = () => {
+    const latest = useDesktopStore.getState();
+    return !controller.signal.aborted && latest.catalog === catalog && latest.compareBench === context.compareBench
+      && latest.restoredCompareTarget === context.restoredCompareTarget;
+  };
+  const stop = useDesktopStore.subscribe(() => { if (!isCurrent()) controller.abort(); });
+  const preset: BuildPreset = { version: 2, id: "", name: "", profileId: catalog.dataManifest.profile.id, request: context.request,
+    selectedBuild: null, compareTarget: null, compareBench: [], dataVersion: catalogVersion(catalog), createdAt: "", updatedAt: "" };
+  try {
+    const rows: SolvedBuildDto[] = [];
+    for (const row of staleRows) {
+      try {
+        rows.push(...(await verifyPresetResults({ ...preset, compareBench: [row] }, catalog, controller.signal)).compareBench);
+      } catch {
+        if (!isCurrent()) return;
+      }
+    }
+    if (!isCurrent()) return;
+    const dropped = staleRows.length - rows.length;
+    useDesktopStore.setState((state) => ({
+      ...invalidatePathJob(state),
+      compareBench: rows,
+      compareTarget: null,
+      restoredCompareTarget: null,
+      notices: [...state.notices.filter((notice) => notice !== recomputing), dropped ? {
+        scope: "global", tone: "warning",
+        message: `Recomputed your pinned comparison builds on current game data; ${dropped} could not be recomputed and ${dropped === 1 ? "was" : "were"} removed.`,
+      } : { scope: "global", tone: "success", message: "Recomputed your pinned comparison builds on current game data." },
+      ...writeCompareBench(catalog, rows)],
+    }));
+  } finally {
+    stop();
+    if (useDesktopStore.getState().notices.includes(recomputing)) {
+      useDesktopStore.setState((state) => ({ notices: state.notices.filter((notice) => notice !== recomputing) }));
+    }
+  }
+}
