@@ -137,7 +137,8 @@ separate allocation rule.
 
 The gate is `level_range_reuse_enabled` in the
 [optimizer](../../core/er_optimizer_core/src/optimizer.rs); it also requires explicit
-weapon, affinity and Ash selections. The regression
+weapon and affinity selections. Without a pinned Ash the cache holds one table set per
+stat shape, compatible Ash and route, still released with the range. The regression
 `fixed_loadout_level_range_reuse_preserves_objectives_and_budget_edges` compares
 complete results with independent searches, including locks, minimums, handling,
 world scaling and requirement thresholds in the
