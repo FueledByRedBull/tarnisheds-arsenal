@@ -232,7 +232,11 @@ input[type="number"],
   max-height: 240px;
   overflow: auto;
   padding: 4px;
+  color: var(--text);
+  /* Opaque: the list opens over its editor's own buttons and notes. */
+  background: var(--surface-raised);
   border: 1px solid var(--line-control);
+  border-radius: 4px;
   box-shadow: 0 10px 24px var(--shadow);
 }
 
@@ -2167,8 +2171,7 @@ textarea:focus-visible,
 
 input,
 select,
-textarea,
-.select-menu {
+textarea {
   color: var(--text);
   background: color-mix(in srgb, var(--surface-raised) 92%, transparent);
   border-color: var(--line-control);
@@ -3324,10 +3327,12 @@ textarea:hover {
 .inspector > .inspector-title:first-child {
   position: sticky;
   z-index: 2;
-  top: -15px;
+  /* Sticky offsets start inside the inspector's 16px top padding; -16px reaches its edge. */
+  top: -16px;
   margin: -15px -15px 12px;
   padding: 17px 15px 12px;
-  background: color-mix(in srgb, var(--surface-panel) 96%, transparent);
+  /* Opaque, so details scrolling under the stuck title never show through it. */
+  background: var(--surface-panel);
   border-bottom: 1px solid var(--line);
 }
 
