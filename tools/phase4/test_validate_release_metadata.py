@@ -62,9 +62,6 @@ class RequirementsTests(unittest.TestCase):
         self.assertEqual(requirements_errors((root / "requirements-validation.txt").read_text(encoding="utf-8")), [])
 
 
-PIN = "dtolnay/rust-toolchain@" + "a" * 40
-
-
 class ToolchainReferenceTests(unittest.TestCase):
     def errors(self, workflow: str, readme: str) -> list[str]:
         with tempfile.TemporaryDirectory() as directory:
@@ -76,15 +73,15 @@ class ToolchainReferenceTests(unittest.TestCase):
 
     def test_matching_references_pass(self) -> None:
         readme = "**Rust 1.97.0**, **Node.js 22.23.1**, **Python 3.12.10**. [New](docs/release-notes/v0.17.2.md)\n"
-        workflow = f"uses: {PIN} # 1.97.0\nRUSTUP_TOOLCHAIN: \"1.97.0\"\nnode-version-file: .node-version\n"
+        workflow = "rustup toolchain install --profile minimal\nRUSTUP_TOOLCHAIN: \"1.97.0\"\nnode-version-file: .node-version\n"
         self.assertEqual(self.errors(workflow, readme), [])
 
     def test_drifted_references_fail(self) -> None:
         readme = "Rust 1.96.0, Node.js 22.23.1, Python 3.12.10. [New](docs/release-notes/v0.17.1.md)\n"
-        workflow = f"uses: {PIN} # 1.96.0\nRUSTUP_TOOLCHAIN: \"1.96.0\"\npython-version: '3.12'\n"
+        workflow = "rustup toolchain install 1.96.0\nRUSTUP_TOOLCHAIN: \"1.96.0\"\npython-version: '3.12'\n"
         errors = self.errors(workflow, readme)
         self.assertEqual(len(errors), 5, errors)
-        self.assertIn("installs Rust 1.96.0", errors[0])
+        self.assertIn("installs Rust by literal version", errors[0])
         self.assertIn("sets RUSTUP_TOOLCHAIN 1.96.0", errors[1])
         self.assertIn("literal version", errors[2])
         self.assertIn("pinned Rust 1.97.0", errors[3])
