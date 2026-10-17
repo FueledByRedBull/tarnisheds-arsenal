@@ -33,18 +33,6 @@ tmp_*.png
 release-notes-*.md
 /tarnisheds-arsenal-desktop.exe
 
-# Local planning and audit evidence
-/AGENTS.md
-/.codex-tmp/
-/IGNORE/
-/TODO.md
-/HARDEN.md
-/AUDITS.md
-/ERComparitor_DIFFERENTIAL_REVIEW_*.md
-/.audit/
-/.impeccable/
-/PRODUCT.md
-
 # Local secrets
 .env
 .env.*

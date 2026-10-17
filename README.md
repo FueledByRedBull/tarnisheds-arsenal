@@ -241,7 +241,7 @@ Open **Report a problem** at the bottom of Build Detail and use
 
 Submit focused pull requests against `main`, explain the problem and checks run,
 and add a regression for behavior changes. Keep raw game files, credentials,
-build output, and local audit reports out of commits.
+build output, and local working notes out of commits.
 
 <details>
 <summary><strong>Build and validate locally</strong></summary>
