@@ -384,6 +384,30 @@ random requests (both profiles, all objectives, levels 9 to 713, handedness,
 upgrade modes, grouping, K, locks and floors) with level ranges, the level-range
 benchmark, and every workflow and native command payload.
 
+A second pass against `db3dc75`, measured the same way, targeted the slowest
+remaining cases. Level ranges now reuse exact DP tables when no Ash is pinned
+(one table set per stat shape, Ash and route, released with the range; peak
+memory did not grow). Route bounds reuse their curve maxima within a work unit.
+Weapon preparation builds the Ash lists, attack rows and handled routes once per
+weapon kind in parallel and shares the routes with scoring, groups choices in
+parallel, and checks cancellation every 64 weapons per thread on any pool size.
+
+| Workload (default threads unless noted) | Before | After |
+| --- | --- | --- |
+| Affinity Watch, any Ash, 200 levels | 381 to 479 | 163 to 228 |
+| Same, one thread | 2368 [2285, 2523] | 714 [645, 729] |
+| Open Max AR, RL150 / two-handed | 66 / 92 | 39 / 51 |
+| Open K=25 loadouts, RL46 | 61 [58, 69] | 34 [29, 44] |
+| All-upgrades Max AR, RL93 | 120 [103, 132] | 77 [70, 87] |
+| Open AoW full sequence, RL150 | 104 [98, 117] | 64 [56, 68] |
+| Convergence open Max AR / Custom stats | 51 / 55 | 26 / 30 |
+| Native command: open RL46 K=25, one thread | 327 [309, 390] | 197 [186, 205] |
+| Open Max AR, RL46, one thread | 357 [330, 361] | 210 [202, 247] |
+
+Paths, solves and frontiers stayed within noise (under 13 ms). Every phase case
+in both profiles at both thread counts, the 400 seeded requests, and every
+Affinity Watch, Paths and native command payload matched the baseline.
+
 ## Independent versus shared level-range evaluation
 
 The range command above starts at level 80 and measures independent optimization

@@ -728,6 +728,7 @@ pub(crate) fn exact_scalar_route(
 /// optimizer-math Section 3; an influence penalty only switches from the strongest negative
 /// contribution to the nonnegative sum as values rise), so evaluating every stat at its
 /// interval's largest curve value bounds coupled and additive routes alike.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn exact_scalar_route_upper_bound(
     route: &ScalarAowRoute<'_>,
     weapon: &Weapon,
@@ -736,6 +737,7 @@ pub(crate) fn exact_scalar_route_upper_bound(
     data: &GameData,
     min_stat_values: [u16; COMBAT_STAT_COUNT],
     max_stat_values: [u16; COMBAT_STAT_COUNT],
+    curve_maxima: &mut CurveMaxima,
 ) -> Result<(ExactRational, ExactRational), String> {
     let damage_multiplier = rational(damage_multiplier, "damage multiplier")?;
     let mut first_hit = ExactRational::zero();
@@ -753,14 +755,20 @@ pub(crate) fn exact_scalar_route_upper_bound(
                     data,
                     |curve_id| {
                         let mut values = std::array::from_fn(|_| ExactRational::zero());
+                        let maxima = &mut curve_maxima[damage_type.as_index()];
                         for (stat_idx, value) in values.iter_mut().enumerate() {
-                            *value = max_curve_value(
-                                data,
-                                curve_id,
-                                min_stat_values[stat_idx],
-                                max_stat_values[stat_idx],
-                                stat_idx,
-                            )?;
+                            *value = match &maxima[stat_idx] {
+                                Some(maximum) => maximum.clone(),
+                                None => maxima[stat_idx]
+                                    .insert(max_curve_value(
+                                        data,
+                                        curve_id,
+                                        min_stat_values[stat_idx],
+                                        max_stat_values[stat_idx],
+                                        stat_idx,
+                                    )?)
+                                    .clone(),
+                            };
                         }
                         Ok(values)
                     },
@@ -2476,6 +2484,7 @@ mod tests {
                     &data,
                     [10; COMBAT_STAT_COUNT],
                     [60, 40, 40, 40, 40],
+                    &mut std::array::from_fn(|_| std::array::from_fn(|_| None)),
                 )
                 .unwrap();
                 for index in 0..grid.len().pow(5) {

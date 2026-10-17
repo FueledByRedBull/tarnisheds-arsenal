@@ -88,15 +88,11 @@ pub(super) fn prepare_weapons<'a>(
 
 // Weapons each Rayon thread prepares between cancellation checks. Scaling the chunk with the
 // pool keeps one chunk to a few milliseconds of wall time on any thread count, far inside the
-// 250 ms cancellation target, while large pools still get enough work per barrier. A
-// one-thread pool also compiles every Ash route during preparation, so it checks per weapon.
+// 250 ms cancellation target, while large pools still get enough work per barrier.
 pub(super) const PREPARE_WEAPONS_PER_THREAD: usize = 64;
 
 pub(super) fn prepare_weapon_chunk() -> usize {
-    match rayon::current_num_threads() {
-        0 | 1 => 1,
-        threads => PREPARE_WEAPONS_PER_THREAD * threads,
-    }
+    PREPARE_WEAPONS_PER_THREAD * rayon::current_num_threads().max(1)
 }
 
 pub(super) fn prepare_weapons_with_cancel<'a>(
@@ -111,6 +107,7 @@ pub(super) fn prepare_weapons_with_cancel<'a>(
         data.weapons
             .iter()
             .filter(|weapon| weapon_matches_request(weapon, request, data)),
+        request,
         data,
     );
     let mut out = Vec::new();
@@ -296,11 +293,19 @@ pub(super) fn upgrade_cap_for_weapon(weapon: &Weapon, request: &OptimizeRequest)
     }
 }
 
-/// Applicable Ashes, in table order, with the attack rows each uses. Compatibility reads only
-/// whether the weapon can change Ashes, its affinity and its type keys; row selection reads
-/// its type name. One list per distinct key serves every matching weapon and thread.
-pub(super) type AshTemplates<'a> =
-    HashMap<(bool, &'a str, &'a str, &'a str), Vec<(&'a Aow, Vec<&'a AowAttackRow>)>>;
+/// Applicable Ashes, in table order, with the attack rows and handled routes each uses.
+/// Compatibility reads only whether the weapon can change Ashes, its affinity and its type
+/// keys; rows and routes read its type name (which also fixes forced two-handing) and the
+/// request's handling. One list per distinct key serves every matching weapon and thread.
+/// Routes are compiled only for Ashes the request can select by name.
+pub(super) type AshTemplates<'a> = HashMap<
+    (bool, &'a str, &'a str, &'a str),
+    Vec<(
+        &'a Aow,
+        Vec<&'a AowAttackRow>,
+        Option<SharedScalarRoutes<'a>>,
+    )>,
+>;
 
 fn ash_template_key(weapon: &Weapon) -> (bool, &str, &str, &str) {
     (
@@ -313,28 +318,63 @@ fn ash_template_key(weapon: &Weapon) -> (bool, &str, &str, &str) {
 
 pub(super) fn ash_templates<'a>(
     weapons: impl Iterator<Item = &'a Weapon>,
+    request: &OptimizeRequest,
     data: &'a GameData,
 ) -> AshTemplates<'a> {
-    let mut templates = AshTemplates::new();
-    // Row selection reads only the Ash and the weapon's type name.
-    let mut rows = HashMap::<(u16, &str), Vec<&AowAttackRow>>::new();
+    let mut representatives = HashMap::new();
     for weapon in weapons {
-        templates
+        representatives
             .entry(ash_template_key(weapon))
-            .or_insert_with(|| {
-                data.aows
-                    .iter()
-                    .filter(|aow| data.aow_compatible_with_weapon(aow, weapon))
-                    .map(|aow| {
-                        let selected = rows
-                            .entry((aow.aow_id, weapon.weapon_type_name.as_str()))
-                            .or_insert_with(|| select_aow_attack_rows(aow.aow_id, weapon, data));
-                        (aow, selected.clone())
-                    })
-                    .collect()
-            });
+            .or_insert(weapon);
     }
-    templates
+    // Compatibility per key, then rows and routes per distinct Ash and weapon type name.
+    let compatible: Vec<(_, &Weapon, Vec<&Aow>)> = representatives
+        .into_par_iter()
+        .map(|(key, weapon)| {
+            let aows = data
+                .aows
+                .iter()
+                .filter(|aow| data.aow_compatible_with_weapon(aow, weapon))
+                .collect();
+            (key, weapon, aows)
+        })
+        .collect();
+    let mut needed = HashMap::new();
+    for (_, weapon, aows) in &compatible {
+        for aow in aows {
+            needed
+                .entry((aow.aow_id, weapon.weapon_type_name.as_str()))
+                .or_insert((*aow, *weapon));
+        }
+    }
+    let selected: HashMap<_, _> = needed
+        .into_par_iter()
+        .map(|((aow_id, type_name), (aow, weapon))| {
+            let rows = select_aow_attack_rows(aow_id, weapon, data);
+            let selectable = request
+                .aow_name
+                .as_deref()
+                .is_none_or(|name| aow.name.eq_ignore_ascii_case(name));
+            let routes = selectable.then(|| {
+                let two_handing = weapon_uses_two_handing(request, weapon);
+                Arc::new(handled_scalar_routes(&rows, data, two_handing))
+            });
+            ((aow_id, type_name), (rows, routes))
+        })
+        .collect();
+    compatible
+        .into_iter()
+        .map(|(key, weapon, aows)| {
+            let template = aows
+                .into_iter()
+                .map(|aow| {
+                    let (rows, routes) = &selected[&(aow.aow_id, weapon.weapon_type_name.as_str())];
+                    (aow, rows.clone(), routes.clone())
+                })
+                .collect();
+            (key, template)
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -343,7 +383,7 @@ pub(super) fn resolve_aow_choices<'a>(
     request: &OptimizeRequest,
     data: &'a GameData,
 ) -> Result<Option<Vec<AowChoice<'a>>>, String> {
-    let templates = ash_templates(std::iter::once(weapon), data);
+    let templates = ash_templates(std::iter::once(weapon), request, data);
     resolve_aow_choices_cached(weapon, request, data, &templates)
 }
 
@@ -368,7 +408,7 @@ pub(super) fn resolve_aow_choices_cached<'a>(
     let template = templates
         .get(&ash_template_key(weapon))
         .ok_or("weapon preparation has no Ash template")?;
-    for (aow, rows) in template {
+    for (aow, rows, routes) in template {
         if let Some(choice) = native
             .as_ref()
             .filter(|choice| choice.skill_id == Some(aow.aow_id))
@@ -385,7 +425,7 @@ pub(super) fn resolve_aow_choices_cached<'a>(
                 skill_id: Some(aow.aow_id),
                 skill_name: Some(aow.name.as_str()),
                 attack_rows: rows.clone(),
-                scalar_routes: None,
+                scalar_routes: routes.clone(),
             });
         }
     }
@@ -443,25 +483,16 @@ pub(super) fn resolve_aow_choices_cached<'a>(
         {
             return false;
         }
-        let skill_id = choice.skill_id.map(|id| format!("aow:{id}"));
         filter_dimension_matches(request, FilterDimension::Aow, |id| {
             if id.eq_ignore_ascii_case("aow:none") {
                 choice.no_applied_ash
             } else {
-                skill_id
-                    .as_ref()
-                    .is_some_and(|skill| id.eq_ignore_ascii_case(skill))
+                choice
+                    .skill_id
+                    .is_some_and(|skill| id.eq_ignore_ascii_case(&format!("aow:{skill}")))
             }
         }) && seen_skills.insert(choice.skill_id)
     });
-    if rayon::current_num_threads() == 1 {
-        for choice in &mut choices {
-            choice.scalar_routes = Some(
-                scalar_route_set(choice, data, weapon_uses_two_handing(request, weapon))
-                    .map(|routes| routes.map(Cow::into_owned)),
-            );
-        }
-    }
     Ok((!choices.is_empty()).then_some(choices))
 }
 

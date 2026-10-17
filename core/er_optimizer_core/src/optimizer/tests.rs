@@ -2346,6 +2346,14 @@ fn fixed_loadout_level_range_reuse_preserves_objectives_and_budget_edges() {
             &[100, 80, 90, 81, 100],
             &game_data,
         );
+        let mut any_ash = request.clone();
+        any_ash.aow_name = None;
+        assert!(level_range_reuse_enabled(&any_ash));
+        assert_level_range_matches_independent_searches(
+            &any_ash,
+            &[100, 80, 90, 81, 100],
+            &game_data,
+        );
 
         let active = active_mask_for(
             &game_data,

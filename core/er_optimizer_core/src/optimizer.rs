@@ -42,13 +42,12 @@ struct AowChoice<'a> {
     skill_id: Option<u16>,
     skill_name: Option<&'a str>,
     attack_rows: Vec<&'a AowAttackRow>,
-    // `Some` contains an eager cache for a one-thread Rayon pool. `None` retains
-    // the old per-work-unit preparation when multiple threads are available,
-    // where eager route compilation creates a serial preparation barrier
-    // without a measurable scoring benefit.
-    scalar_routes: Option<Result<Option<Vec<ScalarAowRoute<'a>>>, String>>,
+    // `Some` shares routes compiled once per Ash, weapon type and handling during
+    // preparation; `None` (native skills, unselectable Ashes) compiles them where scored.
+    scalar_routes: Option<SharedScalarRoutes<'a>>,
 }
 
+type SharedScalarRoutes<'a> = Arc<Result<Option<Vec<ScalarAowRoute<'a>>>, String>>;
 type ScalarRouteSet<'routes, 'data> = Cow<'routes, [ScalarAowRoute<'data>]>;
 
 fn scalar_route_set<'routes, 'data>(
@@ -56,18 +55,27 @@ fn scalar_route_set<'routes, 'data>(
     data: &'data GameData,
     two_handing: bool,
 ) -> Result<Option<ScalarRouteSet<'routes, 'data>>, String> {
-    match &choice.scalar_routes {
+    match choice.scalar_routes.as_deref() {
         Some(Ok(routes)) => Ok(routes
             .as_ref()
             .map(|routes| Cow::Borrowed(routes.as_slice()))),
         Some(Err(error)) => Err(error.clone()),
-        None => prepare_scalar_aow_routes(&choice.attack_rows, data).map(|routes| {
-            routes.map(|mut routes| {
-                routes.retain(|route| route_matches_handling(&route.route_id, two_handing));
-                Cow::Owned(routes)
-            })
-        }),
+        None => handled_scalar_routes(&choice.attack_rows, data, two_handing)
+            .map(|routes| routes.map(Cow::Owned)),
     }
+}
+
+fn handled_scalar_routes<'a>(
+    attack_rows: &[&'a AowAttackRow],
+    data: &'a GameData,
+    two_handing: bool,
+) -> Result<Option<Vec<ScalarAowRoute<'a>>>, String> {
+    prepare_scalar_aow_routes(attack_rows, data).map(|routes| {
+        routes.map(|mut routes| {
+            routes.retain(|route| route_matches_handling(&route.route_id, two_handing));
+            routes
+        })
+    })
 }
 
 fn route_matches_handling(route_id: &str, two_handing: bool) -> bool {
@@ -982,57 +990,55 @@ fn build_prepared_plan<'a>(
     let mut stat_candidates = 0_u64;
     let mut combinations = 0_u64;
 
-    // Each Ash choice's stat search depends only on its weapon, so weapons resolve in
-    // parallel (with per-thread count memos) and groups are then built in weapon order.
-    let mut searches: Vec<Vec<Option<RelevantStatSearch>>> = Vec::with_capacity(weapons.len());
+    // Each Ash choice's stat search depends only on its weapon, so weapons resolve and group
+    // their choices in parallel (with per-thread count memos); groups keep weapon order.
+    let mut weapon_groups: Vec<Vec<(RelevantStatSearch, Vec<usize>)>> =
+        Vec::with_capacity(weapons.len());
     for chunk in weapons.chunks(prepare_weapon_chunk()) {
         if !should_continue() {
             return Err("cancelled".to_string());
         }
-        searches.par_extend(chunk.par_iter().map_init(
+        weapon_groups.par_extend(chunk.par_iter().map_init(
             HashMap::new,
             |distribution_counts, prepared| {
-                prepared
-                    .aow_choices
-                    .iter()
-                    .map(|aow_choice| {
-                        relevant_stat_search(
-                            request,
-                            data,
-                            constraints,
-                            prepared,
-                            aow_choice,
-                            distribution_counts,
-                        )
-                    })
-                    .collect()
+                let mut groups: Vec<(RelevantStatSearch, Vec<usize>)> = Vec::new();
+                for (aow_idx, aow_choice) in prepared.aow_choices.iter().enumerate() {
+                    let Some(search) = relevant_stat_search(
+                        request,
+                        data,
+                        constraints,
+                        prepared,
+                        aow_choice,
+                        distribution_counts,
+                    ) else {
+                        continue;
+                    };
+                    match groups.iter_mut().find(|(existing, _)| *existing == search) {
+                        Some((_, aow_indices)) => aow_indices.push(aow_idx),
+                        None => groups.push((search, vec![aow_idx])),
+                    }
+                }
+                groups
             },
         ));
     }
 
-    for (prepared_idx, (prepared, choice_searches)) in weapons.iter().zip(searches).enumerate() {
-        let mut groups_by_search = HashMap::<RelevantStatSearch, usize>::new();
-        for (aow_idx, search) in choice_searches.into_iter().enumerate() {
-            let Some(search) = search else {
-                continue;
-            };
-            stat_candidates = stat_candidates.saturating_add(search.candidate_count);
+    for (prepared_idx, (prepared, weapon_groups)) in weapons.iter().zip(weapon_groups).enumerate() {
+        for (search, aow_indices) in weapon_groups {
+            let choices = aow_indices.len() as u64;
+            stat_candidates =
+                stat_candidates.saturating_add(search.candidate_count.saturating_mul(choices));
             combinations = combinations.saturating_add(
                 search
                     .candidate_count
-                    .saturating_mul(prepared.upgrades.len() as u64),
+                    .saturating_mul(prepared.upgrades.len() as u64)
+                    .saturating_mul(choices),
             );
-            if let Some(&group_idx) = groups_by_search.get(&search) {
-                groups[group_idx].aow_indices.push(aow_idx);
-            } else {
-                let group_idx = groups.len();
-                groups.push(PreparedSearchGroup {
-                    prepared_idx,
-                    search,
-                    aow_indices: vec![aow_idx],
-                });
-                groups_by_search.insert(search, group_idx);
-            }
+            groups.push(PreparedSearchGroup {
+                prepared_idx,
+                search,
+                aow_indices,
+            });
         }
     }
 
@@ -1211,13 +1217,13 @@ where
 }
 
 fn level_range_reuse_enabled(request: &OptimizeRequest) -> bool {
-    // The fixed-loadout DP cache stays bounded; broaden it only after measuring other range
-    // shapes.
+    // The DP cache lives for one range and holds at most one table set per stat shape,
+    // Ash choice and route of the pinned weapon and upgrade; broaden it only after measuring
+    // other range shapes.
     request.top_k == 1
         && request.exact_upgrade
         && request.weapon_name.is_some()
         && request.affinity.is_some()
-        && request.aow_name.is_some()
         && matches!(
             request.objective,
             OptimizeObjective::MaxAr
@@ -1861,8 +1867,9 @@ where
     // Higher upgrades usually score best, so visiting them first lets the weapon-best bound
     // below skip lower levels early. Ranking is a total order, so visit order never changes
     // which candidate wins.
-    // Upgrade-independent parts of the AR bound, computed on first use.
+    // Upgrade-independent parts of the AR and route bounds, computed on first use.
     let mut curve_maxima = std::array::from_fn(|_| std::array::from_fn(|_| None));
+    let mut route_curve_maxima = std::array::from_fn(|_| std::array::from_fn(|_| None));
     let mut buff_upper = None;
     for &upgrade in prepared.upgrades.iter().rev() {
         if let Some(cutoff) = cutoff.max(unit_cutoff(&candidates, group_mode, request.top_k))
@@ -2063,6 +2070,7 @@ where
                             plan.data,
                             group.search.mins.map(u16::from),
                             formula_max_stats(dp_search, request, prepared.weapon),
+                            &mut route_curve_maxima,
                         )?;
                         let bound = if request.objective == OptimizeObjective::AowFirstHit {
                             first
