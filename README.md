@@ -89,8 +89,8 @@ old results as stale. **Ctrl+Z** undoes recent query changes (up to 50) outside
 text fields; switching profile starts a new history. After
 **Update Results**, each rank shows how far that loadout moved and how its score
 changed. Click **AR**, **Skill damage**, or the objective column to sort without
-losing the rank, and press **?** for every shortcut. Convergence uses a
-different [fixed-stat workflow](#convergence-3001-beta).
+losing the rank, and press **?** for every shortcut. Convergence has its own
+classes and [coverage limits](#convergence-3001-beta).
 
 ### Saved builds and recovery
 
@@ -202,17 +202,24 @@ effects, profile rules, and known differences from other calculators.
 ### Convergence 3.0.0.1 beta
 
 > [!WARNING]
-> Convergence is experimental. Its final AR mechanics and customization legality
-> still need independent verification.
+> Convergence is experimental. Its AR, status, and Ash legality are checked
+> against the mod's regulation and a pinned external calculator, not measured in
+> game.
 
-The header marks it **Experimental fixed-stat model**; open that label for its
-coverage notes. Enter exact **Custom stats**; their total is not a Rune Level.
-The profile supports melee weapon AR, fixed status, and upgrades through `+15`.
-AoW damage, ammunition AR, and class-dependent workflows (Compare, Paths,
-Affinity Watch, and class optimization) are unavailable.
+The header marks it **Experimental model**; open that label for its coverage
+notes. Choose one of the mod's 27 starting classes, such as **Retainer** or
+**Prisoner**, and plan by Rune Level as in Vanilla: class optimization, Compare,
+Paths, and Affinity Watch all work. **Custom stats** remains in the class list:
+it evaluates the exact stats you enter, their total is not a Rune Level, and the
+analysis workspaces stay locked while it is selected. Builds saved with Custom
+stats load and solve as before.
 
-Vanilla rules and missing damage tables are never substituted into the mod
-profile. See [Convergence coverage](docs/model-reference.md#convergence).
+The profile supports melee weapon AR and upgrades through `+15`. Status buildup
+is fixed: the mod gives weapons a flat status correction curve, so Arcane and
+upgrades do not raise it. AoW damage and ammunition AR are unavailable.
+
+Vanilla rules, classes, and missing damage tables are never substituted into the
+mod profile. See [Convergence coverage](docs/model-reference.md#convergence).
 
 ## Documentation
 

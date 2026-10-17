@@ -64,7 +64,8 @@ and holy.
 
 ### Point budget
 
-`compute_free_points` (`math.rs`) computes
+`compute_free_points` (`math.rs`) computes, with class constants from the
+selected profile's own catalog,
 
 $$P = N_c + (L-L_c) - \sum_{j=1}^{8} a_j.$$
 

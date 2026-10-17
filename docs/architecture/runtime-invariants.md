@@ -174,6 +174,12 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - Native skill identity remains anchored to the source `native_skill_id` when a
   localized label or motion rows are unavailable. The runtime may expose a null
   label and no damage rows, but it must not erase the ID or invent damage data.
+- Class budgets come only from the selected profile: Vanilla's built-in classes or
+  a profile's manifest-listed `classes.csv`. A request naming another profile's
+  class is rejected, and a non-Vanilla profile that declares class budgets without
+  a class catalog fails at the manifest boundary. Such a profile also offers
+  Custom stats, which keeps its exact-stat budget and cannot start Compare, Paths,
+  Affinity Watch, or AR / Bleed tradeoffs.
 - Convergence ammunition rows remain in the immutable source snapshot but are not
   exposed to catalog/search/export until an arrow/bolt projectile model exists. They
   must never compete using weapon-only or duplicated damage components; current profile
