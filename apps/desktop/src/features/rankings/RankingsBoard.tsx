@@ -4,7 +4,7 @@ import { downloadText, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv"
 import { aowModelSupported, compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
 import { buildOptimizeRequest, rowFingerprint } from "../../lib/session";
 import { EASE_OUT, reducedMotion, settleRanking } from "../../lib/motion";
-import { RankedEntry, RankMovement, RankSortKey, rankMovements, sortRanked } from "../../lib/ranking-view";
+import { RankMovement, RankSortKey, rankMovements, sortRanked } from "../../lib/ranking-view";
 import { useDesktopStore } from "../../lib/state";
 import { ObjectiveId, SearchProgressDto, SolvedBuildDto } from "../../lib/types";
 import { runSearchFromStore, runSearchRequestForRows } from "../../lib/workflows";
@@ -112,18 +112,16 @@ export function RankingsBoard() {
   const tabStopKey = rows.some((row) => rowFingerprint(row) === selectedKey) ? selectedKey : rowFingerprint(rows[0] ?? null);
 
   const rowsContainer = useRef<HTMLDivElement>(null);
-  // Rows stay in rank order in the DOM. A sort offsets them (they are relatively positioned, so
-  // only their positions update) and gives keyboard and screen readers the new order through
-  // reading-order; moving the row nodes instead restyled and laid out all of them (~15 ms per
-  // sort). Transforms would avoid even that, but give each sticky rank cell its own layer.
+  // Rows stay in rank order in the DOM and a sort sets their flex order, so only the rows' own
+  // styles and positions update (1.6 ms for 50 rows); reading-flow gives keyboard and screen
+  // readers the order shown. Moving the row nodes restyled and laid out all of them (~15 ms), and
+  // rendering each place's row into it rewrote every row's contents (8 ms).
   useLayoutEffect(() => {
-    const container = rowsContainer.current;
-    if (!container) return;
-    placeRows(container, rankedRows);
-    // Row heights follow the board width, so a resize re-places a sorted board.
-    const observer = new ResizeObserver(() => placeRows(container, rankedRows));
-    observer.observe(container);
-    return () => observer.disconnect();
+    const rowElements = rowsContainer.current?.children;
+    rankedRows.forEach(({ rank }, place) => {
+      const row = rowElements?.[rank];
+      if (row instanceof HTMLElement) row.style.order = String(place);
+    });
   }, [rankedRows]);
 
   // A sort or an updated search re-forges the ranking. Results that land while another
@@ -447,31 +445,11 @@ function MetricDelta({ movement, objective }: { movement: RankMovement | null; o
   );
 }
 
-// Shifts each row from its rank-order place to its sorted one. Rows stack without gaps, so both
-// places are running sums of row heights; fractional heights keep 50 rows from drifting apart.
-function placeRows(container: HTMLElement, ranked: RankedEntry[]) {
-  const rows = [...container.children].filter((row): row is HTMLElement => row instanceof HTMLElement);
-  // Rank order needs no measuring, so fresh results never force a layout here.
-  const unsorted = ranked.every(({ rank }, position) => rank === position);
-  const heights = unsorted ? [] : rows.map((row) => row.getBoundingClientRect().height);
-  const natural: number[] = [];
-  heights.reduce((top, height, rank) => { natural[rank] = top; return top + height; }, 0);
-  let top = 0;
-  ranked.forEach(({ rank }, position) => {
-    const row = rows[rank];
-    if (!row) return;
-    const shift = unsorted ? 0 : top - natural[rank];
-    row.style.top = shift ? `${shift}px` : "";
-    row.style.setProperty("reading-order", String(position));
-    if (!unsorted) top += heights[rank];
-  });
-}
-
 // Arrow keys move between rows like a grid, in the order shown; Enter and Space still select.
 function moveRowFocus(row: HTMLElement, key: string) {
-  const top = (element: HTMLElement) => element.getBoundingClientRect().top;
+  const order = (element: HTMLElement) => Number(element.style.order);
   const rows = [...(row.parentElement?.querySelectorAll<HTMLElement>(".result-row") ?? [])]
-    .sort((a, b) => top(a) - top(b));
+    .sort((a, b) => order(a) - order(b));
   const index = rows.indexOf(row);
   const target = key === "Home" ? rows[0] : key === "End" ? rows.at(-1) : rows[index + (key === "ArrowDown" ? 1 : -1)];
   target?.focus();

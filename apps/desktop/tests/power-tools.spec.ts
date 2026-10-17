@@ -103,6 +103,13 @@ test("result columns sort without renumbering ranks", async ({ page }) => {
   await ar.getByRole("button").click();
   await expect(ar).toHaveAttribute("aria-sort", "ascending");
   expect(await ranks()).toEqual(["4", "3", "2", "1"]);
+  // Arrow keys and the accessibility order follow the order shown, not the DOM's rank order.
+  await page.getByRole("row", { name: /, rank 4,/ }).focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("row", { name: /, rank 3,/ })).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(page.getByRole("row", { name: /, rank 1,/ })).toBeFocused();
+  await expect(page.locator(".result-rows")).toHaveCSS("reading-flow", "flex-visual");
   await expect(page.getByRole("button", { name: "Show highest first" })).toBeVisible();
   await page.getByRole("button", { name: "Show highest first" }).click();
   await expect(ar).toHaveAttribute("aria-sort", "descending");

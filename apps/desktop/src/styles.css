@@ -3652,13 +3652,14 @@ textarea:hover {
 }
 
 /* Motion states what changed. Rankings re-forge from lib/motion.ts and a new selection fades
-   in from Inspector.tsx. Sorted rows are offset within this group and read in their
-   reading-order (RankingsBoard.tsx). It stays composited:
+   in from Inspector.tsx. Sorted rows take their flex order here and are read in it
+   (RankingsBoard.tsx). The group stays composited:
    animating it then never changes its stacking context (which re-lays out every row), and its
    sticky rank cells share its layer instead of becoming 50 overlap layers of their own. */
 .result-rows {
-  position: relative;
-  reading-flow: source-order;
+  display: flex;
+  flex-direction: column;
+  reading-flow: flex-visual;
   will-change: opacity;
   transition: opacity 300ms var(--ease-out);
 }

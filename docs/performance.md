@@ -124,7 +124,11 @@ These rendering rules came out of that work and still apply:
   only `transition-property` shifts `allow-discrete` onto the wrong properties.
 - Fade `<details>` content by opacity; never transition its visibility.
 - Reserve scrollbar gutters (`scrollbar-gutter: stable`) on scroll containers.
-- Sort ranking rows by offsetting them, not by moving DOM nodes or using CSS `order`.
+- Sort ranking rows with flex `order` in a `reading-flow: flex-visual` group. Moving
+  their DOM nodes restyles and lays out every row (~15 ms), and rendering each place's
+  row into it rewrites every row's contents (3 ms of script and 5 ms of layout for 50
+  rows); `order` costs what measured offsets did (about 2.5 ms before paint) without
+  measuring any row.
 - Hide an offstage workspace with non-inherited properties. Toggling inherited
   `visibility` on Rankings restyled its ~1,500 rows' elements on every tab switch.
 - Reveal workspaces in a deferred render (`useDeferredValue`), so a tab key press
