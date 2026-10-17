@@ -139,6 +139,18 @@ These rendering rules came out of that work and still apply:
   of the board, so little is skipped; and its paint containment inside a composited
   ancestor (the rows group, or Rankings while its entrance holds) splits the rows into
   about 45 layers, which every row entering or leaving that margin re-layerizes (7-11 ms).
+- Rest ranking rows well outside the board's view (`content-visibility: hidden` with a
+  remembered `contain-intrinsic-height`) while the window is resized and while Rankings
+  is hidden, and wake them twelve per frame afterwards. A width step and a return to the
+  tab then render about 15 rows instead of 50, and nothing on screen moves.
+- Keep width media queries in their own sheet (`breakpoints.css`, adopted after the
+  others). Crossing one inside the main sheet restyled the whole page (5-6 ms traced).
+- Open keyboard-summoned modal lists as popovers, not with `showModal()`: making the page
+  inert restyles every element as the list opens and again as it closes. Keep the modal
+  semantics by hand (focus trap, focus return, `aria-hidden` on the app shell once focus
+  is inside; for `aria-modal` alone, WebView2 still exposes the page).
+- No overflow clip on values that always fit: each clip is a paint property node, and the
+  board's 500 token clips cost about 15% of every resize and repaint of it.
 - Never run an animation inside an element that is itself animating or transitioning:
   Chromium then ticks the inner one on the main thread every vsync.
 - No explicit `inherit` on the cells of rows that move: one inherited child makes every
@@ -240,30 +252,100 @@ the rendering rules above record why none of it helped.
 
 Remaining misses, measured:
 
-- Window resize cannot reach 120 fps without a visual change. Each width change costs
-  a 6-7.5 ms layout task and a 9-13 ms paint task (4-5 ms of paint, 3-4 ms of
-  pre-paint, 1.5-2 ms of layerizing); the ranking rows are about 90% of it and their stat
-  token grids about half of that. Collapsing each token to one element, flex instead of
-  grid, or inline blocks measured no gain; only showing the tokens as plain text (a
-  different look) brought style and layout to about 2 ms, still above budget with paint.
-  Skipping off-screen rows with `content-visibility` skips at most 7 of 50. Crossing the
-  1500 px breakpoint also restyles all ~2,800 elements once (8-10 ms).
-- The shortcuts dialog keeps its modal semantics. `showModal()` restyles the whole
-  document inside the key press as the page becomes inert, and closing restyles it
-  again; each takes 7-12 ms untraced and is followed by a 7-9 ms traced repaint.
+- Window resize: each width change cost a 6-7.5 ms layout task and a 9-13 ms paint
+  task (4-5 ms of paint, 3-4 ms of pre-paint, 1.5-2 ms of layerizing), about 90% of it
+  the ranking rows, and crossing the 1500 px breakpoint restyled all ~2,800 elements
+  once (8-10 ms).
+- The shortcuts dialog: `showModal()` restyled the whole document inside the key press
+  as the page became inert, and closing restyled it again, 7-12 ms untraced each way.
   Opening and closing no longer re-render the query strip, which saves 1.4 ms and
-  0.8 ms of script. Fitting the restyle in a frame would take about half as many
-  elements. Removing the backdrop styling changed nothing; a popover with an `inert`
-  app root still restyles (9.8 ms); only a non-modal `show()` is cheap (1.6 ms).
-- Returning to Rankings is one 11-12 ms traced task (5.4-6 ms of paint, 2.1-2.4 ms of
+  0.8 ms of script.
+- Returning to Rankings was one 11-12 ms traced task (5.4-6 ms of paint, 2.1-2.4 ms of
   pre-paint, 1.5-1.8 ms of layerizing): `content-visibility: hidden` drops the hidden
-  panel's paint, so all of its rows repaint, and a tab cycle still shows one 12-25 ms
-  interval.
+  panel's paint, so all of its rows repainted.
+- The next pass fixes these three; see below.
 - A sort click no longer measures rows: in a traced run of six clicks its only long
   task was one 8.5 ms repaint (5.3 ms of paint, 1.9 ms of layerizing).
 - Selecting a row is a 7-11 ms task (about 3 ms of script and 2-3 ms of layout for Build
   Detail), at the edge of the p99 limit.
 - During a search, opening a popover can take a 9-15 ms task (5-8 ms of script).
+
+### Resize, shortcut list and Rankings return (2026-10-17)
+
+Same machine and method as above: release builds launched normally over CDP, frame
+intervals recorded untraced, Vanilla level 192 with 50 rows. Before is the follow-up
+pass above (flex `order` sorting and the ref-opened dialog), after adds this pass; four
+interleaved runs each, busy scenarios three. The VirtualBox VM kept the CPU 60-80% busy,
+so whole runs occasionally show 25-90 ms spikes in every scenario; medians are reported.
+Each resize run now checks that the window really changed width (at least 35 resize
+events), since some of the driver's sweeps silently left the window alone. Attribution
+comes from traces of `toplevel`, `devtools.timeline` and its `disabled-by-default`
+category.
+
+| Scenario (Vanilla) | Before p50 / p95 / p99 / max, ms | After | Key p50 / p95, ms |
+| --- | --- | --- | --- |
+| Window resize, 1650 to 1350 px and back | 4.2 / 16.6 / 20.8 / 25.1 | 4.2 / 4.3 / 8.4 / 12.5 | - |
+| Window resize below the 1500 px breakpoint | 4.2 / 16.6 / 20.8 / 20.9 | 4.2 / 4.3 / 8.4 / 12.6 | - |
+| Busy: window resize | 4.2 / 29.2 / 41.7 / 66.6 | 4.2 / 8.4 / 12.5 / 20.8 | - |
+| Shortcuts list open and close | 4.2 / 4.3 / 4.3 / 20.7 | 4.2 / 4.3 / 4.3 / 4.3 | 13.8 / 23.8 → 5.4 / 8.1 |
+| Ctrl+2 then Ctrl+1, six times | 4.2 / 4.3 / 4.3 / 8.4 | 4.2 / 4.3 / 4.3 / 4.4 | 5.4 / 8.0 → 5.6 / 8.2 |
+| Wheel, drag, sorts, selection, popovers, palette | 4.2 / 4.3 / 4.3 / ≤ 12.5 | 4.2 / 4.3 / 4.3 / ≤ 8.4 | 5.6-6.3 / 7.7-8.0 → 4.7-6.0 / 7.3-7.6 |
+
+Traced, a resize sweep of 220 width steps leaves one task over 6.94 ms (7.7 ms) instead
+of one 17-19 ms layout-plus-paint pair per step; each return to Rankings was a 10.4-12.1 ms
+task and now none exceeds 6.94 ms; opening or closing the shortcuts list no longer has a
+long task. Every board screenshot (unsorted, sorted by AR and by skill damage, selected,
+hovered, focused, scrolled, returned to, after a resize, at 1480 and 1300 px, the open
+shortcut list and the whole window, under Max AR and AoW First Hit) matches the before
+build pixel for pixel, apart from spots that also differ between two captures of the
+before build. The layer count stays at 15.
+
+What changed:
+
+- Resting rows. An `IntersectionObserver` on the board tracks rows within two rows of its
+  view. When a resize starts or Rankings is hidden, the other rows (about 35 of 50) get
+  `content-visibility: hidden`, keeping their remembered height, so a width step lays
+  out and paints about 15 rows. They wake twelve per frame 150 ms after the last resize
+  event, or from the second frame after Rankings is shown; a row that comes into view
+  wakes at once. Rest and wake cost 0.4-0.7 ms of style and layout.
+- Breakpoints in their own adopted sheet. With the media rules inside the main sheet,
+  crossing 1500 px was a 9-14 ms traced task (5-6 ms of style); in its own sheet it no
+  longer shows up.
+- The shortcuts list is a popover beside the app root. `aria-modal` alone left 32
+  controls of the page exposed to assistive technology, so the app shell takes
+  `aria-hidden` once focus is in the list, which leaves the same single control exposed
+  as the modal dialog did. Tab now stays on the close button (the modal dialog let it
+  reach the browser), Escape closes the list natively and focus returns to where it was.
+- Token values in ranking rows lose their overflow clip; the values fit at the minimum
+  window width.
+
+Options measured and not shipped:
+
+- Fewer elements per row. Without the token grids, a width step's traced layout fell
+  from 6.8 to 2.2 ms and the whole step from 18 to 8 ms, but each token's visible value
+  must stay hidden from screen readers under its labelled list item, which takes the
+  `b` element. Static instead of sticky row cells saved about 2.8 ms of 18 and hiding
+  the action icons about the same, but static cells move weapon names by a pixel at some
+  widths, and the icons need `currentColor`. Dropping the clip on AR and skill numbers
+  clipped glyph edges differently.
+- Fixed token column tracks: traced layout per step fell from 6.8 to 2.4 ms, but the
+  moved cells still repaint (4.8 ms of paint) and the frames did not improve, besides
+  changing the columns' proportions.
+- Keeping the hidden panel's raster: `opacity: 0` on its own layer under the other
+  workspaces, with `inert` for focus, find and assistive technology. Toggling `inert` on
+  its 2,498 elements costs 9 ms by itself, and each tab switch became a 19-27 ms traced
+  task.
+- Virtualizing the rows for good: find in page and screen-reader browsing would lose the
+  rows outside the view. Resting only during a resize or while hidden keeps both.
+
+Still short of one 240 Hz frame per step:
+
+- A resize's first width step lays out every row before its resize event lets the far
+  rows rest (a 6-8 ms traced layout), and a step over the remaining 15 rows takes 3-5 ms
+  traced, so a few percent of frames span two 240 Hz refreshes (p95 4.3 ms, p99 8.4 ms)
+  and the longest spans three (12.5 ms). That is within 120 fps.
+- During a search, resize frames reach p95 8.4 ms and p99 12.5 ms: the optimizer's
+  threads compete with the renderer for the CPU.
 
 ## Release compiler settings
 
