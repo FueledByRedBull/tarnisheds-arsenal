@@ -620,6 +620,7 @@ textarea {
 .forge-bar {
   position: relative;
   display: block;
+  container-type: inline-size;
   height: 6px;
   overflow: hidden;
   background: color-mix(in srgb, var(--surface-canvas) 72%, transparent);
@@ -638,7 +639,11 @@ textarea {
   transition: transform 240ms var(--ease-out);
 }
 
-.forge-bar i::before {
+/* A determinate bar runs its sheen in a sibling clipped to the reported fraction: an animation
+   inside the gliding fill cannot run on the compositor, which cost a main-thread frame every
+   vsync for a whole search. The leading edge is a second gliding layer above the sheen. */
+.forge-bar.indeterminate i::before,
+.forge-sheen::before {
   content: "";
   position: absolute;
   inset: 0 auto 0 0;
@@ -648,7 +653,33 @@ textarea {
   animation: forge-sheen 1.8s linear infinite;
 }
 
-.forge-bar i::after {
+.forge-bar .forge-sheen {
+  position: absolute;
+  inset: 0 auto 0 0;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.forge-sheen::before {
+  width: 40cqw;
+}
+
+.forge-bar .forge-edge {
+  background: none;
+}
+
+/* Kept while indeterminate, so the edge glides from the same start as the fill. */
+.forge-bar.indeterminate .forge-sheen {
+  display: none;
+}
+
+.forge-bar.indeterminate .forge-edge {
+  animation: none;
+  opacity: 0;
+}
+
+.forge-bar.indeterminate i::after,
+.forge-edge::after {
   content: "";
   position: absolute;
   inset: 0 0 0 auto;
@@ -1541,7 +1572,7 @@ textarea {
 }
 
 /* Only a running analysis flows; a stopped one keeps its fill still. */
-.analysis-progress:not(.status-running) .forge-bar i::before {
+.analysis-progress:not(.status-running) .forge-sheen::before {
   animation: none;
 }
 
@@ -4316,7 +4347,8 @@ summary:focus-visible {
 
   .skeleton::after,
   .search-button.busy::after,
-  .forge-bar i::before {
+  .forge-bar i::before,
+  .forge-sheen::before {
     animation: none;
   }
 
