@@ -1056,12 +1056,12 @@ fn build_prepared_plan<'a>(
         serial_work_units: Vec::new(),
         estimate,
     };
-    plan.fine_work_units = build_search_work_units(&plan, true)?;
+    plan.fine_work_units = build_search_work_units(&plan, true, should_continue)?;
     plan.serial_work_units = if matches!(
         request.objective,
         OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
     ) {
-        build_search_work_units(&plan, false)?
+        build_search_work_units(&plan, false, should_continue)?
     } else {
         plan.fine_work_units.clone()
     };
@@ -1409,6 +1409,7 @@ fn should_use_parallel_search(total: u64, work_unit_count: usize) -> bool {
 fn build_search_work_units(
     plan: &PreparedSearchPlan<'_>,
     split_aows: bool,
+    should_continue: &mut impl FnMut() -> bool,
 ) -> Result<Vec<SearchWorkUnit>, String> {
     let mut units = Vec::new();
     for (group_idx, group) in plan.groups.iter().enumerate() {
@@ -1451,6 +1452,9 @@ fn build_search_work_units(
             .groups
             .iter()
             .map(|group| {
+                if !should_continue() {
+                    return Err("cancelled".to_string());
+                }
                 let prepared = &plan.weapons[group.prepared_idx];
                 let weapon = prepared.weapon;
                 let upgrade = *prepared
