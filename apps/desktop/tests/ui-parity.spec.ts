@@ -177,6 +177,9 @@ test("profile switch isolates results and explains Convergence coverage", async 
   await expect(page.locator(".selected-build-title > strong")).toHaveText(await page.locator(".result-row").first().locator(".weapon-cell strong").innerText());
   // The same note covers Build Detail: no skill-damage tile, never a zero.
   await expect(page.locator(".metric-tile").filter({ hasText: "AoW" })).toHaveCount(0);
+  // Unmapped attack poise reads as unmapped, not as "None" for every attack.
+  await expect(page.locator(".inspector .weapon-poise-detail")).toContainText("Attack poise damage isn't mapped for this weapon.");
+  await expect(page.locator(".inspector .weapon-poise-detail small b")).toHaveCount(0);
   await expect(page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true })).toBeDisabled();
 
   await expect(page.getByRole("navigation").getByRole("button", { name: "Paths", exact: true })).toBeDisabled();

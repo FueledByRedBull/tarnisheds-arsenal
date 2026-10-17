@@ -266,23 +266,28 @@ function WeaponPoiseDetails({ profile, route, twoHanding }: { profile: WeaponPro
   const aowPoise = route && route.totalPoiseDamage > 0
     ? route.actions.flatMap((action) => action.hits.map((hit) => hit.poiseDamage))
     : [];
-  const poiseEntries: [string, string | number[]][] = [
+  // Without mapped moves the attack values are unknown, not zero, so they are not shown as "None".
+  const poiseEntries: [string, string | number[]][] = profile.moveCount ? [
     ["R1", poise.light],
     ["R2", poise.heavy],
     ["Charged R2", poise.chargedHeavy],
     ["Jumping R1", poise.jumpingLight],
     ["Jumping R2", poise.jumpingHeavy],
-  ];
+  ] : [];
   if (aowPoise.length) poiseEntries.push(["AoW", aowPoise]);
   return (
     <div className="detail-block weapon-poise-detail">
       <span>Weapon data</span>
       <strong>Weight {fixed1(profile.weight)} · {profile.moveCount} mapped poise moves · {isTwoHanded ? "2H" : "1H"}</strong>
-      <small className="poise-damage-note">PvE stance / poise damage</small>
-      <div>
-        {poiseEntries
-          .map(([label, value]) => <small key={label}><b>{label}</b>{formatPoiseDamage(value)}</small>)}
-      </div>
+      <small className="poise-damage-note">
+        {profile.moveCount ? "PvE stance / poise damage" : "Attack poise damage isn't mapped for this weapon."}
+      </small>
+      {poiseEntries.length ? (
+        <div>
+          {poiseEntries
+            .map(([label, value]) => <small key={label}><b>{label}</b>{formatPoiseDamage(value)}</small>)}
+        </div>
+      ) : null}
     </div>
   );
 }

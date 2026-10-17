@@ -370,7 +370,8 @@ async function mockWeaponProfile(args: Record<string, unknown> | undefined): Pro
     disablesTwoHandBonus: false,
     forcesTwoHanding: false,
     weight: first?.name === "Pulley Bow" ? 5 : 7,
-    moveCount: 5,
+    // Convergence has no motion-value data, so native maps none of its weapons' poise moves.
+    moveCount: request.profileId === "convergence" ? 0 : 5,
     oneHandedPoise: { light: "5", heavy: "10", chargedHeavy: "30", jumpingLight: "7.5", jumpingHeavy: "20" },
     twoHandedPoise: { light: "6.5", heavy: "11", chargedHeavy: "33", jumpingLight: "9.75", jumpingHeavy: "22" },
     affinities: uniqueSorted(MOCK_WEAPONS.filter((row) => row.name === request.weaponName).map((row) => row.affinity)),
