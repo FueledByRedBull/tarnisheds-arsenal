@@ -27,9 +27,10 @@ pub use optimizer::{
     OptimizePhaseTimings, OptimizeRequest, OptimizeResult, PreparedLoadoutEvaluator,
     PreparedSearchPlan, PreparedUpgradeSeriesEvaluator, ProfiledOptimizeResult, ProgressSnapshot,
     ResultGrouping, SearchEstimate, SomberFilter, StableFilter, optimize,
-    optimize_level_range_with_progress, optimize_prepared_with_progress, optimize_profiled,
-    optimize_with_cancel, prepare_loadout_evaluator_with_cancel, prepare_search,
-    prepare_search_with_cancel, prepare_upgrade_series_evaluator_with_cancel,
+    optimize_level_range_with_progress, optimize_level_ranges_with_progress,
+    optimize_prepared_with_progress, optimize_profiled, optimize_with_cancel,
+    prepare_loadout_evaluator_with_cancel, prepare_search, prepare_search_with_cancel,
+    prepare_upgrade_series_evaluator_with_cancel,
 };
 pub use snapshot::{
     SnapshotCapabilities, SnapshotFile, SnapshotManifest, SnapshotProfile, SnapshotSource,

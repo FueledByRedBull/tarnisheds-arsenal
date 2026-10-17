@@ -107,6 +107,12 @@ pub(super) fn prepare_weapons_with_cancel<'a>(
 ) -> Result<Vec<PreparedWeapon<'a>>, String> {
     // Each weapon prepares independently, so chunks run in parallel. Results keep weapon
     // order and the first error by weapon order wins, exactly as a serial pass would.
+    let templates = ash_templates(
+        data.weapons
+            .iter()
+            .filter(|weapon| weapon_matches_request(weapon, request, data)),
+        data,
+    );
     let mut out = Vec::new();
     for chunk in data.weapons.chunks(prepare_weapon_chunk()) {
         if !should_continue() {
@@ -114,9 +120,7 @@ pub(super) fn prepare_weapons_with_cancel<'a>(
         }
         let prepared: Vec<Result<Option<PreparedWeapon<'a>>, String>> = chunk
             .par_iter()
-            .map_init(AttackRowCache::default, |rows, weapon| {
-                prepare_weapon(weapon, request, data, constraints, rows)
-            })
+            .map(|weapon| prepare_weapon(weapon, request, data, constraints, &templates))
             .collect();
         for weapon in prepared {
             out.extend(weapon?);
@@ -130,7 +134,7 @@ pub(super) fn prepare_weapon<'a>(
     request: &OptimizeRequest,
     data: &'a GameData,
     constraints: Option<CombatConstraints>,
-    attack_rows: &mut AttackRowCache<'a>,
+    templates: &AshTemplates<'a>,
 ) -> Result<Option<PreparedWeapon<'a>>, String> {
     if !weapon_matches_request(weapon, request, data) || !data.weapon_ar_supported(weapon) {
         return Ok(None);
@@ -144,7 +148,7 @@ pub(super) fn prepare_weapon<'a>(
     let Some(upgrades) = available_upgrades(weapon, request, data) else {
         return Ok(None);
     };
-    let Some(aow_choices) = resolve_aow_choices_cached(weapon, request, data, attack_rows)? else {
+    let Some(aow_choices) = resolve_aow_choices_cached(weapon, request, data, templates)? else {
         return Ok(None);
     };
     Ok(Some(PreparedWeapon {
@@ -292,9 +296,46 @@ pub(super) fn upgrade_cap_for_weapon(weapon: &Weapon, request: &OptimizeRequest)
     }
 }
 
-/// Attack rows an Ash uses on a weapon type. Selection depends only on the Ash and the
-/// weapon's type name, so one preparation pass reuses it across every affinity and weapon.
-pub(super) type AttackRowCache<'a> = HashMap<(u16, &'a str), Vec<&'a AowAttackRow>>;
+/// Applicable Ashes, in table order, with the attack rows each uses. Compatibility reads only
+/// whether the weapon can change Ashes, its affinity and its type keys; row selection reads
+/// its type name. One list per distinct key serves every matching weapon and thread.
+pub(super) type AshTemplates<'a> =
+    HashMap<(bool, &'a str, &'a str, &'a str), Vec<(&'a Aow, Vec<&'a AowAttackRow>)>>;
+
+fn ash_template_key(weapon: &Weapon) -> (bool, &str, &str, &str) {
+    (
+        weapon.can_change_aow,
+        weapon.affinity.as_str(),
+        weapon.weapon_type_keys.as_str(),
+        weapon.weapon_type_name.as_str(),
+    )
+}
+
+pub(super) fn ash_templates<'a>(
+    weapons: impl Iterator<Item = &'a Weapon>,
+    data: &'a GameData,
+) -> AshTemplates<'a> {
+    let mut templates = AshTemplates::new();
+    // Row selection reads only the Ash and the weapon's type name.
+    let mut rows = HashMap::<(u16, &str), Vec<&AowAttackRow>>::new();
+    for weapon in weapons {
+        templates
+            .entry(ash_template_key(weapon))
+            .or_insert_with(|| {
+                data.aows
+                    .iter()
+                    .filter(|aow| data.aow_compatible_with_weapon(aow, weapon))
+                    .map(|aow| {
+                        let selected = rows
+                            .entry((aow.aow_id, weapon.weapon_type_name.as_str()))
+                            .or_insert_with(|| select_aow_attack_rows(aow.aow_id, weapon, data));
+                        (aow, selected.clone())
+                    })
+                    .collect()
+            });
+    }
+    templates
+}
 
 #[cfg(test)]
 pub(super) fn resolve_aow_choices<'a>(
@@ -302,14 +343,15 @@ pub(super) fn resolve_aow_choices<'a>(
     request: &OptimizeRequest,
     data: &'a GameData,
 ) -> Result<Option<Vec<AowChoice<'a>>>, String> {
-    resolve_aow_choices_cached(weapon, request, data, &mut AttackRowCache::default())
+    let templates = ash_templates(std::iter::once(weapon), data);
+    resolve_aow_choices_cached(weapon, request, data, &templates)
 }
 
 pub(super) fn resolve_aow_choices_cached<'a>(
     weapon: &'a Weapon,
     request: &OptimizeRequest,
     data: &'a GameData,
-    attack_rows: &mut AttackRowCache<'a>,
+    templates: &AshTemplates<'a>,
 ) -> Result<Option<Vec<AowChoice<'a>>>, String> {
     let native = native_skill_choice_for_weapon(weapon, data);
     let mut choices: Vec<_> = native.clone().into_iter().collect();
@@ -323,11 +365,10 @@ pub(super) fn resolve_aow_choices_cached<'a>(
             scalar_routes: None,
         });
     }
-    for aow in data
-        .aows
-        .iter()
-        .filter(|aow| data.aow_compatible_with_weapon(aow, weapon))
-    {
+    let template = templates
+        .get(&ash_template_key(weapon))
+        .ok_or("weapon preparation has no Ash template")?;
+    for (aow, rows) in template {
         if let Some(choice) = native
             .as_ref()
             .filter(|choice| choice.skill_id == Some(aow.aow_id))
@@ -343,10 +384,7 @@ pub(super) fn resolve_aow_choices_cached<'a>(
                 aow: Some(aow),
                 skill_id: Some(aow.aow_id),
                 skill_name: Some(aow.name.as_str()),
-                attack_rows: attack_rows
-                    .entry((aow.aow_id, weapon.weapon_type_name.as_str()))
-                    .or_insert_with(|| select_aow_attack_rows(aow.aow_id, weapon, data))
-                    .clone(),
+                attack_rows: rows.clone(),
                 scalar_routes: None,
             });
         }
