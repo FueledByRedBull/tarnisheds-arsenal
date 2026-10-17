@@ -153,11 +153,13 @@ fn build_affinity_watch_inner(
         .collect();
     // Affinities run concurrently; one lock keeps published progress counts increasing.
     let progress = Mutex::new((0_u64, progress_cb));
-    let ranges = run_level_ranges_inner_with_progress(
+    let mut ranges = run_level_ranges_inner_with_progress(
         row_requests,
         &levels,
         profile,
         |index, level| {
+            // Poisoned only by a panicking progress callback; that panic reaches the job as
+            // an error once the siblings stop here.
             let Ok(mut progress) = progress.lock() else {
                 return false;
             };
@@ -173,6 +175,15 @@ fn build_affinity_watch_inner(
         },
         &should_continue,
     );
+    // Another affinity's error stops the rest with "cancelled"; report the real error.
+    if let Some(index) = ranges
+        .iter()
+        .position(|range| matches!(range, Err(error) if error.message != "cancelled"))
+    {
+        return Err(ranges
+            .swap_remove(index)
+            .expect_err("position matched an error"));
+    }
 
     let mut lines = Vec::new();
     for (affinity, level_rows) in affinities.into_iter().zip(ranges) {

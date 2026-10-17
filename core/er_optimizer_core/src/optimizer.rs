@@ -1189,7 +1189,8 @@ where
 }
 
 /// Independent level ranges, such as one per affinity, on the shared Rayon pool. Results
-/// keep request order; `level_complete` also receives the request's position.
+/// keep request order; `level_complete` also receives the request's position. The first
+/// error other than "cancelled" stops the remaining ranges, which then report "cancelled".
 pub fn optimize_level_ranges_with_progress<F, C>(
     requests: &[OptimizeRequest],
     levels: &[u16],
@@ -1201,17 +1202,22 @@ where
     F: Fn(usize, u16) -> bool + Sync,
     C: Fn() -> bool + Sync,
 {
+    let failed = AtomicBool::new(false);
     requests
         .par_iter()
         .enumerate()
         .map(|(index, request)| {
-            optimize_level_range_with_progress(
+            let result = optimize_level_range_with_progress(
                 request,
                 levels,
                 data,
                 |level| level_complete(index, level),
-                &should_continue,
-            )
+                || !failed.load(Ordering::Relaxed) && should_continue(),
+            );
+            if matches!(&result, Err(error) if error != "cancelled") {
+                failed.store(true, Ordering::Relaxed);
+            }
+            result
         })
         .collect()
 }

@@ -2507,6 +2507,30 @@ fn level_range_rejects_the_same_invalid_profile_requests_as_single_search() {
 }
 
 #[test]
+fn level_ranges_stop_siblings_after_a_genuine_error() {
+    let game_data = load_data();
+    let mut failing = base_request();
+    failing.scadutree_level = 21;
+    let mut long = base_request();
+    long.top_k = 1;
+    let levels: Vec<u16> = (9..=200).collect();
+    // Rayon starts the first request on the calling thread, so it fails before the long
+    // range can finish its 192 levels.
+    let results = optimize_level_ranges_with_progress(
+        &[failing.clone(), long],
+        &levels,
+        &game_data,
+        |_, _| true,
+        || true,
+    );
+    assert_eq!(
+        results[0].as_ref().unwrap_err(),
+        &optimize(&failing, &game_data).unwrap_err()
+    );
+    assert_eq!(results[1].as_ref().unwrap_err(), "cancelled");
+}
+
+#[test]
 fn level_range_honors_cancellation_before_preparation() {
     let game_data = load_data();
     let error = optimize_level_range_with_progress(
