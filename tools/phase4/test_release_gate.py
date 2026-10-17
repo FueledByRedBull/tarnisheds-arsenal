@@ -79,6 +79,24 @@ class ReleaseGateTests(unittest.TestCase):
             with self.subTest(sha=sha), self.assertRaisesRegex(SystemExit, "Invalid source commit SHA"):
                 release_gate.wait_for_ci(sha, "main")
 
+    def test_ci_wait_retries_gh_failures_until_the_deadline(self) -> None:
+        success = {"databaseId": 7, "status": "completed", "conclusion": "success", "headBranch": "main",
+                   "headSha": SHA, "event": "push", "url": "ok", "createdAt": "2026-09-22T00:00:00Z"}
+        failure = subprocess.CalledProcessError(1, "gh", stderr="HTTP 502\n")
+        with (patch.object(release_gate, "run", side_effect=[failure, json.dumps([success])]),
+              patch.object(release_gate.time, "sleep") as sleep):
+            release_gate.wait_for_ci(SHA, "main")
+        sleep.assert_called_once_with(release_gate.CI_POLL_SECONDS)
+        self.assertEqual(self.output.read_text(encoding="utf-8").strip(), f"verified-sha={SHA}")
+        self.output.unlink()
+        clock = [0, 1, release_gate.CI_WAIT_SECONDS]
+        with (patch.object(release_gate, "run", side_effect=failure),
+              patch.object(release_gate.time, "sleep"),
+              patch.object(release_gate.time, "monotonic", side_effect=clock),
+              self.assertRaisesRegex(SystemExit, f"Timed out waiting for successful CI on {SHA}; last gh error: HTTP 502$")):
+            release_gate.wait_for_ci(SHA, "main")
+        self.assertFalse(self.output.exists())
+
     def metadata(self, ref: str, publish: bool, local_tag: str, tag_commit: str) -> None:
         def git(*command: str) -> str:
             return local_tag if command[1] == "tag" else tag_commit

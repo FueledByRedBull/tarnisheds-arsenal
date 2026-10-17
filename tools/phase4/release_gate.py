@@ -41,11 +41,20 @@ def wait_for_ci(sha: str, branch: str) -> None:
     if not full_sha(sha):
         raise SystemExit("Invalid source commit SHA")
     deadline = time.monotonic() + CI_WAIT_SECONDS
+    last_error = ""
     while time.monotonic() < deadline:
-        runs = json.loads(run(
-            "gh", "run", "list", "--workflow", "ci.yml", "--commit", sha, "--event", "push",
-            "--limit", "20", "--json", "databaseId,status,conclusion,headBranch,headSha,event,url,createdAt",
-        ))
+        try:
+            runs = json.loads(run(
+                "gh", "run", "list", "--workflow", "ci.yml", "--commit", sha, "--event", "push",
+                "--limit", "20", "--json", "databaseId,status,conclusion,headBranch,headSha,event,url,createdAt",
+            ))
+        except subprocess.CalledProcessError as error:
+            # A transient gh or API failure is retried until the deadline.
+            last_error = (error.stderr or "").strip() or str(error)
+            print(f"gh run list failed; retrying: {last_error}", flush=True)
+            time.sleep(CI_POLL_SECONDS)
+            continue
+        last_error = ""
         matching = [
             item for item in runs
             if item["headSha"] == sha and item["headBranch"] == branch and item["event"] == "push"
@@ -62,7 +71,7 @@ def wait_for_ci(sha: str, branch: str) -> None:
         else:
             print(f"Waiting for a {branch} CI run for {sha}", flush=True)
         time.sleep(CI_POLL_SECONDS)
-    raise SystemExit(f"Timed out waiting for successful CI on {sha}")
+    raise SystemExit(f"Timed out waiting for successful CI on {sha}" + (f"; last gh error: {last_error}" if last_error else ""))
 
 
 def local_tag_commit(tag: str) -> str | None:
