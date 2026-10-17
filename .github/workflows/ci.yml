@@ -327,6 +327,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
+      # Skips rust-toolchain.toml's clippy/rustfmt install, which conflicts on current
+      # Ubuntu runner images; this job runs neither. The validator keeps it in sync.
+      RUSTUP_TOOLCHAIN: "1.97.0"
       CARGO_PROFILE_TEST_OPT_LEVEL: "1"
       CARGO_PROFILE_TEST_DEBUG_ASSERTIONS: "true"
       CARGO_PROFILE_TEST_OVERFLOW_CHECKS: "true"

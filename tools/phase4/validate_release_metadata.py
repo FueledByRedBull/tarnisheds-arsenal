@@ -83,6 +83,9 @@ def toolchain_reference_errors(root: Path, rust: str, node: str, python: str, ta
         for pinned in re.findall(r"dtolnay/rust-toolchain@[0-9a-f]{40} # (\S+)", text):
             if pinned != rust:
                 errors.append(f"{workflow.name} installs Rust {pinned}; rust-toolchain.toml pins {rust}")
+        for pinned in re.findall(r"RUSTUP_TOOLCHAIN: \"?([^\"\s]+)", text):
+            if pinned != rust:
+                errors.append(f"{workflow.name} sets RUSTUP_TOOLCHAIN {pinned}; rust-toolchain.toml pins {rust}")
         if re.search(r"\b(?:node|python)-version:", text):
             errors.append(f"{workflow.name} sets Node or Python by literal version; use the version file")
     readme = (root / "README.md").read_text(encoding="utf-8")
