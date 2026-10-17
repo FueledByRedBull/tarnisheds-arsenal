@@ -2,11 +2,11 @@
 
 [Home](../../README.md) · [Documentation](../../README.md#documentation) · [Release guide](../releasing.md)
 
-## v0.17.2
+## v0.18.0
 
-Fixes to what Build Detail and Rankings claim about a result, and to
-profile switching.
-Read the [v0.17.2 notes](v0.17.2.md) for the changes and download choices.
+Much faster searches with the same results, a calmer screen that keeps rare
+controls one click away, and analyses that survive switching tabs.
+Read the [v0.18.0 notes](v0.18.0.md) for the changes and download choices.
 
 For the current Windows installer and portable app, visit the
 [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
@@ -15,6 +15,7 @@ For the current Windows installer and portable app, visit the
 
 | Version | Notes | GitHub release |
 | --- | --- | --- |
+| v0.18.0 | [v0.18.0.md](v0.18.0.md) | [Tarnished's Arsenal v0.18.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.18.0) |
 | v0.17.2 | [v0.17.2.md](v0.17.2.md) | [Tarnished's Arsenal v0.17.2](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.17.2) |
 | v0.17.1 | [v0.17.1.md](v0.17.1.md) | [Tarnished's Arsenal v0.17.1](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.17.1) |
 | v0.17.0 | [v0.17.0.md](v0.17.0.md) | [Tarnished's Arsenal v0.17.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.17.0) |
