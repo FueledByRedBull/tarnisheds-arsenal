@@ -15,14 +15,14 @@ import urllib.request
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, Mapping
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.phase1.param_binary import load_param_definition, load_param_table  # noqa: E402
-from tools.phase1.profiles import profile_definition  # noqa: E402
+from tools.phase1.profiles import CONVERGENCE_AFFINITIES, profile_definition  # noqa: E402
 from tools.phase1.snapshot_manifest import sha256_file  # noqa: E402
 
 STATS = ("str", "dex", "int", "fai", "arc")
@@ -40,12 +40,6 @@ REFERENCE_FILES = {
     "src/calculator/attackPowerTypes.ts": "5d62367b87ea27d697710e6742c03c185860e206d1225160553a6a19bbabefd4",
     "src/calculator/weaponTypes.ts": "b38f3710e186c5d455eaa133f0bd562cdd47696286d5d479021df8b912e248e8",
 }
-REGULATION_URL = (
-    "https://raw.githubusercontent.com/ThomasJClark/elden-ring-weapon-calculator/"
-    f"{REFERENCE_COMMIT}/public/regulation-vanilla-v1.17.js"
-)
-REGULATION_FILE = "public/regulation-vanilla-v1.17.js"
-REGULATION_SHA256 = "6ae98b99429cf63f3f2c6a737cf90f6e7507fa67c1dd7e45cad5937a2f3824a5"
 MAX_DOWNLOAD_BYTES = 256 * 1024 * 1024
 AFFINITIES = {
     -1: "Standard",
@@ -161,9 +155,42 @@ def _requirements(value: Any) -> dict[str, int]:
     return dict.fromkeys(STATS, 0)
 
 
-def _affinity_name(value: Any) -> str:
+@dataclass(frozen=True)
+class ReferenceProfile:
+    profile: str
+    regulation_file: str
+    regulation_sha256: str
+    affinities: Mapping[int, str]
+    bleed_boundaries: bool
+
+    @property
+    def regulation_url(self) -> str:
+        return f"{REFERENCE_RAW_URL}/{self.regulation_file}"
+
+
+# The pinned commit ships both data files; its calculator has no mod-specific AR or
+# status branch, so Convergence is compared with the same engine model as Vanilla.
+REFERENCE_PROFILES = {
+    "vanilla": ReferenceProfile(
+        "vanilla",
+        "public/regulation-vanilla-v1.17.js",
+        "6ae98b99429cf63f3f2c6a737cf90f6e7507fa67c1dd7e45cad5937a2f3824a5",
+        AFFINITIES,
+        True,
+    ),
+    "convergence": ReferenceProfile(
+        "convergence",
+        "public/regulation-convergence-v3.0.0.1.js",
+        "d80005ff769d48cb4d0b30cb07caecee64ed1c12de853897f11dc4a374fb56c0",
+        {-1: "Standard", **CONVERGENCE_AFFINITIES},
+        False,
+    ),
+}
+
+
+def _affinity_name(value: Any, affinities: Mapping[int, str] = AFFINITIES) -> str:
     try:
-        return AFFINITIES[int(value)]
+        return affinities[int(value)]
     except (KeyError, TypeError, ValueError) as error:
         raise ValueError(f"unknown external affinity id: {value!r}") from error
 
@@ -567,6 +594,7 @@ def build_cases(
     local_catalog: list[dict[str, Any]],
     selected_names: list[str],
     rng: random.Random,
+    affinities: Mapping[int, str] = AFFINITIES,
 ) -> list[ComparisonCase]:
     external_by_name: dict[str, list[tuple[int, dict[str, Any]]]] = {}
     for index, weapon in enumerate(external_weapons):
@@ -582,7 +610,7 @@ def build_cases(
     for sample_index, selected_name in enumerate(selected_names, 1):
         configurations: dict[str, tuple[int, dict[str, Any], dict[str, Any]]] = {}
         for index, external in external_by_name.get(normalize_name(selected_name), ()):
-            affinity = _affinity_name(external.get("affinityId"))
+            affinity = _affinity_name(external.get("affinityId"), affinities)
             local = local_by_config.get(_local_key(selected_name, affinity))
             if local is None:
                 continue
@@ -628,10 +656,13 @@ def sample_cases(
     local_catalog: list[dict[str, Any]],
     count: int = 100,
     seed: int = 20260916,
+    reference: ReferenceProfile = REFERENCE_PROFILES["vanilla"],
 ) -> tuple[list[str], list[ComparisonCase]]:
     rng = random.Random(seed)
     selected = select_weapon_names(external_weapons, local_catalog, count, rng)
-    cases = build_cases(external_weapons, local_catalog, selected, rng)
+    cases = build_cases(external_weapons, local_catalog, selected, rng, reference.affinities)
+    if not reference.bleed_boundaries:
+        return selected, cases
     name = "Bloodfiend's Fork"
     boundary_configs = {
         _affinity_name(weapon.get("affinityId")): index
@@ -691,18 +722,22 @@ def _download_verified(url: str, digest: str, destination: Path) -> None:
     temporary.replace(destination)
 
 
-def prepare_reference(workdir: Path) -> tuple[Path, Path]:
+def prepare_reference(
+    workdir: Path, reference: ReferenceProfile = REFERENCE_PROFILES["vanilla"]
+) -> tuple[Path, Path]:
     """Reuse cached pinned files whose hashes match; download any missing or bad file."""
     tclark_dir = workdir / "tclark"
     pinned = {
         **{f"{REFERENCE_RAW_URL}/{relative}": (tclark_dir / relative, digest)
            for relative, digest in REFERENCE_FILES.items()},
-        REGULATION_URL: (tclark_dir / REGULATION_FILE, REGULATION_SHA256),
+        reference.regulation_url: (
+            tclark_dir / reference.regulation_file, reference.regulation_sha256
+        ),
     }
     for url, (path, digest) in pinned.items():
         if not _verified(path, digest):
             _download_verified(url, digest, path)
-    return tclark_dir / "src", tclark_dir / REGULATION_FILE
+    return tclark_dir / "src", tclark_dir / reference.regulation_file
 
 
 @contextmanager
@@ -1035,6 +1070,7 @@ def core_patch_sha256(root: Path) -> str:
 
 
 def build_report(
+    reference: ReferenceProfile,
     data_dir: Path,
     source_dir: Path,
     regulation: Path,
@@ -1050,7 +1086,7 @@ def build_report(
             "repository": REFERENCE_REPOSITORY,
             "commit": REFERENCE_COMMIT,
             "license": "MIT",
-            "regulationUrl": REGULATION_URL,
+            "regulationUrl": reference.regulation_url,
             "regulationSha256": sha256_file(regulation),
             "sourceFiles": {
                 relative: sha256_file(source_dir / relative.removeprefix("src/"))
@@ -1144,11 +1180,12 @@ def run_exhaustive(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Compare the local AR/passive model with pinned T. Clark 1.17 code."
+        description="Compare the local AR/passive model with pinned T. Clark calculator code."
     )
+    parser.add_argument("--profile", choices=sorted(REFERENCE_PROFILES), default="vanilla")
     parser.add_argument("--seed", type=int, default=20260916)
     parser.add_argument("--count", type=int, default=100)
-    parser.add_argument("--data-dir", type=Path, default=ROOT / "data" / "phase1")
+    parser.add_argument("--data-dir", type=Path)
     parser.add_argument("--cache-dir", type=Path)
     parser.add_argument("--report", type=Path)
     parser.add_argument("--csv", type=Path)
@@ -1169,6 +1206,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if not math.isfinite(args.tolerance) or args.tolerance < 0 or args.tolerance > 0.001:
         parser.error("tolerance must be between 0 and 0.001")
+    if args.data_dir is None:
+        args.data_dir = (
+            args.convergence_data_dir if args.profile == "convergence" else ROOT / "data" / "phase1"
+        )
     if not args.data_dir.is_dir():
         parser.error(f"data directory is missing: {args.data_dir}")
 
@@ -1211,12 +1252,16 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(report, separators=(",", ":")))
             return 0 if report["status"] == "passed" else 1
 
+        reference = REFERENCE_PROFILES[args.profile]
+        expected = profile_definition(args.profile)
         identity = _snapshot_identity(args.data_dir)
-        vanilla = profile_definition("vanilla")
-        if identity.get("profile") != "vanilla" or identity.get("datasetVersion") != vanilla.dataset_version:
-            raise ValueError(f"the pinned reference requires the {vanilla.dataset_version} dataset")
+        if (
+            identity.get("profile") != expected.id
+            or identity.get("datasetVersion") != expected.dataset_version
+        ):
+            raise ValueError(f"the pinned reference requires the {expected.dataset_version} dataset")
         with work_directory(ROOT, args.cache_dir) as workdir:
-            source_dir, regulation = prepare_reference(workdir)
+            source_dir, regulation = prepare_reference(workdir, reference)
             external_weapons = run_node_reference(
                 source_dir,
                 regulation,
@@ -1226,7 +1271,8 @@ def main(argv: list[str] | None = None) -> int:
             )
             local_catalog = run_cargo(ROOT, args.data_dir, None, catalog=True)
             selected, cases = sample_cases(
-                external_weapons, local_catalog, count=args.count, seed=args.seed
+                external_weapons, local_catalog, count=args.count, seed=args.seed,
+                reference=reference,
             )
             local_results = run_cargo(ROOT, args.data_dir, cases, details=True)
             external_results = run_node_reference(
@@ -1240,6 +1286,7 @@ def main(argv: list[str] | None = None) -> int:
                 cases, local_results, external_results, args.tolerance
             )
             report = build_report(
+                reference,
                 args.data_dir,
                 source_dir,
                 regulation,

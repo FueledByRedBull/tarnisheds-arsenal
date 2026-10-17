@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import hashlib
 import math
 import tempfile
@@ -197,45 +198,53 @@ class ExternalCalculatorTests(unittest.TestCase):
             raw_compatibility_expectation("vanilla", Path("raw"), Path("defs"), catalog)
 
     def test_reference_downloads_are_verified_before_use(self) -> None:
-        good = {url: f"content of {url}".encode() for url in (
+        pinned = calculator.REFERENCE_PROFILES["vanilla"]
+        url = pinned.regulation_url
+        good = {source: f"content of {source}".encode() for source in (
             *(f"{calculator.REFERENCE_RAW_URL}/{relative}" for relative in calculator.REFERENCE_FILES),
-            calculator.REGULATION_URL,
+            url,
         )}
-        pins = {**calculator.REFERENCE_FILES, calculator.REGULATION_FILE: ""}
+        pins = {**calculator.REFERENCE_FILES, pinned.regulation_file: ""}
         digests = {relative: hashlib.sha256(content).hexdigest()
                    for relative, content in zip(pins, good.values())}
+        reference = dataclasses.replace(pinned, regulation_sha256=digests[pinned.regulation_file])
         fetched: list[str] = []
 
-        def fetch(url: str) -> bytes:
-            fetched.append(url)
-            return served[url]
+        def fetch(source: str) -> bytes:
+            fetched.append(source)
+            return served[source]
 
         with (tempfile.TemporaryDirectory() as directory,
               patch.dict(calculator.REFERENCE_FILES, {key: digests[key] for key in calculator.REFERENCE_FILES}),
-              patch.object(calculator, "REGULATION_SHA256", digests[calculator.REGULATION_FILE]),
               patch.object(calculator, "fetch_bytes", side_effect=fetch)):
             workdir = Path(directory)
             served = dict(good)
-            source_dir, regulation = calculator.prepare_reference(workdir)
+            source_dir, regulation = calculator.prepare_reference(workdir, reference)
             self.assertEqual(len(fetched), len(good))
-            self.assertEqual(regulation.read_bytes(), good[calculator.REGULATION_URL])
+            self.assertEqual(regulation.read_bytes(), good[url])
             self.assertEqual(source_dir, workdir / "tclark" / "src")
 
             fetched.clear()
-            calculator.prepare_reference(workdir)
+            calculator.prepare_reference(workdir, reference)
             self.assertEqual(fetched, [])
 
             regulation.write_bytes(b"truncated")
-            calculator.prepare_reference(workdir)
-            self.assertEqual(fetched, [calculator.REGULATION_URL])
-            self.assertEqual(regulation.read_bytes(), good[calculator.REGULATION_URL])
+            calculator.prepare_reference(workdir, reference)
+            self.assertEqual(fetched, [url])
+            self.assertEqual(regulation.read_bytes(), good[url])
 
             regulation.unlink()
-            served[calculator.REGULATION_URL] = b"tampered"
+            served[url] = b"tampered"
             with self.assertRaisesRegex(ValueError, "hash mismatch"):
-                calculator.prepare_reference(workdir)
+                calculator.prepare_reference(workdir, reference)
             self.assertFalse(regulation.exists())
             self.assertEqual(list(regulation.parent.glob("*.download")), [])
+
+    def test_convergence_reference_uses_its_own_data_and_affinities(self) -> None:
+        reference = calculator.REFERENCE_PROFILES["convergence"]
+        self.assertTrue(reference.regulation_url.endswith("public/regulation-convergence-v3.0.0.1.js"))
+        self.assertEqual(reference.affinities[13], "Frenzy")
+        self.assertFalse(reference.bleed_boundaries)
 
     def test_unexpected_failures_exit_as_tool_errors(self) -> None:
         with (patch("sys.argv", ["validate_external_calculator.py"]),
