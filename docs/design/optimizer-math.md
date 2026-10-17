@@ -73,6 +73,9 @@ The request is rejected if a current stat is below its class minimum or $P<0$.
 With class budgets, the desktop sends each combat stat at its class base value
 and derives the level from the entered stats. Every point above the class base is
 therefore free to move; floors and exact locks carry the user's constraints.
+Custom stats has zero class constants. For it, and for a profile without class
+budgets, the desktop locks every combat stat at its entered value and sends the
+eight-stat total as $L$; for Custom stats that makes $P=0$.
 
 `build_combat_constraints` (`optimizer/preparation.rs`) applies requested floors and locks:
 
@@ -458,27 +461,29 @@ below every upgrade in an unbroken run of dominating upgrades above it.
   $u'$ is strictly below the current cutoff, or it was pruned or never a result
   there; routes pruned at $u'$ were strictly below a cutoff that only rises.
 
-The check reads only the inputs that depend on the upgrade, once per weapon and
-pair:
+`upgrade_dominated` (`math/exact.rs`) reads only the inputs that depend on the
+upgrade, once per work unit and upgrade pair. It requires:
 
-- every reinforcement damage, scaling and base-attack multiplier at $u$ lies in
-  $[0, m_{u'}]$ and is zero exactly where the one at $u'$ is zero;
-- the effective passive bleed buildup is no larger, with the same correction flag;
-- ARC's status-curve values in the search interval are nonnegative;
-- every route either is additive or gives each stat its correction scales with a
-  positive influence.
+- every reinforcement damage, scaling and base-attack multiplier at $u$ lies between
+  zero and the matching multiplier at $u'$, and is zero exactly where that one is zero;
+- the effective passive bleed buildup at $u$ lies between zero and the one at $u'$,
+  with the same correction flag;
+- the weapon's ARC scaling, and ARC's status-curve values from 0 through the
+  search's largest ARC, are nonnegative;
+- every hit with its own correction record gives each scaling stat a positive
+  influence rate $\iota$.
 
 Every base is a sum of products of nonnegative loaded values with one damage or
 base-attack multiplier, and every additive coefficient multiplies that base by a
-nonnegative scaling, a scaling multiplier and a nonnegative curve value. A corrected
-component $b(1+\beta)$ has contributions $(\iota-1)+s\,m\,c\,\iota$ that grow with
-the multiplier, a bonus that grows with each contribution (the most negative one,
-else their sum), and $1+\beta\ge\iota_{\min}>0$. Every value is therefore no larger at
-$u$. The equal zero pattern keeps the same hits positive, so both upgrades take the
-same hit as the first damaging hit. Bleed's `f32` products and sums of
-nonnegative operands, its projection and its floors preserve order. A unit whose
-routes fail the influence condition, or a request with a negative damage multiplier,
-never skips.
+nonnegative scaling, the reinforcement scaling $q_i$ and a nonnegative curve value. A
+corrected component is its base times $1+t$, where $t$ is the most negative $t_i$ of
+Section 3 if one is negative, else $\sum_i t_i$. Each $t_i$ is nondecreasing in
+$q_i$, $t$ is nondecreasing in each $t_i$, and $1+t>0$ because each
+$t_i\ge\iota_i-1>-1$. Every value is therefore no larger at $u$. The equal zero
+pattern keeps the same hits positive, so both upgrades take the same hit as the first
+damaging hit. Bleed's `f32` products and sums of nonnegative operands, its projection
+and its floors preserve order. A unit whose routes fail the influence condition, or a
+request with a negative damage multiplier, never skips.
 
 ### Numerical contract
 
@@ -551,18 +556,20 @@ of $\mathcal X_w$. Lifesteal Fist's STR/DEX coupling needs about $(R+1)(R+2)/2$
 candidates per route and upgrade instead of up to $\binom{R+4}{4}$.
 
 Each candidate key is a sum of values fixed for the route and upgrade. A corrected
-component $b\,m\,(1+\beta)$, with base $b$ and route multiplier $m$ both positive,
-equals $b\,m$ plus the selected entries of the tables $b\,m\,t_i(x_i)$: scaling by
-$b\,m$ keeps the most negative contribution most negative. The route therefore
-becomes a constant, one table per stat value read, and these corrected selections;
-AR and bleed, which are separable, add the coupled stats' own deltas; and the best
-completion of each spend adds its tail. Every value of one key component is then
-multiplied by that component's least common denominator. A positive factor keeps each
-component's order, so comparing the resulting integers (256-bit, or arbitrary
-precision when a value or sum could exceed that) selects the same allocation as exact
-rationals, and the winner is evaluated again exactly. A route whose first damaging
-hit could depend on the stats (a hit with scaling but no base, or a correction that
-could cancel a hit) is enumerated with exact rationals instead.
+component $b\,\omega\,(1+t)$, with base $b$ and world damage multiplier $\omega$ both
+positive and $t$ selected from the $t_i$ as in Section 3, equals $b\,\omega$ plus the
+same selection from the tables $b\,\omega\,t_i(x_i)$: scaling by $b\,\omega$ keeps
+the most negative contribution most negative. The route therefore becomes a
+constant, one value table per stat it reads (raw and effective STR apart), and these
+corrected selections; AR and bleed, which are separable, add the coupled stats' own
+deltas; and the best completion of each spend adds its tail. Every value of one key
+component is then multiplied by that component's least common denominator. A
+positive factor keeps each component's order, so comparing the resulting integers
+(256-bit, or arbitrary precision when a value or sum could exceed that) selects the
+same allocation as exact rationals, and the winner is evaluated again exactly. A
+route whose first damaging hit could depend on the stats (a hit with scaling but no
+base, or a correction that could cancel a hit), or a request whose damage multiplier
+is not positive, is enumerated with exact rationals instead.
 
 The existing exhaustive path shares the active set and cannot independently detect
 an omitted dependency. Separate small-budget tests enumerate all five bounded stats
