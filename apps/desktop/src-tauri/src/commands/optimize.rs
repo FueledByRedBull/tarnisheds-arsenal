@@ -4,9 +4,9 @@ use std::time::{Duration, Instant};
 
 use er_optimizer_core::{
     FilterDimension, FilterMode, GameData, LevelOptimizeResult, OptimizeObjective, OptimizeRequest,
-    StableFilter, optimize_level_range_with_progress, optimize_prepared_with_progress,
-    optimize_with_cancel, prepare_loadout_evaluator_with_cancel, prepare_search_with_cancel,
-    prepare_upgrade_series_evaluator_with_cancel,
+    StableFilter, optimize_level_range_with_progress, optimize_level_ranges_with_progress,
+    optimize_prepared_with_progress, optimize_with_cancel, prepare_loadout_evaluator_with_cancel,
+    prepare_search_with_cancel, prepare_upgrade_series_evaluator_with_cancel,
 };
 use tauri::State;
 
@@ -63,6 +63,52 @@ where
         should_continue,
     )
     .map_err(AppError::from)
+}
+
+/// Level ranges for independent requests, calculated concurrently. Results keep request
+/// order, and a request that fails normalization keeps its error in place.
+pub fn run_level_ranges_inner_with_progress<F, C>(
+    requests: Vec<crate::dto::OptimizeRequestDto>,
+    levels: &[u16],
+    profile: &ProfileData,
+    level_complete: F,
+    should_continue: C,
+) -> Vec<Result<Vec<LevelOptimizeResult>, AppError>>
+where
+    F: Fn(usize, u16) -> bool + Sync,
+    C: Fn() -> bool + Sync,
+{
+    let normalized: Vec<Result<OptimizeRequest, AppError>> = requests
+        .into_iter()
+        .map(|mut request| {
+            clamp_weapon_upgrade_request_for_profile(&mut request, profile)?;
+            OptimizeRequest::try_from(&request)
+        })
+        .collect();
+    let (positions, valid): (Vec<usize>, Vec<OptimizeRequest>) = normalized
+        .iter()
+        .enumerate()
+        .filter_map(|(index, request)| Some((index, request.as_ref().ok()?.clone())))
+        .unzip();
+    let mut ranges = optimize_level_ranges_with_progress(
+        &valid,
+        levels,
+        &profile.data,
+        |index, level| level_complete(positions[index], level),
+        should_continue,
+    )
+    .into_iter();
+    normalized
+        .into_iter()
+        .map(|request| {
+            request.and_then(|_| {
+                ranges
+                    .next()
+                    .expect("one range per valid request")
+                    .map_err(AppError::from)
+            })
+        })
+        .collect()
 }
 
 fn solve_build_base(
@@ -1708,5 +1754,182 @@ mod integration_tests {
                 "samples_ms": durations,
             })
         );
+    }
+
+    /// Command-path latency without IPC: DTO normalization, preparation, the job worker and
+    /// JSON encoding of the terminal status. Not matched by the `workflow_benchmark` runner.
+    #[test]
+    #[ignore = "release-mode native command benchmark"]
+    fn native_command_benchmark() {
+        let state = crate::test_app_state();
+        let repeats = std::env::var("ER_BENCH_REPEATS")
+            .ok()
+            .and_then(|value| value.parse::<usize>().ok())
+            .unwrap_or(5)
+            .max(1);
+        let selected = std::env::var("ER_BENCH_CASE").ok();
+        let samurai = |level: u16| {
+            let mut request = crate::test_optimize_request();
+            request.character_level = level;
+            request.weapon_name = None;
+            request.affinity = None;
+            request.standard_max_upgrade = Some(25);
+            request.somber_max_upgrade = Some(10);
+            request
+        };
+        let mut open_46 = samurai(46);
+        open_46.top_k = 25;
+        let mut high_k = samurai(46);
+        high_k.top_k = 500;
+        high_k.result_grouping = "loadout".to_string();
+        let mut all_upgrades_93 = samurai(93);
+        all_upgrades_93.exact_upgrade = Some(false);
+        all_upgrades_93.top_k = 25;
+        let mut bleed_93 = samurai(93);
+        bleed_93.objective = "max_ar_plus_bleed".to_string();
+        bleed_93.top_k = 25;
+        let mut aow_150 = samurai(150);
+        aow_150.vig = 40;
+        aow_150.mnd = 20;
+        aow_150.end = 20;
+        aow_150.objective = "aow_full_sequence".to_string();
+        aow_150.top_k = 25;
+        let mut custom = convergence_custom_stats_request();
+        custom.weapon_name = None;
+        custom.affinity = None;
+        custom.top_k = 25;
+        let searches = [
+            ("search-open-46-k25", open_46),
+            ("search-open-46-loadout-k500", high_k),
+            ("search-all-upgrades-93-k25", all_upgrades_93),
+            ("search-bleed-93-k25", bleed_93),
+            ("search-aow-full-150-k25", aow_150),
+            ("search-convergence-custom-k25", custom),
+        ];
+        let solve = |base: crate::dto::OptimizeRequestDto, weapon: &str, affinity: &str, ash| {
+            SolveBuildRequestDto {
+                base,
+                weapon_name: weapon.to_string(),
+                affinity: Some(affinity.to_string()),
+                aow_name: Some(ash),
+            }
+        };
+        let mut solve_base = samurai(9);
+        solve_base.exact_upgrade = Some(false);
+        let mut lifesteal_base = samurai(80);
+        lifesteal_base.str_stat = 20;
+        lifesteal_base.lock_str = Some(20);
+        lifesteal_base.lock_int = Some(9);
+        lifesteal_base.lock_fai = Some(8);
+        lifesteal_base.objective = "aow_full_sequence".to_string();
+        let solves = [
+            (
+                "solve-uchigatana-blood-all-upgrades",
+                solve(solve_base, "Uchigatana", "Blood", "Seppuku".to_string()),
+            ),
+            (
+                "solve-locked-lifesteal-fist",
+                solve(
+                    lifesteal_base,
+                    "Caestus",
+                    "Occult",
+                    "Lifesteal Fist".to_string(),
+                ),
+            ),
+        ];
+        let mut frontier_base = samurai(93);
+        frontier_base.objective = "max_ar".to_string();
+        let frontier_solved = run_search_inner(
+            {
+                let mut request = frontier_base.clone();
+                request.pin_loadout(
+                    "Uchigatana".to_string(),
+                    Some("Blood".to_string()),
+                    Some("Seppuku".to_string()),
+                );
+                request
+            },
+            &state,
+        )
+        .unwrap()
+        .pop()
+        .unwrap();
+
+        let run = |name: &str, work: &mut dyn FnMut() -> Vec<u8>| {
+            if selected.as_deref().is_some_and(|case| case != name) {
+                return;
+            }
+            let mut samples = Vec::with_capacity(repeats);
+            let mut expected: Option<Vec<u8>> = None;
+            for sample in 0..=repeats {
+                let started = std::time::Instant::now();
+                let encoded = work();
+                let elapsed = started.elapsed().as_secs_f64() * 1_000.0;
+                if let Some(expected) = &expected {
+                    assert_eq!(&encoded, expected, "{name} changed across samples");
+                } else {
+                    expected = Some(encoded);
+                }
+                if sample > 0 {
+                    samples.push(elapsed);
+                }
+            }
+            let mut sorted = samples.clone();
+            sorted.sort_by(f64::total_cmp);
+            let encoded = expected.expect("warmup result");
+            println!(
+                "NATIVE_COMMAND_BENCH {}",
+                serde_json::json!({
+                    "case": name,
+                    "rayon_threads": std::env::var("RAYON_NUM_THREADS").ok(),
+                    "warmups": 1,
+                    "median_ms": sorted[sorted.len() / 2],
+                    "best_ms": sorted[0],
+                    "worst_ms": sorted[sorted.len() - 1],
+                    "samples_ms": samples,
+                    "serialized_bytes": encoded.len(),
+                    "result": String::from_utf8(encoded).unwrap(),
+                })
+            );
+        };
+        for (name, request) in searches {
+            run(name, &mut || {
+                let (request, data) = prepare_search(request.clone(), &state).unwrap();
+                let status = Mutex::new(SearchJobStatusDto {
+                    progress: None,
+                    finished: None,
+                });
+                let finished = run_search_worker(
+                    &request,
+                    &data,
+                    String::new(),
+                    &AtomicBool::new(false),
+                    &status,
+                );
+                assert!(finished.error.is_none(), "{:?}", finished.error);
+                serde_json::to_vec(&SearchJobStatusDto {
+                    progress: None,
+                    finished: Some(finished),
+                })
+                .unwrap()
+            });
+        }
+        for (name, request) in solves {
+            run(name, &mut || {
+                serde_json::to_vec(&solve_build_inner(request.clone(), &state).unwrap()).unwrap()
+            });
+        }
+        run("frontier-uchigatana-blood-93", &mut || {
+            let (request, data) = prepare_ar_bleed_frontier(
+                ArBleedFrontierRequestDto {
+                    base: frontier_base.clone(),
+                    solved: frontier_solved.clone(),
+                },
+                &state,
+            )
+            .unwrap();
+            serde_json::to_vec(&evaluate_ar_bleed_frontier(&request, &data, || true).unwrap())
+                .unwrap()
+        });
     }
 }

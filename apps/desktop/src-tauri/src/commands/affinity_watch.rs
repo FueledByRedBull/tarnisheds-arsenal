@@ -1,11 +1,11 @@
 use std::cmp::Ordering;
-use std::sync::Arc;
 use std::sync::atomic::Ordering as AtomicOrdering;
+use std::sync::{Arc, Mutex};
 
 use tauri::State;
 
 use crate::commands::data::{affinities_for_weapon_inner, compatible_aow_names_inner};
-use crate::commands::optimize::{run_level_range_inner_with_progress, validate_solved_loadout};
+use crate::commands::optimize::{run_level_ranges_inner_with_progress, validate_solved_loadout};
 use crate::dto::{
     AffinityBreakpointDto, AffinityWatchFinishedDto, AffinityWatchJobStatusDto,
     AffinityWatchLineDto, AffinityWatchPayloadDto, AffinityWatchPointDto, AffinityWatchProgressDto,
@@ -119,7 +119,7 @@ pub fn get_affinity_watch_status(
 fn build_affinity_watch_inner(
     request: AffinityWatchRequestDto,
     profile: &ProfileData,
-    mut progress_cb: impl FnMut(AffinityWatchProgressDto) -> bool,
+    progress_cb: impl FnMut(AffinityWatchProgressDto) -> bool + Send,
     should_continue: impl Fn() -> bool + Sync,
 ) -> Result<AffinityWatchPayloadDto, AppError> {
     if profile.data_manifest.profile.id != request.base.profile_id {
@@ -137,45 +137,46 @@ fn build_affinity_watch_inner(
     let total = (affinities.len() as u64)
         .saturating_mul(levels.len() as u64)
         .max(1);
-    let mut checked = 0_u64;
+    let row_requests = affinities
+        .iter()
+        .map(|affinity| {
+            let mut row_request = request.base.clone();
+            row_request.pin_loadout(
+                request.solved.weapon_name.clone(),
+                Some(affinity.clone()),
+                request.solved.aow_name.clone(),
+            );
+            row_request.set_exact_upgrade(request.solved.upgrade, request.solved.is_somber);
+            unlock_combat_stats(&mut row_request);
+            row_request
+        })
+        .collect();
+    // Affinities run concurrently; one lock keeps published progress counts increasing.
+    let progress = Mutex::new((0_u64, progress_cb));
+    let ranges = run_level_ranges_inner_with_progress(
+        row_requests,
+        &levels,
+        profile,
+        |index, level| {
+            let Ok(mut progress) = progress.lock() else {
+                return false;
+            };
+            progress.0 = progress.0.saturating_add(1);
+            let checked = progress.0;
+            (progress.1)(AffinityWatchProgressDto {
+                job_id: String::new(),
+                checked,
+                total,
+                affinity: affinities[index].clone(),
+                level,
+            })
+        },
+        &should_continue,
+    );
 
     let mut lines = Vec::new();
-    for affinity in affinities {
-        let first_level = *levels.first().expect("affinity watch levels are non-empty");
-        if !progress_cb(AffinityWatchProgressDto {
-            job_id: String::new(),
-            checked,
-            total,
-            affinity: affinity.clone(),
-            level: first_level,
-        }) {
-            return Err(AppError::new("cancelled"));
-        }
-        let mut row_request = request.base.clone();
-        row_request.pin_loadout(
-            request.solved.weapon_name.clone(),
-            Some(affinity.clone()),
-            request.solved.aow_name.clone(),
-        );
-        row_request.set_exact_upgrade(request.solved.upgrade, request.solved.is_somber);
-        unlock_combat_stats(&mut row_request);
-
-        let level_rows = run_level_range_inner_with_progress(
-            row_request,
-            &levels,
-            profile,
-            |level| {
-                checked = checked.saturating_add(1);
-                progress_cb(AffinityWatchProgressDto {
-                    job_id: String::new(),
-                    checked,
-                    total,
-                    affinity: affinity.clone(),
-                    level,
-                })
-            },
-            &should_continue,
-        )?;
+    for (affinity, level_rows) in affinities.into_iter().zip(ranges) {
+        let level_rows = level_rows?;
         let points: Vec<ExactAffinityWatchPoint> = level_rows
             .into_iter()
             .map(|entry| {
@@ -584,6 +585,7 @@ mod integration_tests {
         )
         .expect("uncancelled affinity watch completes");
         let cancel_after = total_polls.into_inner() - 8;
+        let affinities = affinity_watch_affinities_for_profile(&nested_request.solved, profile);
         let polls = std::sync::atomic::AtomicUsize::new(0);
         let error = build_affinity_watch_inner(
             nested_request,
@@ -593,7 +595,13 @@ mod integration_tests {
         )
         .expect_err("nested affinity cancellation must not return a partial payload");
         assert_eq!(error.message, "cancelled");
-        assert_eq!(polls.into_inner(), cancel_after);
+        // Affinities run concurrently: each stops at its first refused check.
+        let refused = polls.into_inner() + 1 - cancel_after;
+        assert!(
+            (1..=affinities.len()).contains(&refused),
+            "{refused} refused checks for {} affinities",
+            affinities.len()
+        );
     }
 
     #[test]
@@ -647,6 +655,10 @@ mod integration_tests {
                     "horizon": horizon,
                     "affinities": affinity_count,
                     "serialized_bytes": bytes,
+                    "results": serde_json::from_slice::<serde_json::Value>(
+                        expected.as_deref().expect("warmup payload")
+                    )
+                    .unwrap(),
                     "serialization_samples_ms": serialization_ms,
                     "repeats": repeats,
                     "median_ms": durations[durations.len() / 2],
