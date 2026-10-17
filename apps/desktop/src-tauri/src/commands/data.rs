@@ -746,9 +746,22 @@ mod compatibility_tests {
                     samples.push(elapsed);
                 }
             }
+            let mut sorted = samples.clone();
+            sorted.sort_by(f64::total_cmp);
             println!(
                 "WORKFLOW_BENCH {}",
-                serde_json::json!({"workflow":"catalog", "profile":profile, "predicate_calls":predicate_calls, "warmups":1, "samples_ms":samples})
+                serde_json::json!({
+                    "workflow": "catalog",
+                    "profile": profile,
+                    "model_version": data.model_version,
+                    "predicate_calls": predicate_calls,
+                    "warmups": 1,
+                    "median_ms": sorted[sorted.len() / 2],
+                    "best_ms": sorted[0],
+                    "worst_ms": sorted[sorted.len() - 1],
+                    "samples_ms": samples,
+                    "results": [expected],
+                })
             );
         }
     }
