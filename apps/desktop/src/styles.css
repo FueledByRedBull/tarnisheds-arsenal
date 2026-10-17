@@ -2890,6 +2890,17 @@ textarea:hover {
   box-shadow: none;
 }
 
+/* The field is the whole row, so the row carries its focus mark instead of a ring drawn
+   inside the palette's own frame. */
+.palette-input input:focus-visible {
+  outline: none;
+}
+
+.palette-input:focus-within {
+  border-bottom-color: var(--focus-ring);
+  box-shadow: 0 1px 0 var(--focus-ring);
+}
+
 .palette-results {
   display: grid;
   gap: 2px;
@@ -3582,6 +3593,35 @@ textarea:hover {
   gap: 7px;
 }
 
+/* Recovery actions use the raised secondary button rather than the browser's grey default. */
+.startup-state button,
+.stale-results-banner button,
+.workspace-prerequisite button,
+.inspector [role="alert"] button,
+.page-failure button,
+.panel-failure button {
+  min-height: 32px;
+  padding: 5px 12px;
+  color: var(--text-strong);
+  background: var(--surface-raised);
+  border: 1px solid var(--line-control);
+  border-radius: 4px;
+}
+
+.startup-state button:hover:not(:disabled),
+.stale-results-banner button:hover:not(:disabled),
+.workspace-prerequisite button:hover,
+.inspector [role="alert"] button:hover,
+.page-failure button:hover,
+.panel-failure button:hover {
+  border-color: var(--accent-quiet);
+}
+
+.stale-results-banner button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .startup-state.error {
   border-color: color-mix(in srgb, var(--danger) 38%, transparent);
 }
@@ -3610,6 +3650,15 @@ textarea:hover {
   width: 28px;
   min-height: 26px;
   padding: 0;
+  color: var(--danger-ink);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+
+.error-strip button:hover {
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
 }
 
 .error-strip,

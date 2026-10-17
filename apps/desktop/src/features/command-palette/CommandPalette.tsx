@@ -1,4 +1,4 @@
-import { Command as CommandIcon } from "lucide-react";
+import { Search } from "lucide-react";
 import { KeyboardEvent, ReactNode, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Command, CommandAction, CommandContext, findCommands, highlightRanges, recallable } from "../../lib/commands";
 
@@ -143,7 +143,7 @@ export function CommandPalette({ open, context, onRun, onClose }: {
       aria-label="Edit anything"
     >
       <div className="palette-input">
-        <CommandIcon size={16} aria-hidden="true" />
+        <Search size={16} aria-hidden="true" />
         <input
           ref={input}
           role="combobox"
