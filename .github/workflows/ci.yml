@@ -147,7 +147,7 @@ jobs:
           cargo fmt --all --manifest-path apps/desktop/src-tauri/Cargo.toml -- --check
 
       - name: Cache Cargo
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/git
@@ -225,7 +225,7 @@ jobs:
           cargo --version
 
       - name: Cache Cargo
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/git
@@ -293,7 +293,7 @@ jobs:
           npm run test:contracts
 
       - name: Cache Playwright browser
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~\AppData\Local\ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('apps/desktop/package-lock.json') }}
@@ -327,7 +327,7 @@ jobs:
           rustc --version --verbose
 
       - name: Cache native desktop build
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/git
