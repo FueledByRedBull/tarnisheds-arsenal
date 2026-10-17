@@ -441,6 +441,44 @@ order: physical AR before total AR for Max Physical AR, and bleed before total A
 for Bleed then AR. Total buff magnitude alone is not sufficient for Max Physical AR.
 Equal pairs retain route and stat tie evaluation.
 
+#### Upgrade dominance
+
+Upgrades are visited from the highest down. Upgrade $u$ is dominated when, at every
+allocation, every key component is at most its value at the next visited upgrade
+$u'$. Equal keys of one weapon rank the higher upgrade first (Section 6), so each
+result at $u$ ranks strictly below the same Ash's result at $u'$, and by induction
+below every upgrade in an unbroken run of dominating upgrades above it.
+
+- With weapon grouping, a dominated upgrade is skipped: $u'$ was solved, pruned
+  strictly below the cutoff, or skipped the same way.
+- With loadout grouping, each upgrade is its own result group. A dominated upgrade
+  is skipped when the run above it holds at least $K$ upgrades, since $K$ strictly
+  better groups already exist. Otherwise an Ash is skipped at $u$ when its result at
+  $u'$ is strictly below the current cutoff, or it was pruned or never a result
+  there; routes pruned at $u'$ were strictly below a cutoff that only rises.
+
+The check reads only the inputs that depend on the upgrade, once per weapon and
+pair:
+
+- every reinforcement damage, scaling and base-attack multiplier at $u$ lies in
+  $[0, m_{u'}]$ and is zero exactly where the one at $u'$ is zero;
+- the effective passive bleed buildup is no larger, with the same correction flag;
+- ARC's status-curve values in the search interval are nonnegative;
+- every route either is additive or gives each stat its correction scales with a
+  positive influence.
+
+Every base is a sum of products of nonnegative loaded values with one damage or
+base-attack multiplier, and every additive coefficient multiplies that base by a
+nonnegative scaling, a scaling multiplier and a nonnegative curve value. A corrected
+component $b(1+\beta)$ has contributions $(\iota-1)+s\,m\,c\,\iota$ that grow with
+the multiplier, a bonus that grows with each contribution (the most negative one,
+else their sum), and $1+\beta\ge\iota_{\min}>0$. Every value is therefore no larger at
+$u$. The equal zero pattern keeps the same hits positive, so both upgrades take the
+same hit as the first damaging hit. Bleed's `f32` products and sums of
+nonnegative operands, its projection and its floors preserve order. A unit whose
+routes fail the influence condition, or a request with a negative damage multiplier,
+never skips.
+
 ### Numerical contract
 
 The `exact-v3` scoring contract treats each finite, validated loaded `f32` damage

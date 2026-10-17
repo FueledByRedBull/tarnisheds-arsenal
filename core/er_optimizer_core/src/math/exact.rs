@@ -1071,6 +1071,75 @@ pub(crate) fn exact_bleed(
     )
 }
 
+/// Whether no ranking-key component at `lower` can exceed its value at `upper`, at any
+/// allocation (ARC up to `max_arc`), Ash, or route with positive corrections. Only the
+/// reinforce row, the passive overlay and its correction flag depend on the upgrade.
+///
+/// AR and route damage: every base is a sum of products of non-negative loaded values with
+/// one reinforce damage or base-attack multiplier. An additive scaling term multiplies that
+/// base by a non-negative scaling, a reinforce scaling multiplier and a non-negative curve
+/// value. A corrected component is `base * (1 + bonus)`, where each contribution
+/// `(influence - 1) + scaling * multiplier * curve * influence` grows with the multiplier and
+/// the bonus (the most negative contribution, else their sum) grows with each contribution;
+/// positive influence keeps `1 + bonus` positive. Multipliers no larger therefore keep every
+/// value no larger, and the same zero pattern keeps the same hits positive, so the first
+/// damaging hit is the same hit at both upgrades. Bleed: with the flag unchanged, f32 products
+/// and sums of non-negative operands (rounding preserves order), the projection and the floors
+/// are monotone in the buildup and the ARC multiplier.
+pub(crate) fn upgrade_dominated(
+    weapon: &Weapon,
+    lower: u8,
+    upper: u8,
+    max_arc: u16,
+    data: &GameData,
+) -> bool {
+    let (Some(lower_row), Some(upper_row)) = (
+        data.reinforce_level(weapon.reinforce_type, lower),
+        data.reinforce_level(weapon.reinforce_type, upper),
+    ) else {
+        return false;
+    };
+    let multiplier_dominated =
+        |low: f32, high: f32| (0.0..=high).contains(&low) && (low == 0.0) == (high == 0.0);
+    let reinforce_dominated = lower_row
+        .damage_mult
+        .iter()
+        .chain(&lower_row.scaling_mult)
+        .chain([&lower_row.base_attack_mult])
+        .zip(
+            upper_row
+                .damage_mult
+                .iter()
+                .chain(&upper_row.scaling_mult)
+                .chain([&upper_row.base_attack_mult]),
+        )
+        .all(|(&low, &high)| multiplier_dominated(low, high));
+    let passive = |upgrade| {
+        let source = data.weapon_passive(weapon.weapon_id);
+        let mut value = source.buildup.bleed;
+        let mut flag = source.correction_flags.bleed;
+        if let Some(overlay) = data.weapon_passive_overlay(weapon.weapon_id, upgrade) {
+            super::merge_status_value(
+                &mut value,
+                &mut flag,
+                overlay.buildup.bleed,
+                overlay.correction_flags.bleed,
+            );
+        }
+        (value, flag)
+    };
+    let ((lower_bleed, lower_flag), (upper_bleed, upper_flag)) = (passive(lower), passive(upper));
+    let curve = weapon.status_curve_ids.blood;
+    reinforce_dominated
+        && lower_flag == upper_flag
+        && (0.0..=upper_bleed).contains(&lower_bleed)
+        && weapon.scaling[STAT_ARC] >= 0.0
+        && (0..=max_arc).all(|arc| {
+            data.calc_curve_value(curve, arc)
+                .is_some_and(|value| value >= 0.0)
+        })
+}
+
 pub(crate) fn exact_scalar_route(
     route: &ScalarAowRoute<'_>,
     weapon: &Weapon,
@@ -2063,6 +2132,113 @@ mod tests {
             }
         }
         assert!(checked > 300, "{checked}");
+    }
+
+    #[test]
+    fn dominated_upgrades_never_exceed_the_next_upgrade() {
+        let stat_vectors = [1, 18, 40, 60, 99].map(|value| Stats {
+            vig: 10,
+            mnd: 10,
+            end: 10,
+            str: value,
+            dex: value,
+            int: value,
+            fai: value,
+            arc: value,
+        });
+        for profile in [
+            crate::data::VANILLA_PROFILE_ID,
+            crate::data::CONVERGENCE_PROFILE_ID,
+        ] {
+            let data = crate::data::load_embedded_game_profile(profile).expect("profile");
+            let pairs = |weapon: &Weapon| {
+                let top = if weapon.is_somber {
+                    data.rules.somber_max_upgrade
+                } else {
+                    data.rules.standard_max_upgrade
+                };
+                (0..top)
+                    .filter(|&lower| upgrade_dominated(weapon, lower, lower + 1, 99, &data))
+                    .collect::<Vec<_>>()
+            };
+            let (mut dominated, mut checked) = (0, 0);
+            for weapon in data
+                .weapons
+                .iter()
+                .filter(|weapon| data.weapon_ar_supported(weapon))
+            {
+                for lower in pairs(weapon) {
+                    dominated += 1;
+                    for stats in &stat_vectors {
+                        let effective =
+                            effective_str(stats.str, true, weapon.disable_two_hand_bonus);
+                        let low = exact_ar(weapon, lower, stats, effective, &data).unwrap();
+                        let high = exact_ar(weapon, lower + 1, stats, effective, &data).unwrap();
+                        assert!(
+                            low.iter().zip(&high).all(|(low, high)| low <= high),
+                            "{profile} {} +{lower} AR {stats:?}",
+                            weapon.name
+                        );
+                        assert!(
+                            exact_bleed(weapon, lower, stats, &data, None).unwrap()
+                                <= exact_bleed(weapon, lower + 1, stats, &data, None).unwrap(),
+                            "{profile} {} +{lower} bleed {stats:?}",
+                            weapon.name
+                        );
+                        checked += 1;
+                    }
+                }
+            }
+            for aow in &data.aows {
+                let rows: Vec<_> = data.aow_attack_rows(aow.aow_id).iter().collect();
+                let routes = crate::math::prepare_scalar_aow_routes(&rows, &data)
+                    .unwrap()
+                    .unwrap_or_default();
+                for somber in [false, true] {
+                    let Some(weapon) = data.weapons.iter().find(|weapon| {
+                        weapon.is_somber == somber && data.aow_compatible_with_weapon(aow, weapon)
+                    }) else {
+                        continue;
+                    };
+                    for lower in pairs(weapon) {
+                        for stats in &stat_vectors {
+                            let effective =
+                                effective_str(stats.str, true, weapon.disable_two_hand_bonus);
+                            assert!(
+                                exact_bleed(weapon, lower, stats, &data, Some(aow)).unwrap()
+                                    <= exact_bleed(weapon, lower + 1, stats, &data, Some(aow))
+                                        .unwrap(),
+                                "{profile} ash={} +{lower} bleed {stats:?}",
+                                aow.aow_id
+                            );
+                            for route in routes
+                                .iter()
+                                .filter(|route| route.has_positive_corrections(&data))
+                            {
+                                let at = |upgrade| {
+                                    exact_scalar_route(
+                                        route, weapon, upgrade, stats, effective, 1.5, &data,
+                                    )
+                                    .unwrap()
+                                };
+                                let (low, high) = (at(lower), at(lower + 1));
+                                assert!(
+                                    low.0 <= high.0 && low.1 <= high.1,
+                                    "{profile} ash={} route={} +{lower} {stats:?}",
+                                    aow.aow_id,
+                                    route.route_id
+                                );
+                                checked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            assert!(
+                dominated > 1_000 && checked > 10_000,
+                "{profile}: {dominated} {checked}"
+            );
+        }
     }
 
     #[test]

@@ -313,6 +313,24 @@ impl ScalarAowRoute<'_> {
         })
     }
 
+    /// Whether every influence-corrected component has positive influence on each stat it
+    /// scales with. Each contribution then stays above -1, so `1 + bonus` stays positive.
+    /// Additive routes qualify (their influence is 1).
+    pub(crate) fn has_positive_corrections(&self, data: &GameData) -> bool {
+        self.hits.iter().all(|hit| {
+            hit.row
+                .overwrite_attack_element_correct_id
+                .and_then(|id| data.attack_element_ext(id))
+                .is_none_or(|ext| {
+                    (0..COMBAT_STAT_COUNT).all(|stat| {
+                        (0..DAMAGE_TYPE_COUNT).all(|damage| {
+                            !ext.stat_scales(stat, damage) || ext.influence_rate(stat, damage) > 0.0
+                        })
+                    })
+                })
+        })
+    }
+
     /// Active stats that share an influence-corrected damage type in some hit. That
     /// correction's minimum couples them; every other active stat stays separable.
     pub(crate) fn coupled_stats(

@@ -1882,7 +1882,49 @@ where
     let mut curve_maxima = std::array::from_fn(|_| std::array::from_fn(|_| None));
     let mut route_curve_maxima = std::array::from_fn(|_| std::array::from_fn(|_| None));
     let mut buff_upper = None;
+    // A lower upgrade whose every key component is pointwise at most the next higher one's
+    // ranks below it: equal keys rank the higher upgrade first. With weapon grouping it cannot
+    // place, since that upgrade was solved, pruned strictly below the threshold, or skipped the
+    // same way. With loadout grouping each upgrade is its own group, so it cannot place below
+    // `top_k` dominating upgrades; otherwise each Ash's result at the higher upgrade bounds it.
+    let compare_upgrades = prepared.upgrades.len() > 1
+        && request.damage_multiplier() >= 0.0
+        && route_sets.iter().all(|(_, routes)| {
+            routes
+                .iter()
+                .all(|route| route.has_positive_corrections(plan.data))
+        });
+    let max_arc = formula_max_stats(dp_search, request, prepared.weapon)[STAT_ARC];
+    let mut higher_upgrade = None;
+    let mut dominating_upgrades = 0;
+    let mut upper_keys: Vec<Option<UpgradeBound>> = route_sets.iter().map(|_| None).collect();
     for &upgrade in prepared.upgrades.iter().rev() {
+        let dominated = compare_upgrades
+            && higher_upgrade.replace(upgrade).is_some_and(|higher| {
+                crate::math::exact::upgrade_dominated(
+                    prepared.weapon,
+                    upgrade,
+                    higher,
+                    max_arc,
+                    plan.data,
+                )
+            });
+        dominating_upgrades = if dominated {
+            dominating_upgrades + 1
+        } else {
+            0
+        };
+        if dominated
+            && (matches!(group_mode, ResultGroupMode::WeaponOnly)
+                || dominating_upgrades >= request.top_k)
+        {
+            let count = group
+                .search
+                .candidate_count
+                .saturating_mul(route_sets.len() as u64);
+            progress.advance(count, count, None)?;
+            continue;
+        }
         if let Some(cutoff) = cutoff.max(unit_cutoff(&candidates, group_mode, request.top_k))
             && matches!(
                 request.objective,
@@ -1988,7 +2030,7 @@ where
         } else {
             None
         };
-        for &(aow_idx, ref route_set) in &route_sets {
+        for (position, &(aow_idx, ref route_set)) in route_sets.iter().enumerate() {
             progress.poll()?;
             let aow_choice = &prepared.aow_choices[aow_idx];
             let routes = route_set.as_ref();
@@ -1997,10 +2039,26 @@ where
             // or (per weapon) below that weapon's best, cannot appear. Ties are still solved,
             // so tie order is unchanged.
             let threshold = cutoff.max(unit_cutoff(&candidates, group_mode, request.top_k));
+            let upper_key = upper_keys[position].take().filter(|_| dominated);
+            if let Some(upper) = upper_key
+                && match upper {
+                    UpgradeBound::CannotPlace => true,
+                    UpgradeBound::AtMost(key) => threshold.is_some_and(|bound| *key < *bound),
+                }
+            {
+                upper_keys[position] = Some(UpgradeBound::CannotPlace);
+                progress.advance(
+                    group.search.candidate_count,
+                    group.search.candidate_count,
+                    None,
+                )?;
+                continue;
+            }
             let best_primary = primary.and_then(|p| p.best_primary.as_ref());
             if let (Some(bound), Some(primary)) = (threshold, best_primary)
                 && (&primary.key.score, &primary.key.ar_total) < (&bound.score, &bound.ar_total)
             {
+                upper_keys[position] = Some(UpgradeBound::CannotPlace);
                 progress.advance(
                     group.search.candidate_count,
                     group.search.candidate_count,
@@ -2118,6 +2176,7 @@ where
                 match best {
                     Some(best) => best,
                     None if pruned => {
+                        upper_keys[position] = Some(UpgradeBound::CannotPlace);
                         progress.advance(
                             group.search.candidate_count,
                             group.search.candidate_count,
@@ -2136,6 +2195,7 @@ where
                 || matches!(request.objective, OptimizeObjective::AowFullSequence)
                     && best.key.aow_full <= ExactRational::zero()
             {
+                upper_keys[position] = Some(UpgradeBound::CannotPlace);
                 progress.advance(
                     group.search.candidate_count,
                     group.search.candidate_count,
@@ -2143,6 +2203,9 @@ where
                 )?;
                 continue;
             }
+            // Routes pruned above were strictly below a threshold that only rises, so this key
+            // bounds every route of this Ash whenever it is itself below the later threshold.
+            upper_keys[position] = Some(UpgradeBound::AtMost(Box::new(best.key.clone())));
             progress.advance(
                 group.search.candidate_count,
                 group.search.candidate_count,
@@ -2171,6 +2234,14 @@ where
     }
     progress.finish()?;
     Ok(candidates)
+}
+
+/// What a higher upgrade established about one Ash's best key; an upgrade it dominates is no
+/// better.
+enum UpgradeBound {
+    /// Strictly below a threshold, or never a result.
+    CannotPlace,
+    AtMost(Box<ObjectiveKey>),
 }
 
 /// The cutoff this unit's own results set: the K-th kept key, or for weapon grouping the
