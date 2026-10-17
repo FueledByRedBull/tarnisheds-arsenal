@@ -249,9 +249,10 @@ which preserves exact-value parity, compilation cost and timing variability.
 
 | Harness | Workload |
 | --- | --- |
-| `benchmark_optimizer_phases` | Sixteen release-mode optimizer cases spanning Max AR, Max Physical AR, Bleed then AR, AoW first hit, and AoW full sequence, including weapon/loadout grouping at K=25 and K=500 and locked-stat route cases. It reports preparation, scoring, materialization, medians, samples, row counts, equivalent combinations, profile/model identity, and complete request/result fingerprints. |
+| `benchmark_optimizer_phases` | Twenty-six release-mode optimizer cases spanning Max AR, Max Physical AR, Bleed then AR, AoW first hit, and AoW full sequence, including weapon/loadout grouping at K=25 and K=500, locked-stat route cases, two-handing, levels 9 and 713, open-weapon skill objectives, the locked non-additive Lifesteal Fist solve, and Convergence's all-locked Custom stats ranking. It reports preparation, scoring, materialization, medians, samples, row counts, equivalent combinations, profile/model identity, and complete request/result fingerprints. |
 | `benchmark_workflows` | Vanilla Paths in No-respec and Best per level (`optimum_envelope`) modes at 10, 50, and 200 levels with one and two distinct lanes; Affinity Watch at the same horizons; and the standard 26-point upgrade series. The Rust tests perform one warmup and retain best, median, worst, and every sample. |
 | `benchmark_level_range` | The documented command measures Uchigatana at level 80 plus offsets 0, 10, 50, and 200 for Keen, Blood, and Occult. The CLI defaults to 10, 50, and 200. It compares independent per-level optimization with shared range evaluation and rejects any difference in complete ordered results. Use `--all-affinities` for every available Uchigatana affinity. |
+| `native_command_benchmark` | Ignored release test in the desktop backend: Vanilla open searches (RL46 K=25 and loadout K=500, all upgrades RL93, bleed RL93, AoW full sequence RL150), Convergence Custom stats, two solves and an AR/bleed frontier, each through DTO normalization, the job worker and JSON encoding of the terminal status. Reports samples, payload bytes and the complete payload. Run `cargo test --release --locked --manifest-path apps/desktop/src-tauri/Cargo.toml native_command_benchmark -- --ignored --nocapture --test-threads=1` with `ER_BENCH_REPEATS` and optionally `ER_BENCH_CASE`; the `workflow_benchmark` runner does not select it. |
 | `native-responsiveness.mjs` | Analysis suite: packaged solves, upgrade series, AR/bleed frontier and cancellation. Production suite: locks/non-additive routes, K=500, both Paths modes and cancellation. Both include a concurrent manifest probe and retain executable/manifest identity, requests, complete fingerprints, warmups, samples and timing ranges. |
 
 Phase cases use profile rules for upgrade caps: Vanilla standard +25/Somber +10;
@@ -317,8 +318,8 @@ gameplay and ranking contract. Paths reports retain the complete ordered path DT
 including solved-build routes and every step's level, stats, metric and requirement
 gap. Every warmup and measured repeat must match. Baseline comparisons require
 matching requests and complete results; older Paths reports without these fields
-cannot establish parity. Affinity Watch and upgrade-series workflow timings still
-need their separate equivalence and smoke checks.
+cannot establish parity. Affinity Watch reports retain the complete payload;
+upgrade-series timings still need their separate equivalence and smoke checks.
 
 The Paths timer accepts already-solved requests. Fixture searches, request cloning,
 serialization and repeat comparisons are outside the measured interval. The
@@ -328,6 +329,43 @@ two lanes calculate these different loadouts sequentially. Reports retain the fu
 input requests and original sample order. This measures native path calculation,
 not job scheduling, IPC, rendering or cancellation responsiveness; use the separate
 native probe for those observations.
+
+### Search pruning pass (2026-10-17)
+
+Release builds of `a7fe55c` and of this pass ran interleaved (baseline and new
+alternating, one warmup and one sample per round, five rounds) on a 16-thread
+Windows machine where other work held 4 to 9 cores, so ranges are wide. Every
+row's complete ranked result or payload matched the baseline. Medians, with the
+sample range, in milliseconds at the default thread count:
+
+| Workload | Before | After |
+| --- | --- | --- |
+| Open AoW full sequence, RL150, K=5 | 6462 [6056, 13427] | 94 [82, 954] |
+| Open AoW first hit, RL150, K=5 | 6270 [5403, 6454] | 87 [85, 94] |
+| All-upgrades bleed, RL93, K=25 | 2375 [2251, 2891] | 86 [73, 93] |
+| Same, Convergence | 1254 [1222, 1258] | 171 [142, 310] |
+| Open bleed, RL93, K=25 | 177 [165, 229] | 58 [55, 62] |
+| All-upgrades Max AR, RL93, K=25 | 278 [256, 366] | 114 [101, 136] |
+| Open Max AR, RL46, K=5 | 103 [101, 115] | 59 [57, 85] |
+| Open Max AR, RL9 / RL713 | 108 / 365 | 31 / 58 |
+| Convergence Custom stats ranking, K=25 | 565 [543, 601] | 72 [71, 83] |
+| Native command: open AoW full sequence, K=25 | 9908 [9351, 11000] | 99 [94, 114] |
+| Native command: open K=500 loadouts (1.49 MB JSON) | 124 [117, 129] | 84 [77, 92] |
+| Affinity Watch, Uchigatana +0, any Ash, 200 levels | 2452 [2189, 2569] | 332 [319, 342] |
+
+With one Rayon thread, open Max AR fell from 1330 to 475 ms, all-upgrades Max AR
+from 2132 to 671 ms and the open AoW full sequence from 30.1 s to 0.63 s. Affinity
+Watch with one thread changed little (2049 to 1724 ms), because its gain is
+concurrency. Paths stay under 16 ms at 200 levels, and solves, frontiers and the
+upgrade series under 3 ms. The skill-objective search had been spending most of
+its time enumerating coupled Lifesteal-style routes for every weapon; the exact
+route bound now skips them. Bounds and their proofs are in the
+[optimizer math](design/optimizer-math.md#bounds-and-scheduling).
+
+Parity covered all phase cases in both profiles at both thread counts, 400 seeded
+random requests (both profiles, all objectives, levels 9 to 713, handedness,
+upgrade modes, grouping, K, locks and floors) with level ranges, the level-range
+benchmark, and every workflow and native command payload.
 
 ## Independent versus shared level-range evaluation
 
