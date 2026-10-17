@@ -234,7 +234,7 @@ try {
   // Hidden workspaces keep their runs: switching tabs mid-run must not cancel native work.
   markSmokeStage("run Paths preview across a tab switch");
   await page.getByRole("navigation").getByRole("button", { name: "Paths" }).click();
-  await setLevelsAhead(page, "10");
+  await setLevelsAhead(page, ".paths-panel", "10");
   const pathHold = await holdStatus(page, "get_path_preview_status");
   await page.getByRole("button", { name: "Trace paths", exact: true }).click();
   await expect.poll(() => pathHold.calls).toContain("start_path_preview");
@@ -246,7 +246,7 @@ try {
 
   markSmokeStage("run Affinity Watch across a tab switch");
   await page.getByRole("navigation").getByRole("button", { name: "Affinity Watch" }).click();
-  await setLevelsAhead(page, "200");
+  await setLevelsAhead(page, ".affinity-panel", "200");
   const affinityHold = await holdStatus(page, "get_affinity_watch_status");
   await page.getByRole("button", { name: "Watch affinities", exact: true }).click();
   await expect.poll(() => affinityHold.calls).toContain("start_affinity_watch");
@@ -340,12 +340,14 @@ try {
   const output = session?.output().trim();
   const pageState = session?.page
     ? await session.page.locator(
-      '.error-strip[role="alert"], .startup-state[role="alert"], .profile-coverage, .analysis-state, .progress-strip, .search-button',
+      '.error-strip[role="alert"], .startup-state[role="alert"], .profile-coverage, .analysis-state, .progress-strip, .search-button, '
+        + '.workspace-panel, button[aria-current="page"]',
     ).evaluateAll((elements) => elements.map((element) => ({
       className: element.className,
       role: element.getAttribute("role"),
-      text: element.textContent?.replace(/\s+/g, " ").trim() ?? "",
+      text: element.textContent?.replace(/\s+/g, " ").trim().slice(0, 160) ?? "",
       disabled: "disabled" in element ? element.disabled : undefined,
+      visible: element.checkVisibility(),
     }))).catch(() => [])
     : [];
   const suffix = [
@@ -448,8 +450,12 @@ async function releaseStatus(page, hold) {
   return hold.calls;
 }
 
-async function setLevelsAhead(page, levels) {
-  const input = page.getByRole("spinbutton", { name: "Levels ahead" });
+async function setLevelsAhead(page, panelSelector, levels) {
+  // Workspaces reveal in a deferred render, so the previous workspace's "Levels ahead"
+  // can still match for a frame; Playwright would then wait on that now-hidden input.
+  const panel = page.locator(panelSelector);
+  await panel.waitFor({ state: "visible" });
+  const input = panel.getByRole("spinbutton", { name: "Levels ahead" });
   await input.fill(levels);
   await input.press("Enter");
 }
