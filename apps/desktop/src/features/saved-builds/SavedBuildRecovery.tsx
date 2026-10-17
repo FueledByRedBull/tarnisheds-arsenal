@@ -1,12 +1,26 @@
+import "../shared/build-tools.css";
 import { useEffect, useRef, useState } from "react";
+import { downloadText } from "../../lib/csv";
+import { errorMessage } from "../../lib/format";
 import {
   inspectSavedBuilds, MAX_BUILD_BACKUP_BYTES, previewBuildBackup, recoverSavedBuilds,
   restoreBuildBackup, savedBuildBackupText, type SavedBuildInspection,
 } from "../../lib/presets";
 
+function readInspection(): { inspection: SavedBuildInspection | null; error: string } {
+  try { return { inspection: inspectSavedBuilds(), error: "" }; }
+  catch (caught) { return { inspection: null, error: errorMessage(caught) }; }
+}
+
 export function SavedBuildRecovery({ onChanged, revision }: { onChanged: () => void; revision?: unknown }) {
-  const [inspection, setInspection] = useState<SavedBuildInspection | null>(null);
-  const [error, setError] = useState("");
+  const [{ inspection, error }, setScan] = useState(readInspection);
+  const [scannedRevision, setScannedRevision] = useState(revision);
+  if (scannedRevision !== revision) {
+    setScannedRevision(revision);
+    setScan(readInspection());
+  }
+  const setInspection = (next: SavedBuildInspection | null) => setScan((current) => ({ ...current, inspection: next }));
+  const setError = (next: string) => setScan((current) => ({ ...current, error: next }));
   const [message, setMessage] = useState("");
   const [backup, setBackup] = useState("");
   const [preview, setPreview] = useState<ReturnType<typeof previewBuildBackup> | null>(null);
@@ -14,10 +28,8 @@ export function SavedBuildRecovery({ onChanged, revision }: { onChanged: () => v
   useEffect(() => () => { fileRead.current += 1; }, []);
 
   function scan() {
-    try { setInspection(inspectSavedBuilds()); setError(""); }
-    catch (caught) { setInspection(null); setError(errorMessage(caught)); }
+    setScan(readInspection());
   }
-  useEffect(scan, [revision]);
 
   function recover() {
     if (!inspection) return;
@@ -33,12 +45,7 @@ export function SavedBuildRecovery({ onChanged, revision }: { onChanged: () => v
     try {
       const current = inspectSavedBuilds();
       const text = savedBuildBackupText(current);
-      const url = URL.createObjectURL(new Blob([text], { type: "application/json;charset=utf-8" }));
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "tarnisheds-arsenal-builds.json";
-      link.click();
-      URL.revokeObjectURL(url);
+      downloadText("tarnisheds-arsenal-builds.json", text, "application/json;charset=utf-8");
       setInspection(current);
       setMessage(`Exported ${current.presets.length} readable builds.${current.issues.length ? " Review the listed storage issues; unreadable records are excluded." : ""}`);
       setError("");
@@ -98,8 +105,4 @@ export function SavedBuildRecovery({ onChanged, revision }: { onChanged: () => v
     {error ? <p className="tone-danger" role="alert">{error}</p> : null}
     {message ? <p role="status">{message}</p> : null}
   </details>;
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

@@ -34,9 +34,9 @@ test("affinity chart uses one padded domain for flat-series axes and grid", asyn
   await page.getByRole("navigation").getByRole("button", { name: "Affinity Watch", exact: true }).click();
   await page.getByRole("button", { name: "Watch affinities", exact: true }).click();
   await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "completed");
-  await expect(page.locator(".affinity-y-axis span")).toHaveText(["510.0", "500.0", "490.0"]);
-  await expect(page.locator(".affinity-grid-line")).toHaveCount(3);
-  expect(await page.locator(".affinity-grid-line").evaluateAll((lines) => lines.map((line) => Number(line.getAttribute("y1"))))).toEqual([14, 110, 206]);
+  await expect(page.locator(".affinity-y-axis span")).toHaveText(["510", "505", "500", "495", "490"]);
+  await expect(page.locator(".affinity-grid-line")).toHaveCount(5);
+  expect(await page.locator(".affinity-grid-line").evaluateAll((lines) => lines.map((line) => Number(line.getAttribute("y1"))))).toEqual([14, 62, 110, 158, 206]);
   expect(await page.locator(".affinity-series-point").evaluateAll((points) => points.map((point) => Number(point.getAttribute("cy"))))).toEqual([110, 110]);
   const axisDeltas = await page.locator(".affinity-plot").evaluate((plot) => {
     const centers = (elements: Element[]) => elements.map((element) => {
@@ -75,8 +75,22 @@ test("affinity summaries show unavailable requested endpoints and preserve chart
   await page.getByRole("navigation").getByRole("button", { name: "Affinity Watch", exact: true }).click();
   await page.getByRole("button", { name: "Watch affinities", exact: true }).click();
   await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "completed");
-  await expect(page.getByRole("grid", { name: "Affinity watch rankings" }).getByRole("row").nth(1).getByRole("gridcell")).toHaveText(["1", "Sparse", "Unavailable", "Unavailable", "Unavailable"]);
+  await expect(page.getByRole("table", { name: "Affinity watch rankings" }).getByRole("row").nth(1).getByRole("cell")).toHaveText(["1", "Sparse", "Unavailable", "Unavailable", "Unavailable"]);
   await expect(page.locator(".affinity-legend")).toContainText("Unavailable → Unavailable");
   await expect(page.locator(".affinity-series-point")).toHaveCount(1);
   await expect(page.locator(".affinity-series-point title")).toHaveText("Sparse level 11: 300.0");
+  // Every value, gaps included, is in the data table, which is rendered only once opened.
+  await expect(page.locator(".affinity-chart table")).toHaveCount(0);
+  await page.locator(".affinity-chart").getByText("Data table", { exact: true }).click();
+  await expect(page.getByRole("table", { name: /affinity values by character level/ }).getByRole("row")).toHaveCount(4);
+  // Clearing the result and running again starts with the disclosure closed.
+  await page.evaluate(async () => {
+    const { useDesktopStore } = await import("/src/lib/state.ts");
+    useDesktopStore.setState({ affinityPayload: null });
+  });
+  await expect(page.locator(".affinity-chart details")).toHaveCount(0);
+  await page.getByRole("button", { name: "Watch affinities", exact: true }).click();
+  await expect(page.locator(".affinity-chart details")).toHaveCount(1);
+  await expect(page.locator(".affinity-chart details")).not.toHaveAttribute("open");
+  await expect(page.locator(".affinity-chart table")).toHaveCount(0);
 });

@@ -29,7 +29,7 @@ const analysisQueue = createNativeJobQueue<AnalysisJobStatusDto>(
   jobId => call("cancel_analysis", { jobId }),
 );
 
-export const hasTauriRuntime = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+const hasTauriRuntime = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   if (hasTauriRuntime()) {
@@ -98,8 +98,6 @@ export const api = {
     if (finished.kind !== "upgrade_series") throw new Error("Unexpected native calculation result.");
     return finished.points;
   },
-  affinitiesForWeapon: (profileId: string, weaponName: string) =>
-    call<string[]>("affinities_for_weapon", { profileId, weaponName }),
   compatibleAowNamesForAffinity: (profileId: string, affinity: string | null) =>
     call<string[]>("compatible_aow_names_for_affinity", {
       request: { profileId, affinity } satisfies CompatibleAowsForAffinityRequestDto,

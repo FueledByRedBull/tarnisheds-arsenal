@@ -4,6 +4,15 @@ on:
   push:
     tags:
       - "v*"
+  pull_request:
+    paths:
+      - .github/workflows/release-package.yml
+      - tools/phase4/package_release.py
+      - tools/phase4/publish_release.py
+      - tools/phase4/release_gate.py
+      - apps/desktop/src-tauri/tauri.conf.json
+      - apps/desktop/src-tauri/Cargo.toml
+      - core/er_optimizer_core/build.rs
   workflow_dispatch:
     inputs:
       publish:
@@ -18,7 +27,7 @@ concurrency:
 
 jobs:
   verify-ci:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     outputs:
       verified-sha: ${{ steps.verify.outputs.verified-sha }}
@@ -27,61 +36,31 @@ jobs:
       contents: read
 
     steps:
+      - name: Checkout release gates
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: tools/phase4
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version-file: ".python-version"
+
       - name: Require the default branch for manual publication
         if: github.event_name == 'workflow_dispatch' && inputs.publish == true
-        shell: pwsh
-        run: |
-          if ("$env:GITHUB_REF" -ne "refs/heads/${{ github.event.repository.default_branch }}") {
-            throw "Manual publication must run from the default branch; got $env:GITHUB_REF_NAME"
-          }
+        env:
+          RELEASE_BRANCH: ${{ github.event.repository.default_branch }}
+        run: python tools/phase4/release_gate.py require-default-branch
 
       - name: Wait for successful CI on this commit
         id: verify
         if: startsWith(github.ref, 'refs/tags/') || inputs.publish == true || (github.event_name == 'workflow_dispatch' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
-        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_BRANCH: ${{ github.event.repository.default_branch }}
-        run: |
-          $ErrorActionPreference = "Stop"
-          $PSNativeCommandUseErrorActionPreference = $true
-          if ($env:GITHUB_SHA -cnotmatch '^[0-9a-f]{40}$') { throw "Invalid source commit SHA" }
-          $deadline = [DateTime]::UtcNow.AddMinutes(40)
-          while ([DateTime]::UtcNow -lt $deadline) {
-            $runs = @(
-              gh run list `
-                --workflow ci.yml `
-                --commit $env:GITHUB_SHA `
-                --event push `
-                --limit 20 `
-                --json databaseId,status,conclusion,headBranch,headSha,event,url,createdAt |
-                ConvertFrom-Json
-            ) | Where-Object {
-              $_.headSha -eq $env:GITHUB_SHA -and
-              $_.headBranch -eq $env:RELEASE_BRANCH -and
-              $_.event -eq "push"
-            } |
-              Sort-Object createdAt -Descending
-
-            $latest = $runs | Select-Object -First 1
-            if ($latest.status -eq "completed") {
-              if ($latest.conclusion -ne "success") {
-                throw "CI run $($latest.databaseId) concluded $($latest.conclusion): $($latest.url)"
-              }
-              Write-Output "CI run $($latest.databaseId) succeeded for $env:GITHUB_SHA`: $($latest.url)"
-              "verified-sha=$env:GITHUB_SHA" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-              exit 0
-            }
-
-            if ($latest) {
-              Write-Output "Waiting for CI run $($latest.databaseId): $($latest.status)"
-            } else {
-              Write-Output "Waiting for a $env:RELEASE_BRANCH CI run for $env:GITHUB_SHA"
-            }
-            Start-Sleep -Seconds 15
-          }
-          throw "Timed out waiting for successful CI on $env:GITHUB_SHA"
+        run: python tools/phase4/release_gate.py wait-for-ci
 
   package:
     env:
@@ -89,106 +68,56 @@ jobs:
       VERIFIED_CI_SHA: ${{ needs.verify-ci.outputs.verified-sha }}
       RELEASE_BRANCH: ${{ github.event.repository.default_branch }}
     needs: verify-ci
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 60
     permissions:
+      attestations: write
       contents: read
+      id-token: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version-file: ".python-version"
-          cache: "pip"
-          cache-dependency-path: requirements-validation.txt
 
       - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: ".node-version"
-          cache: "npm"
-          cache-dependency-path: apps/desktop/package-lock.json
+          package-manager-cache: false
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@86e7197484018ef6aaa9255d186f6ce1754276dd # 1.97.0
-
-      - name: Cache Cargo
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: |
-            ~/.cargo/git
-            ~/.cargo/registry
-            core/er_optimizer_core/target
-            apps/desktop/src-tauri/target
-          key: ${{ runner.os }}-release-cargo-${{ hashFiles('core/er_optimizer_core/Cargo.lock', 'apps/desktop/src-tauri/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-release-cargo-
-            ${{ runner.os }}-cargo-
+        # Installs the toolchain rust-toolchain.toml pins, or RUSTUP_TOOLCHAIN where a job sets it.
+        shell: bash
+        env:
+          RUSTUP_PERMIT_COPY_RENAME: "1"
+        run: |
+          rustup toolchain install --profile minimal --no-self-update
+          echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+          echo "CARGO_TERM_COLOR=always" >> "$GITHUB_ENV"
+          rustc --version --verbose
 
       - name: Install Python packaging helpers
         run: |
-          python -m pip install --disable-pip-version-check -r requirements-validation.txt
+          python -m pip install --disable-pip-version-check --require-hashes -r requirements-validation.txt
 
       - name: Validate release metadata
-        run: |
-          $ErrorActionPreference = "Stop"
-          $PSNativeCommandUseErrorActionPreference = $true
-          $config = Get-Content apps/desktop/src-tauri/tauri.conf.json | ConvertFrom-Json
-          $version = $config.version
-          "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          $tag = "v$version"
-          if ($env:GITHUB_REF -like "refs/tags/*") {
-            $tag = $env:GITHUB_REF_NAME
-          }
-          "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          $localTag = git tag --list $tag
-          if ($env:PUBLISH_RELEASE -eq "true" -and $localTag -eq $tag) {
-            $existingCommit = git rev-list -n 1 "refs/tags/$tag^{commit}"
-            if ($LASTEXITCODE -ne 0 -or -not $existingCommit) {
-              throw "Unable to resolve local release tag $tag"
-            }
-            if ($existingCommit -ne $env:GITHUB_SHA) {
-              throw "Release tag $tag already points to $existingCommit; expected $env:GITHUB_SHA"
-            }
-          }
-          $artifactVersion = if ($env:PUBLISH_RELEASE -eq "true") { $version } else { "$version-preview-$env:GITHUB_SHA" }
-          "ARTIFACT_VERSION=$artifactVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          python tools/phase4/validate_release_metadata.py --tag $tag
+        run: python tools/phase4/release_gate.py release-metadata
 
       - name: Build Tauri release package
         env:
-          PACKAGED_SMOKE_STARTUP_TIMEOUT_MS: 90000
-          PACKAGED_SMOKE_START_ATTEMPTS: 2
-          PACKAGED_SMOKE_RETRY_COOLDOWN_MS: 5000
-          WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
-          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+          # Pull requests and previews also run this step; only publication receives signing secrets.
+          WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ env.PUBLISH_RELEASE == 'true' && secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 || '' }}
+          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ env.PUBLISH_RELEASE == 'true' && secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD || '' }}
           WINDOWS_SIGNING_TIMESTAMP_URL: ${{ vars.WINDOWS_SIGNING_TIMESTAMP_URL }}
-        run: |
-          $ErrorActionPreference = "Stop"
-          $PSNativeCommandUseErrorActionPreference = $true
-          $reuseCI = -not [string]::IsNullOrEmpty($env:VERIFIED_CI_SHA)
-          if ($reuseCI -and ($env:VERIFIED_CI_SHA -cnotmatch '^[0-9a-f]{40}$' -or $env:VERIFIED_CI_SHA -cne $env:GITHUB_SHA)) {
-            throw "Verified CI SHA does not match this source commit"
-          }
-          $mainPreview = $env:GITHUB_EVENT_NAME -eq "workflow_dispatch" -and $env:GITHUB_REF -ceq "refs/heads/$env:RELEASE_BRANCH"
-          if (($env:PUBLISH_RELEASE -eq "true" -or $mainPreview) -and -not $reuseCI) {
-            throw "Default-branch preview and publication require verified CI"
-          }
-          if ($reuseCI -and $env:PUBLISH_RELEASE -ne "true" -and -not $mainPreview) {
-            throw "Only default-branch previews can reuse verified CI"
-          }
-          if ($env:PUBLISH_RELEASE -eq "true") {
-            python tools/phase4/package_release.py --skip-validation
-          } elseif ($reuseCI) {
-            python tools/phase4/package_release.py --preview --skip-validation
-          } else {
-            python tools/phase4/package_release.py --preview
-          }
+        run: python tools/phase4/release_gate.py package
 
       - name: Prepare release assets
         run: |
@@ -268,7 +197,7 @@ jobs:
           if (-not $expectedSkip) {
             $requiredGates += @(
               "release-metadata", "python-unit-tests", "ruff", "pyright", "rustfmt",
-              "clippy", "core-tests", "tauri-tests", "runtime-data-validation",
+              "clippy", "core-tests", "tauri-tests", "data-snapshot-validation",
               "frontend-lint", "dto-contracts", "playwright-browser", "frontend-tests", "frontend-e2e"
             )
           }
@@ -285,8 +214,12 @@ jobs:
             }
             $checksumRows[$Matches[2]] = $Matches[1]
           }
-          if ($checksumRows.Count -ne 2 -or @($report.artifacts).Count -ne 2) {
-            throw "Expected exactly two binary checksum and provenance rows"
+          if ($checksumRows.Count -ne 3 -or @($report.artifacts).Count -ne 2) {
+            throw "Expected checksum rows for the executable, MSI and archive, and two provenance rows"
+          }
+          $zipFile = Get-Item -LiteralPath $env:RELEASE_ZIP
+          if ($checksumRows[$zipFile.Name] -ne (Get-FileHash -Algorithm SHA256 -LiteralPath $zipFile.FullName).Hash.ToLowerInvariant()) {
+            throw "Checksum mismatch for $($zipFile.Name)"
           }
 
           foreach ($path in @($env:RELEASE_EXE, $env:RELEASE_MSI)) {
@@ -324,7 +257,8 @@ jobs:
               "SHA256SUMS.txt",
               "build-report.json",
               "README.md",
-              "LICENSE"
+              "LICENSE",
+              "NOTICE"
             )) {
               if ($name -notin $archiveNames) { throw "Release archive is missing $name" }
             }
@@ -349,6 +283,15 @@ jobs:
           $expectedEntry = "TarnishedsArsenal_$env:ARTIFACT_VERSION/$portableName"
           python -c "import sys; from pathlib import Path; from tools.phase4.publish_release import verify_portable_archive; verify_portable_archive(Path(sys.argv[1]), sys.argv[2], sys.argv[3])" $env:RELEASE_ZIP $expectedEntry $checksumRows[$portableName]
           if ($LASTEXITCODE -ne 0) { throw "Portable release archive executable validation failed" }
+
+      - name: Attest release build provenance
+        if: env.PUBLISH_RELEASE == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            ${{ env.RELEASE_EXE }}
+            ${{ env.RELEASE_MSI }}
+            ${{ env.RELEASE_ZIP }}
 
       - name: Prepare release notes
         if: startsWith(github.ref, 'refs/tags/') || inputs.publish == true
@@ -392,8 +335,10 @@ jobs:
   publish:
     if: startsWith(github.ref, 'refs/tags/') || inputs.publish == true
     needs: package
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 20
+    # The release environment requires maintainer approval and allows only main and v* tags.
+    environment: release
     concurrency:
       group: publish-release
       cancel-in-progress: false
@@ -409,6 +354,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          # The release-tag step pushes with these credentials; this job uploads no artifacts.
+          persist-credentials: true # zizmor: ignore[artipacked]
 
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
@@ -424,86 +371,9 @@ jobs:
           "RELEASE_TAG=v$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           gh run download $env:GITHUB_RUN_ID --name "package-$version" --dir dist/release-assets
 
-      - name: Create release tag for manual publication
-        if: github.event_name == 'workflow_dispatch' && inputs.publish == true
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $PSNativeCommandUseErrorActionPreference = $true
-          $tagRef = "refs/tags/$env:RELEASE_TAG"
-
-          function Get-RemoteTagCommit {
-            $lines = @(git ls-remote origin $tagRef "${tagRef}^{}")
-            if ($LASTEXITCODE -ne 0) {
-              throw "Unable to inspect remote release tag $env:RELEASE_TAG"
-            }
-            $direct = $null
-            foreach ($line in $lines) {
-              $parts = $line -split "\s+"
-              if ($parts.Count -lt 2) { continue }
-              if ($parts[1] -eq "${tagRef}^{}") { return $parts[0] }
-              if ($parts[1] -eq $tagRef) { $direct = $parts[0] }
-            }
-            return $direct
-          }
-
-          $remoteCommit = Get-RemoteTagCommit
-          if ($remoteCommit) {
-            if ($remoteCommit -ne $env:GITHUB_SHA) {
-              throw "Remote release tag $env:RELEASE_TAG already points to $remoteCommit; expected $env:GITHUB_SHA"
-            }
-            Write-Output "Remote release tag $env:RELEASE_TAG already points to $env:GITHUB_SHA"
-            exit 0
-          }
-
-          $localTag = git tag --list $env:RELEASE_TAG
-          if ($localTag -eq $env:RELEASE_TAG) {
-            $localCommit = git rev-list -n 1 "refs/tags/$env:RELEASE_TAG^{commit}"
-            if ($LASTEXITCODE -ne 0 -or -not $localCommit) {
-              throw "Unable to resolve local release tag $env:RELEASE_TAG"
-            }
-            if ($localCommit -ne $env:GITHUB_SHA) {
-              throw "Local release tag $env:RELEASE_TAG already points to $localCommit; expected $env:GITHUB_SHA"
-            }
-          } else {
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git tag -a $env:RELEASE_TAG -m "Release $env:RELEASE_TAG" $env:GITHUB_SHA
-          }
-
-          $PSNativeCommandUseErrorActionPreference = $false
-          git push origin $env:RELEASE_TAG
-          if ($LASTEXITCODE -ne 0) {
-            $remoteCommit = Get-RemoteTagCommit
-            if ($remoteCommit -ne $env:GITHUB_SHA) {
-              throw "Unable to publish release tag $env:RELEASE_TAG at $env:GITHUB_SHA"
-            }
-            Write-Output "Release tag $env:RELEASE_TAG was created concurrently at $env:GITHUB_SHA"
-          }
-
-      - name: Verify release tag before publication
+      - name: Create or verify the release tag
         if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish == true)
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $PSNativeCommandUseErrorActionPreference = $true
-          $tagRef = "refs/tags/$env:RELEASE_TAG"
-          $lines = @(git ls-remote origin $tagRef "${tagRef}^{}")
-          if ($LASTEXITCODE -ne 0) {
-            throw "Unable to inspect remote release tag $env:RELEASE_TAG before publication"
-          }
-          $direct = $null
-          $peeled = $null
-          foreach ($line in $lines) {
-            $parts = $line -split "\s+"
-            if ($parts.Count -lt 2) { continue }
-            if ($parts[1] -eq "${tagRef}^{}") { $peeled = $parts[0] }
-            if ($parts[1] -eq $tagRef) { $direct = $parts[0] }
-          }
-          $remoteCommit = if ($peeled) { $peeled } else { $direct }
-          if ($remoteCommit -ne $env:GITHUB_SHA) {
-            throw "Remote release tag $env:RELEASE_TAG points to $remoteCommit; expected $env:GITHUB_SHA"
-          }
+        run: python tools/phase4/release_gate.py release-tag
 
       - name: Publish and verify GitHub release
         run: python tools/phase4/publish_release.py --repo $env:GITHUB_REPOSITORY --tag $env:RELEASE_TAG --commit $env:GITHUB_SHA --assets dist/release-assets

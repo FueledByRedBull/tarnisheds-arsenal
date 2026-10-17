@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { defaultRequest, useDesktopStore } from "./state";
-import { buildOptimizeRequest, normalizeOptimizeRequest } from "./session";
+import { defaultRequest, persistProfileQueries, useDesktopStore } from "./state";
+import { applyProfileRules, buildOptimizeRequest } from "./session";
 import { parsePresetText } from "./presets";
 import { api } from "./api";
 import { STARTING_CLASS_METADATA } from "./session";
+import { solvedBuild } from "./test-fixtures";
 import type { CatalogDto, SolvedBuildDto } from "./types";
 
 it.each(["paths", "affinity_watch"] as const)("starting %s clears its previous outcome without hiding other notices", (scope) => {
@@ -24,29 +25,7 @@ it.each(["paths", "affinity_watch"] as const)("starting %s clears its previous o
   ]);
 });
 
-const row: SolvedBuildDto = {
-  weaponId: 1,
-  weaponName: "Uchigatana",
-  affinity: "Keen",
-  isSomber: false,
-  upgrade: 25,
-  stats: { strStat: 18, dex: 40, intStat: 9, fai: 8, arc: 8 },
-  ar: { physical: 500, magic: 0, fire: 0, lightning: 0, holy: 0, total: 500 },
-  aowId: 100,
-  aowName: "Unsheathe",
-  bleedBuildup: 45,
-  bleedBuildupAdd: 0,
-  frostBuildup: 0,
-  poisonBuildup: 0,
-  scarletRotBuildup: 0,
-  sleepBuildup: 0,
-  madnessBuildup: 0,
-  deathBuildup: 0,
-  aowFirstHitDamage: 300,
-  aowFullSequenceDamage: 300,
-  aowRoute: null,
-  score: 500,
-};
+const row = solvedBuild();
 
 const routeRow: SolvedBuildDto = {
   ...row,
@@ -73,6 +52,9 @@ const routeRow: SolvedBuildDto = {
     totalStaminaCost: 10,
   },
 };
+
+const settingsNotice = "Recomputed your pinned comparison builds on current game data using your current class, two-handing,"
+  + " blessing and DLC scaling settings.";
 
 function restoreCompareRows(rows: unknown[], profile = catalog("vanilla")) {
   const payload = JSON.stringify({
@@ -124,6 +106,16 @@ describe("desktop result lifecycle", () => {
     expect(changed.resultsStale).toBe(true);
   });
 
+  it("keeps a Paths run when the comparison target is set to the same build", () => {
+    useDesktopStore.getState().setCompareTarget(row);
+    useDesktopStore.setState({ isPathBusy: true, activePathJobId: "running" });
+    const before = useDesktopStore.getState();
+    before.setCompareTarget({ ...row });
+    expect(useDesktopStore.getState()).toBe(before);
+    before.setCompareTarget({ ...row, upgrade: row.upgrade - 1 });
+    expect(useDesktopStore.getState()).toMatchObject({ isPathBusy: false, activePathJobId: null, pathGeneration: before.pathGeneration + 1 });
+  });
+
   it("marks replacement rows current after a successful search", () => {
     const state = useDesktopStore.getState();
     state.setRows([row], 1);
@@ -132,9 +124,6 @@ describe("desktop result lifecycle", () => {
 
     useDesktopStore.getState().setRows([{ ...row, score: 510 }], 42);
     expect(useDesktopStore.getState()).toMatchObject({ resultsStale: false, rowsSetups: 42 });
-
-    useDesktopStore.getState().clearResults();
-    expect(useDesktopStore.getState().rowsSetups).toBeNull();
   });
 
   it("keeps saved comparisons and analysis ownership until the selected build changes", () => {
@@ -160,7 +149,7 @@ describe("desktop result lifecycle", () => {
     expect(changed.isPathBusy).toBe(false);
   });
 
-  it.each(["draft edit", "replacement search"])("invalidates analysis ownership and retained results on %s", (action) => {
+  it.each(["committed edit", "replacement search"])("invalidates analysis ownership and retained results on %s", (action) => {
     const state = useDesktopStore.getState();
     state.setRows([row], 1);
     state.setCompareTarget(row);
@@ -171,7 +160,7 @@ describe("desktop result lifecycle", () => {
     state.setPaths([{ title: "Selected", solved: row, steps: [] }], "old-path");
     state.setAffinityPayload({ lines: [], breakpoints: [] }, "old-affinity");
     const before = useDesktopStore.getState();
-    if (action === "draft edit") state.markResultsStale();
+    if (action === "committed edit") state.patchRequest({ topK: 30 });
     else state.beginSearch("new-search");
     const after = useDesktopStore.getState();
     expect(after.pathGeneration).toBeGreaterThan(before.pathGeneration);
@@ -236,6 +225,14 @@ describe("desktop result lifecycle", () => {
     });
   });
 
+  it("refuses a ninth pin with a notice and keeps the first eight", () => {
+    useDesktopStore.setState({ catalog: null, compareBench: [], notices: [] });
+    const rows = Array.from({ length: 9 }, (_, index) => ({ ...row, weaponId: index + 1 }));
+    for (const entry of rows) useDesktopStore.getState().toggleCompareBench(entry);
+    expect(useDesktopStore.getState().compareBench).toEqual(rows.slice(0, 8));
+    expect(useDesktopStore.getState().notices.at(-1)?.message).toBe("Compare holds 8 pinned builds. Unpin one before pinning another.");
+  });
+
   it("records recoverable catalog loading failures", () => {
     const state = useDesktopStore.getState();
     state.setCatalogFailure("manifest checksum mismatch");
@@ -251,12 +248,15 @@ describe("desktop result lifecycle", () => {
     });
   });
 
-  it("restores pinned rows only for the same profile, schema, dataset and model", () => {
+  it("restores pinned rows directly only for the same profile, schema, dataset and model and recomputes others", async () => {
     const values = new Map<string, string>();
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => values.get(key) ?? null,
       setItem: (key: string, value: string) => values.set(key, value),
     });
+    const recomputed = { ...row, ar: { ...row.ar, total: 501 }, score: 501 };
+    const solve = vi.spyOn(api, "solveBuild").mockResolvedValue(recomputed);
+    const messages = () => useDesktopStore.getState().notices.map((notice) => notice.message);
     try {
       const profile = catalog("vanilla");
       useDesktopStore.setState({ compareBench: [] });
@@ -264,18 +264,133 @@ describe("desktop result lifecycle", () => {
       useDesktopStore.getState().toggleCompareBench(row);
       useDesktopStore.getState().setCatalog(structuredClone(profile));
       expect(useDesktopStore.getState().compareBench).toEqual([row]);
+      expect(solve).not.toHaveBeenCalled();
       for (const change of [{ schemaVersion: 5 }, { datasetVersion: "next" }, { modelVersion: "next" }]) {
-        useDesktopStore.getState().setCatalog({ ...profile, dataManifest: { ...profile.dataManifest, ...change } });
+        useDesktopStore.setState({ notices: [] });
+        const next = { ...profile, dataManifest: { ...profile.dataManifest, ...change } };
+        useDesktopStore.getState().setCatalog(next);
+        // Saved numbers are never shown while the pins are recalculated.
         expect(useDesktopStore.getState().compareBench).toEqual([]);
+        expect(messages()).toEqual(["Recomputing your pinned comparison builds on current game data..."]);
+        await vi.waitFor(() => expect(useDesktopStore.getState().compareBench).toEqual([recomputed]));
+        expect(messages()).toEqual([settingsNotice]);
+        expect(JSON.parse(values.get("tarnisheds-arsenal.compareBench.v1.vanilla")!)).toMatchObject({
+          schemaVersion: next.dataManifest.schemaVersion, datasetVersion: next.dataManifest.datasetVersion,
+          modelVersion: next.dataManifest.modelVersion, rows: [recomputed],
+        });
       }
+      expect(solve).toHaveBeenLastCalledWith(expect.objectContaining({ exactUpgrade: true, lockDex: 40, standardMaxUpgrade: 25 }),
+        row.weaponName, row.affinity, row.aowName, expect.any(AbortSignal));
       useDesktopStore.getState().setCatalog(catalog("convergence"));
       expect(useDesktopStore.getState().compareBench).toEqual([]);
+      // A pin the current data cannot recalculate is dropped; the others are kept.
       values.set("tarnisheds-arsenal.compareBench.v1.vanilla", JSON.stringify({
-        version: 1, datasetVersion: profile.dataManifest.datasetVersion, rows: [row],
+        version: 1, datasetVersion: profile.dataManifest.datasetVersion, rows: [row, { ...row, weaponName: "Removed" }],
       }));
+      solve.mockImplementation(async (_base, weaponName) => weaponName === "Removed" ? null : recomputed);
+      useDesktopStore.setState({ notices: [] });
       useDesktopStore.getState().setCatalog(profile);
       expect(useDesktopStore.getState().compareBench).toEqual([]);
+      await vi.waitFor(() => expect(useDesktopStore.getState().compareBench).toEqual([recomputed]));
+      expect(messages()).toEqual([`${settingsNotice} 1 could not be recomputed and was removed.`]);
+      expect(JSON.parse(values.get("tarnisheds-arsenal.compareBench.v1.vanilla")!).rows).toEqual([recomputed]);
     } finally {
+      solve.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("merges recalculated stored pins after pins changed meanwhile, within the pin limit", async () => {
+    const values = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    });
+    const stored = ["Alpha", "Beta", "Gamma"].map((weaponName) => ({ ...row, weaponName }));
+    values.set("tarnisheds-arsenal.compareBench.v1.vanilla", JSON.stringify({
+      version: 1, datasetVersion: "old", schemaVersion: 4, modelVersion: "old", rows: [row, ...stored],
+    }));
+    const solve = vi.spyOn(api, "solveBuild").mockImplementation(async (_base, weaponName) => ({ ...row, weaponName, score: 600 }));
+    try {
+      useDesktopStore.setState({ compareBench: [], notices: [] });
+      useDesktopStore.getState().setCatalog(catalog("vanilla"));
+      // Six new pins, one of them the same build as a stored pin, leave room for two of the other three.
+      const pinned = [row, ...Array.from({ length: 5 }, (_, index) => ({ ...row, weaponId: index + 10 }))];
+      for (const entry of pinned) useDesktopStore.getState().toggleCompareBench(entry);
+      await vi.waitFor(() => expect(useDesktopStore.getState().compareBench).toHaveLength(8));
+      const expected = [...pinned, ...stored.slice(0, 2).map((entry) => ({ ...entry, score: 600 }))];
+      expect(useDesktopStore.getState().compareBench).toEqual(expected);
+      expect(useDesktopStore.getState().notices.at(-1)).toMatchObject({ tone: "warning",
+        message: `${settingsNotice} 1 did not fit the 8-pin limit and was not restored.` });
+      expect(JSON.parse(values.get("tarnisheds-arsenal.compareBench.v1.vanilla")!)).toMatchObject({ datasetVersion: "vanilla-test", rows: expected });
+    } finally {
+      solve.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("discards a stored pin recalculation when the profile switches", async () => {
+    const profile = catalog("vanilla");
+    const stored = JSON.stringify({ version: 1, datasetVersion: "old", schemaVersion: 4, modelVersion: "old", rows: [row] });
+    const setItem = vi.fn();
+    vi.stubGlobal("localStorage", { getItem: () => stored, setItem });
+    let finish!: (value: SolvedBuildDto) => void;
+    const solve = vi.spyOn(api, "solveBuild").mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    try {
+      useDesktopStore.setState({ compareBench: [], notices: [] });
+      useDesktopStore.getState().setCatalog(profile);
+      await vi.waitFor(() => expect(solve).toHaveBeenCalledTimes(1));
+      useDesktopStore.getState().beginProfileSwitch("convergence");
+      expect((solve.mock.calls[0][4] as AbortSignal).aborted).toBe(true);
+      finish(row);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      expect(useDesktopStore.getState().compareBench).toEqual([]);
+      expect(useDesktopStore.getState().notices.some((notice) => notice.message.startsWith("Recomput"))).toBe(false);
+      expect(setItem).not.toHaveBeenCalledWith("tarnisheds-arsenal.compareBench.v1.vanilla", expect.anything());
+    } finally {
+      solve.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("keeps a comparison target restored while stored pins are recalculated", async () => {
+    const stored = JSON.stringify({ version: 1, datasetVersion: "old", schemaVersion: 4, modelVersion: "old", rows: [row] });
+    vi.stubGlobal("localStorage", { getItem: () => stored, setItem: vi.fn() });
+    let finish!: (value: SolvedBuildDto) => void;
+    const solve = vi.spyOn(api, "solveBuild").mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    const target = { ...row, weaponName: "Saved target" };
+    try {
+      useDesktopStore.setState({ compareBench: [], notices: [] });
+      useDesktopStore.getState().setCatalog(catalog("vanilla"));
+      await vi.waitFor(() => expect(solve).toHaveBeenCalledTimes(1));
+      // A saved build without pins restores its target while the recalculation runs.
+      useDesktopStore.setState({ compareTarget: target, restoredCompareTarget: target });
+      finish(row);
+      await vi.waitFor(() => expect(useDesktopStore.getState().compareBench).toEqual([row]));
+      expect(useDesktopStore.getState().compareTarget).toBe(target);
+      expect(useDesktopStore.getState().restoredCompareTarget).toBe(target);
+    } finally {
+      solve.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("clearing pins cancels the stored pin recalculation", async () => {
+    const stored = JSON.stringify({ version: 1, datasetVersion: "old", schemaVersion: 4, modelVersion: "old", rows: [row] });
+    vi.stubGlobal("localStorage", { getItem: () => stored, setItem: vi.fn() });
+    let finish!: (value: SolvedBuildDto) => void;
+    const solve = vi.spyOn(api, "solveBuild").mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    try {
+      useDesktopStore.setState({ compareBench: [], notices: [] });
+      useDesktopStore.getState().setCatalog(catalog("vanilla"));
+      await vi.waitFor(() => expect(solve).toHaveBeenCalledTimes(1));
+      useDesktopStore.getState().clearCompareBench();
+      expect((solve.mock.calls[0][4] as AbortSignal).aborted).toBe(true);
+      finish(row);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      expect(useDesktopStore.getState().compareBench).toEqual([]);
+    } finally {
+      solve.mockRestore();
       vi.unstubAllGlobals();
     }
   });
@@ -524,12 +639,44 @@ describe("desktop result lifecycle", () => {
     expect(fixed.characterLevel).toBe(request.vig + request.mnd + request.end + 1 + 99 + request.intStat + request.fai + request.arc);
     useDesktopStore.getState().setWorkspace("paths");
     expect(useDesktopStore.getState().activeWorkspace).toBe("rankings");
-    expect(normalizeOptimizeRequest({ ...request, somberMaxUpgrade: 15 }, request, profile.dataManifest.rules).somberMaxUpgrade).toBe(15);
+    expect(applyProfileRules({ ...request, somberMaxUpgrade: 15 }, profile.dataManifest.rules).somberMaxUpgrade).toBe(15);
     await useDesktopStore.getState().loadBuildPreset({ version: 2, id: "old-profile", name: "Old profile inputs",
       profileId: "convergence", request: { ...request, className: "Custom stats", somberMaxUpgrade: 15 },
       selectedBuild: null, compareTarget: null, compareBench: [], dataVersion: "old",
       createdAt: "2026-01-01", updatedAt: "2026-01-01" });
     expect(useDesktopStore.getState().request).toMatchObject({ className: "Custom stats", strStat: 1, dex: 99, somberMaxUpgrade: 15 });
+  });
+
+  it("loads a stored Convergence Custom stats build next to the mod's classes and keeps it exact", async () => {
+    const profile = catalog("convergence");
+    profile.dataManifest.capabilities.classBudget = true;
+    profile.classes = [
+      { name: "Retainer", baseLevel: 9, baseTotal: 88,
+        baseStats: { vig: 15, mnd: 10, end: 11, strStat: 14, dex: 13, intStat: 9, fai: 9, arc: 7 } },
+      { name: "Custom stats", baseLevel: 0, baseTotal: 0,
+        baseStats: { vig: 0, mnd: 0, end: 0, strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 } },
+    ];
+    useDesktopStore.getState().setCatalog(profile);
+    expect(useDesktopStore.getState().request.className).toBe("Retainer");
+    const stored = { ...defaultRequest, profileId: "convergence", className: "Custom stats",
+      vig: 20, mnd: 20, end: 20, strStat: 40, dex: 40, intStat: 40, fai: 20, arc: 20,
+      characterLevel: 220, standardMaxUpgrade: 15, somberMaxUpgrade: 15 };
+    await useDesktopStore.getState().loadBuildPreset({ version: 2, id: "custom", name: "Custom stats build",
+      profileId: "convergence", request: stored, selectedBuild: null, compareTarget: null, compareBench: [],
+      dataVersion: "old", createdAt: "2026-01-01", updatedAt: "2026-01-01" });
+    const loaded = useDesktopStore.getState().request;
+    expect(loaded).toMatchObject({ className: "Custom stats", strStat: 40, dex: 40, intStat: 40, fai: 20, arc: 20 });
+    // The native solve receives the same exact budget as before classes existed.
+    expect(buildOptimizeRequest(profile, loaded)).toMatchObject({ characterLevel: 220,
+      lockStr: 40, lockDex: 40, lockInt: 40, lockFai: 20, lockArc: 20 });
+    useDesktopStore.getState().setWorkspace("paths");
+    expect(useDesktopStore.getState().activeWorkspace).toBe("rankings");
+
+    useDesktopStore.getState().applyClass("Retainer");
+    expect(useDesktopStore.getState().request).toMatchObject({ className: "Retainer", characterLevel: 9, strStat: 14 });
+    useDesktopStore.getState().patchRequest({ strStat: 30 });
+    useDesktopStore.getState().applyClass("Custom stats");
+    expect(useDesktopStore.getState().request).toMatchObject({ className: "Custom stats", strStat: 30, characterLevel: 104 });
   });
 });
 
@@ -545,6 +692,36 @@ describe("saved result activation boundary", () => {
       dataVersion: `vanilla:${manifest.schemaVersion}:${manifest.datasetVersion}:${manifest.modelVersion}`,
       createdAt: "2026-01-01", updatedAt: "2026-01-01" }));
   }
+
+  it("keeps current pins when the loaded build has none and drops unknown request fields", async () => {
+    const preset = activationPreset();
+    Object.assign(preset.request, { extension: "x".repeat(1000) });
+    Object.assign(preset.request.filters, { extension: true });
+    useDesktopStore.setState({ compareBench: [row] });
+    await useDesktopStore.getState().loadBuildPreset(preset);
+    const state = useDesktopStore.getState();
+    expect(state.compareBench).toEqual([row]);
+    expect(Object.keys(state.request).sort()).toEqual(Object.keys(defaultRequest).sort());
+    expect(state.request.filters).toEqual({ version: 1, entries: [] });
+  });
+
+  it("replaces current pins with a loaded build's pins and says so", async () => {
+    const preset = activationPreset();
+    const pinned = { ...row, weaponId: 2 };
+    preset.compareBench = [pinned];
+    useDesktopStore.setState({ compareBench: [row] });
+    vi.stubGlobal("localStorage", { setItem: vi.fn() });
+    const solve = vi.spyOn(api, "solveBuild").mockResolvedValue(pinned);
+    try {
+      await useDesktopStore.getState().loadBuildPreset(preset);
+      expect(useDesktopStore.getState().compareBench).toEqual([pinned]);
+      expect(useDesktopStore.getState().notices[0].message).toBe(
+        "Loaded Activation; saved results verified on current data. Its pinned builds replaced the 1 you had pinned.");
+    } finally {
+      solve.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
 
   it.each(["Unknown", "Obsolete class"])("rejects %s before changing state or storage", async (className) => {
     const preset = activationPreset(className);
@@ -589,6 +766,39 @@ describe("saved result activation boundary", () => {
     } finally { solve.mockRestore(); }
   });
 
+  it("recomputes a build saved on other game data instead of loading inputs only", async () => {
+    const preset = activationPreset();
+    preset.dataVersion = "vanilla:4:old:old";
+    preset.selectedBuild = { ...row, ar: { ...row.ar, total: 999999 } };
+    const solve = vi.spyOn(api, "solveBuild").mockResolvedValue(row);
+    try {
+      await useDesktopStore.getState().loadBuildPreset(preset);
+      expect(useDesktopStore.getState()).toMatchObject({ selected: row, rows: [row] });
+      expect(useDesktopStore.getState().notices.map(notice => notice.message)).toEqual([
+        "Loaded Activation; results recomputed on current game data (saved on vanilla:4:old:old)."]);
+    } finally { solve.mockRestore(); }
+  });
+
+  it("loads inputs only when a build saved on other game data cannot be recomputed", async () => {
+    const preset = activationPreset();
+    preset.dataVersion = "vanilla:4:old:old";
+    preset.request.dex = 30;
+    preset.selectedBuild = { ...row, weaponName: "Removed weapon" };
+    const write = vi.fn();
+    vi.stubGlobal("localStorage", { setItem: write });
+    const solve = vi.spyOn(api, "solveBuild").mockResolvedValue(null);
+    try {
+      await expect(useDesktopStore.getState().loadBuildPreset(preset)).rejects.toThrow(/cannot be verified/);
+      expect(useDesktopStore.getState()).toMatchObject({ selected: null, rows: [], request: { dex: 30 } });
+      expect(useDesktopStore.getState().notices.map(notice => notice.message)).toEqual([
+        "Saved results could not be verified. Inputs are loaded; the original saved record is unchanged."]);
+      expect(write).not.toHaveBeenCalled();
+    } finally {
+      solve.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("never publishes supplied results while verification is pending or after context changes", async () => {
     const preset = activationPreset();
     preset.selectedBuild = row;
@@ -625,10 +835,7 @@ describe("saved result activation boundary", () => {
 
 function catalog(profileId: string): CatalogDto {
   return {
-    weaponCount: 1,
-    aowCount: 1,
     weaponNames: ["Uchigatana"],
-    weaponTypeKeys: ["katana"],
     classes: Object.values(STARTING_CLASS_METADATA),
     weaponTypeOptions: [{ key: "katana", label: "Katana" }],
     aowNames: ["Unsheathe"],
@@ -644,9 +851,6 @@ function catalog(profileId: string): CatalogDto {
       label: profileId,
       appVersion: "1.16.1",
       source: "test",
-      generatedAt: "2026-07-16",
-      extractorVersion: "test",
-      provenance: "test",
       profile: {
         id: profileId,
         displayName: profileId,
@@ -655,11 +859,7 @@ function catalog(profileId: string): CatalogDto {
       },
       capabilities: {
         classBudget: true,
-        weaponArForAmmunition: true,
-        weaponAr: true,
         statusBuildup: true,
-        weaponPassives: true,
-        aowCompatibility: true,
         aowDamage: profileId === "vanilla",
         aowRoutes: profileId === "vanilla",
       },
@@ -670,8 +870,105 @@ function catalog(profileId: string): CatalogDto {
         scadutreeScaling: profileId !== "convergence",
         zeroAttackElementUsesWeaponScaling: profileId === "convergence",
         extendedScalingGrades: profileId === "convergence",
-        statusBuildupScales: profileId !== "convergence",
       },
     },
   };
 }
+
+describe("saved profile queries", () => {
+  function memoryStorage() {
+    const values = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    });
+    return values;
+  }
+
+  it("restores a profile's valid saved query at startup and discards an invalid or other-profile one", () => {
+    const values = memoryStorage();
+    try {
+      values.set("tarnisheds-arsenal.query.v1.vanilla", JSON.stringify({
+        version: 1, request: { ...defaultRequest, dex: 30, extension: "dropped" }, lockedStatMode: true,
+      }));
+      values.set("tarnisheds-arsenal.query.v1.convergence", JSON.stringify({
+        version: 1, request: { ...defaultRequest, profileId: "vanilla" }, lockedStatMode: false,
+      }));
+      useDesktopStore.setState({ catalog: null, profiles: [], request: defaultRequest, profileQueries: {}, notices: [] });
+      useDesktopStore.getState().beginProfileSwitch("vanilla");
+      const restored = useDesktopStore.getState();
+      expect(restored.request.dex).toBe(30);
+      expect(restored.request).not.toHaveProperty("extension");
+      expect(restored.lockedStatMode).toBe(true);
+
+      useDesktopStore.getState().beginProfileSwitch("convergence");
+      const other = useDesktopStore.getState();
+      expect(other.request.profileId).toBe("convergence");
+      expect(values.has("tarnisheds-arsenal.query.v1.convergence")).toBe(false);
+      expect(other.notices.map((notice) => notice.message)).toContain("Your saved convergence query could not be read and was discarded.");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("discards a saved query whose class could not render before its catalog loads", () => {
+    const values = memoryStorage();
+    try {
+      values.set("tarnisheds-arsenal.query.v1.vanilla", JSON.stringify({
+        version: 1, request: { ...defaultRequest, className: "Unexpected broken state" }, lockedStatMode: false,
+      }));
+      useDesktopStore.setState({ catalog: null, profiles: [], request: defaultRequest, profileQueries: {}, notices: [] });
+      useDesktopStore.getState().beginProfileSwitch("vanilla");
+      expect(useDesktopStore.getState().request.className).toBe(defaultRequest.className);
+      expect(values.has("tarnisheds-arsenal.query.v1.vanilla")).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("round-trips a Custom stats query through storage", () => {
+    const values = memoryStorage();
+    const profile = catalog("convergence");
+    profile.dataManifest.capabilities.classBudget = false;
+    profile.classes = [{ name: "Custom stats", baseLevel: 0, baseTotal: 0,
+      baseStats: { vig: 0, mnd: 0, end: 0, strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 } }];
+    const stop = persistProfileQueries();
+    try {
+      useDesktopStore.setState({ catalog: null, catalogStatus: "loading", profiles: [profile.dataManifest],
+        request: defaultRequest, profileQueries: {}, notices: [] });
+      useDesktopStore.getState().beginProfileSwitch("convergence");
+      useDesktopStore.getState().setCatalog(profile);
+      useDesktopStore.getState().patchRequest({ twoHanding: true, dex: 40 });
+    } finally {
+      stop();
+    }
+    try {
+      useDesktopStore.setState({ catalog: null, catalogStatus: "loading", request: defaultRequest, profileQueries: {}, notices: [] });
+      useDesktopStore.getState().beginProfileSwitch("convergence");
+      const restored = useDesktopStore.getState();
+      expect(restored.notices.map((notice) => notice.tone)).not.toContain("warning");
+      expect(restored.request).toMatchObject({ profileId: "convergence", className: "Custom stats", twoHanding: true, dex: 40 });
+      expect(values.has("tarnisheds-arsenal.query.v1.convergence")).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("saves only the loaded profile's query", () => {
+    const values = memoryStorage();
+    const stop = persistProfileQueries();
+    try {
+      useDesktopStore.setState({ catalog: null, catalogStatus: "loading", request: defaultRequest, profileQueries: {} });
+      useDesktopStore.getState().setCatalog(catalog("vanilla"));
+      useDesktopStore.getState().patchRequest({ dex: 31 });
+      expect(JSON.parse(values.get("tarnisheds-arsenal.query.v1.vanilla")!).request.dex).toBe(31);
+      useDesktopStore.getState().beginProfileSwitch("convergence");
+      expect(values.has("tarnisheds-arsenal.query.v1.convergence")).toBe(false);
+      expect(JSON.parse(values.get("tarnisheds-arsenal.query.v1.vanilla")!).request.dex).toBe(31);
+    } finally {
+      stop();
+      vi.unstubAllGlobals();
+    }
+  });
+});

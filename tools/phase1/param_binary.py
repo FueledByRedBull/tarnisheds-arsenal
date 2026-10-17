@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 import struct
 from dataclasses import dataclass
@@ -27,6 +28,15 @@ _KIND_FORMATS: dict[str, tuple[str, int]] = {
     "f32": ("f", 4),
     "dummy8": ("B", 1),
 }
+# Serialized params are about 10 MB; the cap only bounds memory for a wrong input file.
+MAX_XML_BYTES = 128 * 1024 * 1024
+
+
+def checked_xml_size(path: Path) -> Path:
+    size = path.stat().st_size
+    if size > MAX_XML_BYTES:
+        raise ValueError(f"XML input exceeds {MAX_XML_BYTES} bytes ({size}): {path}")
+    return path
 
 
 @dataclass(frozen=True)
@@ -66,7 +76,7 @@ def _is_removed(field: ET.Element) -> bool:
 
 
 def load_param_definition(path: Path) -> ParamDefinition:
-    root = ET.parse(path).getroot()
+    root = ET.parse(checked_xml_size(path)).getroot()
     param_type = _child_text(root, "ParamType")
     if not param_type:
         raise ValueError(f"Paramdex definition has no ParamType: {path}")
@@ -161,7 +171,10 @@ def _unpack_field(
     if field.kind == "dummy8":
         return data[field_offset : field_offset + field.array_length]
     if field.array_length == 1:
-        return struct.unpack_from(f"{endian}{format_code}", data, field_offset)[0]
+        value = struct.unpack_from(f"{endian}{format_code}", data, field_offset)[0]
+        if field.kind == "f32" and not math.isfinite(value):
+            raise ValueError(f"non-finite PARAM field {field.name}={value}")
+        return value
     values = struct.unpack_from(
         f"{endian}{field.array_length}{format_code}",
         data,

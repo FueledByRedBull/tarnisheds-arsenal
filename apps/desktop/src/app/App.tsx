@@ -1,9 +1,12 @@
-import { Activity, useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { Activity, useCallback, useDeferredValue, useEffect, useEffectEvent, useRef, useState } from "react";
 import { Check, CircleAlert, GitCompareArrows, Radar, RotateCcw, Route, Table2, X } from "lucide-react";
 import { api } from "../lib/api";
 import { setAnalysisCacheVersion } from "../lib/analysis-cache";
+import { WORKSPACES } from "../lib/commands";
 import { keyboardOwnedByOverlay } from "../lib/keyboard";
-import { useDesktopStore } from "../lib/state";
+import { catalogVersion } from "../lib/preset-activation";
+import { CUSTOM_STATS_CLASS } from "../lib/session";
+import { persistProfileQueries, useDesktopStore } from "../lib/state";
 import { WorkspaceTab } from "../lib/types";
 import { AffinityWatchView } from "../features/affinity-watch/AffinityWatchView";
 import { QueryStrip } from "../features/query-strip/QueryStrip";
@@ -15,15 +18,23 @@ import { SkeletonRows } from "../features/shared/SkeletonRows";
 import { EASE_OUT, reducedMotion } from "../lib/motion";
 import { RankingsBoard } from "../features/rankings/RankingsBoard";
 import { ReproductionReport } from "../features/shared/ReproductionReport";
+import { AppErrorBoundary } from "./AppErrorBoundary";
+import { aowModelSupported, errorMessage } from "../lib/format";
 
-const tabs: Array<{ id: WorkspaceTab; label: string; icon: typeof Table2 }> = [
-  { id: "rankings", label: "Rankings", icon: Table2 },
-  { id: "compare", label: "Compare", icon: GitCompareArrows },
-  { id: "paths", label: "Paths", icon: Route },
-  { id: "affinity_watch", label: "Affinity Watch", icon: Radar },
-];
+const TAB_ICONS: Record<WorkspaceTab, typeof Table2> = {
+  rankings: Table2, compare: GitCompareArrows, paths: Route, affinity_watch: Radar,
+};
+const tabs = WORKSPACES.map((workspace) => ({ ...workspace, icon: TAB_ICONS[workspace.id] }));
 
 const PROFILE_STORAGE_KEY = "tarnisheds-arsenal.gameProfile.v1";
+
+function readStoredProfile(): string | null {
+  try {
+    return localStorage.getItem(PROFILE_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
 
 // Hoisted so React reuses the same elements: fresh ones would re-render all four workspaces
 // on every tab switch.
@@ -47,6 +58,18 @@ export function App() {
   const [catalogAttempt, setCatalogAttempt] = useState(0);
   const profileGeneration = useRef(0);
 
+  useEffect(() => persistProfileQueries(), []);
+
+  // A promise nobody awaited still reaches the error strip instead of failing silently.
+  useEffect(() => {
+    const onRejection = (event: PromiseRejectionEvent) => {
+      if (event.reason instanceof DOMException && event.reason.name === "AbortError") return;
+      setError(errorMessage(event.reason));
+    };
+    window.addEventListener("unhandledrejection", onRejection);
+    return () => window.removeEventListener("unhandledrejection", onRejection);
+  }, [setError]);
+
   const loadProfile = useCallback(async (nextProfileId: string, generation = ++profileGeneration.current) => {
     const before = useDesktopStore.getState();
     const activeJobs = [
@@ -63,9 +86,7 @@ export function App() {
         generation !== profileGeneration.current ||
         useDesktopStore.getState().request.profileId !== nextProfileId
       ) return;
-      setAnalysisCacheVersion(
-        `${catalog.dataManifest.profile.id}:${catalog.dataManifest.schemaVersion}:${catalog.dataManifest.datasetVersion}:${catalog.dataManifest.modelVersion}`,
-      );
+      setAnalysisCacheVersion(catalogVersion(catalog));
       setCatalog(catalog);
       try {
         localStorage.setItem(PROFILE_STORAGE_KEY, nextProfileId);
@@ -74,7 +95,7 @@ export function App() {
       }
     } catch (err) {
       if (generation !== profileGeneration.current) return;
-      setCatalogFailure(err instanceof Error ? err.message : String(err));
+      setCatalogFailure(errorMessage(err));
     }
   }, [beginProfileSwitch, setCatalog, setCatalogFailure]);
 
@@ -99,24 +120,16 @@ export function App() {
       await loadProfile(initialProfile, generation);
     }).catch((err) => {
       if (generation !== profileGeneration.current) return;
-      setCatalogFailure(err instanceof Error ? err.message : String(err));
+      setCatalogFailure(errorMessage(err));
     });
     return () => {
       if (profileGeneration.current === generation) profileGeneration.current += 1;
     };
   }, [catalogAttempt, loadProfile, setCatalogFailure, setCatalogLoading, setProfiles]);
 
-  function readStoredProfile(): string | null {
-    try {
-      return localStorage.getItem(PROFILE_STORAGE_KEY);
-    } catch {
-      return null;
-    }
-  }
-
   const activeProfile = profiles.find((entry) => entry.profile.id === profileId) ?? null;
   const profileReady = catalogStatus === "ready";
-  const limitedAowModel = activeProfile && (!activeProfile.capabilities.aowDamage || !activeProfile.capabilities.aowRoutes);
+  const limitedAowModel = activeProfile && !aowModelSupported(activeProfile);
   const convergenceProfile = activeProfile?.profile.id === "convergence";
 
   const profileSwitch = (
@@ -125,9 +138,11 @@ export function App() {
               : ["ArrowLeft", "ArrowUp"].includes(event.key) ? -1 : 0;
             if (!direction || catalogStatus === "loading") return;
             event.preventDefault();
-            const index = (profiles.findIndex((profile) => profile.profile.id === profileId) + direction + profiles.length) % profiles.length;
-            event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')[index]?.focus();
-            void loadProfile(profiles[index].profile.id);
+            // Arrows only move focus; Enter or Space switches, because a switch cancels running
+            // work and replaces the results (manual activation, as the APG allows for costly radios).
+            const radios = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')];
+            const focused = Math.max(0, radios.indexOf(document.activeElement as HTMLButtonElement));
+            radios[(focused + direction + radios.length) % radios.length]?.focus();
           }}>
             {profiles.map((profile) => {
               const active = profile.profile.id === profileId;
@@ -159,30 +174,32 @@ export function App() {
             })}
           </div>
   );
-  const coverageStatus = profileReady ? (limitedAowModel ? "Experimental fixed-stat model" : "Snapshot loaded") : "Loading profile…";
+  const coverageStatus = profileReady ? (limitedAowModel ? "Experimental model" : "Snapshot loaded") : "Loading profile…";
+  // A healthy snapshot is the normal case: it is announced, not shown. Loading and the
+  // experimental model stay visible; the experimental notes sit behind the label.
   const profileCoverage = (
     <div
       className={`profile-coverage ${profileReady ? (limitedAowModel ? "limited" : "complete") : "loading"}`}
       role="status"
     >
-      <Popover
-        label="Model coverage and assumptions"
-        trigger={<strong>{coverageStatus}</strong>}
-        triggerLabel={`${coverageStatus}. Model coverage and assumptions`}
-        triggerTitle={profileReady ? "Validated snapshot loaded; available calculations follow its declared capabilities." : "Loading and validating the selected data snapshot."}
-        triggerClassName="coverage-token"
-        panelClassName="editor-panel coverage-panel"
-        disabled={!profileReady}
-      >
-        <div className="editor-body">
-          <strong>Model coverage and assumptions</strong>
-          <p className="editor-note">
-            {limitedAowModel
-              ? `${convergenceProfile ? "Convergence " : ""}base weapon fields are reference-checked; final AR and customization remain experimental. Enter exact stats: class budgets, Compare, Paths, and Affinity Watch are unavailable. Ammo weapons and AoW hit/route damage remain unsupported.`
-              : "Weapon AR, status buildup, and supported Ash routes are available. Profile capabilities do not guarantee every skill is modeled; check the selected build's model coverage. Buildup is not a prediction of status procs or damage after enemy defenses."}
-          </p>
-        </div>
-      </Popover>
+      {profileReady && !limitedAowModel ? <span className="sr-only">{coverageStatus}</span> : (
+        <Popover
+          label="Model coverage and assumptions"
+          trigger={<strong>{coverageStatus}</strong>}
+          triggerLabel={`${coverageStatus}. Model coverage and assumptions`}
+          triggerTitle={profileReady ? "Validated snapshot loaded; available calculations follow its declared capabilities." : "Loading and validating the selected data snapshot."}
+          triggerClassName="coverage-token"
+          panelClassName="editor-panel coverage-panel"
+          disabled={!profileReady}
+        >
+          <div className="editor-body">
+            <strong>Model coverage and assumptions</strong>
+            <p className="editor-note">
+              {convergenceProfile ? "Convergence " : ""}weapon AR, fixed status, classes, and Ash permissions are checked against the mod's regulation, not measured in game. Custom stats evaluates entered stats exactly, without Compare, Paths, or Affinity Watch. Ammo weapons and AoW hit/route damage remain unsupported.
+            </p>
+          </div>
+        </Popover>
+      )}
     </div>
   );
 
@@ -223,10 +240,10 @@ export function App() {
               <SkeletonRows count={9} />
             </div>
           ) : null}
-          {catalogStatus === "ready" ? <Workspaces /> : null}
+          {catalogStatus === "ready" ? <AppErrorBoundary panel="This workspace"><Workspaces /></AppErrorBoundary> : null}
         </div>
       </section>
-      <Inspector />
+      <AppErrorBoundary panel="Build Detail"><Inspector /></AppErrorBoundary>
     </main>
   );
 }
@@ -239,15 +256,17 @@ function WorkspaceTabs({ ready, classBudget }: { ready: boolean; classBudget: bo
   const selected = useDesktopStore((state) => state.selected);
   const resultsStale = useDesktopStore((state) => state.resultsStale);
   const pinnedCount = useDesktopStore((state) => state.compareBench.length);
+  const customStats = useDesktopStore((state) => state.request.className === CUSTOM_STATS_CLASS);
 
   const tabState = (id: WorkspaceTab) => {
     const requiresSelection = id !== "rankings" && (!selected || resultsStale);
-    const unsupportedBudget = id !== "rankings" && !classBudget;
+    const unsupportedBudget = id !== "rankings" && (!classBudget || customStats);
     return { requiresSelection, unsupportedBudget, disabled: !ready || requiresSelection || unsupportedBudget };
   };
   // Why the analysis tabs are unavailable, said once beside them rather than only on hover.
   const lockReason = !ready ? null
-    : !classBudget ? "Vanilla only: needs verified class budgets"
+    : !classBudget ? "Needs verified class budgets"
+      : customStats ? "Choose a class to unlock"
       : resultsStale && selected ? "Update results to unlock"
         : !selected ? "Search and select a build to unlock" : null;
 
@@ -267,6 +286,18 @@ function WorkspaceTabs({ ready, classBudget }: { ready: boolean; classBudget: bo
   const tabBar = useRef<HTMLElement>(null);
   const tabPill = useRef<HTMLSpanElement>(null);
   const pillPlaced = useRef(false);
+  // Only pointer switches slide: Ctrl+1-4, the palette and Enter on a tab place the pill at once.
+  const pointerInput = useRef(false);
+  useEffect(() => {
+    const onPointer = () => { pointerInput.current = true; };
+    const onKey = () => { pointerInput.current = false; };
+    window.addEventListener("pointerdown", onPointer, { capture: true, passive: true });
+    window.addEventListener("keydown", onKey, { capture: true, passive: true });
+    return () => {
+      window.removeEventListener("pointerdown", onPointer, { capture: true });
+      window.removeEventListener("keydown", onKey, { capture: true });
+    };
+  }, []);
   useEffect(() => {
     const bar = tabBar.current;
     const pill = tabPill.current;
@@ -280,7 +311,7 @@ function WorkspaceTabs({ ready, classBudget }: { ready: boolean; classBudget: bo
       const left = from.left - bar.getBoundingClientRect().left - bar.clientLeft;
       pill.style.width = `${active.offsetWidth}px`;
       pill.style.transform = `translateX(${active.offsetLeft}px)`;
-      if (slide && pillPlaced.current && from.width > 0 && !reducedMotion()) {
+      if (slide && pointerInput.current && pillPlaced.current && from.width > 0 && !reducedMotion()) {
         pill.getAnimations().forEach((animation) => animation.cancel());
         pill.animate(
           [{ transform: `translateX(${left}px) scaleX(${from.width / active.offsetWidth})` }, { transform: `translateX(${active.offsetLeft}px)` }],
@@ -317,7 +348,10 @@ function WorkspaceTabs({ ready, classBudget }: { ready: boolean; classBudget: bo
             aria-label={label}
             aria-current={activeWorkspace === id ? "page" : undefined}
             aria-keyshortcuts={`Control+${index + 1}`}
-            aria-describedby={disabled && lockReason ? "tab-lock-reason" : undefined}
+            aria-describedby={[
+              id === "compare" && pinnedCount ? "compare-pinned-count" : null,
+              disabled && lockReason ? "tab-lock-reason" : null,
+            ].filter(Boolean).join(" ") || undefined}
             onClick={() => setWorkspace(id)}
             title={unsupportedBudget ? "Requires verified profile class budgets" : requiresSelection ? `${label} requires a current selected ranking` : `${label} (Ctrl+${index + 1})`}
             disabled={disabled}
@@ -325,7 +359,10 @@ function WorkspaceTabs({ ready, classBudget }: { ready: boolean; classBudget: bo
             <Icon size={16} aria-hidden="true" />
             <span>{label}</span>
             {/* Keyed by the count so each pin replays the pop (styles.css). */}
-            {id === "compare" && pinnedCount ? <span className="tab-count" key={pinnedCount} aria-hidden="true">{pinnedCount}</span> : null}
+            {id === "compare" && pinnedCount ? <>
+              <span className="tab-count" key={pinnedCount} aria-hidden="true">{pinnedCount}</span>
+              <span className="sr-only" id="compare-pinned-count">{pinnedCount} pinned</span>
+            </> : null}
           </button>
         );
       })}
@@ -344,7 +381,7 @@ function WorkspaceNotices() {
     .filter((notice) => notice.scope === "global" || notice.scope === activeWorkspace)
     .map((notice) => [`${notice.scope}:${notice.tone}:${notice.message}`, notice]));
   return (
-    <div className="workspace-notices" role="status">
+    <div role="status">
       {[...shown].slice(-2).map(([key, notice]) => (
         <div className={`notice-strip ${notice.tone}`} key={key}>
           <span>{notice.message}</span>
@@ -359,7 +396,9 @@ function WorkspaceNotices() {
 // rendered and only skips layout and paint while hidden (RankingsBoard.tsx), because laying out
 // its 50 rows again took ~13 ms on every return to the tab.
 function Workspaces() {
-  const activeWorkspace = useDesktopStore((state) => state.activeWorkspace);
+  // Deferred, as is the Rankings flag: revealing a workspace (its render and effects, 11-13 ms
+  // for Compare) then runs after the key press in frame-sized slices instead of inside it.
+  const activeWorkspace = useDeferredValue(useDesktopStore((state) => state.activeWorkspace));
   return (
     <>
       {rankingsBoard}

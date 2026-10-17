@@ -22,8 +22,9 @@ Enemy defense, negation, resistance growth, and proc explosions are outside the
 model. Temporary effects are modeled only where explicitly supported; there is no
 general buff-stacking simulation. An unavailable value is not zero damage:
 skill metrics require a calculated route for that specific build, even when the
-profile supports skill damage. Missing routes display as unavailable and export
-blank values; a calculated route whose damage is zero retains that zero.
+profile supports skill damage. Missing routes export blank values and display as
+unavailable; when no shown result has a route, the skill metric is left out
+instead. A calculated route whose damage is zero retains that zero.
 
 ### Numerical contract and identity
 
@@ -36,7 +37,11 @@ recover original decimal precision or establish in-game accuracy. The
 arithmetic, tie order, and proof obligations.
 
 The current snapshot model is `aow-routes-effects-v9`; runtime results and caches
-use `aow-routes-effects-v9/exact-v3`. Storage schema and calculation semantics are
+use `aow-routes-effects-v9/exact-v3`. The bundled datasets are `vanilla-1.17-r3` and
+`convergence-3.0.0.1-r4`, written by extractor `phase1-python-v15-f32-shortest-floats`.
+Every snapshot float is the shortest decimal that parses to the `f32` nearest the
+extracted value, so loaded coefficients are exactly those `f32` values.
+Storage schema and calculation semantics are
 separate versions. The [extraction guide](../tools/phase1/README.md#snapshot-contract)
 owns the storage format and regeneration requirements. Incompatible saved results
 must be recalculated; reusable saved inputs are retained.
@@ -128,31 +133,70 @@ and its engine application still require verification.
 ## Convergence
 
 The **Convergence 3.0.0.1** profile is experimental and independent of Vanilla.
-A version-bound reference checks weapon availability, base attack, requirements,
-raw scaling, affinities, and base status. Final AR mechanics and customization
-legality still need independent verification.
+Its snapshot, `convergence-3.0.0.1-r4`, is extracted from the mod's own
+regulation. A version-bound reference checks weapon availability, base attack,
+requirements, raw scaling, affinities, base status, and the attack-element and
+correction-curve IDs each weapon uses. The pinned
+[T. Clark calculator](#checking-model-coverage), which ships the same mod data,
+agrees with every sampled weapon AR and status value. Neither check is an
+in-game measurement.
 
 | Capability | Behavior |
 | --- | --- |
-| Character | Exact **Custom stats**; their total is not a Rune Level |
+| Character | The mod's 27 starting classes and Rune Levels, from `CharaInitParam` rows listed by the character-creation menu, plus exact **Custom stats** |
 | Upgrades | One reinforcement path, `+0` through `+15` |
 | Scaling | Extended `S+`/`S++` grades; no Scadutree Blessing scaling |
-| Status | Fixed across stats and upgrades |
-| AoW damage / ammunition AR | Unavailable until mod-specific attack and route data is modeled |
-| Class optimization / Compare / Paths / Affinity Watch | Disabled until a version-pinned class catalog is verified |
+| Status | Fixed across stats and upgrades, as the data defines it |
+| AoW damage / ammunition AR | Unavailable: the regulation alone does not define them |
+| Class optimization / Compare / Paths / Affinity Watch | Available with a class; unavailable with Custom stats |
 
-For row-0 attack-element weapons, every declared nonzero attribute scaling applies
-to every nonzero damage component. `levelSyncCorrectId` is not applied as a player
-AR multiplier: the version-bound reference omits it. Missing tables or class rules
-are never filled with Vanilla data.
+**Custom stats** evaluates the entered stats exactly: its level is the
+eight-stat total, up to `8 × 99`, not a Rune Level, and every combat stat is
+locked to its entered value. Builds saved with it keep that budget. Vanilla offers
+only its own classes.
+
+What the regulation shows, and how the profile uses it:
+
+- **Attack elements.** Almost every Convergence weapon omits
+  `attackElementCorrectId` and takes the param default, row `16000` ("Universal
+  Scaling"), in which every attribute can scale every damage type. A few use row
+  `10000`. Row `0` is not used by any player weapon and is kept as raw data.
+- **Status.** The status correction curves default to curve `28`, which is zero
+  at every attribute value, so Arcane adds nothing to bleed, poison, sleep, or
+  madness even on affinities with Arcane scaling. No player reinforcement type
+  carries status upgrade offsets. Release validation fails if the profile's
+  fixed-status rule ever disagrees with these tables.
+- **Scaling grades.** `MenuValueTableParam` adds `S++` from a 225% and `S+` from a
+  200% scaling value above the Vanilla grades, which keep their thresholds.
+- **Classes.** Each class's level equals its attribute total minus 79, the same
+  Rune Level rule as Vanilla. Class names are the mod's own regulation row names;
+  the menu text table that displays them in game is not a local input.
+- **Level sync.** `levelSyncCorrectId` has the same values and distribution as in
+  Vanilla, where it only applies to multiplayer level sync, so it is not applied
+  as a player AR multiplier.
+- **Ash legality** follows the raw mounting, weapon-type, and affinity permissions;
+  the exhaustive raw-data check below covers every pair.
+- **AoW damage** needs the attacks each skill performs. `SwordArtsParam` holds no
+  attack IDs; skills reach `BehaviorParam_PC` and `AtkParam_Pc` only through
+  animation events (TAE) in the mod's character files, which are not a local
+  input. The Vanilla routes come from a workbook keyed to Vanilla attack IDs and
+  cannot be reused.
+- **Ammunition.** Convergence bows list the same base attack for all five damage
+  types, and each arrow's `AtkParam_Pc` row keeps only its own element. A bow-only
+  AR would add damage the bow never deals, and combining bow and arrow needs the
+  shot animation's attack and the engine's combination rule, neither of which the
+  regulation defines.
+
+Missing tables or class rules are never filled with Vanilla data.
 
 ## Known reference differences
 
 The pinned [T. Clark 1.17 calculator](https://github.com/ThomasJClark/elden-ring-weapon-calculator/tree/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a)
 uses JavaScript floating-point arithmetic and a small offset before truncating
 display values. Its live 1.17 calculator and [Tarnished.dev](https://www.tarnished.dev/weapon-calculator)
-both display the reference values below. `exact-v2` fixes the previous
-Bloodfiend's Fork (Keen) boundary disagreements in both handling modes:
+both display the reference values below. The Bloodfiend's Fork (Keen) boundary
+disagreements in both handling modes were fixed in `exact-v2`, and the current
+`exact-v3` scoring still matches:
 
 | Upgrade / Arcane | Current production floor | Reference floor |
 | --- | ---: | ---: |
@@ -170,27 +214,34 @@ In particular, raw attack-point status corrections and overlapping SpEffect
 payloads do not yet have an independent engine oracle. Their correction flag
 alone does not justify multiplying all hit effects by the point MV: some frost
 and bleed bullet effects have a zero point MV. Per-hit status totals are modeled
-estimates, and this audit does not certify those stacking/rounding mechanics.
+estimates; no current check certifies those stacking/rounding mechanics.
 
 ## Checking model coverage
 
 Profile capabilities describe which calculations a dataset offers; they do not
-certify every weapon or skill. **Model coverage and assumptions**, under the
-profile selector, explains these limits, and Build Detail shows the selected
-build's model assumptions. Older saved capability filters remain active until
-removed using **Remove saved profile filters**;
+certify every weapon or skill. **Model coverage and assumptions**, under Build
+Detail's **More details**, explains these limits next to the selected build's
+model assumptions; for Convergence, the **Experimental model** label in
+the header opens the same notes. Older saved capability filters remain active
+until removed using **Remove saved profile filters** under **More options**;
 excluding a supported capability excludes all results in that profile.
 
-Run a seeded Vanilla weapon AR/base-status comparison from the repository root:
+Run a seeded weapon AR/base-status comparison from the repository root:
 
 ```powershell
 python tools/phase4/validate_external_calculator.py --count 100 --seed 20260918
+python tools/phase4/validate_external_calculator.py --profile convergence --count 100 --seed 20260918
 ```
 
 The runner uses pinned T. Clark source/data, the installed frontend TypeScript
-compiler, and the current Rust evaluator. Each sampled configuration covers zero,
+compiler, and the current Rust evaluator. The pinned commit also ships the
+Convergence 3.0.0.1 data file; its calculator has no Convergence-specific AR or
+status branch. Bows are left out of the Convergence comparison with the rest of
+the ammunition model. Each sampled configuration covers zero,
 random, and maximum upgrades in both handling modes. Use another seed for new
-cases or `--count 487` for every named weapon. Every Vanilla run also includes the
+cases. To cover every named weapon, pass a `--count` equal to the number of usable
+upstream weapon names (487 at the pinned commit); a larger count fails and reports
+how many are available. Every Vanilla run also includes the
 32 known Bloodfiend's Fork boundary cases across eight affinities. Optional `--report` and `--csv`
 paths retain results. AR tolerance is 0.001 per component; status is compared
 after integer flooring. This also checks selected-skill identity, not complex

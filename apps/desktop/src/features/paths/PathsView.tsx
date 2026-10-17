@@ -1,20 +1,23 @@
 import { Pause, Play } from "lucide-react";
-import { useEffect, useState } from "react";
+import { memo, useState } from "react";
 import { api } from "../../lib/api";
-import { analysisStatus, analysisStatusLabel, type AnalysisOutcome } from "../../lib/analysis-status";
-import { contiguousMetricSegments, metricRatio, paddedMetricDomain } from "../../lib/chart";
-import { usePathJob, useRequestBudget } from "../../lib/hooks";
+import { analysisStatus } from "../../lib/analysis-status";
+import { AnalysisProgress } from "../shared/AnalysisProgress";
+import { chartX, chartY, contiguousMetricSegments, niceTicks, paddedMetricDomain } from "../../lib/chart";
+import { PATH_RUN, useAnalysisRun, useBuiltRequest } from "../../lib/hooks";
 import { fixed1, objectiveLabel, objectiveUnit } from "../../lib/format";
 import { clampHorizon, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
-import { PathFinishedDto, PathPreviewDto, SolvedBuildDto } from "../../lib/types";
-import type { NativeJobSuccess } from "../../lib/native-jobs";
+import { PathPreviewDto, SolvedBuildDto } from "../../lib/types";
+import { DraftNumberInput } from "../query-strip/DraftNumberInput";
+import { WorkspaceHeading } from "../shared/WorkspaceHeading";
+import { WorkspaceGate } from "../shared/WorkspaceGate";
+import { ChartDataTable } from "../../lib/ChartDataTable";
 
 export function PathsView() {
   const catalog = useDesktopStore((state) => state.catalog);
   const selected = useDesktopStore((state) => state.selected);
   const resultsStale = useDesktopStore((state) => state.resultsStale);
-  const setWorkspace = useDesktopStore((state) => state.setWorkspace);
   const target = useDesktopStore((state) => state.compareTarget);
   const request = useDesktopStore((state) => state.request);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
@@ -24,16 +27,9 @@ export function PathsView() {
   const setPathMode = useDesktopStore((state) => state.setPathMode);
   const paths = useDesktopStore((state) => state.paths);
   const isPathBusy = useDesktopStore((state) => state.isPathBusy);
-  const setPathBusy = useDesktopStore((state) => state.setPathBusy);
-  const beginPath = useDesktopStore((state) => state.beginPath);
-  const pathGeneration = useDesktopStore((state) => state.pathGeneration);
-  const activePathJobId = useDesktopStore((state) => state.activePathJobId);
-  const setActivePathJobId = useDesktopStore((state) => state.setActivePathJobId);
   const pathProgress = useDesktopStore((state) => state.pathProgress);
-  const setPathProgress = useDesktopStore((state) => state.setPathProgress);
   const pushNotice = useDesktopStore((state) => state.pushNotice);
-  const setError = useDesktopStore((state) => state.setError);
-  const { base } = useRequestBudget(catalog, request, lockedStatMode);
+  const base = useBuiltRequest(catalog, request, lockedStatMode);
   const effectiveHorizon = clampHorizon(request, horizon);
   const signature = stableSignature({
     base,
@@ -42,28 +38,14 @@ export function PathsView() {
     horizon: effectiveHorizon,
     pathMode,
   });
-  const [runOutcome, setRunOutcome] = useState<AnalysisOutcome>(null);
-  useEffect(() => setRunOutcome(null), [signature]);
   const pathSignature = useDesktopStore((state) => state.pathSignature);
+  const analysis = useAnalysisRun(PATH_RUN, signature);
   const status = analysisStatus({
     busy: isPathBusy,
     resultSignature: pathSignature,
     requestSignature: signature,
     hasResult: paths.length > 0,
-    outcome: runOutcome,
-  });
-
-  const startPathJob = usePathJob({
-    isPathBusy,
-    generation: pathGeneration,
-    setPathProgress,
-    onStarted: (jobId, generation) => {
-      const current = useDesktopStore.getState();
-      if (current.resultsStale || !current.isPathBusy || current.pathGeneration !== generation || current.activePathSignature !== signature) {
-        throw new DOMException("Calculation stopped.", "AbortError");
-      }
-      setActivePathJobId(jobId);
-    },
+    outcome: analysis.outcome,
   });
 
   async function refresh() {
@@ -76,113 +58,57 @@ export function PathsView() {
       pushNotice({ scope: "paths", tone: "warning", message: "Combat stats are already capped. There is no forward path to trace." });
       return;
     }
-    setRunOutcome(null);
-    const generation = beginPath(signature);
-    if (effectiveHorizon < horizon) {
-      pushNotice({ scope: "paths", tone: "info", message: `Horizon capped at Current +${effectiveHorizon}.` });
-    }
-    try {
-      const requests = [
-        { base, solved: selected, levelsAhead: effectiveHorizon, title: "Selected", mode: pathMode },
-        ...(target ? [{ base, solved: target, levelsAhead: effectiveHorizon, title: "Compare", mode: pathMode }] : []),
-      ];
-      const finished = await startPathJob(() => api.startPathPreview(requests), generation);
-      finishPathPreview(finished, generation);
-    } catch (error) {
-      const current = useDesktopStore.getState();
-      if (
-        current.isPathBusy &&
-        current.pathGeneration === generation &&
-        current.activePathSignature === signature
-      ) {
-        if (error instanceof DOMException && error.name === "AbortError") {
-          current.pushNotice({ scope: "paths", tone: "warning", message: "Path preview stopped." });
-          setRunOutcome("cancelled");
-        } else {
-          setError(error instanceof Error ? error.message : String(error));
-          setRunOutcome("failed");
-        }
-        setPathBusy(false);
-        setActivePathJobId(null);
-        setPathProgress(null);
-      }
-    }
-  }
-
-  async function stop() {
-    setRunOutcome("cancelled");
-    if (!activePathJobId) setPathBusy(false);
-    if (activePathJobId) {
-      try {
-        await api.cancelPathPreview(activePathJobId);
-      } catch (error) {
-        const current = useDesktopStore.getState();
-        if (current.isPathBusy && current.activePathJobId === activePathJobId) {
-          setError(error instanceof Error ? error.message : String(error));
-          setRunOutcome("failed");
-        }
-      }
-    }
-  }
-
-  function finishPathPreview(payload: NativeJobSuccess<PathFinishedDto>, generation: number) {
-    const current = useDesktopStore.getState();
-    if (
-      current.resultsStale || generation !== current.pathGeneration ||
-      current.activePathSignature !== signature ||
-      payload.jobId !== current.activePathJobId
-    ) return;
-    current.setPaths(payload.paths, signature);
-    setRunOutcome(null);
-    current.setPathBusy(false);
-    current.setActivePathJobId(null);
-    current.setPathProgress(null);
+    const requests = [
+      { base, solved: selected, levelsAhead: effectiveHorizon, title: "Selected", mode: pathMode },
+      ...(target ? [{ base, solved: target, levelsAhead: effectiveHorizon, title: "Compare", mode: pathMode }] : []),
+    ];
+    await analysis.start(
+      () => api.startPathPreview(requests),
+      (finished) => useDesktopStore.getState().setPaths(finished.paths, signature),
+      effectiveHorizon < horizon ? { scope: "paths", tone: "info", message: `Horizon capped at Current +${effectiveHorizon}.` } : undefined,
+    );
   }
 
   if (resultsStale) {
-    return (
-      <section className="workspace-panel paths-panel">
-        <div className="workspace-header"><div><h1>Paths</h1><span>Requires current ranked results</span></div></div>
-        <div className="empty-state workspace-prerequisite">
-          <strong>Update Rankings before continuing</strong>
-          <span>The selected build belongs to the previous query.</span>
-          <button type="button" onClick={() => setWorkspace("rankings")}>Go to Rankings</button>
-        </div>
-      </section>
-    );
+    return <WorkspaceGate panelClass="paths-panel" title="Paths" requirement="Requires current ranked results"
+      heading="Update Rankings before continuing" message="The selected build belongs to the previous query." />;
   }
 
   return (
     <section className="workspace-panel paths-panel">
       <div className="workspace-header analysis-workspace-header">
-        <div className="workspace-heading-copy">
-          <h1>{pathMode === "no_respec" ? "No-respec Paths" : "Best Build per Level"}</h1>
-          <span>{selected ? `Next ${effectiveHorizon} levels · ${target ? "selected build and comparison" : "selected build"}` : "Requires selected result"}</span>
-          {selected ? <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)}{target ? ` · vs ${target.weaponName} / ${target.affinity} / +${target.upgrade}` : ""}</small> : null}
-        </div>
+        <WorkspaceHeading title={pathMode === "no_respec" ? "No-respec Paths" : "Best Build per Level"} aboutLabel="About Paths" about={<>
+          {pathMode === "no_respec"
+            ? "No respec ends on the best build for the final level. Each level adds its point where it helps most, and no point is ever moved, so the path never needs a respec."
+            : "Best per level shows each level's own best build. A respec is marked when that build moves points you already spent."}
+          {" "}The selected build and the comparison target keep their weapon, affinity, skill and upgrade.
+        </>}>
+          {selected
+            ? <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)}{target ? ` · vs ${target.weaponName} / ${target.affinity} / +${target.upgrade}` : ""} · next {effectiveHorizon} levels</small>
+            : <span>Requires selected result</span>}
+        </WorkspaceHeading>
         <div className="header-controls">
-          <div className="segmented" aria-label="Path mode">
-            <button type="button" className={pathMode === "no_respec" ? "active" : ""} aria-pressed={pathMode === "no_respec"} onClick={() => setPathMode("no_respec")}>No respec</button>
-            <button type="button" className={pathMode === "optimum_envelope" ? "active" : ""} aria-pressed={pathMode === "optimum_envelope"} onClick={() => setPathMode("optimum_envelope")}>Best per level</button>
+          <div className="segmented" role="group" aria-label="Path mode">
+            <button type="button" className={pathMode === "no_respec" ? "active" : ""} aria-pressed={pathMode === "no_respec"} title="One stat point per level, never moved" onClick={() => setPathMode("no_respec")}>No respec</button>
+            <button type="button" className={pathMode === "optimum_envelope" ? "active" : ""} aria-pressed={pathMode === "optimum_envelope"} title="The best build at each level, respecs allowed" onClick={() => setPathMode("optimum_envelope")}>Best per level</button>
           </div>
           <label>
             Levels ahead
-            <input
-              type="number"
-              min={1}
-              max={200}
-              value={horizon}
-              onChange={(event) => setHorizon(clamp(Number(event.target.value), 1, 200))}
-            />
+            <DraftNumberInput value={horizon} min={1} max={200} onCommit={setHorizon} />
           </label>
-          <button type="button" className="analysis-action" onClick={isPathBusy ? stop : refresh} disabled={!selected && !isPathBusy}>
+          <button type="button" className="analysis-action" onClick={() => void (isPathBusy ? analysis.stop() : refresh())} disabled={!selected && !isPathBusy}>
             {isPathBusy ? <Pause size={15} /> : <Play size={15} />}
             {isPathBusy ? "Stop" : "Trace paths"}
           </button>
         </div>
       </div>
-      <Progress checked={pathProgress?.checked ?? 0} total={pathProgress?.total ?? (paths.length || 1)} status={status} resultCount={paths.length} />
-      <small className="path-mode-note">{pathMode === "no_respec" ? "Ends on the best build for the final level. Each level adds its point where it helps most, and no point is ever moved, so the path never needs a respec." : "Each level shows its own best build. A respec is marked when that build moves points you already spent."}</small>
+      <AnalysisProgress
+        checked={pathProgress?.checked ?? 0}
+        total={pathProgress?.total ?? (paths.length || 1)}
+        status={status}
+        running="Tracing paths"
+        completed={`Completed · ${paths.length} build${paths.length === 1 ? "" : "s"}`}
+      />
       <div className="path-lanes">
         <LaneSummary title="Selected" path={paths.find((path) => path.title === "Selected")} row={selected} />
         <LaneSummary title="Compare" path={paths.find((path) => path.title === "Compare")} row={target} />
@@ -202,7 +128,7 @@ function PathSteps({ paths, objective }: { paths: PathPreviewDto[]; objective: P
   if (!levels.length) return null;
   return (
     <div className="path-steps">
-      <div className="path-step-pagination" aria-label="Path level pages">
+      <div className="path-step-pagination" role="group" aria-label="Path level pages">
         <button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous levels</button>
         <label>
           Levels
@@ -263,23 +189,8 @@ function LaneSummary({ title, path, row }: { title: string; path: PathPreviewDto
   );
 }
 
-function Progress({ checked, total, status, resultCount }: { checked: number; total: number; status: ReturnType<typeof analysisStatus>; resultCount: number }) {
-  const displayChecked = status === "completed" ? total : checked;
-  const pct = Math.min(100, Math.max(0, (displayChecked / Math.max(total, 1)) * 100));
-  const label = status === "running"
-    ? `Tracing paths ${checked}/${total}`
-    : status === "completed"
-      ? `Completed · ${resultCount} build${resultCount === 1 ? "" : "s"}`
-      : analysisStatusLabel(status);
-  return (
-    <div className={`workspace-progress analysis-progress status-${status}`} data-analysis-status={status}>
-      <span role="status">{label}</span>
-      <div className="forge-bar"><i style={{ transform: `translateX(${pct - 100}%)` }} /></div>
-    </div>
-  );
-}
-
-function PathChart({ paths, objective, unit }: { paths: PathPreviewDto[]; objective: string; unit: string }) {
+// Memoised: progress polls re-render the view, but the chart changes only with its paths.
+const PathChart = memo(function PathChart({ paths, objective, unit }: { paths: PathPreviewDto[]; objective: string; unit: string }) {
   const [pointIndex, setPointIndex] = useState(0);
   const values = paths.flatMap((path) => path.steps.map((step) => step.metric).filter((metric): metric is number => metric !== null));
   const domain = paddedMetricDomain(values);
@@ -288,9 +199,9 @@ function PathChart({ paths, objective, unit }: { paths: PathPreviewDto[]; object
   const lastLevel = levels.at(-1) ?? firstLevel;
   const selectedIndex = Math.min(pointIndex, Math.max(0, levels.length - 1));
   const selectedLevel = levels[selectedIndex];
-  const x = (level: number) => lastLevel === firstLevel ? 500 : 12 + (level - firstLevel) / (lastLevel - firstLevel) * 976;
-  const y = (metric: number | null) => 206 - (metricRatio(metric, domain) ?? 0) * 192;
-  const axisMetrics = [domain.max, (domain.min + domain.max) / 2, domain.min];
+  const x = (level: number) => chartX(level, firstLevel, lastLevel);
+  const y = (metric: number | null) => chartY(metric, domain);
+  const axisMetrics = niceTicks(domain);
   const axisLevels = [...new Set(Array.from({ length: 5 }, (_, index) => Math.round(firstLevel + (lastLevel - firstLevel) * index / 4)))];
   const inspected = paths.map(path => ({ title: path.title, step: path.steps.find(step => step.level === selectedLevel) }));
   const valueText = `Level ${selectedLevel}; ${inspected.map(({ title, step }) => `${title} ${step?.metric == null ? "unavailable" : `${fixed1(step.metric)} ${unit}`}`).join("; ")}`;
@@ -301,20 +212,20 @@ function PathChart({ paths, objective, unit }: { paths: PathPreviewDto[]; object
         <span>{levels.length ? `Level ${firstLevel} to ${lastLevel}` : "Awaiting analysis"}</span>
       </figcaption>
       {levels.length ? <>
-        <div className="chart-legend" aria-label="Path chart legend">
+        <div className="chart-legend" role="group" aria-label="Path chart legend">
           {paths.map((path, index) => <span className={`series-${index}`} key={path.title}>{path.title}</span>)}
           <span className="path-marker-key">○ Allocation changes (sampled)</span>
         </div>
         <div className="path-plot">
           <div className="path-y-axis" aria-hidden="true">
-            {axisMetrics.map((metric, index) => <span key={index} style={{ top: `${y(metric) / 2.2}%` }}>{fixed1(metric)}</span>)}
+            {axisMetrics.map((metric) => <span key={metric} style={{ top: `${y(metric) / 2.2}%` }}>{metric}</span>)}
           </div>
           <svg viewBox="0 0 1000 220" preserveAspectRatio="none" aria-hidden="true" onPointerMove={event => {
             const bounds = event.currentTarget.getBoundingClientRect();
             const level = firstLevel + ((event.clientX - bounds.left) / bounds.width * 1000 - 12) / 976 * (lastLevel - firstLevel);
             setPointIndex(levels.reduce((best, candidate, index) => Math.abs(candidate - level) < Math.abs(levels[best] - level) ? index : best, 0));
           }}>
-            {axisMetrics.map((metric, index) => <line className="path-grid-line" x1="12" x2="988" y1={y(metric)} y2={y(metric)} key={index} />)}
+            {axisMetrics.map((metric) => <line className="path-grid-line" x1="12" x2="988" y1={y(metric)} y2={y(metric)} key={metric} />)}
             <line className="path-cursor" x1={x(selectedLevel)} x2={x(selectedLevel)} y1="14" y2="206" />
             {paths.map((path, pathIndex) => {
               let lastMarker = -Infinity;
@@ -342,7 +253,7 @@ function PathChart({ paths, objective, unit }: { paths: PathPreviewDto[]; object
           Character level
           <input type="range" aria-label="Inspect path level" aria-valuetext={valueText} min={0} max={levels.length - 1} value={selectedIndex} onChange={event => setPointIndex(Number(event.target.value))} />
         </label>
-        <div className="path-point-summary" aria-live="polite" aria-atomic="true">
+        <div className="path-point-summary">
           <strong>Level {selectedLevel}</strong>
           {inspected.map(({ title, step }, index) => <span className={`series-${index}`} key={title}>
             {title} <b>{step?.metric == null ? "Unavailable" : `${fixed1(step.metric)} ${unit}`}</b>
@@ -350,17 +261,14 @@ function PathChart({ paths, objective, unit }: { paths: PathPreviewDto[]; object
           </span>)}
         </div>
         <small className="path-marker-note">Markers show changes in added stat or respec; nearby changes are omitted. Inspect any level above.</small>
-      </> : <p className="path-chart-empty">Trace paths to compare progress by character level.</p>}
-      <table className="sr-only">
-        <caption>{objective} ({unit}) path values by character level</caption>
-        <thead><tr><th>Lane</th><th>Level</th><th>{objective} ({unit})</th></tr></thead>
-        <tbody>{paths.flatMap((path) => path.steps.map((step) => <tr key={`${path.title}-accessible-${step.level}`}><td>{path.title}</td><td>{step.level}</td><td>{fixed1(step.metric)} {unit}</td></tr>))}</tbody>
-      </table>
+      </> : (
+        <div className="path-chart-empty">
+          <strong>Follow each build level by level</strong>
+          <span>Trace paths to compare progress by character level.</span>
+        </div>
+      )}
+      <ChartDataTable caption={`${objective} (${unit}) path values by character level`} headers={["Lane", "Level", `${objective} (${unit})`]}
+        rows={paths.flatMap((path) => path.steps.map((step) => [path.title, String(step.level), `${fixed1(step.metric)} ${unit}`]))} />
     </figure>
   );
-}
-
-function clamp(value: number, min: number, max: number): number {
-  if (Number.isNaN(value)) return min;
-  return Math.max(min, Math.min(max, Math.trunc(value)));
-}
+});

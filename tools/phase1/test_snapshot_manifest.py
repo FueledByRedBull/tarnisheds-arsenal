@@ -9,7 +9,7 @@ from typing import Any
 
 from tools.phase1.profiles import profile_definition
 from tools.phase1.snapshot_manifest import (
-    RUNTIME_FILES,
+    runtime_files_for,
     promote_snapshot,
     write_snapshot_manifest,
     validate_snapshot_manifest,
@@ -20,7 +20,7 @@ class SnapshotPromotionTests(unittest.TestCase):
     def _create_staging(self, root: Path) -> Path:
         staging = root / "staging"
         staging.mkdir()
-        for file_name in RUNTIME_FILES:
+        for file_name in runtime_files_for("convergence", True):
             (staging / file_name).write_text(f"{file_name}\n", encoding="utf-8")
         (staging / "listed.csv").write_text("listed\n", encoding="utf-8")
         regulation = root / "regulation.bin"
@@ -39,6 +39,7 @@ class SnapshotPromotionTests(unittest.TestCase):
         (destination / "stale.csv").write_text("stale\n", encoding="utf-8")
         (destination / "listed.csv").write_text("old\n", encoding="utf-8")
         (destination / "keep.txt").write_text("keep\n", encoding="utf-8")
+        (destination / "manifest.json").write_text("{}\n", encoding="utf-8")
         return destination
 
     @staticmethod
@@ -80,6 +81,21 @@ class SnapshotPromotionTests(unittest.TestCase):
                 {path.name for path in destination.glob("*.csv")},
                 {path.name for path in staging.glob("*.csv")},
             )
+
+    def test_promotion_refuses_unrelated_non_empty_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            staging = self._create_staging(root)
+            destination = root / "unrelated"
+            destination.mkdir()
+            (destination / "notes.csv").write_bytes(b"keep\n")
+
+            with self.assertRaisesRegex(ValueError, "has no manifest.json"):
+                promote_snapshot(staging, destination)
+            self.assertEqual(self._files(destination), {"notes.csv": b"keep\n"})
+            (destination / "notes.csv").unlink()
+            promote_snapshot(staging, destination)
+            self.assertTrue((destination / "manifest.json").is_file())
 
     def test_malformed_file_record_is_rejected_before_destination_mutation(self) -> None:
         for invalid_path in (None, "nested/listed.csv", r"nested\listed.csv", "C:listed.csv"):

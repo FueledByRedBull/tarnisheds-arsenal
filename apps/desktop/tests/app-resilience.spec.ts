@@ -29,14 +29,14 @@ test("saving waits for verified catalog readiness without writing partial preset
       Object.assign(window, { finishSavingCatalog: () => resolve(catalog) });
     });
   });
-  await page.getByRole("radio", { name: "Convergence Beta 3.0.0.1", exact: true }).click();
+  await page.getByRole("radio", { name: "The Convergence Beta 3.0.0.1", exact: true }).click();
   await expect(save).toBeDisabled();
   await expect(update).toBeDisabled();
   await save.evaluate(button => (button as HTMLButtonElement).click());
   await update.evaluate(button => (button as HTMLButtonElement).click());
   expect(await page.evaluate(() => JSON.stringify(localStorage))).toBe(original);
   await page.evaluate(() => { (window as any).finishSavingCatalog(); });
-  await expect(page.getByText("Experimental fixed-stat model", { exact: true })).toBeVisible();
+  await expect(page.getByText("Experimental model", { exact: true })).toBeVisible();
   await expect(save).toBeEnabled();
   await expect(update).toBeEnabled();
   await expect(page.locator(".error-strip")).toHaveCount(0);
@@ -64,7 +64,7 @@ test("recovers a damaged index without overwriting the original and restores a b
   const download = await downloadEvent;
   const stream = await download.createReadStream();
   const chunks: Buffer[] = [];
-  for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
   const buffer = Buffer.concat(chunks);
   expect(JSON.parse(buffer.toString()).builds).toHaveLength(1);
   await page.getByLabel("Restore build backup", { exact: false }).setInputFiles({ name: "builds.json", mimeType: "application/json", buffer });
@@ -86,7 +86,7 @@ test("denied storage and invalid backups keep existing builds usable", async ({ 
   expect(await page.evaluate(() => JSON.stringify(localStorage))).toBe(before);
   await page.evaluate(() => { Storage.prototype.setItem = () => { throw new DOMException("quota exceeded", "QuotaExceededError"); }; });
   await page.getByRole("button", { name: "Save new", exact: true }).click();
-  await expect(page.locator('.error-strip[role="alert"]')).toContainText("quota exceeded");
+  await expect(page.locator('.error-strip[role="alert"]')).toContainText("Device storage for saved builds is full");
   await expect(page.getByRole("button", { name: "Load", exact: true })).toBeEnabled();
 });
 
@@ -120,8 +120,34 @@ test("storage read denial after selection reports failure without unmounting the
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   await page.evaluate(() => { Storage.prototype.getItem = () => { throw new DOMException("denied", "SecurityError"); }; });
   await page.getByRole("checkbox", { name: "Two-handing", exact: true }).check();
-  await expect(page.getByText(/Saved builds could not be read/)).toBeVisible();
+  // Records are read on selection, not on every render; reading one now reports the denial.
+  const saved = page.getByRole("combobox", { name: "Saved", exact: true });
+  const id = await saved.inputValue();
+  await saved.selectOption("");
+  await saved.selectOption(id);
+  await expect(page.locator('.error-strip[role="alert"]')).toContainText("denied");
   await expect(page.getByRole("button", { name: "Load", exact: true })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Search", exact: true })).toBeVisible();
   expect(crashes).toEqual([]);
+});
+
+test("a Build Detail render failure stays in its panel and unawaited failures reach the error strip", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await page.evaluate(async () => {
+    const { useDesktopStore } = await import("/src/lib/state.ts");
+    const [row] = useDesktopStore.getState().rows;
+    useDesktopStore.setState({ selected: { ...row, aowRoute: { actions: 5 } as never } });
+  });
+  await expect(page.getByRole("heading", { name: "Build Detail could not be displayed" })).toBeVisible();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await page.evaluate(async () => {
+    const { useDesktopStore } = await import("/src/lib/state.ts");
+    useDesktopStore.setState({ selected: null });
+  });
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(page.getByText("No build selected", { exact: true })).toBeVisible();
+  await page.evaluate(() => { void Promise.reject(new Error("late native failure")); });
+  await expect(page.locator('.error-strip[role="alert"]')).toContainText("late native failure");
 });

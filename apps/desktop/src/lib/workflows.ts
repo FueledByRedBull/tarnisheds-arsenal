@@ -4,6 +4,7 @@ import { progressSignature } from "./polling";
 import { createNativeJobQueue } from "./native-jobs";
 import { useDesktopStore } from "./state";
 import { OptimizeRequestDto, SearchJobStatusDto, SearchProgressDto, SolvedBuildDto } from "./types";
+import { errorMessage } from "./format";
 
 const searchQueue = createNativeJobQueue<SearchJobStatusDto>(
   jobId => api.searchStatus(jobId), jobId => api.cancelSearch(jobId),
@@ -45,7 +46,7 @@ export async function runSearchFromStore(
           scope: "rankings", tone: "warning", message: "Search stopped. Previous results were retained.",
         });
       } else {
-        useDesktopStore.getState().setError(error instanceof Error ? error.message : String(error));
+        useDesktopStore.getState().setError(errorMessage(error));
       }
     }
     return false;

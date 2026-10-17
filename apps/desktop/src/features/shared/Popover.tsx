@@ -32,9 +32,11 @@ export function Popover({
   const id = useId();
   const button = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
+  // Finds the panel by id, so passing close to children during render reads no ref.
   const close = useCallback(() => {
-    if (panel.current?.matches(":popover-open")) panel.current.hidePopover();
-  }, []);
+    const element = document.getElementById(id);
+    if (element?.matches(":popover-open")) element.hidePopover();
+  }, [id]);
 
   useEffect(() => {
     const element = panel.current;
@@ -50,12 +52,14 @@ export function Popover({
     const place = () => {
       const anchor = anchorBelow();
       if (!anchor) return;
-      const box = element.getBoundingClientRect();
-      if (box.right > window.innerWidth - EDGE) {
-        element.style.left = `${Math.max(EDGE, window.innerWidth - EDGE - box.width)}px`;
+      // Layout size, not the painted box: the entrance scale would under-measure the panel.
+      const width = element.offsetWidth;
+      const height = element.offsetHeight;
+      if (Math.max(EDGE, anchor.left) + width > window.innerWidth - EDGE) {
+        element.style.left = `${Math.max(EDGE, window.innerWidth - EDGE - width)}px`;
       }
-      if (box.bottom > window.innerHeight - EDGE && anchor.top - GAP - box.height >= EDGE) {
-        element.style.top = `${anchor.top - GAP - box.height}px`;
+      if (anchor.bottom + GAP + height > window.innerHeight - EDGE && anchor.top - GAP - height >= EDGE) {
+        element.style.top = `${anchor.top - GAP - height}px`;
       }
     };
     const onBeforeToggle = (event: Event) => {

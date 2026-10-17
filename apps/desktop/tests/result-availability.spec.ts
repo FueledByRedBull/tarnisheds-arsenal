@@ -19,7 +19,7 @@ test("missing skill routes stay unavailable across displays, reports, and saved-
           totalStatusBuildup: { bleed: 0, frost: 0, poison: 0, scarletRot: 0, sleep: 0, madness: 0, death: 0 } } },
     ], 100);
   });
-  const resultRows = page.locator(".result-row-full");
+  const resultRows = page.locator(".result-row");
   await expect(resultRows.first().locator(".skill-cell")).toHaveText("Unavailable");
   await expect(resultRows.nth(1).locator(".skill-cell")).toHaveText("01st hit 0");
   await expect(page.locator(".inspector .metric-grid")).toContainText("Raw AoWUnavailable");
@@ -45,5 +45,9 @@ test("missing skill routes stay unavailable across displays, reports, and saved-
   await page.reload();
   await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Load", exact: true }).click();
-  await expect(page.locator(".inspector .metric-grid")).toContainText("Raw AoWUnavailable");
+  // Alone in the list, the loaded build has no skill damage to show: the tile is left out (never
+  // a zero) and Rankings says once that skill damage is not modeled.
+  await expect(page.locator(".inspector .metric-grid")).toContainText("Max AR");
+  await expect(page.locator(".inspector .metric-grid")).not.toContainText("Raw AoW");
+  await expect(page.getByText("Skill damage isn't modeled for these results.", { exact: true })).toBeVisible();
 });

@@ -78,7 +78,7 @@ describe("analysis cache", () => {
     const result = cachedComparisonSearch(defaultRequest, controller.signal);
     controller.abort();
     pending.resolve([]);
-    await expect(result).rejects.toThrow("cancelled");
+    await expect(result).rejects.toThrow("Calculation stopped.");
     const signal = new AbortController().signal;
     await expect(cachedComparisonSearch(defaultRequest, signal)).rejects.toThrow("failed");
     await cachedComparisonSearch(defaultRequest, signal);
@@ -123,6 +123,18 @@ describe("analysis cache", () => {
     pending.resolve(null);
     expect(await a).toBeInstanceOf(Error);
     expect(await b).toBeInstanceOf(Error);
+  });
+
+  it("keeps pending work through eviction, so a repeat request shares it", async () => {
+    const pending = deferred<SolvedBuildDto | null>();
+    solveBuild.mockReturnValueOnce(pending.promise).mockResolvedValue(null);
+    const first = cachedSolveBuild(defaultRequest, "Uchigatana", "Keen", null, new AbortController().signal);
+    for (let index = 0; index < 128; index++) await cachedSolveBuild(defaultRequest, `Weapon ${index}`, null, null);
+    const repeat = cachedSolveBuild(defaultRequest, "Uchigatana", "Keen", null, new AbortController().signal);
+    expect(solveBuild).toHaveBeenCalledTimes(129);
+    pending.resolve(null);
+    expect(await first).toBeNull();
+    expect(await repeat).toBeNull();
   });
 
   it("keeps identical loadouts isolated across game profiles", async () => {
@@ -240,7 +252,7 @@ describe("analysis cache", () => {
     const second = cachedWeaponProfile("Claymore", "Standard", secondController.signal);
     firstController.abort();
 
-    await expect(first).rejects.toThrow("cancelled");
+    await expect(first).rejects.toThrow("Calculation stopped.");
     const third = cachedWeaponProfile("Claymore", "Standard");
     pending.resolve(profile);
     await expect(second).resolves.toEqual(profile);
@@ -259,8 +271,8 @@ describe("analysis cache", () => {
     firstController.abort();
     secondController.abort();
 
-    await expect(first).rejects.toThrow("cancelled");
-    await expect(second).rejects.toThrow("cancelled");
+    await expect(first).rejects.toThrow("Calculation stopped.");
+    await expect(second).rejects.toThrow("Calculation stopped.");
     await expect(cachedWeaponProfile("Claymore", "Standard")).resolves.toEqual(profile);
     expect(weaponProfile).toHaveBeenCalledTimes(2);
     abandoned.resolve(profile);
@@ -274,7 +286,7 @@ describe("analysis cache", () => {
 
     const cancelled = cachedWeaponProfile("Claymore", "Standard", controller.signal);
     controller.abort();
-    await expect(cancelled).rejects.toThrow("cancelled");
+    await expect(cancelled).rejects.toThrow("Calculation stopped.");
     await expect(cachedWeaponProfile("Claymore", "Standard")).resolves.toEqual(replacement);
     abandoned.resolve(profile);
     await abandoned.promise;

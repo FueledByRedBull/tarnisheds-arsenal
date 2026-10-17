@@ -29,6 +29,8 @@ def case_key(case: dict[str, Any]) -> str:
         if mode not in ("no_respec", "optimum_envelope"):
             raise ValueError("Paths benchmark requires mode; regenerate historical Paths reports")
         return f"paths:{mode}:{case['horizon']}:{case.get('lanes')}"
+    if case["workflow"] == "catalog":
+        return f"catalog:{case.get('profile')}"
     if case["workflow"] == "upgrade_series":
         return (
             f"upgrade_series:{case.get('reinforcement', 'all')}:"

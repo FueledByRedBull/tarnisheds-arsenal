@@ -1,15 +1,15 @@
-import { Command as CommandIcon, Play, Redo2, RotateCcw, Undo2 } from "lucide-react";
+import { Play, Redo2, RotateCcw, Search, Undo2 } from "lucide-react";
 import { lazy, ReactNode, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import brandMark from "../../assets/brand-mark.png";
 import { CommandAction, CommandContext } from "../../lib/commands";
 import { fixed1, objectiveLabel, statLockLine } from "../../lib/format";
-import { useRequestBudget, useWeaponProfile } from "../../lib/hooks";
+import { useWeaponProfile } from "../../lib/hooks";
 import { isTextEntry, keyboardOwnedByOverlay } from "../../lib/keyboard";
 import { describeStep, redoQuery, trackQueryHistory, undoQuery, useQueryHistory } from "../../lib/query-history";
 import { flashChanged } from "../../lib/motion";
 import { scadutreeAttackMultiplier } from "../../lib/scadutree";
-import { classMeta, derivedLevel, EIGHT_STAT_KEYS, hasCombatStatLocks, optimalStartingClass, startingClassLevel } from "../../lib/session";
-import { useDesktopStore } from "../../lib/state";
+import { budgetSnapshot, classMeta, derivedLevel, EIGHT_STAT_KEYS, hasCombatStatLocks, optimalStartingClass, startingClassLevel, usesFixedStats } from "../../lib/session";
+import { defaultRequest, useDesktopStore } from "../../lib/state";
 import { EightStatsDto, OptimizeRequestDto } from "../../lib/types";
 import { effectiveWeaponStrength } from "../../lib/weapon-handling";
 import { ShortcutsDialog } from "../command-palette/ShortcutsDialog";
@@ -57,7 +57,6 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   const loadoutSelectionRevision = useDesktopStore((state) => state.loadoutSelectionRevision);
   const patchRequest = useDesktopStore((state) => state.patchRequest);
   const applyClass = useDesktopStore((state) => state.applyClass);
-  const markResultsStale = useDesktopStore((state) => state.markResultsStale);
   const resultsStale = useDesktopStore((state) => state.resultsStale);
   const hasRows = useDesktopStore((state) => state.rows.length > 0);
   const hasSelection = useDesktopStore((state) => state.selected !== null);
@@ -70,7 +69,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   const runner = useSearchRunner();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteLoaded, setPaletteLoaded] = useState(false);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const shortcuts = useRef<HTMLDivElement>(null);
   const undoStep = useQueryHistory((state) => state.past.at(-1) ?? null);
   const redoStep = useQueryHistory((state) => state.future.at(-1) ?? null);
   const announcement = useQueryHistory((state) => state.announcement);
@@ -78,12 +77,12 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   const redoLabel = redoStep ? describeStep(redoStep) : null;
 
   const meta = classMeta(catalog, request.className);
-  const { budget } = useRequestBudget(catalog, request, lockedStatMode);
+  const budget = useMemo(() => budgetSnapshot(catalog, request), [catalog, request]);
   // Mounted once here so a selected weapon's legal affinity is enforced while editors are closed.
   const profileResource = useWeaponProfile(request, patchRequest);
   const weaponProfile = profileResource.profile;
   const effectiveStr = effectiveWeaponStrength(request.strStat, request.twoHanding, weaponProfile);
-  const requirementGaps = useMemo(() => {
+  const requirementGaps = useMemo((): Record<string, number> | null => {
     const requirements = weaponProfile?.requirements;
     if (!requirements || effectiveStr === null) return null;
     return {
@@ -92,11 +91,11 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
       intStat: Math.max(requirements.intStat - request.intStat, 0),
       fai: Math.max(requirements.fai - request.fai, 0),
       arc: Math.max(requirements.arc - request.arc, 0),
-    } as Record<string, number>;
+    };
   }, [effectiveStr, request.arc, request.dex, request.fai, request.intStat, weaponProfile]);
   const missingRequirements = requirementGaps ? Object.values(requirementGaps).some((gap) => gap > 0) : false;
 
-  const fixedStats = catalog?.dataManifest.capabilities.classBudget === false;
+  const fixedStats = usesFixedStats(catalog, request.className);
   const rules = catalog?.dataManifest.rules;
   const separateUpgradeCaps = rules?.separateUpgradeCaps ?? true;
   const scadutreeAvailable = rules?.scadutreeScaling ?? true;
@@ -124,6 +123,12 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
     savedCoverageCount ? "Profile filters" : null,
   ].filter(Boolean);
   const limitsSummary = limitParts.length ? limitParts.join(", ") : "Locks and minimums";
+  const optionParts = [
+    scadutreeAvailable && request.dlcScaling ? scalingSummary : null,
+    request.topK !== defaultRequest.topK || request.resultGrouping !== defaultRequest.resultGrouping ? resultsSummary : null,
+    ...limitParts,
+  ].filter(Boolean);
+  const optionsSummary = optionParts.join(", ");
   const loadout = loadoutSummary(catalog, request);
   const classSummary = fixedStats ? "Custom stats" : request.className;
 
@@ -162,9 +167,8 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
     const key = event.key.toLowerCase();
     if (command && key === "k") {
       event.preventDefault();
-      // A modal dialog makes the rest of the page inert, so a palette opened over it would be
-      // unreachable; the dialog keeps the keyboard until it closes.
-      if (!catalog || document.querySelector("dialog[open]")) return;
+      // An open shortcut list keeps the keyboard until it closes.
+      if (!catalog || document.querySelector(".shortcuts-dialog:popover-open")) return;
       setPaletteLoaded(true);
       setPaletteOpen((open) => !open);
       return;
@@ -180,7 +184,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
       startSearch();
     } else if (event.key === "?" && !command && !isTextEntry(event.target)) {
       event.preventDefault();
-      setShortcutsOpen(true);
+      shortcuts.current?.showPopover();
     }
   });
 
@@ -283,7 +287,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
         redoQuery();
         break;
       case "shortcuts":
-        setShortcutsOpen(true);
+        shortcuts.current?.showPopover();
         break;
     }
   }
@@ -335,62 +339,63 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
             <UpgradeEditor
               request={request}
               patchRequest={patchRequest}
-              markResultsStale={markResultsStale}
               separateUpgradeCaps={separateUpgradeCaps}
               standardUpgradeLimit={standardUpgradeLimit}
               somberUpgradeLimit={somberUpgradeLimit}
               weaponProfile={weaponProfile}
             />
           </Popover>
-          <label ref={twoHandToggle} className="strip-token strip-toggle" title="Apply the 1.5x effective STR rule when legal" aria-description="Applies the 1.5x effective Strength rule when legal">
+          <label ref={twoHandToggle} className="strip-token strip-toggle" title="Apply the 1.5x effective STR rule when legal">
             <input
               type="checkbox"
+              aria-describedby="two-handing-hint"
               checked={request.twoHanding}
               onChange={(event) => patchRequest({ twoHanding: event.target.checked })}
             />
             Two-handing
+            <span id="two-handing-hint" hidden>Applies the 1.5x effective Strength rule when legal</span>
           </label>
+          {/* Rarely changed settings share one token, which names only what differs from the defaults. */}
           <Popover
-            label="Scaling"
-            changeKey={scalingSummary}
-            trigger={scalingSummary}
-            triggerLabel={`Scaling: ${scalingSummary}`}
+            label="More options"
+            changeKey={optionsSummary}
+            trigger={optionParts.length ? optionsSummary : <><span aria-hidden="true">+ </span>More options</>}
+            triggerLabel={`More options: ${scalingSummary}, ${resultsSummary}, ${limitsSummary}`}
             triggerTitle={scadutreeAvailable && request.dlcScaling
               ? `Scadutree Blessing ${request.scadutreeLevel}: x${scadutreeAttackMultiplier(true, request.scadutreeLevel).toFixed(2)} damage`
-              : undefined}
-            triggerClassName="strip-token"
-            panelClassName="editor-panel"
+              : "Scadutree Blessing, result count and grouping, stat locks and minimums"}
+            triggerClassName={`strip-token ${limitParts.length ? "attention" : optionParts.length ? "" : "quiet"}`}
+            panelClassName="editor-panel options-panel"
           >
-            {scadutreeAvailable ? (
-              <ScalingEditor request={request} patchRequest={patchRequest} markResultsStale={markResultsStale} />
-            ) : (
-              <div className="editor-body profile-rule-note" role="note">
-                <span>Convergence rule</span>
-                <strong>Scadutree Blessing is removed</strong>
-                <small>Weapon AR is calculated without Shadow Realm blessing controls.</small>
-              </div>
-            )}
-          </Popover>
-          <Popover label="Results" changeKey={resultsSummary} trigger={resultsSummary} triggerLabel={`Results: ${resultsSummary}`} triggerClassName="strip-token" panelClassName="editor-panel">
-            <ResultsEditor request={request} patchRequest={patchRequest} markResultsStale={markResultsStale} />
-          </Popover>
-          <Popover
-            label="Limits"
-            changeKey={limitsSummary}
-            trigger={limitParts.length ? limitsSummary : <><span aria-hidden="true">+ </span>Limits</>}
-            triggerLabel={`Limits: ${limitsSummary}`}
-            triggerClassName={`strip-token ${limitParts.length ? "attention" : "quiet"}`}
-            panelClassName="editor-panel"
-          >
-            <LimitsEditor
-              request={request}
-              patchRequest={patchRequest}
-              markResultsStale={markResultsStale}
-              fixedStats={fixedStats}
-              lockedStatMode={lockedStatMode}
-              exactLocksActive={exactLocksActive}
-              onClearLocks={clearLocks}
-            />
+            <div className="editor-sections">
+              <section aria-labelledby="options-scaling">
+                <h3 id="options-scaling">Scadutree Blessing</h3>
+                {scadutreeAvailable ? (
+                  <ScalingEditor request={request} patchRequest={patchRequest} />
+                ) : (
+                  <div className="editor-body profile-rule-note" role="note">
+                    <span>Convergence rule</span>
+                    <strong>Scadutree Blessing is removed</strong>
+                    <small>Weapon AR is calculated without Shadow Realm blessing controls.</small>
+                  </div>
+                )}
+              </section>
+              <section aria-labelledby="options-results">
+                <h3 id="options-results">Results</h3>
+                <ResultsEditor request={request} patchRequest={patchRequest} />
+              </section>
+              <section aria-labelledby="options-limits" className="options-limits">
+                <h3 id="options-limits">Stat locks and minimums</h3>
+                <LimitsEditor
+                  request={request}
+                  patchRequest={patchRequest}
+                  fixedStats={fixedStats}
+                  lockedStatMode={lockedStatMode}
+                  exactLocksActive={exactLocksActive}
+                  onClearLocks={clearLocks}
+                />
+              </section>
+            </div>
           </Popover>
         </fieldset>
         <div className="strip-actions">
@@ -431,7 +436,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
               setPaletteOpen(true);
             }}
           >
-            <CommandIcon size={15} aria-hidden="true" />
+            <Search size={15} aria-hidden="true" />
             <span className="strip-palette-label">Edit anything</span>
             <kbd>Ctrl K</kbd>
           </button>
@@ -458,15 +463,12 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
           {fixedStats ? "Stat total" : "Level"}
           <input readOnly value={derivedLevel(catalog, request)} />
         </label>
-        {/* Definitions are also descriptions, so keyboard and screen-reader users get them too. */}
+        {/* Definitions are also read in place, so keyboard and screen-reader users get them too. */}
         {!fixedStats ? (
-          <span
-            className="ribbon-readout"
-            title={`Levels above ${request.className}'s base level ${budget.baseLevel}`}
-            aria-description={`Levels above ${request.className}'s base level ${budget.baseLevel}`}
-          >
+          <span className="ribbon-readout" title={`Levels above ${request.className}'s base level ${budget.baseLevel}`}>
             <span>Level-ups</span>
             <strong>{budget.levelUps}</strong>
+            <span className="sr-only">, levels above {request.className}'s base level {budget.baseLevel}</span>
           </span>
         ) : null}
         <span
@@ -474,12 +476,12 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
           title={fixedStats
             ? "Convergence uses the entered combat stats exactly"
             : "STR/DEX/INT/FAI/ARC points a respec can move: what is left after class minimums, fixed VIG/MND/END, and minimum floors"}
-          aria-description={fixedStats
-            ? "Convergence uses the entered combat stats exactly"
-            : "STR, DEX, INT, FAI and ARC points a respec can move, after class minimums, fixed VIG, MND and END, and minimum floors"}
         >
-          <span>{fixedStats ? "Mode" : "Respec"}</span>
+          <span>{fixedStats ? "Mode" : "Respec points"}</span>
           <strong>{fixedStats ? "Fixed stats" : budget.redistributable}</strong>
+          <span className="sr-only">{fixedStats
+            ? ", Convergence uses the entered combat stats exactly"
+            : ", STR, DEX, INT, FAI and ARC points a respec can move, after class minimums, fixed VIG, MND and END, and minimum floors"}</span>
         </span>
         <span className="ribbon-divider" aria-hidden="true" />
         <div className="ribbon-stats">
@@ -492,11 +494,10 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
               {label}
               <DraftNumberInput
                 description={requirementGaps && (requirementGaps[key] ?? 0) > 0 ? `${requirementGaps[key]} below the selected weapon's requirement` : undefined}
-                min={Math.max(1, meta.baseStats[key as keyof EightStatsDto])}
+                min={Math.max(1, meta.baseStats[key])}
                 max={99}
                 value={Number(request[key as keyof OptimizeRequestDto])}
-                onDraftChange={markResultsStale}
-                onCommit={(value) => patchRequest({ [key]: value } as Partial<OptimizeRequestDto>)}
+                onCommit={(value) => patchRequest({ [key]: value })}
               />
             </label>
           ))}
@@ -507,12 +508,13 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
             <span
               className="active-lock-warning"
               role="status"
-              title="Changing class or loadout keeps these locks and may make the query incompatible. Clear locks under Limits for automatic stats."
+              title="Changing class or loadout keeps these locks and may make the query incompatible. Clear them under More options to let Search choose every stat."
             >
               <strong>Stat locks active:</strong> <span>{statLockLine(request)}</span>
             </span>
-          ) : (
-            <span className="ribbon-mode">{fixedStats ? "Exact combat stats" : "Stats optimized"}</span>
+          ) : fixedStats ? null : (
+            // Fixed-stat profiles already say so in the Mode readout.
+            <span className="ribbon-mode" title="Search moves STR, DEX, INT, FAI and ARC within your level; VIG, MND and END stay as entered.">Search optimizes STR–ARC</span>
           )}
           {weaponProfile ? (
             <span className={`requirements-strip ${missingRequirements ? "missing" : ""}`}>
@@ -546,7 +548,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
         </div>
       </fieldset>
 
-      <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <ShortcutsDialog ref={shortcuts} />
       {paletteLoaded ? (
         <Suspense fallback={null}>
           <CommandPalette
@@ -572,8 +574,13 @@ function SearchProgress({ searching, searchStartedAt, objective }: { searching: 
     const timer = window.setTimeout(() => setRun((current) => ({ ...current, landed: false })), 700);
     return () => window.clearTimeout(timer);
   }, [run.landed]);
-  if (!searching && !run.landed) return null;
-  return <SearchProgressPanel landedRows={searching ? null : rows.length} searchStartedAt={searchStartedAt} objective={objective} />;
+  // The live region stays mounted and names start and finish only, not every progress poll.
+  return <>
+    <span className="sr-only" role="status">{searching ? "Searching" : run.landed ? `Search done, ${rows.length} ranked` : ""}</span>
+    {searching || run.landed
+      ? <SearchProgressPanel landedRows={searching ? null : rows.length} searchStartedAt={searchStartedAt} objective={objective} />
+      : null}
+  </>;
 }
 
 function SearchProgressPanel({ landedRows, searchStartedAt, objective }: { landedRows: number | null; searchStartedAt: number | null; objective: string }) {
@@ -588,19 +595,24 @@ function SearchProgressPanel({ landedRows, searchStartedAt, objective }: { lande
   }, [searchStartedAt, ticking]);
   if (landedRows !== null) {
     return (
-      <div className="progress-strip landed" role="status">
+      <div className="progress-strip landed">
         <span className="progress-meta">
           <span>Done</span>
           <strong>{landedRows}</strong>
           <span>ranked</span>
         </span>
-        <span className="forge-bar"><i style={{ transform: "none" }} /></span>
+        <span className="forge-bar">
+          <i style={{ transform: "none" }} />
+          <b className="forge-sheen" style={{ width: "100%" }} />
+          <i className="forge-edge" style={{ transform: "none" }} />
+        </span>
       </div>
     );
   }
   const pct = progress ? Math.min(100, (progress.checked / Math.max(progress.total, 1)) * 100) : null;
+  const fill = pct === null ? undefined : { transform: `translateX(${pct - 100}%)` };
   return (
-    <div className="progress-strip" role="status">
+    <div className="progress-strip">
       <span className="progress-meta">
         <span>{pct === null ? "Starting" : `${fixed1(pct)}%`}</span>
         <strong aria-label={progress ? `${objective} best score` : "Elapsed time"}>
@@ -609,7 +621,9 @@ function SearchProgressPanel({ landedRows, searchStartedAt, objective }: { lande
         <span>{progress ? `${progress.eligible} covered` : "checking"}</span>
       </span>
       <span className={`forge-bar ${pct === null ? "indeterminate" : ""}`}>
-        <i style={pct === null ? undefined : { transform: `translateX(${pct - 100}%)` }} />
+        <i style={fill} />
+        <b className="forge-sheen" style={pct === null ? undefined : { width: `${pct}%` }} />
+        <i className="forge-edge" style={fill} />
       </span>
       <small>{formatDuration(progress?.elapsedMs ?? elapsedMs)}</small>
     </div>

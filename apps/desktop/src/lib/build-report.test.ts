@@ -2,31 +2,26 @@ import { describe, expect, it } from "vitest";
 import { explainBuild } from "./build-explanation";
 import { reproductionReport } from "./reproduction-report";
 import { defaultRequest, useDesktopStore } from "./state";
-import type { SolvedBuildDto } from "./types";
+import { solvedBuild } from "./test-fixtures";
 
-const row: SolvedBuildDto = {
-  weaponId: 1, weaponName: "Uchigatana", affinity: "Keen", isSomber: false, upgrade: 7,
-  stats: { strStat: 18, dex: 40, intStat: 9, fai: 8, arc: 8 },
-  ar: { physical: 300, magic: 100, fire: 0, lightning: 0, holy: 0, total: 400 },
-  aowId: 100, aowName: "Unsheathe", bleedBuildup: 45, bleedBuildupAdd: 0,
-  frostBuildup: 0, poisonBuildup: 0, scarletRotBuildup: 0, sleepBuildup: 0,
-  madnessBuildup: 0, deathBuildup: 0, aowFirstHitDamage: 300,
-  aowFullSequenceDamage: 500, aowRoute: null, score: 400,
-};
+const row = solvedBuild({
+  upgrade: 7, ar: { physical: 300, magic: 100, fire: 0, lightning: 0, holy: 0, total: 400 },
+  aowFullSequenceDamage: 500, score: 400,
+});
 
 describe("calculation-derived explanations", () => {
   it("does not explain a missing skill route as a measured zero or numeric comparison", () => {
     const missing = { ...row, aowFirstHitDamage: 0, aowFullSequenceDamage: 0 };
     const request = { ...defaultRequest, objective: "aow_full_sequence" as const };
-    expect(explainBuild(missing, request).join(" ")).toContain("unavailable");
-    expect(explainBuild(missing, request).join(" ")).not.toContain("scores 0.0");
+    expect(explainBuild(missing, request, true).join(" ")).toContain("unavailable");
+    expect(explainBuild(missing, request, true).join(" ")).not.toContain("scores 0.0");
     const versusMissing = explainBuild(row, request, true, missing).join(" ");
     expect(versusMissing).toContain("no comparable AoW Sequence value");
     expect(versusMissing).not.toContain("500.0");
   });
 
   it("describes lexicographic bleed ranking without adding AR or inventing contribution estimates", () => {
-    const text = explainBuild(row, { ...defaultRequest, objective: "max_ar_plus_bleed", lockDex: 40, minStr: 18 }).join(" ");
+    const text = explainBuild(row, { ...defaultRequest, objective: "max_ar_plus_bleed", lockDex: 40, minStr: 18 }, true).join(" ");
     expect(text).toContain("bleed buildup first (45.0), then AR (400.0)");
     expect(text).toContain("300.0 physical + 100.0 magic");
     expect(text).toContain("DEX locked at 40");
@@ -54,7 +49,7 @@ describe("calculation-derived explanations", () => {
   });
   it("does not describe unknown imported properties as damage", () => {
     const imported = { ...row, ar: { ...row.ar, privateMetric: 123 } };
-    expect(explainBuild(imported, defaultRequest).join(" ")).not.toContain("privateMetric");
+    expect(explainBuild(imported, defaultRequest, true).join(" ")).not.toContain("privateMetric");
   });
 });
 
@@ -91,9 +86,15 @@ describe("reproduction reports", () => {
     "Unable to open \\\\machine\\private\\data.csv",
     "failed /home/alice/data.csv", "file:///Users/alice/data.csv",
     "contact alice@example.com", "Authorization: Bearer test", "token=test",
+    "Unable to open Users\\alice\\data.csv", "sent Bearer abc", `key ${"a1B2".repeat(10)}`,
   ])("omits private-looking error text: %s", error => {
     const report = JSON.parse(reproductionReport({ ...state(), error }));
     expect(report.error).toMatch(/^\[Omitted:/);
+  });
+  it.each([
+    "Search failed:/ retry", "Unexpected token } in JSON", "Convergence 3.0.0.1 data could not be loaded",
+  ])("keeps ordinary error text: %s", error => {
+    expect(JSON.parse(reproductionReport({ ...state(), error })).error).toBe(error);
   });
   it("retains useful ordinary errors but excludes stale selected results", () => {
     const report = JSON.parse(reproductionReport({ ...state(), resultsStale: true, error: "No legal weapons match the filters." }));

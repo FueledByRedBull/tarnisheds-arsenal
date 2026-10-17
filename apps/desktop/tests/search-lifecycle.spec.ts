@@ -125,7 +125,7 @@ test("Compare solve failure aborts its sibling lanes and keeps shared work alive
     const rows = state.rows;
     const base = buildOptimizeRequest(state.catalog, state.request, state.lockedStatMode);
     const probe: {
-      calls: Array<{ signal: AbortSignal; resolve: (row: typeof rows[number] | null) => void; aborted: boolean }>;
+      calls: Array<{ signal?: AbortSignal; resolve: (row: typeof rows[number] | null) => void; aborted: boolean }>;
       heldResolved: boolean;
       siblingAborted: boolean;
     } = { calls: [], heldResolved: false, siblingAborted: false };
@@ -139,7 +139,7 @@ test("Compare solve failure aborts its sibling lanes and keeps shared work alive
       probe.calls.push(call);
       return new Promise<typeof rows[number] | null>((resolve, reject) => {
         resolveCall = resolve;
-        signal.addEventListener("abort", () => {
+        signal?.addEventListener("abort", () => {
           call.aborted = true;
           if (!isRootFailure) {
             probe.siblingAborted = true;
@@ -179,7 +179,7 @@ test("Compare optional upgrade failure preserves verified lanes and independent 
       probe.calls.push(call);
       return new Promise((resolve, reject) => {
         call.finish = () => resolve([{ upgrade: 0, metric: 100 + index }]);
-        signal.addEventListener("abort", () => {
+        signal?.addEventListener("abort", () => {
           call.aborted = true;
           reject(new Error("cancelled"));
         }, { once: true });
@@ -199,12 +199,12 @@ test("Compare optional upgrade failure preserves verified lanes and independent 
 
   await page.evaluate(() => (window as any).compareUpgradeProbe.calls[1].finish());
   const charts = page.locator(".matrix-row:not(.matrix-header)");
-  await expect(charts.nth(1).getByRole("gridcell").first()).toHaveText("101.0");
+  await expect(charts.nth(1).getByRole("cell").first()).toHaveText("101.0");
   await expect(page.getByText("Upgrade chart loading…", { exact: true })).toHaveCount(2);
   await page.evaluate(() => (window as any).compareUpgradeProbe.calls.slice(2).forEach((call: any) => call.finish()));
   await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
-  await expect(charts.nth(2).getByRole("gridcell").first()).toHaveText("102.0");
-  await expect(charts.nth(3).getByRole("gridcell").first()).toHaveText("103.0");
+  await expect(charts.nth(2).getByRole("cell").first()).toHaveText("102.0");
+  await expect(charts.nth(3).getByRole("cell").first()).toHaveText("103.0");
   await expect(page.getByText("Upgrade chart unavailable: comparison upgrade failed", { exact: true })).toBeVisible();
   expect(await page.evaluate(async () => {
     const { useDesktopStore } = await import("/src/lib/state.ts");

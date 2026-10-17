@@ -1,9 +1,10 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { cpus, platform, release, arch } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
+import { dtoFieldNames } from "./check-dto-contract.mjs";
 import { cancellationMeasured, medianSample, sampleStatistics } from "./native-responsiveness-metrics.mjs";
 import { launchPackagedApp, stopSession } from "./packaged-session.mjs";
 
@@ -16,11 +17,8 @@ const options = parseOptions(rawOptions);
 const executable = resolve(executableArg);
 const warmups = positiveInteger(options.warmups, 1, "--warmups");
 const repeats = positiveInteger(options.repeats, 3, "--repeats");
-const mode = options.mode ?? "async";
-if (mode !== "sync" && mode !== "async") throw new Error("--mode must be sync or async");
 const suite = options.suite ?? "analysis";
 if (suite !== "analysis" && suite !== "production") throw new Error("--suite must be analysis or production");
-if (suite === "production" && mode !== "async") throw new Error("The production suite requires asynchronous native commands");
 const POLL_INTERVAL_MS = 25;
 
 const BASE_REQUEST = {
@@ -48,8 +46,6 @@ const BASE_REQUEST = {
   standardMaxUpgrade: 25,
   somberMaxUpgrade: 10,
   exactUpgrade: true,
-  maxUpgrade: null,
-  fixedUpgrade: null,
   twoHanding: false,
   dlcScaling: true,
   scadutreeLevel: 20,
@@ -63,6 +59,10 @@ const BASE_REQUEST = {
   objective: "max_ar",
   topK: 10,
 };
+const requestFields = dtoFieldNames(readFileSync(new URL("../src-tauri/src/dto.rs", import.meta.url), "utf8"), "OptimizeRequestDto");
+if (JSON.stringify(Object.keys(BASE_REQUEST).sort()) !== JSON.stringify(requestFields)) {
+  throw new Error(`BASE_REQUEST must list exactly the OptimizeRequestDto fields: ${requestFields.join(", ")}`);
+}
 
 const commandNames = {
   solveStart: "start_solve_build",
@@ -76,39 +76,36 @@ const rayonThreads = options.threads === "default"
   ? null : positiveInteger(options.threads ?? process.env.RAYON_NUM_THREADS, 1, "--threads/RAYON_NUM_THREADS");
 if (rayonThreads === null) delete process.env.RAYON_NUM_THREADS;
 else process.env.RAYON_NUM_THREADS = String(rayonThreads);
-const appStartedAt = performance.now();
 const session = await launchPackagedApp(executable);
 try {
   const page = session.page;
   page.setDefaultTimeout(600_000);
   await page.getByText("Snapshot loaded", { exact: true }).waitFor({ timeout: 120_000 });
   const manifest = await invokeNative(page, "get_data_manifest", { profileId: "vanilla" });
-  const startupMs = round(performance.now() - appStartedAt);
+  // From the launch that succeeded, so a retried WebView2 start does not inflate it.
+  const startupMs = round(performance.now() - session.startedAt);
 
-  const solved = mode === "async"
-    ? await waitForJob(page, commandNames.solveStart, commandNames.analysisStatus, {
-      request: solveRequest(BASE_REQUEST),
-    })
-    : await invokeNative(page, "solve_build", { request: solveRequest(BASE_REQUEST) });
+  const solved = await waitForJob(page, commandNames.solveStart, commandNames.analysisStatus, {
+    request: solveRequest(BASE_REQUEST),
+  });
   if (!solved) throw new Error("baseline fixture did not produce a solved Uchigatana row");
 
+  /** @type {Array<[string, () => Promise<any>]>} */
   const cases = suite === "production" ? await productionCases(page) : [
     ["uncached-solve-batch", () => runSolveBatch(page)],
     ["build-upgrade-series", () => runSeries(page, solved)],
-    ...(mode === "async" ? [
-      ["cancellation", () => runCancellation(page)],
-      ["ar-bleed-frontier", async () => {
-        const request = { base: BASE_REQUEST, solved };
-        return { ...await measureNativeWork(page,
-          () => waitForJob(page, "start_ar_bleed_frontier", commandNames.analysisStatus, { request }),
-          "ar-bleed-frontier"), request };
-      }],
-      ["frontier-cancellation", () => measureCancellableJob(page, {
-        start: "start_ar_bleed_frontier", status: commandNames.analysisStatus, cancel: commandNames.analysisCancel,
-        request: { base: { ...BASE_REQUEST, characterLevel: 300, vig: 12, end: 13 }, solved },
-        result: status => status.finished?.frontier, delayMs: 0,
-      })],
-    ] : []),
+    ["cancellation", () => runCancellation(page)],
+    ["ar-bleed-frontier", async () => {
+      const request = { base: BASE_REQUEST, solved };
+      return { ...await measureNativeWork(page,
+        () => waitForJob(page, "start_ar_bleed_frontier", commandNames.analysisStatus, { request }),
+        "ar-bleed-frontier"), request };
+    }],
+    ["frontier-cancellation", () => measureCancellableJob(page, {
+      start: "start_ar_bleed_frontier", status: commandNames.analysisStatus, cancel: commandNames.analysisCancel,
+      request: { base: { ...BASE_REQUEST, characterLevel: 300, vig: 12, end: 13 }, solved },
+      result: status => status.finished?.frontier, delayMs: 0,
+    })],
   ];
   const selectedCases = cases.filter(([name]) => options.case === undefined || options.case === name);
   if (selectedCases.length === 0) throw new Error(`Unknown case for ${suite}: ${options.case}`);
@@ -130,6 +127,9 @@ try {
     if (!name.endsWith("cancellation") && (fingerprints.size !== 1 || fingerprints.has(undefined))) {
       throw new Error(`${name} changed or omitted its result fingerprint across warmups/repeats`);
     }
+    if (name.endsWith("cancellation") && !samples.some((sample) => sample.cancellationMeasured)) {
+      throw new Error(`${name} measured no cancellation: every job finished before its cancel took effect`);
+    }
     const median = medianSample(samples);
     measurements.push({ name, warmups, warmupSamples, samples, statistics: sampleStatistics(samples), ...(median ? { median } : {}) });
   }
@@ -141,7 +141,6 @@ try {
     environment: { node: process.version, platform: platform(), release: release(), arch: arch(), cpu: cpus()[0]?.model, logicalCpus: cpus().length,
       rayonThreads, rayonThreadPolicy: rayonThreads === null ? "runtime-default; RAYON_NUM_THREADS unset, native pool size not instrumented" : "explicit" },
     manifest,
-    mode,
     suite,
     requestedCase: options.case ?? null,
     pollIntervalMs: POLL_INTERVAL_MS,
@@ -193,6 +192,7 @@ async function productionCases(page) {
   }
   if (fixtures[0].solved.weaponId === fixtures[1].solved.weaponId) throw new Error("Paths requires distinct loadout fixtures");
   const highK = { ...base, characterLevel: 46, topK: 500, resultGrouping: "loadout" };
+  /** @type {Array<[string, () => Promise<any>]>} */
   const cases = [
     ["locked-non-additive-solve", async () => ({
       ...await measureNativeWork(page, () => waitForJob(page, commandNames.solveStart, commandNames.analysisStatus, { request: coupledRequest }), "locked-non-additive-solve"),
@@ -241,62 +241,66 @@ async function runSolveBatch(page) {
     exactUpgrade: false,
     topK: 1,
   }));
-  return { ...await measureNativeWork(page, () => runHeavyBatch(page, "solve_build", requests), "solve_build"), requests };
-}
-
-async function runHeavyBatch(page, command, requests) {
-  const results = [];
-  for (const request of requests) results.push(await invokeHeavy(page, command, { request }));
-  return results;
+  return { ...await measureNativeWork(page, async () => {
+    const results = [];
+    for (const request of requests) {
+      results.push(await waitForJob(page, commandNames.solveStart, commandNames.analysisStatus, { request }));
+    }
+    return results;
+  }, "solve_build"), requests };
 }
 
 async function runSeries(page, solved) {
   const request = seriesRequest({ ...BASE_REQUEST }, solved);
-  return { ...await measureNativeWork(page, () => invokeHeavy(page, "build_upgrade_series", { request }), "build_upgrade_series"), request };
+  return { ...await measureNativeWork(page,
+    () => waitForJob(page, commandNames.seriesStart, commandNames.analysisStatus, { request }), "build_upgrade_series"), request };
 }
 
 async function runCancellation(page) {
-  if (mode === "async") {
-    const cancellationBase = {
-      ...BASE_REQUEST,
-      characterLevel: 300,
-      vig: 12,
-      mnd: 11,
-      end: 13,
-      strStat: 12,
-      dex: 15,
-      intStat: 9,
-      fai: 8,
-      arc: 8,
-    };
-    return measureCancellableJob(page, {
-      start: commandNames.solveStart,
-      status: commandNames.analysisStatus,
-      cancel: commandNames.analysisCancel,
-      request: solveRequest(
-        { ...cancellationBase, exactUpgrade: false, topK: 1 },
-        "Sword of Night and Flame",
-        "Standard",
-        "Night-and-Flame Stance",
-      ),
-      result: (status) => status.finished?.result ?? null,
-      delayMs: 0,
-    });
-  }
-  throw new Error("Direct calculation cancellation is unavailable in the baseline binary");
+  const cancellationBase = {
+    ...BASE_REQUEST,
+    characterLevel: 300,
+    vig: 12,
+    mnd: 11,
+    end: 13,
+    strStat: 12,
+    dex: 15,
+    intStat: 9,
+    fai: 8,
+    arc: 8,
+  };
+  return measureCancellableJob(page, {
+    start: commandNames.solveStart,
+    status: commandNames.analysisStatus,
+    cancel: commandNames.analysisCancel,
+    request: solveRequest(
+      { ...cancellationBase, exactUpgrade: false, topK: 1 },
+      "Sword of Night and Flame",
+      "Standard",
+      "Night-and-Flame Stance",
+    ),
+    result: (status) => status.finished?.result ?? null,
+    delayMs: 0,
+  });
 }
 
 async function measureNativeWork(page, heavy, label) {
   const heavyStartedAt = performance.now();
+  /** @type {number} */
   let heavyFinishedAt;
   const heavyPromise = Promise.resolve(heavy()).then((result) => {
     heavyFinishedAt = performance.now();
     return result;
   });
-  await delay(1);
-  const lightStartedAt = performance.now();
+  /** @type {number} */
+  let lightStartedAt;
+  /** @type {number} */
   let lightFinishedAt;
-  const lightPromise = invokeNative(page, "get_data_manifest", { profileId: "vanilla" }).then((result) => {
+  // Chained instead of awaited, so Promise.all below observes a rejection from either side.
+  const lightPromise = delay(1).then(() => {
+    lightStartedAt = performance.now();
+    return invokeNative(page, "get_data_manifest", { profileId: "vanilla" });
+  }).then((result) => {
     lightFinishedAt = performance.now();
     return result;
   });
@@ -315,14 +319,6 @@ async function measureNativeWork(page, heavy, label) {
   };
 }
 
-async function invokeHeavy(page, command, args) {
-  if (mode === "sync") return invokeNative(page, command, args);
-  const config = command === "solve_build"
-    ? { start: commandNames.solveStart, status: commandNames.analysisStatus, cancel: commandNames.analysisCancel }
-    : { start: commandNames.seriesStart, status: commandNames.analysisStatus, cancel: commandNames.analysisCancel };
-  return await waitForJob(page, config.start, config.status, args);
-}
-
 async function measureCancellableJob(page, config) {
   const startedAt = performance.now();
   const started = await invokeNative(page, config.start, { request: config.request });
@@ -331,11 +327,13 @@ async function measureCancellableJob(page, config) {
   const delayMs = config.delayMs ?? 20;
   if (delayMs > 0) await delay(delayMs);
   const lightStartedAt = performance.now();
+  /** @type {number} */
   let lightFinishedAt;
   const lightPromise = invokeNative(page, "get_data_manifest", { profileId: "vanilla" }).then((result) => {
     lightFinishedAt = performance.now();
     return result;
   });
+  lightPromise.catch(() => {}); // Awaited below; this only keeps an early rejection from going unhandled.
   const cancelRequestedAt = performance.now();
   const cancelAccepted = await invokeNative(page, config.cancel, { jobId });
   const finished = await waitForJobStatus(page, config.status, jobId);
@@ -390,7 +388,7 @@ async function waitForJobStatus(page, command, jobId) {
 
 async function invokeNative(page, command, args) {
   return page.evaluate(async ({ command: name, args: commandArgs }) => {
-    const internals = window.__TAURI_INTERNALS__;
+    const internals = /** @type {any} */ (window).__TAURI_INTERNALS__;
     if (!internals || typeof internals.invoke !== "function") throw new Error("Tauri internals invoke bridge is unavailable");
     try { return await internals.invoke(name, commandArgs); }
     catch (error) { throw new Error(JSON.stringify(error)); }
@@ -403,7 +401,7 @@ function round(value) {
 
 function parseOptions(args) {
   const parsed = {};
-  const allowed = new Set(["warmups", "repeats", "mode", "suite", "threads", "case", "output"]);
+  const allowed = new Set(["warmups", "repeats", "suite", "threads", "case", "output"]);
   for (const arg of args) {
     const match = /^--([^=]+)(?:=(.*))?$/.exec(arg);
     if (!match || !allowed.has(match[1]) || Object.hasOwn(parsed, match[1])) throw new Error(`unknown or duplicate argument ${arg}`);

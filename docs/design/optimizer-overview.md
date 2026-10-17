@@ -75,9 +75,10 @@ transitions executed.
 For separable formulas, the optimizer compiles per-stat contributions and uses a
 lexicographic dynamic program. Checked coefficient bounds select `i128` when safe
 and `BigInt` otherwise. Exact rational terminal keys compare loadouts with different
-scales. Coupled routes use direct enumeration when no valid shortcut applies.
-The [mathematical document](optimizer-math.md) defines the recurrence, numerical
-contract, relevance obligations, and complete ordering.
+scales. A route with a non-additive correction enumerates only the stats that
+correction couples, completes the rest with one exact DP, and compares candidates
+as scaled integer keys. The [mathematical document](optimizer-math.md) defines the
+recurrence, numerical contract, relevance obligations, and complete ordering.
 
 Max AR, Max Physical AR, and Bleed searches reuse primary plans across Ashes with
 identical primary effects at the same upgrade and stat bounds. Plans retain all
@@ -91,10 +92,13 @@ damage work can split by Ash, while AR/Bleed work stays grouped to reuse primary
 plans. Preparation, scoring, and materialization are measured separately by the
 [performance harnesses](../performance.md).
 
-Parallel AR/physical-AR/bleed scoring shares its exact top-K cutoff at work-unit
+Parallel scoring for every objective shares its exact top-K cutoff at work-unit
 boundaries. Workers copy the cutoff and merge completed candidates under the lock;
 scoring runs outside it. Only strictly lower upper bounds are pruned, preserving
-equal-score ties and the complete result order.
+equal-score ties and the complete result order. Upgrades are visited from the
+highest down; a lower upgrade that the next one dominates at every allocation is
+skipped or bounded by that upgrade's results, as described under
+[upgrade dominance](optimizer-math.md#upgrade-dominance).
 
 Certified additive full-route formulas combine identical stat/curve terms while
 keeping raw and effective Strength separate. First-positive-hit evaluation keeps
@@ -137,7 +141,8 @@ separate allocation rule.
 
 The gate is `level_range_reuse_enabled` in the
 [optimizer](../../core/er_optimizer_core/src/optimizer.rs); it also requires explicit
-weapon, affinity and Ash selections. The regression
+weapon and affinity selections. Without a pinned Ash the cache holds one table set per
+stat shape, compatible Ash and route, still released with the range. The regression
 `fixed_loadout_level_range_reuse_preserves_objectives_and_budget_edges` compares
 complete results with independent searches, including locks, minimums, handling,
 world scaling and requirement thresholds in the

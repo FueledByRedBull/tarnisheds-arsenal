@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import argparse
 import hashlib
 import json
 import shutil
@@ -14,12 +13,12 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.phase1.extract_motion_workbook import MOTION_WORKBOOK_NAME  # noqa: E402
-from tools.phase1.profiles import ProfileDefinition, profile_definition  # noqa: E402
+from tools.phase1.profiles import ProfileDefinition  # noqa: E402
 
 
 SCHEMA_VERSION = 6
 MODEL_VERSION = "aow-routes-effects-v9"
-EXTRACTOR_VERSION = "phase1-python-v13-skill-route-identity"
+EXTRACTOR_VERSION = "phase1-python-v15-f32-shortest-floats"
 RUNTIME_FILES = {
     "aow.csv",
     "aow_attack_data.csv",
@@ -34,7 +33,14 @@ RUNTIME_FILES = {
     "weapon_passives.csv",
     "weapons.csv",
 }
-IN_MEMORY_DIAGNOSTICS = {"aow_affinity_compat.csv", "weapon_scaling_summary.csv"}
+CLASS_CATALOG_FILE = "classes.csv"
+
+
+def runtime_files_for(profile_id: str, class_budget: bool) -> set[str]:
+    """Vanilla's class budgets are built into the runtime; another profile ships its own."""
+    if class_budget and profile_id != "vanilla":
+        return RUNTIME_FILES | {CLASS_CATALOG_FILE}
+    return set(RUNTIME_FILES)
 
 
 class FileRecord(TypedDict):
@@ -66,16 +72,28 @@ class SnapshotManifest(TypedDict):
     sources: list[SourceRecord]
 
 
-def _sha256(path: Path) -> str:
+def sha256_file(path: Path) -> str:
     with path.open("rb") as handle:
         return hashlib.file_digest(handle, "sha256").hexdigest()
+
+
+def check_snapshot_destination(destination_dir: Path) -> None:
+    """Refuse to promote into a non-empty directory that holds no snapshot manifest."""
+    if (
+        destination_dir.exists()
+        and any(destination_dir.iterdir())
+        and not (destination_dir / "manifest.json").is_file()
+    ):
+        raise ValueError(
+            f"refusing to write a snapshot into {destination_dir}: it is not empty and has no manifest.json"
+        )
 
 
 def _file_record(path: Path) -> FileRecord:
     return {
         "path": path.name,
         "size": path.stat().st_size,
-        "sha256": _sha256(path),
+        "sha256": sha256_file(path),
     }
 
 
@@ -94,7 +112,7 @@ def _matches_record(path: Path, record: Mapping[str, object]) -> bool:
     return (
         path.is_file()
         and record.get("size") == path.stat().st_size
-        and record.get("sha256") == _sha256(path)
+        and record.get("sha256") == sha256_file(path)
     )
 
 
@@ -109,7 +127,8 @@ def write_snapshot_manifest(
     phase1_dir = phase1_dir.resolve()
     regulation_path = regulation_path.resolve()
     workbook_path = phase1_dir / MOTION_WORKBOOK_NAME
-    missing_runtime = sorted(name for name in RUNTIME_FILES if not (phase1_dir / name).is_file())
+    runtime_names = runtime_files_for(profile.id, profile.capabilities.class_budget)
+    missing_runtime = sorted(name for name in runtime_names if not (phase1_dir / name).is_file())
     if missing_runtime:
         raise FileNotFoundError(
             "cannot write snapshot manifest; missing runtime files: "
@@ -120,11 +139,11 @@ def write_snapshot_manifest(
     if not regulation_path.is_file():
         raise FileNotFoundError(f"regulation source not found: {regulation_path}")
 
-    runtime_files = [_file_record(phase1_dir / name) for name in sorted(RUNTIME_FILES)]
+    runtime_files = [_file_record(phase1_dir / name) for name in sorted(runtime_names)]
     diagnostic_files = [
         _file_record(path)
         for path in sorted(phase1_dir.glob("*.csv"), key=lambda item: item.name)
-        if path.name not in RUNTIME_FILES | IN_MEMORY_DIAGNOSTICS
+        if path.name not in runtime_names
     ]
     sources: list[SourceRecord] = [
         {"kind": "regulation", "bundled": False, **_file_record(regulation_path)},
@@ -246,7 +265,8 @@ def validate_snapshot_manifest(
     if not all(isinstance(record, dict) for record in all_records):
         raise ValueError("snapshot manifest file records are malformed")
     runtime_paths = {record.get("path") for record in runtime_records}
-    if runtime_paths != RUNTIME_FILES or len(runtime_records) != len(RUNTIME_FILES):
+    expected_runtime = runtime_files_for(profile_id, capabilities["classBudget"])
+    if runtime_paths != expected_runtime or len(runtime_records) != len(expected_runtime):
         raise ValueError("snapshot runtime file set is not exact")
 
     listed_paths: set[str] = set()
@@ -260,7 +280,7 @@ def validate_snapshot_manifest(
             raise ValueError(f"snapshot file is missing: {relative}")
         if record.get("size") != path.stat().st_size:
             raise ValueError(f"snapshot file size mismatch: {relative}")
-        if record.get("sha256") != _sha256(path):
+        if record.get("sha256") != sha256_file(path):
             raise ValueError(f"snapshot file SHA-256 mismatch: {relative}")
 
     actual_csvs = {path.name for path in phase1_dir.glob("*.csv")}
@@ -295,7 +315,7 @@ def validate_snapshot_manifest(
             if (
                 not source_path.is_file()
                 or record.get("size") != source_path.stat().st_size
-                or record.get("sha256") != _sha256(source_path)
+                or record.get("sha256") != sha256_file(source_path)
             ):
                 raise ValueError(f"snapshot bundled {kind} source hash is invalid")
     return cast(SnapshotManifest, manifest)
@@ -310,6 +330,7 @@ def promote_snapshot(staging_dir: Path, destination_dir: Path) -> None:
     """
     staging_dir = staging_dir.resolve()
     destination_dir = destination_dir.resolve()
+    check_snapshot_destination(destination_dir)
     manifest = validate_snapshot_manifest(staging_dir)
     destination_dir.mkdir(parents=True, exist_ok=True)
 
@@ -342,23 +363,3 @@ def promote_snapshot(staging_dir: Path, destination_dir: Path) -> None:
     manifest_temporary.replace(manifest_destination)
     validate_snapshot_manifest(destination_dir)
 
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Write the atomic Phase 1 snapshot manifest.")
-    parser.add_argument("--profile", default="vanilla")
-    parser.add_argument("--phase1", type=Path)
-    parser.add_argument("--regulation", type=Path)
-    parser.add_argument("--generated-at")
-    args = parser.parse_args()
-    profile = profile_definition(args.profile)
-    output = write_snapshot_manifest(
-        args.phase1 or profile.output_dir,
-        args.regulation or profile.regulation_path,
-        profile=profile,
-        generated_at=args.generated_at,
-    )
-    print(f"Wrote snapshot manifest to {output}")
-
-
-if __name__ == "__main__":
-    main()

@@ -37,7 +37,7 @@ for (const [className, stale, migrate] of [["Unknown", false, false], ["Unknown"
       return { request: state.request, rows: state.rows, pins: state.compareBench,
         pathGeneration: state.pathGeneration, searchGeneration: state.searchGeneration, storage: { ...localStorage } };
     });
-    await page.getByRole("button", { name: migrate ? "Migrate data" : stale ? "Load inputs only" : "Load", exact: true }).click();
+    await page.getByRole("button", { name: migrate ? "Migrate data" : "Load", exact: true }).click();
     await expect(page.locator('.error-strip[role="alert"]')).toContainText("Starting class");
     await expect(page.getByRole("grid", { name: "Ranked builds" })).toBeVisible();
     expect(await page.evaluate(async () => {
@@ -81,7 +81,7 @@ for (const mutation of ["total", "route", "identity", "upgrade"] as const) {
     await page.getByRole("button", { name: "Load", exact: true }).click();
     if (mutation === "identity" || mutation === "upgrade") {
       await expect(page.locator('.error-strip[role="alert"]')).toContainText(/contradict|cannot be verified|upgrade/i);
-      await expect(page.locator(".result-row-full")).toHaveCount(0);
+      await expect(page.locator(".result-row")).toHaveCount(0);
     } else {
       await expect(page.getByText(/saved results verified on current data/)).toBeVisible();
       const result = await page.evaluate(async () => {
@@ -117,6 +117,7 @@ for (const stage of ["setup", "commit", "earlier error"] as const) {
     await page.getByText("Snapshot loaded", { exact: true }).waitFor();
     await page.evaluate(async stage => {
       const { api } = await import("/src/lib/api.ts");
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- saved only to be restored onto the prototype
       const read = Storage.prototype.getItem;
       let denied = stage === "setup";
       Storage.prototype.getItem = function (key) {

@@ -10,26 +10,15 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-RELEASE_DEFAULTS: dict[str, Any] = {
-    "opt-level": 3, "debug": False, "strip": "none", "debug-assertions": False,
-    "overflow-checks": False, "lto": False, "panic": "unwind", "incremental": False,
-    "codegen-units": 16, "rpath": False, "split-debuginfo": "target-dependent",
-}
-PROFILE_KEYS = set(RELEASE_DEFAULTS)
-BUILD_KEYS = {
-    "rustc", "rustc-wrapper", "rustc-workspace-wrapper", "rustdoc", "target",
-    "target-dir", "build-dir", "rustflags", "rustdocflags", "incremental", "jobs",
-}
-TARGET_KEYS = {"linker", "runner", "rustflags", "rustdocflags"}
+# Compiler-affecting variables; Cargo's own are matched by prefix in _compiler_env_name.
 ENV_KEYS = {
-    "RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "RUSTDOCFLAGS", "CARGO_ENCODED_RUSTDOCFLAGS",
-    "RUSTC", "RUSTDOC", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER", "RUSTC_BOOTSTRAP",
-    "RUSTUP_TOOLCHAIN", "CARGO_INCREMENTAL", "CARGO_BUILD_TARGET", "CARGO_BUILD_RUSTC", "CARGO_BUILD_RUSTDOC",
-    "CARGO_BUILD_RUSTC_WRAPPER", "CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER",
-    "CARGO_BUILD_RUSTFLAGS", "CARGO_BUILD_RUSTDOCFLAGS", "CARGO_BUILD_INCREMENTAL",
+    "RUSTFLAGS", "RUSTDOCFLAGS", "RUSTC", "RUSTDOC", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER",
+    "RUSTC_BOOTSTRAP", "RUSTUP_TOOLCHAIN",
     "CC", "CXX", "CFLAGS", "CXXFLAGS", "CPPFLAGS", "LDFLAGS", "AR", "ARFLAGS",
     "CL", "_CL_", "_LINK_", "LIB", "INCLUDE",
 }
+# Output locations and parallelism do not define a compiler variant.
+OUTPUT_ENV_KEYS = {"CARGO_TARGET_DIR", "CARGO_BUILD_TARGET_DIR", "CARGO_BUILD_BUILD_DIR", "CARGO_BUILD_JOBS"}
 EXCLUDED_PARTS = {
     "ignore", ".codex-tmp", ".git", "target", "node_modules", "dist", "dist_release",
     "build", "build_release", "gen", "__pycache__", ".venv", "venv", ".pytest_cache",
@@ -108,179 +97,38 @@ def _cargo_config_paths(root: Path, environment: dict[str, str]) -> list[Path]:
 
 
 def _compiler_env_name(name: str) -> bool:
-    profile_names = {f"CARGO_PROFILE_RELEASE_{key.upper().replace('-', '_')}" for key in PROFILE_KEYS}
-    profile_names.update(f"CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_{key.upper().replace('-', '_')}" for key in PROFILE_KEYS)
-    return name in ENV_KEYS or name in profile_names or bool(
-        re.fullmatch(r"CARGO_TARGET_[A-Z0-9_]+_(LINKER|RUNNER|RUSTFLAGS|RUSTDOCFLAGS)", name)
-    )
-
-
-def _merge(lower: dict[str, Any], higher: dict[str, Any]) -> dict[str, Any]:
-    result = dict(lower)
-    for key, value in higher.items():
-        old = result.get(key)
-        if isinstance(old, dict) and isinstance(value, dict):
-            result[key] = _merge(old, value)
-        elif isinstance(old, list) and isinstance(value, list):
-            result[key] = old + value
-        else:
-            result[key] = value
-    return result
-
-
-def _profile_settings(profile: dict[str, Any]) -> dict[str, Any]:
-    unsupported = set(profile) - PROFILE_KEYS - {"package", "build-override"}
-    if unsupported:
-        raise ValueError("unsupported release profile keys: " + ", ".join(sorted(unsupported)))
-    result = {key: value for key, value in profile.items() if key in PROFILE_KEYS}
-    if "package" in profile:
-        result["package"] = {name: _profile_settings(values) for name, values in profile["package"].items()}
-    if "build-override" in profile:
-        result["build-override"] = _profile_settings(profile["build-override"])
-    return result
-
-
-def _read_config(path: Path) -> dict[str, Any]:
-    if _secret_path(Path(path.name)) or path.is_symlink():
-        raise ValueError("refusing secret-like or symlink Cargo configuration")
-    config = tomllib.loads(path.read_text(encoding="utf-8"))
-    if any(key in config for key in ("include", "patch", "paths", "unstable")):
-        raise ValueError("unsupported Cargo include, patch, paths, or unstable configuration")
-    result: dict[str, Any] = {}
-    if "build" in config:
-        result["build"] = {key: value for key, value in config["build"].items() if key in BUILD_KEYS}
-    if "profile" in config and "release" in config["profile"]:
-        result["profile"] = {"release": _profile_settings(config["profile"]["release"])}
-    if "target" in config:
-        targets = {}
-        for target, values in config["target"].items():
-            if any(isinstance(value, dict) for value in values.values()):
-                raise ValueError("unsupported Cargo target build-script overrides")
-            targets[target] = {key: value for key, value in values.items() if key in TARGET_KEYS}
-        result["target"] = targets
-    if "env" in config:
-        result["env"] = {
-            key: ({field: setting for field, setting in value.items() if field in ("value", "force", "relative")}
-                  if isinstance(value, dict) else value)
-            for key, value in config["env"].items() if _compiler_env_name(key)
-        }
-    return result
-
-
-def _profile_environment_value(value: str) -> Any:
-    if value in ("true", "false"):
-        return value == "true"
-    if value.isdecimal():
-        return int(value)
-    return value
+    # An allowlist: registry tokens, proxies and other CARGO_* settings are never recorded.
+    return name in ENV_KEYS or (name not in OUTPUT_ENV_KEYS and bool(
+        re.fullmatch(r"CARGO_(PROFILE|BUILD|TARGET|UNSTABLE|ENCODED)_[A-Z0-9_]+|CARGO_INCREMENTAL", name)
+    ))
 
 
 def capture_build_metadata(
     root: Path, manifest: Path, environment: dict[str, str], command: list[str],
 ) -> dict[str, Any]:
+    """Hash what selects the compiler build; Cargo itself resolves profiles and precedence."""
+    cargo_arguments = command[:command.index("--")] if "--" in command else command
+    build_arguments = [argument for argument in cargo_arguments if argument != str(manifest)]
     root, manifest = root.resolve(), manifest.resolve()
-    cargo_arguments = command[:command.index("--")] if "--" in command else command[:]
-    if any(argument == "--config" or argument.startswith("--config=") for argument in cargo_arguments):
-        raise ValueError("--config overrides require explicit support before benchmark provenance capture")
-    if "--release" not in cargo_arguments or any(
-        argument == "--profile" or argument.startswith("--profile=") for argument in cargo_arguments
-    ):
-        raise ValueError("benchmark provenance capture requires the standard --release profile")
-    manifest_data = tomllib.loads(manifest.read_text(encoding="utf-8"))
-    if "workspace" in manifest_data or "workspace" in manifest_data.get("package", {}):
-        raise ValueError("workspace profile inheritance is not supported by this benchmark collector")
-    for parent in manifest.parent.parents:
-        if not parent.is_relative_to(root):
-            break
-        parent_manifest = parent / "Cargo.toml"
-        if parent_manifest.is_file() and "workspace" in tomllib.loads(parent_manifest.read_text(encoding="utf-8")):
-            raise ValueError("workspace profile inheritance is not supported by this benchmark collector")
-    manifest_profile = _profile_settings(manifest_data.get("profile", {}).get("release", {}))
-    config: dict[str, Any] = {}
-    config_inputs = []
-    config_target_base = root
-    config_rustc_base = root
-    for path in _cargo_config_paths(root, environment):
-        settings = _read_config(path)
-        config_inputs.append({"path": str(path), "settings": settings, "fingerprint": _fingerprint(settings)})
-        config = _merge(config, settings)
-        if "target-dir" in settings.get("build", {}):
-            config_target_base = path.parent.parent
-        if "rustc" in settings.get("build", {}):
-            config_rustc_base = path.parent.parent
-    compiler_environment = {key: value for key, value in sorted(environment.items()) if _compiler_env_name(key)}
-    explicit_profile = _merge(manifest_profile, config.get("profile", {}).get("release", {}))
-    for key in PROFILE_KEYS:
-        variable = f"CARGO_PROFILE_RELEASE_{key.upper().replace('-', '_')}"
-        if variable in environment:
-            explicit_profile[key] = _profile_environment_value(environment[variable])
-        build_variable = f"CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_{key.upper().replace('-', '_')}"
-        if build_variable in environment:
-            explicit_profile.setdefault("build-override", {})[key] = _profile_environment_value(environment[build_variable])
-    profile = _merge(RELEASE_DEFAULTS, explicit_profile)
-    profile["build-override"] = _merge(
-        {"opt-level": 0, "codegen-units": 256, "debug": False}, profile.get("build-override", {}),
-    )
-    incremental = environment.get("CARGO_INCREMENTAL", environment.get("CARGO_BUILD_INCREMENTAL"))
-    if incremental is not None:
-        if incremental not in ("0", "1", "true", "false"):
-            raise ValueError("invalid Cargo incremental environment value")
-        profile["incremental"] = incremental in ("1", "true")
-    elif "incremental" in config.get("build", {}):
-        profile["incremental"] = config["build"]["incremental"]
-    if profile["incremental"] and "codegen-units" not in explicit_profile:
-        profile["codegen-units"] = 256
-    rustc = environment.get("RUSTC") or environment.get("CARGO_BUILD_RUSTC")
-    if rustc is None:
-        rustc = config.get("build", {}).get("rustc", "rustc")
-        if ("/" in rustc or "\\" in rustc) and not Path(rustc).is_absolute():
-            rustc = str((config_rustc_base / rustc).resolve())
+    config_files = {
+        str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in _cargo_config_paths(root, environment)
+    }
+    rustc = environment.get("RUSTC") or environment.get("CARGO_BUILD_RUSTC") or "rustc"
     compiler = {
         "cargo_version": _output(root, [command[0], "--version", "--verbose"], environment),
         "rustc_version_verbose": _output(root, [rustc, "--version", "--verbose"], environment),
-        "rustc_executable": rustc,
-        "release_profile": profile,
-        "profile_interpretation": "configured release profile before rustflags; target-dependent defaults unresolved; build dependency debug=false when possible; test harnesses ignore configured panic strategy",
-        "manifest_release_profile": manifest_profile,
-        "cargo_config": config, "cargo_config_inputs": config_inputs,
-        "environment": compiler_environment,
-        "rustflags_resolution": "input tables retained; cfg-target conditions and compiler-flag overrides not evaluated; Cargo [env] describes subprocess environment",
+        "manifest_profiles": tomllib.loads(manifest.read_text(encoding="utf-8")).get("profile", {}),
+        "cargo_config_files": config_files,
+        "environment": {key: value for key, value in sorted(environment.items()) if _compiler_env_name(key)},
     }
-    target_dir = config.get("build", {}).get("target-dir")
-    target_base = config_target_base
-    for name in ("CARGO_BUILD_TARGET_DIR", "CARGO_TARGET_DIR"):
-        if name in environment:
-            target_dir, target_base = environment[name], root
-    build_arguments = []
-    index = 0
-    while index < len(cargo_arguments):
-        argument = cargo_arguments[index]
-        if argument in ("--manifest-path", "--target-dir"):
-            if index + 1 >= len(cargo_arguments):
-                raise ValueError(f"missing argument for {argument}")
-            if argument == "--target-dir":
-                target_dir, target_base = cargo_arguments[index + 1], root
-            index += 2
-            continue
-        if argument.startswith("--manifest-path=") or argument.startswith("--target-dir="):
-            if argument.startswith("--target-dir="):
-                target_dir, target_base = argument.split("=", 1)[1], root
-        else:
-            build_arguments.append(argument)
-        index += 1
-    target_path = Path(target_dir) if target_dir is not None else manifest.parent / "target"
-    if not target_path.is_absolute():
-        target_path = target_base / target_path
-    variant_config = _merge({}, config)
-    variant_config["build"] = {key: value for key, value in config.get("build", {}).items() if key not in ("target-dir", "build-dir", "jobs")}
-    variant = {key: value for key, value in compiler.items() if key not in ("cargo_config", "cargo_config_inputs")}
-    variant.update({"cargo_config": variant_config, "build_arguments": build_arguments})
+    # Config paths differ between worktrees; their ordered contents define the variant.
+    variant = {**compiler, "cargo_config_files": list(config_files.values()), "build_arguments": build_arguments}
     return {
         "source": _source_identity(root), "compiler": compiler,
         "compiler_variant_fingerprint": _fingerprint(variant),
-        "invocation": {"command": command, "cwd": str(root), "manifest": str(manifest),
-                       "target_dir": str(target_path.resolve()),
-                       "cargo_home": str(Path(environment.get("CARGO_HOME") or Path.home() / ".cargo")),
-                       "build_dir_input": environment.get("CARGO_BUILD_BUILD_DIR", config.get("build", {}).get("build-dir")),
-                       "cargo_build_jobs": environment.get("CARGO_BUILD_JOBS", config.get("build", {}).get("jobs"))},
+        "invocation": {
+            "command": command, "cwd": str(root), "manifest": str(manifest),
+            "output_environment": {key: environment[key] for key in sorted(OUTPUT_ENV_KEYS) if key in environment},
+        },
     }

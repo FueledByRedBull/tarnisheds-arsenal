@@ -74,9 +74,8 @@ impl fmt::Display for DamageType {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PhysicalAttackAttribute {
-    #[default]
     Standard,
     Strike,
     Slash,
@@ -192,7 +191,7 @@ pub struct ReinforceLevel {
     pub base_attack_mult: f32,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug)]
 pub struct AttackElementCorrect {
     pub scales: [[bool; DAMAGE_TYPE_COUNT]; COMBAT_STAT_COUNT],
 }
@@ -231,8 +230,6 @@ pub struct AowAttackRow {
     pub aow_name: String,
     pub raw_name: String,
     pub variant_weapon_type: String,
-    pub sequence_variant: String,
-    pub hit_kind: String,
     pub hit_order: u16,
     pub is_lacking_fp: bool,
     pub atk_id: u32,
@@ -401,24 +398,17 @@ pub struct AowEffect {
     pub record_id: u32,
     pub aow_id: u16,
     pub sheet_row: u16,
-    pub source_kind: String,
-    pub source_param_ids: Vec<u32>,
     pub effect_id: u32,
     pub effect_name: String,
-    pub parent_effect_id: Option<u32>,
-    pub link_kind: String,
     pub role: AowEffectRole,
     pub activation_action_id: String,
     pub activation_timing: String,
-    pub hand_variant: String,
     pub is_canonical: Option<bool>,
     pub is_supported: bool,
     pub reason: String,
-    pub duration_seconds: f32,
     pub attack_power: [f32; DAMAGE_TYPE_COUNT],
     pub status_buildup: StatusBuildup,
     pub uses_status_correction: bool,
-    pub uses_attack_correction: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -433,36 +423,6 @@ pub struct DamageBreakdown {
 impl DamageBreakdown {
     pub fn total(self) -> f32 {
         self.physical + self.magic + self.fire + self.lightning + self.holy
-    }
-
-    pub fn scale(self, multiplier: f32) -> Self {
-        Self {
-            physical: self.physical * multiplier,
-            magic: self.magic * multiplier,
-            fire: self.fire * multiplier,
-            lightning: self.lightning * multiplier,
-            holy: self.holy * multiplier,
-        }
-    }
-
-    pub fn combined_with(self, other: Self) -> Self {
-        Self {
-            physical: self.physical + other.physical,
-            magic: self.magic + other.magic,
-            fire: self.fire + other.fire,
-            lightning: self.lightning + other.lightning,
-            holy: self.holy + other.holy,
-        }
-    }
-
-    pub fn by_type(self, damage_type: DamageType) -> f32 {
-        match damage_type {
-            DamageType::Physical => self.physical,
-            DamageType::Magic => self.magic,
-            DamageType::Fire => self.fire,
-            DamageType::Lightning => self.lightning,
-            DamageType::Holy => self.holy,
-        }
     }
 }
 
@@ -525,21 +485,6 @@ pub struct DataCapabilities {
     pub aow_routes: bool,
 }
 
-impl Default for DataCapabilities {
-    fn default() -> Self {
-        Self {
-            weapon_ar: true,
-            weapon_ar_for_ammunition: true,
-            class_budget: true,
-            status_buildup: true,
-            weapon_passives: true,
-            aow_compatibility: true,
-            aow_damage: true,
-            aow_routes: true,
-        }
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct DataRules {
     pub standard_max_upgrade: u8,
@@ -551,23 +496,8 @@ pub struct DataRules {
     pub status_buildup_scales: bool,
 }
 
-impl Default for DataRules {
-    fn default() -> Self {
-        Self {
-            standard_max_upgrade: 25,
-            somber_max_upgrade: 10,
-            separate_upgrade_caps: true,
-            scadutree_scaling: true,
-            zero_attack_element_uses_weapon_scaling: false,
-            extended_scaling_grades: false,
-            status_buildup_scales: true,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct GameData {
-    pub snapshot_schema_version: u32,
     pub dataset_version: String,
     pub model_version: String,
     pub profile_id: String,
@@ -577,9 +507,9 @@ pub struct GameData {
     pub weapons: Vec<Weapon>,
     pub reinforce: Vec<Vec<Option<ReinforceLevel>>>,
     pub calc_correct: Vec<Option<Vec<Option<f32>>>>,
-    /// Sorted by param id. Ids reach ~20 million while only ~190 exist, so a table indexed by
-    /// id took ~480 MB per profile.
-    pub attack_element_correct: Vec<(usize, AttackElementCorrect)>,
+    /// Sorted by param id with unique ids (the loader enforces both; lookups binary-search).
+    /// Ids reach ~20 million while only ~190 exist, so a table indexed by id took ~480 MB.
+    pub(crate) attack_element_correct: Vec<(usize, AttackElementCorrect)>,
     pub attack_element_correct_ext: HashMap<usize, AttackElementCorrectExt>,
     pub aows: Vec<Aow>,
     pub aow_attack_rows: HashMap<u16, Vec<AowAttackRow>>,
@@ -588,9 +518,29 @@ pub struct GameData {
     pub aow_effects: HashMap<(u16, u16), Vec<AowEffect>>,
     pub weapon_passives: HashMap<u32, StatusEffectSource>,
     pub weapon_passive_overlays: HashMap<u32, Vec<Option<StatusEffectSource>>>,
+    /// Character-creation classes of this profile; empty without class budgets.
+    pub starting_classes: Vec<crate::math::StartingClass>,
 }
 
 impl GameData {
+    /// The profile's class of that name, or the neutral Custom stats budget.
+    pub fn class_by_name(&self, name: &str) -> Option<crate::math::StartingClass> {
+        if name.eq_ignore_ascii_case(crate::math::CUSTOM_STATS_CLASS_NAME) {
+            return Some(crate::math::custom_stats_class());
+        }
+        self.starting_classes
+            .iter()
+            .find(|class_info| class_info.name.eq_ignore_ascii_case(name))
+            .cloned()
+    }
+
+    /// Whether Custom stats is an exact-stat entry next to this profile's classes: a
+    /// profile without class budgets, or a mod whose own catalog replaced Custom stats
+    /// as the only class. Vanilla offers only its classes.
+    pub fn offers_custom_stats(&self) -> bool {
+        !self.capabilities.class_budget || self.profile_id != crate::data::VANILLA_PROFILE_ID
+    }
+
     pub fn weapon_ar_supported(&self, weapon: &Weapon) -> bool {
         self.capabilities.weapon_ar
             && (self.capabilities.weapon_ar_for_ammunition || !weapon_uses_ammunition(weapon))

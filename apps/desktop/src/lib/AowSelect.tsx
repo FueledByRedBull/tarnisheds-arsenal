@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { api } from "./api";
 import { useWeaponProfileResource } from "./hooks";
 import { useKeyedResource } from "./keyed-resource";
@@ -33,7 +33,7 @@ export function AowSelect(props: {
 }) {
   const { profileId, weaponName, affinity, catalogNames } = props;
   const current = useRef(props);
-  current.current = props;
+  useLayoutEffect(() => { current.current = props; });
   const previousWeapon = useRef(weaponName ? JSON.stringify([profileId, weaponName]) : null);
   const weaponResource = useWeaponProfileResource(profileId, weaponName, affinity);
   const profile = weaponResource.profile;

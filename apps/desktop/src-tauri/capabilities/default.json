@@ -1,0 +1,26 @@
+{
+  "identifier": "default",
+  "description": "The app's own commands for the main window. No core plugin commands are allowed.",
+  "windows": ["main"],
+  "permissions": [
+    "allow-get-catalog",
+    "allow-get-profiles",
+    "allow-get-data-manifest",
+    "allow-get-weapon-profile",
+    "allow-compatible-aow-names-for-affinity",
+    "allow-start-solve-build",
+    "allow-start-upgrade-series",
+    "allow-start-ar-bleed-frontier",
+    "allow-cancel-analysis",
+    "allow-get-analysis-status",
+    "allow-start-search",
+    "allow-cancel-search",
+    "allow-get-search-status",
+    "allow-start-path-preview",
+    "allow-cancel-path-preview",
+    "allow-get-path-preview-status",
+    "allow-start-affinity-watch",
+    "allow-cancel-affinity-watch",
+    "allow-get-affinity-watch-status"
+  ]
+}

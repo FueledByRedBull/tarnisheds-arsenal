@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import csv
 from collections import defaultdict
 from pathlib import Path
 from typing import Iterable
 
 from tools.phase1.param_binary import ParamValue, load_param_table
+from tools.phase1.phase1_dump import STATUS_ATTACK_POWER_FIELDS, format_float, read_csv, write_csv
 
 
 DAMAGE_FIELDS = (
@@ -15,15 +15,7 @@ DAMAGE_FIELDS = (
     ("lightning_attack_power", "thunderAttackPower"),
     ("holy_attack_power", "darkAttackPower"),
 )
-STATUS_FIELDS = (
-    ("bleed_buildup", "bloodAttackPower"),
-    ("frost_buildup", "freezeAttackPower"),
-    ("poison_buildup", "poizonAttackPower"),
-    ("scarlet_rot_buildup", "diseaseAttackPower"),
-    ("sleep_buildup", "sleepAttackPower"),
-    ("madness_buildup", "madnessAttackPower"),
-    ("death_buildup", "curseAttackPower"),
-)
+STATUS_FIELDS = tuple((f"{status}_buildup", field) for status, field in STATUS_ATTACK_POWER_FIELDS.items())
 LINK_FIELDS = (
     ("replace", "replaceSpEffectId"),
     ("cycle", "cycleOccurrenceSpEffectId"),
@@ -77,18 +69,6 @@ OUTPUT_FIELDS = [
 ]
 
 
-def _read_csv(path: Path) -> list[dict[str, str]]:
-    with path.open("r", encoding="utf-8", newline="") as handle:
-        return list(csv.DictReader(handle))
-
-
-def _write_csv(path: Path, fieldnames: list[str], rows: Iterable[dict[str, str]]) -> None:
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
-        writer.writeheader()
-        writer.writerows(rows)
-
-
 def _positive_ids(values: Iterable[ParamValue | str]) -> tuple[int, ...]:
     ids: list[int] = []
     for value in values:
@@ -138,11 +118,11 @@ def _classify_direct_effect(
 
 def _effect_values(effect: dict[str, ParamValue]) -> dict[str, str]:
     values = {
-        output: str(float(effect[source])) for output, source in DAMAGE_FIELDS + STATUS_FIELDS
+        output: format_float(float(effect[source])) for output, source in DAMAGE_FIELDS + STATUS_FIELDS
     }
     values.update(
         {
-            "duration_seconds": str(float(effect["effectEndurance"])),
+            "duration_seconds": format_float(float(effect["effectEndurance"])),
             "uses_status_correction": "1"
             if bool(effect["isUseStatusAilmentAtkPowerCorrect"])
             else "0",
@@ -217,7 +197,7 @@ def build_aow_effect_graph(
 ) -> None:
     attack_rows_by_key: dict[tuple[int, int], dict[str, str]] = {}
     for filename in ("aow_attack_data.csv", "native_skill_attack_data.csv"):
-        for row in _read_csv(phase1_dir / filename):
+        for row in read_csv(phase1_dir / filename):
             key = (int(row["aow_id"]), int(row["sheet_row"]))
             previous = attack_rows_by_key.get(key)
             if previous is not None:
@@ -227,7 +207,7 @@ def build_aow_effect_graph(
                 continue
             attack_rows_by_key[key] = row
 
-    aow_names = {int(row["aow_id"]): row["name"] for row in _read_csv(phase1_dir / "aow.csv")}
+    aow_names = {int(row["aow_id"]): row["name"] for row in read_csv(phase1_dir / "aow.csv")}
     atk = load_param_table(
         regulation_bin_dir / "AtkParam_Pc.param",
         paramdex_defs_dir / "AtkParam.xml",
@@ -369,7 +349,7 @@ def build_aow_effect_graph(
             }
         )
 
-    persistent_rows = _read_csv(project_root / "tools/phase1/aow_persistent_effect_roots.csv")
+    persistent_rows = read_csv(project_root / "tools/phase1/aow_persistent_effect_roots.csv")
     signatures_by_aow: dict[int, list[tuple[float | bool, ...]]] = defaultdict(list)
     for mapping in persistent_rows:
         aow_id = int(mapping["aow_id"])
@@ -493,8 +473,8 @@ def build_aow_effect_graph(
         if row["is_supported"] == "0"
     ]
     exclusions = list({tuple(row.items()): row for row in exclusions}.values())
-    _write_csv(phase1_dir / "aow_effect_data.csv", OUTPUT_FIELDS, records)
-    _write_csv(
+    write_csv(phase1_dir / "aow_effect_data.csv", OUTPUT_FIELDS, records)
+    write_csv(
         phase1_dir / "aow_effect_coverage.csv",
         [
             "aow_id",
@@ -509,7 +489,7 @@ def build_aow_effect_graph(
         ],
         coverage,
     )
-    _write_csv(
+    write_csv(
         phase1_dir / "aow_effect_exclusions.csv",
         ["aow_id", "sheet_row", "effect_id", "role", "reason"],
         exclusions,

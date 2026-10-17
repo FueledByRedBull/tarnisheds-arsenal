@@ -8,7 +8,7 @@ import {
   scadutreeDamageNegation,
   scadutreeReceivedDamageMultiplier,
 } from "../../lib/scadutree";
-import { classOptions, replaceFilterEntries } from "../../lib/session";
+import { classOptions, clearTypeAndAffinityFilters, hasCombatStatLocks, replaceFilterEntries } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { CatalogDto, FilterDimensionDto, ObjectiveId, OptimizeRequestDto, WeaponProfileDto } from "../../lib/types";
 import { DraftNumberInput } from "./DraftNumberInput";
@@ -30,7 +30,7 @@ export function selectedFilterIds(
   return legacy ? [legacy.id] : [];
 }
 
-export function somberFilterLabel(value: string): string {
+function somberFilterLabel(value: string): string {
   return value
     .split("_")
     .map((word) => `${word.slice(0, 1).toUpperCase()}${word.slice(1)}`)
@@ -45,17 +45,19 @@ export function ClassEditor({ catalog, request, fixedStats, applyClass, onOptimi
   onOptimize: () => void;
   onReset: () => void;
 }) {
+  // A profile with class budgets lets Custom stats switch to a class, or Optimize class pick one.
+  const noClasses = catalog?.dataManifest.capabilities.classBudget === false;
   return (
     <div className="editor-body">
       <SearchableSelect
         label="Class"
-        disabled={fixedStats}
+        disabled={noClasses}
         value={request.className}
         options={classOptions(catalog).map((entry) => ({ value: entry.name, label: entry.name }))}
         onChange={(value) => value && applyClass(value)}
       />
       <div className="editor-actions">
-        <button type="button" onClick={onOptimize} disabled={fixedStats} title="Choose the lowest required level for all eight entered stats">
+        <button type="button" onClick={onOptimize} disabled={noClasses} title="Choose the lowest required level for all eight entered stats">
           <Sparkles size={14} aria-hidden="true" />
           Optimize class
         </button>
@@ -69,9 +71,11 @@ export function ClassEditor({ catalog, request, fixedStats, applyClass, onOptimi
         </button>
       </div>
       <p className="editor-note">
-        {fixedStats
-          ? "Convergence uses the entered stats exactly, so there is no starting class."
-          : "Changing class resets all eight stats to its base values."}
+        {noClasses
+          ? "This profile uses the entered stats exactly, so there is no starting class."
+          : fixedStats
+            ? "Custom stats uses the entered stats exactly. Choose a class to plan by Rune Level."
+            : "Changing class resets all eight stats to its base values."}
       </p>
     </div>
   );
@@ -101,14 +105,14 @@ export function ObjectiveEditor({ objectives, objective, patchRequest, close }: 
             className={objective === option ? "active" : ""}
             type="button"
             aria-pressed={objective === option}
-            aria-description={OBJECTIVE_HINTS[option]}
+            aria-describedby={`objective-hint-${option}`}
             onClick={() => {
               patchRequest({ objective: option });
               close();
             }}
           >
             {objectiveLabel(option)}
-            <small aria-hidden="true">{OBJECTIVE_HINTS[option]}</small>
+            <small id={`objective-hint-${option}`} aria-hidden="true">{OBJECTIVE_HINTS[option]}</small>
           </button>
         ))}
       </div>
@@ -139,6 +143,15 @@ export function LoadoutEditor({ catalog, request, patchRequest, runner, loadoutS
   const filtersActive = weaponFiltersActive(request);
   return (
     <div className="editor-body editor-grid">
+      <SearchableSelect
+        label="Weapon"
+        value={request.weaponName}
+        options={[openOption(), ...(catalog?.weaponNames ?? []).map((name) => ({ value: name, label: name }))]}
+        onChange={(weaponName) => {
+          patchRequest(weaponPatch(request, weaponName));
+          runner.markManualWeapon();
+        }}
+      />
       <CheckboxMultiSelect
         label="Weapon Type"
         values={selectedTypeIds}
@@ -150,15 +163,6 @@ export function LoadoutEditor({ catalog, request, patchRequest, runner, loadoutS
           aowName: null,
           filters: { version: 1, entries: replaceFilterEntries(request.filters.entries, "weapon_type", values, excludedValues) },
         })}
-      />
-      <SearchableSelect
-        label="Weapon"
-        value={request.weaponName}
-        options={[openOption(), ...(catalog?.weaponNames ?? []).map((name) => ({ value: name, label: name }))]}
-        onChange={(weaponName) => {
-          patchRequest(weaponPatch(request, weaponName));
-          runner.markManualWeapon();
-        }}
       />
       <CheckboxMultiSelect
         label="Affinity"
@@ -180,15 +184,22 @@ export function LoadoutEditor({ catalog, request, patchRequest, runner, loadoutS
         value={request.aowName}
         onChange={(aowName) => patchRequest({ aowName })}
         defaultNativeSkill={loadoutSelectionRevision === runner.manualWeaponRevision.current}
-        onWeaponResolved={() => { runner.manualWeaponRevision.current = null; }}
+        onWeaponResolved={runner.clearManualWeapon}
       />
       {separateUpgradeCaps ? (
-        <SearchableSelect
-          label="Somber"
-          value={request.somberFilter}
-          options={(catalog?.somberFilters ?? []).map((value) => ({ value, label: somberFilterLabel(value) }))}
-          onChange={(somberFilter) => somberFilter && patchRequest({ somberFilter })}
-        />
+        <div className="segmented editor-span" role="group" aria-label="Reinforcement">
+          {(catalog?.somberFilters ?? []).map((value) => (
+            <button
+              type="button"
+              key={value}
+              className={request.somberFilter === value ? "active" : ""}
+              aria-pressed={request.somberFilter === value}
+              onClick={() => patchRequest({ somberFilter: value })}
+            >
+              {somberFilterLabel(value)}
+            </button>
+          ))}
+        </div>
       ) : null}
       <button
         type="button"
@@ -203,10 +214,9 @@ export function LoadoutEditor({ catalog, request, patchRequest, runner, loadoutS
   );
 }
 
-export function UpgradeEditor({ request, patchRequest, markResultsStale, separateUpgradeCaps, standardUpgradeLimit, somberUpgradeLimit, weaponProfile }: {
+export function UpgradeEditor({ request, patchRequest, separateUpgradeCaps, standardUpgradeLimit, somberUpgradeLimit, weaponProfile }: {
   request: OptimizeRequestDto;
   patchRequest: Patch;
-  markResultsStale: () => void;
   separateUpgradeCaps: boolean;
   standardUpgradeLimit: number;
   somberUpgradeLimit: number;
@@ -222,7 +232,6 @@ export function UpgradeEditor({ request, patchRequest, markResultsStale, separat
               min={0}
               max={standardUpgradeLimit}
               value={request.standardMaxUpgrade}
-              onDraftChange={markResultsStale}
               onCommit={(standardMaxUpgrade) => patchRequest({ standardMaxUpgrade })}
             />
           </label>
@@ -232,7 +241,6 @@ export function UpgradeEditor({ request, patchRequest, markResultsStale, separat
               min={0}
               max={somberUpgradeLimit}
               value={request.somberMaxUpgrade}
-              onDraftChange={markResultsStale}
               onCommit={(somberMaxUpgrade) => patchRequest({ somberMaxUpgrade })}
             />
           </label>
@@ -244,7 +252,6 @@ export function UpgradeEditor({ request, patchRequest, markResultsStale, separat
             min={0}
             max={standardUpgradeLimit}
             value={request.standardMaxUpgrade}
-            onDraftChange={markResultsStale}
             onCommit={(upgrade) => patchRequest({ standardMaxUpgrade: upgrade, somberMaxUpgrade: upgrade })}
           />
           <small>Convergence uses one +0 to +15 reinforcement path for every weapon.</small>
@@ -285,10 +292,9 @@ export function UpgradeEditor({ request, patchRequest, markResultsStale, separat
   );
 }
 
-export function ScalingEditor({ request, patchRequest, markResultsStale }: {
+export function ScalingEditor({ request, patchRequest }: {
   request: OptimizeRequestDto;
   patchRequest: Patch;
-  markResultsStale: () => void;
 }) {
   const attack = scadutreeAttackMultiplier(request.dlcScaling, request.scadutreeLevel);
   const taken = scadutreeReceivedDamageMultiplier(request.dlcScaling, request.scadutreeLevel);
@@ -309,23 +315,23 @@ export function ScalingEditor({ request, patchRequest, markResultsStale }: {
           min={0}
           max={SCADUTREE_MAX_LEVEL}
           value={request.scadutreeLevel}
-          onDraftChange={markResultsStale}
           onCommit={(scadutreeLevel) => patchRequest({ scadutreeLevel })}
         />
       </label>
-      <div className="editor-readout" title="Outgoing damage multiplier and equivalent incoming damage reduction from the selected blessing level">
-        <span>{request.dlcScaling ? "Shadow Realm" : "DLC off"}</span>
-        <strong>x{attack.toFixed(2)} dmg / x{taken.toFixed(3)} taken</strong>
-        <small>{(negation * 100).toFixed(1)}% negation</small>
-      </div>
+      {request.dlcScaling ? (
+        <div className="editor-readout" title="Outgoing damage multiplier and equivalent incoming damage reduction from the selected blessing level">
+          <span>Shadow Realm</span>
+          <strong>x{attack.toFixed(2)} dmg / x{taken.toFixed(3)} taken</strong>
+          <small>{(negation * 100).toFixed(1)}% negation</small>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-export function ResultsEditor({ request, patchRequest, markResultsStale }: {
+export function ResultsEditor({ request, patchRequest }: {
   request: OptimizeRequestDto;
   patchRequest: Patch;
-  markResultsStale: () => void;
 }) {
   return (
     <div className="editor-body">
@@ -335,7 +341,6 @@ export function ResultsEditor({ request, patchRequest, markResultsStale }: {
           min={1}
           max={50}
           value={request.topK}
-          onDraftChange={markResultsStale}
           onCommit={(topK) => patchRequest({ topK })}
         />
       </label>
@@ -357,10 +362,9 @@ export function ResultsEditor({ request, patchRequest, markResultsStale }: {
   );
 }
 
-export function LimitsEditor({ request, patchRequest, markResultsStale, fixedStats, lockedStatMode, exactLocksActive, onClearLocks }: {
+export function LimitsEditor({ request, patchRequest, fixedStats, lockedStatMode, exactLocksActive, onClearLocks }: {
   request: OptimizeRequestDto;
   patchRequest: Patch;
-  markResultsStale: () => void;
   fixedStats: boolean;
   lockedStatMode: boolean;
   exactLocksActive: boolean;
@@ -373,7 +377,7 @@ export function LimitsEditor({ request, patchRequest, markResultsStale, fixedSta
       <p className="editor-note">
         {fixedStats
           ? "Convergence uses the entered combat stats exactly. Minimum floors do not redistribute stats."
-          : "Optional minimums and exact result locks. Leave these open for automatic optimization."}
+          : "Optional. Leave open to let the search choose every stat."}
       </p>
       <div className="editor-floors">
         {([
@@ -389,13 +393,12 @@ export function LimitsEditor({ request, patchRequest, markResultsStale, fixedSta
               min={0}
               max={99}
               value={request[key]}
-              onDraftChange={markResultsStale}
               onCommit={(value) => patchRequest({ [key]: value })}
             />
           </label>
         ))}
       </div>
-      <label className="toggle-line" title="Use combat stats captured by Use As Locks">
+      <label className="toggle-line" title="Search with the stats set by Lock stats to this build">
         <input
           type="checkbox"
           checked={fixedStats || lockedStatMode}
@@ -409,14 +412,14 @@ export function LimitsEditor({ request, patchRequest, markResultsStale, fixedSta
         <strong>
           {fixedStats
             ? `STR ${request.strStat} DEX ${request.dex} INT ${request.intStat} FAI ${request.fai} ARC ${request.arc}`
-            : exactLocksActive ? statLockLine(request) : "Open"}
+            : exactLocksActive ? statLockLine(request) : "None: every stat is free"}
         </strong>
         {exactLocksActive ? <small>Changing class or loadout keeps these locks and may make the query incompatible.</small> : null}
       </div>
       <button
         className="clear-locks"
         type="button"
-        disabled={fixedStats}
+        disabled={fixedStats || !hasCombatStatLocks(request)}
         onClick={onClearLocks}
       >
         Clear stat locks
@@ -473,7 +476,7 @@ export function groupingLabel(grouping: OptimizeRequestDto["resultGrouping"]): s
   return grouping === "automatic" ? "Auto" : grouping === "weapon" ? "Per weapon" : "Per loadout";
 }
 
-export function weaponFiltersActive(request: OptimizeRequestDto): boolean {
+function weaponFiltersActive(request: OptimizeRequestDto): boolean {
   return Boolean(
     request.weaponTypeKey
     || request.weaponName
@@ -491,15 +494,7 @@ export function weaponPatch(request: OptimizeRequestDto, weaponName: string | nu
     weaponTypeKey: null,
     affinity: null,
     aowName: null,
-    filters: {
-      version: 1,
-      entries: replaceFilterEntries(
-        replaceFilterEntries(request.filters.entries, "weapon_type", [], []),
-        "affinity",
-        [],
-        [],
-      ),
-    },
+    filters: { version: 1, entries: clearTypeAndAffinityFilters(request.filters.entries) },
   };
 }
 

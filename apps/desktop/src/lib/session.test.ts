@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOptimizeRequest, classMeta, derivedLevel, EIGHT_STAT_KEYS, normalizeOptimizeRequest, optimalStartingClass, replaceFilterEntries, scalingLetter, STARTING_CLASS_METADATA, startingClassLevel } from "./session";
+import { buildOptimizeRequest, classMeta, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, replaceFilterEntries, respecChanges, rowFingerprint, scalingLetter, stableSignature, STARTING_CLASS_METADATA, startingClassLevel } from "./session";
+import { solvedBuild } from "./test-fixtures";
 import { defaultRequest } from "./state";
 import type { CatalogDto } from "./types";
 
 describe("request normalization properties", () => {
   it("rejects unknown starting classes instead of using Vagabond", () => {
-    expect(() => classMeta(null, "Unknown Class")).toThrow("Unknown starting class");
+    const catalog = { classes: STARTING_CLASS_METADATA } as unknown as CatalogDto;
+    expect(() => classMeta(catalog, "Unknown Class")).toThrow("Unknown starting class");
+    // Before a mod's catalog loads its class has no floor; no Vanilla class stands in for it.
+    expect(classMeta(null, "Retainer")).toMatchObject({ name: "Retainer", baseLevel: 0, baseTotal: 0 });
   });
 
   it("derives level from all eight entered stats", () => {
@@ -37,51 +41,6 @@ describe("request normalization properties", () => {
       });
       expect(startingClassLevel(optimalStartingClass(null, targets, "Samurai"), targets)).toBe(Math.min(...levels));
     }
-  });
-
-  it("clamps legacy and current upgrade values for a structured numeric corpus", () => {
-    const corpus = [-10_000, -1, -0.1, 0, 1.9, 10, 25, 26, 10_000, Number.NaN, Number.POSITIVE_INFINITY];
-    for (const value of corpus) {
-      const normalized = normalizeOptimizeRequest({
-        ...defaultRequest,
-        standardMaxUpgrade: value,
-        somberMaxUpgrade: value,
-      }, defaultRequest);
-      expect(Number.isInteger(normalized.standardMaxUpgrade)).toBe(true);
-      expect(normalized.standardMaxUpgrade).toBeGreaterThanOrEqual(0);
-      expect(normalized.standardMaxUpgrade).toBeLessThanOrEqual(25);
-      expect(Number.isInteger(normalized.somberMaxUpgrade)).toBe(true);
-      expect(normalized.somberMaxUpgrade).toBeGreaterThanOrEqual(0);
-      expect(normalized.somberMaxUpgrade).toBeLessThanOrEqual(10);
-    }
-  });
-
-  it("is idempotent after legacy upgrade migration", () => {
-    for (let value = -5; value <= 40; value += 1) {
-      const migrated = normalizeOptimizeRequest({ ...defaultRequest, maxUpgrade: value }, defaultRequest);
-      expect(normalizeOptimizeRequest(migrated, defaultRequest)).toEqual(migrated);
-    }
-  });
-
-  it("uses a profile's Somber cap when migrating its legacy max upgrade", () => {
-    const convergenceRules = {
-      standardMaxUpgrade: 15,
-      somberMaxUpgrade: 15,
-      separateUpgradeCaps: false,
-      scadutreeScaling: false,
-      zeroAttackElementUsesWeaponScaling: true,
-      extendedScalingGrades: true,
-      statusBuildupScales: false,
-    };
-    const { standardMaxUpgrade: _standardMaxUpgrade, somberMaxUpgrade: _somberMaxUpgrade, ...legacyRequest } = defaultRequest;
-    const normalized = normalizeOptimizeRequest(
-      { ...legacyRequest, profileId: "convergence", maxUpgrade: 15 },
-      { ...defaultRequest, profileId: "convergence" },
-      convergenceRules,
-    );
-
-    expect(normalized.standardMaxUpgrade).toBe(15);
-    expect(normalized.somberMaxUpgrade).toBe(15);
   });
 
   it("builds a full-range Convergence custom-stat request", () => {
@@ -140,5 +99,38 @@ describe("request normalization properties", () => {
       { dimension: "weapon_type", id: "weapon-type:new", mode: "include" },
       { dimension: "weapon_type", id: "weapon-type:blocked", mode: "exclude" },
     ]);
+  });
+});
+
+describe("result identity", () => {
+  it("fingerprints every identity field and ignores letter case", () => {
+    const base = solvedBuild();
+    const changed = [
+      { weaponId: 2 }, { weaponName: "Nagakiba" }, { affinity: "Blood" }, { aowName: "Seppuku" }, { upgrade: 24 },
+      ...(["strStat", "dex", "intStat", "fai", "arc"] as const).map((key) => ({ stats: { ...base.stats, [key]: base.stats[key] + 1 } })),
+    ];
+    for (const change of changed) expect(rowFingerprint(solvedBuild(change))).not.toBe(rowFingerprint(base));
+    expect(rowFingerprint(solvedBuild({ weaponName: "UCHIGATANA", affinity: "keen", aowName: "UNSHEATHE" }))).toBe(rowFingerprint(base));
+    expect(rowFingerprint(solvedBuild({ score: 1, ar: { ...base.ar, total: 1 } }))).toBe(rowFingerprint(base));
+  });
+
+  it("signs equal requests equally whatever their key order", () => {
+    const reordered = Object.fromEntries(Object.entries(defaultRequest).reverse());
+    expect(stableSignature(reordered)).toBe(stableSignature(defaultRequest));
+    expect(stableSignature({ ...defaultRequest, dex: defaultRequest.dex + 1 })).not.toBe(stableSignature(defaultRequest));
+    expect(stableSignature({ ...defaultRequest, profileId: "convergence" })).not.toBe(stableSignature(defaultRequest));
+  });
+});
+
+describe("stat changes", () => {
+  const entered = { ...defaultRequest, strStat: 12, dex: 15, intStat: 9, fai: 8, arc: 8 };
+
+  it("lists each combat stat the build moves, in level-up order", () => {
+    expect(respecChanges(solvedBuild({ stats: { strStat: 12, dex: 22, intStat: 9, fai: 8, arc: 60 } }), entered))
+      .toEqual(["DEX 15 → 22", "ARC 8 → 60"]);
+  });
+
+  it("is empty when the build uses the stats as entered", () => {
+    expect(respecChanges(solvedBuild({ stats: { strStat: 12, dex: 15, intStat: 9, fai: 8, arc: 8 } }), entered)).toEqual([]);
   });
 });

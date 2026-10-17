@@ -11,7 +11,6 @@
   --iron-950: #080a0b;
   --iron-900: #101315;
   --iron-850: #171b1d;
-  --iron-700: #343c40;
   --iron-500: #5f676b;
   --bone: #e8e5dc;
   --parchment: #f3ead7;
@@ -60,8 +59,15 @@
   --success: var(--green);
   --success-ink: var(--green-pale);
   --info: var(--steel);
-  --series-1: var(--teal);
-  --series-2: var(--gold);
+
+  /* Type: seven sizes. Labels are the smallest; sentences never go below 13px. */
+  --text-label: 12px;
+  --text-note: 13px;
+  --text-body: 14px;
+  --text-emphasis: 16px;
+  --text-title: 20px;
+  --text-heading: 22px;
+  --text-display: 30px;
 
   /* Motion */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -78,7 +84,7 @@
 
 body {
   margin: 0;
-  min-width: 1060px;
+  min-width: 1200px; /* the window minimum in tauri.conf.json */
   min-height: 100vh;
   overflow: hidden;
   background: var(--surface-canvas);
@@ -105,6 +111,11 @@ html {
   scrollbar-width: thin;
 }
 
+/* The browser's "smaller" would put fine print under the 12px floor. */
+small {
+  font-size: var(--text-label);
+}
+
 input[type="number"],
 .result-metric-cell,
 .objective-score,
@@ -129,15 +140,37 @@ input[type="number"],
   inset: 0;
   background: linear-gradient(90deg, transparent 25%, color-mix(in srgb, var(--text) 8%, transparent), transparent 75%);
   transform: translateX(-100%);
-  animation: skeleton-sweep 1.4s var(--ease-out) var(--sweep-delay, 0ms) infinite;
+  animation: skeleton-sweep 1.4s linear var(--sweep-delay, 0ms) infinite;
 }
 
 @keyframes skeleton-sweep {
   to { transform: translateX(100%); }
 }
 
+/* Laid out like a form label; the label element holds only the text so the popup stays outside it. */
 .searchable-select {
   position: relative;
+  display: grid;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: var(--text-label);
+  letter-spacing: 0.015em;
+}
+
+.searchable-select > label {
+  margin-bottom: 0;
+}
+
+/* The listbox itself scrolls, as a combobox popup, and the status stays pinned below it. */
+.searchable-select .select-menu {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.select-menu > [role="listbox"] {
+  min-height: 0;
+  overflow: auto;
 }
 
 .checkbox-multi-select {
@@ -149,7 +182,7 @@ input[type="number"],
 .checkbox-multi-label,
 .compare-reinforcement > span {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-label);
 }
 
 .checkbox-multi-trigger {
@@ -199,13 +232,15 @@ input[type="number"],
   max-height: 240px;
   overflow: auto;
   padding: 4px;
-  background: var(--surface-panel);
+  color: var(--text);
+  /* Opaque: the list opens over its editor's own buttons and notes. */
+  background: var(--surface-raised);
   border: 1px solid var(--line-control);
   border-radius: 4px;
   box-shadow: 0 10px 24px var(--shadow);
 }
 
-.select-menu > button,
+.select-menu > [role="listbox"] > button,
 .select-menu > span {
   display: block;
   width: 100%;
@@ -331,7 +366,7 @@ button {
   color: var(--text-strong);
   margin-bottom: 10px;
   font-weight: 700;
-  font-size: 12px;
+  font-size: var(--text-label);
   letter-spacing: 0.045em;
   text-transform: uppercase;
 }
@@ -339,7 +374,7 @@ label {
   display: grid;
   gap: 6px;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-label);
   margin-bottom: 10px;
   letter-spacing: 0.015em;
 }
@@ -349,10 +384,7 @@ select,
 textarea {
   width: 100%;
   min-height: 34px;
-  color: var(--text);
-  background: var(--surface-raised);
   border: 1px solid var(--line-control);
-  border-radius: 4px;
   padding: 6px 8px;
   outline: none;
 }
@@ -427,7 +459,7 @@ textarea {
 }
 
 .ribbon-mode {
-  color: var(--selected);
+  color: var(--text-muted);
 }
 
 .ribbon-error {
@@ -462,11 +494,25 @@ textarea {
   margin-bottom: 12px;
 }
 
+/* The raised secondary button: each block below sets only its size and ink. */
 .segmented button,
-.workspace-tabs button,
-.inspector-actions button {
-  border: 1px solid var(--line);
+.inspector-actions button,
+.loadout-tradeoffs button,
+.header-controls button,
+.result-scroll-actions button,
+.inline-lock,
+.matrix-toolbar button,
+.saved-build-tools button,
+.path-step-pagination button,
+.saved-build-recovery > button,
+.saved-build-recovery .import-preview button {
   background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.segmented button,
+.inspector-actions button {
   color: var(--text-muted);
 }
 
@@ -479,7 +525,7 @@ textarea {
   display: block;
   margin-top: 2px;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-note);
   font-weight: 400;
 }
 
@@ -522,7 +568,7 @@ textarea {
   width: 50%;
   background: linear-gradient(105deg, transparent, color-mix(in srgb, var(--gold-pale) 38%, transparent), transparent);
   transform: translateX(-100%);
-  animation: forge-sheen 1.6s var(--ease-out) infinite;
+  animation: forge-sheen 1.6s linear infinite;
   pointer-events: none;
 }
 
@@ -578,6 +624,7 @@ textarea {
 .forge-bar {
   position: relative;
   display: block;
+  container-type: inline-size;
   height: 6px;
   overflow: hidden;
   background: color-mix(in srgb, var(--surface-canvas) 72%, transparent);
@@ -596,7 +643,11 @@ textarea {
   transition: transform 240ms var(--ease-out);
 }
 
-.forge-bar i::before {
+/* A determinate bar runs its sheen in a sibling clipped to the reported fraction: an animation
+   inside the gliding fill cannot run on the compositor, which cost a main-thread frame every
+   vsync for a whole search. The leading edge is a second gliding layer above the sheen. */
+.forge-bar.indeterminate i::before,
+.forge-sheen::before {
   content: "";
   position: absolute;
   inset: 0 auto 0 0;
@@ -606,7 +657,33 @@ textarea {
   animation: forge-sheen 1.8s linear infinite;
 }
 
-.forge-bar i::after {
+.forge-bar .forge-sheen {
+  position: absolute;
+  inset: 0 auto 0 0;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.forge-sheen::before {
+  width: 40cqw;
+}
+
+.forge-bar .forge-edge {
+  background: none;
+}
+
+/* Kept while indeterminate, so the edge glides from the same start as the fill. */
+.forge-bar.indeterminate .forge-sheen {
+  display: none;
+}
+
+.forge-bar.indeterminate .forge-edge {
+  animation: none;
+  opacity: 0;
+}
+
+.forge-bar.indeterminate i::after,
+.forge-edge::after {
   content: "";
   position: absolute;
   inset: 0 0 0 auto;
@@ -632,7 +709,7 @@ textarea {
 
 /* A search that lands fills its bar, flares and fades out (QueryStrip.tsx). */
 .progress-strip.landed {
-  animation: strip-out 700ms ease-in forwards;
+  animation: strip-out 700ms var(--ease-out) forwards;
 }
 
 .progress-strip.landed .forge-bar {
@@ -667,32 +744,16 @@ textarea {
   justify-content: center;
 }
 
-.compare-deltas {
-  overflow: auto;
-  padding: 0 12px 12px;
-}
-
-.compare-deltas table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.compare-deltas caption,
-.compare-deltas th,
-.compare-deltas td {
-  padding: 6px;
-  border: 1px solid var(--line);
-  text-align: right;
-}
-
 .compare-deltas caption,
 .compare-deltas th:first-child {
   text-align: left;
 }
 
+/* A quiet label: the workspace heading above is the entry point. */
 .compare-deltas caption {
-  padding: 8px;
+  padding: 12px 0 6px;
+  color: var(--text-muted);
+  font-size: var(--text-note);
 }
 
 .compare-deltas th small,
@@ -716,13 +777,15 @@ textarea {
   gap: 12px;
 }
 .tradeoff-header > div { flex: 1 1 260px; }
-.tradeoff-header h2 { margin: 0 0 6px; }
-.tradeoff-header small, .tradeoff-controls small { color: var(--text-muted); }
+.tradeoff-header h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: 500;
+}
+.tradeoff-header small:not(.selected-summary), .tradeoff-controls small { color: var(--text-muted); }
 .loadout-tradeoffs button {
   padding: 6px 10px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--surface-raised);
   color: var(--text-strong);
   min-height: 34px;
 }
@@ -732,7 +795,7 @@ textarea {
 .tradeoff-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--text-note);
   font-variant-numeric: tabular-nums;
 }
 .tradeoff-table th, .tradeoff-table td {
@@ -742,13 +805,13 @@ textarea {
 }
 .tradeoff-table th:first-child, .tradeoff-table td:first-child { text-align: left; }
 .tradeoff-table caption { text-align: left; padding: 6px 0; color: var(--text-muted); }
-.tradeoff-table tr[aria-selected="true"], .tradeoff-table tr.selected { background: color-mix(in srgb, var(--selected) 9.4%, transparent); }
+.tradeoff-table tr.selected { background: color-mix(in srgb, var(--selected) 9.4%, transparent); }
 .tradeoff-all, .tradeoff-plot { min-width: 0; overflow-x: auto; }
 .tradeoff-plot { margin: 12px 0; }
 .tradeoff-plot figcaption { display: grid; gap: 4px; margin-bottom: 12px; }
 .tradeoff-plot svg { display: block; width: 100%; min-width: 280px; height: auto; }
 .tradeoff-axis { stroke: var(--text-muted); stroke-width: 1; }
-.tradeoff-axis-label, .tradeoff-plot text { fill: var(--text-muted); font-size: 16px; }
+.tradeoff-axis-label, .tradeoff-plot text { fill: var(--text-muted); font-size: var(--text-emphasis); }
 .tradeoff-point { fill: var(--accent); cursor: pointer; stroke: var(--surface-raised); stroke-width: 2; }
 .tradeoff-point.selected, .tradeoff-point:focus { fill: var(--selected); stroke: var(--accent-ink); }
 .tradeoff-inspection { border-left: 1px solid var(--selected); padding-left: 12px; }
@@ -772,7 +835,9 @@ textarea {
   display: flex;
   flex-direction: column;
 }
+/* Workspace tabs stay flat; one pill travels to the active tab (placed from App.tsx). */
 .workspace-tabs {
+  position: relative;
   gap: 4px;
   height: 40px;
   margin-bottom: 8px;
@@ -783,15 +848,23 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 4px;
 }
+
 .workspace-tabs button {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   height: 32px;
   padding: 0 12px;
-  position: relative;
+  color: var(--text-muted);
   background: transparent;
-  border-color: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+
+.workspace-tabs button.active {
+  color: var(--selected);
 }
 .workspace-panel {
   height: 100%;
@@ -811,21 +884,16 @@ textarea {
   flex-wrap: wrap;
   gap: 8px;
 }
-.workspace-header h1 {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 500;
-}
 
 .workspace-header span {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-note);
 }
 
 .rankings-panel .workspace-header small {
   display: block;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-note);
 }
 
 .error-strip {
@@ -888,44 +956,48 @@ textarea {
   min-height: 0;
 }
 
-.result-scroll-actions {
-  display: inline-flex;
-  align-items: center;
+/* The row count lives inside Export, so it is never mistaken for how many rows the board shows. */
+.export-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
 }
 
-/* Export and its row count read as one split control, so the count is never mistaken for
-   how many rows the board shows. */
-.export-split {
-  display: inline-flex;
+.popover-panel.export-panel {
+  width: 280px;
 }
 
-.result-scroll-actions .export-split .export-csv-button {
-  border-radius: 4px 0 0 4px;
+.popover-panel.column-guide-panel {
+  width: 480px;
 }
 
-.export-split select {
-  width: auto;
-  height: 32px;
-  min-height: 32px;
-  padding: 0 6px;
+.column-guide {
+  margin: 0;
+}
+
+.column-guide > div {
+  display: grid;
+  grid-template-columns: 104px 1fr;
+  gap: 8px;
+}
+
+.column-guide dt {
+  color: var(--text-strong);
+  font-weight: 700;
+}
+
+.column-guide dd {
+  margin: 0;
   color: var(--text-muted);
-  font-size: 12px;
-  background: color-mix(in srgb, var(--surface-raised) 78%, transparent);
-  border-color: var(--line);
-  border-left: 0;
-  border-radius: 0 4px 4px 0;
 }
 
 .result-scroll-actions button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   width: 34px;
   height: 34px;
 }
 
-.result-scroll-actions .export-csv-button {
+.result-scroll-actions .export-csv-button,
+.result-scroll-actions .column-guide-trigger {
   width: auto;
   padding: 0 11px;
   white-space: nowrap;
@@ -949,9 +1021,6 @@ textarea {
   min-height: 30px;
   padding: 0 9px;
   color: var(--text-muted);
-  background: var(--surface-raised);
-  border: 1px solid var(--line);
-  border-radius: 4px;
 }
 
 .header-controls button:hover,
@@ -972,14 +1041,7 @@ textarea {
   display: block;
   margin-top: 3px;
   color: var(--accent);
-  font-size: 12px;
-}
-
-.result-head,
-.result-row {
-  display: grid;
-  min-height: 45px;
-  padding: 0 12px;
+  font-size: var(--text-note);
 }
 /* Gold is for actions and the answer, so headers and rank numbers stay neutral. */
 .result-head {
@@ -989,24 +1051,10 @@ textarea {
   color: var(--text-muted);
   background: color-mix(in srgb, var(--surface-panel) 98%, transparent);
   border-bottom: 1px solid var(--line);
-  font-size: 12px;
   font-weight: 800;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-}
-.result-row {
-  color: var(--text);
-  text-align: left;
-  border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
-  background: var(--surface-panel);
-  cursor: pointer;
-  position: relative;
-  min-height: 56px;
-  padding-block: 6px;
-  border-bottom-color: color-mix(in srgb, var(--text) 5.5%, transparent);
-  transition: background 130ms ease, box-shadow 130ms ease, transform 130ms ease;
 }
 
 .result-row:focus-visible {
@@ -1030,20 +1078,7 @@ textarea {
 .affinity-row small {
   display: block;
   color: var(--text-muted);
-  font-size: 12px;
-}
-
-.rank-cell {
-  color: var(--text-muted);
-  font-weight: 800;
-}
-
-.empty-state {
-  display: grid;
-  place-items: center;
-  gap: 4px;
-  min-height: 180px;
-  color: var(--text-muted);
+  font-size: var(--text-label);
 }
 
 .empty-state.compact {
@@ -1051,12 +1086,8 @@ textarea {
   padding: 16px;
 }
 
-.detail-block,
-.compare-lane,
-.path-lane {
+.detail-block {
   border: 1px solid var(--line);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
 }
 
 /* Build Detail's header stays in view while its details scroll, and once it sticks it also
@@ -1072,7 +1103,7 @@ textarea {
 }
 
 .selected-build strong {
-  font-size: 20px;
+  font-size: var(--text-title);
   font-weight: 600;
   line-height: 1.15;
   text-wrap: balance;
@@ -1090,7 +1121,7 @@ textarea {
   .selected-build .selected-build-metric {
     display: inline;
     color: var(--accent-strong);
-    font-size: 17px;
+    font-size: var(--text-title);
     font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
@@ -1114,9 +1145,12 @@ textarea {
   color: var(--text-muted);
 }
 
+/* Tiles sit on one base line, so the labels under the larger first figure and the smaller
+   ones beside it line up. */
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  align-items: end;
   gap: 12px;
   margin-bottom: 12px;
 }
@@ -1128,13 +1162,13 @@ textarea {
 
 .metric-tile span {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-label);
 }
 
 .metric-tile strong {
   order: -1;
   color: var(--text-strong);
-  font-size: 22px;
+  font-size: var(--text-heading);
   font-weight: 600;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -1142,22 +1176,15 @@ textarea {
 
 .metric-tile:first-child strong {
   color: var(--accent-strong);
-  font-size: 30px;
+  font-size: var(--text-display);
 }
 
 /* "Unavailable" is a fact, not a figure: it must not compete with the numbers beside it. */
 .metric-tile strong.metric-unavailable {
   align-self: end;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: var(--text-body);
   font-weight: 500;
-}
-
-.detail-block {
-  display: grid;
-  gap: 6px;
-  padding: 12px;
-  margin-bottom: 10px;
 }
 
 .detail-block.split small {
@@ -1183,7 +1210,7 @@ textarea {
 
 .weapon-poise-detail > div b {
   color: var(--accent);
-  font-size: 12px;
+  font-size: var(--text-label);
 }
 
 .weapon-poise-detail .poise-damage-note {
@@ -1192,7 +1219,6 @@ textarea {
 
 .aow-route-details {
   border: 1px solid var(--line);
-  border-radius: 4px;
   padding: 8px;
 }
 
@@ -1210,7 +1236,7 @@ textarea {
 .aow-route-details summary strong,
 .aow-route-details small,
 .aow-hit span {
-  font-size: 12px;
+  font-size: var(--text-label);
 }
 
 .aow-actions {
@@ -1259,7 +1285,7 @@ textarea {
   min-height: 36px;
   min-width: 0;
   padding: 5px 7px;
-  font-size: 12px;
+  font-size: var(--text-label);
 }
 
 .compare-lanes,
@@ -1276,19 +1302,17 @@ textarea {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  padding: 12px 14px 0;
+  padding: 12px 18px 0;
 }
 
 .compare-chip-lead {
-  color: var(--text-faint);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  color: var(--text-muted);
+  font-size: var(--text-note);
 }
 
 .compare-default {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-note);
 }
 
 /* A real list (no display: contents) so screen readers keep the chip count. */
@@ -1301,23 +1325,9 @@ textarea {
   list-style: none;
 }
 
-.scope-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 28px;
-  padding: 0 4px 0 10px;
-  color: var(--text-strong);
-  background: var(--surface-raised);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  font-size: 13px;
-  white-space: nowrap;
-}
-
 .chip-kind {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--text-label);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -1350,7 +1360,7 @@ textarea {
   background: transparent;
   border: 1px dashed var(--line-strong);
   border-radius: 6px;
-  font-size: 13px;
+  font-size: var(--text-note);
   white-space: nowrap;
 }
 
@@ -1358,16 +1368,6 @@ textarea {
 .filters-trigger:has(+ .popover-panel:popover-open) {
   color: var(--text-strong);
   border-color: var(--accent);
-}
-
-.compare-pins {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.compare-pins small {
-  color: var(--text-faint);
 }
 
 .editor-panel.compare-filters-panel {
@@ -1411,9 +1411,9 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 0 14px 8px;
+  margin: 0 18px 8px;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-label);
 }
 
 .matrix-toolbar div {
@@ -1425,9 +1425,6 @@ textarea {
   min-width: 48px;
   min-height: 28px;
   color: var(--text-muted);
-  background: var(--surface-raised);
-  border: 1px solid var(--line);
-  border-radius: 4px;
 }
 
 .saved-builds {
@@ -1456,10 +1453,7 @@ textarea {
   min-height: 32px;
   padding: 0 9px;
   color: var(--text-muted);
-  background: var(--surface-raised);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  font-size: 12px;
+  font-size: var(--text-label);
 }
 
 .saved-build-tools button:hover:not(:disabled) {
@@ -1484,13 +1478,6 @@ textarea {
 
 .saved-build-import > summary {
   margin-bottom: 8px;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.saved-build-import[open] > summary {
-  color: var(--text-strong);
 }
 
 .matrix-toolbar button:hover {
@@ -1499,16 +1486,14 @@ textarea {
 }
 
 .matrix-wrap {
-  width: calc(100% - 28px);
-  max-width: calc(100% - 28px);
+  width: calc(100% - 36px);
+  max-width: calc(100% - 36px);
   min-width: 0;
   height: auto;
   max-height: calc(100% - 304px);
-  margin: 0 14px 14px;
+  margin: 0 18px 14px;
   overflow: auto hidden;
-  border: 1px solid var(--line);
   border-radius: 4px;
-  background: color-mix(in srgb, var(--surface-panel) 42%, transparent);
   scrollbar-color: var(--accent-quiet) var(--surface-panel);
   scrollbar-width: thin;
   overscroll-behavior-x: contain;
@@ -1581,13 +1566,15 @@ textarea {
   height: 8px;
 }
 
-/* A finished run reports its result; the full bar adds nothing. */
+/* A finished run reports its result, and an empty track before the first run reads as a
+   stalled one: the bar shows only once a run has started. */
+.analysis-progress.status-ready > .forge-bar,
 .analysis-progress.status-completed > .forge-bar {
   display: none;
 }
 
 /* Only a running analysis flows; a stopped one keeps its fill still. */
-.analysis-progress:not(.status-running) .forge-bar i::before {
+.analysis-progress:not(.status-running) .forge-sheen::before {
   animation: none;
 }
 
@@ -1609,27 +1596,21 @@ textarea {
   gap: 6px;
 }
 
-.lane-metrics span {
-  padding: 8px;
-  background: color-mix(in srgb, var(--surface-panel) 52%, transparent);
-  border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
-  border-radius: 4px;
-}
-
+/* Nesting reads through surface tone, not another outlined box: charts sit on the raised
+   tone, and tables are rows under a raised header row. */
 .path-chart,
 .affinity-ranking,
 .crossover-table,
 .step-table {
   margin: 0 14px 14px;
-  border: 1px solid var(--line);
   border-radius: 4px;
-  background: color-mix(in srgb, var(--surface-panel) 42%, transparent);
 }
 
 .path-chart {
+  background: var(--surface-raised);
   display: grid;
-  gap: 12px;
-  padding: 12px;
+  gap: 16px;
+  padding: 16px;
   min-height: 190px;
 }
 
@@ -1643,6 +1624,37 @@ textarea {
   gap: 2px;
 }
 
+/* One header pattern for every analysis section: the title with its rules one quiet link
+   away, then a single summary line. */
+.workspace-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 14px;
+}
+
+button.about-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  min-height: 24px;
+  padding: 2px 0;
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  font-size: var(--text-note);
+  cursor: pointer;
+}
+
+.about-trigger:hover {
+  color: var(--accent-ink);
+}
+
+.popover-panel.about-panel {
+  width: 380px;
+}
+
 .analysis-workspace-header .selected-summary {
   max-width: 72ch;
   margin-top: 5px;
@@ -1652,15 +1664,6 @@ textarea {
 
 .compare-workspace-header {
   border-bottom: 1px solid var(--line);
-}
-
-.analysis-workspace-header .header-controls {
-  flex: 0 0 auto;
-  align-self: center;
-  padding: 8px;
-  border: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--surface-canvas) 30%, transparent);
 }
 
 .paths-panel .workspace-progress,
@@ -1702,7 +1705,7 @@ textarea {
 .path-chart figcaption span,
 .chart-legend {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-label);
 }
 
 .chart-legend {
@@ -1771,7 +1774,7 @@ textarea {
   inset: 0 auto 26px 0;
   width: 60px;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-label);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1782,7 +1785,7 @@ textarea {
   inset: auto 12px 8px 64px;
   height: 14px;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-label);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1803,13 +1806,20 @@ textarea {
   align-items: baseline;
   flex-wrap: wrap;
   gap: 8px 18px;
-  font-size: 12px;
+  font-size: var(--text-note);
   font-variant-numeric: tabular-nums;
 }
 
 .path-point-summary > span { color: var(--path-color); }
 .path-point-summary small { display: block; color: var(--text-muted); }
-.path-marker-note, .path-marker-key, .path-chart-empty { color: var(--text-muted); font-size: 12px; }
+.path-marker-note, .path-marker-key { color: var(--text-muted); font-size: var(--text-note); }
+
+/* A chart's values, collapsed until opened (Paths and Affinity Watch). */
+.chart-data { min-width: 0; max-height: 320px; overflow: auto; color: var(--text-muted); font-size: var(--text-note); }
+.chart-data table { width: 100%; border-collapse: collapse; color: var(--text); font-variant-numeric: tabular-nums; }
+.chart-data th, .chart-data td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line); }
+.chart-data th:first-child, .chart-data td:first-child { text-align: left; }
+.chart-data caption { padding: 6px 0; color: var(--text-muted); text-align: left; }
 
 .table-header {
   position: sticky;
@@ -1868,9 +1878,6 @@ textarea {
 .path-step-pagination button {
   padding: 7px 10px;
   color: var(--text-strong);
-  background: var(--surface-raised);
-  border: 1px solid var(--line);
-  border-radius: 4px;
 }
 
 .path-step-pagination button:disabled {
@@ -1888,7 +1895,7 @@ textarea {
 
 .path-step-build > span,
 .path-step-row small {
-  font-size: 12px;
+  font-size: var(--text-note);
   font-weight: 400;
 }
 
@@ -1899,11 +1906,6 @@ textarea {
 .affinity-ranking,
 .crossover-table {
   overflow-x: auto;
-  overflow-y: visible;
-}
-
-.affinity-ranking {
-  max-height: 220px;
 }
 
 .affinity-row {
@@ -1933,18 +1935,18 @@ textarea {
   gap: 16px;
   min-height: 270px;
   padding: 16px;
-  border: 1px solid var(--line);
   border-radius: 4px;
   background:
     radial-gradient(circle at 78% 14%, color-mix(in srgb, var(--selected) 6%, transparent), transparent 34%),
-    color-mix(in srgb, var(--surface-panel) 42%, transparent);
+    var(--surface-raised);
 }
 
 .affinity-panel .affinity-chart {
   margin: 16px 18px 14px;
 }
 
-.affinity-chart figcaption {
+.affinity-chart figcaption,
+.path-chart figcaption {
   display: flex;
   align-items: end;
   justify-content: space-between;
@@ -1958,16 +1960,18 @@ textarea {
   gap: 3px;
 }
 
-.affinity-chart figcaption strong {
+/* Both analysis charts title themselves the same way. */
+.affinity-chart figcaption strong,
+.path-chart figcaption strong {
   color: var(--text-strong);
   font-family: var(--font-display);
-  font-size: 19px;
+  font-size: var(--text-title);
   font-weight: 500;
 }
 
 .affinity-chart figcaption > span:last-child {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-label);
 }
 
 .affinity-legend {
@@ -1982,10 +1986,7 @@ textarea {
   align-items: center;
   column-gap: 7px;
   min-width: 118px;
-  padding: 7px 9px;
-  border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--surface-canvas) 25%, transparent);
+  padding: 4px 12px 4px 0;
 }
 
 .affinity-legend i {
@@ -1997,12 +1998,12 @@ textarea {
 
 .affinity-legend strong {
   color: var(--text-strong);
-  font-size: 12px;
+  font-size: var(--text-label);
 }
 
 .affinity-legend small {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-label);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2010,7 +2011,7 @@ textarea {
   display: flex;
   min-width: auto;
   color: var(--accent-strong);
-  font-size: 12px;
+  font-size: var(--text-label);
   font-weight: 700;
 }
 
@@ -2029,7 +2030,6 @@ textarea {
   height: 230px;
   padding: 12px 12px 24px 54px;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
   border-radius: 4px;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--selected) 2.5%, transparent), transparent 44%),
@@ -2086,16 +2086,16 @@ textarea {
   vector-effect: non-scaling-stroke;
 }
 
+/* Spans the plot's padding box, so a label's top percentage matches its grid line. */
 .affinity-y-axis {
   position: absolute;
-  inset: 16px auto 28px 10px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  inset: 12px auto 24px 10px;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-label);
   font-variant-numeric: tabular-nums;
 }
+
+.affinity-y-axis span { position: absolute; transform: translateY(-50%); }
 
 .affinity-x-axis {
   position: absolute;
@@ -2105,7 +2105,7 @@ textarea {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-label);
 }
 
 .affinity-x-axis span:nth-child(2) {
@@ -2117,7 +2117,9 @@ textarea {
   text-align: right;
 }
 
-.affinity-chart-empty {
+/* Before a first run, each chart says what it will show and how to start it. */
+.affinity-chart-empty,
+.path-chart-empty {
   display: grid;
   place-content: center;
   gap: 7px;
@@ -2127,10 +2129,11 @@ textarea {
   text-align: center;
 }
 
-.affinity-chart-empty strong {
+.affinity-chart-empty strong,
+.path-chart-empty strong {
   color: var(--text-strong);
   font-family: var(--font-display);
-  font-size: 17px;
+  font-size: var(--text-title);
   font-weight: 500;
 }
 
@@ -2159,6 +2162,9 @@ textarea:focus-visible,
 }
 
 .workspace-header h1 {
+  margin: 0;
+  font-size: var(--text-heading);
+  font-weight: 500;
   font-family: var(--font-display);
   letter-spacing: -0.025em;
 }
@@ -2169,8 +2175,7 @@ textarea:focus-visible,
 
 input,
 select,
-textarea,
-.select-menu {
+textarea {
   color: var(--text);
   background: color-mix(in srgb, var(--surface-raised) 92%, transparent);
   border-color: var(--line-control);
@@ -2196,7 +2201,7 @@ textarea:hover {
 
 .profile-rule-note span {
   color: var(--info);
-  font-size: 12px;
+  font-size: var(--text-label);
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -2204,17 +2209,16 @@ textarea:hover {
 
 .profile-rule-note strong {
   color: var(--text-strong);
-  font-size: 12px;
+  font-size: var(--text-label);
 }
 
 .profile-rule-note small {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-note);
   line-height: 1.4;
 }
 
 .segmented button,
-.workspace-tabs button,
 .inspector-actions button,
 .header-controls button,
 .result-scroll-actions button,
@@ -2263,7 +2267,7 @@ textarea:hover {
 .strip-brand span {
   color: var(--text-strong);
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: var(--text-title);
   line-height: 1;
 }
 
@@ -2293,19 +2297,19 @@ textarea:hover {
   align-items: center;
   gap: 4px;
   color: inherit;
-  font-size: 13px;
+  font-size: var(--text-note);
   font-weight: 600;
 }
 
 .profile-switch button small {
   color: var(--text-faint);
-  font-size: 12px;
+  font-size: var(--text-label);
 }
 
 .profile-beta-mark {
   margin-left: 6px;
   color: var(--warning);
-  font-size: 10px;
+  font-size: var(--text-label);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2331,7 +2335,7 @@ textarea:hover {
 .strip-joiner {
   padding-inline: 2px;
   color: var(--text-faint);
-  font-size: 13px;
+  font-size: var(--text-note);
 }
 
 .strip-token {
@@ -2346,7 +2350,7 @@ textarea:hover {
   background: transparent;
   border: 0;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: var(--text-body);
   font-weight: 600;
   white-space: nowrap;
   text-decoration: underline;
@@ -2429,7 +2433,7 @@ textarea:hover {
   background: transparent;
   border: 1px solid var(--line-control);
   border-radius: 6px;
-  font-size: 13px;
+  font-size: var(--text-note);
   white-space: nowrap;
 }
 
@@ -2458,7 +2462,7 @@ textarea:hover {
   padding: 0 2px;
   border: 0;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-note);
 }
 
 .ribbon-level {
@@ -2468,19 +2472,7 @@ textarea:hover {
   gap: 4px;
   margin: 0;
   color: var(--text-faint);
-  font-size: 12px;
-}
-
-.ribbon-level input {
-  width: 5ch;
-  min-height: 26px;
-  padding: 2px 4px;
-  color: var(--text-strong);
-  background: transparent;
-  border-color: transparent;
-  font-size: 14px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  font-size: var(--text-label);
 }
 
 .ribbon-level input:focus {
@@ -2490,6 +2482,15 @@ textarea:hover {
 
 /* Level is derived from the stats, so it reads as a readout: no text cursor, no caret. */
 .ribbon-level input {
+  width: 5ch;
+  min-height: 26px;
+  padding: 2px 4px;
+  color: var(--text-strong);
+  background: transparent;
+  border-color: transparent;
+  font-size: var(--text-body);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
   cursor: default;
   caret-color: transparent;
 }
@@ -2504,7 +2505,7 @@ textarea:hover {
 
 .ribbon-readout span {
   color: var(--text-faint);
-  font-size: 12px;
+  font-size: var(--text-label);
 }
 
 .ribbon-readout strong {
@@ -2532,7 +2533,7 @@ textarea:hover {
   gap: 3px;
   margin: 0;
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--text-label);
   font-weight: 700;
   letter-spacing: 0.06em;
 }
@@ -2546,10 +2547,10 @@ textarea:hover {
   min-height: 26px;
   padding: 2px 3px;
   color: var(--text-strong);
-  background: transparent;
-  border: 1px solid transparent;
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
   border-radius: 4px;
-  font-size: 14px;
+  font-size: var(--text-body);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   text-align: center;
@@ -2619,7 +2620,7 @@ textarea:hover {
 
 .coverage-token strong {
   color: var(--success);
-  font-size: 11px;
+  font-size: var(--text-label);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -2634,6 +2635,47 @@ textarea:hover {
 
 .coverage-token:hover:not(:disabled) {
   background: var(--surface-raised);
+}
+
+/* A failed render keeps its message selectable, so a report can quote it. */
+.page-failure,
+.panel-failure {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 24px;
+  color: var(--text);
+}
+
+.page-failure h1,
+.panel-failure h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: 500;
+}
+
+.page-failure p,
+.panel-failure p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.page-failure pre,
+.panel-failure pre {
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  white-space: pre-wrap;
+  color: var(--danger-ink);
+  background: var(--surface-raised);
+  border-radius: 4px;
+  user-select: text;
+}
+
+.page-failure button,
+.panel-failure button {
+  justify-self: start;
 }
 
 /* Editors: native popovers anchored under their token. Closed panels stay mounted. */
@@ -2651,8 +2693,8 @@ textarea:hover {
   border: 1px solid var(--line-strong);
   border-radius: 6px;
   box-shadow: 0 18px 48px var(--shadow);
+  transform-origin: top left;
 }
-
 
 .popover-panel:focus {
   outline: none;
@@ -2669,6 +2711,37 @@ textarea:hover {
 
 .coverage-panel {
   width: 380px;
+}
+
+/* More options: blessing and results on the left, locks and minimums on the right. */
+.popover-panel.options-panel {
+  width: 660px;
+  max-width: calc(100vw - 16px);
+}
+
+.editor-sections {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  grid-template-rows: auto 1fr;
+}
+
+.editor-sections > section + section {
+  border-top: 1px solid var(--line);
+}
+
+.editor-sections > .options-limits {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  border-top: 0;
+  border-left: 1px solid var(--line);
+}
+
+.editor-sections h3 {
+  margin: 0;
+  padding: 14px 14px 0;
+  color: var(--text-strong);
+  font-size: var(--text-note);
+  font-weight: 700;
 }
 
 .editor-body {
@@ -2688,7 +2761,8 @@ textarea:hover {
   align-items: start;
 }
 
-.editor-grid .editor-reset {
+.editor-grid .editor-reset,
+.editor-grid .editor-span {
   grid-column: 1 / -1;
 }
 
@@ -2730,7 +2804,7 @@ textarea:hover {
 .editor-note {
   margin: 0;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-note);
   line-height: 1.45;
 }
 
@@ -2747,7 +2821,7 @@ textarea:hover {
 
 .editor-readout span {
   color: var(--text-faint);
-  font-size: 12px;
+  font-size: var(--text-label);
 }
 
 .editor-readout strong {
@@ -2793,7 +2867,8 @@ textarea:hover {
 }
 
 
-.command-palette::backdrop {
+.command-palette::backdrop,
+.shortcuts-dialog::backdrop {
   background: color-mix(in srgb, var(--surface-canvas) 60%, transparent);
 }
 
@@ -2812,11 +2887,22 @@ textarea:hover {
   color: var(--text-strong);
   background: transparent;
   border: 0;
-  font-size: 16px;
+  font-size: var(--text-emphasis);
 }
 
 .palette-input input:focus {
   box-shadow: none;
+}
+
+/* The field is the whole row, so the row carries its focus mark instead of a ring drawn
+   inside the palette's own frame. */
+.palette-input input:focus-visible {
+  outline: none;
+}
+
+.palette-input:focus-within {
+  border-bottom-color: var(--focus-ring);
+  box-shadow: 0 1px 0 var(--focus-ring);
 }
 
 .palette-results {
@@ -2830,23 +2916,13 @@ textarea:hover {
   list-style: none;
 }
 
-.palette-results li {
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr) auto;
-  align-items: baseline;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
 .palette-results li.active {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 .palette-group {
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--text-label);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2864,7 +2940,7 @@ textarea:hover {
   max-width: 220px;
   overflow: hidden;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-label);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2873,7 +2949,7 @@ textarea:hover {
   margin: 0;
   padding: 4px 16px 12px;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-note);
 }
 
 .palette-empty:empty {
@@ -2887,29 +2963,7 @@ textarea:hover {
   padding: 10px 14px;
   color: var(--text-faint);
   border-top: 1px solid var(--line);
-  font-size: 12px;
-}
-
-.workspace-tabs button::after {
-  content: "";
-  position: absolute;
-  right: 12px;
-  bottom: 2px;
-  left: 12px;
-  height: 1px;
-  background: var(--accent);
-  transform: scaleX(0);
-  transition: transform 180ms ease;
-}
-
-.workspace-tabs button.active {
-  color: var(--text-strong);
-  background: color-mix(in srgb, var(--accent-strong) 8%, transparent);
-  border-color: color-mix(in srgb, var(--accent-strong) 13%, transparent);
-}
-
-.workspace-tabs button.active::after {
-  transform: scaleX(1);
+  font-size: var(--text-note);
 }
 
 .workspace-stage {
@@ -2920,20 +2974,20 @@ textarea:hover {
 }
 
 /* Workspaces share one cell, so Rankings keeps its size and laid-out rows while another
-   workspace is shown over it; content-visibility then skips its rendering entirely. */
-.workspace-stage > * {
-  grid-area: 1 / 1;
-}
-
-.rankings-panel[data-offstage] {
-  visibility: hidden;
-  content-visibility: hidden;
-}
-
-/* A workspace replays its entrance each time it is shown, since hidden ones only lose display.
+   workspace is shown over it; content-visibility then skips its rendering entirely.
+   A workspace replays its entrance each time it is shown, since hidden ones only lose display.
    Ctrl+1 to Ctrl+4 switch often, so the entrance is a quick fade with no travel. */
 .workspace-stage > * {
+  grid-area: 1 / 1;
   animation: stage-enter var(--duration-fast) var(--ease-out) both;
+}
+
+/* Hides only the panel's own box: visibility is inherited, so toggling it restyled all ~1,500
+   skipped descendants on every tab switch (6-8 ms each way). */
+.rankings-panel[data-offstage] {
+  content-visibility: hidden;
+  background: none;
+  border-color: transparent;
 }
 
 .rankings-panel {
@@ -2944,8 +2998,11 @@ textarea:hover {
 /* Rankings: one loadout per row. Token-column keys live in the header, so rows carry
    bare values and stay two text lines tall. */
 
-.result-head-full,
-.result-row-full {
+.result-head,
+.result-row {
+  display: grid;
+  min-height: 45px;
+  padding: 0 12px;
   grid-template-columns:
     28px minmax(150px, 1.6fr) minmax(112px, 0.9fr) minmax(112px, 0.9fr) 56px 84px 72px;
   gap: 8px;
@@ -2953,73 +3010,55 @@ textarea:hover {
   min-width: 660px;
 }
 
-.result-head-full.with-score,
-.result-row-full.with-score {
+.result-head.with-score,
+.result-row.with-score {
   grid-template-columns:
     28px minmax(150px, 1.6fr) minmax(112px, 0.9fr) minmax(112px, 0.9fr) 56px 84px 72px 72px;
   min-width: 740px;
 }
 
 /* Without modeled skill damage in any row, the skill column is dropped (RankingsBoard.tsx). */
-.result-head-full.no-skill,
-.result-row-full.no-skill {
+.result-head.no-skill,
+.result-row.no-skill {
   grid-template-columns:
     28px minmax(150px, 1.6fr) minmax(112px, 0.9fr) minmax(112px, 0.9fr) 56px 72px;
   min-width: 568px;
 }
 
-.result-head-full.with-score.no-skill,
-.result-row-full.with-score.no-skill {
+.result-head.with-score.no-skill,
+.result-row.with-score.no-skill {
   grid-template-columns:
     28px minmax(150px, 1.6fr) minmax(112px, 0.9fr) minmax(112px, 0.9fr) 56px 72px 72px;
   min-width: 648px;
 }
 
-/* Narrow boards drop the scaling column; Build Detail still shows it. Below 1131px the board
-   is exactly the window minus 300px, so this matches a board of 720px or less. A container
-   query would do the same but roughly doubles row layout cost on every sort or edit. */
-@media (max-width: 1020px) {
-  .result-head-full > :nth-child(3),
-  .result-row-full > .scaling-cell {
-    display: none;
-  }
-
-  .result-head-full,
-  .result-row-full {
-    grid-template-columns: 28px minmax(140px, 1.6fr) minmax(112px, 1fr) 56px 84px 72px;
-    min-width: 540px;
-  }
-
-  .result-head-full.with-score,
-  .result-row-full.with-score {
-    grid-template-columns: 28px minmax(140px, 1.6fr) minmax(112px, 1fr) 56px 84px 72px 72px;
-    min-width: 620px;
-  }
-
-  .result-head-full.no-skill,
-  .result-row-full.no-skill {
-    grid-template-columns: 28px minmax(140px, 1.6fr) minmax(112px, 1fr) 56px 72px;
-    min-width: 448px;
-  }
-
-  .result-head-full.with-score.no-skill,
-  .result-row-full.with-score.no-skill {
-    grid-template-columns: 28px minmax(140px, 1.6fr) minmax(112px, 1fr) 56px 72px 72px;
-    min-width: 528px;
-  }
-}
-
-.result-row-full {
+.result-row {
+  color: var(--text);
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+  background: var(--surface-panel);
+  cursor: pointer;
+  position: relative;
+  border-bottom-color: color-mix(in srgb, var(--text) 5.5%, transparent);
+  transition: background 130ms ease, box-shadow 130ms ease, transform 130ms ease;
   min-height: 48px;
   padding-block: 5px;
+  contain-intrinsic-height: auto 48px;
 }
 
-.result-head-full > span,
-.result-row-full > span {
+/* Rows well outside the board's view rest while the window is resized and while Rankings is
+   hidden (RankingsBoard.tsx). A resting row keeps its last height, so nothing on screen moves. */
+.result-row[data-resting] {
+  content-visibility: hidden;
+}
+
+.result-head > span,
+.result-row > span {
   min-width: 0;
 }
 
-.result-head-full > span {
+.result-head > span {
   align-self: end;
   padding-block: 8px 6px;
   white-space: nowrap;
@@ -3038,27 +3077,26 @@ textarea:hover {
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 2px;
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--text-label);
   font-weight: 700;
   letter-spacing: 0.02em;
   text-align: center;
 }
 
-.result-row-full .metric-token-grid {
+.result-row .metric-token-grid {
   gap: 2px;
 }
 
-.result-row-full .metric-token {
+.result-row .metric-token {
   padding: 2px 0;
 }
 
-.result-row-full .metric-token small {
-  display: none;
-}
-
-.result-row-full .metric-token b {
+/* Row values (stats up to 99, grades up to S++) fit their token at the minimum window width,
+   so they skip the overflow clip: 500 clips cost about 15% of every board resize and repaint. */
+.result-row .metric-token b {
   margin-top: 0;
-  font-size: 13px;
+  overflow: visible;
+  font-size: var(--text-note);
 }
 
 .weapon-cell {
@@ -3085,12 +3123,12 @@ textarea:hover {
   flex: 0 0 auto;
   padding: 0 5px;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--text-label);
   border: 1px solid var(--line);
   border-radius: 3px;
 }
 
-.result-row-full .loadout-line {
+.result-row .loadout-line {
   display: block;
   overflow: hidden;
   color: var(--text-muted);
@@ -3108,13 +3146,13 @@ textarea:hover {
   color: var(--text);
 }
 
-.result-row-full > span:last-child {
+.result-row > span:last-child {
   display: flex;
   gap: 4px;
 }
 
-.result-head-full > span:last-child,
-.result-row-full > span:last-child {
+.result-head > span:last-child,
+.result-row > span:last-child {
   position: sticky;
   right: 0;
   z-index: 4;
@@ -3124,49 +3162,79 @@ textarea:hover {
   background: inherit;
 }
 
-.result-row-full > span:last-child .inline-lock {
+.result-row > span:last-child {
+  background: var(--surface-panel);
+}
+
+.result-row > span:last-child .inline-lock {
   width: 32px;
   min-height: 32px;
   padding: 4px;
 }
 
-.result-head-full > :nth-child(n + 5):not(:last-child),
-.result-row-full > .result-metric-cell,
-.result-row-full > .objective-score {
+/* Row actions rest as bare icons, so a full board is not a hundred outlined boxes beside its
+   numbers; a pointed-at action shows its box and a pinned row keeps its selected mark. */
+.result-row .inline-lock:not([aria-pressed="true"]) {
+  background: transparent;
+  border-color: transparent;
+}
+
+.result-row .inline-lock:not([aria-pressed="true"]):hover:not(:disabled) {
+  background: var(--surface-raised);
+  border-color: var(--accent-quiet);
+}
+
+.result-head > :nth-child(n + 5):not(:last-child),
+.result-row > .result-metric-cell,
+.result-row > .objective-score {
   text-align: right;
 }
 
 .result-unavailable {
   color: var(--text-faint);
-  font-size: 12px;
+  font-size: var(--text-label);
 }
 
-.result-head-full > span:nth-child(-n + 2),
-.result-row-full > span:nth-child(-n + 2) {
+.result-head > span:nth-child(-n + 2),
+.result-row > span:nth-child(-n + 2) {
   position: sticky;
   z-index: 3;
   background: var(--surface-panel);
 }
 
-.result-head-full > span:nth-child(-n + 2) {
+.result-head > span:nth-child(-n + 2) {
   z-index: 5;
 }
 
-.result-head-full > span:first-child,
-.result-row-full > span:first-child {
+.result-head > span:first-child,
+.result-row > span:first-child {
   left: 0;
 }
 
-.result-head-full > span:nth-child(2),
-.result-row-full > span:nth-child(2) {
+.result-head > span:nth-child(2),
+.result-row > span:nth-child(2) {
   left: 36px;
 }
 
-.result-row-full > span:nth-child(-n + 2) {
-  background: inherit;
+/* The sticky cells repeat the row background state by state instead of inheriting it: one
+   explicitly inherited child makes every positional change of a row restyle all its cells,
+   which doubled the style cost of a sort. They transition in step with the row. */
+.result-row > span:nth-child(-n + 2),
+.result-row > span:last-child {
+  transition: background 130ms ease;
+}
+
+.result-row:focus-visible > span:nth-child(-n + 2),
+.result-row:focus-visible > span:last-child {
+  background: color-mix(in srgb, var(--selected) 8%, var(--surface-panel));
 }
 
 .result-row:hover {
+  background: color-mix(in srgb, var(--text) 4%, var(--surface-panel));
+}
+
+.result-row:hover > span:nth-child(-n + 2),
+.result-row:hover > span:last-child {
   background: color-mix(in srgb, var(--text) 4%, var(--surface-panel));
 }
 
@@ -3174,6 +3242,11 @@ textarea:hover {
   background: color-mix(in srgb, var(--selected) 11%, var(--surface-panel));
   outline: 1px solid color-mix(in srgb, var(--selected) 42%, transparent);
   outline-offset: -1px;
+}
+
+.result-row.active > span:nth-child(-n + 2),
+.result-row.active > span:last-child {
+  background: color-mix(in srgb, var(--selected) 11%, var(--surface-panel));
 }
 
 /* The selected tint lowers faint text below 4.5:1, so muted text takes over there. */
@@ -3200,15 +3273,7 @@ textarea:hover {
 }
 
 .status-token-grid {
-  grid-template-columns: repeat(10, minmax(0, 1fr));
-}
-
-.status-token-grid > .metric-token {
-  grid-column: span 2;
-}
-
-.status-token-grid > :nth-child(6) {
-  grid-column: 4 / span 2;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 /* Block with centred text rather than a grid per token: a board carries about 500 tokens,
@@ -3232,7 +3297,7 @@ textarea:hover {
 
 .metric-token small {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-label);
   font-weight: 800;
   letter-spacing: 0.06em;
 }
@@ -3243,7 +3308,7 @@ textarea:hover {
   overflow: hidden;
   color: var(--text);
   text-overflow: ellipsis;
-  font-size: 14px;
+  font-size: var(--text-body);
 }
 
 .metric-token.active {
@@ -3253,7 +3318,7 @@ textarea:hover {
 
 .status-none {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-note);
 }
 
 .compare-lane > .metric-token-grid,
@@ -3276,23 +3341,25 @@ textarea:hover {
 
 .result-row small,
 .weapon-cell small {
-  font-size: 12px;
+  font-size: var(--text-label);
 }
 
 .inline-lock {
   width: 40px;
   min-height: 27px;
   padding: 0 5px;
-  font-size: 12px;
+  font-size: var(--text-label);
 }
 
 .inspector > .inspector-title:first-child {
   position: sticky;
   z-index: 2;
-  top: -15px;
+  /* Sticky offsets start inside the inspector's 16px top padding; -16px reaches its edge. */
+  top: -16px;
   margin: -15px -15px 12px;
   padding: 17px 15px 12px;
-  background: color-mix(in srgb, var(--surface-panel) 96%, transparent);
+  /* Opaque, so details scrolling under the stuck title never show through it. */
+  background: var(--surface-panel);
   border-bottom: 1px solid var(--line);
 }
 
@@ -3326,14 +3393,21 @@ textarea:hover {
   color: var(--text-muted);
   background: var(--surface-panel);
   border-top: 1px solid var(--line);
-  font-size: 12px;
+  font-size: var(--text-label);
 }
 
 .analysis-state {
   min-height: 28px;
   margin: 8px 14px 0;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-note);
+}
+
+.compare-toolbar .compare-status {
+  display: flex;
+  align-items: center;
+  min-height: 0;
+  margin: 0 0 0 auto;
 }
 
 .workspace-prerequisite {
@@ -3345,7 +3419,7 @@ textarea:hover {
   display: block;
   margin: -4px 0 10px;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-note);
   line-height: 1.45;
 }
 
@@ -3362,21 +3436,11 @@ textarea:hover {
   margin: 4px 0 0;
 }
 
-.model-coverage,
-.mechanics-glossary {
-  margin: 0 2px 12px;
-  padding: 8px 10px;
-  border: 1px solid color-mix(in srgb, var(--info) 22%, transparent);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--surface-canvas) 32%, transparent);
-}
-
-.model-coverage summary,
-.mechanics-glossary summary {
-  color: var(--accent-strong);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 700;
+/* Build Detail's folded sections are rows under a hairline, like its details above them. */
+.model-coverage {
+  margin: 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
 }
 
 .model-coverage p,
@@ -3384,54 +3448,37 @@ textarea:hover {
   display: block;
   margin: 7px 0 0;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-note);
   line-height: 1.45;
-}
-
-.mechanics-glossary {
-  flex: 0 0 auto;
-  margin: 8px 10px;
-}
-
-.mechanics-glossary dl {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
-  gap: 8px;
-  margin: 8px 0 0;
-}
-
-.mechanics-glossary dl > div {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 6px;
-}
-
-.mechanics-glossary dt {
-  color: var(--text-strong);
-  font-weight: 700;
-}
-
-.mechanics-glossary dd {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 12px;
 }
 
 .result-head,
 .stale-results-banner span,
 .stale-label {
-  font-size: 12px;
+  font-size: var(--text-label);
 }
 
+/* High contrast replaces the palette, so selection and series need marks beyond colour. */
 @media (forced-colors: active) {
-  button,
-  input,
-  select,
-  textarea,
-  .result-row,
-  .path-chart {
-    forced-color-adjust: auto;
+  [aria-pressed="true"],
+  [aria-checked="true"],
+  [aria-current="page"],
+  .result-row.active,
+  .tradeoff-table tr.selected {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
   }
+
+  .affinity-legend i,
+  .affinity-series,
+  .affinity-series-point {
+    forced-color-adjust: none;
+  }
+
+  .affinity-series-group.series-1 .affinity-series { stroke-dasharray: 12 6; }
+  .affinity-series-group.series-2 .affinity-series { stroke-dasharray: 3 5; }
+  .affinity-series-group.series-3 .affinity-series { stroke-dasharray: 14 4 3 4; }
+  .affinity-series-group.series-4 .affinity-series { stroke-dasharray: 6 6; }
 }
 
 /* Every unavailable tab looks unavailable, whatever the reason; the reason is printed beside
@@ -3445,7 +3492,7 @@ textarea:hover {
   align-self: center;
   margin-left: 6px;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-note);
   white-space: nowrap;
 }
 
@@ -3456,7 +3503,7 @@ textarea:hover {
   color: var(--on-accent);
   background: var(--accent);
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--text-label);
   font-weight: 700;
   line-height: 17px;
   font-variant-numeric: tabular-nums;
@@ -3504,7 +3551,7 @@ textarea:hover {
 .startup-skeleton .workspace-header strong {
   display: block;
   color: var(--text-strong);
-  font-size: 15px;
+  font-size: var(--text-emphasis);
   font-weight: 600;
 }
 
@@ -3554,21 +3601,37 @@ textarea:hover {
   gap: 7px;
 }
 
-.startup-state.error {
-  border-color: color-mix(in srgb, var(--danger) 38%, transparent);
+/* Recovery actions use the raised secondary button rather than the browser's grey default. */
+.startup-state button,
+.stale-results-banner button,
+.workspace-prerequisite button,
+.inspector [role="alert"] button,
+.page-failure button,
+.panel-failure button {
+  min-height: 32px;
+  padding: 5px 12px;
+  color: var(--text-strong);
+  background: var(--surface-raised);
+  border: 1px solid var(--line-control);
+  border-radius: 4px;
 }
 
-.stale-results-banner {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  margin: 0 10px 8px;
-  padding: 9px 11px;
-  border: 1px solid color-mix(in srgb, var(--warning) 32%, transparent);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--warning) 8%, transparent);
+.startup-state button:hover:not(:disabled),
+.stale-results-banner button:hover:not(:disabled),
+.workspace-prerequisite button:hover,
+.inspector [role="alert"] button:hover,
+.page-failure button:hover,
+.panel-failure button:hover {
+  border-color: var(--accent-quiet);
+}
+
+.stale-results-banner button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.startup-state.error {
+  border-color: color-mix(in srgb, var(--danger) 38%, transparent);
 }
 
 .stale-results-banner > div {
@@ -3580,7 +3643,7 @@ textarea:hover {
 .stale-results-banner span,
 .stale-label {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-note);
   line-height: 1.35;
 }
 
@@ -3595,6 +3658,15 @@ textarea:hover {
   width: 28px;
   min-height: 26px;
   padding: 0;
+  color: var(--danger-ink);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+
+.error-strip button:hover {
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
 }
 
 .error-strip,
@@ -3602,104 +3674,15 @@ textarea:hover {
   flex: 0 0 auto;
 }
 
-/* The palette keeps its icon and Ctrl K; its words go first so the query stays on one line. */
-@media (max-width: 1760px) {
-  .strip-palette-label {
-    display: none;
-  }
-}
-
-/* Below 1500px the query line keeps every token on one row: sentence joiners, profile version
-   numbers (also under Model coverage) and the Ctrl K hint (also in its tooltip) give way first.
-   The version only leaves the screen: it stays in each profile radio's accessible name. */
-@media (max-width: 1500px) {
-  .strip-joiner,
-  .strip-palette kbd {
-    display: none;
-  }
-
-  .profile-version {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-}
-
-@media (max-width: 1320px) {
-  .desktop-shell {
-    grid-template-columns: minmax(0, 1fr) 300px;
-  }
-
-  .center-workspace {
-    padding-inline: 9px;
-  }
-
-  .analysis-workspace-header .workspace-heading-copy {
-    flex: 1 1 300px;
-  }
-
-  .analysis-workspace-header .header-controls {
-    margin-left: auto;
-  }
-
-  .workspace-tabs button {
-    padding-inline: 9px;
-  }
-
-}
-
-@media (max-width: 1130px) {
-  .desktop-shell {
-    grid-template-columns: minmax(0, 1fr) 280px;
-  }
-
-  /* The query gets its own full-width row instead of a narrow middle column. */
-  .strip-line {
-    flex-wrap: wrap;
-    row-gap: 6px;
-  }
-
-  .strip-query {
-    flex-basis: 100%;
-    order: 3;
-  }
-
-  .strip-actions {
-    margin-left: auto;
-  }
-
-  .workspace-tabs button span:not(.tab-count) {
-    display: none;
-  }
-
-  .workspace-tabs button {
-    width: 38px;
-    justify-content: center;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
 /* Motion states what changed. Rankings re-forge from lib/motion.ts and a new selection fades
-   in from Inspector.tsx. Sorted rows are offset within this group and read in their
-   reading-order (RankingsBoard.tsx). It stays composited:
+   in from Inspector.tsx. Sorted rows take their flex order here and are read in it
+   (RankingsBoard.tsx). The group stays composited:
    animating it then never changes its stacking context (which re-lays out every row), and its
    sticky rank cells share its layer instead of becoming 50 overlap layers of their own. */
 .result-rows {
-  position: relative;
-  reading-flow: source-order;
+  display: flex;
+  flex-direction: column;
+  reading-flow: flex-visual;
   will-change: opacity;
   transition: opacity 300ms var(--ease-out);
 }
@@ -3719,7 +3702,7 @@ textarea:hover {
 .forging-state > span {
   padding-inline: 12px;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-note);
 }
 
 .notice-strip,
@@ -3747,10 +3730,17 @@ textarea:hover {
 }
 
 .result-scroll-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .detail-block {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  margin-bottom: 10px;
   border: 0;
   border-top: 1px solid var(--line);
   border-radius: 0;
@@ -3763,8 +3753,21 @@ textarea:hover {
 }
 
 .empty-state {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  min-height: 180px;
+  color: var(--text-muted);
   padding: 24px;
   text-align: center;
+}
+
+/* Empty states title themselves like the analysis charts' first-run states. */
+.empty-state strong {
+  color: var(--text-strong);
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: 500;
 }
 
 .empty-state .inline-lock {
@@ -3774,7 +3777,6 @@ textarea:hover {
 }
 
 button[aria-pressed="true"],
-.workspace-tabs button.active,
 .profile-switch button.active {
   color: var(--selected);
   border-color: var(--selected);
@@ -3782,31 +3784,64 @@ button[aria-pressed="true"],
   box-shadow: none;
 }
 
-.workspace-tabs button::after {
-  background: var(--selected);
-}
-
 .compare-deltas {
+  overflow: auto;
+  padding: 0 18px 12px;
   overflow-x: auto;
 }
 
 .compare-deltas th,
 .compare-deltas td {
+  border: 1px solid var(--line);
+  text-align: right;
   padding: 10px 8px;
   border-inline: 0;
   font-variant-numeric: tabular-nums;
 }
 
 .compare-deltas table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-note);
   min-width: 520px;
 }
 
 .compare-build-details {
-  margin: 14px;
+  margin: 0 18px 12px;
 }
 
+/* The cards sit inside the disclosure's inset, on Compare's one 18 px content edge. */
+.compare-build-details .compare-lanes {
+  padding-inline: 0;
+}
+
+/* Same inset as the other Compare disclosures; the matrix body keeps its own margins. */
+.compare-matrix > summary {
+  margin: 0 18px 12px;
+}
+
+.compare-panel > .analysis-state {
+  margin-inline: 18px;
+}
+
+.loadout-tradeoffs .analysis-state {
+  margin-inline: 0;
+}
+
+/* One disclosure style everywhere: the row names what opens and the gold marker says it
+   opens. The skill route card and the Saved Builds header keep their own layouts. */
 summary {
   cursor: pointer;
+}
+
+:where(details:not(.aow-route-details, .saved-builds)) > summary {
+  color: var(--text-strong);
+  font-size: var(--text-note);
+  font-weight: 600;
+}
+
+summary::marker {
+  color: var(--accent);
 }
 
 /* Disclosures fade their content in instead of snapping it into place. Opacity only, so the
@@ -3841,6 +3876,8 @@ summary:focus-visible {
 }
 
 .analysis-workspace-header .header-controls {
+  flex: 0 0 auto;
+  align-self: center;
   align-items: flex-end;
   flex-wrap: wrap;
   max-width: 100%;
@@ -3877,7 +3914,7 @@ summary:focus-visible {
   color: var(--accent);
   background: transparent;
   border: 0;
-  font-size: 13px;
+  font-size: var(--text-note);
 }
 
 .selection-detail > .inspector-actions button:hover:not(:disabled) {
@@ -3901,7 +3938,7 @@ summary:focus-visible {
 .inspector .detail-block > span:first-child {
   grid-row: 1 / span 3;
   color: var(--text-faint);
-  font-size: 13px;
+  font-size: var(--text-note);
 }
 
 .inspector .detail-block > :not(:first-child) {
@@ -3915,7 +3952,7 @@ summary:focus-visible {
 
 .inspector .detail-block > small {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-note);
   line-height: 1.4;
 }
 
@@ -3965,6 +4002,8 @@ summary:focus-visible {
 
 /* Movement since the previous search, with arrows so it never relies on colour alone. */
 .rank-cell {
+  color: var(--text-muted);
+  font-weight: 800;
   display: grid;
   align-content: center;
   justify-items: start;
@@ -3976,7 +4015,7 @@ summary:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 1px;
-  font-size: 12px;
+  font-size: var(--text-label);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
@@ -3997,22 +4036,22 @@ summary:focus-visible {
   color: var(--info);
 }
 
-.result-row-full > .result-metric-cell,
-.result-row-full > .objective-score {
+.result-row > .result-metric-cell,
+.result-row > .objective-score {
   display: grid;
   align-content: center;
   justify-items: end;
 }
 
 /* The ranked number reads first: AR under Max AR, otherwise the objective's own column. */
-.result-row-full:not(.with-score) .ar-cell strong,
-.result-row-full > .objective-score {
+.result-row:not(.with-score) .ar-cell strong,
+.result-row > .objective-score {
   color: var(--text-strong);
-  font-size: 15px;
+  font-size: var(--text-emphasis);
   font-weight: 700;
 }
 
-.result-row-full.with-score .ar-cell strong {
+.result-row.with-score .ar-cell strong {
   color: var(--text);
   font-weight: 500;
 }
@@ -4024,7 +4063,7 @@ summary:focus-visible {
 .rank-context {
   margin: -4px 0 10px;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-note);
   font-variant-numeric: tabular-nums;
 }
 
@@ -4033,10 +4072,11 @@ summary:focus-visible {
 }
 
 /* The model's promise, stated where the player decides whether to trust #1. */
+/* Explanatory, not a status: success green stays reserved for completed actions. */
 .rank-proof {
   margin: -6px 0 10px;
-  color: var(--success-ink);
-  font-size: 12px;
+  color: var(--text-muted);
+  font-size: var(--text-note);
 }
 
 .selection-notes {
@@ -4046,7 +4086,7 @@ summary:focus-visible {
 }
 
 .selection-notes small {
-  font-size: 12px;
+  font-size: var(--text-note);
 }
 
 .inspector .stat-changes {
@@ -4069,7 +4109,7 @@ summary:focus-visible {
 
 .saved-builds-count {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: 0;
 }
@@ -4145,11 +4185,6 @@ summary:focus-visible {
   box-shadow: 0 24px 64px var(--shadow);
 }
 
-
-.shortcuts-dialog::backdrop {
-  background: color-mix(in srgb, var(--surface-canvas) 60%, transparent);
-}
-
 .shortcuts-head {
   display: flex;
   align-items: center;
@@ -4161,7 +4196,7 @@ summary:focus-visible {
 .shortcuts-head h2 {
   margin: 0;
   color: var(--text-strong);
-  font-size: 16px;
+  font-size: var(--text-emphasis);
   font-weight: 600;
 }
 
@@ -4189,7 +4224,7 @@ summary:focus-visible {
 .shortcuts-dialog h3 {
   margin: 0 0 6px;
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--text-label);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -4224,7 +4259,7 @@ summary:focus-visible {
 .shortcuts-dialog dd {
   margin: 0;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-note);
 }
 
 .shortcuts-dialog kbd {
@@ -4239,26 +4274,7 @@ summary:focus-visible {
 .shortcut-or {
   margin-inline: 2px;
   color: var(--text-faint);
-  font-size: 11px;
-}
-
-/* Workspace tabs: one pill travels to the active tab (placed from App.tsx). */
-.workspace-tabs {
-  position: relative;
-}
-
-.workspace-tabs button {
-  z-index: 1;
-  transition: color 200ms var(--ease-out);
-}
-
-.workspace-tabs button.active {
-  border-color: transparent;
-  background: transparent;
-}
-
-.workspace-tabs button::after {
-  display: none;
+  font-size: var(--text-label);
 }
 
 .tab-pill {
@@ -4285,44 +4301,50 @@ summary:focus-visible {
   background: var(--selected);
 }
 
-/* Editors and the shortcut list open from their trigger and close at once. A fade-out needs
-   overlay and display transitions, and Chromium leaves a popover shown again just as such a
-   transition ends open but unrendered, so its input cannot take focus. The palette has no
-   motion at all: it is summoned by Ctrl+K many times a session and must appear instantly. */
-.popover-panel,
-.shortcuts-dialog {
-  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
-}
-
+/* Editors open from their trigger and fade back toward it, faster than they arrive. Discrete
+   display and overlay transitions keep a closing panel in the top layer for its fade, where
+   it must not take the click meant for the control under it; a reopen reverses the fade.
+   The palette and the shortcut list are summoned from the keyboard many times a session, so
+   they have no motion at all. */
 .popover-panel {
-  transform-origin: top left;
+  transition:
+    opacity 120ms var(--ease-out),
+    transform 120ms var(--ease-out),
+    display 120ms allow-discrete,
+    overlay 120ms allow-discrete;
 }
 
-.shortcuts-dialog {
-  transform-origin: top center;
+.popover-panel:popover-open {
+  transition-duration: 200ms;
+}
+
+.popover-panel:not(:popover-open) {
+  opacity: 0;
+  transform: translateY(-2px) scale(0.99);
+  pointer-events: none;
 }
 
 @starting-style {
-  .popover-panel:popover-open,
-  .shortcuts-dialog[open] {
+  .popover-panel:popover-open {
     opacity: 0;
     transform: translateY(-4px) scale(0.985);
-  }
-}
-
-.shortcuts-dialog::backdrop {
-  transition: background-color 200ms var(--ease-out);
-}
-
-@starting-style {
-  .shortcuts-dialog[open]::backdrop {
-    background-color: transparent;
   }
 }
 
 /* Supporting motion: chips arrive with a small pop, the stale banner like other notices,
    the palette's highlight glides, and small buttons give a quick tactile press. */
 .scope-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 4px 0 10px;
+  color: var(--text-strong);
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: var(--text-note);
+  white-space: nowrap;
   animation: chip-in 180ms var(--ease-out) both;
 }
 
@@ -4334,10 +4356,27 @@ summary:focus-visible {
 }
 
 .stale-results-banner {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 10px 8px;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--warning) 32%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
   animation: notice-enter var(--duration-base) var(--ease-out) both;
 }
 
 .palette-results li {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
   transition: background-color 90ms ease;
 }
 
@@ -4359,4 +4398,71 @@ summary:focus-visible {
 .workspace-tabs button:active:not(:disabled) {
   transform: translateY(1px) scale(0.97);
   transition-duration: 50ms;
+}
+
+/* Reduced motion drops travel, not feedback: colour and opacity still ease, entrances only
+   fade, and loaders pulse in place so a running search never looks frozen. Kept last so it
+   overrides every motion rule above. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+
+  /* Presses and openings change state in place. */
+  .search-button:active:not(:disabled),
+  .strip-icon:active:not(:disabled),
+  .strip-palette:active:not(:disabled),
+  .chip-action:active:not(:disabled),
+  .inline-lock:active:not(:disabled),
+  .scope-chip button:active,
+  .workspace-tabs button:active:not(:disabled) {
+    transform: none;
+  }
+
+  .saved-builds > summary .summary-chevron {
+    transition-property: opacity;
+  }
+
+  .popover-panel {
+    transition:
+      opacity 120ms var(--ease-out),
+      display 120ms allow-discrete,
+      overlay 120ms allow-discrete;
+  }
+
+  .popover-panel:not(:popover-open) {
+    transform: none;
+  }
+
+  .skeleton::after,
+  .search-button.busy::after,
+  .forge-bar i::before,
+  .forge-sheen::before {
+    animation: none;
+  }
+
+  .skeleton,
+  .search-button.busy svg,
+  .forge-bar.indeterminate i {
+    animation: reduced-pulse 1.2s ease-in-out infinite alternate;
+  }
+
+  .forge-bar.indeterminate i {
+    width: 100%;
+  }
+
+  .tab-count,
+  .copy-confirm,
+  .scope-chip,
+  .notice-strip,
+  .error-strip,
+  .stale-results-banner {
+    animation-name: stage-enter;
+  }
+}
+
+@keyframes reduced-pulse {
+  from { opacity: 0.55; }
 }

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { openEditor, openSection } from "./editors";
+import { chooseClass, openEditor, openSection } from "./editors";
 
 for (const outcome of ["cancelled", "failed"] as const) {
   test(`keeps the saved comparison when its upgrade series is ${outcome}`, async ({ page }) => {
@@ -22,7 +22,7 @@ for (const outcome of ["cancelled", "failed"] as const) {
       api.buildUpgradeSeries = (_base, _row, _maxUpgrade, signal) => new Promise((_resolve, reject) => {
         probe.calls += 1;
         probe.fail = () => reject(new Error("saved comparison upgrade failed"));
-        signal.addEventListener("abort", () => reject(new Error("cancelled")), { once: true });
+        signal?.addEventListener("abort", () => reject(new Error("cancelled")), { once: true });
       });
       Object.assign(window, { savedSeriesProbe: probe });
       return { weaponName: target.weaponName, affinity: target.affinity };
@@ -68,7 +68,7 @@ for (const withPins of [false, true]) {
     });
     await openSection(page, "Saved Builds");
     await page.getByRole("button", { name: "Load", exact: true }).click();
-    await page.locator(".result-row-full").click();
+    await page.locator(".result-row").click();
     await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
     await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
     await expect.poll(() => page.evaluate(async () => {
@@ -127,10 +127,11 @@ test("rejects malformed comparison pins without importing them or disabling sear
 });
 
 for (const stale of [false, true]) {
-  test(`loads ${stale ? "stale inputs" : "a saved result"} when optional comparison storage fails`, async ({ page }) => {
+  test(`loads ${stale ? "a recomputed stale result" : "a saved result"} when optional comparison storage fails`, async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect(page.getByText("4 ranked rows")).toBeVisible();
+    await page.locator(".result-row").first().getByRole("button", { name: /^Compare / }).click();
     await openSection(page, "Saved Builds");
     await page.getByRole("button", { name: "Save new", exact: true }).click();
     const stored = await page.evaluate((stale) => {
@@ -142,23 +143,78 @@ for (const stale of [false, true]) {
       }
       return { key, value: localStorage.getItem(key) };
     }, stale);
+    // The library reads a record when it is selected, so pick the edited record again.
+    const saved = page.getByRole("combobox", { name: "Saved", exact: true });
+    const id = await saved.inputValue();
+    await saved.selectOption("");
+    await saved.selectOption(id);
     await page.getByRole("checkbox", { name: "Two-handing", exact: true }).check();
     await page.evaluate(() => {
       Storage.prototype.setItem = () => { throw new DOMException("storage full", "QuotaExceededError"); };
     });
-    await page.getByRole("button", { name: stale ? "Load inputs only" : "Load", exact: true }).click();
+    await page.getByRole("button", { name: "Load", exact: true }).click();
     await expect(page.getByRole("checkbox", { name: "Two-handing", exact: true })).not.toBeChecked();
-    await expect(page.locator(".result-row-full")).toHaveCount(stale ? 0 : 1);
+    await expect(page.locator(".result-row")).toHaveCount(1);
+    await expect(page.getByText(stale ? /results recomputed on current game data \(saved on vanilla:4:old:old\)\./
+      : /saved results verified on current data/)).toBeVisible();
     await expect(page.getByText(/Comparison changes could not be saved/)).toBeVisible();
     expect(await page.evaluate(key => localStorage.getItem(key), stored.key)).toBe(stored.value);
   });
 }
 
+test("loads only the inputs of a stale build whose weapon no longer exists", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await openSection(page, "Saved Builds");
+  await page.getByRole("button", { name: "Save new", exact: true }).click();
+  const stored = await page.evaluate(() => {
+    const key = Object.keys(localStorage).find(key => key.startsWith("tarnisheds-arsenal.savedBuild.v2."))!;
+    const preset = JSON.parse(localStorage.getItem(key)!);
+    preset.dataVersion = "vanilla:4:old:old";
+    preset.request.twoHanding = true;
+    preset.selectedBuild.weaponName = "Removed Weapon";
+    localStorage.setItem(key, JSON.stringify(preset));
+    return { key, value: localStorage.getItem(key) };
+  });
+  const saved = page.getByRole("combobox", { name: "Saved", exact: true });
+  const id = await saved.inputValue();
+  await saved.selectOption("");
+  await saved.selectOption(id);
+  await page.getByRole("button", { name: "Load", exact: true }).click();
+  await expect(page.getByText("Saved results could not be verified. Inputs are loaded; the original saved record is unchanged.")).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: "Two-handing", exact: true })).toBeChecked();
+  await expect(page.locator(".result-row")).toHaveCount(0);
+  expect(await page.evaluate(key => localStorage.getItem(key), stored.key)).toBe(stored.value);
+});
+
+test("recomputes comparison pins stored with older game data on startup", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await page.locator(".result-row").first().getByRole("button", { name: /^Compare / }).click();
+  const key = "tarnisheds-arsenal.compareBench.v1.vanilla";
+  const current = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!), key);
+  await page.evaluate(key => {
+    const bench = JSON.parse(localStorage.getItem(key)!);
+    bench.datasetVersion = "vanilla-1.17";
+    bench.rows[0].ar.total = 999999;
+    localStorage.setItem(key, JSON.stringify(bench));
+  }, key);
+  await page.reload();
+  await expect(page.getByText(/^Recomputed your pinned comparison builds on current game data using your current class/)).toBeVisible();
+  expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)!), key)).toEqual(current);
+  expect(await page.evaluate(async () => {
+    const { useDesktopStore } = await import("/src/lib/state.ts");
+    return useDesktopStore.getState().compareBench;
+  })).toEqual(current.rows);
+});
+
 test("saving with result locks disabled keeps them disabled after loading", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
-  await page.locator(".result-row-full").first().getByRole("button", { name: /^Lock / }).click();
+  await page.locator(".result-row").first().getByRole("button", { name: /^Lock / }).click();
   await openEditor(page, "Limits");
   const locks = page.getByRole("checkbox", { name: "Use stat locks", exact: true });
   await locks.uncheck();
@@ -179,6 +235,7 @@ test("a failed deletion reports the error and preserves a loadable build", async
   await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   await page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- saved only to be restored onto the prototype
     const write = Storage.prototype.setItem;
     Object.assign(window, { restoreStorage: () => { Storage.prototype.setItem = write; } });
     Storage.prototype.setItem = function (key, value) {
@@ -192,14 +249,32 @@ test("a failed deletion reports the error and preserves a loadable build", async
   await page.evaluate(() => (window as unknown as { restoreStorage: () => void }).restoreStorage());
   await page.getByRole("button", { name: "Load", exact: true }).click();
   await expect(page.getByText("Loaded Build Preset; saved results verified on current data.", { exact: true })).toBeVisible();
+  // Any other action disarms Delete, so it must be armed again.
+  await expect(page.getByRole("button", { name: "Delete", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
   await page.getByRole("button", { name: "Confirm Delete", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Saved", exact: true })).toHaveValue("");
 });
 
-test("Convergence saves, updates and reloads the displayed fixed stats", async ({ page }) => {
+test("an armed Delete lapses on its own, so a later click never confirms it unseen", async ({ page }) => {
+  await page.clock.install();
+  await page.goto("/");
+  await openSection(page, "Saved Builds");
+  await page.getByRole("button", { name: "Save new", exact: true }).click();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Confirm Delete", exact: true })).toBeVisible();
+  await page.clock.fastForward(4_100);
+  await expect(page.getByRole("button", { name: "Delete", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Confirm Delete", exact: true })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Saved", exact: true })).not.toHaveValue("");
+});
+
+test("Convergence saves, updates and reloads the displayed Custom stats", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("radio", { name: /Convergence/ }).click();
-  await expect(page.getByText("Experimental fixed-stat model", { exact: true })).toBeVisible();
+  await expect(page.getByText("Experimental model", { exact: true })).toBeVisible();
+  await chooseClass(page, "Custom stats");
   await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   await expect(page.getByText("Saved Build Preset.", { exact: true })).toBeVisible();
@@ -210,14 +285,38 @@ test("Convergence saves, updates and reloads the displayed fixed stats", async (
     const key = Object.keys(localStorage).find((key) => key.startsWith("tarnisheds-arsenal.savedBuild.v2."))!;
     return JSON.parse(localStorage.getItem(key)!);
   });
-  expect(saved.request).toMatchObject({ profileId: "convergence", characterLevel: total, strStat: 40 });
+  expect(saved.request).toMatchObject({ profileId: "convergence", className: "Custom stats", characterLevel: total, strStat: 40 });
   await page.reload();
   await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Load", exact: true }).click();
   await expect(page.getByRole("spinbutton", { name: "STR", exact: true })).toHaveValue("40");
   await expect(page.getByRole("textbox", { name: "Stat total", exact: true })).toHaveValue(String(total));
   await page.getByRole("button", { name: "Search", exact: true }).click();
-  await expect(page.getByText("1 ranked rows")).toBeVisible();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+});
+
+test("Convergence saves, updates and reloads its class and level", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("radio", { name: /Convergence/ }).click();
+  await expect(page.getByText("Experimental model", { exact: true })).toBeVisible();
+  await openSection(page, "Saved Builds");
+  await page.getByRole("button", { name: "Save new", exact: true }).click();
+  await expect(page.getByText("Saved Build Preset.", { exact: true })).toBeVisible();
+  await page.getByRole("spinbutton", { name: "STR", exact: true }).fill("40");
+  await page.getByRole("button", { name: "Update selected", exact: true }).click();
+  const saved = await page.evaluate(() => {
+    const key = Object.keys(localStorage).find((key) => key.startsWith("tarnisheds-arsenal.savedBuild.v2."))!;
+    return JSON.parse(localStorage.getItem(key)!);
+  });
+  // Retainer is level 9 with STR 14, so STR 40 needs 26 more levels.
+  expect(saved.request).toMatchObject({ profileId: "convergence", className: "Retainer", characterLevel: 35, strStat: 40 });
+  await page.reload();
+  await openSection(page, "Saved Builds");
+  await page.getByRole("button", { name: "Load", exact: true }).click();
+  await expect(page.getByRole("spinbutton", { name: "STR", exact: true })).toHaveValue("40");
+  await expect(page.getByRole("button", { name: "Class: Retainer" })).toBeVisible();
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
 });
 
 for (const action of ["Save new", "Update selected"]) {
@@ -225,7 +324,7 @@ for (const action of ["Save new", "Update selected"]) {
     await page.goto("/");
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect(page.getByText("4 ranked rows")).toBeVisible();
-    await page.locator(".result-row-full").first().getByRole("button", { name: /^Compare / }).click();
+    await page.locator(".result-row").first().getByRole("button", { name: /^Compare / }).click();
     await openSection(page, "Saved Builds");
     if (action === "Update selected") await page.getByRole("button", { name: "Save new", exact: true }).click();
     await page.getByRole("checkbox", { name: "Two-handing", exact: true }).check();
@@ -238,7 +337,7 @@ for (const action of ["Save new", "Update selected"]) {
     });
     expect(saved).toMatchObject({ request: { twoHanding: true }, selectedBuild: null, compareTarget: null, compareBench: [] });
     await page.getByRole("button", { name: "Load", exact: true }).click();
-    await expect(page.locator(".result-row-full")).toHaveCount(0);
+    await expect(page.locator(".result-row")).toHaveCount(0);
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect(page.getByText("4 ranked rows")).toBeVisible();
   });
@@ -276,7 +375,7 @@ for (const action of ["delete", "edit", "profile", "update"]) {
       await page.getByRole("button", { name: "Confirm Delete", exact: true }).click();
     } else if (action === "profile") {
       await page.getByRole("radio", { name: /Convergence/ }).click();
-      await expect(page.getByText("Experimental fixed-stat model", { exact: true })).toBeVisible();
+      await expect(page.getByText("Experimental model", { exact: true })).toBeVisible();
     } else {
       await page.getByRole("checkbox", { name: "Two-handing", exact: true }).check();
       if (action === "update") await page.getByRole("button", { name: "Update selected", exact: true }).click();
@@ -307,8 +406,8 @@ test("failed migration stops further recomputations and keeps the original error
   await page.goto("/");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
-  await page.locator(".result-row-full").nth(0).getByRole("button", { name: /^Compare / }).click();
-  await page.locator(".result-row-full").nth(1).getByRole("button", { name: /^Compare / }).click();
+  await page.locator(".result-row").nth(0).getByRole("button", { name: /^Compare / }).click();
+  await page.locator(".result-row").nth(1).getByRole("button", { name: /^Compare / }).click();
   await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Save new", exact: true }).click();
   const presetId = await page.evaluate(() => {
@@ -322,14 +421,14 @@ test("failed migration stops further recomputations and keeps the original error
   await page.evaluate(async (id) => {
     const { api } = await import("/src/lib/api.ts");
     const preset = JSON.parse(localStorage.getItem(`tarnisheds-arsenal.savedBuild.v2.${id}`)!);
-    const calls: Array<{ signal: AbortSignal }> = [];
-    api.solveBuild = (_base: unknown, _weapon: unknown, _affinity: unknown, _aow: unknown, signal: AbortSignal) => {
+    const calls: Array<{ signal?: AbortSignal }> = [];
+    api.solveBuild = (_base: unknown, _weapon: unknown, _affinity: unknown, _aow: unknown, signal?: AbortSignal) => {
       const call = calls.length;
       calls.push({ signal });
       if (call === 0) return Promise.resolve(preset.selectedBuild);
       if (call === 1) return Promise.reject(new Error("recompute failed"));
       return new Promise((_resolve, reject) => {
-        signal.addEventListener("abort", () => {
+        signal?.addEventListener("abort", () => {
           Object.assign(window, { migrationSiblingAborted: true });
           reject(new DOMException("Calculation stopped.", "AbortError"));
         }, { once: true });
@@ -340,6 +439,6 @@ test("failed migration stops further recomputations and keeps the original error
   await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Migrate data", exact: true }).click();
   await expect(page.locator('.error-strip[role="alert"]')).toContainText("recompute failed");
-  await expect.poll(() => page.evaluate(() => (window as unknown as { migrationCalls: Array<{ signal: AbortSignal }> }).migrationCalls.length)).toBe(2);
-  expect(await page.evaluate(() => (window as unknown as { migrationCalls: Array<{ signal: AbortSignal }> }).migrationCalls.every(call => call.signal.aborted))).toBe(true);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { migrationCalls: Array<{ signal?: AbortSignal }> }).migrationCalls.length)).toBe(2);
+  expect(await page.evaluate(() => (window as unknown as { migrationCalls: Array<{ signal?: AbortSignal }> }).migrationCalls.every(call => call.signal?.aborted))).toBe(true);
 });

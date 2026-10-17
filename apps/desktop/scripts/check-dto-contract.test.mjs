@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
-import { checkDtoContract } from "./check-dto-contract.mjs";
+import { checkCommandContract, checkDomainContract, checkDtoContract } from "./check-dto-contract.mjs";
 
 const rust = readFileSync(new URL("../src-tauri/src/dto.rs", import.meta.url), "utf8");
 const frontend = readFileSync(new URL("../src/lib/types.ts", import.meta.url), "utf8");
 
 test("all native DTOs and enums agree with the frontend's wire shapes", () => {
   const checked = checkDtoContract(rust, frontend);
-  assert.ok(checked.declarations > 50 && checked.fields > 300);
+  assert.ok(checked.declarations > 50 && checked.fields > 250);
 });
 
-for (const [description, before, after, expected] of [
+for (const [description, before, after, expected] of /** @type {Array<[string, string, string, RegExp]>} */ ([
   ["renamed field", "pub job_id: String,", "pub job_key: String,", /Contract drift/],
   ["new field", "pub job_id: String,", "pub job_id: String, pub attempt: u8,", /Contract drift/],
   ["primitive change", "pub weapon_id: u32,", "pub weapon_id: String,", /Contract drift/],
@@ -22,7 +22,7 @@ for (const [description, before, after, expected] of [
   ["unsupported serde", "pub job_id: String,", '#[serde(skip_serializing)] pub job_id: String,', /Unsupported serde/],
   ["unsupported Rust type", "pub job_id: String,", "pub job_id: serde_json::Value,", /Unsupported Rust type/],
   ["exception type change", "pub standard_max_upgrade: Option<u8>,", "pub standard_max_upgrade: Option<String>,", /restriction changed/],
-]) {
+])) {
   test(`rejects Rust ${description}`, () => {
     assert.ok(rust.includes(before), "mutation must apply to the current source");
     assert.throws(() => checkDtoContract(rust.replace(before, after), frontend), expected);
@@ -32,7 +32,7 @@ for (const [description, before, after, expected] of [
 test("rejects missing frontend interfaces and unsupported TypeScript types", () => {
   assert.throws(() => checkDtoContract(rust, frontend.replace("interface CatalogDto", "interface RenamedCatalogDto")),
     /Unknown or recursive|Missing TypeScript/);
-  assert.throws(() => checkDtoContract(rust, frontend.replace("weaponCount: number;", "weaponCount: any;")),
+  assert.throws(() => checkDtoContract(rust, frontend.replace("schemaVersion: number;", "schemaVersion: any;")),
     /Unsupported TypeScript type/);
 });
 
@@ -59,3 +59,57 @@ test("comment handling preserves normal and raw Rust string contents", () => {
   assert.deepEqual(checkDtoContract(examples + rust, frontend), checkDtoContract(rust, frontend));
   assert.throws(() => checkDtoContract(`/* nested /* comment */ */\n${rust}`, frontend), /Unsupported nested Rust block comment/);
 });
+
+const source = path => readFileSync(new URL(path, import.meta.url), "utf8");
+const commandDirectory = new URL("../src-tauri/src/commands/", import.meta.url);
+const commandContract = () => ({
+  commandSources: readdirSync(commandDirectory).map(name => readFileSync(new URL(name, commandDirectory), "utf8")),
+  libSource: source("../src-tauri/src/lib.rs"),
+  buildSource: source("../src-tauri/build.rs"),
+  capability: JSON.parse(source("../src-tauri/capabilities/default.json")),
+  apiSource: source("../src/lib/api.ts"),
+});
+
+test("every native command is registered, allowed and called with its argument names", () => {
+  assert.ok(checkCommandContract(commandContract()).commands > 15);
+});
+
+/** @typedef {ReturnType<typeof commandContract>} CommandContract */
+for (const [description, mutate, expected] of /** @type {Array<[string, (contract: CommandContract) => CommandContract, RegExp]>} */ ([
+  ["unregistered command", c => ({ ...c, libSource: c.libSource.replace("commands::optimize::cancel_search,", "") }), /generate_handler/],
+  ["unlisted ACL command", c => ({ ...c, buildSource: c.buildSource.replace('"cancel_search",', "") }), /build.rs/],
+  ["capability without the command", c => ({ ...c, capability: { permissions: c.capability.permissions.slice(1) } }), /capability/],
+  ["renamed frontend argument", c => ({ ...c, apiSource: c.apiSource.replace('call<boolean>("cancel_search", { jobId })', 'call<boolean>("cancel_search", { id: jobId })') }), /argument drift: cancel_search/],
+  ["misspelled frontend command", c => ({ ...c, apiSource: c.apiSource.replace('"cancel_search"', '"cancel_searches"') }), /unregistered command: cancel_searches/],
+])) {
+  test(`rejects ${description}`, () => {
+    const contract = commandContract();
+    const changed = mutate(contract);
+    assert.notDeepEqual(changed, contract, "mutation must apply to the current source");
+    assert.throws(() => checkCommandContract(changed), expected);
+  });
+}
+
+const domainContract = () => ({
+  coreTypesSource: source("../../../core/er_optimizer_core/src/optimizer/types.rs"),
+  errorsSource: source("../src-tauri/src/errors.rs"),
+  tsSource: frontend,
+});
+
+test("string-valued request fields accept the same ids in Rust and TypeScript", () => {
+  assert.equal(checkDomainContract(domainContract()).domains, 4);
+});
+
+/** @typedef {ReturnType<typeof domainContract>} DomainContract */
+for (const [description, mutate, expected] of /** @type {Array<[string, (contract: DomainContract) => DomainContract, RegExp]>} */ ([
+  ["objective added only in Rust", c => ({ ...c, coreTypesSource: c.coreTypesSource.replace('Self::MaxAr => "max_ar",', 'Self::MaxAr => "max_ar_v2",') }), /Value domain drift: ObjectiveId/],
+  ["grouping removed in TypeScript", c => ({ ...c, tsSource: c.tsSource.replace('"automatic" | ', "") }), /Value domain drift: ResultGroupingId/],
+  ["AppError field renamed", c => ({ ...c, errorsSource: c.errorsSource.replace("pub message: String,", "pub detail: String,") }), /AppError/],
+])) {
+  test(`rejects ${description}`, () => {
+    const contract = domainContract();
+    const changed = mutate(contract);
+    assert.notDeepEqual(changed, contract, "mutation must apply to the current source");
+    assert.throws(() => checkDomainContract(changed), expected);
+  });
+}

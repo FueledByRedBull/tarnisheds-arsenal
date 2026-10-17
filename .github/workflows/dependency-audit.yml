@@ -1,0 +1,58 @@
+name: Dependency audit
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  pull_request:
+    paths:
+      - core/er_optimizer_core/Cargo.lock
+      - apps/desktop/src-tauri/Cargo.lock
+      - apps/desktop/package-lock.json
+      - .github/workflows/dependency-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Rust
+        # Installs the toolchain rust-toolchain.toml pins, or RUSTUP_TOOLCHAIN where a job sets it.
+        shell: bash
+        env:
+          RUSTUP_PERMIT_COPY_RENAME: "1"
+        run: |
+          rustup toolchain install --profile minimal --no-self-update
+          echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+          echo "CARGO_TERM_COLOR=always" >> "$GITHUB_ENV"
+          rustc --version --verbose
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --version 0.22.2 --locked
+
+      # Both lockfiles ship: core tests use its own, the desktop executable uses the Tauri one.
+      # The Tauri lock also lists Linux-only gtk/glib crates; their unmaintained and unsound
+      # advisories are warnings and never compile into the Windows executable.
+      - name: Audit Rust lockfiles
+        run: |
+          set -e
+          cargo audit --file core/er_optimizer_core/Cargo.lock
+          cargo audit --file apps/desktop/src-tauri/Cargo.lock
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".node-version"
+
+      # Only runtime packages are bundled into the app; Dependabot reports build-tool advisories.
+      - name: Audit bundled npm packages
+        working-directory: apps/desktop
+        run: npm audit --package-lock-only --omit=dev --audit-level=high

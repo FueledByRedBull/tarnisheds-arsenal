@@ -1,15 +1,15 @@
 import { expect, test } from "@playwright/test";
-import { openSection } from "./editors";
+import { openCompare, openSection } from "./editors";
 
-async function openCompare(page: import("@playwright/test").Page) {
+async function searchAndCompare(page: import("@playwright/test").Page) {
   await page.goto("/");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
-  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  await openCompare(page);
 }
 
 test("tradeoff views select exact threshold choices and persist an exact apply", async ({ page }) => {
-  await openCompare(page);
+  await searchAndCompare(page);
   await page.evaluate(async () => {
     const { api } = await import("/src/lib/api.ts");
     const original = api.arBleedFrontier;
@@ -89,14 +89,14 @@ test("tradeoff views select exact threshold choices and persist an exact apply",
     });
   }, { chosenAr: Number(chosenPointAr), chosenBleed: Number(chosenPointBleed) });
   await section.getByRole("button", { name: "Use exact allocation", exact: true }).click();
-  await expect(page.locator(".result-row-full")).toHaveCount(1);
+  await expect(page.locator(".result-row")).toHaveCount(1);
   const applied = await page.evaluate(() => (window as any).appliedTradeoffRequest);
   expect(applied).toMatchObject({
     weaponName: "Uchigatana", affinity: "Blood", aowName: "Seppuku",
     objective: "max_ar", exactUpgrade: true, standardMaxUpgrade: 25,
     lockStr: 13, lockDex: 19, lockInt: 9, lockFai: 8, lockArc: 63,
   });
-  const appliedRow = page.locator(".result-row-full").first();
+  const appliedRow = page.locator(".result-row").first();
   await expect(appliedRow.locator(".weapon-cell strong")).toHaveText("Uchigatana");
   await expect(appliedRow.locator(".loadout-affinity")).toHaveText("Blood");
   await expect(appliedRow.locator(".loadout-skill")).toHaveText("Seppuku");
@@ -145,8 +145,8 @@ test("tradeoff views select exact threshold choices and persist an exact apply",
         lockStr: 13, lockDex: 19, lockInt: 9, lockFai: 8, lockArc: 63 }),
     }),
   ]));
-  await expect(page.locator(".result-row-full")).toHaveCount(1);
-  const reloadedRow = page.locator(".result-row-full").first();
+  await expect(page.locator(".result-row")).toHaveCount(1);
+  const reloadedRow = page.locator(".result-row").first();
   await expect(reloadedRow.locator(".weapon-cell strong")).toHaveText("Uchigatana");
   await expect(reloadedRow.locator(".loadout-affinity")).toHaveText("Blood");
   await expect(reloadedRow.locator(".loadout-skill")).toHaveText("Seppuku");
@@ -172,7 +172,7 @@ test("tradeoff views select exact threshold choices and persist an exact apply",
 });
 
 test("singleton frontier explains tied allocations", async ({ page }) => {
-  await openCompare(page);
+  await searchAndCompare(page);
   await page.evaluate(async () => {
     const { api } = await import("/src/lib/api.ts");
     const original = api.arBleedFrontier;
@@ -183,27 +183,85 @@ test("singleton frontier explains tied allocations", async ({ page }) => {
   await section.getByRole("button", { name: "Compute trade-offs", exact: true }).click();
   await expect(section.getByRole("status")).toHaveText("1 exact trade-off point ready.");
   await expect(section).toContainText("Only one non-dominated AR / bleed outcome exists under these constraints; other allocations may tie.");
-  await expect(section.locator(".tradeoff-header")).toContainText("world settings. Only one");
+  await expect(section.locator(".tradeoff-header")).toContainText("Only one non-dominated");
 });
 
-test("leaving Compare aborts a pending frontier and discards its late result", async ({ page }) => {
-  await openCompare(page);
+async function holdFrontier(page: import("@playwright/test").Page) {
   await page.evaluate(async () => {
     const { api } = await import("/src/lib/api.ts");
-    (window as any).frontierProbe = { aborted: false };
-    api.arBleedFrontier = (_base, _selected, signal) => new Promise(resolve => {
-      (window as any).frontierProbe.finish = resolve;
-      signal?.addEventListener("abort", () => { (window as any).frontierProbe.aborted = true; });
+    const original = api.arBleedFrontier;
+    const probe = { aborted: false, finish: () => undefined as void };
+    // The frontier waits for the test, so tab switches and edits happen while it runs.
+    api.arBleedFrontier = (base, selected, signal) => new Promise((resolve, reject) => {
+      probe.finish = () => { void original(base, selected).then(resolve, reject); };
+      signal?.addEventListener("abort", () => {
+        probe.aborted = true;
+        reject(new DOMException("Calculation stopped.", "AbortError"));
+      });
     });
+    Object.assign(window, { frontierProbe: probe });
   });
+}
+
+test("a pending frontier keeps running while Compare is hidden and lands on return", async ({ page }) => {
+  await searchAndCompare(page);
+  await holdFrontier(page);
   await page.getByRole("button", { name: "Compute trade-offs", exact: true }).click();
   await expect(page.locator(".loadout-tradeoffs").getByRole("status")).toContainText("Calculating");
   await page.getByRole("navigation").getByRole("button", { name: "Rankings", exact: true }).click();
-  expect(await page.evaluate(() => (window as any).frontierProbe.aborted)).toBe(true);
-  await page.evaluate(() => (window as any).frontierProbe.finish([]));
+  await page.evaluate(() => (window as any).frontierProbe.finish());
   await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
-  await expect(page.locator(".loadout-tradeoffs").getByRole("status")).toContainText("Ready to calculate");
-  await expect(page.locator(".tradeoff-shortlist")).toHaveCount(0);
+  await expect(page.locator(".loadout-tradeoffs").getByRole("status")).toContainText("4 exact trade-off points ready");
+  expect(await page.evaluate(() => (window as any).frontierProbe.aborted)).toBe(false);
+});
+
+test("a finished frontier and its chosen point survive leaving Compare", async ({ page }) => {
+  await searchAndCompare(page);
+  await page.evaluate(async () => {
+    const { api } = await import("/src/lib/api.ts");
+    const original = api.arBleedFrontier;
+    (window as any).frontierCalls = 0;
+    api.arBleedFrontier = async (...args) => { (window as any).frontierCalls++; return original(...args); };
+  });
+  const section = page.getByRole("region", { name: "AR / Bleed tradeoffs" });
+  await section.getByRole("button", { name: "Compute trade-offs", exact: true }).click();
+  await expect(section.getByRole("status")).toContainText("4 exact trade-off points ready");
+  await section.getByText("Explore all tradeoffs (4)", { exact: true }).click();
+  await section.getByRole("button", { name: /^Point 4:/ }).click();
+  await expect(section.getByRole("button", { name: /^Point 4:/ })).toHaveAttribute("aria-pressed", "true");
+
+  await page.keyboard.press("Control+1");
+  await expect(page.getByRole("navigation").getByRole("button", { name: "Rankings", exact: true })).toHaveAttribute("aria-current", "page");
+  await page.keyboard.press("Control+2");
+  await expect(section.getByRole("status")).toContainText("4 exact trade-off points ready");
+  await expect(section.getByRole("button", { name: /^Point 4:/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(section.locator(".tradeoff-inspection")).toContainText("Gain 15.0 bleed buildup");
+  expect(await page.evaluate(() => (window as any).frontierCalls)).toBe(1);
+});
+
+test("an input change while Compare is hidden cancels a pending frontier", async ({ page }) => {
+  await searchAndCompare(page);
+  await holdFrontier(page);
+  await page.getByRole("button", { name: "Compute trade-offs", exact: true }).click();
+  await expect(page.locator(".loadout-tradeoffs").getByRole("status")).toContainText("Calculating");
+  await page.getByRole("navigation").getByRole("button", { name: "Rankings", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Two-handing", exact: true }).check();
+  await expect.poll(() => page.evaluate(() => (window as any).frontierProbe.aborted)).toBe(true);
+});
+
+test("a frontier cancelled while Compare is hidden is ready again when its context returns", async ({ page }) => {
+  await searchAndCompare(page);
+  await holdFrontier(page);
+  const section = page.getByRole("region", { name: "AR / Bleed tradeoffs" });
+  await section.getByRole("button", { name: "Compute trade-offs", exact: true }).click();
+  await expect(section.getByRole("status")).toContainText("Calculating");
+  await page.keyboard.press("Control+1");
+  await page.locator(".result-row").nth(1).click();
+  await expect.poll(() => page.evaluate(() => (window as any).frontierProbe.aborted)).toBe(true);
+  await page.locator(".result-row").nth(0).click();
+  await page.keyboard.press("Control+2");
+  await expect(section.getByRole("status")).toContainText("Ready to calculate this loadout once.");
+  await expect(section.getByRole("button", { name: "Compute trade-offs", exact: true })).toBeEnabled();
 });
 
 async function combatStats(row: import("@playwright/test").Locator) {

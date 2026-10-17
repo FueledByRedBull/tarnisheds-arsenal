@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use er_optimizer_core::{
-    GameData, OptimizeObjective, OptimizeRequest, ProfiledOptimizeResult, ResultGrouping,
-    SomberFilter, Stats, load_game_data_with_manifest, optimize_profiled,
+    CUSTOM_STATS_CLASS_NAME, GameData, OptimizeObjective, OptimizeRequest, ProfiledOptimizeResult,
+    ResultGrouping, SomberFilter, Stats, load_game_data_with_manifest, optimize_profiled,
 };
 use serde_json::json;
 
@@ -48,6 +48,8 @@ fn main() -> Result<(), String> {
             request.objective,
             OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
         ) && !data.capabilities.aow_damage
+            || request.class_name == er_optimizer_core::CUSTOM_STATS_CLASS_NAME
+                && !data.offers_custom_stats()
         {
             if selected_case.is_some() {
                 return Err(format!("{name} is unsupported for {profile}"));
@@ -56,6 +58,12 @@ fn main() -> Result<(), String> {
         }
         request.standard_max_upgrade = data.rules.standard_max_upgrade;
         request.somber_max_upgrade = data.rules.somber_max_upgrade;
+        if profile != "vanilla" && request.class_name != CUSTOM_STATS_CLASS_NAME {
+            // Samurai is a Vanilla class. The same budget (class total = level + 79) as
+            // Custom stats keeps the mod request independent of its own class catalog.
+            request.class_name = CUSTOM_STATS_CLASS_NAME.to_string();
+            request.character_level += 79;
+        }
         let mut warmup_results = Vec::with_capacity(warmups);
         for _ in 0..warmups {
             let result = optimize_profiled(&request, &data)?;
@@ -235,6 +243,55 @@ fn cases() -> Vec<(&'static str, OptimizeRequest)> {
     flame_skewer.affinity = Some("Fire".to_string());
     flame_skewer.exact_upgrade = true;
 
+    let mut two_handed = high_level_request();
+    two_handed.two_handing = true;
+    let mut level_9 = low_level_request();
+    level_9.character_level = 9;
+    let mut level_713 = high_level_request();
+    level_713.character_level = 713;
+    level_713.current_stats.vig = 99;
+    level_713.current_stats.mnd = 99;
+    level_713.current_stats.end = 99;
+    let mut open_bleed = all_upgrades_high_level_request();
+    open_bleed.exact_upgrade = true;
+    open_bleed.objective = OptimizeObjective::BleedThenAr;
+    let mut all_upgrades_bleed = open_bleed.clone();
+    all_upgrades_bleed.exact_upgrade = false;
+    let mut open_first_hit = high_level_request();
+    open_first_hit.objective = OptimizeObjective::AowFirstHit;
+    let mut open_full_sequence = open_first_hit.clone();
+    open_full_sequence.objective = OptimizeObjective::AowFullSequence;
+    let mut weapon_full_sequence = low_level_request();
+    weapon_full_sequence.character_level = 80;
+    weapon_full_sequence.objective = OptimizeObjective::AowFullSequence;
+    weapon_full_sequence.weapon_name = Some("Uchigatana".to_string());
+    // Mirrors the native probe's locked, non-additive Lifesteal Fist solve.
+    let mut lifesteal = low_level_request();
+    lifesteal.character_level = 80;
+    lifesteal.current_stats.str = 20;
+    lifesteal.locked_combat_stats = [Some(20), None, Some(9), Some(8), None];
+    lifesteal.weapon_name = Some("Caestus".to_string());
+    lifesteal.affinity = Some("Occult".to_string());
+    lifesteal.aow_name = Some("Lifesteal Fist".to_string());
+    lifesteal.objective = OptimizeObjective::AowFullSequence;
+    lifesteal.top_k = 1;
+    // Convergence's Custom stats class sends every combat stat locked at its entered value.
+    let mut custom_stats = high_level_request();
+    custom_stats.class_name = er_optimizer_core::CUSTOM_STATS_CLASS_NAME.to_string();
+    custom_stats.character_level = 220;
+    custom_stats.current_stats = Stats {
+        vig: 20,
+        mnd: 20,
+        end: 20,
+        str: 40,
+        dex: 40,
+        int: 40,
+        fai: 20,
+        arc: 20,
+    };
+    custom_stats.locked_combat_stats = [Some(40), Some(40), Some(40), Some(20), Some(20)];
+    custom_stats.top_k = 25;
+
     max_ar.objective = OptimizeObjective::MaxAr;
     vec![
         ("open-ranking-max-ar", max_ar),
@@ -256,6 +313,16 @@ fn cases() -> Vec<(&'static str, OptimizeRequest)> {
         ("locked-wild-strikes-export-500", wild_strikes_export),
         ("locked-war-cry-export-500", war_cry_export),
         ("locked-flame-skewer-control", flame_skewer),
+        ("open-ranking-max-ar-two-handed", two_handed),
+        ("open-ranking-max-ar-level-9", level_9),
+        ("open-ranking-max-ar-level-713", level_713),
+        ("open-bleed-level-93-25", open_bleed),
+        ("all-upgrades-bleed-level-93-25", all_upgrades_bleed),
+        ("open-aow-first-hit-high-level", open_first_hit),
+        ("open-aow-full-sequence-high-level", open_full_sequence),
+        ("weapon-open-aow-full-sequence", weapon_full_sequence),
+        ("locked-lifesteal-fist-solve", lifesteal),
+        ("custom-stats-open-ranking-25", custom_stats),
     ]
 }
 

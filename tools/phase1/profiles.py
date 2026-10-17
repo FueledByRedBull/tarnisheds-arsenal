@@ -102,17 +102,20 @@ class ProfileDefinition:
     raw_dir: Path
     output_dir: Path
     affinity_by_slot: Mapping[int, str]
-    somber_reinforce_types: frozenset[int] | None
+    somber_reinforce_types: frozenset[int]
+    regulation_sha256: str
     capabilities: ProfileCapabilities
     rules: ProfileRules
     use_workbook_weapon_metadata: bool
-    allow_param_weapon_names: bool
     weapon_name_overrides: Mapping[int, str]
     sword_art_name_overrides: Mapping[int, str]
     weapon_name_xmls: tuple[Path, ...] = ()
     arts_name_xmls: tuple[Path, ...] = ()
     version_file: Path | None = None
     weapon_reference_path: Path | None = None
+    # Raised when regenerated content changes for the same game and mod version.
+    dataset_revision: int = 1
+    class_catalog_from_regulation: bool = False
 
     @property
     def regulation_path(self) -> Path:
@@ -120,9 +123,8 @@ class ProfileDefinition:
 
     @property
     def dataset_version(self) -> str:
-        if self.mod_version:
-            return f"{self.id}-{self.mod_version}"
-        return f"{self.id}-{self.game_version}"
+        version = f"{self.id}-{self.mod_version or self.game_version}"
+        return version if self.dataset_revision == 1 else f"{version}-r{self.dataset_revision}"
 
     def as_manifest_dict(self) -> dict[str, str | None]:
         return {
@@ -142,7 +144,9 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         raw_dir=Path("data/raw/Vanilla"),
         output_dir=Path("data/phase1"),
         affinity_by_slot=VANILLA_AFFINITIES,
-        somber_reinforce_types=None,
+        # 3000 is the unupgradeable Meteorite Staff, historically flagged somber.
+        somber_reinforce_types=frozenset({2200, 2400, 3000, 3200, 3300, 3400, 8300, 8500}),
+        regulation_sha256="fb4afd25e70effc9f9523d3aba89b1fb3e08b0800d8efb9a535cab038c5e8bbd",
         capabilities=ProfileCapabilities(
             weapon_ar=True,
             weapon_ar_for_ammunition=True,
@@ -163,7 +167,6 @@ PROFILES: Mapping[str, ProfileDefinition] = {
             status_buildup_scales=True,
         ),
         use_workbook_weapon_metadata=True,
-        allow_param_weapon_names=True,
         weapon_name_overrides={
             3_560_000: "Leontiel's Greatsword",
             8_530_000: "Hefty Scimitar",
@@ -174,6 +177,7 @@ PROFILES: Mapping[str, ProfileDefinition] = {
             66_530_000: "Reed Great Katana",
             67_530_000: "Idus Sword",
         },
+        dataset_revision=3,
         sword_art_name_overrides={
             1_200: "Muleta",
             1_201: "Causality's Wrath",
@@ -189,10 +193,11 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         output_dir=Path("data/profiles/convergence"),
         affinity_by_slot=CONVERGENCE_AFFINITIES,
         somber_reinforce_types=frozenset({2200, 2400}),
+        regulation_sha256="422fc6cc2ec277e5f38cd82929d52b151a6de548c0591769891e19c5c396c369",
         capabilities=ProfileCapabilities(
             weapon_ar=True,
             weapon_ar_for_ammunition=False,
-            class_budget=False,
+            class_budget=True,
             status_buildup=True,
             weapon_passives=True,
             aow_compatibility=True,
@@ -204,12 +209,11 @@ PROFILES: Mapping[str, ProfileDefinition] = {
             somber_max_upgrade=15,
             separate_upgrade_caps=False,
             scadutree_scaling=False,
-            zero_attack_element_uses_weapon_scaling=True,
+            zero_attack_element_uses_weapon_scaling=False,
             extended_scaling_grades=True,
             status_buildup_scales=False,
         ),
         use_workbook_weapon_metadata=False,
-        allow_param_weapon_names=True,
         weapon_name_overrides={},
         sword_art_name_overrides={},
         weapon_name_xmls=(
@@ -222,6 +226,8 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         ),
         version_file=Path("data/raw/Conv/version.txt"),
         weapon_reference_path=Path("data/reference/convergence-3.0.0.1-weapons.json"),
+        dataset_revision=4,
+        class_catalog_from_regulation=True,
     ),
 }
 
@@ -242,10 +248,10 @@ def profile_definition(value: str) -> ProfileDefinition:
 
 
 def discover_witchybnd(root: Path) -> Path:
-    candidates = sorted(root.glob("data/raw/WitchyBND-*/WitchyBND.exe"), reverse=True)
-    if not candidates:
+    candidates = sorted(root.glob("data/raw/WitchyBND-*/WitchyBND.exe"))
+    if len(candidates) != 1:
         raise FileNotFoundError(
-            "WitchyBND.exe was not found under data/raw/WitchyBND-*/; "
+            f"expected one WitchyBND.exe under data/raw/WitchyBND-*/, found {len(candidates)}; "
             "pass --witchybnd <path>"
         )
     return candidates[0]

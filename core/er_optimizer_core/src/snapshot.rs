@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::{Component, Path};
+use std::path::Path;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
 pub const SNAPSHOT_SCHEMA_VERSION: u32 = 6;
@@ -20,8 +20,14 @@ pub const RUNTIME_DATA_FILES: [&str; 12] = [
     "weapon_passives.csv",
     "weapons.csv",
 ];
+pub const CLASS_CATALOG_FILE: &str = "classes.csv";
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+/// Vanilla's class budgets are built into the runtime; another profile ships its own.
+pub(crate) fn requires_class_catalog(manifest: &SnapshotManifest) -> bool {
+    manifest.capabilities.class_budget && manifest.profile.id != crate::data::VANILLA_PROFILE_ID
+}
+
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SnapshotFile {
     pub path: String,
@@ -29,7 +35,7 @@ pub struct SnapshotFile {
     pub sha256: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SnapshotSource {
     pub kind: String,
@@ -39,7 +45,7 @@ pub struct SnapshotSource {
     pub sha256: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SnapshotProfile {
     pub id: String,
@@ -48,7 +54,7 @@ pub struct SnapshotProfile {
     pub mod_version: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SnapshotCapabilities {
     pub weapon_ar: bool,
@@ -61,7 +67,7 @@ pub struct SnapshotCapabilities {
     pub aow_routes: bool,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SnapshotRules {
     pub standard_max_upgrade: u8,
@@ -73,7 +79,7 @@ pub struct SnapshotRules {
     pub status_buildup_scales: bool,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SnapshotManifest {
     pub schema_version: u32,
@@ -81,6 +87,8 @@ pub struct SnapshotManifest {
     pub model_version: String,
     pub id: String,
     pub label: String,
+    /// Game version the snapshot was extracted from (equals `profile.gameVersion`), not the
+    /// application version.
     pub app_version: String,
     pub source: String,
     pub profile: SnapshotProfile,
@@ -115,7 +123,7 @@ pub(crate) fn validate_external_snapshot(
         .runtime_files
         .iter()
         .chain(&manifest.diagnostic_files)
-        .map(|record| record.path.as_str())
+        .map(|record| record.path.to_ascii_lowercase())
         .collect::<HashSet<_>>();
 
     let mut runtime_files = HashMap::with_capacity(manifest.runtime_files.len());
@@ -142,7 +150,7 @@ pub(crate) fn validate_external_snapshot(
     })?;
     let unlisted = actual_csvs
         .iter()
-        .filter(|name| !listed_csvs.contains(name.as_str()))
+        .filter(|name| !listed_csvs.contains(&name.to_ascii_lowercase()))
         .cloned()
         .collect::<Vec<_>>();
     if !unlisted.is_empty() {
@@ -170,7 +178,12 @@ fn snapshot_csv_names(
         let path = entry.path();
         let metadata = fs::metadata(&path)
             .map_err(|error| format!("failed reading metadata for {}: {error}", path.display()))?;
-        if metadata.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("csv") {
+        if metadata.is_file()
+            && path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("csv"))
+        {
             names.insert(entry.file_name().to_string_lossy().into_owned());
         }
     }
@@ -233,7 +246,19 @@ fn parse_and_validate_manifest(content: &[u8]) -> Result<SnapshotManifest, Strin
         }
     }
 
-    let expected = RUNTIME_DATA_FILES.into_iter().collect::<HashSet<_>>();
+    if manifest.id != manifest.dataset_version
+        || manifest.app_version != manifest.profile.game_version
+    {
+        return Err(
+            "invalid runtime data manifest: id, datasetVersion, appVersion and profile.gameVersion disagree"
+                .to_string(),
+        );
+    }
+
+    let mut expected = RUNTIME_DATA_FILES.into_iter().collect::<HashSet<_>>();
+    if requires_class_catalog(&manifest) {
+        expected.insert(CLASS_CATALOG_FILE);
+    }
     let actual = manifest
         .runtime_files
         .iter()
@@ -253,7 +278,7 @@ fn parse_and_validate_manifest(content: &[u8]) -> Result<SnapshotManifest, Strin
         .chain(&manifest.diagnostic_files)
     {
         validate_record(record)?;
-        if !all_paths.insert(record.path.as_str()) {
+        if !all_paths.insert(record.path.to_ascii_lowercase()) {
             return Err(format!(
                 "invalid runtime data manifest: duplicate file entry {}",
                 record.path
@@ -291,11 +316,23 @@ fn validate_record(record: &SnapshotFile) -> Result<(), String> {
 }
 
 fn validate_safe_file_name(value: &str) -> Result<(), String> {
-    let path = Path::new(value);
+    // Same rule on every OS: no separators, drive or stream colons, Windows-trimmed
+    // trailing dots/spaces, dot names or reserved device names.
+    let stem = value
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_uppercase();
+    let reserved = matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || (stem.len() == 4
+            && (stem.starts_with("COM") || stem.starts_with("LPT"))
+            && stem.as_bytes()[3].is_ascii_digit());
     if value.is_empty()
-        || path.is_absolute()
-        || path.components().count() != 1
-        || !matches!(path.components().next(), Some(Component::Normal(_)))
+        || value.contains(['/', '\\', ':'])
+        || value.ends_with(['.', ' '])
+        || value.starts_with('.')
+        || value.chars().any(char::is_control)
+        || reserved
     {
         return Err(format!(
             "invalid runtime data manifest path {value:?}; only plain file names are allowed"
@@ -314,31 +351,38 @@ fn validate_sha256(value: &str, path: &str) -> Result<(), String> {
 }
 
 fn read_validated_external_file(data_dir: &Path, record: &SnapshotFile) -> Result<Vec<u8>, String> {
-    let path = data_dir.join(&record.path);
-    let content = fs::read(&path).map_err(|err| {
-        format!(
-            "invalid runtime data snapshot: failed reading {}: {err}",
-            path.display()
-        )
-    })?;
+    let content = read_sized(data_dir, "runtime file", record)?;
     validate_bytes("runtime file", record, &content)?;
     Ok(content)
 }
 
 fn validate_external_source(data_dir: &Path, source: &SnapshotSource) -> Result<(), String> {
-    let path = data_dir.join(&source.path);
-    let content = fs::read(&path).map_err(|err| {
-        format!(
-            "invalid runtime data snapshot: failed reading workbook source {}: {err}",
-            path.display()
-        )
-    })?;
     let record = SnapshotFile {
         path: source.path.clone(),
         size: source.size,
         sha256: source.sha256.clone(),
     };
+    let content = read_sized(data_dir, "workbook source", &record)?;
     validate_bytes("workbook source", &record, &content)
+}
+
+/// Checks the on-disk length before reading so an oversized file is never loaded.
+fn read_sized(data_dir: &Path, kind: &str, record: &SnapshotFile) -> Result<Vec<u8>, String> {
+    let path = data_dir.join(&record.path);
+    let failed = |err: std::io::Error| {
+        format!(
+            "invalid runtime data snapshot: failed reading {kind} {}: {err}",
+            path.display()
+        )
+    };
+    let size = fs::metadata(&path).map_err(failed)?.len();
+    if size != record.size {
+        return Err(format!(
+            "invalid data snapshot {kind} {}: size is {size}, manifest requires {}",
+            record.path, record.size
+        ));
+    }
+    fs::read(&path).map_err(failed)
 }
 
 fn validate_bytes(kind: &str, record: &SnapshotFile, content: &[u8]) -> Result<(), String> {
@@ -366,12 +410,12 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use serde_json::{Value, json};
     use sha2::{Digest, Sha256};
 
     use super::{
-        RUNTIME_DATA_FILES, SNAPSHOT_SCHEMA_VERSION, SnapshotCapabilities, SnapshotFile,
-        SnapshotManifest, SnapshotProfile, SnapshotRules, SnapshotSource,
-        parse_and_validate_manifest, validate_external_snapshot,
+        CLASS_CATALOG_FILE, RUNTIME_DATA_FILES, SNAPSHOT_SCHEMA_VERSION,
+        parse_and_validate_manifest, validate_embedded_snapshot, validate_external_snapshot,
     };
 
     struct TestSnapshot {
@@ -390,67 +434,65 @@ mod tests {
             ));
             fs::create_dir(&path).expect("create test snapshot");
 
+            // A non-Vanilla profile with class budgets must ship its class catalog.
             let runtime_files = RUNTIME_DATA_FILES
                 .iter()
+                .chain(&[CLASS_CATALOG_FILE])
                 .map(|name| write_record(&path, name, format!("{name}\n").as_bytes()))
-                .collect();
-            let diagnostic_files = vec![write_record(&path, "coverage.csv", b"status\nresolved\n")];
-            let workbook = write_record(&path, "workbook.xlsx", b"workbook-source");
-            let manifest = SnapshotManifest {
-                schema_version: SNAPSHOT_SCHEMA_VERSION,
-                dataset_version: "test-dataset".to_string(),
-                model_version: "test-model".to_string(),
-                id: "test-dataset".to_string(),
-                label: "Test dataset".to_string(),
-                app_version: "test".to_string(),
-                source: workbook.path.clone(),
-                profile: SnapshotProfile {
-                    id: "test".to_string(),
-                    display_name: "Test".to_string(),
-                    game_version: "test".to_string(),
-                    mod_version: None,
+                .collect::<Vec<_>>();
+            let coverage = write_record(&path, "coverage.csv", b"status\nresolved\n");
+            let mut workbook = write_record(&path, "workbook.xlsx", b"workbook-source");
+            workbook["kind"] = "workbook".into();
+            workbook["bundled"] = true.into();
+            let manifest = json!({
+                "schemaVersion": SNAPSHOT_SCHEMA_VERSION,
+                "datasetVersion": "test-dataset",
+                "modelVersion": "test-model",
+                "id": "test-dataset",
+                "label": "Test dataset",
+                "appVersion": "test",
+                "source": "workbook.xlsx",
+                "profile": {
+                    "id": "test",
+                    "displayName": "Test",
+                    "gameVersion": "test",
+                    "modVersion": null,
                 },
-                capabilities: SnapshotCapabilities {
-                    weapon_ar: true,
-                    weapon_ar_for_ammunition: true,
-                    class_budget: true,
-                    status_buildup: true,
-                    weapon_passives: true,
-                    aow_compatibility: true,
-                    aow_damage: true,
-                    aow_routes: true,
+                "capabilities": {
+                    "weaponAr": true,
+                    "weaponArForAmmunition": true,
+                    "classBudget": true,
+                    "statusBuildup": true,
+                    "weaponPassives": true,
+                    "aowCompatibility": true,
+                    "aowDamage": true,
+                    "aowRoutes": true,
                 },
-                rules: SnapshotRules {
-                    standard_max_upgrade: 25,
-                    somber_max_upgrade: 10,
-                    separate_upgrade_caps: true,
-                    scadutree_scaling: true,
-                    zero_attack_element_uses_weapon_scaling: false,
-                    extended_scaling_grades: false,
-                    status_buildup_scales: true,
+                "rules": {
+                    "standardMaxUpgrade": 25,
+                    "somberMaxUpgrade": 10,
+                    "separateUpgradeCaps": true,
+                    "scadutreeScaling": true,
+                    "zeroAttackElementUsesWeaponScaling": false,
+                    "extendedScalingGrades": false,
+                    "statusBuildupScales": true,
                 },
-                generated_at: "2026-07-15".to_string(),
-                extractor_version: "test-extractor".to_string(),
-                provenance: "unit test".to_string(),
-                runtime_files,
-                diagnostic_files,
-                sources: vec![
-                    SnapshotSource {
-                        kind: "regulation".to_string(),
-                        bundled: false,
-                        path: "regulation.bin".to_string(),
-                        size: 10,
-                        sha256: sha256(b"regulation"),
+                "generatedAt": "2026-07-15",
+                "extractorVersion": "test-extractor",
+                "provenance": "unit test",
+                "runtimeFiles": runtime_files,
+                "diagnosticFiles": [coverage],
+                "sources": [
+                    {
+                        "kind": "regulation",
+                        "bundled": false,
+                        "path": "regulation.bin",
+                        "size": 10,
+                        "sha256": sha256(b"regulation"),
                     },
-                    SnapshotSource {
-                        kind: "workbook".to_string(),
-                        bundled: true,
-                        path: workbook.path,
-                        size: workbook.size,
-                        sha256: workbook.sha256,
-                    },
+                    workbook,
                 ],
-            };
+            });
             fs::write(
                 path.join("manifest.json"),
                 serde_json::to_vec_pretty(&manifest).expect("serialize manifest"),
@@ -466,13 +508,9 @@ mod tests {
         }
     }
 
-    fn write_record(directory: &Path, name: &str, content: &[u8]) -> SnapshotFile {
+    fn write_record(directory: &Path, name: &str, content: &[u8]) -> Value {
         fs::write(directory.join(name), content).expect("write snapshot file");
-        SnapshotFile {
-            path: name.to_string(),
-            size: content.len() as u64,
-            sha256: sha256(content),
-        }
+        json!({"path": name, "size": content.len(), "sha256": sha256(content)})
     }
 
     fn sha256(content: &[u8]) -> String {
@@ -514,16 +552,36 @@ mod tests {
         assert!(corruption.contains("size is") || corruption.contains("SHA-256 mismatch"));
         fs::write(snapshot.path.join("aow.csv"), b"aow.csv\n").expect("restore runtime file");
 
-        fs::write(snapshot.path.join("unlisted.csv"), b"unexpected\n")
-            .expect("write unlisted file");
-        let unlisted = validate_external_snapshot(&snapshot.path).unwrap_err();
-        assert!(unlisted.contains("unlisted CSV files"));
-        fs::remove_file(snapshot.path.join("unlisted.csv")).expect("remove unlisted file");
+        for name in ["unlisted.csv", "UNLISTED.CSV"] {
+            fs::write(snapshot.path.join(name), b"unexpected\n").expect("write unlisted file");
+            let unlisted = validate_external_snapshot(&snapshot.path).unwrap_err();
+            assert!(unlisted.contains("unlisted CSV files"), "{name}");
+            fs::remove_file(snapshot.path.join(name)).expect("remove unlisted file");
+        }
 
         fs::remove_file(snapshot.path.join("weapons.csv")).expect("remove runtime file");
         let missing = validate_external_snapshot(&snapshot.path).unwrap_err();
         assert!(missing.contains("weapons.csv"));
         assert!(missing.contains("failed reading"));
+    }
+
+    #[test]
+    fn class_budget_without_a_class_catalog_is_rejected() {
+        let snapshot = TestSnapshot::create();
+        let mut manifest: Value =
+            serde_json::from_slice(&fs::read(snapshot.path.join("manifest.json")).unwrap())
+                .unwrap();
+        manifest["runtimeFiles"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|record| record["path"] != CLASS_CATALOG_FILE);
+        let error =
+            parse_and_validate_manifest(&serde_json::to_vec(&manifest).unwrap()).unwrap_err();
+        assert!(error.contains("runtime file set mismatch"), "{error}");
+        // A profile without class budgets lists no catalog.
+        manifest["capabilities"]["classBudget"] = false.into();
+        parse_and_validate_manifest(&serde_json::to_vec(&manifest).unwrap())
+            .expect("no class budget needs no catalog");
     }
 
     #[test]
@@ -578,7 +636,66 @@ mod tests {
                 "missing sources",
                 Box::new(|value| value["sources"] = serde_json::json!([])),
             ),
+            (
+                "upgrade cap above +25",
+                Box::new(|value| value["rules"]["standardMaxUpgrade"] = 26.into()),
+            ),
+            (
+                "single-path caps differ",
+                Box::new(|value| value["rules"]["separateUpgradeCaps"] = false.into()),
+            ),
+            (
+                "duplicate source kind",
+                Box::new(|value| {
+                    let duplicate = value["sources"][0].clone();
+                    value["sources"].as_array_mut().unwrap().push(duplicate);
+                }),
+            ),
+            (
+                "AoW-capable without workbook",
+                Box::new(|value| value["sources"].as_array_mut().unwrap().truncate(1)),
+            ),
+            (
+                "id differs from datasetVersion",
+                Box::new(|value| value["id"] = "other-dataset".into()),
+            ),
+            (
+                "appVersion differs from gameVersion",
+                Box::new(|value| value["appVersion"] = "other".into()),
+            ),
+            (
+                "diagnostic duplicates a runtime file by case",
+                Box::new(|value| {
+                    let mut duplicate = value["runtimeFiles"][0].clone();
+                    duplicate["path"] = "AOW.CSV".into();
+                    value["diagnosticFiles"]
+                        .as_array_mut()
+                        .unwrap()
+                        .push(duplicate);
+                }),
+            ),
         ];
+        let unsafe_names = [
+            "/abs.csv",
+            "C:\\abs.csv",
+            "C:abs.csv",
+            "dir\\coverage.csv",
+            "coverage.csv/",
+            "coverage.csv/.",
+            "coverage.csv:stream",
+            "coverage.csv.",
+            "coverage.csv ",
+            ".",
+            "..",
+            "NUL.csv",
+            "com1.csv",
+        ];
+        for name in unsafe_names {
+            let mut candidate = seed.clone();
+            candidate["diagnosticFiles"][0]["path"] = name.into();
+            let bytes = serde_json::to_vec(&candidate).expect("serialize mutation");
+            assert!(parse_and_validate_manifest(&bytes).is_err(), "{name:?}");
+        }
         for (label, mutate) in mutations {
             let mut candidate = seed.clone();
             mutate(&mut candidate);
@@ -588,5 +705,42 @@ mod tests {
         for bytes in [b"".as_slice(), b"null", b"[]", b"{", b"\xff\x00\x01"] {
             assert!(parse_and_validate_manifest(bytes).is_err());
         }
+    }
+
+    #[test]
+    fn embedded_snapshot_rejects_size_and_hash_mismatches() {
+        let snapshot = TestSnapshot::create();
+        let manifest = fs::read(snapshot.path.join("manifest.json")).expect("read manifest");
+        let files = RUNTIME_DATA_FILES
+            .iter()
+            .chain(&[CLASS_CATALOG_FILE])
+            .map(|name| (*name, format!("{name}\n")))
+            .collect::<Vec<_>>();
+        let content = |replacement: &'static [u8]| {
+            let files = &files;
+            move |name: &str| {
+                if name == "aow.csv" {
+                    Some(replacement)
+                } else {
+                    files
+                        .iter()
+                        .find(|(file, _)| *file == name)
+                        .map(|(_, bytes)| bytes.as_bytes())
+                }
+            }
+        };
+        validate_embedded_snapshot(&manifest, content(b"aow.csv\n")).expect("valid embedded");
+        let size = validate_embedded_snapshot(&manifest, content(b"aow.csv\n\n")).unwrap_err();
+        assert!(
+            size.contains("aow.csv") && size.contains("size is"),
+            "{size}"
+        );
+        let hash = validate_embedded_snapshot(&manifest, content(b"AOW.CSV\n")).unwrap_err();
+        assert!(
+            hash.contains("aow.csv") && hash.contains("SHA-256"),
+            "{hash}"
+        );
+        let missing = validate_embedded_snapshot(&manifest, |_| None).unwrap_err();
+        assert!(missing.contains("unavailable runtime file"), "{missing}");
     }
 }

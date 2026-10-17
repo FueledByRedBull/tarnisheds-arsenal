@@ -20,34 +20,6 @@ const STATUS_STATS = [
   ["DTH", "Death Blight", "deathBuildup"],
 ] as const;
 
-export function ScalingTokens({
-  scaling,
-  extended,
-}: {
-  scaling: ScalingDto | null | undefined;
-  extended: boolean;
-}) {
-  return (
-    <span className="metric-token-grid scaling-token-grid" role="list" aria-label="Attribute scaling">
-      {SCALING_STATS.map(([short, full, key]) => {
-        const grade = scaling ? scalingLetter(scaling[key], extended) : "-";
-        return (
-          <span
-            className="metric-token"
-            role="listitem"
-            aria-label={`${full} scaling: ${grade}`}
-            title={`${full} scaling: ${grade}`}
-            key={key}
-          >
-            <small aria-hidden="true">{short}</small>
-            <b aria-hidden="true">{grade}</b>
-          </span>
-        );
-      })}
-    </span>
-  );
-}
-
 const COMBAT_STATS = [
   ["STR", "Strength", "strStat"],
   ["DEX", "Dexterity", "dex"],
@@ -56,24 +28,49 @@ const COMBAT_STATS = [
   ["ARC", "Arcane", "arc"],
 ] as const;
 
-export const STAT_KEYS = COMBAT_STATS.map(([short]) => short);
+/** Short stat names, shown once in a table header so rows can carry bare values. */
+export const COMBAT_STAT_LABELS = COMBAT_STATS.map(([short]) => short);
 
-export function StatTokens({ row }: { row: SolvedBuildDto }) {
+type Token = { short: string; name: string; value: string };
+
+// One renderer for every token row. Ranking rows drop the short labels: their header shows them.
+function Tokens({ label, className, tokens, labels = true, active = false }: {
+  label: string;
+  className: string;
+  tokens: Token[];
+  labels?: boolean;
+  active?: boolean;
+}) {
   return (
-    <span className="metric-token-grid stat-token-grid row-combat-stats" role="list" aria-label="Combat stats">
-      {COMBAT_STATS.map(([short, full, key]) => (
-        <span
-          className="metric-token"
-          role="listitem"
-          aria-label={`${full} ${row.stats[key]}`}
-          title={`${full} ${row.stats[key]}`}
-          key={key}
-        >
-          <small aria-hidden="true">{short}</small>
-          <b aria-hidden="true">{row.stats[key]}</b>
+    <span className={`metric-token-grid ${className}`} role="list" aria-label={label}>
+      {tokens.map(({ short, name, value }) => (
+        <span className={`metric-token${active ? " active" : ""}`} role="listitem" aria-label={name} title={name} key={short}>
+          {labels ? <small aria-hidden="true">{short}</small> : null}
+          <b aria-hidden="true">{value}</b>
         </span>
       ))}
     </span>
+  );
+}
+
+export function ScalingTokens({ scaling, extended, labels }: {
+  scaling: ScalingDto | null | undefined;
+  extended: boolean;
+  labels?: boolean;
+}) {
+  return (
+    <Tokens label="Attribute scaling" className="scaling-token-grid" labels={labels} tokens={SCALING_STATS.map(([short, full, key]) => {
+      const grade = scaling ? scalingLetter(scaling[key], extended) : "-";
+      return { short, name: `${full} scaling: ${grade}`, value: grade };
+    })} />
+  );
+}
+
+export function StatTokens({ row }: { row: SolvedBuildDto }) {
+  return (
+    <Tokens label="Combat stats" className="stat-token-grid row-combat-stats" labels={false} tokens={COMBAT_STATS.map(([short, full, key]) => (
+      { short, name: `${full} ${row.stats[key]}`, value: String(row.stats[key]) }
+    ))} />
   );
 }
 
@@ -83,19 +80,8 @@ export function StatusTokens({ row }: { row: SolvedBuildDto }) {
   const inflicted = STATUS_STATS.filter(([, , key]) => row[key] > 0);
   if (!inflicted.length) return <span className="status-none">No status buildup</span>;
   return (
-    <span className="metric-token-grid status-token-grid" role="list" aria-label="Status buildup">
-      {inflicted.map(([short, full, key]) => (
-        <span
-          className="metric-token active"
-          role="listitem"
-          aria-label={`${full} buildup: ${compactNumber(row[key])}`}
-          title={`${full} buildup: ${compactNumber(row[key])}`}
-          key={key}
-        >
-          <small aria-hidden="true">{short}</small>
-          <b aria-hidden="true">{compactNumber(row[key])}</b>
-        </span>
-      ))}
-    </span>
+    <Tokens label="Status buildup" className="status-token-grid" active tokens={inflicted.map(([short, full, key]) => (
+      { short, name: `${full} buildup: ${compactNumber(row[key])}`, value: compactNumber(row[key]) }
+    ))} />
   );
 }

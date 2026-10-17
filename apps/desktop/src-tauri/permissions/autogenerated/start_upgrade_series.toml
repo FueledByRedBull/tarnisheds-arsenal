@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-start-upgrade-series"
+description = "Enables the start_upgrade_series command without any pre-configured scope."
+commands.allow = ["start_upgrade_series"]
+
+[[permission]]
+identifier = "deny-start-upgrade-series"
+description = "Denies the start_upgrade_series command without any pre-configured scope."
+commands.deny = ["start_upgrade_series"]

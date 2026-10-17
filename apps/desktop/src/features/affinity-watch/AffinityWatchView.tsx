@@ -1,60 +1,42 @@
 import { Pause, Play } from "lucide-react";
-import { useEffect, useState } from "react";
+import { memo } from "react";
 import { api } from "../../lib/api";
-import { analysisStatus, analysisStatusLabel, type AnalysisOutcome } from "../../lib/analysis-status";
-import { contiguousMetricSegments, metricRatio, paddedMetricDomain } from "../../lib/chart";
-import { useAffinityJob, useRequestBudget } from "../../lib/hooks";
+import { analysisStatus } from "../../lib/analysis-status";
+import { AnalysisProgress } from "../shared/AnalysisProgress";
+import { chartX, chartY, contiguousMetricSegments, niceTicks, paddedMetricDomain } from "../../lib/chart";
+import { AFFINITY_RUN, useAnalysisRun, useBuiltRequest } from "../../lib/hooks";
 import { fixed1, objectiveLabel, objectiveUnit, statLine } from "../../lib/format";
 import { clampHorizon, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
-import { AffinityWatchFinishedDto, AffinityWatchPayloadDto } from "../../lib/types";
-import type { NativeJobSuccess } from "../../lib/native-jobs";
+import { AffinityWatchPayloadDto } from "../../lib/types";
+import { DraftNumberInput } from "../query-strip/DraftNumberInput";
+import { WorkspaceHeading } from "../shared/WorkspaceHeading";
+import { WorkspaceGate } from "../shared/WorkspaceGate";
+import { ChartDataTable } from "../../lib/ChartDataTable";
 
 export function AffinityWatchView() {
   const catalog = useDesktopStore((state) => state.catalog);
   const selected = useDesktopStore((state) => state.selected);
   const resultsStale = useDesktopStore((state) => state.resultsStale);
-  const setWorkspace = useDesktopStore((state) => state.setWorkspace);
   const request = useDesktopStore((state) => state.request);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
   const horizon = useDesktopStore((state) => state.affinityHorizon);
   const setHorizon = useDesktopStore((state) => state.setAffinityHorizon);
   const payload = useDesktopStore((state) => state.affinityPayload);
   const isAffinityBusy = useDesktopStore((state) => state.isAffinityBusy);
-  const setAffinityBusy = useDesktopStore((state) => state.setAffinityBusy);
-  const beginAffinity = useDesktopStore((state) => state.beginAffinity);
-  const affinityGeneration = useDesktopStore((state) => state.affinityGeneration);
-  const activeAffinityJobId = useDesktopStore((state) => state.activeAffinityJobId);
-  const setActiveAffinityJobId = useDesktopStore((state) => state.setActiveAffinityJobId);
   const affinityProgress = useDesktopStore((state) => state.affinityProgress);
-  const setAffinityProgress = useDesktopStore((state) => state.setAffinityProgress);
   const pushNotice = useDesktopStore((state) => state.pushNotice);
-  const setError = useDesktopStore((state) => state.setError);
-  const { base } = useRequestBudget(catalog, request, lockedStatMode);
+  const base = useBuiltRequest(catalog, request, lockedStatMode);
   const effectiveHorizon = clampHorizon(request, horizon);
   const signature = stableSignature({ base, selected, horizon: effectiveHorizon });
-  const [runOutcome, setRunOutcome] = useState<AnalysisOutcome>(null);
-  useEffect(() => setRunOutcome(null), [signature]);
   const affinitySignature = useDesktopStore((state) => state.affinitySignature);
+  const analysis = useAnalysisRun(AFFINITY_RUN, signature);
   const status = analysisStatus({
     busy: isAffinityBusy,
     resultSignature: affinitySignature,
     requestSignature: signature,
     hasResult: payload !== null,
-    outcome: runOutcome,
-  });
-
-  const startAffinityJob = useAffinityJob({
-    isAffinityBusy,
-    generation: affinityGeneration,
-    setAffinityProgress,
-    onStarted: (jobId, generation) => {
-      const current = useDesktopStore.getState();
-      if (current.resultsStale || !current.isAffinityBusy || current.affinityGeneration !== generation || current.activeAffinitySignature !== signature) {
-        throw new DOMException("Calculation stopped.", "AbortError");
-      }
-      setActiveAffinityJobId(jobId);
-    },
+    outcome: analysis.outcome,
   });
 
   async function refresh() {
@@ -67,131 +49,63 @@ export function AffinityWatchView() {
       pushNotice({ scope: "affinity_watch", tone: "warning", message: "Combat stats are already capped. There is no forward horizon to inspect." });
       return;
     }
-    setRunOutcome(null);
-    const generation = beginAffinity(signature);
-    try {
-      const legal = await api.affinitiesForWeapon(request.profileId, selected.weaponName);
-      let current = useDesktopStore.getState();
-      if (
-        current.resultsStale || !current.isAffinityBusy ||
-        current.affinityGeneration !== generation ||
-        current.activeAffinitySignature !== signature
-      ) return;
-      if (legal.length === 0) {
-        pushNotice({ scope: "affinity_watch", tone: "warning", message: "No legal affinities are available for the selected weapon." });
-        setAffinityBusy(false);
-        return;
-      }
-      const finished = await startAffinityJob(
-        () => api.startAffinityWatch(base, selected, effectiveHorizon),
-        generation,
-      );
-      finishAffinityWatch(finished, generation);
-    } catch (error) {
-      const current = useDesktopStore.getState();
-      if (
-        current.isAffinityBusy &&
-        current.affinityGeneration === generation &&
-        current.activeAffinitySignature === signature
-      ) {
-        if (error instanceof DOMException && error.name === "AbortError") {
-          current.pushNotice({ scope: "affinity_watch", tone: "warning", message: "Affinity watch stopped." });
-          setRunOutcome("cancelled");
-        } else {
-          setError(error instanceof Error ? error.message : String(error));
-          setRunOutcome("failed");
-        }
-        setAffinityBusy(false);
-        setActiveAffinityJobId(null);
-        setAffinityProgress(null);
-      }
-    }
-  }
-
-  async function stop() {
-    setRunOutcome("cancelled");
-    if (!activeAffinityJobId) setAffinityBusy(false);
-    if (activeAffinityJobId) {
-      try {
-        await api.cancelAffinityWatch(activeAffinityJobId);
-      } catch (error) {
-        const current = useDesktopStore.getState();
-        if (current.isAffinityBusy && current.activeAffinityJobId === activeAffinityJobId) {
-          setError(error instanceof Error ? error.message : String(error));
-          setRunOutcome("failed");
-        }
-      }
-    }
-  }
-
-  function finishAffinityWatch(event: NativeJobSuccess<AffinityWatchFinishedDto>, generation: number) {
-    const current = useDesktopStore.getState();
-    if (
-      current.resultsStale || generation !== current.affinityGeneration ||
-      current.activeAffinitySignature !== signature ||
-      event.jobId !== current.activeAffinityJobId
-    ) return;
-    current.setAffinityPayload(event.payload, signature);
-    setRunOutcome(null);
-    current.setAffinityBusy(false);
-    current.setActiveAffinityJobId(null);
-    current.setAffinityProgress(null);
+    await analysis.start(
+      () => api.startAffinityWatch(base, selected, effectiveHorizon),
+      (finished) => useDesktopStore.getState().setAffinityPayload(finished.payload, signature),
+    );
   }
 
   if (resultsStale) {
-    return (
-      <section className="workspace-panel affinity-panel">
-        <div className="workspace-header"><div><h1>Affinity Watch</h1><span>Requires current ranked results</span></div></div>
-        <div className="empty-state workspace-prerequisite">
-          <strong>Update Rankings before continuing</strong>
-          <span>The selected build belongs to the previous query.</span>
-          <button type="button" onClick={() => setWorkspace("rankings")}>Go to Rankings</button>
-        </div>
-      </section>
-    );
+    return <WorkspaceGate panelClass="affinity-panel" title="Affinity Watch" requirement="Requires current ranked results"
+      heading="Update Rankings before continuing" message="The selected build belongs to the previous query." />;
   }
 
   return (
     <section className="workspace-panel affinity-panel">
       <div className="workspace-header analysis-workspace-header">
-        <div className="workspace-heading-copy">
-          <h1>Affinity Watch</h1>
-          <span>{selected ? `${selected.weaponName} over the next ${effectiveHorizon} levels` : "Requires selected result"}</span>
-          {selected ? <small className="selected-summary">{selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade} · {objectiveLabel(request.objective)}</small> : null}
-        </div>
+        <WorkspaceHeading title="Affinity Watch" aboutLabel="About Affinity Watch" about={<>
+          Each affinity optimizes its own combat stats at the same level budget, ignoring exact stat locks but keeping
+          minimums. The selected skill and upgrade stay fixed, and affinities the skill cannot use are left out. A crossover
+          marks the level where another affinity becomes the best.
+        </>}>
+          {selected
+            ? <small className="selected-summary">{selected.weaponName} / {selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade} · {objectiveLabel(request.objective)} over the next {effectiveHorizon} levels</small>
+            : <span>Requires selected result</span>}
+        </WorkspaceHeading>
         <div className="header-controls">
           <label>
             Levels ahead
-            <input type="number" min={1} max={200} value={horizon} onChange={(event) => setHorizon(clamp(Number(event.target.value), 1, 200))} />
+            <DraftNumberInput value={horizon} min={1} max={200} onCommit={setHorizon} />
           </label>
-          <button type="button" className="analysis-action" onClick={isAffinityBusy ? stop : refresh} disabled={!selected && !isAffinityBusy}>
+          <button type="button" className="analysis-action" onClick={() => void (isAffinityBusy ? analysis.stop() : refresh())} disabled={!selected && !isAffinityBusy}>
             {isAffinityBusy ? <Pause size={15} /> : <Play size={15} />}
             {isAffinityBusy ? "Stop" : "Watch affinities"}
           </button>
         </div>
       </div>
-      <small className="path-mode-note">Each affinity independently optimizes combat stats at the same level budget, ignoring exact stat locks while retaining minimums. The selected skill and upgrade stay fixed; incompatible affinities are excluded.</small>
-      <Progress
+      <AnalysisProgress
         checked={affinityProgress?.checked ?? 0}
         total={affinityProgress?.total ?? (payload?.lines.length || 1)}
         status={status}
-        resultCount={payload?.lines.length ?? 0}
+        running="Analyzing affinities"
+        completed={`Completed · ${payload?.lines.length ?? 0} affinit${payload?.lines.length === 1 ? "y" : "ies"}`}
       />
       <AffinityChart payload={payload} objective={objectiveLabel(request.objective)} unit={objectiveUnit(request.objective)} />
-      <div className="affinity-ranking" role="grid" aria-label="Affinity watch rankings">
+      {/* Before a run the chart says what to do; a header over no rows would only add noise. */}
+      {payload?.lines.length ? <div className="affinity-ranking" role="table" aria-label="Affinity watch rankings">
         <div className="affinity-row table-header" role="row">
           {["Rank at end", "Affinity", `Start (${objectiveUnit(request.objective)})`, `End (${objectiveUnit(request.objective)})`, "Final stats"].map((label) => <span role="columnheader" key={label}>{label}</span>)}
         </div>
-        {payload?.lines.map((line, index) => (
+        {payload.lines.map((line, index) => (
           <div className="affinity-row" key={line.affinity} role="row">
-            <b role="gridcell">{index + 1}</b>
-            <strong role="gridcell">{line.affinity}</strong>
-            <span role="gridcell">{endpointMetric(line.startMetric)}</span>
-            <span role="gridcell">{endpointMetric(line.endMetric)}</span>
-            <small role="gridcell">{line.finalBuild ? statLine(line.finalBuild) : "Unavailable"}</small>
+            <b role="cell">{index + 1}</b>
+            <strong role="cell">{line.affinity}</strong>
+            <span role="cell">{endpointMetric(line.startMetric)}</span>
+            <span role="cell">{endpointMetric(line.endMetric)}</span>
+            <small role="cell">{line.finalBuild ? statLine(line.finalBuild) : "Unavailable"}</small>
           </div>
         ))}
-      </div>
+      </div> : null}
       <div className="crossover-table" role="table" aria-label="Affinity watch breakpoints">
         {payload?.breakpoints.length ? (
           <div role="row" className="table-header">
@@ -219,26 +133,11 @@ function endpointMetric(value: number | null): string {
   return value === null ? "Unavailable" : fixed1(value);
 }
 
-function Progress({ checked, total, status, resultCount }: { checked: number; total: number; status: ReturnType<typeof analysisStatus>; resultCount: number }) {
-  const displayChecked = status === "completed" ? total : checked;
-  const pct = Math.min(100, Math.max(0, (displayChecked / Math.max(total, 1)) * 100));
-  const label = status === "running"
-    ? `Analyzing affinities ${checked}/${total}`
-    : status === "completed"
-      ? `Completed · ${resultCount} affinit${resultCount === 1 ? "y" : "ies"}`
-      : analysisStatusLabel(status);
-  return (
-    <div className={`workspace-progress analysis-progress status-${status}`} data-analysis-status={status}>
-      <span role="status">{label}</span>
-      <div className="forge-bar"><i style={{ transform: `translateX(${pct - 100}%)` }} /></div>
-    </div>
-  );
-}
-
-function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPayloadDto | null; objective: string; unit: string }) {
+// Memoised: progress polls re-render the view, but the chart changes only with its payload.
+const AffinityChart = memo(function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPayloadDto | null; objective: string; unit: string }) {
   const values = payload?.lines.flatMap((line) => line.points.map((point) => point.metric).filter((metric): metric is number => metric !== null)) ?? [];
   const domain = paddedMetricDomain(values);
-  const axisMetrics = [domain.max, (domain.min + domain.max) / 2, domain.min];
+  const axisMetrics = niceTicks(domain);
   const levels = payload?.lines.flatMap((line) => line.points.map((point) => point.level)) ?? [];
   const firstLevel = levels.length ? Math.min(...levels) : null;
   const lastLevel = levels.length ? Math.max(...levels) : null;
@@ -253,7 +152,7 @@ function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPay
       </figcaption>
       {hasLines ? (
         <>
-          <div className="affinity-legend chart-legend" aria-label="Affinity chart legend">
+          <div className="affinity-legend chart-legend" role="group" aria-label="Affinity chart legend">
             {payload?.lines.map((line, index) => (
               <span key={line.affinity}>
                 <i style={{ background: affinityColor(index) }} />
@@ -265,12 +164,12 @@ function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPay
           </div>
           <div className="affinity-plot" aria-hidden="true">
             <div className="affinity-y-axis">
-              {axisMetrics.map((metric, index) => <span key={index}>{fixed1(metric)}</span>)}
+              {axisMetrics.map((metric) => <span key={metric} style={{ top: `${chartY(metric, domain) / 2.2}%` }}>{metric}</span>)}
             </div>
             <svg viewBox="0 0 1000 220" preserveAspectRatio="none">
-              {axisMetrics.map((metric, index) => {
+              {axisMetrics.map((metric) => {
                 const y = chartY(metric, domain);
-                return <line className="affinity-grid-line" x1="0" x2="1000" y1={y} y2={y} key={index} />;
+                return <line className="affinity-grid-line" x1="0" x2="1000" y1={y} y2={y} key={metric} />;
               })}
               {payload?.breakpoints.map((point) => {
                 const x = chartX(point.level, plotFirstLevel, plotLastLevel);
@@ -282,7 +181,7 @@ function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPay
                 );
               })}
               {payload?.lines.map((line, index) => (
-                <g className="affinity-series-group" key={line.affinity}>
+                <g className={`affinity-series-group series-${index}`} key={line.affinity}>
                   {contiguousMetricSegments(line.points).map((segment, segmentIndex) => (
                     <polyline
                       className="affinity-series"
@@ -291,7 +190,9 @@ function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPay
                       key={`${line.affinity}-segment-${segmentIndex}`}
                     />
                   ))}
-                  {line.points.filter((point) => point.metric !== null).map((point) => (
+                  {/* Hover markers are sampled to about 50 per line; the data table keeps every value. */}
+                  {line.points.filter((point, pointIndex) => point.metric !== null
+                    && (pointIndex % Math.ceil(line.points.length / 50) === 0 || pointIndex === line.points.length - 1)).map((point) => (
                     <circle
                       className="affinity-series-point"
                       cx={chartX(point.level, plotFirstLevel, plotLastLevel)}
@@ -319,43 +220,28 @@ function AffinityChart({ payload, objective, unit }: { payload: AffinityWatchPay
           <span>Watch affinities to reveal scaling curves and exact crossover points.</span>
         </div>
       )}
-      <table className="sr-only">
-        <caption>{objective} ({unit}) affinity values by character level</caption>
-        <thead><tr><th>Affinity</th><th>Level</th><th>{objective} ({unit})</th></tr></thead>
-        <tbody>{payload?.lines.flatMap((line) => line.points.map((point) => <tr key={`${line.affinity}-accessible-${point.level}`}><td>{line.affinity}</td><td>{point.level}</td><td>{fixed1(point.metric)} {unit}</td></tr>))}</tbody>
-      </table>
+      <ChartDataTable caption={`${objective} (${unit}) affinity values by character level`} headers={["Affinity", "Level", `${objective} (${unit})`]}
+        rows={payload?.lines.flatMap((line) => line.points.map((point) => [line.affinity, String(point.level), `${fixed1(point.metric)} ${unit}`])) ?? []} />
     </figure>
   );
-}
+});
 
+// Series hues stay clear of the status colours (danger red, warning ember, success green).
 const AFFINITY_COLORS = [
   "#e0b967",
   "#79bfd0",
-  "#8fc19c",
-  "#d28a77",
   "#b59ad8",
   "#d7d2b6",
-  "#d76969",
   "#729fe0",
-  "#b7cb72",
   "#d889b3",
-  "#63b7a2",
-  "#e39252",
+  "#b7cb72",
   "#8f86d8",
+  "#a7c7e7",
+  "#c9a0dc",
 ];
 
 function affinityColor(index: number): string {
   return AFFINITY_COLORS[index % AFFINITY_COLORS.length];
-}
-
-function chartX(level: number, firstLevel: number, lastLevel: number): number {
-  if (lastLevel === firstLevel) return 500;
-  return 12 + ((level - firstLevel) / (lastLevel - firstLevel)) * 976;
-}
-
-function chartY(metric: number | null, domain: ReturnType<typeof paddedMetricDomain>): number {
-  const ratio = metricRatio(metric, domain);
-  return ratio === null ? 206 : 206 - ratio * 192;
 }
 
 function linePoints(
@@ -368,9 +254,4 @@ function linePoints(
     .filter((point) => point.metric !== null)
     .map((point) => `${chartX(point.level, firstLevel, lastLevel)},${chartY(point.metric, domain)}`)
     .join(" ");
-}
-
-function clamp(value: number, min: number, max: number): number {
-  if (Number.isNaN(value)) return min;
-  return Math.max(min, Math.min(max, Math.trunc(value)));
 }

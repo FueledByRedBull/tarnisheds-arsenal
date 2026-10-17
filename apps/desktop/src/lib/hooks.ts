@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import { cachedWeaponProfile } from "./analysis-cache";
-import { buildOptimizeRequest, budgetSnapshot } from "./session";
+import type { AnalysisOutcome } from "./analysis-status";
+import { errorMessage } from "./format";
+import { buildOptimizeRequest } from "./session";
 import { progressSignature } from "./polling";
 import { createNativeJobQueue, type FinishedJob, type NativeJobSuccess } from "./native-jobs";
 import { useKeyedResource } from "./keyed-resource";
@@ -10,25 +12,21 @@ import {
   AffinityWatchJobStatusDto,
   AffinityWatchProgressDto,
   CatalogDto,
+  Notice,
   OptimizeRequestDto,
   PathFinishedDto,
   PathJobStatusDto,
   PathProgressDto,
 } from "./types";
 import { withoutHistory } from "./query-history";
+import { useDesktopStore, type DesktopState } from "./state";
 
-export function useRequestBudget(
+export function useBuiltRequest(
   catalog: CatalogDto | null,
   request: OptimizeRequestDto,
   lockedStatMode: boolean,
 ) {
-  return useMemo(() => {
-    const base = buildOptimizeRequest(catalog, request, lockedStatMode);
-    return {
-      base,
-      budget: budgetSnapshot(catalog, request),
-    };
-  }, [catalog, lockedStatMode, request]);
+  return useMemo(() => buildOptimizeRequest(catalog, request, lockedStatMode), [catalog, lockedStatMode, request]);
 }
 
 export function useWeaponProfile(
@@ -64,12 +62,7 @@ export function useWeaponProfileResource(profileId: string, weaponName: string |
 type JobEvent = { jobId: string };
 type JobStatus<P extends JobEvent, F extends JobEvent> = { progress: P | null; finished: F | null };
 
-type NativeJobQueue<S extends { finished: FinishedJob | null }> = (
-  start: () => Promise<{ jobId: string }>,
-  signal?: AbortSignal,
-  onStatus?: (status: S) => void,
-  onStarted?: (jobId: string) => void,
-) => Promise<NativeJobSuccess<NonNullable<S["finished"]>>>;
+type NativeJobQueue<S extends { finished: FinishedJob | null }> = ReturnType<typeof createNativeJobQueue<S>>;
 
 const pathQueue = createNativeJobQueue<PathJobStatusDto>(
   jobId => api.pathPreviewStatus(jobId),
@@ -83,28 +76,25 @@ const affinityQueue = createNativeJobQueue<AffinityWatchJobStatusDto>(
   status => progressSignature(status.progress),
 );
 
+// A run is cancelled when the store invalidates it (Stop, input, selection or profile change),
+// never by effect cleanup: a hidden workspace's effects stop, but its run keeps going.
 function usePollingJob<P extends JobEvent, F extends FinishedJob, S extends JobStatus<P, F>>(options: {
-  busy: boolean;
-  generation: number;
+  isCurrent: (state: DesktopState, generation: number) => boolean;
   queue: NativeJobQueue<S>;
   setProgress: (progress: P | null) => void;
   onStarted: (jobId: string, generation: number) => void;
 }): (start: () => Promise<{ jobId: string }>, generation: number) => Promise<NativeJobSuccess<F>> {
   const latest = useRef(options);
-  latest.current = options;
-  const active = useRef<{ controller: AbortController; generation: number } | null>(null);
-
-  useEffect(() => {
-    const effectGeneration = options.generation;
-    return () => {
-      if (active.current?.generation === effectGeneration) active.current.controller.abort();
-    };
-  }, [options.busy, options.generation]);
+  useLayoutEffect(() => { latest.current = options; });
+  const active = useRef<AbortController | null>(null);
 
   return useCallback((start: () => Promise<{ jobId: string }>, generation: number) => {
-    active.current?.controller.abort();
+    active.current?.abort();
     const controller = new AbortController();
-    active.current = { controller, generation };
+    active.current = controller;
+    const unsubscribe = useDesktopStore.subscribe((state) => {
+      if (!latest.current.isCurrent(state, generation)) controller.abort();
+    });
     let jobId: string | null = null;
     const result = latest.current.queue(
       start,
@@ -119,37 +109,126 @@ function usePollingJob<P extends JobEvent, F extends FinishedJob, S extends JobS
       },
     );
     return result.finally(() => {
-      if (active.current?.controller === controller) active.current = null;
+      unsubscribe();
+      if (active.current === controller) active.current = null;
     });
   }, []);
 }
 
-export function usePathJob(options: {
-  isPathBusy: boolean;
-  generation: number;
-  setPathProgress: (progress: PathProgressDto | null) => void;
-  onStarted: (jobId: string, generation: number) => void;
-}) {
-  return usePollingJob<PathProgressDto, PathFinishedDto, PathJobStatusDto>({
-    busy: options.isPathBusy,
-    generation: options.generation,
-    queue: pathQueue,
-    setProgress: options.setPathProgress,
-    onStarted: options.onStarted,
-  });
+interface AnalysisRun<P extends JobEvent, F extends FinishedJob, S extends JobStatus<P, F>> {
+  queue: NativeJobQueue<S>;
+  cancel: (jobId: string) => Promise<boolean>;
+  scope: "paths" | "affinity_watch";
+  stoppedMessage: string;
+  read: (state: DesktopState) => { busy: boolean; generation: number; signature: string | null; jobId: string | null };
+  begin: (signature: string) => number;
+  setJobId: (jobId: string | null) => void;
+  setBusy: (busy: boolean) => void;
+  setProgress: (progress: P | null) => void;
 }
 
-export function useAffinityJob(options: {
-  isAffinityBusy: boolean;
-  generation: number;
-  setAffinityProgress: (progress: AffinityWatchProgressDto | null) => void;
-  onStarted: (jobId: string, generation: number) => void;
-}) {
-  return usePollingJob<AffinityWatchProgressDto, AffinityWatchFinishedDto, AffinityWatchJobStatusDto>({
-    busy: options.isAffinityBusy,
-    generation: options.generation,
-    queue: affinityQueue,
-    setProgress: options.setAffinityProgress,
-    onStarted: options.onStarted,
+export const PATH_RUN: AnalysisRun<PathProgressDto, PathFinishedDto, PathJobStatusDto> = {
+  queue: pathQueue,
+  cancel: (jobId) => api.cancelPathPreview(jobId),
+  scope: "paths",
+  stoppedMessage: "Path preview stopped.",
+  read: (state) => ({ busy: state.isPathBusy, generation: state.pathGeneration, signature: state.activePathSignature, jobId: state.activePathJobId }),
+  begin: (signature) => useDesktopStore.getState().beginPath(signature),
+  setJobId: (jobId) => useDesktopStore.getState().setActivePathJobId(jobId),
+  setBusy: (busy) => useDesktopStore.getState().setPathBusy(busy),
+  setProgress: (progress) => useDesktopStore.getState().setPathProgress(progress),
+};
+
+export const AFFINITY_RUN: AnalysisRun<AffinityWatchProgressDto, AffinityWatchFinishedDto, AffinityWatchJobStatusDto> = {
+  queue: affinityQueue,
+  cancel: (jobId) => api.cancelAffinityWatch(jobId),
+  scope: "affinity_watch",
+  stoppedMessage: "Affinity watch stopped.",
+  read: (state) => ({ busy: state.isAffinityBusy, generation: state.affinityGeneration, signature: state.activeAffinitySignature, jobId: state.activeAffinityJobId }),
+  begin: (signature) => useDesktopStore.getState().beginAffinity(signature),
+  setJobId: (jobId) => useDesktopStore.getState().setActiveAffinityJobId(jobId),
+  setBusy: (busy) => useDesktopStore.getState().setAffinityBusy(busy),
+  setProgress: (progress) => useDesktopStore.getState().setAffinityProgress(progress),
+};
+
+// Owns one Paths or Affinity Watch run. A reply, error or cancellation may change state only
+// while the run's generation, input signature and native job ID all still match.
+export function useAnalysisRun<P extends JobEvent, F extends FinishedJob, S extends JobStatus<P, F>>(
+  run: AnalysisRun<P, F, S>,
+  signature: string,
+) {
+  // A stopped or failed run is reported only while its inputs are still the current ones.
+  const [reported, setReported] = useState<{ signature: string; outcome: AnalysisOutcome }>({ signature, outcome: null });
+  const outcome = reported.signature === signature ? reported.outcome : null;
+  const setOutcome = (next: AnalysisOutcome) => setReported({ signature, outcome: next });
+  const owns = (state: DesktopState, generation: number) => {
+    const current = run.read(state);
+    return current.busy && current.generation === generation && current.signature === signature;
+  };
+  const idle = () => {
+    run.setBusy(false);
+    run.setJobId(null);
+    run.setProgress(null);
+  };
+
+  const startJob = usePollingJob<P, F, S>({
+    isCurrent: (state, generation) => {
+      const current = run.read(state);
+      return current.busy && current.generation === generation;
+    },
+    queue: run.queue,
+    setProgress: run.setProgress,
+    onStarted: (jobId, generation) => {
+      const state = useDesktopStore.getState();
+      if (state.resultsStale || !owns(state, generation)) throw new DOMException("Calculation stopped.", "AbortError");
+      run.setJobId(jobId);
+    },
   });
+
+  async function start(launch: () => Promise<{ jobId: string }>, publish: (finished: NativeJobSuccess<F>) => void, notice?: Notice) {
+    setOutcome(null);
+    const generation = run.begin(signature);
+    if (notice) useDesktopStore.getState().pushNotice(notice);
+    try {
+      const finished = await startJob(launch, generation);
+      const state = useDesktopStore.getState();
+      const current = run.read(state);
+      if (state.resultsStale || current.generation !== generation || current.signature !== signature || current.jobId !== finished.jobId) return;
+      publish(finished);
+      setOutcome(null);
+      idle();
+    } catch (error) {
+      const state = useDesktopStore.getState();
+      if (!owns(state, generation)) return;
+      if (error instanceof DOMException && error.name === "AbortError") {
+        state.pushNotice({ scope: run.scope, tone: "warning", message: run.stoppedMessage });
+        setOutcome("cancelled");
+      } else {
+        state.setError(errorMessage(error));
+        setOutcome("failed");
+      }
+      idle();
+    }
+  }
+
+  async function stop() {
+    setOutcome("cancelled");
+    const jobId = run.read(useDesktopStore.getState()).jobId;
+    if (!jobId) {
+      run.setBusy(false);
+      return;
+    }
+    try {
+      await run.cancel(jobId);
+    } catch (error) {
+      const state = useDesktopStore.getState();
+      const current = run.read(state);
+      if (current.busy && current.jobId === jobId) {
+        state.setError(errorMessage(error));
+        setOutcome("failed");
+      }
+    }
+  }
+
+  return { outcome, start, stop };
 }

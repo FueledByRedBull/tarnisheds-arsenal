@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
+import { openSection } from "./editors";
 
 type AnalysisKind = "path" | "affinity";
 
 for (const kind of ["path", "affinity"] as const) {
   test(`${kind} blocks stale selections in navigation and an already-open workspace`, async ({ page }) => {
     await prepareAnalysis(page, kind);
-    await page.locator(".ribbon-stat input").first().fill("");
+    await commitStatEdit(page);
     await expect(page.getByRole("navigation").getByRole("button", {
       name: kind === "path" ? "Paths" : "Affinity Watch", exact: true,
     })).toBeDisabled();
@@ -18,7 +19,7 @@ for (const kind of ["path", "affinity"] as const) {
     await installLateStartProbe(page, kind);
     await page.getByRole("button", { name: kind === "path" ? "Trace paths" : "Watch affinities", exact: true }).click();
     await expect.poll(() => page.evaluate(() => (window as any).lateAnalysisProbe.started)).toBe(true);
-    await page.locator(".ribbon-stat input").first().fill("");
+    await commitStatEdit(page);
     await page.evaluate(() => (window as any).lateAnalysisProbe.resolveStart({ jobId: "stale-job" }));
     await expect.poll(() => page.evaluate(() => (window as any).lateAnalysisProbe.cancellations)).toContain("stale-job");
     await expect(page.getByText("Update Rankings before continuing").filter({ visible: true })).toBeVisible();
@@ -29,6 +30,74 @@ for (const kind of ["path", "affinity"] as const) {
     })).toEqual({ paths: [], affinity: null });
   });
 }
+
+for (const kind of ["path", "affinity"] as const) {
+  test(`${kind} run keeps going while its tab is hidden and lands on return`, async ({ page }) => {
+    await prepareAnalysis(page, kind);
+    await installHeldRunProbe(page, kind);
+    await page.getByRole("button", { name: kind === "path" ? "Trace paths" : "Watch affinities", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
+
+    await page.keyboard.press("Control+1");
+    await expect(page.getByRole("navigation").getByRole("button", { name: "Rankings", exact: true })).toHaveAttribute("aria-current", "page");
+    await page.evaluate(() => { (window as any).hiddenRunProbe.release = true; });
+    await expect.poll(() => page.evaluate(async (kind) => {
+      const { useDesktopStore } = await import("/src/lib/state.ts");
+      const state = useDesktopStore.getState();
+      return kind === "path" ? state.paths.length > 0 : state.affinityPayload !== null;
+    }, kind)).toBe(true);
+
+    await page.keyboard.press(kind === "path" ? "Control+3" : "Control+4");
+    await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "completed");
+    await expect(page.getByText(kind === "path" ? "Path preview stopped." : "Affinity watch stopped.")).toHaveCount(0);
+    expect(await page.evaluate(() => (window as any).hiddenRunProbe.cancellations)).toEqual([]);
+  });
+}
+
+for (const source of ["saved target", "ranked rival"] as const) {
+  test(`path run survives a Compare visit that keeps the ${source}`, async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await expect(page.getByText("4 ranked rows")).toBeVisible();
+    await page.keyboard.press("Control+2");
+    await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
+    if (source === "saved target") {
+      // A loaded saved build restores its comparison target before Compare is first shown.
+      await openSection(page, "Saved Builds");
+      await page.getByRole("button", { name: "Save new", exact: true }).click();
+      await page.reload();
+      await page.getByText("Snapshot loaded", { exact: true }).waitFor();
+      await openSection(page, "Saved Builds");
+      await page.getByRole("button", { name: "Load", exact: true }).click();
+      await expect(page.getByText(/saved results verified on current data/)).toBeVisible();
+    }
+    await page.keyboard.press("Control+3");
+    await expect(page.locator(".path-lane").nth(1)).not.toContainText("No compare lane selected.");
+    await installHeldRunProbe(page, "path");
+    await page.getByRole("button", { name: "Trace paths", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
+
+    await page.keyboard.press("Control+2");
+    await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
+    await page.keyboard.press("Control+3");
+    await page.evaluate(() => { (window as any).hiddenRunProbe.release = true; });
+    await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "completed");
+    await expect(page.getByText("Path preview stopped.")).toHaveCount(0);
+    expect(await page.evaluate(() => (window as any).hiddenRunProbe.cancellations)).toEqual([]);
+  });
+}
+
+test("an abandoned numeric draft leaves results and analysis tabs current", async ({ page }) => {
+  await prepareAnalysis(page, "path");
+  const input = page.locator(".ribbon-stat input").first();
+  const committed = await input.inputValue();
+  await input.fill("");
+  await input.blur();
+  await expect(input).toHaveValue(committed);
+  await expect(page.getByText("Inputs changed", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Trace paths", exact: true })).toBeEnabled();
+  await expect(page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true })).toBeEnabled();
+});
 
 for (const kind of ["path", "affinity"] as const) {
   test(`${kind} adapter keeps native ownership after status and cancellation failures`, async ({ page }) => {
@@ -66,6 +135,13 @@ for (const kind of ["path", "affinity"] as const) {
   });
 }
 
+// Only a committed value changes the query; an abandoned draft leaves results current.
+async function commitStatEdit(page: import("@playwright/test").Page) {
+  const input = page.locator(".ribbon-stat input").first();
+  await input.fill("20");
+  await input.press("Enter");
+}
+
 async function prepareAnalysis(page: import("@playwright/test").Page, kind: AnalysisKind) {
   await page.goto("/");
   await page.getByRole("button", { name: "Search", exact: true }).click();
@@ -74,6 +150,22 @@ async function prepareAnalysis(page: import("@playwright/test").Page, kind: Anal
     name: kind === "path" ? "Paths" : "Affinity Watch",
     exact: true,
   }).click();
+}
+
+// Holds a run open until the test releases it, so a tab switch happens mid-run.
+async function installHeldRunProbe(page: import("@playwright/test").Page, kind: AnalysisKind) {
+  await page.evaluate(async (kind) => {
+    const { api } = await import("/src/lib/api.ts");
+    const names = kind === "path"
+      ? { status: "pathPreviewStatus", cancel: "cancelPathPreview" } as const
+      : { status: "affinityWatchStatus", cancel: "cancelAffinityWatch" } as const;
+    const probe = { release: false, cancellations: [] as string[] };
+    const status = api[names.status];
+    const cancel = api[names.cancel];
+    (api as any)[names.status] = (jobId: string) => probe.release ? status(jobId) : Promise.resolve({ progress: null, finished: null });
+    (api as any)[names.cancel] = (jobId: string) => { probe.cancellations.push(jobId); return cancel(jobId); };
+    Object.assign(window, { hiddenRunProbe: probe });
+  }, kind);
 }
 
 async function installFailureProbe(page: import("@playwright/test").Page, kind: AnalysisKind) {

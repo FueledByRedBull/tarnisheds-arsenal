@@ -191,6 +191,21 @@ class BenchmarkDriverComparisonTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, "finite positive"):
                         self.run_driver(driver, current, previous)
 
+    def test_catalog_cases_are_keyed_by_profile_with_verified_outputs(self):
+        cases = [
+            {"workflow": "catalog", "profile": profile, "model_version": "exact-v1",
+             "median_ms": 5.0, "results": [{"weapons": profile}]}
+            for profile in ("vanilla", "convergence")
+        ]
+        status, report = self.run_driver(workflows, cases, cases, "--fail-on-regression")
+        self.assertEqual(status, 0)
+        self.assertEqual(report["comparison"]["compared"], ["catalog:convergence", "catalog:vanilla"])
+        self.assertEqual(report["comparison"]["output_parity_verified"], report["comparison"]["compared"])
+        changed = copy.deepcopy(cases)
+        changed[0]["results"] = [{"weapons": "other"}]
+        with self.assertRaisesRegex(ValueError, "changed ranked results"):
+            self.run_driver(workflows, changed, cases)
+
     def paths_case(self, mode="no_respec"):
         return {
             "workflow": "paths", "mode": mode, "horizon": 5, "lanes": 1,

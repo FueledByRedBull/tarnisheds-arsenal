@@ -1,5 +1,6 @@
-import { KeyboardEvent, useEffect, useRef, useState } from "react";
+import { KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { flashChanged } from "../../lib/motion";
+import { clamp } from "../../lib/session";
 
 // Commits on Enter, blur, or after a short idle pause, so typing "40" never searches with "4".
 export function DraftNumberInput({
@@ -7,25 +8,25 @@ export function DraftNumberInput({
   min,
   max,
   onCommit,
-  onDraftChange,
-  readOnly = false,
-  className,
   description,
 }: {
   value: number;
   min: number;
   max: number;
   onCommit: (value: number) => void;
-  onDraftChange?: () => void;
-  readOnly?: boolean;
-  className?: string;
   /** Read by screen readers after the name, e.g. a shortfall shown only as colour and a tooltip. */
   description?: string;
 }) {
   const [draft, setDraft] = useState(String(value));
+  const [syncedValue, setSyncedValue] = useState(value);
+  if (syncedValue !== value) {
+    setSyncedValue(value);
+    setDraft(String(value));
+  }
   const idleCommit = useRef<number | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const shownValue = useRef(value);
+  const descriptionId = useId();
 
   function clearIdleCommit() {
     if (idleCommit.current !== null) {
@@ -36,7 +37,6 @@ export function DraftNumberInput({
 
   useEffect(() => {
     clearIdleCommit();
-    setDraft(String(value));
     // A value changed from elsewhere (class, palette, undo) flashes; typing here does not.
     if (shownValue.current !== value && document.activeElement !== input.current) flashChanged(input.current);
     shownValue.current = value;
@@ -68,23 +68,19 @@ export function DraftNumberInput({
   }
 
   return (
+    <>
     <input
       ref={input}
       type="number"
-      className={className}
-      aria-description={description}
+      aria-describedby={description ? descriptionId : undefined}
       min={min}
       max={max}
-      readOnly={readOnly}
       value={draft}
       onBlur={(event) => commit(event.target.value)}
       onChange={(event) => {
         const next = event.target.value;
         clearIdleCommit();
         setDraft(next);
-        if (next !== String(value)) {
-          onDraftChange?.();
-        }
         const parsed = parseInteger(next);
         if (Number.isInteger(parsed) && parsed >= min && parsed <= max && parsed !== value) {
           idleCommit.current = window.setTimeout(() => commit(next), 700);
@@ -92,6 +88,8 @@ export function DraftNumberInput({
       }}
       onKeyDown={handleKeyDown}
     />
+    {description ? <span id={descriptionId} hidden>{description}</span> : null}
+    </>
   );
 }
 
@@ -100,9 +98,4 @@ function parseInteger(value: string): number {
     return Number.NaN;
   }
   return Number(value);
-}
-
-function clamp(value: number, min: number, max: number): number {
-  if (Number.isNaN(value)) return min;
-  return Math.max(min, Math.min(max, Math.trunc(value)));
 }

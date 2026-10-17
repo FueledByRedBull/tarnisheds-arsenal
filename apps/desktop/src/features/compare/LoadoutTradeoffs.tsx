@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
-import { fixed1, statLine } from "../../lib/format";
-import { stableSignature } from "../../lib/session";
+import { errorMessage, fixed1, statLine } from "../../lib/format";
+import { buildOptimizeRequest, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { ArBleedFrontierPointDto, OptimizeRequestDto, SolvedBuildDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
+import { WorkspaceHeading } from "../shared/WorkspaceHeading";
 
 type LoadoutTradeoffsProps = {
   base: OptimizeRequestDto;
@@ -39,7 +40,7 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
     .every((value) => typeof value === "number");
   const contextSignature = stableSignature({ base, selected });
   const contextRef = useRef(contextSignature);
-  contextRef.current = contextSignature;
+  useLayoutEffect(() => { contextRef.current = contextSignature; });
   const runGeneration = useRef(0);
   const controllerRef = useRef<AbortController | null>(null);
   const [points, setPoints] = useState<ArBleedFrontierPointDto[] | null>(null);
@@ -48,7 +49,12 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
   const [maxArSacrifice, setMaxArSacrifice] = useState("0");
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
+  // Hiding Compare re-runs this effect on return with the same context; only a real context
+  // change resets the frontier. A running frontier is cancelled by compute()'s subscription.
+  const resetFor = useRef(contextSignature);
   useEffect(() => {
+    if (resetFor.current === contextSignature) return;
+    resetFor.current = contextSignature;
     controllerRef.current?.abort();
     controllerRef.current = null;
     runGeneration.current += 1;
@@ -56,11 +62,6 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
     setStatus("idle");
     setError(null);
     setSelectedIndex(null);
-    return () => {
-      controllerRef.current?.abort();
-      controllerRef.current = null;
-      runGeneration.current += 1;
-    };
   }, [contextSignature]);
 
   const choices = points ? buildChoices(points) : [];
@@ -83,6 +84,13 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
     const controller = new AbortController();
     controllerRef.current = controller;
     const generation = ++runGeneration.current;
+    // The frontier keeps running while Compare is hidden; only a new context cancels it.
+    const catalog = useDesktopStore.getState().catalog;
+    const unsubscribe = useDesktopStore.subscribe((state) => {
+      if (state.catalog !== catalog || stableSignature({
+        base: buildOptimizeRequest(state.catalog, state.request, state.lockedStatMode), selected: state.selected,
+      }) !== contextSignature) controller.abort();
+    });
     setStatus("loading");
     setPoints(null);
     setError(null);
@@ -102,10 +110,14 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
         || generation !== runGeneration.current
         || contextRef.current !== contextSignature
       ) return;
-      setError(nextError instanceof Error ? nextError.message : String(nextError));
+      setError(errorMessage(nextError));
       setStatus("error");
     } finally {
+      unsubscribe();
       if (controllerRef.current === controller) controllerRef.current = null;
+      // A context change while Compare is hidden aborts the run without the reset above; the
+      // original context may be back by the time Compare is shown.
+      if (controller.signal.aborted && generation === runGeneration.current) setStatus("idle");
     }
   }
 
@@ -117,18 +129,22 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
     setError(null);
   }
 
+  // The threshold picks a point when the frontier or the sacrifice changes, not when Compare is
+  // shown again, so a point the player chose stays chosen.
+  const thresholdFor = useRef<[typeof points, typeof sacrificeBps] | null>(null);
   useEffect(() => {
+    if (thresholdFor.current?.[0] === points && thresholdFor.current[1] === sacrificeBps) return;
+    thresholdFor.current = [points, sacrificeBps];
     setSelectedIndex(thresholdIndex);
   }, [points, sacrificeBps, thresholdIndex]);
 
   return (
     <section className="loadout-tradeoffs" aria-labelledby="loadout-tradeoffs-heading">
       <div className="tradeoff-header">
-        <div>
-          <h2 id="loadout-tradeoffs-heading">AR / Bleed tradeoffs</h2>
-          <small>
-            Fixed loadout: {selected.weaponName} / {selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade}.
-            The frontier keeps this query&apos;s class budget, floors, locks, handling, and world settings.{" "}
+        <WorkspaceHeading title="AR / Bleed tradeoffs" level={2} id="loadout-tradeoffs-heading" aboutLabel="About AR / Bleed tradeoffs"
+          about="The frontier keeps this query's class budget, floors, locks, handling, and world settings.">
+          <small className="selected-summary">
+            Fixed loadout: {selected.weaponName} / {selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade}
           </small>
           {allCombatLocksActive || (status === "ready" && points?.length === 1) ? (
             <small>
@@ -137,7 +153,7 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
                 : "Only one non-dominated AR / bleed outcome exists under these constraints; other allocations may tie."}
             </small>
           ) : null}
-        </div>
+        </WorkspaceHeading>
         <button type="button" onClick={status === "loading" ? stop : compute} disabled={status === "ready"}>
           {status === "loading" ? "Stop" : points ? "Computed for this context" : "Compute trade-offs"}
         </button>
@@ -254,11 +270,10 @@ function TradeoffRow({
   const { point } = choice;
   const label = choice.labels.join(" · ") || `Point ${choice.index + 1}`;
   return (
-    <tr className={selected ? "selected" : undefined} aria-selected={selected}>
+    <tr className={selected ? "selected" : undefined}>
       <th scope="row">
         <button
           type="button"
-          className="tradeoff-select"
           aria-pressed={selected}
           aria-label={`${label}: ${fixed1(point.bleedGain)} bleed gain, ${fixed1(point.arLossPercent)}% AR loss`}
           onClick={() => onSelect(choice.index)}
@@ -354,6 +369,7 @@ function TradeoffInspection({
   labels: string[];
   current: OptimizeRequestDto;
 }) {
+  const isExporting = useDesktopStore((state) => state.isExporting);
   if (!point) return <div className="empty-state compact">Select an exact trade-off point to inspect it.</div>;
   return (
     <div className="tradeoff-inspection" aria-live="polite">
@@ -362,7 +378,7 @@ function TradeoffInspection({
       <p><strong>Loadout</strong> {point.result.weaponName} / {point.result.affinity} / {point.result.aowName ?? "Unspecified skill"} / +{point.result.upgrade}</p>
       <p><strong>Full stat spread</strong> {fullStatLine(current, point.result)}</p>
       <p><strong>Changes from your current stats</strong> {formatStatDelta(current, point.result)}</p>
-      <button type="button" onClick={() => {
+      <button type="button" disabled={isExporting} onClick={() => {
         const state = useDesktopStore.getState();
         state.patchRequest({ objective: "max_ar" });
         state.useRowAsLocks(point.result);

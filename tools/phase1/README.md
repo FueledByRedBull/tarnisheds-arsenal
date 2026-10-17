@@ -26,13 +26,17 @@ and positive integer contact counts in `aow_route_assignments.csv.hit_count`.
 It retains explicit Ash mounting permission
 in `weapons.csv.can_change_aow` and compatible affinity/type lists in `aow.csv`.
 The extractor no longer emits `aow_weapon_compat.csv`; legality is derived from
-those compact fields. Runtime manifests list 12 required tables, and diagnostic
-Ash/affinity summaries are computed in memory.
+those compact fields. Runtime manifests list 12 shared tables. A profile other
+than Vanilla that declares class budgets also lists `classes.csv`, its
+character-creation class catalog; Vanilla's classes are built into the runtime.
 
 The manifest records the snapshot model identity; the runtime adds the numerical
 contract to scoring and cache identities. Current identities and coverage are
 listed in the [model reference](../../docs/model-reference.md).
-The extractor records `phase1-python-v13-skill-route-identity` for its current output.
+The extractor records `phase1-python-v15-f32-shortest-floats` for its current
+output. When the extracted content changes for the same game or mod version, the
+dataset version gains a revision suffix (`vanilla-1.17-r3`,
+`convergence-3.0.0.1-r4`); never relabel an existing snapshot instead.
 
 Regenerate older snapshots with this extractor. Both runtime and Python validation
 reject schema 5 before attempting to use its incompatible tables. Do not merely
@@ -41,8 +45,16 @@ only the storage contract changes; source hashes remain tied to the original inp
 
 ## Required inputs
 
-- A profile-specific `regulation.bin`
-- Local WitchyBND executable path
+- A profile-specific `regulation.bin` whose SHA-256 matches the hash pinned in
+  `profiles.py`; any other file fails extraction.
+- A local WitchyBND executable. Without `--witchybnd`, extraction looks for
+  exactly one `data/raw/WitchyBND-*/WitchyBND.exe` and fails on none or several.
+- The Paramdex files shipped with that WitchyBND (`Assets/Paramdex/ER/`): `Defs`
+  layouts, `Meta/EquipParamWeapon.xml` and, unless FMG XML overrides are given,
+  `Names/EquipParamWeapon.txt` and `Names/SwordArtsParam.txt`.
+- For profiles with skill routes or workbook weapon data (Vanilla), the tracked
+  motion workbook `ER - Motion Values and Attack Data (App Ver. 1.17).xlsx` in
+  the output folder or `data/phase1/`.
 - Convergence: base and DLC1 `WeaponName`/`ArtsName` FMG XML tables. Authoritative
   FMG names are merged by ID; conflicts fail extraction. Guarded PARAM labels fill
   only mod-added player rows that have no FMG entry, including alternate forms.
@@ -74,8 +86,17 @@ python tools/phase1/phase1_dump.py `
 ```
 
 Raw regulation, WitchyBND, and FMG inputs stay under ignored `data/raw/`. Only the
-derived CSV snapshots and their source hashes are committed. Profile capabilities may
-leave unsupported tables schema-only; extraction never copies rows from another profile.
+derived CSV snapshots and their source hashes are committed. The manifest records
+the regulation, the WitchyBND executable and every Paramdex file used (`witchybnd`
+and `paramdex*` sources), plus the workbook and FMG tables when used. Profile
+capabilities may leave unsupported tables schema-only; extraction never copies rows
+from another profile.
+
+The extractor trusts its inputs: they are the owner's own game files, the WitchyBND
+build they chose, and tracked repository files. Python's XML parser does not resolve
+external entities, and the extractor refuses any XML file over 128 MiB and any
+workbook part over 64 MiB before reading it. These caps only stop a wrong or hostile
+file from exhausting memory; they do not make untrusted inputs safe to extract.
 
 The selected profile definition owns gameplay rules that cannot be inferred safely from
 Vanilla defaults. Extraction materializes those rules explicitly, filters exact legal
@@ -84,16 +105,26 @@ common modeled fields and status families against the offline version-bound refe
 See the [model reference](../../docs/model-reference.md) for current profile rules and
 coverage.
 
-`--allow-unverified-weapons` is a maintainer-only bootstrap switch for rebuilding
-the reference candidate set. It must never be used to produce a release snapshot;
-release validation requires the exact tracked reference match.
+To rebuild the Convergence availability reference itself, run
+`python tools/phase4/convergence_reference.py --refresh`; without `--refresh` it
+validates a snapshot against the tracked reference. Release validation requires
+the exact tracked reference match.
 
 ## Normalization and indexing
 
-- Integer fields must be integral, and numeric fields must be finite. Required
-  row IDs, reinforcement multipliers, damage-curve IDs, and attack-element fields
-  fail extraction when absent. Declared XML defaults are materialized for these
-  fields; intentional optional-field defaults remain explicit in the extractor.
+- Integer fields must be integral, and numeric fields must be finite. Every weapon
+  model field is required: an omitted value takes its declared XML default, and a
+  field with neither fails extraction. Intentional optional-field defaults remain
+  explicit in the extractor. In Convergence this sets `attackElementCorrectId` to
+  `16000` and the four status correction curves to `28` for almost every weapon.
+- `classes.csv` lists the character-creation classes in menu order:
+  `BaseChrSelectMenuParam` rows outside the network test, each pointing at its
+  `CharaInitParam` class row. Names come only from the regulation's own
+  `Class - <name>` row names, never from Paramdex labels, which describe Vanilla.
+  Extraction fails if a menu preview row disagrees with its class, an attribute
+  is outside 1..99, a name is missing or repeated, or `soulLv` is not the eight-
+  attribute total minus 79.
+- PARAM label fallbacks drop the mod author's `[Conv]` and `NEW - ` markers.
 - Runtime CSV loading rejects duplicate trimmed headers and duplicate keys in
   reinforcement, attack-element, and passive tables rather than overwriting rows.
 - `weapons.csv` scaling columns (`str_scaling`, `dex_scaling`, `int_scaling`, `fai_scaling`, `arc_scaling`) are normalized to `0.0..1.0` by dividing raw weapon param values by `100.0`.
@@ -104,7 +135,7 @@ release validation requires the exact tracked reference match.
   - `can_change_aow`: true only when raw `gemMountType` is 2, resolving the XML field default when omitted. Independent of `disable_gem_attr`, which restricts infusion, not Ash mounting.
 - `calc_correct.csv` multipliers are normalized to `0.0..1.0` (`growth / 100.0`).
 - `reinforce.csv` damage/scaling multipliers are emitted as raw multipliers from `ReinforceParamWeapon` (for example `1.058`), with no additional normalization.
-- `calc_correct.csv` is pre-expanded through each curve's final stage point and at least effective Strength 148 (`floor(99 * 1.5)`):
+- `calc_correct.csv` holds only the curves the emitted weapons reference, pre-expanded through each curve's final stage point and at least effective Strength 148 (`floor(99 * 1.5)`):
   - `stat_value=0` is always written as `multiplier=0.0` and is reserved.
   - Runtime lookup convention is direct indexing: stat values map to matching indices.
   - No `-1` offset is used for curve lookup.
@@ -148,8 +179,12 @@ release validation requires the exact tracked reference match.
 - Persistent weapon and linked on-hit effects remain separate records. Unsupported
   overlapping status increments must not be added together as an ordinary buff; current
   coverage and correction notes are documented in the [model reference](../../docs/model-reference.md).
-- Compact diagnostic summaries are derived in memory from the same permission fields;
-  compatibility validation uses those fields rather than a retained pair table.
+- Compatibility validation uses the same permission fields rather than a retained
+  pair table.
+- Every float column is written as the shortest positional decimal that parses to the
+  `f32` nearest the extracted value (at most nine significant digits, `-0` as `0`,
+  non-finite values rejected). The runtime reads floats as `f32`, so this text carries
+  exactly the loaded value.
 - Generated CSV and manifest JSON files use canonical LF line endings so snapshots hash identically across supported hosts.
 
 ## Extraction work directories

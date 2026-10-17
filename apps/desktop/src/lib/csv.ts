@@ -11,7 +11,7 @@ export interface RankingsExportMetadata {
   objective: string;
   assumptions: string;
   separateUpgradeCaps?: boolean;
-  aowModelSupported?: boolean;
+  aowModelSupported: boolean;
   extendedScalingGrades?: boolean;
 }
 
@@ -83,13 +83,11 @@ const CSV_COLUMNS: CsvColumn[] = [
   { header: "score", value: (row) => row.score },
 ];
 
-export const csvHeaders = CSV_COLUMNS.map((column) => column.header);
-
 export function rankingsToCsv(rows: SolvedBuildDto[], metadata: RankingsExportMetadata): string {
   const metadataHeaders = ["profile_id", "app_version", "schema_version", "dataset_version", "model_version", "objective", "assumptions"];
   const metadataCells = [metadata.profileId, metadata.appVersion, metadata.schemaVersion, metadata.datasetVersion, metadata.modelVersion, metadata.objective, metadata.assumptions];
   const lines = [
-    [...metadataHeaders, ...csvHeaders].join(","),
+    [...metadataHeaders, ...CSV_COLUMNS.map((column) => column.header)].join(","),
     ...rows.map((row, index) =>
       [...metadataCells.map(csvCell), ...CSV_COLUMNS.map((column) => csvCell(column.value(row, index, metadata)))].join(","),
     ),
@@ -110,16 +108,16 @@ export function rankingsCsvFilename(profileId: string, now = new Date()): string
   return `tarnisheds-arsenal-${profileId}-rankings-${stamp}.csv`;
 }
 
-export function downloadCsv(filename: string, csv: string) {
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
+export function downloadText(filename: string, text: string, type: string) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  // WebView2 may read the blob after click() returns, so revoking at once could fail the download.
+  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
 function csvCell(value: string | number | boolean | null): string {
@@ -127,7 +125,8 @@ function csvCell(value: string | number | boolean | null): string {
     return "";
   }
   const text = String(value);
-  const safeText = /^[=+\-@]/.test(text) ? `'${text}` : text;
+  // Only text can carry a spreadsheet formula; numbers and a lone "-" grade stay as they are.
+  const safeText = typeof value === "string" && text.length > 1 && /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
   if (!/[",\r\n]/.test(safeText)) {
     return safeText;
   }

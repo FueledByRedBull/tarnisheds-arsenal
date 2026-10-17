@@ -10,6 +10,12 @@ import {
 
 export const STAT_KEYS = ["strStat", "dex", "intStat", "fai", "arc"] as const;
 export const EIGHT_STAT_KEYS = ["vig", "mnd", "end", ...STAT_KEYS] as const;
+const STAT_LABELS = { strStat: "STR", dex: "DEX", intStat: "INT", fai: "FAI", arc: "ARC" } as const;
+
+/** Each combat stat the build sets differently from the entered stats, as "DEX 15 → 22". */
+export function respecChanges(row: SolvedBuildDto, request: OptimizeRequestDto): string[] {
+  return STAT_KEYS.flatMap((key) => row.stats[key] === request[key] ? [] : [`${STAT_LABELS[key]} ${request[key]} → ${row.stats[key]}`]);
+}
 
 export function replaceFilterEntries(
   entries: StableFilterEntryDto[],
@@ -24,10 +30,10 @@ export function replaceFilterEntries(
   ];
 }
 
-type LegacyUpgradeRequest = Partial<OptimizeRequestDto> & {
-  fixedUpgrade?: number | null;
-  maxUpgrade?: number | null;
-};
+/** Picking a weapon drops the weapon-type and affinity filters that could exclude it. */
+export function clearTypeAndAffinityFilters(entries: StableFilterEntryDto[]): StableFilterEntryDto[] {
+  return replaceFilterEntries(replaceFilterEntries(entries, "weapon_type", [], []), "affinity", [], []);
+}
 
 export const STARTING_CLASS_METADATA: ClassMetadataDto[] = [
   {
@@ -104,12 +110,25 @@ export const STARTING_CLASS_METADATA: ClassMetadataDto[] = [
   },
 ];
 
+export const CUSTOM_STATS_CLASS = "Custom stats";
+
+/** Custom stats, and any profile without class budgets, evaluates the entered stats exactly. */
+export function usesFixedStats(catalog: CatalogDto | null, className: string): boolean {
+  return catalog?.dataManifest.capabilities.classBudget === false || className === CUSTOM_STATS_CLASS;
+}
+
 export function classOptions(catalog: CatalogDto | null): ClassMetadataDto[] {
   return catalog?.classes.length ? catalog.classes : STARTING_CLASS_METADATA;
 }
 
+/** Whether a class is known before any catalog loads: Vanilla's built-in classes and Custom stats. */
+export function knownWithoutCatalog(className: string): boolean {
+  return className === CUSTOM_STATS_CLASS || STARTING_CLASS_METADATA.some((entry) => entry.name === className);
+}
+
 export function classMeta(catalog: CatalogDto | null, className: string): ClassMetadataDto {
-  if (!catalog && className === "Custom stats") {
+  // A mod's own class renders before its catalog loads; setCatalog then reconciles it.
+  if (!catalog && !STARTING_CLASS_METADATA.some((entry) => entry.name === className)) {
     return { name: className, baseLevel: 0, baseTotal: 0,
       baseStats: { vig: 0, mnd: 0, end: 0, strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 } };
   }
@@ -141,7 +160,8 @@ export function optimalStartingClass(
   targets: EightStatsDto,
   currentClassName: string,
 ): ClassMetadataDto {
-  return classOptions(catalog).reduce((best, candidate) => {
+  // Custom stats has no class floor to optimize against.
+  return classOptions(catalog).filter((entry) => entry.name !== CUSTOM_STATS_CLASS).reduce((best, candidate) => {
     const candidateLevel = startingClassLevel(candidate, targets);
     const bestLevel = startingClassLevel(best, targets);
     if (candidateLevel < bestLevel) return candidate;
@@ -179,7 +199,7 @@ export function buildOptimizeRequest(
   useLockedStats = true,
 ): OptimizeRequestDto {
   const meta = classMeta(catalog, uiRequest.className);
-  if (catalog?.dataManifest.capabilities.classBudget === false) {
+  if (usesFixedStats(catalog, uiRequest.className)) {
     return {
       ...uiRequest,
       characterLevel: currentStatTotal(uiRequest),
@@ -206,37 +226,6 @@ export function buildOptimizeRequest(
 export function hasCombatStatLocks(request: OptimizeRequestDto): boolean {
   return [request.lockStr, request.lockDex, request.lockInt, request.lockFai, request.lockArc]
     .some(value => value !== null);
-}
-
-export function normalizeOptimizeRequest(
-  raw: LegacyUpgradeRequest,
-  fallback: OptimizeRequestDto,
-  rules?: ProfileRulesDto,
-): OptimizeRequestDto {
-  const legacyMaxUpgrade = numberOrNull(raw.maxUpgrade);
-  const {
-    fixedUpgrade: _fixedUpgrade,
-    maxUpgrade: _maxUpgrade,
-    ...next
-  } = raw;
-
-  return {
-    ...fallback,
-    ...next,
-    standardMaxUpgrade: clampUpgrade(
-      numberOrNull(raw.standardMaxUpgrade) ?? legacyMaxUpgrade ?? fallback.standardMaxUpgrade,
-      rules?.standardMaxUpgrade ?? 25,
-    ),
-    somberMaxUpgrade: clampUpgrade(
-      numberOrNull(raw.somberMaxUpgrade) ?? (
-        legacyMaxUpgrade === null
-          ? fallback.somberMaxUpgrade
-          : Math.min(legacyMaxUpgrade, rules?.somberMaxUpgrade ?? 10)
-      ),
-      rules?.somberMaxUpgrade ?? 10,
-    ),
-    exactUpgrade: Boolean(raw.exactUpgrade ?? (raw.fixedUpgrade !== undefined && raw.fixedUpgrade !== null)),
-  };
 }
 
 export function applyProfileRules(
@@ -267,12 +256,12 @@ export function compareUpgradeHorizon(request: OptimizeRequestDto): number {
   return Math.max(request.standardMaxUpgrade, request.somberMaxUpgrade);
 }
 
-function numberOrNull(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+function clampUpgrade(value: number, max: number): number {
+  return clamp(Math.trunc(value), 0, max);
 }
 
-function clampUpgrade(value: number, max: number): number {
-  return Math.min(Math.max(Math.trunc(value), 0), max);
+export function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
 export function rowFingerprint(row: SolvedBuildDto | null): string | null {
@@ -293,16 +282,16 @@ export function rowFingerprint(row: SolvedBuildDto | null): string | null {
   ].join("|");
 }
 
-export function remainingCombatLevels(request: OptimizeRequestDto): number {
+function remainingCombatLevels(request: OptimizeRequestDto): number {
   return STAT_KEYS.reduce((total, key) => total + Math.max(0, 99 - Number(request[key])), 0);
 }
 
 export function clampHorizon(request: OptimizeRequestDto, horizon: number): number {
-  return Math.max(0, Math.min(200, horizon, remainingCombatLevels(request)));
+  return clamp(horizon, 0, Math.min(200, remainingCombatLevels(request)));
 }
 
 export function stableSignature(value: unknown): string {
-  return JSON.stringify(value, (_key, raw) => {
+  return JSON.stringify(value, (_key, raw: unknown) => {
     if (raw && typeof raw === "object" && !Array.isArray(raw)) {
       return Object.fromEntries(Object.entries(raw).sort(([left], [right]) => left.localeCompare(right)));
     }

@@ -46,7 +46,7 @@ test("Ctrl+Z and Ctrl+Y step through query edits with named buttons", async ({ p
 
   // A profile switch starts a fresh history.
   await page.getByRole("radiogroup", { name: "Game profile" }).getByRole("radio", { name: /Convergence/ }).click();
-  await expect(page.getByText("Experimental fixed-stat model", { exact: true })).toBeVisible();
+  await expect(page.getByText("Experimental model", { exact: true })).toBeVisible();
   await expect(undo).toBeDisabled();
   await expect(redo).toBeDisabled();
 });
@@ -73,7 +73,7 @@ test("rankings show movement and value changes since the previous search", async
       { ...fourth, aowName: "Different skill" },
     ], 100);
   });
-  const rows = page.locator(".result-row-full");
+  const rows = page.locator(".result-row");
   await expect(rows.nth(0).locator(".rank-move")).toHaveText("2");
   await expect(rows.nth(0).locator(".rank-move")).toHaveClass(/up/);
   await expect(rows.nth(0).locator(".metric-delta")).toHaveText("+12.5");
@@ -93,7 +93,7 @@ test("rankings show movement and value changes since the previous search", async
 test("result columns sort without renumbering ranks", async ({ page }) => {
   await searched(page);
   // Rows keep rank order in the DOM and sort with CSS order, so read them in on-screen order.
-  const ranks = () => page.locator(".result-row-full .rank-cell").evaluateAll((cells) => cells
+  const ranks = () => page.locator(".result-row .rank-cell").evaluateAll((cells) => cells
     .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)
     .map((cell) => cell.textContent));
   const ar = page.getByRole("columnheader", { name: "AR", exact: true });
@@ -103,6 +103,13 @@ test("result columns sort without renumbering ranks", async ({ page }) => {
   await ar.getByRole("button").click();
   await expect(ar).toHaveAttribute("aria-sort", "ascending");
   expect(await ranks()).toEqual(["4", "3", "2", "1"]);
+  // Arrow keys and the accessibility order follow the order shown, not the DOM's rank order.
+  await page.getByRole("row", { name: /, rank 4,/ }).focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("row", { name: /, rank 3,/ })).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(page.getByRole("row", { name: /, rank 1,/ })).toBeFocused();
+  await expect(page.locator(".result-rows")).toHaveCSS("reading-flow", "flex-visual");
   await expect(page.getByRole("button", { name: "Show highest first" })).toBeVisible();
   await page.getByRole("button", { name: "Show highest first" }).click();
   await expect(ar).toHaveAttribute("aria-sort", "descending");
@@ -122,7 +129,7 @@ test("result columns sort without renumbering ranks", async ({ page }) => {
 
 test("arrow keys move between ranked rows and Build Detail shows the rank", async ({ page }) => {
   await searched(page);
-  const rows = page.locator(".result-row-full");
+  const rows = page.locator(".result-row");
   await rows.first().focus();
   await page.keyboard.press("ArrowDown");
   await expect(rows.nth(1)).toBeFocused();
@@ -154,12 +161,23 @@ test("shortcuts search, switch workspaces and list themselves", async ({ page })
   await expect(nav.getByRole("button", { name: "Rankings", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(nav.getByRole("button", { name: "Compare", exact: true })).toHaveAttribute("title", "Compare (Ctrl+2)");
 
+  const opener = page.getByRole("button", { name: "Edit anything", exact: true });
+  await opener.focus();
   await page.keyboard.press("?");
   const sheet = page.getByRole("dialog", { name: "Keyboard shortcuts" });
   await expect(sheet).toBeVisible();
   await expect(sheet.getByRole("region", { name: "Anywhere" })).toContainText("Undo the last query change");
+  // The list is modal: its close button takes and keeps focus, and screen readers do not reach
+  // the page behind it.
+  const close = sheet.getByRole("button", { name: "Close keyboard shortcuts" });
+  await expect(close).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(close).toBeFocused();
+  await expect(page.getByRole("button", { name: "Search", exact: true })).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(sheet).toBeHidden();
+  await expect(opener).toBeFocused();
+  await expect(page.getByRole("button", { name: "Search", exact: true })).toBeVisible();
 
   // Typing a "?" into a field stays typing.
   await page.keyboard.press("Control+k");
@@ -226,7 +244,9 @@ test("Build Detail never calls a rounded gap an exact tie", async ({ page }) => 
     const [first, second, ...rest] = useDesktopStore.getState().rows;
     useDesktopStore.getState().setRows([first, { ...second, ar: { ...second.ar, total: first.ar.total - 0.01 } }, ...rest], 100);
   });
-  await page.locator(".result-row-full").nth(1).click();
+  await page.locator(".result-row").nth(1).click();
   await expect(page.locator(".rank-context")).toHaveText("Rank 2 of 4 · less than 0.05 behind #1");
-  await expect(page.locator(".rank-proof")).toHaveText("Ranked exactly across 100 scored setups. Stat spreads that differ only in stats a setup doesn't use count once.");
+  await expect(page.locator(".rank-proof")).toHaveText("Compared exactly against 100 scored setups.");
+  // Explanatory text in the muted ink, not the success hue (UIX-005).
+  await expect(page.locator(".rank-proof")).toHaveCSS("color", "rgb(173, 178, 170)");
 });

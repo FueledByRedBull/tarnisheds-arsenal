@@ -2,14 +2,17 @@ import { SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AowSelect } from "../../lib/AowSelect";
 import { cachedComparisonSearch, cachedSolveBuild, cachedUpgradeSeries, cachedWeaponProfile } from "../../lib/analysis-cache";
-import { compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
+import { aowModelSupported, compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
 import { CheckboxMultiSelect, SearchableSelect, openOption } from "../../lib/SearchableSelect";
-import { compareUpgradeHorizon, replaceFilterEntries, rowFingerprint, stableSignature, upgradeCapForRow } from "../../lib/session";
+import { clearTypeAndAffinityFilters, compareUpgradeHorizon, replaceFilterEntries, rowFingerprint, stableSignature, upgradeCapForRow, usesFixedStats } from "../../lib/session";
+import { selectedFilterIds } from "../query-strip/QueryEditors";
 import { LatestRequest } from "../../lib/request-generation";
-import { useRequestBudget } from "../../lib/hooks";
+import { useBuiltRequest } from "../../lib/hooks";
 import { useDesktopStore } from "../../lib/state";
 import { CompareControls, SolvedBuildDto, UpgradePointDto } from "../../lib/types";
 import { Popover } from "../shared/Popover";
+import { WorkspaceHeading } from "../shared/WorkspaceHeading";
+import { WorkspaceGate } from "../shared/WorkspaceGate";
 import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 import { LoadoutTradeoffs } from "./LoadoutTradeoffs";
 
@@ -42,30 +45,22 @@ export function CompareView() {
   const compareControls = useDesktopStore((state) => state.compareControls);
   const patchCompareControls = useDesktopStore((state) => state.patchCompareControls);
   const setError = useDesktopStore((state) => state.setError);
-  const setWorkspace = useDesktopStore((state) => state.setWorkspace);
   const matrixRef = useRef<HTMLDivElement | null>(null);
   const seriesRequest = useRef(new LatestRequest());
   // The inputs of the last comparison that finished. Showing the tab again re-runs the effect
   // below (Activity); with unchanged inputs its lanes and charts are still on screen.
   const finishedComparison = useRef<string | null>(null);
-  const { base: baseRequest } = useRequestBudget(catalog, request, lockedStatMode);
+  const baseRequest = useBuiltRequest(catalog, request, lockedStatMode);
   const [series, setSeries] = useState<CompareLane[]>([]);
   const [seriesStatus, setSeriesStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [seriesError, setSeriesError] = useState<string | null>(null);
   const typeDimension = catalog?.filterDimensions.find((dimension) => dimension.id === "weapon_type");
   const affinityDimension = catalog?.filterDimensions.find((dimension) => dimension.id === "affinity");
-  const selectedTypeIds = compareControls.filters.entries
-    .filter((entry) => entry.dimension === "weapon_type" && entry.mode === "include")
-    .map((entry) => entry.id);
-  const selectedAffinityIds = compareControls.filters.entries
-    .filter((entry) => entry.dimension === "affinity" && entry.mode === "include")
-    .map((entry) => entry.id);
-  const excludedTypeIds = compareControls.filters.entries
-    .filter((entry) => entry.dimension === "weapon_type" && entry.mode === "exclude")
-    .map((entry) => entry.id);
-  const excludedAffinityIds = compareControls.filters.entries
-    .filter((entry) => entry.dimension === "affinity" && entry.mode === "exclude")
-    .map((entry) => entry.id);
+  const filterEntries = compareControls.filters.entries;
+  const selectedTypeIds = selectedFilterIds(typeDimension, filterEntries, null);
+  const selectedAffinityIds = selectedFilterIds(affinityDimension, filterEntries, null);
+  const excludedTypeIds = selectedFilterIds(typeDimension, filterEntries, null, "exclude");
+  const excludedAffinityIds = selectedFilterIds(affinityDimension, filterEntries, null, "exclude");
   const selectedTypeLabels = typeDimension?.options
     .filter((option) => selectedTypeIds.includes(option.id))
     .map((option) => option.label) ?? [];
@@ -88,11 +83,10 @@ export function CompareView() {
     : compareControls.includeSomber
       ? "Somber"
       : compareControls.includeSmithing ? "Smithing" : "No reinforcement";
-  const compareSource = customCompare
-    ? [compareTargetLabel, selectedAffinityLabels.join(" + "), reinforcementLabel].filter(Boolean).join(" · ")
-    : compareBench.length
-      ? `${restoredTarget ? "saved target and " : ""}${compareBench.length} pinned target${compareBench.length === 1 ? "" : "s"}`
-      : restoredTarget ? "saved target" : "current ranked rivals";
+  // Custom comparisons show their filters as chips instead.
+  const compareSource = compareBench.length
+    ? `${restoredTarget ? "Saved target and " : ""}${compareBench.length} pinned target${compareBench.length === 1 ? "" : "s"}`
+    : restoredTarget ? "Saved target" : "Current ranked rivals";
   const pinnedMatchesSelected = Boolean(selected)
     && compareBench.length > 0
     && compareBench.every((row) => rowFingerprint(row) === rowFingerprint(selected));
@@ -149,10 +143,11 @@ export function CompareView() {
       if (currentRequest.isCurrent(token)) finishedComparison.current = signature;
     };
     async function resolveRows() {
+      // Stale results and a cleared selection already clear the target in the store. Showing the
+      // tab can re-run this effect with the hidden tab's older inputs, so it must not clear it here.
       if (resultsStale) {
         setSeries([]);
         setSeriesError(null);
-        setCompareTarget(null);
         setSeriesStatus("idle");
         finish();
         return;
@@ -165,7 +160,6 @@ export function CompareView() {
       }
       if (!selected) {
         setSeries([]);
-        setCompareTarget(null);
         setSeriesStatus("idle");
         finish();
         return;
@@ -173,7 +167,6 @@ export function CompareView() {
       const restored = !customCompare && restoredTarget && rowFingerprint(restoredTarget) !== rowFingerprint(selected)
         ? restoredTarget : null;
       setSeries([]);
-      setCompareTarget(restored);
       setSeriesStatus("loading");
       setSeriesError(null);
       const resolvedSelected = selected;
@@ -259,7 +252,7 @@ export function CompareView() {
         } catch (error) {
           if (!currentRequest.isCurrent(token)) return;
           chartFailed = true;
-          const message = error instanceof Error ? error.message : String(error);
+          const message = errorMessage(error);
           setSeries(current => current.map((entry, i) => i === index ? { ...entry, chartStatus: "error", chartError: message } : entry));
           setError(`${lane.label} upgrade series at level ${baseRequest.characterLevel} (${statLine(row)}): ${message}`);
         }
@@ -271,7 +264,7 @@ export function CompareView() {
       controller.abort();
       if (seriesRequest.current.isCurrent(token)) {
         setSeries([]);
-        const message = error instanceof Error ? error.message : String(error);
+        const message = errorMessage(error);
         setSeriesError(message);
         setSeriesStatus("error");
         setError(message);
@@ -287,45 +280,28 @@ export function CompareView() {
   const chartsLoading = series.some(lane => lane.chartStatus === "loading");
 
   if (!selected) {
-    return (
-      <section className="workspace-panel compare-panel">
-        <div className="workspace-header"><div><h1>Compare</h1><span>Requires a current ranked build</span></div></div>
-        <div className="empty-state workspace-prerequisite">
-          <strong>Select a ranking first</strong>
-          <span>Run or update Rankings, then select any row to use as the baseline.</span>
-          <button type="button" onClick={() => setWorkspace("rankings")}>Go to Rankings</button>
-        </div>
-      </section>
-    );
+    return <WorkspaceGate panelClass="compare-panel" title="Compare" requirement="Requires a current ranked build"
+      heading="Select a ranking first" message="Run or update Rankings, then select any row to use as the baseline." />;
   }
 
   if (resultsStale) {
-    return (
-      <section className="workspace-panel compare-panel">
-        <div className="workspace-header"><div><h1>Compare</h1><span>Requires current ranked results</span></div></div>
-        <div className="empty-state workspace-prerequisite">
-          <strong>Update Rankings before comparing</strong>
-          <span>The selected build and comparison targets belong to the previous query.</span>
-          <button type="button" onClick={() => setWorkspace("rankings")}>Go to Rankings</button>
-        </div>
-      </section>
-    );
+    return <WorkspaceGate panelClass="compare-panel" title="Compare" requirement="Requires current ranked results"
+      heading="Update Rankings before comparing" message="The selected build and comparison targets belong to the previous query." />;
   }
 
+  const aowSupported = aowModelSupported(catalog?.dataManifest);
+  const baselineMetric = metricForObjective(selected, request.objective, aowSupported);
+  const laneAow = [selected, target, ...series.map((lane) => lane.row)].some((row) => row && hasAowDamage(row, aowSupported));
   return (
     <section className="workspace-panel compare-panel">
       <div className="workspace-header analysis-workspace-header compare-workspace-header">
-        <div className="workspace-heading-copy">
-          <h1>Compare</h1>
-          <span>Selected baseline versus {compareSource}</span>
-          <small>Pinned loadouts keep their weapon, affinity, and skill; stats and upgrades are reoptimized for the current budget. Non-upgradeable pins use +0.</small>
-          <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)}</small>
-        </div>
-      </div>
-      <div className="analysis-state" role="status" aria-live="polite">
-        {seriesStatus === "loading" ? "Resolving comparison builds…" : null}
-        {seriesStatus === "error" ? `Compare failed: ${seriesError}` : null}
-        {seriesStatus === "ready" ? chartsLoading ? "Comparison current · Upgrade charts loading…" : "Comparison current" : null}
+        <WorkspaceHeading title="Compare" aboutLabel="About Compare" about={<>
+          Every comparison uses this query&apos;s level, stat budget, locks and world settings. Pinned loadouts keep their
+          weapon, affinity and skill; their stats and upgrades are optimized again for the current budget, and pins that
+          cannot be upgraded use +0. The selected build stays the baseline, and deltas are the compared build minus it.
+        </>}>
+          <small className="selected-summary">Baseline: {selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)} {baselineMetric === null ? "Unavailable" : fixed1(baselineMetric)}</small>
+        </WorkspaceHeading>
       </div>
       <div className="compare-toolbar">
         <span className="compare-chip-lead">Against</span>
@@ -334,14 +310,14 @@ export function CompareView() {
             {chips.map((chip) => (
               <li className="scope-chip" key={chip.key}>
                 <span className="chip-kind">{chip.kind}</span>
-                <span className="chip-label">{chip.label}</span>
+                <span>{chip.label}</span>
                 <button type="button" aria-label={`Remove ${chip.kind} ${chip.label}`} onClick={() => patchCompareControls(chip.patch)}>
                   <X size={12} aria-hidden="true" />
                 </button>
               </li>
             ))}
           </ul>
-        ) : <span className="compare-default">{compareBench.length ? "Pinned targets" : "Current ranked rivals"}</span>}
+        ) : <span className="compare-default">{compareSource}</span>}
         <Popover
           label="Comparison filters"
           trigger={<><SlidersHorizontal size={14} aria-hidden="true" />Filters</>}
@@ -383,15 +359,7 @@ export function CompareView() {
               onChange={(weaponName) => patchCompareControls({
                 weaponName,
                 aowName: null,
-                filters: {
-                  version: 1,
-                  entries: replaceFilterEntries(
-                    replaceFilterEntries(compareControls.filters.entries, "weapon_type", [], []),
-                    "affinity",
-                    [],
-                    [],
-                  ),
-                },
+                filters: { version: 1, entries: clearTypeAndAffinityFilters(compareControls.filters.entries) },
               })}
             />
             <AowSelect
@@ -436,34 +404,38 @@ export function CompareView() {
           filters: { version: 1, entries: [] },
         })}>{compareBench.length ? "Use pinned targets" : "Use ranked rivals"}</button> : null}
         {compareBench.length ? (
-          <div className="compare-pins">
-            <button type="button" className="chip-action" onClick={clearCompareBench}>Clear {compareBench.length} pinned target{compareBench.length === 1 ? "" : "s"}</button>
-            <small>Selected stays as the baseline.</small>
-          </div>
+          <button type="button" className="chip-action" onClick={clearCompareBench}>Clear {compareBench.length} pinned target{compareBench.length === 1 ? "" : "s"}</button>
         ) : null}
+        {/* The comparison's state sits at the end of its scope line rather than on a row of its own. */}
+        <div className="analysis-state compare-status" role="status" aria-live="polite">
+          {seriesStatus === "loading" ? "Resolving comparison builds…" : null}
+          {seriesStatus === "error" ? `Compare failed: ${seriesError}` : null}
+          {seriesStatus === "ready" ? chartsLoading ? "Comparison current · Upgrade charts loading…" : "Comparison current" : null}
+        </div>
       </div>
       <DeltaTable baseline={series[0]?.row ?? selected} candidates={series.slice(1)} objective={request.objective} />
       {/* The delta table answers the comparison; the full build cards are there on request. */}
       <details className="compare-build-details">
         <summary>Build details</summary>
         <div className="compare-lanes" aria-busy={seriesStatus === "loading"}>
-          <Lane title="Selected baseline" row={series[0]?.row ?? selected} objective={request.objective} extendedScalingGrades={extendedScalingGrades} emptyLabel="Selected build unavailable" />
+          <Lane title="Selected baseline" row={series[0]?.row ?? selected} objective={request.objective} extendedScalingGrades={extendedScalingGrades} showAow={laneAow} emptyLabel="Selected build unavailable" />
           {series.length > 1 ? series.slice(1).map((lane) => (
-            <Lane key={lane.label} title={lane.label} row={lane.row} objective={request.objective} extendedScalingGrades={extendedScalingGrades} emptyLabel={lane.emptyLabel ?? "No compatible target"} />
-          )) : <Lane title="Target" row={target} objective={request.objective} extendedScalingGrades={extendedScalingGrades} emptyLabel={seriesStatus === "loading" ? "Loading target…" : emptyTargetLabel} />}
+            <Lane key={lane.label} title={lane.label} row={lane.row} objective={request.objective} extendedScalingGrades={extendedScalingGrades} showAow={laneAow} emptyLabel={lane.emptyLabel ?? "No compatible target"} />
+          )) : <Lane title="Target" row={target} objective={request.objective} extendedScalingGrades={extendedScalingGrades} showAow={laneAow} emptyLabel={seriesStatus === "loading" ? "Loading target…" : emptyTargetLabel} />}
         </div>
       </details>
-      <details className="compare-upgrade-details" open>
+      {/* Folded: the delta table above is the answer; the per-upgrade lines are reference. */}
+      <details className="compare-matrix">
         <summary>Upgrade matrix</summary>
         <div className="matrix-toolbar">
-          <span>{compareSource}</span>
+          <span>{objectiveLabel(request.objective)} at each upgrade</span>
           <div>
             <button type="button" onClick={() => scrollMatrix(matrixRef.current, -1)}>+0</button>
             <button type="button" onClick={() => scrollMatrix(matrixRef.current, 1)}>+{matrixHorizon}</button>
           </div>
         </div>
         <div className="matrix-wrap" ref={matrixRef} aria-busy={chartsLoading} role="region" aria-label="Upgrade matrix" tabIndex={0}>
-          <div className="metric-matrix" role="grid" aria-label="Compare upgrade metrics">
+          <div className="metric-matrix" role="table" aria-label="Compare upgrade metrics">
             <div className="matrix-row matrix-header" role="row">
               <span role="columnheader">Line</span>
               {Array.from({ length: matrixHorizon + 1 }, (_, upgrade) => <span role="columnheader" key={upgrade}>+{upgrade}</span>)}
@@ -474,7 +446,7 @@ export function CompareView() {
           </div>
         </div>
       </details>
-      {catalog?.dataManifest.capabilities.classBudget && catalog.dataManifest.capabilities.statusBuildup
+      {catalog && !usesFixedStats(catalog, request.className) && catalog.dataManifest.capabilities.statusBuildup
         ? <LoadoutTradeoffs base={baseRequest} current={request} selected={selected} />
         : <p className="analysis-state">AR / bleed tradeoffs require class budgets and status modeling.</p>}
     </section>
@@ -482,11 +454,12 @@ export function CompareView() {
 }
 
 function DeltaTable({ baseline, candidates, objective }: { baseline: SolvedBuildDto; candidates: CompareLane[]; objective: ReturnType<typeof useDesktopStore.getState>["request"]["objective"] }) {
-  const aowSupported = useDesktopStore((state) => Boolean(state.catalog?.dataManifest.capabilities.aowDamage && state.catalog?.dataManifest.capabilities.aowRoutes));
+  const aowSupported = useDesktopStore((state) => aowModelSupported(state.catalog?.dataManifest));
   const objectiveMetric: CompareMetric[] = objective === "max_ar"
     ? []
     : [["Objective", (row: SolvedBuildDto) => metricForObjective(row, objective, aowSupported)]];
-  const metrics: CompareMetric[] = [
+  const compared = [baseline, ...candidates.flatMap((lane) => lane.row ? [lane.row] : [])];
+  const allMetrics: CompareMetric[] = [
     ...objectiveMetric,
     ["AR", (row: SolvedBuildDto) => row.ar.total],
     ["Physical", (row: SolvedBuildDto) => row.ar.physical],
@@ -499,13 +472,14 @@ function DeltaTable({ baseline, candidates, objective }: { baseline: SolvedBuild
     ["AoW full", (row: SolvedBuildDto) => hasAowDamage(row, aowSupported) ? row.aowFullSequenceDamage : null],
     ["Stamina", (row: SolvedBuildDto) => hasAowDamage(row, aowSupported) ? row.aowRoute?.totalStaminaCost ?? null : null, -1],
   ];
+  // A metric no compared build models is left out rather than shown as a column of "Unavailable".
+  const metrics = allMetrics.filter(([, value]) => compared.some((row) => value(row) !== null));
   const primaryMetrics = metrics.filter(([label]) =>
     label === "Objective"
     || label === "AR"
     || label === "Bleed"
     || label === "AoW full",
   );
-  const baselineMetric = metricForObjective(baseline, objective, aowSupported);
   const renderTable = (tableMetrics: CompareMetric[], caption: string) => (
     <table>
       <caption>{caption}</caption>
@@ -517,7 +491,8 @@ function DeltaTable({ baseline, candidates, objective }: { baseline: SolvedBuild
             const candidateValue = value(lane.row!);
             const baselineValue = value(baseline);
             if (candidateValue === null || baselineValue === null) return <td key={label}>Unavailable</td>;
-            const delta = candidateValue - baselineValue;
+            // Rounded to the shown precision first, so "0.0" is never coloured as a change.
+            const delta = Number(fixed1(candidateValue - baselineValue));
             const improvement = delta * direction;
             return <td className={improvement > 0 ? "positive" : improvement < 0 ? "negative" : ""} key={label}>{delta > 0 ? "+" : ""}{fixed1(delta)}</td>;
           })}
@@ -527,7 +502,6 @@ function DeltaTable({ baseline, candidates, objective }: { baseline: SolvedBuild
   );
   return (
     <div className="compare-deltas">
-      <p><strong>Baseline</strong> {baseline.weaponName} / {baseline.affinity} / +{baseline.upgrade} · {objectiveLabel(objective)} {baselineMetric === null ? "Unavailable" : fixed1(baselineMetric)}</p>
       {!candidates.length ? <small>No comparison target is currently available.</small> : null}
       {candidates.length ? renderTable(primaryMetrics, "Primary deltas versus baseline") : null}
       {candidates.length ? (
@@ -556,7 +530,7 @@ function MatrixRow({
       </strong>
       {Array.from({ length: maxUpgrade + 1 }, (_, upgrade) => (
         <span
-          role="gridcell"
+          role="cell"
           className={lane.row?.upgrade === upgrade ? "current-upgrade" : undefined}
           key={`${lane.label}-${upgrade}`}
         >
@@ -572,15 +546,17 @@ function Lane({
   row,
   objective,
   extendedScalingGrades,
+  showAow,
   emptyLabel,
 }: {
   title: string;
   row: SolvedBuildDto | null;
   objective: ReturnType<typeof useDesktopStore.getState>["request"]["objective"];
   extendedScalingGrades: boolean;
+  showAow: boolean;
   emptyLabel: string;
 }) {
-  const aowSupported = useDesktopStore((state) => Boolean(state.catalog?.dataManifest.capabilities.aowDamage && state.catalog?.dataManifest.capabilities.aowRoutes));
+  const aowSupported = useDesktopStore((state) => aowModelSupported(state.catalog?.dataManifest));
   const metric = row ? metricForObjective(row, objective, aowSupported) : null;
   return (
     <div className="compare-lane" role="group" aria-label={title}>
@@ -593,7 +569,7 @@ function Lane({
           <div className="lane-metrics">
             {objective !== "max_ar" ? <span>Metric <b>{metric === null ? "Unavailable" : fixed1(metric)}</b></span> : null}
             <span>AR <b>{fixed1(row.ar.total)}</b></span>
-            <span>AoW <b>{hasAowDamage(row, aowSupported) ? compactNumber(row.aowFullSequenceDamage) : "Unavailable"}</b></span>
+            {showAow ? <span>AoW <b>{hasAowDamage(row, aowSupported) ? compactNumber(row.aowFullSequenceDamage) : "Unavailable"}</b></span> : null}
           </div>
           <StatusTokens row={row} />
           {hasAowDamage(row, aowSupported) && row.aowRoute ? (

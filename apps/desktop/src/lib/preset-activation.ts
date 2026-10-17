@@ -13,6 +13,33 @@ export function activationRequest(request: OptimizeRequestDto, catalog: CatalogD
   return { ...request, className: matches[0].name };
 }
 
+/** Clears saved names the current data no longer has, before Migrate data verifies the build. */
+export function migratePresetRequest(request: OptimizeRequestDto, catalog: CatalogDto): { request: OptimizeRequestDto; issues: string[] } {
+  const migrated = activationRequest(request, catalog);
+  const issues: string[] = [];
+  // Older builds stored the type's label; newer ones its key. Either still filters correctly.
+  if (migrated.weaponTypeKey && !catalog.weaponTypeOptions.some((option) => option.key === migrated.weaponTypeKey || option.label === migrated.weaponTypeKey)) {
+    issues.push(`weapon type '${migrated.weaponTypeKey}' no longer exists`);
+    migrated.weaponTypeKey = null;
+  }
+  if (migrated.weaponName && !catalog.weaponNames.includes(migrated.weaponName)) {
+    issues.push(`weapon '${migrated.weaponName}' no longer exists`);
+    migrated.weaponName = null;
+    migrated.affinity = null;
+    migrated.aowName = null;
+  }
+  if (migrated.affinity && !catalog.affinityNames.includes(migrated.affinity)) {
+    issues.push(`affinity '${migrated.affinity}' no longer exists`);
+    migrated.affinity = null;
+    migrated.aowName = null;
+  }
+  if (migrated.aowName && !catalog.aowNames.includes(migrated.aowName)) {
+    issues.push(`skill '${migrated.aowName}' no longer exists`);
+    migrated.aowName = null;
+  }
+  return { request: migrated, issues };
+}
+
 export function catalogVersion(catalog: CatalogDto): string {
   const manifest = catalog.dataManifest;
   return `${manifest.profile.id}:${manifest.schemaVersion}:${manifest.datasetVersion}:${manifest.modelVersion}`;

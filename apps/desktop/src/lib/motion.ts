@@ -40,7 +40,7 @@ export function settleRanking(container: HTMLElement, freshResults: boolean, boa
     // Opacity only: a moving marker would make every later row its own layer as well.
     [...container.querySelectorAll<HTMLElement>(".rank-move, .metric-delta")]
       .filter((marker) => {
-        const row = marker.closest(".result-row-full")?.getBoundingClientRect();
+        const row = marker.closest(".result-row")?.getBoundingClientRect();
         return row !== undefined && row.bottom > view.top && row.top < view.bottom;
       })
       .forEach((marker, index) => marker.animate(

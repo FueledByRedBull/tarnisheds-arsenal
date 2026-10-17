@@ -1,0 +1,52 @@
+/* Width breakpoints, kept apart from styles.css (main.tsx adopts this sheet after it). When
+   the window crosses a breakpoint, Chromium restyles the elements these rules name; in the main
+   sheet, the same crossing restyled the whole page. */
+
+/* The palette keeps its icon and Ctrl K; its words go first so the query stays on one line. */
+@media (max-width: 1760px) {
+  .strip-palette-label {
+    display: none;
+  }
+}
+
+/* Below 1500px the query line keeps every token on one row: sentence joiners, profile version
+   numbers (also under Model coverage) and the Ctrl K hint (also in its tooltip) give way first.
+   The version only leaves the screen: it stays in each profile radio's accessible name. */
+@media (max-width: 1500px) {
+  .strip-joiner,
+  .strip-palette kbd {
+    display: none;
+  }
+
+  .profile-version {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 1320px) {
+  .desktop-shell {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+
+  .center-workspace {
+    padding-inline: 9px;
+  }
+
+  .analysis-workspace-header .workspace-heading-copy {
+    flex: 1 1 300px;
+  }
+
+  .analysis-workspace-header .header-controls {
+    margin-left: auto;
+  }
+
+  .workspace-tabs button {
+    padding-inline: 9px;
+  }
+
+}

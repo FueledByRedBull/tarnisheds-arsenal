@@ -1,5 +1,6 @@
-import { expect } from "@playwright/test";
+import { expect as baseExpect } from "@playwright/test";
 import { existsSync } from "node:fs";
+import { chooseClass, closeEditors, openEditor, openSection } from "../tests/editors.ts";
 import { launchPackagedApp, stopSession } from "./packaged-session.mjs";
 
 const executable = process.argv[2];
@@ -7,14 +8,12 @@ if (!executable || !existsSync(executable)) {
   throw new Error("Usage: node scripts/smoke-packaged.mjs <packaged-executable>");
 }
 
-const startupAttempts = positiveIntegerFromEnv("PACKAGED_SMOKE_START_ATTEMPTS", 2);
-const startupTimeoutMs = positiveIntegerFromEnv("PACKAGED_SMOKE_STARTUP_TIMEOUT_MS", 90_000);
-const retryCooldownMs = positiveIntegerFromEnv("PACKAGED_SMOKE_RETRY_COOLDOWN_MS", 5_000);
+// Native work runs on an unoptimized debug build in CI; Playwright's 5 s default is too tight.
+const expect = baseExpect.configure({ timeout: 30_000 });
 const profileStorageKey = "tarnisheds-arsenal.gameProfile.v1";
-const vanillaCompareBenchKey = "tarnisheds-arsenal.compareBench.v1.vanilla";
+const IPC_REQUESTS = "http://ipc.localhost/**";
 
 let session;
-let previousCompareBench;
 let smokeStage = "launch packaged app";
 const smokeStartedAt = Date.now();
 
@@ -24,12 +23,7 @@ function markSmokeStage(stage) {
 }
 
 try {
-  session = await launchPackagedApp(
-    executable,
-    startupAttempts,
-    startupTimeoutMs,
-    retryCooldownMs,
-  );
+  session = await launchPackagedApp(executable);
   const { page } = session;
   page.setDefaultTimeout(30_000);
   const policyErrors = [];
@@ -63,7 +57,6 @@ try {
   if (await page.getByRole("radio", { name: /Vanilla/ }).getAttribute("aria-checked") !== "true") {
     throw new Error("packaged smoke did not start on the Vanilla profile");
   }
-  previousCompareBench = await page.evaluate((key) => localStorage.getItem(key), vanillaCompareBenchKey);
   markSmokeStage("select exact-level high-level search");
   await openEditor(page, "Upgrades");
   const exactLevelPolicy = page.getByRole("button", { name: "Use exact levels", exact: true });
@@ -75,7 +68,7 @@ try {
   await page.getByRole("spinbutton", { name: "STR", exact: true }).fill("96");
   await page.getByRole("spinbutton", { name: "STR", exact: true }).press("Enter");
   await page.getByRole("button", { name: "Search", exact: true }).click();
-  const highLevelFirst = page.locator(".result-row-full").first();
+  const highLevelFirst = page.locator(".result-row").first();
   markSmokeStage("wait for vanilla high-level result");
   // Keep headroom for slower CI even though exact levels avoid the measured open-query cost.
   await highLevelFirst.waitFor({ timeout: 120_000 });
@@ -88,12 +81,15 @@ try {
   markSmokeStage("switch to Convergence profile");
   await profileSwitch.getByRole("radio", { name: /Convergence/ }).click();
   markSmokeStage("wait for Convergence model");
-  await page.getByText("Experimental fixed-stat model", { exact: true }).waitFor();
+  await page.getByText("Experimental model", { exact: true }).waitFor();
   await openEditor(page, "Class");
-  if (await page.getByRole("combobox", { name: "Class", exact: true }).inputValue() !== "Custom stats") {
-    throw new Error("Convergence substituted a starting-class budget for fixed stats");
+  // Convergence's own first class; a Vanilla class here would mean the catalogs mixed.
+  if (await page.getByRole("combobox", { name: "Class", exact: true }).inputValue() !== "Retainer") {
+    throw new Error("Convergence did not load its own class catalog");
   }
-  await expect(page.getByRole("button", { name: "Optimize class", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Optimize class", exact: true })).toBeEnabled();
+  // Builds saved with Custom stats keep their exact fixed-stat workflow.
+  await chooseClass(page, "Custom stats");
   await openEditor(page, "Objective");
   await expect(page.getByRole("button", { name: "Max AR", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "AoW First Hit", exact: true })).toHaveCount(0);
@@ -111,20 +107,20 @@ try {
   markSmokeStage("run Convergence search");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   markSmokeStage("wait for Convergence result");
-  const convergenceRow = page.locator(".result-row-full").first();
+  const convergenceRow = page.locator(".result-row").first();
   await convergenceRow.waitFor();
   await expect(convergenceRow.locator(".loadout-upgrade")).toHaveText("+15");
   // No Convergence row has modeled skill damage, so the column becomes one header note.
-  await expect(page.locator(".result-row-full .skill-cell")).toHaveCount(0);
+  await expect(page.locator(".result-row .skill-cell")).toHaveCount(0);
   await expect(page.getByText("Skill damage isn't modeled for these results.", { exact: true })).toBeVisible();
   const convergenceAr = await convergenceRow.locator(".ar-cell > strong").innerText();
   if (!(Number(convergenceAr.replace(/[^0-9.]/g, "")) > 0)) {
     throw new Error(`Convergence returned invalid weapon AR: ${convergenceAr}`);
   }
   await convergenceRow.click();
-  await expect(page.locator(".metric-tile").filter({ hasText: "AoW model" })).toContainText("Unavailable");
   const convergenceWeapon = await convergenceRow.locator(".weapon-cell strong").innerText();
   await expect(page.locator(".selected-build-title > strong")).toHaveText(convergenceWeapon);
+  await expect(page.locator(".metric-tile").filter({ hasText: "AoW" })).toHaveCount(0);
   await page.getByRole("button", { name: "Update selected", exact: true }).click();
   await page.getByText(`Updated ${convergencePresetName}.`, { exact: true }).waitFor();
   await page.getByRole("button", { name: "Load", exact: true }).click();
@@ -154,7 +150,7 @@ try {
 
   markSmokeStage("run vanilla rank-four search");
   await page.getByRole("button", { name: "Search", exact: true }).click();
-  const fourth = page.locator(".result-row-full").nth(3);
+  const fourth = page.locator(".result-row").nth(3);
   markSmokeStage("wait for vanilla rank-four result");
   await fourth.waitFor();
   await expect(fourth.locator(".skill-cell")).toContainText("1st hit");
@@ -187,8 +183,8 @@ try {
   if (!exactStats) throw new Error("frontier did not expose an exact combat allocation");
   const expectedSetup = await page.locator(".selected-build-head > span").innerText();
   await tradeoffs.getByRole("button", { name: "Use exact allocation", exact: true }).click();
-  await expect(page.locator(".result-row-full")).toHaveCount(1);
-  const exactRow = page.locator(".result-row-full").first();
+  await expect(page.locator(".result-row")).toHaveCount(1);
+  const exactRow = page.locator(".result-row").first();
   const exactWeapon = (await exactRow.locator(".weapon-cell strong").innerText()).trim();
   const exactAffinity = (await exactRow.locator(".loadout-affinity").innerText()).trim();
   const exactAow = (await exactRow.locator(".loadout-skill").innerText()).trim();
@@ -238,19 +234,50 @@ try {
   if (!bestTypeWeapon) throw new Error("best-Axe comparison did not resolve a target");
   await page.getByText("Comparison current", { exact: true }).waitFor();
 
-  markSmokeStage("run Paths preview");
+  // Hidden workspaces keep their runs: switching tabs mid-run must not cancel native work.
+  markSmokeStage("run Paths preview across a tab switch");
   await page.getByRole("navigation").getByRole("button", { name: "Paths" }).click();
-  await page.getByRole("spinbutton", { name: "Levels ahead" }).fill("10");
+  await setLevelsAhead(page, ".paths-panel", "10");
+  const pathHold = await holdStatus(page, "get_path_preview_status");
   await page.getByRole("button", { name: "Trace paths", exact: true }).click();
+  await expect.poll(() => pathHold.calls).toContain("start_path_preview");
+  await switchWorkspaceAndBack(page, { key: "Control+3", tab: "Paths" });
+  if ((await releaseStatus(page, pathHold)).includes("cancel_path_preview")) throw new Error("a tab switch cancelled the Paths run");
   markSmokeStage("wait for Paths preview");
   await page.getByRole("table", { name: "Path steps", exact: true }).locator('[role="row"]').nth(1).waitFor();
+  await expect(page.getByText("Path preview stopped.", { exact: true })).toHaveCount(0);
 
-  markSmokeStage("run Affinity Watch");
+  markSmokeStage("run Affinity Watch across a tab switch");
   await page.getByRole("navigation").getByRole("button", { name: "Affinity Watch" }).click();
-  await page.getByRole("spinbutton", { name: "Levels ahead" }).fill("10");
+  await setLevelsAhead(page, ".affinity-panel", "200");
+  const affinityHold = await holdStatus(page, "get_affinity_watch_status");
   await page.getByRole("button", { name: "Watch affinities", exact: true }).click();
+  await expect.poll(() => affinityHold.calls).toContain("start_affinity_watch");
+  await switchWorkspaceAndBack(page, { key: "Control+4", tab: "Affinity Watch" });
+  if ((await releaseStatus(page, affinityHold)).includes("cancel_affinity_watch")) throw new Error("a tab switch cancelled Affinity Watch");
   markSmokeStage("wait for Affinity Watch");
-  await page.getByRole("grid", { name: "Affinity watch rankings" }).locator('[role="row"]').nth(1).waitFor();
+  await page.getByRole("table", { name: "Affinity watch rankings" }).locator('[role="row"]').nth(1).waitFor({ timeout: 120_000 });
+  await expect(page.getByText("Affinity watch stopped.", { exact: true })).toHaveCount(0);
+
+  // The browser preview's mock copies these registry rules; this proves them natively.
+  markSmokeStage("reject a second native start and cancel cooperatively");
+  const registry = await page.evaluate(async (request) => {
+    const invoke = /** @type {any} */ (window).__TAURI_INTERNALS__.invoke;
+    const message = (error) => error?.message ?? String(error);
+    const { jobId } = await invoke("start_affinity_watch", { request });
+    const second = await invoke("start_affinity_watch", { request }).then(() => "started", message);
+    const accepted = await invoke("cancel_affinity_watch", { jobId });
+    let status = await invoke("get_affinity_watch_status", { jobId });
+    while (!status?.finished) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      status = await invoke("get_affinity_watch_status", { jobId });
+    }
+    return { second, accepted, cancelled: status.finished.cancelled, error: status.finished.error };
+  }, affinityHold.args.start_affinity_watch.request);
+  process.stdout.write(`PACKAGED_SMOKE_JOB_REGISTRY ${JSON.stringify(registry)}\n`);
+  expect(registry.second).toBe("affinity watch job is already running. Stop or wait for it before starting another.");
+  expect(registry.error).toBeNull();
+  expect(registry.cancelled).toBe(registry.accepted);
 
   markSmokeStage("reload saved exact tradeoff");
   await page.reload();
@@ -258,9 +285,10 @@ try {
   await page.getByRole("combobox", { name: "Saved", exact: true }).selectOption({ label: `${presetName} (vanilla, current data)` });
   await page.getByRole("button", { name: "Load", exact: true }).click();
   markSmokeStage("wait for preset load");
-  await page.getByText(`Loaded ${presetName}; saved results verified on current data.`, { exact: true }).waitFor();
-  await expect(page.locator(".result-row-full")).toHaveCount(1);
-  const reloadedRow = page.locator(".result-row-full").first();
+  // The notice can go on to say what happened to pinned builds.
+  await page.getByText(`Loaded ${presetName}; saved results verified on current data.`).waitFor();
+  await expect(page.locator(".result-row")).toHaveCount(1);
+  const reloadedRow = page.locator(".result-row").first();
   await expect(reloadedRow.locator(".weapon-cell strong")).toHaveText(exactWeapon);
   await expect(reloadedRow.locator(".loadout-affinity")).toHaveText(exactAffinity);
   await expect(reloadedRow.locator(".loadout-skill")).toHaveText(exactAow);
@@ -272,14 +300,25 @@ try {
   await expect(page.locator(".selected-build-title > strong")).toHaveText(exactWeapon);
   await expect(page.locator(".selected-build-head > span")).toHaveText(`${exactAffinity} / ${exactAow} / ${exactUpgrade}`);
   await expect(page.locator(".detail-block").filter({ hasText: "Combat Stats" }).locator("strong")).toHaveText(exactStats);
-  markSmokeStage("save stale results as inputs only");
+  markSmokeStage("keep a native trade-off run across a tab switch, then cancel it by an input change");
+  await page.getByRole("navigation").getByRole("button", { name: "Compare" }).click();
+  await page.getByText("Comparison current", { exact: true }).waitFor();
+  const analysisHold = await holdStatus(page, "get_analysis_status");
+  await page.locator(".loadout-tradeoffs").getByRole("button", { name: "Compute trade-offs", exact: true }).click();
+  await expect.poll(() => analysisHold.calls).toContain("start_ar_bleed_frontier");
+  await page.keyboard.press("Control+1");
+  await expect(page.getByRole("navigation").getByRole("button", { name: "Rankings", exact: true })).toHaveAttribute("aria-current", "page");
+  if (analysisHold.calls.includes("cancel_analysis")) throw new Error("leaving Compare cancelled the trade-off run");
   const twoHanding = page.getByRole("checkbox", { name: "Two-handing", exact: true });
   await twoHanding.setChecked(!(await twoHanding.isChecked()));
+  await expect.poll(() => analysisHold.calls).toContain("cancel_analysis");
+  await releaseStatus(page, analysisHold);
   await page.getByText("Inputs changed", { exact: true }).waitFor();
+  markSmokeStage("save stale results as inputs only");
   await page.getByRole("button", { name: "Update selected", exact: true }).click();
   await page.getByText(/Inputs only; rerun search for current results/).waitFor();
   await page.getByRole("button", { name: "Load", exact: true }).click();
-  await expect(page.locator(".result-row-full")).toHaveCount(0);
+  await expect(page.locator(".result-row")).toHaveCount(0);
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   await page.getByRole("button", { name: "Confirm Delete", exact: true }).click();
   markSmokeStage("wait for preset deletion");
@@ -304,12 +343,14 @@ try {
   const output = session?.output().trim();
   const pageState = session?.page
     ? await session.page.locator(
-      '.error-strip[role="alert"], .startup-state[role="alert"], .profile-coverage, .analysis-state, .progress-strip, .search-button',
+      '.error-strip[role="alert"], .startup-state[role="alert"], .profile-coverage, .analysis-state, .progress-strip, .search-button, '
+        + '.workspace-panel, button[aria-current="page"]',
     ).evaluateAll((elements) => elements.map((element) => ({
       className: element.className,
       role: element.getAttribute("role"),
-      text: element.textContent?.replace(/\s+/g, " ").trim() ?? "",
+      text: element.textContent?.replace(/\s+/g, " ").trim().slice(0, 160) ?? "",
       disabled: "disabled" in element ? element.disabled : undefined,
+      visible: element.checkVisibility(),
     }))).catch(() => [])
     : [];
   const suffix = [
@@ -328,12 +369,6 @@ try {
   }
   throw new Error(`${String(error)}${suffix}`);
 } finally {
-  if (session?.page && previousCompareBench !== undefined) {
-    await session.page.evaluate(({ key, value }) => {
-      if (value === null) localStorage.removeItem(key);
-      else localStorage.setItem(key, value);
-    }, { key: vanillaCompareBenchKey, value: previousCompareBench }).catch(() => {});
-  }
   await stopSession(session);
 }
 
@@ -396,38 +431,42 @@ function rowStatLabels(row) {
     .evaluateAll((items) => items.map((item) => item.getAttribute("aria-label")));
 }
 
-// Query-strip and Compare controls live in native popovers, hidden until their token opens.
-async function openEditor(page, editor) {
-  const panel = page.getByRole("dialog", { name: editor, exact: true });
-  // A closing editor stays visible while it fades out, so ask whether it is open.
-  const open = await page.evaluate((name) => [...document.querySelectorAll(".popover-panel:popover-open")]
-    .some((node) => node.getAttribute("aria-label") === name), editor);
-  if (!open) {
-    await closeEditors(page);
-    await page.getByRole("button", { name: new RegExp(`^${editor}: `) }).click();
-    await panel.waitFor();
-  }
-  return panel;
-}
-
-// Saved Builds and Compare's build cards are folded until opened, as a player opens them.
-async function openSection(page, section) {
-  const summary = page.locator("summary").filter({ hasText: section }).first();
-  if (!await summary.evaluate((node) => node.parentElement.open)) await summary.click();
-}
-
-async function closeEditors(page) {
-  await page.evaluate(() => {
-    for (const panel of document.querySelectorAll(".popover-panel:popover-open")) panel.hidePopover();
+// Holds the replies of one status command at the app's IPC protocol and records every command
+// sent meanwhile. The UI then provably still owns a running job while the smoke switches tabs
+// or changes inputs; the native job itself runs untouched.
+async function holdStatus(page, command) {
+  const hold = { calls: [], args: {} };
+  const released = new Promise((resolve) => { hold.release = resolve; });
+  await page.route(IPC_REQUESTS, async (route) => {
+    const name = new URL(route.request().url()).pathname.slice(1);
+    hold.calls.push(name);
+    hold.args[name] = route.request().postDataJSON();
+    if (name === command) await released;
+    await route.continue();
   });
+  return hold;
 }
 
-function positiveIntegerFromEnv(name, fallback) {
-  const raw = process.env[name];
-  if (!raw) return fallback;
-  const parsed = Number(raw);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error(`${name} must be a positive integer`);
-  }
-  return parsed;
+async function releaseStatus(page, hold) {
+  hold.release();
+  await page.unrouteAll({ behavior: "wait" });
+  return hold.calls;
+}
+
+async function setLevelsAhead(page, panelSelector, levels) {
+  // Workspaces reveal in a deferred render, so the previous workspace's "Levels ahead"
+  // can still match for a frame; Playwright would then wait on that now-hidden input.
+  const panel = page.locator(panelSelector);
+  await panel.waitFor({ state: "visible" });
+  const input = panel.getByRole("spinbutton", { name: "Levels ahead" });
+  await input.fill(levels);
+  await input.press("Enter");
+}
+
+async function switchWorkspaceAndBack(page, back) {
+  const navigation = page.getByRole("navigation");
+  await page.keyboard.press("Control+1");
+  await expect(navigation.getByRole("button", { name: "Rankings", exact: true })).toHaveAttribute("aria-current", "page");
+  await page.keyboard.press(back.key);
+  await expect(navigation.getByRole("button", { name: back.tab, exact: true })).toHaveAttribute("aria-current", "page");
 }

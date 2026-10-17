@@ -29,8 +29,11 @@ export function SearchableSelect({
   const id = useId();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
   const activeOptionRef = useRef<HTMLButtonElement | null>(null);
+  // Opened with nothing typed, the list rests on the current value (or on none when it is past
+  // the shown options), so Enter alone keeps that value.
+  const restingIndex = options.slice(0, 80).findIndex((option) => option.value === value);
+  const [activeIndex, setActiveIndex] = useState(restingIndex);
   const selectedLabel =
     options.find((option) => option.value === value)?.label ?? (value ?? "");
   const shownValue = open && !disabled ? query : selectedLabel;
@@ -49,25 +52,28 @@ export function SearchableSelect({
       ? `Showing ${filtered.length} of ${matching.length} matches. Type to narrow the list.`
       : `${matching.length} ${matching.length === 1 ? "match" : "matches"}`;
 
-  const active = filtered[Math.min(activeIndex, Math.max(filtered.length - 1, 0))];
+  const active = activeIndex < 0 ? undefined : filtered[Math.min(activeIndex, filtered.length - 1)];
 
   useEffect(() => {
     if (open) activeOptionRef.current?.scrollIntoView({ block: "nearest" });
   }, [activeIndex, open, query]);
 
-  useEffect(() => {
+  // Disabling closes the list and forgets the typed query, during render rather than after it.
+  const [wasDisabled, setWasDisabled] = useState(disabled);
+  if (wasDisabled !== disabled) {
+    setWasDisabled(disabled);
     if (disabled) {
       setOpen(false);
       setQuery("");
       setActiveIndex(0);
     }
-  }, [disabled]);
+  }
 
   function choose(option: SelectOption | undefined) {
     if (!option) {
       return;
     }
-    onChange(option.value);
+    if (option.value !== value) onChange(option.value);
     setOpen(false);
     setQuery("");
     setActiveIndex(0);
@@ -87,15 +93,15 @@ export function SearchableSelect({
   }
 
   return (
-    <label className="searchable-select" htmlFor={`${id}-input`}>
-      {label}
+    <div className="searchable-select">
+      <label htmlFor={`${id}-input`}>{label}</label>
       <input
         id={`${id}-input`}
         role="combobox"
         aria-label={label}
         aria-autocomplete="list"
         aria-expanded={open && !disabled}
-        aria-controls={`${id}-listbox`}
+        aria-controls={open && !disabled ? `${id}-listbox` : undefined}
         aria-describedby={`${id}-status`}
         aria-activedescendant={open && !disabled && active ? `${id}-option-${Math.min(activeIndex, filtered.length - 1)}` : undefined}
         disabled={disabled}
@@ -115,7 +121,7 @@ export function SearchableSelect({
         onFocus={() => {
           setOpen(true);
           setQuery("");
-          setActiveIndex(0);
+          setActiveIndex(restingIndex);
         }}
         onKeyDown={(event) => {
           // A closed list lets Escape reach the surrounding editor so it can dismiss.
@@ -132,7 +138,7 @@ export function SearchableSelect({
             const direction = event.key === "ArrowDown" ? 1 : -1;
             setActiveIndex((current) => {
               const count = Math.max(filtered.length, 1);
-              return (current + direction + count) % count;
+              return current < 0 && direction < 0 ? count - 1 : (current + direction + count) % count;
             });
             return;
           }
@@ -142,7 +148,10 @@ export function SearchableSelect({
             const exact = filtered.find(
               (option) => option.label.toLocaleLowerCase() === query.trim().toLocaleLowerCase(),
             );
-            choose(exact ?? active ?? filtered.find((option) => option.value !== null) ?? filtered[0]);
+            const typed = query.trim() ? filtered.find((option) => option.value !== null) ?? filtered[0] : undefined;
+            const chosen = exact ?? active ?? typed;
+            if (chosen) choose(chosen);
+            else setOpen(false);
             return;
           }
           if (event.key === "Tab") {
@@ -154,32 +163,35 @@ export function SearchableSelect({
         }}
       />
       {open && !disabled ? (
-        <div className="select-menu" id={`${id}-listbox`} role="listbox">
-          {filtered.map((option, index) => (
-            <button
-              key={`${option.value ?? "open"}-${option.label}`}
-              id={`${id}-option-${index}`}
-              ref={index === Math.min(activeIndex, filtered.length - 1) ? activeOptionRef : undefined}
-              role="option"
-              aria-selected={option.value === value}
-              className={index === activeIndex ? "active" : undefined}
-              type="button"
-              onMouseDown={(event) => event.preventDefault()}
-              onMouseEnter={() => setActiveIndex(index)}
-              onClick={() => {
-                choose(option);
-              }}
-            >
-              {option.label}
-            </button>
-          ))}
-          {filtered.length === 0 ? <span>No matches</span> : null}
-          <small id={`${id}-status`} className="select-status" role="status" aria-live="polite">
-            {resultStatus}
-          </small>
+        <div className="select-menu">
+          <div id={`${id}-listbox`} role="listbox" aria-label={label}>
+            {filtered.map((option, index) => (
+              <button
+                key={`${option.value ?? "open"}-${option.label}`}
+                id={`${id}-option-${index}`}
+                ref={index === Math.min(activeIndex, filtered.length - 1) ? activeOptionRef : undefined}
+                role="option"
+                aria-selected={option.value === value}
+                className={index === activeIndex ? "active" : undefined}
+                type="button"
+                tabIndex={-1}
+                onMouseDown={(event) => event.preventDefault()}
+                onMouseEnter={() => setActiveIndex(index)}
+                onClick={() => {
+                  choose(option);
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          {/* Shown in the menu; screen readers hear the status outside the listbox instead. */}
+          {filtered.length === 0 ? <span aria-hidden="true">No matches</span> : null}
+          <small className="select-status" aria-hidden="true">{resultStatus}</small>
         </div>
-      ) : <span id={`${id}-status`} className="sr-only">{options.length} options</span>}
-    </label>
+      ) : null}
+      <span id={`${id}-status`} className="sr-only" role="status">{open && !disabled ? resultStatus : `${options.length} options`}</span>
+    </div>
   );
 }
 
@@ -193,16 +205,12 @@ export function CheckboxMultiSelect({
   excludedValues = [],
   options,
   onChange,
-  disabled,
-  placeholder = "All",
 }: {
   label: string;
   values: string[];
   excludedValues?: string[];
   options: MultiSelectOption[];
   onChange: (values: string[], excludedValues: string[]) => void;
-  disabled?: boolean;
-  placeholder?: string;
 }) {
   const id = useId();
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -257,9 +265,8 @@ export function CheckboxMultiSelect({
         type="button"
         className="checkbox-multi-trigger"
         aria-label={label}
-        aria-expanded={open && !disabled}
+        aria-expanded={open}
         aria-controls={`${id}-menu`}
-        disabled={disabled}
         onClick={() => setOpen((current) => !current)}
       >
         {selected.length ? (
@@ -271,9 +278,9 @@ export function CheckboxMultiSelect({
             ))}
             {selected.length > 2 ? <span className="filter-chip">+{selected.length - 2}</span> : null}
           </>
-        ) : <span className="checkbox-multi-placeholder">{placeholder}</span>}
+        ) : <span className="checkbox-multi-placeholder">All</span>}
       </button>
-      {open && !disabled ? (
+      {open ? (
         <div className="select-menu checkbox-select-menu" id={`${id}-menu`}>
           <input
             ref={searchRef}

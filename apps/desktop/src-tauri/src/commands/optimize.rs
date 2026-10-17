@@ -1,14 +1,12 @@
-use std::sync::Arc;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-#[cfg(test)]
-use er_optimizer_core::optimize;
 use er_optimizer_core::{
-    FilterDimension, FilterMode, GameData, LevelOptimizeResult, OptimizeRequest, StableFilter,
-    optimize_level_range_with_progress, optimize_prepared_with_progress, optimize_with_cancel,
-    prepare_loadout_evaluator_with_cancel, prepare_search_with_cancel,
-    prepare_upgrade_series_evaluator_with_cancel,
+    FilterDimension, FilterMode, GameData, LevelOptimizeResult, OptimizeObjective, OptimizeRequest,
+    StableFilter, optimize_level_range_with_progress, optimize_level_ranges_with_progress,
+    optimize_prepared_with_progress, optimize_with_cancel, prepare_loadout_evaluator_with_cancel,
+    prepare_search_with_cancel, prepare_upgrade_series_evaluator_with_cancel,
 };
 use tauri::State;
 
@@ -17,39 +15,31 @@ use crate::dto::{
     ArBleedFrontierRequestDto, CombatStateDto, SearchFinishedDto, SearchJobStatusDto,
     SearchProgressDto, SolveBuildRequestDto, SolvedBuildDto, StartSearchResponseDto,
     UpgradePointDto, UpgradeSeriesRequestDto, lock_request_to_stats, metric_for_objective,
-    parse_objective,
+    set_min_combat_stats,
 };
 use crate::errors::AppError;
-use crate::{AppState, AsyncJobHandle, CancelFlag, ProfileData};
+use crate::{AppState, ProfileData};
 
 #[cfg(test)]
 pub fn run_search_inner(
-    mut request: crate::dto::OptimizeRequestDto,
+    request: crate::dto::OptimizeRequestDto,
     state: &AppState,
 ) -> Result<Vec<SolvedBuildDto>, AppError> {
-    clamp_weapon_upgrade_request(&mut request, state)?;
-    let profile = state.profile(&request.profile_id)?;
-    let request = OptimizeRequest::try_from(&request)?;
-    optimize(&request, &profile.data)
-        .map(|rows| rows.into_iter().map(SolvedBuildDto::from).collect())
-        .map_err(AppError::from)
-}
-
-#[cfg(test)]
-pub fn run_search_inner_with_cancel<F>(
-    mut request: crate::dto::OptimizeRequestDto,
-    state: &AppState,
-    should_continue: F,
-) -> Result<Vec<SolvedBuildDto>, AppError>
-where
-    F: FnMut() -> bool + Send,
-{
-    clamp_weapon_upgrade_request(&mut request, state)?;
-    let profile = state.profile(&request.profile_id)?;
-    let request = OptimizeRequest::try_from(&request)?;
-    optimize_with_cancel(&request, &profile.data, should_continue)
-        .map(|rows| rows.into_iter().map(SolvedBuildDto::from).collect())
-        .map_err(AppError::from)
+    let (request, data) = prepare_search(request, state)?;
+    let status = Mutex::new(SearchJobStatusDto {
+        progress: None,
+        finished: None,
+    });
+    let finished = run_search_worker(
+        &request,
+        &data,
+        String::new(),
+        &AtomicBool::new(false),
+        &status,
+    );
+    finished
+        .error
+        .map_or(Ok(finished.rows), |error| Err(AppError::new(error)))
 }
 
 pub fn run_level_range_inner_with_progress<F, C>(
@@ -61,7 +51,7 @@ pub fn run_level_range_inner_with_progress<F, C>(
 ) -> Result<Vec<LevelOptimizeResult>, AppError>
 where
     F: FnMut(u16) -> bool,
-    C: FnMut() -> bool + Send,
+    C: Fn() -> bool + Sync,
 {
     clamp_weapon_upgrade_request_for_profile(&mut request, profile)?;
     let request = OptimizeRequest::try_from(&request)?;
@@ -75,22 +65,59 @@ where
     .map_err(AppError::from)
 }
 
+/// Level ranges for independent requests, calculated concurrently. Results keep request
+/// order, and a request that fails normalization keeps its error in place.
+pub fn run_level_ranges_inner_with_progress<F, C>(
+    requests: Vec<crate::dto::OptimizeRequestDto>,
+    levels: &[u16],
+    profile: &ProfileData,
+    level_complete: F,
+    should_continue: C,
+) -> Vec<Result<Vec<LevelOptimizeResult>, AppError>>
+where
+    F: Fn(usize, u16) -> bool + Sync,
+    C: Fn() -> bool + Sync,
+{
+    let normalized: Vec<Result<OptimizeRequest, AppError>> = requests
+        .into_iter()
+        .map(|mut request| {
+            clamp_weapon_upgrade_request_for_profile(&mut request, profile)?;
+            OptimizeRequest::try_from(&request)
+        })
+        .collect();
+    let (positions, valid): (Vec<usize>, Vec<OptimizeRequest>) = normalized
+        .iter()
+        .enumerate()
+        .filter_map(|(index, request)| Some((index, request.as_ref().ok()?.clone())))
+        .unzip();
+    let mut ranges = optimize_level_ranges_with_progress(
+        &valid,
+        levels,
+        &profile.data,
+        |index, level| level_complete(positions[index], level),
+        should_continue,
+    )
+    .into_iter();
+    normalized
+        .into_iter()
+        .map(|request| {
+            request.and_then(|_| {
+                ranges
+                    .next()
+                    .expect("one range per valid request")
+                    .map_err(AppError::from)
+            })
+        })
+        .collect()
+}
+
 fn solve_build_base(
     request: SolveBuildRequestDto,
     state: &AppState,
 ) -> Result<crate::dto::OptimizeRequestDto, AppError> {
     let mut base = request.base;
-    base.weapon_name = Some(request.weapon_name);
-    base.affinity = request.affinity;
-    base.aow_name = request.aow_name;
-    base.weapon_type_key = None;
-    base.somber_filter = "all".to_string();
-    base.filters.entries.clear();
-    if !state
-        .profile(&base.profile_id)?
-        .data
-        .capabilities
-        .class_budget
+    base.pin_loadout(request.weapon_name, request.affinity, request.aow_name);
+    if !crate::commands::data::uses_class_budget(state.profile(&base.profile_id)?, &base.class_name)
     {
         let stats = CombatStateDto {
             str_stat: base.str_stat,
@@ -101,7 +128,6 @@ fn solve_build_base(
         };
         lock_request_to_stats(&mut base, stats);
     }
-    base.top_k = 1;
     Ok(base)
 }
 
@@ -130,7 +156,7 @@ fn solve_build_inner_with_cancel<F>(
     should_continue: F,
 ) -> Result<Option<SolvedBuildDto>, AppError>
 where
-    F: FnMut() -> bool + Send,
+    F: Fn() -> bool + Sync,
 {
     let (request, data) = prepare_solve_build(request, state)?;
     optimize_with_cancel(&request, &data, should_continue)
@@ -144,13 +170,10 @@ pub fn start_solve_build(
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
     let (core_request, data) = prepare_solve_build(request, &state)?;
-    let (job_id, cancel_flag, status) = start_analysis_job(&state)?;
-    let job_id_for_task = job_id.clone();
-    let job_id_for_finish = job_id.clone();
-    let cancel_for_finish = Arc::clone(&cancel_flag);
-    crate::spawn_supervised_job(
-        status,
-        move || {
+    state.analysis_jobs.start(
+        &state.next_job,
+        AnalysisJobStatusDto { finished: None },
+        move |job_id, cancel_flag, _| {
             let (result, error, cancelled) =
                 match optimize_with_cancel(&core_request, &data, || {
                     !cancel_flag.load(Ordering::Relaxed)
@@ -163,7 +186,7 @@ pub fn start_solve_build(
                     Err(message) => (None, Some(message), false),
                 };
             AnalysisFinishedDto {
-                job_id: job_id_for_task,
+                job_id,
                 kind: AnalysisJobKindDto::SolveBuild,
                 cancelled,
                 result,
@@ -172,17 +195,16 @@ pub fn start_solve_build(
                 error,
             }
         },
-        move |status, outcome| {
+        |status, outcome, job_id, cancelled| {
             publish_analysis_finished(
                 status,
                 outcome,
-                job_id_for_finish,
+                job_id,
                 AnalysisJobKindDto::SolveBuild,
-                &cancel_for_finish,
+                cancelled,
             );
         },
-    );
-    Ok(StartSearchResponseDto { job_id })
+    )
 }
 
 #[cfg(test)]
@@ -196,33 +218,17 @@ pub fn build_upgrade_series_inner(
 fn prepare_upgrade_series(
     request: UpgradeSeriesRequestDto,
     state: &AppState,
-) -> Result<
-    (
-        OptimizeRequest,
-        Arc<GameData>,
-        u8,
-        er_optimizer_core::OptimizeObjective,
-    ),
-    AppError,
-> {
+) -> Result<(OptimizeRequest, Arc<GameData>, u8, OptimizeObjective), AppError> {
     let mut base = request.base;
-    base.weapon_name = Some(request.solved.weapon_name.clone());
-    base.affinity = Some(request.solved.affinity.clone());
-    base.aow_name = request.solved.aow_name.clone();
-    base.weapon_type_key = None;
-    base.somber_filter = "all".to_string();
-    base.filters.entries.clear();
+    base.pin_loadout(
+        request.solved.weapon_name.clone(),
+        Some(request.solved.affinity.clone()),
+        request.solved.aow_name.clone(),
+    );
     base.standard_max_upgrade = None;
     base.somber_max_upgrade = None;
     base.exact_upgrade = Some(false);
-    base.max_upgrade = None;
-    base.fixed_upgrade = None;
-    base.top_k = 1;
-    base.min_str = 0;
-    base.min_dex = 0;
-    base.min_int = 0;
-    base.min_fai = 0;
-    base.min_arc = 0;
+    set_min_combat_stats(&mut base, [0; 5]);
     lock_request_to_stats(&mut base, request.solved.stats);
 
     let profile = state.profile(&base.profile_id)?;
@@ -244,20 +250,16 @@ fn prepare_upgrade_series(
     }
     clamp_weapon_upgrade_request(&mut base, state)?;
     let max_upgrade = request.max_upgrade.min(profile_upgrade_cap);
-    let objective = parse_objective(&base.objective)?;
-    Ok((
-        OptimizeRequest::try_from(&base)?,
-        Arc::clone(&profile.data),
-        max_upgrade,
-        objective,
-    ))
+    let request = OptimizeRequest::try_from(&base)?;
+    let objective = request.objective;
+    Ok((request, Arc::clone(&profile.data), max_upgrade, objective))
 }
 
 fn evaluate_upgrade_series_with_cancel<F>(
     core_request: &OptimizeRequest,
     data: &GameData,
     max_upgrade: u8,
-    objective: er_optimizer_core::OptimizeObjective,
+    objective: OptimizeObjective,
     mut should_continue: F,
 ) -> Result<Vec<UpgradePointDto>, AppError>
 where
@@ -303,13 +305,10 @@ pub fn start_upgrade_series(
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
     let (core_request, data, max_upgrade, objective) = prepare_upgrade_series(request, &state)?;
-    let (job_id, cancel_flag, status) = start_analysis_job(&state)?;
-    let job_id_for_task = job_id.clone();
-    let job_id_for_finish = job_id.clone();
-    let cancel_for_finish = Arc::clone(&cancel_flag);
-    crate::spawn_supervised_job(
-        status,
-        move || {
+    state.analysis_jobs.start(
+        &state.next_job,
+        AnalysisJobStatusDto { finished: None },
+        move |job_id, cancel_flag, _| {
             let result = evaluate_upgrade_series_with_cancel(
                 &core_request,
                 &data,
@@ -324,7 +323,7 @@ pub fn start_upgrade_series(
                 Err(error) => (Vec::new(), Some(error.message), false),
             };
             AnalysisFinishedDto {
-                job_id: job_id_for_task,
+                job_id,
                 kind: AnalysisJobKindDto::UpgradeSeries,
                 cancelled,
                 result: None,
@@ -333,30 +332,24 @@ pub fn start_upgrade_series(
                 error,
             }
         },
-        move |status, outcome| {
+        |status, outcome, job_id, cancelled| {
             publish_analysis_finished(
                 status,
                 outcome,
-                job_id_for_finish,
+                job_id,
                 AnalysisJobKindDto::UpgradeSeries,
-                &cancel_for_finish,
+                cancelled,
             );
         },
-    );
-    Ok(StartSearchResponseDto { job_id })
+    )
 }
 
-fn prepare_ar_bleed_frontier(
-    request: ArBleedFrontierRequestDto,
-    state: &AppState,
-) -> Result<(OptimizeRequest, Arc<GameData>), AppError> {
-    let profile = state.profile(&request.base.profile_id)?;
-    if !profile.data.capabilities.class_budget || !profile.data.capabilities.status_buildup {
-        return Err(AppError::new(
-            "AR / bleed tradeoffs require class budgets and status modeling",
-        ));
-    }
-    let solved = request.solved;
+/// Checks that a client-supplied solved loadout still names this profile's weapon
+/// row and an upgrade level that row supports.
+pub fn validate_solved_loadout(
+    profile: &ProfileData,
+    solved: &SolvedBuildDto,
+) -> Result<(), AppError> {
     let weapon = profile
         .data
         .weapons
@@ -377,6 +370,23 @@ fn prepare_ar_bleed_frontier(
             "selected loadout upgrade does not match profile data",
         ));
     }
+    Ok(())
+}
+
+fn prepare_ar_bleed_frontier(
+    request: ArBleedFrontierRequestDto,
+    state: &AppState,
+) -> Result<(OptimizeRequest, Arc<GameData>), AppError> {
+    let profile = state.profile(&request.base.profile_id)?;
+    if !crate::commands::data::uses_class_budget(profile, &request.base.class_name)
+        || !profile.data.capabilities.status_buildup
+    {
+        return Err(AppError::new(
+            "AR / bleed tradeoffs require class budgets and status modeling",
+        ));
+    }
+    let solved = request.solved;
+    validate_solved_loadout(profile, &solved)?;
     let mut base = request.base;
     base.objective = "max_ar".into();
     base.set_exact_upgrade(solved.upgrade, solved.is_somber);
@@ -402,15 +412,15 @@ fn prepare_ar_bleed_frontier(
 fn evaluate_ar_bleed_frontier<F>(
     request: &OptimizeRequest,
     data: &GameData,
-    mut should_continue: F,
+    should_continue: F,
 ) -> Result<Vec<ArBleedFrontierPointDto>, AppError>
 where
-    F: FnMut() -> bool + Send,
+    F: Fn() -> bool + Sync,
 {
-    let evaluator = prepare_loadout_evaluator_with_cancel(request, data, &mut should_continue)
+    let evaluator = prepare_loadout_evaluator_with_cancel(request, data, &should_continue)
         .map_err(AppError::from)?;
     evaluator
-        .evaluate_ar_bleed_frontier_with_cancel(request, &mut should_continue)
+        .evaluate_ar_bleed_frontier_with_cancel(request, &should_continue)
         .map(|points| {
             points
                 .into_iter()
@@ -432,13 +442,10 @@ pub fn start_ar_bleed_frontier(
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
     let (request, data) = prepare_ar_bleed_frontier(request, &state)?;
-    let (job_id, cancel_flag, status) = start_analysis_job(&state)?;
-    let task_id = job_id.clone();
-    let job_id_for_finish = job_id.clone();
-    let cancel_for_finish = Arc::clone(&cancel_flag);
-    crate::spawn_supervised_job(
-        status,
-        move || {
+    state.analysis_jobs.start(
+        &state.next_job,
+        AnalysisJobStatusDto { finished: None },
+        move |job_id, cancel_flag, _| {
             let result = evaluate_ar_bleed_frontier(&request, &data, || {
                 !cancel_flag.load(Ordering::Relaxed)
             });
@@ -449,7 +456,7 @@ pub fn start_ar_bleed_frontier(
                 Err(error) => (Vec::new(), Some(error.message), false),
             };
             AnalysisFinishedDto {
-                job_id: task_id,
+                job_id,
                 kind: AnalysisJobKindDto::ArBleedFrontier,
                 cancelled,
                 result: None,
@@ -458,17 +465,16 @@ pub fn start_ar_bleed_frontier(
                 error,
             }
         },
-        move |status, outcome| {
+        |status, outcome, job_id, cancelled| {
             publish_analysis_finished(
                 status,
                 outcome,
-                job_id_for_finish,
+                job_id,
                 AnalysisJobKindDto::ArBleedFrontier,
-                &cancel_for_finish,
+                cancelled,
             );
         },
-    );
-    Ok(StartSearchResponseDto { job_id })
+    )
 }
 
 fn publish_analysis_finished(
@@ -476,7 +482,7 @@ fn publish_analysis_finished(
     outcome: Result<AnalysisFinishedDto, String>,
     job_id: String,
     kind: AnalysisJobKindDto,
-    cancel: &CancelFlag,
+    cancelled: bool,
 ) {
     let mut finished = outcome.unwrap_or_else(|error| AnalysisFinishedDto {
         job_id,
@@ -487,7 +493,7 @@ fn publish_analysis_finished(
         frontier: Vec::new(),
         error: Some(error),
     });
-    if finished.error.is_none() && cancel.load(Ordering::Relaxed) {
+    if finished.error.is_none() && cancelled {
         finished.cancelled = true;
         finished.result = None;
         finished.points.clear();
@@ -496,151 +502,120 @@ fn publish_analysis_finished(
     status.finished = Some(finished);
 }
 
-fn start_analysis_job(
-    state: &AppState,
-) -> Result<
-    (
-        String,
-        CancelFlag,
-        Arc<std::sync::Mutex<AnalysisJobStatusDto>>,
-    ),
-    AppError,
-> {
-    let job_number = state.next_job.fetch_add(1, Ordering::Relaxed);
-    let job_id = format!("analysis-{job_number}");
-    let cancel_flag: CancelFlag = Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let status = Arc::new(std::sync::Mutex::new(AnalysisJobStatusDto {
-        finished: None,
-    }));
-    state.analysis_jobs.insert_if_idle(
-        job_id.clone(),
-        AsyncJobHandle {
-            cancel: Arc::clone(&cancel_flag),
-            status: Arc::clone(&status),
-        },
-        |status| status.finished.is_some(),
-    )?;
-    Ok((job_id, cancel_flag, status))
-}
-
 #[tauri::command]
 pub fn cancel_analysis(job_id: String, state: State<'_, AppState>) -> Result<bool, AppError> {
-    state
-        .analysis_jobs
-        .cancel(&job_id, |status| status.finished.is_some())
+    state.analysis_jobs.cancel(&job_id)
 }
 
-#[tauri::command]
+// Terminal payloads can be large; async keeps their clone and serialization off the UI thread.
+#[tauri::command(async)]
 pub fn get_analysis_status(
     job_id: String,
     state: State<'_, AppState>,
 ) -> Result<Option<AnalysisJobStatusDto>, AppError> {
-    state
-        .analysis_jobs
-        .status(&job_id, |status| status.finished.is_some())
+    state.analysis_jobs.status(&job_id)
+}
+
+fn prepare_search(
+    mut request: crate::dto::OptimizeRequestDto,
+    state: &AppState,
+) -> Result<(OptimizeRequest, Arc<GameData>), AppError> {
+    clamp_weapon_upgrade_request(&mut request, state)?;
+    let profile = state.profile(&request.profile_id)?;
+    Ok((
+        OptimizeRequest::try_from(&request)?,
+        Arc::clone(&profile.data),
+    ))
 }
 
 #[tauri::command]
 pub fn start_search(
-    mut request: crate::dto::OptimizeRequestDto,
+    request: crate::dto::OptimizeRequestDto,
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
-    clamp_weapon_upgrade_request(&mut request, &state)?;
-    let profile = state.profile(&request.profile_id)?;
-    let core_request = OptimizeRequest::try_from(&request)?;
-    let data = Arc::clone(&profile.data);
-    let job_number = state.next_job.fetch_add(1, Ordering::Relaxed);
-    let job_id = format!("search-{job_number}");
-    let cancel_flag: CancelFlag = Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let status = Arc::new(std::sync::Mutex::new(SearchJobStatusDto {
-        progress: None,
-        finished: None,
-    }));
-    state.search_jobs.insert_if_idle(
-        job_id.clone(),
-        AsyncJobHandle {
-            cancel: Arc::clone(&cancel_flag),
-            status: Arc::clone(&status),
+    let (core_request, data) = prepare_search(request, &state)?;
+    state.search_jobs.start(
+        &state.next_job,
+        SearchJobStatusDto {
+            progress: None,
+            finished: None,
         },
-        |status| status.finished.is_some(),
-    )?;
+        move |job_id, cancel_flag, status| {
+            run_search_worker(&core_request, &data, job_id, &cancel_flag, &status)
+        },
+        publish_search_finished,
+    )
+}
 
-    let job_id_for_task = job_id.clone();
-    let job_id_for_finish = job_id.clone();
-    let cancel_for_finish = Arc::clone(&cancel_flag);
-    crate::spawn_supervised_job(
-        Arc::clone(&status),
-        move || {
-            let progress_job_id = job_id_for_task.clone();
-            let plan = match prepare_search_with_cancel(&core_request, &data, || {
-                !cancel_flag.load(Ordering::Relaxed)
-            }) {
-                Ok(plan) => plan,
-                Err(message) => {
-                    return SearchFinishedDto {
-                        job_id: job_id_for_task,
-                        cancelled: message == "cancelled",
-                        rows: Vec::new(),
-                        error: (message != "cancelled").then_some(message),
-                        setups: 0,
-                    };
-                }
+fn run_search_worker(
+    core_request: &OptimizeRequest,
+    data: &GameData,
+    job_id: String,
+    cancel_flag: &AtomicBool,
+    status: &Mutex<SearchJobStatusDto>,
+) -> SearchFinishedDto {
+    let plan = match prepare_search_with_cancel(core_request, data, || {
+        !cancel_flag.load(Ordering::Relaxed)
+    }) {
+        Ok(plan) => plan,
+        Err(message) => {
+            return SearchFinishedDto {
+                job_id,
+                cancelled: message == "cancelled",
+                rows: Vec::new(),
+                error: (message != "cancelled").then_some(message),
+                setups: 0,
             };
-            let mut last_progress_at: Option<Instant> = None;
-            let mut scoring_complete = false;
-            let result = optimize_prepared_with_progress(&plan, 10_000, |snapshot| {
-                if cancel_flag.load(Ordering::Relaxed) {
-                    return false;
-                }
-                // Hydration polls cancellation at each row/route boundary without
-                // advancing scoring counts. Publish status at a bounded rate.
-                let first_scoring_completion =
-                    !scoring_complete && snapshot.checked == snapshot.total;
-                scoring_complete |= snapshot.checked == snapshot.total;
-                if !first_scoring_completion
-                    && last_progress_at.is_some_and(|at| at.elapsed() < Duration::from_millis(100))
-                {
-                    return true;
-                }
-                last_progress_at = Some(Instant::now());
-                let mut payload = SearchProgressDto::from(snapshot);
-                payload.job_id = progress_job_id.clone();
-                if let Ok(mut guard) = status.lock() {
-                    guard.progress = Some(payload);
-                }
-                true
-            });
-
-            let (rows, error, cancelled) = match result {
-                Ok(rows) => (
-                    rows.into_iter().map(SolvedBuildDto::from).collect(),
-                    None,
-                    false,
-                ),
-                Err(message) if message == "cancelled" => (Vec::new(), None, true),
-                Err(message) => (Vec::new(), Some(message), false),
-            };
-            SearchFinishedDto {
-                job_id: job_id_for_task.clone(),
-                cancelled,
-                rows,
-                error,
-                setups: plan.estimate().combinations,
+        }
+    };
+    let mut last_progress_at: Option<Instant> = None;
+    let mut scoring_complete = false;
+    let result = optimize_prepared_with_progress(
+        &plan,
+        10_000,
+        || !cancel_flag.load(Ordering::Relaxed),
+        |snapshot| {
+            // Hydration reports at each row/route boundary without advancing
+            // scoring counts. Publish status at a bounded rate.
+            let first_scoring_completion = !scoring_complete && snapshot.checked == snapshot.total;
+            scoring_complete |= snapshot.checked == snapshot.total;
+            if !first_scoring_completion
+                && last_progress_at.is_some_and(|at| at.elapsed() < Duration::from_millis(100))
+            {
+                return;
             }
-        },
-        move |status, outcome| {
-            publish_search_finished(status, outcome, job_id_for_finish, &cancel_for_finish);
+            last_progress_at = Some(Instant::now());
+            let mut payload = SearchProgressDto::from(snapshot);
+            payload.job_id.clone_from(&job_id);
+            if let Ok(mut guard) = status.lock() {
+                guard.progress = Some(payload);
+            }
         },
     );
 
-    Ok(StartSearchResponseDto { job_id })
+    let (rows, error, cancelled) = match result {
+        Ok(rows) => (
+            rows.into_iter().map(SolvedBuildDto::from).collect(),
+            None,
+            false,
+        ),
+        Err(message) if message == "cancelled" => (Vec::new(), None, true),
+        Err(message) => (Vec::new(), Some(message), false),
+    };
+    SearchFinishedDto {
+        job_id,
+        cancelled,
+        rows,
+        error,
+        setups: plan.estimate().combinations,
+    }
 }
 
 fn publish_search_finished(
     status: &mut SearchJobStatusDto,
     outcome: Result<SearchFinishedDto, String>,
     job_id: String,
-    cancel: &CancelFlag,
+    cancelled: bool,
 ) {
     let mut finished = outcome.unwrap_or_else(|error| SearchFinishedDto {
         job_id,
@@ -649,7 +624,7 @@ fn publish_search_finished(
         error: Some(error),
         setups: 0,
     });
-    if finished.error.is_none() && cancel.load(Ordering::Relaxed) {
+    if finished.error.is_none() && cancelled {
         finished.cancelled = true;
         finished.rows.clear();
     }
@@ -658,19 +633,15 @@ fn publish_search_finished(
 
 #[tauri::command]
 pub fn cancel_search(job_id: String, state: State<'_, AppState>) -> Result<bool, AppError> {
-    state
-        .search_jobs
-        .cancel(&job_id, |status| status.finished.is_some())
+    state.search_jobs.cancel(&job_id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_search_status(
     job_id: String,
     state: State<'_, AppState>,
 ) -> Result<Option<SearchJobStatusDto>, AppError> {
-    state
-        .search_jobs
-        .status(&job_id, |status| status.finished.is_some())
+    state.search_jobs.status(&job_id)
 }
 
 pub fn clamp_weapon_upgrade_request(
@@ -691,19 +662,16 @@ fn clamp_weapon_upgrade_request_for_profile(
             request.profile_id
         )));
     }
-    if !crate::commands::data::class_metadata(
-        profile.data_manifest.profile.game_version == "1.17",
-        profile.data.capabilities.class_budget,
-    )
-    .iter()
-    .any(|class_info| class_info.name.eq_ignore_ascii_case(&request.class_name))
+    if !crate::commands::data::class_metadata(profile)
+        .iter()
+        .any(|class_info| class_info.name.eq_ignore_ascii_case(&request.class_name))
     {
         return Err(AppError::new(format!(
             "starting class '{}' is not available for profile '{}'",
             request.class_name, request.profile_id
         )));
     }
-    if !profile.data.capabilities.class_budget {
+    if !crate::commands::data::uses_class_budget(profile, &request.class_name) {
         if !request
             .class_name
             .eq_ignore_ascii_case(er_optimizer_core::CUSTOM_STATS_CLASS_NAME)
@@ -803,8 +771,6 @@ fn clamp_weapon_upgrade_request_for_profile(
     } else {
         request.standard_max_upgrade = Some(standard_cap.min(profile_upgrade_cap));
     }
-    request.max_upgrade = None;
-    request.fixed_upgrade = None;
     Ok(())
 }
 
@@ -838,6 +804,7 @@ fn weapon_reinforcement_info(
 #[cfg(test)]
 mod integration_tests {
     use super::*;
+    use crate::AsyncJobHandle;
 
     #[test]
     fn focused_exact_upgrade_does_not_substitute_a_lower_level() {
@@ -978,7 +945,10 @@ mod integration_tests {
 
         let state = crate::test_app_state();
         for during_calculation in [false, true] {
-            let registry = crate::JobRegistry::new("search");
+            let registry =
+                crate::JobRegistry::new("search", "search", |status: &SearchJobStatusDto| {
+                    status.finished.is_some()
+                });
             let status = Arc::new(Mutex::new(SearchJobStatusDto {
                 progress: None,
                 finished: None,
@@ -991,7 +961,6 @@ mod integration_tests {
                         cancel: Arc::clone(&cancel),
                         status: Arc::clone(&status),
                     },
-                    |status| status.finished.is_some(),
                 )
                 .unwrap();
             let core_request = OptimizeRequest::try_from(&crate::test_optimize_request()).unwrap();
@@ -1013,10 +982,9 @@ mod integration_tests {
                         worker_injected.store(true, Ordering::Relaxed);
                         panic!("injected before Search calculation");
                     }
-                    let mut checkpoints = 0;
+                    let checkpoints = AtomicUsize::new(0);
                     let rows = optimize_with_cancel(&core_request, &data, || {
-                        checkpoints += 1;
-                        if checkpoints == 3 {
+                        if checkpoints.fetch_add(1, Ordering::Relaxed) == 2 {
                             worker_injected.store(true, Ordering::Relaxed);
                             panic!("injected inside Search calculation");
                         }
@@ -1033,7 +1001,12 @@ mod integration_tests {
                 },
                 move |status, outcome| {
                     published.fetch_add(1, Ordering::Relaxed);
-                    publish_search_finished(status, outcome, "first".into(), &publish_cancel);
+                    publish_search_finished(
+                        status,
+                        outcome,
+                        "first".into(),
+                        publish_cancel.load(Ordering::Relaxed),
+                    );
                 },
             );
             tauri::async_runtime::block_on(supervisor).unwrap();
@@ -1055,7 +1028,6 @@ mod integration_tests {
                             finished: None,
                         })),
                     },
-                    |status| status.finished.is_some(),
                 )
                 .expect("joined failed Search job permits restart");
         }
@@ -1110,7 +1082,11 @@ mod integration_tests {
                     )
                     .unwrap(),
                 };
-                let registry = crate::JobRegistry::new("analysis");
+                let registry = crate::JobRegistry::new(
+                    "analysis",
+                    "analysis",
+                    |status: &AnalysisJobStatusDto| status.finished.is_some(),
+                );
                 let status = Arc::new(Mutex::new(AnalysisJobStatusDto { finished: None }));
                 let cancel = Arc::new(AtomicBool::new(false));
                 registry
@@ -1120,7 +1096,6 @@ mod integration_tests {
                             cancel: Arc::clone(&cancel),
                             status: Arc::clone(&status),
                         },
-                        |status| status.finished.is_some(),
                     )
                     .unwrap();
                 let injected = Arc::new(AtomicBool::new(false));
@@ -1135,10 +1110,9 @@ mod integration_tests {
                             worker_injected.store(true, Ordering::Relaxed);
                             panic!("injected before Analysis calculation");
                         }
-                        let mut checkpoints = 0;
+                        let checkpoints = AtomicUsize::new(0);
                         let checkpoint = || {
-                            checkpoints += 1;
-                            if checkpoints == 3 {
+                            if checkpoints.fetch_add(1, Ordering::Relaxed) == 2 {
                                 worker_injected.store(true, Ordering::Relaxed);
                                 panic!("injected inside Analysis calculation");
                             }
@@ -1186,7 +1160,7 @@ mod integration_tests {
                             outcome,
                             "first".into(),
                             kind,
-                            &publish_cancel,
+                            publish_cancel.load(Ordering::Relaxed),
                         );
                     },
                 );
@@ -1212,7 +1186,6 @@ mod integration_tests {
                             cancel,
                             status: Arc::new(Mutex::new(AnalysisJobStatusDto { finished: None })),
                         },
-                        |status| status.finished.is_some(),
                     )
                     .expect("joined failed Analysis job permits restart");
             }
@@ -1224,7 +1197,6 @@ mod integration_tests {
         let state = crate::test_app_state();
         let rows = run_search_inner(crate::test_optimize_request(), &state).unwrap();
         assert!(!rows.is_empty());
-        let cancel = Arc::new(std::sync::atomic::AtomicBool::new(true));
         let mut status = SearchJobStatusDto {
             progress: None,
             finished: None,
@@ -1239,7 +1211,7 @@ mod integration_tests {
                 setups: 0,
             }),
             "search-publish".into(),
-            &cancel,
+            true,
         );
         let finished = status.finished.take().unwrap();
         assert!(finished.cancelled);
@@ -1261,7 +1233,7 @@ mod integration_tests {
                 Err(error) => error.as_str(),
             }
             .to_string();
-            publish_search_finished(&mut status, outcome, "search-publish".into(), &cancel);
+            publish_search_finished(&mut status, outcome, "search-publish".into(), true);
             let finished = status.finished.take().unwrap();
             assert_eq!(finished.error.as_deref(), Some(expected_error.as_str()));
             assert!(!finished.cancelled);
@@ -1276,7 +1248,6 @@ mod integration_tests {
             .unwrap()
             .pop()
             .unwrap();
-        let cancel = Arc::new(std::sync::atomic::AtomicBool::new(true));
         let mut status = AnalysisJobStatusDto { finished: None };
         for kind in [
             AnalysisJobKindDto::SolveBuild,
@@ -1313,7 +1284,7 @@ mod integration_tests {
                 Ok(completed),
                 "analysis-publish".into(),
                 kind,
-                &cancel,
+                true,
             );
             let finished = status.finished.take().unwrap();
             assert_eq!(finished.kind, kind);
@@ -1345,7 +1316,7 @@ mod integration_tests {
                     outcome,
                     "analysis-publish".into(),
                     kind,
-                    &cancel,
+                    true,
                 );
                 let finished = status.finished.take().unwrap();
                 assert_eq!(finished.kind, kind);
@@ -1426,8 +1397,6 @@ mod integration_tests {
         request.standard_max_upgrade = Some(15);
         request.somber_max_upgrade = Some(15);
         request.exact_upgrade = Some(true);
-        request.max_upgrade = None;
-        request.fixed_upgrade = None;
         request.weapon_name = Some("Galvanic Culling Blade [Twinblade]".to_string());
         request.affinity = Some("Standard".to_string());
         request
@@ -1467,11 +1436,37 @@ mod integration_tests {
     }
 
     #[test]
-    fn real_tauri_search_honors_cancellation() {
+    fn search_worker_publishes_completed_progress_and_honors_cancellation() {
         let state = crate::test_app_state();
-        let error = run_search_inner_with_cancel(crate::test_optimize_request(), &state, || false)
-            .expect_err("cancelled command search must fail closed");
-        assert_eq!(error.message, "cancelled");
+        let (request, data) = prepare_search(crate::test_optimize_request(), &state).unwrap();
+        let status = Mutex::new(SearchJobStatusDto {
+            progress: None,
+            finished: None,
+        });
+        let finished = run_search_worker(
+            &request,
+            &data,
+            "search-1".into(),
+            &AtomicBool::new(false),
+            &status,
+        );
+        assert!(!finished.cancelled && finished.error.is_none());
+        assert_eq!(finished.rows.len(), 1);
+        assert!(finished.setups > 0);
+        // The first snapshot with all setups scored is always published.
+        let progress = status.lock().unwrap().progress.take().unwrap();
+        assert_eq!(progress.job_id, "search-1");
+        assert_eq!(progress.checked, progress.total);
+
+        let cancelled = run_search_worker(
+            &request,
+            &data,
+            "search-2".into(),
+            &AtomicBool::new(true),
+            &status,
+        );
+        assert!(cancelled.cancelled);
+        assert!(cancelled.rows.is_empty() && cancelled.error.is_none());
     }
 
     #[test]
@@ -1588,19 +1583,30 @@ mod integration_tests {
     #[test]
     fn direct_analysis_jobs_share_one_slot() {
         let state = crate::test_app_state();
-        let (job_id, cancel_flag, _) = start_analysis_job(&state).expect("first job starts");
-        let error = match start_analysis_job(&state) {
-            Ok(_) => panic!("second direct analysis job must be rejected"),
-            Err(error) => error,
+        let (release, released) = std::sync::mpsc::sync_channel::<()>(1);
+        let start = |worker: Box<dyn FnOnce() + Send>| {
+            state.analysis_jobs.start(
+                &state.next_job,
+                AnalysisJobStatusDto { finished: None },
+                move |_, _, _| worker(),
+                |status, _, job_id, cancelled| {
+                    status.finished = Some(AnalysisFinishedDto {
+                        job_id,
+                        kind: AnalysisJobKindDto::SolveBuild,
+                        cancelled,
+                        result: None,
+                        points: Vec::new(),
+                        frontier: Vec::new(),
+                        error: None,
+                    });
+                },
+            )
         };
+        let first = start(Box::new(move || released.recv().unwrap())).expect("first job starts");
+        let error = start(Box::new(|| {})).expect_err("second direct analysis job is rejected");
         assert!(error.message.contains("analysis job is already running"));
-        assert!(
-            state
-                .analysis_jobs
-                .cancel(&job_id, |status| status.finished.is_some())
-                .expect("job is cancellable")
-        );
-        assert!(cancel_flag.load(Ordering::Relaxed));
+        assert!(state.analysis_jobs.cancel(&first.job_id).unwrap());
+        release.send(()).unwrap();
     }
 
     #[test]
@@ -1712,6 +1718,82 @@ mod integration_tests {
     }
 
     #[test]
+    fn convergence_offers_its_classes_and_custom_stats_but_no_vanilla_class() {
+        let state = crate::test_app_state();
+        let convergence = state.profile("convergence").unwrap();
+        let names = crate::commands::data::class_metadata(convergence)
+            .into_iter()
+            .map(|class_info| class_info.name)
+            .collect::<Vec<_>>();
+        assert_eq!(names.len(), 28);
+        assert_eq!(names.first().map(String::as_str), Some("Retainer"));
+        assert_eq!(
+            names.last().map(String::as_str),
+            Some(er_optimizer_core::CUSTOM_STATS_CLASS_NAME)
+        );
+        let vanilla = state.profile("vanilla").unwrap();
+        assert!(
+            !crate::commands::data::class_metadata(vanilla)
+                .iter()
+                .any(|class_info| class_info.name == er_optimizer_core::CUSTOM_STATS_CLASS_NAME)
+        );
+
+        // A Convergence class budgets stats like a Vanilla class and needs no locks.
+        let mut prisoner = convergence_custom_stats_request();
+        prisoner.class_name = "Prisoner".to_string();
+        prisoner.character_level = 1 + 220 - 80;
+        (prisoner.lock_str, prisoner.lock_dex, prisoner.lock_int) = (None, None, None);
+        (prisoner.lock_fai, prisoner.lock_arc) = (None, None);
+        clamp_weapon_upgrade_request(&mut prisoner, &state).expect("Convergence class");
+        let mut samurai = prisoner.clone();
+        samurai.class_name = "Samurai".to_string();
+        let error = clamp_weapon_upgrade_request(&mut samurai, &state)
+            .expect_err("Vanilla classes must not budget Convergence");
+        assert!(
+            error
+                .message
+                .contains("is not available for profile 'convergence'")
+        );
+    }
+
+    #[test]
+    fn stored_convergence_custom_stats_build_loads_and_solves_exactly() {
+        let state = crate::test_app_state();
+        let base = convergence_custom_stats_request();
+        let ranked = run_search_inner(base.clone(), &state)
+            .expect("Custom stats search succeeds")
+            .pop()
+            .expect("Custom stats result");
+        // A saved build re-solves its exact loadout with the stats it was saved with.
+        let solved = solve_build_inner(
+            SolveBuildRequestDto {
+                base: base.clone(),
+                weapon_name: ranked.weapon_name.clone(),
+                affinity: Some(ranked.affinity.clone()),
+                aow_name: ranked.aow_name.clone(),
+            },
+            &state,
+        )
+        .expect("Custom stats solve succeeds")
+        .expect("Custom stats build solves");
+        assert_eq!(solved.stats, ranked.stats);
+        assert_eq!(
+            serde_json::to_value(solved.ar).unwrap(),
+            serde_json::to_value(ranked.ar).unwrap()
+        );
+        assert_eq!(
+            [
+                solved.stats.str_stat,
+                solved.stats.dex,
+                solved.stats.int_stat,
+                solved.stats.fai,
+                solved.stats.arc
+            ],
+            [base.str_stat, base.dex, base.int_stat, base.fai, base.arc]
+        );
+    }
+
+    #[test]
     #[ignore = "release-mode workflow benchmark"]
     fn workflow_benchmark_upgrade_series() {
         let state = crate::test_app_state();
@@ -1746,5 +1828,182 @@ mod integration_tests {
                 "samples_ms": durations,
             })
         );
+    }
+
+    /// Command-path latency without IPC: DTO normalization, preparation, the job worker and
+    /// JSON encoding of the terminal status. Not matched by the `workflow_benchmark` runner.
+    #[test]
+    #[ignore = "release-mode native command benchmark"]
+    fn native_command_benchmark() {
+        let state = crate::test_app_state();
+        let repeats = std::env::var("ER_BENCH_REPEATS")
+            .ok()
+            .and_then(|value| value.parse::<usize>().ok())
+            .unwrap_or(5)
+            .max(1);
+        let selected = std::env::var("ER_BENCH_CASE").ok();
+        let samurai = |level: u16| {
+            let mut request = crate::test_optimize_request();
+            request.character_level = level;
+            request.weapon_name = None;
+            request.affinity = None;
+            request.standard_max_upgrade = Some(25);
+            request.somber_max_upgrade = Some(10);
+            request
+        };
+        let mut open_46 = samurai(46);
+        open_46.top_k = 25;
+        let mut high_k = samurai(46);
+        high_k.top_k = 500;
+        high_k.result_grouping = "loadout".to_string();
+        let mut all_upgrades_93 = samurai(93);
+        all_upgrades_93.exact_upgrade = Some(false);
+        all_upgrades_93.top_k = 25;
+        let mut bleed_93 = samurai(93);
+        bleed_93.objective = "max_ar_plus_bleed".to_string();
+        bleed_93.top_k = 25;
+        let mut aow_150 = samurai(150);
+        aow_150.vig = 40;
+        aow_150.mnd = 20;
+        aow_150.end = 20;
+        aow_150.objective = "aow_full_sequence".to_string();
+        aow_150.top_k = 25;
+        let mut custom = convergence_custom_stats_request();
+        custom.weapon_name = None;
+        custom.affinity = None;
+        custom.top_k = 25;
+        let searches = [
+            ("search-open-46-k25", open_46),
+            ("search-open-46-loadout-k500", high_k),
+            ("search-all-upgrades-93-k25", all_upgrades_93),
+            ("search-bleed-93-k25", bleed_93),
+            ("search-aow-full-150-k25", aow_150),
+            ("search-convergence-custom-k25", custom),
+        ];
+        let solve = |base: crate::dto::OptimizeRequestDto, weapon: &str, affinity: &str, ash| {
+            SolveBuildRequestDto {
+                base,
+                weapon_name: weapon.to_string(),
+                affinity: Some(affinity.to_string()),
+                aow_name: Some(ash),
+            }
+        };
+        let mut solve_base = samurai(9);
+        solve_base.exact_upgrade = Some(false);
+        let mut lifesteal_base = samurai(80);
+        lifesteal_base.str_stat = 20;
+        lifesteal_base.lock_str = Some(20);
+        lifesteal_base.lock_int = Some(9);
+        lifesteal_base.lock_fai = Some(8);
+        lifesteal_base.objective = "aow_full_sequence".to_string();
+        let solves = [
+            (
+                "solve-uchigatana-blood-all-upgrades",
+                solve(solve_base, "Uchigatana", "Blood", "Seppuku".to_string()),
+            ),
+            (
+                "solve-locked-lifesteal-fist",
+                solve(
+                    lifesteal_base,
+                    "Caestus",
+                    "Occult",
+                    "Lifesteal Fist".to_string(),
+                ),
+            ),
+        ];
+        let mut frontier_base = samurai(93);
+        frontier_base.objective = "max_ar".to_string();
+        let frontier_solved = run_search_inner(
+            {
+                let mut request = frontier_base.clone();
+                request.pin_loadout(
+                    "Uchigatana".to_string(),
+                    Some("Blood".to_string()),
+                    Some("Seppuku".to_string()),
+                );
+                request
+            },
+            &state,
+        )
+        .unwrap()
+        .pop()
+        .unwrap();
+
+        let run = |name: &str, work: &mut dyn FnMut() -> Vec<u8>| {
+            if selected.as_deref().is_some_and(|case| case != name) {
+                return;
+            }
+            let mut samples = Vec::with_capacity(repeats);
+            let mut expected: Option<Vec<u8>> = None;
+            for sample in 0..=repeats {
+                let started = std::time::Instant::now();
+                let encoded = work();
+                let elapsed = started.elapsed().as_secs_f64() * 1_000.0;
+                if let Some(expected) = &expected {
+                    assert_eq!(&encoded, expected, "{name} changed across samples");
+                } else {
+                    expected = Some(encoded);
+                }
+                if sample > 0 {
+                    samples.push(elapsed);
+                }
+            }
+            let mut sorted = samples.clone();
+            sorted.sort_by(f64::total_cmp);
+            let encoded = expected.expect("warmup result");
+            println!(
+                "NATIVE_COMMAND_BENCH {}",
+                serde_json::json!({
+                    "case": name,
+                    "rayon_threads": std::env::var("RAYON_NUM_THREADS").ok(),
+                    "warmups": 1,
+                    "median_ms": sorted[sorted.len() / 2],
+                    "best_ms": sorted[0],
+                    "worst_ms": sorted[sorted.len() - 1],
+                    "samples_ms": samples,
+                    "serialized_bytes": encoded.len(),
+                    "result": String::from_utf8(encoded).unwrap(),
+                })
+            );
+        };
+        for (name, request) in searches {
+            run(name, &mut || {
+                let (request, data) = prepare_search(request.clone(), &state).unwrap();
+                let status = Mutex::new(SearchJobStatusDto {
+                    progress: None,
+                    finished: None,
+                });
+                let finished = run_search_worker(
+                    &request,
+                    &data,
+                    String::new(),
+                    &AtomicBool::new(false),
+                    &status,
+                );
+                assert!(finished.error.is_none(), "{:?}", finished.error);
+                serde_json::to_vec(&SearchJobStatusDto {
+                    progress: None,
+                    finished: Some(finished),
+                })
+                .unwrap()
+            });
+        }
+        for (name, request) in solves {
+            run(name, &mut || {
+                serde_json::to_vec(&solve_build_inner(request.clone(), &state).unwrap()).unwrap()
+            });
+        }
+        run("frontier-uchigatana-blood-93", &mut || {
+            let (request, data) = prepare_ar_bleed_frontier(
+                ArBleedFrontierRequestDto {
+                    base: frontier_base.clone(),
+                    solved: frontier_solved.clone(),
+                },
+                &state,
+            )
+            .unwrap();
+            serde_json::to_vec(&evaluate_ar_bleed_frontier(&request, &data, || true).unwrap())
+                .unwrap()
+        });
     }
 }

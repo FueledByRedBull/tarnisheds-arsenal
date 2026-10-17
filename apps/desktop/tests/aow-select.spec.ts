@@ -96,13 +96,25 @@ for (const label of ["AoW", "Compare AoW"]) {
       await expect(page.getByText("Skills unavailable: Profile lookup failed", { exact: true })).toHaveCount(0);
     });
 
+    test("Enter on a freshly focused field keeps the current skill", async ({ page }) => {
+      await page.evaluate((label) => window.selectorFixture.mount({ label, weaponName: "Buckler", value: "No Skill" }), label);
+      await resolveProfile(page, "Buckler");
+      const selector = page.getByRole("combobox", { name: label, exact: true });
+      await selector.focus();
+      await expect(page.locator(".select-menu .active")).toHaveText("No Skill");
+      await selector.press("Enter");
+      await expect(selector).toHaveValue("No Skill");
+      expect(await page.evaluate(() => window.selectorFixture.changes())).toEqual([]);
+    });
+
     test("unmounting a typed choice does not commit it later", async ({ page }) => {
       await page.evaluate((label) => window.selectorFixture.mount({ label, weaponName: "Buckler", value: "No Skill" }), label);
       await resolveProfile(page, "Buckler");
       const selector = page.getByRole("combobox", { name: label, exact: true });
       await selector.fill("Parry");
       await page.evaluate(() => window.selectorFixture.unmount());
-      await page.waitForTimeout(180);
+      // The component has no timers: two frames cover its unmount and any blur commit.
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       expect(await page.evaluate(() => window.selectorFixture.changes())).toEqual([]);
     });
 

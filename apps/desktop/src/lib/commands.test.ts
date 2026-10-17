@@ -7,10 +7,7 @@ import type { CatalogDto } from "./types";
 function catalog(profileId: "vanilla" | "convergence" = "vanilla"): CatalogDto {
   const vanilla = profileId === "vanilla";
   return {
-    weaponCount: 3,
-    aowCount: 2,
     weaponNames: ["Uchigatana", "Nagakiba", "Zweihander"],
-    weaponTypeKeys: ["katana", "colossal_sword"],
     classes: vanilla ? Object.values(STARTING_CLASS_METADATA) : [{ name: "Custom stats", baseLevel: 0, baseTotal: 0,
       baseStats: { vig: 0, mnd: 0, end: 0, strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 } }],
     weaponTypeOptions: [{ key: "katana", label: "Katana" }],
@@ -24,15 +21,13 @@ function catalog(profileId: "vanilla" | "convergence" = "vanilla"): CatalogDto {
     ],
     dataManifest: {
       schemaVersion: 4, datasetVersion: `${profileId}-test`, modelVersion: "test", id: profileId, label: profileId,
-      appVersion: "1", source: "test", generatedAt: "2026-10-01", extractorVersion: "test", provenance: "test",
+      appVersion: "1", source: "test",
       profile: { id: profileId, displayName: vanilla ? "Vanilla" : "Convergence", gameVersion: "1.17", modVersion: vanilla ? null : "3.0.0.1" },
-      capabilities: { classBudget: vanilla, weaponArForAmmunition: true, weaponAr: true, statusBuildup: true,
-        weaponPassives: true, aowCompatibility: true, aowDamage: vanilla, aowRoutes: vanilla },
+      capabilities: { classBudget: vanilla, statusBuildup: true, aowDamage: vanilla, aowRoutes: vanilla },
       rules: { standardMaxUpgrade: vanilla ? 25 : 15, somberMaxUpgrade: vanilla ? 10 : 15, separateUpgradeCaps: vanilla,
-        scadutreeScaling: vanilla, zeroAttackElementUsesWeaponScaling: !vanilla, extendedScalingGrades: !vanilla,
-        statusBuildupScales: vanilla },
+        scadutreeScaling: vanilla, zeroAttackElementUsesWeaponScaling: !vanilla, extendedScalingGrades: !vanilla },
     },
-  } as CatalogDto;
+  };
 }
 
 function context(overrides: Partial<CommandContext> = {}): CommandContext {
@@ -65,6 +60,7 @@ describe("palette parsing", () => {
     expect(ids("str 40").slice(0, 3)).toEqual(["set-strStat", "lock-strStat", "min-strStat"]);
     expect(ids("lock dex 30").slice(0, 3)).toEqual(["lock-dex", "set-dex", "min-dex"]);
     expect(ids("minimum arcane = 25").slice(0, 3)).toEqual(["min-arc", "set-arc", "lock-arc"]);
+    expect(ids("mind 12")[0]).toBe("set-mnd");
     const [set, lock, min] = findCommands("strength to 40", context());
     expect(set.action).toEqual({ kind: "patch", patch: { strStat: 40 } });
     expect(lock.action).toEqual({ kind: "lock", patch: { lockStr: 40 } });
@@ -93,6 +89,8 @@ describe("palette parsing", () => {
     expect(commands.map((command) => command.id)).not.toContain("lock-strStat");
     expect(findCommands("str 0", fixed).map((command) => command.id)).not.toContain("set-strStat");
     expect(ids("", fixed)).not.toContain("optimize-class");
+    // Applying Custom stats would zero every stat and the stored level.
+    expect(ids("class", fixed)).not.toContain("class-Custom stats");
   });
 
   it("parses separate and shared upgrade caps within each profile's limits", () => {
@@ -165,7 +163,6 @@ describe("palette search", () => {
 
   it("limits results and rebuilds filter commands for each request", () => {
     expect(findCommands("a", context())).toHaveLength(8);
-    expect(findCommands("a", context(), 3)).toHaveLength(3);
     const first = findCommands("katana", context()).find((command) => command.id === "type-type:katana")!;
     const changed = context({ request: { ...defaultRequest, filters: { version: 1, entries: [{ dimension: "affinity", id: "affinity:keen", mode: "exclude" }] } } });
     const second = findCommands("katana", changed).find((command) => command.id === "type-type:katana")!;

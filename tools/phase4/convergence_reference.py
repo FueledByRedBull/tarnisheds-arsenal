@@ -32,6 +32,11 @@ STATUS_INDEX_TO_KEY = {
     "11": "death",
 }
 STATUS_KEYS = ("bleed", "frost", "poison", "scarlet_rot", "sleep", "madness", "death")
+# Attack-power indices of the four status types with a weapon correction curve. The
+# reference omits a curve equal to its default (0 for damage, 6 for status) and lists
+# spell-tool curves the weapon AR does not use, so only curves of attack types the
+# weapon actually has are compared; None marks an unused curve.
+STATUS_CURVES = (("5", "poison"), ("7", "blood"), ("9", "sleep"), ("10", "madness"))
 
 
 def _number(value: Any) -> float:
@@ -63,8 +68,41 @@ def _reference_signature(row: dict[str, Any]) -> tuple[Any, ...]:
     )
 
 
+def _used_curves(row: dict[str, str], passive: dict[str, str]) -> tuple[list[bool], bool]:
+    has_status = any(_number(passive[key]) > 0 for key in STATUS_KEYS)
+    return [_number(row[f"base_{damage}"]) > 0 for damage in DAMAGE_KEYS], has_status
+
+
+def _ours_corrections(row: dict[str, str], passive: dict[str, str]) -> list[Any]:
+    damage_used, status_used = _used_curves(row, passive)
+    return [
+        int(row["attack_element_correct_id"]),
+        [
+            int(row[f"curve_id_{damage}"]) if used else None
+            for damage, used in zip(DAMAGE_KEYS, damage_used, strict=True)
+        ],
+        [int(row[f"curve_id_{status}"]) if status_used else None for _, status in STATUS_CURVES],
+    ]
+
+
+def _reference_corrections(
+    row: dict[str, Any], ours: dict[str, str], passive: dict[str, str]
+) -> list[Any]:
+    graphs = row.get("calcCorrectGraphIds") or {}
+    damage_used, status_used = _used_curves(ours, passive)
+    return [
+        int(row["attackElementCorrectId"]),
+        [
+            int(graphs.get(str(index), 0)) if used else None
+            for index, used in enumerate(damage_used)
+        ],
+        [int(graphs.get(index, 6)) if status_used else None for index, _ in STATUS_CURVES],
+    ]
+
+
 def _name_key(value: str) -> str:
     value = re.sub(r"\s+\[[^\]]+\]$", "", value)
+    value = re.sub(r"^NEW\s+-\s+", "", value)
     value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode()
     return re.sub(r"[^a-z0-9]+", "", value.lower())
 
@@ -103,6 +141,7 @@ def _reference_status(row: dict[str, Any], reference: dict[str, Any]) -> list[fl
 def build_reference(snapshot: Path, url: str) -> dict[str, Any]:
     payload, reference = _fetch_reference(url)
     ours = _load_csv(snapshot / "weapons.csv")
+    passives = {row["weapon_id"]: row for row in _load_csv(snapshot / "weapon_passives.csv")}
     by_affinity_signature: dict[tuple[str, tuple[Any, ...]], list[dict[str, str]]] = defaultdict(list)
     for row in ours:
         by_affinity_signature[(row["affinity"], _ours_signature(row))].append(row)
@@ -114,15 +153,12 @@ def build_reference(snapshot: Path, url: str) -> dict[str, Any]:
     used_ids: set[int] = set()
     modeled_rows: list[list[Any]] = []
     status_rows: list[list[Any]] = []
+    correction_rows: list[list[Any]] = []
     reference_rows = sorted(reference["weapons"], key=lambda item: int(item["affinityId"]) != -1)
     for row in reference_rows:
         affinity_id = int(row["affinityId"])
-        if affinity_id < 0:
-            affinity = "Standard"
-            candidates = by_affinity_signature[(affinity, _reference_signature(row))]
-        else:
-            affinity = CONVERGENCE_AFFINITIES[affinity_id]
-            candidates = by_affinity_signature[(affinity, _reference_signature(row))]
+        affinity = "Standard" if affinity_id < 0 else CONVERGENCE_AFFINITIES[affinity_id]
+        candidates = by_affinity_signature[(affinity, _reference_signature(row))]
 
         candidates = [candidate for candidate in candidates if int(candidate["weapon_id"]) not in used_ids]
         named_candidates = [
@@ -145,6 +181,9 @@ def build_reference(snapshot: Path, url: str) -> dict[str, Any]:
         matched_weapons.append({"weaponId": matched_id, "affinity": affinity})
         modeled_rows.append([matched_id, affinity, _reference_signature(row)])
         status_rows.append([matched_id, _reference_status(row, reference)])
+        correction_rows.append(
+            [matched_id, _reference_corrections(row, candidates[0], passives[candidates[0]["weapon_id"]])]
+        )
         used_ids.add(matched_id)
         affinity_counts[affinity] += 1
 
@@ -156,6 +195,7 @@ def build_reference(snapshot: Path, url: str) -> dict[str, Any]:
     matched_ids = [item["weaponId"] for item in matched_weapons]
     modeled_rows.sort(key=lambda item: item[0])
     status_rows.sort(key=lambda item: item[0])
+    correction_rows.sort(key=lambda item: item[0])
     canonical_ids = "\n".join(str(value) for value in matched_ids).encode()
     return {
         "profile": "convergence",
@@ -168,6 +208,7 @@ def build_reference(snapshot: Path, url: str) -> dict[str, Any]:
         "matchedWeaponIdsSha256": hashlib.sha256(canonical_ids).hexdigest(),
         "modeledWeaponDataSha256": _canonical_hash(modeled_rows),
         "weaponStatusDataSha256": _canonical_hash(status_rows),
+        "weaponCorrectionDataSha256": _canonical_hash(correction_rows),
         "affinityCounts": dict(sorted(affinity_counts.items())),
         "weapons": matched_weapons,
     }
@@ -216,6 +257,15 @@ def validate_reference(snapshot: Path, reference_path: Path) -> None:
     ]
     if _canonical_hash(status_rows) != reference["weaponStatusDataSha256"]:
         raise ValueError("Convergence weapon status data differs from the external reference")
+
+    correction_rows = sorted(
+        [int(row["weapon_id"]), _ours_corrections(row, passive_by_id[int(row["weapon_id"])])]
+        for row in actual_rows
+    )
+    if _canonical_hash(correction_rows) != reference["weaponCorrectionDataSha256"]:
+        raise ValueError(
+            "Convergence attack-element or correction-curve IDs differ from the external reference"
+        )
 
 
 def main() -> int:

@@ -34,11 +34,13 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - Deliberate differences are narrowly checked: the frontend sends explicit
   upgrade-policy values and omits older upgrade inputs; older persisted builds
   may lack three optional display fields. Other missing/optional fields fail.
-- This source check is not a serializer, numeric-range check or command-registry
-  verifier. Rust validators and serialization tests remain required. Native String
-  fields can have narrower frontend literal types; permitted values still belong
-  to native validation.
-- React Hooks ordering and effect dependencies are lint errors. Async effects
+- The same check verifies that every `#[tauri::command]` is registered once in
+  `lib.rs`, listed in `build.rs`, allowed by the default capability, and called
+  from `api.ts` with matching argument names. It is not a serializer or
+  numeric-range check. Rust validators and serialization tests remain required.
+  Native String fields can have narrower frontend literal types; permitted values
+  still belong to native validation.
+- React Hooks rules, including the React Compiler checks, are lint errors. Async effects
   must retain generation/cancellation guards when dependencies change. Comparison
   persistence and preset imports share the solved-build shape validator in
   `src/lib/stored-build.ts`, with explicit profile or archive upgrade bounds.
@@ -54,9 +56,13 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - Cancellation replies and errors obey the same generation/job ownership rule;
   a late acknowledgement cannot clear or report an error on a replacement search.
 - Input changes invalidate the active generation before dependent state is changed.
+- Hiding a workspace (switching tabs) does not cancel its Paths, Affinity Watch or trade-off work; Stop, input, selection and profile changes do.
 - Cancellation is cooperative and fail-closed. A cancelled job cannot replace current rows or populate retained analysis caches.
 - Broad running work targets cancellation within 250 ms on the reference machine. Cancelled multi-lane jobs publish no partial success payload.
 - Polling has one in-flight request at a time and backs off while progress is unchanged.
+- A finished native job keeps its terminal status until the next job in that queue
+  starts, so a lost status reply can be read again. A page load, including a
+  reload, cancels every running native job, because the new page cannot own them.
 - Rankings, custom comparisons, and CSV export share one search queue. The workflow owns polling through native completion, including cancellation; superseded queued requests never start. Rankings UI components do not run a second poller.
 - Cancellation or status communication errors may end the caller's request, but do not establish that its native worker is idle. Retain uncertain job ownership, bound recovery attempts, and reconcile that worker before starting replacement work.
 - Direct loadout and upgrade-series calculations run off the native main thread, with bounded concurrency and cooperative cancellation. Shared cache work is cancelled only when its last subscriber leaves or its profile/data identity is invalidated.
@@ -66,6 +72,7 @@ Status: accepted. These rules describe contracts that tests and future refactors
   those lanes usable and reports that lane's chart error. Aborting one subscriber
   does not cancel shared cached work needed by another subscriber.
 - Compare evaluates all stored pins (up to eight), excluding the selected baseline.
+  A ninth pin is refused with a notice; the oldest pin is never dropped.
   Exact requests retain their requested upgrade or reject it. Pinned comparisons
   explicitly request and label +0 for a weapon whose verified profile has no
   reinforcement levels; other exact levels cannot silently become a lower level.
@@ -80,6 +87,10 @@ Status: accepted. These rules describe contracts that tests and future refactors
   asynchronous estimate needs a generation, signature, and job ID.
 - A profile switch invalidates every job generation before changing inputs, requests cancellation for all active backend jobs, clears profile-bound results, and cannot accept a completion from the previous profile.
 - Each profile keeps its last query (request and stat-lock mode) in memory and gets it back when the player returns to that profile. A query is never carried into another profile, and results are not restored: the returning query is searched again on demand.
+- Each profile's query is also saved on the device under its own profile key, written only while that profile is loaded, and restored at startup or on return after a restart. It is validated like an imported preset request; an unreadable query or one naming another profile is removed with a notice, never repaired or carried across profiles.
+- Release builds swallow WebView2's reload and print keys (F5, Ctrl+R, Ctrl+Shift+R,
+  Ctrl+F5 and Ctrl+P) so they cannot discard the session; development builds keep
+  reload.
 - CSV export owns a cancellable search until the backend reports completion, including after cancellation. Normal searches and comparison searches wait for that slot. Input/profile changes and leaving Rankings cancel export; late results cannot download or populate its cache.
 
 ## Result identity
@@ -97,8 +108,10 @@ Status: accepted. These rules describe contracts that tests and future refactors
   loadout solving with their exact equipment, upgrade and stats before publication.
   The selected build and comparison target must fit the saved inputs' level; a
   pinned comparison uses the level its own stats require.
-  Version mismatches load inputs only. Failed or superseded verification preserves
-  the original saved record and cannot publish late results.
+  Rows saved on other game data are recalculated the same way on the current data,
+  so their saved numbers are never shown; when recalculation fails, only the inputs
+  load. Failed or superseded verification preserves the original saved record and
+  cannot publish late results.
 - Weapon metadata belongs to its exact profile/weapon/affinity key. Loading,
   failure and retry never expose a previous key's profile as current. Effective
   Strength includes forced two-handing and weapon-specific bonus suppression.
@@ -107,8 +120,16 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - A restored comparison target remains available in Compare and Paths until the
   user changes its comparison or build context. Opening a workspace does not
   discard that target or silently replace it with unrelated comparison controls.
+  Compare re-resolving the same target (same content) is not a change: it does
+  not invalidate or cancel a Paths run.
 - Manual comparison controls preserve stored pins. Adding, removing or clearing
   pins invalidates derived targets and Paths, including work already in flight.
+  Loading a saved build without pins keeps the current pins; a build that carries
+  pins replaces them and says so. Stored pins saved on other game data are
+  recalculated on the current data before they are shown, and storage is replaced
+  only with the recalculated pins; a pin that cannot be recalculated is dropped
+  with a notice. A catalog or profile change, or a change to the pins, during that
+  recalculation discards its result.
 - Affinity Watch points contain only level and nullable metric. Endpoint summaries
   use the actual boundary points; missing endpoints remain unavailable and cannot
   inherit an interior build. Only an available final point supplies final stats.
@@ -135,7 +156,8 @@ Status: accepted. These rules describe contracts that tests and future refactors
   request enum values to be strings before they can reach the UI or native commands.
 - Reproduction reports project known request/result fields, including nested
   structures, and omit raw storage, logs, and private manifest source paths.
-  Report text redaction is an additional precaution; users preview before sharing.
+  Report text redaction, listed in the [security policy](../../SECURITY.md#reproduction-reports),
+  is an additional precaution; users preview before sharing.
   Captures describe current inputs and displayed results, never imply a failed
   request was captured or a saved result independently recalculated.
 
@@ -152,6 +174,12 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - Native skill identity remains anchored to the source `native_skill_id` when a
   localized label or motion rows are unavailable. The runtime may expose a null
   label and no damage rows, but it must not erase the ID or invent damage data.
+- Class budgets come only from the selected profile: Vanilla's built-in classes or
+  a profile's manifest-listed `classes.csv`. A request naming another profile's
+  class is rejected, and a non-Vanilla profile that declares class budgets without
+  a class catalog fails at the manifest boundary. Such a profile also offers
+  Custom stats, which keeps its exact-stat budget and cannot start Compare, Paths,
+  Affinity Watch, or AR / Bleed tradeoffs.
 - Convergence ammunition rows remain in the immutable source snapshot but are not
   exposed to catalog/search/export until an arrow/bolt projectile model exists. They
   must never compete using weapon-only or duplicated damage components; current profile
@@ -170,7 +198,9 @@ Status: accepted. These rules describe contracts that tests and future refactors
   budget changes and check eligibility against each evaluation's budget. Cancellation
   is honored even when a locked evaluation has no eligible weapons.
 - Schema version describes storage compatibility, dataset version identifies extracted content, and model version identifies calculation semantics. They change independently.
-- The UI's “Snapshot loaded” state reports a manifest-bound snapshot that passed
+- A healthy profile shows nothing in the header corner; “Snapshot loaded” is
+  announced to screen readers only, while loading and the experimental model stay
+  visible. Either way the state reports a manifest-bound snapshot that passed
   loading checks and declares capabilities; it does not independently verify every
   formula.
 
@@ -181,8 +211,10 @@ Any cache, async job, result DTO, preset, or snapshot change must update the clo
 ## Fixed-loadout tradeoffs
 
 AR/bleed tradeoffs use the shared cancellable analysis worker. Changing the
-request/profile/selected loadout or leaving Compare cancels the subscriber and
-prevents a late result from appearing. The returned frontier belongs to one
+request/profile/selected loadout cancels the subscriber and prevents a late result
+from appearing. Leaving Compare does not: an in-flight frontier keeps running and a
+finished one, with its selected point, is still shown on return while the context
+is unchanged. The returned frontier belongs to one
 fixed equipment, upgrade, stat-budget, constraint, and handling context.
 Presentation controls read the completed result without more optimizer work.
 Inspecting an option preserves its exact allocation; it does not feed the option

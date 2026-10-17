@@ -7,6 +7,7 @@ import { useDesktopStore } from "../../lib/state";
 import { OptimizeRequestDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
 import { withoutHistory } from "../../lib/query-history";
+import { errorMessage } from "../../lib/format";
 
 // Owns Search, its loadout preparation and cancellation. `markManualWeapon` records that the
 // player picked a weapon by hand, which is the only case that requests its native skill.
@@ -24,13 +25,18 @@ export function useSearchRunner() {
   const [searchCancellationRequested, setSearchCancellationRequested] = useState(false);
   const searchCancellationRequestedRef = useRef(false);
 
-  useEffect(() => {
-    if (!isSearching && !isPreparingSearch) {
+  const idle = !isSearching && !isPreparingSearch;
+  const [wasIdle, setWasIdle] = useState(idle);
+  if (wasIdle !== idle) {
+    setWasIdle(idle);
+    if (idle) {
       setSearchStartedAt(null);
       setSearchCancellationRequested(false);
-      searchCancellationRequestedRef.current = false;
     }
-  }, [isSearching, isPreparingSearch]);
+  }
+  useEffect(() => {
+    if (idle) searchCancellationRequestedRef.current = false;
+  }, [idle]);
 
   useEffect(() => () => searchPreparation.current?.abort(), []);
 
@@ -80,7 +86,7 @@ export function useSearchRunner() {
       setPreparingSearch(false);
       await runSearchFromStore(undefined, () => searchCancellationRequestedRef.current);
     } catch (error) {
-      if (!controller.signal.aborted) setError(error instanceof Error ? error.message : String(error));
+      if (!controller.signal.aborted) setError(errorMessage(error));
     } finally {
       unsubscribe();
       if (searchPreparation.current === controller) {
@@ -122,7 +128,7 @@ export function useSearchRunner() {
       if (!isCurrent()) return;
       setSearchCancellationRequested(false);
       searchCancellationRequestedRef.current = false;
-      setError(error instanceof Error ? error.message : String(error));
+      setError(errorMessage(error));
     }
   }
 
@@ -135,6 +141,9 @@ export function useSearchRunner() {
     manualWeaponRevision,
     markManualWeapon: () => {
       manualWeaponRevision.current = useDesktopStore.getState().loadoutSelectionRevision;
+    },
+    clearManualWeapon: () => {
+      manualWeaponRevision.current = null;
     },
   };
 }

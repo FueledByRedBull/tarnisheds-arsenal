@@ -68,10 +68,6 @@ pub struct OptimizeRequestDto {
     pub somber_max_upgrade: Option<u8>,
     #[serde(default)]
     pub exact_upgrade: Option<bool>,
-    #[serde(default)]
-    pub max_upgrade: Option<u8>,
-    #[serde(default)]
-    pub fixed_upgrade: Option<u8>,
     pub two_handing: bool,
     #[serde(default)]
     pub dlc_scaling: bool,
@@ -96,17 +92,15 @@ fn default_result_grouping() -> String {
 
 impl OptimizeRequestDto {
     pub fn standard_upgrade_cap(&self) -> u8 {
-        self.standard_max_upgrade.or(self.max_upgrade).unwrap_or(25)
+        self.standard_max_upgrade.unwrap_or(25)
     }
 
     pub fn somber_upgrade_cap(&self) -> u8 {
-        self.somber_max_upgrade
-            .or_else(|| self.max_upgrade.map(|value| value.min(10)))
-            .unwrap_or(10)
+        self.somber_max_upgrade.unwrap_or(10)
     }
 
     pub fn exact_upgrade_enabled(&self) -> bool {
-        self.exact_upgrade.unwrap_or(self.fixed_upgrade.is_some())
+        self.exact_upgrade.unwrap_or(false)
     }
 
     pub fn set_exact_upgrade(&mut self, upgrade: u8, is_somber: bool) {
@@ -116,8 +110,22 @@ impl OptimizeRequestDto {
             self.standard_max_upgrade = Some(upgrade);
         }
         self.exact_upgrade = Some(true);
-        self.max_upgrade = None;
-        self.fixed_upgrade = None;
+    }
+
+    /// Fixes the request to one loadout and drops the discovery query around it.
+    pub fn pin_loadout(
+        &mut self,
+        weapon_name: String,
+        affinity: Option<String>,
+        aow_name: Option<String>,
+    ) {
+        self.weapon_name = Some(weapon_name);
+        self.affinity = affinity;
+        self.aow_name = aow_name;
+        self.weapon_type_key = None;
+        self.somber_filter = SomberFilter::All.as_str().to_string();
+        self.filters.entries.clear();
+        self.top_k = 1;
     }
 }
 
@@ -261,7 +269,7 @@ pub struct ArBleedFrontierRequestDto {
     pub solved: SolvedBuildDto,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ArBleedFrontierPointDto {
     pub result: SolvedBuildDto,
@@ -279,7 +287,7 @@ pub struct UpgradeSeriesRequestDto {
     pub max_upgrade: u8,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpgradePointDto {
     pub upgrade: u8,
@@ -305,7 +313,7 @@ pub enum PathMode {
     OptimumEnvelope,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PathStepDto {
     pub level: u16,
@@ -315,7 +323,7 @@ pub struct PathStepDto {
     pub requirement_gap: u16,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PathPreviewDto {
     pub title: String,
@@ -329,7 +337,7 @@ pub struct StartPathPreviewRequestDto {
     pub requests: Vec<PathPreviewRequestDto>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PathProgressDto {
     pub job_id: String,
@@ -339,7 +347,7 @@ pub struct PathProgressDto {
     pub level: u16,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PathFinishedDto {
     pub job_id: String,
@@ -348,7 +356,7 @@ pub struct PathFinishedDto {
     pub error: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PathJobStatusDto {
     pub progress: Option<PathProgressDto>,
@@ -363,14 +371,14 @@ pub struct AffinityWatchRequestDto {
     pub levels_ahead: u16,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AffinityWatchPointDto {
     pub level: u16,
     pub metric: Option<f32>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AffinityWatchLineDto {
     pub affinity: String,
@@ -380,7 +388,7 @@ pub struct AffinityWatchLineDto {
     pub final_build: Option<SolvedBuildDto>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AffinityBreakpointDto {
     pub level: u16,
@@ -393,14 +401,14 @@ pub struct AffinityBreakpointDto {
     pub quality: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AffinityWatchPayloadDto {
     pub lines: Vec<AffinityWatchLineDto>,
     pub breakpoints: Vec<AffinityBreakpointDto>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AffinityWatchProgressDto {
     pub job_id: String,
@@ -410,7 +418,7 @@ pub struct AffinityWatchProgressDto {
     pub level: u16,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AffinityWatchFinishedDto {
     pub job_id: String,
@@ -419,20 +427,20 @@ pub struct AffinityWatchFinishedDto {
     pub error: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AffinityWatchJobStatusDto {
     pub progress: Option<AffinityWatchProgressDto>,
     pub finished: Option<AffinityWatchFinishedDto>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StartSearchResponseDto {
     pub job_id: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchProgressDto {
     pub job_id: String,
@@ -443,7 +451,7 @@ pub struct SearchProgressDto {
     pub elapsed_ms: u64,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchFinishedDto {
     pub job_id: String,
@@ -454,14 +462,14 @@ pub struct SearchFinishedDto {
     pub setups: u64,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchJobStatusDto {
     pub progress: Option<SearchProgressDto>,
     pub finished: Option<SearchFinishedDto>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AnalysisJobKindDto {
     SolveBuild,
@@ -469,7 +477,7 @@ pub enum AnalysisJobKindDto {
     ArBleedFrontier,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AnalysisFinishedDto {
     pub job_id: String,
@@ -481,19 +489,16 @@ pub struct AnalysisFinishedDto {
     pub error: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AnalysisJobStatusDto {
     pub finished: Option<AnalysisFinishedDto>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CatalogDto {
-    pub weapon_count: usize,
-    pub aow_count: usize,
     pub weapon_names: Vec<String>,
-    pub weapon_type_keys: Vec<String>,
     pub classes: Vec<ClassMetadataDto>,
     pub weapon_type_options: Vec<WeaponTypeOptionDto>,
     pub aow_names: Vec<String>,
@@ -504,7 +509,7 @@ pub struct CatalogDto {
     pub data_manifest: DataManifestDto,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FilterDimensionDto {
     pub id: String,
@@ -512,7 +517,7 @@ pub struct FilterDimensionDto {
     pub options: Vec<FilterOptionDto>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FilterOptionDto {
     pub id: String,
@@ -520,7 +525,7 @@ pub struct FilterOptionDto {
     pub count: usize,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DataManifestDto {
     pub schema_version: u32,
@@ -530,15 +535,12 @@ pub struct DataManifestDto {
     pub label: String,
     pub app_version: String,
     pub source: String,
-    pub generated_at: String,
-    pub extractor_version: String,
-    pub provenance: String,
     pub profile: ProfileMetadataDto,
     pub capabilities: ProfileCapabilitiesDto,
     pub rules: ProfileRulesDto,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileMetadataDto {
     pub id: String,
@@ -547,20 +549,16 @@ pub struct ProfileMetadataDto {
     pub mod_version: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileCapabilitiesDto {
     pub class_budget: bool,
-    pub weapon_ar: bool,
-    pub weapon_ar_for_ammunition: bool,
     pub status_buildup: bool,
-    pub weapon_passives: bool,
-    pub aow_compatibility: bool,
     pub aow_damage: bool,
     pub aow_routes: bool,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileRulesDto {
     pub standard_max_upgrade: u8,
@@ -569,7 +567,6 @@ pub struct ProfileRulesDto {
     pub scadutree_scaling: bool,
     pub zero_attack_element_uses_weapon_scaling: bool,
     pub extended_scaling_grades: bool,
-    pub status_buildup_scales: bool,
 }
 
 impl From<er_optimizer_core::SnapshotManifest> for DataManifestDto {
@@ -582,9 +579,6 @@ impl From<er_optimizer_core::SnapshotManifest> for DataManifestDto {
             label: value.label,
             app_version: value.app_version,
             source: value.source,
-            generated_at: value.generated_at,
-            extractor_version: value.extractor_version,
-            provenance: value.provenance,
             profile: ProfileMetadataDto {
                 id: value.profile.id,
                 display_name: value.profile.display_name,
@@ -593,11 +587,7 @@ impl From<er_optimizer_core::SnapshotManifest> for DataManifestDto {
             },
             capabilities: ProfileCapabilitiesDto {
                 class_budget: value.capabilities.class_budget,
-                weapon_ar: value.capabilities.weapon_ar,
-                weapon_ar_for_ammunition: value.capabilities.weapon_ar_for_ammunition,
                 status_buildup: value.capabilities.status_buildup,
-                weapon_passives: value.capabilities.weapon_passives,
-                aow_compatibility: value.capabilities.aow_compatibility,
                 aow_damage: value.capabilities.aow_damage,
                 aow_routes: value.capabilities.aow_routes,
             },
@@ -610,13 +600,12 @@ impl From<er_optimizer_core::SnapshotManifest> for DataManifestDto {
                     .rules
                     .zero_attack_element_uses_weapon_scaling,
                 extended_scaling_grades: value.rules.extended_scaling_grades,
-                status_buildup_scales: value.rules.status_buildup_scales,
             },
         }
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClassMetadataDto {
     pub name: String,
@@ -625,7 +614,7 @@ pub struct ClassMetadataDto {
     pub base_stats: EightStatsDto,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EightStatsDto {
     pub vig: u8,
@@ -638,7 +627,7 @@ pub struct EightStatsDto {
     pub arc: u8,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WeaponTypeOptionDto {
     pub key: String,
@@ -653,7 +642,7 @@ pub struct WeaponProfileRequestDto {
     pub affinity: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WeaponProfileDto {
     pub can_change_aow: bool,
@@ -671,7 +660,7 @@ pub struct WeaponProfileDto {
     pub compatible_aows: Vec<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DisplayPoiseDamageDto {
     pub light: String,
@@ -732,9 +721,8 @@ impl TryFrom<&OptimizeRequestDto> for OptimizeRequest {
             weapon_type_key: value.weapon_type_key.clone(),
             somber_filter: parse_somber_filter(&value.somber_filter)?,
             filters: parse_stable_filters(&value.filters)?,
-            result_grouping: ResultGrouping::parse(&value.result_grouping)
-                .map_err(AppError::new)?,
-            objective: parse_objective(&value.objective)?,
+            result_grouping: ResultGrouping::parse(&value.result_grouping)?,
+            objective: OptimizeObjective::parse(&value.objective)?,
             top_k: value.top_k,
         })
     }
@@ -896,10 +884,6 @@ impl From<ProgressSnapshot> for SearchProgressDto {
     }
 }
 
-pub fn parse_objective(raw: &str) -> Result<OptimizeObjective, AppError> {
-    OptimizeObjective::parse(raw).map_err(AppError::new)
-}
-
 pub fn validate_optimize_request(request: &OptimizeRequestDto) -> Result<(), AppError> {
     if request.top_k > MAX_TOP_K {
         return Err(AppError::new(format!(
@@ -939,9 +923,9 @@ fn parse_stable_filters(filters: &StableFilterSetDto) -> Result<Vec<StableFilter
                 ));
             }
             Ok(StableFilter {
-                dimension: FilterDimension::parse(&filter.dimension).map_err(AppError::new)?,
+                dimension: FilterDimension::parse(&filter.dimension)?,
                 id: filter.id.clone(),
-                mode: FilterMode::parse(&filter.mode).map_err(AppError::new)?,
+                mode: FilterMode::parse(&filter.mode)?,
             })
         })
         .collect()
@@ -965,15 +949,15 @@ pub fn validate_path_batch(count: usize) -> Result<(), AppError> {
     Ok(())
 }
 
-pub fn parse_somber_filter(raw: &str) -> Result<SomberFilter, AppError> {
-    match raw.trim().to_ascii_lowercase().as_str() {
-        "all" => Ok(SomberFilter::All),
-        "standard_only" | "standard" => Ok(SomberFilter::StandardOnly),
-        "somber_only" | "somber" => Ok(SomberFilter::SomberOnly),
-        _ => Err(AppError::new(format!(
-            "invalid somber_filter '{raw}', expected all, standard_only, or somber_only"
-        ))),
-    }
+fn parse_somber_filter(raw: &str) -> Result<SomberFilter, AppError> {
+    SomberFilter::ALL
+        .into_iter()
+        .find(|filter| filter.as_str() == raw)
+        .ok_or_else(|| {
+            AppError::new(format!(
+                "invalid somber_filter '{raw}', expected all, standard_only, or somber_only"
+            ))
+        })
 }
 
 pub fn metric_for_objective(solved: &SolvedBuildDto, objective: OptimizeObjective) -> f32 {
@@ -992,6 +976,14 @@ pub fn lock_request_to_stats(request: &mut OptimizeRequestDto, stats: CombatStat
     request.lock_int = Some(stats.int_stat);
     request.lock_fai = Some(stats.fai);
     request.lock_arc = Some(stats.arc);
+}
+
+pub fn unlock_combat_stats(request: &mut OptimizeRequestDto) {
+    request.lock_str = None;
+    request.lock_dex = None;
+    request.lock_int = None;
+    request.lock_fai = None;
+    request.lock_arc = None;
 }
 
 pub fn set_min_combat_stats(request: &mut OptimizeRequestDto, mins: [u8; COMBAT_STAT_COUNT]) {
@@ -1183,50 +1175,6 @@ mod tests {
         assert_eq!(request.somber_upgrade_cap(), 10);
         assert!(request.exact_upgrade_enabled());
         assert_eq!(request.scadutree_level, 20);
-    }
-
-    #[test]
-    fn legacy_optimize_request_upgrade_keys_migrate() {
-        let request: OptimizeRequestDto = serde_json::from_value(json!({
-            "profileId": "vanilla",
-            "className": "Samurai",
-            "characterLevel": 150,
-            "vig": 50,
-            "mnd": 11,
-            "end": 30,
-            "strStat": 12,
-            "dex": 60,
-            "intStat": 9,
-            "fai": 8,
-            "arc": 45,
-            "minStr": 12,
-            "minDex": 15,
-            "minInt": 9,
-            "minFai": 8,
-            "minArc": 8,
-            "lockStr": null,
-            "lockDex": null,
-            "lockInt": null,
-            "lockFai": null,
-            "lockArc": null,
-            "maxUpgrade": 25,
-            "fixedUpgrade": 25,
-            "twoHanding": false,
-            "dlcScaling": true,
-            "scadutreeLevel": 20,
-            "weaponName": "Uchigatana",
-            "affinity": "Blood",
-            "aowName": "Seppuku",
-            "weaponTypeKey": "katana",
-            "somberFilter": "all",
-            "objective": "max_ar",
-            "topK": 10
-        }))
-        .expect("legacy request deserializes");
-
-        assert_eq!(request.standard_upgrade_cap(), 25);
-        assert_eq!(request.somber_upgrade_cap(), 10);
-        assert!(request.exact_upgrade_enabled());
     }
 
     fn solved_build() -> SolvedBuildDto {

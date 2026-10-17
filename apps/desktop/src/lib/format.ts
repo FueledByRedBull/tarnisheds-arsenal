@@ -1,4 +1,4 @@
-import { ObjectiveId, OptimizeRequestDto, SolvedBuildDto } from "./types";
+import { DataManifestDto, ObjectiveId, OptimizeRequestDto, SolvedBuildDto } from "./types";
 
 // One formatter: constructing it per call cost ~5 ms per 50 rendered rows.
 const wholeNumber = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
@@ -44,11 +44,16 @@ export function objectiveUnit(objective: ObjectiveId): string {
   }
 }
 
-export function hasAowDamage(row: Pick<SolvedBuildDto, "aowRoute">, modelSupported = true): boolean {
+/** AoW damage is shown only when the profile models both skill damage and its routes. */
+export function aowModelSupported(manifest: Pick<DataManifestDto, "capabilities"> | null | undefined): boolean {
+  return Boolean(manifest?.capabilities.aowDamage && manifest.capabilities.aowRoutes);
+}
+
+export function hasAowDamage(row: Pick<SolvedBuildDto, "aowRoute">, modelSupported: boolean): boolean {
   return modelSupported && row.aowRoute !== null;
 }
 
-export function metricForObjective(row: SolvedBuildDto, objective: ObjectiveId, aowModelSupported = true): number | null {
+export function metricForObjective(row: SolvedBuildDto, objective: ObjectiveId, aowModelSupported: boolean): number | null {
   switch (objective) {
     case "max_physical_ar":
       return row.ar.physical;

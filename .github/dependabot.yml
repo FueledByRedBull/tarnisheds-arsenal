@@ -1,0 +1,29 @@
+version: 2
+# Version updates wait two weeks after a release; security updates are not delayed.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+  - package-ecosystem: cargo
+    directories:
+      - /core/er_optimizer_core
+      - /apps/desktop/src-tauri
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+  - package-ecosystem: npm
+    directory: /apps/desktop
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14

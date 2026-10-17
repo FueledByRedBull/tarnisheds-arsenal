@@ -33,14 +33,9 @@ tmp_*.png
 release-notes-*.md
 /tarnisheds-arsenal-desktop.exe
 
-# Local planning and audit evidence
-/AGENTS.md
-/.codex-tmp/
-/IGNORE/
-/TODO.md
-/HARDEN.md
-/AUDITS.md
-/ERComparitor_DIFFERENTIAL_REVIEW_*.md
+# Local secrets
+.env
+.env.*
 
 # Retired PyQt desktop workspace kept local-only for old parity checks.
 ui/desktop/

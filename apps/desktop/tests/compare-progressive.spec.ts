@@ -13,7 +13,7 @@ async function prepare(page: Page, pins = false) {
     const rows = useDesktopStore.getState().rows;
     if (pins) rows.slice(1, 3).forEach(row => useDesktopStore.getState().toggleCompareBench(row));
     api.solveBuild = async (_base, name, affinity) => rows.find(row => row.weaponName === name && row.affinity === affinity) ?? null;
-    const probe = { start: performance.now(), calls: [] as any[], cancelled: [] as string[] };
+    const probe = { calls: [] as any[], cancelled: [] as string[] };
     api.buildUpgradeSeries = (_base, row, _cap, signal) => new Promise((resolve, reject) => {
       probe.calls.push({ name: row.weaponName, resolve: () => resolve([{ upgrade: 0, metric: row.ar.total }]),
         reject: () => reject(new Error("controlled chart failure")) });
@@ -24,25 +24,18 @@ async function prepare(page: Page, pins = false) {
   }, pins);
 }
 
-test("publishes multiple verified pins and scaling before any optional chart finishes", async ({ page }, testInfo) => {
+test("publishes multiple verified pins and scaling before any optional chart finishes", async ({ page }) => {
   const names = await prepare(page, true);
   await openCompare(page);
   await expect(page.getByRole("group", { name: "Pinned #1", exact: true })).toContainText(names[1]);
   await expect(page.getByRole("table", { name: "Primary deltas versus baseline" })).toBeVisible();
   await expect(page.getByRole("group", { name: "Selected baseline", exact: true }).getByRole("listitem", { name: "Strength scaling: C", exact: true })).toBeVisible();
-  const firstMs = await page.evaluate(() => performance.now() - (window as any).comparisonProbe.start);
+  // The verified comparison above is on screen while every chart is still held.
   await expect(page.getByText("Upgrade chart loading…", { exact: true })).toHaveCount(3);
   await page.evaluate(() => (window as any).comparisonProbe.calls[0].resolve());
   await expect(page.getByText("Upgrade chart loading…", { exact: true })).toHaveCount(2);
-  await page.evaluate(async () => {
-    await new Promise(resolve => setTimeout(resolve, 600));
-    (window as any).comparisonProbe.calls.forEach((call: any) => call.resolve());
-  });
+  await page.evaluate(() => (window as any).comparisonProbe.calls.forEach((call: any) => call.resolve()));
   await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
-  const allMs = await page.evaluate(() => performance.now() - (window as any).comparisonProbe.start);
-  await testInfo.attach("controlled-comparison-timing", { body: JSON.stringify({ firstValidComparisonMs: firstMs, allChartsReadyMs: allMs, syntheticHeldResponses: true }), contentType: "application/json" });
-  console.log(JSON.stringify({ firstValidComparisonMs: firstMs, allChartsReadyMs: allMs, syntheticHeldResponses: true }));
-  expect(firstMs).toBeLessThan(allMs);
 });
 
 test("a failed optional chart preserves verified deltas and other charts", async ({ page }) => {
@@ -54,7 +47,7 @@ test("a failed optional chart preserves verified deltas and other charts", async
   await expect(page.getByRole("group", { name: "Top #2", exact: true })).toContainText(names[1]);
   await expect(page.getByRole("table", { name: "Primary deltas versus baseline" }).getByRole("row")).toHaveCount(4);
   expect(await page.evaluate(async () => (await import("/src/lib/state.ts")).useDesktopStore.getState().compareTarget?.weaponName)).toBe(names[1]);
-  await expect(page.locator(".matrix-row").filter({ hasText: "Selected" }).getByRole("gridcell").first()).not.toHaveText("—");
+  await expect(page.locator(".matrix-row").filter({ hasText: "Selected" }).getByRole("cell").first()).not.toHaveText("—");
 });
 
 test("request changes cancel optional charts and cannot republish old comparison rows", async ({ page }) => {
@@ -97,8 +90,12 @@ test("stamina desirability reverses cost direction without changing arithmetic s
     const state = useDesktopStore.getState();
     state.setRows(state.rows.map((row, i) => i === 1 ? { ...row, aowRoute: null } : row), 100);
   });
-  await page.getByText("Full metric breakdown", { exact: true }).click();
-  await expect(rows.nth(1).getByRole("cell").last()).toHaveText("Unavailable");
+  // The refreshed table may or may not have remounted, so open the breakdown only if it closed.
+  const breakdown = page.locator(".compare-deltas > details");
+  await expect(async () => {
+    if (!await breakdown.evaluate((node) => (node as HTMLDetailsElement).open)) await breakdown.locator("summary").click();
+    await expect(rows.nth(1).getByRole("cell").last()).toHaveText("Unavailable", { timeout: 1000 });
+  }).toPass();
   await expect(rows.nth(1).getByRole("cell").last()).not.toHaveAttribute("class", /positive|negative/);
 });
 
@@ -141,7 +138,7 @@ test("manual comparison filters preserve pins and unpinning invalidates the Path
   await page.getByRole("button", { name: "Use pinned targets", exact: true }).click();
   await expect(page.getByRole("group", { name: "Pinned #1", exact: true })).toBeVisible();
   await page.getByRole("navigation").getByRole("button", { name: "Rankings", exact: true }).click();
-  await page.locator(".result-row-full").nth(1).getByRole("button", { name: /^Unpin / }).click();
+  await page.locator(".result-row").nth(1).getByRole("button", { name: /^Unpin / }).click();
   await page.getByRole("navigation").getByRole("button", { name: "Paths", exact: true }).click();
   await expect(page.locator(".path-lane").nth(1)).toContainText("No compare lane selected.");
   expect(await page.evaluate(async () => (await import("/src/lib/state.ts")).useDesktopStore.getState().compareTarget)).toBeNull();
@@ -187,13 +184,29 @@ for (const conflict of ["somber", "excluded-type", "weapon-and-skill", "locks"] 
       };
       return useDesktopStore.getState().request;
     }, conflict);
-    await page.getByRole("button", { name: "Try Uchigatana +3 example", exact: true }).click();
+    await page.getByRole("button", { name: "Try an Uchigatana +3 example", exact: true }).click();
     await expect.poll(() => page.evaluate(() => Boolean((window as any).starterRequest))).toBe(true);
     const request = await page.evaluate(() => (window as any).starterRequest);
     expect(request).toMatchObject({ weaponTypeKey: null, weaponName: "Uchigatana", affinity: "Standard", aowName: null,
       somberFilter: "all", filters: { version: 1, entries: [] }, standardMaxUpgrade: 3, exactUpgrade: true, objective: "max_ar" });
     for (const field of ["className", "vig", "mnd", "end", "minStr", "minDex", "minInt", "minFai", "minArc", "lockStr", "lockDex", "lockInt", "lockFai", "lockArc"] as const) expect(request[field]).toBe(before[field]);
-    await expect(page.getByText(/Character stats, floors, locks, and world settings are retained/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Try an Uchigatana +3 example", exact: true })).toHaveAttribute("title", /Keeps your stats, minimums, locks and world settings/);
     if (conflict === "locks") await expect(page.getByText(/No legal Uchigatana \+3 build fits your retained character constraints/)).toBeVisible();
   });
 }
+
+test("a delta that rounds to 0.0 reads as no change", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows", { exact: true })).toBeVisible();
+  await page.evaluate(async () => {
+    const { useDesktopStore } = await import("/src/lib/state.ts");
+    const [first, second, ...rest] = useDesktopStore.getState().rows;
+    useDesktopStore.getState().setRows([first, { ...second, ar: { ...second.ar, total: first.ar.total + 0.04 } }, ...rest], 100);
+  });
+  await page.locator(".result-row").first().click();
+  await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+  const arDelta = page.getByRole("table", { name: "Primary deltas versus baseline" }).getByRole("row").nth(1).getByRole("cell").first();
+  await expect(arDelta).toHaveText("0.0");
+  await expect(arDelta).not.toHaveClass(/positive|negative/);
+});

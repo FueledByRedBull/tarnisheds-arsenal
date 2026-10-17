@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   select-checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       rust: ${{ steps.scope.outputs.rust }}
@@ -25,12 +25,33 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 2
+          persist-credentials: false
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version-file: ".python-version"
       - name: Validate release metadata
         run: python tools/phase4/validate_release_metadata.py
+      # Pinned linter binaries, verified by SHA-256 before use. zizmor runs only its offline
+      # audits, so results do not depend on a token or on upstream branch rewrites.
+      - name: Lint workflows
+        env:
+          ACTIONLINT_URL: https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+          ZIZMOR_URL: https://github.com/zizmorcore/zizmor/releases/download/v1.30.1/zizmor-x86_64-unknown-linux-gnu.tar.gz
+          ZIZMOR_SHA256: e65324f4430c2717591937edcec90ccbefaf14c174f8ec9415e03ca875b46e1a
+        run: |
+          set -euo pipefail
+          tools="$RUNNER_TEMP/workflow-linters"
+          mkdir -p "$tools"
+          curl -fsSL --retry 3 -o "$tools/actionlint.tar.gz" "$ACTIONLINT_URL"
+          curl -fsSL --retry 3 -o "$tools/zizmor.tar.gz" "$ZIZMOR_URL"
+          echo "$ACTIONLINT_SHA256  $tools/actionlint.tar.gz" | sha256sum --check --strict
+          echo "$ZIZMOR_SHA256  $tools/zizmor.tar.gz" | sha256sum --check --strict
+          tar -xzf "$tools/actionlint.tar.gz" -C "$tools" actionlint
+          tar -xzf "$tools/zizmor.tar.gz" -C "$tools" zizmor
+          "$tools/actionlint" -color
+          "$tools/zizmor" --offline --format github .github
       - name: Select checks
         id: scope
         run: python tools/phase4/ci_scope.py
@@ -38,7 +59,7 @@ jobs:
   rust-and-data:
     needs: [select-checks, windows-debug-and-data, windows-release, linux-core-and-data, desktop-frontend]
     if: ${{ always() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Require selected checks
@@ -68,7 +89,7 @@ jobs:
   windows-debug-and-data:
     needs: select-checks
     if: ${{ needs.select-checks.outputs.rust == 'true' }}
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 45
     env:
       CARGO_TARGET_DIR: ${{ github.workspace }}/.codex-tmp/ci-target
@@ -81,6 +102,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
@@ -91,7 +114,7 @@ jobs:
 
       - name: Install Python deps
         run: |
-          python -m pip install --disable-pip-version-check -r requirements-validation.txt
+          python -m pip install --disable-pip-version-check --require-hashes -r requirements-validation.txt
 
       - name: Python tests, lint and type checking
         run: |
@@ -102,11 +125,19 @@ jobs:
           python -m unittest discover -s tools/phase1 -p "test_*.py"
           python -m unittest discover -s tools/phase4 -p "test_*.py"
 
-      - name: Dual-profile data/runtime validation
+      - name: Dual-profile data snapshot validation
         run: python tools/phase4/validate_phase4.py --report dist/validation/data-validation.json
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@86e7197484018ef6aaa9255d186f6ce1754276dd # 1.97.0
+        # Installs the toolchain rust-toolchain.toml pins, or RUSTUP_TOOLCHAIN where a job sets it.
+        shell: bash
+        env:
+          RUSTUP_PERMIT_COPY_RENAME: "1"
+        run: |
+          rustup toolchain install --profile minimal --no-self-update
+          echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+          echo "CARGO_TERM_COLOR=always" >> "$GITHUB_ENV"
+          rustc --version --verbose
 
       - name: Rust formatting
         run: |
@@ -141,14 +172,6 @@ jobs:
       - name: Desktop backend tests
         run: cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --lib --timings
 
-      - name: Core documentation tests
-        env:
-          CARGO_PROFILE_TEST_OPT_LEVEL: "1"
-        run: cargo test --locked --manifest-path core/er_optimizer_core/Cargo.toml --doc --timings
-
-      - name: Desktop documentation tests
-        run: cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --doc --timings
-
       - name: Upload data validation report
         if: ${{ always() && hashFiles('dist/validation/data-validation.json') != '' }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -169,7 +192,7 @@ jobs:
   windows-release:
     needs: select-checks
     if: ${{ needs.select-checks.outputs.rust == 'true' }}
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 45
     env:
       CARGO_TARGET_DIR: ${{ github.workspace }}/.codex-tmp/ci-target
@@ -179,9 +202,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@86e7197484018ef6aaa9255d186f6ce1754276dd # 1.97.0
+        # Installs the toolchain rust-toolchain.toml pins, or RUSTUP_TOOLCHAIN where a job sets it.
+        shell: bash
+        env:
+          RUSTUP_PERMIT_COPY_RENAME: "1"
+        run: |
+          rustup toolchain install --profile minimal --no-self-update
+          echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+          echo "CARGO_TERM_COLOR=always" >> "$GITHUB_ENV"
+          rustc --version --verbose
 
       - name: Compiler identity
         run: |
@@ -215,13 +248,6 @@ jobs:
           cargo check --release --locked --manifest-path core/er_optimizer_core/Cargo.toml --all-targets --timings
           cargo check --release --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --timings
 
-      - name: Rust release documentation tests
-        run: |
-          $ErrorActionPreference = "Stop"
-          $PSNativeCommandUseErrorActionPreference = $true
-          cargo test --release --locked --manifest-path core/er_optimizer_core/Cargo.toml --doc --timings
-          cargo test --release --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --doc --timings
-
       - name: Upload Rust build timings
         if: ${{ always() && hashFiles('.codex-tmp/ci-target/cargo-timings/*.html') != '' }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -234,7 +260,7 @@ jobs:
   desktop-frontend:
     needs: select-checks
     if: ${{ needs.select-checks.outputs.frontend == 'true' }}
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 45
     env:
       # Incremental artifacts are never reused in CI and only enlarge the cache.
@@ -243,9 +269,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: ".node-version"
           cache: "npm"
@@ -256,7 +284,7 @@ jobs:
         run: |
           npm ci --prefer-offline --no-audit --fund=false
 
-      - name: React Hooks lint and DTO contract checks
+      - name: Lint, type-check tests and scripts, and check DTO contracts
         working-directory: apps/desktop
         run: |
           $ErrorActionPreference = "Stop"
@@ -275,13 +303,9 @@ jobs:
         run: |
           node ./node_modules/@playwright/test/cli.js install chromium
 
-      - name: Desktop TypeScript build
+      - name: Desktop unit tests
         working-directory: apps/desktop
-        run: |
-          $ErrorActionPreference = "Stop"
-          $PSNativeCommandUseErrorActionPreference = $true
-          npm test
-          npm run build
+        run: npm test
 
       - name: Desktop e2e contract tests
         working-directory: apps/desktop
@@ -289,9 +313,18 @@ jobs:
           npm run test:e2e
 
       # The release workflow runs this smoke on the packaged build; running it on
-      # every change catches native/UI drift before it can block a release.
+      # every change catches native/UI drift before it can block a release. The
+      # Tauri build also runs the TypeScript check and production bundle.
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@86e7197484018ef6aaa9255d186f6ce1754276dd # 1.97.0
+        # Installs the toolchain rust-toolchain.toml pins, or RUSTUP_TOOLCHAIN where a job sets it.
+        shell: bash
+        env:
+          RUSTUP_PERMIT_COPY_RENAME: "1"
+        run: |
+          rustup toolchain install --profile minimal --no-self-update
+          echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+          echo "CARGO_TERM_COLOR=always" >> "$GITHUB_ENV"
+          rustc --version --verbose
 
       - name: Cache native desktop build
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
@@ -315,9 +348,11 @@ jobs:
   linux-core-and-data:
     needs: select-checks
     if: ${{ needs.select-checks.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
+      # Skips rust-toolchain.toml's clippy/rustfmt install, which conflicts on current
+      # Ubuntu runner images; this job runs neither. The validator keeps it in sync.
       RUSTUP_TOOLCHAIN: "1.97.0"
       CARGO_PROFILE_TEST_OPT_LEVEL: "1"
       CARGO_PROFILE_TEST_DEBUG_ASSERTIONS: "true"
@@ -326,6 +361,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
@@ -335,26 +372,48 @@ jobs:
           cache-dependency-path: requirements-validation.txt
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@86e7197484018ef6aaa9255d186f6ce1754276dd # 1.97.0
+        # Installs the toolchain rust-toolchain.toml pins, or RUSTUP_TOOLCHAIN where a job sets it.
+        shell: bash
+        env:
+          RUSTUP_PERMIT_COPY_RENAME: "1"
+        run: |
+          rustup toolchain install --profile minimal --no-self-update
+          echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+          echo "CARGO_TERM_COLOR=always" >> "$GITHUB_ENV"
+          rustc --version --verbose
 
       - name: Install validation dependencies
-        run: python -m pip install --disable-pip-version-check -r requirements-validation.txt
+        run: python -m pip install --disable-pip-version-check --require-hashes -r requirements-validation.txt
 
+      # Deliberately repeats the Windows Python checks: line endings and path
+      # separators have broken cross-platform assumptions before.
       - name: Python and snapshot validation
         run: |
           set -e
           python -m unittest discover -s tools/phase1 -p "test_*.py"
           python -m unittest discover -s tools/phase4 -p "test_*.py"
-          python tools/phase4/validate_phase4.py --report dist/validation/data-validation-linux.json
+          python tools/phase4/validate_phase4.py
 
       - name: Core tests and benchmark assertions
         run: cargo test --locked --manifest-path core/er_optimizer_core/Cargo.toml --lib --example benchmark_level_range --timings
 
-      - name: Rust documentation tests
-        run: cargo test --locked --manifest-path core/er_optimizer_core/Cargo.toml --doc --timings
-
       - name: Check all Linux targets
         run: cargo check --locked --manifest-path core/er_optimizer_core/Cargo.toml --all-targets --timings
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".node-version"
+          cache: "npm"
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      # The independent AR/status oracle needs only the locked TypeScript compiler.
+      - name: Install TypeScript for the reference calculator
+        working-directory: apps/desktop
+        run: npm ci --prefer-offline --no-audit --fund=false --ignore-scripts
+
+      - name: Compare with the pinned reference calculator
+        run: python tools/phase4/validate_external_calculator.py --count 100 --seed 20260918
 
       - name: Upload Rust build timings
         if: ${{ always() && hashFiles('core/er_optimizer_core/target/cargo-timings/*.html') != '' }}

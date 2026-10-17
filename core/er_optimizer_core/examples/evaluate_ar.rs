@@ -5,9 +5,10 @@ use std::path::PathBuf;
 use er_optimizer_core::math::calculate_status_buildup;
 use er_optimizer_core::model::{GameData, Weapon};
 use er_optimizer_core::{
-    DamageBreakdown, FilterDimension, FilterMode, OptimizeObjective, OptimizeRequest,
-    OptimizeResult, ResultGrouping, SomberFilter, StableFilter, Stats, calculate_ar, effective_str,
-    load_game_data, meets_requirements, optimize, prepare_loadout_evaluator_with_cancel,
+    CUSTOM_STATS_CLASS_NAME, DamageBreakdown, FilterDimension, FilterMode, OptimizeObjective,
+    OptimizeRequest, OptimizeResult, ResultGrouping, SomberFilter, StableFilter, Stats,
+    calculate_ar, effective_str, load_game_data, meets_requirements, optimize,
+    prepare_loadout_evaluator_with_cancel,
 };
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -65,6 +66,36 @@ fn combat_stats(case: &Case) -> Stats {
         fai: case.stats.fai,
         arc: case.stats.arc,
     }
+}
+
+/// The lowest-level profile class whose base stats fit exactly these stats; every such
+/// class gives the same exact budget. Custom stats covers stats below every class floor.
+fn fixed_stat_budget(data: &GameData, stats: Stats) -> (String, u16) {
+    let fits = |base: Stats| {
+        [
+            (base.vig, stats.vig),
+            (base.mnd, stats.mnd),
+            (base.end, stats.end),
+            (base.str, stats.str),
+            (base.dex, stats.dex),
+            (base.int, stats.int),
+            (base.fai, stats.fai),
+            (base.arc, stats.arc),
+        ]
+        .into_iter()
+        .all(|(base, value)| base <= value)
+    };
+    data.starting_classes
+        .iter()
+        .filter(|class_info| fits(class_info.base_stats))
+        .min_by_key(|class_info| class_info.base_level)
+        .map(|class_info| {
+            (
+                class_info.name.to_string(),
+                class_info.base_level + stats.sum_all_8() - class_info.base_total,
+            )
+        })
+        .unwrap_or_else(|| (CUSTOM_STATS_CLASS_NAME.to_string(), stats.sum_all_8()))
 }
 
 fn ar_components(ar: DamageBreakdown) -> [f32; 5] {
@@ -226,9 +257,10 @@ fn fixed_request(
             mode: FilterMode::Exclude,
         });
     }
+    let (class_name, character_level) = fixed_stat_budget(data, stats);
     OptimizeRequest {
-        class_name: "Wretch".to_string(),
-        character_level: stats.sum_all_8() - 79,
+        class_name,
+        character_level,
         current_stats: stats,
         min_combat_stats: [0; 5],
         locked_combat_stats: stats.combat_array().map(Some),
@@ -653,14 +685,15 @@ fn evaluate_with_skill(
     aow_name: &str,
 ) -> Result<Detail, String> {
     let stats = combat_stats(case);
+    let (class_name, character_level) = fixed_stat_budget(data, stats);
     let request = OptimizeRequest {
-        class_name: "Wretch".to_string(),
-        character_level: stats.sum_all_8() - 79,
+        class_name,
+        character_level,
         current_stats: stats,
         min_combat_stats: [0; 5],
         locked_combat_stats: stats.combat_array().map(Some),
         standard_max_upgrade: case.upgrade,
-        somber_max_upgrade: case.upgrade.min(10),
+        somber_max_upgrade: case.upgrade.min(data.rules.somber_max_upgrade),
         exact_upgrade: true,
         two_handing: case.two_handing,
         dlc_scaling: false,

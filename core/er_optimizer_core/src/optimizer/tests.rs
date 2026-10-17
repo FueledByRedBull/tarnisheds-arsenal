@@ -30,20 +30,20 @@ fn load_convergence_data() -> GameData {
 }
 
 #[test]
-fn objective_aliases_parse_to_canonical_variants() {
+fn objective_and_grouping_parsers_accept_only_canonical_ids() {
+    for objective in OptimizeObjective::ALL {
+        assert_eq!(OptimizeObjective::parse(objective.as_str()), Ok(objective));
+    }
+    for raw in ["max_phys_ar", "aow_full", " max_ar", "MAX_AR", "not_real"] {
+        assert!(OptimizeObjective::parse(raw).is_err(), "{raw}");
+    }
     assert_eq!(
-        OptimizeObjective::parse("max_phys_ar").unwrap(),
-        OptimizeObjective::MaxPhysicalAr
+        ResultGrouping::parse("loadout"),
+        Ok(ResultGrouping::Loadout)
     );
-    assert_eq!(
-        OptimizeObjective::parse("max_ar+bleed").unwrap(),
-        OptimizeObjective::BleedThenAr
-    );
-    assert_eq!(
-        OptimizeObjective::parse("aow_full").unwrap().as_str(),
-        "aow_full_sequence"
-    );
-    assert!(OptimizeObjective::parse("not_real").is_err());
+    for raw in ["auto", "setup", "weapon_only", "Weapon"] {
+        assert!(ResultGrouping::parse(raw).is_err(), "{raw}");
+    }
 }
 
 #[test]
@@ -68,6 +68,14 @@ fn optimizer_rejects_levels_above_the_game_domain() {
     let mut request = base_request();
     request.character_level = 714;
 
+    assert!(
+        optimize(&request, &data)
+            .unwrap_err()
+            .contains("713 or lower")
+    );
+    // Vanilla offers no Custom stats entry, so it keeps the Rune Level bound too.
+    assert!(!data.offers_custom_stats());
+    request.class_name = CUSTOM_STATS_CLASS_NAME.to_string();
     assert!(
         optimize(&request, &data)
             .unwrap_err()
@@ -112,6 +120,7 @@ fn convergence_ammunition_weapons_are_not_ranked_without_an_ammo_model() {
     request.standard_max_upgrade = 15;
     request.somber_max_upgrade = 15;
     request.exact_upgrade = true;
+    use_profile_class(&mut request, &data);
     let plan = prepare_search(&request, &data).expect("supported Convergence request shape");
     assert_eq!(plan.estimate().weapon_candidates, 0);
 }
@@ -127,6 +136,7 @@ fn convergence_galvanic_optimizer_uses_str_dex_int_without_arcane_fill() {
     request.somber_max_upgrade = 13;
     request.exact_upgrade = true;
     request.top_k = 3;
+    use_profile_class(&mut request, &data);
 
     let rows = optimize(&request, &data).expect("Convergence Galvanic search");
     let best = rows.first().expect("Galvanic result");
@@ -219,6 +229,7 @@ fn unnamed_native_skill_preserves_id_without_inventing_damage() {
         id: format!("aow:{}", weapon.native_skill_id.unwrap()),
         mode: FilterMode::Include,
     }];
+    use_profile_class(&mut request, &data);
     let rows = optimize(&request, &data).unwrap();
     assert!(!rows.is_empty());
     assert!(rows.iter().all(|row| row.aow_id == weapon.native_skill_id
@@ -245,6 +256,7 @@ fn native_skill_uses_the_profile_ash_name_when_localized_name_is_missing() {
     request.standard_max_upgrade = 15;
     request.somber_max_upgrade = 15;
     request.exact_upgrade = true;
+    use_profile_class(&mut request, &data);
     let rows = optimize(&request, &data).unwrap();
     assert!(!rows.is_empty());
     assert!(rows.iter().all(|row| row.aow_id == Some(8000)
@@ -680,6 +692,16 @@ fn materialize_with_ranked_insertion(
     rows
 }
 
+/// Vanilla template classes are not mod classes; keep the same budget as Custom stats.
+fn use_profile_class(request: &mut OptimizeRequest, data: &GameData) {
+    if data.class_by_name(&request.class_name).is_none() {
+        let class =
+            crate::math::class_by_name(&request.class_name).expect("Vanilla template class");
+        request.character_level += class.base_total - class.base_level;
+        request.class_name = CUSTOM_STATS_CLASS_NAME.to_string();
+    }
+}
+
 fn base_request() -> OptimizeRequest {
     OptimizeRequest {
         class_name: "Samurai".to_string(),
@@ -839,12 +861,11 @@ fn active_mask_for(
     request.affinity = Some(affinity.to_string());
     request.aow_name = aow_name.map(str::to_string);
     request.objective = objective;
-    let constraints = build_combat_constraints(&request).expect("constraints failed");
+    let constraints = build_combat_constraints(&request, game_data).expect("constraints failed");
     let prepared_weapons =
         prepare_weapons(&request, game_data, constraints).expect("prepare failed");
     let prepared = prepared_weapons.first().expect("expected prepared weapon");
     active_stats_for_choice(
-        &request,
         prepared,
         prepared.aow_choices.first().expect("expected AoW choice"),
         game_data,
@@ -885,6 +906,7 @@ fn shared_primary_frontiers_match_independent_dp_including_all_ties() {
                 request.standard_max_upgrade = data.rules.standard_max_upgrade;
                 request.somber_max_upgrade = data.rules.somber_max_upgrade;
                 request.exact_upgrade = true;
+                use_profile_class(&mut request, &data);
                 for objective in [
                     OptimizeObjective::MaxAr,
                     OptimizeObjective::MaxPhysicalAr,
@@ -892,7 +914,7 @@ fn shared_primary_frontiers_match_independent_dp_including_all_ties() {
                 ] {
                     request.objective = objective;
                     let plan = prepare_search(&request, &data).unwrap();
-                    let mut progress = SerialSearchProgress::new(0, 0, |_| true);
+                    let mut progress = SerialSearchProgress::new(0, 0, |_| {}, || true);
                     for group in &plan.groups {
                         let prepared = &plan.weapons[group.prepared_idx];
                         for upgrade in [0, request.standard_max_upgrade] {
@@ -1001,7 +1023,8 @@ fn grouped_shared_primary_pruning_matches_independent_search() {
         assert_eq!(result_group_mode(&request), ResultGroupMode::WeaponOnly);
         assert!(unit.aow_end <= group.aow_indices.len());
 
-        let mut dynamic_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_| true);
+        let mut dynamic_progress =
+            SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
         let dynamic = search_dp_work_unit(
             &plan,
             unit,
@@ -1011,7 +1034,8 @@ fn grouped_shared_primary_pruning_matches_independent_search() {
             None,
         )
         .expect("grouped exact search");
-        let mut exhaustive_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_| true);
+        let mut exhaustive_progress =
+            SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
         let exhaustive = search_work_unit_exhaustive(
             &plan,
             unit,
@@ -1062,7 +1086,7 @@ fn grouped_score_cutoff_preserves_full_fingerprint_before_global_top_k_is_full()
             .iter()
             .map(|unit| unit.candidate_count)
             .sum();
-        let mut pruned_progress = SerialSearchProgress::new(total, 0, |_| true);
+        let mut pruned_progress = SerialSearchProgress::new(total, 0, |_| {}, || true);
         let pruned = score_serial(
             &plan,
             &plan.serial_work_units,
@@ -1072,7 +1096,7 @@ fn grouped_score_cutoff_preserves_full_fingerprint_before_global_top_k_is_full()
         )
         .expect("grouped cutoff search");
 
-        let mut unpruned_progress = SerialSearchProgress::new(total, 0, |_| true);
+        let mut unpruned_progress = SerialSearchProgress::new(total, 0, |_| {}, || true);
         let mut unpruned = Vec::<ScoredCandidate>::with_capacity(request.top_k);
         let mut saw_incomplete_group_cutoff = false;
         for unit in &plan.serial_work_units {
@@ -1138,18 +1162,18 @@ fn exact_cutoff_preserves_the_winner_at_equal_score() {
     let unit = *plan.serial_work_units.first().expect("exact cutoff unit");
     let group_mode = result_group_mode(&request);
 
-    let mut unpruned_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_| true);
+    let mut unpruned_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
     let unpruned = search_dp_work_unit(&plan, unit, group_mode, &mut unpruned_progress, None, None)
         .expect("unpruned exact search");
     let winner = unpruned.first().expect("unpruned winner");
 
-    let mut equal_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_| true);
+    let mut equal_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
     let equal_cutoff = search_dp_work_unit(
         &plan,
         unit,
         group_mode,
         &mut equal_progress,
-        Some(&winner.key.score),
+        Some(&winner.key),
         None,
     )
     .expect("equal-score cutoff search");
@@ -1160,8 +1184,9 @@ fn exact_cutoff_preserves_the_winner_at_equal_score() {
         winner.stats.combat_array()
     );
 
-    let above_score = &winner.key.score + rational(1.0).expect("finite cutoff increment");
-    let mut above_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_| true);
+    let mut above_score = winner.key.clone();
+    above_score.score = &winner.key.score + rational(1.0).expect("finite cutoff increment");
+    let mut above_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
     let above_cutoff = search_dp_work_unit(
         &plan,
         unit,
@@ -1211,7 +1236,7 @@ fn unique_primary_allocation_ignores_ties_in_losing_spends() {
     additions[STAT_INT][1] = vec![0];
     additions[STAT_INT][2] = vec![2];
     let ranks = vec![Some(0), Some(0), Some(1)];
-    let mut progress = SerialSearchProgress::new(0, 0, |_| true);
+    let mut progress = SerialSearchProgress::new(0, 0, |_| {}, || true);
 
     assert_eq!(
         exact_unique_primary_allocation(&search, &mut progress, &ranks, &additions).unwrap(),
@@ -1370,10 +1395,11 @@ fn dynamic_search_matches_exhaustive_search_for_every_objective() {
             request.exact_upgrade = true;
             request.objective = objective;
             request.top_k = 5;
+            use_profile_class(&mut request, &game_data);
             let plan = prepare_search(&request, &game_data).expect("prepare exact comparison");
             let unit = *plan.serial_work_units.first().expect("exact work unit");
             let mut dynamic_progress =
-                SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
+                SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
             let dynamic = search_dp_work_unit(
                 &plan,
                 unit,
@@ -1384,7 +1410,7 @@ fn dynamic_search_matches_exhaustive_search_for_every_objective() {
             )
             .expect("exact dynamic search");
             let mut exhaustive_progress =
-                SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
+                SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
             let exhaustive = search_work_unit_exhaustive(
                 &plan,
                 unit,
@@ -1456,7 +1482,7 @@ fn zero_budget_dynamic_search_matches_exhaustive_search_for_every_objective() {
         );
         for unit in &plan.serial_work_units {
             let mut dynamic_progress =
-                SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
+                SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
             let dynamic = search_dp_work_unit(
                 &plan,
                 *unit,
@@ -1467,7 +1493,7 @@ fn zero_budget_dynamic_search_matches_exhaustive_search_for_every_objective() {
             )
             .expect("zero-budget dynamic search");
             let mut exhaustive_progress =
-                SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
+                SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
             let exhaustive = search_work_unit_exhaustive(
                 &plan,
                 *unit,
@@ -1572,6 +1598,7 @@ fn independent_all_five_oracle_checks_relevance_and_exact_winners() {
                         request.locked_combat_stats[STAT_INT] = Some(35);
                         request.min_combat_stats[STAT_FAI] = 36;
                     }
+                    use_profile_class(&mut request, &data);
                     let plan = prepare_search(&request, &data).expect("oracle request");
                     let group = plan.groups.first().unwrap_or_else(|| {
                         panic!(
@@ -1651,7 +1678,7 @@ fn independent_all_five_oracle_checks_relevance_and_exact_winners() {
                                 );
                             }
                         }
-                        let mut progress = SerialSearchProgress::new(0, 0, |_| true);
+                        let mut progress = SerialSearchProgress::new(0, 0, |_| {}, || true);
                         let dynamic = best_objective_allocation(
                             search,
                             search,
@@ -1693,6 +1720,7 @@ fn exact_dp_matches_exhaustive_on_the_former_f32_counterexample() {
     request.somber_max_upgrade = 15;
     request.exact_upgrade = true;
     request.two_handing = true;
+    use_profile_class(&mut request, &data);
     let plan = prepare_search(&request, &data).unwrap();
     let group = &plan.groups[0];
     let prepared = &plan.weapons[group.prepared_idx];
@@ -1715,7 +1743,7 @@ fn exact_dp_matches_exhaustive_on_the_former_f32_counterexample() {
         }
     })
     .unwrap();
-    let mut progress = SerialSearchProgress::new(0, 0, |_| true);
+    let mut progress = SerialSearchProgress::new(0, 0, |_| {}, || true);
     let dynamic = best_objective_allocation(
         &group.search,
         &group.search,
@@ -2142,7 +2170,7 @@ fn sole_scaling_aow_shortcut_respects_plateaus_and_nonmonotonic_curves() {
             })
             .expect("exhaustive sole-scaling AoW allocation");
 
-            let mut progress = SerialSearchProgress::new(0, 0, |_| true);
+            let mut progress = SerialSearchProgress::new(0, 0, |_| {}, || true);
             let actual = best_objective_allocation(
                 &group.search,
                 &group.search,
@@ -2192,7 +2220,7 @@ fn dynamic_ar_search_checks_every_feasible_active_spend() {
         let plan = prepare_search(&request, &game_data).expect("prepare spend comparison");
         let unit = *plan.serial_work_units.first().expect("AR work unit");
         let mut dynamic_progress =
-            SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
+            SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
         let dynamic = search_dp_work_unit(
             &plan,
             unit,
@@ -2203,7 +2231,7 @@ fn dynamic_ar_search_checks_every_feasible_active_spend() {
         )
         .expect("dynamic AR search");
         let mut exhaustive_progress =
-            SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
+            SerialSearchProgress::new(unit.candidate_count, 0, |_| {}, || true);
         let exhaustive = search_work_unit_exhaustive(
             &plan,
             unit,
@@ -2344,6 +2372,14 @@ fn fixed_loadout_level_range_reuse_preserves_objectives_and_budget_edges() {
             &[100, 80, 90, 81, 100],
             &game_data,
         );
+        let mut any_ash = request.clone();
+        any_ash.aow_name = None;
+        assert!(level_range_reuse_enabled(&any_ash));
+        assert_level_range_matches_independent_searches(
+            &any_ash,
+            &[100, 80, 90, 81, 100],
+            &game_data,
+        );
 
         let active = active_mask_for(
             &game_data,
@@ -2401,15 +2437,22 @@ fn cached_primary_preparation_remains_cancellable() {
     request.top_k = 1;
     let plan = prepare_search(&request, &data).unwrap();
     let mut reuse = DpReuse::from_plan(&plan);
-    optimize_prepared_with_reuse(&plan, 1, |_| true, &mut reuse).unwrap();
+    optimize_prepared(&plan, 1, &|| true, |_| {}, Some(&mut reuse)).unwrap();
     assert!(!reuse.primary.is_empty());
     let group = &plan.groups[0];
     let prepared = &plan.weapons[group.prepared_idx];
     let aow_idx = group.aow_indices[0];
-    let mut progress = SerialSearchProgress::new(0, 1, |_| false);
     // Enter the populated cache, then cancel at the first winner/tie scan poll.
-    progress.poll_count = PROGRESS_POLL_BATCH - 2;
-    progress.last_emit.last_at -= PROGRESS_MIN_INTERVAL;
+    let polls = Cell::new(0);
+    let mut progress = SerialSearchProgress::new(
+        0,
+        1,
+        |_| {},
+        || {
+            polls.set(polls.get() + 1);
+            polls.get() < 2
+        },
+    );
     let error = prepare_primary_allocations(
         &group.search,
         &group.search,
@@ -2490,6 +2533,30 @@ fn level_range_rejects_the_same_invalid_profile_requests_as_single_search() {
 }
 
 #[test]
+fn level_ranges_stop_siblings_after_a_genuine_error() {
+    let game_data = load_data();
+    let mut failing = base_request();
+    failing.scadutree_level = 21;
+    let mut long = base_request();
+    long.top_k = 1;
+    let levels: Vec<u16> = (9..=200).collect();
+    // Rayon starts the first request on the calling thread, so it fails before the long
+    // range can finish its 192 levels.
+    let results = optimize_level_ranges_with_progress(
+        &[failing.clone(), long],
+        &levels,
+        &game_data,
+        |_, _| true,
+        || true,
+    );
+    assert_eq!(
+        results[0].as_ref().unwrap_err(),
+        &optimize(&failing, &game_data).unwrap_err()
+    );
+    assert_eq!(results[1].as_ref().unwrap_err(), "cancelled");
+}
+
+#[test]
 fn level_range_honors_cancellation_before_preparation() {
     let game_data = load_data();
     let error = optimize_level_range_with_progress(
@@ -2533,7 +2600,7 @@ fn reusable_evaluators_keep_weapons_for_later_stat_budgets() {
     let mut template = base_request();
     template.class_name = "Wretch".into();
     template.character_level = 1;
-    template.current_stats = class_by_name("Wretch").unwrap().base_stats;
+    template.current_stats = data.class_by_name("Wretch").unwrap().base_stats;
     template.weapon_name = Some("Starscourge Greatsword".into());
     template.affinity = Some("Standard".into());
     template.standard_max_upgrade = 0;
@@ -2693,7 +2760,7 @@ fn ar_bleed_frontier_matches_repeated_locked_arc_solves_and_preserves_ties() {
             && pair[0].result.ar.total() >= pair[1].result.ar.total()
     }));
 
-    let constraints = build_combat_constraints(&request).expect("frontier constraints");
+    let constraints = build_combat_constraints(&request, &game_data).expect("frontier constraints");
     for point in &frontier {
         let mut locked = request.clone();
         locked.locked_combat_stats[STAT_ARC] = Some(point.result.stats.arc);
@@ -2808,12 +2875,11 @@ fn ar_bleed_frontier_honors_cancellation() {
             .expect_err("cancelled frontier must fail closed"),
         "cancelled"
     );
-    let mut polls = 0;
+    let polls = AtomicU64::new(0);
     assert_eq!(
         evaluator
             .evaluate_ar_bleed_frontier_with_cancel(&request, || {
-                polls += 1;
-                polls < 20
+                polls.fetch_add(1, Ordering::Relaxed) < 19
             })
             .expect_err("cancellation during calculation must discard the frontier"),
         "cancelled"
@@ -2852,6 +2918,7 @@ fn arc_frontier_reuse_matches_every_independently_enumerated_winner() {
                             request.two_handing = true;
                             request.result_grouping = ResultGrouping::Loadout;
                             request.top_k = 1;
+                            use_profile_class(&mut request, &data);
                             if plateau {
                                 let ids = data
                                     .weapons
@@ -2877,7 +2944,7 @@ fn arc_frontier_reuse_matches_every_independently_enumerated_winner() {
                                     .retain(|c| c.no_applied_ash || c.skill_name.is_none());
                                 evaluator.weapons = Arc::from(weapons);
                             }
-                            let constraints = build_combat_constraints(&request).unwrap();
+                            let constraints = build_combat_constraints(&request, &data).unwrap();
                             let mut expected = std::collections::BTreeMap::new();
                             for combat in all_five_allocations(
                                 constraints.mins,
@@ -2918,6 +2985,94 @@ fn arc_frontier_reuse_matches_every_independently_enumerated_winner() {
                 }
             });
     }
+}
+
+#[test]
+fn coupled_route_allocation_matches_enumerating_every_stat() {
+    let data = load_data();
+    let mut compared = 0;
+    let mut saw_coupled_and_separable = false;
+    for affinity in [
+        "Standard", "Heavy", "Keen", "Quality", "Poison", "Blood", "Occult",
+    ] {
+        for (level, two_handing) in [(15, false), (22, true)] {
+            for objective in [
+                OptimizeObjective::MaxAr,
+                OptimizeObjective::BleedThenAr,
+                OptimizeObjective::AowFirstHit,
+                OptimizeObjective::AowFullSequence,
+            ] {
+                let mut request = base_request();
+                request.character_level = level;
+                request.two_handing = two_handing;
+                request.weapon_name = Some("Caestus".into());
+                request.affinity = Some(affinity.into());
+                request.aow_name = Some("Lifesteal Fist".into());
+                request.objective = objective;
+                request.exact_upgrade = true;
+                let plan = prepare_search(&request, &data).unwrap();
+                for group in &plan.groups {
+                    let prepared = &plan.weapons[group.prepared_idx];
+                    let search = &group.search;
+                    for &aow_idx in &group.aow_indices {
+                        let choice = &prepared.aow_choices[aow_idx];
+                        let two_handed = weapon_uses_two_handing(&request, prepared.weapon);
+                        let routes = scalar_route_set(choice, &data, two_handed)
+                            .unwrap()
+                            .unwrap();
+                        for route in routes.iter().filter(|route| !route.is_additive(&data)) {
+                            let coupled = route.coupled_stats(&data, search.active);
+                            saw_coupled_and_separable |= coupled.iter().filter(|&&c| c).count() > 1
+                                && (0..COMBAT_STAT_COUNT).any(|s| search.active[s] && !coupled[s]);
+                            for &upgrade in &prepared.upgrades {
+                                let mut progress = SerialSearchProgress::new(0, 0, |_| {}, || true);
+                                let fast = coupled_route_allocation(
+                                    search,
+                                    &request,
+                                    prepared,
+                                    choice,
+                                    upgrade,
+                                    route,
+                                    &data,
+                                    &mut progress,
+                                )
+                                .unwrap();
+                                let mut reference: Option<ObjectiveAllocation> = None;
+                                let mut combat = search.mins;
+                                search.visit(&mut combat, |combat| {
+                                    let candidate = evaluate_objective_allocation(
+                                        *combat,
+                                        &request,
+                                        prepared,
+                                        choice,
+                                        upgrade,
+                                        Some(route),
+                                        &data,
+                                    )
+                                    .unwrap();
+                                    if reference.as_ref().is_none_or(|current| {
+                                        better_objective_allocation(&candidate, current)
+                                    }) {
+                                        reference = Some(candidate);
+                                    }
+                                    true
+                                });
+                                assert_eq!(
+                                    format!("{fast:?}"),
+                                    format!("{:?}", reference.unwrap()),
+                                    "{affinity} L{level} {objective:?} {}",
+                                    route.route_id
+                                );
+                                compared += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    assert!(compared > 0);
+    assert!(saw_coupled_and_separable);
 }
 
 #[test]
@@ -2975,7 +3130,7 @@ fn independent_arc_winners(
     evaluator: &PreparedLoadoutEvaluator<'_>,
     request: &OptimizeRequest,
 ) -> Vec<OptimizeResult> {
-    let constraints = build_combat_constraints(request).unwrap();
+    let constraints = build_combat_constraints(request, evaluator.data).unwrap();
     let other_capacity: u16 = (0..COMBAT_STAT_COUNT)
         .filter(|&s| s != STAT_ARC)
         .map(|s| u16::from(constraints.maxs[s] - constraints.mins[s]))
@@ -3036,7 +3191,7 @@ fn arc_frontier_reuse_matches_locked_solves_at_caps_and_large_budgets() {
             format!("{:?}", independent_arc_winners(&evaluator, &request)),
             "budget={budget} dex={dex} arc={arc_lock:?}"
         );
-        let constraints = build_combat_constraints(&request).unwrap();
+        let constraints = build_combat_constraints(&request, &data).unwrap();
         let mut enumerated = std::collections::BTreeMap::new();
         for combat in all_five_allocations(
             constraints.mins,
@@ -3102,72 +3257,6 @@ fn arc_frontier_reuse_matches_locked_solves_at_caps_and_large_budgets() {
 }
 
 #[test]
-#[ignore = "isolated release measurement; no competing builds or tests"]
-fn benchmark_arc_frontier_reuse() {
-    let data = load_data();
-    let candidate = std::env::var("MATH_VARIANT").as_deref() == Ok("candidate");
-    for (affinity, level) in [("Blood", 80), ("Blood", 200), ("Keen", 80)] {
-        let mut request = base_request();
-        request.character_level = level;
-        request.current_stats.vig = 40;
-        request.current_stats.end = 20;
-        request.current_stats.arc = 20;
-        request.affinity = Some(affinity.into());
-        request.aow_name = Some("Seppuku".into());
-        request.exact_upgrade = true;
-        request.result_grouping = ResultGrouping::Loadout;
-        request.top_k = 1;
-        let evaluator = prepare_loadout_evaluator_with_cancel(&request, &data, || true).unwrap();
-        let expected = independent_arc_winners(&evaluator, &request);
-        assert_eq!(
-            format!(
-                "{:?}",
-                ar_bleed_candidates_with_reuse(&evaluator, &request, &mut || true)
-                    .unwrap()
-                    .unwrap()
-            ),
-            format!("{expected:?}")
-        );
-        let frontier = build_ar_bleed_frontier(expected.clone(), &mut || true).unwrap();
-        let mut samples = Vec::new();
-        for repeat in 0..8 {
-            let start = Instant::now();
-            let rows = if candidate {
-                evaluator
-                    .evaluate_ar_bleed_frontier_with_cancel(&request, || true)
-                    .unwrap()
-            } else {
-                build_ar_bleed_frontier(independent_arc_winners(&evaluator, &request), &mut || true)
-                    .unwrap()
-            };
-            let elapsed = start.elapsed().as_secs_f64() * 1000.0;
-            assert_eq!(format!("{rows:?}"), format!("{frontier:?}"));
-            if repeat > 0 {
-                samples.push(elapsed);
-            }
-        }
-        let cancel_after_ms = samples.iter().copied().fold(f64::INFINITY, f64::min) / 4.0;
-        let cancellation_ms = if candidate {
-            let started = Instant::now();
-            assert_eq!(
-                evaluator
-                    .evaluate_ar_bleed_frontier_with_cancel(&request, || started.elapsed()
-                        < Duration::from_secs_f64(cancel_after_ms / 1000.0))
-                    .unwrap_err(),
-                "cancelled"
-            );
-            Some(started.elapsed().as_secs_f64() * 1000.0)
-        } else {
-            None
-        };
-        println!(
-            "MATH_BENCH {}",
-            serde_json::json!({"experiment":"m01", "variant":if candidate {"candidate"} else {"baseline"}, "case":format!("{affinity}-{level}"), "request":format!("{request:?}"), "profile":data.profile_id, "model":data.model_version, "threads":rayon::current_num_threads(), "warmups":1, "repeats":7, "timing_scope":"prepared_loadout_complete_frontier", "samples_ms":samples, "cancel_after_ms":cancel_after_ms, "cancel_elapsed_ms":cancellation_ms, "results":format!("{expected:?}"), "frontier":format!("{frontier:?}")})
-        );
-    }
-}
-
-#[test]
 fn ar_bleed_frontier_loss_basis_points_round_up_at_exact_boundaries() {
     let max_ar = ExactRational::new(
         num_bigint::BigInt::from(100_u8),
@@ -3225,12 +3314,14 @@ fn reusable_evaluators_reject_invalid_profile_levels_like_independent_searches()
         loadout_request.standard_max_upgrade = game_data.rules.standard_max_upgrade;
         loadout_request.somber_max_upgrade = game_data.rules.somber_max_upgrade;
         loadout_request.exact_upgrade = true;
+        use_profile_class(&mut loadout_request, &game_data);
+        let profile_level = loadout_request.character_level;
         loadout_request.character_level = max_level + 1;
         let expected = optimize(&loadout_request, &game_data)
             .expect_err("independent loadout evaluation must reject the profile level");
         {
             let mut preparation_request = loadout_request.clone();
-            preparation_request.character_level = base_request().character_level;
+            preparation_request.character_level = profile_level;
             let evaluator =
                 prepare_loadout_evaluator_with_cancel(&preparation_request, &game_data, || true)
                     .expect("loadout preparation succeeds at the profile level");
@@ -3245,6 +3336,8 @@ fn reusable_evaluators_reject_invalid_profile_levels_like_independent_searches()
         let mut series_request = base_request();
         series_request.standard_max_upgrade = game_data.rules.standard_max_upgrade;
         series_request.somber_max_upgrade = game_data.rules.somber_max_upgrade;
+        use_profile_class(&mut series_request, &game_data);
+        let profile_level = series_request.character_level;
         series_request.character_level = max_level + 1;
         let stats = series_request.current_stats;
         lock_request_to_combat_stats(&mut series_request, stats);
@@ -3252,7 +3345,7 @@ fn reusable_evaluators_reject_invalid_profile_levels_like_independent_searches()
             .expect_err("independent upgrade evaluation must reject the profile level");
         {
             let mut preparation_request = series_request.clone();
-            preparation_request.character_level = base_request().character_level;
+            preparation_request.character_level = profile_level;
             let evaluator = prepare_upgrade_series_evaluator_with_cancel(
                 &preparation_request,
                 &game_data,
@@ -3619,7 +3712,6 @@ fn scadutree_curve_uses_patch_1122_values() {
     assert!((crate::math::scadutree_attack_multiplier(true, 12) - 1.85).abs() < f32::EPSILON);
     assert!((crate::math::scadutree_attack_multiplier(true, 20) - 2.05).abs() < f32::EPSILON);
     assert!((crate::math::scadutree_attack_multiplier(false, 20) - 1.0).abs() < f32::EPSILON);
-    assert!((crate::math::scadutree_damage_negation(true, 20) - (1.0 - 1.0 / 2.05)).abs() < 0.0001);
 }
 
 #[test]
@@ -3964,13 +4056,13 @@ fn parallel_search_matches_serial_results() {
     request.top_k = 5;
 
     let plan = prepare_search(&request, &game_data).expect("prepare failed");
-    let work_units = build_search_work_units(&plan, true).expect("fine work units");
+    let work_units = build_search_work_units(&plan, true, &mut || true).expect("fine work units");
     let total = work_units
         .iter()
         .map(|unit| unit.candidate_count)
         .sum::<u64>();
 
-    let mut serial_progress = SerialSearchProgress::new(total, 0, |_snapshot| true);
+    let mut serial_progress = SerialSearchProgress::new(total, 0, |_| {}, || true);
     let serial = optimize_serial(
         &plan,
         &work_units,
@@ -3984,7 +4076,7 @@ fn parallel_search_matches_serial_results() {
         result_group_mode(&request),
         total,
         0,
-        |_snapshot| true,
+        |_| {},
     )
     .expect("parallel search failed");
 
@@ -3998,6 +4090,52 @@ fn parallel_search_matches_serial_results() {
         assert!((left.score - right.score).abs() < 0.001);
     }
     assert_eq!(format!("{serial:?}"), format!("{parallel:?}"));
+}
+
+#[test]
+fn parallel_results_do_not_depend_on_pool_size_or_scheduling() {
+    let game_data = load_data();
+    let mut request = base_request();
+    request.character_level = 46;
+    request.current_stats.arc = 45;
+    request.weapon_name = None;
+    request.affinity = None;
+    request.weapon_type_key = Some("Katana".to_string());
+    request.exact_upgrade = true;
+    for objective in [OptimizeObjective::MaxAr, OptimizeObjective::BleedThenAr] {
+        for grouping in [ResultGrouping::Weapon, ResultGrouping::Loadout] {
+            for top_k in [1, 2, 5] {
+                request.objective = objective;
+                request.result_grouping = grouping;
+                request.top_k = top_k;
+                let plan = prepare_search(&request, &game_data).expect("prepare failed");
+                let units = &plan.fine_work_units;
+                let total = units.iter().map(|unit| unit.candidate_count).sum::<u64>();
+                let group_mode = result_group_mode(&request);
+                let mut serial_progress = SerialSearchProgress::new(total, 0, |_| {}, || true);
+                let serial = format!(
+                    "{:?}",
+                    optimize_serial(&plan, units, group_mode, &mut serial_progress).unwrap()
+                );
+                for threads in [1, 2, 7] {
+                    let pool = rayon::ThreadPoolBuilder::new()
+                        .num_threads(threads)
+                        .build()
+                        .unwrap();
+                    for _ in 0..2 {
+                        let parallel = pool.install(|| {
+                            optimize_parallel(&plan, units, group_mode, total, 0, |_| {}).unwrap()
+                        });
+                        assert_eq!(
+                            format!("{parallel:?}"),
+                            serial,
+                            "{objective:?} {grouping:?} top_k={top_k} threads={threads}"
+                        );
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[test]
@@ -4035,7 +4173,7 @@ fn split_aow_units_preserve_grouped_results_across_serial_and_parallel_search() 
     );
 
     let group_mode = result_group_mode(&request);
-    let mut serial_progress = SerialSearchProgress::new(total, 0, |_| true);
+    let mut serial_progress = SerialSearchProgress::new(total, 0, |_| {}, || true);
     let serial = optimize_serial(
         &plan,
         &plan.serial_work_units,
@@ -4043,7 +4181,7 @@ fn split_aow_units_preserve_grouped_results_across_serial_and_parallel_search() 
         &mut serial_progress,
     )
     .expect("grouped serial search failed");
-    let parallel = optimize_parallel(&plan, &plan.fine_work_units, group_mode, total, 0, |_| true)
+    let parallel = optimize_parallel(&plan, &plan.fine_work_units, group_mode, total, 0, |_| {})
         .expect("split parallel search failed");
 
     assert_eq!(serial.len(), 2);
@@ -4060,8 +4198,12 @@ fn parallel_threshold_accepts_medium_searches_when_threads_are_available() {
     let thread_count = rayon::current_num_threads();
     assert!(!should_use_parallel_search(
         PARALLEL_SEARCH_MIN_COMBINATIONS - 1,
-        usize::MAX
+        PARALLEL_SEARCH_MIN_WORK_UNITS - 1
     ));
+    assert_eq!(
+        should_use_parallel_search(1, PARALLEL_SEARCH_MIN_WORK_UNITS),
+        thread_count > 1
+    );
     assert!(!should_use_parallel_search(
         PARALLEL_SEARCH_MIN_COMBINATIONS,
         1
@@ -4082,15 +4224,15 @@ fn primary_work_units_share_ashes_but_damage_work_units_stay_fine_grained() {
     request.top_k = 5;
 
     let plan = prepare_search(&request, &game_data).expect("prepare failed");
-    let fine = build_search_work_units(&plan, true).expect("fine work units");
-    let grouped = build_search_work_units(&plan, false).expect("grouped work units");
+    let fine = build_search_work_units(&plan, true, &mut || true).expect("fine work units");
+    let grouped = build_search_work_units(&plan, false, &mut || true).expect("grouped work units");
 
     assert!(!fine.is_empty());
     assert!(fine.iter().any(|unit| unit.aow_end - unit.aow_start > 1));
     request.objective = OptimizeObjective::AowFirstHit;
     let damage = prepare_search(&request, &game_data).unwrap();
     assert!(
-        build_search_work_units(&damage, true)
+        build_search_work_units(&damage, true, &mut || true)
             .expect("damage work units")
             .iter()
             .all(|unit| unit.aow_end - unit.aow_start == 1)
@@ -4119,13 +4261,14 @@ fn prepared_plan_groups_aows_that_share_one_stat_search() {
         plan.groups.iter().any(|group| group.aow_indices.len() > 1),
         "expected compatible AoWs with the same relevant-stat search to share a group"
     );
-    let grouped = build_search_work_units(&plan, false).expect("grouped work units");
+    let grouped = build_search_work_units(&plan, false, &mut || true).expect("grouped work units");
     assert!(grouped.iter().any(|unit| unit.aow_end - unit.aow_start > 1));
     assert_eq!(
         grouped.iter().map(|unit| unit.candidate_count).sum::<u64>(),
         plan.estimate().combinations
     );
-    let rows = optimize_prepared_with_progress(&plan, 0, |_| true).expect("prepared search failed");
+    let rows =
+        optimize_prepared_with_progress(&plan, 0, || true, |_| {}).expect("prepared search failed");
     assert!(!rows.is_empty());
 }
 
@@ -4133,7 +4276,7 @@ fn prepared_plan_groups_aows_that_share_one_stat_search() {
 fn scored_top_k_hard_bounds_cutoff_score_ties_deterministically() {
     let game_data = load_data();
     let request = base_request();
-    let constraints = build_combat_constraints(&request).expect("constraints failed");
+    let constraints = build_combat_constraints(&request, &game_data).expect("constraints failed");
     let weapons = prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
     let stats = request.current_stats;
     let mut candidates = Vec::new();
@@ -4190,7 +4333,7 @@ fn scored_top_k_hard_bounds_cutoff_score_ties_deterministically() {
 fn scored_top_k_replaces_lower_score_for_same_loadout() {
     let game_data = load_data();
     let request = base_request();
-    let constraints = build_combat_constraints(&request).expect("constraints failed");
+    let constraints = build_combat_constraints(&request, &game_data).expect("constraints failed");
     let weapons = prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
     let stats = request.current_stats;
     let mut candidates = Vec::new();
@@ -4218,7 +4361,7 @@ fn scored_top_k_replaces_lower_score_for_same_loadout() {
 fn scored_top_k_discards_equal_score_candidates_with_lower_known_ar() {
     let game_data = load_data();
     let request = base_request();
-    let constraints = build_combat_constraints(&request).expect("constraints failed");
+    let constraints = build_combat_constraints(&request, &game_data).expect("constraints failed");
     let weapons = prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
     let stats = request.current_stats;
     let mut candidates = Vec::new();
@@ -4248,7 +4391,7 @@ fn scored_top_k_applies_final_tie_breaks_at_exact_limit() {
     let game_data = load_data();
     let mut request = base_request();
     request.top_k = 1;
-    let constraints = build_combat_constraints(&request).expect("constraints failed");
+    let constraints = build_combat_constraints(&request, &game_data).expect("constraints failed");
     let weapons = prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
     let all_candidates = (0_u8..=9)
         .map(|upgrade| scored_candidate(0, 0, upgrade, request.current_stats, 100.0))
@@ -4420,7 +4563,7 @@ fn ordered_materialization_preserves_serial_and_populated_reuse_fingerprints() {
             if pass == 2 {
                 assert!(!reuse.primary.is_empty() || !reuse.solved.is_empty());
             }
-            let mut progress = SerialSearchProgress::new(total, 0, |_| true);
+            let mut progress = SerialSearchProgress::new(total, 0, |_| {}, || true);
             let candidates = score_serial(
                 &plan,
                 &plan.serial_work_units,
@@ -4451,16 +4594,16 @@ fn top_k_zero_short_circuits_without_progress_callbacks() {
     let game_data = load_data();
     let mut request = base_request();
     request.top_k = 0;
-    let mut callback_count = 0;
+    let callback_count = AtomicU64::new(0);
 
-    let results = optimize_with_progress(&request, &game_data, 1, |_snapshot| {
-        callback_count += 1;
+    let results = optimize_with_cancel(&request, &game_data, || {
+        callback_count.fetch_add(1, Ordering::Relaxed);
         true
     })
     .expect("optimizer failed");
 
     assert!(results.is_empty());
-    assert_eq!(callback_count, 0);
+    assert_eq!(callback_count.into_inner(), 0);
 }
 
 #[test]
@@ -4469,10 +4612,15 @@ fn progress_emits_initial_and_final_snapshots() {
     let request = base_request();
     let mut snapshots = Vec::new();
 
-    optimize_with_progress(&request, &game_data, u64::MAX, |snapshot| {
-        snapshots.push(snapshot);
-        true
-    })
+    let plan = prepare_search(&request, &game_data).expect("prepare failed");
+    optimize_prepared_with_progress(
+        &plan,
+        u64::MAX,
+        || true,
+        |snapshot| {
+            snapshots.push(snapshot);
+        },
+    )
     .expect("optimizer failed");
 
     // Timer-based heartbeats may arrive between the mandatory boundary snapshots.
@@ -4499,7 +4647,7 @@ fn materialization_cancellation_after_scoring_discards_large_result_batch() {
     let stats = request.current_stats;
     lock_request_to_combat_stats(&mut request, stats);
     let plan = prepare_search(&request, &game_data).unwrap();
-    let candidates = score_prepared_with_progress(&plan, 0, |_| true).unwrap();
+    let candidates = score_prepared_with_progress(&plan, 0, &|| true, |_| {}, None).unwrap();
     assert_eq!(candidates.len(), request.top_k);
     let expected =
         materialize_scored_candidates(&request, &game_data, &plan.weapons, candidates.clone())
@@ -4547,15 +4695,20 @@ fn materialization_cancellation_after_scoring_discards_large_result_batch() {
         assert_eq!(polls, stop_at);
     }
 
-    // With progress disabled, scoring emits only its initial and final snapshots.
-    // Accept both, then accept one hydration checkpoint before cancelling.
-    let mut polls = 0;
-    let result = optimize_prepared_with_progress(&plan, 0, |_| {
-        polls += 1;
-        polls < 4
-    });
+    // Accept the final scoring check and one hydration checkpoint, then cancel.
+    let scored = AtomicBool::new(false);
+    let checks_after_scoring = AtomicU64::new(0);
+    let result = optimize_prepared_with_progress(
+        &plan,
+        0,
+        || {
+            !scored.load(Ordering::Relaxed)
+                || checks_after_scoring.fetch_add(1, Ordering::Relaxed) < 2
+        },
+        |snapshot| scored.store(snapshot.checked == snapshot.total, Ordering::Relaxed),
+    );
     assert_eq!(result.err().as_deref(), Some("cancelled"));
-    assert_eq!(polls, 4);
+    assert_eq!(checks_after_scoring.into_inner(), 3);
 }
 
 #[test]
@@ -4567,18 +4720,20 @@ fn materialization_cancellation_after_reused_scoring_discards_result() {
     let plan = prepare_search(&request, &game_data).unwrap();
     let mut reuse = DpReuse::from_plan(&plan);
     assert!(level_plan_can_reuse(&plan, &reuse));
-    let mut polls = 0;
-    let result = optimize_prepared_with_reuse(
+    let scored = AtomicBool::new(false);
+    let checks_after_scoring = AtomicU64::new(0);
+    let result = optimize_prepared(
         &plan,
         0,
-        |_| {
-            polls += 1;
-            polls < 4
+        &|| {
+            !scored.load(Ordering::Relaxed)
+                || checks_after_scoring.fetch_add(1, Ordering::Relaxed) < 2
         },
-        &mut reuse,
+        |snapshot| scored.store(snapshot.checked == snapshot.total, Ordering::Relaxed),
+        Some(&mut reuse),
     );
     assert_eq!(result.err().as_deref(), Some("cancelled"));
-    assert_eq!(polls, 4);
+    assert_eq!(checks_after_scoring.into_inner(), 3);
 }
 
 #[test]
@@ -4701,7 +4856,7 @@ fn selected_route_materialization_preserves_complete_payloads_and_optimizer_resu
         }
         // Rehydrate the scored winner through the all-route reference before
         // comparing the entire public optimizer result, not just route totals.
-        let candidates = score_prepared_with_progress(&plan, 0, |_| true).unwrap();
+        let candidates = score_prepared_with_progress(&plan, 0, &|| true, |_| {}, None).unwrap();
         assert_eq!(candidates.len(), 1, "{weapon}/{skill:?}");
         let candidate = candidates[0].clone();
         let mut expected = materialize_scored_candidate(
@@ -4730,7 +4885,7 @@ fn selected_route_materialization_preserves_complete_payloads_and_optimizer_resu
                 .find(|route| Some(route.route_id.as_str()) == candidate.route_id.as_deref())
                 .expect("scored route exists in full reference"),
         );
-        let actual = optimize_prepared_with_progress(&plan, 0, |_| true).unwrap();
+        let actual = optimize_prepared_with_progress(&plan, 0, || true, |_| {}).unwrap();
         assert_eq!(
             format!("{actual:?}"),
             format!("{:?}", [expected]),
@@ -4982,43 +5137,107 @@ fn materialization_cancellation_inside_complex_routes_and_last_upgrade() {
 }
 
 #[test]
-fn progress_callback_can_cancel_search() {
+fn refused_continuation_cancels_search_after_the_initial_snapshot() {
     let game_data = load_data();
     let request = base_request();
     let mut callback_count = 0;
 
-    let err = optimize_with_progress(&request, &game_data, 1, |_snapshot| {
-        callback_count += 1;
-        false
-    })
-    .expect_err("expected cancellation");
+    let plan = prepare_search(&request, &game_data).expect("prepare failed");
+    let err = optimize_prepared_with_progress(&plan, 1, || false, |_snapshot| callback_count += 1)
+        .expect_err("expected cancellation");
 
     assert_eq!(err, "cancelled");
     assert_eq!(callback_count, 1);
 }
 
 #[test]
-fn progress_poll_emits_without_new_candidates_and_can_cancel() {
+fn progress_poll_emits_without_new_candidates() {
     let callback_count = Cell::new(0);
     let checked_at_callback = Cell::new(None);
-    let mut progress = SerialSearchProgress::new(1, 1, |snapshot| {
-        callback_count.set(callback_count.get() + 1);
-        checked_at_callback.set(Some(snapshot.checked));
-        false
-    });
+    let mut progress = SerialSearchProgress::new(
+        1,
+        1,
+        |snapshot| {
+            callback_count.set(callback_count.get() + 1);
+            checked_at_callback.set(Some(snapshot.checked));
+        },
+        || true,
+    );
     progress.last_emit.last_at = Instant::now() - PROGRESS_MIN_INTERVAL - Duration::from_secs(1);
 
     for _ in 0..(PROGRESS_POLL_BATCH - 1) {
         progress.poll().expect("poll stays quiet before its batch");
     }
-    assert!(!progress.is_cancelled());
+    assert_eq!(callback_count.get(), 0);
 
-    let error = progress
-        .poll()
-        .expect_err("timer poll should reach the callback");
-    assert_eq!(error, "cancelled");
+    progress.poll().expect("timer poll reaches the callback");
     assert_eq!(callback_count.get(), 1);
     assert_eq!(checked_at_callback.get(), Some(0));
+}
+
+#[test]
+fn cancellation_is_read_at_the_next_poll_whatever_the_progress_throttle() {
+    for progress_every in [0, 1, u64::MAX] {
+        let cancelled = AtomicBool::new(false);
+        let callbacks = AtomicU64::new(0);
+        let continue_check = || !cancelled.load(Ordering::Relaxed);
+        let mut serial = SerialSearchProgress::new(
+            1,
+            progress_every,
+            |_| {
+                callbacks.fetch_add(1, Ordering::Relaxed);
+            },
+            continue_check,
+        );
+        let shared = Arc::new(ParallelSearchProgress::new(
+            1,
+            progress_every,
+            |_| {
+                callbacks.fetch_add(1, Ordering::Relaxed);
+            },
+            continue_check,
+        ));
+        let mut parallel = ParallelLocalProgress::new(Arc::clone(&shared));
+        for _ in 0..3 {
+            serial.poll().unwrap();
+            parallel.poll().unwrap();
+        }
+        // A fresh progress state is inside its delivery interval, so no snapshot is due.
+        cancelled.store(true, Ordering::Relaxed);
+        assert_eq!(serial.poll().unwrap_err(), "cancelled", "{progress_every}");
+        assert_eq!(
+            parallel.poll().unwrap_err(),
+            "cancelled",
+            "{progress_every}"
+        );
+        assert_eq!(callbacks.load(Ordering::Relaxed), 0, "{progress_every}");
+    }
+
+    // End to end with progress disabled: a refusal at any poll stops the search.
+    let game_data = load_data();
+    let plan = prepare_search(&base_request(), &game_data).unwrap();
+    let checks = AtomicU64::new(0);
+    optimize_prepared_with_progress(
+        &plan,
+        0,
+        || {
+            checks.fetch_add(1, Ordering::Relaxed);
+            true
+        },
+        |_| {},
+    )
+    .unwrap();
+    let total = checks.into_inner();
+    assert!(total > 2, "{total} cancellation checks");
+    let seen = AtomicU64::new(0);
+    let error = optimize_prepared_with_progress(
+        &plan,
+        0,
+        || seen.fetch_add(1, Ordering::Relaxed) < total / 2,
+        |_| {},
+    )
+    .unwrap_err();
+    assert_eq!(error, "cancelled");
 }
 
 #[test]
@@ -5038,39 +5257,52 @@ fn preparation_callback_can_cancel_before_enumeration() {
 }
 
 #[test]
-fn broad_enumeration_stops_within_cancellation_latency_target() {
+fn broad_enumeration_stops_at_the_first_cancelled_poll() {
+    // Every poll reads the cancellation signal, independent of the progress throttle.
+    // Wall-clock bounds are left to release probes.
     let game_data = load_data();
     let request = broad_request();
     let plan = prepare_search(&request, &game_data).expect("broad preparation succeeds");
     assert!(plan.estimate().combinations >= PARALLEL_SEARCH_MIN_COMBINATIONS);
     let cancelled = AtomicBool::new(false);
+    let calls_after_cancel = AtomicU64::new(0);
     let (started_tx, started_rx) = std::sync::mpsc::sync_channel(1);
 
     std::thread::scope(|scope| {
         let worker = scope.spawn(|| {
             let mut initial_sent = false;
-            optimize_prepared_with_progress(&plan, 1_024, |_snapshot| {
-                if !initial_sent {
-                    initial_sent = true;
-                    started_tx
-                        .send(())
-                        .expect("test receiver remains available");
-                }
-                !cancelled.load(Ordering::Acquire)
-            })
+            optimize_prepared_with_progress(
+                &plan,
+                1_024,
+                || {
+                    let cancelled = cancelled.load(Ordering::Acquire);
+                    if cancelled {
+                        calls_after_cancel.fetch_add(1, Ordering::Relaxed);
+                    }
+                    !cancelled
+                },
+                |_snapshot| {
+                    if !initial_sent {
+                        initial_sent = true;
+                        started_tx
+                            .send(())
+                            .expect("test receiver remains available");
+                    }
+                },
+            )
         });
         started_rx.recv().expect("search emits initial progress");
-        let cancellation_started = Instant::now();
         cancelled.store(true, Ordering::Release);
         let error = worker
             .join()
             .expect("search worker does not panic")
             .expect_err("broad search must cancel");
-        let elapsed_ms = cancellation_started.elapsed().as_millis() as u64;
         assert_eq!(error, "cancelled");
+        // One refusal stops every worker: at most one racing check per worker.
+        let calls = calls_after_cancel.load(Ordering::Relaxed);
         assert!(
-            elapsed_ms <= CANCELLATION_LATENCY_TARGET_MS,
-            "cancellation took {elapsed_ms} ms, target is {CANCELLATION_LATENCY_TARGET_MS} ms"
+            (1..=rayon::current_num_threads() as u64).contains(&calls),
+            "{calls} checks after cancellation"
         );
     });
 }
@@ -5102,7 +5334,7 @@ fn optimize_respects_all_exact_combat_stat_locks() {
     request.exact_upgrade = true;
     request.locked_combat_stats = [Some(12), Some(15), Some(9), Some(8), Some(8)];
 
-    let constraints = build_combat_constraints(&request).expect("constraints failed");
+    let constraints = build_combat_constraints(&request, &game_data).expect("constraints failed");
     assert_eq!(count_stat_candidates(constraints), 1);
 
     let results = optimize(&request, &game_data).expect("optimizer failed");
@@ -5212,7 +5444,9 @@ fn bleed_relevance_uses_profile_status_scaling_rule() {
         request.weapon_name = Some("Uchigatana".to_string());
         request.affinity = Some(affinity.to_string());
         request.objective = OptimizeObjective::BleedThenAr;
-        let constraints = build_combat_constraints(&request).expect("constraints failed");
+        use_profile_class(&mut request, &game_data);
+        let constraints =
+            build_combat_constraints(&request, &game_data).expect("constraints failed");
         let prepared_weapons =
             prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
         let prepared = prepared_weapons.first().expect("expected prepared weapon");
@@ -5242,7 +5476,7 @@ fn bleed_relevance_prunes_non_bleed_status_distributions() {
     request.affinity = Some("Poison".to_string());
     request.aow_name = Some("Quickstep".to_string());
     request.objective = OptimizeObjective::BleedThenAr;
-    let constraints = build_combat_constraints(&request).expect("constraints failed");
+    let constraints = build_combat_constraints(&request, &game_data).expect("constraints failed");
     let prepared_weapons =
         prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
     let prepared = prepared_weapons.first().expect("expected prepared weapon");
@@ -5252,7 +5486,7 @@ fn bleed_relevance_prunes_non_bleed_status_distributions() {
         .expect("expected Quickstep choice");
     assert_eq!(aow_choice.skill_name, Some("Quickstep"));
 
-    let active = active_stats_for_choice(&request, prepared, aow_choice, &game_data);
+    let active = active_stats_for_choice(prepared, aow_choice, &game_data);
     assert!(!active[STAT_ARC]);
     let mut counts = HashMap::new();
     let narrowed =
@@ -5345,7 +5579,7 @@ fn prepared_search_estimate_uses_relevant_stat_counts() {
     request.weapon_type_key = Some("Katana".to_string());
     request.top_k = 5;
 
-    let constraints = build_combat_constraints(&request).expect("constraints failed");
+    let constraints = build_combat_constraints(&request, &game_data).expect("constraints failed");
     let broad_stat_count = count_stat_candidates(constraints);
     let prepared_weapons =
         prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
@@ -5374,72 +5608,6 @@ fn prepared_search_stops_before_preparation_when_cancelled() {
     let error = prepare_search_with_cancel(&broad_request(), &game_data, || false)
         .expect_err("cancelled preparation must fail closed");
     assert_eq!(error, "cancelled");
-}
-
-#[test]
-#[ignore = "release-mode DP versus exhaustive benchmark"]
-fn benchmark_dynamic_aow_sequence_against_exhaustive() {
-    let game_data = load_data();
-    let mut request = base_request();
-    request.character_level = 93;
-    request.weapon_name = Some("Reverse-Bladed Sword".to_string());
-    request.affinity = None;
-    request.aow_name = None;
-    request.standard_max_upgrade = 25;
-    request.exact_upgrade = true;
-    request.objective = OptimizeObjective::AowFullSequence;
-    request.top_k = 25;
-    let plan = prepare_search(&request, &game_data).expect("prepare AoW benchmark");
-    let unit = *plan
-        .serial_work_units
-        .iter()
-        .max_by_key(|unit| unit.candidate_count)
-        .expect("AoW benchmark work unit");
-
-    let started = std::time::Instant::now();
-    let mut dynamic_progress = SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
-    let dynamic = search_dp_work_unit(
-        &plan,
-        unit,
-        result_group_mode(&request),
-        &mut dynamic_progress,
-        None,
-        None,
-    )
-    .expect("dynamic AoW benchmark");
-    let dynamic_elapsed = started.elapsed();
-
-    let started = std::time::Instant::now();
-    let mut exhaustive_progress =
-        SerialSearchProgress::new(unit.candidate_count, 0, |_snapshot| true);
-    let exhaustive = search_work_unit_exhaustive(
-        &plan,
-        unit,
-        result_group_mode(&request),
-        &mut exhaustive_progress,
-    )
-    .expect("exhaustive AoW benchmark");
-    let exhaustive_elapsed = started.elapsed();
-
-    assert_eq!(
-        dynamic.first().map(|row| row.stats),
-        exhaustive.first().map(|row| row.stats)
-    );
-    assert_eq!(
-        dynamic.first().map(|row| &row.key),
-        exhaustive.first().map(|row| &row.key)
-    );
-    assert_eq!(
-        dynamic.first().map(|row| row.metric.score),
-        exhaustive.first().map(|row| row.metric.score)
-    );
-    println!(
-        "OBJECTIVE_BENCH candidates={} dynamic_ms={:.3} exhaustive_ms={:.3} speedup={:.1}x",
-        unit.candidate_count,
-        dynamic_elapsed.as_secs_f64() * 1_000.0,
-        exhaustive_elapsed.as_secs_f64() * 1_000.0,
-        exhaustive_elapsed.as_secs_f64() / dynamic_elapsed.as_secs_f64(),
-    );
 }
 
 #[test]
@@ -5991,7 +6159,7 @@ fn wasted_points_on_zero_scaling_stats_are_filtered() {
     request.standard_max_upgrade = 25;
     request.somber_max_upgrade = 10;
     request.top_k = 10;
-    let constraints = build_combat_constraints(&request).expect("constraints failed");
+    let constraints = build_combat_constraints(&request, &game_data).expect("constraints failed");
     let prepared_weapons =
         prepare_weapons(&request, &game_data, constraints).expect("prepare failed");
     let prepared = prepared_weapons
@@ -6140,7 +6308,7 @@ fn native_only_skills_can_be_searched_with_weapon_unlocked() {
         ("Buckler Parry", "Buckler"),
     ] {
         request.aow_name = Some(skill.to_string());
-        let constraints = build_combat_constraints(&request).unwrap();
+        let constraints = build_combat_constraints(&request, &data).unwrap();
         let weapons = prepare_weapons(&request, &data, constraints).unwrap();
         assert!(!weapons.is_empty());
         assert!(
@@ -6543,11 +6711,13 @@ fn bleed_only_calculator_matches_full_status_for_open_choices() {
         request.character_level = 150;
         request.standard_max_upgrade = upgrades[2];
         request.somber_max_upgrade = upgrades[2];
+        use_profile_class(&mut request, &game_data);
         let stats = request.current_stats;
 
         for aow_name in aow_names {
             request.aow_name = aow_name.map(str::to_string);
-            let constraints = build_combat_constraints(&request).expect("constraints failed");
+            let constraints =
+                build_combat_constraints(&request, &game_data).expect("constraints failed");
             let prepared_weapons = prepare_weapons(&request, &game_data, constraints)
                 .expect("weapon preparation failed");
             let prepared = prepared_weapons.first().unwrap_or_else(|| {

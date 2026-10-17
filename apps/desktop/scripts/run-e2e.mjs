@@ -28,7 +28,7 @@ try {
 
 function runPlaywright(baseUrl) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ["./node_modules/@playwright/test/cli.js", "test"], {
+    const child = spawn(process.execPath, ["./node_modules/@playwright/test/cli.js", "test", ...process.argv.slice(2)], {
       env: { ...process.env, PLAYWRIGHT_BASE_URL: baseUrl, PW_TEST_HTML_REPORT_OPEN: "never" },
       shell: false,
       stdio: "inherit",

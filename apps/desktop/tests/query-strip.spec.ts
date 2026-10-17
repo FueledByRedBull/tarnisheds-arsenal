@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, type EditorName } from "./editors";
+import { chooseClass, openEditor, type EditorName } from "./editors";
 
 async function ready(page: Page) {
   await page.goto("/");
@@ -28,7 +28,8 @@ test("strip tokens summarise the query and their editors apply edits in place", 
   await expect(token("Class")).toHaveAccessibleName("Class: Samurai");
   await expect(token("Objective")).toHaveAccessibleName("Objective: Max AR");
   await expect(token("Loadout")).toHaveAccessibleName("Loadout: Any weapon");
-  await expect(token("Results")).toHaveAccessibleName("Results: Top 25");
+  await expect(token("More options")).toHaveAccessibleName("More options: Base game, Top 25, Locks and minimums");
+  await expect(token("More options")).toHaveText("+ More options");
 
   const classPanel = await openEditor(page, "Class");
   await classPanel.getByRole("combobox", { name: "Class" }).fill("Vagabond");
@@ -53,13 +54,38 @@ test("strip tokens summarise the query and their editors apply edits in place", 
   await expect(loadout).toBeHidden();
   await results.getByRole("spinbutton", { name: "Top Results" }).fill("10");
   await results.getByRole("spinbutton", { name: "Top Results" }).press("Enter");
-  await expect(token("Results")).toHaveAccessibleName(/^Results: Top 10/);
+  await expect(token("More options")).toHaveAccessibleName(/^More options: Base game, Top 10,/);
+  // Only settings that differ from the defaults are spelled out on the token.
+  await expect(token("More options")).toHaveText("Top 10");
 
   await page.getByRole("checkbox", { name: "Two-handing", exact: true }).check();
   expect((await state(page)).request).toMatchObject({ className: "Vagabond", objective: "max_ar_plus_bleed",
     weaponName: "Uchigatana", topK: 10, twoHanding: true });
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText(/\d+ ranked rows?/)).toBeVisible();
+});
+
+test("an editor reopened during its fade-out is shown and takes input", async ({ page }) => {
+  await ready(page);
+  const panel = page.getByRole("dialog", { name: "Class", exact: true });
+  const input = panel.getByRole("combobox", { name: "Class" });
+  await openEditor(page, "Class");
+  // Reopen at points across the 120 ms fade, including just after its discrete end, where
+  // Chromium once left a reshown popover unable to take focus.
+  for (const delay of [0, 40, 110, 120, 130, 160]) {
+    const closing = await page.evaluate(async (delay) => {
+      const element = document.querySelector<HTMLElement>('.popover-panel[aria-label="Class"]')!;
+      element.hidePopover();
+      const pointerEvents = getComputedStyle(element).pointerEvents;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      element.showPopover();
+      return pointerEvents;
+    }, delay);
+    expect(closing, `pointer input on a closing panel (${delay} ms)`).toBe("none");
+    await expect(panel, `reopened after ${delay} ms`).toBeVisible();
+    await input.click();
+    await expect(input).toBeFocused();
+  }
 });
 
 test("ribbon stats edit directly with the class base as the floor", async ({ page }) => {
@@ -106,7 +132,7 @@ test("Ctrl+K applies typed edits, actions and navigation", async ({ page }) => {
 
   ({ dialog, input } = await palette(page, "top 5"));
   await input.press("Enter");
-  await expect(page.getByRole("button", { name: /^Results: Top 5/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^More options: .*Top 5,/ })).toBeVisible();
 
   ({ dialog, input } = await palette(page, "search"));
   await input.press("Enter");
@@ -149,7 +175,7 @@ for (const [width, height] of [[1200, 720], [1650, 950]]) {
   test(`every strip editor opens inside the window at ${width}x${height}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     await ready(page);
-    for (const editor of ["Class", "Objective", "Loadout", "Upgrades", "Scaling", "Results", "Limits"] satisfies EditorName[]) {
+    for (const editor of ["Class", "Objective", "Loadout", "Upgrades", "Limits"] satisfies EditorName[]) {
       const panel = await openEditor(page, editor);
       await expect.poll(() => panel.evaluate((node) => {
         const box = node.getBoundingClientRect();
@@ -162,16 +188,25 @@ for (const [width, height] of [[1200, 720], [1650, 950]]) {
   });
 }
 
-test("Convergence summarises custom stats and hides class-budget commands", async ({ page }) => {
+test("Convergence offers its own classes and keeps Custom stats exact", async ({ page }) => {
   await ready(page);
   await page.getByRole("radiogroup", { name: "Game profile" }).getByRole("radio", { name: /Convergence/ }).click();
-  await expect(page.getByRole("button", { name: "Class: Custom stats" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Class: Retainer" })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Upgrades: / })).toHaveAccessibleName(/\+15/);
-  await expect(page.getByRole("button", { name: /^Scaling: / })).toHaveAccessibleName(/No Scadutree/);
+  await expect(page.getByRole("button", { name: /^More options: / })).toHaveAccessibleName(/No Scadutree/);
+  {
+    const { dialog, input } = await palette(page, "class samurai");
+    await expect(dialog.getByRole("option", { name: /Samurai/ })).toHaveCount(0);
+    await input.fill("blessing 5");
+    await expect(dialog.getByRole("option", { name: /Scadutree Blessing/ })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+  }
+
+  // The exact-stat entry stays available and keeps its fixed-stat commands.
+  await chooseClass(page, "Custom stats");
+  await expect(page.getByRole("button", { name: "Class: Custom stats" })).toBeVisible();
   const { dialog, input } = await palette(page, "str 40");
   await expect(dialog.getByRole("option")).toHaveCount(1);
-  await input.fill("optimize class");
-  await expect(dialog.getByRole("option", { name: /Optimize class/ })).toHaveCount(0);
-  await input.fill("blessing 5");
-  await expect(dialog.getByRole("option", { name: /Scadutree Blessing/ })).toHaveCount(0);
+  await input.fill("class custom");
+  await expect(dialog.getByRole("option", { name: /Custom stats/ })).toHaveCount(0);
 });

@@ -24,21 +24,22 @@ comparisons and progression previews.
 [![Tauri 2](https://img.shields.io/badge/Tauri_2-101315?style=flat-square&logo=tauri&logoColor=c9a45c)](apps/desktop/src-tauri)
 [![React 19](https://img.shields.io/badge/React_19-101315?style=flat-square&logo=react&logoColor=c9a45c)](apps/desktop/src)
 
-[What’s new in v0.17.2](docs/release-notes/v0.17.2.md)
+[What’s new in v0.18.0](docs/release-notes/v0.18.0.md)
 · [Your first build](#your-first-build)
 · [Documentation](#documentation)
 
 </div>
 
 Each Rankings row shows the loadout, weapon scaling, combat stats, AR, and skill
-damage, with the selected build’s full breakdown on the right.
+damage, with the selected build’s full breakdown on the right. **Columns** explains
+each one.
 
 ![Rankings with weapon setups, combat stats, scaling, and the selected build’s damage breakdown](docs/images/tarnisheds-arsenal-rankings.png)
 
 ## Download
 
 Choose an asset from the [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
-The [v0.17.2 notes](docs/release-notes/v0.17.2.md) include versioned downloads,
+The [v0.18.0 notes](docs/release-notes/v0.18.0.md) include versioned downloads,
 calculation changes, and verification limits.
 
 | Choose | Best for |
@@ -52,42 +53,52 @@ calculation changes, and verification limits.
 > **3.0.0.1** snapshots, so no adjacent data folder, game installation,
 > `regulation.bin`, or source workbook is required.
 
-Each release includes SHA-256 checksums and a build report identifying its source
-and data. The ZIP contains the portable app; the MSI’s WebView2 bootstrapper
+Each release includes SHA-256 checksums for the installer, portable app, and ZIP,
+and a build report identifying its source and data. The ZIP contains the portable
+app with the license and third-party notices; the MSI’s WebView2 bootstrapper
 needs internet access if that runtime is missing.
 
 ## Your first build
 
 1. Choose **Vanilla**. The query line at the top reads as one sentence: click
-   your starting class to change it, and type your stats into the ribbon below.
+   your starting class to change it, and type your stats into the boxed fields of
+   the ribbon below. As the ribbon says, Search optimizes STR–ARC: it moves STR,
+   DEX, INT, FAI, and ARC within your level, while VIG, MND, and END stay as entered.
 2. Click the objective (such as **Max AR**), the loadout, the upgrades, or any
    other part of the query to edit it; open fields allow all legal choices.
-   Press **Ctrl+K** to type a change instead, such as `str 40`, `uchigatana`,
-   `+20`, `top 10`, or `level 60` to plan where your next levels go.
+   **+ More options** holds DLC scaling, the result count and grouping, and stat
+   locks and minimums. Press **Ctrl+K** to type a change instead, such as
+   `str 40`, `uchigatana`, `+20`, `top 10`, or `level 60` to plan where your next
+   levels go.
 3. Press **Search**, then select a row to inspect its damage, scaling, and stats.
    Build Detail shows how far the top result leads the next one, how many scored
-   setups the search ranked, and which of your entered stats the build changes.
+   setups the search compared, and which of your entered stats the build changes.
+   **More details** adds weapon data, the stat budget, and the model’s coverage
+   notes.
 4. Pin another result for **Compare** (or press **P** on a focused row), trace
    future levels in **Paths**, or explore affinity crossover points in
    **Affinity Watch**. These workspaces unlock once a current result is selected;
    the tab bar says what is missing.
 
 Save builds from **Saved Builds**, folded under Build Detail, or export rankings
-as CSV with the row count chosen beside **Export CSV**. Each game profile keeps
-its own query: switch away and back and it is restored, ready to search again.
+with **Export CSV**, which asks for 25, 100, 500, or 2,000 rows. Each game profile
+keeps its own query, including across restarts: switch away and back, or reopen
+the app, and it is restored, ready to search again.
 The query line shows the assumptions behind the rankings; changed inputs mark
-old results as stale. **Ctrl+Z** undoes any query change. After
+old results as stale. **Ctrl+Z** undoes recent query changes (up to 50) outside
+text fields; switching profile starts a new history. After
 **Update Results**, each rank shows how far that loadout moved and how its score
 changed. Click **AR**, **Skill damage**, or the objective column to sort without
-losing the rank, and press **?** for every shortcut. Convergence uses a
-different [fixed-stat workflow](#convergence-3001-beta).
+losing the rank, and press **?** for every shortcut. Convergence has its own
+classes and [coverage limits](#convergence-3001-beta).
 
 ### Saved builds and recovery
 
 Saved Builds includes **Backup and recovery**. **Export all builds** backs up
 readable builds across profiles. Select a backup file to preview its contents,
-then restore as new copies; existing builds are kept. Backups support up to 500
-builds and 10 MiB. Existing schema 1/2 builds remain readable.
+then restore as new copies; existing builds are kept. A backup file holds up to
+500 builds and 10 MiB, and a restore is refused if your existing and restored
+builds together would exceed 500. Existing schema 1/2 builds remain readable.
 
 If the saved-build list is damaged or incomplete, scan it and review the recovery
 count and issues. Recovery rebuilds the list from readable records, preserves the
@@ -110,14 +121,19 @@ each stat's causal damage contribution.
 | **Paths** | Which stat comes next on a no-respec path, or what wins with a respec? |
 | **Affinity Watch** | When does one affinity overtake another at future levels? |
 
+Compare, Paths, and Affinity Watch each explain their method under **How it works**
+below their title.
+
 <details>
 <summary><strong>Compare — see the differences against your baseline</strong></summary>
 
 Pinned loadouts keep their weapon, affinity, and skill. Their stats and upgrades
-are reoptimized for the current budget; the upgrade chart shows how each develops.
+are reoptimized for the current budget. Compare holds up to eight pins and refuses
+a ninth; loading a saved build replaces them only if that build carries its own.
 Active comparison filters appear as removable chips; **Filters** holds every
 option, and **Use ranked rivals** returns to the default comparison. The delta
-table answers the comparison; open **Build details** for each loadout's full card.
+table answers the comparison; open **Build details** for each loadout's full card,
+or **Upgrade matrix** to see how each develops across upgrade levels.
 
 **AR / Bleed tradeoffs** keeps the selected weapon, affinity, skill, upgrade,
 level budget, stat floors/locks, and handling fixed. Compute its complete frontier,
@@ -175,8 +191,10 @@ those limits.
 
 Results use exact arithmetic for ranking and rounded numbers for display. This
 avoids intermediate rounding deciding close winners; it does not certify every
-formula against the game. **Snapshot loaded** means the profile passed its data
-integrity checks, not that every mechanic is modeled.
+formula against the game. A loaded profile has passed its data integrity checks,
+which does not mean every mechanic is modeled; the header stays quiet when it is
+healthy. **Model coverage and assumptions** under Build Detail’s **More details**
+lists what the numbers leave out.
 
 See the [model reference](docs/model-reference.md) for supported objectives, skill
 effects, profile rules, and known differences from other calculators.
@@ -184,16 +202,24 @@ effects, profile rules, and known differences from other calculators.
 ### Convergence 3.0.0.1 beta
 
 > [!WARNING]
-> Convergence is experimental. Its final AR mechanics and customization legality
-> still need independent verification.
+> Convergence is experimental. Its AR, status, and Ash legality are checked
+> against the mod's regulation and a pinned external calculator, not measured in
+> game.
 
-Enter exact **Custom stats**; their total is not a Rune Level. The profile supports
-melee weapon AR, fixed status, and upgrades through `+15`. AoW damage, ammunition
-AR, and class-dependent workflows (Compare, Paths, Affinity Watch, and class
-optimization) are unavailable.
+The header marks it **Experimental model**; open that label for its coverage
+notes. Choose one of the mod's 27 starting classes, such as **Retainer** or
+**Prisoner**, and plan by Rune Level as in Vanilla: class optimization, Compare,
+Paths, and Affinity Watch all work. **Custom stats** remains in the class list:
+it evaluates the exact stats you enter, their total is not a Rune Level, and the
+analysis workspaces stay locked while it is selected. Builds saved with Custom
+stats load and solve as before.
 
-Vanilla rules and missing damage tables are never substituted into the mod
-profile. See [Convergence coverage](docs/model-reference.md#convergence).
+The profile supports melee weapon AR and upgrades through `+15`. Status buildup
+is fixed: the mod gives weapons a flat status correction curve, so Arcane and
+upgrades do not raise it. AoW damage and ammunition AR are unavailable.
+
+Vanilla rules, classes, and missing damage tables are never substituted into the
+mod profile. See [Convergence coverage](docs/model-reference.md#convergence).
 
 ## Documentation
 
@@ -201,7 +227,7 @@ Choose a guide for the task at hand:
 
 | I want to… | Read |
 | --- | --- |
-| See what changed in **v0.17.2** | [Release notes](docs/release-notes/v0.17.2.md) · [All versions](docs/release-notes/README.md) |
+| See what changed in **v0.18.0** | [Release notes](docs/release-notes/v0.18.0.md) · [All versions](docs/release-notes/README.md) |
 | Understand supported mechanics and limitations | [Model reference](docs/model-reference.md) |
 | Find components and trace a calculation | [Optimizer overview](docs/design/optimizer-overview.md) |
 | Inspect the exact ranking contract and proof | [Optimizer mathematics](docs/design/optimizer-math.md) |
@@ -217,16 +243,12 @@ app version, game profile, reproduction steps, and expected versus actual result
 Use [private vulnerability reporting](SECURITY.md) for security issues.
 
 Open **Report a problem** at the bottom of Build Detail and use
-**Preview reproduction report** to review and download
-current normalized inputs, snapshot identity, the displayed selection when it is
-not stale, and an error if present. It does not replay a failed request or recompute
-a saved result. The saved-build library and raw logs are excluded; recognizable
-paths, addresses, and credential-like text are omitted. Review the preview before
-sharing it. Nothing is uploaded automatically.
+**Preview reproduction report** to review and download a report; the
+[security policy](SECURITY.md#reproduction-reports) lists what it contains and omits.
 
 Submit focused pull requests against `main`, explain the problem and checks run,
 and add a regression for behavior changes. Keep raw game files, credentials,
-build output, and local audit reports out of commits.
+build output, and local working notes out of commits.
 
 <details>
 <summary><strong>Build and validate locally</strong></summary>
@@ -251,7 +273,7 @@ and uses preview data in the browser.
 Run core, backend, and data checks from the **repository root**:
 
 ```powershell
-python -m pip install -r requirements-validation.txt
+python -m pip install --require-hashes -r requirements-validation.txt
 cargo test --locked --manifest-path core/er_optimizer_core/Cargo.toml
 cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
 python tools/phase4/validate_phase4.py
@@ -268,11 +290,13 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-The frontend uses React 19.3 with the modern JSX transform. Hooks linting rejects
-conditional Hooks and missing effect dependencies. The DTO contract check compares
-all public Rust DTO field shapes and enums with TypeScript, including the request
-types used by the API adapter. It does not replace native value validation or
-serialization tests. CI and full package validation run both checks.
+The frontend uses React 19.3 with the modern JSX transform. Linting applies the
+React Hooks plugin's latest recommended rules, including the React Compiler checks,
+and type-checks the browser tests. The contract check compares all public Rust DTO
+field shapes and enums with TypeScript, including the request types used by the
+API adapter, and checks that every native command is registered, allowed and
+called with matching argument names. It does not replace native value validation
+or serialization tests. CI and full package validation run both checks.
 
 The full checks and setup live in [CI](.github/workflows/ci.yml). The core is in
 `core/er_optimizer_core`; the desktop is in `apps/desktop`. Historical phase names
@@ -284,3 +308,4 @@ remain for extraction (`tools/phase1`) and validation/packaging (`tools/phase4`)
 
 Code is available under the [MIT License](LICENSE). Fan-made tooling, unaffiliated
 with FromSoftware or Bandai Namco Entertainment; it does not distribute Elden Ring.
+Third-party data and software credits are in [NOTICE](NOTICE).

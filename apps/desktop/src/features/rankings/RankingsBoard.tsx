@@ -1,16 +1,30 @@
-import { ArrowDown, ArrowDownUp, ArrowUp, ChevronLeft, ChevronRight, Download, LockKeyhole, Pin, RefreshCcw } from "lucide-react";
-import { memo, ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { downloadCsv, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
-import { compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
-import { buildOptimizeRequest, rowFingerprint } from "../../lib/session";
+import { ArrowDown, ArrowDownUp, ArrowUp, ChevronLeft, ChevronRight, CircleHelp, Download, LockKeyhole, Pin, RefreshCcw } from "lucide-react";
+import { memo, ReactNode, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { downloadText, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
+import { aowModelSupported, compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
+import { buildOptimizeRequest, rowFingerprint, usesFixedStats } from "../../lib/session";
 import { EASE_OUT, reducedMotion, settleRanking } from "../../lib/motion";
-import { RankedEntry, RankMovement, RankSortKey, rankMovements, sortRanked } from "../../lib/ranking-view";
+import { RankMovement, RankSortKey, rankMovements, sortRanked } from "../../lib/ranking-view";
 import { useDesktopStore } from "../../lib/state";
 import { ObjectiveId, SearchProgressDto, SolvedBuildDto } from "../../lib/types";
 import { runSearchFromStore, runSearchRequestForRows } from "../../lib/workflows";
 import packageInfo from "../../../package.json";
-import { STAT_KEYS, ScalingTokens, StatTokens } from "../shared/BuildMetricTokens";
+import { COMBAT_STAT_LABELS, ScalingTokens, StatTokens } from "../shared/BuildMetricTokens";
+import { Popover } from "../shared/Popover";
 import { SkeletonRows } from "../shared/SkeletonRows";
+
+// What each column means, said once in the column guide and read as each header's description.
+const COLUMN_GUIDE = [
+  ["loadout", "Loadout", "Weapon, affinity, skill, and reinforcement level."],
+  ["scaling", "Scaling", "Attribute contribution grade at the shown reinforcement level."],
+  ["stats", "Stats", "The combat stats this build uses."],
+  ["ar", "AR", "Raw attack rating before enemy defense and negation. Build Detail splits it by damage type."],
+  ["skill", "Skill damage", "Raw damage of one complete legal Ash of War route, with its first damaging hit. Native skills are the weapon's fixed skill."],
+  ["score", "Objective", "The value the active ranking objective sorts by."],
+  ["pin", "Pin (P)", "Adds the result to Compare as a target."],
+  ["lock", "Lock stats (L)", "Copies the result's loadout, upgrade, and combat stats into the next search as exact stat locks."],
+] as const;
+const guideId = (key: string) => `column-guide-${key}`;
 
 export function RankingsBoard() {
   const rows = useDesktopStore((state) => state.rows);
@@ -28,20 +42,20 @@ export function RankingsBoard() {
   const resultsStale = useDesktopStore((state) => state.resultsStale);
   const pushNotice = useDesktopStore((state) => state.pushNotice);
   const setError = useDesktopStore((state) => state.setError);
-  // The board stays rendered while another workspace is shown (App.tsx), so it follows that here.
-  const shown = useDesktopStore((state) => state.activeWorkspace === "rankings");
+  // The board stays rendered while another workspace is shown (App.tsx), so it follows that here,
+  // deferred like the other workspaces so that both switch in the same commit.
+  const shown = useDeferredValue(useDesktopStore((state) => state.activeWorkspace === "rankings"));
   const objective = useDesktopStore((state) => state.request.objective);
   const isExporting = useDesktopStore((state) => state.isExporting);
   const setExporting = useDesktopStore((state) => state.setExporting);
   const exportController = useRef<AbortController | null>(null);
   const [exportProgress, setExportProgress] = useState<SearchProgressDto | null>(null);
-  const [exportLimit, setExportLimit] = useState<25 | 100 | 500 | 2000>(25);
   const exportCache = useRef<{ signature: string; rows: SolvedBuildDto[] } | null>(null);
   const rankBaseline = useDesktopStore((state) => state.rankBaseline);
   const [sort, setSort] = useState<{ key: RankSortKey; reverse: boolean }>({ key: "rank", reverse: false });
   const [horizontalScroll, setHorizontalScroll] = useState({ overflow: false, left: false, right: false });
   const resultBoard = useRef<HTMLDivElement>(null);
-  const aowSupported = Boolean(catalog?.dataManifest.capabilities.aowDamage && catalog.dataManifest.capabilities.aowRoutes);
+  const aowSupported = aowModelSupported(catalog?.dataManifest);
   const rankedRows = useMemo(
     () => sortRanked(rows, sort.key, sort.reverse, objective, aowSupported),
     [aowSupported, objective, rows, sort],
@@ -61,8 +75,8 @@ export function RankingsBoard() {
   const scadutreeAvailable = profileRules?.scadutreeScaling ?? true;
   const extendedScalingGrades = profileRules?.extendedScalingGrades ?? false;
 
-  // Leaving Rankings cancels an export, like any input or profile change.
-  useEffect(() => () => exportController.current?.abort(), [catalog, request, lockedStatMode, searchGeneration, shown]);
+  // Any input or profile change cancels an export; exportCsv cancels it on leaving Rankings.
+  useEffect(() => () => exportController.current?.abort(), [catalog, request, lockedStatMode, searchGeneration]);
 
   useEffect(() => {
     const board = resultBoard.current;
@@ -94,20 +108,20 @@ export function RankingsBoard() {
   }, [applyRowLocks]);
   const selectedKey = rowFingerprint(selected);
   const pinnedKeys = useMemo(() => new Set(compareBench.map(rowFingerprint)), [compareBench]);
+  // One tab stop for the whole grid: the selected row, or the first row before any selection.
+  const tabStopKey = rows.some((row) => rowFingerprint(row) === selectedKey) ? selectedKey : rowFingerprint(rows[0] ?? null);
 
   const rowsContainer = useRef<HTMLDivElement>(null);
-  // Rows stay in rank order in the DOM. A sort offsets them (they are relatively positioned, so
-  // only their positions update) and gives keyboard and screen readers the new order through
-  // reading-order; moving the row nodes instead restyled and laid out all of them (~15 ms per
-  // sort). Transforms would avoid even that, but give each sticky rank cell its own layer.
+  // Rows stay in rank order in the DOM and a sort sets their flex order, so only the rows' own
+  // styles and positions update (1.6 ms for 50 rows); reading-flow gives keyboard and screen
+  // readers the order shown. Moving the row nodes restyled and laid out all of them (~15 ms), and
+  // rendering each place's row into it rewrote every row's contents (8 ms).
   useLayoutEffect(() => {
-    const container = rowsContainer.current;
-    if (!container) return;
-    placeRows(container, rankedRows);
-    // Row heights follow the board width, so a resize re-places a sorted board.
-    const observer = new ResizeObserver(() => placeRows(container, rankedRows));
-    observer.observe(container);
-    return () => observer.disconnect();
+    const rowElements = rowsContainer.current?.children;
+    rankedRows.forEach(({ rank }, place) => {
+      const row = rowElements?.[rank];
+      if (row instanceof HTMLElement) row.style.order = String(place);
+    });
   }, [rankedRows]);
 
   // A sort or an updated search re-forges the ranking. Results that land while another
@@ -125,14 +139,68 @@ export function RankingsBoard() {
   // one is only skipped while hidden (styles.css), so it replays the entrance itself.
   const panel = useRef<HTMLElement>(null);
   const wasShown = useRef(shown);
+  // Rows well outside the board's view rest (styles.css) while Rankings is hidden and while the
+  // window is resized, so a return or a width step renders only the rows near the view instead
+  // of all 50; the others wake a few per frame afterwards.
+  const nearRows = useRef(new Set<Element>());
+  const wakeFrame = useRef(0);
   useLayoutEffect(() => {
     if (shown && !wasShown.current && !reducedMotion()) {
       panel.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 140, easing: EASE_OUT });
     }
+    const container = rowsContainer.current;
+    if (container && shown !== wasShown.current) {
+      cancelAnimationFrame(wakeFrame.current);
+      if (!shown) restRows(container, nearRows.current);
+      // Waking starts in the frame after the one that shows the board.
+      else wakeFrame.current = requestAnimationFrame(() => { wakeFrame.current = requestAnimationFrame(() => wakeRows(container, wakeFrame)); });
+    }
     wasShown.current = shown;
   }, [shown]);
 
-  async function exportCsv() {
+  useEffect(() => {
+    const board = resultBoard.current;
+    const container = rowsContainer.current;
+    if (!board || !container) return;
+    const near = nearRows.current;
+    near.clear();
+    const offstage = () => panel.current?.hasAttribute("data-offstage") ?? true;
+    const observer = new IntersectionObserver((entries) => {
+      // A hidden board reports every row out of view, so it keeps the rows it last showed.
+      if (offstage()) return;
+      for (const { target, isIntersecting } of entries) {
+        if (!isIntersecting) {
+          near.delete(target);
+        } else {
+          near.add(target);
+          target.removeAttribute("data-resting");
+        }
+      }
+    }, { root: board, rootMargin: "96px 0px" });
+    for (const row of container.children) observer.observe(row);
+    let settle = 0;
+    const onResize = () => {
+      if (offstage()) return;
+      if (!settle) {
+        cancelAnimationFrame(wakeFrame.current);
+        restRows(container, near);
+      }
+      clearTimeout(settle);
+      settle = window.setTimeout(() => {
+        settle = 0;
+        wakeRows(container, wakeFrame);
+      }, 150);
+    };
+    window.addEventListener("resize", onResize);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", onResize);
+      clearTimeout(settle);
+      cancelAnimationFrame(wakeFrame.current);
+    };
+  }, [rows.length]);
+
+  async function exportCsv(requestedRows: number) {
     if (useDesktopStore.getState().isSearching || useDesktopStore.getState().isExporting) return;
     const controller = new AbortController();
     const isCurrent = () => {
@@ -140,12 +208,13 @@ export function RankingsBoard() {
       return !controller.signal.aborted && current.searchGeneration === searchGeneration
         && current.activeWorkspace === "rankings";
     };
+    // Watches the urgent store: the deferred `shown` can miss a visit elsewhere within one render.
+    const stop = useDesktopStore.subscribe(() => { if (!isCurrent()) controller.abort(); });
     exportController.current = controller;
     setExporting(true);
     setExportProgress(null);
     setError(null);
     try {
-      const requestedRows = exportLimit;
       const exportRequest = {
         ...buildOptimizeRequest(catalog, request, lockedStatMode),
         topK: requestedRows,
@@ -163,7 +232,7 @@ export function RankingsBoard() {
       }
       if (!isCurrent()) return;
       if (!catalog) throw new Error("Catalog metadata is unavailable; the export was not created.");
-      downloadCsv(rankingsCsvFilename(request.profileId), rankingsToCsv(exportRows, {
+      downloadText(rankingsCsvFilename(request.profileId), rankingsToCsv(exportRows, {
         profileId: request.profileId,
         appVersion: packageInfo.version,
         schemaVersion: String(catalog.dataManifest.schemaVersion),
@@ -185,17 +254,18 @@ export function RankingsBoard() {
           "temporary buff stacking not universal",
         ].join("; "),
         separateUpgradeCaps,
-        aowModelSupported: catalog.dataManifest.capabilities.aowDamage && catalog.dataManifest.capabilities.aowRoutes,
+        aowModelSupported: aowSupported,
         extendedScalingGrades,
-      }));
+      }), "text/csv;charset=utf-8");
       pushNotice({
         scope: "rankings",
         tone: "success",
         message: `Exported ${exportRows.length} ranked rows to your Downloads folder.`,
       });
     } catch (error) {
-      if (!controller.signal.aborted) setError(error instanceof Error ? error.message : String(error));
+      if (!controller.signal.aborted) setError(errorMessage(error));
     } finally {
+      stop();
       if (exportController.current === controller) setExporting(false);
     }
   }
@@ -222,7 +292,7 @@ export function RankingsBoard() {
   function scrollResults(direction: -1 | 1) {
     resultBoard.current?.scrollBy({
       left: direction * 360,
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      behavior: reducedMotion() ? "auto" : "smooth",
     });
   }
 
@@ -231,10 +301,23 @@ export function RankingsBoard() {
       <div className="workspace-header">
         <div>
           <h1>Rankings</h1>
-          <span>{rows.length} ranked rows</span>
+          {rows.length ? <span>{rows.length} ranked {rows.length === 1 ? "row" : "rows"}</span> : null}
           {skillColumn ? null : <small>Skill damage isn't modeled for these results.</small>}
         </div>
         <div className="result-scroll-actions">
+          <Popover
+            label="Column guide"
+            trigger={<><CircleHelp size={15} aria-hidden="true" /><span>Columns</span></>}
+            triggerLabel="Column guide"
+            triggerClassName="column-guide-trigger"
+            panelClassName="editor-panel column-guide-panel"
+          >
+            <dl className="editor-body column-guide">
+              {COLUMN_GUIDE.map(([key, term, definition]) => (
+                <div key={key}><dt>{term}</dt><dd id={guideId(key)}>{definition}</dd></div>
+              ))}
+            </dl>
+          </Popover>
           <button
             type="button"
             title="Reverse the current order; click again to restore it"
@@ -256,33 +339,38 @@ export function RankingsBoard() {
               </button>
             </>
           ) : null}
-          <div className="export-split" role="group" aria-label="CSV export">
-            <button
-              className="export-csv-button"
-              type="button"
-              title={`Export up to ${exportLimit.toLocaleString()} rows to CSV`}
-              onClick={() => isExporting ? exportController.current?.abort() : void exportCsv()}
+          {isExporting ? (
+            <button className="export-csv-button" type="button" onClick={() => exportController.current?.abort()}>
+              <Download size={16} aria-hidden="true" /><span>Cancel export</span>
+            </button>
+          ) : (
+            <Popover
+              label="Export CSV"
+              trigger={<><Download size={16} aria-hidden="true" /><span>Export CSV</span></>}
+              triggerLabel="Export CSV"
+              triggerClassName="export-csv-button"
+              panelClassName="editor-panel export-panel"
               disabled={isSearching}
             >
-              <Download size={16} />
-              <span>{isExporting ? "Cancel export" : "Export CSV"}</span>
-            </button>
-            <select
-              aria-label="Rows to export"
-              value={exportLimit}
-              onChange={(event) => setExportLimit(Number(event.target.value) as typeof exportLimit)}
-              disabled={isSearching || isExporting}
-            >
-              {([25, 100, 500, 2000] as const).map((limit) => (
-                <option key={limit} value={limit}>{limit === 2000 ? "2,000 rows (max)" : `${limit} rows`}</option>
-              ))}
-            </select>
-          </div>
+              {(close) => (
+                <div className="editor-body">
+                  <div className="export-choices" role="group" aria-label="Rows to export">
+                    {[25, 100, 500, 2000].map((limit) => (
+                      <button type="button" key={limit} onClick={() => { close(); void exportCsv(limit); }}>
+                        {limit === 2000 ? "2,000 rows (max)" : `${limit} rows`}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="editor-note">Rows beyond the current results are ranked again for the file, which lists every assumption.</p>
+                </div>
+              )}
+            </Popover>
+          )}
         </div>
       </div>
       {isExporting ? <div className="estimate-strip" role="status">
         <span>Exporting CSV</span>
-        <strong>{exportProgress ? `${exportProgress.checked.toLocaleString()} / ${exportProgress.total.toLocaleString()}` : "Preparing search..."}</strong>
+        <strong>{exportProgress ? `${exportProgress.checked.toLocaleString()} / ${exportProgress.total.toLocaleString()}` : "Preparing search…"}</strong>
       </div> : null}
       {resultsStale && rows.length > 0 ? (
         <div className="stale-results-banner" id="stale-results-message" role="status">
@@ -291,54 +379,42 @@ export function RankingsBoard() {
             <span>These rankings are retained from the previous query until the updated search finishes.</span>
           </div>
           <button type="button" onClick={() => void runSearchFromStore()} disabled={isSearching || isExporting}>
-            <RefreshCcw size={14} />{isSearching ? "Updating..." : "Run updated search"}
+            <RefreshCcw size={14} />{isSearching ? "Updating…" : "Run updated search"}
           </button>
         </div>
       ) : null}
-      <details className="mechanics-glossary">
-        <summary>Metric glossary</summary>
-        <dl>
-          <div><dt>AR</dt><dd>Raw attack rating before enemy defense and negation.</dd></div>
-          <div><dt>Split</dt><dd>AR divided across physical, magic, fire, lightning, and holy damage.</dd></div>
-          <div><dt>AoW 1st / Full</dt><dd>First damaging hit or one complete legal Ash of War route.</dd></div>
-          <div><dt>Scaling</dt><dd>Attribute contribution grade at the shown reinforcement level.</dd></div>
-          <div><dt>Native</dt><dd>The weapon's fixed skill rather than an applied Ash of War.</dd></div>
-          <div><dt>Pin (P)</dt><dd>Adds the result to Compare as a target.</dd></div>
-          <div><dt>Lock stats (L)</dt><dd>Copies the result's loadout, upgrade, and combat stats into the next exact search as stat locks.</dd></div>
-        </dl>
-      </details>
       <div
         ref={resultBoard}
-        className="result-board full-grid"
+        className="result-board"
         role="grid"
         aria-label={resultsStale ? "Ranked builds from the previous query" : "Ranked builds"}
         aria-describedby={resultsStale ? "stale-results-message" : undefined}
       >
-        <div className={`result-head result-head-full ${gridClass}`} role="row">
+        <div className={`result-head ${gridClass}`} role="row">
           <span role="columnheader" aria-sort={ariaSort("rank")}>
             <SortButton label="Rank" direction={ariaSort("rank")} onClick={() => sortBy("rank")}>#</SortButton>
           </span>
-          <span role="columnheader" title="Weapon, affinity, skill, and reinforcement level">Loadout</span>
-          <span role="columnheader" className="token-column-head" title="Attribute scaling grade at this reinforcement level">
+          <span role="columnheader" title="Weapon, affinity, skill, and reinforcement level" aria-describedby={guideId("loadout")}>Loadout</span>
+          <span role="columnheader" className="token-column-head" title="Attribute scaling grade at this reinforcement level" aria-describedby={guideId("scaling")}>
             Scaling<StatKeys />
           </span>
-          <span role="columnheader" className="token-column-head" title="Combat stats of this build">
+          <span role="columnheader" className="token-column-head" title="Combat stats of this build" aria-describedby={guideId("stats")}>
             Stats<StatKeys />
           </span>
           <span role="columnheader" aria-sort={ariaSort("ar")} title="Raw attack rating before enemy defense and negation">
-            <SortButton direction={ariaSort("ar")} onClick={() => sortBy("ar")}>AR</SortButton>
+            <SortButton direction={ariaSort("ar")} describedBy={guideId("ar")} onClick={() => sortBy("ar")}>AR</SortButton>
           </span>
           {skillColumn ? (
             <span role="columnheader" aria-sort={ariaSort("skill")} title="Raw skill damage for the full route, and its first damaging hit">
-              <SortButton direction={ariaSort("skill")} onClick={() => sortBy("skill")}>Skill damage</SortButton>
+              <SortButton direction={ariaSort("skill")} describedBy={guideId("skill")} onClick={() => sortBy("skill")}>Skill damage</SortButton>
             </span>
           ) : null}
           {objective !== "max_ar" ? (
             <span role="columnheader" aria-sort={ariaSort("score")} title="Value used by the active ranking objective">
-              <SortButton direction={ariaSort("score")} onClick={() => sortBy("score")}>{objectiveLabel(objective)}</SortButton>
+              <SortButton direction={ariaSort("score")} describedBy={guideId("score")} onClick={() => sortBy("score")}>{objectiveLabel(objective)}</SortButton>
             </span>
           ) : null}
-          <span role="columnheader" title="Pin for comparison (P) or lock stats to this result (L)">
+          <span role="columnheader" title="Pin for comparison (P) or lock stats to this result (L)" aria-describedby={`${guideId("pin")} ${guideId("lock")}`}>
             <span className="sr-only">Actions</span>
           </span>
         </div>
@@ -352,7 +428,7 @@ export function RankingsBoard() {
                   <SkeletonRows count={8} />
                 </div>
               ) : (
-                <EmptyRows onExample={runStarterExample} busy={isExporting} classBudget={catalog?.dataManifest.capabilities.classBudget !== false} />
+                <EmptyRows onExample={() => void runStarterExample()} busy={isExporting} classBudget={!usesFixedStats(catalog, request.className)} />
               )}
             </div>
           </div>
@@ -369,6 +445,7 @@ export function RankingsBoard() {
               row={row}
               movement={movements?.[rank] ?? null}
               active={selectedKey === key}
+              tabStop={tabStopKey === key}
               objective={objective}
               gridClass={gridClass}
               skillColumn={skillColumn}
@@ -389,15 +466,16 @@ export function RankingsBoard() {
 }
 
 // The direction mark is aria-hidden so the column keeps its name; aria-sort carries the order.
-function SortButton({ label, direction, onClick, children }: {
+function SortButton({ label, direction, describedBy, onClick, children }: {
   label?: string;
   direction: "ascending" | "descending" | undefined;
+  describedBy?: string;
   onClick: () => void;
   children: ReactNode;
 }) {
   const Arrow = direction === "ascending" ? ArrowUp : ArrowDown;
   return (
-    <button type="button" className={`sort-header${direction ? " active" : ""}`} aria-label={label} onClick={onClick}>
+    <button type="button" className={`sort-header${direction ? " active" : ""}`} aria-label={label} aria-describedby={describedBy} onClick={onClick}>
       {children}
       {direction ? <Arrow size={11} aria-hidden="true" /> : null}
     </button>
@@ -421,31 +499,28 @@ function MetricDelta({ movement, objective }: { movement: RankMovement | null; o
   );
 }
 
-// Shifts each row from its rank-order place to its sorted one. Rows stack without gaps, so both
-// places are running sums of row heights; fractional heights keep 50 rows from drifting apart.
-function placeRows(container: HTMLElement, ranked: RankedEntry[]) {
-  const rows = [...container.children].filter((row): row is HTMLElement => row instanceof HTMLElement);
-  // Rank order needs no measuring, so fresh results never force a layout here.
-  const unsorted = ranked.every(({ rank }, position) => rank === position);
-  const heights = unsorted ? [] : rows.map((row) => row.getBoundingClientRect().height);
-  const natural: number[] = [];
-  heights.reduce((top, height, rank) => { natural[rank] = top; return top + height; }, 0);
-  let top = 0;
-  ranked.forEach(({ rank }, position) => {
-    const row = rows[rank];
-    if (!row) return;
-    const shift = unsorted ? 0 : top - natural[rank];
-    row.style.top = shift ? `${shift}px` : "";
-    row.style.setProperty("reading-order", String(position));
-    if (!unsorted) top += heights[rank];
-  });
+// Rests every row outside `near` except one holding focus. Without a row in view yet, none rest.
+function restRows(container: HTMLElement, near: Set<Element>) {
+  if (!near.size) return;
+  for (const row of container.children) {
+    if (!near.has(row) && !row.contains(document.activeElement)) row.setAttribute("data-resting", "");
+  }
+}
+
+// Wakes resting rows twelve per frame; a hidden board keeps them resting until it is shown.
+function wakeRows(container: HTMLElement, frame: { current: number }) {
+  frame.current = 0;
+  if (container.closest("[data-offstage]")) return;
+  const resting = [...container.querySelectorAll("[data-resting]")];
+  resting.slice(0, 12).forEach((row) => row.removeAttribute("data-resting"));
+  if (resting.length > 12) frame.current = requestAnimationFrame(() => wakeRows(container, frame));
 }
 
 // Arrow keys move between rows like a grid, in the order shown; Enter and Space still select.
 function moveRowFocus(row: HTMLElement, key: string) {
-  const top = (element: HTMLElement) => element.getBoundingClientRect().top;
-  const rows = [...(row.parentElement?.querySelectorAll<HTMLElement>(".result-row-full") ?? [])]
-    .sort((a, b) => top(a) - top(b));
+  const order = (element: HTMLElement) => Number(element.style.order);
+  const rows = [...(row.parentElement?.querySelectorAll<HTMLElement>(".result-row") ?? [])]
+    .sort((a, b) => order(a) - order(b));
   const index = rows.indexOf(row);
   const target = key === "Home" ? rows[0] : key === "End" ? rows.at(-1) : rows[index + (key === "ArrowDown" ? 1 : -1)];
   target?.focus();
@@ -458,6 +533,7 @@ const ResultRow = memo(function ResultRow({
   index,
   movement,
   active,
+  tabStop,
   objective,
   gridClass,
   skillColumn,
@@ -473,13 +549,14 @@ const ResultRow = memo(function ResultRow({
   index: number;
   movement: RankMovement | null;
   active: boolean;
+  tabStop: boolean;
   objective: Parameters<typeof metricForObjective>[1];
   gridClass: string;
   skillColumn: boolean;
   aowModelSupported: boolean;
   extendedScalingGrades: boolean;
   onSelect: (row: SolvedBuildDto) => void;
-  onLock: (row: SolvedBuildDto) => void;
+  onLock: (row: SolvedBuildDto) => Promise<void>;
   lockDisabled: boolean;
   pinned: boolean;
   onPin: (row: SolvedBuildDto) => void;
@@ -490,12 +567,12 @@ const ResultRow = memo(function ResultRow({
   const metricName = `${objective === "max_ar" ? "AR" : objectiveLabel(objective)} ${metric === null ? "unavailable" : fixed1(metric)}`;
   return (
     <div
-      className={`result-row result-row-full ${gridClass} ${active ? "active" : ""}`}
+      className={`result-row ${gridClass} ${active ? "active" : ""}`}
       role="row"
       aria-selected={active}
       aria-label={`Select ${row.weaponName}, ${row.affinity}, rank ${index + 1}, ${metricName}${movementText(movement) ? `, ${movementText(movement)}` : ""}`}
       aria-keyshortcuts="P L"
-      tabIndex={0}
+      tabIndex={tabStop ? 0 : -1}
       onClick={() => onSelect(row)}
       onKeyDown={(event) => {
         if (event.target !== event.currentTarget) {
@@ -537,10 +614,10 @@ const ResultRow = memo(function ResultRow({
           <span className="loadout-upgrade">+{row.upgrade}</span>
         </small>
       </span>
-      <span role="gridcell" className="token-cell scaling-cell">
-        <ScalingTokens scaling={row.effectiveScaling} extended={extendedScalingGrades} />
+      <span role="gridcell" className="scaling-cell">
+        <ScalingTokens scaling={row.effectiveScaling} extended={extendedScalingGrades} labels={false} />
       </span>
-      <span role="gridcell" className="token-cell">
+      <span role="gridcell">
         <StatTokens row={row} />
       </span>
       <span role="gridcell" className="result-metric-cell ar-cell">
@@ -602,23 +679,31 @@ const ResultRow = memo(function ResultRow({
 function StatKeys() {
   return (
     <span className="token-keys" aria-hidden="true">
-      {STAT_KEYS.map((key) => <span key={key}>{key}</span>)}
+      {COMBAT_STAT_LABELS.map((key) => <span key={key}>{key}</span>)}
     </span>
   );
 }
 
+// First run: say what to do next, once. Search itself stays in the strip above.
 function EmptyRows({ onExample, busy, classBudget }: { onExample: () => void; busy: boolean; classBudget: boolean }) {
   return (
     <div className="empty-state">
-      <strong>No rankings loaded</strong>
-      <span>Press Search to rank every legal setup under the active query.</span>
-      <small>Open loadout fields keep all compatible options eligible.</small>
+      <strong>Find the best weapon for this character</strong>
+      <span>
+        {classBudget ? "Set your class and stats above, then press Search (Ctrl+Enter)." : "Enter your combat stats above, then press Search (Ctrl+Enter)."}
+        {" "}Every legal weapon, affinity and skill is ranked unless you narrow the loadout.
+      </span>
       {classBudget ? (
-        <>
-          <small>Character stats, floors, locks, and world settings are retained by the example.</small>
-          <button className="inline-lock" type="button" onClick={onExample} disabled={busy}>Try Uchigatana +3 example</button>
-        </>
-      ) : <small>Convergence uses your entered combat stats exactly.</small>}
+        <button
+          className="inline-lock"
+          type="button"
+          onClick={onExample}
+          disabled={busy}
+          title="Keeps your stats, minimums, locks and world settings"
+        >
+          Try an Uchigatana +3 example
+        </button>
+      ) : null}
     </div>
   );
 }

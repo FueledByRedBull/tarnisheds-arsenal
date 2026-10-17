@@ -17,10 +17,13 @@ import {
   savedBuildBackupText,
   previewBuildBackup,
   restoreBuildBackup,
+  shareTextForPreset,
   MAX_BUILD_BACKUP_BYTES,
+  MAX_BUILD_BACKUP_COUNT,
 } from "./presets";
 import type { BuildPresetV1, SolvedBuildDto } from "./types";
 import { validateStoredBuild } from "./stored-build";
+import { solvedBuild } from "./test-fixtures";
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();
@@ -44,32 +47,6 @@ function preset(id = "preset-one", name = "Dexterity route"): BuildPresetV1 {
     dataVersion: "1:dataset:model",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
-  };
-}
-
-function solvedBuild(): SolvedBuildDto {
-  return {
-    weaponId: 1,
-    weaponName: "Uchigatana",
-    affinity: "Keen",
-    isSomber: false,
-    upgrade: 25,
-    stats: { strStat: 18, dex: 40, intStat: 9, fai: 8, arc: 8 },
-    ar: { physical: 500, magic: 0, fire: 0, lightning: 0, holy: 0, total: 500 },
-    aowId: 100,
-    aowName: "Unsheathe",
-    bleedBuildup: 45,
-    bleedBuildupAdd: 0,
-    frostBuildup: 0,
-    poisonBuildup: 0,
-    scarletRotBuildup: 0,
-    sleepBuildup: 0,
-    madnessBuildup: 0,
-    deathBuildup: 0,
-    aowFirstHitDamage: 300,
-    aowFullSequenceDamage: 300,
-    aowRoute: null,
-    score: 500,
   };
 }
 
@@ -98,14 +75,15 @@ describe("saved build persistence", () => {
   ] as const)("uses shared structural validation for %s", (_name, mutate, path) => {
     const build = structuredClone(routedBuild());
     mutate(build);
-    expect(validateStoredBuild(build, { standardMaxUpgrade: 25, somberMaxUpgrade: 25 })).toMatchObject({ error: { path } });
-    expect(() => parsePresetText(JSON.stringify({ ...preset(), selectedBuild: build }))).toThrow(path.replace(/^build/, "selectedBuild"));
+    expect(validateStoredBuild(build, { standardMaxUpgrade: 25, somberMaxUpgrade: 25 })).toMatchObject({ error: expect.stringContaining(`${path} `) });
+    // Schema 2: only schema-1 records get later fields backfilled.
+    expect(() => parsePresetText(JSON.stringify({ ...preset(), version: 2, compareBench: [], selectedBuild: build }))).toThrow(path.replace(/^build/, "selectedBuild"));
   });
 
   it("keeps archive shape limits distinct from profile-specific activation limits", () => {
     const build = { ...routedBuild(), isSomber: true, upgrade: 15 };
     expect(validateStoredBuild(build, { standardMaxUpgrade: 25, somberMaxUpgrade: 25 })).toHaveProperty("value");
-    expect(validateStoredBuild(build, { standardMaxUpgrade: 25, somberMaxUpgrade: 10 })).toMatchObject({ error: { path: "build.upgrade" } });
+    expect(validateStoredBuild(build, { standardMaxUpgrade: 25, somberMaxUpgrade: 10 })).toMatchObject({ error: expect.stringMatching(/^build\.upgrade /) });
     expect(validateStoredBuild(build, { standardMaxUpgrade: 15, somberMaxUpgrade: 15 })).toHaveProperty("value");
     expect(parsePresetText(JSON.stringify({ ...preset(), selectedBuild: build })).selectedBuild).toEqual(build);
   });
@@ -239,39 +217,97 @@ describe("saved build persistence", () => {
     expect(parsed.request).not.toHaveProperty("offensivePointBudget");
   });
 
-  it("migrates saved builds created before all status fields were exposed", () => {
+  it("migrates schema-1 builds created before later result fields existed", () => {
     const raw = JSON.parse(JSON.stringify({
       ...preset(),
       selectedBuild: solvedBuild(),
       compareTarget: solvedBuild(),
+      compareBench: [solvedBuild()],
     }));
-    for (const key of ["selectedBuild", "compareTarget"] as const) {
-      delete raw[key].sleepBuildup;
-      delete raw[key].madnessBuildup;
-      delete raw[key].deathBuildup;
+    for (const build of [raw.selectedBuild, raw.compareTarget, raw.compareBench[0]]) {
+      for (const key of ["sleepBuildup", "madnessBuildup", "deathBuildup", "frostBuildup", "bleedBuildupAdd", "aowId", "aowRoute"]) {
+        delete build[key];
+      }
     }
 
     const parsed = parsePresetText(JSON.stringify(raw));
 
-    expect(parsed.selectedBuild).toMatchObject({
-      sleepBuildup: 0,
-      madnessBuildup: 0,
-      deathBuildup: 0,
-    });
-    expect(parsed.compareTarget).toMatchObject({
-      sleepBuildup: 0,
-      madnessBuildup: 0,
-      deathBuildup: 0,
-    });
+    for (const build of [parsed.selectedBuild, parsed.compareTarget, parsed.compareBench[0]]) {
+      expect(build).toMatchObject({
+        sleepBuildup: 0,
+        madnessBuildup: 0,
+        deathBuildup: 0,
+        frostBuildup: 0,
+        bleedBuildupAdd: 0,
+        aowId: null,
+        aowRoute: null,
+      });
+    }
   });
-
   it("previews conflicts and rejects oversized input", () => {
     importBuildPreset(preset());
     const preview = previewPresetImport(JSON.stringify(preset()));
     expect(preview).toMatchObject({ idConflict: true, nameConflict: true });
 
-    expect(() => parsePresetText("x".repeat(MAX_PRESET_IMPORT_BYTES + 1)))
+    expect(() => parsePresetText("x".repeat(3 * MAX_PRESET_IMPORT_BYTES + 1)))
       .toThrow(/too large/i);
+  });
+
+  function presetWithWarnings(count: number) {
+    const build = routedBuild();
+    build.aowRoute!.actions[0].hits[0].warnings = Array.from({ length: count }, () => "{".repeat(1000));
+    return { ...preset(), selectedBuild: build };
+  }
+
+  it("round-trips share text, including text longer than the limit once encoded", () => {
+    const saved = saveBuildPreset({ ...presetWithWarnings(240), dataVersion: "1:dataset:model" });
+    const share = shareTextForPreset(saved);
+    expect(share.length).toBeGreaterThan(MAX_PRESET_IMPORT_BYTES);
+    expect(parsePresetText(share)).toEqual(saved);
+  });
+
+  it("accepts legacy share text and explains damaged share text", () => {
+    expect(parsePresetText(`ta-v1:${encodeURIComponent(JSON.stringify(preset()))}`)).toMatchObject({ version: 2, name: "Dexterity route" });
+    expect(() => parsePresetText("ta-v2:%E0%A4%A")).toThrow(/damaged or incomplete/);
+  });
+
+  it("refuses to save or import a build over the limit, leaving storage unchanged", () => {
+    const large = { ...presetWithWarnings(200), compareTarget: presetWithWarnings(200).selectedBuild };
+    expect(() => saveBuildPreset({ ...large, dataVersion: "1:dataset:model" })).toThrow(/too large/);
+    expect(localStorage.length).toBe(0);
+    expect(() => parsePresetText(JSON.stringify({ ...large, version: 2, compareBench: [] }))).toThrow(/too large/);
+  });
+
+  it("keeps a __proto__ key as plain data", () => {
+    const text = JSON.stringify(preset()).replace("{", "{\"__proto__\":{\"polluted\":true},");
+    parsePresetText(text);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it("rebuilds presets, builds, backups and the index from known keys only", () => {
+    // Adds an extra key and an own __proto__ key to every object in the JSON text.
+    const withExtras = (value: unknown) => JSON.stringify(value).replaceAll("{\"", "{\"__proto__\":{\"polluted\":true},\"extra\":\"x\",\"");
+    const unknownKeys = (value: unknown): boolean => typeof value === "object" && value !== null
+      && (Object.hasOwn(value, "extra") || Object.hasOwn(value, "__proto__") || Object.values(value).some(unknownKeys));
+    const clean = saveBuildPreset({ ...preset(), request: { ...defaultRequest, filters: { version: 1, entries: [{ dimension: "weapon_type", id: "katana", mode: "include" }] } },
+      selectedBuild: routedBuild(), compareTarget: null, compareBench: [routedBuild()] });
+    const text = withExtras(clean);
+    expect(text).toContain("\"extra\"");
+
+    const shared = parsePresetText(`ta-v2:${encodeURIComponent(text)}`);
+    const restoredBackup = previewBuildBackup(withExtras({ format: "tarnisheds-arsenal.build-backup", version: 1, builds: [clean] })).presets[0];
+    localStorage.setItem(`tarnisheds-arsenal.savedBuild.v2.${clean.id}`, text);
+    localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", withExtras(savedBuildIndex()));
+    const stored = loadBuildPreset(clean.id);
+    for (const result of [parsePresetText(text), shared, restoredBackup, stored, inspectSavedBuilds().presets[0]]) {
+      expect(result).toEqual(clean);
+      expect(unknownKeys(result)).toBe(false);
+    }
+    expect(unknownKeys(savedBuildIndex())).toBe(false);
+    const build = validateStoredBuild(JSON.parse(withExtras(routedBuild())), { standardMaxUpgrade: 25, somberMaxUpgrade: 25 });
+    expect(build).toEqual({ value: routedBuild() });
+    expect(unknownKeys(build)).toBe(false);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 
   it("rejects malformed import corpus without persisting anything", () => {
@@ -475,10 +511,42 @@ describe("saved build persistence", () => {
   });
 
 
+  it("keeps only the three newest recovery copies of the index", () => {
+    localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.recovery.legacy-random-id", "{oldest");
+    vi.useFakeTimers();
+    try {
+      for (let copy = 0; copy < 4; copy += 1) {
+        vi.setSystemTime(new Date(Date.UTC(2026, 0, 1, 0, 0, copy)));
+        localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", `{damaged-${copy}`);
+        recoverSavedBuilds(inspectSavedBuilds());
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+    const copies = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index)!)
+      .filter((key) => key.startsWith("tarnisheds-arsenal.savedBuildIndex.recovery."))
+      .map((key) => localStorage.getItem(key));
+    expect(copies.sort()).toEqual(["{damaged-1", "{damaged-2", "{damaged-3"]);
+  });
+
+  it("exports a recovered library larger than the restore limit", () => {
+    const saved = saveBuildPreset(preset());
+    const record = localStorage.getItem(`tarnisheds-arsenal.savedBuild.v2.${saved.id}`)!;
+    for (let index = 0; index < MAX_BUILD_BACKUP_COUNT; index += 1) {
+      localStorage.setItem(`tarnisheds-arsenal.savedBuild.v2.extra-${index}`, record.replace(saved.id, `extra-${index}`));
+    }
+    const backup = JSON.parse(savedBuildBackupText(inspectSavedBuilds()));
+    expect(backup.builds).toHaveLength(MAX_BUILD_BACKUP_COUNT + 1);
+  });
+
   it("backs up existing valid records beyond the single-share import limit", () => {
     const saved = saveBuildPreset(preset());
-    // Existing schemas permit extension fields; the total backup still has a 10 MiB limit.
-    const stored = { ...saved, retainedExtension: "x".repeat(MAX_PRESET_IMPORT_BYTES) };
+    // Long route warnings are valid; the total backup still has a 10 MiB limit.
+    const build = routedBuild();
+    const route = build.aowRoute!;
+    const hit = { ...route.actions[0].hits[0], warnings: Array<string>(256).fill("x".repeat(1000)) };
+    const stored = { ...saved, selectedBuild: { ...build, aowRoute: { ...route, actions: [{ ...route.actions[0], hits: [hit, { ...hit, hitOrder: 1 }] }] } } };
+    expect(JSON.stringify(stored).length).toBeGreaterThan(MAX_PRESET_IMPORT_BYTES);
     localStorage.setItem(`tarnisheds-arsenal.savedBuild.v2.${saved.id}`, JSON.stringify(stored));
     expect(loadBuildPreset(saved.id)).toEqual(stored);
     const backup = savedBuildBackupText(inspectSavedBuilds());

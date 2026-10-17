@@ -29,22 +29,30 @@ class PublishReleaseTests(unittest.TestCase):
                     "artifacts": [{"name": path.name, "bytes": path.stat().st_size,
                                    "sha256": publisher.sha256(path)} for path in files[:2]],
                 }), encoding="utf-8")
-                files[-2].write_text("".join(f"{publisher.sha256(path)}  {path.name}\n" for path in files[:2]), encoding="utf-8")
                 with zipfile.ZipFile(files[2], "w") as archive:
                     archive.write(files[0], f"{prefix}/{files[0].name}")
                     archive.writestr(f"{prefix}/SHA256SUMS.txt", f"{publisher.sha256(files[0])}  {files[0].name}\n")
                     archive.write(files[-1], f"{prefix}/build-report.json")
                     archive.writestr(f"{prefix}/README.md", "Portable release")
                     archive.writestr(f"{prefix}/LICENSE", "License")
+                files[-2].write_text("".join(f"{publisher.sha256(path)}  {path.name}\n" for path in files[:3]), encoding="utf-8")
 
             write_provenance()
             remote = None
             uploads: list[str] = []
+            edits: list[tuple[str, ...]] = []
             fail_upload = True
             corrupt_upload = False
+            tag_target = "a" * 40
 
             def gh(*args: str, **_kwargs: object) -> str:
                 nonlocal fail_upload, remote
+                if args == ("api", "repos/owner/repo/git/ref/tags/v1.2.3"):
+                    return json.dumps({"object": {"type": "tag", "sha": "f" * 40}})
+                if args == ("api", f"repos/owner/repo/git/tags/{'f' * 40}"):
+                    return json.dumps({"object": {"type": "commit", "sha": tag_target}})
+                if args[:2] == ("release", "list"):
+                    return json.dumps([{"tagName": "v1.10.0"}, {"tagName": "nightly"}])
                 if args[:2] == ("release", "create"):
                     remote = {"isDraft": True, "assets": []}
                     self.assertIn("--draft", args)
@@ -62,6 +70,7 @@ class PublishReleaseTests(unittest.TestCase):
                             raise RuntimeError("interrupted upload")
                 elif args[:2] == ("release", "edit"):
                     assert remote is not None
+                    edits.append(args)
                     remote["isDraft"] = False
                 elif args[:2] == ("release", "download"):
                     source = assets / args[6]
@@ -79,6 +88,7 @@ class PublishReleaseTests(unittest.TestCase):
                 self.assertEqual(len(uploads), 1)
                 publisher.publish("owner/repo", "v1.2.3", "a" * 40, assets)
                 self.assertFalse(remote["isDraft"])
+                self.assertIn("--latest=false", edits[0])
                 self.assertCountEqual(uploads, [path.name for path in files])
                 remote["assets"][0]["digest"] = None
                 publisher.publish("owner/repo", "v1.2.3", "a" * 40, assets)
@@ -96,6 +106,15 @@ class PublishReleaseTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "Remote asset differs"):
                     publisher.publish("owner/repo", "v1.2.3", "a" * 40, assets)
                 self.assertTrue(remote["isDraft"])
+
+                # A tag moved to another commit must stop publication before any mutation.
+                files[1].write_bytes(files[1].name.encode())
+                write_provenance()
+                tag_target = "b" * 40
+                remote = None
+                with self.assertRaisesRegex(RuntimeError, "does not point to the packaged commit"):
+                    publisher.publish("owner/repo", "v1.2.3", "a" * 40, assets)
+                self.assertIsNone(remote)
 
     def test_release_lookup_uses_the_cli_draft_aware_lookup(self) -> None:
         with patch.object(publisher, "gh", return_value='{"isDraft": true, "assets": []}') as gh:
@@ -140,9 +159,6 @@ class PublishReleaseTests(unittest.TestCase):
                     "artifacts": [{"name": path.name, "bytes": path.stat().st_size,
                                    "sha256": publisher.sha256(path)} for path in [portable, installer]],
                 }), encoding="utf-8")
-                checksums_path.write_text("".join(
-                    f"{publisher.sha256(path)}  {path.name}\n" for path in [portable, installer]
-                ), encoding="utf-8")
                 (assets / "release-notes-v1.2.3.md").write_text("Release notes", encoding="utf-8")
                 with warnings.catch_warnings(), zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
                     warnings.simplefilter("ignore", UserWarning)
@@ -162,6 +178,9 @@ class PublishReleaseTests(unittest.TestCase):
                     archive_path.write_bytes(archive_path.read_bytes().replace(
                         (expected_entry + "!").encode(), (expected_entry + "\0").encode()
                     ))
+                checksums_path.write_text("".join(
+                    f"{publisher.sha256(path)}  {path.name}\n" for path in [portable, installer, archive_path]
+                ), encoding="utf-8")
                 files = [portable, installer, archive_path, report_path, checksums_path]
                 remote = {"isDraft": False, "assets": [{
                     "name": path.name, "size": path.stat().st_size,

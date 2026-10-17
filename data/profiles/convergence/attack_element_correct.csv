@@ -1,5 +1,5 @@
 attack_element_correct_id,str_scales_physical,str_scales_magic,str_scales_fire,str_scales_lightning,str_scales_holy,dex_scales_physical,dex_scales_magic,dex_scales_fire,dex_scales_lightning,dex_scales_holy,int_scales_physical,int_scales_magic,int_scales_fire,int_scales_lightning,int_scales_holy,fai_scales_physical,fai_scales_magic,fai_scales_fire,fai_scales_lightning,fai_scales_holy,arc_scales_physical,arc_scales_magic,arc_scales_fire,arc_scales_lightning,arc_scales_holy
-0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 10,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 1000,0,0,1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0
 1001,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0

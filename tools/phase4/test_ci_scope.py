@@ -16,7 +16,7 @@ class CiScopeTests(unittest.TestCase):
             (["README.md", "LICENSE", "docs/release-notes/v0.14.1.md"], (False, False)),
             (["docs/assets/logo.svg"], (False, False)),
             (["apps/desktop/src/App.tsx", "docs/performance.md"], (False, True)),
-            (["apps/desktop/tests/dto-contract.spec.ts"], (False, True)),
+            (["apps/desktop/tests/search-lifecycle.spec.ts"], (False, True)),
             (["apps/desktop/vite.config.ts", "apps/desktop/scripts/run-e2e.mjs"], (False, True)),
             (["core/er_optimizer_core/src/math.rs"], (True, True)),
             (["apps/desktop/src-tauri/build.rs"], (True, True)),

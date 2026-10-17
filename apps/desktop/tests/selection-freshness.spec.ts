@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { closeEditors, openEditor } from "./editors";
+import { closeEditors, openEditor, settled } from "./editors";
 
 async function setup(page: Page) {
   await page.goto("/");
@@ -22,19 +22,19 @@ async function setup(page: Page) {
         probe.pending.push({ key: [profileId, weaponName, affinity], resolve, reject });
       });
     };
-    probe.resolve = async (key, overrides = {}, latestOnly = false) => {
-      const matches = probe.pending.filter(item => JSON.stringify(item.key) === JSON.stringify(key));
+    probe.resolve = async (key: [string, string, string | null], overrides = {}, latestOnly = false) => {
+      const matches = probe.pending.filter((item: { key: unknown }) => JSON.stringify(item.key) === JSON.stringify(key));
       const items = latestOnly ? matches.slice(-1) : matches;
-      probe.pending = probe.pending.filter(item => !items.includes(item));
+      probe.pending = probe.pending.filter((item: { key: unknown }) => !items.includes(item));
       const profile = { ...await originalProfile(...key), ...overrides };
-      items.forEach(item => item.resolve(profile));
+      items.forEach((item: { resolve: (value: unknown) => void }) => item.resolve(profile));
     };
-    probe.reject = (key) => {
-      const items = probe.pending.filter(item => JSON.stringify(item.key) === JSON.stringify(key));
-      probe.pending = probe.pending.filter(item => !items.includes(item));
-      items.forEach(item => item.reject(new Error("Metadata unavailable")));
+    probe.reject = (key: unknown) => {
+      const items = probe.pending.filter((item: { key: unknown }) => JSON.stringify(item.key) === JSON.stringify(key));
+      probe.pending = probe.pending.filter((item: { key: unknown }) => !items.includes(item));
+      items.forEach((item: { reject: (error: Error) => void }) => item.reject(new Error("Metadata unavailable")));
     };
-    probe.patch = (patch) => {
+    probe.patch = (patch: Record<string, unknown>) => {
       if (patch.profileId && patch.profileId !== useDesktopStore.getState().request.profileId) {
         // Hold the same selected weapon across profiles to exercise hook identity,
         // independently of the normal profile switch resetting the whole query.
@@ -54,7 +54,7 @@ async function patch(page: Page, patch: Record<string, unknown>) {
 }
 
 async function pending(page: Page, key: Array<string | null>) {
-  await expect.poll(() => page.evaluate(key => (window as any).selectionProbe.pending.some(item =>
+  await expect.poll(() => page.evaluate(key => (window as any).selectionProbe.pending.some((item: { key: unknown }) =>
     JSON.stringify(item.key) === JSON.stringify(key)), key)).toBe(true);
 }
 
@@ -73,7 +73,7 @@ test("an exact typed weapon commits before immediate Search dispatch", async ({ 
     document.querySelector<HTMLButtonElement>(".search-button")!.click();
   });
   await expect.poll(() => page.evaluate(() => (window as any).selectionProbe.searches[0]?.weaponName)).toBe("Zweihander");
-  await page.waitForTimeout(180);
+  await settled(page);
   expect(await page.evaluate(() => (window as any).selectionProbe.cancels)).toEqual([]);
 });
 
@@ -96,7 +96,7 @@ for (const interruption of ["cancel", "edit", "navigate"] as const) {
     await resolve(page, ["vanilla", "Zweihander", null], {
       nativeSkillName: "Stamp (Upward Cut)", compatibleAows: ["Stamp (Upward Cut)"],
     });
-    await page.waitForTimeout(180);
+    await settled(page);
     expect(await page.evaluate(() => (window as any).selectionProbe.searches)).toEqual([]);
     expect(await page.evaluate(() => (window as any).selectionProbe.cancels)).toEqual([]);
   });
@@ -115,7 +115,7 @@ test("delayed skill defaults cannot invalidate an immediately submitted search",
   });
   await expect.poll(() => page.evaluate(() => (window as any).selectionProbe.searches[0]?.weaponName)).toBe("Zweihander");
   expect(await page.evaluate(() => (window as any).selectionProbe.searches[0]?.aowName)).toBe("Stamp (Upward Cut)");
-  await page.waitForTimeout(180);
+  await settled(page);
   expect(await page.evaluate(() => (window as any).selectionProbe.cancels)).toEqual([]);
 });
 
@@ -151,7 +151,7 @@ test("starter Automatic is not overwritten by late native-skill metadata", async
   await (await loadoutField(page, "Weapon")).fill("Uchigatana");
   await (await loadoutField(page, "Weapon")).press("Tab");
   await pending(page, ["vanilla", "Uchigatana", null]);
-  await page.getByRole("button", { name: "Try Uchigatana +3 example", exact: true }).click();
+  await page.getByRole("button", { name: "Try an Uchigatana +3 example", exact: true }).click();
   await expect.poll(() => page.evaluate(() => (window as any).selectionProbe.searches.length)).toBe(1);
   await resolve(page, ["vanilla", "Uchigatana", "Standard"], {
     nativeSkillName: "Unsheathe", compatibleAows: ["Unsheathe", "Seppuku"], affinities: ["Standard", "Blood", "Occult"],
@@ -351,7 +351,7 @@ test("A to B to A accepts only the current lookup even when older replies arrive
   await patch(page, { weaponName: "Zweihander" });
   await pending(page, ["vanilla", "Zweihander", null]);
   await patch(page, { weaponName: "Uchigatana" });
-  await expect.poll(() => page.evaluate(() => (window as any).selectionProbe.pending.filter(item => item.key[1] === "Uchigatana").length)).toBeGreaterThan(1);
+  await expect.poll(() => page.evaluate(() => (window as any).selectionProbe.pending.filter((item: { key: unknown[] }) => item.key[1] === "Uchigatana").length)).toBeGreaterThan(1);
   await page.evaluate(() => (window as any).selectionProbe.resolve(["vanilla", "Uchigatana", null], {
     requirements: { strStat: 17, dex: 0, intStat: 0, fai: 0, arc: 0 },
   }, true));
