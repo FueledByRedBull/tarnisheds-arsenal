@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { Ref } from "react";
 
 type Shortcut = { keys: string[][]; action: string; range?: boolean };
 
@@ -35,30 +35,21 @@ const GROUPS: Array<{ title: string; items: Shortcut[] }> = [
   },
 ];
 
-// Every shortcut in one modal list, opened with "?" or from the palette.
-export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const element = dialog.current;
-    if (!element) return;
-    if (open && !element.open) element.showModal();
-    else if (!open && element.open) element.close();
-  }, [open]);
-
+// Every shortcut in one modal list, opened with "?" or from the palette through `ref`. Opening
+// and closing stay native, so neither re-renders the query strip that owns the list.
+export function ShortcutsDialog({ ref }: { ref: Ref<HTMLDialogElement> }) {
   return (
     <dialog
-      ref={dialog}
+      ref={ref}
       className="shortcuts-dialog"
       aria-labelledby="shortcuts-title"
-      onClose={onClose}
       onClick={(event) => {
-        if (event.target === dialog.current) onClose();
+        if (event.target === event.currentTarget) event.currentTarget.close();
       }}
     >
       <div className="shortcuts-head">
         <h2 id="shortcuts-title">Keyboard shortcuts</h2>
-        <button type="button" aria-label="Close keyboard shortcuts" onClick={onClose}>
+        <button type="button" aria-label="Close keyboard shortcuts" onClick={(event) => event.currentTarget.closest("dialog")?.close()}>
           <X size={15} aria-hidden="true" />
         </button>
       </div>

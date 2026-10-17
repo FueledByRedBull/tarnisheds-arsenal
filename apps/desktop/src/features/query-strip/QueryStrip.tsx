@@ -69,7 +69,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   const runner = useSearchRunner();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteLoaded, setPaletteLoaded] = useState(false);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const shortcuts = useRef<HTMLDialogElement>(null);
   const undoStep = useQueryHistory((state) => state.past.at(-1) ?? null);
   const redoStep = useQueryHistory((state) => state.future.at(-1) ?? null);
   const announcement = useQueryHistory((state) => state.announcement);
@@ -185,7 +185,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
       startSearch();
     } else if (event.key === "?" && !command && !isTextEntry(event.target)) {
       event.preventDefault();
-      setShortcutsOpen(true);
+      shortcuts.current?.showModal();
     }
   });
 
@@ -288,7 +288,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
         redoQuery();
         break;
       case "shortcuts":
-        setShortcutsOpen(true);
+        shortcuts.current?.showModal();
         break;
     }
   }
@@ -549,7 +549,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
         </div>
       </fieldset>
 
-      <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <ShortcutsDialog ref={shortcuts} />
       {paletteLoaded ? (
         <Suspense fallback={null}>
           <CommandPalette
