@@ -133,8 +133,12 @@ These rendering rules came out of that work and still apply:
   `visibility` on Rankings restyled its ~1,500 rows' elements on every tab switch.
 - Reveal workspaces in a deferred render (`useDeferredValue`), so a tab key press
   is not followed by an 11-13 ms task.
-- Do not put `content-visibility: auto` on ranking rows: rendering rows as they
-  scroll in raised wheel-scroll p95 from 4.3 ms to 12.5-16.7 ms.
+- Do not put `content-visibility: auto` on ranking rows or groups of them: rendering
+  rows as they scroll in raised wheel-scroll p95 from 4.3 ms to 12.5-16.7 ms. WebView2
+  renders `auto` content within about 1.5 viewports, which is 43 of 50 rows at the top
+  of the board, so little is skipped; and its paint containment inside a composited
+  ancestor (the rows group, or Rankings while its entrance holds) splits the rows into
+  about 45 layers, which every row entering or leaving that margin re-layerizes (7-11 ms).
 - Never run an animation inside an element that is itself animating or transitioning:
   Chromium then ticks the inner one on the main thread every vsync.
 - No explicit `inherit` on the cells of rows that move: one inherited child makes every
@@ -199,24 +203,64 @@ and no objective that keeps a search running, so its busy scenarios follow a sho
 search. Search status payloads are at most 182 KB for 50 rows and IPC replies take
 under 5 ms, so native transfer is not a frame-rate bottleneck.
 
+A follow-up pass the same day sorts ranking rows with flex `order` instead of measured
+offsets and opens the shortcuts dialog without re-rendering the query strip. Before is
+`c2c3870`, after adds those two changes; both are release builds measured as above,
+with three interleaved runs each. Frame intervals were recorded without a trace, since
+the trace categories above doubled style times (the inert restyle below reads 12-14 ms
+traced); attribution comes from separate runs that trace `toplevel` and
+`devtools.timeline` only. A VirtualBox VM (about 3 cores), a browser and other builds
+ran throughout, so maxima vary by two or three 4.2 ms frames and resize by more. This
+core finishes the open AoW first hit search in 0.7 s, so busy scenarios give the
+optimizer one thread (`RAYON_NUM_THREADS=1`) while 15 other threads spin at normal
+priority, with the harness and the resize driver at high priority. Window resize steps
+the width by 5 px every 8 ms between 1650 and 1350 px.
+
+| Scenario (Vanilla) | Before p50 / p95 / p99 / max, ms | After | Key p50 / p95, ms |
+| --- | --- | --- | --- |
+| Wheel and scrollbar drag, sorted and unsorted | 4.2 / 4.3 / 4.3 / ≤ 4.4 | 4.2 / 4.3 / 4.3 / ≤ 4.4 | - |
+| Sort header clicks | 4.2 / 4.3 / 4.3 / 12.6 | 4.2 / 4.3 / 4.3 / 8.5 | - |
+| Row selection with Build Detail | 4.2 / 4.3 / 4.3 / 4.3 | 4.2 / 4.3 / 4.3 / 4.3 | - |
+| Ctrl+1..4 cycling | 4.2 / 4.3 / 4.3 / 20.9 | 4.2 / 4.3 / 4.3 / 20.8 | 6.2 / 8.2 → 6.6 / 7.9 |
+| Shortcuts dialog open and close | 4.2 / 4.3 / 4.4 / 25.0 | 4.2 / 4.3 / 8.4 / 20.8 | 19.8 / 26.1 → 15.5 / 22.4 |
+| Popovers | 4.2 / 4.3 / 4.3 / 4.4 | 4.2 / 4.3 / 4.3 / 4.3 | 5.5 / 8.1 → 5.8 / 7.3 |
+| Palette and typing | 4.2 / 4.3 / 4.3 / 8.3 | 4.2 / 4.3 / 4.3 / 8.4 | 6.3 / 8.2 → 6.3 / 8.2 |
+| Window resize | 4.2 / 20.8 / 29.2 / 29.2 | 4.2 / 20.6 / 25.0 / 33.3 | - |
+| Busy: window resize | 4.2 / 29.2 / 45.8 / 58.2 | 4.2 / 33.3 / 45.9 / 54.2 | - |
+| Busy: wheel | 4.2 / 4.3 / 12.5 / 16.6 | 4.2 / 4.3 / 8.4 / 12.6 | - |
+
+In-page timings, medians of 30 to 60 repeats: a sort click costs 2.4-2.7 ms of script,
+style and layout before paint with offsets and 2.4-2.5 ms with `order`. Toggling `inert`
+on the app shell restyles all 3,157 elements in 7.1-8.3 ms, about 2.3 µs each; the 50
+ranking rows hold 2,412 of them (48 per row). Dropping the 500 `b` wrappers of token
+values saves 1.2 ms of that, and matching the row cells by class instead of `span`
+position saves at most 1 ms. `content-visibility: auto` on the rows was retried with a
+fitted `contain-intrinsic-size`, without sticky cells and in groups of 5 and 10 rows;
+the rendering rules above record why none of it helped.
+
 Remaining misses, measured:
 
 - Window resize cannot reach 120 fps without a visual change. Each width change costs
-  4-5 ms of style and layout, 5-7 ms of paint, about 2 ms of pre-paint and 1 ms of
-  layerizing; the ranking rows are about 90% of it and their stat token grids about half
-  of that. Collapsing each token to one element, flex instead of grid, or inline blocks
-  measured no gain; only showing the tokens as plain text (a different look) brought
-  style and layout to about 2 ms, still above budget with paint. Crossing the 1500 px
-  breakpoint also restyles all ~2,800 elements once (8-10 ms).
-- The shortcuts dialog keeps its modal semantics. `showModal()` costs 8-13 ms: two
-  full-document restyles of about 2,900 elements as the page becomes inert. Removing the
-  backdrop styling changed nothing; a popover with an `inert` app root still restyles
-  (9.8 ms); only a non-modal `show()` is cheap (1.6 ms).
-- Returning to Rankings is one 8.6-9.9 ms task (its rows repaint after
-  `content-visibility`, about 4 ms, plus pre-paint and layerizing), so a tab cycle still
-  shows one 12-17 ms interval. Revealing the other workspaces now takes at most 5 ms.
-- A sort click is now a 7-12 ms task (forced layout to measure rows, 2-3 ms of
-  pre-paint) followed by a 4-5 ms repaint, within the pass rule in all three runs.
+  a 6-7.5 ms layout task and a 9-13 ms paint task (4-5 ms of paint, 3-4 ms of
+  pre-paint, 1.5-2 ms of layerizing); the ranking rows are about 90% of it and their stat
+  token grids about half of that. Collapsing each token to one element, flex instead of
+  grid, or inline blocks measured no gain; only showing the tokens as plain text (a
+  different look) brought style and layout to about 2 ms, still above budget with paint.
+  Skipping off-screen rows with `content-visibility` skips at most 7 of 50. Crossing the
+  1500 px breakpoint also restyles all ~2,800 elements once (8-10 ms).
+- The shortcuts dialog keeps its modal semantics. `showModal()` restyles the whole
+  document inside the key press as the page becomes inert, and closing restyles it
+  again; each takes 7-12 ms untraced and is followed by a 7-9 ms traced repaint.
+  Opening and closing no longer re-render the query strip, which saves 1.4 ms and
+  0.8 ms of script. Fitting the restyle in a frame would take about half as many
+  elements. Removing the backdrop styling changed nothing; a popover with an `inert`
+  app root still restyles (9.8 ms); only a non-modal `show()` is cheap (1.6 ms).
+- Returning to Rankings is one 11-12 ms traced task (5.4-6 ms of paint, 2.1-2.4 ms of
+  pre-paint, 1.5-1.8 ms of layerizing): `content-visibility: hidden` drops the hidden
+  panel's paint, so all of its rows repaint, and a tab cycle still shows one 12-25 ms
+  interval.
+- A sort click no longer measures rows: in a traced run of six clicks its only long
+  task was one 8.5 ms repaint (5.3 ms of paint, 1.9 ms of layerizing).
 - Selecting a row is a 7-11 ms task (about 3 ms of script and 2-3 ms of layout for Build
   Detail), at the edge of the p99 limit.
 - During a search, opening a popover can take a 9-15 ms task (5-8 ms of script).
