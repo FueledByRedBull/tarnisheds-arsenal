@@ -4025,7 +4025,7 @@ fn parallel_search_matches_serial_results() {
     request.top_k = 5;
 
     let plan = prepare_search(&request, &game_data).expect("prepare failed");
-    let work_units = build_search_work_units(&plan, true).expect("fine work units");
+    let work_units = build_search_work_units(&plan, true, &mut || true).expect("fine work units");
     let total = work_units
         .iter()
         .map(|unit| unit.candidate_count)
@@ -4193,15 +4193,15 @@ fn primary_work_units_share_ashes_but_damage_work_units_stay_fine_grained() {
     request.top_k = 5;
 
     let plan = prepare_search(&request, &game_data).expect("prepare failed");
-    let fine = build_search_work_units(&plan, true).expect("fine work units");
-    let grouped = build_search_work_units(&plan, false).expect("grouped work units");
+    let fine = build_search_work_units(&plan, true, &mut || true).expect("fine work units");
+    let grouped = build_search_work_units(&plan, false, &mut || true).expect("grouped work units");
 
     assert!(!fine.is_empty());
     assert!(fine.iter().any(|unit| unit.aow_end - unit.aow_start > 1));
     request.objective = OptimizeObjective::AowFirstHit;
     let damage = prepare_search(&request, &game_data).unwrap();
     assert!(
-        build_search_work_units(&damage, true)
+        build_search_work_units(&damage, true, &mut || true)
             .expect("damage work units")
             .iter()
             .all(|unit| unit.aow_end - unit.aow_start == 1)
@@ -4230,7 +4230,7 @@ fn prepared_plan_groups_aows_that_share_one_stat_search() {
         plan.groups.iter().any(|group| group.aow_indices.len() > 1),
         "expected compatible AoWs with the same relevant-stat search to share a group"
     );
-    let grouped = build_search_work_units(&plan, false).expect("grouped work units");
+    let grouped = build_search_work_units(&plan, false, &mut || true).expect("grouped work units");
     assert!(grouped.iter().any(|unit| unit.aow_end - unit.aow_start > 1));
     assert_eq!(
         grouped.iter().map(|unit| unit.candidate_count).sum::<u64>(),
