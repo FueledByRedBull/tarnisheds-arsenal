@@ -75,8 +75,8 @@ export function RankingsBoard() {
   const scadutreeAvailable = profileRules?.scadutreeScaling ?? true;
   const extendedScalingGrades = profileRules?.extendedScalingGrades ?? false;
 
-  // Leaving Rankings cancels an export, like any input or profile change.
-  useEffect(() => () => exportController.current?.abort(), [catalog, request, lockedStatMode, searchGeneration, shown]);
+  // Any input or profile change cancels an export; exportCsv cancels it on leaving Rankings.
+  useEffect(() => () => exportController.current?.abort(), [catalog, request, lockedStatMode, searchGeneration]);
 
   useEffect(() => {
     const board = resultBoard.current;
@@ -156,6 +156,8 @@ export function RankingsBoard() {
       return !controller.signal.aborted && current.searchGeneration === searchGeneration
         && current.activeWorkspace === "rankings";
     };
+    // Watches the urgent store: the deferred `shown` can miss a visit elsewhere within one render.
+    const stop = useDesktopStore.subscribe(() => { if (!isCurrent()) controller.abort(); });
     exportController.current = controller;
     setExporting(true);
     setExportProgress(null);
@@ -211,6 +213,7 @@ export function RankingsBoard() {
     } catch (error) {
       if (!controller.signal.aborted) setError(errorMessage(error));
     } finally {
+      stop();
       if (exportController.current === controller) setExporting(false);
     }
   }

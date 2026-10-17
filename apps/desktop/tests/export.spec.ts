@@ -18,7 +18,7 @@ test("CSV export downloads successfully and releases the search controls", async
   await expect(page.getByRole("button", { name: "Export CSV", exact: true })).toBeEnabled();
 });
 
-for (const action of ["cancel", "profile", "edit", "numeric edit", "navigate"]) {
+for (const action of ["cancel", "profile", "edit", "numeric edit", "navigate", "tab bounce"]) {
   test(`CSV export is cancelled by ${action} without a late download`, async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Search", exact: true }).click();
@@ -46,7 +46,15 @@ for (const action of ["cancel", "profile", "edit", "numeric edit", "navigate"]) 
     else if (action === "profile") await page.getByRole("radio", { name: /Convergence/ }).click();
     else if (action === "edit") await page.getByRole("checkbox", { name: "Two-handing", exact: true }).check();
     else if (action === "numeric edit") await page.locator(".ribbon-stat input").first().fill("20");
-    else await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
+    else if (action === "tab bounce") {
+      // Leaves and returns before React renders, so the board's deferred visibility never changes.
+      await page.evaluate(async () => {
+        const { useDesktopStore } = await import("/src/lib/state.ts");
+        const { setWorkspace } = useDesktopStore.getState();
+        setWorkspace("compare");
+        setWorkspace("rankings");
+      });
+    } else await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
     await page.waitForFunction(() => (window as unknown as { exportCancelled: boolean }).exportCancelled);
     if (action === "navigate") await page.getByRole("navigation").getByRole("button", { name: "Rankings", exact: true }).click();
     await expect(page.getByRole("button", { name: /^(Search|Update Results)$/ })).toBeDisabled();
