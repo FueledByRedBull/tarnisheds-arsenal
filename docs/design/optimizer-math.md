@@ -508,10 +508,22 @@ active stats that share a corrected damage type in some hit (the minimum couples
 them). Every other active stat adds an exact separable delta, and one exact DP gives
 each remaining spend's best completion with the smallest tied combat. Comparing
 (key, combat) over these candidates selects the same allocation as enumerating all
-of $\mathcal X_w$. For AR and bleed objectives, candidates already behind on the
-route-free score and AR total skip route evaluation. Lifesteal Fist's STR/DEX
-coupling needs about $(R+1)(R+2)/2$ evaluations per route and upgrade instead of up
-to $\binom{R+4}{4}$.
+of $\mathcal X_w$. Lifesteal Fist's STR/DEX coupling needs about $(R+1)(R+2)/2$
+candidates per route and upgrade instead of up to $\binom{R+4}{4}$.
+
+Each candidate key is a sum of values fixed for the route and upgrade. A corrected
+component $b\,m\,(1+\beta)$, with base $b$ and route multiplier $m$ both positive,
+equals $b\,m$ plus the selected entries of the tables $b\,m\,t_i(x_i)$: scaling by
+$b\,m$ keeps the most negative contribution most negative. The route therefore
+becomes a constant, one table per stat value read, and these corrected selections;
+AR and bleed, which are separable, add the coupled stats' own deltas; and the best
+completion of each spend adds its tail. Every value of one key component is then
+multiplied by that component's least common denominator. A positive factor keeps each
+component's order, so comparing the resulting integers (256-bit, or arbitrary
+precision when a value or sum could exceed that) selects the same allocation as exact
+rationals, and the winner is evaluated again exactly. A route whose first damaging
+hit could depend on the stats (a hit with scaling but no base, or a correction that
+could cancel a hit) is enumerated with exact rationals instead.
 
 The existing exhaustive path shares the active set and cannot independently detect
 an omitted dependency. Separate small-budget tests enumerate all five bounded stats

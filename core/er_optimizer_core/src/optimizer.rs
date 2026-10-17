@@ -29,6 +29,7 @@ mod types;
 pub use types::*;
 mod ranking;
 use ranking::*;
+mod coupled;
 mod exact_dp;
 mod preparation;
 use preparation::*;
@@ -2869,8 +2870,21 @@ fn coupled_route_allocation<P: SearchProgress>(
     data: &GameData,
     progress: &mut P,
 ) -> Result<ObjectiveAllocation, String> {
+    // Compiled once per route and upgrade: every candidate below is then table lookups and
+    // exact sums instead of re-deriving AR and every hit from the loaded floats.
+    let maxima = formula_max_stats(search, request, prepared.weapon);
+    let ar_formula =
+        crate::math::exact::compile_ar_formula(prepared.weapon, upgrade, data, maxima)?;
+    let route_formula = crate::math::exact::compile_coupled_route_formula(
+        route,
+        prepared.weapon,
+        upgrade,
+        request.damage_multiplier(),
+        data,
+        maxima,
+    )?;
     let evaluate = |combat| {
-        evaluate_objective_allocation(
+        evaluate_allocation_with_formulas(
             combat,
             request,
             prepared,
@@ -2878,9 +2892,10 @@ fn coupled_route_allocation<P: SearchProgress>(
             upgrade,
             Some(route),
             data,
+            Some(&ar_formula),
+            Some(&route_formula),
         )
     };
-    let key_at = |combat| evaluate(combat).map(|value| value.key.components());
     // Route damage dominates evaluation cost. For AR and bleed objectives the leading score
     // and AR total do not involve the route, so a candidate behind on them is skipped.
     let route_free_prefix = !matches!(
@@ -2888,10 +2903,50 @@ fn coupled_route_allocation<P: SearchProgress>(
         OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
     );
     let route_free_key = |combat| {
-        evaluate_allocation_with_formulas(
-            combat, request, prepared, aow_choice, upgrade, None, data, None, None,
+        objective_key_with_formulas(
+            combat,
+            request,
+            prepared,
+            aow_choice,
+            upgrade,
+            None,
+            data,
+            Some(&ar_formula),
+            None,
         )
-        .map(|value| value.key.components())
+        .map(|(key, _)| key.components())
+    };
+    // Tabulated route parts give the same exact damage as the formula with sums of
+    // precomputed values; without them every hit is multiplied out again.
+    let parts = route_formula.parts()?;
+    let key_at = |combat| -> Result<[ExactRational; 5], String> {
+        let Some((first_parts, full_parts)) = &parts else {
+            return objective_key_with_formulas(
+                combat,
+                request,
+                prepared,
+                aow_choice,
+                upgrade,
+                Some(route),
+                data,
+                Some(&ar_formula),
+                Some(&route_formula),
+            )
+            .map(|(key, _)| key.components());
+        };
+        let mut key = route_free_key(combat)?;
+        let stats = stats_with_combat(request.current_stats, combat);
+        let effective = effective_str_for_weapon(request, prepared.weapon, stats.str);
+        let first = first_parts.evaluate(&stats, effective)?;
+        let full = full_parts.evaluate(&stats, effective)?;
+        match request.objective {
+            OptimizeObjective::AowFirstHit => key[0] = first.clone(),
+            OptimizeObjective::AowFullSequence => key[0] = full.clone(),
+            _ => {}
+        }
+        key[2] = full;
+        key[3] = first;
+        Ok(key)
     };
     let coupled = route.coupled_stats(data, search.active);
     let mut enumerated = *search;
@@ -2901,6 +2956,7 @@ fn coupled_route_allocation<P: SearchProgress>(
         separable.active[stat] &= !coupled;
     }
     let base = key_at(search.mins)?;
+    let route_free_base = route_free_key(search.mins)?;
     let budget = usize::from(separable.max_active_spend());
     let mut deltas = std::array::from_fn(|_| Vec::new());
     for stat in (0..COMBAT_STAT_COUNT).filter(|&stat| separable.active[stat]) {
@@ -2909,10 +2965,37 @@ fn coupled_route_allocation<P: SearchProgress>(
             progress.poll()?;
             let mut combat = search.mins;
             combat[stat] += add as u8;
-            let value = key_at(combat)?;
-            deltas[stat].push(std::array::from_fn(|component| {
-                &value[component] - &base[component]
-            }));
+            let Some((first_parts, full_parts)) = &parts else {
+                let value = key_at(combat)?;
+                deltas[stat].push(std::array::from_fn(|component| {
+                    &value[component] - &base[component]
+                }));
+                continue;
+            };
+            // Only the route parts that read this stat change.
+            let free = route_free_key(combat)?;
+            let mut delta: [ExactRational; 5] =
+                std::array::from_fn(|component| &free[component] - &route_free_base[component]);
+            let old_stats = stats_with_combat(request.current_stats, search.mins);
+            let new_stats = stats_with_combat(request.current_stats, combat);
+            let old = (
+                &old_stats,
+                effective_str_for_weapon(request, prepared.weapon, old_stats.str),
+            );
+            let new = (
+                &new_stats,
+                effective_str_for_weapon(request, prepared.weapon, new_stats.str),
+            );
+            let first = first_parts.delta(stat, old, new)?;
+            let full = full_parts.delta(stat, old, new)?;
+            match request.objective {
+                OptimizeObjective::AowFirstHit => delta[0] = first.clone(),
+                OptimizeObjective::AowFullSequence => delta[0] = full.clone(),
+                _ => {}
+            }
+            delta[2] = full;
+            delta[3] = first;
+            deltas[stat].push(delta);
         }
     }
     let mut poll_error = None;
@@ -2965,6 +3048,90 @@ fn coupled_route_allocation<P: SearchProgress>(
             }
         }
         completions.push(best);
+    }
+    if let Some((first, full)) = &parts {
+        let heads = std::array::from_fn(|component| match (component, request.objective) {
+            (0, OptimizeObjective::AowFirstHit) | (3, _) => {
+                coupled::Head::Route { first_hit: true }
+            }
+            (0, OptimizeObjective::AowFullSequence) | (2, _) => {
+                coupled::Head::Route { first_hit: false }
+            }
+            _ => coupled::Head::Separable,
+        });
+        // AR and bleed are separable, so the coupled stats' own deltas give their heads.
+        let mut separable_deltas = Vec::new();
+        for stat in (0..COMBAT_STAT_COUNT).filter(|&stat| enumerated.active[stat]) {
+            let cap = u16::from(search.maxs[stat] - search.mins[stat]).min(search.remaining_free);
+            let mut values = Vec::with_capacity(usize::from(cap) + 1);
+            for add in 0..=cap {
+                progress.poll()?;
+                let mut combat = search.mins;
+                combat[stat] += add as u8;
+                let value = route_free_key(combat)?;
+                values.push(std::array::from_fn(|component| {
+                    &value[component] - &route_free_base[component]
+                }));
+            }
+            separable_deltas.push((stat, values));
+        }
+        let tails: Vec<_> = completions
+            .iter()
+            .map(|completion| completion.as_ref().map(|(tail, _)| tail.clone()))
+            .collect();
+        let combats: Vec<_> = completions
+            .iter()
+            .map(|completion| completion.as_ref().map(|(_, combat)| *combat))
+            .collect();
+        // A candidate reads coupled stats over their caps and every other stat at its minimum.
+        let reachable = |stat: usize, raw_str: bool| {
+            let low = search.mins[stat];
+            let high = if enumerated.active[stat] {
+                low + (search.maxs[stat] - low).min(search.remaining_free.min(255) as u8)
+            } else {
+                low
+            };
+            if stat == 0 && !raw_str {
+                (
+                    effective_str_for_weapon(request, prepared.weapon, low),
+                    effective_str_for_weapon(request, prepared.weapon, high),
+                )
+            } else {
+                (u16::from(low), u16::from(high))
+            }
+        };
+        let normalized = coupled::normalize(&coupled::exact_components(
+            heads,
+            (first, full),
+            &route_free_base,
+            &separable_deltas,
+            search.mins,
+            &tails,
+            reachable,
+        )?);
+        let coupled_stats: Vec<usize> = (0..COMBAT_STAT_COUNT)
+            .filter(|&stat| enumerated.active[stat])
+            .collect();
+        let effective = |strength| effective_str_for_weapon(request, prepared.weapon, strength);
+        let best = match coupled::narrow(&normalized) {
+            Some(wide) => coupled::best_allocation(
+                &wide,
+                &enumerated,
+                &coupled_stats,
+                &combats,
+                effective,
+                progress,
+            )?,
+            None => coupled::best_allocation(
+                &normalized,
+                &enumerated,
+                &coupled_stats,
+                &combats,
+                effective,
+                progress,
+            )?,
+        };
+        return evaluate(best.ok_or_else(|| "no feasible skill allocation".to_string())?);
     }
     let mut best: Option<([ExactRational; 5], [u8; COMBAT_STAT_COUNT])> = None;
     let mut error = None;
@@ -3093,6 +3260,45 @@ fn evaluate_allocation_with_formulas(
     ar_formula: Option<&crate::math::exact::ExactArFormula>,
     route_formula: Option<&crate::math::exact::ExactScalarRouteFormula>,
 ) -> Result<ObjectiveAllocation, String> {
+    let (key, components) = objective_key_with_formulas(
+        combat,
+        request,
+        prepared,
+        aow_choice,
+        upgrade,
+        route,
+        data,
+        ar_formula,
+        route_formula,
+    )?;
+    Ok(ObjectiveAllocation {
+        key,
+        ar: project_damage(&components)?,
+        combat,
+        route_id: route.map(|route| route.route_id.clone()),
+    })
+}
+
+/// An allocation's exact key and AR components, without the display projection that
+/// candidate comparisons never read.
+#[allow(clippy::too_many_arguments)]
+fn objective_key_with_formulas(
+    combat: [u8; COMBAT_STAT_COUNT],
+    request: &OptimizeRequest,
+    prepared: &PreparedWeapon<'_>,
+    aow_choice: &AowChoice<'_>,
+    upgrade: u8,
+    route: Option<&ScalarAowRoute<'_>>,
+    data: &GameData,
+    ar_formula: Option<&crate::math::exact::ExactArFormula>,
+    route_formula: Option<&crate::math::exact::ExactScalarRouteFormula>,
+) -> Result<
+    (
+        ObjectiveKey,
+        [ExactRational; crate::model::DAMAGE_TYPE_COUNT],
+    ),
+    String,
+> {
     let stats = stats_with_combat(request.current_stats, combat);
     let effective_str_value = effective_str_for_weapon(request, prepared.weapon, stats.str);
     let mut components = match ar_formula {
@@ -3143,18 +3349,16 @@ fn evaluate_allocation_with_formulas(
         OptimizeObjective::AowFirstHit => first.clone(),
         OptimizeObjective::AowFullSequence => full.clone(),
     };
-    Ok(ObjectiveAllocation {
-        key: ObjectiveKey {
+    Ok((
+        ObjectiveKey {
             score,
             ar_total,
             aow_full: full,
             aow_first: first,
             bleed,
         },
-        ar: project_damage(&components)?,
-        combat,
-        route_id: route.map(|route| route.route_id.clone()),
-    })
+        components,
+    ))
 }
 
 /// DP `should_continue` adapter that keeps a failed poll's own error (for example a
