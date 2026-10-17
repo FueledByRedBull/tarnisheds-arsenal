@@ -6,7 +6,7 @@ export function isTextEntry(target: EventTarget | null): boolean {
 
 // The palette and shortcut list own the keyboard while they are open.
 export function keyboardOwnedByOverlay(): boolean {
-  return document.querySelector("dialog[open], .command-palette:popover-open") !== null;
+  return document.querySelector(".command-palette:popover-open, .shortcuts-dialog:popover-open") !== null;
 }
 
 // WebView2 keeps browser reload and print keys; in the app they would discard the unsaved session.

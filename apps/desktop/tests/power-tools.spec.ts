@@ -161,12 +161,23 @@ test("shortcuts search, switch workspaces and list themselves", async ({ page })
   await expect(nav.getByRole("button", { name: "Rankings", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(nav.getByRole("button", { name: "Compare", exact: true })).toHaveAttribute("title", "Compare (Ctrl+2)");
 
+  const opener = page.getByRole("button", { name: "Edit anything", exact: true });
+  await opener.focus();
   await page.keyboard.press("?");
   const sheet = page.getByRole("dialog", { name: "Keyboard shortcuts" });
   await expect(sheet).toBeVisible();
   await expect(sheet.getByRole("region", { name: "Anywhere" })).toContainText("Undo the last query change");
+  // The list is modal: its close button takes and keeps focus, and screen readers do not reach
+  // the page behind it.
+  const close = sheet.getByRole("button", { name: "Close keyboard shortcuts" });
+  await expect(close).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(close).toBeFocused();
+  await expect(page.getByRole("button", { name: "Search", exact: true })).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(sheet).toBeHidden();
+  await expect(opener).toBeFocused();
+  await expect(page.getByRole("button", { name: "Search", exact: true })).toBeVisible();
 
   // Typing a "?" into a field stays typing.
   await page.keyboard.press("Control+k");
