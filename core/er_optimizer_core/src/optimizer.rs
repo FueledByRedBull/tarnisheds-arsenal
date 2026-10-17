@@ -1182,6 +1182,34 @@ where
     Ok(results)
 }
 
+/// Independent level ranges, such as one per affinity, on the shared Rayon pool. Results
+/// keep request order; `level_complete` also receives the request's position.
+pub fn optimize_level_ranges_with_progress<F, C>(
+    requests: &[OptimizeRequest],
+    levels: &[u16],
+    data: &GameData,
+    level_complete: F,
+    should_continue: C,
+) -> Vec<Result<Vec<LevelOptimizeResult>, String>>
+where
+    F: Fn(usize, u16) -> bool + Sync,
+    C: Fn() -> bool + Sync,
+{
+    requests
+        .par_iter()
+        .enumerate()
+        .map(|(index, request)| {
+            optimize_level_range_with_progress(
+                request,
+                levels,
+                data,
+                |level| level_complete(index, level),
+                &should_continue,
+            )
+        })
+        .collect()
+}
+
 fn level_range_reuse_enabled(request: &OptimizeRequest) -> bool {
     // The fixed-loadout DP cache stays bounded; broaden it only after measuring other range
     // shapes.
@@ -1833,8 +1861,11 @@ where
     // Higher upgrades usually score best, so visiting them first lets the weapon-best bound
     // below skip lower levels early. Ranking is a total order, so visit order never changes
     // which candidate wins.
+    // Upgrade-independent parts of the AR bound, computed on first use.
+    let mut curve_maxima = std::array::from_fn(|_| std::array::from_fn(|_| None));
+    let mut buff_upper = None;
     for &upgrade in prepared.upgrades.iter().rev() {
-        if let Some(cutoff) = cutoff
+        if let Some(cutoff) = cutoff.max(unit_cutoff(&candidates, group_mode, request.top_k))
             && matches!(
                 request.objective,
                 OptimizeObjective::MaxAr | OptimizeObjective::MaxPhysicalAr
@@ -1849,6 +1880,7 @@ where
                 plan.data,
                 mins,
                 maxima,
+                &mut curve_maxima,
             )?;
             let physical_only = matches!(request.objective, OptimizeObjective::MaxPhysicalAr);
             let base_upper = if physical_only {
@@ -1856,22 +1888,26 @@ where
             } else {
                 sum_components(&upper)
             };
-            let mut buff_upper = ExactRational::zero();
-            for &aow_idx in aow_indices {
-                if let Some(ash) = prepared.aow_choices[aow_idx].aow {
-                    let buff = if physical_only {
-                        rational(ash.buff_attack_power[0])?
-                    } else {
-                        ash.buff_attack_power
-                            .into_iter()
-                            .map(rational)
-                            .collect::<Result<Vec<_>, _>>()?
-                            .into_iter()
-                            .sum()
-                    };
-                    buff_upper = buff_upper.max(buff);
+            if buff_upper.is_none() {
+                let mut maximum = ExactRational::zero();
+                for &aow_idx in aow_indices {
+                    if let Some(ash) = prepared.aow_choices[aow_idx].aow {
+                        let buff = if physical_only {
+                            rational(ash.buff_attack_power[0])?
+                        } else {
+                            ash.buff_attack_power
+                                .into_iter()
+                                .map(rational)
+                                .collect::<Result<Vec<_>, _>>()?
+                                .into_iter()
+                                .sum()
+                        };
+                        maximum = maximum.max(buff);
+                    }
                 }
+                buff_upper = Some(maximum);
             }
+            let buff_upper = buff_upper.as_ref().expect("buff bound is computed");
             if (base_upper + buff_upper) * rational(request.damage_multiplier())? < cutoff.score {
                 let count = group
                     .search
@@ -1881,7 +1917,7 @@ where
                 continue;
             }
         }
-        if let Some(cutoff) = cutoff
+        if let Some(cutoff) = cutoff.max(unit_cutoff(&candidates, group_mode, request.top_k))
             && request.objective == OptimizeObjective::BleedThenAr
             && let Some(maximum) = max_bleed(
                 &group.search,
@@ -1942,14 +1978,7 @@ where
             // A setup whose key is strictly below the K-th one this unit or earlier units kept,
             // or (per weapon) below that weapon's best, cannot appear. Ties are still solved,
             // so tie order is unchanged.
-            let unit_cutoff = if matches!(group_mode, ResultGroupMode::WeaponOnly) {
-                candidates.iter().map(|candidate| &candidate.key).max()
-            } else {
-                (candidates.len() == request.top_k)
-                    .then(|| candidates.last().map(|candidate| &candidate.key))
-                    .flatten()
-            };
-            let threshold = cutoff.max(unit_cutoff);
+            let threshold = cutoff.max(unit_cutoff(&candidates, group_mode, request.top_k));
             let best_primary = primary.and_then(|p| p.best_primary.as_ref());
             if let (Some(bound), Some(primary)) = (threshold, best_primary)
                 && (&primary.key.score, &primary.key.ar_total) < (&bound.score, &bound.ar_total)
@@ -2123,6 +2152,22 @@ where
     }
     progress.finish()?;
     Ok(candidates)
+}
+
+/// The cutoff this unit's own results set: the K-th kept key, or for weapon grouping the
+/// unit weapon's best (every result of one unit shares its weapon).
+fn unit_cutoff(
+    candidates: &[ScoredCandidate],
+    group_mode: ResultGroupMode,
+    top_k: usize,
+) -> Option<&ObjectiveKey> {
+    if matches!(group_mode, ResultGroupMode::WeaponOnly) {
+        candidates.iter().map(|candidate| &candidate.key).max()
+    } else {
+        (candidates.len() == top_k)
+            .then(|| candidates.last().map(|candidate| &candidate.key))
+            .flatten()
+    }
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]

@@ -60,12 +60,17 @@ pub(crate) fn exact_ar(
     Ok(breakdown)
 }
 
+/// Curve maxima per damage type and stat, filled on first use; they do not depend on the
+/// upgrade, so one cache serves every upgrade of a weapon over the same stat bounds.
+pub(crate) type CurveMaxima = [[Option<ExactRational>; COMBAT_STAT_COUNT]; DAMAGE_TYPE_COUNT];
+
 pub(crate) fn exact_ar_upper_bound(
     weapon: &Weapon,
     upgrade: u8,
     data: &GameData,
     min_stat_values: [u16; COMBAT_STAT_COUNT],
     max_stat_values: [u16; COMBAT_STAT_COUNT],
+    curve_maxima: &mut CurveMaxima,
 ) -> Result<[ExactRational; DAMAGE_TYPE_COUNT], String> {
     for (stat_idx, (&min_value, &max_value)) in min_stat_values
         .iter()
@@ -106,15 +111,18 @@ pub(crate) fn exact_ar_upper_bound(
         let coefficients = weapon_coefficients(weapon, reinforce, aec, damage_type, aec_ext)?;
         let mut value = actual_base.clone();
         for (stat_idx, coefficient) in coefficients.into_iter().enumerate() {
-            let maximum_curve = max_curve_value(
-                data,
-                curve_id,
-                min_stat_values[stat_idx],
-                max_stat_values[stat_idx],
-                stat_idx,
-            )?;
+            let maximum_curve = match &mut curve_maxima[damage_idx][stat_idx] {
+                Some(maximum) => maximum,
+                slot => slot.insert(max_curve_value(
+                    data,
+                    curve_id,
+                    min_stat_values[stat_idx],
+                    max_stat_values[stat_idx],
+                    stat_idx,
+                )?),
+            };
             if let Some(coefficient) = coefficient {
-                value += actual_base.clone() * coefficient * maximum_curve;
+                value += actual_base.clone() * coefficient * &*maximum_curve;
             }
         }
         bounds[damage_idx] = value;
@@ -2034,7 +2042,8 @@ mod tests {
 
         let minimum = [10; COMBAT_STAT_COUNT];
         let maximum = [12; COMBAT_STAT_COUNT];
-        let upper = exact_ar_upper_bound(&weapon, 25, &data, minimum, maximum)
+        let mut curve_maxima = std::array::from_fn(|_| std::array::from_fn(|_| None));
+        let upper = exact_ar_upper_bound(&weapon, 25, &data, minimum, maximum, &mut curve_maxima)
             .expect("exact AR upper bound");
         let mut exhaustive = std::array::from_fn(|_| ExactRational::zero());
         for str_value in minimum[0]..=maximum[0] {
