@@ -83,4 +83,14 @@ test("affinity summaries show unavailable requested endpoints and preserve chart
   await expect(page.locator(".affinity-chart table")).toHaveCount(0);
   await page.locator(".affinity-chart").getByText("Data table", { exact: true }).click();
   await expect(page.getByRole("table", { name: /affinity values by character level/ }).getByRole("row")).toHaveCount(4);
+  // Clearing the result and running again starts with the disclosure closed.
+  await page.evaluate(async () => {
+    const { useDesktopStore } = await import("/src/lib/state.ts");
+    useDesktopStore.setState({ affinityPayload: null });
+  });
+  await expect(page.locator(".affinity-chart details")).toHaveCount(0);
+  await page.getByRole("button", { name: "Watch affinities", exact: true }).click();
+  await expect(page.locator(".affinity-chart details")).toHaveCount(1);
+  await expect(page.locator(".affinity-chart details")).not.toHaveAttribute("open");
+  await expect(page.locator(".affinity-chart table")).toHaveCount(0);
 });
