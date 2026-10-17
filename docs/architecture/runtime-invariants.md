@@ -108,8 +108,10 @@ Status: accepted. These rules describe contracts that tests and future refactors
   loadout solving with their exact equipment, upgrade and stats before publication.
   The selected build and comparison target must fit the saved inputs' level; a
   pinned comparison uses the level its own stats require.
-  Version mismatches load inputs only. Failed or superseded verification preserves
-  the original saved record and cannot publish late results.
+  Rows saved on other game data are recalculated the same way on the current data,
+  so their saved numbers are never shown; when recalculation fails, only the inputs
+  load. Failed or superseded verification preserves the original saved record and
+  cannot publish late results.
 - Weapon metadata belongs to its exact profile/weapon/affinity key. Loading,
   failure and retry never expose a previous key's profile as current. Effective
   Strength includes forced two-handing and weapon-specific bonus suppression.
@@ -123,8 +125,11 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - Manual comparison controls preserve stored pins. Adding, removing or clearing
   pins invalidates derived targets and Paths, including work already in flight.
   Loading a saved build without pins keeps the current pins; a build that carries
-  pins replaces them and says so. Pins saved on other game data are dropped with a
-  notice.
+  pins replaces them and says so. Stored pins saved on other game data are
+  recalculated on the current data before they are shown, and storage is replaced
+  only with the recalculated pins; a pin that cannot be recalculated is dropped
+  with a notice. A catalog or profile change, or a change to the pins, during that
+  recalculation discards its result.
 - Affinity Watch points contain only level and nullable metric. Endpoint summaries
   use the actual boundary points; missing endpoints remain unavailable and cannot
   inherit an interior build. Only an available final point supplies final stats.

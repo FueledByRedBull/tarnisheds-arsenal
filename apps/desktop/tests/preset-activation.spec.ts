@@ -37,7 +37,7 @@ for (const [className, stale, migrate] of [["Unknown", false, false], ["Unknown"
       return { request: state.request, rows: state.rows, pins: state.compareBench,
         pathGeneration: state.pathGeneration, searchGeneration: state.searchGeneration, storage: { ...localStorage } };
     });
-    await page.getByRole("button", { name: migrate ? "Migrate data" : stale ? "Load inputs only" : "Load", exact: true }).click();
+    await page.getByRole("button", { name: migrate ? "Migrate data" : "Load", exact: true }).click();
     await expect(page.locator('.error-strip[role="alert"]')).toContainText("Starting class");
     await expect(page.getByRole("grid", { name: "Ranked builds" })).toBeVisible();
     expect(await page.evaluate(async () => {

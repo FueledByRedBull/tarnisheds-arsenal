@@ -245,12 +245,15 @@ describe("desktop result lifecycle", () => {
     });
   });
 
-  it("restores pinned rows only for the same profile, schema, dataset and model", () => {
+  it("restores pinned rows directly only for the same profile, schema, dataset and model and recomputes others", async () => {
     const values = new Map<string, string>();
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => values.get(key) ?? null,
       setItem: (key: string, value: string) => values.set(key, value),
     });
+    const recomputed = { ...row, ar: { ...row.ar, total: 501 }, score: 501 };
+    const solve = vi.spyOn(api, "solveBuild").mockResolvedValue(recomputed);
+    const messages = () => useDesktopStore.getState().notices.map((notice) => notice.message);
     try {
       const profile = catalog("vanilla");
       useDesktopStore.setState({ compareBench: [] });
@@ -258,22 +261,62 @@ describe("desktop result lifecycle", () => {
       useDesktopStore.getState().toggleCompareBench(row);
       useDesktopStore.getState().setCatalog(structuredClone(profile));
       expect(useDesktopStore.getState().compareBench).toEqual([row]);
+      expect(solve).not.toHaveBeenCalled();
       for (const change of [{ schemaVersion: 5 }, { datasetVersion: "next" }, { modelVersion: "next" }]) {
         useDesktopStore.setState({ notices: [] });
-        useDesktopStore.getState().setCatalog({ ...profile, dataManifest: { ...profile.dataManifest, ...change } });
+        const next = { ...profile, dataManifest: { ...profile.dataManifest, ...change } };
+        useDesktopStore.getState().setCatalog(next);
+        // Saved numbers are never shown while the pins are recalculated.
         expect(useDesktopStore.getState().compareBench).toEqual([]);
-        expect(useDesktopStore.getState().notices.map((notice) => notice.message)).toEqual([
-          "Your pinned comparison builds were saved on different game data and were not restored.",
-        ]);
+        expect(messages()).toEqual(["Recomputing your pinned comparison builds on current game data..."]);
+        await vi.waitFor(() => expect(useDesktopStore.getState().compareBench).toEqual([recomputed]));
+        expect(messages()).toEqual(["Recomputed your pinned comparison builds on current game data."]);
+        expect(JSON.parse(values.get("tarnisheds-arsenal.compareBench.v1.vanilla")!)).toMatchObject({
+          schemaVersion: next.dataManifest.schemaVersion, datasetVersion: next.dataManifest.datasetVersion,
+          modelVersion: next.dataManifest.modelVersion, rows: [recomputed],
+        });
       }
+      expect(solve).toHaveBeenLastCalledWith(expect.objectContaining({ exactUpgrade: true, lockDex: 40, standardMaxUpgrade: 25 }),
+        row.weaponName, row.affinity, row.aowName, expect.any(AbortSignal));
       useDesktopStore.getState().setCatalog(catalog("convergence"));
       expect(useDesktopStore.getState().compareBench).toEqual([]);
+      // A pin the current data cannot recalculate is dropped; the others are kept.
       values.set("tarnisheds-arsenal.compareBench.v1.vanilla", JSON.stringify({
-        version: 1, datasetVersion: profile.dataManifest.datasetVersion, rows: [row],
+        version: 1, datasetVersion: profile.dataManifest.datasetVersion, rows: [row, { ...row, weaponName: "Removed" }],
       }));
+      solve.mockImplementation(async (_base, weaponName) => weaponName === "Removed" ? null : recomputed);
+      useDesktopStore.setState({ notices: [] });
       useDesktopStore.getState().setCatalog(profile);
       expect(useDesktopStore.getState().compareBench).toEqual([]);
+      await vi.waitFor(() => expect(useDesktopStore.getState().compareBench).toEqual([recomputed]));
+      expect(messages()).toEqual(["Recomputed your pinned comparison builds on current game data; 1 could not be recomputed and was removed."]);
+      expect(JSON.parse(values.get("tarnisheds-arsenal.compareBench.v1.vanilla")!).rows).toEqual([recomputed]);
     } finally {
+      solve.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("discards a stored pin recalculation when the profile switches", async () => {
+    const profile = catalog("vanilla");
+    const stored = JSON.stringify({ version: 1, datasetVersion: "old", schemaVersion: 4, modelVersion: "old", rows: [row] });
+    const setItem = vi.fn();
+    vi.stubGlobal("localStorage", { getItem: () => stored, setItem });
+    let finish!: (value: SolvedBuildDto) => void;
+    const solve = vi.spyOn(api, "solveBuild").mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    try {
+      useDesktopStore.setState({ compareBench: [], notices: [] });
+      useDesktopStore.getState().setCatalog(profile);
+      await vi.waitFor(() => expect(solve).toHaveBeenCalledTimes(1));
+      useDesktopStore.getState().beginProfileSwitch("convergence");
+      expect((solve.mock.calls[0][4] as AbortSignal).aborted).toBe(true);
+      finish(row);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      expect(useDesktopStore.getState().compareBench).toEqual([]);
+      expect(useDesktopStore.getState().notices.some((notice) => notice.message.startsWith("Recomput"))).toBe(false);
+      expect(setItem).not.toHaveBeenCalledWith("tarnisheds-arsenal.compareBench.v1.vanilla", expect.anything());
+    } finally {
+      solve.mockRestore();
       vi.unstubAllGlobals();
     }
   });
@@ -615,6 +658,39 @@ describe("saved result activation boundary", () => {
       expect(useDesktopStore.getState().selected?.ar.total).toBe(500);
       expect(preset.selectedBuild.ar.total).toBe(999999);
     } finally { solve.mockRestore(); }
+  });
+
+  it("recomputes a build saved on other game data instead of loading inputs only", async () => {
+    const preset = activationPreset();
+    preset.dataVersion = "vanilla:4:old:old";
+    preset.selectedBuild = { ...row, ar: { ...row.ar, total: 999999 } };
+    const solve = vi.spyOn(api, "solveBuild").mockResolvedValue(row);
+    try {
+      await useDesktopStore.getState().loadBuildPreset(preset);
+      expect(useDesktopStore.getState()).toMatchObject({ selected: row, rows: [row] });
+      expect(useDesktopStore.getState().notices.map(notice => notice.message)).toEqual([
+        "Loaded Activation; results recomputed on current game data (saved on vanilla:4:old:old)."]);
+    } finally { solve.mockRestore(); }
+  });
+
+  it("loads inputs only when a build saved on other game data cannot be recomputed", async () => {
+    const preset = activationPreset();
+    preset.dataVersion = "vanilla:4:old:old";
+    preset.request.dex = 30;
+    preset.selectedBuild = { ...row, weaponName: "Removed weapon" };
+    const write = vi.fn();
+    vi.stubGlobal("localStorage", { setItem: write });
+    const solve = vi.spyOn(api, "solveBuild").mockResolvedValue(null);
+    try {
+      await expect(useDesktopStore.getState().loadBuildPreset(preset)).rejects.toThrow(/cannot be verified/);
+      expect(useDesktopStore.getState()).toMatchObject({ selected: null, rows: [], request: { dex: 30 } });
+      expect(useDesktopStore.getState().notices.map(notice => notice.message)).toEqual([
+        "Saved results could not be verified. Inputs are loaded; the original saved record is unchanged."]);
+      expect(write).not.toHaveBeenCalled();
+    } finally {
+      solve.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 
   it("never publishes supplied results while verification is pending or after context changes", async () => {

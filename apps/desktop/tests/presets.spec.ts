@@ -127,7 +127,7 @@ test("rejects malformed comparison pins without importing them or disabling sear
 });
 
 for (const stale of [false, true]) {
-  test(`loads ${stale ? "stale inputs" : "a saved result"} when optional comparison storage fails`, async ({ page }) => {
+  test(`loads ${stale ? "a recomputed stale result" : "a saved result"} when optional comparison storage fails`, async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect(page.getByText("4 ranked rows")).toBeVisible();
@@ -152,19 +152,63 @@ for (const stale of [false, true]) {
     await page.evaluate(() => {
       Storage.prototype.setItem = () => { throw new DOMException("storage full", "QuotaExceededError"); };
     });
-    await page.getByRole("button", { name: stale ? "Load inputs only" : "Load", exact: true }).click();
+    await page.getByRole("button", { name: "Load", exact: true }).click();
     await expect(page.getByRole("checkbox", { name: "Two-handing", exact: true })).not.toBeChecked();
-    await expect(page.locator(".result-row")).toHaveCount(stale ? 0 : 1);
-    if (stale) {
-      // Inputs-only loads drop the saved pins and keep the current ones, so nothing is written.
-      await expect(page.getByText(/inputs only: saved data differs/)).toBeVisible();
-      await expect(page.getByText(/Comparison changes could not be saved/)).toHaveCount(0);
-    } else {
-      await expect(page.getByText(/Comparison changes could not be saved/)).toBeVisible();
-    }
+    await expect(page.locator(".result-row")).toHaveCount(1);
+    await expect(page.getByText(stale ? /results recomputed on current game data \(saved on vanilla:4:old:old\)\./
+      : /saved results verified on current data/)).toBeVisible();
+    await expect(page.getByText(/Comparison changes could not be saved/)).toBeVisible();
     expect(await page.evaluate(key => localStorage.getItem(key), stored.key)).toBe(stored.value);
   });
 }
+
+test("loads only the inputs of a stale build whose weapon no longer exists", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await openSection(page, "Saved Builds");
+  await page.getByRole("button", { name: "Save new", exact: true }).click();
+  const stored = await page.evaluate(() => {
+    const key = Object.keys(localStorage).find(key => key.startsWith("tarnisheds-arsenal.savedBuild.v2."))!;
+    const preset = JSON.parse(localStorage.getItem(key)!);
+    preset.dataVersion = "vanilla:4:old:old";
+    preset.request.twoHanding = true;
+    preset.selectedBuild.weaponName = "Removed Weapon";
+    localStorage.setItem(key, JSON.stringify(preset));
+    return { key, value: localStorage.getItem(key) };
+  });
+  const saved = page.getByRole("combobox", { name: "Saved", exact: true });
+  const id = await saved.inputValue();
+  await saved.selectOption("");
+  await saved.selectOption(id);
+  await page.getByRole("button", { name: "Load", exact: true }).click();
+  await expect(page.getByText("Saved results could not be verified. Inputs are loaded; the original saved record is unchanged.")).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: "Two-handing", exact: true })).toBeChecked();
+  await expect(page.locator(".result-row")).toHaveCount(0);
+  expect(await page.evaluate(key => localStorage.getItem(key), stored.key)).toBe(stored.value);
+});
+
+test("recomputes comparison pins stored with older game data on startup", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
+  await page.locator(".result-row").first().getByRole("button", { name: /^Compare / }).click();
+  const key = "tarnisheds-arsenal.compareBench.v1.vanilla";
+  const current = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!), key);
+  await page.evaluate(key => {
+    const bench = JSON.parse(localStorage.getItem(key)!);
+    bench.datasetVersion = "vanilla-1.17";
+    bench.rows[0].ar.total = 999999;
+    localStorage.setItem(key, JSON.stringify(bench));
+  }, key);
+  await page.reload();
+  await expect(page.getByText("Recomputed your pinned comparison builds on current game data.")).toBeVisible();
+  expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)!), key)).toEqual(current);
+  expect(await page.evaluate(async () => {
+    const { useDesktopStore } = await import("/src/lib/state.ts");
+    return useDesktopStore.getState().compareBench;
+  })).toEqual(current.rows);
+});
 
 test("saving with result locks disabled keeps them disabled after loading", async ({ page }) => {
   await page.goto("/");

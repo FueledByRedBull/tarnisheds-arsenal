@@ -225,7 +225,7 @@ export function SavedBuildPanel() {
           tone: preset.dataVersion === dataVersion ? "success" : "warning",
           message: preset.dataVersion === dataVersion
             ? `Imported ${preset.name}.`
-            : `Imported ${preset.name} as an explicitly stale snapshot; solved rows will not be trusted when loaded.`,
+            : `Imported ${preset.name}, saved on different game data; its results are recomputed when loaded.`,
         });
       }
     } catch (error) {
@@ -285,7 +285,7 @@ export function SavedBuildPanel() {
       <div className="inspector-actions stacked">
         <button type="button" onClick={() => saveCurrent()} disabled={!canSave}><Save size={15} />Save new</button>
         <button type="button" onClick={() => saveCurrent(selectedId)} disabled={!canSave || !selectedPreset}><Save size={15} />Update selected</button>
-        <button type="button" onClick={() => void loadCurrent()} disabled={!selectedPreset || isMigrating || !canLoad}><Upload size={15} />{isMigrating ? "Verifying…" : selectedPresetStale ? "Load inputs only" : "Load"}</button>
+        <button type="button" onClick={() => void loadCurrent()} disabled={!selectedPreset || isMigrating || !canLoad}><Upload size={15} />{isMigrating ? "Verifying…" : "Load"}</button>
         {selectedPresetStale ? (
           <button type="button" onClick={() => selectedPreset && void migratePreset(selectedPreset)} disabled={isMigrating || !canLoad}>
             <Upload size={15} />{isMigrating ? "Migrating…" : "Migrate data"}
@@ -363,7 +363,7 @@ function presetVersionLabel(savedVersion: string | undefined, currentVersion: st
   if (!savedVersion) return "Saved data version unknown";
   return savedVersion === currentVersion
     ? "Saved with the current game data"
-    : "Stale: saved with different game data. Inputs load; solved rows are discarded.";
+    : "Stale: saved with different game data. Results are recomputed on current data when loaded.";
 }
 
 /** Full snapshot identity, kept out of the visible label for troubleshooting. */
