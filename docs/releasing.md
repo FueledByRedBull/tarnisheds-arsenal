@@ -166,9 +166,12 @@ assertion tests; Clippy and release checks cover all targets. The release job
 packages the already validated commit from a clean Cargo target directory and
 keeps the release-only MSI identity, MSI payload, packaged startup smoke, signing,
 and checksum checks. The final Tauri build runs Cargo in locked mode. The packaged
-smoke opens the remote-debugging port through `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`
-and isolates the profile with `WEBVIEW2_USER_DATA_FOLDER`; the executable itself has
-no debugging switch. The smoke also sets `TARNISHEDS_ARSENAL_SMOKE_NO_DIALOG=1`, whose
+smoke sets `TARNISHEDS_ARSENAL_SMOKE_DEBUG_PORT` and an isolated
+`WEBVIEW2_USER_DATA_FOLDER`; the app opens a loopback remote-debugging port only when
+both are present and the folder is a `tarnisheds-arsenal-smoke-*` directory. There is no
+command-line switch, so shortcuts, file associations and other users cannot enable it.
+(WebView2's own `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` is ignored on GitHub's Windows
+runners because the app passes its own arguments.) The smoke also sets `TARNISHEDS_ARSENAL_SMOKE_NO_DIALOG=1`, whose
 only effect is that a failed start reports its error on stderr without the startup
 message box, which would otherwise hold back the exit code.
 

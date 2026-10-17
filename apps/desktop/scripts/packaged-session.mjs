@@ -35,13 +35,11 @@ export async function launchPackagedApp(executablePath) {
     let exit = null;
     const startedAt = performance.now();
     const child = spawn(executablePath, [], {
-      // WebView2 reads these documented overrides, so the shipped exe needs no debugging
-      // switch and every attempt gets an isolated browser data directory. The first
-      // argument repeats Tauri's default, which an explicit argument list would replace.
+      // The app opens the debugging port only for this variable and only with an isolated
+      // smoke-only WebView2 data directory, which every attempt gets fresh.
       env: {
         ...process.env,
-        WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection "
-          + `--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1 --disable-gpu --no-first-run`,
+        TARNISHEDS_ARSENAL_SMOKE_DEBUG_PORT: String(port),
         WEBVIEW2_USER_DATA_FOLDER: profileDirectory,
         // A failed start then exits with its error on stderr instead of a modal message box.
         TARNISHEDS_ARSENAL_SMOKE_NO_DIALOG: "1",

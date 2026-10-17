@@ -538,7 +538,24 @@ pub fn run() {
 }
 
 fn start() -> Result<(), String> {
-    let context = tauri::generate_context!();
+    #[cfg_attr(not(target_os = "windows"), allow(unused_mut))]
+    let mut context = tauri::generate_context!();
+    #[cfg(target_os = "windows")]
+    if let Some(port) = smoke_debug_port(
+        std::env::var("TARNISHEDS_ARSENAL_SMOKE_DEBUG_PORT").ok(),
+        std::env::var_os("WEBVIEW2_USER_DATA_FOLDER"),
+    )? {
+        // WebView2 ignores WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS on some runtimes when the app
+        // passes its own arguments, so the packaged smoke asks the app; the list repeats Tauri's default.
+        let browser_args = format!(
+            "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection \
+             --remote-debugging-port={port} --remote-debugging-address=127.0.0.1 \
+             --disable-gpu --no-first-run"
+        );
+        for window in &mut context.config_mut().app.windows {
+            window.additional_browser_args = Some(browser_args.clone());
+        }
+    }
     // Load before any window exists, so a slow or failed load never shows a blank window.
     let state = AppState::load(load_desktop_profile).map_err(|error| error.message)?;
 
@@ -584,6 +601,37 @@ fn start() -> Result<(), String> {
             .unwrap_or_else(|| "The window could not be created.".to_string())
     })?
     .map_err(|error| error.to_string())
+}
+
+/// The packaged smoke's remote-debugging port. Only an environment variable (which a shortcut,
+/// file association or another user cannot set) enables it, and only with an isolated
+/// smoke-only WebView2 profile, so the debugging session never touches the user's data.
+#[cfg(target_os = "windows")]
+fn smoke_debug_port(
+    raw_port: Option<String>,
+    user_data_folder: Option<std::ffi::OsString>,
+) -> Result<Option<u16>, String> {
+    let Some(raw_port) = raw_port else {
+        return Ok(None);
+    };
+    let port = raw_port
+        .parse::<u16>()
+        .ok()
+        .filter(|port| *port != 0)
+        .ok_or("TARNISHEDS_ARSENAL_SMOKE_DEBUG_PORT must be an integer from 1 to 65535")?;
+    let isolated = user_data_folder.as_deref().is_some_and(|folder| {
+        std::path::Path::new(folder)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.starts_with("tarnisheds-arsenal-smoke-"))
+    });
+    if !isolated {
+        return Err(
+            "TARNISHEDS_ARSENAL_SMOKE_DEBUG_PORT requires WEBVIEW2_USER_DATA_FOLDER to name a tarnisheds-arsenal-smoke-* directory"
+                .to_string(),
+        );
+    }
+    Ok(Some(port))
 }
 
 // Release builds have no console, so a startup failure is also shown in a message box.
@@ -707,6 +755,28 @@ pub(crate) fn test_optimize_request() -> dto::OptimizeRequestDto {
 
 #[cfg(test)]
 mod release_data_tests {
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn smoke_debug_port_needs_a_valid_port_and_an_isolated_profile() {
+        let parse = |port: Option<&str>, folder: Option<&str>| {
+            super::smoke_debug_port(port.map(str::to_string), folder.map(Into::into))
+        };
+        let isolated = Some(r"C:\Users\me\AppData\Local\main\tarnisheds-arsenal-smoke-123");
+        assert_eq!(parse(None, None), Ok(None));
+        assert_eq!(parse(Some("43117"), isolated), Ok(Some(43_117)));
+        // Without the smoke-only WebView2 folder the port would open on the user's profile.
+        assert!(parse(Some("43117"), None).is_err());
+        assert!(
+            parse(
+                Some("43117"),
+                Some(r"C:\Users\me\AppData\Local\main\EBWebView")
+            )
+            .is_err()
+        );
+        assert!(parse(Some("0"), isolated).is_err());
+        assert!(parse(Some("port"), isolated).is_err());
+    }
+
     #[test]
     fn standalone_release_profiles_and_manifests_are_complete() {
         for profile_id in [
