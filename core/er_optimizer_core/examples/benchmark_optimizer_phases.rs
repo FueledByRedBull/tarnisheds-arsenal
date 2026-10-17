@@ -49,7 +49,7 @@ fn main() -> Result<(), String> {
             OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
         ) && !data.capabilities.aow_damage
             || request.class_name == er_optimizer_core::CUSTOM_STATS_CLASS_NAME
-                && data.capabilities.class_budget
+                && !data.offers_custom_stats()
         {
             if selected_case.is_some() {
                 return Err(format!("{name} is unsupported for {profile}"));
@@ -58,7 +58,7 @@ fn main() -> Result<(), String> {
         }
         request.standard_max_upgrade = data.rules.standard_max_upgrade;
         request.somber_max_upgrade = data.rules.somber_max_upgrade;
-        if profile != "vanilla" {
+        if profile != "vanilla" && request.class_name != CUSTOM_STATS_CLASS_NAME {
             // Samurai is a Vanilla class. The same budget (class total = level + 79) as
             // Custom stats keeps the mod request independent of its own class catalog.
             request.class_name = CUSTOM_STATS_CLASS_NAME.to_string();
