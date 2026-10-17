@@ -17,7 +17,11 @@ export function AnalysisProgress({ checked, total, status, running, completed }:
         <span role="status">{status === "running" ? running : status === "completed" ? completed : analysisStatusLabel(status)}</span>
         {status === "running" ? <span aria-hidden="true"> {checked}/{total}</span> : null}
       </span>
-      <div className="forge-bar"><i style={{ transform: `translateX(${pct - 100}%)` }} /></div>
+      <div className="forge-bar">
+        <i style={{ transform: `translateX(${pct - 100}%)` }} />
+        <b className="forge-sheen" style={{ width: `${pct}%` }} />
+        <i className="forge-edge" style={{ transform: `translateX(${pct - 100}%)` }} />
+      </div>
     </div>
   );
 }

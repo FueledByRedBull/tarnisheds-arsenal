@@ -602,11 +602,16 @@ function SearchProgressPanel({ landedRows, searchStartedAt, objective }: { lande
           <strong>{landedRows}</strong>
           <span>ranked</span>
         </span>
-        <span className="forge-bar"><i style={{ transform: "none" }} /></span>
+        <span className="forge-bar">
+          <i style={{ transform: "none" }} />
+          <b className="forge-sheen" style={{ width: "100%" }} />
+          <i className="forge-edge" style={{ transform: "none" }} />
+        </span>
       </div>
     );
   }
   const pct = progress ? Math.min(100, (progress.checked / Math.max(progress.total, 1)) * 100) : null;
+  const fill = pct === null ? undefined : { transform: `translateX(${pct - 100}%)` };
   return (
     <div className="progress-strip">
       <span className="progress-meta">
@@ -617,7 +622,9 @@ function SearchProgressPanel({ landedRows, searchStartedAt, objective }: { lande
         <span>{progress ? `${progress.eligible} covered` : "checking"}</span>
       </span>
       <span className={`forge-bar ${pct === null ? "indeterminate" : ""}`}>
-        <i style={pct === null ? undefined : { transform: `translateX(${pct - 100}%)` }} />
+        <i style={fill} />
+        <b className="forge-sheen" style={pct === null ? undefined : { width: `${pct}%` }} />
+        <i className="forge-edge" style={fill} />
       </span>
       <small>{formatDuration(progress?.elapsedMs ?? elapsedMs)}</small>
     </div>
