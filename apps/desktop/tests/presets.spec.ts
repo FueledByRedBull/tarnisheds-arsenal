@@ -202,7 +202,7 @@ test("recomputes comparison pins stored with older game data on startup", async 
     localStorage.setItem(key, JSON.stringify(bench));
   }, key);
   await page.reload();
-  await expect(page.getByText("Recomputed your pinned comparison builds on current game data.")).toBeVisible();
+  await expect(page.getByText(/^Recomputed your pinned comparison builds on current game data using your current class/)).toBeVisible();
   expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)!), key)).toEqual(current);
   expect(await page.evaluate(async () => {
     const { useDesktopStore } = await import("/src/lib/state.ts");
