@@ -117,7 +117,11 @@ These rendering rules came out of that work and still apply:
   animation neither re-lays out the rows nor turns sticky rank cells into layers.
 - Read layout in the next animation frame, never inside a React commit.
 - Animate transform and opacity only.
-- No motion on keyboard-summoned surfaces such as the Ctrl+K palette.
+- No motion on keyboard-summoned surfaces such as the Ctrl+K palette and the
+  shortcut list.
+- A closing popover fades with discrete `display` and `overlay` transitions and
+  `pointer-events: none`. Give reduced motion the whole transition list: overriding
+  only `transition-property` shifts `allow-discrete` onto the wrong properties.
 - Fade `<details>` content by opacity; never transition its visibility.
 - Reserve scrollbar gutters (`scrollbar-gutter: stable`) on scroll containers.
 - Sort ranking rows by offsetting them, not by moving DOM nodes or using CSS `order`.

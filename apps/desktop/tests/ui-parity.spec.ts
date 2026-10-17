@@ -672,7 +672,11 @@ test("reduced-motion preference drops travel but keeps loaders alive", async ({ 
 
   // Entrances only fade, and editors open without travel.
   await expect(page.locator(".workspace-stage > .rankings-panel")).toHaveCSS("animation-name", "stage-enter");
-  await expect(page.locator(".popover-panel").first()).toHaveCSS("transition-property", "opacity");
+  const closedEditor = page.locator(".popover-panel").first();
+  await expect(closedEditor).toHaveCSS("transition-property", "opacity, display, overlay");
+  // Without discrete display and overlay a closing editor would vanish instead of fading.
+  await expect(closedEditor).toHaveCSS("transition-behavior", "normal, allow-discrete, allow-discrete");
+  await expect(closedEditor).toHaveCSS("transform", "none");
   // A loader pulses in place instead of freezing after one frame.
   await page.evaluate(() => {
     const loader = document.createElement("span");

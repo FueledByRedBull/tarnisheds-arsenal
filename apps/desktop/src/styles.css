@@ -4126,7 +4126,6 @@ summary:focus-visible {
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   box-shadow: 0 24px 64px var(--shadow);
-  transform-origin: top center;
 }
 
 .shortcuts-head {
@@ -4245,30 +4244,33 @@ summary:focus-visible {
   background: var(--selected);
 }
 
-/* Editors and the shortcut list open from their trigger and close at once. A fade-out needs
-   overlay and display transitions, and Chromium leaves a popover shown again just as such a
-   transition ends open but unrendered, so its input cannot take focus. The palette has no
-   motion at all: it is summoned by Ctrl+K many times a session and must appear instantly. */
-.popover-panel,
-.shortcuts-dialog {
-  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+/* Editors open from their trigger and fade back toward it, faster than they arrive. Discrete
+   display and overlay transitions keep a closing panel in the top layer for its fade, where
+   it must not take the click meant for the control under it; a reopen reverses the fade.
+   The palette and the shortcut list are summoned from the keyboard many times a session, so
+   they have no motion at all. */
+.popover-panel {
+  transition:
+    opacity 120ms var(--ease-out),
+    transform 120ms var(--ease-out),
+    display 120ms allow-discrete,
+    overlay 120ms allow-discrete;
+}
+
+.popover-panel:popover-open {
+  transition-duration: 200ms;
+}
+
+.popover-panel:not(:popover-open) {
+  opacity: 0;
+  transform: translateY(-2px) scale(0.99);
+  pointer-events: none;
 }
 
 @starting-style {
-  .popover-panel:popover-open,
-  .shortcuts-dialog[open] {
+  .popover-panel:popover-open {
     opacity: 0;
     transform: translateY(-4px) scale(0.985);
-  }
-}
-
-.shortcuts-dialog::backdrop {
-  transition: background-color 200ms var(--ease-out);
-}
-
-@starting-style {
-  .shortcuts-dialog[open]::backdrop {
-    background-color: transparent;
   }
 }
 
@@ -4362,10 +4364,19 @@ summary:focus-visible {
     transform: none;
   }
 
-  .popover-panel,
-  .shortcuts-dialog,
   .saved-builds > summary .summary-chevron {
     transition-property: opacity;
+  }
+
+  .popover-panel {
+    transition:
+      opacity 120ms var(--ease-out),
+      display 120ms allow-discrete,
+      overlay 120ms allow-discrete;
+  }
+
+  .popover-panel:not(:popover-open) {
+    transform: none;
   }
 
   .skeleton::after,

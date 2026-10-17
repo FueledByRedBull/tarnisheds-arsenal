@@ -65,6 +65,29 @@ test("strip tokens summarise the query and their editors apply edits in place", 
   await expect(page.getByText(/\d+ ranked rows?/)).toBeVisible();
 });
 
+test("an editor reopened during its fade-out is shown and takes input", async ({ page }) => {
+  await ready(page);
+  const panel = page.getByRole("dialog", { name: "Class", exact: true });
+  const input = panel.getByRole("combobox", { name: "Class" });
+  await openEditor(page, "Class");
+  // Reopen at points across the 120 ms fade, including just after its discrete end, where
+  // Chromium once left a reshown popover unable to take focus.
+  for (const delay of [0, 40, 110, 120, 130, 160]) {
+    const closing = await page.evaluate(async (delay) => {
+      const element = document.querySelector<HTMLElement>('.popover-panel[aria-label="Class"]')!;
+      element.hidePopover();
+      const pointerEvents = getComputedStyle(element).pointerEvents;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      element.showPopover();
+      return pointerEvents;
+    }, delay);
+    expect(closing, `pointer input on a closing panel (${delay} ms)`).toBe("none");
+    await expect(panel, `reopened after ${delay} ms`).toBeVisible();
+    await input.click();
+    await expect(input).toBeFocused();
+  }
+});
+
 test("ribbon stats edit directly with the class base as the floor", async ({ page }) => {
   await ready(page);
   const str = page.getByRole("spinbutton", { name: "STR", exact: true });
