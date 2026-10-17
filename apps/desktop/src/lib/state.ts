@@ -485,6 +485,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
     const candidate = { ...preset, request };
     // A build saved without pins leaves the current pins alone; one with pins replaces them.
     const keepPins = candidate.compareBench.length === 0;
+    if (!keepPins) storedPinRecompute?.abort();
     const controller = new AbortController();
     const abort = () => controller.abort();
     signal?.addEventListener("abort", abort, { once: true });
@@ -632,6 +633,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
     }),
   clearCompareBench: () =>
     set((state) => {
+      storedPinRecompute?.abort();
       const notices = [...state.notices, ...writeCompareBench(state.catalog, [])];
       return {
         ...invalidatePathJob(state),
@@ -711,10 +713,14 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
 // Pins stored with other game data are recalculated with their exact equipment, upgrade and
 // stats before they are shown. Stored pins carry no query, so the current one supplies class,
 // two-handing, blessing and DLC scaling. A catalog change discards the result; pins changed
-// meanwhile are kept first and the recalculated ones are appended.
+// meanwhile are kept first and the recalculated ones are appended. Clearing pins or loading a
+// saved build that brings its own pins replaces them, so either one cancels the merge.
+let storedPinRecompute: AbortController | null = null;
 async function recomputeStoredPins(catalog: CatalogDto, staleRows: SolvedBuildDto[], recomputing: Notice) {
   const context = useDesktopStore.getState();
   const controller = new AbortController();
+  storedPinRecompute?.abort();
+  storedPinRecompute = controller;
   const isCurrent = () => !controller.signal.aborted && useDesktopStore.getState().catalog === catalog;
   const stop = useDesktopStore.subscribe(() => { if (!isCurrent()) controller.abort(); });
   const preset: BuildPreset = { version: 2, id: "", name: "", profileId: catalog.dataManifest.profile.id, request: context.request,
@@ -741,8 +747,9 @@ async function recomputeStoredPins(catalog: CatalogDto, staleRows: SolvedBuildDt
         + (dropped ? ` ${dropped} could not be recomputed and ${verb(dropped)} removed.` : "")
         + (cut ? ` ${cut} did not fit the ${MAX_COMPARE_PINS}-pin limit and ${verb(cut)} not restored.` : "");
       return {
-        ...(compareBench.length > state.compareBench.length
-          ? { ...invalidatePathJob(state), compareTarget: null, restoredCompareTarget: null } : {}),
+        // Compare re-derives its summary target from the new pins; a target restored with a saved build stays.
+        ...(compareBench.length > state.compareBench.length && state.compareTarget !== state.restoredCompareTarget
+          ? { ...invalidatePathJob(state), compareTarget: state.restoredCompareTarget } : {}),
         compareBench,
         notices: [...state.notices.filter((notice) => notice !== recomputing),
           { scope: "global", tone: dropped || cut ? "warning" : "success", message }, ...writeCompareBench(catalog, compareBench)],
@@ -750,6 +757,7 @@ async function recomputeStoredPins(catalog: CatalogDto, staleRows: SolvedBuildDt
     });
   } finally {
     stop();
+    if (storedPinRecompute === controller) storedPinRecompute = null;
     if (useDesktopStore.getState().notices.includes(recomputing)) {
       useDesktopStore.setState((state) => ({ notices: state.notices.filter((notice) => notice !== recomputing) }));
     }

@@ -353,6 +353,48 @@ describe("desktop result lifecycle", () => {
     }
   });
 
+  it("keeps a comparison target restored while stored pins are recalculated", async () => {
+    const stored = JSON.stringify({ version: 1, datasetVersion: "old", schemaVersion: 4, modelVersion: "old", rows: [row] });
+    vi.stubGlobal("localStorage", { getItem: () => stored, setItem: vi.fn() });
+    let finish!: (value: SolvedBuildDto) => void;
+    const solve = vi.spyOn(api, "solveBuild").mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    const target = { ...row, weaponName: "Saved target" };
+    try {
+      useDesktopStore.setState({ compareBench: [], notices: [] });
+      useDesktopStore.getState().setCatalog(catalog("vanilla"));
+      await vi.waitFor(() => expect(solve).toHaveBeenCalledTimes(1));
+      // A saved build without pins restores its target while the recalculation runs.
+      useDesktopStore.setState({ compareTarget: target, restoredCompareTarget: target });
+      finish(row);
+      await vi.waitFor(() => expect(useDesktopStore.getState().compareBench).toEqual([row]));
+      expect(useDesktopStore.getState().compareTarget).toBe(target);
+      expect(useDesktopStore.getState().restoredCompareTarget).toBe(target);
+    } finally {
+      solve.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("clearing pins cancels the stored pin recalculation", async () => {
+    const stored = JSON.stringify({ version: 1, datasetVersion: "old", schemaVersion: 4, modelVersion: "old", rows: [row] });
+    vi.stubGlobal("localStorage", { getItem: () => stored, setItem: vi.fn() });
+    let finish!: (value: SolvedBuildDto) => void;
+    const solve = vi.spyOn(api, "solveBuild").mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    try {
+      useDesktopStore.setState({ compareBench: [], notices: [] });
+      useDesktopStore.getState().setCatalog(catalog("vanilla"));
+      await vi.waitFor(() => expect(solve).toHaveBeenCalledTimes(1));
+      useDesktopStore.getState().clearCompareBench();
+      expect((solve.mock.calls[0][4] as AbortSignal).aborted).toBe(true);
+      finish(row);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      expect(useDesktopStore.getState().compareBench).toEqual([]);
+    } finally {
+      solve.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("restores supported comparison rows including complete routes and optional older fields", () => {
     const unnamedSkill = { ...row, aowId: 65535, aowName: null, score: 3.4028235e38 };
     const restored = restoreCompareRows([row, routeRow, unnamedSkill]);
