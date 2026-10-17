@@ -147,7 +147,7 @@ jobs:
           cargo fmt --all --manifest-path apps/desktop/src-tauri/Cargo.toml -- --check
 
       - name: Cache Cargo
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/git
@@ -174,7 +174,7 @@ jobs:
 
       - name: Upload data validation report
         if: ${{ always() && hashFiles('dist/validation/data-validation.json') != '' }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: data-validation-report
           if-no-files-found: error
@@ -182,7 +182,7 @@ jobs:
 
       - name: Upload Rust build timings
         if: ${{ always() && hashFiles('.codex-tmp/ci-target/cargo-timings/*.html') != '' }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-test-build-timings
           path: .codex-tmp/ci-target/cargo-timings/*.html
@@ -225,7 +225,7 @@ jobs:
           cargo --version
 
       - name: Cache Cargo
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/git
@@ -250,7 +250,7 @@ jobs:
 
       - name: Upload Rust build timings
         if: ${{ always() && hashFiles('.codex-tmp/ci-target/cargo-timings/*.html') != '' }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-release-build-timings
           path: .codex-tmp/ci-target/cargo-timings/*.html
@@ -293,7 +293,7 @@ jobs:
           npm run test:contracts
 
       - name: Cache Playwright browser
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~\AppData\Local\ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('apps/desktop/package-lock.json') }}
@@ -327,7 +327,7 @@ jobs:
           rustc --version --verbose
 
       - name: Cache native desktop build
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/git
@@ -417,7 +417,7 @@ jobs:
 
       - name: Upload Rust build timings
         if: ${{ always() && hashFiles('core/er_optimizer_core/target/cargo-timings/*.html') != '' }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: linux-test-build-timings
           path: core/er_optimizer_core/target/cargo-timings/*.html
