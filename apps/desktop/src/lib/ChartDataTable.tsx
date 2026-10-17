@@ -4,6 +4,8 @@ import { useState } from "react";
 // tree rows until someone opens it.
 export function ChartDataTable({ caption, headers, rows }: { caption: string; headers: string[]; rows: string[][] }) {
   const [open, setOpen] = useState(false);
+  // Cleared results drop the <details>, so the next run's disclosure must start closed too.
+  if (!rows.length && open) setOpen(false);
   if (!rows.length) return null;
   return (
     <details className="chart-data" onToggle={(event) => setOpen(event.currentTarget.open)}>
