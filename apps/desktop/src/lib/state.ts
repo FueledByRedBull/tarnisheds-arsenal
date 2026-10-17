@@ -709,15 +709,13 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
 }));
 
 // Pins stored with other game data are recalculated with their exact equipment, upgrade and
-// stats before they are shown. A catalog change or a change to the pins discards the result.
+// stats before they are shown. Stored pins carry no query, so the current one supplies class,
+// two-handing, blessing and DLC scaling. A catalog change discards the result; pins changed
+// meanwhile are kept first and the recalculated ones are appended.
 async function recomputeStoredPins(catalog: CatalogDto, staleRows: SolvedBuildDto[], recomputing: Notice) {
   const context = useDesktopStore.getState();
   const controller = new AbortController();
-  const isCurrent = () => {
-    const latest = useDesktopStore.getState();
-    return !controller.signal.aborted && latest.catalog === catalog && latest.compareBench === context.compareBench
-      && latest.restoredCompareTarget === context.restoredCompareTarget;
-  };
+  const isCurrent = () => !controller.signal.aborted && useDesktopStore.getState().catalog === catalog;
   const stop = useDesktopStore.subscribe(() => { if (!isCurrent()) controller.abort(); });
   const preset: BuildPreset = { version: 2, id: "", name: "", profileId: catalog.dataManifest.profile.id, request: context.request,
     selectedBuild: null, compareTarget: null, compareBench: [], dataVersion: catalogVersion(catalog), createdAt: "", updatedAt: "" };
@@ -732,17 +730,24 @@ async function recomputeStoredPins(catalog: CatalogDto, staleRows: SolvedBuildDt
     }
     if (!isCurrent()) return;
     const dropped = staleRows.length - rows.length;
-    useDesktopStore.setState((state) => ({
-      ...invalidatePathJob(state),
-      compareBench: rows,
-      compareTarget: null,
-      restoredCompareTarget: null,
-      notices: [...state.notices.filter((notice) => notice !== recomputing), dropped ? {
-        scope: "global", tone: "warning",
-        message: `Recomputed your pinned comparison builds on current game data; ${dropped} could not be recomputed and ${dropped === 1 ? "was" : "were"} removed.`,
-      } : { scope: "global", tone: "success", message: "Recomputed your pinned comparison builds on current game data." },
-      ...writeCompareBench(catalog, rows)],
-    }));
+    useDesktopStore.setState((state) => {
+      const known = new Set(state.compareBench.map(rowFingerprint));
+      const restored = rows.filter((row) => !known.has(rowFingerprint(row)) && known.add(rowFingerprint(row)));
+      const compareBench = [...state.compareBench, ...restored].slice(0, MAX_COMPARE_PINS);
+      const cut = state.compareBench.length + restored.length - compareBench.length;
+      const verb = (count: number) => count === 1 ? "was" : "were";
+      const message = "Recomputed your pinned comparison builds on current game data using your current class, two-handing,"
+        + " blessing and DLC scaling settings."
+        + (dropped ? ` ${dropped} could not be recomputed and ${verb(dropped)} removed.` : "")
+        + (cut ? ` ${cut} did not fit the ${MAX_COMPARE_PINS}-pin limit and ${verb(cut)} not restored.` : "");
+      return {
+        ...(compareBench.length > state.compareBench.length
+          ? { ...invalidatePathJob(state), compareTarget: null, restoredCompareTarget: null } : {}),
+        compareBench,
+        notices: [...state.notices.filter((notice) => notice !== recomputing),
+          { scope: "global", tone: dropped || cut ? "warning" : "success", message }, ...writeCompareBench(catalog, compareBench)],
+      };
+    });
   } finally {
     stop();
     if (useDesktopStore.getState().notices.includes(recomputing)) {

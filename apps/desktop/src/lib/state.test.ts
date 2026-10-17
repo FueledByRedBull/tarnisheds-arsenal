@@ -53,6 +53,9 @@ const routeRow: SolvedBuildDto = {
   },
 };
 
+const settingsNotice = "Recomputed your pinned comparison builds on current game data using your current class, two-handing,"
+  + " blessing and DLC scaling settings.";
+
 function restoreCompareRows(rows: unknown[], profile = catalog("vanilla")) {
   const payload = JSON.stringify({
     version: 1, datasetVersion: profile.dataManifest.datasetVersion,
@@ -270,7 +273,7 @@ describe("desktop result lifecycle", () => {
         expect(useDesktopStore.getState().compareBench).toEqual([]);
         expect(messages()).toEqual(["Recomputing your pinned comparison builds on current game data..."]);
         await vi.waitFor(() => expect(useDesktopStore.getState().compareBench).toEqual([recomputed]));
-        expect(messages()).toEqual(["Recomputed your pinned comparison builds on current game data."]);
+        expect(messages()).toEqual([settingsNotice]);
         expect(JSON.parse(values.get("tarnisheds-arsenal.compareBench.v1.vanilla")!)).toMatchObject({
           schemaVersion: next.dataManifest.schemaVersion, datasetVersion: next.dataManifest.datasetVersion,
           modelVersion: next.dataManifest.modelVersion, rows: [recomputed],
@@ -289,8 +292,37 @@ describe("desktop result lifecycle", () => {
       useDesktopStore.getState().setCatalog(profile);
       expect(useDesktopStore.getState().compareBench).toEqual([]);
       await vi.waitFor(() => expect(useDesktopStore.getState().compareBench).toEqual([recomputed]));
-      expect(messages()).toEqual(["Recomputed your pinned comparison builds on current game data; 1 could not be recomputed and was removed."]);
+      expect(messages()).toEqual([`${settingsNotice} 1 could not be recomputed and was removed.`]);
       expect(JSON.parse(values.get("tarnisheds-arsenal.compareBench.v1.vanilla")!).rows).toEqual([recomputed]);
+    } finally {
+      solve.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("merges recalculated stored pins after pins changed meanwhile, within the pin limit", async () => {
+    const values = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    });
+    const stored = ["Alpha", "Beta", "Gamma"].map((weaponName) => ({ ...row, weaponName }));
+    values.set("tarnisheds-arsenal.compareBench.v1.vanilla", JSON.stringify({
+      version: 1, datasetVersion: "old", schemaVersion: 4, modelVersion: "old", rows: [row, ...stored],
+    }));
+    const solve = vi.spyOn(api, "solveBuild").mockImplementation(async (_base, weaponName) => ({ ...row, weaponName, score: 600 }));
+    try {
+      useDesktopStore.setState({ compareBench: [], notices: [] });
+      useDesktopStore.getState().setCatalog(catalog("vanilla"));
+      // Six new pins, one of them the same build as a stored pin, leave room for two of the other three.
+      const pinned = [row, ...Array.from({ length: 5 }, (_, index) => ({ ...row, weaponId: index + 10 }))];
+      for (const entry of pinned) useDesktopStore.getState().toggleCompareBench(entry);
+      await vi.waitFor(() => expect(useDesktopStore.getState().compareBench).toHaveLength(8));
+      const expected = [...pinned, ...stored.slice(0, 2).map((entry) => ({ ...entry, score: 600 }))];
+      expect(useDesktopStore.getState().compareBench).toEqual(expected);
+      expect(useDesktopStore.getState().notices.at(-1)).toMatchObject({ tone: "warning",
+        message: `${settingsNotice} 1 did not fit the 8-pin limit and was not restored.` });
+      expect(JSON.parse(values.get("tarnisheds-arsenal.compareBench.v1.vanilla")!)).toMatchObject({ datasetVersion: "vanilla-test", rows: expected });
     } finally {
       solve.mockRestore();
       vi.unstubAllGlobals();
