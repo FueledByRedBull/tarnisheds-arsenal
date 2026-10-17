@@ -127,6 +127,10 @@ These rendering rules came out of that work and still apply:
   is not followed by an 11-13 ms task.
 - Do not put `content-visibility: auto` on ranking rows: rendering rows as they
   scroll in raised wheel-scroll p95 from 4.3 ms to 12.5-16.7 ms.
+- Never run an animation inside an element that is itself animating or transitioning:
+  Chromium then ticks the inner one on the main thread every vsync.
+- No explicit `inherit` on the cells of rows that move: one inherited child makes every
+  change to the row restyle all of its children.
 
 Measure interactions with GPU compositing on: the packaged smoke harness passes
 `--disable-gpu`. Launch the release exe with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`
@@ -145,7 +149,10 @@ loop records frame times during each scenario while a CDP trace (`devtools.timel
 `cc`, `blink` and their `disabled-by-default` timeline categories) attributes every
 main-thread task longer than 6.94 ms to script, style, layout, paint or compositing;
 invalidation-tracking traces name the elements. Key latency is the time from the
-`keydown` timestamp to the start of the frame after the one that handled it. Reuse
+`keydown` timestamp to the start of the frame after the one that handled it. Click
+targets are resolved before a scenario and clicked by coordinates: Playwright locators run
+accessibility queries and hit-target checks on the page's main thread, which otherwise
+land inside the measured frames. Reuse
 one `WEBVIEW2_USER_DATA_FOLDER` and clear only its `Local Storage`, `Session Storage`
 and `IndexedDB` between launches: a fresh folder recompiles GPU shaders, and Affinity
 Watch's first chart then stalls the GPU process for about 63 ms, which a returning
@@ -153,24 +160,31 @@ player never sees.
 
 Machine: Ryzen 7 7800X3D (16 threads), Radeon RX 7800 XT, 2560x1440 at 240 Hz, so an
 unbroken run reads 4.2 ms; window 1650x950; Vanilla level 192 with 50 rows. Before is
-`a7fe55c` (built from a clean worktree), after adds the two commits above with the same
-core; medians of three runs each. Other agents' builds ran during several runs, so
-single maxima vary by one or two 4.2 ms frames. "Busy" scenarios run during an
+`a7fe55c` (built from a clean worktree), after adds the four frontend commits of this
+work with the same core; medians of three runs each. Other agents' builds kept the CPU
+60-95% busy during most runs, so single maxima vary by one or two 4.2 ms frames. "Busy" scenarios run during an
 AoW first hit search over every weapon (longer than 40 s on this core).
 
 | Scenario (Vanilla) | Before p50 / p95 / p99 / max, ms | After | Key p95, ms |
 | --- | --- | --- | --- |
-| Wheel and scrollbar drag, sorted and unsorted | 4.2 / 4.3 / 4.3 / 4.4 | 4.2 / 4.3 / 4.4 / 4.5 | - |
-| Sort header clicks | 4.2 / 4.3 / 4.3 / 16.6 | 4.2 / 4.3 / 4.3 / 16.7 | - |
-| Ctrl+1..4 cycling | 4.2 / 4.3 / 8.3 / 29.2 | 4.2 / 4.3 / 4.4 / 20.8 | 28.7 → 8.1 |
-| First Compare open with 4 pins | 4.2 / 4.3 / 4.3 / 33.3 | 4.2 / 4.3 / 4.3 / 12.4 | 36.2 → 7.5 |
-| Tab switches during Affinity Watch | 4.2 / 4.3 / 4.3 / 12.6 | 4.2 / 4.3 / 4.3 / 8.4 | 15.7 → 7.7 |
-| Shortcuts dialog open and close | 4.2 / 4.3 / 4.4 / 29.3 | 4.2 / 4.3 / 4.4 / 20.9 | 20.7 → 18.0 |
-| Popovers, palette, searchable select, stat typing | 4.2 / 4.3 / ≤ 8.3 / ≤ 12.5 | same | 8.1-8.3 |
-| Paths, Affinity Watch, Build Detail, Compare scroll | 4.2 / 4.3 / ≤ 8.3 / ≤ 8.4 | same | - |
-| Window resize (unchanged code; run variation) | 4.2 / 16.8 / 20.8 / 37.5 | 4.2 / 12.5 / 16.7 / 24.9 | - |
-| Busy: idle, wheel, tabs, popovers, palette, typing | 4.2 / 4.3 / 4.3 / ≤ 8.4 | 4.2 / 4.3 / 4.3 / ≤ 12.5 | 6.8-9.2 |
-| Busy: window resize | 4.2 / 16.7 / 20.9 / 37.6 | 4.2 / 16.7 / 20.9 / 37.5 | - |
+| Wheel and scrollbar drag, sorted and unsorted | 4.2 / 4.3 / 4.3 / 4.4 | 4.2 / 4.3 / 4.3 / 4.4 | - |
+| Sort header clicks | 4.2 / 4.3 / 4.3 / 25.0 | 4.2 / 4.3 / 4.3 / 12.5 | - |
+| Ctrl+1..4 cycling | 4.2 / 4.3 / 4.4 / 29.2 | 4.2 / 4.3 / 4.4 / 16.7 | 24.6 → 7.6 |
+| First Compare open with 4 pins | 4.2 / 4.3 / 4.3 / 29.1 | 4.2 / 4.3 / 4.3 / 12.5 | 30.1 → 5.7 |
+| Tab switches during Affinity Watch | 4.2 / 4.3 / 4.3 / 12.6 | 4.2 / 4.3 / 4.3 / 8.4 | 16.1 → 8.1 |
+| Shortcuts dialog open and close | 4.2 / 4.3 / 4.4 / 24.9 | 4.2 / 4.3 / 4.4 / 16.8 | 15.9 → 15.4 |
+| Popovers, palette, searchable select, stat typing | 4.2 / 4.3 / ≤ 4.3 / ≤ 12.6 | 4.2 / 4.3 / ≤ 8.3 / ≤ 8.4 | 7.9-9.9 |
+| Row selection with Build Detail | 4.2 / 4.3 / 8.3 / 8.4 | 4.2 / 4.3 / 8.4 / 12.5 | - |
+| Paths, Affinity Watch, Compare scroll | 4.2 / 4.3 / ≤ 4.4 / ≤ 8.2 | 4.2 / 4.3 / 4.3 / ≤ 8.3 | - |
+| Window resize (code unchanged) | 4.2 / 12.5 / 12.6 / 20.9 | 4.2 / 12.5 / 16.6 / 20.9 | - |
+| Busy: idle, wheel, tabs, palette, typing | 4.2 / ≤ 4.3 / 4.3 / ≤ 8.4 | 4.2 / 4.3 / 4.3 / ≤ 8.4 | 8.0-8.6 |
+| Busy: popovers | 4.2 / 4.3 / 4.3 / 16.6 | 4.2 / 4.3 / 4.3 / 12.5 | 7.8 → 7.4 |
+| Busy: window resize | 4.2 / 16.7 / 20.8 / 25.0 | 4.2 / 16.7 / 20.8 / 29.2 | - |
+
+During that search, main-thread frames fall from 240 to 63-98 a second (267 to 91-119 ms
+of main-thread time per second) once the forge bar's sheen runs outside its gliding fill.
+Sort clicks restyle about 50 elements in 0.7 ms instead of about 400 in 8.5-9 ms, and the
+total style time of the row-selection scenario falls from 106-168 ms to 33-62 ms.
 
 Convergence matches Vanilla except that it has no Compare, Paths or Affinity Watch
 and no objective that keeps a search running, so its busy scenarios follow a short
@@ -179,22 +193,25 @@ under 5 ms, so native transfer is not a frame-rate bottleneck.
 
 Remaining misses, measured:
 
-- Window resize redoes layout for ~4,200 layout objects (about 5 ms per frame), repaints
-  the document (about 4 ms) and pre-paints and layerizes (about 4 ms); the 50 rows are
-  three quarters of the DOM. Crossing the 1500 px breakpoint restyles all ~2,800
-  elements once (8-10 ms). Meeting 6.94 ms needs a lighter row DOM.
-- The shortcuts dialog's `showModal()` makes the rest of the page inert, which restyles
-  the whole document (10-16 ms). The palette avoids this as a popover; the dialog keeps
-  its modal semantics.
-- Sorting re-places all 50 rows (`top` plus `reading-order`): about 5 ms of style and
-  layout, occasionally a 12-17 ms frame in the app.
-- A tab switch still has one 10-12 ms frame: a workspace's first reveal lays it out
-  (about 6 ms) and returning to Rankings repaints its rows after `content-visibility`
-  (about 9 ms).
-- During a search the forge bar's sheen (an infinite animation on `.forge-bar i::before`)
-  together with the fill's restarted transform transition forces a main-thread frame
-  every vsync: 240 a second at about 1.2 ms each, against about 70 a second with either
-  one alone. Removing either changes the bar's look.
+- Window resize cannot reach 120 fps without a visual change. Each width change costs
+  4-5 ms of style and layout, 5-7 ms of paint, about 2 ms of pre-paint and 1 ms of
+  layerizing; the ranking rows are about 90% of it and their stat token grids about half
+  of that. Collapsing each token to one element, flex instead of grid, or inline blocks
+  measured no gain; only showing the tokens as plain text (a different look) brought
+  style and layout to about 2 ms, still above budget with paint. Crossing the 1500 px
+  breakpoint also restyles all ~2,800 elements once (8-10 ms).
+- The shortcuts dialog keeps its modal semantics. `showModal()` costs 8-13 ms: two
+  full-document restyles of about 2,900 elements as the page becomes inert. Removing the
+  backdrop styling changed nothing; a popover with an `inert` app root still restyles
+  (9.8 ms); only a non-modal `show()` is cheap (1.6 ms).
+- Returning to Rankings is one 8.6-9.9 ms task (its rows repaint after
+  `content-visibility`, about 4 ms, plus pre-paint and layerizing), so a tab cycle still
+  shows one 12-17 ms interval. Revealing the other workspaces now takes at most 5 ms.
+- A sort click is now a 7-12 ms task (forced layout to measure rows, 2-3 ms of
+  pre-paint) followed by a 4-5 ms repaint, within the pass rule in all three runs.
+- Selecting a row is a 7-11 ms task (about 3 ms of script and 2-3 ms of layout for Build
+  Detail), at the edge of the p99 limit.
+- During a search, opening a popover can take a 9-15 ms task (5-8 ms of script).
 
 ## Release compiler settings
 
