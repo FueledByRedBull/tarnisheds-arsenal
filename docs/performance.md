@@ -121,11 +121,80 @@ These rendering rules came out of that work and still apply:
 - Fade `<details>` content by opacity; never transition its visibility.
 - Reserve scrollbar gutters (`scrollbar-gutter: stable`) on scroll containers.
 - Sort ranking rows by offsetting them, not by moving DOM nodes or using CSS `order`.
+- Hide an offstage workspace with non-inherited properties. Toggling inherited
+  `visibility` on Rankings restyled its ~1,500 rows' elements on every tab switch.
+- Reveal workspaces in a deferred render (`useDeferredValue`), so a tab key press
+  is not followed by an 11-13 ms task.
+- Do not put `content-visibility: auto` on ranking rows: rendering rows as they
+  scroll in raised wheel-scroll p95 from 4.3 ms to 12.5-16.7 ms.
 
 Measure interactions with GPU compositing on: the packaged smoke harness passes
 `--disable-gpu`. Launch the release exe with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`
 set to a remote-debugging port and `WEBVIEW2_USER_DATA_FOLDER` set to a scratch
 folder instead.
+
+### Frame pacing (2026-10-17)
+
+Target: 120 fps, and 144 fps on 144 Hz displays. A scenario passes when its frame
+intervals have p95 ≤ 6.94 ms and p99 ≤ 8.33 ms and no interval spans more than
+three 144 Hz frames.
+
+Method: release exe (`npm run tauri -- build --no-bundle`) launched normally with
+the variables above, then Playwright `connectOverCDP`. A `requestAnimationFrame`
+loop records frame times during each scenario while a CDP trace (`devtools.timeline`,
+`cc`, `blink` and their `disabled-by-default` timeline categories) attributes every
+main-thread task longer than 6.94 ms to script, style, layout, paint or compositing;
+invalidation-tracking traces name the elements. Key latency is the time from the
+`keydown` timestamp to the start of the frame after the one that handled it. Reuse
+one `WEBVIEW2_USER_DATA_FOLDER` and clear only its `Local Storage`, `Session Storage`
+and `IndexedDB` between launches: a fresh folder recompiles GPU shaders, and Affinity
+Watch's first chart then stalls the GPU process for about 63 ms, which a returning
+player never sees.
+
+Machine: Ryzen 7 7800X3D (16 threads), Radeon RX 7800 XT, 2560x1440 at 240 Hz, so an
+unbroken run reads 4.2 ms; window 1650x950; Vanilla level 192 with 50 rows. Before is
+`a7fe55c` (built from a clean worktree), after adds the two commits above with the same
+core; medians of three runs each. Other agents' builds ran during several runs, so
+single maxima vary by one or two 4.2 ms frames. "Busy" scenarios run during an
+AoW first hit search over every weapon (longer than 40 s on this core).
+
+| Scenario (Vanilla) | Before p50 / p95 / p99 / max, ms | After | Key p95, ms |
+| --- | --- | --- | --- |
+| Wheel and scrollbar drag, sorted and unsorted | 4.2 / 4.3 / 4.3 / 4.4 | 4.2 / 4.3 / 4.4 / 4.5 | - |
+| Sort header clicks | 4.2 / 4.3 / 4.3 / 16.6 | 4.2 / 4.3 / 4.3 / 16.7 | - |
+| Ctrl+1..4 cycling | 4.2 / 4.3 / 8.3 / 29.2 | 4.2 / 4.3 / 4.4 / 20.8 | 28.7 → 8.1 |
+| First Compare open with 4 pins | 4.2 / 4.3 / 4.3 / 33.3 | 4.2 / 4.3 / 4.3 / 12.4 | 36.2 → 7.5 |
+| Tab switches during Affinity Watch | 4.2 / 4.3 / 4.3 / 12.6 | 4.2 / 4.3 / 4.3 / 8.4 | 15.7 → 7.7 |
+| Shortcuts dialog open and close | 4.2 / 4.3 / 4.4 / 29.3 | 4.2 / 4.3 / 4.4 / 20.9 | 20.7 → 18.0 |
+| Popovers, palette, searchable select, stat typing | 4.2 / 4.3 / ≤ 8.3 / ≤ 12.5 | same | 8.1-8.3 |
+| Paths, Affinity Watch, Build Detail, Compare scroll | 4.2 / 4.3 / ≤ 8.3 / ≤ 8.4 | same | - |
+| Window resize (unchanged code; run variation) | 4.2 / 16.8 / 20.8 / 37.5 | 4.2 / 12.5 / 16.7 / 24.9 | - |
+| Busy: idle, wheel, tabs, popovers, palette, typing | 4.2 / 4.3 / 4.3 / ≤ 8.4 | 4.2 / 4.3 / 4.3 / ≤ 12.5 | 6.8-9.2 |
+| Busy: window resize | 4.2 / 16.7 / 20.9 / 37.6 | 4.2 / 16.7 / 20.9 / 37.5 | - |
+
+Convergence matches Vanilla except that it has no Compare, Paths or Affinity Watch
+and no objective that keeps a search running, so its busy scenarios follow a short
+search. Search status payloads are at most 182 KB for 50 rows and IPC replies take
+under 5 ms, so native transfer is not a frame-rate bottleneck.
+
+Remaining misses, measured:
+
+- Window resize redoes layout for ~4,200 layout objects (about 5 ms per frame), repaints
+  the document (about 4 ms) and pre-paints and layerizes (about 4 ms); the 50 rows are
+  three quarters of the DOM. Crossing the 1500 px breakpoint restyles all ~2,800
+  elements once (8-10 ms). Meeting 6.94 ms needs a lighter row DOM.
+- The shortcuts dialog's `showModal()` makes the rest of the page inert, which restyles
+  the whole document (10-16 ms). The palette avoids this as a popover; the dialog keeps
+  its modal semantics.
+- Sorting re-places all 50 rows (`top` plus `reading-order`): about 5 ms of style and
+  layout, occasionally a 12-17 ms frame in the app.
+- A tab switch still has one 10-12 ms frame: a workspace's first reveal lays it out
+  (about 6 ms) and returning to Rankings repaints its rows after `content-visibility`
+  (about 9 ms).
+- During a search the forge bar's sheen (an infinite animation on `.forge-bar i::before`)
+  together with the fill's restarted transform transition forces a main-thread frame
+  every vsync: 240 a second at about 1.2 ms each, against about 70 a second with either
+  one alone. Removing either changes the bar's look.
 
 ## Release compiler settings
 
