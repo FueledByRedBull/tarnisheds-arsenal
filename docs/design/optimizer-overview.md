@@ -91,7 +91,7 @@ damage work can split by Ash, while AR/Bleed work stays grouped to reuse primary
 plans. Preparation, scoring, and materialization are measured separately by the
 [performance harnesses](../performance.md).
 
-Parallel AR/physical-AR/bleed scoring shares its exact top-K cutoff at work-unit
+Parallel scoring for every objective shares its exact top-K cutoff at work-unit
 boundaries. Workers copy the cutoff and merge completed candidates under the lock;
 scoring runs outside it. Only strictly lower upper bounds are pruned, preserving
 equal-score ties and the complete result order.
