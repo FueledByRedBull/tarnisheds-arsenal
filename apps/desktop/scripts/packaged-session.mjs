@@ -43,6 +43,8 @@ export async function launchPackagedApp(executablePath) {
         WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection "
           + `--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1 --disable-gpu --no-first-run`,
         WEBVIEW2_USER_DATA_FOLDER: profileDirectory,
+        // A failed start then exits with its error on stderr instead of a modal message box.
+        TARNISHEDS_ARSENAL_SMOKE_NO_DIALOG: "1",
       },
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
@@ -53,6 +55,11 @@ export async function launchPackagedApp(executablePath) {
     child.stdout.on("data", (chunk) => { output += chunk.toString(); });
     child.stderr.on("data", (chunk) => { output += chunk.toString(); });
     child.once("exit", (code, signal) => { exit = { code, signal }; });
+    // A spawn that failed may never emit "exit"; record it so startup stops waiting.
+    child.once("error", (error) => {
+      output += `spawn failed: ${error.message}\n`;
+      exit ??= { code: null, signal: null };
+    });
     const candidate = {
       browser: undefined,
       child,

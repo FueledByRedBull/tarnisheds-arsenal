@@ -168,7 +168,9 @@ keeps the release-only MSI identity, MSI payload, packaged startup smoke, signin
 and checksum checks. The final Tauri build runs Cargo in locked mode. The packaged
 smoke opens the remote-debugging port through `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`
 and isolates the profile with `WEBVIEW2_USER_DATA_FOLDER`; the executable itself has
-no debugging switch.
+no debugging switch. The smoke also sets `TARNISHEDS_ARSENAL_SMOKE_NO_DIALOG=1`, whose
+only effect is that a failed start reports its error on stderr without the startup
+message box, which would otherwise hold back the exit code.
 
 Both binaries contain the verified compile-time Vanilla and Convergence runtime
 snapshots. Neither needs an adjacent data directory, `regulation.bin`, FMG XML, or
