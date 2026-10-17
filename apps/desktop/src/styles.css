@@ -1145,9 +1145,12 @@ textarea {
   color: var(--text-muted);
 }
 
+/* Tiles sit on one base line, so the labels under the larger first figure and the smaller
+   ones beside it line up. */
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  align-items: end;
   gap: 12px;
   margin-bottom: 12px;
 }
@@ -3166,6 +3169,18 @@ textarea:hover {
   width: 32px;
   min-height: 32px;
   padding: 4px;
+}
+
+/* Row actions rest as bare icons, so a full board is not a hundred outlined boxes beside its
+   numbers; a pointed-at action shows its box and a pinned row keeps its selected mark. */
+.result-row .inline-lock:not([aria-pressed="true"]) {
+  background: transparent;
+  border-color: transparent;
+}
+
+.result-row .inline-lock:not([aria-pressed="true"]):hover:not(:disabled) {
+  background: var(--surface-raised);
+  border-color: var(--accent-quiet);
 }
 
 .result-head > :nth-child(n + 5):not(:last-child),
