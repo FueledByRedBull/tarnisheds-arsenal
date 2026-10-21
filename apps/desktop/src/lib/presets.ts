@@ -211,6 +211,10 @@ export function saveBuildPreset(input: {
 }): BuildPreset {
   const now = new Date().toISOString();
   const existing = input.id ? loadBuildPreset(input.id) : null;
+  // Presets never change profile: that would silently convert the saved build.
+  if (existing && existing.profileId !== input.request.profileId) {
+    throw new Error(`${existing.name} is a ${existing.profileId} build. Switch to ${existing.profileId} to update it, or use Save new; nothing was changed.`);
+  }
   const preset = checkedPreset({
     version: 2,
     id: input.id ?? crypto.randomUUID(),

@@ -124,6 +124,19 @@ describe("saved build persistence", () => {
     expect(savedBuildIndex().builds[0].profileId).toBe("convergence");
   });
 
+  it("refuses to update a saved build from another profile, leaving it unchanged", () => {
+    const saved = saveBuildPreset({
+      ...preset(),
+      request: { ...defaultRequest, profileId: "convergence" },
+      dataVersion: "convergence:3:convergence-3.0.0.1:model",
+    });
+    const before = localStorage.getItem(`tarnisheds-arsenal.savedBuild.v2.${saved.id}`);
+    expect(() => saveBuildPreset({ ...preset(saved.id, "Vanilla over it"), dataVersion: "vanilla:7:vanilla-1.17.2:model" }))
+      .toThrow(/convergence build.*Save new/);
+    expect(localStorage.getItem(`tarnisheds-arsenal.savedBuild.v2.${saved.id}`)).toBe(before);
+    expect(savedBuildIndex().builds).toHaveLength(1);
+  });
+
   it("round-trips a Convergence preset with the profile's +15 caps", () => {
     const convergence = preset();
     convergence.profileId = "convergence";
