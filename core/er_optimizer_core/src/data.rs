@@ -478,7 +478,7 @@ fn load_starting_classes(table: CsvTable) -> Result<Vec<StartingClass>, String> 
         let name = row[name_idx].to_string();
         let base_level = parse_u16(&row[level_idx], "base_level")?;
         let base_total = base_stats.sum_all_8();
-        if base_level + CLASS_LEVEL_OFFSET != base_total {
+        if base_level.checked_add(CLASS_LEVEL_OFFSET) != Some(base_total) {
             return Err(format!(
                 "{CLASS_CATALOG_FILE} class {name} level {base_level} does not match its attribute total {base_total}"
             ));
@@ -654,6 +654,8 @@ fn load_weapons(table: CsvTable) -> Result<Vec<Weapon>, String> {
             parse_usize(&row[curve_id_lightning], "curve_id_lightning")?,
             parse_usize(&row[curve_id_holy], "curve_id_holy")?,
         ];
+        // Validated as part of the snapshot contract even though no runtime rule reads it.
+        parse_bool_u8(&row[disable_gem_attr], "disable_gem_attr")?;
         out.push(Weapon {
             weapon_id: parse_u32(&row[weapon_id], "weapon_id")?,
             name: row[name].to_string(),
@@ -716,7 +718,6 @@ fn load_weapons(table: CsvTable) -> Result<Vec<Weapon>, String> {
                 madness: parse_usize(&row[curve_id_madness], "curve_id_madness")?,
             },
             can_change_aow: parse_bool_u8(&row[can_change_aow], "can_change_aow")?,
-            disable_gem_attr: parse_bool_u8(&row[disable_gem_attr], "disable_gem_attr")?,
             is_somber: parse_bool_u8(&row[is_somber], "is_somber")?,
             disable_two_hand_bonus: parse_bool_u8(
                 &row[disable_two_hand_bonus],
@@ -1252,11 +1253,17 @@ fn load_aow_attack_rows(table: CsvTable) -> Result<HashMap<u16, Vec<AowAttackRow
     let attack_columns = aow_attack_columns(&table)?;
     let [aow_id] = table.columns(["aow_id"])?;
     let mut out: HashMap<u16, Vec<AowAttackRow>> = HashMap::new();
+    let mut seen = HashSet::new();
     for row in &table.rows {
         let aow_id = parse_u16(&row[aow_id], "aow_id")?;
-        out.entry(aow_id)
-            .or_default()
-            .push(parse_aow_attack_row(&attack_columns, row, aow_id)?);
+        let attack = parse_aow_attack_row(&attack_columns, row, aow_id)?;
+        if !seen.insert((aow_id, attack.sheet_row)) {
+            return Err(format!(
+                "duplicate AoW attack entry aow_id={aow_id} sheet_row={}",
+                attack.sheet_row
+            ));
+        }
+        out.entry(aow_id).or_default().push(attack);
     }
 
     for rows in out.values_mut() {
@@ -1271,12 +1278,18 @@ fn load_native_skill_attack_rows(
     let attack_columns = aow_attack_columns(&table)?;
     let [weapon_id, aow_id] = table.columns(["weapon_id", "aow_id"])?;
     let mut out: HashMap<u32, Vec<AowAttackRow>> = HashMap::new();
+    let mut seen = HashSet::new();
     for row in &table.rows {
         let weapon_id = parse_u32(&row[weapon_id], "weapon_id")?;
         let aow_id = parse_u16(&row[aow_id], "aow_id")?;
-        out.entry(weapon_id)
-            .or_default()
-            .push(parse_aow_attack_row(&attack_columns, row, aow_id)?);
+        let attack = parse_aow_attack_row(&attack_columns, row, aow_id)?;
+        if !seen.insert((weapon_id, attack.sheet_row)) {
+            return Err(format!(
+                "duplicate native skill attack entry weapon_id={weapon_id} sheet_row={}",
+                attack.sheet_row
+            ));
+        }
+        out.entry(weapon_id).or_default().push(attack);
     }
 
     for rows in out.values_mut() {
@@ -1446,12 +1459,20 @@ fn load_aow_route_assignments(
         "hit_order",
     ])?;
     let mut out: HashMap<(u16, u16), Vec<AowRouteAssignment>> = HashMap::new();
+    let mut seen = HashSet::new();
     for row in &table.rows {
         let aow_id = parse_u16(&row[aow_id], "aow_id")?;
         let sheet_row = parse_u16(&row[sheet_row], "sheet_row")?;
         let hit_count = parse_u16(&row[hit_count], "hit_count")?;
         if hit_count == 0 {
             return Err("route hit_count must be positive".into());
+        }
+        // A row's hits enter a route once; repeats are expressed by hit_count.
+        if !seen.insert((aow_id, sheet_row, &row[route_id])) {
+            return Err(format!(
+                "duplicate AoW route assignment aow_id={aow_id} sheet_row={sheet_row} route_id={}",
+                &row[route_id]
+            ));
         }
         out.entry((aow_id, sheet_row))
             .or_default()
@@ -2018,6 +2039,19 @@ mod tests {
         );
     }
 
+    #[test]
+    fn class_level_overflow_fails_closed() {
+        // 65465 + 79 wraps to 8, the all-ones attribute total, without checked arithmetic.
+        let csv = "class_id,name,base_level,vig,mnd,end,str,dex,int,fai,arc\n\
+                   1,Wrapped,65465,1,1,1,1,1,1,1,1\n";
+        let table = CsvTable::from_content("classes.csv".into(), csv).unwrap();
+        let error = super::load_starting_classes(table).unwrap_err();
+        assert!(
+            error.contains("does not match its attribute total"),
+            "{error}"
+        );
+    }
+
     fn duplicate_first_data_row(content: &str) -> String {
         let mut lines = content.lines();
         let header = lines.next().expect("CSV header");
@@ -2181,6 +2215,24 @@ mod tests {
             super::embedded_vanilla_csv("weapon_passive_overlays.csv").unwrap(),
             load_weapon_passive_overlays,
             "duplicate weapon passive overlay entry",
+        );
+        assert_duplicate_row_rejected(
+            "aow-attack-data",
+            super::embedded_vanilla_csv("aow_attack_data.csv").unwrap(),
+            super::load_aow_attack_rows,
+            "duplicate AoW attack entry",
+        );
+        assert_duplicate_row_rejected(
+            "native-skill-attack-data",
+            super::embedded_vanilla_csv("native_skill_attack_data.csv").unwrap(),
+            super::load_native_skill_attack_rows,
+            "duplicate native skill attack entry",
+        );
+        assert_duplicate_row_rejected(
+            "aow-route-assignments",
+            super::embedded_vanilla_csv("aow_route_assignments.csv").unwrap(),
+            super::load_aow_route_assignments,
+            "duplicate AoW route assignment",
         );
     }
 

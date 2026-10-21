@@ -138,7 +138,6 @@ pub struct Weapon {
     pub attack_element_correct_id: usize,
     pub damage_curve_ids: [usize; DAMAGE_TYPE_COUNT],
     pub status_curve_ids: StatusCurveIds,
-    pub disable_gem_attr: bool,
     pub can_change_aow: bool,
     pub is_somber: bool,
     pub disable_two_hand_bonus: bool,

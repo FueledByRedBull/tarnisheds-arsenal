@@ -6924,7 +6924,6 @@ fn somber_weapons_do_not_accept_generic_ashes_of_war() {
         .find(|aow| aow.name == "Sword Dance")
         .expect("missing sword dance");
 
-    assert!(halo_scythe.disable_gem_attr);
     assert!(!game_data.aow_compatible_with_weapon(sword_dance, halo_scythe));
 }
 
