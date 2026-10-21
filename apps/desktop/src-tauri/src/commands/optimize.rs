@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use er_optimizer_core::{
     FilterDimension, FilterMode, GameData, LevelOptimizeResult, OptimizeObjective, OptimizeRequest,
-    StableFilter, optimize_level_range_with_progress, optimize_level_ranges_with_progress,
+    StableFilter, Weapon, optimize_level_range_with_progress, optimize_level_ranges_with_progress,
     optimize_prepared_with_progress, optimize_with_cancel, prepare_loadout_evaluator_with_cancel,
     prepare_search_with_cancel, prepare_upgrade_series_evaluator_with_cancel,
 };
@@ -232,17 +232,21 @@ fn prepare_upgrade_series(
     lock_request_to_stats(&mut base, request.solved.stats);
 
     let profile = state.profile(&base.profile_id)?;
-    let (is_somber, profile_upgrade_cap) = weapon_reinforcement_info(
-        profile,
-        &request.solved.weapon_name,
-        Some(&request.solved.affinity),
-    )?;
+    let weapon = solved_weapon(profile, &request.solved)?;
+    let is_somber = weapon.is_somber;
     if is_somber != request.solved.is_somber {
         return Err(AppError::new(format!(
             "solved weapon reinforcement type does not match profile data for '{}'",
             request.solved.weapon_name
         )));
     }
+    let profile_upgrade_cap = crate::commands::data::weapon_row_upgrade_cap(&profile.data, weapon)
+        .ok_or_else(|| {
+            AppError::new(format!(
+                "weapon not found for upgrade cap: {}",
+                request.solved.weapon_name
+            ))
+        })?;
     if is_somber {
         base.somber_max_upgrade = Some(request.max_upgrade);
     } else {
@@ -350,17 +354,10 @@ pub fn validate_solved_loadout(
     profile: &ProfileData,
     solved: &SolvedBuildDto,
 ) -> Result<(), AppError> {
-    let weapon = profile
-        .data
-        .weapons
-        .iter()
-        .find(|weapon| weapon.weapon_id == solved.weapon_id)
-        .filter(|weapon| weapon.name == solved.weapon_name && weapon.affinity == solved.affinity)
-        .ok_or_else(|| AppError::new("selected weapon identity does not match profile data"))?;
-    let (is_somber, cap) =
-        weapon_reinforcement_info(profile, &solved.weapon_name, Some(&solved.affinity))?;
-    if is_somber != solved.is_somber
-        || solved.upgrade > cap
+    let weapon = solved_weapon(profile, solved)?;
+    if weapon.is_somber != solved.is_somber
+        || crate::commands::data::weapon_row_upgrade_cap(&profile.data, weapon)
+            .is_none_or(|cap| solved.upgrade > cap)
         || profile
             .data
             .reinforce_level(weapon.reinforce_type, solved.upgrade)
@@ -371,6 +368,24 @@ pub fn validate_solved_loadout(
         ));
     }
     Ok(())
+}
+
+/// The searchable profile row a client-supplied solved build names, found by its ID.
+pub fn solved_weapon<'a>(
+    profile: &'a ProfileData,
+    solved: &SolvedBuildDto,
+) -> Result<&'a Weapon, AppError> {
+    profile
+        .data
+        .weapons
+        .iter()
+        .find(|weapon| weapon.weapon_id == solved.weapon_id)
+        .filter(|weapon| {
+            weapon.name == solved.weapon_name
+                && weapon.affinity == solved.affinity
+                && profile.data.weapon_ar_supported(weapon)
+        })
+        .ok_or_else(|| AppError::new("selected weapon identity does not match profile data"))
 }
 
 fn prepare_ar_bleed_frontier(
