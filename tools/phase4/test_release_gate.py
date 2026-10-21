@@ -33,6 +33,14 @@ class ReleaseGateTests(unittest.TestCase):
         self.stdout = quiet.__enter__()
         self.addCleanup(quiet.__exit__, None, None, None)
 
+    def test_failed_commands_report_their_stderr_and_still_raise(self) -> None:
+        failure = subprocess.CalledProcessError(128, ["git", "tag"], stderr="fatal: bad tag\n")
+        with (patch.object(release_gate.subprocess, "run", side_effect=failure),
+              patch("sys.stderr", new_callable=io.StringIO) as stderr):
+            with self.assertRaises(subprocess.CalledProcessError):
+                release_gate.run("git", "tag", "--list", "v1")
+        self.assertIn("git tag --list v1 failed with exit code 128: fatal: bad tag", stderr.getvalue())
+
     def test_manual_publication_requires_the_default_branch(self) -> None:
         release_gate.require_default_branch("refs/heads/main", "main", "main")
         for ref in ("refs/heads/feature", "refs/tags/main", "refs/heads/main2"):
