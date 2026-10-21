@@ -626,6 +626,30 @@ describe("desktop result lifecycle", () => {
     });
   });
 
+  it.each(["vanilla", "convergence"])("locking a Somber row keeps %s's upgrade caps as its rules define them", (profileId) => {
+    useDesktopStore.getState().setCatalog(catalog(profileId));
+    useDesktopStore.getState().useRowAsLocks({ ...row, isSomber: true, upgrade: 7 });
+    const { standardMaxUpgrade, somberMaxUpgrade } = useDesktopStore.getState().request;
+    // Convergence has one shared cap; Vanilla's Standard cap is left as it was.
+    expect({ standardMaxUpgrade, somberMaxUpgrade }).toEqual(profileId === "convergence"
+      ? { standardMaxUpgrade: 7, somberMaxUpgrade: 7 }
+      : { standardMaxUpgrade: defaultRequest.standardMaxUpgrade, somberMaxUpgrade: 7 });
+  });
+
+  it("starts a same-named class from the new profile's stats after a profile switch", () => {
+    const vanilla = catalog("vanilla");
+    const convergence = catalog("convergence");
+    convergence.classes = [{ name: "Prisoner", baseLevel: 1, baseTotal: 80,
+      baseStats: { vig: 10, mnd: 10, end: 10, strStat: 10, dex: 10, intStat: 10, fai: 10, arc: 10 } }];
+    useDesktopStore.getState().setProfiles([vanilla.dataManifest, convergence.dataManifest]);
+    useDesktopStore.setState({ catalog: vanilla, profileQueries: {}, request: { ...defaultRequest } });
+    useDesktopStore.getState().applyClass("Prisoner");
+    useDesktopStore.getState().beginProfileSwitch("convergence");
+    useDesktopStore.getState().setCatalog(convergence);
+    expect(useDesktopStore.getState().request).toMatchObject({ className: "Prisoner", characterLevel: 1,
+      ...convergence.classes[0].baseStats });
+  });
+
   it("uses exact entered stats and retains +15 caps for a profile without class budgets", async () => {
     const profile = catalog("convergence");
     profile.dataManifest.capabilities.classBudget = false;

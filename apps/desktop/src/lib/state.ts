@@ -20,7 +20,7 @@ import {
   SolvedBuildDto,
   WorkspaceTab,
 } from "./types";
-import { applyProfileRules, classMeta, CUSTOM_STATS_CLASS, currentStatTotal, hasCombatStatLocks, knownWithoutCatalog, rowFingerprint, stableSignature, usesFixedStats } from "./session";
+import { applyProfileRules, classMeta, CUSTOM_STATS_CLASS, currentStatTotal, EIGHT_STAT_KEYS, hasCombatStatLocks, knownWithoutCatalog, rowFingerprint, stableSignature, usesFixedStats } from "./session";
 
 export interface DesktopState {
   activeWorkspace: WorkspaceTab;
@@ -345,7 +345,10 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
         ?? catalog.classes.find((entry) => entry.name === "Samurai")
         ?? catalog.classes[0]
         ?? classMeta(null, "Samurai");
-      const resetClass = classInfo.name !== state.request.className;
+      // Profiles can share a class name with different base stats (Prisoner). Stats carried from
+      // another profile's class that sit below this class's minimums restart from this class.
+      const belowClass = EIGHT_STAT_KEYS.some((key) => state.request[key] < classInfo.baseStats[key]);
+      const resetClass = classInfo.name !== state.request.className || belowClass;
       return {
         catalog,
         catalogStatus: "ready",
@@ -465,8 +468,10 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
         weaponTypeKey: null,
         filters: { version: 1, entries: [] },
         somberFilter: "all",
-        standardMaxUpgrade: row.isSomber ? state.request.standardMaxUpgrade : row.upgrade,
-        somberMaxUpgrade: row.isSomber ? row.upgrade : state.request.somberMaxUpgrade,
+        // A profile with one shared upgrade cap (Convergence) sets both caps to the row's level.
+        ...(state.catalog?.dataManifest.rules.separateUpgradeCaps === false
+          ? { standardMaxUpgrade: row.upgrade, somberMaxUpgrade: row.upgrade }
+          : row.isSomber ? { somberMaxUpgrade: row.upgrade } : { standardMaxUpgrade: row.upgrade }),
         exactUpgrade: true,
         lockStr: row.stats.strStat,
         lockDex: row.stats.dex,
