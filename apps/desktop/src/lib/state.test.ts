@@ -868,6 +868,7 @@ function catalog(profileId: string): CatalogDto {
         somberMaxUpgrade: profileId === "convergence" ? 15 : 10,
         separateUpgradeCaps: profileId !== "convergence",
         scadutreeScaling: profileId !== "convergence",
+        scadutreeAttackMultipliers: Array.from({ length: 21 }, (_, level) => 1 + level / 20),
         zeroAttackElementUsesWeaponScaling: profileId === "convergence",
         extendedScalingGrades: profileId === "convergence",
       },

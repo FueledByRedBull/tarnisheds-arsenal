@@ -20,7 +20,8 @@ test("the browser preview reports the shipped snapshot identities", async ({ pag
       ...pick(shipped, mock!),
       modelVersion: `${shipped.modelVersion}/${exactModel}`,
       capabilities: pick(shipped.capabilities, mock!.capabilities),
-      rules: pick(shipped.rules, mock!.rules),
+      // The Scadutree table is native model data, not a manifest rule.
+      rules: { ...pick(shipped.rules, mock!.rules), scadutreeAttackMultipliers: mock!.rules.scadutreeAttackMultipliers },
     });
   }
 });

@@ -18,6 +18,7 @@ for (const [description, before, after, expected] of /** @type {Array<[string, s
   ["nullability change", "pub aow_id: Option<u16>,", "pub aow_id: u16,", /Contract drift/],
   ["nested type change", "pub stats: CombatStateDto,", "pub stats: ScalingDto,", /Contract drift/],
   ["array change", "pub rows: Vec<SolvedBuildDto>,", "pub rows: SolvedBuildDto,", /Contract drift/],
+  ["profile rule table change", "pub scadutree_attack_multipliers: Vec<f32>,", "pub scadutree_attack_multiplier: f32,", /Contract drift/],
   ["enum value change", "    NoRespec,", "    Respec,", /Enum drift/],
   ["unsupported serde", "pub job_id: String,", '#[serde(skip_serializing)] pub job_id: String,', /Unsupported serde/],
   ["unsupported Rust type", "pub job_id: String,", "pub job_id: serde_json::Value,", /Unsupported Rust type/],

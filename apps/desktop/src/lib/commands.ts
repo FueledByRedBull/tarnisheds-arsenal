@@ -1,5 +1,4 @@
 import { objectiveLabel } from "./format";
-import { SCADUTREE_MAX_LEVEL } from "./scadutree";
 import { classMeta, clampHorizon, derivedLevel, hasCombatStatLocks, replaceFilterEntries } from "./session";
 import { CatalogDto, ObjectiveId, OptimizeRequestDto, WorkspaceTab } from "./types";
 
@@ -183,7 +182,7 @@ function parsedCommands(query: string, context: CommandContext): Command[] {
   const blessingMatch = BLESSING_PATTERN.exec(query);
   if (blessingMatch && rules.scadutreeScaling) {
     const value = Number(blessingMatch[1]);
-    return value <= SCADUTREE_MAX_LEVEL
+    return value < rules.scadutreeAttackMultipliers.length
       ? [command("blessing", "Scaling", `Scadutree Blessing ${value}`, request.dlcScaling ? current(String(request.scadutreeLevel)) : "Turns DLC scaling on",
         { kind: "patch", patch: { dlcScaling: true, scadutreeLevel: value } })]
       : [];

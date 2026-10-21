@@ -2,12 +2,6 @@ import { RotateCcw, Sparkles } from "lucide-react";
 import { AowSelect } from "../../lib/AowSelect";
 import { objectiveLabel, statLockLine } from "../../lib/format";
 import { CheckboxMultiSelect, SearchableSelect, openOption } from "../../lib/SearchableSelect";
-import {
-  SCADUTREE_MAX_LEVEL,
-  scadutreeAttackMultiplier,
-  scadutreeDamageNegation,
-  scadutreeReceivedDamageMultiplier,
-} from "../../lib/scadutree";
 import { classOptions, clearTypeAndAffinityFilters, hasCombatStatLocks, replaceFilterEntries } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { CatalogDto, FilterDimensionDto, ObjectiveId, OptimizeRequestDto, WeaponProfileDto } from "../../lib/types";
@@ -292,13 +286,13 @@ export function UpgradeEditor({ request, patchRequest, separateUpgradeCaps, stan
   );
 }
 
-export function ScalingEditor({ request, patchRequest }: {
+export function ScalingEditor({ request, patchRequest, attackMultipliers }: {
   request: OptimizeRequestDto;
   patchRequest: Patch;
+  /** The profile's per-level table from the native rules. */
+  attackMultipliers: readonly number[];
 }) {
-  const attack = scadutreeAttackMultiplier(request.dlcScaling, request.scadutreeLevel);
-  const taken = scadutreeReceivedDamageMultiplier(request.dlcScaling, request.scadutreeLevel);
-  const negation = scadutreeDamageNegation(request.dlcScaling, request.scadutreeLevel);
+  const attack = attackMultipliers[request.scadutreeLevel];
   return (
     <div className="editor-body">
       <label className="toggle-line" title="Apply Shadow of the Erdtree Scadutree Blessing attack scaling">
@@ -313,16 +307,16 @@ export function ScalingEditor({ request, patchRequest }: {
         Scadutree Level
         <DraftNumberInput
           min={0}
-          max={SCADUTREE_MAX_LEVEL}
+          max={attackMultipliers.length - 1}
           value={request.scadutreeLevel}
           onCommit={(scadutreeLevel) => patchRequest({ scadutreeLevel })}
         />
       </label>
-      {request.dlcScaling ? (
+      {request.dlcScaling && attack !== undefined ? (
         <div className="editor-readout" title="Outgoing damage multiplier and equivalent incoming damage reduction from the selected blessing level">
           <span>Shadow Realm</span>
-          <strong>x{attack.toFixed(2)} dmg / x{taken.toFixed(3)} taken</strong>
-          <small>{(negation * 100).toFixed(1)}% negation</small>
+          <strong>x{attack.toFixed(2)} dmg / x{(1 / attack).toFixed(3)} taken</strong>
+          <small>{((1 - 1 / attack) * 100).toFixed(1)}% negation</small>
         </div>
       ) : null}
     </div>

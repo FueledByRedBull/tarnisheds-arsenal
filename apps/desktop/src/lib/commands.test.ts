@@ -25,7 +25,8 @@ function catalog(profileId: "vanilla" | "convergence" = "vanilla"): CatalogDto {
       profile: { id: profileId, displayName: vanilla ? "Vanilla" : "Convergence", gameVersion: "1.17", modVersion: vanilla ? null : "3.0.0.1" },
       capabilities: { classBudget: vanilla, statusBuildup: true, aowDamage: vanilla, aowRoutes: vanilla },
       rules: { standardMaxUpgrade: vanilla ? 25 : 15, somberMaxUpgrade: vanilla ? 10 : 15, separateUpgradeCaps: vanilla,
-        scadutreeScaling: vanilla, zeroAttackElementUsesWeaponScaling: !vanilla, extendedScalingGrades: !vanilla },
+        scadutreeScaling: vanilla, scadutreeAttackMultipliers: Array.from({ length: 21 }, (_, level) => 1 + level / 20),
+        zeroAttackElementUsesWeaponScaling: !vanilla, extendedScalingGrades: !vanilla },
     },
   };
 }

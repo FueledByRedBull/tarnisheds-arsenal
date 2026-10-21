@@ -337,6 +337,9 @@ function mockDataManifest(profileId = "vanilla"): DataManifestDto {
       somberMaxUpgrade: convergence ? 15 : 10,
       separateUpgradeCaps: !convergence,
       scadutreeScaling: !convergence,
+      // Mock copy of the native table, which the app reads from this DTO field.
+      scadutreeAttackMultipliers: [1, 1.1, 1.2, 1.25, 1.3, 1.35, 1.425, 1.5, 1.55, 1.6, 1.65,
+        1.75, 1.85, 1.875, 1.9, 1.925, 1.95, 1.975, 2, 2.025, 2.05],
       zeroAttackElementUsesWeaponScaling: false,
       extendedScalingGrades: convergence,
     },
