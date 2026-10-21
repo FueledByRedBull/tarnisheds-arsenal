@@ -565,6 +565,8 @@ pub struct ProfileRulesDto {
     pub somber_max_upgrade: u8,
     pub separate_upgrade_caps: bool,
     pub scadutree_scaling: bool,
+    /// Outgoing damage multiplier per Scadutree Blessing level, from level 0.
+    pub scadutree_attack_multipliers: Vec<f32>,
     pub zero_attack_element_uses_weapon_scaling: bool,
     pub extended_scaling_grades: bool,
 }
@@ -596,6 +598,8 @@ impl From<er_optimizer_core::SnapshotManifest> for DataManifestDto {
                 somber_max_upgrade: value.rules.somber_max_upgrade,
                 separate_upgrade_caps: value.rules.separate_upgrade_caps,
                 scadutree_scaling: value.rules.scadutree_scaling,
+                scadutree_attack_multipliers: er_optimizer_core::math::SCADUTREE_ATTACK_MULTIPLIERS
+                    .to_vec(),
                 zero_attack_element_uses_weapon_scaling: value
                     .rules
                     .zero_attack_element_uses_weapon_scaling,
@@ -1006,6 +1010,30 @@ mod tests {
         validate_optimize_request(&request).expect("maximum export row count");
         request.top_k += 1;
         assert!(validate_optimize_request(&request).is_err());
+    }
+
+    #[test]
+    fn profile_rules_send_the_core_scadutree_table() {
+        let state = crate::test_app_state();
+        let manifest = &state
+            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+            .unwrap()
+            .data_manifest;
+        // Tauri sends serde_json text, which writes the shortest f32 form, so the UI
+        // reads the regulation rates themselves.
+        let rules: Value =
+            serde_json::from_str(&serde_json::to_string(&manifest.rules).unwrap()).unwrap();
+        assert_eq!(
+            rules["scadutreeAttackMultipliers"],
+            json!([
+                1.0, 1.1, 1.2, 1.25, 1.3, 1.35, 1.425, 1.5, 1.55, 1.6, 1.65, 1.75, 1.85, 1.875,
+                1.9, 1.925, 1.95, 1.975, 2.0, 2.025, 2.05
+            ])
+        );
+        assert_eq!(
+            manifest.rules.scadutree_attack_multipliers.len(),
+            usize::from(er_optimizer_core::math::SCADUTREE_MAX_LEVEL) + 1
+        );
     }
 
     #[test]

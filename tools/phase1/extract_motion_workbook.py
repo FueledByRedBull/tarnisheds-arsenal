@@ -3,18 +3,19 @@ from __future__ import annotations
 import itertools
 import math
 import re
+import struct
 import sys
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypedDict
+from typing import Mapping, TypedDict
 from xml.etree import ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.phase1.param_binary import load_param_table  # noqa: E402
+from tools.phase1.param_binary import ParamValue, load_param_table  # noqa: E402
 from tools.phase1.phase1_dump import format_float, read_csv, to_int, write_csv  # noqa: E402
 
 MAIN_NS = '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
@@ -1196,20 +1197,78 @@ def load_bullet_attack_ids(
     }
 
 
-def load_throw_attack_ids(
+# Each exported attack column and the AtkParam_Pc field the workbook copied it from.
+ATTACK_PARAM_FIELDS = {
+    **{f'{damage_type}_mv': field for damage_type, field in zip(
+        ('physical', 'magic', 'fire', 'lightning', 'holy'),
+        ('atkPhysCorrection', 'atkMagCorrection', 'atkFireCorrection',
+         'atkThunCorrection', 'atkDarkCorrection'),
+        strict=True,
+    )},
+    **{f'attack_base_{damage_type}': field for damage_type, field in zip(
+        ('physical', 'magic', 'fire', 'lightning', 'holy'),
+        ('atkPhys', 'atkMag', 'atkFire', 'atkThun', 'atkDark'),
+        strict=True,
+    )},
+    'status_mv': 'statusAilmentAtkPowerCorrectRate',
+    'weapon_buff_mv': 'spEffectAtkPowerCorrectRate_byPoint',
+    'poise_base': 'atkSuperArmor',
+    'poise_mv': 'atkSuperArmorCorrection',
+    'is_add_base_atk': 'isAddBaseAtk',
+    'is_arrow_attack': 'isArrowAtk',
+    'is_disable_both_hands_bonus': 'isDisableBothHandsAtkBonus',
+    'overwrite_attack_element_correct_id': 'overwriteAttackElementCorrectId',
+    **{f'sp_effect_id{index}': f'spEffectId{index}' for index in range(5)},
+}
+
+
+def load_attack_params(
     regulation_bin_dir: Path,
     paramdex_defs_dir: Path,
-) -> set[int]:
-    attacks = load_param_table(
+) -> dict[int, dict[str, ParamValue]]:
+    return load_param_table(
         regulation_bin_dir / 'AtkParam_Pc.param',
         paramdex_defs_dir / 'AtkParam.xml',
-        {'throwFlag'},
-    )
+        {'throwFlag', *ATTACK_PARAM_FIELDS.values()},
+    ).rows
+
+
+def throw_attack_ids(attack_params: Mapping[int, Mapping[str, ParamValue]]) -> set[int]:
     return {
         attack_id
-        for attack_id, row in attacks.rows.items()
+        for attack_id, row in attack_params.items()
         if attack_id > 0 and int(row['throwFlag']) == 2
     }
+
+
+def _f32(value: float) -> float:
+    return struct.unpack('<f', struct.pack('<f', value))[0]
+
+
+def verify_attack_rows_against_regulation(
+    rows: list[dict[str, str]],
+    attack_params: Mapping[int, Mapping[str, ParamValue]],
+    source: str,
+) -> None:
+    """Fail when a workbook-derived attack row disagrees with the regulation it ships with."""
+    mismatches: list[str] = []
+    for row in rows:
+        attack_id = int(row['atk_id'])
+        param = attack_params.get(attack_id)
+        if param is None:
+            mismatches.append(f'{attack_id} is not in AtkParam_Pc')
+            continue
+        for column, field in ATTACK_PARAM_FIELDS.items():
+            expected = float(param[field])
+            if column == 'overwrite_attack_element_correct_id' and expected in UNRESOLVED_OVERWRITE_IDS:
+                expected = 0.0
+            if _f32(float(row[column])) != _f32(expected):
+                mismatches.append(f'{attack_id} {column}={row[column]}, regulation {field}={param[field]}')
+    if mismatches:
+        raise ValueError(
+            f'{source} disagrees with the regulation in {len(mismatches)} values; '
+            'the workbook may predate this game version: ' + '; '.join(mismatches[:10])
+        )
 
 
 def run_workbook_exports(
@@ -1219,19 +1278,23 @@ def run_workbook_exports(
     paramdex_defs_dir: Path,
 ) -> None:
     bullet_attack_ids = load_bullet_attack_ids(regulation_bin_dir, paramdex_defs_dir)
-    throw_attack_ids = load_throw_attack_ids(regulation_bin_dir, paramdex_defs_dir)
+    attack_params = load_attack_params(regulation_bin_dir, paramdex_defs_dir)
     build_aow_attack_data(
         project_root,
         phase1_dir,
         bullet_attack_ids=bullet_attack_ids,
-        throw_attack_ids=throw_attack_ids,
+        throw_attack_ids=throw_attack_ids(attack_params),
     )
     build_native_skill_attack_data(
         project_root,
         phase1_dir,
         bullet_attack_ids=bullet_attack_ids,
-        throw_attack_ids=throw_attack_ids,
+        throw_attack_ids=throw_attack_ids(attack_params),
     )
+    for file_name in ('aow_attack_data.csv', 'native_skill_attack_data.csv'):
+        verify_attack_rows_against_regulation(
+            read_csv(phase1_dir / file_name), attack_params, file_name
+        )
     build_aow_route_data(phase1_dir)
     effect_names = {
         parse_int(row.get('ID', '')): row.get('Name', '')

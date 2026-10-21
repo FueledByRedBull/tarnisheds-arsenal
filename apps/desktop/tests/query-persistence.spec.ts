@@ -48,3 +48,48 @@ test("an unreadable saved query is discarded with a notice", async ({ page }) =>
   await expect(page.getByText("Your saved Vanilla query could not be read and was discarded.")).toBeVisible();
   await expect(twoHanding(page)).not.toBeChecked();
 });
+
+test("a restored weapon's profile loads when the catalog arrives before it", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText("Snapshot loaded", { exact: true })).toBeVisible();
+  await page.evaluate(async () => {
+    const { useDesktopStore } = await import("/src/lib/state.ts");
+    useDesktopStore.getState().patchRequest({ weaponName: "Uchigatana" });
+  });
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("tarnisheds-arsenal.query.v1.vanilla")))
+    .toContain('"weaponName":"Uchigatana"');
+
+  // On the desktop the catalog can arrive while the restored weapon's profile is still loading.
+  await page.addInitScript(() => {
+    let profileRequested!: () => void;
+    const requested = new Promise<void>((resolve) => { profileRequested = resolve; });
+    let catalogReturned!: () => void;
+    const returned = new Promise<void>((resolve) => { catalogReturned = resolve; });
+    let held = false;
+    Object.assign(window, {
+      isTauri: true,
+      __TAURI_INTERNALS__: {
+        async invoke(command: string, args?: Record<string, unknown>) {
+          const { mockInvoke } = await import("/src/lib/browser-backend.ts");
+          if (command === "get_catalog") {
+            await requested;
+            const catalog = await mockInvoke(command, args);
+            catalogReturned();
+            return catalog;
+          }
+          if (command === "get_weapon_profile" && !held) {
+            held = true;
+            profileRequested();
+            await returned;
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
+          return mockInvoke(command, args);
+        },
+      },
+    });
+  });
+  await page.reload();
+  await expect(page.getByText("Snapshot loaded", { exact: true })).toBeVisible();
+  await expect(page.getByText(/^Requirements (clear|unmet)$/)).toBeVisible();
+  await expect(page.getByText(/Weapon profile unavailable/)).toHaveCount(0);
+});

@@ -6,7 +6,7 @@
 
 **Find your weapon. Compare your options. Plan your next levels.**
 
-A Windows desktop build optimizer for Elden Ring. Search weapons, affinities,
+A Windows (x64) desktop build optimizer for Elden Ring. Search weapons, affinities,
 Ashes of War, upgrades, and combat stats, then carry a selected build into
 comparisons and progression previews.
 
@@ -18,13 +18,13 @@ comparisons and progression previews.
 [![License](https://img.shields.io/github/license/FueledByRedBull/tarnisheds-arsenal?style=flat-square&labelColor=101315&color=c9a45c)](LICENSE)
 
 [![Platform: Windows](https://img.shields.io/badge/platform-Windows-c9a45c?style=flat-square&labelColor=101315)](#download)
-[![Elden Ring 1.17](https://img.shields.io/badge/Elden_Ring-1.17-c9a45c?style=flat-square&labelColor=101315)](docs/model-reference.md)
-[![Convergence 3.0.0.1 beta](https://img.shields.io/badge/Convergence-3.0.0.1_beta-e59256?style=flat-square&labelColor=101315)](#convergence-3001-beta)
+[![Elden Ring 1.17.2](https://img.shields.io/badge/Elden_Ring-1.17.2-c9a45c?style=flat-square&labelColor=101315)](docs/model-reference.md)
+[![Convergence 3.0.3.0 beta](https://img.shields.io/badge/Convergence-3.0.3.0_beta-e59256?style=flat-square&labelColor=101315)](#convergence-beta)
 [![Rust](https://img.shields.io/badge/Rust-101315?style=flat-square&logo=rust&logoColor=c9a45c)](core/er_optimizer_core)
 [![Tauri 2](https://img.shields.io/badge/Tauri_2-101315?style=flat-square&logo=tauri&logoColor=c9a45c)](apps/desktop/src-tauri)
 [![React 19](https://img.shields.io/badge/React_19-101315?style=flat-square&logo=react&logoColor=c9a45c)](apps/desktop/src)
 
-[What’s new in v0.18.0](docs/release-notes/v0.18.0.md)
+[What’s new in v0.19.0](docs/release-notes/v0.19.0.md)
 · [Your first build](#your-first-build)
 · [Documentation](#documentation)
 
@@ -39,7 +39,7 @@ each one.
 ## Download
 
 Choose an asset from the [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
-The [v0.18.0 notes](docs/release-notes/v0.18.0.md) include versioned downloads,
+The [v0.19.0 notes](docs/release-notes/v0.19.0.md) include versioned downloads,
 calculation changes, and verification limits.
 
 | Choose | Best for |
@@ -49,8 +49,8 @@ calculation changes, and verification limits.
 | **Archive** (`.zip`) | Keep or transfer the portable app and release documentation |
 
 > [!TIP]
-> No game files needed. Both binaries include the Vanilla **1.17** and Convergence
-> **3.0.0.1** snapshots, so no adjacent data folder, game installation,
+> No game files needed. Both binaries include the Vanilla **1.17.2** and Convergence
+> **3.0.3.0** snapshots, so no adjacent data folder, game installation,
 > `regulation.bin`, or source workbook is required.
 
 Each release includes SHA-256 checksums for the installer, portable app, and ZIP,
@@ -90,7 +90,7 @@ text fields; switching profile starts a new history. After
 **Update Results**, each rank shows how far that loadout moved and how its score
 changed. Click **AR**, **Skill damage**, or the objective column to sort without
 losing the rank, and press **?** for every shortcut. Convergence has its own
-classes and [coverage limits](#convergence-3001-beta).
+classes and [coverage limits](#convergence-beta).
 
 ### Saved builds and recovery
 
@@ -136,10 +136,10 @@ table answers the comparison; open **Build details** for each loadout's full car
 or **Upgrade matrix** to see how each develops across upgrade levels.
 
 **AR / Bleed tradeoffs** keeps the selected weapon, affinity, skill, upgrade,
-level budget, stat floors/locks, and handling fixed. Compute its complete frontier,
-then inspect maximum AR, maximum bleed, or the most bleed within a stated AR loss.
-AR loss is measured against that fixed loadout's maximum AR, not the highest AR
-across all weapons.
+level budget, stat floors/locks, and handling fixed. Press **Compute trade-offs**
+for its complete frontier, then inspect maximum AR, maximum bleed, or the most
+bleed within a stated AR loss. AR loss is measured against that fixed loadout's
+maximum AR, not the highest AR across all weapons.
 The 1%, 3%, and 5% choices are sacrifice limits, not bleed-proc breakpoints. An
 all-options table and optional plot show the same achievable allocations.
 One point means one non-dominated AR/bleed outcome; other allocations may tie.
@@ -158,10 +158,11 @@ Rankings before comparing again.
 <summary><strong>Paths — follow both builds level by level</strong></summary>
 
 No-respec paths optimize a terminal allocation, then add each level's point where
-it helps most toward that target, so the path never needs a respec. **Best per level** instead finds the best allocation at each level
-and marks the levels that require a respec. Two lanes share one paginated level
-table. The chart uses labeled axes and sparse breakpoint markers; hover a
-point or use the **Character level** slider to read that level's values.
+it helps most toward that target, so the path never needs a respec.
+**Best per level** instead finds the best allocation at each level and marks the
+levels that require a respec. Two lanes share one paginated level table. The chart
+uses labeled axes and sparse breakpoint markers; hover a point or use the
+**Character level** slider to read that level's values.
 
 ![Paths showing selected and comparison builds across future levels](docs/images/tarnisheds-arsenal-paths.png)
 
@@ -199,15 +200,15 @@ lists what the numbers leave out.
 See the [model reference](docs/model-reference.md) for supported objectives, skill
 effects, profile rules, and known differences from other calculators.
 
-### Convergence 3.0.0.1 beta
+### Convergence beta
 
-> [!WARNING]
-> Convergence is experimental. Its AR, status, and Ash legality are checked
-> against the mod's regulation and a pinned external calculator, not measured in
-> game.
+> [!NOTE]
+> Convergence 3.0.3.0 is experimental. Its AR and status are checked against the
+> mod's regulation and a pinned external calculator, and its Ash legality against
+> the regulation's raw permissions; none of it is measured in game.
 
 The header marks it **Experimental model**; open that label for its coverage
-notes. Choose one of the mod's 27 starting classes, such as **Retainer** or
+notes. Choose one of the mod's 29 starting classes, such as **Retainer** or
 **Prisoner**, and plan by Rune Level as in Vanilla: class optimization, Compare,
 Paths, and Affinity Watch all work. **Custom stats** remains in the class list:
 it evaluates the exact stats you enter, their total is not a Rune Level, and the
@@ -227,7 +228,7 @@ Choose a guide for the task at hand:
 
 | I want to… | Read |
 | --- | --- |
-| See what changed in **v0.18.0** | [Release notes](docs/release-notes/v0.18.0.md) · [All versions](docs/release-notes/README.md) |
+| See what changed in **v0.19.0** | [Release notes](docs/release-notes/v0.19.0.md) · [All versions](docs/release-notes/README.md) |
 | Understand supported mechanics and limitations | [Model reference](docs/model-reference.md) |
 | Find components and trace a calculation | [Optimizer overview](docs/design/optimizer-overview.md) |
 | Inspect the exact ranking contract and proof | [Optimizer mathematics](docs/design/optimizer-math.md) |
@@ -296,7 +297,8 @@ and type-checks the browser tests. The contract check compares all public Rust D
 field shapes and enums with TypeScript, including the request types used by the
 API adapter, and checks that every native command is registered, allowed and
 called with matching argument names. It does not replace native value validation
-or serialization tests. CI and full package validation run both checks.
+or serialization tests. The same command also tests the lint configuration and the
+native responsiveness metrics. CI and full package validation run both checks.
 
 The full checks and setup live in [CI](.github/workflows/ci.yml). The core is in
 `core/er_optimizer_core`; the desktop is in `apps/desktop`. Historical phase names

@@ -139,14 +139,14 @@ PROFILES: Mapping[str, ProfileDefinition] = {
     "vanilla": ProfileDefinition(
         id="vanilla",
         display_name="Vanilla",
-        game_version="1.17",
+        game_version="1.17.2",
         mod_version=None,
         raw_dir=Path("data/raw/Vanilla"),
         output_dir=Path("data/phase1"),
         affinity_by_slot=VANILLA_AFFINITIES,
         # 3000 is the unupgradeable Meteorite Staff, historically flagged somber.
         somber_reinforce_types=frozenset({2200, 2400, 3000, 3200, 3300, 3400, 8300, 8500}),
-        regulation_sha256="fb4afd25e70effc9f9523d3aba89b1fb3e08b0800d8efb9a535cab038c5e8bbd",
+        regulation_sha256="b8cdab84c0772f66811fdc5176a381877ca6657b37d420cc2c1562a90d63870e",
         capabilities=ProfileCapabilities(
             weapon_ar=True,
             weapon_ar_for_ammunition=True,
@@ -177,7 +177,6 @@ PROFILES: Mapping[str, ProfileDefinition] = {
             66_530_000: "Reed Great Katana",
             67_530_000: "Idus Sword",
         },
-        dataset_revision=3,
         sword_art_name_overrides={
             1_200: "Muleta",
             1_201: "Causality's Wrath",
@@ -187,13 +186,13 @@ PROFILES: Mapping[str, ProfileDefinition] = {
     "convergence": ProfileDefinition(
         id="convergence",
         display_name="The Convergence",
-        game_version="1.16.1",
-        mod_version="3.0.0.1",
+        game_version="1.17.1",
+        mod_version="3.0.3.0",
         raw_dir=Path("data/raw/Conv"),
         output_dir=Path("data/profiles/convergence"),
         affinity_by_slot=CONVERGENCE_AFFINITIES,
         somber_reinforce_types=frozenset({2200, 2400}),
-        regulation_sha256="422fc6cc2ec277e5f38cd82929d52b151a6de548c0591769891e19c5c396c369",
+        regulation_sha256="7bcd46b957ac49cfe4e9ad2a31a090a8bcc1d3681d3829c1f5aa4fd114530838",
         capabilities=ProfileCapabilities(
             weapon_ar=True,
             weapon_ar_for_ammunition=False,
@@ -225,8 +224,7 @@ PROFILES: Mapping[str, ProfileDefinition] = {
             Path("data/raw/Conv/ArtsName_dlc01.fmg.xml"),
         ),
         version_file=Path("data/raw/Conv/version.txt"),
-        weapon_reference_path=Path("data/reference/convergence-3.0.0.1-weapons.json"),
-        dataset_revision=4,
+        weapon_reference_path=Path("data/reference/convergence-3.0.3.0-weapons.json"),
         class_catalog_from_regulation=True,
     ),
 }

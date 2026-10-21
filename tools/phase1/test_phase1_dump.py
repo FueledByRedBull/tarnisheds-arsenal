@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from contextlib import chdir
 import random
 import struct
 import tempfile
@@ -220,6 +221,33 @@ class Phase1DumpTests(unittest.TestCase):
         self.assertEqual(rows[0]["is_somber"], 1)
         self.assertEqual(rows[0]["critical_damage_percent"], 110)
         self.assertEqual(build_rows([row], max_level_by_type={2200: 15})[0]["is_somber"], 0)
+
+    def test_availability_candidate_keeps_rows_the_slot_rules_drop(self) -> None:
+        # A non-infusable row in an affinity slot, and one in an unknown slot.
+        slotted = weapon_param_row(
+            id="2090100", name="Unique Blade", originEquipWep="2090100", wepType="5",
+            attackBasePhysics="100", disableGemAttr="1",
+        )
+        unknown = weapon_param_row(
+            id="2099900", name="Odd Blade", originEquipWep="2099900", wepType="5",
+            attackBasePhysics="100",
+        )
+        self.assertEqual(build_rows([slotted]), [])
+        with self.assertRaisesRegex(ValueError, "unsupported ashable affinity slot 99"):
+            build_rows([unknown])
+        rows = build_rows([slotted, unknown], include_every_variant=True)
+        self.assertEqual(
+            [(row["weapon_id"], row["affinity"]) for row in rows],
+            [(2_090_100, "Heavy"), (2_099_900, "Standard")],
+        )
+
+    def test_availability_candidate_never_replaces_the_runtime_snapshot(self) -> None:
+        runtime = ROOT / PROFILES["convergence"].output_dir
+        argv = ["phase1_dump.py", "--profile", "convergence", "--availability-candidate",
+                "--output", str(runtime), "--witchybnd", "unused"]
+        with tempfile.TemporaryDirectory() as elsewhere, patch.object(sys, "argv", argv), chdir(elsewhere):
+            with self.assertRaisesRegex(ValueError, "must not replace the runtime snapshot"):
+                phase1_dump.main()
 
     def test_weapon_model_fields_fail_closed(self) -> None:
         row = weapon_param_row(id="2090000", name="Blade", originEquipWep="2090000", wepType="5",

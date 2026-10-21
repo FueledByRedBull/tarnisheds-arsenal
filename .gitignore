@@ -1,4 +1,4 @@
-﻿# Python
+# Python
 __pycache__/
 *.py[cod]
 .venv/
@@ -23,6 +23,7 @@ test-results/
 
 # Build/release output
 /dist/
+/.codex-tmp/
 /apps/desktop/dist/
 dist_release/
 build/

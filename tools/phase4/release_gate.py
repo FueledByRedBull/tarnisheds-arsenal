@@ -19,7 +19,13 @@ CI_POLL_SECONDS = 15
 
 
 def run(*command: str) -> str:
-    return subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
+    try:
+        return subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
+    except subprocess.CalledProcessError as error:
+        # Callers may retry or interpret the failure, so it is re-raised after naming its reason.
+        reason = (error.stderr or "").strip() or "no stderr"
+        print(f"{' '.join(command)} failed with exit code {error.returncode}: {reason}", file=sys.stderr)
+        raise
 
 
 def append(variable: str, **values: str) -> None:

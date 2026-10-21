@@ -14,6 +14,11 @@ import { WorkspaceHeading } from "../shared/WorkspaceHeading";
 import { WorkspaceGate } from "../shared/WorkspaceGate";
 import { ChartDataTable } from "../../lib/ChartDataTable";
 
+// Lanes are matched by id, which the native request carries in `title` and echoes back on its
+// path; the label is display text only.
+const PATH_LANES = { selected: "Selected", compare: "Compare" } as const;
+const laneLabel = (path: PathPreviewDto) => PATH_LANES[path.title as keyof typeof PATH_LANES];
+
 export function PathsView() {
   const catalog = useDesktopStore((state) => state.catalog);
   const selected = useDesktopStore((state) => state.selected);
@@ -59,8 +64,8 @@ export function PathsView() {
       return;
     }
     const requests = [
-      { base, solved: selected, levelsAhead: effectiveHorizon, title: "Selected", mode: pathMode },
-      ...(target ? [{ base, solved: target, levelsAhead: effectiveHorizon, title: "Compare", mode: pathMode }] : []),
+      { base, solved: selected, levelsAhead: effectiveHorizon, title: "selected", mode: pathMode },
+      ...(target ? [{ base, solved: target, levelsAhead: effectiveHorizon, title: "compare", mode: pathMode }] : []),
     ];
     await analysis.start(
       () => api.startPathPreview(requests),
@@ -110,8 +115,8 @@ export function PathsView() {
         completed={`Completed · ${paths.length} build${paths.length === 1 ? "" : "s"}`}
       />
       <div className="path-lanes">
-        <LaneSummary title="Selected" path={paths.find((path) => path.title === "Selected")} row={selected} />
-        <LaneSummary title="Compare" path={paths.find((path) => path.title === "Compare")} row={target} />
+        <LaneSummary title={PATH_LANES.selected} path={paths.find((path) => path.title === "selected")} row={selected} />
+        <LaneSummary title={PATH_LANES.compare} path={paths.find((path) => path.title === "compare")} row={target} />
       </div>
       <PathChart key={`chart:${pathSignature ?? "empty"}`} paths={paths} objective={objectiveLabel(request.objective)} unit={objectiveUnit(request.objective)} />
       <PathSteps key={pathSignature ?? "empty"} paths={paths} objective={request.objective} />
@@ -143,7 +148,7 @@ function PathSteps({ paths, objective }: { paths: PathPreviewDto[]; objective: P
       <div className="step-table path-step-table" role="table" aria-label="Path steps">
         <div className="step-row path-step-row table-header" role="row" style={{ gridTemplateColumns: `54px repeat(${paths.length}, minmax(0, 1fr))` }}>
           <span role="columnheader">Level</span>
-          {paths.map(path => <span role="columnheader" key={path.title}>{path.title}<small>{path.solved.weaponName} / {path.solved.affinity}</small></span>)}
+          {paths.map(path => <span role="columnheader" key={path.title}>{laneLabel(path)}<small>{path.solved.weaponName} / {path.solved.affinity}</small></span>)}
         </div>
         {shownLevels.map(level => (
           <div className="step-row path-step-row" role="row" key={level} style={{ gridTemplateColumns: `54px repeat(${paths.length}, minmax(0, 1fr))` }}>
@@ -203,7 +208,7 @@ const PathChart = memo(function PathChart({ paths, objective, unit }: { paths: P
   const y = (metric: number | null) => chartY(metric, domain);
   const axisMetrics = niceTicks(domain);
   const axisLevels = [...new Set(Array.from({ length: 5 }, (_, index) => Math.round(firstLevel + (lastLevel - firstLevel) * index / 4)))];
-  const inspected = paths.map(path => ({ title: path.title, step: path.steps.find(step => step.level === selectedLevel) }));
+  const inspected = paths.map(path => ({ id: path.title, title: laneLabel(path), step: path.steps.find(step => step.level === selectedLevel) }));
   const valueText = `Level ${selectedLevel}; ${inspected.map(({ title, step }) => `${title} ${step?.metric == null ? "unavailable" : `${fixed1(step.metric)} ${unit}`}`).join("; ")}`;
   return (
     <figure className="path-chart" aria-label={`${objective} by character level for ${paths.length} path lanes`}>
@@ -213,7 +218,7 @@ const PathChart = memo(function PathChart({ paths, objective, unit }: { paths: P
       </figcaption>
       {levels.length ? <>
         <div className="chart-legend" role="group" aria-label="Path chart legend">
-          {paths.map((path, index) => <span className={`series-${index}`} key={path.title}>{path.title}</span>)}
+          {paths.map((path, index) => <span className={`series-${index}`} key={path.title}>{laneLabel(path)}</span>)}
           <span className="path-marker-key">○ Allocation changes (sampled)</span>
         </div>
         <div className="path-plot">
@@ -255,7 +260,7 @@ const PathChart = memo(function PathChart({ paths, objective, unit }: { paths: P
         </label>
         <div className="path-point-summary">
           <strong>Level {selectedLevel}</strong>
-          {inspected.map(({ title, step }, index) => <span className={`series-${index}`} key={title}>
+          {inspected.map(({ id, title, step }, index) => <span className={`series-${index}`} key={id}>
             {title} <b>{step?.metric == null ? "Unavailable" : `${fixed1(step.metric)} ${unit}`}</b>
             <small>{step?.addedStat === "respec" ? "Respec required" : step?.addedStat ? `Added ${step.addedStat.toUpperCase()}` : step?.level === firstLevel ? "Starting stats" : "No stat added"}</small>
           </span>)}
@@ -268,7 +273,7 @@ const PathChart = memo(function PathChart({ paths, objective, unit }: { paths: P
         </div>
       )}
       <ChartDataTable caption={`${objective} (${unit}) path values by character level`} headers={["Lane", "Level", `${objective} (${unit})`]}
-        rows={paths.flatMap((path) => path.steps.map((step) => [path.title, String(step.level), `${fixed1(step.metric)} ${unit}`]))} />
+        rows={paths.flatMap((path) => path.steps.map((step) => [laneLabel(path), String(step.level), `${fixed1(step.metric)} ${unit}`]))} />
     </figure>
   );
 });

@@ -1,15 +1,15 @@
 {
   "schemaVersion": 6,
-  "datasetVersion": "vanilla-1.17-r3",
+  "datasetVersion": "vanilla-1.17.2",
   "modelVersion": "aow-routes-effects-v9",
-  "id": "vanilla-1.17-r3",
-  "label": "Vanilla dataset - 1.17",
-  "appVersion": "1.17",
+  "id": "vanilla-1.17.2",
+  "label": "Vanilla dataset - 1.17.2",
+  "appVersion": "1.17.2",
   "source": "regulation.bin",
   "profile": {
     "id": "vanilla",
     "displayName": "Vanilla",
-    "gameVersion": "1.17",
+    "gameVersion": "1.17.2",
     "modVersion": null
   },
   "capabilities": {
@@ -31,7 +31,7 @@
     "extendedScalingGrades": false,
     "statusBuildupScales": true
   },
-  "generatedAt": "2026-10-16",
+  "generatedAt": "2026-10-21",
   "extractorVersion": "phase1-python-v15-f32-shortest-floats",
   "provenance": "profile-bound regulation, names, motion data, and numeric PARAM effect graph",
   "runtimeFiles": [
@@ -134,7 +134,7 @@
       "bundled": false,
       "path": "regulation.bin",
       "size": 2045728,
-      "sha256": "fb4afd25e70effc9f9523d3aba89b1fb3e08b0800d8efb9a535cab038c5e8bbd"
+      "sha256": "b8cdab84c0772f66811fdc5176a381877ca6657b37d420cc2c1562a90d63870e"
     },
     {
       "kind": "workbook",

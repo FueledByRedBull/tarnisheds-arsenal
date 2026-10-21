@@ -101,6 +101,9 @@ struct PreparedWeapon<'a> {
     weapon: &'a Weapon,
     aow_choices: Vec<AowChoice<'a>>,
     upgrades: Vec<u8>,
+    /// Whether each upgrade's upgrade-dependent inputs are bounded by the next upgrade's
+    /// (`upgrade_inputs_dominated`); one entry per adjacent pair of `upgrades`.
+    inputs_dominated_by_next: Vec<bool>,
 }
 
 #[derive(Clone, Debug)]
@@ -119,6 +122,46 @@ pub struct PreparedSearchPlan<'a> {
     fine_work_units: Vec<SearchWorkUnit>,
     serial_work_units: Vec<SearchWorkUnit>,
     estimate: SearchEstimate,
+    route_bounds: RangeRouteBounds,
+}
+
+/// Prepared weapon, Ash choice, upgrade and route index.
+type RouteBoundKey = (usize, usize, u8, usize);
+/// Exact first-hit and full-sequence upper bounds of one route.
+type RouteBound = (ExactRational, ExactRational);
+
+/// Route bounds a level range records at its highest level. Every lower level shares that
+/// level's weapons, Ash routes and stat minima, and its stat maxima are no higher, so each
+/// recorded bound also bounds the same route there: one below a lower level's threshold
+/// prunes the route exactly as that level's own bound would.
+#[derive(Debug, Default)]
+struct RouteBoundRecord {
+    routes: HashMap<RouteBoundKey, RouteBound>,
+    /// Skill objectives, by prepared weapon and Ash choice.
+    ashes: HashMap<(usize, usize), AshRouteBound>,
+}
+
+/// An Ash's largest route bound over every upgrade the highest level solved it at (every
+/// upgrade it did not skip as dominated), kept only when each of those upgrades bounded
+/// every route. A lower level solves it at no other upgrade when it compares upgrades for
+/// this Ash: dominance there needs nothing more, as its ARC interval is no wider. So when
+/// this bound is below a lower level's threshold, every route it would solve is pruned.
+#[derive(Debug)]
+struct AshRouteBound {
+    largest: ExactRational,
+    /// Solved at every upgrade, so no dominance was needed.
+    every_upgrade: bool,
+    /// Every route has positive corrections, which comparing upgrades requires of each Ash
+    /// in a work unit.
+    positive_routes: bool,
+}
+
+#[derive(Clone, Debug, Default)]
+enum RangeRouteBounds {
+    #[default]
+    Off,
+    Record(Arc<Mutex<RouteBoundRecord>>),
+    Recorded(Arc<RouteBoundRecord>),
 }
 
 pub struct PreparedLoadoutEvaluator<'a> {
@@ -993,10 +1036,6 @@ fn build_prepared_plan<'a>(
     weapons: Arc<[PreparedWeapon<'a>]>,
     should_continue: &mut impl FnMut() -> bool,
 ) -> Result<PreparedSearchPlan<'a>, String> {
-    let mut groups: Vec<PreparedSearchGroup> = Vec::new();
-    let mut stat_candidates = 0_u64;
-    let mut combinations = 0_u64;
-
     // Each Ash choice's stat search depends only on its weapon, so weapons resolve and group
     // their choices in parallel (with per-thread count memos); groups keep weapon order.
     let mut weapon_groups: Vec<Vec<(RelevantStatSearch, Vec<usize>)>> =
@@ -1029,7 +1068,51 @@ fn build_prepared_plan<'a>(
             },
         ));
     }
+    assemble_prepared_plan(request, data, weapons, weapon_groups, should_continue)
+}
 
+/// The plan `build_prepared_plan` gives a lower level of `template`'s range. One weapon's
+/// Ash choices share its stat bounds and budget, so they group by active stats alone, which
+/// no budget changes; each group only takes this level's budget, and a weapon whose
+/// requirements no longer fit drops out.
+fn level_plan_from<'a>(
+    template: &PreparedSearchPlan<'a>,
+    request: &OptimizeRequest,
+    constraints: CombatConstraints,
+    should_continue: &mut impl FnMut() -> bool,
+) -> Result<PreparedSearchPlan<'a>, String> {
+    let mut distribution_counts = HashMap::new();
+    let mut weapon_groups = vec![Vec::new(); template.weapons.len()];
+    for group in &template.groups {
+        if let Some(search) = RelevantStatSearch::new(
+            request,
+            constraints,
+            template.weapons[group.prepared_idx].weapon,
+            group.search.active,
+            &mut distribution_counts,
+        ) {
+            weapon_groups[group.prepared_idx].push((search, group.aow_indices.clone()));
+        }
+    }
+    assemble_prepared_plan(
+        request,
+        template.data,
+        Arc::clone(&template.weapons),
+        weapon_groups,
+        should_continue,
+    )
+}
+
+fn assemble_prepared_plan<'a>(
+    request: &OptimizeRequest,
+    data: &'a GameData,
+    weapons: Arc<[PreparedWeapon<'a>]>,
+    weapon_groups: Vec<Vec<(RelevantStatSearch, Vec<usize>)>>,
+    should_continue: &mut impl FnMut() -> bool,
+) -> Result<PreparedSearchPlan<'a>, String> {
+    let mut groups: Vec<PreparedSearchGroup> = Vec::new();
+    let mut stat_candidates = 0_u64;
+    let mut combinations = 0_u64;
     for (prepared_idx, (prepared, weapon_groups)) in weapons.iter().zip(weapon_groups).enumerate() {
         for (search, aow_indices) in weapon_groups {
             let choices = aow_indices.len() as u64;
@@ -1062,6 +1145,7 @@ fn build_prepared_plan<'a>(
         fine_work_units: Vec::new(),
         serial_work_units: Vec::new(),
         estimate,
+        route_bounds: RangeRouteBounds::Off,
     };
     plan.fine_work_units = build_search_work_units(&plan, true, should_continue)?;
     plan.serial_work_units = if matches!(
@@ -1155,46 +1239,116 @@ where
         )?
         .into_boxed_slice(),
     );
-    let mut max_plan = Some(build_prepared_plan(
+    let mut max_plan = build_prepared_plan(
         &max_request,
         data,
         max_constraints,
-        Arc::clone(&shared_weapons),
+        shared_weapons,
         &mut should_continue,
-    )?);
-    let mut dp_reuse = DpReuse::from_plan(max_plan.as_ref().expect("max plan exists"));
+    )?;
+    let mut dp_reuse = DpReuse::from_plan(&max_plan);
     let range_reuse_enabled = level_range_reuse_enabled(request);
 
-    let mut results = Vec::with_capacity(ordered_levels.len());
-    for level in ordered_levels {
+    // The highest level runs first and records route bounds that prune the lower levels.
+    let mut max_rows = None;
+    let mut route_bounds = RangeRouteBounds::Off;
+    if ordered_levels.len() > 1 {
+        let recording = Arc::new(Mutex::new(RouteBoundRecord::default()));
+        max_plan.route_bounds = RangeRouteBounds::Record(Arc::clone(&recording));
+        match solve_range_level(
+            &max_plan,
+            range_reuse_enabled.then_some(&mut dp_reuse),
+            &should_continue,
+        ) {
+            Ok(rows) => {
+                max_rows = Some(rows);
+                max_plan.route_bounds = RangeRouteBounds::Off;
+                let recorded = Arc::try_unwrap(recording)
+                    .map_err(|_| "route bounds are still shared".to_string())?
+                    .into_inner()
+                    .map_err(|_| "failed to lock recorded route bounds".to_string())?;
+                route_bounds = RangeRouteBounds::Recorded(Arc::new(recorded));
+            }
+            Err(error) if error == "cancelled" => return Err(error),
+            // Other errors surface in level order, as the levels below may fail first.
+            Err(_) => max_plan.route_bounds = RangeRouteBounds::Off,
+        }
+    }
+
+    let solve_lower = |level: u16, dp_reuse: Option<&mut DpReuse>| {
         if !should_continue() {
             return Err("cancelled".to_string());
         }
         let mut level_request = request.clone();
         level_request.character_level = level;
-        let plan = if level == max_level {
-            max_plan.take().expect("max plan is consumed once")
+        let constraints = build_combat_constraints(&level_request, data)?;
+        let mut plan = level_plan_from(&max_plan, &level_request, constraints, &mut || {
+            should_continue()
+        })?;
+        plan.route_bounds = route_bounds.clone();
+        solve_range_level(&plan, dp_reuse, &should_continue)
+    };
+    // Without the shared DP cache, lower levels are independent and run side by side, one
+    // batch per pool width; results and progress still follow level order.
+    let batch = if range_reuse_enabled {
+        1
+    } else {
+        rayon::current_num_threads().max(1)
+    };
+    let (lower_levels, _) = ordered_levels.split_at(ordered_levels.len() - 1);
+    let mut results = Vec::with_capacity(ordered_levels.len());
+    for levels in lower_levels.chunks(batch) {
+        let solved: Vec<_> = if range_reuse_enabled {
+            levels
+                .iter()
+                .map(|&level| solve_lower(level, Some(&mut dp_reuse)))
+                .collect()
         } else {
-            let constraints = build_combat_constraints(&level_request, data)?;
-            build_prepared_plan(
-                &level_request,
-                data,
-                constraints,
-                Arc::clone(&shared_weapons),
-                &mut should_continue,
-            )?
+            levels
+                .par_iter()
+                .map(|&level| solve_lower(level, None))
+                .collect()
         };
-        let reuse = (range_reuse_enabled && level_plan_can_reuse(&plan, &dp_reuse))
-            .then_some(&mut dp_reuse);
-        let rows = optimize_prepared(&plan, 0, &should_continue, |_| {}, reuse)?;
-        results.push(LevelOptimizeResult { level, rows });
-        if !level_complete(level) {
-            return Err("cancelled".to_string());
+        for (&level, rows) in levels.iter().zip(solved) {
+            results.push(LevelOptimizeResult { level, rows: rows? });
+            if !level_complete(level) {
+                return Err("cancelled".to_string());
+            }
         }
+    }
+    if !should_continue() {
+        return Err("cancelled".to_string());
+    }
+    let rows = match max_rows {
+        Some(rows) => rows,
+        None => solve_range_level(
+            &max_plan,
+            range_reuse_enabled.then_some(&mut dp_reuse),
+            &should_continue,
+        )?,
+    };
+    results.push(LevelOptimizeResult {
+        level: max_level,
+        rows,
+    });
+    if !level_complete(max_level) {
+        return Err("cancelled".to_string());
     }
     Ok(results)
 }
 
+/// `dp_reuse` is the range's shared DP cache when its reuse is enabled.
+fn solve_range_level<C>(
+    plan: &PreparedSearchPlan<'_>,
+    dp_reuse: Option<&mut DpReuse>,
+    should_continue: &C,
+) -> Result<Vec<OptimizeResult>, String>
+where
+    C: Fn() -> bool + Sync,
+{
+    let reuse = dp_reuse.filter(|reuse| level_plan_can_reuse(plan, reuse));
+    optimize_prepared(plan, 0, should_continue, |_| {}, reuse)
+}
 /// Independent level ranges, such as one per affinity, on the shared Rayon pool. Results
 /// keep request order; `level_complete` also receives the request's position. The first
 /// error other than "cancelled" stops the remaining ranges, which then report "cancelled".
@@ -1797,6 +1951,25 @@ where
         .as_deref()
         .and_then(|reuse| reuse.max_search(&group.search));
     let dp_search = reused_search.as_ref().unwrap_or(&group.search);
+    let skill_objective = matches!(
+        request.objective,
+        OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
+    );
+    // A unit compares upgrades only when every one of its Ashes has positive routes.
+    if skill_objective
+        && let (RangeRouteBounds::Recorded(record), Some(cutoff)) = (&plan.route_bounds, cutoff)
+        && let Some(bounds) = aow_indices
+            .iter()
+            .map(|&aow_idx| record.ashes.get(&(group.prepared_idx, aow_idx)))
+            .collect::<Option<Vec<_>>>()
+        && bounds.iter().all(|bound| bound.largest < cutoff.score)
+        && (bounds.iter().all(|bound| bound.positive_routes)
+            || bounds.iter().all(|bound| bound.every_upgrade))
+    {
+        progress.advance(unit.candidate_count, unit.candidate_count, None)?;
+        progress.finish()?;
+        return Ok(Vec::new());
+    }
     let mut candidates: Vec<ScoredCandidate> =
         Vec::with_capacity(request.top_k.min(aow_indices.len()));
     let mut route_sets = Vec::with_capacity(aow_indices.len());
@@ -1901,16 +2074,27 @@ where
                 .all(|route| route.has_positive_corrections(plan.data))
         });
     let max_arc = formula_max_stats(dp_search, request, prepared.weapon)[STAT_ARC];
-    let mut higher_upgrade = None;
+    let mut arc_nonnegative = None;
     let mut dominating_upgrades = 0;
     let mut upper_keys: Vec<Option<UpgradeBound>> = route_sets.iter().map(|_| None).collect();
-    for &upgrade in prepared.upgrades.iter().rev() {
+    let recording = skill_objective && matches!(plan.route_bounds, RangeRouteBounds::Record(_));
+    let mut recorded_bounds = Vec::new();
+    // Per Ash: its largest route bound, the upgrades it was solved at, and those at which
+    // every route was bounded.
+    let mut ash_bounds = if recording {
+        vec![(ExactRational::zero(), 0_usize, 0_usize); route_sets.len()]
+    } else {
+        Vec::new()
+    };
+    for (upgrade_idx, &upgrade) in prepared.upgrades.iter().enumerate().rev() {
         let dominated = compare_upgrades
-            && higher_upgrade.replace(upgrade).is_some_and(|higher| {
-                crate::math::exact::upgrade_dominated(
+            && prepared
+                .inputs_dominated_by_next
+                .get(upgrade_idx)
+                .is_some_and(|&dominated| dominated)
+            && *arc_nonnegative.get_or_insert_with(|| {
+                crate::math::exact::arc_status_curve_nonnegative(
                     prepared.weapon,
-                    upgrade,
-                    higher,
                     max_arc,
                     plan.data,
                 )
@@ -2038,6 +2222,9 @@ where
         };
         for (position, &(aow_idx, ref route_set)) in route_sets.iter().enumerate() {
             progress.poll()?;
+            if recording {
+                ash_bounds[position].1 += 1;
+            }
             let aow_choice = &prepared.aow_choices[aow_idx];
             let routes = route_set.as_ref();
             let primary = primary_plans.get(&primary_effect_key(aow_choice));
@@ -2084,12 +2271,10 @@ where
                 )?;
                 continue;
             }
-            if routes.is_empty()
-                && matches!(
-                    request.objective,
-                    OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
-                )
-            {
+            if routes.is_empty() && skill_objective {
+                if recording {
+                    ash_bounds[position].2 += 1;
+                }
                 progress.advance(
                     group.search.candidate_count,
                     group.search.candidate_count,
@@ -2117,10 +2302,6 @@ where
                 // A route whose exact bound on the first key component it can still change
                 // is strictly below the threshold's cannot win: a skill objective's score, or
                 // full-sequence damage once the primary pair can at best tie. Ties are solved.
-                let skill_objective = matches!(
-                    request.objective,
-                    OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
-                );
                 let prune_below = threshold.and_then(|bound| {
                     if skill_objective {
                         Some(&bound.score)
@@ -2135,9 +2316,23 @@ where
                 });
                 let mut pruned = false;
                 let mut best = None;
-                for route in routes {
+                let first_hit = request.objective == OptimizeObjective::AowFirstHit;
+                let below = |(first, full): &RouteBound, threshold: &ExactRational| {
+                    (if first_hit { first } else { full }) < threshold
+                };
+                for (route_idx, route) in routes.iter().enumerate() {
                     if let Some(threshold) = prune_below {
-                        let (first, full) = crate::math::exact::exact_scalar_route_upper_bound(
+                        let key = (group.prepared_idx, aow_idx, upgrade, route_idx);
+                        if let RangeRouteBounds::Recorded(record) = &plan.route_bounds
+                            && record
+                                .routes
+                                .get(&key)
+                                .is_some_and(|bound| below(bound, threshold))
+                        {
+                            pruned = true;
+                            continue;
+                        }
+                        let bound = crate::math::exact::exact_scalar_route_upper_bound(
                             route,
                             prepared.weapon,
                             upgrade,
@@ -2147,12 +2342,18 @@ where
                             formula_max_stats(dp_search, request, prepared.weapon),
                             &mut route_curve_maxima,
                         )?;
-                        let bound = if request.objective == OptimizeObjective::AowFirstHit {
-                            first
-                        } else {
-                            full
-                        };
-                        if bound < *threshold {
+                        let prune = below(&bound, threshold);
+                        if recording {
+                            let changeable = if first_hit { &bound.0 } else { &bound.1 };
+                            let largest = &mut ash_bounds[position].0;
+                            if changeable > largest {
+                                *largest = changeable.clone();
+                            }
+                        }
+                        if matches!(plan.route_bounds, RangeRouteBounds::Record(_)) {
+                            recorded_bounds.push((key, bound));
+                        }
+                        if prune {
                             pruned = true;
                             continue;
                         }
@@ -2178,6 +2379,9 @@ where
                     {
                         best = Some(candidate);
                     }
+                }
+                if recording && prune_below.is_some() {
+                    ash_bounds[position].2 += 1;
                 }
                 match best {
                     Some(best) => best,
@@ -2239,6 +2443,28 @@ where
         }
     }
     progress.finish()?;
+    if let RangeRouteBounds::Record(record) = &plan.route_bounds {
+        let mut record = record
+            .lock()
+            .map_err(|_| "failed to lock recorded route bounds".to_string())?;
+        record.routes.extend(recorded_bounds);
+        if recording {
+            record
+                .ashes
+                .extend(route_sets.iter().zip(ash_bounds).filter_map(
+                    |((aow_idx, routes), (largest, solved, bounded))| {
+                        let bound = AshRouteBound {
+                            largest,
+                            every_upgrade: solved == prepared.upgrades.len(),
+                            positive_routes: routes
+                                .iter()
+                                .all(|route| route.has_positive_corrections(plan.data)),
+                        };
+                        (solved == bounded).then_some(((group.prepared_idx, *aow_idx), bound))
+                    },
+                ));
+        }
+    }
     Ok(candidates)
 }
 

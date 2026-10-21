@@ -138,7 +138,6 @@ pub struct Weapon {
     pub attack_element_correct_id: usize,
     pub damage_curve_ids: [usize; DAMAGE_TYPE_COUNT],
     pub status_curve_ids: StatusCurveIds,
-    pub disable_gem_attr: bool,
     pub can_change_aow: bool,
     pub is_somber: bool,
     pub disable_two_hand_bonus: bool,
@@ -152,11 +151,18 @@ pub struct StatusCurveIds {
     pub madness: usize,
 }
 
+// EquipParamWeapon wepType values (weapons.csv weapon_type_id) of the ranged types.
+const WEAPON_TYPE_LIGHT_BOW: u16 = 50;
+const WEAPON_TYPE_BOW: u16 = 51;
+const WEAPON_TYPE_GREATBOW: u16 = 53;
+const WEAPON_TYPE_CROSSBOW: u16 = 55;
+const WEAPON_TYPE_BALLISTA: u16 = 56;
+
 impl Weapon {
     pub fn forces_two_handing(&self) -> bool {
         matches!(
-            self.weapon_type_name.as_str(),
-            "Bow" | "Light Bow" | "Greatbow" | "Ballista"
+            self.weapon_type_id,
+            WEAPON_TYPE_LIGHT_BOW | WEAPON_TYPE_BOW | WEAPON_TYPE_GREATBOW | WEAPON_TYPE_BALLISTA
         )
     }
 
@@ -663,22 +669,43 @@ pub fn normalize_weapon_type_display(raw: &str) -> &str {
 
 pub fn weapon_uses_ammunition(weapon: &Weapon) -> bool {
     matches!(
-        normalize_weapon_type_token(&weapon.weapon_type_name).as_str(),
-        "lightbow" | "bow" | "greatbow" | "crossbow" | "ballista"
+        weapon.weapon_type_id,
+        WEAPON_TYPE_LIGHT_BOW
+            | WEAPON_TYPE_BOW
+            | WEAPON_TYPE_GREATBOW
+            | WEAPON_TYPE_CROSSBOW
+            | WEAPON_TYPE_BALLISTA
     )
-}
-
-fn normalize_weapon_type_token(value: &str) -> String {
-    value
-        .chars()
-        .filter(|character| character.is_ascii_alphanumeric())
-        .flat_map(char::to_lowercase)
-        .collect()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::normalize_weapon_type_display;
+    use super::{normalize_weapon_type_display, weapon_uses_ammunition};
+
+    #[test]
+    fn ranged_rules_follow_the_weapon_type_id_not_its_label() {
+        let data = crate::data::load_embedded_game_profile(crate::data::VANILLA_PROFILE_ID)
+            .expect("embedded Vanilla");
+        // (type label in the data, forces two-handing, uses ammunition)
+        for (label, forced, ammunition) in [
+            ("Light Bow", true, true),
+            ("Bow", true, true),
+            ("Greatbow", true, true),
+            ("Crossbow", false, true),
+            ("Ballista", true, true),
+            ("Dagger", false, false),
+        ] {
+            let mut weapon = data
+                .weapons
+                .iter()
+                .find(|weapon| weapon.weapon_type_name == label)
+                .unwrap_or_else(|| panic!("{label}"))
+                .clone();
+            weapon.weapon_type_name = "Relabeled".to_string();
+            assert_eq!(weapon.forces_two_handing(), forced, "{label}");
+            assert_eq!(weapon_uses_ammunition(&weapon), ammunition, "{label}");
+        }
+    }
 
     #[test]
     fn weapon_type_display_aliases_are_canonical() {

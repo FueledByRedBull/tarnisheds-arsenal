@@ -253,6 +253,8 @@ export interface ProfileRulesDto {
   somberMaxUpgrade: number;
   separateUpgradeCaps: boolean;
   scadutreeScaling: boolean;
+  /** Outgoing damage multiplier per Scadutree Blessing level, from level 0. */
+  scadutreeAttackMultipliers: number[];
   zeroAttackElementUsesWeaponScaling: boolean;
   extendedScalingGrades: boolean;
 }

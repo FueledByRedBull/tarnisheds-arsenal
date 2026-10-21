@@ -130,15 +130,7 @@ impl CatalogIndex {
                 weapon_type_options.insert((label.clone(), key.clone()));
             }
 
-            let cap = if weapon.is_somber {
-                data.rules.somber_max_upgrade
-            } else {
-                data.rules.standard_max_upgrade
-            };
-            if let Some(cap) = (0..=cap)
-                .rev()
-                .find(|&level| data.reinforce_level(weapon.reinforce_type, level).is_some())
-            {
+            if let Some(cap) = weapon_row_upgrade_cap(data, weapon) {
                 upgrade_cap_by_weapon
                     .entry(weapon_key.clone())
                     .and_modify(|current| *current = (*current).max(cap))
@@ -525,6 +517,18 @@ pub fn compatible_aow_names_inner(
             .cloned(),
     }
     .unwrap_or_default()
+}
+
+/// Highest level within the profile's cap that this row's reinforcement table defines.
+pub fn weapon_row_upgrade_cap(data: &GameData, weapon: &Weapon) -> Option<u8> {
+    let cap = if weapon.is_somber {
+        data.rules.somber_max_upgrade
+    } else {
+        data.rules.standard_max_upgrade
+    };
+    (0..=cap)
+        .rev()
+        .find(|&level| data.reinforce_level(weapon.reinforce_type, level).is_some())
 }
 
 pub fn weapon_upgrade_cap(

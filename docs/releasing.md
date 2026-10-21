@@ -49,8 +49,8 @@ before publication, so no follow-up documentation commit is needed.
 5. Wait for the ordinary `CI` workflow to succeed on that exact commit. The release
    workflow is the source of truth for the complete package build. If a local
    rehearsal is useful, run `python tools/phase4/package_release.py` from this clean
-   committed checkout after the push; it refuses dirty source and does not replace
-   the CI artifacts. It also refuses an existing `dist/TarnishedsArsenal_<version>`
+   committed checkout after the push; it refuses dirty source or a set
+   `CARGO_TARGET_DIR` and does not replace the CI artifacts. It also refuses an existing `dist/TarnishedsArsenal_<version>`
    output or ZIP; `--replace-output` deliberately refreshes only that output's
    known files and stops if the directory holds anything else.
 

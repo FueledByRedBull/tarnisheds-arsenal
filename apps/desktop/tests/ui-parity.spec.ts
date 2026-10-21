@@ -37,6 +37,12 @@ test("long Paths curves retain all points with sparse markers and keyboard inspe
   await page.getByRole("navigation").getByRole("button", { name: "Paths", exact: true }).click();
   await page.getByRole("button", { name: "Trace paths", exact: true }).click();
   await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "completed");
+  // Lanes are matched by stable ids; the labels are display text.
+  expect(await page.evaluate(async () => {
+    const { useDesktopStore } = await import("/src/lib/state.ts");
+    return useDesktopStore.getState().paths.map((path) => path.title);
+  })).toEqual(["selected", "compare"]);
+  await expect(page.locator(".path-lane").nth(1)).toContainText(/steps, final/);
   await page.evaluate(async () => {
     const { useDesktopStore } = await import("/src/lib/state.ts");
     const state = useDesktopStore.getState();
@@ -152,6 +158,8 @@ test("profile switch isolates results and explains Convergence coverage", async 
   await expect(
     page.getByText(/Ammo weapons and AoW hit\/route damage remain unsupported/),
   ).toBeVisible();
+  // The coverage note names the exact mod and game versions the bundled data models.
+  await expect(page.getByText(/^Convergence 3\.0\.3\.0 \(game 1\.17\.1\) weapon AR/)).toBeVisible();
   await expect(page.getByText("4 ranked rows")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "AoW First Hit" })).toHaveCount(0);
   await openEditor(page, "Class");
@@ -650,7 +658,7 @@ test("stale saved builds offer explicit input-only loading or recompute migratio
   // Unnamed saves take the selected build's name, as the game names weapons.
   await expect(page.getByText(/Saved Blood Uchigatana \+25/)).toBeVisible();
   await expect(page.locator(".saved-build-status")).toHaveText("Saved with the current game data");
-  await expect(page.locator(".saved-build-status")).toHaveAttribute("title", /^profile vanilla · dataset vanilla-1\.17-r3 · schema \d+ · model /);
+  await expect(page.locator(".saved-build-status")).toHaveAttribute("title", /^profile vanilla · dataset vanilla-1\.17\.2 · schema \d+ · model /);
 
   await page.evaluate(() => {
     const presetKey = Object.keys(localStorage).find((key) => key.startsWith("tarnisheds-arsenal.savedBuild.v2."));
@@ -696,6 +704,28 @@ test("reduced-motion preference drops travel but keeps loaders alive", async ({ 
   await expect(probe).toHaveCSS("animation-iteration-count", "infinite");
   expect(await page.evaluate(() => getComputedStyle(document.querySelector(".reduced-motion-probe")!, "::after").animationName)).toBe("none");
 });
+
+for (const reducedMotion of ["reduce", "no-preference"] as const) {
+  test(`Compare's upgrade matrix scrolls ${reducedMotion === "reduce" ? "instantly" : "smoothly"} with ${reducedMotion} motion`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await expect(page.getByText("4 ranked rows")).toBeVisible();
+    await openCompare(page);
+    await page.evaluate(() => {
+      const scrolls: string[] = [];
+      Object.assign(window, { matrixScrolls: scrolls });
+      const wrap = document.querySelector<HTMLElement>(".matrix-wrap")!;
+      const scrollTo = wrap.scrollTo.bind(wrap);
+      wrap.scrollTo = ((options: ScrollToOptions) => {
+        scrolls.push(String(options.behavior));
+        scrollTo(options);
+      }) as typeof wrap.scrollTo;
+    });
+    await page.locator(".matrix-toolbar").getByRole("button", { name: "+0", exact: true }).click();
+    expect(await page.evaluate(() => (window as any).matrixScrolls)).toEqual([reducedMotion === "reduce" ? "auto" : "smooth"]);
+  });
+}
 
 test("searchable selects expose keyboard and screen-reader state", async ({ page }) => {
   await page.goto("/");

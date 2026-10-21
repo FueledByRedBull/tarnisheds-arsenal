@@ -12,7 +12,8 @@ import textwrap
 import unittest
 import zipfile
 from pathlib import Path
-from unittest.mock import patch
+from typing import cast
+from unittest.mock import Mock, patch
 
 from tools.phase4 import package_release
 
@@ -67,6 +68,14 @@ def package_main(root: Path, stack: contextlib.ExitStack, *argv: str):
 
 
 class PackageReleaseTests(unittest.TestCase):
+    def setUp(self) -> None:
+        # The packager refuses a redirected cargo target directory, which developers often set.
+        environment = patch.dict(package_release.os.environ)
+        environment.start()
+        self.addCleanup(environment.stop)
+        for name in ("CARGO_TARGET_DIR", "CARGO_BUILD_TARGET_DIR"):
+            package_release.os.environ.pop(name, None)
+
     def test_frontend_gate_failure_stops_packaging(self) -> None:
         for gate in ["lint", "test:contracts"]:
             with self.subTest(gate=gate), tempfile.TemporaryDirectory() as directory, contextlib.ExitStack() as stack:
@@ -91,6 +100,17 @@ class PackageReleaseTests(unittest.TestCase):
                 self.assertEqual(commands[-1][1:], ["run", gate])
                 self.assertFalse(any("tauri" in command for command in commands))
                 self.assertFalse((root / "dist").exists())
+
+    def test_redirected_cargo_target_directory_is_refused_before_building(self) -> None:
+        for name in ("CARGO_TARGET_DIR", "CARGO_BUILD_TARGET_DIR"):
+            with (self.subTest(name=name), tempfile.TemporaryDirectory() as directory,
+                  contextlib.ExitStack() as stack):
+                stack.enter_context(patch.dict(package_release.os.environ, {name: directory}))
+                with self.assertRaisesRegex(RuntimeError, f"unset {name}"):
+                    package_main(Path(directory), stack)
+                run = package_release.run
+                self.assertIsInstance(run, Mock)
+                self.assertFalse(cast(Mock, run).called)
 
     def test_workflow_wires_ci_proof_to_only_default_branch_previews(self) -> None:
         workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/release-package.yml").read_text(encoding="utf-8")

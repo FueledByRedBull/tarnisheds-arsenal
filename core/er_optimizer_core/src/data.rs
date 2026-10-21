@@ -361,6 +361,26 @@ fn validate_cross_table_references(data: &GameData) -> Result<(), String> {
             }
         }
     }
+    // A missing passive row would otherwise read as zero status buildup.
+    if data.capabilities.status_buildup && !data.capabilities.weapon_passives {
+        return Err("manifest statusBuildup requires weaponPassives".to_string());
+    }
+    if data.capabilities.weapon_passives {
+        if let Some(weapon) = data
+            .weapons
+            .iter()
+            .find(|weapon| !data.weapon_passives.contains_key(&weapon.weapon_id))
+        {
+            return Err(format!(
+                "weapon {} has no weapon_passives.csv row",
+                weapon.weapon_id
+            ));
+        }
+    } else if !data.weapon_passives.is_empty() || !data.weapon_passive_overlays.is_empty() {
+        return Err(
+            "manifest weaponPassives=false disagrees with weapon passive tables".to_string(),
+        );
+    }
     let mut aow_ids = HashSet::with_capacity(data.aows.len());
     if let Some(aow) = data.aows.iter().find(|aow| !aow_ids.insert(aow.aow_id)) {
         return Err(format!("duplicate aow_id: {}", aow.aow_id));
@@ -458,7 +478,7 @@ fn load_starting_classes(table: CsvTable) -> Result<Vec<StartingClass>, String> 
         let name = row[name_idx].to_string();
         let base_level = parse_u16(&row[level_idx], "base_level")?;
         let base_total = base_stats.sum_all_8();
-        if base_level + CLASS_LEVEL_OFFSET != base_total {
+        if base_level.checked_add(CLASS_LEVEL_OFFSET) != Some(base_total) {
             return Err(format!(
                 "{CLASS_CATALOG_FILE} class {name} level {base_level} does not match its attribute total {base_total}"
             ));
@@ -634,6 +654,8 @@ fn load_weapons(table: CsvTable) -> Result<Vec<Weapon>, String> {
             parse_usize(&row[curve_id_lightning], "curve_id_lightning")?,
             parse_usize(&row[curve_id_holy], "curve_id_holy")?,
         ];
+        // Validated as part of the snapshot contract even though no runtime rule reads it.
+        parse_bool_u8(&row[disable_gem_attr], "disable_gem_attr")?;
         out.push(Weapon {
             weapon_id: parse_u32(&row[weapon_id], "weapon_id")?,
             name: row[name].to_string(),
@@ -696,7 +718,6 @@ fn load_weapons(table: CsvTable) -> Result<Vec<Weapon>, String> {
                 madness: parse_usize(&row[curve_id_madness], "curve_id_madness")?,
             },
             can_change_aow: parse_bool_u8(&row[can_change_aow], "can_change_aow")?,
-            disable_gem_attr: parse_bool_u8(&row[disable_gem_attr], "disable_gem_attr")?,
             is_somber: parse_bool_u8(&row[is_somber], "is_somber")?,
             disable_two_hand_bonus: parse_bool_u8(
                 &row[disable_two_hand_bonus],
@@ -1232,11 +1253,17 @@ fn load_aow_attack_rows(table: CsvTable) -> Result<HashMap<u16, Vec<AowAttackRow
     let attack_columns = aow_attack_columns(&table)?;
     let [aow_id] = table.columns(["aow_id"])?;
     let mut out: HashMap<u16, Vec<AowAttackRow>> = HashMap::new();
+    let mut seen = HashSet::new();
     for row in &table.rows {
         let aow_id = parse_u16(&row[aow_id], "aow_id")?;
-        out.entry(aow_id)
-            .or_default()
-            .push(parse_aow_attack_row(&attack_columns, row, aow_id)?);
+        let attack = parse_aow_attack_row(&attack_columns, row, aow_id)?;
+        if !seen.insert((aow_id, attack.sheet_row)) {
+            return Err(format!(
+                "duplicate AoW attack entry aow_id={aow_id} sheet_row={}",
+                attack.sheet_row
+            ));
+        }
+        out.entry(aow_id).or_default().push(attack);
     }
 
     for rows in out.values_mut() {
@@ -1251,12 +1278,18 @@ fn load_native_skill_attack_rows(
     let attack_columns = aow_attack_columns(&table)?;
     let [weapon_id, aow_id] = table.columns(["weapon_id", "aow_id"])?;
     let mut out: HashMap<u32, Vec<AowAttackRow>> = HashMap::new();
+    let mut seen = HashSet::new();
     for row in &table.rows {
         let weapon_id = parse_u32(&row[weapon_id], "weapon_id")?;
         let aow_id = parse_u16(&row[aow_id], "aow_id")?;
-        out.entry(weapon_id)
-            .or_default()
-            .push(parse_aow_attack_row(&attack_columns, row, aow_id)?);
+        let attack = parse_aow_attack_row(&attack_columns, row, aow_id)?;
+        if !seen.insert((weapon_id, attack.sheet_row)) {
+            return Err(format!(
+                "duplicate native skill attack entry weapon_id={weapon_id} sheet_row={}",
+                attack.sheet_row
+            ));
+        }
+        out.entry(weapon_id).or_default().push(attack);
     }
 
     for rows in out.values_mut() {
@@ -1426,12 +1459,20 @@ fn load_aow_route_assignments(
         "hit_order",
     ])?;
     let mut out: HashMap<(u16, u16), Vec<AowRouteAssignment>> = HashMap::new();
+    let mut seen = HashSet::new();
     for row in &table.rows {
         let aow_id = parse_u16(&row[aow_id], "aow_id")?;
         let sheet_row = parse_u16(&row[sheet_row], "sheet_row")?;
         let hit_count = parse_u16(&row[hit_count], "hit_count")?;
         if hit_count == 0 {
             return Err("route hit_count must be positive".into());
+        }
+        // A row's hits enter a route once; repeats are expressed by hit_count.
+        if !seen.insert((aow_id, sheet_row, &row[route_id])) {
+            return Err(format!(
+                "duplicate AoW route assignment aow_id={aow_id} sheet_row={sheet_row} route_id={}",
+                &row[route_id]
+            ));
         }
         out.entry((aow_id, sheet_row))
             .or_default()
@@ -1734,6 +1775,64 @@ mod tests {
         }
 
         #[test]
+        fn weapon_missing_from_passives_fails_closed_instead_of_zero_status() {
+            let passives = embedded_vanilla_csv("weapon_passives.csv").unwrap();
+            let mut lines = passives.lines();
+            let header = lines.next().unwrap();
+            let dropped = lines.next().unwrap();
+            let weapon_id = dropped.split(',').next().unwrap();
+            let rest = lines.collect::<Vec<_>>().join("\n");
+            let invalid: &'static [u8] = Box::leak(
+                format!("{header}\n{rest}\n")
+                    .into_bytes()
+                    .into_boxed_slice(),
+            );
+            let mut manifest: serde_json::Value =
+                serde_json::from_slice(include_bytes!("../../../data/phase1/manifest.json"))
+                    .unwrap();
+            let record = manifest["runtimeFiles"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|file| file["path"] == "weapon_passives.csv")
+                .unwrap();
+            record["size"] = invalid.len().into();
+            record["sha256"] = format!("{:x}", Sha256::digest(invalid)).into();
+            let content = |name: &str| {
+                if name == "weapon_passives.csv" {
+                    Some(invalid)
+                } else {
+                    embedded_vanilla_csv(name).map(str::as_bytes)
+                }
+            };
+            let verified =
+                validate_embedded_snapshot(&serde_json::to_vec(&manifest).unwrap(), content)
+                    .unwrap();
+            let error = match load_validated_game_data(verified, content) {
+                Ok(_) => panic!("a weapon without passive data must not load as zero status"),
+                Err(error) => error,
+            };
+            assert!(
+                error.contains(weapon_id) && error.contains("weapon_passives.csv"),
+                "{error}"
+            );
+        }
+
+        #[test]
+        fn weapon_passive_capability_must_agree_with_status_and_tables() {
+            let mut data = load_embedded_game_profile(VANILLA_PROFILE_ID).unwrap();
+            validate_cross_table_references(&data).unwrap();
+            data.capabilities.weapon_passives = false;
+            assert!(validate_cross_table_references(&data).is_err());
+            data.capabilities.status_buildup = false;
+            let error = validate_cross_table_references(&data).unwrap_err();
+            assert!(error.contains("weaponPassives=false"), "{error}");
+            data.weapon_passives.clear();
+            data.weapon_passive_overlays.clear();
+            validate_cross_table_references(&data).unwrap();
+        }
+
+        #[test]
         fn unused_effect_columns_still_fail_closed() {
             let content = embedded_vanilla_csv("aow_effect_data.csv").unwrap();
             let mut lines = content.lines();
@@ -1940,6 +2039,19 @@ mod tests {
         );
     }
 
+    #[test]
+    fn class_level_overflow_fails_closed() {
+        // 65465 + 79 wraps to 8, the all-ones attribute total, without checked arithmetic.
+        let csv = "class_id,name,base_level,vig,mnd,end,str,dex,int,fai,arc\n\
+                   1,Wrapped,65465,1,1,1,1,1,1,1,1\n";
+        let table = CsvTable::from_content("classes.csv".into(), csv).unwrap();
+        let error = super::load_starting_classes(table).unwrap_err();
+        assert!(
+            error.contains("does not match its attribute total"),
+            "{error}"
+        );
+    }
+
     fn duplicate_first_data_row(content: &str) -> String {
         let mut lines = content.lines();
         let header = lines.next().expect("CSV header");
@@ -2104,6 +2216,24 @@ mod tests {
             load_weapon_passive_overlays,
             "duplicate weapon passive overlay entry",
         );
+        assert_duplicate_row_rejected(
+            "aow-attack-data",
+            super::embedded_vanilla_csv("aow_attack_data.csv").unwrap(),
+            super::load_aow_attack_rows,
+            "duplicate AoW attack entry",
+        );
+        assert_duplicate_row_rejected(
+            "native-skill-attack-data",
+            super::embedded_vanilla_csv("native_skill_attack_data.csv").unwrap(),
+            super::load_native_skill_attack_rows,
+            "duplicate native skill attack entry",
+        );
+        assert_duplicate_row_rejected(
+            "aow-route-assignments",
+            super::embedded_vanilla_csv("aow_route_assignments.csv").unwrap(),
+            super::load_aow_route_assignments,
+            "duplicate AoW route assignment",
+        );
     }
 
     #[test]
@@ -2111,7 +2241,7 @@ mod tests {
         let data = load_embedded_game_profile(CONVERGENCE_PROFILE_ID)
             .expect("Convergence embedded snapshot loads");
         assert_eq!(data.profile_id, CONVERGENCE_PROFILE_ID);
-        assert_eq!(data.dataset_version, "convergence-3.0.0.1-r4");
+        assert_eq!(data.dataset_version, "convergence-3.0.3.0");
         assert_eq!(data.rules.standard_max_upgrade, 15);
         assert_eq!(data.rules.somber_max_upgrade, 15);
         assert!(!data.rules.separate_upgrade_caps);
@@ -2120,7 +2250,7 @@ mod tests {
         assert!(!data.rules.scadutree_scaling);
         assert!(!data.rules.zero_attack_element_uses_weapon_scaling);
         // The regulation's own classes, never Vanilla's, plus the exact Custom stats entry.
-        assert_eq!(data.starting_classes.len(), 27);
+        assert_eq!(data.starting_classes.len(), 29);
         let retainer = data.class_by_name("Retainer").expect("Convergence class");
         assert_eq!((retainer.base_level, retainer.base_total), (9, 88));
         assert!(data.class_by_name("Samurai").is_none());
@@ -2133,7 +2263,7 @@ mod tests {
         );
         assert!(data.rules.extended_scaling_grades);
         assert!(!data.rules.status_buildup_scales);
-        assert_eq!(data.weapons.len(), 3189);
+        assert_eq!(data.weapons.len(), 3305);
         assert!(data.weapons.iter().any(|weapon| weapon.affinity == "Glint"));
         assert!(data.weapons.iter().any(|weapon| {
             weapon.weapon_id == 10_200_000 && weapon.name == "Galvanic Culling Blade [Twinblade]"
@@ -2171,10 +2301,10 @@ mod tests {
         assert!(
             data.aows
                 .iter()
-                .any(|aow| aow.aow_id == 105 && aow.name == "Ancient Thunderclap")
+                .any(|aow| aow.aow_id == 121 && aow.name == "Storm Stomp")
         );
         assert!(data.weapons.iter().any(|weapon| {
-            weapon.native_skill_id == Some(105)
+            weapon.native_skill_id == Some(815)
                 && weapon.native_skill_name.as_deref() == Some("Ancient Thunderclap")
         }));
         assert!(!data.capabilities.aow_damage);

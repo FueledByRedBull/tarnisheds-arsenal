@@ -37,10 +37,11 @@ recover original decimal precision or establish in-game accuracy. The
 arithmetic, tie order, and proof obligations.
 
 The current snapshot model is `aow-routes-effects-v9`; runtime results and caches
-use `aow-routes-effects-v9/exact-v3`. The bundled datasets are `vanilla-1.17-r3` and
-`convergence-3.0.0.1-r4`, written by extractor `phase1-python-v15-f32-shortest-floats`.
+use `aow-routes-effects-v9/exact-v3`. The bundled datasets are `vanilla-1.17.2` and
+`convergence-3.0.3.0`, written by extractor `phase1-python-v15-f32-shortest-floats`.
 Every snapshot float is the shortest decimal that parses to the `f32` nearest the
 extracted value, so loaded coefficients are exactly those `f32` values.
+The loader rejects a manifest recording any other model or extractor version.
 Storage schema and calculation semantics are
 separate versions. The [extraction guide](../tools/phase1/README.md#snapshot-contract)
 owns the storage format and regeneration requirements. Incompatible saved results
@@ -56,7 +57,10 @@ They establish implementation agreement for their fixtures, not gameplay fidelit
 
 ## Vanilla
 
-The bundled snapshot targets **Elden Ring 1.17**. Objectives are **Max AR**,
+The bundled snapshot targets **Elden Ring 1.17.2** (regulation 1.17.3). That patch
+changed only the Fletched Piquebone Arrow projectile's attack link, so every
+extracted table is byte-identical to 1.17; motion data still comes from the
+App Ver. 1.17 workbook. Objectives are **Max AR**,
 **Max Physical AR**, **Bleed, then AR**, **AoW First Hit (PvE)**, and
 **AoW Full Sequence (PvE)**.
 
@@ -132,18 +136,19 @@ and its engine application still require verification.
 
 ## Convergence
 
-The **Convergence 3.0.0.1** profile is experimental and independent of Vanilla.
-Its snapshot, `convergence-3.0.0.1-r4`, is extracted from the mod's own
-regulation. A version-bound reference checks weapon availability, base attack,
+The **Convergence 3.0.3.0** profile is experimental and independent of Vanilla.
+The mod is built on game version 1.17.1. Its snapshot, `convergence-3.0.3.0`, is
+extracted from the mod's own regulation. A version-bound reference checks weapon availability, base attack,
 requirements, raw scaling, affinities, base status, and the attack-element and
 correction-curve IDs each weapon uses. The pinned
-[T. Clark calculator](#checking-model-coverage), which ships the same mod data,
-agrees with every sampled weapon AR and status value. Neither check is an
+[T. Clark calculator](#checking-model-coverage), run on data its own build script
+produces from the same mod files, agrees with every sampled weapon AR and status
+value. Neither check is an
 in-game measurement.
 
 | Capability | Behavior |
 | --- | --- |
-| Character | The mod's 27 starting classes and Rune Levels, from `CharaInitParam` rows listed by the character-creation menu, plus exact **Custom stats** |
+| Character | The mod's 29 starting classes and Rune Levels, from `CharaInitParam` rows listed by the character-creation menu, plus exact **Custom stats** |
 | Upgrades | One reinforcement path, `+0` through `+15` |
 | Scaling | Extended `S+`/`S++` grades; no Scadutree Blessing scaling |
 | Status | Fixed across stats and upgrades, as the data defines it |
@@ -159,7 +164,7 @@ What the regulation shows, and how the profile uses it:
 
 - **Attack elements.** Almost every Convergence weapon omits
   `attackElementCorrectId` and takes the param default, row `16000` ("Universal
-  Scaling"), in which every attribute can scale every damage type. A few use row
+  Scaling"), in which every attribute can scale every damage type. One uses row
   `10000`. Row `0` is not used by any player weapon and is kept as raw data.
 - **Status.** The status correction curves default to curve `28`, which is zero
   at every attribute value, so Arcane adds nothing to bleed, poison, sleep, or
@@ -234,9 +239,10 @@ python tools/phase4/validate_external_calculator.py --profile convergence --coun
 ```
 
 The runner uses pinned T. Clark source/data, the installed frontend TypeScript
-compiler, and the current Rust evaluator. The pinned commit also ships the
-Convergence 3.0.0.1 data file; its calculator has no Convergence-specific AR or
-status branch. Bows are left out of the Convergence comparison with the rest of
+compiler, and the current Rust evaluator. The pinned commit publishes
+no Convergence data past 3.0.0.1, so its own `src/buildData.ts` was run on the
+3.0.3.0 mod files; the output is tracked, hash-pinned, in `data/reference/tclark/`.
+Its calculator has no Convergence-specific AR or status branch. Bows are left out of the Convergence comparison with the rest of
 the ammunition model. Each sampled configuration covers zero,
 random, and maximum upgrades in both handling modes. Use another seed for new
 cases. To cover every named weapon, pass a `--count` equal to the number of usable

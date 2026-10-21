@@ -315,7 +315,8 @@ export function SavedBuildPanel() {
         <summary>Import a build</summary>
         <label>
           Import JSON or Share Text
-          <textarea value={importText} onChange={(event) => setImportText(event.target.value)} />
+          {/* A Replace choice was made for the previous text; a new paste starts from the safe copy. */}
+          <textarea value={importText} onChange={(event) => { setImportText(event.target.value); setReplaceImport(false); }} />
         </label>
         {importPreview?.value ? (
           <div className="import-preview">

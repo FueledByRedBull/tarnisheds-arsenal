@@ -41,6 +41,11 @@ def node_cmd() -> str:
     return "node.exe" if os.name == "nt" else "node"
 
 
+def build_environment(tauri_dir: Path) -> dict[str, str]:
+    # The variable outranks a `[build] target-dir` in any Cargo config file.
+    return {**os.environ, "CARGO_TARGET_DIR": str(tauri_dir / "target")}
+
+
 def run(cmd: list[str], cwd: Path, *, env: dict[str, str] | None = None) -> None:
     subprocess.run(cmd, cwd=cwd, check=True, env=env)
 
@@ -598,7 +603,7 @@ def _sign_with_thumbprint(
     expected_msi_hash = expected_msi_payload_sha256(exe)
     snapshot = directory / "signed-msi-payload.exe"
     config = write_tauri_signing_config(directory, exe.name)
-    signing_env = os.environ.copy()
+    signing_env = build_environment(tauri_dir)
     signing_env.update(
         {
             "TAURI_RELEASE_SIGNTOOL": str(signtool),
@@ -650,6 +655,14 @@ def main() -> int:
         help="Deliberately refresh only the known files in an existing version output.",
     )
     args = parser.parse_args()
+    # Build outputs are read from src-tauri/target; a redirected target directory would let an
+    # older binary there be packaged and labelled with the current commit.
+    redirected = [name for name in ("CARGO_TARGET_DIR", "CARGO_BUILD_TARGET_DIR") if os.environ.get(name)]
+    if redirected:
+        raise RuntimeError(
+            f"unset {' and '.join(redirected)}: packaging reads build output from "
+            "apps/desktop/src-tauri/target"
+        )
     signing_credentials = take_signing_credentials()
 
     root = Path(__file__).resolve().parents[2]
@@ -831,7 +844,7 @@ def main() -> int:
     if signing_credentials is not None:
         build_command.append("--no-bundle")
     build_command.extend(["--", "--locked"])
-    run(build_command, cwd=app_dir)
+    run(build_command, cwd=app_dir, env=build_environment(tauri_dir))
     require_unchanged_tracked_source(root, source_commit, stage="Tauri build")
     packaged_exe, packaged_msi, code_signed, expected_msi_payload = sign_release_binaries_if_configured(
         app_dir,

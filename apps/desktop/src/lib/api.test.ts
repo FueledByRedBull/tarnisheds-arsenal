@@ -4,12 +4,13 @@ import { api } from "./api";
 import { defaultRequest } from "./state";
 import type { SolvedBuildDto } from "./types";
 
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+// The real isTauri() reads the global flag the Tauri runtime defines.
+vi.mock("@tauri-apps/api/core", async (importOriginal) => ({ ...await importOriginal<object>(), invoke: vi.fn() }));
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.resetAllMocks(); });
 
 it("serializes solve and upgrade calculations until cancelled native work finishes", async () => {
   vi.useFakeTimers();
-  vi.stubGlobal("window", { __TAURI_INTERNALS__: {} });
+  vi.stubGlobal("isTauri", true);
   let finished = false;
   const calls: string[] = [];
   vi.mocked(invoke).mockImplementation(async (command, args) => {
@@ -49,7 +50,7 @@ it("does not start native calculations for an already aborted caller", async () 
 
 it("queues the frontier with other analyses and forwards the fixed context", async () => {
   vi.useFakeTimers();
-  vi.stubGlobal("window", { __TAURI_INTERNALS__: {} });
+  vi.stubGlobal("isTauri", true);
   let released = false;
   const points = [{ minimumArLossBps: 101, arLossPercent: 1.001 }];
   vi.mocked(invoke).mockImplementation(async (command, args) => {
@@ -96,7 +97,7 @@ describe("native and browser preview boundary", () => {
   });
 
   it("reports a native failure without replacing it with preview results", async () => {
-    vi.stubGlobal("window", { __TAURI_INTERNALS__: {} });
+    vi.stubGlobal("isTauri", true);
     vi.stubEnv("DEV", true);
     vi.mocked(invoke).mockRejectedValueOnce({ message: "Snapshot rejected" });
     await expect(api.profiles()).rejects.toThrow("Snapshot rejected");

@@ -7,7 +7,6 @@ import { useWeaponProfile } from "../../lib/hooks";
 import { isTextEntry, keyboardOwnedByOverlay } from "../../lib/keyboard";
 import { describeStep, redoQuery, trackQueryHistory, undoQuery, useQueryHistory } from "../../lib/query-history";
 import { flashChanged } from "../../lib/motion";
-import { scadutreeAttackMultiplier } from "../../lib/scadutree";
 import { budgetSnapshot, classMeta, derivedLevel, EIGHT_STAT_KEYS, hasCombatStatLocks, optimalStartingClass, startingClassLevel, usesFixedStats } from "../../lib/session";
 import { defaultRequest, useDesktopStore } from "../../lib/state";
 import { EightStatsDto, OptimizeRequestDto } from "../../lib/types";
@@ -99,6 +98,8 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   const rules = catalog?.dataManifest.rules;
   const separateUpgradeCaps = rules?.separateUpgradeCaps ?? true;
   const scadutreeAvailable = rules?.scadutreeScaling ?? true;
+  const scadutreeMultipliers = rules?.scadutreeAttackMultipliers ?? [];
+  const blessingMultiplier = scadutreeMultipliers[request.scadutreeLevel];
   const standardUpgradeLimit = rules?.standardMaxUpgrade ?? 25;
   const somberUpgradeLimit = rules?.somberMaxUpgrade ?? 10;
   const exactLocksActive = lockedStatMode && hasCombatStatLocks(request);
@@ -361,8 +362,8 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
             changeKey={optionsSummary}
             trigger={optionParts.length ? optionsSummary : <><span aria-hidden="true">+ </span>More options</>}
             triggerLabel={`More options: ${scalingSummary}, ${resultsSummary}, ${limitsSummary}`}
-            triggerTitle={scadutreeAvailable && request.dlcScaling
-              ? `Scadutree Blessing ${request.scadutreeLevel}: x${scadutreeAttackMultiplier(true, request.scadutreeLevel).toFixed(2)} damage`
+            triggerTitle={scadutreeAvailable && request.dlcScaling && blessingMultiplier !== undefined
+              ? `Scadutree Blessing ${request.scadutreeLevel}: x${blessingMultiplier.toFixed(2)} damage`
               : "Scadutree Blessing, result count and grouping, stat locks and minimums"}
             triggerClassName={`strip-token ${limitParts.length ? "attention" : optionParts.length ? "" : "quiet"}`}
             panelClassName="editor-panel options-panel"
@@ -371,7 +372,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
               <section aria-labelledby="options-scaling">
                 <h3 id="options-scaling">Scadutree Blessing</h3>
                 {scadutreeAvailable ? (
-                  <ScalingEditor request={request} patchRequest={patchRequest} />
+                  <ScalingEditor request={request} patchRequest={patchRequest} attackMultipliers={scadutreeMultipliers} />
                 ) : (
                   <div className="editor-body profile-rule-note" role="note">
                     <span>Convergence rule</span>
@@ -474,13 +475,13 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
         <span
           className="ribbon-readout"
           title={fixedStats
-            ? "Convergence uses the entered combat stats exactly"
+            ? "Search uses the entered combat stats exactly"
             : "STR/DEX/INT/FAI/ARC points a respec can move: what is left after class minimums, fixed VIG/MND/END, and minimum floors"}
         >
           <span>{fixedStats ? "Mode" : "Respec points"}</span>
           <strong>{fixedStats ? "Fixed stats" : budget.redistributable}</strong>
           <span className="sr-only">{fixedStats
-            ? ", Convergence uses the entered combat stats exactly"
+            ? ", search uses the entered combat stats exactly"
             : ", STR, DEX, INT, FAI and ARC points a respec can move, after class minimums, fixed VIG, MND and END, and minimum floors"}</span>
         </span>
         <span className="ribbon-divider" aria-hidden="true" />

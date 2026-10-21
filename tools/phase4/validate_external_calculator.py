@@ -162,14 +162,19 @@ class ReferenceProfile:
     regulation_sha256: str
     affinities: Mapping[int, str]
     bleed_boundaries: bool
+    # A repository file produced by the pinned commit's own data build, for versions
+    # that commit does not publish; otherwise regulation_file is fetched from it.
+    tracked: bool = False
 
     @property
     def regulation_url(self) -> str:
         return f"{REFERENCE_RAW_URL}/{self.regulation_file}"
 
 
-# The pinned commit ships both data files; its calculator has no mod-specific AR or
-# status branch, so Convergence is compared with the same engine model as Vanilla.
+# The pinned commit ships the Vanilla data file. Convergence 3.0.3.0 data comes from the
+# same commit's src/buildData.ts run on the mod files (see data/reference/tclark). Its
+# calculator has no mod-specific AR or status branch, so Convergence is compared with
+# the same engine model as Vanilla.
 REFERENCE_PROFILES = {
     "vanilla": ReferenceProfile(
         "vanilla",
@@ -180,10 +185,11 @@ REFERENCE_PROFILES = {
     ),
     "convergence": ReferenceProfile(
         "convergence",
-        "public/regulation-convergence-v3.0.0.1.js",
-        "d80005ff769d48cb4d0b30cb07caecee64ed1c12de853897f11dc4a374fb56c0",
+        "data/reference/tclark/regulation-convergence-v3.0.3.0.js",
+        "3df57047113066ed65652435b35ddbcefc97eb11694625eea1e7986f884d85d2",
         {-1: "Standard", **CONVERGENCE_AFFINITIES},
         False,
+        tracked=True,
     ),
 }
 
@@ -728,16 +734,20 @@ def prepare_reference(
     """Reuse cached pinned files whose hashes match; download any missing or bad file."""
     tclark_dir = workdir / "tclark"
     pinned = {
-        **{f"{REFERENCE_RAW_URL}/{relative}": (tclark_dir / relative, digest)
-           for relative, digest in REFERENCE_FILES.items()},
-        reference.regulation_url: (
-            tclark_dir / reference.regulation_file, reference.regulation_sha256
-        ),
+        f"{REFERENCE_RAW_URL}/{relative}": (tclark_dir / relative, digest)
+        for relative, digest in REFERENCE_FILES.items()
     }
+    if reference.tracked:
+        regulation = ROOT / reference.regulation_file
+        if not _verified(regulation, reference.regulation_sha256):
+            raise ValueError(f"tracked reference data hash mismatch: {reference.regulation_file}")
+    else:
+        regulation = tclark_dir / reference.regulation_file
+        pinned[reference.regulation_url] = (regulation, reference.regulation_sha256)
     for url, (path, digest) in pinned.items():
         if not _verified(path, digest):
             _download_verified(url, digest, path)
-    return tclark_dir / "src", tclark_dir / reference.regulation_file
+    return tclark_dir / "src", regulation
 
 
 @contextmanager

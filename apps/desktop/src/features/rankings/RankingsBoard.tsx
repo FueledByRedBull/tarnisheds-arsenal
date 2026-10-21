@@ -4,7 +4,7 @@ import { downloadText, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv"
 import { aowModelSupported, compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
 import { buildOptimizeRequest, rowFingerprint, usesFixedStats } from "../../lib/session";
 import { EASE_OUT, reducedMotion, settleRanking } from "../../lib/motion";
-import { RankMovement, RankSortKey, rankMovements, sortRanked } from "../../lib/ranking-view";
+import { RankedEntry, RankMovement, RankSortKey, rankMovements, sortRanked } from "../../lib/ranking-view";
 import { useDesktopStore } from "../../lib/state";
 import { ObjectiveId, SearchProgressDto, SolvedBuildDto } from "../../lib/types";
 import { runSearchFromStore, runSearchRequestForRows } from "../../lib/workflows";
@@ -27,8 +27,15 @@ const COLUMN_GUIDE = [
 const guideId = (key: string) => `column-guide-${key}`;
 
 export function RankingsBoard() {
-  const rows = useDesktopStore((state) => state.rows);
-  const selected = useDesktopStore((state) => state.selected);
+  const liveRows = useDesktopStore((state) => state.rows);
+  // New results render in a deferred pass, which React splits into short tasks, and commit
+  // with their movement baseline; the board keeps its searching look until then.
+  const rows = useDeferredValue(liveRows);
+  const rankBaseline = useDeferredValue(useDesktopStore((state) => state.rankBaseline));
+  const liveSelected = useDesktopStore((state) => state.selected);
+  // The selection results bring waits for their rows; a click on a row shows at once.
+  const deferredSelected = useDeferredValue(liveSelected);
+  const selected = rows === liveRows ? liveSelected : deferredSelected;
   const selectRow = useDesktopStore((state) => state.selectRow);
   const applyRowLocks = useDesktopStore((state) => state.useRowAsLocks);
   const compareBench = useDesktopStore((state) => state.compareBench);
@@ -51,7 +58,6 @@ export function RankingsBoard() {
   const exportController = useRef<AbortController | null>(null);
   const [exportProgress, setExportProgress] = useState<SearchProgressDto | null>(null);
   const exportCache = useRef<{ signature: string; rows: SolvedBuildDto[] } | null>(null);
-  const rankBaseline = useDesktopStore((state) => state.rankBaseline);
   const [sort, setSort] = useState<{ key: RankSortKey; reverse: boolean }>({ key: "rank", reverse: false });
   const [horizontalScroll, setHorizontalScroll] = useState({ overflow: false, left: false, right: false });
   const resultBoard = useRef<HTMLDivElement>(null);
@@ -78,10 +84,13 @@ export function RankingsBoard() {
   // Any input or profile change cancels an export; exportCsv cancels it on leaving Rankings.
   useEffect(() => () => exportController.current?.abort(), [catalog, request, lockedStatMode, searchGeneration]);
 
+  // The board's scroll position and height as of its last scroll or resize, read without layout.
+  const view = useRef({ top: 0, height: 0 });
   useEffect(() => {
     const board = resultBoard.current;
     if (!board) return;
     const update = () => {
+      view.current = { top: board.scrollTop, height: board.clientHeight };
       const max = Math.max(0, board.scrollWidth - board.clientWidth);
       const next = {
         overflow: max > 1,
@@ -124,6 +133,13 @@ export function RankingsBoard() {
     });
   }, [rankedRows]);
 
+  // Rows well outside the board's view rest (styles.css) while Rankings is hidden, while the
+  // window is resized and as new results land, so a return, a width step or a landing renders
+  // only the rows near the view instead of all 50; the others wake a few per frame afterwards.
+  const nearRows = useRef(new Set<Element>());
+  const wakeFrame = useRef(0);
+  const resizing = useRef(0);
+
   // A sort or an updated search re-forges the ranking. Results that land while another
   // workspace is shown re-forge when the board is shown again.
   const laidOut = useRef({ rows, rankedRows });
@@ -132,18 +148,28 @@ export function RankingsBoard() {
     if (!shown) return;
     const previous = laidOut.current;
     laidOut.current = { rows, rankedRows };
-    if (container && previous.rankedRows !== rankedRows) settleRanking(container, previous.rows !== rows, resultBoard.current);
+    if (!container || previous.rankedRows === rankedRows) return;
+    const freshResults = previous.rows !== rows;
+    if (freshResults) {
+      // Rows keep their places' heights when the count holds; otherwise the view's height
+      // bounds how many rows can reach it.
+      restRows(container, nearRows.current.size && previous.rows.length === rows.length
+        ? rowsAtSamePlaces(container, nearRows.current, previous.rankedRows, rankedRows)
+        : rowsWithinView(container, rankedRows, view.current));
+      // Waking starts in the frame after the one that draws the results; a resize in
+      // progress wakes them when it settles.
+      if (!resizing.current) {
+        cancelAnimationFrame(wakeFrame.current);
+        wakeFrame.current = requestAnimationFrame(() => { wakeFrame.current = requestAnimationFrame(() => wakeRows(container, wakeFrame)); });
+      }
+    }
+    settleRanking(container, freshResults, resultBoard.current);
   }, [rankedRows, rows, shown]);
 
   // Hidden workspaces lose their display and replay the stage entrance in CSS when shown; this
   // one is only skipped while hidden (styles.css), so it replays the entrance itself.
   const panel = useRef<HTMLElement>(null);
   const wasShown = useRef(shown);
-  // Rows well outside the board's view rest (styles.css) while Rankings is hidden and while the
-  // window is resized, so a return or a width step renders only the rows near the view instead
-  // of all 50; the others wake a few per frame afterwards.
-  const nearRows = useRef(new Set<Element>());
-  const wakeFrame = useRef(0);
   useLayoutEffect(() => {
     if (shown && !wasShown.current && !reducedMotion()) {
       panel.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 140, easing: EASE_OUT });
@@ -178,16 +204,15 @@ export function RankingsBoard() {
       }
     }, { root: board, rootMargin: "96px 0px" });
     for (const row of container.children) observer.observe(row);
-    let settle = 0;
     const onResize = () => {
       if (offstage()) return;
-      if (!settle) {
+      if (!resizing.current) {
         cancelAnimationFrame(wakeFrame.current);
         restRows(container, near);
       }
-      clearTimeout(settle);
-      settle = window.setTimeout(() => {
-        settle = 0;
+      clearTimeout(resizing.current);
+      resizing.current = window.setTimeout(() => {
+        resizing.current = 0;
         wakeRows(container, wakeFrame);
       }, 150);
     };
@@ -195,10 +220,13 @@ export function RankingsBoard() {
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", onResize);
-      clearTimeout(settle);
-      cancelAnimationFrame(wakeFrame.current);
     };
   }, [rows.length]);
+  // A pending wake outlives a change in the row count, which new results can bring.
+  useEffect(() => () => {
+    clearTimeout(resizing.current);
+    cancelAnimationFrame(wakeFrame.current);
+  }, []);
 
   async function exportCsv(requestedRows: number) {
     if (useDesktopStore.getState().isSearching || useDesktopStore.getState().isExporting) return;
@@ -221,8 +249,8 @@ export function RankingsBoard() {
       };
       const signature = JSON.stringify([catalog?.dataManifest, exportRequest]);
       let exportRows: SolvedBuildDto[];
-      if (!resultsStale && requestedRows <= rows.length) {
-        exportRows = rows.slice(0, requestedRows);
+      if (!resultsStale && requestedRows <= liveRows.length) {
+        exportRows = liveRows.slice(0, requestedRows);
       } else if (exportCache.current?.signature === signature) {
         exportRows = exportCache.current.rows;
       } else {
@@ -433,7 +461,7 @@ export function RankingsBoard() {
             </div>
           </div>
         ) : null}
-        <div className="result-rows" role="rowgroup" ref={rowsContainer} data-searching={isSearching || undefined}>
+        <div className="result-rows" role="rowgroup" ref={rowsContainer} data-searching={isSearching || rows !== liveRows || undefined}>
         {rows.map((row, rank) => {
           const key = rowFingerprint(row);
           return (
@@ -505,6 +533,28 @@ function restRows(container: HTMLElement, near: Set<Element>) {
   for (const row of container.children) {
     if (!near.has(row) && !row.contains(document.activeElement)) row.setAttribute("data-resting", "");
   }
+}
+
+// The rows a new ranking shows at the places the `near` rows hold now: under a sort, new
+// results can reorder which row is drawn there.
+function rowsAtSamePlaces(container: HTMLElement, near: Set<Element>, previous: RankedEntry[], next: RankedEntry[]) {
+  const rows = [...container.children];
+  const placeOf: number[] = [];
+  previous.forEach(({ rank }, place) => { placeOf[rank] = place; });
+  const shownThere = new Set<Element>();
+  for (const row of near) {
+    const entry = next[placeOf[rows.indexOf(row)]];
+    if (entry) shownThere.add(rows[entry.rank]);
+  }
+  return shownThere;
+}
+
+// The first rows shown, as many as could reach the view and the observer's margin: no row is
+// shorter than 48 px (styles.css). Without a measured view, none.
+function rowsWithinView(container: HTMLElement, order: RankedEntry[], view: { top: number; height: number }) {
+  const rows = [...container.children];
+  const count = view.height ? Math.ceil((view.top + view.height + 96) / 48) : 0;
+  return new Set(order.slice(0, count).map(({ rank }) => rows[rank]));
 }
 
 // Wakes resting rows twelve per frame; a hidden board keeps them resting until it is shown.

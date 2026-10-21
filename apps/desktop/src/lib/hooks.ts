@@ -5,8 +5,9 @@ import type { AnalysisOutcome } from "./analysis-status";
 import { errorMessage } from "./format";
 import { buildOptimizeRequest } from "./session";
 import { progressSignature } from "./polling";
-import { createNativeJobQueue, type FinishedJob, type NativeJobSuccess } from "./native-jobs";
+import { cancelledError, createNativeJobQueue, isCancelled, type FinishedJob, type NativeJobSuccess } from "./native-jobs";
 import { useKeyedResource } from "./keyed-resource";
+import { catalogVersion } from "./preset-activation";
 import {
   AffinityWatchFinishedDto,
   AffinityWatchJobStatusDto,
@@ -52,7 +53,9 @@ export function useWeaponProfile(
 }
 
 export function useWeaponProfileResource(profileId: string, weaponName: string | null, affinity: string | null) {
-  const key = weaponName ? JSON.stringify([profileId, weaponName, affinity]) : null;
+  // A new catalog clears the cache and stops its pending loads, so it must also start a new one.
+  const dataVersion = useDesktopStore((state) => state.catalog && catalogVersion(state.catalog));
+  const key = weaponName ? JSON.stringify([dataVersion, profileId, weaponName, affinity]) : null;
   const load = useCallback((signal: AbortSignal) =>
     cachedWeaponProfile(profileId, weaponName!, affinity, signal), [profileId, weaponName, affinity]);
   const resource = useKeyedResource(key, load);
@@ -104,7 +107,7 @@ function usePollingJob<P extends JobEvent, F extends FinishedJob, S extends JobS
       },
       startedJobId => {
         jobId = startedJobId;
-        if (controller.signal.aborted) throw new DOMException("Calculation stopped.", "AbortError");
+        if (controller.signal.aborted) throw cancelledError();
         latest.current.onStarted(startedJobId, generation);
       },
     );
@@ -180,7 +183,7 @@ export function useAnalysisRun<P extends JobEvent, F extends FinishedJob, S exte
     setProgress: run.setProgress,
     onStarted: (jobId, generation) => {
       const state = useDesktopStore.getState();
-      if (state.resultsStale || !owns(state, generation)) throw new DOMException("Calculation stopped.", "AbortError");
+      if (state.resultsStale || !owns(state, generation)) throw cancelledError();
       run.setJobId(jobId);
     },
   });
@@ -200,7 +203,7 @@ export function useAnalysisRun<P extends JobEvent, F extends FinishedJob, S exte
     } catch (error) {
       const state = useDesktopStore.getState();
       if (!owns(state, generation)) return;
-      if (error instanceof DOMException && error.name === "AbortError") {
+      if (isCancelled(error)) {
         state.pushNotice({ scope: run.scope, tone: "warning", message: run.stoppedMessage });
         setOutcome("cancelled");
       } else {

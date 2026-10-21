@@ -9,11 +9,15 @@ from typing import Any
 
 from tools.phase1.profiles import profile_definition
 from tools.phase1.snapshot_manifest import (
+    check_snapshot_destination,
     runtime_files_for,
     promote_snapshot,
     write_snapshot_manifest,
     validate_snapshot_manifest,
 )
+
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class SnapshotPromotionTests(unittest.TestCase):
@@ -39,7 +43,7 @@ class SnapshotPromotionTests(unittest.TestCase):
         (destination / "stale.csv").write_text("stale\n", encoding="utf-8")
         (destination / "listed.csv").write_text("old\n", encoding="utf-8")
         (destination / "keep.txt").write_text("keep\n", encoding="utf-8")
-        (destination / "manifest.json").write_text("{}\n", encoding="utf-8")
+        (destination / "manifest.json").write_text('{"profile": {"id": "convergence"}}\n', encoding="utf-8")
         return destination
 
     @staticmethod
@@ -56,6 +60,16 @@ class SnapshotPromotionTests(unittest.TestCase):
             json.dumps(manifest, indent=2) + "\n",
             encoding="utf-8",
         )
+
+    def test_regulation_source_must_match_the_profile_pin(self) -> None:
+        for profile_id, directory in (("vanilla", "data/phase1"), ("convergence", "data/profiles/convergence")):
+            with self.subTest(profile=profile_id):
+                validate_snapshot_manifest(ROOT / directory, profile_definition(profile_id))
+        with tempfile.TemporaryDirectory() as temporary:
+            # The staging regulation is a stand-in, so it cannot match the real pin.
+            staging = self._create_staging(Path(temporary))
+            with self.assertRaisesRegex(ValueError, "pinned regulation"):
+                validate_snapshot_manifest(staging, profile_definition("convergence"))
 
     def test_previous_schema_is_rejected_before_loading_tables(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -96,6 +110,19 @@ class SnapshotPromotionTests(unittest.TestCase):
             (destination / "notes.csv").unlink()
             promote_snapshot(staging, destination)
             self.assertTrue((destination / "manifest.json").is_file())
+
+    def test_promotion_refuses_another_profiles_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            staging = self._create_staging(root)
+            destination = self._create_destination(root)
+            (destination / "manifest.json").write_text('{"profile": {"id": "vanilla"}}\n', encoding="utf-8")
+            before = self._files(destination)
+            with self.assertRaisesRegex(ValueError, "holds the vanilla snapshot"):
+                promote_snapshot(staging, destination)
+            with self.assertRaisesRegex(ValueError, "holds the vanilla snapshot"):
+                check_snapshot_destination(destination, "convergence")
+            self.assertEqual(self._files(destination), before)
 
     def test_malformed_file_record_is_rejected_before_destination_mutation(self) -> None:
         for invalid_path in (None, "nested/listed.csv", r"nested\listed.csv", "C:listed.csv"):

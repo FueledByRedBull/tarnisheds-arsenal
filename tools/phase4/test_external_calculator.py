@@ -242,7 +242,9 @@ class ExternalCalculatorTests(unittest.TestCase):
 
     def test_convergence_reference_uses_its_own_data_and_affinities(self) -> None:
         reference = calculator.REFERENCE_PROFILES["convergence"]
-        self.assertTrue(reference.regulation_url.endswith("public/regulation-convergence-v3.0.0.1.js"))
+        self.assertTrue(reference.tracked)
+        self.assertEqual(reference.regulation_file, "data/reference/tclark/regulation-convergence-v3.0.3.0.js")
+        self.assertTrue(calculator._verified(calculator.ROOT / reference.regulation_file, reference.regulation_sha256))
         self.assertEqual(reference.affinities[13], "Frenzy")
         self.assertFalse(reference.bleed_boundaries)
 

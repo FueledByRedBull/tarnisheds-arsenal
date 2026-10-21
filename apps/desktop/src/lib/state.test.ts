@@ -626,6 +626,30 @@ describe("desktop result lifecycle", () => {
     });
   });
 
+  it.each(["vanilla", "convergence"])("locking a Somber row keeps %s's upgrade caps as its rules define them", (profileId) => {
+    useDesktopStore.getState().setCatalog(catalog(profileId));
+    useDesktopStore.getState().useRowAsLocks({ ...row, isSomber: true, upgrade: 7 });
+    const { standardMaxUpgrade, somberMaxUpgrade } = useDesktopStore.getState().request;
+    // Convergence has one shared cap; Vanilla's Standard cap is left as it was.
+    expect({ standardMaxUpgrade, somberMaxUpgrade }).toEqual(profileId === "convergence"
+      ? { standardMaxUpgrade: 7, somberMaxUpgrade: 7 }
+      : { standardMaxUpgrade: defaultRequest.standardMaxUpgrade, somberMaxUpgrade: 7 });
+  });
+
+  it("starts a same-named class from the new profile's stats after a profile switch", () => {
+    const vanilla = catalog("vanilla");
+    const convergence = catalog("convergence");
+    convergence.classes = [{ name: "Prisoner", baseLevel: 1, baseTotal: 80,
+      baseStats: { vig: 10, mnd: 10, end: 10, strStat: 10, dex: 10, intStat: 10, fai: 10, arc: 10 } }];
+    useDesktopStore.getState().setProfiles([vanilla.dataManifest, convergence.dataManifest]);
+    useDesktopStore.setState({ catalog: vanilla, profileQueries: {}, request: { ...defaultRequest } });
+    useDesktopStore.getState().applyClass("Prisoner");
+    useDesktopStore.getState().beginProfileSwitch("convergence");
+    useDesktopStore.getState().setCatalog(convergence);
+    expect(useDesktopStore.getState().request).toMatchObject({ className: "Prisoner", characterLevel: 1,
+      ...convergence.classes[0].baseStats });
+  });
+
   it("uses exact entered stats and retains +15 caps for a profile without class budgets", async () => {
     const profile = catalog("convergence");
     profile.dataManifest.capabilities.classBudget = false;
@@ -816,6 +840,32 @@ describe("saved result activation boundary", () => {
     } finally { solve.mockRestore(); }
   });
 
+  it("finishes loading a build without pins while stored pins are recalculated", async () => {
+    const preset = activationPreset();
+    preset.selectedBuild = row;
+    const storedPin = { ...row, weaponName: "Stored pin" };
+    const stored = JSON.stringify({ version: 1, datasetVersion: "old", schemaVersion: 4, modelVersion: "old", rows: [storedPin] });
+    vi.stubGlobal("localStorage", { getItem: () => stored, setItem: vi.fn() });
+    const pending = new Map<string, (value: SolvedBuildDto) => void>();
+    const solve = vi.spyOn(api, "solveBuild").mockImplementation((_base, weaponName) =>
+      new Promise(resolve => { pending.set(weaponName, resolve); }));
+    try {
+      useDesktopStore.getState().setCatalog(useDesktopStore.getState().catalog!);
+      await vi.waitFor(() => expect(pending.has("Stored pin")).toBe(true));
+      const loading = useDesktopStore.getState().loadBuildPreset(preset);
+      await vi.waitFor(() => expect(pending.has(row.weaponName)).toBe(true));
+      pending.get("Stored pin")!(storedPin);
+      await vi.waitFor(() => expect(useDesktopStore.getState().compareBench).toEqual([storedPin]));
+      pending.get(row.weaponName)!(row);
+      expect(await loading).not.toBeNull();
+      expect(useDesktopStore.getState()).toMatchObject({ selected: row, rows: [row], compareBench: [storedPin] });
+      expect(useDesktopStore.getState().notices[0].message).toBe("Loaded Activation; saved results verified on current data.");
+    } finally {
+      solve.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("retires only its own verification notice on external cancellation", async () => {
     const preset = activationPreset();
     preset.selectedBuild = row;
@@ -868,6 +918,7 @@ function catalog(profileId: string): CatalogDto {
         somberMaxUpgrade: profileId === "convergence" ? 15 : 10,
         separateUpgradeCaps: profileId !== "convergence",
         scadutreeScaling: profileId !== "convergence",
+        scadutreeAttackMultipliers: Array.from({ length: 21 }, (_, level) => 1 + level / 20),
         zeroAttackElementUsesWeaponScaling: profileId === "convergence",
         extendedScalingGrades: profileId === "convergence",
       },

@@ -149,6 +149,17 @@ world scaling and requirement thresholds in the
 [optimizer tests](../../core/er_optimizer_core/src/optimizer/tests.rs).
 This bounded reuse does not implement a general all-objective, all-budget DP.
 
+Every level range prepares its weapons and Ash groups once, at its highest level, which
+it solves first. Lower levels take those groups with their own budget and prune routes
+with the route bounds the highest level recorded; for skill objectives a work unit
+whose Ashes all bound below its cutoff is skipped
+([level ranges](optimizer-math.md#level-ranges)). Without the DP cache above, lower
+levels run in parallel batches of the pool's width, reported in level order. The
+recorded bounds live for the range: at most one per Ash choice and one per bounded
+route, about 69,000 routes for an open all-upgrades AoW search at level 130. `lower_level_plans_match_plans_built_for_that_level` and
+`skill_level_ranges_match_independent_searches` check plans and complete results
+against independent searches.
+
 Compare's AR/bleed frontier builds one other-stat DP per certified additive route
 and reuses it across feasible ARC values. Each slice scans its full feasible spend
 interval and retains the complete numeric and canonical stat order. Coupled routes

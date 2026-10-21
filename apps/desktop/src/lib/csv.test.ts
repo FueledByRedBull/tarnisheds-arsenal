@@ -80,6 +80,17 @@ describe("rankings CSV model provenance", () => {
     expect(values).toContain("D,S++,-,-,B");
   });
 
+  it("starts with a UTF-8 byte order mark so Excel reads accented names", () => {
+    const csv = rankingsToCsv([{ ...row, weaponName: "Miséricorde" }], {
+      profileId: "vanilla", appVersion: "test", schemaVersion: "7", datasetVersion: "test",
+      modelVersion: "test", objective: "max_ar", assumptions: "raw values", aowModelSupported: true,
+    });
+
+    expect([...new TextEncoder().encode(csv).slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+    expect(csv.slice(1)).toMatch(/^profile_id,/);
+    expect(csv).toContain(",Miséricorde,");
+  });
+
   it("neutralizes spreadsheet formulas in exported text", () => {
     const csv = rankingsToCsv([{ ...row, weaponName: "=HYPERLINK(\"bad\")" }], {
       profileId: "vanilla",

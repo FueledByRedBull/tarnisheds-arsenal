@@ -414,9 +414,11 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
             )
         )
     if profile_id == "convergence":
-        reference_path = ROOT / "data" / "reference" / "convergence-3.0.0.1-weapons.json"
+        reference = profile_definition(profile_id).weapon_reference_path
         try:
-            validate_reference(data_dir, reference_path)
+            if reference is None:
+                raise ValueError("the Convergence profile names no availability reference")
+            validate_reference(data_dir, ROOT / reference)
         except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
             issues.append(
                 ValidationIssue(

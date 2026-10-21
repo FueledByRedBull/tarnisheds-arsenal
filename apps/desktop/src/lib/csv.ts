@@ -92,7 +92,8 @@ export function rankingsToCsv(rows: SolvedBuildDto[], metadata: RankingsExportMe
       [...metadataCells.map(csvCell), ...CSV_COLUMNS.map((column) => csvCell(column.value(row, index, metadata)))].join(","),
     ),
   ];
-  return `${lines.join("\r\n")}\r\n`;
+  // Excel reads a CSV without a byte order mark in the system code page, garbling accented names.
+  return `﻿${lines.join("\r\n")}\r\n`;
 }
 
 export function rankingsCsvFilename(profileId: string, now = new Date()): string {

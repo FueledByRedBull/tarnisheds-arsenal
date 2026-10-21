@@ -21,3 +21,5 @@ NOTICE text eol=lf
 *.png binary
 *.ico binary
 *.xlsx binary
+# Hash-pinned reference data; bytes must not change.
+data/reference/tclark/*.js -text

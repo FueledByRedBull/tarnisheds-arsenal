@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, openSection, type EditorName } from "./editors";
+import { chooseClass, openEditor, openSection, type EditorName } from "./editors";
 
 // WCAG 2.2 A/AA rules over each surface a player reaches: the strip, its editors, the
 // palette, results with Build Detail, Compare, Paths, Affinity Watch and Saved Builds.
@@ -72,6 +72,11 @@ test("movement markers, sorted headers and the shortcut sheet have no WCAG A/AA 
   await page.locator(".result-row").nth(1).click();
   await page.getByRole("columnheader", { name: "AR", exact: true }).getByRole("button").click();
   await expect(page.locator(".rank-move")).toHaveCount(3);
+  // Markers fade in from the frame after the new rows commit; judge their settled contrast.
+  await page.locator(".rank-move").evaluateAll(async (markers) => {
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await Promise.all(markers.flatMap((marker) => marker.getAnimations()).map((animation) => animation.finished));
+  });
   expect(await violations(page, ".rankings-panel")).toEqual([]);
   expect(await violations(page, ".inspector")).toEqual([]);
   await page.keyboard.press("?");
@@ -159,4 +164,24 @@ test("trade-offs, Paths, Affinity Watch, Saved Builds, the problem report and er
   });
   await expect(page.locator('.error-strip[role="alert"]')).toBeVisible();
   expect(await violations(page, ".error-strip"), "error strip").toEqual([]);
+});
+
+test("the fixed-stats readout does not name Convergence while Vanilla is shown", async ({ page }) => {
+  // A session that opens on Convergence has no Vanilla query to restore on the switch.
+  await page.addInitScript(() => localStorage.setItem("tarnisheds-arsenal.gameProfile.v1", "convergence"));
+  await page.goto("/");
+  const profiles = page.getByRole("radiogroup", { name: "Game profile" });
+  await expect(page.getByRole("button", { name: "Class: Retainer" })).toBeVisible();
+  await chooseClass(page, "Custom stats");
+  // Vanilla's catalog is held, as a slow or failed load leaves it, so the carried class stays.
+  await page.evaluate(async () => {
+    const { api } = await import("/src/lib/api.ts");
+    api.catalog = () => new Promise(() => {});
+  });
+  await profiles.getByRole("radio", { name: /Vanilla/ }).click();
+  await expect(profiles.getByRole("radio", { name: /Vanilla/ })).toHaveAttribute("aria-checked", "true");
+  const readout = page.locator(".ribbon-readout").filter({ hasText: "Fixed stats" });
+  await expect(readout).toContainText("entered combat stats exactly");
+  await expect(readout).not.toContainText("Convergence");
+  await expect(readout).not.toHaveAttribute("title", /Convergence/);
 });

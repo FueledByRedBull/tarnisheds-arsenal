@@ -235,3 +235,57 @@ test("Compare displays all eight explicit pins while excluding the selected base
   await expect(page.getByRole("group", { name: "Pinned #1", exact: true })).toHaveCount(0);
   await expect(page.getByRole("group", { name: "Pinned #8", exact: true })).toContainText("Pinned weapon 7");
 });
+
+for (const start of ["Search", "Run updated search", "the L key", "the starter example"] as const) {
+  test(`Cancel stops a queued search started from ${start}`, async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: "Search", exact: true })).toBeEnabled();
+    if (start !== "the starter example") {
+      await page.getByRole("button", { name: "Search", exact: true }).click();
+      await expect(page.getByText("4 ranked rows")).toBeVisible();
+    }
+    // Comparison work holds the shared search queue, so the next search waits behind it.
+    await page.evaluate(async () => {
+      const { api } = await import("/src/lib/api.ts");
+      const { runSearchRequestForRows } = await import("/src/lib/workflows.ts");
+      const { useDesktopStore } = await import("/src/lib/state.ts");
+      const probe = { starts: 0, release: false, held: null as Promise<unknown> | null };
+      Object.assign(window, { queueProbe: probe });
+      // The preview's Uchigatana has no Standard affinity, which would reconcile the starter away.
+      const profile = api.weaponProfile;
+      api.weaponProfile = async (...args) => ({ ...await profile(...args), affinities: ["Standard", "Blood", "Occult", "Keen"] });
+      api.startSearch = async () => ({ jobId: `search-${++probe.starts}` });
+      api.searchStatus = async (jobId: string) => ({
+        progress: null,
+        finished: probe.release ? { jobId, rows: [], cancelled: false, error: null, setups: 0 } : null,
+      });
+      probe.held = runSearchRequestForRows(useDesktopStore.getState().request);
+    });
+    await expect.poll(() => page.evaluate(() => (window as any).queueProbe.starts)).toBe(1);
+
+    if (start === "Search") {
+      await page.getByRole("button", { name: "Search", exact: true }).click();
+    } else if (start === "Run updated search") {
+      await page.getByRole("spinbutton", { name: "VIG", exact: true }).fill("13");
+      await page.getByRole("spinbutton", { name: "VIG", exact: true }).press("Enter");
+      await page.getByRole("button", { name: "Run updated search", exact: true }).click();
+    } else if (start === "the L key") {
+      await page.locator(".result-row").first().focus();
+      await page.keyboard.press("l");
+    } else {
+      await page.getByRole("button", { name: "Try an Uchigatana +3 example", exact: true }).click();
+    }
+    await page.getByRole("button", { name: "Cancel Search", exact: true }).click();
+    // A search that never started has no native work to wait for.
+    await expect(page.getByRole("button", { name: /^(Search|Update Results)$/ })).toBeEnabled();
+    await expect(page.getByText("Search stopped. Previous results were retained.")).toBeVisible();
+
+    await page.evaluate(async () => {
+      const probe = (window as any).queueProbe;
+      probe.release = true;
+      await probe.held;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+    expect(await page.evaluate(() => (window as any).queueProbe.starts)).toBe(1);
+  });
+}

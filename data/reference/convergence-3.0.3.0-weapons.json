@@ -1,40 +1,41 @@
 {
   "profile": "convergence",
-  "version": "3.0.0.1",
-  "sourceUrl": "https://eldenring.tclark.io/regulation-convergence-v3.0.0.1.js?0",
-  "sourceSha256": "d80005ff769d48cb4d0b30cb07caecee64ed1c12de853897f11dc4a374fb56c0",
-  "sourceWeaponCount": 3190,
+  "version": "3.0.3.0",
+  "source": "data/reference/tclark/regulation-convergence-v3.0.3.0.js",
+  "generator": "ThomasJClark/elden-ring-weapon-calculator@b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a src/buildData.ts",
+  "sourceSha256": "3df57047113066ed65652435b35ddbcefc97eb11694625eea1e7986f884d85d2",
+  "sourceWeaponCount": 3306,
   "excludedNonItemRows": [
     "Unarmed"
   ],
-  "matchedWeaponCount": 3189,
-  "matchedWeaponIdsSha256": "3e66d85d5930fbe1dfa316653c9dbb0e27fe8b9739f657914a482ea56587ed76",
-  "modeledWeaponDataSha256": "248ec06548f3e69d6c9fd7d5bd4fa989f965af8d8596f1beaeacff3f3a712d10",
-  "weaponStatusDataSha256": "2bee971c4b20935f4c492f0927d903902189541e2b65b0c78303334a866c88e9",
-  "weaponCorrectionDataSha256": "74321b9857f05d8de921856c870b133ab322bd49804ae9d1309600aae0e24867",
+  "matchedWeaponCount": 3305,
+  "matchedWeaponIdsSha256": "897268bb35e2c9f1d15a4aa970bac0ebae7d895acf20c1206caa04dd0c71db4e",
+  "modeledWeaponDataSha256": "7772d09cbb77f9638c772532f50e35fea5c395db71ab0a91e7d6c80c7d13c10f",
+  "weaponStatusDataSha256": "7af92a37ab049e8d098501aac3f54fb29f6a3aae4e87ef3dffa9319a953b0785",
+  "weaponCorrectionDataSha256": "fe998237158f5fc164f1b7b3d0eb9ddb5665b9ea18559c0b355326aebb0bfd14",
   "affinityCounts": {
-    "Aberrant": 124,
-    "Bestial": 124,
-    "Bloodflame": 124,
-    "Death": 124,
-    "Draconic": 124,
-    "Dragonkin": 124,
-    "Flame": 124,
-    "Frenzy": 124,
-    "Frost": 124,
-    "Glint": 124,
-    "Godslayer": 124,
-    "Golden": 124,
-    "Gravity": 124,
-    "Heavy": 124,
-    "Keen": 124,
-    "Lava": 124,
-    "Mystic": 124,
-    "Night": 124,
-    "Quality": 124,
-    "Rotten": 124,
-    "Standard": 585,
-    "Storm": 124
+    "Aberrant": 129,
+    "Bestial": 129,
+    "Bloodflame": 129,
+    "Death": 129,
+    "Draconic": 129,
+    "Dragonkin": 129,
+    "Flame": 129,
+    "Frenzy": 129,
+    "Frost": 129,
+    "Glint": 129,
+    "Godslayer": 129,
+    "Golden": 129,
+    "Gravity": 129,
+    "Heavy": 129,
+    "Keen": 129,
+    "Lava": 129,
+    "Mystic": 129,
+    "Night": 129,
+    "Quality": 129,
+    "Rotten": 129,
+    "Standard": 596,
+    "Storm": 129
   },
   "weapons": [
     {
@@ -2394,6 +2395,10 @@
       "affinity": "Standard"
     },
     {
+      "weaponId": 3570000,
+      "affinity": "Standard"
+    },
+    {
       "weaponId": 4000000,
       "affinity": "Standard"
     },
@@ -3175,6 +3180,10 @@
     },
     {
       "weaponId": 5090000,
+      "affinity": "Standard"
+    },
+    {
+      "weaponId": 5100000,
       "affinity": "Standard"
     },
     {
@@ -4354,6 +4363,94 @@
       "affinity": "Mystic"
     },
     {
+      "weaponId": 8600000,
+      "affinity": "Standard"
+    },
+    {
+      "weaponId": 8600100,
+      "affinity": "Heavy"
+    },
+    {
+      "weaponId": 8600200,
+      "affinity": "Keen"
+    },
+    {
+      "weaponId": 8600300,
+      "affinity": "Quality"
+    },
+    {
+      "weaponId": 8600400,
+      "affinity": "Glint"
+    },
+    {
+      "weaponId": 8600500,
+      "affinity": "Dragonkin"
+    },
+    {
+      "weaponId": 8600600,
+      "affinity": "Gravity"
+    },
+    {
+      "weaponId": 8600700,
+      "affinity": "Flame"
+    },
+    {
+      "weaponId": 8600800,
+      "affinity": "Golden"
+    },
+    {
+      "weaponId": 8600900,
+      "affinity": "Draconic"
+    },
+    {
+      "weaponId": 8601000,
+      "affinity": "Bestial"
+    },
+    {
+      "weaponId": 8601100,
+      "affinity": "Night"
+    },
+    {
+      "weaponId": 8601200,
+      "affinity": "Lava"
+    },
+    {
+      "weaponId": 8601300,
+      "affinity": "Frenzy"
+    },
+    {
+      "weaponId": 8601400,
+      "affinity": "Death"
+    },
+    {
+      "weaponId": 8601500,
+      "affinity": "Godslayer"
+    },
+    {
+      "weaponId": 8601600,
+      "affinity": "Frost"
+    },
+    {
+      "weaponId": 8601700,
+      "affinity": "Aberrant"
+    },
+    {
+      "weaponId": 8601800,
+      "affinity": "Bloodflame"
+    },
+    {
+      "weaponId": 8601900,
+      "affinity": "Rotten"
+    },
+    {
+      "weaponId": 8602000,
+      "affinity": "Storm"
+    },
+    {
+      "weaponId": 8602100,
+      "affinity": "Mystic"
+    },
+    {
       "weaponId": 9000000,
       "affinity": "Standard"
     },
@@ -4559,6 +4656,10 @@
     },
     {
       "weaponId": 9090000,
+      "affinity": "Standard"
+    },
+    {
+      "weaponId": 9100000,
       "affinity": "Standard"
     },
     {
@@ -6603,6 +6704,10 @@
     },
     {
       "weaponId": 13500000,
+      "affinity": "Standard"
+    },
+    {
+      "weaponId": 13510000,
       "affinity": "Standard"
     },
     {
@@ -9514,6 +9619,10 @@
       "affinity": "Standard"
     },
     {
+      "weaponId": 18530000,
+      "affinity": "Standard"
+    },
+    {
       "weaponId": 19000000,
       "affinity": "Standard"
     },
@@ -11514,6 +11623,10 @@
       "affinity": "Standard"
     },
     {
+      "weaponId": 31540000,
+      "affinity": "Standard"
+    },
+    {
       "weaponId": 32000000,
       "affinity": "Standard"
     },
@@ -12202,6 +12315,94 @@
       "affinity": "Standard"
     },
     {
+      "weaponId": 62520000,
+      "affinity": "Standard"
+    },
+    {
+      "weaponId": 62520100,
+      "affinity": "Heavy"
+    },
+    {
+      "weaponId": 62520200,
+      "affinity": "Keen"
+    },
+    {
+      "weaponId": 62520300,
+      "affinity": "Quality"
+    },
+    {
+      "weaponId": 62520400,
+      "affinity": "Glint"
+    },
+    {
+      "weaponId": 62520500,
+      "affinity": "Dragonkin"
+    },
+    {
+      "weaponId": 62520600,
+      "affinity": "Gravity"
+    },
+    {
+      "weaponId": 62520700,
+      "affinity": "Flame"
+    },
+    {
+      "weaponId": 62520800,
+      "affinity": "Golden"
+    },
+    {
+      "weaponId": 62520900,
+      "affinity": "Draconic"
+    },
+    {
+      "weaponId": 62521000,
+      "affinity": "Bestial"
+    },
+    {
+      "weaponId": 62521100,
+      "affinity": "Night"
+    },
+    {
+      "weaponId": 62521200,
+      "affinity": "Lava"
+    },
+    {
+      "weaponId": 62521300,
+      "affinity": "Frenzy"
+    },
+    {
+      "weaponId": 62521400,
+      "affinity": "Death"
+    },
+    {
+      "weaponId": 62521500,
+      "affinity": "Godslayer"
+    },
+    {
+      "weaponId": 62521600,
+      "affinity": "Frost"
+    },
+    {
+      "weaponId": 62521700,
+      "affinity": "Aberrant"
+    },
+    {
+      "weaponId": 62521800,
+      "affinity": "Bloodflame"
+    },
+    {
+      "weaponId": 62521900,
+      "affinity": "Rotten"
+    },
+    {
+      "weaponId": 62522000,
+      "affinity": "Storm"
+    },
+    {
+      "weaponId": 62522100,
+      "affinity": "Mystic"
+    },
+    {
       "weaponId": 63500000,
       "affinity": "Standard"
     },
@@ -12474,7 +12675,95 @@
       "affinity": "Standard"
     },
     {
+      "weaponId": 64530100,
+      "affinity": "Heavy"
+    },
+    {
+      "weaponId": 64530200,
+      "affinity": "Keen"
+    },
+    {
+      "weaponId": 64530300,
+      "affinity": "Quality"
+    },
+    {
+      "weaponId": 64530400,
+      "affinity": "Glint"
+    },
+    {
+      "weaponId": 64530500,
+      "affinity": "Dragonkin"
+    },
+    {
+      "weaponId": 64530600,
+      "affinity": "Gravity"
+    },
+    {
+      "weaponId": 64530700,
+      "affinity": "Flame"
+    },
+    {
+      "weaponId": 64530800,
+      "affinity": "Golden"
+    },
+    {
+      "weaponId": 64530900,
+      "affinity": "Draconic"
+    },
+    {
+      "weaponId": 64531000,
+      "affinity": "Bestial"
+    },
+    {
+      "weaponId": 64531100,
+      "affinity": "Night"
+    },
+    {
+      "weaponId": 64531200,
+      "affinity": "Lava"
+    },
+    {
+      "weaponId": 64531300,
+      "affinity": "Frenzy"
+    },
+    {
+      "weaponId": 64531400,
+      "affinity": "Death"
+    },
+    {
+      "weaponId": 64531500,
+      "affinity": "Godslayer"
+    },
+    {
+      "weaponId": 64531600,
+      "affinity": "Frost"
+    },
+    {
+      "weaponId": 64531700,
+      "affinity": "Aberrant"
+    },
+    {
+      "weaponId": 64531800,
+      "affinity": "Bloodflame"
+    },
+    {
+      "weaponId": 64531900,
+      "affinity": "Rotten"
+    },
+    {
+      "weaponId": 64532000,
+      "affinity": "Storm"
+    },
+    {
+      "weaponId": 64532100,
+      "affinity": "Mystic"
+    },
+    {
       "weaponId": 64550000,
+      "affinity": "Standard"
+    },
+    {
+      "weaponId": 64570000,
       "affinity": "Standard"
     },
     {
@@ -12578,6 +12867,94 @@
       "affinity": "Standard"
     },
     {
+      "weaponId": 66530100,
+      "affinity": "Heavy"
+    },
+    {
+      "weaponId": 66530200,
+      "affinity": "Keen"
+    },
+    {
+      "weaponId": 66530300,
+      "affinity": "Quality"
+    },
+    {
+      "weaponId": 66530400,
+      "affinity": "Glint"
+    },
+    {
+      "weaponId": 66530500,
+      "affinity": "Dragonkin"
+    },
+    {
+      "weaponId": 66530600,
+      "affinity": "Gravity"
+    },
+    {
+      "weaponId": 66530700,
+      "affinity": "Flame"
+    },
+    {
+      "weaponId": 66530800,
+      "affinity": "Golden"
+    },
+    {
+      "weaponId": 66530900,
+      "affinity": "Draconic"
+    },
+    {
+      "weaponId": 66531000,
+      "affinity": "Bestial"
+    },
+    {
+      "weaponId": 66531100,
+      "affinity": "Night"
+    },
+    {
+      "weaponId": 66531200,
+      "affinity": "Lava"
+    },
+    {
+      "weaponId": 66531300,
+      "affinity": "Frenzy"
+    },
+    {
+      "weaponId": 66531400,
+      "affinity": "Death"
+    },
+    {
+      "weaponId": 66531500,
+      "affinity": "Godslayer"
+    },
+    {
+      "weaponId": 66531600,
+      "affinity": "Frost"
+    },
+    {
+      "weaponId": 66531700,
+      "affinity": "Aberrant"
+    },
+    {
+      "weaponId": 66531800,
+      "affinity": "Bloodflame"
+    },
+    {
+      "weaponId": 66531900,
+      "affinity": "Rotten"
+    },
+    {
+      "weaponId": 66532000,
+      "affinity": "Storm"
+    },
+    {
+      "weaponId": 66532100,
+      "affinity": "Mystic"
+    },
+    {
+      "weaponId": 66570000,
+      "affinity": "Standard"
+    },
+    {
       "weaponId": 67500000,
       "affinity": "Standard"
     },
@@ -12678,11 +13055,99 @@
       "affinity": "Standard"
     },
     {
+      "weaponId": 67530100,
+      "affinity": "Heavy"
+    },
+    {
+      "weaponId": 67530200,
+      "affinity": "Keen"
+    },
+    {
+      "weaponId": 67530300,
+      "affinity": "Quality"
+    },
+    {
+      "weaponId": 67530400,
+      "affinity": "Glint"
+    },
+    {
+      "weaponId": 67530500,
+      "affinity": "Dragonkin"
+    },
+    {
+      "weaponId": 67530600,
+      "affinity": "Gravity"
+    },
+    {
+      "weaponId": 67530700,
+      "affinity": "Flame"
+    },
+    {
+      "weaponId": 67530800,
+      "affinity": "Golden"
+    },
+    {
+      "weaponId": 67530900,
+      "affinity": "Draconic"
+    },
+    {
+      "weaponId": 67531000,
+      "affinity": "Bestial"
+    },
+    {
+      "weaponId": 67531100,
+      "affinity": "Night"
+    },
+    {
+      "weaponId": 67531200,
+      "affinity": "Lava"
+    },
+    {
+      "weaponId": 67531300,
+      "affinity": "Frenzy"
+    },
+    {
+      "weaponId": 67531400,
+      "affinity": "Death"
+    },
+    {
+      "weaponId": 67531500,
+      "affinity": "Godslayer"
+    },
+    {
+      "weaponId": 67531600,
+      "affinity": "Frost"
+    },
+    {
+      "weaponId": 67531700,
+      "affinity": "Aberrant"
+    },
+    {
+      "weaponId": 67531800,
+      "affinity": "Bloodflame"
+    },
+    {
+      "weaponId": 67531900,
+      "affinity": "Rotten"
+    },
+    {
+      "weaponId": 67532000,
+      "affinity": "Storm"
+    },
+    {
+      "weaponId": 67532100,
+      "affinity": "Mystic"
+    },
+    {
       "weaponId": 67540000,
       "affinity": "Standard"
     },
     {
       "weaponId": 67550000,
+      "affinity": "Standard"
+    },
+    {
+      "weaponId": 67580000,
       "affinity": "Standard"
     },
     {

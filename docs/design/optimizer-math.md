@@ -461,8 +461,10 @@ below every upgrade in an unbroken run of dominating upgrades above it.
   $u'$ is strictly below the current cutoff, or it was pruned or never a result
   there; routes pruned at $u'$ were strictly below a cutoff that only rises.
 
-`upgrade_dominated` (`math/exact.rs`) reads only the inputs that depend on the
-upgrade, once per work unit and upgrade pair. It requires:
+The test (`math/exact.rs`) reads only the inputs that depend on the upgrade.
+`upgrade_inputs_dominated` checks the first two conditions below once per prepared
+weapon and adjacent upgrade pair; `arc_status_curve_nonnegative` checks the third once
+per work unit. It requires:
 
 - every reinforcement damage, scaling and base-attack multiplier at $u$ lies between
   zero and the matching multiplier at $u'$, and is zero exactly where that one is zero;
@@ -484,6 +486,37 @@ pattern keeps the same hits positive, so both upgrades take the same hit as the 
 damaging hit. Bleed's `f32` products and sums of nonnegative operands, its projection
 and its floors preserve order. A unit whose routes fail the influence condition, or a
 request with a negative damage multiplier, never skips.
+
+#### Level ranges
+
+A level range (`optimize_level_range_with_progress`) solves its highest level first.
+Every lower level shares that level's prepared weapons, Ash choices, routes and
+upgrades, the same stat minima and upper bounds, and a budget no larger, so each stat
+interval $[m_i, m_i+\min(c_i,R)]$ is contained in the highest level's. Each level
+still runs its own full search and returns exactly what an independent search returns:
+
+- One weapon's Ash choices share its stat bounds and budget, so they group by active
+  stats alone, which no budget changes. A lower level's plan keeps the highest level's
+  groups and recomputes only each group's budget and count; a weapon whose requirements
+  no longer fit drops out, as it does in a plan built for that level.
+- A route bound takes each stat's largest curve value over its interval, and every
+  damage component is nondecreasing in those values, so the bound the highest level
+  computed for a weapon, Ash, upgrade and route bounds the same route at every lower
+  level. A recorded bound strictly below a lower level's threshold prunes the route
+  exactly as that level's own bound would; otherwise the level computes its own.
+- For skill objectives the highest level also records, per Ash, the largest route bound
+  over every upgrade it solved that Ash at, when each of those upgrades bounded every
+  route. A lower level dominates at least those upgrades whenever it compares upgrades:
+  the input conditions do not depend on the level, and its largest ARC is no higher, so
+  a run of dominated upgrades is no shorter. A unit compares upgrades when each of its
+  Ashes has positive corrections; otherwise only Ashes solved at every upgrade qualify.
+  When every Ash of a unit qualifies with a bound strictly below the unit's cutoff, each
+  route the unit would solve is pruned, and the unit is skipped.
+
+Without the fixed-loadout DP cache of the
+[overview](optimizer-overview.md#reuse-across-workspaces), lower levels are independent and run in
+parallel batches; results and progress keep level order, and an error surfaces at the
+first level that reports it, as in an ascending pass.
 
 ### Numerical contract
 

@@ -8,10 +8,7 @@ use er_optimizer_core::{
 };
 use tauri::State;
 
-use crate::commands::data::{
-    weapon_disables_two_hand_bonus, weapon_forces_two_handing, weapon_requirements,
-};
-use crate::commands::optimize::validate_solved_loadout;
+use crate::commands::optimize::{solved_weapon, validate_solved_loadout};
 use crate::dto::{
     CombatStateDto, PathFinishedDto, PathJobStatusDto, PathMode, PathPreviewDto,
     PathPreviewRequestDto, PathProgressDto, PathStepDto, SolvedBuildDto,
@@ -147,7 +144,7 @@ fn run_path_preview_job(
             }
         }
     }
-    cancelled |= !should_continue();
+    cancelled |= error.is_none() && !should_continue();
     if cancelled || error.is_some() {
         paths.clear();
     } else {
@@ -328,13 +325,7 @@ fn build_optimum_envelope(
             let requirement_gap = if solved.is_some() {
                 0
             } else {
-                requirement_gap(
-                    &request.base,
-                    &request.solved.weapon_name,
-                    Some(&request.solved.affinity),
-                    stats,
-                    profile,
-                )?
+                requirement_gap(&request.base, &request.solved, stats, profile)?
             };
             let added_stat = describe_allocation_change(previous, stats);
             previous = stats;
@@ -476,13 +467,7 @@ fn evaluate_step(
     let requirement_gap = if solved.is_some() {
         0
     } else {
-        requirement_gap(
-            &path.base,
-            &path.solved.weapon_name,
-            Some(&path.solved.affinity),
-            stats,
-            profile,
-        )?
+        requirement_gap(&path.base, &path.solved, stats, profile)?
     };
     Ok(EvaluatedPathStep {
         dto: PathStepDto {
@@ -507,18 +492,16 @@ fn set_path_loadout(request: &mut crate::dto::OptimizeRequestDto, solved: &Solve
 
 fn requirement_gap(
     base: &crate::dto::OptimizeRequestDto,
-    weapon_name: &str,
-    affinity: Option<&str>,
+    solved: &SolvedBuildDto,
     stats: CombatStateDto,
     profile: &ProfileData,
 ) -> Result<u16, AppError> {
-    let reqs = weapon_requirements(&profile.catalog_index, weapon_name, affinity)?;
-    let disables_bonus =
-        weapon_disables_two_hand_bonus(&profile.catalog_index, weapon_name, affinity);
+    let weapon = solved_weapon(profile, solved)?;
+    let reqs = weapon.requirements;
     let effective_str = effective_str(
         stats.str_stat,
-        base.two_handing || weapon_forces_two_handing(&profile.catalog_index, weapon_name),
-        disables_bonus,
+        base.two_handing || weapon.forces_two_handing(),
+        weapon.disable_two_hand_bonus,
     );
     Ok(u16::from(reqs[0]).saturating_sub(effective_str)
         + u16::from(reqs[1].saturating_sub(stats.dex))
@@ -718,11 +701,12 @@ mod integration_tests {
         );
         let state = crate::test_app_state();
         let request = request(&state);
+        let mut unknown = request.solved.clone();
+        unknown.weapon_name = "Unknown weapon".to_string();
         assert!(
             requirement_gap(
                 &request.base,
-                "Unknown weapon",
-                None,
+                &unknown,
                 request.solved.stats,
                 state
                     .profile(er_optimizer_core::VANILLA_PROFILE_ID)
@@ -1065,15 +1049,51 @@ mod integration_tests {
     }
 
     #[test]
+    fn path_lane_error_outranks_cancellation_after_the_failure() {
+        let state = crate::test_app_state();
+        let profile = state
+            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+            .unwrap();
+        let mut invalid = request(&state);
+        invalid.base.profile_id = "unknown".to_string();
+        let polls = std::sync::atomic::AtomicUsize::new(0);
+        // The lane starts, fails, and the job is cancelled before the batch returns.
+        let status = run_path_preview_job(
+            vec![invalid],
+            profile,
+            "error-then-cancel".to_string(),
+            || polls.fetch_add(1, Ordering::Relaxed) == 0,
+            |_| {},
+        );
+        let finished = status.finished.unwrap();
+        assert!(finished.error.is_some());
+        assert!(!finished.cancelled);
+        assert!(finished.paths.is_empty());
+    }
+
+    /// The seed lane retargeted to a weapon its stats cannot wield.
+    fn unreachable_lane(state: &AppState, profile: &ProfileData) -> PathPreviewRequestDto {
+        let mut lane = request(state);
+        lane.solved.weapon_id = profile
+            .data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.name == "Giant-Crusher" && weapon.affinity == "Standard")
+            .unwrap()
+            .weapon_id;
+        lane.solved.weapon_name = "Giant-Crusher".to_string();
+        lane.solved.affinity = "Standard".to_string();
+        lane.solved.aow_name = None;
+        lane
+    }
+
+    #[test]
     fn path_batch_progress_counts_only_reachable_steps() {
         let state = crate::test_app_state();
         let profile = state
             .profile(er_optimizer_core::VANILLA_PROFILE_ID)
             .unwrap();
-        let mut lane = request(&state);
-        lane.solved.weapon_name = "Giant-Crusher".to_string();
-        lane.solved.affinity = "Standard".to_string();
-        lane.solved.aow_name = None;
+        let mut lane = unreachable_lane(&state, profile);
         lane.levels_ahead = 2;
         let status = run_path_preview_job(
             vec![lane],
@@ -1097,19 +1117,10 @@ mod integration_tests {
         let profile = state
             .profile(er_optimizer_core::VANILLA_PROFILE_ID)
             .unwrap();
-        let mut lane = request(&state);
-        lane.solved.weapon_name = "Giant-Crusher".to_string();
-        lane.solved.affinity = "Standard".to_string();
-        lane.solved.aow_name = None;
+        let mut lane = unreachable_lane(&state, profile);
         lane.levels_ahead = 0;
-        let expected = requirement_gap(
-            &lane.base,
-            "Giant-Crusher",
-            Some("Standard"),
-            lane.solved.stats,
-            profile,
-        )
-        .unwrap();
+        let expected =
+            requirement_gap(&lane.base, &lane.solved, lane.solved.stats, profile).unwrap();
         assert!(expected > 1);
         for mode in [PathMode::NoRespec, PathMode::OptimumEnvelope] {
             lane.mode = mode;

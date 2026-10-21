@@ -117,15 +117,36 @@ export function recoverSavedBuilds(preview: SavedBuildInspection): string | null
     throw new Error("Saved builds changed after this preview. Scan again before recovery.");
   }
   const backupKey = current.source.index === null ? null : `${RECOVERY_PREFIX}${new Date().toISOString()}`;
-  if (backupKey) localStorage.setItem(backupKey, current.source.index!);
-  // Copy the original index first; a quota failure must never erase its only copy.
-  localStorage.setItem(INDEX_KEY, JSON.stringify({ version: 1, builds: current.presets.map(presetIndexEntry) }));
   // Keep the newest three copies: each takes up to ~100 KB of the quota the builds share.
+  // The ones a new copy replaces go first, so full storage still has room for it.
   // Older copies named by a random ID sort first, as the oldest.
   const copies = storageKeys(RECOVERY_PREFIX)
     .sort((a, b) => recoveryOrder(a).localeCompare(recoveryOrder(b)));
-  for (const key of copies.slice(0, -3)) localStorage.removeItem(key);
+  const replaced = copies.slice(0, backupKey ? -2 : -3).map((key) => [key, localStorage.getItem(key)!] as const);
+  for (const [key] of replaced) localStorage.removeItem(key);
+  try {
+    // Copy the original index first; a quota failure must never erase its only copy.
+    if (backupKey) localStorage.setItem(backupKey, current.source.index!);
+    try {
+      localStorage.setItem(INDEX_KEY, JSON.stringify({ version: 1, builds: current.presets.map(presetIndexEntry) }));
+    } catch (error) {
+      // The original index is still in place, so its new copy would only take space.
+      if (backupKey) localStorage.removeItem(backupKey);
+      throw error;
+    }
+  } catch (error) {
+    // Neither new write was kept, so each old copy fits back where it was.
+    for (const [key, value] of replaced) localStorage.setItem(key, value);
+    if (isQuotaExceeded(error)) {
+      throw new Error("Device storage for saved builds is full, so recovery could not keep a copy of the original index. Saved builds and their index were not changed. Export all builds to keep them safe, then free storage and recover again.");
+    }
+    throw error;
+  }
   return backupKey;
+}
+
+function isQuotaExceeded(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "QuotaExceededError";
 }
 
 function recoveryOrder(key: string): string {
@@ -148,7 +169,12 @@ export function previewBuildBackup(raw: string): { presets: BuildPreset[]; bytes
     throw new Error("Not a supported saved-build backup. Individual presets use Import JSON or Share Text.");
   }
   assertArray(parsed.builds, "backup builds", MAX_BUILD_BACKUP_COUNT);
-  const presets = parsed.builds.map(importedPreset);
+  const presets = parsed.builds.map((build) => {
+    const preset = importedPreset(build);
+    // Restored builds meet the save limit, so each one can later be renamed and updated.
+    if (utf8Bytes(JSON.stringify(preset)) > MAX_PRESET_IMPORT_BYTES) throw new Error(`${preset.name} in this backup: ${presetTooLarge().message}`);
+    return preset;
+  });
   const ids = new Set(presets.map((preset) => preset.id));
   if (ids.size !== presets.length) throw new Error("Build backup contains duplicate IDs.");
   return { presets, bytes };
@@ -211,6 +237,10 @@ export function saveBuildPreset(input: {
 }): BuildPreset {
   const now = new Date().toISOString();
   const existing = input.id ? loadBuildPreset(input.id) : null;
+  // Presets never change profile: that would silently convert the saved build.
+  if (existing && existing.profileId !== input.request.profileId) {
+    throw new Error(`${existing.name} is a ${existing.profileId} build. Switch to ${existing.profileId} to update it, or use Save new; nothing was changed.`);
+  }
   const preset = checkedPreset({
     version: 2,
     id: input.id ?? crypto.randomUUID(),
@@ -335,7 +365,7 @@ function persistPreset(preset: BuildPreset) {
       throw error;
     }
   } catch (error) {
-    if (error instanceof DOMException && error.name === "QuotaExceededError") {
+    if (isQuotaExceeded(error)) {
       throw new Error("Device storage for saved builds is full. Export a backup, then delete builds you no longer need; nothing was changed.");
     }
     throw error;
@@ -428,6 +458,7 @@ export function assertRequest(value: unknown): asserts value is OptimizeRequestD
   assertBoolean(value.exactUpgrade, "request.exactUpgrade");
   assertBoolean(value.twoHanding, "request.twoHanding");
   assertBoolean(value.dlcScaling, "request.dlcScaling");
+  // 20 is SCADUTREE_MAX_LEVEL in core/er_optimizer_core/src/math.rs.
   assertInteger(value.scadutreeLevel, "request.scadutreeLevel", 0, 20);
   assertNullableText(value.weaponName, "request.weaponName", 200);
   assertNullableText(value.affinity, "request.affinity", 80);
@@ -511,7 +542,8 @@ function migratePreset(value: unknown): BuildPreset {
       if (build[key] === undefined) build[key] = 0;
     }
     if (build.aowId === undefined) build.aowId = null;
-    if (build.aowRoute === undefined) build.aowRoute = null;
+    // Schema-1 routes predate poise damage, and loading re-solves every route anyway.
+    build.aowRoute = null;
   }
   if (!Array.isArray(value.compareBench)) {
     value.compareBench = value.compareTarget ? [value.compareTarget] : [];

@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 import { settled } from "./editors";
 
@@ -14,6 +15,10 @@ test("CSV export downloads successfully and releases the search controls", async
   const download = page.waitForEvent("download");
   await exportRows(page);
   expect((await download).suggestedFilename()).toMatch(/\.csv$/);
+  // The file starts with a UTF-8 byte order mark, so Excel reads accented names correctly.
+  const bytes = await readFile(await (await download).path());
+  expect([...bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+  expect(bytes.subarray(3, 14).toString("utf8")).toBe("profile_id,");
   await expect(page.getByRole("button", { name: "Search", exact: true })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Export CSV", exact: true })).toBeEnabled();
 });

@@ -15,6 +15,26 @@ it("rejects even an empty-error cancellation rather than exposing it as success"
   await expect(queue(async () => ({ jobId: "cancel" }))).rejects.toMatchObject({ name: "AbortError" });
 });
 
+it("ends a queued request as soon as it is aborted, and never starts it", async () => {
+  vi.useFakeTimers();
+  type Status = { finished: { jobId: string; cancelled: boolean; error: string | null } | null };
+  let release = false;
+  const status = vi.fn(async (jobId: string) => ({ finished: release ? { jobId, cancelled: false, error: null } : null }));
+  const start = vi.fn().mockResolvedValueOnce({ jobId: "running" });
+  const queue = createNativeJobQueue<Status>(status, vi.fn());
+  const running = queue(start);
+  await vi.advanceTimersByTimeAsync(0);
+  const controller = new AbortController();
+  const queued = queue(start, controller.signal).catch(error => error);
+  controller.abort();
+  // Rejected while the earlier job is still running.
+  expect(await queued).toMatchObject({ name: "AbortError" });
+  release = true;
+  await vi.advanceTimersByTimeAsync(1_000);
+  await running;
+  expect(start).toHaveBeenCalledTimes(1);
+});
+
 it("stops polling a worker failure and permits the next job", async () => {
   vi.useFakeTimers();
   type Status = { finished: { jobId: string; cancelled: boolean; error: string | null } | null };

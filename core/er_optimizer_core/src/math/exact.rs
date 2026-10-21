@@ -1071,9 +1071,10 @@ pub(crate) fn exact_bleed(
     )
 }
 
-/// Whether no ranking-key component at `lower` can exceed its value at `upper`, at any
-/// allocation (ARC up to `max_arc`), Ash, or route with positive corrections. Only the
-/// reinforce row, the passive overlay and its correction flag depend on the upgrade.
+/// With `arc_status_curve_nonnegative` for ARC up to some `max_arc`: whether no ranking-key
+/// component at `lower` can exceed its value at `upper`, at any allocation (ARC up to
+/// `max_arc`), Ash, or route with positive corrections. Only the reinforce row, the passive
+/// overlay and its correction flag depend on the upgrade, and no stat budget changes them.
 ///
 /// AR and route damage: every base is a sum of products of non-negative loaded values with
 /// one reinforce damage or base-attack multiplier. An additive scaling term multiplies that
@@ -1086,11 +1087,10 @@ pub(crate) fn exact_bleed(
 /// damaging hit is the same hit at both upgrades. Bleed: with the flag unchanged, f32 products
 /// and sums of non-negative operands (rounding preserves order), the projection and the floors
 /// are monotone in the buildup and the ARC multiplier.
-pub(crate) fn upgrade_dominated(
+pub(crate) fn upgrade_inputs_dominated(
     weapon: &Weapon,
     lower: u8,
     upper: u8,
-    max_arc: u16,
     data: &GameData,
 ) -> bool {
     let (Some(lower_row), Some(upper_row)) = (
@@ -1129,11 +1129,13 @@ pub(crate) fn upgrade_dominated(
         (value, flag)
     };
     let ((lower_bleed, lower_flag), (upper_bleed, upper_flag)) = (passive(lower), passive(upper));
+    reinforce_dominated && lower_flag == upper_flag && (0.0..=upper_bleed).contains(&lower_bleed)
+}
+
+/// The ARC condition of upgrade dominance, which no upgrade changes.
+pub(crate) fn arc_status_curve_nonnegative(weapon: &Weapon, max_arc: u16, data: &GameData) -> bool {
     let curve = weapon.status_curve_ids.blood;
-    reinforce_dominated
-        && lower_flag == upper_flag
-        && (0.0..=upper_bleed).contains(&lower_bleed)
-        && weapon.scaling[STAT_ARC] >= 0.0
+    weapon.scaling[STAT_ARC] >= 0.0
         && (0..=max_arc).all(|arc| {
             data.calc_curve_value(curve, arc)
                 .is_some_and(|value| value >= 0.0)
@@ -2158,7 +2160,10 @@ mod tests {
                     data.rules.standard_max_upgrade
                 };
                 (0..top)
-                    .filter(|&lower| upgrade_dominated(weapon, lower, lower + 1, 99, &data))
+                    .filter(|&lower| {
+                        upgrade_inputs_dominated(weapon, lower, lower + 1, &data)
+                            && arc_status_curve_nonnegative(weapon, 99, &data)
+                    })
                     .collect::<Vec<_>>()
             };
             let (mut dominated, mut checked) = (0, 0);

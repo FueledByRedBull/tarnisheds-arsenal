@@ -14,9 +14,9 @@ from pathlib import Path
 from typing import Any
 
 if __package__:
-    from .benchmark_build_metadata import capture_build_metadata
+    from .benchmark_build_metadata import capture_build_metadata, require_matching_setup
 else:
-    from benchmark_build_metadata import capture_build_metadata
+    from benchmark_build_metadata import capture_build_metadata, require_matching_setup
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "apps" / "desktop" / "src-tauri" / "Cargo.toml"
@@ -79,11 +79,17 @@ def index_cases(cases: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return indexed
 
 
+# Timings are only comparable on the same build profile, data, model and thread count.
+SETUP_KEYS = ("profile", "rayon_threads", "dataset_id", "dataset_version", "model_version")
+
+
 def compare_baseline(
     cases: list[dict[str, Any]], baseline_path: Path, threshold: float,
-    *, coverage: dict[str, Any],
+    *, coverage: dict[str, Any], metadata: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+    if metadata is not None:
+        require_matching_setup(baseline.get("metadata", {}), metadata, SETUP_KEYS)
     current, previous = index_cases(cases), index_cases(baseline["cases"])
     requested = current.keys() | previous.keys()
     compared = current.keys() & previous.keys()
@@ -200,7 +206,10 @@ def main() -> int:
 
     comparison: dict[str, Any] = {}
     regressions = (
-        compare_baseline(cases, args.baseline, args.max_regression_percent, coverage=comparison)
+        compare_baseline(
+            cases, args.baseline, args.max_regression_percent,
+            coverage=comparison, metadata=report["metadata"],
+        )
         if args.baseline else []
     )
     report["regressions"] = regressions

@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
-import { createNativeJobQueue } from "./native-jobs";
+import { invoke, isTauri } from "@tauri-apps/api/core";
+import { cancelledError, createNativeJobQueue } from "./native-jobs";
 import { errorMessage } from "./format";
 import type {
   AnalysisJobStatusDto,
@@ -29,10 +29,8 @@ const analysisQueue = createNativeJobQueue<AnalysisJobStatusDto>(
   jobId => call("cancel_analysis", { jobId }),
 );
 
-const hasTauriRuntime = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-  if (hasTauriRuntime()) {
+  if (isTauri()) {
     try {
       return await invoke<T>(command, args);
     } catch (error) {
@@ -66,9 +64,9 @@ export const api = {
     aowName: string | null,
     signal?: AbortSignal,
   ): Promise<SolvedBuildDto | null> => {
-    if (signal?.aborted) throw new DOMException("Calculation stopped.", "AbortError");
+    if (signal?.aborted) throw cancelledError();
     const request = { base, weaponName, affinity, aowName } satisfies SolveBuildRequestDto;
-    if (!hasTauriRuntime()) return call("solve_build", { request });
+    if (!isTauri()) return call("solve_build", { request });
     const finished = await analysisQueue(() => call("start_solve_build", { request }), signal);
     if (finished.kind !== "solve_build") throw new Error("Unexpected native calculation result.");
     return finished.result;
@@ -78,9 +76,9 @@ export const api = {
     solved: SolvedBuildDto,
     signal?: AbortSignal,
   ): Promise<ArBleedFrontierPointDto[]> => {
-    if (signal?.aborted) throw new DOMException("Calculation stopped.", "AbortError");
+    if (signal?.aborted) throw cancelledError();
     const request = { base, solved } satisfies ArBleedFrontierRequestDto;
-    if (!hasTauriRuntime()) return call("ar_bleed_frontier", { request });
+    if (!isTauri()) return call("ar_bleed_frontier", { request });
     const finished = await analysisQueue(() => call("start_ar_bleed_frontier", { request }), signal);
     if (finished.kind !== "ar_bleed_frontier") throw new Error("Unexpected native calculation result.");
     return finished.frontier;
@@ -91,9 +89,9 @@ export const api = {
     maxUpgrade: number,
     signal?: AbortSignal,
   ): Promise<UpgradePointDto[]> => {
-    if (signal?.aborted) throw new DOMException("Calculation stopped.", "AbortError");
+    if (signal?.aborted) throw cancelledError();
     const request = { base, solved, maxUpgrade } satisfies UpgradeSeriesRequestDto;
-    if (!hasTauriRuntime()) return call("build_upgrade_series", { request });
+    if (!isTauri()) return call("build_upgrade_series", { request });
     const finished = await analysisQueue(() => call("start_upgrade_series", { request }), signal);
     if (finished.kind !== "upgrade_series") throw new Error("Unexpected native calculation result.");
     return finished.points;

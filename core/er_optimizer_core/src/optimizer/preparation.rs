@@ -150,10 +150,15 @@ pub(super) fn prepare_weapon<'a>(
     let Some(aow_choices) = resolve_aow_choices_cached(weapon, request, data, templates)? else {
         return Ok(None);
     };
+    let inputs_dominated_by_next = upgrades
+        .windows(2)
+        .map(|pair| crate::math::exact::upgrade_inputs_dominated(weapon, pair[0], pair[1], data))
+        .collect();
     Ok(Some(PreparedWeapon {
         weapon,
         aow_choices,
         upgrades,
+        inputs_dominated_by_next,
     }))
 }
 

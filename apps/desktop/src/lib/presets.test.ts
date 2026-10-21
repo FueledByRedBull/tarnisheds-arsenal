@@ -85,7 +85,7 @@ describe("saved build persistence", () => {
     expect(validateStoredBuild(build, { standardMaxUpgrade: 25, somberMaxUpgrade: 25 })).toHaveProperty("value");
     expect(validateStoredBuild(build, { standardMaxUpgrade: 25, somberMaxUpgrade: 10 })).toMatchObject({ error: expect.stringMatching(/^build\.upgrade /) });
     expect(validateStoredBuild(build, { standardMaxUpgrade: 15, somberMaxUpgrade: 15 })).toHaveProperty("value");
-    expect(parsePresetText(JSON.stringify({ ...preset(), selectedBuild: build })).selectedBuild).toEqual(build);
+    expect(parsePresetText(JSON.stringify({ ...preset(), version: 2, compareBench: [], selectedBuild: build })).selectedBuild).toEqual(build);
   });
 
   beforeEach(() => {
@@ -122,6 +122,19 @@ describe("saved build persistence", () => {
     expect(saved.profileId).toBe("convergence");
     expect(saved.request.profileId).toBe("convergence");
     expect(savedBuildIndex().builds[0].profileId).toBe("convergence");
+  });
+
+  it("refuses to update a saved build from another profile, leaving it unchanged", () => {
+    const saved = saveBuildPreset({
+      ...preset(),
+      request: { ...defaultRequest, profileId: "convergence" },
+      dataVersion: "convergence:3:convergence-3.0.0.1:model",
+    });
+    const before = localStorage.getItem(`tarnisheds-arsenal.savedBuild.v2.${saved.id}`);
+    expect(() => saveBuildPreset({ ...preset(saved.id, "Vanilla over it"), dataVersion: "vanilla:7:vanilla-1.17.2:model" }))
+      .toThrow(/convergence build.*Save new/);
+    expect(localStorage.getItem(`tarnisheds-arsenal.savedBuild.v2.${saved.id}`)).toBe(before);
+    expect(savedBuildIndex().builds).toHaveLength(1);
   });
 
   it("round-trips a Convergence preset with the profile's +15 caps", () => {
@@ -244,6 +257,43 @@ describe("saved build persistence", () => {
       });
     }
   });
+
+  // Schema-1 records (v0.7 through v0.10) stored skill routes without poise damage.
+  function schemaOneRecord() {
+    const record = JSON.parse(JSON.stringify({ ...preset("old-route"), selectedBuild: routedBuild(), compareTarget: routedBuild() }));
+    for (const build of [record.selectedBuild, record.compareTarget]) {
+      delete build.aowRoute.totalPoiseDamage;
+      for (const hit of build.aowRoute.actions[0].hits) delete hit.poiseDamage;
+    }
+    localStorage.setItem(`tarnisheds-arsenal.savedBuild.v1.${record.id}`, JSON.stringify(record));
+    localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", JSON.stringify({ version: 1, builds: [
+      { id: record.id, name: record.name, profileId: record.profileId, dataVersion: record.dataVersion, updatedAt: record.updatedAt },
+    ] }));
+    return record;
+  }
+
+  it("opens and backs up schema-1 builds whose skill routes predate poise damage", () => {
+    const record = schemaOneRecord();
+    // The route is re-solved on load, so the migrated archive keeps none of its unverifiable numbers.
+    expect(loadBuildPreset(record.id)).toMatchObject({ version: 2, name: record.name, selectedBuild: { aowName: "Unsheathe", aowRoute: null } });
+    const inspection = inspectSavedBuilds();
+    expect(inspection.issues).toEqual([]);
+    expect(JSON.parse(savedBuildBackupText(inspection)).builds.map((build: { id: string }) => build.id)).toEqual([record.id]);
+  });
+
+  it("re-imports a schema-1 build as a copy or over its stored record", () => {
+    const record = schemaOneRecord();
+    const text = JSON.stringify(record);
+    expect(previewPresetImport(text)).toMatchObject({ idConflict: true, nameConflict: true });
+    const copy = importBuildPreset(parsePresetText(text));
+    expect(copy.id).not.toBe(record.id);
+    const replaced = replaceImportedBuildPreset(parsePresetText(text));
+    expect(replaced.id).toBe(record.id);
+    expect(loadBuildPreset(record.id)?.version).toBe(2);
+    expect(inspectSavedBuilds()).toMatchObject({ issues: [], needsRecovery: false });
+    expect(savedBuildIndex().builds).toHaveLength(2);
+  });
+
   it("previews conflicts and rejects oversized input", () => {
     importBuildPreset(preset());
     const preview = previewPresetImport(JSON.stringify(preset()));
@@ -382,7 +432,7 @@ describe("saved build persistence", () => {
   });
 
   it("rejects malformed route, hit and display fields at both preset and backup boundaries", () => {
-    const valid = { ...preset(), selectedBuild: routedBuild() };
+    const valid = { ...preset(), version: 2, compareBench: [], selectedBuild: routedBuild() };
     expect(parsePresetText(JSON.stringify(valid)).selectedBuild).toEqual(valid.selectedBuild);
     const mutations = [
       ["aowRoute.totalPoiseDamage", "10"], ["aowRoute.totalPoiseDamage", undefined],
@@ -415,6 +465,59 @@ describe("saved build persistence", () => {
     vi.spyOn(localStorage, "setItem").mockImplementation(() => { throw new Error("quota"); });
     expect(() => recoverSavedBuilds(broken)).toThrow(/quota/);
     expect(localStorage.getItem("tarnisheds-arsenal.savedBuildIndex.v1")).toBe("broken");
+  });
+
+  // Fills storage the way a device quota does: a write that would pass the limit throws.
+  function storageUsed() {
+    return Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index)!)
+      .reduce((sum, key) => sum + key.length + localStorage.getItem(key)!.length, 0);
+  }
+  function limitStorage(limit: number) {
+    const write = localStorage.setItem.bind(localStorage);
+    vi.spyOn(localStorage, "setItem").mockImplementation((key, value) => {
+      const existing = localStorage.getItem(key);
+      if (storageUsed() - (existing === null ? 0 : key.length + existing.length) + key.length + value.length > limit) {
+        throw new DOMException("Storage quota exceeded", "QuotaExceededError");
+      }
+      write(key, value);
+    });
+  }
+
+  it("makes room for recovery on full storage by dropping the copies it would replace", () => {
+    const saved = saveBuildPreset(preset());
+    const damaged = `{${"x".repeat(2000)}`;
+    for (let copy = 0; copy < 3; copy += 1) localStorage.setItem(`tarnisheds-arsenal.savedBuildIndex.recovery.2026-01-0${copy + 1}T00:00:00.000Z`, damaged);
+    localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", damaged);
+    limitStorage(storageUsed() + 500);
+    const backupKey = recoverSavedBuilds(inspectSavedBuilds());
+    expect(localStorage.getItem(backupKey!)).toBe(damaged);
+    expect(savedBuildIndex().builds.map((entry) => entry.id)).toEqual([saved.id]);
+    const copies = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index)!)
+      .filter((key) => key.startsWith("tarnisheds-arsenal.savedBuildIndex.recovery."));
+    expect(copies).toHaveLength(3);
+  });
+
+  it("puts back the copies it dropped when the new copy still does not fit", () => {
+    saveBuildPreset(preset());
+    const copies = [1, 2, 3].map((day) => `tarnisheds-arsenal.savedBuildIndex.recovery.2026-01-0${day}T00:00:00.000Z`);
+    for (const key of copies) localStorage.setItem(key, "{old");
+    localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", `{${"x".repeat(2000)}`);
+    const scan = inspectSavedBuilds();
+    limitStorage(storageUsed() + 100);
+    expect(() => recoverSavedBuilds(scan)).toThrow(/storage .*full/);
+    expect(copies.map((key) => localStorage.getItem(key))).toEqual(["{old", "{old", "{old"]);
+  });
+
+  it("explains a recovery that storage cannot hold and leaves the original index in place", () => {
+    saveBuildPreset(preset());
+    localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", "{damaged");
+    const scan = inspectSavedBuilds();
+    // Room for the copy of the original index, but not for the rebuilt index as well.
+    limitStorage(storageUsed() + 100);
+    expect(() => recoverSavedBuilds(scan)).toThrow(/storage .*full.*were not changed/);
+    expect(localStorage.getItem("tarnisheds-arsenal.savedBuildIndex.v1")).toBe("{damaged");
+    expect(Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index)!)
+      .some((key) => key.startsWith("tarnisheds-arsenal.savedBuildIndex.recovery."))).toBe(false);
   });
 
   it("validates an entire backup before restoring and keeps every existing build on conflict", () => {
@@ -539,7 +642,7 @@ describe("saved build persistence", () => {
     expect(backup.builds).toHaveLength(MAX_BUILD_BACKUP_COUNT + 1);
   });
 
-  it("backs up existing valid records beyond the single-share import limit", () => {
+  it("backs up existing valid records beyond the per-build limit but never restores them", () => {
     const saved = saveBuildPreset(preset());
     // Long route warnings are valid; the total backup still has a 10 MiB limit.
     const build = routedBuild();
@@ -550,7 +653,12 @@ describe("saved build persistence", () => {
     localStorage.setItem(`tarnisheds-arsenal.savedBuild.v2.${saved.id}`, JSON.stringify(stored));
     expect(loadBuildPreset(saved.id)).toEqual(stored);
     const backup = savedBuildBackupText(inspectSavedBuilds());
-    expect(previewBuildBackup(backup).presets).toEqual([stored]);
+    expect(JSON.parse(backup).builds).toEqual([stored]);
+    // A restored copy over the limit could be loaded but never renamed or updated.
+    expect(() => previewBuildBackup(backup)).toThrow(/Dexterity route.*too large/);
+    expect(() => restoreBuildBackup(backup)).toThrow(/too large/);
+    expect(savedBuildIndex().builds).toHaveLength(1);
+    expect(localStorage.length).toBe(2);
   });
 
   it("rejects new saves and imports at capacity before changing storage", () => {

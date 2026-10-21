@@ -16,10 +16,15 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.phase1.profiles import CONVERGENCE_AFFINITIES  # noqa: E402
+from tools.phase1.profiles import CONVERGENCE_AFFINITIES, profile_definition  # noqa: E402
+from tools.phase4.validate_external_calculator import REFERENCE_COMMIT  # noqa: E402
 
 
-REFERENCE_URL = "https://eldenring.tclark.io/regulation-convergence-v3.0.0.1.js?0"
+PROFILE = profile_definition("convergence")
+# T. Clark's calculator publishes no data past Convergence 3.0.0.1, so its own data build
+# (src/buildData.ts at REFERENCE_COMMIT) is run on the mod files and the output is tracked.
+REFERENCE_GENERATOR = f"ThomasJClark/elden-ring-weapon-calculator@{REFERENCE_COMMIT} src/buildData.ts"
+DEFAULT_SOURCE = Path(f"data/reference/tclark/regulation-convergence-v{PROFILE.mod_version}.js")
 STAT_KEYS = ("str", "dex", "int", "fai", "arc")
 DAMAGE_KEYS = ("physical", "magic", "fire", "lightning", "holy")
 STATUS_INDEX_TO_KEY = {
@@ -112,13 +117,16 @@ def _load_csv(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
-def _fetch_reference(url: str) -> tuple[bytes, dict[str, Any]]:
-    request = urllib.request.Request(
-        url,
-        headers={"Accept": "application/json", "User-Agent": "Tarnisheds-Arsenal-Validator/0.9"},
-    )
-    with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310 - fixed HTTPS source
-        payload = response.read()
+def _fetch_reference(source: str) -> tuple[bytes, dict[str, Any]]:
+    if source.startswith("https://"):
+        request = urllib.request.Request(
+            source,
+            headers={"Accept": "application/json", "User-Agent": "Tarnisheds-Arsenal-Validator/0.9"},
+        )
+        with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310 - HTTPS only
+            payload = response.read()
+    else:
+        payload = Path(source).read_bytes()
     return payload, json.loads(payload)
 
 
@@ -138,13 +146,15 @@ def _reference_status(row: dict[str, Any], reference: dict[str, Any]) -> list[fl
     return [values[key] for key in STATUS_KEYS]
 
 
-def build_reference(snapshot: Path, url: str) -> dict[str, Any]:
-    payload, reference = _fetch_reference(url)
+def build_reference(snapshot: Path, source: str) -> dict[str, Any]:
+    payload, reference = _fetch_reference(source)
     ours = _load_csv(snapshot / "weapons.csv")
     passives = {row["weapon_id"]: row for row in _load_csv(snapshot / "weapon_passives.csv")}
-    by_affinity_signature: dict[tuple[str, tuple[Any, ...]], list[dict[str, str]]] = defaultdict(list)
+    # Our affinity label only breaks ties: a reference candidate labels rows by slot, and
+    # the reference decides which rows exist and what affinity each one is.
+    by_signature: dict[tuple[Any, ...], list[dict[str, str]]] = defaultdict(list)
     for row in ours:
-        by_affinity_signature[(row["affinity"], _ours_signature(row))].append(row)
+        by_signature[_ours_signature(row)].append(row)
 
     matched_weapons: list[dict[str, Any]] = []
     unmatched: list[str] = []
@@ -158,9 +168,14 @@ def build_reference(snapshot: Path, url: str) -> dict[str, Any]:
     for row in reference_rows:
         affinity_id = int(row["affinityId"])
         affinity = "Standard" if affinity_id < 0 else CONVERGENCE_AFFINITIES[affinity_id]
-        candidates = by_affinity_signature[(affinity, _reference_signature(row))]
-
-        candidates = [candidate for candidate in candidates if int(candidate["weapon_id"]) not in used_ids]
+        candidates = [
+            candidate
+            for candidate in by_signature[_reference_signature(row)]
+            if int(candidate["weapon_id"]) not in used_ids
+        ]
+        same_affinity = [candidate for candidate in candidates if candidate["affinity"] == affinity]
+        if same_affinity:
+            candidates = same_affinity
         named_candidates = [
             candidate for candidate in candidates if _name_key(candidate["name"]) == _name_key(row["weaponName"])
         ]
@@ -199,8 +214,9 @@ def build_reference(snapshot: Path, url: str) -> dict[str, Any]:
     canonical_ids = "\n".join(str(value) for value in matched_ids).encode()
     return {
         "profile": "convergence",
-        "version": "3.0.0.1",
-        "sourceUrl": url,
+        "version": PROFILE.mod_version,
+        "source": source,
+        "generator": REFERENCE_GENERATOR,
         "sourceSha256": hashlib.sha256(payload).hexdigest(),
         "sourceWeaponCount": len(reference["weapons"]),
         "excludedNonItemRows": ["Unarmed"],
@@ -270,18 +286,18 @@ def validate_reference(snapshot: Path, reference_path: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build or validate the Convergence weapon reference.")
-    parser.add_argument("--snapshot", type=Path, default=Path("data/profiles/convergence"))
-    parser.add_argument(
-        "--reference",
-        type=Path,
-        default=Path("data/reference/convergence-3.0.0.1-weapons.json"),
-    )
+    parser.add_argument("--snapshot", type=Path, default=PROFILE.output_dir)
+    parser.add_argument("--reference", type=Path, default=PROFILE.weapon_reference_path)
     parser.add_argument("--refresh", action="store_true")
-    parser.add_argument("--url", default=REFERENCE_URL)
+    parser.add_argument(
+        "--source",
+        default=DEFAULT_SOURCE.as_posix(),
+        help="T. Clark regulation data (repository path or HTTPS URL) the reference is built from",
+    )
     args = parser.parse_args()
 
     if args.refresh:
-        reference = build_reference(args.snapshot, args.url)
+        reference = build_reference(args.snapshot, args.source)
         args.reference.parent.mkdir(parents=True, exist_ok=True)
         args.reference.write_text(json.dumps(reference, indent=2) + "\n", encoding="utf-8", newline="\n")
         print(f"Wrote {reference['matchedWeaponCount']} weapon IDs to {args.reference}")
