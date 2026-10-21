@@ -18,8 +18,9 @@ Third-party data
 - tclark.io, the Elden Ring weapon calculator by T. Clark (ThomasJClark)
   (https://eldenring.tclark.io, source at
   https://github.com/ThomasJClark/elden-ring-weapon-calculator). The Convergence
-  availability reference in data/reference/convergence-3.0.0.1-weapons.json is
-  derived from its regulation-convergence-v3.0.0.1.js data, and the validation
+  availability reference in data/reference/convergence-3.0.3.0-weapons.json is
+  derived from data/reference/tclark/regulation-convergence-v3.0.3.0.js, which
+  its src/buildData.ts produced from the mod's files, and the validation
   tools compare results against a pinned version of its source.
 - Paramdex parameter definitions and names (distributed with WitchyBND) are used
   during extraction; neither is redistributed here.

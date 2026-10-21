@@ -2111,7 +2111,7 @@ mod tests {
         let data = load_embedded_game_profile(CONVERGENCE_PROFILE_ID)
             .expect("Convergence embedded snapshot loads");
         assert_eq!(data.profile_id, CONVERGENCE_PROFILE_ID);
-        assert_eq!(data.dataset_version, "convergence-3.0.0.1-r4");
+        assert_eq!(data.dataset_version, "convergence-3.0.3.0");
         assert_eq!(data.rules.standard_max_upgrade, 15);
         assert_eq!(data.rules.somber_max_upgrade, 15);
         assert!(!data.rules.separate_upgrade_caps);
@@ -2120,7 +2120,7 @@ mod tests {
         assert!(!data.rules.scadutree_scaling);
         assert!(!data.rules.zero_attack_element_uses_weapon_scaling);
         // The regulation's own classes, never Vanilla's, plus the exact Custom stats entry.
-        assert_eq!(data.starting_classes.len(), 27);
+        assert_eq!(data.starting_classes.len(), 29);
         let retainer = data.class_by_name("Retainer").expect("Convergence class");
         assert_eq!((retainer.base_level, retainer.base_total), (9, 88));
         assert!(data.class_by_name("Samurai").is_none());
@@ -2133,7 +2133,7 @@ mod tests {
         );
         assert!(data.rules.extended_scaling_grades);
         assert!(!data.rules.status_buildup_scales);
-        assert_eq!(data.weapons.len(), 3189);
+        assert_eq!(data.weapons.len(), 3305);
         assert!(data.weapons.iter().any(|weapon| weapon.affinity == "Glint"));
         assert!(data.weapons.iter().any(|weapon| {
             weapon.weapon_id == 10_200_000 && weapon.name == "Galvanic Culling Blade [Twinblade]"
@@ -2171,10 +2171,10 @@ mod tests {
         assert!(
             data.aows
                 .iter()
-                .any(|aow| aow.aow_id == 105 && aow.name == "Ancient Thunderclap")
+                .any(|aow| aow.aow_id == 121 && aow.name == "Storm Stomp")
         );
         assert!(data.weapons.iter().any(|weapon| {
-            weapon.native_skill_id == Some(105)
+            weapon.native_skill_id == Some(815)
                 && weapon.native_skill_name.as_deref() == Some("Ancient Thunderclap")
         }));
         assert!(!data.capabilities.aow_damage);

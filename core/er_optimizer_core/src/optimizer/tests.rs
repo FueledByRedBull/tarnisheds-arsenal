@@ -209,7 +209,7 @@ fn unnamed_native_skill_preserves_id_without_inventing_damage() {
     let weapon = data
         .weapons
         .iter()
-        .find(|weapon| weapon.name == "Stormcaller's Dirk")
+        .find(|weapon| weapon.name == "Velvet Sword of St. Trina")
         .unwrap();
     let choice = native_skill_choice_for_weapon(weapon, &data).unwrap();
     assert_eq!(choice.skill_id, weapon.native_skill_id);
@@ -6197,9 +6197,10 @@ fn compact_compatibility_preserves_every_pre_migration_pair() {
             load_data(),
             "37b50bc76ea2265f17f8c4d2bad50ffaba2afc65c346ae9fd5d5edbae8021bb3",
         ),
+        // Convergence 3.0.3.0 postdates the pair table; this locks the compact rule's pairs.
         (
             load_convergence_data(),
-            "4eb4fbfa982e2c2483d0765266914263a555583b7ded3185cc94f04122ea3c77",
+            "b8b20c8474ed19764eb6af42e51cc764ff50668ce461dcd215c3d473d69b6fc5",
         ),
     ] {
         assert!(
@@ -6700,7 +6701,7 @@ fn bleed_only_calculator_matches_full_status_for_open_choices() {
                 (
                     "Bloodstained Dagger",
                     "Standard",
-                    &[None, Some("Aeonian Rush")],
+                    &[None, Some("Flame of the Redmanes")],
                 )
             };
         let mut request = base_request();

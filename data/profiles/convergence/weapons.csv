@@ -67,7 +67,7 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 1032000,Miséricorde,Storm,1,Dagger,Dagger,2,0,160,1.11,0,,,,,,,,,,,slash,pierce,106,0,0,0,0,0.05,0.4,0.7,0.7,0,7,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,0,1,0,0
 1032100,Miséricorde,Mystic,1,Dagger,Dagger,2,0,160,1.11,0,,,,,,,,,,,slash,pierce,0,106,0,0,0,0.05,0.4,0,0.6,0.6,7,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,0,1,0,0
 1040000,Reduvia,Standard,1,Dagger,Dagger,2.5,0,130,1.1,0,,,,,,,,,,,slash,pierce,0,0,82,0,0,0.05,0.5,0,0.65,0.65,5,8,0,13,13,2200,16000,0,0,0,0,0,28,28,28,28,1016,Reduvia Blood Blade,1,0,0,1
-1050000,Crystal Knife,Standard,1,Dagger,Dagger,2,0,120,1.03,0,,,,,,,,,,,slash,pierce,0,0,0,85,0,0.1,0.3,0.8,0,0,8,8,12,0,0,2200,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,1,0,0,1
+1050000,Crystal Knife,Standard,1,Dagger,Dagger,2,0,120,1.03,0,,,,,,,,,,,slash,pierce,0,0,0,85,0,0.1,0.3,0.8,0,0,8,8,12,0,0,2200,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,1,1,0,1
 1060000,Celebrant's Sickle,Standard,1,Dagger,Dagger,1.5,0,160,1.04,0,,,,,,,,,,,slash,pierce,0,0,0,0,79,0.05,0.4,0.6,0.6,0,6,10,10,10,0,2200,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,1,1,0,1
 1070000,Glintstone Kris,Standard,1,Dagger,Dagger,1.5,0,130,1.04,0,,,,,,,,,,,slash,pierce,0,75,0,0,0,0.1,0.3,0.85,0,0,5,10,14,0,0,2200,16000,0,0,0,0,0,28,28,28,28,1017,Glintstone Dart,1,0,0,1
 1080000,Scorpion's Stinger,Standard,1,Dagger,Dagger,2.5,0,130,1.1,0,,,,,,,,,,,slash,pierce,80,0,0,0,0,0.05,0.5,0,0.65,0.65,6,10,0,12,12,2200,16000,0,0,0,0,0,28,28,28,28,109,Repeating Thrust,1,0,0,1
@@ -115,9 +115,9 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 1101900,Wakizashi,Rotten,1,Dagger,Dagger,3,0,120,1.2,0,,,,,,,,,,,slash,pierce,108,0,0,0,0,0.05,0.4,0,0.6,0.6,9,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,0,1,0,0
 1102000,Wakizashi,Storm,1,Dagger,Dagger,3,0,120,1.2,0,,,,,,,,,,,slash,pierce,108,0,0,0,0,0.05,0.4,0.7,0.7,0,9,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,0,1,0,0
 1102100,Wakizashi,Mystic,1,Dagger,Dagger,3,0,120,1.2,0,,,,,,,,,,,slash,pierce,0,108,0,0,0,0.05,0.4,0,0.6,0.6,9,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,0,1,0,0
-1110000,Cinquedea,Standard,1,Dagger,Dagger,3.5,0,120,1.23,0,,,,,,,,,,,slash,pierce,75,0,0,0,0,0.1,0.3,0,0.85,0,10,10,0,15,0,2200,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,1,0,0,1
+1110000,Cinquedea,Standard,1,Dagger,Dagger,3.5,0,120,1.23,0,,,,,,,,,,,slash,pierce,75,0,0,0,0,0.1,0.3,0,0.85,0,10,10,0,15,0,2200,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,1,1,0,1
 1120000,Surgeon's Catlinger [bloodflame],Standard,1,Dagger,Dagger,2,0,130,1.07,0,,,,,,,,,,,slash,pierce,0,0,81,0,0,0.05,0.4,0,0.6,0.6,9,12,0,12,12,2200,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,1,1,0,1
-1130000,Ivory Sickle,Standard,1,Dagger,Dagger,2,0,120,1.11,0,,,,,,,,,,,slash,pierce,0,0,99,0,0,0.05,0.4,0.6,0.6,0,6,8,12,12,0,2200,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,1,0,0,1
+1130000,Ivory Sickle,Standard,1,Dagger,Dagger,2,0,120,1.11,0,,,,,,,,,,,slash,pierce,0,0,99,0,0,0.05,0.4,0.6,0.6,0,6,8,12,12,0,2200,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,1,1,0,1
 1140000,Bloodstained Dagger,Standard,1,Dagger,Dagger,2,0,130,1.07,0,,,,,,,,,,,slash,pierce,93,0,0,0,0,0.35,0.65,0,0,0,9,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,0,1,0,0
 1140100,Bloodstained Dagger,Heavy,1,Dagger,Dagger,2,0,130,1.07,0,,,,,,,,,,,slash,pierce,93,0,0,0,0,0.65,0.5,0,0,0,9,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,0,1,0,0
 1140200,Bloodstained Dagger,Keen,1,Dagger,Dagger,2,0,130,1.07,0,,,,,,,,,,,slash,pierce,93,0,0,0,0,0.1,1.15,0,0,0,9,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,0,1,0,0
@@ -145,8 +145,8 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 1170000,Midnight Dagger,Standard,1,Dagger,Dagger,1.5,0,140,1.04,0,,,,,,,,,,,slash,pierce,0,81,0,0,0,0.05,0.4,0.6,0.6,0,0,8,12,12,0,2200,16000,0,0,0,0,0,28,28,28,28,602,Assassin's Gambit,1,1,0,1
 1180000,Deathrite Dagger,Standard,1,Dagger,Dagger,2.5,0,130,1.1,0,,,,,,,,,,,slash,pierce,0,0,0,0,92,0.05,0.45,0.7,0.7,0,5,8,13,13,0,2200,16000,0,0,0,0,0,28,28,28,28,183,Blighted Breath,1,0,0,1
 1200000,Dragon Cult Twin Daggers (dagger),Standard,1,Dagger,Dagger,3,0,130,1.1,0,,,,,,,,,,,slash,pierce,0,0,0,97,0,0.15,0.4,0,1,0,0,13,0,28,0,2200,16000,0,0,0,0,0,28,28,28,28,811,Spread Corruption,1,0,1,1
-1300000,Stormcaller's Dirk,Standard,1,Dagger,Dagger,2,0,160,1.11,0,,,,,,,,,,,slash,pierce,91,0,0,0,0,0.05,0.3,0.75,0.75,0,0,8,12,12,0,2200,16000,0,0,0,0,0,28,28,28,28,133,,1,1,0,1
-1400000,Quicksilver Fragment,Standard,1,Dagger,Dagger,2,0,130,1.11,0,,,,,,,,,,,slash,pierce,0,100,0,0,0,0.1,0.55,0.75,0.75,0,0,10,27,27,0,2200,16000,0,0,0,0,0,28,28,28,28,830,,1,0,0,1
+1300000,Stormcaller's Dirk,Standard,1,Dagger,Dagger,2,0,160,1.11,0,,,,,,,,,,,slash,pierce,91,0,0,0,0,0.05,0.3,0.75,0.75,0,0,8,12,12,0,2200,16000,0,0,0,0,0,28,28,28,28,133,Storm Thrust,1,1,0,1
+1400000,Quicksilver Fragment,Standard,1,Dagger,Dagger,2,0,130,1.11,0,,,,,,,,,,,slash,pierce,0,100,0,0,0,0.1,0.55,0.75,0.75,0,0,10,27,27,0,2200,16000,0,0,0,0,0,28,28,28,28,830,Quicksilver Spray,1,0,0,1
 1500000,Main-gauche,Standard,1,Dagger,Dagger,2,0,130,1.1,0,,,,,,,,,,,slash,pierce,98,0,0,0,0,0.35,0.65,0,0,0,7,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,302,Parry,0,1,0,0
 1500100,Main-gauche,Heavy,1,Dagger,Dagger,2,0,130,1.1,0,,,,,,,,,,,slash,pierce,98,0,0,0,0,0.65,0.5,0,0,0,7,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,302,Parry,0,1,0,0
 1500200,Main-gauche,Keen,1,Dagger,Dagger,2,0,130,1.1,0,,,,,,,,,,,slash,pierce,98,0,0,0,0,0.1,1.15,0,0,0,7,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,302,Parry,0,1,0,0
@@ -282,14 +282,14 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 2052000,Weathered Straight Sword,Storm,3,Straight Sword,SwordNormal,3,0,120,0.965,0,,,,,,,,,,,pierce,standard,118,0,0,0,0,0.18,0.17,0.7,0.7,0,7,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,115,Square Off,0,1,0,0
 2052100,Weathered Straight Sword,Mystic,3,Straight Sword,SwordNormal,3,0,120,0.965,0,,,,,,,,,,,pierce,standard,0,118,0,0,0,0.18,0.17,0,0.6,0.6,7,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,115,Square Off,0,1,0,0
 2060000,Ornamental Straight Sword,Standard,3,Straight Sword,SwordNormal,3,0,130,0.97,0,,,,,,,,,,,pierce,standard,0,0,0,0,103,0.18,0.17,0,0.9,0,10,13,0,15,0,2200,16000,0,0,0,0,0,28,28,28,28,1052,Golden Tempering,1,0,1,1
-2070000,Golden Epitaph,Standard,3,Straight Sword,SwordNormal,3.5,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,104,0,0.18,0.17,0,0.9,0,11,11,0,15,0,2200,16000,0,0,0,0,0,28,28,28,28,217,Lightning Slash,1,0,0,1
+2070000,Golden Epitaph,Standard,3,Straight Sword,SwordNormal,3.5,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,104,0,0.18,0.17,0,0.9,0,11,11,0,15,0,2200,16000,0,0,0,0,0,28,28,28,28,217,Lightning Slash,1,1,0,1
 2080000,Nox Flowing Sword,Standard,9,Curved Sword,SaberNormal,3.5,0,130,1.08,0,,,,,,,,,,,slash,slash,0,112,0,0,0,0.15,0.55,0.65,0.65,0,8,12,13,13,0,2200,16000,0,0,0,0,0,28,28,28,28,1018,Flowing Form,1,0,0,1
 2090000,Inseparable Sword,Standard,5,Greatsword,SwordLarge,10,0,120,1.03,0,,,,,,,,,,,pierce,standard,0,0,0,0,140,0.45,0.45,0,1.1,0,13,12,0,25,0,2200,16000,0,0,0,0,0,28,28,28,28,201,Sacred Blade,1,0,0,1
 2110000,Coded Sword,Standard,3,Straight Sword,SwordNormal,2.5,0,120,0.98,0,,,,,,,,,,,pierce,standard,0,0,0,0,110,0.05,0.05,0,1.3,0,0,0,0,20,0,2200,16000,0,0,0,0,0,28,28,28,28,1054,Unblockable Blade,1,0,0,1
 2120000,Blade of Valor,Standard,3,Straight Sword,SwordNormal,3.5,0,120,1,0,,,,,,,,,,,pierce,standard,120,0,0,0,0,0.85,0.85,0,0,0,10,10,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,803,Champion's Evasion,1,1,0,1
 2140000,Sword of Night and Flame,Standard,3,Straight Sword,SwordNormal,4,0,120,1.03,0,,,,,,,,,,,pierce,standard,0,122,122,0,0,0.6,0.2,0.6,0.6,0,12,12,24,24,0,2200,16000,0,0,0,0,0,28,28,28,28,1019,Night-and-Flame Stance,1,0,0,1
 2150000,Crystal Sword,Standard,3,Straight Sword,SwordNormal,4.5,0,120,1.06,0,,,,,,,,,,,pierce,standard,0,0,106,0,0,0.18,0.17,0.75,0.75,0,6,8,11,11,0,2200,16000,0,0,0,0,0,28,28,28,28,1172,Magma Shower,1,0,0,1
-2180000,Carian Knight's Sword,Standard,3,Straight Sword,SwordNormal,4,0,120,1.07,0,,,,,,,,,,,pierce,standard,0,108,0,0,0,0.3,0.1,1,0,0,8,10,18,0,0,2200,16000,0,0,0,0,0,28,28,28,28,218,Carian Grandeur,1,0,0,1
+2180000,Carian Knight's Sword,Standard,3,Straight Sword,SwordNormal,4,0,120,1.07,0,,,,,,,,,,,pierce,standard,0,108,0,0,0,0.3,0.1,1,0,0,8,10,18,0,0,2200,16000,0,0,0,0,0,28,28,28,28,218,Carian Grandeur,1,1,0,1
 2190000,Sword of St. Trina,Standard,3,Straight Sword,SwordNormal,3,0,120,0.93,0,,,,,,,,,,,pierce,standard,0,105,0,0,0,0.18,0.17,0,0.65,0.65,10,12,0,14,14,2200,16000,0,0,0,0,0,28,28,28,28,1023,Mists of Slumber,1,0,0,1
 2200000,Miquellan Knight's Sword,Standard,3,Straight Sword,SwordNormal,3.5,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,105,0,0,0.2,0.2,0,1,0,8,8,0,16,0,2200,16000,0,0,0,0,0,28,28,28,28,214,Flaming Strike,1,0,0,1
 2210000,Cane Sword,Standard,3,Straight Sword,SwordNormal,2.5,0,120,0.915,0,,,,,,,,,,,pierce,standard,110,0,0,0,0,0.3,0.6,0,0,0,9,9,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,115,Square Off,0,1,0,0
@@ -360,8 +360,8 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 2242000,Warhawk's Talon,Storm,3,Straight Sword,SwordNormal,3,0,160,0.97,0,,,,,,,,,,,pierce,standard,116,0,0,0,0,0.25,0.4,0.7,0.7,0,9,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
 2242100,Warhawk's Talon,Mystic,3,Straight Sword,SwordNormal,3,0,160,0.97,0,,,,,,,,,,,pierce,standard,0,116,0,0,0,0.25,0.4,0,0.6,0.6,9,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
 2250000,Dragonkin Seeker Sword,Standard,3,Straight Sword,SwordNormal,3.5,0,120,0.96,0,,,,,,,,,,,pierce,standard,0,0,0,108,0,0.1,0.3,1,0,0,8,9,13,0,0,2200,16000,0,0,0,0,0,28,28,28,28,1043,Ice Lightning Sword,1,0,0,1
-2260000,Rotten Crystal Sword,Standard,3,Straight Sword,SwordNormal,4.5,0,120,1.06,0,,,,,,,,,,,pierce,standard,106,0,0,0,0,0.18,0.17,0,0.6,0.6,10,10,0,13,13,2200,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,1,0,0,1
-2270000,Maddening Brand [Frenzy],Standard,3,Straight Sword,SwordNormal,4,0,120,1.03,0,,,,,,,,,,,pierce,standard,0,0,116,0,0,0.2,0.2,0.7,0.7,0,8,8,13,13,0,2200,16000,0,0,0,0,0,28,28,28,28,512,,1,0,0,1
+2260000,Rotten Crystal Sword,Standard,3,Straight Sword,SwordNormal,4.5,0,120,1.06,0,,,,,,,,,,,pierce,standard,106,0,0,0,0,0.18,0.17,0,0.6,0.6,10,10,0,13,13,2200,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,1,1,0,1
+2270000,Maddening Brand [Frenzy],Standard,3,Straight Sword,SwordNormal,4,0,120,1.03,0,,,,,,,,,,,pierce,standard,0,0,116,0,0,0.2,0.2,0.7,0.7,0,8,8,13,13,0,2200,16000,0,0,0,0,0,28,28,28,28,512,Frenzied Assault,1,0,0,1
 2510000,Velvet Sword of St. Trina,Standard,15,Thrusting Sword,SwordPierce,2.5,0,130,0.955,0,,,,,,,,,,,pierce,standard,0,104,0,0,0,0.2,0.55,0,0.75,0.75,10,12,0,14,14,2200,16000,0,0,0,0,0,28,28,28,28,5111,,1,0,0,1
 2520000,Star-Lined Sword,Standard,13,Katana,katana,5,0,120,0.985,0,,,,,,,,,,,slash,pierce,0,127,0,0,0,0.4,0.95,1.15,0,0,8,10,20,0,0,2200,16000,0,0,0,0,0,28,28,28,28,5040,Onze's Line of Stars,1,0,0,1
 2530000,Carian Sorcery Sword,Standard,15,Thrusting Sword,SwordPierce,2.5,0,130,0.985,0,,,,,,,,,,,pierce,standard,0,105,0,0,0,0,0.1,0.9,0,0,0,0,25,0,0,1500,16000,21,20,22,26,22,28,28,28,28,218,Carian Grandeur,1,0,0,0
@@ -505,7 +505,7 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 3080000,Banished Knight's Greatsword,Standard,5,Greatsword,SwordLarge,10,0,120,1.03,0,,,,,,,,,,,pierce,standard,142,0,0,0,0,0.15,0.1,0.7,0.7,0,17,9,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,106,Stamp,1,1,0,1
 3090000,Dark Moon Greatsword,Standard,5,Greatsword,SwordLarge,10,0,120,1.07,0,,,,,,,,,,,pierce,standard,0,148,0,0,0,0.25,0.05,0.85,0,0.65,16,11,20,0,20,2200,16000,0,0,0,0,0,28,28,28,28,1008,Moonlight Greatsword,1,0,0,1
 3100000,Sacred Relic Sword,Standard,5,Greatsword,SwordLarge,11,0,130,1.08,0,,,,,,,,,,,pierce,standard,0,0,0,0,150,0.25,0.1,0,1.15,0,14,20,0,25,0,2200,16000,0,0,0,0,0,28,28,28,28,1020,Wave of Gold,1,0,0,1
-3110000,Celestial Blade,Standard,5,Greatsword,SwordLarge,9,0,130,1,0,,,,,,,,,,,pierce,standard,0,152,0,0,0,0.4,0.25,1.15,0,0,15,10,25,0,0,2200,16000,0,0,0,0,0,28,28,28,28,822,,1,0,0,1
+3110000,Celestial Blade,Standard,5,Greatsword,SwordLarge,9,0,130,1,0,,,,,,,,,,,pierce,standard,0,152,0,0,0,0.4,0.25,1.15,0,0,15,10,25,0,0,2200,16000,0,0,0,0,0,28,28,28,28,822,Celestial Ascension,1,0,0,1
 3120000,Sword of the Cyclops,Standard,5,Greatsword,SwordLarge,10,0,120,1.07,0,,,,,,,,,,,pierce,standard,0,0,149,0,0,0.5,0.2,0,1.1,0,16,12,0,25,0,2200,16000,0,0,0,0,0,28,28,28,28,502,Cyclopean Conflagration,1,0,0,1
 3130000,Helphen's Steeple,Standard,5,Greatsword,SwordLarge,11.5,0,120,1.1,0,,,,,,,,,,,pierce,standard,0,0,0,0,145,0.35,0.05,0.7,0.7,0,16,10,18,18,0,2200,16000,0,0,0,0,0,28,28,28,28,1021,Ruinous Ghostflame,1,0,0,1
 3140000,Blasphemous Blade,Standard,5,Greatsword,SwordLarge,13.5,0,120,1.2,0,,,,,,,,,,,pierce,standard,0,0,146,0,0,0.35,0.05,0.7,0.7,0,20,15,20,20,0,2200,16000,0,0,0,0,0,28,28,28,28,1014,Taker's Flames,1,0,0,1
@@ -537,10 +537,10 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 3190000,Gargoyle's Greatsword,Standard,5,Greatsword,SwordLarge,11.5,0,120,1.06,0,,,,,,,,,,,pierce,standard,133,0,0,0,0,0.17,0.13,0.8,0.8,0,15,10,15,15,0,2200,16000,0,0,0,0,0,28,28,28,28,220,Vacuum Slice,1,1,0,1
 3200000,Death's Poker,Standard,5,Greatsword,SwordLarge,8.5,0,120,0.99,0,,,,,,,,,,,pierce,standard,0,0,0,0,145,0.15,0.15,0.75,0.75,0,13,15,18,18,0,2200,16000,0,0,0,0,0,28,28,28,28,1048,Ghostflame Ignition,1,0,0,1
 3210000,Gargoyle's Blackblade,Standard,5,Greatsword,SwordLarge,11.5,0,120,1.06,0,,,,,,,,,,,pierce,standard,0,0,0,0,138,0.17,0.13,0.7,0.7,0,18,15,22,22,0,2200,16000,0,0,0,0,0,28,28,28,28,1167,Corpse Wax Cutter,1,0,0,1
-3230000,Sword of Hadea,Standard,5,Greatsword,SwordLarge,12,0,120,1.115,0,,,,,,,,,,,pierce,standard,143,0,0,0,0,0.5,0.05,0,1,0,18,13,0,30,0,2200,16000,0,0,0,0,0,28,28,28,28,819,,1,0,0,1
+3230000,Sword of Hadea,Standard,5,Greatsword,SwordLarge,12,0,120,1.115,0,,,,,,,,,,,pierce,standard,143,0,0,0,0,0.5,0.05,0,1,0,18,13,0,30,0,2200,16000,0,0,0,0,0,28,28,28,28,819,Crucible's Fury,1,0,0,1
 3240000,Dyru's Greatsword,Standard,5,Greatsword,SwordLarge,10,0,120,1.03,0,,,,,,,,,,,strike,standard,142,0,0,0,0,0.55,0.25,0.85,0.85,0,17,9,20,20,0,2200,16000,0,0,0,0,0,28,28,28,28,1063,Dyru's Savagery,1,0,0,1
-3250000,Regal Splitblade (GS),Standard,5,Greatsword,SwordLarge,9,0,120,1,0,,,,,,,,,,,pierce,standard,145,0,0,0,0,0.9,0.9,0,0,0,18,18,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,232,,1,0,0,1
-3300000,Maliketh's Black Blade (restored),Standard,5,Greatsword,SwordLarge,22,0,120,1.1,0,,,,,,,,,,,standard,standard,0,0,0,0,141,0.65,0.25,0.8,0.8,0,15,0,32,32,0,2200,16000,0,0,0,0,0,28,28,28,28,151,,1,0,0,1
+3250000,Regal Splitblade (GS),Standard,5,Greatsword,SwordLarge,9,0,120,1,0,,,,,,,,,,,pierce,standard,145,0,0,0,0,0.9,0.9,0,0,0,18,18,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,232,Splitblade Sundering,1,0,0,1
+3300000,Maliketh's Black Blade (restored),Standard,5,Greatsword,SwordLarge,22,0,120,1.1,0,,,,,,,,,,,standard,standard,0,0,0,0,141,0.65,0.25,0.8,0.8,0,15,0,32,32,0,2200,16000,0,0,0,0,0,28,28,28,28,151,Death Rune's Invocation,1,0,0,1
 3500000,Sword Lance,Standard,16,Heavy Thrusting Sword,RapierHeavy,9,0,120,1.135,0,,,,,,,,,,,pierce,standard,151,0,0,0,0,0.4,0.5,0,0,0,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 3500100,Sword Lance,Heavy,16,Heavy Thrusting Sword,RapierHeavy,9,0,120,1.135,0,,,,,,,,,,,pierce,standard,151,0,0,0,0,0.7,0.35,0,0,0,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 3500200,Sword Lance,Keen,16,Heavy Thrusting Sword,RapierHeavy,9,0,120,1.135,0,,,,,,,,,,,pierce,standard,151,0,0,0,0,0.2,0.95,0,0,0,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
@@ -587,7 +587,8 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 3522000,Lizard Greatsword,Storm,5,Greatsword,SwordLarge,9.5,0,120,1.015,0,,,,,,,,,,,strike,pierce,175,0,0,0,0,0.15,0.1,0.7,0.7,0,14,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,106,Stamp,0,1,0,0
 3522100,Lizard Greatsword,Mystic,5,Greatsword,SwordLarge,9.5,0,120,1.015,0,,,,,,,,,,,strike,pierce,0,175,0,0,0,0.15,0.1,0,0.6,0.6,14,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,106,Stamp,0,1,0,0
 3550000,Greatsword of Solitude,Standard,5,Greatsword,SwordLarge,15.5,0,120,1.165,0,,,,,,,,,,,pierce,standard,149,0,0,0,0,0.75,0.15,0.85,0.85,0,18,13,20,20,0,2200,16000,0,0,0,0,0,28,28,28,28,5430,Solitary Moon Slash,1,0,0,1
-3560000,Greatsword of Midra,Standard,5,Greatsword,SwordLarge,8,0,120,0.97,0,,,,,,,,,,,pierce,standard,0,0,150,0,0,0.45,0.3,0.85,0.85,0,15,12,18,18,0,2200,16000,0,0,0,0,0,28,28,28,28,5150,Promised Consort,1,0,0,1
+3560000,Leontiel's Greatsword,Standard,5,Greatsword,SwordLarge,9.5,0,120,1,0,,,,,,,,,,,pierce,standard,162,0,0,0,0,0.32,0.77,0,0,0,13,26,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,1200,Muleta,1,0,0,1
+3570000,Greatsword of Midra,Standard,5,Greatsword,SwordLarge,8,0,120,0.97,0,,,,,,,,,,,pierce,standard,0,0,150,0,0,0.45,0.3,0.85,0.85,0,15,12,18,18,0,2200,16000,0,0,0,0,0,28,28,28,28,5150,Waves of Madness,1,0,0,1
 4000000,Greatsword,Standard,7,Colossal Sword,SwordGigantic,23,0,120,1.135,0,,,,,,,,,,,standard,standard,189,0,0,0,0,0.8,0.35,0,0,0,31,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,106,Stamp,0,1,0,0
 4000100,Greatsword,Heavy,7,Colossal Sword,SwordGigantic,23,0,120,1.135,0,,,,,,,,,,,standard,standard,189,0,0,0,0,1.05,0.35,0,0,0,31,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,106,Stamp,0,1,0,0
 4000200,Greatsword,Keen,7,Colossal Sword,SwordGigantic,23,0,120,1.135,0,,,,,,,,,,,standard,standard,189,0,0,0,0,0.45,0.9,0,0,0,31,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,106,Stamp,0,1,0,0
@@ -685,10 +686,10 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 4110000,Troll Knight's Sword,Standard,7,Colossal Sword,SwordGigantic,18,0,120,1,0,,,,,,,,,,,standard,standard,0,159,0,0,0,0.75,0.35,0.9,0,0,20,14,18,0,0,2200,16000,0,0,0,0,0,28,28,28,28,653,Troll's Roar,1,0,0,1
 4120000,Gravelstone Arcblades,Standard,7,Colossal Sword,SwordGigantic,20,0,120,1.03,0,,,,,,,,,,,strike,standard,0,0,0,158,0,0.95,0.45,0,0.95,0,30,10,0,30,0,2200,16000,0,0,0,0,0,28,28,28,28,1059,Wrath of the Ancients,1,0,1,1
 4130000,Osian's Greatsword [Quality],Standard,7,Colossal Sword,SwordGigantic,15.5,0,120,0.98,0,,,,,,,,,,,pierce,standard,161,0,0,0,0,0.95,0.85,0,0,0,20,20,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,132,Osian's Fury,1,1,0,1
-4140000,Fingerprint Hexmark [Frenzy],Standard,7,Colossal Sword,SwordGigantic,15.5,0,120,0.98,0,,,,,,,,,,,pierce,standard,0,0,149,0,0,0.6,0.3,0.8,0.8,0,20,10,25,25,0,2200,16000,0,0,0,0,0,28,28,28,28,150,,1,0,0,1
+4140000,Fingerprint Hexmark [Frenzy],Standard,7,Colossal Sword,SwordGigantic,15.5,0,120,0.98,0,,,,,,,,,,,pierce,standard,0,0,149,0,0,0.6,0.3,0.8,0.8,0,20,10,25,25,0,2200,16000,0,0,0,0,0,28,28,28,28,150,Martyr's Vengeance,1,0,0,1
 4500000,Ancient Meteoric Ore Greatsword,Standard,7,Colossal Sword,SwordGigantic,22,0,120,1.06,0,,,,,,,,,,,pierce,standard,165,0,0,0,0,1,0.15,1,0,0,25,10,25,0,0,2200,16000,0,0,0,0,0,28,28,28,28,5240,Cosmic Burst,1,0,0,1
 4520000,Fire Knight's Greatsword,Standard,7,Colossal Sword,SwordGigantic,16,0,120,0.97,0,,,,,,,,,,,pierce,standard,0,0,195,0,0,0.9,0.35,0,0.95,0,18,12,0,22,0,0,16000,0,0,0,0,0,28,28,28,28,106,Stamp,1,1,0,0
-4530000,Greatswords of Radahn,Standard,7,Colossal Sword,SwordGigantic,19,0,120,1.03,0,,,,,,,,,,,pierce,standard,0,0,0,0,165,0.95,0.5,0,0.95,0,26,15,0,26,0,2200,16000,0,4,0,0,0,6,6,6,6,5200,Lord of Light Stance,1,0,1,1
+4530000,Greatswords of Radahn,Standard,7,Colossal Sword,SwordGigantic,19,0,120,1.03,0,,,,,,,,,,,pierce,standard,0,0,0,0,165,0.95,0.5,0,0.95,0,26,15,0,26,0,2200,16000,0,0,0,0,0,28,28,28,28,5200,Lord of Light Stance,1,0,1,1
 4540000,Moonrithyll's Knight Sword,Standard,7,Colossal Sword,SwordGigantic,18,0,120,1,0,,,,,,,,,,,pierce,standard,0,162,0,0,0,0.95,0.15,0.95,0,0,18,14,18,0,0,2200,16000,0,0,0,0,0,28,28,28,28,5550,Tremendous Phalanx,1,0,0,1
 5000000,Estoc,Standard,15,Thrusting Sword,SwordPierce,4.5,0,120,1.2,0,,,,,,,,,,,pierce,standard,123,0,0,0,0,0.1,0.8,0,0,0,11,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 5000100,Estoc,Heavy,15,Thrusting Sword,SwordPierce,4.5,0,120,1.2,0,,,,,,,,,,,pierce,standard,123,0,0,0,0,0.55,0.5,0,0,0,11,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
@@ -781,9 +782,10 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 5061900,Noble's Estoc,Rotten,15,Thrusting Sword,SwordPierce,3.5,0,120,1.14,0,,,,,,,,,,,pierce,standard,120,0,0,0,0,0.05,0.3,0,0.55,0.55,9,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 5062000,Noble's Estoc,Storm,15,Thrusting Sword,SwordPierce,3.5,0,120,1.14,0,,,,,,,,,,,pierce,standard,120,0,0,0,0,0.05,0.3,0.65,0.65,0,9,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 5062100,Noble's Estoc,Mystic,15,Thrusting Sword,SwordPierce,3.5,0,120,1.14,0,,,,,,,,,,,pierce,standard,0,120,0,0,0,0.05,0.3,0,0.55,0.55,9,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
-5070000,Thorn of the Guilty,Standard,15,Thrusting Sword,SwordPierce,3.5,0,130,1.1,0,,,,,,,,,,,pierce,standard,105,0,0,0,0,0.15,0.5,0.8,0,0.8,8,15,15,0,15,2200,16000,0,0,0,0,0,28,28,28,28,829,,1,0,0,1
+5070000,Thorn of the Guilty,Standard,15,Thrusting Sword,SwordPierce,3.5,0,130,1.1,0,,,,,,,,,,,pierce,standard,105,0,0,0,0,0.15,0.5,0.8,0,0.8,8,15,15,0,15,2200,16000,0,0,0,0,0,28,28,28,28,829,Telekinetic Vortex,1,0,0,1
 5080000,Foil of Caddock,Standard,15,Thrusting Sword,SwordPierce,3.5,0,120,1.14,0,,,,,,,,,,,pierce,standard,107,0,0,0,0,0.15,1.3,0,0,0,7,20,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,109,Repeating Thrust,1,1,0,1
-5090000,Quicksilver Rapier,Standard,15,Thrusting Sword,SwordPierce,2.5,0,160,1,0,,,,,,,,,,,pierce,standard,0,103,0,0,0,0.05,0.5,0.75,0.75,0,7,10,11,11,0,2200,16000,0,0,0,0,0,28,28,28,28,828,,1,1,0,1
+5090000,Quicksilver Rapier,Standard,15,Thrusting Sword,SwordPierce,2.5,0,160,1,0,,,,,,,,,,,pierce,standard,0,103,0,0,0,0.05,0.5,0.75,0.75,0,7,10,11,11,0,2200,16000,0,0,0,0,0,28,28,28,28,828,Flowing Piercer,1,1,0,1
+5100000,Huntress's Estoc,Standard,15,Thrusting Sword,SwordPierce,4,0,125,1.13,0,,,,,,,,,,,pierce,standard,0,105,0,0,0,0.42,0.18,0,0.8,0.8,12,8,0,16,16,2200,16000,0,0,0,0,0,28,28,28,28,1208,Vapor-fly Ignition,1,0,0,1
 6000000,Bloody Helice,Standard,16,Heavy Thrusting Sword,RapierHeavy,8,0,120,1.17,0,,,,,,,,,,,pierce,standard,0,0,121,0,0,0.15,0.4,0,0.65,0.65,14,14,0,17,17,2200,16000,0,0,0,0,0,28,28,28,28,1171,Dynast's Finesse,1,0,0,1
 6010000,Godskin Stitcher,Standard,16,Heavy Thrusting Sword,RapierHeavy,7,0,120,1.1,0,,,,,,,,,,,pierce,standard,0,0,0,0,127,0.2,0.45,0.7,0.7,0,11,15,18,18,0,2200,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,1,1,0,1
 6020000,Great Épée,Standard,16,Heavy Thrusting Sword,RapierHeavy,6.5,0,120,1.03,0,,,,,,,,,,,pierce,standard,143,0,0,0,0,0.4,0.5,0,0,0,15,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
@@ -994,7 +996,7 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 7151900,Grossmesser,Rotten,9,Curved Sword,SaberNormal,4.5,0,120,1.13,0,,,,,,,,,,,slash,slash,132,0,0,0,0,0.15,0.15,0,0.6,0.6,14,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
 7152000,Grossmesser,Storm,9,Curved Sword,SaberNormal,4.5,0,120,1.13,0,,,,,,,,,,,slash,slash,132,0,0,0,0,0.15,0.15,0.7,0.7,0,14,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
 7152100,Grossmesser,Mystic,9,Curved Sword,SaberNormal,4.5,0,120,1.13,0,,,,,,,,,,,slash,slash,0,132,0,0,0,0.15,0.15,0,0.6,0.6,14,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-7160000,Blade of Scarlet Bloom,Standard,9,Curved Sword,SaberNormal,3.5,0,120,1.04,0,,,,,,,,,,,slash,slash,114,0,0,0,0,0.15,0.5,0,0.75,0.75,9,14,0,14,14,2200,16000,0,0,0,0,0,28,28,28,28,823,,1,0,0,1
+7160000,Blade of Scarlet Bloom,Standard,9,Curved Sword,SaberNormal,3.5,0,120,1.04,0,,,,,,,,,,,slash,slash,114,0,0,0,0,0.15,0.5,0,0.75,0.75,9,14,0,14,14,2200,16000,0,0,0,0,0,28,28,28,28,823,Aeonian Rush,1,0,0,1
 7170000,Godskin Flayer,Standard,9,Curved Sword,SaberNormal,2,0,120,0.915,0,,,,,,,,,,,slash,slash,0,0,0,0,116,0.2,0.4,0.75,0.75,0,9,16,18,18,0,2200,16000,0,0,0,0,0,28,28,28,28,1061,Godslayer Ascension,1,0,1,1
 7180000,Nomad's Kilij,Standard,9,Curved Sword,SaberNormal,3.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,0,119,0,0,0.15,0.3,0.8,0.8,0,7,10,13,13,0,2200,16000,0,0,0,0,0,28,28,28,28,501,Succumb to Madness,1,0,0,1
 7500000,Spirit Sword,Standard,9,Curved Sword,SaberNormal,2.5,0,120,0.93,0,,,,,,,,,,,slash,slash,0,0,0,0,116,0.1,0.6,0.85,0.85,0,8,9,13,13,0,2200,16000,0,0,0,0,0,28,28,28,28,5250,Rancor Slash,1,0,0,1
@@ -1051,33 +1053,55 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 8062100,Omen Cleaver,Mystic,11,Curved Greatsword,SaberLarge,11.5,0,120,1.03,0,,,,,,,,,,,slash,slash,0,163,0,0,0,0.17,0.18,0,0.6,0.6,19,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
 8070000,Monk's Flameblade,Standard,11,Curved Greatsword,SaberLarge,9,0,120,0.93,0,,,,,,,,,,,slash,slash,0,0,134,0,0,0.25,0.6,0,1,0,15,18,0,25,0,2200,16000,0,0,0,0,0,28,28,28,28,1058,Giantsflame Arc,1,0,0,1
 8080000,Beastman's Cleaver,Standard,11,Curved Greatsword,SaberLarge,16.5,0,120,1.07,0,,,,,,,,,,,slash,slash,143,0,0,0,0,0.75,0.3,0,1,0,18,14,0,20,0,2200,16000,0,0,0,0,0,28,28,28,28,100,Lion's Claw,1,1,0,1
-8090000,Three Finger Blade,Standard,11,Curved Greatsword,SaberLarge,9,0,120,0.89,0,,,,,,,,,,,slash,slash,0,0,142,0,0,0.45,0.6,0.75,0.75,0,15,18,20,20,0,2200,16000,0,0,0,0,0,28,28,28,28,825,,1,0,0,1
+8090000,Three Finger Blade,Standard,11,Curved Greatsword,SaberLarge,9,0,120,0.89,0,,,,,,,,,,,slash,slash,0,0,142,0,0,0.45,0.6,0.75,0.75,0,15,18,20,20,0,2200,16000,0,0,0,0,0,28,28,28,28,825,Shabriri's Revenge,1,0,0,1
 8100000,Morgott's Cursed Sword,Standard,11,Curved Greatsword,SaberLarge,7.5,0,130,0.95,0,,,,,,,,,,,slash,slash,0,0,143,0,0,0.25,0.55,0,0.65,0.65,14,16,0,18,18,2200,16000,0,0,0,0,0,28,28,28,28,1027,Cursed-Blood Slice,1,0,0,1
 8500000,Putrescence Cleaver,Standard,19,Greataxe,AxeLarge,13.5,0,120,1.06,0,,,,,,,,,,,slash,slash,0,0,0,0,148,0.85,0.4,0.85,0.85,0,20,10,20,20,0,2200,16000,0,0,0,0,0,28,28,28,28,5080,Spinning Guillotine,1,0,0,1
 8510000,Freyja's Greatsword,Standard,11,Curved Greatsword,SaberLarge,14,0,120,1.09,0,,,,,,,,,,,slash,slash,172,0,0,0,0,1.15,0.55,0,0,0,25,14,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4150,Savage Lion's Claw,1,1,0,0
 8520000,Horned Warrior's Greatsword,Standard,11,Curved Greatsword,SaberLarge,13,0,120,1.075,0,,,,,,,,,,,slash,slash,152,0,0,0,0,0.95,0.45,0.75,0.75,0,19,16,20,20,0,2200,16000,0,0,0,0,0,28,28,28,28,5540,Tempest Cleave,1,0,0,1
-8530000,Demi-Dragon Cleaver,Standard,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,140,0,0,0,0,0.6,0.6,0,0,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8530100,Demi-Dragon Cleaver,Heavy,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,140,0,0,0,0,0.9,0.5,0,0,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8530200,Demi-Dragon Cleaver,Keen,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,140,0,0,0,0,0.5,0.9,0,0,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8530300,Demi-Dragon Cleaver,Quality,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,140,0,0,0,0,0.75,0.75,0,0,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8530400,Demi-Dragon Cleaver,Glint,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,140,0,0,0,0.3,0.3,0.9,0,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8530500,Demi-Dragon Cleaver,Dragonkin,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,0,0,140,0,0.3,0.3,1,0,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8530600,Demi-Dragon Cleaver,Gravity,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,140,0,0,0,0,0.3,0.3,0.9,0,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8530700,Demi-Dragon Cleaver,Flame,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,0,140,0,0,0.3,0.3,0,0.9,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8530800,Demi-Dragon Cleaver,Golden,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,0,0,0,140,0.3,0.3,0,0.9,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8530900,Demi-Dragon Cleaver,Draconic,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,0,0,140,0,0.3,0.3,0,0.9,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8531000,Demi-Dragon Cleaver,Bestial,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,140,0,0,0,0,0.3,0.3,0,0.9,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8531100,Demi-Dragon Cleaver,Night,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,140,0,0,0,0.2,0.2,0.8,0.8,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8531200,Demi-Dragon Cleaver,Lava,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,0,140,0,0,0.2,0.2,0.75,0.75,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8531300,Demi-Dragon Cleaver,Frenzy,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,0,140,0,0,0.2,0.2,0.65,0.65,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8531400,Demi-Dragon Cleaver,Death,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,0,0,0,140,0.2,0.2,0.65,0.65,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8531500,Demi-Dragon Cleaver,Godslayer,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,0,0,0,140,0.2,0.2,0.65,0.65,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8531600,Demi-Dragon Cleaver,Frost,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,140,0,0,0,0.2,0.2,0.65,0,0.65,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8531700,Demi-Dragon Cleaver,Aberrant,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,140,0,0,0,0,0.2,0.2,0.65,0,0.65,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8531800,Demi-Dragon Cleaver,Bloodflame,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,0,140,0,0,0.2,0.2,0,0.65,0.65,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8531900,Demi-Dragon Cleaver,Rotten,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,140,0,0,0,0,0.2,0.2,0,0.65,0.65,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8532000,Demi-Dragon Cleaver,Storm,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,140,0,0,0,0,0.2,0.2,0.75,0.75,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-8532100,Demi-Dragon Cleaver,Mystic,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,140,0,0,0,0.2,0.2,0,0.65,0.65,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8530000,Hefty Scimitar,Standard,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,138,0,0,0,0,0.8,0.4,0,0,0,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8530100,Hefty Scimitar,Heavy,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,138,0,0,0,0,1.1,0.3,0,0,0,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8530200,Hefty Scimitar,Keen,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,138,0,0,0,0,0.3,1.1,0,0,0,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8530300,Hefty Scimitar,Quality,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,138,0,0,0,0,0.85,0.65,0,0,0,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8530400,Hefty Scimitar,Glint,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,0,138,0,0,0,0.4,0.2,0.9,0,0,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8530500,Hefty Scimitar,Dragonkin,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,0,0,0,138,0,0.35,0.25,0.8,0,0,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8530600,Hefty Scimitar,Gravity,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,138,0,0,0,0,0.4,0.2,0.9,0,0,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8530700,Hefty Scimitar,Flame,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,0,0,138,0,0,0.35,0.25,0,0.8,0,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8530800,Hefty Scimitar,Golden,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,0,0,0,0,138,0.4,0.2,0,0.9,0,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8530900,Hefty Scimitar,Draconic,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,0,0,0,138,0,0.4,0.2,0,0.9,0,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8531000,Hefty Scimitar,Bestial,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,138,0,0,0,0,0.4,0.2,0,0.9,0,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8531100,Hefty Scimitar,Night,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,0,138,0,0,0,0.3,0.1,0.75,0.75,0,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8531200,Hefty Scimitar,Lava,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,0,0,138,0,0,0.3,0.1,0.75,0.75,0,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8531300,Hefty Scimitar,Frenzy,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,0,0,138,0,0,0.3,0.1,0.65,0.65,0,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8531400,Hefty Scimitar,Death,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,0,0,0,0,138,0.3,0.1,0.65,0.65,0,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8531500,Hefty Scimitar,Godslayer,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,0,0,0,0,138,0.3,0.1,0.65,0.65,0,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8531600,Hefty Scimitar,Frost,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,0,138,0,0,0,0.3,0.1,0.65,0,0.65,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8531700,Hefty Scimitar,Aberrant,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,138,0,0,0,0,0.3,0.1,0.65,0,0.65,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8531800,Hefty Scimitar,Bloodflame,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,0,0,138,0,0,0.3,0.1,0,0.65,0.65,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8531900,Hefty Scimitar,Rotten,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,138,0,0,0,0,0.3,0.1,0,0.65,0.65,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8532000,Hefty Scimitar,Storm,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,138,0,0,0,0,0.3,0.1,0.75,0.75,0,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8532100,Hefty Scimitar,Mystic,11,Curved Greatsword,SaberLarge,9.5,0,120,1,0,,,,,,,,,,,slash,slash,0,138,0,0,0,0.3,0.1,0,0.65,0.65,18,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8600000,Demi-Dragon Cleaver,Standard,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,140,0,0,0,0,0.6,0.6,0,0,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8600100,Demi-Dragon Cleaver,Heavy,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,140,0,0,0,0,0.9,0.5,0,0,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8600200,Demi-Dragon Cleaver,Keen,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,140,0,0,0,0,0.5,0.9,0,0,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8600300,Demi-Dragon Cleaver,Quality,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,140,0,0,0,0,0.75,0.75,0,0,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8600400,Demi-Dragon Cleaver,Glint,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,140,0,0,0,0.3,0.3,0.9,0,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8600500,Demi-Dragon Cleaver,Dragonkin,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,0,0,140,0,0.3,0.3,0.8,0,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8600600,Demi-Dragon Cleaver,Gravity,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,140,0,0,0,0,0.3,0.3,0.9,0,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8600700,Demi-Dragon Cleaver,Flame,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,0,140,0,0,0.3,0.3,0,0.9,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8600800,Demi-Dragon Cleaver,Golden,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,0,0,0,140,0.3,0.3,0,0.9,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8600900,Demi-Dragon Cleaver,Draconic,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,0,0,140,0,0.3,0.3,0,0.9,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8601000,Demi-Dragon Cleaver,Bestial,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,140,0,0,0,0,0.3,0.3,0,0.9,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8601100,Demi-Dragon Cleaver,Night,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,140,0,0,0,0.2,0.2,0.75,0.75,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8601200,Demi-Dragon Cleaver,Lava,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,0,140,0,0,0.2,0.2,0.75,0.75,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8601300,Demi-Dragon Cleaver,Frenzy,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,0,140,0,0,0.2,0.2,0.65,0.65,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8601400,Demi-Dragon Cleaver,Death,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,0,0,0,140,0.2,0.2,0.65,0.65,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8601500,Demi-Dragon Cleaver,Godslayer,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,0,0,0,140,0.2,0.2,0.65,0.65,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8601600,Demi-Dragon Cleaver,Frost,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,140,0,0,0,0.2,0.2,0.65,0,0.65,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8601700,Demi-Dragon Cleaver,Aberrant,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,140,0,0,0,0,0.2,0.2,0.65,0,0.65,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8601800,Demi-Dragon Cleaver,Bloodflame,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,0,140,0,0,0.2,0.2,0,0.65,0.65,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8601900,Demi-Dragon Cleaver,Rotten,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,140,0,0,0,0,0.2,0.2,0,0.65,0.65,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8602000,Demi-Dragon Cleaver,Storm,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,140,0,0,0,0,0.2,0.2,0.75,0.75,0,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
+8602100,Demi-Dragon Cleaver,Mystic,11,Curved Greatsword,SaberLarge,13.5,0,120,1.07,0,,,,,,,,,,,slash,slash,0,140,0,0,0,0.2,0.2,0,0.65,0.65,20,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
 9000000,Uchigatana,Standard,13,Katana,katana,5.5,0,120,1,0,,,,,,,,,,,slash,pierce,126,0,0,0,0,0.4,0.7,0,0,0,11,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,114,Unsheathe,0,1,0,0
 9000100,Uchigatana,Heavy,13,Katana,katana,5.5,0,120,1,0,,,,,,,,,,,slash,pierce,126,0,0,0,0,0.75,0.4,0,0,0,11,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,114,Unsheathe,0,1,0,0
 9000200,Uchigatana,Keen,13,Katana,katana,5.5,0,120,1,0,,,,,,,,,,,slash,pierce,126,0,0,0,0,0.45,1,0,0,0,11,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,114,Unsheathe,0,1,0,0
@@ -1130,6 +1154,7 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 9070000,Dragonscale Blade,Standard,13,Katana,katana,5.5,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,121,0,0.3,0.65,0.9,0,0,12,18,20,0,0,2200,16000,0,0,0,0,0,28,28,28,28,146,Underworld Conduit,1,0,0,1
 9080000,Serpentbone Blade,Standard,13,Katana,katana,6,0,120,1.04,0,,,,,,,,,,,slash,pierce,120,0,0,0,0,0.2,0.5,0,0.7,0.7,11,15,0,18,18,2200,16000,0,0,0,0,0,28,28,28,28,194,Virulent Slice,1,0,0,1
 9090000,Blade of Distant Light,Standard,13,Katana,katana,5.5,0,130,1,0,,,,,,,,,,,slash,pierce,0,0,126,0,0,0.35,0.6,0.85,0.85,0,10,13,15,15,0,2200,16000,0,0,0,0,0,28,28,28,28,804,Dance of Unification,1,0,0,1
+9100000,Dual Katana,Standard,13,Katana,katana,8,0,120,1.075,0,,,,,,,,,,,slash,pierce,125,0,0,0,0,0,1.6,0,0,0,0,48,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,5124,Purification,1,0,1,1
 9500000,Sword of Night,Standard,13,Katana,katana,6.5,0,120,1.075,0,,,,,,,,,,,slash,pierce,0,125,0,0,0,0.4,0.75,0.75,0.75,0,11,18,15,15,0,2200,16000,0,0,0,0,0,28,28,28,28,5260,Witching Hour Slash,1,0,0,1
 10000000,Twinblade,Standard,14,Twinblade,SwordDoubleEdge,7,0,120,1,0,,,,,,,,,,,pierce,standard,137,0,0,0,0,0.4,0.8,0,0,0,10,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
 10000100,Twinblade,Heavy,14,Twinblade,SwordDoubleEdge,7,0,120,1,0,,,,,,,,,,,pierce,standard,137,0,0,0,0,0.75,0.6,0,0,0,10,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
@@ -1177,15 +1202,15 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 10031900,Twinned Knight Swords,Rotten,14,Twinblade,SwordDoubleEdge,8,0,120,1.03,0,,,,,,,,,,,pierce,standard,140,0,0,0,0,0.25,0.4,0,0.65,0.65,16,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
 10032000,Twinned Knight Swords,Storm,14,Twinblade,SwordDoubleEdge,8,0,120,1.03,0,,,,,,,,,,,pierce,standard,140,0,0,0,0,0.25,0.4,0.75,0.75,0,16,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
 10032100,Twinned Knight Swords,Mystic,14,Twinblade,SwordDoubleEdge,8,0,120,1.03,0,,,,,,,,,,,pierce,standard,0,140,0,0,0,0.25,0.4,0,0.65,0.65,16,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-10040000,Frozen Twinshards,Standard,14,Twinblade,SwordDoubleEdge,6,0,120,0.97,0,,,,,,,,,,,slash,standard,0,127,0,0,0,0.1,0.7,0.85,0,0.85,12,18,20,0,20,2200,16000,0,0,0,0,0,28,28,28,28,131,,1,0,0,1
+10040000,Frozen Twinshards,Standard,14,Twinblade,SwordDoubleEdge,6,0,120,0.97,0,,,,,,,,,,,slash,standard,0,127,0,0,0,0.1,0.7,0.85,0,0.85,12,18,20,0,20,2200,16000,0,0,0,0,0,28,28,28,28,131,Whirling Iceblades,1,0,0,1
 10050000,Eleonora's Poleblade,Standard,14,Twinblade,SwordDoubleEdge,6,0,120,0.97,0,,,,,,,,,,,pierce,standard,0,0,125,0,0,0.15,0.65,0,0.85,0.85,12,20,0,20,20,2200,16000,0,0,0,0,0,28,28,28,28,1179,Bloodblade Dance,1,0,0,1
 10060000,Caimar's Battlestaff,Standard,14,Twinblade,SwordDoubleEdge,8.5,0,120,1.005,0,,,,,,,,,,,strike,standard,0,132,0,0,0,0.75,0.5,0,0.8,0.8,18,15,0,25,25,2200,16000,0,0,0,0,0,28,28,28,28,1203,Spiritshaper's Resplendence,1,0,0,1
-10070000,Godwyn's Cragblades,Standard,14,Twinblade,SwordDoubleEdge,7,0,120,1,0,,,,,,,,,,,slash,standard,0,0,0,130,0,0.35,0.65,0,1.1,0,10,16,0,30,0,2200,16000,0,0,0,0,0,28,28,28,28,820,,1,0,0,1
+10070000,Godwyn's Cragblades,Standard,14,Twinblade,SwordDoubleEdge,7,0,120,1,0,,,,,,,,,,,slash,standard,0,0,0,130,0,0.35,0.65,0,1.1,0,10,16,0,30,0,2200,16000,0,0,0,0,0,28,28,28,28,820,Call to Thunder,1,0,0,1
 10080000,Gargoyle's Twinblade,Standard,14,Twinblade,SwordDoubleEdge,8.5,0,120,1.005,0,,,,,,,,,,,pierce,standard,123,0,0,0,0,0.35,0.5,0.85,0.85,0,15,15,15,15,0,2200,16000,0,0,0,0,0,28,28,28,28,238,Valiant Cyclone,1,0,0,1
 10090000,Gargoyle's Black Blades,Standard,14,Twinblade,SwordDoubleEdge,8.5,0,120,1.005,0,,,,,,,,,,,pierce,standard,0,0,0,0,122,0.7,0.25,0.7,0.7,0,18,15,20,20,0,2200,16000,0,0,0,0,0,28,28,28,28,239,Death Cyclone,0,0,0,1
 10100000,Palm-Ax Twinblades,Standard,14,Twinblade,SwordDoubleEdge,7,0,120,1,0,,,,,,,,,,,slash,standard,125,0,0,0,0,0.9,0.9,0,0,0,18,18,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,148,Whirling Slice,1,1,0,1
 10110000,Gilded Quarterstaff,Standard,14,Twinblade,SwordDoubleEdge,7,0,120,1,0,,,,,,,,,,,strike,pierce,130,0,0,0,0,1.27,0.55,0,0,0,21,10,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,142,Vaulting Strike,1,1,0,1
-10200000,Galvanic Culling Blade [Twinblade],Standard,14,Twinblade,SwordDoubleEdge,9,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,127,0,0.55,0.7,1.15,0,0,15,12,35,0,0,2200,16000,0,0,0,0,0,28,28,28,28,180,,1,0,0,1
+10200000,Galvanic Culling Blade [Twinblade],Standard,14,Twinblade,SwordDoubleEdge,9,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,127,0,0.55,0.7,1.15,0,0,15,12,35,0,0,2200,16000,0,0,0,0,0,28,28,28,28,180,Galvanic Extraction,1,0,0,1
 10500000,Euporia,Standard,14,Twinblade,SwordDoubleEdge,8.5,0,120,1.045,0,,,,,,,,,,,pierce,standard,129,0,0,0,0,0.4,0.75,0,1.1,0,16,16,0,24,0,2200,16000,0,0,0,0,0,28,28,28,28,5270,Euporia Vortex,1,0,0,1
 10510000,Black Steel Twinblade,Standard,14,Twinblade,SwordDoubleEdge,8,0,120,1.07,0,,,,,,,,,,,pierce,standard,0,0,0,0,134,0.5,0.9,0,0.9,0,13,16,0,18,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,1,1,0,0
 11000000,Mace,Standard,21,Hammer,HammerNormal,4.5,0,120,1,0,,,,,,,,,,,strike,strike,132,0,0,0,0,0.85,0.4,0,0,0,12,7,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,503,Kick,0,1,0,0
@@ -1232,7 +1257,7 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 11011900,Club,Rotten,21,Hammer,HammerNormal,3.5,0,120,0.955,0,,,,,,,,,,,strike,strike,118,0,0,0,0,0.2,0.05,0,0.6,0.6,10,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,650,Barbaric Roar,0,1,0,0
 11012000,Club,Storm,21,Hammer,HammerNormal,3.5,0,120,0.955,0,,,,,,,,,,,strike,strike,118,0,0,0,0,0.2,0.05,0.7,0.7,0,10,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,650,Barbaric Roar,0,1,0,0
 11012100,Club,Mystic,21,Hammer,HammerNormal,3.5,0,120,0.955,0,,,,,,,,,,,strike,strike,0,118,0,0,0,0.2,0.05,0,0.6,0.6,10,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,650,Barbaric Roar,0,1,0,0
-11020000,Leaden Maul,Standard,21,Hammer,HammerNormal,6.5,0,120,1.17,0,,,,,,,,,,,strike,strike,128,0,0,0,0,1.25,0.2,0,0,0,17,7,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,149,,1,1,0,1
+11020000,Leaden Maul,Standard,21,Hammer,HammerNormal,6.5,0,120,1.17,0,,,,,,,,,,,strike,strike,128,0,0,0,0,1.25,0.2,0,0,0,17,7,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,149,Concussive Smash,1,1,0,1
 11030000,Curved Club,Standard,21,Hammer,HammerNormal,5,0,120,1.04,0,,,,,,,,,,,strike,strike,131,0,0,0,0,0.7,0.3,0,0,0,11,7,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,650,Barbaric Roar,0,1,0,0
 11030100,Curved Club,Heavy,21,Hammer,HammerNormal,5,0,120,1.04,0,,,,,,,,,,,strike,strike,131,0,0,0,0,1.1,0.2,0,0,0,11,7,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,650,Barbaric Roar,0,1,0,0
 11030200,Curved Club,Keen,21,Hammer,HammerNormal,5,0,120,1.04,0,,,,,,,,,,,strike,strike,131,0,0,0,0,0.5,0.65,0,0,0,11,7,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,650,Barbaric Roar,0,1,0,0
@@ -1299,7 +1324,7 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 11051900,Morning Star,Rotten,21,Hammer,HammerNormal,5,0,120,1.03,0,,,,,,,,,,,strike,strike,136,0,0,0,0,0.3,0.2,0,0.6,0.6,12,8,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,503,Kick,0,1,0,0
 11052000,Morning Star,Storm,21,Hammer,HammerNormal,5,0,120,1.03,0,,,,,,,,,,,strike,strike,136,0,0,0,0,0.3,0.2,0.7,0.7,0,12,8,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,503,Kick,0,1,0,0
 11052100,Morning Star,Mystic,21,Hammer,HammerNormal,5,0,120,1.03,0,,,,,,,,,,,strike,strike,0,136,0,0,0,0.3,0.2,0,0.6,0.6,12,8,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,503,Kick,0,1,0,0
-11060000,Varre's Bouquet,Standard,21,Hammer,HammerNormal,2,0,120,0.87,0,,,,,,,,,,,strike,strike,0,0,75,0,0,0.55,0.05,0,0.6,0.6,8,14,0,16,16,2200,16000,0,0,0,0,0,28,28,28,28,110,Wild Strikes,1,0,0,1
+11060000,Varre's Bouquet,Standard,21,Hammer,HammerNormal,2,0,120,0.87,0,,,,,,,,,,,strike,strike,0,0,75,0,0,0.55,0.05,0,0.6,0.6,8,14,0,16,16,2200,16000,0,0,0,0,0,28,28,28,28,110,Wild Strikes,1,1,0,1
 11070000,Spiked Club,Standard,21,Hammer,HammerNormal,5,0,120,1.04,0,,,,,,,,,,,strike,strike,131,0,0,0,0,0.75,0.25,0,0,0,10,7,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,650,Barbaric Roar,0,1,0,0
 11070100,Spiked Club,Heavy,21,Hammer,HammerNormal,5,0,120,1.04,0,,,,,,,,,,,strike,strike,131,0,0,0,0,1.1,0.2,0,0,0,10,7,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,650,Barbaric Roar,0,1,0,0
 11070200,Spiked Club,Keen,21,Hammer,HammerNormal,5,0,120,1.04,0,,,,,,,,,,,strike,strike,131,0,0,0,0,0.55,0.6,0,0,0,10,7,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,650,Barbaric Roar,0,1,0,0
@@ -1344,7 +1369,7 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 11081900,Hammer,Rotten,21,Hammer,HammerNormal,6.5,0,120,1.17,0,,,,,,,,,,,strike,strike,143,0,0,0,0,0.55,0.05,0,0.6,0.6,14,7,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,503,Kick,0,1,0,0
 11082000,Hammer,Storm,21,Hammer,HammerNormal,6.5,0,120,1.17,0,,,,,,,,,,,strike,strike,143,0,0,0,0,0.55,0.05,0.7,0.7,0,14,7,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,503,Kick,0,1,0,0
 11082100,Hammer,Mystic,21,Hammer,HammerNormal,6.5,0,120,1.17,0,,,,,,,,,,,strike,strike,0,143,0,0,0,0.55,0.05,0,0.6,0.6,14,7,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,503,Kick,0,1,0,0
-11090000,Monk's Flamemace,Standard,21,Hammer,HammerNormal,6,0,120,1.14,0,,,,,,,,,,,strike,strike,0,0,126,0,0,0.65,0.25,0,1,0,13,13,0,18,0,2200,16000,0,0,0,0,0,28,28,28,28,1065,,1,1,0,1
+11090000,Monk's Flamemace,Standard,21,Hammer,HammerNormal,6,0,120,1.14,0,,,,,,,,,,,strike,strike,0,0,126,0,0,0.65,0.25,0,1,0,13,13,0,18,0,2200,16000,0,0,0,0,0,28,28,28,28,1065,Fire Monk's Fury,1,1,0,1
 11100000,Envoy's Horn,Standard,21,Hammer,HammerNormal,4,0,120,0.97,0,,,,,,,,,,,strike,strike,0,0,0,0,121,0.6,0.25,0,1,0,10,12,0,16,0,2200,16000,0,0,0,0,0,28,28,28,28,1003,Oracular Bubble,1,0,0,1
 11110000,Scepter of the All-Knowing,Standard,21,Hammer,HammerNormal,4.5,0,120,1.06,0,,,,,,,,,,,strike,pierce,58,0,0,0,0,0.1,0,0.7,0.7,0.7,10,0,10,10,10,2400,16000,20,20,20,20,20,28,28,28,28,1182,Knowledge Above All,1,0,0,1
 11120000,Nox Flowing Hammer,Standard,21,Hammer,HammerNormal,6.5,0,130,1.17,0,,,,,,,,,,,strike,strike,0,122,0,0,0,0.45,0.45,0.8,0.8,0,14,7,16,16,0,2200,16000,0,0,0,0,0,28,28,28,28,1035,Flowing Form,1,0,0,1
@@ -1372,13 +1397,13 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 11142000,Stone Club,Storm,21,Hammer,HammerNormal,7,0,120,1.105,0,,,,,,,,,,,strike,strike,140,0,0,0,0,0.45,0.05,0.7,0.7,0,16,8,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,503,Kick,0,1,0,0
 11142100,Stone Club,Mystic,21,Hammer,HammerNormal,7,0,120,1.105,0,,,,,,,,,,,strike,strike,0,140,0,0,0,0.45,0.05,0,0.6,0.6,16,8,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,503,Kick,0,1,0,0
 11150000,Marika's Hammer,Standard,21,Hammer,HammerNormal,6,0,120,1.1,0,,,,,,,,,,,strike,strike,0,0,0,0,129,0.8,0.25,0,1.15,0,15,0,0,30,0,2200,16000,0,0,0,0,0,28,28,28,28,1029,Gold Breaker,1,0,0,1
-11160000,Zamor Star Mace,Standard,21,Hammer,HammerNormal,4.5,0,120,1,0,,,,,,,,,,,strike,strike,0,120,0,0,0,0.6,0.05,0.75,0,0.75,16,7,20,0,20,2200,16000,0,0,0,0,0,28,28,28,28,821,,1,0,0,1
+11160000,Zamor Star Mace,Standard,21,Hammer,HammerNormal,4.5,0,120,1,0,,,,,,,,,,,strike,strike,0,120,0,0,0,0.6,0.05,0.75,0,0.75,16,7,20,0,20,2200,16000,0,0,0,0,0,28,28,28,28,821,Ice Spikes,1,0,0,1
 11180000,Hammer of Virtue,Standard,21,Hammer,HammerNormal,6.5,0,120,1.17,0,,,,,,,,,,,strike,pierce,0,0,0,0,130,0.95,0.2,0,1.05,0,14,7,0,20,0,2200,16000,0,0,0,0,0,28,28,28,28,182,Virtuous Consecration,1,0,0,1
-11190000,Tricia's Pomander - Fire,Standard,21,Hammer,HammerNormal,6.5,0,120,1.17,0,,,,,,,,,,,strike,strike,0,0,132,0,0,0.65,0.15,0,0,0.95,14,7,0,0,18,2200,16000,0,0,0,0,0,28,28,28,28,1201,Aromatic Chain-Whip,1,0,0,1
-11191000,Tricia's Pomander - Lightning,Standard,21,Hammer,HammerNormal,6.5,0,120,1.17,0,,,,,,,,,,,strike,strike,0,0,0,132,0,0.65,0.15,0,0,1,14,7,0,0,18,2200,16000,0,0,0,0,0,28,28,28,28,1201,Aromatic Chain-Whip,1,0,0,1
-11192000,Tricia's Pomander - Frost,Standard,21,Hammer,HammerNormal,6.5,0,120,1.17,0,,,,,,,,,,,strike,strike,0,132,0,0,0,0.65,0.15,0,0,0.9,14,7,0,0,18,2200,16000,0,0,0,0,0,28,28,28,28,1201,Aromatic Chain-Whip,1,0,0,1
-11193000,Tricia's Pomander - Frenzy,Standard,21,Hammer,HammerNormal,6.5,0,120,1.17,0,,,,,,,,,,,strike,strike,0,0,132,0,0,0.65,0.15,0,0,0.9,14,7,0,0,18,2200,16000,0,0,0,0,0,28,28,28,28,1201,Aromatic Chain-Whip,1,0,0,1
-11200000,Restored Marika's Hammer,Standard,21,Hammer,HammerNormal,6,0,120,1.1,0,,,,,,,,,,,strike,strike,0,0,0,0,129,0.8,0.25,0,1.15,0,15,0,0,30,0,2200,16000,0,0,0,0,0,28,28,28,28,154,,1,0,0,1
+11190000,Tricia's Pomander - Fire,Standard,21,Hammer,HammerNormal,6.5,0,120,1.17,0,,,,,,,,,,,strike,strike,0,0,132,0,0,0.65,0.15,0,0,0.95,14,7,0,0,18,2200,16000,0,0,0,0,0,28,28,28,28,1209,Aromatic Chain-Whip,1,0,0,1
+11191000,Tricia's Pomander - Lightning,Standard,21,Hammer,HammerNormal,6.5,0,120,1.17,0,,,,,,,,,,,strike,strike,0,0,0,132,0,0.65,0.15,0,0,1,14,7,0,0,18,2200,16000,0,0,0,0,0,28,28,28,28,1209,Aromatic Chain-Whip,1,0,0,1
+11192000,Tricia's Pomander - Frost,Standard,21,Hammer,HammerNormal,6.5,0,120,1.17,0,,,,,,,,,,,strike,strike,0,132,0,0,0,0.65,0.15,0,0,0.9,14,7,0,0,18,2200,16000,0,0,0,0,0,28,28,28,28,1209,Aromatic Chain-Whip,1,0,0,1
+11193000,Tricia's Pomander - Frenzy,Standard,21,Hammer,HammerNormal,6.5,0,120,1.17,0,,,,,,,,,,,strike,strike,0,0,132,0,0,0.65,0.15,0,0,0.9,14,7,0,0,18,2200,16000,0,0,0,0,0,28,28,28,28,1209,Aromatic Chain-Whip,1,0,0,1
+11200000,Restored Marika's Hammer,Standard,21,Hammer,HammerNormal,6,0,120,1.1,0,,,,,,,,,,,strike,strike,0,0,0,0,129,0.8,0.25,0,1.15,0,15,0,0,30,0,2200,16000,0,0,0,0,0,28,28,28,28,154,Runic Stance,1,0,0,1
 11500000,Flowerstone Gavel,Standard,21,Hammer,HammerNormal,6,0,120,1.1,0,,,,,,,,,,,pierce,pierce,0,0,0,135,0,0.75,0.25,0,0.9,0,14,8,0,15,0,2200,16000,0,0,0,0,0,28,28,28,28,5380,Flower Dragonbolt,1,0,0,1
 12000000,Large Club,Standard,23,Great Hammer,HammerLarge,8.5,0,120,1.015,0,,,,,,,,,,,strike,strike,151,0,0,0,0,0.7,0.2,0,0,0,22,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,650,Barbaric Roar,0,1,0,0
 12000100,Large Club,Heavy,23,Great Hammer,HammerLarge,8.5,0,120,1.015,0,,,,,,,,,,,strike,strike,151,0,0,0,0,1.1,0.1,0,0,0,22,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,650,Barbaric Roar,0,1,0,0
@@ -1426,7 +1451,7 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 12022000,Battle Hammer,Storm,23,Great Hammer,HammerLarge,10,0,120,1.01,0,,,,,,,,,,,strike,strike,151,0,0,0,0,0.4,0.1,0.7,0.7,0,26,8,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,654,Braggart's Roar,0,1,0,0
 12022100,Battle Hammer,Mystic,23,Great Hammer,HammerLarge,10,0,120,1.01,0,,,,,,,,,,,strike,strike,0,151,0,0,0,0.4,0.1,0,0.6,0.6,26,8,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,654,Braggart's Roar,0,1,0,0
 12030000,Underworld Greatmace,Standard,23,Great Hammer,HammerLarge,11.5,0,120,1.06,0,,,,,,,,,,,strike,strike,0,0,0,141,0,0.65,0.1,1.1,0,0,18,0,30,0,0,2200,16000,0,0,0,0,0,28,28,28,28,309,Cragbolt Slam,1,0,0,1
-12040000,Crimson Briar-Bough,Standard,23,Great Hammer,HammerLarge,10,0,120,1.01,0,,,,,,,,,,,strike,strike,143,0,0,0,0,0.6,0.1,0.75,0,0.75,20,10,20,0,20,2200,16000,0,0,0,0,0,28,28,28,28,816,,1,0,0,1
+12040000,Crimson Briar-Bough,Standard,23,Great Hammer,HammerLarge,10,0,120,1.01,0,,,,,,,,,,,strike,strike,143,0,0,0,0,0.6,0.1,0.75,0,0.75,20,10,20,0,20,2200,16000,0,0,0,0,0,28,28,28,28,816,Briar Assault,1,0,0,1
 12060000,Great Mace,Standard,23,Great Hammer,HammerLarge,11.5,0,120,1.06,0,,,,,,,,,,,strike,strike,154,0,0,0,0,0.7,0.3,0,0,0,28,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,700,Endure,0,1,0,0
 12060100,Great Mace,Heavy,23,Great Hammer,HammerLarge,11.5,0,120,1.06,0,,,,,,,,,,,strike,strike,154,0,0,0,0,1.15,0.2,0,0,0,28,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,700,Endure,0,1,0,0
 12060200,Great Mace,Keen,23,Great Hammer,HammerLarge,11.5,0,120,1.06,0,,,,,,,,,,,strike,strike,154,0,0,0,0,0.55,0.65,0,0,0,28,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,700,Endure,0,1,0,0
@@ -1641,6 +1666,7 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 13050000,Mohgwyn Censer,Standard,24,Flail,Flail,5.5,0,120,1.04,0,,,,,,,,,,,strike,strike,0,0,116,0,0,0.35,0.35,0,0.75,0.75,9,9,0,15,15,2200,16000,0,0,0,0,0,28,28,28,28,110,Wild Strikes,1,1,0,1
 13060000,Seething Flail,Standard,24,Flail,Flail,5,0,120,1,0,,,,,,,,,,,strike,strike,0,0,120,0,0,0.45,0.2,0.75,0.75,0,10,16,18,18,0,2200,16000,0,0,0,0,0,28,28,28,28,231,Magma Splash,1,0,0,1
 13500000,Serpent Flail,Standard,24,Flail,Flail,6,0,120,1.03,0,,,,,,,,,,,strike,strike,0,0,121,0,0,0.55,0.55,0,1.05,0,15,15,0,24,0,2200,16000,0,0,0,0,0,28,28,28,28,5500,"Flare, O Serpent",1,0,0,1
+13510000,Golden Order Flail,Standard,24,Flail,Flail,5,0,120,1,0,,,,,,,,,,,strike,strike,0,0,0,0,126,0.4,0.5,0,1.2,0,9,12,0,29,0,2200,16000,0,0,0,0,0,28,28,28,28,1201,Causality's Wrath,1,0,0,1
 14000000,Battle Axe,Standard,17,Axe,AxeNormal,4.5,0,120,1.07,0,,,,,,,,,,,standard,standard,141,0,0,0,0,0.6,0.3,0,0,0,12,8,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,110,Wild Strikes,0,1,0,0
 14000100,Battle Axe,Heavy,17,Axe,AxeNormal,4.5,0,120,1.07,0,,,,,,,,,,,standard,standard,141,0,0,0,0,1,0.2,0,0,0,12,8,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,110,Wild Strikes,0,1,0,0
 14000200,Battle Axe,Keen,17,Axe,AxeNormal,4.5,0,120,1.07,0,,,,,,,,,,,standard,standard,141,0,0,0,0,0.5,0.7,0,0,0,12,8,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,110,Wild Strikes,0,1,0,0
@@ -1730,10 +1756,10 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 14041900,Iron Cleaver,Rotten,17,Axe,AxeNormal,6,0,120,1.13,0,,,,,,,,,,,standard,standard,138,0,0,0,0,0.3,0.2,0,0.6,0.6,15,7,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,110,Wild Strikes,0,1,0,0
 14042000,Iron Cleaver,Storm,17,Axe,AxeNormal,6,0,120,1.13,0,,,,,,,,,,,standard,standard,138,0,0,0,0,0.3,0.2,0.7,0.7,0,15,7,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,110,Wild Strikes,0,1,0,0
 14042100,Iron Cleaver,Mystic,17,Axe,AxeNormal,6,0,120,1.13,0,,,,,,,,,,,standard,standard,0,138,0,0,0,0.3,0.2,0,0.6,0.6,15,7,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,110,Wild Strikes,0,1,0,0
-14050000,Ripple Blade,Standard,17,Axe,AxeNormal,4.5,0,120,1.07,0,,,,,,,,,,,standard,standard,120,0,0,0,0,0.25,0.25,0,0,1.25,11,11,0,0,20,2200,16000,0,0,0,0,0,28,28,28,28,110,Wild Strikes,1,0,0,1
+14050000,Ripple Blade,Standard,17,Axe,AxeNormal,4.5,0,120,1.07,0,,,,,,,,,,,standard,standard,120,0,0,0,0,0.25,0.25,0,0,1.25,11,11,0,0,20,2200,16000,0,0,0,0,0,28,28,28,28,110,Wild Strikes,1,1,0,1
 14060000,Celebrant's Cleaver,Standard,17,Axe,AxeNormal,4.5,0,120,1.07,0,,,,,,,,,,,standard,standard,0,0,0,0,119,0.55,0.1,0.75,0.75,0,10,9,12,12,0,2200,16000,0,0,0,0,0,28,28,28,28,110,Wild Strikes,1,1,0,1
-14070000,Glintstone Cleaver,Standard,17,Axe,AxeNormal,6,0,120,1.13,0,,,,,,,,,,,standard,standard,0,129,0,0,0,0.75,0,1.05,0,0,12,7,25,0,0,2200,16000,0,0,0,0,0,28,28,28,28,818,,1,0,0,1
-14080000,Icerind Hatchet,Standard,17,Axe,AxeNormal,3,0,120,0.98,0,,,,,,,,,,,standard,standard,0,115,0,0,0,0.35,0.45,0.75,0,0.75,10,15,15,0,15,2200,16000,0,0,0,0,0,28,28,28,28,160,Hoarfrost Stomp,1,0,0,1
+14070000,Glintstone Cleaver,Standard,17,Axe,AxeNormal,6,0,120,1.13,0,,,,,,,,,,,standard,standard,0,129,0,0,0,0.75,0,1.05,0,0,12,7,25,0,0,2200,16000,0,0,0,0,0,28,28,28,28,818,Primeval Cascade,1,0,0,1
+14080000,Icerind Hatchet,Standard,17,Axe,AxeNormal,3,0,120,0.98,0,,,,,,,,,,,standard,standard,0,115,0,0,0,0.35,0.45,0.75,0,0.75,10,15,15,0,15,2200,16000,0,0,0,0,0,28,28,28,28,160,Hoarfrost Stomp,1,1,0,1
 14090000,Axe of Epiphany,Standard,17,Axe,AxeNormal,4.5,0,120,1.07,0,,,,,,,,,,,standard,standard,0,0,0,0,132,0.6,0.15,0,1.1,0,11,8,0,20,0,2200,16000,0,0,0,0,0,28,28,28,28,603,Golden Vow,1,1,0,1
 14100000,Highland Axe,Standard,17,Axe,AxeNormal,4.5,0,130,1.07,0,,,,,,,,,,,standard,standard,141,0,0,0,0,0.65,0.25,0,0,0,12,9,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,651,War Cry,0,1,0,0
 14100100,Highland Axe,Heavy,17,Axe,AxeNormal,4.5,0,130,1.07,0,,,,,,,,,,,standard,standard,141,0,0,0,0,1.05,0.15,0,0,0,12,9,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,651,War Cry,0,1,0,0
@@ -1759,7 +1785,7 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 14102100,Highland Axe,Mystic,17,Axe,AxeNormal,4.5,0,130,1.07,0,,,,,,,,,,,standard,standard,0,141,0,0,0,0.4,0.1,0,0.6,0.6,12,9,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,651,War Cry,0,1,0,0
 14110000,Sacrificial Axe,Standard,17,Axe,AxeNormal,5.5,0,120,1.06,0,,,,,,,,,,,standard,standard,0,0,0,0,128,0.6,0.15,0.8,0.8,0,13,10,15,15,0,2200,16000,0,0,0,0,0,28,28,28,28,110,Wild Strikes,1,1,0,1
 14120000,Rosus' Axe,Standard,17,Axe,AxeNormal,5.5,0,120,1.1,0,,,,,,,,,,,standard,standard,0,0,0,0,133,0.6,0.05,0.75,0.75,0,14,10,16,16,0,2200,16000,0,0,0,0,0,28,28,28,28,1185,Rosus's Summons,1,0,0,1
-14130000,Axe of Fell Prophecy,Standard,17,Axe,AxeNormal,4.5,0,130,1.07,0,,,,,,,,,,,standard,standard,0,0,135,0,0,0.6,0.3,0,1.1,0,12,9,0,25,0,2200,16000,0,0,0,0,0,28,28,28,28,826,,1,0,0,1
+14130000,Axe of Fell Prophecy,Standard,17,Axe,AxeNormal,4.5,0,130,1.07,0,,,,,,,,,,,standard,standard,0,0,135,0,0,0.6,0.3,0,1.1,0,12,9,0,25,0,2200,16000,0,0,0,0,0,28,28,28,28,826,Scorched Earth,1,0,0,1
 14140000,Stormhawk Axe,Standard,17,Axe,AxeNormal,5.5,0,120,1.1,0,,,,,,,,,,,standard,standard,130,0,0,0,0,0.55,0.35,0.8,0.8,0,10,10,15,15,0,2200,16000,0,0,0,0,0,28,28,28,28,1186,Thunderstorm,1,0,0,1
 14150000,Bloodhound Hookblade,Standard,17,Axe,AxeNormal,5.5,0,120,1.1,0,,,,,,,,,,,slash,standard,134,0,0,0,0,0.25,1.2,0,0,0,5,25,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,136,Bloodhound Assault,1,1,0,1
 14160000,Rimeheart,Standard,17,Axe,AxeNormal,6,0,130,0.97,0,,,,,,,,,,,strike,standard,0,132,0,0,0,0.55,0.3,0.85,0,0.85,13,9,15,0,15,2200,16000,0,0,0,0,0,28,28,28,28,143,Icy Fling,1,0,1,1
@@ -1965,7 +1991,7 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 15081900,Executioner's Greataxe,Rotten,19,Greataxe,AxeLarge,15,0,135,1.09,0,,,,,,,,,,,standard,standard,172,0,0,0,0,0.4,0.15,0,0.6,0.6,24,8,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,651,War Cry,0,1,0,0
 15082000,Executioner's Greataxe,Storm,19,Greataxe,AxeLarge,15,0,135,1.09,0,,,,,,,,,,,standard,standard,172,0,0,0,0,0.4,0.15,0.7,0.7,0,24,8,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,651,War Cry,0,1,0,0
 15082100,Executioner's Greataxe,Mystic,19,Greataxe,AxeLarge,15,0,135,1.09,0,,,,,,,,,,,standard,standard,0,172,0,0,0,0.4,0.15,0,0.6,0.6,24,8,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,651,War Cry,0,1,0,0
-15090000,Axe of Rust,Standard,19,Greataxe,AxeLarge,13,0,120,1.005,0,,,,,,,,,,,strike,standard,145,0,0,0,0,1.4,0.1,0,0,0,24,8,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,824,,1,1,0,1
+15090000,Axe of Rust,Standard,19,Greataxe,AxeLarge,13,0,120,1.005,0,,,,,,,,,,,strike,standard,145,0,0,0,0,1.4,0.1,0,0,0,24,8,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,824,Titanic Cleave,1,1,0,1
 15110000,Winged Greathorn,Standard,19,Greataxe,AxeLarge,11,0,120,1,0,,,,,,,,,,,standard,standard,0,130,0,0,0,0.65,0.35,0,0.7,0.7,25,18,0,20,20,2200,16000,0,0,0,0,0,28,28,28,28,1013,Soul Stifler,1,0,0,1
 15120000,Butchering Knife,Standard,19,Greataxe,AxeLarge,8.5,0,120,0.86,0,,,,,,,,,,,standard,standard,154,0,0,0,0,0.55,0.56,0,0,0,16,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,650,Barbaric Roar,0,1,0,0
 15120100,Butchering Knife,Heavy,19,Greataxe,AxeLarge,8.5,0,120,0.86,0,,,,,,,,,,,standard,standard,154,0,0,0,0,1,0.55,0,0,0,16,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,650,Barbaric Roar,0,1,0,0
@@ -2037,7 +2063,7 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 16011900,Spear,Rotten,25,Spear,SpearNormal,4.5,0,120,1.07,0,,,,,,,,,,,pierce,pierce,131,0,0,0,0,0.1,0.4,0,0.6,0.6,12,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 16012000,Spear,Storm,25,Spear,SpearNormal,4.5,0,120,1.07,0,,,,,,,,,,,pierce,pierce,131,0,0,0,0,0.1,0.4,0.7,0.7,0,12,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 16012100,Spear,Mystic,25,Spear,SpearNormal,4.5,0,120,1.07,0,,,,,,,,,,,pierce,pierce,0,131,0,0,0,0.1,0.4,0,0.6,0.6,12,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
-16020000,Crystal Spear,Standard,25,Spear,SpearNormal,5.5,0,120,1.14,0,,,,,,,,,,,pierce,pierce,0,128,0,0,0,0.55,0.65,0.95,0,0,10,16,16,0,0,2200,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,1,0,0,1
+16020000,Crystal Spear,Standard,25,Spear,SpearNormal,5.5,0,120,1.14,0,,,,,,,,,,,pierce,pierce,0,128,0,0,0,0.55,0.65,0.95,0,0,10,16,16,0,0,2200,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,1,1,0,1
 16030000,Clayman's Harpoon,Standard,25,Spear,SpearNormal,5.5,0,120,1.14,0,,,,,,,,,,,pierce,pierce,0,0,0,125,0,0.5,0.65,0.9,0,0,12,10,12,0,0,2200,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,1,1,0,1
 16040000,Cleanrot Spear,Standard,25,Spear,SpearNormal,5.5,0,120,1.14,0,,,,,,,,,,,pierce,pierce,0,0,0,0,129,0.4,0.6,0,1,0,15,15,0,18,0,2200,16000,0,0,0,0,0,28,28,28,28,1187,Sacred Phalanx,1,0,0,1
 16050000,Partisan,Standard,25,Spear,SpearNormal,6.5,0,120,1.24,0,,,,,,,,,,,pierce,pierce,141,0,0,0,0,0.4,0.7,0,0,0,15,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
@@ -2085,7 +2111,7 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 16071900,Pike,Rotten,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,132,0,0,0,0,0.2,0.4,0,0.6,0.6,12,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 16072000,Pike,Storm,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,132,0,0,0,0,0.2,0.4,0.7,0.7,0,12,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 16072100,Pike,Mystic,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,132,0,0,0,0.2,0.4,0,0.6,0.6,12,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
-16080000,Torchpole,Standard,25,Spear,SpearNormal,6,0,120,1.22,0,,,,,,,,,,,pierce,pierce,0,0,121,0,0,0.65,0.95,0,0,0,14,15,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,1,0,0,1
+16080000,Torchpole,Standard,25,Spear,SpearNormal,6,0,120,1.22,0,,,,,,,,,,,pierce,pierce,0,0,121,0,0,0.65,0.95,0,0,0,14,15,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,1,1,0,1
 16090000,Bolt of Gransax,Standard,25,Spear,SpearNormal,8.5,0,120,1.41,0,,,,,,,,,,,pierce,pierce,0,0,0,131,0,0.4,0.6,0,1,0,20,20,0,35,0,2200,16000,0,0,0,0,0,28,28,28,28,1049,Lightning Spear of Gransax,1,0,0,1
 16100000,Spear of Tranquility,Standard,25,Spear,SpearNormal,4.5,0,120,1.07,0,,,,,,,,,,,pierce,pierce,0,129,0,0,0,0.2,0.55,0,0.75,0.75,12,8,0,14,14,2200,16000,0,0,0,0,0,28,28,28,28,128,Soporific Assault,1,0,0,1
 16110000,Cross-Naginata,Standard,25,Spear,SpearNormal,8,0,120,1.34,0,,,,,,,,,,,pierce,pierce,140,0,0,0,0,0.4,0.65,0,0,0,16,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
@@ -2111,7 +2137,7 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 16112000,Cross-Naginata,Storm,25,Spear,SpearNormal,8,0,120,1.34,0,,,,,,,,,,,pierce,pierce,140,0,0,0,0,0.25,0.3,0.7,0.7,0,16,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 16112100,Cross-Naginata,Mystic,25,Spear,SpearNormal,8,0,120,1.34,0,,,,,,,,,,,pierce,pierce,0,140,0,0,0,0.25,0.3,0,0.6,0.6,16,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 16120000,Death Ritual Spear,Standard,25,Spear,SpearNormal,6.5,0,130,1.24,0,,,,,,,,,,,pierce,pierce,0,0,0,0,130,0.45,0.45,0.8,0.8,0,13,17,18,18,0,2200,16000,0,0,0,0,0,28,28,28,28,1024,Spearcall Ritual,1,0,0,1
-16130000,Inquisitor's Girandole,Standard,25,Spear,SpearNormal,7.5,0,120,1.27,0,,,,,,,,,,,pierce,pierce,0,0,126,0,0,0.4,0.5,0.8,0.8,0,15,15,16,16,0,2200,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,1,0,0,1
+16130000,Inquisitor's Girandole,Standard,25,Spear,SpearNormal,7.5,0,120,1.27,0,,,,,,,,,,,pierce,pierce,0,0,126,0,0,0.4,0.5,0.8,0.8,0,15,15,16,16,0,2200,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,1,1,0,1
 16140000,Spiked Spear,Standard,25,Spear,SpearNormal,6,0,120,1.21,0,,,,,,,,,,,pierce,pierce,138,0,0,0,0,0.35,0.75,0,0,0,14,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 16140100,Spiked Spear,Heavy,25,Spear,SpearNormal,6,0,120,1.21,0,,,,,,,,,,,pierce,pierce,138,0,0,0,0,0.7,0.6,0,0,0,14,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 16140200,Spiked Spear,Keen,25,Spear,SpearNormal,6,0,120,1.21,0,,,,,,,,,,,pierce,pierce,138,0,0,0,0,0.15,1.2,0,0,0,14,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
@@ -2156,9 +2182,9 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 16151900,Iron Spear,Rotten,25,Spear,SpearNormal,4.5,0,120,1.07,0,,,,,,,,,,,pierce,pierce,131,0,0,0,0,0.2,0.4,0,0.6,0.6,13,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 16152000,Iron Spear,Storm,25,Spear,SpearNormal,4.5,0,120,1.07,0,,,,,,,,,,,pierce,pierce,131,0,0,0,0,0.2,0.4,0.7,0.7,0,13,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 16152100,Iron Spear,Mystic,25,Spear,SpearNormal,4.5,0,120,1.07,0,,,,,,,,,,,pierce,pierce,0,131,0,0,0,0.2,0.4,0,0.6,0.6,13,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
-16160000,Rotten Crystal Spear,Standard,25,Spear,SpearNormal,5.5,0,120,1.14,0,,,,,,,,,,,pierce,pierce,122,0,0,0,0,0.45,0.55,0,0.75,0.75,10,16,0,16,16,2200,16000,0,0,0,0,0,28,28,28,28,109,Repeating Thrust,1,0,0,1
+16160000,Rotten Crystal Spear,Standard,25,Spear,SpearNormal,5.5,0,120,1.14,0,,,,,,,,,,,pierce,pierce,122,0,0,0,0,0.45,0.55,0,0.75,0.75,10,16,0,16,16,2200,16000,0,0,0,0,0,28,28,28,28,109,Repeating Thrust,1,1,0,1
 16170000,Phalanx Pike,Standard,25,Spear,SpearNormal,4,0,120,1,0,,,,,,,,,,,pierce,pierce,138,0,0,0,0,0.95,0.95,0,0,0,18,18,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,656,Pikeman's Flourish,1,1,0,1
-16180000,Crucifix of Eochaid,Standard,25,Spear,SpearNormal,6,0,120,1.21,0,,,,,,,,,,,pierce,pierce,128,0,0,0,0,0.35,0.55,0.8,0,0.8,6,12,22,0,22,2200,16000,0,0,0,0,0,28,28,28,28,1207,,1,0,0,1
+16180000,Crucifix of Eochaid,Standard,25,Spear,SpearNormal,6,0,120,1.21,0,,,,,,,,,,,pierce,pierce,128,0,0,0,0,0.35,0.55,0.8,0,0.8,6,12,22,0,22,2200,16000,0,0,0,0,0,28,28,28,28,1207,Telekinetic Butchery,1,0,0,1
 16500000,Smithscript Spear,Standard,25,Spear,SpearNormal,4,0,120,1.01,0,,,,,,,,,,,pierce,standard,152,0,0,0,0,0.35,0.75,0,0,0,9,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 16500100,Smithscript Spear,Heavy,25,Spear,SpearNormal,4,0,120,1.01,0,,,,,,,,,,,pierce,standard,152,0,0,0,0,0.7,0.6,0,0,0,9,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 16500200,Smithscript Spear,Keen,25,Spear,SpearNormal,4,0,120,1.01,0,,,,,,,,,,,pierce,standard,152,0,0,0,0,0.15,1.2,0,0,0,9,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
@@ -2184,28 +2210,28 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 16520000,Swift Spear,Standard,25,Spear,SpearNormal,3,0,120,1,0,,,,,,,,,,,pierce,standard,161,0,0,0,0,0.45,1.2,0,0,0,10,26,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,1,1,0,0
 16540000,Bloodfiend's Fork,Standard,25,Spear,SpearNormal,4.5,0,120,1.03,0,,,,,,,,,,,pierce,standard,0,0,151,0,0,0.35,0.75,0,0.85,0.85,8,14,0,13,13,0,16000,0,0,0,0,0,28,28,28,28,650,Barbaric Roar,1,1,0,0
 16550000,Bloodfiend's Sacred Spear,Standard,28,Heavy Spear,SpearHeavy,8,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,130,0,0,0.75,0.5,0,0.7,0.7,18,12,0,15,15,2200,16000,0,0,0,0,0,28,28,28,28,5560,Bloodfiends' Bloodboon,1,0,0,1
-16560000,Gaelor's Mancatcher,Standard,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,128,0,0,0,0,0.45,0.7,0,0,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16560100,Gaelor's Mancatcher,Heavy,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,128,0,0,0,0,0.8,0.55,0,0,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16560200,Gaelor's Mancatcher,Keen,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,128,0,0,0,0,0.25,1.15,0,0,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16560300,Gaelor's Mancatcher,Quality,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,128,0,0,0,0,0.55,0.85,0,0,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16560400,Gaelor's Mancatcher,Glint,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,128,0,0,0,0.35,0.4,0.9,0,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16560500,Gaelor's Mancatcher,Dragonkin,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,0,0,128,0,0.35,0.4,0.8,0,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16560600,Gaelor's Mancatcher,Gravity,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,128,0,0,0,0,0.35,0.4,0.9,0,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16560700,Gaelor's Mancatcher,Flame,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,0,128,0,0,0.35,0.4,0,0.8,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16560800,Gaelor's Mancatcher,Golden,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,0,0,0,128,0.35,0.4,0,0.9,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16560900,Gaelor's Mancatcher,Draconic,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,0,0,128,0,0.35,0.4,0,0.9,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16561000,Gaelor's Mancatcher,Bestial,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,128,0,0,0,0,0.35,0.4,0,0.9,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16561100,Gaelor's Mancatcher,Night,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,128,0,0,0,0.3,0.35,0.75,0.75,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16561200,Gaelor's Mancatcher,Lava,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,0,128,0,0,0.3,0.35,0.75,0.75,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16561300,Gaelor's Mancatcher,Frenzy,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,0,128,0,0,0.3,0.35,0.65,0.65,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16561400,Gaelor's Mancatcher,Death,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,0,0,0,128,0.3,0.35,0.65,0.65,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16561500,Gaelor's Mancatcher,Godslayer,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,0,0,0,128,0.3,0.35,0.65,0.65,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16561600,Gaelor's Mancatcher,Frost,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,128,0,0,0,0.3,0.35,0.65,0,0.65,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16561700,Gaelor's Mancatcher,Aberrant,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,128,0,0,0,0,0.3,0.35,0.65,0,0.65,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16561800,Gaelor's Mancatcher,Bloodflame,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,0,128,0,0,0.3,0.35,0,0.65,0.65,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16561900,Gaelor's Mancatcher,Rotten,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,128,0,0,0,0,0.3,0.35,0,0.65,0.65,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16562000,Gaelor's Mancatcher,Storm,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,128,0,0,0,0,0.3,0.35,0.75,0.75,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
-16562100,Gaelor's Mancatcher,Mystic,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,128,0,0,0,0.3,0.35,0,0.65,0.65,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Ancient Thunderclap,0,1,0,0
+16560000,Gaoler's Mancatcher,Standard,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,128,0,0,0,0,0.45,0.7,0,0,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16560100,Gaoler's Mancatcher,Heavy,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,128,0,0,0,0,0.8,0.55,0,0,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16560200,Gaoler's Mancatcher,Keen,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,128,0,0,0,0,0.25,1.15,0,0,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16560300,Gaoler's Mancatcher,Quality,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,128,0,0,0,0,0.55,0.85,0,0,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16560400,Gaoler's Mancatcher,Glint,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,128,0,0,0,0.35,0.4,0.9,0,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16560500,Gaoler's Mancatcher,Dragonkin,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,0,0,128,0,0.35,0.4,0.8,0,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16560600,Gaoler's Mancatcher,Gravity,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,128,0,0,0,0,0.35,0.4,0.9,0,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16560700,Gaoler's Mancatcher,Flame,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,0,128,0,0,0.35,0.4,0,0.8,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16560800,Gaoler's Mancatcher,Golden,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,0,0,0,128,0.35,0.4,0,0.9,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16560900,Gaoler's Mancatcher,Draconic,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,0,0,128,0,0.35,0.4,0,0.9,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16561000,Gaoler's Mancatcher,Bestial,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,128,0,0,0,0,0.35,0.4,0,0.9,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16561100,Gaoler's Mancatcher,Night,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,128,0,0,0,0.3,0.35,0.75,0.75,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16561200,Gaoler's Mancatcher,Lava,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,0,128,0,0,0.3,0.35,0.75,0.75,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16561300,Gaoler's Mancatcher,Frenzy,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,0,128,0,0,0.3,0.35,0.65,0.65,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16561400,Gaoler's Mancatcher,Death,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,0,0,0,128,0.3,0.35,0.65,0.65,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16561500,Gaoler's Mancatcher,Godslayer,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,0,0,0,128,0.3,0.35,0.65,0.65,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16561600,Gaoler's Mancatcher,Frost,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,128,0,0,0,0.3,0.35,0.65,0,0.65,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16561700,Gaoler's Mancatcher,Aberrant,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,128,0,0,0,0,0.3,0.35,0.65,0,0.65,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16561800,Gaoler's Mancatcher,Bloodflame,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,0,128,0,0,0.3,0.35,0,0.65,0.65,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16561900,Gaoler's Mancatcher,Rotten,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,128,0,0,0,0,0.3,0.35,0,0.65,0.65,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16562000,Gaoler's Mancatcher,Storm,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,128,0,0,0,0,0.3,0.35,0.75,0.75,0,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
+16562100,Gaoler's Mancatcher,Mystic,25,Spear,SpearNormal,7.5,0,120,1.435,0,,,,,,,,,,,pierce,pierce,0,128,0,0,0,0.3,0.35,0,0.65,0.65,15,20,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,105,Charge Forth,0,1,0,0
 17010000,Mohgwyn's Sacred Spear,Standard,28,Heavy Spear,SpearHeavy,10,0,120,1.1,0,,,,,,,,,,,pierce,pierce,0,0,135,0,0,0.65,0.3,0,0.9,0.9,18,14,0,25,25,2200,16000,0,0,0,0,0,28,28,28,28,1034,Bloodboon Ritual,1,0,0,1
 17020000,Siluria's Tree,Standard,28,Heavy Spear,SpearHeavy,10,0,120,1.1,0,,,,,,,,,,,pierce,pierce,140,0,0,0,0,0.9,0.2,0,0.9,0,25,10,0,25,0,2200,16000,0,0,0,0,0,28,28,28,28,1009,Siluria's Woe,1,0,0,1
 17030000,Serpent-Hunter,Standard,28,Heavy Spear,SpearHeavy,12,0,120,1.12,0,,,,,,,,,,,pierce,pierce,111,0,0,0,0,0.7,0.35,0,0,0,0,0,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,1188,Great-Serpent Hunt,1,0,0,1
@@ -2232,9 +2258,9 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 17061900,Lance,Rotten,28,Heavy Spear,SpearHeavy,9,0,120,1.07,0,,,,,,,,,,,pierce,pierce,141,0,0,0,0,0.35,0.2,0,0.6,0.6,20,14,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 17062000,Lance,Storm,28,Heavy Spear,SpearHeavy,9,0,120,1.07,0,,,,,,,,,,,pierce,pierce,141,0,0,0,0,0.35,0.2,0.7,0.7,0,20,14,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 17062100,Lance,Mystic,28,Heavy Spear,SpearHeavy,9,0,120,1.07,0,,,,,,,,,,,pierce,pierce,0,141,0,0,0,0.35,0.2,0,0.6,0.6,20,14,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
-17070000,Treespear,Standard,28,Heavy Spear,SpearHeavy,9.5,0,120,1.105,0,,,,,,,,,,,pierce,pierce,0,0,0,0,132,0.6,0.4,0,1,0,15,18,0,22,0,2200,16000,0,0,0,0,0,28,28,28,28,604,Sacred Order,1,0,0,1
+17070000,Treespear,Standard,28,Heavy Spear,SpearHeavy,9.5,0,120,1.105,0,,,,,,,,,,,pierce,pierce,0,0,0,0,132,0.6,0.4,0,1,0,15,18,0,22,0,2200,16000,0,0,0,0,0,28,28,28,28,604,Sacred Order,1,1,0,1
 17080000,Spear of the Dreaming,Standard,28,Heavy Spear,SpearHeavy,9.5,0,120,1.105,0,,,,,,,,,,,pierce,pierce,0,145,0,0,0,0.45,0.5,0,0.9,0.9,15,18,0,18,18,2200,16000,0,0,0,0,0,28,28,28,28,165,Impaling Vapors,1,0,0,1
-17090000,Cragsplitter,Standard,28,Heavy Spear,SpearHeavy,12,0,120,1.105,0,,,,,,,,,,,pierce,pierce,144,0,0,0,0,1.15,0.65,0,0,0,26,9,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,1205,,1,0,0,1
+17090000,Cragsplitter,Standard,28,Heavy Spear,SpearHeavy,12,0,120,1.105,0,,,,,,,,,,,pierce,pierce,144,0,0,0,0,1.15,0.65,0,0,0,26,9,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,1205,Pulverizing Thrust,1,0,0,1
 17500000,Spear of the Impaler,Standard,28,Heavy Spear,SpearHeavy,9.5,0,120,1.105,0,,,,,,,,,,,pierce,standard,0,0,146,0,0,0.5,1,0,1,0,14,22,0,22,0,2200,16000,0,0,0,0,0,28,28,28,28,5190,Messmer's Assault,1,0,0,1
 17510000,Messmer Soldier's Spear,Standard,28,Heavy Spear,SpearHeavy,8.5,0,120,1.015,0,,,,,,,,,,,pierce,standard,163,0,0,0,0,0.5,0.4,0,0,0,19,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 17510100,Messmer Soldier's Spear,Heavy,28,Heavy Spear,SpearHeavy,8.5,0,120,1.015,0,,,,,,,,,,,pierce,standard,163,0,0,0,0,0.95,0.35,0,0,0,19,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
@@ -2328,9 +2354,9 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 18051900,Nightrider Glaive,Rotten,29,Halberd,SpearAxe,12,0,120,1.16,0,,,,,,,,,,,pierce,standard,148,0,0,0,0,0.45,0.1,0,0.6,0.6,26,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
 18052000,Nightrider Glaive,Storm,29,Halberd,SpearAxe,12,0,120,1.16,0,,,,,,,,,,,pierce,standard,148,0,0,0,0,0.45,0.1,0.7,0.7,0,26,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
 18052100,Nightrider Glaive,Mystic,29,Halberd,SpearAxe,12,0,120,1.16,0,,,,,,,,,,,pierce,standard,0,148,0,0,0,0.45,0.1,0,0.6,0.6,26,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-18060000,Ripple Crescent Halberd,Standard,29,Halberd,SpearAxe,8.5,0,120,1.015,0,,,,,,,,,,,pierce,standard,130,0,0,0,0,0.3,0.2,0,0,1.25,12,12,0,0,20,2200,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,1,0,0,1
+18060000,Ripple Crescent Halberd,Standard,29,Halberd,SpearAxe,8.5,0,120,1.015,0,,,,,,,,,,,pierce,standard,130,0,0,0,0,0.3,0.2,0,0,1.25,12,12,0,0,20,2200,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,1,1,0,1
 18070000,Vulgar Militia Saw,Standard,29,Halberd,SpearAxe,8,0,120,0.96,0,,,,,,,,,,,pierce,standard,126,0,0,0,0,0.4,0.6,0,1,0,15,13,0,18,0,2200,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,1,1,0,1
-18080000,Golden Halberd,Standard,29,Halberd,SpearAxe,13.5,0,120,1.15,0,,,,,,,,,,,pierce,standard,0,0,0,0,147,0.85,0.4,0,0.85,0,18,14,0,20,0,2200,16000,0,0,0,0,0,28,28,28,28,603,Golden Vow,1,0,0,1
+18080000,Golden Halberd,Standard,29,Halberd,SpearAxe,13.5,0,120,1.15,0,,,,,,,,,,,pierce,standard,0,0,0,0,147,0.85,0.4,0,0.85,0,18,14,0,20,0,2200,16000,0,0,0,0,0,28,28,28,28,603,Golden Vow,1,1,0,1
 18090000,Glaive,Standard,29,Halberd,SpearAxe,10,0,120,1.1,0,,,,,,,,,,,pierce,standard,152,0,0,0,0,0.5,0.5,0,0,0,18,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
 18090100,Glaive,Heavy,29,Halberd,SpearAxe,10,0,120,1.1,0,,,,,,,,,,,pierce,standard,152,0,0,0,0,0.85,0.45,0,0,0,18,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
 18090200,Glaive,Keen,29,Halberd,SpearAxe,10,0,120,1.1,0,,,,,,,,,,,pierce,standard,152,0,0,0,0,0.45,0.95,0,0,0,18,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
@@ -2353,21 +2379,22 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 18091900,Glaive,Rotten,29,Halberd,SpearAxe,10,0,120,1.1,0,,,,,,,,,,,pierce,standard,152,0,0,0,0,0.3,0.3,0,0.6,0.6,18,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
 18092000,Glaive,Storm,29,Halberd,SpearAxe,10,0,120,1.1,0,,,,,,,,,,,pierce,standard,152,0,0,0,0,0.3,0.3,0.7,0.7,0,18,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
 18092100,Glaive,Mystic,29,Halberd,SpearAxe,10,0,120,1.1,0,,,,,,,,,,,pierce,standard,0,152,0,0,0,0.3,0.3,0,0.6,0.6,18,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
-18100000,Loretta's War Sickle,Standard,29,Halberd,SpearAxe,10,0,120,1.1,0,,,,,,,,,,,pierce,standard,0,149,0,0,0,0.6,0.6,1.1,0,0,13,13,25,0,0,2200,16000,0,0,0,0,0,28,28,28,28,118,Loretta's Slash,1,0,0,1
+18100000,Loretta's War Sickle,Standard,29,Halberd,SpearAxe,10,0,120,1.1,0,,,,,,,,,,,pierce,standard,0,149,0,0,0,0.6,0.6,1.1,0,0,13,13,25,0,0,2200,16000,0,0,0,0,0,28,28,28,28,118,Loretta's Slash,1,1,0,1
 18110000,Guardian's Spearblade (straight sword),Standard,3,Straight Sword,SwordNormal,9,0,120,1.03,0,,,,,,,,,,,pierce,standard,0,0,0,0,119,0.35,0.45,0,0.95,0,8,10,0,20,0,2200,16000,0,0,0,0,0,28,28,28,28,229,Erdtree Mastery,1,0,0,1
-18120000,Glaive of the Ancients (Draconic),Standard,29,Halberd,SpearAxe,10,0,120,1.1,0,,,,,,,,,,,pierce,standard,0,0,0,150,0,0.75,0.75,0,0.95,0,20,15,0,25,0,2200,16000,0,0,0,0,0,28,28,28,28,815,,1,0,0,1
+18120000,Glaive of the Ancients (Draconic),Standard,29,Halberd,SpearAxe,10,0,120,1.1,0,,,,,,,,,,,pierce,standard,0,0,0,150,0,0.75,0.75,0,0.95,0,20,15,0,25,0,2200,16000,0,0,0,0,0,28,28,28,28,815,Ancient Thunderclap,1,0,0,1
 18130000,Vulgar Militia Shotel,Standard,29,Halberd,SpearAxe,8,0,120,0.96,0,,,,,,,,,,,pierce,standard,121,0,0,0,0,0.45,0.55,0,1,0,8,12,0,16,0,2200,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,1,1,0,1
-18140000,Dragon Halberd,Standard,29,Halberd,SpearAxe,10.5,0,120,1.075,0,,,,,,,,,,,pierce,standard,0,0,0,135,0,0.75,0.5,0.9,0,0,18,10,22,0,0,2200,16000,0,0,0,0,0,28,28,28,28,1166,,1,0,0,1
+18140000,Dragon Halberd,Standard,29,Halberd,SpearAxe,10.5,0,120,1.075,0,,,,,,,,,,,pierce,standard,0,0,0,135,0,0.75,0.5,0.9,0,0,18,10,22,0,0,2200,16000,0,0,0,0,0,28,28,28,28,1166,Cragbolt Slash,1,0,0,1
 18150000,Gargoyle's Halberd,Standard,29,Halberd,SpearAxe,12,0,120,1.08,0,,,,,,,,,,,pierce,standard,131,0,0,0,0,0.5,0.4,0.8,0.8,0,20,10,18,18,0,2200,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,1,1,0,1
 18160000,Gargoyle's Black Halberd,Standard,29,Halberd,SpearAxe,12,0,120,1.08,0,,,,,,,,,,,pierce,standard,0,0,0,0,128,0.5,0.35,0.7,0.7,0,20,10,22,22,0,2200,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,1,0,0,1
 18170000,Reaver's Odachi,Standard,94,Great Katana,GreatKatana,10,0,120,1.1,0,,,,,,,,,,,slash,standard,151,0,0,0,0,0.9,0.9,0,0,0,20,20,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,145,Heart Piercer,1,0,0,1
-18180000,Rhys' Swordspear,Standard,29,Halberd,SpearAxe,9,0,120,1.03,0,,,,,,,,,,,pierce,standard,0,139,0,0,0,0.5,0.5,1.2,0,0,12,12,27,0,0,2200,16000,0,0,0,0,0,28,28,28,28,813,,1,0,0,1
-18190000,Starcaller Mattock,Standard,29,Halberd,SpearAxe,7,0,120,0.93,0,,,,,,,,,,,pierce,standard,128,0,0,0,0,0.65,0.15,0.95,0,0,10,0,20,0,0,2200,16000,0,0,0,0,0,28,28,28,28,657,,1,0,0,1
+18180000,Rhys' Swordspear,Standard,29,Halberd,SpearAxe,9,0,120,1.03,0,,,,,,,,,,,pierce,standard,0,139,0,0,0,0.5,0.5,1.2,0,0,12,12,27,0,0,2200,16000,0,0,0,0,0,28,28,28,28,813,Carian Gallantry,1,0,0,1
+18190000,Starcaller Mattock,Standard,29,Halberd,SpearAxe,7,0,120,0.93,0,,,,,,,,,,,pierce,standard,128,0,0,0,0,0.65,0.15,0.95,0,0,10,0,20,0,0,2200,16000,0,0,0,0,0,28,28,28,28,657,Stone Excavation,1,0,0,1
 18200000,Blightpole,Standard,29,Halberd,SpearAxe,10.5,0,120,1.1,0,,,,,,,,,,,strike,standard,0,0,0,0,119,0.1,0,0.85,0.85,0,0,0,22,22,0,2200,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,1,0,0,1
-18250000,Halberd of Archea,Standard,29,Halberd,SpearAxe,8,0,120,1.15,0,,,,,,,,,,,pierce,standard,143,0,0,0,0,0.75,0.4,0,1.15,0,18,8,0,32,0,2200,16000,0,0,0,0,0,28,28,28,28,162,,1,0,0,1
+18250000,Halberd of Archea,Standard,29,Halberd,SpearAxe,8,0,120,1.15,0,,,,,,,,,,,pierce,standard,143,0,0,0,0,0.75,0.4,0,1.15,0,18,8,0,32,0,2200,16000,0,0,0,0,0,28,28,28,28,162,Archea's Dance,1,0,0,1
 18500000,Spirit Glaive,Standard,29,Halberd,SpearAxe,6.5,0,120,0.95,0,,,,,,,,,,,slash,pierce,0,0,0,0,150,0.75,0.55,0.75,0.75,0,16,12,16,16,0,2200,16000,0,0,0,0,0,28,28,28,28,5290,Rancor Flurry,1,0,0,1
 18510000,Poleblade of the Bud,Standard,29,Halberd,SpearAxe,10,0,120,1.14,0,,,,,,,,,,,slash,pierce,140,0,0,0,0,0.55,0.75,0,0.75,0.75,14,22,0,20,20,2200,16000,0,0,0,0,0,28,28,28,28,5300,Romina's Purification,1,0,0,1
-18520000,Glaive of the Crusade,Standard,29,Halberd,SpearAxe,10,0,120,0.95,0,,,,,,,,,,,slash,pierce,0,0,133,0,0,0.65,0.65,0,1.1,0,13,13,0,30,0,2200,16000,0,0,0,0,0,28,28,28,28,161,,1,0,0,1
+18520000,Glaive of the Crusade,Standard,29,Halberd,SpearAxe,10,0,120,0.95,0,,,,,,,,,,,slash,pierce,0,0,133,0,0,0.65,0.65,0,1.1,0,13,13,0,30,0,2200,16000,0,0,0,0,0,28,28,28,28,161,Crusader's Ignition,1,0,0,1
+18530000,Halberd of the Deceiver,Standard,29,Halberd,SpearAxe,12,0,120,1.16,0,,,,,,,,,,,pierce,standard,0,0,0,0,148,0.6,0.55,0.85,0.85,0,15,11,30,30,0,2200,16000,0,0,0,0,0,28,28,28,28,5191,Idris's Sacrilege,1,0,0,1
 19000000,Scythe,Standard,31,Scythe,Sickle,7.5,0,120,1,0,,,,,,,,,,,slash,slash,155,0,0,0,0,0.3,0.65,0,0,0,14,14,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
 19000100,Scythe,Heavy,31,Scythe,Sickle,7.5,0,120,1,0,,,,,,,,,,,slash,slash,155,0,0,0,0,0.6,0.5,0,0,0,14,14,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
 19000200,Scythe,Keen,31,Scythe,Sickle,7.5,0,120,1,0,,,,,,,,,,,slash,slash,155,0,0,0,0,0.1,1.15,0,0,0,14,14,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,103,Spinning Slash,0,1,0,0
@@ -2651,7 +2678,7 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 21541900,Golem Fist,Rotten,35,Fist,Knuckle,6,0,120,1.27,0,,,,,,,,,,,strike,strike,121,0,0,0,0,0.45,0.1,0,0.6,0.6,24,8,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,700,Endure,0,1,1,0
 21542000,Golem Fist,Storm,35,Fist,Knuckle,6,0,120,1.27,0,,,,,,,,,,,strike,strike,121,0,0,0,0,0.45,0.1,0.7,0.7,0,24,8,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,700,Endure,0,1,1,0
 21542100,Golem Fist,Mystic,35,Fist,Knuckle,6,0,120,1.27,0,,,,,,,,,,,strike,strike,0,121,0,0,0,0.45,0.1,0,0.6,0.6,24,8,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,700,Endure,0,1,1,0
-21550000,Shield of Night,Standard,65,Small Shield,ShieldSmall,2,0,120,1,0,,,,,,,,,,,strike,strike,0,75,0,0,0,0,0.32,0.25,0.25,0,8,15,0,0,0,2200,16000,0,0,0,0,0,6,6,6,6,5440,Revenge of the Night,1,0,0,1
+21550000,Shield of Night,Standard,65,Small Shield,ShieldSmall,2,0,120,1,0,,,,,,,,,,,strike,strike,0,75,0,0,0,0,0.32,0.25,0.25,0,8,15,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,5440,Revenge of the Night,1,0,0,1
 22000000,Hookclaws,Standard,37,Claw,Claw,2,0,130,1,0,,,,,,,,,,,slash,pierce,102,0,0,0,0,0.3,0.6,0,0,0,8,14,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,0,1,1,0
 22000100,Hookclaws,Heavy,37,Claw,Claw,2,0,130,1,0,,,,,,,,,,,slash,pierce,102,0,0,0,0,0.6,0.5,0,0,0,8,14,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,0,1,1,0
 22000200,Hookclaws,Keen,37,Claw,Claw,2,0,130,1,0,,,,,,,,,,,slash,pierce,102,0,0,0,0,0.2,1,0,0,0,8,14,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,0,1,1,0
@@ -2719,12 +2746,12 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 22031900,Raptor Talons,Rotten,37,Claw,Claw,1.5,0,130,0.97,0,,,,,,,,,,,slash,pierce,98,0,0,0,0,0.05,0.2,0,0.6,0.6,6,14,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,0,1,1,0
 22032000,Raptor Talons,Storm,37,Claw,Claw,1.5,0,130,0.97,0,,,,,,,,,,,slash,pierce,98,0,0,0,0,0.05,0.2,0.7,0.7,0,6,14,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,0,1,1,0
 22032100,Raptor Talons,Mystic,37,Claw,Claw,1.5,0,130,0.97,0,,,,,,,,,,,slash,pierce,0,98,0,0,0,0.05,0.2,0,0.6,0.6,6,14,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,800,Quickstep,0,1,1,0
-22040000,Stone Claws,Standard,37,Claw,Claw,2,0,130,1,0,,,,,,,,,,,slash,pierce,96,0,0,0,0,0.5,0.05,0,1.05,0,8,14,0,22,0,2200,16000,0,0,0,0,0,28,28,28,28,817,,1,0,1,1
+22040000,Stone Claws,Standard,37,Claw,Claw,2,0,130,1,0,,,,,,,,,,,slash,pierce,96,0,0,0,0,0.5,0.05,0,1.05,0,8,14,0,22,0,2200,16000,0,0,0,0,0,28,28,28,28,817,Bestial Mauling,1,0,1,1
 22050000,Emyr's Great Talons,Standard,37,Claw,Claw,2,0,130,1,0,,,,,,,,,,,slash,pierce,94,0,0,0,0,0.35,1.3,0,0,0,12,25,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,129,Evisceration,1,1,1,1
 22500000,Claws of Night,Standard,37,Claw,Claw,3,0,130,1.11,0,,,,,,,,,,,slash,pierce,0,100,0,0,0,0.2,0.75,0.8,0.8,0,8,16,20,20,0,2200,16000,0,0,0,0,0,28,28,28,28,5510,Scattershot (Claws),1,0,1,1
 23000000,Prelate's Inferno Crozier,Standard,41,Colossal Weapon,AxhammerLarge,23.5,0,120,1.25,0,,,,,,,,,,,strike,strike,0,0,156,0,0,0.9,0.05,0,0.9,0,30,8,0,20,0,2200,16000,0,0,0,0,0,28,28,28,28,113,Prelate's Charge,1,1,0,1
 23010000,Watchdog's Staff,Standard,41,Colossal Weapon,AxhammerLarge,19,0,120,1.15,0,,,,,,,,,,,strike,strike,0,165,0,0,0,1,0.05,0.9,0,0,25,10,25,0,0,2200,16000,0,0,0,0,0,28,28,28,28,1192,Sorcery of the Crozier,1,0,0,1
-23020000,Great Club,Standard,41,Colossal Weapon,AxhammerLarge,17,0,120,1.12,0,,,,,,,,,,,strike,strike,154,0,0,0,0,0.95,0.1,0,0,0,35,0,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,213,Golden Land,1,0,0,1
+23020000,Great Club,Standard,41,Colossal Weapon,AxhammerLarge,17,0,120,1.12,0,,,,,,,,,,,strike,strike,154,0,0,0,0,0.95,0.1,0,0,0,35,0,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,213,Golden Land,1,1,0,1
 23030000,Envoy's Greathorn,Standard,41,Colossal Weapon,AxhammerLarge,19.5,0,120,1.1575,0,,,,,,,,,,,strike,strike,0,0,0,0,164,0.8,0.1,0,1.1,0,28,12,0,24,0,2200,16000,0,0,0,0,0,28,28,28,28,1005,Great Oracular Bubble,1,0,0,1
 23040000,Duelist Greataxe,Standard,41,Colossal Weapon,AxhammerLarge,20,0,120,1.03,0,,,,,,,,,,,standard,standard,195,0,0,0,0,0.85,0.25,0,0,0,30,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,700,Endure,0,1,0,0
 23040100,Duelist Greataxe,Heavy,41,Colossal Weapon,AxhammerLarge,20,0,120,1.03,0,,,,,,,,,,,standard,standard,195,0,0,0,0,1.1,0.25,0,0,0,30,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,700,Endure,0,1,0,0
@@ -2749,7 +2776,7 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 23042000,Duelist Greataxe,Storm,41,Colossal Weapon,AxhammerLarge,20,0,120,1.03,0,,,,,,,,,,,standard,standard,195,0,0,0,0,0.5,0.2,0.7,0.7,0,30,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,700,Endure,0,1,0,0
 23042100,Duelist Greataxe,Mystic,41,Colossal Weapon,AxhammerLarge,20,0,120,1.03,0,,,,,,,,,,,standard,standard,0,195,0,0,0,0.5,0.2,0,0.6,0.6,30,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,700,Endure,0,1,0,0
 23050000,Axe of Godfrey,Standard,41,Colossal Weapon,AxhammerLarge,18,0,120,1,0,,,,,,,,,,,standard,standard,165,0,0,0,0,1.15,0.6,0,0,0,40,14,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,1031,Regal Roar,1,0,0,1
-23060000,Dragon Greatclaw,Standard,41,Colossal Weapon,AxhammerLarge,16,0,120,0.93,0,,,,,,,,,,,standard,standard,0,0,0,165,0,0.95,0.05,0,1,0,25,14,0,30,0,2200,16000,0,0,0,0,0,28,28,28,28,827,,1,0,0,1
+23060000,Dragon Greatclaw,Standard,41,Colossal Weapon,AxhammerLarge,16,0,120,0.93,0,,,,,,,,,,,standard,standard,0,0,0,165,0,0.95,0.05,0,1,0,25,14,0,30,0,2200,16000,0,0,0,0,0,28,28,28,28,827,Storm of the Ancients,1,0,0,1
 23070000,Staff of the Avatar,Standard,41,Colossal Weapon,AxhammerLarge,20,0,120,1.18,0,,,,,,,,,,,strike,strike,0,0,0,0,170,1.1,0.05,0,0.8,0,34,8,0,24,0,2200,16000,0,0,0,0,0,28,28,28,28,1193,Erdtree Slam,1,0,0,1
 23080000,Fallingstar Beast Jaw,Standard,41,Colossal Weapon,AxhammerLarge,21.5,0,120,1.23,0,,,,,,,,,,,strike,pierce,158,0,0,0,0,0.75,0.25,0.9,0,0,30,12,25,0,0,2200,16000,0,0,0,0,0,28,28,28,28,1194,Gravity Bolt,1,0,0,1
 23090000,Greatstaff of Decay,Standard,41,Colossal Weapon,AxhammerLarge,19,0,120,1.15,0,,,,,,,,,,,strike,strike,171,0,0,0,0,0.7,0.05,0,0.85,0.85,20,10,0,20,20,2200,16000,0,0,0,0,0,28,28,28,28,510,Break the Seal,1,0,0,1
@@ -2802,7 +2829,7 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 23140000,Rotten Staff,Standard,41,Colossal Weapon,AxhammerLarge,18,0,120,1.15,0,,,,,,,,,,,strike,strike,163,0,0,0,0,0.8,0.05,0,0.65,0.65,30,8,0,20,20,2200,16000,0,0,0,0,0,28,28,28,28,1204,Rotten Slam,1,0,0,1
 23150000,Rotten Greataxe,Standard,41,Colossal Weapon,AxhammerLarge,20,0,120,1.03,0,,,,,,,,,,,standard,standard,162,0,0,0,0,0.5,0.2,0,0.6,0.6,20,10,0,18,18,2200,16000,0,0,0,0,0,28,28,28,28,700,Endure,1,1,0,1
 23160000,Lodestone of Gelmir,Standard,41,Colossal Weapon,AxhammerLarge,20,0,120,1.03,0,,,,,,,,,,,standard,standard,0,0,169,0,0,0.75,0.1,0.85,0.85,0,20,0,25,25,0,2200,16000,0,0,0,0,0,28,28,28,28,660,Magma Crush,1,0,0,1
-23170000,Crystaline Claw,Standard,19,Greataxe,AxeLarge,22,0,120,1.15,0,,,,,,,,,,,standard,standard,0,142,0,0,0,0.7,0,0.95,0,0,16,0,21,0,0,2200,16000,0,0,0,0,0,28,28,28,28,1066,,1,0,0,1
+23170000,Crystaline Claw,Standard,19,Greataxe,AxeLarge,22,0,120,1.15,0,,,,,,,,,,,standard,standard,0,142,0,0,0,0.7,0,0.95,0,0,16,0,21,0,0,2200,16000,0,0,0,0,0,28,28,28,28,1066,Crystal Pincer,1,0,0,1
 23500000,Devonia's Hammer,Standard,41,Colossal Weapon,AxhammerLarge,20,0,120,1.015,0,,,,,,,,,,,strike,strike,175,0,0,0,0,1.05,0.2,0,1.05,0,25,13,0,25,0,2200,16000,0,0,0,0,0,28,28,28,28,5180,Devonia's Vortex,1,0,0,1
 23510000,Shadow Sunflower Blossom,Standard,41,Colossal Weapon,AxhammerLarge,16,0,120,0.955,0,,,,,,,,,,,strike,strike,168,0,0,0,0,0.75,0,0.9,0,0.9,18,0,22,0,22,2200,16000,0,0,0,0,0,28,28,28,28,5160,Shadow Sunflower Headbutt,1,0,0,1
 23520000,Gazing Finger,Standard,41,Colossal Weapon,AxhammerLarge,15,0,120,0.935,0,,,,,,,,,,,strike,strike,167,0,0,0,0,0.7,0.4,1.1,0,0,20,8,25,0,0,2200,16000,0,0,0,0,0,28,28,28,28,5390,Kowtower's Resentment,1,0,0,1
@@ -2813,7 +2840,7 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 24060000,Beast-Repellent Torch,Standard,87,Torch,Torch,2.5,0,100,0.97,0,,,,,,,,,,,strike,strike,103,0,17,0,0,0.4,0.05,0,0.65,0,12,8,0,14,0,0,16000,0,0,0,0,0,28,28,28,28,117,Torch Attack,1,1,0,0
 24070000,Sentry's Torch,Standard,87,Torch,Torch,5,0,100,1.12,0,,,,,,,,,,,strike,strike,0,0,0,0,100,0.35,0.01,0,0.65,0,15,8,0,15,0,2200,16000,0,0,0,0,0,28,28,28,28,117,Torch Attack,1,1,0,1
 24500000,Nanaya's Torch,Standard,87,Torch,Torch,3.5,0,100,1.015,0,,,,,,,,,,,strike,strike,0,0,100,0,0,0.2,0.2,0.45,0.45,0,10,10,15,15,0,2200,16000,0,0,0,0,0,28,28,28,28,5330,Feeble Lord's Frenzied Flame,1,0,0,1
-24510000,Lamenting Visage,Standard,87,Torch,Torch,2,0,100,0.985,0,,,,,,,,,,,strike,strike,71,0,0,0,0,0.96,0,0,0,0,9,0,0,0,0,2200,16000,0,0,0,0,0,6,6,6,6,5460,Blindfold of Happiness,1,0,0,1
+24510000,Lamenting Visage,Standard,87,Torch,Torch,2,0,100,0.985,0,,,,,,,,,,,strike,strike,71,0,0,0,0,0.96,0,0,0,0,9,0,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,5460,Blindfold of Happiness,1,0,0,1
 30000000,Buckler,Standard,65,Small Shield,ShieldSmall,1.5,0,100,0.93,0,,,,,,,,,,,strike,strike,68,0,0,0,0,0.1,0.3,0,0,0,8,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,303,Buckler Parry,1,1,0,0
 30010000,Perfumer's Shield,Standard,65,Small Shield,ShieldSmall,1.5,0,100,0.97,0,,,,,,,,,,,strike,strike,67,0,0,0,0,0.24,0,0,0,0,8,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,302,Parry,1,1,0,0
 30020000,Man-Serpent's Shield,Standard,65,Small Shield,ShieldSmall,2,0,100,1,0,,,,,,,,,,,strike,strike,70,0,0,0,0,0.24,0,0,0,0,8,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,303,Buckler Parry,1,1,0,0
@@ -2834,7 +2861,7 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 30190000,Spiralhorn Shield,Standard,65,Small Shield,ShieldSmall,2,0,100,1.04,0,,,,,,,,,,,strike,strike,75,0,0,0,0,0.24,0,0,0,0,8,10,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,302,Parry,1,1,0,0
 30200000,Coil Shield,Standard,65,Small Shield,ShieldSmall,1.5,0,100,0.97,0,,,,,,,,,,,strike,strike,77,0,0,0,0,0.24,0,0,0,0,10,10,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,1007,Viper Bite,1,0,0,1
 30300000,Crest of the Dragon Cult,Standard,67,Medium Shield,ShieldNormal,4.5,0,100,0.93,0,,,,,,,,,,,strike,strike,78,0,0,0,0,0.4,0,0,0,0,12,0,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,10,No Skill,1,1,0,1
-30510000,Smithscript Shield,Standard,65,Small Shield,ShieldSmall,2.5,0,100,1.03,0,,,,,,,,,,,strike,strike,72,0,0,0,0,0.35,0.15,0.05,0.05,0,10,15,11,11,0,2200,10000,0,0,0,0,0,6,6,6,6,5370,Discus Hurl,1,0,0,1
+30510000,Smithscript Shield,Standard,65,Small Shield,ShieldSmall,2.5,0,100,1.03,0,,,,,,,,,,,strike,strike,72,0,0,0,0,0.35,0.15,0.05,0.05,0,10,15,11,11,0,2200,16000,0,0,0,0,0,28,28,28,28,5370,Discus Hurl,1,0,0,1
 31000000,Kite Shield,Standard,67,Medium Shield,ShieldNormal,4.5,0,100,0.93,0,,,,,,,,,,,strike,strike,78,0,0,0,0,0.4,0,0,0,0,12,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,10,No Skill,1,1,0,0
 31010000,Marred Leather Shield,Standard,67,Medium Shield,ShieldNormal,3,0,100,0.9,0,,,,,,,,,,,strike,strike,75,0,0,0,0,0.4,0,0,0,0,8,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,10,No Skill,1,1,0,0
 31020000,Marred Wooden Shield,Standard,67,Medium Shield,ShieldNormal,4,0,100,0.955,0,,,,,,,,,,,strike,strike,76,0,0,0,0,0.4,0,0,0,0,8,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,10,No Skill,1,1,0,0
@@ -2864,10 +2891,11 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 31330000,Heater Shield,Standard,67,Medium Shield,ShieldNormal,3.5,0,100,0.915,0,,,,,,,,,,,strike,strike,77,0,0,0,0,0.4,0,0,0,0,10,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,302,Parry,1,1,0,0
 31340000,Black Leather Shield,Standard,67,Medium Shield,ShieldNormal,3,0,100,0.9,0,,,,,,,,,,,strike,strike,75,0,0,0,0,0.4,0,0,0,0,10,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,10,No Skill,1,1,0,0
 31350000,Aegis of Hadea,Standard,67,Medium Shield,ShieldNormal,1.5,0,100,0.915,0,,,,,,,,,,,strike,strike,30,0,0,0,0,0,0,0,1,0,0,0,0,40,0,2900,16000,20,26,22,22,21,28,28,28,28,310,Cast Incantation,1,1,0,0
-31500000,Messmer Soldier Shield,Standard,67,Medium Shield,ShieldNormal,5,0,100,1,0,,,,,,,,,,,strike,strike,80,0,0,0,0,0.4,0,0,0,0,10,0,0,0,0,0,10000,0,0,0,0,0,6,6,6,6,10,No Skill,1,1,0,0
-31510000,Wolf Crest Shield,Standard,67,Medium Shield,ShieldNormal,6,0,100,1.03,0,,,,,,,,,,,strike,strike,82,0,0,0,0,0.4,0,0,0,0,12,0,0,0,0,0,10000,0,0,0,0,0,6,6,6,6,10,No Skill,1,1,0,0
-31520000,Serpent Crest Shield,Standard,67,Medium Shield,ShieldNormal,6,0,100,1.03,0,,,,,,,,,,,strike,strike,82,0,0,0,0,0.4,0,0,0,0,12,0,0,0,0,0,10000,0,0,0,0,0,6,6,6,6,10,No Skill,1,1,0,0
-31530000,Golden Lion Shield,Standard,67,Medium Shield,ShieldNormal,5.5,0,100,1.015,0,,,,,,,,,,,strike,strike,81,0,0,0,0,0.6,0,0,0,0,11,0,0,0,0,2200,10000,0,0,0,0,0,6,6,6,6,5480,Roaring Bash,1,0,0,1
+31500000,Messmer Soldier Shield,Standard,67,Medium Shield,ShieldNormal,5,0,100,1,0,,,,,,,,,,,strike,strike,80,0,0,0,0,0.4,0,0,0,0,10,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,10,No Skill,1,1,0,0
+31510000,Wolf Crest Shield,Standard,67,Medium Shield,ShieldNormal,6,0,100,1.03,0,,,,,,,,,,,strike,strike,82,0,0,0,0,0.4,0,0,0,0,12,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,10,No Skill,1,1,0,0
+31520000,Serpent Crest Shield,Standard,67,Medium Shield,ShieldNormal,6,0,100,1.03,0,,,,,,,,,,,strike,strike,82,0,0,0,0,0.4,0,0,0,0,12,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,10,No Skill,1,1,0,0
+31530000,Golden Lion Shield,Standard,67,Medium Shield,ShieldNormal,5.5,0,100,1.015,0,,,,,,,,,,,strike,strike,81,0,0,0,0,0.6,0,0,0,0,11,0,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,5480,Roaring Bash,1,0,0,1
+31540000,Silver Grooved Shield,Standard,67,Medium Shield,ShieldNormal,3,0,100,0.915,0,,,,,,,,,,,strike,strike,61,0,0,0,0,0.4,0,0,0,0,9,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,10,No Skill,1,1,0,0
 32000000,Dragon Towershield,Standard,69,Greatshield,ShieldLarge,17.5,0,100,1.045,0,,,,,,,,,,,strike,strike,115,0,0,0,0,0.5,0,0,0,0,20,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,300,Shield Bash,1,1,0,0
 32020000,Distinguished Greatshield,Standard,69,Greatshield,ShieldLarge,17,0,100,1.07,0,,,,,,,,,,,strike,strike,112,0,0,0,0,0.5,0,0,0,0,32,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,10,No Skill,1,1,0,0
 32030000,Crucible Hornshield,Standard,69,Greatshield,ShieldLarge,11.5,0,100,0.935,0,,,,,,,,,,,strike,strike,123,0,0,0,0,0.5,0,0,0,0,26,0,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,300,Shield Bash,1,1,0,1
@@ -2893,8 +2921,8 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 32280000,Haligtree Crest Greatshield,Standard,69,Greatshield,ShieldLarge,18.5,0,100,1.1,0,,,,,,,,,,,strike,strike,116,0,0,0,0,0.5,0,0,0,0,36,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,10,No Skill,1,1,0,0
 32290000,Wooden Greatshield,Standard,69,Greatshield,ShieldLarge,8,0,100,0.88,0,,,,,,,,,,,strike,strike,95,0,0,0,0,0.5,0,0,0,0,14,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,10,No Skill,1,1,0,0
 32300000,Lordsworn's Shield,Standard,69,Greatshield,ShieldLarge,10,0,100,0.91,0,,,,,,,,,,,strike,strike,99,0,0,0,0,0.5,0,0,0,0,16,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,300,Shield Bash,1,1,0,0
-32500000,Black Steel Greatshield,Standard,69,Greatshield,ShieldLarge,19.5,0,100,1.075,0,,,,,,,,,,,strike,strike,119,0,0,0,0,0.5,0,0,0,0,35,0,0,0,0,0,10000,0,0,0,0,0,6,6,6,6,300,Shield Bash,1,1,0,0
-32520000,Verdigris Greatshield,Standard,69,Greatshield,ShieldLarge,28,0,100,1.225,0,,,,,,,,,,,strike,strike,162,0,0,0,0,0.5,0,0,0,0,49,0,0,0,0,2200,10000,0,0,0,0,0,6,6,6,6,5230,Moore's Charge,1,1,0,1
+32500000,Black Steel Greatshield,Standard,69,Greatshield,ShieldLarge,19.5,0,100,1.075,0,,,,,,,,,,,strike,strike,119,0,0,0,0,0.5,0,0,0,0,35,0,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,300,Shield Bash,1,1,0,0
+32520000,Verdigris Greatshield,Standard,69,Greatshield,ShieldLarge,28,0,100,1.225,0,,,,,,,,,,,strike,strike,162,0,0,0,0,0.5,0,0,0,0,49,0,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,5230,Moore's Charge,1,1,0,1
 33000000,Glintstone Staff,Standard,57,Staff,Staff,3,0,100,1,0,,,,,,,,,,,strike,strike,0,25,0,0,0,0,0,0.8,0,0,0,0,10,0,0,2400,16000,21,20,22,26,22,28,28,28,28,10,No Skill,1,0,0,1
 33050000,Gelmir Glintstone Staff,Standard,57,Staff,Staff,2.5,0,100,0.97,0,,,,,,,,,,,strike,strike,0,0,29,0,0,0,0,0.8,0.8,0,0,0,6,6,0,2400,16000,25,24,23,27,25,28,28,28,28,10,No Skill,1,0,0,1
 33060000,Demi-Human Queen's Staff,Standard,57,Staff,Staff,3,0,100,1,0,,,,,,,,,,,strike,strike,0,0,0,0,30,0,0,0.8,0.8,0,0,0,6,6,0,2400,16000,27,25,25,24,23,28,28,28,28,10,No Skill,1,0,0,1
@@ -2943,10 +2971,10 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 41020000,Horn Bow,Standard,51,Bow,BowNormal,4.5,0,100,1,0,,,,,,,,,,,standard,standard,99,99,99,99,99,0.2,0.2,0,0.7,0.7,8,8,0,10,10,0,16000,0,0,0,0,0,28,28,28,28,404,Enchanted Shot,1,1,0,0
 41030000,Erdtree Bow,Standard,51,Bow,BowNormal,4,0,100,1,0,,,,,,,,,,,standard,standard,105,105,105,105,105,0.25,0.2,0,0.9,0,8,12,0,14,0,2200,16000,0,0,0,0,0,28,28,28,28,402,Mighty Shot,1,1,0,1
 41040000,Serpent Bow,Standard,51,Bow,BowNormal,3.5,0,100,1,0,,,,,,,,,,,standard,standard,102,102,102,102,102,0.3,0.1,0,0.7,0.7,8,15,0,0,11,2200,16000,0,0,0,0,0,28,28,28,28,402,Mighty Shot,1,1,0,1
-41060000,Pulley Bow,Standard,51,Bow,BowNormal,5,0,100,1,0,,,,,,,,,,,standard,standard,97,97,97,97,97,0.8,0.8,0,0,0,11,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,402,Mighty Shot,1,1,0,0
+41060000,Pulley Bow,Standard,51,Bow,BowNormal,5,0,100,1,0,,,,,,,,,,,standard,standard,104,104,104,104,104,0.8,0.8,0,0,0,11,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,402,Mighty Shot,1,1,0,0
 41070000,Black Bow,Standard,51,Bow,BowNormal,4,0,100,1,0,,,,,,,,,,,standard,standard,88,88,88,88,88,0.2,0.95,0,0,0,9,20,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,401,Barrage,1,1,0,1
-41080000,Scadu Sapling,Standard,50,Light Bow,BowSmall,2.5,0,100,1,0,,,,,,,,,,,standard,standard,83,83,83,83,83,0.15,0.35,0,1,0,0,10,0,22,0,2200,16000,0,0,0,0,0,28,28,28,28,410,,1,0,0,1
-41090000,Devonia's Longbow,Standard,51,Bow,BowNormal,4,0,100,1,0,,,,,,,,,,,standard,standard,91,91,91,91,91,0.45,0.2,0,0.9,0,10,0,0,25,0,2200,16000,0,0,0,0,0,28,28,28,28,411,,1,1,0,1
+41080000,Scadu Sapling,Standard,50,Light Bow,BowSmall,2.5,0,100,1,0,,,,,,,,,,,standard,standard,83,83,83,83,83,0.15,0.35,0,1,0,0,10,0,22,0,2200,16000,0,0,0,0,0,28,28,28,28,410,Scadu Shot,1,0,0,1
+41090000,Devonia's Longbow,Standard,51,Bow,BowNormal,4,0,100,1,0,,,,,,,,,,,standard,standard,91,91,91,91,91,0.45,0.2,0,0.9,0,10,0,0,25,0,2200,16000,0,0,0,0,0,28,28,28,28,411,Spiral Shot,1,1,0,1
 41510000,Ansbach's Longbow,Standard,51,Bow,BowNormal,4.5,0,100,1,0,,,,,,,,,,,standard,standard,90,90,90,90,90,0.25,0.25,0,0.7,0.7,9,15,0,20,20,2200,16000,0,0,0,0,0,28,28,28,28,5360,Fan Shot,1,0,0,1
 42000000,Lion Greatbow,Standard,53,Greatbow,BowLarge,9.5,0,100,1,0,,,,,,,,,,,standard,standard,150,150,150,150,150,0.6,0.05,0.8,0,0,22,18,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,1169,Radahn's Rain,1,0,0,1
 42010000,Golem Greatbow,Standard,53,Greatbow,BowLarge,14.5,0,100,1,0,,,,,,,,,,,standard,standard,163,163,163,163,163,1,0.2,0,0,0,24,18,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,400,Titanic Shot,1,1,0,1
@@ -3025,14 +3053,14 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 62500500,Dueling Shield,Dragonkin,90,Thrusting Shield,ThrustingShield,9,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,144,0,0.15,0.2,0.8,0,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
 62500600,Dueling Shield,Gravity,90,Thrusting Shield,ThrustingShield,9,0,120,1,0,,,,,,,,,,,pierce,standard,144,0,0,0,0,0.15,0.2,0.9,0,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
 62500700,Dueling Shield,Flame,90,Thrusting Shield,ThrustingShield,9,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,144,0,0,0.15,0.2,0,0.8,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
-62500800,Dueling Shield,Golden,90,Thrusting Shield,ThrustingShield,9,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,0,125,0.15,0.2,0,0.9,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62500800,Dueling Shield,Golden,90,Thrusting Shield,ThrustingShield,9,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,0,144,0.15,0.2,0,0.9,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
 62500900,Dueling Shield,Draconic,90,Thrusting Shield,ThrustingShield,9,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,144,0,0.15,0.2,0,0.9,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
 62501000,Dueling Shield,Bestial,90,Thrusting Shield,ThrustingShield,9,0,120,1,0,,,,,,,,,,,pierce,standard,144,0,0,0,0,0.15,0.2,0,0.9,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
 62501100,Dueling Shield,Night,90,Thrusting Shield,ThrustingShield,9,0,120,1,0,,,,,,,,,,,pierce,standard,0,144,0,0,0,0.1,0.15,0.7,0.7,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
 62501200,Dueling Shield,Lava,90,Thrusting Shield,ThrustingShield,9,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,144,0,0,0.1,0.15,0.7,0.7,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
 62501300,Dueling Shield,Frenzy,90,Thrusting Shield,ThrustingShield,9,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,144,0,0,0.1,0.15,0.6,0.6,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
-62501400,Dueling Shield,Death,90,Thrusting Shield,ThrustingShield,9,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,0,125,0.1,0.15,0.6,0.6,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
-62501500,Dueling Shield,Godslayer,90,Thrusting Shield,ThrustingShield,9,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,0,125,0.1,0.15,0.6,0.6,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62501400,Dueling Shield,Death,90,Thrusting Shield,ThrustingShield,9,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,0,144,0.1,0.15,0.6,0.6,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62501500,Dueling Shield,Godslayer,90,Thrusting Shield,ThrustingShield,9,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,0,144,0.1,0.15,0.6,0.6,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
 62501600,Dueling Shield,Frost,90,Thrusting Shield,ThrustingShield,9,0,120,1,0,,,,,,,,,,,pierce,standard,0,144,0,0,0,0.1,0.15,0.6,0,0.6,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
 62501700,Dueling Shield,Aberrant,90,Thrusting Shield,ThrustingShield,9,0,120,1,0,,,,,,,,,,,pierce,standard,144,0,0,0,0,0.1,0.15,0.6,0,0.6,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
 62501800,Dueling Shield,Bloodflame,90,Thrusting Shield,ThrustingShield,9,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,144,0,0,0.1,0.15,0,0.6,0.6,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
@@ -3040,6 +3068,28 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 62502000,Dueling Shield,Storm,90,Thrusting Shield,ThrustingShield,9,0,120,1,0,,,,,,,,,,,pierce,standard,144,0,0,0,0,0.1,0.15,0.7,0.7,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
 62502100,Dueling Shield,Mystic,90,Thrusting Shield,ThrustingShield,9,0,120,1,0,,,,,,,,,,,pierce,standard,0,144,0,0,0,0.1,0.15,0,0.6,0.6,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
 62510000,Carian Thrusting Shield,Standard,90,Thrusting Shield,ThrustingShield,10.5,0,120,1.045,0,,,,,,,,,,,pierce,standard,0,152,0,0,0,0.45,0.75,0.8,0,0,13,15,17,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,1,1,0,0
+62520000,Ritual Thrusting Shield,Standard,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,135,0,0,0,0,0.4,0.4,0,0,0,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62520100,Ritual Thrusting Shield,Heavy,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,135,0,0,0,0,0.65,0.3,0,0,0,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62520200,Ritual Thrusting Shield,Keen,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,135,0,0,0,0,0.2,0.85,0,0,0,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62520300,Ritual Thrusting Shield,Quality,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,135,0,0,0,0,0.5,0.55,0,0,0,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62520400,Ritual Thrusting Shield,Glint,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,0,135,0,0,0,0.15,0.15,0.85,0,0,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62520500,Ritual Thrusting Shield,Dragonkin,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,135,0,0.15,0.15,0.75,0,0,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62520600,Ritual Thrusting Shield,Gravity,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,135,0,0,0,0,0.15,0.15,0.85,0,0,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62520700,Ritual Thrusting Shield,Flame,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,135,0,0,0.15,0.15,0,0.75,0,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62520800,Ritual Thrusting Shield,Golden,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,0,135,0.15,0.15,0,0.85,0,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62520900,Ritual Thrusting Shield,Draconic,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,135,0,0.15,0.15,0,0.85,0,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62521000,Ritual Thrusting Shield,Bestial,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,135,0,0,0,0,0.15,0.15,0,0.85,0,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62521100,Ritual Thrusting Shield,Night,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,0,135,0,0,0,0.1,0.15,0.65,0.65,0,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62521200,Ritual Thrusting Shield,Lava,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,135,0,0,0.1,0.15,0.65,0.65,0,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62521300,Ritual Thrusting Shield,Frenzy,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,135,0,0,0.1,0.15,0.55,0.55,0,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62521400,Ritual Thrusting Shield,Death,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,0,135,0.1,0.15,0.55,0.55,0,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62521500,Ritual Thrusting Shield,Godslayer,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,0,135,0.1,0.15,0.55,0.55,0,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62521600,Ritual Thrusting Shield,Frost,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,0,135,0,0,0,0.1,0.15,0.55,0,0.55,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62521700,Ritual Thrusting Shield,Aberrant,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,135,0,0,0,0,0.1,0.15,0.55,0,0.55,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62521800,Ritual Thrusting Shield,Bloodflame,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,135,0,0,0.1,0.15,0,0.55,0.55,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62521900,Ritual Thrusting Shield,Rotten,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,135,0,0,0,0,0.1,0.15,0,0.55,0.55,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62522000,Ritual Thrusting Shield,Storm,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,135,0,0,0,0,0.1,0.15,0.65,0.65,0,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
+62522100,Ritual Thrusting Shield,Mystic,90,Thrusting Shield,ThrustingShield,10,0,120,1,0,,,,,,,,,,,pierce,standard,0,135,0,0,0,0.1,0.15,0,0.55,0.55,13,12,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,8000,,0,1,0,0
 63500000,Smithscript Dagger,Standard,91,Throwing Blade,ThrowingWeapon,1.5,0,120,1,0,,,,,,,,,,,pierce,pierce,80,0,0,0,0,0.35,0.65,0,0,0,5,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4020,Piercing Throw,0,1,1,0
 63500100,Smithscript Dagger,Heavy,91,Throwing Blade,ThrowingWeapon,1.5,0,120,1,0,,,,,,,,,,,pierce,pierce,80,0,0,0,0,0.65,0.5,0,0,0,5,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4020,Piercing Throw,0,1,1,0
 63500200,Smithscript Dagger,Keen,91,Throwing Blade,ThrowingWeapon,1.5,0,120,1,0,,,,,,,,,,,pierce,pierce,80,0,0,0,0,0.1,1.15,0,0,0,5,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4020,Piercing Throw,0,1,1,0
@@ -3070,14 +3120,14 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 64500500,Backhand Blade,Dragonkin,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,121,0,0.05,0.3,0.8,0,0,10,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
 64500600,Backhand Blade,Gravity,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,pierce,121,0,0,0,0,0.05,0.3,0.9,0,0,10,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
 64500700,Backhand Blade,Flame,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,121,0,0,0.05,0.3,0,0.8,0,10,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
-64500800,Backhand Blade,Golden,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,0,105,0.05,0.3,0,0.9,0,10,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64500800,Backhand Blade,Golden,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,0,121,0.05,0.3,0,0.9,0,10,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
 64500900,Backhand Blade,Draconic,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,121,0,0.05,0.3,0,0.9,0,10,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
 64501000,Backhand Blade,Bestial,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,pierce,121,0,0,0,0,0.05,0.3,0,0.9,0,10,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
 64501100,Backhand Blade,Night,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,pierce,0,121,0,0,0,0.05,0.3,0.65,0.65,0,10,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
 64501200,Backhand Blade,Lava,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,121,0,0,0.05,0.3,0.65,0.65,0,10,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
 64501300,Backhand Blade,Frenzy,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,121,0,0,0.05,0.3,0.55,0.55,0,10,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
-64501400,Backhand Blade,Death,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,0,105,0.05,0.3,0.55,0.55,0,10,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
-64501500,Backhand Blade,Godslayer,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,0,105,0.05,0.3,0.55,0.55,0,10,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64501400,Backhand Blade,Death,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,0,121,0.05,0.3,0.55,0.55,0,10,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64501500,Backhand Blade,Godslayer,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,0,121,0.05,0.3,0.55,0.55,0,10,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
 64501600,Backhand Blade,Frost,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,pierce,0,121,0,0,0,0.05,0.3,0.55,0,0.55,10,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
 64501700,Backhand Blade,Aberrant,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,pierce,121,0,0,0,0,0.05,0.3,0.55,0,0.55,10,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
 64501800,Backhand Blade,Bloodflame,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,121,0,0,0.05,0.3,0,0.55,0.55,10,13,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
@@ -3107,8 +3157,30 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 64512000,Smithscript Cirque,Storm,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,slash,115,0,0,0,0,0.05,0.3,0.65,0.65,0,9,14,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
 64512100,Smithscript Cirque,Mystic,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,slash,0,115,0,0,0,0.05,0.3,0,0.55,0.55,9,14,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
 64520000,Curseblade's Cirque,Standard,92,Reverse-hand Blade,ReverseHandSword,4.5,0,120,1.18,0,,,,,,,,,,,slash,slash,108,0,0,0,0,0.45,1.15,0,0,0,9,22,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,5350,Deadly Dance,1,0,1,1
-64530000,Fingerslayer blade,Standard,9,Curved Sword,SaberNormal,3,0,140,1,0,,,,,,,,,,,slash,pierce,0,112,0,0,0,0.1,0.45,0.65,0.65,0,7,11,15,15,0,2200,10000,0,0,0,0,0,28,28,28,28,155,,1,0,0,1
-64550000,Crescent Moons,Standard,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,slash,0,106,0,0,0,0.1,0.55,0.75,0,0.75,0,10,18,0,18,2200,16000,0,0,0,0,0,28,28,28,28,5431,,1,0,1,1
+64530000,Reverse-Bladed Sword,Standard,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,115,0,0,0,0,0.2,0.6,0,0,0,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64530100,Reverse-Bladed Sword,Heavy,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,115,0,0,0,0,0.5,0.45,0,0,0,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64530200,Reverse-Bladed Sword,Keen,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,115,0,0,0,0,0.05,1.15,0,0,0,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64530300,Reverse-Bladed Sword,Quality,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,115,0,0,0,0,0.3,0.65,0,0,0,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64530400,Reverse-Bladed Sword,Glint,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,0,115,0,0,0,0.1,0.25,0.8,0,0,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64530500,Reverse-Bladed Sword,Dragonkin,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,115,0,0.1,0.25,0.7,0,0,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64530600,Reverse-Bladed Sword,Gravity,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,115,0,0,0,0,0.1,0.25,0.8,0,0,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64530700,Reverse-Bladed Sword,Flame,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,115,0,0,0.1,0.25,0,0.7,0,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64530800,Reverse-Bladed Sword,Golden,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,0,115,0.1,0.25,0,0.8,0,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64530900,Reverse-Bladed Sword,Draconic,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,115,0,0.1,0.25,0,0.8,0,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64531000,Reverse-Bladed Sword,Bestial,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,115,0,0,0,0,0.1,0.25,0,0.8,0,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64531100,Reverse-Bladed Sword,Night,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,0,115,0,0,0,0.1,0.25,0.6,0.6,0,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64531200,Reverse-Bladed Sword,Lava,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,115,0,0,0.1,0.25,0.6,0.6,0,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64531300,Reverse-Bladed Sword,Frenzy,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,115,0,0,0.1,0.25,0.5,0.5,0,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64531400,Reverse-Bladed Sword,Death,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,0,115,0.1,0.25,0.5,0.5,0,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64531500,Reverse-Bladed Sword,Godslayer,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,0,115,0.1,0.25,0.5,0.5,0,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64531600,Reverse-Bladed Sword,Frost,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,0,115,0,0,0,0.1,0.25,0.5,0,0.5,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64531700,Reverse-Bladed Sword,Aberrant,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,115,0,0,0,0,0.1,0.25,0.5,0,0.5,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64531800,Reverse-Bladed Sword,Bloodflame,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,115,0,0,0.1,0.25,0,0.5,0.5,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64531900,Reverse-Bladed Sword,Rotten,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,115,0,0,0,0,0.1,0.25,0,0.5,0.5,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64532000,Reverse-Bladed Sword,Storm,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,115,0,0,0,0,0.1,0.25,0.6,0.6,0,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64532100,Reverse-Bladed Sword,Mystic,92,Reverse-hand Blade,ReverseHandSword,3,0,120,1,0,,,,,,,,,,,slash,pierce,0,115,0,0,0,0.1,0.25,0,0.5,0.5,9,11,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4090,Blind Spot,0,1,1,0
+64550000,Crescent Moons,Standard,92,Reverse-hand Blade,ReverseHandSword,2,0,120,1,0,,,,,,,,,,,slash,slash,0,106,0,0,0,0.1,0.55,0.75,0,0.75,0,10,18,0,18,2200,16000,0,0,0,0,0,28,28,28,28,5431,Moon's Orbit,1,0,1,1
+64570000,Fingerslayer Blade,Standard,9,Curved Sword,SaberNormal,3,0,140,1,0,,,,,,,,,,,slash,pierce,0,112,0,0,0,0.1,0.45,0.65,0.65,0,7,11,15,15,0,2200,10000,0,0,0,0,0,28,28,28,28,155,Finger Severer,1,0,0,1
 66500000,Great Katana,Standard,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,167,0,0,0,0,0.4,0.5,0,0,0,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
 66500100,Great Katana,Heavy,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,167,0,0,0,0,0.7,0.35,0,0,0,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
 66500200,Great Katana,Keen,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,167,0,0,0,0,0.2,0.95,0,0,0,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
@@ -3117,14 +3189,14 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 66500500,Great Katana,Dragonkin,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,167,0,0.15,0.2,0.8,0,0,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
 66500600,Great Katana,Gravity,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,167,0,0,0,0,0.15,0.2,0.9,0,0,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
 66500700,Great Katana,Flame,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,167,0,0,0.15,0.2,0,0.8,0,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
-66500800,Great Katana,Golden,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,0,145,0.15,0.2,0,0.9,0,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66500800,Great Katana,Golden,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,0,167,0.15,0.2,0,0.9,0,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
 66500900,Great Katana,Draconic,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,167,0,0.15,0.2,0,0.9,0,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
 66501000,Great Katana,Bestial,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,167,0,0,0,0,0.15,0.2,0,0.9,0,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
 66501100,Great Katana,Night,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,0,167,0,0,0,0.1,0.15,0.7,0.7,0,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
 66501200,Great Katana,Lava,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,167,0,0,0.1,0.15,0.7,0.7,0,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
 66501300,Great Katana,Frenzy,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,167,0,0,0.1,0.15,0.6,0.6,0,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
-66501400,Great Katana,Death,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,0,145,0.1,0.15,0.6,0.6,0,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
-66501500,Great Katana,Godslayer,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,0,145,0.1,0.15,0.6,0.6,0,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66501400,Great Katana,Death,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,0,167,0.1,0.15,0.6,0.6,0,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66501500,Great Katana,Godslayer,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,0,167,0.1,0.15,0.6,0.6,0,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
 66501600,Great Katana,Frost,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,0,167,0,0,0,0.1,0.15,0.6,0,0.6,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
 66501700,Great Katana,Aberrant,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,167,0,0,0,0,0.1,0.15,0.6,0,0.6,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
 66501800,Great Katana,Bloodflame,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,167,0,0,0.1,0.15,0,0.6,0.6,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
@@ -3133,7 +3205,29 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 66502100,Great Katana,Mystic,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,0,167,0,0,0,0.1,0.15,0,0.6,0.6,14,18,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
 66510000,Dragon-Hunter's Great Katana,Standard,94,Great Katana,GreatKatana,10.5,0,120,1.045,0,,,,,,,,,,,slash,pierce,152,0,0,0,0,0.95,0.95,0,0,0,15,20,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,5000,Dragonwound Slash,1,0,0,1
 66520000,Rakshasa's Great Katana,Standard,94,Great Katana,GreatKatana,9.5,0,120,1.035,0,,,,,,,,,,,slash,pierce,0,0,155,0,0,0.45,0.7,0,0.7,0.7,12,20,0,15,15,2200,16000,0,0,0,0,0,28,28,28,28,5450,Weed Cutter,1,0,0,1
-66530000,Eagle's Edge,Standard,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,157,0,0,0,0,0.55,0.55,0.85,0.85,0,15,15,20,20,0,2200,16000,0,0,0,0,0,28,28,28,28,806,Storm's Reckoning,1,0,0,1
+66530000,Reed Great Katana,Standard,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,158,0,0,0,0,0.35,0.45,0,0,0,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66530100,Reed Great Katana,Heavy,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,158,0,0,0,0,0.65,0.3,0,0,0,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66530200,Reed Great Katana,Keen,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,158,0,0,0,0,0.15,0.9,0,0,0,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66530300,Reed Great Katana,Quality,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,158,0,0,0,0,0.55,0.5,0,0,0,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66530400,Reed Great Katana,Glint,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,0,158,0,0,0,0.2,0.15,0.8,0,0,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66530500,Reed Great Katana,Dragonkin,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,158,0,0.2,0.15,0.7,0,0,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66530600,Reed Great Katana,Gravity,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,158,0,0,0,0,0.2,0.15,0.8,0,0,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66530700,Reed Great Katana,Flame,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,158,0,0,0.2,0.15,0,0.7,0,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66530800,Reed Great Katana,Golden,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,0,158,0.2,0.15,0,0.8,0,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66530900,Reed Great Katana,Draconic,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,158,0,0.2,0.15,0,0.8,0,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66531000,Reed Great Katana,Bestial,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,158,0,0,0,0,0.2,0.15,0,0.8,0,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66531100,Reed Great Katana,Night,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,0,158,0,0,0,0.15,0.1,0.65,0.65,0,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66531200,Reed Great Katana,Lava,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,158,0,0,0.15,0.1,0.65,0.65,0,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66531300,Reed Great Katana,Frenzy,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,158,0,0,0.15,0.1,0.55,0.55,0,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66531400,Reed Great Katana,Death,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,0,158,0.15,0.1,0.55,0.55,0,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66531500,Reed Great Katana,Godslayer,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,0,158,0.15,0.1,0.55,0.55,0,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66531600,Reed Great Katana,Frost,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,0,158,0,0,0,0.15,0.1,0.55,0,0.55,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66531700,Reed Great Katana,Aberrant,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,158,0,0,0,0,0.15,0.1,0.55,0,0.55,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66531800,Reed Great Katana,Bloodflame,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,158,0,0,0.15,0.1,0,0.55,0.55,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66531900,Reed Great Katana,Rotten,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,158,0,0,0,0,0.15,0.1,0,0.55,0.55,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66532000,Reed Great Katana,Storm,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,158,0,0,0,0,0.15,0.1,0.65,0.65,0,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66532100,Reed Great Katana,Mystic,94,Great Katana,GreatKatana,10,0,120,1,0,,,,,,,,,,,slash,pierce,0,158,0,0,0,0.15,0.1,0,0.55,0.55,11,16,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4110,Overhead Stance,0,1,0,0
+66570000,Eagle's Edge,Standard,94,Great Katana,GreatKatana,9,0,120,1,0,,,,,,,,,,,slash,pierce,157,0,0,0,0,0.55,0.55,0.85,0.85,0,15,15,20,20,0,2200,16000,0,0,0,0,0,28,28,28,28,806,Storm's Reckoning,1,0,0,1
 67500000,Milady,Standard,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,133,0,0,0,0,0.55,0.55,0,0,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 67500100,Milady,Heavy,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,133,0,0,0,0,1.15,0.45,0,0,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 67500200,Milady,Keen,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,133,0,0,0,0,0.45,1.15,0,0,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
@@ -3142,14 +3236,14 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 67500500,Milady,Dragonkin,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,0,0,0,133,0,0.25,0.25,0.8,0,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 67500600,Milady,Gravity,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,133,0,0,0,0,0.25,0.25,0.9,0,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 67500700,Milady,Flame,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,0,0,133,0,0,0.25,0.25,0,0.8,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
-67500800,Milady,Golden,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,0,0,0,0,116,0.25,0.25,0,0.9,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67500800,Milady,Golden,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,0,0,0,0,133,0.25,0.25,0,0.9,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 67500900,Milady,Draconic,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,0,0,0,133,0,0.25,0.25,0,0.9,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 67501000,Milady,Bestial,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,133,0,0,0,0,0.25,0.25,0,0.9,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 67501100,Milady,Night,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,0,133,0,0,0,0.25,0.25,0.7,0.7,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 67501200,Milady,Lava,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,0,0,133,0,0,0.25,0.25,0.7,0.7,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 67501300,Milady,Frenzy,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,0,0,133,0,0,0.25,0.25,0.6,0.6,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
-67501400,Milady,Death,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,0,0,0,0,116,0.25,0.25,0.6,0.6,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
-67501500,Milady,Godslayer,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,0,0,0,0,116,0.25,0.25,0.6,0.6,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67501400,Milady,Death,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,0,0,0,0,133,0.25,0.25,0.6,0.6,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67501500,Milady,Godslayer,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,0,0,0,0,133,0.25,0.25,0.6,0.6,0,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 67501600,Milady,Frost,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,0,133,0,0,0,0.25,0.25,0.6,0,0.6,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 67501700,Milady,Aberrant,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,133,0,0,0,0,0.25,0.25,0.6,0,0.6,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 67501800,Milady,Bloodflame,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,0,0,133,0,0,0.25,0.25,0,0.6,0.6,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
@@ -3158,9 +3252,31 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 67502100,Milady,Mystic,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,0,133,0,0,0,0.25,0.25,0,0.6,0.6,14,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
 67510000,Leda's Sword,Standard,93,Light Greatsword,LightGreatsword,7.5,0,120,1.015,0,,,,,,,,,,,pierce,standard,0,0,0,0,122,0.65,0.65,0,0.85,0,15,15,0,23,0,2200,16000,0,0,0,0,0,28,28,28,28,5010,Needle Piercer,1,0,0,1
 67520000,Rellana's Twin Blades,Standard,93,Light Greatsword,LightGreatsword,8,0,120,1.03,0,,,,,,,,,,,pierce,standard,0,118,118,0,0,0.6,0.6,0.6,0.6,0,13,16,16,16,0,2200,16000,0,0,0,0,0,28,28,28,28,5170,Moon-and-Fire Stance,1,0,1,1
-67530000,Sword of the Cosmos,Standard,93,Light Greatsword,LightGreatsword,6,0,120,0.985,0,,,,,,,,,,,pierce,standard,124,0,0,0,0,0.55,0.55,1.15,0,0,12,12,24,0,0,2200,16000,0,0,0,0,0,28,28,28,28,1202,Cosmic Stance,1,0,0,1
-67540000,Konrad's Bloodletter,Standard,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,0,0,121,0,0,0.45,0.45,0,0.75,0.75,12,12,0,19,19,2200,16000,0,0,0,0,0,28,28,28,28,1206,,1,0,0,1
-67550000,Nia's Passot,Standard,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,124,0,0,0,0,0.55,1.25,0,0,0,12,36,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,130,,1,0,0,1
+67530000,Idus Sword,Standard,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,124,0,0,0,0,0.45,0.55,0,0,0,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67530100,Idus Sword,Heavy,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,124,0,0,0,0,1.05,0.45,0,0,0,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67530200,Idus Sword,Keen,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,124,0,0,0,0,0.35,1.15,0,0,0,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67530300,Idus Sword,Quality,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,124,0,0,0,0,0.75,0.85,0,0,0,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67530400,Idus Sword,Glint,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,0,124,0,0,0,0.2,0.3,0.8,0,0,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67530500,Idus Sword,Dragonkin,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,124,0,0.2,0.3,0.7,0,0,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67530600,Idus Sword,Gravity,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,124,0,0,0,0,0.2,0.3,0.8,0,0,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67530700,Idus Sword,Flame,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,124,0,0,0.2,0.3,0,0.7,0,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67530800,Idus Sword,Golden,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,0,124,0.2,0.3,0,0.8,0,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67530900,Idus Sword,Draconic,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,124,0,0.2,0.3,0,0.8,0,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67531000,Idus Sword,Bestial,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,124,0,0,0,0,0.2,0.3,0,0.8,0,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67531100,Idus Sword,Night,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,0,124,0,0,0,0.2,0.3,0.65,0.65,0,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67531200,Idus Sword,Lava,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,124,0,0,0.2,0.3,0.65,0.65,0,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67531300,Idus Sword,Frenzy,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,124,0,0,0.2,0.3,0.55,0.55,0,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67531400,Idus Sword,Death,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,0,124,0.2,0.3,0.55,0.55,0,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67531500,Idus Sword,Godslayer,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,0,0,124,0.2,0.3,0.55,0.55,0,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67531600,Idus Sword,Frost,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,0,124,0,0,0,0.2,0.3,0.55,0,0.55,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67531700,Idus Sword,Aberrant,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,124,0,0,0,0,0.2,0.3,0.55,0,0.55,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67531800,Idus Sword,Bloodflame,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,0,0,124,0,0,0.2,0.3,0,0.55,0.55,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67531900,Idus Sword,Rotten,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,124,0,0,0,0,0.2,0.3,0,0.55,0.55,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67532000,Idus Sword,Storm,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,124,0,0,0,0,0.2,0.3,0.65,0.65,0,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67532100,Idus Sword,Mystic,93,Light Greatsword,LightGreatsword,7,0,120,1,0,,,,,,,,,,,pierce,standard,0,124,0,0,0,0.2,0.3,0,0.55,0.55,10,15,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,101,Impaling Thrust,0,1,0,0
+67540000,Konrad's Bloodletter,Standard,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,0,0,121,0,0,0.45,0.45,0,0.75,0.75,12,12,0,19,19,2200,16000,0,0,0,0,0,28,28,28,28,1206,Bloodflame Stomp,1,0,0,1
+67550000,Nia's Passot,Standard,93,Light Greatsword,LightGreatsword,6.5,0,120,0.985,0,,,,,,,,,,,pierce,standard,124,0,0,0,0,0.55,1.25,0,0,0,12,36,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,130,Malenian Homage,1,0,0,1
+67580000,Sword of the Cosmos,Standard,93,Light Greatsword,LightGreatsword,6,0,120,0.985,0,,,,,,,,,,,pierce,standard,124,0,0,0,0,0.55,0.55,1.15,0,0,12,12,24,0,0,2200,16000,0,0,0,0,0,28,28,28,28,1202,Cosmic Stance,1,0,0,1
 67700000,Primeval Splinter,Standard,93,Light Greatsword,LightGreatsword,6.5,0,100,0.985,0,,,,,,,,,,,pierce,standard,0,123,0,0,0,0.3,0.3,1.2,0,0,8,8,33,0,0,2200,16000,0,0,0,0,0,28,28,28,28,4120,Wing Stance,1,1,0,1
 68500000,Beast Claw,Standard,95,Beast Claw,BeastClaw,3,0,120,1,0,,,,,,,,,,,slash,slash,113,0,0,0,0,0.6,0.35,0,0,0,11,9,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4070,Savage Claws,0,1,1,0
 68500100,Beast Claw,Heavy,95,Beast Claw,BeastClaw,3,0,120,1,0,,,,,,,,,,,slash,slash,113,0,0,0,0,0.95,0.25,0,0,0,11,9,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4070,Savage Claws,0,1,1,0
@@ -3185,6 +3301,6 @@ weapon_id,name,affinity,weapon_type_id,weapon_type_name,weapon_type_keys,weight,
 68502000,Beast Claw,Storm,95,Beast Claw,BeastClaw,3,0,120,1,0,,,,,,,,,,,slash,slash,113,0,0,0,0,0.5,0.05,0.7,0.7,0,11,9,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4070,Savage Claws,0,1,1,0
 68502100,Beast Claw,Mystic,95,Beast Claw,BeastClaw,3,0,120,1,0,,,,,,,,,,,slash,slash,0,113,0,0,0,0.5,0.05,0,0.6,0.6,11,9,0,0,0,0,16000,0,0,0,0,0,28,28,28,28,4070,Savage Claws,0,1,1,0
 68510000,Red Bear's Claw,Standard,95,Beast Claw,BeastClaw,4,0,120,1.06,0,,,,,,,,,,,slash,slash,104,0,0,0,0,0.75,0.2,0,0.95,0,20,10,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,4080,Red Bear Hunt,1,0,1,1
-68540000,Goras' Claw,Standard,95,Beast Claw,BeastClaw,3,0,120,1,0,,,,,,,,,,,slash,slash,0,100,0,0,0,0.6,0.05,0,0.75,0.75,7,0,0,16,16,2200,16000,0,0,0,0,0,28,28,28,28,812,,1,0,1,1
-68550000,Transcendent Talons,Standard,95,Beast Claw,BeastClaw,3,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,105,0,0.55,0.35,1,0,0,12,8,36,0,0,2200,16000,0,0,0,0,0,28,28,28,28,5610,,0,0,1,1
-69500000,Smithscript Rosary,Standard,88,Hand-to-Hand,HandToHand,1.5,0,100,1,0,,,,,,,,,,,strike,slash,124,0,0,0,0,0.95,0.95,0,0,0,20,20,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,188,,1,0,1,1
+68540000,Goras' Claw,Standard,95,Beast Claw,BeastClaw,3,0,120,1,0,,,,,,,,,,,slash,slash,0,100,0,0,0,0.6,0.05,0,0.75,0.75,7,0,0,16,16,2200,16000,0,0,0,0,0,28,28,28,28,812,Roar of Goras,1,0,1,1
+68550000,Transcendent Talons,Standard,95,Beast Claw,BeastClaw,3,0,120,1,0,,,,,,,,,,,slash,pierce,0,0,0,105,0,0.55,0.35,1,0,0,12,8,36,0,0,2200,16000,0,0,0,0,0,28,28,28,28,5610,Transcendent Stance,0,0,1,1
+69500000,Smithscript Rosary,Standard,88,Hand-to-Hand,HandToHand,1.5,0,100,1,0,,,,,,,,,,,strike,slash,124,0,0,0,0,0.95,0.95,0,0,0,20,20,0,0,0,2200,16000,0,0,0,0,0,28,28,28,28,188,Smithscript Arsenal,1,0,1,1

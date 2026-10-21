@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import tempfile
 import unittest
@@ -123,6 +124,25 @@ class ConvergenceReferenceTests(unittest.TestCase):
                 reference["weapons"].append({**source, "affinityId": 2})
                 with self.assertRaisesRegex(ValueError, "unmatched 2:Blade"):
                     build_reference(snapshot, "https://example.invalid/reference.js")
+
+    def test_candidate_slot_labels_do_not_decide_the_reference_affinity(self) -> None:
+        # An unfiltered candidate labels a unique weapon by its ID slot; the reference
+        # row says it is a fixed Standard weapon, and that is what gets recorded.
+        rows = [{**weapon_row(7, "Heavy"), "name": "Unique Blade"}]
+        source = {"weaponName": "Unique Blade", "weaponType": 1, "reinforceTypeId": 0,
+                  "attack": [[0, 10]], "attackElementCorrectId": 16000, "affinityId": -1}
+        with tempfile.TemporaryDirectory() as temporary:
+            snapshot = Path(temporary)
+            write_csv(snapshot / "weapons.csv", rows)
+            write_csv(snapshot / "weapon_passives.csv", [
+                {"weapon_id": "7", **dict.fromkeys(STATUS_KEYS, "0")}
+            ])
+            data = json.dumps({"weapons": [source], "statusSpEffectParams": {}}).encode()
+            (snapshot / "reference.js").write_bytes(data)
+            built = build_reference(snapshot, str(snapshot / "reference.js"))
+        self.assertEqual(built["weapons"], [{"weaponId": 7, "affinity": "Standard"}])
+        self.assertEqual(built["version"], convergence_reference.PROFILE.mod_version)
+        self.assertEqual(built["sourceSha256"], hashlib.sha256(data).hexdigest())
 
 
 if __name__ == "__main__":

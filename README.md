@@ -19,7 +19,7 @@ comparisons and progression previews.
 
 [![Platform: Windows](https://img.shields.io/badge/platform-Windows-c9a45c?style=flat-square&labelColor=101315)](#download)
 [![Elden Ring 1.17.2](https://img.shields.io/badge/Elden_Ring-1.17.2-c9a45c?style=flat-square&labelColor=101315)](docs/model-reference.md)
-[![Convergence 3.0.0.1 beta](https://img.shields.io/badge/Convergence-3.0.0.1_beta-e59256?style=flat-square&labelColor=101315)](#convergence-3001-beta)
+[![Convergence 3.0.3.0 beta](https://img.shields.io/badge/Convergence-3.0.3.0_beta-e59256?style=flat-square&labelColor=101315)](#convergence-3030-beta)
 [![Rust](https://img.shields.io/badge/Rust-101315?style=flat-square&logo=rust&logoColor=c9a45c)](core/er_optimizer_core)
 [![Tauri 2](https://img.shields.io/badge/Tauri_2-101315?style=flat-square&logo=tauri&logoColor=c9a45c)](apps/desktop/src-tauri)
 [![React 19](https://img.shields.io/badge/React_19-101315?style=flat-square&logo=react&logoColor=c9a45c)](apps/desktop/src)
@@ -50,7 +50,7 @@ calculation changes, and verification limits.
 
 > [!TIP]
 > No game files needed. Both binaries include the Vanilla **1.17.2** and Convergence
-> **3.0.0.1** snapshots, so no adjacent data folder, game installation,
+> **3.0.3.0** snapshots, so no adjacent data folder, game installation,
 > `regulation.bin`, or source workbook is required.
 
 Each release includes SHA-256 checksums for the installer, portable app, and ZIP,
@@ -90,7 +90,7 @@ text fields; switching profile starts a new history. After
 **Update Results**, each rank shows how far that loadout moved and how its score
 changed. Click **AR**, **Skill damage**, or the objective column to sort without
 losing the rank, and press **?** for every shortcut. Convergence has its own
-classes and [coverage limits](#convergence-3001-beta).
+classes and [coverage limits](#convergence-3030-beta).
 
 ### Saved builds and recovery
 
@@ -199,7 +199,7 @@ lists what the numbers leave out.
 See the [model reference](docs/model-reference.md) for supported objectives, skill
 effects, profile rules, and known differences from other calculators.
 
-### Convergence 3.0.0.1 beta
+### Convergence 3.0.3.0 beta
 
 > [!WARNING]
 > Convergence is experimental. Its AR, status, and Ash legality are checked
@@ -207,7 +207,7 @@ effects, profile rules, and known differences from other calculators.
 > game.
 
 The header marks it **Experimental model**; open that label for its coverage
-notes. Choose one of the mod's 27 starting classes, such as **Retainer** or
+notes. Choose one of the mod's 29 starting classes, such as **Retainer** or
 **Prisoner**, and plan by Rune Level as in Vanilla: class optimization, Compare,
 Paths, and Affinity Watch all work. **Custom stats** remains in the class list:
 it evaluates the exact stats you enter, their total is not a Rune Level, and the

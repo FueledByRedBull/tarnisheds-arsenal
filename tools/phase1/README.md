@@ -35,8 +35,8 @@ contract to scoring and cache identities. Current identities and coverage are
 listed in the [model reference](../../docs/model-reference.md).
 The extractor records `phase1-python-v15-f32-shortest-floats` for its current
 output. When the extracted content changes for the same game or mod version, the
-dataset version gains a revision suffix (for example `convergence-3.0.0.1-r4`);
-never relabel an existing snapshot instead.
+dataset version gains a revision suffix (`-r2`, `-r3`, …); never relabel an existing
+snapshot instead.
 
 Regenerate older snapshots with this extractor. Both runtime and Python validation
 reject schema 5 before attempting to use its incompatible tables. Do not merely
@@ -55,10 +55,11 @@ only the storage contract changes; source hashes remain tied to the original inp
 - For profiles with skill routes or workbook weapon data (Vanilla), the tracked
   motion workbook `ER - Motion Values and Attack Data (App Ver. 1.17).xlsx` in
   the output folder or `data/phase1/`.
-- Convergence: base and DLC1 `WeaponName`/`ArtsName` FMG XML tables. Authoritative
+- Convergence: base and DLC1 `WeaponName`/`ArtsName` FMG XML tables, serialized with
+  WitchyBND from the mod's `msg/engus/item_dlc02.msgbnd.dcx`. Authoritative
   FMG names are merged by ID; conflicts fail extraction. Guarded PARAM labels fill
   only mod-added player rows that have no FMG entry, including alternate forms.
-- Convergence: the tracked `data/reference/convergence-3.0.0.1-weapons.json`
+- Convergence: the tracked `data/reference/convergence-3.0.3.0-weapons.json`
   availability/model reference. Normal extraction fails closed if it is absent or
   bound to a different profile version.
 
@@ -105,10 +106,34 @@ common modeled fields and status families against the offline version-bound refe
 See the [model reference](../../docs/model-reference.md) for current profile rules and
 coverage.
 
-To rebuild the Convergence availability reference itself, run
-`python tools/phase4/convergence_reference.py --refresh`; without `--refresh` it
-validates a snapshot against the tracked reference. Release validation requires
-the exact tracked reference match.
+Without `--refresh`, `python tools/phase4/convergence_reference.py` validates a
+snapshot against the tracked reference; release validation requires the exact match.
+
+### New Convergence version
+
+The reference comes from T. Clark's calculator data. That project publishes nothing
+past Convergence 3.0.0.1, so its own data build is run on the mod files at the commit
+pinned in `tools/phase4/validate_external_calculator.py`:
+
+1. Check out that commit, install its `debug`, `dotenv` and `fast-xml-parser`
+   versions from its `yarn.lock`, point `buildData.env` at WitchyBND and the mod's
+   `mod/` folder, and run
+   `node src/buildData.ts convergence <out>/regulation-convergence-v<version>.js`
+   (the output name selects the mod). Copy the file to `data/reference/tclark/` and
+   pin its SHA-256 in the Convergence entry of `REFERENCE_PROFILES`.
+2. Update the Convergence profile in `profiles.py` (versions, regulation hash,
+   reference path), then extract an unfiltered candidate, which keeps every player
+   weapon row and never replaces the runtime snapshot:
+   `python tools/phase1/phase1_dump.py --profile convergence --availability-candidate --output <scratch>`.
+3. Build the reference from it:
+   `python tools/phase4/convergence_reference.py --refresh --snapshot <scratch>`.
+   Every row of the calculator data except `Unarmed` must match exactly one candidate
+   row by its modeled stats; names and our slot affinity only break ties.
+4. Run the normal extraction, then
+   `python tools/phase4/validate_external_calculator.py --profile convergence --count 100 --seed 20260918`.
+
+Run against 3.0.0.1 inputs, steps 2 and 3 reproduce the 3.0.0.1 reference exactly,
+and the data build reproduces the published 3.0.0.1 file except for display names.
 
 ## Normalization and indexing
 

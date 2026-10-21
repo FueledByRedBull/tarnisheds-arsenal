@@ -1725,8 +1725,8 @@ mod integration_tests {
             .into_iter()
             .map(|class_info| class_info.name)
             .collect::<Vec<_>>();
-        assert_eq!(names.len(), 28);
-        assert_eq!(names.first().map(String::as_str), Some("Retainer"));
+        assert_eq!(names.len(), 30);
+        assert_eq!(names.first().map(String::as_str), Some("Glint Sorcerer"));
         assert_eq!(
             names.last().map(String::as_str),
             Some(er_optimizer_core::CUSTOM_STATS_CLASS_NAME)

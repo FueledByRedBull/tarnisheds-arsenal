@@ -14,7 +14,7 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ET
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal, InvalidOperation
 from fractions import Fraction
 from pathlib import Path
@@ -242,6 +242,14 @@ def parse_args() -> argparse.Namespace:
         "--keep-workdir",
         action="store_true",
         help="Keep working files after completion",
+    )
+    parser.add_argument(
+        "--availability-candidate",
+        action="store_true",
+        help=(
+            "Extract every player weapon row without the profile's availability reference, "
+            "as the candidate a new reference is built from; never a runtime snapshot"
+        ),
     )
     return parser.parse_args()
 
@@ -785,6 +793,7 @@ def build_weapon_rows(
     weapon_name_overrides: Mapping[int, str],
     somber_reinforce_types: frozenset[int],
     weapon_affinity_by_id: Mapping[int, str] | None = None,
+    include_every_variant: bool = False,
 ) -> list[dict[str, object]]:
     rows_out: list[dict[str, object]] = []
     standard_name_by_series = build_standard_name_map(weapon_rows, name_map, weapon_name_overrides)
@@ -818,10 +827,16 @@ def build_weapon_rows(
                 raw_name = safe_param_name
         else:
             affinity = affinity_by_slot.get(affinity_slot)
-            if affinity_slot in affinity_by_slot and affinity_slot != 0 and disable_gem_attr != 0:
+            if (
+                not include_every_variant
+                and affinity_slot in affinity_by_slot
+                and affinity_slot != 0
+                and disable_gem_attr != 0
+            ):
                 continue
             if affinity is None:
-                if disable_gem_attr != 0:
+                # A reference candidate keeps every row; the reference assigns real affinities.
+                if disable_gem_attr != 0 or include_every_variant:
                     affinity = "Standard"
                     raw_name = safe_param_name
                 else:
@@ -1164,6 +1179,12 @@ def main() -> int:
     from tools.phase1.snapshot_manifest import check_snapshot_destination, sha256_file
 
     check_snapshot_destination(destination_dir)
+    if args.availability_candidate:
+        if profile.weapon_reference_path is None:
+            raise ValueError(f"{profile.id} has no availability reference to build a candidate for")
+        if destination_dir == profile.output_dir.resolve():
+            raise ValueError("an availability candidate must not replace the runtime snapshot")
+        profile = replace(profile, weapon_reference_path=None)
     weapon_affinity_by_id: dict[int, str] | None = None
     if profile.weapon_reference_path is not None:
         reference_path = profile.weapon_reference_path.resolve()
@@ -1261,6 +1282,7 @@ def main() -> int:
         weapon_name_overrides=profile.weapon_name_overrides,
         somber_reinforce_types=profile.somber_reinforce_types,
         weapon_affinity_by_id=weapon_affinity_by_id,
+        include_every_variant=args.availability_candidate,
     )
     calc_correct_csv_rows = build_calc_correct_rows(
         context.curve_rows,
@@ -1494,7 +1516,8 @@ def main() -> int:
     validate_snapshot_manifest(output_dir, profile)
     from tools.phase4.validate_phase4 import validate_profile_snapshot
 
-    errors = [
+    # A candidate is input to a new availability reference, so runtime snapshot checks do not apply.
+    errors = [] if args.availability_candidate else [
         issue.message
         for issue in validate_profile_snapshot(output_dir, profile.id)
         if issue.level == "error"

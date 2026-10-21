@@ -84,7 +84,7 @@ try {
   await page.getByText("Experimental model", { exact: true }).waitFor();
   await openEditor(page, "Class");
   // Convergence's own first class; a Vanilla class here would mean the catalogs mixed.
-  if (await page.getByRole("combobox", { name: "Class", exact: true }).inputValue() !== "Retainer") {
+  if (await page.getByRole("combobox", { name: "Class", exact: true }).inputValue() !== "Glint Sorcerer") {
     throw new Error("Convergence did not load its own class catalog");
   }
   await expect(page.getByRole("button", { name: "Optimize class", exact: true })).toBeEnabled();

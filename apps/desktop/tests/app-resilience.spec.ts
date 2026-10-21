@@ -29,7 +29,7 @@ test("saving waits for verified catalog readiness without writing partial preset
       Object.assign(window, { finishSavingCatalog: () => resolve(catalog) });
     });
   });
-  await page.getByRole("radio", { name: "The Convergence Beta 3.0.0.1", exact: true }).click();
+  await page.getByRole("radio", { name: "The Convergence Beta 3.0.3.0", exact: true }).click();
   await expect(save).toBeDisabled();
   await expect(update).toBeDisabled();
   await save.evaluate(button => (button as HTMLButtonElement).click());
