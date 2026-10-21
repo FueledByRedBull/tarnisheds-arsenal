@@ -9,6 +9,7 @@ from typing import Any
 
 from tools.phase1.profiles import profile_definition
 from tools.phase1.snapshot_manifest import (
+    check_snapshot_destination,
     runtime_files_for,
     promote_snapshot,
     write_snapshot_manifest,
@@ -42,7 +43,7 @@ class SnapshotPromotionTests(unittest.TestCase):
         (destination / "stale.csv").write_text("stale\n", encoding="utf-8")
         (destination / "listed.csv").write_text("old\n", encoding="utf-8")
         (destination / "keep.txt").write_text("keep\n", encoding="utf-8")
-        (destination / "manifest.json").write_text("{}\n", encoding="utf-8")
+        (destination / "manifest.json").write_text('{"profile": {"id": "convergence"}}\n', encoding="utf-8")
         return destination
 
     @staticmethod
@@ -109,6 +110,19 @@ class SnapshotPromotionTests(unittest.TestCase):
             (destination / "notes.csv").unlink()
             promote_snapshot(staging, destination)
             self.assertTrue((destination / "manifest.json").is_file())
+
+    def test_promotion_refuses_another_profiles_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            staging = self._create_staging(root)
+            destination = self._create_destination(root)
+            (destination / "manifest.json").write_text('{"profile": {"id": "vanilla"}}\n', encoding="utf-8")
+            before = self._files(destination)
+            with self.assertRaisesRegex(ValueError, "holds the vanilla snapshot"):
+                promote_snapshot(staging, destination)
+            with self.assertRaisesRegex(ValueError, "holds the vanilla snapshot"):
+                check_snapshot_destination(destination, "convergence")
+            self.assertEqual(self._files(destination), before)
 
     def test_malformed_file_record_is_rejected_before_destination_mutation(self) -> None:
         for invalid_path in (None, "nested/listed.csv", r"nested\listed.csv", "C:listed.csv"):

@@ -1178,7 +1178,7 @@ def main() -> int:
     version_file = configured_version_file.resolve() if configured_version_file is not None else None
     from tools.phase1.snapshot_manifest import check_snapshot_destination, sha256_file
 
-    check_snapshot_destination(destination_dir)
+    check_snapshot_destination(destination_dir, profile.id)
     if args.availability_candidate:
         if profile.weapon_reference_path is None:
             raise ValueError(f"{profile.id} has no availability reference to build a candidate for")

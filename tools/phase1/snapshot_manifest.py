@@ -77,16 +77,25 @@ def sha256_file(path: Path) -> str:
         return hashlib.file_digest(handle, "sha256").hexdigest()
 
 
-def check_snapshot_destination(destination_dir: Path) -> None:
-    """Refuse to promote into a non-empty directory that holds no snapshot manifest."""
-    if (
-        destination_dir.exists()
-        and any(destination_dir.iterdir())
-        and not (destination_dir / "manifest.json").is_file()
-    ):
+def check_snapshot_destination(destination_dir: Path, profile_id: str | None = None) -> None:
+    """Refuse a non-empty directory without a snapshot manifest, or another profile's snapshot."""
+    manifest_path = destination_dir / "manifest.json"
+    if destination_dir.exists() and any(destination_dir.iterdir()) and not manifest_path.is_file():
         raise ValueError(
             f"refusing to write a snapshot into {destination_dir}: it is not empty and has no manifest.json"
         )
+    if profile_id is not None and manifest_path.is_file():
+        try:
+            existing = json.loads(manifest_path.read_text(encoding="utf-8"))["profile"]["id"]
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            raise ValueError(
+                f"refusing to write a snapshot into {destination_dir}: its manifest.json is unreadable"
+            ) from error
+        if existing != profile_id:
+            raise ValueError(
+                f"refusing to write a {profile_id} snapshot into {destination_dir}: "
+                f"it holds the {existing} snapshot"
+            )
 
 
 def _file_record(path: Path) -> FileRecord:
@@ -335,8 +344,8 @@ def promote_snapshot(staging_dir: Path, destination_dir: Path) -> None:
     """
     staging_dir = staging_dir.resolve()
     destination_dir = destination_dir.resolve()
-    check_snapshot_destination(destination_dir)
     manifest = validate_snapshot_manifest(staging_dir)
+    check_snapshot_destination(destination_dir, manifest["profile"]["id"])
     destination_dir.mkdir(parents=True, exist_ok=True)
 
     records = manifest["runtimeFiles"] + manifest["diagnosticFiles"]
