@@ -650,6 +650,14 @@ def main() -> int:
         help="Deliberately refresh only the known files in an existing version output.",
     )
     args = parser.parse_args()
+    # Build outputs are read from src-tauri/target; a redirected target directory would let an
+    # older binary there be packaged and labelled with the current commit.
+    redirected = [name for name in ("CARGO_TARGET_DIR", "CARGO_BUILD_TARGET_DIR") if os.environ.get(name)]
+    if redirected:
+        raise RuntimeError(
+            f"unset {' and '.join(redirected)}: packaging reads build output from "
+            "apps/desktop/src-tauri/target"
+        )
     signing_credentials = take_signing_credentials()
 
     root = Path(__file__).resolve().parents[2]
