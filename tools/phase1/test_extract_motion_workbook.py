@@ -8,6 +8,7 @@ from unittest.mock import patch
 import zipfile
 
 from tools.phase1.extract_motion_workbook import (
+    ATTACK_PARAM_FIELDS,
     MOTION_WORKBOOK_NAME,
     WorkbookReader,
     build_aow_attack_data,
@@ -19,11 +20,14 @@ from tools.phase1.extract_motion_workbook import (
     load_attack_element_correct_ext_ids,
     load_weapon_workbook_data,
     load_bullet_attack_ids,
-    load_throw_attack_ids,
+    load_attack_params,
+    throw_attack_ids,
+    verify_attack_rows_against_regulation,
     parse_flag,
     read_sp_effect_sheet,
     run_workbook_exports,
 )
+from tools.phase1.param_binary import ParamValue
 
 DATA_DIR = Path(__file__).resolve().parents[2] / 'data' / 'phase1'
 
@@ -99,9 +103,13 @@ class MotionWorkbookTests(unittest.TestCase):
                 return_value={1},
             ) as load_bullets,
             patch(
-                'tools.phase1.extract_motion_workbook.load_throw_attack_ids',
-                return_value={2},
-            ) as load_throws,
+                'tools.phase1.extract_motion_workbook.load_attack_params',
+                return_value={2: {'throwFlag': 2}},
+            ) as load_attacks,
+            patch('tools.phase1.extract_motion_workbook.read_csv', return_value=[]),
+            patch(
+                'tools.phase1.extract_motion_workbook.verify_attack_rows_against_regulation'
+            ) as verify,
             patch(
                 'tools.phase1.extract_motion_workbook.build_aow_attack_data'
             ) as build_generic,
@@ -120,7 +128,8 @@ class MotionWorkbookTests(unittest.TestCase):
             )
 
         load_bullets.assert_called_once_with(regulation_bin_dir, paramdex_defs_dir)
-        load_throws.assert_called_once_with(regulation_bin_dir, paramdex_defs_dir)
+        load_attacks.assert_called_once_with(regulation_bin_dir, paramdex_defs_dir)
+        self.assertEqual(verify.call_count, 2)
         build_generic.assert_called_once_with(
             project_root,
             phase1_dir,
@@ -144,15 +153,28 @@ class MotionWorkbookTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(
-            load_throw_attack_ids(Path('regulation'), Path('defs')),
-            {1235},
-        )
-        load_param_table_mock.assert_called_once_with(
-            Path('regulation') / 'AtkParam_Pc.param',
-            Path('defs') / 'AtkParam.xml',
-            {'throwFlag'},
-        )
+        attack_params = load_attack_params(Path('regulation'), Path('defs'))
+        self.assertEqual(throw_attack_ids(attack_params), {1235})
+        path, definition, fields = load_param_table_mock.call_args.args
+        self.assertEqual((path, definition), (Path('regulation') / 'AtkParam_Pc.param', Path('defs') / 'AtkParam.xml'))
+        self.assertIn('throwFlag', fields)
+        self.assertIn('atkPhysCorrection', fields)
+
+    def test_attack_rows_must_match_the_regulation(self) -> None:
+        param: dict[str, ParamValue] = {field: 0 for field in ATTACK_PARAM_FIELDS.values()}
+        param.update(atkPhysCorrection=100, atkSuperArmor=1.899999976158142, spEffectId0=-1,
+                     overwriteAttackElementCorrectId=1005)
+        row = {column: '0' for column in ATTACK_PARAM_FIELDS}
+        row.update(atk_id='300', physical_mv='100', poise_base='1.9', sp_effect_id0='-1',
+                   overwrite_attack_element_correct_id='0')
+        # f32 text and the deliberately dropped unresolved overwrite both agree.
+        verify_attack_rows_against_regulation([row], {300: param}, 'aow_attack_data.csv')
+        with self.assertRaisesRegex(ValueError, r'300 physical_mv=110, regulation atkPhysCorrection=100'):
+            verify_attack_rows_against_regulation(
+                [{**row, 'physical_mv': '110'}], {300: param}, 'aow_attack_data.csv'
+            )
+        with self.assertRaisesRegex(ValueError, '301 is not in AtkParam_Pc'):
+            verify_attack_rows_against_regulation([{**row, 'atk_id': '301'}], {300: param}, 'x')
 
     def test_bullet_provenance_uses_numeric_attack_id_for_fixed_damage(self) -> None:
         headers = [
