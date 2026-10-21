@@ -370,7 +370,7 @@ export function LimitsEditor({ request, patchRequest, fixedStats, lockedStatMode
     <div className="editor-body">
       <p className="editor-note">
         {fixedStats
-          ? "Convergence uses the entered combat stats exactly. Minimum floors do not redistribute stats."
+          ? "Search uses the entered combat stats exactly. Minimum floors do not redistribute stats."
           : "Optional. Leave open to let the search choose every stat."}
       </p>
       <div className="editor-floors">

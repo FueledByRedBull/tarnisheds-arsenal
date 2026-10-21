@@ -475,13 +475,13 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
         <span
           className="ribbon-readout"
           title={fixedStats
-            ? "Convergence uses the entered combat stats exactly"
+            ? "Search uses the entered combat stats exactly"
             : "STR/DEX/INT/FAI/ARC points a respec can move: what is left after class minimums, fixed VIG/MND/END, and minimum floors"}
         >
           <span>{fixedStats ? "Mode" : "Respec points"}</span>
           <strong>{fixedStats ? "Fixed stats" : budget.redistributable}</strong>
           <span className="sr-only">{fixedStats
-            ? ", Convergence uses the entered combat stats exactly"
+            ? ", search uses the entered combat stats exactly"
             : ", STR, DEX, INT, FAI and ARC points a respec can move, after class minimums, fixed VIG, MND and END, and minimum floors"}</span>
         </span>
         <span className="ribbon-divider" aria-hidden="true" />
