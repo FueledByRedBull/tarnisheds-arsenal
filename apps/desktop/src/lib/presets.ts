@@ -511,7 +511,8 @@ function migratePreset(value: unknown): BuildPreset {
       if (build[key] === undefined) build[key] = 0;
     }
     if (build.aowId === undefined) build.aowId = null;
-    if (build.aowRoute === undefined) build.aowRoute = null;
+    // Schema-1 routes predate poise damage, and loading re-solves every route anyway.
+    build.aowRoute = null;
   }
   if (!Array.isArray(value.compareBench)) {
     value.compareBench = value.compareTarget ? [value.compareTarget] : [];

@@ -85,7 +85,7 @@ describe("saved build persistence", () => {
     expect(validateStoredBuild(build, { standardMaxUpgrade: 25, somberMaxUpgrade: 25 })).toHaveProperty("value");
     expect(validateStoredBuild(build, { standardMaxUpgrade: 25, somberMaxUpgrade: 10 })).toMatchObject({ error: expect.stringMatching(/^build\.upgrade /) });
     expect(validateStoredBuild(build, { standardMaxUpgrade: 15, somberMaxUpgrade: 15 })).toHaveProperty("value");
-    expect(parsePresetText(JSON.stringify({ ...preset(), selectedBuild: build })).selectedBuild).toEqual(build);
+    expect(parsePresetText(JSON.stringify({ ...preset(), version: 2, compareBench: [], selectedBuild: build })).selectedBuild).toEqual(build);
   });
 
   beforeEach(() => {
@@ -244,6 +244,43 @@ describe("saved build persistence", () => {
       });
     }
   });
+
+  // Schema-1 records (v0.7 through v0.10) stored skill routes without poise damage.
+  function schemaOneRecord() {
+    const record = JSON.parse(JSON.stringify({ ...preset("old-route"), selectedBuild: routedBuild(), compareTarget: routedBuild() }));
+    for (const build of [record.selectedBuild, record.compareTarget]) {
+      delete build.aowRoute.totalPoiseDamage;
+      for (const hit of build.aowRoute.actions[0].hits) delete hit.poiseDamage;
+    }
+    localStorage.setItem(`tarnisheds-arsenal.savedBuild.v1.${record.id}`, JSON.stringify(record));
+    localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", JSON.stringify({ version: 1, builds: [
+      { id: record.id, name: record.name, profileId: record.profileId, dataVersion: record.dataVersion, updatedAt: record.updatedAt },
+    ] }));
+    return record;
+  }
+
+  it("opens and backs up schema-1 builds whose skill routes predate poise damage", () => {
+    const record = schemaOneRecord();
+    // The route is re-solved on load, so the migrated archive keeps none of its unverifiable numbers.
+    expect(loadBuildPreset(record.id)).toMatchObject({ version: 2, name: record.name, selectedBuild: { aowName: "Unsheathe", aowRoute: null } });
+    const inspection = inspectSavedBuilds();
+    expect(inspection.issues).toEqual([]);
+    expect(JSON.parse(savedBuildBackupText(inspection)).builds.map((build: { id: string }) => build.id)).toEqual([record.id]);
+  });
+
+  it("re-imports a schema-1 build as a copy or over its stored record", () => {
+    const record = schemaOneRecord();
+    const text = JSON.stringify(record);
+    expect(previewPresetImport(text)).toMatchObject({ idConflict: true, nameConflict: true });
+    const copy = importBuildPreset(parsePresetText(text));
+    expect(copy.id).not.toBe(record.id);
+    const replaced = replaceImportedBuildPreset(parsePresetText(text));
+    expect(replaced.id).toBe(record.id);
+    expect(loadBuildPreset(record.id)?.version).toBe(2);
+    expect(inspectSavedBuilds()).toMatchObject({ issues: [], needsRecovery: false });
+    expect(savedBuildIndex().builds).toHaveLength(2);
+  });
+
   it("previews conflicts and rejects oversized input", () => {
     importBuildPreset(preset());
     const preview = previewPresetImport(JSON.stringify(preset()));
@@ -382,7 +419,7 @@ describe("saved build persistence", () => {
   });
 
   it("rejects malformed route, hit and display fields at both preset and backup boundaries", () => {
-    const valid = { ...preset(), selectedBuild: routedBuild() };
+    const valid = { ...preset(), version: 2, compareBench: [], selectedBuild: routedBuild() };
     expect(parsePresetText(JSON.stringify(valid)).selectedBuild).toEqual(valid.selectedBuild);
     const mutations = [
       ["aowRoute.totalPoiseDamage", "10"], ["aowRoute.totalPoiseDamage", undefined],
