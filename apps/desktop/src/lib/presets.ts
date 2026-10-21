@@ -458,6 +458,7 @@ export function assertRequest(value: unknown): asserts value is OptimizeRequestD
   assertBoolean(value.exactUpgrade, "request.exactUpgrade");
   assertBoolean(value.twoHanding, "request.twoHanding");
   assertBoolean(value.dlcScaling, "request.dlcScaling");
+  // 20 is SCADUTREE_MAX_LEVEL in core/er_optimizer_core/src/math.rs.
   assertInteger(value.scadutreeLevel, "request.scadutreeLevel", 0, 20);
   assertNullableText(value.weaponName, "request.weaponName", 200);
   assertNullableText(value.affinity, "request.affinity", 80);

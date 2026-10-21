@@ -63,7 +63,7 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - A finished native job keeps its terminal status until the next job in that queue
   starts, so a lost status reply can be read again. A page load, including a
   reload, cancels every running native job, because the new page cannot own them.
-- Rankings, custom comparisons, and CSV export share one search queue. The workflow owns polling through native completion, including cancellation; superseded queued requests never start. Rankings UI components do not run a second poller.
+- Rankings, custom comparisons, and CSV export share one search queue. The workflow owns polling through native completion, including cancellation; superseded queued requests never start. Cancel aborts whichever search owns the current generation; an aborted queued request rejects at once and never starts. Rankings UI components do not run a second poller.
 - Cancellation or status communication errors may end the caller's request, but do not establish that its native worker is idle. Retain uncertain job ownership, bound recovery attempts, and reconcile that worker before starting replacement work.
 - Direct loadout and upgrade-series calculations run off the native main thread, with bounded concurrency and cooperative cancellation. Shared cache work is cancelled only when its last subscriber leaves or its profile/data identity is invalidated.
 - A Compare operation requires fresh Rankings results. Failed required solves
@@ -133,7 +133,7 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - Affinity Watch points contain only level and nullable metric. Endpoint summaries
   use the actual boundary points; missing endpoints remain unavailable and cannot
   inherit an interior build. Only an available final point supplies final stats.
-- Presets have an explicit profile ID. Legacy presets migrate to Vanilla, and presets from another profile cannot be loaded or silently converted.
+- Presets have an explicit profile ID. Legacy presets migrate to Vanilla, and presets from another profile cannot be loaded, silently converted, or overwritten by a save from another profile.
 - Presets save effective stat locks; disabled locks are stored as null. Loadout solving and migration preserve requested locks. Comparison callers explicitly clear locks when reoptimizing a rival's stats.
 - Loading a readable preset does not depend on persisting comparison pins. Optional comparison-storage failures leave session state usable and show a warning; essential preset writes still report failure. Obsolete migration requests cancel their native calculations as well as rejecting stale results.
 - CSV exports include profile/data/model provenance. Unsupported values are blank,

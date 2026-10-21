@@ -120,7 +120,7 @@ pinned in `tools/phase4/validate_external_calculator.py`:
    `mod/` folder, and run
    `node src/buildData.ts convergence <out>/regulation-convergence-v<version>.js`
    (the output name selects the mod). Copy the file to `data/reference/tclark/` and
-   pin its SHA-256 in the Convergence entry of `REFERENCE_PROFILES`.
+   set its path and SHA-256 in the Convergence entry of `REFERENCE_PROFILES`.
 2. Update the Convergence profile in `profiles.py` (versions, regulation hash,
    reference path), then extract an unfiltered candidate, which keeps every player
    weapon row and never replaces the runtime snapshot:
@@ -141,7 +141,8 @@ and the data build reproduces the published 3.0.0.1 file except for display name
   model field is required: an omitted value takes its declared XML default, and a
   field with neither fails extraction. Intentional optional-field defaults remain
   explicit in the extractor. In Convergence this sets `attackElementCorrectId` to
-  `16000` and the four status correction curves to `28` for almost every weapon.
+  `16000` for all but one weapon and the four status correction curves to `28` for
+  every weapon.
 - `classes.csv` lists the character-creation classes in menu order:
   `BaseChrSelectMenuParam` rows outside the network test, each pointing at its
   `CharaInitParam` class row. Names come only from the regulation's own
@@ -150,8 +151,10 @@ and the data build reproduces the published 3.0.0.1 file except for display name
   is outside 1..99, a name is missing or repeated, or `soulLv` is not the eight-
   attribute total minus 79.
 - PARAM label fallbacks drop the mod author's `[Conv]` and `NEW - ` markers.
-- Runtime CSV loading rejects duplicate trimmed headers and duplicate keys in
-  reinforcement, attack-element, and passive tables rather than overwriting rows.
+- Runtime CSV loading rejects duplicate trimmed headers and duplicate keys in every
+  keyed table, including weapon, Ash, reinforcement, curve, attack-element, passive,
+  skill attack and route assignment tables, rather than overwriting or
+  double-counting rows.
 - `weapons.csv` scaling columns (`str_scaling`, `dex_scaling`, `int_scaling`, `fai_scaling`, `arc_scaling`) are normalized to `0.0..1.0` by dividing raw weapon param values by `100.0`.
 - `weapons.csv` includes AoW-filtering type fields:
   - `weapon_type_id`: raw `wepType` numeric value from `EquipParamWeapon`.
