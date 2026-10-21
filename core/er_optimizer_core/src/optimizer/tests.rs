@@ -2427,6 +2427,124 @@ fn fixed_loadout_level_range_reuse_preserves_objectives_and_budget_edges() {
 }
 
 #[test]
+fn lower_level_plans_match_plans_built_for_that_level() {
+    let game_data = load_data();
+    let mut open = base_request();
+    open.weapon_name = None;
+    open.affinity = None;
+    open.objective = OptimizeObjective::AowFirstHit;
+    let mut constrained = open.clone();
+    constrained.two_handing = true;
+    constrained.min_combat_stats[STAT_DEX] = 20;
+    constrained.locked_combat_stats[STAT_INT] = Some(12);
+    // Level 9 leaves no free points, so weapons whose requirements need raises drop out.
+    for (request, levels) in [(&open, [9, 10, 25, 40]), (&constrained, [21, 22, 30, 60])] {
+        let mut max_request = request.clone();
+        max_request.character_level = levels[3];
+        let constraints = build_combat_constraints(&max_request, &game_data).unwrap();
+        let weapons: Arc<[PreparedWeapon<'_>]> = Arc::from(
+            prepare_weapons_with_cancel(&max_request, &game_data, Some(constraints), &mut || true)
+                .unwrap()
+                .into_boxed_slice(),
+        );
+        let max_plan = build_prepared_plan(
+            &max_request,
+            &game_data,
+            constraints,
+            Arc::clone(&weapons),
+            &mut || true,
+        )
+        .unwrap();
+        let mut dropped = false;
+        for level in levels {
+            let mut level_request = request.clone();
+            level_request.character_level = level;
+            let constraints = build_combat_constraints(&level_request, &game_data).unwrap();
+            let built = build_prepared_plan(
+                &level_request,
+                &game_data,
+                constraints,
+                Arc::clone(&weapons),
+                &mut || true,
+            )
+            .unwrap();
+            let derived =
+                level_plan_from(&max_plan, &level_request, constraints, &mut || true).unwrap();
+            dropped |= built.groups.len() < max_plan.groups.len();
+            assert_eq!(
+                format!("{:?}", derived.groups),
+                format!("{:?}", built.groups)
+            );
+            assert_eq!(
+                format!("{:?}", derived.fine_work_units),
+                format!("{:?}", built.fine_work_units)
+            );
+            assert_eq!(
+                format!("{:?}", derived.serial_work_units),
+                format!("{:?}", built.serial_work_units)
+            );
+            assert_eq!(
+                format!("{:?}", derived.estimate),
+                format!("{:?}", built.estimate)
+            );
+        }
+        assert!(dropped, "fixture should drop weapons at its lowest level");
+    }
+}
+
+#[test]
+fn skill_level_ranges_match_independent_searches() {
+    let game_data = load_data();
+    let mut request = base_request();
+    request.character_level = 80;
+    request.weapon_name = None;
+    request.affinity = None;
+    request.weapon_type_key = Some("katana".to_string());
+    request.top_k = 3;
+    let levels = [110, 80, 81, 95, 80];
+    for threads in [1, rayon::current_num_threads()] {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| {
+                for objective in [
+                    OptimizeObjective::AowFirstHit,
+                    OptimizeObjective::AowFullSequence,
+                ] {
+                    for grouping in [ResultGrouping::Weapon, ResultGrouping::Loadout] {
+                        let mut request = request.clone();
+                        request.objective = objective;
+                        request.result_grouping = grouping;
+                        assert_level_range_matches_independent_searches(
+                            &request, &levels, &game_data,
+                        );
+                    }
+                }
+            });
+    }
+    let mut constrained = request.clone();
+    constrained.objective = OptimizeObjective::AowFirstHit;
+    constrained.two_handing = true;
+    constrained.min_combat_stats[STAT_ARC] = 25;
+    constrained.locked_combat_stats[STAT_FAI] = Some(10);
+    assert_level_range_matches_independent_searches(&constrained, &[80, 82, 120], &game_data);
+
+    // Floors the lowest level cannot afford fail there, as its own search does, although
+    // the highest level is solved first.
+    let mut floors = request.clone();
+    floors.min_combat_stats[STAT_STR] = 60;
+    floors.character_level = 9;
+    let mut lowest = floors.clone();
+    lowest.character_level = 40;
+    let expected = optimize(&lowest, &game_data).unwrap_err();
+    let error =
+        optimize_level_range_with_progress(&floors, &[40, 200], &game_data, |_| true, || true)
+            .unwrap_err();
+    assert_eq!(error, expected);
+}
+
+#[test]
 fn cached_primary_preparation_remains_cancellable() {
     let data = load_data();
     let mut request = base_request();
@@ -4459,6 +4577,7 @@ fn ordered_materialization_matches_ranked_insertion_for_ties_groups_and_limits()
                 })
                 .collect(),
             upgrades: vec![0, 25],
+            inputs_dominated_by_next: vec![false],
         })
         .collect::<Vec<_>>();
     let mut all_candidates = (0..weapons.len())
