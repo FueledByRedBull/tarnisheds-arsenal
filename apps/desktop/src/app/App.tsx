@@ -196,7 +196,7 @@ export function App() {
           <div className="editor-body">
             <strong>Model coverage and assumptions</strong>
             <p className="editor-note">
-              {convergenceProfile ? "Convergence " : ""}weapon AR, fixed status, classes, and Ash permissions are checked against the mod's regulation, not measured in game. Custom stats evaluates entered stats exactly, without Compare, Paths, or Affinity Watch. Ammo weapons and AoW hit/route damage remain unsupported.
+              {convergenceProfile ? `Convergence ${activeProfile?.profile.modVersion ?? ""} (game ${activeProfile?.profile.gameVersion ?? ""}) ` : ""}weapon AR, fixed status, classes, and Ash permissions are checked against the mod's regulation, not measured in game. Custom stats evaluates entered stats exactly, without Compare, Paths, or Affinity Watch. Ammo weapons and AoW hit/route damage remain unsupported.
             </p>
           </div>
         </Popover>

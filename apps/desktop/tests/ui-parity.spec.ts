@@ -158,6 +158,8 @@ test("profile switch isolates results and explains Convergence coverage", async 
   await expect(
     page.getByText(/Ammo weapons and AoW hit\/route damage remain unsupported/),
   ).toBeVisible();
+  // The coverage note names the exact mod and game versions the bundled data models.
+  await expect(page.getByText(/^Convergence 3\.0\.3\.0 \(game 1\.17\.1\) weapon AR/)).toBeVisible();
   await expect(page.getByText("4 ranked rows")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "AoW First Hit" })).toHaveCount(0);
   await openEditor(page, "Class");
