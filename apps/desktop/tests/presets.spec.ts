@@ -256,6 +256,27 @@ test("a failed deletion reports the error and preserves a loadable build", async
   await expect(page.getByRole("combobox", { name: "Saved", exact: true })).toHaveValue("");
 });
 
+test("a Replace choice applies only to the pasted text it was made for", async ({ page }) => {
+  await page.goto("/");
+  await openSection(page, "Saved Builds");
+  await page.getByRole("button", { name: "Save new", exact: true }).click();
+  const saved = await page.evaluate(() => {
+    const key = Object.keys(localStorage).find(key => key.startsWith("tarnisheds-arsenal.savedBuild.v2."))!;
+    return JSON.parse(localStorage.getItem(key)!);
+  });
+  await page.locator(".saved-build-import summary").click();
+  const text = page.getByRole("textbox", { name: "Import JSON or Share Text", exact: true });
+  const conflict = page.getByRole("combobox", { name: "Conflict handling", exact: true });
+  await text.fill(JSON.stringify(saved));
+  await conflict.selectOption("replace");
+  await text.fill(JSON.stringify({ ...saved, name: "Another paste" }));
+  await expect(conflict).toHaveValue("copy");
+  await page.getByRole("button", { name: "Import", exact: true }).click();
+  await expect(page.getByText("Imported Another paste.", { exact: true })).toBeVisible();
+  expect(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!).name, `tarnisheds-arsenal.savedBuild.v2.${saved.id}`))
+    .toBe(saved.name);
+});
+
 test("an armed Delete lapses on its own, so a later click never confirms it unseen", async ({ page }) => {
   await page.clock.install();
   await page.goto("/");
