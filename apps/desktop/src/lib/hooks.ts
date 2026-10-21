@@ -7,6 +7,7 @@ import { buildOptimizeRequest } from "./session";
 import { progressSignature } from "./polling";
 import { cancelledError, createNativeJobQueue, isCancelled, type FinishedJob, type NativeJobSuccess } from "./native-jobs";
 import { useKeyedResource } from "./keyed-resource";
+import { catalogVersion } from "./preset-activation";
 import {
   AffinityWatchFinishedDto,
   AffinityWatchJobStatusDto,
@@ -52,7 +53,9 @@ export function useWeaponProfile(
 }
 
 export function useWeaponProfileResource(profileId: string, weaponName: string | null, affinity: string | null) {
-  const key = weaponName ? JSON.stringify([profileId, weaponName, affinity]) : null;
+  // A new catalog clears the cache and stops its pending loads, so it must also start a new one.
+  const dataVersion = useDesktopStore((state) => state.catalog && catalogVersion(state.catalog));
+  const key = weaponName ? JSON.stringify([dataVersion, profileId, weaponName, affinity]) : null;
   const load = useCallback((signal: AbortSignal) =>
     cachedWeaponProfile(profileId, weaponName!, affinity, signal), [profileId, weaponName, affinity]);
   const resource = useKeyedResource(key, load);
