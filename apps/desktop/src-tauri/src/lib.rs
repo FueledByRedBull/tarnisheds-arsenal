@@ -253,6 +253,57 @@ mod job_registry_tests {
         assert!(cancel.load(Ordering::Relaxed));
     }
 
+    fn register_running<T: Clone + Send + 'static>(
+        registry: &JobRegistry<T>,
+        status: T,
+    ) -> CancelFlag {
+        let cancel: CancelFlag = Arc::new(AtomicBool::new(false));
+        registry
+            .insert_if_idle(
+                "running".into(),
+                AsyncJobHandle {
+                    cancel: Arc::clone(&cancel),
+                    status: Arc::new(Mutex::new(status)),
+                },
+            )
+            .unwrap();
+        cancel
+    }
+
+    #[test]
+    fn page_load_cancellation_reaches_every_job_registry() {
+        let state = crate::test_app_state();
+        let flags = [
+            register_running(
+                &state.analysis_jobs,
+                dto::AnalysisJobStatusDto { finished: None },
+            ),
+            register_running(
+                &state.search_jobs,
+                dto::SearchJobStatusDto {
+                    progress: None,
+                    finished: None,
+                },
+            ),
+            register_running(
+                &state.path_jobs,
+                dto::PathJobStatusDto {
+                    progress: None,
+                    finished: None,
+                },
+            ),
+            register_running(
+                &state.affinity_jobs,
+                dto::AffinityWatchJobStatusDto {
+                    progress: None,
+                    finished: None,
+                },
+            ),
+        ];
+        state.cancel_all_jobs();
+        assert!(flags.iter().all(|cancel| cancel.load(Ordering::Relaxed)));
+    }
+
     #[test]
     fn cancellation_waits_for_in_progress_terminal_publication() {
         use std::sync::mpsc;

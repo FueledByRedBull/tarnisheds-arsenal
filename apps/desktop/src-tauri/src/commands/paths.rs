@@ -144,7 +144,7 @@ fn run_path_preview_job(
             }
         }
     }
-    cancelled |= !should_continue();
+    cancelled |= error.is_none() && !should_continue();
     if cancelled || error.is_some() {
         paths.clear();
     } else {
@@ -1046,6 +1046,29 @@ mod integration_tests {
             assert!(progress.checked < progress.total);
             assert_eq!(snapshots.len(), 1);
         }
+    }
+
+    #[test]
+    fn path_lane_error_outranks_cancellation_after_the_failure() {
+        let state = crate::test_app_state();
+        let profile = state
+            .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+            .unwrap();
+        let mut invalid = request(&state);
+        invalid.base.profile_id = "unknown".to_string();
+        let polls = std::sync::atomic::AtomicUsize::new(0);
+        // The lane starts, fails, and the job is cancelled before the batch returns.
+        let status = run_path_preview_job(
+            vec![invalid],
+            profile,
+            "error-then-cancel".to_string(),
+            || polls.fetch_add(1, Ordering::Relaxed) == 0,
+            |_| {},
+        );
+        let finished = status.finished.unwrap();
+        assert!(finished.error.is_some());
+        assert!(!finished.cancelled);
+        assert!(finished.paths.is_empty());
     }
 
     /// The seed lane retargeted to a weapon its stats cannot wield.
