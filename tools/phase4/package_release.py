@@ -41,6 +41,11 @@ def node_cmd() -> str:
     return "node.exe" if os.name == "nt" else "node"
 
 
+def build_environment(tauri_dir: Path) -> dict[str, str]:
+    # The variable outranks a `[build] target-dir` in any Cargo config file.
+    return {**os.environ, "CARGO_TARGET_DIR": str(tauri_dir / "target")}
+
+
 def run(cmd: list[str], cwd: Path, *, env: dict[str, str] | None = None) -> None:
     subprocess.run(cmd, cwd=cwd, check=True, env=env)
 
@@ -598,7 +603,7 @@ def _sign_with_thumbprint(
     expected_msi_hash = expected_msi_payload_sha256(exe)
     snapshot = directory / "signed-msi-payload.exe"
     config = write_tauri_signing_config(directory, exe.name)
-    signing_env = os.environ.copy()
+    signing_env = build_environment(tauri_dir)
     signing_env.update(
         {
             "TAURI_RELEASE_SIGNTOOL": str(signtool),
@@ -663,8 +668,6 @@ def main() -> int:
     root = Path(__file__).resolve().parents[2]
     app_dir = root / "apps" / "desktop"
     tauri_dir = app_dir / "src-tauri"
-    # The variable outranks a `[build] target-dir` in any Cargo config file.
-    os.environ["CARGO_TARGET_DIR"] = str(tauri_dir / "target")
     tauri_config = json.loads((tauri_dir / "tauri.conf.json").read_text(encoding="utf-8"))
     product_name = tauri_config["productName"]
     version = tauri_config["version"]
@@ -841,7 +844,7 @@ def main() -> int:
     if signing_credentials is not None:
         build_command.append("--no-bundle")
     build_command.extend(["--", "--locked"])
-    run(build_command, cwd=app_dir)
+    run(build_command, cwd=app_dir, env=build_environment(tauri_dir))
     require_unchanged_tracked_source(root, source_commit, stage="Tauri build")
     packaged_exe, packaged_msi, code_signed, expected_msi_payload = sign_release_binaries_if_configured(
         app_dir,
