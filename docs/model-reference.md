@@ -37,7 +37,7 @@ recover original decimal precision or establish in-game accuracy. The
 arithmetic, tie order, and proof obligations.
 
 The current snapshot model is `aow-routes-effects-v9`; runtime results and caches
-use `aow-routes-effects-v9/exact-v3`. The bundled datasets are `vanilla-1.17-r3` and
+use `aow-routes-effects-v9/exact-v3`. The bundled datasets are `vanilla-1.17.2` and
 `convergence-3.0.0.1-r4`, written by extractor `phase1-python-v15-f32-shortest-floats`.
 Every snapshot float is the shortest decimal that parses to the `f32` nearest the
 extracted value, so loaded coefficients are exactly those `f32` values.
@@ -56,7 +56,10 @@ They establish implementation agreement for their fixtures, not gameplay fidelit
 
 ## Vanilla
 
-The bundled snapshot targets **Elden Ring 1.17**. Objectives are **Max AR**,
+The bundled snapshot targets **Elden Ring 1.17.2** (regulation 1.17.3). That patch
+changed only the Fletched Piquebone Arrow projectile's attack link, so every
+extracted table is byte-identical to 1.17; motion data still comes from the
+App Ver. 1.17 workbook. Objectives are **Max AR**,
 **Max Physical AR**, **Bleed, then AR**, **AoW First Hit (PvE)**, and
 **AoW Full Sequence (PvE)**.
 

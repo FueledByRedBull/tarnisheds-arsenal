@@ -139,14 +139,14 @@ PROFILES: Mapping[str, ProfileDefinition] = {
     "vanilla": ProfileDefinition(
         id="vanilla",
         display_name="Vanilla",
-        game_version="1.17",
+        game_version="1.17.2",
         mod_version=None,
         raw_dir=Path("data/raw/Vanilla"),
         output_dir=Path("data/phase1"),
         affinity_by_slot=VANILLA_AFFINITIES,
         # 3000 is the unupgradeable Meteorite Staff, historically flagged somber.
         somber_reinforce_types=frozenset({2200, 2400, 3000, 3200, 3300, 3400, 8300, 8500}),
-        regulation_sha256="fb4afd25e70effc9f9523d3aba89b1fb3e08b0800d8efb9a535cab038c5e8bbd",
+        regulation_sha256="b8cdab84c0772f66811fdc5176a381877ca6657b37d420cc2c1562a90d63870e",
         capabilities=ProfileCapabilities(
             weapon_ar=True,
             weapon_ar_for_ammunition=True,
@@ -177,7 +177,6 @@ PROFILES: Mapping[str, ProfileDefinition] = {
             66_530_000: "Reed Great Katana",
             67_530_000: "Idus Sword",
         },
-        dataset_revision=3,
         sword_art_name_overrides={
             1_200: "Muleta",
             1_201: "Causality's Wrath",

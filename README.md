@@ -18,7 +18,7 @@ comparisons and progression previews.
 [![License](https://img.shields.io/github/license/FueledByRedBull/tarnisheds-arsenal?style=flat-square&labelColor=101315&color=c9a45c)](LICENSE)
 
 [![Platform: Windows](https://img.shields.io/badge/platform-Windows-c9a45c?style=flat-square&labelColor=101315)](#download)
-[![Elden Ring 1.17](https://img.shields.io/badge/Elden_Ring-1.17-c9a45c?style=flat-square&labelColor=101315)](docs/model-reference.md)
+[![Elden Ring 1.17.2](https://img.shields.io/badge/Elden_Ring-1.17.2-c9a45c?style=flat-square&labelColor=101315)](docs/model-reference.md)
 [![Convergence 3.0.0.1 beta](https://img.shields.io/badge/Convergence-3.0.0.1_beta-e59256?style=flat-square&labelColor=101315)](#convergence-3001-beta)
 [![Rust](https://img.shields.io/badge/Rust-101315?style=flat-square&logo=rust&logoColor=c9a45c)](core/er_optimizer_core)
 [![Tauri 2](https://img.shields.io/badge/Tauri_2-101315?style=flat-square&logo=tauri&logoColor=c9a45c)](apps/desktop/src-tauri)
@@ -49,7 +49,7 @@ calculation changes, and verification limits.
 | **Archive** (`.zip`) | Keep or transfer the portable app and release documentation |
 
 > [!TIP]
-> No game files needed. Both binaries include the Vanilla **1.17** and Convergence
+> No game files needed. Both binaries include the Vanilla **1.17.2** and Convergence
 > **3.0.0.1** snapshots, so no adjacent data folder, game installation,
 > `regulation.bin`, or source workbook is required.
 

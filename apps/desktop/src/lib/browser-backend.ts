@@ -314,16 +314,16 @@ function mockDataManifest(profileId = "vanilla"): DataManifestDto {
   const convergence = profileId === "convergence";
   return {
     schemaVersion: 6,
-    datasetVersion: convergence ? "convergence-3.0.0.1-r4" : "vanilla-1.17-r3",
+    datasetVersion: convergence ? "convergence-3.0.0.1-r4" : "vanilla-1.17.2",
     modelVersion: "aow-routes-effects-v9/exact-v3",
-    id: convergence ? "convergence-3.0.0.1-r4" : "vanilla-1.17-r3",
-    label: convergence ? "The Convergence dataset - 3.0.0.1" : "Vanilla dataset - 1.17",
-    appVersion: convergence ? "1.16.1" : "1.17",
+    id: convergence ? "convergence-3.0.0.1-r4" : "vanilla-1.17.2",
+    label: convergence ? "The Convergence dataset - 3.0.0.1" : "Vanilla dataset - 1.17.2",
+    appVersion: convergence ? "1.16.1" : "1.17.2",
     source: "regulation.bin",
     profile: {
       id: profileId,
       displayName: convergence ? "The Convergence" : "Vanilla",
-      gameVersion: convergence ? "1.16.1" : "1.17",
+      gameVersion: convergence ? "1.16.1" : "1.17.2",
       modVersion: convergence ? "3.0.0.1" : null,
     },
     capabilities: {

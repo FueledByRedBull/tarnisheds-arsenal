@@ -650,7 +650,7 @@ test("stale saved builds offer explicit input-only loading or recompute migratio
   // Unnamed saves take the selected build's name, as the game names weapons.
   await expect(page.getByText(/Saved Blood Uchigatana \+25/)).toBeVisible();
   await expect(page.locator(".saved-build-status")).toHaveText("Saved with the current game data");
-  await expect(page.locator(".saved-build-status")).toHaveAttribute("title", /^profile vanilla · dataset vanilla-1\.17-r3 · schema \d+ · model /);
+  await expect(page.locator(".saved-build-status")).toHaveAttribute("title", /^profile vanilla · dataset vanilla-1\.17\.2 · schema \d+ · model /);
 
   await page.evaluate(() => {
     const presetKey = Object.keys(localStorage).find((key) => key.startsWith("tarnisheds-arsenal.savedBuild.v2."));
