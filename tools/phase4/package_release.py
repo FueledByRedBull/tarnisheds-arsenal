@@ -663,6 +663,8 @@ def main() -> int:
     root = Path(__file__).resolve().parents[2]
     app_dir = root / "apps" / "desktop"
     tauri_dir = app_dir / "src-tauri"
+    # The variable outranks a `[build] target-dir` in any Cargo config file.
+    os.environ["CARGO_TARGET_DIR"] = str(tauri_dir / "target")
     tauri_config = json.loads((tauri_dir / "tauri.conf.json").read_text(encoding="utf-8"))
     product_name = tauri_config["productName"]
     version = tauri_config["version"]

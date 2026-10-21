@@ -1182,7 +1182,7 @@ def main() -> int:
     if args.availability_candidate:
         if profile.weapon_reference_path is None:
             raise ValueError(f"{profile.id} has no availability reference to build a candidate for")
-        if destination_dir == profile.output_dir.resolve():
+        if destination_dir == (ROOT / profile.output_dir).resolve():
             raise ValueError("an availability candidate must not replace the runtime snapshot")
         profile = replace(profile, weapon_reference_path=None)
     weapon_affinity_by_id: dict[int, str] | None = None

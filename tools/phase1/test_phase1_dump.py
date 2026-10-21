@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from contextlib import chdir
 import random
 import struct
 import tempfile
@@ -239,6 +240,14 @@ class Phase1DumpTests(unittest.TestCase):
             [(row["weapon_id"], row["affinity"]) for row in rows],
             [(2_090_100, "Heavy"), (2_099_900, "Standard")],
         )
+
+    def test_availability_candidate_never_replaces_the_runtime_snapshot(self) -> None:
+        runtime = ROOT / PROFILES["convergence"].output_dir
+        argv = ["phase1_dump.py", "--profile", "convergence", "--availability-candidate",
+                "--output", str(runtime), "--witchybnd", "unused"]
+        with tempfile.TemporaryDirectory() as elsewhere, patch.object(sys, "argv", argv), chdir(elsewhere):
+            with self.assertRaisesRegex(ValueError, "must not replace the runtime snapshot"):
+                phase1_dump.main()
 
     def test_weapon_model_fields_fail_closed(self) -> None:
         row = weapon_param_row(id="2090000", name="Blade", originEquipWep="2090000", wepType="5",
