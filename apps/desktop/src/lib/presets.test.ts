@@ -497,6 +497,17 @@ describe("saved build persistence", () => {
     expect(copies).toHaveLength(3);
   });
 
+  it("puts back the copies it dropped when the new copy still does not fit", () => {
+    saveBuildPreset(preset());
+    const copies = [1, 2, 3].map((day) => `tarnisheds-arsenal.savedBuildIndex.recovery.2026-01-0${day}T00:00:00.000Z`);
+    for (const key of copies) localStorage.setItem(key, "{old");
+    localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", `{${"x".repeat(2000)}`);
+    const scan = inspectSavedBuilds();
+    limitStorage(storageUsed() + 100);
+    expect(() => recoverSavedBuilds(scan)).toThrow(/storage .*full/);
+    expect(copies.map((key) => localStorage.getItem(key))).toEqual(["{old", "{old", "{old"]);
+  });
+
   it("explains a recovery that storage cannot hold and leaves the original index in place", () => {
     saveBuildPreset(preset());
     localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", "{damaged");

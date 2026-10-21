@@ -122,7 +122,8 @@ export function recoverSavedBuilds(preview: SavedBuildInspection): string | null
   // Older copies named by a random ID sort first, as the oldest.
   const copies = storageKeys(RECOVERY_PREFIX)
     .sort((a, b) => recoveryOrder(a).localeCompare(recoveryOrder(b)));
-  for (const key of copies.slice(0, backupKey ? -2 : -3)) localStorage.removeItem(key);
+  const replaced = copies.slice(0, backupKey ? -2 : -3).map((key) => [key, localStorage.getItem(key)!] as const);
+  for (const [key] of replaced) localStorage.removeItem(key);
   try {
     // Copy the original index first; a quota failure must never erase its only copy.
     if (backupKey) localStorage.setItem(backupKey, current.source.index!);
@@ -134,6 +135,8 @@ export function recoverSavedBuilds(preview: SavedBuildInspection): string | null
       throw error;
     }
   } catch (error) {
+    // Neither new write was kept, so each old copy fits back where it was.
+    for (const [key, value] of replaced) localStorage.setItem(key, value);
     if (isQuotaExceeded(error)) {
       throw new Error("Device storage for saved builds is full, so recovery could not keep a copy of the original index. Saved builds and their index were not changed. Export all builds to keep them safe, then free storage and recover again.");
     }
