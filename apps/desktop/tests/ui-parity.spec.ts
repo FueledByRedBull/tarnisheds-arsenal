@@ -37,6 +37,12 @@ test("long Paths curves retain all points with sparse markers and keyboard inspe
   await page.getByRole("navigation").getByRole("button", { name: "Paths", exact: true }).click();
   await page.getByRole("button", { name: "Trace paths", exact: true }).click();
   await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "completed");
+  // Lanes are matched by stable ids; the labels are display text.
+  expect(await page.evaluate(async () => {
+    const { useDesktopStore } = await import("/src/lib/state.ts");
+    return useDesktopStore.getState().paths.map((path) => path.title);
+  })).toEqual(["selected", "compare"]);
+  await expect(page.locator(".path-lane").nth(1)).toContainText(/steps, final/);
   await page.evaluate(async () => {
     const { useDesktopStore } = await import("/src/lib/state.ts");
     const state = useDesktopStore.getState();
@@ -696,6 +702,28 @@ test("reduced-motion preference drops travel but keeps loaders alive", async ({ 
   await expect(probe).toHaveCSS("animation-iteration-count", "infinite");
   expect(await page.evaluate(() => getComputedStyle(document.querySelector(".reduced-motion-probe")!, "::after").animationName)).toBe("none");
 });
+
+for (const reducedMotion of ["reduce", "no-preference"] as const) {
+  test(`Compare's upgrade matrix scrolls ${reducedMotion === "reduce" ? "instantly" : "smoothly"} with ${reducedMotion} motion`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await expect(page.getByText("4 ranked rows")).toBeVisible();
+    await openCompare(page);
+    await page.evaluate(() => {
+      const scrolls: string[] = [];
+      Object.assign(window, { matrixScrolls: scrolls });
+      const wrap = document.querySelector<HTMLElement>(".matrix-wrap")!;
+      const scrollTo = wrap.scrollTo.bind(wrap);
+      wrap.scrollTo = ((options: ScrollToOptions) => {
+        scrolls.push(String(options.behavior));
+        scrollTo(options);
+      }) as typeof wrap.scrollTo;
+    });
+    await page.locator(".matrix-toolbar").getByRole("button", { name: "+0", exact: true }).click();
+    expect(await page.evaluate(() => (window as any).matrixScrolls)).toEqual([reducedMotion === "reduce" ? "auto" : "smooth"]);
+  });
+}
 
 test("searchable selects expose keyboard and screen-reader state", async ({ page }) => {
   await page.goto("/");

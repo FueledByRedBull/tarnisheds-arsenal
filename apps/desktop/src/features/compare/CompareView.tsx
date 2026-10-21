@@ -8,6 +8,7 @@ import { clearTypeAndAffinityFilters, compareUpgradeHorizon, replaceFilterEntrie
 import { selectedFilterIds } from "../query-strip/QueryEditors";
 import { LatestRequest } from "../../lib/request-generation";
 import { useBuiltRequest } from "../../lib/hooks";
+import { reducedMotion } from "../../lib/motion";
 import { useDesktopStore } from "../../lib/state";
 import { CompareControls, SolvedBuildDto, UpgradePointDto } from "../../lib/types";
 import { Popover } from "../shared/Popover";
@@ -27,7 +28,15 @@ type CompareLane = {
 
 type CompareChip = { key: string; kind: string; label: string; patch: Partial<CompareControls> };
 
-type CompareMetric = readonly [string, (row: SolvedBuildDto) => number | null, (1 | -1)?];
+// The id keys the column; the label is display text only.
+type CompareMetric = {
+  id: string;
+  label: string;
+  value: (row: SolvedBuildDto) => number | null;
+  direction?: 1 | -1;
+};
+
+const PRIMARY_METRICS = new Set(["objective", "ar", "bleed", "aowFull"]);
 
 export function CompareView() {
   const catalog = useDesktopStore((state) => state.catalog);
@@ -457,44 +466,39 @@ function DeltaTable({ baseline, candidates, objective }: { baseline: SolvedBuild
   const aowSupported = useDesktopStore((state) => aowModelSupported(state.catalog?.dataManifest));
   const objectiveMetric: CompareMetric[] = objective === "max_ar"
     ? []
-    : [["Objective", (row: SolvedBuildDto) => metricForObjective(row, objective, aowSupported)]];
+    : [{ id: "objective", label: "Objective", value: (row) => metricForObjective(row, objective, aowSupported) }];
   const compared = [baseline, ...candidates.flatMap((lane) => lane.row ? [lane.row] : [])];
   const allMetrics: CompareMetric[] = [
     ...objectiveMetric,
-    ["AR", (row: SolvedBuildDto) => row.ar.total],
-    ["Physical", (row: SolvedBuildDto) => row.ar.physical],
-    ["Magic", (row: SolvedBuildDto) => row.ar.magic],
-    ["Fire", (row: SolvedBuildDto) => row.ar.fire],
-    ["Lightning", (row: SolvedBuildDto) => row.ar.lightning],
-    ["Holy", (row: SolvedBuildDto) => row.ar.holy],
-    ["Bleed", (row: SolvedBuildDto) => row.bleedBuildup],
-    ["AoW first", (row: SolvedBuildDto) => hasAowDamage(row, aowSupported) ? row.aowFirstHitDamage : null],
-    ["AoW full", (row: SolvedBuildDto) => hasAowDamage(row, aowSupported) ? row.aowFullSequenceDamage : null],
-    ["Stamina", (row: SolvedBuildDto) => hasAowDamage(row, aowSupported) ? row.aowRoute?.totalStaminaCost ?? null : null, -1],
+    { id: "ar", label: "AR", value: (row) => row.ar.total },
+    { id: "physical", label: "Physical", value: (row) => row.ar.physical },
+    { id: "magic", label: "Magic", value: (row) => row.ar.magic },
+    { id: "fire", label: "Fire", value: (row) => row.ar.fire },
+    { id: "lightning", label: "Lightning", value: (row) => row.ar.lightning },
+    { id: "holy", label: "Holy", value: (row) => row.ar.holy },
+    { id: "bleed", label: "Bleed", value: (row) => row.bleedBuildup },
+    { id: "aowFirst", label: "AoW first", value: (row) => hasAowDamage(row, aowSupported) ? row.aowFirstHitDamage : null },
+    { id: "aowFull", label: "AoW full", value: (row) => hasAowDamage(row, aowSupported) ? row.aowFullSequenceDamage : null },
+    { id: "stamina", label: "Stamina", value: (row) => hasAowDamage(row, aowSupported) ? row.aowRoute?.totalStaminaCost ?? null : null, direction: -1 },
   ];
   // A metric no compared build models is left out rather than shown as a column of "Unavailable".
-  const metrics = allMetrics.filter(([, value]) => compared.some((row) => value(row) !== null));
-  const primaryMetrics = metrics.filter(([label]) =>
-    label === "Objective"
-    || label === "AR"
-    || label === "Bleed"
-    || label === "AoW full",
-  );
+  const metrics = allMetrics.filter(({ value }) => compared.some((row) => value(row) !== null));
+  const primaryMetrics = metrics.filter(({ id }) => PRIMARY_METRICS.has(id));
   const renderTable = (tableMetrics: CompareMetric[], caption: string) => (
     <table>
       <caption>{caption}</caption>
-      <thead><tr><th scope="col">Compared build</th>{tableMetrics.map(([label]) => <th scope="col" key={label}>{label}</th>)}</tr></thead>
+      <thead><tr><th scope="col">Compared build</th>{tableMetrics.map(({ id, label }) => <th scope="col" key={id}>{label}</th>)}</tr></thead>
       <tbody>{candidates.map((lane) => lane.row ? (
         <tr key={lane.label}>
           <th scope="row">{lane.row.weaponName}<small>{lane.row.affinity}</small></th>
-          {tableMetrics.map(([label, value, direction = 1]) => {
+          {tableMetrics.map(({ id, value, direction = 1 }) => {
             const candidateValue = value(lane.row!);
             const baselineValue = value(baseline);
-            if (candidateValue === null || baselineValue === null) return <td key={label}>Unavailable</td>;
+            if (candidateValue === null || baselineValue === null) return <td key={id}>Unavailable</td>;
             // Rounded to the shown precision first, so "0.0" is never coloured as a change.
             const delta = Number(fixed1(candidateValue - baselineValue));
             const improvement = delta * direction;
-            return <td className={improvement > 0 ? "positive" : improvement < 0 ? "negative" : ""} key={label}>{delta > 0 ? "+" : ""}{fixed1(delta)}</td>;
+            return <td className={improvement > 0 ? "positive" : improvement < 0 ? "negative" : ""} key={id}>{delta > 0 ? "+" : ""}{fixed1(delta)}</td>;
           })}
         </tr>
       ) : null)}</tbody>
@@ -590,6 +594,6 @@ function scrollMatrix(element: HTMLDivElement | null, direction: -1 | 1) {
   }
   element.scrollTo({
     left: direction < 0 ? 0 : element.scrollWidth,
-    behavior: "smooth",
+    behavior: reducedMotion() ? "auto" : "smooth",
   });
 }
