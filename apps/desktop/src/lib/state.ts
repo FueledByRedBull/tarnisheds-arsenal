@@ -519,7 +519,8 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
     const isCurrent = () => {
       const latest = get();
       return !controller.signal.aborted && latest.catalog === catalog && latest.request === context.request
-        && latest.searchGeneration === context.searchGeneration && latest.compareBench === context.compareBench
+        // Kept pins are not this load's to publish, so their background recalculation may replace them.
+        && latest.searchGeneration === context.searchGeneration && (keepPins || latest.compareBench === context.compareBench)
         && latest.selectedFingerprint === context.selectedFingerprint && latest.compareControls === context.compareControls
         && latest.activeWorkspace === context.activeWorkspace;
     };

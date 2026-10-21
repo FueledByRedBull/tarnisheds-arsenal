@@ -840,6 +840,32 @@ describe("saved result activation boundary", () => {
     } finally { solve.mockRestore(); }
   });
 
+  it("finishes loading a build without pins while stored pins are recalculated", async () => {
+    const preset = activationPreset();
+    preset.selectedBuild = row;
+    const storedPin = { ...row, weaponName: "Stored pin" };
+    const stored = JSON.stringify({ version: 1, datasetVersion: "old", schemaVersion: 4, modelVersion: "old", rows: [storedPin] });
+    vi.stubGlobal("localStorage", { getItem: () => stored, setItem: vi.fn() });
+    const pending = new Map<string, (value: SolvedBuildDto) => void>();
+    const solve = vi.spyOn(api, "solveBuild").mockImplementation((_base, weaponName) =>
+      new Promise(resolve => { pending.set(weaponName, resolve); }));
+    try {
+      useDesktopStore.getState().setCatalog(useDesktopStore.getState().catalog!);
+      await vi.waitFor(() => expect(pending.has("Stored pin")).toBe(true));
+      const loading = useDesktopStore.getState().loadBuildPreset(preset);
+      await vi.waitFor(() => expect(pending.has(row.weaponName)).toBe(true));
+      pending.get("Stored pin")!(storedPin);
+      await vi.waitFor(() => expect(useDesktopStore.getState().compareBench).toEqual([storedPin]));
+      pending.get(row.weaponName)!(row);
+      expect(await loading).not.toBeNull();
+      expect(useDesktopStore.getState()).toMatchObject({ selected: row, rows: [row], compareBench: [storedPin] });
+      expect(useDesktopStore.getState().notices[0].message).toBe("Loaded Activation; saved results verified on current data.");
+    } finally {
+      solve.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("retires only its own verification notice on external cancellation", async () => {
     const preset = activationPreset();
     preset.selectedBuild = row;
