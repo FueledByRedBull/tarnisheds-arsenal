@@ -589,7 +589,7 @@ describe("saved build persistence", () => {
     expect(backup.builds).toHaveLength(MAX_BUILD_BACKUP_COUNT + 1);
   });
 
-  it("backs up existing valid records beyond the single-share import limit", () => {
+  it("backs up existing valid records beyond the per-build limit but never restores them", () => {
     const saved = saveBuildPreset(preset());
     // Long route warnings are valid; the total backup still has a 10 MiB limit.
     const build = routedBuild();
@@ -600,7 +600,12 @@ describe("saved build persistence", () => {
     localStorage.setItem(`tarnisheds-arsenal.savedBuild.v2.${saved.id}`, JSON.stringify(stored));
     expect(loadBuildPreset(saved.id)).toEqual(stored);
     const backup = savedBuildBackupText(inspectSavedBuilds());
-    expect(previewBuildBackup(backup).presets).toEqual([stored]);
+    expect(JSON.parse(backup).builds).toEqual([stored]);
+    // A restored copy over the limit could be loaded but never renamed or updated.
+    expect(() => previewBuildBackup(backup)).toThrow(/Dexterity route.*too large/);
+    expect(() => restoreBuildBackup(backup)).toThrow(/too large/);
+    expect(savedBuildIndex().builds).toHaveLength(1);
+    expect(localStorage.length).toBe(2);
   });
 
   it("rejects new saves and imports at capacity before changing storage", () => {

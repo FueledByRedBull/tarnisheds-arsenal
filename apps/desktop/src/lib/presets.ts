@@ -148,7 +148,12 @@ export function previewBuildBackup(raw: string): { presets: BuildPreset[]; bytes
     throw new Error("Not a supported saved-build backup. Individual presets use Import JSON or Share Text.");
   }
   assertArray(parsed.builds, "backup builds", MAX_BUILD_BACKUP_COUNT);
-  const presets = parsed.builds.map(importedPreset);
+  const presets = parsed.builds.map((build) => {
+    const preset = importedPreset(build);
+    // Restored builds meet the save limit, so each one can later be renamed and updated.
+    if (utf8Bytes(JSON.stringify(preset)) > MAX_PRESET_IMPORT_BYTES) throw new Error(`${preset.name} in this backup: ${presetTooLarge().message}`);
+    return preset;
+  });
   const ids = new Set(presets.map((preset) => preset.id));
   if (ids.size !== presets.length) throw new Error("Build backup contains duplicate IDs.");
   return { presets, bytes };

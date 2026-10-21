@@ -150,7 +150,7 @@ Status: accepted. These rules describe contracts that tests and future refactors
   failures must not throw through component rendering.
 - Bulk build backups use `tarnisheds-arsenal.build-backup` version 1, containing
   existing versioned presets, bounded to 500 builds/10 MiB. Validate the entire
-  backup before writing; restore with new IDs and commit the index last. Failed
+  backup before writing, each build against the same size limit as a save; restore with new IDs and commit the index last. Failed
   cleanup leaves new records recoverable as orphans.
 - Preset, backup and recovery validation rejects null comparison pins and requires
   request enum values to be strings before they can reach the UI or native commands.
