@@ -117,15 +117,33 @@ export function recoverSavedBuilds(preview: SavedBuildInspection): string | null
     throw new Error("Saved builds changed after this preview. Scan again before recovery.");
   }
   const backupKey = current.source.index === null ? null : `${RECOVERY_PREFIX}${new Date().toISOString()}`;
-  if (backupKey) localStorage.setItem(backupKey, current.source.index!);
-  // Copy the original index first; a quota failure must never erase its only copy.
-  localStorage.setItem(INDEX_KEY, JSON.stringify({ version: 1, builds: current.presets.map(presetIndexEntry) }));
   // Keep the newest three copies: each takes up to ~100 KB of the quota the builds share.
+  // The ones a new copy replaces go first, so full storage still has room for it.
   // Older copies named by a random ID sort first, as the oldest.
   const copies = storageKeys(RECOVERY_PREFIX)
     .sort((a, b) => recoveryOrder(a).localeCompare(recoveryOrder(b)));
-  for (const key of copies.slice(0, -3)) localStorage.removeItem(key);
+  for (const key of copies.slice(0, backupKey ? -2 : -3)) localStorage.removeItem(key);
+  try {
+    // Copy the original index first; a quota failure must never erase its only copy.
+    if (backupKey) localStorage.setItem(backupKey, current.source.index!);
+    try {
+      localStorage.setItem(INDEX_KEY, JSON.stringify({ version: 1, builds: current.presets.map(presetIndexEntry) }));
+    } catch (error) {
+      // The original index is still in place, so its new copy would only take space.
+      if (backupKey) localStorage.removeItem(backupKey);
+      throw error;
+    }
+  } catch (error) {
+    if (isQuotaExceeded(error)) {
+      throw new Error("Device storage for saved builds is full, so recovery could not keep a copy of the original index. Saved builds and their index were not changed. Export all builds to keep them safe, then free storage and recover again.");
+    }
+    throw error;
+  }
   return backupKey;
+}
+
+function isQuotaExceeded(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "QuotaExceededError";
 }
 
 function recoveryOrder(key: string): string {
@@ -344,7 +362,7 @@ function persistPreset(preset: BuildPreset) {
       throw error;
     }
   } catch (error) {
-    if (error instanceof DOMException && error.name === "QuotaExceededError") {
+    if (isQuotaExceeded(error)) {
       throw new Error("Device storage for saved builds is full. Export a backup, then delete builds you no longer need; nothing was changed.");
     }
     throw error;

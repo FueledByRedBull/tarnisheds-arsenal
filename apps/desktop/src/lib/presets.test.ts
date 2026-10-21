@@ -467,6 +467,48 @@ describe("saved build persistence", () => {
     expect(localStorage.getItem("tarnisheds-arsenal.savedBuildIndex.v1")).toBe("broken");
   });
 
+  // Fills storage the way a device quota does: a write that would pass the limit throws.
+  function storageUsed() {
+    return Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index)!)
+      .reduce((sum, key) => sum + key.length + localStorage.getItem(key)!.length, 0);
+  }
+  function limitStorage(limit: number) {
+    const write = localStorage.setItem.bind(localStorage);
+    vi.spyOn(localStorage, "setItem").mockImplementation((key, value) => {
+      const existing = localStorage.getItem(key);
+      if (storageUsed() - (existing === null ? 0 : key.length + existing.length) + key.length + value.length > limit) {
+        throw new DOMException("Storage quota exceeded", "QuotaExceededError");
+      }
+      write(key, value);
+    });
+  }
+
+  it("makes room for recovery on full storage by dropping the copies it would replace", () => {
+    const saved = saveBuildPreset(preset());
+    const damaged = `{${"x".repeat(2000)}`;
+    for (let copy = 0; copy < 3; copy += 1) localStorage.setItem(`tarnisheds-arsenal.savedBuildIndex.recovery.2026-01-0${copy + 1}T00:00:00.000Z`, damaged);
+    localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", damaged);
+    limitStorage(storageUsed() + 500);
+    const backupKey = recoverSavedBuilds(inspectSavedBuilds());
+    expect(localStorage.getItem(backupKey!)).toBe(damaged);
+    expect(savedBuildIndex().builds.map((entry) => entry.id)).toEqual([saved.id]);
+    const copies = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index)!)
+      .filter((key) => key.startsWith("tarnisheds-arsenal.savedBuildIndex.recovery."));
+    expect(copies).toHaveLength(3);
+  });
+
+  it("explains a recovery that storage cannot hold and leaves the original index in place", () => {
+    saveBuildPreset(preset());
+    localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", "{damaged");
+    const scan = inspectSavedBuilds();
+    // Room for the copy of the original index, but not for the rebuilt index as well.
+    limitStorage(storageUsed() + 100);
+    expect(() => recoverSavedBuilds(scan)).toThrow(/storage .*full.*were not changed/);
+    expect(localStorage.getItem("tarnisheds-arsenal.savedBuildIndex.v1")).toBe("{damaged");
+    expect(Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index)!)
+      .some((key) => key.startsWith("tarnisheds-arsenal.savedBuildIndex.recovery."))).toBe(false);
+  });
+
   it("validates an entire backup before restoring and keeps every existing build on conflict", () => {
     const saved = saveBuildPreset(preset());
     const backup = savedBuildBackupText(inspectSavedBuilds());
