@@ -72,6 +72,11 @@ test("movement markers, sorted headers and the shortcut sheet have no WCAG A/AA 
   await page.locator(".result-row").nth(1).click();
   await page.getByRole("columnheader", { name: "AR", exact: true }).getByRole("button").click();
   await expect(page.locator(".rank-move")).toHaveCount(3);
+  // Markers fade in from the frame after the new rows commit; judge their settled contrast.
+  await page.locator(".rank-move").evaluateAll(async (markers) => {
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await Promise.all(markers.flatMap((marker) => marker.getAnimations()).map((animation) => animation.finished));
+  });
   expect(await violations(page, ".rankings-panel")).toEqual([]);
   expect(await violations(page, ".inspector")).toEqual([]);
   await page.keyboard.press("?");
