@@ -189,7 +189,6 @@ export function budgetSnapshot(catalog: CatalogDto | null, request: OptimizeRequ
     total,
     levelUps: Math.max(0, level - meta.baseLevel),
     redistributable: Math.max(0, total - floorSum),
-    freePoints: total - currentStatTotal(request),
   };
 }
 

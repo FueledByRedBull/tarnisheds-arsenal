@@ -190,7 +190,7 @@ export function Inspector() {
             ? `Fixed stat total ${snapshot.level}` : `Level ${snapshot.level} / +${snapshot.levelUps} level ups`}</strong>
           <small>{fixedStats
             ? "Entered combat stats are evaluated as-is; class budgets and redistribution are unavailable."
-            : `${snapshot.redistributable} respec points · ${snapshot.freePoints} unspent · ${snapshot.total} total points`}</small>
+            : `${snapshot.redistributable} respec points · ${snapshot.total} total points`}</small>
         </div>
         <div className="detail-block">
           <span>Stat locks</span>
