@@ -16,6 +16,9 @@ from tools.phase1.snapshot_manifest import (
 )
 
 
+ROOT = Path(__file__).resolve().parents[2]
+
+
 class SnapshotPromotionTests(unittest.TestCase):
     def _create_staging(self, root: Path) -> Path:
         staging = root / "staging"
@@ -56,6 +59,16 @@ class SnapshotPromotionTests(unittest.TestCase):
             json.dumps(manifest, indent=2) + "\n",
             encoding="utf-8",
         )
+
+    def test_regulation_source_must_match_the_profile_pin(self) -> None:
+        for profile_id, directory in (("vanilla", "data/phase1"), ("convergence", "data/profiles/convergence")):
+            with self.subTest(profile=profile_id):
+                validate_snapshot_manifest(ROOT / directory, profile_definition(profile_id))
+        with tempfile.TemporaryDirectory() as temporary:
+            # The staging regulation is a stand-in, so it cannot match the real pin.
+            staging = self._create_staging(Path(temporary))
+            with self.assertRaisesRegex(ValueError, "pinned regulation"):
+                validate_snapshot_manifest(staging, profile_definition("convergence"))
 
     def test_previous_schema_is_rejected_before_loading_tables(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

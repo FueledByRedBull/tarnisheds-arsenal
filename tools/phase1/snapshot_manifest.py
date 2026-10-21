@@ -297,6 +297,11 @@ def validate_snapshot_manifest(
     source_by_kind = {record.get("kind"): record for record in sources}
     if len(source_by_kind) != len(sources) or "regulation" not in source_by_kind:
         raise ValueError("snapshot source kinds must be unique and include regulation")
+    if (
+        expected_profile is not None
+        and source_by_kind["regulation"].get("sha256") != expected_profile.regulation_sha256
+    ):
+        raise ValueError("snapshot regulation source does not match the profile's pinned regulation")
     if (capabilities["aowDamage"] or capabilities["aowRoutes"]) and "workbook" not in source_by_kind:
         raise ValueError("AoW-capable snapshots require a motion workbook source")
     for kind, record in source_by_kind.items():
