@@ -312,6 +312,14 @@ jobs:
         run: |
           npm run test:e2e
 
+      - name: Upload e2e failure traces
+        if: ${{ failure() && hashFiles('apps/desktop/test-results/**') != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-failure-traces
+          path: apps/desktop/test-results/
+          retention-days: 14
+
       # The release workflow runs this smoke on the packaged build; running it on
       # every change catches native/UI drift before it can block a release. The
       # Tauri build also runs the TypeScript check and production bundle.
