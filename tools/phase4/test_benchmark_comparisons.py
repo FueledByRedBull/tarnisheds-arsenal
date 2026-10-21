@@ -131,6 +131,25 @@ class BenchmarkDriverComparisonTests(unittest.TestCase):
                         with self.assertRaisesRegex(ValueError, "finite positive"):
                             self.run_driver(driver, current, previous)
 
+    def test_baselines_from_another_setup_are_refused(self):
+        setups = {
+            phases: ({"profileId": "vanilla", "datasetVersion": "d1", "rayonThreads": 16},
+                     "rayonThreads", 1),
+            workflows: ({"profile": "release", "dataset_version": "d1", "rayon_threads": "16"},
+                        "rayon_threads", "1"),
+        }
+        for driver, (recorded, key, other) in setups.items():
+            with self.subTest(driver=driver.__name__), tempfile.TemporaryDirectory() as temporary:
+                baseline = Path(temporary) / "baseline.json"
+                baseline.write_text(json.dumps({"metadata": recorded, "cases": [self.case(driver)]}),
+                                    encoding="utf-8")
+                extra = {} if driver is phases else {"coverage": {}}
+                self.assertEqual(driver.compare_baseline(
+                    [self.case(driver)], baseline, 20, metadata=dict(recorded), **extra), [])
+                with self.assertRaisesRegex(ValueError, f"different setup; {key}"):
+                    driver.compare_baseline(
+                        [self.case(driver)], baseline, 20, metadata={**recorded, key: other}, **extra)
+
     def test_output_parity_and_mismatch(self):
         for driver in (phases, workflows):
             a = self.case(driver, results="complete rows")

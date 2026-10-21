@@ -14,9 +14,9 @@ from pathlib import Path
 from typing import Any
 
 if __package__:
-    from .benchmark_build_metadata import capture_build_metadata
+    from .benchmark_build_metadata import capture_build_metadata, require_matching_setup
 else:
-    from benchmark_build_metadata import capture_build_metadata
+    from benchmark_build_metadata import capture_build_metadata, require_matching_setup
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "core" / "er_optimizer_core" / "Cargo.toml"
@@ -40,11 +40,18 @@ def thread_policy(value: str) -> str:
     raise argparse.ArgumentTypeError("threads must be 'default' or a positive integer")
 
 
+# Recorded by the Rust benchmark; timings are only comparable when these match.
+SETUP_KEYS = ("profileId", "datasetId", "datasetVersion", "modelVersion", "profile", "rayonThreads")
+
+
 def compare_baseline(
     cases: list[dict[str, Any]], baseline_path: Path, threshold: float,
     *, requested_cases: list[str] | None = None, coverage: dict[str, Any] | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+    if metadata is not None:
+        require_matching_setup(baseline.get("metadata", {}), metadata, SETUP_KEYS)
     current = index_cases(cases)
     previous = index_cases(baseline["cases"])
     requested = current.keys() | previous.keys() if requested_cases is None else set(requested_cases)
@@ -209,6 +216,7 @@ def main() -> int:
         compare_baseline(
             cases, args.baseline, args.max_regression_percent,
             requested_cases=[args.case] if args.case else None, coverage=comparison,
+            metadata=metadata,
         )
         if args.baseline
         else []

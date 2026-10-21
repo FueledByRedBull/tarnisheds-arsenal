@@ -132,3 +132,16 @@ def capture_build_metadata(
             "output_environment": {key: environment[key] for key in sorted(OUTPUT_ENV_KEYS) if key in environment},
         },
     }
+
+
+def require_matching_setup(
+    baseline: dict[str, Any], current: dict[str, Any], keys: tuple[str, ...]
+) -> None:
+    """Refuse to compare timings recorded on a different profile, dataset, model or thread count."""
+    differing = [
+        f"{key}: baseline {baseline[key]!r}, current {current[key]!r}"
+        for key in keys
+        if key in baseline and key in current and baseline[key] != current[key]
+    ]
+    if differing:
+        raise ValueError("baseline was recorded with a different setup; " + "; ".join(differing))
