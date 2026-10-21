@@ -99,10 +99,10 @@ test("result columns sort without renumbering ranks", async ({ page }) => {
   const ar = page.getByRole("columnheader", { name: "AR", exact: true });
   await ar.getByRole("button").click();
   await expect(ar).toHaveAttribute("aria-sort", "descending");
-  expect(await ranks()).toEqual(["1", "2", "3", "4"]);
+  await expect.poll(ranks).toEqual(["1", "2", "3", "4"]);
   await ar.getByRole("button").click();
   await expect(ar).toHaveAttribute("aria-sort", "ascending");
-  expect(await ranks()).toEqual(["4", "3", "2", "1"]);
+  await expect.poll(ranks).toEqual(["4", "3", "2", "1"]);
   // Arrow keys and the accessibility order follow the order shown, not the DOM's rank order.
   await page.getByRole("row", { name: /, rank 4,/ }).focus();
   await page.keyboard.press("ArrowDown");
@@ -119,12 +119,12 @@ test("result columns sort without renumbering ranks", async ({ page }) => {
     const rows = useDesktopStore.getState().rows;
     useDesktopStore.getState().setRows([rows[0], rows[1], { ...rows[2], ar: { ...rows[2].ar, total: 999 } }, rows[3]], 100);
   });
-  expect(await ranks()).toEqual(["3", "1", "2", "4"]);
+  await expect.poll(ranks).toEqual(["3", "1", "2", "4"]);
   const rank = page.getByRole("columnheader", { name: "Rank", exact: true });
   await rank.getByRole("button").click();
   await expect(rank).toHaveAttribute("aria-sort", "ascending");
   await expect(ar).not.toHaveAttribute("aria-sort");
-  expect(await ranks()).toEqual(["1", "2", "3", "4"]);
+  await expect.poll(ranks).toEqual(["1", "2", "3", "4"]);
 });
 
 test("arrow keys move between ranked rows and Build Detail shows the rank", async ({ page }) => {
