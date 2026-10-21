@@ -5,6 +5,10 @@ export type NativeJobSuccess<T> = T extends FinishedJob
   ? Omit<T, "cancelled" | "error"> & { cancelled: false; error: null }
   : never;
 
+// The frontend's one cancellation marker: the AbortError an AbortSignal itself raises.
+export const cancelledError = () => new DOMException("Calculation stopped.", "AbortError");
+export const isCancelled = (error: unknown) => error instanceof DOMException && error.name === "AbortError";
+
 // Both queues retain native ownership independently of the caller's promise.
 export function createNativeJobQueue<S extends { finished: FinishedJob | null }>(
   status: (jobId: string) => Promise<S | null>,
@@ -14,7 +18,6 @@ export function createNativeJobQueue<S extends { finished: FinishedJob | null }>
   let tail: Promise<void> = Promise.resolve();
   let uncertainJobId: string | null = null;
   let pendingStatus: Promise<S | null> | null = null;
-  const stopped = () => new DOMException("Calculation stopped.", "AbortError");
   const unknown = () => new Error("Worker state is unknown. Try again to reconnect, or restart the app before calculating.");
 
   async function watch(
@@ -81,14 +84,19 @@ export function createNativeJobQueue<S extends { finished: FinishedJob | null }>
     onStatus?: (status: S) => void,
     onStarted?: (jobId: string) => void,
   ): Promise<NativeJobSuccess<NonNullable<S["finished"]>>> => new Promise((resolve, reject) => {
+    // A request still waiting for its turn owns no native work, so aborting it ends it at once.
+    const abandon = () => reject(cancelledError());
+    if (signal?.aborted) abandon();
+    else signal?.addEventListener("abort", abandon, { once: true });
     tail = tail.then(async () => {
-      if (signal?.aborted) throw stopped();
+      if (signal?.aborted) throw cancelledError();
       if (uncertainJobId) {
         const recovered = await watch(uncertainJobId, () => {}, undefined, undefined, true);
         if (recovered === undefined) throw unknown();
         uncertainJobId = null;
       }
-      if (signal?.aborted) throw stopped();
+      if (signal?.aborted) throw cancelledError();
+      signal?.removeEventListener("abort", abandon);
       const { jobId } = await start();
       uncertainJobId = jobId;
       try {
@@ -102,7 +110,7 @@ export function createNativeJobQueue<S extends { finished: FinishedJob | null }>
       const finished = await watch(jobId, reject, signal, onStatus);
       if (finished === undefined) throw unknown();
       uncertainJobId = null;
-      if (signal?.aborted || finished?.cancelled) throw stopped();
+      if (signal?.aborted || finished?.cancelled) throw cancelledError();
       if (!finished) throw new Error("Native job disappeared before returning a result.");
       if (finished.error) throw new Error(finished.error);
       // Native null and empty errors both mean success; expose one normalized shape.

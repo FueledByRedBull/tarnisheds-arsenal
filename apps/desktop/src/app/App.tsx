@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { setAnalysisCacheVersion } from "../lib/analysis-cache";
 import { WORKSPACES } from "../lib/commands";
 import { keyboardOwnedByOverlay } from "../lib/keyboard";
+import { isCancelled } from "../lib/native-jobs";
 import { catalogVersion } from "../lib/preset-activation";
 import { CUSTOM_STATS_CLASS } from "../lib/session";
 import { persistProfileQueries, useDesktopStore } from "../lib/state";
@@ -63,7 +64,7 @@ export function App() {
   // A promise nobody awaited still reaches the error strip instead of failing silently.
   useEffect(() => {
     const onRejection = (event: PromiseRejectionEvent) => {
-      if (event.reason instanceof DOMException && event.reason.name === "AbortError") return;
+      if (isCancelled(event.reason)) return;
       setError(errorMessage(event.reason));
     };
     window.addEventListener("unhandledrejection", onRejection);

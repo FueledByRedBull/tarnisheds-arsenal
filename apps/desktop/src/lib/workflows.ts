@@ -1,7 +1,7 @@
 import { api } from "./api";
 import { buildOptimizeRequest, stableSignature } from "./session";
 import { progressSignature } from "./polling";
-import { createNativeJobQueue } from "./native-jobs";
+import { createNativeJobQueue, isCancelled } from "./native-jobs";
 import { useDesktopStore } from "./state";
 import { OptimizeRequestDto, SearchJobStatusDto, SearchProgressDto, SolvedBuildDto } from "./types";
 import { errorMessage } from "./format";
@@ -11,16 +11,22 @@ const searchQueue = createNativeJobQueue<SearchJobStatusDto>(
   status => progressSignature(status.progress),
 );
 
-export async function runSearchFromStore(
-  requestOverride?: OptimizeRequestDto,
-  cancellationRequested: () => boolean = () => false,
-): Promise<boolean> {
+// The Rankings search that owns the store's search generation, whichever control started it.
+let activeSearch: { generation: number; controller: AbortController } | null = null;
+
+// Cancel reaches a search still waiting in the queue, before it has a native job to cancel.
+export function cancelSearchFromStore(generation: number): void {
+  if (activeSearch?.generation === generation) activeSearch.controller.abort();
+}
+
+export async function runSearchFromStore(requestOverride?: OptimizeRequestDto): Promise<boolean> {
   const state = useDesktopStore.getState();
   if (state.isExporting) return false;
   const request = requestOverride ?? buildOptimizeRequest(state.catalog, state.request, state.lockedStatMode);
   const signature = stableSignature(request);
   const generation = state.beginSearch(signature);
   const controller = new AbortController();
+  activeSearch = { generation, controller };
   const isCurrent = () => {
     const current = useDesktopStore.getState();
     return current.searchGeneration === generation && current.activeSearchSignature === signature;
@@ -34,14 +40,13 @@ export async function runSearchFromStore(
       if (isCurrent()) useDesktopStore.getState().setProgress(status.progress);
     }, (jobId) => {
       if (isCurrent()) useDesktopStore.getState().setActiveJobId(jobId);
-      if (cancellationRequested()) controller.abort();
     });
     if (!isCurrent()) return false;
     useDesktopStore.getState().setRows(rows, setups);
     return true;
   } catch (error) {
     if (isCurrent()) {
-      if (error instanceof DOMException && error.name === "AbortError") {
+      if (isCancelled(error)) {
         useDesktopStore.getState().pushNotice({
           scope: "rankings", tone: "warning", message: "Search stopped. Previous results were retained.",
         });
@@ -52,6 +57,7 @@ export async function runSearchFromStore(
     return false;
   } finally {
     unsubscribe();
+    if (activeSearch?.controller === controller) activeSearch = null;
     if (isCurrent()) {
       const current = useDesktopStore.getState();
       current.setSearching(false);

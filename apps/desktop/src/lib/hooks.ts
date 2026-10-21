@@ -5,7 +5,7 @@ import type { AnalysisOutcome } from "./analysis-status";
 import { errorMessage } from "./format";
 import { buildOptimizeRequest } from "./session";
 import { progressSignature } from "./polling";
-import { createNativeJobQueue, type FinishedJob, type NativeJobSuccess } from "./native-jobs";
+import { cancelledError, createNativeJobQueue, isCancelled, type FinishedJob, type NativeJobSuccess } from "./native-jobs";
 import { useKeyedResource } from "./keyed-resource";
 import {
   AffinityWatchFinishedDto,
@@ -104,7 +104,7 @@ function usePollingJob<P extends JobEvent, F extends FinishedJob, S extends JobS
       },
       startedJobId => {
         jobId = startedJobId;
-        if (controller.signal.aborted) throw new DOMException("Calculation stopped.", "AbortError");
+        if (controller.signal.aborted) throw cancelledError();
         latest.current.onStarted(startedJobId, generation);
       },
     );
@@ -180,7 +180,7 @@ export function useAnalysisRun<P extends JobEvent, F extends FinishedJob, S exte
     setProgress: run.setProgress,
     onStarted: (jobId, generation) => {
       const state = useDesktopStore.getState();
-      if (state.resultsStale || !owns(state, generation)) throw new DOMException("Calculation stopped.", "AbortError");
+      if (state.resultsStale || !owns(state, generation)) throw cancelledError();
       run.setJobId(jobId);
     },
   });
@@ -200,7 +200,7 @@ export function useAnalysisRun<P extends JobEvent, F extends FinishedJob, S exte
     } catch (error) {
       const state = useDesktopStore.getState();
       if (!owns(state, generation)) return;
-      if (error instanceof DOMException && error.name === "AbortError") {
+      if (isCancelled(error)) {
         state.pushNotice({ scope: run.scope, tone: "warning", message: run.stoppedMessage });
         setOutcome("cancelled");
       } else {

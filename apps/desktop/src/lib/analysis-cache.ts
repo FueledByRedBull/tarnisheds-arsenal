@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { cancelledError } from "./native-jobs";
 import { rowFingerprint, stableSignature } from "./session";
 import { OptimizeRequestDto, SolvedBuildDto, UpgradePointDto, WeaponProfileDto } from "./types";
 import { runSearchRequestForRows } from "./workflows";
@@ -20,10 +21,6 @@ let cacheDataVersion = "unknown";
 let cacheGeneration = 0;
 let completedComparison: { key: string; rows: SolvedBuildDto[] } | null = null;
 
-function stopped(): DOMException {
-  return new DOMException("Calculation stopped.", "AbortError");
-}
-
 export function setAnalysisCacheVersion(dataVersion: string): void {
   if (cacheDataVersion === dataVersion) return;
   cacheDataVersion = dataVersion;
@@ -42,13 +39,13 @@ export function clearAnalysisCaches(): void {
 }
 
 export async function cachedComparisonSearch(request: OptimizeRequestDto, signal: AbortSignal): Promise<SolvedBuildDto[]> {
-  if (signal.aborted) throw stopped();
+  if (signal.aborted) throw cancelledError();
   const version = cacheDataVersion;
   const generation = cacheGeneration;
   const key = stableSignature({ version, request });
   if (completedComparison?.key === key) return completedComparison.rows;
   const rows = await runSearchRequestForRows(request, signal);
-  if (signal.aborted) throw stopped();
+  if (signal.aborted) throw cancelledError();
   if (cacheGeneration === generation) completedComparison = { key, rows };
   return rows;
 }
@@ -85,7 +82,7 @@ function cached<T>(
   loader: (signal: AbortSignal) => Promise<T>,
   signal?: AbortSignal,
 ): Promise<T> {
-  if (signal?.aborted) return Promise.reject(stopped());
+  if (signal?.aborted) return Promise.reject(cancelledError());
   const key = stableSignature({ dataVersion: cacheDataVersion, keyParts });
   const now = Date.now();
   const entry = cache.get(key);
@@ -98,7 +95,7 @@ function cached<T>(
   const controller = new AbortController();
   const promise = loader(controller.signal).then((value) => {
     nextEntry.pending = false;
-    if (controller.signal.aborted) throw stopped();
+    if (controller.signal.aborted) throw cancelledError();
     return value;
   }).catch((error) => {
     nextEntry.pending = false;
@@ -138,7 +135,7 @@ function subscribe<T>(
   return new Promise<T>((resolve, reject) => {
     const abort = () => {
       release();
-      reject(stopped());
+      reject(cancelledError());
     };
     signal.addEventListener("abort", abort, { once: true });
     entry.promise.then(

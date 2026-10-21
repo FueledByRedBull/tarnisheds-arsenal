@@ -5,7 +5,7 @@ import { cachedWeaponProfile } from "../../lib/analysis-cache";
 import { stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { OptimizeRequestDto } from "../../lib/types";
-import { runSearchFromStore } from "../../lib/workflows";
+import { cancelSearchFromStore, runSearchFromStore } from "../../lib/workflows";
 import { withoutHistory } from "../../lib/query-history";
 import { errorMessage } from "../../lib/format";
 
@@ -23,7 +23,6 @@ export function useSearchRunner() {
   const searchPreparation = useRef<AbortController | null>(null);
   const manualWeaponRevision = useRef<number | null>(null);
   const [searchCancellationRequested, setSearchCancellationRequested] = useState(false);
-  const searchCancellationRequestedRef = useRef(false);
 
   const idle = !isSearching && !isPreparingSearch;
   const [wasIdle, setWasIdle] = useState(idle);
@@ -34,10 +33,6 @@ export function useSearchRunner() {
       setSearchCancellationRequested(false);
     }
   }
-  useEffect(() => {
-    if (idle) searchCancellationRequestedRef.current = false;
-  }, [idle]);
-
   useEffect(() => () => searchPreparation.current?.abort(), []);
 
   async function runSearch() {
@@ -58,7 +53,6 @@ export function useSearchRunner() {
     const unsubscribe = useDesktopStore.subscribe(() => {
       if (!unchangedInputs()) controller.abort();
     });
-    searchCancellationRequestedRef.current = false;
     setSearchCancellationRequested(false);
     setSearchStartedAt(Date.now());
     setError(null);
@@ -84,7 +78,7 @@ export function useSearchRunner() {
       if (resolved) withoutHistory(() => patchRequest(resolved));
       searchPreparation.current = null;
       setPreparingSearch(false);
-      await runSearchFromStore(undefined, () => searchCancellationRequestedRef.current);
+      await runSearchFromStore();
     } catch (error) {
       if (!controller.signal.aborted) setError(errorMessage(error));
     } finally {
@@ -105,10 +99,12 @@ export function useSearchRunner() {
       return;
     }
     if (searchCancellationRequested) return;
-    searchCancellationRequestedRef.current = true;
     setSearchCancellationRequested(true);
     const { activeJobId: currentJobId, searchGeneration } = useDesktopStore.getState();
-    if (!currentJobId) return;
+    if (!currentJobId) {
+      cancelSearchFromStore(searchGeneration);
+      return;
+    }
     const isCurrent = () => {
       const current = useDesktopStore.getState();
       return current.searchGeneration === searchGeneration && current.activeJobId === currentJobId;
@@ -122,12 +118,10 @@ export function useSearchRunner() {
         setProgress(null);
         setSearchStartedAt(null);
         setSearchCancellationRequested(false);
-        searchCancellationRequestedRef.current = false;
       }
     } catch (error) {
       if (!isCurrent()) return;
       setSearchCancellationRequested(false);
-      searchCancellationRequestedRef.current = false;
       setError(errorMessage(error));
     }
   }
