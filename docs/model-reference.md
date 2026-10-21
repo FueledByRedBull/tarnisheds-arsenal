@@ -41,6 +41,7 @@ use `aow-routes-effects-v9/exact-v3`. The bundled datasets are `vanilla-1.17.2` 
 `convergence-3.0.3.0`, written by extractor `phase1-python-v15-f32-shortest-floats`.
 Every snapshot float is the shortest decimal that parses to the `f32` nearest the
 extracted value, so loaded coefficients are exactly those `f32` values.
+The loader rejects a manifest recording any other model or extractor version.
 Storage schema and calculation semantics are
 separate versions. The [extraction guide](../tools/phase1/README.md#snapshot-contract)
 owns the storage format and regeneration requirements. Incompatible saved results

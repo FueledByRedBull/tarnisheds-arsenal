@@ -361,6 +361,26 @@ fn validate_cross_table_references(data: &GameData) -> Result<(), String> {
             }
         }
     }
+    // A missing passive row would otherwise read as zero status buildup.
+    if data.capabilities.status_buildup && !data.capabilities.weapon_passives {
+        return Err("manifest statusBuildup requires weaponPassives".to_string());
+    }
+    if data.capabilities.weapon_passives {
+        if let Some(weapon) = data
+            .weapons
+            .iter()
+            .find(|weapon| !data.weapon_passives.contains_key(&weapon.weapon_id))
+        {
+            return Err(format!(
+                "weapon {} has no weapon_passives.csv row",
+                weapon.weapon_id
+            ));
+        }
+    } else if !data.weapon_passives.is_empty() || !data.weapon_passive_overlays.is_empty() {
+        return Err(
+            "manifest weaponPassives=false disagrees with weapon passive tables".to_string(),
+        );
+    }
     let mut aow_ids = HashSet::with_capacity(data.aows.len());
     if let Some(aow) = data.aows.iter().find(|aow| !aow_ids.insert(aow.aow_id)) {
         return Err(format!("duplicate aow_id: {}", aow.aow_id));
@@ -1731,6 +1751,64 @@ mod tests {
                 };
                 assert!(error.contains("disable_two_hand_bonus"), "{error}");
             }
+        }
+
+        #[test]
+        fn weapon_missing_from_passives_fails_closed_instead_of_zero_status() {
+            let passives = embedded_vanilla_csv("weapon_passives.csv").unwrap();
+            let mut lines = passives.lines();
+            let header = lines.next().unwrap();
+            let dropped = lines.next().unwrap();
+            let weapon_id = dropped.split(',').next().unwrap();
+            let rest = lines.collect::<Vec<_>>().join("\n");
+            let invalid: &'static [u8] = Box::leak(
+                format!("{header}\n{rest}\n")
+                    .into_bytes()
+                    .into_boxed_slice(),
+            );
+            let mut manifest: serde_json::Value =
+                serde_json::from_slice(include_bytes!("../../../data/phase1/manifest.json"))
+                    .unwrap();
+            let record = manifest["runtimeFiles"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|file| file["path"] == "weapon_passives.csv")
+                .unwrap();
+            record["size"] = invalid.len().into();
+            record["sha256"] = format!("{:x}", Sha256::digest(invalid)).into();
+            let content = |name: &str| {
+                if name == "weapon_passives.csv" {
+                    Some(invalid)
+                } else {
+                    embedded_vanilla_csv(name).map(str::as_bytes)
+                }
+            };
+            let verified =
+                validate_embedded_snapshot(&serde_json::to_vec(&manifest).unwrap(), content)
+                    .unwrap();
+            let error = match load_validated_game_data(verified, content) {
+                Ok(_) => panic!("a weapon without passive data must not load as zero status"),
+                Err(error) => error,
+            };
+            assert!(
+                error.contains(weapon_id) && error.contains("weapon_passives.csv"),
+                "{error}"
+            );
+        }
+
+        #[test]
+        fn weapon_passive_capability_must_agree_with_status_and_tables() {
+            let mut data = load_embedded_game_profile(VANILLA_PROFILE_ID).unwrap();
+            validate_cross_table_references(&data).unwrap();
+            data.capabilities.weapon_passives = false;
+            assert!(validate_cross_table_references(&data).is_err());
+            data.capabilities.status_buildup = false;
+            let error = validate_cross_table_references(&data).unwrap_err();
+            assert!(error.contains("weaponPassives=false"), "{error}");
+            data.weapon_passives.clear();
+            data.weapon_passive_overlays.clear();
+            validate_cross_table_references(&data).unwrap();
         }
 
         #[test]

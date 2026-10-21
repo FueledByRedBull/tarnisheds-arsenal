@@ -6,6 +6,10 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
 pub const SNAPSHOT_SCHEMA_VERSION: u32 = 6;
+/// Calculation semantics and extractor output the runtime was written against; a snapshot
+/// recording anything else is rejected rather than relabeled (see docs/model-reference.md).
+pub const SNAPSHOT_MODEL_VERSION: &str = "aow-routes-effects-v9";
+pub const SNAPSHOT_EXTRACTOR_VERSION: &str = "phase1-python-v15-f32-shortest-floats";
 pub const RUNTIME_DATA_FILES: [&str; 12] = [
     "aow.csv",
     "aow_attack_data.csv",
@@ -216,6 +220,24 @@ fn parse_and_validate_manifest(content: &[u8]) -> Result<SnapshotManifest, Strin
             manifest.schema_version, SNAPSHOT_SCHEMA_VERSION
         ));
     }
+    for (field, actual, expected) in [
+        (
+            "modelVersion",
+            &manifest.model_version,
+            SNAPSHOT_MODEL_VERSION,
+        ),
+        (
+            "extractorVersion",
+            &manifest.extractor_version,
+            SNAPSHOT_EXTRACTOR_VERSION,
+        ),
+    ] {
+        if actual != expected {
+            return Err(format!(
+                "unsupported data snapshot {field} {actual:?}; expected {expected:?}"
+            ));
+        }
+    }
     if manifest.rules.standard_max_upgrade > 25 || manifest.rules.somber_max_upgrade > 25 {
         return Err("invalid runtime data manifest: upgrade rules exceed +25".to_string());
     }
@@ -414,8 +436,9 @@ mod tests {
     use sha2::{Digest, Sha256};
 
     use super::{
-        CLASS_CATALOG_FILE, RUNTIME_DATA_FILES, SNAPSHOT_SCHEMA_VERSION,
-        parse_and_validate_manifest, validate_embedded_snapshot, validate_external_snapshot,
+        CLASS_CATALOG_FILE, RUNTIME_DATA_FILES, SNAPSHOT_EXTRACTOR_VERSION, SNAPSHOT_MODEL_VERSION,
+        SNAPSHOT_SCHEMA_VERSION, parse_and_validate_manifest, validate_embedded_snapshot,
+        validate_external_snapshot,
     };
 
     struct TestSnapshot {
@@ -447,7 +470,7 @@ mod tests {
             let manifest = json!({
                 "schemaVersion": SNAPSHOT_SCHEMA_VERSION,
                 "datasetVersion": "test-dataset",
-                "modelVersion": "test-model",
+                "modelVersion": SNAPSHOT_MODEL_VERSION,
                 "id": "test-dataset",
                 "label": "Test dataset",
                 "appVersion": "test",
@@ -478,7 +501,7 @@ mod tests {
                     "statusBuildupScales": true,
                 },
                 "generatedAt": "2026-07-15",
-                "extractorVersion": "test-extractor",
+                "extractorVersion": SNAPSHOT_EXTRACTOR_VERSION,
                 "provenance": "unit test",
                 "runtimeFiles": runtime_files,
                 "diagnosticFiles": [coverage],
@@ -594,6 +617,28 @@ mod tests {
         let error =
             parse_and_validate_manifest(&serde_json::to_vec(&manifest).unwrap()).unwrap_err();
         assert_eq!(error, "unsupported data snapshot schema 5; expected 6");
+    }
+
+    #[test]
+    fn unexpected_model_or_extractor_version_is_rejected_at_manifest_boundary() {
+        let snapshot = TestSnapshot::create();
+        let seed: Value =
+            serde_json::from_slice(&fs::read(snapshot.path.join("manifest.json")).unwrap())
+                .unwrap();
+        for (field, value) in [
+            ("modelVersion", "aow-routes-effects-v8"),
+            ("modelVersion", "aow-routes-effects-v10"),
+            ("extractorVersion", "phase1-python-v14"),
+        ] {
+            let mut manifest = seed.clone();
+            manifest[field] = value.into();
+            let error =
+                parse_and_validate_manifest(&serde_json::to_vec(&manifest).unwrap()).unwrap_err();
+            assert!(
+                error.contains(field) && error.contains(value),
+                "{field}={value}: {error}"
+            );
+        }
     }
 
     #[test]

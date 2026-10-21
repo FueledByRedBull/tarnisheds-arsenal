@@ -187,8 +187,10 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - A mod profile with a version-bound availability reference extracts only exact referenced configuration IDs. Offline validation compares every common modeled weapon field and status family; a missing, stale, or mismatched reference fails the release gate.
 - Required mounting/affinity permissions, attack-provenance fields
   (`is_bullet_attack`, `is_throw_attack`), and weapon `critical_damage_percent` are
-  validated before use. Incompatible schema versions fail at the manifest boundary;
-  no per-pair compatibility CSV or runtime pair set is retained. The versioned file
+  validated before use. Incompatible schema, model or extractor versions fail at the
+  manifest boundary. A profile with weapon passives needs a passive row for every
+  weapon, and status modeling requires weapon passives, so missing passive data fails
+  loading instead of reading as zero buildup; no per-pair compatibility CSV or runtime pair set is retained. The versioned file
   contract is maintained in [Extracting game data](../../tools/phase1/README.md#snapshot-contract).
 - Ash compatibility is exactly mounting permission AND affinity membership AND weapon-type intersection. Native-only skills are handled separately and cannot bypass infusion restrictions.
 - A fixed-loadout Paths evaluation pins weapon, affinity, Ash, and upgrade, then clears
