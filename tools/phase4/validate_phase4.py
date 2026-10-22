@@ -432,6 +432,7 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
             "weaponNamesDlc01",
             "artsNamesBase",
             "artsNamesDlc01",
+            "classNames",
             "modVersion",
             "weaponAvailability",
         }
@@ -439,7 +440,7 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
             issues.append(
                 ValidationIssue(
                     "error",
-                    "Convergence provenance is missing base/DLC name tables or regulation/version sources",
+                    "Convergence provenance is missing base/DLC or class name tables or regulation/version sources",
                 )
             )
         expected_variants = {

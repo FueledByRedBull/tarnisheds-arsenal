@@ -190,6 +190,7 @@ class RegulationContext:
     weapon_type_keys_by_id: dict[int, tuple[str, ...]]
     class_menu_rows: list[dict[str, str]]
     chara_init_rows: list[dict[str, str]]
+    class_name_map: dict[int, str]
 
 
 def parse_args() -> argparse.Namespace:
@@ -939,11 +940,12 @@ def build_weapon_rows(
 def build_class_rows(
     menu_rows: list[dict[str, str]],
     chara_init_rows: list[dict[str, str]],
+    class_names: dict[int, str],
 ) -> list[dict[str, object]]:
     """Return the character-creation classes in menu order.
 
-    Names come only from the regulation's own row names: Paramdex labels describe
-    Vanilla rows and must not name another profile's classes.
+    Names are the profile's own menu text for each row's `textId`, as the game
+    shows them; Paramdex labels describe Vanilla rows and are never used.
     """
     chara_by_id = {to_int(row, "id", None): row for row in chara_init_rows}
     rows_out: list[dict[str, object]] = []
@@ -968,10 +970,7 @@ def build_class_rows(
                 f"class {class_id} level {base_level} is not its attribute total minus "
                 f"{CLASS_LEVEL_OFFSET}"
             )
-        raw_name = (source.get("name") or "").strip()
-        if not raw_name.startswith("Class - "):
-            raise ValueError(f"class {class_id} has no regulation class name: {raw_name!r}")
-        name = raw_name.removeprefix("Class - ").strip()
+        name = class_names.get(to_int(menu, "textId", None), "")
         if not name or name in names:
             raise ValueError(f"class {class_id} name is empty or duplicated: {name!r}")
         names.add(name)
@@ -1111,8 +1110,9 @@ def load_regulation_context(
     workdir: Path,
     weapon_name_xmls: Sequence[Path] = (),
     arts_name_xmls: Sequence[Path] = (),
-    class_catalog: bool = False,
+    class_name_xml: Path | None = None,
 ) -> RegulationContext:
+    class_catalog = class_name_xml is not None
     unpacked_dir = unpack_regulation(regulation_path, witchybnd_path, workdir)
     params = [WEAPON_PARAM, REINFORCE_PARAM, CALC_CORRECT_PARAM,
               ATTACK_ELEMENT_PARAM, AOW_PARAM, SPEFFECT_PARAM]
@@ -1160,6 +1160,7 @@ def load_regulation_context(
         weapon_type_keys_by_id=weapon_type_keys_by_id,
         class_menu_rows=class_menu_rows,
         chara_init_rows=chara_init_rows,
+        class_name_map=load_fmg_name_map(class_name_xml) if class_name_xml is not None else {},
     )
 
 
@@ -1174,6 +1175,11 @@ def main() -> int:
     weapon_name_xmls = tuple(path.resolve() for path in configured_name_xmls)
     configured_arts_xmls = tuple(args.arts_name_xmls or profile.arts_name_xmls)
     arts_name_xmls = tuple(path.resolve() for path in configured_arts_xmls)
+    class_name_xml: Path | None = None
+    if profile.class_catalog_from_regulation:
+        if profile.class_name_xml is None:
+            raise ValueError(f"{profile.id} reads classes from its regulation but names no class menu text")
+        class_name_xml = profile.class_name_xml.resolve()
     configured_version_file = args.profile_version_file or profile.version_file
     version_file = configured_version_file.resolve() if configured_version_file is not None else None
     from tools.phase1.snapshot_manifest import check_snapshot_destination, sha256_file
@@ -1219,6 +1225,8 @@ def main() -> int:
     for arts_name_xml in arts_name_xmls:
         if not arts_name_xml.is_file():
             raise FileNotFoundError(f"skill name FMG XML not found: {arts_name_xml}")
+    if class_name_xml is not None and not class_name_xml.is_file():
+        raise FileNotFoundError(f"class menu text FMG XML not found: {class_name_xml}")
     if version_file is not None:
         if not version_file.is_file():
             raise FileNotFoundError(f"profile version file not found: {version_file}")
@@ -1258,7 +1266,7 @@ def main() -> int:
         workdir,
         weapon_name_xmls,
         arts_name_xmls,
-        class_catalog=profile.class_catalog_from_regulation,
+        class_name_xml=class_name_xml,
     )
     context.sword_art_name_map.update(profile.sword_art_name_overrides)
     reinforce_csv_rows, max_level_by_type = build_reinforce_rows(context.reinforce_rows)
@@ -1444,7 +1452,7 @@ def main() -> int:
         write_csv(
             output_dir / CLASS_CATALOG_FILE,
             ["class_id", "name", "base_level", *(key for key, _ in CLASS_STAT_FIELDS)],
-            build_class_rows(context.class_menu_rows, context.chara_init_rows),
+            build_class_rows(context.class_menu_rows, context.chara_init_rows, context.class_name_map),
         )
 
     from tools.phase1.derive_phase1_raw_extras import export_regulation_extras
@@ -1483,6 +1491,8 @@ def main() -> int:
             source_paths[kind] = path
     if version_file is not None:
         source_paths["modVersion"] = version_file
+    if class_name_xml is not None:
+        source_paths["classNames"] = class_name_xml
     if profile.weapon_reference_path is not None:
         source_paths["weaponAvailability"] = profile.weapon_reference_path
     # Paramdex files decide names, weapon-type keys and field layouts.

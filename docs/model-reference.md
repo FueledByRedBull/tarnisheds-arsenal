@@ -38,7 +38,7 @@ arithmetic, tie order, and proof obligations.
 
 The current snapshot model is `aow-routes-effects-v9`; runtime results and caches
 use `aow-routes-effects-v9/exact-v3`. The bundled datasets are `vanilla-1.17.2` and
-`convergence-3.0.3.0`, written by extractor `phase1-python-v15-f32-shortest-floats`.
+`convergence-3.0.3.0-r2`, written by extractor `phase1-python-v15-f32-shortest-floats`.
 Every snapshot float is the shortest decimal that parses to the `f32` nearest the
 extracted value, so loaded coefficients are exactly those `f32` values.
 The loader rejects a manifest recording any other model or extractor version.
@@ -137,7 +137,7 @@ and its engine application still require verification.
 ## Convergence
 
 The **Convergence 3.0.3.0** profile is experimental and independent of Vanilla.
-The mod is built on game version 1.17.1. Its snapshot, `convergence-3.0.3.0`, is
+The mod is built on game version 1.17.1. Its snapshot, `convergence-3.0.3.0-r2`, is
 extracted from the mod's own regulation. A version-bound reference checks weapon availability, base attack,
 requirements, raw scaling, affinities, base status, and the attack-element and
 correction-curve IDs each weapon uses. The pinned
@@ -174,8 +174,9 @@ What the regulation shows, and how the profile uses it:
 - **Scaling grades.** `MenuValueTableParam` adds `S++` from a 225% and `S+` from a
   200% scaling value above the Vanilla grades, which keep their thresholds.
 - **Classes.** Each class's level equals its attribute total minus 79, the same
-  Rune Level rule as Vanilla. Class names are the mod's own regulation row names;
-  the menu text table that displays them in game is not a local input.
+  Rune Level rule as Vanilla. Class names are the mod's own menu text, as the
+  character-creation screen shows them, such as **Stormcaller** and **Retainer (Alt)**.
+  Builds saved under the earlier data names, such as Storm Caller, load with the new names.
 - **Level sync.** `levelSyncCorrectId` has the same values and distribution as in
   Vanilla, where it only applies to multiplayer level sync, so it is not applied
   as a player AR multiplier.

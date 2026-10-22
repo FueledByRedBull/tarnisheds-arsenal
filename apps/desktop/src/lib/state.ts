@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { MAX_COMPARE_PINS, readCompareBench, writeCompareBench } from "./compare-bench";
-import { activationRequest, catalogVersion, verifyPresetResults } from "./preset-activation";
+import { activationRequest, catalogVersion, currentClassName, verifyPresetResults } from "./preset-activation";
 import { assertRequest, knownRequestFields } from "./presets";
 import { isRecord } from "./stored-build";
 import {
@@ -341,14 +341,15 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
     const restoredComparisons = readCompareBench(catalog);
     const recomputing: Notice = { scope: "global", tone: "info", message: "Recomputing your pinned comparison builds on current game data..." };
     set((state) => {
-      const classInfo = catalog.classes.find((entry) => entry.name === state.request.className)
+      const savedClass = currentClassName(catalog.dataManifest.profile.id, state.request.className);
+      const classInfo = catalog.classes.find((entry) => entry.name === savedClass)
         ?? catalog.classes.find((entry) => entry.name === "Samurai")
         ?? catalog.classes[0]
         ?? classMeta(null, "Samurai");
       // Profiles can share a class name with different base stats (Prisoner). Stats carried from
       // another profile's class that sit below this class's minimums restart from this class.
       const belowClass = EIGHT_STAT_KEYS.some((key) => state.request[key] < classInfo.baseStats[key]);
-      const resetClass = classInfo.name !== state.request.className || belowClass;
+      const resetClass = classInfo.name !== savedClass || belowClass;
       return {
         catalog,
         catalogStatus: "ready",
@@ -356,12 +357,12 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
         loadoutSelectionRevision: state.loadoutSelectionRevision + 1,
         request: applyProfileRules({
           ...state.request,
+          className: classInfo.name,
           // Without a class budget the level comes from the entered stats; keep the stored level
           // valid instead of copying Custom stats' base level 0.
-          ...(resetClass ? {
-            className: classInfo.name,
-            ...(catalog.dataManifest.capabilities.classBudget ? { characterLevel: classInfo.baseLevel, ...classInfo.baseStats } : {}),
-          } : {}),
+          ...(resetClass && catalog.dataManifest.capabilities.classBudget
+            ? { characterLevel: classInfo.baseLevel, ...classInfo.baseStats }
+            : {}),
           profileId: catalog.dataManifest.profile.id,
           objective: catalog.objectiveIds.includes(state.request.objective)
             ? state.request.objective
