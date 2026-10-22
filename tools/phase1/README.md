@@ -59,6 +59,9 @@ only the storage contract changes; source hashes remain tied to the original inp
   WitchyBND from the mod's `msg/engus/item_dlc02.msgbnd.dcx`. Authoritative
   FMG names are merged by ID; conflicts fail extraction. Guarded PARAM labels fill
   only mod-added player rows that have no FMG entry, including alternate forms.
+- Convergence: `data/raw/Conv/GR_MenuText.fmg.xml`, the class names the game shows,
+  serialized with WitchyBND from `GR_MenuText.fmg` in the mod's
+  `msg/engus/menu_dlc02.msgbnd.dcx`. The path is fixed in `profiles.py`.
 - Convergence: the tracked `data/reference/convergence-3.0.3.0-weapons.json`
   availability/model reference. Normal extraction fails closed if it is absent or
   bound to a different profile version.
@@ -145,8 +148,8 @@ and the data build reproduces the published 3.0.0.1 file except for display name
   every weapon.
 - `classes.csv` lists the character-creation classes in menu order:
   `BaseChrSelectMenuParam` rows outside the network test, each pointing at its
-  `CharaInitParam` class row. Names come only from the regulation's own
-  `Class - <name>` row names, never from Paramdex labels, which describe Vanilla.
+  `CharaInitParam` class row. Each name is the profile's menu text for the row's
+  `textId`, never a Paramdex label, which describes Vanilla.
   Extraction fails if a menu preview row disagrees with its class, an attribute
   is outside 1..99, a name is missing or repeated, or `soulLv` is not the eight-
   attribute total minus 79.

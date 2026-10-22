@@ -2,11 +2,25 @@ import { api } from "./api";
 import { buildOptimizeRequest } from "./session";
 import type { BuildPreset, CatalogDto, OptimizeRequestDto, SolvedBuildDto } from "./types";
 
+// Convergence class names now come from the game's menu text; earlier saves hold the data row names.
+const RENAMED_CLASSES: Record<string, Record<string, string>> = {
+  convergence: {
+    "storm caller": "Stormcaller",
+    "retainer alt (tarnished edition)": "Retainer (Alt)",
+    "dreadnought alt (tarnished edition)": "Dreadnought (Alt)",
+  },
+};
+
+export function currentClassName(profileId: string, className: string): string {
+  return RENAMED_CLASSES[profileId]?.[className.toLowerCase()] ?? className;
+}
+
 export function activationRequest(request: OptimizeRequestDto, catalog: CatalogDto): OptimizeRequestDto {
   if (request.profileId !== catalog.dataManifest.profile.id) {
     throw new Error(`This build belongs to ${request.profileId}. Switch game profiles before loading it.`);
   }
-  const matches = catalog.classes.filter(entry => entry.name.toLowerCase() === request.className.toLowerCase());
+  const className = currentClassName(request.profileId, request.className).toLowerCase();
+  const matches = catalog.classes.filter(entry => entry.name.toLowerCase() === className);
   if (matches.length !== 1) {
     throw new Error(`Starting class '${request.className}' is unavailable in this profile. Correct the saved inputs before loading; the original record is unchanged.`);
   }

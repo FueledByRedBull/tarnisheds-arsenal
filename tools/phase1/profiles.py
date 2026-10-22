@@ -111,6 +111,8 @@ class ProfileDefinition:
     sword_art_name_overrides: Mapping[int, str]
     weapon_name_xmls: tuple[Path, ...] = ()
     arts_name_xmls: tuple[Path, ...] = ()
+    # GR_MenuText FMG XML naming the classes; required with class_catalog_from_regulation.
+    class_name_xml: Path | None = None
     version_file: Path | None = None
     weapon_reference_path: Path | None = None
     # Raised when regenerated content changes for the same game and mod version.
@@ -223,8 +225,10 @@ PROFILES: Mapping[str, ProfileDefinition] = {
             Path("data/raw/Conv/ArtsName.fmg.xml"),
             Path("data/raw/Conv/ArtsName_dlc01.fmg.xml"),
         ),
+        class_name_xml=Path("data/raw/Conv/GR_MenuText.fmg.xml"),
         version_file=Path("data/raw/Conv/version.txt"),
         weapon_reference_path=Path("data/reference/convergence-3.0.3.0-weapons.json"),
+        dataset_revision=2,
         class_catalog_from_regulation=True,
     ),
 }
