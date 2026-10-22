@@ -130,8 +130,9 @@ export function App() {
 
   const activeProfile = profiles.find((entry) => entry.profile.id === profileId) ?? null;
   const profileReady = catalogStatus === "ready";
-  const limitedAowModel = activeProfile && !aowModelSupported(activeProfile);
   const convergenceProfile = activeProfile?.profile.id === "convergence";
+  // Convergence stays experimental with AoW data: its skills are not measured in game.
+  const limitedAowModel = convergenceProfile || (activeProfile && !aowModelSupported(activeProfile));
 
   const profileSwitch = (
           <div className="profile-switch" role="radiogroup" aria-label="Game profile" onKeyDown={(event) => {
@@ -196,7 +197,7 @@ export function App() {
           <div className="editor-body">
             <strong>Model coverage and assumptions</strong>
             <p className="editor-note">
-              {convergenceProfile ? `Convergence ${activeProfile.profile.modVersion ?? ""} (game ${activeProfile.profile.gameVersion}) ` : ""}weapon AR, fixed status, classes, and Ash permissions are checked against the mod's regulation, not measured in game. Custom stats evaluates entered stats exactly, without Compare, Paths, or Affinity Watch. Ammo weapons and AoW hit/route damage remain unsupported.
+              {convergenceProfile ? `Convergence ${activeProfile.profile.modVersion ?? ""} (game ${activeProfile.profile.gameVersion}) ` : ""}weapon AR, fixed status, classes, and Ash permissions are checked against the mod's regulation, not measured in game. Custom stats evaluates entered stats exactly, without Compare, Paths, or Affinity Watch. AoW hits and routes come from the mod's skill animations; some skills have none, and ammo weapons remain unsupported.
             </p>
           </div>
         </Popover>

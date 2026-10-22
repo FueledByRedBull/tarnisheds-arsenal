@@ -62,7 +62,7 @@ only the storage contract changes; source hashes remain tied to the original inp
 - Convergence: the tracked `data/reference/convergence-3.0.3.0-weapons.json`
   availability/model reference. Normal extraction fails closed if it is absent or
   bound to a different profile version.
-- Convergence, once the profile enables AoW damage or routes: the mod's
+- Convergence AoW damage and routes: the mod's
   `chr/c0000.anibnd.dcx`, `action/script/c0000.hks` and
   `action/script/modules/vanilla/CommonIncludes.hks`, copied into `data/raw/Conv/`.
   They replace the Vanilla workbook; see [Skill animations](#skill-animations).

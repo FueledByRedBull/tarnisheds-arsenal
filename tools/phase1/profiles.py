@@ -210,8 +210,8 @@ PROFILES: Mapping[str, ProfileDefinition] = {
             status_buildup=True,
             weapon_passives=True,
             aow_compatibility=True,
-            aow_damage=False,
-            aow_routes=False,
+            aow_damage=True,
+            aow_routes=True,
         ),
         rules=ProfileRules(
             standard_max_upgrade=15,
@@ -235,6 +235,8 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         ),
         version_file=Path("data/raw/Conv/version.txt"),
         weapon_reference_path=Path("data/reference/convergence-3.0.3.0-weapons.json"),
+        # Revision 2 adds AoW damage and routes from the mod's skill animations.
+        dataset_revision=2,
         class_catalog_from_regulation=True,
         skill_animation_sources=SkillAnimationSources(
             anibnd=Path("data/raw/Conv/c0000.anibnd.dcx"),

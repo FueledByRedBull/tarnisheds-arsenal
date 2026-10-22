@@ -2241,7 +2241,7 @@ mod tests {
         let data = load_embedded_game_profile(CONVERGENCE_PROFILE_ID)
             .expect("Convergence embedded snapshot loads");
         assert_eq!(data.profile_id, CONVERGENCE_PROFILE_ID);
-        assert_eq!(data.dataset_version, "convergence-3.0.3.0");
+        assert_eq!(data.dataset_version, "convergence-3.0.3.0-r2");
         assert_eq!(data.rules.standard_max_upgrade, 15);
         assert_eq!(data.rules.somber_max_upgrade, 15);
         assert!(!data.rules.separate_upgrade_caps);
@@ -2307,16 +2307,28 @@ mod tests {
             weapon.native_skill_id == Some(815)
                 && weapon.native_skill_name.as_deref() == Some("Ancient Thunderclap")
         }));
-        assert!(!data.capabilities.aow_damage);
-        assert!(!data.capabilities.aow_routes);
+        assert!(data.capabilities.aow_damage);
+        assert!(data.capabilities.aow_routes);
         let universal = data
             .attack_element(16_000)
             .expect("Convergence universal scaling row");
         assert!(universal.scales.iter().flatten().all(|enabled| *enabled));
         let raw_zero = data.attack_element(0).expect("raw row 0");
         assert!(raw_zero.scales.iter().flatten().all(|enabled| !*enabled));
-        assert!(data.aow_attack_rows.is_empty());
-        assert!(data.aow_route_assignments.is_empty());
+        // Skill rows come from the mod's own animations: Storm Stomp resolves damage,
+        // and every Ash with rows keeps at least one route.
+        assert!(
+            data.aow_attack_rows(121)
+                .iter()
+                .any(|row| !row.is_lacking_fp && row.is_damaging())
+        );
+        assert!(data.aow_attack_rows.values().flatten().all(|row| {
+            row.is_lacking_fp
+                || !row.is_damaging()
+                || !data
+                    .aow_route_assignments(row.aow_id, row.sheet_row)
+                    .is_empty()
+        }));
     }
 
     #[test]

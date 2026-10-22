@@ -4,7 +4,6 @@ import hashlib
 import json
 import tempfile
 import unittest
-from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -30,10 +29,13 @@ class SnapshotPromotionTests(unittest.TestCase):
         (staging / "listed.csv").write_text("listed\n", encoding="utf-8")
         regulation = root / "regulation.bin"
         regulation.write_bytes(b"regulation")
+        anibnd = root / "c0000.anibnd.dcx"
+        anibnd.write_bytes(b"anibnd")
         write_snapshot_manifest(
             staging,
             regulation,
             profile=profile_definition("convergence"),
+            source_paths={"skillAnimations": anibnd},
             generated_at="2026-08-17",
         )
         return staging
@@ -141,11 +143,7 @@ class SnapshotPromotionTests(unittest.TestCase):
                 self.assertEqual(self._files(destination), before)
 
     def test_aow_capable_snapshot_accepts_skill_animations_instead_of_a_workbook(self) -> None:
-        convergence = profile_definition("convergence")
-        capable = replace(
-            convergence,
-            capabilities=replace(convergence.capabilities, aow_damage=True, aow_routes=True),
-        )
+        capable = profile_definition("convergence")
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             staging = self._create_staging(root)

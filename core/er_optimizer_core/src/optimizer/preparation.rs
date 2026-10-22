@@ -523,7 +523,8 @@ pub(super) fn native_skill_choice_for_weapon<'a>(
         .native_skill_name
         .as_deref()
         .or_else(|| aow.map(|aow| aow.name.as_str()))
-        .or_else(|| source_rows.first().map(|row| row.aow_name.as_str()));
+        .or_else(|| source_rows.first().map(|row| row.aow_name.as_str()))
+        .filter(|name| !name.is_empty());
     Some(AowChoice {
         no_applied_ash: weapon.affinity.eq_ignore_ascii_case("Standard"),
         aow,

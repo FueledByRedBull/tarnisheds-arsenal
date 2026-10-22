@@ -217,7 +217,8 @@ stats load and solve as before.
 
 The profile supports melee weapon AR and upgrades through `+15`. Status buildup
 is fixed: the mod gives weapons a flat status correction curve, so Arcane and
-upgrades do not raise it. AoW damage and ammunition AR are unavailable.
+upgrades do not raise it. AoW damage and routes come from the mod's own skill
+animations and cover 90 of its 122 Ashes of War. Ammunition AR is unavailable.
 
 Vanilla rules, classes, and missing damage tables are never substituted into the
 mod profile. See [Convergence coverage](docs/model-reference.md#convergence).

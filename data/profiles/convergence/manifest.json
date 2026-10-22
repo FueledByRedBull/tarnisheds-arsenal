@@ -1,8 +1,8 @@
 {
   "schemaVersion": 6,
-  "datasetVersion": "convergence-3.0.3.0",
+  "datasetVersion": "convergence-3.0.3.0-r2",
   "modelVersion": "aow-routes-effects-v9",
-  "id": "convergence-3.0.3.0",
+  "id": "convergence-3.0.3.0-r2",
   "label": "The Convergence dataset - 3.0.3.0",
   "appVersion": "1.17.1",
   "source": "regulation.bin",
@@ -19,8 +19,8 @@
     "statusBuildup": true,
     "weaponPassives": true,
     "aowCompatibility": true,
-    "aowDamage": false,
-    "aowRoutes": false
+    "aowDamage": true,
+    "aowRoutes": true
   },
   "rules": {
     "standardMaxUpgrade": 15,
@@ -31,9 +31,9 @@
     "extendedScalingGrades": true,
     "statusBuildupScales": false
   },
-  "generatedAt": "2026-10-21",
+  "generatedAt": "2026-10-22",
   "extractorVersion": "phase1-python-v15-f32-shortest-floats",
-  "provenance": "profile-bound regulation, names, and numeric PARAM effect graph",
+  "provenance": "profile-bound regulation, names, skill animations, and numeric PARAM effect graph",
   "runtimeFiles": [
     {
       "path": "aow.csv",
@@ -42,18 +42,18 @@
     },
     {
       "path": "aow_attack_data.csv",
-      "size": 570,
-      "sha256": "7656c0b2792e8499fbd7cc16eb94e2b4af3448f2ef52079a3f0f09cdaf945db0"
+      "size": 551971,
+      "sha256": "d5a17bc162c848cefd74069f8920e7010946d2396c7f23df56b2a41514e05bd5"
     },
     {
       "path": "aow_effect_data.csv",
-      "size": 474,
-      "sha256": "3c6c8c7b626bf10378243afb372134121adea4f179e8c93aebb1b981c5a8646a"
+      "size": 5072003,
+      "sha256": "66c34d11bd58438da4a87d375f4ed63c5dab26fddd0d25b76fbf51a64a9b86f0"
     },
     {
       "path": "aow_route_assignments.csv",
-      "size": 105,
-      "sha256": "8da47c119bdad1b7cdd47bc33100b535d19b911d77af604779ed1b9b7a3911a5"
+      "size": 327626,
+      "sha256": "586fe768039dc4f4a1d26b1d30c491ddb7426bc2ceb86a9006943fe369e764d6"
     },
     {
       "path": "attack_element_correct.csv",
@@ -77,8 +77,8 @@
     },
     {
       "path": "native_skill_attack_data.csv",
-      "size": 612,
-      "sha256": "70433b4fbc3f1d986ccd3c69b4dd41a633c98d2211fd71e129e356850a1f6f3c"
+      "size": 1204448,
+      "sha256": "07adefd454d209eb401103b752243c38e5db78534e17a7bf5f8275240134a35b"
     },
     {
       "path": "reinforce.csv",
@@ -103,9 +103,39 @@
   ],
   "diagnosticFiles": [
     {
+      "path": "aow_damage_coverage.csv",
+      "size": 5892,
+      "sha256": "caf42a2c9165d2fa4d486de662e46b981aae2f12f0edae30af09959b5ee9c558"
+    },
+    {
+      "path": "aow_effect_coverage.csv",
+      "size": 469735,
+      "sha256": "0d9c0262b4fce74eb46918f1815bf114accfb0c003be1c076c753e446a58f19d"
+    },
+    {
+      "path": "aow_effect_exclusions.csv",
+      "size": 146473,
+      "sha256": "2c537b553757163437f676bd5e51a36e7d8872cb81d7ae1a81c6acff8686b9ce"
+    },
+    {
+      "path": "aow_route_exclusions.csv",
+      "size": 116946,
+      "sha256": "c39b36215f8a007399bd4efd357898d49e4729699c0f03f88a054d2087d1a471"
+    },
+    {
+      "path": "native_skill_damage_coverage.csv",
+      "size": 202757,
+      "sha256": "b429a0f88586c09ae2131bc3dd2363476f9c08e92fac9c0b58545a86fd8b272c"
+    },
+    {
       "path": "passive_effect_coverage.csv",
       "size": 44028,
       "sha256": "fee176afaaa14657be2a6ecd6207bffc72d6f1026ae09e36a305dc561a562192"
+    },
+    {
+      "path": "skill_animation_exclusions.csv",
+      "size": 10692,
+      "sha256": "beafec1d526031b87aad05a99d3d00b5585a8eb82eb59ce9287ea5ee2e582911"
     }
   ],
   "sources": [
@@ -138,6 +168,13 @@
       "sha256": "d57819fefc715b1f0a69881b3891637708400fc4128b4d7492af5101e70acc9e"
     },
     {
+      "kind": "paramdexDefsAtkParam",
+      "bundled": false,
+      "path": "AtkParam.xml",
+      "size": 59876,
+      "sha256": "eb601cd7125c0a6f52b2343237c6a2b323591595f03c0412887a1e37baa5c2f7"
+    },
+    {
       "kind": "paramdexDefsAttackElementCorrectParam",
       "bundled": false,
       "path": "AttackElementCorrectParam.xml",
@@ -150,6 +187,20 @@
       "path": "BaseChrSelectMenuParam.xml",
       "size": 2648,
       "sha256": "7ae6e6c3f7875f415a2e3b637c0b12549b626d023aeabf4a00fb5b8f81b39d73"
+    },
+    {
+      "kind": "paramdexDefsBehaviorParam",
+      "bundled": false,
+      "path": "BehaviorParam.xml",
+      "size": 3715,
+      "sha256": "cb4e3535fc38e2b535433989e6a6389fffcd3c22cf2bfc9793d52a29472ad873"
+    },
+    {
+      "kind": "paramdexDefsBulletParam",
+      "bundled": false,
+      "path": "BulletParam.xml",
+      "size": 37452,
+      "sha256": "f17a54b351cfb1e8928fb592c63e82c4479b82f04559a25e9340e3324526758a"
     },
     {
       "kind": "paramdexDefsCalcCorrectGraph",
@@ -194,11 +245,39 @@
       "sha256": "9227b1e2cb06298bcda9e21fad06f5fff17eb4e456e420e97c4d2ed1fa0e9a7b"
     },
     {
+      "kind": "paramdexDefsSwordArtsParam",
+      "bundled": false,
+      "path": "SwordArtsParam.xml",
+      "size": 7138,
+      "sha256": "a377a92efd97e512d292a1c970684749035943c7e8e330a1b3c50ddf385bd926"
+    },
+    {
       "kind": "paramdexMetaEquipParamWeapon",
       "bundled": false,
       "path": "EquipParamWeapon.xml",
       "size": 56032,
       "sha256": "009855ded528862808a3d70fe737894ed6f08517b4dbddbb33f15fb7ebe9fe2a"
+    },
+    {
+      "kind": "skillAnimations",
+      "bundled": false,
+      "path": "c0000.anibnd.dcx",
+      "size": 24509604,
+      "sha256": "afdeb72540c6c6cafe0bc40c296127635947c991aa38b692a7eae768abda86da"
+    },
+    {
+      "kind": "skillCategoryScript",
+      "bundled": false,
+      "path": "CommonIncludes.hks",
+      "size": 39718,
+      "sha256": "81b1377e0160593ce39ad8193846bd3cb1621200af1824192cbec1b2ad0fa170"
+    },
+    {
+      "kind": "skillRequestScript",
+      "bundled": false,
+      "path": "c0000.hks",
+      "size": 899080,
+      "sha256": "12b18dc8679de83677e3c7f1a240a99902263cb02ba4db5029bf4ecb92da3a8c"
     },
     {
       "kind": "weaponAvailability",

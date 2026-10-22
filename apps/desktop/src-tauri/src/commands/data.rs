@@ -614,6 +614,7 @@ fn native_skill_name_for_weapon<'a>(data: &'a GameData, weapon: &'a Weapon) -> O
         .native_skill_name
         .as_deref()
         .or_else(|| native_rows.first().map(|row| row.aow_name.as_str()))
+        .filter(|name| !name.is_empty())
 }
 
 fn insert_compatible_name(

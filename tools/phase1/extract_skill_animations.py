@@ -478,7 +478,7 @@ def build_attack_row(
     if attribute not in PHYSICAL_ATTRIBUTES:
         raise ValueError(f"AtkParam {hit.attack_id} has unsupported atkAttribute {attribute}")
     sequence = f"a{hit.anim_id:06d}"
-    raw_name = f"{aow_name} {sequence} [{hit.hit_order}]"
+    raw_name = f"{aow_name} {sequence} [{hit.hit_order}]".lstrip()
     if variant:
         raw_name = f"[{variant}] {raw_name}"
     if lacking_fp:
@@ -732,7 +732,8 @@ def run_skill_animation_exports(
             continue
         weapon_id = int(weapon["weapon_id"])
         skill_id = int(weapon["native_skill_id"])
-        name = weapon["native_skill_name"] or aow_names.get(skill_id, str(skill_id))
+        # An unnamed native skill keeps an empty name rather than an invented one.
+        name = weapon["native_skill_name"] or aow_names.get(skill_id, "")
         resolution = resolve(skill_id, weapon_id)
         generic_content = selected_content.get(
             (skill_id, weapon["weapon_type_name"]), selected_content.get((skill_id, ""))

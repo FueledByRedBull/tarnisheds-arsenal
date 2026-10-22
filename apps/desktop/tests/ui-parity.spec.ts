@@ -130,6 +130,15 @@ test("profile switch isolates results and explains Convergence coverage", async 
   await page.goto("/");
   await page.evaluate(async () => {
     const { api } = await import("/src/lib/api.ts");
+    // Every bundled profile now models AoW damage, so Convergence stands in for one that does not.
+    const catalog = api.catalog;
+    api.catalog = async (profileId) => {
+      const value = await catalog(profileId);
+      if (profileId === "convergence") {
+        value.dataManifest.capabilities = { ...value.dataManifest.capabilities, aowDamage: false, aowRoutes: false };
+      }
+      return value;
+    };
     const searchStatus = api.searchStatus;
     api.searchStatus = async (jobId) => {
       const status = await searchStatus(jobId);
@@ -156,7 +165,7 @@ test("profile switch isolates results and explains Convergence coverage", async 
   await expect(page.getByText("Experimental model", { exact: true })).toBeVisible();
   await page.locator(".coverage-token").click();
   await expect(
-    page.getByText(/Ammo weapons and AoW hit\/route damage remain unsupported/),
+    page.getByText(/AoW hits and routes come from the mod's skill animations/),
   ).toBeVisible();
   // The coverage note names the exact mod and game versions the bundled data models.
   await expect(page.getByText(/^Convergence 3\.0\.3\.0 \(game 1\.17\.1\) weapon AR/)).toBeVisible();
