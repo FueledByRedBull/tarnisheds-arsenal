@@ -119,6 +119,14 @@ jobs:
           WINDOWS_SIGNING_TIMESTAMP_URL: ${{ vars.WINDOWS_SIGNING_TIMESTAMP_URL }}
         run: python tools/phase4/release_gate.py package
 
+      - name: Upload e2e failure traces
+        if: ${{ failure() && hashFiles('apps/desktop/test-results/**') != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: package-e2e-failure-traces
+          path: apps/desktop/test-results/
+          retention-days: 14
+
       - name: Prepare release assets
         run: |
           $ErrorActionPreference = "Stop"

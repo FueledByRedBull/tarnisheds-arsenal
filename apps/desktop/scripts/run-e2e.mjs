@@ -10,7 +10,8 @@ try {
     logLevel: "error",
     // Vite treats port 0 as its default port, and the app config pins a strict port.
     // Scan upward instead so another local dev server cannot fail the suite.
-    server: { host, strictPort: false },
+    // Page errors reach the test log, where CI runs keep them beside the failing test.
+    server: { host, strictPort: false, forwardConsole: true },
   });
   await server.listen();
   const baseUrl = server.resolvedUrls?.local[0];
