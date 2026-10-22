@@ -19,6 +19,8 @@ from tools.phase1.profiles import ProfileDefinition  # noqa: E402
 SCHEMA_VERSION = 6
 MODEL_VERSION = "aow-routes-effects-v9"
 EXTRACTOR_VERSION = "phase1-python-v15-f32-shortest-floats"
+# Source kind of the animation archive AoW rows are extracted from instead of a workbook.
+SKILL_ANIMATION_SOURCE = "skillAnimations"
 RUNTIME_FILES = {
     "aow.csv",
     "aow_attack_data.csv",
@@ -143,7 +145,12 @@ def write_snapshot_manifest(
             "cannot write snapshot manifest; missing runtime files: "
             + ", ".join(missing_runtime)
         )
-    if (profile.capabilities.aow_damage or profile.capabilities.aow_routes) and not workbook_path.is_file():
+    has_skill_animations = SKILL_ANIMATION_SOURCE in (source_paths or {})
+    if (
+        (profile.capabilities.aow_damage or profile.capabilities.aow_routes)
+        and not workbook_path.is_file()
+        and not has_skill_animations
+    ):
         raise FileNotFoundError(f"workbook source not found: {workbook_path}")
     if not regulation_path.is_file():
         raise FileNotFoundError(f"regulation source not found: {regulation_path}")
@@ -169,6 +176,8 @@ def write_snapshot_manifest(
     provenance = "profile-bound regulation, names, and numeric PARAM effect graph"
     if workbook_path.is_file():
         provenance = "profile-bound regulation, names, motion data, and numeric PARAM effect graph"
+    elif has_skill_animations:
+        provenance = "profile-bound regulation, names, skill animations, and numeric PARAM effect graph"
     manifest = {
         "schemaVersion": SCHEMA_VERSION,
         "datasetVersion": profile.dataset_version,
@@ -311,8 +320,10 @@ def validate_snapshot_manifest(
         and source_by_kind["regulation"].get("sha256") != expected_profile.regulation_sha256
     ):
         raise ValueError("snapshot regulation source does not match the profile's pinned regulation")
-    if (capabilities["aowDamage"] or capabilities["aowRoutes"]) and "workbook" not in source_by_kind:
-        raise ValueError("AoW-capable snapshots require a motion workbook source")
+    if (capabilities["aowDamage"] or capabilities["aowRoutes"]) and not (
+        {"workbook", SKILL_ANIMATION_SOURCE} & source_by_kind.keys()
+    ):
+        raise ValueError("AoW-capable snapshots require a motion workbook or skill animation source")
     for kind, record in source_by_kind.items():
         source_name = _validate_snapshot_file_name(record.get("path"))
         if not isinstance(record.get("bundled"), bool):

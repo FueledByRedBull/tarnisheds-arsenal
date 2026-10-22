@@ -1219,6 +1219,12 @@ def main() -> int:
     for arts_name_xml in arts_name_xmls:
         if not arts_name_xml.is_file():
             raise FileNotFoundError(f"skill name FMG XML not found: {arts_name_xml}")
+    aow_capable = profile.capabilities.aow_damage or profile.capabilities.aow_routes
+    skill_sources = profile.skill_animation_sources if aow_capable else None
+    if skill_sources is not None:
+        for skill_source in (skill_sources.anibnd, skill_sources.request_script, skill_sources.category_script):
+            if not skill_source.is_file():
+                raise FileNotFoundError(f"skill animation source not found: {skill_source.resolve()}")
     if version_file is not None:
         if not version_file.is_file():
             raise FileNotFoundError(f"profile version file not found: {version_file}")
@@ -1240,11 +1246,7 @@ def main() -> int:
         dir=destination_dir.parent,
     )
     output_dir = Path(staging_owner.name)
-    needs_workbook = (
-        profile.use_workbook_weapon_metadata
-        or profile.capabilities.aow_damage
-        or profile.capabilities.aow_routes
-    )
+    needs_workbook = profile.use_workbook_weapon_metadata or (aow_capable and skill_sources is None)
     if needs_workbook:
         staged_workbook = output_dir / workbook_path.name
         shutil.copy2(workbook_path, staged_workbook)
@@ -1450,6 +1452,7 @@ def main() -> int:
     from tools.phase1.derive_phase1_raw_extras import export_regulation_extras
     from tools.phase1.extract_motion_workbook import run_workbook_exports
     from tools.phase1.snapshot_manifest import (
+        SKILL_ANIMATION_SOURCE,
         promote_snapshot,
         validate_snapshot_manifest,
         write_snapshot_manifest,
@@ -1463,7 +1466,18 @@ def main() -> int:
         sp_effect_rows={to_int(row, "id", None): row for row in context.sp_rows},
         output_dir=output_dir,
     )
-    if profile.capabilities.aow_damage or profile.capabilities.aow_routes:
+    if skill_sources is not None:
+        from tools.phase1.extract_skill_animations import run_skill_animation_exports
+
+        run_skill_animation_exports(
+            output_dir,
+            context.workdir / "regulation-bin",
+            paramdex_path(witchybnd_path, "Defs"),
+            skill_sources,
+            witchybnd_path,
+            context.workdir,
+        )
+    elif aow_capable:
         run_workbook_exports(
             ROOT,
             output_dir,
@@ -1485,6 +1499,10 @@ def main() -> int:
         source_paths["modVersion"] = version_file
     if profile.weapon_reference_path is not None:
         source_paths["weaponAvailability"] = profile.weapon_reference_path
+    if skill_sources is not None:
+        source_paths[SKILL_ANIMATION_SOURCE] = skill_sources.anibnd
+        source_paths["skillRequestScript"] = skill_sources.request_script
+        source_paths["skillCategoryScript"] = skill_sources.category_script
     # Paramdex files decide names, weapon-type keys and field layouts.
     source_paths["witchybnd"] = witchybnd_path
     source_paths["paramdexMetaEquipParamWeapon"] = paramdex_path(
@@ -1499,8 +1517,10 @@ def main() -> int:
             witchybnd_path, "Names", "SwordArtsParam.txt"
         )
     definitions = list(PARAM_DEFINITIONS)
-    if profile.capabilities.aow_damage or profile.capabilities.aow_routes:
+    if aow_capable:
         definitions += ["AtkParam", "BulletParam"]
+    if skill_sources is not None:
+        definitions += ["BehaviorParam", "SwordArtsParam"]
     if profile.class_catalog_from_regulation:
         definitions += ["CharaInitParam", "BaseChrSelectMenuParam"]
     for definition in definitions:

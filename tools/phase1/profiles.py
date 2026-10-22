@@ -94,6 +94,15 @@ class ProfileRules:
 
 
 @dataclass(frozen=True)
+class SkillAnimationSources:
+    """Mod files that replace the motion workbook for AoW attacks and routes."""
+
+    anibnd: Path
+    request_script: Path
+    category_script: Path
+
+
+@dataclass(frozen=True)
 class ProfileDefinition:
     id: str
     display_name: str
@@ -116,6 +125,7 @@ class ProfileDefinition:
     # Raised when regenerated content changes for the same game and mod version.
     dataset_revision: int = 1
     class_catalog_from_regulation: bool = False
+    skill_animation_sources: SkillAnimationSources | None = None
 
     @property
     def regulation_path(self) -> Path:
@@ -226,6 +236,11 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         version_file=Path("data/raw/Conv/version.txt"),
         weapon_reference_path=Path("data/reference/convergence-3.0.3.0-weapons.json"),
         class_catalog_from_regulation=True,
+        skill_animation_sources=SkillAnimationSources(
+            anibnd=Path("data/raw/Conv/c0000.anibnd.dcx"),
+            request_script=Path("data/raw/Conv/c0000.hks"),
+            category_script=Path("data/raw/Conv/CommonIncludes.hks"),
+        ),
     ),
 }
 

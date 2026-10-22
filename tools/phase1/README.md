@@ -62,6 +62,10 @@ only the storage contract changes; source hashes remain tied to the original inp
 - Convergence: the tracked `data/reference/convergence-3.0.3.0-weapons.json`
   availability/model reference. Normal extraction fails closed if it is absent or
   bound to a different profile version.
+- Convergence, once the profile enables AoW damage or routes: the mod's
+  `chr/c0000.anibnd.dcx`, `action/script/c0000.hks` and
+  `action/script/modules/vanilla/CommonIncludes.hks`, copied into `data/raw/Conv/`.
+  They replace the Vanilla workbook; see [Skill animations](#skill-animations).
 
 ## Example
 
@@ -214,6 +218,51 @@ and the data build reproduces the published 3.0.0.1 file except for display name
   non-finite values rejected). The runtime reads floats as `f32`, so this text carries
   exactly the loaded value.
 - Generated CSV and manifest JSON files use canonical LF line endings so snapshots hash identically across supported hosts.
+
+## Skill animations
+
+`extract_skill_animations.py` builds the AoW attack, route and coverage tables for a
+profile that names skill animation sources instead of using the workbook. Each skill
+follows the chain the game uses:
+
+1. `SwordArtsParam.swordArtsTypeNew` selects TAE section `a(600 + type)` in the
+   anibnd, which WitchyBND unpacks; the extractor reads the 64-bit TAE files itself.
+2. The hks `GetSwordArtsDiffCategory` and the right-hand request choose an animation
+   group, `40000 + 100 * group`, from the weapon's `wepmotionCategory` and
+   `wepmotionOneHandId`. The extractor ports that function and parses its
+   `SwordArtsCategory` table; it stops if the script loses a ported branch.
+3. Each AttackBehavior (type 1) or BulletBehavior (type 2) event names a judge ID.
+   Judge `J` reads `BehaviorParam_PC` row
+   `max(J / 1000, 1) * 100000000 + variation * 1000 + J % 1000`, trying the weapon's
+   `behaviorVariationId`, then its hundreds base, then `0`.
+4. That row's `refType` 0 names an `AtkParam_Pc` row; `refType` 1 names a bullet,
+   whose `atkId_Bullet` and every `HitBulletID` successor each add a hit.
+
+Slots 5-9 of each ten are Lacking FP versions. A TAE SpEffect `100052` or `100053`
+opens the hks combo request that plays slot 10 or 20, so routes follow those
+chains; every other full-FP animation with a payload is its own route. Each route
+counts every hit once.
+
+AoW rows can only vary by weapon type. The hits most mountable weapons resolve
+become the untyped rows, and a weapon type whose own majority differs gets rows
+named after it. Weapons that still differ are counted in
+`skill_animation_exclusions.csv`. A native skill gets per-weapon rows whenever the
+rows selected for that weapon would resolve differently. That file also lists every
+hit left out: bullets spawned by `intervalCreateBulletId`, behaviors with no row
+(bow skills resolve through the equipped arrow's variation), missing attack rows,
+and skills with no behavior events. Buff states, hold loops, the hks branches keyed
+on weapon IDs or SpEffects, and the left-hand shield requests are not modeled.
+
+Coverage is written to `aow_damage_coverage.csv` and
+`native_skill_damage_coverage.csv`. To inspect the output without writing a snapshot,
+run the extractor on a copy of a snapshot folder:
+
+```powershell
+python tools/phase1/extract_skill_animations.py <copy-of-snapshot> --raw-dir data/raw/Conv
+```
+
+No local Vanilla anibnd exists, so the extractor has not been diffed against the
+Vanilla workbook.
 
 ## Extraction work directories
 

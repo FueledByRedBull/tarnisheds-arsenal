@@ -14,6 +14,8 @@ def validate_aow_effect_graph(
     effects: list[dict[str, str]],
     coverage: list[dict[str, str]],
     exclusions: list[dict[str, str]],
+    *,
+    vanilla_mappings: bool = True,
 ) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
     required_effect_columns = {
@@ -123,6 +125,8 @@ def validate_aow_effect_graph(
             row["reason"],
         )
         for row in exclusions
+        # A referenced SpEffect with no regulation row has no effect record to match.
+        if row["role"] != "absent"
     }
     if unsupported_keys != exclusion_keys:
         issues.append(
@@ -131,6 +135,9 @@ def validate_aow_effect_graph(
                 "aow_effect_exclusions.csv must exactly match unsupported effect records",
             )
         )
+
+    if not vanilla_mappings:
+        return issues
 
     def find_effect(aow_id: int, sheet_row: int, effect_id: int) -> dict[str, str] | None:
         return next(
