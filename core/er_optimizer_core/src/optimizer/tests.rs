@@ -4580,7 +4580,7 @@ fn ordered_materialization_matches_ranked_insertion_for_ties_groups_and_limits()
                     aow: None,
                     skill_id,
                     skill_name: skill_id.map(|_| "Tie Skill"),
-                    attack_rows: Vec::new(),
+                    attack_rows: Arc::from([]),
                     scalar_routes: None,
                 })
                 .collect(),
