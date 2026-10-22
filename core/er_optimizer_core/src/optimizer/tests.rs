@@ -48,7 +48,9 @@ fn objective_and_grouping_parsers_accept_only_canonical_ids() {
 
 #[test]
 fn profile_capabilities_reject_unverified_aow_objectives() {
-    let data = load_convergence_data();
+    let mut data = load_convergence_data();
+    data.capabilities.aow_damage = false;
+    data.capabilities.aow_routes = false;
     let mut request = base_request();
     request.standard_max_upgrade = 15;
     request.somber_max_upgrade = 15;
@@ -204,7 +206,7 @@ fn fixed_native_skill_falls_back_to_generic_rows_by_skill_id() {
 }
 
 #[test]
-fn unnamed_native_skill_preserves_id_without_inventing_damage() {
+fn unnamed_native_skill_preserves_id_without_inventing_a_name() {
     let data = load_convergence_data();
     let weapon = data
         .weapons
@@ -214,7 +216,12 @@ fn unnamed_native_skill_preserves_id_without_inventing_damage() {
     let choice = native_skill_choice_for_weapon(weapon, &data).unwrap();
     assert_eq!(choice.skill_id, weapon.native_skill_id);
     assert!(choice.skill_name.is_none());
-    assert!(choice.attack_rows.is_empty());
+    assert!(
+        choice
+            .attack_rows
+            .iter()
+            .all(|row| Some(row.aow_id) == weapon.native_skill_id && row.aow_name.is_empty())
+    );
 
     let mut request = base_request();
     request.weapon_name = Some(weapon.name.clone());
@@ -232,9 +239,10 @@ fn unnamed_native_skill_preserves_id_without_inventing_damage() {
     use_profile_class(&mut request, &data);
     let rows = optimize(&request, &data).unwrap();
     assert!(!rows.is_empty());
-    assert!(rows.iter().all(|row| row.aow_id == weapon.native_skill_id
-        && row.aow_name.is_none()
-        && row.aow_route.is_none()));
+    assert!(
+        rows.iter()
+            .all(|row| row.aow_id == weapon.native_skill_id && row.aow_name.is_none())
+    );
 }
 
 #[test]
@@ -4572,7 +4580,7 @@ fn ordered_materialization_matches_ranked_insertion_for_ties_groups_and_limits()
                     aow: None,
                     skill_id,
                     skill_name: skill_id.map(|_| "Tie Skill"),
-                    attack_rows: Vec::new(),
+                    attack_rows: Arc::from([]),
                     scalar_routes: None,
                 })
                 .collect(),

@@ -94,6 +94,19 @@ class ProfileRules:
 
 
 @dataclass(frozen=True)
+class SkillAnimationSources:
+    """Mod files that replace the motion workbook for AoW attacks and routes."""
+
+    anibnd: Path
+    request_script: Path
+    category_script: Path
+    # Pinned like the regulation: another mod build must not extract under this dataset.
+    anibnd_sha256: str
+    request_script_sha256: str
+    category_script_sha256: str
+
+
+@dataclass(frozen=True)
 class ProfileDefinition:
     id: str
     display_name: str
@@ -118,6 +131,7 @@ class ProfileDefinition:
     # Raised when regenerated content changes for the same game and mod version.
     dataset_revision: int = 1
     class_catalog_from_regulation: bool = False
+    skill_animation_sources: SkillAnimationSources | None = None
 
     @property
     def regulation_path(self) -> Path:
@@ -202,8 +216,8 @@ PROFILES: Mapping[str, ProfileDefinition] = {
             status_buildup=True,
             weapon_passives=True,
             aow_compatibility=True,
-            aow_damage=False,
-            aow_routes=False,
+            aow_damage=True,
+            aow_routes=True,
         ),
         rules=ProfileRules(
             standard_max_upgrade=15,
@@ -228,8 +242,17 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         class_name_xml=Path("data/raw/Conv/GR_MenuText.fmg.xml"),
         version_file=Path("data/raw/Conv/version.txt"),
         weapon_reference_path=Path("data/reference/convergence-3.0.3.0-weapons.json"),
+        # Revision 2 adds AoW damage and routes and names classes from the menu text.
         dataset_revision=2,
         class_catalog_from_regulation=True,
+        skill_animation_sources=SkillAnimationSources(
+            anibnd=Path("data/raw/Conv/c0000.anibnd.dcx"),
+            request_script=Path("data/raw/Conv/c0000.hks"),
+            category_script=Path("data/raw/Conv/CommonIncludes.hks"),
+            anibnd_sha256="afdeb72540c6c6cafe0bc40c296127635947c991aa38b692a7eae768abda86da",
+            request_script_sha256="12b18dc8679de83677e3c7f1a240a99902263cb02ba4db5029bf4ecb92da3a8c",
+            category_script_sha256="81b1377e0160593ce39ad8193846bd3cb1621200af1824192cbec1b2ad0fa170",
+        ),
     ),
 }
 

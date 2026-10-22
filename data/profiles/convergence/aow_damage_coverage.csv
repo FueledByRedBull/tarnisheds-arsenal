@@ -1,0 +1,123 @@
+aow_id,aow_name,status,standard_rows,damaging_rows,lacking_fp_rows,variant_rows,bullet_rows,parry_rows,unique_collision_rows
+10,No Skill,direct_damage,5,5,0,4,0,0,0
+100,Lion's Claw,direct_damage,2,2,1,0,0,0,0
+101,Impaling Thrust,direct_damage,18,18,9,16,0,0,0
+102,Piercing Fang,direct_damage,4,4,2,2,0,0,0
+103,Spinning Slash,direct_damage,66,66,33,60,0,0,0
+105,Charge Forth,direct_damage,28,28,14,14,0,0,0
+106,Stamp,direct_damage,6,6,3,0,0,0,0
+107,Stamp (Sweep),direct_damage,42,40,21,37,5,0,0
+108,Blood Tax,direct_damage,72,72,36,64,0,0,0
+109,Repeating Thrust,direct_damage,72,72,36,64,0,0,0
+110,Wild Strikes,direct_damage,165,165,80,132,0,0,0
+111,Spinning Strikes,direct_damage,66,38,18,0,28,0,0
+112,Double Slash,direct_damage,84,84,42,72,0,0,0
+113,Prelate's Charge,direct_damage,24,24,9,0,6,0,0
+114,Unsheathe,direct_damage,4,4,2,0,0,0,0
+115,Square Off,direct_damage,4,4,2,0,0,0,0
+116,Giant Hunt,direct_damage,2,2,1,0,0,0,0
+118,Loretta's Slash,direct_damage,40,20,20,32,0,0,0
+119,Poison Moth Flight,direct_damage,4,4,2,2,0,0,0
+120,Spinning Weapon,direct_damage,28,28,14,14,0,0,0
+121,Storm Stomp,direct_damage,219,126,64,212,161,0,0
+122,Storm Assault,direct_damage,16,8,6,8,4,0,0
+123,Stormcaller,direct_damage,105,105,35,84,35,0,0
+124,Sword Dance,direct_damage,60,60,30,54,0,0,0
+144,Evasive Strike,direct_damage,4,4,2,0,0,0,0
+160,Hoarfrost Stomp,direct_damage,330,330,60,319,272,0,0
+200,Glintblade Phalanx,direct_damage,8,8,2,4,4,0,0
+201,Sacred Blade,direct_damage,3,3,1,0,1,0,0
+202,Ice Spear,direct_damage,8,8,4,4,2,0,0
+203,Glintstone Pebble,direct_damage,8,8,4,4,2,0,0
+204,Bloody Slash,direct_damage,48,48,24,44,2,0,0
+205,Lifesteal Fist,direct_damage,2,2,1,0,0,0,0
+207,Eruption,direct_damage,9,6,2,0,4,0,0
+208,Prayerful Strike,direct_damage,14,8,7,12,0,0,0
+209,Gravitas,direct_damage,15,15,3,10,9,0,0
+210,Storm Blade,direct_damage,9,9,3,0,3,0,0
+212,Earthshaker,direct_damage,7,7,3,0,0,0,0
+213,Golden Land,direct_damage,75,40,15,60,25,0,0
+214,Flaming Strike,direct_damage,12,12,4,7,6,0,0
+216,Thunderbolt,direct_damage,110,90,10,88,100,0,0
+217,Lightning Slash,direct_damage,24,16,2,12,18,0,0
+218,Carian Grandeur,direct_damage,7,7,4,0,0,0,0
+219,Carian Greatsword,direct_damage,4,4,2,0,0,0,0
+220,Vacuum Slice,direct_damage,3,3,1,0,1,0,0
+221,Black Flame Tornado,direct_damage,18,13,8,0,3,0,0
+222,Sacred Ring of Light,direct_damage,12,9,3,0,6,0,0
+224,Blood Blade,direct_damage,18,18,6,9,6,0,0
+225,Phantom Slash,direct_damage,14,4,2,0,10,0,0
+226,Spectral Lance,direct_damage,1,1,0,0,1,0,0
+227,Chilling Mist,direct_damage,4,2,1,0,2,0,0
+228,Poisonous Mist,direct_damage,4,2,1,0,2,0,0
+300,Shield Bash,direct_damage,24,24,12,18,0,0,0
+301,Barricade Shield,missing,0,0,0,0,0,0,0
+302,Parry,utility_only,24,0,0,21,0,0,0
+305,Carian Retaliation,utility_only,24,0,6,12,12,0,0
+306,Storm Wall,utility_only,18,0,6,9,6,0,0
+307,Golden Parry,utility_only,12,0,6,6,0,0,0
+308,Shield Crash,direct_damage,144,144,72,108,0,0,0
+309,Cragbolt Slam,direct_damage,4,4,2,2,0,0,0
+400,Titanic Shot,missing,0,0,0,0,0,0,0
+401,Barrage,missing,0,0,0,0,0,0,0
+402,Mighty Shot,missing,0,0,0,0,0,0,0
+404,Enchanted Shot,missing,0,0,0,0,0,0,0
+405,Sky Shot,missing,0,0,0,0,0,0,0
+406,Rain of Arrows,missing,0,0,0,0,0,0,0
+503,Kick,missing,0,0,0,0,0,0,0
+504,Lightning Ram,direct_damage,4,4,2,0,0,0,0
+505,Flame of the Redmanes,direct_damage,4,4,0,2,4,0,0
+506,Ground Slam,direct_damage,4,3,2,0,0,0,0
+507,Golden Slam,direct_damage,4,3,2,0,0,0,0
+508,Waves of Darkness,direct_damage,9,9,3,0,3,0,0
+509,Hoarah Loux's Earthshaker,direct_damage,7,4,2,0,0,0,0
+600,Determination,missing,0,0,0,0,0,0,0
+601,Royal Knight's Resolve,missing,0,0,0,0,0,0,0
+602,Assassin's Gambit,missing,0,0,0,0,0,0,0
+603,Golden Vow,utility_only,1,0,0,0,1,0,0
+604,Sacred Order,missing,0,0,0,0,0,0,0
+605,Shared Order,utility_only,2,0,0,1,0,0,0
+606,Seppuku,missing,0,0,0,0,0,0,0
+607,Cragblade,direct_damage,12,12,6,8,0,0,0
+608,Stormbreaker's Deflection,missing,0,0,0,0,0,0,0
+650,Barbaric Roar,utility_only,2,0,1,0,0,0,0
+651,War Cry,utility_only,2,0,1,0,0,0,0
+652,Beast's Roar,direct_damage,8,4,2,4,4,0,0
+653,Troll's Roar,direct_damage,8,8,3,0,0,0,0
+654,Braggart's Roar,utility_only,2,0,1,0,0,0,0
+700,Endure,missing,0,0,0,0,0,0,0
+701,Vow of the Indomitable,missing,0,0,0,0,0,0,0
+702,Holy Ground,direct_damage,10,4,4,0,6,0,0
+800,Quickstep,missing,0,0,0,0,0,0,0
+801,Bloodhound's Step,missing,0,0,0,0,0,0,0
+802,Raptor of the Mists,missing,0,0,0,0,0,0,0
+805,Assassin’s Feint,direct_damage,1,1,0,0,0,0,0
+807,Flame Arc,direct_damage,72,36,12,60,48,0,0
+814,Dragonlord's Recall,direct_damage,6,6,0,4,2,0,0
+850,White Shadow's Lure,utility_only,3,0,0,0,3,0,0
+2000,Dryleaf Whirlwind,direct_damage,8,8,4,0,0,0,0
+2001,Aspects of the Crucible: Wings,direct_damage,23,23,0,22,0,0,0
+4000,Spinning Gravity Thrust,direct_damage,13,13,4,0,0,0,0
+4010,Palm Blast,direct_damage,6,6,2,0,4,0,0
+4020,Piercing Throw,direct_damage,2,2,1,0,2,0,0
+4030,Scattershot Throw,direct_damage,20,20,4,0,20,0,0
+4040,Wall of Sparks,direct_damage,67,32,0,0,67,0,0
+4050,Rolling Sparks,direct_damage,11,8,0,0,11,0,0
+4060,Raging Beast,direct_damage,16,16,8,0,0,0,0
+4070,Savage Claws,direct_damage,12,12,6,0,0,0,0
+4090,Blind Spot,direct_damage,8,8,4,0,0,0,0
+4100,Swift Slash,direct_damage,13,13,2,0,7,0,0
+4110,Overhead Stance,direct_damage,8,8,4,0,0,0,0
+4120,Wing Stance,direct_damage,8,8,4,0,0,0,0
+4130,Blinkbolt,direct_damage,2,2,1,0,0,0,0
+4140,Flame Skewer,direct_damage,117,117,18,104,90,0,0
+4150,Savage Lion's Claw,direct_damage,6,6,3,0,0,0,0
+4160,Divine Beast Frost Stomp,direct_damage,18,18,0,0,18,0,0
+4170,Flame Spear,direct_damage,54,54,18,48,18,0,0
+4180,Carian Sovereignty,direct_damage,14,14,4,0,6,0,0
+4190,Shriek of Sorrow,utility_only,2,0,1,0,0,0,0
+4210,Igon's Drake Hunt,utility_only,1,0,0,0,0,0,0
+4220,Ghostflame Call,direct_damage,27,27,3,0,21,0,0
+4230,Abyssal Flame Shot,direct_damage,4,1,0,0,4,0,0
+5050,The Poison Flower Blooms Twice,direct_damage,3,3,1,0,1,0,0
+8000,Shield Strike,missing,0,0,0,0,0,0,0

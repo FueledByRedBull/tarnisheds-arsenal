@@ -152,7 +152,8 @@ in-game measurement.
 | Upgrades | One reinforcement path, `+0` through `+15` |
 | Scaling | Extended `S+`/`S++` grades; no Scadutree Blessing scaling |
 | Status | Fixed across stats and upgrades, as the data defines it |
-| AoW damage / ammunition AR | Unavailable: the regulation alone does not define them |
+| AoW damage | **AoW First Hit** and **AoW Full Sequence** from the mod's skill animations; 90 of 122 Ashes of War resolve damage |
+| Ammunition AR | Unavailable: the regulation alone does not define it |
 | Class optimization / Compare / Paths / Affinity Watch | Available with a class; unavailable with Custom stats |
 
 **Custom stats** evaluates the entered stats exactly: its level is the
@@ -184,9 +185,16 @@ What the regulation shows, and how the profile uses it:
   the exhaustive raw-data check below covers every pair.
 - **AoW damage** needs the attacks each skill performs. `SwordArtsParam` holds no
   attack IDs; skills reach `BehaviorParam_PC` and `AtkParam_Pc` only through
-  animation events (TAE) in the mod's character files, which are not a local
-  input. The Vanilla routes come from a workbook keyed to Vanilla attack IDs and
-  cannot be reused.
+  animation events (TAE) in the mod's character files and the skill category logic
+  in its hks script. The Vanilla routes come from a workbook keyed to Vanilla attack
+  IDs and cannot be reused. The
+  [skill animation extractor](../tools/phase1/README.md#skill-animations) reads
+  the mod's own files instead; the table above gives its coverage. Vanilla's
+  animation files sit in the game's encrypted archives, so the extractor has not been
+  compared with the Vanilla workbook. Routes follow the hks combo chains, and every hit counts once:
+  hold loops, buff states, interval bullets, and bow skills, which resolve through
+  the equipped arrow, stay unmodeled and are listed in
+  `skill_animation_exclusions.csv`.
 - **Ammunition.** Convergence bows list the same base attack for all five damage
   types, and each arrow's `AtkParam_Pc` row keeps only its own element. A bow-only
   AR would add damage the bow never deals, and combining bow and arrow needs the

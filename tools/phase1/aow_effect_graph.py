@@ -194,6 +194,8 @@ def build_aow_effect_graph(
     regulation_bin_dir: Path,
     paramdex_defs_dir: Path,
     effect_names: dict[int, str],
+    persistent_roots: bool = True,
+    allow_absent_effects: bool = False,
 ) -> None:
     attack_rows_by_key: dict[tuple[int, int], dict[str, str]] = {}
     for filename in ("aow_attack_data.csv", "native_skill_attack_data.csv"):
@@ -232,6 +234,7 @@ def build_aow_effect_graph(
 
     records: list[dict[str, str]] = []
     coverage: list[dict[str, str]] = []
+    absent: list[dict[str, str]] = []
     for (aow_id, sheet_row), attack in sorted(attack_rows_by_key.items()):
         aow_name = aow_names.get(aow_id, attack["aow_name"])
         attack_id = int(attack["atk_id"])
@@ -281,6 +284,18 @@ def build_aow_effect_graph(
         supported_target_count = 0
         for (source_kind, effect_id), source_ids in sorted(grouped_sources.items()):
             effect = effects.rows.get(effect_id)
+            if effect is None and allow_absent_effects:
+                # The game skips an ID with no row, so the hit carries no such effect.
+                absent.append(
+                    {
+                        "aow_id": str(aow_id),
+                        "sheet_row": str(sheet_row),
+                        "effect_id": str(effect_id),
+                        "role": "absent",
+                        "reason": "referenced SpEffect has no regulation row",
+                    }
+                )
+                continue
             if effect is None:
                 raise ValueError(
                     f"referenced SpEffect {effect_id} is absent for attack row {(aow_id, sheet_row)}"
@@ -349,7 +364,10 @@ def build_aow_effect_graph(
             }
         )
 
-    persistent_rows = read_csv(project_root / "tools/phase1/aow_persistent_effect_roots.csv")
+    # The verified script setups are Vanilla's; other profiles carry none.
+    persistent_rows = (
+        read_csv(project_root / "tools/phase1/aow_persistent_effect_roots.csv") if persistent_roots else []
+    )
     signatures_by_aow: dict[int, list[tuple[float | bool, ...]]] = defaultdict(list)
     for mapping in persistent_rows:
         aow_id = int(mapping["aow_id"])
@@ -472,7 +490,7 @@ def build_aow_effect_graph(
         for row in records
         if row["is_supported"] == "0"
     ]
-    exclusions = list({tuple(row.items()): row for row in exclusions}.values())
+    exclusions = list({tuple(row.items()): row for row in exclusions + absent}.values())
     write_csv(phase1_dir / "aow_effect_data.csv", OUTPUT_FIELDS, records)
     write_csv(
         phase1_dir / "aow_effect_coverage.csv",

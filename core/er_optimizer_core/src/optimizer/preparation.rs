@@ -304,15 +304,22 @@ pub(super) fn upgrade_cap_for_weapon(weapon: &Weapon, request: &OptimizeRequest)
 /// Compatibility reads only whether the weapon can change Ashes, its affinity and its type
 /// keys; rows and routes read its type name (which also fixes forced two-handing) and the
 /// request's handling. One list per distinct key serves every matching weapon and thread.
-/// Routes are compiled only for Ashes the request can select by name.
+/// Routes are compiled only for Ashes the request can select by name. The flag marks rows
+/// with per-hit attack power, which no objective can score yet.
 pub(super) type AshTemplates<'a> = HashMap<
     (bool, &'a str, &'a str, &'a str),
     Vec<(
         &'a Aow,
-        Vec<&'a AowAttackRow>,
+        Arc<[&'a AowAttackRow]>,
         Option<SharedScalarRoutes<'a>>,
+        bool,
     )>,
 >;
+
+fn rows_have_unmodeled_attack_power(rows: &[&AowAttackRow], data: &GameData) -> bool {
+    rows.iter()
+        .any(|row| !row.is_lacking_fp && has_unmodeled_attack_power(row, data))
+}
 
 fn ash_template_key(weapon: &Weapon) -> (bool, &str, &str, &str) {
     (
@@ -357,7 +364,7 @@ pub(super) fn ash_templates<'a>(
     let selected: HashMap<_, _> = needed
         .into_par_iter()
         .map(|((aow_id, type_name), (aow, weapon))| {
-            let rows = select_aow_attack_rows(aow_id, weapon, data);
+            let rows: Arc<[_]> = select_aow_attack_rows(aow_id, weapon, data).into();
             let selectable = request
                 .aow_name
                 .as_deref()
@@ -366,7 +373,8 @@ pub(super) fn ash_templates<'a>(
                 let two_handing = weapon_uses_two_handing(request, weapon);
                 Arc::new(handled_scalar_routes(&rows, data, two_handing))
             });
-            ((aow_id, type_name), (rows, routes))
+            let unmodeled = rows_have_unmodeled_attack_power(&rows, data);
+            ((aow_id, type_name), (rows, routes, unmodeled))
         })
         .collect();
     compatible
@@ -375,8 +383,9 @@ pub(super) fn ash_templates<'a>(
             let template = aows
                 .into_iter()
                 .map(|aow| {
-                    let (rows, routes) = &selected[&(aow.aow_id, weapon.weapon_type_name.as_str())];
-                    (aow, rows.clone(), routes.clone())
+                    let (rows, routes, unmodeled) =
+                        &selected[&(aow.aow_id, weapon.weapon_type_name.as_str())];
+                    (aow, rows.clone(), routes.clone(), *unmodeled)
                 })
                 .collect();
             (key, template)
@@ -401,31 +410,40 @@ pub(super) fn resolve_aow_choices_cached<'a>(
     templates: &AshTemplates<'a>,
 ) -> Result<Option<Vec<AowChoice<'a>>>, String> {
     let native = native_skill_choice_for_weapon(weapon, data);
-    let mut choices: Vec<_> = native.clone().into_iter().collect();
+    // No objective can score routes with per-hit attack power yet, so those choices are
+    // skipped instead of failing the whole search; template rows carry the check.
+    let native_unmodeled = native
+        .as_ref()
+        .is_some_and(|choice| rows_have_unmodeled_attack_power(&choice.attack_rows, data));
+    let mut choices: Vec<_> = native
+        .clone()
+        .filter(|_| !native_unmodeled)
+        .into_iter()
+        .collect();
     if native.is_none() && weapon.affinity.eq_ignore_ascii_case("Standard") {
         choices.push(AowChoice {
             no_applied_ash: true,
             aow: None,
             skill_id: None,
             skill_name: None,
-            attack_rows: Vec::new(),
+            attack_rows: Arc::from([]),
             scalar_routes: None,
         });
     }
     let template = templates
         .get(&ash_template_key(weapon))
         .ok_or("weapon preparation has no Ash template")?;
-    for (aow, rows, routes) in template {
+    for (aow, rows, routes, unmodeled) in template {
         if let Some(choice) = native
             .as_ref()
             .filter(|choice| choice.skill_id == Some(aow.aow_id))
         {
-            if choice.no_applied_ash {
+            if choice.no_applied_ash && !native_unmodeled {
                 let mut applied = choice.clone();
                 applied.no_applied_ash = false;
                 choices.push(applied);
             }
-        } else {
+        } else if !unmodeled {
             choices.push(AowChoice {
                 no_applied_ash: false,
                 aow: Some(aow),
@@ -481,15 +499,6 @@ pub(super) fn resolve_aow_choices_cached<'a>(
         }) {
             return false;
         }
-        // No objective can score routes with per-hit attack power yet; skip the Ash
-        // instead of failing the whole search.
-        if choice
-            .attack_rows
-            .iter()
-            .any(|row| !row.is_lacking_fp && has_unmodeled_attack_power(row, data))
-        {
-            return false;
-        }
         filter_dimension_matches(request, FilterDimension::Aow, |id| {
             if id.eq_ignore_ascii_case("aow:none") {
                 choice.no_applied_ash
@@ -523,13 +532,14 @@ pub(super) fn native_skill_choice_for_weapon<'a>(
         .native_skill_name
         .as_deref()
         .or_else(|| aow.map(|aow| aow.name.as_str()))
-        .or_else(|| source_rows.first().map(|row| row.aow_name.as_str()));
+        .or_else(|| source_rows.first().map(|row| row.aow_name.as_str()))
+        .filter(|name| !name.is_empty());
     Some(AowChoice {
         no_applied_ash: weapon.affinity.eq_ignore_ascii_case("Standard"),
         aow,
         skill_id: Some(native_skill_id),
         skill_name,
-        attack_rows,
+        attack_rows: attack_rows.into(),
         scalar_routes: None,
     })
 }
@@ -891,40 +901,60 @@ pub(super) fn active_stats_for_choice(
     aow_choice: &AowChoice<'_>,
     data: &GameData,
 ) -> [bool; COMBAT_STAT_COUNT] {
-    std::array::from_fn(|idx| {
+    let mut active = std::array::from_fn(|idx| {
         weapon_stat_can_increase_ar(prepared.weapon, data, idx)
             || stat_can_increase_bleed_for_choice(prepared, aow_choice, data, idx)
-            || aow_choice
-                .attack_rows
-                .iter()
-                .any(|row| attack_row_stat_can_increase_damage(prepared.weapon, row, data, idx))
-    })
+    });
+    if active.iter().all(|stat| *stat) {
+        return active;
+    }
+    // Rows mostly repeat the same element override and damage types; checking each distinct
+    // pair once gives the same answer as checking every row for every stat.
+    let mut pairs = Vec::new();
+    for row in aow_choice.attack_rows.iter() {
+        for pair in attack_row_damage_pairs(prepared.weapon, row, data) {
+            if !pairs.contains(&pair) {
+                pairs.push(pair);
+            }
+        }
+    }
+    for (idx, stat) in active.iter_mut().enumerate() {
+        *stat = *stat
+            || pairs.iter().any(|&(override_id, damage_type)| {
+                damage_type_stat_can_scale(prepared.weapon, data, idx, damage_type, override_id)
+            });
+    }
+    active
 }
 
+#[cfg(test)]
 pub(super) fn attack_row_stat_can_increase_damage(
     weapon: &Weapon,
     row: &AowAttackRow,
     data: &GameData,
     stat_idx: usize,
 ) -> bool {
-    if row.is_lacking_fp || !row.is_damaging() || row.has_fixed_damage(&data.profile_id) {
-        return false;
-    }
-    DamageType::ALL.iter().any(|damage_type| {
-        let damage_idx = damage_type.as_index();
-        let has_damage_base = weapon.base[damage_idx] > 0.0 && row.motion_values[damage_idx] > 0.0
-            || row.uses_fixed_attack_base() && row.attack_base[damage_idx] > 0.0;
-        if !has_damage_base {
-            return false;
-        }
-        damage_type_stat_can_scale(
-            weapon,
-            data,
-            stat_idx,
-            *damage_type,
-            row.overwrite_attack_element_correct_id,
-        )
+    attack_row_damage_pairs(weapon, row, data).any(|(override_id, damage_type)| {
+        damage_type_stat_can_scale(weapon, data, stat_idx, damage_type, override_id)
     })
+}
+
+/// The element override and damage types through which a row's damage can scale.
+fn attack_row_damage_pairs<'r>(
+    weapon: &'r Weapon,
+    row: &'r AowAttackRow,
+    data: &GameData,
+) -> impl Iterator<Item = (Option<usize>, DamageType)> + 'r {
+    let scales = !row.is_lacking_fp && row.is_damaging() && !row.has_fixed_damage(&data.profile_id);
+    DamageType::ALL
+        .iter()
+        .filter(move |damage_type| {
+            let damage_idx = damage_type.as_index();
+            scales
+                && (weapon.base[damage_idx] > 0.0 && row.motion_values[damage_idx] > 0.0
+                    || row.uses_fixed_attack_base() && row.attack_base[damage_idx] > 0.0)
+        })
+        .map(move |damage_type| (row.overwrite_attack_element_correct_id, *damage_type))
 }
 
 pub(super) fn stat_can_increase_bleed_for_choice(

@@ -321,11 +321,13 @@ fn parse_and_validate_manifest(content: &[u8]) -> Result<SnapshotManifest, Strin
     if !source_kinds.contains("regulation") {
         return Err("invalid runtime data manifest: missing regulation source hash".to_string());
     }
+    // AoW rows come from a motion workbook or from the profile's own skill animations.
     if (manifest.capabilities.aow_damage || manifest.capabilities.aow_routes)
         && !source_kinds.contains("workbook")
+        && !source_kinds.contains("skillAnimations")
     {
         return Err(
-            "invalid runtime data manifest: AoW-capable profile is missing workbook source hash"
+            "invalid runtime data manifest: AoW-capable profile is missing workbook or skill animation source hash"
                 .to_string(),
         );
     }
@@ -605,6 +607,23 @@ mod tests {
         manifest["capabilities"]["classBudget"] = false.into();
         parse_and_validate_manifest(&serde_json::to_vec(&manifest).unwrap())
             .expect("no class budget needs no catalog");
+    }
+
+    #[test]
+    fn aow_capable_profile_accepts_skill_animation_source() {
+        let snapshot = TestSnapshot::create();
+        let mut manifest: Value =
+            serde_json::from_slice(&fs::read(snapshot.path.join("manifest.json")).unwrap())
+                .unwrap();
+        let sources = manifest["sources"].as_array_mut().unwrap();
+        sources[1]["kind"] = "skillAnimations".into();
+        sources[1]["bundled"] = false.into();
+        parse_and_validate_manifest(&serde_json::to_vec(&manifest).unwrap())
+            .expect("skill animations replace the workbook source");
+        manifest["sources"][1]["kind"] = "skillScript".into();
+        let error =
+            parse_and_validate_manifest(&serde_json::to_vec(&manifest).unwrap()).unwrap_err();
+        assert!(error.contains("skill animation source hash"), "{error}");
     }
 
     #[test]

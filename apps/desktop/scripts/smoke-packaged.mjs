@@ -92,7 +92,7 @@ try {
   await chooseClass(page, "Custom stats");
   await openEditor(page, "Objective");
   await expect(page.getByRole("button", { name: "Max AR", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "AoW First Hit", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "AoW First Hit", exact: true })).toBeVisible();
   await closeEditors(page);
   for (const name of ["Compare", "Paths", "Affinity Watch"]) {
     await expect(page.getByRole("navigation").getByRole("button", { name, exact: true })).toBeDisabled();
@@ -110,9 +110,8 @@ try {
   const convergenceRow = page.locator(".result-row").first();
   await convergenceRow.waitFor();
   await expect(convergenceRow.locator(".loadout-upgrade")).toHaveText("+15");
-  // No Convergence row has modeled skill damage, so the column becomes one header note.
-  await expect(page.locator(".result-row .skill-cell")).toHaveCount(0);
-  await expect(page.getByText("Skill damage isn't modeled for these results.", { exact: true })).toBeVisible();
+  await expect(convergenceRow.locator(".skill-cell")).toContainText("1st hit");
+  await expect(convergenceRow.locator(".skill-cell")).not.toContainText("Unavailable");
   const convergenceAr = await convergenceRow.locator(".ar-cell > strong").innerText();
   if (!(Number(convergenceAr.replace(/[^0-9.]/g, "")) > 0)) {
     throw new Error(`Convergence returned invalid weapon AR: ${convergenceAr}`);
@@ -120,7 +119,7 @@ try {
   await convergenceRow.click();
   const convergenceWeapon = await convergenceRow.locator(".weapon-cell strong").innerText();
   await expect(page.locator(".selected-build-title > strong")).toHaveText(convergenceWeapon);
-  await expect(page.locator(".metric-tile").filter({ hasText: "AoW" })).toHaveCount(0);
+  await expect(page.locator(".metric-tile").filter({ hasText: "Raw AoW" })).not.toContainText("Unavailable");
   await page.getByRole("button", { name: "Update selected", exact: true }).click();
   await page.getByText(`Updated ${convergencePresetName}.`, { exact: true }).waitFor();
   await page.getByRole("button", { name: "Load", exact: true }).click();

@@ -2,12 +2,11 @@
 
 [Home](../../README.md) · [Documentation](../../README.md#documentation) · [Release guide](../releasing.md)
 
-## v0.19.0
+## v0.20.0
 
-Game data for Elden Ring 1.17.2 and The Convergence 3.0.3.0, much faster Paths and
-Affinity Watch, old saved builds that open again, and Cancel that stops every queued
-search.
-Read the [v0.19.0 notes](v0.19.0.md) for the changes and download choices.
+Ash of War damage and routes for The Convergence, and Convergence class names as the
+game shows them.
+Read the [v0.20.0 notes](v0.20.0.md) for the changes and download choices.
 
 For the current Windows installer and portable app, visit the
 [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
@@ -16,6 +15,7 @@ For the current Windows installer and portable app, visit the
 
 | Version | Notes | GitHub release |
 | --- | --- | --- |
+| v0.20.0 | [v0.20.0.md](v0.20.0.md) | [Tarnished's Arsenal v0.20.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.20.0) |
 | v0.19.0 | [v0.19.0.md](v0.19.0.md) | [Tarnished's Arsenal v0.19.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.19.0) |
 | v0.18.0 | [v0.18.0.md](v0.18.0.md) | [Tarnished's Arsenal v0.18.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.18.0) |
 | v0.17.2 | [v0.17.2.md](v0.17.2.md) | [Tarnished's Arsenal v0.17.2](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.17.2) |

@@ -29,10 +29,13 @@ class SnapshotPromotionTests(unittest.TestCase):
         (staging / "listed.csv").write_text("listed\n", encoding="utf-8")
         regulation = root / "regulation.bin"
         regulation.write_bytes(b"regulation")
+        anibnd = root / "c0000.anibnd.dcx"
+        anibnd.write_bytes(b"anibnd")
         write_snapshot_manifest(
             staging,
             regulation,
             profile=profile_definition("convergence"),
+            source_paths={"skillAnimations": anibnd},
             generated_at="2026-08-17",
         )
         return staging
@@ -138,6 +141,29 @@ class SnapshotPromotionTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     promote_snapshot(staging, destination)
                 self.assertEqual(self._files(destination), before)
+
+    def test_aow_capable_snapshot_accepts_skill_animations_instead_of_a_workbook(self) -> None:
+        capable = profile_definition("convergence")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            staging = self._create_staging(root)
+            regulation = root / "regulation.bin"
+            with self.assertRaisesRegex(FileNotFoundError, "workbook source"):
+                write_snapshot_manifest(staging, regulation, profile=capable)
+            anibnd = root / "c0000.anibnd.dcx"
+            anibnd.write_bytes(b"anibnd")
+            write_snapshot_manifest(
+                staging, regulation, profile=capable, source_paths={"skillAnimations": anibnd}
+            )
+            manifest = validate_snapshot_manifest(staging)
+            self.assertIn("skill animations", manifest["provenance"])
+            manifest_data = json.loads((staging / "manifest.json").read_text(encoding="utf-8"))
+            manifest_data["sources"] = [
+                source for source in manifest_data["sources"] if source["kind"] != "skillAnimations"
+            ]
+            self._write_manifest(staging, manifest_data)
+            with self.assertRaisesRegex(ValueError, "skill animation source"):
+                validate_snapshot_manifest(staging)
 
     def test_bundled_source_subdirectory_is_rejected_before_destination_mutation(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

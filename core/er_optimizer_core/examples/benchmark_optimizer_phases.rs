@@ -64,6 +64,16 @@ fn main() -> Result<(), String> {
             request.class_name = CUSTOM_STATS_CLASS_NAME.to_string();
             request.character_level += 79;
         }
+        // Locked cases name Vanilla equipment; a mod may lack it or leave its skill unmodeled.
+        if profile != "vanilla"
+            && (request.weapon_name.is_some() || request.aow_name.is_some())
+            && optimize_profiled(&request, &data)?.rows.is_empty()
+        {
+            if selected_case.is_some() {
+                return Err(format!("{name} has no results for {profile}"));
+            }
+            continue;
+        }
         let mut warmup_results = Vec::with_capacity(warmups);
         for _ in 0..warmups {
             let result = optimize_profiled(&request, &data)?;

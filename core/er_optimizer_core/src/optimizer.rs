@@ -42,7 +42,8 @@ struct AowChoice<'a> {
     aow: Option<&'a Aow>,
     skill_id: Option<u16>,
     skill_name: Option<&'a str>,
-    attack_rows: Vec<&'a AowAttackRow>,
+    // Shared with every weapon whose template selected the same rows.
+    attack_rows: Arc<[&'a AowAttackRow]>,
     // `Some` shares routes compiled once per Ash, weapon type and handling during
     // preparation; `None` (native skills, unselectable Ashes) compiles them where scored.
     scalar_routes: Option<SharedScalarRoutes<'a>>,
@@ -1047,21 +1048,28 @@ fn build_prepared_plan<'a>(
         weapon_groups.par_extend(chunk.par_iter().map_init(
             HashMap::new,
             |distribution_counts, prepared| {
+                // A weapon's search depends only on its active stats, which it records, so
+                // choices sharing them join that group without rebuilding the search.
                 let mut groups: Vec<(RelevantStatSearch, Vec<usize>)> = Vec::new();
+                let mut infeasible: Vec<[bool; COMBAT_STAT_COUNT]> = Vec::new();
                 for (aow_idx, aow_choice) in prepared.aow_choices.iter().enumerate() {
-                    let Some(search) = relevant_stat_search(
-                        request,
-                        data,
-                        constraints,
-                        prepared,
-                        aow_choice,
-                        distribution_counts,
-                    ) else {
-                        continue;
-                    };
-                    match groups.iter_mut().find(|(existing, _)| *existing == search) {
-                        Some((_, aow_indices)) => aow_indices.push(aow_idx),
-                        None => groups.push((search, vec![aow_idx])),
+                    let active = active_stats_for_choice(prepared, aow_choice, data);
+                    if let Some((_, aow_indices)) = groups
+                        .iter_mut()
+                        .find(|(search, _)| search.active == active)
+                    {
+                        aow_indices.push(aow_idx);
+                    } else if !infeasible.contains(&active) {
+                        match RelevantStatSearch::new(
+                            request,
+                            constraints,
+                            prepared.weapon,
+                            active,
+                            distribution_counts,
+                        ) {
+                            Some(search) => groups.push((search, vec![aow_idx])),
+                            None => infeasible.push(active),
+                        }
                     }
                 }
                 groups
@@ -4029,7 +4037,7 @@ fn materialize_aow_route(
         };
         resolved_attack_rows.as_slice()
     } else {
-        aow_choice.attack_rows.as_slice()
+        &aow_choice.attack_rows
     };
     if attack_rows.is_empty() {
         return Ok(None);

@@ -1,0 +1,1649 @@
+aow_id,sheet_row,raw_name,reason
+100,2,Lion's Claw a040005 [1] (Lacking FP),lacking_fp_variant
+101,2,Impaling Thrust a040005 [1] (Lacking FP),lacking_fp_variant
+101,4,[Claw] Impaling Thrust a044205 [1] (Lacking FP),lacking_fp_variant
+101,6,[Great Katana] Impaling Thrust a040205 [1] (Lacking FP),lacking_fp_variant
+101,8,[Greatsword] Impaling Thrust a040205 [1] (Lacking FP),lacking_fp_variant
+101,10,[Halberd] Impaling Thrust a040305 [1] (Lacking FP),lacking_fp_variant
+101,12,[Heavy Spear] Impaling Thrust a040305 [1] (Lacking FP),lacking_fp_variant
+101,14,[Spear] Impaling Thrust a040305 [1] (Lacking FP),lacking_fp_variant
+101,16,[Thrusting Shield] Impaling Thrust a045905 [1] (Lacking FP),lacking_fp_variant
+101,18,[Twinblade] Impaling Thrust a040305 [1] (Lacking FP),lacking_fp_variant
+101,20,Impaling Thrust a044205 [1] (Lacking FP),lacking_fp_variant
+102,2,Piercing Fang a040005 [1] (Lacking FP),lacking_fp_variant
+102,4,[Thrusting Shield] Piercing Fang a045905 [1] (Lacking FP),lacking_fp_variant
+103,2,Spinning Slash a040005 [1] (Lacking FP),lacking_fp_variant
+103,5,Spinning Slash a040015 [1] (Lacking FP),lacking_fp_variant
+103,6,Spinning Slash a040015 [2] (Lacking FP),lacking_fp_variant
+103,8,[Curved Greatsword] Spinning Slash a040205 [1] (Lacking FP),lacking_fp_variant
+103,11,[Curved Greatsword] Spinning Slash a040215 [1] (Lacking FP),lacking_fp_variant
+103,12,[Curved Greatsword] Spinning Slash a040215 [2] (Lacking FP),lacking_fp_variant
+103,14,[Great Katana] Spinning Slash a040205 [1] (Lacking FP),lacking_fp_variant
+103,17,[Great Katana] Spinning Slash a040215 [1] (Lacking FP),lacking_fp_variant
+103,18,[Great Katana] Spinning Slash a040215 [2] (Lacking FP),lacking_fp_variant
+103,20,[Greataxe] Spinning Slash a040205 [1] (Lacking FP),lacking_fp_variant
+103,23,[Greataxe] Spinning Slash a040215 [1] (Lacking FP),lacking_fp_variant
+103,24,[Greataxe] Spinning Slash a040215 [2] (Lacking FP),lacking_fp_variant
+103,26,[Greatsword] Spinning Slash a040205 [1] (Lacking FP),lacking_fp_variant
+103,29,[Greatsword] Spinning Slash a040215 [1] (Lacking FP),lacking_fp_variant
+103,30,[Greatsword] Spinning Slash a040215 [2] (Lacking FP),lacking_fp_variant
+103,32,[Halberd] Spinning Slash a040305 [1] (Lacking FP),lacking_fp_variant
+103,35,[Halberd] Spinning Slash a040315 [1] (Lacking FP),lacking_fp_variant
+103,36,[Halberd] Spinning Slash a040315 [2] (Lacking FP),lacking_fp_variant
+103,38,[Heavy Spear] Spinning Slash a040305 [1] (Lacking FP),lacking_fp_variant
+103,41,[Heavy Spear] Spinning Slash a040315 [1] (Lacking FP),lacking_fp_variant
+103,42,[Heavy Spear] Spinning Slash a040315 [2] (Lacking FP),lacking_fp_variant
+103,44,[Reverse-hand Blade] Spinning Slash a045805 [1] (Lacking FP),lacking_fp_variant
+103,47,[Reverse-hand Blade] Spinning Slash a045815 [1] (Lacking FP),lacking_fp_variant
+103,48,[Reverse-hand Blade] Spinning Slash a045815 [2] (Lacking FP),lacking_fp_variant
+103,50,[Scythe] Spinning Slash a040305 [1] (Lacking FP),lacking_fp_variant
+103,53,[Scythe] Spinning Slash a040315 [1] (Lacking FP),lacking_fp_variant
+103,54,[Scythe] Spinning Slash a040315 [2] (Lacking FP),lacking_fp_variant
+103,56,[Spear] Spinning Slash a040305 [1] (Lacking FP),lacking_fp_variant
+103,59,[Spear] Spinning Slash a040315 [1] (Lacking FP),lacking_fp_variant
+103,60,[Spear] Spinning Slash a040315 [2] (Lacking FP),lacking_fp_variant
+103,62,[Twinblade] Spinning Slash a042405 [1] (Lacking FP),lacking_fp_variant
+103,65,[Twinblade] Spinning Slash a042415 [1] (Lacking FP),lacking_fp_variant
+103,66,[Twinblade] Spinning Slash a042415 [2] (Lacking FP),lacking_fp_variant
+105,8,Charge Forth a040005 [1] (Lacking FP),lacking_fp_variant
+105,9,Charge Forth a040005 [2] (Lacking FP),lacking_fp_variant
+105,10,Charge Forth a040005 [3] (Lacking FP),lacking_fp_variant
+105,11,Charge Forth a040005 [4] (Lacking FP),lacking_fp_variant
+105,12,Charge Forth a040005 [5] (Lacking FP),lacking_fp_variant
+105,13,Charge Forth a040006 [1] (Lacking FP),lacking_fp_variant
+105,14,Charge Forth a040006 [2] (Lacking FP),lacking_fp_variant
+105,22,[Thrusting Shield] Charge Forth a045905 [1] (Lacking FP),lacking_fp_variant
+105,23,[Thrusting Shield] Charge Forth a045905 [2] (Lacking FP),lacking_fp_variant
+105,24,[Thrusting Shield] Charge Forth a045905 [3] (Lacking FP),lacking_fp_variant
+105,25,[Thrusting Shield] Charge Forth a045905 [4] (Lacking FP),lacking_fp_variant
+105,26,[Thrusting Shield] Charge Forth a045905 [5] (Lacking FP),lacking_fp_variant
+105,27,[Thrusting Shield] Charge Forth a045906 [1] (Lacking FP),lacking_fp_variant
+105,28,[Thrusting Shield] Charge Forth a045906 [2] (Lacking FP),lacking_fp_variant
+106,2,Stamp a040015 [1] (Lacking FP),lacking_fp_variant
+106,5,Stamp a040025 [1] (Lacking FP),lacking_fp_variant
+106,6,Stamp a040025 [2] (Lacking FP),lacking_fp_variant
+106,9,Stamp a040025 [1] (Lacking FP),lacking_fp_variant
+106,10,Stamp a040025 [2] (Lacking FP),lacking_fp_variant
+107,2,Stamp (Sweep) a040205 [1] (Lacking FP),lacking_fp_variant
+107,4,Stamp (Sweep) a040215 [1] (Lacking FP),lacking_fp_variant
+107,5,Stamp (Sweep) a040215 [2] (Lacking FP),lacking_fp_variant
+107,7,[Axe] Stamp (Sweep) a040005 [1] (Lacking FP),lacking_fp_variant
+107,10,[Axe] Stamp (Sweep) a040015 [1] (Lacking FP),lacking_fp_variant
+107,11,[Axe] Stamp (Sweep) a040015 [2] (Lacking FP),lacking_fp_variant
+107,17,[Colossal Weapon] Stamp (Sweep) a040205 [1] (Lacking FP),lacking_fp_variant
+107,19,[Colossal Weapon] Stamp (Sweep) a040215 [1] (Lacking FP),lacking_fp_variant
+107,20,[Colossal Weapon] Stamp (Sweep) a040215 [2] (Lacking FP),lacking_fp_variant
+107,22,[Flail] Stamp (Sweep) a040005 [1] (Lacking FP),lacking_fp_variant
+107,25,[Flail] Stamp (Sweep) a040015 [1] (Lacking FP),lacking_fp_variant
+107,26,[Flail] Stamp (Sweep) a040015 [2] (Lacking FP),lacking_fp_variant
+107,28,[Great Hammer] Stamp (Sweep) a040205 [1] (Lacking FP),lacking_fp_variant
+107,29,[Great Hammer] Stamp (Sweep) a040215 [1] (Lacking FP),lacking_fp_variant
+107,30,[Great Hammer] Stamp (Sweep) a040215 [2] (Lacking FP),lacking_fp_variant
+107,32,[Hammer] Stamp (Sweep) a040005 [1] (Lacking FP),lacking_fp_variant
+107,35,[Hammer] Stamp (Sweep) a040015 [1] (Lacking FP),lacking_fp_variant
+107,36,[Hammer] Stamp (Sweep) a040015 [2] (Lacking FP),lacking_fp_variant
+107,38,[Heavy Thrusting Sword] Stamp (Sweep) a040005 [1] (Lacking FP),lacking_fp_variant
+107,41,[Heavy Thrusting Sword] Stamp (Sweep) a040015 [1] (Lacking FP),lacking_fp_variant
+107,42,[Heavy Thrusting Sword] Stamp (Sweep) a040015 [2] (Lacking FP),lacking_fp_variant
+108,5,Blood Tax a040005 [1] (Lacking FP),lacking_fp_variant
+108,6,Blood Tax a040005 [2] (Lacking FP),lacking_fp_variant
+108,7,Blood Tax a040005 [3] (Lacking FP),lacking_fp_variant
+108,8,Blood Tax a040005 [4] (Lacking FP),lacking_fp_variant
+108,13,[Dagger] Blood Tax a040005 [1] (Lacking FP),lacking_fp_variant
+108,14,[Dagger] Blood Tax a040005 [2] (Lacking FP),lacking_fp_variant
+108,15,[Dagger] Blood Tax a040005 [3] (Lacking FP),lacking_fp_variant
+108,16,[Dagger] Blood Tax a040005 [4] (Lacking FP),lacking_fp_variant
+108,21,[Great Katana] Blood Tax a040205 [1] (Lacking FP),lacking_fp_variant
+108,22,[Great Katana] Blood Tax a040205 [2] (Lacking FP),lacking_fp_variant
+108,23,[Great Katana] Blood Tax a040205 [3] (Lacking FP),lacking_fp_variant
+108,24,[Great Katana] Blood Tax a040205 [4] (Lacking FP),lacking_fp_variant
+108,29,[Greatsword] Blood Tax a040205 [1] (Lacking FP),lacking_fp_variant
+108,30,[Greatsword] Blood Tax a040205 [2] (Lacking FP),lacking_fp_variant
+108,31,[Greatsword] Blood Tax a040205 [3] (Lacking FP),lacking_fp_variant
+108,32,[Greatsword] Blood Tax a040205 [4] (Lacking FP),lacking_fp_variant
+108,37,[Halberd] Blood Tax a040305 [1] (Lacking FP),lacking_fp_variant
+108,38,[Halberd] Blood Tax a040305 [2] (Lacking FP),lacking_fp_variant
+108,39,[Halberd] Blood Tax a040305 [3] (Lacking FP),lacking_fp_variant
+108,40,[Halberd] Blood Tax a040305 [4] (Lacking FP),lacking_fp_variant
+108,45,[Heavy Spear] Blood Tax a040305 [1] (Lacking FP),lacking_fp_variant
+108,46,[Heavy Spear] Blood Tax a040305 [2] (Lacking FP),lacking_fp_variant
+108,47,[Heavy Spear] Blood Tax a040305 [3] (Lacking FP),lacking_fp_variant
+108,48,[Heavy Spear] Blood Tax a040305 [4] (Lacking FP),lacking_fp_variant
+108,53,[Spear] Blood Tax a040305 [1] (Lacking FP),lacking_fp_variant
+108,54,[Spear] Blood Tax a040305 [2] (Lacking FP),lacking_fp_variant
+108,55,[Spear] Blood Tax a040305 [3] (Lacking FP),lacking_fp_variant
+108,56,[Spear] Blood Tax a040305 [4] (Lacking FP),lacking_fp_variant
+108,61,[Thrusting Shield] Blood Tax a045905 [1] (Lacking FP),lacking_fp_variant
+108,62,[Thrusting Shield] Blood Tax a045905 [2] (Lacking FP),lacking_fp_variant
+108,63,[Thrusting Shield] Blood Tax a045905 [3] (Lacking FP),lacking_fp_variant
+108,64,[Thrusting Shield] Blood Tax a045905 [4] (Lacking FP),lacking_fp_variant
+108,69,[Twinblade] Blood Tax a040305 [1] (Lacking FP),lacking_fp_variant
+108,70,[Twinblade] Blood Tax a040305 [2] (Lacking FP),lacking_fp_variant
+108,71,[Twinblade] Blood Tax a040305 [3] (Lacking FP),lacking_fp_variant
+108,72,[Twinblade] Blood Tax a040305 [4] (Lacking FP),lacking_fp_variant
+109,5,Repeating Thrust a040005 [1] (Lacking FP),lacking_fp_variant
+109,6,Repeating Thrust a040005 [2] (Lacking FP),lacking_fp_variant
+109,7,Repeating Thrust a040005 [3] (Lacking FP),lacking_fp_variant
+109,8,Repeating Thrust a040005 [4] (Lacking FP),lacking_fp_variant
+109,13,[Dagger] Repeating Thrust a040005 [1] (Lacking FP),lacking_fp_variant
+109,14,[Dagger] Repeating Thrust a040005 [2] (Lacking FP),lacking_fp_variant
+109,15,[Dagger] Repeating Thrust a040005 [3] (Lacking FP),lacking_fp_variant
+109,16,[Dagger] Repeating Thrust a040005 [4] (Lacking FP),lacking_fp_variant
+109,21,[Great Katana] Repeating Thrust a040205 [1] (Lacking FP),lacking_fp_variant
+109,22,[Great Katana] Repeating Thrust a040205 [2] (Lacking FP),lacking_fp_variant
+109,23,[Great Katana] Repeating Thrust a040205 [3] (Lacking FP),lacking_fp_variant
+109,24,[Great Katana] Repeating Thrust a040205 [4] (Lacking FP),lacking_fp_variant
+109,29,[Greatsword] Repeating Thrust a040205 [1] (Lacking FP),lacking_fp_variant
+109,30,[Greatsword] Repeating Thrust a040205 [2] (Lacking FP),lacking_fp_variant
+109,31,[Greatsword] Repeating Thrust a040205 [3] (Lacking FP),lacking_fp_variant
+109,32,[Greatsword] Repeating Thrust a040205 [4] (Lacking FP),lacking_fp_variant
+109,37,[Halberd] Repeating Thrust a040305 [1] (Lacking FP),lacking_fp_variant
+109,38,[Halberd] Repeating Thrust a040305 [2] (Lacking FP),lacking_fp_variant
+109,39,[Halberd] Repeating Thrust a040305 [3] (Lacking FP),lacking_fp_variant
+109,40,[Halberd] Repeating Thrust a040305 [4] (Lacking FP),lacking_fp_variant
+109,45,[Heavy Spear] Repeating Thrust a040305 [1] (Lacking FP),lacking_fp_variant
+109,46,[Heavy Spear] Repeating Thrust a040305 [2] (Lacking FP),lacking_fp_variant
+109,47,[Heavy Spear] Repeating Thrust a040305 [3] (Lacking FP),lacking_fp_variant
+109,48,[Heavy Spear] Repeating Thrust a040305 [4] (Lacking FP),lacking_fp_variant
+109,53,[Spear] Repeating Thrust a040305 [1] (Lacking FP),lacking_fp_variant
+109,54,[Spear] Repeating Thrust a040305 [2] (Lacking FP),lacking_fp_variant
+109,55,[Spear] Repeating Thrust a040305 [3] (Lacking FP),lacking_fp_variant
+109,56,[Spear] Repeating Thrust a040305 [4] (Lacking FP),lacking_fp_variant
+109,61,[Thrusting Shield] Repeating Thrust a045905 [1] (Lacking FP),lacking_fp_variant
+109,62,[Thrusting Shield] Repeating Thrust a045905 [2] (Lacking FP),lacking_fp_variant
+109,63,[Thrusting Shield] Repeating Thrust a045905 [3] (Lacking FP),lacking_fp_variant
+109,64,[Thrusting Shield] Repeating Thrust a045905 [4] (Lacking FP),lacking_fp_variant
+109,69,[Twinblade] Repeating Thrust a040305 [1] (Lacking FP),lacking_fp_variant
+109,70,[Twinblade] Repeating Thrust a040305 [2] (Lacking FP),lacking_fp_variant
+109,71,[Twinblade] Repeating Thrust a040305 [3] (Lacking FP),lacking_fp_variant
+109,72,[Twinblade] Repeating Thrust a040305 [4] (Lacking FP),lacking_fp_variant
+110,6,Wild Strikes a040056 [1] (Lacking FP),lacking_fp_variant
+110,7,Wild Strikes a040056 [2] (Lacking FP),lacking_fp_variant
+110,8,Wild Strikes a040057 [1] (Lacking FP),lacking_fp_variant
+110,9,Wild Strikes a040057 [2] (Lacking FP),lacking_fp_variant
+110,16,Wild Strikes a040065 [1] (Lacking FP),lacking_fp_variant
+110,17,Wild Strikes a040065 [2] (Lacking FP),lacking_fp_variant
+110,18,Wild Strikes a040067 [1] (Lacking FP),lacking_fp_variant
+110,19,Wild Strikes a040067 [2] (Lacking FP),lacking_fp_variant
+110,20,Wild Strikes a040068 [1] (Lacking FP),lacking_fp_variant
+110,21,Wild Strikes a040068 [2] (Lacking FP),lacking_fp_variant
+110,28,Wild Strikes a040075 [1] (Lacking FP),lacking_fp_variant
+110,29,Wild Strikes a040075 [2] (Lacking FP),lacking_fp_variant
+110,30,Wild Strikes a040077 [1] (Lacking FP),lacking_fp_variant
+110,31,Wild Strikes a040077 [2] (Lacking FP),lacking_fp_variant
+110,32,Wild Strikes a040078 [1] (Lacking FP),lacking_fp_variant
+110,33,Wild Strikes a040078 [2] (Lacking FP),lacking_fp_variant
+110,39,[Axe] Wild Strikes a040056 [1] (Lacking FP),lacking_fp_variant
+110,40,[Axe] Wild Strikes a040056 [2] (Lacking FP),lacking_fp_variant
+110,41,[Axe] Wild Strikes a040057 [1] (Lacking FP),lacking_fp_variant
+110,42,[Axe] Wild Strikes a040057 [2] (Lacking FP),lacking_fp_variant
+110,49,[Axe] Wild Strikes a040065 [1] (Lacking FP),lacking_fp_variant
+110,50,[Axe] Wild Strikes a040065 [2] (Lacking FP),lacking_fp_variant
+110,51,[Axe] Wild Strikes a040067 [1] (Lacking FP),lacking_fp_variant
+110,52,[Axe] Wild Strikes a040067 [2] (Lacking FP),lacking_fp_variant
+110,53,[Axe] Wild Strikes a040068 [1] (Lacking FP),lacking_fp_variant
+110,54,[Axe] Wild Strikes a040068 [2] (Lacking FP),lacking_fp_variant
+110,61,[Axe] Wild Strikes a040075 [1] (Lacking FP),lacking_fp_variant
+110,62,[Axe] Wild Strikes a040075 [2] (Lacking FP),lacking_fp_variant
+110,63,[Axe] Wild Strikes a040077 [1] (Lacking FP),lacking_fp_variant
+110,64,[Axe] Wild Strikes a040077 [2] (Lacking FP),lacking_fp_variant
+110,65,[Axe] Wild Strikes a040078 [1] (Lacking FP),lacking_fp_variant
+110,66,[Axe] Wild Strikes a040078 [2] (Lacking FP),lacking_fp_variant
+110,72,[Curved Sword] Wild Strikes a040056 [1] (Lacking FP),lacking_fp_variant
+110,73,[Curved Sword] Wild Strikes a040056 [2] (Lacking FP),lacking_fp_variant
+110,74,[Curved Sword] Wild Strikes a040057 [1] (Lacking FP),lacking_fp_variant
+110,75,[Curved Sword] Wild Strikes a040057 [2] (Lacking FP),lacking_fp_variant
+110,82,[Curved Sword] Wild Strikes a040065 [1] (Lacking FP),lacking_fp_variant
+110,83,[Curved Sword] Wild Strikes a040065 [2] (Lacking FP),lacking_fp_variant
+110,84,[Curved Sword] Wild Strikes a040067 [1] (Lacking FP),lacking_fp_variant
+110,85,[Curved Sword] Wild Strikes a040067 [2] (Lacking FP),lacking_fp_variant
+110,86,[Curved Sword] Wild Strikes a040068 [1] (Lacking FP),lacking_fp_variant
+110,87,[Curved Sword] Wild Strikes a040068 [2] (Lacking FP),lacking_fp_variant
+110,94,[Curved Sword] Wild Strikes a040075 [1] (Lacking FP),lacking_fp_variant
+110,95,[Curved Sword] Wild Strikes a040075 [2] (Lacking FP),lacking_fp_variant
+110,96,[Curved Sword] Wild Strikes a040077 [1] (Lacking FP),lacking_fp_variant
+110,97,[Curved Sword] Wild Strikes a040077 [2] (Lacking FP),lacking_fp_variant
+110,98,[Curved Sword] Wild Strikes a040078 [1] (Lacking FP),lacking_fp_variant
+110,99,[Curved Sword] Wild Strikes a040078 [2] (Lacking FP),lacking_fp_variant
+110,105,[Flail] Wild Strikes a040056 [1] (Lacking FP),lacking_fp_variant
+110,106,[Flail] Wild Strikes a040056 [2] (Lacking FP),lacking_fp_variant
+110,107,[Flail] Wild Strikes a040057 [1] (Lacking FP),lacking_fp_variant
+110,108,[Flail] Wild Strikes a040057 [2] (Lacking FP),lacking_fp_variant
+110,115,[Flail] Wild Strikes a040065 [1] (Lacking FP),lacking_fp_variant
+110,116,[Flail] Wild Strikes a040065 [2] (Lacking FP),lacking_fp_variant
+110,117,[Flail] Wild Strikes a040067 [1] (Lacking FP),lacking_fp_variant
+110,118,[Flail] Wild Strikes a040067 [2] (Lacking FP),lacking_fp_variant
+110,119,[Flail] Wild Strikes a040068 [1] (Lacking FP),lacking_fp_variant
+110,120,[Flail] Wild Strikes a040068 [2] (Lacking FP),lacking_fp_variant
+110,127,[Flail] Wild Strikes a040075 [1] (Lacking FP),lacking_fp_variant
+110,128,[Flail] Wild Strikes a040075 [2] (Lacking FP),lacking_fp_variant
+110,129,[Flail] Wild Strikes a040077 [1] (Lacking FP),lacking_fp_variant
+110,130,[Flail] Wild Strikes a040077 [2] (Lacking FP),lacking_fp_variant
+110,131,[Flail] Wild Strikes a040078 [1] (Lacking FP),lacking_fp_variant
+110,132,[Flail] Wild Strikes a040078 [2] (Lacking FP),lacking_fp_variant
+110,138,[Hammer] Wild Strikes a040056 [1] (Lacking FP),lacking_fp_variant
+110,139,[Hammer] Wild Strikes a040056 [2] (Lacking FP),lacking_fp_variant
+110,140,[Hammer] Wild Strikes a040057 [1] (Lacking FP),lacking_fp_variant
+110,141,[Hammer] Wild Strikes a040057 [2] (Lacking FP),lacking_fp_variant
+110,148,[Hammer] Wild Strikes a040065 [1] (Lacking FP),lacking_fp_variant
+110,149,[Hammer] Wild Strikes a040065 [2] (Lacking FP),lacking_fp_variant
+110,150,[Hammer] Wild Strikes a040067 [1] (Lacking FP),lacking_fp_variant
+110,151,[Hammer] Wild Strikes a040067 [2] (Lacking FP),lacking_fp_variant
+110,152,[Hammer] Wild Strikes a040068 [1] (Lacking FP),lacking_fp_variant
+110,153,[Hammer] Wild Strikes a040068 [2] (Lacking FP),lacking_fp_variant
+110,160,[Hammer] Wild Strikes a040075 [1] (Lacking FP),lacking_fp_variant
+110,161,[Hammer] Wild Strikes a040075 [2] (Lacking FP),lacking_fp_variant
+110,162,[Hammer] Wild Strikes a040077 [1] (Lacking FP),lacking_fp_variant
+110,163,[Hammer] Wild Strikes a040077 [2] (Lacking FP),lacking_fp_variant
+110,164,[Hammer] Wild Strikes a040078 [1] (Lacking FP),lacking_fp_variant
+110,165,[Hammer] Wild Strikes a040078 [2] (Lacking FP),lacking_fp_variant
+111,37,Spinning Strikes a040056 [1] (Lacking FP),lacking_fp_variant
+111,38,Spinning Strikes a040056 [2] (Lacking FP),lacking_fp_variant
+111,39,Spinning Strikes a040056 [3] (Lacking FP),lacking_fp_variant
+111,40,Spinning Strikes a040057 [1] (Lacking FP),lacking_fp_variant
+111,41,Spinning Strikes a040057 [2] (Lacking FP),lacking_fp_variant
+111,42,Spinning Strikes a040057 [3] (Lacking FP),lacking_fp_variant
+111,49,Spinning Strikes a040065 [1] (Lacking FP),lacking_fp_variant
+111,50,Spinning Strikes a040065 [2] (Lacking FP),lacking_fp_variant
+111,51,Spinning Strikes a040067 [1] (Lacking FP),lacking_fp_variant
+111,52,Spinning Strikes a040067 [2] (Lacking FP),lacking_fp_variant
+111,53,Spinning Strikes a040068 [1] (Lacking FP),lacking_fp_variant
+111,54,Spinning Strikes a040068 [2] (Lacking FP),lacking_fp_variant
+111,61,Spinning Strikes a040075 [1] (Lacking FP),lacking_fp_variant
+111,62,Spinning Strikes a040075 [2] (Lacking FP),lacking_fp_variant
+111,63,Spinning Strikes a040077 [1] (Lacking FP),lacking_fp_variant
+111,64,Spinning Strikes a040077 [2] (Lacking FP),lacking_fp_variant
+111,65,Spinning Strikes a040078 [1] (Lacking FP),lacking_fp_variant
+111,66,Spinning Strikes a040078 [2] (Lacking FP),lacking_fp_variant
+112,3,Double Slash a040005 [1] (Lacking FP),lacking_fp_variant
+112,4,Double Slash a040005 [2] (Lacking FP),lacking_fp_variant
+112,8,Double Slash a040015 [1] (Lacking FP),lacking_fp_variant
+112,9,Double Slash a040015 [2] (Lacking FP),lacking_fp_variant
+112,10,Double Slash a040015 [3] (Lacking FP),lacking_fp_variant
+112,12,Double Slash a040025 [1] (Lacking FP),lacking_fp_variant
+112,15,[Curved Greatsword] Double Slash a040205 [1] (Lacking FP),lacking_fp_variant
+112,16,[Curved Greatsword] Double Slash a040205 [2] (Lacking FP),lacking_fp_variant
+112,20,[Curved Greatsword] Double Slash a040215 [1] (Lacking FP),lacking_fp_variant
+112,21,[Curved Greatsword] Double Slash a040215 [2] (Lacking FP),lacking_fp_variant
+112,22,[Curved Greatsword] Double Slash a040215 [3] (Lacking FP),lacking_fp_variant
+112,24,[Curved Greatsword] Double Slash a040225 [1] (Lacking FP),lacking_fp_variant
+112,27,[Great Katana] Double Slash a040205 [1] (Lacking FP),lacking_fp_variant
+112,28,[Great Katana] Double Slash a040205 [2] (Lacking FP),lacking_fp_variant
+112,32,[Great Katana] Double Slash a040215 [1] (Lacking FP),lacking_fp_variant
+112,33,[Great Katana] Double Slash a040215 [2] (Lacking FP),lacking_fp_variant
+112,34,[Great Katana] Double Slash a040215 [3] (Lacking FP),lacking_fp_variant
+112,36,[Great Katana] Double Slash a040225 [1] (Lacking FP),lacking_fp_variant
+112,39,[Greatsword] Double Slash a040205 [1] (Lacking FP),lacking_fp_variant
+112,40,[Greatsword] Double Slash a040205 [2] (Lacking FP),lacking_fp_variant
+112,44,[Greatsword] Double Slash a040215 [1] (Lacking FP),lacking_fp_variant
+112,45,[Greatsword] Double Slash a040215 [2] (Lacking FP),lacking_fp_variant
+112,46,[Greatsword] Double Slash a040215 [3] (Lacking FP),lacking_fp_variant
+112,48,[Greatsword] Double Slash a040225 [1] (Lacking FP),lacking_fp_variant
+112,51,[Halberd] Double Slash a040305 [1] (Lacking FP),lacking_fp_variant
+112,52,[Halberd] Double Slash a040305 [2] (Lacking FP),lacking_fp_variant
+112,56,[Halberd] Double Slash a040315 [1] (Lacking FP),lacking_fp_variant
+112,57,[Halberd] Double Slash a040315 [2] (Lacking FP),lacking_fp_variant
+112,58,[Halberd] Double Slash a040315 [3] (Lacking FP),lacking_fp_variant
+112,60,[Halberd] Double Slash a040325 [1] (Lacking FP),lacking_fp_variant
+112,63,[Scythe] Double Slash a040305 [1] (Lacking FP),lacking_fp_variant
+112,64,[Scythe] Double Slash a040305 [2] (Lacking FP),lacking_fp_variant
+112,68,[Scythe] Double Slash a040315 [1] (Lacking FP),lacking_fp_variant
+112,69,[Scythe] Double Slash a040315 [2] (Lacking FP),lacking_fp_variant
+112,70,[Scythe] Double Slash a040315 [3] (Lacking FP),lacking_fp_variant
+112,72,[Scythe] Double Slash a040325 [1] (Lacking FP),lacking_fp_variant
+112,75,[Twinblade] Double Slash a040305 [1] (Lacking FP),lacking_fp_variant
+112,76,[Twinblade] Double Slash a040305 [2] (Lacking FP),lacking_fp_variant
+112,80,[Twinblade] Double Slash a040315 [1] (Lacking FP),lacking_fp_variant
+112,81,[Twinblade] Double Slash a040315 [2] (Lacking FP),lacking_fp_variant
+112,82,[Twinblade] Double Slash a040315 [3] (Lacking FP),lacking_fp_variant
+112,84,[Twinblade] Double Slash a040325 [1] (Lacking FP),lacking_fp_variant
+113,16,Prelate's Charge a040005 [1] (Lacking FP),lacking_fp_variant
+113,17,Prelate's Charge a040005 [2] (Lacking FP),lacking_fp_variant
+113,18,Prelate's Charge a040008 [1] (Lacking FP),lacking_fp_variant
+113,19,Prelate's Charge a040008 [2] (Lacking FP),lacking_fp_variant
+113,20,Prelate's Charge a040008 [3] (Lacking FP),lacking_fp_variant
+113,21,Prelate's Charge a040008 [4] (Lacking FP),lacking_fp_variant
+113,22,Prelate's Charge a040009 [1] (Lacking FP),lacking_fp_variant
+113,23,Prelate's Charge a040009 [2] (Lacking FP),lacking_fp_variant
+113,24,Prelate's Charge a040009 [3] (Lacking FP),lacking_fp_variant
+114,2,Unsheathe a040065 [1] (Lacking FP),lacking_fp_variant
+114,4,Unsheathe a040075 [1] (Lacking FP),lacking_fp_variant
+115,2,Square Off a040065 [1] (Lacking FP),lacking_fp_variant
+115,4,Square Off a040075 [1] (Lacking FP),lacking_fp_variant
+116,2,Giant Hunt a040005 [1] (Lacking FP),lacking_fp_variant
+118,5,Loretta's Slash a040305 [1] (Lacking FP),lacking_fp_variant
+118,6,Loretta's Slash a040305 [2] (Lacking FP),lacking_fp_variant
+118,7,Loretta's Slash a040305 [3] (Lacking FP),lacking_fp_variant
+118,8,Loretta's Slash a040305 [4] (Lacking FP),lacking_fp_variant
+118,13,[Halberd] Loretta's Slash a040305 [1] (Lacking FP),lacking_fp_variant
+118,14,[Halberd] Loretta's Slash a040305 [2] (Lacking FP),lacking_fp_variant
+118,15,[Halberd] Loretta's Slash a040305 [3] (Lacking FP),lacking_fp_variant
+118,16,[Halberd] Loretta's Slash a040305 [4] (Lacking FP),lacking_fp_variant
+118,21,[Heavy Spear] Loretta's Slash a040305 [1] (Lacking FP),lacking_fp_variant
+118,22,[Heavy Spear] Loretta's Slash a040305 [2] (Lacking FP),lacking_fp_variant
+118,23,[Heavy Spear] Loretta's Slash a040305 [3] (Lacking FP),lacking_fp_variant
+118,24,[Heavy Spear] Loretta's Slash a040305 [4] (Lacking FP),lacking_fp_variant
+118,29,[Scythe] Loretta's Slash a040305 [1] (Lacking FP),lacking_fp_variant
+118,30,[Scythe] Loretta's Slash a040305 [2] (Lacking FP),lacking_fp_variant
+118,31,[Scythe] Loretta's Slash a040305 [3] (Lacking FP),lacking_fp_variant
+118,32,[Scythe] Loretta's Slash a040305 [4] (Lacking FP),lacking_fp_variant
+118,37,[Twinblade] Loretta's Slash a040305 [1] (Lacking FP),lacking_fp_variant
+118,38,[Twinblade] Loretta's Slash a040305 [2] (Lacking FP),lacking_fp_variant
+118,39,[Twinblade] Loretta's Slash a040305 [3] (Lacking FP),lacking_fp_variant
+118,40,[Twinblade] Loretta's Slash a040305 [4] (Lacking FP),lacking_fp_variant
+119,2,Poison Moth Flight a040005 [1] (Lacking FP),lacking_fp_variant
+119,4,[Reverse-hand Blade] Poison Moth Flight a045805 [1] (Lacking FP),lacking_fp_variant
+120,8,Spinning Weapon a040005 [1] (Lacking FP),lacking_fp_variant
+120,9,Spinning Weapon a040005 [2] (Lacking FP),lacking_fp_variant
+120,10,Spinning Weapon a040005 [3] (Lacking FP),lacking_fp_variant
+120,11,Spinning Weapon a040005 [4] (Lacking FP),lacking_fp_variant
+120,12,Spinning Weapon a040005 [5] (Lacking FP),lacking_fp_variant
+120,13,Spinning Weapon a040005 [6] (Lacking FP),lacking_fp_variant
+120,14,Spinning Weapon a040005 [7] (Lacking FP),lacking_fp_variant
+120,22,[Dagger] Spinning Weapon a040005 [1] (Lacking FP),lacking_fp_variant
+120,23,[Dagger] Spinning Weapon a040005 [2] (Lacking FP),lacking_fp_variant
+120,24,[Dagger] Spinning Weapon a040005 [3] (Lacking FP),lacking_fp_variant
+120,25,[Dagger] Spinning Weapon a040005 [4] (Lacking FP),lacking_fp_variant
+120,26,[Dagger] Spinning Weapon a040005 [5] (Lacking FP),lacking_fp_variant
+120,27,[Dagger] Spinning Weapon a040005 [6] (Lacking FP),lacking_fp_variant
+120,28,[Dagger] Spinning Weapon a040005 [7] (Lacking FP),lacking_fp_variant
+121,6,Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,7,Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,13,[Axe] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,14,[Axe] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,20,[Beast Claw] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,21,[Beast Claw] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,27,[Claw] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,28,[Claw] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,34,[Colossal Sword] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,35,[Colossal Sword] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,41,[Colossal Weapon] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,42,[Colossal Weapon] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,48,[Curved Greatsword] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,49,[Curved Greatsword] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,55,[Curved Sword] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,56,[Curved Sword] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,62,[Dagger] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,63,[Dagger] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,69,[Fist] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,70,[Fist] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,76,[Flail] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,77,[Flail] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,83,[Great Hammer] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,84,[Great Hammer] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,90,[Great Katana] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,91,[Great Katana] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,97,[Greataxe] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,98,[Greataxe] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,104,[Greatsword] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,105,[Greatsword] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,111,[Halberd] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,112,[Halberd] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,118,[Hammer] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,119,[Hammer] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,125,[Hand-to-Hand] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,126,[Hand-to-Hand] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,132,[Heavy Spear] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,133,[Heavy Spear] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,139,[Heavy Thrusting Sword] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,140,[Heavy Thrusting Sword] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,146,[Katana] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,147,[Katana] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,153,[Light Greatsword] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,154,[Light Greatsword] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,160,[Perfume Bottle] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,161,[Perfume Bottle] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,162,[Perfume Bottle] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,163,[Perfume Bottle] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,169,[Reverse-hand Blade] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,170,[Reverse-hand Blade] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,176,[Scythe] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,177,[Scythe] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,183,[Spear] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,184,[Spear] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,190,[Throwing Blade] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,191,[Throwing Blade] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,197,[Thrusting Shield] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,198,[Thrusting Shield] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,204,[Thrusting Sword] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,205,[Thrusting Sword] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,211,[Twinblade] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,212,[Twinblade] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+121,218,[Whip] Storm Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+121,219,[Whip] Storm Stomp a040015 [2] (Lacking FP),lacking_fp_variant
+122,6,Storm Assault a040305 [1] (Lacking FP),lacking_fp_variant
+122,7,Storm Assault a040305 [2] (Lacking FP),lacking_fp_variant
+122,8,Storm Assault a040305 [3] (Lacking FP),lacking_fp_variant
+122,14,[Heavy Thrusting Sword] Storm Assault a040005 [1] (Lacking FP),lacking_fp_variant
+122,15,[Heavy Thrusting Sword] Storm Assault a040005 [2] (Lacking FP),lacking_fp_variant
+122,16,[Heavy Thrusting Sword] Storm Assault a040005 [3] (Lacking FP),lacking_fp_variant
+123,7,Stormcaller a040005 [1] (Lacking FP),lacking_fp_variant
+123,8,Stormcaller a040005 [2] (Lacking FP),lacking_fp_variant
+123,9,Stormcaller a040005 [3] (Lacking FP),lacking_fp_variant
+123,14,Stormcaller a040015 [1] (Lacking FP),lacking_fp_variant
+123,15,Stormcaller a040015 [2] (Lacking FP),lacking_fp_variant
+123,20,Stormcaller a040025 [1] (Lacking FP),lacking_fp_variant
+123,21,Stormcaller a040025 [2] (Lacking FP),lacking_fp_variant
+123,28,[Halberd] Stormcaller a040305 [1] (Lacking FP),lacking_fp_variant
+123,29,[Halberd] Stormcaller a040305 [2] (Lacking FP),lacking_fp_variant
+123,30,[Halberd] Stormcaller a040305 [3] (Lacking FP),lacking_fp_variant
+123,35,[Halberd] Stormcaller a040315 [1] (Lacking FP),lacking_fp_variant
+123,36,[Halberd] Stormcaller a040315 [2] (Lacking FP),lacking_fp_variant
+123,41,[Halberd] Stormcaller a040325 [1] (Lacking FP),lacking_fp_variant
+123,42,[Halberd] Stormcaller a040325 [2] (Lacking FP),lacking_fp_variant
+123,49,[Heavy Spear] Stormcaller a040305 [1] (Lacking FP),lacking_fp_variant
+123,50,[Heavy Spear] Stormcaller a040305 [2] (Lacking FP),lacking_fp_variant
+123,51,[Heavy Spear] Stormcaller a040305 [3] (Lacking FP),lacking_fp_variant
+123,56,[Heavy Spear] Stormcaller a040315 [1] (Lacking FP),lacking_fp_variant
+123,57,[Heavy Spear] Stormcaller a040315 [2] (Lacking FP),lacking_fp_variant
+123,62,[Heavy Spear] Stormcaller a040325 [1] (Lacking FP),lacking_fp_variant
+123,63,[Heavy Spear] Stormcaller a040325 [2] (Lacking FP),lacking_fp_variant
+123,70,[Scythe] Stormcaller a040305 [1] (Lacking FP),lacking_fp_variant
+123,71,[Scythe] Stormcaller a040305 [2] (Lacking FP),lacking_fp_variant
+123,72,[Scythe] Stormcaller a040305 [3] (Lacking FP),lacking_fp_variant
+123,77,[Scythe] Stormcaller a040315 [1] (Lacking FP),lacking_fp_variant
+123,78,[Scythe] Stormcaller a040315 [2] (Lacking FP),lacking_fp_variant
+123,83,[Scythe] Stormcaller a040325 [1] (Lacking FP),lacking_fp_variant
+123,84,[Scythe] Stormcaller a040325 [2] (Lacking FP),lacking_fp_variant
+123,91,[Spear] Stormcaller a040305 [1] (Lacking FP),lacking_fp_variant
+123,92,[Spear] Stormcaller a040305 [2] (Lacking FP),lacking_fp_variant
+123,93,[Spear] Stormcaller a040305 [3] (Lacking FP),lacking_fp_variant
+123,98,[Spear] Stormcaller a040315 [1] (Lacking FP),lacking_fp_variant
+123,99,[Spear] Stormcaller a040315 [2] (Lacking FP),lacking_fp_variant
+123,104,[Spear] Stormcaller a040325 [1] (Lacking FP),lacking_fp_variant
+123,105,[Spear] Stormcaller a040325 [2] (Lacking FP),lacking_fp_variant
+124,3,Sword Dance a040005 [1] (Lacking FP),lacking_fp_variant
+124,4,Sword Dance a040005 [2] (Lacking FP),lacking_fp_variant
+124,6,Sword Dance a040015 [1] (Lacking FP),lacking_fp_variant
+124,9,[Curved Greatsword] Sword Dance a040205 [1] (Lacking FP),lacking_fp_variant
+124,10,[Curved Greatsword] Sword Dance a040205 [2] (Lacking FP),lacking_fp_variant
+124,12,[Curved Greatsword] Sword Dance a040215 [1] (Lacking FP),lacking_fp_variant
+124,15,[Great Katana] Sword Dance a040205 [1] (Lacking FP),lacking_fp_variant
+124,16,[Great Katana] Sword Dance a040205 [2] (Lacking FP),lacking_fp_variant
+124,18,[Great Katana] Sword Dance a040215 [1] (Lacking FP),lacking_fp_variant
+124,21,[Greataxe] Sword Dance a040205 [1] (Lacking FP),lacking_fp_variant
+124,22,[Greataxe] Sword Dance a040205 [2] (Lacking FP),lacking_fp_variant
+124,24,[Greataxe] Sword Dance a040215 [1] (Lacking FP),lacking_fp_variant
+124,27,[Greatsword] Sword Dance a040205 [1] (Lacking FP),lacking_fp_variant
+124,28,[Greatsword] Sword Dance a040205 [2] (Lacking FP),lacking_fp_variant
+124,30,[Greatsword] Sword Dance a040215 [1] (Lacking FP),lacking_fp_variant
+124,33,[Halberd] Sword Dance a040305 [1] (Lacking FP),lacking_fp_variant
+124,34,[Halberd] Sword Dance a040305 [2] (Lacking FP),lacking_fp_variant
+124,36,[Halberd] Sword Dance a040315 [1] (Lacking FP),lacking_fp_variant
+124,39,[Reverse-hand Blade] Sword Dance a045805 [1] (Lacking FP),lacking_fp_variant
+124,40,[Reverse-hand Blade] Sword Dance a045805 [2] (Lacking FP),lacking_fp_variant
+124,42,[Reverse-hand Blade] Sword Dance a045815 [1] (Lacking FP),lacking_fp_variant
+124,45,[Scythe] Sword Dance a040305 [1] (Lacking FP),lacking_fp_variant
+124,46,[Scythe] Sword Dance a040305 [2] (Lacking FP),lacking_fp_variant
+124,48,[Scythe] Sword Dance a040315 [1] (Lacking FP),lacking_fp_variant
+124,51,[Spear] Sword Dance a040305 [1] (Lacking FP),lacking_fp_variant
+124,52,[Spear] Sword Dance a040305 [2] (Lacking FP),lacking_fp_variant
+124,54,[Spear] Sword Dance a040315 [1] (Lacking FP),lacking_fp_variant
+124,57,[Twinblade] Sword Dance a042405 [1] (Lacking FP),lacking_fp_variant
+124,58,[Twinblade] Sword Dance a042405 [2] (Lacking FP),lacking_fp_variant
+124,60,[Twinblade] Sword Dance a042415 [1] (Lacking FP),lacking_fp_variant
+125,8,Spinning Chain a040055 [1] (Lacking FP),lacking_fp_variant
+125,9,Spinning Chain a040055 [2] (Lacking FP),lacking_fp_variant
+125,10,Spinning Chain a040056 [1] (Lacking FP),lacking_fp_variant
+125,11,Spinning Chain a040056 [2] (Lacking FP),lacking_fp_variant
+125,12,Spinning Chain a040056 [3] (Lacking FP),lacking_fp_variant
+125,13,Spinning Chain a040056 [4] (Lacking FP),lacking_fp_variant
+125,14,Spinning Chain a040056 [5] (Lacking FP),lacking_fp_variant
+125,15,Spinning Chain a040057 [1] (Lacking FP),lacking_fp_variant
+125,16,Spinning Chain a040057 [2] (Lacking FP),lacking_fp_variant
+125,17,Spinning Chain a040057 [3] (Lacking FP),lacking_fp_variant
+125,18,Spinning Chain a040057 [4] (Lacking FP),lacking_fp_variant
+125,19,Spinning Chain a040057 [5] (Lacking FP),lacking_fp_variant
+125,20,Spinning Chain a040057 [6] (Lacking FP),lacking_fp_variant
+125,23,Spinning Chain a040065 [1] (Lacking FP),lacking_fp_variant
+125,24,Spinning Chain a040065 [2] (Lacking FP),lacking_fp_variant
+125,27,Spinning Chain a040075 [1] (Lacking FP),lacking_fp_variant
+125,28,Spinning Chain a040075 [2] (Lacking FP),lacking_fp_variant
+126,3,Storm Stance a040065 [1] (Lacking FP),lacking_fp_variant
+126,9,Storm Stance a040075 [1] (Lacking FP),lacking_fp_variant
+126,10,Storm Stance a040075 [2] (Lacking FP),lacking_fp_variant
+126,11,Storm Stance a040075 [3] (Lacking FP),lacking_fp_variant
+127,5,Spear of Frenzy a040005 [1] (Lacking FP),lacking_fp_variant
+127,6,Spear of Frenzy a040005 [2] (Lacking FP),lacking_fp_variant
+127,8,Spear of Frenzy a040015 [1] (Lacking FP),lacking_fp_variant
+128,3,Soporific Assault a040015 [1] (Lacking FP),lacking_fp_variant
+129,7,Evisceration a040005 [1] (Lacking FP),lacking_fp_variant
+129,8,Evisceration a040005 [2] (Lacking FP),lacking_fp_variant
+129,9,Evisceration a040005 [3] (Lacking FP),lacking_fp_variant
+129,10,Evisceration a040005 [4] (Lacking FP),lacking_fp_variant
+129,11,Evisceration a040005 [5] (Lacking FP),lacking_fp_variant
+129,12,Evisceration a040005 [6] (Lacking FP),lacking_fp_variant
+130,5,Malenian Homage a040005 [1] (Lacking FP),lacking_fp_variant
+130,6,Malenian Homage a040005 [2] (Lacking FP),lacking_fp_variant
+130,7,Malenian Homage a040005 [3] (Lacking FP),lacking_fp_variant
+130,8,Malenian Homage a040005 [4] (Lacking FP),lacking_fp_variant
+130,13,Malenian Homage a040015 [1] (Lacking FP),lacking_fp_variant
+130,14,Malenian Homage a040015 [2] (Lacking FP),lacking_fp_variant
+130,15,Malenian Homage a040015 [3] (Lacking FP),lacking_fp_variant
+130,16,Malenian Homage a040015 [4] (Lacking FP),lacking_fp_variant
+130,18,Malenian Homage a040025 [1] (Lacking FP),lacking_fp_variant
+131,9,Whirling Iceblades a040005 [1] (Lacking FP),lacking_fp_variant
+131,10,Whirling Iceblades a040005 [2] (Lacking FP),lacking_fp_variant
+131,11,Whirling Iceblades a040005 [3] (Lacking FP),lacking_fp_variant
+132,2,Osian's Fury a040005 [1] (Lacking FP),lacking_fp_variant
+132,5,Osian's Fury a040015 [1] (Lacking FP),lacking_fp_variant
+132,6,Osian's Fury a040015 [2] (Lacking FP),lacking_fp_variant
+133,2,Storm Thrust a040005 [1] (Lacking FP),lacking_fp_variant
+136,5,Bloodhound Assault a040005 [1] (Lacking FP),lacking_fp_variant
+136,6,Bloodhound Assault a040005 [2] (Lacking FP),lacking_fp_variant
+136,7,Bloodhound Assault a040005 [3] (Lacking FP),lacking_fp_variant
+136,8,Bloodhound Assault a040006 [1] (Lacking FP),lacking_fp_variant
+136,11,Bloodhound Assault a040015 [1] (Lacking FP),lacking_fp_variant
+136,12,Bloodhound Assault a040015 [2] (Lacking FP),lacking_fp_variant
+137,3,Wind Dance a040005 [1] (Lacking FP),lacking_fp_variant
+137,4,Wind Dance a040005 [2] (Lacking FP),lacking_fp_variant
+137,8,Wind Dance a040015 [1] (Lacking FP),lacking_fp_variant
+137,9,Wind Dance a040015 [2] (Lacking FP),lacking_fp_variant
+137,12,Wind Dance a040025 [1] (Lacking FP),lacking_fp_variant
+137,13,Wind Dance a040025 [2] (Lacking FP),lacking_fp_variant
+138,2,Lunging Harvest a040005 [1] (Lacking FP),lacking_fp_variant
+138,5,Lunging Harvest a040015 [1] (Lacking FP),lacking_fp_variant
+138,6,Lunging Harvest a040015 [2] (Lacking FP),lacking_fp_variant
+141,4,Carwyn's Bladestorm a040005 [1] (Lacking FP),lacking_fp_variant
+141,5,Carwyn's Bladestorm a040005 [2] (Lacking FP),lacking_fp_variant
+141,6,Carwyn's Bladestorm a040005 [3] (Lacking FP),lacking_fp_variant
+141,8,Carwyn's Bladestorm a040015 [1] (Lacking FP),lacking_fp_variant
+142,3,Vaulting Strike a040005 [1] (Lacking FP),lacking_fp_variant
+144,2,Evasive Strike a040005 [1] (Lacking FP),lacking_fp_variant
+144,4,Evasive Strike a040015 [1] (Lacking FP),lacking_fp_variant
+145,2,Heart Piercer a040005 [1] (Lacking FP),lacking_fp_variant
+145,4,Heart Piercer a040015 [1] (Lacking FP),lacking_fp_variant
+146,3,Underworld Conduit a040005 [1] (Lacking FP),lacking_fp_variant
+146,4,Underworld Conduit a040005 [2] (Lacking FP),lacking_fp_variant
+146,7,Underworld Conduit a040015 [1] (Lacking FP),lacking_fp_variant
+146,8,Underworld Conduit a040015 [2] (Lacking FP),lacking_fp_variant
+146,9,Underworld Conduit a040015 [3] (Lacking FP),lacking_fp_variant
+148,4,Whirling Slice a040005 [1] (Lacking FP),lacking_fp_variant
+148,5,Whirling Slice a040005 [2] (Lacking FP),lacking_fp_variant
+148,6,Whirling Slice a040005 [3] (Lacking FP),lacking_fp_variant
+148,9,Whirling Slice a040015 [1] (Lacking FP),lacking_fp_variant
+148,10,Whirling Slice a040015 [2] (Lacking FP),lacking_fp_variant
+149,2,Concussive Smash a040005 [1] (Lacking FP),lacking_fp_variant
+150,5,Martyr's Vengeance a040005 [1] (Lacking FP),lacking_fp_variant
+150,6,Martyr's Vengeance a040006 [1] (Lacking FP),lacking_fp_variant
+150,20,Martyr's Vengeance a040015 [1] (Lacking FP),lacking_fp_variant
+150,27,Martyr's Vengeance a040025 [1] (Lacking FP),lacking_fp_variant
+150,28,Martyr's Vengeance a040025 [2] (Lacking FP),lacking_fp_variant
+150,29,Martyr's Vengeance a040025 [2] (Lacking FP),lacking_fp_variant
+150,30,Martyr's Vengeance a040025 [2] (Lacking FP),lacking_fp_variant
+151,6,Death Rune's Invocation a040005 [1] (Lacking FP),lacking_fp_variant
+151,7,Death Rune's Invocation a040005 [3] (Lacking FP),lacking_fp_variant
+151,26,Death Rune's Invocation a040085 [1] (Lacking FP),lacking_fp_variant
+151,27,Death Rune's Invocation a040085 [2] (Lacking FP),lacking_fp_variant
+151,28,Death Rune's Invocation a040086 [1] (Lacking FP),lacking_fp_variant
+151,29,Death Rune's Invocation a040086 [2] (Lacking FP),lacking_fp_variant
+151,30,Death Rune's Invocation a040086 [3] (Lacking FP),lacking_fp_variant
+151,31,Death Rune's Invocation a040087 [1] (Lacking FP),lacking_fp_variant
+151,32,Death Rune's Invocation a040087 [2] (Lacking FP),lacking_fp_variant
+151,33,Death Rune's Invocation a040087 [3] (Lacking FP),lacking_fp_variant
+151,34,Death Rune's Invocation a040088 [1] (Lacking FP),lacking_fp_variant
+151,35,Death Rune's Invocation a040088 [2] (Lacking FP),lacking_fp_variant
+151,36,Death Rune's Invocation a040088 [3] (Lacking FP),lacking_fp_variant
+154,8,Runic Stance a040005 [1] (Lacking FP),lacking_fp_variant
+154,9,Runic Stance a040006 [1] (Lacking FP),lacking_fp_variant
+154,10,Runic Stance a040009 [1] (Lacking FP),lacking_fp_variant
+154,26,Runic Stance a040015 [1] (Lacking FP),lacking_fp_variant
+154,52,Runic Stance a040025 [1] (Lacking FP),lacking_fp_variant
+154,54,Runic Stance a040046 [1] (Lacking FP),lacking_fp_variant
+154,64,Runic Stance a040065 [1] (Lacking FP),lacking_fp_variant
+154,66,Runic Stance a040075 [1] (Lacking FP),lacking_fp_variant
+155,5,Finger Severer a040005 [1] (Lacking FP),lacking_fp_variant
+155,6,Finger Severer a040006 [1] (Lacking FP),lacking_fp_variant
+155,7,Finger Severer a040007 [1] (Lacking FP),lacking_fp_variant
+155,10,Finger Severer a040015 [1] (Lacking FP),lacking_fp_variant
+160,2,Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,11,Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,13,[Axe] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,22,[Axe] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,24,[Beast Claw] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,33,[Beast Claw] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,35,[Claw] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,44,[Claw] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,46,[Colossal Sword] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,55,[Colossal Sword] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,57,[Colossal Weapon] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,66,[Colossal Weapon] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,68,[Curved Greatsword] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,77,[Curved Greatsword] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,79,[Curved Sword] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,88,[Curved Sword] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,90,[Dagger] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,99,[Dagger] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,101,[Fist] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,110,[Fist] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,112,[Flail] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,121,[Flail] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,123,[Great Hammer] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,132,[Great Hammer] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,134,[Great Katana] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,143,[Great Katana] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,145,[Greataxe] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,154,[Greataxe] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,156,[Greatsword] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,165,[Greatsword] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,167,[Halberd] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,176,[Halberd] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,178,[Hammer] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,187,[Hammer] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,189,[Hand-to-Hand] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,198,[Hand-to-Hand] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,200,[Heavy Spear] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,209,[Heavy Spear] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,211,[Heavy Thrusting Sword] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,220,[Heavy Thrusting Sword] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,222,[Katana] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,231,[Katana] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,233,[Light Greatsword] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,242,[Light Greatsword] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,244,[Reverse-hand Blade] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,253,[Reverse-hand Blade] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,255,[Scythe] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,264,[Scythe] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,266,[Spear] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,275,[Spear] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,277,[Throwing Blade] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,286,[Throwing Blade] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,288,[Thrusting Shield] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,297,[Thrusting Shield] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,299,[Thrusting Sword] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,308,[Thrusting Sword] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,310,[Twinblade] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,319,[Twinblade] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,321,[Whip] Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,330,[Whip] Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+160,331,Hoarfrost Stomp a040005 [1] (Lacking FP),lacking_fp_variant
+160,332,Hoarfrost Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+162,3,Archea's Dance a040005 [1] (Lacking FP),lacking_fp_variant
+162,4,Archea's Dance a040005 [2] (Lacking FP),lacking_fp_variant
+162,6,Archea's Dance a040015 [1] (Lacking FP),lacking_fp_variant
+162,12,Archea's Dance a040025 [1] (Lacking FP),lacking_fp_variant
+162,13,Archea's Dance a040025 [2] (Lacking FP),lacking_fp_variant
+162,14,Archea's Dance a040025 [3] (Lacking FP),lacking_fp_variant
+162,15,Archea's Dance a040025 [4] (Lacking FP),lacking_fp_variant
+165,3,Impaling Vapors a040305 [1] (Lacking FP),lacking_fp_variant
+165,4,Impaling Vapors a040305 [2] (Lacking FP),lacking_fp_variant
+165,10,Impaling Vapors a040315 [1] (Lacking FP),lacking_fp_variant
+165,11,Impaling Vapors a040315 [2] (Lacking FP),lacking_fp_variant
+177,2,Blighted Summoning a040005 [1] (Lacking FP),lacking_fp_variant
+177,12,Blighted Summoning a040015 [1] (Lacking FP),lacking_fp_variant
+179,9,Frozen Lightning Orb a040005 [1] (Lacking FP),lacking_fp_variant
+179,10,Frozen Lightning Orb a040005 [2] (Lacking FP),lacking_fp_variant
+179,11,Frozen Lightning Orb a040006 [1] (Lacking FP),lacking_fp_variant
+179,12,Frozen Lightning Orb a040006 [2] (Lacking FP),lacking_fp_variant
+180,2,Galvanic Extraction a040005 [1] (Lacking FP),lacking_fp_variant
+180,3,Galvanic Extraction a040006 [1] (Lacking FP),lacking_fp_variant
+180,4,Galvanic Extraction a040006 [2] (Lacking FP),lacking_fp_variant
+180,17,Galvanic Extraction a040015 [1] (Lacking FP),lacking_fp_variant
+180,18,Galvanic Extraction a040015 [2] (Lacking FP),lacking_fp_variant
+180,19,Galvanic Extraction a040015 [3] (Lacking FP),lacking_fp_variant
+180,21,Galvanic Extraction a040025 [1] (Lacking FP),lacking_fp_variant
+181,3,Umbral Stance a040065 [1] (Lacking FP),lacking_fp_variant
+181,8,Umbral Stance a040075 [1] (Lacking FP),lacking_fp_variant
+182,5,Virtuous Consecration a040005 [1] (Lacking FP),lacking_fp_variant
+182,7,Virtuous Consecration a040015 [1] (Lacking FP),lacking_fp_variant
+184,2,Flash of Gold a040005 [1] (Lacking FP),lacking_fp_variant
+184,4,Flash of Gold a040015 [1] (Lacking FP),lacking_fp_variant
+184,6,Flash of Gold a040025 [1] (Lacking FP),lacking_fp_variant
+184,8,Flash of Gold a040045 [1] (Lacking FP),lacking_fp_variant
+186,15,Valiant Upheaval a040005 [1] (Lacking FP),lacking_fp_variant
+186,16,Valiant Upheaval a040005 [2] (Lacking FP),lacking_fp_variant
+186,17,Valiant Upheaval a040005 [3] (Lacking FP),lacking_fp_variant
+186,18,Valiant Upheaval a040005 [4] (Lacking FP),lacking_fp_variant
+186,19,Valiant Upheaval a040005 [5] (Lacking FP),lacking_fp_variant
+186,20,Valiant Upheaval a040005 [6] (Lacking FP),lacking_fp_variant
+187,15,Kindred's Upheaval a040005 [1] (Lacking FP),lacking_fp_variant
+187,16,Kindred's Upheaval a040005 [2] (Lacking FP),lacking_fp_variant
+187,17,Kindred's Upheaval a040005 [3] (Lacking FP),lacking_fp_variant
+187,18,Kindred's Upheaval a040005 [4] (Lacking FP),lacking_fp_variant
+187,19,Kindred's Upheaval a040005 [5] (Lacking FP),lacking_fp_variant
+187,20,Kindred's Upheaval a040005 [6] (Lacking FP),lacking_fp_variant
+194,2,Virulent Slice a040005 [1] (Lacking FP),lacking_fp_variant
+194,4,Virulent Slice a040015 [1] (Lacking FP),lacking_fp_variant
+200,4,Glintblade Phalanx a040015 [1] (Lacking FP),lacking_fp_variant
+200,8,[Thrusting Shield] Glintblade Phalanx a045915 [1] (Lacking FP),lacking_fp_variant
+201,3,Sacred Blade a040005 [1] (Lacking FP),lacking_fp_variant
+202,3,Ice Spear a040005 [1] (Lacking FP),lacking_fp_variant
+202,4,Ice Spear a040005 [2] (Lacking FP),lacking_fp_variant
+202,7,[Twinblade] Ice Spear a042405 [1] (Lacking FP),lacking_fp_variant
+202,8,[Twinblade] Ice Spear a042405 [2] (Lacking FP),lacking_fp_variant
+203,2,Glintstone Pebble a040005 [1] (Lacking FP),lacking_fp_variant
+203,4,Glintstone Pebble a040015 [1] (Lacking FP),lacking_fp_variant
+203,6,[Thrusting Shield] Glintstone Pebble a045905 [1] (Lacking FP),lacking_fp_variant
+203,8,[Thrusting Shield] Glintstone Pebble a045915 [1] (Lacking FP),lacking_fp_variant
+204,2,Bloody Slash a040005 [1] (Lacking FP),lacking_fp_variant
+204,4,Bloody Slash a040015 [1] (Lacking FP),lacking_fp_variant
+204,6,[Curved Greatsword] Bloody Slash a040005 [1] (Lacking FP),lacking_fp_variant
+204,8,[Curved Greatsword] Bloody Slash a040015 [1] (Lacking FP),lacking_fp_variant
+204,10,[Curved Sword] Bloody Slash a040005 [1] (Lacking FP),lacking_fp_variant
+204,12,[Curved Sword] Bloody Slash a040015 [1] (Lacking FP),lacking_fp_variant
+204,14,[Dagger] Bloody Slash a040005 [1] (Lacking FP),lacking_fp_variant
+204,16,[Dagger] Bloody Slash a040015 [1] (Lacking FP),lacking_fp_variant
+204,18,[Great Katana] Bloody Slash a040005 [1] (Lacking FP),lacking_fp_variant
+204,20,[Great Katana] Bloody Slash a040015 [1] (Lacking FP),lacking_fp_variant
+204,22,[Greatsword] Bloody Slash a040005 [1] (Lacking FP),lacking_fp_variant
+204,24,[Greatsword] Bloody Slash a040015 [1] (Lacking FP),lacking_fp_variant
+204,26,[Heavy Thrusting Sword] Bloody Slash a040005 [1] (Lacking FP),lacking_fp_variant
+204,28,[Heavy Thrusting Sword] Bloody Slash a040015 [1] (Lacking FP),lacking_fp_variant
+204,30,[Katana] Bloody Slash a040005 [1] (Lacking FP),lacking_fp_variant
+204,32,[Katana] Bloody Slash a040015 [1] (Lacking FP),lacking_fp_variant
+204,34,[Light Greatsword] Bloody Slash a040005 [1] (Lacking FP),lacking_fp_variant
+204,36,[Light Greatsword] Bloody Slash a040015 [1] (Lacking FP),lacking_fp_variant
+204,38,[Throwing Blade] Bloody Slash a040005 [1] (Lacking FP),lacking_fp_variant
+204,40,[Throwing Blade] Bloody Slash a040015 [1] (Lacking FP),lacking_fp_variant
+204,42,[Thrusting Sword] Bloody Slash a040005 [1] (Lacking FP),lacking_fp_variant
+204,44,[Thrusting Sword] Bloody Slash a040015 [1] (Lacking FP),lacking_fp_variant
+204,46,[Twinblade] Bloody Slash a040005 [1] (Lacking FP),lacking_fp_variant
+204,48,[Twinblade] Bloody Slash a040015 [1] (Lacking FP),lacking_fp_variant
+205,2,Lifesteal Fist a040005 [1] (Lacking FP),lacking_fp_variant
+207,8,Eruption a040005 [1] (Lacking FP),lacking_fp_variant
+207,9,Eruption a040005 [2] (Lacking FP),lacking_fp_variant
+208,2,Prayerful Strike a040005 [1] (Lacking FP),lacking_fp_variant
+208,5,[Colossal Weapon] Prayerful Strike a040205 [1] (Lacking FP),lacking_fp_variant
+208,6,[Colossal Weapon] Prayerful Strike a040205 [2] (Lacking FP),lacking_fp_variant
+208,9,[Great Hammer] Prayerful Strike a040205 [1] (Lacking FP),lacking_fp_variant
+208,10,[Great Hammer] Prayerful Strike a040205 [2] (Lacking FP),lacking_fp_variant
+208,13,[Greataxe] Prayerful Strike a040205 [1] (Lacking FP),lacking_fp_variant
+208,14,[Greataxe] Prayerful Strike a040205 [2] (Lacking FP),lacking_fp_variant
+209,5,Gravitas a040005 [1] (Lacking FP),lacking_fp_variant
+209,10,[Reverse-hand Blade] Gravitas a045805 [1] (Lacking FP),lacking_fp_variant
+209,15,[Thrusting Shield] Gravitas a045905 [1] (Lacking FP),lacking_fp_variant
+210,3,Storm Blade a040005 [1] (Lacking FP),lacking_fp_variant
+210,6,Storm Blade a040015 [1] (Lacking FP),lacking_fp_variant
+210,9,Storm Blade a040025 [1] (Lacking FP),lacking_fp_variant
+212,4,Earthshaker a040005 [1] (Lacking FP),lacking_fp_variant
+212,5,Earthshaker a040005 [2] (Lacking FP),lacking_fp_variant
+212,7,Earthshaker a040015 [1] (Lacking FP),lacking_fp_variant
+213,8,Golden Land a040005 [1] (Lacking FP),lacking_fp_variant
+213,9,Golden Land a040005 [2] (Lacking FP),lacking_fp_variant
+213,15,Golden Land a040015 [1] (Lacking FP),lacking_fp_variant
+213,23,[Colossal Sword] Golden Land a040005 [1] (Lacking FP),lacking_fp_variant
+213,24,[Colossal Sword] Golden Land a040005 [2] (Lacking FP),lacking_fp_variant
+213,30,[Colossal Sword] Golden Land a040015 [1] (Lacking FP),lacking_fp_variant
+213,38,[Colossal Weapon] Golden Land a040005 [1] (Lacking FP),lacking_fp_variant
+213,39,[Colossal Weapon] Golden Land a040005 [2] (Lacking FP),lacking_fp_variant
+213,45,[Colossal Weapon] Golden Land a040015 [1] (Lacking FP),lacking_fp_variant
+213,53,[Greataxe] Golden Land a040005 [1] (Lacking FP),lacking_fp_variant
+213,54,[Greataxe] Golden Land a040005 [2] (Lacking FP),lacking_fp_variant
+213,60,[Greataxe] Golden Land a040015 [1] (Lacking FP),lacking_fp_variant
+213,68,[Heavy Spear] Golden Land a040005 [1] (Lacking FP),lacking_fp_variant
+213,69,[Heavy Spear] Golden Land a040005 [2] (Lacking FP),lacking_fp_variant
+213,75,[Heavy Spear] Golden Land a040015 [1] (Lacking FP),lacking_fp_variant
+214,3,Flaming Strike a040005 [1] (Lacking FP),lacking_fp_variant
+214,5,Flaming Strike a040015 [1] (Lacking FP),lacking_fp_variant
+214,10,[Reverse-hand Blade] Flaming Strike a045805 [1] (Lacking FP),lacking_fp_variant
+214,12,[Reverse-hand Blade] Flaming Strike a045815 [1] (Lacking FP),lacking_fp_variant
+216,11,Thunderbolt a040005 [1] (Lacking FP),lacking_fp_variant
+216,22,Thunderbolt a040015 [1] (Lacking FP),lacking_fp_variant
+216,33,[Beast Claw] Thunderbolt a044205 [1] (Lacking FP),lacking_fp_variant
+216,44,[Beast Claw] Thunderbolt a044215 [1] (Lacking FP),lacking_fp_variant
+216,55,[Claw] Thunderbolt a044205 [1] (Lacking FP),lacking_fp_variant
+216,66,[Claw] Thunderbolt a044215 [1] (Lacking FP),lacking_fp_variant
+216,77,[Fist] Thunderbolt a044205 [1] (Lacking FP),lacking_fp_variant
+216,88,[Fist] Thunderbolt a044215 [1] (Lacking FP),lacking_fp_variant
+216,99,[Thrusting Shield] Thunderbolt a045905 [1] (Lacking FP),lacking_fp_variant
+216,110,[Thrusting Shield] Thunderbolt a045915 [1] (Lacking FP),lacking_fp_variant
+217,12,Lightning Slash a040005 [1] (Lacking FP),lacking_fp_variant
+217,24,[Twinblade] Lightning Slash a040305 [1] (Lacking FP),lacking_fp_variant
+218,4,Carian Grandeur a040005 [1] (Lacking FP),lacking_fp_variant
+218,5,Carian Grandeur a040005 [2] (Lacking FP),lacking_fp_variant
+218,6,Carian Grandeur a040006 [1] (Lacking FP),lacking_fp_variant
+218,7,Carian Grandeur a040007 [1] (Lacking FP),lacking_fp_variant
+219,3,Carian Greatsword a040005 [1] (Lacking FP),lacking_fp_variant
+219,4,Carian Greatsword a040006 [1] (Lacking FP),lacking_fp_variant
+220,3,Vacuum Slice a040005 [1] (Lacking FP),lacking_fp_variant
+221,11,Black Flame Tornado a040005 [1] (Lacking FP),lacking_fp_variant
+221,12,Black Flame Tornado a040005 [2] (Lacking FP),lacking_fp_variant
+221,13,Black Flame Tornado a040005 [3] (Lacking FP),lacking_fp_variant
+221,14,Black Flame Tornado a040005 [4] (Lacking FP),lacking_fp_variant
+221,15,Black Flame Tornado a040005 [5] (Lacking FP),lacking_fp_variant
+221,16,Black Flame Tornado a040005 [6] (Lacking FP),lacking_fp_variant
+221,17,Black Flame Tornado a040005 [7] (Lacking FP),lacking_fp_variant
+221,18,Black Flame Tornado a040006 [1] (Lacking FP),lacking_fp_variant
+222,4,Sacred Ring of Light a040005 [1] (Lacking FP),lacking_fp_variant
+222,8,Sacred Ring of Light a040015 [1] (Lacking FP),lacking_fp_variant
+222,12,Sacred Ring of Light a040025 [1] (Lacking FP),lacking_fp_variant
+223,4,Firebreather a040005 [1] (Lacking FP),lacking_fp_variant
+223,8,Firebreather a040035 [1] (Lacking FP),lacking_fp_variant
+223,12,Firebreather a040045 [1] (Lacking FP),lacking_fp_variant
+224,3,Blood Blade a040005 [1] (Lacking FP),lacking_fp_variant
+224,6,Blood Blade a040015 [1] (Lacking FP),lacking_fp_variant
+224,9,Blood Blade a040025 [1] (Lacking FP),lacking_fp_variant
+224,12,[Reverse-hand Blade] Blood Blade a045805 [1] (Lacking FP),lacking_fp_variant
+224,15,[Reverse-hand Blade] Blood Blade a045815 [1] (Lacking FP),lacking_fp_variant
+224,18,[Reverse-hand Blade] Blood Blade a045825 [1] (Lacking FP),lacking_fp_variant
+225,8,Phantom Slash a040005 [1] (Lacking FP),lacking_fp_variant
+225,14,Phantom Slash a040015 [1] (Lacking FP),lacking_fp_variant
+227,4,Chilling Mist a040005 [1] (Lacking FP),lacking_fp_variant
+228,4,Poisonous Mist a040005 [1] (Lacking FP),lacking_fp_variant
+229,3,Erdtree Mastery a040005 [1] (Lacking FP),lacking_fp_variant
+229,4,Erdtree Mastery a040005 [2] (Lacking FP),lacking_fp_variant
+229,5,Erdtree Mastery a040006 [1] (Lacking FP),lacking_fp_variant
+229,6,Erdtree Mastery a040006 [2] (Lacking FP),lacking_fp_variant
+229,10,Erdtree Mastery a040015 [1] (Lacking FP),lacking_fp_variant
+229,11,Erdtree Mastery a040015 [2] (Lacking FP),lacking_fp_variant
+229,13,Erdtree Mastery a040025 [1] (Lacking FP),lacking_fp_variant
+231,14,Magma Splash a040056 [1] (Lacking FP),lacking_fp_variant
+231,15,Magma Splash a040056 [2] (Lacking FP),lacking_fp_variant
+231,16,Magma Splash a040057 [1] (Lacking FP),lacking_fp_variant
+231,17,Magma Splash a040057 [2] (Lacking FP),lacking_fp_variant
+231,28,Magma Splash a040065 [1] (Lacking FP),lacking_fp_variant
+231,29,Magma Splash a040065 [2] (Lacking FP),lacking_fp_variant
+231,30,Magma Splash a040067 [1] (Lacking FP),lacking_fp_variant
+231,31,Magma Splash a040067 [2] (Lacking FP),lacking_fp_variant
+231,32,Magma Splash a040068 [1] (Lacking FP),lacking_fp_variant
+231,33,Magma Splash a040068 [2] (Lacking FP),lacking_fp_variant
+231,52,Magma Splash a040075 [1] (Lacking FP),lacking_fp_variant
+231,53,Magma Splash a040075 [2] (Lacking FP),lacking_fp_variant
+231,54,Magma Splash a040077 [1] (Lacking FP),lacking_fp_variant
+231,55,Magma Splash a040077 [2] (Lacking FP),lacking_fp_variant
+231,56,Magma Splash a040078 [1] (Lacking FP),lacking_fp_variant
+231,57,Magma Splash a040078 [2] (Lacking FP),lacking_fp_variant
+232,3,Splitblade Sundering a040205 [1] (Lacking FP),lacking_fp_variant
+232,4,Splitblade Sundering a040205 [2] (Lacking FP),lacking_fp_variant
+232,7,Splitblade Sundering a040215 [1] (Lacking FP),lacking_fp_variant
+232,8,Splitblade Sundering a040215 [2] (Lacking FP),lacking_fp_variant
+238,7,Valiant Cyclone a040005 [1] (Lacking FP),lacking_fp_variant
+238,8,Valiant Cyclone a040005 [2] (Lacking FP),lacking_fp_variant
+238,9,Valiant Cyclone a040005 [3] (Lacking FP),lacking_fp_variant
+238,10,Valiant Cyclone a040005 [4] (Lacking FP),lacking_fp_variant
+238,11,Valiant Cyclone a040005 [5] (Lacking FP),lacking_fp_variant
+239,7,Death Cyclone a040005 [1] (Lacking FP),lacking_fp_variant
+239,8,Death Cyclone a040005 [2] (Lacking FP),lacking_fp_variant
+239,9,Death Cyclone a040005 [3] (Lacking FP),lacking_fp_variant
+239,10,Death Cyclone a040005 [4] (Lacking FP),lacking_fp_variant
+239,11,Death Cyclone a040005 [5] (Lacking FP),lacking_fp_variant
+300,2,Shield Bash a040005 [1] (Lacking FP),lacking_fp_variant
+300,4,Shield Bash a040035 [1] (Lacking FP),lacking_fp_variant
+300,6,Shield Bash a040045 [1] (Lacking FP),lacking_fp_variant
+300,8,[Greatshield] Shield Bash a044705 [1] (Lacking FP),lacking_fp_variant
+300,10,[Greatshield] Shield Bash a044735 [1] (Lacking FP),lacking_fp_variant
+300,12,[Greatshield] Shield Bash a044745 [1] (Lacking FP),lacking_fp_variant
+300,14,[Medium Shield] Shield Bash a040005 [1] (Lacking FP),lacking_fp_variant
+300,16,[Medium Shield] Shield Bash a040035 [1] (Lacking FP),lacking_fp_variant
+300,18,[Medium Shield] Shield Bash a040045 [1] (Lacking FP),lacking_fp_variant
+300,20,[Small Shield] Shield Bash a044805 [1] (Lacking FP),lacking_fp_variant
+300,22,[Small Shield] Shield Bash a044835 [1] (Lacking FP),lacking_fp_variant
+300,24,[Small Shield] Shield Bash a044845 [1] (Lacking FP),lacking_fp_variant
+305,4,Carian Retaliation a040005 [1] (Lacking FP),lacking_fp_variant
+305,8,Carian Retaliation a040035 [1] (Lacking FP),lacking_fp_variant
+305,12,Carian Retaliation a040045 [1] (Lacking FP),lacking_fp_variant
+305,16,[Small Shield] Carian Retaliation a040005 [1] (Lacking FP),lacking_fp_variant
+305,20,[Small Shield] Carian Retaliation a040035 [1] (Lacking FP),lacking_fp_variant
+305,24,[Small Shield] Carian Retaliation a040045 [1] (Lacking FP),lacking_fp_variant
+306,3,Storm Wall a040005 [1] (Lacking FP),lacking_fp_variant
+306,6,Storm Wall a040035 [1] (Lacking FP),lacking_fp_variant
+306,9,Storm Wall a040045 [1] (Lacking FP),lacking_fp_variant
+306,12,[Small Shield] Storm Wall a040005 [1] (Lacking FP),lacking_fp_variant
+306,15,[Small Shield] Storm Wall a040035 [1] (Lacking FP),lacking_fp_variant
+306,18,[Small Shield] Storm Wall a040045 [1] (Lacking FP),lacking_fp_variant
+307,2,Golden Parry a040005 [1] (Lacking FP),lacking_fp_variant
+307,4,Golden Parry a040035 [1] (Lacking FP),lacking_fp_variant
+307,6,Golden Parry a040045 [1] (Lacking FP),lacking_fp_variant
+307,8,[Small Shield] Golden Parry a040005 [1] (Lacking FP),lacking_fp_variant
+307,10,[Small Shield] Golden Parry a040035 [1] (Lacking FP),lacking_fp_variant
+307,12,[Small Shield] Golden Parry a040045 [1] (Lacking FP),lacking_fp_variant
+308,7,Shield Crash a040005 [1] (Lacking FP),lacking_fp_variant
+308,8,Shield Crash a040005 [2] (Lacking FP),lacking_fp_variant
+308,9,Shield Crash a040005 [3] (Lacking FP),lacking_fp_variant
+308,10,Shield Crash a040005 [4] (Lacking FP),lacking_fp_variant
+308,11,Shield Crash a040005 [5] (Lacking FP),lacking_fp_variant
+308,12,Shield Crash a040006 [1] (Lacking FP),lacking_fp_variant
+308,19,Shield Crash a040035 [1] (Lacking FP),lacking_fp_variant
+308,20,Shield Crash a040035 [2] (Lacking FP),lacking_fp_variant
+308,21,Shield Crash a040035 [3] (Lacking FP),lacking_fp_variant
+308,22,Shield Crash a040035 [4] (Lacking FP),lacking_fp_variant
+308,23,Shield Crash a040035 [5] (Lacking FP),lacking_fp_variant
+308,24,Shield Crash a040036 [1] (Lacking FP),lacking_fp_variant
+308,31,Shield Crash a040045 [1] (Lacking FP),lacking_fp_variant
+308,32,Shield Crash a040045 [2] (Lacking FP),lacking_fp_variant
+308,33,Shield Crash a040045 [3] (Lacking FP),lacking_fp_variant
+308,34,Shield Crash a040045 [4] (Lacking FP),lacking_fp_variant
+308,35,Shield Crash a040045 [5] (Lacking FP),lacking_fp_variant
+308,36,Shield Crash a040046 [1] (Lacking FP),lacking_fp_variant
+308,43,[Greatshield] Shield Crash a044705 [1] (Lacking FP),lacking_fp_variant
+308,44,[Greatshield] Shield Crash a044705 [2] (Lacking FP),lacking_fp_variant
+308,45,[Greatshield] Shield Crash a044705 [3] (Lacking FP),lacking_fp_variant
+308,46,[Greatshield] Shield Crash a044705 [4] (Lacking FP),lacking_fp_variant
+308,47,[Greatshield] Shield Crash a044705 [5] (Lacking FP),lacking_fp_variant
+308,48,[Greatshield] Shield Crash a044706 [1] (Lacking FP),lacking_fp_variant
+308,55,[Greatshield] Shield Crash a044735 [1] (Lacking FP),lacking_fp_variant
+308,56,[Greatshield] Shield Crash a044735 [2] (Lacking FP),lacking_fp_variant
+308,57,[Greatshield] Shield Crash a044735 [3] (Lacking FP),lacking_fp_variant
+308,58,[Greatshield] Shield Crash a044735 [4] (Lacking FP),lacking_fp_variant
+308,59,[Greatshield] Shield Crash a044735 [5] (Lacking FP),lacking_fp_variant
+308,60,[Greatshield] Shield Crash a044736 [1] (Lacking FP),lacking_fp_variant
+308,67,[Greatshield] Shield Crash a044745 [1] (Lacking FP),lacking_fp_variant
+308,68,[Greatshield] Shield Crash a044745 [2] (Lacking FP),lacking_fp_variant
+308,69,[Greatshield] Shield Crash a044745 [3] (Lacking FP),lacking_fp_variant
+308,70,[Greatshield] Shield Crash a044745 [4] (Lacking FP),lacking_fp_variant
+308,71,[Greatshield] Shield Crash a044745 [5] (Lacking FP),lacking_fp_variant
+308,72,[Greatshield] Shield Crash a044746 [1] (Lacking FP),lacking_fp_variant
+308,79,[Medium Shield] Shield Crash a040005 [1] (Lacking FP),lacking_fp_variant
+308,80,[Medium Shield] Shield Crash a040005 [2] (Lacking FP),lacking_fp_variant
+308,81,[Medium Shield] Shield Crash a040005 [3] (Lacking FP),lacking_fp_variant
+308,82,[Medium Shield] Shield Crash a040005 [4] (Lacking FP),lacking_fp_variant
+308,83,[Medium Shield] Shield Crash a040005 [5] (Lacking FP),lacking_fp_variant
+308,84,[Medium Shield] Shield Crash a040006 [1] (Lacking FP),lacking_fp_variant
+308,91,[Medium Shield] Shield Crash a040035 [1] (Lacking FP),lacking_fp_variant
+308,92,[Medium Shield] Shield Crash a040035 [2] (Lacking FP),lacking_fp_variant
+308,93,[Medium Shield] Shield Crash a040035 [3] (Lacking FP),lacking_fp_variant
+308,94,[Medium Shield] Shield Crash a040035 [4] (Lacking FP),lacking_fp_variant
+308,95,[Medium Shield] Shield Crash a040035 [5] (Lacking FP),lacking_fp_variant
+308,96,[Medium Shield] Shield Crash a040036 [1] (Lacking FP),lacking_fp_variant
+308,103,[Medium Shield] Shield Crash a040045 [1] (Lacking FP),lacking_fp_variant
+308,104,[Medium Shield] Shield Crash a040045 [2] (Lacking FP),lacking_fp_variant
+308,105,[Medium Shield] Shield Crash a040045 [3] (Lacking FP),lacking_fp_variant
+308,106,[Medium Shield] Shield Crash a040045 [4] (Lacking FP),lacking_fp_variant
+308,107,[Medium Shield] Shield Crash a040045 [5] (Lacking FP),lacking_fp_variant
+308,108,[Medium Shield] Shield Crash a040046 [1] (Lacking FP),lacking_fp_variant
+308,115,[Small Shield] Shield Crash a044805 [1] (Lacking FP),lacking_fp_variant
+308,116,[Small Shield] Shield Crash a044805 [2] (Lacking FP),lacking_fp_variant
+308,117,[Small Shield] Shield Crash a044805 [3] (Lacking FP),lacking_fp_variant
+308,118,[Small Shield] Shield Crash a044805 [4] (Lacking FP),lacking_fp_variant
+308,119,[Small Shield] Shield Crash a044805 [5] (Lacking FP),lacking_fp_variant
+308,120,[Small Shield] Shield Crash a044806 [1] (Lacking FP),lacking_fp_variant
+308,127,[Small Shield] Shield Crash a044835 [1] (Lacking FP),lacking_fp_variant
+308,128,[Small Shield] Shield Crash a044835 [2] (Lacking FP),lacking_fp_variant
+308,129,[Small Shield] Shield Crash a044835 [3] (Lacking FP),lacking_fp_variant
+308,130,[Small Shield] Shield Crash a044835 [4] (Lacking FP),lacking_fp_variant
+308,131,[Small Shield] Shield Crash a044835 [5] (Lacking FP),lacking_fp_variant
+308,132,[Small Shield] Shield Crash a044836 [1] (Lacking FP),lacking_fp_variant
+308,139,[Small Shield] Shield Crash a044845 [1] (Lacking FP),lacking_fp_variant
+308,140,[Small Shield] Shield Crash a044845 [2] (Lacking FP),lacking_fp_variant
+308,141,[Small Shield] Shield Crash a044845 [3] (Lacking FP),lacking_fp_variant
+308,142,[Small Shield] Shield Crash a044845 [4] (Lacking FP),lacking_fp_variant
+308,143,[Small Shield] Shield Crash a044845 [5] (Lacking FP),lacking_fp_variant
+308,144,[Small Shield] Shield Crash a044846 [1] (Lacking FP),lacking_fp_variant
+309,2,Cragbolt Slam a040005 [1] (Lacking FP),lacking_fp_variant
+309,4,[Small Shield] Cragbolt Slam a040005 [1] (Lacking FP),lacking_fp_variant
+309,8,Cragbolt Slam a040005 [1] (Lacking FP),lacking_fp_variant
+309,9,Cragbolt Slam a040005 [2] (Lacking FP),lacking_fp_variant
+502,6,Cyclopean Conflagration a040005 [1] (Lacking FP),lacking_fp_variant
+504,2,Lightning Ram a040005 [1] (Lacking FP),lacking_fp_variant
+504,4,Lightning Ram a040015 [1] (Lacking FP),lacking_fp_variant
+506,3,Ground Slam a040009 [1] (Lacking FP),lacking_fp_variant
+506,4,Ground Slam a040009 [2] (Lacking FP),lacking_fp_variant
+507,3,Golden Slam a040009 [1] (Lacking FP),lacking_fp_variant
+507,4,Golden Slam a040009 [2] (Lacking FP),lacking_fp_variant
+508,6,Waves of Darkness a040005 [1] (Lacking FP),lacking_fp_variant
+508,7,Waves of Darkness a040005 [2] (Lacking FP),lacking_fp_variant
+508,9,Waves of Darkness a040015 [1] (Lacking FP),lacking_fp_variant
+509,5,Hoarah Loux's Earthshaker a040005 [1] (Lacking FP),lacking_fp_variant
+509,7,Hoarah Loux's Earthshaker a040015 [1] (Lacking FP),lacking_fp_variant
+510,4,Break the Seal a040005 [1] (Lacking FP),lacking_fp_variant
+510,5,Break the Seal a040005 [2] (Lacking FP),lacking_fp_variant
+510,9,Break the Seal a040015 [1] (Lacking FP),lacking_fp_variant
+512,8,Frenzied Assault a040005 [1] (Lacking FP),lacking_fp_variant
+512,9,Frenzied Assault a040005 [2] (Lacking FP),lacking_fp_variant
+512,10,Frenzied Assault a040005 [3] (Lacking FP),lacking_fp_variant
+512,11,Frenzied Assault a040005 [4] (Lacking FP),lacking_fp_variant
+512,12,Frenzied Assault a040006 [1] (Lacking FP),lacking_fp_variant
+512,13,Frenzied Assault a040006 [2] (Lacking FP),lacking_fp_variant
+512,14,Frenzied Assault a040006 [3] (Lacking FP),lacking_fp_variant
+607,3,Cragblade a040005 [1] (Lacking FP),lacking_fp_variant
+607,4,Cragblade a040005 [2] (Lacking FP),lacking_fp_variant
+607,7,[Great Katana] Cragblade a040205 [1] (Lacking FP),lacking_fp_variant
+607,8,[Great Katana] Cragblade a040205 [2] (Lacking FP),lacking_fp_variant
+607,11,[Reverse-hand Blade] Cragblade a045805 [1] (Lacking FP),lacking_fp_variant
+607,12,[Reverse-hand Blade] Cragblade a045805 [2] (Lacking FP),lacking_fp_variant
+650,2,Barbaric Roar a040005 [1] (Lacking FP),lacking_fp_variant
+651,2,War Cry a040005 [1] (Lacking FP),lacking_fp_variant
+652,4,Beast's Roar a040005 [1] (Lacking FP),lacking_fp_variant
+652,8,[Thrusting Shield] Beast's Roar a045905 [1] (Lacking FP),lacking_fp_variant
+653,3,Troll's Roar a040005 [1] (Lacking FP),lacking_fp_variant
+653,7,Troll's Roar a040015 [1] (Lacking FP),lacking_fp_variant
+653,8,Troll's Roar a040016 [1] (Lacking FP),lacking_fp_variant
+654,2,Braggart's Roar a040005 [1] (Lacking FP),lacking_fp_variant
+657,3,Stone Excavation a040005 [1] (Lacking FP),lacking_fp_variant
+657,4,Stone Excavation a040005 [2] (Lacking FP),lacking_fp_variant
+657,9,Stone Excavation a040015 [1] (Lacking FP),lacking_fp_variant
+657,10,Stone Excavation a040015 [2] (Lacking FP),lacking_fp_variant
+657,13,Stone Excavation a040025 [1] (Lacking FP),lacking_fp_variant
+660,4,Magma Crush a040005 [1] (Lacking FP),lacking_fp_variant
+660,10,Magma Crush a040015 [1] (Lacking FP),lacking_fp_variant
+670,22,Rancorous Summoning a040005 [1] (Lacking FP),lacking_fp_variant
+670,23,Rancorous Summoning a040005 [1] (Lacking FP),lacking_fp_variant
+670,24,Rancorous Summoning a040005 [1] (Lacking FP),lacking_fp_variant
+702,5,Holy Ground a040035 [1] (Lacking FP),lacking_fp_variant
+702,6,Holy Ground a040035 [2] (Lacking FP),lacking_fp_variant
+702,9,Holy Ground a040045 [1] (Lacking FP),lacking_fp_variant
+702,10,Holy Ground a040045 [2] (Lacking FP),lacking_fp_variant
+804,9,Dance of Unification a040005 [1] (Lacking FP),lacking_fp_variant
+804,10,Dance of Unification a040006 [1] (Lacking FP),lacking_fp_variant
+804,14,Dance of Unification a040015 [1] (Lacking FP),lacking_fp_variant
+804,19,Dance of Unification a040025 [1] (Lacking FP),lacking_fp_variant
+804,20,Dance of Unification a040025 [2] (Lacking FP),lacking_fp_variant
+806,3,Storm's Reckoning a040005 [1] (Lacking FP),lacking_fp_variant
+806,7,Storm's Reckoning a040015 [1] (Lacking FP),lacking_fp_variant
+807,6,Flame Arc a040005 [1] (Lacking FP),lacking_fp_variant
+807,12,Flame Arc a040015 [1] (Lacking FP),lacking_fp_variant
+807,18,[Colossal Sword] Flame Arc a040205 [1] (Lacking FP),lacking_fp_variant
+807,24,[Colossal Sword] Flame Arc a040215 [1] (Lacking FP),lacking_fp_variant
+807,30,[Curved Greatsword] Flame Arc a040205 [1] (Lacking FP),lacking_fp_variant
+807,36,[Curved Greatsword] Flame Arc a040215 [1] (Lacking FP),lacking_fp_variant
+807,42,[Great Katana] Flame Arc a040205 [1] (Lacking FP),lacking_fp_variant
+807,48,[Great Katana] Flame Arc a040215 [1] (Lacking FP),lacking_fp_variant
+807,54,[Greataxe] Flame Arc a040205 [1] (Lacking FP),lacking_fp_variant
+807,60,[Greataxe] Flame Arc a040215 [1] (Lacking FP),lacking_fp_variant
+807,66,[Greatsword] Flame Arc a040205 [1] (Lacking FP),lacking_fp_variant
+807,72,[Greatsword] Flame Arc a040215 [1] (Lacking FP),lacking_fp_variant
+808,3,Rotten Assault a040305 [1] (Lacking FP),lacking_fp_variant
+808,4,Rotten Assault a040305 [2] (Lacking FP),lacking_fp_variant
+808,7,Rotten Assault a040315 [1] (Lacking FP),lacking_fp_variant
+809,4,Fell Furnace a040005 [1] (Lacking FP),lacking_fp_variant
+810,3,Whirling Black Flames a042405 [1] (Lacking FP),lacking_fp_variant
+810,4,Whirling Black Flames a042405 [2] (Lacking FP),lacking_fp_variant
+810,13,Whirling Black Flames a042415 [1] (Lacking FP),lacking_fp_variant
+810,14,Whirling Black Flames a042415 [2] (Lacking FP),lacking_fp_variant
+810,15,Whirling Black Flames a042415 [3] (Lacking FP),lacking_fp_variant
+810,16,Whirling Black Flames a042415 [4] (Lacking FP),lacking_fp_variant
+811,5,Spread Corruption a040005 [1] (Lacking FP),lacking_fp_variant
+811,6,Spread Corruption a040005 [2] (Lacking FP),lacking_fp_variant
+811,15,Spread Corruption a040015 [1] (Lacking FP),lacking_fp_variant
+811,16,Spread Corruption a040015 [2] (Lacking FP),lacking_fp_variant
+811,17,Spread Corruption a040015 [3] (Lacking FP),lacking_fp_variant
+811,18,Spread Corruption a040015 [4] (Lacking FP),lacking_fp_variant
+811,19,Spread Corruption a040015 [5] (Lacking FP),lacking_fp_variant
+811,20,Spread Corruption a040015 [6] (Lacking FP),lacking_fp_variant
+812,4,Roar of Goras a040015 [1] (Lacking FP),lacking_fp_variant
+813,5,Carian Gallantry a040005 [1] (Lacking FP),lacking_fp_variant
+813,8,Carian Gallantry a040015 [1] (Lacking FP),lacking_fp_variant
+815,4,Ancient Thunderclap a040005 [1] (Lacking FP),lacking_fp_variant
+815,5,Ancient Thunderclap a040005 [2] (Lacking FP),lacking_fp_variant
+816,7,Briar Assault a040005 [1] (Lacking FP),lacking_fp_variant
+816,8,Briar Assault a040005 [2] (Lacking FP),lacking_fp_variant
+816,9,Briar Assault a040005 [3] (Lacking FP),lacking_fp_variant
+817,8,Bestial Mauling a040005 [1] (Lacking FP),lacking_fp_variant
+817,9,Bestial Mauling a040005 [2] (Lacking FP),lacking_fp_variant
+817,10,Bestial Mauling a040005 [3] (Lacking FP),lacking_fp_variant
+817,11,Bestial Mauling a040005 [4] (Lacking FP),lacking_fp_variant
+817,12,Bestial Mauling a040005 [5] (Lacking FP),lacking_fp_variant
+817,13,Bestial Mauling a040005 [6] (Lacking FP),lacking_fp_variant
+817,14,Bestial Mauling a040005 [7] (Lacking FP),lacking_fp_variant
+818,7,Primeval Cascade a040005 [1] (Lacking FP),lacking_fp_variant
+818,8,Primeval Cascade a040005 [2] (Lacking FP),lacking_fp_variant
+818,9,Primeval Cascade a040005 [3] (Lacking FP),lacking_fp_variant
+818,10,Primeval Cascade a040005 [4] (Lacking FP),lacking_fp_variant
+818,11,Primeval Cascade a040005 [5] (Lacking FP),lacking_fp_variant
+818,12,Primeval Cascade a040005 [6] (Lacking FP),lacking_fp_variant
+818,17,Primeval Cascade a040015 [1] (Lacking FP),lacking_fp_variant
+818,18,Primeval Cascade a040015 [2] (Lacking FP),lacking_fp_variant
+819,5,Crucible's Fury a040005 [1] (Lacking FP),lacking_fp_variant
+819,10,Crucible's Fury a040015 [1] (Lacking FP),lacking_fp_variant
+819,11,Crucible's Fury a040015 [2] (Lacking FP),lacking_fp_variant
+820,2,Call to Thunder a042415 [1] (Lacking FP),lacking_fp_variant
+821,2,Ice Spikes a040005 [1] (Lacking FP),lacking_fp_variant
+821,4,Ice Spikes a040015 [1] (Lacking FP),lacking_fp_variant
+822,5,Celestial Ascension a040005 [1] (Lacking FP),lacking_fp_variant
+822,6,Celestial Ascension a040006 [1] (Lacking FP),lacking_fp_variant
+822,9,Celestial Ascension a040015 [1] (Lacking FP),lacking_fp_variant
+823,4,Aeonian Rush a040005 [1] (Lacking FP),lacking_fp_variant
+823,5,Aeonian Rush a040005 [2] (Lacking FP),lacking_fp_variant
+824,4,Titanic Cleave a040005 [1] (Lacking FP),lacking_fp_variant
+824,5,Titanic Cleave a040005 [2] (Lacking FP),lacking_fp_variant
+825,12,Shabriri's Revenge a040015 [1] (Lacking FP),lacking_fp_variant
+825,13,Shabriri's Revenge a040015 [1] (Lacking FP),lacking_fp_variant
+825,14,Shabriri's Revenge a040015 [1] (Lacking FP),lacking_fp_variant
+828,3,Flowing Piercer a040005 [1] (Lacking FP),lacking_fp_variant
+828,4,Flowing Piercer a040005 [2] (Lacking FP),lacking_fp_variant
+829,13,Telekinetic Vortex a040005 [1] (Lacking FP),lacking_fp_variant
+829,14,Telekinetic Vortex a040005 [2] (Lacking FP),lacking_fp_variant
+829,15,Telekinetic Vortex a040006 [1] (Lacking FP),lacking_fp_variant
+829,16,Telekinetic Vortex a040006 [2] (Lacking FP),lacking_fp_variant
+830,3,Quicksilver Spray a040005 [1] (Lacking FP),lacking_fp_variant
+830,5,Quicksilver Spray a040015 [1] (Lacking FP),lacking_fp_variant
+830,11,Quicksilver Spray a040025 [1] (Lacking FP),lacking_fp_variant
+1000,23,Surge of Faith a040005 [1] (Lacking FP),lacking_fp_variant
+1000,24,Surge of Faith a040005 [2] (Lacking FP),lacking_fp_variant
+1000,25,Surge of Faith a040005 [3] (Lacking FP),lacking_fp_variant
+1000,47,Surge of Faith a040015 [1] (Lacking FP),lacking_fp_variant
+1006,12,Sea of Magma a040005 [1] (Lacking FP),lacking_fp_variant
+1006,13,Sea of Magma a040005 [2] (Lacking FP),lacking_fp_variant
+1006,14,Sea of Magma a040008 [1] (Lacking FP),lacking_fp_variant
+1006,15,Sea of Magma a040008 [2] (Lacking FP),lacking_fp_variant
+1006,16,Sea of Magma a040009 [1] (Lacking FP),lacking_fp_variant
+1007,2,Viper Bite a040005 [1] (Lacking FP),lacking_fp_variant
+1007,4,Viper Bite a040035 [1] (Lacking FP),lacking_fp_variant
+1007,6,Viper Bite a040045 [1] (Lacking FP),lacking_fp_variant
+1009,5,Siluria's Woe a040005 [1] (Lacking FP),lacking_fp_variant
+1009,6,Siluria's Woe a040006 [1] (Lacking FP),lacking_fp_variant
+1011,10,Bear Witness! a040005 [1] (Lacking FP),lacking_fp_variant
+1011,20,Bear Witness! a040045 [1] (Lacking FP),lacking_fp_variant
+1014,16,Taker's Flames a040005 [1] (Lacking FP),lacking_fp_variant
+1016,3,Reduvia Blood Blade a040005 [1] (Lacking FP),lacking_fp_variant
+1016,6,Reduvia Blood Blade a040015 [1] (Lacking FP),lacking_fp_variant
+1016,9,Reduvia Blood Blade a040025 [1] (Lacking FP),lacking_fp_variant
+1017,3,Glintstone Dart a040005 [1] (Lacking FP),lacking_fp_variant
+1017,4,Glintstone Dart a040006 [1] (Lacking FP),lacking_fp_variant
+1017,8,Glintstone Dart a040015 [1] (Lacking FP),lacking_fp_variant
+1017,9,Glintstone Dart a040015 [2] (Lacking FP),lacking_fp_variant
+1017,10,Glintstone Dart a040015 [3] (Lacking FP),lacking_fp_variant
+1018,2,Flowing Form a040005 [1] (Lacking FP),lacking_fp_variant
+1019,7,Night-and-Flame Stance a040065 [1] (Lacking FP),lacking_fp_variant
+1019,12,Night-and-Flame Stance a040075 [1] (Lacking FP),lacking_fp_variant
+1020,61,Wave of Gold a040005 [1] (Lacking FP),lacking_fp_variant
+1021,2,Ruinous Ghostflame a040005 [1] (Lacking FP),lacking_fp_variant
+1021,4,Ruinous Ghostflame a040015 [1] (Lacking FP),lacking_fp_variant
+1021,6,Ruinous Ghostflame a040025 [1] (Lacking FP),lacking_fp_variant
+1022,6,Establish Order a040015 [1] (Lacking FP),lacking_fp_variant
+1022,7,Establish Order a040015 [2] (Lacking FP),lacking_fp_variant
+1023,2,Mists of Slumber a040005 [1] (Lacking FP),lacking_fp_variant
+1024,3,Spearcall Ritual a040005 [1] (Lacking FP),lacking_fp_variant
+1024,4,Spearcall Ritual a040005 [1] (Lacking FP),lacking_fp_variant
+1025,4,Wolf's Assault a040005 [1] (Lacking FP),lacking_fp_variant
+1025,5,Wolf's Assault a040005 [2] (Lacking FP),lacking_fp_variant
+1027,11,Cursed-Blood Slice a040005 [1] (Lacking FP),lacking_fp_variant
+1027,12,Cursed-Blood Slice a040005 [2] (Lacking FP),lacking_fp_variant
+1027,22,Cursed-Blood Slice a040015 [1] (Lacking FP),lacking_fp_variant
+1028,9,Waterfowl Dance a040005 [1] (Lacking FP),lacking_fp_variant
+1028,10,Waterfowl Dance a040005 [2] (Lacking FP),lacking_fp_variant
+1028,11,Waterfowl Dance a040005 [3] (Lacking FP),lacking_fp_variant
+1028,12,Waterfowl Dance a040005 [4] (Lacking FP),lacking_fp_variant
+1028,17,Waterfowl Dance a040015 [1] (Lacking FP),lacking_fp_variant
+1028,18,Waterfowl Dance a040015 [2] (Lacking FP),lacking_fp_variant
+1028,26,Waterfowl Dance a040025 [1] (Lacking FP),lacking_fp_variant
+1028,27,Waterfowl Dance a040025 [2] (Lacking FP),lacking_fp_variant
+1028,28,Waterfowl Dance a040025 [3] (Lacking FP),lacking_fp_variant
+1029,7,Gold Breaker a040005 [1] (Lacking FP),lacking_fp_variant
+1029,8,Gold Breaker a040009 [1] (Lacking FP),lacking_fp_variant
+1030,7,Sulien's Mastery a040005 [1] (Lacking FP),lacking_fp_variant
+1030,8,Sulien's Mastery a040005 [2] (Lacking FP),lacking_fp_variant
+1030,9,Sulien's Mastery a040005 [3] (Lacking FP),lacking_fp_variant
+1030,10,Sulien's Mastery a040005 [4] (Lacking FP),lacking_fp_variant
+1030,11,Sulien's Mastery a040005 [5] (Lacking FP),lacking_fp_variant
+1030,12,Sulien's Mastery a040005 [6] (Lacking FP),lacking_fp_variant
+1030,18,Sulien's Mastery a040015 [1] (Lacking FP),lacking_fp_variant
+1030,19,Sulien's Mastery a040015 [2] (Lacking FP),lacking_fp_variant
+1030,20,Sulien's Mastery a040015 [3] (Lacking FP),lacking_fp_variant
+1030,21,Sulien's Mastery a040015 [4] (Lacking FP),lacking_fp_variant
+1030,22,Sulien's Mastery a040015 [5] (Lacking FP),lacking_fp_variant
+1031,6,Regal Roar a040005 [1] (Lacking FP),lacking_fp_variant
+1032,9,Starcaller Cry a040015 [1] (Lacking FP),lacking_fp_variant
+1032,10,Starcaller Cry a040015 [2] (Lacking FP),lacking_fp_variant
+1033,16,Wave of Destruction a040005 [1] (Lacking FP),lacking_fp_variant
+1034,5,Bloodboon Ritual a040005 [1] (Lacking FP),lacking_fp_variant
+1034,10,Bloodboon Ritual a040015 [1] (Lacking FP),lacking_fp_variant
+1034,15,Bloodboon Ritual a040025 [1] (Lacking FP),lacking_fp_variant
+1035,3,Flowing Form a040005 [1] (Lacking FP),lacking_fp_variant
+1035,4,Flowing Form a040005 [2] (Lacking FP),lacking_fp_variant
+1036,2,Blade of Death a040005 [1] (Lacking FP),lacking_fp_variant
+1037,2,Blade of Gold a040005 [1] (Lacking FP),lacking_fp_variant
+1038,6,Destined Death a040005 [1] (Lacking FP),lacking_fp_variant
+1038,7,Destined Death a040005 [2] (Lacking FP),lacking_fp_variant
+1039,32,Spinning Wheel a040055 [7] (Lacking FP),lacking_fp_variant
+1039,33,Spinning Wheel a040055 [8] (Lacking FP),lacking_fp_variant
+1039,34,Spinning Wheel a040055 [9] (Lacking FP),lacking_fp_variant
+1039,35,Spinning Wheel a040055 [10] (Lacking FP),lacking_fp_variant
+1039,36,Spinning Wheel a040055 [11] (Lacking FP),lacking_fp_variant
+1039,37,Spinning Wheel a040055 [12] (Lacking FP),lacking_fp_variant
+1039,38,Spinning Wheel a040055 [13] (Lacking FP),lacking_fp_variant
+1040,5,Alabaster Lords' Pull a040005 [1] (Lacking FP),lacking_fp_variant
+1041,5,Onyx Lords' Repulsion a040005 [1] (Lacking FP),lacking_fp_variant
+1043,12,Ice Lightning Sword a040005 [1] (Lacking FP),lacking_fp_variant
+1044,11,Regal Beastclaw a040005 [1] (Lacking FP),lacking_fp_variant
+1044,12,Regal Beastclaw a040005 [2] (Lacking FP),lacking_fp_variant
+1045,6,Flame Dance a040005 [1] (Lacking FP),lacking_fp_variant
+1045,7,Flame Dance a040005 [2] (Lacking FP),lacking_fp_variant
+1045,8,Flame Dance a040005 [3] (Lacking FP),lacking_fp_variant
+1045,9,Flame Dance a040005 [4] (Lacking FP),lacking_fp_variant
+1045,10,Flame Dance a040005 [5] (Lacking FP),lacking_fp_variant
+1047,4,Nebula a040005 [1] (Lacking FP),lacking_fp_variant
+1048,4,Ghostflame Ignition a040005 [1] (Lacking FP),lacking_fp_variant
+1048,24,Ghostflame Ignition a040015 [1] (Lacking FP),lacking_fp_variant
+1048,27,Ghostflame Ignition a040025 [1] (Lacking FP),lacking_fp_variant
+1051,4,Twister Shot a040005 [1] (Lacking FP),lacking_fp_variant
+1051,8,Twister Shot a040015 [1] (Lacking FP),lacking_fp_variant
+1051,12,Twister Shot a040025 [1] (Lacking FP),lacking_fp_variant
+1054,2,Unblockable Blade a040005 [1] (Lacking FP),lacking_fp_variant
+1054,4,Unblockable Blade a040015 [1] (Lacking FP),lacking_fp_variant
+1057,35,Cleave of Devastation a040005 [1] (Lacking FP),lacking_fp_variant
+1057,36,Cleave of Devastation a040006 [1] (Lacking FP),lacking_fp_variant
+1059,2,Wrath of the Ancients a040005 [1] (Lacking FP),lacking_fp_variant
+1059,6,Wrath of the Ancients a040015 [1] (Lacking FP),lacking_fp_variant
+1059,7,Wrath of the Ancients a040015 [2] (Lacking FP),lacking_fp_variant
+1060,3,Ronin's Technique a040005 [1] (Lacking FP),lacking_fp_variant
+1060,4,Ronin's Technique a040006 [1] (Lacking FP),lacking_fp_variant
+1060,6,Ronin's Technique a040015 [1] (Lacking FP),lacking_fp_variant
+1060,8,Ronin's Technique a040025 [1] (Lacking FP),lacking_fp_variant
+1062,17,Cull the Sacrifice a040015 [1] (Lacking FP),lacking_fp_variant
+1063,3,Dyru's Savagery a040205 [1] (Lacking FP),lacking_fp_variant
+1063,6,Dyru's Savagery a040215 [1] (Lacking FP),lacking_fp_variant
+1063,7,Dyru's Savagery a040215 [2] (Lacking FP),lacking_fp_variant
+1064,7,Einar's Icestorm a040205 [1] (Lacking FP),lacking_fp_variant
+1064,8,Einar's Icestorm a040205 [2] (Lacking FP),lacking_fp_variant
+1064,9,Einar's Icestorm a040205 [3] (Lacking FP),lacking_fp_variant
+1064,10,Einar's Icestorm a040205 [4] (Lacking FP),lacking_fp_variant
+1064,14,Einar's Icestorm a040215 [1] (Lacking FP),lacking_fp_variant
+1064,15,Einar's Icestorm a040215 [2] (Lacking FP),lacking_fp_variant
+1167,3,Corpse Wax Cutter a040005 [1] (Lacking FP),lacking_fp_variant
+1168,5,Zamor Ice Storm a040005 [1] (Lacking FP),lacking_fp_variant
+1170,3,The Queen's Black Flame a040005 [1] (Lacking FP),lacking_fp_variant
+1170,4,The Queen's Black Flame a040005 [2] (Lacking FP),lacking_fp_variant
+1170,6,The Queen's Black Flame a040015 [1] (Lacking FP),lacking_fp_variant
+1171,2,Dynast's Finesse a040005 [1] (Lacking FP),lacking_fp_variant
+1171,4,Dynast's Finesse a040015 [1] (Lacking FP),lacking_fp_variant
+1171,7,Dynast's Finesse a040025 [1] (Lacking FP),lacking_fp_variant
+1171,8,Dynast's Finesse a040025 [2] (Lacking FP),lacking_fp_variant
+1172,4,Magma Shower a040005 [1] (Lacking FP),lacking_fp_variant
+1172,11,Magma Shower a040015 [1] (Lacking FP),lacking_fp_variant
+1172,12,Magma Shower a040015 [2] (Lacking FP),lacking_fp_variant
+1172,16,Magma Shower a040005 [1] (Lacking FP),lacking_fp_variant
+1172,23,Magma Shower a040015 [1] (Lacking FP),lacking_fp_variant
+1172,24,Magma Shower a040015 [2] (Lacking FP),lacking_fp_variant
+1173,4,Nebula a040005 [1] (Lacking FP),lacking_fp_variant
+1174,3,Death Flare a040015 [1] (Lacking FP),lacking_fp_variant
+1175,2,Bloodhound's Finesse a040005 [1] (Lacking FP),lacking_fp_variant
+1175,4,Bloodhound's Finesse a040015 [1] (Lacking FP),lacking_fp_variant
+1176,6,Magma Guillotine a040005 [1] (Lacking FP),lacking_fp_variant
+1176,9,Magma Guillotine a040015 [1] (Lacking FP),lacking_fp_variant
+1176,10,Magma Guillotine a040015 [2] (Lacking FP),lacking_fp_variant
+1177,5,Corpse Piler a040005 [1] (Lacking FP),lacking_fp_variant
+1177,6,Corpse Piler a040005 [2] (Lacking FP),lacking_fp_variant
+1177,13,Corpse Piler a040015 [1] (Lacking FP),lacking_fp_variant
+1177,14,Corpse Piler a040015 [2] (Lacking FP),lacking_fp_variant
+1177,15,Corpse Piler a040015 [3] (Lacking FP),lacking_fp_variant
+1177,18,Corpse Piler a040025 [1] (Lacking FP),lacking_fp_variant
+1179,10,Bloodblade Dance a040005 [1] (Lacking FP),lacking_fp_variant
+1179,11,Bloodblade Dance a040005 [2] (Lacking FP),lacking_fp_variant
+1179,12,Bloodblade Dance a040005 [3] (Lacking FP),lacking_fp_variant
+1179,13,Bloodblade Dance a040005 [4] (Lacking FP),lacking_fp_variant
+1179,14,Bloodblade Dance a040005 [5] (Lacking FP),lacking_fp_variant
+1179,15,Bloodblade Dance a040005 [6] (Lacking FP),lacking_fp_variant
+1179,16,Bloodblade Dance a040005 [7] (Lacking FP),lacking_fp_variant
+1179,17,Bloodblade Dance a040005 [8] (Lacking FP),lacking_fp_variant
+1179,18,Bloodblade Dance a040005 [9] (Lacking FP),lacking_fp_variant
+1179,22,Bloodblade Dance a040015 [1] (Lacking FP),lacking_fp_variant
+1179,23,Bloodblade Dance a040015 [2] (Lacking FP),lacking_fp_variant
+1179,24,Bloodblade Dance a040015 [3] (Lacking FP),lacking_fp_variant
+1183,3,Devourer of Worlds a040005 [1] (Lacking FP),lacking_fp_variant
+1183,9,Devourer of Worlds a040015 [1] (Lacking FP),lacking_fp_variant
+1185,9,Rosus's Summons a040005 [1] (Lacking FP),lacking_fp_variant
+1186,7,Thunderstorm a040005 [1] (Lacking FP),lacking_fp_variant
+1186,8,Thunderstorm a040005 [2] (Lacking FP),lacking_fp_variant
+1186,9,Thunderstorm a040005 [3] (Lacking FP),lacking_fp_variant
+1186,14,Thunderstorm a040015 [1] (Lacking FP),lacking_fp_variant
+1186,15,Thunderstorm a040015 [2] (Lacking FP),lacking_fp_variant
+1186,20,Thunderstorm a040025 [1] (Lacking FP),lacking_fp_variant
+1186,21,Thunderstorm a040025 [2] (Lacking FP),lacking_fp_variant
+1187,2,Sacred Phalanx a040005 [1] (Lacking FP),lacking_fp_variant
+1188,3,Great-Serpent Hunt a040005 [1] (Lacking FP),lacking_fp_variant
+1188,6,Great-Serpent Hunt a040015 [1] (Lacking FP),lacking_fp_variant
+1189,5,Angel's Wings a040005 [1] (Lacking FP),lacking_fp_variant
+1189,6,Angel's Wings a040005 [2] (Lacking FP),lacking_fp_variant
+1189,7,Angel's Wings a040005 [3] (Lacking FP),lacking_fp_variant
+1189,8,Angel's Wings a040005 [4] (Lacking FP),lacking_fp_variant
+1190,3,Storm Kick a040005 [1] (Lacking FP),lacking_fp_variant
+1190,4,Storm Kick a040005 [2] (Lacking FP),lacking_fp_variant
+1190,8,Storm Kick a040015 [1] (Lacking FP),lacking_fp_variant
+1190,9,Storm Kick a040015 [2] (Lacking FP),lacking_fp_variant
+1190,10,Storm Kick a040015 [3] (Lacking FP),lacking_fp_variant
+1190,14,Storm Kick a040025 [1] (Lacking FP),lacking_fp_variant
+1190,15,Storm Kick a040025 [2] (Lacking FP),lacking_fp_variant
+1190,16,Storm Kick a040025 [3] (Lacking FP),lacking_fp_variant
+1190,19,Storm Kick a040045 [1] (Lacking FP),lacking_fp_variant
+1190,20,Storm Kick a040045 [2] (Lacking FP),lacking_fp_variant
+1191,2,Unblockable Blade a040005 [1] (Lacking FP),lacking_fp_variant
+1192,2,Sorcery of the Crozier a040005 [1] (Lacking FP),lacking_fp_variant
+1193,11,Erdtree Slam a040009 [1] (Lacking FP),lacking_fp_variant
+1193,12,Erdtree Slam a040009 [2] (Lacking FP),lacking_fp_variant
+1193,13,Erdtree Slam a040009 [3] (Lacking FP),lacking_fp_variant
+1193,14,Erdtree Slam a040009 [4] (Lacking FP),lacking_fp_variant
+1194,5,Gravity Bolt a040005 [1] (Lacking FP),lacking_fp_variant
+1194,10,Gravity Bolt a040015 [1] (Lacking FP),lacking_fp_variant
+1198,13,Ordovis's Vortex a040005 [1] (Lacking FP),lacking_fp_variant
+1198,14,Ordovis's Vortex a040005 [2] (Lacking FP),lacking_fp_variant
+1198,15,Ordovis's Vortex a040006 [1] (Lacking FP),lacking_fp_variant
+1198,16,Ordovis's Vortex a040006 [2] (Lacking FP),lacking_fp_variant
+1200,2,Muleta a040015 [1] (Lacking FP),lacking_fp_variant
+1200,4,Muleta a040065 [1] (Lacking FP),lacking_fp_variant
+1200,7,Muleta a040075 [1] (Lacking FP),lacking_fp_variant
+1200,8,Muleta a040076 [1] (Lacking FP),lacking_fp_variant
+1202,7,Cosmic Stance a040075 [1] (Lacking FP),lacking_fp_variant
+1203,7,Spiritshaper's Resplendence a040005 [1] (Lacking FP),lacking_fp_variant
+1203,8,Spiritshaper's Resplendence a040005 [2] (Lacking FP),lacking_fp_variant
+1203,9,Spiritshaper's Resplendence a040005 [3] (Lacking FP),lacking_fp_variant
+1203,10,Spiritshaper's Resplendence a040005 [4] (Lacking FP),lacking_fp_variant
+1203,11,Spiritshaper's Resplendence a040006 [1] (Lacking FP),lacking_fp_variant
+1203,12,Spiritshaper's Resplendence a040006 [2] (Lacking FP),lacking_fp_variant
+1203,15,Spiritshaper's Resplendence a040015 [1] (Lacking FP),lacking_fp_variant
+1203,17,Spiritshaper's Resplendence a040025 [1] (Lacking FP),lacking_fp_variant
+1204,11,Rotten Slam a040009 [1] (Lacking FP),lacking_fp_variant
+1204,12,Rotten Slam a040009 [2] (Lacking FP),lacking_fp_variant
+1204,13,Rotten Slam a040009 [3] (Lacking FP),lacking_fp_variant
+1204,14,Rotten Slam a040009 [4] (Lacking FP),lacking_fp_variant
+1205,3,Pulverizing Thrust a040005 [1] (Lacking FP),lacking_fp_variant
+1205,4,Pulverizing Thrust a040006 [1] (Lacking FP),lacking_fp_variant
+1206,4,Bloodflame Stomp a040015 [1] (Lacking FP),lacking_fp_variant
+1209,21,Aromatic Chain-Whip a040005 [1] (Lacking FP),lacking_fp_variant
+1209,22,Aromatic Chain-Whip a040005 [2] (Lacking FP),lacking_fp_variant
+1209,23,Aromatic Chain-Whip a040005 [3] (Lacking FP),lacking_fp_variant
+1209,24,Aromatic Chain-Whip a040005 [4] (Lacking FP),lacking_fp_variant
+1209,25,Aromatic Chain-Whip a040005 [5] (Lacking FP),lacking_fp_variant
+2000,5,Dryleaf Whirlwind a040005 [1] (Lacking FP),lacking_fp_variant
+2000,6,Dryleaf Whirlwind a040005 [2] (Lacking FP),lacking_fp_variant
+2000,7,Dryleaf Whirlwind a040005 [3] (Lacking FP),lacking_fp_variant
+2000,8,Dryleaf Whirlwind a040005 [4] (Lacking FP),lacking_fp_variant
+4000,10,Spinning Gravity Thrust a040015 [1] (Lacking FP),lacking_fp_variant
+4000,11,Spinning Gravity Thrust a040015 [2] (Lacking FP),lacking_fp_variant
+4000,12,Spinning Gravity Thrust a040015 [3] (Lacking FP),lacking_fp_variant
+4000,13,Spinning Gravity Thrust a040015 [4] (Lacking FP),lacking_fp_variant
+4010,5,Palm Blast a040005 [1] (Lacking FP),lacking_fp_variant
+4010,6,Palm Blast a040006 [1] (Lacking FP),lacking_fp_variant
+4020,2,Piercing Throw a040005 [1] (Lacking FP),lacking_fp_variant
+4030,9,Scattershot Throw a040005 [1] (Lacking FP),lacking_fp_variant
+4030,10,Scattershot Throw a040005 [2] (Lacking FP),lacking_fp_variant
+4030,19,Scattershot Throw a040015 [1] (Lacking FP),lacking_fp_variant
+4030,20,Scattershot Throw a040015 [2] (Lacking FP),lacking_fp_variant
+4060,3,Raging Beast a040015 [1] (Lacking FP),lacking_fp_variant
+4060,4,Raging Beast a040015 [2] (Lacking FP),lacking_fp_variant
+4060,7,Raging Beast a040025 [1] (Lacking FP),lacking_fp_variant
+4060,8,Raging Beast a040025 [2] (Lacking FP),lacking_fp_variant
+4060,13,Raging Beast a040085 [1] (Lacking FP),lacking_fp_variant
+4060,14,Raging Beast a040086 [1] (Lacking FP),lacking_fp_variant
+4060,15,Raging Beast a040087 [1] (Lacking FP),lacking_fp_variant
+4060,16,Raging Beast a040088 [1] (Lacking FP),lacking_fp_variant
+4070,7,Savage Claws a040005 [1] (Lacking FP),lacking_fp_variant
+4070,8,Savage Claws a040005 [2] (Lacking FP),lacking_fp_variant
+4070,9,Savage Claws a040005 [3] (Lacking FP),lacking_fp_variant
+4070,10,Savage Claws a040005 [4] (Lacking FP),lacking_fp_variant
+4070,11,Savage Claws a040005 [5] (Lacking FP),lacking_fp_variant
+4070,12,Savage Claws a040005 [6] (Lacking FP),lacking_fp_variant
+4080,3,Red Bear Hunt a040005 [1] (Lacking FP),lacking_fp_variant
+4080,6,Red Bear Hunt a040015 [1] (Lacking FP),lacking_fp_variant
+4080,10,Red Bear Hunt a040025 [1] (Lacking FP),lacking_fp_variant
+4080,11,Red Bear Hunt a040025 [2] (Lacking FP),lacking_fp_variant
+4090,5,Blind Spot a040085 [1] (Lacking FP),lacking_fp_variant
+4090,6,Blind Spot a040086 [1] (Lacking FP),lacking_fp_variant
+4090,7,Blind Spot a040087 [1] (Lacking FP),lacking_fp_variant
+4090,8,Blind Spot a040088 [1] (Lacking FP),lacking_fp_variant
+4100,12,Swift Slash a040006 [1] (Lacking FP),lacking_fp_variant
+4100,13,Swift Slash a040006 [2] (Lacking FP),lacking_fp_variant
+4110,2,Overhead Stance a040065 [1] (Lacking FP),lacking_fp_variant
+4110,6,Overhead Stance a040075 [1] (Lacking FP),lacking_fp_variant
+4110,7,Overhead Stance a040075 [2] (Lacking FP),lacking_fp_variant
+4110,8,Overhead Stance a040075 [3] (Lacking FP),lacking_fp_variant
+4120,4,Wing Stance a040065 [1] (Lacking FP),lacking_fp_variant
+4120,5,Wing Stance a040065 [2] (Lacking FP),lacking_fp_variant
+4120,6,Wing Stance a040065 [3] (Lacking FP),lacking_fp_variant
+4120,8,Wing Stance a040075 [1] (Lacking FP),lacking_fp_variant
+4130,2,Blinkbolt a040005 [1] (Lacking FP),lacking_fp_variant
+4140,2,Flame Skewer a040005 [1] (Lacking FP),lacking_fp_variant
+4140,13,Flame Skewer a040015 [1] (Lacking FP),lacking_fp_variant
+4140,15,[Heavy Thrusting Sword] Flame Skewer a040005 [1] (Lacking FP),lacking_fp_variant
+4140,26,[Heavy Thrusting Sword] Flame Skewer a040015 [1] (Lacking FP),lacking_fp_variant
+4140,28,[Katana] Flame Skewer a040005 [1] (Lacking FP),lacking_fp_variant
+4140,39,[Katana] Flame Skewer a040015 [1] (Lacking FP),lacking_fp_variant
+4140,41,[Light Greatsword] Flame Skewer a040005 [1] (Lacking FP),lacking_fp_variant
+4140,52,[Light Greatsword] Flame Skewer a040015 [1] (Lacking FP),lacking_fp_variant
+4140,54,[Spear] Flame Skewer a040005 [1] (Lacking FP),lacking_fp_variant
+4140,65,[Spear] Flame Skewer a040015 [1] (Lacking FP),lacking_fp_variant
+4140,67,[Straight Sword] Flame Skewer a040005 [1] (Lacking FP),lacking_fp_variant
+4140,78,[Straight Sword] Flame Skewer a040015 [1] (Lacking FP),lacking_fp_variant
+4140,80,[Thrusting Shield] Flame Skewer a045905 [1] (Lacking FP),lacking_fp_variant
+4140,91,[Thrusting Shield] Flame Skewer a045915 [1] (Lacking FP),lacking_fp_variant
+4140,93,[Thrusting Sword] Flame Skewer a040005 [1] (Lacking FP),lacking_fp_variant
+4140,104,[Thrusting Sword] Flame Skewer a040015 [1] (Lacking FP),lacking_fp_variant
+4140,106,[Twinblade] Flame Skewer a040005 [1] (Lacking FP),lacking_fp_variant
+4140,117,[Twinblade] Flame Skewer a040015 [1] (Lacking FP),lacking_fp_variant
+4150,2,Savage Lion's Claw a040005 [1] (Lacking FP),lacking_fp_variant
+4150,5,Savage Lion's Claw a040015 [1] (Lacking FP),lacking_fp_variant
+4150,6,Savage Lion's Claw a040015 [2] (Lacking FP),lacking_fp_variant
+4170,5,Flame Spear a040005 [1] (Lacking FP),lacking_fp_variant
+4170,6,Flame Spear a040006 [1] (Lacking FP),lacking_fp_variant
+4170,11,[Colossal Sword] Flame Spear a040205 [1] (Lacking FP),lacking_fp_variant
+4170,12,[Colossal Sword] Flame Spear a040206 [1] (Lacking FP),lacking_fp_variant
+4170,17,[Great Katana] Flame Spear a040205 [1] (Lacking FP),lacking_fp_variant
+4170,18,[Great Katana] Flame Spear a040206 [1] (Lacking FP),lacking_fp_variant
+4170,23,[Greatsword] Flame Spear a040205 [1] (Lacking FP),lacking_fp_variant
+4170,24,[Greatsword] Flame Spear a040206 [1] (Lacking FP),lacking_fp_variant
+4170,29,[Halberd] Flame Spear a040305 [1] (Lacking FP),lacking_fp_variant
+4170,30,[Halberd] Flame Spear a040306 [1] (Lacking FP),lacking_fp_variant
+4170,35,[Heavy Spear] Flame Spear a040305 [1] (Lacking FP),lacking_fp_variant
+4170,36,[Heavy Spear] Flame Spear a040306 [1] (Lacking FP),lacking_fp_variant
+4170,41,[Spear] Flame Spear a040305 [1] (Lacking FP),lacking_fp_variant
+4170,42,[Spear] Flame Spear a040306 [1] (Lacking FP),lacking_fp_variant
+4170,47,[Thrusting Shield] Flame Spear a040305 [1] (Lacking FP),lacking_fp_variant
+4170,48,[Thrusting Shield] Flame Spear a040306 [1] (Lacking FP),lacking_fp_variant
+4170,53,[Twinblade] Flame Spear a040305 [1] (Lacking FP),lacking_fp_variant
+4170,54,[Twinblade] Flame Spear a040306 [1] (Lacking FP),lacking_fp_variant
+4180,9,Carian Sovereignty a040005 [1] (Lacking FP),lacking_fp_variant
+4180,10,Carian Sovereignty a040006 [1] (Lacking FP),lacking_fp_variant
+4180,12,Carian Sovereignty a040015 [1] (Lacking FP),lacking_fp_variant
+4180,14,Carian Sovereignty a040025 [1] (Lacking FP),lacking_fp_variant
+4190,2,Shriek of Sorrow a040005 [1] (Lacking FP),lacking_fp_variant
+4220,4,Ghostflame Call a040005 [1] (Lacking FP),lacking_fp_variant
+4220,24,Ghostflame Call a040015 [1] (Lacking FP),lacking_fp_variant
+4220,27,Ghostflame Call a040025 [1] (Lacking FP),lacking_fp_variant
+5000,4,Dragonwound Slash a040005 [1] (Lacking FP),lacking_fp_variant
+5000,5,Dragonwound Slash a040006 [1] (Lacking FP),lacking_fp_variant
+5010,32,Needle Piercer a040005 [1] (Lacking FP),lacking_fp_variant
+5040,3,Onze's Line of Stars a040005 [1] (Lacking FP),lacking_fp_variant
+5040,4,Onze's Line of Stars a040005 [2] (Lacking FP),lacking_fp_variant
+5040,7,Onze's Line of Stars a040015 [1] (Lacking FP),lacking_fp_variant
+5040,8,Onze's Line of Stars a040015 [2] (Lacking FP),lacking_fp_variant
+5040,11,Onze's Line of Stars a040025 [1] (Lacking FP),lacking_fp_variant
+5040,12,Onze's Line of Stars a040025 [2] (Lacking FP),lacking_fp_variant
+5050,3,The Poison Flower Blooms Twice a040005 [1] (Lacking FP),lacking_fp_variant
+5080,2,Spinning Guillotine a040005 [1] (Lacking FP),lacking_fp_variant
+5080,6,Spinning Guillotine a040015 [1] (Lacking FP),lacking_fp_variant
+5080,7,Spinning Guillotine a040015 [2] (Lacking FP),lacking_fp_variant
+5080,8,Spinning Guillotine a040015 [3] (Lacking FP),lacking_fp_variant
+5080,12,Spinning Guillotine a040025 [1] (Lacking FP),lacking_fp_variant
+5080,13,Spinning Guillotine a040025 [2] (Lacking FP),lacking_fp_variant
+5080,14,Spinning Guillotine a040025 [3] (Lacking FP),lacking_fp_variant
+5090,26,Unending Dance a040055 [1] (Lacking FP),lacking_fp_variant
+5090,27,Unending Dance a040056 [1] (Lacking FP),lacking_fp_variant
+5090,28,Unending Dance a040056 [2] (Lacking FP),lacking_fp_variant
+5090,29,Unending Dance a040056 [3] (Lacking FP),lacking_fp_variant
+5090,30,Unending Dance a040056 [4] (Lacking FP),lacking_fp_variant
+5090,31,Unending Dance a040056 [5] (Lacking FP),lacking_fp_variant
+5090,32,Unending Dance a040056 [6] (Lacking FP),lacking_fp_variant
+5090,33,Unending Dance a040056 [7] (Lacking FP),lacking_fp_variant
+5090,34,Unending Dance a040056 [8] (Lacking FP),lacking_fp_variant
+5090,35,Unending Dance a040056 [9] (Lacking FP),lacking_fp_variant
+5090,36,Unending Dance a040056 [10] (Lacking FP),lacking_fp_variant
+5090,37,Unending Dance a040056 [11] (Lacking FP),lacking_fp_variant
+5090,38,Unending Dance a040056 [12] (Lacking FP),lacking_fp_variant
+5090,39,Unending Dance a040057 [1] (Lacking FP),lacking_fp_variant
+5090,40,Unending Dance a040057 [2] (Lacking FP),lacking_fp_variant
+5090,41,Unending Dance a040057 [3] (Lacking FP),lacking_fp_variant
+5090,42,Unending Dance a040057 [4] (Lacking FP),lacking_fp_variant
+5090,43,Unending Dance a040057 [5] (Lacking FP),lacking_fp_variant
+5090,44,Unending Dance a040057 [6] (Lacking FP),lacking_fp_variant
+5090,45,Unending Dance a040057 [7] (Lacking FP),lacking_fp_variant
+5090,46,Unending Dance a040057 [8] (Lacking FP),lacking_fp_variant
+5090,47,Unending Dance a040057 [9] (Lacking FP),lacking_fp_variant
+5090,48,Unending Dance a040057 [10] (Lacking FP),lacking_fp_variant
+5090,49,Unending Dance a040057 [11] (Lacking FP),lacking_fp_variant
+5090,50,Unending Dance a040057 [12] (Lacking FP),lacking_fp_variant
+5100,5,Revenger's Blade a040005 [1] (Lacking FP),lacking_fp_variant
+5100,6,Revenger's Blade a040005 [2] (Lacking FP),lacking_fp_variant
+5100,7,Revenger's Blade a040006 [1] (Lacking FP),lacking_fp_variant
+5100,8,Revenger's Blade a040006 [2] (Lacking FP),lacking_fp_variant
+5100,16,Revenger's Blade a040015 [1] (Lacking FP),lacking_fp_variant
+5100,17,Revenger's Blade a040015 [2] (Lacking FP),lacking_fp_variant
+5100,18,Revenger's Blade a040015 [3] (Lacking FP),lacking_fp_variant
+5100,19,Revenger's Blade a040015 [4] (Lacking FP),lacking_fp_variant
+5100,20,Revenger's Blade a040015 [5] (Lacking FP),lacking_fp_variant
+5100,21,Revenger's Blade a040015 [6] (Lacking FP),lacking_fp_variant
+5100,22,Revenger's Blade a040015 [7] (Lacking FP),lacking_fp_variant
+5111,5,a040005 [1] (Lacking FP),lacking_fp_variant
+5111,6,a040005 [2] (Lacking FP),lacking_fp_variant
+5111,7,a040005 [3] (Lacking FP),lacking_fp_variant
+5111,8,a040005 [4] (Lacking FP),lacking_fp_variant
+5120,2,Dynastic Sickleplay a040015 [1] (Lacking FP),lacking_fp_variant
+5120,6,Dynastic Sickleplay a040025 [1] (Lacking FP),lacking_fp_variant
+5120,7,Dynastic Sickleplay a040025 [2] (Lacking FP),lacking_fp_variant
+5120,8,Dynastic Sickleplay a040025 [3] (Lacking FP),lacking_fp_variant
+5120,13,Dynastic Sickleplay a040085 [1] (Lacking FP),lacking_fp_variant
+5120,14,Dynastic Sickleplay a040086 [1] (Lacking FP),lacking_fp_variant
+5120,15,Dynastic Sickleplay a040087 [1] (Lacking FP),lacking_fp_variant
+5120,16,Dynastic Sickleplay a040088 [1] (Lacking FP),lacking_fp_variant
+5124,6,Purification a040015 [1] (Lacking FP),lacking_fp_variant
+5124,7,Purification a040015 [2] (Lacking FP),lacking_fp_variant
+5124,8,Purification a040015 [3] (Lacking FP),lacking_fp_variant
+5124,9,Purification a040015 [4] (Lacking FP),lacking_fp_variant
+5124,15,Purification a040065 [1] (Lacking FP),lacking_fp_variant
+5124,16,Purification a040065 [2] (Lacking FP),lacking_fp_variant
+5124,17,Purification a040065 [3] (Lacking FP),lacking_fp_variant
+5124,18,Purification a040065 [4] (Lacking FP),lacking_fp_variant
+5124,19,Purification a040065 [5] (Lacking FP),lacking_fp_variant
+5124,22,Purification a040075 [1] (Lacking FP),lacking_fp_variant
+5130,2,Blinkbolt: Twinaxe a040005 [1] (Lacking FP),lacking_fp_variant
+5130,9,Blinkbolt: Twinaxe a040015 [1] (Lacking FP),lacking_fp_variant
+5130,10,Blinkbolt: Twinaxe a040015 [2] (Lacking FP),lacking_fp_variant
+5130,11,Blinkbolt: Twinaxe a040015 [3] (Lacking FP),lacking_fp_variant
+5130,12,Blinkbolt: Twinaxe a040015 [4] (Lacking FP),lacking_fp_variant
+5130,13,Blinkbolt: Twinaxe a040015 [5] (Lacking FP),lacking_fp_variant
+5130,14,Blinkbolt: Twinaxe a040015 [6] (Lacking FP),lacking_fp_variant
+5140,2,Blinkbolt: Long-hafted Axe a040005 [1] (Lacking FP),lacking_fp_variant
+5140,7,Blinkbolt: Long-hafted Axe a040015 [1] (Lacking FP),lacking_fp_variant
+5150,9,Waves of Madness a040005 [1] (Lacking FP),lacking_fp_variant
+5150,10,Waves of Madness a040005 [2] (Lacking FP),lacking_fp_variant
+5150,19,Waves of Madness a040015 [1] (Lacking FP),lacking_fp_variant
+5150,20,Waves of Madness a040015 [2] (Lacking FP),lacking_fp_variant
+5150,25,Waves of Madness a040025 [1] (Lacking FP),lacking_fp_variant
+5160,3,Shadow Sunflower Headbutt a040005 [1] (Lacking FP),lacking_fp_variant
+5160,8,Shadow Sunflower Headbutt a040015 [1] (Lacking FP),lacking_fp_variant
+5160,9,Shadow Sunflower Headbutt a040015 [2] (Lacking FP),lacking_fp_variant
+5160,12,Shadow Sunflower Headbutt a040025 [1] (Lacking FP),lacking_fp_variant
+5170,5,Moon-and-Fire Stance a040015 [1] (Lacking FP),lacking_fp_variant
+5170,6,Moon-and-Fire Stance a040015 [2] (Lacking FP),lacking_fp_variant
+5170,9,Moon-and-Fire Stance a040025 [1] (Lacking FP),lacking_fp_variant
+5170,14,Moon-and-Fire Stance a040065 [1] (Lacking FP),lacking_fp_variant
+5170,15,Moon-and-Fire Stance a040065 [2] (Lacking FP),lacking_fp_variant
+5170,26,Moon-and-Fire Stance a040075 [1] (Lacking FP),lacking_fp_variant
+5170,27,Moon-and-Fire Stance a040075 [2] (Lacking FP),lacking_fp_variant
+5170,28,Moon-and-Fire Stance a040075 [3] (Lacking FP),lacking_fp_variant
+5180,7,Devonia's Vortex a040005 [1] (Lacking FP),lacking_fp_variant
+5180,8,Devonia's Vortex a040006 [1] (Lacking FP),lacking_fp_variant
+5190,4,Messmer's Assault a040005 [1] (Lacking FP),lacking_fp_variant
+5190,5,Messmer's Assault a040005 [2] (Lacking FP),lacking_fp_variant
+5190,9,Messmer's Assault a040015 [1] (Lacking FP),lacking_fp_variant
+5190,10,Messmer's Assault a040015 [2] (Lacking FP),lacking_fp_variant
+5190,11,Messmer's Assault a040015 [3] (Lacking FP),lacking_fp_variant
+5190,15,Messmer's Assault a040025 [1] (Lacking FP),lacking_fp_variant
+5191,4,Idris's Sacrilege a040005 [1] (Lacking FP),lacking_fp_variant
+5191,5,Idris's Sacrilege a040005 [2] (Lacking FP),lacking_fp_variant
+5191,9,Idris's Sacrilege a040015 [1] (Lacking FP),lacking_fp_variant
+5191,10,Idris's Sacrilege a040015 [2] (Lacking FP),lacking_fp_variant
+5191,11,Idris's Sacrilege a040015 [3] (Lacking FP),lacking_fp_variant
+5191,15,Idris's Sacrilege a040025 [1] (Lacking FP),lacking_fp_variant
+5200,67,Lord of Light Stance a040015 [1] (Lacking FP),lacking_fp_variant
+5200,68,Lord of Light Stance a040015 [2] (Lacking FP),lacking_fp_variant
+5200,116,Lord of Light Stance a040025 [1] (Lacking FP),lacking_fp_variant
+5200,117,Lord of Light Stance a040025 [2] (Lacking FP),lacking_fp_variant
+5200,118,Lord of Light Stance a040025 [3] (Lacking FP),lacking_fp_variant
+5200,185,Lord of Light Stance a040065 [1] (Lacking FP),lacking_fp_variant
+5200,186,Lord of Light Stance a040065 [2] (Lacking FP),lacking_fp_variant
+5200,190,Lord of Light Stance a040075 [1] (Lacking FP),lacking_fp_variant
+5210,2,Sleep Evermore a040005 [1] (Lacking FP),lacking_fp_variant
+5210,4,Sleep Evermore a040035 [1] (Lacking FP),lacking_fp_variant
+5210,6,Sleep Evermore a040045 [1] (Lacking FP),lacking_fp_variant
+5220,3,Golden Crux a040005 [1] (Lacking FP),lacking_fp_variant
+5220,5,Golden Crux a040015 [1] (Lacking FP),lacking_fp_variant
+5230,9,Moore's Charge a040005 [1] (Lacking FP),lacking_fp_variant
+5230,10,Moore's Charge a040005 [2] (Lacking FP),lacking_fp_variant
+5230,11,Moore's Charge a040005 [3] (Lacking FP),lacking_fp_variant
+5230,12,Moore's Charge a040005 [4] (Lacking FP),lacking_fp_variant
+5230,13,Moore's Charge a040005 [5] (Lacking FP),lacking_fp_variant
+5230,14,Moore's Charge a040006 [1] (Lacking FP),lacking_fp_variant
+5230,23,Moore's Charge a040035 [1] (Lacking FP),lacking_fp_variant
+5230,24,Moore's Charge a040035 [2] (Lacking FP),lacking_fp_variant
+5230,25,Moore's Charge a040035 [3] (Lacking FP),lacking_fp_variant
+5230,26,Moore's Charge a040035 [4] (Lacking FP),lacking_fp_variant
+5230,27,Moore's Charge a040035 [5] (Lacking FP),lacking_fp_variant
+5230,28,Moore's Charge a040036 [1] (Lacking FP),lacking_fp_variant
+5230,37,Moore's Charge a040045 [1] (Lacking FP),lacking_fp_variant
+5230,38,Moore's Charge a040045 [2] (Lacking FP),lacking_fp_variant
+5230,39,Moore's Charge a040045 [3] (Lacking FP),lacking_fp_variant
+5230,40,Moore's Charge a040045 [4] (Lacking FP),lacking_fp_variant
+5230,41,Moore's Charge a040045 [5] (Lacking FP),lacking_fp_variant
+5230,42,Moore's Charge a040046 [1] (Lacking FP),lacking_fp_variant
+5240,2,Cosmic Burst a040005 [1] (Lacking FP),lacking_fp_variant
+5250,7,Rancor Slash a040005 [1] (Lacking FP),lacking_fp_variant
+5250,8,Rancor Slash a040005 [2] (Lacking FP),lacking_fp_variant
+5250,16,Rancor Slash a040015 [1] (Lacking FP),lacking_fp_variant
+5260,7,Witching Hour Slash a040005 [1] (Lacking FP),lacking_fp_variant
+5260,8,Witching Hour Slash a040005 [2] (Lacking FP),lacking_fp_variant
+5260,9,Witching Hour Slash a040005 [3] (Lacking FP),lacking_fp_variant
+5260,10,Witching Hour Slash a040006 [1] (Lacking FP),lacking_fp_variant
+5260,11,Witching Hour Slash a040006 [2] (Lacking FP),lacking_fp_variant
+5260,12,Witching Hour Slash a040006 [3] (Lacking FP),lacking_fp_variant
+5270,6,Euporia Vortex a040005 [1] (Lacking FP),lacking_fp_variant
+5270,7,Euporia Vortex a040005 [2] (Lacking FP),lacking_fp_variant
+5270,8,Euporia Vortex a040005 [3] (Lacking FP),lacking_fp_variant
+5270,9,Euporia Vortex a040005 [4] (Lacking FP),lacking_fp_variant
+5270,10,Euporia Vortex a040005 [5] (Lacking FP),lacking_fp_variant
+5280,7,Smithing Art Spears a040005 [1] (Lacking FP),lacking_fp_variant
+5290,11,Rancor Flurry a040005 [1] (Lacking FP),lacking_fp_variant
+5290,12,Rancor Flurry a040005 [2] (Lacking FP),lacking_fp_variant
+5290,13,Rancor Flurry a040005 [3] (Lacking FP),lacking_fp_variant
+5290,14,Rancor Flurry a040005 [4] (Lacking FP),lacking_fp_variant
+5290,16,Rancor Flurry a040015 [1] (Lacking FP),lacking_fp_variant
+5300,11,Romina's Purification a040005 [1] (Lacking FP),lacking_fp_variant
+5300,12,Romina's Purification a040005 [2] (Lacking FP),lacking_fp_variant
+5310,2,Poison Spear-Hand Strike a040005 [1] (Lacking FP),lacking_fp_variant
+5320,2,Madding Spear-Hand Strike a040005 [1] (Lacking FP),lacking_fp_variant
+5350,5,Deadly Dance a040005 [1] (Lacking FP),lacking_fp_variant
+5350,6,Deadly Dance a040005 [2] (Lacking FP),lacking_fp_variant
+5350,7,Deadly Dance a040005 [3] (Lacking FP),lacking_fp_variant
+5350,8,Deadly Dance a040005 [4] (Lacking FP),lacking_fp_variant
+5350,10,Deadly Dance a040015 [1] (Lacking FP),lacking_fp_variant
+5370,3,Discus Hurl a040005 [1] (Lacking FP),lacking_fp_variant
+5370,6,Discus Hurl a040035 [1] (Lacking FP),lacking_fp_variant
+5370,9,Discus Hurl a040045 [1] (Lacking FP),lacking_fp_variant
+5380,21,Flower Dragonbolt a040005 [1] (Lacking FP),lacking_fp_variant
+5380,22,Flower Dragonbolt a040006 [1] (Lacking FP),lacking_fp_variant
+5420,4,Painful Strike a040005 [1] (Lacking FP),lacking_fp_variant
+5420,5,Painful Strike a040005 [2] (Lacking FP),lacking_fp_variant
+5420,6,Painful Strike a040005 [3] (Lacking FP),lacking_fp_variant
+5430,3,Solitary Moon Slash a040005 [1] (Lacking FP),lacking_fp_variant
+5430,7,Solitary Moon Slash a040015 [1] (Lacking FP),lacking_fp_variant
+5430,8,Solitary Moon Slash a040015 [2] (Lacking FP),lacking_fp_variant
+5430,9,Solitary Moon Slash a040015 [3] (Lacking FP),lacking_fp_variant
+5431,30,Moon's Orbit a040005 [1] (Lacking FP),lacking_fp_variant
+5431,31,Moon's Orbit a040005 [2] (Lacking FP),lacking_fp_variant
+5431,32,Moon's Orbit a040005 [3] (Lacking FP),lacking_fp_variant
+5431,33,Moon's Orbit a040005 [4] (Lacking FP),lacking_fp_variant
+5431,34,Moon's Orbit a040005 [5] (Lacking FP),lacking_fp_variant
+5431,35,Moon's Orbit a040005 [6] (Lacking FP),lacking_fp_variant
+5431,36,Moon's Orbit a040005 [7] (Lacking FP),lacking_fp_variant
+5431,37,Moon's Orbit a040005 [8] (Lacking FP),lacking_fp_variant
+5431,38,Moon's Orbit a040006 [1] (Lacking FP),lacking_fp_variant
+5431,39,Moon's Orbit a040006 [2] (Lacking FP),lacking_fp_variant
+5431,40,Moon's Orbit a040006 [3] (Lacking FP),lacking_fp_variant
+5431,41,Moon's Orbit a040006 [4] (Lacking FP),lacking_fp_variant
+5431,42,Moon's Orbit a040006 [5] (Lacking FP),lacking_fp_variant
+5431,43,Moon's Orbit a040006 [6] (Lacking FP),lacking_fp_variant
+5431,44,Moon's Orbit a040006 [7] (Lacking FP),lacking_fp_variant
+5431,45,Moon's Orbit a040006 [8] (Lacking FP),lacking_fp_variant
+5431,46,Moon's Orbit a040006 [9] (Lacking FP),lacking_fp_variant
+5440,2,Revenge of the Night a040005 [1] (Lacking FP),lacking_fp_variant
+5440,4,Revenge of the Night a040035 [1] (Lacking FP),lacking_fp_variant
+5440,6,Revenge of the Night a040045 [1] (Lacking FP),lacking_fp_variant
+5450,3,Weed Cutter a040005 [1] (Lacking FP),lacking_fp_variant
+5450,4,Weed Cutter a040005 [2] (Lacking FP),lacking_fp_variant
+5450,7,Weed Cutter a040015 [1] (Lacking FP),lacking_fp_variant
+5450,8,Weed Cutter a040015 [2] (Lacking FP),lacking_fp_variant
+5450,11,Weed Cutter a040025 [1] (Lacking FP),lacking_fp_variant
+5450,12,Weed Cutter a040025 [2] (Lacking FP),lacking_fp_variant
+5470,2,Jori's Inquisition a040005 [1] (Lacking FP),lacking_fp_variant
+5480,3,Roaring Bash a040005 [1] (Lacking FP),lacking_fp_variant
+5480,6,Roaring Bash a040035 [1] (Lacking FP),lacking_fp_variant
+5480,9,Roaring Bash a040045 [1] (Lacking FP),lacking_fp_variant
+5510,9,Scattershot (Claws) a040005 [1] (Lacking FP),lacking_fp_variant
+5510,10,Scattershot (Claws) a040005 [2] (Lacking FP),lacking_fp_variant
+5510,19,Scattershot (Claws) a040015 [1] (Lacking FP),lacking_fp_variant
+5510,20,Scattershot (Claws) a040015 [2] (Lacking FP),lacking_fp_variant
+5530,7,Horn Calling a040005 [1] (Lacking FP),lacking_fp_variant
+5540,5,Tempest Cleave a040015 [1] (Lacking FP),lacking_fp_variant
+5550,4,Tremendous Phalanx a040015 [1] (Lacking FP),lacking_fp_variant
+5610,4,Transcendent Stance a040015 [1] (Lacking FP),lacking_fp_variant
+5610,5,Transcendent Stance a040015 [2] (Lacking FP),lacking_fp_variant
+5610,10,Transcendent Stance a040025 [1] (Lacking FP),lacking_fp_variant
