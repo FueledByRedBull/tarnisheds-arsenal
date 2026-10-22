@@ -67,6 +67,10 @@ REQUEST_SCRIPT = """
             arts_idx = 6
         elseif c_SwordArtsID == 312 and env(GetSpEffectID, 1878) == TRUE then
             arts_idx = 2
+        elseif c_WeaponSwordArts == "10070000" then -- Godwyn's cragblade
+            arts_idx = 4
+        elseif c_WeaponSwordArts == "11130000" then
+            arts_idx = 11
         end
         SetVariable("SwordArtsOneShotCategory", arts_idx)
 """
@@ -127,6 +131,10 @@ class TaeReaderTests(unittest.TestCase):
             read_tae(b"TAE \x00\x00\x00\x00" + data[8:])
         with self.assertRaisesRegex(ValueError, "bounds"):
             read_tae(data[:0x70])
+        negative = bytearray(data)
+        struct.pack_into("<q", negative, 0x58, -16)
+        with self.assertRaisesRegex(ValueError, "negative"):
+            read_tae(bytes(negative))
         duplicate = bytearray(tae_bytes({40000: [], 40001: []}))
         struct.pack_into("<q", duplicate, 0x70, 40000)
         with self.assertRaisesRegex(ValueError, "duplicate"):
@@ -189,8 +197,20 @@ class CategoryScriptTests(unittest.TestCase):
         self.assertEqual(script.categories[3], frozenset({0, 2, 24}))
         self.assertEqual(script.blacklist, frozenset({54}))
         self.assertEqual(script.whitelist, frozenset({196}))
-        # Weapon-ID and SpEffect branches do not choose a category's index.
-        self.assertEqual(script.arts_index_by_category, {2: 1, 61: 1, 24: 4, 42: 6, 62: 6})
+        # SpEffect branches are skipped; weapon-ID branches keep their place in the order.
+        self.assertEqual(
+            script.arts_index_branches,
+            (
+                ("weapon", 60530000, 1),
+                ("category", 2, 1),
+                ("category", 61, 1),
+                ("category", 24, 4),
+                ("category", 42, 6),
+                ("category", 62, 6),
+                ("weapon", 10070000, 4),
+                ("weapon", 11130000, 11),
+            ),
+        )
         self.assertEqual(skill_anim_group(script, 3, idle_cat=2, wep_cat=25), 2)
         self.assertEqual(skill_anim_group(script, 3, idle_cat=12, wep_cat=25), 2)
         self.assertEqual(skill_anim_group(script, 3, idle_cat=3, wep_cat=24), 24)
@@ -198,6 +218,15 @@ class CategoryScriptTests(unittest.TestCase):
         # Claws borrow the Fist category; skills past 170 never vary.
         self.assertEqual(skill_anim_group(script, 56, idle_cat=0, wep_cat=22), 42)
         self.assertEqual(skill_anim_group(script, 200, idle_cat=2, wep_cat=25), 0)
+
+    def test_weapon_branches_apply_in_script_order(self) -> None:
+        script = parse_category_script(CATEGORY_SCRIPT, REQUEST_SCRIPT)
+        # Jump Ash precedes every category branch; Godwyn's only applies when none matched.
+        self.assertEqual(skill_anim_group(script, 3, idle_cat=3, wep_cat=24, weapon_id=60530000), 2)
+        self.assertEqual(skill_anim_group(script, 3, idle_cat=0, wep_cat=23, weapon_id=10070000), 24)
+        self.assertEqual(skill_anim_group(script, 3, idle_cat=2, wep_cat=25, weapon_id=10070000), 2)
+        # An index past the known animation groups has no group.
+        self.assertIsNone(skill_anim_group(script, 3, idle_cat=0, wep_cat=23, weapon_id=11130000))
 
     def test_changed_script_fails_closed(self) -> None:
         with self.assertRaisesRegex(ValueError, "script changed"):

@@ -13,6 +13,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.phase1.extract_motion_workbook import MOTION_WORKBOOK_NAME, load_weapon_workbook_data  # noqa: E402
+from tools.phase1.extract_skill_animations import ROUTE_EFFECT_ROLES  # noqa: E402
 from tools.phase1.phase1_dump import (  # noqa: E402
     CLASS_CATALOG_FILE,
     CLASS_LEVEL_OFFSET,
@@ -594,9 +595,7 @@ def validate_attack_and_route_rows(
     supported_route_effect_keys = {
         (int(row["aow_id"]), int(row["sheet_row"]))
         for row in aow_effect_data
-        if row.get("is_supported") == "1"
-        and row.get("role")
-        in {"per_hit_status", "per_hit_attack_power", "replacement_or_chained"}
+        if row.get("is_supported") == "1" and row.get("role") in ROUTE_EFFECT_ROLES
     }
     missing_route_assignments = sorted(
         key

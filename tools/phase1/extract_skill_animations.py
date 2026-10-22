@@ -19,7 +19,7 @@ import struct
 import sys
 import tempfile
 from collections import Counter, defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Collection, Mapping
 
@@ -30,6 +30,7 @@ if str(ROOT) not in sys.path:
 from tools.phase1.extract_motion_workbook import (  # noqa: E402
     AOW_ATTACK_FIELDS,
     ATTACK_PARAM_FIELDS,
+    DAMAGE_TYPES,
     NATIVE_SKILL_ATTACK_FIELDS,
     ROUTE_ASSIGNMENT_FIELDS,
     is_damaging_row,
@@ -99,7 +100,6 @@ PHYSICAL_ATTRIBUTES = {
 BEHAVIOR_FIELDS = ("refType", "refId", "stamina")
 BULLET_FIELDS = ("atkId_Bullet", "HitBulletID", "intervalCreateBulletId")
 WEAPON_FIELDS = ("behaviorVariationId", "wepmotionCategory", "wepmotionOneHandId")
-DAMAGE_TYPES = ("physical", "magic", "fire", "lightning", "holy")
 # Effect roles that need a route even on a hit without damage.
 ROUTE_EFFECT_ROLES = {"per_hit_status", "per_hit_attack_power", "replacement_or_chained"}
 EXCLUSION_FIELDS = ("aow_id", "weapon_id", "tae_section", "anim_id", "judge_id", "reason")
@@ -140,7 +140,8 @@ class CategoryScript:
     categories: Mapping[int, frozenset[int]]
     whitelist: frozenset[int]
     blacklist: frozenset[int]
-    arts_index_by_category: Mapping[int, int]
+    # Right-hand selector branches in script order: ("category" | "weapon", key, arts_idx).
+    arts_index_branches: tuple[tuple[str, int, int], ...]
 
 
 @dataclass(frozen=True)
@@ -189,31 +190,36 @@ def read_tae(data: bytes, first_anim_id: int = 0) -> dict[int, tuple[TaeEvent, .
     numbered from first_anim_id."""
     if data[:4] != b"TAE " or data[4] != 0 or data[7] != 0xFF:
         raise ValueError("not a 64-bit little-endian TAE file")
+
+    def unpack(fmt: str, offset: int) -> tuple:
+        # struct accepts negative offsets as counting from the end; a corrupt pointer must fail.
+        if offset < 0:
+            raise ValueError(f"TAE offset {offset} is negative")
+        return struct.unpack_from(fmt, data, offset)
+
     try:
-        anim_count = struct.unpack_from("<i", data, 0x54)[0]
-        table_offset = struct.unpack_from("<q", data, 0x58)[0]
+        anim_count = unpack("<i", 0x54)[0]
+        table_offset = unpack("<q", 0x58)[0]
         anims: dict[int, tuple[TaeEvent, ...]] = {}
         for index in range(anim_count):
-            anim_id, anim_offset = struct.unpack_from("<qq", data, table_offset + 16 * index)
+            anim_id, anim_offset = unpack("<qq", table_offset + 16 * index)
             if anim_id < first_anim_id:
                 continue
-            header_offset = struct.unpack_from("<q", data, anim_offset)[0]
-            event_count = struct.unpack_from("<i", data, anim_offset + 32)[0]
+            header_offset = unpack("<q", anim_offset)[0]
+            event_count = unpack("<i", anim_offset + 32)[0]
             events = []
             for event_index in range(event_count):
-                start_offset, _end_offset, data_offset = struct.unpack_from(
-                    "<qqq", data, header_offset + 24 * event_index
-                )
-                event_type = struct.unpack_from("<i", data, data_offset)[0]
+                start_offset, _end_offset, data_offset = unpack("<qqq", header_offset + 24 * event_index)
+                event_type = unpack("<i", data_offset)[0]
                 if event_type not in (ATTACK_BEHAVIOR_EVENT, BULLET_BEHAVIOR_EVENT, SP_EFFECT_EVENT):
                     continue
-                params_offset = struct.unpack_from("<q", data, data_offset + 8)[0]
+                params_offset = unpack("<q", data_offset + 8)[0]
                 count = 1 if event_type == SP_EFFECT_EVENT else 3
                 events.append(
                     TaeEvent(
                         event_type,
-                        struct.unpack_from("<f", data, start_offset)[0],
-                        struct.unpack_from(f"<{count}i", data, params_offset),
+                        unpack("<f", start_offset)[0],
+                        unpack(f"<{count}i", params_offset),
                     )
                 )
             if anim_id in anims:
@@ -258,25 +264,28 @@ def parse_category_script(category_text: str, request_text: str) -> CategoryScri
             r"\[(\d+)\]\s*=\s*\{([^}]*)\}", _lua_table(category_text, "SwordArtsCategory")
         )
     }
-    # Category-only branches of the right-hand request choose the selector index;
-    # branches keyed on a weapon ID or SpEffect are skipped.
+    # Category-only and weapon-ID-only branches of the right-hand request choose the
+    # selector index, first match wins; branches keyed on a SpEffect or state are skipped.
     block = request_text.split("elseif request == SWORDARTS_REQUEST_RIGHT_NORMAL then", 1)[-1]
     block = re.sub(r"--[^\n]*", "", block.split('SetVariable("SwordArtsOneShotCategory"', 1)[0])
-    arts_index: dict[int, int] = {}
+    branches: list[tuple[str, int, int]] = []
     for condition, index in re.findall(
         r"\b(?:if|elseif)\s+((?:(?!\bthen\b).)*?)\s+then\s+arts_idx\s*=\s*(\d+)", block, re.DOTALL
     ):
         names = re.findall(r"arts_cat\s*==\s*(\w+)", condition)
+        weapon = re.fullmatch(r'\s*c_WeaponSwordArts\s*==\s*"(\d+)"\s*', condition)
         if names and not re.sub(r"arts_cat\s*==\s*\w+|\bor\b|\s", "", condition):
-            for name in names:
-                arts_index.setdefault(value(name), int(index))
-    if not arts_index or max(arts_index.values()) >= len(ARTS_INDEX_ANIM_GROUPS):
+            branches += [("category", value(name), int(index)) for name in names]
+        elif weapon:
+            branches.append(("weapon", int(weapon.group(1)), int(index)))
+    category_indexes = [index for kind, _, index in branches if kind == "category"]
+    if not category_indexes or max(category_indexes) >= len(ARTS_INDEX_ANIM_GROUPS):
         raise ValueError("right-hand Sword Arts category selection was not found")
     return CategoryScript(
         categories=categories,
         whitelist=ids("local AowCat_whitelist"),
         blacklist=ids("local AowCat_blacklist"),
-        arts_index_by_category=arts_index,
+        arts_index_branches=tuple(branches),
     )
 
 
@@ -311,9 +320,20 @@ def sword_arts_diff_category(script: CategoryScript, art_id: int, idle_cat: int,
     return idle if idle in categories else 0
 
 
-def skill_anim_group(script: CategoryScript, art_id: int, idle_cat: int, wep_cat: int) -> int:
+def skill_anim_group(
+    script: CategoryScript, art_id: int, idle_cat: int, wep_cat: int, weapon_id: int | None = None
+) -> int | None:
+    """The skill animation group, or None when the script picks an index with no known group."""
     category = sword_arts_diff_category(script, art_id, idle_cat, wep_cat)
-    return ARTS_INDEX_ANIM_GROUPS[script.arts_index_by_category.get(category, 0)]
+    index = next(
+        (
+            index
+            for kind, key, index in script.arts_index_branches
+            if key == (category if kind == "category" else weapon_id)
+        ),
+        0,
+    )
+    return ARTS_INDEX_ANIM_GROUPS[index] if index < len(ARTS_INDEX_ANIM_GROUPS) else None
 
 
 def variation_chain(variation_id: int) -> tuple[int, ...]:
@@ -573,7 +593,15 @@ def run_skill_animation_exports(
     workdir: Path,
 ) -> None:
     from tools.phase1.aow_effect_graph import build_aow_effect_graph
+    from tools.phase1.snapshot_manifest import sha256_file
 
+    for path, expected in (
+        (sources.anibnd, sources.anibnd_sha256),
+        (sources.request_script, sources.request_script_sha256),
+        (sources.category_script, sources.category_script_sha256),
+    ):
+        if (actual := sha256_file(path)) != expected:
+            raise ValueError(f"{path} has SHA-256 {actual}; the profile expects {expected}")
     script = parse_category_script(
         sources.category_script.read_text(encoding="utf-8-sig"),
         sources.request_script.read_text(encoding="utf-8-sig"),
@@ -617,9 +645,12 @@ def run_skill_animation_exports(
         group = variation = 0
         if weapon_id is not None:
             param = weapon_params[weapon_id]
-            group = skill_anim_group(
-                script, art_type, int(param["wepmotionOneHandId"]), int(param["wepmotionCategory"])
+            selected = skill_anim_group(
+                script, art_type, int(param["wepmotionOneHandId"]), int(param["wepmotionCategory"]), weapon_id
             )
+            if selected is None:
+                return _Resolution(0, 0, (), (), "unmapped_arts_index")
+            group = selected
             variation = int(param["behaviorVariationId"])
         cache_key = (skill_id, group, variation)
         if cache_key not in resolutions:
@@ -653,14 +684,13 @@ def run_skill_animation_exports(
         rows = []
         for hit in resolution.hits:
             attack = attacks.get(hit.attack_id)
-            override = int(attack["overwriteAttackElementCorrectId"]) if attack else 0
-            if attack is None or (override > 0 and override not in known_overrides):
-                reason = (
-                    f"missing_attack_param_{hit.attack_id}" if attack is None
-                    else f"unknown_attack_element_override_{override}"
-                )
-                exclude(skill_id, weapon_id, tae, hit.anim_id, hit.judge_id, reason)
+            if attack is None:
+                exclude(skill_id, weapon_id, tae, hit.anim_id, hit.judge_id, f"missing_attack_param_{hit.attack_id}")
                 continue
+            override = int(attack["overwriteAttackElementCorrectId"])
+            if override > 0 and override not in known_overrides:
+                # As for the workbook: a hit must not silently lose its element override.
+                raise ValueError(f"attack {hit.attack_id} overrides unknown AttackElementCorrect {override}")
             key = (variant, *hit.key)
             if key not in skill.rows:
                 skill.rows[key] = build_attack_row(
@@ -684,9 +714,13 @@ def run_skill_animation_exports(
         aow_id = int(ash["aow_id"])
         valid_types = set(filter(None, ash["valid_weapon_types"].split("|")))
         by_type: dict[str, Counter[_Resolution]] = defaultdict(Counter)
+        weapons_by_resolution: dict[tuple[str, _Resolution], list[int]] = defaultdict(list)
         for weapon in weapons:
             if weapon["can_change_aow"] == "1" and valid_types & set(weapon["weapon_type_keys"].split("|")):
-                by_type[weapon["weapon_type_name"]][resolve(aow_id, int(weapon["weapon_id"]))] += 1
+                weapon_id = int(weapon["weapon_id"])
+                resolution = resolve(aow_id, weapon_id)
+                by_type[weapon["weapon_type_name"]][resolution] += 1
+                weapons_by_resolution[(weapon["weapon_type_name"], resolution)].append(weapon_id)
         overall = sum(by_type.values(), Counter[_Resolution]())
         generic = (
             max(overall, key=lambda item: (overall[item], -item.group))
@@ -694,15 +728,15 @@ def run_skill_animation_exports(
         )
         selected = register(aow_id, ash["name"], "", generic, "")
         typed: list[dict[str, str]] = []
-        unrepresented = 0
         for type_name, counts in sorted(by_type.items()):
             choice = max(counts, key=lambda item: (counts[item], item.content == generic.content, -item.group))
-            unrepresented += sum(count for item, count in counts.items() if item.content != choice.content)
+            for item in counts:
+                if item.content != choice.content:
+                    for weapon_id in weapons_by_resolution[(type_name, item)]:
+                        exclude(aow_id, weapon_id, "", "", "", "weapon_unlike_its_type_rows")
             selected_content[(aow_id, type_name)] = choice.content
             if choice.content != generic.content:
                 typed += register(aow_id, ash["name"], type_name, choice, "")
-        if unrepresented:
-            exclude(aow_id, "", "", "", "", f"weapons_unlike_their_type_rows_{unrepresented}")
         selected_content[(aow_id, "")] = generic.content
         aow_rows += selected + typed
         rows = selected + typed
@@ -846,8 +880,11 @@ def main() -> int:
     if configured is None:
         raise ValueError(f"{profile.id} has no skill animation sources")
     raw_dir: Path = args.raw_dir or profile.raw_dir
-    sources = SkillAnimationSources(
-        *(raw_dir / path.name for path in (configured.anibnd, configured.request_script, configured.category_script))
+    sources = replace(
+        configured,
+        anibnd=raw_dir / configured.anibnd.name,
+        request_script=raw_dir / configured.request_script.name,
+        category_script=raw_dir / configured.category_script.name,
     )
     witchybnd = (args.witchybnd or discover_witchybnd(ROOT)).resolve()
     with tempfile.TemporaryDirectory(prefix="skill-anim-") as temp:

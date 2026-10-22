@@ -47,13 +47,13 @@
     },
     {
       "path": "aow_effect_data.csv",
-      "size": 5072003,
-      "sha256": "66c34d11bd58438da4a87d375f4ed63c5dab26fddd0d25b76fbf51a64a9b86f0"
+      "size": 5072904,
+      "sha256": "fd920719cfed64556740731f4440e40aea5562c2120dc8d129bfdfa069479b98"
     },
     {
       "path": "aow_route_assignments.csv",
-      "size": 327626,
-      "sha256": "586fe768039dc4f4a1d26b1d30c491ddb7426bc2ceb86a9006943fe369e764d6"
+      "size": 327792,
+      "sha256": "e8d404fdbb0051d78434f1f769815af31100827efc17ee33bf6c432c4a240795"
     },
     {
       "path": "attack_element_correct.csv",
@@ -77,8 +77,8 @@
     },
     {
       "path": "native_skill_attack_data.csv",
-      "size": 1204448,
-      "sha256": "07adefd454d209eb401103b752243c38e5db78534e17a7bf5f8275240134a35b"
+      "size": 1205372,
+      "sha256": "ed1ba41f9ce6609822ea53a4ee179c0b7784b89c491f2e5c8154ace2f6116146"
     },
     {
       "path": "reinforce.csv",
@@ -109,8 +109,8 @@
     },
     {
       "path": "aow_effect_coverage.csv",
-      "size": 469735,
-      "sha256": "0d9c0262b4fce74eb46918f1815bf114accfb0c003be1c076c753e446a58f19d"
+      "size": 470055,
+      "sha256": "27135e870fc750b96aaddc9210e00204638bc2c1c6a65324021d13801b40e0e8"
     },
     {
       "path": "aow_effect_exclusions.csv",
@@ -119,13 +119,13 @@
     },
     {
       "path": "aow_route_exclusions.csv",
-      "size": 116946,
-      "sha256": "c39b36215f8a007399bd4efd357898d49e4729699c0f03f88a054d2087d1a471"
+      "size": 117012,
+      "sha256": "107a9f72f89e5ff6d9dd7c7254d28bd7cd65312cb4a1bd7e9acb88beca0b3fb2"
     },
     {
       "path": "native_skill_damage_coverage.csv",
-      "size": 202757,
-      "sha256": "b429a0f88586c09ae2131bc3dd2363476f9c08e92fac9c0b58545a86fd8b272c"
+      "size": 202761,
+      "sha256": "1156c9633c4163ab9b50ce6da1429599d9359a6828c1bbfee44c570c1d076511"
     },
     {
       "path": "passive_effect_coverage.csv",
@@ -134,8 +134,8 @@
     },
     {
       "path": "skill_animation_exclusions.csv",
-      "size": 10692,
-      "sha256": "beafec1d526031b87aad05a99d3d00b5585a8eb82eb59ce9287ea5ee2e582911"
+      "size": 50873,
+      "sha256": "584733cb9ae0c4a90294739b1cd3b98dc11faf3b486809fa01a8d787cd9772f4"
     }
   ],
   "sources": [

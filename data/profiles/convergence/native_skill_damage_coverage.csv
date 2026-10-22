@@ -1205,7 +1205,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 10040000,Frozen Twinshards,131,Whirling Iceblades,631,0,11,11,direct_damage
 10050000,Eleonora's Poleblade,1179,Bloodblade Dance,779,0,24,18,direct_damage
 10060000,Caimar's Battlestaff,1203,Spiritshaper's Resplendence,868,0,17,17,direct_damage
-10070000,Godwyn's Cragblades,820,Call to Thunder,808,0,0,0,missing
+10070000,Godwyn's Cragblades,820,Call to Thunder,808,24,2,2,direct_damage
 10080000,Gargoyle's Twinblade,238,Valiant Cyclone,738,0,11,11,direct_damage
 10090000,Gargoyle's Black Blades,239,Death Cyclone,738,0,11,11,direct_damage
 10100000,Palm-Ax Twinblades,148,Whirling Slice,648,0,10,10,direct_damage
@@ -1373,7 +1373,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 11100000,Envoy's Horn,1003,Oracular Bubble,803,0,6,6,direct_damage
 11110000,Scepter of the All-Knowing,1182,Knowledge Above All,782,0,1,0,utility_only
 11120000,Nox Flowing Hammer,1035,Flowing Form,835,0,5,5,direct_damage
-11130000,Ringed Finger,1046,Claw Flick,846,0,0,0,missing
+11130000,Ringed Finger,1046,Claw Flick,,0,0,0,missing
 11140000,Stone Club,503,Kick,712,0,0,0,generic_aow
 11140100,Stone Club,503,Kick,712,0,0,0,generic_aow
 11140200,Stone Club,503,Kick,712,0,0,0,generic_aow
@@ -3038,7 +3038,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 60512000,Dane's Footwork,4010,Palm Blast,861,0,0,0,generic_aow
 60512100,Dane's Footwork,4010,Palm Blast,861,0,0,0,generic_aow
 60520000,Rancor Touch,670,Rancorous Summoning,889,0,24,8,direct_damage
-60530000,Bracelet of Shadow,703,Shadow Dash,942,0,1,1,direct_damage
+60530000,Bracelet of Shadow,703,Shadow Dash,942,2,3,1,direct_damage
 60540000,Bracelet of Gold,704,Berserker's Leap,942,0,1,1,direct_damage
 61500000,Firespark Perfume Bottle,503,Kick,712,0,0,0,generic_aow
 61510000,Chilling Perfume Bottle,503,Kick,712,0,0,0,generic_aow

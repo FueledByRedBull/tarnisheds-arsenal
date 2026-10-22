@@ -100,6 +100,10 @@ class SkillAnimationSources:
     anibnd: Path
     request_script: Path
     category_script: Path
+    # Pinned like the regulation: another mod build must not extract under this dataset.
+    anibnd_sha256: str
+    request_script_sha256: str
+    category_script_sha256: str
 
 
 @dataclass(frozen=True)
@@ -245,6 +249,9 @@ PROFILES: Mapping[str, ProfileDefinition] = {
             anibnd=Path("data/raw/Conv/c0000.anibnd.dcx"),
             request_script=Path("data/raw/Conv/c0000.hks"),
             category_script=Path("data/raw/Conv/CommonIncludes.hks"),
+            anibnd_sha256="afdeb72540c6c6cafe0bc40c296127635947c991aa38b692a7eae768abda86da",
+            request_script_sha256="12b18dc8679de83677e3c7f1a240a99902263cb02ba4db5029bf4ecb92da3a8c",
+            category_script_sha256="81b1377e0160593ce39ad8193846bd3cb1621200af1824192cbec1b2ad0fa170",
         ),
     ),
 }
