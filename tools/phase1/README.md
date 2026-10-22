@@ -10,7 +10,8 @@ repository remains lean and publishable.
 [Model reference](../../docs/model-reference.md)
 
 **Find a task:** [Regenerate a snapshot](#example) · [Check the storage contract](#snapshot-contract) ·
-[Understand normalized fields](#normalization-and-indexing) · [Inspect staging](#extraction-work-directories)
+[Understand normalized fields](#normalization-and-indexing) · [Read skill animations](#skill-animations) ·
+[Inspect staging](#extraction-work-directories)
 
 `phase1_dump.py` is the supported profile-aware snapshot entry point. It extracts numeric
 PARAM relationships, profile-supported attacks and routes, effects, passives, and
@@ -233,7 +234,9 @@ follows the chain the game uses:
 2. The hks `GetSwordArtsDiffCategory` and the right-hand request choose an animation
    group, `40000 + 100 * group`, from the weapon's `wepmotionCategory` and
    `wepmotionOneHandId`. The extractor ports that function and parses its
-   `SwordArtsCategory` table; it stops if the script loses a ported branch.
+   `SwordArtsCategory` table; it stops if the script loses a ported branch. Branches
+   keyed only on a weapon ID, such as Godwyn's Cragblades, apply in script order; an
+   index past the known groups is excluded as `unmapped_arts_index`.
 3. Each AttackBehavior (type 1) or BulletBehavior (type 2) event names a judge ID.
    Judge `J` reads `BehaviorParam_PC` row
    `max(J / 1000, 1) * 100000000 + variation * 1000 + J % 1000`, trying the weapon's
@@ -248,24 +251,24 @@ counts every hit once.
 
 AoW rows can only vary by weapon type. The hits most mountable weapons resolve
 become the untyped rows, and a weapon type whose own majority differs gets rows
-named after it. Weapons that still differ are counted in
-`skill_animation_exclusions.csv`. A native skill gets per-weapon rows whenever the
+named after it. Each weapon that still differs is listed in
+`skill_animation_exclusions.csv` as `weapon_unlike_its_type_rows`. A native skill gets per-weapon rows whenever the
 rows selected for that weapon would resolve differently. That file also lists every
 hit left out: bullets spawned by `intervalCreateBulletId`, behaviors with no row
 (bow skills resolve through the equipped arrow's variation), missing attack rows,
 and skills with no behavior events. Buff states, hold loops, the hks branches keyed
-on weapon IDs or SpEffects, and the left-hand shield requests are not modeled.
+on SpEffects or combined conditions, and the left-hand shield requests are not modeled.
 
 Coverage is written to `aow_damage_coverage.csv` and
-`native_skill_damage_coverage.csv`. To inspect the output without writing a snapshot,
+`native_skill_damage_coverage.csv`. Vanilla's native coverage file is keyed by
+workbook `sheet_row`; this one is keyed by `weapon_id` and records the TAE section,
+animation group and row counts. The three animation and script inputs are pinned by
+SHA-256 in `profiles.py`, like the regulation. To inspect the output without writing a snapshot,
 run the extractor on a copy of a snapshot folder:
 
 ```powershell
 python tools/phase1/extract_skill_animations.py <copy-of-snapshot> --raw-dir data/raw/Conv
 ```
-
-No local Vanilla anibnd exists, so the extractor has not been diffed against the
-Vanilla workbook.
 
 ## Extraction work directories
 

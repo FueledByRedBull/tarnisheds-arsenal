@@ -189,8 +189,9 @@ What the regulation shows, and how the profile uses it:
   in its hks script. The Vanilla routes come from a workbook keyed to Vanilla attack
   IDs and cannot be reused. The
   [skill animation extractor](../tools/phase1/README.md#skill-animations) reads
-  the mod's own files instead and resolves damage for 90 of the 122 Convergence
-  Ashes of War. Routes follow the hks combo chains, and every hit counts once:
+  the mod's own files instead; the table above gives its coverage. Vanilla's
+  animation files sit in the game's encrypted archives, so the extractor has not been
+  compared with the Vanilla workbook. Routes follow the hks combo chains, and every hit counts once:
   hold loops, buff states, interval bullets, and bow skills, which resolve through
   the equipped arrow, stay unmodeled and are listed in
   `skill_animation_exclusions.csv`.

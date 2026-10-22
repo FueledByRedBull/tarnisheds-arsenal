@@ -205,11 +205,12 @@ effects, profile rules, and known differences from other calculators.
 > [!NOTE]
 > Convergence 3.0.3.0 is experimental. Its AR and status are checked against the
 > mod's regulation and a pinned external calculator, and its Ash legality against
-> the regulation's raw permissions; none of it is measured in game.
+> the regulation's raw permissions. AoW damage is read from the mod's skill
+> animations and has no external check. None of it is measured in game.
 
 The header marks it **Experimental model**; open that label for its coverage
-notes. Choose one of the mod's 29 starting classes, such as **Retainer** or
-**Prisoner**, and plan by Rune Level as in Vanilla: class optimization, Compare,
+notes. Choose one of the mod's 29 starting classes, such as **Stormcaller** or
+**Retainer (Alt)**, named as the game's menu shows them, and plan by Rune Level as in Vanilla: class optimization, Compare,
 Paths, and Affinity Watch all work. **Custom stats** remains in the class list:
 it evaluates the exact stats you enter, their total is not a Rune Level, and the
 analysis workspaces stay locked while it is selected. Builds saved with Custom
@@ -218,7 +219,9 @@ stats load and solve as before.
 The profile supports melee weapon AR and upgrades through `+15`. Status buildup
 is fixed: the mod gives weapons a flat status correction curve, so Arcane and
 upgrades do not raise it. AoW damage and routes come from the mod's own skill
-animations and cover 90 of its 122 Ashes of War. Ammunition AR is unavailable.
+animations; bow skills, buff states and hold loops stay unmodeled, and the
+[coverage table](docs/model-reference.md#convergence) lists which Ashes resolve
+damage. Ammunition AR is unavailable.
 
 Vanilla rules, classes, and missing damage tables are never substituted into the
 mod profile. See [Convergence coverage](docs/model-reference.md#convergence).

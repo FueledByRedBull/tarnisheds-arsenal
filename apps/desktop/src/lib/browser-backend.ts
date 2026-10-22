@@ -395,7 +395,7 @@ async function mockCompatibleAowNames(args: Record<string, unknown> | undefined)
   return weapon?.name === "Ancient Meteoric Ore Greatsword" ? ["White Light Charge"] : MOCK_AOW_NAMES;
 }
 
-// Convergence rows use that profile's single upgrade cap and model no skill damage, as native does.
+// Convergence rows use that profile's single upgrade cap; their skill damage stays zero in this preview.
 function previewRows(request: OptimizeRequestDto | null): SolvedBuildDto[] {
   if (request?.profileId !== "convergence") return PREVIEW_SOLVED_BUILDS;
   const { standardMaxUpgrade } = mockDataManifest("convergence").rules;
