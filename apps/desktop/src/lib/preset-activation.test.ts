@@ -73,6 +73,15 @@ describe("migratePresetRequest", () => {
     expect(migratePresetRequest({ ...saved, weaponTypeKey: "Katanas" }, current).issues).toEqual([]);
   });
 
+  it("loads Convergence classes saved under their former data names", () => {
+    const stormcaller = { ...catalog.classes[0], name: "Stormcaller" };
+    const convergence = { ...current, classes: [stormcaller],
+      dataManifest: { ...current.dataManifest, profile: { id: "convergence" } } } as unknown as CatalogDto;
+    const old = { ...saved, profileId: "convergence", className: "Storm Caller" };
+    expect(migratePresetRequest(old, convergence).request.className).toBe("Stormcaller");
+    expect(() => migratePresetRequest({ ...old, profileId: "vanilla" }, current)).toThrow("Starting class 'Storm Caller'");
+  });
+
   it("clears a removed weapon type", () => {
     const { request, issues } = migratePresetRequest({ ...saved, weaponTypeKey: "Hammer" }, current);
     expect(request.weaponTypeKey).toBeNull();

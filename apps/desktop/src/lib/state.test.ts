@@ -233,6 +233,16 @@ describe("desktop result lifecycle", () => {
     expect(useDesktopStore.getState().notices.at(-1)?.message).toBe("Compare holds 8 pinned builds. Unpin one before pinning another.");
   });
 
+  it("renames a restored Convergence class without resetting its stats", () => {
+    const profile = catalog("convergence");
+    const base = { vig: 13, mnd: 13, end: 11, strStat: 10, dex: 10, intStat: 13, fai: 13, arc: 8 };
+    profile.classes = [{ name: "Stormcaller", baseLevel: 12, baseTotal: 91, baseStats: base }];
+    const stats = { ...base, intStat: 40 };
+    useDesktopStore.setState({ request: { ...defaultRequest, className: "Storm Caller", characterLevel: 39, ...stats } });
+    useDesktopStore.getState().setCatalog(profile);
+    expect(useDesktopStore.getState().request).toMatchObject({ className: "Stormcaller", characterLevel: 39, ...stats });
+  });
+
   it("records recoverable catalog loading failures", () => {
     const state = useDesktopStore.getState();
     state.setCatalogFailure("manifest checksum mismatch");

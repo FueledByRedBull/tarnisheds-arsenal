@@ -72,8 +72,8 @@
     },
     {
       "path": "classes.csv",
-      "size": 1291,
-      "sha256": "498d3cbfcc1d958846dab90c3a9a2f24e9d6361ce9a5185948552d497b109a45"
+      "size": 1254,
+      "sha256": "9fbc52b888cedfa1dd50f70e6c2879886641b7614c49bc21b849b9c84e4a9684"
     },
     {
       "path": "native_skill_attack_data.csv",
@@ -159,6 +159,13 @@
       "path": "ArtsName_dlc01.fmg.xml",
       "size": 23775,
       "sha256": "187ffa8d236f11a479968496ca75dd85e533f1d008ed558d62803cf2cdbc5dbe"
+    },
+    {
+      "kind": "classNames",
+      "bundled": false,
+      "path": "GR_MenuText.fmg.xml",
+      "size": 113358,
+      "sha256": "118dd9cca3583523f4e37587d6c673e98b2cbb5729d34d425f2b5e822203e4fa"
     },
     {
       "kind": "modVersion",
