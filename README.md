@@ -6,7 +6,7 @@
 
 **Find your weapon. Compare your options. Plan your next levels.**
 
-A Windows (x64) desktop build optimizer for Elden Ring. Search weapons, affinities,
+A Windows and Linux (x64) desktop build optimizer for Elden Ring. Search weapons, affinities,
 Ashes of War, upgrades, and combat stats, then carry a selected build into
 comparisons and progression previews.
 
@@ -17,7 +17,7 @@ comparisons and progression previews.
 [![Downloads](https://img.shields.io/github/downloads/FueledByRedBull/tarnisheds-arsenal/total?style=flat-square&labelColor=101315&color=c9a45c)](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases)
 [![License](https://img.shields.io/github/license/FueledByRedBull/tarnisheds-arsenal?style=flat-square&labelColor=101315&color=c9a45c)](LICENSE)
 
-[![Platform: Windows](https://img.shields.io/badge/platform-Windows-c9a45c?style=flat-square&labelColor=101315)](#download)
+[![Platform: Windows and Linux](https://img.shields.io/badge/platform-Windows_%7C_Linux-c9a45c?style=flat-square&labelColor=101315)](#download)
 [![Elden Ring 1.17.2](https://img.shields.io/badge/Elden_Ring-1.17.2-c9a45c?style=flat-square&labelColor=101315)](docs/model-reference.md)
 [![Convergence 3.0.3.0 beta](https://img.shields.io/badge/Convergence-3.0.3.0_beta-e59256?style=flat-square&labelColor=101315)](#convergence-beta)
 [![Rust](https://img.shields.io/badge/Rust-101315?style=flat-square&logo=rust&logoColor=c9a45c)](core/er_optimizer_core)
@@ -47,6 +47,9 @@ calculation changes, and verification limits.
 | **Installer** (`.msi`) | Normal installation, with WebView2 setup if needed |
 | **Portable app** (`.exe`) | Run directly with WebView2 already installed |
 | **Archive** (`.zip`) | Keep or transfer the portable app and release documentation |
+| **Debian/Ubuntu** (`.deb`) | Install on Linux; the package manager pulls in WebKitGTK |
+| **Fedora/openSUSE** (`.rpm`) | Install on RPM-based Linux; the package manager pulls in WebKitGTK |
+| **AppImage** (`.AppImage`) | Run on other Linux distributions without installing |
 
 > [!TIP]
 > No game files needed. Both binaries include the Vanilla **1.17.2** and Convergence
@@ -54,7 +57,8 @@ calculation changes, and verification limits.
 > `regulation.bin`, or source workbook is required.
 
 Each release includes SHA-256 checksums for the installer, portable app, and ZIP,
-and a build report identifying its source and data. The ZIP contains the portable
+a separate checksum file for the Linux packages, and a build report identifying
+its source and data. The ZIP contains the portable
 app with the license and third-party notices; the MSI’s WebView2 bootstrapper
 needs internet access if that runtime is missing.
 
@@ -261,7 +265,8 @@ build output, and local working notes out of commits.
 Use the repository’s pinned toolchains: **Rust 1.97.0**, **Node.js 22.23.1**, and
 **Python 3.12.10**. Windows desktop development also needs the
 [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/#windows), including
-Microsoft C++ Build Tools and WebView2. Rust’s `clippy` and `rustfmt` components
+Microsoft C++ Build Tools and WebView2; Linux development needs the
+[Linux prerequisites](https://v2.tauri.app/start/prerequisites/#linux). Rust’s `clippy` and `rustfmt` components
 are declared in `rust-toolchain.toml`.
 
 From the repository root, start the native desktop:

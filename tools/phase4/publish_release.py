@@ -106,8 +106,13 @@ def publish(repo: str, tag: str, commit: str, assets: Path) -> None:
     files = [assets / f"{prefix}{suffix}" for suffix in (
         "_portable.exe", "_x64_en-US.msi", ".zip", "_SHA256SUMS.txt", "_build-report.json",
     )]
+    linux_packages = [assets / f"{prefix}{suffix}" for suffix in (
+        "_amd64.deb", "_x86_64.rpm", "_amd64.AppImage",
+    )]
+    linux_checksums = assets / f"{prefix}_linux_SHA256SUMS.txt"
+    published = [*files, *linux_packages, linux_checksums]
     notes = assets / f"release-notes-{tag}.md"
-    for path in [*files, notes]:
+    for path in [*published, notes]:
         if not path.is_file() or not path.stat().st_size:
             raise RuntimeError(f"Missing or empty release input: {path.name}")
     report = json.loads(files[-1].read_text(encoding="utf-8-sig"))
@@ -119,6 +124,9 @@ def publish(repo: str, tag: str, commit: str, assets: Path) -> None:
     checksums = "".join(f"{sha256(path)}  {path.name}\n" for path in files[:3])
     if files[-2].read_text(encoding="utf-8-sig") != checksums:
         raise RuntimeError("Package checksum file does not match its binaries and archive")
+    linux_expected = "".join(f"{sha256(path)}  {path.name}\n" for path in linux_packages)
+    if linux_checksums.read_text(encoding="utf-8-sig") != linux_expected:
+        raise RuntimeError("Linux checksum file does not match its packages")
     verify_portable_archive(
         files[2], f"{prefix}/{files[0].name}", report["artifacts"][0]["sha256"]
     )
@@ -132,17 +140,17 @@ def publish(repo: str, tag: str, commit: str, assets: Path) -> None:
         release = release_info(repo, tag)
     if release is None:
         raise RuntimeError("Release was not created")
-    missing = verify_assets(repo, tag, release, files)
+    missing = verify_assets(repo, tag, release, published)
     if missing:
         gh("release", "upload", tag, "--repo", repo, *(str(path) for path in missing))
     release = release_info(repo, tag)
-    if release is None or verify_assets(repo, tag, release, files):
+    if release is None or verify_assets(repo, tag, release, published):
         raise RuntimeError("Release asset upload is incomplete")
     if release["isDraft"]:
         latest = "--latest" if is_latest_version(repo, tag) else "--latest=false"
         gh("release", "edit", tag, "--repo", repo, "--draft=false", latest, "--notes-file", str(notes))
     release = release_info(repo, tag)
-    if release is None or release["isDraft"] or verify_assets(repo, tag, release, files):
+    if release is None or release["isDraft"] or verify_assets(repo, tag, release, published):
         raise RuntimeError("Published release verification failed")
     print(f"Verified published release {tag} at {commit}")
 

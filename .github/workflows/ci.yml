@@ -57,7 +57,7 @@ jobs:
         run: python tools/phase4/ci_scope.py
 
   rust-and-data:
-    needs: [select-checks, windows-debug-and-data, windows-release, linux-core-and-data, desktop-frontend]
+    needs: [select-checks, windows-debug-and-data, windows-release, linux-core-and-data, linux-desktop, desktop-frontend]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -71,6 +71,7 @@ jobs:
           DEBUG_RESULT: ${{ needs.windows-debug-and-data.result }}
           RELEASE_RESULT: ${{ needs.windows-release.result }}
           LINUX_RESULT: ${{ needs.linux-core-and-data.result }}
+          LINUX_DESKTOP_RESULT: ${{ needs.linux-desktop.result }}
           FRONTEND_RESULT: ${{ needs.desktop-frontend.result }}
         run: |
           if ($env:SCOPE_RESULT -ne "success" -or
@@ -82,7 +83,8 @@ jobs:
           $rustExpected = if ($env:RUST_SELECTED -eq "true") { "success" } else { "skipped" }
           $frontendExpected = if ($env:FRONTEND_SELECTED -eq "true") { "success" } else { "skipped" }
           if ($env:DEBUG_RESULT -ne $rustExpected -or $env:RELEASE_RESULT -ne $rustExpected -or
-              $env:LINUX_RESULT -ne $rustExpected -or $env:FRONTEND_RESULT -ne $frontendExpected) {
+              $env:LINUX_RESULT -ne $rustExpected -or $env:LINUX_DESKTOP_RESULT -ne $rustExpected -or
+              $env:FRONTEND_RESULT -ne $frontendExpected) {
             throw "Selected checks did not succeed or unselected checks were not skipped."
           }
 
@@ -500,6 +502,14 @@ jobs:
       - name: Installed app smoke test
         working-directory: apps/desktop
         run: xvfb-run -a node scripts/smoke-linux.mjs "$(dpkg -L "$(dpkg-deb -f src-tauri/target/release/bundle/deb/*.deb Package)" | grep -m1 '^/usr/bin/')"
+
+      - name: AppImage smoke test
+        working-directory: apps/desktop
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          appimage=(src-tauri/target/release/bundle/appimage/*.AppImage)
+          xvfb-run -a node scripts/smoke-linux.mjs "$PWD/${appimage[0]}"
 
       - name: Upload Linux packages
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
