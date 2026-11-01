@@ -511,7 +511,15 @@ jobs:
           sudo apt-get install -y imagemagick
           mkdir -p test-results
           appimage=(src-tauri/target/release/bundle/appimage/*.AppImage)
-          xvfb-run -a -s "-screen 0 1700x1000x24" bash -c '"$0" > test-results/appimage.log 2>&1 & pid=$!; sleep 30; import -window root test-results/appimage-direct.png; kill -0 $pid && echo STILL_RUNNING; kill $pid || true' "$PWD/${appimage[0]}"
+          Xvfb :97 -screen 0 1700x1000x24 &
+          display_pid=$!
+          sleep 2
+          DISPLAY=:97 "$PWD/${appimage[0]}" > test-results/appimage.log 2>&1 &
+          app_pid=$!
+          sleep 30
+          DISPLAY=:97 import -window root test-results/appimage-direct.png
+          if kill -0 "$app_pid"; then echo STILL_RUNNING; fi
+          kill "$app_pid" "$display_pid" || true
           tail -n 40 test-results/appimage.log | cut -c1-240
 
       - name: AppImage smoke test
