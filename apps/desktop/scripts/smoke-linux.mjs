@@ -58,14 +58,12 @@ try {
   const waitForText = (wanted) => waitFor(`"${wanted}"`, async () => (await find("xpath", `//*[normalize-space()='${wanted}']`)).length > 0);
   const search = async (profile) => {
     await click("//button[normalize-space()='Search']", "the Search button");
-    const [row] = await waitFor(`${profile} results`, async () => {
-      const rows = await find("css selector", ".result-row");
-      return rows.length ? rows : null;
+    // A new row can report no text until it has finished rendering.
+    const summary = await waitFor(`${profile} results with attack power and skill damage`, async () => {
+      const [row] = await find("css selector", ".result-row");
+      const rowText = row ? await text(row) : "";
+      return /\d/.test(rowText) && rowText.includes("1st hit") ? rowText : null;
     });
-    const summary = await text(row);
-    if (!/\d/.test(summary) || !summary.includes("1st hit")) {
-      throw new Error(`${profile} result has no attack power and skill damage: ${summary}`);
-    }
     process.stdout.write(`LINUX_SMOKE_RESULT ${profile} ${JSON.stringify(summary.split("\n").slice(0, 4))}\n`);
   };
 
