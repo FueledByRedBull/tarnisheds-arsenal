@@ -2,18 +2,19 @@
 
 [Home](../../README.md) · [Documentation](../../README.md#documentation) · [Release guide](../releasing.md)
 
-## v0.20.1
+## v0.21.0
 
-Clearer button names for screen readers and voice control, and updated dependencies.
-Read the [v0.20.1 notes](v0.20.1.md) for the changes and download choices.
+Linux support, with `.deb`, `.rpm` and AppImage packages.
+Read the [v0.21.0 notes](v0.21.0.md) for the changes and download choices.
 
-For the current Windows installer and portable app, visit the
+For the current Windows and Linux downloads, visit the
 [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
 
 ## Version history
 
 | Version | Notes | GitHub release |
 | --- | --- | --- |
+| v0.21.0 | [v0.21.0.md](v0.21.0.md) | [Tarnished's Arsenal v0.21.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.21.0) |
 | v0.20.1 | [v0.20.1.md](v0.20.1.md) | [Tarnished's Arsenal v0.20.1](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.20.1) |
 | v0.20.0 | [v0.20.0.md](v0.20.0.md) | [Tarnished's Arsenal v0.20.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.20.0) |
 | v0.19.0 | [v0.19.0.md](v0.19.0.md) | [Tarnished's Arsenal v0.19.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.19.0) |
