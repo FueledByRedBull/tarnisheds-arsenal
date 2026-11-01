@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 
 // Playwright reaches the Windows app through WebView2's debugging port, which WebKitGTK does
 // not have, so this drives an installed Linux build over WebDriver with no extra packages.
@@ -73,6 +73,16 @@ try {
   await waitForText("Experimental model");
   await search("convergence");
   process.stdout.write("LINUX_SMOKE_PASSED\n");
+} catch (error) {
+  // A headless failure says little by itself, so keep what the window was showing.
+  if (sessionId) {
+    mkdirSync("test-results", { recursive: true });
+    const screenshot = await request("GET", `/session/${sessionId}/screenshot`).catch(() => null);
+    if (screenshot) writeFileSync("test-results/linux-smoke-failure.png", Buffer.from(screenshot, "base64"));
+    const source = await request("GET", `/session/${sessionId}/source`).catch((reason) => String(reason));
+    process.stderr.write(`LINUX_SMOKE_PAGE ${String(source).slice(0, 2000)}\n`);
+  }
+  throw error;
 } finally {
   if (sessionId) await request("DELETE", `/session/${sessionId}`).catch(() => {});
   driver.kill();
