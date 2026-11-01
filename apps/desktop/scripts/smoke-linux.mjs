@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 // Playwright reaches the Windows app through WebView2's debugging port, which WebKitGTK does
 // not have, so this drives an installed Linux build over WebDriver with no extra packages.
@@ -11,7 +13,12 @@ if (!application || !existsSync(application)) {
 const DRIVER_URL = "http://127.0.0.1:4444";
 const ELEMENT_KEY = "element-6066-11e4-a52e-4f735466cecf";
 const TIMEOUT_MS = 120_000;
-const driver = spawn("tauri-driver", [], { stdio: ["ignore", "inherit", "inherit"] });
+// Saved settings would restore another run's profile, so each run starts with an empty data folder.
+const dataDirectory = mkdtempSync(join(tmpdir(), "tarnisheds-arsenal-smoke-"));
+const driver = spawn("tauri-driver", [], {
+  stdio: ["ignore", "inherit", "inherit"],
+  env: { ...process.env, XDG_DATA_HOME: join(dataDirectory, "data"), XDG_CACHE_HOME: join(dataDirectory, "cache"), XDG_CONFIG_HOME: join(dataDirectory, "config") },
+});
 
 async function request(method, path, body) {
   const response = await fetch(`${DRIVER_URL}${path}`, {
