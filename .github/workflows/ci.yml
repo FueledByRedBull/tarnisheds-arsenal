@@ -57,7 +57,7 @@ jobs:
         run: python tools/phase4/ci_scope.py
 
   rust-and-data:
-    needs: [select-checks, windows-debug-and-data, windows-release, linux-core-and-data, desktop-frontend]
+    needs: [select-checks, windows-debug-and-data, windows-release, linux-core-and-data, linux-desktop, desktop-frontend]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -71,6 +71,7 @@ jobs:
           DEBUG_RESULT: ${{ needs.windows-debug-and-data.result }}
           RELEASE_RESULT: ${{ needs.windows-release.result }}
           LINUX_RESULT: ${{ needs.linux-core-and-data.result }}
+          LINUX_DESKTOP_RESULT: ${{ needs.linux-desktop.result }}
           FRONTEND_RESULT: ${{ needs.desktop-frontend.result }}
         run: |
           if ($env:SCOPE_RESULT -ne "success" -or
@@ -82,7 +83,8 @@ jobs:
           $rustExpected = if ($env:RUST_SELECTED -eq "true") { "success" } else { "skipped" }
           $frontendExpected = if ($env:FRONTEND_SELECTED -eq "true") { "success" } else { "skipped" }
           if ($env:DEBUG_RESULT -ne $rustExpected -or $env:RELEASE_RESULT -ne $rustExpected -or
-              $env:LINUX_RESULT -ne $rustExpected -or $env:FRONTEND_RESULT -ne $frontendExpected) {
+              $env:LINUX_RESULT -ne $rustExpected -or $env:LINUX_DESKTOP_RESULT -ne $rustExpected -or
+              $env:FRONTEND_RESULT -ne $frontendExpected) {
             throw "Selected checks did not succeed or unselected checks were not skipped."
           }
 
@@ -430,3 +432,99 @@ jobs:
           name: linux-test-build-timings
           path: core/er_optimizer_core/target/cargo-timings/*.html
           if-no-files-found: error
+
+  linux-desktop:
+    needs: select-checks
+    if: ${{ needs.select-checks.outputs.rust == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      # Skips rust-toolchain.toml's clippy/rustfmt install, as in linux-core-and-data.
+      RUSTUP_TOOLCHAIN: "1.97.0"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: ".node-version"
+          cache: "npm"
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Setup Rust
+        # Installs the toolchain rust-toolchain.toml pins, or RUSTUP_TOOLCHAIN where a job sets it.
+        shell: bash
+        env:
+          RUSTUP_PERMIT_COPY_RENAME: "1"
+        run: |
+          rustup toolchain install --profile minimal --no-self-update
+          echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+          echo "CARGO_TERM_COLOR=always" >> "$GITHUB_ENV"
+          rustc --version --verbose
+
+      - name: Install Linux desktop prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev patchelf rpm webkit2gtk-driver xvfb
+
+      - name: Install frontend dependencies
+        working-directory: apps/desktop
+        run: npm ci
+
+      - name: Cache Linux desktop build
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/git
+            ~/.cargo/registry
+            apps/desktop/src-tauri/target/release
+          key: ${{ runner.os }}-ci-linux-desktop-${{ hashFiles('rust-toolchain.toml', 'core/er_optimizer_core/Cargo.lock', 'apps/desktop/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-ci-linux-desktop-
+
+      - name: Build Linux packages
+        working-directory: apps/desktop
+        run: npm run tauri -- build --bundles deb,rpm,appimage
+
+      - name: Native backend tests
+        run: cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
+
+      - name: Install the Debian package
+        run: sudo apt-get install -y ./apps/desktop/src-tauri/target/release/bundle/deb/*.deb
+
+      - name: Install tauri-driver
+        run: cargo install tauri-driver --locked --version 2.1.0
+
+      - name: Installed app smoke test
+        working-directory: apps/desktop
+        run: xvfb-run -a node scripts/smoke-linux.mjs "$(dpkg -L "$(dpkg-deb -f src-tauri/target/release/bundle/deb/*.deb Package)" | grep -m1 '^/usr/bin/')"
+
+      - name: AppImage smoke test
+        working-directory: apps/desktop
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          appimage=(src-tauri/target/release/bundle/appimage/*.AppImage)
+          xvfb-run -a node scripts/smoke-linux.mjs "$PWD/${appimage[0]}"
+
+      - name: Upload Linux smoke failure evidence
+        if: ${{ !cancelled() && hashFiles('apps/desktop/test-results/**') != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: linux-smoke-failure
+          path: apps/desktop/test-results/
+          retention-days: 14
+
+      - name: Upload Linux packages
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: linux-packages
+          if-no-files-found: error
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/deb/*.deb
+            apps/desktop/src-tauri/target/release/bundle/rpm/*.rpm
+            apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage

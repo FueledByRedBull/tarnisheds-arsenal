@@ -21,12 +21,13 @@ class CiWorkflowTests(unittest.TestCase):
         gate = workflow.split("\n  rust-and-data:\n", 1)[1].split(
             "\n  windows-debug-and-data:\n", 1
         )[0]
-        self.assertIn("needs: [select-checks, windows-debug-and-data, windows-release, linux-core-and-data, desktop-frontend]", gate)
+        self.assertIn("needs: [select-checks, windows-debug-and-data, windows-release, linux-core-and-data, linux-desktop, desktop-frontend]", gate)
         self.assertIn("if: ${{ always() }}", gate)
         self.assertIn("DEBUG_RESULT: ${{ needs.windows-debug-and-data.result }}", gate)
         self.assertIn("RELEASE_RESULT: ${{ needs.windows-release.result }}", gate)
         for job, output in (("windows-debug-and-data", "rust"), ("windows-release", "rust"),
-                            ("linux-core-and-data", "rust"), ("desktop-frontend", "frontend")):
+                            ("linux-core-and-data", "rust"), ("linux-desktop", "rust"),
+                            ("desktop-frontend", "frontend")):
             section = re.split(r"\n  [a-z]", workflow.split(f"\n  {job}:\n", 1)[1], maxsplit=1)[0]
             self.assertIn("needs: select-checks", section)
             self.assertIn("if: ${{ needs.select-checks.outputs." + output + " == 'true' }}", section)
@@ -37,6 +38,7 @@ class CiWorkflowTests(unittest.TestCase):
             baseline = {"SCOPE_RESULT": "success", "RUST_SELECTED": rust,
                         "FRONTEND_SELECTED": frontend, "DEBUG_RESULT": expected,
                         "RELEASE_RESULT": expected, "LINUX_RESULT": expected,
+                        "LINUX_DESKTOP_RESULT": expected,
                         "FRONTEND_RESULT": "success" if frontend == "true" else "skipped"}
             cases.append({"env": baseline, "pass": True})
             for debug, release in itertools.product(
@@ -44,7 +46,7 @@ class CiWorkflowTests(unittest.TestCase):
             ):
                 cases.append({"env": {**baseline, "DEBUG_RESULT": debug, "RELEASE_RESULT": release},
                               "pass": debug == release == expected})
-            for key in ("SCOPE_RESULT", "LINUX_RESULT", "FRONTEND_RESULT"):
+            for key in ("SCOPE_RESULT", "LINUX_RESULT", "LINUX_DESKTOP_RESULT", "FRONTEND_RESULT"):
                 for value in ("success", "failure", "cancelled", "skipped"):
                     cases.append({"env": {**baseline, key: value}, "pass": value == baseline[key]})
             for key in ("RUST_SELECTED", "FRONTEND_SELECTED"):

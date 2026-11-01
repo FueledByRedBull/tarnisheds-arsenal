@@ -13,7 +13,7 @@ before publication, so no follow-up documentation commit is needed.
 | **Prepare** | App/core versions, lockfiles, release notes, and download links agree |
 | **CI** | Required checks pass; ordinary CI succeeds on the exact merged commit |
 | **Package** | MSI, portable EXE, embedded data, startup, and hashes pass verification |
-| **Publish** | All five remote assets match the original verified package |
+| **Publish** | All nine remote assets match the original verified packages |
 
 ## Prepare a release
 
@@ -72,13 +72,22 @@ the package. The publish job then creates and pushes the annotated `v<version>`
 tag at that commit, creates a draft release, uploads the assets and publishes the
 draft. A failed package creates neither a tag nor a release. If publication fails
 after the tag push, [retry](#retry-publication); to abandon the release instead,
-delete the draft release and the remote tag by hand. The five release assets are:
+delete the draft release and the remote tag by hand. The nine release assets are:
 
 - `TarnishedsArsenal_<version>_x64_en-US.msi`
 - `TarnishedsArsenal_<version>_portable.exe`
 - `TarnishedsArsenal_<version>.zip`
 - `TarnishedsArsenal_<version>_SHA256SUMS.txt`
 - `TarnishedsArsenal_<version>_build-report.json`
+- `TarnishedsArsenal_<version>_amd64.deb`
+- `TarnishedsArsenal_<version>_x86_64.rpm`
+- `TarnishedsArsenal_<version>_amd64.AppImage`
+- `TarnishedsArsenal_<version>_linux_SHA256SUMS.txt`
+
+The `package-linux` job builds the Linux packages on Ubuntu 24.04, installs the
+`.deb` and runs a search in both profiles through `tauri-driver` before uploading
+them. CI also runs that search against the AppImage; the `.rpm` is built but not
+launched. Linux packages are not signed.
 
 `SHA256SUMS.txt` lists the MSI, the portable executable and the ZIP. The ZIP is a
 portable-only archive with the standalone executable, release documentation,
@@ -123,7 +132,7 @@ gh workflow run release-package.yml --ref <branch> -f publish=false
 Packaging and publication are separate jobs. If publication fails, use **Re-run
 failed jobs** on that original workflow run. The publish job downloads the original
 verified package, checks every existing remote asset against it, and uploads only
-missing files. It publishes the draft only after all five assets match, then checks
+missing files. It publishes the draft only after all nine assets match, then checks
 the published release again. A mismatching remote file stops publication; files
 are never silently replaced. Starting another build is not a publication retry.
 

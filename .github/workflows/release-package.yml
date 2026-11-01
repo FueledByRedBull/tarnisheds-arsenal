@@ -340,9 +340,91 @@ jobs:
           path: |
             dist/release-assets/
 
+  package-linux:
+    needs: verify-ci
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+    env:
+      PUBLISH_RELEASE: ${{ startsWith(github.ref, 'refs/tags/') || inputs.publish == true }}
+      # Skips rust-toolchain.toml's clippy/rustfmt install, as in CI's Linux jobs.
+      RUSTUP_TOOLCHAIN: "1.97.0"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: ".node-version"
+          package-manager-cache: false
+
+      - name: Setup Rust
+        # Installs the toolchain rust-toolchain.toml pins, or RUSTUP_TOOLCHAIN where a job sets it.
+        shell: bash
+        env:
+          RUSTUP_PERMIT_COPY_RENAME: "1"
+        run: |
+          rustup toolchain install --profile minimal --no-self-update
+          echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+          echo "CARGO_TERM_COLOR=always" >> "$GITHUB_ENV"
+          rustc --version --verbose
+
+      - name: Install Linux desktop prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev patchelf rpm webkit2gtk-driver xvfb
+
+      - name: Build Linux packages
+        working-directory: apps/desktop
+        run: |
+          npm ci
+          npm run tauri -- build --bundles deb,rpm,appimage
+
+      - name: Install and smoke test the Debian package
+        working-directory: apps/desktop
+        run: |
+          cargo install tauri-driver --locked --version 2.1.0
+          sudo apt-get install -y ./src-tauri/target/release/bundle/deb/*.deb
+          xvfb-run -a node scripts/smoke-linux.mjs "$(dpkg -L "$(dpkg-deb -f src-tauri/target/release/bundle/deb/*.deb Package)" | grep -m1 '^/usr/bin/')"
+
+      - name: Prepare Linux release assets
+        run: |
+          version="$(jq -r .version apps/desktop/src-tauri/tauri.conf.json)"
+          prefix="TarnishedsArsenal_$version"
+          bundle=apps/desktop/src-tauri/target/release/bundle
+          mkdir -p dist/linux-assets
+          cp $bundle/deb/*.deb "dist/linux-assets/${prefix}_amd64.deb"
+          cp $bundle/rpm/*.rpm "dist/linux-assets/${prefix}_x86_64.rpm"
+          cp $bundle/appimage/*.AppImage "dist/linux-assets/${prefix}_amd64.AppImage"
+          (cd dist/linux-assets && sha256sum "${prefix}_amd64.deb" "${prefix}_x86_64.rpm" "${prefix}_amd64.AppImage" > "${prefix}_linux_SHA256SUMS.txt")
+          echo "ARTIFACT_VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Attest Linux build provenance
+        if: env.PUBLISH_RELEASE == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/linux-assets/*.deb
+            dist/linux-assets/*.rpm
+            dist/linux-assets/*.AppImage
+
+      - name: Upload Linux release assets
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: package-linux-${{ env.ARTIFACT_VERSION }}
+          if-no-files-found: error
+          path: dist/linux-assets/
+
   publish:
     if: startsWith(github.ref, 'refs/tags/') || inputs.publish == true
-    needs: package
+    needs: [package, package-linux]
     runs-on: windows-2025
     timeout-minutes: 20
     # The release environment requires maintainer approval and allows only main and v* tags.
@@ -378,6 +460,7 @@ jobs:
           $version = (Get-Content apps/desktop/src-tauri/tauri.conf.json | ConvertFrom-Json).version
           "RELEASE_TAG=v$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           gh run download $env:GITHUB_RUN_ID --name "package-$version" --dir dist/release-assets
+          gh run download $env:GITHUB_RUN_ID --name "package-linux-$version" --dir dist/release-assets
 
       - name: Create or verify the release tag
         if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish == true)

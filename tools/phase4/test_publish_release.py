@@ -11,6 +11,15 @@ from unittest.mock import patch
 from tools.phase4 import publish_release as publisher
 
 
+def write_linux_assets(assets: Path, prefix: str) -> list[Path]:
+    packages = [assets / f"{prefix}{suffix}" for suffix in ("_amd64.deb", "_x86_64.rpm", "_amd64.AppImage")]
+    for path in packages:
+        path.write_bytes(path.name.encode())
+    checksums = assets / f"{prefix}_linux_SHA256SUMS.txt"
+    checksums.write_text("".join(f"{publisher.sha256(path)}  {path.name}\n" for path in packages), encoding="utf-8")
+    return [*packages, checksums]
+
+
 class PublishReleaseTests(unittest.TestCase):
     def test_partial_upload_resumes_without_rebuilding_or_replacing_assets(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -22,6 +31,7 @@ class PublishReleaseTests(unittest.TestCase):
             for path in files[:3]:
                 path.write_bytes(path.name.encode())
             (assets / "release-notes-v1.2.3.md").write_text("Release notes", encoding="utf-8")
+            linux = write_linux_assets(assets, prefix)
 
             def write_provenance() -> None:
                 files[-1].write_text(json.dumps({
@@ -89,17 +99,17 @@ class PublishReleaseTests(unittest.TestCase):
                 publisher.publish("owner/repo", "v1.2.3", "a" * 40, assets)
                 self.assertFalse(remote["isDraft"])
                 self.assertIn("--latest=false", edits[0])
-                self.assertCountEqual(uploads, [path.name for path in files])
+                self.assertCountEqual(uploads, [path.name for path in [*files, *linux]])
                 remote["assets"][0]["digest"] = None
                 publisher.publish("owner/repo", "v1.2.3", "a" * 40, assets)
-                self.assertEqual(len(uploads), 5)
+                self.assertEqual(len(uploads), 9)
 
                 # A rebuilt package at the same commit must fail before uploading anything.
                 files[1].write_bytes(b"different installer from a rebuild")
                 write_provenance()
                 with self.assertRaisesRegex(RuntimeError, "Remote asset differs"):
                     publisher.publish("owner/repo", "v1.2.3", "a" * 40, assets)
-                self.assertEqual(len(uploads), 5)
+                self.assertEqual(len(uploads), 9)
 
                 remote = {"isDraft": True, "assets": []}
                 corrupt_upload = True
@@ -160,6 +170,7 @@ class PublishReleaseTests(unittest.TestCase):
                                    "sha256": publisher.sha256(path)} for path in [portable, installer]],
                 }), encoding="utf-8")
                 (assets / "release-notes-v1.2.3.md").write_text("Release notes", encoding="utf-8")
+                write_linux_assets(assets, prefix)
                 with warnings.catch_warnings(), zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
                     warnings.simplefilter("ignore", UserWarning)
                     for entry, payload in executables:
@@ -191,15 +202,39 @@ class PublishReleaseTests(unittest.TestCase):
                         publisher.publish("owner/repo", "v1.2.3", "a" * 40, assets)
                     gh.assert_not_called()
 
+    def test_publication_rejects_a_linux_package_that_differs_from_its_checksum(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            assets = Path(directory)
+            prefix = "TarnishedsArsenal_1.2.3"
+            windows = [assets / f"{prefix}{suffix}" for suffix in ("_portable.exe", "_x64_en-US.msi", ".zip")]
+            for path in windows:
+                path.write_bytes(path.name.encode())
+            (assets / f"{prefix}_build-report.json").write_text(json.dumps({
+                "version": "1.2.3", "commit": "a" * 40, "sourceDirty": False,
+                "artifacts": [{"name": path.name, "bytes": path.stat().st_size,
+                               "sha256": publisher.sha256(path)} for path in windows[:2]],
+            }), encoding="utf-8")
+            (assets / f"{prefix}_SHA256SUMS.txt").write_text(
+                "".join(f"{publisher.sha256(path)}  {path.name}\n" for path in windows), encoding="utf-8"
+            )
+            (assets / "release-notes-v1.2.3.md").write_text("Release notes", encoding="utf-8")
+            linux = write_linux_assets(assets, prefix)
+            linux[0].write_bytes(b"replaced after checksums were written")
+            with patch.object(publisher, "gh") as gh:
+                with self.assertRaisesRegex(RuntimeError, "Linux checksum file"):
+                    publisher.publish("owner/repo", "v1.2.3", "a" * 40, assets)
+            gh.assert_not_called()
+
     def test_publication_job_downloads_the_original_run_artifact(self) -> None:
         workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/release-package.yml").read_text(encoding="utf-8")
         publish_job = workflow.split("\n  publish:\n", 1)[1]
-        self.assertIn("needs: package", publish_job)
+        self.assertIn("needs: [package, package-linux]", publish_job)
         self.assertIn("gh run download $env:GITHUB_RUN_ID", publish_job)
         upload = workflow.split("      - name: Upload release assets artifact\n", 1)[1].split("\n  publish:", 1)[0]
         self.assertIn("            dist/release-assets/\n", upload)
         self.assertNotIn("            dist/\n", upload)
         self.assertIn('--name "package-$version" --dir dist/release-assets', publish_job)
+        self.assertIn('--name "package-linux-$version" --dir dist/release-assets', publish_job)
         self.assertIn("--assets dist/release-assets", publish_job)
         self.assertNotIn("package_release.py", publish_job)
         self.assertNotIn("overwrite_files", publish_job)
