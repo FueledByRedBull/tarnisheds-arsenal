@@ -24,7 +24,7 @@ comparisons and progression previews.
 [![Tauri 2](https://img.shields.io/badge/Tauri_2-101315?style=flat-square&logo=tauri&logoColor=c9a45c)](apps/desktop/src-tauri)
 [![React 19](https://img.shields.io/badge/React_19-101315?style=flat-square&logo=react&logoColor=c9a45c)](apps/desktop/src)
 
-[What’s new in v0.20.1](docs/release-notes/v0.20.1.md)
+[What’s new in v0.21.0](docs/release-notes/v0.21.0.md)
 · [Your first build](#your-first-build)
 · [Documentation](#documentation)
 
@@ -39,7 +39,7 @@ each one.
 ## Download
 
 Choose an asset from the [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
-The [v0.20.1 notes](docs/release-notes/v0.20.1.md) include versioned downloads,
+The [v0.21.0 notes](docs/release-notes/v0.21.0.md) include versioned downloads,
 calculation changes, and verification limits.
 
 | Choose | Best for |
@@ -52,11 +52,12 @@ calculation changes, and verification limits.
 | **AppImage** (`.AppImage`) | Run on other Linux distributions without installing |
 
 > [!TIP]
-> No game files needed. Both binaries include the Vanilla **1.17.2** and Convergence
+> No game files needed. Every package includes the Vanilla **1.17.2** and Convergence
 > **3.0.3.0** snapshots, so no adjacent data folder, game installation,
 > `regulation.bin`, or source workbook is required.
 
-Each release includes SHA-256 checksums for the installer, portable app, and ZIP,
+Linux packages are new and tested on Ubuntu 24.04 only; the `.rpm` is built but has
+not been launched. Each release includes SHA-256 checksums for the installer, portable app, and ZIP,
 a separate checksum file for the Linux packages, and a build report identifying
 its source and data. The ZIP contains the portable
 app with the license and third-party notices; the MSI’s WebView2 bootstrapper
@@ -236,7 +237,7 @@ Choose a guide for the task at hand:
 
 | I want to… | Read |
 | --- | --- |
-| See what changed in **v0.20.1** | [Release notes](docs/release-notes/v0.20.1.md) · [All versions](docs/release-notes/README.md) |
+| See what changed in **v0.21.0** | [Release notes](docs/release-notes/v0.21.0.md) · [All versions](docs/release-notes/README.md) |
 | Understand supported mechanics and limitations | [Model reference](docs/model-reference.md) |
 | Find components and trace a calculation | [Optimizer overview](docs/design/optimizer-overview.md) |
 | Inspect the exact ranking contract and proof | [Optimizer mathematics](docs/design/optimizer-math.md) |
