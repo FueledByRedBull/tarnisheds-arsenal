@@ -48,7 +48,7 @@ test("results, Build Detail and Compare filters have no WCAG A/AA violations", a
   await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
   await expect(page.getByText("Comparison current", { exact: true })).toBeVisible();
   const filters = await openEditor(page, "Comparison filters");
-  await filters.getByRole("button", { name: "Compare Type", exact: true }).click();
+  await filters.getByRole("button", { name: /^Compare Type\b/ }).click();
   await filters.getByRole("group", { name: "Compare Type", exact: true }).getByRole("checkbox", { name: /^Katana\b/ }).click();
   await page.keyboard.press("Escape");
   expect(await violations(page)).toEqual([]);
@@ -122,7 +122,7 @@ test("the disclosed controls (column guide, export, How it works, More details) 
   await page.locator("summary").filter({ hasText: "More details" }).click();
   expect(await violations(page, ".inspector")).toEqual([]);
   await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
-  await page.getByRole("button", { name: "About Compare", exact: true }).click();
+  await page.getByRole("button", { name: "How it works: About Compare", exact: true }).click();
   expect(await violations(page, ".popover-panel:popover-open")).toEqual([]);
   await page.keyboard.press("Escape");
   expect(await violations(page, ".compare-panel")).toEqual([]);

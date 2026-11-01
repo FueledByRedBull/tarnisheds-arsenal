@@ -14,24 +14,24 @@
     "test:packaged": "node ./scripts/smoke-packaged.mjs"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.12.2",
+    "@tauri-apps/api": "^2.12.4",
     "lucide-react": "^1.51.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.13.0",
+    "@axe-core/playwright": "^4.14.0",
     "@playwright/test": "^1.63.0",
-    "@tauri-apps/cli": "^2.0.0",
-    "@types/node": "22.20.5",
+    "@tauri-apps/cli": "^2.12.3",
+    "@types/node": "26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "eslint": "^10.12.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "typescript": "^5.6.3",
-    "typescript-eslint": "8.70.1",
+    "typescript-eslint": "8.71.2",
     "vite": "^8.3.5",
     "vitest": "^5.0.3"
   }

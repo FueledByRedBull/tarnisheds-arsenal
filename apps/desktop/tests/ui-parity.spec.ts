@@ -416,12 +416,12 @@ test("original weapon type and affinity selectors support multiple checks", asyn
 
   await toggleMultiSelectOption(page, "Affinity", "Blood");
   await toggleMultiSelectOption(page, "Affinity", "Keen");
-  await expect(page.getByRole("button", { name: "Affinity", exact: true })).toContainText("Blood");
-  await expect(page.getByRole("button", { name: "Affinity", exact: true })).toContainText("Keen");
-  await page.getByRole("button", { name: "Affinity", exact: true }).press("Escape");
+  await expect(page.locator(".checkbox-multi-trigger").and(page.getByRole("button", { name: /^Affinity\b/ }))).toContainText("Blood");
+  await expect(page.locator(".checkbox-multi-trigger").and(page.getByRole("button", { name: /^Affinity\b/ }))).toContainText("Keen");
+  await page.locator(".checkbox-multi-trigger").and(page.getByRole("button", { name: /^Affinity\b/ })).press("Escape");
   await page.getByRole("button", { name: "Reset weapon filters" }).click();
   await expect(page.getByRole("button", { name: "Weapon Type" })).toContainText("All");
-  await expect(page.getByRole("button", { name: "Affinity", exact: true })).toContainText("All");
+  await expect(page.locator(".checkbox-multi-trigger").and(page.getByRole("button", { name: /^Affinity\b/ }))).toContainText("All");
   await expect(page.getByRole("button", { name: "Reset weapon filters" })).toBeDisabled();
 
   await chooseSearchableOption(page, "Weapon", "Uchigatana");
@@ -862,7 +862,7 @@ test("analysis controls align inputs with buttons and path levels compare side b
 async function toggleMultiSelectOption(page: import("@playwright/test").Page, label: string, option: string) {
   await openEditorFor(page, label);
   const group = page.getByRole("group", { name: label, exact: true });
-  if (!await group.isVisible()) await page.getByRole("button", { name: label, exact: true }).click();
+  if (!await group.isVisible()) await page.locator(".checkbox-multi-trigger").and(page.getByRole("button", { name: new RegExp(`^${label}\\b`) })).click();
   const checkbox = group.getByRole("checkbox", { name: new RegExp(`^${option.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`) });
   await checkbox.click();
 }

@@ -259,12 +259,13 @@ export function CheckboxMultiSelect({
         }
       }}
     >
-      <span className="checkbox-multi-label">{label}</span>
+      <span className="checkbox-multi-label" id={`${id}-label`}>{label}</span>
       <button
         ref={triggerRef}
         type="button"
         className="checkbox-multi-trigger"
-        aria-label={label}
+        id={`${id}-trigger`}
+        aria-labelledby={`${id}-label ${id}-trigger`}
         aria-expanded={open}
         aria-controls={`${id}-menu`}
         onClick={() => setOpen((current) => !current)}

@@ -138,7 +138,7 @@ export function Inspector() {
             <button
               type="button"
               aria-pressed={pinned}
-              aria-label={`${pinned ? "Unpin" : "Pin"} ${selected.weaponName} for comparison`}
+              aria-label={`${pinned ? "Unpin compare" : "Pin for compare"}: ${selected.weaponName}`}
               onClick={() => toggleCompareBench(selected)}
             >
               <Pin size={15} />{pinned ? "Unpin compare" : "Pin for compare"}

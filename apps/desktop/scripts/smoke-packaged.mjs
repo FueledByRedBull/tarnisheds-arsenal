@@ -220,7 +220,7 @@ try {
   await page.getByText("Comparison current", { exact: true }).waitFor();
   await openSection(page, "Build details");
   await openEditor(page, "Comparison filters");
-  await page.getByRole("button", { name: "Compare Type", exact: true }).click();
+  await page.getByRole("button", { name: /^Compare Type\b/ }).click();
   await page.getByRole("group", { name: "Compare Type", exact: true })
     .getByRole("checkbox", { name: /^Axe\b/ })
     .check();

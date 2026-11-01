@@ -8,7 +8,7 @@ export function AboutPopover({ label, children }: { label: string; children: Rea
     <Popover
       label={label}
       trigger={<><Info size={13} aria-hidden="true" />How it works</>}
-      triggerLabel={label}
+      triggerLabel={`How it works: ${label}`}
       triggerClassName="about-trigger"
       panelClassName="editor-panel about-panel"
     >
