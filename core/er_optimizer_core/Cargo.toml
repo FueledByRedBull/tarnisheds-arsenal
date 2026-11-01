@@ -8,7 +8,7 @@ lto = "thin"
 codegen-units = 1
 
 [dependencies]
-brotli-decompressor = "5"
+brotli-decompressor = "6"
 csv = "1.3"
 num-bigint = "0.4"
 num-integer = "0.1"

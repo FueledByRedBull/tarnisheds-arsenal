@@ -335,7 +335,7 @@ export function RankingsBoard() {
         <div className="result-scroll-actions">
           <Popover
             label="Column guide"
-            trigger={<><CircleHelp size={15} aria-hidden="true" /><span>Columns</span></>}
+            trigger={<><CircleHelp size={15} aria-hidden="true" /><span>Column guide</span></>}
             triggerLabel="Column guide"
             triggerClassName="column-guide-trigger"
             panelClassName="editor-panel column-guide-panel"
