@@ -2,11 +2,10 @@
 
 [Home](../../README.md) · [Documentation](../../README.md#documentation) · [Release guide](../releasing.md)
 
-## v0.20.0
+## v0.20.1
 
-Ash of War damage and routes for The Convergence, and Convergence class names as the
-game shows them.
-Read the [v0.20.0 notes](v0.20.0.md) for the changes and download choices.
+Clearer button names for screen readers and voice control, and updated dependencies.
+Read the [v0.20.1 notes](v0.20.1.md) for the changes and download choices.
 
 For the current Windows installer and portable app, visit the
 [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
@@ -15,6 +14,7 @@ For the current Windows installer and portable app, visit the
 
 | Version | Notes | GitHub release |
 | --- | --- | --- |
+| v0.20.1 | [v0.20.1.md](v0.20.1.md) | [Tarnished's Arsenal v0.20.1](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.20.1) |
 | v0.20.0 | [v0.20.0.md](v0.20.0.md) | [Tarnished's Arsenal v0.20.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.20.0) |
 | v0.19.0 | [v0.19.0.md](v0.19.0.md) | [Tarnished's Arsenal v0.19.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.19.0) |
 | v0.18.0 | [v0.18.0.md](v0.18.0.md) | [Tarnished's Arsenal v0.18.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.18.0) |
