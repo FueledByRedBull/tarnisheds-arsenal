@@ -38,7 +38,7 @@ arithmetic, tie order, and proof obligations.
 
 The current snapshot model is `aow-routes-effects-v9`; runtime results and caches
 use `aow-routes-effects-v9/exact-v3`. The bundled datasets are `vanilla-1.17.2` and
-`convergence-3.0.3.0-r2`, written by extractor `phase1-python-v15-f32-shortest-floats`.
+`convergence-3.0.3.0-r3`, written by extractor `phase1-python-v15-f32-shortest-floats`.
 Every snapshot float is the shortest decimal that parses to the `f32` nearest the
 extracted value, so loaded coefficients are exactly those `f32` values.
 The loader rejects a manifest recording any other model or extractor version.
@@ -137,7 +137,7 @@ and its engine application still require verification.
 ## Convergence
 
 The **Convergence 3.0.3.0** profile is experimental and independent of Vanilla.
-The mod is built on game version 1.17.1. Its snapshot, `convergence-3.0.3.0-r2`, is
+The mod is built on game version 1.17.1. Its snapshot, `convergence-3.0.3.0-r3`, is
 extracted from the mod's own regulation. A version-bound reference checks weapon availability, base attack,
 requirements, raw scaling, affinities, base status, and the attack-element and
 correction-curve IDs each weapon uses. The pinned
@@ -150,9 +150,10 @@ in-game measurement.
 | --- | --- |
 | Character | The mod's 29 starting classes and Rune Levels, from `CharaInitParam` rows listed by the character-creation menu, plus exact **Custom stats** |
 | Upgrades | One reinforcement path, `+0` through `+15` |
-| Scaling | Extended `S+`/`S++` grades; no Scadutree Blessing scaling |
+| Scaling | Extended `S+`/`S++` grades; optional Scadutree Blessing, as in Vanilla |
 | Status | Fixed across stats and upgrades, as the data defines it |
-| AoW damage | **AoW First Hit** and **AoW Full Sequence** from the mod's skill animations; 90 of 122 Ashes of War resolve damage |
+| AoW damage | **AoW First Hit** and **AoW Full Sequence** from the mod's skill animations; 93 of 122 Ashes of War resolve damage |
+| Attack poise | The ten normal moves from the mod's animations, for every weapon except crossbows, greatbows and ballistae |
 | Ammunition AR | Unavailable: the regulation alone does not define it |
 | Class optimization / Compare / Paths / Affinity Watch | Available with a class; unavailable with Custom stats |
 
@@ -183,18 +184,33 @@ What the regulation shows, and how the profile uses it:
   as a player AR multiplier.
 - **Ash legality** follows the raw mounting, weapon-type, and affinity permissions;
   the exhaustive raw-data check below covers every pair.
+- **Scadutree Blessing.** SpEffects `20000100` through `20000120` and the fragment
+  items match Vanilla's, so the blessing stays an option with the same multipliers.
 - **AoW damage** needs the attacks each skill performs. `SwordArtsParam` holds no
   attack IDs; skills reach `BehaviorParam_PC` and `AtkParam_Pc` only through
   animation events (TAE) in the mod's character files and the skill category logic
   in its hks script. The Vanilla routes come from a workbook keyed to Vanilla attack
   IDs and cannot be reused. The
   [skill animation extractor](../tools/phase1/README.md#skill-animations) reads
-  the mod's own files instead; the table above gives its coverage. Vanilla's
-  animation files sit in the game's encrypted archives, so the extractor has not been
-  compared with the Vanilla workbook. Routes follow the hks combo chains, and every hit counts once:
-  hold loops, buff states, interval bullets, and bow skills, which resolve through
-  the equipped arrow, stay unmodeled and are listed in
-  `skill_animation_exclusions.csv`.
+  the mod's own files instead; the table above gives its coverage. Routes follow the
+  hks combo chains, and every hit counts once: a bullet attack repeated by a chain, a
+  timer or a volley counts once per animation. Hold loops and bow skills, which resolve
+  through the equipped arrow, stay unmodeled and are listed in
+  `skill_animation_exclusions.csv`. So do about 1,000 weapon and Ash pairs whose hits
+  differ from the rest of their weapon type, since Ash rows can only vary by type; they
+  use their type's hits.
+- **War Cry and Barbaric Roar** damage is the buffed heavy attacks the hks selects, as in
+  Vanilla. Their attack-power buff itself is not applied.
+- **Attack poise** is `saWeaponDamage` and each move's first contacts, read from the same
+  animations. Weapon base poise now also counts toward skill hits' stance damage.
+- **Checking against Vanilla.** Vanilla's animation files sit in the game's encrypted
+  archives, but [`compare_skill_animations.py`](../tools/phase1/compare_skill_animations.py)
+  can run the extractor on Vanilla's regulation through the mod's animations and compare
+  with the independent Vanilla workbook. 72 of 87 Ashes have identical damaging attacks
+  and 936 of 956 workbook attacks are found; the rest are mostly attacks the mod's
+  animations no longer reach. First-contact poise agrees for 98.0-99.9% of weapons on
+  each of the ten moves. That covers what the mod left unchanged, not the mod's own new
+  skills, and none of it is an in-game measurement.
 - **Ammunition.** Convergence bows list the same base attack for all five damage
   types, and each arrow's `AtkParam_Pc` row keeps only its own element. A bow-only
   AR would add damage the bow never deals, and combining bow and arrow needs the
