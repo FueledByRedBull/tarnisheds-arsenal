@@ -375,9 +375,9 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
                   <ScalingEditor request={request} patchRequest={patchRequest} attackMultipliers={scadutreeMultipliers} />
                 ) : (
                   <div className="editor-body profile-rule-note" role="note">
-                    <span>Convergence rule</span>
-                    <strong>Scadutree Blessing is removed</strong>
-                    <small>Weapon AR is calculated without Shadow Realm blessing controls.</small>
+                    <span>Profile rule</span>
+                    <strong>No Scadutree Blessing</strong>
+                    <small>This profile calculates weapon AR without blessing controls.</small>
                   </div>
                 )}
               </section>

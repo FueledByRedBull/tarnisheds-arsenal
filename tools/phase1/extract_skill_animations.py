@@ -189,7 +189,7 @@ class SkillHit:
     attack_id: int
     is_bullet: bool
     stamina: int
-    # Position along the bullet chain; a chain can apply one AtkParam more than once.
+    # Position among the attacks one behavior applies.
     chain_index: int = 0
 
     @property
@@ -426,7 +426,7 @@ def behavior_attacks(
         # A chain or timer repeating one attack counts it once, as the workbook does.
         if attack[0] > 0 and attack not in attacks:
             attacks.append(attack)
-        pending +=[int(bullet["intervalCreateBulletId"]), int(bullet["HitBulletID"])]
+        pending += [int(bullet["intervalCreateBulletId"]), int(bullet["HitBulletID"])]
     return attacks, problems
 
 
@@ -481,9 +481,10 @@ def skill_hits(
             if not attacks and not attack_problems:
                 problems.append((anim_id, judge_id, "behavior_without_attack"))
             for chain_index, (attack_id, is_bullet) in enumerate(attacks):
-                if is_bullet and attack_id in shot:
-                    continue
-                shot.add(attack_id)
+                if is_bullet:
+                    if attack_id in shot:
+                        continue
+                    shot.add(attack_id)
                 hits.append(
                     SkillHit(
                         anim_id=anim_id,

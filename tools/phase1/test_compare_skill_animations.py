@@ -3,7 +3,9 @@ import unittest
 from tools.phase1.compare_skill_animations import (
     compare_attacks,
     compare_first_hit_poise,
+    compare_routes,
     damaging_attacks,
+    route_hits,
 )
 from tools.phase1.extract_skill_animations import NORMAL_MOVE_ANIMS
 
@@ -26,6 +28,30 @@ class CompareSkillAnimationsTests(unittest.TestCase):
         self.assertEqual(agreement.exact_skills, 1)
         self.assertEqual(agreement.attacks, 5)
         self.assertEqual(agreement.found_attacks, 3)
+
+    def test_routes_compare_hit_counts_and_fall_back_to_generic_rows(self) -> None:
+        def row(sheet_row: str, attack: str, variant: str = "", damaging: str = "1") -> dict[str, str]:
+            return {
+                "aow_id": "1",
+                "aow_name": "Ash",
+                "sheet_row": sheet_row,
+                "atk_id": attack,
+                "variant_weapon_type": variant,
+                "is_damaging": damaging,
+            }
+
+        def assign(sheet_row: str, route: str, hits: str = "1") -> dict[str, str]:
+            return {"aow_id": "1", "sheet_row": sheet_row, "route_id": route, "hit_count": hits}
+
+        book = route_hits(
+            [row("1", "7"), row("2", "8", "Axe"), row("3", "9", damaging="0")],
+            [assign("1", "full", "2"), assign("3", "full"), assign("2", "axe")],
+        )
+        self.assertEqual(book[("Ash", "")], [{7: 2}])
+        same = route_hits([row("1", "7"), row("2", "7")], [assign("1", "a"), assign("2", "a")])
+        self.assertEqual(compare_routes(book, same), (1, 2))
+        fewer = route_hits([row("1", "7")], [assign("1", "a")])
+        self.assertEqual(compare_routes(book, fewer), (0, 2))
 
     def test_poise_compares_the_first_contact_and_skips_unlisted_moves(self) -> None:
         empty = dict.fromkeys(NORMAL_MOVE_ANIMS, "")

@@ -520,6 +520,7 @@ jobs:
           --volume "$PWD:/work"
           --volume "$(dirname "$(command -v node)"):/opt/node:ro"
           --volume "$HOME/.cargo/bin/tauri-driver:/usr/local/bin/tauri-driver:ro"
+          --env WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
           --workdir /work/apps/desktop
           fedora:43
           bash scripts/smoke-linux-rpm.sh

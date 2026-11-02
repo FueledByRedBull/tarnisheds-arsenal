@@ -40,6 +40,10 @@ class AttackAgreement:
     found_attacks: int
 
 
+# Damaging hits per attack ID on each route, by (skill, weapon type variant).
+RouteHits = dict[tuple[str, str], list[Counter[int]]]
+
+
 def damaging_attacks(rows: Iterable[Mapping[str, str]]) -> dict[str, set[int]]:
     attacks: dict[str, set[int]] = defaultdict(set)
     for row in rows:
@@ -56,6 +60,31 @@ def compare_attacks(book: Mapping[str, set[int]], extracted: Mapping[str, set[in
         attacks=sum(len(attacks) for attacks in book.values()),
         found_attacks=sum(len(attacks & extracted.get(name, set())) for name, attacks in book.items()),
     )
+
+
+def route_hits(rows: Iterable[Mapping[str, str]], assignments: Iterable[Mapping[str, str]]) -> RouteHits:
+    by_row = {(row["aow_id"], row["sheet_row"]): row for row in rows}
+    routes: dict[tuple[str, str], dict[str, Counter[int]]] = defaultdict(lambda: defaultdict(Counter))
+    for assignment in assignments:
+        row = by_row.get((assignment["aow_id"], assignment["sheet_row"]))
+        if row is not None and row["is_damaging"] == "1":
+            key = (row["aow_name"], row["variant_weapon_type"])
+            routes[key][assignment["route_id"]][int(row["atk_id"])] += int(assignment["hit_count"] or 1)
+    return {key: list(by_route.values()) for key, by_route in routes.items()}
+
+
+def compare_routes(book: RouteHits, extracted: RouteHits) -> tuple[int, int]:
+    """(matching, total) workbook routes with the same hits as some route of that skill and
+    variant; a variant the extractor did not need falls back to the skill's generic rows."""
+    names = {name for name, _ in extracted}
+    matching = total = 0
+    for (name, variant), routes in book.items():
+        if name not in names:
+            continue
+        candidates = extracted.get((name, variant)) or extracted.get((name, ""), [])
+        total += len(routes)
+        matching += sum(route in candidates for route in routes)
+    return matching, total
 
 
 def compare_first_hit_poise(
@@ -103,8 +132,13 @@ def main() -> int:
             damaging_attacks(read_csv(snapshot / "aow_attack_data.csv")),
         )
         poise = compare_first_hit_poise(read_csv(book_dir / "weapons.csv"), read_csv(snapshot / "weapons.csv"))
+        routes = compare_routes(
+            route_hits(read_csv(book_dir / "aow_attack_data.csv"), read_csv(book_dir / "aow_route_assignments.csv")),
+            route_hits(read_csv(snapshot / "aow_attack_data.csv"), read_csv(snapshot / "aow_route_assignments.csv")),
+        )
     print(f"Ashes with identical damaging attacks: {attacks.exact_skills} of {attacks.skills}")
     print(f"Workbook attacks found: {attacks.found_attacks} of {attacks.attacks}")
+    print(f"Workbook routes with the same hits: {routes[0]} of {routes[1]}")
     for column, (agreeing, total) in poise.items():
         print(f"{column}: {agreeing} of {total}")
     return 0

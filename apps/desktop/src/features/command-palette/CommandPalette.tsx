@@ -65,7 +65,7 @@ export function CommandPalette({ open, context, onRun, onClose }: {
     return () => clearTimeout(id);
   }, [context, hiddenResults.length, recent]);
   const results = useMemo(
-    () => (open && context ? findCommands(deferredQuery, { ...context, recent }) : hiddenResults),
+    () => (open ? (context ? findCommands(deferredQuery, { ...context, recent }) : []) : hiddenResults),
     [context, deferredQuery, hiddenResults, open, recent],
   );
   const active = Math.min(activeIndex, Math.max(results.length - 1, 0));

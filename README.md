@@ -56,8 +56,8 @@ calculation changes, and verification limits.
 > **3.0.3.0** snapshots, so no adjacent data folder, game installation,
 > `regulation.bin`, or source workbook is required.
 
-Linux packages are new and tested on Ubuntu 24.04 only; the `.rpm` is built but has
-not been launched. Each release includes SHA-256 checksums for the installer, portable app, and ZIP,
+Linux packages are new. The `.deb` and AppImage are tested on Ubuntu 24.04 and the
+`.rpm` on Fedora, all on a virtual display. Each release includes SHA-256 checksums for the installer, portable app, and ZIP,
 a separate checksum file for the Linux packages, and a build report identifying
 its source and data. The ZIP contains the portable
 app with the license and third-party notices; the MSI’s WebView2 bootstrapper

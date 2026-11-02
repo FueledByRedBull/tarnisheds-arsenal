@@ -242,7 +242,8 @@ follows the chain the game uses:
    `max(J / 1000, 1) * 100000000 + variation * 1000 + J % 1000`, trying the weapon's
    `behaviorVariationId`, then its hundreds base, then `0`.
 4. That row's `refType` 0 names an `AtkParam_Pc` row; `refType` 1 names a bullet,
-   whose `atkId_Bullet` and every `HitBulletID` successor each add a hit.
+   whose `atkId_Bullet` adds a hit, as does each distinct attack along its
+   `HitBulletID` and `intervalCreateBulletId` successors.
 
 Slots 5-9 of each ten are Lacking FP versions. A TAE SpEffect `100052` or `100053`
 opens the hks combo request that plays slot 10 or 20, so routes follow those
@@ -254,7 +255,7 @@ become the untyped rows, and a weapon type whose own majority differs gets rows
 named after it. Each weapon that still differs is listed in
 `skill_animation_exclusions.csv` as `weapon_unlike_its_type_rows`. A native skill gets per-weapon rows whenever the
 rows selected for that weapon would resolve differently. That file also lists every
-hit left out: bullets spawned by `intervalCreateBulletId`, behaviors with no row
+hit left out: behaviors with no row
 (bow skills resolve through the equipped arrow's variation), missing attack rows,
 and skills with no behavior events. Hold loops and the remaining hks branches keyed on
 SpEffects or combined conditions are not modeled.
@@ -267,8 +268,9 @@ weapon's ten normal moves for the `weapons.csv` poise columns; `base_poise` is
 `saWeaponDamage`. Carian Retaliation's parry fires behavior 2140 from an SpEffect. A skill
 of type 255 ("No Skill") has no hits.
 
-`compare_skill_animations.py` checks all of this against the Vanilla workbook, running
-the extractor on Vanilla's regulation through the mod's animations.
+`compare_skill_animations.py` compares damaging attacks, route hit counts and normal-move
+poise with the Vanilla workbook, running the extractor on Vanilla's regulation through the
+mod's animations. The workbook has no way to check what only the mod changed.
 
 Coverage is written to `aow_damage_coverage.csv` and
 `native_skill_damage_coverage.csv`. Vanilla's native coverage file is keyed by

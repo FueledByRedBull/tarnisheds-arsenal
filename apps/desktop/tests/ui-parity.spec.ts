@@ -171,7 +171,7 @@ test("profile switch isolates results and explains Convergence coverage", async 
   await expect(page.getByText("Experimental model", { exact: true })).toBeVisible();
   await page.locator(".coverage-token").click();
   await expect(
-    page.getByText(/AoW hits and routes come from the mod's skill animations/),
+    page.getByText(/AoW hits, routes and attack poise come from the mod's animations/),
   ).toBeVisible();
   // The coverage note names the exact mod and game versions the bundled data models.
   await expect(page.getByText(/^Convergence 3\.0\.3\.0 \(game 1\.17\.1\) weapon AR/)).toBeVisible();

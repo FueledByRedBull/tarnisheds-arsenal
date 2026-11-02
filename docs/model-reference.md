@@ -153,7 +153,7 @@ in-game measurement.
 | Scaling | Extended `S+`/`S++` grades; optional Scadutree Blessing, as in Vanilla |
 | Status | Fixed across stats and upgrades, as the data defines it |
 | AoW damage | **AoW First Hit** and **AoW Full Sequence** from the mod's skill animations; 93 of 122 Ashes of War resolve damage |
-| Attack poise | The ten normal moves from the mod's animations, for every weapon except crossbows, greatbows and ballistae |
+| Attack poise | Up to ten normal moves from the mod's animations: all ten on most weapons, fewer on bows, seals and staves, none on crossbows, greatbows and ballistae |
 | Ammunition AR | Unavailable: the regulation alone does not define it |
 | Class optimization / Compare / Paths / Affinity Watch | Available with a class; unavailable with Custom stats |
 
@@ -200,17 +200,18 @@ What the regulation shows, and how the profile uses it:
   differ from the rest of their weapon type, since Ash rows can only vary by type; they
   use their type's hits.
 - **War Cry and Barbaric Roar** damage is the buffed heavy attacks the hks selects, as in
-  Vanilla. Their attack-power buff itself is not applied.
+  Vanilla. Routes start at the first heavy, and the attack-power buff itself is not applied.
 - **Attack poise** is `saWeaponDamage` and each move's first contacts, read from the same
   animations. Weapon base poise now also counts toward skill hits' stance damage.
 - **Checking against Vanilla.** Vanilla's animation files sit in the game's encrypted
   archives, but [`compare_skill_animations.py`](../tools/phase1/compare_skill_animations.py)
   can run the extractor on Vanilla's regulation through the mod's animations and compare
   with the independent Vanilla workbook. 72 of 87 Ashes have identical damaging attacks
-  and 936 of 956 workbook attacks are found; the rest are mostly attacks the mod's
-  animations no longer reach. First-contact poise agrees for 98.0-99.9% of weapons on
-  each of the ten moves. That covers what the mod left unchanged, not the mod's own new
-  skills, and none of it is an in-game measurement.
+  and 936 of 956 workbook attacks are found; the missing attacks that were traced by hand
+  are no longer reached by the mod's animations. 281 of 357 workbook routes have the same hits as a route here; the rest differ partly because the
+  workbook joins alternatives into one route. First-contact poise agrees for 97.9-99.9% of
+  weapons on each of the ten moves. That covers what the mod left unchanged, not the mod's
+  own new skills, and none of it is an in-game measurement.
 - **Ammunition.** Convergence bows list the same base attack for all five damage
   types, and each arrow's `AtkParam_Pc` row keeps only its own element. A bow-only
   AR would add damage the bow never deals, and combining bow and arrow needs the

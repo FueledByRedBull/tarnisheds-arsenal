@@ -1,6 +1,7 @@
 #!/bin/bash
 # Runs inside a Fedora container: installs the built .rpm, then runs the Linux smoke test on it.
 set -euo pipefail
+shopt -s nullglob
 
 rpms=(src-tauri/target/release/bundle/rpm/*.rpm)
 if [ "${#rpms[@]}" -ne 1 ]; then

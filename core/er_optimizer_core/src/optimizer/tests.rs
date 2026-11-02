@@ -96,9 +96,15 @@ fn convergence_profile_rules_reject_vanilla_upgrades_and_accept_scadutree() {
     request.somber_max_upgrade = 15;
     request.dlc_scaling = true;
     request.scadutree_level = 20;
-    // The mod keeps the Scadutree Blessing, so the profile rule no longer refuses it.
-    let error = prepare_search(&request, &data).err().unwrap_or_default();
-    assert!(!error.contains("Scadutree"), "{error}");
+    request.class_name = CUSTOM_STATS_CLASS_NAME.to_string();
+    let stats = request.current_stats;
+    request.character_level = [
+        stats.vig, stats.mnd, stats.end, stats.str, stats.dex, stats.int, stats.fai, stats.arc,
+    ]
+    .into_iter()
+    .map(u16::from)
+    .sum();
+    prepare_search(&request, &data).expect("the mod keeps the Scadutree Blessing");
 }
 
 #[test]

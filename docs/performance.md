@@ -234,9 +234,10 @@ first open. A landing can still miss one or two frames at 240 Hz, which is 120 f
 missed frame and 80 fps at two, for that frame only. These are single frames at discrete
 events; continuous scrolling and animation held the display rate.
 
-Search timings in release mode, three to five repeats, against `convergence-3.0.3.0-r2`.
-Vanilla's unchanged data and code moved within about 8% between these runs, with one
-outlier at 37%, so smaller differences are noise:
+Search timings in release mode with default threads on 16 logical CPUs: one warmup and
+three repeats on `convergence-3.0.3.0-r2`, one warmup and five on r3. Vanilla's unchanged
+data and code moved within about 11% between these runs, so smaller differences are noise.
+Open bleed's increase is larger than that; revision 3 adds hits that carry status effects:
 
 | Convergence search, all threads | r2 | r3 |
 | --- | ---: | ---: |

@@ -86,8 +86,8 @@ delete the draft release and the remote tag by hand. The nine release assets are
 
 The `package-linux` job builds the Linux packages on Ubuntu 24.04, installs the
 `.deb` and runs a search in both profiles through `tauri-driver` before uploading
-them. CI also runs that search against the AppImage; the `.rpm` is built but not
-launched. Linux packages are not signed.
+them. CI also runs that search against the AppImage, and against the `.rpm` installed
+on Fedora in a container. Linux packages are not signed.
 
 `SHA256SUMS.txt` lists the MSI, the portable executable and the ZIP. The ZIP is a
 portable-only archive with the standalone executable, release documentation,
