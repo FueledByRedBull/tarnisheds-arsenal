@@ -237,7 +237,7 @@ events; continuous scrolling and animation held the display rate.
 Search timings in release mode with default threads on 16 logical CPUs: one warmup and
 three repeats on `convergence-3.0.3.0-r2`, one warmup and five on r3. Vanilla's unchanged
 data and code moved within about 11% between these runs, so smaller differences are noise.
-Open bleed's increase is larger than that; revision 3 adds hits that carry status effects:
+Open bleed's increase is larger than that, and its cause was not isolated:
 
 | Convergence search, all threads | r2 | r3 |
 | --- | ---: | ---: |
