@@ -42,6 +42,7 @@ def weapon_param_row(**fields: str) -> dict[str, str]:
         "sortId": "1",
         "isNormalAttackType": "1",
         "staminaConsumptionRate": "1",
+        "saWeaponDamage": "3",
         **fields,
     }
 

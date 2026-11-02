@@ -193,12 +193,12 @@ test("Convergence offers its own classes and keeps Custom stats exact", async ({
   await page.getByRole("radiogroup", { name: "Game profile" }).getByRole("radio", { name: /Convergence/ }).click();
   await expect(page.getByRole("button", { name: "Class: Retainer" })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Upgrades: / })).toHaveAccessibleName(/\+15/);
-  await expect(page.getByRole("button", { name: /^More options: / })).toHaveAccessibleName(/No Scadutree/);
+  await expect(page.getByRole("button", { name: /^More options: / })).not.toHaveAccessibleName(/No Scadutree/);
   {
     const { dialog, input } = await palette(page, "class samurai");
     await expect(dialog.getByRole("option", { name: /Samurai/ })).toHaveCount(0);
     await input.fill("blessing 5");
-    await expect(dialog.getByRole("option", { name: /Scadutree Blessing/ })).toHaveCount(0);
+    await expect(dialog.getByRole("option", { name: /Scadutree Blessing 5/ })).toBeVisible();
     await page.keyboard.press("Escape");
   }
 

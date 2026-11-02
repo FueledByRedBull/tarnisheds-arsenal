@@ -1,8 +1,8 @@
 {
   "schemaVersion": 6,
-  "datasetVersion": "convergence-3.0.3.0-r2",
+  "datasetVersion": "convergence-3.0.3.0-r3",
   "modelVersion": "aow-routes-effects-v9",
-  "id": "convergence-3.0.3.0-r2",
+  "id": "convergence-3.0.3.0-r3",
   "label": "The Convergence dataset - 3.0.3.0",
   "appVersion": "1.17.1",
   "source": "regulation.bin",
@@ -26,12 +26,12 @@
     "standardMaxUpgrade": 15,
     "somberMaxUpgrade": 15,
     "separateUpgradeCaps": false,
-    "scadutreeScaling": false,
+    "scadutreeScaling": true,
     "zeroAttackElementUsesWeaponScaling": false,
     "extendedScalingGrades": true,
     "statusBuildupScales": false
   },
-  "generatedAt": "2026-10-22",
+  "generatedAt": "2026-11-02",
   "extractorVersion": "phase1-python-v15-f32-shortest-floats",
   "provenance": "profile-bound regulation, names, skill animations, and numeric PARAM effect graph",
   "runtimeFiles": [
@@ -42,18 +42,18 @@
     },
     {
       "path": "aow_attack_data.csv",
-      "size": 551971,
-      "sha256": "d5a17bc162c848cefd74069f8920e7010946d2396c7f23df56b2a41514e05bd5"
+      "size": 632409,
+      "sha256": "f8a92857155db098dcc53d09a060e7dd919c8b2f2b1ff48cb75b95c821c013f8"
     },
     {
       "path": "aow_effect_data.csv",
-      "size": 5072904,
-      "sha256": "fd920719cfed64556740731f4440e40aea5562c2120dc8d129bfdfa069479b98"
+      "size": 2662807,
+      "sha256": "b690155d3744984f99aeefc7acad69212dbfddbbfeaaa5b37d79a20d30270582"
     },
     {
       "path": "aow_route_assignments.csv",
-      "size": 327792,
-      "sha256": "e8d404fdbb0051d78434f1f769815af31100827efc17ee33bf6c432c4a240795"
+      "size": 287274,
+      "sha256": "ccde1d5ba165608b017508dd663b022e53c547cc335c1be8ad3e62ec16d6adc6"
     },
     {
       "path": "attack_element_correct.csv",
@@ -77,8 +77,8 @@
     },
     {
       "path": "native_skill_attack_data.csv",
-      "size": 1205372,
-      "sha256": "ed1ba41f9ce6609822ea53a4ee179c0b7784b89c491f2e5c8154ace2f6116146"
+      "size": 1085020,
+      "sha256": "4e3b8493e8f8c0a9a14e4ef1d0c303dbe1415a691d6e59e826041a5fc833cfc7"
     },
     {
       "path": "reinforce.csv",
@@ -97,35 +97,35 @@
     },
     {
       "path": "weapons.csv",
-      "size": 629019,
-      "sha256": "ca9739f261d53a2271c88c8600933263323d4cccffeed2309e79ee0ba637fde4"
+      "size": 808928,
+      "sha256": "c3f3f95d17d112a60f68b0bdfd741468ceef7bb23a29fbe6b28664cca4b6149b"
     }
   ],
   "diagnosticFiles": [
     {
       "path": "aow_damage_coverage.csv",
-      "size": 5892,
-      "sha256": "caf42a2c9165d2fa4d486de662e46b981aae2f12f0edae30af09959b5ee9c558"
+      "size": 5883,
+      "sha256": "1c773298ac7610ad9837cffc77e5e713e0cebdde9e412564d5198e360f62843c"
     },
     {
       "path": "aow_effect_coverage.csv",
-      "size": 470055,
-      "sha256": "27135e870fc750b96aaddc9210e00204638bc2c1c6a65324021d13801b40e0e8"
+      "size": 439777,
+      "sha256": "6896ab1c13d6a81b0afc596617dd85425752ba1428e4c4a12522b37389790875"
     },
     {
       "path": "aow_effect_exclusions.csv",
-      "size": 146473,
-      "sha256": "2c537b553757163437f676bd5e51a36e7d8872cb81d7ae1a81c6acff8686b9ce"
+      "size": 59359,
+      "sha256": "01dbeba54eaf698d74996a50d7c74b687af31ffca9f9290441aff80802a6a8b5"
     },
     {
       "path": "aow_route_exclusions.csv",
-      "size": 117012,
-      "sha256": "107a9f72f89e5ff6d9dd7c7254d28bd7cd65312cb4a1bd7e9acb88beca0b3fb2"
+      "size": 116160,
+      "sha256": "c1f7e027b39993a9abda073275d5bcc381341541e90bdb1c5c673aaa937ccb67"
     },
     {
       "path": "native_skill_damage_coverage.csv",
-      "size": 202761,
-      "sha256": "1156c9633c4163ab9b50ce6da1429599d9359a6828c1bbfee44c570c1d076511"
+      "size": 202086,
+      "sha256": "14ea2e420c6e48f13c74d9034688bcba403d1e8d08052760782df2962e15cbbf"
     },
     {
       "path": "passive_effect_coverage.csv",
@@ -134,8 +134,8 @@
     },
     {
       "path": "skill_animation_exclusions.csv",
-      "size": 50873,
-      "sha256": "584733cb9ae0c4a90294739b1cd3b98dc11faf3b486809fa01a8d787cd9772f4"
+      "size": 50593,
+      "sha256": "10cdd6b8024aa452ef69bc0708925c33b03b47bffcf722308e1aea15205926b1"
     }
   ],
   "sources": [

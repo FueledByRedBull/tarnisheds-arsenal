@@ -136,8 +136,14 @@ test("profile switch isolates results and explains Convergence coverage", async 
       const value = await catalog(profileId);
       if (profileId === "convergence") {
         value.dataManifest.capabilities = { ...value.dataManifest.capabilities, aowDamage: false, aowRoutes: false };
+        value.objectiveIds = value.objectiveIds.filter((id) => !id.startsWith("aow_"));
       }
       return value;
+    };
+    const weaponProfile = api.weaponProfile;
+    api.weaponProfile = async (profileId, weaponName, affinity) => {
+      const value = await weaponProfile(profileId, weaponName, affinity);
+      return profileId === "convergence" ? { ...value, moveCount: 0 } : value;
     };
     const searchStatus = api.searchStatus;
     api.searchStatus = async (jobId) => {

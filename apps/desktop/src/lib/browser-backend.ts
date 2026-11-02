@@ -295,9 +295,7 @@ async function mockCatalog(profileId = "vanilla"): Promise<CatalogDto> {
     weaponTypeOptions,
     aowNames: MOCK_AOW_NAMES,
     affinityNames: uniqueSorted(MOCK_WEAPONS.map((weapon) => weapon.affinity)),
-    objectiveIds: profileId === "convergence"
-      ? ["max_ar", "max_physical_ar", "max_ar_plus_bleed"]
-      : ["max_ar", "max_physical_ar", "max_ar_plus_bleed", "aow_first_hit", "aow_full_sequence"],
+    objectiveIds: ["max_ar", "max_physical_ar", "max_ar_plus_bleed", "aow_first_hit", "aow_full_sequence"],
     somberFilters: ["all", "standard_only", "somber_only"],
     filterDimensions: [
       { id: "weapon_family", label: "Weapon Family", options: uniqueSorted(MOCK_WEAPONS.map((row) => row.name)).map((label, index) => ({ id: `weapon:${index}`, label, count: 1 })) },
@@ -314,9 +312,9 @@ function mockDataManifest(profileId = "vanilla"): DataManifestDto {
   const convergence = profileId === "convergence";
   return {
     schemaVersion: 6,
-    datasetVersion: convergence ? "convergence-3.0.3.0-r2" : "vanilla-1.17.2",
+    datasetVersion: convergence ? "convergence-3.0.3.0-r3" : "vanilla-1.17.2",
     modelVersion: "aow-routes-effects-v9/exact-v3",
-    id: convergence ? "convergence-3.0.3.0-r2" : "vanilla-1.17.2",
+    id: convergence ? "convergence-3.0.3.0-r3" : "vanilla-1.17.2",
     label: convergence ? "The Convergence dataset - 3.0.3.0" : "Vanilla dataset - 1.17.2",
     appVersion: convergence ? "1.17.1" : "1.17.2",
     source: "regulation.bin",
@@ -336,7 +334,7 @@ function mockDataManifest(profileId = "vanilla"): DataManifestDto {
       standardMaxUpgrade: convergence ? 15 : 25,
       somberMaxUpgrade: convergence ? 15 : 10,
       separateUpgradeCaps: !convergence,
-      scadutreeScaling: !convergence,
+      scadutreeScaling: true,
       // Mock copy of the native table, which the app reads from this DTO field.
       scadutreeAttackMultipliers: [1, 1.1, 1.2, 1.25, 1.3, 1.35, 1.425, 1.5, 1.55, 1.6, 1.65,
         1.75, 1.85, 1.875, 1.9, 1.925, 1.95, 1.975, 2, 2.025, 2.05],
@@ -373,8 +371,7 @@ async function mockWeaponProfile(args: Record<string, unknown> | undefined): Pro
     disablesTwoHandBonus: false,
     forcesTwoHanding: false,
     weight: first?.name === "Pulley Bow" ? 5 : 7,
-    // Convergence has no motion-value data, so native maps none of its weapons' poise moves.
-    moveCount: request.profileId === "convergence" ? 0 : 5,
+    moveCount: 5,
     oneHandedPoise: { light: "5", heavy: "10", chargedHeavy: "30", jumpingLight: "7.5", jumpingHeavy: "20" },
     twoHandedPoise: { light: "6.5", heavy: "11", chargedHeavy: "33", jumpingLight: "9.75", jumpingHeavy: "22" },
     affinities: uniqueSorted(MOCK_WEAPONS.filter((row) => row.name === request.weaponName).map((row) => row.affinity)),

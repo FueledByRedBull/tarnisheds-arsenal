@@ -256,8 +256,19 @@ named after it. Each weapon that still differs is listed in
 rows selected for that weapon would resolve differently. That file also lists every
 hit left out: bullets spawned by `intervalCreateBulletId`, behaviors with no row
 (bow skills resolve through the equipped arrow's variation), missing attack rows,
-and skills with no behavior events. Buff states, hold loops, the hks branches keyed
-on SpEffects or combined conditions, and the left-hand shield requests are not modeled.
+and skills with no behavior events. Hold loops and the remaining hks branches keyed on
+SpEffects or combined conditions are not modeled.
+
+Three kinds of hit come from outside the skill's own animations. Bullets spawned by
+`intervalCreateBulletId` count once, and a volley of one bullet attack counts once per
+animation, as the Vanilla workbook lists them. War Cry, Barbaric Roar and Shield Strike
+play moves from the weapon's own section `a(wepmotionCategory)`, which also supplies each
+weapon's ten normal moves for the `weapons.csv` poise columns; `base_poise` is
+`saWeaponDamage`. Carian Retaliation's parry fires behavior 2140 from an SpEffect. A skill
+of type 255 ("No Skill") has no hits.
+
+`compare_skill_animations.py` checks all of this against the Vanilla workbook, running
+the extractor on Vanilla's regulation through the mod's animations.
 
 Coverage is written to `aow_damage_coverage.csv` and
 `native_skill_damage_coverage.csv`. Vanilla's native coverage file is keyed by

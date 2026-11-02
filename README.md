@@ -210,8 +210,9 @@ effects, profile rules, and known differences from other calculators.
 > [!NOTE]
 > Convergence 3.0.3.0 is experimental. Its AR and status are checked against the
 > mod's regulation and a pinned external calculator, and its Ash legality against
-> the regulation's raw permissions. AoW damage is read from the mod's skill
-> animations and has no external check. None of it is measured in game.
+> the regulation's raw permissions. AoW damage and attack poise are read from the mod's
+> animations and checked against Vanilla's workbook where the mod left them unchanged.
+> None of it is measured in game.
 
 The header marks it **Experimental model**; open that label for its coverage
 notes. Choose one of the mod's 29 starting classes, such as **Stormcaller** or
@@ -224,9 +225,10 @@ stats load and solve as before.
 The profile supports melee weapon AR and upgrades through `+15`. Status buildup
 is fixed: the mod gives weapons a flat status correction curve, so Arcane and
 upgrades do not raise it. AoW damage and routes come from the mod's own skill
-animations; bow skills, buff states and hold loops stay unmodeled, and the
+animations; bow skills and hold loops stay unmodeled, and the
 [coverage table](docs/model-reference.md#convergence) lists which Ashes resolve
-damage. Ammunition AR is unavailable.
+damage. Attack poise comes from the same animations, and the Scadutree Blessing works
+as in Vanilla. Ammunition AR is unavailable.
 
 Vanilla rules, classes, and missing damage tables are never substituted into the
 mod profile. See [Convergence coverage](docs/model-reference.md#convergence).

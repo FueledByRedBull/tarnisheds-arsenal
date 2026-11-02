@@ -144,9 +144,9 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 1160000,Blade of Calling,1037,Blade of Gold,837,0,2,2,direct_damage
 1170000,Midnight Dagger,602,Assassin's Gambit,732,0,0,0,generic_aow
 1180000,Deathrite Dagger,183,Blighted Breath,683,0,1,1,direct_damage
-1200000,Dragon Cult Twin Daggers (dagger),811,Spread Corruption,921,0,20,20,direct_damage
+1200000,Dragon Cult Twin Daggers (dagger),811,Spread Corruption,921,0,19,19,direct_damage
 1300000,Stormcaller's Dirk,133,Storm Thrust,601,0,2,2,direct_damage
-1400000,Quicksilver Fragment,830,Quicksilver Spray,763,0,11,11,direct_damage
+1400000,Quicksilver Fragment,830,Quicksilver Spray,763,0,9,9,direct_damage
 1500000,Main-gauche,302,Parry,692,20,0,0,generic_aow
 1500100,Main-gauche,302,Parry,692,20,0,0,generic_aow
 1500200,Main-gauche,302,Parry,692,20,0,0,generic_aow
@@ -288,7 +288,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 2110000,Coded Sword,1054,Unblockable Blade,854,0,4,4,direct_damage
 2120000,Blade of Valor,803,Champion's Evasion,678,0,1,1,direct_damage
 2140000,Sword of Night and Flame,1019,Night-and-Flame Stance,819,0,12,10,direct_damage
-2150000,Crystal Sword,1172,Magma Shower,772,0,12,9,direct_damage
+2150000,Crystal Sword,1172,Magma Shower,772,0,10,8,direct_damage
 2180000,Carian Knight's Sword,218,Carian Grandeur,666,0,0,0,generic_aow
 2190000,Sword of St. Trina,1023,Mists of Slumber,823,0,2,2,direct_damage
 2200000,Miquellan Knight's Sword,214,Flaming Strike,663,0,0,0,generic_aow
@@ -359,14 +359,14 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 2241900,Warhawk's Talon,103,Spinning Slash,603,0,0,0,generic_aow
 2242000,Warhawk's Talon,103,Spinning Slash,603,0,0,0,generic_aow
 2242100,Warhawk's Talon,103,Spinning Slash,603,0,0,0,generic_aow
-2250000,Dragonkin Seeker Sword,1043,Ice Lightning Sword,843,0,12,10,direct_damage
+2250000,Dragonkin Seeker Sword,1043,Ice Lightning Sword,843,0,6,5,direct_damage
 2260000,Rotten Crystal Sword,103,Spinning Slash,603,0,0,0,generic_aow
 2270000,Maddening Brand [Frenzy],512,Frenzied Assault,896,0,14,14,direct_damage
 2510000,Velvet Sword of St. Trina,5111,,609,0,8,8,direct_damage
 2520000,Star-Lined Sword,5040,Onze's Line of Stars,904,0,12,12,direct_damage
 2530000,Carian Sorcery Sword,218,Carian Grandeur,666,0,0,0,generic_aow
 2540000,Stone-Sheathed Sword,115,Square Off,615,0,0,0,generic_aow
-2550000,Sword of Light,5020,Light,902,0,32,32,direct_damage
+2550000,Sword of Light,5020,Light,902,0,1,1,direct_damage
 2560000,Sword of Darkness,5030,Darkness,903,0,1,1,direct_damage
 3000000,Bastard Sword,106,Stamp,606,0,0,0,generic_aow
 3000100,Bastard Sword,106,Stamp,606,0,0,0,generic_aow
@@ -500,18 +500,18 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 3051900,Flamberge,106,Stamp,606,0,0,0,generic_aow
 3052000,Flamberge,106,Stamp,606,0,0,0,generic_aow
 3052100,Flamberge,106,Stamp,606,0,0,0,generic_aow
-3060000,Ordovis's Greatsword,1198,Ordovis's Vortex,798,0,16,16,direct_damage
+3060000,Ordovis's Greatsword,1198,Ordovis's Vortex,798,0,12,12,direct_damage
 3070000,Alabaster Lord's Sword,1040,Alabaster Lords' Pull,840,0,5,5,direct_damage
 3080000,Banished Knight's Greatsword,106,Stamp,606,0,0,0,generic_aow
 3090000,Dark Moon Greatsword,1008,Moonlight Greatsword,808,0,0,0,missing
-3100000,Sacred Relic Sword,1020,Wave of Gold,820,0,61,61,direct_damage
+3100000,Sacred Relic Sword,1020,Wave of Gold,820,0,5,5,direct_damage
 3110000,Celestial Blade,822,Celestial Ascension,989,0,9,9,direct_damage
 3120000,Sword of the Cyclops,502,Cyclopean Conflagration,711,0,6,5,direct_damage
 3130000,Helphen's Steeple,1021,Ruinous Ghostflame,821,0,6,6,direct_damage
-3140000,Blasphemous Blade,1014,Taker's Flames,814,0,16,16,direct_damage
+3140000,Blasphemous Blade,1014,Taker's Flames,814,0,3,3,direct_damage
 3150000,Marais Executioner's Sword,261,Eochaid Stance,761,0,15,15,direct_damage
 3160000,Sword of Milos,1015,Shriek of Milos,815,0,2,0,utility_only
-3170000,Golden Order Greatsword,1022,Establish Order,822,0,7,6,direct_damage
+3170000,Golden Order Greatsword,1022,Establish Order,822,0,8,7,direct_damage
 3180000,Claymore,100,Lion's Claw,600,0,0,0,generic_aow
 3180100,Claymore,100,Lion's Claw,600,0,0,0,generic_aow
 3180200,Claymore,100,Lion's Claw,600,0,0,0,generic_aow
@@ -535,8 +535,8 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 3182000,Claymore,100,Lion's Claw,600,0,0,0,generic_aow
 3182100,Claymore,100,Lion's Claw,600,0,0,0,generic_aow
 3190000,Gargoyle's Greatsword,220,Vacuum Slice,668,0,0,0,generic_aow
-3200000,Death's Poker,1048,Ghostflame Ignition,848,0,27,25,direct_damage
-3210000,Gargoyle's Blackblade,1167,Corpse Wax Cutter,767,0,3,3,direct_damage
+3200000,Death's Poker,1048,Ghostflame Ignition,848,0,11,9,direct_damage
+3210000,Gargoyle's Blackblade,1167,Corpse Wax Cutter,767,0,4,3,direct_damage
 3230000,Sword of Hadea,819,Crucible's Fury,985,0,11,10,direct_damage
 3240000,Dyru's Greatsword,1063,Dyru's Savagery,607,2,7,7,direct_damage
 3250000,Regal Splitblade (GS),232,Splitblade Sundering,687,2,8,8,direct_damage
@@ -588,7 +588,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 3522100,Lizard Greatsword,106,Stamp,606,0,0,0,generic_aow
 3550000,Greatsword of Solitude,5430,Solitary Moon Slash,951,0,9,5,direct_damage
 3560000,Leontiel's Greatsword,1200,Muleta,972,0,8,8,direct_damage
-3570000,Greatsword of Midra,5150,Waves of Madness,916,0,25,15,direct_damage
+3570000,Greatsword of Midra,5150,Waves of Madness,916,0,16,13,direct_damage
 4000000,Greatsword,106,Stamp,606,0,0,0,generic_aow
 4000100,Greatsword,106,Stamp,606,0,0,0,generic_aow
 4000200,Greatsword,106,Stamp,606,0,0,0,generic_aow
@@ -656,41 +656,41 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 4031900,Troll's Golden Sword,653,Troll's Roar,743,0,0,0,generic_aow
 4032000,Troll's Golden Sword,653,Troll's Roar,743,0,0,0,generic_aow
 4032100,Troll's Golden Sword,653,Troll's Roar,743,0,0,0,generic_aow
-4040000,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4040100,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4040200,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4040300,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4040400,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4040500,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4040600,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4040700,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4040800,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4040900,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4041000,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4041100,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4041200,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4041300,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4041400,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4041500,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4041600,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4041700,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4041800,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4041900,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4042000,Zweihander,106,Stamp,606,0,6,6,direct_damage
-4042100,Zweihander,106,Stamp,606,0,6,6,direct_damage
+4040000,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4040100,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4040200,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4040300,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4040400,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4040500,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4040600,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4040700,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4040800,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4040900,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4041000,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4041100,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4041200,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4041300,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4041400,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4041500,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4041600,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4041700,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4041800,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4041900,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4042000,Zweihander,106,Stamp,606,0,0,0,generic_aow
+4042100,Zweihander,106,Stamp,606,0,0,0,generic_aow
 4050000,Starscourge Greatsword,1032,Starcaller Cry,832,0,10,10,direct_damage
 4060000,Royal Greatsword,1025,Wolf's Assault,825,0,5,3,direct_damage
 4070000,Godslayer's Greatsword,1170,The Queen's Black Flame,770,0,6,6,direct_damage
-4080000,Ruins Greatsword,1033,Wave of Destruction,833,0,16,16,direct_damage
+4080000,Ruins Greatsword,1033,Wave of Destruction,833,0,3,3,direct_damage
 4100000,Grafted Blade Greatsword,1042,Oath of Vengeance,842,0,0,0,missing
 4110000,Troll Knight's Sword,653,Troll's Roar,743,0,0,0,generic_aow
 4120000,Gravelstone Arcblades,1059,Wrath of the Ancients,759,0,7,7,direct_damage
 4130000,Osian's Greatsword [Quality],132,Osian's Fury,632,0,6,6,direct_damage
-4140000,Fingerprint Hexmark [Frenzy],150,Martyr's Vengeance,974,0,33,26,direct_damage
+4140000,Fingerprint Hexmark [Frenzy],150,Martyr's Vengeance,974,0,22,18,direct_damage
 4500000,Ancient Meteoric Ore Greatsword,5240,Cosmic Burst,925,0,3,3,direct_damage
 4520000,Fire Knight's Greatsword,106,Stamp,606,0,0,0,generic_aow
-4530000,Greatswords of Radahn,5200,Lord of Light Stance,887,0,190,96,direct_damage
-4540000,Moonrithyll's Knight Sword,5550,Tremendous Phalanx,967,0,4,4,direct_damage
+4530000,Greatswords of Radahn,5200,Lord of Light Stance,887,0,26,22,direct_damage
+4540000,Moonrithyll's Knight Sword,5550,Tremendous Phalanx,967,0,3,3,direct_damage
 5000000,Estoc,101,Impaling Thrust,601,0,0,0,generic_aow
 5000100,Estoc,101,Impaling Thrust,601,0,0,0,generic_aow
 5000200,Estoc,101,Impaling Thrust,601,0,0,0,generic_aow
@@ -782,7 +782,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 5061900,Noble's Estoc,101,Impaling Thrust,601,0,0,0,generic_aow
 5062000,Noble's Estoc,101,Impaling Thrust,601,0,0,0,generic_aow
 5062100,Noble's Estoc,101,Impaling Thrust,601,0,0,0,generic_aow
-5070000,Thorn of the Guilty,829,Telekinetic Vortex,798,0,16,16,direct_damage
+5070000,Thorn of the Guilty,829,Telekinetic Vortex,798,0,12,12,direct_damage
 5080000,Foil of Caddock,109,Repeating Thrust,609,0,0,0,generic_aow
 5090000,Quicksilver Rapier,828,Flowing Piercer,997,0,4,4,direct_damage
 5100000,Huntress's Estoc,1208,Vapor-fly Ignition,773,0,2,1,direct_damage
@@ -902,7 +902,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 7041900,Bandit's Curved Sword,103,Spinning Slash,603,0,0,0,generic_aow
 7042000,Bandit's Curved Sword,103,Spinning Slash,603,0,0,0,generic_aow
 7042100,Bandit's Curved Sword,103,Spinning Slash,603,0,0,0,generic_aow
-7050000,Magma Blade,1172,Magma Shower,772,0,12,9,direct_damage
+7050000,Magma Blade,1172,Magma Shower,772,0,10,8,direct_damage
 7060000,Flowing Curved Sword,103,Spinning Slash,603,0,0,0,generic_aow
 7070000,Wing of Astel,1173,Nebula,773,0,4,2,direct_damage
 7080000,Scavenger's Curved Sword,103,Spinning Slash,603,0,0,0,generic_aow
@@ -998,11 +998,11 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 7152100,Grossmesser,103,Spinning Slash,603,0,0,0,generic_aow
 7160000,Blade of Scarlet Bloom,823,Aeonian Rush,991,0,5,5,direct_damage
 7170000,Godskin Flayer,1061,Godslayer Ascension,647,0,8,8,direct_damage
-7180000,Nomad's Kilij,501,Succumb to Madness,710,0,18,17,direct_damage
-7500000,Spirit Sword,5250,Rancor Slash,965,0,16,16,direct_damage
+7180000,Nomad's Kilij,501,Succumb to Madness,710,0,4,3,direct_damage
+7500000,Spirit Sword,5250,Rancor Slash,965,0,8,8,direct_damage
 7510000,Falx,5100,Revenger's Blade,910,0,22,22,direct_damage
 7520000,Dancing Blade of Ranah,5090,Unending Dance,909,0,50,50,direct_damage
-7530000,Horned Warrior's Sword,5530,Horn Calling,962,0,7,3,direct_damage
+7530000,Horned Warrior's Sword,5530,Horn Calling,962,0,5,3,direct_damage
 8010000,Onyx Lord's Greatsword,1041,Onyx Lords' Repulsion,841,0,5,5,direct_damage
 8020000,Dismounter,103,Spinning Slash,603,2,0,0,generic_aow
 8020100,Dismounter,103,Spinning Slash,603,2,0,0,generic_aow
@@ -1027,7 +1027,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 8022000,Dismounter,103,Spinning Slash,603,2,0,0,generic_aow
 8022100,Dismounter,103,Spinning Slash,603,2,0,0,generic_aow
 8030000,Bloodhound's Fang,1175,Bloodhound's Finesse,775,0,4,4,direct_damage
-8040000,Magma Wyrm's Scalesword,1176,Magma Guillotine,776,0,10,10,direct_damage
+8040000,Magma Wyrm's Scalesword,1176,Magma Guillotine,776,0,8,8,direct_damage
 8050000,Zamor Curved Sword,1168,Zamor Ice Storm,768,0,5,3,direct_damage
 8060000,Omen Cleaver,103,Spinning Slash,603,2,0,0,generic_aow
 8060100,Omen Cleaver,103,Spinning Slash,603,2,0,0,generic_aow
@@ -1053,8 +1053,8 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 8062100,Omen Cleaver,103,Spinning Slash,603,2,0,0,generic_aow
 8070000,Monk's Flameblade,1058,Giantsflame Arc,808,0,0,0,missing
 8080000,Beastman's Cleaver,100,Lion's Claw,600,0,0,0,generic_aow
-8090000,Three Finger Blade,825,Shabriri's Revenge,993,0,14,8,direct_damage
-8100000,Morgott's Cursed Sword,1027,Cursed-Blood Slice,827,0,22,12,direct_damage
+8090000,Three Finger Blade,825,Shabriri's Revenge,993,0,16,9,direct_damage
+8100000,Morgott's Cursed Sword,1027,Cursed-Blood Slice,827,0,10,6,direct_damage
 8500000,Putrescence Cleaver,5080,Spinning Guillotine,908,0,14,14,direct_damage
 8510000,Freyja's Greatsword,4150,Savage Lion's Claw,882,0,0,0,generic_aow
 8520000,Horned Warrior's Greatsword,5540,Tempest Cleave,859,0,5,4,direct_damage
@@ -1147,13 +1147,13 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 9012000,Nagakiba,114,Unsheathe,614,0,0,0,generic_aow
 9012100,Nagakiba,114,Unsheathe,614,0,0,0,generic_aow
 9020000,Hand of Malenia,1028,Waterfowl Dance,828,0,28,28,direct_damage
-9030000,Meteoric Ore Blade,1057,Cleave of Devastation,722,0,36,36,direct_damage
+9030000,Meteoric Ore Blade,1057,Cleave of Devastation,722,0,5,5,direct_damage
 9040000,Rivers of Blood,1177,Corpse Piler,777,0,18,18,direct_damage
 9050000,Star Shadow,181,Umbral Stance,681,0,8,7,direct_damage
 9060000,Moonveil,1178,Transient Moonlight,778,0,4,4,direct_damage
 9070000,Dragonscale Blade,146,Underworld Conduit,646,0,9,9,direct_damage
 9080000,Serpentbone Blade,194,Virulent Slice,694,0,4,4,direct_damage
-9090000,Blade of Distant Light,804,Dance of Unification,888,0,20,15,direct_damage
+9090000,Blade of Distant Light,804,Dance of Unification,888,0,17,14,direct_damage
 9100000,Dual Katana,5124,Purification,724,0,22,22,direct_damage
 9500000,Sword of Night,5260,Witching Hour Slash,927,0,12,12,direct_damage
 10000000,Twinblade,103,Spinning Slash,603,24,0,0,generic_aow
@@ -1178,7 +1178,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 10001900,Twinblade,103,Spinning Slash,603,24,0,0,generic_aow
 10002000,Twinblade,103,Spinning Slash,603,24,0,0,generic_aow
 10002100,Twinblade,103,Spinning Slash,603,24,0,0,generic_aow
-10010000,Godskin Peeler,810,Whirling Black Flames,607,24,16,14,direct_damage
+10010000,Godskin Peeler,810,Whirling Black Flames,607,24,14,13,direct_damage
 10020000,Sulien's Razors,1030,Sulien's Mastery,830,0,22,22,direct_damage
 10030000,Twinned Knight Swords,103,Spinning Slash,603,24,0,0,generic_aow
 10030100,Twinned Knight Swords,103,Spinning Slash,603,24,0,0,generic_aow
@@ -1206,11 +1206,11 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 10050000,Eleonora's Poleblade,1179,Bloodblade Dance,779,0,24,18,direct_damage
 10060000,Caimar's Battlestaff,1203,Spiritshaper's Resplendence,868,0,17,17,direct_damage
 10070000,Godwyn's Cragblades,820,Call to Thunder,808,24,2,2,direct_damage
-10080000,Gargoyle's Twinblade,238,Valiant Cyclone,738,0,11,11,direct_damage
-10090000,Gargoyle's Black Blades,239,Death Cyclone,738,0,11,11,direct_damage
+10080000,Gargoyle's Twinblade,238,Valiant Cyclone,738,0,9,9,direct_damage
+10090000,Gargoyle's Black Blades,239,Death Cyclone,738,0,9,9,direct_damage
 10100000,Palm-Ax Twinblades,148,Whirling Slice,648,0,10,10,direct_damage
 10110000,Gilded Quarterstaff,142,Vaulting Strike,642,0,4,4,direct_damage
-10200000,Galvanic Culling Blade [Twinblade],180,Galvanic Extraction,748,0,21,17,direct_damage
+10200000,Galvanic Culling Blade [Twinblade],180,Galvanic Extraction,748,0,15,12,direct_damage
 10500000,Euporia,5270,Euporia Vortex,928,0,10,10,direct_damage
 10510000,Black Steel Twinblade,103,Spinning Slash,603,24,0,0,generic_aow
 11000000,Mace,503,Kick,712,0,0,0,generic_aow
@@ -1235,51 +1235,51 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 11001900,Mace,503,Kick,712,0,0,0,generic_aow
 11002000,Mace,503,Kick,712,0,0,0,generic_aow
 11002100,Mace,503,Kick,712,0,0,0,generic_aow
-11010000,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11010100,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11010200,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11010300,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11010400,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11010500,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11010600,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11010700,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11010800,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11010900,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11011000,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11011100,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11011200,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11011300,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11011400,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11011500,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11011600,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11011700,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11011800,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11011900,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11012000,Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11012100,Club,650,Barbaric Roar,740,0,0,0,generic_aow
+11010000,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11010100,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11010200,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11010300,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11010400,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11010500,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11010600,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11010700,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11010800,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11010900,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11011000,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11011100,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11011200,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11011300,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11011400,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11011500,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11011600,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11011700,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11011800,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11011900,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11012000,Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11012100,Club,650,Barbaric Roar,33,0,0,0,generic_aow
 11020000,Leaden Maul,149,Concussive Smash,649,0,2,2,direct_damage
-11030000,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11030100,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11030200,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11030300,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11030400,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11030500,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11030600,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11030700,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11030800,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11030900,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11031000,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11031100,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11031200,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11031300,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11031400,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11031500,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11031600,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11031700,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11031800,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11031900,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11032000,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11032100,Curved Club,650,Barbaric Roar,740,0,0,0,generic_aow
+11030000,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11030100,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11030200,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11030300,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11030400,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11030500,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11030600,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11030700,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11030800,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11030900,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11031000,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11031100,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11031200,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11031300,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11031400,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11031500,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11031600,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11031700,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11031800,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11031900,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11032000,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11032100,Curved Club,650,Barbaric Roar,33,0,0,0,generic_aow
 11040000,Warpick,503,Kick,712,0,0,0,generic_aow
 11040100,Warpick,503,Kick,712,0,0,0,generic_aow
 11040200,Warpick,503,Kick,712,0,0,0,generic_aow
@@ -1325,28 +1325,28 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 11052000,Morning Star,503,Kick,712,0,0,0,generic_aow
 11052100,Morning Star,503,Kick,712,0,0,0,generic_aow
 11060000,Varre's Bouquet,110,Wild Strikes,610,0,0,0,generic_aow
-11070000,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11070100,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11070200,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11070300,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11070400,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11070500,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11070600,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11070700,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11070800,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11070900,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11071000,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11071100,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11071200,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11071300,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11071400,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11071500,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11071600,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11071700,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11071800,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11071900,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11072000,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
-11072100,Spiked Club,650,Barbaric Roar,740,0,0,0,generic_aow
+11070000,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11070100,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11070200,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11070300,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11070400,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11070500,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11070600,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11070700,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11070800,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11070900,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11071000,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11071100,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11071200,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11071300,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11071400,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11071500,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11071600,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11071700,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11071800,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11071900,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11072000,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
+11072100,Spiked Club,650,Barbaric Roar,33,0,0,0,generic_aow
 11080000,Hammer,503,Kick,712,0,0,0,generic_aow
 11080100,Hammer,503,Kick,712,0,0,0,generic_aow
 11080200,Hammer,503,Kick,712,0,0,0,generic_aow
@@ -1398,36 +1398,36 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 11142100,Stone Club,503,Kick,712,0,0,0,generic_aow
 11150000,Marika's Hammer,1029,Gold Breaker,829,0,8,3,direct_damage
 11160000,Zamor Star Mace,821,Ice Spikes,987,0,4,4,direct_damage
-11180000,Hammer of Virtue,182,Virtuous Consecration,682,0,7,5,direct_damage
+11180000,Hammer of Virtue,182,Virtuous Consecration,682,0,6,5,direct_damage
 11190000,Tricia's Pomander - Fire,1209,Aromatic Chain-Whip,867,0,25,25,direct_damage
 11191000,Tricia's Pomander - Lightning,1209,Aromatic Chain-Whip,867,0,25,25,direct_damage
 11192000,Tricia's Pomander - Frost,1209,Aromatic Chain-Whip,867,0,25,25,direct_damage
 11193000,Tricia's Pomander - Frenzy,1209,Aromatic Chain-Whip,867,0,25,25,direct_damage
-11200000,Restored Marika's Hammer,154,Runic Stance,899,0,66,63,direct_damage
-11500000,Flowerstone Gavel,5380,Flower Dragonbolt,949,0,22,18,direct_damage
-12000000,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12000100,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12000200,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12000300,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12000400,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12000500,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12000600,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12000700,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12000800,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12000900,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12001000,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12001100,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12001200,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12001300,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12001400,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12001500,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12001600,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12001700,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12001800,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12001900,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12002000,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12002100,Large Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12010000,Greathorn Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
+11200000,Restored Marika's Hammer,154,Runic Stance,899,0,23,20,direct_damage
+11500000,Flowerstone Gavel,5380,Flower Dragonbolt,949,0,8,6,direct_damage
+12000000,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12000100,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12000200,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12000300,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12000400,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12000500,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12000600,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12000700,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12000800,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12000900,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12001000,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12001100,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12001200,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12001300,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12001400,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12001500,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12001600,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12001700,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12001800,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12001900,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12002000,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12002100,Large Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12010000,Greathorn Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
 12020000,Battle Hammer,654,Braggart's Roar,744,0,0,0,generic_aow
 12020100,Battle Hammer,654,Braggart's Roar,744,0,0,0,generic_aow
 12020200,Battle Hammer,654,Braggart's Roar,744,0,0,0,generic_aow
@@ -1451,7 +1451,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 12022000,Battle Hammer,654,Braggart's Roar,744,0,0,0,generic_aow
 12022100,Battle Hammer,654,Braggart's Roar,744,0,0,0,generic_aow
 12030000,Underworld Greatmace,309,Cragbolt Slam,629,0,5,4,direct_damage
-12040000,Crimson Briar-Bough,816,Briar Assault,982,0,9,7,direct_damage
+12040000,Crimson Briar-Bough,816,Briar Assault,982,0,8,7,direct_damage
 12060000,Great Mace,700,Endure,750,2,0,0,generic_aow
 12060100,Great Mace,700,Endure,750,2,0,0,generic_aow
 12060200,Great Mace,700,Endure,750,2,0,0,generic_aow
@@ -1474,31 +1474,31 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 12061900,Great Mace,700,Endure,750,2,0,0,generic_aow
 12062000,Great Mace,700,Endure,750,2,0,0,generic_aow
 12062100,Great Mace,700,Endure,750,2,0,0,generic_aow
-12070000,Sigur's Greatmace,1056,Omen's Roar,633,0,7,7,direct_damage
-12080000,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12080100,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12080200,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12080300,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12080400,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12080500,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12080600,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12080700,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12080800,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12080900,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12081000,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12081100,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12081200,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12081300,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12081400,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12081500,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12081600,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12081700,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12081800,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12081900,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12082000,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
-12082100,Curved Great Club,650,Barbaric Roar,740,0,0,0,generic_aow
+12070000,Sigur's Greatmace,1056,Omen's Roar,633,0,2,2,direct_damage
+12080000,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12080100,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12080200,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12080300,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12080400,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12080500,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12080600,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12080700,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12080800,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12080900,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12081000,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12081100,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12081200,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12081300,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12081400,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12081500,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12081600,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12081700,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12081800,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12081900,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12082000,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
+12082100,Curved Great Club,650,Barbaric Roar,35,0,0,0,generic_aow
 12090000,Einar's Hammer,1064,Einar's Icestorm,765,2,15,9,direct_damage
-12130000,Celebrant's Skull,650,Barbaric Roar,740,0,0,0,generic_aow
+12130000,Celebrant's Skull,650,Barbaric Roar,35,0,0,0,generic_aow
 12140000,Pickaxe,700,Endure,750,2,0,0,generic_aow
 12140100,Pickaxe,700,Endure,750,2,0,0,generic_aow
 12140200,Pickaxe,700,Endure,750,2,0,0,generic_aow
@@ -1521,9 +1521,9 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 12141900,Pickaxe,700,Endure,750,2,0,0,generic_aow
 12142000,Pickaxe,700,Endure,750,2,0,0,generic_aow
 12142100,Pickaxe,700,Endure,750,2,0,0,generic_aow
-12150000,Beastclaw Greathammer,1044,Regal Beastclaw,844,0,12,10,direct_damage
+12150000,Beastclaw Greathammer,1044,Regal Beastclaw,844,0,5,3,direct_damage
 12160000,Envoy's Long Horn,1004,Bubble Shower,804,0,3,3,direct_damage
-12170000,Cranial Vessel Candlestand,1000,Surge of Faith,800,0,47,47,direct_damage
+12170000,Cranial Vessel Candlestand,1000,Surge of Faith,800,0,17,17,direct_damage
 12180000,Great Stars,700,Endure,750,2,0,0,generic_aow
 12180100,Great Stars,700,Endure,750,2,0,0,generic_aow
 12180200,Great Stars,700,Endure,750,2,0,0,generic_aow
@@ -1546,29 +1546,29 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 12181900,Great Stars,700,Endure,750,2,0,0,generic_aow
 12182000,Great Stars,700,Endure,750,2,0,0,generic_aow
 12182100,Great Stars,700,Endure,750,2,0,0,generic_aow
-12190000,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12190100,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12190200,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12190300,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12190400,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12190500,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12190600,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12190700,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12190800,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12190900,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12191000,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12191100,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12191200,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12191300,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12191400,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12191500,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12191600,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12191700,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12191800,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12191900,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12192000,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12192100,Brick Hammer,650,Barbaric Roar,740,0,0,0,generic_aow
-12200000,Devourer's Scepter,1183,Devourer of Worlds,783,0,9,7,direct_damage
+12190000,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12190100,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12190200,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12190300,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12190400,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12190500,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12190600,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12190700,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12190800,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12190900,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12191000,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12191100,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12191200,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12191300,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12191400,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12191500,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12191600,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12191700,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12191800,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12191900,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12192000,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12192100,Brick Hammer,650,Barbaric Roar,35,0,0,0,generic_aow
+12200000,Devourer's Scepter,1183,Devourer of Worlds,783,0,8,7,direct_damage
 12210000,Rotten Battle Hammer,654,Braggart's Roar,744,0,0,0,generic_aow
 12500000,Smithscript Greathammer,700,Endure,750,2,0,0,generic_aow
 12500100,Smithscript Greathammer,700,Endure,750,2,0,0,generic_aow
@@ -1592,7 +1592,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 12501900,Smithscript Greathammer,700,Endure,750,2,0,0,generic_aow
 12502000,Smithscript Greathammer,700,Endure,750,2,0,0,generic_aow
 12502100,Smithscript Greathammer,700,Endure,750,2,0,0,generic_aow
-12510000,Anvil Hammer,5280,Smithing Art Spears,929,0,7,4,direct_damage
+12510000,Anvil Hammer,5280,Smithing Art Spears,929,0,5,4,direct_damage
 12520000,Black Steel Greathammer,700,Endure,750,2,0,0,generic_aow
 12530000,Bloodfiend's Arm,700,Endure,750,2,0,0,generic_aow
 13000000,Nightrider Flail,125,Spinning Chain,625,0,28,28,direct_damage
@@ -1639,7 +1639,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 13011900,Flail,125,Spinning Chain,625,0,28,28,direct_damage
 13012000,Flail,125,Spinning Chain,625,0,28,28,direct_damage
 13012100,Flail,125,Spinning Chain,625,0,28,28,direct_damage
-13020000,Family Heads,1184,Familial Rancor,784,0,24,24,direct_damage
+13020000,Family Heads,1184,Familial Rancor,784,0,12,12,direct_damage
 13030000,Bastard's Stars,1047,Nebula,847,0,4,3,direct_damage
 13040000,Chainlink Flail,125,Spinning Chain,625,0,28,28,direct_damage
 13040100,Chainlink Flail,125,Spinning Chain,625,0,28,28,direct_damage
@@ -1664,9 +1664,9 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 13042000,Chainlink Flail,125,Spinning Chain,625,0,28,28,direct_damage
 13042100,Chainlink Flail,125,Spinning Chain,625,0,28,28,direct_damage
 13050000,Mohgwyn Censer,110,Wild Strikes,610,0,0,0,generic_aow
-13060000,Seething Flail,231,Magma Splash,721,0,57,45,direct_damage
+13060000,Seething Flail,231,Magma Splash,721,0,51,43,direct_damage
 13500000,Serpent Flail,5500,"Flare, O Serpent",960,0,0,0,missing
-13510000,Golden Order Flail,1201,Causality's Wrath,973,0,11,0,utility_only
+13510000,Golden Order Flail,1201,Causality's Wrath,973,0,2,1,direct_damage
 14000000,Battle Axe,110,Wild Strikes,610,0,0,0,generic_aow
 14000100,Battle Axe,110,Wild Strikes,610,0,0,0,generic_aow
 14000200,Battle Axe,110,Wild Strikes,610,0,0,0,generic_aow
@@ -1758,38 +1758,38 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 14042100,Iron Cleaver,110,Wild Strikes,610,0,0,0,generic_aow
 14050000,Ripple Blade,110,Wild Strikes,610,0,0,0,generic_aow
 14060000,Celebrant's Cleaver,110,Wild Strikes,610,0,0,0,generic_aow
-14070000,Glintstone Cleaver,818,Primeval Cascade,984,0,18,17,direct_damage
-14080000,Icerind Hatchet,160,Hoarfrost Stomp,660,0,11,11,direct_damage
+14070000,Glintstone Cleaver,818,Primeval Cascade,984,0,17,16,direct_damage
+14080000,Icerind Hatchet,160,Hoarfrost Stomp,660,0,6,5,direct_damage
 14090000,Axe of Epiphany,603,Golden Vow,733,0,0,0,generic_aow
-14100000,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14100100,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14100200,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14100300,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14100400,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14100500,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14100600,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14100700,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14100800,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14100900,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14101000,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14101100,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14101200,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14101300,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14101400,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14101500,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14101600,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14101700,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14101800,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14101900,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14102000,Highland Axe,651,War Cry,741,0,0,0,generic_aow
-14102100,Highland Axe,651,War Cry,741,0,0,0,generic_aow
+14100000,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14100100,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14100200,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14100300,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14100400,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14100500,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14100600,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14100700,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14100800,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14100900,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14101000,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14101100,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14101200,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14101300,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14101400,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14101500,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14101600,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14101700,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14101800,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14101900,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14102000,Highland Axe,651,War Cry,30,0,0,0,generic_aow
+14102100,Highland Axe,651,War Cry,30,0,0,0,generic_aow
 14110000,Sacrificial Axe,110,Wild Strikes,610,0,0,0,generic_aow
 14120000,Rosus' Axe,1185,Rosus's Summons,785,0,9,5,direct_damage
-14130000,Axe of Fell Prophecy,826,Scorched Earth,994,0,1,1,direct_damage
+14130000,Axe of Fell Prophecy,826,Scorched Earth,994,0,3,2,direct_damage
 14140000,Stormhawk Axe,1186,Thunderstorm,786,0,21,21,direct_damage
 14150000,Bloodhound Hookblade,136,Bloodhound Assault,636,0,12,12,direct_damage
 14160000,Rimeheart,143,Icy Fling,643,0,1,1,direct_damage
-14170000,Bloodflame Kamas,1062,Cull the Sacrifice,630,0,17,10,direct_damage
+14170000,Bloodflame Kamas,1062,Cull the Sacrifice,630,0,5,4,direct_damage
 14500000,Smithscript Axe,110,Wild Strikes,610,0,0,0,generic_aow
 14500100,Smithscript Axe,110,Wild Strikes,610,0,0,0,generic_aow
 14500200,Smithscript Axe,110,Wild Strikes,610,0,0,0,generic_aow
@@ -1813,73 +1813,73 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 14502000,Smithscript Axe,110,Wild Strikes,610,0,0,0,generic_aow
 14502100,Smithscript Axe,110,Wild Strikes,610,0,0,0,generic_aow
 14510000,Death Knight's Twin Axes,5130,Blinkbolt: Twinaxe,914,0,14,14,direct_damage
-14520000,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14520100,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14520200,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14520300,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14520400,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14520500,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14520600,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14520700,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14520800,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14520900,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14521000,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14521100,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14521200,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14521300,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14521400,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14521500,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14521600,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14521700,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14521800,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14521900,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14522000,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
-14522100,Messmer Soldier's Axe,651,War Cry,741,0,0,0,generic_aow
+14520000,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14520100,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14520200,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14520300,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14520400,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14520500,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14520600,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14520700,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14520800,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14520900,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14521000,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14521100,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14521200,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14521300,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14521400,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14521500,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14521600,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14521700,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14521800,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14521900,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14522000,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
+14522100,Messmer Soldier's Axe,651,War Cry,30,0,18,8,direct_damage
 14540000,Forked-Tongue Hatchet,800,Quickstep,755,0,0,0,generic_aow
-15000000,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15000100,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15000200,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15000300,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15000400,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15000500,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15000600,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15000700,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15000800,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15000900,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15001000,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15001100,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15001200,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15001300,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15001400,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15001500,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15001600,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15001700,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15001800,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15001900,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15002000,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15002100,Greataxe,650,Barbaric Roar,740,0,0,0,generic_aow
-15010000,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15010100,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15010200,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15010300,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15010400,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15010500,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15010600,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15010700,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15010800,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15010900,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15011000,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15011100,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15011200,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15011300,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15011400,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15011500,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15011600,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15011700,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15011800,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15011900,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15012000,Warped Axe,651,War Cry,741,0,0,0,generic_aow
-15012100,Warped Axe,651,War Cry,741,0,0,0,generic_aow
+15000000,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15000100,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15000200,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15000300,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15000400,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15000500,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15000600,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15000700,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15000800,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15000900,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15001000,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15001100,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15001200,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15001300,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15001400,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15001500,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15001600,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15001700,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15001800,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15001900,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15002000,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15002100,Greataxe,650,Barbaric Roar,32,0,0,0,generic_aow
+15010000,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15010100,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15010200,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15010300,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15010400,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15010500,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15010600,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15010700,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15010800,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15010900,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15011000,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15011100,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15011200,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15011300,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15011400,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15011500,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15011600,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15011700,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15011800,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15011900,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15012000,Warped Axe,651,War Cry,30,0,0,0,generic_aow
+15012100,Warped Axe,651,War Cry,30,0,0,0,generic_aow
 15020000,Great Omenkiller Cleaver,110,Wild Strikes,610,0,0,0,generic_aow
 15020100,Great Omenkiller Cleaver,110,Wild Strikes,610,0,0,0,generic_aow
 15020200,Great Omenkiller Cleaver,110,Wild Strikes,610,0,0,0,generic_aow
@@ -1902,122 +1902,122 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 15021900,Great Omenkiller Cleaver,110,Wild Strikes,610,0,0,0,generic_aow
 15022000,Great Omenkiller Cleaver,110,Wild Strikes,610,0,0,0,generic_aow
 15022100,Great Omenkiller Cleaver,110,Wild Strikes,610,0,0,0,generic_aow
-15030000,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15030100,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15030200,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15030300,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15030400,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15030500,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15030600,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15030700,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15030800,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15030900,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15031000,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15031100,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15031200,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15031300,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15031400,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15031500,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15031600,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15031700,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15031800,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15031900,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15032000,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
-15032100,Crescent Moon Axe,651,War Cry,741,0,0,0,generic_aow
+15030000,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15030100,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15030200,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15030300,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15030400,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15030500,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15030600,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15030700,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15030800,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15030900,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15031000,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15031100,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15031200,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15031300,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15031400,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15031500,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15031600,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15031700,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15031800,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15031900,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15032000,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
+15032100,Crescent Moon Axe,651,War Cry,32,0,0,0,generic_aow
 15040000,Axe of Godrick,1051,Twister Shot,851,0,12,9,direct_damage
-15050000,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15050100,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15050200,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15050300,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15050400,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15050500,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15050600,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15050700,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15050800,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15050900,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15051000,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15051100,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15051200,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15051300,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15051400,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15051500,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15051600,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15051700,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15051800,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15051900,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15052000,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15052100,Longhaft Axe,651,War Cry,741,0,0,0,generic_aow
-15060000,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15060100,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15060200,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15060300,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15060400,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15060500,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15060600,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15060700,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15060800,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15060900,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15061000,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15061100,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15061200,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15061300,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15061400,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15061500,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15061600,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15061700,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15061800,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15061900,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15062000,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15062100,Rusted Anchor,650,Barbaric Roar,740,0,0,0,generic_aow
-15080000,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15080100,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15080200,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15080300,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15080400,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15080500,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15080600,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15080700,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15080800,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15080900,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15081000,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15081100,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15081200,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15081300,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15081400,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15081500,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15081600,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15081700,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15081800,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15081900,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15082000,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
-15082100,Executioner's Greataxe,651,War Cry,741,0,0,0,generic_aow
+15050000,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15050100,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15050200,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15050300,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15050400,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15050500,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15050600,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15050700,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15050800,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15050900,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15051000,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15051100,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15051200,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15051300,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15051400,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15051500,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15051600,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15051700,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15051800,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15051900,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15052000,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15052100,Longhaft Axe,651,War Cry,32,0,0,0,generic_aow
+15060000,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15060100,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15060200,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15060300,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15060400,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15060500,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15060600,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15060700,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15060800,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15060900,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15061000,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15061100,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15061200,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15061300,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15061400,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15061500,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15061600,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15061700,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15061800,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15061900,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15062000,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15062100,Rusted Anchor,650,Barbaric Roar,32,0,0,0,generic_aow
+15080000,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15080100,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15080200,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15080300,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15080400,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15080500,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15080600,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15080700,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15080800,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15080900,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15081000,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15081100,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15081200,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15081300,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15081400,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15081500,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15081600,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15081700,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15081800,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15081900,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15082000,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
+15082100,Executioner's Greataxe,651,War Cry,32,0,0,0,generic_aow
 15090000,Axe of Rust,824,Titanic Cleave,992,0,5,5,direct_damage
 15110000,Winged Greathorn,1013,Soul Stifler,813,0,2,0,utility_only
-15120000,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15120100,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15120200,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15120300,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15120400,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15120500,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15120600,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15120700,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15120800,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15120900,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15121000,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15121100,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15121200,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15121300,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15121400,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15121500,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15121600,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15121700,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15121800,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15121900,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15122000,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15122100,Butchering Knife,650,Barbaric Roar,740,0,0,0,generic_aow
-15130000,Gargoyle's Great Axe,186,Valiant Upheaval,686,0,20,10,direct_damage
-15140000,Gargoyle's Black Axe,187,Kindred's Upheaval,686,0,20,10,direct_damage
-15500000,Death Knight's Longhaft Axe,5140,Blinkbolt: Long-hafted Axe,915,0,7,5,direct_damage
+15120000,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15120100,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15120200,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15120300,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15120400,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15120500,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15120600,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15120700,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15120800,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15120900,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15121000,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15121100,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15121200,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15121300,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15121400,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15121500,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15121600,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15121700,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15121800,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15121900,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15122000,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15122100,Butchering Knife,650,Barbaric Roar,32,0,0,0,generic_aow
+15130000,Gargoyle's Great Axe,186,Valiant Upheaval,686,0,14,9,direct_damage
+15140000,Gargoyle's Black Axe,187,Kindred's Upheaval,686,0,14,9,direct_damage
+15500000,Death Knight's Longhaft Axe,5140,Blinkbolt: Long-hafted Axe,915,0,6,5,direct_damage
 15510000,Bonny Butchering Knife,5520,Hone Blade,872,0,0,0,missing
 16000000,Short Spear,101,Impaling Thrust,601,3,0,0,generic_aow
 16000100,Short Spear,101,Impaling Thrust,601,3,0,0,generic_aow
@@ -2065,7 +2065,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 16012100,Spear,101,Impaling Thrust,601,3,0,0,generic_aow
 16020000,Crystal Spear,101,Impaling Thrust,601,3,0,0,generic_aow
 16030000,Clayman's Harpoon,101,Impaling Thrust,601,3,0,0,generic_aow
-16040000,Cleanrot Spear,1187,Sacred Phalanx,787,0,2,2,direct_damage
+16040000,Cleanrot Spear,1187,Sacred Phalanx,787,0,3,3,direct_damage
 16050000,Partisan,101,Impaling Thrust,601,3,0,0,generic_aow
 16050100,Partisan,101,Impaling Thrust,601,3,0,0,generic_aow
 16050200,Partisan,101,Impaling Thrust,601,3,0,0,generic_aow
@@ -2112,7 +2112,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 16072000,Pike,101,Impaling Thrust,601,3,0,0,generic_aow
 16072100,Pike,101,Impaling Thrust,601,3,0,0,generic_aow
 16080000,Torchpole,101,Impaling Thrust,601,3,0,0,generic_aow
-16090000,Bolt of Gransax,1049,Lightning Spear of Gransax,849,0,10,8,direct_damage
+16090000,Bolt of Gransax,1049,Lightning Spear of Gransax,849,0,6,4,direct_damage
 16100000,Spear of Tranquility,128,Soporific Assault,628,0,3,3,direct_damage
 16110000,Cross-Naginata,101,Impaling Thrust,601,3,0,0,generic_aow
 16110100,Cross-Naginata,101,Impaling Thrust,601,3,0,0,generic_aow
@@ -2136,7 +2136,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 16111900,Cross-Naginata,101,Impaling Thrust,601,3,0,0,generic_aow
 16112000,Cross-Naginata,101,Impaling Thrust,601,3,0,0,generic_aow
 16112100,Cross-Naginata,101,Impaling Thrust,601,3,0,0,generic_aow
-16120000,Death Ritual Spear,1024,Spearcall Ritual,824,0,4,2,direct_damage
+16120000,Death Ritual Spear,1024,Spearcall Ritual,824,0,9,4,direct_damage
 16130000,Inquisitor's Girandole,101,Impaling Thrust,601,3,0,0,generic_aow
 16140000,Spiked Spear,101,Impaling Thrust,601,3,0,0,generic_aow
 16140100,Spiked Spear,101,Impaling Thrust,601,3,0,0,generic_aow
@@ -2208,7 +2208,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 16502000,Smithscript Spear,101,Impaling Thrust,601,3,0,0,generic_aow
 16502100,Smithscript Spear,101,Impaling Thrust,601,3,0,0,generic_aow
 16520000,Swift Spear,101,Impaling Thrust,601,3,0,0,generic_aow
-16540000,Bloodfiend's Fork,650,Barbaric Roar,740,0,0,0,generic_aow
+16540000,Bloodfiend's Fork,650,Barbaric Roar,36,0,0,0,generic_aow
 16550000,Bloodfiend's Sacred Spear,5560,Bloodfiends' Bloodboon,968,0,9,3,direct_damage
 16560000,Gaoler's Mancatcher,105,Charge Forth,605,0,0,0,generic_aow
 16560100,Gaoler's Mancatcher,105,Charge Forth,605,0,0,0,generic_aow
@@ -2232,10 +2232,10 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 16561900,Gaoler's Mancatcher,105,Charge Forth,605,0,0,0,generic_aow
 16562000,Gaoler's Mancatcher,105,Charge Forth,605,0,0,0,generic_aow
 16562100,Gaoler's Mancatcher,105,Charge Forth,605,0,0,0,generic_aow
-17010000,Mohgwyn's Sacred Spear,1034,Bloodboon Ritual,834,0,15,15,direct_damage
-17020000,Siluria's Tree,1009,Siluria's Woe,809,0,6,6,direct_damage
+17010000,Mohgwyn's Sacred Spear,1034,Bloodboon Ritual,834,0,9,9,direct_damage
+17020000,Siluria's Tree,1009,Siluria's Woe,809,0,7,7,direct_damage
 17030000,Serpent-Hunter,1188,Great-Serpent Hunt,788,0,6,6,direct_damage
-17050000,Vyke's War Spear,127,Spear of Frenzy,627,0,8,7,direct_damage
+17050000,Vyke's War Spear,127,Spear of Frenzy,627,0,10,8,direct_damage
 17060000,Lance,101,Impaling Thrust,601,3,0,0,generic_aow
 17060100,Lance,101,Impaling Thrust,601,3,0,0,generic_aow
 17060200,Lance,101,Impaling Thrust,601,3,0,0,generic_aow
@@ -2383,16 +2383,16 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 18110000,Guardian's Spearblade (straight sword),229,Erdtree Mastery,634,0,13,13,direct_damage
 18120000,Glaive of the Ancients (Draconic),815,Ancient Thunderclap,981,0,6,6,direct_damage
 18130000,Vulgar Militia Shotel,103,Spinning Slash,603,3,0,0,generic_aow
-18140000,Dragon Halberd,1166,Cragbolt Slash,766,0,10,10,direct_damage
+18140000,Dragon Halberd,1166,Cragbolt Slash,766,0,5,5,direct_damage
 18150000,Gargoyle's Halberd,103,Spinning Slash,603,3,0,0,generic_aow
 18160000,Gargoyle's Black Halberd,103,Spinning Slash,603,3,0,0,generic_aow
 18170000,Reaver's Odachi,145,Heart Piercer,645,0,4,4,direct_damage
-18180000,Rhys' Swordspear,813,Carian Gallantry,689,0,8,8,direct_damage
-18190000,Starcaller Mattock,657,Stone Excavation,762,0,13,13,direct_damage
+18180000,Rhys' Swordspear,813,Carian Gallantry,689,0,7,7,direct_damage
+18190000,Starcaller Mattock,657,Stone Excavation,762,0,12,12,direct_damage
 18200000,Blightpole,103,Spinning Slash,603,3,0,0,generic_aow
-18250000,Halberd of Archea,162,Archea's Dance,747,0,15,15,direct_damage
-18500000,Spirit Glaive,5290,Rancor Flurry,966,0,16,16,direct_damage
-18510000,Poleblade of the Bud,5300,Romina's Purification,931,0,12,8,direct_damage
+18250000,Halberd of Archea,162,Archea's Dance,747,0,16,16,direct_damage
+18500000,Spirit Glaive,5290,Rancor Flurry,966,0,11,11,direct_damage
+18510000,Poleblade of the Bud,5300,Romina's Purification,931,0,6,5,direct_damage
 18520000,Glaive of the Crusade,161,Crusader's Ignition,912,0,1,1,direct_damage
 18530000,Halberd of the Deceiver,5191,Idris's Sacrilege,920,0,15,14,direct_damage
 19000000,Scythe,103,Spinning Slash,603,3,0,0,generic_aow
@@ -2441,7 +2441,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 19012100,Grave Scythe,103,Spinning Slash,603,3,0,0,generic_aow
 19020000,Halo Scythe,222,Sacred Ring of Light,670,0,0,0,generic_aow
 19040000,War Scythe [Heavy],138,Lunging Harvest,638,0,6,6,direct_damage
-19050000,Rosus' Harvester,177,Blighted Summoning,677,0,12,8,direct_damage
+19050000,Rosus' Harvester,177,Blighted Summoning,677,0,11,7,direct_damage
 19060000,Winged Scythe,1189,Angel's Wings,789,0,8,4,direct_damage
 19070000,Scarlet Triscythe,808,Rotten Assault,607,3,7,7,direct_damage
 19500000,Obsidian Lamina,5120,Dynastic Sickleplay,913,0,16,16,direct_damage
@@ -2560,7 +2560,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 21012000,Spiked Caestus,700,Endure,750,42,0,0,generic_aow
 21012100,Spiked Caestus,700,Endure,750,42,0,0,generic_aow
 21020000,Daergraf's Opus,179,Frozen Lightning Orb,679,0,12,10,direct_damage
-21060000,Grafted Dragon,1011,Bear Witness!,811,0,20,20,direct_damage
+21060000,Grafted Dragon,1011,Bear Witness!,811,0,16,16,direct_damage
 21070000,Iron Ball,700,Endure,750,42,0,0,generic_aow
 21070100,Iron Ball,700,Endure,750,42,0,0,generic_aow
 21070200,Iron Ball,700,Endure,750,42,0,0,generic_aow
@@ -2748,7 +2748,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 22032100,Raptor Talons,800,Quickstep,755,0,0,0,generic_aow
 22040000,Stone Claws,817,Bestial Mauling,983,0,14,14,direct_damage
 22050000,Emyr's Great Talons,129,Evisceration,719,0,12,12,direct_damage
-22500000,Claws of Night,5510,Scattershot (Claws),961,0,20,20,direct_damage
+22500000,Claws of Night,5510,Scattershot (Claws),961,0,8,8,direct_damage
 23000000,Prelate's Inferno Crozier,113,Prelate's Charge,613,0,0,0,generic_aow
 23010000,Watchdog's Staff,1192,Sorcery of the Crozier,792,0,2,1,direct_damage
 23020000,Great Club,213,Golden Land,662,0,0,0,generic_aow
@@ -2776,8 +2776,8 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 23042000,Duelist Greataxe,700,Endure,750,2,0,0,generic_aow
 23042100,Duelist Greataxe,700,Endure,750,2,0,0,generic_aow
 23050000,Axe of Godfrey,1031,Regal Roar,831,0,6,2,direct_damage
-23060000,Dragon Greatclaw,827,Storm of the Ancients,995,0,1,0,utility_only
-23070000,Staff of the Avatar,1193,Erdtree Slam,793,0,14,12,direct_damage
+23060000,Dragon Greatclaw,827,Storm of the Ancients,995,0,4,2,direct_damage
+23070000,Staff of the Avatar,1193,Erdtree Slam,793,0,12,10,direct_damage
 23080000,Fallingstar Beast Jaw,1194,Gravity Bolt,794,0,10,6,direct_damage
 23090000,Greatstaff of Decay,510,Break the Seal,850,0,9,9,direct_damage
 23100000,Ghiza's Wheel,1039,Spinning Wheel,839,0,38,38,direct_damage
@@ -2826,27 +2826,27 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 23122000,Golem's Halberd,700,Endure,750,2,0,0,generic_aow
 23122100,Golem's Halberd,700,Endure,750,2,0,0,generic_aow
 23130000,Troll's Hammer,653,Troll's Roar,743,0,0,0,generic_aow
-23140000,Rotten Staff,1204,Rotten Slam,793,0,14,12,direct_damage
+23140000,Rotten Staff,1204,Rotten Slam,793,0,12,10,direct_damage
 23150000,Rotten Greataxe,700,Endure,750,2,0,0,generic_aow
-23160000,Lodestone of Gelmir,660,Magma Crush,635,0,10,7,direct_damage
+23160000,Lodestone of Gelmir,660,Magma Crush,635,0,9,7,direct_damage
 23170000,Crystaline Claw,1066,Crystal Pincer,846,0,1,1,direct_damage
 23500000,Devonia's Hammer,5180,Devonia's Vortex,919,0,8,8,direct_damage
 23510000,Shadow Sunflower Blossom,5160,Shadow Sunflower Headbutt,917,0,12,12,direct_damage
-23520000,Gazing Finger,5390,Kowtower's Resentment,950,0,16,0,utility_only
+23520000,Gazing Finger,5390,Kowtower's Resentment,950,0,4,2,direct_damage
 24000000,Torch,117,Torch Attack,617,0,4,4,direct_damage
 24020000,Steel-Wire Torch,223,Firebreather,671,0,12,6,direct_damage
 24040000,St. Trina's Torch,1195,Fires of Slumber,795,0,6,0,utility_only
 24050000,Ghostflame Torch,117,Torch Attack,617,0,4,4,direct_damage
 24060000,Beast-Repellent Torch,117,Torch Attack,617,0,4,4,direct_damage
 24070000,Sentry's Torch,117,Torch Attack,617,0,4,4,direct_damage
-24500000,Nanaya's Torch,5330,Feeble Lord's Frenzied Flame,934,0,103,90,direct_damage
+24500000,Nanaya's Torch,5330,Feeble Lord's Frenzied Flame,934,0,10,6,direct_damage
 24510000,Lamenting Visage,5460,Blindfold of Happiness,954,0,0,0,missing
 30000000,Buckler,303,Buckler Parry,693,0,3,0,utility_only
 30010000,Perfumer's Shield,302,Parry,692,48,0,0,generic_aow
 30020000,Man-Serpent's Shield,303,Buckler Parry,693,0,3,0,utility_only
 30030000,Rickety Shield,302,Parry,692,48,0,0,generic_aow
-30040000,Pillory Shield,10,No Skill,855,0,0,0,generic_aow
-30060000,Beastman's Jar-Shield,10,No Skill,855,0,1,1,direct_damage
+30040000,Pillory Shield,10,No Skill,,0,0,0,generic_aow
+30060000,Beastman's Jar-Shield,10,No Skill,,0,0,0,generic_aow
 30070000,Red Thorn Roundshield,302,Parry,692,48,0,0,generic_aow
 30080000,Scripture Wooden Shield,302,Parry,692,48,0,0,generic_aow
 30090000,Riveted Wooden Shield,302,Parry,692,48,0,0,generic_aow
@@ -2860,52 +2860,52 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 30170000,Shield of Alacrity,303,Buckler Parry,693,0,3,0,utility_only
 30190000,Spiralhorn Shield,302,Parry,692,48,0,0,generic_aow
 30200000,Coil Shield,1007,Viper Bite,807,0,6,6,direct_damage
-30300000,Crest of the Dragon Cult,10,No Skill,855,0,0,0,generic_aow
+30300000,Crest of the Dragon Cult,10,No Skill,,0,0,0,generic_aow
 30510000,Smithscript Shield,5370,Discus Hurl,948,0,9,9,direct_damage
-31000000,Kite Shield,10,No Skill,855,0,0,0,generic_aow
-31010000,Marred Leather Shield,10,No Skill,855,0,0,0,generic_aow
-31020000,Marred Wooden Shield,10,No Skill,855,0,0,0,generic_aow
-31030000,Banished Knight's Shield,10,No Skill,855,0,0,0,generic_aow
+31000000,Kite Shield,10,No Skill,,0,0,0,generic_aow
+31010000,Marred Leather Shield,10,No Skill,,0,0,0,generic_aow
+31020000,Marred Wooden Shield,10,No Skill,,0,0,0,generic_aow
+31030000,Banished Knight's Shield,10,No Skill,,0,0,0,generic_aow
 31040000,Albinauric Shield,302,Parry,692,0,0,0,generic_aow
 31050000,Sun Realm Shield,302,Parry,692,0,0,0,generic_aow
-31060000,Silver Mirrorshield,10,No Skill,855,0,0,0,generic_aow
+31060000,Silver Mirrorshield,10,No Skill,,0,0,0,generic_aow
 31070000,Round Shield,302,Parry,692,0,0,0,generic_aow
 31080000,Scorpion Kite Shield,302,Parry,692,0,0,0,generic_aow
-31090000,Twinbird Kite Shield,10,No Skill,855,0,0,0,generic_aow
+31090000,Twinbird Kite Shield,10,No Skill,,0,0,0,generic_aow
 31100000,Blue-Gold Kite Shield,302,Parry,692,0,0,0,generic_aow
 31130000,Brass Shield,307,Golden Parry,697,0,0,0,generic_aow
 31140000,Great Turtle Shell,301,Barricade Shield,691,0,0,0,generic_aow
 31170000,Shield of the Guilty,300,Shield Bash,690,48,0,0,generic_aow
-31180000,Shield of Starlight,10,No Skill,855,0,0,0,generic_aow
-31190000,Carian Knight's Shield,10,No Skill,855,0,0,0,generic_aow
+31180000,Shield of Starlight,10,No Skill,,0,0,0,generic_aow
+31190000,Carian Knight's Shield,10,No Skill,,0,0,0,generic_aow
 31230000,Large Leather Shield,302,Parry,692,0,0,0,generic_aow
-31240000,Horse Crest Wooden Shield,10,No Skill,855,0,0,0,generic_aow
+31240000,Horse Crest Wooden Shield,10,No Skill,,0,0,0,generic_aow
 31250000,Candletree Wooden Shield,302,Parry,692,0,0,0,generic_aow
 31260000,Flame Crest Wooden Shield,302,Parry,692,0,0,0,generic_aow
 31270000,Hawk Crest Wooden Shield,302,Parry,692,0,0,0,generic_aow
 31280000,Beast Crest Heater Shield,302,Parry,692,0,0,0,generic_aow
 31290000,Red Crest Heater Shield,302,Parry,692,0,0,0,generic_aow
 31300000,Blue Crest Heater Shield,302,Parry,692,0,0,0,generic_aow
-31310000,Eclipse Crest Heater Shield,10,No Skill,855,0,0,0,generic_aow
+31310000,Eclipse Crest Heater Shield,10,No Skill,,0,0,0,generic_aow
 31320000,Inverted Hawk Heater Shield,302,Parry,692,0,0,0,generic_aow
 31330000,Heater Shield,302,Parry,692,0,0,0,generic_aow
-31340000,Black Leather Shield,10,No Skill,855,0,0,0,generic_aow
+31340000,Black Leather Shield,10,No Skill,,0,0,0,generic_aow
 31350000,Aegis of Hadea,310,Cast Incantation,709,0,1,1,direct_damage
-31500000,Messmer Soldier Shield,10,No Skill,855,0,0,0,generic_aow
-31510000,Wolf Crest Shield,10,No Skill,855,0,0,0,generic_aow
-31520000,Serpent Crest Shield,10,No Skill,855,0,0,0,generic_aow
+31500000,Messmer Soldier Shield,10,No Skill,,0,0,0,generic_aow
+31510000,Wolf Crest Shield,10,No Skill,,0,0,0,generic_aow
+31520000,Serpent Crest Shield,10,No Skill,,0,0,0,generic_aow
 31530000,Golden Lion Shield,5480,Roaring Bash,959,0,9,9,direct_damage
-31540000,Silver Grooved Shield,10,No Skill,855,0,0,0,generic_aow
+31540000,Silver Grooved Shield,10,No Skill,,0,0,0,generic_aow
 32000000,Dragon Towershield,300,Shield Bash,690,47,0,0,generic_aow
-32020000,Distinguished Greatshield,10,No Skill,855,0,0,0,generic_aow
+32020000,Distinguished Greatshield,10,No Skill,,0,0,0,generic_aow
 32030000,Crucible Hornshield,300,Shield Bash,690,47,0,0,generic_aow
 32040000,Dragonclaw Shield,300,Shield Bash,690,47,0,0,generic_aow
 32050000,Briar Greatshield,300,Shield Bash,690,47,0,0,generic_aow
 32080000,Erdtree Greatshield,1196,Golden Retaliation,796,0,12,6,direct_damage
-32090000,Golden Beast Crest Shield,10,No Skill,855,0,0,0,generic_aow
+32090000,Golden Beast Crest Shield,10,No Skill,,0,0,0,generic_aow
 32120000,Jellyfish Shield,1197,Contagious Fury,797,0,0,0,missing
 32130000,Fingerprint Stone Shield,300,Shield Bash,690,47,0,0,generic_aow
-32140000,Icon Shield,10,No Skill,855,0,0,0,generic_aow
+32140000,Icon Shield,10,No Skill,,0,0,0,generic_aow
 32150000,One-Eyed Shield,1001,Flame Spit,801,0,6,6,direct_damage
 32160000,Visage Shield,1002,Tongues of Fire,802,0,3,3,direct_damage
 32170000,Spiked Palisade Shield,300,Shield Bash,690,47,0,0,generic_aow
@@ -2913,53 +2913,53 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 32200000,Crossed-Tree Towershield,300,Shield Bash,690,47,0,0,generic_aow
 32210000,Inverted Hawk Towershield,300,Shield Bash,690,47,0,0,generic_aow
 32220000,Ant's Skull Plate,300,Shield Bash,690,47,0,0,generic_aow
-32230000,Redmane Greatshield,10,No Skill,855,0,0,0,generic_aow
-32240000,Eclipse Crest Greatshield,10,No Skill,855,0,0,0,generic_aow
-32250000,Cuckoo Greatshield,10,No Skill,855,0,0,0,generic_aow
-32260000,Golden Greatshield,10,No Skill,855,0,0,0,generic_aow
-32270000,Gilded Greatshield,10,No Skill,855,0,0,0,generic_aow
-32280000,Haligtree Crest Greatshield,10,No Skill,855,0,0,0,generic_aow
-32290000,Wooden Greatshield,10,No Skill,855,0,0,0,generic_aow
+32230000,Redmane Greatshield,10,No Skill,,0,0,0,generic_aow
+32240000,Eclipse Crest Greatshield,10,No Skill,,0,0,0,generic_aow
+32250000,Cuckoo Greatshield,10,No Skill,,0,0,0,generic_aow
+32260000,Golden Greatshield,10,No Skill,,0,0,0,generic_aow
+32270000,Gilded Greatshield,10,No Skill,,0,0,0,generic_aow
+32280000,Haligtree Crest Greatshield,10,No Skill,,0,0,0,generic_aow
+32290000,Wooden Greatshield,10,No Skill,,0,0,0,generic_aow
 32300000,Lordsworn's Shield,300,Shield Bash,690,47,0,0,generic_aow
 32500000,Black Steel Greatshield,300,Shield Bash,690,47,0,0,generic_aow
 32520000,Verdigris Greatshield,5230,Moore's Charge,924,0,42,0,utility_only
-33000000,Glintstone Staff,10,No Skill,855,0,1,1,direct_damage
-33050000,Gelmir Glintstone Staff,10,No Skill,855,0,1,1,direct_damage
-33060000,Demi-Human Queen's Staff,10,No Skill,855,0,1,1,direct_damage
-33120000,Digger's Staff,10,No Skill,855,0,1,1,direct_damage
-33180000,Prince of Death's Staff,10,No Skill,855,0,1,1,direct_damage
-33200000,Academy Glintstone Staff,10,No Skill,855,0,1,1,direct_damage
-33230000,Azur's Glintstone Staff,10,No Skill,855,0,1,1,direct_damage
-33240000,Lusat's Glintstone Staff,10,No Skill,855,0,1,1,direct_damage
-33250000,Meteorite Staff,10,No Skill,855,0,1,1,direct_damage
-33260000,Staff of the Guilty,10,No Skill,855,0,1,1,direct_damage
-33280000,Staff of Loss,10,No Skill,855,0,1,1,direct_damage
-33290000,Dragonkin Scepter,10,No Skill,855,0,1,1,direct_damage
-33300000,Ranni's Staff,10,No Skill,855,0,1,1,direct_damage
-33310000,Snow Witch Staff,10,No Skill,855,0,1,1,direct_damage
-33320000,Staff of Briar,10,No Skill,855,0,1,1,direct_damage
-33330000,Lavastone Staff,10,No Skill,855,0,1,1,direct_damage
-33340000,Tempestcaller Staff,10,No Skill,855,0,1,1,direct_damage
-33350000,Stormcaller Staff,10,No Skill,855,0,1,1,direct_damage
-33510000,Staff of the Great Beyond,10,No Skill,855,0,1,1,direct_damage
-34000000,Finger Seal,10,No Skill,855,0,1,1,direct_damage
-34010000,Godslayer's Seal,10,No Skill,855,0,1,1,direct_damage
-34020000,Giant's Seal,10,No Skill,855,0,1,1,direct_damage
-34030000,Gravel Stone Seal,10,No Skill,855,0,1,1,direct_damage
-34040000,Clawmark Seal,10,No Skill,855,0,1,1,direct_damage
-34060000,Golden Order Seal,10,No Skill,855,0,1,1,direct_damage
-34090000,Frenzied Flame Seal,10,No Skill,855,0,1,1,direct_damage
-34100000,Godskin Seal,10,No Skill,855,0,1,1,direct_damage
-34110000,Fire Monk's Seal,10,No Skill,855,0,1,1,direct_damage
-34120000,Dragon Cult Seal,10,No Skill,855,0,1,1,direct_damage
-34130000,Earthbreaker Seal,10,No Skill,855,0,1,1,direct_damage
-34140000,Fingerprint Seal,10,No Skill,855,0,1,1,direct_damage
-34150000,Mohgwyn Seal,10,No Skill,855,0,1,1,direct_damage
-34160000,War Surgeon's Seal,10,No Skill,855,0,1,1,direct_damage
-34170000,Seal of Rot,10,No Skill,855,0,1,1,direct_damage
-34180000,Pest's Seal,10,No Skill,855,0,1,1,direct_damage
-34190000,Spiritshaper Seal,10,No Skill,855,0,1,1,direct_damage
-34200000,Mystic Seal,10,No Skill,855,0,1,1,direct_damage
+33000000,Glintstone Staff,10,No Skill,,0,0,0,generic_aow
+33050000,Gelmir Glintstone Staff,10,No Skill,,0,0,0,generic_aow
+33060000,Demi-Human Queen's Staff,10,No Skill,,0,0,0,generic_aow
+33120000,Digger's Staff,10,No Skill,,0,0,0,generic_aow
+33180000,Prince of Death's Staff,10,No Skill,,0,0,0,generic_aow
+33200000,Academy Glintstone Staff,10,No Skill,,0,0,0,generic_aow
+33230000,Azur's Glintstone Staff,10,No Skill,,0,0,0,generic_aow
+33240000,Lusat's Glintstone Staff,10,No Skill,,0,0,0,generic_aow
+33250000,Meteorite Staff,10,No Skill,,0,0,0,generic_aow
+33260000,Staff of the Guilty,10,No Skill,,0,0,0,generic_aow
+33280000,Staff of Loss,10,No Skill,,0,0,0,generic_aow
+33290000,Dragonkin Scepter,10,No Skill,,0,0,0,generic_aow
+33300000,Ranni's Staff,10,No Skill,,0,0,0,generic_aow
+33310000,Snow Witch Staff,10,No Skill,,0,0,0,generic_aow
+33320000,Staff of Briar,10,No Skill,,0,0,0,generic_aow
+33330000,Lavastone Staff,10,No Skill,,0,0,0,generic_aow
+33340000,Tempestcaller Staff,10,No Skill,,0,0,0,generic_aow
+33350000,Stormcaller Staff,10,No Skill,,0,0,0,generic_aow
+33510000,Staff of the Great Beyond,10,No Skill,,0,0,0,generic_aow
+34000000,Finger Seal,10,No Skill,,0,0,0,generic_aow
+34010000,Godslayer's Seal,10,No Skill,,0,0,0,generic_aow
+34020000,Giant's Seal,10,No Skill,,0,0,0,generic_aow
+34030000,Gravel Stone Seal,10,No Skill,,0,0,0,generic_aow
+34040000,Clawmark Seal,10,No Skill,,0,0,0,generic_aow
+34060000,Golden Order Seal,10,No Skill,,0,0,0,generic_aow
+34090000,Frenzied Flame Seal,10,No Skill,,0,0,0,generic_aow
+34100000,Godskin Seal,10,No Skill,,0,0,0,generic_aow
+34110000,Fire Monk's Seal,10,No Skill,,0,0,0,generic_aow
+34120000,Dragon Cult Seal,10,No Skill,,0,0,0,generic_aow
+34130000,Earthbreaker Seal,10,No Skill,,0,0,0,generic_aow
+34140000,Fingerprint Seal,10,No Skill,,0,0,0,generic_aow
+34150000,Mohgwyn Seal,10,No Skill,,0,0,0,generic_aow
+34160000,War Surgeon's Seal,10,No Skill,,0,0,0,generic_aow
+34170000,Seal of Rot,10,No Skill,,0,0,0,generic_aow
+34180000,Pest's Seal,10,No Skill,,0,0,0,generic_aow
+34190000,Spiritshaper Seal,10,No Skill,,0,0,0,generic_aow
+34200000,Mystic Seal,10,No Skill,,0,0,0,generic_aow
 40000000,Shortbow,401,Barrage,701,0,0,0,generic_aow
 40010000,Misbegotten Shortbow,401,Barrage,701,0,0,0,generic_aow
 40020000,Red Branch Shortbow,401,Barrage,701,0,0,0,generic_aow
@@ -3037,7 +3037,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 60511900,Dane's Footwork,4010,Palm Blast,861,0,0,0,generic_aow
 60512000,Dane's Footwork,4010,Palm Blast,861,0,0,0,generic_aow
 60512100,Dane's Footwork,4010,Palm Blast,861,0,0,0,generic_aow
-60520000,Rancor Touch,670,Rancorous Summoning,889,0,24,8,direct_damage
+60520000,Rancor Touch,670,Rancorous Summoning,889,0,6,2,direct_damage
 60530000,Bracelet of Shadow,703,Shadow Dash,942,2,3,1,direct_damage
 60540000,Bracelet of Gold,704,Berserker's Leap,942,0,1,1,direct_damage
 61500000,Firespark Perfume Bottle,503,Kick,712,0,0,0,generic_aow
@@ -3045,51 +3045,51 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 61520000,Frenzyflame Perfume Bottle,503,Kick,712,0,0,0,generic_aow
 61530000,Lightning Perfume Bottle,503,Kick,712,0,0,0,generic_aow
 61540000,Deadly Poison Perfume Bottle,5490,Deadly Poison Spray,958,0,1,0,utility_only
-62500000,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62500100,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62500200,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62500300,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62500400,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62500500,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62500600,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62500700,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62500800,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62500900,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62501000,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62501100,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62501200,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62501300,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62501400,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62501500,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62501600,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62501700,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62501800,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62501900,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62502000,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62502100,Dueling Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62510000,Carian Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62520000,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62520100,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62520200,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62520300,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62520400,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62520500,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62520600,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62520700,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62520800,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62520900,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62521000,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62521100,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62521200,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62521300,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62521400,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62521500,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62521600,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62521700,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62521800,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62521900,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62522000,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
-62522100,Ritual Thrusting Shield,8000,Shield Strike,999,0,0,0,generic_aow
+62500000,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62500100,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62500200,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62500300,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62500400,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62500500,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62500600,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62500700,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62500800,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62500900,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62501000,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62501100,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62501200,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62501300,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62501400,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62501500,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62501600,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62501700,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62501800,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62501900,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62502000,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62502100,Dueling Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62510000,Carian Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62520000,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62520100,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62520200,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62520300,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62520400,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62520500,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62520600,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62520700,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62520800,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62520900,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62521000,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62521100,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62521200,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62521300,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62521400,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62521500,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62521600,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62521700,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62521800,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62521900,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62522000,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
+62522100,Ritual Thrusting Shield,8000,Shield Strike,57,0,0,0,generic_aow
 63500000,Smithscript Dagger,4020,Piercing Throw,862,0,0,0,generic_aow
 63500100,Smithscript Dagger,4020,Piercing Throw,862,0,0,0,generic_aow
 63500200,Smithscript Dagger,4020,Piercing Throw,862,0,0,0,generic_aow
@@ -3180,7 +3180,7 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 64532000,Reverse-Bladed Sword,4090,Blind Spot,876,0,0,0,generic_aow
 64532100,Reverse-Bladed Sword,4090,Blind Spot,876,0,0,0,generic_aow
 64550000,Crescent Moons,5431,Moon's Orbit,895,0,46,46,direct_damage
-64570000,Fingerslayer Blade,155,Finger Severer,943,0,10,8,direct_damage
+64570000,Fingerslayer Blade,155,Finger Severer,943,0,22,20,direct_damage
 66500000,Great Katana,4110,Overhead Stance,878,0,0,0,generic_aow
 66500100,Great Katana,4110,Overhead Stance,878,0,0,0,generic_aow
 66500200,Great Katana,4110,Overhead Stance,878,0,0,0,generic_aow
@@ -3250,8 +3250,8 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 67501900,Milady,101,Impaling Thrust,601,0,0,0,generic_aow
 67502000,Milady,101,Impaling Thrust,601,0,0,0,generic_aow
 67502100,Milady,101,Impaling Thrust,601,0,0,0,generic_aow
-67510000,Leda's Sword,5010,Needle Piercer,901,0,32,7,direct_damage
-67520000,Rellana's Twin Blades,5170,Moon-and-Fire Stance,918,0,28,25,direct_damage
+67510000,Leda's Sword,5010,Needle Piercer,901,0,4,3,direct_damage
+67520000,Rellana's Twin Blades,5170,Moon-and-Fire Stance,918,0,26,25,direct_damage
 67530000,Idus Sword,101,Impaling Thrust,601,0,0,0,generic_aow
 67530100,Idus Sword,101,Impaling Thrust,601,0,0,0,generic_aow
 67530200,Idus Sword,101,Impaling Thrust,601,0,0,0,generic_aow
@@ -3301,6 +3301,6 @@ weapon_id,weapon_name,native_skill_id,native_skill_name,tae_section,anim_group,a
 68502000,Beast Claw,4070,Savage Claws,874,0,0,0,generic_aow
 68502100,Beast Claw,4070,Savage Claws,874,0,0,0,generic_aow
 68510000,Red Bear's Claw,4080,Red Bear Hunt,875,0,11,11,direct_damage
-68540000,Goras' Claw,812,Roar of Goras,688,0,4,3,direct_damage
+68540000,Goras' Claw,812,Roar of Goras,688,0,6,4,direct_damage
 68550000,Transcendent Talons,5610,Transcendent Stance,940,0,19,19,direct_damage
-69500000,Smithscript Rosary,188,Smithscript Arsenal,988,0,13,1,direct_damage
+69500000,Smithscript Rosary,188,Smithscript Arsenal,988,0,9,5,direct_damage
