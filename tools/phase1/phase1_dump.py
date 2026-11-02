@@ -880,8 +880,9 @@ def build_weapon_rows(
         poise = (
             {field: getattr(workbook_weapon, field) for field in WORKBOOK_POISE_FIELDS}
             if workbook_weapon is not None
-            # Profiles without workbook metadata carry no poise data.
-            else dict.fromkeys(WORKBOOK_POISE_FIELDS, "") | {"base_poise": 0.0, "move_count": 0}
+            # Without a workbook the skill animation export fills in the moves.
+            else dict.fromkeys(WORKBOOK_POISE_FIELDS, "")
+            | {"base_poise": to_float(row, "saWeaponDamage", None), "move_count": 0}
         )
 
         rows_out.append(

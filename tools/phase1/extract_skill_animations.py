@@ -46,6 +46,8 @@ BULLET_BEHAVIOR_EVENT = 2
 SP_EFFECT_EVENT = 66
 SKILL_TAE_OFFSET = 600
 SKILL_ANIM_BASE = 40000
+# SwordArtsParam.swordArtsTypeNew of "No Skill": the weapon has no skill to perform.
+NO_SKILL_TYPE = 255
 # Slots 5-9 of each ten are the Lacking FP versions of slots 0-4.
 LACKING_FP_SLOT_OFFSET = 5
 # GetSwordArtsRequestNew: these TAE SpEffects open the RIGHT_COMBO_1/2 requests, which
@@ -100,6 +102,40 @@ PHYSICAL_ATTRIBUTES = {
 BEHAVIOR_FIELDS = ("refType", "refId", "stamina")
 BULLET_FIELDS = ("atkId_Bullet", "HitBulletID", "intervalCreateBulletId")
 WEAPON_FIELDS = ("behaviorVariationId", "wepmotionCategory", "wepmotionOneHandId")
+# Normal moves in the weapon's own section a(wepmotionCategory), by weapons.csv poise column.
+NORMAL_MOVE_ANIMS = {
+    "one_hand_light_poise": 30000,
+    "one_hand_heavy_poise": 30505,
+    "one_hand_charged_heavy_poise": 30500,
+    "one_hand_jumping_light_poise": 31030,
+    "one_hand_jumping_heavy_poise": 31230,
+    "two_hand_light_poise": 32000,
+    "two_hand_heavy_poise": 32505,
+    "two_hand_charged_heavy_poise": 32500,
+    "two_hand_jumping_light_poise": 33030,
+    "two_hand_jumping_heavy_poise": 33230,
+}
+
+
+def _heavy_special_routes(first_anim: int) -> tuple[tuple[str, str, tuple[int, ...]], ...]:
+    return (
+        ("1h_uncharged", "1H / Uncharged", (first_anim + 5, first_anim + 15)),
+        ("1h_charged", "1H / Charged", (first_anim, first_anim + 10)),
+        ("2h_uncharged", "2H / Uncharged", (first_anim + 2005, first_anim + 2015)),
+        ("2h_charged", "2H / Charged", (first_anim + 2000, first_anim + 2010)),
+    )
+
+
+# Skills whose hits are moves in the weapon's own section rather than a(600 + type):
+# (route ID, label, animations). War Cry and Barbaric Roar turn the R2 into HeavySpecial
+# (hks SpEffects 1811/1816 and 1681/1686), and Shield Strike is the shield's own chain.
+WEAPON_SECTION_ROUTES: Mapping[int, tuple[tuple[str, str, tuple[int, ...]], ...]] = {
+    650: _heavy_special_routes(30600),
+    651: _heavy_special_routes(30620),
+    8000: (("full", "Full sequence", (35000, 35010, 35020, 35030)),),
+}
+# Carian Retaliation's parry fires this behavior from an SpEffect, not a TAE event.
+EFFECT_BEHAVIORS = {305: (2140,)}
 # Effect roles that need a route even on a hit without damage.
 ROUTE_EFFECT_ROLES = {"per_hit_status", "per_hit_attack_power", "replacement_or_chained"}
 EXCLUSION_FIELDS = ("aow_id", "weapon_id", "tae_section", "anim_id", "judge_id", "reason")
@@ -153,12 +189,13 @@ class SkillHit:
     attack_id: int
     is_bullet: bool
     stamina: int
-    # Position along the bullet chain; a chain can apply one AtkParam more than once.
+    # Position among the attacks one behavior applies.
     chain_index: int = 0
 
     @property
     def key(self) -> tuple[int, int, int, int, int]:
-        return (self.anim_id, self.hit_order, self.chain_index, self.behavior_id, self.attack_id)
+        # What a row records: behaviors that reach the same attack and cost are the same hit.
+        return (self.anim_id, self.hit_order, self.chain_index, self.stamina, self.attack_id)
 
 
 @dataclass(frozen=True)
@@ -185,9 +222,11 @@ class _Skill:
     rows: dict[tuple[str, int, int, int, int, int], dict[str, str]]
 
 
-def read_tae(data: bytes, first_anim_id: int = 0) -> dict[int, tuple[TaeEvent, ...]]:
+def read_tae(
+    data: bytes, first_anim_id: int = 0, anim_ids: Collection[int] | None = None
+) -> dict[int, tuple[TaeEvent, ...]]:
     """Behavior and SpEffect events of a 64-bit little-endian TAE3 file's animations
-    numbered from first_anim_id."""
+    numbered from first_anim_id, or only anim_ids when given."""
     if data[:4] != b"TAE " or data[4] != 0 or data[7] != 0xFF:
         raise ValueError("not a 64-bit little-endian TAE file")
 
@@ -203,7 +242,7 @@ def read_tae(data: bytes, first_anim_id: int = 0) -> dict[int, tuple[TaeEvent, .
         anims: dict[int, tuple[TaeEvent, ...]] = {}
         for index in range(anim_count):
             anim_id, anim_offset = unpack("<qq", table_offset + 16 * index)
-            if anim_id < first_anim_id:
+            if anim_id < first_anim_id or (anim_ids is not None and anim_id not in anim_ids):
                 continue
             header_offset = unpack("<q", anim_offset)[0]
             event_count = unpack("<i", anim_offset + 32)[0]
@@ -372,18 +411,22 @@ def behavior_attacks(
     attacks: list[tuple[int, bool]] = []
     problems: list[str] = []
     seen: set[int] = set()
-    bullet_id = ref_id
-    while bullet_id > 0 and bullet_id not in seen:
+    # Timer-spawned bullets count once, as the Vanilla workbook lists them.
+    pending = [ref_id]
+    while pending:
+        bullet_id = pending.pop()
+        if bullet_id <= 0 or bullet_id in seen:
+            continue
         seen.add(bullet_id)
         bullet = bullets.get(bullet_id)
         if bullet is None:
             problems.append("missing_bullet")
-            break
-        if int(bullet["atkId_Bullet"]) > 0:
-            attacks.append((int(bullet["atkId_Bullet"]), True))
-        if int(bullet["intervalCreateBulletId"]) > 0:
-            problems.append("interval_bullet_not_modeled")
-        bullet_id = int(bullet["HitBulletID"])
+            continue
+        attack = (int(bullet["atkId_Bullet"]), True)
+        # A chain or timer repeating one attack counts it once, as the workbook does.
+        if attack[0] > 0 and attack not in attacks:
+            attacks.append(attack)
+        pending += [int(bullet["intervalCreateBulletId"]), int(bullet["HitBulletID"])]
     return attacks, problems
 
 
@@ -393,6 +436,11 @@ def anim_slot(anim_id: int) -> int:
 
 def is_lacking_fp_slot(slot: int) -> bool:
     return slot % 10 >= LACKING_FP_SLOT_OFFSET
+
+
+def is_lacking_fp_anim(anim_id: int) -> bool:
+    # Only skill animations use the Lacking FP slots; a normal move's number means nothing here.
+    return anim_id >= SKILL_ANIM_BASE and is_lacking_fp_slot(anim_slot(anim_id))
 
 
 def group_anims(
@@ -416,6 +464,8 @@ def skill_hits(
             (event for event in events if event.event_type != SP_EFFECT_EVENT),
             key=lambda event: event.start,
         )
+        # A volley of one bullet attack counts once per animation, as the workbook lists it.
+        shot: set[int] = set()
         for hit_order, event in enumerate(behavior_events, start=1):
             judge_id = event.values[2]
             if judge_id < 0:
@@ -430,19 +480,23 @@ def skill_hits(
             problems.extend((anim_id, judge_id, reason) for reason in attack_problems)
             if not attacks and not attack_problems:
                 problems.append((anim_id, judge_id, "behavior_without_attack"))
-            hits.extend(
-                SkillHit(
-                    anim_id=anim_id,
-                    hit_order=hit_order,
-                    judge_id=judge_id,
-                    behavior_id=behavior_id,
-                    attack_id=attack_id,
-                    is_bullet=is_bullet,
-                    stamina=int(behavior["stamina"]),
-                    chain_index=chain_index,
+            for chain_index, (attack_id, is_bullet) in enumerate(attacks):
+                if is_bullet:
+                    if attack_id in shot:
+                        continue
+                    shot.add(attack_id)
+                hits.append(
+                    SkillHit(
+                        anim_id=anim_id,
+                        hit_order=hit_order,
+                        judge_id=judge_id,
+                        behavior_id=behavior_id,
+                        attack_id=attack_id,
+                        is_bullet=is_bullet,
+                        stamina=int(behavior["stamina"]),
+                        chain_index=chain_index,
+                    )
                 )
-                for chain_index, (attack_id, is_bullet) in enumerate(attacks)
-            )
     return hits, problems
 
 
@@ -478,6 +532,32 @@ def combo_routes(anims: Mapping[int, tuple[TaeEvent, ...]]) -> list[list[int]]:
     return routes
 
 
+def format_poise(value: float) -> str:
+    text = f"{value:.3f}".rstrip("0")
+    return text + "0" if text.endswith(".") else text
+
+
+def move_poise(
+    events: tuple[TaeEvent, ...],
+    variation_id: int,
+    base_poise: float,
+    behaviors: Mapping[int, Mapping[str, ParamValue]],
+    bullets: Mapping[int, Mapping[str, ParamValue]],
+    attacks: Mapping[int, Mapping[str, ParamValue]],
+) -> str:
+    """A move's stance damage per contact, in the Vanilla workbook's notation."""
+    parts = []
+    for hit in skill_hits({0: events}, variation_id, behaviors, bullets)[0]:
+        attack = attacks.get(hit.attack_id)
+        if attack is None:
+            continue
+        correction, fixed = float(attack["atkSuperArmorCorrection"]), float(attack["atkSuperArmor"])
+        if correction or fixed:
+            value = format_poise(base_poise * correction / 100 + fixed)
+            parts.append(f"({value} Bullet)" if hit.is_bullet else value)
+    return " + ".join(parts)
+
+
 def _slot_label(slot: int, is_follow_up: bool) -> str:
     if is_follow_up:
         return f"Follow-up {slot // 10}"
@@ -493,7 +573,7 @@ def build_attack_row(
     variant: str,
     attack: Mapping[str, ParamValue],
 ) -> dict[str, str]:
-    lacking_fp = is_lacking_fp_slot(anim_slot(hit.anim_id))
+    lacking_fp = is_lacking_fp_anim(hit.anim_id)
     attribute = int(attack["atkAttribute"])
     if attribute not in PHYSICAL_ATTRIBUTES:
         raise ValueError(f"AtkParam {hit.attack_id} has unsupported atkAttribute {attribute}")
@@ -584,6 +664,41 @@ def route_assignments(
     return assignments
 
 
+def weapon_section_route_assignments(
+    aow_id: int,
+    aow_name: str,
+    routes: tuple[tuple[str, str, tuple[int, ...]], ...],
+    rows: list[dict[str, str]],
+) -> list[dict[str, str | int]]:
+    """Assign one variant's rows to the fixed routes of a skill played from the weapon's section."""
+    rows_by_anim: dict[int, list[dict[str, str]]] = defaultdict(list)
+    for row in rows:
+        rows_by_anim[int(row["sequence_variant"][1:])].append(row)
+    assignments: list[dict[str, str | int]] = []
+    priority = 0
+    for route_id, label, anims in routes:
+        if not any(row["is_damaging"] == "1" for anim_id in anims for row in rows_by_anim[anim_id]):
+            continue
+        assignments.extend(
+            {
+                "aow_id": aow_id,
+                "aow_name": aow_name,
+                "sheet_row": int(row["sheet_row"]),
+                "route_id": route_id,
+                "route_label": label,
+                "route_priority": priority,
+                "action_id": f"stage_{action_order}",
+                "action_order": action_order,
+                "hit_order": int(row["hit_order"]),
+                "hit_count": 1,
+            }
+            for action_order, anim_id in enumerate(anims, start=1)
+            for row in rows_by_anim[anim_id]
+        )
+        priority += 1
+    return assignments
+
+
 def run_skill_animation_exports(
     phase1_dir: Path,
     regulation_bin_dir: Path,
@@ -591,7 +706,10 @@ def run_skill_animation_exports(
     sources: SkillAnimationSources,
     witchybnd_path: Path,
     workdir: Path,
+    check_regulation: bool = True,
 ) -> None:
+    """Write the skill tables and weapon poise into phase1_dir. check_regulation=False lets
+    the workbook comparison read another game version's regulation through these animations."""
     from tools.phase1.aow_effect_graph import build_aow_effect_graph
     from tools.phase1.snapshot_manifest import sha256_file
 
@@ -615,6 +733,18 @@ def run_skill_animation_exports(
             sections[number] = read_tae(path.read_bytes(), SKILL_ANIM_BASE) if path.is_file() else None
         return sections[number]
 
+    weapon_sections: dict[int, dict[int, tuple[TaeEvent, ...]]] = {}
+    weapon_anims = {
+        *NORMAL_MOVE_ANIMS.values(),
+        *(anim for routes in WEAPON_SECTION_ROUTES.values() for route in routes for anim in route[2]),
+    }
+
+    def weapon_section(category: int) -> dict[int, tuple[TaeEvent, ...]]:
+        if category not in weapon_sections:
+            path = tae_dir / f"a{category}.tae"
+            weapon_sections[category] = read_tae(path.read_bytes(), 0, weapon_anims) if path.is_file() else {}
+        return weapon_sections[category]
+
     def table(name: str, definition: str, fields: Collection[str]) -> dict[int, dict[str, ParamValue]]:
         return load_param_table(regulation_bin_dir / name, paramdex_defs_dir / definition, fields).rows
 
@@ -623,7 +753,9 @@ def run_skill_animation_exports(
     sword_arts = table("SwordArtsParam.param", "SwordArtsParam.xml", ("swordArtsTypeNew",))
     weapon_params = table("EquipParamWeapon.param", "EquipParamWeapon.xml", WEAPON_FIELDS)
     attacks = table(
-        "AtkParam_Pc.param", "AtkParam.xml", {"throwFlag", "atkAttribute", *ATTACK_PARAM_FIELDS.values()}
+        "AtkParam_Pc.param",
+        "AtkParam.xml",
+        {"throwFlag", "atkAttribute", "atkSuperArmor", "atkSuperArmorCorrection", *ATTACK_PARAM_FIELDS.values()},
     )
     known_overrides = load_attack_element_correct_ext_ids(phase1_dir)
     aows = read_csv(phase1_dir / "aow.csv")
@@ -642,6 +774,26 @@ def run_skill_animation_exports(
         if art is None:
             return _Resolution(0, 0, (), (), "missing_sword_arts_param")
         art_type = int(art["swordArtsTypeNew"])
+        if art_type == NO_SKILL_TYPE:
+            return _Resolution(0, 0, (), (), "no_skill")
+        if skill_id in WEAPON_SECTION_ROUTES:
+            if weapon_id is None:
+                return _Resolution(0, 0, (), (), "weapon_section_without_weapon")
+            param = weapon_params[weapon_id]
+            category, variation = int(param["wepmotionCategory"]), int(param["behaviorVariationId"])
+            cache_key = (skill_id, category, variation)
+            if cache_key not in resolutions:
+                moves = weapon_section(category)
+                anims = {
+                    anim: moves[anim]
+                    for route in WEAPON_SECTION_ROUTES[skill_id]
+                    for anim in route[2]
+                    if anim in moves
+                }
+                hits, problems = skill_hits(anims, variation, behaviors, bullets)
+                missing = "" if hits or problems else "no_behavior_events"
+                resolutions[cache_key] = _Resolution(category, 0, tuple(hits), tuple(problems), missing)
+            return resolutions[cache_key]
         group = variation = 0
         if weapon_id is not None:
             param = weapon_params[weapon_id]
@@ -663,6 +815,13 @@ def run_skill_animation_exports(
                 resolution = _Resolution(tae_number, group, (), (), "missing_group_animation")
             else:
                 hits, problems = skill_hits(anims, variation, behaviors, bullets)
+                for behavior_id in EFFECT_BEHAVIORS.get(skill_id, ()):
+                    extra, extra_problems = behavior_attacks(behaviors[behavior_id], bullets)
+                    problems += [(min(anims), behavior_id, reason) for reason in extra_problems]
+                    hits += [
+                        SkillHit(min(anims), len(hits) + 1, behavior_id, behavior_id, attack_id, is_bullet, 0, index)
+                        for index, (attack_id, is_bullet) in enumerate(extra)
+                    ]
                 missing = "" if hits or problems else "no_behavior_events"
                 resolution = _Resolution(tae_number, group, tuple(hits), tuple(problems), missing)
             resolutions[cache_key] = resolution
@@ -688,7 +847,7 @@ def run_skill_animation_exports(
                 exclude(skill_id, weapon_id, tae, hit.anim_id, hit.judge_id, f"missing_attack_param_{hit.attack_id}")
                 continue
             override = int(attack["overwriteAttackElementCorrectId"])
-            if override > 0 and override not in known_overrides:
+            if check_regulation and override > 0 and override not in known_overrides:
                 # As for the workbook: a hit must not silently lose its element override.
                 raise ValueError(f"attack {hit.attack_id} overrides unknown AttackElementCorrect {override}")
             key = (variant, *hit.key)
@@ -803,8 +962,9 @@ def run_skill_animation_exports(
     native_rows.sort(key=lambda row: (int(row["weapon_id"]), int(row["sheet_row"])))
     write_csv(phase1_dir / "aow_attack_data.csv", list(AOW_ATTACK_FIELDS), aow_rows)
     write_csv(phase1_dir / "native_skill_attack_data.csv", list(NATIVE_SKILL_ATTACK_FIELDS), native_rows)
-    for file_name in ("aow_attack_data.csv", "native_skill_attack_data.csv"):
-        verify_attack_rows_against_regulation(read_csv(phase1_dir / file_name), attacks, file_name)
+    if check_regulation:
+        for file_name in ("aow_attack_data.csv", "native_skill_attack_data.csv"):
+            verify_attack_rows_against_regulation(read_csv(phase1_dir / file_name), attacks, file_name)
     write_csv(phase1_dir / "aow_damage_coverage.csv", list(AOW_COVERAGE_FIELDS), coverage)
     write_csv(phase1_dir / "native_skill_damage_coverage.csv", list(NATIVE_COVERAGE_FIELDS), native_coverage)
 
@@ -836,6 +996,13 @@ def run_skill_animation_exports(
                     }
                 )
             buckets[(variant, (anim_id - SKILL_ANIM_BASE) // 100)].append(row)
+        if skill_id in WEAPON_SECTION_ROUTES:
+            by_variant: dict[str, list[dict[str, str]]] = defaultdict(list)
+            for (variant, *_), row in skill.rows.items():
+                by_variant[variant].append(row)
+            for rows in by_variant.values():
+                routes += weapon_section_route_assignments(skill_id, skill.name, WEAPON_SECTION_ROUTES[skill_id], rows)
+            continue
         anims_in_section = section(skill.tae_section) or {}
         for (_, group), rows in sorted(buckets.items()):
             anims = group_anims(anims_in_section, group)
@@ -848,6 +1015,21 @@ def run_skill_animation_exports(
         {tuple(row.values()): row for row in exclusions}.values(), key=lambda row: tuple(row.values())
     )
     write_csv(phase1_dir / "skill_animation_exclusions.csv", list(EXCLUSION_FIELDS), unique_exclusions)
+
+    for weapon in weapons:
+        param = weapon_params[int(weapon["weapon_id"])]
+        moves = weapon_section(int(param["wepmotionCategory"]))
+        for column, anim_id in NORMAL_MOVE_ANIMS.items():
+            weapon[column] = move_poise(
+                moves.get(anim_id, ()),
+                int(param["behaviorVariationId"]),
+                float(weapon["base_poise"]),
+                behaviors,
+                bullets,
+                attacks,
+            )
+        weapon["move_count"] = str(sum(bool(weapon[column]) for column in NORMAL_MOVE_ANIMS))
+    write_csv(phase1_dir / "weapons.csv", list(weapons[0]), weapons)
     print(f"Wrote {len(aow_rows)} AoW and {len(native_rows)} native skill attack rows")
     print(f"Wrote {len(routes)} route assignments and {len(unique_exclusions)} skill animation exclusions")
 

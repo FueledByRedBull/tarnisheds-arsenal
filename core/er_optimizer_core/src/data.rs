@@ -2241,14 +2241,23 @@ mod tests {
         let data = load_embedded_game_profile(CONVERGENCE_PROFILE_ID)
             .expect("Convergence embedded snapshot loads");
         assert_eq!(data.profile_id, CONVERGENCE_PROFILE_ID);
-        assert_eq!(data.dataset_version, "convergence-3.0.3.0-r2");
+        assert_eq!(data.dataset_version, "convergence-3.0.3.0-r3");
         assert_eq!(data.rules.standard_max_upgrade, 15);
         assert_eq!(data.rules.somber_max_upgrade, 15);
         assert!(!data.rules.separate_upgrade_caps);
         assert!(!data.capabilities.weapon_ar_for_ammunition);
         assert!(data.capabilities.class_budget);
-        assert!(!data.rules.scadutree_scaling);
+        assert!(data.rules.scadutree_scaling);
         assert!(!data.rules.zero_attack_element_uses_weapon_scaling);
+        let dagger = data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.name == "Dagger" && weapon.affinity == "Standard")
+            .expect("Convergence has a Standard Dagger");
+        assert_eq!(dagger.base_poise, 3.0);
+        assert_eq!(dagger.move_count, 10);
+        assert_eq!(dagger.one_handed_poise.light, "3.0");
+        assert_eq!(dagger.two_handed_poise.charged_heavy, "19.8");
         // The regulation's own classes, never Vanilla's, plus the exact Custom stats entry.
         assert_eq!(data.starting_classes.len(), 29);
         let retainer = data.class_by_name("Retainer").expect("Convergence class");

@@ -51,10 +51,22 @@ export function CommandPalette({ open, context, onRun, onClose }: {
   const deferredQuery = useDeferredValue(query);
   const [activeIndex, setActiveIndex] = useState(0);
   const [recent, setRecent] = useState(readRecent);
-  // A closed palette stays mounted for an instant first open, so it skips the search.
+  // A closed palette stays mounted for an instant first open, so it skips the search. Its list
+  // renders once while hidden, which costs no layout, so the first open only updates those rows.
+  const [hiddenResults, setHiddenResults] = useState<Command[]>([]);
+  useEffect(() => {
+    if (!context || hiddenResults.length) return;
+    const render = () => setHiddenResults(findCommands("", { ...context, recent }));
+    if ("requestIdleCallback" in window) {
+      const id = window.requestIdleCallback(render, { timeout: 2_000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(render, 500);
+    return () => clearTimeout(id);
+  }, [context, hiddenResults.length, recent]);
   const results = useMemo(
-    () => (open && context ? findCommands(deferredQuery, { ...context, recent }) : []),
-    [context, deferredQuery, open, recent],
+    () => (open ? (context ? findCommands(deferredQuery, { ...context, recent }) : []) : hiddenResults),
+    [context, deferredQuery, hiddenResults, open, recent],
   );
   const active = Math.min(activeIndex, Math.max(results.length - 1, 0));
 

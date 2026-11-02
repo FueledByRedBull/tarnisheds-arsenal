@@ -223,7 +223,8 @@ PROFILES: Mapping[str, ProfileDefinition] = {
             standard_max_upgrade=15,
             somber_max_upgrade=15,
             separate_upgrade_caps=False,
-            scadutree_scaling=False,
+            # The mod keeps SpEffects 20000100-20000120 and Vanilla's fragments unchanged.
+            scadutree_scaling=True,
             zero_attack_element_uses_weapon_scaling=False,
             extended_scaling_grades=True,
             status_buildup_scales=False,
@@ -242,8 +243,9 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         class_name_xml=Path("data/raw/Conv/GR_MenuText.fmg.xml"),
         version_file=Path("data/raw/Conv/version.txt"),
         weapon_reference_path=Path("data/reference/convergence-3.0.3.0-weapons.json"),
-        # Revision 2 adds AoW damage and routes and names classes from the menu text.
-        dataset_revision=2,
+        # Revision 2 adds AoW damage and routes and names classes from the menu text; revision 3
+        # adds weapon poise, buffed heavies, shield and timer-bullet hits, and Scadutree scaling.
+        dataset_revision=3,
         class_catalog_from_regulation=True,
         skill_animation_sources=SkillAnimationSources(
             anibnd=Path("data/raw/Conv/c0000.anibnd.dcx"),

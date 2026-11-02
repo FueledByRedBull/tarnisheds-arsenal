@@ -11,12 +11,16 @@ from tools.phase1.extract_skill_animations import (
     behavior_param_id,
     build_attack_row,
     combo_routes,
+    format_poise,
+    is_lacking_fp_anim,
+    move_poise,
     parse_category_script,
     read_tae,
     resolve_behavior,
     route_assignments,
     skill_anim_group,
     skill_hits,
+    weapon_section_route_assignments,
 )
 from tools.phase1.extract_motion_workbook import ATTACK_PARAM_FIELDS
 
@@ -105,6 +109,10 @@ def tae_bytes(anims: dict[int, list[tuple[int, float, tuple[int, ...]]]]) -> byt
 
 
 class TaeReaderTests(unittest.TestCase):
+    def test_reads_only_the_requested_animations_when_given(self) -> None:
+        data = tae_bytes({30000: [], 40000: [], 50000: []})
+        self.assertEqual(sorted(read_tae(data, 0, {30000, 50000})), [30000, 50000])
+
     def test_reads_behavior_and_sp_effect_events_and_skips_others(self) -> None:
         data = tae_bytes(
             {
@@ -158,11 +166,14 @@ class JudgeChainTests(unittest.TestCase):
             1: {"atkId_Bullet": 500, "HitBulletID": 2, "intervalCreateBulletId": -1},
             2: {"atkId_Bullet": 501, "HitBulletID": 1, "intervalCreateBulletId": 9},
             3: {"atkId_Bullet": 0, "HitBulletID": 4, "intervalCreateBulletId": -1},
+            # A timer bullet adds its attack once; repeating an attack adds nothing.
+            9: {"atkId_Bullet": 502, "HitBulletID": 10, "intervalCreateBulletId": -1},
+            10: {"atkId_Bullet": 500, "HitBulletID": -1, "intervalCreateBulletId": -1},
         }
         self.assertEqual(behavior_attacks({"refType": 0, "refId": 42}, bullets), ([(42, False)], []))
         self.assertEqual(
             behavior_attacks({"refType": 1, "refId": 1}, bullets),
-            ([(500, True), (501, True)], ["interval_bullet_not_modeled"]),
+            ([(500, True), (501, True), (502, True)], []),
         )
         self.assertEqual(behavior_attacks({"refType": 1, "refId": 3}, bullets), ([], ["missing_bullet"]))
         self.assertEqual(
@@ -189,6 +200,78 @@ class JudgeChainTests(unittest.TestCase):
             [(1, 300_000_010, False, 40), (3, 200_033_958, True, 0)],
         )
         self.assertEqual(problems, [(40000, 3999, "unresolved_behavior")])
+
+
+class NormalMoveTests(unittest.TestCase):
+    BEHAVIORS = {
+        100_100_100: {"refType": 0, "refId": 7, "stamina": 5},
+        100_100_101: {"refType": 1, "refId": 1, "stamina": 0},
+        100_100_102: {"refType": 0, "refId": 8, "stamina": 0},
+    }
+    BULLETS = {1: {"atkId_Bullet": 9, "HitBulletID": -1, "intervalCreateBulletId": -1}}
+    ATTACKS = {
+        7: {"atkSuperArmorCorrection": 130, "atkSuperArmor": 0},
+        8: {"atkSuperArmorCorrection": 0, "atkSuperArmor": 0},
+        9: {"atkSuperArmorCorrection": 0, "atkSuperArmor": 4},
+    }
+
+    def test_poise_lists_contacts_in_time_order_and_skips_ticks_without_stance_damage(self) -> None:
+        events = (
+            TaeEvent(BULLET_BEHAVIOR_EVENT, 0.3, (0, 0, 101)),
+            TaeEvent(ATTACK_BEHAVIOR_EVENT, 0.2, (0, 0, 102)),
+            TaeEvent(ATTACK_BEHAVIOR_EVENT, 0.1, (0, 0, 100)),
+        )
+        self.assertEqual(
+            move_poise(events, 100, 3.0, self.BEHAVIORS, self.BULLETS, self.ATTACKS), "3.9 + (4.0 Bullet)"
+        )
+        self.assertEqual(move_poise((), 100, 3.0, self.BEHAVIORS, self.BULLETS, self.ATTACKS), "")
+
+    def test_poise_keeps_one_decimal_and_drops_float_noise(self) -> None:
+        self.assertEqual(format_poise(3.0), "3.0")
+        self.assertEqual(format_poise(3 * 1.3), "3.9")
+        self.assertEqual(format_poise(10.175), "10.175")
+
+    def test_only_skill_animations_have_lacking_fp_slots(self) -> None:
+        self.assertTrue(is_lacking_fp_anim(40005))
+        self.assertFalse(is_lacking_fp_anim(40000))
+        self.assertFalse(is_lacking_fp_anim(30605))
+
+    def test_a_bullet_volley_counts_once_per_animation_but_a_repeated_swing_does_not(self) -> None:
+        behaviors = {
+            100_000_001: {"refType": 1, "refId": 1, "stamina": 0},
+            100_000_002: {"refType": 0, "refId": 7, "stamina": 0},
+        }
+        volley = {
+            40000: tuple(TaeEvent(BULLET_BEHAVIOR_EVENT, index / 10, (0, 0, 1)) for index in range(3)),
+            40010: tuple(TaeEvent(ATTACK_BEHAVIOR_EVENT, index / 10, (0, 0, 2)) for index in range(2)),
+        }
+        hits, _ = skill_hits(volley, 0, behaviors, self.BULLETS)
+        self.assertEqual([(hit.anim_id, hit.attack_id) for hit in hits], [(40000, 9), (40010, 7), (40010, 7)])
+
+    def test_weapon_section_routes_skip_routes_without_damage(self) -> None:
+        def row(sheet_row: int, anim_id: int, damaging: str) -> dict[str, str]:
+            return {
+                "sheet_row": str(sheet_row),
+                "sequence_variant": f"a{anim_id:06d}",
+                "hit_order": "1",
+                "is_damaging": damaging,
+            }
+
+        routes = (
+            ("empty", "Empty", (30700,)),
+            ("1h_uncharged", "1H / Uncharged", (30605, 30615)),
+            ("1h_charged", "1H / Charged", (30600,)),
+        )
+        rows = [row(1, 30605, "1"), row(2, 30615, "1"), row(3, 30600, "1"), row(4, 30700, "0")]
+        assignments = weapon_section_route_assignments(650, "Barbaric Roar", routes, rows)
+        self.assertEqual(
+            [(item["route_id"], item["route_priority"], item["action_id"], item["sheet_row"]) for item in assignments],
+            [
+                ("1h_uncharged", 0, "stage_1", 1),
+                ("1h_uncharged", 0, "stage_2", 2),
+                ("1h_charged", 1, "stage_1", 3),
+            ],
+        )
 
 
 class CategoryScriptTests(unittest.TestCase):

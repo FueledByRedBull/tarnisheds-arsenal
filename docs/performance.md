@@ -215,6 +215,38 @@ Every board and window screenshot after a landing (Max AR, AoW First Hit, sorted
 reduced motion) matched the before build pixel for pixel. Reduced motion keeps its
 plain fade.
 
+### Frame survey and Convergence revision 3 (2026-11-02)
+
+Release exe launched normally over CDP at 1650x950 on a 240 Hz display, untraced:
+`requestAnimationFrame` intervals across idle, 4-6 result landings per objective, wheel
+scrolling, row selection, three cycles through the tabs, eight palette opens and profile
+switches, in both profiles. Medians stayed at 4.2 ms, and p99 at 4.3 ms in every scenario.
+
+| Scenario | v0.21.0 worst frame | After | Cause of the worst frame |
+| --- | ---: | ---: | --- |
+| Wheel scroll, row selection | 4.3-9.9 ms | 4.3-10.5 ms | Single isolated frames; no main-thread task |
+| Result landings | 8.3-12.5 ms | 8.3-12.4 ms | Layout and paint of the rows (7-11 ms traced) |
+| Tabs | 12.5-12.6 ms | 4.3-12.2 ms | First visit to a workspace lays it out (7 ms traced) |
+| First palette open of a launch | 29.1 ms | 25.0 ms | Under 10 ms of it is main-thread work |
+
+The palette now renders its list while hidden, which removes most of its script from the
+first open. A landing can still miss one or two frames at 240 Hz, which is 120 fps at one
+missed frame and 80 fps at two, for that frame only. These are single frames at discrete
+events; continuous scrolling and animation held the display rate.
+
+Search timings in release mode with default threads on 16 logical CPUs: one warmup and
+three repeats on `convergence-3.0.3.0-r2`, one warmup and five on r3. Vanilla's unchanged
+data and code moved within about 11% between these runs, so smaller differences are noise.
+Open bleed's increase is larger than that; revision 3 adds hits that carry status effects:
+
+| Convergence search, all threads | r2 | r3 |
+| --- | ---: | ---: |
+| Max AR, high level | 31 ms | 32 ms |
+| All upgrades, high level | 50 ms | 51 ms |
+| Open bleed, level 93 | 64 ms | 81 ms |
+| AoW First Hit, high level | 178 ms | 179 ms |
+| AoW Full Sequence, high level | 163 ms | 126 ms |
+
 ## Release compiler settings
 
 Both Cargo packages set `lto = "thin"` and `codegen-units = 1` for release builds.

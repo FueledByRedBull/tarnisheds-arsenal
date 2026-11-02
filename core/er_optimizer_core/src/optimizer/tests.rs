@@ -86,7 +86,7 @@ fn optimizer_rejects_levels_above_the_game_domain() {
 }
 
 #[test]
-fn convergence_profile_rules_reject_vanilla_upgrade_and_scadutree_inputs() {
+fn convergence_profile_rules_reject_vanilla_upgrades_and_accept_scadutree() {
     let data = load_convergence_data();
     let mut request = base_request();
     let error = prepare_search(&request, &data).expect_err("+25 must be rejected");
@@ -96,8 +96,15 @@ fn convergence_profile_rules_reject_vanilla_upgrade_and_scadutree_inputs() {
     request.somber_max_upgrade = 15;
     request.dlc_scaling = true;
     request.scadutree_level = 20;
-    let error = prepare_search(&request, &data).expect_err("Scadutree must be rejected");
-    assert!(error.contains("does not use Scadutree"));
+    request.class_name = CUSTOM_STATS_CLASS_NAME.to_string();
+    let stats = request.current_stats;
+    request.character_level = [
+        stats.vig, stats.mnd, stats.end, stats.str, stats.dex, stats.int, stats.fai, stats.arc,
+    ]
+    .into_iter()
+    .map(u16::from)
+    .sum();
+    prepare_search(&request, &data).expect("the mod keeps the Scadutree Blessing");
 }
 
 #[test]

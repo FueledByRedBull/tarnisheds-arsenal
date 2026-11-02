@@ -24,7 +24,7 @@ comparisons and progression previews.
 [![Tauri 2](https://img.shields.io/badge/Tauri_2-101315?style=flat-square&logo=tauri&logoColor=c9a45c)](apps/desktop/src-tauri)
 [![React 19](https://img.shields.io/badge/React_19-101315?style=flat-square&logo=react&logoColor=c9a45c)](apps/desktop/src)
 
-[What’s new in v0.21.0](docs/release-notes/v0.21.0.md)
+[What’s new in v0.22.0](docs/release-notes/v0.22.0.md)
 · [Your first build](#your-first-build)
 · [Documentation](#documentation)
 
@@ -39,7 +39,7 @@ each one.
 ## Download
 
 Choose an asset from the [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
-The [v0.21.0 notes](docs/release-notes/v0.21.0.md) include versioned downloads,
+The [v0.22.0 notes](docs/release-notes/v0.22.0.md) include versioned downloads,
 calculation changes, and verification limits.
 
 | Choose | Best for |
@@ -56,8 +56,8 @@ calculation changes, and verification limits.
 > **3.0.3.0** snapshots, so no adjacent data folder, game installation,
 > `regulation.bin`, or source workbook is required.
 
-Linux packages are new and tested on Ubuntu 24.04 only; the `.rpm` is built but has
-not been launched. Each release includes SHA-256 checksums for the installer, portable app, and ZIP,
+Linux packages are new. The `.deb` and AppImage are tested on Ubuntu 24.04 and the
+`.rpm` on Fedora, all on a virtual display. Each release includes SHA-256 checksums for the installer, portable app, and ZIP,
 a separate checksum file for the Linux packages, and a build report identifying
 its source and data. The ZIP contains the portable
 app with the license and third-party notices; the MSI’s WebView2 bootstrapper
@@ -210,8 +210,9 @@ effects, profile rules, and known differences from other calculators.
 > [!NOTE]
 > Convergence 3.0.3.0 is experimental. Its AR and status are checked against the
 > mod's regulation and a pinned external calculator, and its Ash legality against
-> the regulation's raw permissions. AoW damage is read from the mod's skill
-> animations and has no external check. None of it is measured in game.
+> the regulation's raw permissions. AoW damage and attack poise are read from the mod's
+> animations and checked against Vanilla's workbook where the mod left them unchanged.
+> None of it is measured in game.
 
 The header marks it **Experimental model**; open that label for its coverage
 notes. Choose one of the mod's 29 starting classes, such as **Stormcaller** or
@@ -224,9 +225,10 @@ stats load and solve as before.
 The profile supports melee weapon AR and upgrades through `+15`. Status buildup
 is fixed: the mod gives weapons a flat status correction curve, so Arcane and
 upgrades do not raise it. AoW damage and routes come from the mod's own skill
-animations; bow skills, buff states and hold loops stay unmodeled, and the
+animations; bow skills and hold loops stay unmodeled, and the
 [coverage table](docs/model-reference.md#convergence) lists which Ashes resolve
-damage. Ammunition AR is unavailable.
+damage. Attack poise comes from the same animations, and the Scadutree Blessing works
+as in Vanilla. Ammunition AR is unavailable.
 
 Vanilla rules, classes, and missing damage tables are never substituted into the
 mod profile. See [Convergence coverage](docs/model-reference.md#convergence).
@@ -237,7 +239,7 @@ Choose a guide for the task at hand:
 
 | I want to… | Read |
 | --- | --- |
-| See what changed in **v0.21.0** | [Release notes](docs/release-notes/v0.21.0.md) · [All versions](docs/release-notes/README.md) |
+| See what changed in **v0.22.0** | [Release notes](docs/release-notes/v0.22.0.md) · [All versions](docs/release-notes/README.md) |
 | Understand supported mechanics and limitations | [Model reference](docs/model-reference.md) |
 | Find components and trace a calculation | [Optimizer overview](docs/design/optimizer-overview.md) |
 | Inspect the exact ranking contract and proof | [Optimizer mathematics](docs/design/optimizer-math.md) |

@@ -197,7 +197,7 @@ export function App() {
           <div className="editor-body">
             <strong>Model coverage and assumptions</strong>
             <p className="editor-note">
-              {convergenceProfile ? `Convergence ${activeProfile.profile.modVersion ?? ""} (game ${activeProfile.profile.gameVersion}) ` : ""}weapon AR, fixed status, classes, and Ash permissions are checked against the mod's regulation, not measured in game. Custom stats evaluates entered stats exactly, without Compare, Paths, or Affinity Watch. AoW hits and routes come from the mod's skill animations; some skills have none, and ammo weapons remain unsupported.
+              {convergenceProfile ? `Convergence ${activeProfile.profile.modVersion ?? ""} (game ${activeProfile.profile.gameVersion}) ` : ""}weapon AR, fixed status, classes, and Ash permissions are checked against the mod's regulation, not measured in game. Custom stats evaluates entered stats exactly, without Compare, Paths, or Affinity Watch. AoW hits, routes and attack poise come from the mod's animations, which match Vanilla's workbook where the mod left them unchanged; some skills have none, and ammo weapons remain unsupported.
             </p>
           </div>
         </Popover>
