@@ -33,7 +33,9 @@ export const COMBAT_STAT_LABELS = COMBAT_STATS.map(([short]) => short);
 
 type Token = { short: string; name: string; value: string };
 
-// One renderer for every token row. Ranking rows drop the short labels: their header shows them.
+// One renderer for every token row. Ranking rows drop the short labels (their header shows them)
+// and the value is the token's own text: a board carries about 500 tokens, and the nested element
+// per value was a node more to style and lay out in each.
 function Tokens({ label, className, tokens, labels = true, active = false }: {
   label: string;
   className: string;
@@ -45,8 +47,7 @@ function Tokens({ label, className, tokens, labels = true, active = false }: {
     <span className={`metric-token-grid ${className}`} role="list" aria-label={label}>
       {tokens.map(({ short, name, value }) => (
         <span className={`metric-token${active ? " active" : ""}`} role="listitem" aria-label={name} title={name} key={short}>
-          {labels ? <small aria-hidden="true">{short}</small> : null}
-          <b aria-hidden="true">{value}</b>
+          {labels ? <><small aria-hidden="true">{short}</small><b aria-hidden="true">{value}</b></> : value}
         </span>
       ))}
     </span>

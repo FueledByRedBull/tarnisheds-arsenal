@@ -1,11 +1,11 @@
 import { LockKeyhole, Pin, Save, Target } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { memo, useDeferredValue, useEffect, useMemo, useRef } from "react";
 import { useWeaponProfileResource } from "../../lib/hooks";
 import { aowModelSupported, compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine, statLockLine } from "../../lib/format";
 import { budgetSnapshot, buildOptimizeRequest, hasCombatStatLocks, respecChanges, rowFingerprint, usesFixedStats } from "../../lib/session";
 import { EASE_OUT, reducedMotion } from "../../lib/motion";
 import { useDesktopStore } from "../../lib/state";
-import { AowRouteDto, StatusBuildupDto, WeaponProfileDto } from "../../lib/types";
+import { AowRouteDto, CatalogDto, OptimizeRequestDto, SolvedBuildDto, StatusBuildupDto, WeaponProfileDto } from "../../lib/types";
 import { runSearchFromStore } from "../../lib/workflows";
 import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 import packageInfo from "../../../package.json";
@@ -25,7 +25,6 @@ export function Inspector() {
   const compareBench = useDesktopStore((state) => state.compareBench);
   const toggleCompareBench = useDesktopStore((state) => state.toggleCompareBench);
   const isExporting = useDesktopStore((state) => state.isExporting);
-  const snapshot = budgetSnapshot(catalog, request);
   const fixedStats = usesFixedStats(catalog, request.className);
   const aowSupported = aowModelSupported(catalog?.dataManifest);
   const aowAvailable = selected && hasAowDamage(selected, aowSupported);
@@ -44,12 +43,12 @@ export function Inspector() {
     (action) => action.hits.flatMap((hit) => hit.warnings),
   ) ?? [])];
   // A new selection updates the panel in place and fades it in, instead of rebuilding it.
-  const detail = useRef<HTMLDivElement>(null);
+  const fade = useRef<HTMLDivElement>(null);
   const selectedKey = rowFingerprint(selected);
   useEffect(() => {
     if (!selectedKey) return;
     // Reduced motion keeps the fade and drops the rise.
-    detail.current?.animate(
+    fade.current?.animate(
       reducedMotion()
         ? [{ opacity: 0.35 }, { opacity: 1 }]
         : [{ opacity: 0.35, transform: "translateY(4px)" }, { opacity: 1, transform: "none" }],
@@ -58,6 +57,11 @@ export function Inspector() {
   }, [selectedKey]);
   const weaponResource = useWeaponProfileResource(request.profileId, selected?.weaponName ?? null, selected?.affinity ?? null);
   const weaponProfile = weaponResource.profile;
+  // The sections below the answer render from this snapshot in a deferred pass, so a landing or a
+  // new selection paints the header, metrics and rank lines first (the rest cost ~3 ms more).
+  const detail = useDeferredValue(useMemo((): DetailSnapshot => (
+    { catalog, selected, rows, request, resultsStale, lockedStatMode, weaponProfile }
+  ), [catalog, selected, rows, request, resultsStale, lockedStatMode, weaponProfile]));
 
   async function lockSelected() {
     if (!selected) return;
@@ -72,7 +76,7 @@ export function Inspector() {
         <span>Build detail</span>
       </h2>
       {selected ? (
-        <div className="selection-detail" ref={detail}>
+        <div className="selection-detail" ref={fade}>
           <div className="selected-build">
             <div className="selected-build-head">
               <div className="selected-build-title">
@@ -144,34 +148,8 @@ export function Inspector() {
               <Pin size={15} />{pinned ? "Unpin compare" : "Pin for compare"}
             </button>
           </div>
-          <div className="detail-block">
-            <span>Combat Stats</span>
-            <strong>{statLine(selected)}</strong>
-          </div>
-          <div className="detail-block build-token-detail">
-            <span>Attribute Scaling</span>
-            <ScalingTokens
-              scaling={selected.effectiveScaling}
-              extended={catalog?.dataManifest.rules.extendedScalingGrades ?? false}
-            />
-          </div>
-          <div className="detail-block build-token-detail">
-            <span>Status Buildup</span>
-            <StatusTokens row={selected} />
-          </div>
-          <div className="detail-block split">
-            <span>AR Split</span>
-            <small>
-              PHY {compactNumber(selected.ar.physical)} / MAG {compactNumber(selected.ar.magic)} /
-              FIRE {compactNumber(selected.ar.fire)} / LIT {compactNumber(selected.ar.lightning)} /
-              HOLY {compactNumber(selected.ar.holy)}
-            </small>
-          </div>
-          <AowRouteDetails route={aowAvailable ? selected.aowRoute : null} />
-          {!resultsStale ? <details className="model-coverage build-explanation">
-            <summary>Why this build?</summary>
-            {explainBuild(selected, buildOptimizeRequest(catalog, request, lockedStatMode), aowSupported, runnerUp).map(line => <p key={line}>{line}</p>)}
-          </details> : null}
+          {/* The reference blocks below render after the answer above (see DetailSnapshot). */}
+          {detail.selected ? <SelectionSections {...detail} /> : null}
         </div>
       ) : (
         <div className="empty-state compact">
@@ -179,42 +157,106 @@ export function Inspector() {
           <span>Search, then pick a ranked row to see why it wins.</span>
         </div>
       )}
-      {/* Reference detail: weapon poise, the stat budget and locks (also shown in the strip),
-          and what the model covers. Folded, so the answer above stays short. */}
-      <details className="model-coverage more-details">
-        <summary>More details</summary>
-        {selected ? <WeaponPoiseDetails profile={weaponProfile} route={aowAvailable ? selected.aowRoute : null} twoHanding={request.twoHanding} /> : null}
-        <div className="detail-block">
-          <span>Stat Budget</span>
-          <strong>{fixedStats
-            ? `Fixed stat total ${snapshot.level}` : `Level ${snapshot.level} / +${snapshot.levelUps} level ups`}</strong>
-          <small>{fixedStats
-            ? "Entered combat stats are evaluated as-is; class budgets and redistribution are unavailable."
-            : `${snapshot.redistributable} respec points · ${snapshot.total} total points`}</small>
-        </div>
-        <div className="detail-block">
-          <span>Stat locks</span>
-          <strong>{fixedStats
-            ? "Fixed stats evaluated as entered"
-            : lockedStatMode && hasCombatStatLocks(request) ? "Stat locks active" : "No stat locks"}</strong>
-          <small>
-            {fixedStats
-              ? "This profile does not derive a class budget or redistribute combat stats."
-              : !lockedStatMode || !hasCombatStatLocks(request)
-                ? "Every combat stat is free to move."
-                : statLockLine(request)}
-          </small>
-        </div>
-        <ModelCoverage />
-      </details>
-      <SavedBuildPanel />
-      <details className="model-coverage report-problem">
-        <summary>Report a problem</summary>
-        <ReproductionReport />
-      </details>
+      <ReferenceSections {...detail} />
     </aside>
   );
 }
+
+type DetailSnapshot = {
+  catalog: CatalogDto | null;
+  selected: SolvedBuildDto | null;
+  rows: SolvedBuildDto[];
+  request: OptimizeRequestDto;
+  resultsStale: boolean;
+  lockedStatMode: boolean;
+  weaponProfile: WeaponProfileDto | null;
+};
+
+// Stats, scaling, status, AR split, skill route and the explanation of the selected build.
+const SelectionSections = memo(function SelectionSections({ catalog, selected, rows, request, resultsStale, lockedStatMode }: DetailSnapshot) {
+  const aowSupported = aowModelSupported(catalog?.dataManifest);
+  const aowAvailable = selected && hasAowDamage(selected, aowSupported);
+  const rank = selected ? rows.findIndex((row) => rowFingerprint(row) === rowFingerprint(selected)) : -1;
+  const runnerUp = rank === 0 ? rows[1] ?? null : null;
+  if (!selected) return null;
+  return (
+    <>
+      <div className="detail-block">
+        <span>Combat Stats</span>
+        <strong>{statLine(selected)}</strong>
+      </div>
+      <div className="detail-block build-token-detail">
+        <span>Attribute Scaling</span>
+        <ScalingTokens
+          scaling={selected.effectiveScaling}
+          extended={catalog?.dataManifest.rules.extendedScalingGrades ?? false}
+        />
+      </div>
+      <div className="detail-block build-token-detail">
+        <span>Status Buildup</span>
+        <StatusTokens row={selected} />
+      </div>
+      <div className="detail-block split">
+        <span>AR Split</span>
+        <small>
+          PHY {compactNumber(selected.ar.physical)} / MAG {compactNumber(selected.ar.magic)} /
+          FIRE {compactNumber(selected.ar.fire)} / LIT {compactNumber(selected.ar.lightning)} /
+          HOLY {compactNumber(selected.ar.holy)}
+        </small>
+      </div>
+      <AowRouteDetails route={aowAvailable ? selected.aowRoute : null} />
+      {!resultsStale ? <details className="model-coverage build-explanation">
+        <summary>Why this build?</summary>
+        {explainBuild(selected, buildOptimizeRequest(catalog, request, lockedStatMode), aowSupported, runnerUp).map(line => <p key={line}>{line}</p>)}
+      </details> : null}
+    </>
+  );
+});
+
+// Reference detail: weapon poise, the stat budget and locks (also shown in the strip), and what
+// the model covers, folded so the answer stays short; then saved builds and the problem report.
+const ReferenceSections = memo(function ReferenceSections({ catalog, selected, request, lockedStatMode, weaponProfile }: DetailSnapshot) {
+  const snapshot = budgetSnapshot(catalog, request);
+  const fixedStats = usesFixedStats(catalog, request.className);
+  const aowAvailable = selected && hasAowDamage(selected, aowModelSupported(catalog?.dataManifest));
+  return (
+    <>
+  {/* Reference detail: weapon poise, the stat budget and locks (also shown in the strip),
+      and what the model covers. Folded, so the answer above stays short. */}
+  <details className="model-coverage more-details">
+    <summary>More details</summary>
+    {selected ? <WeaponPoiseDetails profile={weaponProfile} route={aowAvailable ? selected.aowRoute : null} twoHanding={request.twoHanding} /> : null}
+    <div className="detail-block">
+      <span>Stat Budget</span>
+      <strong>{fixedStats
+        ? `Fixed stat total ${snapshot.level}` : `Level ${snapshot.level} / +${snapshot.levelUps} level ups`}</strong>
+      <small>{fixedStats
+        ? "Entered combat stats are evaluated as-is; class budgets and redistribution are unavailable."
+        : `${snapshot.redistributable} respec points · ${snapshot.total} total points`}</small>
+    </div>
+    <div className="detail-block">
+      <span>Stat locks</span>
+      <strong>{fixedStats
+        ? "Fixed stats evaluated as entered"
+        : lockedStatMode && hasCombatStatLocks(request) ? "Stat locks active" : "No stat locks"}</strong>
+      <small>
+        {fixedStats
+          ? "This profile does not derive a class budget or redistribute combat stats."
+          : !lockedStatMode || !hasCombatStatLocks(request)
+            ? "Every combat stat is free to move."
+            : statLockLine(request)}
+      </small>
+    </div>
+    <ModelCoverage />
+  </details>
+  <SavedBuildPanel selected={selected} />
+  <details className="model-coverage report-problem">
+    <summary>Report a problem</summary>
+    <ReproductionReport />
+  </details>
+    </>
+  );
+});
 
 function ModelCoverage() {
   const catalog = useDesktopStore((state) => state.catalog);

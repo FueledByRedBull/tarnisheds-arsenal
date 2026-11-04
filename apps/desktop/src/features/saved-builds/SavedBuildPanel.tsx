@@ -1,5 +1,5 @@
 import { Check, ChevronDown, Clipboard, Download, Pencil, Save, Trash2, Upload } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { errorMessage } from "../../lib/format";
 import { catalogVersion, migratePresetRequest } from "../../lib/preset-activation";
 import {
@@ -17,17 +17,18 @@ import {
 } from "../../lib/presets";
 import { buildOptimizeRequest } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
-import { BuildPreset, SavedBuildIndexEntryV1 } from "../../lib/types";
+import { BuildPreset, SavedBuildIndexEntryV1, SolvedBuildDto } from "../../lib/types";
 import { SavedBuildRecovery } from "./SavedBuildRecovery";
 
 // The saved-build library: save, load, rename, delete, share, import and migrate stored builds.
 // It is its own task, so Build Detail keeps it folded until it is wanted (Save build opens it).
-export function SavedBuildPanel() {
+// The selected build arrives as a prop, so the panel renders with the sections around it in the
+// deferred pass after a landing or a selection instead of in the urgent one.
+export const SavedBuildPanel = memo(function SavedBuildPanel({ selected }: { selected: SolvedBuildDto | null }) {
   const catalog = useDesktopStore((state) => state.catalog);
   const catalogStatus = useDesktopStore((state) => state.catalogStatus);
   const request = useDesktopStore((state) => state.request);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
-  const selected = useDesktopStore((state) => state.selected);
   const compareTarget = useDesktopStore((state) => state.compareTarget);
   const compareBench = useDesktopStore((state) => state.compareBench);
   const resultsStale = useDesktopStore((state) => state.resultsStale);
@@ -364,7 +365,7 @@ export function SavedBuildPanel() {
       {opened ? <SavedBuildRecovery onChanged={refresh} revision={entries} /> : null}
     </details>
   );
-}
+});
 
 function readLibrary(): { entries: SavedBuildIndexEntryV1[]; error: string | null } {
   try {

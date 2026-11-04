@@ -714,7 +714,22 @@ textarea {
   animation: strip-out 700ms var(--ease-out) forwards;
 }
 
+/* The glow is a layer of its own that fades in and out: animating the bar's own box-shadow and
+   border colour repainted it for the whole flare. The bar's clip is lifted while it lands (its
+   fill and sheen clip themselves) so the glow can reach outside it. */
 .progress-strip.landed .forge-bar {
+  overflow: visible;
+}
+
+.progress-strip.landed .forge-bar::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: 1px solid var(--gold-bright);
+  border-radius: inherit;
+  box-shadow: 0 0 12px 1px color-mix(in srgb, var(--ember) 60%, transparent);
+  opacity: 0;
+  pointer-events: none;
   animation: forge-flare 600ms var(--ease-out);
 }
 
@@ -724,10 +739,7 @@ textarea {
 }
 
 @keyframes forge-flare {
-  30% {
-    border-color: var(--gold-bright);
-    box-shadow: inset 0 1px 2px var(--shadow), 0 0 12px 1px color-mix(in srgb, var(--ember) 60%, transparent);
-  }
+  30% { opacity: 1; }
 }
 
 .progress-strip small {
@@ -3095,16 +3107,14 @@ textarea:hover {
   gap: 2px;
 }
 
+/* The value is the token's own text here (BuildMetricTokens.tsx). Values (stats up to 99, grades
+   up to S++) fit their token at the minimum window width, so they skip the overflow clip: 500
+   clips cost about 15% of every board resize and repaint. */
 .result-row .metric-token {
   padding: 2px 0;
-}
-
-/* Row values (stats up to 99, grades up to S++) fit their token at the minimum window width,
-   so they skip the overflow clip: 500 clips cost about 15% of every board resize and repaint. */
-.result-row .metric-token b {
-  margin-top: 0;
-  overflow: visible;
+  color: var(--text);
   font-size: var(--text-note);
+  font-weight: bolder;
 }
 
 .weapon-cell {

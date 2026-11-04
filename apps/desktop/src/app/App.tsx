@@ -22,6 +22,7 @@ import { ReproductionReport } from "../features/shared/ReproductionReport";
 import { AppErrorBoundary } from "./AppErrorBoundary";
 import { aowModelSupported, errorMessage } from "../lib/format";
 import { ANNOUNCER_ID } from "../lib/announce";
+import { warmFonts } from "../lib/font-warmup";
 
 const TAB_ICONS: Record<WorkspaceTab, typeof Table2> = {
   rankings: Table2, compare: GitCompareArrows, paths: Route, affinity_watch: Radar,
@@ -142,6 +143,8 @@ export function App() {
 
   const activeProfile = profiles.find((entry) => entry.profile.id === profileId) ?? null;
   const profileReady = catalogStatus === "ready";
+  // Idle time after the first load measures the fonts the first search and tab visits would load.
+  useEffect(() => (profileReady ? warmFonts() : undefined), [profileReady]);
   const convergenceProfile = activeProfile?.profile.id === "convergence";
   // Convergence stays experimental with AoW data: its skills are not measured in game.
   const limitedAowModel = convergenceProfile || (activeProfile && !aowModelSupported(activeProfile));
