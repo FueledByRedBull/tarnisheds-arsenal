@@ -47,6 +47,9 @@ pub struct JobRegistry<T> {
     id_prefix: &'static str,
     is_finished: fn(&T) -> bool,
     handle: Mutex<Option<(String, AsyncJobHandle<T>)>>,
+    /// The supervisor of the registered job, tagged with that job's id. A supervisor
+    /// joins its worker before publishing, so one that has ended owns nothing.
+    supervisor: Mutex<Option<(String, tauri::async_runtime::JoinHandle<()>)>>,
 }
 
 impl<T: Clone + Send + 'static> JobRegistry<T> {
@@ -56,6 +59,7 @@ impl<T: Clone + Send + 'static> JobRegistry<T> {
             id_prefix,
             is_finished,
             handle: Mutex::new(None),
+            supervisor: Mutex::new(None),
         }
     }
 
@@ -85,14 +89,26 @@ impl<T: Clone + Send + 'static> JobRegistry<T> {
         let (worker_id, worker_cancel, worker_status) =
             (job_id.clone(), Arc::clone(&cancel), Arc::clone(&status));
         let publish_id = job_id.clone();
-        spawn_supervised_job(
+        let supervisor = spawn_supervised_job(
             status,
             move || worker(worker_id, worker_cancel, worker_status),
             move |status, outcome| {
                 publish(status, outcome, publish_id, cancel.load(Ordering::Relaxed));
             },
         );
+        *self
+            .supervisor
+            .lock()
+            .unwrap_or_else(|error| error.into_inner()) = Some((job_id.clone(), supervisor));
         Ok(dto::StartSearchResponseDto { job_id })
+    }
+
+    fn supervisor_ended(&self, job_id: &str) -> bool {
+        self.supervisor
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .as_ref()
+            .is_some_and(|(id, supervisor)| id == job_id && supervisor.inner().is_finished())
     }
 
     pub fn insert_if_idle(
@@ -101,7 +117,11 @@ impl<T: Clone + Send + 'static> JobRegistry<T> {
         handle: AsyncJobHandle<T>,
     ) -> Result<(), errors::AppError> {
         let mut guard = self.handle.lock().map_err(|_| self.lock_error())?;
-        if let Some((_, previous)) = guard.as_ref() {
+        // A supervisor that ended without publishing (its publication panicked) leaves the
+        // status unfinished, and possibly poisoned, but its worker is already joined.
+        if let Some((previous_id, previous)) = guard.as_ref()
+            && !self.supervisor_ended(previous_id)
+        {
             let status = previous.status.lock().map_err(|_| self.status_error())?;
             if !(self.is_finished)(&status) {
                 return Err(errors::AppError::new(format!(
@@ -501,6 +521,55 @@ mod job_registry_tests {
     }
 
     #[test]
+    fn job_whose_publication_panicked_does_not_wedge_the_registry() {
+        use std::sync::mpsc;
+        use std::time::{Duration, Instant};
+
+        let registry = JobRegistry::new("test", "test", Option::is_some);
+        let next_job = AtomicU64::new(1);
+        let (release_tx, release_rx) = mpsc::sync_channel(1);
+        registry
+            .start(
+                &next_job,
+                None::<()>,
+                move |_, _, _| release_rx.recv_timeout(Duration::from_secs(5)).unwrap(),
+                |_, _, _, _| panic!("injected publication failure"),
+            )
+            .unwrap();
+        let running = registry.start(&next_job, None, |_, _, _| (), |_, _, _, _| {});
+        assert!(running.is_err(), "a running worker retains ownership");
+
+        release_tx.send(()).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let replacement = loop {
+            match registry.start(
+                &next_job,
+                None,
+                |_, _, _| (),
+                |status, _, _, _| *status = Some(()),
+            ) {
+                Ok(started) => break started,
+                Err(_) => {
+                    assert!(
+                        Instant::now() < deadline,
+                        "ended supervisor must free the slot"
+                    );
+                    std::thread::yield_now();
+                }
+            }
+        };
+        assert!(registry.status("test-1").unwrap().is_none());
+        while registry
+            .status(&replacement.job_id)
+            .unwrap()
+            .is_none_or(|status| status.is_none())
+        {
+            assert!(Instant::now() < deadline, "replacement job must publish");
+            std::thread::yield_now();
+        }
+    }
+
+    #[test]
     fn supervisor_preserves_worker_results() {
         for result in [Ok(Some(42)), Err("invalid request".to_string()), Ok(None)] {
             let status = Arc::new(Mutex::new(None));
@@ -566,6 +635,7 @@ impl AppState {
     }
 
     pub fn profile(&self, profile_id: &str) -> Result<&Arc<ProfileData>, errors::AppError> {
+        dto::check_len("profileId", profile_id)?;
         self.profiles.get(profile_id).ok_or_else(|| {
             errors::AppError::new(format!(
                 "Unknown game profile {profile_id:?}. Reload the catalog and choose an available profile."
@@ -614,6 +684,7 @@ fn start() -> Result<(), String> {
     // for example when the WebView2 runtime is missing.
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         tauri::Builder::default()
+            .plugin(navigation_guard())
             .manage(state)
             .on_page_load(|webview, payload| {
                 // A reloaded page lost its job ids; stop the work it can no longer own.
@@ -654,6 +725,27 @@ fn start() -> Result<(), String> {
     .map_err(|error| error.to_string())
 }
 
+/// Keeps the main window on the app's own pages, so a link or script cannot load a remote
+/// page that would then sit next to the IPC bridge.
+fn navigation_guard<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+    tauri::plugin::Builder::new("nav-guard")
+        .on_navigation(|_, url| is_app_origin(url, tauri::is_dev()))
+        .build()
+}
+
+/// The origins Tauri serves the bundled frontend from, plus the Vite server of a dev build.
+/// A `blob:` URL belongs to the origin that created it, which keeps the CSV download working.
+fn is_app_origin(url: &tauri::Url, dev: bool) -> bool {
+    match (url.scheme(), url.host_str(), url.port()) {
+        ("tauri", Some("localhost"), None) => true,
+        ("http" | "https", Some("tauri.localhost"), None) => true,
+        ("http", Some("localhost" | "127.0.0.1"), Some(1420)) => dev,
+        ("blob", None, None) => tauri::Url::parse(url.path())
+            .is_ok_and(|inner| inner.scheme() != "blob" && is_app_origin(&inner, dev)),
+        _ => false,
+    }
+}
+
 /// The packaged smoke's remote-debugging port. Only an environment variable (which a shortcut,
 /// file association or another user cannot set) enables it, and only with an isolated
 /// smoke-only WebView2 profile, so the debugging session never touches the user's data.
@@ -686,6 +778,7 @@ fn smoke_debug_port(
 }
 
 // Release builds have no console, so a startup failure is also shown in a message box.
+#[allow(unsafe_code)]
 fn report_startup_failure(message: &str) {
     use std::io::Write;
     // `eprintln!` would panic on a closed stderr pipe.
@@ -804,6 +897,127 @@ pub(crate) fn test_optimize_request() -> dto::OptimizeRequestDto {
 }
 
 #[cfg(test)]
+pub(crate) type HostileValue = (&'static str, fn(&mut dto::OptimizeRequestDto));
+
+/// Out-of-range and oversized values for every client-controlled request field.
+#[cfg(test)]
+pub(crate) const HOSTILE_OPTIMIZE_VALUES: &[HostileValue] = &[
+    ("vig", |request| request.vig = u8::MAX),
+    ("mnd", |request| request.mnd = u8::MAX),
+    ("end", |request| request.end = u8::MAX),
+    ("str", |request| request.str_stat = u8::MAX),
+    ("dex", |request| request.dex = u8::MAX),
+    ("int", |request| request.int_stat = u8::MAX),
+    ("fai", |request| request.fai = u8::MAX),
+    ("arc", |request| request.arc = u8::MAX),
+    ("min_str", |request| request.min_str = u8::MAX),
+    ("min_dex", |request| request.min_dex = u8::MAX),
+    ("min_int", |request| request.min_int = u8::MAX),
+    ("min_fai", |request| request.min_fai = u8::MAX),
+    ("min_arc", |request| request.min_arc = u8::MAX),
+    ("lock_str", |request| request.lock_str = Some(u8::MAX)),
+    ("lock_dex", |request| request.lock_dex = Some(u8::MAX)),
+    ("lock_int", |request| request.lock_int = Some(u8::MAX)),
+    ("lock_fai", |request| request.lock_fai = Some(u8::MAX)),
+    ("lock_arc", |request| request.lock_arc = Some(u8::MAX)),
+    ("character_level", |request| {
+        request.character_level = u16::MAX;
+    }),
+    ("standard_max_upgrade", |request| {
+        request.standard_max_upgrade = Some(u8::MAX);
+    }),
+    ("somber_max_upgrade", |request| {
+        request.somber_max_upgrade = Some(u8::MAX);
+    }),
+    ("scadutree_level", |request| {
+        request.scadutree_level = u8::MAX
+    }),
+    ("top_k", |request| request.top_k = usize::MAX),
+    ("filters.version", |request| {
+        request.filters.version = u8::MAX
+    }),
+    ("filters.entries", |request| {
+        request.filters.entries = vec![
+            dto::StableFilterEntryDto {
+                dimension: "weapon_family".into(),
+                id: "x".into(),
+                mode: "include".into(),
+            };
+            513
+        ];
+    }),
+    ("profile_id", |request| {
+        request.profile_id = oversized_text()
+    }),
+    ("class_name", |request| {
+        request.class_name = oversized_text()
+    }),
+    ("weapon_name", |request| {
+        request.weapon_name = Some(oversized_text());
+    }),
+    ("affinity", |request| {
+        request.affinity = Some(oversized_text())
+    }),
+    ("aow_name", |request| {
+        request.aow_name = Some(oversized_text())
+    }),
+    ("weapon_type_key", |request| {
+        request.weapon_type_key = Some(oversized_text());
+    }),
+    ("somber_filter", |request| {
+        request.somber_filter = oversized_text()
+    }),
+    ("result_grouping", |request| {
+        request.result_grouping = oversized_text();
+    }),
+    ("objective", |request| request.objective = oversized_text()),
+];
+
+#[cfg(test)]
+pub(crate) fn oversized_text() -> String {
+    "x".repeat(dto::MAX_TEXT_LEN + 1)
+}
+
+/// Runs a hostile request, which must fail fast with an error that does not echo oversized text.
+#[cfg(test)]
+pub(crate) fn assert_rejected_quickly<T: std::fmt::Debug>(
+    label: &str,
+    run: impl FnOnce() -> Result<T, errors::AppError>,
+) {
+    let started = std::time::Instant::now();
+    let outcome = run();
+    let elapsed = started.elapsed();
+    let error = outcome.expect_err(label);
+    assert!(
+        elapsed < std::time::Duration::from_secs(10),
+        "{label} took {elapsed:?} to fail"
+    );
+    assert!(
+        !error.message.contains(&oversized_text()[..32]),
+        "{label} echoed oversized text: {}",
+        error.message
+    );
+}
+
+/// Applies each hostile value (except the skipped ones, which the entry point resets
+/// before they matter) to the test request and requires the entry point to reject it.
+#[cfg(test)]
+pub(crate) fn assert_hostile_values_rejected(
+    entry_point: &str,
+    skipped: &[&str],
+    run: impl Fn(dto::OptimizeRequestDto) -> Result<(), errors::AppError>,
+) {
+    for (label, apply) in HOSTILE_OPTIMIZE_VALUES
+        .iter()
+        .filter(|(label, _)| !skipped.contains(label))
+    {
+        let mut request = test_optimize_request();
+        apply(&mut request);
+        assert_rejected_quickly(&format!("{entry_point}: {label}"), || run(request));
+    }
+}
+
+#[cfg(test)]
 mod release_data_tests {
     #[cfg(target_os = "windows")]
     #[test]
@@ -842,6 +1056,76 @@ mod release_data_tests {
             assert!(!manifest.id.is_empty());
             assert!(!manifest.app_version.is_empty());
             assert_eq!(data.dataset_version, manifest.dataset_version);
+        }
+    }
+}
+
+#[cfg(test)]
+mod navigation_guard_tests {
+    use super::is_app_origin;
+
+    fn allowed(url: &str, dev: bool) -> bool {
+        is_app_origin(&tauri::Url::parse(url).expect("test URL parses"), dev)
+    }
+
+    #[test]
+    fn app_pages_and_their_blobs_are_allowed() {
+        for url in [
+            "http://tauri.localhost/",
+            "http://tauri.localhost/index.html#/rankings",
+            "https://tauri.localhost/",
+            "tauri://localhost/",
+            "tauri://localhost/index.html",
+            "blob:http://tauri.localhost/6a2f1f4e-0a5a-4c53-8f4a-2f3c1a7b9d10",
+            "blob:tauri://localhost/6a2f1f4e-0a5a-4c53-8f4a-2f3c1a7b9d10",
+        ] {
+            assert!(allowed(url, false), "{url}");
+            assert!(allowed(url, true), "{url}");
+        }
+    }
+
+    #[test]
+    fn the_dev_server_is_allowed_only_in_dev_builds() {
+        for url in [
+            "http://localhost:1420/",
+            "http://127.0.0.1:1420/index.html",
+            "blob:http://localhost:1420/6a2f1f4e-0a5a-4c53-8f4a-2f3c1a7b9d10",
+        ] {
+            assert!(allowed(url, true), "{url}");
+            assert!(!allowed(url, false), "{url}");
+        }
+        for url in [
+            "http://localhost:1421/",
+            "http://localhost/",
+            "https://localhost:1420/",
+            "http://example.com:1420/",
+        ] {
+            assert!(!allowed(url, true), "{url}");
+        }
+    }
+
+    #[test]
+    fn remote_and_script_like_pages_are_refused() {
+        for url in [
+            "https://example.com/",
+            "http://tauri.localhost.example.com/",
+            "http://tauri.localhost@example.com/",
+            "http://tauri.localhost:8080/",
+            "http://ipc.localhost/",
+            "tauri://example.com/",
+            "tauri://localhost:1420/",
+            "file:///C:/Windows/win.ini",
+            "data:text/html,<script>alert(1)</script>",
+            "javascript:alert(1)",
+            "about:blank",
+            "ftp://tauri.localhost/",
+            "blob:https://example.com/6a2f1f4e-0a5a-4c53-8f4a-2f3c1a7b9d10",
+            "blob:blob:http://tauri.localhost/x",
+            "blob:null/6a2f1f4e-0a5a-4c53-8f4a-2f3c1a7b9d10",
+            "blob:",
+        ] {
+            assert!(!allowed(url, true), "{url}");
+            assert!(!allowed(url, false), "{url}");
         }
     }
 }

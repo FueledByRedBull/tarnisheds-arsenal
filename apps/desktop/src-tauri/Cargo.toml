@@ -12,6 +12,9 @@ default-run = "tarnisheds-arsenal-desktop"
 lto = "thin"
 codegen-units = 1
 
+[lints.rust]
+unsafe_code = "deny"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

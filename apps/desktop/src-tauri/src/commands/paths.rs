@@ -13,7 +13,7 @@ use crate::dto::{
     CombatStateDto, PathFinishedDto, PathJobStatusDto, PathMode, PathPreviewDto,
     PathPreviewRequestDto, PathProgressDto, PathStepDto, SolvedBuildDto,
     StartPathPreviewRequestDto, StartSearchResponseDto, lock_request_to_stats,
-    set_min_combat_stats, unlock_combat_stats, validate_levels_ahead, validate_path_batch,
+    set_min_combat_stats, unlock_combat_stats, validate_path_batch, validate_path_lane,
 };
 use crate::errors::AppError;
 use crate::{AppState, ProfileData};
@@ -23,9 +23,37 @@ pub fn start_path_preview(
     request: StartPathPreviewRequestDto,
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
+    let profile = prepare_path_preview(&request, &state)?;
+    state.path_jobs.start(
+        &state.next_job,
+        PathJobStatusDto {
+            progress: None,
+            finished: None,
+        },
+        move |job_id, cancel_flag, status| {
+            run_path_preview_job(
+                request.requests,
+                &profile,
+                job_id,
+                || !cancel_flag.load(Ordering::Relaxed),
+                |progress| {
+                    if let Ok(mut guard) = status.lock() {
+                        guard.progress = Some(progress);
+                    }
+                },
+            )
+        },
+        publish_path_result,
+    )
+}
+
+fn prepare_path_preview(
+    request: &StartPathPreviewRequestDto,
+    state: &AppState,
+) -> Result<Arc<ProfileData>, AppError> {
     validate_path_batch(request.requests.len())?;
     for lane in &request.requests {
-        validate_levels_ahead(lane.levels_ahead)?;
+        validate_path_lane(lane)?;
     }
     let Some(first_lane) = request.requests.first() else {
         return Err(AppError::new("At least one path lane is required."));
@@ -53,27 +81,7 @@ pub fn start_path_preview(
     for lane in &request.requests {
         validate_solved_loadout(&profile, &lane.solved)?;
     }
-    state.path_jobs.start(
-        &state.next_job,
-        PathJobStatusDto {
-            progress: None,
-            finished: None,
-        },
-        move |job_id, cancel_flag, status| {
-            run_path_preview_job(
-                request.requests,
-                &profile,
-                job_id,
-                || !cancel_flag.load(Ordering::Relaxed),
-                |progress| {
-                    if let Ok(mut guard) = status.lock() {
-                        guard.progress = Some(progress);
-                    }
-                },
-            )
-        },
-        publish_path_result,
-    )
+    Ok(profile)
 }
 
 #[tauri::command]
@@ -215,13 +223,13 @@ fn build_path_preview_inner(
     should_continue: impl Fn() -> bool + Sync,
     mut level_complete: impl FnMut(u16),
 ) -> Result<PathPreviewDto, AppError> {
+    validate_path_lane(&request)?;
     if profile.data_manifest.profile.id != request.base.profile_id {
         return Err(AppError::new(format!(
             "Unknown game profile {:?}. Reload the catalog and choose an available profile.",
             request.base.profile_id
         )));
     }
-    validate_levels_ahead(request.levels_ahead)?;
     if request.mode == PathMode::OptimumEnvelope {
         return build_optimum_envelope(request, profile, should_continue, level_complete);
     }
@@ -1385,6 +1393,124 @@ mod integration_tests {
                 assert_eq!(path.steps[0].level, 80);
                 assert_eq!(path.steps[1].level, 81);
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod hostile_request_tests {
+    use super::*;
+    use crate::commands::optimize::run_search_inner;
+    use crate::dto::MAX_LEVELS_AHEAD;
+    use crate::{assert_hostile_values_rejected, assert_rejected_quickly, oversized_text};
+
+    fn seed(state: &AppState) -> PathPreviewRequestDto {
+        let base = crate::test_optimize_request();
+        let solved = run_search_inner(base.clone(), state)
+            .expect("seed search succeeds")
+            .pop()
+            .expect("seed build exists");
+        PathPreviewRequestDto {
+            base,
+            solved,
+            levels_ahead: 1,
+            title: "Selected".to_string(),
+            mode: PathMode::NoRespec,
+        }
+    }
+
+    /// The validation of \`start_path_preview\` followed by the lane calculation.
+    fn run(state: &AppState, lanes: Vec<PathPreviewRequestDto>) -> Result<(), AppError> {
+        let profile = prepare_path_preview(
+            &StartPathPreviewRequestDto {
+                requests: lanes.clone(),
+            },
+            state,
+        )?;
+        for lane in lanes {
+            build_path_preview_inner(lane, &profile, || true, |_| {})?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn paths_reject_every_hostile_base_value() {
+        let state = crate::test_app_state();
+        let lane = seed(&state);
+        // The lane pins its loadout to the solved build, fixes that build's upgrade cap and
+        // unlocks every stat before calculating.
+        let skipped = [
+            "top_k",
+            "filters.entries",
+            "somber_filter",
+            "weapon_name",
+            "affinity",
+            "aow_name",
+            "weapon_type_key",
+            "standard_max_upgrade",
+            "lock_str",
+            "lock_dex",
+            "lock_int",
+            "lock_fai",
+            "lock_arc",
+        ];
+        for mode in [PathMode::NoRespec, PathMode::OptimumEnvelope] {
+            assert_hostile_values_rejected(
+                &format!("start_path_preview {mode:?}"),
+                &skipped,
+                |base| {
+                    let mut lane = lane.clone();
+                    lane.mode = mode;
+                    lane.base = base;
+                    run(&state, vec![lane])
+                },
+            );
+        }
+    }
+
+    #[test]
+    fn paths_reject_hostile_lane_values() {
+        let state = crate::test_app_state();
+        let seed = seed(&state);
+        let mut cases: Vec<(String, Vec<PathPreviewRequestDto>)> = vec![
+            ("empty batch".into(), Vec::new()),
+            ("batch above the cap".into(), vec![seed.clone(); 3]),
+        ];
+        for levels_ahead in [MAX_LEVELS_AHEAD + 1, u16::MAX] {
+            let mut lane = seed.clone();
+            lane.levels_ahead = levels_ahead;
+            cases.push((format!("levels_ahead {levels_ahead}"), vec![lane]));
+        }
+        let mut lane = seed.clone();
+        lane.title = oversized_text();
+        cases.push(("title".into(), vec![lane]));
+        let mut lane = seed.clone();
+        lane.solved.weapon_name = oversized_text();
+        cases.push(("solved.weaponName".into(), vec![lane]));
+        let mut lane = seed.clone();
+        lane.solved.upgrade = u8::MAX;
+        cases.push(("solved.upgrade".into(), vec![lane]));
+        let hostile_stats: [fn(&mut CombatStateDto); 5] = [
+            |stats| stats.str_stat = u8::MAX,
+            |stats| stats.dex = u8::MAX,
+            |stats| stats.int_stat = u8::MAX,
+            |stats| stats.fai = u8::MAX,
+            |stats| stats.arc = u8::MAX,
+        ];
+        // Only the no-respec walk starts from the solved stats; the envelope solves each level afresh.
+        for (index, hostile_stat) in hostile_stats.into_iter().enumerate() {
+            let mut lane = seed.clone();
+            hostile_stat(&mut lane.solved.stats);
+            cases.push((format!("solved.stats[{index}]"), vec![lane]));
+        }
+        let mut lane = seed.clone();
+        lane.base.character_level = u16::MAX;
+        lane.levels_ahead = MAX_LEVELS_AHEAD;
+        cases.push(("character_level at the u16 limit".into(), vec![lane]));
+        for (label, lanes) in cases {
+            assert_rejected_quickly(&format!("start_path_preview: {label}"), || {
+                run(&state, lanes)
+            });
         }
     }
 }

@@ -8,7 +8,7 @@ use tauri::State;
 use crate::dto::{
     CatalogDto, ClassMetadataDto, CombatStateDto, CompatibleAowsForAffinityRequestDto,
     DisplayPoiseDamageDto, EightStatsDto, FilterDimensionDto, FilterOptionDto, WeaponProfileDto,
-    WeaponProfileRequestDto, WeaponTypeOptionDto,
+    WeaponProfileRequestDto, WeaponTypeOptionDto, check_len,
 };
 use crate::errors::AppError;
 use crate::{AppState, ProfileData};
@@ -248,7 +248,7 @@ impl CatalogIndex {
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_profiles(
     state: State<'_, AppState>,
 ) -> Result<Vec<crate::dto::DataManifestDto>, AppError> {
@@ -270,7 +270,7 @@ pub fn get_profiles(
     Ok(profiles)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_catalog(profile_id: String, state: State<'_, AppState>) -> Result<CatalogDto, AppError> {
     let profile = state.profile(&profile_id)?;
     let data = &profile.data;
@@ -340,7 +340,7 @@ pub fn get_data_manifest(
     Ok(state.profile(&profile_id)?.data_manifest.clone())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn compatible_aow_names_for_affinity(
     request: CompatibleAowsForAffinityRequestDto,
     state: State<'_, AppState>,
@@ -349,6 +349,7 @@ pub fn compatible_aow_names_for_affinity(
     let affinity = request
         .affinity
         .ok_or_else(|| AppError::new("Choose an affinity to list its Ashes of War."))?;
+    check_len("affinity", &affinity)?;
     Ok(profile
         .catalog_index
         .compatible_aows_by_affinity
@@ -357,12 +358,16 @@ pub fn compatible_aow_names_for_affinity(
         .unwrap_or_default())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_weapon_profile(
     request: WeaponProfileRequestDto,
     state: State<'_, AppState>,
 ) -> Result<WeaponProfileDto, AppError> {
     let profile = state.profile(&request.profile_id)?;
+    check_len("weaponName", &request.weapon_name)?;
+    if let Some(affinity) = &request.affinity {
+        check_len("affinity", affinity)?;
+    }
     weapon_profile_inner(&profile.data, &profile.catalog_index, &request)
 }
 

@@ -14,8 +14,8 @@ use crate::dto::{
     AnalysisFinishedDto, AnalysisJobKindDto, AnalysisJobStatusDto, ArBleedFrontierPointDto,
     ArBleedFrontierRequestDto, CombatStateDto, SearchFinishedDto, SearchJobStatusDto,
     SearchProgressDto, SolveBuildRequestDto, SolvedBuildDto, StartSearchResponseDto,
-    UpgradePointDto, UpgradeSeriesRequestDto, lock_request_to_stats, metric_for_objective,
-    set_min_combat_stats,
+    UpgradePointDto, UpgradeSeriesRequestDto, check_len, lock_request_to_stats,
+    metric_for_objective, set_min_combat_stats, validate_optimize_request,
 };
 use crate::errors::AppError;
 use crate::{AppState, ProfileData};
@@ -354,6 +354,11 @@ pub fn validate_solved_loadout(
     profile: &ProfileData,
     solved: &SolvedBuildDto,
 ) -> Result<(), AppError> {
+    check_len("solved.weaponName", &solved.weapon_name)?;
+    check_len("solved.affinity", &solved.affinity)?;
+    if let Some(aow_name) = &solved.aow_name {
+        check_len("solved.aowName", aow_name)?;
+    }
     let weapon = solved_weapon(profile, solved)?;
     if weapon.is_somber != solved.is_somber
         || crate::commands::data::weapon_row_upgrade_cap(&profile.data, weapon)
@@ -671,6 +676,7 @@ fn clamp_weapon_upgrade_request_for_profile(
     request: &mut crate::dto::OptimizeRequestDto,
     profile: &ProfileData,
 ) -> Result<(), AppError> {
+    validate_optimize_request(request)?;
     if profile.data_manifest.profile.id != request.profile_id {
         return Err(AppError::new(format!(
             "Unknown game profile {:?}. Reload the catalog and choose an available profile.",
@@ -2019,6 +2025,176 @@ mod integration_tests {
             .unwrap();
             serde_json::to_vec(&evaluate_ar_bleed_frontier(&request, &data, || true).unwrap())
                 .unwrap()
+        });
+    }
+}
+
+#[cfg(test)]
+mod hostile_request_tests {
+    use super::*;
+    use crate::commands::optimize::run_search_inner;
+    use crate::{assert_hostile_values_rejected, assert_rejected_quickly, oversized_text};
+
+    /// Values that `pin_loadout` replaces before the core sees the request.
+    const RESET_BY_PINNING: &[&str] = &[
+        "top_k",
+        "filters.entries",
+        "somber_filter",
+        "weapon_name",
+        "affinity",
+        "aow_name",
+        "weapon_type_key",
+    ];
+
+    fn seed(state: &AppState) -> SolvedBuildDto {
+        run_search_inner(crate::test_optimize_request(), state)
+            .expect("seed search succeeds")
+            .pop()
+            .expect("seed build exists")
+    }
+
+    #[test]
+    fn search_rejects_every_hostile_value() {
+        let state = crate::test_app_state();
+        assert_hostile_values_rejected("start_search", &[], |request| {
+            run_search_inner(request, &state).map(|_| ())
+        });
+    }
+
+    #[test]
+    fn solve_build_rejects_every_hostile_value() {
+        let state = crate::test_app_state();
+        let solve = |base, weapon_name: &str, affinity: Option<String>, aow_name| {
+            solve_build_inner(
+                SolveBuildRequestDto {
+                    base,
+                    weapon_name: weapon_name.to_string(),
+                    affinity,
+                    aow_name,
+                },
+                &state,
+            )
+            .map(|_| ())
+        };
+        assert_hostile_values_rejected("start_solve_build", RESET_BY_PINNING, |base| {
+            solve(base, "Uchigatana", Some("Keen".into()), None)
+        });
+        let base = crate::test_optimize_request;
+        assert_rejected_quickly("solve weaponName", || {
+            solve(base(), &oversized_text(), Some("Keen".into()), None)
+        });
+        assert_rejected_quickly("solve affinity", || {
+            solve(base(), "Uchigatana", Some(oversized_text()), None)
+        });
+        assert_rejected_quickly("solve aowName", || {
+            solve(
+                base(),
+                "Uchigatana",
+                Some("Keen".into()),
+                Some(oversized_text()),
+            )
+        });
+    }
+
+    #[test]
+    fn upgrade_series_rejects_every_hostile_value() {
+        let state = crate::test_app_state();
+        let solved = seed(&state);
+        let series = |base, solved, max_upgrade| {
+            build_upgrade_series_inner(
+                UpgradeSeriesRequestDto {
+                    base,
+                    solved,
+                    max_upgrade,
+                },
+                &state,
+            )
+            .map(|_| ())
+        };
+        // The series locks the stats to the solved build, clears every minimum and
+        // replaces both upgrade caps.
+        let skipped = [
+            RESET_BY_PINNING,
+            &[
+                "standard_max_upgrade",
+                "somber_max_upgrade",
+                "min_str",
+                "min_dex",
+                "min_int",
+                "min_fai",
+                "min_arc",
+                "lock_str",
+                "lock_dex",
+                "lock_int",
+                "lock_fai",
+                "lock_arc",
+            ],
+        ]
+        .concat();
+        assert_hostile_values_rejected("start_upgrade_series", &skipped, |base| {
+            series(base, solved.clone(), 25)
+        });
+        let hostile_stats: [fn(&mut CombatStateDto); 5] = [
+            |stats| stats.str_stat = u8::MAX,
+            |stats| stats.dex = u8::MAX,
+            |stats| stats.int_stat = u8::MAX,
+            |stats| stats.fai = u8::MAX,
+            |stats| stats.arc = u8::MAX,
+        ];
+        for (index, hostile_stat) in hostile_stats.into_iter().enumerate() {
+            let mut hostile = solved.clone();
+            hostile_stat(&mut hostile.stats);
+            assert_rejected_quickly(&format!("series solved.stats[{index}]"), || {
+                series(crate::test_optimize_request(), hostile, 25)
+            });
+        }
+        let mut hostile = solved.clone();
+        hostile.weapon_name = oversized_text();
+        assert_rejected_quickly("series solved.weaponName", || {
+            series(crate::test_optimize_request(), hostile, 25)
+        });
+    }
+
+    #[test]
+    fn upgrade_series_clamps_an_oversized_max_upgrade_to_the_weapon() {
+        let state = crate::test_app_state();
+        let solved = seed(&state);
+        let points = build_upgrade_series_inner(
+            UpgradeSeriesRequestDto {
+                base: crate::test_optimize_request(),
+                solved,
+                max_upgrade: u8::MAX,
+            },
+            &state,
+        )
+        .expect("a maximum above the weapon's cap is clamped");
+        assert_eq!(points.len(), 26);
+        assert_eq!(points.last().map(|point| point.upgrade), Some(25));
+    }
+
+    #[test]
+    fn ar_bleed_frontier_rejects_every_hostile_value() {
+        let state = crate::test_app_state();
+        let solved = seed(&state);
+        let frontier = |base, solved| {
+            let (request, data) =
+                prepare_ar_bleed_frontier(ArBleedFrontierRequestDto { base, solved }, &state)?;
+            evaluate_ar_bleed_frontier(&request, &data, || true).map(|_| ())
+        };
+        // The frontier sets the objective and the cap of the solved build's reinforcement type.
+        let skipped = [RESET_BY_PINNING, &["objective", "standard_max_upgrade"]].concat();
+        assert_hostile_values_rejected("start_ar_bleed_frontier", &skipped, |base| {
+            frontier(base, solved.clone())
+        });
+        let mut hostile = solved.clone();
+        hostile.upgrade = u8::MAX;
+        assert_rejected_quickly("frontier solved.upgrade", || {
+            frontier(crate::test_optimize_request(), hostile)
+        });
+        let mut hostile = solved;
+        hostile.affinity = oversized_text();
+        assert_rejected_quickly("frontier solved.affinity", || {
+            frontier(crate::test_optimize_request(), hostile)
         });
     }
 }

@@ -10,7 +10,7 @@ use crate::dto::{
     AffinityBreakpointDto, AffinityWatchFinishedDto, AffinityWatchJobStatusDto,
     AffinityWatchLineDto, AffinityWatchPayloadDto, AffinityWatchPointDto, AffinityWatchProgressDto,
     AffinityWatchRequestDto, SolvedBuildDto, StartSearchResponseDto, unlock_combat_stats,
-    validate_levels_ahead,
+    validate_affinity_watch_request,
 };
 use crate::errors::AppError;
 use crate::{AppState, ProfileData};
@@ -21,14 +21,7 @@ pub fn start_affinity_watch(
     request: AffinityWatchRequestDto,
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
-    validate_levels_ahead(request.levels_ahead)?;
-    let profile = Arc::clone(state.profile(&request.base.profile_id)?);
-    if !crate::commands::data::uses_class_budget(&profile, &request.base.class_name) {
-        return Err(AppError::new(
-            "Affinity Watch requires verified profile class budgets.",
-        ));
-    }
-    validate_solved_loadout(&profile, &request.solved)?;
+    let profile = prepare_affinity_watch(&request, &state)?;
     state.affinity_jobs.start(
         &state.next_job,
         AffinityWatchJobStatusDto {
@@ -84,6 +77,21 @@ pub fn start_affinity_watch(
     )
 }
 
+fn prepare_affinity_watch(
+    request: &AffinityWatchRequestDto,
+    state: &AppState,
+) -> Result<Arc<ProfileData>, AppError> {
+    validate_affinity_watch_request(request)?;
+    let profile = Arc::clone(state.profile(&request.base.profile_id)?);
+    if !crate::commands::data::uses_class_budget(&profile, &request.base.class_name) {
+        return Err(AppError::new(
+            "Affinity Watch requires verified profile class budgets.",
+        ));
+    }
+    validate_solved_loadout(&profile, &request.solved)?;
+    Ok(profile)
+}
+
 fn publish_affinity_finished(
     status: &mut AffinityWatchJobStatusDto,
     outcome: Result<AffinityWatchFinishedDto, String>,
@@ -122,13 +130,13 @@ fn build_affinity_watch_inner(
     progress_cb: impl FnMut(AffinityWatchProgressDto) -> bool + Send,
     should_continue: impl Fn() -> bool + Sync,
 ) -> Result<AffinityWatchPayloadDto, AppError> {
+    validate_affinity_watch_request(&request)?;
     if profile.data_manifest.profile.id != request.base.profile_id {
         return Err(AppError::new(format!(
             "Unknown game profile {:?}. Reload the catalog and choose an available profile.",
             request.base.profile_id
         )));
     }
-    validate_levels_ahead(request.levels_ahead)?;
     OptimizeObjective::parse(&request.base.objective)?;
     let affinities = affinity_watch_affinities_for_profile(&request.solved, profile);
     let levels: Vec<u16> = (0..=request.levels_ahead)
@@ -678,6 +686,93 @@ mod integration_tests {
                     "samples_ms": durations,
                 })
             );
+        }
+    }
+}
+
+#[cfg(test)]
+mod hostile_request_tests {
+    use super::*;
+    use crate::commands::optimize::run_search_inner;
+    use crate::dto::MAX_LEVELS_AHEAD;
+    use crate::{assert_hostile_values_rejected, assert_rejected_quickly, oversized_text};
+
+    fn seed(state: &AppState) -> AffinityWatchRequestDto {
+        let base = crate::test_optimize_request();
+        let solved = run_search_inner(base.clone(), state)
+            .expect("seed search succeeds")
+            .pop()
+            .expect("seed build exists");
+        AffinityWatchRequestDto {
+            base,
+            solved,
+            levels_ahead: 1,
+        }
+    }
+
+    /// The validation of `start_affinity_watch` followed by the calculation.
+    fn run(state: &AppState, request: AffinityWatchRequestDto) -> Result<(), AppError> {
+        let profile = prepare_affinity_watch(&request, state)?;
+        build_affinity_watch_inner(request, &profile, |_| true, || true).map(|_| ())
+    }
+
+    #[test]
+    fn affinity_watch_rejects_every_hostile_base_value() {
+        let state = crate::test_app_state();
+        let seed = seed(&state);
+        // Each affinity row pins its loadout, fixes the solved build's upgrade cap and
+        // unlocks every stat before calculating.
+        let skipped = [
+            "top_k",
+            "filters.entries",
+            "somber_filter",
+            "weapon_name",
+            "affinity",
+            "aow_name",
+            "weapon_type_key",
+            "standard_max_upgrade",
+            "lock_str",
+            "lock_dex",
+            "lock_int",
+            "lock_fai",
+            "lock_arc",
+        ];
+        assert_hostile_values_rejected("start_affinity_watch", &skipped, |base| {
+            let mut request = seed.clone();
+            request.base = base;
+            run(&state, request)
+        });
+    }
+
+    #[test]
+    fn affinity_watch_rejects_hostile_request_values() {
+        let state = crate::test_app_state();
+        let seed = seed(&state);
+        let mut cases: Vec<(String, AffinityWatchRequestDto)> = Vec::new();
+        for levels_ahead in [MAX_LEVELS_AHEAD + 1, u16::MAX] {
+            let mut request = seed.clone();
+            request.levels_ahead = levels_ahead;
+            cases.push((format!("levels_ahead {levels_ahead}"), request));
+        }
+        for character_level in [700, u16::MAX] {
+            let mut request = seed.clone();
+            request.base.character_level = character_level;
+            request.levels_ahead = MAX_LEVELS_AHEAD;
+            cases.push((format!("character_level {character_level}"), request));
+        }
+        let mut request = seed.clone();
+        request.solved.upgrade = u8::MAX;
+        cases.push(("solved.upgrade".into(), request));
+        let mut request = seed.clone();
+        request.solved.weapon_name = oversized_text();
+        cases.push(("solved.weaponName".into(), request));
+        let mut request = seed.clone();
+        request.solved.aow_name = Some(oversized_text());
+        cases.push(("solved.aowName".into(), request));
+        for (label, request) in cases {
+            assert_rejected_quickly(&format!("start_affinity_watch: {label}"), || {
+                run(&state, request)
+            });
         }
     }
 }
