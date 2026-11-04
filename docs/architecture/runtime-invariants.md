@@ -40,6 +40,13 @@ Status: accepted. These rules describe contracts that tests and future refactors
   numeric-range check. Rust validators and serialization tests remain required.
   Native String fields can have narrower frontend literal types; permitted values
   still belong to native validation.
+- Native validation bounds every request text field to 256 bytes and never echoes
+  rejected text in an error. Each command has a table-driven hostile-request test
+  that expects an error, not a panic, for out-of-range stats, levels, upgrades and
+  oversized text.
+- The main window may navigate only within the app origin; the Vite dev server is
+  allowed only in development builds. The CSP also forbids form submission, and
+  JavaScript prototypes are frozen.
 - React Hooks rules, including the React Compiler checks, are lint errors. Async effects
   must retain generation/cancellation guards when dependencies change. Comparison
   persistence and preset imports share the solved-build shape validator in
