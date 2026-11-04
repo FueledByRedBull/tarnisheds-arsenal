@@ -2294,6 +2294,17 @@ mod tests {
             .expect("Three Finger Blade");
         assert!(inseparable.is_somber);
         assert!(three_finger.is_somber);
+        // Somber identity follows the upgrade stones, not the reinforce type: the mod puts
+        // Smithing Stone weapons on type 2200 and a Somber shield on type 2900.
+        let somber = |weapon_id: u32| {
+            data.weapons
+                .iter()
+                .find(|weapon| weapon.weapon_id == weapon_id)
+                .map(|weapon| (weapon.reinforce_type, weapon.is_somber))
+        };
+        assert_eq!(somber(33_000_000), Some((2400, false)), "Glintstone Staff");
+        assert_eq!(somber(31_350_000), Some((2900, true)), "Aegis of Hadea");
+        assert_eq!(somber(2_530_000), Some((1500, false)), "Carian Sorcery Sword");
         assert_eq!(data.rules.somber_max_upgrade, 15);
         let plus_thirteen = data
             .reinforce_level(galvanic.reinforce_type, 13)
