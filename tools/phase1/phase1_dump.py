@@ -37,6 +37,7 @@ ATTACK_ELEMENT_PARAM = "AttackElementCorrectParam.param"
 AOW_PARAM = "EquipParamGem.param"
 SPEFFECT_PARAM = "SpEffectParam.param"
 CHARA_INIT_PARAM = "CharaInitParam.param"
+MATERIAL_PARAM = "EquipMtrlSetParam.param"
 CLASS_MENU_PARAM = "BaseChrSelectMenuParam.param"
 CLASS_CATALOG_FILE = "classes.csv"
 CLASS_STAT_FIELDS = (
@@ -52,6 +53,8 @@ CLASS_STAT_FIELDS = (
 # Rune Level is the eight-attribute total minus 79 for every class row.
 CLASS_LEVEL_OFFSET = 79
 WITCHYBND_TIMEOUT_SECONDS = 600
+# Share of non-empty name-table entries that may be unparseable before the file is rejected.
+MAX_MALFORMED_NAME_PERCENT = 1
 # Paramdex definitions WitchyBND uses to serialize the params above.
 PARAM_DEFINITIONS = (
     "EquipParamWeapon",
@@ -90,7 +93,8 @@ DAMAGE_CURVE_FIELDS = {
 # Weapon model fields fail extraction when absent; their declared XML defaults are
 # materialized so omitted-at-default attributes stay valid.
 WEAPON_MODEL_FIELDS = (
-    "originEquipWep", "reinforceTypeId", "disableGemAttr", "gemMountType", "wepType",
+    "originEquipWep", "reinforceTypeId", "materialSetId", "disableGemAttr", "gemMountType",
+    "wepType",
     "attackElementCorrectId", "swordArtsParamId", "weight", "throwAtkRate", "isDualBlade",
     "staminaConsumptionRate",
     "attackBasePhysics", "attackBaseMagic", "attackBaseFire", "attackBaseThunder", "attackBaseDark",
@@ -191,6 +195,7 @@ class RegulationContext:
     class_menu_rows: list[dict[str, str]]
     chara_init_rows: list[dict[str, str]]
     class_name_map: dict[int, str]
+    material_rows: list[dict[str, str]]
 
 
 def parse_args() -> argparse.Namespace:
@@ -277,13 +282,13 @@ def unpack_regulation(regulation_path: Path, witchybnd_path: Path, workdir: Path
     shutil.copy2(regulation_path, regulation_copy)
     run_witchybnd(witchybnd_path, regulation_copy)
 
-    unpacked = next(
-        (item for item in workdir.iterdir() if item.is_dir() and "regulation" in item.name.lower()),
-        None,
-    )
-    if unpacked is None:
-        raise RuntimeError("Could not find unpacked regulation folder.")
-    return unpacked
+    unpacked = [item for item in workdir.iterdir() if item.is_dir() and "regulation" in item.name.lower()]
+    if len(unpacked) != 1:
+        raise RuntimeError(
+            f"Expected exactly one unpacked regulation folder, found {len(unpacked)}: "
+            f"{sorted(item.name for item in unpacked)}"
+        )
+    return unpacked[0]
 
 
 def serialize_param(unpacked_dir: Path, witchybnd_path: Path, param_name: str) -> Path:
@@ -412,6 +417,35 @@ def read_csv(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
+def read_csv_strict(path: Path) -> list[dict[str, str]]:
+    """Read a CSV whose every row has exactly the header's fields."""
+    rows: list[dict[str, str]] = []
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            if None in row:
+                raise ValueError(f"{path} line {reader.line_num}: row has more fields than the header")
+            if any(value is None for value in row.values()):
+                raise ValueError(f"{path} line {reader.line_num}: row has fewer fields than the header")
+            rows.append(row)
+    return rows
+
+
+def check_malformed_name_lines(malformed: int, total: int, source: Path) -> None:
+    if malformed * 100 > total * MAX_MALFORMED_NAME_PERCENT:
+        raise ValueError(
+            f"{source} has {malformed} malformed entries of {total}; "
+            f"more than {MAX_MALFORMED_NAME_PERCENT}% means the file is not a name table"
+        )
+
+
+def record_name(mapping: dict[int, str], key: int, value: str, source: Path) -> None:
+    previous = mapping.get(key)
+    if previous is not None and previous != value:
+        raise ValueError(f"{source} names id={key} both {previous!r} and {value!r}")
+    mapping[key] = value
+
+
 def paramdex_path(witchybnd_path: Path, *parts: str) -> Path:
     return witchybnd_path.parent.joinpath("Assets", "Paramdex", "ER", *parts)
 
@@ -422,22 +456,27 @@ def load_param_name_map(witchybnd_path: Path, param_name: str) -> dict[int, str]
         raise FileNotFoundError(f"Paramdex names file not found: {names_path}")
 
     mapping: dict[int, str] = {}
+    total = malformed = 0
     with names_path.open("r", encoding="utf-8") as handle:
         for line in handle:
             line = line.rstrip("\n")
             if not line:
                 continue
+            total += 1
             parts = line.split(" ", 1)
             if len(parts) != 2:
+                malformed += 1
                 continue
             try:
                 key = int(parts[0])
             except ValueError:
+                malformed += 1
                 continue
             value = parts[1].strip()
             if not value or value in {"%null%", "[ERROR]"}:
                 continue
-            mapping[key] = value
+            record_name(mapping, key, value, names_path)
+    check_malformed_name_lines(malformed, total, names_path)
     if not mapping:
         raise ValueError(f"Paramdex names file contains no usable entries: {names_path}")
     return mapping
@@ -452,16 +491,22 @@ def load_fmg_name_map(xml_path: Path) -> dict[int, str]:
         raise FileNotFoundError(f"FMG name source not found: {xml_path}")
     root = ET.parse(checked_xml_size(xml_path)).getroot()
     mapping: dict[int, str] = {}
+    total = malformed = 0
     for element in root.findall("./entries/text"):
-        raw_id = element.get("id")
         value = (element.text or "").strip()
-        if raw_id is None or not value or value in {"%null%", "[ERROR]"}:
+        if not value:
             continue
+        total += 1
         try:
-            entry_id = int(raw_id)
+            entry_id = int(element.get("id", ""))
         except ValueError:
+            malformed += 1
             continue
+        if value in {"%null%", "[ERROR]"}:
+            continue
+        # Mod FMGs can name one id twice (Convergence 3.0.0.1 does); the later entry wins.
         mapping[entry_id] = value
+    check_malformed_name_lines(malformed, total, xml_path)
     if not mapping:
         raise ValueError(f"FMG name source contains no usable entries: {xml_path}")
     return mapping
@@ -793,6 +838,7 @@ def build_weapon_rows(
     use_workbook_weapon_metadata: bool,
     weapon_name_overrides: Mapping[int, str],
     somber_reinforce_types: frozenset[int],
+    somber_weapon_ids: frozenset[int] | None = None,
     weapon_affinity_by_id: Mapping[int, str] | None = None,
     include_every_variant: bool = False,
 ) -> list[dict[str, object]]:
@@ -930,12 +976,46 @@ def build_weapon_rows(
                 "disable_gem_attr": disable_gem_attr,
                 "can_change_aow": int(to_int(row, "gemMountType", None) == 2),
                 "disable_two_hand_bonus": to_int(row, "isDualBlade", None),
-                "is_somber": int(reinforce_type in somber_reinforce_types),
+                "is_somber": int(
+                    weapon_id in somber_weapon_ids
+                    if somber_weapon_ids is not None
+                    else reinforce_type in somber_reinforce_types
+                ),
             }
         )
 
     rows_out.sort(key=lambda item: object_to_int(item["weapon_id"]))
     return rows_out
+
+
+def somber_weapon_ids_from_materials(
+    weapon_rows: Sequence[dict[str, str]],
+    reinforce_rows: Sequence[dict[str, str]],
+    material_rows: Sequence[dict[str, str]],
+    somber_material: int,
+) -> frozenset[int]:
+    """Weapons whose first upgrade costs `somber_material`.
+
+    The game adds the reinforce level's materialSetId to the weapon's to find the
+    EquipMtrlSetParam row, so one reinforce type can mix Smithing and Somber weapons.
+    """
+    level_offsets = {to_int(row, "id", None): to_int(row, "materialSetId", None) for row in reinforce_rows}
+    first_materials = {to_int(row, "id", None): to_int(row, "materialId01", None) for row in material_rows}
+    somber: set[int] = set()
+    for row in weapon_rows:
+        offset = level_offsets.get(to_int(row, "reinforceTypeId", None) + 1)
+        if offset is None:
+            continue
+        weapon_id = to_int(row, "id", None)
+        material_id = to_int(row, "materialSetId", None) + offset
+        first_material = first_materials.get(material_id)
+        if first_material is None:
+            raise ValueError(
+                f"weapon {weapon_id} upgrade material set {material_id} is missing from EquipMtrlSetParam"
+            )
+        if first_material == somber_material:
+            somber.add(weapon_id)
+    return frozenset(somber)
 
 
 def build_class_rows(
@@ -1112,6 +1192,7 @@ def load_regulation_context(
     weapon_name_xmls: Sequence[Path] = (),
     arts_name_xmls: Sequence[Path] = (),
     class_name_xml: Path | None = None,
+    upgrade_materials: bool = False,
 ) -> RegulationContext:
     class_catalog = class_name_xml is not None
     unpacked_dir = unpack_regulation(regulation_path, witchybnd_path, workdir)
@@ -1119,6 +1200,8 @@ def load_regulation_context(
               ATTACK_ELEMENT_PARAM, AOW_PARAM, SPEFFECT_PARAM]
     if class_catalog:
         params += [CHARA_INIT_PARAM, CLASS_MENU_PARAM]
+    if upgrade_materials:
+        params.append(MATERIAL_PARAM)
     xml_paths = {param: serialize_param(unpacked_dir, witchybnd_path, param) for param in params}
     weapon_rows = list(iter_param_rows(xml_paths[WEAPON_PARAM], default_fields=WEAPON_MODEL_FIELDS))
     reinforce_rows = list(iter_param_rows(xml_paths[REINFORCE_PARAM], apply_defaults=True))
@@ -1162,6 +1245,11 @@ def load_regulation_context(
         class_menu_rows=class_menu_rows,
         chara_init_rows=chara_init_rows,
         class_name_map=load_fmg_name_map(class_name_xml) if class_name_xml is not None else {},
+        material_rows=(
+            list(iter_param_rows(xml_paths[MATERIAL_PARAM], apply_defaults=True))
+            if upgrade_materials
+            else []
+        ),
     )
 
 
@@ -1270,6 +1358,7 @@ def main() -> int:
         weapon_name_xmls,
         arts_name_xmls,
         class_name_xml=class_name_xml,
+        upgrade_materials=profile.somber_upgrade_material is not None,
     )
     context.sword_art_name_map.update(profile.sword_art_name_overrides)
     reinforce_csv_rows, max_level_by_type = build_reinforce_rows(context.reinforce_rows)
@@ -1292,6 +1381,16 @@ def main() -> int:
         use_workbook_weapon_metadata=profile.use_workbook_weapon_metadata,
         weapon_name_overrides=profile.weapon_name_overrides,
         somber_reinforce_types=profile.somber_reinforce_types,
+        somber_weapon_ids=(
+            somber_weapon_ids_from_materials(
+                context.weapon_rows,
+                context.reinforce_rows,
+                context.material_rows,
+                profile.somber_upgrade_material,
+            )
+            if profile.somber_upgrade_material is not None
+            else None
+        ),
         weapon_affinity_by_id=weapon_affinity_by_id,
         include_every_variant=args.availability_candidate,
     )
@@ -1534,6 +1633,8 @@ def main() -> int:
         definitions += ["BehaviorParam", "SwordArtsParam"]
     if profile.class_catalog_from_regulation:
         definitions += ["CharaInitParam", "BaseChrSelectMenuParam"]
+    if profile.somber_upgrade_material is not None:
+        definitions += ["EquipMtrlSetParam"]
     for definition in definitions:
         source_paths[f"paramdexDefs{definition}"] = paramdex_path(
             witchybnd_path, "Defs", f"{definition}.xml"

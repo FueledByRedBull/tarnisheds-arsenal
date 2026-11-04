@@ -22,7 +22,7 @@ test("tradeoff views select exact threshold choices and persist an exact apply",
       return points;
     };
   });
-  const section = page.getByRole("region", { name: "AR / Bleed tradeoffs" });
+  const section = page.getByRole("region", { name: "AR / Bleed trade-offs" });
   await section.getByRole("button", { name: "Compute trade-offs", exact: true }).click();
   await expect(section.getByRole("status")).toContainText("4 exact trade-off points");
   const shortlist = section.locator(".tradeoff-shortlist");
@@ -36,7 +36,7 @@ test("tradeoff views select exact threshold choices and persist an exact apply",
   await expect(section.locator(".tradeoff-inspection")).toContainText("Gain 5.0 bleed buildup");
   await input.fill("1.001");
   await expect(section.getByRole("alert")).toContainText("steps of 0.01%");
-  await section.getByText("Explore all tradeoffs (4)", { exact: true }).click();
+  await section.getByText("Explore all trade-offs (4)", { exact: true }).click();
   await expect(section.locator(".tradeoff-all tbody tr")).toHaveCount(4);
   const point = section.getByRole("button", { name: /^Point 4:/ });
   await point.press("Enter");
@@ -168,7 +168,7 @@ test("tradeoff views select exact threshold choices and persist an exact apply",
   });
   await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
   await page.getByText("Comparison current", { exact: true }).waitFor();
-  await expect(page.getByRole("region", { name: "AR / Bleed tradeoffs" })).toContainText("All five combat locks are active, so there is no stat allocation left to vary.");
+  await expect(page.getByRole("region", { name: "AR / Bleed trade-offs" })).toContainText("All five combat locks are active, so there is no stat allocation left to vary.");
 });
 
 test("singleton frontier explains tied allocations", async ({ page }) => {
@@ -178,7 +178,7 @@ test("singleton frontier explains tied allocations", async ({ page }) => {
     const original = api.arBleedFrontier;
     api.arBleedFrontier = async (...args) => [(await original(...args))[0]];
   });
-  const section = page.getByRole("region", { name: "AR / Bleed tradeoffs" });
+  const section = page.getByRole("region", { name: "AR / Bleed trade-offs" });
   await expect(section).not.toContainText("Only one non-dominated AR / bleed outcome exists under these constraints; other allocations may tie.");
   await section.getByRole("button", { name: "Compute trade-offs", exact: true }).click();
   await expect(section.getByRole("status")).toHaveText("1 exact trade-off point ready.");
@@ -223,10 +223,10 @@ test("a finished frontier and its chosen point survive leaving Compare", async (
     (window as any).frontierCalls = 0;
     api.arBleedFrontier = async (...args) => { (window as any).frontierCalls++; return original(...args); };
   });
-  const section = page.getByRole("region", { name: "AR / Bleed tradeoffs" });
+  const section = page.getByRole("region", { name: "AR / Bleed trade-offs" });
   await section.getByRole("button", { name: "Compute trade-offs", exact: true }).click();
   await expect(section.getByRole("status")).toContainText("4 exact trade-off points ready");
-  await section.getByText("Explore all tradeoffs (4)", { exact: true }).click();
+  await section.getByText("Explore all trade-offs (4)", { exact: true }).click();
   await section.getByRole("button", { name: /^Point 4:/ }).click();
   await expect(section.getByRole("button", { name: /^Point 4:/ })).toHaveAttribute("aria-pressed", "true");
 
@@ -252,7 +252,7 @@ test("an input change while Compare is hidden cancels a pending frontier", async
 test("a frontier cancelled while Compare is hidden is ready again when its context returns", async ({ page }) => {
   await searchAndCompare(page);
   await holdFrontier(page);
-  const section = page.getByRole("region", { name: "AR / Bleed tradeoffs" });
+  const section = page.getByRole("region", { name: "AR / Bleed trade-offs" });
   await section.getByRole("button", { name: "Compute trade-offs", exact: true }).click();
   await expect(section.getByRole("status")).toContainText("Calculating");
   await page.keyboard.press("Control+1");

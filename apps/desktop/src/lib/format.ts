@@ -20,7 +20,7 @@ export function fixed1(value: number | null | undefined): string {
 export function objectiveLabel(objective: ObjectiveId): string {
   switch (objective) {
     case "max_physical_ar":
-      return "Max Phys. AR";
+      return "Max Physical AR";
     case "max_ar_plus_bleed":
       return "Bleed, then AR";
     case "aow_first_hit":

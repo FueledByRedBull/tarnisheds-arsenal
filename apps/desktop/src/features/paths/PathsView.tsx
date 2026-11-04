@@ -76,7 +76,7 @@ export function PathsView() {
 
   if (resultsStale) {
     return <WorkspaceGate panelClass="paths-panel" title="Paths" requirement="Requires current ranked results"
-      heading="Update Rankings before continuing" message="The selected build belongs to the previous query." />;
+      heading="Update Rankings before continuing" message="The selected build belongs to the previous query. Go to Rankings, then press Run updated search." />;
   }
 
   return (
@@ -90,7 +90,7 @@ export function PathsView() {
         </>}>
           {selected
             ? <small className="selected-summary">{selected.weaponName} / {selected.affinity} / +{selected.upgrade} · {objectiveLabel(request.objective)}{target ? ` · vs ${target.weaponName} / ${target.affinity} / +${target.upgrade}` : ""} · next {effectiveHorizon} levels</small>
-            : <span>Requires selected result</span>}
+            : <span id="paths-requires-selection">Requires selected result</span>}
         </WorkspaceHeading>
         <div className="header-controls">
           <div className="segmented" role="group" aria-label="Path mode">
@@ -101,7 +101,7 @@ export function PathsView() {
             Levels ahead
             <DraftNumberInput value={horizon} min={1} max={200} onCommit={setHorizon} />
           </label>
-          <button type="button" className="analysis-action" onClick={() => void (isPathBusy ? analysis.stop() : refresh())} disabled={!selected && !isPathBusy}>
+          <button type="button" className="analysis-action" onClick={() => void (isPathBusy ? analysis.stop() : refresh())} aria-describedby={!selected && !isPathBusy ? "paths-requires-selection" : undefined} disabled={!selected && !isPathBusy}>
             {isPathBusy ? <Pause size={15} /> : <Play size={15} />}
             {isPathBusy ? "Stop" : "Trace paths"}
           </button>
@@ -184,7 +184,7 @@ function LaneSummary({ title, path, row }: { title: string; path: PathPreviewDto
       <strong>{title}</strong>
       {solved ? (
         <>
-          <span>{solved.weaponName} / {solved.affinity} / {solved.aowName ?? "Unspecified skill"} / +{solved.upgrade}</span>
+          <span>{solved.weaponName} / {solved.affinity} / {solved.aowName ?? "No skill"} / +{solved.upgrade}</span>
           <small>{path ? `${path.steps.length} steps, final ${fixed1(path.steps.at(-1)?.metric)}` : "Ready to trace"}</small>
         </>
       ) : (

@@ -7,6 +7,9 @@ edition = "2024"
 lto = "thin"
 codegen-units = 1
 
+[lints.rust]
+unsafe_code = "forbid"
+
 [dependencies]
 brotli-decompressor = "6"
 csv = "1.3"

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import io
 import json
+import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -12,7 +15,9 @@ from tools.phase4 import validate_phase4 as validation
 from tools.phase4.validate_phase4 import (
     validate_aow_compatibility,
     validate_profile_source_provenance,
+    validate_reinforce_levels,
     validate_used_calc_correct_curves,
+    validate_weapon_upgrade_caps,
 )
 
 
@@ -25,6 +30,17 @@ def curve_rows() -> list[dict[str, str]]:
         }
         for stat in range(MAX_EFFECTIVE_STRENGTH + 1)
     ]
+
+
+def reinforce_rows(reinforce_type: int, max_level: int) -> list[dict[str, str]]:
+    return [
+        {"reinforce_type": str(reinforce_type), "level": str(level)}
+        for level in range(max_level + 1)
+    ]
+
+
+def upgrade_weapon(weapon_id: int, reinforce_type: int, is_somber: str) -> dict[str, str]:
+    return {"weapon_id": str(weapon_id), "reinforce_type": str(reinforce_type), "is_somber": is_somber}
 
 
 class ValidatePhase4Tests(unittest.TestCase):
@@ -213,6 +229,115 @@ class ValidatePhase4Tests(unittest.TestCase):
 
         self.assertEqual(len(issues), 1)
         self.assertIn("non-monotonic used curves", issues[0].message)
+
+    def test_duplicate_curve_points_are_rejected_even_when_they_agree(self) -> None:
+        for multiplier in (None, "999"):
+            with self.subTest(multiplier=multiplier):
+                rows = curve_rows()
+                rows.append({**rows[5], **({"multiplier": multiplier} if multiplier else {})})
+
+                issues = validate_used_calc_correct_curves(rows, {1})
+
+                self.assertTrue(any("repeats curve/stat keys: [(1, 5)]" in issue.message for issue in issues))
+
+    def test_reinforce_types_in_use_list_each_level_once(self) -> None:
+        weapons = [upgrade_weapon(1, 200, "0")]
+        self.assertEqual(validate_reinforce_levels(weapons, reinforce_rows(200, 25)), [])
+        missing = reinforce_rows(200, 25)
+        missing.pop(7)
+        self.assertIn("missing=[7]", validate_reinforce_levels(weapons, missing)[0].message)
+        duplicated = [*reinforce_rows(200, 25), {"reinforce_type": "200", "level": "3"}]
+        self.assertIn("repeated=[3]", validate_reinforce_levels(weapons, duplicated)[0].message)
+        unused = [*reinforce_rows(200, 25), {"reinforce_type": "900", "level": "4"}]
+        self.assertEqual(validate_reinforce_levels(weapons, unused), [])
+
+    def test_weapon_upgrade_caps_follow_each_weapons_own_path(self) -> None:
+        rules = {"standardMaxUpgrade": 25, "somberMaxUpgrade": 10}
+        caps = {200: 25, 2200: 10, 3000: 0}
+        weapons = [
+            upgrade_weapon(1, 200, "0"),
+            upgrade_weapon(2, 2200, "1"),
+            upgrade_weapon(3, 3000, "1"),
+            upgrade_weapon(4, 3000, "0"),
+        ]
+        self.assertEqual(validate_weapon_upgrade_caps(weapons, caps, rules), [])
+        for flipped in (upgrade_weapon(1, 200, "1"), upgrade_weapon(2, 2200, "0")):
+            with self.subTest(weapon=flipped):
+                issues = validate_weapon_upgrade_caps([flipped], caps, rules)
+                self.assertIn("past their path's max level", issues[0].message)
+        issues = validate_weapon_upgrade_caps([upgrade_weapon(1, 200, "2")], caps, rules)
+        self.assertIn("invalid is_somber flags", issues[0].message)
+
+    def test_weapon_upgrade_caps_allow_smithing_and_somber_weapons_in_one_type(self) -> None:
+        rules = {"standardMaxUpgrade": 15, "somberMaxUpgrade": 15}
+        weapons = [upgrade_weapon(1, 2200, "0"), upgrade_weapon(2, 2200, "1"), upgrade_weapon(3, 2400, "1")]
+        self.assertEqual(validate_weapon_upgrade_caps(weapons, {2200: 15, 2400: 15}, rules), [])
+        self.assertTrue(validate_weapon_upgrade_caps(weapons, {2200: 15, 2400: 10}, rules))
+
+    def test_snapshot_validation_reports_reinforce_and_upgrade_path_faults(self) -> None:
+        read_csv = validation.read_csv
+        data_dir = validation.ROOT / "data/profiles/convergence"
+        for filename, edit, message in (
+            ("reinforce.csv", lambda rows: rows.pop(1), "levels must be 0.."),
+            ("weapons.csv", lambda rows: rows[0].update(is_somber="2"), "invalid is_somber flags"),
+        ):
+            with self.subTest(filename=filename):
+                def read(path: Path) -> list[dict[str, str]]:
+                    rows = read_csv(path)
+                    if path.name == filename:
+                        edit(rows)
+                    return rows
+
+                with patch.object(validation, "read_csv", side_effect=read):
+                    issues = validation.validate_profile_snapshot(data_dir, "convergence")
+                self.assertTrue(any(message in issue.message for issue in issues), issues)
+
+    def test_missing_aows_are_bounded(self) -> None:
+        read_csv = validation.read_csv
+        data_dir = validation.ROOT / "data/profiles/convergence"
+
+        def read(path: Path) -> list[dict[str, str]]:
+            rows = read_csv(path)
+            if path.name == "aow_damage_coverage.csv":
+                for row in rows:
+                    row["status"] = "missing"
+            return rows
+
+        with patch.object(validation, "read_csv", side_effect=read):
+            issues = validation.validate_profile_snapshot(data_dir, "convergence")
+        self.assertTrue(any("have no damage resolved from skill animations" in issue.message for issue in issues))
+
+    def test_snapshot_csv_rows_must_match_their_header(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "table.csv"
+            for text, message in (("a,b\n1\n", "table.csv line 2.*fewer"), ("a,b\n1,2,3\n", "table.csv line 2.*more")):
+                with self.subTest(text=text):
+                    path.write_text(text, encoding="utf-8")
+                    with self.assertRaisesRegex(ValueError, message):
+                        validation.read_csv(path)
+
+    def test_main_reports_a_profile_that_aborts_and_still_validates_the_other(self) -> None:
+        calls: list[str] = []
+
+        def fake(data_dir: Path, profile_id: str) -> list[validation.ValidationIssue]:
+            calls.append(profile_id)
+            if profile_id == "vanilla":
+                raise KeyError("is_somber")
+            return []
+
+        with tempfile.TemporaryDirectory() as temporary:
+            report = Path(temporary) / "report.json"
+            with patch.object(validation, "validate_profile_snapshot", side_effect=fake), \
+                 patch("sys.argv", ["validate_phase4.py", "--report", str(report)]), \
+                 redirect_stdout(io.StringIO()):
+                self.assertEqual(validation.main(), 1)
+            payload = json.loads(report.read_text(encoding="utf-8"))
+        self.assertEqual(calls, ["vanilla", "convergence"])
+        self.assertEqual(payload["status"], "failed")
+        self.assertEqual(
+            [issue["message"] for issue in payload["issues"]],
+            ["[vanilla] validation aborted: KeyError: 'is_somber'"],
+        )
 
     def test_fixed_status_requires_flat_status_curves_and_no_overlays(self) -> None:
         zero = [{"curve_id": "28", "stat_value": str(stat), "multiplier": "0"} for stat in range(149)]

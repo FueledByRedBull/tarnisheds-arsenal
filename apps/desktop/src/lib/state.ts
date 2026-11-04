@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { MAX_COMPARE_PINS, readCompareBench, writeCompareBench } from "./compare-bench";
-import { activationRequest, catalogVersion, currentClassName, verifyPresetResults } from "./preset-activation";
+import { activationRequest, catalogVersion, currentClassName, reconcileRestoredQuery, verifyPresetResults } from "./preset-activation";
 import { assertRequest, knownRequestFields } from "./presets";
 import { isRecord } from "./stored-build";
 import {
@@ -350,13 +350,17 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       // another profile's class that sit below this class's minimums restart from this class.
       const belowClass = EIGHT_STAT_KEYS.some((key) => state.request[key] < classInfo.baseStats[key]);
       const resetClass = classInfo.name !== savedClass || belowClass;
+      // A query restored from storage may name things this data no longer has.
+      const { request, issues } = reconcileRestoredQuery(state.request, catalog);
+      const reconciled: Notice[] = issues.length ? [{ scope: "global", tone: "info",
+        message: `Your saved query was adjusted to the current game data: ${issues.join("; ")}.` }] : [];
       return {
         catalog,
         catalogStatus: "ready",
         catalogError: null,
         loadoutSelectionRevision: state.loadoutSelectionRevision + 1,
         request: applyProfileRules({
-          ...state.request,
+          ...request,
           className: classInfo.name,
           // Without a class budget the level comes from the entered stats; keep the stored level
           // valid instead of copying Custom stats' base level 0.
@@ -369,7 +373,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
             : catalog.objectiveIds[0] ?? "max_ar",
         }, catalog.dataManifest.rules),
         compareBench: restoredComparisons.rows,
-        notices: [...state.notices, ...restoredComparisons.notices,
+        notices: [...state.notices, ...reconciled, ...restoredComparisons.notices,
           ...(restoredComparisons.staleRows.length ? [recomputing] : [])],
       };
     });

@@ -74,6 +74,13 @@ class SnapshotPromotionTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "pinned regulation"):
                 validate_snapshot_manifest(staging, profile_definition("convergence"))
 
+    def test_manifest_must_be_a_json_object(self) -> None:
+        for text in ("[]", "null", '"manifest"', "3"):
+            with self.subTest(text=text), tempfile.TemporaryDirectory() as temporary:
+                (Path(temporary) / "manifest.json").write_text(text, encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "must be a JSON object"):
+                    validate_snapshot_manifest(Path(temporary))
+
     def test_previous_schema_is_rejected_before_loading_tables(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             staging = self._create_staging(Path(temporary))

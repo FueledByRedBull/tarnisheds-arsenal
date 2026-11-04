@@ -77,21 +77,26 @@ export function CompareView() {
     .filter((option) => selectedAffinityIds.includes(option.id))
     .map((option) => option.label) ?? [];
   const aowAffinity = selectedAffinityLabels.length === 1 ? selectedAffinityLabels[0] : null;
+  // With one shared upgrade path (Convergence) there is no Smithing/Somber split to choose from,
+  // so the stored toggles are ignored there; they are kept as they are.
+  const separateUpgradeCaps = catalog?.dataManifest.rules.separateUpgradeCaps ?? true;
+  const includeSmithing = !separateUpgradeCaps || compareControls.includeSmithing;
+  const includeSomber = !separateUpgradeCaps || compareControls.includeSomber;
   const customCompare = Boolean(
     compareControls.weaponName
     || compareControls.filters.entries.length
     || compareControls.aowName
     || !compareControls.matchSelectedAow
-    || !compareControls.includeSmithing
-    || !compareControls.includeSomber,
+    || !includeSmithing
+    || !includeSomber,
   );
   const compareTargetLabel = compareControls.weaponName
     ?? (selectedTypeLabels.length ? `Best ${selectedTypeLabels.join(" + ")}` : "Best matching weapon");
-  const reinforcementLabel = compareControls.includeSmithing && compareControls.includeSomber
+  const reinforcementLabel = includeSmithing && includeSomber
     ? null
-    : compareControls.includeSomber
+    : includeSomber
       ? "Somber"
-      : compareControls.includeSmithing ? "Smithing" : "No reinforcement";
+      : includeSmithing ? "Smithing" : "No reinforcement";
   // Custom comparisons show their filters as chips instead.
   const compareSource = compareBench.length
     ? `${restoredTarget ? "Saved target and " : ""}${compareBench.length} pinned target${compareBench.length === 1 ? "" : "s"}`
@@ -186,7 +191,7 @@ export function CompareView() {
 
       if (customCompare) {
         const compareAow = compareControls.matchSelectedAow ? resolvedSelected.aowName : compareControls.aowName;
-        const reinforcementSelected = compareControls.includeSmithing || compareControls.includeSomber;
+        const reinforcementSelected = includeSmithing || includeSomber;
         const candidates = reinforcementSelected
           ? await cachedComparisonSearch({
             ...baseRequest,
@@ -194,9 +199,9 @@ export function CompareView() {
             weaponTypeKey: null,
             affinity: null,
             aowName: compareAow,
-            somberFilter: compareControls.includeSmithing === compareControls.includeSomber
+            somberFilter: includeSmithing === includeSomber
               ? "all"
-              : compareControls.includeSomber ? "somber_only" : "standard_only",
+              : includeSomber ? "somber_only" : "standard_only",
             filters: compareControls.filters,
             lockStr: null,
             lockDex: null,
@@ -232,7 +237,10 @@ export function CompareView() {
           const fixedAtZero = profile?.maxUpgrade === 0;
           const solveRequest = { ...baseRequest, lockStr: null, lockDex: null, lockInt: null, lockFai: null, lockArc: null };
           if (fixedAtZero) {
-            if (profile.isSomber) solveRequest.somberMaxUpgrade = 0;
+            if (!separateUpgradeCaps) {
+              solveRequest.standardMaxUpgrade = 0;
+              solveRequest.somberMaxUpgrade = 0;
+            } else if (profile.isSomber) solveRequest.somberMaxUpgrade = 0;
             else solveRequest.standardMaxUpgrade = 0;
           }
           return {
@@ -283,19 +291,19 @@ export function CompareView() {
       controller.abort();
       currentRequest.invalidate(token);
     };
-  }, [baseRequest, compareBench, compareControls, compareTargetLabel, customCompare, isExporting, request, restoredTarget, resultsStale, rows, selected, setCompareTarget, setError]);
+  }, [baseRequest, compareBench, compareControls, compareTargetLabel, customCompare, includeSmithing, includeSomber, isExporting, request, restoredTarget, resultsStale, rows, selected, separateUpgradeCaps, setCompareTarget, setError]);
 
   const matrixHorizon = compareUpgradeHorizon(request);
   const chartsLoading = series.some(lane => lane.chartStatus === "loading");
 
   if (!selected) {
     return <WorkspaceGate panelClass="compare-panel" title="Compare" requirement="Requires a current ranked build"
-      heading="Select a ranking first" message="Run or update Rankings, then select any row to use as the baseline." />;
+      heading="Select a ranking first" message="Run a search in Rankings, then select any row to use as the baseline." />;
   }
 
   if (resultsStale) {
     return <WorkspaceGate panelClass="compare-panel" title="Compare" requirement="Requires current ranked results"
-      heading="Update Rankings before comparing" message="The selected build and comparison targets belong to the previous query." />;
+      heading="Update Rankings before comparing" message="The selected build and comparison targets belong to the previous query. Go to Rankings, then press Run updated search." />;
   }
 
   const aowSupported = aowModelSupported(catalog?.dataManifest);
@@ -387,7 +395,7 @@ export function CompareView() {
                 )
               }
             />
-            <div className="compare-reinforcement" role="group" aria-label="Compare Reinforcement">
+            {separateUpgradeCaps ? <div className="compare-reinforcement" role="group" aria-label="Compare Reinforcement">
               <span>Reinforcement</span>
               <label>
                 <input
@@ -405,7 +413,7 @@ export function CompareView() {
                 />
                 Somber
               </label>
-            </div>
+            </div> : null}
           </div>
         </Popover>
         {customCompare ? <button type="button" className="chip-action" onClick={() => patchCompareControls({
@@ -439,8 +447,8 @@ export function CompareView() {
         <div className="matrix-toolbar">
           <span>{objectiveLabel(request.objective)} at each upgrade</span>
           <div>
-            <button type="button" onClick={() => scrollMatrix(matrixRef.current, -1)}>+0</button>
-            <button type="button" onClick={() => scrollMatrix(matrixRef.current, 1)}>+{matrixHorizon}</button>
+            <button type="button" aria-label="Scroll upgrade matrix to +0" onClick={() => scrollMatrix(matrixRef.current, -1)}>+0</button>
+            <button type="button" aria-label={`Scroll upgrade matrix to +${matrixHorizon}`} onClick={() => scrollMatrix(matrixRef.current, 1)}>+{matrixHorizon}</button>
           </div>
         </div>
         <div className="matrix-wrap" ref={matrixRef} aria-busy={chartsLoading} role="region" aria-label="Upgrade matrix" tabIndex={0}>
@@ -457,7 +465,7 @@ export function CompareView() {
       </details>
       {catalog && !usesFixedStats(catalog, request.className) && catalog.dataManifest.capabilities.statusBuildup
         ? <LoadoutTradeoffs base={baseRequest} current={request} selected={selected} />
-        : <p className="analysis-state">AR / bleed tradeoffs require class budgets and status modeling.</p>}
+        : <p className="analysis-state">AR / bleed trade-offs require class budgets and status modeling.</p>}
     </section>
   );
 }
@@ -568,7 +576,7 @@ function Lane({
       {row ? (
         <>
           <strong>{row.weaponName}</strong>
-          <small>{row.affinity} / {row.aowName ?? "Unspecified skill"} / +{row.upgrade}</small>
+          <small>{row.affinity} / {row.aowName ?? "No skill"} / +{row.upgrade}</small>
           <ScalingTokens scaling={row.effectiveScaling} extended={extendedScalingGrades} />
           <div className="lane-metrics">
             {objective !== "max_ar" ? <span>Metric <b>{metric === null ? "Unavailable" : fixed1(metric)}</b></span> : null}

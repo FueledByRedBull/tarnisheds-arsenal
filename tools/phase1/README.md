@@ -171,6 +171,7 @@ and the data build reproduces the published 3.0.0.1 file except for display name
   - `can_change_aow`: true only when raw `gemMountType` is 2, resolving the XML field default when omitted. Independent of `disable_gem_attr`, which restricts infusion, not Ash mounting.
 - `calc_correct.csv` multipliers are normalized to `0.0..1.0` (`growth / 100.0`).
 - `reinforce.csv` damage/scaling multipliers are emitted as raw multipliers from `ReinforceParamWeapon` (for example `1.058`), with no additional normalization.
+- `weapons.csv` `is_somber` follows the profile. Vanilla keeps its list of Somber reinforce types. Convergence mixes Smithing and Somber weapons inside one reinforce type, so it decides `is_somber` from the stone the first upgrade costs: `EquipParamWeapon.materialSetId` plus `ReinforceParamWeapon[type+1].materialSetId` selects the `EquipMtrlSetParam` row, and the weapon is Somber when that row's first material is goods 10160 (Somber Smithing Stone [1]). Weapons with no level-1 reinforce row are unupgradeable and stay Standard; a missing material row fails extraction. The manifest records the `EquipMtrlSetParam` Paramdex definition.
 - `calc_correct.csv` holds only the curves the emitted weapons reference, pre-expanded through each curve's final stage point and at least effective Strength 148 (`floor(99 * 1.5)`):
   - `stat_value=0` is always written as `multiplier=0.0` and is reserved.
   - Runtime lookup convention is direct indexing: stat values map to matching indices.

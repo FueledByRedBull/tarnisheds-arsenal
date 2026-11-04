@@ -98,7 +98,6 @@ export function SearchableSelect({
       <input
         id={`${id}-input`}
         role="combobox"
-        aria-label={label}
         aria-autocomplete="list"
         aria-expanded={open && !disabled}
         aria-controls={open && !disabled ? `${id}-listbox` : undefined}
@@ -195,7 +194,7 @@ export function SearchableSelect({
   );
 }
 
-export function openOption(label = "Open"): SelectOption {
+export function openOption(label = "Any weapon"): SelectOption {
   return { value: null, label };
 }
 

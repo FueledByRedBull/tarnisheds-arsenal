@@ -300,21 +300,31 @@ pub(super) fn upgrade_cap_for_weapon(weapon: &Weapon, request: &OptimizeRequest)
     }
 }
 
+type AshTemplate<'a> = Vec<(
+    &'a Aow,
+    Arc<[&'a AowAttackRow]>,
+    Option<SharedScalarRoutes<'a>>,
+    bool,
+)>;
+
 /// Applicable Ashes, in table order, with the attack rows and handled routes each uses.
 /// Compatibility reads only whether the weapon can change Ashes, its affinity and its type
 /// keys; rows and routes read its type name (which also fixes forced two-handing) and the
 /// request's handling. One list per distinct key serves every matching weapon and thread.
 /// Routes are compiled only for Ashes the request can select by name. The flag marks rows
 /// with per-hit attack power, which no objective can score yet.
-pub(super) type AshTemplates<'a> = HashMap<
-    (bool, &'a str, &'a str, &'a str),
-    Vec<(
-        &'a Aow,
-        Arc<[&'a AowAttackRow]>,
-        Option<SharedScalarRoutes<'a>>,
-        bool,
-    )>,
->;
+pub(super) struct AshTemplates<'a> {
+    ashes: HashMap<(bool, &'a str, &'a str, &'a str), AshTemplate<'a>>,
+    native: HashMap<(u16, &'a str), OnceLock<NativeSkillRows<'a>>>,
+}
+
+/// What a native skill resolves to for every weapon of one type that has no rows of its own,
+/// derived by whichever thread first needs it.
+struct NativeSkillRows<'a> {
+    attack_rows: Arc<[&'a AowAttackRow]>,
+    aow: Option<&'a Aow>,
+    unmodeled: bool,
+}
 
 fn rows_have_unmodeled_attack_power(rows: &[&AowAttackRow], data: &GameData) -> bool {
     rows.iter()
@@ -336,10 +346,18 @@ pub(super) fn ash_templates<'a>(
     data: &'a GameData,
 ) -> AshTemplates<'a> {
     let mut representatives = HashMap::new();
+    let mut native = HashMap::new();
     for weapon in weapons {
         representatives
             .entry(ash_template_key(weapon))
             .or_insert(weapon);
+        if let Some(skill_id) = weapon.native_skill_id
+            && data.native_skill_attack_rows(weapon.weapon_id).is_empty()
+        {
+            native
+                .entry((skill_id, weapon.weapon_type_name.as_str()))
+                .or_insert_with(OnceLock::new);
+        }
     }
     // Compatibility per key, then rows and routes per distinct Ash and weapon type name.
     let compatible: Vec<(_, &Weapon, Vec<&Aow>)> = representatives
@@ -377,7 +395,7 @@ pub(super) fn ash_templates<'a>(
             ((aow_id, type_name), (rows, routes, unmodeled))
         })
         .collect();
-    compatible
+    let ashes = compatible
         .into_iter()
         .map(|(key, weapon, aows)| {
             let template = aows
@@ -390,7 +408,8 @@ pub(super) fn ash_templates<'a>(
                 .collect();
             (key, template)
         })
-        .collect()
+        .collect();
+    AshTemplates { ashes, native }
 }
 
 #[cfg(test)]
@@ -409,12 +428,12 @@ pub(super) fn resolve_aow_choices_cached<'a>(
     data: &'a GameData,
     templates: &AshTemplates<'a>,
 ) -> Result<Option<Vec<AowChoice<'a>>>, String> {
-    let native = native_skill_choice_for_weapon(weapon, data);
     // No objective can score routes with per-hit attack power yet, so those choices are
     // skipped instead of failing the whole search; template rows carry the check.
-    let native_unmodeled = native
-        .as_ref()
-        .is_some_and(|choice| rows_have_unmodeled_attack_power(&choice.attack_rows, data));
+    let (native, native_unmodeled) = match native_skill_choice(weapon, data, Some(templates)) {
+        Some((choice, unmodeled)) => (Some(choice), unmodeled),
+        None => (None, false),
+    };
     let mut choices: Vec<_> = native
         .clone()
         .filter(|_| !native_unmodeled)
@@ -431,6 +450,7 @@ pub(super) fn resolve_aow_choices_cached<'a>(
         });
     }
     let template = templates
+        .ashes
         .get(&ash_template_key(weapon))
         .ok_or("weapon preparation has no Ash template")?;
     for (aow, rows, routes, unmodeled) in template {
@@ -512,10 +532,21 @@ pub(super) fn resolve_aow_choices_cached<'a>(
     Ok((!choices.is_empty()).then_some(choices))
 }
 
+#[cfg(test)]
 pub(super) fn native_skill_choice_for_weapon<'a>(
     weapon: &'a Weapon,
     data: &'a GameData,
 ) -> Option<AowChoice<'a>> {
+    native_skill_choice(weapon, data, None).map(|(choice, _)| choice)
+}
+
+/// The weapon's native skill choice and whether its rows carry unmodeled per-hit attack power.
+/// With `templates`, a weapon without rows of its own shares its type's selection.
+fn native_skill_choice<'a>(
+    weapon: &'a Weapon,
+    data: &'a GameData,
+    templates: Option<&AshTemplates<'a>>,
+) -> Option<(AowChoice<'a>, bool)> {
     if !data.native_skill_compatible_with_weapon(weapon) {
         return None;
     }
@@ -526,22 +557,44 @@ pub(super) fn native_skill_choice_for_weapon<'a>(
     } else {
         exact_rows
     };
-    let attack_rows = select_attack_rows(source_rows, weapon);
-    let aow = data.aows.iter().find(|aow| aow.aow_id == native_skill_id);
+    let derive = || {
+        let attack_rows: Arc<[_]> = select_attack_rows(source_rows, weapon).into();
+        NativeSkillRows {
+            unmodeled: rows_have_unmodeled_attack_power(&attack_rows, data),
+            aow: data.aows.iter().find(|aow| aow.aow_id == native_skill_id),
+            attack_rows,
+        }
+    };
+    let owned;
+    let rows = match templates
+        .filter(|_| exact_rows.is_empty())
+        .and_then(|templates| {
+            templates
+                .native
+                .get(&(native_skill_id, weapon.weapon_type_name.as_str()))
+        }) {
+        Some(shared) => shared.get_or_init(derive),
+        None => {
+            owned = derive();
+            &owned
+        }
+    };
+    let (attack_rows, aow, unmodeled) = (rows.attack_rows.clone(), rows.aow, rows.unmodeled);
     let skill_name = weapon
         .native_skill_name
         .as_deref()
         .or_else(|| aow.map(|aow| aow.name.as_str()))
         .or_else(|| source_rows.first().map(|row| row.aow_name.as_str()))
         .filter(|name| !name.is_empty());
-    Some(AowChoice {
+    let choice = AowChoice {
         no_applied_ash: weapon.affinity.eq_ignore_ascii_case("Standard"),
         aow,
         skill_id: Some(native_skill_id),
         skill_name,
-        attack_rows: attack_rows.into(),
+        attack_rows,
         scalar_routes: None,
-    })
+    };
+    Some((choice, unmodeled))
 }
 
 pub(super) fn select_aow_attack_rows<'a>(

@@ -30,7 +30,15 @@ python tools/phase4/benchmark_optimizer_phases.py --warmups 1 --repeats 5 --outp
 python tools/phase4/benchmark_optimizer_phases.py --profile convergence --case open-ranking-max-ar-high-level --warmups 1 --repeats 5 --output dist/benchmarks/convergence-ar.json
 python tools/phase4/benchmark_workflows.py --repeats 5 --output dist/benchmarks/workflows.json
 cargo run --release --locked --manifest-path core/er_optimizer_core/Cargo.toml --example benchmark_level_range -- --repeats=5 --horizons=0,10,50,200 > dist/benchmarks/level-range.json
+cargo run --release --locked --manifest-path core/er_optimizer_core/Cargo.toml --example benchmark_range_fingerprint -- convergence first Uchigatana - 50 5
+cargo run --release --locked --manifest-path core/er_optimizer_core/Cargo.toml --example benchmark_profile_load -- 15
 ```
+
+`benchmark_range_fingerprint` times one weapon's level range across its affinities and
+prints a SHA-256 of the complete ranked rows, for comparing builds at the same thread
+count. `benchmark_profile_load` times loading both embedded profiles one after the other
+and side by side; with `RAYON_NUM_THREADS=1` the side-by-side load shares one pool
+thread and is slower than the default pool.
 
 The phase and workflow runners also accept `--baseline <report>`. They refuse a
 baseline recorded with a different profile, dataset, model, build profile or thread
@@ -247,6 +255,36 @@ Open bleed's increase is larger than that, and its cause was not isolated:
 | AoW First Hit, high level | 178 ms | 179 ms |
 | AoW Full Sequence, high level | 163 ms | 126 ms |
 
+### Main-thread tasks (2026-11-04)
+
+At 144 Hz a frame has 6.9 ms. The remaining long tasks came from the first use of each
+font weight and size, Build Detail rendering every section on row selection, scroll
+reveals measured on the main thread, and the forge flare repainting a gradient.
+
+- Fonts used by the interface (weights 400-800 at the sizes the UI uses) are warmed in
+  idle slices of at most 3 ms after startup.
+- Build Detail renders its summary at once and its secondary sections in a deferred
+  React pass (`useDeferredValue`). The saved-build panel takes the selected build as a prop, so it renders in that
+  deferred pass instead of the urgent one.
+- Landing reveals use an `IntersectionObserver`, and the forge flare animates the
+  opacity of a pre-painted layer.
+
+Production frontend build in headless Chromium with software raster, longest
+main-thread task per interaction, median (worst) of repeated runs. Software raster
+inflates paint compared with WebView2 on a GPU, so these numbers are relative and are
+not frame times of the packaged app:
+
+| Interaction | Before | After |
+| --- | ---: | ---: |
+| First Ctrl+K | 5.1 (6.5) ms | 3.5 (4.2) ms |
+| First result landing | 16.2 (27.3) ms | 14.9 (18.2) ms |
+| Second result landing | 8.2 ms | 7.3 ms |
+| Row selection | 6.3 ms | 4.6 ms |
+| First Compare visit | 9.8 ms | 7.4 ms |
+
+Forge flare paint over 900 ms fell from 10.7 ms to 5.0 ms. The first result landing
+still exceeds one 144 Hz frame in this environment; most of it is row layout and paint.
+
 ## Release compiler settings
 
 Both Cargo packages set `lto = "thin"` and `codegen-units = 1` for release builds.
@@ -407,7 +445,8 @@ What changed ([level ranges](design/optimizer-math.md#level-ranges)):
   skip a work unit whose Ashes all bound below its cutoff.
 - Lower levels reuse the highest level's Ash groups with their own budget.
 - Without the fixed-loadout DP cache, lower levels run in parallel batches of the pool's
-  width; results and progress keep level order.
+  width; results and progress keep level order. Since 2026-11-04 they also do so with
+  the cache, which is now shared ([below](#search-and-startup-speedups-2026-11-04)).
 - The upgrade-dependent half of the dominance test runs once per prepared weapon, and
   its ARC half once per work unit, in every search.
 
@@ -430,6 +469,75 @@ refused requests included. Run one build at a time, the sweep's single searches 
 11.5 s in both builds and its level ranges 120.4 s before and 44.1 s after. The core tests compare derived plans with plans built for
 each level, and skill-objective ranges with independent searches at one thread and at
 the pool's width.
+
+### Search and startup speedups (2026-11-04)
+
+Baseline `d26df91`; model and datasets unchanged. What changed:
+
+- A fixed-loadout level range checks the DP cache before it builds a stat's delta
+  tables, so a hit skips both. The cache is shared and locked, so lower levels and their
+  workers run in parallel against it, and it now also serves AoW first hit and full
+  sequence, with each skill route's first-stage table cached by route.
+- Each Ash converts its flat attack-power buff to an exact rational once.
+- Skill terms that depend only on the weapon, upgrade and damage type are computed once
+  per upgrade; route bounds reuse them.
+- `normalize_small` polls for cancellation every 64 entries instead of every entry, and
+  its gcd and division skip the full algorithm once the divisor is settled or a power of
+  two.
+- A native skill's rows are selected once per skill and weapon type for weapons with no
+  rows of their own.
+- Both embedded profiles load on two threads, and each profile parses its tables in
+  parallel. Errors are read in table order, so a bad snapshot reports the same first
+  error as before.
+
+Results are unchanged. The phase harness compared ranked rows and combination counts in
+every case, in both profiles at 1 and 16 threads. Range fingerprints (Uchigatana, 50
+levels, all affinities, four objectives, both profiles, 1 and 16 threads) matched the
+baseline, as did 320 random-weapon cases per thread count at 1, 4 and 16 threads. Other
+work was running on the machine during these runs, so the tables report the best of
+several runs; interleaved A/B runs reproduced within about 2-3%.
+
+Phase bench, total including preparation (best of 3 rounds of 5 repeats at 1 thread,
+7 at 16):
+
+| Case | Threads | Convergence before / after | Vanilla before / after |
+| --- | ---: | ---: | ---: |
+| open-ranking-max-ar | 1 | 166.4 / 87.9 ms | 116.1 / 64.3 ms |
+| open-ranking-max-ar | 16 | 26.2 / 16.6 ms | 18.8 / 12.6 ms |
+| open-ranking-max-ar-export-500 | 1 | 399.0 / 257.3 ms | 183.2 / 122.1 ms |
+| open-ranking-max-ar-export-500 | 16 | 70.7 / 53.8 ms | 39.0 / 33.8 ms |
+| open-aow-first-hit-high-level | 1 | 1,725 / 995 ms | 310 / 183 ms |
+| open-aow-first-hit-high-level | 16 | 162 / 113 ms | 39.4 / 30.9 ms |
+| open-aow-full-sequence-high-level | 1 | 1,171 / 660 ms | 348 / 220 ms |
+| open-aow-full-sequence-high-level | 16 | 116 / 80 ms | 41.7 / 33.9 ms |
+
+Level range (`benchmark_range_fingerprint`, Uchigatana, open Ash, all affinities,
+50 levels, median of 5):
+
+| Objective | Profile | 1 thread before / after | 16 threads before / after |
+| --- | --- | ---: | ---: |
+| Max AR | Convergence | 1,251 / 567 ms | 154 / 69 ms |
+| Max AR | Vanilla | 108 / 89 ms | 23.1 / 11.2 ms |
+| Bleed | Convergence | 1,207 / 480 ms | 144 / 60 ms |
+| Bleed | Vanilla | 98 / 86 ms | 18.2 / 11.4 ms |
+| AoW first hit | Convergence | 3,152 / 431 ms | 352 / 78 ms |
+| AoW first hit | Vanilla | 158 / 58 ms | 21.7 / 10.6 ms |
+| AoW full sequence | Convergence | 3,417 / 584 ms | 343 / 82 ms |
+| AoW full sequence | Vanilla | 398 / 158 ms | 48.5 / 23.3 ms |
+
+Startup (`benchmark_profile_load`, 15 repeats): both embedded profiles one after the
+other took 98.5 ms before and 59.3 ms after, and side by side 57 ms before and 33 ms
+after.
+
+Two cases got slower: `locked-wild-strikes-export-500` and `locked-war-cry-export-500`,
+by 3-5% (0.1-0.7 ms). A locked weapon with 26 upgrades gets little reuse from the new
+per-upgrade caches.
+
+Sharing the cache is what made skill ranges faster. Reusing it serially, as the AR
+objectives did before, made Vanilla Caestus first hit at 16 threads slower (79 ms to
+125-163 ms), because the serial path gave up the pool and coupled routes got no hits.
+Measure cache changes at 16 threads as well as at 1. An early per-unit allocation of
+about 58 KB looked free at 1 thread and cost 1.3-1.9x at 16.
 
 ## Independent versus shared level-range evaluation
 

@@ -136,8 +136,10 @@ Fixed-loadout, exact-upgrade level ranges reuse primary formulas, stat contribut
 and terminal DP tables when stat bounds, active attributes, and scoring context match.
 The preparation cache lives only for that range request. Each level still scans its own
 feasible spend interval and fills inactive stats canonically. Reuse is limited to
-top-one AR, physical AR, and bleed objectives; no-respec progression retains its
-separate allocation rule.
+top-one AR, physical AR, bleed, AoW first hit and AoW full sequence objectives; skill
+routes also cache their first-stage table, keyed by route. A cache hit skips building
+the delta tables as well as the solve. No-respec progression retains its separate
+allocation rule.
 
 The gate is `level_range_reuse_enabled` in the
 [optimizer](../../core/er_optimizer_core/src/optimizer.rs); it also requires explicit
@@ -153,8 +155,9 @@ Every level range prepares its weapons and Ash groups once, at its highest level
 it solves first. Lower levels take those groups with their own budget and prune routes
 with the route bounds the highest level recorded; for skill objectives a work unit
 whose Ashes all bound below its cutoff is skipped
-([level ranges](optimizer-math.md#level-ranges)). Without the DP cache above, lower
-levels run in parallel batches of the pool's width, reported in level order. The
+([level ranges](optimizer-math.md#level-ranges)). Lower levels run in parallel batches
+of the pool's width, reported in level order; when the DP cache above is enabled they
+and their workers share it. The
 recorded bounds live for the range: at most one per Ash choice and one per bounded
 route, about 69,000 routes for an open all-upgrades AoW search at level 130. `lower_level_plans_match_plans_built_for_that_level` and
 `skill_level_ranges_match_independent_searches` check plans and complete results

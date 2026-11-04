@@ -38,7 +38,7 @@ arithmetic, tie order, and proof obligations.
 
 The current snapshot model is `aow-routes-effects-v9`; runtime results and caches
 use `aow-routes-effects-v9/exact-v3`. The bundled datasets are `vanilla-1.17.2` and
-`convergence-3.0.3.0-r3`, written by extractor `phase1-python-v15-f32-shortest-floats`.
+`convergence-3.0.3.0-r4`, written by extractor `phase1-python-v15-f32-shortest-floats`.
 Every snapshot float is the shortest decimal that parses to the `f32` nearest the
 extracted value, so loaded coefficients are exactly those `f32` values.
 The loader rejects a manifest recording any other model or extractor version.
@@ -137,7 +137,7 @@ and its engine application still require verification.
 ## Convergence
 
 The **Convergence 3.0.3.0** profile is experimental and independent of Vanilla.
-The mod is built on game version 1.17.1. Its snapshot, `convergence-3.0.3.0-r3`, is
+The mod is built on game version 1.17.1. Its snapshot, `convergence-3.0.3.0-r4`, is
 extracted from the mod's own regulation. A version-bound reference checks weapon availability, base attack,
 requirements, raw scaling, affinities, base status, and the attack-element and
 correction-curve IDs each weapon uses. The pinned
@@ -149,7 +149,7 @@ in-game measurement.
 | Capability | Behavior |
 | --- | --- |
 | Character | The mod's 29 starting classes and Rune Levels, from `CharaInitParam` rows listed by the character-creation menu, plus exact **Custom stats** |
-| Upgrades | One reinforcement path, `+0` through `+15` |
+| Upgrades | One reinforcement path, `+0` through `+15`; a weapon counts as Somber when its first upgrade costs a Somber Smithing Stone, since the mod puts some Smithing Stone weapons on Somber upgrade types |
 | Scaling | Extended `S+`/`S++` grades; optional Scadutree Blessing, as in Vanilla |
 | Status | Fixed across stats and upgrades, as the data defines it |
 | AoW damage | **AoW First Hit** and **AoW Full Sequence** from the mod's skill animations; 93 of 122 Ashes of War resolve damage |

@@ -131,6 +131,9 @@ class ProfileDefinition:
     # Raised when regenerated content changes for the same game and mod version.
     dataset_revision: int = 1
     class_catalog_from_regulation: bool = False
+    # Goods ID whose cost on a weapon's first upgrade marks it Somber; overrides
+    # somber_reinforce_types when a reinforce type mixes Smithing and Somber weapons.
+    somber_upgrade_material: int | None = None
     skill_animation_sources: SkillAnimationSources | None = None
 
     @property
@@ -207,7 +210,9 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         raw_dir=Path("data/raw/Conv"),
         output_dir=Path("data/profiles/convergence"),
         affinity_by_slot=CONVERGENCE_AFFINITIES,
-        somber_reinforce_types=frozenset({2200, 2400}),
+        somber_reinforce_types=frozenset(),
+        # Somber Smithing Stone [1]; the mod puts Smithing weapons on types 2200 and 2400.
+        somber_upgrade_material=10160,
         regulation_sha256="7bcd46b957ac49cfe4e9ad2a31a090a8bcc1d3681d3829c1f5aa4fd114530838",
         capabilities=ProfileCapabilities(
             weapon_ar=True,
@@ -244,8 +249,9 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         version_file=Path("data/raw/Conv/version.txt"),
         weapon_reference_path=Path("data/reference/convergence-3.0.3.0-weapons.json"),
         # Revision 2 adds AoW damage and routes and names classes from the menu text; revision 3
-        # adds weapon poise, buffed heavies, shield and timer-bullet hits, and Scadutree scaling.
-        dataset_revision=3,
+        # adds weapon poise, buffed heavies, shield and timer-bullet hits, and Scadutree scaling;
+        # revision 4 takes Somber identity from the upgrade stones.
+        dataset_revision=4,
         class_catalog_from_regulation=True,
         skill_animation_sources=SkillAnimationSources(
             anibnd=Path("data/raw/Conv/c0000.anibnd.dcx"),

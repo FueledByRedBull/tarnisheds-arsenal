@@ -1,8 +1,8 @@
 {
   "schemaVersion": 6,
-  "datasetVersion": "convergence-3.0.3.0-r3",
+  "datasetVersion": "convergence-3.0.3.0-r4",
   "modelVersion": "aow-routes-effects-v9",
-  "id": "convergence-3.0.3.0-r3",
+  "id": "convergence-3.0.3.0-r4",
   "label": "The Convergence dataset - 3.0.3.0",
   "appVersion": "1.17.1",
   "source": "regulation.bin",
@@ -31,7 +31,7 @@
     "extendedScalingGrades": true,
     "statusBuildupScales": false
   },
-  "generatedAt": "2026-11-02",
+  "generatedAt": "2026-11-04",
   "extractorVersion": "phase1-python-v15-f32-shortest-floats",
   "provenance": "profile-bound regulation, names, skill animations, and numeric PARAM effect graph",
   "runtimeFiles": [
@@ -98,7 +98,7 @@
     {
       "path": "weapons.csv",
       "size": 808928,
-      "sha256": "c3f3f95d17d112a60f68b0bdfd741468ceef7bb23a29fbe6b28664cca4b6149b"
+      "sha256": "86087d2da94f2032b685c732988145b4e4d7276b3833628fbd6f6fa3a4e7de90"
     }
   ],
   "diagnosticFiles": [
@@ -222,6 +222,13 @@
       "path": "CharaInitParam.xml",
       "size": 30422,
       "sha256": "4b5203e38fbd19928835ede4ce029077039b52d725f002c59f40e9095d9b8b7a"
+    },
+    {
+      "kind": "paramdexDefsEquipMtrlSetParam",
+      "bundled": false,
+      "path": "EquipMtrlSetParam.xml",
+      "size": 8038,
+      "sha256": "d29628924b56d9457b790580cd4cc66d3632abc9eb2129e83d5fda31b9415119"
     },
     {
       "kind": "paramdexDefsEquipParamGem",

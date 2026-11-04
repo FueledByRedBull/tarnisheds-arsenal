@@ -141,10 +141,10 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
   return (
     <section className="loadout-tradeoffs" aria-labelledby="loadout-tradeoffs-heading">
       <div className="tradeoff-header">
-        <WorkspaceHeading title="AR / Bleed tradeoffs" level={2} id="loadout-tradeoffs-heading" aboutLabel="About AR / Bleed tradeoffs"
+        <WorkspaceHeading title="AR / Bleed trade-offs" level={2} id="loadout-tradeoffs-heading" aboutLabel="About AR / Bleed trade-offs"
           about="The frontier keeps this query's class budget, floors, locks, handling, and world settings.">
           <small className="selected-summary">
-            Fixed loadout: {selected.weaponName} / {selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade}
+            Fixed loadout: {selected.weaponName} / {selected.affinity} / {selected.aowName ?? "No skill"} / +{selected.upgrade}
           </small>
           {allCombatLocksActive || (status === "ready" && points?.length === 1) ? (
             <small>
@@ -169,13 +169,14 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
             step={0.01}
             value={maxArSacrifice}
             onChange={(event) => setMaxArSacrifice(event.target.value)}
-            aria-describedby="tradeoff-sacrifice-help"
+            aria-invalid={sacrifice === null || undefined}
+            aria-describedby={sacrifice === null ? "tradeoff-sacrifice-help tradeoff-sacrifice-error" : "tradeoff-sacrifice-help"}
           />
         </label>
         <small id="tradeoff-sacrifice-help">
           Selects the point with the largest bleed buildup within the entered AR sacrifice relative to this fixed loadout&apos;s maximum AR.
         </small>
-        {sacrifice === null ? <span role="alert">Enter 0 to 100 in steps of 0.01%.</span> : null}
+        {sacrifice === null ? <span id="tradeoff-sacrifice-error" role="alert">Enter 0 to 100 in steps of 0.01%.</span> : null}
       </div>
 
       <div className="analysis-state" role="status" aria-live="polite">
@@ -191,7 +192,7 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
           <TradeoffTable caption="Trade-off options" choices={choices} selectedIndex={selectedIndex} onSelect={setSelectedIndex} shortlist />
 
           <details className="tradeoff-all">
-            <summary>Explore all tradeoffs ({points.length})</summary>
+            <summary>Explore all trade-offs ({points.length})</summary>
             <TradeoffPlot points={points} selectedIndex={selectedIndex} onSelect={setSelectedIndex}
               current={STAT_FIELDS.every(([, field]) => current[field] === selected.stats[field]) ? selected : null} />
             <TradeoffTable caption="All exact AR / bleed trade-off points" choices={allChoices} selectedIndex={selectedIndex} onSelect={setSelectedIndex} />
@@ -312,7 +313,7 @@ function TradeoffPlot({
         <strong>Exact points</strong>
         <small>AR horizontal / bleed vertical. {current ? "Outlined square: current allocation." : "Current allocation is not shown without a matching evaluated result."}</small>
       </figcaption>
-      <svg viewBox="0 0 1000 230" role="group" aria-label="Bleed buildup against AR; selectable tradeoff points">
+      <svg viewBox="0 0 1000 230" role="group" aria-label="Bleed buildup against AR; selectable trade-off points">
         <line x1="42" x2="42" y1="16" y2="196" className="tradeoff-axis" />
         <line x1="42" x2="980" y1="196" y2="196" className="tradeoff-axis" />
         <text x="42" y="218" className="tradeoff-axis-label">{fixed1(minAr)} AR</text>
@@ -375,7 +376,7 @@ function TradeoffInspection({
     <div className="tradeoff-inspection" aria-live="polite">
       <h3>{labels.length ? labels.join(" · ") : "Selected exact point"}</h3>
       <p>Gain <strong>{fixed1(point.bleedGain)} bleed buildup</strong> for <strong>{fixed1(point.arLoss)} AR ({point.arLossPercent.toFixed(2)}%)</strong> compared with this fixed loadout&apos;s maximum AR allocation.</p>
-      <p><strong>Loadout</strong> {point.result.weaponName} / {point.result.affinity} / {point.result.aowName ?? "Unspecified skill"} / +{point.result.upgrade}</p>
+      <p><strong>Loadout</strong> {point.result.weaponName} / {point.result.affinity} / {point.result.aowName ?? "No skill"} / +{point.result.upgrade}</p>
       <p><strong>Full stat spread</strong> {fullStatLine(current, point.result)}</p>
       <p><strong>Changes from your current stats</strong> {formatStatDelta(current, point.result)}</p>
       <button type="button" disabled={isExporting} onClick={() => {

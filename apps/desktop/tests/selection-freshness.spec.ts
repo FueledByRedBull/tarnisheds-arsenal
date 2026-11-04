@@ -69,7 +69,7 @@ test("an exact typed weapon commits before immediate Search dispatch", async ({ 
   // The same browser turn models blur immediately followed by submission, without
   // an automation wait allowing a delayed commit to hide the ordering bug.
   await page.evaluate(() => {
-    document.querySelector<HTMLInputElement>('input[aria-label="Weapon"]')!.blur();
+    (document.getElementById([...document.querySelectorAll("label")].find((label) => label.textContent === "Weapon")!.htmlFor) as HTMLInputElement).blur();
     document.querySelector<HTMLButtonElement>(".search-button")!.click();
   });
   await expect.poll(() => page.evaluate(() => (window as any).selectionProbe.searches[0]?.weaponName)).toBe("Zweihander");
@@ -107,7 +107,7 @@ test("delayed skill defaults cannot invalidate an immediately submitted search",
   await page.evaluate(() => (window as any).selectionProbe.holdProfiles());
   await (await loadoutField(page, "Weapon")).fill("Zweihander");
   await page.evaluate(() => {
-    document.querySelector<HTMLInputElement>('input[aria-label="Weapon"]')!.blur();
+    (document.getElementById([...document.querySelectorAll("label")].find((label) => label.textContent === "Weapon")!.htmlFor) as HTMLInputElement).blur();
     document.querySelector<HTMLButtonElement>(".search-button")!.click();
   });
   await resolve(page, ["vanilla", "Zweihander", null], {
@@ -252,7 +252,7 @@ test("option click, Tab, unmatched text, and rapid refocus preserve committed se
   await expect(input).toHaveValue("Uchigatana");
   await input.fill("Zweihander");
   await page.evaluate(() => {
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Weapon"]')!;
+    const input = (document.getElementById([...document.querySelectorAll("label")].find((label) => label.textContent === "Weapon")!.htmlFor) as HTMLInputElement);
     input.blur(); input.focus();
   });
   await input.press("Escape");

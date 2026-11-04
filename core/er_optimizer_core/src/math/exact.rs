@@ -1,3 +1,4 @@
+use std::cell::OnceCell;
 use std::sync::Arc;
 
 use super::exact_value::ExactRational;
@@ -55,7 +56,7 @@ pub(crate) fn exact_ar(
 
         let curve_mults = curve_values(data, weapon.damage_curve_ids[damage_idx], stat_values)?;
         let coefficients = weapon_coefficients(weapon, reinforce, aec, damage_type, aec_ext)?;
-        breakdown[damage_idx] = apply_scaling(actual_base, &curve_mults, coefficients);
+        breakdown[damage_idx] = apply_scaling(actual_base, &curve_mults, &coefficients);
     }
     Ok(breakdown)
 }
@@ -1189,21 +1190,30 @@ pub(crate) fn exact_scalar_route(
     Ok((first_hit, full_sequence))
 }
 
+/// What a route bound reuses across the hits, Ashes and upgrades of one weapon over fixed stat
+/// bounds: the curve maxima, which do not depend on the upgrade, and the weapon-level damage
+/// terms of each upgrade it has bounded.
+#[derive(Default)]
+pub(crate) struct RouteBoundCache<'a> {
+    curve_maxima: CurveMaxima,
+    terms: Vec<(u8, [Option<SkillWeaponTerms<'a>>; DAMAGE_TYPE_COUNT])>,
+}
+
 /// Bounds a route over independent stat intervals; the STR interval must cover raw and
 /// effective STR. Each damage component is nondecreasing in every curve value (signs from
 /// optimizer-math Section 3; an influence penalty only switches from the strongest negative
 /// contribution to the nonnegative sum as values rise), so evaluating every stat at its
 /// interval's largest curve value bounds coupled and additive routes alike.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn exact_scalar_route_upper_bound(
+pub(crate) fn exact_scalar_route_upper_bound<'a>(
     route: &ScalarAowRoute<'_>,
     weapon: &Weapon,
     upgrade: u8,
     damage_multiplier: f32,
-    data: &GameData,
+    data: &'a GameData,
     min_stat_values: [u16; COMBAT_STAT_COUNT],
     max_stat_values: [u16; COMBAT_STAT_COUNT],
-    curve_maxima: &mut CurveMaxima,
+    cache: &mut RouteBoundCache<'a>,
 ) -> Result<(ExactRational, ExactRational), String> {
     let damage_multiplier = rational(damage_multiplier, "damage multiplier")?;
     let mut first_hit = ExactRational::zero();
@@ -1213,31 +1223,15 @@ pub(crate) fn exact_scalar_route_upper_bound(
         for damage_type in DamageType::ALL {
             add_nonzero(
                 &mut damage,
-                skill_damage_with_curves(
+                skill_damage_bound(
                     weapon,
                     hit.row,
                     upgrade,
                     damage_type,
                     data,
-                    |curve_id| {
-                        let mut values = std::array::from_fn(|_| ExactRational::zero());
-                        let maxima = &mut curve_maxima[damage_type.as_index()];
-                        for (stat_idx, value) in values.iter_mut().enumerate() {
-                            *value = match &maxima[stat_idx] {
-                                Some(maximum) => maximum.clone(),
-                                None => maxima[stat_idx]
-                                    .insert(max_curve_value(
-                                        data,
-                                        curve_id,
-                                        min_stat_values[stat_idx],
-                                        max_stat_values[stat_idx],
-                                        stat_idx,
-                                    )?)
-                                    .clone(),
-                            };
-                        }
-                        Ok(values)
-                    },
+                    min_stat_values,
+                    max_stat_values,
+                    cache,
                 )?,
             );
             if hit.buff_active {
@@ -1256,6 +1250,94 @@ pub(crate) fn exact_scalar_route_upper_bound(
         add_nonzero(&mut full_sequence, damage);
     }
     Ok((first_hit, full_sequence))
+}
+
+/// `skill_damage_with_curves` with every stat at its interval's largest curve value.
+#[allow(clippy::too_many_arguments)]
+fn skill_damage_bound<'a>(
+    weapon: &Weapon,
+    attack_row: &AowAttackRow,
+    upgrade: u8,
+    damage_type: DamageType,
+    data: &'a GameData,
+    min_stat_values: [u16; COMBAT_STAT_COUNT],
+    max_stat_values: [u16; COMBAT_STAT_COUNT],
+    cache: &mut RouteBoundCache<'a>,
+) -> Result<ExactRational, String> {
+    let damage_idx = damage_type.as_index();
+    let RouteBoundCache {
+        curve_maxima,
+        terms,
+    } = cache;
+    let upgrade_idx = match terms.iter().position(|(cached, _)| *cached == upgrade) {
+        Some(index) => index,
+        None => {
+            terms.push((upgrade, std::array::from_fn(|_| None)));
+            terms.len() - 1
+        }
+    };
+    let slot = &mut terms[upgrade_idx].1[damage_idx];
+    if slot.is_none() {
+        *slot = Some(SkillWeaponTerms::new(weapon, upgrade, damage_type, data)?);
+    }
+    let terms = slot.as_mut().expect("terms were just derived");
+    let actual_base = match skill_actual_base(terms, weapon, attack_row, damage_idx, data)? {
+        SkillBase::Fixed(damage) => return Ok(damage),
+        SkillBase::Zero => return Ok(ExactRational::zero()),
+        SkillBase::Scalable(actual_base) => actual_base,
+    };
+    let mut curves = |curve_id: usize| -> Result<[ExactRational; COMBAT_STAT_COUNT], String> {
+        let mut values = std::array::from_fn(|_| ExactRational::zero());
+        let maxima = &mut curve_maxima[damage_idx];
+        for (stat_idx, value) in values.iter_mut().enumerate() {
+            *value = match &maxima[stat_idx] {
+                Some(maximum) => maximum.clone(),
+                None => maxima[stat_idx]
+                    .insert(max_curve_value(
+                        data,
+                        curve_id,
+                        min_stat_values[stat_idx],
+                        max_stat_values[stat_idx],
+                        stat_idx,
+                    )?)
+                    .clone(),
+            };
+        }
+        Ok(values)
+    };
+    if let Some(override_id) = attack_row.overwrite_attack_element_correct_id {
+        // An override's factor depends on its table, not on the hit, so it is derived once.
+        let position = match terms
+            .override_factors
+            .iter()
+            .position(|(id, _)| *id == override_id)
+        {
+            Some(position) => position,
+            None => {
+                let curve_mults = curves(weapon.damage_curve_ids[damage_idx])?;
+                let factor =
+                    override_factor(terms, weapon, attack_row, damage_idx, data, &curve_mults)?;
+                terms.override_factors.push((override_id, factor));
+                terms.override_factors.len() - 1
+            }
+        };
+        return Ok(actual_base * terms.override_factors[position].1.clone());
+    }
+    // Without an override every hit sees the same curve values, so their weighted sum is
+    // derived once.
+    let factor = terms
+        .bound_factor
+        .get_or_init(|| {
+            let curve_mults = curves(weapon.damage_curve_ids[damage_idx])?;
+            let coefficients = terms.coefficients(weapon, data, damage_type)?;
+            Ok(scaling_factor(&curve_mults, coefficients))
+        })
+        .as_ref()
+        .map_err(Clone::clone)?;
+    Ok(match factor {
+        Some(factor) => multiply_if_needed(actual_base, factor.clone()),
+        None => actual_base,
+    })
 }
 
 pub(crate) fn exact_skill_damage_for_type(
@@ -1277,6 +1359,87 @@ pub(crate) fn exact_skill_damage_for_type(
     })
 }
 
+/// Weapon-level factors of a skill hit's damage at one upgrade and damage type. They do not
+/// depend on the attack row, so a bound over many hits derives them once. Conversion failures
+/// are kept and raised where the hit that needs the value first reaches it.
+struct SkillWeaponTerms<'a> {
+    reinforce: &'a ReinforceLevel,
+    /// Weapon base times the reinforce damage multiplier.
+    scale: Result<ExactRational, String>,
+    base_attack_mult: Result<ExactRational, String>,
+    coefficients: OnceCell<Result<[Option<ExactRational>; COMBAT_STAT_COUNT], String>>,
+    /// `scaling_factor` over the curve maxima of a route bound.
+    bound_factor: OnceCell<Result<Option<ExactRational>, String>>,
+    /// `override_factor` over the curve maxima of a route bound, by override table.
+    override_factors: Vec<(usize, ExactRational)>,
+}
+
+enum SkillBase {
+    /// A fixed damage that no stat scales.
+    Fixed(ExactRational),
+    Zero,
+    /// The nonzero damage before stat scaling.
+    Scalable(ExactRational),
+}
+
+impl<'a> SkillWeaponTerms<'a> {
+    fn new(
+        weapon: &Weapon,
+        upgrade: u8,
+        damage_type: DamageType,
+        data: &'a GameData,
+    ) -> Result<Self, String> {
+        let damage_idx = damage_type.as_index();
+        let reinforce = reinforce_level(weapon, upgrade, data)?;
+        let scale = rational(weapon.base[damage_idx], "weapon base").and_then(|weapon_base| {
+            let damage_mult = rational(
+                reinforce.damage_mult[damage_idx],
+                "reinforce damage multiplier",
+            )?;
+            Ok(multiply_if_needed(weapon_base, damage_mult))
+        });
+        Ok(Self {
+            reinforce,
+            scale,
+            base_attack_mult: rational(
+                reinforce.base_attack_mult,
+                "reinforce base attack multiplier",
+            ),
+            coefficients: OnceCell::new(),
+            bound_factor: OnceCell::new(),
+            override_factors: Vec::new(),
+        })
+    }
+
+    fn coefficients(
+        &self,
+        weapon: &Weapon,
+        data: &GameData,
+        damage_type: DamageType,
+    ) -> Result<&[Option<ExactRational>; COMBAT_STAT_COUNT], String> {
+        self.coefficients
+            .get_or_init(|| {
+                let aec = data
+                    .attack_element(weapon.attack_element_correct_id)
+                    .ok_or_else(|| {
+                        format!(
+                            "missing attack_element_correct_id={}",
+                            weapon.attack_element_correct_id
+                        )
+                    })?;
+                weapon_coefficients(
+                    weapon,
+                    self.reinforce,
+                    aec,
+                    damage_type,
+                    data.attack_element_ext(weapon.attack_element_correct_id),
+                )
+            })
+            .as_ref()
+            .map_err(Clone::clone)
+    }
+}
+
 fn skill_damage_with_curves(
     weapon: &Weapon,
     attack_row: &AowAttackRow,
@@ -1286,36 +1449,49 @@ fn skill_damage_with_curves(
     curves: impl FnOnce(usize) -> Result<[ExactRational; COMBAT_STAT_COUNT], String>,
 ) -> Result<ExactRational, String> {
     let damage_idx = damage_type.as_index();
-    let reinforce = reinforce_level(weapon, upgrade, data)?;
+    let terms = SkillWeaponTerms::new(weapon, upgrade, damage_type, data)?;
+    let actual_base = match skill_actual_base(&terms, weapon, attack_row, damage_idx, data)? {
+        SkillBase::Fixed(damage) => return Ok(damage),
+        SkillBase::Zero => return Ok(ExactRational::zero()),
+        SkillBase::Scalable(actual_base) => actual_base,
+    };
+    let curve_mults = curves(weapon.damage_curve_ids[damage_idx])?;
+    if attack_row.overwrite_attack_element_correct_id.is_some() {
+        let factor = override_factor(&terms, weapon, attack_row, damage_idx, data, &curve_mults)?;
+        return Ok(actual_base * factor);
+    }
+    let coefficients = terms.coefficients(weapon, data, damage_type)?;
+    Ok(apply_scaling(actual_base, &curve_mults, coefficients))
+}
+
+fn skill_actual_base(
+    terms: &SkillWeaponTerms<'_>,
+    weapon: &Weapon,
+    attack_row: &AowAttackRow,
+    damage_idx: usize,
+    data: &GameData,
+) -> Result<SkillBase, String> {
     if attack_row.has_fixed_damage(&data.profile_id) {
         return rational(
             attack_row.attack_base[damage_idx],
             "fixed unscaled skill damage",
-        );
+        )
+        .map(SkillBase::Fixed);
     }
-    let weapon_base = rational(weapon.base[damage_idx], "weapon base")?;
-    let damage_mult = rational(
-        reinforce.damage_mult[damage_idx],
-        "reinforce damage multiplier",
-    )?;
+    let scale = terms.scale.as_ref().map_err(Clone::clone)?;
     let motion_value = rational(attack_row.motion_values[damage_idx], "motion value")?;
-    let weapon_motion_component =
-        if weapon_base.is_zero() || damage_mult.is_zero() || motion_value.is_zero() {
-            ExactRational::zero()
-        } else {
-            multiply_if_needed(multiply_if_needed(weapon_base, damage_mult), motion_value)
-                / rational(100.0, "percent denominator")?
-        };
+    let weapon_motion_component = if scale.is_zero() || motion_value.is_zero() {
+        ExactRational::zero()
+    } else {
+        multiply_if_needed(scale.clone(), motion_value) / rational(100.0, "percent denominator")?
+    };
     let fixed_attack_component = if attack_row.uses_fixed_attack_base() {
         let attack_base = rational(attack_row.attack_base[damage_idx], "fixed attack base")?;
-        let base_attack_mult = rational(
-            reinforce.base_attack_mult,
-            "reinforce base attack multiplier",
-        )?;
+        let base_attack_mult = terms.base_attack_mult.as_ref().map_err(Clone::clone)?;
         if attack_base.is_zero() || base_attack_mult.is_zero() {
             ExactRational::zero()
         } else {
-            multiply_if_needed(attack_base, base_attack_mult)
+            multiply_if_needed(attack_base, base_attack_mult.clone())
         }
     } else {
         ExactRational::zero()
@@ -1328,72 +1504,67 @@ fn skill_damage_with_curves(
         weapon_motion_component + fixed_attack_component
     };
     apply_throw_multiplier(&mut actual_base, weapon, attack_row);
-    if actual_base.is_zero() {
-        return Ok(ExactRational::zero());
-    }
-
-    let curve_mults = curves(weapon.damage_curve_ids[damage_idx])?;
-    let coefficients;
-    if let Some(override_id) = attack_row.overwrite_attack_element_correct_id {
-        let aec_ext = data.attack_element_ext(override_id).ok_or_else(|| {
-            format!(
-                "missing attack_element_correct_ext_id={} for AoW row {} ({})",
-                override_id, attack_row.sheet_row, attack_row.raw_name
-            )
-        })?;
-        // Influence changes the whole contribution, including its constant term.
-        // A negative contribution selects the strongest penalty instead of adding bonuses.
-        let mut total = ExactRational::zero();
-        let mut minimum = ExactRational::zero();
-        for (stat_idx, curve) in curve_mults.iter().enumerate() {
-            if !aec_ext.stat_scales(stat_idx, damage_idx) {
-                continue;
-            }
-            let influence = rational(
-                aec_ext.influence_rate(stat_idx, damage_idx),
-                "attack correction influence",
-            )?;
-            let scaling = rational(
-                aec_ext
-                    .overwrite_rate(stat_idx, damage_idx)
-                    .unwrap_or(weapon.scaling[stat_idx]),
-                "attack correction scaling",
-            )?;
-            let contribution = influence.clone() - ExactRational::one()
-                + scaling
-                    * rational(
-                        reinforce.scaling_mult[stat_idx],
-                        "reinforce scaling multiplier",
-                    )?
-                    * curve
-                    * influence;
-            minimum = minimum.min(contribution.clone());
-            total += contribution;
-        }
-        let bonus = if minimum < ExactRational::zero() {
-            minimum
-        } else {
-            total
-        };
-        return Ok(actual_base * (ExactRational::one() + bonus));
+    Ok(if actual_base.is_zero() {
+        SkillBase::Zero
     } else {
-        let aec = data
-            .attack_element(weapon.attack_element_correct_id)
-            .ok_or_else(|| {
-                format!(
-                    "missing attack_element_correct_id={}",
-                    weapon.attack_element_correct_id
-                )
-            })?;
-        coefficients = weapon_coefficients(
-            weapon,
-            reinforce,
-            aec,
-            damage_type,
-            data.attack_element_ext(weapon.attack_element_correct_id),
+        SkillBase::Scalable(actual_base)
+    })
+}
+
+/// What the damage is multiplied by when the attack's own correction table replaces the
+/// weapon's.
+fn override_factor(
+    terms: &SkillWeaponTerms<'_>,
+    weapon: &Weapon,
+    attack_row: &AowAttackRow,
+    damage_idx: usize,
+    data: &GameData,
+    curve_mults: &[ExactRational; COMBAT_STAT_COUNT],
+) -> Result<ExactRational, String> {
+    let override_id = attack_row
+        .overwrite_attack_element_correct_id
+        .expect("an overriding row");
+    let aec_ext = data.attack_element_ext(override_id).ok_or_else(|| {
+        format!(
+            "missing attack_element_correct_ext_id={} for AoW row {} ({})",
+            override_id, attack_row.sheet_row, attack_row.raw_name
+        )
+    })?;
+    // Influence changes the whole contribution, including its constant term.
+    // A negative contribution selects the strongest penalty instead of adding bonuses.
+    let mut total = ExactRational::zero();
+    let mut minimum = ExactRational::zero();
+    for (stat_idx, curve) in curve_mults.iter().enumerate() {
+        if !aec_ext.stat_scales(stat_idx, damage_idx) {
+            continue;
+        }
+        let influence = rational(
+            aec_ext.influence_rate(stat_idx, damage_idx),
+            "attack correction influence",
         )?;
+        let scaling = rational(
+            aec_ext
+                .overwrite_rate(stat_idx, damage_idx)
+                .unwrap_or(weapon.scaling[stat_idx]),
+            "attack correction scaling",
+        )?;
+        let contribution = influence.clone() - ExactRational::one()
+            + scaling
+                * rational(
+                    terms.reinforce.scaling_mult[stat_idx],
+                    "reinforce scaling multiplier",
+                )?
+                * curve
+                * influence;
+        minimum = minimum.min(contribution.clone());
+        total += contribution;
     }
-    Ok(apply_scaling(actual_base, &curve_mults, coefficients))
+    let bonus = if minimum < ExactRational::zero() {
+        minimum
+    } else {
+        total
+    };
+    Ok(ExactRational::one() + bonus)
 }
 
 fn compile_formula(
@@ -1640,22 +1811,29 @@ fn max_curve_value(
 fn apply_scaling(
     actual_base: ExactRational,
     curve_mults: &[ExactRational; COMBAT_STAT_COUNT],
-    coefficients: [Option<ExactRational>; COMBAT_STAT_COUNT],
+    coefficients: &[Option<ExactRational>; COMBAT_STAT_COUNT],
 ) -> ExactRational {
+    match scaling_factor(curve_mults, coefficients) {
+        Some(factor) => multiply_if_needed(actual_base, factor),
+        None => actual_base,
+    }
+}
+
+/// One plus the weighted curve values, or `None` when no stat contributes.
+fn scaling_factor(
+    curve_mults: &[ExactRational; COMBAT_STAT_COUNT],
+    coefficients: &[Option<ExactRational>; COMBAT_STAT_COUNT],
+) -> Option<ExactRational> {
     let mut bonus = ExactRational::zero();
-    for (coefficient, curve_mult) in coefficients.into_iter().zip(curve_mults) {
+    for (coefficient, curve_mult) in coefficients.iter().zip(curve_mults) {
         if let Some(coefficient) = coefficient {
             add_nonzero(
                 &mut bonus,
-                multiply_if_needed(coefficient, curve_mult.clone()),
+                multiply_if_needed(coefficient.clone(), curve_mult.clone()),
             );
         }
     }
-    if bonus.is_zero() {
-        actual_base
-    } else {
-        multiply_if_needed(actual_base, ExactRational::one() + bonus)
-    }
+    (!bonus.is_zero()).then(|| ExactRational::one() + bonus)
 }
 
 fn add_nonzero(target: &mut ExactRational, contribution: ExactRational) {
@@ -3060,7 +3238,7 @@ mod tests {
                     &data,
                     [10; COMBAT_STAT_COUNT],
                     [60, 40, 40, 40, 40],
-                    &mut std::array::from_fn(|_| std::array::from_fn(|_| None)),
+                    &mut RouteBoundCache::default(),
                 )
                 .unwrap();
                 for index in 0..grid.len().pow(5) {

@@ -125,6 +125,37 @@ class ConvergenceReferenceTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "unmatched 2:Blade"):
                     build_reference(snapshot, "https://example.invalid/reference.js")
 
+    def test_reference_csv_rows_must_match_their_header(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            snapshot = Path(temporary)
+            (snapshot / "weapons.csv").write_text("weapon_id,affinity\n1,Standard\n2\n", encoding="utf-8")
+            (snapshot / "reference.json").write_text('{"weapons": []}', encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "weapons.csv line 3"):
+                validate_reference(snapshot, snapshot / "reference.json")
+
+    def test_remote_reference_size_is_capped(self) -> None:
+        class Response:
+            def __init__(self, body: bytes) -> None:
+                self.body = body
+
+            def __enter__(self) -> "Response":
+                return self
+
+            def __exit__(self, *_exc: object) -> None:
+                return None
+
+            def read(self, limit: int) -> bytes:
+                return self.body[:limit]
+
+        with patch.object(convergence_reference, "MAX_REFERENCE_BYTES", 8):
+            with patch.object(convergence_reference.urllib.request, "urlopen", return_value=Response(b"[1,2,3]")):
+                self.assertEqual(
+                    convergence_reference._fetch_reference("https://example.invalid/r.js")[1], [1, 2, 3]
+                )
+            with patch.object(convergence_reference.urllib.request, "urlopen", return_value=Response(b"[1,2,3,4]")):
+                with self.assertRaisesRegex(ValueError, "exceeds 8 bytes"):
+                    convergence_reference._fetch_reference("https://example.invalid/r.js")
+
     def test_candidate_slot_labels_do_not_decide_the_reference_affinity(self) -> None:
         # An unfiltered candidate labels a unique weapon by its ID slot; the reference
         # row says it is a fixed Standard weapon, and that is what gets recorded.

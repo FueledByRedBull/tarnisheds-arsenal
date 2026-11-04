@@ -2,11 +2,11 @@ import { ArrowDown, ArrowDownUp, ArrowUp, ChevronLeft, ChevronRight, CircleHelp,
 import { memo, ReactNode, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { downloadText, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
 import { aowModelSupported, compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
-import { buildOptimizeRequest, rowFingerprint, usesFixedStats } from "../../lib/session";
+import { buildOptimizeRequest, hasCombatStatLocks, rowFingerprint, usesFixedStats } from "../../lib/session";
 import { EASE_OUT, reducedMotion, settleRanking } from "../../lib/motion";
 import { RankedEntry, RankMovement, RankSortKey, rankMovements, sortRanked } from "../../lib/ranking-view";
 import { useDesktopStore } from "../../lib/state";
-import { ObjectiveId, SearchProgressDto, SolvedBuildDto } from "../../lib/types";
+import { ObjectiveId, OptimizeRequestDto, SearchProgressDto, SolvedBuildDto } from "../../lib/types";
 import { runSearchFromStore, runSearchRequestForRows } from "../../lib/workflows";
 import packageInfo from "../../../package.json";
 import { COMBAT_STAT_LABELS, ScalingTokens, StatTokens } from "../shared/BuildMetricTokens";
@@ -53,6 +53,8 @@ export function RankingsBoard() {
   // deferred like the other workspaces so that both switch in the same commit.
   const shown = useDeferredValue(useDesktopStore((state) => state.activeWorkspace === "rankings"));
   const objective = useDesktopStore((state) => state.request.objective);
+  // A finished search leaves its objective with the rows, so zero rows after one means it found none.
+  const searched = useDesktopStore((state) => state.rowsObjective !== null);
   const isExporting = useDesktopStore((state) => state.isExporting);
   const setExporting = useDesktopStore((state) => state.setExporting);
   const exportController = useRef<AbortController | null>(null);
@@ -330,6 +332,7 @@ export function RankingsBoard() {
         <div>
           <h1>Rankings</h1>
           {rows.length ? <span>{rows.length} ranked {rows.length === 1 ? "row" : "rows"}</span> : null}
+          {isSearching ? <small id="export-search-hint">Export CSV is available when the search finishes.</small> : null}
           {skillColumn ? null : <small>Skill damage isn't modeled for these results.</small>}
         </div>
         <div className="result-scroll-actions">
@@ -378,6 +381,7 @@ export function RankingsBoard() {
               triggerLabel="Export CSV"
               triggerClassName="export-csv-button"
               panelClassName="editor-panel export-panel"
+              triggerDescribedBy={isSearching ? "export-search-hint" : undefined}
               disabled={isSearching}
             >
               {(close) => (
@@ -456,7 +460,10 @@ export function RankingsBoard() {
                   <SkeletonRows count={8} />
                 </div>
               ) : (
-                <EmptyRows onExample={() => void runStarterExample()} busy={isExporting} classBudget={!usesFixedStats(catalog, request.className)} />
+                searched
+                  ? <NoMatchRows constraints={activeConstraints(request, lockedStatMode, usesFixedStats(catalog, request.className))}
+                    onExample={() => void runStarterExample()} busy={isExporting} classBudget={!usesFixedStats(catalog, request.className)} />
+                  : <EmptyRows onExample={() => void runStarterExample()} busy={isExporting} classBudget={!usesFixedStats(catalog, request.className)} />
               )}
             </div>
           </div>
@@ -480,6 +487,7 @@ export function RankingsBoard() {
               lockDisabled={isExporting}
               aowModelSupported={aowSupported}
               extendedScalingGrades={extendedScalingGrades}
+              separateUpgradeCaps={separateUpgradeCaps}
               onSelect={selectRow}
               onLock={lockAndRerun}
               pinned={pinnedKeys.has(key)}
@@ -590,6 +598,7 @@ const ResultRow = memo(function ResultRow({
   lockDisabled,
   aowModelSupported,
   extendedScalingGrades,
+  separateUpgradeCaps,
   onSelect,
   onLock,
   pinned,
@@ -605,6 +614,8 @@ const ResultRow = memo(function ResultRow({
   skillColumn: boolean;
   aowModelSupported: boolean;
   extendedScalingGrades: boolean;
+  /** One shared upgrade path (Convergence) gives Somber no meaning. */
+  separateUpgradeCaps: boolean;
   onSelect: (row: SolvedBuildDto) => void;
   onLock: (row: SolvedBuildDto) => Promise<void>;
   lockDisabled: boolean;
@@ -656,7 +667,7 @@ const ResultRow = memo(function ResultRow({
       <span role="gridcell" className="weapon-cell">
         <span className="weapon-line">
           <strong>{row.weaponName}</strong>
-          {row.isSomber ? <span className="loadout-tag">Somber</span> : null}
+          {separateUpgradeCaps && row.isSomber ? <span className="loadout-tag">Somber</span> : null}
         </span>
         <small className="loadout-line">
           <span className="loadout-affinity">{row.affinity}</span>
@@ -734,6 +745,39 @@ function StatKeys() {
   );
 }
 
+// What the current query restricts, named so a search that found nothing says what to relax.
+function activeConstraints(request: OptimizeRequestDto, lockedStatMode: boolean, fixedStats: boolean): string[] {
+  const filters = request.filters.entries;
+  return [
+    request.weaponName ? `the ${request.weaponName} weapon` : null,
+    request.affinity ? `the ${request.affinity} affinity` : null,
+    request.aowName ? `the ${request.aowName} skill` : null,
+    request.weaponTypeKey || filters.some((entry) => entry.dimension === "weapon_type") ? "the weapon type" : null,
+    filters.some((entry) => entry.dimension === "affinity") ? "the affinity filter" : null,
+    filters.some((entry) => entry.dimension === "coverage") ? "the saved profile filters" : null,
+    request.somberFilter !== "all" ? "the reinforcement filter" : null,
+    request.exactUpgrade ? "the exact upgrade level" : null,
+    fixedStats ? "the entered combat stats" : lockedStatMode && hasCombatStatLocks(request) ? "the stat locks" : null,
+    [request.minStr, request.minDex, request.minInt, request.minFai, request.minArc].some((value) => value > 0) ? "the minimum stats" : null,
+  ].filter((entry): entry is string => entry !== null);
+}
+
+// A finished search with no rows: the constraint to relax is the answer, not the first-run prompt.
+function NoMatchRows({ constraints, onExample, busy, classBudget }: { constraints: string[]; onExample: () => void; busy: boolean; classBudget: boolean }) {
+  return (
+    <div className="empty-state" role="status">
+      <strong>No legal setup fits this query</strong>
+      <span>
+        The last search ranked nothing.{" "}
+        {constraints.length
+          ? `Relax ${constraints.length === 1 ? constraints[0] : `${constraints.slice(0, -1).join(", ")} or ${constraints.at(-1)}`}, or raise the level, then search again.`
+          : "Raise the level so a weapon's requirements fit, then search again."}
+      </span>
+      {classBudget ? <StarterButton onExample={onExample} busy={busy} /> : null}
+    </div>
+  );
+}
+
 // First run: say what to do next, once. Search itself stays in the strip above.
 function EmptyRows({ onExample, busy, classBudget }: { onExample: () => void; busy: boolean; classBudget: boolean }) {
   return (
@@ -743,17 +787,21 @@ function EmptyRows({ onExample, busy, classBudget }: { onExample: () => void; bu
         {classBudget ? "Set your class and stats above, then press Search (Ctrl+Enter)." : "Enter your combat stats above, then press Search (Ctrl+Enter)."}
         {" "}Every legal weapon, affinity and skill is ranked unless you narrow the loadout.
       </span>
-      {classBudget ? (
-        <button
-          className="inline-lock"
-          type="button"
-          onClick={onExample}
-          disabled={busy}
-          title="Keeps your stats, minimums, locks and world settings"
-        >
-          Try an Uchigatana +3 example
-        </button>
-      ) : null}
+      {classBudget ? <StarterButton onExample={onExample} busy={busy} /> : null}
     </div>
+  );
+}
+
+function StarterButton({ onExample, busy }: { onExample: () => void; busy: boolean }) {
+  return (
+    <button
+      className="inline-lock"
+      type="button"
+      onClick={onExample}
+      disabled={busy}
+      title="Keeps your stats, minimums, locks and world settings"
+    >
+      Try an Uchigatana +3 example
+    </button>
   );
 }

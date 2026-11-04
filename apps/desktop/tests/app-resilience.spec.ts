@@ -142,11 +142,12 @@ test("a Build Detail render failure stays in its panel and unawaited failures re
   });
   await expect(page.getByRole("heading", { name: "Build Detail could not be displayed" })).toBeVisible();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
+  // Another selection leaves the failed panel behind without a click.
   await page.evaluate(async () => {
     const { useDesktopStore } = await import("/src/lib/state.ts");
     useDesktopStore.setState({ selected: null });
   });
-  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Build Detail could not be displayed" })).toHaveCount(0);
   await expect(page.getByText("No build selected", { exact: true })).toBeVisible();
   await page.evaluate(() => { void Promise.reject(new Error("late native failure")); });
   await expect(page.locator('.error-strip[role="alert"]')).toContainText("late native failure");

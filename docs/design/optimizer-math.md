@@ -513,10 +513,13 @@ still runs its own full search and returns exactly what an independent search re
   When every Ash of a unit qualifies with a bound strictly below the unit's cutoff, each
   route the unit would solve is pruned, and the unit is skipped.
 
-Without the fixed-loadout DP cache of the
-[overview](optimizer-overview.md#reuse-across-workspaces), lower levels are independent and run in
-parallel batches; results and progress keep level order, and an error surfaces at the
-first level that reports it, as in an ascending pass.
+Lower levels are independent and run in parallel batches, with or without the
+fixed-loadout DP cache of the
+[overview](optimizer-overview.md#reuse-across-workspaces); results and progress keep
+level order, and an error surfaces at the first level that reports it, as in an
+ascending pass. The cache is shared by those levels and their workers. Each entry is a
+pure function of its key, so two workers that miss the same key solve the same table,
+and the first insert is kept.
 
 ### Numerical contract
 

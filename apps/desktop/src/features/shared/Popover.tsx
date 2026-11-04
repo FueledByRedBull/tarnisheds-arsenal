@@ -13,6 +13,7 @@ export function Popover({
   triggerLabel,
   triggerClassName,
   triggerTitle,
+  triggerDescribedBy,
   disabled = false,
   panelClassName,
   changeKey,
@@ -23,6 +24,8 @@ export function Popover({
   triggerLabel?: string;
   triggerClassName?: string;
   triggerTitle?: string;
+  /** Id of visible text that says why the trigger is unavailable (or what it does). */
+  triggerDescribedBy?: string;
   disabled?: boolean;
   panelClassName?: string;
   /** The trigger flashes when this changes while its editor is closed (undo, palette, …). */
@@ -104,6 +107,7 @@ export function Popover({
         aria-haspopup="dialog"
         aria-label={triggerLabel}
         title={triggerTitle}
+        aria-describedby={triggerDescribedBy}
         disabled={disabled}
       >
         {trigger}

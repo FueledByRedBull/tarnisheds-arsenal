@@ -313,7 +313,7 @@ export function importBuildPreset(input: BuildPreset | BuildPresetV1): BuildPres
     ...preset,
     id: idConflict ? crypto.randomUUID() : preset.id,
     name: uniqueImportedName(preset.name, index.builds.map((entry) => entry.name)),
-    createdAt: idConflict ? new Date().toISOString() : preset.createdAt,
+    createdAt: idConflict ? new Date().toISOString() : isoDate(preset.createdAt),
     updatedAt: new Date().toISOString(),
   };
   persistPreset(imported);
@@ -360,8 +360,12 @@ function persistPreset(preset: BuildPreset) {
     try {
       localStorage.setItem(INDEX_KEY, JSON.stringify({ version: 1, builds } satisfies SavedBuildIndexV1));
     } catch (error) {
-      if (previous === null) localStorage.removeItem(key);
-      else localStorage.setItem(key, previous);
+      try {
+        if (previous === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, previous);
+      } catch {
+        // The index write failed first; that is the error to report.
+      }
       throw error;
     }
   } catch (error) {
@@ -376,9 +380,16 @@ function readPreset(value: unknown): BuildPreset {
   return checkedPreset(migratePreset(value));
 }
 
+function isoDate(value: string): string {
+  return new Date(value).toISOString();
+}
+
+// Imported dates are written back as ISO timestamps, which the saved-build list sorts as text.
+// Stored records are read as they are, so older formats keep loading.
 function importedPreset(value: unknown): BuildPreset {
   try {
-    return readPreset(value);
+    const preset = readPreset(value);
+    return { ...preset, createdAt: isoDate(preset.createdAt), updatedAt: isoDate(preset.updatedAt) };
   } catch (error) {
     throw new Error(`Import text is not a valid BuildPreset preset: ${errorMessage(error)}.`);
   }

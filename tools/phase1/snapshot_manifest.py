@@ -214,6 +214,8 @@ def validate_snapshot_manifest(
     phase1_dir = phase1_dir.resolve()
     manifest_path = phase1_dir / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict):
+        raise ValueError("snapshot manifest must be a JSON object")
     if manifest.get("schemaVersion") != SCHEMA_VERSION:
         raise ValueError(
             f"snapshot schema is {manifest.get('schemaVersion')!r}; expected {SCHEMA_VERSION}"

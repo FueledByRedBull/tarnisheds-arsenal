@@ -13,6 +13,8 @@ use crate::errors::AppError;
 pub const MAX_TOP_K: usize = 2_000;
 pub const MAX_LEVELS_AHEAD: u16 = 200;
 pub const MAX_PATH_BATCH: usize = 2;
+/// Longest accepted text value, in bytes; the longest catalog name is well below it.
+pub const MAX_TEXT_LEN: usize = 256;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -888,7 +890,32 @@ impl From<ProgressSnapshot> for SearchProgressDto {
     }
 }
 
+/// Rejects an oversized text value without echoing it.
+pub fn check_len(field: &str, value: &str) -> Result<(), AppError> {
+    if value.len() > MAX_TEXT_LEN {
+        return Err(AppError::new(format!(
+            "{field} must be at most {MAX_TEXT_LEN} bytes"
+        )));
+    }
+    Ok(())
+}
+
 pub fn validate_optimize_request(request: &OptimizeRequestDto) -> Result<(), AppError> {
+    for (field, value) in [
+        ("profileId", Some(request.profile_id.as_str())),
+        ("className", Some(request.class_name.as_str())),
+        ("weaponName", request.weapon_name.as_deref()),
+        ("affinity", request.affinity.as_deref()),
+        ("aowName", request.aow_name.as_deref()),
+        ("weaponTypeKey", request.weapon_type_key.as_deref()),
+        ("objective", Some(request.objective.as_str())),
+        ("somberFilter", Some(request.somber_filter.as_str())),
+        ("resultGrouping", Some(request.result_grouping.as_str())),
+    ] {
+        if let Some(value) = value {
+            check_len(field, value)?;
+        }
+    }
     if request.top_k > MAX_TOP_K {
         return Err(AppError::new(format!(
             "topK must be {MAX_TOP_K} or lower; got {}",
@@ -926,6 +953,9 @@ fn parse_stable_filters(filters: &StableFilterSetDto) -> Result<Vec<StableFilter
                     "filter ids must contain 1 through 128 characters",
                 ));
             }
+            // The parsers echo what they reject.
+            check_len("filters.entries.dimension", &filter.dimension)?;
+            check_len("filters.entries.mode", &filter.mode)?;
             Ok(StableFilter {
                 dimension: FilterDimension::parse(&filter.dimension)?,
                 id: filter.id.clone(),
@@ -942,6 +972,18 @@ pub fn validate_levels_ahead(levels_ahead: u16) -> Result<(), AppError> {
         )));
     }
     Ok(())
+}
+
+/// Checks a path lane's own fields and its base request before anything echoes them.
+pub fn validate_path_lane(lane: &PathPreviewRequestDto) -> Result<(), AppError> {
+    validate_optimize_request(&lane.base)?;
+    validate_levels_ahead(lane.levels_ahead)?;
+    check_len("title", &lane.title)
+}
+
+pub fn validate_affinity_watch_request(request: &AffinityWatchRequestDto) -> Result<(), AppError> {
+    validate_optimize_request(&request.base)?;
+    validate_levels_ahead(request.levels_ahead)
 }
 
 pub fn validate_path_batch(count: usize) -> Result<(), AppError> {
@@ -1034,6 +1076,81 @@ mod tests {
             manifest.rules.scadutree_attack_multipliers.len(),
             usize::from(er_optimizer_core::math::SCADUTREE_MAX_LEVEL) + 1
         );
+    }
+
+    #[test]
+    fn text_fields_accept_the_maximum_length_and_reject_one_more_without_echoing_it() {
+        type TextSetter = fn(&mut OptimizeRequestDto, String);
+        let fields: [(&str, TextSetter); 9] = [
+            ("profileId", |request, text| request.profile_id = text),
+            ("className", |request, text| request.class_name = text),
+            ("weaponName", |request, text| {
+                request.weapon_name = Some(text)
+            }),
+            ("affinity", |request, text| request.affinity = Some(text)),
+            ("aowName", |request, text| request.aow_name = Some(text)),
+            ("weaponTypeKey", |request, text| {
+                request.weapon_type_key = Some(text);
+            }),
+            ("objective", |request, text| request.objective = text),
+            ("somberFilter", |request, text| request.somber_filter = text),
+            ("resultGrouping", |request, text| {
+                request.result_grouping = text;
+            }),
+        ];
+        for (field, set) in fields {
+            let mut request = crate::test_optimize_request();
+            set(&mut request, "x".repeat(MAX_TEXT_LEN));
+            validate_optimize_request(&request).unwrap_or_else(|error| panic!("{field}: {error}"));
+            set(&mut request, "x".repeat(MAX_TEXT_LEN + 1));
+            let error = validate_optimize_request(&request).expect_err(field);
+            assert_eq!(
+                error.message,
+                format!("{field} must be at most {MAX_TEXT_LEN} bytes")
+            );
+        }
+        check_len("title", &"é".repeat(MAX_TEXT_LEN / 2)).expect("256 bytes of multibyte text");
+        assert!(check_len("title", &"é".repeat(MAX_TEXT_LEN / 2 + 1)).is_err());
+    }
+
+    #[test]
+    fn path_titles_are_bounded() {
+        let state = crate::test_app_state();
+        let base = crate::test_optimize_request();
+        let solved = crate::commands::optimize::run_search_inner(base.clone(), &state)
+            .expect("seed search succeeds")
+            .pop()
+            .expect("seed build exists");
+        let mut lane = PathPreviewRequestDto {
+            base,
+            solved,
+            levels_ahead: MAX_LEVELS_AHEAD,
+            title: "x".repeat(MAX_TEXT_LEN),
+            mode: PathMode::NoRespec,
+        };
+        validate_path_lane(&lane).expect("maximum title");
+        lane.title.push('x');
+        assert_eq!(
+            validate_path_lane(&lane).unwrap_err().message,
+            format!("title must be at most {MAX_TEXT_LEN} bytes")
+        );
+    }
+
+    #[test]
+    fn every_catalog_name_fits_the_text_limit() {
+        let state = crate::test_app_state();
+        for profile in state.profiles.values() {
+            let data = &profile.data;
+            let classes = crate::commands::data::class_metadata(profile);
+            let names = data
+                .weapons
+                .iter()
+                .flat_map(|weapon| [&weapon.name, &weapon.affinity, &weapon.weapon_type_keys])
+                .chain(data.aows.iter().map(|aow| &aow.name))
+                .chain(classes.iter().map(|class| &class.name));
+            let longest = names.map(|name| name.len()).max().unwrap();
+            assert!(longest <= MAX_TEXT_LEN, "{longest}");
+        }
     }
 
     #[test]

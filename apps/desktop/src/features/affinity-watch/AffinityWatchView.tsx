@@ -57,7 +57,7 @@ export function AffinityWatchView() {
 
   if (resultsStale) {
     return <WorkspaceGate panelClass="affinity-panel" title="Affinity Watch" requirement="Requires current ranked results"
-      heading="Update Rankings before continuing" message="The selected build belongs to the previous query." />;
+      heading="Update Rankings before continuing" message="The selected build belongs to the previous query. Go to Rankings, then press Run updated search." />;
   }
 
   return (
@@ -69,15 +69,15 @@ export function AffinityWatchView() {
           marks the level where another affinity becomes the best.
         </>}>
           {selected
-            ? <small className="selected-summary">{selected.weaponName} / {selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade} · {objectiveLabel(request.objective)} over the next {effectiveHorizon} levels</small>
-            : <span>Requires selected result</span>}
+            ? <small className="selected-summary">{selected.weaponName} / {selected.affinity} / {selected.aowName ?? "No skill"} / +{selected.upgrade} · {objectiveLabel(request.objective)} over the next {effectiveHorizon} levels</small>
+            : <span id="affinity-requires-selection">Requires selected result</span>}
         </WorkspaceHeading>
         <div className="header-controls">
           <label>
             Levels ahead
             <DraftNumberInput value={horizon} min={1} max={200} onCommit={setHorizon} />
           </label>
-          <button type="button" className="analysis-action" onClick={() => void (isAffinityBusy ? analysis.stop() : refresh())} disabled={!selected && !isAffinityBusy}>
+          <button type="button" className="analysis-action" onClick={() => void (isAffinityBusy ? analysis.stop() : refresh())} aria-describedby={!selected && !isAffinityBusy ? "affinity-requires-selection" : undefined} disabled={!selected && !isAffinityBusy}>
             {isAffinityBusy ? <Pause size={15} /> : <Play size={15} />}
             {isAffinityBusy ? "Stop" : "Watch affinities"}
           </button>
@@ -155,7 +155,9 @@ const AffinityChart = memo(function AffinityChart({ payload, objective, unit }: 
           <div className="affinity-legend chart-legend" role="group" aria-label="Affinity chart legend">
             {payload?.lines.map((line, index) => (
               <span key={line.affinity}>
-                <i style={{ background: affinityColor(index) }} />
+                <svg className="affinity-swatch" width="24" height="6" viewBox="0 0 24 6" aria-hidden="true">
+                  <line x1="0" x2="24" y1="3" y2="3" stroke={affinityColor(index)} strokeWidth="2.5" strokeDasharray={AFFINITY_DASHES[index % AFFINITY_DASHES.length]} />
+                </svg>
                 <strong>{line.affinity}</strong>
                 <small>{endpointMetric(line.startMetric)} → {endpointMetric(line.endMetric)} {unit}</small>
               </span>
@@ -187,6 +189,7 @@ const AffinityChart = memo(function AffinityChart({ payload, objective, unit }: 
                       className="affinity-series"
                       points={linePoints(segment, plotFirstLevel, plotLastLevel, domain)}
                       stroke={affinityColor(index)}
+                      strokeDasharray={AFFINITY_DASHES[index % AFFINITY_DASHES.length]}
                       key={`${line.affinity}-segment-${segmentIndex}`}
                     />
                   ))}
@@ -227,6 +230,9 @@ const AffinityChart = memo(function AffinityChart({ payload, objective, unit }: 
 });
 
 // Series hues stay clear of the status colours (danger red, warning ember, success green).
+// Dash patterns repeat every five lines, so neighbouring lines never share colour and dash.
+const AFFINITY_DASHES = [undefined, "12 6", "3 5", "14 4 3 4", "6 6"] as const;
+
 const AFFINITY_COLORS = [
   "#e0b967",
   "#79bfd0",

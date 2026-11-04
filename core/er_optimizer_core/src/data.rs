@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::io::Cursor;
 use std::path::Path;
+use std::sync::OnceLock;
 
 use crate::math::{CUSTOM_STATS_CLASS_NAME, STARTING_CLASSES, StartingClass};
 use crate::model::Stats;
@@ -242,7 +243,7 @@ pub fn load_game_data_with_manifest(
 
 fn load_validated_game_data<'a>(
     manifest: SnapshotManifest,
-    content_for_file: impl Fn(&str) -> Option<&'a [u8]>,
+    content_for_file: impl Fn(&str) -> Option<&'a [u8]> + Sync,
 ) -> Result<(GameData, SnapshotManifest), String> {
     // The manifest requires every runtime table. Parse the same immutable bytes
     // that were verified, including tables whose supported row set can be empty.
@@ -251,29 +252,75 @@ fn load_validated_game_data<'a>(
             .ok_or_else(|| format!("missing verified runtime CSV: {name}"))?;
         CsvTable::from_bytes(name.to_string(), bytes)
     };
-    let weapons = load_weapons(table("weapons.csv")?)?;
-    let reinforce = load_reinforce(table("reinforce.csv")?)?;
-    let calc_correct = load_calc_correct(table("calc_correct.csv")?)?;
-    let attack_element_correct = load_attack_element_correct(table("attack_element_correct.csv")?)?;
-    let attack_element_correct_ext =
-        load_attack_element_correct_ext(table("attack_element_correct_ext.csv")?)?;
-    let aow_effects = load_aow_effects(table("aow_effect_data.csv")?)?;
-    let aow_buffs = derive_aow_buffs(&aow_effects)?;
-    let aows = load_aows(table("aow.csv")?, &aow_buffs)?;
-    let aow_attack_rows = load_aow_attack_rows(table("aow_attack_data.csv")?)?;
-    let native_skill_attack_rows =
-        load_native_skill_attack_rows(table("native_skill_attack_data.csv")?)?;
-    let aow_route_assignments = load_aow_route_assignments(table("aow_route_assignments.csv")?)?;
-    let weapon_passives = load_weapon_passives(table("weapon_passives.csv")?)?;
-    let weapon_passive_overlays =
-        load_weapon_passive_overlays(table("weapon_passive_overlays.csv")?)?;
-    let starting_classes = if !manifest.capabilities.class_budget {
-        Vec::new()
-    } else if requires_class_catalog(&manifest) {
-        load_starting_classes(table(CLASS_CATALOG_FILE)?)?
-    } else {
-        STARTING_CLASSES.to_vec()
-    };
+    // The tables parse independently, side by side. Their results are then read in table
+    // order, so a snapshot with several bad tables reports the same first error as a serial
+    // pass; only the Ash tables depend on each other.
+    let (
+        (weapons, reinforce, calc_correct, attack_element_correct, attack_element_correct_ext),
+        (
+            (aow_effects, aows),
+            (
+                aow_attack_rows,
+                native_skill_attack_rows,
+                aow_route_assignments,
+                weapon_passives,
+                weapon_passive_overlays,
+                starting_classes,
+            ),
+        ),
+    ) = rayon::join(
+        || {
+            (
+                table("weapons.csv").and_then(load_weapons),
+                table("reinforce.csv").and_then(load_reinforce),
+                table("calc_correct.csv").and_then(load_calc_correct),
+                table("attack_element_correct.csv").and_then(load_attack_element_correct),
+                table("attack_element_correct_ext.csv").and_then(load_attack_element_correct_ext),
+            )
+        },
+        || {
+            rayon::join(
+                || {
+                    let aow_effects = table("aow_effect_data.csv").and_then(load_aow_effects);
+                    let aows = aow_effects.as_ref().ok().map(|aow_effects| {
+                        let aow_buffs = derive_aow_buffs(aow_effects)?;
+                        load_aows(table("aow.csv")?, &aow_buffs)
+                    });
+                    (aow_effects, aows)
+                },
+                || {
+                    (
+                        table("aow_attack_data.csv").and_then(load_aow_attack_rows),
+                        table("native_skill_attack_data.csv")
+                            .and_then(load_native_skill_attack_rows),
+                        table("aow_route_assignments.csv").and_then(load_aow_route_assignments),
+                        table("weapon_passives.csv").and_then(load_weapon_passives),
+                        table("weapon_passive_overlays.csv").and_then(load_weapon_passive_overlays),
+                        if !manifest.capabilities.class_budget {
+                            Ok(Vec::new())
+                        } else if requires_class_catalog(&manifest) {
+                            table(CLASS_CATALOG_FILE).and_then(load_starting_classes)
+                        } else {
+                            Ok(STARTING_CLASSES.to_vec())
+                        },
+                    )
+                },
+            )
+        },
+    );
+    let weapons = weapons?;
+    let reinforce = reinforce?;
+    let calc_correct = calc_correct?;
+    let attack_element_correct = attack_element_correct?;
+    let attack_element_correct_ext = attack_element_correct_ext?;
+    let aow_effects = aow_effects?;
+    let aows = aows.expect("Ash rows are parsed once their effects load")?;
+    let aow_attack_rows = aow_attack_rows?;
+    let native_skill_attack_rows = native_skill_attack_rows?;
+    let aow_route_assignments = aow_route_assignments?;
+    let weapon_passives = weapon_passives?;
+    let weapon_passive_overlays = weapon_passive_overlays?;
+    let starting_classes = starting_classes?;
 
     let data = GameData {
         dataset_version: manifest.dataset_version.clone(),
@@ -967,6 +1014,7 @@ fn load_aows(table: CsvTable, buff_rows: &HashMap<u16, AowBuffRow>) -> Result<Ve
             persistent_weapon_status_add: buff_row.persistent_weapon_status_add,
             persistent_on_hit_status_add: buff_row.persistent_on_hit_status_add,
             buff_activation_action_id: buff_row.activation_action_id,
+            buff_exact: OnceLock::new(),
         });
     }
     Ok(out)
@@ -2241,7 +2289,7 @@ mod tests {
         let data = load_embedded_game_profile(CONVERGENCE_PROFILE_ID)
             .expect("Convergence embedded snapshot loads");
         assert_eq!(data.profile_id, CONVERGENCE_PROFILE_ID);
-        assert_eq!(data.dataset_version, "convergence-3.0.3.0-r3");
+        assert_eq!(data.dataset_version, "convergence-3.0.3.0-r4");
         assert_eq!(data.rules.standard_max_upgrade, 15);
         assert_eq!(data.rules.somber_max_upgrade, 15);
         assert!(!data.rules.separate_upgrade_caps);
@@ -2294,6 +2342,21 @@ mod tests {
             .expect("Three Finger Blade");
         assert!(inseparable.is_somber);
         assert!(three_finger.is_somber);
+        // Somber identity follows the upgrade stones, not the reinforce type: the mod puts
+        // Smithing Stone weapons on type 2200 and a Somber shield on type 2900.
+        let somber = |weapon_id: u32| {
+            data.weapons
+                .iter()
+                .find(|weapon| weapon.weapon_id == weapon_id)
+                .map(|weapon| (weapon.reinforce_type, weapon.is_somber))
+        };
+        assert_eq!(somber(33_000_000), Some((2400, false)), "Glintstone Staff");
+        assert_eq!(somber(31_350_000), Some((2900, true)), "Aegis of Hadea");
+        assert_eq!(
+            somber(2_530_000),
+            Some((1500, false)),
+            "Carian Sorcery Sword"
+        );
         assert_eq!(data.rules.somber_max_upgrade, 15);
         let plus_thirteen = data
             .reinforce_level(galvanic.reinforce_type, 13)

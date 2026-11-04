@@ -1,6 +1,6 @@
 // Motion that explains state: values that changed elsewhere flash, and a ranking re-forges
 // in place. Everything runs on the Web Animations API and animates only transform, opacity or
-// colour, so it never blocks input or adds layout work beyond one read.
+// colour, so it never blocks input or adds layout work of its own.
 
 export const EASE_OUT = "cubic-bezier(0.16, 1, 0.3, 1)";
 
@@ -32,20 +32,25 @@ export function settleRanking(container: HTMLElement, freshResults: boolean, boa
     { duration: still ? 160 : freshResults ? 280 : 200, easing: still ? "linear" : EASE_OUT },
   );
   if (still || !freshResults) return;
-  // Markers start in the next frame and reuse its layout. Reading row offsets now would lay out
-  // every new row inside React's commit, joining two long tasks into one.
+  // Which rows are in the board's view is asked of an IntersectionObserver, which reports from
+  // the frame's own layout. Reading row rectangles here, even in the next frame, forced a layout
+  // of every new row inside a script task. Rows may be shifted by a sort; the observer reports
+  // where they are drawn.
   requestAnimationFrame(() => {
-    // Rows may be shifted by a sort, so compare where they are drawn with the board's view.
-    const view = board?.getBoundingClientRect() ?? { top: 0, bottom: window.innerHeight };
-    // Opacity only: a moving marker would make every later row its own layer as well.
-    [...container.querySelectorAll<HTMLElement>(".rank-move, .metric-delta")]
-      .filter((marker) => {
-        const row = marker.closest(".result-row")?.getBoundingClientRect();
-        return row !== undefined && row.bottom > view.top && row.top < view.bottom;
-      })
-      .forEach((marker, index) => marker.animate(
-        [{ opacity: 0 }, { opacity: 1 }],
-        { duration: 240, delay: 200 + Math.min(index, 12) * 24, easing: EASE_OUT, fill: "backwards" },
-      ));
+    const markers = [...container.querySelectorAll<HTMLElement>(".rank-move, .metric-delta")];
+    const rows = new Set(markers.flatMap((marker) => marker.closest(".result-row") ?? []));
+    if (!rows.size) return;
+    const observer = new IntersectionObserver((entries) => {
+      observer.disconnect();
+      const inView = new Set(entries.filter((entry) => entry.isIntersecting).map((entry) => entry.target));
+      // Opacity only: a moving marker would make every later row its own layer as well.
+      markers
+        .filter((marker) => inView.has(marker.closest(".result-row")!))
+        .forEach((marker, index) => marker.animate(
+          [{ opacity: 0 }, { opacity: 1 }],
+          { duration: 240, delay: 200 + Math.min(index, 12) * 24, easing: EASE_OUT, fill: "backwards" },
+        ));
+    }, { root: board });
+    rows.forEach((row) => observer.observe(row));
   });
 }
