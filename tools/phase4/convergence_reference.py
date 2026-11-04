@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import hashlib
 import json
 import re
@@ -16,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from tools.phase1.phase1_dump import read_csv_strict  # noqa: E402
 from tools.phase1.profiles import CONVERGENCE_AFFINITIES, profile_definition  # noqa: E402
 from tools.phase4.validate_external_calculator import REFERENCE_COMMIT  # noqa: E402
 
@@ -25,6 +25,8 @@ PROFILE = profile_definition("convergence")
 # (src/buildData.ts at REFERENCE_COMMIT) is run on the mod files and the output is tracked.
 REFERENCE_GENERATOR = f"ThomasJClark/elden-ring-weapon-calculator@{REFERENCE_COMMIT} src/buildData.ts"
 DEFAULT_SOURCE = Path(f"data/reference/tclark/regulation-convergence-v{PROFILE.mod_version}.js")
+# The tracked reference is about 1.3 MB; a response far past that is not the expected file.
+MAX_REFERENCE_BYTES = 16 * 1024 * 1024
 STAT_KEYS = ("str", "dex", "int", "fai", "arc")
 DAMAGE_KEYS = ("physical", "magic", "fire", "lightning", "holy")
 STATUS_INDEX_TO_KEY = {
@@ -112,11 +114,6 @@ def _name_key(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", value.lower())
 
 
-def _load_csv(path: Path) -> list[dict[str, str]]:
-    with path.open(encoding="utf-8", newline="") as handle:
-        return list(csv.DictReader(handle))
-
-
 def _fetch_reference(source: str) -> tuple[bytes, dict[str, Any]]:
     if source.startswith("https://"):
         request = urllib.request.Request(
@@ -124,7 +121,9 @@ def _fetch_reference(source: str) -> tuple[bytes, dict[str, Any]]:
             headers={"Accept": "application/json", "User-Agent": "Tarnisheds-Arsenal-Validator/0.9"},
         )
         with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310 - HTTPS only
-            payload = response.read()
+            payload = response.read(MAX_REFERENCE_BYTES + 1)
+        if len(payload) > MAX_REFERENCE_BYTES:
+            raise ValueError(f"reference response exceeds {MAX_REFERENCE_BYTES} bytes: {source}")
     else:
         payload = Path(source).read_bytes()
     return payload, json.loads(payload)
@@ -148,8 +147,8 @@ def _reference_status(row: dict[str, Any], reference: dict[str, Any]) -> list[fl
 
 def build_reference(snapshot: Path, source: str) -> dict[str, Any]:
     payload, reference = _fetch_reference(source)
-    ours = _load_csv(snapshot / "weapons.csv")
-    passives = {row["weapon_id"]: row for row in _load_csv(snapshot / "weapon_passives.csv")}
+    ours = read_csv_strict(snapshot / "weapons.csv")
+    passives = {row["weapon_id"]: row for row in read_csv_strict(snapshot / "weapon_passives.csv")}
     # Our affinity label only breaks ties: a reference candidate labels rows by slot, and
     # the reference decides which rows exist and what affinity each one is.
     by_signature: dict[tuple[Any, ...], list[dict[str, str]]] = defaultdict(list)
@@ -232,7 +231,7 @@ def build_reference(snapshot: Path, source: str) -> dict[str, Any]:
 
 def validate_reference(snapshot: Path, reference_path: Path) -> None:
     reference = json.loads(reference_path.read_text(encoding="utf-8"))
-    actual_rows = _load_csv(snapshot / "weapons.csv")
+    actual_rows = read_csv_strict(snapshot / "weapons.csv")
     actual_ids = sorted(int(row["weapon_id"]) for row in actual_rows)
     expected_ids = sorted(int(row["weaponId"]) for row in reference["weapons"])
     if actual_ids != expected_ids:
@@ -265,7 +264,7 @@ def validate_reference(snapshot: Path, reference_path: Path) -> None:
 
     passive_by_id = {
         int(row["weapon_id"]): row
-        for row in _load_csv(snapshot / "weapon_passives.csv")
+        for row in read_csv_strict(snapshot / "weapon_passives.csv")
     }
     status_rows = [
         [weapon_id, [_number(passive_by_id[weapon_id][key]) for key in STATUS_KEYS]]

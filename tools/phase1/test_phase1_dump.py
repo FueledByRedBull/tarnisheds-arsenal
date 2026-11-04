@@ -252,6 +252,75 @@ class Phase1DumpTests(unittest.TestCase):
         )
         self.assertEqual(rows[0]["is_somber"], 0)
 
+    def test_upgrade_materials_reject_a_missing_material_set_row(self) -> None:
+        weapons = [{"id": "500", "reinforceTypeId": "2200", "materialSetId": "9000"}]
+        reinforce = [{"id": "2201", "materialSetId": "1"}]
+        materials = [{"id": "2201", "materialId01": "10160"}]
+        with self.assertRaisesRegex(ValueError, "weapon 500 upgrade material set 9001"):
+            phase1_dump.somber_weapon_ids_from_materials(weapons, reinforce, materials, 10160)
+
+    def test_name_tables_reject_malformed_entries_and_paramdex_conflicts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            tool = Path(directory) / "WitchyBND.exe"
+            names = phase1_dump.paramdex_path(tool, "Names", "SwordArtsParam.txt")
+            names.parent.mkdir(parents=True)
+            good = [f"{index} Name {index}" for index in range(1, 100)]
+            names.write_text("\n".join([*good, "one bad"]) + "\n", encoding="utf-8")
+            self.assertEqual(len(phase1_dump.load_param_name_map(tool, "SwordArtsParam")), 99)
+            names.write_text("\n".join([*good, "one bad", "two bad"]) + "\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "2 malformed entries of 101"):
+                phase1_dump.load_param_name_map(tool, "SwordArtsParam")
+            names.write_text("100 Lion's Claw\n100 Lion's Claw\n", encoding="utf-8")
+            self.assertEqual(phase1_dump.load_param_name_map(tool, "SwordArtsParam"), {100: "Lion's Claw"})
+            names.write_text("100 Lion's Claw\n100 Parry\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "id=100 both"):
+                phase1_dump.load_param_name_map(tool, "SwordArtsParam")
+
+            xml = Path(directory) / "names.fmg.xml"
+            entries = "".join(f'<text id="{index}">Name {index}</text>' for index in range(1, 100))
+            xml.write_text(f"<fmg><entries>{entries}<text>no id</text></entries></fmg>", encoding="utf-8")
+            self.assertEqual(len(phase1_dump.load_fmg_name_map(xml)), 99)
+            xml.write_text(
+                f'<fmg><entries>{entries}<text>no id</text><text id="x">bad id</text></entries></fmg>',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "2 malformed entries of 101"):
+                phase1_dump.load_fmg_name_map(xml)
+            xml.write_text(
+                '<fmg><entries><text id="1">A</text><text id="1">B</text></entries></fmg>', encoding="utf-8"
+            )
+            self.assertEqual(phase1_dump.load_fmg_name_map(xml), {1: "B"})
+
+    def test_strict_csv_reader_names_the_file_and_line_of_a_ragged_row(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "table.csv"
+            path.write_text("a,b\n1,2\n", encoding="utf-8")
+            self.assertEqual(phase1_dump.read_csv_strict(path), [{"a": "1", "b": "2"}])
+            for text, message in (("a,b\n1,2\n3\n", "line 3.*fewer"), ("a,b\n1,2,3\n", "line 2.*more")):
+                with self.subTest(text=text):
+                    path.write_text(text, encoding="utf-8")
+                    with self.assertRaisesRegex(ValueError, f"table.csv {message}"):
+                        phase1_dump.read_csv_strict(path)
+
+    def test_unpack_regulation_requires_exactly_one_unpacked_folder(self) -> None:
+        for folders, expected in (([], None), (["regulation-bin"], "regulation-bin"),
+                                  (["regulation-bin", "other-regulation"], None)):
+            with self.subTest(folders=folders), tempfile.TemporaryDirectory() as directory:
+                source = Path(directory) / "regulation.bin"
+                source.write_bytes(b"regulation")
+
+                def unpack(_tool: Path, target: Path) -> None:
+                    for folder in folders:
+                        (target.parent / folder).mkdir()
+
+                with patch.object(phase1_dump, "run_witchybnd", side_effect=unpack):
+                    if expected is None:
+                        with self.assertRaisesRegex(RuntimeError, "exactly one unpacked regulation folder"):
+                            phase1_dump.unpack_regulation(source, Path("WitchyBND.exe"), Path(directory) / "work")
+                    else:
+                        result = phase1_dump.unpack_regulation(source, Path("WitchyBND.exe"), Path(directory) / "work")
+                        self.assertEqual(result.name, expected)
+
     def test_availability_candidate_keeps_rows_the_slot_rules_drop(self) -> None:
         # A non-infusable row in an affinity slot, and one in an unknown slot.
         slotted = weapon_param_row(
@@ -330,8 +399,12 @@ class Phase1DumpTests(unittest.TestCase):
                 phase1_dump.load_wep_type_name_map(tool)
             names = phase1_dump.paramdex_path(tool, "Names", "SwordArtsParam.txt")
             names.parent.mkdir(parents=True)
-            names.write_text("100 Lion's Claw\nbad line\n200 %null%\n", encoding="utf-8")
-            self.assertEqual(phase1_dump.load_param_name_map(tool, "SwordArtsParam"), {100: "Lion's Claw"})
+            lines = [f"{index} Name {index}" for index in range(1, 200)]
+            names.write_text("\n".join([*lines, "bad line", "200 %null%", "300 [ERROR]"]) + "\n", encoding="utf-8")
+            self.assertEqual(
+                phase1_dump.load_param_name_map(tool, "SwordArtsParam"),
+                {index: f"Name {index}" for index in range(1, 200)},
+            )
             names.write_text("200 %null%\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "no usable entries"):
                 phase1_dump.load_param_name_map(tool, "SwordArtsParam")

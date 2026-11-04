@@ -20,7 +20,7 @@ from tools.phase1.phase1_dump import (  # noqa: E402
     CLASS_STAT_FIELDS,
     MAX_EFFECTIVE_STRENGTH,
     WORKBOOK_POISE_FIELDS,
-    read_csv,
+    read_csv_strict as read_csv,
     weapon_series_id,
 )
 from tools.phase1.profiles import ProfileDefinition, profile_definition  # noqa: E402
@@ -45,8 +45,9 @@ SKILL_ANIMATION_SOURCE_KINDS = {
     "paramdexDefsBehaviorParam",
     "paramdexDefsSwordArtsParam",
 }
-# Convergence 3.0.3.0 resolves damage for 90 of its 122 Ashes of War.
+# Convergence 3.0.3.0 resolves damage for 93 of its 122 Ashes of War and leaves 20 missing.
 MIN_SKILL_ANIMATION_DAMAGE_AOWS = 85
+MAX_SKILL_ANIMATION_MISSING_AOWS = 22
 VALID_PHYSICAL_ATTRIBUTES = {
     "standard",
     "strike",
@@ -130,14 +131,78 @@ def max_reinforce_levels(rows: Iterable[dict[str, str]]) -> dict[int, int]:
     return out
 
 
+def validate_reinforce_levels(
+    weapons: list[dict[str, str]], reinforce: Iterable[dict[str, str]]
+) -> list[ValidationIssue]:
+    """Each reinforce type a weapon uses lists levels 0..max exactly once."""
+    levels: dict[int, list[int]] = defaultdict(list)
+    for row in reinforce:
+        levels[int(row["reinforce_type"])].append(int(row["level"]))
+    issues: list[ValidationIssue] = []
+    for reinforce_type in sorted({int(row["reinforce_type"]) for row in weapons} & levels.keys()):
+        found = sorted(levels[reinforce_type])
+        if found != list(range(found[-1] + 1)):
+            repeated = sorted({level for level in found if found.count(level) > 1})
+            missing = sorted(set(range(found[-1] + 1)) - set(found))
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    f"reinforce type {reinforce_type} levels must be 0..{found[-1]} once each: "
+                    f"repeated={repeated[:5]} missing={missing[:5]}",
+                )
+            )
+    return issues
+
+
+def validate_weapon_upgrade_caps(
+    weapons: list[dict[str, str]],
+    reinforce_max: dict[int, int],
+    rules: Mapping[str, object],
+) -> list[ValidationIssue]:
+    """Per-weapon upgrade path: Somber and Smithing weapons may share a reinforce type.
+
+    A max level of 0 is an unupgradeable weapon, which may still be flagged Somber.
+    """
+    issues: list[ValidationIssue] = []
+    invalid_flags = [
+        (row["weapon_id"], row["is_somber"]) for row in weapons if row["is_somber"] not in {"0", "1"}
+    ]
+    if invalid_flags:
+        issues.append(ValidationIssue("error", f"weapons.csv has invalid is_somber flags: {invalid_flags[:5]}"))
+    caps = {"1": int(str(rules["somberMaxUpgrade"])), "0": int(str(rules["standardMaxUpgrade"]))}
+    mismatched = [
+        (row["weapon_id"], row["is_somber"], reinforce_max[int(row["reinforce_type"])])
+        for row in weapons
+        if row["is_somber"] in caps
+        and int(row["reinforce_type"]) in reinforce_max
+        and reinforce_max[int(row["reinforce_type"])] not in {0, caps[row["is_somber"]]}
+    ]
+    if mismatched:
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"weapons upgrade past their path's max level (id, is_somber, max level): {mismatched[:5]}",
+            )
+        )
+    return issues
+
+
 def validate_used_calc_correct_curves(
     rows: Iterable[dict[str, str]], used_curve_ids: set[int]
 ) -> list[ValidationIssue]:
     curves: dict[int, dict[int, float]] = defaultdict(dict)
+    repeated: list[tuple[int, int]] = []
     for row in rows:
-        curves[int(row["curve_id"])][int(row["stat_value"])] = float(row["multiplier"])
+        curve_id, stat_value = int(row["curve_id"]), int(row["stat_value"])
+        if stat_value in curves[curve_id]:
+            repeated.append((curve_id, stat_value))
+        curves[curve_id][stat_value] = float(row["multiplier"])
 
     issues: list[ValidationIssue] = []
+    if repeated:
+        issues.append(
+            ValidationIssue("error", f"calc_correct.csv repeats curve/stat keys: {repeated[:10]}")
+        )
     non_monotonic: list[int] = []
     for curve_id in sorted(used_curve_ids):
         curve = curves.get(curve_id, {})
@@ -325,7 +390,9 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
         )
     )
     reinforce_caps = max_reinforce_levels(reinforce)
+    issues.extend(validate_reinforce_levels(weapons, reinforce))
     issues.extend(validate_weapon_model(weapons, calc_correct, reinforce_caps))
+    issues.extend(validate_weapon_upgrade_caps(weapons, reinforce_caps, manifest["rules"]))
     aec_ids = {row["attack_element_correct_id"] for row in attack_element_correct}
     missing_aec = sorted({row["attack_element_correct_id"] for row in weapons} - aec_ids)
     if missing_aec:
@@ -529,7 +596,7 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
             )
         )
     if profile_id == "vanilla":
-        issues.extend(_validate_vanilla_snapshot(data_dir, tables, reinforce_caps))
+        issues.extend(_validate_vanilla_snapshot(data_dir, tables))
     elif manifest["capabilities"]["aowDamage"] or manifest["capabilities"]["aowRoutes"]:
         issues.extend(_validate_skill_animation_snapshot(data_dir, tables, source_kinds))
 
@@ -699,6 +766,15 @@ def _validate_skill_animation_snapshot(
                 f"expected at least {MIN_SKILL_ANIMATION_DAMAGE_AOWS}",
             )
         )
+    missing_aows = sum(row["status"] == "missing" for row in coverage)
+    if missing_aows > MAX_SKILL_ANIMATION_MISSING_AOWS:
+        issues.append(
+            ValidationIssue(
+                "error",
+                f"{missing_aows} Ashes of War have no damage resolved from skill animations; "
+                f"expected at most {MAX_SKILL_ANIMATION_MISSING_AOWS}",
+            )
+        )
     native_weapons = sorted(row["weapon_id"] for row in weapons if row["native_skill_id"])
     if sorted(row["weapon_id"] for row in native_coverage) != native_weapons:
         issues.append(
@@ -739,7 +815,6 @@ def _validate_skill_animation_snapshot(
 def _validate_vanilla_snapshot(
     data_dir: Path,
     tables: dict[str, list[dict[str, str]]],
-    reinforce_max: dict[int, int],
 ) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
 
@@ -983,10 +1058,6 @@ def _validate_vanilla_snapshot(
             )
         )
 
-    used_types: dict[int, list[int]] = defaultdict(list)
-    for row in weapons:
-        used_types[int(row["reinforce_type"])].append(int(row["weapon_id"]))
-
     missing_type_keys = [
         row["weapon_id"]
         for row in weapons
@@ -1039,29 +1110,6 @@ def _validate_vanilla_snapshot(
                 f"Great Katana Blood +25 overlay bleed is too low: {great_katana_blood_25['bleed']}",
             )
         )
-
-    special_non_upgrade_types = {3000}
-    for reinforce_type in sorted(used_types):
-        max_level = reinforce_max.get(reinforce_type, -1)
-        if max_level < 0:
-            continue
-        is_somber = any(int(row["is_somber"]) == 1 and int(row["reinforce_type"]) == reinforce_type for row in weapons)
-        if reinforce_type in special_non_upgrade_types:
-            continue
-        if is_somber and max_level != 10:
-            issues.append(
-                ValidationIssue(
-                    "error",
-                    f"somber reinforce_type={reinforce_type} has max_level={max_level}, expected 10",
-                )
-            )
-        if not is_somber and max_level < 25:
-            issues.append(
-                ValidationIssue(
-                    "error",
-                    f"standard reinforce_type={reinforce_type} has max_level={max_level}, expected >=25",
-                )
-            )
 
     lions_claw = next((row for row in aows if row["name"] == "Lion's Claw"), None)
     if lions_claw is None:
@@ -1160,7 +1208,17 @@ def main() -> int:
         if not data_dir.exists():
             issues.append(ValidationIssue("error", f"[{profile_id}] missing data dir {data_dir}"))
             continue
-        issues.extend(scoped(profile_id, validate_profile_snapshot(data_dir, profile_id)))
+        try:
+            profile_issues = validate_profile_snapshot(data_dir, profile_id)
+        except (OSError, KeyError, TypeError, ValueError, AttributeError) as error:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    f"[{profile_id}] validation aborted: {type(error).__name__}: {error}",
+                )
+            )
+            continue
+        issues.extend(scoped(profile_id, profile_issues))
 
     for issue in issues:
         print(f"ERROR: {issue.message}")

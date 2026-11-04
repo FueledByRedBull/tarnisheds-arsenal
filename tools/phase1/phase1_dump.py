@@ -53,6 +53,8 @@ CLASS_STAT_FIELDS = (
 # Rune Level is the eight-attribute total minus 79 for every class row.
 CLASS_LEVEL_OFFSET = 79
 WITCHYBND_TIMEOUT_SECONDS = 600
+# Share of non-empty name-table entries that may be unparseable before the file is rejected.
+MAX_MALFORMED_NAME_PERCENT = 1
 # Paramdex definitions WitchyBND uses to serialize the params above.
 PARAM_DEFINITIONS = (
     "EquipParamWeapon",
@@ -280,13 +282,13 @@ def unpack_regulation(regulation_path: Path, witchybnd_path: Path, workdir: Path
     shutil.copy2(regulation_path, regulation_copy)
     run_witchybnd(witchybnd_path, regulation_copy)
 
-    unpacked = next(
-        (item for item in workdir.iterdir() if item.is_dir() and "regulation" in item.name.lower()),
-        None,
-    )
-    if unpacked is None:
-        raise RuntimeError("Could not find unpacked regulation folder.")
-    return unpacked
+    unpacked = [item for item in workdir.iterdir() if item.is_dir() and "regulation" in item.name.lower()]
+    if len(unpacked) != 1:
+        raise RuntimeError(
+            f"Expected exactly one unpacked regulation folder, found {len(unpacked)}: "
+            f"{sorted(item.name for item in unpacked)}"
+        )
+    return unpacked[0]
 
 
 def serialize_param(unpacked_dir: Path, witchybnd_path: Path, param_name: str) -> Path:
@@ -415,6 +417,35 @@ def read_csv(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
+def read_csv_strict(path: Path) -> list[dict[str, str]]:
+    """Read a CSV whose every row has exactly the header's fields."""
+    rows: list[dict[str, str]] = []
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            if None in row:
+                raise ValueError(f"{path} line {reader.line_num}: row has more fields than the header")
+            if any(value is None for value in row.values()):
+                raise ValueError(f"{path} line {reader.line_num}: row has fewer fields than the header")
+            rows.append(row)
+    return rows
+
+
+def check_malformed_name_lines(malformed: int, total: int, source: Path) -> None:
+    if malformed * 100 > total * MAX_MALFORMED_NAME_PERCENT:
+        raise ValueError(
+            f"{source} has {malformed} malformed entries of {total}; "
+            f"more than {MAX_MALFORMED_NAME_PERCENT}% means the file is not a name table"
+        )
+
+
+def record_name(mapping: dict[int, str], key: int, value: str, source: Path) -> None:
+    previous = mapping.get(key)
+    if previous is not None and previous != value:
+        raise ValueError(f"{source} names id={key} both {previous!r} and {value!r}")
+    mapping[key] = value
+
+
 def paramdex_path(witchybnd_path: Path, *parts: str) -> Path:
     return witchybnd_path.parent.joinpath("Assets", "Paramdex", "ER", *parts)
 
@@ -425,22 +456,27 @@ def load_param_name_map(witchybnd_path: Path, param_name: str) -> dict[int, str]
         raise FileNotFoundError(f"Paramdex names file not found: {names_path}")
 
     mapping: dict[int, str] = {}
+    total = malformed = 0
     with names_path.open("r", encoding="utf-8") as handle:
         for line in handle:
             line = line.rstrip("\n")
             if not line:
                 continue
+            total += 1
             parts = line.split(" ", 1)
             if len(parts) != 2:
+                malformed += 1
                 continue
             try:
                 key = int(parts[0])
             except ValueError:
+                malformed += 1
                 continue
             value = parts[1].strip()
             if not value or value in {"%null%", "[ERROR]"}:
                 continue
-            mapping[key] = value
+            record_name(mapping, key, value, names_path)
+    check_malformed_name_lines(malformed, total, names_path)
     if not mapping:
         raise ValueError(f"Paramdex names file contains no usable entries: {names_path}")
     return mapping
@@ -455,16 +491,22 @@ def load_fmg_name_map(xml_path: Path) -> dict[int, str]:
         raise FileNotFoundError(f"FMG name source not found: {xml_path}")
     root = ET.parse(checked_xml_size(xml_path)).getroot()
     mapping: dict[int, str] = {}
+    total = malformed = 0
     for element in root.findall("./entries/text"):
-        raw_id = element.get("id")
         value = (element.text or "").strip()
-        if raw_id is None or not value or value in {"%null%", "[ERROR]"}:
+        if not value:
             continue
+        total += 1
         try:
-            entry_id = int(raw_id)
+            entry_id = int(element.get("id", ""))
         except ValueError:
+            malformed += 1
             continue
+        if value in {"%null%", "[ERROR]"}:
+            continue
+        # Mod FMGs can name one id twice (Convergence 3.0.0.1 does); the later entry wins.
         mapping[entry_id] = value
+    check_malformed_name_lines(malformed, total, xml_path)
     if not mapping:
         raise ValueError(f"FMG name source contains no usable entries: {xml_path}")
     return mapping
@@ -964,8 +1006,15 @@ def somber_weapon_ids_from_materials(
         offset = level_offsets.get(to_int(row, "reinforceTypeId", None) + 1)
         if offset is None:
             continue
-        if first_materials.get(to_int(row, "materialSetId", None) + offset) == somber_material:
-            somber.add(to_int(row, "id", None))
+        weapon_id = to_int(row, "id", None)
+        material_id = to_int(row, "materialSetId", None) + offset
+        first_material = first_materials.get(material_id)
+        if first_material is None:
+            raise ValueError(
+                f"weapon {weapon_id} upgrade material set {material_id} is missing from EquipMtrlSetParam"
+            )
+        if first_material == somber_material:
+            somber.add(weapon_id)
     return frozenset(somber)
 
 
