@@ -2003,13 +2003,6 @@ button.about-trigger {
   padding: 4px 12px 4px 0;
 }
 
-.affinity-legend i {
-  grid-row: 1 / span 2;
-  width: 12px;
-  height: 3px;
-  border-radius: 999px;
-}
-
 .affinity-legend .affinity-swatch {
   grid-row: 1 / span 2;
   width: 24px;

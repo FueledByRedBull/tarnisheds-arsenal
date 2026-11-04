@@ -1419,7 +1419,7 @@ mod hostile_request_tests {
         }
     }
 
-    /// The validation of \`start_path_preview\` followed by the lane calculation.
+    /// The validation of `start_path_preview` followed by the lane calculation.
     fn run(state: &AppState, lanes: Vec<PathPreviewRequestDto>) -> Result<(), AppError> {
         let profile = prepare_path_preview(
             &StartPathPreviewRequestDto {
@@ -1442,6 +1442,8 @@ mod hostile_request_tests {
         let skipped = [
             "top_k",
             "filters.entries",
+            "filters.entries.dimension",
+            "filters.entries.mode",
             "somber_filter",
             "weapon_name",
             "affinity",

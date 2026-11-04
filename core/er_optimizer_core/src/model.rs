@@ -375,8 +375,9 @@ pub struct Aow {
     pub(crate) buff_exact: OnceLock<AshBuffExact>,
 }
 
-/// Exact flat attack-power buff, converted once per Ash. A conversion failure is kept as the
-/// error each caller would have raised converting the components itself.
+/// Exact flat attack-power buff, converted once per Ash on first read, so `buff_attack_power`
+/// must not change after that. A conversion failure is kept as the error each caller would have
+/// raised converting the components itself.
 #[derive(Clone, Debug)]
 pub(crate) struct AshBuffExact {
     /// The physical component alone.

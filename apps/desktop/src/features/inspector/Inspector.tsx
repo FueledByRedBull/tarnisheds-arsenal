@@ -221,39 +221,37 @@ const ReferenceSections = memo(function ReferenceSections({ catalog, selected, r
   const aowAvailable = selected && hasAowDamage(selected, aowModelSupported(catalog?.dataManifest));
   return (
     <>
-  {/* Reference detail: weapon poise, the stat budget and locks (also shown in the strip),
-      and what the model covers. Folded, so the answer above stays short. */}
-  <details className="model-coverage more-details">
-    <summary>More details</summary>
-    {selected ? <WeaponPoiseDetails profile={weaponProfile} route={aowAvailable ? selected.aowRoute : null} twoHanding={request.twoHanding} /> : null}
-    <div className="detail-block">
-      <span>Stat Budget</span>
-      <strong>{fixedStats
-        ? `Fixed stat total ${snapshot.level}` : `Level ${snapshot.level} / +${snapshot.levelUps} level ups`}</strong>
-      <small>{fixedStats
-        ? "Entered combat stats are evaluated as-is; class budgets and redistribution are unavailable."
-        : `${snapshot.redistributable} respec points · ${snapshot.total} total points`}</small>
-    </div>
-    <div className="detail-block">
-      <span>Stat locks</span>
-      <strong>{fixedStats
-        ? "Fixed stats evaluated as entered"
-        : lockedStatMode && hasCombatStatLocks(request) ? "Stat locks active" : "No stat locks"}</strong>
-      <small>
-        {fixedStats
-          ? "This profile does not derive a class budget or redistribute combat stats."
-          : !lockedStatMode || !hasCombatStatLocks(request)
-            ? "Every combat stat is free to move."
-            : statLockLine(request)}
-      </small>
-    </div>
-    <ModelCoverage />
-  </details>
-  <SavedBuildPanel selected={selected} />
-  <details className="model-coverage report-problem">
-    <summary>Report a problem</summary>
-    <ReproductionReport />
-  </details>
+      <details className="model-coverage more-details">
+        <summary>More details</summary>
+        {selected ? <WeaponPoiseDetails profile={weaponProfile} route={aowAvailable ? selected.aowRoute : null} twoHanding={request.twoHanding} /> : null}
+        <div className="detail-block">
+          <span>Stat Budget</span>
+          <strong>{fixedStats
+            ? `Fixed stat total ${snapshot.level}` : `Level ${snapshot.level} / +${snapshot.levelUps} level ups`}</strong>
+          <small>{fixedStats
+            ? "Entered combat stats are evaluated as-is; class budgets and redistribution are unavailable."
+            : `${snapshot.redistributable} respec points · ${snapshot.total} total points`}</small>
+        </div>
+        <div className="detail-block">
+          <span>Stat locks</span>
+          <strong>{fixedStats
+            ? "Fixed stats evaluated as entered"
+            : lockedStatMode && hasCombatStatLocks(request) ? "Stat locks active" : "No stat locks"}</strong>
+          <small>
+            {fixedStats
+              ? "This profile does not derive a class budget or redistribute combat stats."
+              : !lockedStatMode || !hasCombatStatLocks(request)
+                ? "Every combat stat is free to move."
+                : statLockLine(request)}
+          </small>
+        </div>
+        <ModelCoverage />
+      </details>
+      <SavedBuildPanel selected={selected} />
+      <details className="model-coverage report-problem">
+        <summary>Report a problem</summary>
+        <ReproductionReport />
+      </details>
     </>
   );
 });

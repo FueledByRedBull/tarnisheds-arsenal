@@ -953,6 +953,9 @@ fn parse_stable_filters(filters: &StableFilterSetDto) -> Result<Vec<StableFilter
                     "filter ids must contain 1 through 128 characters",
                 ));
             }
+            // The parsers echo what they reject.
+            check_len("filters.entries.dimension", &filter.dimension)?;
+            check_len("filters.entries.mode", &filter.mode)?;
             Ok(StableFilter {
                 dimension: FilterDimension::parse(&filter.dimension)?,
                 id: filter.id.clone(),

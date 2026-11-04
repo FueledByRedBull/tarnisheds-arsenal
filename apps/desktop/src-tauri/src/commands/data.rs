@@ -345,6 +345,13 @@ pub fn compatible_aow_names_for_affinity(
     request: CompatibleAowsForAffinityRequestDto,
     state: State<'_, AppState>,
 ) -> Result<Vec<String>, AppError> {
+    compatible_aows_inner(request, &state)
+}
+
+fn compatible_aows_inner(
+    request: CompatibleAowsForAffinityRequestDto,
+    state: &AppState,
+) -> Result<Vec<String>, AppError> {
     let profile = state.profile(&request.profile_id)?;
     let affinity = request
         .affinity
@@ -363,12 +370,19 @@ pub fn get_weapon_profile(
     request: WeaponProfileRequestDto,
     state: State<'_, AppState>,
 ) -> Result<WeaponProfileDto, AppError> {
+    weapon_profile_checked(&request, &state)
+}
+
+fn weapon_profile_checked(
+    request: &WeaponProfileRequestDto,
+    state: &AppState,
+) -> Result<WeaponProfileDto, AppError> {
     let profile = state.profile(&request.profile_id)?;
     check_len("weaponName", &request.weapon_name)?;
     if let Some(affinity) = &request.affinity {
         check_len("affinity", affinity)?;
     }
-    weapon_profile_inner(&profile.data, &profile.catalog_index, &request)
+    weapon_profile_inner(&profile.data, &profile.catalog_index, request)
 }
 
 fn weapon_profile_inner(
@@ -1031,5 +1045,69 @@ mod compatibility_tests {
         data.reinforce[reinforce_type].fill(None);
         let index = CatalogIndex::build(&data);
         assert!(weapon_upgrade_cap(&index, "Dagger", Some("Standard")).is_err());
+    }
+}
+
+#[cfg(test)]
+mod hostile_request_tests {
+    use super::*;
+    use crate::{assert_rejected_quickly, oversized_text};
+
+    #[test]
+    fn data_commands_reject_oversized_text() {
+        let state = crate::test_app_state();
+        let profile_id = || er_optimizer_core::VANILLA_PROFILE_ID.to_string();
+        // get_catalog and get_data_manifest read only the profile id.
+        assert_rejected_quickly("profile lookup", || {
+            state.profile(&oversized_text()).map(|_| ())
+        });
+        for (label, request) in [
+            (
+                "weapon profile profileId",
+                WeaponProfileRequestDto {
+                    profile_id: oversized_text(),
+                    weapon_name: "Uchigatana".into(),
+                    affinity: None,
+                },
+            ),
+            (
+                "weapon profile weaponName",
+                WeaponProfileRequestDto {
+                    profile_id: profile_id(),
+                    weapon_name: oversized_text(),
+                    affinity: None,
+                },
+            ),
+            (
+                "weapon profile affinity",
+                WeaponProfileRequestDto {
+                    profile_id: profile_id(),
+                    weapon_name: "Uchigatana".into(),
+                    affinity: Some(oversized_text()),
+                },
+            ),
+        ] {
+            assert_rejected_quickly(label, || {
+                weapon_profile_checked(&request, &state).map(|_| ())
+            });
+        }
+        for (label, request) in [
+            (
+                "compatible Ashes profileId",
+                CompatibleAowsForAffinityRequestDto {
+                    profile_id: oversized_text(),
+                    affinity: Some("Keen".into()),
+                },
+            ),
+            (
+                "compatible Ashes affinity",
+                CompatibleAowsForAffinityRequestDto {
+                    profile_id: profile_id(),
+                    affinity: Some(oversized_text()),
+                },
+            ),
+        ] {
+            assert_rejected_quickly(label, || compatible_aows_inner(request, &state).map(|_| ()));
+        }
     }
 }

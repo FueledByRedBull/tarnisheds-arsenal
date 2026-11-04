@@ -38,8 +38,9 @@ export const SavedBuildPanel = memo(function SavedBuildPanel({ selected }: { sel
   const [library, setLibrary] = useState(readLibrary);
   const { entries, error: libraryError } = library;
   const [selectedId, setSelectedId] = useState(library.entries[0]?.id ?? "");
-  // Until the player types a name, a save is named after the selected build, as the game
-  // names weapons ("Blood Uchigatana +25").
+  // The name field shows the selected saved build's name. With no saved build selected and no
+  // typed name, a save is named after the selected result, as the game names weapons
+  // ("Blood Uchigatana +25").
   const [typedName, setName] = useState<string | null>(library.entries[0]?.name ?? null);
   // Whenever the selected build changes, however it came to change, the name field follows it, so
   // Update selected never writes another build's name over it.

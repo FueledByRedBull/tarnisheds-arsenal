@@ -725,6 +725,8 @@ mod hostile_request_tests {
         let skipped = [
             "top_k",
             "filters.entries",
+            "filters.entries.dimension",
+            "filters.entries.mode",
             "somber_filter",
             "weapon_name",
             "affinity",

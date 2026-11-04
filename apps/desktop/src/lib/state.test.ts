@@ -268,7 +268,11 @@ describe("desktop result lifecycle", () => {
     profile.affinityNames = ["Standard"];
     profile.filterDimensions = [{ id: "affinity", label: "Affinity", options: [{ id: "affinity:0", label: "Standard", count: 1 }] }];
     const kept = { ...defaultRequest, weaponName: "Uchigatana", affinity: "Standard", aowName: "Unsheathe", weaponTypeKey: "katana",
-      filters: { version: 1 as const, entries: [{ dimension: "affinity" as const, id: "affinity:0", mode: "include" as const }] } };
+      filters: { version: 1 as const, entries: [
+        { dimension: "affinity" as const, id: "affinity:0", mode: "include" as const },
+        // Coverage filters are not catalog dimensions, but they still filter the search.
+        { dimension: "coverage" as const, id: "coverage:aow-damage", mode: "exclude" as const },
+      ] } };
     useDesktopStore.setState({ request: kept, notices: [] });
     useDesktopStore.getState().setCatalog(profile);
     expect(useDesktopStore.getState().request).toMatchObject(kept);
@@ -529,13 +533,7 @@ describe("desktop result lifecycle", () => {
       vi.unstubAllGlobals();
     }
     const valid = Array.from({ length: 9 }, (_, index) => ({ ...row, weaponId: index + 1 }));
-    // Only the first eight stored rows are read, so an invalid one among them takes a slot.
-    const restored = restoreCompareRows([{}, ...valid]);
-    expect(restored.compareBench).toEqual(valid.slice(0, 7));
-    expect(restored.notices.map((notice) => notice.message)).toEqual([
-      "Some saved comparison builds were discarded because their data is invalid.",
-      "Compare holds 8 pinned builds; 2 saved pins over that limit were not restored.",
-    ]);
+    expect(restoreCompareRows([{}, ...valid]).compareBench).toEqual(valid.slice(0, 8));
   });
 
   it("keeps Paths and Affinity Watch horizons independent", () => {

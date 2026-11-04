@@ -37,7 +37,8 @@ export function migratePresetRequest(request: OptimizeRequestDto, catalog: Catal
 export function reconcileRestoredQuery(request: OptimizeRequestDto, catalog: CatalogDto): { request: OptimizeRequestDto; issues: string[] } {
   const reconciled = { ...request };
   const issues = clearMissingNames(reconciled, catalog);
-  const entries = request.filters.entries.filter((entry) => catalog.filterDimensions
+  // Coverage filters are not catalog dimensions; native validation checks them.
+  const entries = request.filters.entries.filter((entry) => entry.dimension === "coverage" || catalog.filterDimensions
     .some((dimension) => dimension.id === entry.dimension && dimension.options.some((option) => option.id === entry.id)));
   const dropped = request.filters.entries.length - entries.length;
   if (dropped) {

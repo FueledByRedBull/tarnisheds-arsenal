@@ -1,4 +1,4 @@
-import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Component, type ReactNode } from "react";
 import { errorMessage } from "../lib/format";
 import { clearSavedQueries } from "../lib/state";
 
@@ -7,19 +7,17 @@ import { clearSavedQueries } from "../lib/state";
 // so a report can quote it. A panel boundary also tries again by itself when its resetKey changes,
 // so moving to another workspace, profile or build leaves a crashed panel behind; it is not
 // remounted otherwise, because that would drop the state of workspaces kept alive while hidden.
-export class AppErrorBoundary extends Component<{ children: ReactNode; panel?: string; resetKey?: string }, { error: unknown }> {
-  state = { error: null as unknown };
+export class AppErrorBoundary extends Component<{ children: ReactNode; panel?: string; resetKey?: string }, { error: unknown; resetKey?: string }> {
+  state = { error: null as unknown, resetKey: this.props.resetKey };
+
+  // Clearing before render means a panel that throws again under the new key shows its error
+  // once, instead of rendering twice.
+  static getDerivedStateFromProps(props: { resetKey?: string }, state: { error: unknown; resetKey?: string }) {
+    return props.resetKey === state.resetKey ? null : { error: null, resetKey: props.resetKey };
+  }
 
   static getDerivedStateFromError(error: unknown) {
     return { error: error ?? new Error("Unknown error") };
-  }
-
-  componentDidCatch(error: unknown, info: ErrorInfo) {
-    console.error(error, info.componentStack);
-  }
-
-  componentDidUpdate(previous: { resetKey?: string }) {
-    if (this.state.error !== null && previous.resetKey !== this.props.resetKey) this.setState({ error: null });
   }
 
   render() {

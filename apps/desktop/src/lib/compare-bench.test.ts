@@ -55,6 +55,17 @@ describe("readCompareBench", () => {
     expect(notices[0].message).toContain("1 saved pin over that limit was not restored");
   });
 
+  it("fills the bench past an invalid row and counts only unread rows as over the limit", () => {
+    const valid = Array.from({ length: MAX_COMPARE_PINS + 1 }, (_, index) => solvedBuild({ weaponId: index + 1 }));
+    store([{ broken: true }, ...valid]);
+    const { rows, notices } = readCompareBench(catalog);
+    expect(rows.map((row) => row.weaponId)).toEqual(valid.slice(0, MAX_COMPARE_PINS).map((row) => row.weaponId));
+    expect(notices.map((notice) => notice.message)).toEqual([
+      "Some saved comparison builds were discarded because their data is invalid.",
+      "Compare holds 8 pinned builds; 1 saved pin over that limit was not restored.",
+    ]);
+  });
+
   it("discards invalid rows with a notice", () => {
     store([solvedBuild(), { broken: true }]);
     const { rows, notices } = readCompareBench(catalog);

@@ -2039,6 +2039,8 @@ mod hostile_request_tests {
     const RESET_BY_PINNING: &[&str] = &[
         "top_k",
         "filters.entries",
+        "filters.entries.dimension",
+        "filters.entries.mode",
         "somber_filter",
         "weapon_name",
         "affinity",

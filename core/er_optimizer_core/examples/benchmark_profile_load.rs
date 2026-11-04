@@ -16,6 +16,7 @@ fn main() -> Result<(), String> {
     let repeats: usize = std::env::args()
         .nth(1)
         .and_then(|value| value.parse().ok())
+        .filter(|&repeats| repeats > 0)
         .ok_or_else(|| USAGE.to_string())?;
     let profiles = [VANILLA_PROFILE_ID, CONVERGENCE_PROFILE_ID];
     let mut sequential = Vec::with_capacity(repeats);

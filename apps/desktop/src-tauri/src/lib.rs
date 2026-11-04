@@ -959,6 +959,20 @@ pub(crate) const HOSTILE_OPTIMIZE_VALUES: &[HostileValue] = &[
             513
         ];
     }),
+    ("filters.entries.dimension", |request| {
+        request.filters.entries = vec![dto::StableFilterEntryDto {
+            dimension: oversized_text(),
+            id: "x".into(),
+            mode: "include".into(),
+        }];
+    }),
+    ("filters.entries.mode", |request| {
+        request.filters.entries = vec![dto::StableFilterEntryDto {
+            dimension: "weapon_family".into(),
+            id: "x".into(),
+            mode: oversized_text(),
+        }];
+    }),
     ("profile_id", |request| {
         request.profile_id = oversized_text()
     }),
