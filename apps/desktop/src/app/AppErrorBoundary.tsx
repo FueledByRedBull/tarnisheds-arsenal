@@ -1,15 +1,25 @@
-import { Component, type ReactNode } from "react";
+import { Component, type ErrorInfo, type ReactNode } from "react";
 import { errorMessage } from "../lib/format";
 import { clearSavedQueries } from "../lib/state";
 
 // The page boundary offers a fresh workspace; a panel boundary (Build Detail, a workspace) keeps
 // the rest of the app usable and lets that panel try again. Both show the message, selectable,
-// so a report can quote it.
-export class AppErrorBoundary extends Component<{ children: ReactNode; panel?: string }, { error: unknown }> {
+// so a report can quote it. A panel boundary also tries again by itself when its resetKey changes,
+// so moving to another workspace, profile or build leaves a crashed panel behind; it is not
+// remounted otherwise, because that would drop the state of workspaces kept alive while hidden.
+export class AppErrorBoundary extends Component<{ children: ReactNode; panel?: string; resetKey?: string }, { error: unknown }> {
   state = { error: null as unknown };
 
   static getDerivedStateFromError(error: unknown) {
     return { error: error ?? new Error("Unknown error") };
+  }
+
+  componentDidCatch(error: unknown, info: ErrorInfo) {
+    console.error(error, info.componentStack);
+  }
+
+  componentDidUpdate(previous: { resetKey?: string }) {
+    if (this.state.error !== null && previous.resetKey !== this.props.resetKey) this.setState({ error: null });
   }
 
   render() {

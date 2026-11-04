@@ -243,6 +243,38 @@ describe("desktop result lifecycle", () => {
     expect(useDesktopStore.getState().request).toMatchObject({ className: "Stormcaller", characterLevel: 39, ...stats });
   });
 
+  it("clears restored names and filters the loaded catalog no longer has, with one notice", () => {
+    const profile = catalog("vanilla");
+    profile.filterDimensions = [{ id: "affinity", label: "Affinity", options: [{ id: "affinity:0", label: "Standard", count: 1 }] }];
+    const stale = { ...defaultRequest, weaponName: "Moonveil", affinity: "Bloody", aowName: "Old Skill", weaponTypeKey: "Hammer",
+      filters: { version: 1 as const, entries: [
+        { dimension: "affinity" as const, id: "affinity:0", mode: "include" as const },
+        { dimension: "affinity" as const, id: "affinity:9", mode: "exclude" as const },
+        { dimension: "weapon_type" as const, id: "weapon-type:3", mode: "include" as const },
+      ] } };
+    useDesktopStore.setState({ request: stale, notices: [] });
+    useDesktopStore.getState().setCatalog(profile);
+    const state = useDesktopStore.getState();
+    expect(state.request).toMatchObject({ weaponName: null, affinity: null, aowName: null, weaponTypeKey: null,
+      filters: { version: 1, entries: [{ dimension: "affinity", id: "affinity:0", mode: "include" }] } });
+    const adjusted = state.notices.filter((notice) => notice.message.startsWith("Your saved query was adjusted"));
+    expect(adjusted).toHaveLength(1);
+    expect(adjusted[0]).toMatchObject({ tone: "info", message: expect.stringContaining("weapon 'Moonveil' no longer exists") });
+    expect(adjusted[0].message).toContain("2 filters no longer exist");
+  });
+
+  it("keeps a restored query the loaded catalog still has, without a notice", () => {
+    const profile = catalog("vanilla");
+    profile.affinityNames = ["Standard"];
+    profile.filterDimensions = [{ id: "affinity", label: "Affinity", options: [{ id: "affinity:0", label: "Standard", count: 1 }] }];
+    const kept = { ...defaultRequest, weaponName: "Uchigatana", affinity: "Standard", aowName: "Unsheathe", weaponTypeKey: "katana",
+      filters: { version: 1 as const, entries: [{ dimension: "affinity" as const, id: "affinity:0", mode: "include" as const }] } };
+    useDesktopStore.setState({ request: kept, notices: [] });
+    useDesktopStore.getState().setCatalog(profile);
+    expect(useDesktopStore.getState().request).toMatchObject(kept);
+    expect(useDesktopStore.getState().notices).toEqual([]);
+  });
+
   it("records recoverable catalog loading failures", () => {
     const state = useDesktopStore.getState();
     state.setCatalogFailure("manifest checksum mismatch");
@@ -497,7 +529,13 @@ describe("desktop result lifecycle", () => {
       vi.unstubAllGlobals();
     }
     const valid = Array.from({ length: 9 }, (_, index) => ({ ...row, weaponId: index + 1 }));
-    expect(restoreCompareRows([{}, ...valid]).compareBench).toEqual(valid.slice(0, 8));
+    // Only the first eight stored rows are read, so an invalid one among them takes a slot.
+    const restored = restoreCompareRows([{}, ...valid]);
+    expect(restored.compareBench).toEqual(valid.slice(0, 7));
+    expect(restored.notices.map((notice) => notice.message)).toEqual([
+      "Some saved comparison builds were discarded because their data is invalid.",
+      "Compare holds 8 pinned builds; 2 saved pins over that limit were not restored.",
+    ]);
   });
 
   it("keeps Paths and Affinity Watch horizons independent", () => {

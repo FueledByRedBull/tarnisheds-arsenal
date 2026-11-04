@@ -10,7 +10,11 @@ import type { BuildPreset, CatalogDto, SolvedBuildDto } from "./types";
 const samurai = { vig: 12, mnd: 11, end: 13, strStat: 12, dex: 15, intStat: 9, fai: 8, arc: 8 };
 const catalog = {
   classes: [{ name: "Samurai", baseLevel: 9, baseTotal: 88, baseStats: samurai }],
-  dataManifest: { capabilities: { classBudget: true } },
+  dataManifest: { capabilities: { classBudget: true }, rules: { separateUpgradeCaps: true } },
+} as unknown as CatalogDto;
+const unifiedCatalog = {
+  ...catalog,
+  dataManifest: { ...catalog.dataManifest, rules: { separateUpgradeCaps: false } },
 } as unknown as CatalogDto;
 
 function row(weaponName: string, stats: SolvedBuildDto["stats"]): SolvedBuildDto {
@@ -54,6 +58,38 @@ it("verifies the selected build and comparison target against the saved inputs' 
   for (const [request] of solveBuild.mock.calls) {
     expect(request).toMatchObject({ characterLevel: 9, lockStr: 22, lockFai: 79 });
   }
+});
+
+describe("saved builds across a Somber reclassification", () => {
+  const stats = { strStat: 12, dex: 15, intStat: 9, fai: 8, arc: 8 };
+  const saved = { ...row("Moonveil", stats), isSomber: true, upgrade: 10 };
+  const preset = {
+    request: { ...defaultRequest, className: "Samurai", characterLevel: 9, ...samurai, standardMaxUpgrade: 15, somberMaxUpgrade: 15 },
+    selectedBuild: saved, compareTarget: null, compareBench: [],
+  } as unknown as BuildPreset;
+
+  it("accepts a changed Somber flag when the profile has one shared upgrade cap", async () => {
+    const current = { ...saved, isSomber: false };
+    solveBuild.mockResolvedValue(current);
+
+    const verified = await verifyPresetResults(preset, unifiedCatalog, new AbortController().signal);
+
+    expect(verified.selectedBuild).toBe(current);
+    expect(solveBuild.mock.calls[0][0]).toMatchObject({ standardMaxUpgrade: 10, somberMaxUpgrade: 10, exactUpgrade: true });
+  });
+
+  it("still rejects a changed Somber flag when the profile has separate caps", async () => {
+    solveBuild.mockResolvedValue({ ...saved, isSomber: false });
+
+    await expect(verifyPresetResults(preset, catalog, new AbortController().signal)).rejects.toThrow("contradict current game data");
+    expect(solveBuild.mock.calls[0][0]).toMatchObject({ somberMaxUpgrade: 10, standardMaxUpgrade: 15 });
+  });
+
+  it("rejects other identity changes in a shared-cap profile", async () => {
+    solveBuild.mockResolvedValue({ ...saved, isSomber: false, upgrade: 9 });
+
+    await expect(verifyPresetResults(preset, unifiedCatalog, new AbortController().signal)).rejects.toThrow("contradict current game data");
+  });
 });
 
 describe("migratePresetRequest", () => {

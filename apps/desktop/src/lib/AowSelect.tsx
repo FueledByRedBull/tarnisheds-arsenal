@@ -72,7 +72,7 @@ export function AowSelect(props: {
         ...(ready ? names : []).map((name) => ({ value: name, label: name })),
       ]}
       disabled={!ready || fixed}
-      placeholder={ready ? "Automatic (best legal skill)" : resource.error !== null ? "Skills unavailable" : "Loading skills..."}
+      placeholder={ready ? "Automatic (best legal skill)" : resource.error !== null ? "Skills unavailable" : "Loading skills…"}
       onChange={props.onChange}
     />
     {resource.status === "error" ? (

@@ -30,6 +30,25 @@ export function activationRequest(request: OptimizeRequestDto, catalog: CatalogD
 /** Clears saved names the current data no longer has, before Migrate data verifies the build. */
 export function migratePresetRequest(request: OptimizeRequestDto, catalog: CatalogDto): { request: OptimizeRequestDto; issues: string[] } {
   const migrated = activationRequest(request, catalog);
+  return { request: migrated, issues: clearMissingNames(migrated, catalog) };
+}
+
+/** Clears the names and filters of a restored query that the current catalog no longer has; returns what it cleared. */
+export function reconcileRestoredQuery(request: OptimizeRequestDto, catalog: CatalogDto): { request: OptimizeRequestDto; issues: string[] } {
+  const reconciled = { ...request };
+  const issues = clearMissingNames(reconciled, catalog);
+  const entries = request.filters.entries.filter((entry) => catalog.filterDimensions
+    .some((dimension) => dimension.id === entry.dimension && dimension.options.some((option) => option.id === entry.id)));
+  const dropped = request.filters.entries.length - entries.length;
+  if (dropped) {
+    issues.push(dropped === 1 ? "1 filter no longer exists" : `${dropped} filters no longer exist`);
+    reconciled.filters = { ...request.filters, entries };
+  }
+  return { request: reconciled, issues };
+}
+
+// Edits the request it is given, which must be a copy.
+function clearMissingNames(migrated: OptimizeRequestDto, catalog: CatalogDto): string[] {
   const issues: string[] = [];
   // Older builds stored the type's label; newer ones its key. Either still filters correctly.
   if (migrated.weaponTypeKey && !catalog.weaponTypeOptions.some((option) => option.key === migrated.weaponTypeKey || option.label === migrated.weaponTypeKey)) {
@@ -51,7 +70,7 @@ export function migratePresetRequest(request: OptimizeRequestDto, catalog: Catal
     issues.push(`skill '${migrated.aowName}' no longer exists`);
     migrated.aowName = null;
   }
-  return { request: migrated, issues };
+  return issues;
 }
 
 export function catalogVersion(catalog: CatalogDto): string {
@@ -61,6 +80,9 @@ export function catalogVersion(catalog: CatalogDto): string {
 
 // Persisted numerical snapshots are archives, not evidence that this binary calculated them.
 export async function verifyPresetResults(preset: BuildPreset, catalog: CatalogDto, signal: AbortSignal): Promise<BuildPreset> {
+  // With one shared cap (Convergence) Somber has no effect, and a data revision can move a weapon
+  // between the groups; the saved flag is then not part of the build's identity.
+  const unifiedCaps = catalog.dataManifest.rules.separateUpgradeCaps === false;
   async function verify(row: SolvedBuildDto | null, label: string, ownBudget = false): Promise<SolvedBuildDto | null> {
     if (!row) return null;
     // Current results must fit the saved inputs' level. A pinned build may come from another
@@ -69,16 +91,16 @@ export async function verifyPresetResults(preset: BuildPreset, catalog: CatalogD
       weaponName: row.weaponName, affinity: row.affinity, aowName: row.aowName,
       weaponTypeKey: null, somberFilter: "all", filters: { version: 1, entries: [] },
       exactUpgrade: true,
-      standardMaxUpgrade: row.isSomber ? preset.request.standardMaxUpgrade : row.upgrade,
-      somberMaxUpgrade: row.isSomber ? row.upgrade : preset.request.somberMaxUpgrade,
+      standardMaxUpgrade: unifiedCaps || !row.isSomber ? row.upgrade : preset.request.standardMaxUpgrade,
+      somberMaxUpgrade: unifiedCaps || row.isSomber ? row.upgrade : preset.request.somberMaxUpgrade,
       minStr: 0, minDex: 0, minInt: 0, minFai: 0, minArc: 0,
       lockStr: row.stats.strStat, lockDex: row.stats.dex, lockInt: row.stats.intStat,
       lockFai: row.stats.fai, lockArc: row.stats.arc,
     });
     const solved = await api.solveBuild(base, row.weaponName, row.affinity, row.aowName, signal);
     if (!solved) throw new Error(`${label} cannot be verified with its saved equipment, upgrade and stats.`);
-    const identity = ["weaponId", "weaponName", "affinity", "isSomber", "upgrade", "aowId", "aowName"] as const;
-    if (identity.some(key => solved[key] !== row[key])
+    const identity = ["weaponId", "weaponName", "affinity", "upgrade", "aowId", "aowName"] as const;
+    if (identity.some(key => solved[key] !== row[key]) || (!unifiedCaps && solved.isSomber !== row.isSomber)
       || (Object.keys(row.stats) as (keyof typeof row.stats)[]).some(key => solved.stats[key] !== row.stats[key])) {
       throw new Error(`${label} equipment identity or stats contradict current game data. The saved record is unchanged.`);
     }

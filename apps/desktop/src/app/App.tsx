@@ -6,7 +6,7 @@ import { WORKSPACES } from "../lib/commands";
 import { keyboardOwnedByOverlay } from "../lib/keyboard";
 import { isCancelled } from "../lib/native-jobs";
 import { catalogVersion } from "../lib/preset-activation";
-import { CUSTOM_STATS_CLASS } from "../lib/session";
+import { CUSTOM_STATS_CLASS, rowFingerprint } from "../lib/session";
 import { persistProfileQueries, useDesktopStore } from "../lib/state";
 import { WorkspaceTab } from "../lib/types";
 import { AffinityWatchView } from "../features/affinity-watch/AffinityWatchView";
@@ -21,6 +21,7 @@ import { RankingsBoard } from "../features/rankings/RankingsBoard";
 import { ReproductionReport } from "../features/shared/ReproductionReport";
 import { AppErrorBoundary } from "./AppErrorBoundary";
 import { aowModelSupported, errorMessage } from "../lib/format";
+import { ANNOUNCER_ID } from "../lib/announce";
 
 const TAB_ICONS: Record<WorkspaceTab, typeof Table2> = {
   rankings: Table2, compare: GitCompareArrows, paths: Route, affinity_watch: Radar,
@@ -43,6 +44,7 @@ const rankingsBoard = <RankingsBoard />;
 const compareView = <CompareView />;
 const pathsView = <PathsView />;
 const affinityWatchView = <AffinityWatchView />;
+const inspector = <Inspector />;
 
 export function App() {
   const profiles = useDesktopStore((state) => state.profiles);
@@ -67,8 +69,18 @@ export function App() {
       if (isCancelled(event.reason)) return;
       setError(errorMessage(event.reason));
     };
+    // The same for a script error outside React's render. Browsers raise this one for a resize
+    // observer that needed another frame, which breaks nothing.
+    const onError = (event: ErrorEvent) => {
+      if (event.message.startsWith("ResizeObserver loop")) return;
+      setError(errorMessage(event.error ?? event.message));
+    };
     window.addEventListener("unhandledrejection", onRejection);
-    return () => window.removeEventListener("unhandledrejection", onRejection);
+    window.addEventListener("error", onError);
+    return () => {
+      window.removeEventListener("unhandledrejection", onRejection);
+      window.removeEventListener("error", onError);
+    };
   }, [setError]);
 
   const loadProfile = useCallback(async (nextProfileId: string, generation = ++profileGeneration.current) => {
@@ -207,6 +219,7 @@ export function App() {
 
   return (
     <main className="desktop-shell" aria-busy={catalogStatus === "loading"}>
+      <div id={ANNOUNCER_ID} className="sr-only" role="status" />
       <QueryStrip profile={profileSwitch} coverage={profileCoverage} onProfileChange={(id) => void loadProfile(id)} />
       <section className="center-workspace">
         <WorkspaceTabs ready={profileReady} classBudget={activeProfile?.capabilities.classBudget !== false} />
@@ -242,10 +255,10 @@ export function App() {
               <SkeletonRows count={9} />
             </div>
           ) : null}
-          {catalogStatus === "ready" ? <AppErrorBoundary panel="This workspace"><Workspaces /></AppErrorBoundary> : null}
+          {catalogStatus === "ready" ? <Workspaces /> : null}
         </div>
       </section>
-      <AppErrorBoundary panel="Build Detail"><Inspector /></AppErrorBoundary>
+      <BuildDetailPanel />
     </main>
   );
 }
@@ -401,12 +414,19 @@ function Workspaces() {
   // Deferred, as is the Rankings flag: revealing a workspace (its render and effects, 11-13 ms
   // for Compare) then runs after the key press in frame-sized slices instead of inside it.
   const activeWorkspace = useDeferredValue(useDesktopStore((state) => state.activeWorkspace));
+  const profileId = useDesktopStore((state) => state.request.profileId);
   return (
-    <>
+    <AppErrorBoundary panel="This workspace" resetKey={`${activeWorkspace}:${profileId}`}>
       {rankingsBoard}
       <Activity mode={activeWorkspace === "compare" ? "visible" : "hidden"}>{compareView}</Activity>
       <Activity mode={activeWorkspace === "paths" ? "visible" : "hidden"}>{pathsView}</Activity>
       <Activity mode={activeWorkspace === "affinity_watch" ? "visible" : "hidden"}>{affinityWatchView}</Activity>
-    </>
+    </AppErrorBoundary>
   );
+}
+
+// A crashed Build Detail clears when another build is selected.
+function BuildDetailPanel() {
+  const selection = useDesktopStore((state) => rowFingerprint(state.selected) ?? "");
+  return <AppErrorBoundary panel="Build Detail" resetKey={selection}>{inspector}</AppErrorBoundary>;
 }

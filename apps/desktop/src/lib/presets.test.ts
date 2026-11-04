@@ -728,6 +728,34 @@ describe("saved build persistence", () => {
     expect(loadBuildPreset("new-id")).toBeNull();
   });
 
+  it("reports the index failure when restoring the previous record also fails", () => {
+    const saved = saveBuildPreset(preset());
+    const recordKey = `tarnisheds-arsenal.savedBuild.v2.${saved.id}`;
+    const write = localStorage.setItem.bind(localStorage);
+    let recordWrites = 0;
+    vi.spyOn(localStorage, "setItem").mockImplementation((key, value) => {
+      if (key === "tarnisheds-arsenal.savedBuildIndex.v1") throw new Error("index quota exceeded");
+      if (key === recordKey && (recordWrites += 1) > 1) throw new Error("rollback quota exceeded");
+      write(key, value);
+    });
+    expect(() => renameBuildPreset(saved.id, "Changed")).toThrow(/index quota/);
+    expect(recordWrites).toBe(2);
+  });
+
+  it("normalises imported dates to ISO text but reads stored dates as they are", () => {
+    const lenient = { ...preset(), version: 2 as const, compareBench: [] as never[], createdAt: "2026-01-02", updatedAt: "Jan 3, 2026 10:00 UTC" };
+    const parsed = parsePresetText(JSON.stringify(lenient));
+    expect(parsed.createdAt).toBe("2026-01-02T00:00:00.000Z");
+    expect(parsed.updatedAt).toBe("2026-01-03T10:00:00.000Z");
+    expect(previewPresetImport(JSON.stringify(lenient)).preset.updatedAt).toBe("2026-01-03T10:00:00.000Z");
+    expect(importBuildPreset(lenient).createdAt).toBe("2026-01-02T00:00:00.000Z");
+
+    const key = "tarnisheds-arsenal.savedBuild.v2.stored";
+    localStorage.setItem(key, JSON.stringify({ ...lenient, id: "stored" }));
+    expect(loadBuildPreset("stored")?.updatedAt).toBe("Jan 3, 2026 10:00 UTC");
+    expect(() => parsePresetText(JSON.stringify({ ...lenient, createdAt: "not a date" }))).toThrow(/ISO date/);
+  });
+
   it("preserves the record and index if deletion cannot save the index", () => {
     const saved = saveBuildPreset(preset());
     const write = vi.spyOn(localStorage, "setItem").mockImplementation(() => {

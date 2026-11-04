@@ -1,22 +1,9 @@
-import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { violations } from "./axe";
 import { chooseClass, openEditor, openSection, type EditorName } from "./editors";
 
 // WCAG 2.2 A/AA rules over each surface a player reaches: the strip, its editors, the
 // palette, results with Build Detail, Compare, Paths, Affinity Watch and Saved Builds.
-async function violations(page: Page, include?: string) {
-  const builder = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]);
-  const { violations, incomplete } = await (include ? builder.include(include) : builder).analyze();
-  // Rules axe could not decide (contrast over gradients, overlays) need a human look.
-  for (const result of incomplete) {
-    test.info().annotations.push({ type: "axe-incomplete", description: `${result.id}: ${result.nodes.map((node) => node.target.join(" ")).join(", ")}` });
-  }
-  return violations.map((violation) => ({
-    id: violation.id,
-    impact: violation.impact,
-    targets: violation.nodes.map((node) => node.target.join(" ")),
-  }));
-}
 
 test("the strip, every editor and the palette have no WCAG A/AA violations", async ({ page }) => {
   await page.goto("/");
@@ -137,7 +124,7 @@ test("trade-offs, Paths, Affinity Watch, Saved Builds, the problem report and er
   const navigation = page.getByRole("navigation");
 
   await navigation.getByRole("button", { name: "Compare", exact: true }).click();
-  const tradeoffs = page.getByRole("region", { name: "AR / Bleed tradeoffs" });
+  const tradeoffs = page.getByRole("region", { name: "AR / Bleed trade-offs" });
   await tradeoffs.getByRole("button", { name: "Compute trade-offs", exact: true }).click();
   await expect(tradeoffs.getByRole("table", { name: "Trade-off options", exact: true })).toBeVisible();
   expect(await violations(page), "Compare with trade-offs").toEqual([]);

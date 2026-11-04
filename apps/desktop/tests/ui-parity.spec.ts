@@ -230,7 +230,7 @@ test("fixed skill controls use the same native selection in Rankings and Compare
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("1 ranked rows")).toBeVisible();
   await expect(page.getByRole("grid", { name: "Ranked builds" })).toContainText("White Light Charge");
-  await chooseSearchableOption(page, "Weapon", "Open");
+  await chooseSearchableOption(page, "Weapon", "Any weapon");
   await page.getByRole("button", { name: "Update Results", exact: true }).click();
   await expect(page.getByText("4 ranked rows")).toBeVisible();
   await page.locator(".result-row").first().click();
@@ -272,7 +272,7 @@ test("session-driven search, lock, compare, paths, and affinity watch", async ({
   await page.getByRole("button", { name: "Clear all" }).click();
   await chooseSearchableOption(page, "Weapon", "Zweihander");
   await expect(page.getByRole("combobox", { name: "Weapon", exact: true })).toHaveValue("Zweihander");
-  await chooseSearchableOption(page, "Weapon", "Open");
+  await chooseSearchableOption(page, "Weapon", "Any weapon");
   await chooseSearchableOption(page, "AoW", "Bloodhound's Step");
   await expect(page.getByRole("combobox", { name: "AoW" })).toHaveValue("Bloodhound's Step");
   await chooseSearchableOption(page, "AoW", "Automatic (best legal skill)");
@@ -414,7 +414,7 @@ test("original weapon type and affinity selectors support multiple checks", asyn
   await expect(page.getByText(/Weapon types & affinities/)).toHaveCount(0);
 
   await toggleMultiSelectOption(page, "Weapon Type", "Katana");
-  await expect(page.getByRole("combobox", { name: "Weapon", exact: true })).toHaveValue("Open");
+  await expect(page.getByRole("combobox", { name: "Weapon", exact: true })).toHaveValue("Any weapon");
   await toggleMultiSelectOption(page, "Weapon Type", "Colossal Sword");
   await expect(page.getByRole("button", { name: "Weapon Type" })).toContainText("Katana");
   await expect(page.getByRole("button", { name: "Weapon Type" })).toContainText("Colossal Sword");
@@ -737,7 +737,7 @@ for (const reducedMotion of ["reduce", "no-preference"] as const) {
         scrollTo(options);
       }) as typeof wrap.scrollTo;
     });
-    await page.locator(".matrix-toolbar").getByRole("button", { name: "+0", exact: true }).click();
+    await page.locator(".matrix-toolbar").getByRole("button", { name: "Scroll upgrade matrix to +0", exact: true }).click();
     expect(await page.evaluate(() => (window as any).matrixScrolls)).toEqual([reducedMotion === "reduce" ? "auto" : "smooth"]);
   });
 }

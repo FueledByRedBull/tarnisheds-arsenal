@@ -364,6 +364,8 @@ button {
 .inspector-title {
   gap: 8px;
   color: var(--text-strong);
+  /* Build detail's title is a heading; its default margins would shift the layout. */
+  margin-top: 0;
   margin-bottom: 10px;
   font-weight: 700;
   font-size: var(--text-label);
@@ -1982,7 +1984,7 @@ button.about-trigger {
 
 .affinity-legend > span {
   display: grid;
-  grid-template-columns: 12px auto;
+  grid-template-columns: 24px auto;
   align-items: center;
   column-gap: 7px;
   min-width: 118px;
@@ -1994,6 +1996,12 @@ button.about-trigger {
   width: 12px;
   height: 3px;
   border-radius: 999px;
+}
+
+.affinity-legend .affinity-swatch {
+  grid-row: 1 / span 2;
+  width: 24px;
+  height: 6px;
 }
 
 .affinity-legend strong {
@@ -3469,16 +3477,11 @@ textarea:hover {
     outline-offset: -2px;
   }
 
-  .affinity-legend i,
+  .affinity-swatch line,
   .affinity-series,
   .affinity-series-point {
     forced-color-adjust: none;
   }
-
-  .affinity-series-group.series-1 .affinity-series { stroke-dasharray: 12 6; }
-  .affinity-series-group.series-2 .affinity-series { stroke-dasharray: 3 5; }
-  .affinity-series-group.series-3 .affinity-series { stroke-dasharray: 14 4 3 4; }
-  .affinity-series-group.series-4 .affinity-series { stroke-dasharray: 6 6; }
 }
 
 /* Every unavailable tab looks unavailable, whatever the reason; the reason is printed beside

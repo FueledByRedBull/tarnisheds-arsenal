@@ -193,8 +193,8 @@ export function CommandPalette({ open, context, onRun, onClose }: {
           </li>
         ))}
       </ul>
-      <p className="palette-empty" role="status">
-        {results.length ? "" : "No command matches. Try a stat like \"dex 40\", a weapon or a skill."}
+      <p className={results.length ? "sr-only" : "palette-empty"} role="status">
+        {results.length ? `${results.length} ${results.length === 1 ? "command" : "commands"} available` : "No command matches. Try a stat like \"dex 40\", a weapon or a skill."}
       </p>
       <p className="palette-help">
         <span><kbd>Up</kbd> <kbd>Down</kbd> to move</span>

@@ -66,11 +66,11 @@ export function Inspector() {
   }
 
   return (
-    <aside className="inspector">
-      <div className="inspector-title">
+    <aside className="inspector" aria-labelledby="build-detail-title">
+      <h2 className="inspector-title" id="build-detail-title">
         <Target size={17} />
         <span>Build detail</span>
-      </div>
+      </h2>
       {selected ? (
         <div className="selection-detail" ref={detail}>
           <div className="selected-build">
@@ -80,7 +80,7 @@ export function Inspector() {
                 {/* Shown only while the header is stuck (styles.css), so the answer stays in view. */}
                 <span className="selected-build-metric" aria-hidden="true">{selectedMetric === null ? "" : fixed1(selectedMetric)}</span>
               </div>
-              <span>{selected.affinity} / {selected.aowName ?? "Unspecified skill"} / +{selected.upgrade}</span>
+              <span>{selected.affinity} / {selected.aowName ?? "No skill"} / +{selected.upgrade}</span>
               {resultsStale ? <small className="stale-label">Previous query build</small> : null}
             </div>
           </div>

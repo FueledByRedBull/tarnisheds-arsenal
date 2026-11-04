@@ -1,4 +1,5 @@
 import { RotateCcw, Sparkles } from "lucide-react";
+import { useId } from "react";
 import { AowSelect } from "../../lib/AowSelect";
 import { objectiveLabel, statLockLine } from "../../lib/format";
 import { CheckboxMultiSelect, SearchableSelect, openOption } from "../../lib/SearchableSelect";
@@ -41,6 +42,7 @@ export function ClassEditor({ catalog, request, fixedStats, applyClass, onOptimi
 }) {
   // A profile with class budgets lets Custom stats switch to a class, or Optimize class pick one.
   const noClasses = catalog?.dataManifest.capabilities.classBudget === false;
+  const noteId = useId();
   return (
     <div className="editor-body">
       <SearchableSelect
@@ -51,7 +53,7 @@ export function ClassEditor({ catalog, request, fixedStats, applyClass, onOptimi
         onChange={(value) => value && applyClass(value)}
       />
       <div className="editor-actions">
-        <button type="button" onClick={onOptimize} disabled={noClasses} title="Choose the lowest required level for all eight entered stats">
+        <button type="button" onClick={onOptimize} disabled={noClasses} aria-describedby={noClasses ? noteId : undefined} title="Choose the lowest required level for all eight entered stats">
           <Sparkles size={14} aria-hidden="true" />
           Optimize class
         </button>
@@ -64,7 +66,7 @@ export function ClassEditor({ catalog, request, fixedStats, applyClass, onOptimi
           Reset stats
         </button>
       </div>
-      <p className="editor-note">
+      <p className="editor-note" id={noteId}>
         {noClasses
           ? "This profile uses the entered stats exactly, so there is no starting class."
           : fixedStats
@@ -140,6 +142,7 @@ export function LoadoutEditor({ catalog, request, patchRequest, runner, loadoutS
       <SearchableSelect
         label="Weapon"
         value={request.weaponName}
+        placeholder="Any weapon"
         options={[openOption(), ...(catalog?.weaponNames ?? []).map((name) => ({ value: name, label: name }))]}
         onChange={(weaponName) => {
           patchRequest(weaponPatch(request, weaponName));
@@ -216,6 +219,7 @@ export function UpgradeEditor({ request, patchRequest, separateUpgradeCaps, stan
   somberUpgradeLimit: number;
   weaponProfile: WeaponProfileDto | null;
 }) {
+  const unifiedNoteId = useId();
   return (
     <div className="editor-body">
       {separateUpgradeCaps ? (
@@ -240,16 +244,19 @@ export function UpgradeEditor({ request, patchRequest, separateUpgradeCaps, stan
           </label>
         </div>
       ) : (
-        <label>
-          Weapon Upgrade
-          <DraftNumberInput
-            min={0}
-            max={standardUpgradeLimit}
-            value={request.standardMaxUpgrade}
-            onCommit={(upgrade) => patchRequest({ standardMaxUpgrade: upgrade, somberMaxUpgrade: upgrade })}
-          />
-          <small>Convergence uses one +0 to +15 reinforcement path for every weapon.</small>
-        </label>
+        <>
+          <label>
+            Weapon Upgrade
+            <DraftNumberInput
+              min={0}
+              max={standardUpgradeLimit}
+              value={request.standardMaxUpgrade}
+              describedBy={unifiedNoteId}
+              onCommit={(upgrade) => patchRequest({ standardMaxUpgrade: upgrade, somberMaxUpgrade: upgrade })}
+            />
+          </label>
+          <small className="editor-note" id={unifiedNoteId}>Convergence uses one +0 to +15 reinforcement path for every weapon.</small>
+        </>
       )}
       <div className="segmented" role="group" aria-label="Upgrade search policy">
         <button
@@ -293,6 +300,7 @@ export function ScalingEditor({ request, patchRequest, attackMultipliers }: {
   attackMultipliers: readonly number[];
 }) {
   const attack = attackMultipliers[request.scadutreeLevel];
+  const levelNoteId = useId();
   return (
     <div className="editor-body">
       <label className="toggle-line" title="Apply Shadow of the Erdtree Scadutree Blessing attack scaling">
@@ -309,14 +317,17 @@ export function ScalingEditor({ request, patchRequest, attackMultipliers }: {
           min={0}
           max={attackMultipliers.length - 1}
           value={request.scadutreeLevel}
+          disabled={!request.dlcScaling}
+          describedBy={request.dlcScaling ? undefined : levelNoteId}
           onCommit={(scadutreeLevel) => patchRequest({ scadutreeLevel })}
         />
       </label>
+      {request.dlcScaling ? null : <small className="editor-note" id={levelNoteId}>Turn on DLC Scaling to set the blessing level.</small>}
       {request.dlcScaling && attack !== undefined ? (
         <div className="editor-readout" title="Outgoing damage multiplier and equivalent incoming damage reduction from the selected blessing level">
           <span>Shadow Realm</span>
-          <strong>x{attack.toFixed(2)} dmg / x{(1 / attack).toFixed(3)} taken</strong>
-          <small>{((1 - 1 / attack) * 100).toFixed(1)}% negation</small>
+          <strong>Deal {attack.toFixed(2)}x damage, take {(1 / attack).toFixed(3)}x</strong>
+          <small>{((1 - 1 / attack) * 100).toFixed(1)}% less damage taken</small>
         </div>
       ) : null}
     </div>
@@ -366,9 +377,11 @@ export function LimitsEditor({ request, patchRequest, fixedStats, lockedStatMode
 }) {
   const setLockedStatMode = useDesktopStore((state) => state.setLockedStatMode);
   const savedCoverageFilters = request.filters.entries.filter((entry) => entry.dimension === "coverage");
+  const modeNoteId = useId();
+  const locksReadoutId = useId();
   return (
     <div className="editor-body">
-      <p className="editor-note">
+      <p className="editor-note" id={modeNoteId}>
         {fixedStats
           ? "Search uses the entered combat stats exactly. Minimum floors do not redistribute stats."
           : "Optional. Leave open to let the search choose every stat."}
@@ -397,13 +410,14 @@ export function LimitsEditor({ request, patchRequest, fixedStats, lockedStatMode
           type="checkbox"
           checked={fixedStats || lockedStatMode}
           disabled={fixedStats}
+          aria-describedby={fixedStats ? modeNoteId : undefined}
           onChange={(event) => setLockedStatMode(event.target.checked)}
         />
         {fixedStats ? "Use entered combat stats exactly" : "Use stat locks"}
       </label>
       <div className="editor-readout">
         <span>Stat locks</span>
-        <strong>
+        <strong id={locksReadoutId}>
           {fixedStats
             ? `STR ${request.strStat} DEX ${request.dex} INT ${request.intStat} FAI ${request.fai} ARC ${request.arc}`
             : exactLocksActive ? statLockLine(request) : "None: every stat is free"}
@@ -414,6 +428,7 @@ export function LimitsEditor({ request, patchRequest, fixedStats, lockedStatMode
         className="clear-locks"
         type="button"
         disabled={fixedStats || !hasCombatStatLocks(request)}
+        aria-describedby={fixedStats ? modeNoteId : hasCombatStatLocks(request) ? undefined : locksReadoutId}
         onClick={onClearLocks}
       >
         Clear stat locks

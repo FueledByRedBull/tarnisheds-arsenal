@@ -16,14 +16,21 @@ export function readCompareBench(catalog: CatalogDto): { rows: SolvedBuildDto[];
     if (!raw) return empty;
     const value: unknown = JSON.parse(raw);
     if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.rows)) return empty;
-    const rows = value.rows.flatMap((row) => {
+    // Only the rows that can be kept are validated, so an oversized stored list costs no more to read.
+    const candidates = value.rows.slice(0, MAX_COMPARE_PINS);
+    const kept = candidates.flatMap((row) => {
       const checked = validateStoredBuild(row, catalog.dataManifest.rules);
       return "value" in checked ? [checked.value] : [];
     });
-    const notices: Notice[] = rows.length === value.rows.length ? [] : [{
-      scope: "global", tone: "warning", message: "Some saved comparison builds were discarded because their data is invalid.",
-    }];
-    const kept = rows.slice(0, MAX_COMPARE_PINS);
+    const notices: Notice[] = [];
+    if (kept.length !== candidates.length) {
+      notices.push({ scope: "global", tone: "warning", message: "Some saved comparison builds were discarded because their data is invalid." });
+    }
+    const over = value.rows.length - MAX_COMPARE_PINS;
+    if (over > 0) {
+      notices.push({ scope: "global", tone: "warning",
+        message: `Compare holds ${MAX_COMPARE_PINS} pinned builds; ${over} saved ${over === 1 ? "pin" : "pins"} over that limit ${over === 1 ? "was" : "were"} not restored.` });
+    }
     const current = value.datasetVersion === catalog.dataManifest.datasetVersion
       && value.schemaVersion === catalog.dataManifest.schemaVersion && value.modelVersion === catalog.dataManifest.modelVersion;
     return current ? { rows: kept, staleRows: [], notices } : { rows: [], staleRows: kept, notices };

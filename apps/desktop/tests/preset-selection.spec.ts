@@ -87,7 +87,7 @@ test("manual weapon selection after restoration still dispatches its native defa
   await expect(page.getByText(/saved results verified on current data/)).toBeVisible();
   await (await openEditor(page, "Loadout")).getByRole("combobox", { name: "Weapon", exact: true }).fill("Zweihander");
   await page.evaluate(() => {
-    document.querySelector<HTMLInputElement>('input[aria-label="Weapon"]')!.blur();
+    (document.getElementById([...document.querySelectorAll("label")].find((label) => label.textContent === "Weapon")!.htmlFor) as HTMLInputElement).blur();
     document.querySelector<HTMLButtonElement>(".search-button")!.click();
   });
   await expect.poll(() => page.evaluate(() => (window as any).restoredSelectionProbe.searches.length)).toBe(1);

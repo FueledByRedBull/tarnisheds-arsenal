@@ -39,7 +39,14 @@ export function SavedBuildPanel() {
   const [selectedId, setSelectedId] = useState(library.entries[0]?.id ?? "");
   // Until the player types a name, a save is named after the selected build, as the game
   // names weapons ("Blood Uchigatana +25").
-  const [typedName, setName] = useState<string | null>(null);
+  const [typedName, setName] = useState<string | null>(library.entries[0]?.name ?? null);
+  // Whenever the selected build changes, however it came to change, the name field follows it, so
+  // Update selected never writes another build's name over it.
+  const [namedFor, setNamedFor] = useState(selectedId);
+  if (namedFor !== selectedId) {
+    setNamedFor(selectedId);
+    setName(entries.find((entry) => entry.id === selectedId)?.name ?? null);
+  }
   const name = typedName ?? (selected ? `${selected.affinity === "Standard" ? "" : `${selected.affinity} `}${selected.weaponName} +${selected.upgrade}` : "Build Preset");
   const [copied, setCopied] = useState(false);
   const panel = useRef<HTMLDetailsElement>(null);
@@ -203,7 +210,9 @@ export function SavedBuildPanel() {
 
   function exportCurrent() {
     const preset = selectedPreset;
-    if (preset) downloadPresetJson(preset);
+    if (!preset) return;
+    downloadPresetJson(preset);
+    pushNotice({ scope: "global", tone: "success", message: `Exported ${preset.name} as a JSON file to your Downloads folder.` });
   }
 
   async function importCurrent() {
@@ -250,6 +259,9 @@ export function SavedBuildPanel() {
       return { selectedPreset: null, selectedReadError: "Saved builds could not be read. Storage access is unavailable; existing data was preserved." };
     }
   }, [selectedId, entries]);
+  // Why the actions are unavailable, said in words beside them and read with each one.
+  const saveBlocked = !canSave ? "Saving needs the game data to finish loading." : null;
+  const selectionHint = !selectedPreset ? (entries.length ? "Choose a saved build to load, update, rename, delete or share it." : "No saved builds yet. Save new keeps the current query.") : null;
   const selectedPresetStale = Boolean(selectedPreset && dataVersion !== "unknown" && selectedPreset.dataVersion !== dataVersion);
 
   // A library problem opens the panel, so its alert is never folded away.
@@ -282,10 +294,11 @@ export function SavedBuildPanel() {
         </select>
       </label>
       {selectedId ? <small className="saved-build-status" title={presetProvenance(selectedPreset?.dataVersion)}>{presetVersionLabel(selectedPreset?.dataVersion, dataVersion)}</small> : null}
+      {saveBlocked || selectionHint ? <small className="saved-build-status" id="saved-builds-hint">{saveBlocked ?? selectionHint}</small> : null}
       <div className="inspector-actions stacked">
-        <button type="button" onClick={() => saveCurrent()} disabled={!canSave}><Save size={15} />Save new</button>
-        <button type="button" onClick={() => saveCurrent(selectedId)} disabled={!canSave || !selectedPreset}><Save size={15} />Update selected</button>
-        <button type="button" onClick={() => void loadCurrent()} disabled={!selectedPreset || isMigrating || !canLoad}><Upload size={15} />{isMigrating ? "Verifying…" : "Load"}</button>
+        <button type="button" onClick={() => saveCurrent()} disabled={!canSave} aria-describedby={saveBlocked ? "saved-builds-hint" : undefined}><Save size={15} />Save new</button>
+        <button type="button" onClick={() => saveCurrent(selectedId)} disabled={!canSave || !selectedPreset} aria-describedby={saveBlocked || selectionHint ? "saved-builds-hint" : undefined}><Save size={15} />Update selected</button>
+        <button type="button" onClick={() => void loadCurrent()} disabled={!selectedPreset || isMigrating || !canLoad} aria-describedby={selectionHint ? "saved-builds-hint" : undefined}><Upload size={15} />{isMigrating ? "Verifying…" : "Load"}</button>
         {selectedPresetStale ? (
           <button type="button" onClick={() => selectedPreset && void migratePreset(selectedPreset)} disabled={isMigrating || !canLoad}>
             <Upload size={15} />{isMigrating ? "Migrating…" : "Migrate data"}
@@ -293,20 +306,21 @@ export function SavedBuildPanel() {
         ) : null}
       </div>
       <div className="saved-build-tools" role="group" aria-label="Selected saved build">
-        <button type="button" onClick={renameCurrent} disabled={!selectedPreset} aria-label="Rename" title="Rename to the name above"><Pencil size={15} /></button>
+        <button type="button" onClick={renameCurrent} disabled={!selectedPreset} aria-describedby={selectionHint ? "saved-builds-hint" : undefined} aria-label="Rename" title="Rename to the name above"><Pencil size={15} /></button>
         <button
           type="button"
           className={deleteArmedId === selectedId ? "armed" : undefined}
           onClick={deleteCurrent}
           onBlur={() => setDeleteArmedId(null)}
           disabled={!selectedPreset}
+          aria-describedby={selectionHint ? "saved-builds-hint" : undefined}
           aria-label={deleteArmedId === selectedId ? "Confirm Delete" : "Delete"}
           title="Delete the selected saved build"
         >
           <Trash2 size={15} />{deleteArmedId === selectedId ? <span>Confirm delete</span> : null}
         </button>
-        <button type="button" onClick={exportCurrent} disabled={!selectedPreset} aria-label="Export" title="Export as a JSON file"><Download size={15} /></button>
-        <button type="button" onClick={() => void copyCurrent()} disabled={!selectedPreset} aria-label="Copy Share" title="Copy share text to the clipboard">
+        <button type="button" onClick={exportCurrent} disabled={!selectedPreset} aria-describedby={selectionHint ? "saved-builds-hint" : undefined} aria-label="Export" title="Export as a JSON file"><Download size={15} /></button>
+        <button type="button" onClick={() => void copyCurrent()} disabled={!selectedPreset} aria-describedby={selectionHint ? "saved-builds-hint" : undefined} aria-label="Copy share text" title="Copy share text to the clipboard">
           {copied ? <Check size={15} className="copy-confirm" aria-hidden="true" /> : <Clipboard size={15} aria-hidden="true" />}
         </button>
         <span className="sr-only" role="status">{copied ? "Copied share text." : ""}</span>
