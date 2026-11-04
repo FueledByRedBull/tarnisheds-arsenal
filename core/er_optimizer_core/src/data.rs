@@ -2304,7 +2304,11 @@ mod tests {
         };
         assert_eq!(somber(33_000_000), Some((2400, false)), "Glintstone Staff");
         assert_eq!(somber(31_350_000), Some((2900, true)), "Aegis of Hadea");
-        assert_eq!(somber(2_530_000), Some((1500, false)), "Carian Sorcery Sword");
+        assert_eq!(
+            somber(2_530_000),
+            Some((1500, false)),
+            "Carian Sorcery Sword"
+        );
         assert_eq!(data.rules.somber_max_upgrade, 15);
         let plus_thirteen = data
             .reinforce_level(galvanic.reinforce_type, 13)
