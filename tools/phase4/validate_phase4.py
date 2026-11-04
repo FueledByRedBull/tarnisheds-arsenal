@@ -338,11 +338,11 @@ def validate_profile_snapshot(data_dir: Path, profile_id: str) -> list[Validatio
         ))
 
     minimums = [
-        ("weapons.csv", len(weapons), 3_000 if profile_id == "vanilla" else 100),
-        ("reinforce.csv", len(reinforce), 800 if profile_id == "vanilla" else 100),
-        ("calc_correct.csv", len(calc_correct), 1_500 if profile_id == "vanilla" else 1_000),
-        ("aow.csv", len(aows), 100 if profile_id == "vanilla" else 50),
-        ("attack_element_correct_ext.csv", len(attack_element_correct_ext), 150 if profile_id == "vanilla" else 100),
+        ("weapons.csv", len(weapons), 3_000),
+        ("reinforce.csv", len(reinforce), 800),
+        ("calc_correct.csv", len(calc_correct), 1_500),
+        ("aow.csv", len(aows), 100),
+        ("attack_element_correct_ext.csv", len(attack_element_correct_ext), 150),
     ]
     for label, actual, minimum in minimums:
         if actual < minimum:

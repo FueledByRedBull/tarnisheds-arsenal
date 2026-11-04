@@ -223,6 +223,35 @@ class Phase1DumpTests(unittest.TestCase):
         self.assertEqual(rows[0]["critical_damage_percent"], 110)
         self.assertEqual(build_rows([row], max_level_by_type={2200: 15})[0]["is_somber"], 0)
 
+    def test_upgrade_materials_mark_somber_weapons_within_one_reinforce_type(self) -> None:
+        weapons = [
+            {"id": "100", "reinforceTypeId": "2200", "materialSetId": "0"},
+            {"id": "200", "reinforceTypeId": "2200", "materialSetId": "2200"},
+            {"id": "300", "reinforceTypeId": "0", "materialSetId": "2200"},
+            {"id": "400", "reinforceTypeId": "3000", "materialSetId": "2200"},
+        ]
+        reinforce = [
+            {"id": "1", "materialSetId": "1"},
+            {"id": "2201", "materialSetId": "1"},
+        ]
+        materials = [
+            {"id": "1", "materialId01": "10101"},
+            {"id": "2201", "materialId01": "10160"},
+        ]
+        self.assertEqual(
+            phase1_dump.somber_weapon_ids_from_materials(weapons, reinforce, materials, 10160),
+            frozenset({200, 300}),
+        )
+        row = weapon_param_row(
+            id="2090000", name="Unique Blade", originEquipWep="2090000", reinforceTypeId="2200",
+            wepType="5", attackBasePhysics="100", disableGemAttr="1",
+        )
+        rows = build_rows(
+            [row], max_level_by_type={2200: 15}, somber_reinforce_types=frozenset({2200}),
+            somber_weapon_ids=frozenset(),
+        )
+        self.assertEqual(rows[0]["is_somber"], 0)
+
     def test_availability_candidate_keeps_rows_the_slot_rules_drop(self) -> None:
         # A non-infusable row in an affinity slot, and one in an unknown slot.
         slotted = weapon_param_row(

@@ -312,9 +312,9 @@ function mockDataManifest(profileId = "vanilla"): DataManifestDto {
   const convergence = profileId === "convergence";
   return {
     schemaVersion: 6,
-    datasetVersion: convergence ? "convergence-3.0.3.0-r3" : "vanilla-1.17.2",
+    datasetVersion: convergence ? "convergence-3.0.3.0-r4" : "vanilla-1.17.2",
     modelVersion: "aow-routes-effects-v9/exact-v3",
-    id: convergence ? "convergence-3.0.3.0-r3" : "vanilla-1.17.2",
+    id: convergence ? "convergence-3.0.3.0-r4" : "vanilla-1.17.2",
     label: convergence ? "The Convergence dataset - 3.0.3.0" : "Vanilla dataset - 1.17.2",
     appVersion: convergence ? "1.17.1" : "1.17.2",
     source: "regulation.bin",
