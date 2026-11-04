@@ -1,10 +1,10 @@
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
-use crate::math::exact::{project, project_damage, sum_components};
+use crate::math::exact::{RouteBoundCache, project, project_damage, sum_components};
 use crate::math::exact_value::ExactRational;
 use num_bigint::BigInt;
 use num_integer::Integer;
@@ -611,6 +611,10 @@ struct DpSearchShape {
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 enum DpCacheStage {
     Primary,
+    /// A skill route's first-stage table, which restricts its final one.
+    RoutePrimary {
+        route_id: String,
+    },
     Final {
         route_id: Option<String>,
         allowed: bool,
@@ -669,10 +673,19 @@ impl DpSolve {
     }
 }
 
+/// Tables shared by the levels and workers of one range. Every entry is a pure function of its
+/// key, so a lookup that races with an insert at worst solves the same table twice.
 struct DpReuse {
     max_searches: HashMap<DpSearchShape, RelevantStatSearch>,
-    solved: HashMap<DpCacheKey, Arc<CachedDpResult>>,
-    primary: HashMap<DpCacheKey, Arc<PrimaryPreparation>>,
+    solved: Mutex<HashMap<DpCacheKey, Arc<CachedDpResult>>>,
+    primary: Mutex<HashMap<DpCacheKey, Arc<PrimaryPreparation>>>,
+}
+
+fn locked<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    // A panicking worker poisons the lock but leaves the memo tables whole.
+    mutex
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 impl DpReuse {
@@ -690,9 +703,13 @@ impl DpReuse {
         }
         Self {
             max_searches,
-            solved: HashMap::new(),
-            primary: HashMap::new(),
+            solved: Mutex::new(HashMap::new()),
+            primary: Mutex::new(HashMap::new()),
         }
+    }
+
+    fn cached(&self, key: &DpCacheKey) -> Option<Arc<CachedDpResult>> {
+        locked(&self.solved).get(key).cloned()
     }
 
     fn max_search(&self, search: &RelevantStatSearch) -> Option<RelevantStatSearch> {
@@ -702,7 +719,7 @@ impl DpReuse {
 
     #[allow(clippy::too_many_arguments)]
     fn solve<const N: usize>(
-        &mut self,
+        &self,
         key: DpCacheKey,
         base: &[ExactRational; N],
         deltas: &[Vec<[ExactRational; N]>; COMBAT_STAT_COUNT],
@@ -713,11 +730,11 @@ impl DpReuse {
         allowed: Option<&[Vec<Vec<u8>>; COMBAT_STAT_COUNT]>,
         should_continue: &mut impl FnMut() -> bool,
     ) -> Result<Arc<CachedDpResult>, String> {
-        if let Some(result) = self.solved.get(&key) {
+        if let Some(result) = self.cached(&key) {
             if !should_continue() {
                 return Err("cancelled".to_string());
             }
-            return Ok(Arc::clone(result));
+            return Ok(result);
         }
         let result = exact_dp::solve_exact(
             base,
@@ -734,8 +751,9 @@ impl DpReuse {
             additions: Arc::new(result.additions),
             ranks: Arc::new(result.ranks),
         });
-        self.solved.insert(key, Arc::clone(&result));
-        Ok(result)
+        Ok(Arc::clone(
+            locked(&self.solved).entry(key).or_insert(result),
+        ))
     }
 }
 
@@ -760,7 +778,7 @@ fn dp_cache_key(
 
 #[allow(clippy::too_many_arguments)]
 fn solve_exact_with_reuse<const N: usize>(
-    reuse: Option<&mut DpReuse>,
+    reuse: Option<&DpReuse>,
     key: Option<DpCacheKey>,
     base: &[ExactRational; N],
     deltas: &[Vec<[ExactRational; N]>; COMBAT_STAT_COUNT],
@@ -1254,7 +1272,7 @@ where
         shared_weapons,
         &mut should_continue,
     )?;
-    let mut dp_reuse = DpReuse::from_plan(&max_plan);
+    let dp_reuse = DpReuse::from_plan(&max_plan);
     let range_reuse_enabled = level_range_reuse_enabled(request);
 
     // The highest level runs first and records route bounds that prune the lower levels.
@@ -1265,7 +1283,7 @@ where
         max_plan.route_bounds = RangeRouteBounds::Record(Arc::clone(&recording));
         match solve_range_level(
             &max_plan,
-            range_reuse_enabled.then_some(&mut dp_reuse),
+            range_reuse_enabled.then_some(&dp_reuse),
             &should_continue,
         ) {
             Ok(rows) => {
@@ -1283,7 +1301,7 @@ where
         }
     }
 
-    let solve_lower = |level: u16, dp_reuse: Option<&mut DpReuse>| {
+    let solve_lower = |level: u16| {
         if !should_continue() {
             return Err("cancelled".to_string());
         }
@@ -1294,29 +1312,19 @@ where
             should_continue()
         })?;
         plan.route_bounds = route_bounds.clone();
-        solve_range_level(&plan, dp_reuse, &should_continue)
+        solve_range_level(
+            &plan,
+            range_reuse_enabled.then_some(&dp_reuse),
+            &should_continue,
+        )
     };
-    // Without the shared DP cache, lower levels are independent and run side by side, one
-    // batch per pool width; results and progress still follow level order.
-    let batch = if range_reuse_enabled {
-        1
-    } else {
-        rayon::current_num_threads().max(1)
-    };
+    // Lower levels are independent, so they run side by side, one batch per pool width,
+    // sharing the cache the highest level filled; results and progress still follow level order.
+    let batch = rayon::current_num_threads().max(1);
     let (lower_levels, _) = ordered_levels.split_at(ordered_levels.len() - 1);
     let mut results = Vec::with_capacity(ordered_levels.len());
     for levels in lower_levels.chunks(batch) {
-        let solved: Vec<_> = if range_reuse_enabled {
-            levels
-                .iter()
-                .map(|&level| solve_lower(level, Some(&mut dp_reuse)))
-                .collect()
-        } else {
-            levels
-                .par_iter()
-                .map(|&level| solve_lower(level, None))
-                .collect()
-        };
+        let solved: Vec<_> = levels.par_iter().map(|&level| solve_lower(level)).collect();
         for (&level, rows) in levels.iter().zip(solved) {
             results.push(LevelOptimizeResult { level, rows: rows? });
             if !level_complete(level) {
@@ -1331,7 +1339,7 @@ where
         Some(rows) => rows,
         None => solve_range_level(
             &max_plan,
-            range_reuse_enabled.then_some(&mut dp_reuse),
+            range_reuse_enabled.then_some(&dp_reuse),
             &should_continue,
         )?,
     };
@@ -1348,7 +1356,7 @@ where
 /// `dp_reuse` is the range's shared DP cache when its reuse is enabled.
 fn solve_range_level<C>(
     plan: &PreparedSearchPlan<'_>,
-    dp_reuse: Option<&mut DpReuse>,
+    dp_reuse: Option<&DpReuse>,
     should_continue: &C,
 ) -> Result<Vec<OptimizeResult>, String>
 where
@@ -1404,6 +1412,8 @@ fn level_range_reuse_enabled(request: &OptimizeRequest) -> bool {
             OptimizeObjective::MaxAr
                 | OptimizeObjective::MaxPhysicalAr
                 | OptimizeObjective::BleedThenAr
+                | OptimizeObjective::AowFirstHit
+                | OptimizeObjective::AowFullSequence
         )
 }
 
@@ -1431,13 +1441,13 @@ where
     optimize_prepared(plan, progress_every, &should_continue, progress_cb, None)
 }
 
-/// With `reuse`, scoring runs serially and shares exact DP tables across a level range.
+/// With `reuse`, scoring shares exact DP tables across a level range.
 fn optimize_prepared<F, C>(
     plan: &PreparedSearchPlan<'_>,
     progress_every: u64,
     should_continue: &C,
     mut progress_cb: F,
-    reuse: Option<&mut DpReuse>,
+    reuse: Option<&DpReuse>,
 ) -> Result<Vec<OptimizeResult>, String>
 where
     F: FnMut(ProgressSnapshot) + Send,
@@ -1507,7 +1517,7 @@ fn score_prepared_with_progress<F, C>(
     progress_every: u64,
     should_continue: &C,
     progress_cb: F,
-    reuse: Option<&mut DpReuse>,
+    reuse: Option<&DpReuse>,
 ) -> Result<Vec<ScoredCandidate>, String>
 where
     F: FnMut(ProgressSnapshot) + Send,
@@ -1531,8 +1541,7 @@ where
         return Ok(Vec::new());
     }
 
-    let candidates = if reuse.is_none() && should_use_parallel_search(total, fine_work_units.len())
-    {
+    let candidates = if should_use_parallel_search(total, fine_work_units.len()) {
         score_parallel(
             plan,
             fine_work_units,
@@ -1541,6 +1550,7 @@ where
             progress_every,
             should_continue,
             progress_cb,
+            reuse,
         )?
     } else {
         let mut progress =
@@ -1710,7 +1720,7 @@ fn score_serial<F, C>(
     work_units: &[SearchWorkUnit],
     group_mode: ResultGroupMode,
     progress: &mut SerialSearchProgress<F, C>,
-    mut reuse: Option<&mut DpReuse>,
+    reuse: Option<&DpReuse>,
 ) -> Result<Vec<ScoredCandidate>, String>
 where
     F: FnMut(ProgressSnapshot),
@@ -1721,14 +1731,8 @@ where
     let mut candidates = Vec::<ScoredCandidate>::with_capacity(request.top_k.min(work_units.len()));
     for unit in work_units {
         let cutoff = score_cutoff(plan, *unit, &candidates, group_mode);
-        let mut unit_results = search_dp_work_unit(
-            plan,
-            *unit,
-            group_mode,
-            progress,
-            cutoff,
-            reuse.as_deref_mut(),
-        )?;
+        let mut unit_results =
+            search_dp_work_unit(plan, *unit, group_mode, progress, cutoff, reuse)?;
         merge_scored_top_k(
             &mut candidates,
             unit_results.drain(..),
@@ -1750,6 +1754,7 @@ fn score_parallel<F, C>(
     progress_every: u64,
     should_continue: C,
     progress_cb: F,
+    reuse: Option<&DpReuse>,
 ) -> Result<Vec<ScoredCandidate>, String>
 where
     F: FnMut(ProgressSnapshot) + Send,
@@ -1781,7 +1786,7 @@ where
             group_mode,
             &mut local_progress,
             cutoff.as_ref(),
-            None,
+            reuse,
         );
         let finish_result = local_progress.finish();
         let results = match (result, finish_result) {
@@ -1846,6 +1851,7 @@ where
         progress_every,
         || true,
         progress_cb,
+        None,
     )?;
     materialize_scored_candidates(&plan.request, plan.data, &plan.weapons, candidates)
 }
@@ -1946,7 +1952,7 @@ fn search_dp_work_unit<P>(
     group_mode: ResultGroupMode,
     progress: &mut P,
     cutoff: Option<&ObjectiveKey>,
-    mut reuse: Option<&mut DpReuse>,
+    reuse: Option<&DpReuse>,
 ) -> Result<Vec<ScoredCandidate>, String>
 where
     P: SearchProgress,
@@ -1955,9 +1961,7 @@ where
     let group = &plan.groups[unit.group_idx];
     let prepared = &plan.weapons[group.prepared_idx];
     let aow_indices = &group.aow_indices[unit.aow_start..unit.aow_end];
-    let reused_search = reuse
-        .as_deref()
-        .and_then(|reuse| reuse.max_search(&group.search));
+    let reused_search = reuse.and_then(|reuse| reuse.max_search(&group.search));
     let dp_search = reused_search.as_ref().unwrap_or(&group.search);
     let skill_objective = matches!(
         request.objective,
@@ -2015,18 +2019,16 @@ where
                 } else {
                     [0; 4]
                 };
-            let buff = choice.aow.map_or([0.0; 5], |ash| ash.buff_attack_power);
-            let components = buff
-                .map(rational)
-                .into_iter()
-                .collect::<Result<Vec<_>, _>>()?;
-            let total = components
-                .iter()
-                .filter(|value| !value.is_zero())
-                .cloned()
-                .sum::<ExactRational>();
+            let (physical, total) = match choice.aow {
+                Some(ash) => {
+                    let buff = ash.buff_exact();
+                    let total = buff.total.clone()?;
+                    (buff.physical.clone()?, total)
+                }
+                None => (ExactRational::zero(), ExactRational::zero()),
+            };
             let score = match request.objective {
-                OptimizeObjective::MaxPhysicalAr => components[0].clone(),
+                OptimizeObjective::MaxPhysicalAr => physical,
                 OptimizeObjective::BleedThenAr => ExactRational::zero(),
                 _ => total.clone(),
             };
@@ -2067,7 +2069,7 @@ where
     // which candidate wins.
     // Upgrade-independent parts of the AR and route bounds, computed on first use.
     let mut curve_maxima = std::array::from_fn(|_| std::array::from_fn(|_| None));
-    let mut route_curve_maxima = std::array::from_fn(|_| std::array::from_fn(|_| None));
+    let mut route_bound_cache = RouteBoundCache::default();
     let mut buff_upper = None;
     // A lower upgrade whose every key component is pointwise at most the next higher one's
     // ranks below it: equal keys rank the higher upgrade first. With weapon grouping it cannot
@@ -2150,15 +2152,11 @@ where
                 let mut maximum = ExactRational::zero();
                 for &aow_idx in aow_indices {
                     if let Some(ash) = prepared.aow_choices[aow_idx].aow {
+                        let exact = ash.buff_exact();
                         let buff = if physical_only {
-                            rational(ash.buff_attack_power[0])?
+                            exact.physical.clone()?
                         } else {
-                            ash.buff_attack_power
-                                .into_iter()
-                                .map(rational)
-                                .collect::<Result<Vec<_>, _>>()?
-                                .into_iter()
-                                .sum()
+                            exact.total.clone()?
                         };
                         maximum = maximum.max(buff);
                     }
@@ -2214,7 +2212,7 @@ where
                         progress,
                         group.prepared_idx,
                         aow_idx,
-                        reuse.as_deref_mut(),
+                        reuse,
                     )?);
                 }
             }
@@ -2302,7 +2300,7 @@ where
                     plan.data,
                     progress,
                     primary,
-                    reuse.as_deref_mut(),
+                    reuse,
                     group.prepared_idx,
                     aow_idx,
                 )?
@@ -2348,7 +2346,7 @@ where
                             plan.data,
                             group.search.mins.map(u16::from),
                             formula_max_stats(dp_search, request, prepared.weapon),
-                            &mut route_curve_maxima,
+                            &mut route_bound_cache,
                         )?;
                         let prune = below(&bound, threshold);
                         if recording {
@@ -2377,7 +2375,7 @@ where
                         plan.data,
                         progress,
                         primary,
-                        reuse.as_deref_mut(),
+                        reuse,
                         group.prepared_idx,
                         aow_idx,
                     )?;
@@ -2652,11 +2650,11 @@ fn prepare_primary_allocations<P: SearchProgress>(
     progress: &mut P,
     prepared_idx: usize,
     aow_idx: usize,
-    mut reuse: Option<&mut DpReuse>,
+    reuse: Option<&DpReuse>,
 ) -> Result<PrimaryAllocationPlan, String> {
     progress.poll()?;
     let key = dp_cache_key(
-        reuse.as_deref(),
+        reuse,
         search,
         prepared_idx,
         aow_idx,
@@ -2664,10 +2662,10 @@ fn prepare_primary_allocations<P: SearchProgress>(
         DpCacheStage::Primary,
     );
     let cached = key.as_ref().and_then(|key| {
-        let reuse = reuse.as_deref()?;
+        let reuse = reuse?;
         Some((
-            reuse.primary.get(key)?.clone(),
-            DpSolve::Shared(reuse.solved.get(key)?.clone()),
+            locked(&reuse.primary).get(key)?.clone(),
+            DpSolve::Shared(reuse.cached(key)?),
         ))
     });
     let (preparation, solved) = if let Some(cached) = cached {
@@ -2725,7 +2723,7 @@ fn prepare_primary_allocations<P: SearchProgress>(
         }
         let mut poll_error = None;
         let solved = solve_exact_with_reuse(
-            reuse.as_deref_mut(),
+            reuse,
             key.clone(),
             &std::array::from_fn(|_| ExactRational::zero()),
             &deltas,
@@ -2743,7 +2741,7 @@ fn prepare_primary_allocations<P: SearchProgress>(
             values: Arc::new(values),
         });
         if let (Some(reuse), Some(key)) = (reuse, key) {
-            reuse.primary.insert(key, preparation.clone());
+            locked(&reuse.primary).insert(key, preparation.clone());
         }
         (preparation, solved)
     };
@@ -2855,7 +2853,7 @@ fn best_objective_allocation<P>(
     data: &GameData,
     progress: &mut P,
     primary: Option<&PrimaryAllocationPlan>,
-    reuse: Option<&mut DpReuse>,
+    reuse: Option<&DpReuse>,
     prepared_idx: usize,
     aow_idx: usize,
 ) -> Result<ObjectiveAllocation, String>
@@ -2973,56 +2971,85 @@ where
         }
     }
     let mut route_primary = None;
+    // The route's per-allocation (first, full) values, which the final table below reuses.
+    let mut route_values: Option<[Vec<_>; COMBAT_STAT_COUNT]> = None;
     if matches!(
         request.objective,
         OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
     ) && let Some(formula) = &route_formula
         && formula.has_scaling(request.objective == OptimizeObjective::AowFirstHit)
     {
-        let old_stats = stats_with_combat(request.current_stats, search.mins);
-        let old_str = effective_str_for_weapon(request, prepared.weapon, old_stats.str);
         let budget = usize::from(dp_search.max_active_spend());
-        let mut primary_deltas = std::array::from_fn(|_| Vec::new());
-        for stat in 0..COMBAT_STAT_COUNT {
-            if !dp_search.active[stat] {
-                continue;
-            }
-            let cap = usize::from(dp_search.maxs[stat] - dp_search.mins[stat]).min(budget);
-            primary_deltas[stat].reserve(cap + 1);
-            for add in 0..=cap {
+        let key = dp_cache_key(
+            reuse,
+            search,
+            prepared_idx,
+            aow_idx,
+            upgrade,
+            DpCacheStage::RoutePrimary {
+                route_id: route.expect("a route formula has a route").route_id.clone(),
+            },
+        );
+        let cached = match (reuse, key.as_ref()) {
+            (Some(reuse), Some(key)) => reuse.cached(key),
+            _ => None,
+        };
+        let solved = match cached {
+            Some(hit) => {
                 progress.poll()?;
-                let mut combat = search.mins;
-                combat[stat] += add as u8;
-                let stats = stats_with_combat(request.current_stats, combat);
-                let (first, full) = formula.unscaled_delta(
-                    stat,
-                    &old_stats,
-                    &stats,
-                    old_str,
-                    effective_str_for_weapon(request, prepared.weapon, stats.str),
-                )?;
-                let score = if request.objective == OptimizeObjective::AowFirstHit {
-                    first
-                } else {
-                    full
-                };
-                primary_deltas[stat].push([score]);
+                DpSolve::Shared(hit)
             }
-        }
-        let mut poll_error = None;
-        let solved = solve_exact_with_reuse(
-            None,
-            None,
-            &std::array::from_fn(|_| ExactRational::zero()),
-            &primary_deltas,
-            search.mins,
-            search.active,
-            budget,
-            true,
-            None,
-            &mut || poll_continues(progress, &mut poll_error),
-        )
-        .map_err(|error| poll_error.take().unwrap_or(error))?;
+            None => {
+                let old_stats = stats_with_combat(request.current_stats, search.mins);
+                let old_str = effective_str_for_weapon(request, prepared.weapon, old_stats.str);
+                let mut primary_deltas = std::array::from_fn(|_| Vec::new());
+                let mut values: [Vec<(ExactRational, ExactRational)>; COMBAT_STAT_COUNT] =
+                    std::array::from_fn(|_| Vec::new());
+                for stat in 0..COMBAT_STAT_COUNT {
+                    if !dp_search.active[stat] {
+                        continue;
+                    }
+                    let cap = usize::from(dp_search.maxs[stat] - dp_search.mins[stat]).min(budget);
+                    primary_deltas[stat].reserve(cap + 1);
+                    values[stat].reserve(cap + 1);
+                    for add in 0..=cap {
+                        progress.poll()?;
+                        let mut combat = search.mins;
+                        combat[stat] += add as u8;
+                        let stats = stats_with_combat(request.current_stats, combat);
+                        let (first, full) = formula.unscaled_delta(
+                            stat,
+                            &old_stats,
+                            &stats,
+                            old_str,
+                            effective_str_for_weapon(request, prepared.weapon, stats.str),
+                        )?;
+                        let score = if request.objective == OptimizeObjective::AowFirstHit {
+                            first.clone()
+                        } else {
+                            full.clone()
+                        };
+                        primary_deltas[stat].push([score]);
+                        values[stat].push((first, full));
+                    }
+                }
+                route_values = Some(values);
+                let mut poll_error = None;
+                solve_exact_with_reuse(
+                    reuse,
+                    key,
+                    &std::array::from_fn(|_| ExactRational::zero()),
+                    &primary_deltas,
+                    search.mins,
+                    search.active,
+                    budget,
+                    true,
+                    None,
+                    &mut || poll_continues(progress, &mut poll_error),
+                )
+                .map_err(|error| poll_error.take().unwrap_or(error))?
+            }
+        };
         if let Some(combat) =
             exact_unique_primary_allocation(search, progress, solved.ranks(), solved.additions())?
         {
@@ -3068,59 +3095,9 @@ where
         }
         Ok(value)
     };
-    let base = match primary {
-        Some(plan) => with_route(plan.base.clone())?,
-        None => evaluate(search.mins)?,
-    };
     let budget = usize::from(dp_search.max_active_spend());
-    let mut deltas = std::array::from_fn(|_| Vec::new());
-    for stat in 0..COMBAT_STAT_COUNT {
-        if !dp_search.active[stat] {
-            continue;
-        }
-        let cap = usize::from(dp_search.maxs[stat] - dp_search.mins[stat]).min(budget);
-        deltas[stat].reserve(cap + 1);
-        for add in 0..=cap {
-            progress.poll()?;
-            let mut combat = search.mins;
-            combat[stat] += add as u8;
-            let mut delta = match primary {
-                Some(plan) => plan.values[stat][add].clone(),
-                None => primary_delta(
-                    stat,
-                    combat,
-                    &base,
-                    request,
-                    prepared,
-                    aow_choice,
-                    upgrade,
-                    data,
-                    ar_formula.as_ref().expect("compiled AR"),
-                )?,
-            };
-            if let Some(formula) = &route_formula {
-                let old_stats = stats_with_combat(request.current_stats, search.mins);
-                let new_stats = stats_with_combat(request.current_stats, combat);
-                let (first, full) = formula.unscaled_delta(
-                    stat,
-                    &old_stats,
-                    &new_stats,
-                    effective_str_for_weapon(request, prepared.weapon, old_stats.str),
-                    effective_str_for_weapon(request, prepared.weapon, new_stats.str),
-                )?;
-                delta.aow_first = first;
-                delta.aow_full = full;
-                match request.objective {
-                    OptimizeObjective::AowFirstHit => delta.score = delta.aow_first.clone(),
-                    OptimizeObjective::AowFullSequence => delta.score = delta.aow_full.clone(),
-                    _ => {}
-                }
-            }
-            deltas[stat].push(delta.components());
-        }
-    }
     let key = dp_cache_key(
-        reuse.as_deref(),
+        reuse,
         search,
         prepared_idx,
         aow_idx,
@@ -3130,22 +3107,101 @@ where
             allowed: primary.is_some() || route_primary.is_some(),
         },
     );
-    let mut poll_error = None;
-    let solved = solve_exact_with_reuse(
-        reuse,
-        key,
-        &std::array::from_fn(|_| ExactRational::zero()),
-        &deltas,
-        search.mins,
-        search.active,
-        budget,
-        false,
-        primary
-            .map(|plan| plan.additions.as_ref())
-            .or_else(|| route_primary.as_ref().map(|plan| plan.additions())),
-        &mut || poll_continues(progress, &mut poll_error),
-    )
-    .map_err(|error| poll_error.take().unwrap_or(error))?;
+    // A hit skips building the delta tables, which dominates a level range's repeated solves.
+    let cached = match (reuse, key.as_ref()) {
+        (Some(reuse), Some(key)) => reuse.cached(key),
+        _ => None,
+    };
+    let solved = match cached {
+        Some(hit) => {
+            progress.poll()?;
+            DpSolve::Shared(hit)
+        }
+        None => {
+            let base = match primary {
+                Some(plan) => with_route(plan.base.clone())?,
+                None => evaluate(search.mins)?,
+            };
+            let mut deltas = std::array::from_fn(|_| Vec::new());
+            for stat in 0..COMBAT_STAT_COUNT {
+                if !dp_search.active[stat] {
+                    continue;
+                }
+                let cap = usize::from(dp_search.maxs[stat] - dp_search.mins[stat]).min(budget);
+                deltas[stat].reserve(cap + 1);
+                for add in 0..=cap {
+                    progress.poll()?;
+                    let mut combat = search.mins;
+                    combat[stat] += add as u8;
+                    let mut delta = match primary {
+                        Some(plan) => plan.values[stat][add].clone(),
+                        None => primary_delta(
+                            stat,
+                            combat,
+                            &base,
+                            request,
+                            prepared,
+                            aow_choice,
+                            upgrade,
+                            data,
+                            ar_formula.as_ref().expect("compiled AR"),
+                        )?,
+                    };
+                    if let Some(formula) = &route_formula {
+                        let (first, full) = match &route_values {
+                            Some(values) => values[stat][add].clone(),
+                            None => {
+                                let old_stats =
+                                    stats_with_combat(request.current_stats, search.mins);
+                                let new_stats = stats_with_combat(request.current_stats, combat);
+                                formula.unscaled_delta(
+                                    stat,
+                                    &old_stats,
+                                    &new_stats,
+                                    effective_str_for_weapon(
+                                        request,
+                                        prepared.weapon,
+                                        old_stats.str,
+                                    ),
+                                    effective_str_for_weapon(
+                                        request,
+                                        prepared.weapon,
+                                        new_stats.str,
+                                    ),
+                                )?
+                            }
+                        };
+                        delta.aow_first = first;
+                        delta.aow_full = full;
+                        match request.objective {
+                            OptimizeObjective::AowFirstHit => delta.score = delta.aow_first.clone(),
+                            OptimizeObjective::AowFullSequence => {
+                                delta.score = delta.aow_full.clone()
+                            }
+                            _ => {}
+                        }
+                    }
+                    deltas[stat].push(delta.components());
+                }
+            }
+            let mut poll_error = None;
+            solve_exact_with_reuse(
+                reuse,
+                key,
+                &std::array::from_fn(|_| ExactRational::zero()),
+                &deltas,
+                search.mins,
+                search.active,
+                budget,
+                false,
+                primary
+                    .map(|plan| plan.additions.as_ref())
+                    .or_else(|| route_primary.as_ref().map(|plan| plan.additions())),
+                &mut || poll_continues(progress, &mut poll_error),
+            )
+            .map_err(|error| poll_error.take().unwrap_or(error))?
+        }
+    };
     let mut best = None;
     for spent in search.min_active_spend()..=search.max_active_spend() {
         progress.poll()?;

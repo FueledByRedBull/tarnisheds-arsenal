@@ -602,23 +602,36 @@ pub struct ProfileData {
 
 impl AppState {
     fn load(
-        load_profile: impl Fn(&str) -> Result<(GameData, SnapshotManifest), String>,
+        load_profile: impl Fn(&str) -> Result<(GameData, SnapshotManifest), String> + Sync,
     ) -> Result<Self, errors::AppError> {
-        let mut profiles = HashMap::new();
-        for profile_id in [
+        let profile_ids = [
             er_optimizer_core::VANILLA_PROFILE_ID,
             er_optimizer_core::CONVERGENCE_PROFILE_ID,
-        ] {
-            let (data, manifest) = load_profile(profile_id)?;
-            let catalog_index = commands::data::CatalogIndex::build(&data);
-            profiles.insert(
-                profile_id.to_string(),
-                Arc::new(ProfileData {
-                    data: Arc::new(data),
-                    catalog_index: Arc::new(catalog_index),
-                    data_manifest: manifest.into(),
-                }),
-            );
+        ];
+        // Profiles are independent snapshots, so they load side by side; the first failing
+        // profile in this order is the one reported.
+        let load_profile = &load_profile;
+        let loaded = std::thread::scope(|scope| {
+            let workers = profile_ids.map(|profile_id| {
+                scope.spawn(move || {
+                    let (data, manifest) = load_profile(profile_id)?;
+                    let catalog_index = commands::data::CatalogIndex::build(&data);
+                    Ok::<_, String>(Arc::new(ProfileData {
+                        data: Arc::new(data),
+                        catalog_index: Arc::new(catalog_index),
+                        data_manifest: manifest.into(),
+                    }))
+                })
+            });
+            workers.map(|worker| {
+                worker
+                    .join()
+                    .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+            })
+        });
+        let mut profiles = HashMap::new();
+        for (profile_id, profile) in profile_ids.into_iter().zip(loaded) {
+            profiles.insert(profile_id.to_string(), profile?);
         }
         Ok(Self {
             profiles,

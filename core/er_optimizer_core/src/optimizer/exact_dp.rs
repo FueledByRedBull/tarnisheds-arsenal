@@ -291,6 +291,23 @@ fn normalize<const N: usize>(
     })
 }
 
+/// Polls once per `POLL_STRIDE` ticks: a poll costs more than the exact arithmetic of one
+/// table entry, and a stride is still microseconds of work.
+#[derive(Default)]
+struct PollTicker(usize);
+
+const POLL_STRIDE: usize = 64;
+
+impl PollTicker {
+    fn tick(&mut self, should_continue: &mut impl FnMut() -> bool) -> Result<(), String> {
+        self.0 += 1;
+        if self.0.is_multiple_of(POLL_STRIDE) {
+            check_continue(should_continue)?;
+        }
+        Ok(())
+    }
+}
+
 fn normalize_small<const N: usize>(
     base: &[ExactRational; N],
     deltas: &[Vec<[ExactRational; N]>; COMBAT_STAT_COUNT],
@@ -298,6 +315,7 @@ fn normalize_small<const N: usize>(
     slots: usize,
     should_continue: &mut impl FnMut() -> bool,
 ) -> Result<Option<(SmallKey<N>, SmallDeltas<N>)>, String> {
+    let mut ticker = PollTicker::default();
     let mut normalized_deltas: SmallDeltas<N> = std::array::from_fn(|_| Vec::new());
     for stat in 0..COMBAT_STAT_COUNT {
         if !active[stat] {
@@ -321,7 +339,7 @@ fn normalize_small<const N: usize>(
                 continue;
             }
             for delta in stat_deltas.iter().take(slots) {
-                check_continue(should_continue)?;
+                ticker.tick(should_continue)?;
                 if delta[component].small().is_none() {
                     return Ok(None);
                 }
@@ -379,7 +397,7 @@ fn normalize_small<const N: usize>(
                 continue;
             }
             for delta in stat_deltas.iter().take(slots) {
-                check_continue(should_continue)?;
+                ticker.tick(should_continue)?;
                 let value = delta[component]
                     .small()
                     .expect("small normalization checked delta values");
@@ -404,7 +422,7 @@ fn normalize_small<const N: usize>(
                 continue;
             }
             for delta in stat_deltas.iter().take(slots) {
-                check_continue(should_continue)?;
+                ticker.tick(should_continue)?;
                 let value = delta[component]
                     .small()
                     .expect("small normalization checked delta values");
@@ -417,19 +435,24 @@ fn normalize_small<const N: usize>(
 
         let mut divisor = 0i128;
         for value in &values {
-            check_continue(should_continue)?;
+            ticker.tick(should_continue)?;
             let Some(magnitude) = value.checked_abs() else {
                 return Ok(None);
             };
-            divisor = divisor.gcd(&magnitude);
+            divisor = gcd_i128(divisor, magnitude);
             if divisor == 1 {
                 break;
             }
         }
         if divisor != 0 && divisor != 1 {
+            let shift = is_power_of_two(divisor).then(|| divisor.trailing_zeros());
             for value in &mut values {
-                check_continue(should_continue)?;
-                *value /= divisor;
+                ticker.tick(should_continue)?;
+                // Every value is a multiple of the divisor, so the shift is exact.
+                *value = match shift {
+                    Some(shift) => *value >> shift,
+                    None => *value / divisor,
+                };
             }
         }
 
@@ -441,7 +464,7 @@ fn normalize_small<const N: usize>(
                 continue;
             }
             for add in 0..normalized_deltas[stat].len() {
-                check_continue(should_continue)?;
+                ticker.tick(should_continue)?;
                 normalized_deltas[stat][add][component] = values[value_index];
                 value_index += 1;
             }
@@ -460,7 +483,7 @@ fn normalize_small<const N: usize>(
             check_continue(should_continue)?;
             let mut max_delta = 0i128;
             for delta in stat_deltas {
-                check_continue(should_continue)?;
+                ticker.tick(should_continue)?;
                 let Some(magnitude) = delta[component].checked_abs() else {
                     return Ok(None);
                 };
@@ -474,6 +497,22 @@ fn normalize_small<const N: usize>(
     }
 
     Ok(Some((normalized_base, normalized_deltas)))
+}
+
+fn is_power_of_two(value: i128) -> bool {
+    value > 0 && value & (value - 1) == 0
+}
+
+/// `gcd` of a running divisor and a nonnegative value. Once the divisor settles nearly every
+/// value is a multiple of it, which is cheaper to see than to run the full algorithm.
+fn gcd_i128(divisor: i128, magnitude: i128) -> i128 {
+    if is_power_of_two(divisor) {
+        return 1i128 << divisor.trailing_zeros().min(magnitude.trailing_zeros());
+    }
+    if divisor > 0 && (magnitude as u128).is_multiple_of(divisor as u128) {
+        return divisor;
+    }
+    divisor.gcd(&magnitude)
 }
 
 fn checked_lcm_i128(left: i128, right: i128) -> Option<i128> {

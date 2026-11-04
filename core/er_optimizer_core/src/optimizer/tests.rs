@@ -2442,6 +2442,56 @@ fn fixed_loadout_level_range_reuse_preserves_objectives_and_budget_edges() {
 }
 
 #[test]
+fn fixed_loadout_skill_range_reuse_matches_independent_searches() {
+    for (game_data, affinity, skill) in [
+        (load_data(), "Blood", Some("Seppuku")),
+        (load_data(), "Keen", Some("Unsheathe")),
+        (load_data(), "Standard", None),
+        (load_convergence_data(), "Standard", None),
+    ] {
+        for threads in [1, rayon::current_num_threads()] {
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .unwrap()
+                .install(|| {
+                    for objective in [
+                        OptimizeObjective::AowFirstHit,
+                        OptimizeObjective::AowFullSequence,
+                    ] {
+                        let mut request = base_request();
+                        request.character_level = 80;
+                        request.affinity = Some(affinity.to_string());
+                        request.aow_name = skill.map(str::to_string);
+                        request.exact_upgrade = true;
+                        request.standard_max_upgrade = game_data.rules.standard_max_upgrade;
+                        request.somber_max_upgrade = game_data.rules.somber_max_upgrade;
+                        request.top_k = 1;
+                        request.objective = objective;
+                        use_profile_class(&mut request, &game_data);
+                        assert!(level_range_reuse_enabled(&request));
+                        let start = request.character_level;
+                        let levels = [start + 20, start, start + 10, start + 1, start + 20];
+                        assert_level_range_matches_independent_searches(
+                            &request, &levels, &game_data,
+                        );
+                        let mut constrained = request.clone();
+                        constrained.min_combat_stats[STAT_DEX] += 2;
+                        constrained.locked_combat_stats[STAT_INT] =
+                            Some(constrained.current_stats.int + 3);
+                        constrained.two_handing = true;
+                        assert_level_range_matches_independent_searches(
+                            &constrained,
+                            &levels,
+                            &game_data,
+                        );
+                    }
+                });
+        }
+    }
+}
+
+#[test]
 fn lower_level_plans_match_plans_built_for_that_level() {
     let game_data = load_data();
     let mut open = base_request();
@@ -2569,9 +2619,9 @@ fn cached_primary_preparation_remains_cancellable() {
     request.exact_upgrade = true;
     request.top_k = 1;
     let plan = prepare_search(&request, &data).unwrap();
-    let mut reuse = DpReuse::from_plan(&plan);
-    optimize_prepared(&plan, 1, &|| true, |_| {}, Some(&mut reuse)).unwrap();
-    assert!(!reuse.primary.is_empty());
+    let reuse = DpReuse::from_plan(&plan);
+    optimize_prepared(&plan, 1, &|| true, |_| {}, Some(&reuse)).unwrap();
+    assert!(!locked(&reuse.primary).is_empty());
     let group = &plan.groups[0];
     let prepared = &plan.weapons[group.prepared_idx];
     let aow_idx = group.aow_indices[0];
@@ -2597,7 +2647,7 @@ fn cached_primary_preparation_remains_cancellable() {
         &mut progress,
         group.prepared_idx,
         aow_idx,
-        Some(&mut reuse),
+        Some(&reuse),
     )
     .unwrap_err();
     assert_eq!(error, "cancelled");
@@ -4690,12 +4740,12 @@ fn ordered_materialization_preserves_serial_and_populated_reuse_fingerprints() {
             .iter()
             .map(|unit| unit.candidate_count)
             .sum();
-        let mut reuse = DpReuse::from_plan(&plan);
+        let reuse = DpReuse::from_plan(&plan);
         assert!(level_plan_can_reuse(&plan, &reuse));
         let mut fingerprints = Vec::new();
         for pass in 0..3 {
             if pass == 2 {
-                assert!(!reuse.primary.is_empty() || !reuse.solved.is_empty());
+                assert!(!locked(&reuse.primary).is_empty() || !locked(&reuse.solved).is_empty());
             }
             let mut progress = SerialSearchProgress::new(total, 0, |_| {}, || true);
             let candidates = score_serial(
@@ -4703,7 +4753,7 @@ fn ordered_materialization_preserves_serial_and_populated_reuse_fingerprints() {
                 &plan.serial_work_units,
                 group_mode,
                 &mut progress,
-                (pass > 0).then_some(&mut reuse),
+                (pass > 0).then_some(&reuse),
             )
             .expect("serial and reused scoring");
             assert!(!candidates.is_empty());
@@ -4852,7 +4902,7 @@ fn materialization_cancellation_after_reused_scoring_discards_result() {
     request.exact_upgrade = true;
     request.top_k = 1;
     let plan = prepare_search(&request, &game_data).unwrap();
-    let mut reuse = DpReuse::from_plan(&plan);
+    let reuse = DpReuse::from_plan(&plan);
     assert!(level_plan_can_reuse(&plan, &reuse));
     let scored = AtomicBool::new(false);
     let checks_after_scoring = AtomicU64::new(0);
@@ -4864,7 +4914,7 @@ fn materialization_cancellation_after_reused_scoring_discards_result() {
                 || checks_after_scoring.fetch_add(1, Ordering::Relaxed) < 2
         },
         |snapshot| scored.store(snapshot.checked == snapshot.total, Ordering::Relaxed),
-        Some(&mut reuse),
+        Some(&reuse),
     );
     assert_eq!(result.err().as_deref(), Some("cancelled"));
     assert_eq!(checks_after_scoring.into_inner(), 3);

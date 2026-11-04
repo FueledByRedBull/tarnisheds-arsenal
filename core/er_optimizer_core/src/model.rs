@@ -1,5 +1,9 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::sync::OnceLock;
+
+use crate::math::exact::rational;
+use crate::math::exact_value::ExactRational;
 
 pub const STAT_STR: usize = 0;
 pub const STAT_DEX: usize = 1;
@@ -368,6 +372,36 @@ pub struct Aow {
     pub persistent_weapon_status_add: StatusBuildup,
     pub persistent_on_hit_status_add: StatusBuildup,
     pub buff_activation_action_id: Option<String>,
+    pub(crate) buff_exact: OnceLock<AshBuffExact>,
+}
+
+/// Exact flat attack-power buff, converted once per Ash. A conversion failure is kept as the
+/// error each caller would have raised converting the components itself.
+#[derive(Clone, Debug)]
+pub(crate) struct AshBuffExact {
+    /// The physical component alone.
+    pub(crate) physical: Result<ExactRational, String>,
+    /// The sum of all components.
+    pub(crate) total: Result<ExactRational, String>,
+}
+
+impl Aow {
+    pub(crate) fn buff_exact(&self) -> &AshBuffExact {
+        self.buff_exact.get_or_init(|| {
+            let components: Vec<_> = self
+                .buff_attack_power
+                .map(|value| rational(value, "model coefficient"))
+                .into_iter()
+                .collect();
+            AshBuffExact {
+                physical: components[0].clone(),
+                total: components
+                    .into_iter()
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(|values| values.into_iter().sum()),
+            }
+        })
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
